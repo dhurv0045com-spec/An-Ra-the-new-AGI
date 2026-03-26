@@ -1,0 +1,101 @@
+# ================================================================================
+# docker-compose.yml
+# Project: Transformer Language Model from Scratch
+# ================================================================================
+#
+# Quick start:
+#   docker compose up                    # train on CPU (tiny config)
+#   docker compose run generate          # generate text after training
+#   docker compose run test              # run full test suite
+#   docker compose --profile gpu up train-gpu  # train on GPU
+#
+# ================================================================================
+
+version: "3.9"
+
+services:
+
+  # ── CPU training (default) ─────────────────────────────────────────────────
+  train:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: lm-scratch:cpu
+    container_name: lm-train-cpu
+    command: python run.py --mode train --config config/tiny.yaml
+    volumes:
+      - ./data:/app/data:ro               # training data (read-only)
+      - ./output:/app/output              # checkpoints + logs (read-write)
+    environment:
+      - PYTHONUNBUFFERED=1
+      - PYTHONDONTWRITEBYTECODE=1
+    restart: "no"
+
+  # ── Text generation ────────────────────────────────────────────────────────
+  generate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: lm-scratch:cpu
+    container_name: lm-generate
+    command: >
+      python run.py
+        --config config/tiny.yaml
+        --mode generate
+        --prompt "The future of artificial intelligence"
+        --max_tokens 100
+        --temperature 0.8
+        --top_p 0.95
+    volumes:
+      - ./output:/app/output:ro           # read saved checkpoints
+    environment:
+      - PYTHONUNBUFFERED=1
+    depends_on:
+      train:
+        condition: service_completed_successfully
+    restart: "no"
+
+  # ── Test suite ─────────────────────────────────────────────────────────────
+  test:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: lm-scratch:cpu
+    container_name: lm-test
+    command: >
+      python -m pytest tests/ -v --tb=short
+        --timeout=120
+        -p no:warnings
+    volumes:
+      - ./output:/app/output
+    environment:
+      - PYTHONUNBUFFERED=1
+    restart: "no"
+
+  # ── GPU training (opt-in with --profile gpu) ───────────────────────────────
+  train-gpu:
+    profiles: ["gpu"]
+    build:
+      context: .
+      dockerfile: Dockerfile.gpu
+    image: lm-scratch:gpu
+    container_name: lm-train-gpu
+    command: python run.py --mode train --config config/small.yaml
+    volumes:
+      - ./data:/app/data:ro
+      - ./output:/app/output
+    environment:
+      - PYTHONUNBUFFERED=1
+      - CUDA_VISIBLE_DEVICES=0
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: "no"
+
+networks:
+  default:
+    name: lm-scratch-net

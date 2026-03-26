@@ -1,0 +1,14 @@
+numpy>=1.24.0,<3.0.0
+pyyaml>=6.0
+pytest>=7.4.0
+pytest-timeout>=2.1.0
+
+# Optional — install for W&B experiment tracking
+# wandb>=0.15.0
+
+# Optional — install for faster numerics on CPU
+# scipy>=1.10.0
+
+# Optional — install for GPU support (uncomment one)
+# torch>=2.0.0                                       # CPU
+# torch>=2.0.0 --index-url https://download.pytorch.org/whl/cu121  # CUDA 12.1

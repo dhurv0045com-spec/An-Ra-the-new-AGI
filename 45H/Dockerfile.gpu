@@ -1,0 +1,48 @@
+# ================================================================================
+# Dockerfile.gpu — CUDA GPU Build
+# Project: Transformer Language Model from Scratch
+# ================================================================================
+# Build:  docker build -f Dockerfile.gpu -t lm-scratch-gpu .
+# Run:    docker run --gpus all --rm lm-scratch-gpu python run.py --mode train \
+#                    --config config/small.yaml
+# ================================================================================
+
+FROM nvidia/cuda:12.1.0-cudnn8-runtime-ubuntu22.04
+
+LABEL maintainer="45H Build" \
+      description="Transformer Language Model — GPU" \
+      version="1.0"
+
+# System packages
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3.11 \
+    python3-pip \
+    python3.11-dev \
+    build-essential \
+    git \
+    curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && ln -sf /usr/bin/python3.11 /usr/bin/python3 \
+    && ln -sf /usr/bin/python3.11 /usr/bin/python
+
+RUN useradd -m -u 1000 aiuser
+WORKDIR /app
+
+COPY requirements.txt .
+# Install GPU-enabled PyTorch (CUDA 12.1) if available, fall back to numpy-only
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt && \
+    pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cu121 || \
+    echo "PyTorch GPU install failed — falling back to CPU-only numpy backend"
+
+COPY --chown=aiuser:aiuser . .
+RUN mkdir -p output/logs output/checkpoints data && chown -R aiuser:aiuser /app
+
+USER aiuser
+
+HEALTHCHECK --interval=30s --timeout=10s CMD python -c "from model import LanguageModel; print('OK')"
+
+# Train on GPU by default
+CMD ["python", "run.py", \
+     "--config", "config/small.yaml", \
+     "--mode", "train"]

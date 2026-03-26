@@ -1,0 +1,38 @@
+# ================================================================================
+# tiny.yaml — CPU Preset
+# Target: Any laptop CPU — trains in minutes, useful for testing and debugging
+# RAM: ~500MB training, ~100MB inference
+# Expected: ~50–100 tokens/sec on modern laptop CPU
+# ================================================================================
+
+model:
+  vocab_size: 4096
+  d_model: 128
+  num_layers: 4
+  num_heads: 4
+  num_kv_heads: 2
+  d_ff: 384              # ~3× d_model, manually set (avoids auto rounding at small scale)
+  max_seq_len: 256
+  dropout_rate: 0.1
+  ffn_type: "swiglu"
+  tie_weights: true
+
+train:
+  dataset_path: "data/train.txt"
+  val_dataset_path: "data/val.txt"
+  batch_size: 4
+  seq_len: 128
+  learning_rate: 1.0e-3
+  min_lr: 1.0e-4
+  warmup_steps: 200
+  max_steps: 5000
+  checkpoint_every: 500
+  eval_every: 250
+  eval_steps: 20
+  log_every: 10
+  weight_decay: 0.01
+  grad_clip: 1.0
+
+hardware:
+  device: "cpu"
+  mixed_precision: false
