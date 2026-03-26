@@ -1,3 +1,0 @@
-{"ts": "2026-03-26T15:58:58.662223Z", "level": "INFO", "logger": "logger", "msg": "Logging to file: output\\logs\\run_20260326_212858.log"}
-{"ts": "2026-03-26T15:58:58.663895Z", "level": "INFO", "logger": "model", "msg": "LanguageModel initialized \u2014 config: config/tiny.yaml"}
-{"ts": "2026-03-26T15:58:58.686898Z", "level": "INFO", "logger": "model", "msg": "Model built: 4 layers, d=128, heads=4, params=1,317,504"}
