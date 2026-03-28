@@ -176,6 +176,14 @@ class MasterSystem:
             print(f"⚠ Kill file found from previous session: {kill_info}")
             print("  Cleared. Starting fresh.")
 
+        print("  Initializing Phase 1 LLM Bridge...")
+        try:
+            import llm_bridge
+            self.llm = llm_bridge.get_llm_bridge()
+            print("  [LLM Bridge] Phase 1 Model loaded and resident in memory.")
+        except Exception as e:
+            print(f"  [LLM Bridge] Failed to load model: {e}")
+
         self.safety.start()
         self.proactive.start()
         self.engine.start()

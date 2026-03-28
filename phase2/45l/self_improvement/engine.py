@@ -1006,44 +1006,33 @@ class SelfTrainer:
 
     def _execute_training(self, examples: List[dict],
                            run: TrainingRun) -> Tuple[bool, str]:
-        """Execute training — integrates with myai_v2 LoRA pipeline."""
+        """Execute training — invokes finetune.py from Phase 2/45I which pushes data through Phase 1 PyTorch training loop."""
         try:
+            import subprocess
+            from pathlib import Path
             import sys
-            # Try to import myai_v2 training
-            for path in ["/home/claude/myai_v2", "..", "."]:
-                if path not in sys.path:
-                    sys.path.insert(0, path)
-
-            try:
-                from myai_v2 import TransformerLM, Tokenizer
-                from lora.lora import train_lora
-
-                # Build tokenizer from examples
-                tok = Tokenizer()
-                texts = [e["instruction"] + " " + e["output"] for e in examples]
-                tok.build_vocab(texts, max_vocab=4096)
-
-                # Use most recent checkpoint if available
-                ckpt_dir = Path("checkpoints")
-                ckpts    = list(ckpt_dir.glob("*.pkl")) if ckpt_dir.exists() else []
-
-                if ckpts:
-                    from myai_v2 import load_checkpoint
-                    model, _, _, _ = load_checkpoint(str(max(ckpts, key=lambda p: p.stat().st_mtime)))
-                else:
-                    model = TransformerLM(vocab_size=tok.vocab_size,
-                                          d_model=128, n_heads=4, n_layers=4, d_ff=512)
-
-                result = train_lora(model, tok, examples,
-                                     rank=8, alpha=16, max_steps=200,
-                                     task_name=f"self_train_{run.run_id[:8]}")
-                return True, f"LoRA training: loss={result.get('final_loss', 0):.4f}"
-
-            except ImportError:
-                # Fallback: simulate training run
-                time.sleep(0.5)
-                return True, f"Simulated training on {len(examples)} examples"
-
+            
+            data_path = Path("state") / f"train_{run.run_id[:8]}.jsonl"
+            finetune_script = Path(__file__).resolve().parent.parent.parent / "45I" / "finetune.py"
+            
+            if not finetune_script.exists():
+                return False, f"Could not find finetune.py at {finetune_script}"
+                
+            cmd = [
+                sys.executable,
+                str(finetune_script),
+                "--mode", "finetune",
+                "--data", str(data_path.resolve()),
+                "--method", "lora",
+                "--epochs", "3"
+            ]
+            
+            result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+            out_tail = result.stdout[-200:] if result.stdout else ""
+            return True, f"Training complete. Output: {out_tail.strip()}"
+        except subprocess.CalledProcessError as e:
+            err_tail = e.stderr[-200:] if e.stderr else (e.stdout[-200:] if e.stdout else "")
+            return False, f"Training failed with code {e.returncode}: {err_tail.strip()}"
         except Exception as e:
             return False, f"Training error: {e}"
 

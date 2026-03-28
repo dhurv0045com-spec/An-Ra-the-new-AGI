@@ -234,6 +234,8 @@ class ConfigError(ValueError):
 # ──────────────────────────────────────────────────────────────────────────────
 
 _BASE_CONFIG_PATH = Path(__file__).parent / "config" / "base.yaml"
+if not _BASE_CONFIG_PATH.exists():
+    _BASE_CONFIG_PATH = Path(__file__).resolve().parent.parent.parent / "config" / "base.yaml"
 
 
 def load_config(

@@ -88,12 +88,33 @@ class ContextBuilder:
             token_budget=self.budget // 2,
         )
         if retrieval.has_relevant_memory(threshold=0.25):
-            mem_block = retrieval.to_prompt_block(header=True)
+            raw_mem_block = retrieval.to_prompt_block(header=False)
+            try:
+                import sys
+                from pathlib import Path
+                m_path = Path(__file__).resolve().parent.parent / "45M"
+                if str(m_path) not in sys.path:
+                    sys.path.insert(0, str(m_path))
+                import llm_bridge
+                llm = llm_bridge.get_llm_bridge()
+                
+                prompt = (
+                    "Summarize the following retrieved memories into a concise context for the AI:\n"
+                    f"{raw_mem_block}\n"
+                    "Summary:"
+                )
+                summarized_mem = llm.generate(prompt, max_new_tokens=150).strip()
+                final_mem_block = f"[SUMMARIZED MEMORIES]\n{summarized_mem}"
+                token_est = len(final_mem_block) // 4
+            except Exception as e:
+                final_mem_block = retrieval.to_prompt_block(header=True)
+                token_est = retrieval.tokens_used
+
             blocks.append(ContextBlock(
                 name="retrieved_memories",
-                content=mem_block,
+                content=final_mem_block,
                 priority=3,
-                token_estimate=retrieval.tokens_used,
+                token_estimate=token_est,
             ))
 
         # ── Priority 4: Active goals ─────────────────────────────

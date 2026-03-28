@@ -335,8 +335,26 @@ class Executor:
         for tool_name in step.tools:
             if tool_name not in self.registry:
                 continue
+                
+            # Use LLM to format tool input
+            try:
+                import sys
+                from pathlib import Path
+                m_path = Path(__file__).resolve().parent.parent / "45M"
+                if str(m_path) not in sys.path:
+                    sys.path.insert(0, str(m_path))
+                import llm_bridge
+                llm = llm_bridge.get_llm_bridge()
+                prompt = (
+                    f"Format input for tool '{tool_name}' given instruction: '{instruction}'. "
+                    "Output ONLY the command or input string required by the tool. No apologies, no extra text."
+                )
+                tool_input = llm.generate(prompt, max_new_tokens=150).strip()
+            except Exception as e:
+                logger.warning(f"LLM tool arg generation failed: {e}. Falling back.")
+                tool_input = instruction
 
-            result = self.registry.call(tool_name, instruction, step_id=step.step_id)
+            result = self.registry.call(tool_name, tool_input, step_id=step.step_id)
             tool_results.append(result.to_dict())
 
             if result.success:
@@ -414,16 +432,31 @@ class Executor:
 
     def _verify(self, step: Step, output: str) -> bool:
         """
-        Lightweight verification that a step actually produced output.
-        For now: check output is non-empty and not an error message.
-        In production: use the reasoning module for semantic verification.
+        LLM-based verification that the step succeeded.
         """
         if not output or not output.strip():
             return False
-        error_indicators = ["error:", "failed:", "exception:", "traceback"]
-        lower = output.lower()
-        if any(ind in lower for ind in error_indicators) and len(output) < 200:
-            return False
+            
+        try:
+            import sys
+            from pathlib import Path
+            m_path = Path(__file__).resolve().parent.parent / "45M"
+            if str(m_path) not in sys.path:
+                sys.path.insert(0, str(m_path))
+            import llm_bridge
+            llm = llm_bridge.get_llm_bridge()
+            prompt = (
+                f"Evaluate step output.\nGoal: {step.instruction}\nOutput: {output}\n"
+                "Did the execution succeed fully? Answer YES or NO."
+            )
+            response = llm.generate(prompt, max_new_tokens=15).strip().upper()
+            if "NO" in response:
+                return False
+        except Exception:
+            error_indicators = ["error:", "failed:", "exception:", "traceback"]
+            lower = output.lower()
+            if any(ind in lower for ind in error_indicators) and len(output) < 200:
+                return False
         return True
 
     def _store_result_in_memory(self, step: Step, outcome: StepOutcome) -> None:
