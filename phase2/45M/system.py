@@ -2,7 +2,7 @@
 system.py — Master Entry Point for An-Ra AGI System
 =====================================================
 
-Phase 3 Unified Architecture. Ties together ALL subsystems:
+Phase 3 Fully-Connected Architecture. Ties together ALL subsystems:
 
   Phase 1: Neural Network (core/model.py → via LLMBridge)
   Phase 2:
@@ -11,10 +11,12 @@ Phase 3 Unified Architecture. Ties together ALL subsystems:
     45k  — Agent Loop (Goal→Plan→Execute→Evaluate)
     45l  — Self-Improvement (Skill Library, Prompt Optimizer, Failure Analyzer)
     45M  — Autonomy (Continuous Engine, ProactiveEngine, Safety, Control)
-  Phase 3:
-    45N  — Identity Training (An-Ra personality)
-    45O  — Ouroboros Recursive Depth (3-pass reasoning)
+  Phase 3 (ALL CONNECTED):
+    45N  — Identity Injector  (An-Ra voice at runtime, no GPU required)
+    45O  — Ouroboros NumPy    (3-pass recursive reasoning, CPU-native)
     45P  — Ghost State Memory (infinite context via compression)
+    45Q  — Symbolic Logic Bridge (verified math/logic/code reasoning)
+    45R  — Sovereignty Daemon  (nightly self-improvement audit)
 
 Usage:
     python system.py --start [--mode autonomous] [--tier 2]
@@ -44,9 +46,11 @@ sys.path.insert(0, str(PHASE2_ROOT / "45l"))             # Self-improvement
 sys.path.insert(0, str(PROJECT_ROOT / "core"))           # Phase 1 model
 sys.path.insert(0, str(PROJECT_ROOT / "config"))         # configs
 sys.path.insert(0, str(PROJECT_ROOT))                    # project root
-sys.path.insert(0, str(PROJECT_ROOT / "phase3" / "45O")) # Ouroboros
+sys.path.insert(0, str(PROJECT_ROOT / "phase3" / "45O")) # Ouroboros (torch + numpy)
 sys.path.insert(0, str(PROJECT_ROOT / "phase3" / "45P")) # Ghost Memory
-sys.path.insert(0, str(PROJECT_ROOT / "phase3" / "45N")) # Identity
+sys.path.insert(0, str(PROJECT_ROOT / "phase3" / "45N")) # Identity Injector
+sys.path.insert(0, str(PROJECT_ROOT / "phase3" / "45Q")) # Symbolic Logic Bridge
+sys.path.insert(0, str(PROJECT_ROOT / "phase3" / "45R")) # Sovereignty Daemon
 
 # ── 45M internal subsystems ────────────────────────────────────────────────
 from autonomy.engine      import ContinuousEngine
@@ -61,27 +65,36 @@ from control.control      import ControlInterface, Dashboard, ControlAPI
 
 class MasterSystem:
     """
-    An-Ra AGI Master System — Phase 3.
+    An-Ra AGI Master System — Phase 3 Fully Connected.
 
     This is the single object that owns everything.
     When started, it:
       1. Loads the Phase 1 neural network (via LLMBridge)
       2. Initializes ALL Phase 2 subsystems with live connections
-      3. Wraps the model with Phase 3 capabilities (Ouroboros, Ghost Memory)
+      3. Activates ALL Phase 3 capabilities:
+           45N — Identity voice injected into every prompt
+           45O — Ouroboros recursive 3-pass reasoning (CPU-native)
+           45P — Ghost State Memory for infinite context
+           45Q — Symbolic Logic Bridge for verified math/logic/code
+           45R — Sovereignty daemon for nightly self-audit
       4. Runs the continuous engine with real scheduled tasks
       5. Exposes a unified API for CLI, dashboard, and programmatic control
     """
 
-    VERSION = "An-Ra-Phase3-v1.0"
+    VERSION = "An-Ra-Phase3-v2.0"
 
     def __init__(self):
         self._started = False
-        self.llm = None            # LLMBridge — set during start()
-        self.agent = None          # 45k Agent — set during start()
-        self.memory = None         # 45J MemoryManager — set during start()
-        self.improver = None       # 45l ImprovementSystem — set during start()
-        self.ghost_memory = None   # 45P GhostMemory — set during start()
-        self.ouroboros = None      # 45O OuroborosDecoder — set during start()
+        self.llm            = None   # LLMBridge — set during start()
+        self.agent          = None   # 45k Agent — set during start()
+        self.memory         = None   # 45J MemoryManager — set during start()
+        self.improver       = None   # 45l ImprovementSystem — set during start()
+        self.ghost_memory   = None   # 45P GhostMemory — set during start()
+        self.ouroboros      = None   # 45O OuroborosNumpy — set during start()
+        self.identity       = None   # 45N IdentityInjector — set during start()
+        self.symbolic       = None   # 45Q Symbolic Bridge — set during start()
+        self.sovereignty    = None   # 45R Sovereignty Bridge — set during start()
+        self._ouroboros_enabled = True  # Can be disabled for speed
 
         # ── 45M Core subsystems (always available) ─────────────────────────
         self.engine          = ContinuousEngine()
@@ -180,23 +193,53 @@ class MasterSystem:
             print(f"  [Phase 2] [FAIL] Self-improvement init failed: {e}")
             traceback.print_exc()
 
+    def _init_identity(self):
+        """Initialize Phase 3 Identity Injector — no GPU required."""
+        print("  [Phase 3] Initializing Identity Injector (45N)...")
+        try:
+            from identity_injector import IdentityInjector
+            identity_file = PROJECT_ROOT / "phase3" / "45N" / "anra_identity_v2.txt"
+            self.identity = IdentityInjector(identity_file=identity_file, n_anchors=8)
+            print(f"  [Phase 3] [OK] Identity injector ready "
+                  f"({self.identity.status()['anchors_loaded']} anchors loaded)")
+        except Exception as e:
+            print(f"  [Phase 3] [FAIL] Identity injector init failed: {e}")
+            traceback.print_exc()
+
     def _init_ouroboros(self):
-        """Wrap model with Phase 3 Ouroboros recursive depth."""
+        """Initialize Phase 3 Ouroboros — try torch first, fall back to NumPy."""
         print("  [Phase 3] Initializing Ouroboros Recursive Architecture (45O)...")
+        # Try torch-native version first
         try:
             import torch
             from ouroboros import OuroborosDecoder
-            # Only initialize if we have a model and torch is available
             if self.llm and self.llm.raw_decoder:
-                # Ouroboros expects a torch model — our model is NumPy based.
-                # We register the capability but note it requires torch training.
-                print(f"  [Phase 3] [OK] Ouroboros architecture registered (requires torch model)")
-            else:
-                print(f"  [Phase 3] [SKIP] Ouroboros skipped — no base model loaded")
+                self.ouroboros = OuroborosDecoder(self.llm.raw_decoder, n_passes=3)
+                print(f"  [Phase 3] [OK] Ouroboros (torch) ready — "
+                      f"{self.ouroboros.new_parameter_count} new params")
+                return
         except ImportError:
-            print(f"  [Phase 3] [SKIP] Ouroboros skipped — torch not available")
+            pass
         except Exception as e:
-            print(f"  [Phase 3] [FAIL] Ouroboros init failed: {e}")
+            print(f"  [Phase 3] [WARN] Torch Ouroboros failed ({e}), "
+                  f"falling back to NumPy implementation")
+
+        # Fall back to NumPy-native implementation (always works)
+        try:
+            from ouroboros_numpy import OuroborosNumpy
+            if self.llm:
+                self.ouroboros = OuroborosNumpy(
+                    generate_fn=self.llm.generate,
+                    n_passes=3,
+                    max_new_tokens=200,
+                    enabled=self._ouroboros_enabled,
+                )
+                print(f"  [Phase 3] [OK] Ouroboros (NumPy) ready — "
+                      f"3-pass recursive reasoning active")
+            else:
+                print(f"  [Phase 3] [SKIP] Ouroboros skipped — no LLM loaded")
+        except Exception as e:
+            print(f"  [Phase 3] [FAIL] Ouroboros (NumPy) init failed: {e}")
 
     def _init_ghost_memory(self):
         """Initialize Phase 3 Ghost State Memory for infinite context."""
@@ -210,6 +253,39 @@ class MasterSystem:
             print(f"  [Phase 3] [OK] Ghost Memory ready (compressed vector recall)")
         except Exception as e:
             print(f"  [Phase 3] [FAIL] Ghost Memory init failed: {e}")
+
+    def _init_symbolic(self):
+        """Initialize Phase 3 Symbolic Logic Bridge (45Q) for verified reasoning."""
+        print("  [Phase 3] Initializing Symbolic Logic Bridge (45Q)...")
+        try:
+            from symbolic_bridge import query as _sym_query, detect as _sym_detect
+            self.symbolic = {"query": _sym_query, "detect": _sym_detect}
+            # Quick smoke test
+            _sym_detect("solve x^2 = 4")
+            print(f"  [Phase 3] [OK] Symbolic bridge ready "
+                  f"(math/logic/code verification active)")
+        except ImportError as e:
+            missing = str(e).split("'")[-2] if "'" in str(e) else str(e)
+            print(f"  [Phase 3] [SKIP] Symbolic bridge skipped — "
+                  f"{missing} not installed (pip install sympy scipy)")
+        except Exception as e:
+            print(f"  [Phase 3] [FAIL] Symbolic bridge init failed: {e}")
+
+    def _init_sovereignty(self):
+        """Initialize Phase 3 Sovereignty Daemon (45R) for nightly self-audit."""
+        print("  [Phase 3] Initializing Sovereignty Daemon (45R)...")
+        try:
+            from sovereignty_bridge import SovereigntyBridge
+            self.sovereignty = SovereigntyBridge(
+                target_path=PROJECT_ROOT,
+                data_dir=Path(__file__).parent / "sovereignty_data",
+            )
+            if self.sovereignty._enabled:
+                self.sovereignty.start()
+            else:
+                print(f"  [Phase 3] [SKIP] Sovereignty daemon disabled (see above)")
+        except Exception as e:
+            print(f"  [Phase 3] [FAIL] Sovereignty bridge init failed: {e}")
 
     # ══════════════════════════════════════════════════════════════════════════
     #  SCHEDULED TASK IMPLEMENTATIONS (real, not stubs!)
@@ -292,28 +368,58 @@ class MasterSystem:
 
     def run_goal(self, goal_text: str, show_plan: bool = True) -> Dict[str, Any]:
         """
-        Execute a goal through the full 45k Agent pipeline:
-          Interpret → Clarify → Reason → Plan → Execute → Evaluate
+        Execute a goal through the full Phase 3 pipeline:
+          45Q Symbolic pre-check → 45N Identity inject →
+          45P Ghost context → 45k Agent Loop → 45N response clean
 
-        If no agent is available, falls back to LLM-only response.
+        Falls back to LLM-only if agent is unavailable.
         """
         self.audit.log("GOAL_SUBMITTED", "agent", "system",
                        f"Goal: {goal_text[:100]}")
+
+        # ── Pre-augment with 45Q symbolic bridge ──────────────────────────
+        augmented_goal, was_symbolic = self._symbolic_augment(goal_text)
+
+        # ── Inject ghost context (45P) for goal execution ──────────────────
+        if self.ghost_memory:
+            try:
+                ghost_block_and_msg = self.ghost_memory.build_ghost_prompt(goal_text)
+                if ghost_block_and_msg and ghost_block_and_msg != goal_text:
+                    ghost_block = ghost_block_and_msg.replace(goal_text, "").strip()
+                    if ghost_block:
+                        augmented_goal = f"{ghost_block}\n\n{augmented_goal}"
+            except Exception:
+                pass
 
         # Try the full agent loop
         if self.agent:
             try:
                 result = self.agent.run(
-                    goal_text,
+                    augmented_goal,
                     show_plan=show_plan,
                     clarify=False,  # Non-interactive
                 )
+
+                # Clean response with identity injector
+                if self.identity and result.get("output"):
+                    try:
+                        result["output"] = self.identity.clean_response(result["output"])
+                    except Exception:
+                        pass
 
                 # Feed the interaction into memory and learning
                 output = result.get("output", "")
                 self.process_interaction(goal_text, output,
                                          feedback=1.0 if result.get("success") else 0.3,
                                          domain="agent_execution")
+
+                # Store in ghost memory
+                if self.ghost_memory and output:
+                    try:
+                        self.ghost_memory.add_turn("user", goal_text)
+                        self.ghost_memory.add_turn("assistant", output[:500])
+                    except Exception:
+                        pass
 
                 # Learn skill if successful
                 if result.get("success") and self.improver:
@@ -329,7 +435,8 @@ class MasterSystem:
 
                 self.audit.log("GOAL_COMPLETED", "agent", "system",
                                f"Success={result.get('success')} "
-                               f"Duration={result.get('duration', 0):.1f}s")
+                               f"Duration={result.get('duration', 0):.1f}s "
+                               f"Symbolic={was_symbolic}")
                 return result
 
             except Exception as e:
@@ -342,9 +449,24 @@ class MasterSystem:
         return self._llm_fallback(goal_text)
 
     def _llm_fallback(self, goal_text: str) -> Dict[str, Any]:
-        """Use raw LLM when agent loop is unavailable."""
+        """Use raw LLM (with identity + ouroboros) when agent loop is unavailable."""
         if self.llm:
-            output = self.llm.generate(goal_text, max_new_tokens=300)
+            # Inject identity
+            prompt = self.identity.inject(goal_text) if self.identity else goal_text
+
+            # Generate — via Ouroboros if available
+            if self.ouroboros and self._ouroboros_enabled:
+                try:
+                    output, n_passes = self.ouroboros.adaptive_generate(prompt)
+                except Exception:
+                    output = self.llm.generate(prompt, max_new_tokens=300)
+            else:
+                output = self.llm.generate(prompt, max_new_tokens=300)
+
+            # Clean response
+            if self.identity:
+                output = self.identity.clean_response(output)
+
             return {
                 "success": True,
                 "output": output,
@@ -364,41 +486,104 @@ class MasterSystem:
     #  INTERACTIVE CHAT (with memory + ghost context)
     # ══════════════════════════════════════════════════════════════════════════
 
+    def _symbolic_augment(self, prompt: str) -> tuple:
+        """
+        Check if the prompt is a math/logic/code query and pre-solve it with 45Q.
+
+        Returns:
+            (augmented_prompt, was_symbolic: bool)
+            If symbolic, the verified answer is injected into the prompt context.
+        """
+        if not self.symbolic:
+            return prompt, False
+        try:
+            detection = self.symbolic["detect"](prompt)
+            # Only augment for math, logic, code — not plain natural language
+            if str(detection.mode) in ("Mode.MATH", "Mode.LOGIC", "Mode.CODE",
+                                       "MATH", "LOGIC", "CODE"):
+                result = self.symbolic["query"](prompt)
+                if result and result.confidence >= 0.90:
+                    # Inject the verified answer as context
+                    augmented = (
+                        f"[SYMBOLIC VERIFICATION — confidence {result.confidence:.0%}]\n"
+                        f"Answer: {result.answer_text}\n"
+                        f"Steps: {'; '.join(result.steps[:3])}\n"
+                        f"[END VERIFICATION]\n\n"
+                        f"{prompt}"
+                    )
+                    self.audit.log("SYMBOLIC_AUGMENT", "symbolic", "system",
+                                   f"Mode={detection.mode} Confidence={result.confidence:.2f}")
+                    return augmented, True
+        except Exception:
+            pass
+        return prompt, False
+
     def chat(self, user_message: str) -> str:
         """
-        Process a conversational message with full memory integration:
-        1. Retrieve relevant memories (45J)
-        2. Build ghost context (45P)
-        3. Generate response via LLM
-        4. Store the interaction in memory
-        5. Update ghost memory
+        Process a conversational message through the full Phase 3 pipeline:
+        1. 45Q Symbolic Bridge — pre-solve math/logic if detected
+        2. 45N Identity — inject An-Ra voice into prompt
+        3. 45J Memory — inject relevant episodic/semantic memories
+        4. 45P Ghost Memory — inject compressed conversation history
+        5. 45O Ouroboros — recursive 3-pass generation (if enabled)
+        6. 45N Identity — clean robotic phrasing from response
+        7. Store interaction in both 45J and 45P memory systems
         """
         if not self.llm:
             return "[System not initialized — no model loaded]"
 
-        # Build enriched prompt
-        enriched_prompt = user_message
+        # ── 1. Symbolic pre-augmentation (45Q) ────────────────────────────
+        base_prompt, was_symbolic = self._symbolic_augment(user_message)
 
-        # 45J Memory context injection
+        # ── 2. Identity context injection (45N) ───────────────────────────
+        enriched_prompt = base_prompt
+        if self.identity:
+            try:
+                enriched_prompt = self.identity.inject(base_prompt)
+            except Exception:
+                pass
+
+        # ── 3. 45J Memory context ─────────────────────────────────────────
         if self.memory:
             try:
-                enriched_prompt = self.memory.prepare_prompt(user_message)
+                enriched_prompt = self.memory.prepare_prompt(enriched_prompt)
             except Exception:
                 pass
 
-        # 45P Ghost Memory context
+        # ── 4. 45P Ghost Memory context ───────────────────────────────────
         if self.ghost_memory:
             try:
-                ghost_prompt = self.ghost_memory.build_ghost_prompt(user_message)
-                if ghost_prompt and ghost_prompt != user_message:
-                    enriched_prompt = f"{ghost_prompt}\n\n{enriched_prompt}"
+                ghost_block_and_msg = self.ghost_memory.build_ghost_prompt(user_message)
+                # build_ghost_prompt returns: ghost_block + "\n" + user_message
+                # We want: ghost_block prepended to our already-enriched prompt
+                # Extract just the ghost block (everything before the user message)
+                if ghost_block_and_msg and ghost_block_and_msg != user_message:
+                    ghost_block = ghost_block_and_msg.replace(user_message, "").strip()
+                    if ghost_block:
+                        enriched_prompt = f"{ghost_block}\n\n{enriched_prompt}"
             except Exception:
                 pass
 
-        # Generate response
-        response = self.llm.generate(enriched_prompt, max_new_tokens=300)
+        # ── 5. Generate (via Ouroboros if available, else direct LLM) ─────
+        if self.ouroboros and self._ouroboros_enabled and not was_symbolic:
+            try:
+                # Use adaptive pass count — simple queries get 1 pass
+                response, n_passes = self.ouroboros.adaptive_generate(enriched_prompt)
+                self.audit.log("OUROBOROS_CHAT", "ouroboros", "system",
+                               f"Passes={n_passes}")
+            except Exception:
+                response = self.llm.generate(enriched_prompt, max_new_tokens=300)
+        else:
+            response = self.llm.generate(enriched_prompt, max_new_tokens=300)
 
-        # Store in memory systems
+        # ── 6. Clean robotic phrasing (45N) ───────────────────────────────
+        if self.identity:
+            try:
+                response = self.identity.clean_response(response)
+            except Exception:
+                pass
+
+        # ── 7. Store in both memory systems (synchronized) ────────────────
         if self.memory:
             try:
                 self.memory.add_turn("user", user_message)
@@ -537,9 +722,12 @@ class MasterSystem:
         self._init_agent()
         self._init_improver()
 
-        # Phase 3: Advanced capabilities
-        self._init_ouroboros()
-        self._init_ghost_memory()
+        # Phase 3: All 5 components
+        self._init_identity()        # 45N — voice/personality (no GPU)
+        self._init_ouroboros()       # 45O — recursive reasoning
+        self._init_ghost_memory()    # 45P — infinite context memory
+        self._init_symbolic()        # 45Q — math/logic verification
+        self._init_sovereignty()     # 45R — nightly self-audit daemon
 
         # Wire proactive alert → autonomous goal spawning
         self.proactive.on_alert(self._on_proactive_alert)
@@ -553,26 +741,43 @@ class MasterSystem:
         self.audit.log("SYSTEM_START", "system", "master",
                        f"An-Ra started. Mode={mode} DefaultTier={default_tier}")
 
+        # ── Startup banner ────────────────────────────────────────────────
+        def _mark(obj): return "[x]" if obj else "[ ]"
+
         print(f"\n{'='*60}")
         print(f"  [OK] AN-RA PHASE 3 SYSTEM ONLINE")
-        print(f"    Version:    {self.VERSION}")
-        print(f"    Mode:       {mode}")
-        print(f"    Tier:       {default_tier}")
-        print(f"    LLM:        {'[x]' if self.llm else '[ ]'}")
-        print(f"    Agent:      {'[x]' if self.agent else '[ ]'}")
-        print(f"    Memory:     {'[x]' if self.memory else '[ ]'}")
-        print(f"    Improver:   {'[x]' if self.improver else '[ ]'}")
-        print(f"    Ghost Mem:  {'[x]' if self.ghost_memory else '[ ]'}")
+        print(f"    Version :    {self.VERSION}")
+        print(f"    Mode    :    {mode}")
+        print(f"    Tier    :    {default_tier}")
+        print(f"  {'─'*54}")
+        print(f"  Phase 1 + 2:")
+        print(f"    LLM     :    {_mark(self.llm)}")
+        print(f"    Agent   :    {_mark(self.agent)}")
+        print(f"    Memory  :    {_mark(self.memory)}")
+        print(f"    Improver:    {_mark(self.improver)}")
+        print(f"  {'─'*54}")
+        print(f"  Phase 3:")
+        print(f"    Identity:    {_mark(self.identity)}   (45N — An-Ra voice)")
+        print(f"    Ouroboros:   {_mark(self.ouroboros)}   (45O — recursive reasoning)")
+        print(f"    Ghost Mem:   {_mark(self.ghost_memory)}   (45P — infinite context)")
+        print(f"    Symbolic :   {_mark(self.symbolic)}   (45Q — math/logic bridge)")
+        print(f"    Sovereign:   {_mark(self.sovereignty)}   (45R — nightly audit)")
         print(f"{'='*60}\n")
 
     def stop(self, immediate: bool = False):
         if immediate:
             self.safety.kill_switch.activate("Owner requested immediate stop")
         else:
-            # Cleanup memory
+            # Cleanup Phase 2 memory
             if self.memory:
                 try:
                     self.memory.cleanup()
+                except Exception:
+                    pass
+            # Stop Phase 3 sovereignty daemon
+            if self.sovereignty:
+                try:
+                    self.sovereignty.stop()
                 except Exception:
                     pass
             self.safety.stop()
@@ -609,20 +814,45 @@ class MasterSystem:
             "knowledge":    self.knowledge_base.stats(),
             "scale":        self.scale_manager.scale_report(),
             "subsystems": {
+                # Phase 1 + 2
                 "llm":          self.llm.status() if self.llm else {"initialized": False},
                 "agent":        {"ready": self.agent is not None,
                                  "tools": len(self.agent.registry) if self.agent else 0},
                 "memory":       self.memory.stats() if self.memory else {"ready": False},
                 "improver":     {"ready": self.improver is not None},
+                # Phase 3 — all 5 modules
+                "identity":     self.identity.status() if self.identity
+                                else {"ready": False},
+                "ouroboros":    self.ouroboros.status() if self.ouroboros
+                                else {"ready": False},
                 "ghost_memory": {"ready": self.ghost_memory is not None},
+                "symbolic":     {"ready": self.symbolic is not None},
+                "sovereignty":  self.sovereignty.status() if self.sovereignty
+                                else {"ready": False},
             },
         }
 
     def morning_briefing(self) -> str:
-        return self.proactive.morning_briefing(
+        briefing = self.proactive.morning_briefing(
             goals_manager=self.goals,
             audit_log=self.audit,
         )
+        # Append sovereignty nightly report if available
+        if self.sovereignty:
+            try:
+                sov_report = self.sovereignty.get_nightly_report()
+                bench_summary = self.sovereignty.get_benchmark_summary()
+                if sov_report and "No sovereignty report" not in sov_report:
+                    briefing += (
+                        f"\n\n{'─'*50}\n"
+                        f"NIGHTLY SELF-IMPROVEMENT REPORT (Sovereignty 45R)\n"
+                        f"{'─'*50}\n"
+                        f"{bench_summary}\n"
+                        f"{sov_report[:1500]}\n"
+                    )
+            except Exception:
+                pass
+        return briefing
 
     def set_goal(self, title: str, description: str,
                  horizon_days: int = 7, priority: str = "medium") -> dict:
