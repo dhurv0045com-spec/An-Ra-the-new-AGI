@@ -90,13 +90,13 @@ class ContextBuilder:
         if retrieval.has_relevant_memory(threshold=0.25):
             raw_mem_block = retrieval.to_prompt_block(header=False)
             try:
-                import sys
-                from pathlib import Path
-                m_path = Path(__file__).resolve().parent.parent / "45M"
-                if str(m_path) not in sys.path:
-                    sys.path.insert(0, str(m_path))
-                import llm_bridge
-                llm = llm_bridge.get_llm_bridge()
+                import sys as _sys
+                from pathlib import Path as _Path
+                m_path = _Path(__file__).resolve().parent.parent / "45M"
+                if str(m_path) not in _sys.path:
+                    _sys.path.insert(0, str(m_path))
+                from llm_bridge import get_llm_bridge
+                llm = get_llm_bridge()
                 
                 prompt = (
                     "Summarize the following retrieved memories into a concise context for the AI:\n"
@@ -185,9 +185,9 @@ class ContextBuilder:
         Injected once at conversation start.
         """
         try:
-            from memory.store import MemoryType
+            from store import MemoryType
         except ImportError:
-            from ..memory.store import MemoryType
+            from store import MemoryType
         parts = [
             "You are a personal AI assistant with memory of past conversations.",
         ]

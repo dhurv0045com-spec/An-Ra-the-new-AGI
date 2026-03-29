@@ -9,7 +9,7 @@ PURPOSE: Natural language → best tool selection and call formatting
 import re
 import logging
 from typing import List, Optional, Tuple
-from tools.registry import ToolRegistry, ToolResult
+from registry import ToolRegistry, ToolResult
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +49,7 @@ class Dispatcher:
     def __init__(self, registry: ToolRegistry):
         self.registry = registry
 
-    def dispatch(self, request: str, step_id: str = "") -> ToolResult:
+    def dispatch(self, request: str, step_id: str = "", **kwargs) -> ToolResult:
         """
         Route a natural language request to the best tool.
 
@@ -64,12 +64,12 @@ class Dispatcher:
             prefix = prefix.strip().lower().replace(" ", "_")
             if prefix in self.registry:
                 logger.debug(f"Dispatcher: explicit tool '{prefix}'")
-                return self.registry.call(prefix, body.strip(), step_id=step_id)
+                return self.registry.call(prefix, body.strip(), step_id=step_id, **kwargs)
 
         # Score each tool
         tool_name = self._score_and_select(request)
         logger.debug(f"Dispatcher: selected '{tool_name}' for: {request[:80]!r}")
-        return self.registry.call(tool_name, request, step_id=step_id)
+        return self.registry.call(tool_name, request, step_id=step_id, **kwargs)
 
     def _score_and_select(self, request: str) -> str:
         """Pick the highest-scoring tool for a request."""

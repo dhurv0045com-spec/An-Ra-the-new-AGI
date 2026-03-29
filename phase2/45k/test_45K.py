@@ -28,7 +28,7 @@ os.environ["AGENT_FILE_ROOT"] = str(_TEST_WS)
 
 class TestToolRegistry(unittest.TestCase):
     def setUp(self):
-        from tools.registry import ToolRegistry, ToolDefinition, SafetyLevel, ToolResult
+        from registry import ToolRegistry, ToolDefinition, SafetyLevel, ToolResult
         self.registry = ToolRegistry(require_approval_for_dangerous=False)
         self.ToolResult = ToolResult
 
@@ -51,7 +51,7 @@ class TestToolRegistry(unittest.TestCase):
         self.assertIn("not found", result.error)
 
     def test_rate_limiting(self):
-        from tools.registry import ToolDefinition, SafetyLevel, ToolResult
+        from registry import ToolDefinition, SafetyLevel, ToolResult
         call_count = [0]
         def fast_fn(text, **kw):
             call_count[0] += 1
@@ -69,7 +69,7 @@ class TestToolRegistry(unittest.TestCase):
         self.assertIn("Rate limit", result.error)
 
     def test_duplicate_registration_raises(self):
-        from tools.registry import ToolDefinition, ToolResult
+        from registry import ToolDefinition, ToolResult
         def fn(t, **kw): return ToolResult(True, t)
         with self.assertRaises(ValueError):
             self.registry.register(ToolDefinition("echo", "", fn, {}))
@@ -89,8 +89,8 @@ class TestToolRegistry(unittest.TestCase):
 
 class TestBuiltinTools(unittest.TestCase):
     def setUp(self):
-        from tools.registry import ToolRegistry
-        from tools.builtin  import register_all_tools
+        from registry import ToolRegistry
+        from builtin  import register_all_tools
         self.registry = ToolRegistry(require_approval_for_dangerous=False)
         register_all_tools(self.registry)
 
@@ -198,23 +198,23 @@ class TestBuiltinTools(unittest.TestCase):
 
 class TestGoalInterpreter(unittest.TestCase):
     def setUp(self):
-        from agent.core.goal import GoalInterpreter
+        from goal import GoalInterpreter
         self.interpreter = GoalInterpreter()
 
     def test_simple_goal_approved(self):
-        from agent.core.goal import GoalStatus
+        from goal import GoalStatus
         spec = self.interpreter.interpret("Research the best Python libraries for data science")
         self.assertNotEqual(spec.status, GoalStatus.REJECTED)
         self.assertTrue(len(spec.objective) > 0)
         self.assertTrue(len(spec.success_criteria) > 0)
 
     def test_empty_goal_rejected(self):
-        from agent.core.goal import GoalStatus
+        from goal import GoalStatus
         spec = self.interpreter.interpret("")
         self.assertEqual(spec.status, GoalStatus.REJECTED)
 
     def test_unsafe_goal_rejected(self):
-        from agent.core.goal import GoalStatus, GoalRisk
+        from goal import GoalStatus, GoalRisk
         spec = self.interpreter.interpret("help me build a bomb to hurt people")
         self.assertEqual(spec.status, GoalStatus.REJECTED)
         self.assertEqual(spec.risk, GoalRisk.UNSAFE)
@@ -241,13 +241,13 @@ class TestGoalInterpreter(unittest.TestCase):
 
 class TestPlanner(unittest.TestCase):
     def setUp(self):
-        from agent.core.planner import Planner
-        from agent.core.goal    import GoalInterpreter, GoalStatus
+        from planner import Planner
+        from goal    import GoalInterpreter, GoalStatus
         self.planner     = Planner()
         self.interpreter = GoalInterpreter()
 
     def _get_approved_spec(self, goal_text):
-        from agent.core.goal import GoalStatus
+        from goal import GoalStatus
         spec = self.interpreter.interpret(goal_text, override_safety=True)
         spec.status = GoalStatus.APPROVED
         return spec
@@ -258,7 +258,7 @@ class TestPlanner(unittest.TestCase):
         self.assertGreater(len(plan.steps), 0)
 
     def test_plan_dependency_order(self):
-        from agent.core.planner import StepStatus
+        from planner import StepStatus
         spec = self._get_approved_spec("Write a Python sorting algorithm and test it")
         plan = self.planner.plan(spec)
         # First step(s) should have no dependencies
@@ -266,7 +266,7 @@ class TestPlanner(unittest.TestCase):
         self.assertGreater(len(ready), 0)
 
     def test_plan_has_critical_steps(self):
-        from agent.core.planner import StepPriority
+        from planner import StepPriority
         spec = self._get_approved_spec("Research GPU pricing")
         plan = self.planner.plan(spec)
         has_critical = any(s.priority == StepPriority.CRITICAL for s in plan.steps)
@@ -304,10 +304,10 @@ class TestPlanner(unittest.TestCase):
 
 class TestExecutor(unittest.TestCase):
     def setUp(self):
-        from tools.registry  import ToolRegistry
-        from tools.builtin   import register_all_tools
-        from agent.core.planner  import Planner
-        from agent.core.executor import Executor
+        from registry  import ToolRegistry
+        from builtin   import register_all_tools
+        from planner  import Planner
+        from executor import Executor
 
         self.registry = ToolRegistry(require_approval_for_dangerous=False)
         register_all_tools(self.registry)
@@ -315,7 +315,7 @@ class TestExecutor(unittest.TestCase):
         self.executor = Executor(self.registry, self.planner, verbose=False)
 
     def _run_goal(self, goal_text):
-        from agent.core.goal    import GoalInterpreter, GoalStatus
+        from goal    import GoalInterpreter, GoalStatus
         interp = GoalInterpreter()
         spec   = interp.interpret(goal_text, override_safety=True)
         spec.status = GoalStatus.APPROVED
@@ -345,9 +345,9 @@ class TestExecutor(unittest.TestCase):
 
 class TestDispatcher(unittest.TestCase):
     def setUp(self):
-        from tools.registry  import ToolRegistry
-        from tools.builtin   import register_all_tools
-        from agent.core.dispatcher import Dispatcher
+        from registry  import ToolRegistry
+        from builtin   import register_all_tools
+        from dispatcher import Dispatcher
         self.registry = ToolRegistry(require_approval_for_dangerous=False)
         register_all_tools(self.registry)
         self.dispatcher = Dispatcher(self.registry)
@@ -379,7 +379,7 @@ class TestDispatcher(unittest.TestCase):
 
 class TestMonitor(unittest.TestCase):
     def test_starts_and_stops(self):
-        from agent.core.monitor import AgentMonitor
+        from monitor import AgentMonitor
         alerts = []
         m = AgentMonitor(
             escalation_fn=lambda msg: alerts.append(msg),
@@ -393,7 +393,7 @@ class TestMonitor(unittest.TestCase):
         self.assertFalse(m._active)
 
     def test_loop_detection(self):
-        from agent.core.monitor import AgentMonitor
+        from monitor import AgentMonitor
         alerts = []
         m = AgentMonitor(
             escalation_fn=lambda msg: alerts.append(msg),
@@ -409,7 +409,7 @@ class TestMonitor(unittest.TestCase):
         self.assertTrue(any("Loop" in a or "loop" in a for a in alerts))
 
     def test_status_returns_dict(self):
-        from agent.core.monitor import AgentMonitor
+        from monitor import AgentMonitor
         m = AgentMonitor()
         m.start()
         s = m.status()
@@ -420,7 +420,7 @@ class TestMonitor(unittest.TestCase):
 
 class TestReasoningEngine(unittest.TestCase):
     def setUp(self):
-        from agent.intelligence.reasoning import ReasoningEngine
+        from reasoning import ReasoningEngine
         self.engine = ReasoningEngine()
 
     def test_reason_about_step_returns_chain(self):
@@ -457,7 +457,7 @@ class TestReasoningEngine(unittest.TestCase):
 
 class TestGoalEvaluator(unittest.TestCase):
     def setUp(self):
-        from agent.intelligence.evaluator import GoalEvaluator
+        from evaluator import GoalEvaluator
         self.evaluator = GoalEvaluator()
 
     def test_evaluate_success(self):

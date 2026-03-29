@@ -25,7 +25,7 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Set
 from enum import Enum
 
-from agent.core.goal import GoalSpec, GoalRisk
+from goal import GoalSpec, GoalRisk
 
 logger = logging.getLogger(__name__)
 
@@ -310,7 +310,7 @@ class Planner:
         Raises:
             ValueError: If goal is not APPROVED.
         """
-        from agent.core.goal import GoalStatus
+        from goal import GoalStatus
         if goal.status not in (GoalStatus.APPROVED, GoalStatus.ACTIVE):
             raise ValueError(
                 f"Cannot plan goal with status {goal.status.value}. "

@@ -33,16 +33,16 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
 # Core modules
-from tools.registry    import ToolRegistry, get_registry
-from tools.builtin     import register_all_tools
-from agent.core.goal   import GoalInterpreter, GoalSpec, GoalStatus, GoalRisk
-from agent.core.planner import Planner, ExecutionPlan, StepPriority
-from agent.core.executor import Executor, HumanEscalation
-from agent.core.dispatcher import Dispatcher
-from agent.core.monitor  import AgentMonitor
-from agent.intelligence.reasoning  import ReasoningEngine
-from agent.intelligence.evaluator  import GoalEvaluator
-from agent.intelligence.coordinator import MultiAgentCoordinator
+from registry    import ToolRegistry, get_registry
+from builtin     import register_all_tools
+from goal        import GoalInterpreter, GoalSpec, GoalStatus, GoalRisk
+from planner     import Planner, ExecutionPlan, StepPriority
+from executor    import Executor, HumanEscalation
+from dispatcher  import Dispatcher
+from monitor     import AgentMonitor
+from reasoning   import ReasoningEngine
+from evaluator   import GoalEvaluator
+from coordinator import MultiAgentCoordinator
 
 logger = logging.getLogger(__name__)
 
@@ -83,10 +83,12 @@ class Agent:
         log_level:           str   = "INFO",
         checkin_interval:    int   = 30,
         max_tool_calls:      int   = 200,
+        memory_manager:      Any   = None,
     ):
         _setup_logging(log_level)
         self.approve_each_step = approve_each_step
         self.verbose           = verbose
+        self.memory_manager    = memory_manager
 
         # ── Build tool registry ─────────────────────────────────────────
         self.registry = get_registry()
@@ -107,14 +109,14 @@ class Agent:
         self.reasoning   = ReasoningEngine()
         self.evaluator   = GoalEvaluator()
 
-        # ── Approval callback for step-level approval ───────────────────
         step_approval = self._approve_step if approve_each_step else None
         self.executor = Executor(
             registry=self.registry,
             planner=self.planner,
-            approval_callback=step_approval,
-            escalation_callback=self._handle_escalation,
+            approval=step_approval,
+            escalation=self._handle_escalation,
             verbose=verbose,
+            memory_manager=self.memory_manager
         )
 
         # ── State ───────────────────────────────────────────────────────

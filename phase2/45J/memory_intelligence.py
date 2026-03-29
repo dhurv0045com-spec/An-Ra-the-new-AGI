@@ -68,7 +68,7 @@ class ImportanceScorer:
 
         # Explicit override
         if explicit_level:
-            from ..memory.store import ImportanceLevel, IMPORTANCE_SCORES
+            from store import ImportanceLevel, IMPORTANCE_SCORES
             override = IMPORTANCE_SCORES.get(
                 ImportanceLevel(explicit_level), base
             )
@@ -165,7 +165,7 @@ class MemoryConsolidator:
     def _merge_duplicates(self, user_id: str,
                            dry_run: bool = False) -> int:
         """Find and merge semantically near-duplicate memories."""
-        from ..memory.store import MemoryType
+        from store import MemoryType
         merged = 0
 
         for mtype in [MemoryType.SEMANTIC]:
@@ -210,7 +210,7 @@ class MemoryConsolidator:
         Convert old episodic memories into semantic facts.
         Old episodes (> 14 days, low importance) → compressed semantic facts.
         """
-        from ..memory.store import MemoryType
+        from store import MemoryType
         cutoff = time.time() - 14 * 86400
         rows = self.store._conn.execute("""
             SELECT * FROM memories
@@ -269,7 +269,7 @@ class MemoryConsolidator:
         Compress multiple old episode turns from same session
         into a single summarized episode.
         """
-        from ..memory.store import MemoryType
+        from store import MemoryType
         # Find sessions with many episodic memories
         rows = self.store._conn.execute("""
             SELECT session_id, COUNT(*) as cnt
@@ -293,7 +293,7 @@ class MemoryConsolidator:
 
     def _compress_session(self, session_id: str, user_id: str):
         """Merge all episodes from a session into one."""
-        from ..memory.store import MemoryType
+        from store import MemoryType
         rows = self.store._conn.execute("""
             SELECT * FROM memories
             WHERE user_id = ? AND type = ? AND session_id = ?
@@ -310,7 +310,7 @@ class MemoryConsolidator:
         earliest = min(m.created_at for m in memories)
 
         # Create compressed memory
-        from ..memory.store import Memory
+        from store import Memory
         compressed = Memory.create(
             content=combined_content[:5000],
             type=MemoryType.EPISODIC,

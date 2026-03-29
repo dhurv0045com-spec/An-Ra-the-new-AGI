@@ -26,11 +26,25 @@ from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Set
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-from agent.core.planner import ExecutionPlan, Step, StepStatus, StepPriority, Planner
-from agent.core.goal    import GoalSpec
-from tools.registry     import ToolRegistry, ToolResult
+from planner import ExecutionPlan, Step, StepStatus, StepPriority, Planner
+from goal    import GoalSpec
+from registry     import ToolRegistry, ToolResult
 
 logger = logging.getLogger(__name__)
+
+# ── LLM Bridge (singleton, loaded once by system.py) ──────────────────────────
+def _get_llm():
+    """Lazy accessor for the global LLMBridge singleton."""
+    try:
+        import sys
+        from pathlib import Path
+        m_path = Path(__file__).resolve().parent.parent / "45M"
+        if str(m_path) not in sys.path:
+            sys.path.insert(0, str(m_path))
+        from llm_bridge import get_llm_bridge
+        return get_llm_bridge()
+    except Exception:
+        return None
 
 
 @dataclass
@@ -75,19 +89,23 @@ class Executor:
 
     def __init__(
         self,
-        registry:        ToolRegistry,
-        planner:         Planner,
-        approval_callback: Optional[Callable[[Step], bool]] = None,
-        escalation_callback: Optional[Callable[[str, Step], None]] = None,
-        max_parallel:    int  = 3,
-        verbose:         bool = True,
+        registry:    ToolRegistry,
+        planner:     "Planner",
+        verbose:     bool = True,
+        approval:    Optional[Callable] = None,
+        escalation:  Optional[Callable] = None,
+        memory_manager: Any = None,
     ):
         self.registry   = registry
         self.planner    = planner
-        self.approval   = approval_callback
-        self.escalation = escalation_callback
-        self.max_parallel = max_parallel
-        self.verbose    = verbose
+        self.verbose     = verbose
+        self.approval   = approval
+        self.escalation = escalation
+        self.memory_manager = memory_manager
+        self.logger      = logger
+
+        if not self.registry:
+            raise ValueError("Executor needs a ToolRegistry")
         self._lock      = threading.Lock()
 
     def execute_plan(
@@ -337,24 +355,25 @@ class Executor:
                 continue
                 
             # Use LLM to format tool input
-            try:
-                import sys
-                from pathlib import Path
-                m_path = Path(__file__).resolve().parent.parent / "45M"
-                if str(m_path) not in sys.path:
-                    sys.path.insert(0, str(m_path))
-                import llm_bridge
-                llm = llm_bridge.get_llm_bridge()
-                prompt = (
-                    f"Format input for tool '{tool_name}' given instruction: '{instruction}'. "
-                    "Output ONLY the command or input string required by the tool. No apologies, no extra text."
-                )
-                tool_input = llm.generate(prompt, max_new_tokens=150).strip()
-            except Exception as e:
-                logger.warning(f"LLM tool arg generation failed: {e}. Falling back.")
+            llm = _get_llm()
+            if llm:
+                try:
+                    prompt = (
+                        f"Format input for tool '{tool_name}' given instruction: '{instruction}'. "
+                        "Output ONLY the command or input string required by the tool. No apologies, no extra text."
+                    )
+                    tool_input = llm.generate(prompt, max_new_tokens=150).strip()
+                except Exception as e:
+                    logger.warning(f"LLM tool arg generation failed: {e}. Falling back.")
+                    tool_input = instruction
+            else:
                 tool_input = instruction
 
-            result = self.registry.call(tool_name, tool_input, step_id=step.step_id)
+            result = self.registry.call(
+                tool_name, tool_input,
+                step_id=step.step_id,
+                memory_manager=self.memory_manager
+            )
             tool_results.append(result.to_dict())
 
             if result.success:
@@ -372,6 +391,7 @@ class Executor:
                     "memory_tool",
                     f"store {step.step_id}_failed {step.error or 'all tools failed'}",
                     step_id=step.step_id,
+                    memory_manager=self.memory_manager
                 )
 
             error_msg = f"All tools failed for step '{step.title}'"
@@ -437,22 +457,19 @@ class Executor:
         if not output or not output.strip():
             return False
             
-        try:
-            import sys
-            from pathlib import Path
-            m_path = Path(__file__).resolve().parent.parent / "45M"
-            if str(m_path) not in sys.path:
-                sys.path.insert(0, str(m_path))
-            import llm_bridge
-            llm = llm_bridge.get_llm_bridge()
-            prompt = (
-                f"Evaluate step output.\nGoal: {step.instruction}\nOutput: {output}\n"
-                "Did the execution succeed fully? Answer YES or NO."
-            )
-            response = llm.generate(prompt, max_new_tokens=15).strip().upper()
-            if "NO" in response:
-                return False
-        except Exception:
+        llm = _get_llm()
+        if llm:
+            try:
+                prompt = (
+                    f"Evaluate step output.\nGoal: {step.instruction}\nOutput: {output}\n"
+                    "Did the execution succeed fully? Answer YES or NO."
+                )
+                response = llm.generate(prompt, max_new_tokens=15).strip().upper()
+                if "NO" in response:
+                    return False
+            except Exception:
+                pass
+        else:
             error_indicators = ["error:", "failed:", "exception:", "traceback"]
             lower = output.lower()
             if any(ind in lower for ind in error_indicators) and len(output) < 200:

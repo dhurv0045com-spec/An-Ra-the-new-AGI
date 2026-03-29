@@ -25,7 +25,7 @@ import textwrap
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from tools.registry import ToolResult, ToolDefinition, SafetyLevel, ToolRegistry
+from registry import ToolResult, ToolDefinition, SafetyLevel, ToolRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -396,6 +396,7 @@ _memory_store: Dict[str, Dict] = {}
 def memory_tool(instruction: str, **kwargs) -> ToolResult:
     """
     Agent's explicit memory interface.
+    Integrates with Phase 2 (45J) long-term memory if available.
 
     Commands:
       store <key> <value>     — Store a fact
@@ -405,6 +406,7 @@ def memory_tool(instruction: str, **kwargs) -> ToolResult:
       forget <key>            — Delete a memory
       stats                   — Memory store statistics
     """
+    manager = kwargs.get("memory_manager")
     instruction = instruction.strip()
     parts = instruction.split(None, 2)
     if not parts:
@@ -412,6 +414,28 @@ def memory_tool(instruction: str, **kwargs) -> ToolResult:
 
     cmd = parts[0].lower()
 
+    # ── 45J INTEGRATION ───────────────────────────────────────────
+    if manager:
+        try:
+            if cmd == "store":
+                if len(parts) < 3: return ToolResult(False, "", error="Need key and value")
+                manager.store_memory(content=parts[2], tags=[parts[1]], type="semantic")
+                return ToolResult(True, f"Stored in 45J: {parts[1]}")
+            elif cmd == "recall":
+                if len(parts) < 2: return ToolResult(False, "", error="Need key")
+                results = manager.retrieve(parts[1], top_k=1)
+                if not results: return ToolResult(False, "", error="Not found")
+                return ToolResult(True, results[0].memory.content)
+            elif cmd == "search":
+                if len(parts) < 2: return ToolResult(False, "", error="Need query")
+                results = manager.retrieve(parts[1], top_k=5)
+                output = "\n".join([f"• {r.memory.content}" for r in results])
+                return ToolResult(True, output or "No matches")
+            # Fall through for other cmds or if 45J fails
+        except Exception as e:
+            logger.warning(f"45J memory_tool delegation failed: {e}")
+
+    # ── FALLBACK / LOCAL ──────────────────────────────────────────
     if cmd == "store":
         if len(parts) < 3:
             return ToolResult(False, "", error="memory_tool store: need key and value")

@@ -8,7 +8,7 @@ All three in one file for brevity; each is a clean class.
 import time
 import json
 from typing import List, Optional, Dict, Any
-from .store import Memory, MemoryType, ImportanceLevel, IMPORTANCE_SCORES
+from store import Memory, MemoryType, ImportanceLevel, IMPORTANCE_SCORES
 
 
 # ─────────────────────────────────────────────

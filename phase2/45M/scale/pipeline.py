@@ -372,17 +372,55 @@ class DistributedTrainer:
         self.db.save_run(run)
 
         try:
-            # Attempt to import real training infrastructure
-            try:
-                import sys; sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-                from myai_v2 import TransformerLM, Tokenizer, AdamW, cross_entropy_loss
-                from myai_v2 import TextDataset, cosine_lr_schedule, clip_gradients
-                has_model = True
-            except ImportError:
-                has_model = False
-
-            if has_model and examples:
-                self._real_training(run, config, examples)
+            if examples:
+                try:
+                    # Try to import real training infrastructure from 45I
+                    sys.path.insert(0, str(Path(__file__).parent.parent.parent / "45I"))
+                    from finetune.pipeline import FineTuner, SimpleTokenizer
+                    
+                    # Get the singleton LLM bridge
+                    from llm_bridge import get_llm_bridge
+                    bridge = get_llm_bridge()
+                    
+                    # Build configuration for FineTuner
+                    ft_config = {
+                        'method':      config.get("method", "lora"),
+                        'lr':          config.get("lr", 1e-4),
+                        'batch_size':  config.get("batch_size", 4),
+                        'max_seq_len': config.get("seq_len", 128),
+                        'save_dir':    str(CKPT_DIR / "finetuned"),
+                    }
+                    
+                    # Convert TrainingExample format to FineTuner format
+                    # FineTuner expects [{'user': '...', 'assistant': '...'}]
+                    ft_data = [
+                        {'user': ex['input'], 'assistant': ex['output']}
+                        for ex in examples
+                    ]
+                    
+                    # Initialize FineTuner with the real Phase 1 model
+                    # Note: We use a wrapper or the raw model if FineTuner expects a specific class
+                    # For this research system, we'll use the bridge's model
+                    tokenizer = SimpleTokenizer(bridge.vocab_size)
+                    finetuner = FineTuner(bridge.lm, tokenizer, ft_config)
+                    
+                    # Run training
+                    logger.info(f"Starting real fine-tuning on {len(ft_data)} examples")
+                    finetuner.train(ft_data, epochs=config.get("epochs", 1))
+                    
+                    run.status = "done"
+                    run.final_loss = finetuner.train_losses[-1] if finetuner.train_losses else 0.0
+                    run.completed_at = datetime.utcnow().isoformat()
+                    self.db.save_run(run)
+                    
+                except ImportError as e:
+                    logger.warning(f"45I FineTuner not available: {e}. Falling back to stub.")
+                    self._stub_training(run, config)
+                except Exception as e:
+                    logger.error(f"Real training failed: {e}")
+                    run.status = "failed"
+                    run.error = str(e)
+                    self.db.save_run(run)
             else:
                 self._stub_training(run, config)
 

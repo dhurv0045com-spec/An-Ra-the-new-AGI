@@ -658,6 +658,37 @@ class LanguageModel:
         # Decode back to text
         return self._detokenize(gen_ids[0].tolist())
 
+    def forward(
+        self,
+        token_ids:   Union[np.ndarray, List[int]],
+        training:    bool = False,
+    ) -> np.ndarray:
+        """
+        Low-level forward pass to get raw logits.
+        Used by Phase 2/3 subsystems for training and reasoning.
+
+        Args:
+            token_ids: (batch, seq) or (seq,) token indices
+            training:  If True, enable dropout
+
+        Returns:
+            logits: (batch, seq, vocab) or (seq, vocab) float arrays
+        """
+        if self._model is None:
+            raise RuntimeError("Model not built.")
+
+        # Ensure 2D (batch, seq)
+        ids_arr = np.array(token_ids)
+        if ids_arr.ndim == 1:
+            ids_arr = ids_arr[np.newaxis, :]
+            is_1d = True
+        else:
+            is_1d = False
+
+        logits, _ = self._model.forward(ids_arr, training=training)
+
+        return logits[0] if is_1d else logits
+
     # ── Evaluation ────────────────────────────────────────────────────────
 
     def evaluate(

@@ -16,16 +16,16 @@ from typing import Optional, List, Dict, Any
 ROOT = Path(__file__).parent
 sys.path.insert(0, str(ROOT))
 
-from memory.store import MemoryStore, Memory, MemoryType, ImportanceLevel, IMPORTANCE_SCORES
-from memory.vectors import VectorStore, TFIDFEmbedder, get_embedder
-from memory.memory_types import EpisodicMemory, SemanticMemory, WorkingMemory
-from intelligence.extractor import MemoryExtractor
-from intelligence.retrieval import HybridRetriever, MemoryInjector
-from intelligence.memory_intelligence import (
+from store import MemoryStore, Memory, MemoryType, ImportanceLevel, IMPORTANCE_SCORES
+from vectors import VectorStore, TFIDFEmbedder, get_embedder
+from memory_types import EpisodicMemory, SemanticMemory, WorkingMemory
+from extractor import MemoryExtractor
+from retrieval import HybridRetriever, MemoryInjector
+from memory_intelligence import (
     ImportanceScorer, MemoryConsolidator, ForgettingSystem
 )
-from knowledge.graph import KnowledgeGraph
-from knowledge.context_builder import ContextBuilder
+from graph import KnowledgeGraph
+from context_builder import ContextBuilder
 
 
 class MemoryManager:
