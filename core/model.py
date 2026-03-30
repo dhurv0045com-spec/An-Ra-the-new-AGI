@@ -646,6 +646,21 @@ class LanguageModel:
             f"temp={temp}, top_k={k}, top_p={p}"
         )
 
+        # Parse TurboQuant settings from config
+        tq_enabled = inf.get("turboquant", False)
+        tq_config = None
+        if tq_enabled:
+            # We try to import it, but gracefully handle the case where it's unavailable
+            try:
+                from core.turboquant import TurboQuantConfig
+                tq_config = TurboQuantConfig(
+                    bits=inf.get("turboquant_bits", 4),
+                    enabled=True
+                )
+            except ImportError as e:
+                logger.warning(f"TurboQuant enabled in config but module is missing: {e}")
+                tq_enabled = False
+
         gen_ids = self._model.generate(
             prompt_array,
             max_new_tokens=n_new,
@@ -653,6 +668,8 @@ class LanguageModel:
             top_k=k,
             top_p=p,
             repetition_penalty=rep,
+            turboquant=tq_enabled,
+            tq_config=tq_config,
         )
 
         # Decode back to text

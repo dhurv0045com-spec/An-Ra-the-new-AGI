@@ -333,7 +333,7 @@ if __name__ == "__main__":
     full_mask = make_causal_mask(9)
     out_full, _ = dec_mha.forward(full_seq, mask=full_mask, kv_cache=cache2, rope_offset=0)
     diff = abs(out_t[0, 0] - out_full[0, -1]).max()
-    print(f"  Cached vs full at last position — max diff: {diff:.2e}  (target: ≈ 0)")
+    print(f"  Cached vs full at last position — max diff: {diff:.2e}  (target: ~ 0)")
     assert diff < 1e-4, f"KV-cache inconsistency: {diff}"
 
     # ── Cross-attention ────────────────────────────────────────────────────
@@ -357,5 +357,5 @@ if __name__ == "__main__":
     print(f"  GQA  (kv_heads=2): {gqa.count_parameters():>8,}")
     print(f"  MQA  (kv_heads=1): {mqa.count_parameters():>8,}")
 
-    print("\n  ✓ All multi-head attention tests passed")
+    print("\n  [OK] All multi-head attention tests passed")
     print("=" * 68)

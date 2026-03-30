@@ -41,9 +41,14 @@ KV-CACHE INTEGRATION:
 """
 
 import numpy as np
-from typing import Optional, List, Tuple
+from typing import Optional, List, Tuple, Any
 
-from attention          import make_causal_mask, softmax, KVCache
+from attention          import make_causal_mask, softmax, KVCache, make_kv_cache
+try:
+    from attention import TurboQuantConfig, _TURBOQUANT_AVAILABLE
+except ImportError:
+    TurboQuantConfig, _TURBOQUANT_AVAILABLE = None, False
+
 from transformer_block  import TransformerBlock
 from layernorm          import RMSNorm
 
@@ -158,16 +163,23 @@ class Decoder:
         """Return (1, 1, seq_len, seq_len) causal mask from cache."""
         return self._causal_mask_cache[:, :, :seq_len, :seq_len]
 
-    def _make_kv_caches(self, batch_size: int) -> List[KVCache]:
+    def _make_kv_caches(
+        self, 
+        batch_size: int,
+        turboquant: bool = False,
+        tq_config: Optional[Any] = None
+    ) -> List[KVCache]:
         """Create one KVCache per layer for autoregressive generation."""
         num_kv_heads = self.blocks[0].num_kv_heads
         d_head       = self.d_model // self.blocks[0].num_heads
         return [
-            KVCache(
+            make_kv_cache(
                 batch_size=batch_size,
                 num_kv_heads=num_kv_heads,
                 max_seq_len=self.max_seq_len,
                 d_head=d_head,
+                compressed=turboquant,
+                tq_config=tq_config,
             )
             for _ in self.blocks
         ]
@@ -368,6 +380,8 @@ class Decoder:
         repetition_penalty: float = 1.1,
         eos_token_id:     Optional[int] = None,
         enc_memory:       Optional[np.ndarray] = None,
+        turboquant:       bool = False,
+        tq_config:        Optional[Any] = None,
     ) -> np.ndarray:
         """
         Autoregressive text generation with KV-cache.
@@ -392,8 +406,12 @@ class Decoder:
         assert prompt_ids.ndim == 2 and prompt_ids.shape[0] == 1, \
             "generate() requires batch_size=1: shape (1, seq_len)"
 
-        # Step 1: Allocate per-layer KV caches
-        kv_caches = self._make_kv_caches(batch_size=1)
+        # Step 1: Allocate per-layer KV caches (compressed or standard)
+        kv_caches = self._make_kv_caches(
+            batch_size=1, 
+            turboquant=turboquant, 
+            tq_config=tq_config
+        )
 
         # Step 2: Prefill — run full prompt, populate KV caches
         prompt_len = prompt_ids.shape[1]
@@ -513,7 +531,7 @@ if __name__ == "__main__":
     print(f"\n[1] Forward pass — shapes")
     logits, hidden = decoder.forward(token_ids, training=False)
     print(f"  Tokens:  {token_ids.shape}")
-    print(f"  Logits:  {logits.shape}   ← (batch, seq, vocab)")
+    print(f"  Logits:  {logits.shape}   <- (batch, seq, vocab)")
     print(f"  Hidden:  {hidden.shape}")
     assert logits.shape  == (B, S, VOCAB)
     assert hidden.shape  == (B, S, D)
@@ -540,7 +558,7 @@ if __name__ == "__main__":
     # Greedy must be deterministic
     gen2 = decoder.generate(prompt, max_new_tokens=12, temperature=0.0)
     assert np.array_equal(gen, gen2), "Greedy not deterministic!"
-    print(f"  Greedy is deterministic: ✓")
+    print(f"  Greedy is deterministic: [OK]")
 
     # ── Cached vs uncached — last token must match ─────────────────────────
     print(f"\n[4] KV-cache correctness — cached decode matches full pass")
@@ -570,16 +588,16 @@ if __name__ == "__main__":
     print(f"  Temperature=1 stochastic: {not np.array_equal(gen_t1, gen_t2)}")
 
     gen_topk = decoder.generate(prompt, max_new_tokens=8, temperature=0.8, top_k=10)
-    print(f"  Top-k=10 length: {gen_topk.shape[1]}  ✓")
+    print(f"  Top-k=10 length: {gen_topk.shape[1]}  [OK]")
 
     gen_topp = decoder.generate(prompt, max_new_tokens=8, temperature=0.8, top_p=0.9)
-    print(f"  Top-p=0.9 length: {gen_topp.shape[1]}  ✓")
+    print(f"  Top-p=0.9 length: {gen_topp.shape[1]}  [OK]")
 
     gen_rep = decoder.generate(
         prompt, max_new_tokens=8, temperature=1.0,
         top_k=50, top_p=0.95, repetition_penalty=1.3
     )
-    print(f"  Repetition penalty=1.3 length: {gen_rep.shape[1]}  ✓")
+    print(f"  Repetition penalty=1.3 length: {gen_rep.shape[1]}  [OK]")
 
     # ── EOS token stopping ────────────────────────────────────────────────
     print(f"\n[6] EOS stopping")
@@ -587,7 +605,7 @@ if __name__ == "__main__":
     first_logits = decoder.forward(prompt, training=False)[0][0, -1]
     eos_id = int(np.argmax(first_logits))   # the greedily chosen first token
     gen_eos = decoder.generate(prompt, max_new_tokens=20, temperature=0.0, eos_token_id=eos_id)
-    print(f"  With EOS={eos_id}, generated len: {gen_eos.shape[1]}  (should be ≤ 25)")
+    print(f"  With EOS={eos_id}, generated len: {gen_eos.shape[1]}  (should be <= 25)")
     assert gen_eos.shape[1] <= 25
 
     # ── Seq2seq mode ──────────────────────────────────────────────────────
@@ -599,15 +617,15 @@ if __name__ == "__main__":
     )
     enc_mem  = rng.standard_normal((B, 15, D)).astype(np.float32)
     s2s_log, _ = s2s_dec.forward(token_ids, enc_memory=enc_mem)
-    print(f"  Encoder memory: {enc_mem.shape}  Logits: {s2s_log.shape}  ✓")
+    print(f"  Encoder memory: {enc_mem.shape}  Logits: {s2s_log.shape}  [OK]")
     assert s2s_log.shape == (B, S, VOCAB)
 
     # ── Parameter count and all IDs in range ──────────────────────────────
     print(f"\n[8] Sanity checks")
     assert np.all(gen >= 0) and np.all(gen < VOCAB), "Generated token IDs out of range!"
-    print(f"  All generated token IDs in [0, {VOCAB}): ✓")
+    print(f"  All generated token IDs in [0, {VOCAB}): [OK]")
     print(f"  Total params: {decoder.count_parameters():,}")
     print(f"  Params without emb: {decoder.count_parameters() - decoder.token_embedding.size:,}")
 
-    print("\n  ✓ All decoder tests passed")
+    print("\n  [OK] All decoder tests passed")
     print("=" * 68)
