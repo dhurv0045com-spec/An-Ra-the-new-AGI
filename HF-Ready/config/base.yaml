@@ -1,0 +1,107 @@
+# ================================================================================
+# base.yaml — Master Configuration Schema
+# Project: Transformer Language Model from Scratch
+# ================================================================================
+#
+# This file documents every available configuration field with defaults.
+# Preset configs (tiny/small/medium/large) override only what they change.
+# CLI flags override everything.
+#
+# Usage:
+#   python run.py --config config/tiny.yaml
+#   python run.py --config config/small.yaml --train.learning_rate 3e-4
+# ================================================================================
+
+# ── Model Architecture ──────────────────────────────────────────────────────
+model:
+  vocab_size: 32000          # Vocabulary size (matches tokenizer)
+  d_model: 512               # Embedding / hidden dimension
+  num_layers: 8              # Number of transformer blocks
+  num_heads: 8               # Query attention heads
+  num_kv_heads: 2            # KV heads for GQA (= num_heads for MHA)
+  d_ff: null                 # FFN hidden dim (null = SwiGLU auto: ~2.67x d_model)
+  max_seq_len: 1024          # Maximum context window length
+  dropout_rate: 0.1          # Dropout probability
+  ffn_type: "swiglu"         # "swiglu" (LLaMA-style) or "gelu" (GPT-2-style)
+  rope_base: 10000.0         # RoPE base frequency (increase for longer context)
+  tie_weights: true          # Share embedding ↔ LM head weights
+  pad_token_id: 0            # Padding token ID
+
+# ── Training ────────────────────────────────────────────────────────────────
+train:
+  # Data
+  dataset_path: "data/train.txt"       # Path to training text file
+  val_dataset_path: "data/val.txt"     # Path to validation text file
+  tokenizer_path: "tokenizer.json"     # Saved tokenizer path
+
+  # Optimization
+  learning_rate: 3.0e-4      # Peak learning rate
+  min_lr: 3.0e-5             # Minimum LR (end of cosine decay = 10% of peak)
+  weight_decay: 0.1          # AdamW weight decay
+  beta1: 0.9                 # AdamW beta1
+  beta2: 0.95                # AdamW beta2
+  grad_clip: 1.0             # Gradient clipping norm (0 = disabled)
+  max_grad_norm: 1.0         # Alias for grad_clip
+
+  # Schedule
+  warmup_steps: 2000         # Linear warmup steps
+  max_steps: 100000          # Total training steps
+  lr_schedule: "cosine"      # "cosine", "linear", "constant"
+
+  # Batching
+  batch_size: 16             # Training batch size (sequences per step)
+  gradient_accumulation: 1   # Accumulate gradients over N steps (effective batch × N)
+  seq_len: 512               # Training sequence length (must be ≤ model.max_seq_len)
+
+  # Checkpointing
+  checkpoint_dir: "checkpoints"        # Directory for saved checkpoints
+  checkpoint_every: 1000               # Save checkpoint every N steps
+  keep_last_n_checkpoints: 3          # Delete older checkpoints (0 = keep all)
+  resume_from: null                    # Path to checkpoint to resume from
+
+  # Evaluation
+  eval_every: 500            # Run validation every N steps
+  eval_steps: 50             # Number of validation batches per eval
+
+  # Logging
+  log_every: 10              # Log metrics every N steps
+  log_dir: "logs"            # Directory for log files
+
+  # Hardware
+  seed: 42                   # Random seed for reproducibility
+  num_workers: 0             # DataLoader workers (0 = main process)
+
+# ── Inference ───────────────────────────────────────────────────────────────
+inference:
+  checkpoint_path: null      # Path to checkpoint (required for generation)
+  max_new_tokens: 200        # Maximum tokens to generate
+  temperature: 0.8           # Sampling temperature (0 = greedy)
+  top_k: 50                  # Top-k filtering (0 = disabled)
+  top_p: 0.95                # Nucleus sampling threshold (1.0 = disabled)
+  repetition_penalty: 1.1    # Repetition penalty (1.0 = no penalty)
+  strategy: "top_p"          # "greedy", "temperature", "top_k", "top_p"
+  batch_size: 1              # Inference batch size
+
+# ── Logging & Observability ──────────────────────────────────────────────────
+logging:
+  level: "INFO"              # "DEBUG", "INFO", "WARNING", "ERROR"
+  log_to_file: true          # Save logs to log_dir/run_{timestamp}.log
+  log_to_console: true       # Print to stdout
+  use_wandb: false           # Enable Weights & Biases logging
+  wandb_project: "lm-scratch" # W&B project name
+  wandb_entity: null         # W&B team/username (null = personal)
+  wandb_run_name: null       # W&B run name (null = auto-generated)
+
+# ── Hardware & Performance ───────────────────────────────────────────────────
+hardware:
+  device: "cpu"              # "cpu" or "cuda" (auto-detected if "auto")
+  mixed_precision: false     # Enable FP16 training (requires CUDA)
+  compile_model: false       # torch.compile (requires PyTorch 2.0+)
+  gradient_checkpointing: false  # Trade compute for memory
+
+# ── Paths ────────────────────────────────────────────────────────────────────
+paths:
+  output_dir: "output"       # Root output directory
+  model_dir: "output/model"  # Saved model directory
+  log_dir: "output/logs"     # Log file directory
+  checkpoint_dir: "output/checkpoints"  # Checkpoint directory

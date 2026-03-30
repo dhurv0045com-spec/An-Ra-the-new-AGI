@@ -18,14 +18,14 @@ from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
 
 # ── Dynamic Path Resolution to load An-Ra Core ──────────────────────────────
-PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
+PROJECT_ROOT = Path(__file__).resolve().parent
 PHASE2_45M   = PROJECT_ROOT / "phase2" / "master_system (45M)"
 
 # Add paths to sys.path so we can import MasterSystem
 if str(PHASE2_45M) not in sys.path:
     sys.path.insert(0, str(PHASE2_45M))
 
-for p3 in ["45N", "45O", "45P", "45Q", "45R"]:
+for p3 in ["identity (45N)", "ouroboros (45O)", "ghost_memory (45P)", "symbolic_bridge (45Q)", "sovereignty (45R)"]:
     p = str(PROJECT_ROOT / "phase3" / p3)
     if p not in sys.path:
         sys.path.insert(0, p)
@@ -120,4 +120,4 @@ async def get_briefing():
 if __name__ == "__main__":
     import uvicorn
     # Start the server
-    uvicorn.run("server:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("app:app", host="0.0.0.0", port=8000, reload=True)

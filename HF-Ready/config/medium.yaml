@@ -1,0 +1,41 @@
+# ================================================================================
+# medium.yaml — Good GPU Preset
+# Target: RTX 3090/4090 (24GB VRAM) or A100 (40GB)
+# RAM: ~8GB training, ~2GB inference
+# Expected: ~2000–5000 tokens/sec
+# ================================================================================
+
+model:
+  vocab_size: 32000
+  d_model: 512
+  num_layers: 8
+  num_heads: 8
+  num_kv_heads: 2
+  max_seq_len: 1024
+  dropout_rate: 0.1
+  ffn_type: "swiglu"
+  tie_weights: true
+
+train:
+  dataset_path: "data/train.txt"
+  val_dataset_path: "data/val.txt"
+  batch_size: 32
+  seq_len: 512
+  learning_rate: 3.0e-4
+  min_lr: 3.0e-5
+  warmup_steps: 2000
+  max_steps: 100000
+  gradient_accumulation: 4
+  checkpoint_every: 2000
+  eval_every: 1000
+  eval_steps: 100
+  log_every: 10
+  weight_decay: 0.1
+  grad_clip: 1.0
+  keep_last_n_checkpoints: 5
+
+hardware:
+  device: "auto"
+  mixed_precision: true
+  compile_model: true
+  gradient_checkpointing: false

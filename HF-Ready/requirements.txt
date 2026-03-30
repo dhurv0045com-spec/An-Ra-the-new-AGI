@@ -1,0 +1,23 @@
+torch
+numpy
+PyYAML
+pytest
+tqdm
+transformers
+
+# ── Phase 3: 45Q Symbolic Logic Bridge (math/logic/code verification) ─────────
+sympy          # math solving and symbolic computation
+scipy          # numerical cross-verification
+
+# ── Phase 3: 45R Sovereignty Daemon (nightly self-improvement audit) ──────────
+psutil         # CPU/RAM monitoring for daemon
+
+# ── Phase 3: 45P Ghost State Memory (real embeddings) ────────────────────────
+sentence-transformers   # all-MiniLM-L6-v2 for real semantic search
+
+# ── Phase 3: 45N Identity Training (LoRA fine-tuning — GPU required) ─────────
+# Install only if you are training the identity model on a GPU machine:
+# peft
+# datasets
+# accelerate
+# bitsandbytes
