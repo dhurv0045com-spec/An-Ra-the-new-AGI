@@ -7,7 +7,7 @@ from pathlib import Path
 import asyncio
 
 # Add 45M to path to import llm_bridge
-m_path = Path(__file__).resolve().parent / "45M"
+m_path = Path(__file__).resolve().parent / "master_system (45M)"
 if str(m_path) not in sys.path:
     sys.path.insert(0, str(m_path))
 

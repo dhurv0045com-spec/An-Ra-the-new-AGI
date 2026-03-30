@@ -1,0 +1,27 @@
+2026-03-29 15:07:16,628 [INFO] config_loader: Loaded config preset: C:\Users\user\Downloads\An-Ra\config\tiny.yaml
+2026-03-29 15:07:16,635 [INFO] config_loader: Config validated successfully
+2026-03-29 15:28:05,939 [INFO] config_loader: Loaded config preset: C:\Users\user\Downloads\An-Ra\config\tiny.yaml
+2026-03-29 15:28:05,940 [INFO] config_loader: Config validated successfully
+2026-03-29 15:32:20,481 [INFO] config_loader: Loaded config preset: C:\Users\user\Downloads\An-Ra\config\tiny.yaml
+2026-03-29 15:32:20,482 [INFO] config_loader: Config validated successfully
+2026-03-29 15:43:08,835 [INFO] config_loader: Loaded config preset: C:\Users\user\Downloads\An-Ra\config\tiny.yaml
+2026-03-29 15:43:08,835 [INFO] config_loader: Config validated successfully
+2026-03-30 11:20:17,127 [INFO] config_loader: Loaded config preset: C:\Users\user\Downloads\An-Ra\config\tiny.yaml
+2026-03-30 11:20:17,128 [INFO] config_loader: Config validated successfully
+2026-03-30 11:21:16,923 [INFO] config_loader: Loaded config preset: C:\Users\user\Downloads\An-Ra\config\tiny.yaml
+2026-03-30 11:21:16,924 [INFO] config_loader: Config validated successfully
+2026-03-30 11:25:33,819 [INFO] registry: Tool registered: web_search [restricted]
+2026-03-30 11:25:33,820 [INFO] registry: Tool registered: code_executor [restricted]
+2026-03-30 11:25:33,820 [INFO] registry: Tool registered: file_manager [restricted]
+2026-03-30 11:25:33,820 [INFO] registry: Tool registered: calculator [safe]
+2026-03-30 11:25:33,820 [INFO] registry: Tool registered: memory_tool [safe]
+2026-03-30 11:25:33,821 [INFO] registry: Tool registered: summarizer [safe]
+2026-03-30 11:25:33,821 [INFO] registry: Tool registered: task_manager [safe]
+2026-03-30 11:25:33,821 [INFO] builtin: Registered 7 built-in tools
+2026-03-30 11:25:33,821 [INFO] agent_main: Agent initialized with 7 tools
+2026-03-30 11:25:42,710 [WARNING] engine: Crash recovery: last heartbeat was 257s ago (2026-03-30T05:51:25.766134)
+2026-03-30 11:25:42,734 [INFO] engine: Continuous engine running
+2026-03-30 11:25:42,872 [INFO] engine: Stopping engine...
+2026-03-30 11:25:42,900 [INFO] engine: Engine stopped cleanly
+2026-03-30 11:27:55,818 [INFO] config_loader: Loaded config preset: C:\Users\user\Downloads\An-Ra\config\tiny.yaml
+2026-03-30 11:27:55,818 [INFO] config_loader: Config validated successfully

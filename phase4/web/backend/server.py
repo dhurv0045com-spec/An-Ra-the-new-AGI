@@ -19,7 +19,7 @@ from typing import Optional, List, Dict, Any
 
 # ── Dynamic Path Resolution to load An-Ra Core ──────────────────────────────
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
-PHASE2_45M   = PROJECT_ROOT / "phase2" / "45M"
+PHASE2_45M   = PROJECT_ROOT / "phase2" / "master_system (45M)"
 
 # Add paths to sys.path so we can import MasterSystem
 if str(PHASE2_45M) not in sys.path:

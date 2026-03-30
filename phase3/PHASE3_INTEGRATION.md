@@ -4,7 +4,7 @@
 
 ```
 anra.py (entry point)
-    └── phase2/45M/system.py  (MasterSystem v2.0)
+    └── phase2/master_system (45M)/system.py  (MasterSystem v2.0)
             │
             ├── Phase 1: core/model.py  ─── LLMBridge (NumPy transformer)
             │
@@ -110,8 +110,8 @@ clean = inj.clean_response(response)
 
 ```bash
 # Upload to Google Colab T4 or NVIDIA GPU machine:
-python phase3/45N/train_identity.py  # trains phi-2 with LoRA (~2-4 hours)
-python phase3/45N/test_identity.py   # verify: should be 5/5
+python phase3/identity (45N)/train_identity.py  # trains phi-2 with LoRA (~2-4 hours)
+python phase3/identity (45N)/test_identity.py   # verify: should be 5/5
 ```
 
 ### 45O — Ouroboros Recursive Reasoning (CPU)
@@ -211,9 +211,9 @@ This is the current operational mode — everything works on CPU.
 python -m pytest tests/test_phase3_integration.py -v
 
 # Individual module smoke tests
-python phase3/45O/test_ouroboros.py        # needs torch
-python phase3/45Q/symbolic_bridge/demo.py  # needs sympy
-python phase3/45R/sovereignty/demo.py      # needs psutil
+python phase3/ouroboros (45O)/test_ouroboros.py        # needs torch
+python phase3/symbolic_bridge (45Q)/symbolic_bridge/demo.py  # needs sympy
+python phase3/sovereignty (45R)/sovereignty/demo.py      # needs psutil
 
 # Full system test via CLI
 python anra.py --status

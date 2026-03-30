@@ -30,10 +30,10 @@ from pathlib import Path
 
 # ── Resolve all project paths ─────────────────────────────────────────────────
 PROJECT_ROOT = Path(__file__).resolve().parent
-PHASE2_45M   = PROJECT_ROOT / "phase2" / "45M"
+PHASE2_45M   = PROJECT_ROOT / "phase2" / "master_system (45M)"
 
 # ── Add Phase 3 paths to sys.path for direct imports ─────────────────────────
-for p3 in ["45N", "45O", "45P", "45Q", "45R"]:
+for p3 in ["identity (45N)", "ouroboros (45O)", "ghost_memory (45P)", "symbolic_bridge (45Q)", "sovereignty (45R)"]:
     p = PROJECT_ROOT / "phase3" / p3
     if str(p) not in sys.path:
         sys.path.insert(0, str(p))
@@ -83,7 +83,7 @@ def _symbolic_query(query: str):
     """Run a direct 45Q symbolic query (math/logic/code)."""
     print(f"\n[ Symbolic Bridge Query ]\nQ: {query}\n")
     try:
-        sys.path.insert(0, str(PROJECT_ROOT / "phase3" / "45Q"))
+        sys.path.insert(0, str(PROJECT_ROOT / "phase3" / "symbolic_bridge (45Q)"))
         from symbolic_bridge import query as sym_query
         result = sym_query(query)
         print(f"Mode:       {result.mode}")

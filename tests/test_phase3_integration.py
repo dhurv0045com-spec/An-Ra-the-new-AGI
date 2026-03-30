@@ -21,7 +21,7 @@ from pathlib import Path
 # ── Setup paths ───────────────────────────────────────────────────────────────
 TEST_DIR     = Path(__file__).resolve().parent
 PROJECT_ROOT = TEST_DIR.parent
-PHASE2_45M   = PROJECT_ROOT / "phase2" / "45M"
+PHASE2_45M   = PROJECT_ROOT / "phase2" / "master_system (45M)"
 PHASE3       = PROJECT_ROOT / "phase3"
 
 # Add all necessary paths
@@ -49,7 +49,7 @@ class TestIdentityInjector:
     def setup_method(self):
         from identity_injector import IdentityInjector
         # Use the real identity file if available, else let it use fallback
-        identity_file = PROJECT_ROOT / "phase3" / "45N" / "anra_identity_v2.txt"
+        identity_file = PROJECT_ROOT / "phase3" / "identity (45N)" / "anra_identity_v2.txt"
         self.injector = IdentityInjector(identity_file=identity_file if identity_file.is_file()
                                          else None)
 
@@ -89,7 +89,7 @@ class TestIdentityInjector:
 
     def test_identity_file_loaded(self):
         """If identity file exists, anchors should be > 0."""
-        identity_file = PROJECT_ROOT / "phase3" / "45N" / "anra_identity_v2.txt"
+        identity_file = PROJECT_ROOT / "phase3" / "identity (45N)" / "anra_identity_v2.txt"
         if identity_file.is_file():
             assert self.injector.status()["anchors_loaded"] > 0
 
