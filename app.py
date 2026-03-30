@@ -9,10 +9,21 @@ accessible by the Vite React frontend.
 from contextlib import asynccontextmanager
 import sys
 import os
+import zipfile
 import asyncio
 from pathlib import Path
 
+# ── Dynamic Hugging Face Deployment Hack ──────────────────────────────────────
+# If we are on HF and missing the source directories, extract them from the zip!
+if not os.path.exists("phase2") and os.path.exists("anra_code.zip"):
+    print("[HF Deploy] Extracting anra_code.zip...")
+    with zipfile.ZipFile("anra_code.zip", 'r') as zip_ref:
+        zip_ref.extractall(".")
+    print("[HF Deploy] Extraction complete!")
+
 from fastapi import FastAPI, BackgroundTasks, HTTPException
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
@@ -116,6 +127,15 @@ async def get_briefing():
     """Returns morning briefing string."""
     briefing = await asyncio.to_thread(system.morning_briefing)
     return {"text": briefing}
+
+# ── serve React UI ───────────────────────────────────────────────────────────
+app.mount("/assets", StaticFiles(directory=str(PROJECT_ROOT / "ui" / "assets")), name="assets")
+
+@app.get("/")
+@app.get("/{catchall:path}")
+async def serve_ui():
+    """Serves the Vite-built React frontend."""
+    return FileResponse(str(PROJECT_ROOT / "ui" / "index.html"))
 
 if __name__ == "__main__":
     import uvicorn
