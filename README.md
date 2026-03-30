@@ -6,6 +6,8 @@ An-Ra is an autonomous AI system built entirely from scratch by **Ankit** — st
 
 **260 files · 187 Python modules · ~75,000 lines of code · MIT License**
 
+📖 **[VISION.md — Visualize the Full Architecture](VISION.md)** — From a single neuron to autonomous intelligence, with an Innovation Frontier mapping where breakthroughs will happen.
+
 ---
 
 ## Architecture Overview
@@ -15,6 +17,7 @@ anra.py                          ← Single entry point
     │
     ├── Phase 1: FOUNDATION      ← Custom transformer built from scratch in NumPy
     │   ├── core/                    Attention, Decoder, Encoder, FFN, LayerNorm
+    │   ├── core/turboquant.py       TurboQuant KV-cache compression (6x memory saving)
     │   ├── training/                Trainer, Checkpoints, Scheduler, Mixed Precision
     │   ├── inference/               Generation, Sampling, Evaluation
     │   ├── tokenizer/               Custom tokenizer
@@ -35,7 +38,44 @@ anra.py                          ← Single entry point
     │   └── 45R  Sovereignty Daemon (nightly self-audit & code quality improvement)
     │
     └── Phase 4: INTERFACE       ← Web-based control panel
-        └── web/                     Frontend + Backend for remote interaction
+        ├── app.py                   FastAPI backend server
+        └── ui/                      Compiled React frontend
+```
+
+---
+
+## What's New: TurboQuant KV-Cache Compression
+
+An-Ra now includes **TurboQuant** (Google Research, ICLR 2026) — a training-free, model-agnostic algorithm that compresses the KV-cache during inference by **6x** with near-zero accuracy loss.
+
+| Bit Depth | Compression | Use Case |
+|-----------|-------------|----------|
+| 8-bit | ~3.5x | Maximum accuracy |
+| **4-bit** | **~6x** | Recommended default |
+| 2-bit | ~10x | Maximum compression |
+
+**How it works:**
+1. **PolarQuant** — Randomized Walsh-Hadamard rotation spreads energy uniformly, then bucket-quantizes
+2. **QJL** — Sign-bit error correction via Johnson-Lindenstrauss random projections
+
+Enable it in your config:
+```yaml
+inference:
+  turboquant: true
+  turboquant_bits: 4   # 6x compression
+```
+
+Or in code:
+```python
+from core.turboquant import CompressedKVCache, TurboQuantConfig
+
+cache = CompressedKVCache(
+    batch_size=1, num_kv_heads=8,
+    max_seq_len=4096, d_head=64,
+    tq_config=TurboQuantConfig(bits=4),
+)
+# Use exactly like standard KVCache
+k_full, v_full = cache.update(k_new, v_new)
 ```
 
 ---
@@ -50,6 +90,9 @@ pip install torch numpy PyYAML tqdm transformers
 
 # Phase 3 modules
 pip install sympy scipy psutil sentence-transformers
+
+# Web interface
+pip install fastapi uvicorn
 
 # Identity training (GPU required — Google Colab or NVIDIA GPU)
 pip install peft datasets accelerate bitsandbytes
@@ -102,6 +145,7 @@ A complete transformer language model built from scratch in NumPy. No PyTorch fo
 | Transformer | `core/transformer_block.py` | Pre-norm transformer block |
 | Multi-Head | `core/multihead.py` | Grouped Query Attention (GQA) |
 | Model API | `core/model.py` | `LanguageModel` — train, generate, evaluate |
+| **TurboQuant** | `core/turboquant.py` | **KV-cache compression (6x memory reduction)** |
 
 ### Model Configurations
 
@@ -196,14 +240,6 @@ An-Ra's personality, voice, and coding fluency. The v4 training dataset teaches 
 - **Converse naturally** — humor, opinions, personality
 - **Self-improve** — evaluate and fix its own output
 
-| File | Purpose |
-|------|---------|
-| `anra_identity_v4_fluent.txt` | 117 training exchanges, 20 sections |
-| `train_identity.py` | LoRA fine-tuning (Colab T4 optimized) |
-| `train_identity_scale.py` | Multi-GPU training (DeepSpeed) |
-| `identity_injector.py` | Runtime identity injection (no GPU needed) |
-| `test_identity.py` | 10-test verification suite |
-
 ### 45O — Ouroboros Reasoning (`phase3/ouroboros (45O)/`)
 
 3-pass recursive reasoning architecture:
@@ -214,21 +250,13 @@ An-Ra's personality, voice, and coding fluency. The v4 training dataset teaches 
 
 Simple queries use 1 pass (fast). Complex queries use all 3.
 
-| File | Purpose |
-|------|---------|
-| `ouroboros_numpy.py` | CPU-only recursive reasoning |
-| `ouroboros.py` | PyTorch version (GPU) |
-| `adaptive.py` | Complexity detection — auto-selects pass count |
-| `pass_gates.py` | Pass gate mechanisms |
-| `train_ouroboros.py` | Training for Ouroboros weights |
-
 ### 45P — Ghost State Memory (`phase3/ghost_memory (45P)/`)
 
-Compressed conversational memory. Keeps a rolling window of conversation history, compressed into semantic summaries, so An-Ra remembers past interactions without exceeding context limits.
+Compressed conversational memory. Keeps a rolling window of conversation history, compressed into semantic summaries.
 
 ### 45Q — Symbolic Logic Bridge (`phase3/symbolic_bridge (45Q)/`)
 
-Verified math, logic, and code reasoning. When An-Ra detects a mathematical or logical question, it routes through this bridge for verified answers.
+Verified math, logic, and code reasoning.
 
 | Capability | Implementation |
 |------------|----------------|
@@ -247,18 +275,6 @@ Nightly self-improvement audit. Runs automatically and produces reports on:
 - Performance benchmarks
 - Resource utilization
 - Improvement recommendations
-
----
-
-## Phase 4 — Interface (phase4/)
-
-Web-based interface for remote interaction with An-Ra.
-
-```
-phase4/web/
-├── backend/     ← API server
-└── frontend/    ← Browser UI
-```
 
 ---
 
@@ -324,13 +340,16 @@ files.download('anra_model_v4.zip')
 ```
 An-Ra/
 ├── anra.py                 ← Unified entry point
+├── app.py                  ← FastAPI web server
 ├── requirements.txt        ← All dependencies
 ├── LICENSE                  ← MIT
 ├── CHANGELOG.md             ← Build history
+├── VISION.md                ← Full architecture visualization + innovation map
 │
 ├── core/                   ← Phase 1: Custom transformer (NumPy)
 │   ├── model.py                Public API: train, generate, evaluate
-│   ├── attention.py            Multi-head attention + RoPE
+│   ├── attention.py            Multi-head attention + RoPE + GQA
+│   ├── turboquant.py           TurboQuant KV-cache compression (6x)
 │   ├── decoder.py              Autoregressive decoder
 │   ├── encoder.py              Bidirectional encoder
 │   ├── feedforward.py          SwiGLU / GELU FFN
@@ -350,21 +369,22 @@ An-Ra/
 ├── tokenizer/              ← Custom tokenizer
 │
 ├── phase2/                 ← Phase 2: Intelligence
-│   ├── 45I/                    Fine-tuning pipeline
-│   ├── 45J/                    Memory (vector + graph + episodic)
-│   ├── 45k/                    Agent Loop (goal → plan → execute)
-│   ├── 45l/                    Self-improvement & skill library
-│   └── 45M/                    Master System (system.py)
+│   ├── fine_tuning (45I)/      Fine-tuning pipeline
+│   ├── memory (45J)/            Memory (vector + graph + episodic)
+│   ├── agent_loop (45k)/        Agent Loop (goal → plan → execute)
+│   ├── self_improvement (45l)/  Self-improvement & skill library
+│   └── master_system (45M)/     Master System (system.py)
 │
 ├── phase3/                 ← Phase 3: Cognition
-│   ├── 45N/                    Identity (v4 fluent, 117 exchanges)
-│   ├── 45O/                    Ouroboros (3-pass recursive reasoning)
-│   ├── 45P/                    Ghost Memory (compressed state)
-│   ├── 45Q/                    Symbolic Bridge (math/logic/code)
-│   └── 45R/                    Sovereignty Daemon (self-audit)
+│   ├── identity (45N)/          Identity (v4 fluent, 117 exchanges)
+│   ├── ouroboros (45O)/          Ouroboros (3-pass recursive reasoning)
+│   ├── ghost_memory (45P)/       Ghost Memory (compressed state)
+│   ├── symbolic_bridge (45Q)/    Symbolic Bridge (math/logic/code)
+│   └── sovereignty (45R)/        Sovereignty Daemon (self-audit)
 │
-├── phase4/                 ← Phase 4: Interface
-│   └── web/                    Frontend + Backend
+├── ui/                     ← Compiled React frontend
+│   ├── index.html
+│   └── assets/
 │
 ├── checkpoints/            ← Saved model weights
 ├── state/                  ← Runtime state files
@@ -398,6 +418,7 @@ An-Ra/
 | 3 | 45Q | Symbolic | Verified math/logic/code reasoning |
 | 3 | 45R | Sovereignty | Nightly self-improvement audit |
 | 4 | Web | Interface | Browser-based control panel |
+| 4 | TQ | TurboQuant | 6x KV-cache compression (ICLR 2026) |
 
 ---
 
@@ -405,12 +426,14 @@ An-Ra/
 
 - **Built from zero** — No borrowed models, no templates. Every neuron, every weight, every training loop written by hand.
 - **Real transformer in NumPy** — The core model is pure math, not a PyTorch wrapper.
+- **TurboQuant compression** — 6x KV-cache compression for longer contexts with near-zero accuracy loss.
 - **Autonomous agent** — Can plan, execute, evaluate, and self-correct without human intervention.
 - **Has a personality** — Not a neutral assistant. An-Ra has opinions, humor, ambition, and a distinct voice.
 - **Writes real code** — Trained on actual Python examples, not just descriptions of coding.
 - **Self-improves** — Evaluates its own output, identifies weaknesses, writes fixes.
 - **Verified reasoning** — Math and logic answers are verified through SymPy and SAT solvers.
 - **Recursive thinking** — Complex questions get 3 passes: understand → reason → verify.
+- **Visualized** — See [VISION.md](VISION.md) for a complete bottom-up walkthrough from neuron to AGI.
 
 ---
 

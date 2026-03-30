@@ -82,6 +82,13 @@ inference:
   strategy: "top_p"          # "greedy", "temperature", "top_k", "top_p"
   batch_size: 1              # Inference batch size
 
+  # TurboQuant KV-Cache Compression (Google Research, ICLR 2026)
+  # Compresses the KV cache at inference time for 6x memory reduction.
+  # Two-stage pipeline: PolarQuant rotation + QJL error correction.
+  # No accuracy loss for most tasks. No training or calibration required.
+  turboquant: false          # Enable TurboQuant KV-cache compression
+  turboquant_bits: 4         # Quantization bits (2=~10x, 4=~6x, 8=~3.5x compression)
+
 # ── Logging & Observability ──────────────────────────────────────────────────
 logging:
   level: "INFO"              # "DEBUG", "INFO", "WARNING", "ERROR"

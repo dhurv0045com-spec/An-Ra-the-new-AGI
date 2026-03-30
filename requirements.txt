@@ -5,6 +5,10 @@ pytest
 tqdm
 transformers
 
+# ── Phase 4: Web Interface (FastAPI backend) ──────────────────────────────────
+fastapi
+uvicorn
+
 # ── Phase 3: 45Q Symbolic Logic Bridge (math/logic/code verification) ─────────
 sympy          # math solving and symbolic computation
 scipy          # numerical cross-verification

@@ -9,17 +9,8 @@ accessible by the Vite React frontend.
 from contextlib import asynccontextmanager
 import sys
 import os
-import zipfile
 import asyncio
 from pathlib import Path
-
-# ── Dynamic Hugging Face Deployment Hack ──────────────────────────────────────
-# If we are on HF and missing the source directories, extract them from the zip!
-if not os.path.exists("phase2") and os.path.exists("anra_code.zip"):
-    print("[HF Deploy] Extracting anra_code.zip...")
-    with zipfile.ZipFile("anra_code.zip", 'r') as zip_ref:
-        zip_ref.extractall(".")
-    print("[HF Deploy] Extraction complete!")
 
 from fastapi import FastAPI, BackgroundTasks, HTTPException
 from fastapi.staticfiles import StaticFiles

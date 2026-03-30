@@ -45,6 +45,15 @@ import numpy as np
 from typing import Optional, Tuple
 
 
+# ── TurboQuant Integration ──────────────────────────────────────────────────
+# Import compressed cache for transparent KV-cache compression
+try:
+    from turboquant import CompressedKVCache, TurboQuantConfig, make_kv_cache
+    _TURBOQUANT_AVAILABLE = True
+except ImportError:
+    _TURBOQUANT_AVAILABLE = False
+
+
 # ──────────────────────────────────────────────────────────────────────────────
 # ROTARY POSITION EMBEDDINGS (RoPE)
 # ──────────────────────────────────────────────────────────────────────────────
