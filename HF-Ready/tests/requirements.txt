@@ -1,6 +1,0 @@
-torch
-numpy
-PyYAML
-pytest
-tqdm
-transformers

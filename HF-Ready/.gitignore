@@ -1,9 +1,0 @@
-__pycache__/
-*.pyc
-.env
-models/
-*.pt
-*.pth
-data/
-output/
-logs/
