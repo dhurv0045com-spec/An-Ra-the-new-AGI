@@ -3,6 +3,8 @@
 > *From a single neuron to autonomous intelligence — every layer, every connection, every thought.*
 >
 > This document is designed to help you **build a mental model** of the entire An-Ra system. Read it top to bottom. By the end, you'll be able to close your eyes and see the whole machine running.
+>
+> 🛠️ **Developers**: To learn how to exploit this system to its maximum potential and train it towards a "God Mode", read **[DEVELOPER.md](DEVELOPER.md)**.
 
 ---
 
@@ -612,7 +614,7 @@ These are the open frontiers where the next world-changing ideas will come from.
     45Q ──→ Symbolic Bridge (Verified Math/Logic)
     45R ──→ Sovereignty Daemon (Self-Audit)
     ─────────────────────── Phase 3 Complete: Cognition ─────
-    Web ──→ Browser Interface
+    Web ──→ Full-Potential AGI Control Panel (v2)
     TQ  ──→ TurboQuant (6x KV-Cache Compression)
     ─────────────────────── Phase 4 Complete: Interface ─────
     ??? ──→ The Innovation Frontier (see above)

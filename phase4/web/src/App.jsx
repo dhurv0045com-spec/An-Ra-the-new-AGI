@@ -2,13 +2,37 @@ import React, { useState } from 'react';
 import SystemTelemetry from './components/SystemTelemetry';
 import AgentGoalTracker from './components/AgentGoalTracker';
 import ChatInterface from './components/ChatInterface';
-import { Layers, Settings, HelpCircle, Activity, LayoutDashboard, Database, ShieldCheck } from 'lucide-react';
+import TrainingPanel from './components/TrainingPanel';
+import MemoryExplorer from './components/MemoryExplorer';
+import SovereigntyPanel from './components/SovereigntyPanel';
+import { Layers, Settings, HelpCircle, Activity, LayoutDashboard, Database, ShieldCheck, Brain } from 'lucide-react';
 
 function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
 
+  const renderContent = () => {
+    switch (activeTab) {
+      case 'dashboard':
+        return (
+          <>
+            <SystemTelemetry />
+            <ChatInterface />
+            <AgentGoalTracker />
+          </>
+        );
+      case 'training':
+        return <TrainingPanel />;
+      case 'memory':
+        return <MemoryExplorer />;
+      case 'sovereignty':
+        return <SovereigntyPanel />;
+      default:
+        return <div style={{ padding: '40px', textAlign: 'center' }}>Module under construction.</div>;
+    }
+  };
+
   return (
-    <div className="dashboard-container">
+    <div className="dashboard-container" style={{ gridTemplateColumns: activeTab === 'dashboard' ? '350px 1fr 350px' : '1fr' }}>
       {/* Main Header */}
       <header className="main-header glass-panel">
         <div className="brand">
@@ -19,6 +43,9 @@ function App() {
         <nav style={{ display: 'flex', gap: '32px' }}>
            <button onClick={() => setActiveTab('dashboard')} style={{ background: 'transparent', border: 'none', color: activeTab === 'dashboard' ? 'var(--accent-cyan)' : 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', transition: 'var(--transition-smooth)', fontSize: '0.9rem', fontWeight: 600 }}>
              <LayoutDashboard size={18} /> DASHBOARD
+           </button>
+           <button onClick={() => setActiveTab('training')} style={{ background: 'transparent', border: 'none', color: activeTab === 'training' ? 'var(--accent-cyan)' : 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', transition: 'var(--transition-smooth)', fontSize: '0.9rem', fontWeight: 600 }}>
+             <Brain size={18} /> NEURAL TRAINING
            </button>
            <button onClick={() => setActiveTab('memory')} style={{ background: 'transparent', border: 'none', color: activeTab === 'memory' ? 'var(--accent-cyan)' : 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', transition: 'var(--transition-smooth)', fontSize: '0.9rem', fontWeight: 600 }}>
              <Database size={18} /> MEMORY BANK
@@ -38,14 +65,8 @@ function App() {
         </div>
       </header>
 
-      {/* Side: Telemetry */}
-      <SystemTelemetry />
-
-      {/* Center: Chat Interface */}
-      <ChatInterface />
-
-      {/* Side: Goals/Actions */}
-      <AgentGoalTracker />
+      {/* Main Content Area */}
+      {renderContent()}
       
       {/* Aesthetic Background Accents */}
       <div style={{ position: 'fixed', bottom: -100, right: -100, width: 400, height: 400, borderRadius: '50%', background: 'var(--accent-purple-glow)', filter: 'blur(100px)', zIndex: -1 }} />

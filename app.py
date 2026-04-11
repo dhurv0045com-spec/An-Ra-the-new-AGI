@@ -19,34 +19,41 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
 
-# ── Dynamic Path Resolution to load An-Ra Core ──────────────────────────────
+# ── Dynamic Path Resolution ───────────────────────────────────────────────────
 PROJECT_ROOT = Path(__file__).resolve().parent
-PHASE2_45M   = PROJECT_ROOT / "phase2" / "master_system (45M)"
+PHASE2_45M_DIR = PROJECT_ROOT / "phase2" / "master_system (45M)"
 
-# Add paths to sys.path so we can import MasterSystem
-if str(PHASE2_45M) not in sys.path:
-    sys.path.insert(0, str(PHASE2_45M))
-
-for p3 in ["identity (45N)", "ouroboros (45O)", "ghost_memory (45P)", "symbolic_bridge (45Q)", "sovereignty (45R)"]:
-    p = str(PROJECT_ROOT / "phase3" / p3)
-    if p not in sys.path:
-        sys.path.insert(0, p)
-
-os.chdir(str(PHASE2_45M))
-from system import MasterSystem
+# Use importlib to load MasterSystem from the directory with spaces/parentheses
+import importlib.util
+system_py_path = PHASE2_45M_DIR / "system.py"
+spec = importlib.util.spec_from_file_location("master_system", str(system_py_path))
+master_system_module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(master_system_module)
+MasterSystem = master_system_module.MasterSystem
 
 # ── Global App State ──────────────────────────────────────────────────────────
-system: MasterSystem = None
+system: Optional[MasterSystem] = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global system
     print("[An-Ra] Initializing MasterSystem backend...")
-    system = MasterSystem()
-    system.start()
+    try:
+        system = MasterSystem()
+        # Non-blocking start if possible, or wrap in thread if it blocks significantly
+        await asyncio.to_thread(system.start)
+        print("[An-Ra] [OK] MasterSystem active")
+    except Exception as e:
+        print(f"[An-Ra] [CRITICAL] Backend Initialization Failed: {e}")
+        import traceback
+        traceback.print_exc()
+        system = None
+    
     yield
-    print("[An-Ra] Shutting down MasterSystem...")
-    system.stop()
+    
+    if system:
+        print("[An-Ra] Shutting down MasterSystem...")
+        await asyncio.to_thread(system.stop)
 
 # ── API Setup ────────────────────────────────────────────────────────────────
 app = FastAPI(title="An-Ra Web Interface", lifespan=lifespan)
@@ -67,6 +74,10 @@ class GoalRequest(BaseModel):
     title: str
     description: str
     priority: str = "medium"
+
+class MemorySearchRequest(BaseModel):
+    query: str
+    limit: int = 10
 
 # ── Endpoints ────────────────────────────────────────────────────────────────
 
@@ -103,15 +114,116 @@ async def active_goals():
     active = system.goals.db.list_goals("active")
     return [{"id": g.goal_id, "title": g.title, "progress": g.progress_pct} for g in active]
 
-@app.post("/api/train")
-async def trigger_training():
-    """Mock endpoint to trigger the high-scale training pipeline."""
-    # In a real environment, this would call subprocess to start train_identity_scale.py
-    # and return a Job ID.
+# ── Training Endpoints ───────────────────────────────────────────────────────
+
+@app.get("/api/train/status")
+async def get_train_status():
+    """Returns metrics from Continuous Learning and Distributed Trainer."""
+    if not system: raise HTTPException(status_code=503, detail="System not active")
+    
+    stats = system.continuous_learn.run_stats()
+    hw = system.trainer.hardware_profile()
+    
+    # Get last run history for charting
+    runs = system.trainer.db.list_runs()
+    latest_run = runs[0] if runs else None
+    
     return {
-        "status": "training_triggered",
-        "message": "High-scale LoRA training triggered. Awaiting GPU cluster connection..."
+        "stats": stats,
+        "hardware": hw,
+        "latest_run": {
+            "status": latest_run.status if latest_run else "idle",
+            "loss_history": latest_run.metrics_history if latest_run else [],
+            "id": latest_run.run_id if latest_run else None
+        } if latest_run else None
     }
+
+@app.post("/api/train/trigger")
+async def trigger_training_run():
+    """Manually triggers the weekly self-training run on gathered data."""
+    if not system: raise HTTPException(status_code=503, detail="System not active")
+    
+    # Start in background via MasterSystem's existing method
+    result = await asyncio.to_thread(system._self_training_run)
+    return {"status": "started", "message": result}
+
+# ── Memory Endpoints ─────────────────────────────────────────────────────────
+
+@app.get("/api/memory/stats")
+async def get_memory_stats():
+    if not system: 
+        raise HTTPException(status_code=503, detail="System not active")
+    
+    stats = {
+        "memory_45j": {"total_nodes": 0, "total_episodes": 0},
+        "knowledge_base": {"total_entries": 0},
+        "ghost_memory": {"active": False, "compression_ratio": 0.0}
+    }
+    
+    if system.memory:
+        try:
+            m_stats = await asyncio.to_thread(system.memory.stats)
+            store_stats = m_stats.get("memory", {})
+            by_type = store_stats.get("by_type", {})
+            
+            stats["memory_45j"]["total_nodes"] = m_stats.get("graph", {}).get("nodes", by_type.get("semantic", 0))
+            stats["memory_45j"]["total_episodes"] = by_type.get("episodic", 0)
+        except Exception as e:
+            print(f"Error fetching memory stats: {e}")
+
+    if hasattr(system, 'knowledge_base') and system.knowledge_base:
+        try:
+            kb_stats = await asyncio.to_thread(system.knowledge_base.stats)
+            stats["knowledge_base"]["total_entries"] = kb_stats.get("total_entries", 0)
+        except Exception as e:
+            print(f"Error fetching knowledge base stats: {e}")
+            
+    if system.ghost_memory:
+        try:
+            gm_status = await asyncio.to_thread(system.ghost_memory.status)
+            stats["ghost_memory"]["active"] = True
+            stats["ghost_memory"].update(gm_status)
+        except Exception:
+            pass
+            
+    return stats
+
+@app.post("/api/memory/search")
+async def search_memory(req: MemorySearchRequest):
+    """Allows searching semantic and episodic memory via web interface."""
+    if not system or not system.memory:
+        raise HTTPException(status_code=503, detail="Memory sub-system not active")
+    
+    results = await asyncio.to_thread(system.memory.retrieve, req.query, limit=req.limit)
+    return {"query": req.query, "results": results}
+
+# ── Sovereignty Endpoints ────────────────────────────────────────────────────
+
+@app.get("/api/sovereignty/status")
+async def get_sovereignty_status():
+    """Returns current audit health and last report summary."""
+    if not system or not system.sovereignty:
+        return {"enabled": False, "status": "Not initialized"}
+    
+    status_data = system.sovereignty.status()
+    report = system.sovereignty.get_nightly_report()
+    
+    return {
+        "enabled": status_data.get("enabled", False),
+        "status": "online" if status_data.get("available") else "initializing",
+        "last_audit": "Recent", 
+        "report": report
+    }
+
+@app.post("/api/sovereignty/audit")
+async def trigger_audit():
+    """Triggers a manual code and safety audit."""
+    if not system or not system.sovereignty:
+        raise HTTPException(status_code=503, detail="Sovereignty daemon not active")
+    
+    # Manual audit trigger
+    success = await asyncio.to_thread(system.sovereignty.trigger_pipeline)
+    return {"status": "audit_triggered" if success else "failed", "message": "Manual sovereignty audit has been queued." if success else "Daemon busy."}
 
 @app.get("/api/briefing")
 async def get_briefing():

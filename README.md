@@ -8,6 +8,8 @@ An-Ra is an autonomous AI system built entirely from scratch by **Ankit** — st
 
 📖 **[VISION.md — Visualize the Full Architecture](VISION.md)** — From a single neuron to autonomous intelligence, with an Innovation Frontier mapping where breakthroughs will happen.
 
+🛠️ **[DEVELOPER.md — God Mode Guide](DEVELOPER.md)** — Check the developer guide for instructions on pushing An-Ra's boundaries, training the network, accessing subsystems, and making it the world no. 1 AI system.
+
 ---
 
 ## Architecture Overview
@@ -39,7 +41,12 @@ anra.py                          ← Single entry point
     │
     └── Phase 4: INTERFACE       ← Web-based control panel
         ├── app.py                   FastAPI backend server
-        └── ui/                      Compiled React frontend
+        ├── phase4/web/              React Source (Vite)
+        └── ui/                      Compiled production build
+            ├── Dashboard            (Real-time telemetry + Chat + Goals)
+            ├── Neural Training      (Loss curves + Continuous learning trigger)
+            ├── Memory Bank          (Semantic search + 45J Node explorer)
+            └── Sovereignty          (Nightly audit reports + Code health)
 ```
 
 ---
@@ -417,7 +424,7 @@ An-Ra/
 | 3 | 45P | Ghost | Compressed conversational memory |
 | 3 | 45Q | Symbolic | Verified math/logic/code reasoning |
 | 3 | 45R | Sovereignty | Nightly self-improvement audit |
-| 4 | Web | Interface | Browser-based control panel |
+| 4 | Web | Interface | Full-Potential AGI Control Panel (v2) |
 | 4 | TQ | TurboQuant | 6x KV-cache compression (ICLR 2026) |
 
 ---
