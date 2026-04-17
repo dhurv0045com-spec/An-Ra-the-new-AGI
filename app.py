@@ -1,246 +1,455 @@
 """
-server.py
-FastAPI Backend for An-Ra Web Interface
-=========================================
-Wraps the Phase 3 MasterSystem into a robust REST and WebSocket backend
-accessible by the Vite React frontend.
+app.py — An-Ra Sovereign AI System · Production REST API
+=========================================================
+Architecture: FastAPI (async-ready, auto-docs, typed, streaming-upgradable)
+Session store: disk-backed JSON (survives Colab restarts within session dir)
+Model: loads ONCE on startup via lifespan context
+Adapter: swap generate.py in ONE place — ModelAdapter.run()
 """
 
-from contextlib import asynccontextmanager
-import sys
+import json
+import logging
 import os
-import asyncio
+import time
+import uuid
+from collections import deque
+from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any, Deque, Dict, List, Optional, Tuple
 
-from fastapi import FastAPI, BackgroundTasks, HTTPException
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+import uvicorn
+from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from typing import Optional, List, Dict, Any
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel, Field
 
-# ── Dynamic Path Resolution ───────────────────────────────────────────────────
-PROJECT_ROOT = Path(__file__).resolve().parent
-PHASE2_45M_DIR = PROJECT_ROOT / "phase2" / "master_system (45M)"
+# ─── Logging ─────────────────────────────────────────────────────────────────
 
-# Use importlib to load MasterSystem from the directory with spaces/parentheses
-import importlib.util
-system_py_path = PHASE2_45M_DIR / "system.py"
-spec = importlib.util.spec_from_file_location("master_system", str(system_py_path))
-master_system_module = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(master_system_module)
-MasterSystem = master_system_module.MasterSystem
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
+log = logging.getLogger("an-ra.api")
 
-# ── Global App State ──────────────────────────────────────────────────────────
-system: Optional[MasterSystem] = None
+# ─── Constants ────────────────────────────────────────────────────────────────
+
+MAX_EXCHANGES       = 20          # rolling window cap (user+assistant pairs)
+CONTEXT_CHAR_LIMIT  = 4096        # max chars fed into generate() per call
+SESSION_DIR         = Path("./sessions")  # disk persistence directory
+SESSION_DIR.mkdir(parents=True, exist_ok=True)
+
+# ─── Model Adapter ────────────────────────────────────────────────────────────
+# THIS IS THE ONLY PLACE YOU TOUCH WHEN generate.py CHANGES.
+# Everything else in this file is adapter-agnostic.
+
+class ModelAdapter:
+    """
+    Thin wrapper over generate.py.
+    Decouples the rest of the API from the generation interface.
+    """
+
+    def __init__(self):
+        self.model       = None
+        self.vocab_size  = None
+        self.device      = None
+        self.loaded      = False
+        self.load_error  = None
+
+    def load(self):
+        """Load the model once. Called at startup."""
+        try:
+            # ── SWAP POINT ──────────────────────────────────────────────────
+            # If your generate.py exposes a model object to load explicitly,
+            # do it here. Example:
+            #   from generate import load_model, VOCAB_SIZE, DEVICE
+            #   self.model = load_model()
+            #   self.vocab_size = VOCAB_SIZE
+            #   self.device = DEVICE
+            #
+            # For now we import the function and probe what we can.
+            from generate import generate as _generate  # noqa: F401
+
+            # Attempt to pull model metadata from generate module
+            import generate as _gen_module
+            self.vocab_size = getattr(_gen_module, "VOCAB_SIZE",
+                              getattr(_gen_module, "vocab_size", "unknown"))
+            self.device     = getattr(_gen_module, "DEVICE",
+                              getattr(_gen_module, "device", "cpu"))
+            self.loaded     = True
+            log.info(f"An-Ra loaded | vocab={self.vocab_size} | device={self.device}")
+            # ── END SWAP POINT ───────────────────────────────────────────────
+
+        except Exception as exc:
+            self.load_error = str(exc)
+            log.error(f"Model load failed: {exc}")
+            # We allow startup to succeed so /health can report the error.
+
+    def run(
+        self,
+        prompt:   str,
+        strategy: str = "greedy",
+        **kwargs: Any,
+    ) -> Tuple[str, float]:
+        """
+        Call generate() and return (response_text, elapsed_seconds).
+        Raises HTTPException if model isn't loaded.
+        """
+        if not self.loaded:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=f"Model not loaded: {self.load_error}",
+            )
+
+        # ── SWAP POINT ──────────────────────────────────────────────────────
+        # Adjust this call to match your actual generate() signature.
+        # Current assumption: generate(prompt, strategy, **kwargs) → str
+        from generate import generate  # local import — already cached by Python
+
+        t0 = time.perf_counter()
+        try:
+            text = generate(prompt, strategy, **kwargs)
+        except Exception as exc:
+            log.exception("generate() raised an exception")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Generation failed: {exc}",
+            )
+        elapsed = time.perf_counter() - t0
+        # ── END SWAP POINT ───────────────────────────────────────────────────
+
+        return text, elapsed
+
+
+# Singleton model adapter
+adapter = ModelAdapter()
+
+
+# ─── Session Store ────────────────────────────────────────────────────────────
+
+class SessionStore:
+    """
+    In-memory dict backed by per-session JSON files on disk.
+    Format: { session_id: deque([{role, content, ts}, ...]) }
+    Each file: sessions/<session_id>.json
+    """
+
+    def __init__(self, session_dir: Path):
+        self._dir: Path = session_dir
+        self._cache: Dict[str, Deque[Dict]] = {}
+
+    # ── private helpers ───────────────────────────────────────────────────────
+
+    def _path(self, sid: str) -> Path:
+        return self._dir / f"{sid}.json"
+
+    def _load_from_disk(self, sid: str) -> Deque[Dict]:
+        p = self._path(sid)
+        if p.exists():
+            try:
+                data = json.loads(p.read_text(encoding="utf-8"))
+                dq = deque(data, maxlen=MAX_EXCHANGES * 2)
+                log.info(f"Session {sid} restored from disk ({len(dq)} messages)")
+                return dq
+            except Exception as exc:
+                log.warning(f"Could not load session {sid} from disk: {exc}")
+        return deque(maxlen=MAX_EXCHANGES * 2)
+
+    def _save_to_disk(self, sid: str) -> None:
+        p = self._path(sid)
+        try:
+            p.write_text(
+                json.dumps(list(self._cache[sid]), ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
+        except Exception as exc:
+            log.warning(f"Could not persist session {sid}: {exc}")
+
+    # ── public API ────────────────────────────────────────────────────────────
+
+    def get(self, sid: str) -> Deque[Dict]:
+        if sid not in self._cache:
+            self._cache[sid] = self._load_from_disk(sid)
+        return self._cache[sid]
+
+    def append(self, sid: str, role: str, content: str) -> None:
+        history = self.get(sid)
+        history.append({
+            "role":    role,
+            "content": content,
+            "ts":      datetime.now(timezone.utc).isoformat(),
+        })
+        self._save_to_disk(sid)
+
+    def reset(self, sid: str) -> None:
+        self._cache[sid] = deque(maxlen=MAX_EXCHANGES * 2)
+        p = self._path(sid)
+        if p.exists():
+            p.unlink()
+        log.info(f"Session {sid} reset")
+
+    def history_as_list(self, sid: str) -> List[Dict]:
+        return list(self.get(sid))
+
+    def build_context(self, sid: str, new_message: str) -> str:
+        """
+        Build the rolling context string fed to generate().
+        Format:
+            User: <msg>
+            An-Ra: <msg>
+            ...
+            User: <new_message>
+        Truncated from the LEFT to stay within CONTEXT_CHAR_LIMIT.
+        """
+        lines = []
+        for entry in self.get(sid):
+            prefix = "User" if entry["role"] == "user" else "An-Ra"
+            lines.append(f"{prefix}: {entry['content']}")
+        lines.append(f"User: {new_message}")
+
+        context = "\n".join(lines)
+
+        # Trim from the left if over limit, keep the most recent exchanges
+        if len(context) > CONTEXT_CHAR_LIMIT:
+            context = context[-CONTEXT_CHAR_LIMIT:]
+            # Snap to the first complete "User:" boundary after trim
+            idx = context.find("\nUser:")
+            if idx != -1:
+                context = context[idx + 1:]
+
+        return context
+
+
+store = SessionStore(SESSION_DIR)
+
+# ─── Startup / Shutdown ───────────────────────────────────────────────────────
+
+START_TIME = time.time()
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global system
-    print("[An-Ra] Initializing MasterSystem backend...")
-    try:
-        system = MasterSystem()
-        # Non-blocking start if possible, or wrap in thread if it blocks significantly
-        await asyncio.to_thread(system.start)
-        print("[An-Ra] [OK] MasterSystem active")
-    except Exception as e:
-        print(f"[An-Ra] [CRITICAL] Backend Initialization Failed: {e}")
-        import traceback
-        traceback.print_exc()
-        system = None
-    
+    log.info("An-Ra API starting — loading model...")
+    adapter.load()
+    log.info("An-Ra API ready.")
     yield
-    
-    if system:
-        print("[An-Ra] Shutting down MasterSystem...")
-        await asyncio.to_thread(system.stop)
+    log.info("An-Ra API shutting down.")
 
-# ── API Setup ────────────────────────────────────────────────────────────────
-app = FastAPI(title="An-Ra Web Interface", lifespan=lifespan)
+
+# ─── App ──────────────────────────────────────────────────────────────────────
+
+app = FastAPI(
+    title="An-Ra Sovereign AI · REST API",
+    version="2.0.0",
+    description="Production API for the An-Ra transformer language model.",
+    lifespan=lifespan,
+)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # In production, restrict to Vite dev server origin
+    allow_origins=["*"],      # tighten to specific origin in production
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# ── Pydantic Models ────────────────────────────────────────────────────────
+
+# ─── Request Logging Middleware ───────────────────────────────────────────────
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    t0 = time.perf_counter()
+    response = await call_next(request)
+    elapsed_ms = (time.perf_counter() - t0) * 1000
+    log.info(
+        f"{request.method} {request.url.path} "
+        f"→ {response.status_code} | {elapsed_ms:.1f}ms"
+    )
+    return response
+
+
+# ─── Pydantic Schemas ─────────────────────────────────────────────────────────
+
+class GenerateRequest(BaseModel):
+    prompt:   str            = Field(...,         min_length=1, description="Raw prompt text")
+    strategy: str            = Field("greedy",                  description="Generation strategy")
+    params:   Dict[str, Any] = Field(default_factory=dict,      description="Extra kwargs passed to generate()")
+
+class GenerateResponse(BaseModel):
+    response:      str
+    strategy:      str
+    prompt_chars:  int
+    response_chars: int
+    elapsed_sec:   float
+    rating:        Optional[float] = None   # client can POST back a rating
+
 class ChatRequest(BaseModel):
-    message: str
+    session_id:   Optional[str]  = Field(None,  description="Omit to auto-create a new session")
+    user_message: str            = Field(...,   min_length=1)
+    strategy:     str            = Field("greedy")
+    params:       Dict[str, Any] = Field(default_factory=dict)
 
-class GoalRequest(BaseModel):
-    title: str
-    description: str
-    priority: str = "medium"
+class ChatResponse(BaseModel):
+    session_id:   str
+    response:     str
+    history:      List[Dict]
+    strategy:     str
+    elapsed_sec:  float
+    context_chars: int
+    rating:       Optional[float] = None
 
-class MemorySearchRequest(BaseModel):
-    query: str
-    limit: int = 10
+class ResetRequest(BaseModel):
+    session_id: str
 
-# ── Endpoints ────────────────────────────────────────────────────────────────
+class HealthResponse(BaseModel):
+    status:      str
+    model_loaded: bool
+    vocab_size:  Any
+    device:      Any
+    uptime_sec:  float
+    version:     str
 
-@app.get("/api/status")
-async def get_status():
-    """Returns the full system status, identical to CLI dashboard."""
-    if not system:
-        raise HTTPException(status_code=503, detail="System not active")
-    return system.status()
 
-@app.post("/api/chat")
-async def process_chat(req: ChatRequest):
-    """Processes a message through the Phase 3 pipeline (45Q>45N>45P>45O)."""
-    if not system:
-        raise HTTPException(status_code=503, detail="System not active")
-    
-    # Run chat synchronously but without blocking the async event loop
-    response = await asyncio.to_thread(system.chat, req.message)
-    return {"message": req.message, "response": response}
+# ─── Endpoints ────────────────────────────────────────────────────────────────
 
-@app.post("/api/goal")
-async def run_goal(req: GoalRequest):
-    """Spins up the agent loop for the specified goal."""
-    if not system:
-        raise HTTPException(status_code=503, detail="System not active")
-    
-    # The run_goal blocks; in a real app this should be enqueued
-    result = await asyncio.to_thread(system.run_goal, req.title + ": " + req.description)
-    return {"success": result.get("success"), "output": result.get("output", "Done.")}
+@app.get("/health", response_model=HealthResponse, tags=["Meta"])
+async def health():
+    """
+    Returns model status, vocab size, device, uptime.
+    Always returns 200 — check model_loaded for readiness.
+    """
+    return HealthResponse(
+        status      = "ok" if adapter.loaded else "degraded",
+        model_loaded= adapter.loaded,
+        vocab_size  = adapter.vocab_size,
+        device      = adapter.device,
+        uptime_sec  = round(time.time() - START_TIME, 2),
+        version     = "2.0.0",
+    )
 
-@app.get("/api/goals")
-async def active_goals():
-    if not system: return []
-    active = system.goals.db.list_goals("active")
-    return [{"id": g.goal_id, "title": g.title, "progress": g.progress_pct} for g in active]
 
-# ── Training Endpoints ───────────────────────────────────────────────────────
+@app.post("/generate", response_model=GenerateResponse, tags=["Generation"])
+async def generate_endpoint(req: GenerateRequest):
+    """
+    Single-shot, stateless generation.
+    No session, no history — just prompt → response.
+    """
+    text, elapsed = adapter.run(req.prompt, req.strategy, **req.params)
 
-@app.get("/api/train/status")
-async def get_train_status():
-    """Returns metrics from Continuous Learning and Distributed Trainer."""
-    if not system: raise HTTPException(status_code=503, detail="System not active")
-    
-    stats = system.continuous_learn.run_stats()
-    hw = system.trainer.hardware_profile()
-    
-    # Get last run history for charting
-    runs = system.trainer.db.list_runs()
-    latest_run = runs[0] if runs else None
-    
-    return {
-        "stats": stats,
-        "hardware": hw,
-        "latest_run": {
-            "status": latest_run.status if latest_run else "idle",
-            "loss_history": latest_run.metrics_history if latest_run else [],
-            "id": latest_run.run_id if latest_run else None
-        } if latest_run else None
-    }
+    return GenerateResponse(
+        response       = text,
+        strategy       = req.strategy,
+        prompt_chars   = len(req.prompt),
+        response_chars = len(text),
+        elapsed_sec    = round(elapsed, 4),
+    )
 
-@app.post("/api/train/trigger")
-async def trigger_training_run():
-    """Manually triggers the weekly self-training run on gathered data."""
-    if not system: raise HTTPException(status_code=503, detail="System not active")
-    
-    # Start in background via MasterSystem's existing method
-    result = await asyncio.to_thread(system._self_training_run)
-    return {"status": "started", "message": result}
 
-# ── Memory Endpoints ─────────────────────────────────────────────────────────
+@app.post("/chat", response_model=ChatResponse, tags=["Conversation"])
+async def chat_endpoint(req: ChatRequest):
+    """
+    Stateful conversation endpoint.
 
-@app.get("/api/memory/stats")
-async def get_memory_stats():
-    if not system: 
-        raise HTTPException(status_code=503, detail="System not active")
-    
-    stats = {
-        "memory_45j": {"total_nodes": 0, "total_episodes": 0},
-        "knowledge_base": {"total_entries": 0},
-        "ghost_memory": {"active": False, "compression_ratio": 0.0}
-    }
-    
-    if system.memory:
-        try:
-            m_stats = await asyncio.to_thread(system.memory.stats)
-            store_stats = m_stats.get("memory", {})
-            by_type = store_stats.get("by_type", {})
-            
-            stats["memory_45j"]["total_nodes"] = m_stats.get("graph", {}).get("nodes", by_type.get("semantic", 0))
-            stats["memory_45j"]["total_episodes"] = by_type.get("episodic", 0)
-        except Exception as e:
-            print(f"Error fetching memory stats: {e}")
+    Session lifecycle:
+    - Omit session_id → new UUID session created, persisted to disk
+    - Provide session_id → history loaded from disk (or memory cache)
+    - History capped at last MAX_EXCHANGES (20) user+assistant pairs
+    - Context built as rolling char window, trimmed from left at 4096 chars
 
-    if hasattr(system, 'knowledge_base') and system.knowledge_base:
-        try:
-            kb_stats = await asyncio.to_thread(system.knowledge_base.stats)
-            stats["knowledge_base"]["total_entries"] = kb_stats.get("total_entries", 0)
-        except Exception as e:
-            print(f"Error fetching knowledge base stats: {e}")
-            
-    if system.ghost_memory:
-        try:
-            gm_status = await asyncio.to_thread(system.ghost_memory.status)
-            stats["ghost_memory"]["active"] = True
-            stats["ghost_memory"].update(gm_status)
-        except Exception:
-            pass
-            
-    return stats
+    Why left-trim instead of truncate from right?
+    Because the most recent exchange must always survive intact.
+    Older context fades out naturally — same as a human conversation.
+    """
+    sid = req.session_id or str(uuid.uuid4())
 
-@app.post("/api/memory/search")
-async def search_memory(req: MemorySearchRequest):
-    """Allows searching semantic and episodic memory via web interface."""
-    if not system or not system.memory:
-        raise HTTPException(status_code=503, detail="Memory sub-system not active")
-    
-    results = await asyncio.to_thread(system.memory.retrieve, req.query, limit=req.limit)
-    return {"query": req.query, "results": results}
+    # Build context string from history + new message
+    context = store.build_context(sid, req.user_message)
+    context_chars = len(context)
 
-# ── Sovereignty Endpoints ────────────────────────────────────────────────────
+    # Run generation
+    response_text, elapsed = adapter.run(context, req.strategy, **req.params)
 
-@app.get("/api/sovereignty/status")
-async def get_sovereignty_status():
-    """Returns current audit health and last report summary."""
-    if not system or not system.sovereignty:
-        return {"enabled": False, "status": "Not initialized"}
-    
-    status_data = system.sovereignty.status()
-    report = system.sovereignty.get_nightly_report()
-    
-    return {
-        "enabled": status_data.get("enabled", False),
-        "status": "online" if status_data.get("available") else "initializing",
-        "last_audit": "Recent", 
-        "report": report
-    }
+    # Persist both sides of the exchange
+    store.append(sid, "user",      req.user_message)
+    store.append(sid, "assistant", response_text)
 
-@app.post("/api/sovereignty/audit")
-async def trigger_audit():
-    """Triggers a manual code and safety audit."""
-    if not system or not system.sovereignty:
-        raise HTTPException(status_code=503, detail="Sovereignty daemon not active")
-    
-    # Manual audit trigger
-    success = await asyncio.to_thread(system.sovereignty.trigger_pipeline)
-    return {"status": "audit_triggered" if success else "failed", "message": "Manual sovereignty audit has been queued." if success else "Daemon busy."}
+    return ChatResponse(
+        session_id    = sid,
+        response      = response_text,
+        history       = store.history_as_list(sid),
+        strategy      = req.strategy,
+        elapsed_sec   = round(elapsed, 4),
+        context_chars = context_chars,
+    )
 
-@app.get("/api/briefing")
-async def get_briefing():
-    """Returns morning briefing string."""
-    briefing = await asyncio.to_thread(system.morning_briefing)
-    return {"text": briefing}
 
-# ── serve React UI ───────────────────────────────────────────────────────────
-app.mount("/assets", StaticFiles(directory=str(PROJECT_ROOT / "ui" / "assets")), name="assets")
+@app.post("/reset", tags=["Session"])
+async def reset_endpoint(req: ResetRequest):
+    """
+    Clears a session's conversation history from memory and disk.
+    Returns 404 if the session never existed.
+    """
+    p = SESSION_DIR / f"{req.session_id}.json"
+    exists_on_disk = p.exists()
+    exists_in_mem  = req.session_id in store._cache
 
-@app.get("/")
-@app.get("/{catchall:path}")
-async def serve_ui():
-    """Serves the Vite-built React frontend."""
-    return FileResponse(str(PROJECT_ROOT / "ui" / "index.html"))
+    if not exists_on_disk and not exists_in_mem:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Session '{req.session_id}' not found.",
+        )
+
+    store.reset(req.session_id)
+    return JSONResponse({"status": "ok", "session_id": req.session_id, "cleared": True})
+
+
+@app.post("/rate", tags=["Feedback"])
+async def rate_response(
+    session_id: str,
+    message_index: int,
+    rating: float = Field(..., ge=1.0, le=5.0),
+):
+    """
+    Attach a rating (1–5) to a specific message in a session's history.
+    Persists back to disk. Designed for future RLHF data collection.
+    """
+    history = store.history_as_list(session_id)
+    if not history:
+        raise HTTPException(status_code=404, detail="Session not found or empty.")
+    if message_index < 0 or message_index >= len(history):
+        raise HTTPException(status_code=400, detail=f"message_index out of range (0–{len(history)-1}).")
+
+    # Write rating into the message entry
+    store.get(session_id)[message_index]["rating"] = rating
+    store._save_to_disk(session_id)
+
+    return JSONResponse({
+        "status":        "rated",
+        "session_id":    session_id,
+        "message_index": message_index,
+        "rating":        rating,
+    })
+
+
+# ─── Global Exception Handler ─────────────────────────────────────────────────
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    log.exception(f"Unhandled exception on {request.url.path}")
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error.", "type": type(exc).__name__},
+    )
+
+
+# ─── Entry Point ──────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    import uvicorn
-    # Start the server
-    uvicorn.run("app:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run(
+        "app:app",
+        host="0.0.0.0",
+        port=8000,
+        reload=False,       # set True during local dev only
+        log_level="info",
+    )
