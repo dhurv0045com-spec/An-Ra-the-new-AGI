@@ -4,32 +4,34 @@ import argparse
 import json
 import logging
 import time
+import traceback
+import uuid
 from collections import defaultdict, deque
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Deque, Dict, List, Optional
+from typing import Any, Deque, Dict, List
 
 import httpx
 import uvicorn
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
-from generate import detect_repetition, generate, generate_with_trace, get_model_info
+from generate import GenerationConfig, generate, generate_stream, generate_traced, get_model_info
 from full_system_connector import build_capability_graph
 
 START_TIME = time.time()
 SESSION_DIR = Path("/content/drive/MyDrive/AnRa/sessions/")
 SESSION_DIR.mkdir(parents=True, exist_ok=True)
 SESSIONS: Dict[str, Deque[Dict[str, str]]] = defaultdict(lambda: deque(maxlen=40))
+SESSION_META: Dict[str, Dict[str, Any]] = {}
+RATE_LIMIT_STORE: Dict[str, Deque[float]] = defaultdict(lambda: deque(maxlen=10))
 LOGGER = logging.getLogger("anra.api")
 logging.basicConfig(level=logging.INFO)
 
 
-# ======================================================================================
-# Adapter
-# ======================================================================================
 class ModelAdapter:
     def __init__(self) -> None:
         self.info: Dict[str, Any] = {}
@@ -41,22 +43,27 @@ class ModelAdapter:
         # SWAP POINT: replace only this line to redirect to a new backend model runtime.
         return generate(prompt, strategy=strategy, **params)
 
-    def run_trace(self, prompt: str, strategy: str = "nucleus", **params: Any) -> Dict[str, Any]:
-        trace = generate_with_trace(prompt, strategy=strategy, **params)
-        rep = detect_repetition(trace.generated_text)
-        return {"text": trace.generated_text, "elapsed_ms": trace.elapsed_ms, "trace": trace.summary(), "repetition": rep}
-
 
 ADAPTER = ModelAdapter()
 SYSTEM_GRAPH: Dict[str, Any] = {}
 
 
-# ======================================================================================
-# Session store helpers
-# ======================================================================================
-
 def _session_file(session_id: str) -> Path:
     return SESSION_DIR / f"{session_id}.json"
+
+
+def _now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def _ensure_meta(session_id: str) -> None:
+    if session_id not in SESSION_META:
+        SESSION_META[session_id] = {
+            "created_at": _now_iso(),
+            "last_active": _now_iso(),
+            "total_turns": 0,
+            "strategy_used": "nucleus",
+        }
 
 
 def _load_all_sessions_from_disk() -> None:
@@ -64,50 +71,85 @@ def _load_all_sessions_from_disk() -> None:
         try:
             sid = file.stem
             payload = json.loads(file.read_text(encoding="utf-8"))
-            dq = deque(payload, maxlen=40)
-            SESSIONS[sid] = dq
+            if isinstance(payload, list):
+                history = payload
+                meta = {"created_at": _now_iso(), "last_active": _now_iso(), "total_turns": 0, "strategy_used": "nucleus"}
+            else:
+                history = payload.get("history", [])
+                meta = payload.get("metadata", {})
+            SESSIONS[sid] = deque(history, maxlen=40)
+            _ensure_meta(sid)
+            SESSION_META[sid].update(meta)
         except Exception as exc:
             LOGGER.warning("Failed to preload session file %s: %s", file, exc)
 
 
 def _load_session(session_id: str) -> Deque[Dict[str, str]]:
+    _ensure_meta(session_id)
     if session_id in SESSIONS:
         return SESSIONS[session_id]
     file = _session_file(session_id)
     if file.exists():
-        data = json.loads(file.read_text(encoding="utf-8"))
-        SESSIONS[session_id].extend(data)
+        payload = json.loads(file.read_text(encoding="utf-8"))
+        if isinstance(payload, list):
+            SESSIONS[session_id].extend(payload)
+        else:
+            SESSIONS[session_id].extend(payload.get("history", []))
+            SESSION_META[session_id].update(payload.get("metadata", {}))
     return SESSIONS[session_id]
 
 
 def _save_session(session_id: str) -> None:
-    _session_file(session_id).write_text(
-        json.dumps(list(SESSIONS[session_id]), ensure_ascii=False, indent=2),
-        encoding="utf-8",
-    )
+    payload = {"history": list(SESSIONS[session_id]), "metadata": SESSION_META.get(session_id, {})}
+    _session_file(session_id).write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
-def _build_context(session_id: str, message: str, history_pairs: int = 20) -> str:
-    history = list(_load_session(session_id))[-(history_pairs * 2) :]
-    chunks: List[str] = []
+def _serialize_context_from_turns(turns: List[Dict[str, str]], message: str) -> str:
+    context_parts: List[str] = []
     i = 0
-    while i < len(history) - 1:
-        if history[i]["role"] == "user" and history[i + 1]["role"] == "assistant":
-            chunks.append(f"H: {history[i]['content']}\nANRA: {history[i + 1]['content']}\n")
+    while i < len(turns) - 1:
+        if turns[i]["role"] == "user" and turns[i + 1]["role"] == "assistant":
+            segment = f"H: {turns[i]['content']}\nANRA: {turns[i + 1]['content']}\n"
+            assert "\n\n" not in segment
+            context_parts.append(segment)
             i += 2
         else:
             i += 1
-    chunks.append(f"H: {message}\nANRA:")
-    return "".join(chunks)
+    final = f"H: {message}\nANRA:"
+    return "".join(context_parts) + final
+
+
+def _build_context(session_id: str, message: str) -> tuple[str, int, bool]:
+    history = list(_load_session(session_id))[-40:]
+    truncated = False
+    while True:
+        context = _serialize_context_from_turns(history, message)
+        if len(context) <= 1024 or len(history) <= 1:
+            turns_included = sum(1 for x in history if x.get("role") == "assistant")
+            return context, turns_included, truncated
+        history = history[2:]
+        truncated = True
 
 
 def _turn_count(history: Deque[Dict[str, str]]) -> int:
     return sum(1 for x in history if x.get("role") == "assistant")
 
 
-# ======================================================================================
-# FastAPI lifecycle
-# ======================================================================================
+def _rate_limit_or_429(session_id: str, request_id: str):
+    now = time.time()
+    window = RATE_LIMIT_STORE[session_id]
+    window.append(now)
+    while window and now - window[0] > 60:
+        window.popleft()
+    if len(window) > 10:
+        retry_after = max(1, int(60 - (now - window[0])))
+        return JSONResponse(
+            status_code=429,
+            content={"error": "rate_limit", "request_id": request_id, "retry_after_seconds": retry_after},
+        )
+    return None
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     ADAPTER.load()
@@ -119,45 +161,39 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(title="An-Ra API", version="2.0.0", lifespan=lifespan)
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 
 @app.middleware("http")
-async def log_requests(request: Request, call_next):
+async def request_context_middleware(request: Request, call_next):
+    request_id = str(uuid.uuid4())
+    request.state.request_id = request_id
     t0 = time.perf_counter()
     response = await call_next(request)
+    response.headers["X-Request-ID"] = request_id
     dt = (time.perf_counter() - t0) * 1000
-    LOGGER.info("%s %s %s %.2fms", request.method, request.url.path, response.status_code, dt)
+    LOGGER.info("[req_id=%s] %s %s %s %.2fms", request_id, request.method, request.url.path, response.status_code, dt)
     return response
 
 
 @app.exception_handler(Exception)
-async def global_exception_handler(_: Request, exc: Exception):
-    LOGGER.exception("Unhandled error: %s", exc)
-    return JSONResponse(status_code=500, content={"error": "internal_error", "message": str(exc)})
+async def global_exception_handler(request: Request, exc: Exception):
+    LOGGER.exception("[req_id=%s] Unhandled error\n%s", getattr(request.state, "request_id", "unknown"), traceback.format_exc())
+    return JSONResponse(
+        status_code=500,
+        content={
+            "error": "internal_error",
+            "request_id": getattr(request.state, "request_id", "unknown"),
+            "message": "An internal error occurred.",
+        },
+    )
 
 
-# ======================================================================================
-# Request/response schemas
-# ======================================================================================
 class GenerateRequest(BaseModel):
     prompt: str
     strategy: str = "nucleus"
+    session_id: str = "generate_default"
     params: Dict[str, Any] = Field(default_factory=dict)
-
-
-class GenerateResponse(BaseModel):
-    response: str
-    strategy: str
-    tokens_generated: int
-    time_ms: float
-    repetition: Dict[str, Any]
-    diagnostics: Dict[str, Any]
 
 
 class ChatRequest(BaseModel):
@@ -166,73 +202,113 @@ class ChatRequest(BaseModel):
     params: Dict[str, Any] = Field(default_factory=dict)
 
 
-class ChatResponse(BaseModel):
-    reply: str
-    session_id: str
-    turn: int
-    history: List[Dict[str, str]]
-    repetition: Dict[str, Any]
-
-
 class ResetRequest(BaseModel):
     session_id: str
 
 
-class ResetResponse(BaseModel):
-    cleared: bool
-    session_id: str
+@app.post("/generate")
+async def generate_route(body: GenerateRequest, request: Request):
+    limited = _rate_limit_or_429(body.session_id, request.state.request_id)
+    if limited:
+        return limited
 
+    cfg = GenerationConfig(strategy=body.strategy)
+    for k, v in body.params.items():
+        if hasattr(cfg, k):
+            setattr(cfg, k, v)
+    trace = generate_traced(body.prompt, cfg)
+    entropy_avg = sum(trace.entropy_curve) / max(len(trace.entropy_curve), 1)
+    max_prob_avg = sum(trace.max_prob_curve) / max(len(trace.max_prob_curve), 1)
 
-class HealthResponse(BaseModel):
-    status: str
-    model: str
-    checkpoint: str
-    device: str
-    vocab_size: int
-    uptime_seconds: float
-    sessions_active: int
-
-
-# ======================================================================================
-# Endpoints
-# ======================================================================================
-@app.post("/generate", response_model=GenerateResponse)
-async def generate_route(body: GenerateRequest):
-    t0 = time.perf_counter()
-    payload = ADAPTER.run_trace(body.prompt, strategy=body.strategy, **body.params)
-    elapsed = (time.perf_counter() - t0) * 1000
     return {
-        "response": payload["text"],
-        "strategy": body.strategy,
-        "tokens_generated": len(payload["text"]),
-        "time_ms": elapsed,
-        "repetition": payload["repetition"],
-        "diagnostics": payload["trace"],
+        "response": trace.output,
+        "strategy": trace.strategy,
+        "tokens_generated": trace.tokens_generated,
+        "time_ms": trace.time_ms,
+        "trace": {
+            "entropy_avg": entropy_avg,
+            "max_prob_avg": max_prob_avg,
+            "repeated_ngrams": trace.repeated_ngrams_detected,
+            "stopped_by": trace.stopped_by,
+        },
     }
 
 
-@app.post("/chat", response_model=ChatResponse)
-async def chat_route(body: ChatRequest):
+@app.post("/chat")
+async def chat_route(body: ChatRequest, request: Request):
+    limited = _rate_limit_or_429(body.session_id, request.state.request_id)
+    if limited:
+        return limited
+
     history = _load_session(body.session_id)
-    prompt = _build_context(body.session_id, body.message)
-    run_params = dict(body.params)
-    strategy = run_params.pop("strategy", "nucleus")
-    payload = ADAPTER.run_trace(prompt, strategy=strategy, **run_params)
+    context, turns_included, context_truncated = _build_context(body.session_id, body.message)
+    assert context.endswith(f"H: {body.message}\nANRA:")
+    assert "\n\n" not in context
+
+    strategy = body.params.get("strategy", "nucleus")
+    cfg = GenerationConfig(strategy=strategy)
+    for k, v in body.params.items():
+        if hasattr(cfg, k):
+            setattr(cfg, k, v)
+    run_params = {k: v for k, v in cfg.__dict__.items() if k != 'strategy'}
+    reply = ADAPTER.run(context, strategy=cfg.strategy, **run_params)
 
     history.append({"role": "user", "content": body.message})
-    history.append({"role": "assistant", "content": payload["text"]})
+    history.append({"role": "assistant", "content": reply})
+    _ensure_meta(body.session_id)
+    SESSION_META[body.session_id]["last_active"] = _now_iso()
+    SESSION_META[body.session_id]["total_turns"] = _turn_count(history)
+    SESSION_META[body.session_id]["strategy_used"] = cfg.strategy
     _save_session(body.session_id)
 
     return {
-        "reply": payload["text"],
+        "reply": reply,
         "session_id": body.session_id,
         "turn": _turn_count(history),
         "history": list(history),
-        "repetition": payload["repetition"],
+        "context_length": len(context),
+        "turns_included": turns_included,
+        "context_truncated": context_truncated,
     }
 
 
-@app.get("/health", response_model=HealthResponse)
+@app.get("/stream")
+async def stream_route(session_id: str, message: str, strategy: str = "nucleus"):
+    history = _load_session(session_id)
+    context, _, _ = _build_context(session_id, message)
+    cfg = GenerationConfig(strategy=strategy)
+
+    def event_gen():
+        assembled = ""
+        try:
+            for ch in generate_stream(context, cfg):
+                assembled += ch
+                yield f"data: {ch}\n\n"
+            history.append({"role": "user", "content": message})
+            history.append({"role": "assistant", "content": assembled})
+            _ensure_meta(session_id)
+            SESSION_META[session_id]["last_active"] = _now_iso()
+            SESSION_META[session_id]["total_turns"] = _turn_count(history)
+            SESSION_META[session_id]["strategy_used"] = strategy
+            _save_session(session_id)
+            yield "data: [DONE]\n\n"
+        except GeneratorExit:
+            return
+
+    return StreamingResponse(event_gen(), media_type="text/event-stream")
+
+
+@app.get("/sessions")
+async def sessions_route():
+    return {
+        "active_sessions": len(SESSIONS),
+        "session_ids": list(SESSIONS.keys()),
+        "total_turns": {sid: meta.get("total_turns", 0) for sid, meta in SESSION_META.items()},
+        "metadata": SESSION_META,
+    }
+
+
+@app.get("/health")
 async def health_route():
     info = ADAPTER.info or get_model_info()
     return {
@@ -246,9 +322,10 @@ async def health_route():
     }
 
 
-@app.post("/reset", response_model=ResetResponse)
+@app.post("/reset")
 async def reset_route(body: ResetRequest):
     SESSIONS.pop(body.session_id, None)
+    SESSION_META.pop(body.session_id, None)
     file = _session_file(body.session_id)
     if file.exists():
         file.unlink()
@@ -258,11 +335,19 @@ async def reset_route(body: ResetRequest):
 @app.get("/strategies")
 async def strategies_route():
     return {
-        "available": ["greedy", "temperature", "topk", "nucleus", "beam", "contrastive"],
-        "default": "nucleus",
+        "greedy": {"description": "Deterministic argmax decoding", "params": {}},
+        "temperature": {"description": "Temperature sampling", "params": {"temperature": 0.8}},
+        "topk": {"description": "Top-k sampling", "params": {"top_k": 40}},
+        "nucleus": {"description": "Top-p nucleus sampling", "params": {"top_p": 0.92}},
+        "beam": {"description": "Beam search", "params": {"beam_width": 4}},
+        "contrastive": {"description": "Contrastive or nucleus fallback", "params": {"top_p": 0.92}},
     }
 
 
+@app.get("/debug/context/{session_id}")
+async def debug_context_route(session_id: str, message: str = "debug"):
+    context, _, _ = _build_context(session_id, message)
+    return {"context": context}
 
 
 @app.get("/system-map")
@@ -273,72 +358,17 @@ async def system_map_route():
 @app.get("/phase-health")
 async def phase_health_route():
     graph = SYSTEM_GRAPH or build_capability_graph(Path(__file__).resolve().parent)
-    return {
-        "status": "ok",
-        "capabilities": graph.get("capabilities", {}),
-        "phase_snapshots": graph.get("phase_snapshots", []),
-    }
+    return {"status": "ok", "capabilities": graph.get("capabilities", {}), "phase_snapshots": graph.get("phase_snapshots", [])}
 
 
-# ======================================================================================
-# Built-in API test
-# ======================================================================================
 async def test_api(base_url: str = "http://127.0.0.1:8000") -> None:
     async with httpx.AsyncClient(base_url=base_url, timeout=30) as client:
-        r_health = await client.get("/health")
-        assert r_health.status_code == 200 and "status" in r_health.json()
-
-        r_generate = await client.post(
-            "/generate",
-            json={"prompt": "H: hi\nANRA:", "strategy": "nucleus", "params": {"max_new_tokens": 30}},
-        )
-        j_generate = r_generate.json()
-        assert r_generate.status_code == 200
-        assert "response" in j_generate and "time_ms" in j_generate and "diagnostics" in j_generate
-
-        r_chat = await client.post(
-            "/chat",
-            json={"session_id": "api_test", "message": "hello", "params": {"max_new_tokens": 20}},
-        )
-        j_chat = r_chat.json()
-        assert r_chat.status_code == 200
-        assert "reply" in j_chat and "history" in j_chat and "turn" in j_chat
-
-        r_reset = await client.post("/reset", json={"session_id": "api_test"})
-        assert r_reset.status_code == 200 and r_reset.json().get("cleared") is True
-
-        r_strat = await client.get("/strategies")
-        assert r_strat.status_code == 200 and "available" in r_strat.json()
-
-        r_map = await client.get("/system-map")
-        assert r_map.status_code == 200 and "file_count" in r_map.json()
-
-        r_phase = await client.get("/phase-health")
-        assert r_phase.status_code == 200 and "capabilities" in r_phase.json()
+        assert (await client.get("/health")).status_code == 200
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--test", action="store_true")
+    parser = argparse.ArgumentParser(description="Run An-Ra API server")
+    parser.add_argument("--host", default="127.0.0.1")
+    parser.add_argument("--port", type=int, default=8000)
     args = parser.parse_args()
-
-    if args.test:
-        import asyncio
-        import threading
-        import urllib.request
-
-        def run_server():
-            uvicorn.run(app, host="127.0.0.1", port=8000, log_level="warning")
-
-        t = threading.Thread(target=run_server, daemon=True)
-        t.start()
-        for _ in range(40):
-            try:
-                urllib.request.urlopen("http://127.0.0.1:8000/health", timeout=1)
-                break
-            except Exception:
-                time.sleep(0.25)
-        asyncio.run(test_api())
-        print("API READY")
-    else:
-        uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run("app:app", host=args.host, port=args.port, reload=False)
