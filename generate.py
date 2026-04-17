@@ -1,748 +1,408 @@
-"""
-generate.py — An-Ra Inference Engine
-=====================================
-Production-grade decoding module for the An-Ra sovereign AI system.
-Supports: greedy, temperature, top-k, top-p (nucleus), repetition penalty,
-          beam search, and contrastive search (bonus strategy).
+from __future__ import annotations
 
-Author: An-Ra Build Pipeline
-"""
-
-import sys
 import math
 import pickle
-import heapq
+import statistics
+import time
 from dataclasses import dataclass, field
-from typing import List, Optional, Tuple, Dict, Any
+from pathlib import Path
+from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
 import torch
 import torch.nn.functional as F
 
-# ─────────────────────────────────────────────
-#  CONFIG — edit these paths, never hardcode below
-# ─────────────────────────────────────────────
+from anra_brain import CausalTransformer
+
+# ======================================================================================
+# Configuration
+# ======================================================================================
 CONFIG = {
-    "model_path":     "anra_brain.pt",
+    "identity_checkpoint": "/content/drive/MyDrive/AnRa/anra_brain_identity.pt",
+    "base_checkpoint": "/content/drive/MyDrive/AnRa/anra_brain.pt",
+    "local_identity_checkpoint": "anra_brain_identity.pt",
+    "local_base_checkpoint": "anra_brain.pt",
     "tokenizer_path": "tokenizer.pkl",
-    "device":         "auto",          # "auto" | "cuda" | "cpu" | "mps"
-    "default_max_new_tokens": 200,
-    "default_strategy":       "top_p",
+    "n_embd": 256,
+    "n_head": 4,
+    "n_layer": 4,
+    "block_size": 128,
+    "default_max_new_tokens": 180,
+    "default_temperature": 0.8,
+    "default_top_k": 40,
+    "default_top_p": 0.92,
+    "default_beams": 4,
+    "default_penalty": 1.15,
+    "default_repetition_window": 128,
+    "default_seed": None,
+    "contrastive_alpha": 0.6,
+    "contrastive_k": 8,
+    "diagnostic_window": 64,
 }
-
-# ─────────────────────────────────────────────
-#  DEVICE RESOLUTION
-# ─────────────────────────────────────────────
-
-def resolve_device(preference: str = "auto") -> torch.device:
-    """Pick the best available device."""
-    if preference != "auto":
-        return torch.device(preference)
-    if torch.cuda.is_available():
-        return torch.device("cuda")
-    if torch.backends.mps.is_available():
-        return torch.device("mps")
-    return torch.device("cpu")
-
-
-DEVICE = resolve_device(CONFIG["device"])
-
-
-# ─────────────────────────────────────────────
-#  MODEL + TOKENIZER LOADING
-# ─────────────────────────────────────────────
-
-def load_tokenizer(path: str):
-    """Load a pickled CharTokenizer (or any tokenizer with encode/decode)."""
-    with open(path, "rb") as f:
-        tokenizer = pickle.load(f)
-    return tokenizer
-
-
-def load_model(path: str, device: torch.device):
-    """
-    Load An-Ra's CausalTransformer checkpoint.
-    Handles both full-model saves and state-dict-only saves gracefully.
-    """
-    checkpoint = torch.load(path, map_location=device, weights_only=False)
-
-    # Case 1: checkpoint is already the model object
-    if isinstance(checkpoint, torch.nn.Module):
-        model = checkpoint
-
-    # Case 2: dict with a 'model' or 'model_state_dict' key
-    elif isinstance(checkpoint, dict):
-        if "model" in checkpoint:
-            model = checkpoint["model"]
-        elif "model_state_dict" in checkpoint:
-            # We need the class to be importable. Try a local import first.
-            raise RuntimeError(
-                "Checkpoint contains only a state_dict. "
-                "Import your CausalTransformer class and call "
-                "model.load_state_dict(checkpoint['model_state_dict']) manually, "
-                "then pass the model object into the generate() function directly."
-            )
-        else:
-            # Assume the dict itself is a state dict — surface a clear error
-            raise RuntimeError(
-                "Unrecognised checkpoint format. Keys found: "
-                + str(list(checkpoint.keys())[:10])
-            )
-    else:
-        raise RuntimeError(f"Cannot interpret checkpoint of type {type(checkpoint)}")
-
-    model = model.to(device)
-    model.eval()
-    return model
-
-
-# ─────────────────────────────────────────────
-#  LOGIT PROCESSORS  (pure functions, composable)
-# ─────────────────────────────────────────────
-
-def apply_temperature(logits: torch.Tensor, temperature: float) -> torch.Tensor:
-    """
-    Divide logits by temperature before softmax.
-    temperature → 0  : approaches greedy (peaky distribution)
-    temperature = 1  : unmodified model distribution
-    temperature > 1  : flatter, more uniform / creative sampling
-    Clamps to a safe minimum to prevent division by zero.
-    """
-    temperature = max(temperature, 1e-8)
-    return logits / temperature
-
-
-def apply_top_k(logits: torch.Tensor, k: int) -> torch.Tensor:
-    """
-    Zero out all logits except the top-k.
-    Forces the model to only ever pick among k candidates per step.
-    """
-    if k <= 0:
-        return logits
-    k = min(k, logits.size(-1))
-    top_k_values, _ = torch.topk(logits, k)
-    threshold = top_k_values[..., -1, None]  # k-th largest value
-    return logits.masked_fill(logits < threshold, float("-inf"))
-
-
-def apply_top_p(logits: torch.Tensor, p: float) -> torch.Tensor:
-    """
-    Nucleus sampling (Holtzman et al., 2020).
-    Keep only the smallest set of tokens whose cumulative probability ≥ p.
-    More adaptive than top-k: on high-entropy steps it allows more candidates;
-    on low-entropy steps it aggressively narrows.
-    """
-    if p >= 1.0:
-        return logits
-    sorted_logits, sorted_indices = torch.sort(logits, descending=True)
-    cumulative_probs = torch.cumsum(F.softmax(sorted_logits, dim=-1), dim=-1)
-    # Remove tokens whose cumulative prob exceeds p (shift right so we keep the token
-    # that pushes us over the threshold)
-    sorted_indices_to_remove = cumulative_probs - F.softmax(sorted_logits, dim=-1) >= p
-    sorted_logits[sorted_indices_to_remove] = float("-inf")
-    # Scatter back to original ordering
-    logits = torch.scatter(logits, 0, sorted_indices, sorted_logits)
-    return logits
-
-
-def apply_repetition_penalty(
-    logits: torch.Tensor,
-    generated_ids: List[int],
-    penalty: float,
-) -> torch.Tensor:
-    """
-    Penalise tokens that have already appeared in the generated sequence.
-    For positive logits  → divide by penalty  (make less likely)
-    For negative logits → multiply by penalty (push further negative)
-    penalty = 1.0 means no change. Typical range: 1.1 – 1.5.
-    This follows the formulation from Keskar et al. (CTRL, 2019).
-    """
-    if penalty == 1.0 or not generated_ids:
-        return logits
-    unique_ids = list(set(generated_ids))
-    score = logits[unique_ids]
-    score = torch.where(score < 0, score * penalty, score / penalty)
-    logits[unique_ids] = score
-    return logits
-
-
-def apply_min_p(logits: torch.Tensor, min_p: float) -> torch.Tensor:
-    """
-    Min-P sampling (Nguyen et al., 2024) — bonus strategy.
-    Removes tokens whose probability is below min_p * P(top_token).
-    Scales the threshold relative to the model's confidence at each step,
-    making it robust across varying entropy without needing to tune top-k or top-p.
-    Outperforms nucleus sampling on instruction-following and coherence benchmarks.
-    """
-    if min_p <= 0.0:
-        return logits
-    probs = F.softmax(logits, dim=-1)
-    max_prob = probs.max()
-    threshold = min_p * max_prob
-    return logits.masked_fill(probs < threshold, float("-inf"))
-
-
-# ─────────────────────────────────────────────
-#  SAMPLING KERNEL
-# ─────────────────────────────────────────────
-
-def sample_from_logits(logits: torch.Tensor) -> int:
-    """Multinomial sample from a (potentially masked) logit vector."""
-    probs = F.softmax(logits, dim=-1)
-    # Guard: if all logits were -inf (bad config), fall back to argmax
-    if not torch.isfinite(probs).any() or probs.sum() < 1e-9:
-        return int(logits.argmax())
-    return int(torch.multinomial(probs, num_samples=1))
-
-
-# ─────────────────────────────────────────────
-#  AUTOREGRESSIVE FORWARD PASS HELPER
-# ─────────────────────────────────────────────
-
-@torch.inference_mode()
-def _next_logits(model: torch.nn.Module, token_ids: torch.Tensor) -> torch.Tensor:
-    """
-    Run one forward pass and return the logit vector for the next token.
-    Handles models that return (logits,) tuples, raw tensors, or dicts.
-    token_ids: shape (1, seq_len)
-    Returns: shape (vocab_size,)
-    """
-    output = model(token_ids)
-
-    if isinstance(output, torch.Tensor):
-        logits = output
-    elif isinstance(output, (tuple, list)):
-        logits = output[0]
-    elif isinstance(output, dict):
-        logits = output.get("logits", output.get("last_hidden_state"))
-    else:
-        raise RuntimeError(f"Unrecognised model output type: {type(output)}")
-
-    # logits shape: (batch, seq_len, vocab) → take last position
-    if logits.dim() == 3:
-        logits = logits[0, -1, :]
-    elif logits.dim() == 2:
-        logits = logits[-1, :]
-
-    return logits.float()  # always fp32 for numerical stability
-
-
-# ─────────────────────────────────────────────
-#  DECODING STRATEGIES
-# ─────────────────────────────────────────────
-
-@torch.inference_mode()
-def _decode_greedy(
-    model, token_ids: torch.Tensor, max_new_tokens: int, eos_id: Optional[int]
-) -> List[int]:
-    """Argmax at every step. Fast, deterministic, and (for small models) repetitive."""
-    generated = []
-    ids = token_ids.clone()
-
-    for _ in range(max_new_tokens):
-        logits = _next_logits(model, ids)
-        next_id = int(logits.argmax())
-        generated.append(next_id)
-        ids = torch.cat([ids, torch.tensor([[next_id]], device=ids.device)], dim=1)
-        if eos_id is not None and next_id == eos_id:
-            break
-
-    return generated
-
-
-@torch.inference_mode()
-def _decode_temperature(
-    model,
-    token_ids: torch.Tensor,
-    max_new_tokens: int,
-    eos_id: Optional[int],
-    temperature: float = 0.8,
-    top_k: int = 0,
-    top_p: float = 1.0,
-    repetition_penalty: float = 1.0,
-    min_p: float = 0.0,
-) -> List[int]:
-    """
-    General-purpose sampler. Applies processors in the recommended order:
-    repetition_penalty → temperature → top_k → top_p → min_p → sample.
-    Set temperature=1.0, top_k=0, top_p=1.0 for pure temperature sampling.
-    All filters compose cleanly.
-    """
-    generated: List[int] = []
-    ids = token_ids.clone()
-
-    for _ in range(max_new_tokens):
-        logits = _next_logits(model, ids)
-
-        # 1. Repetition penalty on the raw logits
-        all_ids = token_ids[0].tolist() + generated
-        logits = apply_repetition_penalty(logits, all_ids, repetition_penalty)
-
-        # 2. Temperature
-        logits = apply_temperature(logits, temperature)
-
-        # 3. Top-k
-        if top_k > 0:
-            logits = apply_top_k(logits, top_k)
-
-        # 4. Nucleus (top-p)
-        if top_p < 1.0:
-            logits = apply_top_p(logits, top_p)
-
-        # 5. Min-p (bonus)
-        if min_p > 0.0:
-            logits = apply_min_p(logits, min_p)
-
-        next_id = sample_from_logits(logits)
-        generated.append(next_id)
-        ids = torch.cat([ids, torch.tensor([[next_id]], device=ids.device)], dim=1)
-
-        if eos_id is not None and next_id == eos_id:
-            break
-
-    return generated
 
 
 @dataclass
-class _BeamHypothesis:
-    """A single hypothesis tracked during beam search."""
-    score: float                     # cumulative log-prob (normalised)
-    ids: List[int]                   # generated token ids so far
-    done: bool = False
+class GenerationConfig:
+    strategy: str = "nucleus"
+    max_new_tokens: int = CONFIG["default_max_new_tokens"]
+    temperature: float = CONFIG["default_temperature"]
+    top_k: int = CONFIG["default_top_k"]
+    top_p: float = CONFIG["default_top_p"]
+    beams: int = CONFIG["default_beams"]
+    alpha: float = CONFIG["contrastive_alpha"]
+    contrastive_k: int = CONFIG["contrastive_k"]
+    repetition_penalty: float = CONFIG["default_penalty"]
+    repetition_window: int = CONFIG["default_repetition_window"]
+    seed: Optional[int] = CONFIG["default_seed"]
+    stop_strings: Sequence[str] = field(default_factory=list)
 
-    # Make sortable for heapq (max-heap via negation)
-    def __lt__(self, other):
-        return self.score > other.score
+
+@dataclass
+class GenerationTrace:
+    strategy: str
+    prompt: str
+    generated_ids: List[int]
+    generated_text: str
+    elapsed_ms: float
+    entropy_curve: List[float] = field(default_factory=list)
+    max_prob_curve: List[float] = field(default_factory=list)
+
+    def summary(self) -> Dict[str, object]:
+        return {
+            "strategy": self.strategy,
+            "prompt_chars": len(self.prompt),
+            "output_chars": len(self.generated_text),
+            "elapsed_ms": self.elapsed_ms,
+            "entropy_mean": statistics.fmean(self.entropy_curve) if self.entropy_curve else 0.0,
+            "max_prob_mean": statistics.fmean(self.max_prob_curve) if self.max_prob_curve else 0.0,
+        }
 
 
-@torch.inference_mode()
-def _decode_beam_search(
-    model,
-    token_ids: torch.Tensor,
-    max_new_tokens: int,
-    eos_id: Optional[int],
-    num_beams: int = 4,
-    length_penalty: float = 1.0,
-    repetition_penalty: float = 1.0,
-) -> List[int]:
-    """
-    Standard beam search with length normalisation and optional repetition penalty.
-    Maintains `num_beams` candidate sequences in parallel and returns the one
-    with the highest length-normalised log-probability.
+# ======================================================================================
+# Initialization
+# ======================================================================================
 
-    length_penalty > 1.0  → favours longer sequences
-    length_penalty < 1.0  → favours shorter sequences
-    length_penalty = 1.0  → raw log-prob sum
-    """
-    vocab_size = model(token_ids)[0].shape[-1] if hasattr(model(token_ids), '__len__') else None
+def _resolve_device() -> torch.device:
+    if torch.cuda.is_available():
+        return torch.device("cuda")
+    return torch.device("cpu")
 
-    # Initialise: one beam with an empty generated sequence
-    beams: List[_BeamHypothesis] = [_BeamHypothesis(score=0.0, ids=[])]
-    completed: List[_BeamHypothesis] = []
 
-    prefix = token_ids[0].tolist()
+DEVICE = _resolve_device()
+MODULE_DIR = Path(__file__).resolve().parent
 
-    for step in range(max_new_tokens):
-        if not beams:
+
+def _checkpoint_candidates() -> List[Tuple[str, Path]]:
+    return [
+        ("identity", Path(CONFIG["identity_checkpoint"])),
+        ("identity", MODULE_DIR / CONFIG["local_identity_checkpoint"]),
+        ("base", Path(CONFIG["base_checkpoint"])),
+        ("base", MODULE_DIR / CONFIG["local_base_checkpoint"]),
+    ]
+
+
+def _load_tokenizer(path: Path):
+    with path.open("rb") as f:
+        return pickle.load(f)
+
+
+def _seed_all(seed: Optional[int]) -> None:
+    if seed is None:
+        return
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+
+
+def _init_model_and_tokenizer():
+    tokenizer_path = MODULE_DIR / CONFIG["tokenizer_path"]
+    tokenizer = _load_tokenizer(tokenizer_path)
+    vocab_size = int(getattr(tokenizer, "vocab_size"))
+
+    model = CausalTransformer(
+        vocab_size=vocab_size,
+        n_embd=CONFIG["n_embd"],
+        n_head=CONFIG["n_head"],
+        n_layer=CONFIG["n_layer"],
+        block_size=CONFIG["block_size"],
+    )
+
+    loaded_checkpoint = "none"
+    for ckpt_type, ckpt_path in _checkpoint_candidates():
+        if ckpt_path.exists():
+            state = torch.load(ckpt_path, map_location=DEVICE)
+            if isinstance(state, dict) and "model_state_dict" in state:
+                state = state["model_state_dict"]
+            model.load_state_dict(state, strict=False)
+            loaded_checkpoint = str(ckpt_path)
+            print(f"[generate.py] Loaded {ckpt_type} checkpoint: {ckpt_path}")
             break
 
-        all_candidates: List[_BeamHypothesis] = []
+    if loaded_checkpoint == "none":
+        print("[generate.py] WARNING: no checkpoint found, using random weights")
 
-        for beam in beams:
-            if beam.done:
-                all_candidates.append(beam)
-                continue
-
-            # Build input sequence for this beam
-            full_ids = prefix + beam.ids
-            input_tensor = torch.tensor([full_ids], dtype=torch.long, device=DEVICE)
-            logits = _next_logits(model, input_tensor)
-
-            # Apply repetition penalty per-beam
-            logits = apply_repetition_penalty(logits, full_ids, repetition_penalty)
-
-            log_probs = F.log_softmax(logits, dim=-1)
-
-            # Expand: keep top num_beams token extensions per existing beam
-            topk_vals, topk_ids = torch.topk(log_probs, num_beams)
-
-            for log_p, tok_id in zip(topk_vals.tolist(), topk_ids.tolist()):
-                new_ids = beam.ids + [tok_id]
-                # Length-normalised score
-                norm_len = ((5 + len(new_ids)) / 6) ** length_penalty
-                new_score = (beam.score * (len(beam.ids) or 1) + log_p) / norm_len
-                candidate = _BeamHypothesis(score=new_score, ids=new_ids)
-
-                if eos_id is not None and tok_id == eos_id:
-                    candidate.done = True
-                    completed.append(candidate)
-                else:
-                    all_candidates.append(candidate)
-
-        # Keep top num_beams candidates (excluding completed ones)
-        active = [c for c in all_candidates if not c.done]
-        active.sort()  # uses __lt__ → highest score first
-        beams = active[:num_beams]
-
-        # Early exit if all beams have completed
-        if not beams:
-            break
-
-    # Select winner from completed + remaining beams
-    pool = completed + beams
-    if not pool:
-        return []
-    pool.sort()
-    return pool[0].ids
+    model.to(DEVICE).eval()
+    return model, tokenizer, loaded_checkpoint
 
 
-@torch.inference_mode()
-def _decode_contrastive(
-    model,
-    token_ids: torch.Tensor,
-    max_new_tokens: int,
-    eos_id: Optional[int],
-    k: int = 5,
-    alpha: float = 0.6,
-) -> List[int]:
-    """
-    Contrastive Search (Su et al., 2022 — NEURIPS).
-    BONUS STRATEGY — not in the original spec but recommended.
+MODEL, TOKENIZER, LOADED_CHECKPOINT = _init_model_and_tokenizer()
+VOCAB_SIZE = int(getattr(TOKENIZER, "vocab_size"))
+PARAM_COUNT = int(sum(p.numel() for p in MODEL.parameters()))
 
-    At each step:
-      1. Select the top-k candidates by model probability.
-      2. Score each candidate by: (1-α) * model_prob
-                                   - α * max_cosine_sim(candidate, all_prev_hidden_states)
-      3. Choose the candidate that maximises this objective.
 
-    The cosine-similarity penalty discourages repetition at the representation level
-    (not just the token level), producing significantly more coherent and diverse text
-    than any pure sampling strategy — especially for small models like An-Ra that
-    tend to collapse into loops.
+# ======================================================================================
+# Core helpers
+# ======================================================================================
 
-    alpha: balance between model confidence (0) and anti-repetition (1).
-           Recommended: 0.5–0.7 for creative tasks, 0.3–0.5 for factual tasks.
-    k:     candidate pool size. Recommended: 4–8.
-    """
-    generated: List[int] = []
-    ids = token_ids.clone()
+def _encode(text: str) -> List[int]:
+    return TOKENIZER.encode(text)
 
-    # We need access to hidden states, so we probe the model's output structure
-    # to find a hidden-state tensor we can use for similarity. If the model only
-    # returns logits we fall back to token-level deduplication.
-    hidden_states_history: List[torch.Tensor] = []   # (vocab_dim,) per step
 
-    for step in range(max_new_tokens):
-        # ── Forward pass ──────────────────────────────────────────────────
-        output = model(ids)
+def _decode(ids: List[int]) -> str:
+    return TOKENIZER.decode(ids)
 
-        if isinstance(output, (tuple, list)):
-            raw_logits = output[0]
-            # If model returns hidden states as second element, use them
-            hidden_out = output[1] if len(output) > 1 else None
-        elif isinstance(output, torch.Tensor):
-            raw_logits = output
-            hidden_out = None
-        else:
-            raw_logits = output.get("logits", output.get("last_hidden_state"))
-            hidden_out = output.get("hidden_states", None)
 
-        if raw_logits.dim() == 3:
-            logits = raw_logits[0, -1, :].float()
-        else:
-            logits = raw_logits[-1, :].float()
+def _apply_repetition_penalty(logits: torch.Tensor, recent: Sequence[int], penalty: float) -> torch.Tensor:
+    if penalty <= 1.0 or not recent:
+        return logits
+    out = logits.clone()
+    for token_id in set(recent):
+        out[token_id] = out[token_id] / penalty
+    return out
 
-        # ── Get top-k candidate token ids ─────────────────────────────────
-        top_k_vals, top_k_ids = torch.topk(F.softmax(logits, dim=-1), k)
-        model_probs = top_k_vals  # shape (k,)
 
-        # ── Score candidates ──────────────────────────────────────────────
-        if hidden_states_history and hidden_out is None:
-            # No hidden states available — use token-level embedding proxy
-            # (embed the candidate id using the logit row as a proxy vector)
-            best_score = -float("inf")
-            best_id = int(top_k_ids[0])
+def _entropy_and_maxprob(logits: torch.Tensor) -> Tuple[float, float]:
+    probs = F.softmax(logits, dim=-1)
+    probs = torch.clamp(probs, 1e-12, 1.0)
+    ent = float((-probs * probs.log()).sum().item())
+    mx = float(probs.max().item())
+    return ent, mx
 
-            # Build history matrix from logit rows (vocab_size proxy embeddings)
-            # This is an approximation; works reasonably without hidden state access
-            for rank, (prob, tok_id) in enumerate(
-                zip(model_probs.tolist(), top_k_ids.tolist())
-            ):
-                tok_id = int(tok_id)
-                # Penalise tokens that match recent generated tokens
-                recency_penalty = sum(
-                    1.0 / (i + 1)
-                    for i, prev_id in enumerate(reversed(generated[-k:]))
-                    if prev_id == tok_id
-                )
-                score = (1 - alpha) * prob - alpha * min(recency_penalty, 1.0)
-                if score > best_score:
-                    best_score = score
-                    best_id = tok_id
 
-        else:
-            # Use real hidden-state cosine similarity if available
-            best_score = -float("inf")
-            best_id = int(top_k_ids[0])
+def _forward_logits(ids: Sequence[int]) -> Tuple[torch.Tensor, torch.Tensor]:
+    idx = torch.tensor([list(ids)[-CONFIG["block_size"] :]], dtype=torch.long, device=DEVICE)
+    logits, _ = MODEL(idx)
+    return logits[0, -1, :], logits[0]
 
-            for prob, tok_id in zip(model_probs.tolist(), top_k_ids.tolist()):
-                tok_id = int(tok_id)
-                if hidden_states_history:
-                    # Forward candidate token to get its hidden state
-                    cand_input = torch.cat(
-                        [ids, torch.tensor([[tok_id]], device=DEVICE)], dim=1
-                    )
-                    cand_out = model(cand_input)
-                    if isinstance(cand_out, (tuple, list)):
-                        cand_h = cand_out[0][0, -1, :].float()
-                    elif isinstance(cand_out, torch.Tensor):
-                        cand_h = cand_out[0, -1, :].float()
-                    else:
-                        cand_h = cand_out["logits"][0, -1, :].float()
 
-                    cand_h_norm = F.normalize(cand_h.unsqueeze(0), dim=-1)
-                    hist_matrix = torch.stack(hidden_states_history, dim=0)  # (t, d)
-                    hist_norm = F.normalize(hist_matrix, dim=-1)
-                    sims = (hist_norm @ cand_h_norm.T).squeeze()  # (t,)
-                    max_sim = float(sims.max()) if sims.numel() > 0 else 0.0
+def _apply_topk(logits: torch.Tensor, top_k: int) -> torch.Tensor:
+    if top_k <= 0:
+        return logits
+    values, indices = torch.topk(logits, k=min(top_k, logits.shape[-1]))
+    masked = torch.full_like(logits, float("-inf"))
+    masked[indices] = values
+    return masked
 
-                    score = (1 - alpha) * prob - alpha * max_sim
-                else:
-                    score = prob
 
-                if score > best_score:
-                    best_score = score
-                    best_id = tok_id
+def _apply_topp(logits: torch.Tensor, top_p: float) -> torch.Tensor:
+    if top_p >= 1.0:
+        return logits
+    sorted_logits, sorted_idx = torch.sort(logits, descending=True)
+    sorted_probs = F.softmax(sorted_logits, dim=-1)
+    cumulative = torch.cumsum(sorted_probs, dim=-1)
+    cutoff = cumulative > top_p
+    cutoff[1:] = cutoff[:-1].clone()
+    cutoff[0] = False
+    sorted_logits[cutoff] = float("-inf")
+    restored = torch.full_like(logits, float("-inf"))
+    restored[sorted_idx] = sorted_logits
+    return restored
 
-        next_id = best_id
+
+def _sample_from_logits(logits: torch.Tensor, cfg: GenerationConfig) -> int:
+    strategy = cfg.strategy
+    adjusted = logits
+    if strategy == "greedy":
+        return int(torch.argmax(adjusted).item())
+    if strategy == "temperature":
+        adjusted = adjusted / max(cfg.temperature, 1e-6)
+    elif strategy == "topk":
+        adjusted = _apply_topk(adjusted, cfg.top_k)
+    elif strategy == "nucleus":
+        adjusted = _apply_topp(adjusted, cfg.top_p)
+
+    probs = F.softmax(adjusted, dim=-1)
+    if torch.isnan(probs).any() or probs.sum().item() <= 0:
+        return int(torch.argmax(adjusted).item())
+    return int(torch.multinomial(probs, num_samples=1).item())
+
+
+# ======================================================================================
+# Decoders
+# ======================================================================================
+
+def _decode_autoregressive(prompt_ids: List[int], cfg: GenerationConfig, trace: GenerationTrace) -> List[int]:
+    generated = list(prompt_ids)
+    for _ in range(cfg.max_new_tokens):
+        logits, _ = _forward_logits(generated)
+        logits = _apply_repetition_penalty(logits, generated[-cfg.repetition_window :], cfg.repetition_penalty)
+        ent, mx = _entropy_and_maxprob(logits)
+        trace.entropy_curve.append(ent)
+        trace.max_prob_curve.append(mx)
+        next_id = _sample_from_logits(logits, cfg)
         generated.append(next_id)
-        ids = torch.cat([ids, torch.tensor([[next_id]], device=DEVICE)], dim=1)
-
-        if eos_id is not None and next_id == eos_id:
-            break
-
+        if cfg.stop_strings:
+            text = _decode(generated[len(prompt_ids) :])
+            if any(s and s in text for s in cfg.stop_strings):
+                break
     return generated
 
 
-# ─────────────────────────────────────────────
-#  PUBLIC INTERFACE
-# ─────────────────────────────────────────────
+def _beam_search(prompt_ids: List[int], cfg: GenerationConfig, trace: GenerationTrace) -> List[int]:
+    beam = [(0.0, list(prompt_ids))]
+    for _ in range(cfg.max_new_tokens):
+        candidates = []
+        for score, seq in beam:
+            logits, _ = _forward_logits(seq)
+            ent, mx = _entropy_and_maxprob(logits)
+            trace.entropy_curve.append(ent)
+            trace.max_prob_curve.append(mx)
+            log_probs = F.log_softmax(logits, dim=-1)
+            vals, idx = torch.topk(log_probs, k=min(cfg.beams, VOCAB_SIZE))
+            for v, i in zip(vals.tolist(), idx.tolist()):
+                candidates.append((score + v, seq + [i]))
+        candidates.sort(key=lambda x: x[0], reverse=True)
+        beam = candidates[: cfg.beams]
+    return beam[0][1]
 
-def generate(
-    prompt: str,
-    strategy: str = CONFIG["default_strategy"],
-    *,
-    model=None,
-    tokenizer=None,
-    max_new_tokens: int = CONFIG["default_max_new_tokens"],
-    # Temperature / sampling kwargs
-    temperature: float = 0.8,
-    top_k: int = 40,
-    top_p: float = 0.95,
-    min_p: float = 0.0,
-    repetition_penalty: float = 1.15,
-    # Beam search kwargs
-    num_beams: int = 4,
-    length_penalty: float = 1.0,
-    # Contrastive search kwargs
-    contrastive_k: int = 5,
-    contrastive_alpha: float = 0.6,
-    # Optional EOS token
-    eos_token: Optional[str] = None,
-) -> str:
-    """
-    Generate text from An-Ra given a prompt string.
 
-    Parameters
-    ----------
-    prompt          : The input string to condition generation on.
-    strategy        : One of 'greedy' | 'temperature' | 'top_k' | 'top_p' |
-                      'beam' | 'contrastive'.
-                      'temperature', 'top_k', and 'top_p' all share the same
-                      general sampler — they differ only in which filters are active.
-    model           : Pre-loaded model. If None, loads from CONFIG["model_path"].
-    tokenizer       : Pre-loaded tokenizer. If None, loads from CONFIG["tokenizer_path"].
-    max_new_tokens  : Maximum tokens to generate beyond the prompt.
-    temperature     : Sampling temperature. Ignored for greedy and beam.
-    top_k           : Keep only top-k tokens. 0 = disabled.
-    top_p           : Nucleus probability threshold. 1.0 = disabled.
-    min_p           : Min-P threshold (fraction of top token prob). 0.0 = disabled.
-    repetition_penalty : Penalty for repeated tokens. 1.0 = none.
-    num_beams       : Beam width for beam search.
-    length_penalty  : Beam search length normalisation exponent.
-    contrastive_k   : Candidate pool size for contrastive search.
-    contrastive_alpha: Anti-repetition weight for contrastive search.
-    eos_token       : Optional single character / string that terminates generation.
+def _contrastive_search(prompt_ids: List[int], cfg: GenerationConfig, trace: GenerationTrace) -> List[int]:
+    generated = list(prompt_ids)
+    recent = generated[-32:]
+    for _ in range(cfg.max_new_tokens):
+        logits, full_logits = _forward_logits(generated)
+        logits = _apply_repetition_penalty(logits, generated[-cfg.repetition_window :], cfg.repetition_penalty)
+        ent, mx = _entropy_and_maxprob(logits)
+        trace.entropy_curve.append(ent)
+        trace.max_prob_curve.append(mx)
 
-    Returns
-    -------
-    str : The generated text (prompt not included).
-    """
-    # ── Load resources if not provided ───────────────────────────────────
-    if tokenizer is None:
-        tokenizer = load_tokenizer(CONFIG["tokenizer_path"])
-    if model is None:
-        model = load_model(CONFIG["model_path"], DEVICE)
+        probs = F.softmax(logits, dim=-1)
+        top_probs, top_idx = torch.topk(probs, k=min(cfg.contrastive_k, probs.shape[-1]))
+        prev_states = full_logits[-min(len(recent), full_logits.shape[0]) :]
 
-    # ── Encode prompt ─────────────────────────────────────────────────────
-    input_ids: List[int] = tokenizer.encode(prompt)
-    if not input_ids:
-        raise ValueError("Prompt encodes to an empty token sequence.")
-    token_ids = torch.tensor([input_ids], dtype=torch.long, device=DEVICE)
+        best_score = -1e9
+        best_tok = int(top_idx[0].item())
+        for cand_prob, cand_tok in zip(top_probs, top_idx):
+            candidate_state = full_logits[-1].clone()
+            if prev_states.numel() > 0:
+                sim = F.cosine_similarity(candidate_state.unsqueeze(0), prev_states, dim=-1).max().item()
+            else:
+                sim = 0.0
+            score = cfg.alpha * math.log(max(cand_prob.item(), 1e-9)) - (1.0 - cfg.alpha) * sim
+            if score > best_score:
+                best_score = score
+                best_tok = int(cand_tok.item())
 
-    # ── EOS token id ─────────────────────────────────────────────────────
-    eos_id: Optional[int] = None
-    if eos_token is not None:
-        eos_encoded = tokenizer.encode(eos_token)
-        eos_id = eos_encoded[0] if eos_encoded else None
+        generated.append(best_tok)
+        recent.append(best_tok)
+        recent = recent[-32:]
+        if cfg.stop_strings:
+            text = _decode(generated[len(prompt_ids) :])
+            if any(s and s in text for s in cfg.stop_strings):
+                break
+    return generated
 
-    # ── Dispatch to strategy ──────────────────────────────────────────────
-    strategy = strategy.lower().strip()
 
-    if strategy == "greedy":
-        generated_ids = _decode_greedy(model, token_ids, max_new_tokens, eos_id)
+# ======================================================================================
+# Public API
+# ======================================================================================
 
-    elif strategy == "temperature":
-        generated_ids = _decode_temperature(
-            model, token_ids, max_new_tokens, eos_id,
-            temperature=temperature,
-            top_k=0,
-            top_p=1.0,
-            repetition_penalty=repetition_penalty,
-            min_p=min_p,
-        )
+def _build_config(strategy: str, kwargs: Dict[str, object]) -> GenerationConfig:
+    cfg = GenerationConfig(strategy=strategy.lower())
+    if "max_new_tokens" in kwargs:
+        cfg.max_new_tokens = int(kwargs.pop("max_new_tokens"))
+    if "temperature" in kwargs:
+        cfg.temperature = float(kwargs.pop("temperature"))
+    if "k" in kwargs:
+        cfg.top_k = int(kwargs.pop("k"))
+    if "p" in kwargs:
+        cfg.top_p = float(kwargs.pop("p"))
+    if "beams" in kwargs:
+        cfg.beams = int(kwargs.pop("beams"))
+    if "alpha" in kwargs:
+        cfg.alpha = float(kwargs.pop("alpha"))
+    if "repetition_penalty" in kwargs:
+        cfg.repetition_penalty = float(kwargs.pop("repetition_penalty"))
+    if "repetition_window" in kwargs:
+        cfg.repetition_window = int(kwargs.pop("repetition_window"))
+    if "seed" in kwargs:
+        cfg.seed = int(kwargs.pop("seed")) if kwargs["seed"] is not None else None
+    if "stop_strings" in kwargs:
+        cfg.stop_strings = list(kwargs.pop("stop_strings"))
+    if "contrastive_k" in kwargs:
+        cfg.contrastive_k = int(kwargs.pop("contrastive_k"))
+    return cfg
 
-    elif strategy == "top_k":
-        generated_ids = _decode_temperature(
-            model, token_ids, max_new_tokens, eos_id,
-            temperature=temperature,
-            top_k=top_k,
-            top_p=1.0,
-            repetition_penalty=repetition_penalty,
-            min_p=min_p,
-        )
 
-    elif strategy in ("top_p", "nucleus"):
-        generated_ids = _decode_temperature(
-            model, token_ids, max_new_tokens, eos_id,
-            temperature=temperature,
-            top_k=0,
-            top_p=top_p,
-            repetition_penalty=repetition_penalty,
-            min_p=min_p,
-        )
+def generate_with_trace(prompt: str, strategy: str = "nucleus", **kwargs) -> GenerationTrace:
+    if not prompt:
+        return GenerationTrace(strategy=strategy, prompt=prompt, generated_ids=[], generated_text="", elapsed_ms=0.0)
 
-    elif strategy == "combined":
-        # Top-k + Top-p + temperature + repetition penalty all active at once.
-        # This is a common production configuration (used by GPT-2 and LLaMA demos).
-        generated_ids = _decode_temperature(
-            model, token_ids, max_new_tokens, eos_id,
-            temperature=temperature,
-            top_k=top_k,
-            top_p=top_p,
-            repetition_penalty=repetition_penalty,
-            min_p=min_p,
-        )
+    run_kwargs = dict(kwargs)
+    cfg = _build_config(strategy, run_kwargs)
+    _seed_all(cfg.seed)
 
-    elif strategy == "beam":
-        generated_ids = _decode_beam_search(
-            model, token_ids, max_new_tokens, eos_id,
-            num_beams=num_beams,
-            length_penalty=length_penalty,
-            repetition_penalty=repetition_penalty,
-        )
+    prompt_ids = _encode(prompt)
+    if not prompt_ids:
+        prompt_ids = [0]
 
-    elif strategy == "contrastive":
-        generated_ids = _decode_contrastive(
-            model, token_ids, max_new_tokens, eos_id,
-            k=contrastive_k,
-            alpha=contrastive_alpha,
-        )
+    trace = GenerationTrace(strategy=cfg.strategy, prompt=prompt, generated_ids=[], generated_text="", elapsed_ms=0.0)
+    t0 = time.perf_counter()
 
+    if cfg.strategy in {"greedy", "temperature", "topk", "nucleus"}:
+        out_ids = _decode_autoregressive(prompt_ids, cfg, trace)
+    elif cfg.strategy == "beam":
+        out_ids = _beam_search(prompt_ids, cfg, trace)
+    elif cfg.strategy == "contrastive":
+        out_ids = _contrastive_search(prompt_ids, cfg, trace)
     else:
-        raise ValueError(
-            f"Unknown strategy '{strategy}'. "
-            "Choose from: greedy | temperature | top_k | top_p | combined | beam | contrastive"
-        )
+        raise ValueError(f"Unknown strategy '{cfg.strategy}'")
 
-    # ── Decode to string ──────────────────────────────────────────────────
-    if not generated_ids:
-        return ""
-    return tokenizer.decode(generated_ids)
+    generated = out_ids[len(prompt_ids) :]
+    text = _decode(generated).strip()
+
+    trace.generated_ids = generated
+    trace.generated_text = text
+    trace.elapsed_ms = (time.perf_counter() - t0) * 1000
+    return trace
 
 
-# ─────────────────────────────────────────────
-#  STANDALONE TEST HARNESS
-# ─────────────────────────────────────────────
+def generate(prompt: str, strategy: str = "nucleus", **kwargs) -> str:
+    trace = generate_with_trace(prompt, strategy=strategy, **kwargs)
+    return trace.generated_text
 
-def _run_demo():
-    """
-    Test all decoding strategies and print side-by-side results.
-    Run with:  python generate.py
-    """
-    print("=" * 65)
-    print("  An-Ra Inference Engine — Strategy Benchmark")
-    print(f"  Device : {DEVICE}")
-    print("=" * 65)
 
-    # Load once, reuse
-    print(f"\nLoading tokenizer from  : {CONFIG['tokenizer_path']}")
-    try:
-        tokenizer = load_tokenizer(CONFIG["tokenizer_path"])
-        print(f"  Vocab size            : {len(tokenizer.vocab) if hasattr(tokenizer, 'vocab') else '?'}")
-    except FileNotFoundError:
-        print(f"  [WARN] tokenizer not found at '{CONFIG['tokenizer_path']}' — aborting demo.")
-        return
+def get_model_info() -> Dict[str, object]:
+    return {
+        "checkpoint": LOADED_CHECKPOINT,
+        "device": str(DEVICE),
+        "vocab_size": VOCAB_SIZE,
+        "param_count": PARAM_COUNT,
+        "block_size": CONFIG["block_size"],
+        "default_strategy": "nucleus",
+    }
 
-    print(f"\nLoading model from      : {CONFIG['model_path']}")
-    try:
-        model = load_model(CONFIG["model_path"], DEVICE)
-        param_count = sum(p.numel() for p in model.parameters())
-        print(f"  Parameters            : {param_count:,}")
-    except (FileNotFoundError, RuntimeError) as e:
-        print(f"  [WARN] model load failed: {e}")
-        return
 
-    PROMPT = "The ancient city"
-    MAX_TOKENS = 120
-
-    strategies = [
-        ("greedy",       dict()),
-        ("temperature",  dict(temperature=0.9, repetition_penalty=1.2)),
-        ("top_k",        dict(temperature=0.8, top_k=40, repetition_penalty=1.15)),
-        ("top_p",        dict(temperature=0.8, top_p=0.92, repetition_penalty=1.15)),
-        ("combined",     dict(temperature=0.75, top_k=50, top_p=0.90,
-                              repetition_penalty=1.2, min_p=0.05)),
-        ("beam",         dict(num_beams=4, length_penalty=1.2,
-                              repetition_penalty=1.1)),
-        ("contrastive",  dict(contrastive_k=5, contrastive_alpha=0.6)),
-    ]
-
-    print(f'\nPrompt: "{PROMPT}"')
-    print(f"Max new tokens: {MAX_TOKENS}\n")
-
-    for strategy, kwargs in strategies:
-        print(f"── {strategy.upper()} {'─' * (52 - len(strategy))}")
-        try:
-            output = generate(
-                PROMPT,
-                strategy=strategy,
-                model=model,
-                tokenizer=tokenizer,
-                max_new_tokens=MAX_TOKENS,
-                **kwargs,
-            )
-            display = output.replace("\n", " ").strip()
-            if len(display) > 200:
-                display = display[:200] + "…"
-            print(f"  {display}")
-        except Exception as e:
-            print(f"  [ERROR] {e}")
-        print()
-
-    print("=" * 65)
-    print("  Demo complete. Import generate() into your pipeline.")
-    print("=" * 65)
+def detect_repetition(text: str, n: int = 3) -> Dict[str, object]:
+    if len(text) < n:
+        return {"has_repetition": False, "count": 0, "n": n}
+    seen = set()
+    repeats = 0
+    for i in range(len(text) - n + 1):
+        g = text[i : i + n]
+        if g in seen:
+            repeats += 1
+        seen.add(g)
+    return {"has_repetition": repeats > 0, "count": repeats, "n": n}
 
 
 if __name__ == "__main__":
-    _run_demo()
+    prompt = "H: Tell me who you are.\nANRA:"
+    strategies = ["greedy", "temperature", "topk", "nucleus", "beam", "contrastive"]
+    print("\n=== An-Ra Strategy Comparison ===")
+    print("Model info:", get_model_info())
+    for strat in strategies:
+        trace = generate_with_trace(prompt, strategy=strat, max_new_tokens=120)
+        rep = detect_repetition(trace.generated_text, n=3)
+        print(f"\n[{strat}] {trace.elapsed_ms:.1f}ms | repeat={rep['has_repetition']} ({rep['count']})")
+        print(trace.generated_text)
+        print("diagnostics:", trace.summary())

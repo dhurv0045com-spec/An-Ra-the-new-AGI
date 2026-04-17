@@ -1,0 +1,127 @@
+{
+  "repo_root": "/workspace/An-Ra-the-new-AGI",
+  "file_count": 290,
+  "python_file_count": 199,
+  "total_lines": 84544,
+  "capabilities": {
+    "turboquant": true,
+    "ouroboros": true,
+    "symbolic_bridge": true,
+    "sovereignty": true,
+    "web_ui": true,
+    "fastapi": true,
+    "integration_tests": true
+  },
+  "phase_snapshots": [
+    {
+      "name": "phase1_core",
+      "root": "core",
+      "file_count": 9,
+      "python_files": 9,
+      "total_lines": 4414,
+      "notable_files": [
+        "core/turboquant.py"
+      ]
+    },
+    {
+      "name": "phase2",
+      "root": "phase2",
+      "file_count": 92,
+      "python_files": 75,
+      "total_lines": 24630,
+      "notable_files": [
+        "phase2/master_system (45M)/README.md",
+        "phase2/master_system (45M)/_smoke_test.py",
+        "phase2/master_system (45M)/autonomy/__init__.py",
+        "phase2/master_system (45M)/autonomy/decisions.py",
+        "phase2/master_system (45M)/autonomy/engine.py",
+        "phase2/master_system (45M)/autonomy/goals.py",
+        "phase2/master_system (45M)/autonomy/proactive.py",
+        "phase2/master_system (45M)/context/__init__.py",
+        "phase2/master_system (45M)/context/session_context.py",
+        "phase2/master_system (45M)/control/__init__.py",
+        "phase2/master_system (45M)/control/control.py",
+        "phase2/master_system (45M)/llm_bridge.py",
+        "phase2/master_system (45M)/lora/__init__.py",
+        "phase2/master_system (45M)/lora/lora.py",
+        "phase2/master_system (45M)/memory/__init__.py",
+        "phase2/master_system (45M)/memory/ghost/memories.sqlite",
+        "phase2/master_system (45M)/memory/vector_memory.py",
+        "phase2/master_system (45M)/personalization/__init__.py",
+        "phase2/master_system (45M)/personalization/models.py",
+        "phase2/master_system (45M)/safety/__init__.py",
+        "phase2/master_system (45M)/safety/safety.py",
+        "phase2/master_system (45M)/scale/__init__.py",
+        "phase2/master_system (45M)/scale/pipeline.py",
+        "phase2/master_system (45M)/state/activity.log",
+        "phase2/master_system (45M)/state/decisions.db",
+        "phase2/master_system (45M)/state/engine.db",
+        "phase2/master_system (45M)/state/goals.db",
+        "phase2/master_system (45M)/state/personalization.db",
+        "phase2/master_system (45M)/state/proactive.db",
+        "phase2/master_system (45M)/state/reports/snapshot_2026-03-29.json"
+      ]
+    },
+    {
+      "name": "phase3",
+      "root": "phase3",
+      "file_count": 70,
+      "python_files": 58,
+      "total_lines": 19760,
+      "notable_files": [
+        "phase3/ouroboros (45O)/README.md",
+        "phase3/ouroboros (45O)/adaptive.py",
+        "phase3/ouroboros (45O)/ouroboros.py",
+        "phase3/ouroboros (45O)/ouroboros_numpy.py",
+        "phase3/ouroboros (45O)/pass_gates.py",
+        "phase3/ouroboros (45O)/test_ouroboros.py",
+        "phase3/ouroboros (45O)/train_ouroboros.py",
+        "phase3/ouroboros (45O)/weight_sharing.py",
+        "phase3/sovereignty (45R)/README.md",
+        "phase3/sovereignty (45R)/__init__.py",
+        "phase3/sovereignty (45R)/api.py",
+        "phase3/sovereignty (45R)/auditor.py",
+        "phase3/sovereignty (45R)/auth.py",
+        "phase3/sovereignty (45R)/benchmarks.py",
+        "phase3/sovereignty (45R)/config.py",
+        "phase3/sovereignty (45R)/daemon.py",
+        "phase3/sovereignty (45R)/dead_code.py",
+        "phase3/sovereignty (45R)/demo.py",
+        "phase3/sovereignty (45R)/improver.py",
+        "phase3/sovereignty (45R)/install.py",
+        "phase3/sovereignty (45R)/logger.py",
+        "phase3/sovereignty (45R)/reporter.py",
+        "phase3/sovereignty (45R)/requirements.txt",
+        "phase3/sovereignty (45R)/resource_monitor.py",
+        "phase3/sovereignty (45R)/scheduler.py",
+        "phase3/sovereignty (45R)/service.py",
+        "phase3/sovereignty (45R)/sovereignty_bridge.py",
+        "phase3/sovereignty (45R)/uninstall.py",
+        "phase3/sovereignty (45R)/watchdog.py",
+        "phase3/symbolic_bridge (45Q)/README.md"
+      ]
+    },
+    {
+      "name": "phase4",
+      "root": "phase4",
+      "file_count": 21,
+      "python_files": 0,
+      "total_lines": 4181,
+      "notable_files": [
+        "phase4/web/src/components/SovereigntyPanel.jsx",
+        "phase4/web/src/components/SystemTelemetry.jsx"
+      ]
+    },
+    {
+      "name": "api",
+      "root": ".",
+      "file_count": 5,
+      "python_files": 5,
+      "total_lines": 1551,
+      "notable_files": [
+        "app.py",
+        "generate.py"
+      ]
+    }
+  ]
+}
