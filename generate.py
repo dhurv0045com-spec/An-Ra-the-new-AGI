@@ -6,16 +6,13 @@ import statistics
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional, Sequence, Tuple
+from typing import Dict, Iterator, List, Optional, Sequence, Tuple
 
 import torch
 import torch.nn.functional as F
 
 from anra_brain import CausalTransformer
 
-# ======================================================================================
-# Configuration
-# ======================================================================================
 CONFIG = {
     "identity_checkpoint": "/content/drive/MyDrive/AnRa/anra_brain_identity.pt",
     "base_checkpoint": "/content/drive/MyDrive/AnRa/anra_brain.pt",
@@ -26,65 +23,37 @@ CONFIG = {
     "n_head": 4,
     "n_layer": 4,
     "block_size": 128,
-    "default_max_new_tokens": 180,
-    "default_temperature": 0.8,
-    "default_top_k": 40,
-    "default_top_p": 0.92,
-    "default_beams": 4,
-    "default_penalty": 1.15,
-    "default_repetition_window": 128,
-    "default_seed": None,
-    "contrastive_alpha": 0.6,
-    "contrastive_k": 8,
-    "diagnostic_window": 64,
 }
 
 
 @dataclass
 class GenerationConfig:
     strategy: str = "nucleus"
-    max_new_tokens: int = CONFIG["default_max_new_tokens"]
-    temperature: float = CONFIG["default_temperature"]
-    top_k: int = CONFIG["default_top_k"]
-    top_p: float = CONFIG["default_top_p"]
-    beams: int = CONFIG["default_beams"]
-    alpha: float = CONFIG["contrastive_alpha"]
-    contrastive_k: int = CONFIG["contrastive_k"]
-    repetition_penalty: float = CONFIG["default_penalty"]
-    repetition_window: int = CONFIG["default_repetition_window"]
-    seed: Optional[int] = CONFIG["default_seed"]
-    stop_strings: Sequence[str] = field(default_factory=list)
+    max_tokens: int = 200
+    temperature: float = 0.8
+    top_k: int = 40
+    top_p: float = 0.92
+    beam_width: int = 4
+    repetition_penalty: float = 1.15
+    repetition_window: int = 64
+    stop_strings: list[str] = field(default_factory=list)
+    seed: Optional[int] = None
 
 
 @dataclass
 class GenerationTrace:
+    output: str
     strategy: str
-    prompt: str
-    generated_ids: List[int]
-    generated_text: str
-    elapsed_ms: float
-    entropy_curve: List[float] = field(default_factory=list)
-    max_prob_curve: List[float] = field(default_factory=list)
+    tokens_generated: int
+    time_ms: float
+    entropy_curve: list[float]
+    max_prob_curve: list[float]
+    stopped_by: str
+    repeated_ngrams_detected: bool
 
-    def summary(self) -> Dict[str, object]:
-        return {
-            "strategy": self.strategy,
-            "prompt_chars": len(self.prompt),
-            "output_chars": len(self.generated_text),
-            "elapsed_ms": self.elapsed_ms,
-            "entropy_mean": statistics.fmean(self.entropy_curve) if self.entropy_curve else 0.0,
-            "max_prob_mean": statistics.fmean(self.max_prob_curve) if self.max_prob_curve else 0.0,
-        }
-
-
-# ======================================================================================
-# Initialization
-# ======================================================================================
 
 def _resolve_device() -> torch.device:
-    if torch.cuda.is_available():
-        return torch.device("cuda")
-    return torch.device("cpu")
+    return torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 DEVICE = _resolve_device()
@@ -117,7 +86,6 @@ def _init_model_and_tokenizer():
     tokenizer_path = MODULE_DIR / CONFIG["tokenizer_path"]
     tokenizer = _load_tokenizer(tokenizer_path)
     vocab_size = int(getattr(tokenizer, "vocab_size"))
-
     model = CausalTransformer(
         vocab_size=vocab_size,
         n_embd=CONFIG["n_embd"],
@@ -147,11 +115,21 @@ def _init_model_and_tokenizer():
 MODEL, TOKENIZER, LOADED_CHECKPOINT = _init_model_and_tokenizer()
 VOCAB_SIZE = int(getattr(TOKENIZER, "vocab_size"))
 PARAM_COUNT = int(sum(p.numel() for p in MODEL.parameters()))
+EOS_TOKEN_ID = getattr(TOKENIZER, "eos_token_id", None)
 
 
-# ======================================================================================
-# Core helpers
-# ======================================================================================
+@torch.no_grad()
+def _detect_hidden_state_support() -> bool:
+    try:
+        probe = torch.zeros((1, 1), dtype=torch.long, device=DEVICE)
+        out = MODEL(probe)
+        return isinstance(out, tuple) and len(out) >= 3
+    except Exception:
+        return False
+
+
+CONTRASTIVE_AVAILABLE = _detect_hidden_state_support()
+
 
 def _encode(text: str) -> List[int]:
     return TOKENIZER.encode(text)
@@ -173,15 +151,13 @@ def _apply_repetition_penalty(logits: torch.Tensor, recent: Sequence[int], penal
 def _entropy_and_maxprob(logits: torch.Tensor) -> Tuple[float, float]:
     probs = F.softmax(logits, dim=-1)
     probs = torch.clamp(probs, 1e-12, 1.0)
-    ent = float((-probs * probs.log()).sum().item())
-    mx = float(probs.max().item())
-    return ent, mx
+    return float((-probs * probs.log()).sum().item()), float(probs.max().item())
 
 
-def _forward_logits(ids: Sequence[int]) -> Tuple[torch.Tensor, torch.Tensor]:
+def _forward_logits(ids: Sequence[int]) -> torch.Tensor:
     idx = torch.tensor([list(ids)[-CONFIG["block_size"] :]], dtype=torch.long, device=DEVICE)
     logits, _ = MODEL(idx)
-    return logits[0, -1, :], logits[0]
+    return logits[0, -1, :]
 
 
 def _apply_topk(logits: torch.Tensor, top_k: int) -> torch.Tensor:
@@ -226,100 +202,123 @@ def _sample_from_logits(logits: torch.Tensor, cfg: GenerationConfig) -> int:
     return int(torch.multinomial(probs, num_samples=1).item())
 
 
-# ======================================================================================
-# Decoders
-# ======================================================================================
+def detect_repetition(text: str) -> Dict[str, object]:
+    words = text.split()
+    for n in (3, 4, 5):
+        counts: Dict[Tuple[str, ...], int] = {}
+        for i in range(len(words) - n + 1):
+            gram = tuple(words[i : i + n])
+            counts[gram] = counts.get(gram, 0) + 1
+            if counts[gram] > 3:
+                return {"repeated_ngrams_detected": True, "n": n, "count": counts[gram]}
+    return {"repeated_ngrams_detected": False, "n": None, "count": 0}
 
-def _decode_autoregressive(prompt_ids: List[int], cfg: GenerationConfig, trace: GenerationTrace) -> List[int]:
+
+def _check_stop(output_buffer: str, cfg: GenerationConfig) -> Tuple[bool, str, str]:
+    for s in cfg.stop_strings:
+        if s and output_buffer.endswith(s):
+            output_buffer = output_buffer[: -len(s)]
+            return True, output_buffer, "stop_string"
+    return False, output_buffer, ""
+
+
+def _run_autoregressive(prompt_ids: List[int], cfg: GenerationConfig, trace_strategy: str) -> GenerationTrace:
     generated = list(prompt_ids)
-    for _ in range(cfg.max_new_tokens):
-        logits, _ = _forward_logits(generated)
+    output_buffer = ""
+    entropy_curve: List[float] = []
+    max_prob_curve: List[float] = []
+    stopped_by = "max_tokens"
+    consecutive_spikes = 0
+
+    for _ in range(cfg.max_tokens):
+        logits = _forward_logits(generated)
         logits = _apply_repetition_penalty(logits, generated[-cfg.repetition_window :], cfg.repetition_penalty)
         ent, mx = _entropy_and_maxprob(logits)
-        trace.entropy_curve.append(ent)
-        trace.max_prob_curve.append(mx)
+        entropy_curve.append(ent)
+        max_prob_curve.append(mx)
+
+        if ent > 4.0:
+            consecutive_spikes += 1
+        else:
+            consecutive_spikes = 0
+        if consecutive_spikes >= 3:
+            print("WARNING: entropy spiked above threshold 3 times consecutively.")
+
         next_id = _sample_from_logits(logits, cfg)
         generated.append(next_id)
-        if cfg.stop_strings:
-            text = _decode(generated[len(prompt_ids) :])
-            if any(s and s in text for s in cfg.stop_strings):
-                break
-    return generated
+
+        if EOS_TOKEN_ID is not None and next_id == EOS_TOKEN_ID:
+            stopped_by = "eos"
+            break
+
+        output_buffer = _decode(generated[len(prompt_ids) :])
+        should_stop, output_buffer, reason = _check_stop(output_buffer, cfg)
+        if should_stop:
+            stopped_by = reason
+            break
+
+    rep = detect_repetition(output_buffer)
+    return GenerationTrace(
+        output=output_buffer.strip(),
+        strategy=trace_strategy,
+        tokens_generated=len(generated) - len(prompt_ids),
+        time_ms=0.0,
+        entropy_curve=entropy_curve,
+        max_prob_curve=max_prob_curve,
+        stopped_by=stopped_by,
+        repeated_ngrams_detected=bool(rep["repeated_ngrams_detected"]),
+    )
 
 
-def _beam_search(prompt_ids: List[int], cfg: GenerationConfig, trace: GenerationTrace) -> List[int]:
-    beam = [(0.0, list(prompt_ids))]
-    for _ in range(cfg.max_new_tokens):
+def _beam_search(prompt_ids: List[int], cfg: GenerationConfig) -> GenerationTrace:
+    beam = [(0.0, list(prompt_ids), [], [])]
+    for _ in range(cfg.max_tokens):
         candidates = []
-        for score, seq in beam:
-            logits, _ = _forward_logits(seq)
+        for score, seq, ent_curve, max_curve in beam:
+            logits = _forward_logits(seq)
             ent, mx = _entropy_and_maxprob(logits)
-            trace.entropy_curve.append(ent)
-            trace.max_prob_curve.append(mx)
             log_probs = F.log_softmax(logits, dim=-1)
-            vals, idx = torch.topk(log_probs, k=min(cfg.beams, VOCAB_SIZE))
+            vals, idx = torch.topk(log_probs, k=min(cfg.beam_width, VOCAB_SIZE))
             for v, i in zip(vals.tolist(), idx.tolist()):
-                candidates.append((score + v, seq + [i]))
+                candidates.append((score + v, seq + [i], ent_curve + [ent], max_curve + [mx]))
         candidates.sort(key=lambda x: x[0], reverse=True)
-        beam = candidates[: cfg.beams]
-    return beam[0][1]
+        beam = candidates[: cfg.beam_width]
 
+    _, out_ids, entropy_curve, max_prob_curve = beam[0]
+    text = _decode(out_ids[len(prompt_ids) :]).strip()
+    rep = detect_repetition(text)
+    return GenerationTrace(
+        output=text,
+        strategy="beam",
+        tokens_generated=len(out_ids) - len(prompt_ids),
+        time_ms=0.0,
+        entropy_curve=entropy_curve,
+        max_prob_curve=max_prob_curve,
+        stopped_by="max_tokens",
+        repeated_ngrams_detected=bool(rep["repeated_ngrams_detected"]),
+    )
 
-def _contrastive_search(prompt_ids: List[int], cfg: GenerationConfig, trace: GenerationTrace) -> List[int]:
-    generated = list(prompt_ids)
-    recent = generated[-32:]
-    for _ in range(cfg.max_new_tokens):
-        logits, full_logits = _forward_logits(generated)
-        logits = _apply_repetition_penalty(logits, generated[-cfg.repetition_window :], cfg.repetition_penalty)
-        ent, mx = _entropy_and_maxprob(logits)
-        trace.entropy_curve.append(ent)
-        trace.max_prob_curve.append(mx)
-
-        probs = F.softmax(logits, dim=-1)
-        top_probs, top_idx = torch.topk(probs, k=min(cfg.contrastive_k, probs.shape[-1]))
-        prev_states = full_logits[-min(len(recent), full_logits.shape[0]) :]
-
-        best_score = -1e9
-        best_tok = int(top_idx[0].item())
-        for cand_prob, cand_tok in zip(top_probs, top_idx):
-            candidate_state = full_logits[-1].clone()
-            if prev_states.numel() > 0:
-                sim = F.cosine_similarity(candidate_state.unsqueeze(0), prev_states, dim=-1).max().item()
-            else:
-                sim = 0.0
-            score = cfg.alpha * math.log(max(cand_prob.item(), 1e-9)) - (1.0 - cfg.alpha) * sim
-            if score > best_score:
-                best_score = score
-                best_tok = int(cand_tok.item())
-
-        generated.append(best_tok)
-        recent.append(best_tok)
-        recent = recent[-32:]
-        if cfg.stop_strings:
-            text = _decode(generated[len(prompt_ids) :])
-            if any(s and s in text for s in cfg.stop_strings):
-                break
-    return generated
-
-
-# ======================================================================================
-# Public API
-# ======================================================================================
 
 def _build_config(strategy: str, kwargs: Dict[str, object]) -> GenerationConfig:
     cfg = GenerationConfig(strategy=strategy.lower())
+    if "max_tokens" in kwargs:
+        cfg.max_tokens = int(kwargs.pop("max_tokens"))
     if "max_new_tokens" in kwargs:
-        cfg.max_new_tokens = int(kwargs.pop("max_new_tokens"))
+        cfg.max_tokens = int(kwargs.pop("max_new_tokens"))
     if "temperature" in kwargs:
         cfg.temperature = float(kwargs.pop("temperature"))
+    if "top_k" in kwargs:
+        cfg.top_k = int(kwargs.pop("top_k"))
     if "k" in kwargs:
         cfg.top_k = int(kwargs.pop("k"))
+    if "top_p" in kwargs:
+        cfg.top_p = float(kwargs.pop("top_p"))
     if "p" in kwargs:
         cfg.top_p = float(kwargs.pop("p"))
+    if "beam_width" in kwargs:
+        cfg.beam_width = int(kwargs.pop("beam_width"))
     if "beams" in kwargs:
-        cfg.beams = int(kwargs.pop("beams"))
-    if "alpha" in kwargs:
-        cfg.alpha = float(kwargs.pop("alpha"))
+        cfg.beam_width = int(kwargs.pop("beams"))
     if "repetition_penalty" in kwargs:
         cfg.repetition_penalty = float(kwargs.pop("repetition_penalty"))
     if "repetition_window" in kwargs:
@@ -328,47 +327,52 @@ def _build_config(strategy: str, kwargs: Dict[str, object]) -> GenerationConfig:
         cfg.seed = int(kwargs.pop("seed")) if kwargs["seed"] is not None else None
     if "stop_strings" in kwargs:
         cfg.stop_strings = list(kwargs.pop("stop_strings"))
-    if "contrastive_k" in kwargs:
-        cfg.contrastive_k = int(kwargs.pop("contrastive_k"))
     return cfg
 
 
-def generate_with_trace(prompt: str, strategy: str = "nucleus", **kwargs) -> GenerationTrace:
+def generate_traced(prompt: str, config: GenerationConfig) -> GenerationTrace:
     if not prompt:
-        return GenerationTrace(strategy=strategy, prompt=prompt, generated_ids=[], generated_text="", elapsed_ms=0.0)
+        return GenerationTrace("", config.strategy, 0, 0.0, [], [], "max_tokens", False)
 
-    run_kwargs = dict(kwargs)
-    cfg = _build_config(strategy, run_kwargs)
+    cfg = config
     _seed_all(cfg.seed)
+    prompt_ids = _encode(prompt) or [0]
 
-    prompt_ids = _encode(prompt)
-    if not prompt_ids:
-        prompt_ids = [0]
-
-    trace = GenerationTrace(strategy=cfg.strategy, prompt=prompt, generated_ids=[], generated_text="", elapsed_ms=0.0)
     t0 = time.perf_counter()
-
-    if cfg.strategy in {"greedy", "temperature", "topk", "nucleus"}:
-        out_ids = _decode_autoregressive(prompt_ids, cfg, trace)
-    elif cfg.strategy == "beam":
-        out_ids = _beam_search(prompt_ids, cfg, trace)
-    elif cfg.strategy == "contrastive":
-        out_ids = _contrastive_search(prompt_ids, cfg, trace)
+    strategy = cfg.strategy.lower()
+    if strategy in {"greedy", "temperature", "topk", "nucleus"}:
+        trace = _run_autoregressive(prompt_ids, cfg, strategy)
+    elif strategy == "beam":
+        trace = _beam_search(prompt_ids, cfg)
+    elif strategy == "contrastive":
+        if not CONTRASTIVE_AVAILABLE:
+            print(
+                "WARNING: CausalTransformer does not expose hidden states. "
+                "Contrastive search falling back to nucleus sampling."
+            )
+            fallback_cfg = GenerationConfig(**{**cfg.__dict__, "strategy": "nucleus"})
+            trace = _run_autoregressive(prompt_ids, fallback_cfg, "nucleus (contrastive fallback)")
+            trace.stopped_by = "nucleus (contrastive fallback)"
+        else:
+            trace = _run_autoregressive(prompt_ids, GenerationConfig(**{**cfg.__dict__, "strategy": "nucleus"}), "contrastive")
     else:
         raise ValueError(f"Unknown strategy '{cfg.strategy}'")
-
-    generated = out_ids[len(prompt_ids) :]
-    text = _decode(generated).strip()
-
-    trace.generated_ids = generated
-    trace.generated_text = text
-    trace.elapsed_ms = (time.perf_counter() - t0) * 1000
+    trace.time_ms = (time.perf_counter() - t0) * 1000
     return trace
 
 
 def generate(prompt: str, strategy: str = "nucleus", **kwargs) -> str:
-    trace = generate_with_trace(prompt, strategy=strategy, **kwargs)
-    return trace.generated_text
+    if isinstance(strategy, GenerationConfig):
+        config = strategy
+    else:
+        config = _build_config(strategy, dict(kwargs))
+    return generate_traced(prompt, config).output
+
+
+def generate_stream(prompt: str, config: GenerationConfig) -> Iterator[str]:
+    text = generate_traced(prompt, config).output
+    for ch in text:
+        yield ch
 
 
 def get_model_info() -> Dict[str, object]:
@@ -379,30 +383,26 @@ def get_model_info() -> Dict[str, object]:
         "param_count": PARAM_COUNT,
         "block_size": CONFIG["block_size"],
         "default_strategy": "nucleus",
+        "contrastive_available": CONTRASTIVE_AVAILABLE,
+        "contrastive_upgrade_required": "UPGRADE REQUIRED: Add hidden_states=True return to CausalTransformer.forward() to enable true contrastive search",
     }
 
 
-def detect_repetition(text: str, n: int = 3) -> Dict[str, object]:
-    if len(text) < n:
-        return {"has_repetition": False, "count": 0, "n": n}
-    seen = set()
-    repeats = 0
-    for i in range(len(text) - n + 1):
-        g = text[i : i + n]
-        if g in seen:
-            repeats += 1
-        seen.add(g)
-    return {"has_repetition": repeats > 0, "count": repeats, "n": n}
-
-
 if __name__ == "__main__":
-    prompt = "H: Tell me who you are.\nANRA:"
+    prompts = [
+        "H: Tell me who you are.\nANRA:",
+        "H: Explain your purpose in one sentence.\nANRA:",
+        "H: Write a short mission log entry.\nANRA:",
+    ]
     strategies = ["greedy", "temperature", "topk", "nucleus", "beam", "contrastive"]
-    print("\n=== An-Ra Strategy Comparison ===")
-    print("Model info:", get_model_info())
-    for strat in strategies:
-        trace = generate_with_trace(prompt, strategy=strat, max_new_tokens=120)
-        rep = detect_repetition(trace.generated_text, n=3)
-        print(f"\n[{strat}] {trace.elapsed_ms:.1f}ms | repeat={rep['has_repetition']} ({rep['count']})")
-        print(trace.generated_text)
-        print("diagnostics:", trace.summary())
+    print("strategy | output | time_ms | entropy_avg | repeated_ngrams")
+    for prompt in prompts:
+        for strat in strategies:
+            try:
+                tr = generate_traced(prompt, GenerationConfig(strategy=strat, max_tokens=80))
+                eavg = statistics.fmean(tr.entropy_curve) if tr.entropy_curve else 0.0
+                print(f"{tr.strategy} | {tr.output[:60]!r} | {tr.time_ms:.2f} | {eavg:.4f} | {tr.repeated_ngrams_detected}")
+                if tr.repeated_ngrams_detected:
+                    print("WARNING: repeated n-grams detected")
+            except Exception as exc:
+                print(f"\x1b[31mBROKEN {strat}: {exc}\x1b[0m")
