@@ -83,36 +83,6 @@ def format_memory_context(memory_results: List[Dict[str, Any]]) -> str:
     return "\n".join(lines)
 
 
-# Memory system bridge (45J)
-try:
-    import sys as _sys
-    _sys.path.insert(0, str((Path(__file__).resolve().parent / "phase2" / "memory (45J)")))
-    from memory_manager import MemoryManager
-
-    class _MemoryBridge:
-        def __init__(self):
-            self._mm = MemoryManager(data_dir="/content/drive/MyDrive/AnRa/memory_db", user_id="anra")
-            self.semantic = self
-
-        def search(self, query: str, top_k: int = 3):
-            rows = self._mm.retrieve(query, limit=top_k, type="semantic")
-            return rows
-
-    MEMORY_SYSTEM = _MemoryBridge()
-except Exception as _mem_exc:
-    LOGGER.warning("Memory bridge unavailable: %s", _mem_exc)
-    MEMORY_SYSTEM = None
-
-
-def format_memory_context(memory_results: List[Dict[str, Any]]) -> str:
-    lines = ["[Retrieved Memory Context]"]
-    for i, item in enumerate(memory_results, start=1):
-        lines.append(f"{i}. {item.get('summary', '')}")
-        if item.get('content'):
-            lines.append(f"   detail: {item.get('content')[:240]}")
-    return "\n".join(lines)
-
-
 def _session_file(session_id: str) -> Path:
     return SESSION_DIR / f"{session_id}.json"
 
@@ -332,16 +302,6 @@ async def chat_route(body: ChatRequest, request: Request):
         current_message=body.message
     )
     context = ctx_result["context"]
-
-    memory_results = []
-    if MEMORY_SYSTEM is not None:
-        try:
-            memory_results = MEMORY_SYSTEM.semantic.search(query=body.message, top_k=3)
-        except Exception as mem_exc:
-            LOGGER.warning("Memory query failed for session %s: %s", body.session_id, mem_exc)
-    if memory_results:
-        context_prefix = format_memory_context(memory_results)
-        context = context_prefix + "\n" + context
 
     strategy = body.params.get("strategy", "nucleus")
     cfg = GenerationConfig(strategy=strategy)

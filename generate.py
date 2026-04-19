@@ -109,15 +109,25 @@ def _init_model_and_tokenizer():
             state = torch.load(ckpt_path, map_location=DEVICE)
             ouroboros_cfg = None
             turbo_cfg = None
+            optimization_config = None
             ouroboros_stats = 0
 
-            if isinstance(state, dict) and "model_state_dict" in state:
-                ouroboros_cfg = state.get("ouroboros_config", None)
+            if isinstance(state, dict):
                 turbo_cfg = state.get("turbo_config", None)
+                optimization_config = state.get("optimization_config", None)
+                ouroboros_cfg = state.get("ouroboros_config", None)
                 ouroboros_stats = state.get("ouroboros_batches", 0)
-                state = state["model_state_dict"]
+                if "model_state_dict" in state:
+                    state = state["model_state_dict"]
 
             model.load_state_dict(state, strict=False)
+
+            if optimization_config:
+                print(f"Loaded optimization config: {optimization_config}")
+
+            if turbo_cfg and hasattr(model, '_turbo_patterns'):
+                for k, v in turbo_cfg.items():
+                    setattr(model, '_turbo_patterns_' + k, v)
             loaded_checkpoint = str(ckpt_path)
             print(f"[generate.py] Loaded {ckpt_type} checkpoint: {ckpt_path}")
 

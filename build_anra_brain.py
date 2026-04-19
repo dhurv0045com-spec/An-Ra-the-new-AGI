@@ -8,6 +8,7 @@ import pickle
 import re
 from contextlib import contextmanager
 from typing import Dict, Any, List
+from optimizations import AdaptiveScheduler, MultiScaleHardSampleDetector, GradientCheckpointedOuroboros
 
 # Add current directory to Python path to enable importing local modules like 'tokenizer'
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__))))
@@ -94,29 +95,10 @@ class TextDataset(Dataset):
         return x, y
 
 
-def hard_sample_detector(batch_text: str) -> bool:
-    """Detect whether >30% of samples in the batch require recursive reasoning."""
-    samples = [s.strip() for s in batch_text.split('\n') if s.strip()]
-    if not samples:
-        return False
-
-    hard_count = 0
-    math_pattern = re.compile(r"\d+\s*[-+*/=^%<>]+\s*\d+|\d+[\-+*/=^%<>]+")
-    logic_pattern = re.compile(r"\b(if|then|therefore|prove|because|since|implies)\b", re.IGNORECASE)
-    code_pattern = re.compile(r"\b(def\s+|for\s+|while\s+|class\s+)")
-    question_pattern = re.compile(r"\b(why|how|explain|analyze)\b", re.IGNORECASE)
-
-    for sample in samples:
-        is_hard = (
-            bool(math_pattern.search(sample))
-            or bool(logic_pattern.search(sample))
-            or bool(code_pattern.search(sample))
-            or bool(question_pattern.search(sample))
-        )
-        if is_hard:
-            hard_count += 1
-
-    return (hard_count / max(len(samples), 1)) > 0.30
+def hard_sample_detector(batch_text: str):
+    detector = MultiScaleHardSampleDetector()
+    is_hard, difficulty = detector.detect(batch_text)
+    return is_hard, difficulty
 
 
 # --- Main Training Function ---
@@ -126,7 +108,10 @@ def train_anra_brain(
     batch_size=32,
     block_size=128,  # Context length for transformer
     learning_rate=1e-4,
-    checkpoint_path='anra_brain.pt'
+    checkpoint_path='anra_brain.pt',
+    use_adaptive_scheduler=True,
+    use_gradient_checkpointing=True,
+    drive_dir=None
 ):
     print()
     print("--- Starting Training ---")
@@ -185,6 +170,15 @@ def train_anra_brain(
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
     loss_fn = nn.CrossEntropyLoss()  # Standard for next-token prediction
 
+    total_steps = epochs * len(dataloader)
+    warmup_steps = int(0.10 * total_steps)
+    scheduler = AdaptiveScheduler(learning_rate, warmup_steps, total_steps) if use_adaptive_scheduler else None
+
+    if use_gradient_checkpointing:
+        ouroboros = GradientCheckpointedOuroboros(model, passes=3)
+    else:
+        ouroboros = OuroborosReasoner(model, passes=3)
+
     # 7. Training Loop
     print("Training for {} epochs...".format(epochs))
     for epoch in range(epochs):
@@ -200,19 +194,33 @@ def train_anra_brain(
             decoded_batch = [tokenizer.decode(row.tolist()) for row in xb.detach().cpu()]
             batch_text = "\n".join(decoded_batch)
 
-            if hard_sample_detector(batch_text):
-                with ouroboros.recursive_context():
-                    logits = ouroboros.forward_with_passes(xb)
+            is_hard, difficulty = hard_sample_detector(batch_text)
+            if is_hard:
+                passes = {0: 1, 1: 2, 2: 3, 3: 5}.get(difficulty, 3)
+                if use_gradient_checkpointing:
+                    logits = ouroboros(xb, num_passes=passes)
                     b, t, c = logits.shape
                     loss = loss_fn(logits.view(b * t, c), yb.view(b * t))
-                    ouroboros_batches_count += 1
-                    _turbo_cache.mark_hard_batch()
+                else:
+                    ouroboros.passes = passes
+                    with ouroboros.recursive_context():
+                        logits = ouroboros.forward_with_passes(xb)
+                        b, t, c = logits.shape
+                        loss = loss_fn(logits.view(b * t, c), yb.view(b * t))
+                ouroboros_batches_count += 1
+                _turbo_cache.mark_hard_batch()
             else:
                 logits, loss = model(xb, yb)
 
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
+
+            if scheduler:
+                current_step = epoch * len(dataloader) + batch_idx
+                lr = scheduler.get_lr(current_step, loss.item())
+                for param_group in optimizer.param_groups:
+                    param_group['lr'] = lr
 
             total_loss += loss.item()
 
@@ -231,6 +239,12 @@ def train_anra_brain(
         'ouroboros_config': ouroboros.get_config(),
         'ouroboros_batches': ouroboros_batches_count,
         'turbo_config': _turbo_cache.get_compression_patterns(),
+        'optimization_config': {
+            'adaptive_scheduler': use_adaptive_scheduler,
+            'gradient_checkpointing': use_gradient_checkpointing,
+            'warmup_steps': warmup_steps,
+            'total_steps': total_steps,
+        },
     }
     torch.save(checkpoint, checkpoint_path)
     print()

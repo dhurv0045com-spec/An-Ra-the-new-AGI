@@ -8,6 +8,7 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Sequence, Tuple
+from optimizations import AdaptiveScheduler
 
 import torch
 import torch.nn.functional as F
@@ -380,48 +381,6 @@ def main() -> None:
 
     pairs = verified_pairs + corrected_pairs
 
-    symbolic = SymbolicBridge()
-    math_router = MathRouter(engine='sympy')
-    logic_router = LogicRouter(engine='dpll')
-    code_router = CodeRouter(engine='ast')
-
-    verified_pairs = []
-    rejected_pairs = []
-    corrected_pairs = []
-    symbolic_stats = {
-        "math_pairs_verified": 0,
-        "logic_pairs_verified": 0,
-        "code_pairs_validated": 0,
-        "pairs_corrected": 0,
-        "pairs_rejected": 0,
-    }
-
-    for h, anra in pairs:
-        check = verify_training_pair(h, anra, symbolic, math_router, logic_router, code_router)
-        if check['type'] == 'math' and check.get('verified'):
-            symbolic_stats["math_pairs_verified"] += 1
-        if check['type'] == 'logic' and check.get('verified'):
-            symbolic_stats["logic_pairs_verified"] += 1
-        if check['type'] in {'code', 'code_invalid'}:
-            symbolic_stats["code_pairs_validated"] += 1
-
-        if check['valid']:
-            verified_pairs.append((h, anra))
-        elif check['correction']:
-            corrected_pairs.append((h, str(check['correction'])))
-            symbolic_stats["pairs_corrected"] += 1
-        else:
-            rejected_pairs.append((h, anra))
-            symbolic_stats["pairs_rejected"] += 1
-
-    print("Symbolic verification complete:")
-    print(f"  Verified: {len(verified_pairs)} pairs")
-    print(f"  Corrected: {len(corrected_pairs)} pairs (wrong answers fixed)")
-    print(f"  Rejected: {len(rejected_pairs)} pairs (unfixable)")
-    print(f"  Training on {len(verified_pairs) + len(corrected_pairs)} pairs")
-
-    pairs = verified_pairs + corrected_pairs
-
     rng = random.Random(CONFIG["shuffle_seed"])
     rng.shuffle(pairs)
 
@@ -436,6 +395,9 @@ def main() -> None:
 
     opt = _optimizer(model)
     scaler = torch.amp.GradScaler("cuda", enabled=CONFIG["mixed_precision"] and device.type == "cuda")
+    total_training_steps = CONFIG["epochs"] * max((len(train_pairs) // CONFIG["batch_size"]) + 1, 1)
+    warmup_steps = int(0.05 * total_training_steps)
+    adaptive_scheduler = AdaptiveScheduler(CONFIG["base_lr"], warmup_steps, total_training_steps)
 
     before_probe = _identity_probe("before")
 
@@ -467,6 +429,12 @@ def main() -> None:
         opt.zero_grad(set_to_none=True)
         for step, (x, y) in enumerate(train_loader, start=1):
             x, y = x.to(device), y.to(device)
+
+            current_step = (epoch - 1) * len(train_loader) + step
+            adaptive_lr = adaptive_scheduler.get_lr(current_step, None)
+            for param_group in opt.param_groups:
+                param_group['lr'] = adaptive_lr
+
             with torch.amp.autocast("cuda", enabled=CONFIG["mixed_precision"] and device.type == "cuda"):
                 logits, _ = model(x)
                 b, t, c = logits.shape
@@ -482,6 +450,8 @@ def main() -> None:
                 scaler.step(opt)
                 scaler.update()
                 opt.zero_grad(set_to_none=True)
+
+                adaptive_scheduler.get_lr(current_step, loss.item() * CONFIG["grad_accum_steps"])
             losses.append(float(loss.item() * CONFIG["grad_accum_steps"]))
 
         train_loss = float(sum(losses) / max(len(losses), 1))
