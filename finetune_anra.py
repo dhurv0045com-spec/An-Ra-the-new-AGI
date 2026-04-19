@@ -8,6 +8,7 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Sequence, Tuple
+from optimizations import AdaptiveScheduler
 
 import torch
 import torch.nn.functional as F
@@ -16,6 +17,53 @@ from torch.utils.data import DataLoader, Dataset
 
 from anra_brain import CausalTransformer, CharTokenizer
 from generate import GenerationConfig, generate
+
+try:
+    from phase3.symbolic_bridge_45Q import (
+        SymbolicBridge, MathRouter, LogicRouter, CodeRouter
+    )
+except Exception:
+    import sys as _sys
+    from pathlib import Path as _Path
+    _sys.path.insert(0, str(_Path(__file__).resolve().parent / "phase3" / "symbolic_bridge (45Q)"))
+    import symbolic_bridge as _symbolic_bridge
+
+    class SymbolicBridge:
+        def solve_math(self, text: str):
+            return _symbolic_bridge.query_math(text).answer_text
+
+        def solve_logic(self, text: str):
+            return _symbolic_bridge.query_logic(text).answer_text
+
+        def validate_code(self, text: str):
+            res = _symbolic_bridge.query_code(text)
+            return bool(getattr(res, "confidence", 0.0) >= 0.5)
+
+        def verify_answer(self, answer: str, expected: str):
+            return str(answer).strip().lower() == str(expected).strip().lower()
+
+    class MathRouter:
+        def __init__(self, engine: str = "sympy"):
+            self.engine = engine
+
+        def is_math_problem(self, text: str) -> bool:
+            import re
+            return bool(re.search(r"\d+\s*[-+*/=^%]", text))
+
+    class LogicRouter:
+        def __init__(self, engine: str = "dpll"):
+            self.engine = engine
+
+        def is_logic_problem(self, text: str) -> bool:
+            import re
+            return bool(re.search(r"\b(if|then|therefore|implies|proof|logic)\b", text.lower()))
+
+    class CodeRouter:
+        def __init__(self, engine: str = "ast"):
+            self.engine = engine
+
+        def is_code_block(self, text: str) -> bool:
+            return any(k in text for k in ["def ", "class ", "for ", "while ", "import "])
 
 CONFIG = {
     "base_checkpoint": "anra_brain.pt",
@@ -90,9 +138,21 @@ def parse_identity_data(raw_text: str) -> Tuple[List[Tuple[str, str]], Dict[str,
 
 def curriculum_subset(pairs: Sequence[Tuple[str, str]], phase: int) -> List[Tuple[str, str]]:
     if phase == 1:
-        subset = [p for p in pairs if any(k.lower() in (p[0] + " " + p[1]).lower() for k in IDENTITY_KEYWORDS)]
-        if not subset:
-            raise ValueError("Curriculum phase 1 empty; identity subset must be non-empty")
+        subset = [
+            p for p in pairs
+            if any(k.lower() in (p[0] + p[1]).lower() for k in IDENTITY_KEYWORDS)
+        ]
+        if len(subset) < 50:
+            raise ValueError(
+                f"Phase 1 subset too small ({len(subset)} pairs). "
+                f"Identity keywords not found in training data. "
+                f"Check combined_identity_data.txt has identity exchanges."
+            )
+        if len(subset) < 80:
+            general_pairs = [p for p in pairs if p not in subset]
+            padding = general_pairs[:80 - len(subset)]
+            subset = subset + padding
+            print(f"Phase 1 padded with {len(padding)} general pairs to reach {len(subset)} total")
         return subset
     if phase == 2:
         return list(pairs)
@@ -211,6 +271,43 @@ def _save_training_report(path: Path, payload: Dict[str, object]) -> None:
     path.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
 
 
+
+
+def verify_training_pair(h_text: str, anra_text: str, symbolic: SymbolicBridge, math_router: MathRouter, logic_router: LogicRouter, code_router: CodeRouter) -> dict:
+    result = {
+      'valid': True,
+      'type': 'natural_language',
+      'verified': False,
+      'correction': None
+    }
+
+    if math_router.is_math_problem(h_text):
+        sympy_result = symbolic.solve_math(h_text)
+        if sympy_result and not symbolic.verify_answer(anra_text, sympy_result):
+            result['valid'] = False
+            result['correction'] = sympy_result
+            result['type'] = 'math'
+        else:
+            result['verified'] = True
+            result['type'] = 'math'
+
+    elif logic_router.is_logic_problem(h_text):
+        dpll_result = symbolic.solve_logic(h_text)
+        if dpll_result:
+            result['verified'] = True
+            result['type'] = 'logic'
+
+    elif code_router.is_code_block(anra_text):
+        ast_valid = symbolic.validate_code(anra_text)
+        result['type'] = 'code'
+        if not ast_valid:
+            result['valid'] = False
+            result['type'] = 'code_invalid'
+        else:
+            result['verified'] = True
+
+    return result
+
 def main() -> None:
     repo = Path(__file__).resolve().parent
     data_path = repo / CONFIG["data_path"]
@@ -223,8 +320,66 @@ def main() -> None:
     raw = data_path.read_text(encoding="utf-8", errors="replace")
     pairs, fmt_dist = parse_identity_data(raw)
     print(f"Format distribution: {fmt_dist}")
-    if len(pairs) < 100:
-        raise ValueError(f"Only {len(pairs)} training pairs found. Minimum 100 required. Check data format.")
+
+    symbolic = SymbolicBridge()
+    math_router = MathRouter(engine='sympy')
+    logic_router = LogicRouter(engine='dpll')
+    code_router = CodeRouter(engine='ast')
+
+    verified_pairs = []
+    rejected_pairs = []
+    corrected_pairs = []
+    symbolic_stats = {
+        "math_pairs_verified": 0,
+        "logic_pairs_verified": 0,
+        "code_pairs_validated": 0,
+        "pairs_corrected": 0,
+        "pairs_rejected": 0,
+    }
+
+    for h, anra in pairs:
+        check = verify_training_pair(h, anra, symbolic, math_router, logic_router, code_router)
+        if check['type'] == 'math' and check.get('verified'):
+            symbolic_stats["math_pairs_verified"] += 1
+        if check['type'] == 'logic' and check.get('verified'):
+            symbolic_stats["logic_pairs_verified"] += 1
+        if check['type'] in {'code', 'code_invalid'}:
+            symbolic_stats["code_pairs_validated"] += 1
+
+        if check['valid']:
+            verified_pairs.append((h, anra))
+        elif check['correction']:
+            corrected_pairs.append((h, str(check['correction'])))
+            symbolic_stats["pairs_corrected"] += 1
+        else:
+            rejected_pairs.append((h, anra))
+            symbolic_stats["pairs_rejected"] += 1
+
+    print("Symbolic verification complete:")
+    print(f"  Verified: {len(verified_pairs)} pairs")
+    print(f"  Corrected: {len(corrected_pairs)} pairs (wrong answers fixed)")
+    print(f"  Rejected: {len(rejected_pairs)} pairs (unfixable)")
+    print(f"  Training on {len(verified_pairs) + len(corrected_pairs)} pairs")
+
+    verified_and_corrected = len(verified_pairs) + len(corrected_pairs)
+    if verified_and_corrected < 100:
+        raise ValueError(
+            f"Only {verified_and_corrected} usable pairs after symbolic "
+            f"verification (rejected: {len(rejected_pairs)}). "
+            f"Add more training data or lower rejection thresholds."
+        )
+
+    rejection_rate = len(rejected_pairs) / max(len(pairs), 1)
+    if rejection_rate > 0.5:
+        print(f"WARNING: Symbolic bridge rejected {rejection_rate:.1%} of training pairs. Data quality may be low.")
+        print("Consider reviewing combined_identity_data.txt for incorrect math/logic answers or malformed code blocks.")
+
+    print(
+        f"Symbolic verification: {len(verified_pairs)} verified, {len(corrected_pairs)} corrected, "
+        f"{len(rejected_pairs)} rejected ({rejection_rate:.1%} rejection rate)"
+    )
+
+    pairs = verified_pairs + corrected_pairs
 
     rng = random.Random(CONFIG["shuffle_seed"])
     rng.shuffle(pairs)
@@ -240,6 +395,9 @@ def main() -> None:
 
     opt = _optimizer(model)
     scaler = torch.amp.GradScaler("cuda", enabled=CONFIG["mixed_precision"] and device.type == "cuda")
+    total_training_steps = CONFIG["epochs"] * max((len(train_pairs) // CONFIG["batch_size"]) + 1, 1)
+    warmup_steps = int(0.05 * total_training_steps)
+    adaptive_scheduler = AdaptiveScheduler(CONFIG["base_lr"], warmup_steps, total_training_steps)
 
     before_probe = _identity_probe("before")
 
@@ -271,6 +429,12 @@ def main() -> None:
         opt.zero_grad(set_to_none=True)
         for step, (x, y) in enumerate(train_loader, start=1):
             x, y = x.to(device), y.to(device)
+
+            current_step = (epoch - 1) * len(train_loader) + step
+            adaptive_lr = adaptive_scheduler.get_lr(current_step, None)
+            for param_group in opt.param_groups:
+                param_group['lr'] = adaptive_lr
+
             with torch.amp.autocast("cuda", enabled=CONFIG["mixed_precision"] and device.type == "cuda"):
                 logits, _ = model(x)
                 b, t, c = logits.shape
@@ -286,6 +450,8 @@ def main() -> None:
                 scaler.step(opt)
                 scaler.update()
                 opt.zero_grad(set_to_none=True)
+
+                adaptive_scheduler.get_lr(current_step, loss.item() * CONFIG["grad_accum_steps"])
             losses.append(float(loss.item() * CONFIG["grad_accum_steps"]))
 
         train_loss = float(sum(losses) / max(len(losses), 1))
@@ -328,6 +494,7 @@ def main() -> None:
         "train_loss_curve": [m.train_loss for m in history],
         "val_loss_curve": [m.val_loss for m in history],
         "format_distribution": fmt_dist,
+        "symbolic_verification": symbolic_stats,
     }
 
     local_report = repo / "finetune_report.json"

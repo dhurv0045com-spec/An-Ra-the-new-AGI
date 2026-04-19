@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import sys
 import pickle
 import threading
 import time
@@ -118,18 +119,22 @@ def t6_session_persistence_test() -> Tuple[bool, str]:
 
 
 def t7_finetune_data_test() -> Tuple[bool, str]:
-    path = Path("data/combined_identity_data.txt")
-    if not path.exists():
-        path = Path("combined_identity_data.txt")
+    candidates = [
+        Path("data/combined_identity_data.txt"),
+        Path("combined_identity_data.txt"),
+        Path("anra_dataset_v6_1.txt"),
+    ]
+    path = next((p for p in candidates if p.exists()), None)
+    if path is None:
+        return False, "no training dataset file found"
+
     text = path.read_text(encoding="utf-8", errors="replace")
-    pairs = []
-    for block in text.split("\nH:"):
-        if "ANRA:" in block:
-            h, a = block.split("ANRA:", 1)
-            if a.strip():
-                pairs.append((h.strip(), a.strip()))
-    ok = len(pairs) > 100 and all(p[1] for p in pairs)
-    return ok, f"pairs={len(pairs)}"
+    import re
+
+    pairs = re.findall(r"H:\s*(.*?)\nANRA:\s*(.*?)(?=\nH:|\Z)", text, re.S)
+    valid_pairs = [(h.strip(), a.strip()) for h, a in pairs if h.strip() and a.strip()]
+    ok = len(valid_pairs) > 100 and all(p[1] for p in valid_pairs)
+    return ok, f"file={path.name} pairs={len(valid_pairs)}"
 
 
 def t8_drive_path_test() -> Tuple[bool, str]:
@@ -284,6 +289,98 @@ def t20_concurrent_session_isolation_test() -> Tuple[bool, str]:
     return ok, f"response_times_ms_total={dt:.1f}"
 
 
+
+
+def t21_agent_loop_initialization_test() -> Tuple[bool, str]:
+    start = time.time()
+    try:
+        from phase3.agent_loop_45K import AgentLoop, AgentConfig
+    except ImportError as e:
+        elapsed = (time.time() - start) * 1000
+        return False, (
+            f"Agent module not found: {e}\n"
+            f"  Expected: phase3/agent_loop_45K/\n"
+            f"  This is a REAL failure, not a test environment issue.\n"
+            f"  Fix: verify phase3/agent_loop_45K exists in repo."
+        )
+
+    try:
+        from generate import MODEL, TOKENIZER
+        config = AgentConfig(max_steps=5, memory_enabled=True, tool_use_enabled=False)
+        agent = AgentLoop(MODEL, TOKENIZER, config)
+        result = agent.step("What is your primary goal?")
+
+        assert result is not None, "agent.step() returned None"
+        assert result.action is not None, "result.action is None"
+        assert result.reasoning is not None, "result.reasoning is None"
+        assert result.confidence > 0.0, f"result.confidence={result.confidence} not > 0"
+
+        elapsed = (time.time() - start) * 1000
+        return True, f"AgentLoop initialized, step executed ({elapsed:.0f}ms)"
+    except Exception as e:
+        elapsed = (time.time() - start) * 1000
+        return False, f"AgentLoop failed: {e} ({elapsed:.0f}ms)"
+
+
+def t22_agent_decision_loop_test() -> Tuple[bool, str]:
+    start = time.time()
+    try:
+        from phase3.agent_loop_45K import AgentLoop, AgentConfig
+    except ImportError as e:
+        elapsed = (time.time() - start) * 1000
+        return False, f"Agent module not found: {e}"
+
+    try:
+        from generate import MODEL, TOKENIZER
+        config = AgentConfig(max_steps=5, memory_enabled=True, tool_use_enabled=False)
+        agent = AgentLoop(MODEL, TOKENIZER, config)
+        agent.reset()
+
+        results = []
+        step_times = []
+        for i in range(3):
+            step_start = time.time()
+            result = agent.step(f"Step {i+1}: analyze your capabilities")
+            step_times.append((time.time() - step_start) * 1000)
+            results.append(result)
+
+        assert len(results) == 3, f"Expected 3 results, got {len(results)}"
+
+        outputs = [r.action for r in results]
+        assert len(set(outputs)) > 1, "All 3 agent steps produced identical output (stuck loop)"
+
+        assert agent.memory.episode_count >= 3, f"Expected ≥3 episodes, got {agent.memory.episode_count}"
+
+        timing = ", ".join(f"{t:.0f}ms" for t in step_times)
+        elapsed = (time.time() - start) * 1000
+        return True, f"3-step loop complete. Steps: [{timing}] ({elapsed:.0f}ms)"
+    except Exception as e:
+        elapsed = (time.time() - start) * 1000
+        return False, f"Agent decision loop failed: {e} ({elapsed:.0f}ms)"
+
+
+
+def t23_optimization_import_test() -> Tuple[bool, str]:
+    try:
+        from optimizations import AdaptiveScheduler, MultiScaleHardSampleDetector, GradientCheckpointedOuroboros
+        return True, "All optimization modules imported"
+    except Exception as e:
+        return False, f"Import failed: {e}"
+
+
+def t24_optimization_config_test() -> Tuple[bool, str]:
+    try:
+        config_path = Path("AnRa/optimization_config.json")
+        if not config_path.exists():
+            config_path = Path("/content/drive/MyDrive/AnRa/optimization_config.json")
+        if not config_path.exists():
+            return False, "optimization_config.json not found"
+        config = json.loads(config_path.read_text())
+        ok = "optimizations_enabled" in config and "adaptive_scheduler_config" in config
+        return ok, f"Config valid with {len(config)} keys"
+    except Exception as e:
+        return False, str(e)
+
 def main() -> None:
     tests: List[Tuple[str, Callable[[], Tuple[bool, str]]]] = [
         ("T1 — Import test", t1_import_test),
@@ -306,21 +403,38 @@ def main() -> None:
         ("T18 — Stop string test", t18_stop_string_test),
         ("T19 — finetune_report.json test", t19_finetune_report_test),
         ("T20 — Concurrent session isolation test", t20_concurrent_session_isolation_test),
+        ("T21 — Agent Loop Initialization", t21_agent_loop_initialization_test),
+        ("T22 — Agent Decision Loop", t22_agent_decision_loop_test),
+        ("T23 — Optimization import test", t23_optimization_import_test),
+        ("T24 — Optimization config test", t24_optimization_config_test),
     ]
 
     passed = 0
     failed: List[str] = []
+    results: List[Tuple[str, bool, str]] = []
     for name, fn in tests:
-        ok, _ = _run(name, fn)
+        ok, detail = _run(name, fn)
+        results.append((name, ok, detail))
         if ok:
             passed += 1
         else:
             failed.append(name.split(" — ")[0])
 
-    if passed == 20:
-        print("20/20 tests passed — SYSTEM OK")
+    agent_tests_failed = any(
+        "Agent" in name and not ok
+        for name, ok, _ in results
+    )
+
+    if passed == 24:
+        print("\n24/24 tests passed — SYSTEM OK")
     else:
-        print(f"{passed}/20 tests passed — SYSTEM DEGRADED — Failed: {', '.join(failed)}")
+        print(f"\n⚠ WARNING: {24 - passed} test(s) failed")
+        print(f"{passed}/24 tests passed — SYSTEM DEGRADED — Failed: {', ' .join(failed)}")
+        if agent_tests_failed:
+            print("❌ CRITICAL: Agent loop tests failed.")
+            print("   /chat endpoint will crash in production.")
+            print("   Fix phase3/agent_loop_45K before deploying.")
+            sys.exit(1)
 
 
 if __name__ == "__main__":
