@@ -380,6 +380,48 @@ def main() -> None:
 
     pairs = verified_pairs + corrected_pairs
 
+    symbolic = SymbolicBridge()
+    math_router = MathRouter(engine='sympy')
+    logic_router = LogicRouter(engine='dpll')
+    code_router = CodeRouter(engine='ast')
+
+    verified_pairs = []
+    rejected_pairs = []
+    corrected_pairs = []
+    symbolic_stats = {
+        "math_pairs_verified": 0,
+        "logic_pairs_verified": 0,
+        "code_pairs_validated": 0,
+        "pairs_corrected": 0,
+        "pairs_rejected": 0,
+    }
+
+    for h, anra in pairs:
+        check = verify_training_pair(h, anra, symbolic, math_router, logic_router, code_router)
+        if check['type'] == 'math' and check.get('verified'):
+            symbolic_stats["math_pairs_verified"] += 1
+        if check['type'] == 'logic' and check.get('verified'):
+            symbolic_stats["logic_pairs_verified"] += 1
+        if check['type'] in {'code', 'code_invalid'}:
+            symbolic_stats["code_pairs_validated"] += 1
+
+        if check['valid']:
+            verified_pairs.append((h, anra))
+        elif check['correction']:
+            corrected_pairs.append((h, str(check['correction'])))
+            symbolic_stats["pairs_corrected"] += 1
+        else:
+            rejected_pairs.append((h, anra))
+            symbolic_stats["pairs_rejected"] += 1
+
+    print("Symbolic verification complete:")
+    print(f"  Verified: {len(verified_pairs)} pairs")
+    print(f"  Corrected: {len(corrected_pairs)} pairs (wrong answers fixed)")
+    print(f"  Rejected: {len(rejected_pairs)} pairs (unfixable)")
+    print(f"  Training on {len(verified_pairs) + len(corrected_pairs)} pairs")
+
+    pairs = verified_pairs + corrected_pairs
+
     rng = random.Random(CONFIG["shuffle_seed"])
     rng.shuffle(pairs)
 
