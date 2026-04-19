@@ -19,7 +19,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
-from generate import GenerationConfig, generate, generate_stream, generate_traced, get_model_info
+from generate import (
+    GenerationConfig, generate, generate_stream, generate_traced, get_model_info,
+    load_ghost_state, save_ghost_state
+)
 from full_system_connector import build_capability_graph
 
 START_TIME = time.time()
@@ -46,6 +49,36 @@ class ModelAdapter:
 
 ADAPTER = ModelAdapter()
 SYSTEM_GRAPH: Dict[str, Any] = {}
+
+
+# Memory system bridge (45J)
+try:
+    import sys as _sys
+    _sys.path.insert(0, str((Path(__file__).resolve().parent / "phase2" / "memory (45J)")))
+    from memory_manager import MemoryManager
+
+    class _MemoryBridge:
+        def __init__(self):
+            self._mm = MemoryManager(data_dir="/content/drive/MyDrive/AnRa/memory_db", user_id="anra")
+            self.semantic = self
+
+        def search(self, query: str, top_k: int = 3):
+            rows = self._mm.retrieve(query, limit=top_k, type="semantic")
+            return rows
+
+    MEMORY_SYSTEM = _MemoryBridge()
+except Exception as _mem_exc:
+    LOGGER.warning("Memory bridge unavailable: %s", _mem_exc)
+    MEMORY_SYSTEM = None
+
+
+def format_memory_context(memory_results: List[Dict[str, Any]]) -> str:
+    lines = ["[Retrieved Memory Context]"]
+    for i, item in enumerate(memory_results, start=1):
+        lines.append(f"{i}. {item.get('summary', '')}")
+        if item.get('content'):
+            lines.append(f"   detail: {item.get('content')[:240]}")
+    return "\n".join(lines)
 
 
 def _session_file(session_id: str) -> Path:
@@ -216,7 +249,9 @@ async def generate_route(body: GenerateRequest, request: Request):
     for k, v in body.params.items():
         if hasattr(cfg, k):
             setattr(cfg, k, v)
-    trace = generate_traced(body.prompt, cfg)
+    load_ghost_state(body.session_id)
+    trace = generate_traced(body.prompt, cfg, session_id=body.session_id)
+    save_ghost_state(body.session_id)
     entropy_avg = sum(trace.entropy_curve) / max(len(trace.entropy_curve), 1)
     max_prob_avg = sum(trace.max_prob_curve) / max(len(trace.max_prob_curve), 1)
 
@@ -245,13 +280,25 @@ async def chat_route(body: ChatRequest, request: Request):
     assert context.endswith(f"H: {body.message}\nANRA:")
     assert "\n\n" not in context
 
+    memory_results = []
+    if MEMORY_SYSTEM is not None:
+        try:
+            memory_results = MEMORY_SYSTEM.semantic.search(query=body.message, top_k=3)
+        except Exception as mem_exc:
+            LOGGER.warning("Memory query failed for session %s: %s", body.session_id, mem_exc)
+    if memory_results:
+        context_prefix = format_memory_context(memory_results)
+        context = context_prefix + "\n" + context
+
     strategy = body.params.get("strategy", "nucleus")
     cfg = GenerationConfig(strategy=strategy)
     for k, v in body.params.items():
         if hasattr(cfg, k):
             setattr(cfg, k, v)
     run_params = {k: v for k, v in cfg.__dict__.items() if k != 'strategy'}
+    ghost_loaded = load_ghost_state(body.session_id)
     reply = ADAPTER.run(context, strategy=cfg.strategy, **run_params)
+    save_ghost_state(body.session_id)
 
     history.append({"role": "user", "content": body.message})
     history.append({"role": "assistant", "content": reply})
