@@ -85,13 +85,20 @@ class SelfImprovementRunner:
         return suggestions
 
     def attempt_auto_improvement(self, weak_domains: list):
-        for wd in weak_domains:
-            if wd == "identity":
-                self.auto_improvements_applied.append("identity: scheduled +2 fine-tuning epochs on identity slice")
-            elif wd == "coherence":
-                self.auto_improvements_applied.append("coherence: lowered temperature to 0.72 and raised repetition penalty to 1.2")
-            else:
-                self.human_action_required.append(wd)
+        improvement_marker = Path("/content/drive/MyDrive/AnRa/.improvement_in_progress")
+        improvement_marker.parent.mkdir(parents=True, exist_ok=True)
+        improvement_marker.touch()
+        try:
+            for wd in weak_domains:
+                if wd == "identity":
+                    self.auto_improvements_applied.append("identity: scheduled +2 fine-tuning epochs on identity slice")
+                elif wd == "coherence":
+                    self.auto_improvements_applied.append("coherence: lowered temperature to 0.72 and raised repetition penalty to 1.2")
+                else:
+                    self.human_action_required.append(wd)
+        finally:
+            if improvement_marker.exists():
+                improvement_marker.unlink()
 
     def save_improvement_report(self):
         report = {

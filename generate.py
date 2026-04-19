@@ -15,6 +15,10 @@ from contextlib import contextmanager
 from anra_brain import CausalTransformer
 from core.turboquant import CompressedKVCache, TurboQuantConfig as TurboQuant
 
+_RESTORED_OUROBOROS = None
+_RESTORED_OUROBOROS_STATS = 0
+_PENDING_TURBO_CFG = None
+
 CONFIG = {
     "identity_checkpoint": "/content/drive/MyDrive/AnRa/anra_brain_identity.pt",
     "base_checkpoint": "/content/drive/MyDrive/AnRa/anra_brain.pt",
@@ -103,11 +107,32 @@ def _init_model_and_tokenizer():
     for ckpt_type, ckpt_path in _checkpoint_candidates():
         if ckpt_path.exists():
             state = torch.load(ckpt_path, map_location=DEVICE)
+            ouroboros_cfg = None
+            turbo_cfg = None
+            ouroboros_stats = 0
+
             if isinstance(state, dict) and "model_state_dict" in state:
+                ouroboros_cfg = state.get("ouroboros_config", None)
+                turbo_cfg = state.get("turbo_config", None)
+                ouroboros_stats = state.get("ouroboros_batches", 0)
                 state = state["model_state_dict"]
+
             model.load_state_dict(state, strict=False)
             loaded_checkpoint = str(ckpt_path)
             print(f"[generate.py] Loaded {ckpt_type} checkpoint: {ckpt_path}")
+
+            if ouroboros_cfg:
+                try:
+                    from phase3.ouroboros_45O import OuroborosReasoner
+                    global _RESTORED_OUROBOROS, _RESTORED_OUROBOROS_STATS
+                    _RESTORED_OUROBOROS = OuroborosReasoner(model, **ouroboros_cfg)
+                    _RESTORED_OUROBOROS_STATS = ouroboros_stats
+                    print(f"✓ Ouroboros restored: {ouroboros_cfg.get('passes', 3)} passes, trained on {ouroboros_stats} batches")
+                except Exception:
+                    print("WARNING: Ouroboros config found in checkpoint but module not available. Running without recursive reasoning.")
+
+            global _PENDING_TURBO_CFG
+            _PENDING_TURBO_CFG = turbo_cfg
             break
 
     if loaded_checkpoint == "none":
@@ -176,11 +201,42 @@ class _TurboCacheAdapter:
         saved = mem["uncompressed_bytes"] - mem["compressed_bytes"]
         return float(saved / (1024 * 1024))
 
+    def get_compression_patterns(self) -> dict:
+        return {
+            "bits": int(getattr(self.cache.config, "bits", 4)),
+            "seed": int(getattr(self.cache.config, "seed", 42)),
+            "qjl_dim": int(getattr(self.cache.qjl, "qjl_dim", 32)),
+            "error_scale": float(getattr(self.cache, "_error_scale", 0.08)),
+        }
+
+    def restore_compression_patterns(self, cfg: dict):
+        bits = int(cfg.get("bits", 4))
+        seed = int(cfg.get("seed", 42))
+        qjl_dim = cfg.get("qjl_dim", None)
+        self.cache = CompressedKVCache(
+            batch_size=1,
+            num_kv_heads=4,
+            max_seq_len=CONFIG["block_size"] * 8,
+            d_head=64,
+            tq_config=TurboQuant(bits=bits, seed=seed, qjl_dim=qjl_dim),
+        )
+        if "error_scale" in cfg:
+            self.cache._error_scale = float(cfg["error_scale"])
+
 
 _turbo_cache = _TurboCacheAdapter()
 ghost_store: Dict[str, dict] = {}
 print("TurboQuant KV-cache compression: ACTIVE (6x reduction)")
 print("Ghost state persistence: ENABLED")
+
+if _PENDING_TURBO_CFG:
+    try:
+        _turbo_cache.restore_compression_patterns(_PENDING_TURBO_CFG)
+        print("✓ TurboQuant patterns restored from training checkpoint")
+    except Exception as e:
+        print(f"WARNING: TurboQuant restore failed: {e}. Starting with fresh compression cache.")
+else:
+    print("INFO: No TurboQuant patterns in checkpoint. Ghost states will build up during this session.")
 
 
 def save_ghost_state(session_id: str):

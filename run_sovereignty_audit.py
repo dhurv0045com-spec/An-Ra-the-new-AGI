@@ -3,6 +3,7 @@ from __future__ import annotations
 import ast
 import json
 import math
+import shutil
 import subprocess
 import sys
 import time
@@ -75,26 +76,67 @@ class SovereigntyAudit:
 
     def _atomic_rollback_check(self, checkpoint_path: Path) -> Dict[str, object]:
         drive = Path("/content/drive/MyDrive/AnRa")
-        best_meta = drive / "best_checkpoint_meta.json"
-        current_loss = float(self.results.get("code_quality", {}).get("complexity", {}).get("avg_cyclomatic", 1.0))
-        previous_loss = current_loss
+        best_meta_path = drive / "best_checkpoint_meta.json"
+
+        improvement_marker = drive / ".improvement_in_progress"
+        if improvement_marker.exists():
+            print("INFO: Self-improvement in progress — skipping rollback check this run")
+            return {"rollback_triggered": False, "reason": "improvement_in_progress", "promoted": False}
+
+        current_loss = float(self.results.get("code_quality", {}).get("score", 0))
+        current_proxy_loss = 100 - current_loss
+
         rollback = False
         reason = ""
-        if best_meta.exists():
-            meta = json.loads(best_meta.read_text(encoding="utf-8"))
-            previous_loss = float(meta.get("proxy_loss", current_loss))
-        if previous_loss > 0 and current_loss > previous_loss * 1.10:
-            rollback = True
-            reason = f"proxy loss worsened by >10% ({current_loss:.4f} vs {previous_loss:.4f})"
+        promoted = False
+
+        if best_meta_path.exists():
+            meta = json.loads(best_meta_path.read_text())
+            previous_proxy_loss = float(meta.get("proxy_loss", 100))
+
+            if previous_proxy_loss > 0 and current_proxy_loss > previous_proxy_loss * 1.10:
+                rollback = True
+                reason = f"proxy_loss worsened: {previous_proxy_loss:.2f} → {current_proxy_loss:.2f}"
+            elif current_proxy_loss < previous_proxy_loss:
+                promoted = True
+                drive.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(checkpoint_path, drive / "best_checkpoint.pt")
+                best_meta_path.write_text(json.dumps({
+                    "proxy_loss": current_proxy_loss,
+                    "timestamp": datetime.now().isoformat(),
+                    "source": "auto_improvement"
+                }))
+                print(
+                    f"✓ PROMOTED: New best checkpoint saved (proxy_loss: "
+                    f"{previous_proxy_loss:.2f} → {current_proxy_loss:.2f})"
+                )
+            else:
+                print(f"INFO: No significant quality change ({current_proxy_loss:.2f} vs {previous_proxy_loss:.2f})")
+        else:
+            promoted = True
+            drive.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(checkpoint_path, drive / "best_checkpoint.pt")
+            best_meta_path.write_text(json.dumps({
+                "proxy_loss": current_proxy_loss,
+                "timestamp": datetime.now().isoformat(),
+                "source": "first_run"
+            }))
+            print(f"✓ FIRST RUN: Baseline checkpoint established (proxy_loss: {current_proxy_loss:.2f})")
+
         if rollback:
             backup = drive / "best_checkpoint.pt"
             if backup.exists():
-                checkpoint_path.write_bytes(backup.read_bytes())
-        else:
-            drive.mkdir(parents=True, exist_ok=True)
-            (drive / "best_checkpoint.pt").write_bytes(checkpoint_path.read_bytes())
-            best_meta.write_text(json.dumps({"proxy_loss": current_loss, "timestamp": datetime.now(timezone.utc).isoformat()}), encoding="utf-8")
-        return {"rollback_triggered": rollback, "reason": reason}
+                shutil.copy2(backup, checkpoint_path)
+                print(f"ROLLBACK TRIGGERED: {reason}")
+            else:
+                print(f"ROLLBACK SKIPPED: No backup exists yet. Reason would have been: {reason}")
+
+        return {
+            "rollback_triggered": rollback,
+            "promoted": promoted,
+            "reason": reason,
+            "current_proxy_loss": current_proxy_loss,
+        }
 
     def _api_health_audit(self) -> Dict[str, object]:
         import httpx

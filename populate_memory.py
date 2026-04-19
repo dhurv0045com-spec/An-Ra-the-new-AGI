@@ -4,6 +4,7 @@ import json
 import pickle
 import re
 import sys
+from datetime import datetime
 from pathlib import Path
 from typing import List, Tuple
 
@@ -138,7 +139,11 @@ class MemoryPopulator:
 def _load_model_and_tokenizer():
     tok = pickle.loads((ROOT / CONFIG["tokenizer"]).read_bytes())
     model = CausalTransformer(tok.vocab_size, CONFIG["n_embd"], CONFIG["n_head"], CONFIG["n_layer"], CONFIG["block_size"])
-    ckpt = ROOT / CONFIG["checkpoint"]
+    ckpt = Path("/content/drive/MyDrive/AnRa") / CONFIG["checkpoint"]
+    if not ckpt.exists():
+        ckpt = ROOT / CONFIG["checkpoint"]
+    if not ckpt.exists():
+        ckpt = Path("/content/drive/MyDrive/AnRa") / CONFIG["fallback_checkpoint"]
     if not ckpt.exists():
         ckpt = ROOT / CONFIG["fallback_checkpoint"]
     if ckpt.exists():
@@ -151,6 +156,22 @@ def _load_model_and_tokenizer():
 
 
 if __name__ == '__main__':
+    DRIVE_PATH = Path("/content/drive/MyDrive/AnRa")
+    IDENTITY_CKPT = DRIVE_PATH / "anra_brain_identity.pt"
+    BASE_CKPT = DRIVE_PATH / "anra_brain.pt"
+
+    if not IDENTITY_CKPT.exists():
+        raise RuntimeError(
+            "populate_memory.py requires anra_brain_identity.pt to exist.\n"
+            "Fine-tuning must complete before memory population.\n"
+            "Run finetune_anra.py first, then run populate_memory.py.\n"
+            f"Expected: {IDENTITY_CKPT}"
+        )
+
+    print(f"✓ Identity checkpoint verified: {IDENTITY_CKPT}")
+    print(f"  Size: {IDENTITY_CKPT.stat().st_size / 1e6:.1f} MB")
+    print(f"  Modified: {datetime.fromtimestamp(IDENTITY_CKPT.stat().st_mtime)}")
+
     model, tokenizer = _load_model_and_tokenizer()
     memory_system = MemoryManager(data_dir="/content/drive/MyDrive/AnRa/memory_db", user_id="anra")
     populator = MemoryPopulator(model, tokenizer, memory_system)

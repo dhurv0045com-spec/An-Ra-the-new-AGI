@@ -137,9 +137,21 @@ def parse_identity_data(raw_text: str) -> Tuple[List[Tuple[str, str]], Dict[str,
 
 def curriculum_subset(pairs: Sequence[Tuple[str, str]], phase: int) -> List[Tuple[str, str]]:
     if phase == 1:
-        subset = [p for p in pairs if any(k.lower() in (p[0] + " " + p[1]).lower() for k in IDENTITY_KEYWORDS)]
-        if not subset:
-            raise ValueError("Curriculum phase 1 empty; identity subset must be non-empty")
+        subset = [
+            p for p in pairs
+            if any(k.lower() in (p[0] + p[1]).lower() for k in IDENTITY_KEYWORDS)
+        ]
+        if len(subset) < 50:
+            raise ValueError(
+                f"Phase 1 subset too small ({len(subset)} pairs). "
+                f"Identity keywords not found in training data. "
+                f"Check combined_identity_data.txt has identity exchanges."
+            )
+        if len(subset) < 80:
+            general_pairs = [p for p in pairs if p not in subset]
+            padding = general_pairs[:80 - len(subset)]
+            subset = subset + padding
+            print(f"Phase 1 padded with {len(padding)} general pairs to reach {len(subset)} total")
         return subset
     if phase == 2:
         return list(pairs)
@@ -307,8 +319,66 @@ def main() -> None:
     raw = data_path.read_text(encoding="utf-8", errors="replace")
     pairs, fmt_dist = parse_identity_data(raw)
     print(f"Format distribution: {fmt_dist}")
-    if len(pairs) < 100:
-        raise ValueError(f"Only {len(pairs)} training pairs found. Minimum 100 required. Check data format.")
+
+    symbolic = SymbolicBridge()
+    math_router = MathRouter(engine='sympy')
+    logic_router = LogicRouter(engine='dpll')
+    code_router = CodeRouter(engine='ast')
+
+    verified_pairs = []
+    rejected_pairs = []
+    corrected_pairs = []
+    symbolic_stats = {
+        "math_pairs_verified": 0,
+        "logic_pairs_verified": 0,
+        "code_pairs_validated": 0,
+        "pairs_corrected": 0,
+        "pairs_rejected": 0,
+    }
+
+    for h, anra in pairs:
+        check = verify_training_pair(h, anra, symbolic, math_router, logic_router, code_router)
+        if check['type'] == 'math' and check.get('verified'):
+            symbolic_stats["math_pairs_verified"] += 1
+        if check['type'] == 'logic' and check.get('verified'):
+            symbolic_stats["logic_pairs_verified"] += 1
+        if check['type'] in {'code', 'code_invalid'}:
+            symbolic_stats["code_pairs_validated"] += 1
+
+        if check['valid']:
+            verified_pairs.append((h, anra))
+        elif check['correction']:
+            corrected_pairs.append((h, str(check['correction'])))
+            symbolic_stats["pairs_corrected"] += 1
+        else:
+            rejected_pairs.append((h, anra))
+            symbolic_stats["pairs_rejected"] += 1
+
+    print("Symbolic verification complete:")
+    print(f"  Verified: {len(verified_pairs)} pairs")
+    print(f"  Corrected: {len(corrected_pairs)} pairs (wrong answers fixed)")
+    print(f"  Rejected: {len(rejected_pairs)} pairs (unfixable)")
+    print(f"  Training on {len(verified_pairs) + len(corrected_pairs)} pairs")
+
+    verified_and_corrected = len(verified_pairs) + len(corrected_pairs)
+    if verified_and_corrected < 100:
+        raise ValueError(
+            f"Only {verified_and_corrected} usable pairs after symbolic "
+            f"verification (rejected: {len(rejected_pairs)}). "
+            f"Add more training data or lower rejection thresholds."
+        )
+
+    rejection_rate = len(rejected_pairs) / max(len(pairs), 1)
+    if rejection_rate > 0.5:
+        print(f"WARNING: Symbolic bridge rejected {rejection_rate:.1%} of training pairs. Data quality may be low.")
+        print("Consider reviewing combined_identity_data.txt for incorrect math/logic answers or malformed code blocks.")
+
+    print(
+        f"Symbolic verification: {len(verified_pairs)} verified, {len(corrected_pairs)} corrected, "
+        f"{len(rejected_pairs)} rejected ({rejection_rate:.1%} rejection rate)"
+    )
+
+    pairs = verified_pairs + corrected_pairs
 
     symbolic = SymbolicBridge()
     math_router = MathRouter(engine='sympy')

@@ -24,6 +24,7 @@ from generate import (
     load_ghost_state, save_ghost_state
 )
 from full_system_connector import build_capability_graph
+from optimize_context_window import ContextWindowOptimizer
 
 START_TIME = time.time()
 SESSION_DIR = Path("/content/drive/MyDrive/AnRa/sessions/")
@@ -49,6 +50,37 @@ class ModelAdapter:
 
 ADAPTER = ModelAdapter()
 SYSTEM_GRAPH: Dict[str, Any] = {}
+_ctx_optimizer = ContextWindowOptimizer()
+
+
+# Memory system bridge (45J)
+try:
+    import sys as _sys
+    _sys.path.insert(0, str((Path(__file__).resolve().parent / "phase2" / "memory (45J)")))
+    from memory_manager import MemoryManager
+
+    class _MemoryBridge:
+        def __init__(self):
+            self._mm = MemoryManager(data_dir="/content/drive/MyDrive/AnRa/memory_db", user_id="anra")
+            self.semantic = self
+
+        def search(self, query: str, top_k: int = 3):
+            rows = self._mm.retrieve(query, limit=top_k, type="semantic")
+            return rows
+
+    MEMORY_SYSTEM = _MemoryBridge()
+except Exception as _mem_exc:
+    LOGGER.warning("Memory bridge unavailable: %s", _mem_exc)
+    MEMORY_SYSTEM = None
+
+
+def format_memory_context(memory_results: List[Dict[str, Any]]) -> str:
+    lines = ["[Retrieved Memory Context]"]
+    for i, item in enumerate(memory_results, start=1):
+        lines.append(f"{i}. {item.get('summary', '')}")
+        if item.get('content'):
+            lines.append(f"   detail: {item.get('content')[:240]}")
+    return "\n".join(lines)
 
 
 # Memory system bridge (45J)
@@ -276,9 +308,30 @@ async def chat_route(body: ChatRequest, request: Request):
         return limited
 
     history = _load_session(body.session_id)
-    context, turns_included, context_truncated = _build_context(body.session_id, body.message)
-    assert context.endswith(f"H: {body.message}\nANRA:")
-    assert "\n\n" not in context
+
+    memory_results = []
+    if MEMORY_SYSTEM is not None:
+        try:
+            memory_results = MEMORY_SYSTEM.semantic.search(query=body.message, top_k=3)
+        except Exception as mem_exc:
+            LOGGER.warning("Memory query failed for session %s: %s", body.session_id, mem_exc)
+
+    session_pairs = []
+    turns = list(history)
+    i = 0
+    while i < len(turns) - 1:
+        if turns[i].get("role") == "user" and turns[i + 1].get("role") == "assistant":
+            session_pairs.append((turns[i].get("content", ""), turns[i + 1].get("content", "")))
+            i += 2
+        else:
+            i += 1
+
+    ctx_result = _ctx_optimizer.build_optimized_context(
+        session_history=session_pairs,
+        memory_results=memory_results,
+        current_message=body.message
+    )
+    context = ctx_result["context"]
 
     memory_results = []
     if MEMORY_SYSTEM is not None:
@@ -296,7 +349,7 @@ async def chat_route(body: ChatRequest, request: Request):
         if hasattr(cfg, k):
             setattr(cfg, k, v)
     run_params = {k: v for k, v in cfg.__dict__.items() if k != 'strategy'}
-    ghost_loaded = load_ghost_state(body.session_id)
+    load_ghost_state(body.session_id)
     reply = ADAPTER.run(context, strategy=cfg.strategy, **run_params)
     save_ghost_state(body.session_id)
 
@@ -313,9 +366,10 @@ async def chat_route(body: ChatRequest, request: Request):
         "session_id": body.session_id,
         "turn": _turn_count(history),
         "history": list(history),
-        "context_length": len(context),
-        "turns_included": turns_included,
-        "context_truncated": context_truncated,
+        "context_length": ctx_result["context_length"],
+        "turns_included": ctx_result["turns_included"],
+        "context_truncated": ctx_result["context_truncated"],
+        "memory_truncated": ctx_result["memory_truncated"],
     }
 
 

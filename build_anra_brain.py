@@ -18,6 +18,23 @@ from causal_transformer import CausalTransformer  # Assuming this is the file
 from tokenizer.char_tokenizer import CharTokenizer  # Import CharTokenizer from the new module
 
 
+class TrainingTurboTracker:
+    def __init__(self, bits: int = 4, compression_ratio: int = 6):
+        self.bits = bits
+        self.compression_ratio = compression_ratio
+        self.hard_batches_seen = 0
+
+    def mark_hard_batch(self):
+        self.hard_batches_seen += 1
+
+    def get_compression_patterns(self) -> dict:
+        return {
+            "bits": self.bits,
+            "compression_ratio": self.compression_ratio,
+            "hard_batches_seen": self.hard_batches_seen,
+        }
+
+
 class OuroborosReasoner:
     """Training-time recursive reasoning wrapper with compatibility helpers."""
 
@@ -143,6 +160,7 @@ def train_anra_brain(
 
     model = CausalTransformer(vocab_size, n_embd, n_head, n_layer, block_size)
     ouroboros = OuroborosReasoner(model, passes=3)
+    _turbo_cache = TrainingTurboTracker(bits=4, compression_ratio=6)
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     model.to(device)
     print("Using device: {}".format(device))
@@ -188,6 +206,7 @@ def train_anra_brain(
                     b, t, c = logits.shape
                     loss = loss_fn(logits.view(b * t, c), yb.view(b * t))
                     ouroboros_batches_count += 1
+                    _turbo_cache.mark_hard_batch()
             else:
                 logits, loss = model(xb, yb)
 
@@ -211,6 +230,7 @@ def train_anra_brain(
         'model_state_dict': model.state_dict(),
         'ouroboros_config': ouroboros.get_config(),
         'ouroboros_batches': ouroboros_batches_count,
+        'turbo_config': _turbo_cache.get_compression_patterns(),
     }
     torch.save(checkpoint, checkpoint_path)
     print()
