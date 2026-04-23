@@ -534,7 +534,31 @@ Now see it all together. This is An-Ra running:
 
 ---
 
-## Level 14 — The Innovation Frontier
+## Level 14 — The Operational Fleet (The Infrastructure)
+
+True AGI cannot exist solely as a runtime inference engine. It requires an operational infrastructure to pre-process its memories, synthesize its training data, and verify its integrity offline. This is the **Operational Fleet** (`scripts/`).
+
+**The Master Colab Pipeline:**
+Instead of fragmented scripts, An-Ra's entire deep-learning pipeline (from base weights to high-level reasoning and ghost memory initialization) is mapped into a single, autonomous Google Colab notebook (`AnRa_Master.ipynb`). 
+
+```text
+    ┌───────────────────────────────────────────────┐
+    │          THE MASTER TRAINING PIPELINE         │
+    │                                               │
+    │  1. Build Base Brain (scripts/build_brain.py) │
+    │  2. Synthesize Data  (scripts/data_generator) │
+    │  3. Verify Data      (Symbolic Bridge 45Q)    │
+    │  4. Inject Identity  (LoRA Fine-tuning 45I)   │
+    │  5. Ouroboros Pass   (Recursive Training 45O) │
+    │  6. Audit System     (Sovereignty Daemon 45R) │
+    └───────────────────────────────────────────────┘
+```
+
+**Where it lives:** `AnRa_Master.ipynb`, `scripts/`
+
+---
+
+## Level 15 — The Innovation Frontier
 
 > *Innovation happens from obsession. If you can't visualize something, you're not likely to provide a breakthrough.*
 
@@ -617,8 +641,10 @@ These are the open frontiers where the next world-changing ideas will come from.
     Web ──→ Full-Potential AGI Control Panel (v2)
     TQ  ──→ TurboQuant (6x KV-Cache Compression)
     ─────────────────────── Phase 4 Complete: Interface ─────
+    Fleet──→ Operational Scripts & Master Colab Pipeline
+    ─────────────────────── Phase 5: Infrastructure ─────────
     ??? ──→ The Innovation Frontier (see above)
-    ─────────────────────── Phase 5: ??? ───────────────────
+    ─────────────────────── Phase 6: ??? ───────────────────
 ```
 
 ---

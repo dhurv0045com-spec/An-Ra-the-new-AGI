@@ -10,8 +10,14 @@ import torch
 import torch.nn.functional as F
 from torch.utils.data import DataLoader, Dataset
 
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from anra_paths import ROOT, inject_all_paths, get_tokenizer_file
+inject_all_paths()
+
 from anra_brain import CausalTransformer
-from anra_optimizer import build_optimizer
+from training.anra_optimizer import build_optimizer
 from training.checkpoint import CheckpointManager, CheckpointMeta
 from training.mixed_precision import MixedPrecisionTrainer
 from training.scheduler import get_cosine_schedule_with_warmup
@@ -30,9 +36,9 @@ class TextDataset(Dataset):
     def __len__(self):
         return len(self.data) - self.block_size - 1
 
-    def __getitem__(self, idx):
-        x = self.data[idx: idx + self.block_size]
-        y = self.data[idx + 1: idx + self.block_size + 1]
+    def __getitem__(self, index: int):
+        x = self.data[index: index + self.block_size]
+        y = self.data[index + 1: index + self.block_size + 1]
         return x, y
 
 
@@ -46,9 +52,9 @@ def _atomic_save(payload: dict, output_path: Path, drive_dir: Path | None = None
 
 
 def train_anra_brain(data_path: str, checkpoint_path: str = "anra_brain.pt", batch_size: int = 64, block_size: int = 128):
-    repo = Path(__file__).resolve().parent
+    repo = ROOT
     text = Path(data_path).read_text(encoding="utf-8", errors="replace")
-    with open(repo / "tokenizer.pkl", "rb") as f:
+    with open(get_tokenizer_file(), "rb") as f:
         tokenizer = pickle.load(f)
     data = torch.tensor(tokenizer.encode(text), dtype=torch.long)
 
@@ -58,7 +64,8 @@ def train_anra_brain(data_path: str, checkpoint_path: str = "anra_brain.pt", bat
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = CausalTransformer(tokenizer.vocab_size, 256, 4, 4, block_size).to(device)
     try:
-        model = torch.compile(model)
+        from typing import cast
+        model = cast(CausalTransformer, torch.compile(model))
     except Exception:
         pass
 

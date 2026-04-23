@@ -29,7 +29,7 @@ CONFIG = {
     "base_checkpoint": "/content/drive/MyDrive/AnRa/anra_brain.pt",
     "local_identity_checkpoint": "anra_brain_identity.pt",
     "local_base_checkpoint": "anra_brain.pt",
-    "tokenizer_path": "tokenizer.pkl",
+    "tokenizer_path": "tokenizer/tokenizer.pkl",
     "n_embd": 256,
     "n_head": 4,
     "n_layer": 4,
@@ -138,9 +138,9 @@ def _init_model_and_tokenizer():
 
             if ouroboros_cfg:
                 try:
-                    from phase3.ouroboros_45O import OuroborosReasoner
+                    from ouroboros_numpy import OuroborosNumpy
                     global _RESTORED_OUROBOROS, _RESTORED_OUROBOROS_STATS
-                    _RESTORED_OUROBOROS = OuroborosReasoner(model, **ouroboros_cfg)
+                    _RESTORED_OUROBOROS = OuroborosNumpy(model, **ouroboros_cfg)
                     _RESTORED_OUROBOROS_STATS = ouroboros_stats
                     print(f"✓ Ouroboros restored: {ouroboros_cfg.get('passes', 3)} passes, trained on {ouroboros_stats} batches")
                 except Exception:
@@ -458,31 +458,33 @@ def _beam_search(prompt_ids: List[int], cfg: GenerationConfig) -> GenerationTrac
 def _build_config(strategy: str, kwargs: Dict[str, object]) -> GenerationConfig:
     cfg = GenerationConfig(strategy=strategy.lower())
     if "max_tokens" in kwargs:
-        cfg.max_tokens = int(kwargs.pop("max_tokens"))
+        cfg.max_tokens = int(str(kwargs.pop("max_tokens")))
     if "max_new_tokens" in kwargs:
-        cfg.max_tokens = int(kwargs.pop("max_new_tokens"))
+        cfg.max_tokens = int(str(kwargs.pop("max_new_tokens")))
     if "temperature" in kwargs:
-        cfg.temperature = float(kwargs.pop("temperature"))
+        cfg.temperature = float(str(kwargs.pop("temperature")))
     if "top_k" in kwargs:
-        cfg.top_k = int(kwargs.pop("top_k"))
+        cfg.top_k = int(str(kwargs.pop("top_k")))
     if "k" in kwargs:
-        cfg.top_k = int(kwargs.pop("k"))
+        cfg.top_k = int(str(kwargs.pop("k")))
     if "top_p" in kwargs:
-        cfg.top_p = float(kwargs.pop("top_p"))
+        cfg.top_p = float(str(kwargs.pop("top_p")))
     if "p" in kwargs:
-        cfg.top_p = float(kwargs.pop("p"))
+        cfg.top_p = float(str(kwargs.pop("p")))
     if "beam_width" in kwargs:
-        cfg.beam_width = int(kwargs.pop("beam_width"))
+        cfg.beam_width = int(str(kwargs.pop("beam_width")))
     if "beams" in kwargs:
-        cfg.beam_width = int(kwargs.pop("beams"))
+        cfg.beam_width = int(str(kwargs.pop("beams")))
     if "repetition_penalty" in kwargs:
-        cfg.repetition_penalty = float(kwargs.pop("repetition_penalty"))
+        cfg.repetition_penalty = float(str(kwargs.pop("repetition_penalty")))
     if "repetition_window" in kwargs:
-        cfg.repetition_window = int(kwargs.pop("repetition_window"))
+        cfg.repetition_window = int(str(kwargs.pop("repetition_window")))
     if "seed" in kwargs:
-        cfg.seed = int(kwargs.pop("seed")) if kwargs["seed"] is not None else None
+        val = kwargs.pop("seed")
+        cfg.seed = int(str(val)) if val is not None else None
     if "stop_strings" in kwargs:
-        cfg.stop_strings = list(kwargs.pop("stop_strings"))
+        val = kwargs.pop("stop_strings")
+        cfg.stop_strings = list(val) if isinstance(val, list) else []
     return cfg
 
 
@@ -507,11 +509,13 @@ def generate_traced(prompt: str, config: GenerationConfig, session_id: Optional[
                 "WARNING: CausalTransformer does not expose hidden states. "
                 "Contrastive search falling back to nucleus sampling."
             )
-            fallback_cfg = GenerationConfig(**{**cfg.__dict__, "strategy": "nucleus"})
+            import dataclasses
+            fallback_cfg = dataclasses.replace(cfg, strategy="nucleus")
             trace = _run_autoregressive(prompt_ids, fallback_cfg, "nucleus (contrastive fallback)", ghost_state_loaded=ghost_loaded)
             trace.stopped_by = "nucleus (contrastive fallback)"
         else:
-            trace = _run_autoregressive(prompt_ids, GenerationConfig(**{**cfg.__dict__, "strategy": "nucleus"}), "contrastive", ghost_state_loaded=ghost_loaded)
+            import dataclasses
+            trace = _run_autoregressive(prompt_ids, dataclasses.replace(cfg, strategy="nucleus"), "contrastive", ghost_state_loaded=ghost_loaded)
     else:
         raise ValueError(f"Unknown strategy '{cfg.strategy}'")
     trace.time_ms = (time.perf_counter() - t0) * 1000

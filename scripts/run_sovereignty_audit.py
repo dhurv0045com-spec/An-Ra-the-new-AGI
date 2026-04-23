@@ -9,11 +9,18 @@ import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Any
 
 import torch
 
-ROOT = Path(__file__).resolve().parent
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from anra_paths import ROOT, inject_all_paths
+inject_all_paths()
+
+import torch
+
 sys.path.insert(0, str(ROOT / "phase3" / "sovereignty (45R)"))
 from auditor import AuditPass  # type: ignore
 from config import Config  # type: ignore
@@ -21,7 +28,7 @@ from config import Config  # type: ignore
 
 class SovereigntyAudit:
     def __init__(self):
-        self.results: Dict[str, object] = {}
+        self.results: Dict[str, Any] = {}
 
     def _code_quality_audit(self) -> Dict[str, object]:
         cfg = Config()

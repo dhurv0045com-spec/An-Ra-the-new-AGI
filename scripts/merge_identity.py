@@ -1,13 +1,17 @@
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from anra_paths import IDENTITY_DIR
+
 IDENTITY_FILES = [
-    Path("phase3/identity (45N)/anra_identity_v2.txt"),
-    Path("phase3/identity (45N)/anra_identity_v3_coding.txt"),
-    Path("phase3/identity (45N)/anra_identity_v4_fluent.txt"),
+    IDENTITY_DIR / "anra_identity_v2.txt",
+    IDENTITY_DIR / "anra_identity_v3_coding.txt",
+    IDENTITY_DIR / "anra_identity_v4_fluent.txt",
 ]
-OUTPUT = Path("anra_identity_combined.txt")
+OUTPUT = IDENTITY_DIR / "anra_identity_combined.txt"
 
 
 def main() -> None:
@@ -21,7 +25,7 @@ def main() -> None:
 
     OUTPUT.write_text("\n\n".join(merged), encoding="utf-8")
     print(f"Written: {OUTPUT} ({OUTPUT.stat().st_size / 1e3:.1f}KB total)")
-    print("Run finetune_anra.py after this.")
+    print("Run training/finetune_anra.py after this.")
 
 
 if __name__ == "__main__":

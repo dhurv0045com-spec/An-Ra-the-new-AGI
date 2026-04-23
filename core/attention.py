@@ -42,13 +42,13 @@ ARCHITECTURE DECISIONS (all are deliberate upgrades over vanilla attention):
 """
 
 import numpy as np
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Any
 
 
 # ── TurboQuant Integration ──────────────────────────────────────────────────
 # Import compressed cache for transparent KV-cache compression
 try:
-    from turboquant import CompressedKVCache, TurboQuantConfig, make_kv_cache
+    from .turboquant import CompressedKVCache, TurboQuantConfig, make_kv_cache
     _TURBOQUANT_AVAILABLE = True
 except ImportError:
     _TURBOQUANT_AVAILABLE = False
@@ -211,7 +211,7 @@ class KVCache:
 # UTILITY: CAUSAL MASK
 # ──────────────────────────────────────────────────────────────────────────────
 
-def make_causal_mask(seq_len: int, dtype: np.dtype = np.float32) -> np.ndarray:
+def make_causal_mask(seq_len: int, dtype: Any = np.float32) -> np.ndarray:
     """
     Additive causal attention mask: 0 for allowed positions, -inf for masked.
 
@@ -255,7 +255,7 @@ def scaled_dot_product_attention(
     training:     bool  = False,
     rng:          Optional[np.random.Generator] = None,
     chunk_size:   Optional[int] = None,
-) -> Tuple[np.ndarray, np.ndarray]:
+) -> Tuple[np.ndarray, Optional[np.ndarray]]:
     """
     Scaled dot-product attention — the mathematical core of every transformer.
 
@@ -414,6 +414,7 @@ if __name__ == "__main__":
     V = rng.standard_normal((B, H, S, D)).astype(np.float32)
     mask4 = make_causal_mask(S)
     out, w = scaled_dot_product_attention(Q, K, V, mask=mask4)
+    assert w is not None
     print(f"  Output shape: {out.shape}  Weights shape: {w.shape}")
     print(f"  Weights sum to 1: {np.allclose(w.sum(-1), 1.0)}")
     print(f"  Future positions ≈ 0: {np.triu(w[0,0],k=1).max():.2e}")
@@ -426,6 +427,7 @@ if __name__ == "__main__":
     K_gqa = rng.standard_normal((B, KV_H, S, D)).astype(np.float32)
     V_gqa = rng.standard_normal((B, KV_H, S, D)).astype(np.float32)
     out_gqa, w_gqa = scaled_dot_product_attention(Q_gqa, K_gqa, V_gqa)
+    assert w_gqa is not None
     print(f"  Q shape: {Q_gqa.shape}  K/V shape: {K_gqa.shape}")
     print(f"  Output:  {out_gqa.shape}  ← matches Q heads")
     assert out_gqa.shape == (B, H, S, D)

@@ -38,8 +38,8 @@ An-Ra is broken down incrementally across 4 major phases. To think from "above" 
   * `core/turboquant.py`: 6x KV-cache compression memory savings.
   * `core/decoder.py` & `encoder.py`: The autoregressive stack.
   * `core/feedforward.py` & `layernorm.py`: SwiGLU / GELU and RMSNorm.
-  * `training/`: Contains `trainer.py` (loop), `scheduler.py`, `loss_tracker.py`.
-  * `inference/`: Generation engines (`sampling.py`, `greedy.py`).
+  * `training/`: Contains `train_unified.py`, `finetune_anra.py`, `trainer.py`, `optimizations.py`.
+  * `inference/`: Generation engines, context optimization (`optimize_context_window.py`).
 
 ### Phase 2: Autonomous Subsystems (The Agent)
 * **Path:** `phase2/`
@@ -66,6 +66,14 @@ An-Ra is broken down incrementally across 4 major phases. To think from "above" 
   * `app.py`: FastAPI server that mounts Phase 1-3 onto REST/WebSocket connections.
   * `phase4/web/src/components`: React frontends (`MemoryExplorer.jsx`, `Dashboard.jsx`, `SovereigntyPanel.jsx`).
 
+### Operational Fleet (The Engine Room)
+* **Path:** `scripts/`, `training_data/`
+* **Accessing it:** Run standalone scripts directly, e.g., `python scripts/populate_memory.py`.
+* **What it does:** The raw utilities required to bootstrap and manage An-Ra's subsystems without booting the entire MasterSystem.
+  * `scripts/build_brain.py`: Compiles the base intelligence.
+  * `scripts/run_sovereignty_audit.py`: Forces a manual system integrity check.
+  * `scripts/run_self_improvement.py`: Generates a localized improvement report.
+
 ---
 
 ## 🧠 How to Train An-Ra
@@ -74,13 +82,14 @@ An-Ra is broken down incrementally across 4 major phases. To think from "above" 
 You can alter An-Ra's foundational knowledge by running standard autoregressive un-masking on your own dataset.
 1. Put text data into `training_data/`.
 2. Edit `config/tiny.yaml` (or your chosen config) to point to your data.
-3. Run `python -m training.trainer`.
+3. Run `python scripts/build_brain.py` or use the Colab notebook.
 
 ### Level 2: Training Identity & Fluency (Phase 3 - 45N)
 If An-Ra is speaking like a typical AI, it means the Identity layer weights need reinforcement.
-1. The training script is located in `phase3/identity (45N)/train_identity.py`.
-2. Add new real-world exchanges to `anra_identity_v4_fluent.txt`. Ensure the tone represents extreme confidence, fluency, and deep capability.
-3. Run the trainer (using an NVIDIA GPU or Google Colab) to overwrite the LoRA adapters. The changes are automatically loaded on next boot.
+1. The master training flow is located in `AnRa_Master.ipynb` (Google Colab).
+2. Add new real-world exchanges to `phase3/identity (45N)/anra_identity_v4_fluent.txt`. Ensure the tone represents extreme confidence, fluency, and deep capability.
+3. Run `python scripts/merge_identity.py` to combine identity files.
+4. Run the notebook (using an NVIDIA T4 GPU on Colab) to overwrite the LoRA adapters. The changes are automatically loaded on next boot.
 
 ### Level 3: Autonomous Continuous Learning
 An-Ra trains itself. By leaving `app.py` running locally, the `ContinuousEngine` schedules a Weekly Self-Training Run.

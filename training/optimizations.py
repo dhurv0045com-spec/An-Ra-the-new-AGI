@@ -79,7 +79,7 @@ class GradientCheckpointedOuroboros(nn.Module):
         self.passes = passes
         self.entropy_profile = []
 
-    def forward(self, x, targets=None):
+    def forward(self, x: torch.Tensor, targets: torch.Tensor | None = None) -> Tuple[torch.Tensor, torch.Tensor]:
         """Run N passes and return logits/loss tuple."""
         total_loss = torch.tensor(0.0, device=x.device)
         self.entropy_profile = []
@@ -88,9 +88,10 @@ class GradientCheckpointedOuroboros(nn.Module):
 
         for pass_idx in range(self.passes):
             if pass_idx > 0 and self.training:
-                logits, loss = checkpoint.checkpoint(
+                from typing import cast
+                logits, loss = cast(Tuple[torch.Tensor, torch.Tensor], checkpoint.checkpoint(
                     self._forward_model, x, targets, use_reentrant=False
-                )
+                ))
             else:
                 logits, loss = self.model(x, targets)
 
@@ -102,7 +103,8 @@ class GradientCheckpointedOuroboros(nn.Module):
             self.entropy_profile.append(float(entropy))
 
         avg_loss = total_loss / max(self.passes, 1)
-        return logits, avg_loss
+        from typing import cast
+        return cast(torch.Tensor, logits), cast(torch.Tensor, avg_loss)
 
     def get_config(self):
         return {"passes": self.passes, "entropy_profile": list(self.entropy_profile)}

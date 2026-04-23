@@ -1,10 +1,14 @@
 from __future__ import annotations
 
-import json
-import sqlite3
+import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from anra_paths import ROOT, inject_all_paths, get_tokenizer_file
+inject_all_paths()
+
+import json
+import sqlite3
 
 
 def db_size(path: Path) -> str:

@@ -1,0 +1,26 @@
+project_excludes = [
+  "**/*.ipynb",
+  "phase4/web/node_modules/**",
+  "**/scratch/**",
+  "**/__pycache__/**",
+]
+
+[python]
+# Add inference/ so full_system_connector and optimize_context_window
+# are resolvable as top-level modules (matching inject_all_paths() runtime behavior).
+# Add stubs/ so google.colab, pyngrok, etc. resolve locally.
+python_path = [
+  ".",
+  "inference",
+  "stubs",
+  "core",
+  "phase2/master_system (45M)",
+  "phase2/agent_loop (45k)",
+  "phase3/identity (45N)",
+  "phase3/ouroboros (45O)",
+  "phase3/ghost_memory (45P)",
+  "phase3/symbolic_bridge (45Q)",
+  "phase3/sovereignty (45R)",
+  "training",
+  "history/production (45H)"
+]

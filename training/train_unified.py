@@ -9,7 +9,7 @@ from pathlib import Path
 import torch
 from torch.optim import AdamW
 
-from anra_paths import ROOT, ensure_dirs, get_checkpoint, inject_all_paths
+from anra_paths import ROOT, ensure_dirs, get_checkpoint, get_tokenizer_file, get_dataset_file, inject_all_paths
 from anra_brain import CausalTransformer
 from optimizations import AdaptiveScheduler, GradientCheckpointedOuroboros, MultiScaleHardSampleDetector
 from training.curriculum import get_phase
@@ -19,8 +19,9 @@ ensure_dirs()
 
 
 def _load_tokenizer():
-    with open(ROOT / "tokenizer.pkl", "rb") as f:
+    with open(get_tokenizer_file(), "rb") as f:
         return pickle.load(f)
+
 
 
 def _load_model(tok, device):
@@ -40,7 +41,7 @@ def run_identity(args):
     base_model = _load_model(tok, device)
     model = GradientCheckpointedOuroboros(base_model, passes=1).to(device)
     detector = MultiScaleHardSampleDetector()
-    text = (ROOT / "anra_dataset_v6_1.txt").read_text(encoding="utf-8", errors="replace")
+    text = get_dataset_file().read_text(encoding="utf-8", errors="replace")
     ids = tok.encode(text)
     data = torch.tensor(ids, dtype=torch.long)
     opt = AdamW(base_model.parameters(), lr=args.lr, weight_decay=0.01)

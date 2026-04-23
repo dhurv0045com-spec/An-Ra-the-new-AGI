@@ -9,6 +9,10 @@ import time
 from pathlib import Path
 from typing import Callable, List, Tuple
 
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from anra_paths import ROOT, inject_all_paths, get_tokenizer_file, get_dataset_file, get_optimization_config
+inject_all_paths()
+
 import httpx
 import uvicorn
 
@@ -36,7 +40,7 @@ def t1_import_test() -> Tuple[bool, str]:
 
 
 def t2_tokenizer_test() -> Tuple[bool, str]:
-    tok = pickle.load(open("tokenizer.pkl", "rb"))
+    tok = pickle.load(open(get_tokenizer_file(), "rb"))
     s = "Hello An-Ra"
     ids = tok.encode(s)
     dec = tok.decode(ids)
@@ -119,12 +123,9 @@ def t6_session_persistence_test() -> Tuple[bool, str]:
 
 
 def t7_finetune_data_test() -> Tuple[bool, str]:
-    candidates = [
-        Path("data/combined_identity_data.txt"),
-        Path("combined_identity_data.txt"),
-        Path("anra_dataset_v6_1.txt"),
-    ]
-    path = next((p for p in candidates if p.exists()), None)
+    path = get_dataset_file()
+    if not path.exists():
+        path = None
     if path is None:
         return False, "no training dataset file found"
 
@@ -207,10 +208,11 @@ def t14_rate_limit_test() -> Tuple[bool, str]:
 
 
 def t15_curriculum_phase_test() -> Tuple[bool, str]:
-    from finetune_anra import IDENTITY_KEYWORDS, parse_identity_data
+    from training.finetune_anra import IDENTITY_KEYWORDS, parse_identity_data
 
-    candidates = [Path("data/combined_identity_data.txt"), Path("combined_identity_data.txt"), Path("anra_dataset_v6_1.txt")]
-    path = next((p for p in candidates if p.exists()), None)
+    path = get_dataset_file()
+    if not path.exists():
+        path = None
     if path is None:
         return False, "no dataset path for curriculum test"
     raw = path.read_text(encoding="utf-8", errors="replace")
@@ -249,7 +251,7 @@ def t18_stop_string_test() -> Tuple[bool, str]:
 
 
 def t19_finetune_report_test() -> Tuple[bool, str]:
-    paths = [Path("finetune_report.json"), Path("/content/drive/MyDrive/AnRa/finetune_report.json")]
+    paths = [ROOT / "output" / "finetune_report.json", Path("/content/drive/MyDrive/AnRa/finetune_report.json")]
     found = next((p for p in paths if p.exists()), None)
     if not found:
         return False, "report_missing"
@@ -300,8 +302,8 @@ def t21_agent_loop_initialization_test() -> Tuple[bool, str]:
         import importlib.util
         mod_path = Path("phase2/agent_loop (45k)/agent_main.py")
         spec = importlib.util.spec_from_file_location("agent_main_45k", mod_path)
+        assert spec is not None and spec.loader is not None
         module = importlib.util.module_from_spec(spec)
-        assert spec and spec.loader
         spec.loader.exec_module(module)
         AgentLoop = module.AgentLoop
     except ImportError as e:
@@ -333,8 +335,8 @@ def t22_agent_decision_loop_test() -> Tuple[bool, str]:
         import importlib.util
         mod_path = Path("phase2/agent_loop (45k)/agent_main.py")
         spec = importlib.util.spec_from_file_location("agent_main_45k", mod_path)
+        assert spec is not None and spec.loader is not None
         module = importlib.util.module_from_spec(spec)
-        assert spec and spec.loader
         spec.loader.exec_module(module)
         AgentLoop = module.AgentLoop
     except ImportError as e:
@@ -368,7 +370,7 @@ def t22_agent_decision_loop_test() -> Tuple[bool, str]:
 
 def t23_optimization_import_test() -> Tuple[bool, str]:
     try:
-        from optimizations import AdaptiveScheduler, MultiScaleHardSampleDetector, GradientCheckpointedOuroboros
+        from training.optimizations import AdaptiveScheduler, MultiScaleHardSampleDetector, GradientCheckpointedOuroboros
         return True, "All optimization modules imported"
     except Exception as e:
         return False, f"Import failed: {e}"
@@ -376,9 +378,7 @@ def t23_optimization_import_test() -> Tuple[bool, str]:
 
 def t24_optimization_config_test() -> Tuple[bool, str]:
     try:
-        config_path = Path("AnRa/optimization_config.json")
-        if not config_path.exists():
-            config_path = Path("/content/drive/MyDrive/AnRa/optimization_config.json")
+        config_path = get_optimization_config()
         if not config_path.exists():
             return False, "optimization_config.json not found"
         config = json.loads(config_path.read_text())

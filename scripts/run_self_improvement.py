@@ -8,12 +8,17 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List
 
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from anra_paths import ROOT, inject_all_paths, get_tokenizer_file
+inject_all_paths()
+
 import torch
 
 from anra_brain import CausalTransformer
 from generate import generate
 
-ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT / "phase2" / "self_improvement (45l)"))
 from improve import ImprovementSystem  # type: ignore
 
@@ -135,7 +140,7 @@ class SelfImprovementRunner:
 
 
 def _load_model_and_tokenizer():
-    tok = pickle.loads((ROOT / CONFIG["tokenizer"]).read_bytes())
+    tok = pickle.loads(get_tokenizer_file().read_bytes())
     model = CausalTransformer(tok.vocab_size, CONFIG["n_embd"], CONFIG["n_head"], CONFIG["n_layer"], CONFIG["block_size"])
     ckpt = Path(CONFIG["drive_dir"]) / CONFIG["checkpoint"]
     if not ckpt.exists():

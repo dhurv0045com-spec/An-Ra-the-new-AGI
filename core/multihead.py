@@ -288,6 +288,7 @@ if __name__ == "__main__":
     print(f"  {mha}")
     mask = make_causal_mask(S)
     out, w = mha.forward(x, mask=mask, training=False)
+    assert w is not None
     print(f"  Output: {out.shape}  Weights: {w.shape}")
     assert out.shape == (B, S, D)
     assert np.triu(w[0,0],k=1).max() < 1e-6, "Causal mask broken"
@@ -297,6 +298,7 @@ if __name__ == "__main__":
     gqa = MultiHeadAttention(D, num_heads=H, num_kv_heads=2, seed=1)
     print(f"  {gqa}")
     out_gqa, w_gqa = gqa.forward(x, mask=mask, training=False)
+    assert w_gqa is not None
     print(f"  Output: {out_gqa.shape}  Weights: {w_gqa.shape}")
     assert out_gqa.shape == (B, S, D)
 

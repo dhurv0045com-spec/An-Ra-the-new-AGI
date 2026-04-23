@@ -30,8 +30,8 @@ from generate import (
     GenerationConfig, generate, generate_stream, generate_traced, get_model_info,
     load_ghost_state, save_ghost_state
 )
-from full_system_connector import build_capability_graph
-from optimize_context_window import ContextWindowOptimizer
+from inference.full_system_connector import build_capability_graph
+from inference.optimize_context_window import ContextWindowOptimizer
 
 START_TIME = time.time()
 SESSION_DIR = Path("/content/drive/MyDrive/AnRa/sessions/")
@@ -64,7 +64,7 @@ _ctx_optimizer = ContextWindowOptimizer()
 try:
     import sys as _sys
     _sys.path.insert(0, str((Path(__file__).resolve().parent / "phase2" / "memory (45J)")))
-    from memory_manager import MemoryManager
+    from memory_manager import MemoryManager # type: ignore
 
     class _MemoryBridge:
         def __init__(self):
@@ -394,6 +394,7 @@ async def sessions_route():
 
 
 @app.get("/health")
+@app.get("/status")
 async def health_route():
     info = ADAPTER.info or get_model_info()
     return {
@@ -401,7 +402,7 @@ async def health_route():
         "model": "An-Ra",
         "checkpoint": str(info.get("checkpoint", "unknown")),
         "device": str(info.get("device", "unknown")),
-        "vocab_size": int(info.get("vocab_size", -1)),
+        "vocab_size": int(info.get("vocab_size", -1) or -1),  # type: ignore[arg-type]
         "uptime_seconds": time.time() - START_TIME,
         "sessions_active": len(SESSIONS),
     }
@@ -441,6 +442,7 @@ async def system_map_route():
 
 
 @app.get("/phase-health")
+@app.get("/sovereignty/status")
 async def phase_health_route():
     graph = SYSTEM_GRAPH or build_capability_graph(Path(__file__).resolve().parent)
     checks: Dict[str, Dict[str, Any]] = {}
@@ -454,7 +456,7 @@ async def phase_health_route():
         try:
             mod = __import__(mod_name)
             fn = getattr(mod, "health_check", None)
-            checks[key] = fn() if callable(fn) else {"status": "degraded", "detail": "health_check missing"}
+            checks[key] = dict(fn()) if callable(fn) else {"status": "degraded", "detail": "health_check missing"}  # type: ignore[arg-type]
         except Exception as exc:
             checks[key] = {"status": "degraded", "detail": str(exc)}
     return {

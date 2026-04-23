@@ -1,12 +1,16 @@
 from __future__ import annotations
 
+import sys
 import argparse
 import runpy
 import pickle
 from pathlib import Path
 
-import torch
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from anra_paths import ROOT, inject_all_paths, get_tokenizer_file
+inject_all_paths()
 
+import torch
 from anra_brain import CausalTransformer
 
 
@@ -17,12 +21,11 @@ def main():
     ap.add_argument("--steps", type=int, default=5000)
     args = ap.parse_args()
 
-    root = Path(__file__).resolve().parent
-    real_trainer = root / "phase3" / "ouroboros (45O)" / "train_ouroboros.py"
+    real_trainer = ROOT / "phase3" / "ouroboros (45O)" / "train_ouroboros.py"
     if real_trainer.exists():
         runpy.run_path(str(real_trainer), run_name="__main__")
         return
-    with open(root / "tokenizer.pkl", "rb") as f:
+    with open(get_tokenizer_file(), "rb") as f:
         tok = pickle.load(f)
 
     model = CausalTransformer(tok.vocab_size, 256, 4, 4, 128)
@@ -31,7 +34,6 @@ def main():
         state = state["model_state_dict"]
     model.load_state_dict(state, strict=False)
 
-    # Placeholder wiring: preserves compatibility and emits staged-training intent.
     payload = {
         "model_state_dict": model.state_dict(),
         "global_step": 0,

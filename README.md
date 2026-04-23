@@ -4,7 +4,7 @@
 
 An-Ra is an autonomous AI system built entirely from scratch by **Ankit** — starting from a single neuron in NumPy and evolving into a multi-phase AGI with its own transformer, agent loop, memory systems, recursive reasoning, symbolic logic, self-improvement, and a distinct personality.
 
-**260 files · 187 Python modules · ~75,000 lines of code · MIT License**
+**348 files · 221 Python modules · ~107,000 lines of code · MIT License**
 
 📖 **[VISION.md — Visualize the Full Architecture](VISION.md)** — From a single neuron to autonomous intelligence, with an Innovation Frontier mapping where breakthroughs will happen.
 
@@ -23,7 +23,9 @@ anra.py                          ← Single entry point
     │   ├── training/                Trainer, Checkpoints, Scheduler, Mixed Precision
     │   ├── inference/               Generation, Sampling, Evaluation
     │   ├── tokenizer/               Custom tokenizer
-    │   └── config/                  YAML model configs (tiny → large)
+    │   ├── config/                  YAML model configs (tiny → large)
+    │   ├── scripts/                 Standalone scripts for training, memory, auditing
+    │   └── training_data/           Dataset files
     │
     ├── Phase 2: INTELLIGENCE    ← Autonomous agent with memory & tools
     │   ├── 45I  Fine-tuning & evaluation pipeline
@@ -169,7 +171,7 @@ from core.model import LanguageModel
 lm = LanguageModel("config/tiny.yaml")
 lm.train()
 text = lm.generate("Once upon a time")
-results = lm.evaluate("data/test.txt")
+results = lm.evaluate("training_data/test.txt")
 ```
 
 ### Training Infrastructure
@@ -317,28 +319,41 @@ User sees: An-Ra's response
 
 ---
 
-## Identity Training (Google Colab)
+## Autonomous Training (Google Colab)
 
-To train An-Ra's identity and coding fluency:
+The entire identity and continuous learning pipeline has been consolidated into a single, dependency-free Google Colab notebook.
 
-### 1. Upload to Colab
-- `phase3/identity (45N)/anra_identity_v4_fluent.txt`
-- `phase3/identity (45N)/train_identity.py`
-- `phase3/identity (45N)/test_identity.py`
+### 1. The Master Notebook
+- Open **`AnRa_Master.ipynb`** in Google Colab (requires T4 GPU).
+- It automatically clones the repository, installs dependencies, and prepares the environment.
+- No API keys (like Gemini) are required.
 
-### 2. Install & Train
-```python
-!pip install transformers peft datasets accelerate bitsandbytes torch
-!python train_identity.py     # ~3-5 hours on T4
-!python test_identity.py      # Target: 8/10+
-```
+### 2. Full Pipeline Execution
+The notebook executes the following phases automatically:
+1. **TurboQuant Initialization**: Compresses KV-cache by 6x.
+2. **Symbolic Verification**: Data is verified by math/logic engines before training.
+3. **Identity Fine-Tuning**: Trains the model on verified fluency data.
+4. **Ouroboros Recursive Training**: Trains the reasoning layer.
+5. **Ghost Memory Population**: Seeds the database.
+6. **Sovereignty Audit**: Runs post-training integrity checks.
 
-### 3. Download Model
-```python
-!zip -r anra_model_v4.zip ./anra_model_v4/
-from google.colab import files
-files.download('anra_model_v4.zip')
-```
+---
+
+## Operational Scripts (scripts/)
+
+These standalone tools manage An-Ra's subsystems and data:
+
+| Script | Purpose |
+|--------|---------|
+| `build_brain.py` | Trains the Phase 1 base model from scratch. |
+| `data_generator.py` | Synthesizes complex training data locally. |
+| `merge_identity.py` | Combines fragmented identity text files into a single training dataset. |
+| `populate_memory.py` | Pre-fills the vector/graph memory systems from raw text. |
+| `run_self_improvement.py` | Executes skill probes to generate an improvement report. |
+| `run_sovereignty_audit.py` | Verifies code health, checkpoint integrity, and triggers rollbacks. |
+| `status.py` | Prints a health summary of the current system configuration. |
+| `train_ouroboros.py` | Specialized trainer for the 3-pass recursive reasoning layer. |
+| `verify_structure.py` | Validates that all critical components are correctly placed. |
 
 ---
 
@@ -374,6 +389,8 @@ An-Ra/
 │
 ├── config/                 ← Model configs (tiny → large)
 ├── tokenizer/              ← Custom tokenizer
+├── training_data/          ← Datasets
+├── scripts/                ← Standalone scripts (training, memory, audit)
 │
 ├── phase2/                 ← Phase 2: Intelligence
 │   ├── fine_tuning (45I)/      Fine-tuning pipeline

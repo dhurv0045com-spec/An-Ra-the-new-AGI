@@ -1,0 +1,16 @@
+{
+  "extraPaths": [
+    "core",
+    "inference",
+    "stubs",
+    "phase2/master_system (45M)",
+    "phase2/agent_loop (45k)",
+    "phase3/identity (45N)",
+    "phase3/ouroboros (45O)",
+    "phase3/ghost_memory (45P)",
+    "phase3/symbolic_bridge (45Q)",
+    "phase3/sovereignty (45R)",
+    "training",
+    "history/production (45H)"
+  ]
+}

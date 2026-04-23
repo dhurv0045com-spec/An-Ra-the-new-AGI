@@ -63,7 +63,7 @@ def _atomic_save(data: Dict, path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp_path = path.with_suffix(".tmp")
     try:
-        np.save(str(tmp_path), data, allow_pickle=True)
+        np.save(str(tmp_path), data, allow_pickle=True)  # type: ignore
         shutil.move(str(tmp_path), str(path))
     except Exception:
         if tmp_path.exists():
@@ -449,6 +449,7 @@ class LanguageModel:
 
         # Load training data
         train_batches = self._load_batches(data_path, t.batch_size, t.seq_len)
+        assert self._model is not None
         val_batches   = self._load_batches(val_path, t.batch_size, t.seq_len, max_batches=t.get("eval_steps", 50))
         if not train_batches:
             raise ValueError(
@@ -494,6 +495,8 @@ class LanguageModel:
         best_val    = float("inf")
         step_start  = time.time()
         batch_idx   = start_step % max(len(train_batches), 1)
+        step = start_step
+        loss = 0.0
 
         logger.info(f"Starting training from step {start_step} / {max_steps}")
 
@@ -1001,6 +1004,7 @@ class LanguageModel:
         for batch in batches:
             inp = batch[:, :-1]
             tgt = batch[:, 1:]
+            assert self._model is not None
             logits, _ = self._model.forward(inp, training=False)
             total_loss += self._cross_entropy_loss(logits, tgt)
         return total_loss / len(batches)

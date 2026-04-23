@@ -7,3 +7,17 @@ models/
 data/
 output/
 logs/
+node_modules/
+*.db
+*.sqlite
+*.log
+state/
+history/
+agent_workspace/
+*.pkl
+.improvement_in_progress
+dist/
+build/
+*.egg-info/
+.venv/
+venv/

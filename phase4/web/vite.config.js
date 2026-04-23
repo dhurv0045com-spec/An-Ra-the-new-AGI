@@ -7,5 +7,15 @@ export default defineConfig({
   build: {
     outDir: '../../ui', // Builds to root level An-Ra/ui directory
     emptyOutDir: true, // Empties the target directory first
+  },
+  server: {
+    proxy: {
+      '/api': {
+        target: 'http://127.0.0.1:8000',
+        changeOrigin: true,
+        secure: false,
+        rewrite: (path) => path.replace(/^\/api/, '')
+      }
+    }
   }
 })

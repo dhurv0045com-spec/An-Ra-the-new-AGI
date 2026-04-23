@@ -9,8 +9,8 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Sequence, Tuple
-from anra_paths import inject_all_paths, ensure_dirs
-from optimizations import AdaptiveScheduler, GradientCheckpointedOuroboros, MultiScaleHardSampleDetector
+from anra_paths import ROOT, inject_all_paths, ensure_dirs
+from training.optimizations import AdaptiveScheduler, GradientCheckpointedOuroboros, MultiScaleHardSampleDetector
 from training.curriculum import get_phase
 
 inject_all_paths()
@@ -25,14 +25,14 @@ from anra_brain import CausalTransformer, CharTokenizer
 from generate import GenerationConfig, generate
 
 try:
-    from phase3.symbolic_bridge_45Q import (
+    from symbolic_bridge import (  # type: ignore
         SymbolicBridge, MathRouter, LogicRouter, CodeRouter
     )
 except Exception:
     import sys as _sys
     from pathlib import Path as _Path
-    _sys.path.insert(0, str(_Path(__file__).resolve().parent / "phase3" / "symbolic_bridge (45Q)"))
-    import symbolic_bridge as _symbolic_bridge
+    _sys.path.insert(0, str(ROOT / "phase3" / "symbolic_bridge (45Q)"))
+    import symbolic_bridge as _symbolic_bridge  # type: ignore
 
     class SymbolicBridge:
         def solve_math(self, text: str):
@@ -74,9 +74,9 @@ except Exception:
 CONFIG = {
     "base_checkpoint": "anra_brain.pt",
     "identity_checkpoint": "anra_brain_identity.pt",
-    "tokenizer_path": "tokenizer.pkl",
-    "data_path": "anra_dataset_v6_1.txt",
-    "fallback_data_path": "anra_dataset_v6_1.txt",
+    "tokenizer_path": "tokenizer/tokenizer.pkl",
+    "data_path": "training_data/anra_dataset_v6_1.txt",
+    "fallback_data_path": "training_data/anra_dataset_v6_1.txt",
     "drive_dir": "/content/drive/MyDrive/AnRa/",
     "epochs": 12,
     "batch_size": 32,
@@ -183,8 +183,8 @@ class PairDataset(Dataset):
     def __len__(self):
         return len(self.samples)
 
-    def __getitem__(self, idx: int):
-        ids = self.samples[idx]
+    def __getitem__(self, index: int):
+        ids = self.samples[index]
         if len(ids) < self.seq_len + 1:
             ids = ids + [0] * (self.seq_len + 1 - len(ids))
         x = torch.tensor(ids[: self.seq_len], dtype=torch.long)
@@ -193,9 +193,9 @@ class PairDataset(Dataset):
 
 
 def _load_model(vocab_size: int, device: torch.device) -> CausalTransformer:
-    model = CausalTransformer(vocab_size, CONFIG["n_embd"], CONFIG["n_head"], CONFIG["n_layer"], CONFIG["block_size"])
-    identity = Path(CONFIG["identity_checkpoint"])
-    base = Path(CONFIG["base_checkpoint"])
+    model = CausalTransformer(vocab_size, int(CONFIG["n_embd"]), int(CONFIG["n_head"]), int(CONFIG["n_layer"]), int(CONFIG["block_size"]))
+    identity = Path(str(CONFIG["identity_checkpoint"]))
+    base = Path(str(CONFIG["base_checkpoint"]))
     ckpt = identity if identity.exists() else base
     if ckpt.exists():
         state = torch.load(ckpt, map_location=device, weights_only=False)
@@ -238,8 +238,8 @@ def _optimizer(model: CausalTransformer) -> AdamW:
         else:
             base_params.append(p)
     return AdamW(
-        [{"params": base_params, "lr": CONFIG["base_lr"]}, {"params": head_params, "lr": CONFIG["lm_head_lr"]}],
-        weight_decay=CONFIG["weight_decay"],
+        [{"params": base_params, "lr": float(CONFIG["base_lr"])}, {"params": head_params, "lr": float(CONFIG["lm_head_lr"])}],
+        weight_decay=float(CONFIG["weight_decay"]),
     )
 
 
@@ -275,7 +275,8 @@ def _identity_probe(tag: str) -> Dict[str, str]:
     return out
 
 
-def _save_training_report(path: Path, payload: Dict[str, object]) -> None:
+from typing import Any
+def _save_training_report(path: Path, payload: Dict[str, Any]) -> None:
     path.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
 
 
@@ -317,12 +318,12 @@ def verify_training_pair(h_text: str, anra_text: str, symbolic: SymbolicBridge, 
     return result
 
 def main() -> None:
-    repo = Path(__file__).resolve().parent
-    if not (repo / CONFIG["data_path"]).exists():
-        raise FileNotFoundError(f"Dataset not found: {repo / CONFIG['data_path']}")
-    data_path = repo / CONFIG["data_path"]
+    repo = ROOT
+    if not (repo / str(CONFIG["data_path"])).exists():
+        raise FileNotFoundError(f"Dataset not found: {repo / str(CONFIG['data_path'])}")
+    data_path = repo / str(CONFIG["data_path"])
     if not data_path.exists():
-        data_path = repo / CONFIG["fallback_data_path"]
+        data_path = repo / str(CONFIG["fallback_data_path"])
     if not data_path.exists():
         print(f"IDENTITY DATA NOT FOUND: {data_path}")
         print("Run: python anra_merge_identity.py first")
@@ -332,7 +333,7 @@ def main() -> None:
     else:
         print(f"Identity dataset: {data_path} ({data_path.stat().st_size / 1e3:.1f}KB)")
 
-    tokenizer = _load_tokenizer(repo / CONFIG["tokenizer_path"])
+    tokenizer = _load_tokenizer(repo / str(CONFIG["tokenizer_path"]))
     raw = data_path.read_text(encoding="utf-8", errors="replace")
     pairs, fmt_dist = parse_identity_data(raw)
     print(f"Format distribution: {fmt_dist}")
@@ -412,10 +413,10 @@ def main() -> None:
     print(f"Frozen params: {frozen:,} | Trainable params: {trainable:,}")
 
     opt = _optimizer(model)
-    scaler = torch.amp.GradScaler("cuda", enabled=CONFIG["mixed_precision"] and device.type == "cuda")
-    total_training_steps = CONFIG["epochs"] * max((len(train_pairs) // CONFIG["batch_size"]) + 1, 1)
+    scaler = torch.amp.GradScaler("cuda", enabled=bool(CONFIG["mixed_precision"]) and device.type == "cuda")
+    total_training_steps = int(CONFIG["epochs"]) * max((len(train_pairs) // int(CONFIG["batch_size"])) + 1, 1)
     warmup_steps = int(0.05 * total_training_steps)
-    adaptive_scheduler = AdaptiveScheduler(CONFIG["base_lr"], warmup_steps, total_training_steps)
+    adaptive_scheduler = AdaptiveScheduler(float(CONFIG["base_lr"]), warmup_steps, total_training_steps)
 
     before_probe = _identity_probe("before")
 
@@ -426,7 +427,7 @@ def main() -> None:
     history: List[EpochMetrics] = []
     loss_curve: List[float] = []
 
-    for epoch in range(1, CONFIG["epochs"] + 1):
+    for epoch in range(1, int(CONFIG["epochs"]) + 1):
         phase = get_phase(epoch - 1)
         if phase.name == "warmup":
             epoch_pairs = curriculum_subset(train_pairs, 1)
@@ -437,10 +438,10 @@ def main() -> None:
         print(f"CURRICULUM PHASE: {phase.name} | passes={phase.ouroboros_passes}")
         ouroboros_model.passes = phase.ouroboros_passes
 
-        train_ds = PairDataset(epoch_pairs, tokenizer, CONFIG["seq_len"])
-        val_ds = PairDataset(val_pairs, tokenizer, CONFIG["seq_len"])
-        train_loader = DataLoader(train_ds, batch_size=CONFIG["batch_size"], shuffle=True)
-        val_loader = DataLoader(val_ds, batch_size=CONFIG["batch_size"], shuffle=False)
+        train_ds = PairDataset(epoch_pairs, tokenizer, int(CONFIG["seq_len"]))
+        val_ds = PairDataset(val_pairs, tokenizer, int(CONFIG["seq_len"]))
+        train_loader = DataLoader(train_ds, batch_size=int(CONFIG["batch_size"]), shuffle=True)
+        val_loader = DataLoader(val_ds, batch_size=int(CONFIG["batch_size"]), shuffle=False)
 
         model.train()
         losses = []
@@ -460,35 +461,36 @@ def main() -> None:
             else:
                 ouroboros_model.passes = phase.ouroboros_passes
 
-            with torch.amp.autocast("cuda", enabled=CONFIG["mixed_precision"] and device.type == "cuda"):
+            with torch.amp.autocast("cuda", enabled=bool(CONFIG["mixed_precision"]) and device.type == "cuda"):
                 _, loss = ouroboros_model(x, y)
-                loss = loss / CONFIG["grad_accum_steps"]
+                from typing import cast
+                loss = cast(torch.Tensor, loss) / float(CONFIG["grad_accum_steps"])
             scaler.scale(loss).backward()
 
-            if step % CONFIG["grad_accum_steps"] == 0:
+            if step % int(CONFIG["grad_accum_steps"]) == 0:
                 scaler.unscale_(opt)
-                grad_norm = torch.nn.utils.clip_grad_norm_(trainable_params, max_norm=CONFIG["grad_clip"])
+                grad_norm = torch.nn.utils.clip_grad_norm_(trainable_params, max_norm=float(CONFIG["grad_clip"]))
                 if float(grad_norm) > 2.0:
                     print(f"WARNING: Gradient norm {float(grad_norm):.2f} > 2.0 at step {step} — instability detected")
                 scaler.step(opt)
                 scaler.update()
                 opt.zero_grad(set_to_none=True)
 
-                adaptive_scheduler.get_lr(current_step, loss.item() * CONFIG["grad_accum_steps"])
-            losses.append(float(loss.item() * CONFIG["grad_accum_steps"]))
+                adaptive_scheduler.get_lr(current_step, loss.item() * float(CONFIG["grad_accum_steps"]))
+            losses.append(float(loss.item() * float(CONFIG["grad_accum_steps"])))
 
         train_loss = float(sum(losses) / max(len(losses), 1))
         val_loss = _evaluate(model, val_loader, device)
         milestone = _milestone(val_loss)
         loss_curve.append(val_loss)
-        history.append(EpochMetrics(epoch, train_loss, val_loss, CONFIG["base_lr"], milestone))
+        history.append(EpochMetrics(epoch, train_loss, val_loss, float(CONFIG["base_lr"]), milestone))
         print(f"Epoch {epoch:02d} | train_loss={train_loss:.4f} | val_loss={val_loss:.4f} | {milestone}")
 
         if val_loss < best:
             best = val_loss
             best_epoch = epoch
             stale = 0
-            out = repo / CONFIG["identity_checkpoint"]
+            out = repo / str(CONFIG["identity_checkpoint"])
             ckpt_payload = {
                 "model_state_dict": model.state_dict(),
                 "optimizer_state_dict": opt.state_dict(),
@@ -497,13 +499,13 @@ def main() -> None:
                 "best_val_loss": best,
             }
             torch.save(ckpt_payload, out)
-            drive_dir = Path(CONFIG["drive_dir"])
+            drive_dir = Path(str(CONFIG["drive_dir"]))
             drive_dir.mkdir(parents=True, exist_ok=True)
-            torch.save(ckpt_payload, drive_dir / CONFIG["identity_checkpoint"])
-            print(f"Saved best checkpoint to {out} and {drive_dir / CONFIG['identity_checkpoint']}")
+            torch.save(ckpt_payload, drive_dir / str(CONFIG["identity_checkpoint"]))
+            print(f"Saved best checkpoint to {out} and {drive_dir / str(CONFIG['identity_checkpoint'])}")
         else:
             stale += 1
-            if stale >= CONFIG["patience"]:
+            if stale >= int(CONFIG["patience"]):
                 print("Early stopping triggered")
                 break
 
@@ -527,9 +529,9 @@ def main() -> None:
         "symbolic_verification": symbolic_stats,
     }
 
-    local_report = repo / "finetune_report.json"
+    local_report = repo / "output" / "finetune_report.json"
     _save_training_report(local_report, report)
-    drive_report = Path(CONFIG["drive_dir"]) / "finetune_report.json"
+    drive_report = Path(str(CONFIG["drive_dir"])) / "finetune_report.json"
     drive_report.parent.mkdir(parents=True, exist_ok=True)
     _save_training_report(drive_report, report)
     print(f"Training report saved to {local_report} and {drive_report}")

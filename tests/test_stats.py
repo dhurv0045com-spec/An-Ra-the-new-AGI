@@ -3,11 +3,14 @@ import os
 from pathlib import Path
 
 # Add project root to path
-sys.path.append(os.getcwd())
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from anra_paths import ROOT, inject_all_paths, MASTER_SYSTEM_DIR
+inject_all_paths()
 
 import importlib.util
-path = os.path.join(os.getcwd(), "phase2", "master_system (45M)", "system.py")
+path = str(MASTER_SYSTEM_DIR / "system.py")
 spec = importlib.util.spec_from_file_location("master_system", path)
+assert spec is not None and spec.loader is not None
 module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(module)
 MasterSystem = module.MasterSystem

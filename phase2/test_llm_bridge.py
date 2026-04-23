@@ -2,7 +2,7 @@
 Test the centralized LLM Bridge — verifies Phase 1 model loads and generates.
 """
 import sys
-sys.stdout.reconfigure(encoding='utf-8')
+sys.stdout.reconfigure(encoding='utf-8')  # type: ignore
 from pathlib import Path
 import asyncio
 

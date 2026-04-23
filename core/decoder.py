@@ -43,14 +43,16 @@ KV-CACHE INTEGRATION:
 import numpy as np
 from typing import Optional, List, Tuple, Any
 
-from attention          import make_causal_mask, softmax, KVCache, make_kv_cache
+from .attention import (
+    make_causal_mask, softmax, KVCache, make_kv_cache
+)
 try:
-    from attention import TurboQuantConfig, _TURBOQUANT_AVAILABLE
+    from .attention import TurboQuantConfig, _TURBOQUANT_AVAILABLE
 except ImportError:
     TurboQuantConfig, _TURBOQUANT_AVAILABLE = None, False
 
-from transformer_block  import TransformerBlock
-from layernorm          import RMSNorm
+from .transformer_block import TransformerBlock
+from .layernorm import RMSNorm
 
 
 class Decoder:
@@ -139,12 +141,11 @@ class Decoder:
         self.final_norm = RMSNorm(d_model)
 
         # ── LM head ─────────────────────────────────────────────────────
+        self.lm_head_W: Optional[np.ndarray] = None
         if not tie_weights:
             # Independent LM head weights
             limit = np.sqrt(6.0 / (d_model + vocab_size))
             self.lm_head_W = self.rng.uniform(-limit, limit, (d_model, vocab_size)).astype(np.float32)
-        else:
-            self.lm_head_W = None   # will use self.token_embedding.T
 
         self.lm_head_b = np.zeros(vocab_size, dtype=np.float32)
 
@@ -168,7 +169,7 @@ class Decoder:
         batch_size: int,
         turboquant: bool = False,
         tq_config: Optional[Any] = None
-    ) -> List[KVCache]:
+    ) -> List[Any]:
         """Create one KVCache per layer for autoregressive generation."""
         num_kv_heads = self.blocks[0].num_kv_heads
         d_head       = self.d_model // self.blocks[0].num_heads
@@ -485,7 +486,7 @@ class Decoder:
         total += sum(b.count_parameters() for b in self.blocks)
         total += self.final_norm.count_parameters()
         total += self.lm_head_b.size
-        if not self.tie_weights:
+        if not self.tie_weights and self.lm_head_W is not None:
             total += self.lm_head_W.size
         return total
 
