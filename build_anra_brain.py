@@ -77,14 +77,7 @@ def train_anra_brain(data_path: str, checkpoint_path: str = "anra_brain.pt", bat
         if isinstance(state, dict) and "model_state_dict" in state:
             model.load_state_dict(state["model_state_dict"], strict=False)
             if "optimizer_state_dict" in state:
-                try:
-                    optimizer.load_state_dict(state["optimizer_state_dict"])
-                    print("Optimizer state restored — momentum preserved")
-                except Exception as e:
-                    print(f"Optimizer state incompatible ({e})")
-                    print("Starting optimizer fresh — 200-step warmup will compensate")
-            else:
-                print("No optimizer state in checkpoint — starting optimizer fresh")
+                optimizer.load_state_dict(state["optimizer_state_dict"])
             global_step = int(state.get("global_step", 0))
             epoch = int(state.get("epoch", 0))
             best_loss = float(state.get("best_loss", float("inf")))

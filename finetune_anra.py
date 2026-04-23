@@ -69,8 +69,8 @@ CONFIG = {
     "base_checkpoint": "anra_brain.pt",
     "identity_checkpoint": "anra_brain_identity.pt",
     "tokenizer_path": "tokenizer.pkl",
-    "data_path": "anra_identity_combined.txt",
-    "fallback_data_path": "anra_identity_combined.txt",
+    "data_path": "anra_dataset_v6_1.txt",
+    "fallback_data_path": "anra_dataset_v6_1.txt",
     "drive_dir": "/content/drive/MyDrive/AnRa/",
     "epochs": 12,
     "batch_size": 32,
@@ -312,6 +312,8 @@ def verify_training_pair(h_text: str, anra_text: str, symbolic: SymbolicBridge, 
 
 def main() -> None:
     repo = Path(__file__).resolve().parent
+    if not (repo / CONFIG["data_path"]).exists():
+        raise FileNotFoundError(f"Dataset not found: {repo / CONFIG['data_path']}")
     data_path = repo / CONFIG["data_path"]
     if not data_path.exists():
         data_path = repo / CONFIG["fallback_data_path"]
