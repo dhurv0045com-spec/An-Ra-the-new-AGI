@@ -318,7 +318,13 @@ def main() -> None:
     if not data_path.exists():
         data_path = repo / CONFIG["fallback_data_path"]
     if not data_path.exists():
-        raise FileNotFoundError("Identity data file not found")
+        print(f"IDENTITY DATA NOT FOUND: {data_path}")
+        print("Run: python anra_merge_identity.py first")
+        print(f"TXT files in repo: {sorted(Path('.').glob('*.txt'))}")
+        import sys
+        sys.exit(1)
+    else:
+        print(f"Identity dataset: {data_path} ({data_path.stat().st_size / 1e3:.1f}KB)")
 
     tokenizer = _load_tokenizer(repo / CONFIG["tokenizer_path"])
     raw = data_path.read_text(encoding="utf-8", errors="replace")
