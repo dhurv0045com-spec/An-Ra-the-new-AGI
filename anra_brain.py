@@ -63,20 +63,24 @@ class CausalTransformer(nn.Module):
     def __init__(self, vocab_size: int, n_embd: int, n_head: int, n_layer: int, block_size: int):
         super().__init__()
         self.block_size = block_size
+        self.d_model = n_embd
         self.token_embedding_table = nn.Embedding(vocab_size, n_embd)
         self.position_embedding_table = nn.Embedding(block_size, n_embd)
         self.blocks = nn.Sequential(*[Block(n_embd, n_head, block_size) for _ in range(n_layer)])
         self.ln_f = nn.LayerNorm(n_embd)
-        self.lm_head = nn.Linear(n_embd, vocab_size)
+        self.lm_head = nn.Linear(n_embd, vocab_size, bias=False)
         self.apply(self._init_weights)
+        self.lm_head.weight = self.token_embedding_table.weight
 
     def _init_weights(self, module: nn.Module) -> None:
         if isinstance(module, nn.Linear):
-            torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
+            std = 0.02 / (2 * len(self.blocks)) ** 0.5 if hasattr(self, "blocks") else 0.02
+            torch.nn.init.normal_(module.weight, mean=0.0, std=std)
             if module.bias is not None:
                 torch.nn.init.zeros_(module.bias)
         elif isinstance(module, nn.Embedding):
-            torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
+            std = 0.02 / (2 * len(self.blocks)) ** 0.5 if hasattr(self, "blocks") else 0.02
+            torch.nn.init.normal_(module.weight, mean=0.0, std=std)
 
     def forward(self, idx: torch.Tensor, targets: torch.Tensor | None = None):
         _, t = idx.shape

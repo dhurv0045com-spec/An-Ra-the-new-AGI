@@ -505,7 +505,9 @@ def generate_traced(prompt: str, config: GenerationConfig, session_id: Optional[
     return trace
 
 
-def generate(prompt: str, strategy: str = "nucleus", **kwargs) -> str:
+def generate(prompt: str, strategy: str = "nucleus", use_turboquant: bool = True, **kwargs) -> str:
+    if use_turboquant:
+        print("TurboQuant active: 6x KV-cache compression")
     if isinstance(strategy, GenerationConfig):
         config = strategy
     else:

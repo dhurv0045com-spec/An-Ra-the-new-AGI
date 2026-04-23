@@ -1,8 +1,8 @@
 {
   "repo_root": "/workspace/An-Ra-the-new-AGI",
-  "file_count": 290,
-  "python_file_count": 199,
-  "total_lines": 84544,
+  "file_count": 303,
+  "python_file_count": 208,
+  "total_lines": 138257,
   "capabilities": {
     "turboquant": true,
     "ouroboros": true,
@@ -28,7 +28,7 @@
       "root": "phase2",
       "file_count": 92,
       "python_files": 75,
-      "total_lines": 24630,
+      "total_lines": 24637,
       "notable_files": [
         "phase2/master_system (45M)/README.md",
         "phase2/master_system (45M)/_smoke_test.py",
@@ -117,7 +117,7 @@
       "root": ".",
       "file_count": 5,
       "python_files": 5,
-      "total_lines": 1551,
+      "total_lines": 2209,
       "notable_files": [
         "app.py",
         "generate.py"

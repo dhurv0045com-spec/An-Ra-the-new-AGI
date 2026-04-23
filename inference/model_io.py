@@ -32,6 +32,22 @@ from typing import Any, Dict, List, Optional
 import torch
 import torch.nn as nn
 
+from core.turboquant import CompressedKVCache, TurboQuantConfig
+
+
+def build_kv_cache(use_turboquant: bool = True, batch_size: int = 1, num_kv_heads: int = 4, max_seq_len: int = 1024, d_head: int = 64):
+    """Create optional TurboQuant-backed KV cache."""
+    if not use_turboquant:
+        return None
+    return CompressedKVCache(
+        batch_size=batch_size,
+        num_kv_heads=num_kv_heads,
+        max_seq_len=max_seq_len,
+        d_head=d_head,
+        tq_config=TurboQuantConfig(bits=4),
+    )
+
+
 FORMAT_VERSION = 1
 
 

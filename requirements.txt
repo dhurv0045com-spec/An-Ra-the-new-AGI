@@ -25,3 +25,6 @@ sentence-transformers   # all-MiniLM-L6-v2 for real semantic search
 # datasets
 # accelerate
 # bitsandbytes
+
+google-generativeai
+muon-optimizer

@@ -27,6 +27,7 @@ import torch.nn.functional as F
 
 from greedy import greedy_step
 from sampling import sample_token, sampling_decode
+from model_io import build_kv_cache
 
 
 # ─────────────────────────────────────────────
@@ -55,6 +56,7 @@ class GenerationConfig:
     stop_tokens: List[str] = field(default_factory=list)
     stream: bool = False
     repetition_penalty: float = 1.0
+    use_turboquant: bool = True
 
 
 # ─────────────────────────────────────────────
@@ -152,6 +154,7 @@ class InferencePipeline:
         self.device    = device or ("cuda" if torch.cuda.is_available() else "cpu")
         self.model.to(self.device)
         self.model.eval()
+        self.kv_cache = build_kv_cache(use_turboquant=True)
 
     # ── single prompt ────────────────────────
 
