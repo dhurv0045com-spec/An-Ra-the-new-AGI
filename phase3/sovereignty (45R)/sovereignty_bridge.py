@@ -303,3 +303,12 @@ class SovereigntyBridge:
             daemon_status = self.get_daemon_status()
             base["daemon"] = daemon_status
         return base
+
+
+def health_check() -> dict:
+    try:
+        bridge = SovereigntyBridge(enabled=True)
+        status = bridge.status()
+        return {"status": "ok" if status.get("enabled") else "degraded", **status}
+    except Exception as exc:
+        return {"status": "degraded", "detail": str(exc)}

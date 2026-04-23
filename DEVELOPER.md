@@ -26,33 +26,45 @@ To achieve absolute dominance as a sovereign AGI, An-Ra requires developers to p
 
 ---
 
-## 🏗 Subsystem Access: How to Tap into the Brain
+## 🏗 Subsystem Access: How to Tap into the Brain (Complete File Mapping)
 
-An-Ra is broken down incrementally across 4 major phases. 
+An-Ra is broken down incrementally across 4 major phases. To think from "above" the system, visualize the exact mapping of these directories:
 
-### Phase 1: Core Neural Network
-* **Path:** `core/`
+### Phase 1: Core Neural Network (The Foundation)
+* **Path:** `core/`, `training/`, `inference/`, `tokenizer/`
 * **Accessing it:** Instantiate `from core.model import LanguageModel`.
-* **What it does:** The foundational PyTorch/NumPy transformer model. Change `config/` files to directly adjust the neural density.
+* **What it does:** The foundational PyTorch/NumPy transformer model. 
+  * `core/attention.py`: Multi-head attention + RoPE + GQA.
+  * `core/turboquant.py`: 6x KV-cache compression memory savings.
+  * `core/decoder.py` & `encoder.py`: The autoregressive stack.
+  * `core/feedforward.py` & `layernorm.py`: SwiGLU / GELU and RMSNorm.
+  * `training/`: Contains `trainer.py` (loop), `scheduler.py`, `loss_tracker.py`.
+  * `inference/`: Generation engines (`sampling.py`, `greedy.py`).
 
-### Phase 2: Autonomous Subsystems
+### Phase 2: Autonomous Subsystems (The Agent)
 * **Path:** `phase2/`
 * **Accessing it:** The agent loop is controlled by `phase2/agent_loop (45k)`. Access memory through `MemoryManager` in `45J`.
-* **What it does:** ReAct/Plan-Execute loop handling tool use, Semantic/Episodic vector databases. Custom hooks can be added to `tools.py` for new abilities.
+* **What it does:** 
+  * **45k (Agent Loop):** `goal.py`, `planner.py`, `executor.py`, `evaluator.py`, and `builtin.py` (50+ tools).
+  * **45J (Memory):** Operates Semantic, Episodic, Vector, and Graph databases.
+  * **45l (Self-Improvement):** Evaluates tasks and logs success rates to internal libraries.
+  * **45M (Master System):** `system.py` is the grand orchestrator of all systems.
 
-### Phase 3: The Synthesizers (Fully Connected)
+### Phase 3: The Synthesizers (Cognition & Safety)
 * **Path:** `phase3/`
 * **What it does:** Higher order cognitive heuristics.
-  * **45N (Identity Injector):** Enforces the An-Ra persona.
-  * **45O (Ouroboros):** Multi-pass recursive reasoning in CPU-bound `numpy`.
-  * **45P (Ghost Memory):** Compresses context history.
-  * **45Q (Symbolic Bridge):** Mathematics sandbox verification.
-  * **45R (Sovereignty Daemon):** Nightly code regression detection.
+  * **45N (Identity Injector):** Enforces the An-Ra persona dynamically at runtime without GPU inference.
+  * **45O (Ouroboros):** Multi-pass recursive reasoning (Semantic -> Logic -> Adversarial passes) in CPU-bound `numpy`.
+  * **45P (Ghost Memory):** Compresses context history for infinite conversational state windows.
+  * **45Q (Symbolic Bridge):** Bypasses LLM hallucinations by piping math/logic into local sandbox verifications.
+  * **45R (Sovereignty Daemon):** Nightly code regression and performance benchmarking.
 
-### Phase 4: Developer Web UI
-* **Path:** `phase4/web/`
-* **Accessing it:** `npm run dev` out of the directory, or hitting `localhost:8000/ui` when running `app.py`.
-* **What it does:** The visual command center for the entire node architecture.
+### Phase 4: Developer Web UI (The Control Panel)
+* **Path:** `phase4/web/`, `app.py`
+* **Accessing it:** `npm run dev` out of the directory, or hitting `localhost:8000` when running `app.py`.
+* **What it does:** The visual command center.
+  * `app.py`: FastAPI server that mounts Phase 1-3 onto REST/WebSocket connections.
+  * `phase4/web/src/components`: React frontends (`MemoryExplorer.jsx`, `Dashboard.jsx`, `SovereigntyPanel.jsx`).
 
 ---
 

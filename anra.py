@@ -27,9 +27,12 @@ import os
 import json
 import argparse
 from pathlib import Path
+from anra_paths import inject_all_paths, ensure_dirs
 
 # ── Resolve all project paths ─────────────────────────────────────────────────
 PROJECT_ROOT = Path(__file__).resolve().parent
+inject_all_paths()
+ensure_dirs()
 PHASE2_45M   = PROJECT_ROOT / "phase2" / "master_system (45M)"
 
 # ── Add Phase 3 paths to sys.path for direct imports ─────────────────────────
@@ -54,27 +57,22 @@ def _phase3_status(system: MasterSystem):
     print("  AN-RA PHASE 3 SUBSYSTEMS")
     print(f"{'='*60}\n")
 
-    status = system.status()
-    subs = status.get("subsystems", {})
-
     modules = [
-        ("45N — Identity Injector",    "identity"),
-        ("45O — Ouroboros Reasoning",  "ouroboros"),
-        ("45P — Ghost State Memory",   "ghost_memory"),
-        ("45Q — Symbolic Logic Bridge","symbolic"),
-        ("45R — Sovereignty Daemon",   "sovereignty"),
+        ("45N — Identity Injector", "identity_injector"),
+        ("45O — Ouroboros Reasoning", "ouroboros_numpy"),
+        ("45P — Ghost State Memory", "ghost_memory"),
+        ("45Q — Symbolic Logic Bridge", "symbolic_bridge"),
+        ("45R — Sovereignty Daemon", "sovereignty_bridge"),
     ]
-
-    for name, key in modules:
-        info = subs.get(key, {})
-        ready = info.get("ready", info.get("enabled", False))
-        mark = "[x]" if ready else "[ ]"
-        print(f"  {mark}  {name}")
-        if isinstance(info, dict):
-            for k, v in info.items():
-                if k not in ("ready", "enabled") and not isinstance(v, dict):
-                    print(f"         {k}: {v}")
-        print()
+    for name, mod_name in modules:
+        try:
+            mod = __import__(mod_name)
+            info = mod.health_check() if hasattr(mod, "health_check") else {"status": "degraded"}
+            status = info.get("status", "degraded")
+        except Exception:
+            status = "missing"
+        icon = "[✓]" if status == "ok" else "[WARN]" if status == "degraded" else "[✗]"
+        print(f"  {icon} {name}")
 
     print(f"{'='*60}\n")
 

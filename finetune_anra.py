@@ -4,11 +4,17 @@ import json
 import pickle
 import random
 import re
+import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Sequence, Tuple
-from optimizations import AdaptiveScheduler
+from anra_paths import inject_all_paths, ensure_dirs
+from optimizations import AdaptiveScheduler, GradientCheckpointedOuroboros, MultiScaleHardSampleDetector
+from training.curriculum import get_phase
+
+inject_all_paths()
+ensure_dirs()
 
 import torch
 import torch.nn.functional as F
@@ -400,6 +406,8 @@ def main() -> None:
 
     device = _device()
     model = _load_model(tokenizer.vocab_size, device)
+    ouroboros_model = GradientCheckpointedOuroboros(model, passes=1).to(device)
+    hard_detector = MultiScaleHardSampleDetector()
     frozen, trainable, trainable_params = _freeze_policy(model)
     print(f"Frozen params: {frozen:,} | Trainable params: {trainable:,}")
 
@@ -419,15 +427,15 @@ def main() -> None:
     loss_curve: List[float] = []
 
     for epoch in range(1, CONFIG["epochs"] + 1):
-        if epoch <= 4:
+        phase = get_phase(epoch - 1)
+        if phase.name == "warmup":
             epoch_pairs = curriculum_subset(train_pairs, 1)
-            print("CURRICULUM PHASE 1: Identity core")
-        elif epoch <= 8:
+        elif phase.name == "ramp":
             epoch_pairs = curriculum_subset(train_pairs, 2)
-            print("CURRICULUM PHASE 2: Full identity")
         else:
             epoch_pairs = curriculum_subset(train_pairs, 3)
-            print("CURRICULUM PHASE 3: General language integration")
+        print(f"CURRICULUM PHASE: {phase.name} | passes={phase.ouroboros_passes}")
+        ouroboros_model.passes = phase.ouroboros_passes
 
         train_ds = PairDataset(epoch_pairs, tokenizer, CONFIG["seq_len"])
         val_ds = PairDataset(val_pairs, tokenizer, CONFIG["seq_len"])
@@ -445,10 +453,15 @@ def main() -> None:
             for param_group in opt.param_groups:
                 param_group['lr'] = adaptive_lr
 
+            sample_text = tokenizer.decode(x[0].tolist()) if x.shape[0] > 0 else ""
+            is_hard, difficulty = hard_detector.detect(sample_text)
+            if is_hard and difficulty >= 2:
+                ouroboros_model.passes = min(3, difficulty)
+            else:
+                ouroboros_model.passes = phase.ouroboros_passes
+
             with torch.amp.autocast("cuda", enabled=CONFIG["mixed_precision"] and device.type == "cuda"):
-                logits, _ = model(x)
-                b, t, c = logits.shape
-                loss = F.cross_entropy(logits.view(b * t, c), y.view(b * t))
+                _, loss = ouroboros_model(x, y)
                 loss = loss / CONFIG["grad_accum_steps"]
             scaler.scale(loss).backward()
 

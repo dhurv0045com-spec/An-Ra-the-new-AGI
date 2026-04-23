@@ -79,38 +79,33 @@ class GradientCheckpointedOuroboros(nn.Module):
         self.passes = passes
         self.entropy_profile = []
 
-    def forward(self, batch_input, num_passes=None):
-        if num_passes is None:
-            num_passes = self.passes
-
+    def forward(self, x, targets=None):
+        """Run N passes and return logits/loss tuple."""
+        total_loss = torch.tensor(0.0, device=x.device)
         self.entropy_profile = []
-        running_logits = None
+        logits = None
+        weights = [1.0, 0.8, 1.2]
 
-        for pass_idx in range(num_passes):
-            pass_tensor = torch.tensor(pass_idx, device=batch_input.device, dtype=torch.long)
-            logits = checkpoint.checkpoint(
-                self._compute_pass,
-                batch_input,
-                pass_tensor,
-                use_reentrant=False
-            )
-
-            if running_logits is None:
-                running_logits = logits.clone()
+        for pass_idx in range(self.passes):
+            if pass_idx > 0 and self.training:
+                logits, loss = checkpoint.checkpoint(
+                    self._forward_model, x, targets, use_reentrant=False
+                )
             else:
-                alpha = 1.0 / (pass_idx + 1)
-                running_logits = (1.0 - alpha) * running_logits + alpha * logits
+                logits, loss = self.model(x, targets)
 
-        return running_logits
+            if loss is not None:
+                total_loss = total_loss + loss * weights[min(pass_idx, 2)]
+
+            probs = torch.softmax(logits[:, -1, :], dim=-1)
+            entropy = -(probs * torch.log(probs + 1e-10)).sum(-1).mean().item()
+            self.entropy_profile.append(float(entropy))
+
+        avg_loss = total_loss / max(self.passes, 1)
+        return logits, avg_loss
 
     def get_config(self):
         return {"passes": self.passes, "entropy_profile": list(self.entropy_profile)}
 
-    def _compute_pass(self, batch_input, pass_idx):
-        pass_idx_int = int(pass_idx.item()) if torch.is_tensor(pass_idx) else int(pass_idx)
-        logits, _ = self.model(batch_input)
-        temperature = 1.0 + 0.2 * pass_idx_int
-        probs = torch.softmax(logits[:, -1, :] / temperature, dim=-1)
-        entropy = -torch.sum(probs * torch.log(torch.clamp(probs, 1e-9, 1.0)), dim=-1)
-        self.entropy_profile.append(float(entropy.mean().item()))
-        return logits
+    def _forward_model(self, x, targets):
+        return self.model(x, targets)

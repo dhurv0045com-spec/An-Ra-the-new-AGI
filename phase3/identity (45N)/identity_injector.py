@@ -178,3 +178,12 @@ def get_identity_injector(identity_file=None, n_anchors=10):
     if _injector is None:
         _injector = IdentityInjector(identity_file=identity_file, n_anchors=n_anchors)
     return _injector
+
+
+def health_check() -> dict:
+    try:
+        inj = get_identity_injector()
+        st = inj.status()
+        return {"status": "ok" if st.get("enabled") else "degraded", **st}
+    except Exception as exc:
+        return {"status": "degraded", "detail": str(exc)}

@@ -115,3 +115,14 @@ __all__ = [
     "to_cnf", "parse_logic_formula", "solve_cnf", "check_proof",
     "__version__",
 ]
+
+
+def health_check() -> dict:
+    try:
+        return {
+            "status": "ok",
+            "version": __version__,
+            "exports": len(__all__),
+        }
+    except Exception as exc:
+        return {"status": "degraded", "detail": str(exc)}

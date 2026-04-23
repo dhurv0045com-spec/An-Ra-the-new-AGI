@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import sys
 import time
 import traceback
 import uuid
@@ -19,6 +20,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from anra_paths import ensure_dirs, inject_all_paths
+
+inject_all_paths()
+ensure_dirs()
+
 from generate import (
     GenerationConfig, generate, generate_stream, generate_traced, get_model_info,
     load_ghost_state, save_ghost_state
@@ -31,7 +38,7 @@ SESSION_DIR = Path("/content/drive/MyDrive/AnRa/sessions/")
 SESSION_DIR.mkdir(parents=True, exist_ok=True)
 SESSIONS: Dict[str, Deque[Dict[str, str]]] = defaultdict(lambda: deque(maxlen=40))
 SESSION_META: Dict[str, Dict[str, Any]] = {}
-RATE_LIMIT_STORE: Dict[str, Deque[float]] = defaultdict(lambda: deque(maxlen=10))
+RATE_LIMIT_STORE: Dict[str, Deque[float]] = defaultdict(deque)
 LOGGER = logging.getLogger("anra.api")
 logging.basicConfig(level=logging.INFO)
 
@@ -67,6 +74,16 @@ try:
         def search(self, query: str, top_k: int = 3):
             rows = self._mm.retrieve(query, limit=top_k, type="semantic")
             return rows
+
+        def store_turn(self, message: str, response: str, session_id: str) -> None:
+            self._mm.store_memory(
+                content=f"H: {message}\nANRA: {response}",
+                type="episodic",
+                importance="medium",
+                metadata={"session_id": session_id},
+            )
+            self._mm.extractor.process_single_turn("user", message, session_id)
+            self._mm.extractor.process_single_turn("assistant", response, session_id)
 
     MEMORY_SYSTEM = _MemoryBridge()
 except Exception as _mem_exc:
@@ -174,7 +191,7 @@ def _rate_limit_or_429(session_id: str, request_id: str):
     now = time.time()
     window = RATE_LIMIT_STORE[session_id]
     window.append(now)
-    while window and now - window[0] > 60:
+    while window and now - window[0] > 60.0:
         window.popleft()
     if len(window) > 10:
         retry_after = max(1, int(60 - (now - window[0])))
@@ -302,6 +319,8 @@ async def chat_route(body: ChatRequest, request: Request):
         current_message=body.message
     )
     context = ctx_result["context"]
+    memory_context = format_memory_context(memory_results) if memory_results else ""
+    full_prompt = f"{memory_context}\n\n{context}" if memory_context else context
 
     strategy = body.params.get("strategy", "nucleus")
     cfg = GenerationConfig(strategy=strategy)
@@ -310,7 +329,7 @@ async def chat_route(body: ChatRequest, request: Request):
             setattr(cfg, k, v)
     run_params = {k: v for k, v in cfg.__dict__.items() if k != 'strategy'}
     load_ghost_state(body.session_id)
-    reply = ADAPTER.run(context, strategy=cfg.strategy, **run_params)
+    reply = ADAPTER.run(full_prompt, strategy=cfg.strategy, **run_params)
     save_ghost_state(body.session_id)
 
     history.append({"role": "user", "content": body.message})
@@ -320,6 +339,11 @@ async def chat_route(body: ChatRequest, request: Request):
     SESSION_META[body.session_id]["total_turns"] = _turn_count(history)
     SESSION_META[body.session_id]["strategy_used"] = cfg.strategy
     _save_session(body.session_id)
+    if MEMORY_SYSTEM is not None:
+        try:
+            MEMORY_SYSTEM.store_turn(body.message, reply, body.session_id)
+        except Exception as mem_exc:
+            LOGGER.debug("Memory store failed: %s", mem_exc)
 
     return {
         "reply": reply,
@@ -419,7 +443,26 @@ async def system_map_route():
 @app.get("/phase-health")
 async def phase_health_route():
     graph = SYSTEM_GRAPH or build_capability_graph(Path(__file__).resolve().parent)
-    return {"status": "ok", "capabilities": graph.get("capabilities", {}), "phase_snapshots": graph.get("phase_snapshots", [])}
+    checks: Dict[str, Dict[str, Any]] = {}
+    modules = [
+        ("identity_injector", "identity"),
+        ("ouroboros_numpy", "ouroboros"),
+        ("symbolic_bridge", "symbolic"),
+        ("sovereignty_bridge", "sovereignty"),
+    ]
+    for mod_name, key in modules:
+        try:
+            mod = __import__(mod_name)
+            fn = getattr(mod, "health_check", None)
+            checks[key] = fn() if callable(fn) else {"status": "degraded", "detail": "health_check missing"}
+        except Exception as exc:
+            checks[key] = {"status": "degraded", "detail": str(exc)}
+    return {
+        "status": "ok",
+        "capabilities": graph.get("capabilities", {}),
+        "phase_snapshots": graph.get("phase_snapshots", []),
+        "phase3_health": checks,
+    }
 
 
 async def test_api(base_url: str = "http://127.0.0.1:8000") -> None:

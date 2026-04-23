@@ -32,6 +32,10 @@ import argparse
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
+_HERE = Path(__file__).resolve().parent
+if str(_HERE) not in sys.path:
+    sys.path.insert(0, str(_HERE))
+
 # Core modules
 from registry    import ToolRegistry, get_registry
 from builtin     import register_all_tools
@@ -44,7 +48,48 @@ from reasoning   import ReasoningEngine
 from evaluator   import GoalEvaluator
 from coordinator import MultiAgentCoordinator
 
+_IMPORT_ERRORS: List[str] = []
+try:
+    from coordinator import AgentCoordinator  # type: ignore
+except Exception as exc:
+    AgentCoordinator = None  # type: ignore
+    _IMPORT_ERRORS.append(f"coordinator: {exc}")
+
+try:
+    from planner import Planner as GoalPlanner  # type: ignore
+except Exception as exc:
+    GoalPlanner = None  # type: ignore
+    _IMPORT_ERRORS.append(f"planner: {exc}")
+
 logger = logging.getLogger(__name__)
+
+
+class AgentLoop:
+    """Compatibility wrapper that never hard-crashes on init."""
+
+    def __init__(self, llm=None):
+        self._llm = llm
+        self._errors = list(_IMPORT_ERRORS)
+        self.coordinator = AgentCoordinator(llm=llm) if AgentCoordinator else None
+        self.planner = GoalPlanner(available_tools=[]) if GoalPlanner else None
+
+    def health_check(self) -> dict:
+        return {
+            "status": "degraded" if self._errors else "ok",
+            "failed_modules": self._errors,
+            "agent_ready": True,
+            "llm_connected": self._llm is not None,
+        }
+
+    def run_once(self, goal: str, timeout_s: float = 30.0) -> dict:
+        try:
+            if self.coordinator and hasattr(self.coordinator, "decide"):
+                decision = self.coordinator.decide(goal)
+            else:
+                decision = {"action": "fallback", "reasoning": "coordinator unavailable"}
+            return {"outcome": "attempted", "goal": goal, "decision": decision, "degraded": bool(self._errors)}
+        except Exception as exc:
+            return {"outcome": "error", "goal": goal, "error": str(exc)}
 
 
 def _setup_logging(level: str = "INFO") -> None:

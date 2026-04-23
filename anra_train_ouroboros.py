@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import runpy
 import pickle
 from pathlib import Path
 
@@ -17,6 +18,10 @@ def main():
     args = ap.parse_args()
 
     root = Path(__file__).resolve().parent
+    real_trainer = root / "phase3" / "ouroboros (45O)" / "train_ouroboros.py"
+    if real_trainer.exists():
+        runpy.run_path(str(real_trainer), run_name="__main__")
+        return
     with open(root / "tokenizer.pkl", "rb") as f:
         tok = pickle.load(f)
 

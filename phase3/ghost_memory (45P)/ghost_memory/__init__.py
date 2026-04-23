@@ -37,3 +37,11 @@ __all__ = [
     "EMBEDDING_MODEL",
     "EMBEDDING_DIM",
 ]
+
+
+def health_check() -> dict:
+    try:
+        cfg = default_config()
+        return {"status": "ok", "embedding_dim": cfg.embedding_dim, "max_memories": cfg.max_memories}
+    except Exception as exc:
+        return {"status": "degraded", "detail": str(exc)}

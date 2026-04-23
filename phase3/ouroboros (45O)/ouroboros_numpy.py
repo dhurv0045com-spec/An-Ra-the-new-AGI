@@ -287,3 +287,11 @@ class OuroborosNumpy:
             "calls_made":    len(self._pass_count_history),
             "avg_passes":    round(avg_passes, 2),
         }
+
+
+def health_check() -> dict:
+    return {
+        "status": "ok",
+        "component": "ouroboros_numpy",
+        "adaptive_passes": True,
+    }

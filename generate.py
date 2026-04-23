@@ -3,6 +3,7 @@ from __future__ import annotations
 import math
 import pickle
 import statistics
+import sys
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -14,6 +15,10 @@ from contextlib import contextmanager
 
 from anra_brain import CausalTransformer
 from core.turboquant import CompressedKVCache, TurboQuantConfig as TurboQuant
+from anra_paths import inject_all_paths, ensure_dirs
+
+inject_all_paths()
+ensure_dirs()
 
 _RESTORED_OUROBOROS = None
 _RESTORED_OUROBOROS_STATS = 0
@@ -346,8 +351,8 @@ def detect_repetition(text: str) -> Dict[str, object]:
 
 def _check_stop(output_buffer: str, cfg: GenerationConfig) -> Tuple[bool, str, str]:
     for s in cfg.stop_strings:
-        if s and output_buffer.endswith(s):
-            output_buffer = output_buffer[: -len(s)]
+        if s and s in output_buffer:
+            output_buffer = output_buffer[: output_buffer.find(s)]
             return True, output_buffer, "stop_string"
     return False, output_buffer, ""
 
@@ -412,6 +417,7 @@ def _run_autoregressive(prompt_ids: List[int], cfg: GenerationConfig, trace_stra
 
 def _beam_search(prompt_ids: List[int], cfg: GenerationConfig) -> GenerationTrace:
     beam = [(0.0, list(prompt_ids), [], [])]
+    stopped_by = "max_tokens"
     for _ in range(cfg.max_tokens):
         candidates = []
         for score, seq, ent_curve, max_curve in beam:
@@ -423,9 +429,16 @@ def _beam_search(prompt_ids: List[int], cfg: GenerationConfig) -> GenerationTrac
                 candidates.append((score + v, seq + [i], ent_curve + [ent], max_curve + [mx]))
         candidates.sort(key=lambda x: x[0], reverse=True)
         beam = candidates[: cfg.beam_width]
+        best_text = _decode(beam[0][1][len(prompt_ids):])
+        should_stop, _, reason = _check_stop(best_text, cfg)
+        if should_stop:
+            stopped_by = reason
+            break
 
     _, out_ids, entropy_curve, max_prob_curve = beam[0]
-    text = _decode(out_ids[len(prompt_ids) :]).strip()
+    text = _decode(out_ids[len(prompt_ids) :])
+    _, text, _ = _check_stop(text, cfg)
+    text = text.strip()
     rep = detect_repetition(text)
     return GenerationTrace(
         output=text,
@@ -434,7 +447,7 @@ def _beam_search(prompt_ids: List[int], cfg: GenerationConfig) -> GenerationTrac
         time_ms=0.0,
         entropy_curve=entropy_curve,
         max_prob_curve=max_prob_curve,
-        stopped_by="max_tokens",
+        stopped_by=stopped_by,
         repeated_ngrams_detected=bool(rep["repeated_ngrams_detected"]),
         kv_cache_compressed=True,
         memory_saved_mb=_turbo_cache.memory_saved_mb(),
@@ -507,14 +520,97 @@ def generate_traced(prompt: str, config: GenerationConfig, session_id: Optional[
     return trace
 
 
-def generate(prompt: str, strategy: str = "nucleus", use_turboquant: bool = True, **kwargs) -> str:
+def _load_phase3_tools():
+    identity = None
+    ouroboros = None
+    symbolic = None
+    try:
+        from identity_injector import get_identity_injector
+        identity = get_identity_injector()
+    except Exception:
+        pass
+    try:
+        from ouroboros_numpy import OuroborosNumpy
+        ouroboros = OuroborosNumpy(
+            generate_fn=lambda p, **k: generate_traced(
+                p, GenerationConfig(max_tokens=int(k.get("max_new_tokens", 200)))
+            ).output
+        )
+    except Exception:
+        pass
+    try:
+        import symbolic_bridge as sb
+        symbolic = sb
+    except Exception:
+        pass
+    return identity, ouroboros, symbolic
+
+
+def generate(
+    prompt: str,
+    strategy: str = "nucleus",
+    max_tokens: int = 200,
+    stop_strings: list[str] | None = None,
+    session_id: str | None = None,
+    use_turboquant: bool = True,
+    use_identity: bool = True,
+    use_ouroboros: bool = False,
+    use_symbolic: bool = True,
+    use_self_critique: bool = True,
+    **kwargs,
+) -> str:
     if use_turboquant:
         print("TurboQuant active: 6x KV-cache compression")
     if isinstance(strategy, GenerationConfig):
         config = strategy
     else:
-        config = _build_config(strategy, dict(kwargs))
-    out = generate_traced(prompt, config).output
+        kwargs = dict(kwargs)
+        kwargs.setdefault("max_tokens", max_tokens)
+        kwargs.setdefault("stop_strings", stop_strings or kwargs.get("stop_strings", []))
+        config = _build_config(strategy, kwargs)
+
+    identity, ouroboros, symbolic = _load_phase3_tools()
+    enriched_prompt = identity.inject(prompt) if (use_identity and identity is not None) else prompt
+
+    symbolic_answer = None
+    if use_symbolic and symbolic is not None:
+        try:
+            det = symbolic.detect(enriched_prompt)
+            if getattr(det, "mode", None) and str(det.mode).lower().endswith("math"):
+                symbolic_answer = symbolic.query_math(enriched_prompt).answer_text
+            elif getattr(det, "mode", None) and str(det.mode).lower().endswith("logic"):
+                symbolic_answer = symbolic.query_logic(enriched_prompt).answer_text
+        except Exception:
+            symbolic_answer = None
+
+    trace = generate_traced(enriched_prompt, config, session_id=session_id)
+    out = trace.output
+    if use_ouroboros and ouroboros is not None:
+        try:
+            out, _ = ouroboros.adaptive_generate(enriched_prompt)
+        except Exception:
+            pass
+    if symbolic_answer and symbolic_answer != "[unavailable]":
+        out = f"{symbolic_answer}\n\n{out}".strip()
+
+    if use_self_critique and len(enriched_prompt.split()) > 18:
+        try:
+            critique_prompt = (
+                "Review the draft answer for factual/logic issues and rewrite if needed.\n\n"
+                f"Question:\n{prompt}\n\nDraft:\n{out}\n\nFinal improved answer:"
+            )
+            critique_cfg = GenerationConfig(
+                strategy="nucleus",
+                max_tokens=min(180, config.max_tokens),
+                top_p=config.top_p,
+                temperature=min(config.temperature, 0.7),
+                stop_strings=config.stop_strings,
+            )
+            revised = generate_traced(critique_prompt, critique_cfg, session_id=session_id).output.strip()
+            if revised:
+                out = revised
+        except Exception:
+            pass
     compact = out.strip()
     if compact and (len(set(compact)) <= 2 or compact == compact[: len(compact)//2] * 2):
         return "I can reason about this request and respond clearly."
