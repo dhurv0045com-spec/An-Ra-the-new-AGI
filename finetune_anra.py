@@ -69,8 +69,8 @@ CONFIG = {
     "base_checkpoint": "anra_brain.pt",
     "identity_checkpoint": "anra_brain_identity.pt",
     "tokenizer_path": "tokenizer.pkl",
-    "data_path": "data/combined_identity_data.txt",
-    "fallback_data_path": "combined_identity_data.txt",
+    "data_path": "anra_identity_combined.txt",
+    "fallback_data_path": "anra_identity_combined.txt",
     "drive_dir": "/content/drive/MyDrive/AnRa/",
     "epochs": 12,
     "batch_size": 32,
@@ -192,9 +192,11 @@ def _load_model(vocab_size: int, device: torch.device) -> CausalTransformer:
     base = Path(CONFIG["base_checkpoint"])
     ckpt = identity if identity.exists() else base
     if ckpt.exists():
-        state = torch.load(ckpt, map_location=device)
+        state = torch.load(ckpt, map_location=device, weights_only=False)
         if isinstance(state, dict) and "model_state_dict" in state:
             state = state["model_state_dict"]
+        elif isinstance(state, dict) and "model_state" in state:
+            state = state["model_state"]
         model.load_state_dict(state, strict=False)
         print(f"Loaded checkpoint: {ckpt}")
     return model.to(device)
@@ -314,7 +316,13 @@ def main() -> None:
     if not data_path.exists():
         data_path = repo / CONFIG["fallback_data_path"]
     if not data_path.exists():
-        raise FileNotFoundError("Identity data file not found")
+        print(f"IDENTITY DATA NOT FOUND: {data_path}")
+        print("Run: python anra_merge_identity.py first")
+        print(f"TXT files in repo: {sorted(Path('.').glob('*.txt'))}")
+        import sys
+        sys.exit(1)
+    else:
+        print(f"Identity dataset: {data_path} ({data_path.stat().st_size / 1e3:.1f}KB)")
 
     tokenizer = _load_tokenizer(repo / CONFIG["tokenizer_path"])
     raw = data_path.read_text(encoding="utf-8", errors="replace")
@@ -466,10 +474,17 @@ def main() -> None:
             best_epoch = epoch
             stale = 0
             out = repo / CONFIG["identity_checkpoint"]
-            torch.save(model.state_dict(), out)
+            ckpt_payload = {
+                "model_state_dict": model.state_dict(),
+                "optimizer_state_dict": opt.state_dict(),
+                "scaler_state_dict": scaler.state_dict(),
+                "epoch": epoch,
+                "best_val_loss": best,
+            }
+            torch.save(ckpt_payload, out)
             drive_dir = Path(CONFIG["drive_dir"])
             drive_dir.mkdir(parents=True, exist_ok=True)
-            torch.save(model.state_dict(), drive_dir / CONFIG["identity_checkpoint"])
+            torch.save(ckpt_payload, drive_dir / CONFIG["identity_checkpoint"])
             print(f"Saved best checkpoint to {out} and {drive_dir / CONFIG['identity_checkpoint']}")
         else:
             stale += 1
