@@ -53,14 +53,48 @@ sys.path.insert(0, str(PROJECT_ROOT / "phase3" / "symbolic_bridge (45Q)")) # Sym
 sys.path.insert(0, str(PROJECT_ROOT / "phase3" / "sovereignty (45R)")) # Sovereignty Daemon
 
 # ── 45M internal subsystems ────────────────────────────────────────────────
-from autonomy.engine      import ContinuousEngine
-from autonomy.goals       import GoalManager, Priority
-from autonomy.proactive   import ProactiveEngine
-from autonomy.decisions   import DecisionFramework
-from scale.pipeline       import ContinuousLearning, DistributedTrainer, ScaleManager
-from personalization.models import OwnerModeler, AdaptiveBehavior, PersonalKnowledgeBase
-from safety.safety        import SafetyLayer, AuditLogger
-from control.control      import ControlInterface, Dashboard, ControlAPI
+try:
+    from autonomy.engine import ContinuousEngine
+    from autonomy.goals import GoalManager, Priority
+    from autonomy.proactive import ProactiveEngine
+    from autonomy.decisions import DecisionFramework
+    _AUTONOMY_OK = True
+except Exception as _e:
+    _AUTONOMY_OK = False
+    ContinuousEngine = GoalManager = Priority = ProactiveEngine = DecisionFramework = None  # type: ignore
+    print(f"  [45M] autonomy unavailable: {_e}")
+
+try:
+    from scale.pipeline import ContinuousLearning, DistributedTrainer, ScaleManager
+    _SCALE_OK = True
+except Exception as _e:
+    _SCALE_OK = False
+    ContinuousLearning = DistributedTrainer = ScaleManager = None  # type: ignore
+    print(f"  [45M] scale.pipeline unavailable: {_e}")
+
+try:
+    from personalization.models import OwnerModeler, AdaptiveBehavior, PersonalKnowledgeBase
+    _PERSONALIZATION_OK = True
+except Exception as _e:
+    _PERSONALIZATION_OK = False
+    OwnerModeler = AdaptiveBehavior = PersonalKnowledgeBase = None  # type: ignore
+    print(f"  [45M] personalization unavailable: {_e}")
+
+try:
+    from safety.safety import SafetyLayer, AuditLogger
+    _SAFETY_OK = True
+except Exception as _e:
+    _SAFETY_OK = False
+    SafetyLayer = AuditLogger = None  # type: ignore
+    print(f"  [45M] safety unavailable: {_e}")
+
+try:
+    from control.control import ControlInterface, Dashboard, ControlAPI
+    _CONTROL_OK = True
+except Exception as _e:
+    _CONTROL_OK = False
+    ControlInterface = Dashboard = ControlAPI = None  # type: ignore
+    print(f"  [45M] control unavailable: {_e}")
 
 
 class MasterSystem:
@@ -97,32 +131,35 @@ class MasterSystem:
         self._ouroboros_enabled = True  # Can be disabled for speed
 
         # ── 45M Core subsystems (always available) ─────────────────────────
-        self.engine          = ContinuousEngine()
-        self.goals           = GoalManager()
-        self.proactive       = ProactiveEngine()
-        self.decisions       = DecisionFramework(notify_cb=self._notify_cb)
-        self.continuous_learn = ContinuousLearning()
-        self.trainer         = DistributedTrainer()
-        self.scale_manager   = ScaleManager()
-        self.owner_modeler   = OwnerModeler()
-        self.adaptive        = AdaptiveBehavior()
-        self.knowledge_base  = PersonalKnowledgeBase()
-        self.safety          = SafetyLayer(engine=self.engine)
-        self.audit           = self.safety.audit
+        self.engine          = ContinuousEngine() if ContinuousEngine else None
+        self.goals           = GoalManager() if GoalManager else None
+        self.proactive       = ProactiveEngine() if ProactiveEngine else None
+        self.decisions       = DecisionFramework(notify_cb=self._notify_cb) if DecisionFramework else None
+        self.continuous_learn = ContinuousLearning() if ContinuousLearning else None
+        self.trainer         = DistributedTrainer() if DistributedTrainer else None
+        self.scale_manager   = ScaleManager() if ScaleManager else None
+        self.owner_modeler   = OwnerModeler() if OwnerModeler else None
+        self.adaptive        = AdaptiveBehavior() if AdaptiveBehavior else None
+        self.knowledge_base  = PersonalKnowledgeBase() if PersonalKnowledgeBase else None
+        self.safety          = SafetyLayer(engine=self.engine) if SafetyLayer else None
+        self.audit           = self.safety.audit if self.safety else None
 
         # ── Control layer ──────────────────────────────────────────────────
-        self.control         = ControlInterface(system=self)
-        self.dashboard       = Dashboard(system=self)
-        self.api             = ControlAPI(self.control)
+        self.control         = ControlInterface(system=self) if ControlInterface else None
+        self.dashboard       = Dashboard(system=self) if Dashboard else None
+        self.api             = ControlAPI(self.control) if ControlAPI and self.control else None
 
         # ── Wire kill switch ───────────────────────────────────────────────
-        self.safety.kill_switch._engine = self.engine
-        self.safety.kill_switch.register_callback(self._on_kill)
+        if self.safety and getattr(self.safety, "kill_switch", None):
+            self.safety.kill_switch._engine = self.engine
+            self.safety.kill_switch.register_callback(self._on_kill)
 
         # ── Wire scheduled tasks ───────────────────────────────────────────
         self._wire_scheduled_tasks()
 
     def _wire_scheduled_tasks(self):
+        if not self.engine or not self.goals:
+            return
         self.engine.register_task_handler(
             "daily_goal_review",     self.goals.daily_review)
         self.engine.register_task_handler(
@@ -881,6 +918,24 @@ class MasterSystem:
 # ══════════════════════════════════════════════════════════════════════════════
 #  CLI
 # ══════════════════════════════════════════════════════════════════════════════
+
+def health_check() -> dict:
+    flags = {
+        "autonomy": _AUTONOMY_OK,
+        "scale": _SCALE_OK,
+        "personalization": _PERSONALIZATION_OK,
+        "safety": _SAFETY_OK,
+        "control": _CONTROL_OK,
+    }
+    degraded = [name for name, ok in flags.items() if not ok]
+    status = "degraded" if degraded else "ok"
+    return {
+        "status": status,
+        "module": "master_system_45M",
+        "subsystems": flags,
+        "degraded": degraded,
+    }
+
 
 def build_parser():
     p = argparse.ArgumentParser(

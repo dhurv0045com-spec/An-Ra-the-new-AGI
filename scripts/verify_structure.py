@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import pickle
 import sys
 from pathlib import Path
 
@@ -16,9 +17,24 @@ from anra_paths import (
     TRAINING_DATA_DIR,
     TOKENIZER_DIR,
 )
+from tokenizer.char_tokenizer import CharTokenizer
+
+
+def _ensure_tokenizer() -> None:
+    dataset_path = TRAINING_DATA_DIR / "anra_dataset_v6_1.txt"
+    tokenizer_path = TOKENIZER_DIR / "tokenizer.pkl"
+    if tokenizer_path.exists() or not dataset_path.exists():
+        return
+    text = dataset_path.read_text(encoding="utf-8", errors="replace")
+    tokenizer = CharTokenizer(text)
+    TOKENIZER_DIR.mkdir(parents=True, exist_ok=True)
+    with open(tokenizer_path, "wb") as handle:
+        pickle.dump(tokenizer, handle)
+    print(f"Generated tokenizer: {tokenizer_path}")
 
 
 def main() -> int:
+    _ensure_tokenizer()
     required = [
         ROOT / "app.py",
         ROOT / "generate.py",

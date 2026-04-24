@@ -14,7 +14,6 @@ from typing import Optional
 
 import torch
 import torch.nn as nn
-from torch.cuda.amp import GradScaler
 
 logger = logging.getLogger(__name__)
 
@@ -86,11 +85,19 @@ class MixedPrecisionTrainer:
 
         # GradScaler needed only for float16 (bfloat16 has sufficient dynamic range)
         self._needs_scaler = self.enabled and (self.dtype == torch.float16)
-        self.scaler = GradScaler(
-            init_scale=init_scale,
-            growth_interval=growth_interval,
-            enabled=self._needs_scaler,
-        )
+        try:
+            self.scaler = torch.amp.GradScaler(
+                "cuda",
+                init_scale=init_scale,
+                growth_interval=growth_interval,
+                enabled=self._needs_scaler,
+            )
+        except AttributeError:
+            self.scaler = torch.cuda.amp.GradScaler(
+                init_scale=init_scale,
+                growth_interval=growth_interval,
+                enabled=self._needs_scaler,
+            )
 
         if self.enabled:
             logger.info(

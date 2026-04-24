@@ -119,10 +119,16 @@ __all__ = [
 
 def health_check() -> dict:
     try:
+        import sympy
+
+        result = query("What is 2 + 2?")
         return {
             "status": "ok",
-            "version": __version__,
-            "exports": len(__all__),
+            "module": "symbolic_bridge",
+            "sympy_version": sympy.__version__,
+            "verdict": getattr(result.verdict, "value", str(result.verdict)),
         }
+    except ImportError:
+        return {"status": "degraded", "module": "symbolic_bridge", "reason": "sympy not installed"}
     except Exception as exc:
-        return {"status": "degraded", "detail": str(exc)}
+        return {"status": "degraded", "module": "symbolic_bridge", "reason": str(exc)}

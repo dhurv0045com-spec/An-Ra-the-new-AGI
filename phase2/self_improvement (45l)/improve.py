@@ -19,12 +19,17 @@ Usage:
 import sys, os, argparse, json, time
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent))
-sys.path.insert(0, str(Path(__file__).parent.parent))
-# Allow myai_v2 imports
-for p in ["/home/claude/myai_v2", "/home/claude/master_system (45M)"]:
-    if p not in sys.path:
-        sys.path.insert(0, p)
+_HERE = Path(__file__).resolve().parent
+_PHASE2 = _HERE.parent
+_ROOT = _PHASE2.parent
+
+for _p in [
+    str(_HERE),
+    str(_PHASE2 / "master_system (45M)"),
+    str(_ROOT),
+]:
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
 
 from tools.dynamic.creator       import DynamicToolCreator, ToolOptimizer, ToolSandbox
 from tools.connectors.connectors  import ConnectorRegistry
@@ -133,6 +138,18 @@ class ImprovementSystem:
             "components": snap["components"],
             "alerts":    self.alerts.get_active(),
         }
+
+
+def health_check() -> dict:
+    try:
+        system = ImprovementSystem()
+        return {
+            "status": "ok",
+            "module": "self_improvement_45L",
+            "version": ImprovementSystem.VERSION,
+        }
+    except Exception as exc:
+        return {"status": "degraded", "module": "self_improvement_45L", "reason": str(exc)}
 
 
 # ── CLI ────────────────────────────────────────────────────────────────────────

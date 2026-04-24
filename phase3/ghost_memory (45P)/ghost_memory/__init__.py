@@ -18,7 +18,7 @@ from .config import (
     default_config,
 )
 from .injector import build_prompt, format_ghost_block, strip_ghost_for_display
-from .memory_store import GhostMemory, MemoryStore
+from .memory_store import GhostMemory, MemoryStore, health_check as _memory_health_check
 
 __all__ = [
     "GhostMemory",
@@ -40,8 +40,4 @@ __all__ = [
 
 
 def health_check() -> dict:
-    try:
-        cfg = default_config()
-        return {"status": "ok", "embedding_dim": cfg.embedding_dim, "max_memories": cfg.max_memories}
-    except Exception as exc:
-        return {"status": "degraded", "detail": str(exc)}
+    return _memory_health_check()
