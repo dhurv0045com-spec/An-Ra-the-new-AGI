@@ -29,6 +29,7 @@ GRAD_ACCUM_STEPS = 8
 MAX_MINUTES = 30
 ANSWER_LOSS_WEIGHT = 1.75
 HARD_EXAMPLE_KEEP = 12
+EARLY_STATUS_STEPS = {1, 2, 5, 10, 20, 50, 100}
 
 
 class TextDataset(Dataset):
@@ -239,13 +240,17 @@ def train_anra_brain(
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = CausalTransformer(tokenizer.vocab_size, 256, 4, 4, block_size).to(device)
 
-    if torch.cuda.is_available() and platform.system().lower() != "windows":
+    compile_enabled = os.environ.get("ANRA_ENABLE_COMPILE", "").strip().lower() in {"1", "true", "yes", "on"}
+    if compile_enabled and torch.cuda.is_available() and platform.system().lower() != "windows":
         try:
             from typing import cast
 
+            print("[build_brain] torch.compile enabled", flush=True)
             model = cast(CausalTransformer, torch.compile(model))
-        except Exception:
-            pass
+        except Exception as exc:
+            print(f"[build_brain] torch.compile unavailable ({exc}) - continuing without compile", flush=True)
+    else:
+        print("[build_brain] torch.compile disabled for faster startup", flush=True)
 
     mp = MixedPrecisionTrainer(device=device)
     optimizer = build_optimizer(model, lr=3e-4)
@@ -304,6 +309,7 @@ def train_anra_brain(
     reply_weighted_tokens = 0.0
     total_target_tokens = 0.0
     hard_examples: list[tuple[float, int]] = []
+    first_batch_wall = None
 
     gpu_name = torch.cuda.get_device_name(0) if torch.cuda.is_available() else "CPU"
     gpu_mem = (
@@ -333,6 +339,8 @@ def train_anra_brain(
     while time.time() < end_at:
         epoch += 1
         for xb, yb, wb, sample_idx in loader:
+            if first_batch_wall is None:
+                first_batch_wall = time.time()
             xb = xb.to(device)
             yb = yb.to(device)
             wb = wb.to(device)
@@ -371,13 +379,17 @@ def train_anra_brain(
                 last_avg_loss = avg_loss
                 best_loss = min(best_loss, avg_loss)
 
-                if global_step % 200 == 0:
+                if global_step in EARLY_STATUS_STEPS or global_step % 200 == 0:
                     elapsed_min = (time.time() - start) / 60.0
                     remaining_min = max(0.0, (end_at - time.time()) / 60.0)
                     avg_loss = rolling_loss / max(1, rolling_count)
+                    startup_note = ""
+                    if global_step in EARLY_STATUS_STEPS and first_batch_wall is not None:
+                        startup_note = f"  startup={(first_batch_wall - start):.1f}s"
                     print(
                         f"  step={global_step:6d}  loss={avg_loss:.4f}  "
-                        f"best={best_loss:.4f}  elapsed={elapsed_min:.1f}m  remaining={remaining_min:.1f}m",
+                        f"best={best_loss:.4f}  elapsed={elapsed_min:.1f}m  remaining={remaining_min:.1f}m"
+                        f"{startup_note}",
                         flush=True,
                     )
 
@@ -423,6 +435,7 @@ def train_anra_brain(
         },
         "scheduler": {"type": "cosine_warmup", "warmup_steps": 200, "total_steps": 50_000},
         "precision": {"amp_enabled": True, "optimizer": "Muon_or_AdamW_fallback"},
+        "compiled_model": compile_enabled,
         "checkpoint_path": str(ckpt_path),
     }
     (repo / "output").mkdir(parents=True, exist_ok=True)
