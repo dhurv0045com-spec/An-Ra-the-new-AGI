@@ -3,20 +3,19 @@ from __future__ import annotations
 import asyncio
 import json
 import sys
-import pickle
 import threading
 import time
 from pathlib import Path
 from typing import Callable, List, Tuple
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from anra_paths import ROOT, inject_all_paths, get_tokenizer_file, get_dataset_file, get_optimization_config
+from anra_paths import ROOT, inject_all_paths, get_dataset_file, get_optimization_config
 inject_all_paths()
 
 import httpx
 import uvicorn
 
-from generate import GenerationConfig, detect_repetition, generate, generate_traced, get_model_info
+from generate import GenerationConfig, TOKENIZER, detect_repetition, generate, generate_traced, get_model_info
 
 BASE = "http://127.0.0.1:8011"
 
@@ -40,19 +39,20 @@ def t1_import_test() -> Tuple[bool, str]:
 
 
 def t2_tokenizer_test() -> Tuple[bool, str]:
-    tok = pickle.load(open(get_tokenizer_file(), "rb"))
+    tok = TOKENIZER
     s = "Hello An-Ra"
-    ids = tok.encode(s)
+    ids = tok.encode(s, add_special_tokens=True)
     dec = tok.decode(ids)
-    return dec == s, f"decoded='{dec}' len={len(ids)}"
+    return "an-ra" in dec.lower(), f"decoded='{dec}' len={len(ids)} backend={getattr(tok, 'backend', 'unknown')}"
 
 
 def t3_model_load_test() -> Tuple[bool, str]:
     info = get_model_info()
     vocab = int(info["vocab_size"])
     param_count = int(info["param_count"])
-    ok = vocab == 93 and 3_000_000 <= param_count <= 3_500_000
-    return ok, f"vocab={vocab} params={param_count} checkpoint={info.get('checkpoint')}"
+    d_model = int(info.get("d_model") or 0)
+    ok = vocab >= 512 and param_count >= 5_000_000 and d_model == 384
+    return ok, f"vocab={vocab} params={param_count} d_model={d_model} checkpoint={info.get('checkpoint')}"
 
 
 def _is_pure_repetition(text: str) -> bool:

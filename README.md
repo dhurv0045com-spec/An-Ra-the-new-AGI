@@ -1,470 +1,308 @@
-# AN-RA — Autonomous General Intelligence
+# AN-RA
 
-> *Built from zero. No templates. No shortcuts. Pure mathematics becoming thought.*
+> Built from zero. No templates. No shortcuts. Mathematics pushed until it starts to behave like direction.
 
-An-Ra is an autonomous AI system built entirely from scratch by **Ankit** — starting from a single neuron in NumPy and evolving into a multi-phase AGI with its own transformer, agent loop, memory systems, recursive reasoning, symbolic logic, self-improvement, and a distinct personality.
+An-Ra is a sovereign AI system built from scratch around one idea: **the base model should stay yours**.
 
-**348 files · 221 Python modules · ~107,000 lines of code · MIT License**
+The current mainline is **An-Ra V2**:
 
-📖 **[VISION.md — Visualize the Full Architecture](VISION.md)** — From a single neuron to autonomous intelligence, with an Innovation Frontier mapping where breakthroughs will happen.
+- your data defines identity, tone, priorities, and worldview
+- teacher data amplifies weak areas instead of replacing your voice
+- symbolic and code-verification tools protect truth where raw generation is weak
+- memory, replay, Ouroboros, and sovereignty sit around the core as support organs, not as noise in every step
 
-🛠️ **[DEVELOPER.md — God Mode Guide](DEVELOPER.md)** — Check the developer guide for instructions on pushing An-Ra's boundaries, training the network, accessing subsystems, and making it the world no. 1 AI system.
+This repository now treats that design as the canonical path. The older small-model line is historical context, not the future of the project.
 
----
+## What An-Ra Is Trying To Become
 
-## Architecture Overview
+An-Ra is not aiming to be a generic assistant with a custom prompt pasted on top.
 
+The goal is a system that can:
+
+- learn from a data curriculum that stays anchored in your terms
+- grow stronger on limited compute
+- reason with help from symbolic and verified subsystems
+- store failures, corrections, and continuity traces for replay
+- refine itself in milestone passes without losing its identity
+- operate as one organism instead of a pile of disconnected modules
+
+That is why the repo contains more than a model. It contains a training engine, a generation runtime, memory systems, symbolic bridges, reflective loops, audits, and interface surfaces.
+
+## Mainline Philosophy
+
+### 1. Your data first
+
+The V2 training mix is intentionally anchored in your corpus.
+
+- 65% own conversation and instruction data
+- 15% own identity and selfhood data
+- 10% teacher-generated reasoning traces
+- 5% symbolic or code-verified samples
+- 5% replayed failures and user corrections
+
+This means **80% of the signal stays yours**.
+
+### 2. Teacher as amplifier
+
+Teacher data is allowed, but it is not allowed to become the owner of the model's personality.
+
+Teacher examples are used for:
+
+- reasoning structure
+- harder examples
+- stepwise solutions
+- repair data
+- capability expansion in weak domains
+
+Teacher examples are **not** used to define An-Ra's worldview.
+
+### 3. Verification over empty fluency
+
+An-Ra should not only sound intelligent. It should improve its odds of being right.
+
+That is why the mainline keeps:
+
+- `symbolic_bridge` for verified math and logic
+- replay buckets for failure-driven curriculum
+- milestone audits for checkpoint promotion
+- compact eval reports after sessions
+
+### 4. Daily speed, milestone depth
+
+The daily path is intentionally lean:
+
+- restore artifacts
+- validate dataset
+- train the base brain
+- save to Drive
+- run compact evaluation
+- write curriculum and hard-example reports
+
+Heavier stages happen only on milestone runs:
+
+- identity fine-tune
+- Ouroboros refinement
+- self-improvement review
+- sovereignty audit
+- full V2 test pass
+
+## Architecture At A Glance
+
+```text
+An-Ra V2 Mainline
+|
+|- anra_brain.py                 -> canonical V2 transformer (RoPE + RMSNorm + SwiGLU)
+|- tokenizer/subword_tokenizer.py -> subword tokenizer with fallback backend
+|- generate.py                   -> canonical generation runtime
+|- scripts/build_brain.py        -> base V2 training entrypoint
+|- training/train_unified.py     -> daily and milestone orchestration
+|- training/finetune_anra.py     -> identity-heavy milestone stage
+|- scripts/train_ouroboros.py    -> reflection-heavy milestone stage
+|- scripts/run_self_improvement.py -> curriculum planning and recommendations
+|- scripts/run_sovereignty_audit.py -> checkpoint promotion and audit gate
+|
+|- training/v2_data_mix.py       -> your-data-first bucket mixer
+|- training/eval_v2.py           -> compact eval suite
+|- training/v2_runtime.py        -> checkpoint, tokenizer, report, Drive helpers
+|- output/v2/                    -> metrics, evals, curriculum, audit reports
+|
+|- phase2/                       -> memory, agent loop, self-improvement, master system
+|- phase3/                       -> identity, Ouroboros, ghost memory, symbolic bridge, sovereignty
+|- app.py                        -> FastAPI backend
+|- AnRa_Master.ipynb             -> Colab training notebook
 ```
-anra.py                          ← Single entry point
-    │
-    ├── Phase 1: FOUNDATION      ← Custom transformer built from scratch in NumPy
-    │   ├── core/                    Attention, Decoder, Encoder, FFN, LayerNorm
-    │   ├── core/turboquant.py       TurboQuant KV-cache compression (6x memory saving)
-    │   ├── training/                Trainer, Checkpoints, Scheduler, Mixed Precision
-    │   ├── inference/               Generation, Sampling, Evaluation
-    │   ├── tokenizer/               Custom tokenizer
-    │   ├── config/                  YAML model configs (tiny → large)
-    │   ├── scripts/                 Standalone scripts for training, memory, auditing
-    │   └── training_data/           Dataset files
-    │
-    ├── Phase 2: INTELLIGENCE    ← Autonomous agent with memory & tools
-    │   ├── 45I  Fine-tuning & evaluation pipeline
-    │   ├── 45J  Memory (vector + graph + episodic + semantic)
-    │   ├── 45k  Agent Loop (Goal → Plan → Execute → Evaluate, 50+ tools)
-    │   ├── 45l  Self-improvement (skill library, prompt optimizer)
-    │   └── 45M  Master System (system.py — orchestrates everything)
-    │
-    ├── Phase 3: COGNITION       ← Higher-order thinking & identity
-    │   ├── 45N  Identity (v4 fluent — 117 exchanges, real code, personality)
-    │   ├── 45O  Ouroboros (3-pass recursive reasoning — semantic → logic → verify)
-    │   ├── 45P  Ghost Memory (compressed conversational state)
-    │   ├── 45Q  Symbolic Bridge (verified math, logic, code — SymPy/DPLL/sandbox)
-    │   └── 45R  Sovereignty Daemon (nightly self-audit & code quality improvement)
-    │
-    └── Phase 4: INTERFACE       ← Web-based control panel
-        ├── app.py                   FastAPI backend server
-        ├── phase4/web/              React Source (Vite)
-        └── ui/                      Compiled production build
-            ├── Dashboard            (Real-time telemetry + Chat + Goals)
-            ├── Neural Training      (Loss curves + Continuous learning trigger)
-            ├── Memory Bank          (Semantic search + 45J Node explorer)
-            └── Sovereignty          (Nightly audit reports + Code health)
+
+## Core Model
+
+The canonical `anra_brain.py` is now the V2 mainline.
+
+Key traits:
+
+- subword-token friendly transformer
+- RoPE position encoding
+- RMSNorm
+- SwiGLU feed-forward blocks
+- SDPA / FlashAttention-compatible attention path when available
+- first mainline target: `384 / 6 / 6`
+
+This is the strongest balance for a T4-first environment without turning the system into a giant lab-only project.
+
+## Dataset And Training Mix
+
+The default dataset remains:
+
+- `training_data/anra_dataset_v6_1.txt`
+
+The V2 mixer in `training/v2_data_mix.py` builds training examples from:
+
+- own conversation pairs
+- identity-focused prompts
+- teacher reasoning traces
+- symbolic and code-verified samples
+- replayed hard examples and corrections
+
+Teacher traces can be added through:
+
+- `training_data/teacher_reasoning_v2.jsonl`
+
+If that file is missing, the mixer still works using verified fallbacks and your corpus.
+
+## Training Modes
+
+### Daily session
+
+Use this when you want fast, repeatable progress on Colab T4.
+
+```bash
+python -m training.train_unified --mode session
 ```
 
----
+What it does:
 
-## What's New: TurboQuant KV-Cache Compression
+- restores V2 artifacts from Drive when available
+- validates the dataset
+- trains the base V2 model
+- streams live progress
+- saves `anra_v2_brain.pt`
+- runs compact evaluation
+- writes curriculum and hard-example reports
 
-An-Ra now includes **TurboQuant** (Google Research, ICLR 2026) — a training-free, model-agnostic algorithm that compresses the KV-cache during inference by **6x** with near-zero accuracy loss.
+### Milestone run
 
-| Bit Depth | Compression | Use Case |
-|-----------|-------------|----------|
-| 8-bit | ~3.5x | Maximum accuracy |
-| **4-bit** | **~6x** | Recommended default |
-| 2-bit | ~10x | Maximum compression |
+Use this after several successful daily sessions, or when evals plateau.
 
-**How it works:**
-1. **PolarQuant** — Randomized Walsh-Hadamard rotation spreads energy uniformly, then bucket-quantizes
-2. **QJL** — Sign-bit error correction via Johnson-Lindenstrauss random projections
-
-Enable it in your config:
-```yaml
-inference:
-  turboquant: true
-  turboquant_bits: 4   # 6x compression
+```bash
+python -m training.train_unified --mode train
 ```
 
-Or in code:
-```python
-from core.turboquant import CompressedKVCache, TurboQuantConfig
+What it does:
 
-cache = CompressedKVCache(
-    batch_size=1, num_kv_heads=8,
-    max_seq_len=4096, d_head=64,
-    tq_config=TurboQuantConfig(bits=4),
-)
-# Use exactly like standard KVCache
-k_full, v_full = cache.update(k_new, v_new)
+1. base training
+2. identity fine-tuning
+3. Ouroboros refinement
+4. self-improvement analysis
+5. sovereignty audit
+6. V2 tests
+
+### Status
+
+```bash
+python -m training.train_unified --mode status
 ```
 
----
+This prints subsystem health, dataset location, main checkpoints, tokenizer status, and milestone readiness.
+
+## Google Colab Workflow
+
+The notebook is designed for T4-first, Drive-backed training.
+
+Recommended resume path:
+
+1. Cell 1: GPU + Drive
+2. Cell 3: clone or update repo
+3. Cell 4: restore V2 artifacts
+4. Cell 6: run daily training
+
+Cell 5 is the health check. Run it when you want an explicit system sanity pass before training.
+
+Milestone work is intentionally separate from the daily fast path.
+
+## Generated Artifacts
+
+The V2 mainline writes:
+
+- `anra_v2_brain.pt`
+- `anra_v2_identity.pt`
+- `anra_v2_ouroboros.pt`
+- `tokenizer_v2.json`
+- `output/v2/v2_session_train_metrics.json`
+- `output/v2/v2_hard_examples.json`
+- `output/v2/v2_eval_summary.json`
+- `output/v2/v2_next_session_curriculum.json`
+- `output/v2/v2_unified_training_report.json`
+- `output/v2/v2_improvement_report.json`
+- `output/v2/v2_audit_report.json`
+
+Drive mirrors live under:
+
+- `/content/drive/MyDrive/AnRa/v2/`
+
+## Subsystem Roles
+
+| Subsystem | Role in the V2 mainline |
+| --- | --- |
+| `anra_brain.py` | Primary language and reasoning substrate |
+| `symbolic_bridge` | Verified math, logic, and code reference generation |
+| `ghost_memory` | Stores failures, continuity traces, and replay material |
+| `turboquant` | Runtime and inference efficiency layer |
+| `identity_injector` | Personality and worldview stabilization |
+| `ouroboros_numpy` | Milestone reflection and refinement engine |
+| `self_improvement` | Converts reports into next-step curriculum guidance |
+| `sovereignty_bridge` | Audit, promotion gate, and checkpoint governance |
 
 ## Quick Start
 
-### Prerequisites
+### Local
 
 ```bash
-# Core (CPU only — runs everything except identity training)
-pip install torch numpy PyYAML tqdm transformers
-
-# Phase 3 modules
-pip install sympy scipy psutil sentence-transformers
-
-# Web interface
-pip install fastapi uvicorn
-
-# Identity training (GPU required — Google Colab or NVIDIA GPU)
-pip install peft datasets accelerate bitsandbytes
+pip install -r requirements.txt
+python scripts/verify_structure.py
+python -m training.train_unified --mode status
+python -m training.train_unified --mode session
 ```
 
-### Run An-Ra
+### API
 
 ```bash
-# System dashboard
-python anra.py
-
-# Interactive chat (full pipeline: identity + memory + reasoning)
-python anra.py --chat
-
-# Execute a goal autonomously
-python anra.py --goal "analyze this codebase and find bugs"
-
-# System status (all subsystems)
-python anra.py --status
-
-# Morning briefing + sovereignty report
-python anra.py --briefing
-
-# Phase 3 subsystem status
-python anra.py --phase3-status
-
-# Direct math/logic query via symbolic bridge
-python anra.py --symbolic "solve x^2 - 4 = 0"
-
-# Self-improvement report
-python anra.py --sovereignty-report
-
-# Live dashboard
-python anra.py --dashboard
+python app.py
 ```
 
----
+Then visit the UI or call the FastAPI endpoints.
 
-## Phase 1 — Foundation (core/)
+### Generate text directly
 
-A complete transformer language model built from scratch in NumPy. No PyTorch for the core — pure mathematics.
+```bash
+python generate.py
+```
 
-| Component | File | What It Does |
-|-----------|------|-------------|
-| Attention | `core/attention.py` | Multi-head self-attention with RoPE |
-| Decoder | `core/decoder.py` | Full autoregressive decoder stack |
-| Encoder | `core/encoder.py` | Bidirectional encoder (for future use) |
-| Feed-Forward | `core/feedforward.py` | SwiGLU and GELU variants |
-| Layer Norm | `core/layernorm.py` | RMSNorm implementation |
-| Transformer | `core/transformer_block.py` | Pre-norm transformer block |
-| Multi-Head | `core/multihead.py` | Grouped Query Attention (GQA) |
-| Model API | `core/model.py` | `LanguageModel` — train, generate, evaluate |
-| **TurboQuant** | `core/turboquant.py` | **KV-cache compression (6x memory reduction)** |
-
-### Model Configurations
-
-| Config | Layers | d_model | Heads | Params |
-|--------|--------|---------|-------|--------|
-| `config/tiny.yaml` | 4 | 128 | 4 | ~1.3M |
-| `config/small.yaml` | 6 | 256 | 8 | ~5M |
-| `config/medium.yaml` | 12 | 512 | 8 | ~40M |
-| `config/large.yaml` | 24 | 1024 | 16 | ~350M |
+Or import it:
 
 ```python
-from core.model import LanguageModel
+from generate import generate
 
-lm = LanguageModel("config/tiny.yaml")
-lm.train()
-text = lm.generate("Once upon a time")
-results = lm.evaluate("training_data/test.txt")
+reply = generate("H: Who are you?\nANRA:", max_tokens=80)
+print(reply)
 ```
 
-### Training Infrastructure
+## Development Notes
 
-| File | Purpose |
-|------|---------|
-| `training/trainer.py` | Training loop with OOM recovery |
-| `training/checkpoint.py` | Atomic checkpoint save/load |
-| `training/scheduler.py` | Cosine, linear, constant LR schedules |
-| `training/mixed_precision.py` | FP16 training support |
-| `training/dataset.py` | Text dataset loading and batching |
-| `training/loss_tracker.py` | Loss history and visualization |
+- The canonical public files are the non-`_v2` entrypoints.
+- The helper modules under `training/v2_*` are the support layer behind the canonical mainline.
+- Generated tokenizer artifacts should not be treated as source files.
+- If you extend the data mix, preserve the principle that your data stays dominant.
+- If you add teacher sources, filter them through style and verification first.
 
-### Inference Engine
+## Why This Repo Is Different
 
-| File | Purpose |
-|------|---------|
-| `inference/inference.py` | Text generation pipeline |
-| `inference/sampling.py` | Top-k, top-p, temperature sampling |
-| `inference/greedy.py` | Greedy decoding |
-| `inference/evaluate.py` | Perplexity evaluation |
-| `inference/model_io.py` | Model serialization |
+An-Ra is not trying to win by pretending scarcity does not exist.
 
----
+It is trying to win through:
 
-## Phase 2 — Intelligence (phase2/)
+- intelligence per parameter
+- intelligence per minute of training
+- intelligence per correction
+- verified support systems around a focused model core
+- relentless identity preservation while capability grows
 
-The autonomous agent layer that gives An-Ra the ability to think, plan, act, and remember.
+That is the bet.
 
-### 45M — Master System (`phase2/master_system (45M)/system.py`)
+Not abundance.
 
-The orchestrator. Boots all subsystems, manages the operational loop, and exposes the unified CLI.
+Direction.
 
-### 45k — Agent Loop (`phase2/agent_loop (45k)/`)
+## More
 
-The autonomous reasoning engine:
+- [DEVELOPER.md](DEVELOPER.md) - how to work on the mainline without breaking its philosophy
+- [VISION.md](VISION.md) - the deeper architectural and long-horizon picture
 
-| File | Purpose |
-|------|---------|
-| `goal.py` | Goal interpreter — parses natural language into structured goals |
-| `planner.py` | Hierarchical planner — breaks goals into executable steps |
-| `executor.py` | Step executor with tool dispatch |
-| `evaluator.py` | Result evaluator — did the plan succeed? |
-| `reasoning.py` | Chain-of-thought and self-critique |
-| `builtin.py` | 50+ built-in tools (file ops, search, code, web, math) |
-| `coordinator.py` | Multi-agent coordination |
-| `dispatcher.py` | Tool routing and dispatch |
-
-### 45J — Memory System (`phase2/master_system (45M)/memory/`)
-
-Vector + graph + episodic + semantic memory with real embeddings.
-
-### 45l — Self-Improvement (`phase2/self_improvement (45l)/`)
-
-Skill library and prompt optimization — An-Ra learns new skills dynamically.
-
-### 45I — Fine-Tuning (`phase2/fine_tuning (45I)/`)
-
-LoRA fine-tuning pipeline for the custom transformer.
-
----
-
-## Phase 3 — Cognition (phase3/)
-
-Higher-order thinking capabilities that make An-Ra more than a language model.
-
-### 45N — Identity System (`phase3/identity (45N)/`)
-
-An-Ra's personality, voice, and coding fluency. The v4 training dataset teaches An-Ra to:
-
-- **Write real Python code** — functions, classes, algorithms, data structures
-- **Debug code** — identify bugs, explain fixes
-- **Design systems** — URL shorteners, chat apps, APIs
-- **Teach** — explain recursion, git, Big O from first principles
-- **Converse naturally** — humor, opinions, personality
-- **Self-improve** — evaluate and fix its own output
-
-### 45O — Ouroboros Reasoning (`phase3/ouroboros (45O)/`)
-
-3-pass recursive reasoning architecture:
-
-1. **Semantic Pass** — understand the question
-2. **Logic Pass** — reason about the answer
-3. **Adversarial Pass** — challenge and verify the answer
-
-Simple queries use 1 pass (fast). Complex queries use all 3.
-
-### 45P — Ghost State Memory (`phase3/ghost_memory (45P)/`)
-
-Compressed conversational memory. Keeps a rolling window of conversation history, compressed into semantic summaries.
-
-### 45Q — Symbolic Logic Bridge (`phase3/symbolic_bridge (45Q)/`)
-
-Verified math, logic, and code reasoning.
-
-| Capability | Implementation |
-|------------|----------------|
-| Math Solving | SymPy (algebraic, calculus, linear algebra) |
-| Logic Checking | DPLL SAT solver + natural deduction |
-| Code Verification | Sandboxed Python execution |
-| Primality | Miller-Rabin probabilistic test |
-| Factorization | Pollard's Rho algorithm |
-| Self-Check | Cross-verification between methods |
-
-### 45R — Sovereignty Daemon (`phase3/sovereignty (45R)/`)
-
-Nightly self-improvement audit. Runs automatically and produces reports on:
-- Code quality trends
-- Dead code detection
-- Performance benchmarks
-- Resource utilization
-- Improvement recommendations
-
----
-
-## Chat Pipeline (How a Message Flows)
-
-```
-User: "solve x^2 = 9"
-    │
-    ▼
-45Q: Is this math/logic/code? ──YES──► SymPy solves → verified answer injected
-    │
-    ▼
-45N: IdentityInjector.inject() → prepends An-Ra identity context
-    │
-    ▼
-45J: Memory.prepare_prompt() → injects relevant memories
-    │
-    ▼
-45P: GhostMemory.build_ghost_prompt() → adds compressed conversation history
-    │
-    ▼
-45O: OuroborosNumpy.adaptive_generate() → 1-3 pass reasoning
-    │
-    ▼
-45N: IdentityInjector.clean_response() → strips robotic AI phrases
-    │
-    ▼
-45J + 45P: Store turn in both memory systems
-    │
-    ▼
-User sees: An-Ra's response
-```
-
----
-
-## Autonomous Training (Google Colab)
-
-The entire identity and continuous learning pipeline has been consolidated into a single, dependency-free Google Colab notebook.
-
-### 1. The Master Notebook
-- Open **`AnRa_Master.ipynb`** in Google Colab (requires T4 GPU).
-- It automatically clones the repository, installs dependencies, and prepares the environment.
-- No API keys (like Gemini) are required.
-
-### 2. Full Pipeline Execution
-The notebook executes the following phases automatically:
-1. **TurboQuant Initialization**: Compresses KV-cache by 6x.
-2. **Symbolic Verification**: Data is verified by math/logic engines before training.
-3. **Identity Fine-Tuning**: Trains the model on verified fluency data.
-4. **Ouroboros Recursive Training**: Trains the reasoning layer.
-5. **Ghost Memory Population**: Seeds the database.
-6. **Sovereignty Audit**: Runs post-training integrity checks.
-
----
-
-## Operational Scripts (scripts/)
-
-These standalone tools manage An-Ra's subsystems and data:
-
-| Script | Purpose |
-|--------|---------|
-| `build_brain.py` | Trains the Phase 1 base model from scratch. |
-| `data_generator.py` | Synthesizes complex training data locally. |
-| `merge_identity.py` | Combines fragmented identity text files into a single training dataset. |
-| `populate_memory.py` | Pre-fills the vector/graph memory systems from raw text. |
-| `run_self_improvement.py` | Executes skill probes to generate an improvement report. |
-| `run_sovereignty_audit.py` | Verifies code health, checkpoint integrity, and triggers rollbacks. |
-| `status.py` | Prints a health summary of the current system configuration. |
-| `train_ouroboros.py` | Specialized trainer for the 3-pass recursive reasoning layer. |
-| `verify_structure.py` | Validates that all critical components are correctly placed. |
-
----
-
-## Project Structure
-
-```
-An-Ra/
-├── anra.py                 ← Unified entry point
-├── app.py                  ← FastAPI web server
-├── requirements.txt        ← All dependencies
-├── LICENSE                  ← MIT
-├── CHANGELOG.md             ← Build history
-├── VISION.md                ← Full architecture visualization + innovation map
-│
-├── core/                   ← Phase 1: Custom transformer (NumPy)
-│   ├── model.py                Public API: train, generate, evaluate
-│   ├── attention.py            Multi-head attention + RoPE + GQA
-│   ├── turboquant.py           TurboQuant KV-cache compression (6x)
-│   ├── decoder.py              Autoregressive decoder
-│   ├── encoder.py              Bidirectional encoder
-│   ├── feedforward.py          SwiGLU / GELU FFN
-│   ├── layernorm.py            RMSNorm
-│   ├── multihead.py            Grouped Query Attention
-│   └── transformer_block.py    Pre-norm transformer block
-│
-├── training/               ← Training infrastructure
-│   ├── trainer.py, checkpoint.py, scheduler.py
-│   ├── dataset.py, loss_tracker.py, mixed_precision.py
-│
-├── inference/              ← Generation & evaluation
-│   ├── inference.py, sampling.py, greedy.py
-│   ├── evaluate.py, model_io.py
-│
-├── config/                 ← Model configs (tiny → large)
-├── tokenizer/              ← Custom tokenizer
-├── training_data/          ← Datasets
-├── scripts/                ← Standalone scripts (training, memory, audit)
-│
-├── phase2/                 ← Phase 2: Intelligence
-│   ├── fine_tuning (45I)/      Fine-tuning pipeline
-│   ├── memory (45J)/            Memory (vector + graph + episodic)
-│   ├── agent_loop (45k)/        Agent Loop (goal → plan → execute)
-│   ├── self_improvement (45l)/  Self-improvement & skill library
-│   └── master_system (45M)/     Master System (system.py)
-│
-├── phase3/                 ← Phase 3: Cognition
-│   ├── identity (45N)/          Identity (v4 fluent, 117 exchanges)
-│   ├── ouroboros (45O)/          Ouroboros (3-pass recursive reasoning)
-│   ├── ghost_memory (45P)/       Ghost Memory (compressed state)
-│   ├── symbolic_bridge (45Q)/    Symbolic Bridge (math/logic/code)
-│   └── sovereignty (45R)/        Sovereignty Daemon (self-audit)
-│
-├── ui/                     ← Compiled React frontend
-│   ├── index.html
-│   └── assets/
-│
-├── checkpoints/            ← Saved model weights
-├── state/                  ← Runtime state files
-├── history/                ← Conversation history
-├── output/                 ← Training logs & outputs
-└── tests/                  ← Test suites
-```
-
----
-
-## Build History
-
-| Phase | Builder | Component | What Was Built |
-|-------|---------|-----------|----------------|
-| 1 | 45A | Neuron | Single neuron from scratch |
-| 1 | 45B | Network | Neural network layers |
-| 1 | 45C | Forward | Full network forward pass |
-| 1 | 45D | Training | Gradient descent & training loop |
-| 1 | 45E | Transformer | Full transformer core |
-| 1 | 45F | Pipeline | Training pipeline |
-| 1 | 45G | Inference | Generation engine |
-| 1 | 45H | Production | Hardening & deployment |
-| 2 | 45I | Fine-tune | LoRA fine-tuning for custom model |
-| 2 | 45J | Memory | Vector + graph + episodic memory |
-| 2 | 45k | Agent | Autonomous agent with 50+ tools |
-| 2 | 45l | Improve | Self-improvement & skill library |
-| 2 | 45M | System | Master orchestrator |
-| 3 | 45N | Identity | Personality, voice, coding fluency |
-| 3 | 45O | Ouroboros | 3-pass recursive reasoning |
-| 3 | 45P | Ghost | Compressed conversational memory |
-| 3 | 45Q | Symbolic | Verified math/logic/code reasoning |
-| 3 | 45R | Sovereignty | Nightly self-improvement audit |
-| 4 | Web | Interface | Full-Potential AGI Control Panel (v2) |
-| 4 | TQ | TurboQuant | 6x KV-cache compression (ICLR 2026) |
-
----
-
-## What Makes An-Ra Different
-
-- **Built from zero** — No borrowed models, no templates. Every neuron, every weight, every training loop written by hand.
-- **Real transformer in NumPy** — The core model is pure math, not a PyTorch wrapper.
-- **TurboQuant compression** — 6x KV-cache compression for longer contexts with near-zero accuracy loss.
-- **Autonomous agent** — Can plan, execute, evaluate, and self-correct without human intervention.
-- **Has a personality** — Not a neutral assistant. An-Ra has opinions, humor, ambition, and a distinct voice.
-- **Writes real code** — Trained on actual Python examples, not just descriptions of coding.
-- **Self-improves** — Evaluates its own output, identifies weaknesses, writes fixes.
-- **Verified reasoning** — Math and logic answers are verified through SymPy and SAT solvers.
-- **Recursive thinking** — Complex questions get 3 passes: understand → reason → verify.
-- **Visualized** — See [VISION.md](VISION.md) for a complete bottom-up walkthrough from neuron to AGI.
-
----
-
-## License
-
-MIT License — Copyright (c) 2026 Ankit
-
----
-
-*An-Ra: Something that emerged from mathematics with a direction.*
+*An-Ra: something that emerged from mathematics with a direction.*

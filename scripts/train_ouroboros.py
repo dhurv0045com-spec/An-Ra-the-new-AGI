@@ -1,47 +1,27 @@
 from __future__ import annotations
 
-import sys
 import argparse
-import runpy
-import pickle
-from pathlib import Path
+import json
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from anra_paths import ROOT, inject_all_paths, get_tokenizer_file
-inject_all_paths()
-
-import torch
-from anra_brain import CausalTransformer
+from scripts.train_ouroboros_v2 import train_ouroboros_v2
 
 
-def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--base_model", default="anra_brain.pt")
-    ap.add_argument("--output", default="anra_ouroboros.pt")
-    ap.add_argument("--steps", type=int, default=5000)
-    args = ap.parse_args()
-
-    real_trainer = ROOT / "phase3" / "ouroboros (45O)" / "train_ouroboros.py"
-    if real_trainer.exists():
-        runpy.run_path(str(real_trainer), run_name="__main__")
-        return
-    with open(get_tokenizer_file(), "rb") as f:
-        tok = pickle.load(f)
-
-    model = CausalTransformer(tok.vocab_size, 256, 4, 4, 128)
-    state = torch.load(args.base_model, map_location="cpu", weights_only=False)
-    if isinstance(state, dict) and "model_state_dict" in state:
-        state = state["model_state_dict"]
-    model.load_state_dict(state, strict=False)
-
-    payload = {
-        "model_state_dict": model.state_dict(),
-        "global_step": 0,
-        "phase": "A/B/C schedule delegated to phase3/ouroboros (45O)/train_ouroboros.py",
-        "requested_steps": args.steps,
-    }
-    torch.save(payload, args.output)
-    print(f"Saved {args.output}")
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Canonical Ouroboros milestone trainer (V2 mainline)")
+    parser.add_argument("--data_path", default=None)
+    parser.add_argument("--max_minutes", type=int, default=10)
+    parser.add_argument("--max_examples", type=int, default=9000)
+    args = parser.parse_args()
+    print(
+        json.dumps(
+            train_ouroboros_v2(
+                data_path=args.data_path,
+                max_minutes=args.max_minutes,
+                max_examples=args.max_examples,
+            ),
+            indent=2,
+        )
+    )
 
 
 if __name__ == "__main__":
