@@ -14,6 +14,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from anra_brain import CausalTransformer
+from anra_paths import get_checkpoint, get_tokenizer_file
 
 
 class LLMBridge:
@@ -30,7 +31,7 @@ class LLMBridge:
             return
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-        tok_path = PROJECT_ROOT / "tokenizer.pkl"
+        tok_path = get_tokenizer_file()
         if not tok_path.exists():
             raise FileNotFoundError(f"tokenizer missing: {tok_path}")
         with tok_path.open("rb") as f:
@@ -44,11 +45,8 @@ class LLMBridge:
             block_size=128,
         ).to(self.device)
 
-        candidates = [
-            Path(checkpoint_path) if checkpoint_path else None,
-            PROJECT_ROOT / "anra_brain_identity.pt",
-            PROJECT_ROOT / "anra_brain.pt",
-        ]
+        resolved_default = get_checkpoint()
+        candidates = [Path(checkpoint_path) if checkpoint_path else None, resolved_default]
         chosen = None
         for c in candidates:
             if c and c.exists():

@@ -123,12 +123,12 @@ def get_checkpoint() -> Path | None:
 
 
 def get_optimization_config() -> Path:
-    """Find the optimization config."""
+    """Find optimization config at an absolute path."""
     candidates = [
         CONFIG_DIR / "optimization_config.json",
         ROOT / "AnRa" / "optimization_config.json",
     ]
     for c in candidates:
         if c.exists():
-            return c
-    return CONFIG_DIR / "optimization_config.json"
+            return c.resolve()
+    return (CONFIG_DIR / "optimization_config.json").resolve()

@@ -43,3 +43,43 @@
 2026-03-31 11:48:21,680 [INFO] config_loader: Config validated successfully
 2026-03-31 11:55:36,155 [INFO] config_loader: Loaded config preset: C:\Users\user\Downloads\An-Ra\config\tiny.yaml
 2026-03-31 11:55:36,156 [INFO] config_loader: Config validated successfully
+2026-04-24 11:23:47,889 [INFO] registry: Tool registered: web_search [restricted]
+2026-04-24 11:23:47,889 [INFO] registry: Tool registered: code_executor [restricted]
+2026-04-24 11:23:47,889 [INFO] registry: Tool registered: file_manager [restricted]
+2026-04-24 11:23:47,889 [INFO] registry: Tool registered: calculator [safe]
+2026-04-24 11:23:47,889 [INFO] registry: Tool registered: memory_tool [safe]
+2026-04-24 11:23:47,890 [INFO] registry: Tool registered: summarizer [safe]
+2026-04-24 11:23:47,890 [INFO] registry: Tool registered: task_manager [safe]
+2026-04-24 11:23:47,890 [INFO] builtin: Registered 7 built-in tools
+2026-04-24 11:23:47,890 [INFO] agent_main: Agent initialized with 7 tools
+2026-04-24 11:23:53,778 [WARNING] engine: Crash recovery: last heartbeat was 2071401s ago (2026-03-31T06:30:32.483570)
+2026-04-24 11:23:53,797 [INFO] engine: Running scheduled task: Weekly Self-Training Run
+2026-04-24 11:23:53,809 [INFO] engine: Continuous engine running
+2026-04-24 11:24:41,450 [INFO] registry: Tool registered: web_search [restricted]
+2026-04-24 11:24:41,450 [INFO] registry: Tool registered: code_executor [restricted]
+2026-04-24 11:24:41,451 [INFO] registry: Tool registered: file_manager [restricted]
+2026-04-24 11:24:41,451 [INFO] registry: Tool registered: calculator [safe]
+2026-04-24 11:24:41,451 [INFO] registry: Tool registered: memory_tool [safe]
+2026-04-24 11:24:41,451 [INFO] registry: Tool registered: summarizer [safe]
+2026-04-24 11:24:41,451 [INFO] registry: Tool registered: task_manager [safe]
+2026-04-24 11:24:41,451 [INFO] builtin: Registered 7 built-in tools
+2026-04-24 11:24:41,451 [INFO] agent_main: Agent initialized with 7 tools
+2026-04-24 11:24:47,330 [INFO] engine: Running scheduled task: Weekly Self-Training Run
+2026-04-24 11:24:47,347 [INFO] engine: Continuous engine running
+2026-04-24 11:24:47,361 [INFO] engine: Stopping engine...
+2026-04-24 11:24:47,372 [INFO] engine: Running scheduled task: Daily Goal Review
+2026-04-24 11:24:47,392 [INFO] engine: Running scheduled task: Nightly Memory Consolidation
+2026-04-24 11:24:47,409 [INFO] engine: Running scheduled task: Hourly Tool Performance
+2026-04-24 11:24:47,441 [INFO] engine: Engine stopped cleanly
+2026-04-24 11:25:12,782 [INFO] registry: Tool registered: web_search [restricted]
+2026-04-24 11:25:12,782 [INFO] registry: Tool registered: code_executor [restricted]
+2026-04-24 11:25:12,782 [INFO] registry: Tool registered: file_manager [restricted]
+2026-04-24 11:25:12,783 [INFO] registry: Tool registered: calculator [safe]
+2026-04-24 11:25:12,783 [INFO] registry: Tool registered: memory_tool [safe]
+2026-04-24 11:25:12,783 [INFO] registry: Tool registered: summarizer [safe]
+2026-04-24 11:25:12,783 [INFO] registry: Tool registered: task_manager [safe]
+2026-04-24 11:25:12,783 [INFO] builtin: Registered 7 built-in tools
+2026-04-24 11:25:12,783 [INFO] agent_main: Agent initialized with 7 tools
+2026-04-24 11:25:18,644 [INFO] engine: Continuous engine running
+2026-04-24 11:25:18,657 [INFO] engine: Stopping engine...
+2026-04-24 11:25:18,671 [INFO] engine: Engine stopped cleanly

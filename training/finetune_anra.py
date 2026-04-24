@@ -9,7 +9,7 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Sequence, Tuple
-from anra_paths import ROOT, inject_all_paths, ensure_dirs
+from anra_paths import ROOT, inject_all_paths, ensure_dirs, get_dataset_file
 from training.optimizations import AdaptiveScheduler, GradientCheckpointedOuroboros, MultiScaleHardSampleDetector
 from training.curriculum import get_phase
 
@@ -152,7 +152,7 @@ def curriculum_subset(pairs: Sequence[Tuple[str, str]], phase: int) -> List[Tupl
             raise ValueError(
                 f"Phase 1 subset too small ({len(subset)} pairs). "
                 f"Identity keywords not found in training data. "
-                f"Check combined_identity_data.txt has identity exchanges."
+                f"Check training_data corpus has identity-style exchanges."
             )
         if len(subset) < 80:
             general_pairs = [p for p in pairs if p not in subset]
@@ -319,14 +319,12 @@ def verify_training_pair(h_text: str, anra_text: str, symbolic: SymbolicBridge, 
 
 def main() -> None:
     repo = ROOT
-    if not (repo / str(CONFIG["data_path"])).exists():
-        raise FileNotFoundError(f"Dataset not found: {repo / str(CONFIG['data_path'])}")
-    data_path = repo / str(CONFIG["data_path"])
+    data_path = get_dataset_file()
     if not data_path.exists():
         data_path = repo / str(CONFIG["fallback_data_path"])
     if not data_path.exists():
         print(f"IDENTITY DATA NOT FOUND: {data_path}")
-        print("Run: python anra_merge_identity.py first")
+        print("Provide a valid training dataset in training_data/")
         print(f"TXT files in repo: {sorted(Path('.').glob('*.txt'))}")
         import sys
         sys.exit(1)
@@ -389,7 +387,7 @@ def main() -> None:
     rejection_rate = len(rejected_pairs) / max(len(pairs), 1)
     if rejection_rate > 0.5:
         print(f"WARNING: Symbolic bridge rejected {rejection_rate:.1%} of training pairs. Data quality may be low.")
-        print("Consider reviewing combined_identity_data.txt for incorrect math/logic answers or malformed code blocks.")
+        print("Consider reviewing your training dataset for incorrect math/logic answers or malformed code blocks.")
 
     print(
         f"Symbolic verification: {len(verified_pairs)} verified, {len(corrected_pairs)} corrected, "

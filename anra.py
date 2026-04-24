@@ -71,7 +71,7 @@ def _phase3_status(system: MasterSystem):
             status = info.get("status", "degraded")
         except Exception:
             status = "missing"
-        icon = "[✓]" if status == "ok" else "[WARN]" if status == "degraded" else "[✗]"
+        icon = "[OK]" if status == "ok" else "[WARN]" if status == "degraded" else "[X]"
         print(f"  {icon} {name}")
 
     print(f"{'='*60}\n")
