@@ -132,3 +132,70 @@ def get_optimization_config() -> Path:
         if c.exists():
             return c.resolve()
     return (CONFIG_DIR / "optimization_config.json").resolve()
+
+
+# ── Backward-compatibility: PathRegistry class ────────────────────────────────
+# Some legacy notebooks import `from anra_paths import PathRegistry`.
+# This class wraps all module-level constants so those imports succeed.
+
+class PathRegistry:
+    """Compatibility shim — exposes every path constant as a class attribute."""
+
+    ROOT = ROOT
+    CORE_DIR = CORE_DIR
+    TRAINING_DIR = TRAINING_DIR
+    INFERENCE_DIR = INFERENCE_DIR
+    TOKENIZER_DIR = TOKENIZER_DIR
+    CONFIG_DIR = CONFIG_DIR
+    SCRIPTS_DIR = SCRIPTS_DIR
+    TESTS_DIR = TESTS_DIR
+    TRAINING_DATA_DIR = TRAINING_DATA_DIR
+
+    PHASE2_DIR = PHASE2_DIR
+    FINE_TUNING_DIR = FINE_TUNING_DIR
+    MEMORY_DIR = MEMORY_DIR
+    AGENT_LOOP_DIR = AGENT_LOOP_DIR
+    SELF_IMPROVEMENT_DIR = SELF_IMPROVEMENT_DIR
+    MASTER_SYSTEM_DIR = MASTER_SYSTEM_DIR
+
+    PHASE3_DIR = PHASE3_DIR
+    IDENTITY_DIR = IDENTITY_DIR
+    OUROBOROS_DIR = OUROBOROS_DIR
+    GHOST_MEMORY_DIR = GHOST_MEMORY_DIR
+    SYMBOLIC_BRIDGE_DIR = SYMBOLIC_BRIDGE_DIR
+    SOVEREIGNTY_DIR = SOVEREIGNTY_DIR
+
+    DRIVE_DIR = DRIVE_DIR
+    DRIVE_CHECKPOINTS = DRIVE_CHECKPOINTS
+    DRIVE_IDENTITY = DRIVE_IDENTITY
+    DRIVE_LOGS = DRIVE_LOGS
+    DRIVE_MEMORY = DRIVE_MEMORY
+    DRIVE_SESSIONS = DRIVE_SESSIONS
+
+    @staticmethod
+    def inject_all_paths() -> None:
+        inject_all_paths()
+
+    @staticmethod
+    def ensure_dirs() -> None:
+        ensure_dirs()
+
+    @staticmethod
+    def get_dataset_file() -> Path:
+        return get_dataset_file()
+
+    @staticmethod
+    def get_tokenizer_file() -> Path:
+        return get_tokenizer_file()
+
+    @staticmethod
+    def get_identity_file() -> Path:
+        return get_identity_file()
+
+    @staticmethod
+    def get_checkpoint() -> Path | None:
+        return get_checkpoint()
+
+    @staticmethod
+    def get_optimization_config() -> Path:
+        return get_optimization_config()

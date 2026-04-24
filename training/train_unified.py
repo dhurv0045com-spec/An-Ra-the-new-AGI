@@ -247,3 +247,77 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
+
+# ── Backward-compatibility: UnifiedTrainer class ─────────────────────────────
+# Some legacy notebooks import `from training.train_unified import UnifiedTrainer`
+# or `from training.train_unified import AnRaTrainer`.
+# This class wraps the existing functional API so those imports succeed.
+
+class UnifiedTrainer:
+    """Compatibility shim — wraps the functional training API as a class."""
+
+    def __init__(
+        self,
+        data_path: str | None = None,
+        checkpoint_path: str = "anra_brain.pt",
+        batch_size: int = 64,
+        block_size: int = 128,
+        session_minutes: int = 30,
+        ouroboros_steps: int = 5000,
+    ):
+        self.data_path = data_path
+        self.checkpoint_path = checkpoint_path
+        self.batch_size = batch_size
+        self.block_size = block_size
+        self.session_minutes = session_minutes
+        self.ouroboros_steps = ouroboros_steps
+        self._dataset: Path | None = None
+
+    def resolve_dataset(self) -> Path:
+        """Locate the training dataset."""
+        if self._dataset is None:
+            self._dataset = resolve_dataset_path(self.data_path)
+        return self._dataset
+
+    def health_check(self) -> None:
+        """Print subsystem health status."""
+        print_system_health()
+
+    def train(self, mode: str = "session", **kwargs) -> int:
+        """Run training via subprocess (same as CLI)."""
+        cmd = [
+            sys.executable, "-m", "training.train_unified",
+            "--mode", mode,
+            "--checkpoint_path", self.checkpoint_path,
+            "--batch_size", str(self.batch_size),
+            "--block_size", str(self.block_size),
+            "--session_minutes", str(self.session_minutes),
+            "--ouroboros_steps", str(self.ouroboros_steps),
+        ]
+        if self.data_path:
+            cmd.extend(["--data_path", self.data_path])
+        for flag_name in ("skip_ouroboros", "skip_finetune", "skip_self_improvement", "skip_sovereignty"):
+            if kwargs.get(flag_name, False):
+                cmd.append(f"--{flag_name}")
+        return run_cmd(cmd)
+
+    def status(self) -> None:
+        """Print dataset + subsystem status."""
+        print_system_health()
+        try:
+            ds = self.resolve_dataset()
+            print(f"dataset: {ds}")
+        except FileNotFoundError as e:
+            print(f"dataset: {e}")
+
+    def run_session(self, minutes: int | None = None) -> int:
+        """Quick 30-minute (or custom) training session."""
+        if minutes is not None:
+            self.session_minutes = minutes
+        return self.train(mode="session")
+
+
+# Legacy alias — some old notebooks use AnRaTrainer
+AnRaTrainer = UnifiedTrainer
+
