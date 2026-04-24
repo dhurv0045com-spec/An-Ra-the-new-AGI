@@ -8,6 +8,7 @@ tqdm
 # -- Tokenizer and inference ---------------------------------------------------
 transformers
 accelerate
+tokenizers
 
 # -- Phase 4: Web Interface ----------------------------------------------------
 fastapi

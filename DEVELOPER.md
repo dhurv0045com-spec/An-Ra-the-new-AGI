@@ -1,140 +1,358 @@
-# An-Ra Developer Documentation: God Mode 
+# An-Ra Developer Guide
 
-Welcome to the **An-Ra AGI System**. This isn't just an API wrapper or a prompt engineering side-project—this is a foundational architecture designed to be the **World’s No. 1 AI**. 
+> Build aggressively, but do not confuse chaos with ambition.
 
-You are standing at the absolute vanguard. An-Ra is an autonomous, scalable system featuring its own neural network from scratch, agentic execution loops, symbolic execution engines, and a custom continuous-learning memory pipeline. 
+This document explains how to work on the current An-Ra mainline without losing the project's soul.
 
-If your goal is to push An-Ra to **God Mode**—unparalleled autonomy, unmatched recursive reasoning, and extreme scalability—read carefully.
+That soul matters.
 
----
+An-Ra is not supposed to drift into a generic assistant trained mostly on someone else's worldview. The system is now organized so that **your data stays primary**, **teacher help stays constrained**, and **the heavy subsystems support the core instead of obscuring it**.
 
-## 🏆 The Path to "God Mode" World No. 1 AI
+## The Current Canonical Truth
 
-To achieve absolute dominance as a sovereign AGI, An-Ra requires developers to push the boundaries of what is known. Here is how you achieve "God Mode":
+If you open the repository cold and want to know what is real, use this rule:
 
-1. **Continuous Unsupervised Learning (The Holy Grail)**
-   Currently, An-Ra learns by logging successfully resolved goals. To reach God Mode, An-Ra must run a background daemon (extending `45l Self-Improvement`) that indefinitely scrapes, reads, un-learns, and fine-tunes itself *without human evaluation* via reinforcement learning on synthetic data verification.
-   
-2. **Infinite Context via Neuromorphic Graph Networks**
-   The `Ghost Memory` (`45P`) must be expanded. Integrate Modern Hopfield Networks into `memory (45J)`. An-Ra should be able to remember a conversation from 3 years ago with zero context decay.
+- non-`_v2` entrypoints are the public mainline
+- `training/v2_*` modules are support infrastructure
+- V2 is the actual active model line
 
-3. **Mixture of Experts (MoE) Architecture**
-   Shift the `LanguageModel` inside `core/model.py` away from dense matrices into a sparse 100+ expert router network. This allows An-Ra to possess domain expertise across mathematics, biology, architecture, and coding simultaneously without slowing down compute.
+The canonical entrypoints are:
 
-4. **Self-Rewriting Source Code**
-   Sovereignty (`45R`) audits code. In God Mode, Sovereignty must **generate, test, and commit** new machine-level optimizations to its own PyTorch/NumPy foundations dynamically via `symbolic_bridge (45Q)`.
+- `anra_brain.py`
+- `generate.py`
+- `scripts/build_brain.py`
+- `training/train_unified.py`
+- `training/finetune_anra.py`
+- `scripts/train_ouroboros.py`
+- `scripts/run_self_improvement.py`
+- `scripts/run_sovereignty_audit.py`
+- `AnRa_Master.ipynb`
 
----
+## Development Principles
 
-## 🏗 Subsystem Access: How to Tap into the Brain (Complete File Mapping)
+### 1. The model belongs to the owner data
 
-An-Ra is broken down incrementally across 4 major phases. To think from "above" the system, visualize the exact mapping of these directories:
+Do not let convenience destroy authorship.
 
-### Phase 1: Core Neural Network (The Foundation)
-* **Path:** `core/`, `training/`, `inference/`, `tokenizer/`
-* **Accessing it:** Instantiate `from core.model import LanguageModel`.
-* **What it does:** The foundational PyTorch/NumPy transformer model. 
-  * `core/attention.py`: Multi-head attention + RoPE + GQA.
-  * `core/turboquant.py`: 6x KV-cache compression memory savings.
-  * `core/decoder.py` & `encoder.py`: The autoregressive stack.
-  * `core/feedforward.py` & `layernorm.py`: SwiGLU / GELU and RMSNorm.
-  * `training/`: Contains `train_unified.py`, `finetune_anra.py`, `trainer.py`, `optimizations.py`.
-  * `inference/`: Generation engines, context optimization (`optimize_context_window.py`).
+Your corpus should continue to control:
 
-### Phase 2: Autonomous Subsystems (The Agent)
-* **Path:** `phase2/`
-* **Accessing it:** The agent loop is controlled by `phase2/agent_loop (45k)`. Access memory through `MemoryManager` in `45J`.
-* **What it does:** 
-  * **45k (Agent Loop):** `goal.py`, `planner.py`, `executor.py`, `evaluator.py`, and `builtin.py` (50+ tools).
-  * **45J (Memory):** Operates Semantic, Episodic, Vector, and Graph databases.
-  * **45l (Self-Improvement):** Evaluates tasks and logs success rates to internal libraries.
-  * **45M (Master System):** `system.py` is the grand orchestrator of all systems.
+- identity
+- worldview
+- tone
+- preferred response behavior
+- how An-Ra sounds under pressure
 
-### Phase 3: The Synthesizers (Cognition & Safety)
-* **Path:** `phase3/`
-* **What it does:** Higher order cognitive heuristics.
-  * **45N (Identity Injector):** Enforces the An-Ra persona dynamically at runtime without GPU inference.
-  * **45O (Ouroboros):** Multi-pass recursive reasoning (Semantic -> Logic -> Adversarial passes) in CPU-bound `numpy`.
-  * **45P (Ghost Memory):** Compresses context history for infinite conversational state windows.
-  * **45Q (Symbolic Bridge):** Bypasses LLM hallucinations by piping math/logic into local sandbox verifications.
-  * **45R (Sovereignty Daemon):** Nightly code regression and performance benchmarking.
+Teacher data can help with capability, but it must never silently replace the center of gravity.
 
-### Phase 4: Developer Web UI (The Control Panel)
-* **Path:** `phase4/web/`, `app.py`
-* **Accessing it:** `npm run dev` out of the directory, or hitting `localhost:8000` when running `app.py`.
-* **What it does:** The visual command center.
-  * `app.py`: FastAPI server that mounts Phase 1-3 onto REST/WebSocket connections.
-  * `phase4/web/src/components`: React frontends (`MemoryExplorer.jsx`, `Dashboard.jsx`, `SovereigntyPanel.jsx`).
+### 2. Daily training must stay cheap and trustworthy
 
-### Operational Fleet (The Engine Room)
-* **Path:** `scripts/`, `training_data/`
-* **Accessing it:** Run standalone scripts directly, e.g., `python scripts/populate_memory.py`.
-* **What it does:** The raw utilities required to bootstrap and manage An-Ra's subsystems without booting the entire MasterSystem.
-  * `scripts/build_brain.py`: Compiles the base intelligence.
-  * `scripts/run_sovereignty_audit.py`: Forces a manual system integrity check.
-  * `scripts/run_self_improvement.py`: Generates a localized improvement report.
+The daily loop should remain:
 
----
+1. restore
+2. validate
+3. train base model
+4. save once
+5. evaluate
+6. write next-session guidance
 
-## 🧠 How to Train An-Ra
+If a change makes the daily loop fragile, it is not an improvement.
 
-### Level 1: Training the Core Model (Phase 1)
-You can alter An-Ra's foundational knowledge by running standard autoregressive un-masking on your own dataset.
-1. Put text data into `training_data/`.
-2. Edit `config/tiny.yaml` (or your chosen config) to point to your data.
-3. Run `python scripts/build_brain.py` or use the Colab notebook.
+### 3. Milestone depth belongs off the daily critical path
 
-### Level 2: Training Identity & Fluency (Phase 3 - 45N)
-If An-Ra is speaking like a typical AI, it means the Identity layer weights need reinforcement.
-1. The master training flow is located in `AnRa_Master.ipynb` (Google Colab).
-2. Add new real-world exchanges to `phase3/identity (45N)/anra_identity_v4_fluent.txt`. Ensure the tone represents extreme confidence, fluency, and deep capability.
-3. Run `python scripts/merge_identity.py` to combine identity files.
-4. Run the notebook (using an NVIDIA T4 GPU on Colab) to overwrite the LoRA adapters. The changes are automatically loaded on next boot.
+Ouroboros, identity reinforcement, self-improvement, and sovereignty are real components, but they are **milestone layers**.
 
-### Level 3: Autonomous Continuous Learning
-An-Ra trains itself. By leaving `app.py` running locally, the `ContinuousEngine` schedules a Weekly Self-Training Run.
-- Feed An-Ra complex goals via the Dashboard or `python anra.py --goal "Build me a... "`.
-- As An-Ra succeeds or fails, it creates feedback loops stored in `memory`.
-- Over time, these episodic memories are consolidated and An-Ra inherently "trains" its behavioral intuition.
+Do not push heavy reflection into every short T4 session unless you can show that the gain is worth the time cost.
 
----
+### 4. Verified support beats fake certainty
 
-## 🚀 Running the Development Fleet
+If a domain can be checked, check it.
 
-### 1. Starting the Backend (FastAPI + MasterSystem)
-The backend requires substantial memory as it loads Phase 1 directly into local compute.
+Use:
+
+- `symbolic_bridge` for math and logic
+- code or test verification when possible
+- replay on failures instead of pretending they did not happen
+
+### 5. Preserve clear public surfaces
+
+The repo should feel understandable.
+
+When a new developer looks for:
+
+- how to train
+- how to generate
+- how to run a milestone
+- where reports go
+
+the answer should be obvious from the canonical files, not hidden in a second copy with `_v2` in the name.
+
+## Mainline Architecture
+
+### Base model
+
+`anra_brain.py` now exports the current mainline transformer.
+
+Current characteristics:
+
+- RoPE
+- RMSNorm
+- SwiGLU
+- SDPA / FlashAttention-compatible attention path
+- `384 / 6 / 6` first target scale
+
+This is the primary substrate. Everything else either shapes it, tests it, or surrounds it.
+
+### Tokenizer
+
+`tokenizer/subword_tokenizer.py` is the V2 tokenizer implementation.
+
+Important design choice:
+
+- it uses `tokenizers` when available
+- it falls back to an internal dependency-light backend when `tokenizers` is not installed
+
+That fallback exists to protect Colab and local smoke runs from dying over one missing package.
+
+### Runtime
+
+`generate.py` is the canonical generation runtime. If the app, API, or system bridge needs model output, this is the surface that should stay stable.
+
+Exports you should preserve unless there is a very good reason not to:
+
+- `GenerationConfig`
+- `generate`
+- `generate_traced`
+- `generate_stream`
+- `get_model_info`
+- `load_ghost_state`
+- `save_ghost_state`
+- `detect_repetition`
+- `_check_stop`
+
+### Training support layer
+
+The V2 support stack lives under:
+
+- `training/v2_config.py`
+- `training/v2_data_mix.py`
+- `training/v2_runtime.py`
+- `training/eval_v2.py`
+
+These files are where you should make most V2 training changes.
+
+## Data Mix Contract
+
+The default mix is locked for a reason:
+
+- 65% own conversation and instruction data
+- 15% own identity and selfhood data
+- 10% teacher reasoning traces
+- 5% symbolic or code-verified examples
+- 5% replayed failures and corrections
+
+When changing this mix, ask:
+
+1. Does this preserve owner data dominance?
+2. Does this improve capability measurably?
+3. Does this change identity drift risk?
+4. Does this fit T4-first training time?
+
+If you cannot answer those, do not change the ratios casually.
+
+## Teacher Pipeline Rules
+
+Teacher data is allowed. Teacher control is not.
+
+Accepted teacher roles:
+
+- reasoning amplifier
+- hard-example generator
+- synthetic curriculum helper
+- correction source
+
+Rejected teacher roles:
+
+- personality owner
+- worldview owner
+- permanent inference dependency
+
+Preferred teacher flow:
+
+1. generate candidate examples
+2. verify what can be verified
+3. style-filter for An-Ra voice and mission fit
+4. reject off-style or low-truth samples
+5. only then feed them into the teacher bucket
+
+If you add a new teacher source, wire it through filtering before it touches the mainline mix.
+
+## Daily Commands
+
+### Status
+
 ```bash
-# From workspace root
-python app.py
+python -m training.train_unified --mode status
 ```
-* **Logs are critical:** The backend outputs dense developer logs at `output/logs/`.
 
-### 2. Starting the Frontend (React / Vite)
-If you are developing UI features:
+Use this first when something feels off.
+
+### Daily session
+
 ```bash
-cd phase4/web
-npm install
-npm run dev
+python -m training.train_unified --mode session
 ```
-* **UI Port:** The dev server usually runs on `localhost:5173`.
-* **API Proxy:** Vite is configured to proxy `/api` calls directly to `localhost:8000`.
 
-### 3. Production UI Build
+This is the normal T4 path.
+
+### Milestone
+
 ```bash
-# Windows users must use cmd to bypass PowerShell execution limits:
-cmd /c "npm run build"
+python -m training.train_unified --mode train
 ```
-The pipeline automatically copies assets to `ui/` at the root.
 
----
+Use this after a small run streak, or when compact evals flatten out.
 
-## 🐞 Advanced Debugging / Pitfalls
+## Canonical File Responsibilities
 
-1. **"Symbolic bridge skipped"**
-   - **Fix:** Install `sympy` and `scipy` (`pip install sympy scipy`). This ensures math operations evaluate deterministically (45Q).
-2. **"Sovereignty daemon skipped"**
-   - **Fix:** Install `psutil` (`pip install psutil`) so Python can monitor hardware metrics during self-audits.
-3. **Ghost Memory Data Corruption**
-   - Wiping `phase2/master_system (45M)/memory/ghost` forces An-Ra to completely reset its foundational internal conversation mapping on next boot. Use sparingly.  
+| File | Responsibility |
+| --- | --- |
+| `scripts/build_brain.py` | base V2 training entrypoint |
+| `training/finetune_anra.py` | identity-heavy milestone stage |
+| `scripts/train_ouroboros.py` | reflection-heavy milestone stage |
+| `scripts/run_self_improvement.py` | report-driven curriculum recommendations |
+| `scripts/run_sovereignty_audit.py` | checkpoint promotion and audit gate |
+| `training/train_unified.py` | orchestration surface used by notebook and CLI |
+| `scripts/verify_structure.py` | canonical repo structure sanity check |
+| `scripts/status.py` | quick operator-facing artifact view |
 
-***Build aggressively. Make it World No. 1.***
+## Reports And Artifacts
+
+Daily and milestone artifacts should land under `output/v2/`.
+
+Core files to watch:
+
+- `v2_session_train_metrics.json`
+- `v2_hard_examples.json`
+- `v2_eval_summary.json`
+- `v2_next_session_curriculum.json`
+- `v2_unified_training_report.json`
+- `v2_improvement_report.json`
+- `v2_audit_report.json`
+
+Primary checkpoints:
+
+- `anra_v2_brain.pt`
+- `anra_v2_identity.pt`
+- `anra_v2_ouroboros.pt`
+
+Drive mirror:
+
+- `/content/drive/MyDrive/AnRa/v2/`
+
+## How To Extend The System Safely
+
+### Good changes
+
+- better evaluation prompts
+- better teacher filtering
+- better replay selection
+- better hard-example ranking
+- symbolic verification improvements
+- checkpoint promotion logic improvements
+- inference/runtime efficiency improvements
+
+### Risky but reasonable changes
+
+- adjusting mix ratios with evidence
+- modest model scale increases
+- new milestone scheduling rules
+- better tokenizer training heuristics
+
+### Changes that should live behind proof
+
+- replacing the current tokenizer again
+- moving reflection into every daily session
+- architecture changes that break resume assumptions
+- adding more autonomous loops without stronger evals
+- making teacher data dominant
+
+## Colab Operational Truth
+
+The project is T4-first right now.
+
+That means:
+
+- startup speed matters
+- logs must appear early
+- save behavior must be clear
+- the session has to survive ordinary Colab restarts and short windows
+
+When in doubt, optimize for:
+
+- obvious resume behavior
+- fewer silent stalls
+- simpler daily commands
+- stronger post-session reports
+
+not for abstract cleverness.
+
+## The Role Of The Larger Ecosystem
+
+### `symbolic_bridge`
+
+Truth layer for math, logic, and some code validation.
+
+### `ghost_memory`
+
+Not just chat memory. It should become the replay bank for:
+
+- failures
+- corrections
+- continuity pressure cases
+- future curriculum shaping
+
+### `turboquant`
+
+Inference and runtime efficiency support. Keep it there unless you have a very strong reason to inject it into training decisions.
+
+### `ouroboros_numpy`
+
+Reflection and repair engine. Strong as a milestone pass. Wasteful if forced into every short run.
+
+### `sovereignty_bridge`
+
+Promotion gate and audit logic. It protects the lineage of the model by forcing checkpoint judgment instead of blind replacement.
+
+## What To Protect
+
+Protect these three things even when making aggressive changes:
+
+1. **identity ownership**
+2. **daily loop reliability**
+3. **measurable improvement**
+
+If a patch threatens all three at once, it is almost certainly a bad patch.
+
+## Long-Term Direction
+
+The repo is allowed to be ambitious.
+
+The long-term direction still includes:
+
+- teacher-amplified capability growth
+- replay-driven self-repair
+- verified reasoning
+- stronger memory integration
+- milestone reflection
+- sovereignty-controlled checkpoint promotion
+
+But the order matters:
+
+1. make it work
+2. make it measurable
+3. make it better
+4. only then make it wild
+
+That is how you keep soul and velocity at the same time.
+
+*An-Ra does not need to become generic to become powerful.*

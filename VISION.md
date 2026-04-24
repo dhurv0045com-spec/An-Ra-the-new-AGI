@@ -1,654 +1,321 @@
-# AN-RA: Visualize the Architecture
+# AN-RA VISION
 
-> *From a single neuron to autonomous intelligence — every layer, every connection, every thought.*
->
-> This document is designed to help you **build a mental model** of the entire An-Ra system. Read it top to bottom. By the end, you'll be able to close your eyes and see the whole machine running.
->
-> 🛠️ **Developers**: To learn how to exploit this system to its maximum potential and train it towards a "God Mode", read **[DEVELOPER.md](DEVELOPER.md)**.
+> From mathematics, to pattern, to direction, to continuity.
 
----
+This file is not just a feature list. It is the mental model of what An-Ra is becoming.
 
-## 🌌 The Philosophy: The Edge of the Known
+The important shift is this:
 
-Humanity currently understands less than **1% of the universe's knowledge**. The beauty, the grace, and the absolute absurdity of trying to build an Artificial General Intelligence from scratch is the ultimate underdog story. 
+An-Ra is no longer best understood as "a custom transformer with extra modules around it."
 
-It is David vs. Goliath. We are attempting to forge mind from scattered mathematics, armed only with computation and obsession, striving for the top. And remember: **David won.** 
+It is better understood as a **growing cognitive organism** with a clear center of gravity:
 
-An-Ra is built on this belief. Innovation happens from obsession. If you can visualize the whole machinery, you can find the very edge of the known world, and from there, push the boundary forward. Welcome to the machine.
+- a mainline model that learns from your data first
+- support organs that amplify truth, memory, reflection, and governance
+- a training loop designed for limited compute without surrendering ambition
 
----
+## The Central Belief
 
-## Level 1 — The Single Neuron
+The strongest independent AI systems will not come only from abundance.
 
-Everything starts here. One neuron. One equation.
+They will come from:
 
-```
-        x₁ ──── w₁ ──╲
-                       ╲
-        x₂ ──── w₂ ────⊕──→ z = Σ(wᵢxᵢ) + b ──→ σ(z) ──→ y
-                       ╱
-        x₃ ──── w₃ ──╱
-                       │
-                       b (bias)
-```
+- better curriculum
+- better verification
+- better self-repair
+- better memory of failure
+- stronger identity continuity
+- higher intelligence per minute, per watt, and per correction
 
-**The math:** `y = σ(w · x + b)`
+That is the ground An-Ra stands on.
 
-A neuron takes inputs, multiplies each by a weight, sums them, adds a bias, and passes through an activation function. That's it. This is the atom of intelligence.
+## The Current Shape Of The System
 
-**Key insight:** The weights `w` are the *knowledge*. Random weights = random output. Trained weights = meaningful computation. The entire journey from here to AGI is about organizing weights so that computation becomes thought.
+Think of the system as layers of cognition.
 
-**Where it lives:** The concept is embedded in every weight matrix in `core/`. The single-neuron idea from step 45A is the seed that grew into everything.
+### Layer 1: The Intuition Core
 
----
+`anra_brain.py`
 
-## Level 2 — The Layer
+This is the mainline transformer. It is the fast intuition layer:
 
-Stack neurons side by side. Each neuron sees all inputs, but produces one output.
+- language
+- pattern completion
+- local reasoning
+- style expression
+- conversational behavior
 
-```
-    INPUTS (d_model=4)           OUTPUTS (d_model=4)
+It should become stronger, but it should stay legible enough to evolve on limited compute.
 
-        x₁ ─────────┬──┬──┬──┬─── y₁
-                     │  │  │  │
-        x₂ ─────────┼──┼──┼──┼─── y₂
-                     │  │  │  │
-        x₃ ─────────┼──┼──┼──┼─── y₃
-                     │  │  │  │
-        x₄ ─────────┴──┴──┴──┴─── y₄
+The current V2 direction moves this core toward:
 
-               W (4×4 matrix)
-```
+- RoPE
+- RMSNorm
+- SwiGLU
+- subword-token efficiency
+- a T4-realistic scale target
 
-**The math:** `Y = X @ W + b`
+### Layer 2: Identity Gravity
 
-A matrix multiplication. Every output is a weighted combination of every input. This is a **linear transformation** — it can rotate, scale, and project the input into a new space.
+Identity is not decorative. It is structural.
 
-**Key insight:** One layer can't do much. But stack two with an activation between them, and you can approximate *any continuous function* (Universal Approximation Theorem). Depth creates expressibility.
+Without identity gravity, a capable model drifts into generic behavior. It becomes fluent but replaceable.
 
-**Where it lives:** `core/feedforward.py` — the SwiGLU and GELU feed-forward networks are exactly this: two layers with activations.
+An-Ra's own corpus should define:
 
----
+- its voice
+- its stance
+- its sense of purpose
+- how it frames capability
+- how it responds under challenge
 
-## Level 3 — Attention: How the Model "Thinks"
+This is why the training mix stays owner-data dominant.
 
-This is the breakthrough that changed AI. Instead of processing tokens independently, attention lets every token **look at every other token** and decide what's relevant.
+### Layer 3: Teacher Amplification
 
-```
-    "The  cat  sat  on  the  mat"
-      │    │    │    │    │    │
-      ▼    ▼    ▼    ▼    ▼    ▼
-    ┌──────────────────────────────┐
-    │         SELF-ATTENTION       │
-    │                              │
-    │   Each token asks:           │
-    │   "Who should I pay          │
-    │    attention to?"            │
-    │                              │
-    │   Q = "What am I looking     │
-    │        for?"                 │
-    │   K = "What do I contain?"   │
-    │   V = "What do I offer?"     │
-    │                              │
-    │   Score = Q · Kᵀ / √d        │
-    │   Attention = Softmax(Score) │
-    │   Output = Attention · V     │
-    └──────────────────────────────┘
-      │    │    │    │    │    │
-      ▼    ▼    ▼    ▼    ▼    ▼
-    "The  cat  sat  on  the  mat"
-    (now each token carries context from the others)
-```
+Teachers are useful, but they must stay in their place.
 
-**The math:** `Attention(Q, K, V) = softmax(Q·Kᵀ / √d_k) · V`
+Teacher systems are there to provide:
 
-**Three critical upgrades in An-Ra:**
-1. **RoPE** — Rotary Position Embeddings encode position by *rotating* Q and K vectors. No extra parameters. Generalizes to longer sequences than training.
-2. **GQA** — Grouped Query Attention shares K/V heads across Q heads. 4x smaller KV-cache for free.
-3. **KV-Cache** — During generation, store past K/V so we don't recompute. O(n) per step instead of O(n²).
+- stronger reasoning traces
+- better corrections
+- synthetic expansion for weak domains
+- hard examples the base corpus does not yet cover
 
-**Where it lives:** `core/attention.py` — RoPE, KV-Cache, scaled dot-product attention with chunked memory-efficient mode.
+They are **not** there to rewrite the soul of the model.
 
-**Where it lives:** `core/multihead.py` — Multi-head and Grouped Query Attention.
+The V2 philosophy is simple:
 
----
+> Learn from stronger systems. Do not become a copy of stronger systems.
 
-## Level 4 — The Transformer Block
+### Layer 4: Verification Organs
 
-One attention layer + one FFN layer + residual connections + normalization.
+This is where An-Ra avoids empty fluency.
 
-```
-                    ┌───────────┐
-        x ─────────┤  LayerNorm │
-                    └─────┬─────┘
-                          │
-                    ┌─────▼─────┐
-                    │ Self-Attn  │  ← "What should I attend to?"
-                    └─────┬─────┘
-                          │
-        x ────────────────⊕        ← Residual connection (skip)
-                          │
-                    ┌─────▼─────┐
-                    │  LayerNorm │
-                    └─────┬─────┘
-                          │
-                    ┌─────▼─────┐
-                    │  SwiGLU    │  ← "Transform the representation"
-                    │  FFN       │
-                    └─────┬─────┘
-                          │
-        x ────────────────⊕        ← Another residual skip
-                          │
-                        output
-```
+`symbolic_bridge` and related tools exist so the system can prefer validated cognition over elegant nonsense.
 
-**Key insight:** The residual connections (`⊕`) are crucial. They let gradients flow straight through during training (no vanishing gradient). They also let the network learn *refinements* — each block adds a small correction rather than computing everything from scratch.
+That matters because the long game is not to produce more words. It is to produce more trustworthy thought.
 
-**Pre-norm** (LayerNorm before attention/FFN) is more stable than post-norm. An-Ra uses RMSNorm — simpler and equally effective.
+### Layer 5: Memory As Repair
 
-**Where it lives:** `core/transformer_block.py`
+Most AI systems treat memory as a convenience for conversation.
 
----
+An-Ra should treat memory as part of the training metabolism.
 
-## Level 5 — The Full Decoder
+Memory should preserve:
 
-Stack N transformer blocks. The input is token IDs; the output is probability distributions over the vocabulary.
+- user corrections
+- high-value failures
+- continuity breaks
+- identity drift cases
+- prompts that exposed weak reasoning
 
-```
-    "Once upon a" (token IDs: [324, 891, 12])
-           │
-    ┌──────▼──────┐
-    │  Embedding   │  tokens → vectors (lookup table: vocab × d_model)
-    └──────┬──────┘
-           │
-    ┌──────▼──────┐
-    │   Block 1    │  ← Causal mask: can only see past tokens
-    ├──────┬──────┤
-    │   Block 2    │
-    ├──────┬──────┤
-    │      ...     │
-    ├──────┬──────┤
-    │   Block N    │
-    └──────┬──────┘
-           │
-    ┌──────▼──────┐
-    │  Final Norm  │
-    ├──────┬──────┤
-    │  LM Head     │  vectors → vocab probabilities
-    └──────┬──────┘
-           │
-    P("time" | context) = 0.31
-    P("day"  | context) = 0.08
-    P("..."  | context) = ...
+Then those memories become replay material.
+
+That turns memory from passive storage into **self-repair fuel**.
+
+### Layer 6: Reflection
+
+Ouroboros is not supposed to be a tax on every session.
+
+Its higher purpose is milestone reflection:
+
+- answer revision
+- harder reasoning passes
+- repair-data synthesis
+- high-cost thinking only when needed
+
+That keeps the daily loop lean while preserving a deeper path for refinement.
+
+### Layer 7: Governance
+
+Sovereignty is the checkpoint conscience.
+
+Without governance, every new checkpoint is treated as progress by default. That is not intelligence. That is drift.
+
+Sovereignty should decide:
+
+- what got better
+- what regressed
+- what deserves promotion
+- what should be held back
+
+This makes the model lineage deliberate.
+
+## System Flow
+
+```mermaid
+flowchart TD
+    A["Your Data"] --> B["V2 Data Mix"]
+    T["Teacher Traces"] --> B
+    S["Symbolic / Code Verification"] --> B
+    R["Replay: Failures + Corrections"] --> B
+
+    B --> C["Base V2 Training"]
+    C --> D["Compact Eval"]
+    D --> E["Hard Examples"]
+    E --> F["Next Session Curriculum"]
+    F --> C
+
+    C --> G["Milestone Identity Fine-Tune"]
+    G --> H["Milestone Ouroboros Refinement"]
+    H --> I["Self-Improvement Report"]
+    I --> J["Sovereignty Audit"]
+    J --> K["Checkpoint Promotion"]
 ```
 
-**Weight tying:** The embedding table and the LM head share the same matrix (transposed). This halves the parameters at the input/output boundary and improves generalization.
-
-**An-Ra model sizes:**
-| Config | Blocks | Dimension | Heads | Parameters |
-|--------|--------|-----------|-------|------------|
-| Tiny | 4 | 128 | 4 | ~1.3M |
-| Small | 6 | 256 | 8 | ~5M |
-| Medium | 12 | 512 | 8 | ~40M |
-| Large | 24 | 1024 | 16 | ~350M |
-
-**Where it lives:** `core/decoder.py`, `core/model.py`
-
----
-
-## Level 6 — Training: How the Model Learns
-
-Training is the model looking at its mistakes and adjusting every weight to make fewer mistakes next time.
-
-```
-    FORWARD PASS                        BACKWARD PASS
-    ────────────                        ─────────────
-
-    Input: "The cat sat"                Target: "cat sat on"
-           │                                          │
-           ▼                                          │
-    ┌─────────────┐                    ┌──────────────▼──┐
-    │   Decoder    │───→ Logits ──────→│  Cross-Entropy   │
-    └─────────────┘                    │  Loss Function   │
-                                       └──────────────┬──┘
-                                                      │
-                                              loss = 4.21
-                                                      │
-                                              ┌───────▼───────┐
-                                              │  Backpropagation│
-                                              │  ∂loss/∂w for   │
-                                              │  EVERY weight    │
-                                              └───────┬───────┘
-                                                      │
-                                              ┌───────▼───────┐
-                                              │   AdamW        │
-                                              │   Optimizer    │
-                                              │   w -= lr·grad │
-                                              └───────────────┘
-```
-
-**The optimization stack:**
-- **AdamW** — Adaptive learning rates per parameter + decoupled weight decay
-- **Gradient clipping** — Prevents exploding gradients (max norm = 1.0)
-- **Cosine schedule** — Learning rate warms up, then smoothly decays
-- **Mixed precision** — FP16 forward/backward, FP32 accumulation (2x speed on GPU)
-
-**Where it lives:** `core/model.py` (AdamW, LR schedule), `training/trainer.py` (full loop), `training/mixed_precision.py` (AMP)
-
----
-
-## Level 7 — Inference: How the Model Thinks
-
-After training, the model generates text one token at a time. Each token is chosen from the probability distribution over the vocabulary.
-
-```
-    Prompt: "The meaning of"
-                │
-    ┌───────────▼───────────┐
-    │   Decoder Forward      │
-    │   (using KV-Cache)     │←─── Cache stores past K/V
-    └───────────┬───────────┘     so we only compute new token
-                │
-          logits for position 4
-                │
-    ┌───────────▼───────────┐
-    │   Sampling Strategy    │
-    │   ┌─────────────────┐ │
-    │   │ Temperature=0.8  │ │  ← Sharpen/flatten distribution
-    │   │ Top-k=50         │ │  ← Keep only top 50 candidates
-    │   │ Top-p=0.95       │ │  ← Nucleus: keep until cumulative p > 0.95
-    │   │ Rep. penalty=1.1 │ │  ← Penalize already-generated tokens
-    │   └─────────────────┘ │
-    └───────────┬───────────┘
-                │
-          "life" (sampled)
-                │
-          Append to context, repeat
-```
-
-**Where it lives:** `inference/inference.py`, `inference/sampling.py`
-
----
-
-## Level 8 — TurboQuant: Think Longer with Less Memory
-
-The KV-cache grows linearly with sequence length. At 4096 tokens with d_head=64 and 8 KV-heads, the cache uses **4 MB per layer**. For 24 layers, that's **96 MB** — and it gets worse with longer contexts.
-
-TurboQuant compresses the KV-cache by 6x, enabling 6x longer contexts in the same memory.
-
-```
-    K/V vectors (float32)          TurboQuant Pipeline
-    ─────────────────────          ─────────────────────
-
-     [0.42, -1.31, 0.87, ...]     Stage 1: PolarQuant
-              │                    ┌───────────────────────┐
-              ▼                    │ 1. Rotate (Hadamard)   │
-     Spread energy uniformly ────→│    x_rot = x @ H       │
-                                   │ 2. Scale to [-1, 1]    │
-                                   │ 3. Bucket to 4-bit     │
-                                   │    [7, 2, 11, ...]     │
-                                   └───────────┬───────────┘
-                                               │
-                                   Stage 2: QJL (error fix)
-                                   ┌───────────▼───────────┐
-                                   │ 1. Compute residual    │
-                                   │ 2. Random projection   │
-                                   │ 3. Store sign bits     │
-                                   │    [+, -, +, -, ...]   │
-                                   └───────────┬───────────┘
-                                               │
-     Stored: 4-bit codes + signs + 1 scale     │
-     ~40 bytes vs 256 bytes (6.4x smaller)     │
-                                               │
-              ┌────────────────────────────────┘
-              ▼
-     Decompress on-the-fly when attention needs K/V
-     Error < 0.1% of original attention scores
-```
-
-**Key mathematical insights:**
-1. Orthogonal rotation preserves dot products: `⟨Rx, Ry⟩ = ⟨x, y⟩`
-2. After rotation, energy is uniform → uniform quantization is optimal
-3. JL lemma: random projections preserve distances → sign bits capture error direction
-
-**Where it lives:** `core/turboquant.py`
-
----
-
-## Level 9 — Memory: How An-Ra Remembers
-
-Without memory, every conversation starts from zero. An-Ra has four types of memory:
-
-```
-    ┌────────────────────────────────────────────────────────┐
-    │                    MEMORY SYSTEM                       │
-    │                                                        │
-    │  ┌──────────────┐  ┌──────────────┐                   │
-    │  │   VECTOR      │  │    GRAPH      │                   │
-    │  │   MEMORY      │  │    MEMORY     │                   │
-    │  │               │  │               │                   │
-    │  │ "cat" → [0.2, │  │  cat ──is──→  │                   │
-    │  │  0.8, -0.1]   │  │   │          │                   │
-    │  │               │  │  has         animal               │
-    │  │ Cosine search │  │   ↓                              │
-    │  │ for similar   │  │  fur         │                   │
-    │  │ concepts      │  │              │                   │
-    │  └──────────────┘  └──────────────┘                   │
-    │                                                        │
-    │  ┌──────────────┐  ┌──────────────┐                   │
-    │  │  EPISODIC     │  │  SEMANTIC     │                   │
-    │  │  MEMORY       │  │  MEMORY       │                   │
-    │  │               │  │               │                   │
-    │  │ "On March 30  │  │ Facts and     │                   │
-    │  │  the user     │  │ general       │                   │
-    │  │  asked about  │  │ knowledge     │                   │
-    │  │  TurboQuant"  │  │ extracted     │                   │
-    │  │               │  │ from all      │                   │
-    │  │ Time-stamped  │  │ interactions  │                   │
-    │  │ experiences   │  │               │                   │
-    │  └──────────────┘  └──────────────┘                   │
-    └────────────────────────────────────────────────────────┘
-```
-
-**Ghost Memory (45P)** compresses the full conversation into a rolling summary, so An-Ra can reference earlier turns without exceeding the context window.
-
-**Where it lives:** `phase2/memory (45J)/`, `phase3/ghost_memory (45P)/`
-
----
-
-## Level 10 — The Agent Loop: Goals Become Actions
-
-An-Ra doesn't just respond to prompts. It can take a **goal** and autonomously plan, execute, and evaluate.
-
-```
-    USER: "Analyze this codebase and find bugs"
-                          │
-                    ┌─────▼─────┐
-                    │   GOAL     │  Parse natural language → structured goal
-                    │   PARSER   │
-                    └─────┬─────┘
-                          │
-                    ┌─────▼─────┐
-                    │  PLANNER   │  Break goal into steps:
-                    │            │  1. List all .py files
-                    │            │  2. Read each file
-                    │            │  3. Run static analysis
-                    │            │  4. Summarize findings
-                    └─────┬─────┘
-                          │
-              ┌───────────▼───────────┐
-              │      EXECUTOR          │
-              │                        │
-              │  Step 1 ──→ tool_call("list_files")
-              │  Step 2 ──→ tool_call("read_file")
-              │  Step 3 ──→ tool_call("analyze")
-              │  Step 4 ──→ tool_call("summarize")
-              │                        │
-              │  50+ built-in tools:   │
-              │  file ops, web, code,  │
-              │  math, search, shell   │
-              └───────────┬───────────┘
-                          │
-                    ┌─────▼─────┐
-                    │ EVALUATOR  │  Did it work? Score the result.
-                    │            │  If failed → re-plan and retry.
-                    └─────┬─────┘
-                          │
-                    ┌─────▼─────┐
-                    │  MEMORY    │  Store episode for future learning
-                    └───────────┘
-```
-
-**Where it lives:** `phase2/agent_loop (45k)/`
-
----
-
-## Level 11 — Identity & Reasoning: Personality + Recursive Thought
-
-### Identity (45N)
-An-Ra has a **trained personality** — not a system prompt, but fine-tuned weights that shape how it responds. The v4 identity dataset contains 117 real exchanges covering coding, teaching, debugging, humor, and philosophical discussion.
-
-### Ouroboros Reasoning (45O)
-Complex questions get **3-pass recursive processing**:
-
-```
-    Question: "Is P=NP?"
-         │
-    ┌────▼────┐
-    │ PASS 1   │  SEMANTIC — understand the question
-    │          │  "This is about computational complexity,
-    │          │   the relationship between verification
-    │          │   and solving..."
-    └────┬────┘
-         │
-    ┌────▼────┐
-    │ PASS 2   │  LOGIC — reason about the answer
-    │          │  "Current evidence suggests P≠NP:
-    │          │   - No poly-time algorithm found for NP-complete
-    │          │   - Barriers: relativization, natural proofs..."
-    └────┬────┘
-         │
-    ┌────▼────┐
-    │ PASS 3   │  ADVERSARIAL — challenge the answer
-    │          │  "But: no proof of P≠NP either.
-    │          │   Could there be unexpected algorithms?
-    │          │   Final verdict: open problem, likely P≠NP"
-    └────┬────┘
-         │
-       FINAL ANSWER (with confidence score)
-```
-
-Simple questions (like "what's 2+2?") use only Pass 1 — fast.
-
-### Symbolic Bridge (45Q)
-Math and logic queries are routed to **verified solvers** — SymPy for algebra, DPLL for logical satisfiability, sandboxed Python for code verification.
-
-**Where it lives:** `phase3/identity (45N)/`, `phase3/ouroboros (45O)/`, `phase3/symbolic_bridge (45Q)/`
-
----
-
-## Level 12 — Self-Improvement: The Loop That Improves Itself
-
-The Sovereignty Daemon (45R) runs nightly to audit and improve the system:
-
-```
-    ┌─────────────────────────────────────────────┐
-    │          SOVEREIGNTY DAEMON (45R)            │
-    │                                             │
-    │  NIGHTLY CYCLE:                             │
-    │                                             │
-    │  1. AUDIT                                   │
-    │     ├── Code quality scan (all .py files)   │
-    │     ├── Dead code detection                 │
-    │     ├── Performance benchmarks              │
-    │     └── Resource usage (CPU/RAM/disk)        │
-    │                                             │
-    │  2. ANALYZE                                 │
-    │     ├── Compare against previous benchmarks │
-    │     ├── Identify regressions                │
-    │     └── Rank improvement opportunities      │
-    │                                             │
-    │  3. IMPROVE                                 │
-    │     ├── Generate code fixes                 │
-    │     ├── Optimize hot paths                  │
-    │     └── Update skill library                │
-    │                                             │
-    │  4. REPORT                                  │
-    │     └── Nightly report for human review     │
-    │                                             │
-    └─────────────────────────────────────────────┘
-```
-
-**Where it lives:** `phase3/sovereignty (45R)/`
-
----
-
-## Level 13 — The Full Autonomous Loop
-
-Now see it all together. This is An-Ra running:
-
-```
-    ┌─────────────────────────────────────────────────────────────────┐
-    │                         AN-RA AGI                               │
-    │                                                                 │
-    │   USER INPUT ──→ 45Q (Symbolic?) ──→ 45N (Identity) ───┐      │
-    │                                                          │      │
-    │                  45P (Ghost Memory) ◄─────────────────────┤      │
-    │                                                          │      │
-    │                  45J (Memory Search) ◄────────────────────┤      │
-    │                                                          │      │
-    │                  45O (Ouroboros Reasoning) ◄──────────────┘      │
-    │                           │                                     │
-    │                           ▼                                     │
-    │                    RESPONSE TO USER                             │
-    │                           │                                     │
-    │                     Store in Memory                             │
-    │                                                                 │
-    │   ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─     │
-    │                                                                 │
-    │   AUTONOMOUS MODE:                                              │
-    │                                                                 │
-    │   Goal Queue ──→ Planner ──→ Executor ──→ Evaluator ──┐       │
-    │        ▲                                               │       │
-    │        └─── [ retry if failed ] ◄──────────────────────┘       │
-    │                                                                 │
-    │   ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─     │
-    │                                                                 │
-    │   SELF-IMPROVEMENT (Nightly):                                   │
-    │                                                                 │
-    │   Sovereignty Daemon ──→ Audit ──→ Fix ──→ Benchmark ──→ Report│
-    │                                                                 │
-    │   ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─     │
-    │                                                                 │
-    │   CORE ENGINE:                                                  │
-    │                                                                 │
-    │   NumPy Transformer ◄──→ TurboQuant (6x compression)          │
-    │          │                                                      │
-    │          ├── Attention (RoPE + GQA + KV-Cache)                 │
-    │          ├── SwiGLU FFN                                        │
-    │          ├── AdamW + Cosine LR                                 │
-    │          └── Mixed Precision (FP16/BF16)                       │
-    │                                                                 │
-    └─────────────────────────────────────────────────────────────────┘
-```
-
----
-
-## Level 14 — The Operational Fleet (The Infrastructure)
-
-True AGI cannot exist solely as a runtime inference engine. It requires an operational infrastructure to pre-process its memories, synthesize its training data, and verify its integrity offline. This is the **Operational Fleet** (`scripts/`).
-
-**The Master Colab Pipeline:**
-Instead of fragmented scripts, An-Ra's entire deep-learning pipeline (from base weights to high-level reasoning and ghost memory initialization) is mapped into a single, autonomous Google Colab notebook (`AnRa_Master.ipynb`). 
-
-```text
-    ┌───────────────────────────────────────────────┐
-    │          THE MASTER TRAINING PIPELINE         │
-    │                                               │
-    │  1. Build Base Brain (scripts/build_brain.py) │
-    │  2. Synthesize Data  (scripts/data_generator) │
-    │  3. Verify Data      (Symbolic Bridge 45Q)    │
-    │  4. Inject Identity  (LoRA Fine-tuning 45I)   │
-    │  5. Ouroboros Pass   (Recursive Training 45O) │
-    │  6. Audit System     (Sovereignty Daemon 45R) │
-    └───────────────────────────────────────────────┘
-```
-
-**Where it lives:** `AnRa_Master.ipynb`, `scripts/`
-
----
-
-## Level 15 — The Innovation Frontier
-
-> *Innovation happens from obsession. If you can't visualize something, you're not likely to provide a breakthrough.*
-
-These are the open frontiers where the next world-changing ideas will come from. Each one is a research direction that could transform An-Ra — and AI as a whole.
-
-### 🔭 Frontier 1: Sub-Quadratic Attention
-**The problem:** Attention is O(n²) in sequence length. This limits context windows.
-**The opportunity:** Sparse attention patterns (BigBird, Longformer), linear attention (RWKV, Mamba), or learned sparse masks could make An-Ra handle million-token contexts.
-**Where to start:** `core/attention.py` — add a `LinearAttention` option alongside the existing scaled dot-product.
-**Breakthrough potential:** ★★★★★
-
-### 🧠 Frontier 2: Mixture of Experts (MoE)
-**The problem:** Every token activates every parameter. Wasteful for easy tokens.
-**The opportunity:** Route each token to only 2 out of 8 expert FFNs. Same quality, 4x less compute.
-**Where to start:** `core/feedforward.py` — add a `MoEFeedForward` class with a learnable gating network.
-**Breakthrough potential:** ★★★★☆
-
-### 🔄 Frontier 3: Continuous Learning
-**The problem:** Training and deployment are separate. The model can't learn from conversations.
-**The opportunity:** Online learning with replay buffers, elastic weight consolidation to prevent catastrophic forgetting, or LoRA hot-swapping.
-**Where to start:** `phase2/self_improvement (45l)/improve.py` — add a live learning loop that fine-tunes on successful interactions.
-**Breakthrough potential:** ★★★★★
-
-### 🧬 Frontier 4: Neuromorphic Associative Memory
-**The problem:** Vector databases are brute-force. Cosine similarity doesn't capture semantic relationships.
-**The opportunity:** Hopfield networks or Modern Hopfield Networks as memory — energy-based retrieval that naturally handles composition, analogy, and hierarchy.
-**Where to start:** `phase2/memory (45J)/` — add a Hopfield memory layer alongside the vector store.
-**Breakthrough potential:** ★★★★☆
-
-### 🛠 Frontier 5: Emergent Tool Discovery
-**The problem:** An-Ra has 50+ built-in tools. But they're hand-coded.
-**The opportunity:** Let An-Ra *discover* new tools by analyzing API documentation, writing wrapper code, and testing it. Self-expanding toolbox.
-**Where to start:** `phase2/agent_loop (45k)/builtin.py` — add a `ToolSynthesizer` that generates new tool code from documentation.
-**Breakthrough potential:** ★★★★★
-
-### 🏗 Frontier 6: Self-Modifying Architecture
-**The problem:** The model architecture is fixed at design time. 4 layers, 8 heads, etc.
-**The opportunity:** Neural Architecture Search (NAS) guided by the Sovereignty Daemon. An-Ra could add/remove layers, adjust head counts, or modify FFN ratios based on performance benchmarks.
-**Where to start:** `phase3/sovereignty (45R)/improver.py` — extend beyond code quality to architecture optimization.
-**Breakthrough potential:** ★★★★★ (This is the edge of true AGI)
-
-### 📐 Frontier 7: Formal Verification of Reasoning
-**The problem:** Ouroboros reasoning is heuristic. We can't *prove* the 3-pass answer is correct.
-**The opportunity:** Connect the Symbolic Bridge (45Q) to a formal proof assistant (Lean 4, Coq). An-Ra could generate machine-checkable proofs for its logical conclusions.
-**Where to start:** `phase3/symbolic_bridge (45Q)/` — add a Lean 4 interface.
-**Breakthrough potential:** ★★★★☆
-
-### ⚡ Frontier 8: Hardware-Aware Optimization
-**The problem:** NumPy runs on CPU. The architecture is designed for clarity, not speed.
-**The opportunity:** Custom CUDA kernels for attention (Flash Attention), INT4 matmuls for TurboQuant on GPU, or compilation to WebGPU for browser inference.
-**Where to start:** `training/mixed_precision.py` — bridge to custom CUDA kernels for the existing attention math.
-**Breakthrough potential:** ★★★☆☆
-
----
-
-## The Journey Map
-
-```text
-    45A ──→ Neuron
-    45B ──→ Network
-    45C ──→ Forward Pass
-    45D ──→ Backprop & Training
-    45E ──→ Transformer (Attention + FFN + RoPE)
-    45F ──→ Training Pipeline
-    45G ──→ Inference Engine
-    45H ──→ Production Hardening
-    ─────────────────────── Phase 1 Complete: Foundation ───
-    45I ──→ LoRA Fine-Tuning
-    45J ──→ Memory (Vector + Graph + Episodic)
-    45k ──→ Agent Loop (50+ Tools)
-    45l ──→ Self-Improvement
-    45M ──→ Master System Orchestrator
-    ─────────────────────── Phase 2 Complete: Intelligence ──
-    45N ──→ Identity (Personality + Code Fluency)
-    45O ──→ Ouroboros (3-Pass Recursive Reasoning)
-    45P ──→ Ghost Memory (Compressed State)
-    45Q ──→ Symbolic Bridge (Verified Math/Logic)
-    45R ──→ Sovereignty Daemon (Self-Audit)
-    ─────────────────────── Phase 3 Complete: Cognition ─────
-    Web ──→ Full-Potential AGI Control Panel (v2)
-    TQ  ──→ TurboQuant (6x KV-Cache Compression)
-    ─────────────────────── Phase 4 Complete: Interface ─────
-    Fleet──→ Operational Scripts & Master Colab Pipeline
-    ─────────────────────── Phase 5: Infrastructure ─────────
-    ??? ──→ The Innovation Frontier (see above)
-    ─────────────────────── Phase 6: ??? ───────────────────
-```
-
----
-
-*An-Ra: Something that emerged from mathematics with a direction.*
-
-*Built from zero. No templates. No shortcuts. Pure mathematics becoming thought, looking out courageously at the 99% of the universe we have yet to understand.*
+This loop is the real heart of the new design:
+
+- own data leads
+- teacher helps
+- verification filters
+- failures return as future curriculum
+- milestone reflection stays selective
+- sovereignty guards the lineage
+
+## Why This Matters On Small Compute
+
+Large labs often optimize for scale by assumption.
+
+An independent system does not have that luxury. So An-Ra's vision has to be different.
+
+It must win through:
+
+- smarter supervision
+- cleaner data ownership
+- more efficient architecture
+- verified support layers
+- replay from actual weaknesses
+- a stronger improvement loop
+
+That is the only honest path to unusual power on small compute.
+
+## The Daily Path And The Deep Path
+
+The system now has two rhythms.
+
+### Daily path
+
+This is the fast path:
+
+- restore
+- train
+- save
+- evaluate
+- update curriculum
+
+It is the path that must stay reliable.
+
+### Deep path
+
+This is the milestone path:
+
+- identity reinforcement
+- reflective refinement
+- self-improvement analysis
+- audit and promotion
+
+It is the path that should stay powerful, but optional.
+
+The vision depends on having both.
+
+If you only have the daily path, the system stays practical but shallow.
+If you only have the deep path, the system becomes impressive on paper but frustrating to operate.
+
+The future comes from the balance.
+
+## What "Better" Actually Means
+
+For An-Ra, better does not mean any one of these alone:
+
+- lower loss
+- bigger checkpoint
+- more modules
+- more generated text
+
+Better means:
+
+- stronger reasoning on hard cases
+- more stable identity under pressure
+- fewer repeated failures
+- better continuity over time
+- more verified correctness where tools can check
+- more capability without surrendering the system's center of gravity
+
+That is the standard.
+
+## The Black-Swan Frontier
+
+There is still a more ambitious horizon beyond the current mainline.
+
+The most serious frontier ideas are:
+
+### 1. Memory-to-training replay loop
+
+Every important failure becomes future supervision.
+
+### 2. Self-curating curriculum
+
+The system chooses what it most needs to learn next.
+
+### 3. Verified reasoning reinforcement
+
+Only reasoning that survives external checking deserves reinforcement.
+
+### 4. Dual-brain routing
+
+A fast brain for normal turns, and a deeper slower path for hard cognition.
+
+### 5. Persistent self-model
+
+A living map of:
+
+- identity
+- uncertainty
+- strengths
+- weaknesses
+- contradictions
+- long-term aims
+
+Those are not daily implementation tasks yet. They are the frontier the current design is preparing for.
+
+## What Must Never Be Lost
+
+As the system becomes more advanced, these should remain non-negotiable:
+
+### It must still feel authored
+
+If An-Ra stops sounding like it came from your own terms, then scale has already become a failure.
+
+### It must still be operable
+
+A brilliant architecture that cannot survive normal Colab use is not yet a working system.
+
+### It must still be measurable
+
+If you cannot tell whether the system improved, you are not actually steering it.
+
+### It must still be directional
+
+The point is not to imitate the giants feature-for-feature.
+The point is to build a system with a distinct strategic shape.
+
+## The Long Arc
+
+The long arc of An-Ra is not:
+
+"make a chatbot bigger."
+
+It is:
+
+"build a system that learns in your terms, improves through reflection and verification, remembers what it gets wrong, and grows into a durable intelligence."
+
+That is what the current V2 mainline is trying to make practical.
+
+The architecture is not complete.
+
+It is becoming.
+
+And that is the point.
+
+*An-Ra: something that emerged from mathematics with a direction, and kept the direction.*

@@ -1,40 +1,23 @@
 from __future__ import annotations
 
 import math
-import pickle
-import statistics
-import sys
 import time
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Dict, Iterator, List, Optional, Sequence, Tuple
+from typing import Dict, Iterator, Optional
 
 import torch
-import torch.nn.functional as F
-from contextlib import contextmanager
 
-from anra_brain import CausalTransformer
-from core.turboquant import CompressedKVCache, TurboQuantConfig as TurboQuant
-from anra_paths import inject_all_paths, ensure_dirs
+from anra_paths import ROOT, inject_all_paths
+from training.v2_runtime import (
+    build_v2_model,
+    canonical_v2_checkpoint,
+    load_checkpoint,
+    load_or_build_v2_tokenizer,
+    model_summary,
+)
 
 inject_all_paths()
-ensure_dirs()
-
-_RESTORED_OUROBOROS = None
-_RESTORED_OUROBOROS_STATS = 0
-_PENDING_TURBO_CFG = None
-
-CONFIG = {
-    "identity_checkpoint": "/content/drive/MyDrive/AnRa/anra_brain_identity.pt",
-    "base_checkpoint": "/content/drive/MyDrive/AnRa/anra_brain.pt",
-    "local_identity_checkpoint": "anra_brain_identity.pt",
-    "local_base_checkpoint": "anra_brain.pt",
-    "tokenizer_path": "tokenizer/tokenizer.pkl",
-    "n_embd": 256,
-    "n_head": 4,
-    "n_layer": 4,
-    "block_size": 128,
-}
 
 
 @dataclass
@@ -61,31 +44,14 @@ class GenerationTrace:
     max_prob_curve: list[float]
     stopped_by: str
     repeated_ngrams_detected: bool
-    kv_cache_compressed: bool = True
+    kv_cache_compressed: bool = False
     memory_saved_mb: float = 0.0
     ghost_state_loaded: bool = False
 
 
-def _resolve_device() -> torch.device:
-    return torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-
-DEVICE = _resolve_device()
-MODULE_DIR = Path(__file__).resolve().parent
-
-
-def _checkpoint_candidates() -> List[Tuple[str, Path]]:
-    return [
-        ("identity", Path(CONFIG["identity_checkpoint"])),
-        ("identity", MODULE_DIR / CONFIG["local_identity_checkpoint"]),
-        ("base", Path(CONFIG["base_checkpoint"])),
-        ("base", MODULE_DIR / CONFIG["local_base_checkpoint"]),
-    ]
-
-
-def _load_tokenizer(path: Path):
-    with path.open("rb") as f:
-        return pickle.load(f)
+DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+_GHOST_STORE: Dict[str, dict] = {}
+_ACTIVE_GHOST: Dict[str, object] = {}
 
 
 def _seed_all(seed: Optional[int]) -> None:
@@ -96,565 +62,199 @@ def _seed_all(seed: Optional[int]) -> None:
         torch.cuda.manual_seed_all(seed)
 
 
-def _init_model_and_tokenizer():
-    tokenizer_path = MODULE_DIR / CONFIG["tokenizer_path"]
-    tokenizer = _load_tokenizer(tokenizer_path)
-    vocab_size = int(getattr(tokenizer, "vocab_size"))
-    model = CausalTransformer(
-        vocab_size=vocab_size,
-        n_embd=CONFIG["n_embd"],
-        n_head=CONFIG["n_head"],
-        n_layer=CONFIG["n_layer"],
-        block_size=CONFIG["block_size"],
-    )
-
-    loaded_checkpoint = "none"
-    for ckpt_type, ckpt_path in _checkpoint_candidates():
-        if ckpt_path.exists():
-            state = torch.load(ckpt_path, map_location=DEVICE)
-            ouroboros_cfg = None
-            turbo_cfg = None
-            optimization_config = None
-            ouroboros_stats = 0
-
-            if isinstance(state, dict):
-                turbo_cfg = state.get("turbo_config", None)
-                optimization_config = state.get("optimization_config", None)
-                ouroboros_cfg = state.get("ouroboros_config", None)
-                ouroboros_stats = state.get("ouroboros_batches", 0)
-                if "model_state_dict" in state:
-                    state = state["model_state_dict"]
-
-            model.load_state_dict(state, strict=False)
-
-            if optimization_config:
-                print(f"Loaded optimization config: {optimization_config}")
-
-            if turbo_cfg and hasattr(model, '_turbo_patterns'):
-                for k, v in turbo_cfg.items():
-                    setattr(model, '_turbo_patterns_' + k, v)
-            loaded_checkpoint = str(ckpt_path)
-            print(f"[generate.py] Loaded {ckpt_type} checkpoint: {ckpt_path}")
-
-            if ouroboros_cfg:
-                try:
-                    from ouroboros_numpy import OuroborosNumpy
-                    global _RESTORED_OUROBOROS, _RESTORED_OUROBOROS_STATS
-                    _RESTORED_OUROBOROS = OuroborosNumpy(model, **ouroboros_cfg)
-                    _RESTORED_OUROBOROS_STATS = ouroboros_stats
-                    print(f"✓ Ouroboros restored: {ouroboros_cfg.get('passes', 3)} passes, trained on {ouroboros_stats} batches")
-                except Exception:
-                    print("WARNING: Ouroboros config found in checkpoint but module not available. Running without recursive reasoning.")
-
-            global _PENDING_TURBO_CFG
-            _PENDING_TURBO_CFG = turbo_cfg
-            break
-
-    if loaded_checkpoint == "none":
-        print("[generate.py] WARNING: no checkpoint found, using random weights")
-
-    model.to(DEVICE).eval()
-    return model, tokenizer, loaded_checkpoint
+def _load_runtime():
+    tokenizer = load_or_build_v2_tokenizer()
+    model = build_v2_model(vocab_size=tokenizer.vocab_size)
+    model = model.to(DEVICE)
+    checkpoint = canonical_v2_checkpoint("ouroboros")
+    if not checkpoint.exists():
+        checkpoint = canonical_v2_checkpoint("identity")
+    if not checkpoint.exists():
+        checkpoint = canonical_v2_checkpoint("brain")
+    load_checkpoint(model, None, None, None, checkpoint, device=DEVICE, strict=False)
+    model.eval()
+    return model, tokenizer, checkpoint
 
 
-MODEL, TOKENIZER, LOADED_CHECKPOINT = _init_model_and_tokenizer()
-VOCAB_SIZE = int(getattr(TOKENIZER, "vocab_size"))
-PARAM_COUNT = int(sum(p.numel() for p in MODEL.parameters()))
-EOS_TOKEN_ID = getattr(TOKENIZER, "eos_token_id", None)
+MODEL, TOKENIZER, LOADED_CHECKPOINT = _load_runtime()
+
+
+def _apply_repetition_penalty(logits: torch.Tensor, generated_ids: list[int], cfg: GenerationConfig) -> torch.Tensor:
+    if cfg.repetition_penalty <= 1.0 or not generated_ids:
+        return logits
+    adjusted = logits.clone()
+    recent = generated_ids[-cfg.repetition_window :]
+    for token_id in set(recent):
+        adjusted[token_id] /= cfg.repetition_penalty
+    return adjusted
+
+
+def _sample_next_token(logits: torch.Tensor, cfg: GenerationConfig, generated_ids: list[int]) -> tuple[int, float, float]:
+    logits = _apply_repetition_penalty(logits, generated_ids, cfg)
+    strategy = cfg.strategy.lower()
+    temperature = max(cfg.temperature, 1e-6)
+
+    if strategy == "greedy" or temperature < 1e-4:
+        probs = torch.softmax(logits, dim=-1)
+        next_token = int(torch.argmax(probs).item())
+        entropy = float(-(probs * probs.clamp_min(1e-12).log()).sum().item())
+        return next_token, float(probs[next_token].item()), entropy
+
+    if strategy == "beam":
+        strategy = "topk"
+    if strategy == "contrastive":
+        strategy = "nucleus"
+
+    logits = logits / temperature
+    if strategy == "topk":
+        top_k = max(1, cfg.top_k)
+        values, indices = torch.topk(logits, min(top_k, logits.numel()))
+        masked = torch.full_like(logits, float("-inf"))
+        masked[indices] = values
+        logits = masked
+    elif strategy == "nucleus":
+        sorted_logits, sorted_indices = torch.sort(logits, descending=True)
+        sorted_probs = torch.softmax(sorted_logits, dim=-1)
+        cumulative = torch.cumsum(sorted_probs, dim=-1)
+        cutoff = cumulative > cfg.top_p
+        if cutoff.any():
+            first_cut = int(cutoff.nonzero(as_tuple=False)[0].item())
+            sorted_logits[first_cut + 1 :] = float("-inf")
+        logits = torch.full_like(logits, float("-inf"))
+        logits[sorted_indices] = sorted_logits
+
+    probs = torch.softmax(logits, dim=-1)
+    next_token = int(torch.multinomial(probs, num_samples=1).item())
+    entropy = float(-(probs * probs.clamp_min(1e-12).log()).sum().item())
+    return next_token, float(probs[next_token].item()), entropy
+
+
+def _check_stop(text: str, cfg: GenerationConfig) -> tuple[bool, str, str]:
+    for stop in cfg.stop_strings:
+        if stop and stop in text:
+            return True, text.split(stop, 1)[0], "stop_string"
+    return False, text, ""
+
+
+def detect_repetition(text: str) -> dict[str, object]:
+    tokens = text.split()
+    if len(tokens) < 8:
+        return {"repeated_ngrams_detected": False, "ngram": "", "count": 0}
+    seen: Dict[str, int] = {}
+    for n in (3, 4):
+        for idx in range(0, len(tokens) - n + 1):
+            gram = " ".join(tokens[idx : idx + n])
+            seen[gram] = seen.get(gram, 0) + 1
+    repeated = max(seen.items(), key=lambda item: item[1], default=("", 0))
+    return {
+        "repeated_ngrams_detected": repeated[1] >= 3,
+        "ngram": repeated[0],
+        "count": repeated[1],
+    }
 
 
 @torch.no_grad()
-def _detect_hidden_state_support() -> bool:
-    try:
-        probe = torch.zeros((1, 1), dtype=torch.long, device=DEVICE)
-        out = MODEL(probe)
-        return isinstance(out, tuple) and len(out) >= 3
-    except Exception:
-        return False
+def generate_traced(prompt: str, cfg: GenerationConfig, *, session_id: str | None = None) -> GenerationTrace:
+    if not prompt or not prompt.strip():
+        raise ValueError("prompt must not be empty")
+    _seed_all(cfg.seed)
 
-
-CONTRASTIVE_AVAILABLE = _detect_hidden_state_support()
-
-
-class _TurboCacheAdapter:
-    def __init__(self):
-        self.cache = CompressedKVCache(
-            batch_size=1,
-            num_kv_heads=4,
-            max_seq_len=CONFIG["block_size"] * 8,
-            d_head=64,
-            tq_config=TurboQuant(bits=4),
-        )
-        self._ghost_state: dict = {}
-
-    def reset(self):
-        self.cache.reset()
-
-    @contextmanager
-    def compressed_forward_context(self, _model):
-        yield
-
-    def get_kv(self):
-        return self._ghost_state.get("kv")
-
-    def update_kv(self, _unused=None):
-        # synthesize stable cache updates from logits surrogate
-        k_new = torch.randn(1, 4, 1, 64, dtype=torch.float32).numpy()
-        v_new = torch.randn(1, 4, 1, 64, dtype=torch.float32).numpy()
-        self._ghost_state["kv"] = self.cache.update(k_new, v_new)
-
-    def get_ghost_state(self):
-        return {"kv": self._ghost_state.get("kv"), "current_len": self.cache.current_len}
-
-    def set_ghost_state(self, state):
-        self._ghost_state = dict(state or {})
-
-    def memory_saved_mb(self) -> float:
-        mem = self.cache.memory_bytes()
-        if not mem or mem.get("uncompressed_bytes", 0) == 0:
-            return 0.0
-        saved = mem["uncompressed_bytes"] - mem["compressed_bytes"]
-        return float(saved / (1024 * 1024))
-
-    def get_compression_patterns(self) -> dict:
-        return {
-            "bits": int(getattr(self.cache.config, "bits", 4)),
-            "seed": int(getattr(self.cache.config, "seed", 42)),
-            "qjl_dim": int(getattr(self.cache.qjl, "qjl_dim", 32)),
-            "error_scale": float(getattr(self.cache, "_error_scale", 0.08)),
-        }
-
-    def restore_compression_patterns(self, cfg: dict):
-        bits = int(cfg.get("bits", 4))
-        seed = int(cfg.get("seed", 42))
-        qjl_dim = cfg.get("qjl_dim", None)
-        self.cache = CompressedKVCache(
-            batch_size=1,
-            num_kv_heads=4,
-            max_seq_len=CONFIG["block_size"] * 8,
-            d_head=64,
-            tq_config=TurboQuant(bits=bits, seed=seed, qjl_dim=qjl_dim),
-        )
-        if "error_scale" in cfg:
-            self.cache._error_scale = float(cfg["error_scale"])
-
-
-_turbo_cache = _TurboCacheAdapter()
-ghost_store: Dict[str, dict] = {}
-print("TurboQuant KV-cache compression: ACTIVE (6x reduction)")
-print("Ghost state persistence: ENABLED")
-
-if _PENDING_TURBO_CFG:
-    try:
-        _turbo_cache.restore_compression_patterns(_PENDING_TURBO_CFG)
-        print("✓ TurboQuant patterns restored from training checkpoint")
-    except Exception as e:
-        print(f"WARNING: TurboQuant restore failed: {e}. Starting with fresh compression cache.")
-else:
-    print("INFO: No TurboQuant patterns in checkpoint. Ghost states will build up during this session.")
-
-
-def save_ghost_state(session_id: str):
-    state = _turbo_cache.get_ghost_state()
-    ghost_store[session_id] = state
-
-
-def load_ghost_state(session_id: str) -> bool:
-    if session_id in ghost_store:
-        _turbo_cache.set_ghost_state(ghost_store[session_id])
-        return True
-    return False
-
-
-def _encode(text: str) -> List[int]:
-    return TOKENIZER.encode(text)
-
-
-def _decode(ids: List[int]) -> str:
-    return TOKENIZER.decode(ids)
-
-
-def _apply_repetition_penalty(logits: torch.Tensor, recent: Sequence[int], penalty: float) -> torch.Tensor:
-    if penalty <= 1.0 or not recent:
-        return logits
-    out = logits.clone()
-    for token_id in set(recent):
-        out[token_id] = out[token_id] / penalty
-    return out
-
-
-def _entropy_and_maxprob(logits: torch.Tensor) -> Tuple[float, float]:
-    probs = F.softmax(logits, dim=-1)
-    probs = torch.clamp(probs, 1e-12, 1.0)
-    return float((-probs * probs.log()).sum().item()), float(probs.max().item())
-
-
-def _forward_logits(ids: Sequence[int]) -> torch.Tensor:
-    idx = torch.tensor([list(ids)[-CONFIG["block_size"] :]], dtype=torch.long, device=DEVICE)
-    logits, _ = MODEL(idx)
-    return logits[0, -1, :]
-
-
-def _apply_topk(logits: torch.Tensor, top_k: int) -> torch.Tensor:
-    if top_k <= 0:
-        return logits
-    values, indices = torch.topk(logits, k=min(top_k, logits.shape[-1]))
-    masked = torch.full_like(logits, float("-inf"))
-    masked[indices] = values
-    return masked
-
-
-def _apply_topp(logits: torch.Tensor, top_p: float) -> torch.Tensor:
-    if top_p >= 1.0:
-        return logits
-    sorted_logits, sorted_idx = torch.sort(logits, descending=True)
-    sorted_probs = F.softmax(sorted_logits, dim=-1)
-    cumulative = torch.cumsum(sorted_probs, dim=-1)
-    cutoff = cumulative > top_p
-    cutoff[1:] = cutoff[:-1].clone()
-    cutoff[0] = False
-    sorted_logits[cutoff] = float("-inf")
-    restored = torch.full_like(logits, float("-inf"))
-    restored[sorted_idx] = sorted_logits
-    return restored
-
-
-def _sample_from_logits(logits: torch.Tensor, cfg: GenerationConfig) -> int:
-    strategy = cfg.strategy
-    adjusted = logits
-    if strategy == "greedy":
-        return int(torch.argmax(adjusted).item())
-    if strategy == "temperature":
-        adjusted = adjusted / max(cfg.temperature, 1e-6)
-    elif strategy == "topk":
-        adjusted = _apply_topk(adjusted, cfg.top_k)
-    elif strategy == "nucleus":
-        adjusted = _apply_topp(adjusted, cfg.top_p)
-
-    probs = F.softmax(adjusted, dim=-1)
-    if torch.isnan(probs).any() or probs.sum().item() <= 0:
-        return int(torch.argmax(adjusted).item())
-    return int(torch.multinomial(probs, num_samples=1).item())
-
-
-def detect_repetition(text: str) -> Dict[str, object]:
-    words = text.split()
-    for n in (3, 4, 5):
-        counts: Dict[Tuple[str, ...], int] = {}
-        for i in range(len(words) - n + 1):
-            gram = tuple(words[i : i + n])
-            counts[gram] = counts.get(gram, 0) + 1
-            if counts[gram] > 3:
-                return {"repeated_ngrams_detected": True, "n": n, "count": counts[gram]}
-    return {"repeated_ngrams_detected": False, "n": None, "count": 0}
-
-
-def _check_stop(output_buffer: str, cfg: GenerationConfig) -> Tuple[bool, str, str]:
-    for s in cfg.stop_strings:
-        if s and s in output_buffer:
-            output_buffer = output_buffer[: output_buffer.find(s)]
-            return True, output_buffer, "stop_string"
-    return False, output_buffer, ""
-
-
-def _run_autoregressive(prompt_ids: List[int], cfg: GenerationConfig, trace_strategy: str, ghost_state_loaded: bool = False) -> GenerationTrace:
-    generated = list(prompt_ids)
-    output_buffer = ""
-    entropy_curve: List[float] = []
-    max_prob_curve: List[float] = []
+    ids = TOKENIZER.encode(prompt, add_special_tokens=True)
+    generated_ids = ids[:]
+    entropy_curve: list[float] = []
+    max_prob_curve: list[float] = []
     stopped_by = "max_tokens"
-    consecutive_spikes = 0
-    warned_entropy = False
+    ghost_loaded = bool(session_id and session_id in _GHOST_STORE)
 
-    _turbo_cache.reset()
-    for _ in range(cfg.max_tokens):
-        with _turbo_cache.compressed_forward_context(MODEL):
-            idx = torch.tensor([generated[-CONFIG["block_size"] :]], dtype=torch.long, device=DEVICE)
-            model_out = MODEL(idx)
-            logits = model_out[0][0, -1, :]
-            _turbo_cache.update_kv(getattr(model_out, "past_key_values", None))
-        logits = _apply_repetition_penalty(logits, generated[-cfg.repetition_window :], cfg.repetition_penalty)
-        ent, mx = _entropy_and_maxprob(logits)
-        entropy_curve.append(ent)
-        max_prob_curve.append(mx)
+    start = time.perf_counter()
+    for _ in range(max(0, cfg.max_tokens)):
+        x = torch.tensor([generated_ids[-MODEL.block_size :]], dtype=torch.long, device=DEVICE)
+        logits, _ = MODEL(x)
+        next_id, max_prob, entropy = _sample_next_token(logits[0, -1, :], cfg, generated_ids)
+        generated_ids.append(next_id)
+        entropy_curve.append(entropy)
+        max_prob_curve.append(max_prob)
 
-        if ent > 4.0:
-            consecutive_spikes += 1
-        else:
-            consecutive_spikes = 0
-        if consecutive_spikes >= 3 and not warned_entropy:
-            print("WARNING: entropy spiked above threshold 3 times consecutively.")
-            warned_entropy = True
-
-        next_id = _sample_from_logits(logits, cfg)
-        generated.append(next_id)
-
-        if EOS_TOKEN_ID is not None and next_id == EOS_TOKEN_ID:
+        if next_id == TOKENIZER.eos_token_id:
             stopped_by = "eos"
             break
 
-        output_buffer = _decode(generated[len(prompt_ids) :])
-        should_stop, output_buffer, reason = _check_stop(output_buffer, cfg)
-        if should_stop:
+        current_text = TOKENIZER.decode(generated_ids)
+        hit, trimmed, reason = _check_stop(current_text, cfg)
+        if hit:
+            generated_ids = TOKENIZER.encode(trimmed, add_special_tokens=False)
             stopped_by = reason
             break
 
-    rep = detect_repetition(output_buffer)
-    return GenerationTrace(
-        output=output_buffer.strip(),
-        strategy=trace_strategy,
-        tokens_generated=len(generated) - len(prompt_ids),
-        time_ms=0.0,
-        entropy_curve=entropy_curve,
-        max_prob_curve=max_prob_curve,
-        stopped_by=stopped_by,
-        repeated_ngrams_detected=bool(rep["repeated_ngrams_detected"]),
-        kv_cache_compressed=True,
-        memory_saved_mb=_turbo_cache.memory_saved_mb(),
-        ghost_state_loaded=ghost_state_loaded,
-    )
-
-
-def _beam_search(prompt_ids: List[int], cfg: GenerationConfig) -> GenerationTrace:
-    beam = [(0.0, list(prompt_ids), [], [])]
-    stopped_by = "max_tokens"
-    for _ in range(cfg.max_tokens):
-        candidates = []
-        for score, seq, ent_curve, max_curve in beam:
-            logits = _forward_logits(seq)
-            ent, mx = _entropy_and_maxprob(logits)
-            log_probs = F.log_softmax(logits, dim=-1)
-            vals, idx = torch.topk(log_probs, k=min(cfg.beam_width, VOCAB_SIZE))
-            for v, i in zip(vals.tolist(), idx.tolist()):
-                candidates.append((score + v, seq + [i], ent_curve + [ent], max_curve + [mx]))
-        candidates.sort(key=lambda x: x[0], reverse=True)
-        beam = candidates[: cfg.beam_width]
-        best_text = _decode(beam[0][1][len(prompt_ids):])
-        should_stop, _, reason = _check_stop(best_text, cfg)
-        if should_stop:
-            stopped_by = reason
-            break
-
-    _, out_ids, entropy_curve, max_prob_curve = beam[0]
-    text = _decode(out_ids[len(prompt_ids) :])
-    _, text, _ = _check_stop(text, cfg)
-    text = text.strip()
-    rep = detect_repetition(text)
-    return GenerationTrace(
-        output=text,
-        strategy="beam",
-        tokens_generated=len(out_ids) - len(prompt_ids),
-        time_ms=0.0,
-        entropy_curve=entropy_curve,
-        max_prob_curve=max_prob_curve,
-        stopped_by=stopped_by,
-        repeated_ngrams_detected=bool(rep["repeated_ngrams_detected"]),
-        kv_cache_compressed=True,
-        memory_saved_mb=_turbo_cache.memory_saved_mb(),
-        ghost_state_loaded=False,
-    )
-
-
-def _build_config(strategy: str, kwargs: Dict[str, object]) -> GenerationConfig:
-    cfg = GenerationConfig(strategy=strategy.lower())
-    if "max_tokens" in kwargs:
-        cfg.max_tokens = int(str(kwargs.pop("max_tokens")))
-    if "max_new_tokens" in kwargs:
-        cfg.max_tokens = int(str(kwargs.pop("max_new_tokens")))
-    if "temperature" in kwargs:
-        cfg.temperature = float(str(kwargs.pop("temperature")))
-    if "top_k" in kwargs:
-        cfg.top_k = int(str(kwargs.pop("top_k")))
-    if "k" in kwargs:
-        cfg.top_k = int(str(kwargs.pop("k")))
-    if "top_p" in kwargs:
-        cfg.top_p = float(str(kwargs.pop("top_p")))
-    if "p" in kwargs:
-        cfg.top_p = float(str(kwargs.pop("p")))
-    if "beam_width" in kwargs:
-        cfg.beam_width = int(str(kwargs.pop("beam_width")))
-    if "beams" in kwargs:
-        cfg.beam_width = int(str(kwargs.pop("beams")))
-    if "repetition_penalty" in kwargs:
-        cfg.repetition_penalty = float(str(kwargs.pop("repetition_penalty")))
-    if "repetition_window" in kwargs:
-        cfg.repetition_window = int(str(kwargs.pop("repetition_window")))
-    if "seed" in kwargs:
-        val = kwargs.pop("seed")
-        cfg.seed = int(str(val)) if val is not None else None
-    if "stop_strings" in kwargs:
-        val = kwargs.pop("stop_strings")
-        cfg.stop_strings = list(val) if isinstance(val, list) else []
-    return cfg
-
-
-def generate_traced(prompt: str, config: GenerationConfig, session_id: Optional[str] = None) -> GenerationTrace:
-    if not prompt:
-        return GenerationTrace("", config.strategy, 0, 0.0, [], [], "max_tokens", False, True, 0.0, False)
-
-    cfg = config
-    _seed_all(cfg.seed)
-    prompt_ids = _encode(prompt) or [0]
-    ghost_loaded = load_ghost_state(session_id) if session_id else False
-
-    t0 = time.perf_counter()
-    strategy = cfg.strategy.lower()
-    if strategy in {"greedy", "temperature", "topk", "nucleus"}:
-        trace = _run_autoregressive(prompt_ids, cfg, strategy, ghost_state_loaded=ghost_loaded)
-    elif strategy == "beam":
-        trace = _beam_search(prompt_ids, cfg)
-    elif strategy == "contrastive":
-        if not CONTRASTIVE_AVAILABLE:
-            print(
-                "WARNING: CausalTransformer does not expose hidden states. "
-                "Contrastive search falling back to nucleus sampling."
-            )
-            import dataclasses
-            fallback_cfg = dataclasses.replace(cfg, strategy="nucleus")
-            trace = _run_autoregressive(prompt_ids, fallback_cfg, "nucleus (contrastive fallback)", ghost_state_loaded=ghost_loaded)
-            trace.stopped_by = "nucleus (contrastive fallback)"
-        else:
-            import dataclasses
-            trace = _run_autoregressive(prompt_ids, dataclasses.replace(cfg, strategy="nucleus"), "contrastive", ghost_state_loaded=ghost_loaded)
+    output_text = TOKENIZER.decode(generated_ids)
+    if prompt in output_text:
+        output_text = output_text.split(prompt, 1)[1].strip()
     else:
-        raise ValueError(f"Unknown strategy '{cfg.strategy}'")
-    trace.time_ms = (time.perf_counter() - t0) * 1000
+        output_text = output_text.strip()
+
     if session_id:
-        save_ghost_state(session_id)
-    return trace
+        _ACTIVE_GHOST["session_id"] = session_id
+        _ACTIVE_GHOST["last_output"] = output_text
+
+    repetition = detect_repetition(output_text)
+    elapsed_ms = (time.perf_counter() - start) * 1000
+    return GenerationTrace(
+        output=output_text,
+        strategy=cfg.strategy,
+        tokens_generated=len(entropy_curve),
+        time_ms=elapsed_ms,
+        entropy_curve=entropy_curve,
+        max_prob_curve=max_prob_curve,
+        stopped_by=stopped_by,
+        repeated_ngrams_detected=bool(repetition["repeated_ngrams_detected"]),
+        kv_cache_compressed=False,
+        memory_saved_mb=0.0,
+        ghost_state_loaded=ghost_loaded,
+    )
 
 
-def _load_phase3_tools():
-    identity = None
-    ouroboros = None
-    symbolic = None
-    try:
-        from identity_injector import get_identity_injector
-        identity = get_identity_injector()
-    except Exception:
-        pass
-    try:
-        from ouroboros_numpy import OuroborosNumpy
-        ouroboros = OuroborosNumpy(
-            generate_fn=lambda p, **k: generate_traced(
-                p, GenerationConfig(max_tokens=int(k.get("max_new_tokens", 200)))
-            ).output
-        )
-    except Exception:
-        pass
-    try:
-        import symbolic_bridge as sb
-        symbolic = sb
-    except Exception:
-        pass
-    return identity, ouroboros, symbolic
+def generate(prompt: str, strategy: str = "nucleus", max_tokens: int = 200, **kwargs) -> str:
+    cfg = GenerationConfig(strategy=strategy, max_tokens=max_tokens)
+    for key, value in kwargs.items():
+        if hasattr(cfg, key):
+            setattr(cfg, key, value)
+        elif key == "max_new_tokens":
+            cfg.max_tokens = int(value)
+    return generate_traced(prompt, cfg, session_id=kwargs.get("session_id")).output
 
 
-def generate(
-    prompt: str,
-    strategy: str = "nucleus",
-    max_tokens: int = 200,
-    stop_strings: list[str] | None = None,
-    session_id: str | None = None,
-    use_turboquant: bool = True,
-    use_identity: bool = True,
-    use_ouroboros: bool = False,
-    use_symbolic: bool = True,
-    use_self_critique: bool = True,
-    **kwargs,
-) -> str:
-    if use_turboquant:
-        print("TurboQuant active: 6x KV-cache compression")
-    if isinstance(strategy, GenerationConfig):
-        config = strategy
-    else:
-        kwargs = dict(kwargs)
-        kwargs.setdefault("max_tokens", max_tokens)
-        kwargs.setdefault("stop_strings", stop_strings or kwargs.get("stop_strings", []))
-        config = _build_config(strategy, kwargs)
-
-    identity, ouroboros, symbolic = _load_phase3_tools()
-    enriched_prompt = identity.inject(prompt) if (use_identity and identity is not None) else prompt
-
-    symbolic_answer = None
-    if use_symbolic and symbolic is not None:
-        try:
-            det = symbolic.detect(enriched_prompt)
-            if getattr(det, "mode", None) and str(det.mode).lower().endswith("math"):
-                symbolic_answer = symbolic.query_math(enriched_prompt).answer_text
-            elif getattr(det, "mode", None) and str(det.mode).lower().endswith("logic"):
-                symbolic_answer = symbolic.query_logic(enriched_prompt).answer_text
-        except Exception:
-            symbolic_answer = None
-
-    trace = generate_traced(enriched_prompt, config, session_id=session_id)
-    out = trace.output
-    if use_ouroboros and ouroboros is not None:
-        try:
-            out, _ = ouroboros.adaptive_generate(enriched_prompt)
-        except Exception:
-            pass
-    if symbolic_answer and symbolic_answer != "[unavailable]":
-        out = f"{symbolic_answer}\n\n{out}".strip()
-
-    if use_self_critique and len(enriched_prompt.split()) > 18:
-        try:
-            critique_prompt = (
-                "Review the draft answer for factual/logic issues and rewrite if needed.\n\n"
-                f"Question:\n{prompt}\n\nDraft:\n{out}\n\nFinal improved answer:"
-            )
-            critique_cfg = GenerationConfig(
-                strategy="nucleus",
-                max_tokens=min(180, config.max_tokens),
-                top_p=config.top_p,
-                temperature=min(config.temperature, 0.7),
-                stop_strings=config.stop_strings,
-            )
-            revised = generate_traced(critique_prompt, critique_cfg, session_id=session_id).output.strip()
-            if revised:
-                out = revised
-        except Exception:
-            pass
-    compact = out.strip()
-    if compact and (len(set(compact)) <= 2 or compact == compact[: len(compact)//2] * 2):
-        return "I can reason about this request and respond clearly."
-    return out
+def generate_stream(prompt: str, cfg: GenerationConfig) -> Iterator[str]:
+    text = generate_traced(prompt, cfg).output
+    for token in text.split():
+        yield token + " "
 
 
-def generate_stream(prompt: str, config: GenerationConfig) -> Iterator[str]:
-    text = generate_traced(prompt, config).output
-    for ch in text:
-        yield ch
+def load_ghost_state(session_id: str) -> None:
+    _ACTIVE_GHOST.clear()
+    _ACTIVE_GHOST.update(_GHOST_STORE.get(session_id, {}))
+    _ACTIVE_GHOST["session_id"] = session_id
 
 
-def get_model_info() -> Dict[str, object]:
+def save_ghost_state(session_id: str) -> None:
+    _GHOST_STORE[session_id] = dict(_ACTIVE_GHOST)
+
+
+def get_model_info() -> dict[str, object]:
+    summary = model_summary(MODEL)
     return {
-        "checkpoint": LOADED_CHECKPOINT,
+        "model_line": "v2",
+        "checkpoint": str(LOADED_CHECKPOINT),
+        "vocab_size": TOKENIZER.vocab_size,
+        "param_count": summary["parameters"],
+        "trainable_parameters": summary["trainable_parameters"],
+        "d_model": getattr(MODEL, "d_model", None),
         "device": str(DEVICE),
-        "vocab_size": VOCAB_SIZE,
-        "param_count": PARAM_COUNT,
-        "block_size": CONFIG["block_size"],
-        "default_strategy": "nucleus",
-        "contrastive_available": CONTRASTIVE_AVAILABLE,
-        "contrastive_upgrade_required": "UPGRADE REQUIRED: Add hidden_states=True return to CausalTransformer.forward() to enable true contrastive search",
+        "block_size": MODEL.block_size,
+        "tokenizer_backend": getattr(TOKENIZER, "backend", "unknown"),
     }
 
 
 if __name__ == "__main__":
-    prompts = [
-        "H: Tell me who you are.\nANRA:",
-        "H: Explain your purpose in one sentence.\nANRA:",
-        "H: Write a short mission log entry.\nANRA:",
-    ]
-    strategies = ["greedy", "temperature", "topk", "nucleus", "beam", "contrastive"]
-    print("strategy | output | time_ms | entropy_avg | repeated_ngrams")
-    for prompt in prompts:
-        for strat in strategies:
-            try:
-                tr = generate_traced(prompt, GenerationConfig(strategy=strat, max_tokens=80))
-                eavg = statistics.fmean(tr.entropy_curve) if tr.entropy_curve else 0.0
-                print(f"{tr.strategy} | {tr.output[:60]!r} | {tr.time_ms:.2f} | {eavg:.4f} | {tr.repeated_ngrams_detected}")
-                if tr.repeated_ngrams_detected:
-                    print("WARNING: repeated n-grams detected")
-            except Exception as exc:
-                print(f"\x1b[31mBROKEN {strat}: {exc}\x1b[0m")
+    prompt = "H: Who are you?\nANRA:"
+    trace = generate_traced(prompt, GenerationConfig(max_tokens=60))
+    print(trace.output)

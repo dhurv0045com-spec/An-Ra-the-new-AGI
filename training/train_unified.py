@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import importlib
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -247,6 +248,7 @@ def run_cmd(cmd: list[str], *, cwd: Path | None = None) -> int:
 
 def main() -> None:
     ap = argparse.ArgumentParser(description="An-Ra unified training dispatcher")
+    ap.add_argument("--model_line", default=os.environ.get("ANRA_MODEL_LINE", "v2"), choices=["v1", "v2"])
     ap.add_argument("--mode", default="session", choices=["session", "train", "resume", "eval", "status"])
     ap.add_argument("--data_path", default=None)
     ap.add_argument("--checkpoint_path", default="anra_brain.pt")
@@ -260,6 +262,39 @@ def main() -> None:
     ap.add_argument("--skip_self_improvement", action="store_true")
     ap.add_argument("--skip_sovereignty", action="store_true")
     args = ap.parse_args()
+
+    if args.model_line == "v2":
+        mode_map = {
+            "session": "session",
+            "resume": "session",
+            "train": "milestone",
+            "eval": "eval",
+            "status": "status",
+        }
+        delegated = [
+            sys.executable,
+            "-m",
+            "training.train_v2",
+            "--mode",
+            mode_map[args.mode],
+        ]
+        if args.data_path:
+            delegated.extend(["--data_path", args.data_path])
+        delegated.extend(
+            [
+                "--checkpoint_path",
+                "anra_v2_brain.pt",
+                "--batch_size",
+                str(min(args.batch_size, 32)),
+                "--block_size",
+                str(args.block_size),
+                "--answer_loss_weight",
+                str(args.answer_loss_weight),
+                "--session_minutes",
+                str(args.session_minutes),
+            ]
+        )
+        raise SystemExit(run_cmd(delegated))
 
     if args.mode == "status":
         print_system_health()

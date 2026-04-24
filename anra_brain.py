@@ -1,8 +1,9 @@
-"""An-Ra architecture and tokenizer definitions.
+"""An-Ra mainline model and tokenizer definitions.
 
-This module provides stable import paths for:
-- CausalTransformer
-- CharTokenizer
+Canonical exports:
+- CausalTransformer          -> V2 mainline decoder
+- CausalTransformerV2        -> explicit V2 class name
+- CharTokenizer             -> legacy char tokenizer (kept for compatibility)
 """
 
 from __future__ import annotations
@@ -14,85 +15,182 @@ from torch.nn import functional as F
 from tokenizer.char_tokenizer import CharTokenizer
 
 
-class CausalSelfAttention(nn.Module):
-    def __init__(self, n_embd: int, n_head: int, block_size: int):
+class RMSNorm(nn.Module):
+    def __init__(self, dim: int, eps: float = 1e-5):
         super().__init__()
+        self.weight = nn.Parameter(torch.ones(dim))
+        self.eps = eps
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        scale = torch.rsqrt(x.pow(2).mean(dim=-1, keepdim=True) + self.eps)
+        return x * scale * self.weight
+
+
+def _rotate_half(x: torch.Tensor) -> torch.Tensor:
+    x1 = x[..., ::2]
+    x2 = x[..., 1::2]
+    return torch.stack((-x2, x1), dim=-1).flatten(-2)
+
+
+class RotaryEmbedding(nn.Module):
+    def __init__(self, dim: int, base: int = 10000):
+        super().__init__()
+        inv_freq = 1.0 / (base ** (torch.arange(0, dim, 2).float() / dim))
+        self.register_buffer("inv_freq", inv_freq, persistent=False)
+        self._cached_seq_len = 0
+        self._cached_cos: torch.Tensor | None = None
+        self._cached_sin: torch.Tensor | None = None
+
+    def _build_cache(self, seq_len: int, device: torch.device, dtype: torch.dtype) -> None:
+        if self._cached_cos is not None and self._cached_seq_len >= seq_len:
+            return
+        positions = torch.arange(seq_len, device=device, dtype=self.inv_freq.dtype)
+        freqs = torch.outer(positions, self.inv_freq.to(device))
+        emb = torch.cat([freqs, freqs], dim=-1)
+        cos = emb.cos()[None, None, :, :]
+        sin = emb.sin()[None, None, :, :]
+        self._cached_cos = cos.to(dtype=dtype)
+        self._cached_sin = sin.to(dtype=dtype)
+        self._cached_seq_len = seq_len
+
+    def forward(self, q: torch.Tensor, k: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+        seq_len = q.size(-2)
+        self._build_cache(seq_len, q.device, q.dtype)
+        assert self._cached_cos is not None and self._cached_sin is not None
+        cos = self._cached_cos[..., :seq_len, :]
+        sin = self._cached_sin[..., :seq_len, :]
+        q = (q * cos) + (_rotate_half(q) * sin)
+        k = (k * cos) + (_rotate_half(k) * sin)
+        return q, k
+
+
+class MultiHeadAttentionV2(nn.Module):
+    def __init__(self, n_embd: int, n_head: int, dropout: float = 0.0):
+        super().__init__()
+        if n_embd % n_head != 0:
+            raise ValueError(f"n_embd={n_embd} must be divisible by n_head={n_head}")
         self.n_head = n_head
-        self.head_size = n_embd // n_head
-        self.key = nn.Linear(n_embd, self.head_size * n_head, bias=False)
-        self.query = nn.Linear(n_embd, self.head_size * n_head, bias=False)
-        self.value = nn.Linear(n_embd, self.head_size * n_head, bias=False)
-        self.proj = nn.Linear(n_embd, n_embd)
-        self.register_buffer(
-            "tril", torch.tril(torch.ones(block_size, block_size)).view(1, 1, block_size, block_size)
-        )
+        self.head_dim = n_embd // n_head
+        self.q_proj = nn.Linear(n_embd, n_embd, bias=False)
+        self.k_proj = nn.Linear(n_embd, n_embd, bias=False)
+        self.v_proj = nn.Linear(n_embd, n_embd, bias=False)
+        self.out_proj = nn.Linear(n_embd, n_embd, bias=False)
+        self.rope = RotaryEmbedding(self.head_dim)
+        self.dropout = dropout
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        bsz, t, channels = x.shape
-        k = self.key(x).view(bsz, t, self.n_head, self.head_size).transpose(1, 2)
-        q = self.query(x).view(bsz, t, self.n_head, self.head_size).transpose(1, 2)
-        v = self.value(x).view(bsz, t, self.n_head, self.head_size).transpose(1, 2)
+        bsz, seq_len, _ = x.shape
+        q = self.q_proj(x).view(bsz, seq_len, self.n_head, self.head_dim).transpose(1, 2)
+        k = self.k_proj(x).view(bsz, seq_len, self.n_head, self.head_dim).transpose(1, 2)
+        v = self.v_proj(x).view(bsz, seq_len, self.n_head, self.head_dim).transpose(1, 2)
+        q, k = self.rope(q, k)
 
-        wei = q @ k.transpose(-2, -1) * (self.head_size ** -0.5)
-        wei = wei.masked_fill(self.tril[:, :, :t, :t] == 0, float("-inf"))
-        wei = F.softmax(wei, dim=-1)
-        out = wei @ v
-        out = out.transpose(1, 2).contiguous().view(bsz, t, channels)
-        return self.proj(out)
+        if hasattr(F, "scaled_dot_product_attention"):
+            out = F.scaled_dot_product_attention(
+                q,
+                k,
+                v,
+                attn_mask=None,
+                dropout_p=self.dropout if self.training else 0.0,
+                is_causal=True,
+            )
+        else:
+            att = (q @ k.transpose(-2, -1)) * (self.head_dim ** -0.5)
+            mask = torch.triu(torch.ones(seq_len, seq_len, device=x.device, dtype=torch.bool), diagonal=1)
+            att = att.masked_fill(mask, float("-inf"))
+            att = F.softmax(att, dim=-1)
+            out = att @ v
+
+        out = out.transpose(1, 2).contiguous().view(bsz, seq_len, -1)
+        return self.out_proj(out)
 
 
-class Block(nn.Module):
-    def __init__(self, n_embd: int, n_head: int, block_size: int):
+class SwiGLU(nn.Module):
+    def __init__(self, n_embd: int, hidden_dim: int):
         super().__init__()
-        self.ln1 = nn.LayerNorm(n_embd)
-        self.attn = CausalSelfAttention(n_embd, n_head, block_size)
-        self.ln2 = nn.LayerNorm(n_embd)
-        self.mlp = nn.Sequential(
-            nn.Linear(n_embd, 4 * n_embd),
-            nn.GELU(),
-            nn.Linear(4 * n_embd, n_embd),
-        )
+        self.gate_proj = nn.Linear(n_embd, hidden_dim, bias=False)
+        self.up_proj = nn.Linear(n_embd, hidden_dim, bias=False)
+        self.down_proj = nn.Linear(hidden_dim, n_embd, bias=False)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x = x + self.attn(self.ln1(x))
-        x = x + self.mlp(self.ln2(x))
+        return self.down_proj(F.silu(self.gate_proj(x)) * self.up_proj(x))
+
+
+class BlockV2(nn.Module):
+    def __init__(self, n_embd: int, n_head: int, *, eps: float = 1e-5, dropout: float = 0.0):
+        super().__init__()
+        hidden_dim = 4 * n_embd
+        self.norm_1 = RMSNorm(n_embd, eps=eps)
+        self.attn = MultiHeadAttentionV2(n_embd, n_head, dropout=dropout)
+        self.norm_2 = RMSNorm(n_embd, eps=eps)
+        self.mlp = SwiGLU(n_embd, hidden_dim)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = x + self.attn(self.norm_1(x))
+        x = x + self.mlp(self.norm_2(x))
         return x
 
 
-class CausalTransformer(nn.Module):
-    def __init__(self, vocab_size: int, n_embd: int, n_head: int, n_layer: int, block_size: int):
+class CausalTransformerV2(nn.Module):
+    def __init__(
+        self,
+        vocab_size: int,
+        n_embd: int,
+        n_head: int,
+        n_layer: int,
+        block_size: int,
+        *,
+        rms_norm_eps: float = 1e-5,
+        dropout: float = 0.0,
+    ):
         super().__init__()
-        self.block_size = block_size
+        self.vocab_size = vocab_size
+        self.n_embd = n_embd
         self.d_model = n_embd
+        self.n_head = n_head
+        self.n_layer = n_layer
+        self.block_size = block_size
         self.token_embedding_table = nn.Embedding(vocab_size, n_embd)
-        self.position_embedding_table = nn.Embedding(block_size, n_embd)
-        self.blocks = nn.Sequential(*[Block(n_embd, n_head, block_size) for _ in range(n_layer)])
-        self.ln_f = nn.LayerNorm(n_embd)
+        self.blocks = nn.ModuleList(
+            [BlockV2(n_embd, n_head, eps=rms_norm_eps, dropout=dropout) for _ in range(n_layer)]
+        )
+        self.norm_f = RMSNorm(n_embd, eps=rms_norm_eps)
         self.lm_head = nn.Linear(n_embd, vocab_size, bias=False)
-        self.apply(self._init_weights)
         self.lm_head.weight = self.token_embedding_table.weight
+        self.apply(self._init_weights)
 
     def _init_weights(self, module: nn.Module) -> None:
         if isinstance(module, nn.Linear):
-            std = 0.02 / (2 * len(self.blocks)) ** 0.5 if hasattr(self, "blocks") else 0.02
-            torch.nn.init.normal_(module.weight, mean=0.0, std=std)
+            nn.init.normal_(module.weight, mean=0.0, std=0.02)
             if module.bias is not None:
-                torch.nn.init.zeros_(module.bias)
+                nn.init.zeros_(module.bias)
         elif isinstance(module, nn.Embedding):
-            std = 0.02 / (2 * len(self.blocks)) ** 0.5 if hasattr(self, "blocks") else 0.02
-            torch.nn.init.normal_(module.weight, mean=0.0, std=std)
+            nn.init.normal_(module.weight, mean=0.0, std=0.02)
+
+    def model_config(self) -> dict[str, int]:
+        return {
+            "vocab_size": self.vocab_size,
+            "n_embd": self.n_embd,
+            "n_head": self.n_head,
+            "n_layer": self.n_layer,
+            "block_size": self.block_size,
+        }
 
     def forward(self, idx: torch.Tensor, targets: torch.Tensor | None = None):
-        _, t = idx.shape
-        tok_emb = self.token_embedding_table(idx)
-        pos = torch.arange(t, device=idx.device)
-        pos_emb = self.position_embedding_table(pos)
-        x = tok_emb + pos_emb
-        x = self.blocks(x)
-        x = self.ln_f(x)
+        _, seq_len = idx.shape
+        if seq_len > self.block_size:
+            raise ValueError(f"sequence length {seq_len} exceeds block size {self.block_size}")
+        x = self.token_embedding_table(idx)
+        for block in self.blocks:
+            x = block(x)
+        x = self.norm_f(x)
         logits = self.lm_head(x)
         loss = None
         if targets is not None:
-            b, tt, c = logits.shape
-            loss = F.cross_entropy(logits.view(b * tt, c), targets.view(b * tt))
+            bsz, time_steps, channels = logits.shape
+            loss = F.cross_entropy(logits.view(bsz * time_steps, channels), targets.view(bsz * time_steps))
         return logits, loss
+
+
+CausalTransformer = CausalTransformerV2
+

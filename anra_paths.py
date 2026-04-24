@@ -34,11 +34,20 @@ DRIVE_IDENTITY = DRIVE_DIR / "identity"
 DRIVE_LOGS = DRIVE_DIR / "logs"
 DRIVE_MEMORY = DRIVE_DIR / "memory_db"
 DRIVE_SESSIONS = DRIVE_DIR / "sessions"
+DRIVE_V2_DIR = DRIVE_DIR / "v2"
+DRIVE_V2_CHECKPOINTS = DRIVE_V2_DIR / "checkpoints"
+
+OUTPUT_V2_DIR = ROOT / "output" / "v2"
+V2_BRAIN_CHECKPOINT = ROOT / "anra_v2_brain.pt"
+V2_IDENTITY_CHECKPOINT = ROOT / "anra_v2_identity.pt"
+V2_OUROBOROS_CHECKPOINT = ROOT / "anra_v2_ouroboros.pt"
+V2_TOKENIZER_FILE = TOKENIZER_DIR / "tokenizer_v2.json"
 
 REQUIRED_DIRS = [
     ROOT / "state",
     ROOT / "output" / "checkpoints",
     ROOT / "output" / "logs",
+    OUTPUT_V2_DIR,
     ROOT / "training_data",
     ROOT / "checkpoints",
     ROOT / "history",
@@ -137,6 +146,31 @@ def get_optimization_config() -> Path:
     return (CONFIG_DIR / "optimization_config.json").resolve()
 
 
+def get_v2_tokenizer_file() -> Path:
+    candidates = [
+        V2_TOKENIZER_FILE,
+        ROOT / "tokenizer_v2.json",
+        DRIVE_V2_DIR / "tokenizer_v2.json",
+    ]
+    for c in candidates:
+        if c.exists():
+            return c
+    return V2_TOKENIZER_FILE
+
+
+def get_v2_checkpoint(kind: str = "brain") -> Path:
+    mapping = {
+        "brain": [V2_BRAIN_CHECKPOINT, DRIVE_V2_CHECKPOINTS / V2_BRAIN_CHECKPOINT.name],
+        "identity": [V2_IDENTITY_CHECKPOINT, DRIVE_V2_CHECKPOINTS / V2_IDENTITY_CHECKPOINT.name],
+        "ouroboros": [V2_OUROBOROS_CHECKPOINT, DRIVE_V2_CHECKPOINTS / V2_OUROBOROS_CHECKPOINT.name],
+    }
+    candidates = mapping.get(kind, mapping["brain"])
+    for c in candidates:
+        if c.exists():
+            return c
+    return candidates[0]
+
+
 # ── Backward-compatibility: PathRegistry class ────────────────────────────────
 # Some legacy notebooks import `from anra_paths import PathRegistry`.
 # This class wraps all module-level constants so those imports succeed.
@@ -174,6 +208,13 @@ class PathRegistry:
     DRIVE_LOGS = DRIVE_LOGS
     DRIVE_MEMORY = DRIVE_MEMORY
     DRIVE_SESSIONS = DRIVE_SESSIONS
+    DRIVE_V2_DIR = DRIVE_V2_DIR
+    DRIVE_V2_CHECKPOINTS = DRIVE_V2_CHECKPOINTS
+    OUTPUT_V2_DIR = OUTPUT_V2_DIR
+    V2_BRAIN_CHECKPOINT = V2_BRAIN_CHECKPOINT
+    V2_IDENTITY_CHECKPOINT = V2_IDENTITY_CHECKPOINT
+    V2_OUROBOROS_CHECKPOINT = V2_OUROBOROS_CHECKPOINT
+    V2_TOKENIZER_FILE = V2_TOKENIZER_FILE
 
     @staticmethod
     def inject_all_paths() -> None:
@@ -202,3 +243,11 @@ class PathRegistry:
     @staticmethod
     def get_optimization_config() -> Path:
         return get_optimization_config()
+
+    @staticmethod
+    def get_v2_tokenizer_file() -> Path:
+        return get_v2_tokenizer_file()
+
+    @staticmethod
+    def get_v2_checkpoint(kind: str = "brain") -> Path:
+        return get_v2_checkpoint(kind)
