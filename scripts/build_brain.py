@@ -239,13 +239,17 @@ def train_anra_brain(
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = CausalTransformer(tokenizer.vocab_size, 256, 4, 4, block_size).to(device)
 
-    if torch.cuda.is_available() and platform.system().lower() != "windows":
+    compile_enabled = os.environ.get("ANRA_ENABLE_COMPILE", "").strip().lower() in {"1", "true", "yes", "on"}
+    if compile_enabled and torch.cuda.is_available() and platform.system().lower() != "windows":
         try:
             from typing import cast
 
+            print("[build_brain] torch.compile enabled", flush=True)
             model = cast(CausalTransformer, torch.compile(model))
-        except Exception:
-            pass
+        except Exception as exc:
+            print(f"[build_brain] torch.compile unavailable ({exc}) - continuing without compile", flush=True)
+    else:
+        print("[build_brain] torch.compile disabled for faster startup", flush=True)
 
     mp = MixedPrecisionTrainer(device=device)
     optimizer = build_optimizer(model, lr=3e-4)
@@ -423,6 +427,7 @@ def train_anra_brain(
         },
         "scheduler": {"type": "cosine_warmup", "warmup_steps": 200, "total_steps": 50_000},
         "precision": {"amp_enabled": True, "optimizer": "Muon_or_AdamW_fallback"},
+        "compiled_model": compile_enabled,
         "checkpoint_path": str(ckpt_path),
     }
     (repo / "output").mkdir(parents=True, exist_ok=True)
