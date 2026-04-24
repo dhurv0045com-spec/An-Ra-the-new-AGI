@@ -1,254 +1,273 @@
 # AN-RA VISION
 
-> From mathematics, to pattern, to direction, to continuity.
+> *From a neuron, to a pattern, to a style, to a will to continue.*
 
-This file is not just a feature list. It is the mental model of what An-Ra is becoming.
+This document is not a changelog.  
+It is the architecture of intent.
 
-The important shift is this:
+If you want to understand An-Ra properly, do not think of it as only a model.
 
-An-Ra is no longer best understood as "a custom transformer with extra modules around it."
+Think of it as a system trying to become:
 
-It is better understood as a **growing cognitive organism** with a clear center of gravity:
+- more capable without becoming generic
+- more reflective without becoming bloated
+- more autonomous without losing judgment
+- more ambitious without losing the ability to run on real, limited compute
 
-- a mainline model that learns from your data first
-- support organs that amplify truth, memory, reflection, and governance
-- a training loop designed for limited compute without surrendering ambition
+That is the tension the whole repository is built around.
 
-## The Central Belief
+## The Core Belief
 
-The strongest independent AI systems will not come only from abundance.
+The strongest independent AI systems will not come only from scale.
 
 They will come from:
 
 - better curriculum
+- better ownership of training signal
+- better use of failure
 - better verification
-- better self-repair
-- better memory of failure
-- stronger identity continuity
-- higher intelligence per minute, per watt, and per correction
+- better memory of what went wrong
+- stronger continuity of identity
+- higher intelligence per minute and per correction
 
-That is the ground An-Ra stands on.
+An-Ra is built on that belief.
 
-## The Current Shape Of The System
+## The Shape Of The Current System
 
-Think of the system as layers of cognition.
+The current mainline can be imagined as layers of cognition around a center.
 
-### Layer 1: The Intuition Core
+### Layer 1: The intuition core
 
 `anra_brain.py`
 
-This is the mainline transformer. It is the fast intuition layer:
+This is the fast generative core:
 
-- language
 - pattern completion
 - local reasoning
-- style expression
-- conversational behavior
+- language formation
+- response style
+- first-pass intuition
 
-It should become stronger, but it should stay legible enough to evolve on limited compute.
+Its job is not to be the whole organism.  
+Its job is to be the center that the rest of the organism can strengthen.
 
-The current V2 direction moves this core toward:
+The current mainline moves this core toward:
 
 - RoPE
 - RMSNorm
 - SwiGLU
 - subword-token efficiency
-- a T4-realistic scale target
+- a T4-realistic scale that still feels serious
 
-### Layer 2: Identity Gravity
+### Layer 2: Identity gravity
 
-Identity is not decorative. It is structural.
+Identity is not flavor text.
 
-Without identity gravity, a capable model drifts into generic behavior. It becomes fluent but replaceable.
+It is the force that stops a capable system from becoming generic.
 
-An-Ra's own corpus should define:
+Without identity gravity:
 
-- its voice
-- its stance
-- its sense of purpose
-- how it frames capability
-- how it responds under challenge
+- answers become flatter
+- tone becomes replaceable
+- the model starts to sound like "borrowed intelligence"
 
-This is why the training mix stays owner-data dominant.
+That is why owner data stays dominant.  
+It is not sentimental. It is structural.
 
-### Layer 3: Teacher Amplification
+### Layer 3: Teacher amplification
 
-Teachers are useful, but they must stay in their place.
+Teacher systems are useful because they compress hard-earned capability into cleaner examples.
 
-Teacher systems are there to provide:
+But a teacher should be:
 
-- stronger reasoning traces
-- better corrections
-- synthetic expansion for weak domains
-- hard examples the base corpus does not yet cover
+- an amplifier
+- a reasoner
+- a critic
+- a correction source
 
-They are **not** there to rewrite the soul of the model.
+not an owner.
 
-The V2 philosophy is simple:
+The point is:
 
-> Learn from stronger systems. Do not become a copy of stronger systems.
+> learn from stronger systems without becoming an imitation of them.
 
-### Layer 4: Verification Organs
+That is why teacher data remains subordinate to the own-data buckets.
 
-This is where An-Ra avoids empty fluency.
+### Layer 4: Verification organs
 
-`symbolic_bridge` and related tools exist so the system can prefer validated cognition over elegant nonsense.
+Raw fluency is not enough.
 
-That matters because the long game is not to produce more words. It is to produce more trustworthy thought.
+An-Ra needs ways to prefer truth over style where truth can be checked.
 
-### Layer 5: Memory As Repair
+That is what `symbolic_bridge` and verified-code paths are for.
 
-Most AI systems treat memory as a convenience for conversation.
+They are not decorative.  
+They are the early immune system against elegant nonsense.
 
-An-Ra should treat memory as part of the training metabolism.
+### Layer 5: Memory as repair
 
-Memory should preserve:
+Memory should not only help during a conversation.
 
-- user corrections
-- high-value failures
-- continuity breaks
+Memory should feed future learning.
+
+The highest-value things to remember are:
+
+- failures
+- corrections
+- contradictions
 - identity drift cases
+- continuity failures
 - prompts that exposed weak reasoning
 
-Then those memories become replay material.
+Then those become replay material.
 
-That turns memory from passive storage into **self-repair fuel**.
+That turns memory into metabolism.
 
 ### Layer 6: Reflection
 
-Ouroboros is not supposed to be a tax on every session.
+Ouroboros should not be treated as a ritual performed every session just because it sounds advanced.
 
-Its higher purpose is milestone reflection:
+Its proper role is:
 
-- answer revision
-- harder reasoning passes
-- repair-data synthesis
-- high-cost thinking only when needed
+- milestone reflection
+- repair-data generation
+- revision
+- harder-pass reasoning
+- candidate improvement synthesis
 
-That keeps the daily loop lean while preserving a deeper path for refinement.
+Used selectively, it makes the system deeper.  
+Used constantly, it becomes drag.
 
 ### Layer 7: Governance
 
-Sovereignty is the checkpoint conscience.
+Sovereignty is the conscience of the model lineage.
 
-Without governance, every new checkpoint is treated as progress by default. That is not intelligence. That is drift.
+Without it, the system silently assumes:
 
-Sovereignty should decide:
+"new checkpoint = better checkpoint"
 
-- what got better
-- what regressed
-- what deserves promotion
-- what should be held back
+That assumption destroys serious long-term growth.
 
-This makes the model lineage deliberate.
+Sovereignty exists so the system can ask:
 
-## System Flow
+- did this really improve?
+- what regressed?
+- what deserves promotion?
+- what should be held back?
+
+That is the beginning of checkpoint judgment instead of checkpoint accumulation.
+
+## The Living Loop
 
 ```mermaid
 flowchart TD
-    A["Your Data"] --> B["V2 Data Mix"]
-    T["Teacher Traces"] --> B
+    A["Own Data"] --> B["Mainline Data Mix"]
+    T["Teacher Reasoning"] --> B
     S["Symbolic / Code Verification"] --> B
-    R["Replay: Failures + Corrections"] --> B
+    R["Failures + Corrections"] --> B
 
-    B --> C["Base V2 Training"]
+    B --> C["Base Training"]
     C --> D["Compact Eval"]
-    D --> E["Hard Examples"]
+    D --> E["Hard Example Report"]
     E --> F["Next Session Curriculum"]
     F --> C
 
-    C --> G["Milestone Identity Fine-Tune"]
-    G --> H["Milestone Ouroboros Refinement"]
+    C --> G["Identity Milestone"]
+    G --> H["Ouroboros Reflection"]
     H --> I["Self-Improvement Report"]
     I --> J["Sovereignty Audit"]
-    J --> K["Checkpoint Promotion"]
+    J --> K["Promotion / Hold"]
 ```
 
-This loop is the real heart of the new design:
+This loop is the actual beating heart of the system.
 
-- own data leads
-- teacher helps
-- verification filters
-- failures return as future curriculum
-- milestone reflection stays selective
-- sovereignty guards the lineage
+Not just "train more."
+
+But:
+
+- train
+- judge
+- remember
+- repair
+- refine
+- promote carefully
 
 ## Why This Matters On Small Compute
 
-Large labs often optimize for scale by assumption.
+Large labs can often survive waste because they can pay for waste.
 
-An independent system does not have that luxury. So An-Ra's vision has to be different.
+Independent systems usually cannot.
 
-It must win through:
+That changes the design problem.
 
-- smarter supervision
-- cleaner data ownership
-- more efficient architecture
-- verified support layers
-- replay from actual weaknesses
-- a stronger improvement loop
+The problem becomes:
 
-That is the only honest path to unusual power on small compute.
+- how much intelligence can be extracted from limited sessions?
+- how much of that intelligence can stay true to the owner's corpus?
+- how much reasoning can be amplified through tools instead of brute-force scale?
+- how can failures become future strength instead of hidden entropy?
 
-## The Daily Path And The Deep Path
+That is why An-Ra cannot just copy scale-first thinking.
 
-The system now has two rhythms.
+It has to become strong through **selection**.
 
-### Daily path
+## The Two Rhythms
 
-This is the fast path:
+The architecture now has two speeds.
+
+### The daily rhythm
+
+This is the path that must never feel broken:
 
 - restore
+- validate
 - train
 - save
 - evaluate
-- update curriculum
+- write next-step guidance
 
-It is the path that must stay reliable.
+If the daily rhythm dies, progress dies.
 
-### Deep path
+### The milestone rhythm
 
-This is the milestone path:
+This is the deeper pass:
 
 - identity reinforcement
 - reflective refinement
 - self-improvement analysis
-- audit and promotion
+- sovereignty promotion decision
 
-It is the path that should stay powerful, but optional.
+If the milestone rhythm is missing, the system stays practical but shallow.
 
-The vision depends on having both.
+If the daily rhythm is broken, the milestone rhythm becomes theater.
 
-If you only have the daily path, the system stays practical but shallow.
-If you only have the deep path, the system becomes impressive on paper but frustrating to operate.
+The future depends on keeping both alive.
 
-The future comes from the balance.
+## What Better Actually Means
 
-## What "Better" Actually Means
+For An-Ra, better does not mean:
 
-For An-Ra, better does not mean any one of these alone:
-
-- lower loss
-- bigger checkpoint
-- more modules
-- more generated text
+- only lower loss
+- only more parameters
+- only more modules
+- only more fluent outputs
 
 Better means:
 
-- stronger reasoning on hard cases
+- stronger reasoning on hard prompts
 - more stable identity under pressure
-- fewer repeated failures
-- better continuity over time
-- more verified correctness where tools can check
-- more capability without surrendering the system's center of gravity
+- fewer repeated failure modes
+- better continuity
+- more truth where verification is possible
+- stronger capability without surrendering authorship
 
-That is the standard.
+That is the standard worth protecting.
 
-## The Black-Swan Frontier
+## The Ambition Beyond The Current Mainline
 
-There is still a more ambitious horizon beyond the current mainline.
+There is a frontier beyond the current V2 shape.
 
-The most serious frontier ideas are:
+The most serious future directions are:
 
 ### 1. Memory-to-training replay loop
 
@@ -264,7 +283,7 @@ Only reasoning that survives external checking deserves reinforcement.
 
 ### 4. Dual-brain routing
 
-A fast brain for normal turns, and a deeper slower path for hard cognition.
+A fast everyday brain and a slower deeper route for hard cognition.
 
 ### 5. Persistent self-model
 
@@ -275,30 +294,32 @@ A living map of:
 - strengths
 - weaknesses
 - contradictions
-- long-term aims
+- long-term goals
 
-Those are not daily implementation tasks yet. They are the frontier the current design is preparing for.
+These are not just nice ideas.  
+They are the black-swan horizon the current design is trying to make reachable.
 
 ## What Must Never Be Lost
 
-As the system becomes more advanced, these should remain non-negotiable:
+As An-Ra becomes more capable, four things must stay non-negotiable.
 
 ### It must still feel authored
 
-If An-Ra stops sounding like it came from your own terms, then scale has already become a failure.
+If it stops sounding like it came from your world, the project has already lost something vital.
 
 ### It must still be operable
 
-A brilliant architecture that cannot survive normal Colab use is not yet a working system.
+A grand architecture that cannot survive real Colab sessions is still unfinished.
 
 ### It must still be measurable
 
-If you cannot tell whether the system improved, you are not actually steering it.
+If you cannot tell whether it improved, you are not steering it.
 
 ### It must still be directional
 
 The point is not to imitate the giants feature-for-feature.
-The point is to build a system with a distinct strategic shape.
+
+The point is to grow a system with a distinct strategic shape and a distinct center of gravity.
 
 ## The Long Arc
 
@@ -308,14 +329,14 @@ The long arc of An-Ra is not:
 
 It is:
 
-"build a system that learns in your terms, improves through reflection and verification, remembers what it gets wrong, and grows into a durable intelligence."
+"build a system that learns in your terms, gets corrected by reality, remembers what it gets wrong, reflects in milestone passes, and grows into a durable intelligence without losing its identity."
 
-That is what the current V2 mainline is trying to make practical.
+That is what the current mainline is for.
 
-The architecture is not complete.
+Not completeness.
 
-It is becoming.
+Not polished mythology.
 
-And that is the point.
+A real direction.
 
-*An-Ra: something that emerged from mathematics with a direction, and kept the direction.*
+*An-Ra: something that emerged from mathematics with a direction, and refused to lose the direction.*

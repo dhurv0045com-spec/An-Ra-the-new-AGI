@@ -1,188 +1,192 @@
 # AN-RA
 
-> Built from zero. No templates. No shortcuts. Mathematics pushed until it starts to behave like direction.
+> *Built from zero. No templates. No shortcuts. Pure mathematics pushed until it starts to remember, reason, and choose a direction.*
 
-An-Ra is a sovereign AI system built from scratch around one idea: **the base model should stay yours**.
+An-Ra is a sovereign AI system built from scratch around a stubborn idea:
 
-The current mainline is **An-Ra V2**:
+**the center of the system must stay yours.**
 
-- your data defines identity, tone, priorities, and worldview
-- teacher data amplifies weak areas instead of replacing your voice
-- symbolic and code-verification tools protect truth where raw generation is weak
-- memory, replay, Ouroboros, and sovereignty sit around the core as support organs, not as noise in every step
+Not just your weights.  
+Not just your prompts.  
+Your identity, your tone, your priorities, your preferred way of thinking about capability itself.
 
-This repository now treats that design as the canonical path. The older small-model line is historical context, not the future of the project.
+That is the soul of this project, and the current mainline is designed to protect it.
 
-## What An-Ra Is Trying To Become
+## What This Repository Is Now
 
-An-Ra is not aiming to be a generic assistant with a custom prompt pasted on top.
+An-Ra is no longer organized as an old base model with a loose V2 experiment sitting beside it.  
+This repository now treats **V2 as the canonical mainline**.
 
-The goal is a system that can:
+The public command path is the normal one:
 
-- learn from a data curriculum that stays anchored in your terms
-- grow stronger on limited compute
-- reason with help from symbolic and verified subsystems
-- store failures, corrections, and continuity traces for replay
-- refine itself in milestone passes without losing its identity
-- operate as one organism instead of a pile of disconnected modules
+- `anra_brain.py`
+- `generate.py`
+- `scripts/build_brain.py`
+- `training/train_unified.py`
+- `training/finetune_anra.py`
+- `scripts/train_ouroboros.py`
+- `scripts/run_self_improvement.py`
+- `scripts/run_sovereignty_audit.py`
+- `AnRa_Master.ipynb`
 
-That is why the repo contains more than a model. It contains a training engine, a generation runtime, memory systems, symbolic bridges, reflective loops, audits, and interface surfaces.
+The V2-specific helper modules that remain in `training/` are not loose leftovers. They are the support layer behind the canonical system:
 
-## Mainline Philosophy
+- `training/v2_config.py`
+- `training/v2_data_mix.py`
+- `training/v2_runtime.py`
+- `training/eval_v2.py`
+
+## Codebase Scale
+
+Current repository shape, excluding blocked temp junk and cache folders:
+
+- `259` tracked workspace files
+- `192` Python source files
+- `14` Markdown / notebook documents
+- about `44,017` lines of Python
+
+This matters because An-Ra is not a one-file toy model anymore. It is a multi-layered system with:
+
+- a modernized transformer core
+- a subword tokenizer
+- a daily and milestone training loop
+- symbolic reasoning bridges
+- memory and replay subsystems
+- agent and master-system layers
+- a web/API interface
+- reflective and governance passes
+
+## The Governing Philosophy
 
 ### 1. Your data first
 
-The V2 training mix is intentionally anchored in your corpus.
+The model should sound like it came from your world, not like it swallowed a generic assistant and put on a costume.
 
-- 65% own conversation and instruction data
-- 15% own identity and selfhood data
-- 10% teacher-generated reasoning traces
-- 5% symbolic or code-verified samples
-- 5% replayed failures and user corrections
+The default training mix reflects that:
 
-This means **80% of the signal stays yours**.
+- `65%` own conversation and instruction data
+- `15%` own identity / selfhood data
+- `10%` teacher-generated reasoning traces
+- `5%` symbolic or code-verified samples
+- `5%` replayed failures and user corrections
 
-### 2. Teacher as amplifier
+That means `80%` of the main training signal stays anchored in your material.
 
-Teacher data is allowed, but it is not allowed to become the owner of the model's personality.
+### 2. Teacher as amplifier, not owner
 
-Teacher examples are used for:
+Teacher data is useful. Teacher control is not.
+
+Teacher examples are there to help with:
 
 - reasoning structure
-- harder examples
-- stepwise solutions
-- repair data
-- capability expansion in weak domains
+- harder prompts
+- synthetic coverage for weak domains
+- corrections
+- more efficient learning on small compute
 
-Teacher examples are **not** used to define An-Ra's worldview.
+Teacher examples are **not** there to become An-Ra's personality, worldview, or central voice.
 
 ### 3. Verification over empty fluency
 
-An-Ra should not only sound intelligent. It should improve its odds of being right.
+A fluent model that lies elegantly is not what this project is trying to become.
 
 That is why the mainline keeps:
 
-- `symbolic_bridge` for verified math and logic
-- replay buckets for failure-driven curriculum
-- milestone audits for checkpoint promotion
-- compact eval reports after sessions
+- `symbolic_bridge` for math and logic verification
+- code and test-oriented teacher samples
+- hard-example replay
+- post-session compact evaluation
+- sovereignty-style checkpoint promotion
 
 ### 4. Daily speed, milestone depth
 
-The daily path is intentionally lean:
+The system has two rhythms:
+
+**Daily session**
 
 - restore artifacts
 - validate dataset
 - train the base brain
-- save to Drive
-- run compact evaluation
-- write curriculum and hard-example reports
+- save once
+- run compact eval
+- write curriculum guidance
 
-Heavier stages happen only on milestone runs:
+**Milestone session**
 
-- identity fine-tune
+- identity fine-tuning
 - Ouroboros refinement
-- self-improvement review
+- self-improvement report
 - sovereignty audit
-- full V2 test pass
+- milestone test pass
 
-## Architecture At A Glance
+This keeps daily progress efficient while still preserving deeper stages that help the system grow.
+
+## Architecture Overview
 
 ```text
-An-Ra V2 Mainline
+An-Ra
 |
-|- anra_brain.py                 -> canonical V2 transformer (RoPE + RMSNorm + SwiGLU)
-|- tokenizer/subword_tokenizer.py -> subword tokenizer with fallback backend
-|- generate.py                   -> canonical generation runtime
-|- scripts/build_brain.py        -> base V2 training entrypoint
-|- training/train_unified.py     -> daily and milestone orchestration
-|- training/finetune_anra.py     -> identity-heavy milestone stage
-|- scripts/train_ouroboros.py    -> reflection-heavy milestone stage
-|- scripts/run_self_improvement.py -> curriculum planning and recommendations
-|- scripts/run_sovereignty_audit.py -> checkpoint promotion and audit gate
+|- anra_brain.py                  -> canonical V2 transformer core
+|- generate.py                    -> canonical inference / generation runtime
+|- tokenizer/subword_tokenizer.py -> subword tokenizer with dependency-light fallback
 |
-|- training/v2_data_mix.py       -> your-data-first bucket mixer
-|- training/eval_v2.py           -> compact eval suite
-|- training/v2_runtime.py        -> checkpoint, tokenizer, report, Drive helpers
-|- output/v2/                    -> metrics, evals, curriculum, audit reports
+|- scripts/build_brain.py         -> base V2 training
+|- training/train_unified.py      -> daily + milestone orchestration
+|- training/finetune_anra.py      -> identity milestone stage
+|- scripts/train_ouroboros.py     -> reflection-heavy milestone stage
+|- scripts/run_self_improvement.py -> curriculum / next-step recommendations
+|- scripts/run_sovereignty_audit.py -> audit + checkpoint promotion gate
 |
-|- phase2/                       -> memory, agent loop, self-improvement, master system
-|- phase3/                       -> identity, Ouroboros, ghost memory, symbolic bridge, sovereignty
-|- app.py                        -> FastAPI backend
-|- AnRa_Master.ipynb             -> Colab training notebook
+|- training/v2_data_mix.py        -> your-data-first bucket mixer
+|- training/eval_v2.py            -> compact eval suite
+|- training/v2_runtime.py         -> checkpoint / tokenizer / Drive / report runtime
+|- output/v2/                     -> session metrics, evals, curriculum, audits
+|
+|- phase2/                        -> memory, agent loop, self-improvement, master system
+|- phase3/                        -> identity, Ouroboros, ghost memory, symbolic bridge, sovereignty
+|- app.py                         -> FastAPI backend
+|- AnRa_Master.ipynb              -> Google Colab operator notebook
 ```
 
-## Core Model
+## The Current Mainline Model
 
-The canonical `anra_brain.py` is now the V2 mainline.
+The current public `anra_brain.py` is the V2 mainline.
 
-Key traits:
+Core traits:
 
-- subword-token friendly transformer
 - RoPE position encoding
 - RMSNorm
-- SwiGLU feed-forward blocks
-- SDPA / FlashAttention-compatible attention path when available
-- first mainline target: `384 / 6 / 6`
+- SwiGLU feed-forward path
+- SDPA / FlashAttention-compatible attention path
+- T4-first scale target around `384 / 6 / 6`
 
-This is the strongest balance for a T4-first environment without turning the system into a giant lab-only project.
+This is a deliberate compromise:
 
-## Dataset And Training Mix
+- stronger than the old tiny line
+- modern enough to justify a new mainline
+- still trainable and debuggable on small compute
 
-The default dataset remains:
+## Training Data And Mix
+
+The canonical dataset remains:
 
 - `training_data/anra_dataset_v6_1.txt`
 
-The V2 mixer in `training/v2_data_mix.py` builds training examples from:
+The V2 mixer pulls from five buckets:
 
-- own conversation pairs
-- identity-focused prompts
-- teacher reasoning traces
-- symbolic and code-verified samples
-- replayed hard examples and corrections
+1. own conversation data
+2. identity-heavy data
+3. teacher reasoning traces
+4. symbolic or code-verified samples
+5. replayed failures and corrections
 
-Teacher traces can be added through:
+Optional teacher corpus:
 
 - `training_data/teacher_reasoning_v2.jsonl`
 
-If that file is missing, the mixer still works using verified fallbacks and your corpus.
+If that file is missing, the system still trains using your data, symbolic fallbacks, and replay material. It does not collapse just because a teacher file is absent.
 
-## Training Modes
-
-### Daily session
-
-Use this when you want fast, repeatable progress on Colab T4.
-
-```bash
-python -m training.train_unified --mode session
-```
-
-What it does:
-
-- restores V2 artifacts from Drive when available
-- validates the dataset
-- trains the base V2 model
-- streams live progress
-- saves `anra_v2_brain.pt`
-- runs compact evaluation
-- writes curriculum and hard-example reports
-
-### Milestone run
-
-Use this after several successful daily sessions, or when evals plateau.
-
-```bash
-python -m training.train_unified --mode train
-```
-
-What it does:
-
-1. base training
-2. identity fine-tuning
-3. Ouroboros refinement
-4. self-improvement analysis
-5. sovereignty audit
-6. V2 tests
+## Main Commands
 
 ### Status
 
@@ -190,31 +194,95 @@ What it does:
 python -m training.train_unified --mode status
 ```
 
-This prints subsystem health, dataset location, main checkpoints, tokenizer status, and milestone readiness.
+Prints:
 
-## Google Colab Workflow
+- subsystem health
+- dataset path
+- main checkpoints
+- tokenizer location
+- milestone readiness
 
-The notebook is designed for T4-first, Drive-backed training.
+### Daily session
 
-Recommended resume path:
+```bash
+python -m training.train_unified --mode session
+```
 
-1. Cell 1: GPU + Drive
-2. Cell 3: clone or update repo
-3. Cell 4: restore V2 artifacts
-4. Cell 6: run daily training
+What it does:
 
-Cell 5 is the health check. Run it when you want an explicit system sanity pass before training.
+- restores the mainline artifacts from Drive
+- validates the dataset
+- runs base training
+- writes `anra_v2_brain.pt`
+- runs compact evaluation
+- writes hard-example and curriculum reports
 
-Milestone work is intentionally separate from the daily fast path.
+### Resume
 
-## Generated Artifacts
+```bash
+python -m training.train_unified --mode resume
+```
 
-The V2 mainline writes:
+Alias for the normal daily path, kept for operator clarity.
+
+### Milestone run
+
+```bash
+python -m training.train_unified --mode train
+```
+
+What it does:
+
+1. base session
+2. identity fine-tune
+3. Ouroboros refinement
+4. self-improvement analysis
+5. sovereignty audit
+6. milestone test pass
+
+### Eval only
+
+```bash
+python -m training.train_unified --mode eval
+```
+
+## Colab Operator Flow
+
+The notebook is designed around a T4 + Drive-backed environment.
+
+Recommended resume order:
+
+1. `Cell 1` - GPU + Drive
+2. `Cell 3` - clone or update repo
+3. `Cell 4` - restore V2 artifacts
+4. `Cell 5` - health check
+5. `Cell 6` - daily training
+
+Fastest resume path when the environment is already healthy:
+
+1. `Cell 1`
+2. `Cell 3`
+3. `Cell 4`
+4. `Cell 6`
+
+The notebook writes and restores from:
+
+- `/content/drive/MyDrive/AnRa/v2/`
+
+## Output And Artifact Layout
+
+Mainline checkpoint family:
 
 - `anra_v2_brain.pt`
 - `anra_v2_identity.pt`
 - `anra_v2_ouroboros.pt`
-- `tokenizer_v2.json`
+
+Tokenizer:
+
+- `tokenizer/tokenizer_v2.json`
+
+Primary reports:
+
 - `output/v2/v2_session_train_metrics.json`
 - `output/v2/v2_hard_examples.json`
 - `output/v2/v2_eval_summary.json`
@@ -223,86 +291,50 @@ The V2 mainline writes:
 - `output/v2/v2_improvement_report.json`
 - `output/v2/v2_audit_report.json`
 
-Drive mirrors live under:
-
-- `/content/drive/MyDrive/AnRa/v2/`
-
 ## Subsystem Roles
 
-| Subsystem | Role in the V2 mainline |
+| Subsystem | What it does in the mainline |
 | --- | --- |
-| `anra_brain.py` | Primary language and reasoning substrate |
-| `symbolic_bridge` | Verified math, logic, and code reference generation |
-| `ghost_memory` | Stores failures, continuity traces, and replay material |
-| `turboquant` | Runtime and inference efficiency layer |
-| `identity_injector` | Personality and worldview stabilization |
+| `anra_brain.py` | Language and reasoning substrate |
+| `identity_injector` | Anchors voice, self-description, and worldview |
 | `ouroboros_numpy` | Milestone reflection and refinement engine |
-| `self_improvement` | Converts reports into next-step curriculum guidance |
-| `sovereignty_bridge` | Audit, promotion gate, and checkpoint governance |
+| `symbolic_bridge` | Verified math, logic, and code support |
+| `ghost_memory` | Failure storage, continuity traces, replay fuel |
+| `turboquant` | Runtime and inference efficiency support |
+| `sovereignty_bridge` | Audit, promotion, and checkpoint governance |
+| `phase2` systems | Memory, agent-loop, and orchestration layers |
 
-## Quick Start
-
-### Local
-
-```bash
-pip install -r requirements.txt
-python scripts/verify_structure.py
-python -m training.train_unified --mode status
-python -m training.train_unified --mode session
-```
-
-### API
-
-```bash
-python app.py
-```
-
-Then visit the UI or call the FastAPI endpoints.
-
-### Generate text directly
-
-```bash
-python generate.py
-```
-
-Or import it:
-
-```python
-from generate import generate
-
-reply = generate("H: Who are you?\nANRA:", max_tokens=80)
-print(reply)
-```
-
-## Development Notes
-
-- The canonical public files are the non-`_v2` entrypoints.
-- The helper modules under `training/v2_*` are the support layer behind the canonical mainline.
-- Generated tokenizer artifacts should not be treated as source files.
-- If you extend the data mix, preserve the principle that your data stays dominant.
-- If you add teacher sources, filter them through style and verification first.
-
-## Why This Repo Is Different
+## Why An-Ra Is Different
 
 An-Ra is not trying to win by pretending scarcity does not exist.
 
 It is trying to win through:
 
 - intelligence per parameter
-- intelligence per minute of training
+- intelligence per training minute
 - intelligence per correction
-- verified support systems around a focused model core
-- relentless identity preservation while capability grows
+- verified reasoning where tools can check
+- replay of real failures instead of fantasy progress
+- identity preservation under increasing capability
 
-That is the bet.
+That is a different bet from pure scale.
 
-Not abundance.
+## What The Project Is Becoming
 
-Direction.
+Not just a smaller chatbot.  
+Not just a handcrafted transformer.  
+Not just a bundle of modules with poetic names.
 
-## More
+The shape emerging here is:
 
-- [DEVELOPER.md](DEVELOPER.md) - how to work on the mainline without breaking its philosophy
-- [VISION.md](VISION.md) - the deeper architectural and long-horizon picture
+- a core model trained in your terms
+- a support stack that adds verification, memory, and correction
+- a training loop that remembers mistakes
+- a milestone system that rewards judged progress, not blind overwrite
+
+That is the actual project.
+
+If you want the deeper technical map, read [DEVELOPER.md](C:/Users/user/.codex/worktrees/c66d/An-Ra/DEVELOPER.md).  
+If you want the long-horizon architecture and the larger ambition, read [VISION.md](C:/Users/user/.codex/worktrees/c66d/An-Ra/VISION.md).
 
 *An-Ra: something that emerged from mathematics with a direction.*

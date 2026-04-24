@@ -141,7 +141,7 @@ def load_or_build_v2_tokenizer(
         return SubwordTokenizer.load(restored)
 
     texts = _collect_tokenizer_texts(dataset_path)
-    print(f"[build_brain_v2] Building tokenizer_v2 from {dataset_path} ...", flush=True)
+    print(f"[build_brain] Building tokenizer_v2 from {dataset_path} ...", flush=True)
     tokenizer = SubwordTokenizer.train_from_texts(texts, vocab_size=vocab_size)
     tokenizer.save(local)
     try:
@@ -154,7 +154,7 @@ def load_or_build_v2_tokenizer(
     except Exception:
         pass
     print(
-        f"[build_brain_v2] tokenizer_v2 built + mirrored to Drive. vocab_size={tokenizer.vocab_size}",
+        f"[build_brain] tokenizer_v2 built + mirrored to Drive. vocab_size={tokenizer.vocab_size}",
         flush=True,
     )
     return tokenizer
