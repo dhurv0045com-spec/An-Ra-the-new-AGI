@@ -1,22 +1,22 @@
 # An-Ra Developer Guide
 
-> Build aggressively, but do not confuse chaos with ambition.
+> *Build aggressively. But if the system stops feeling like An-Ra, or stops working every day, you are not improving it.*
 
-This document explains how to work on the current An-Ra mainline without losing the project's soul.
+This guide is for working on the current An-Ra mainline without losing the project's character.
 
-That soul matters.
+An-Ra is not supposed to become:
 
-An-Ra is not supposed to drift into a generic assistant trained mostly on someone else's worldview. The system is now organized so that **your data stays primary**, **teacher help stays constrained**, and **the heavy subsystems support the core instead of obscuring it**.
+- a generic assistant wearing a custom prompt
+- a fancy architecture diagram that never survives real Colab use
+- a pile of subsystems with no clear center
 
-## The Current Canonical Truth
+It is supposed to become a system that gets stronger **without surrendering authorship**.
 
-If you open the repository cold and want to know what is real, use this rule:
+## Current Repo Truth
 
-- non-`_v2` entrypoints are the public mainline
-- `training/v2_*` modules are support infrastructure
-- V2 is the actual active model line
+The repo now has one real public path.
 
-The canonical entrypoints are:
+Canonical entrypoints:
 
 - `anra_brain.py`
 - `generate.py`
@@ -26,175 +26,201 @@ The canonical entrypoints are:
 - `scripts/train_ouroboros.py`
 - `scripts/run_self_improvement.py`
 - `scripts/run_sovereignty_audit.py`
+- `scripts/verify_structure.py`
+- `scripts/status.py`
 - `AnRa_Master.ipynb`
 
-## Development Principles
+These are the files a new developer should look at first.
 
-### 1. The model belongs to the owner data
-
-Do not let convenience destroy authorship.
-
-Your corpus should continue to control:
-
-- identity
-- worldview
-- tone
-- preferred response behavior
-- how An-Ra sounds under pressure
-
-Teacher data can help with capability, but it must never silently replace the center of gravity.
-
-### 2. Daily training must stay cheap and trustworthy
-
-The daily loop should remain:
-
-1. restore
-2. validate
-3. train base model
-4. save once
-5. evaluate
-6. write next-session guidance
-
-If a change makes the daily loop fragile, it is not an improvement.
-
-### 3. Milestone depth belongs off the daily critical path
-
-Ouroboros, identity reinforcement, self-improvement, and sovereignty are real components, but they are **milestone layers**.
-
-Do not push heavy reflection into every short T4 session unless you can show that the gain is worth the time cost.
-
-### 4. Verified support beats fake certainty
-
-If a domain can be checked, check it.
-
-Use:
-
-- `symbolic_bridge` for math and logic
-- code or test verification when possible
-- replay on failures instead of pretending they did not happen
-
-### 5. Preserve clear public surfaces
-
-The repo should feel understandable.
-
-When a new developer looks for:
-
-- how to train
-- how to generate
-- how to run a milestone
-- where reports go
-
-the answer should be obvious from the canonical files, not hidden in a second copy with `_v2` in the name.
-
-## Mainline Architecture
-
-### Base model
-
-`anra_brain.py` now exports the current mainline transformer.
-
-Current characteristics:
-
-- RoPE
-- RMSNorm
-- SwiGLU
-- SDPA / FlashAttention-compatible attention path
-- `384 / 6 / 6` first target scale
-
-This is the primary substrate. Everything else either shapes it, tests it, or surrounds it.
-
-### Tokenizer
-
-`tokenizer/subword_tokenizer.py` is the V2 tokenizer implementation.
-
-Important design choice:
-
-- it uses `tokenizers` when available
-- it falls back to an internal dependency-light backend when `tokenizers` is not installed
-
-That fallback exists to protect Colab and local smoke runs from dying over one missing package.
-
-### Runtime
-
-`generate.py` is the canonical generation runtime. If the app, API, or system bridge needs model output, this is the surface that should stay stable.
-
-Exports you should preserve unless there is a very good reason not to:
-
-- `GenerationConfig`
-- `generate`
-- `generate_traced`
-- `generate_stream`
-- `get_model_info`
-- `load_ghost_state`
-- `save_ghost_state`
-- `detect_repetition`
-- `_check_stop`
-
-### Training support layer
-
-The V2 support stack lives under:
+Support infrastructure behind them:
 
 - `training/v2_config.py`
 - `training/v2_data_mix.py`
 - `training/v2_runtime.py`
 - `training/eval_v2.py`
 
-These files are where you should make most V2 training changes.
+Those are not temporary anymore. They belong.
+
+## Non-Negotiables
+
+### 1. Owner data stays dominant
+
+Your corpus must continue to define:
+
+- identity
+- worldview
+- tone
+- what confident An-Ra sounds like
+- how the model behaves when challenged
+
+The training mix is not arbitrary. It encodes the project's philosophy.
+
+### 2. Daily training must stay reliable
+
+The daily path is sacred because it is the rhythm of real improvement.
+
+It should remain:
+
+1. restore
+2. validate
+3. train
+4. save once
+5. evaluate
+6. write next-step guidance
+
+If a patch makes that path slower, more confusing, or more fragile, it needs a very strong reason.
+
+### 3. Milestone depth should stay selective
+
+Ouroboros, identity reinforcement, self-improvement, and sovereignty are important.  
+They are also heavier and more brittle than the base daily loop.
+
+That is why they belong in milestone runs, not as default tax on every short session.
+
+### 4. Verification beats style-only intelligence
+
+When the system can check something, it should.
+
+That means:
+
+- symbolic verification
+- code/test validation where feasible
+- replaying failures instead of ignoring them
+- judging checkpoint promotion instead of assuming newer means better
+
+### 5. Public surfaces should stay obvious
+
+If a new developer asks:
+
+- how do I train it?
+- how do I run it?
+- how do I inspect it?
+- how do I continue from Drive?
+
+the answer should be visible in the canonical files, not hidden behind another wrapper tree.
+
+## Mainline Architecture
+
+### Base model
+
+`anra_brain.py` exports the current mainline transformer.
+
+Core choices:
+
+- RoPE
+- RMSNorm
+- SwiGLU
+- SDPA / FlashAttention-compatible attention path
+- `384 / 6 / 6` first serious target
+
+This is the central substrate. Everything else should either:
+
+- improve what it learns
+- improve how it is evaluated
+- improve how it is used
+- improve how it survives long-term growth
+
+### Tokenizer
+
+`tokenizer/subword_tokenizer.py`
+
+Important design feature:
+
+- uses `tokenizers` when available
+- includes a dependency-light fallback backend when not
+
+That fallback is intentional. The system should degrade gracefully, not die over one missing package in Colab or smoke testing.
+
+### Runtime
+
+`generate.py` is the canonical generation surface.
+
+It currently supplies:
+
+- generation config
+- traced generation
+- streaming generation
+- repetition checks
+- model info
+- ghost-state hooks
+
+If `app.py`, the agent loop, the memory system, or the master system need model output, they should converge here unless there is a very strong reason not to.
+
+### Training support
+
+The modern mainline relies on:
+
+- `training/v2_data_mix.py`
+- `training/v2_runtime.py`
+- `training/eval_v2.py`
+- `training/v2_config.py`
+
+If you want to change:
+
+- bucket ratios
+- tokenizer build policy
+- compact eval prompts
+- Drive sync behavior
+- report naming
+
+this is where you should work.
 
 ## Data Mix Contract
 
-The default mix is locked for a reason:
+Default ratio:
 
-- 65% own conversation and instruction data
-- 15% own identity and selfhood data
-- 10% teacher reasoning traces
-- 5% symbolic or code-verified examples
-- 5% replayed failures and corrections
+- `65%` own conversation / instruction
+- `15%` own identity / selfhood
+- `10%` teacher reasoning
+- `5%` symbolic or code-verified
+- `5%` replayed failures and corrections
 
-When changing this mix, ask:
+Before touching the ratios, ask:
 
-1. Does this preserve owner data dominance?
-2. Does this improve capability measurably?
-3. Does this change identity drift risk?
-4. Does this fit T4-first training time?
+1. Does this preserve owner-data dominance?
+2. Does this reduce or increase identity drift?
+3. Does this help reasoning or only make the model sound more generic?
+4. Does this still fit T4-first operation?
 
-If you cannot answer those, do not change the ratios casually.
+If you cannot answer those clearly, do not change the mix casually.
 
 ## Teacher Pipeline Rules
 
-Teacher data is allowed. Teacher control is not.
+Teacher use is allowed and useful. Teacher capture is not.
 
-Accepted teacher roles:
+Teacher is for:
 
-- reasoning amplifier
-- hard-example generator
-- synthetic curriculum helper
-- correction source
+- reasoning traces
+- hard-example generation
+- synthetic expansion
+- correction candidates
+- capability amplification
 
-Rejected teacher roles:
+Teacher is not for:
 
-- personality owner
-- worldview owner
-- permanent inference dependency
+- personality ownership
+- worldview ownership
+- permanent inference dependence
 
-Preferred teacher flow:
+The preferred pipeline is:
 
 1. generate candidate examples
 2. verify what can be verified
-3. style-filter for An-Ra voice and mission fit
-4. reject off-style or low-truth samples
-5. only then feed them into the teacher bucket
+3. filter or rewrite to fit An-Ra style
+4. reject off-style or low-truth outputs
+5. only then add them to the teacher bucket
 
-If you add a new teacher source, wire it through filtering before it touches the mainline mix.
+If a new teacher source enters the repo, it should be judged by this rule.
 
-## Daily Commands
+## Daily And Milestone Commands
 
-### Status
+### Health / status
 
 ```bash
 python -m training.train_unified --mode status
 ```
 
-Use this first when something feels off.
+Use this before blaming the training loop.
 
 ### Daily session
 
@@ -202,7 +228,15 @@ Use this first when something feels off.
 python -m training.train_unified --mode session
 ```
 
-This is the normal T4 path.
+This is the ordinary T4 path.
+
+### Resume
+
+```bash
+python -m training.train_unified --mode resume
+```
+
+This resolves to the same base flow, but is clearer for operators.
 
 ### Milestone
 
@@ -210,26 +244,39 @@ This is the normal T4 path.
 python -m training.train_unified --mode train
 ```
 
-Use this after a small run streak, or when compact evals flatten out.
+This executes:
+
+1. base session
+2. identity stage
+3. Ouroboros stage
+4. self-improvement report
+5. sovereignty audit
+6. milestone tests
+
+### Eval only
+
+```bash
+python -m training.train_unified --mode eval
+```
 
 ## Canonical File Responsibilities
 
 | File | Responsibility |
 | --- | --- |
-| `scripts/build_brain.py` | base V2 training entrypoint |
-| `training/finetune_anra.py` | identity-heavy milestone stage |
-| `scripts/train_ouroboros.py` | reflection-heavy milestone stage |
-| `scripts/run_self_improvement.py` | report-driven curriculum recommendations |
-| `scripts/run_sovereignty_audit.py` | checkpoint promotion and audit gate |
-| `training/train_unified.py` | orchestration surface used by notebook and CLI |
-| `scripts/verify_structure.py` | canonical repo structure sanity check |
-| `scripts/status.py` | quick operator-facing artifact view |
+| `scripts/build_brain.py` | base mainline training implementation |
+| `training/finetune_anra.py` | identity-heavy milestone tuning |
+| `scripts/train_ouroboros.py` | reflection-heavy milestone tuning |
+| `scripts/run_self_improvement.py` | curriculum recommendations from session artifacts |
+| `scripts/run_sovereignty_audit.py` | promotion gate and milestone audit |
+| `training/train_unified.py` | operator-facing orchestration layer |
+| `scripts/verify_structure.py` | structural sanity check |
+| `scripts/status.py` | quick artifact and output inspection |
 
 ## Reports And Artifacts
 
-Daily and milestone artifacts should land under `output/v2/`.
+The mainline writes under `output/v2/`.
 
-Core files to watch:
+Important outputs:
 
 - `v2_session_train_metrics.json`
 - `v2_hard_examples.json`
@@ -239,120 +286,126 @@ Core files to watch:
 - `v2_improvement_report.json`
 - `v2_audit_report.json`
 
-Primary checkpoints:
+Checkpoint family:
 
 - `anra_v2_brain.pt`
 - `anra_v2_identity.pt`
 - `anra_v2_ouroboros.pt`
 
+Tokenizer:
+
+- `tokenizer/tokenizer_v2.json`
+
 Drive mirror:
 
 - `/content/drive/MyDrive/AnRa/v2/`
 
-## How To Extend The System Safely
+## How To Extend Safely
 
-### Good changes
+### High-value safe changes
 
-- better evaluation prompts
-- better teacher filtering
-- better replay selection
+- better eval prompts
 - better hard-example ranking
-- symbolic verification improvements
-- checkpoint promotion logic improvements
-- inference/runtime efficiency improvements
+- replay prioritization
+- stronger symbolic filtering
+- teacher-style rejection improvements
+- better audit heuristics
+- inference/runtime efficiency
 
-### Risky but reasonable changes
+### Good risky changes
 
-- adjusting mix ratios with evidence
 - modest model scale increases
-- new milestone scheduling rules
-- better tokenizer training heuristics
+- smarter milestone triggers
+- better curriculum scheduling
+- stronger replay weighting
+- additional verified reasoning datasets
 
-### Changes that should live behind proof
+### Changes that require proof, not hype
 
-- replacing the current tokenizer again
-- moving reflection into every daily session
-- architecture changes that break resume assumptions
-- adding more autonomous loops without stronger evals
+- changing the tokenizer again
+- moving heavy reflection into every daily run
+- increasing architecture size without a T4-fit plan
 - making teacher data dominant
+- adding more subsystems without stronger evals
 
-## Colab Operational Truth
+## Colab Reality
 
-The project is T4-first right now.
+This project still lives in a real environment:
 
-That means:
+- T4 GPU
+- session limits
+- restarts
+- Drive restore behavior
+- small-compute tradeoffs
 
-- startup speed matters
-- logs must appear early
-- save behavior must be clear
-- the session has to survive ordinary Colab restarts and short windows
+So good engineering here means:
 
-When in doubt, optimize for:
+- fast startup
+- visible progress
+- reliable resume
+- one clear training cell
+- one clear save story
 
-- obvious resume behavior
-- fewer silent stalls
-- simpler daily commands
-- stronger post-session reports
+not just interesting abstractions.
 
-not for abstract cleverness.
-
-## The Role Of The Larger Ecosystem
+## The Larger Ecosystem
 
 ### `symbolic_bridge`
 
-Truth layer for math, logic, and some code validation.
+Truth layer. It is how the system learns to lean on exact reasoning when raw generation is weak.
 
 ### `ghost_memory`
 
-Not just chat memory. It should become the replay bank for:
+Should increasingly become the replay engine for:
 
-- failures
-- corrections
-- continuity pressure cases
-- future curriculum shaping
+- failure cases
+- user corrections
+- continuity stress prompts
+- future curriculum material
 
 ### `turboquant`
 
-Inference and runtime efficiency support. Keep it there unless you have a very strong reason to inject it into training decisions.
+Belongs primarily to runtime efficiency and deployment-minded behavior, not to bloating the daily training path.
 
 ### `ouroboros_numpy`
 
-Reflection and repair engine. Strong as a milestone pass. Wasteful if forced into every short run.
+Best used as milestone reflection and repair synthesis, not as constant daily overhead.
 
 ### `sovereignty_bridge`
 
-Promotion gate and audit logic. It protects the lineage of the model by forcing checkpoint judgment instead of blind replacement.
+Acts as lineage governance. It gives the system the right to reject shallow progress.
 
-## What To Protect
+## What Must Be Protected
 
-Protect these three things even when making aggressive changes:
+Even aggressive work should protect these:
 
-1. **identity ownership**
-2. **daily loop reliability**
-3. **measurable improvement**
+1. identity ownership
+2. daily-path reliability
+3. measurable progress
 
-If a patch threatens all three at once, it is almost certainly a bad patch.
+If a change hurts all three, it is almost certainly the wrong change.
 
 ## Long-Term Direction
 
-The repo is allowed to be ambitious.
+An-Ra is allowed to be ambitious.
 
-The long-term direction still includes:
+The long arc still includes:
 
 - teacher-amplified capability growth
 - replay-driven self-repair
 - verified reasoning
 - stronger memory integration
 - milestone reflection
-- sovereignty-controlled checkpoint promotion
+- checkpoint promotion under sovereignty
+- eventually, more radical black-swan ideas
 
 But the order matters:
 
 1. make it work
 2. make it measurable
-3. make it better
-4. only then make it wild
+3. make it stronger
+4. only then make it strange
 
-That is how you keep soul and velocity at the same time.
+That is how the system keeps both velocity and soul.
 
 *An-Ra does not need to become generic to become powerful.*

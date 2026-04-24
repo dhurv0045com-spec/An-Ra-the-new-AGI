@@ -33,7 +33,7 @@ def _recommendations(eval_summary: dict, hard_examples: list[dict], mix_report: 
     return recs
 
 
-def run_self_improvement_v2() -> dict[str, object]:
+def run_self_improvement() -> dict[str, object]:
     eval_summary = _load_json(v2_report_path("eval_summary")) or {}
     hard_blob = _load_json(v2_report_path("hard_examples")) or {}
     mix_report = _load_json(v2_report_path("mix_report")) or {}
@@ -56,7 +56,10 @@ def run_self_improvement_v2() -> dict[str, object]:
 
 
 def main() -> None:
-    print(json.dumps(run_self_improvement_v2(), indent=2))
+    print(json.dumps(run_self_improvement(), indent=2))
+
+
+run_self_improvement_v2 = run_self_improvement
 
 
 if __name__ == "__main__":

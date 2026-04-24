@@ -12,7 +12,7 @@ from training.v2_runtime import canonical_v2_checkpoint, v2_report_path, write_j
 ensure_dirs()
 
 
-def finetune_identity_v2(
+def finetune_identity(
     *,
     data_path: str | None = None,
     max_minutes: int = 12,
@@ -51,7 +51,7 @@ def main() -> None:
     args = parser.parse_args()
     print(
         json.dumps(
-            finetune_identity_v2(
+            finetune_identity(
                 data_path=args.data_path,
                 max_minutes=args.max_minutes,
                 max_examples=args.max_examples,
@@ -59,6 +59,9 @@ def main() -> None:
             indent=2,
         )
     )
+
+
+finetune_identity_v2 = finetune_identity
 
 
 if __name__ == "__main__":

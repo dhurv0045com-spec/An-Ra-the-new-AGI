@@ -16,7 +16,7 @@ def _load_json(path: Path) -> dict | None:
         return None
 
 
-def run_sovereignty_audit_v2() -> dict[str, object]:
+def run_sovereignty_audit() -> dict[str, object]:
     eval_summary = _load_json(v2_report_path("eval_summary")) or {}
     improvement = _load_json(v2_report_path("improvement_report")) or {}
     current_score = float(eval_summary.get("overall_score", 0.0) or 0.0)
@@ -54,7 +54,10 @@ def run_sovereignty_audit_v2() -> dict[str, object]:
 
 
 def main() -> None:
-    print(json.dumps(run_sovereignty_audit_v2(), indent=2))
+    print(json.dumps(run_sovereignty_audit(), indent=2))
+
+
+run_sovereignty_audit_v2 = run_sovereignty_audit
 
 
 if __name__ == "__main__":
