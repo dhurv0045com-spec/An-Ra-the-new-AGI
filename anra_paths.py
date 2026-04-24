@@ -48,6 +48,11 @@ REQUIRED_DIRS = [
 def inject_all_paths() -> None:
     paths = [
         ROOT,
+        CORE_DIR,
+        TRAINING_DIR,
+        INFERENCE_DIR,
+        CONFIG_DIR,
+        SCRIPTS_DIR,
         FINE_TUNING_DIR,
         MEMORY_DIR,
         AGENT_LOOP_DIR,
@@ -74,7 +79,6 @@ def get_dataset_file() -> Path:
     """Find the primary training dataset."""
     candidates = [
         TRAINING_DATA_DIR / "anra_dataset_v6_1.txt",
-        ROOT / "anra_dataset_v6_1.txt",
         DRIVE_DIR / "anra_dataset_v6_1.txt",
     ]
     for c in candidates:
@@ -88,7 +92,6 @@ def get_tokenizer_file() -> Path:
     candidates = [
         TOKENIZER_DIR / "tokenizer.pkl",
         ROOT / "tokenizer.pkl",
-        DRIVE_DIR / "tokenizer.pkl",
     ]
     for c in candidates:
         if c.exists():

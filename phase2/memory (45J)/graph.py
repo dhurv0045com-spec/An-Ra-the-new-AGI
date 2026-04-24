@@ -417,3 +417,21 @@ class KnowledgeGraph:
 
     def _node_id(self, type: str, label: str) -> str:
         return f"{type}:{label.lower().replace(' ', '_')}"
+
+
+def health_check() -> Dict[str, Any]:
+    try:
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            graph = KnowledgeGraph(str(Path(tmp) / "health_graph.json"), user_id="health")
+            graph.extract_and_add("My name is Alex and I live in Berlin.")
+            stats = graph.stats()
+            return {
+                "status": "ok",
+                "module": "graph_45J",
+                "nodes": stats["nodes"],
+                "edges": stats["edges"],
+            }
+    except Exception as exc:
+        return {"status": "degraded", "module": "graph_45J", "reason": str(exc)}

@@ -253,6 +253,25 @@ class MemoryManager:
         self.store.close()
 
 
+def health_check() -> Dict[str, Any]:
+    try:
+        health_dir = Path.cwd() / ".memory_manager_health" / "runtime"
+        health_dir.mkdir(parents=True, exist_ok=True)
+        mm = MemoryManager(data_dir=str(health_dir), user_id="health", use_neural_embedder=False)
+        try:
+            mm.store_memory("User likes testing", type="semantic", importance="high")
+            results = mm.retrieve("testing", limit=1)
+            return {
+                "status": "ok",
+                "module": "memory_manager_45J",
+                "results": len(results),
+            }
+        finally:
+            mm.cleanup()
+    except Exception as exc:
+        return {"status": "degraded", "module": "memory_manager_45J", "reason": str(exc)}
+
+
 # ─────────────────────────────────────────────
 # CLI interface
 # ─────────────────────────────────────────────

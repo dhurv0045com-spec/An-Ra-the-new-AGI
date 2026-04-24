@@ -538,6 +538,31 @@ def make_kv_cache(
 # SELF-TEST
 # ──────────────────────────────────────────────────────────────────────────────
 
+def health_check() -> dict:
+    """TurboQuant KV-cache compression health check."""
+    try:
+        cfg = TurboQuantConfig(bits=4)
+        cache = CompressedKVCache(
+            batch_size=1,
+            num_kv_heads=4,
+            max_seq_len=16,
+            d_head=32,
+            tq_config=cfg,
+        )
+        k = np.random.randn(1, 4, 1, 32).astype(np.float32)
+        v = np.random.randn(1, 4, 1, 32).astype(np.float32)
+        k_out, v_out = cache.update(k, v)
+        return {
+            "status": "ok",
+            "module": "turboquant",
+            "bits": cfg.bits,
+            "compression": "6x",
+            "output_shapes": [list(k_out.shape), list(v_out.shape)],
+        }
+    except Exception as exc:
+        return {"status": "degraded", "module": "turboquant", "reason": str(exc)}
+
+
 if __name__ == "__main__":
     print("=" * 68)
     print("  turboquant.py — TurboQuant KV-Cache Compression — Self-Test")

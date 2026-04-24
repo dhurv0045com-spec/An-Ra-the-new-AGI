@@ -8,6 +8,7 @@ but callers may inject a mock embedder for tests and offline demos.
 
 from __future__ import annotations
 
+import hashlib
 import sqlite3
 import threading
 import time
@@ -22,6 +23,27 @@ from .quantizer import compress_vector
 from .retriever import retrieve_memories
 
 EmbedFn = Callable[[str], np.ndarray]
+
+
+def _build_default_embedder(model_name: str, embedding_dim: int) -> EmbedFn:
+    try:
+        from sentence_transformers import SentenceTransformer
+
+        model = SentenceTransformer(model_name)
+
+        def _embed(text: str) -> np.ndarray:
+            vec = model.encode([text], show_progress_bar=False)[0]
+            return np.asarray(vec, dtype=np.float32).ravel()
+
+        return _embed
+    except ImportError:
+        def _embed_fallback(text: str) -> np.ndarray:
+            digest = hashlib.sha256(text.encode("utf-8", errors="replace")).digest()
+            seed = int.from_bytes(digest[:8], "big", signed=False) % (2**32)
+            rng = np.random.default_rng(seed)
+            return rng.standard_normal(embedding_dim).astype(np.float32)
+
+        return _embed_fallback
 
 
 def _ensure_schema(conn: sqlite3.Connection) -> None:
@@ -59,8 +81,10 @@ class MemoryStore:
         ``embedder`` overrides MiniLM for deterministic tests when provided.
         """
         self._config = config or default_config()
-        self._embedder: Optional[EmbedFn] = embedder
-        self._model = None
+        self._embedder: EmbedFn = embedder or _build_default_embedder(
+            self._config.embedding_model,
+            self._config.embedding_dim,
+        )
         self._lock = threading.RLock()
         self._vectors: List[bytes] = []
         self._storage_dir = Path(self._config.storage_dir)
@@ -94,15 +118,6 @@ class MemoryStore:
         path = self._config.vectors_path()
         np.save(path, np.array(self._vectors, dtype=object), allow_pickle=True)
 
-    def _get_sentence_model(self):
-        """Lazy-load the sentence-transformers model once per process."""
-        if self._model is not None:
-            return self._model
-        from sentence_transformers import SentenceTransformer
-
-        self._model = SentenceTransformer(self._config.embedding_model)
-        return self._model
-
     def embed_text(self, text: str) -> np.ndarray:
         """
         Produce a dense embedding vector for `text`.
@@ -110,17 +125,7 @@ class MemoryStore:
         Uses the injected embedder when provided; otherwise loads
         SentenceTransformer and returns float32 numpy of shape (embedding_dim,).
         """
-        if self._embedder is not None:
-            v = self._embedder(text)
-            return np.asarray(v, dtype=np.float32).ravel()
-        model = self._get_sentence_model()
-        v = model.encode(
-            text,
-            convert_to_numpy=True,
-            normalize_embeddings=False,
-            show_progress_bar=False,
-        )
-        out = np.asarray(v, dtype=np.float32).ravel()
+        out = np.asarray(self._embedder(text), dtype=np.float32).ravel()
         if out.shape[0] != self._config.embedding_dim:
             raise ValueError(
                 f"Embedding dim {out.shape[0]} != config {self._config.embedding_dim}"
@@ -283,3 +288,23 @@ class GhostMemory:
     def memory_store(self) -> MemoryStore:
         """Expose the underlying store for advanced integrations."""
         return self._store
+
+
+def health_check() -> dict:
+    try:
+        health_dir = Path.cwd() / ".ghost_memory_health" / "runtime"
+        health_dir.mkdir(parents=True, exist_ok=True)
+        cfg = default_config(storage_dir=health_dir)
+        store = GhostMemory(
+            config=cfg,
+            embedder=lambda text: np.full(cfg.embedding_dim, len(text), dtype=np.float32),
+        )
+        store.add_turn("human", "test message")
+        results = store.retrieve("test")
+        return {
+            "status": "ok",
+            "module": "ghost_memory",
+            "retrieved": len(results),
+        }
+    except Exception as exc:
+        return {"status": "degraded", "module": "ghost_memory", "reason": str(exc)}

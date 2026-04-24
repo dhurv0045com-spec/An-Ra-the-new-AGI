@@ -36,30 +36,40 @@ _HERE = Path(__file__).resolve().parent
 if str(_HERE) not in sys.path:
     sys.path.insert(0, str(_HERE))
 
-# Core modules
-from registry    import ToolRegistry, get_registry
-from builtin     import register_all_tools
-from goal        import GoalInterpreter, GoalSpec, GoalStatus, GoalRisk
-from planner     import Planner, ExecutionPlan, StepPriority
-from executor    import Executor, HumanEscalation
-from dispatcher  import Dispatcher
-from monitor     import AgentMonitor
-from reasoning   import ReasoningEngine
-from evaluator   import GoalEvaluator
-from coordinator import MultiAgentCoordinator
-
 _IMPORT_ERRORS: List[str] = []
-try:
-    from coordinator import AgentCoordinator  # type: ignore
-except Exception as exc:
-    AgentCoordinator = None  # type: ignore
-    _IMPORT_ERRORS.append(f"coordinator: {exc}")
 
-try:
-    from planner import Planner as GoalPlanner  # type: ignore
-except Exception as exc:
-    GoalPlanner = None  # type: ignore
-    _IMPORT_ERRORS.append(f"planner: {exc}")
+
+def _safe_import(module_name: str, attr_name: str):
+    try:
+        module = __import__(module_name, fromlist=[attr_name])
+        return getattr(module, attr_name)
+    except Exception as exc:
+        _IMPORT_ERRORS.append(f"{module_name}: {exc}")
+        return None
+
+
+ToolRegistry = _safe_import("registry", "ToolRegistry")  # type: ignore
+get_registry = _safe_import("registry", "get_registry")  # type: ignore
+register_all_tools = _safe_import("builtin", "register_all_tools")  # type: ignore
+GoalInterpreter = _safe_import("goal", "GoalInterpreter")  # type: ignore
+GoalSpec = _safe_import("goal", "GoalSpec")  # type: ignore
+GoalStatus = _safe_import("goal", "GoalStatus")  # type: ignore
+GoalRisk = _safe_import("goal", "GoalRisk")  # type: ignore
+Planner = _safe_import("planner", "Planner")  # type: ignore
+ExecutionPlan = _safe_import("planner", "ExecutionPlan")  # type: ignore
+StepPriority = _safe_import("planner", "StepPriority")  # type: ignore
+Executor = _safe_import("executor", "Executor")  # type: ignore
+HumanEscalation = _safe_import("executor", "HumanEscalation")  # type: ignore
+Dispatcher = _safe_import("dispatcher", "Dispatcher")  # type: ignore
+AgentMonitor = _safe_import("monitor", "AgentMonitor")  # type: ignore
+ReasoningEngine = _safe_import("reasoning", "ReasoningEngine")  # type: ignore
+GoalEvaluator = _safe_import("evaluator", "GoalEvaluator")  # type: ignore
+MultiAgentCoordinator = _safe_import("coordinator", "MultiAgentCoordinator")  # type: ignore
+AgentCoordinator = _safe_import("coordinator", "AgentCoordinator")  # type: ignore
+GoalPlanner = _safe_import("planner", "Planner")  # type: ignore
+
+_OPTIONAL_AGENT_COORDINATOR_ERROR = "coordinator: module 'coordinator' has no attribute 'AgentCoordinator'"
+_IMPORT_ERRORS = [err for err in _IMPORT_ERRORS if err != _OPTIONAL_AGENT_COORDINATOR_ERROR]
 
 logger = logging.getLogger(__name__)
 
@@ -130,6 +140,10 @@ class Agent:
         max_tool_calls:      int   = 200,
         memory_manager:      Any   = None,
     ):
+        if _IMPORT_ERRORS:
+            raise RuntimeError(
+                "Agent Loop dependencies unavailable: " + "; ".join(_IMPORT_ERRORS)
+            )
         _setup_logging(log_level)
         self.approve_each_step = approve_each_step
         self.verbose           = verbose
@@ -326,6 +340,12 @@ class Agent:
         Run multiple independent goals in parallel using sub-agents.
         Each goal gets its own agent thread.
         """
+        if MultiAgentCoordinator is None:
+            return {
+                "success": False,
+                "output": "MultiAgentCoordinator unavailable",
+                "results": [],
+            }
         self._print(f"\nLaunching {len(goals)} parallel sub-agents...")
 
         coord = MultiAgentCoordinator(
@@ -449,6 +469,20 @@ class Agent:
 # ──────────────────────────────────────────────────────────────────────────────
 # CLI
 # ──────────────────────────────────────────────────────────────────────────────
+
+def health_check() -> dict:
+    try:
+        if _IMPORT_ERRORS:
+            return {
+                "status": "degraded",
+                "module": "agent_loop_45K",
+                "import_errors": _IMPORT_ERRORS,
+            }
+        Agent.__new__(Agent)
+        return {"status": "ok", "module": "agent_loop_45K"}
+    except Exception as exc:
+        return {"status": "degraded", "module": "agent_loop_45K", "reason": str(exc)}
+
 
 def _cli():
     parser = argparse.ArgumentParser(

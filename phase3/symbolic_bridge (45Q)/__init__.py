@@ -28,18 +28,42 @@ from .response import (
     Mode, Verdict, VerifiedResult, VerificationPass, error_result
 )
 from .detector import detect, DetectionResult
-from .math_solver import (
-    solve_equation,
-    differentiate,
-    integrate_expr,
-    compute_limit,
-    taylor_series,
-    matrix_eigenvalues,
-    matrix_operations,
-    primality_test,
-    factorise_number,
-    number_theory_misc,
-)
+
+try:
+    import sympy
+    _SYMPY_AVAILABLE = True
+except ImportError:
+    _SYMPY_AVAILABLE = False
+
+if _SYMPY_AVAILABLE:
+    from .math_solver import (
+        solve_equation,
+        differentiate,
+        integrate_expr,
+        compute_limit,
+        taylor_series,
+        matrix_eigenvalues,
+        matrix_operations,
+        primality_test,
+        factorise_number,
+        number_theory_misc,
+    )
+else:
+    def _sympy_missing(*args, **kwargs) -> VerifiedResult:
+        raw_input = str(args[0]) if args else ""
+        return error_result(Mode.MATH, raw_input, "sympy not installed")
+
+    solve_equation = _sympy_missing
+    differentiate = _sympy_missing
+    integrate_expr = _sympy_missing
+    compute_limit = _sympy_missing
+    taylor_series = _sympy_missing
+    matrix_eigenvalues = _sympy_missing
+    matrix_operations = _sympy_missing
+    primality_test = _sympy_missing
+    factorise_number = _sympy_missing
+    number_theory_misc = _sympy_missing
+
 from .logic_checker import (
     check_formula,
     verify_syllogism,
@@ -148,6 +172,9 @@ def query_math(text: str) -> VerifiedResult:
     VerifiedResult
         Verified mathematical result.
     """
+    if not _SYMPY_AVAILABLE:
+        return error_result(Mode.MATH, text, "sympy not installed")
+
     import re
 
     t = text.lower().strip()
@@ -419,3 +446,20 @@ def _extract_logic_formula(text: str) -> str:
     ).strip()
     stripped = re.sub(r'\?$', '', stripped).strip()
     return stripped or text.strip()
+
+
+def health_check() -> dict:
+    try:
+        import sympy as _sympy
+
+        result = query("What is 2 + 2?")
+        return {
+            "status": "ok",
+            "module": "symbolic_bridge",
+            "sympy_version": _sympy.__version__,
+            "verdict": getattr(result.verdict, "value", str(result.verdict)),
+        }
+    except ImportError:
+        return {"status": "degraded", "module": "symbolic_bridge", "reason": "sympy not installed"}
+    except Exception as exc:
+        return {"status": "degraded", "module": "symbolic_bridge", "reason": str(exc)}
