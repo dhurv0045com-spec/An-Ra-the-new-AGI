@@ -176,10 +176,10 @@ def run_cmd(cmd: list[str], *, cwd: Path | None = None) -> int:
 
 
 def _restore_core_artifacts() -> None:
-    restore_v2_artifact(canonical_v2_checkpoint("brain"))
-    restore_v2_artifact(canonical_v2_checkpoint("identity"))
-    restore_v2_artifact(canonical_v2_checkpoint("ouroboros"))
-    restore_v2_artifact(ROOT / "tokenizer" / "tokenizer_v2.json")
+    restore_v2_artifact("brain")
+    restore_v2_artifact("identity")
+    restore_v2_artifact("ouroboros")
+    restore_v2_artifact("tokenizer")
 
 
 def _run_eval_only() -> dict[str, object]:

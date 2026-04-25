@@ -15,7 +15,7 @@ from torch.utils.data import DataLoader
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from anra_paths import DRIVE_V2_CHECKPOINTS, ROOT, V2_TOKENIZER_FILE, inject_all_paths
+from anra_paths import ROOT, V2_TOKENIZER_FILE, get_v2_checkpoint, inject_all_paths
 from training.anra_optimizer import build_optimizer
 from training.eval_v2 import run_compact_eval
 from training.mixed_precision import MixedPrecisionTrainer
@@ -28,6 +28,7 @@ from training.v2_runtime import (
     load_checkpoint,
     load_or_build_v2_tokenizer,
     model_summary,
+    sync_to_drive,
     sync_v2_artifacts,
     v2_report_path,
     write_json,
@@ -133,16 +134,44 @@ def train_anra_v2(
         total_steps=50_000,
     )
 
-    ckpt_path = _resolve_checkpoint_path(checkpoint_path)
-    _prepare_resume_target(ckpt_path, resume_from)
-    state = load_checkpoint(model, optimizer, scheduler, mp, ckpt_path, device=device, strict=False)
-    global_step = int(state["global_step"])
-    epoch = int(state["epoch"])
-    best_loss = float(state["best_loss"])
+    start_step = 0
+    best_loss = float("inf")
+    session_start_loss = float("inf")
+
+    # ── AUTO-RESUME ──────────────────────────────────────────────────────────────
+    ckpt_path = get_v2_checkpoint("brain")
+    if ckpt_path.exists():
+        print(f"[Resume] Found checkpoint: {ckpt_path}")
+        try:
+            ckpt = torch.load(ckpt_path, map_location=device, weights_only=False)
+            model.load_state_dict(ckpt.get("model", ckpt.get("model_state_dict", {})))
+            optimizer.load_state_dict(ckpt.get("optimizer", ckpt.get("optimizer_state_dict", {})))
+            scheduler_state = ckpt.get("scheduler", ckpt.get("scheduler_state_dict"))
+            if scheduler_state:
+                scheduler.load_state_dict(scheduler_state)
+            scaler_state = ckpt.get("scaler", ckpt.get("scaler_state_dict"))
+            if scaler_state:
+                mp.load_state_dict(scaler_state)
+            start_step = int(ckpt.get("step", ckpt.get("global_step", 0)))
+            best_loss = float(ckpt.get("best_loss", float("inf")))
+            session_start_loss = best_loss
+            print(f"[Resume] Resuming from step={start_step}  best_loss={best_loss:.4f}")
+        except Exception as e:
+            print(f"[Resume] Checkpoint load failed ({e}) — starting from scratch")
+            start_step = 0
+            best_loss = float("inf")
+            session_start_loss = float("inf")
+    else:
+        print("[Resume] No checkpoint found — starting from scratch")
+    # ─────────────────────────────────────────────────────────────────────────────
+
+    global_step = start_step
+    epoch = 0
 
     start = time.time()
     end_at = start + max_minutes * 60
-    initial_step = global_step
+    initial_step = start_step
+    session_step = 0
     optimizer.zero_grad(set_to_none=True)
     rolling_loss = 0.0
     rolling_count = 0
@@ -217,6 +246,7 @@ def train_anra_v2(
                 scheduler.step()
                 optimizer.zero_grad(set_to_none=True)
                 global_step += 1
+                session_step += 1
                 accum_micro_steps = 0
 
                 avg_loss = rolling_loss / max(1, rolling_count)
@@ -245,6 +275,7 @@ def train_anra_v2(
         scheduler.step()
         optimizer.zero_grad(set_to_none=True)
         global_step += 1
+        session_step += 1
         avg_loss = rolling_loss / max(1, rolling_count)
         last_avg_loss = avg_loss
         best_loss = min(best_loss, avg_loss) if math.isfinite(best_loss) else avg_loss
@@ -265,17 +296,18 @@ def train_anra_v2(
         )
 
     payload = {
-        "model_state_dict": model.state_dict(),
-        "optimizer_state_dict": optimizer.state_dict(),
-        "scheduler_state_dict": scheduler.state_dict(),
-        "scaler_state_dict": mp.state_dict(),
+        "model": model.state_dict(),
+        "optimizer": optimizer.state_dict(),
+        "scheduler": scheduler.state_dict(),
+        "scaler": mp.state_dict(),
+        "step": global_step,
         "global_step": global_step,
         "epoch": epoch,
         "best_loss": best_loss,
         "model_config": model.model_config(),
         "mix_report": mix_report.to_dict(),
     }
-    atomic_save(payload, ckpt_path, drive_dir=DRIVE_V2_CHECKPOINTS)
+    atomic_save(payload, ckpt_path, drive_dir=None)
 
     metrics = {
         "generated_at": time.time(),
@@ -324,6 +356,9 @@ def train_anra_v2(
             v2_report_path("mix_report"),
         ],
     )
+    sync_to_drive("brain")
+    sync_to_drive("tokenizer")
+    sync_to_drive("eval_summary")
 
     elapsed_total = time.time() - start
     print("", flush=True)
@@ -339,6 +374,20 @@ def train_anra_v2(
     print("  Drive synced       : yes", flush=True)
     print("=" * 62, flush=True)
     print("", flush=True)
+
+    # ── SESSION SUMMARY ──────────────────────────────────────────────────────────
+    print("\n" + "=" * 50)
+    print("SESSION COMPLETE")
+    print(f"  Steps this session : {session_step}")
+    print(f"  Total steps ever   : {global_step}")
+    print(f"  Loss at start      : {session_start_loss:.4f}")
+    print(f"  Best loss achieved : {best_loss:.4f}")
+    if session_start_loss != float("inf"):
+        improvement = session_start_loss - best_loss
+        direction = "improved" if improvement > 0 else "no improvement"
+        print(f"  Improvement        : {improvement:+.4f}  ({direction})")
+    print("=" * 50 + "\n")
+    # ─────────────────────────────────────────────────────────────────────────────
 
     return {
         "checkpoint_path": str(ckpt_path),
