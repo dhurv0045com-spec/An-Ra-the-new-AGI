@@ -10,7 +10,8 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from generate import MODEL, TOKENIZER, generate, get_model_info
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))  # project root
+from generate import generate as _v2_generate, get_model_info
 
 
 class LLMBridge:
@@ -28,11 +29,11 @@ class LLMBridge:
             return
 
         info = get_model_info()
-        self.model = MODEL
-        self.tokenizer = TOKENIZER
-        self.raw_decoder = MODEL
-        self.d_model = int(info.get("d_model") or getattr(MODEL, "d_model", 0) or 0)
-        self.vocab_size = int(info.get("vocab_size") or getattr(TOKENIZER, "vocab_size", 0) or 0)
+        self.model = None
+        self.tokenizer = None
+        self.raw_decoder = None
+        self.d_model = int(info.get("d_model") or 0)
+        self.vocab_size = int(info.get("vocab_size") or 0)
         self.num_parameters = int(info.get("param_count") or 0)
         self.loaded_checkpoint = str(info.get("checkpoint", ""))
         self._initialized = True
@@ -42,7 +43,14 @@ class LLMBridge:
         )
 
     def generate(self, prompt: str, max_new_tokens: int = 200, **kwargs) -> str:
-        return generate(prompt, max_tokens=max_new_tokens, **kwargs)
+        # V1 (legacy):
+        # return self._v1_model.generate(prompt, ...)
+        return _v2_generate(
+            prompt,
+            strategy="nucleus",
+            max_tokens=kwargs.get("max_tokens", max_new_tokens),
+            temperature=kwargs.get("temperature", 0.9),
+        )
 
     async def agenerate(self, prompt: str, max_new_tokens: int = 200, **kwargs) -> str:
         loop = asyncio.get_running_loop()

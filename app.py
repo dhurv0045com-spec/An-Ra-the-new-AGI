@@ -34,7 +34,9 @@ from inference.full_system_connector import build_capability_graph
 from inference.optimize_context_window import ContextWindowOptimizer
 
 START_TIME = time.time()
-SESSION_DIR = Path("/content/drive/MyDrive/AnRa/sessions/")
+_COLAB_DRIVE = Path("/content/drive/MyDrive/AnRa/sessions/")
+_LOCAL_FALLBACK = Path(__file__).resolve().parent / "output" / "sessions"
+SESSION_DIR = _COLAB_DRIVE if Path("/content/drive").exists() else _LOCAL_FALLBACK
 SESSION_DIR.mkdir(parents=True, exist_ok=True)
 SESSIONS: Dict[str, Deque[Dict[str, str]]] = defaultdict(lambda: deque(maxlen=40))
 SESSION_META: Dict[str, Dict[str, Any]] = {}

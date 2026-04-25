@@ -176,10 +176,10 @@ def run_cmd(cmd: list[str], *, cwd: Path | None = None) -> int:
 
 
 def _restore_core_artifacts() -> None:
-    restore_v2_artifact(canonical_v2_checkpoint("brain"))
-    restore_v2_artifact(canonical_v2_checkpoint("identity"))
-    restore_v2_artifact(canonical_v2_checkpoint("ouroboros"))
-    restore_v2_artifact(ROOT / "tokenizer" / "tokenizer_v2.json")
+    restore_v2_artifact("brain")
+    restore_v2_artifact("identity")
+    restore_v2_artifact("ouroboros")
+    restore_v2_artifact("tokenizer")
 
 
 def _run_eval_only() -> dict[str, object]:
@@ -279,6 +279,14 @@ def main() -> None:
         run_report["ended_at"] = time.time()
         _write_run_report(run_report)
         return
+
+    # Auto-merge identity files before identity fine-tune
+    merge_script = ROOT / "scripts" / "merge_identity.py"
+    if merge_script.exists():
+        print("[Unified Trainer] Running merge_identity.py ...", flush=True)
+        run_cmd([sys.executable, str(merge_script)])
+    else:
+        print("[Unified Trainer] WARN: merge_identity.py not found — skipping", flush=True)
 
     identity_cmd = [
         sys.executable,

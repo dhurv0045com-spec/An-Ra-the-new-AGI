@@ -42,7 +42,9 @@ class RotaryEmbedding(nn.Module):
         self._cached_sin: torch.Tensor | None = None
 
     def _build_cache(self, seq_len: int, device: torch.device, dtype: torch.dtype) -> None:
-        if self._cached_cos is not None and self._cached_seq_len >= seq_len:
+        if (self._cached_cos is not None
+                and self._cached_seq_len >= seq_len
+                and self._cached_cos.dtype == dtype):
             return
         positions = torch.arange(seq_len, device=device, dtype=self.inv_freq.dtype)
         freqs = torch.outer(positions, self.inv_freq.to(device))
@@ -188,7 +190,11 @@ class CausalTransformerV2(nn.Module):
         loss = None
         if targets is not None:
             bsz, time_steps, channels = logits.shape
-            loss = F.cross_entropy(logits.view(bsz * time_steps, channels), targets.view(bsz * time_steps))
+            loss = F.cross_entropy(
+                logits.view(bsz * time_steps, channels),
+                targets.view(bsz * time_steps),
+                ignore_index=1,  # pad token id is always 1 in V2 tokenizer
+            )
         return logits, loss
 
 

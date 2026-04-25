@@ -20,6 +20,7 @@ from anra_paths import (
     ensure_dirs,
     get_dataset_file,
     get_identity_file,
+    get_v2_checkpoint,
 )
 from anra_brain import CausalTransformerV2
 from tokenizer.subword_tokenizer import SubwordTokenizer
@@ -72,47 +73,118 @@ def append_jsonl(path: Path, payload: dict) -> None:
         fh.write(json.dumps(payload, ensure_ascii=False) + "\n")
 
 
+def _read_step(path: Path) -> int:
+    """Safely read step number from checkpoint without loading full model."""
+    try:
+        ckpt = torch.load(path, map_location="cpu", weights_only=False)
+        return int(ckpt.get("step", ckpt.get("global_step", 0)))
+    except Exception:
+        return 0
+
+
+def restore_v2_artifact(name: str = "brain") -> bool:
+    """
+    Check Drive for checkpoint. If found, copy to local output dir.
+    Returns True if restored, False if starting fresh.
+    """
+    local_map = {
+        "brain": get_v2_checkpoint("brain"),
+        "identity": get_v2_checkpoint("identity"),
+        "ouroboros": get_v2_checkpoint("ouroboros"),
+        "tokenizer": V2_TOKENIZER_FILE,
+        "eval_summary": v2_report_path("eval_summary"),
+    }
+    local_path = local_map.get(name, get_v2_checkpoint(name))
+    local_path.parent.mkdir(parents=True, exist_ok=True)
+
+    drive_filenames = {
+        "brain": "anra_v2_brain.pt",
+        "identity": "anra_v2_identity.pt",
+        "ouroboros": "anra_v2_ouroboros.pt",
+        "tokenizer": "tokenizer_v2.json",
+    }
+    drive_file = DRIVE_V2_CHECKPOINTS / drive_filenames.get(name, f"anra_v2_{name}.pt")
+    drive_root_file = Path("/content/drive/MyDrive/AnRa") / drive_filenames.get(name, f"anra_v2_{name}.pt")
+
+    source = None
+    if drive_file.exists():
+        source = drive_file
+    elif drive_root_file.exists():
+        source = drive_root_file
+
+    if source is None:
+        print(f"[Restore] {name}: not on Drive — will start fresh")
+        return False
+
+    if local_path.exists() and local_path.stat().st_mtime >= source.stat().st_mtime:
+        step = _read_step(local_path)
+        print(f"[Restore] {name}: already current (step={step})")
+        return True
+
+    shutil.copy2(source, local_path)
+    step = _read_step(local_path)
+    print(f"[Restore] {name}: restored from Drive (step={step})")
+    return True
+
+
+def sync_to_drive(name: str = "brain") -> bool:
+    """
+    Copy local checkpoint to Drive. Always overwrites same file.
+    Never creates new files. Returns True on success.
+    """
+    local_map = {
+        "brain": get_v2_checkpoint("brain"),
+        "identity": get_v2_checkpoint("identity"),
+        "ouroboros": get_v2_checkpoint("ouroboros"),
+        "tokenizer": V2_TOKENIZER_FILE,
+        "eval_summary": v2_report_path("eval_summary"),
+    }
+    local_path = local_map.get(name, get_v2_checkpoint(name))
+    if not local_path.exists():
+        print(f"[Drive] {name}: local file not found, skipping")
+        return False
+
+    drive_filenames = {
+        "brain": "anra_v2_brain.pt",
+        "identity": "anra_v2_identity.pt",
+        "ouroboros": "anra_v2_ouroboros.pt",
+        "tokenizer": "tokenizer_v2.json",
+        "eval_summary": "anra_v2_eval_summary.json",
+    }
+    drive_filename = drive_filenames.get(name, f"anra_v2_{name}.pt")
+
+    DRIVE_V2_CHECKPOINTS.mkdir(parents=True, exist_ok=True)
+    drive_target = DRIVE_V2_CHECKPOINTS / drive_filename
+    drive_root = Path("/content/drive/MyDrive/AnRa") / drive_filename
+
+    try:
+        drive_root.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(local_path, drive_target)
+        shutil.copy2(local_path, drive_root)
+        step = _read_step(local_path)
+        size_kb = local_path.stat().st_size // 1024
+        print(f"[Drive] {name}: saved (step={step}, {size_kb}KB)")
+        return True
+    except Exception as e:
+        print(f"[Drive] {name}: save failed ({e})")
+        return False
+
+
 def sync_v2_artifacts(
     checkpoint_path: Path,
     *,
     tokenizer_path: Path | None = None,
     extra_paths: list[Path] | None = None,
 ) -> None:
-    try:
-        DRIVE_V2_CHECKPOINTS.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(checkpoint_path, DRIVE_V2_CHECKPOINTS / checkpoint_path.name)
-        tok = tokenizer_path or V2_TOKENIZER_FILE
-        meta = tok.with_suffix(tok.suffix + ".meta.json")
-        if tok.exists():
-            drive_tok = DRIVE_DIR / "v2" / tok.name
-            drive_tok.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(tok, drive_tok)
-            if meta.exists():
-                shutil.copy2(meta, drive_tok.with_suffix(drive_tok.suffix + ".meta.json"))
-        for extra in extra_paths or []:
-            if extra.exists():
-                target = DRIVE_DIR / "v2" / extra.name
-                target.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(extra, target)
-    except Exception:
-        pass
-
-
-def restore_v2_artifact(local_path: Path, *, remote_name: str | None = None) -> Path | None:
-    if local_path.exists():
-        return local_path
-    remote = (DRIVE_V2_CHECKPOINTS / (remote_name or local_path.name))
-    if "tokenizer_v2" in (remote_name or local_path.name):
-        remote = DRIVE_DIR / "v2" / (remote_name or local_path.name)
-    if remote.exists():
-        local_path.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(remote, local_path)
-        meta_remote = remote.with_suffix(remote.suffix + ".meta.json")
-        meta_local = local_path.with_suffix(local_path.suffix + ".meta.json")
-        if meta_remote.exists():
-            shutil.copy2(meta_remote, meta_local)
-        return local_path
-    return None
+    del checkpoint_path, tokenizer_path
+    sync_to_drive("brain")
+    sync_to_drive("tokenizer")
+    for extra in extra_paths or []:
+        if extra.name == "v2_eval_summary.json":
+            target = get_v2_checkpoint("brain").parent / "anra_v2_eval_summary.json"
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(extra, target)
+            sync_to_drive("eval_summary")
 
 
 def _collect_tokenizer_texts(dataset_path: Path) -> list[str]:
@@ -136,9 +208,9 @@ def load_or_build_v2_tokenizer(
     local = V2_TOKENIZER_FILE
     if local.exists():
         return SubwordTokenizer.load(local)
-    restored = restore_v2_artifact(local)
-    if restored is not None and restored.exists():
-        return SubwordTokenizer.load(restored)
+    restored = restore_v2_artifact("tokenizer")
+    if restored and local.exists():
+        return SubwordTokenizer.load(local)
 
     texts = _collect_tokenizer_texts(dataset_path)
     print(f"[build_brain] Building tokenizer_v2 from {dataset_path} ...", flush=True)
@@ -190,34 +262,39 @@ def load_checkpoint(
     }
     ckpt = checkpoint_path
     if not ckpt.exists():
-        restored = restore_v2_artifact(ckpt)
-        if restored is not None:
-            ckpt = restored
+        kind = "brain"
+        if "identity" in ckpt.name:
+            kind = "identity"
+        elif "ouroboros" in ckpt.name:
+            kind = "ouroboros"
+        restored = restore_v2_artifact(kind)
+        if restored:
+            ckpt = get_v2_checkpoint(kind)
     if not ckpt.exists():
         return state
 
     blob = torch.load(ckpt, map_location=device, weights_only=False)
-    model_state = blob.get("model_state_dict", blob) if isinstance(blob, dict) else blob
+    model_state = blob.get("model_state_dict", blob.get("model", blob)) if isinstance(blob, dict) else blob
     model.load_state_dict(model_state, strict=strict)
     if isinstance(blob, dict):
         if optimizer is not None:
             try:
-                optimizer.load_state_dict(blob.get("optimizer_state_dict", {}))
+                optimizer.load_state_dict(blob.get("optimizer_state_dict", blob.get("optimizer", {})))
             except Exception:
                 pass
         if scheduler is not None:
             try:
-                scheduler.load_state_dict(blob.get("scheduler_state_dict", {}))
+                scheduler.load_state_dict(blob.get("scheduler_state_dict", blob.get("scheduler", {})))
             except Exception:
                 pass
         if mp_trainer is not None:
             try:
-                scaler_state = blob.get("scaler_state_dict")
+                scaler_state = blob.get("scaler_state_dict", blob.get("scaler"))
                 if scaler_state:
                     mp_trainer.load_state_dict(scaler_state)
             except Exception:
                 pass
-        state["global_step"] = int(blob.get("global_step", 0))
+        state["global_step"] = int(blob.get("global_step", blob.get("step", 0)))
         state["epoch"] = int(blob.get("epoch", 0))
         state["best_loss"] = float(blob.get("best_loss", float("inf")))
     state["loaded"] = True
@@ -236,7 +313,7 @@ def generate_text(
     top_k: int = 40,
 ) -> str:
     model.eval()
-    ids = tokenizer.encode(prompt, add_special_tokens=True)
+    ids = [tokenizer.bos_token_id] + tokenizer.encode(prompt, add_special_tokens=False)
     x = torch.tensor([ids], dtype=torch.long, device=device)
     for _ in range(max_new_tokens):
         x_cond = x[:, -model.block_size :]
@@ -250,10 +327,9 @@ def generate_text(
         x = torch.cat([x, next_token], dim=1)
         if int(next_token.item()) == tokenizer.eos_token_id:
             break
-    text = tokenizer.decode(x[0].tolist())
-    if prompt in text:
-        return text[len(prompt) :].strip()
-    return text.strip()
+    prompt_token_count = 1 + len(tokenizer.encode(prompt, add_special_tokens=False))
+    answer_ids = x[0].tolist()[prompt_token_count:]
+    return tokenizer.decode(answer_ids).strip()
 
 
 def model_summary(model: torch.nn.Module) -> dict[str, int]:
