@@ -9,6 +9,9 @@ import torch
 
 from training.v2_runtime import append_jsonl, generate_text, v2_report_path, write_json
 
+from anra_paths import inject_all_paths
+inject_all_paths()
+
 try:
     from symbolic_bridge import query_logic, query_math
 except Exception:

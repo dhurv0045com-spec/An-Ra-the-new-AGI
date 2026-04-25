@@ -32,8 +32,8 @@ class V2TrainingConfig:
     symbolic_examples_target: int = 192
     max_mixture_examples: int = 16000
     milestone_every_sessions: int = 5
-    plateau_window: int = 3
-    plateau_delta: float = 0.01
+    plateau_window: int = 5
+    plateau_delta: float = 0.08
 
 
 V2_MODEL = V2ModelConfig()

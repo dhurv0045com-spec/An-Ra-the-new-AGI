@@ -13,6 +13,9 @@ from torch.utils.data import Dataset
 from anra_paths import OUTPUT_V2_DIR, get_dataset_file, get_identity_file
 from training.v2_config import IDENTITY_KEYWORDS, TEACHER_REJECT_PATTERNS, V2_TRAINING
 
+from anra_paths import inject_all_paths
+inject_all_paths()
+
 try:
     from symbolic_bridge import query_code, query_logic, query_math
 except Exception:

@@ -280,6 +280,14 @@ def main() -> None:
         _write_run_report(run_report)
         return
 
+    # Auto-merge identity files before identity fine-tune
+    merge_script = ROOT / "scripts" / "merge_identity.py"
+    if merge_script.exists():
+        print("[Unified Trainer] Running merge_identity.py ...", flush=True)
+        run_cmd([sys.executable, str(merge_script)])
+    else:
+        print("[Unified Trainer] WARN: merge_identity.py not found — skipping", flush=True)
+
     identity_cmd = [
         sys.executable,
         "-m",
