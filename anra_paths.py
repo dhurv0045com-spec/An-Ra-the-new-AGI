@@ -4,6 +4,9 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
+# Legacy alias used by older notebooks and Gemini-generated Colab cells.
+# Keep this exported forever to avoid `ImportError: cannot import name 'PROJECT_ROOT'`.
+PROJECT_ROOT = ROOT
 
 CORE_DIR = ROOT / "core"
 TRAINING_DIR = ROOT / "training"
@@ -171,6 +174,11 @@ def get_v2_checkpoint(kind: str = "brain") -> Path:
     return candidates[0]
 
 
+def get_v2_checkpoints_dir() -> Path:
+    """Backward-compatible helper kept for legacy notebook code."""
+    return DRIVE_V2_CHECKPOINTS
+
+
 # ── Backward-compatibility: PathRegistry class ────────────────────────────────
 # Some legacy notebooks import `from anra_paths import PathRegistry`.
 # This class wraps all module-level constants so those imports succeed.
@@ -179,6 +187,7 @@ class PathRegistry:
     """Compatibility shim — exposes every path constant as a class attribute."""
 
     ROOT = ROOT
+    PROJECT_ROOT = PROJECT_ROOT
     CORE_DIR = CORE_DIR
     TRAINING_DIR = TRAINING_DIR
     INFERENCE_DIR = INFERENCE_DIR
@@ -251,3 +260,7 @@ class PathRegistry:
     @staticmethod
     def get_v2_checkpoint(kind: str = "brain") -> Path:
         return get_v2_checkpoint(kind)
+
+    @staticmethod
+    def get_v2_checkpoints_dir() -> Path:
+        return get_v2_checkpoints_dir()
