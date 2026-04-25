@@ -236,7 +236,7 @@ def generate_text(
     top_k: int = 40,
 ) -> str:
     model.eval()
-    ids = tokenizer.encode(prompt, add_special_tokens=True)
+    ids = [tokenizer.bos_token_id] + tokenizer.encode(prompt, add_special_tokens=False)
     x = torch.tensor([ids], dtype=torch.long, device=device)
     for _ in range(max_new_tokens):
         x_cond = x[:, -model.block_size :]
@@ -250,10 +250,9 @@ def generate_text(
         x = torch.cat([x, next_token], dim=1)
         if int(next_token.item()) == tokenizer.eos_token_id:
             break
-    text = tokenizer.decode(x[0].tolist())
-    if prompt in text:
-        return text[len(prompt) :].strip()
-    return text.strip()
+    prompt_token_count = 1 + len(tokenizer.encode(prompt, add_special_tokens=False))
+    answer_ids = x[0].tolist()[prompt_token_count:]
+    return tokenizer.decode(answer_ids).strip()
 
 
 def model_summary(model: torch.nn.Module) -> dict[str, int]:

@@ -31,10 +31,10 @@ class SubwordTokenizer:
         self.pad_token = "<pad>"
         self.bos_token = "<bos>"
         self.eos_token = "<eos>"
-        self.unk_token_id = self.token_to_id(self.unk_token)
-        self.pad_token_id = self.token_to_id(self.pad_token)
-        self.bos_token_id = self.token_to_id(self.bos_token)
-        self.eos_token_id = self.token_to_id(self.eos_token)
+        self.unk_token_id = self.token_to_id(self.unk_token) or 0
+        self.pad_token_id = self.token_to_id(self.pad_token) or 1
+        self.bos_token_id = self.token_to_id(self.bos_token) or 2
+        self.eos_token_id = self.token_to_id(self.eos_token) or 3
 
     @staticmethod
     def _try_import_tokenizers():

@@ -19,6 +19,20 @@ from training.v2_runtime import (
 
 inject_all_paths()
 
+try:
+    from anra_paths import inject_all_paths as _inject
+    _inject()
+    from identity_injector import IdentityInjector as _IdentityInjector
+    _IDENTITY_INJECTOR = _IdentityInjector()
+except Exception:
+    _IDENTITY_INJECTOR = None
+
+try:
+    from ghost_memory import GhostMemory as _GhostMemory
+    _GHOST_MEMORY = _GhostMemory()
+except Exception:
+    _GHOST_MEMORY = None
+
 
 @dataclass
 class GenerationConfig:
@@ -76,7 +90,16 @@ def _load_runtime():
     return model, tokenizer, checkpoint
 
 
-MODEL, TOKENIZER, LOADED_CHECKPOINT = _load_runtime()
+_MODEL = None
+_TOKENIZER = None
+_LOADED_CHECKPOINT = None
+
+
+def _get_runtime():
+    global _MODEL, _TOKENIZER, _LOADED_CHECKPOINT
+    if _MODEL is None:
+        _MODEL, _TOKENIZER, _LOADED_CHECKPOINT = _load_runtime()
+    return _MODEL, _TOKENIZER, _LOADED_CHECKPOINT
 
 
 def _apply_repetition_penalty(logits: torch.Tensor, generated_ids: list[int], cfg: GenerationConfig) -> torch.Tensor:
@@ -157,10 +180,14 @@ def detect_repetition(text: str) -> dict[str, object]:
 def generate_traced(prompt: str, cfg: GenerationConfig, *, session_id: str | None = None) -> GenerationTrace:
     if not prompt or not prompt.strip():
         raise ValueError("prompt must not be empty")
+    MODEL, TOKENIZER, LOADED_CHECKPOINT = _get_runtime()
+    del LOADED_CHECKPOINT
     _seed_all(cfg.seed)
 
-    ids = TOKENIZER.encode(prompt, add_special_tokens=True)
+    prompt_ids = TOKENIZER.encode(prompt, add_special_tokens=False)
+    ids = [TOKENIZER.bos_token_id] + prompt_ids
     generated_ids = ids[:]
+    prompt_token_count = len(ids)
     entropy_curve: list[float] = []
     max_prob_curve: list[float] = []
     stopped_by = "max_tokens"
@@ -186,11 +213,14 @@ def generate_traced(prompt: str, cfg: GenerationConfig, *, session_id: str | Non
             stopped_by = reason
             break
 
-    output_text = TOKENIZER.decode(generated_ids)
-    if prompt in output_text:
-        output_text = output_text.split(prompt, 1)[1].strip()
-    else:
-        output_text = output_text.strip()
+    answer_ids = generated_ids[prompt_token_count:]
+    output_text = TOKENIZER.decode(answer_ids).strip()
+
+    if _IDENTITY_INJECTOR is not None:
+        try:
+            output_text = _IDENTITY_INJECTOR.clean(output_text)
+        except Exception:
+            pass
 
     if session_id:
         _ACTIVE_GHOST["session_id"] = session_id
@@ -224,22 +254,50 @@ def generate(prompt: str, strategy: str = "nucleus", max_tokens: int = 200, **kw
 
 
 def generate_stream(prompt: str, cfg: GenerationConfig) -> Iterator[str]:
-    text = generate_traced(prompt, cfg).output
-    for token in text.split():
-        yield token + " "
+    MODEL, TOKENIZER, _ = _get_runtime()
+    _seed_all(cfg.seed)
+    prompt_ids = TOKENIZER.encode(prompt, add_special_tokens=False)
+    generated_ids = [TOKENIZER.bos_token_id] + prompt_ids
+    prompt_token_count = len(generated_ids)
+    for _ in range(max(0, cfg.max_tokens)):
+        x = torch.tensor(
+            [generated_ids[-MODEL.block_size:]], dtype=torch.long, device=DEVICE
+        )
+        with torch.no_grad():
+            logits, _ = MODEL(x)
+        next_id, _, _ = _sample_next_token(logits[0, -1, :], cfg, generated_ids)
+        generated_ids.append(next_id)
+        if next_id == TOKENIZER.eos_token_id:
+            break
+        token_text = TOKENIZER.decode([next_id])
+        if token_text:
+            yield token_text
 
 
 def load_ghost_state(session_id: str) -> None:
     _ACTIVE_GHOST.clear()
-    _ACTIVE_GHOST.update(_GHOST_STORE.get(session_id, {}))
+    if _GHOST_MEMORY is not None:
+        try:
+            stored = _GHOST_MEMORY.retrieve(session_id) or {}
+            _ACTIVE_GHOST.update(stored)
+        except Exception:
+            _ACTIVE_GHOST.update(_GHOST_STORE.get(session_id, {}))
+    else:
+        _ACTIVE_GHOST.update(_GHOST_STORE.get(session_id, {}))
     _ACTIVE_GHOST["session_id"] = session_id
 
 
 def save_ghost_state(session_id: str) -> None:
     _GHOST_STORE[session_id] = dict(_ACTIVE_GHOST)
+    if _GHOST_MEMORY is not None:
+        try:
+            _GHOST_MEMORY.store(session_id, dict(_ACTIVE_GHOST))
+        except Exception:
+            pass
 
 
 def get_model_info() -> dict[str, object]:
+    MODEL, TOKENIZER, LOADED_CHECKPOINT = _get_runtime()
     summary = model_summary(MODEL)
     return {
         "model_line": "v2",

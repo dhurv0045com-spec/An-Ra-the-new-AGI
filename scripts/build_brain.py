@@ -211,6 +211,7 @@ def train_anra_v2(
                     heapq.heapreplace(hard_examples, entry)
 
             if accum_micro_steps >= V2_TRAINING.grad_accum_steps:
+                torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
                 mp.step(optimizer)
                 mp.update()
                 scheduler.step()
@@ -238,6 +239,7 @@ def train_anra_v2(
                 break
 
     if accum_micro_steps > 0:
+        torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
         mp.step(optimizer)
         mp.update()
         scheduler.step()

@@ -42,8 +42,6 @@ for p3 in ["identity (45N)", "ouroboros (45O)", "ghost_memory (45P)", "symbolic_
         sys.path.insert(0, str(p))
 
 # Set working directory to 45M so all relative state/ paths work
-os.chdir(str(PHASE2_45M))
-
 # Add 45M to path so system.py imports work
 sys.path.insert(0, str(PHASE2_45M))
 
