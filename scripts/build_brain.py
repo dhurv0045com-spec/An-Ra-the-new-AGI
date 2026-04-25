@@ -141,7 +141,7 @@ def train_anra_v2(
     # ── AUTO-RESUME ──────────────────────────────────────────────────────────────
     ckpt_path = get_v2_checkpoint("brain")
     if ckpt_path.exists():
-        print(f"[Resume] Found checkpoint: {ckpt_path}")
+        print(f"[Resume] Found checkpoint: {ckpt_path}", flush=True)
         try:
             ckpt = torch.load(ckpt_path, map_location=device, weights_only=False)
             model.load_state_dict(ckpt.get("model", ckpt.get("model_state_dict", {})))
@@ -155,14 +155,14 @@ def train_anra_v2(
             start_step = int(ckpt.get("step", ckpt.get("global_step", 0)))
             best_loss = float(ckpt.get("best_loss", float("inf")))
             session_start_loss = best_loss
-            print(f"[Resume] Resuming from step={start_step}  best_loss={best_loss:.4f}")
+            print(f"[Resume] Resuming from step={start_step}  best_loss={best_loss:.4f}", flush=True)
         except Exception as e:
-            print(f"[Resume] Checkpoint load failed ({e}) — starting from scratch")
+            print(f"[Resume] Checkpoint load failed ({e}) — starting from scratch", flush=True)
             start_step = 0
             best_loss = float("inf")
             session_start_loss = float("inf")
     else:
-        print("[Resume] No checkpoint found — starting from scratch")
+        print("[Resume] No checkpoint found — starting from scratch", flush=True)
     # ─────────────────────────────────────────────────────────────────────────────
 
     global_step = start_step
@@ -250,8 +250,19 @@ def train_anra_v2(
                 accum_micro_steps = 0
 
                 avg_loss = rolling_loss / max(1, rolling_count)
+                loss_val = avg_loss
                 last_avg_loss = avg_loss
                 best_loss = min(best_loss, avg_loss) if math.isfinite(best_loss) else avg_loss
+
+                elapsed_min = (time.time() - start) / 60.0
+                if session_step % 10 == 0:
+                    print(
+                        f"  step={global_step:6d}"
+                        f"  loss={loss_val:.4f}"
+                        f"  best={best_loss:.4f}"
+                        f"  elapsed={elapsed_min:.1f}m",
+                        flush=True,
+                    )
 
                 if global_step in EARLY_STATUS_STEPS or global_step % 200 == 0:
                     elapsed_min = (time.time() - start) / 60.0
@@ -304,6 +315,7 @@ def train_anra_v2(
         "global_step": global_step,
         "epoch": epoch,
         "best_loss": best_loss,
+        "sessions_completed": ckpt.get("sessions_completed", 0) + 1 if "ckpt" in dir() else 1,
         "model_config": model.model_config(),
         "mix_report": mix_report.to_dict(),
     }
@@ -376,17 +388,17 @@ def train_anra_v2(
     print("", flush=True)
 
     # ── SESSION SUMMARY ──────────────────────────────────────────────────────────
-    print("\n" + "=" * 50)
-    print("SESSION COMPLETE")
-    print(f"  Steps this session : {session_step}")
-    print(f"  Total steps ever   : {global_step}")
-    print(f"  Loss at start      : {session_start_loss:.4f}")
-    print(f"  Best loss achieved : {best_loss:.4f}")
+    print("\n" + "=" * 50, flush=True)
+    print("SESSION COMPLETE", flush=True)
+    print(f"  Steps this session : {session_step}", flush=True)
+    print(f"  Total steps ever   : {global_step}", flush=True)
+    print(f"  Loss at start      : {session_start_loss:.4f}", flush=True)
+    print(f"  Best loss achieved : {best_loss:.4f}", flush=True)
     if session_start_loss != float("inf"):
         improvement = session_start_loss - best_loss
         direction = "improved" if improvement > 0 else "no improvement"
-        print(f"  Improvement        : {improvement:+.4f}  ({direction})")
-    print("=" * 50 + "\n")
+        print(f"  Improvement        : {improvement:+.4f}  ({direction})", flush=True)
+    print("=" * 50 + "\n", flush=True)
     # ─────────────────────────────────────────────────────────────────────────────
 
     return {
@@ -429,7 +441,7 @@ def main() -> None:
         symbolic_ratio=args.symbolic_ratio,
         replay_ratio=args.replay_ratio,
     )
-    print(result)
+    print(result, flush=True)
 
 
 if __name__ == "__main__":
