@@ -288,6 +288,9 @@ def main() -> None:
     else:
         print("[Unified Trainer] WARN: merge_identity.py not found — skipping", flush=True)
 
+    session_timeout_minutes = max(1, args.session_minutes - V2_TRAINING.unified_trainer_overhead_minutes)
+    print(f"[Unified Trainer] Calculated finetuning duration: {session_timeout_minutes} minutes", flush=True)
+
     identity_cmd = [
         sys.executable,
         "-m",
@@ -295,7 +298,7 @@ def main() -> None:
         "--data_path",
         str(dataset),
         "--max_minutes",
-        str(args.identity_minutes),
+        str(session_timeout_minutes),
     ]
     if args.max_examples is not None:
         identity_cmd.extend(["--max_examples", str(args.max_examples)])
@@ -433,3 +436,4 @@ AnRaTrainer = UnifiedTrainer
 
 if __name__ == "__main__":
     main()
+             
