@@ -34,6 +34,7 @@ class V2TrainingConfig:
     milestone_every_sessions: int = 5
     plateau_window: int = 5
     plateau_delta: float = 0.08
+    unified_trainer_overhead_minutes: int = 5
 
 
 V2_MODEL = V2ModelConfig()
