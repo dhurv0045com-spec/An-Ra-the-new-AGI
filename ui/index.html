@@ -1,18 +1,91 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>An-Ra | AGI Control Systems</title>
-    <meta name="description" content="Official neural interface for the An-Ra AGI system." />
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=JetBrains+Mono:wght@400;500&family=Outfit:wght@500;700&display=swap" rel="stylesheet">
-    <script type="module" crossorigin src="/assets/index-o8QBswVy.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-B-Cbmqur.css">
-  </head>
-  <body>
-    <div id="root"></div>
-  </body>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>An-Ra Sovereign UI</title>
+  <style>
+    body { margin:0; font-family: Inter, sans-serif; background:#0d1117; color:#e6edf3; }
+    .app { display:flex; height:100vh; }
+    .sidebar { width:280px; padding:14px; border-right:1px solid #30363d; overflow:auto; }
+    .main { flex:1; display:flex; flex-direction:column; }
+    .card { background:#161b22; border:1px solid #30363d; border-radius:10px; padding:10px; margin-bottom:10px; }
+    button { background:#21262d; color:#e6edf3; border:1px solid #30363d; padding:8px 10px; border-radius:8px; cursor:pointer; }
+    button:hover { border-color:#58a6ff; }
+    .accent { background:#1f6feb; }
+    .chat { flex:1; overflow:auto; padding:14px; }
+    .msg { max-width:75%; padding:10px; margin:8px 0; border-radius:10px; }
+    .user { margin-left:auto; background:#1f6feb; }
+    .anra { background:#161b22; border-left:3px solid #58a6ff; }
+    .topbar { display:flex; justify-content:flex-end; gap:8px; padding:10px; border-bottom:1px solid #30363d; }
+    .inputbar { display:flex; padding:10px; gap:8px; border-top:1px solid #30363d; }
+    input, select { width:100%; background:#0d1117; color:#e6edf3; border:1px solid #30363d; border-radius:8px; padding:8px; }
+    .typing { opacity:.75; font-style:italic; }
+    .overlay { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; background:rgba(13,17,23,.9); z-index:99; }
+    .hidden { display:none; }
+    .ok { color:#3fb950; }
+    .small { font-size:12px; opacity:.7; }
+    .toast { position:fixed; right:12px; bottom:12px; background:#f85149; padding:10px; border-radius:8px; }
+  </style>
+</head>
+<body>
+<div id="overlay" class="overlay">⏳ Loading model...</div>
+<div class="app">
+  <aside class="sidebar">
+    <div class="card"><b>An-Ra Status</b><div id="status"></div></div>
+    <div class="card">
+      <label>Temperature <span id="tempV">0.85</span></label><input id="temp" type="range" min="0.3" max="1.4" step="0.01" value="0.85"/>
+      <label>Response Tokens <span id="maxV">120</span></label><input id="max" type="range" min="20" max="400" step="1" value="120"/>
+      <label>Top-K <span id="topV">40</span></label><input id="topk" type="range" min="5" max="100" step="1" value="40"/>
+      <button id="identityBtn">Identity: ON</button>
+    </div>
+    <hr>
+    <div class="card">
+      <b>Dataset Picker</b><br><br>
+      <button id="scanBtn">Scan Drive</button>
+      <select id="files"></select><br><br>
+      <button id="useFile">Use This File</button>
+      <div id="activeDataset" class="ok small"></div>
+    </div>
+    <hr>
+    <div class="card">
+      <b>Training</b>
+      <label>Session Minutes</label><input id="mins" type="number" value="30"/>
+      <label>Mode</label><select id="mode"><option>train</option><option selected>session</option></select><br><br>
+      <button class="accent" id="startTrain">▶ Start Training</button>
+      <button id="stopTrain">⏹ Stop Training</button>
+      <div id="trainStatus" class="small">idle</div>
+      <div id="liveLoss" class="small">loss: -</div>
+    </div>
+  </aside>
+  <main class="main">
+    <div class="topbar"><button id="saveBtn">Save Conversation</button><button id="clearBtn">Clear Chat</button></div>
+    <div id="chat" class="chat"></div>
+    <div class="inputbar"><input id="message" placeholder="Type your message..."/><button class="accent" id="send">Send</button></div>
+  </main>
+</div>
+<div id="toast" class="toast hidden"></div>
+<script>
+let useIdentity=true;
+const $=id=>document.getElementById(id);
+function toast(t){const el=$("toast");el.textContent=t;el.classList.remove("hidden");setTimeout(()=>el.classList.add("hidden"),2500)}
+function addMsg(role,text,elapsed){const d=document.createElement("div");d.className=`msg ${role}`;d.innerHTML=`<div>${text}</div>${elapsed?`<div class='small'>${elapsed.toFixed(2)}s</div>`:""}`;$("chat").appendChild(d);$("chat").scrollTop=$("chat").scrollHeight;}
+async function api(path,opt={}){const r=await fetch(path,{headers:{"Content-Type":"application/json"},...opt});const j=await r.json();if(!r.ok) throw new Error(j.error||"API error");return j;}
+async function refreshStatus(){try{const s=await api('/status');$("status").innerHTML=`step: ${s.step}<br>loss: ${s.best_loss}<br>device: ${s.device}<br>params: ${s.parameters}`;if(s.loaded) $("overlay").classList.add("hidden");}catch(e){toast(e.message)}}
+async function send(){const text=$("message").value.trim(); if(!text)return; addMsg('user',text); $("message").value='';
+ const t=document.createElement('div'); t.className='msg anra typing'; t.textContent='An-Ra is typing...'; $("chat").appendChild(t);
+ try{const r=await api('/chat',{method:'POST',body:JSON.stringify({message:text,temperature:+$("temp").value,max_tokens:+$("max").value,top_k:+$("topk").value,use_identity:useIdentity})});t.remove();addMsg('anra',r.response,r.elapsed);}catch(e){t.remove();toast(e.message)} }
+$("send").onclick=send; $("message").addEventListener('keydown',e=>{if(e.key==='Enter')send()});
+$("temp").oninput=e=>$("tempV").textContent=e.target.value; $("max").oninput=e=>$("maxV").textContent=e.target.value; $("topk").oninput=e=>$("topV").textContent=e.target.value;
+$("identityBtn").onclick=async()=>{useIdentity=!useIdentity;$("identityBtn").textContent=`Identity: ${useIdentity?'ON':'OFF'}`;try{await api('/set_identity',{method:'POST',body:JSON.stringify({enabled:useIdentity})})}catch(e){toast(e.message)}};
+$("clearBtn").onclick=async()=>{try{await api('/clear',{method:'POST'});$("chat").innerHTML='';}catch(e){toast(e.message)}};
+$("saveBtn").onclick=async()=>{try{const r=await api('/save_conversation',{method:'POST'});toast(`Saved: ${r.saved}`)}catch(e){toast(e.message)}};
+$("scanBtn").onclick=async()=>{try{const files=await api('/training_files');const sel=$("files");sel.innerHTML='';files.forEach(f=>{const o=document.createElement('option');o.value=f.path;o.textContent=`${f.name} (${(f.size/1024).toFixed(1)} KB)`;sel.appendChild(o)});}catch(e){toast(e.message)}};
+$("useFile").onclick=async()=>{try{const r=await api('/set_dataset',{method:'POST',body:JSON.stringify({path:$("files").value})});$("activeDataset").textContent=`Active: ${r.source}`;}catch(e){toast(e.message)}};
+$("startTrain").onclick=async()=>{try{await api('/start_training',{method:'POST',body:JSON.stringify({session_minutes:+$("mins").value,mode:$("mode").value})});$("trainStatus").textContent='running';}catch(e){toast(e.message)}};
+$("stopTrain").onclick=async()=>{try{await api('/stop_training',{method:'POST'});$("trainStatus").textContent='stopping';}catch(e){toast(e.message)}};
+setInterval(refreshStatus,5000); setInterval(async()=>{try{const s=await api('/training_status');$("trainStatus").textContent=s.running?'running':'idle';$("liveLoss").textContent=`loss: ${s.current_loss??'-'}`;}catch{}},3000);
+refreshStatus();
+</script>
+</body>
 </html>
