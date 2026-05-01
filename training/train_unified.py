@@ -11,6 +11,8 @@ from pathlib import Path
 
 import torch
 
+from startup_checks import assert_flash_sdp_ready
+
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from anra_paths import DRIVE_DIR, ROOT, TRAINING_DATA_DIR, ensure_dirs, inject_all_paths
@@ -197,6 +199,7 @@ def _run_eval_only() -> dict[str, object]:
 
 
 def main() -> None:
+    assert_flash_sdp_ready("training.train_unified")
     ap = argparse.ArgumentParser(description="An-Ra unified training dispatcher")
     ap.add_argument("--mode", default="session", choices=["session", "train", "resume", "eval", "status"])
     ap.add_argument("--data_path", default=None)
