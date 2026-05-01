@@ -29,6 +29,7 @@ import argparse
 import subprocess
 from pathlib import Path
 from anra_paths import inject_all_paths, ensure_dirs
+from startup_checks import assert_flash_sdp_ready
 
 # ── Resolve all project paths ─────────────────────────────────────────────────
 PROJECT_ROOT = Path(__file__).resolve().parent
@@ -161,6 +162,7 @@ def _run_training(mode: str, session_minutes: int) -> int:
 
 
 def main():
+    assert_flash_sdp_ready("anra.py")
     # ── Extended parser ───────────────────────────────────────────────────────
     parser = build_parser()
     parser.add_argument("--phase3-status",   action="store_true",
