@@ -25,9 +25,12 @@ from anra_paths import (
 from anra_brain import CausalTransformerV2
 from tokenizer.subword_tokenizer import SubwordTokenizer
 from training.v2_config import V2_MODEL, V2_REPORT_FILES
+from runtime.drive_session_manager import DriveSessionManager
 
 
 ensure_dirs()
+
+DRIVE_SESSION_MANAGER = DriveSessionManager(DRIVE_DIR)
 
 
 def canonical_v2_checkpoint(kind: str = "brain") -> Path:
@@ -103,25 +106,11 @@ def restore_v2_artifact(name: str = "brain") -> bool:
         "ouroboros": "anra_v2_ouroboros.pt",
         "tokenizer": "tokenizer_v2.json",
     }
-    drive_file = DRIVE_V2_CHECKPOINTS / drive_filenames.get(name, f"anra_v2_{name}.pt")
-    drive_root_file = Path("/content/drive/MyDrive/AnRa") / drive_filenames.get(name, f"anra_v2_{name}.pt")
-
-    source = None
-    if drive_file.exists():
-        source = drive_file
-    elif drive_root_file.exists():
-        source = drive_root_file
-
-    if source is None:
+    restored = DRIVE_SESSION_MANAGER.load_family(name, local_path)
+    if not restored:
         print(f"[Restore] {name}: not on Drive — will start fresh")
         return False
 
-    if local_path.exists() and local_path.stat().st_mtime >= source.stat().st_mtime:
-        step = _read_step(local_path)
-        print(f"[Restore] {name}: already current (step={step})")
-        return True
-
-    shutil.copy2(source, local_path)
     step = _read_step(local_path)
     print(f"[Restore] {name}: restored from Drive (step={step})")
     return True
@@ -153,14 +142,9 @@ def sync_to_drive(name: str = "brain") -> bool:
     }
     drive_filename = drive_filenames.get(name, f"anra_v2_{name}.pt")
 
-    DRIVE_V2_CHECKPOINTS.mkdir(parents=True, exist_ok=True)
-    drive_target = DRIVE_V2_CHECKPOINTS / drive_filename
-    drive_root = Path("/content/drive/MyDrive/AnRa") / drive_filename
-
+    del drive_filename
     try:
-        drive_root.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(local_path, drive_target)
-        shutil.copy2(local_path, drive_root)
+        DRIVE_SESSION_MANAGER.save_family(name, local_path)
         step = _read_step(local_path)
         size_kb = local_path.stat().st_size // 1024
         print(f"[Drive] {name}: saved (step={step}, {size_kb}KB)")
