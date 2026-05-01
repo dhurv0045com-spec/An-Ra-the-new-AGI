@@ -17,7 +17,7 @@ from anra_paths import (
     V2_BRAIN_CHECKPOINT,
     V2_IDENTITY_CHECKPOINT,
     V2_OUROBOROS_CHECKPOINT,
-    V2_TOKENIZER_FILE,
+    V3_TOKENIZER_FILE,
     ensure_dirs,
     get_dataset_file,
     get_identity_file,
@@ -30,6 +30,8 @@ from runtime.drive_session_manager import DriveSessionManager
 
 
 ensure_dirs()
+EXPECTED_TOKENIZER_VOCAB_SIZE = 8192
+EXPECTED_SPECIAL_TOKENS = ["<unk>", "<pad>", "<bos>", "<eos>"]
 
 DRIVE_SESSION_MANAGER = DriveSessionManager(DRIVE_DIR)
 
@@ -95,7 +97,7 @@ def restore_v2_artifact(name: str = "brain") -> bool:
         "brain": get_v2_checkpoint("brain"),
         "identity": get_v2_checkpoint("identity"),
         "ouroboros": get_v2_checkpoint("ouroboros"),
-        "tokenizer": V2_TOKENIZER_FILE,
+        "tokenizer": V3_TOKENIZER_FILE,
         "eval_summary": v2_report_path("eval_summary"),
     }
     local_path = local_map.get(name, get_v2_checkpoint(name))
@@ -134,7 +136,7 @@ def sync_to_drive(name: str = "brain") -> bool:
         "brain": get_v2_checkpoint("brain"),
         "identity": get_v2_checkpoint("identity"),
         "ouroboros": get_v2_checkpoint("ouroboros"),
-        "tokenizer": V2_TOKENIZER_FILE,
+        "tokenizer": V3_TOKENIZER_FILE,
         "eval_summary": v2_report_path("eval_summary"),
     }
     local_path = local_map.get(name, get_v2_checkpoint(name))
@@ -201,22 +203,22 @@ def load_or_build_v2_tokenizer(
     vocab_size: int = V2_MODEL.vocab_size,
 ) -> TokenizerAdapter:
     dataset_path = dataset_path or get_dataset_file()
-    local = V2_TOKENIZER_FILE
+    local = V3_TOKENIZER_FILE
     if local.exists():
-        return TokenizerAdapter.load(local, model_path=local.with_suffix(".model"))
+        tokenizer = SubwordTokenizer.load(local)
+        assert_tokenizer_contract(local, tokenizer)
+        return tokenizer
     restored = restore_v2_artifact("tokenizer")
     if restored and local.exists():
-        return TokenizerAdapter.load(local, model_path=local.with_suffix(".model"))
+        tokenizer = SubwordTokenizer.load(local)
+        assert_tokenizer_contract(local, tokenizer)
+        return tokenizer
 
     texts = _collect_tokenizer_texts(dataset_path)
     print(f"[build_brain] Building tokenizer_v3 from {dataset_path} ...", flush=True)
-    tokenizer = TokenizerAdapter.train_from_texts(
-        texts,
-        vocab_size=vocab_size,
-        output_json=local,
-        output_model=local.with_suffix(".model"),
-    )
-    tokenizer.save(local, model_path=local.with_suffix(".model"))
+    tokenizer = SubwordTokenizer.train_from_texts(texts, vocab_size=vocab_size)
+    tokenizer.save(local)
+    assert_tokenizer_contract(local, tokenizer)
     try:
         drive_tok = DRIVE_DIR / "v2" / local.name
         drive_tok.parent.mkdir(parents=True, exist_ok=True)
@@ -224,10 +226,27 @@ def load_or_build_v2_tokenizer(
     except Exception:
         pass
     print(
-        f"[build_brain] tokenizer_v3 built + mirrored to Drive. vocab_size={tokenizer.vocab_size()}",
+        f"[build_brain] tokenizer_v3 built + mirrored to Drive. vocab_size={tokenizer.vocab_size}",
         flush=True,
     )
     return tokenizer
+
+
+def assert_tokenizer_contract(path: Path, tokenizer: SubwordTokenizer) -> None:
+    meta_path = path.with_suffix(path.suffix + ".meta.json")
+    meta = json.loads(meta_path.read_text(encoding="utf-8")) if meta_path.exists() else {}
+    vocab_size = int(meta.get("vocab_size", tokenizer.vocab_size))
+    special_tokens = list(meta.get("special_tokens", tokenizer.special_tokens))
+    if vocab_size != EXPECTED_TOKENIZER_VOCAB_SIZE:
+        raise AssertionError(
+            f"Tokenizer contract mismatch: vocab_size={vocab_size}, expected={EXPECTED_TOKENIZER_VOCAB_SIZE} "
+            f"(meta={meta_path})"
+        )
+    if special_tokens != EXPECTED_SPECIAL_TOKENS:
+        raise AssertionError(
+            f"Tokenizer contract mismatch: special_tokens={special_tokens}, expected={EXPECTED_SPECIAL_TOKENS} "
+            f"(meta={meta_path})"
+        )
 
 
 def build_v2_model(*, vocab_size: int, block_size: int = V2_MODEL.block_size) -> CausalTransformerV2:
