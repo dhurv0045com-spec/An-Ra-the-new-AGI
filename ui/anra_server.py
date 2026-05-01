@@ -19,7 +19,7 @@ if not REPO_PATH.exists():
 if str(REPO_PATH) not in sys.path:
     sys.path.insert(0, str(REPO_PATH))
 
-from anra_paths import V2_TOKENIZER_FILE, get_v2_checkpoint, inject_all_paths  # noqa: E402
+from anra_paths import DRIVE_DIR, TRAINING_DATA_DIR, V2_TOKENIZER_FILE, get_v2_checkpoint, inject_all_paths  # noqa: E402
 
 inject_all_paths()
 
@@ -31,8 +31,8 @@ app = Flask(__name__, static_folder=".", static_url_path="")
 CORS(app)
 
 IDENTITY_PREFIX = "You are An-Ra, a sovereign AI built from scratch by Ankit."
-DRIVE_ROOT = Path("/content/drive/MyDrive/AnRa")
-DATASET_TARGET = REPO_PATH / "training_data" / "anra_dataset_v6_1.txt"
+DRIVE_ROOT = DRIVE_DIR
+DATASET_TARGET = TRAINING_DATA_DIR / "anra_dataset_v6_1.txt"
 
 state = {
     "loaded": False,

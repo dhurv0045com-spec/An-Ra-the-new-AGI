@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
 import torch
 
 from anra_brain import CausalTransformerV2
+from anra_paths import DATASET_PRIMARY
 from tokenizer.subword_tokenizer import SubwordTokenizer
 from training.v2_data_mix import IdentityStyleFilter, build_v2_training_examples
 
@@ -26,7 +25,7 @@ def test_identity_style_filter_rewrites_robotic_phrasing() -> None:
 
 
 def test_v2_mix_keeps_own_data_dominant() -> None:
-    dataset = Path("training_data/anra_dataset_v6_1.txt")
+    dataset = DATASET_PRIMARY
     examples, report = build_v2_training_examples(dataset_path=dataset, max_examples=400)
     own = report.realized_counts.get("own", 0)
     identity = report.realized_counts.get("identity", 0)

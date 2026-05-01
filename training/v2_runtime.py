@@ -13,6 +13,7 @@ from anra_paths import (
     DRIVE_V2_CHECKPOINTS,
     OUTPUT_V2_DIR,
     ROOT,
+    TEACHER_REASONING_V2_FILE,
     V2_BRAIN_CHECKPOINT,
     V2_IDENTITY_CHECKPOINT,
     V2_OUROBOROS_CHECKPOINT,
@@ -106,8 +107,16 @@ def restore_v2_artifact(name: str = "brain") -> bool:
         "ouroboros": "anra_v2_ouroboros.pt",
         "tokenizer": "tokenizer_v3.json",
     }
-    restored = DRIVE_SESSION_MANAGER.load_family(name, local_path)
-    if not restored:
+    drive_file = DRIVE_V2_CHECKPOINTS / drive_filenames.get(name, f"anra_v2_{name}.pt")
+    drive_root_file = DRIVE_DIR / drive_filenames.get(name, f"anra_v2_{name}.pt")
+
+    source = None
+    if drive_file.exists():
+        source = drive_file
+    elif drive_root_file.exists():
+        source = drive_root_file
+
+    if source is None:
         print(f"[Restore] {name}: not on Drive — will start fresh")
         return False
 
@@ -142,7 +151,10 @@ def sync_to_drive(name: str = "brain") -> bool:
     }
     drive_filename = drive_filenames.get(name, f"anra_v2_{name}.pt")
 
-    del drive_filename
+    DRIVE_V2_CHECKPOINTS.mkdir(parents=True, exist_ok=True)
+    drive_target = DRIVE_V2_CHECKPOINTS / drive_filename
+    drive_root = DRIVE_DIR / drive_filename
+
     try:
         DRIVE_SESSION_MANAGER.save_family(name, local_path)
         step = _read_step(local_path)
@@ -176,7 +188,7 @@ def _collect_tokenizer_texts(dataset_path: Path) -> list[str]:
     identity_path = get_identity_file()
     if identity_path.exists():
         texts.append(identity_path.read_text(encoding="utf-8", errors="replace"))
-    teacher_path = ROOT / "training_data" / "teacher_reasoning_v2.jsonl"
+    teacher_path = TEACHER_REASONING_V2_FILE
     if teacher_path.exists():
         lines = teacher_path.read_text(encoding="utf-8", errors="replace").splitlines()
         texts.extend(line for line in lines if line.strip())
