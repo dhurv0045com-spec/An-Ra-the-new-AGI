@@ -29,6 +29,7 @@ from training.v2_runtime import (
     load_or_build_v2_tokenizer,
     model_summary,
     sync_to_drive,
+    DRIVE_SESSION_MANAGER,
     sync_v2_artifacts,
     v2_report_path,
     write_json,
@@ -206,6 +207,13 @@ def train_anra_v2(
     print(f"  Data mix     : {mix_report.realized_counts}", flush=True)
     print("=" * 62, flush=True)
     print("", flush=True)
+
+    def _autosave() -> None:
+        sync_to_drive("brain")
+        sync_to_drive("tokenizer")
+
+    DRIVE_SESSION_MANAGER.start_autosave(_autosave)
+    DRIVE_SESSION_MANAGER.register_sigterm_hook(_autosave)
 
     while time.time() < end_at:
         epoch += 1
