@@ -42,8 +42,8 @@ DRIVE_MEMORY = DRIVE_DIR / "memory_db"
 DRIVE_SESSIONS = DRIVE_DIR / "sessions"
 DRIVE_V2_DIR = DRIVE_DIR / "v2"
 DRIVE_V2_CHECKPOINTS = DRIVE_V2_DIR / "checkpoints"
-DRIVE_TOKENIZER_DIR = DRIVE_DIR / "tokenizer"
-DRIVE_TOKENIZER_V3_DIR = DRIVE_TOKENIZER_DIR / "v3"
+DATASET = TRAINING_DATA_DIR / "anra_dataset_v6_1.txt"
+DATASET_LEGACY = DRIVE_DIR / "anra_dataset_v6_1.txt"
 
 OUTPUT_V2_DIR = ROOT / "output" / "v2"
 V2_BRAIN_CHECKPOINT = ROOT / "anra_v2_brain.pt"
@@ -104,14 +104,11 @@ def ensure_dirs() -> None:
 
 def get_dataset_file() -> Path:
     """Find the primary training dataset."""
-    candidates = [
-        DATASET_PRIMARY,
-        DATASET_FALLBACK,
-    ]
-    for c in candidates:
-        if c.exists():
-            return c
-    return DATASET_PRIMARY
+    if DATASET.exists():
+        return DATASET
+    if DATASET_LEGACY.exists():
+        return DATASET_LEGACY
+    return DATASET
 
 
 def get_tokenizer_file() -> Path:
@@ -237,8 +234,8 @@ class PathRegistry:
     DRIVE_SESSIONS = DRIVE_SESSIONS
     DRIVE_V2_DIR = DRIVE_V2_DIR
     DRIVE_V2_CHECKPOINTS = DRIVE_V2_CHECKPOINTS
-    DRIVE_TOKENIZER_DIR = DRIVE_TOKENIZER_DIR
-    DRIVE_TOKENIZER_V3_DIR = DRIVE_TOKENIZER_V3_DIR
+    DATASET = DATASET
+    DATASET_LEGACY = DATASET_LEGACY
     OUTPUT_V2_DIR = OUTPUT_V2_DIR
     V2_BRAIN_CHECKPOINT = V2_BRAIN_CHECKPOINT
     V2_IDENTITY_CHECKPOINT = V2_IDENTITY_CHECKPOINT
