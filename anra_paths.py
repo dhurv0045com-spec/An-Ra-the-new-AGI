@@ -16,6 +16,9 @@ CONFIG_DIR = ROOT / "config"
 SCRIPTS_DIR = ROOT / "scripts"
 TESTS_DIR = ROOT / "tests"
 TRAINING_DATA_DIR = ROOT / "training_data"
+OUTPUT_DIR = ROOT / "output"
+STATE_DIR = ROOT / "state"
+WORKSPACE_DIR = ROOT / "workspace"
 
 PHASE2_DIR = ROOT / "phase2"
 FINE_TUNING_DIR = PHASE2_DIR / "fine_tuning (45I)"
@@ -39,19 +42,31 @@ DRIVE_MEMORY = DRIVE_DIR / "memory_db"
 DRIVE_SESSIONS = DRIVE_DIR / "sessions"
 DRIVE_V2_DIR = DRIVE_DIR / "v2"
 DRIVE_V2_CHECKPOINTS = DRIVE_V2_DIR / "checkpoints"
+DRIVE_TOKENIZER_DIR = DRIVE_DIR / "tokenizer"
+DRIVE_TOKENIZER_V3_DIR = DRIVE_TOKENIZER_DIR / "v3"
 
 OUTPUT_V2_DIR = ROOT / "output" / "v2"
 V2_BRAIN_CHECKPOINT = ROOT / "anra_v2_brain.pt"
 V2_IDENTITY_CHECKPOINT = ROOT / "anra_v2_identity.pt"
 V2_OUROBOROS_CHECKPOINT = ROOT / "anra_v2_ouroboros.pt"
 V2_TOKENIZER_FILE = TOKENIZER_DIR / "tokenizer_v2.json"
+V3_TOKENIZER_FILE = TOKENIZER_DIR / "tokenizer_v3.json"
+V3_TOKENIZER_META_FILE = TOKENIZER_DIR / "tokenizer_v3.json.meta.json"
+DATASET_PRIMARY = TRAINING_DATA_DIR / "anra_dataset_v6_1.txt"
+DATASET_FALLBACK = DRIVE_DIR / "anra_dataset_v6_1.txt"
+TEACHER_REASONING_V2_FILE = TRAINING_DATA_DIR / "teacher_reasoning_v2.jsonl"
+MEMORY_DB_DIR = DRIVE_DIR / "memory_db"
+GOALS_FILE = STATE_DIR / "goals.json"
+REPLAY_BUFFER_FILE = STATE_DIR / "replay_buffer.jsonl"
+STATE_DB_FILE = STATE_DIR / "anra_state.db"
+AUDIT_REPORT_FILE = OUTPUT_V2_DIR / "audit_report.json"
 
 REQUIRED_DIRS = [
-    ROOT / "state",
-    ROOT / "output" / "checkpoints",
-    ROOT / "output" / "logs",
+    STATE_DIR,
+    OUTPUT_DIR / "checkpoints",
+    OUTPUT_DIR / "logs",
     OUTPUT_V2_DIR,
-    ROOT / "training_data",
+    TRAINING_DATA_DIR,
     ROOT / "checkpoints",
     ROOT / "history",
 ]
@@ -90,13 +105,13 @@ def ensure_dirs() -> None:
 def get_dataset_file() -> Path:
     """Find the primary training dataset."""
     candidates = [
-        TRAINING_DATA_DIR / "anra_dataset_v6_1.txt",
-        DRIVE_DIR / "anra_dataset_v6_1.txt",
+        DATASET_PRIMARY,
+        DATASET_FALLBACK,
     ]
     for c in candidates:
         if c.exists():
             return c
-    return TRAINING_DATA_DIR / "anra_dataset_v6_1.txt"
+    return DATASET_PRIMARY
 
 
 def get_tokenizer_file() -> Path:
@@ -196,6 +211,9 @@ class PathRegistry:
     SCRIPTS_DIR = SCRIPTS_DIR
     TESTS_DIR = TESTS_DIR
     TRAINING_DATA_DIR = TRAINING_DATA_DIR
+    OUTPUT_DIR = OUTPUT_DIR
+    STATE_DIR = STATE_DIR
+    WORKSPACE_DIR = WORKSPACE_DIR
 
     PHASE2_DIR = PHASE2_DIR
     FINE_TUNING_DIR = FINE_TUNING_DIR
@@ -219,11 +237,23 @@ class PathRegistry:
     DRIVE_SESSIONS = DRIVE_SESSIONS
     DRIVE_V2_DIR = DRIVE_V2_DIR
     DRIVE_V2_CHECKPOINTS = DRIVE_V2_CHECKPOINTS
+    DRIVE_TOKENIZER_DIR = DRIVE_TOKENIZER_DIR
+    DRIVE_TOKENIZER_V3_DIR = DRIVE_TOKENIZER_V3_DIR
     OUTPUT_V2_DIR = OUTPUT_V2_DIR
     V2_BRAIN_CHECKPOINT = V2_BRAIN_CHECKPOINT
     V2_IDENTITY_CHECKPOINT = V2_IDENTITY_CHECKPOINT
     V2_OUROBOROS_CHECKPOINT = V2_OUROBOROS_CHECKPOINT
     V2_TOKENIZER_FILE = V2_TOKENIZER_FILE
+    V3_TOKENIZER_FILE = V3_TOKENIZER_FILE
+    V3_TOKENIZER_META_FILE = V3_TOKENIZER_META_FILE
+    DATASET_PRIMARY = DATASET_PRIMARY
+    DATASET_FALLBACK = DATASET_FALLBACK
+    TEACHER_REASONING_V2_FILE = TEACHER_REASONING_V2_FILE
+    MEMORY_DB_DIR = MEMORY_DB_DIR
+    GOALS_FILE = GOALS_FILE
+    REPLAY_BUFFER_FILE = REPLAY_BUFFER_FILE
+    STATE_DB_FILE = STATE_DB_FILE
+    AUDIT_REPORT_FILE = AUDIT_REPORT_FILE
 
     @staticmethod
     def inject_all_paths() -> None:
