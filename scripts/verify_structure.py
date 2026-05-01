@@ -13,7 +13,7 @@ from anra_paths import (
     ROOT,
     SOVEREIGNTY_DIR,
     SYMBOLIC_BRIDGE_DIR,
-    TRAINING_DATA_DIR,
+    DATASET,
     inject_all_paths,
 )
 from training.v2_runtime import load_or_build_v2_tokenizer
@@ -22,10 +22,9 @@ inject_all_paths()
 
 
 def _ensure_v2_tokenizer() -> None:
-    dataset_path = TRAINING_DATA_DIR / "anra_dataset_v6_1.txt"
-    if not dataset_path.exists():
+    if not DATASET.exists():
         return
-    load_or_build_v2_tokenizer(dataset_path=dataset_path)
+    load_or_build_v2_tokenizer(dataset_path=DATASET)
 
 
 def main() -> int:
@@ -46,7 +45,7 @@ def main() -> int:
         ROOT / "scripts" / "train_ouroboros.py",
         ROOT / "scripts" / "run_self_improvement.py",
         ROOT / "scripts" / "run_sovereignty_audit.py",
-        TRAINING_DATA_DIR / "anra_dataset_v6_1.txt",
+        DATASET,
         MEMORY_DIR / "memory_manager.py",
         AGENT_LOOP_DIR / "agent_main.py",
         IDENTITY_DIR / "identity_injector.py",
