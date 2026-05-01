@@ -14,7 +14,7 @@ import torch.nn.functional as F
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from anra_paths import ROOT, inject_all_paths, get_tokenizer_file
+from anra_paths import DRIVE_DIR, DRIVE_MEMORY, ROOT, inject_all_paths, get_tokenizer_file
 inject_all_paths()
 
 from anra_brain import CausalTransformer
@@ -28,7 +28,7 @@ CONFIG = {
     "tokenizer": "tokenizer.pkl",
     "dataset": "anra_dataset_v6_1.txt",
     "fallback_dataset": "anra_dataset_v6_1.txt",
-    "drive_dir": "/content/drive/MyDrive/AnRa/memory/",
+    "drive_dir": str(DRIVE_MEMORY),
     "block_size": 128,
     "n_embd": 256,
     "n_head": 4,
@@ -144,11 +144,11 @@ class MemoryPopulator:
 def _load_model_and_tokenizer():
     tok = pickle.loads(get_tokenizer_file().read_bytes())
     model = CausalTransformer(tok.vocab_size, CONFIG["n_embd"], CONFIG["n_head"], CONFIG["n_layer"], CONFIG["block_size"])
-    ckpt = Path("/content/drive/MyDrive/AnRa") / CONFIG["checkpoint"]
+    ckpt = DRIVE_DIR / CONFIG["checkpoint"]
     if not ckpt.exists():
         ckpt = ROOT / CONFIG["checkpoint"]
     if not ckpt.exists():
-        ckpt = Path("/content/drive/MyDrive/AnRa") / CONFIG["fallback_checkpoint"]
+        ckpt = DRIVE_DIR / CONFIG["fallback_checkpoint"]
     if not ckpt.exists():
         ckpt = ROOT / CONFIG["fallback_checkpoint"]
     if ckpt.exists():
@@ -161,7 +161,7 @@ def _load_model_and_tokenizer():
 
 
 if __name__ == '__main__':
-    DRIVE_PATH = Path("/content/drive/MyDrive/AnRa")
+    DRIVE_PATH = DRIVE_DIR
     IDENTITY_CKPT = DRIVE_PATH / "anra_brain_identity.pt"
     BASE_CKPT = DRIVE_PATH / "anra_brain.pt"
 
@@ -178,7 +178,7 @@ if __name__ == '__main__':
     print(f"  Modified: {datetime.fromtimestamp(IDENTITY_CKPT.stat().st_mtime)}")
 
     model, tokenizer = _load_model_and_tokenizer()
-    memory_system = MemoryManager(data_dir="/content/drive/MyDrive/AnRa/memory_db", user_id="anra")
+    memory_system = MemoryManager(data_dir=str(DRIVE_MEMORY), user_id="anra")
     populator = MemoryPopulator(model, tokenizer, memory_system)
     populator.load_from_drive()
     dataset_path = ROOT / CONFIG["dataset"]

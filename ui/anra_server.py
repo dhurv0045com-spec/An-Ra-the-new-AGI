@@ -13,13 +13,11 @@ from pathlib import Path
 from flask import Flask, jsonify, request, send_file
 from flask_cors import CORS
 
-REPO_PATH = Path("/content/An-Ra-the-new-AGI")
-if not REPO_PATH.exists():
-    REPO_PATH = Path(__file__).resolve().parents[1]
+REPO_PATH = Path(__file__).resolve().parents[1]
 if str(REPO_PATH) not in sys.path:
     sys.path.insert(0, str(REPO_PATH))
 
-from anra_paths import V2_TOKENIZER_FILE, get_v2_checkpoint, inject_all_paths  # noqa: E402
+from anra_paths import DRIVE_DIR, V2_TOKENIZER_FILE, get_v2_checkpoint, inject_all_paths  # noqa: E402
 
 inject_all_paths()
 
@@ -31,7 +29,7 @@ app = Flask(__name__, static_folder=".", static_url_path="")
 CORS(app)
 
 IDENTITY_PREFIX = "You are An-Ra, a sovereign AI built from scratch by Ankit."
-DRIVE_ROOT = Path("/content/drive/MyDrive/AnRa")
+DRIVE_ROOT = DRIVE_DIR
 DATASET_TARGET = REPO_PATH / "training_data" / "anra_dataset_v6_1.txt"
 
 state = {

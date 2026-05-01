@@ -82,6 +82,17 @@ def _read_step(path: Path) -> int:
         return 0
 
 
+def _drive_artifact_path(name: str) -> Path:
+    drive_filenames = {
+        "brain": "anra_v2_brain.pt",
+        "identity": "anra_v2_identity.pt",
+        "ouroboros": "anra_v2_ouroboros.pt",
+        "tokenizer": "tokenizer_v2.json",
+        "eval_summary": "anra_v2_eval_summary.json",
+    }
+    return DRIVE_DIR / drive_filenames.get(name, f"anra_v2_{name}.pt")
+
+
 def restore_v2_artifact(name: str = "brain") -> bool:
     """
     Check Drive for checkpoint. If found, copy to local output dir.
@@ -97,14 +108,8 @@ def restore_v2_artifact(name: str = "brain") -> bool:
     local_path = local_map.get(name, get_v2_checkpoint(name))
     local_path.parent.mkdir(parents=True, exist_ok=True)
 
-    drive_filenames = {
-        "brain": "anra_v2_brain.pt",
-        "identity": "anra_v2_identity.pt",
-        "ouroboros": "anra_v2_ouroboros.pt",
-        "tokenizer": "tokenizer_v2.json",
-    }
-    drive_file = DRIVE_V2_CHECKPOINTS / drive_filenames.get(name, f"anra_v2_{name}.pt")
-    drive_root_file = Path("/content/drive/MyDrive/AnRa") / drive_filenames.get(name, f"anra_v2_{name}.pt")
+    drive_file = DRIVE_V2_CHECKPOINTS / _drive_artifact_path(name).name
+    drive_root_file = _drive_artifact_path(name)
 
     source = None
     if drive_file.exists():
@@ -144,18 +149,9 @@ def sync_to_drive(name: str = "brain") -> bool:
         print(f"[Drive] {name}: local file not found, skipping")
         return False
 
-    drive_filenames = {
-        "brain": "anra_v2_brain.pt",
-        "identity": "anra_v2_identity.pt",
-        "ouroboros": "anra_v2_ouroboros.pt",
-        "tokenizer": "tokenizer_v2.json",
-        "eval_summary": "anra_v2_eval_summary.json",
-    }
-    drive_filename = drive_filenames.get(name, f"anra_v2_{name}.pt")
-
     DRIVE_V2_CHECKPOINTS.mkdir(parents=True, exist_ok=True)
-    drive_target = DRIVE_V2_CHECKPOINTS / drive_filename
-    drive_root = Path("/content/drive/MyDrive/AnRa") / drive_filename
+    drive_root = _drive_artifact_path(name)
+    drive_target = DRIVE_V2_CHECKPOINTS / drive_root.name
 
     try:
         drive_root.parent.mkdir(parents=True, exist_ok=True)
