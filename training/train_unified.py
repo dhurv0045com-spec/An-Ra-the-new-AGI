@@ -218,7 +218,7 @@ def main() -> None:
         print(f"[Unified Trainer] brain_ckpt={canonical_v2_checkpoint('brain')}")
         print(f"[Unified Trainer] identity_ckpt={canonical_v2_checkpoint('identity')}")
         print(f"[Unified Trainer] ouroboros_ckpt={canonical_v2_checkpoint('ouroboros')}")
-        print(f"[Unified Trainer] tokenizer={ROOT / 'tokenizer' / 'tokenizer_v2.json'}")
+        print(f"[Unified Trainer] tokenizer={ROOT / 'tokenizer' / 'tokenizer_v3.json'}")
         print(f"[Unified Trainer] milestone={_milestone_due()}")
         return
 

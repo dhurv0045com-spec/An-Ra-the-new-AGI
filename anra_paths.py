@@ -44,7 +44,9 @@ OUTPUT_V2_DIR = ROOT / "output" / "v2"
 V2_BRAIN_CHECKPOINT = ROOT / "anra_v2_brain.pt"
 V2_IDENTITY_CHECKPOINT = ROOT / "anra_v2_identity.pt"
 V2_OUROBOROS_CHECKPOINT = ROOT / "anra_v2_ouroboros.pt"
-V2_TOKENIZER_FILE = TOKENIZER_DIR / "tokenizer_v2.json"
+V3_TOKENIZER_FILE = TOKENIZER_DIR / "tokenizer_v3.json"
+# Backward-compatible alias for legacy imports.
+V2_TOKENIZER_FILE = V3_TOKENIZER_FILE
 
 REQUIRED_DIRS = [
     ROOT / "state",
@@ -151,8 +153,11 @@ def get_optimization_config() -> Path:
 
 def get_v2_tokenizer_file() -> Path:
     candidates = [
+        V3_TOKENIZER_FILE,
         V2_TOKENIZER_FILE,
         ROOT / "tokenizer_v2.json",
+        ROOT / "tokenizer_v3.json",
+        DRIVE_V2_DIR / "tokenizer_v3.json",
         DRIVE_V2_DIR / "tokenizer_v2.json",
     ]
     for c in candidates:
@@ -224,6 +229,7 @@ class PathRegistry:
     V2_IDENTITY_CHECKPOINT = V2_IDENTITY_CHECKPOINT
     V2_OUROBOROS_CHECKPOINT = V2_OUROBOROS_CHECKPOINT
     V2_TOKENIZER_FILE = V2_TOKENIZER_FILE
+    V3_TOKENIZER_FILE = V3_TOKENIZER_FILE
 
     @staticmethod
     def inject_all_paths() -> None:
