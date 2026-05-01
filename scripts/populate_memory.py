@@ -14,15 +14,7 @@ import torch.nn.functional as F
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from anra_paths import (
-    DATASET_FALLBACK,
-    DATASET_PRIMARY,
-    DRIVE_DIR,
-    MEMORY_DB_DIR,
-    ROOT,
-    inject_all_paths,
-    get_tokenizer_file,
-)
+from anra_paths import DRIVE_DIR, DRIVE_MEMORY, ROOT, inject_all_paths, get_tokenizer_file
 inject_all_paths()
 
 from anra_brain import CausalTransformer
@@ -36,7 +28,7 @@ CONFIG = {
     "tokenizer": "tokenizer.pkl",
     "dataset": "anra_dataset_v6_1.txt",
     "fallback_dataset": "anra_dataset_v6_1.txt",
-    "drive_dir": str(DRIVE_DIR / "memory"),
+    "drive_dir": str(DRIVE_MEMORY),
     "block_size": 128,
     "n_embd": 256,
     "n_head": 4,
@@ -186,7 +178,7 @@ if __name__ == '__main__':
     print(f"  Modified: {datetime.fromtimestamp(IDENTITY_CKPT.stat().st_mtime)}")
 
     model, tokenizer = _load_model_and_tokenizer()
-    memory_system = MemoryManager(data_dir=str(MEMORY_DB_DIR), user_id="anra")
+    memory_system = MemoryManager(data_dir=str(DRIVE_MEMORY), user_id="anra")
     populator = MemoryPopulator(model, tokenizer, memory_system)
     populator.load_from_drive()
     dataset_path = DATASET_PRIMARY
