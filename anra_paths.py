@@ -44,7 +44,7 @@ OUTPUT_V2_DIR = ROOT / "output" / "v2"
 V2_BRAIN_CHECKPOINT = ROOT / "anra_v2_brain.pt"
 V2_IDENTITY_CHECKPOINT = ROOT / "anra_v2_identity.pt"
 V2_OUROBOROS_CHECKPOINT = ROOT / "anra_v2_ouroboros.pt"
-V2_TOKENIZER_FILE = TOKENIZER_DIR / "tokenizer_v2.json"
+V2_TOKENIZER_FILE = TOKENIZER_DIR / "tokenizer_v3.json"
 
 REQUIRED_DIRS = [
     ROOT / "state",
@@ -152,8 +152,8 @@ def get_optimization_config() -> Path:
 def get_v2_tokenizer_file() -> Path:
     candidates = [
         V2_TOKENIZER_FILE,
-        ROOT / "tokenizer_v2.json",
-        DRIVE_V2_DIR / "tokenizer_v2.json",
+        ROOT / "tokenizer_v3.json",
+        DRIVE_V2_DIR / "tokenizer_v3.json",
     ]
     for c in candidates:
         if c.exists():
