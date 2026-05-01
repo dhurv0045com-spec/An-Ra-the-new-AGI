@@ -27,7 +27,7 @@ def _recommendations(eval_summary: dict, hard_examples: list[dict], mix_report: 
     if any(token in previews for token in ["debug", "python", "code", "test"]):
         recs.append("Add more teacher-generated code-debug examples with verified fixes.")
     if int(mix_report.get("teacher_external_used", 0) or 0) == 0:
-        recs.append("Provide training_data/teacher_reasoning_v2.jsonl to strengthen the teacher bucket beyond symbolic fallbacks.")
+        recs.append("Provide the teacher_reasoning_v2 JSONL corpus to strengthen the teacher bucket beyond symbolic fallbacks.")
     if not recs:
         recs.append("Keep the current ratios; no single weak area dominated the latest session.")
     return recs

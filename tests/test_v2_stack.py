@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
 import torch
 
 from anra_brain import CausalTransformerV2
+from anra_paths import DATASET
 from tokenizer.subword_tokenizer import SubwordTokenizer
 from training.v2_data_mix import IdentityStyleFilter, build_v2_training_examples
 
@@ -26,13 +25,22 @@ def test_identity_style_filter_rewrites_robotic_phrasing() -> None:
 
 
 def test_v2_mix_keeps_own_data_dominant() -> None:
-    dataset = Path("training_data/anra_dataset_v6_1.txt")
-    examples, report = build_v2_training_examples(dataset_path=dataset, max_examples=400)
+    examples, report = build_v2_training_examples(dataset_path=DATASET, max_examples=400)
     own = report.realized_counts.get("own", 0)
     identity = report.realized_counts.get("identity", 0)
     total = report.total_examples
     assert total > 0
     assert (own + identity) / total >= 0.75
+
+
+def test_no_direct_legacy_dataset_path_usage() -> None:
+    legacy = "/content/drive/MyDrive/AnRa/" + "anra_dataset_v6_1.txt"
+    allowed = {"anra_paths.py"}
+    for path in Path(".").rglob("*.py"):
+        rel = path.as_posix()
+        if rel in allowed:
+            continue
+        assert legacy not in path.read_text(encoding="utf-8", errors="replace"), rel
 
 
 def test_subword_tokenizer_roundtrip() -> None:

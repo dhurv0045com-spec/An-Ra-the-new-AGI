@@ -16,6 +16,9 @@ CONFIG_DIR = ROOT / "config"
 SCRIPTS_DIR = ROOT / "scripts"
 TESTS_DIR = ROOT / "tests"
 TRAINING_DATA_DIR = ROOT / "training_data"
+OUTPUT_DIR = ROOT / "output"
+STATE_DIR = ROOT / "state"
+WORKSPACE_DIR = ROOT / "workspace"
 
 PHASE2_DIR = ROOT / "phase2"
 FINE_TUNING_DIR = PHASE2_DIR / "fine_tuning (45I)"
@@ -39,6 +42,8 @@ DRIVE_MEMORY = DRIVE_DIR / "memory_db"
 DRIVE_SESSIONS = DRIVE_DIR / "sessions"
 DRIVE_V2_DIR = DRIVE_DIR / "v2"
 DRIVE_V2_CHECKPOINTS = DRIVE_V2_DIR / "checkpoints"
+DATASET = TRAINING_DATA_DIR / "anra_dataset_v6_1.txt"
+DATASET_LEGACY = DRIVE_DIR / "anra_dataset_v6_1.txt"
 
 OUTPUT_V2_DIR = ROOT / "output" / "v2"
 V2_BRAIN_CHECKPOINT = ROOT / "anra_v2_brain.pt"
@@ -49,11 +54,11 @@ V3_TOKENIZER_FILE = TOKENIZER_DIR / "tokenizer_v3.json"
 V2_TOKENIZER_FILE = V3_TOKENIZER_FILE
 
 REQUIRED_DIRS = [
-    ROOT / "state",
-    ROOT / "output" / "checkpoints",
-    ROOT / "output" / "logs",
+    STATE_DIR,
+    OUTPUT_DIR / "checkpoints",
+    OUTPUT_DIR / "logs",
     OUTPUT_V2_DIR,
-    ROOT / "training_data",
+    TRAINING_DATA_DIR,
     ROOT / "checkpoints",
     ROOT / "history",
 ]
@@ -91,14 +96,11 @@ def ensure_dirs() -> None:
 
 def get_dataset_file() -> Path:
     """Find the primary training dataset."""
-    candidates = [
-        TRAINING_DATA_DIR / "anra_dataset_v6_1.txt",
-        DRIVE_DIR / "anra_dataset_v6_1.txt",
-    ]
-    for c in candidates:
-        if c.exists():
-            return c
-    return TRAINING_DATA_DIR / "anra_dataset_v6_1.txt"
+    if DATASET.exists():
+        return DATASET
+    if DATASET_LEGACY.exists():
+        return DATASET_LEGACY
+    return DATASET
 
 
 def get_tokenizer_file() -> Path:
@@ -201,6 +203,9 @@ class PathRegistry:
     SCRIPTS_DIR = SCRIPTS_DIR
     TESTS_DIR = TESTS_DIR
     TRAINING_DATA_DIR = TRAINING_DATA_DIR
+    OUTPUT_DIR = OUTPUT_DIR
+    STATE_DIR = STATE_DIR
+    WORKSPACE_DIR = WORKSPACE_DIR
 
     PHASE2_DIR = PHASE2_DIR
     FINE_TUNING_DIR = FINE_TUNING_DIR
@@ -224,6 +229,8 @@ class PathRegistry:
     DRIVE_SESSIONS = DRIVE_SESSIONS
     DRIVE_V2_DIR = DRIVE_V2_DIR
     DRIVE_V2_CHECKPOINTS = DRIVE_V2_CHECKPOINTS
+    DATASET = DATASET
+    DATASET_LEGACY = DATASET_LEGACY
     OUTPUT_V2_DIR = OUTPUT_V2_DIR
     V2_BRAIN_CHECKPOINT = V2_BRAIN_CHECKPOINT
     V2_IDENTITY_CHECKPOINT = V2_IDENTITY_CHECKPOINT

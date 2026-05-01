@@ -5,7 +5,9 @@ import heapq
 import math
 import os
 import shutil
+import signal
 import sys
+import threading
 import time
 from pathlib import Path
 
@@ -29,6 +31,7 @@ from training.v2_runtime import (
     load_or_build_v2_tokenizer,
     model_summary,
     sync_to_drive,
+    DRIVE_SESSION_MANAGER,
     sync_v2_artifacts,
     v2_report_path,
     write_json,
@@ -38,6 +41,70 @@ inject_all_paths()
 
 EARLY_STATUS_STEPS = {1, 2, 5, 10, 20, 50, 100}
 HARD_EXAMPLE_KEEP = 16
+
+
+EMERGENCY_SAVE_TIMEOUT_SECONDS = 20.0
+_SAVE_COMPONENT_ORDER = ("model", "optimizer", "scheduler", "scaler")
+
+
+def _utc_iso(ts: float | None = None) -> str:
+    return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(time.time() if ts is None else ts))
+
+
+def _build_checkpoint_payload(
+    *,
+    model: torch.nn.Module,
+    optimizer: torch.optim.Optimizer,
+    scheduler: object,
+    mp: MixedPrecisionTrainer,
+    global_step: int,
+    epoch: int,
+    best_loss: float,
+    sessions_completed: int,
+    mix_report: object,
+) -> dict[str, object]:
+    return {
+        "model": model.state_dict(),
+        "optimizer": optimizer.state_dict(),
+        "scheduler": scheduler.state_dict(),
+        "scaler": mp.state_dict(),
+        "step": global_step,
+        "global_step": global_step,
+        "epoch": epoch,
+        "best_loss": best_loss,
+        "sessions_completed": sessions_completed,
+        "model_config": model.model_config(),
+        "mix_report": mix_report.to_dict(),
+    }
+
+
+def _emergency_save_with_timeout(payload: dict[str, object], ckpt_path: Path) -> bool:
+    status: dict[str, object] = {"ok": False, "error": None}
+
+    def _save() -> None:
+        try:
+            ordered_payload = {key: payload[key] for key in _SAVE_COMPONENT_ORDER}
+            ordered_payload.update({k: v for k, v in payload.items() if k not in ordered_payload})
+            atomic_save(ordered_payload, ckpt_path, drive_dir=None)
+            status["ok"] = True
+        except Exception as exc:
+            status["error"] = repr(exc)
+
+    worker = threading.Thread(target=_save, name="anra-emergency-save", daemon=True)
+    worker.start()
+    worker.join(timeout=EMERGENCY_SAVE_TIMEOUT_SECONDS)
+    if worker.is_alive():
+        print(
+            f"[build_brain] emergency save timeout after {EMERGENCY_SAVE_TIMEOUT_SECONDS:.1f}s; process exit continues",
+            flush=True,
+        )
+        return False
+    if not bool(status["ok"]):
+        print(f"[build_brain] emergency save failed: {status['error']}", flush=True)
+        return False
+    print("[build_brain] emergency save completed", flush=True)
+    return True
+
 
 
 def _resolve_checkpoint_path(checkpoint_path: str) -> Path:
@@ -134,12 +201,56 @@ def train_anra_v2(
         total_steps=50_000,
     )
 
+    ckpt_path = get_v2_checkpoint("brain")
+    ckpt: dict[str, object] = {}
+    global_step = 0
+    epoch = 0
+    best_loss = float("inf")
+
+    registration_ts = time.time()
+    signal_state: dict[str, object] = {
+        "registered_at": registration_ts,
+        "registered_at_iso": _utc_iso(registration_ts),
+        "triggered": False,
+        "signal": None,
+        "emergency_save_completed": None,
+    }
+
+    def _handle_sigterm(sig_num: int, _frame: object) -> None:
+        signal_state["triggered"] = True
+        signal_state["signal"] = sig_num
+        print(
+            f"[build_brain] SIGTERM handler invoked (signal={sig_num}) at {_utc_iso()}.",
+            flush=True,
+        )
+        sessions_completed = int(ckpt.get("sessions_completed", 0) + 1) if "ckpt" in locals() else 1
+        payload = _build_checkpoint_payload(
+            model=model,
+            optimizer=optimizer,
+            scheduler=scheduler,
+            mp=mp,
+            global_step=global_step,
+            epoch=epoch,
+            best_loss=best_loss,
+            sessions_completed=sessions_completed,
+            mix_report=mix_report,
+        )
+        ok = _emergency_save_with_timeout(payload, ckpt_path)
+        signal_state["emergency_save_completed"] = ok
+        print(f"[build_brain] SIGTERM emergency save status={ok}", flush=True)
+        raise SystemExit(128 + sig_num)
+
+    signal.signal(signal.SIGTERM, _handle_sigterm)
+    print(
+        f"[build_brain] SIGTERM handler registered at {signal_state['registered_at_iso']} (pre-training).",
+        flush=True,
+    )
+
     start_step = 0
     best_loss = float("inf")
     session_start_loss = float("inf")
 
     # ── AUTO-RESUME ──────────────────────────────────────────────────────────────
-    ckpt_path = get_v2_checkpoint("brain")
     if ckpt_path.exists():
         print(f"[Resume] Found checkpoint: {ckpt_path}", flush=True)
         try:
@@ -206,6 +317,13 @@ def train_anra_v2(
     print(f"  Data mix     : {mix_report.realized_counts}", flush=True)
     print("=" * 62, flush=True)
     print("", flush=True)
+
+    def _autosave() -> None:
+        sync_to_drive("brain")
+        sync_to_drive("tokenizer")
+
+    DRIVE_SESSION_MANAGER.start_autosave(_autosave)
+    DRIVE_SESSION_MANAGER.register_sigterm_hook(_autosave)
 
     while time.time() < end_at:
         epoch += 1
@@ -306,19 +424,17 @@ def train_anra_v2(
             flush=True,
         )
 
-    payload = {
-        "model": model.state_dict(),
-        "optimizer": optimizer.state_dict(),
-        "scheduler": scheduler.state_dict(),
-        "scaler": mp.state_dict(),
-        "step": global_step,
-        "global_step": global_step,
-        "epoch": epoch,
-        "best_loss": best_loss,
-        "sessions_completed": ckpt.get("sessions_completed", 0) + 1 if "ckpt" in dir() else 1,
-        "model_config": model.model_config(),
-        "mix_report": mix_report.to_dict(),
-    }
+    payload = _build_checkpoint_payload(
+        model=model,
+        optimizer=optimizer,
+        scheduler=scheduler,
+        mp=mp,
+        global_step=global_step,
+        epoch=epoch,
+        best_loss=best_loss,
+        sessions_completed=(int(ckpt.get("sessions_completed", 0) + 1) if "ckpt" in locals() else 1),
+        mix_report=mix_report,
+    )
     atomic_save(payload, ckpt_path, drive_dir=None)
 
     metrics = {
@@ -337,6 +453,7 @@ def train_anra_v2(
         "model_config": model.model_config(),
         "checkpoint_path": str(ckpt_path),
         "mix_report": mix_report.to_dict(),
+        "signal_handler": signal_state,
     }
     write_json(v2_report_path("metrics"), metrics)
 
