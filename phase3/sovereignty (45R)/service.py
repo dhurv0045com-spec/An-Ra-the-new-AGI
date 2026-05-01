@@ -41,6 +41,7 @@ if str(_THIS_DIR.parent) not in sys.path:
 
 from sovereignty.config import Config
 from sovereignty.logger import get_logger, setup_logging, shutdown_logging
+from shared_logger import L02SessionLogManager
 
 
 def _load_config() -> Config:
@@ -62,6 +63,8 @@ def cmd_start(config: Config) -> int:
     """
     from sovereignty.daemon import Daemon
 
+    session_mgr = L02SessionLogManager(session_id=datetime.utcnow().strftime("%Y%m%dT%H%M%SZ"), log_dir=config.LOG_DIR)
+    session_mgr.rotate_for_new_session()
     setup_logging(config)
     log = get_logger(__name__)
 
@@ -89,6 +92,9 @@ def cmd_start(config: Config) -> int:
         log.critical("Daemon crashed: %s", exc, exc_info=True)
         return 1
     finally:
+        synced = session_mgr.sync_session_end_to_drive()
+        if synced:
+            log.info("L0.2 session log synced to Drive: %s", synced)
         shutdown_logging()
 
     return 0

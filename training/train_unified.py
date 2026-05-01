@@ -11,6 +11,8 @@ from pathlib import Path
 
 import torch
 
+from startup_checks import assert_flash_sdp_ready
+
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from anra_paths import DATASET, DATASET_LEGACY, ROOT, TRAINING_DATA_DIR, ensure_dirs, inject_all_paths
@@ -201,6 +203,7 @@ def _run_eval_only() -> dict[str, object]:
 
 
 def main() -> None:
+    assert_flash_sdp_ready("training.train_unified")
     ap = argparse.ArgumentParser(description="An-Ra unified training dispatcher")
     ap.add_argument("--mode", default="session", choices=["session", "train", "resume", "eval", "status"])
     ap.add_argument("--data_path", default=None)
@@ -222,7 +225,7 @@ def main() -> None:
         print(f"[Unified Trainer] brain_ckpt={canonical_v2_checkpoint('brain')}")
         print(f"[Unified Trainer] identity_ckpt={canonical_v2_checkpoint('identity')}")
         print(f"[Unified Trainer] ouroboros_ckpt={canonical_v2_checkpoint('ouroboros')}")
-        print(f"[Unified Trainer] tokenizer={ROOT / 'tokenizer' / 'tokenizer_v2.json'}")
+        print(f"[Unified Trainer] tokenizer={ROOT / 'tokenizer' / 'tokenizer_v3.json'}")
         print(f"[Unified Trainer] milestone={_milestone_due()}")
         return
 

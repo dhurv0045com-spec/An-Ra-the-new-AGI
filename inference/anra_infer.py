@@ -6,6 +6,8 @@ import torch.nn.functional as F
 import pickle
 import argparse
 
+from startup_checks import assert_flash_sdp_ready
+
 # Add necessary paths for importing custom modules
 # Assuming anra_infer.py is in <repo_root>/inference/
 # Add <repo_root> to sys.path for tokenizer module
@@ -104,6 +106,7 @@ def generate(model, tokenizer, device, prompt: str, max_new_tokens: int = 100, t
     return tokenizer.decode(idx[0].tolist())
 
 if __name__ == '__main__':
+    assert_flash_sdp_ready("inference.anra_infer")
     parser = argparse.ArgumentParser(description="An-Ra CausalTransformer Inference Pipeline.")
     parser.add_argument('--prompt', type=str, required=True,
                         help='The initial text prompt for generation.')
