@@ -32,6 +32,7 @@ from datetime import datetime, timedelta
 from typing import Optional
 
 from sovereignty.config import Config
+from shared_logger import emit_audit_event, get_shared_logger
 
 # ── Module-level state ────────────────────────────────────────────────────────
 _log_queue: queue.Queue = queue.Queue(maxsize=10_000)
@@ -223,16 +224,14 @@ def shutdown_logging() -> None:
 
 
 def get_logger(name: str) -> logging.Logger:
-    """
-    Return a named logger that feeds into the central queue.
+    """Return shared logger instance routed through this module's handlers."""
+    return get_shared_logger(name)
 
-    Parameters:
-        name: Logger name — conventionally __name__ of the calling module.
 
-    Returns:
-        logging.Logger instance. All records go through _QueueHandler.
-    """
-    return logging.getLogger(name)
+def audit_event(name: str, event_type: str, action: str, message: str = "", details: Optional[dict] = None) -> dict:
+    """Emit append-only AUDIT_LOG events using required envelope fields."""
+    logger = get_shared_logger(name)
+    return emit_audit_event(logger, event_type=event_type, component=name, action=action, message=message, details=details)
 
 
 def get_recent_lines(log_dir: pathlib.Path, n: int = 100, level: str = "DEBUG") -> list:
