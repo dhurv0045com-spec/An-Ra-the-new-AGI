@@ -12,10 +12,14 @@ import logging
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 from pathlib import Path
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from anra_paths import WORKSPACE_DIR
 
 logger = logging.getLogger(__name__)
 
-_EVAL_FILE = Path("./agent_workspace/.agent_evals.json")
+_EVAL_FILE = WORKSPACE_DIR / "agent_workspace" / ".agent_evals.json"
 
 
 @dataclass

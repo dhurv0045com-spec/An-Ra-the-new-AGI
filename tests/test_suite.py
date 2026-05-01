@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Callable, List, Tuple
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from anra_paths import ROOT, inject_all_paths, get_dataset_file, get_optimization_config
+from anra_paths import DRIVE_DIR, ROOT, inject_all_paths, get_dataset_file, get_optimization_config
 inject_all_paths()
 
 import httpx
@@ -139,7 +139,7 @@ def t7_finetune_data_test() -> Tuple[bool, str]:
 
 
 def t8_drive_path_test() -> Tuple[bool, str]:
-    p = Path("/content/drive/MyDrive/AnRa/")
+    p = DRIVE_DIR
     p.mkdir(parents=True, exist_ok=True)
     test_file = p / "_write_test.txt"
     test_file.write_text("ok", encoding="utf-8")
@@ -251,7 +251,7 @@ def t18_stop_string_test() -> Tuple[bool, str]:
 
 
 def t19_finetune_report_test() -> Tuple[bool, str]:
-    paths = [ROOT / "output" / "finetune_report.json", Path("/content/drive/MyDrive/AnRa/finetune_report.json")]
+    paths = [ROOT / "output" / "finetune_report.json", DRIVE_DIR / "finetune_report.json"]
     found = next((p for p in paths if p.exists()), None)
     if not found:
         return False, "report_missing"

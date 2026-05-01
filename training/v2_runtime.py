@@ -13,21 +13,27 @@ from anra_paths import (
     DRIVE_V2_CHECKPOINTS,
     OUTPUT_V2_DIR,
     ROOT,
+    TEACHER_REASONING_V2_FILE,
     V2_BRAIN_CHECKPOINT,
     V2_IDENTITY_CHECKPOINT,
     V2_OUROBOROS_CHECKPOINT,
-    V2_TOKENIZER_FILE,
+    V3_TOKENIZER_FILE,
     ensure_dirs,
     get_dataset_file,
     get_identity_file,
     get_v2_checkpoint,
 )
 from anra_brain import CausalTransformerV2
-from tokenizer.subword_tokenizer import SubwordTokenizer
+from tokenizer.tokenizer_adapter import TokenizerAdapter
 from training.v2_config import V2_MODEL, V2_REPORT_FILES
+from runtime.drive_session_manager import DriveSessionManager
 
 
 ensure_dirs()
+EXPECTED_TOKENIZER_VOCAB_SIZE = 8192
+EXPECTED_SPECIAL_TOKENS = ["<unk>", "<pad>", "<bos>", "<eos>"]
+
+DRIVE_SESSION_MANAGER = DriveSessionManager(DRIVE_DIR)
 
 
 def canonical_v2_checkpoint(kind: str = "brain") -> Path:
@@ -102,7 +108,7 @@ def restore_v2_artifact(name: str = "brain") -> bool:
         "brain": get_v2_checkpoint("brain"),
         "identity": get_v2_checkpoint("identity"),
         "ouroboros": get_v2_checkpoint("ouroboros"),
-        "tokenizer": V2_TOKENIZER_FILE,
+        "tokenizer": V3_TOKENIZER_FILE,
         "eval_summary": v2_report_path("eval_summary"),
     }
     local_path = local_map.get(name, get_v2_checkpoint(name))
@@ -121,12 +127,6 @@ def restore_v2_artifact(name: str = "brain") -> bool:
         print(f"[Restore] {name}: not on Drive — will start fresh")
         return False
 
-    if local_path.exists() and local_path.stat().st_mtime >= source.stat().st_mtime:
-        step = _read_step(local_path)
-        print(f"[Restore] {name}: already current (step={step})")
-        return True
-
-    shutil.copy2(source, local_path)
     step = _read_step(local_path)
     print(f"[Restore] {name}: restored from Drive (step={step})")
     return True
@@ -141,7 +141,7 @@ def sync_to_drive(name: str = "brain") -> bool:
         "brain": get_v2_checkpoint("brain"),
         "identity": get_v2_checkpoint("identity"),
         "ouroboros": get_v2_checkpoint("ouroboros"),
-        "tokenizer": V2_TOKENIZER_FILE,
+        "tokenizer": V3_TOKENIZER_FILE,
         "eval_summary": v2_report_path("eval_summary"),
     }
     local_path = local_map.get(name, get_v2_checkpoint(name))
@@ -154,9 +154,7 @@ def sync_to_drive(name: str = "brain") -> bool:
     drive_target = DRIVE_V2_CHECKPOINTS / drive_root.name
 
     try:
-        drive_root.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(local_path, drive_target)
-        shutil.copy2(local_path, drive_root)
+        DRIVE_SESSION_MANAGER.save_family(name, local_path)
         step = _read_step(local_path)
         size_kb = local_path.stat().st_size // 1024
         print(f"[Drive] {name}: saved (step={step}, {size_kb}KB)")
@@ -188,7 +186,7 @@ def _collect_tokenizer_texts(dataset_path: Path) -> list[str]:
     identity_path = get_identity_file()
     if identity_path.exists():
         texts.append(identity_path.read_text(encoding="utf-8", errors="replace"))
-    teacher_path = ROOT / "training_data" / "teacher_reasoning_v2.jsonl"
+    teacher_path = TEACHER_REASONING_V2_FILE
     if teacher_path.exists():
         lines = teacher_path.read_text(encoding="utf-8", errors="replace").splitlines()
         texts.extend(line for line in lines if line.strip())
@@ -199,33 +197,52 @@ def load_or_build_v2_tokenizer(
     *,
     dataset_path: Path | None = None,
     vocab_size: int = V2_MODEL.vocab_size,
-) -> SubwordTokenizer:
+) -> TokenizerAdapter:
     dataset_path = dataset_path or get_dataset_file()
-    local = V2_TOKENIZER_FILE
+    local = V3_TOKENIZER_FILE
     if local.exists():
-        return SubwordTokenizer.load(local)
+        tokenizer = SubwordTokenizer.load(local)
+        assert_tokenizer_contract(local, tokenizer)
+        return tokenizer
     restored = restore_v2_artifact("tokenizer")
     if restored and local.exists():
-        return SubwordTokenizer.load(local)
+        tokenizer = SubwordTokenizer.load(local)
+        assert_tokenizer_contract(local, tokenizer)
+        return tokenizer
 
     texts = _collect_tokenizer_texts(dataset_path)
-    print(f"[build_brain] Building tokenizer_v2 from {dataset_path} ...", flush=True)
+    print(f"[build_brain] Building tokenizer_v3 from {dataset_path} ...", flush=True)
     tokenizer = SubwordTokenizer.train_from_texts(texts, vocab_size=vocab_size)
     tokenizer.save(local)
+    assert_tokenizer_contract(local, tokenizer)
     try:
         drive_tok = DRIVE_DIR / "v2" / local.name
         drive_tok.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(local, drive_tok)
-        meta = local.with_suffix(local.suffix + ".meta.json")
-        if meta.exists():
-            shutil.copy2(meta, drive_tok.with_suffix(drive_tok.suffix + ".meta.json"))
     except Exception:
         pass
     print(
-        f"[build_brain] tokenizer_v2 built + mirrored to Drive. vocab_size={tokenizer.vocab_size}",
+        f"[build_brain] tokenizer_v3 built + mirrored to Drive. vocab_size={tokenizer.vocab_size}",
         flush=True,
     )
     return tokenizer
+
+
+def assert_tokenizer_contract(path: Path, tokenizer: SubwordTokenizer) -> None:
+    meta_path = path.with_suffix(path.suffix + ".meta.json")
+    meta = json.loads(meta_path.read_text(encoding="utf-8")) if meta_path.exists() else {}
+    vocab_size = int(meta.get("vocab_size", tokenizer.vocab_size))
+    special_tokens = list(meta.get("special_tokens", tokenizer.special_tokens))
+    if vocab_size != EXPECTED_TOKENIZER_VOCAB_SIZE:
+        raise AssertionError(
+            f"Tokenizer contract mismatch: vocab_size={vocab_size}, expected={EXPECTED_TOKENIZER_VOCAB_SIZE} "
+            f"(meta={meta_path})"
+        )
+    if special_tokens != EXPECTED_SPECIAL_TOKENS:
+        raise AssertionError(
+            f"Tokenizer contract mismatch: special_tokens={special_tokens}, expected={EXPECTED_SPECIAL_TOKENS} "
+            f"(meta={meta_path})"
+        )
 
 
 def build_v2_model(*, vocab_size: int, block_size: int = V2_MODEL.block_size) -> CausalTransformerV2:
@@ -300,7 +317,7 @@ def load_checkpoint(
 @torch.no_grad()
 def generate_text(
     model: CausalTransformerV2,
-    tokenizer: SubwordTokenizer,
+    tokenizer: TokenizerAdapter,
     prompt: str,
     *,
     device: torch.device,
@@ -309,7 +326,8 @@ def generate_text(
     top_k: int = 40,
 ) -> str:
     model.eval()
-    ids = [tokenizer.bos_token_id] + tokenizer.encode(prompt, add_special_tokens=False)
+    special = tokenizer.special_ids()
+    ids = [special["<bos>"]] + tokenizer.encode(prompt)
     x = torch.tensor([ids], dtype=torch.long, device=device)
     for _ in range(max_new_tokens):
         x_cond = x[:, -model.block_size :]
@@ -321,9 +339,9 @@ def generate_text(
         probs = torch.softmax(next_logits, dim=-1)
         next_token = torch.multinomial(probs, num_samples=1)
         x = torch.cat([x, next_token], dim=1)
-        if int(next_token.item()) == tokenizer.eos_token_id:
+        if int(next_token.item()) == special["<eos>"]:
             break
-    prompt_token_count = 1 + len(tokenizer.encode(prompt, add_special_tokens=False))
+    prompt_token_count = 1 + len(tokenizer.encode(prompt))
     answer_ids = x[0].tolist()[prompt_token_count:]
     return tokenizer.decode(answer_ids).strip()
 

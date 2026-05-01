@@ -181,9 +181,9 @@ if __name__ == '__main__':
     memory_system = MemoryManager(data_dir=str(DRIVE_MEMORY), user_id="anra")
     populator = MemoryPopulator(model, tokenizer, memory_system)
     populator.load_from_drive()
-    dataset_path = ROOT / CONFIG["dataset"]
+    dataset_path = DATASET_PRIMARY
     if not dataset_path.exists():
-        dataset_path = ROOT / CONFIG["fallback_dataset"]
+        dataset_path = DATASET_FALLBACK
     populator.populate_from_dataset(str(dataset_path))
     populator.save_to_drive()
     print(json.dumps(memory_system.stats(), indent=2))

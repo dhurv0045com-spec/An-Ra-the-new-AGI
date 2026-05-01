@@ -6,7 +6,7 @@ Picks up exactly where it left off. Manages scheduled tasks, heartbeat
 monitoring, resource throttling, graceful shutdown, and full activity logging.
 """
 
-import os, time, json, uuid, signal, threading, logging, sched, queue
+import os, time, json, uuid, signal, threading, sched, queue
 import sqlite3
 from datetime import datetime, timedelta
 from typing import Callable, Optional, Dict, Any, List
@@ -23,17 +23,12 @@ HEARTBEAT_INTERVAL  = 30    # seconds
 RESOURCE_CHECK_INTERVAL = 60
 
 
+from shared_logger import get_shared_logger, setup_shared_logging, emit_event
+
 # ── Logging ────────────────────────────────────────────────────────────────────
 STATE_DIR.mkdir(parents=True, exist_ok=True)
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-    handlers=[
-        logging.FileHandler(LOG_PATH),
-        logging.StreamHandler(),
-    ]
-)
-log = logging.getLogger("engine")
+setup_shared_logging(log_dir=STATE_DIR / "logs", level="INFO")
+log = get_shared_logger("engine")
 
 
 # ── Data structures ────────────────────────────────────────────────────────────
@@ -116,6 +111,7 @@ class EngineDB:
                  entry.component, entry.detail, entry.level)
             )
             self._conn.commit()
+        emit_event(log, entry.level, "ENGINE_ACTIVITY", entry.component, entry.event, message=entry.detail, details={"log_id": entry.log_id})
         return entry
 
     def get_logs(self, limit: int = 100, component: Optional[str] = None,

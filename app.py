@@ -21,7 +21,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from anra_paths import ensure_dirs, inject_all_paths
+from anra_paths import DRIVE_DIR, MEMORY_DB_DIR, DRIVE_SESSIONS, ensure_dirs, inject_all_paths
 
 inject_all_paths()
 ensure_dirs()
@@ -34,9 +34,9 @@ from inference.full_system_connector import build_capability_graph
 from inference.optimize_context_window import ContextWindowOptimizer
 
 START_TIME = time.time()
-_COLAB_DRIVE = Path("/content/drive/MyDrive/AnRa/sessions/")
+_COLAB_DRIVE = DRIVE_SESSIONS
 _LOCAL_FALLBACK = Path(__file__).resolve().parent / "output" / "sessions"
-SESSION_DIR = _COLAB_DRIVE if Path("/content/drive").exists() else _LOCAL_FALLBACK
+SESSION_DIR = _COLAB_DRIVE if DRIVE_DIR.parent.parent.exists() else _LOCAL_FALLBACK
 SESSION_DIR.mkdir(parents=True, exist_ok=True)
 SESSIONS: Dict[str, Deque[Dict[str, str]]] = defaultdict(lambda: deque(maxlen=40))
 SESSION_META: Dict[str, Dict[str, Any]] = {}
@@ -70,7 +70,7 @@ try:
 
     class _MemoryBridge:
         def __init__(self):
-            self._mm = MemoryManager(data_dir="/content/drive/MyDrive/AnRa/memory_db", user_id="anra")
+            self._mm = MemoryManager(data_dir=str(MEMORY_DB_DIR), user_id="anra")
             self.semantic = self
 
         def search(self, query: str, top_k: int = 3):

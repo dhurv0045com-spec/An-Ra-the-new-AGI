@@ -11,9 +11,11 @@ from pathlib import Path
 
 import torch
 
+from startup_checks import assert_flash_sdp_ready
+
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from anra_paths import DRIVE_DIR, ROOT, TRAINING_DATA_DIR, ensure_dirs, inject_all_paths
+from anra_paths import DATASET, DATASET_LEGACY, ROOT, TRAINING_DATA_DIR, ensure_dirs, inject_all_paths
 from training.eval_v2 import run_compact_eval
 from training.v2_config import V2_MODEL, V2_TRAINING
 from training.v2_runtime import (
@@ -31,8 +33,8 @@ from training.v2_runtime import (
 inject_all_paths()
 ensure_dirs()
 
-_CANONICAL_DATASET = TRAINING_DATA_DIR / "anra_dataset_v6_1.txt"
-_DRIVE_DATASET = DRIVE_DIR / "anra_dataset_v6_1.txt"
+_CANONICAL_DATASET = DATASET
+_LEGACY_DATASET = DATASET_LEGACY
 
 
 def _valid_text_dataset(path: Path) -> bool:
@@ -59,15 +61,19 @@ def resolve_dataset_path(explicit: str | None) -> Path:
         return path
     if _valid_text_dataset(_CANONICAL_DATASET):
         return _CANONICAL_DATASET
-    if _valid_text_dataset(_DRIVE_DATASET):
+    if _valid_text_dataset(_LEGACY_DATASET):
+        print(
+            f"[Unified Trainer][WARN] Using legacy dataset fallback: {_LEGACY_DATASET}",
+            flush=True,
+        )
         TRAINING_DATA_DIR.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(_DRIVE_DATASET, _CANONICAL_DATASET)
+        shutil.copy2(_LEGACY_DATASET, _CANONICAL_DATASET)
         print(f"[Unified Trainer] dataset restored from Drive: {_CANONICAL_DATASET}", flush=True)
         return _CANONICAL_DATASET
     raise FileNotFoundError(
         "\n\n[FATAL] Training dataset not found.\n"
         f"  Expected locally: {_CANONICAL_DATASET}\n"
-        f"  Or on Drive:      {_DRIVE_DATASET}\n"
+        f"  Or on Drive:      {_LEGACY_DATASET}\n"
     )
 
 
@@ -197,6 +203,7 @@ def _run_eval_only() -> dict[str, object]:
 
 
 def main() -> None:
+    assert_flash_sdp_ready("training.train_unified")
     ap = argparse.ArgumentParser(description="An-Ra unified training dispatcher")
     ap.add_argument("--mode", default="session", choices=["session", "train", "resume", "eval", "status"])
     ap.add_argument("--data_path", default=None)
@@ -218,7 +225,7 @@ def main() -> None:
         print(f"[Unified Trainer] brain_ckpt={canonical_v2_checkpoint('brain')}")
         print(f"[Unified Trainer] identity_ckpt={canonical_v2_checkpoint('identity')}")
         print(f"[Unified Trainer] ouroboros_ckpt={canonical_v2_checkpoint('ouroboros')}")
-        print(f"[Unified Trainer] tokenizer={ROOT / 'tokenizer' / 'tokenizer_v2.json'}")
+        print(f"[Unified Trainer] tokenizer={ROOT / 'tokenizer' / 'tokenizer_v3.json'}")
         print(f"[Unified Trainer] milestone={_milestone_due()}")
         return
 
