@@ -24,7 +24,7 @@ from anra_paths import DRIVE_DIR, TRAINING_DATA_DIR, V2_TOKENIZER_FILE, get_v2_c
 inject_all_paths()
 
 import torch  # noqa: E402
-from tokenizer.subword_tokenizer import SubwordTokenizer  # noqa: E402
+from tokenizer.tokenizer_adapter import TokenizerAdapter  # noqa: E402
 from training.v2_runtime import build_v2_model, generate_text  # noqa: E402
 
 app = Flask(__name__, static_folder=".", static_url_path="")
@@ -60,8 +60,8 @@ def _safe_json_error(msg: str, code: int = 500):
 def _load_model() -> None:
     with lock:
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        tokenizer = SubwordTokenizer.load(V2_TOKENIZER_FILE)
-        model = build_v2_model(vocab_size=tokenizer.vocab_size)
+        tokenizer = TokenizerAdapter.load(V2_TOKENIZER_FILE, model_path=V2_TOKENIZER_FILE.with_suffix(".model"))
+        model = build_v2_model(vocab_size=tokenizer.vocab_size())
         checkpoint_path = get_v2_checkpoint("brain")
         ckpt = torch.load(checkpoint_path, map_location=device, weights_only=False)
         model.load_state_dict(ckpt.get("model_state_dict", ckpt.get("model", ckpt)), strict=False)
@@ -72,7 +72,7 @@ def _load_model() -> None:
         state["model"] = model
         state["tokenizer"] = tokenizer
         state["device"] = str(device)
-        state["vocab_size"] = tokenizer.vocab_size
+        state["vocab_size"] = tokenizer.vocab_size()
         state["step"] = int(ckpt.get("step", ckpt.get("global_step", 0)))
         state["best_loss"] = ckpt.get("best_loss")
         state["parameters"] = sum(p.numel() for p in model.parameters())

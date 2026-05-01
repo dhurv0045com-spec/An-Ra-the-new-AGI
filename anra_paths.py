@@ -167,8 +167,8 @@ def get_optimization_config() -> Path:
 def get_v2_tokenizer_file() -> Path:
     candidates = [
         V2_TOKENIZER_FILE,
-        ROOT / "tokenizer_v2.json",
-        DRIVE_V2_DIR / "tokenizer_v2.json",
+        ROOT / "tokenizer_v3.json",
+        DRIVE_V2_DIR / "tokenizer_v3.json",
     ]
     for c in candidates:
         if c.exists():
