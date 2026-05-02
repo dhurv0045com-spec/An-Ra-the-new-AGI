@@ -8,13 +8,17 @@ MODEL_LINE = "v2"
 
 @dataclass(frozen=True)
 class V2ModelConfig:
-    vocab_size: int = 4096
-    n_embd: int = 384
-    n_head: int = 6
-    n_layer: int = 6
-    block_size: int = 256
+    vocab_size: int = 8192
+    n_embd: int = 512
+    n_head: int = 8
+    n_kv_head: int = 2
+    n_layer: int = 8
+    block_size: int = 512
     rms_norm_eps: float = 1e-5
     dropout: float = 0.0
+    mod_layers: tuple = (2, 4, 6)
+    base_seq_len: int = 512
+    target_seq_len: int = 2048
 
 
 @dataclass(frozen=True)
@@ -39,6 +43,7 @@ class V2TrainingConfig:
 
 V2_MODEL = V2ModelConfig()
 V2_TRAINING = V2TrainingConfig()
+EXPECTED_TOKENIZER_VOCAB_SIZE = 8192
 
 
 IDENTITY_KEYWORDS = [

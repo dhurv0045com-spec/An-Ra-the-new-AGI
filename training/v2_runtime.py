@@ -250,10 +250,14 @@ def build_v2_model(*, vocab_size: int, block_size: int = V2_MODEL.block_size) ->
         vocab_size=vocab_size,
         n_embd=V2_MODEL.n_embd,
         n_head=V2_MODEL.n_head,
+        n_kv_head=V2_MODEL.n_kv_head,
         n_layer=V2_MODEL.n_layer,
         block_size=block_size,
         rms_norm_eps=V2_MODEL.rms_norm_eps,
         dropout=V2_MODEL.dropout,
+        mod_layers=set(V2_MODEL.mod_layers),
+        base_seq_len=V2_MODEL.base_seq_len,
+        target_seq_len=V2_MODEL.target_seq_len,
     )
 
 
@@ -288,7 +292,11 @@ def load_checkpoint(
 
     blob = torch.load(ckpt, map_location=device, weights_only=False)
     model_state = blob.get("model_state_dict", blob.get("model", blob)) if isinstance(blob, dict) else blob
-    model.load_state_dict(model_state, strict=strict)
+    try:
+        model.load_state_dict(model_state, strict=strict)
+    except RuntimeError:
+        print("[v2_runtime] Architecture changed — starting fresh (old checkpoint incompatible)")
+        return state
     if isinstance(blob, dict):
         if optimizer is not None:
             try:
