@@ -24,6 +24,8 @@ from training.mixed_precision import MixedPrecisionTrainer
 from training.scheduler import get_cosine_schedule_with_warmup
 from training.v2_config import V2_MODEL, V2_TRAINING
 from training.v2_data_mix import V2ConversationDataset, build_v2_training_examples
+from scripts.session_dashboard import print_session_dashboard
+from training.dynamic_regret import DynamicRegretScheduler
 from training.v2_runtime import (
     atomic_save,
     build_v2_model,
@@ -169,6 +171,7 @@ def train_anra_v2(
     symbolic_ratio: float | None = None,
     replay_ratio: float | None = None,
 ) -> dict[str, object]:
+    print_session_dashboard()
     dataset_path = Path(data_path)
     tokenizer = load_or_build_v2_tokenizer(dataset_path=dataset_path)
     examples, mix_report = build_v2_training_examples(
@@ -200,6 +203,7 @@ def train_anra_v2(
         warmup_steps=100,
         total_steps=50_000,
     )
+    regret_scheduler = DynamicRegretScheduler(base_lr=3e-4)
 
     ckpt_path = get_v2_checkpoint("brain")
     ckpt: dict[str, object] = {}
@@ -362,6 +366,8 @@ def train_anra_v2(
                 mp.step(optimizer)
                 mp.update()
                 scheduler.step()
+            for g in optimizer.param_groups:
+                g["lr"] = regret_scheduler.update(reward=max(0.0, 1.0 - float(loss.item())))
                 optimizer.zero_grad(set_to_none=True)
                 global_step += 1
                 session_step += 1
