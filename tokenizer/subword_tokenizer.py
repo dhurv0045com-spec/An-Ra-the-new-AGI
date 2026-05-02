@@ -51,9 +51,10 @@ class SubwordTokenizer:
         *,
         vocab_size: int = 4096,
         min_frequency: int = 2,
+        special_tokens: list[str] | None = None,
     ) -> "SubwordTokenizer":
         imports = cls._try_import_tokenizers()
-        special_tokens = ["<unk>", "<pad>", "<bos>", "<eos>"]
+        special_tokens = list(special_tokens or ["<unk>", "<pad>", "<bos>", "<eos>"])
         material = list(texts)
 
         if imports is not None:
@@ -76,7 +77,7 @@ class SubwordTokenizer:
                 backend="hf",
             )
 
-        vocab = cls._train_fallback_vocab(material, vocab_size=vocab_size)
+        vocab = cls._train_fallback_vocab(material, vocab_size=vocab_size, special_tokens=special_tokens)
         return cls(
             vocab,
             vocab_size=len(vocab["id_to_token"]),
@@ -86,7 +87,7 @@ class SubwordTokenizer:
         )
 
     @staticmethod
-    def _train_fallback_vocab(texts: list[str], *, vocab_size: int) -> dict[str, object]:
+    def _train_fallback_vocab(texts: list[str], *, vocab_size: int, special_tokens: list[str] | None = None) -> dict[str, object]:
         counter: Counter[str] = Counter()
         chars: set[str] = set()
         for text in texts:
@@ -94,7 +95,7 @@ class SubwordTokenizer:
             counter.update(pieces)
             chars.update(text)
 
-        special_tokens = ["<unk>", "<pad>", "<bos>", "<eos>"]
+        special_tokens = list(special_tokens or ["<unk>", "<pad>", "<bos>", "<eos>"])
         ordered_tokens = list(special_tokens)
 
         room = max(0, vocab_size - len(ordered_tokens))
