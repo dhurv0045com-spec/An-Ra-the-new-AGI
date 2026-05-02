@@ -17,9 +17,9 @@ from torch.utils.data import DataLoader
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from anra_paths import ROOT, V2_TOKENIZER_FILE, get_v2_checkpoint, inject_all_paths
+from anra_paths import DRIVE_V2_CHECKPOINTS, ROOT, V2_TOKENIZER_FILE, get_v2_checkpoint, inject_all_paths
 from training.anra_optimizer import build_optimizer
-from training.eval_v2 import run_compact_eval
+from training.eval_v2 import quick_eval_loss, run_compact_eval
 from training.mixed_precision import MixedPrecisionTrainer
 from training.scheduler import get_cosine_schedule_with_warmup
 from training.v2_config import V2_MODEL, V2_TRAINING
@@ -203,7 +203,7 @@ def train_anra_v2(
         warmup_steps=100,
         total_steps=50_000,
     )
-    regret_scheduler = DynamicRegretScheduler(base_lr=3e-4)
+    regret_scheduler = DynamicRegretScheduler(optimizer, eta_base=3e-4)
 
     ckpt_path = get_v2_checkpoint("brain")
     ckpt: dict[str, object] = {}
@@ -279,6 +279,14 @@ def train_anra_v2(
     else:
         print("[Resume] No checkpoint found — starting from scratch", flush=True)
     # ─────────────────────────────────────────────────────────────────────────────
+
+    try:
+        session_start_loss = quick_eval_loss(model, ds, device=device, max_examples=100, batch_size=batch_size, pad_id=tokenizer.pad_token_id)
+    except Exception as exc:
+        print(f"[build_brain] quick eval at session_start failed: {exc}", flush=True)
+        session_start_loss = best_loss
+    if math.isfinite(session_start_loss):
+        regret_scheduler.session_start(session_start_loss)
 
     global_step = start_step
     epoch = 0
@@ -366,8 +374,6 @@ def train_anra_v2(
                 mp.step(optimizer)
                 mp.update()
                 scheduler.step()
-            for g in optimizer.param_groups:
-                g["lr"] = regret_scheduler.update(reward=max(0.0, 1.0 - float(loss.item())))
                 optimizer.zero_grad(set_to_none=True)
                 global_step += 1
                 session_step += 1
@@ -481,6 +487,13 @@ def train_anra_v2(
     )
 
     eval_summary = run_compact_eval(model, tokenizer, device=device, output=True)
+    try:
+        session_end_loss = quick_eval_loss(model, ds, device=device, max_examples=100, batch_size=batch_size, pad_id=tokenizer.pad_token_id)
+        regret_lr = regret_scheduler.session_end(session_end_loss, global_step - initial_step)
+        regret_scheduler.save(ROOT / "state" / "regret_state.json")
+        print(f"  Dynamic regret lr : {regret_lr:.8f}", flush=True)
+    except Exception as exc:
+        print(f"[build_brain] quick eval at session_end failed: {exc}", flush=True)
     sync_v2_artifacts(
         ckpt_path,
         tokenizer_path=V2_TOKENIZER_FILE,

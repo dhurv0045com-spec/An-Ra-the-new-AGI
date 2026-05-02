@@ -3,7 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 import json
+import os
 import subprocess
+import tempfile
 import time
 
 
@@ -19,6 +21,23 @@ class FSAgent:
         self.root = Path(root).resolve()
         self.audit_log = Path(audit_log)
         self.audit_log.parent.mkdir(parents=True, exist_ok=True)
+        self._ensure_git_repo()
+
+    def _ensure_git_repo(self) -> None:
+        self.root.mkdir(parents=True, exist_ok=True)
+        if (self.root / ".git").exists():
+            initialized = True
+        else:
+            proc = subprocess.run(["git", "init"], capture_output=True, text=True, cwd=str(self.root))
+            if proc.returncode != 0:
+                raise RuntimeError(f"[fs_agent] git init failed: {(proc.stdout + proc.stderr).strip()}")
+            initialized = False
+        email = subprocess.run(["git", "config", "user.email"], capture_output=True, text=True, cwd=str(self.root))
+        name = subprocess.run(["git", "config", "user.name"], capture_output=True, text=True, cwd=str(self.root))
+        if not email.stdout.strip():
+            subprocess.run(["git", "config", "user.email", "anra-fs-agent@example.local"], capture_output=True, text=True, cwd=str(self.root))
+        if not name.stdout.strip():
+            subprocess.run(["git", "config", "user.name", "AnRa FS Agent"], capture_output=True, text=True, cwd=str(self.root))
 
     def _resolve(self, path: str | Path) -> Path:
         p = (self.root / path).resolve()
@@ -40,7 +59,16 @@ class FSAgent:
     def write(self, path: str | Path, content: str) -> Path:
         p = self._resolve(path)
         p.parent.mkdir(parents=True, exist_ok=True)
-        p.write_text(content, encoding="utf-8")
+        fd, tmp_name = tempfile.mkstemp(prefix=f".{p.name}.", suffix=".tmp", dir=str(p.parent))
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                f.write(content)
+                f.flush()
+                os.fsync(f.fileno())
+            os.replace(tmp_name, p)
+        except Exception:
+            Path(tmp_name).unlink(missing_ok=True)
+            raise
         self._log("write", p)
         return p
 
@@ -61,6 +89,10 @@ class FSAgent:
         return True
 
     def git_commit(self, message: str) -> tuple[int, str]:
-        proc = subprocess.run(["git", "commit", "-am", message], capture_output=True, text=True, cwd=str(self.root))
+        add = subprocess.run(["git", "add", "-A"], capture_output=True, text=True, cwd=str(self.root))
+        if add.returncode != 0:
+            self._log("git_commit_failed", self.root)
+            return int(add.returncode), (add.stdout + add.stderr).strip()
+        proc = subprocess.run(["git", "commit", "-m", message], capture_output=True, text=True, cwd=str(self.root))
         self._log("git_commit", self.root)
         return int(proc.returncode), (proc.stdout + proc.stderr).strip()

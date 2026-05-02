@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import os
 from pathlib import Path
 import subprocess
 import tempfile
@@ -33,6 +34,12 @@ class CodeSandbox:
                 text=True,
                 timeout=self.timeout,
                 cwd=str(self.workspace),
+                env={
+                    "PATH": os.environ.get("PATH", ""),
+                    "PYTHONPATH": "",
+                    "HOME": str(self.workspace),
+                    "TMPDIR": str(self.workspace),
+                },
             )
             return SandboxResult(proc.returncode == 0, int(proc.returncode), proc.stdout[:4096], proc.stderr[:4096], False)
         except subprocess.TimeoutExpired as exc:
