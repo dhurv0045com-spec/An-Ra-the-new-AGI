@@ -4,8 +4,6 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
-# Legacy alias used by older notebooks and Gemini-generated Colab cells.
-# Keep this exported forever to avoid `ImportError: cannot import name 'PROJECT_ROOT'`.
 PROJECT_ROOT = ROOT
 
 CORE_DIR = ROOT / "core"
@@ -42,15 +40,40 @@ DRIVE_MEMORY = DRIVE_DIR / "memory_db"
 DRIVE_SESSIONS = DRIVE_DIR / "sessions"
 DRIVE_V2_DIR = DRIVE_DIR / "v2"
 DRIVE_V2_CHECKPOINTS = DRIVE_V2_DIR / "checkpoints"
-DATASET = TRAINING_DATA_DIR / "anra_dataset_v6_1.txt"
-DATASET_LEGACY = DRIVE_DIR / "anra_dataset_v6_1.txt"
+DRIVE_V3_DIR = DRIVE_DIR / "v3"
+
+# Block 2 additions
+DRIVE_MANIFEST = DRIVE_DIR / "manifest.json"
+DRIVE_AUDIT_LOG = DRIVE_LOGS / "audit.log"
+DRIVE_GHOST_DB = DRIVE_MEMORY / "ghost_memory.sqlite3"
+DRIVE_FAISS_INDEX = DRIVE_MEMORY / "episodic.faiss"
+DRIVE_GRAPH_NODES = DRIVE_MEMORY / "graph_nodes.json"
+DRIVE_GRAPH_EDGES = DRIVE_MEMORY / "graph_edges.json"
+MEMORY_DIR_LOCAL = ROOT / "memory"
+
+MEMORY_DB_DIR = DRIVE_MEMORY
+TEACHER_REASONING_V2_FILE = TRAINING_DATA_DIR / "teacher_reasoning_v2.jsonl"
+SYMBOLIC_REASONING_V2_FILE = TRAINING_DATA_DIR / "symbolic_reasoning_v2.jsonl"
+
+GHOST_DB_LOCAL = MEMORY_DIR_LOCAL / "ghost.db"
+FAISS_INDEX_LOCAL = MEMORY_DIR_LOCAL / "episodic.index"
+GRAPH_LOCAL = MEMORY_DIR_LOCAL / "knowledge_graph.pkl"
+GHOST_DB_DRIVE = DRIVE_V3_DIR / "memory" / "ghost_latest.db"
+GRAPH_DRIVE = DRIVE_V3_DIR / "memory" / "graph_latest.pkl"
+GOAL_QUEUE = DRIVE_V3_DIR / "goals" / "queue_latest.json"
+TRAINING_STATE = DRIVE_V3_DIR / "training" / "state.json"
+REGRET_STATE = DRIVE_V3_DIR / "training" / "regret_state.json"
+AUDIT_LOG = WORKSPACE_DIR / "audit.log"
+
+DATASET_CANONICAL = TRAINING_DATA_DIR / "anra_training.txt"
+DATASET_LEGACY = TRAINING_DATA_DIR / "anra_dataset_v6_1.txt"
+DATASET = DATASET_CANONICAL
 
 OUTPUT_V2_DIR = ROOT / "output" / "v2"
 V2_BRAIN_CHECKPOINT = ROOT / "anra_v2_brain.pt"
 V2_IDENTITY_CHECKPOINT = ROOT / "anra_v2_identity.pt"
 V2_OUROBOROS_CHECKPOINT = ROOT / "anra_v2_ouroboros.pt"
 V3_TOKENIZER_FILE = TOKENIZER_DIR / "tokenizer_v3.json"
-# Backward-compatible alias for legacy imports.
 V2_TOKENIZER_FILE = V3_TOKENIZER_FILE
 
 REQUIRED_DIRS = [
@@ -61,27 +84,19 @@ REQUIRED_DIRS = [
     TRAINING_DATA_DIR,
     ROOT / "checkpoints",
     ROOT / "history",
+    MEMORY_DIR_LOCAL,
+    WORKSPACE_DIR / "git_workspace",
+    GHOST_DB_LOCAL.parent,
+    FAISS_INDEX_LOCAL.parent,
 ]
 
 
 def inject_all_paths() -> None:
     paths = [
-        ROOT,
-        CORE_DIR,
-        TRAINING_DIR,
-        INFERENCE_DIR,
-        CONFIG_DIR,
-        SCRIPTS_DIR,
-        FINE_TUNING_DIR,
-        MEMORY_DIR,
-        AGENT_LOOP_DIR,
-        SELF_IMPROVEMENT_DIR,
-        MASTER_SYSTEM_DIR,
-        IDENTITY_DIR,
-        OUROBOROS_DIR,
-        GHOST_MEMORY_DIR,
-        SYMBOLIC_BRIDGE_DIR,
-        SOVEREIGNTY_DIR,
+        ROOT, CORE_DIR, TRAINING_DIR, INFERENCE_DIR, CONFIG_DIR, SCRIPTS_DIR,
+        FINE_TUNING_DIR, MEMORY_DIR, AGENT_LOOP_DIR, SELF_IMPROVEMENT_DIR,
+        MASTER_SYSTEM_DIR, IDENTITY_DIR, OUROBOROS_DIR, GHOST_MEMORY_DIR,
+        SYMBOLIC_BRIDGE_DIR, SOVEREIGNTY_DIR,
     ]
     for p in reversed(paths):
         s = str(p)
@@ -95,21 +110,22 @@ def ensure_dirs() -> None:
 
 
 def get_dataset_file() -> Path:
-    """Find the primary training dataset."""
-    if DATASET.exists():
-        return DATASET
+    if DATASET_CANONICAL.exists():
+        return DATASET_CANONICAL
     if DATASET_LEGACY.exists():
-        return DATASET_LEGACY
-    return DATASET
-
+        try:
+            import shutil
+            shutil.copy2(DATASET_LEGACY, DATASET_CANONICAL)
+        except Exception:
+            pass
+        return DATASET_CANONICAL if DATASET_CANONICAL.exists() else DATASET_LEGACY
+    for c in [DRIVE_DIR / "anra_training.txt", DRIVE_DIR / "anra_dataset_v6_1.txt"]:
+        if c.exists():
+            return c
+    return DATASET_CANONICAL
 
 def get_tokenizer_file() -> Path:
-    """Find the tokenizer pickle."""
-    candidates = [
-        TOKENIZER_DIR / "tokenizer.pkl",
-        ROOT / "tokenizer.pkl",
-    ]
-    for c in candidates:
+    for c in [TOKENIZER_DIR / "tokenizer.pkl", ROOT / "tokenizer.pkl"]:
         if c.exists():
             return c
     return TOKENIZER_DIR / "tokenizer.pkl"
@@ -117,51 +133,42 @@ def get_tokenizer_file() -> Path:
 
 def get_identity_file() -> Path:
     candidates = [
-        IDENTITY_DIR / "anra_identity_combined.txt",
-        ROOT / "anra_identity_combined.txt",
         DRIVE_IDENTITY / "anra_identity_combined.txt",
+        DRIVE_IDENTITY / "anra_identity_v4_fluent.txt",
+        IDENTITY_DIR / "anra_identity_combined.txt",
         IDENTITY_DIR / "anra_identity_v4_fluent.txt",
+        ROOT / "anra_identity_combined.txt",
+        ROOT / "anra_identity_v4_fluent.txt",
     ]
     for c in candidates:
         if c.exists():
             return c
+
+    # broad scan across drive as final fallback
+    if DRIVE_DIR.exists():
+        patterns = ("*identity*.txt", "*identity*.md")
+        for pattern in patterns:
+            for match in DRIVE_DIR.rglob(pattern):
+                if match.is_file():
+                    return match
     return IDENTITY_DIR / "anra_identity_combined.txt"
 
 
 def get_checkpoint() -> Path | None:
-    candidates = [
-        ROOT / "anra_brain_identity.pt",
-        DRIVE_CHECKPOINTS / "anra_brain_identity.pt",
-        ROOT / "anra_brain.pt",
-        DRIVE_CHECKPOINTS / "anra_brain.pt",
-    ]
-    for c in candidates:
+    for c in [ROOT / "anra_brain_identity.pt", DRIVE_CHECKPOINTS / "anra_brain_identity.pt", ROOT / "anra_brain.pt", DRIVE_CHECKPOINTS / "anra_brain.pt"]:
         if c.exists():
             return c
     return None
 
-
 def get_optimization_config() -> Path:
-    """Find optimization config at an absolute path."""
-    candidates = [
-        CONFIG_DIR / "optimization_config.json",
-        ROOT / "AnRa" / "optimization_config.json",
-    ]
-    for c in candidates:
+    for c in [CONFIG_DIR / "optimization_config.json", ROOT / "AnRa" / "optimization_config.json"]:
         if c.exists():
             return c.resolve()
     return (CONFIG_DIR / "optimization_config.json").resolve()
 
 
 def get_v2_tokenizer_file() -> Path:
-    candidates = [
-        V3_TOKENIZER_FILE,
-        V2_TOKENIZER_FILE,
-        ROOT / "tokenizer_v2.json",
-        ROOT / "tokenizer_v3.json",
-        DRIVE_V2_DIR / "tokenizer_v3.json",
-        DRIVE_V2_DIR / "tokenizer_v2.json",
-    ]
+    candidates = [V3_TOKENIZER_FILE, V2_TOKENIZER_FILE, ROOT / "tokenizer_v2.json", ROOT / "tokenizer_v3.json", DRIVE_V2_DIR / "tokenizer_v3.json", DRIVE_V2_DIR / "tokenizer_v2.json"]
     for c in candidates:
         if c.exists():
             return c
@@ -182,98 +189,23 @@ def get_v2_checkpoint(kind: str = "brain") -> Path:
 
 
 def get_v2_checkpoints_dir() -> Path:
-    """Backward-compatible helper kept for legacy notebook code."""
     return DRIVE_V2_CHECKPOINTS
 
 
-# ── Backward-compatibility: PathRegistry class ────────────────────────────────
-# Some legacy notebooks import `from anra_paths import PathRegistry`.
-# This class wraps all module-level constants so those imports succeed.
-
 class PathRegistry:
-    """Compatibility shim — exposes every path constant as a class attribute."""
+    ROOT = ROOT; PROJECT_ROOT = PROJECT_ROOT; CORE_DIR = CORE_DIR; TRAINING_DIR = TRAINING_DIR
+    INFERENCE_DIR = INFERENCE_DIR; TOKENIZER_DIR = TOKENIZER_DIR; CONFIG_DIR = CONFIG_DIR; SCRIPTS_DIR = SCRIPTS_DIR
+    TESTS_DIR = TESTS_DIR; TRAINING_DATA_DIR = TRAINING_DATA_DIR; OUTPUT_DIR = OUTPUT_DIR; STATE_DIR = STATE_DIR
+    WORKSPACE_DIR = WORKSPACE_DIR; PHASE2_DIR = PHASE2_DIR; FINE_TUNING_DIR = FINE_TUNING_DIR; MEMORY_DIR = MEMORY_DIR
+    AGENT_LOOP_DIR = AGENT_LOOP_DIR; SELF_IMPROVEMENT_DIR = SELF_IMPROVEMENT_DIR; MASTER_SYSTEM_DIR = MASTER_SYSTEM_DIR
+    PHASE3_DIR = PHASE3_DIR; IDENTITY_DIR = IDENTITY_DIR; OUROBOROS_DIR = OUROBOROS_DIR; GHOST_MEMORY_DIR = GHOST_MEMORY_DIR
+    SYMBOLIC_BRIDGE_DIR = SYMBOLIC_BRIDGE_DIR; SOVEREIGNTY_DIR = SOVEREIGNTY_DIR; DRIVE_DIR = DRIVE_DIR
+    DRIVE_CHECKPOINTS = DRIVE_CHECKPOINTS; DRIVE_IDENTITY = DRIVE_IDENTITY; DRIVE_LOGS = DRIVE_LOGS; DRIVE_MEMORY = DRIVE_MEMORY
+    DRIVE_SESSIONS = DRIVE_SESSIONS; DRIVE_V2_DIR = DRIVE_V2_DIR; DRIVE_V2_CHECKPOINTS = DRIVE_V2_CHECKPOINTS
+    DRIVE_MANIFEST = DRIVE_MANIFEST; DRIVE_AUDIT_LOG = DRIVE_AUDIT_LOG; DRIVE_GHOST_DB = DRIVE_GHOST_DB
+    DRIVE_FAISS_INDEX = DRIVE_FAISS_INDEX; DRIVE_GRAPH_NODES = DRIVE_GRAPH_NODES; DRIVE_GRAPH_EDGES = DRIVE_GRAPH_EDGES
+    MEMORY_DB_DIR = MEMORY_DB_DIR; TEACHER_REASONING_V2_FILE = TEACHER_REASONING_V2_FILE; SYMBOLIC_REASONING_V2_FILE = SYMBOLIC_REASONING_V2_FILE
+    DATASET = DATASET; DATASET_LEGACY = DATASET_LEGACY; OUTPUT_V2_DIR = OUTPUT_V2_DIR
+    V2_BRAIN_CHECKPOINT = V2_BRAIN_CHECKPOINT; V2_IDENTITY_CHECKPOINT = V2_IDENTITY_CHECKPOINT; V2_OUROBOROS_CHECKPOINT = V2_OUROBOROS_CHECKPOINT
+    V2_TOKENIZER_FILE = V2_TOKENIZER_FILE; V3_TOKENIZER_FILE = V3_TOKENIZER_FILE
 
-    ROOT = ROOT
-    PROJECT_ROOT = PROJECT_ROOT
-    CORE_DIR = CORE_DIR
-    TRAINING_DIR = TRAINING_DIR
-    INFERENCE_DIR = INFERENCE_DIR
-    TOKENIZER_DIR = TOKENIZER_DIR
-    CONFIG_DIR = CONFIG_DIR
-    SCRIPTS_DIR = SCRIPTS_DIR
-    TESTS_DIR = TESTS_DIR
-    TRAINING_DATA_DIR = TRAINING_DATA_DIR
-    OUTPUT_DIR = OUTPUT_DIR
-    STATE_DIR = STATE_DIR
-    WORKSPACE_DIR = WORKSPACE_DIR
-
-    PHASE2_DIR = PHASE2_DIR
-    FINE_TUNING_DIR = FINE_TUNING_DIR
-    MEMORY_DIR = MEMORY_DIR
-    AGENT_LOOP_DIR = AGENT_LOOP_DIR
-    SELF_IMPROVEMENT_DIR = SELF_IMPROVEMENT_DIR
-    MASTER_SYSTEM_DIR = MASTER_SYSTEM_DIR
-
-    PHASE3_DIR = PHASE3_DIR
-    IDENTITY_DIR = IDENTITY_DIR
-    OUROBOROS_DIR = OUROBOROS_DIR
-    GHOST_MEMORY_DIR = GHOST_MEMORY_DIR
-    SYMBOLIC_BRIDGE_DIR = SYMBOLIC_BRIDGE_DIR
-    SOVEREIGNTY_DIR = SOVEREIGNTY_DIR
-
-    DRIVE_DIR = DRIVE_DIR
-    DRIVE_CHECKPOINTS = DRIVE_CHECKPOINTS
-    DRIVE_IDENTITY = DRIVE_IDENTITY
-    DRIVE_LOGS = DRIVE_LOGS
-    DRIVE_MEMORY = DRIVE_MEMORY
-    DRIVE_SESSIONS = DRIVE_SESSIONS
-    DRIVE_V2_DIR = DRIVE_V2_DIR
-    DRIVE_V2_CHECKPOINTS = DRIVE_V2_CHECKPOINTS
-    DATASET = DATASET
-    DATASET_LEGACY = DATASET_LEGACY
-    OUTPUT_V2_DIR = OUTPUT_V2_DIR
-    V2_BRAIN_CHECKPOINT = V2_BRAIN_CHECKPOINT
-    V2_IDENTITY_CHECKPOINT = V2_IDENTITY_CHECKPOINT
-    V2_OUROBOROS_CHECKPOINT = V2_OUROBOROS_CHECKPOINT
-    V2_TOKENIZER_FILE = V2_TOKENIZER_FILE
-    V3_TOKENIZER_FILE = V3_TOKENIZER_FILE
-
-    @staticmethod
-    def inject_all_paths() -> None:
-        inject_all_paths()
-
-    @staticmethod
-    def ensure_dirs() -> None:
-        ensure_dirs()
-
-    @staticmethod
-    def get_dataset_file() -> Path:
-        return get_dataset_file()
-
-    @staticmethod
-    def get_tokenizer_file() -> Path:
-        return get_tokenizer_file()
-
-    @staticmethod
-    def get_identity_file() -> Path:
-        return get_identity_file()
-
-    @staticmethod
-    def get_checkpoint() -> Path | None:
-        return get_checkpoint()
-
-    @staticmethod
-    def get_optimization_config() -> Path:
-        return get_optimization_config()
-
-    @staticmethod
-    def get_v2_tokenizer_file() -> Path:
-        return get_v2_tokenizer_file()
-
-    @staticmethod
-    def get_v2_checkpoint(kind: str = "brain") -> Path:
-        return get_v2_checkpoint(kind)
-
-    @staticmethod
-    def get_v2_checkpoints_dir() -> Path:
-        return get_v2_checkpoints_dir()
