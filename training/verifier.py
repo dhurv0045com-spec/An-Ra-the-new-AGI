@@ -95,11 +95,38 @@ class VerifierHierarchy:
         return VerificationResult(score, 2, "heuristic_instruction")
 
     def verify_open_ended(self, task: str, response: str) -> VerificationResult:
-        del task
-        tokens = (response or "").split()
-        diverse = len(set(tokens)) / max(1, len(tokens))
-        score = min(0.7, max(0.0, 0.2 + diverse * 0.5))
-        return VerificationResult(score, 3, "open_ended_heuristic")
+        response = (response or "").strip()
+        if not response:
+            return VerificationResult(0.0, 3, "empty_response")
+
+        task_terms = re.findall(r"[a-z0-9]{3,}", (task or "").lower())
+        response_terms = re.findall(r"[a-z0-9]{3,}", response.lower())
+        if not response_terms:
+            return VerificationResult(0.0, 3, "no_content_terms")
+
+        term_counts: dict[str, int] = {}
+        for term in response_terms:
+            term_counts[term] = term_counts.get(term, 0) + 1
+
+        task_vocab = set(task_terms)
+        response_vocab = set(response_terms)
+        alignment = (
+            sum(1 for term in task_vocab if term in response_vocab) / max(1, len(task_vocab))
+            if task_vocab
+            else 0.35
+        )
+        substance = min(1.0, len(response_terms) / 80.0)
+        structure_markers = sum(
+            marker in response.lower()
+            for marker in ("because", "therefore", "for example", "first", "second", "finally")
+        )
+        structure = min(1.0, 0.2 * structure_markers + 0.2 * response.count("\n"))
+        repetition = max(term_counts.values()) / max(1, len(response_terms))
+        repetition_penalty = max(0.0, repetition - 0.18) * 1.5
+
+        score = 0.15 + 0.35 * alignment + 0.25 * substance + 0.20 * structure - repetition_penalty
+        score = min(0.85, max(0.0, score))
+        return VerificationResult(score, 3, "open_ended_semantic_heuristic")
 
     def score(self, task_type: str, **kwargs) -> VerificationResult:
         if task_type == "code":

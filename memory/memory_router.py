@@ -31,9 +31,15 @@ class MemoryRouter:
         dim: int = 256,
         faiss_index_path: str | Path | None = None,
         esv=None,
+        embedding_model=None,
+        embedding_tokenizer=None,
+        embedding_fn=None,
     ) -> None:
         self.dim = int(dim)
         self.esv = esv
+        self.embedding_model = embedding_model
+        self.embedding_tokenizer = embedding_tokenizer
+        self.embedding_fn = embedding_fn
         self.short_term: list[dict] = []
         self.graph: dict[str, list[str]] = {}
         self.ghost_db_path = Path(DRIVE_GHOST_DB)
@@ -43,14 +49,83 @@ class MemoryRouter:
         self.episodic = FAISSEpisodicStore(index_path=idx_path, dim=self.dim)
         self.episodic.load()
 
-    def _hash_embed(self, text: str) -> np.ndarray:
+    def _fit_dim(self, vector) -> np.ndarray:
+        np = _numpy()
+        vec = np.asarray(vector, dtype=np.float32).reshape(-1)
+        if vec.shape[0] == self.dim:
+            return vec
+        if vec.shape[0] > self.dim:
+            return vec[: self.dim]
+        out = np.zeros(self.dim, dtype=np.float32)
+        out[: vec.shape[0]] = vec
+        return out
+
+    def _pool_model_output(self, output, attention_mask=None):
+        hidden = getattr(output, "last_hidden_state", None)
+        if hidden is None and isinstance(output, (tuple, list)) and output:
+            hidden = output[0]
+        if hidden is None:
+            return output
+
+        try:
+            import torch
+
+            if attention_mask is not None:
+                mask = attention_mask.to(hidden.device).unsqueeze(-1).float()
+                return (hidden * mask).sum(dim=1) / mask.sum(dim=1).clamp_min(1.0)
+            return hidden.mean(dim=1)
+        except Exception:
+            return hidden
+
+    def _local_semantic_projection(self, text: str) -> np.ndarray:
         np = _numpy()
         vec = np.zeros(self.dim, dtype=np.float32)
-        tokens = text.lower().split()
-        for tok in tokens:
-            h = int(hashlib.sha256(tok.encode("utf-8")).hexdigest(), 16)
-            vec[h % self.dim] += 1.0
+        tokens = [tok for tok in text.lower().split() if tok]
+        if not tokens:
+            return vec
+        for pos, tok in enumerate(tokens):
+            features = {tok, tok[:4], tok[-4:]}
+            features.update(tok[i : i + 3] for i in range(max(1, len(tok) - 2)))
+            weight = 1.0 / (1.0 + pos * 0.01)
+            for feature in features:
+                digest = hashlib.blake2b(feature.encode("utf-8"), digest_size=8).digest()
+                idx = int.from_bytes(digest, "little") % self.dim
+                sign = 1.0 if digest[0] & 1 else -1.0
+                vec[idx] += sign * weight
         return vec
+
+    def _semantic_embed(self, text: str) -> np.ndarray:
+        np = _numpy()
+
+        if callable(self.embedding_fn):
+            return self._fit_dim(self.embedding_fn(text))
+
+        model = self.embedding_model
+        if model is not None:
+            encode = getattr(model, "encode", None)
+            if callable(encode):
+                return self._fit_dim(encode(text))
+
+            tokenizer = self.embedding_tokenizer
+            if tokenizer is not None:
+                try:
+                    import torch
+
+                    with torch.no_grad():
+                        if callable(tokenizer):
+                            batch = tokenizer(text, return_tensors="pt", truncation=True)
+                            output = model(**batch)
+                            pooled = self._pool_model_output(output, batch.get("attention_mask"))
+                        else:
+                            ids = tokenizer.encode(text)
+                            x = torch.tensor([ids], dtype=torch.long)
+                            output = model(x)
+                            pooled = self._pool_model_output(output)
+                    return self._fit_dim(pooled.detach().cpu().numpy())
+                except Exception:
+                    pass
+
+        return self._fit_dim(np.tanh(self._local_semantic_projection(text)))
 
     def write(self, content: str, *, metadata: dict | None = None, tier: str = "episodic") -> MemoryWriteResult:
         metadata = metadata or {}
@@ -85,7 +160,7 @@ class MemoryRouter:
                 f.write(json.dumps(row) + "\n")
             return MemoryWriteResult(tier=tier, record_id=record_id)
 
-        vec = self._hash_embed(content)
+        vec = self._semantic_embed(content)
         payload = {"content": content, **metadata}
         self.episodic.add(record_id, vec, payload)
         self.episodic.save()
@@ -116,5 +191,5 @@ class MemoryRouter:
             return rows[-n:]
 
         np = _numpy()
-        qvec = query if isinstance(query, np.ndarray) else self._hash_embed(str(query))
+        qvec = query if isinstance(query, np.ndarray) else self._semantic_embed(str(query))
         return self.episodic.search(qvec, k=n)

@@ -12,6 +12,7 @@ import torch
 import torch.nn as nn
 from torch.nn import functional as F
 
+from identity.esv import ESVModule
 from tokenizer.char_tokenizer import CharTokenizer
 
 
@@ -183,6 +184,7 @@ class CausalTransformerV2(nn.Module):
         self.lm_head = nn.Linear(n_embd, vocab_size, bias=False)
         self.lm_head.weight = self.token_embedding_table.weight
         self.apply(self._init_weights)
+        self.esv_module = ESVModule(d_model=n_embd, d_esv=min(64, n_embd))
 
     def _init_weights(self, module: nn.Module) -> None:
         if isinstance(module, nn.Linear):
@@ -206,6 +208,7 @@ class CausalTransformerV2(nn.Module):
                 x = self.mod_routers[key](x, block)
             else:
                 x = block(x)
+        self.esv_module(x)
         x = self.norm_f(x)
         logits = self.lm_head(x)
         loss = None
