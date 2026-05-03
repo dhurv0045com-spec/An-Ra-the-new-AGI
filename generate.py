@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+import logging
 import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -18,6 +19,7 @@ from training.v2_runtime import (
 )
 
 inject_all_paths()
+logger = logging.getLogger(__name__)
 
 try:
     from anra_paths import inject_all_paths as _inject
@@ -78,9 +80,14 @@ def _seed_all(seed: Optional[int]) -> None:
 
 def _load_runtime():
     tokenizer = load_or_build_v2_tokenizer()
-    model = build_v2_model(vocab_size=tokenizer.vocab_size)
-    model = model.to(DEVICE)
     checkpoint = canonical_v2_checkpoint("ouroboros")
+    use_ouroboros = checkpoint.exists()
+    model = build_v2_model(vocab_size=tokenizer.vocab_size)
+    if use_ouroboros:
+        from ouroboros import OuroborosDecoder
+
+        model = OuroborosDecoder(model, n_passes=3)
+    model = model.to(DEVICE)
     if not checkpoint.exists():
         checkpoint = canonical_v2_checkpoint("identity")
     if not checkpoint.exists():
@@ -219,8 +226,8 @@ def generate_traced(prompt: str, cfg: GenerationConfig, *, session_id: str | Non
     if _IDENTITY_INJECTOR is not None:
         try:
             output_text = _IDENTITY_INJECTOR.clean(output_text)
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("Identity injector cleanup failed: %s", exc)
 
     if session_id:
         _ACTIVE_GHOST["session_id"] = session_id
@@ -292,8 +299,8 @@ def save_ghost_state(session_id: str) -> None:
     if _GHOST_MEMORY is not None:
         try:
             _GHOST_MEMORY.store(session_id, dict(_ACTIVE_GHOST))
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("Ghost state persistence failed for session %s: %s", session_id, exc)
 
 
 def get_model_info() -> dict[str, object]:

@@ -6,7 +6,7 @@ def _tiny_model():
     from anra_brain import CausalTransformerV2
 
     return CausalTransformerV2(
-        vocab_size=8192,
+        vocab_size=4096,
         n_embd=64,
         n_head=2,
         n_layer=2,
@@ -60,4 +60,3 @@ def test_original_run_benchmark_unchanged():
     result = run_benchmark(val_loss=2.5, rlvr_rewards=[1.0, 0.0, 1.0])
     assert isinstance(result, BenchmarkResult)
     assert result.val_perplexity > 0
-

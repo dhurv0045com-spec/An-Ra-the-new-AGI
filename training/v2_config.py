@@ -4,11 +4,16 @@ from dataclasses import dataclass
 
 
 MODEL_LINE = "v2"
+CANONICAL_VOCAB_SIZE = 4096
+CANONICAL_PAD_TOKEN_ID = 0
+CANONICAL_UNK_TOKEN_ID = 1
+CANONICAL_SPECIAL_TOKENS = ["<pad>", "<unk>", "<bos>", "<eos>"]
 
 
 @dataclass(frozen=True)
 class V2ModelConfig:
-    vocab_size: int = 8192
+    vocab_size: int = CANONICAL_VOCAB_SIZE
+    pad_token_id: int = CANONICAL_PAD_TOKEN_ID
     n_embd: int = 512
     n_head: int = 8
     n_kv_head: int = 2
@@ -32,6 +37,7 @@ class V2TrainingConfig:
     identity_ratio: float = 0.15
     symbolic_ratio: float = 0.05
     replay_ratio: float = 0.05
+    civ_identity_min_score: float = 0.68
     teacher_examples_target: int = 384
     symbolic_examples_target: int = 192
     max_mixture_examples: int = 16000
@@ -43,7 +49,9 @@ class V2TrainingConfig:
 
 V2_MODEL = V2ModelConfig()
 V2_TRAINING = V2TrainingConfig()
-EXPECTED_TOKENIZER_VOCAB_SIZE = 8192
+EXPECTED_TOKENIZER_VOCAB_SIZE = CANONICAL_VOCAB_SIZE
+EXPECTED_PAD_TOKEN_ID = CANONICAL_PAD_TOKEN_ID
+EXPECTED_SPECIAL_TOKENS = CANONICAL_SPECIAL_TOKENS
 
 
 IDENTITY_KEYWORDS = [

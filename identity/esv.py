@@ -103,6 +103,11 @@ if nn is not None:
         def attention_temperature(self, tau0: float = 1.0) -> float:
             return float(tau0) * math.exp(self.arousal)
 
+        def attention_temperature_tensor(self, state=None, tau0: float = 1.0):
+            """Return a differentiable attention temperature from arousal."""
+            state = self.state if state is None else state
+            return float(tau0) * torch.exp(state[1]).clamp(0.25, 4.0)
+
         def memory_write_threshold(self, base: float = 0.5) -> float:
             threshold = float(base) - 0.15 * self.valence + 0.15 * self.arousal
             return max(0.01, min(0.99, threshold))

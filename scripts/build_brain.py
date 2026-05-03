@@ -17,7 +17,7 @@ from torch.utils.data import DataLoader
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from anra_paths import DRIVE_V2_CHECKPOINTS, REGRET_STATE, ROOT, V2_TOKENIZER_FILE, get_v2_checkpoint, inject_all_paths
+from anra_paths import DRIVE_V2_CHECKPOINTS, REGRET_STATE, ROOT, V2_TOKENIZER_FILE, inject_all_paths
 from training.anra_optimizer import build_optimizer
 from training.eval_v2 import quick_eval_loss, run_compact_eval
 from training.mixed_precision import MixedPrecisionTrainer
@@ -170,6 +170,7 @@ def train_anra_v2(
     teacher_ratio: float | None = None,
     symbolic_ratio: float | None = None,
     replay_ratio: float | None = None,
+    use_ouroboros: bool = False,
 ) -> dict[str, object]:
     print_session_dashboard()
     dataset_path = Path(data_path)
@@ -195,7 +196,12 @@ def train_anra_v2(
     loader = DataLoader(ds, batch_size=batch_size, shuffle=True, drop_last=False)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = build_v2_model(vocab_size=tokenizer.vocab_size, block_size=block_size).to(device)
+    model = build_v2_model(vocab_size=tokenizer.vocab_size, block_size=block_size)
+    if use_ouroboros:
+        from ouroboros import OuroborosDecoder
+
+        model = OuroborosDecoder(model, n_passes=3)
+    model = model.to(device)
     mp = MixedPrecisionTrainer(device=device)
     optimizer = build_optimizer(model, lr=3e-4)
     scheduler = get_cosine_schedule_with_warmup(
@@ -206,7 +212,11 @@ def train_anra_v2(
     regret_scheduler = DynamicRegretScheduler(optimizer, eta_base=3e-4)
     regret_scheduler.load(REGRET_STATE)
 
-    ckpt_path = get_v2_checkpoint("brain")
+    requested_checkpoint = Path(checkpoint_path)
+    ckpt_path = requested_checkpoint if requested_checkpoint.is_absolute() else ROOT / requested_checkpoint
+    resume_path = Path(resume_from) if resume_from else ckpt_path
+    if not resume_path.is_absolute():
+        resume_path = ROOT / resume_path
     ckpt: dict[str, object] = {}
     global_step = 0
     epoch = 0
@@ -256,27 +266,18 @@ def train_anra_v2(
     session_start_loss = float("inf")
 
     # ── AUTO-RESUME ──────────────────────────────────────────────────────────────
-    if ckpt_path.exists():
-        print(f"[Resume] Found checkpoint: {ckpt_path}", flush=True)
-        try:
-            ckpt = torch.load(ckpt_path, map_location=device, weights_only=False)
-            model.load_state_dict(ckpt.get("model", ckpt.get("model_state_dict", {})))
-            optimizer.load_state_dict(ckpt.get("optimizer", ckpt.get("optimizer_state_dict", {})))
-            scheduler_state = ckpt.get("scheduler", ckpt.get("scheduler_state_dict"))
-            if scheduler_state:
-                scheduler.load_state_dict(scheduler_state)
-            scaler_state = ckpt.get("scaler", ckpt.get("scaler_state_dict"))
-            if scaler_state:
-                mp.load_state_dict(scaler_state)
-            start_step = int(ckpt.get("step", ckpt.get("global_step", 0)))
-            best_loss = float(ckpt.get("best_loss", float("inf")))
+    load_path = ckpt_path if ckpt_path.exists() else resume_path
+    if load_path.exists():
+        print(f"[Resume] Found checkpoint: {load_path}", flush=True)
+        ckpt = torch.load(load_path, map_location=device, weights_only=False)
+        resume_state = load_checkpoint(model, optimizer, scheduler, mp, load_path, device=device, strict=False)
+        if resume_state["loaded"]:
+            start_step = int(resume_state["global_step"])
+            best_loss = float(resume_state["best_loss"])
             session_start_loss = best_loss
             print(f"[Resume] Resuming from step={start_step}  best_loss={best_loss:.4f}", flush=True)
-        except Exception as e:
-            print(f"[Resume] Checkpoint load failed ({e}) — starting from scratch", flush=True)
-            start_step = 0
-            best_loss = float("inf")
-            session_start_loss = float("inf")
+        else:
+            print("[Resume] Checkpoint not loaded — starting from scratch", flush=True)
     else:
         print("[Resume] No checkpoint found — starting from scratch", flush=True)
     # ─────────────────────────────────────────────────────────────────────────────

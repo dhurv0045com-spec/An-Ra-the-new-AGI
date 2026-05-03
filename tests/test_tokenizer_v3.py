@@ -15,12 +15,12 @@ def test_tokenizer_v3_train_and_validate(tmp_path: Path) -> None:
         '<system> Keep format <user> and <assistant> markers.',
         DATASET_LEGACY.read_text(encoding='utf-8', errors='replace')[:20000],
     ]
-    tok = SubwordTokenizer.train_from_texts(texts, vocab_size=8192, special_tokens=SPECIAL_TOKENS)
+    tok = SubwordTokenizer.train_from_texts(texts, vocab_size=4096, special_tokens=SPECIAL_TOKENS)
     tok.save(json_path)
 
-    assert tok.vocab_size == 8192
-    assert len(tok.token_to_id) == 8192
-    assert max(tok.encode('def f(x): return x+1')) < 8192
+    assert tok.vocab_size == 4096
+    assert len(tok.token_to_id) == 4096
+    assert max(tok.encode('def f(x): return x+1')) < 4096
     assert all(tok.special_ids[token] == i for i, token in enumerate(SPECIAL_TOKENS))
 
     stats = validate_tokenizer(json_path, DATASET_LEGACY)

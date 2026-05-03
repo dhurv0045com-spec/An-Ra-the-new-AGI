@@ -9,8 +9,8 @@ from tokenizer.subword_tokenizer import SubwordTokenizer
 
 
 SPECIAL_TOKENS = [
-    "<unk>",
     "<pad>",
+    "<unk>",
     "<bos>",
     "<eos>",
     "<sep>",
@@ -23,7 +23,7 @@ SPECIAL_TOKENS = [
     "<ESV:a>",
     "<ESV:d>",
 ]
-TARGET_VOCAB = 8192
+TARGET_VOCAB = 4096
 
 
 def validate_tokenizer(tokenizer_json: Path, dataset_path: Path) -> dict[str, float | bool]:

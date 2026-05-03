@@ -8,16 +8,20 @@ continuous fine-tuning, catastrophic forgetting prevention,
 domain adaptation, and model scaling recommendations.
 """
 
-import os, json, uuid, time, threading, sqlite3, hashlib
+import json, uuid, time, threading, sqlite3, hashlib, logging, sys
 from datetime import datetime
 from dataclasses import dataclass, asdict, field
 from typing import Optional, List, Dict, Any, Tuple
 from pathlib import Path
 
+from anra_paths import FINE_TUNING_DIR, MASTER_SYSTEM_DIR
 
-STATE_DIR    = Path("state")
-CKPT_DIR     = Path("checkpoints")
-TRAIN_DIR    = Path("training_data")
+
+logger = logging.getLogger(__name__)
+
+STATE_DIR    = MASTER_SYSTEM_DIR / "state"
+CKPT_DIR     = MASTER_SYSTEM_DIR / "checkpoints"
+TRAIN_DIR    = MASTER_SYSTEM_DIR / "training_data"
 STATE_DIR.mkdir(parents=True, exist_ok=True)
 CKPT_DIR.mkdir(parents=True, exist_ok=True)
 TRAIN_DIR.mkdir(parents=True, exist_ok=True)
@@ -54,6 +58,27 @@ class TrainingExample:
     output_text: str
     domain:     str = "general"
     used_in_training: bool = False
+
+
+class TrainingExampleValidationError(ValueError):
+    """Raised when a candidate training example would corrupt the training set."""
+
+
+def _non_ascii_ratio(text: str) -> float:
+    return sum(1 for ch in text if ord(ch) > 127) / max(1, len(text))
+
+
+def validate_training_example(ex: TrainingExample) -> None:
+    """Reject known corrupt examples before they are persisted for training."""
+    output = ex.output_text or ""
+    if output.startswith("An-Ra response to:"):
+        raise TrainingExampleValidationError(
+            "Rejected corrupt training example: output_text contains response-template prefix"
+        )
+    if _non_ascii_ratio(output) > 0.10:
+        raise TrainingExampleValidationError(
+            "Rejected corrupt training example: output_text contains more than 10% non-ASCII characters"
+        )
 
 
 @dataclass
@@ -140,6 +165,7 @@ class ScaleDB:
         return [TrainingRun(**json.loads(r[0])) for r in rows]
 
     def add_example(self, ex: TrainingExample):
+        validate_training_example(ex)
         with self._lock:
             self._conn.execute("INSERT OR REPLACE INTO training_examples VALUES (?,?)",
                                (ex.example_id, json.dumps(asdict(ex))))
@@ -318,8 +344,8 @@ class DistributedTrainer:
             )
             if result.returncode == 0:
                 return len([l for l in result.stdout.strip().split("\n") if l.strip()])
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("GPU detection via nvidia-smi failed: %s", exc)
         return 0
 
     def hardware_profile(self) -> dict:
@@ -375,7 +401,7 @@ class DistributedTrainer:
             if examples:
                 try:
                     # Try to import real training infrastructure from 45I
-                    sys.path.insert(0, str(Path(__file__).parent.parent.parent / "fine_tuning (45I)"))
+                    sys.path.insert(0, str(FINE_TUNING_DIR))
                     from finetune.pipeline import FineTuner, SimpleTokenizer
                     
                     # Get the singleton LLM bridge

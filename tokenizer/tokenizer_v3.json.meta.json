@@ -1,10 +1,19 @@
 {
-  "vocab_size": 8192,
+  "vocab_size": 4096,
   "special_tokens": [
-    "<unk>",
     "<pad>",
+    "<unk>",
     "<bos>",
-    "<eos>"
+    "<eos>",
+    "<sep>",
+    "<code>",
+    "</code>",
+    "<think>",
+    "</think>",
+    "<goal>",
+    "<ESV:v>",
+    "<ESV:a>",
+    "<ESV:d>"
   ],
   "model_type": "fallback_unigram",
   "backend": "fallback"

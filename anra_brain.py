@@ -100,12 +100,15 @@ class MultiHeadAttentionV2(nn.Module):
         self.rope = RotaryEmbedding(self.head_dim, base_seq_len=base_seq_len, target_seq_len=target_seq_len)
         self.dropout = dropout
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, *, attention_temperature: torch.Tensor | float | None = None) -> torch.Tensor:
         bsz, seq_len, _ = x.shape
         q = self.q_proj(x).view(bsz, seq_len, self.n_head, self.head_dim).transpose(1, 2)
         k = self.k_proj(x).view(bsz, seq_len, self.n_kv_head, self.head_dim).transpose(1, 2)
         v = self.v_proj(x).view(bsz, seq_len, self.n_kv_head, self.head_dim).transpose(1, 2)
         q, k = self.rope(q, k)
+        if attention_temperature is not None:
+            temperature = torch.as_tensor(attention_temperature, dtype=q.dtype, device=q.device).clamp_min(0.25)
+            q = q / temperature
         if self.groups > 1:
             k = k.repeat_interleave(self.groups, dim=1)
             v = v.repeat_interleave(self.groups, dim=1)
@@ -136,14 +139,14 @@ class MoDRouter(nn.Module):
         self.gate = nn.Linear(d_model, 1, bias=False)
         nn.init.zeros_(self.gate.weight)
 
-    def forward(self, x: torch.Tensor, block: nn.Module) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, ffn: nn.Module) -> torch.Tensor:
         B, n, d = x.shape
         k = max(1, int(n * self.capacity))
         scores = self.gate(x).squeeze(-1)
         topk = scores.topk(k, dim=-1).indices
         idx_exp = topk.unsqueeze(-1).expand(-1, -1, d)
         x_sel = x.gather(1, idx_exp)
-        x_proc = block(x_sel)
+        x_proc = x_sel + ffn(x_sel)
         out = x.clone()
         out.scatter_(1, idx_exp, x_proc)
         return out
@@ -158,16 +161,28 @@ class BlockV2(nn.Module):
         self.norm_2 = RMSNorm(n_embd, eps=eps)
         self.mlp = SwiGLU(n_embd, hidden_dim)
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x = x + self.attn(self.norm_1(x))
+    def forward(
+        self,
+        x: torch.Tensor,
+        *,
+        attention_temperature: torch.Tensor | float | None = None,
+        mod_router: MoDRouter | None = None,
+    ) -> torch.Tensor:
+        x = x + self.attn(self.norm_1(x), attention_temperature=attention_temperature)
+        if mod_router is not None:
+            x = mod_router(x, nn.Sequential(self.norm_2, self.mlp))
+            return x
         x = x + self.mlp(self.norm_2(x))
         return x
 
 
 class CausalTransformerV2(nn.Module):
-    def __init__(self, vocab_size: int, n_embd: int, n_head: int, n_layer: int, block_size: int, *, n_kv_head: int | None = None, rms_norm_eps: float = 1e-5, dropout: float = 0.0, mod_layers=(), base_seq_len: int = 512, target_seq_len: int = 2048):
+    def __init__(self, vocab_size: int, n_embd: int, n_head: int, n_layer: int, block_size: int, *, n_kv_head: int | None = None, rms_norm_eps: float = 1e-5, dropout: float = 0.0, mod_layers=(), base_seq_len: int = 512, target_seq_len: int = 2048, pad_token_id: int = 0):
         super().__init__()
+        if not 0 <= pad_token_id < vocab_size:
+            raise ValueError(f"pad_token_id={pad_token_id} must be within vocab_size={vocab_size}")
         self.vocab_size = vocab_size
+        self.pad_token_id = int(pad_token_id)
         self.n_embd = n_embd
         self.d_model = n_embd
         self.n_head = n_head
@@ -195,26 +210,33 @@ class CausalTransformerV2(nn.Module):
             nn.init.normal_(module.weight, mean=0.0, std=0.02)
 
     def model_config(self) -> dict[str, int]:
-        return {"vocab_size": self.vocab_size, "n_embd": self.n_embd, "n_head": self.n_head, "n_layer": self.n_layer, "block_size": self.block_size, "n_kv_head": self.n_kv_head, "base_seq_len": self.base_seq_len, "target_seq_len": self.target_seq_len}
+        return {"vocab_size": self.vocab_size, "pad_token_id": self.pad_token_id, "n_embd": self.n_embd, "n_head": self.n_head, "n_layer": self.n_layer, "block_size": self.block_size, "n_kv_head": self.n_kv_head, "base_seq_len": self.base_seq_len, "target_seq_len": self.target_seq_len}
+
+    def embed(self, idx: torch.Tensor) -> torch.Tensor:
+        """Expose canonical token embedding for milestone reasoning wrappers."""
+        return self.token_embedding_table(idx)
+
+    def run_all_layers(self, x: torch.Tensor) -> torch.Tensor:
+        """Run the V2 residual stream from embeddings through final norm."""
+        esv_state = self.esv_module(x)
+        attention_temperature = self.esv_module.attention_temperature_tensor(esv_state)
+        for i, block in enumerate(self.blocks):
+            key = str(i)
+            mod_router = self.mod_routers[key] if key in self.mod_routers else None
+            x = block(x, attention_temperature=attention_temperature, mod_router=mod_router)
+        x = self.norm_f(x)
+        return x
 
     def forward(self, idx: torch.Tensor, targets: torch.Tensor | None = None):
         _, seq_len = idx.shape
         if seq_len > self.block_size:
             raise ValueError(f"sequence length {seq_len} exceeds block size {self.block_size}")
-        x = self.token_embedding_table(idx)
-        for i, block in enumerate(self.blocks):
-            key = str(i)
-            if key in self.mod_routers:
-                x = self.mod_routers[key](x, block)
-            else:
-                x = block(x)
-        self.esv_module(x)
-        x = self.norm_f(x)
+        x = self.run_all_layers(self.embed(idx))
         logits = self.lm_head(x)
         loss = None
         if targets is not None:
             bsz, time_steps, channels = logits.shape
-            loss = F.cross_entropy(logits.view(bsz * time_steps, channels), targets.view(bsz * time_steps), ignore_index=1)
+            loss = F.cross_entropy(logits.view(bsz * time_steps, channels), targets.view(bsz * time_steps), ignore_index=self.pad_token_id)
         return logits, loss
 
 

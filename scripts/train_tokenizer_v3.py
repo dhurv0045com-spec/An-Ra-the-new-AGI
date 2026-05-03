@@ -4,8 +4,8 @@ from anra_paths import TRAINING_DATA_DIR, TOKENIZER_DIR
 from tokenizer.subword_tokenizer import SubwordTokenizer
 
 SPECIAL_TOKENS = [
-    "<unk>",
     "<pad>",
+    "<unk>",
     "<bos>",
     "<eos>",
     "<sep>",
@@ -25,7 +25,7 @@ def main() -> None:
     texts = dataset.read_text(encoding="utf-8", errors="ignore").splitlines()
     tok = SubwordTokenizer.train_from_texts(
         texts,
-        vocab_size=8192,
+        vocab_size=4096,
         min_frequency=2,
         special_tokens=SPECIAL_TOKENS,
     )

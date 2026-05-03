@@ -55,14 +55,14 @@ class SubwordTokenizer:
         self.special_tokens = list(special_tokens)
         self.model_type = model_type
         self.backend = backend
-        self.unk_token = "<unk>"
         self.pad_token = "<pad>"
+        self.unk_token = "<unk>"
         self.bos_token = "<bos>"
         self.eos_token = "<eos>"
         self.token_to_id = _TokenLookup(self)
         self.special_ids = {token: int(self.token_to_id.get(token, idx)) for idx, token in enumerate(self.special_tokens)}
-        self.unk_token_id = self.special_ids.get(self.unk_token, 0)
-        self.pad_token_id = self.special_ids.get(self.pad_token, 1)
+        self.pad_token_id = self.special_ids.get(self.pad_token, 0)
+        self.unk_token_id = self.special_ids.get(self.unk_token, 1)
         self.bos_token_id = self.special_ids.get(self.bos_token, 2)
         self.eos_token_id = self.special_ids.get(self.eos_token, 3)
 
@@ -84,7 +84,7 @@ class SubwordTokenizer:
         special_tokens: list[str] | None = None,
     ) -> "SubwordTokenizer":
         imports = cls._try_import_tokenizers()
-        special_tokens = list(special_tokens or ["<unk>", "<pad>", "<bos>", "<eos>"])
+        special_tokens = list(special_tokens or ["<pad>", "<unk>", "<bos>", "<eos>"])
         material = list(texts)
 
         if imports is not None:
@@ -128,7 +128,7 @@ class SubwordTokenizer:
             counter.update(pieces)
             chars.update(text)
 
-        special_tokens = list(special_tokens or ["<unk>", "<pad>", "<bos>", "<eos>"])
+        special_tokens = list(special_tokens or ["<pad>", "<unk>", "<bos>", "<eos>"])
         ordered_tokens = list(special_tokens)
 
         room = max(0, vocab_size - len(ordered_tokens))
@@ -153,7 +153,7 @@ class SubwordTokenizer:
         path = Path(path)
         meta_path = path.with_suffix(path.suffix + ".meta.json")
         meta = json.loads(meta_path.read_text(encoding="utf-8")) if meta_path.exists() else {}
-        special_tokens = meta.get("special_tokens", ["<unk>", "<pad>", "<bos>", "<eos>"])
+        special_tokens = meta.get("special_tokens", ["<pad>", "<unk>", "<bos>", "<eos>"])
         model_type = str(meta.get("model_type", "bpe"))
         backend = str(meta.get("backend", "hf"))
 

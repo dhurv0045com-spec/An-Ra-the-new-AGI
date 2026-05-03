@@ -8,8 +8,8 @@ from typing import Iterable
 from anra_paths import TOKENIZER_DIR, V3_TOKENIZER_FILE
 
 SPECIAL_TOKENS = [
-    "<unk>",
     "<pad>",
+    "<unk>",
     "<bos>",
     "<eos>",
     "<mask>",
@@ -36,7 +36,7 @@ class TokenizerAdapter:
         cls,
         texts: Iterable[str],
         *,
-        vocab_size: int = 8192,
+        vocab_size: int = 4096,
         output_json: str | Path = V3_TOKENIZER_FILE,
         output_model: str | Path = TOKENIZER_DIR / "tokenizer_v3.model",
     ) -> "TokenizerAdapter":
@@ -56,8 +56,8 @@ class TokenizerAdapter:
                 model_prefix=model_prefix,
                 model_type="bpe",
                 vocab_size=vocab_size,
-                unk_id=0,
-                pad_id=1,
+                pad_id=0,
+                unk_id=1,
                 bos_id=2,
                 eos_id=3,
                 unk_piece=SPECIAL_TOKENS[0],

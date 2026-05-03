@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import math
 import shutil
 import time
@@ -24,14 +25,20 @@ from anra_paths import (
     get_v2_checkpoint,
 )
 from anra_brain import CausalTransformerV2
+from tokenizer.subword_tokenizer import SubwordTokenizer
 from tokenizer.tokenizer_adapter import TokenizerAdapter
-from training.v2_config import V2_MODEL, V2_REPORT_FILES
+from training.v2_config import (
+    EXPECTED_PAD_TOKEN_ID,
+    EXPECTED_SPECIAL_TOKENS,
+    EXPECTED_TOKENIZER_VOCAB_SIZE,
+    V2_MODEL,
+    V2_REPORT_FILES,
+)
 from runtime.drive_session_manager import DriveSessionManager
 
 
 ensure_dirs()
-EXPECTED_TOKENIZER_VOCAB_SIZE = 8192
-EXPECTED_SPECIAL_TOKENS = ["<unk>", "<pad>", "<bos>", "<eos>"]
+logger = logging.getLogger(__name__)
 
 DRIVE_SESSION_MANAGER = DriveSessionManager(DRIVE_DIR)
 
@@ -64,8 +71,8 @@ def atomic_save(payload: dict, output_path: Path, *, drive_dir: Path | None = DR
         try:
             drive_dir.mkdir(parents=True, exist_ok=True)
             shutil.copy2(output_path, drive_dir / output_path.name)
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("Drive checkpoint mirror failed for %s: %s", output_path, exc)
 
 
 def write_json(path: Path, payload: dict | list) -> None:
@@ -84,7 +91,8 @@ def _read_step(path: Path) -> int:
     try:
         ckpt = torch.load(path, map_location="cpu", weights_only=False)
         return int(ckpt.get("step", ckpt.get("global_step", 0)))
-    except Exception:
+    except Exception as exc:
+        logger.warning("Could not read checkpoint step from %s: %s", path, exc)
         return 0
 
 
@@ -197,7 +205,7 @@ def load_or_build_v2_tokenizer(
     *,
     dataset_path: Path | None = None,
     vocab_size: int = V2_MODEL.vocab_size,
-) -> TokenizerAdapter:
+) -> SubwordTokenizer:
     dataset_path = dataset_path or get_dataset_file()
     local = V3_TOKENIZER_FILE
     if local.exists():
@@ -219,8 +227,8 @@ def load_or_build_v2_tokenizer(
         drive_tok = DRIVE_DIR / "v2" / local.name
         drive_tok.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(local, drive_tok)
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.warning("Drive tokenizer mirror failed for %s: %s", local, exc)
     print(
         f"[build_brain] tokenizer_v3 built + mirrored to Drive. vocab_size={tokenizer.vocab_size}",
         flush=True,
@@ -243,9 +251,64 @@ def assert_tokenizer_contract(path: Path, tokenizer: SubwordTokenizer) -> None:
             f"Tokenizer contract mismatch: special_tokens={special_tokens}, expected={EXPECTED_SPECIAL_TOKENS} "
             f"(meta={meta_path})"
         )
+    if tokenizer.vocab_size != EXPECTED_TOKENIZER_VOCAB_SIZE:
+        raise AssertionError(
+            f"Tokenizer contract mismatch: tokenizer.vocab_size={tokenizer.vocab_size}, "
+            f"expected={EXPECTED_TOKENIZER_VOCAB_SIZE} ({path})"
+        )
+    if tokenizer.pad_token_id != EXPECTED_PAD_TOKEN_ID:
+        raise AssertionError(
+            f"Tokenizer contract mismatch: pad_token_id={tokenizer.pad_token_id}, "
+            f"expected={EXPECTED_PAD_TOKEN_ID} ({path})"
+        )
+
+
+def assert_model_tokenizer_contract(model: CausalTransformerV2, tokenizer: SubwordTokenizer) -> None:
+    """Ensure model embeddings and tokenizer IDs share the same training contract."""
+    if tokenizer.vocab_size != model.vocab_size:
+        raise AssertionError(
+            f"Tokenizer/model vocab mismatch: tokenizer.vocab_size={tokenizer.vocab_size}, "
+            f"model.vocab_size={model.vocab_size}"
+        )
+    if tokenizer.pad_token_id != model.pad_token_id:
+        raise AssertionError(
+            f"Tokenizer/model pad mismatch: tokenizer.pad_token_id={tokenizer.pad_token_id}, "
+            f"model.pad_token_id={model.pad_token_id}"
+        )
+
+
+def _checkpoint_vocab_size(model_state: dict[str, torch.Tensor]) -> int | None:
+    for key, weight in model_state.items():
+        if (
+            key.endswith("token_embedding_table.weight")
+            or key.endswith("lm_head.weight")
+        ) and isinstance(weight, torch.Tensor) and weight.ndim >= 2:
+            return int(weight.shape[0])
+    return None
+
+
+def _load_state_with_base_fallback(
+    model: CausalTransformerV2,
+    model_state: dict[str, torch.Tensor],
+    *,
+    strict: bool,
+) -> None:
+    try:
+        model.load_state_dict(model_state, strict=strict)
+        return
+    except RuntimeError as exc:
+        base = getattr(model, "model", None)
+        if base is None:
+            raise exc
+        base.load_state_dict(model_state, strict=strict)
 
 
 def build_v2_model(*, vocab_size: int, block_size: int = V2_MODEL.block_size) -> CausalTransformerV2:
+    if vocab_size != V2_MODEL.vocab_size:
+        raise AssertionError(
+            f"Model/tokenizer vocab mismatch at construction: vocab_size={vocab_size}, "
+            f"expected={V2_MODEL.vocab_size}"
+        )
     return CausalTransformerV2(
         vocab_size=vocab_size,
         n_embd=V2_MODEL.n_embd,
@@ -258,6 +321,7 @@ def build_v2_model(*, vocab_size: int, block_size: int = V2_MODEL.block_size) ->
         mod_layers=set(V2_MODEL.mod_layers),
         base_seq_len=V2_MODEL.base_seq_len,
         target_seq_len=V2_MODEL.target_seq_len,
+        pad_token_id=V2_MODEL.pad_token_id,
     )
 
 
@@ -292,8 +356,24 @@ def load_checkpoint(
 
     blob = torch.load(ckpt, map_location=device, weights_only=False)
     model_state = blob.get("model_state_dict", blob.get("model", blob)) if isinstance(blob, dict) else blob
+    if isinstance(model_state, dict):
+        ckpt_vocab_size = _checkpoint_vocab_size(model_state)
+        if ckpt_vocab_size is not None and ckpt_vocab_size != model.vocab_size:
+            raise AssertionError(
+                f"Checkpoint/model vocab mismatch: checkpoint vocab_size={ckpt_vocab_size}, "
+                f"model.vocab_size={model.vocab_size} ({ckpt})"
+            )
+    if isinstance(blob, dict):
+        ckpt_config = blob.get("model_config", {})
+        if isinstance(ckpt_config, dict):
+            ckpt_pad = ckpt_config.get("pad_token_id")
+            if ckpt_pad is not None and int(ckpt_pad) != model.pad_token_id:
+                raise AssertionError(
+                    f"Checkpoint/model pad mismatch: checkpoint pad_token_id={ckpt_pad}, "
+                    f"model.pad_token_id={model.pad_token_id} ({ckpt})"
+                )
     try:
-        model.load_state_dict(model_state, strict=strict)
+        _load_state_with_base_fallback(model, model_state, strict=strict)
     except RuntimeError:
         print("[v2_runtime] Architecture changed — starting fresh (old checkpoint incompatible)")
         return state
@@ -301,20 +381,20 @@ def load_checkpoint(
         if optimizer is not None:
             try:
                 optimizer.load_state_dict(blob.get("optimizer_state_dict", blob.get("optimizer", {})))
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.warning("Optimizer state restore failed from %s: %s", ckpt, exc)
         if scheduler is not None:
             try:
                 scheduler.load_state_dict(blob.get("scheduler_state_dict", blob.get("scheduler", {})))
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.warning("Scheduler state restore failed from %s: %s", ckpt, exc)
         if mp_trainer is not None:
             try:
                 scaler_state = blob.get("scaler_state_dict", blob.get("scaler"))
                 if scaler_state:
                     mp_trainer.load_state_dict(scaler_state)
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.warning("Mixed-precision scaler restore failed from %s: %s", ckpt, exc)
         state["global_step"] = int(blob.get("global_step", blob.get("step", 0)))
         state["epoch"] = int(blob.get("epoch", 0))
         state["best_loss"] = float(blob.get("best_loss", float("inf")))
@@ -367,7 +447,8 @@ def load_session_state() -> dict[str, object]:
         return {"successful_sessions": 0, "eval_scores": []}
     try:
         return json.loads(path.read_text(encoding="utf-8"))
-    except Exception:
+    except Exception as exc:
+        logger.warning("Session state read failed from %s: %s", path, exc)
         return {"successful_sessions": 0, "eval_scores": []}
 
 

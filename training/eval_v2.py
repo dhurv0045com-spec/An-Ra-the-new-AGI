@@ -65,7 +65,7 @@ EVAL_SUITE = [
 ]
 
 
-def quick_eval_loss(model, dataset, *, device: torch.device, max_examples: int = 100, batch_size: int = 8, pad_id: int = 1) -> float:
+def quick_eval_loss(model, dataset, *, device: torch.device, max_examples: int = 100, batch_size: int = 8, pad_id: int = 0) -> float:
     """Mean CE loss over up to max_examples validation examples."""
     model.eval()
     losses: list[float] = []

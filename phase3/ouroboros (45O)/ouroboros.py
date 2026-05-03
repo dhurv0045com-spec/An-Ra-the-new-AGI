@@ -40,6 +40,9 @@ class OuroborosDecoder(nn.Module):
         self.model    = base_model
         self.n_passes = n_passes
         self.d_model  = base_model.d_model  # expect base_model to expose this
+        self.vocab_size = int(getattr(base_model, "vocab_size"))
+        self.pad_token_id = int(getattr(base_model, "pad_token_id", 0))
+        self.block_size = int(getattr(base_model, "block_size"))
 
         # ── Pass Gates ────────────────────────────────────────────────────────
         # One learned vector per pass. Injected additively into the hidden state
@@ -137,7 +140,7 @@ class OuroborosDecoder(nn.Module):
             loss = F.cross_entropy(
                 logits.reshape(B * T, V),
                 targets.reshape(B * T),
-                ignore_index=-1,
+                ignore_index=self.pad_token_id,
             )
 
         # Attach pass hiddens to allow auxiliary loss computation externally
@@ -149,6 +152,15 @@ class OuroborosDecoder(nn.Module):
     def new_parameter_count(self) -> int:
         """Returns the count of parameters added by Ouroboros (not base model)."""
         return self.pass_gates.numel() + self.blend_weights.numel()
+
+    def model_config(self) -> dict:
+        """Expose checkpoint metadata compatible with the V2 runtime."""
+        base_config = self.model.model_config() if hasattr(self.model, "model_config") else {}
+        return {
+            **base_config,
+            "ouroboros_passes": self.n_passes,
+            "ouroboros_added_parameters": self.new_parameter_count,
+        }
 
     def count_parameters(self) -> dict:
         base  = sum(p.numel() for p in self.model.parameters())
