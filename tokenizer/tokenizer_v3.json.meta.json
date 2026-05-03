@@ -4,18 +4,8 @@
     "<unk>",
     "<pad>",
     "<bos>",
-    "<eos>",
-    "<sep>",
-    "<code>",
-    "</code>",
-    "<think>",
-    "</think>",
-    "<goal>",
-    "<ESV:v>",
-    "<ESV:a>",
-    "<ESV:d>"
+    "<eos>"
   ],
-  "model_type": "bpe",
-  "backend": "subword",
-  "trained_at": "2026-05-02T16:45:36Z"
+  "model_type": "fallback_unigram",
+  "backend": "fallback"
 }

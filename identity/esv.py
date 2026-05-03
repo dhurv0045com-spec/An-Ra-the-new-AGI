@@ -1,25 +1,38 @@
 from __future__ import annotations
-import math, torch
-import torch.nn as nn
-class ESVModule(nn.Module):
-    def __init__(self,d_model:int=512,d_esv:int=64,momentum_pos:float=0.85,momentum_neg:float=0.95)->None:
-        super().__init__(); self.d_model=d_model; self.d_esv=d_esv; self.momentum_pos=momentum_pos; self.momentum_neg=momentum_neg
-        self.predictor=nn.Sequential(nn.Linear(d_esv,32),nn.SiLU(),nn.Linear(32,3),nn.Tanh())
-        for m in self.predictor.modules():
-            if isinstance(m, nn.Linear): nn.init.zeros_(m.weight); nn.init.zeros_(m.bias)
-        self.register_buffer('state', torch.zeros(3))
-    def forward(self,h:torch.Tensor)->torch.Tensor:
-        esv=h.mean(dim=(0,1))[-self.d_esv:]; new=self.predictor(esv); mom=self.momentum_neg if float(new[0].item())<0 else self.momentum_pos; self.state=mom*self.state+(1-mom)*new.detach(); return self.state
-    @property
-    def valence(self)->float: return float(self.state[0].item())
-    @property
-    def arousal(self)->float: return float(self.state[1].item())
-    @property
-    def dominance(self)->float: return float(self.state[2].item())
-    def attention_temperature(self,tau0:float=1.0)->float: return tau0*math.exp(-0.5*self.arousal)
-    def memory_write_threshold(self)->float: return 0.8-0.2*abs(self.valence)
-    def ssm_modulation(self)->torch.Tensor: return self.state.clone()
-    def dgsa_gate(self)->tuple[float,float]:
-        gssm=1/(1+math.exp(-2*self.dominance)); gatt=1/(1+math.exp(2*self.dominance)); return gssm,gatt
-    def reset(self)->None: self.state.zero_()
-    def as_dict(self)->dict[str,float]: return {'valence':self.valence,'arousal':self.arousal,'dominance':self.dominance}
+
+from dataclasses import dataclass, asdict
+from pathlib import Path
+import json
+
+
+@dataclass
+class EmotionalState:
+    calm: float = 0.7
+    focus: float = 0.8
+    curiosity: float = 0.8
+    stress: float = 0.2
+
+
+class EmotionalStateVector:
+    def __init__(self, state: EmotionalState | None = None) -> None:
+        self.state = state or EmotionalState()
+
+    def update(self, *, success: bool, difficulty: float = 0.5) -> EmotionalState:
+        d = max(0.0, min(1.0, float(difficulty)))
+        if success:
+            self.state.calm = min(1.0, self.state.calm + 0.05 * (1 - d))
+            self.state.focus = min(1.0, self.state.focus + 0.04)
+            self.state.stress = max(0.0, self.state.stress - 0.08)
+        else:
+            self.state.stress = min(1.0, self.state.stress + 0.12 * (1 + d))
+            self.state.focus = max(0.0, self.state.focus - 0.05)
+        self.state.curiosity = min(1.0, max(0.0, self.state.curiosity + (0.02 if success else -0.01)))
+        return self.state
+
+    def as_dict(self) -> dict:
+        return asdict(self.state)
+
+    def save(self, path: str | Path) -> None:
+        p = Path(path)
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(json.dumps(self.as_dict(), indent=2), encoding="utf-8")
