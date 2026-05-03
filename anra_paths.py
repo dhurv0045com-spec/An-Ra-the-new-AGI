@@ -40,7 +40,6 @@ DRIVE_MEMORY = DRIVE_DIR / "memory_db"
 DRIVE_SESSIONS = DRIVE_DIR / "sessions"
 DRIVE_V2_DIR = DRIVE_DIR / "v2"
 DRIVE_V2_CHECKPOINTS = DRIVE_V2_DIR / "checkpoints"
-DRIVE_V3_DIR = DRIVE_DIR / "v3"
 
 # Block 2 additions
 DRIVE_MANIFEST = DRIVE_DIR / "manifest.json"
@@ -55,19 +54,8 @@ MEMORY_DB_DIR = DRIVE_MEMORY
 TEACHER_REASONING_V2_FILE = TRAINING_DATA_DIR / "teacher_reasoning_v2.jsonl"
 SYMBOLIC_REASONING_V2_FILE = TRAINING_DATA_DIR / "symbolic_reasoning_v2.jsonl"
 
-GHOST_DB_LOCAL = MEMORY_DIR_LOCAL / "ghost.db"
-FAISS_INDEX_LOCAL = MEMORY_DIR_LOCAL / "episodic.index"
-GRAPH_LOCAL = MEMORY_DIR_LOCAL / "knowledge_graph.pkl"
-GHOST_DB_DRIVE = DRIVE_V3_DIR / "memory" / "ghost_latest.db"
-GRAPH_DRIVE = DRIVE_V3_DIR / "memory" / "graph_latest.pkl"
-GOAL_QUEUE = DRIVE_V3_DIR / "goals" / "queue_latest.json"
-TRAINING_STATE = DRIVE_V3_DIR / "training" / "state.json"
-REGRET_STATE = DRIVE_V3_DIR / "training" / "regret_state.json"
-AUDIT_LOG = WORKSPACE_DIR / "audit.log"
-
-DATASET_CANONICAL = TRAINING_DATA_DIR / "anra_training.txt"
-DATASET_LEGACY = TRAINING_DATA_DIR / "anra_dataset_v6_1.txt"
-DATASET = DATASET_CANONICAL
+DATASET = TRAINING_DATA_DIR / "anra_dataset_v6_1.txt"
+DATASET_LEGACY = DRIVE_DIR / "anra_dataset_v6_1.txt"
 
 OUTPUT_V2_DIR = ROOT / "output" / "v2"
 V2_BRAIN_CHECKPOINT = ROOT / "anra_v2_brain.pt"
@@ -86,8 +74,6 @@ REQUIRED_DIRS = [
     ROOT / "history",
     MEMORY_DIR_LOCAL,
     WORKSPACE_DIR / "git_workspace",
-    GHOST_DB_LOCAL.parent,
-    FAISS_INDEX_LOCAL.parent,
 ]
 
 
@@ -110,19 +96,18 @@ def ensure_dirs() -> None:
 
 
 def get_dataset_file() -> Path:
-    if DATASET_CANONICAL.exists():
-        return DATASET_CANONICAL
-    if DATASET_LEGACY.exists():
-        try:
-            import shutil
-            shutil.copy2(DATASET_LEGACY, DATASET_CANONICAL)
-        except Exception:
-            pass
-        return DATASET_CANONICAL if DATASET_CANONICAL.exists() else DATASET_LEGACY
-    for c in [DRIVE_DIR / "anra_training.txt", DRIVE_DIR / "anra_dataset_v6_1.txt"]:
+    candidates = [
+        DATASET,
+        TRAINING_DATA_DIR / "anra_dataset_v6_1.txt",
+        DATASET_LEGACY,
+        DRIVE_V2_DIR / "anra_dataset_v6_1.txt",
+        ROOT / "anra_dataset_v6_1.txt",
+    ]
+    for c in candidates:
         if c.exists():
             return c
-    return DATASET_CANONICAL
+    return DATASET
+
 
 def get_tokenizer_file() -> Path:
     for c in [TOKENIZER_DIR / "tokenizer.pkl", ROOT / "tokenizer.pkl"]:

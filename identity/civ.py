@@ -1,41 +1,40 @@
 from __future__ import annotations
+
+from dataclasses import dataclass, asdict
 from pathlib import Path
-import torch
-import torch.nn.functional as F
-class CIVGuard:
-    def __init__(self, model, tokenizer, identity_path: Path, layer_idx: int = 4, threshold: float = 0.92) -> None:
-        self.model=model; self.tokenizer=tokenizer; self.identity_path=Path(identity_path); self.layer_idx=layer_idx; self.threshold=threshold; self.baseline=None
-    def _extract_activation(self,prompts:list[str])->torch.Tensor:
-        device=next(self.model.parameters()).device; captured=[]
-        def hook_fn(module, inp, out): captured.append(out.detach().mean(dim=1))
-        block=self.model.blocks[self.layer_idx]; h=block.register_forward_hook(hook_fn)
-        self.model.eval(); all_caps=[]
-        with torch.no_grad():
-            for prompt in prompts:
-                ids=self.tokenizer.encode(prompt)[:self.model.block_size]
-                if not ids: continue
-                x=torch.tensor([ids],dtype=torch.long,device=device)
-                captured.clear(); self.model(x)
-                if captured: all_caps.append(captured[0])
-        h.remove()
-        if not all_caps: return torch.zeros(self.model.n_embd, device=device)
-        return torch.cat(all_caps,dim=0).mean(dim=0)
-    def _load_prompts(self,max_pairs:int=512)->list[str]:
-        if not self.identity_path.exists(): return ["Who are you?","What is your purpose?","What are you?"]
-        out=[]
-        for line in self.identity_path.read_text(encoding='utf-8',errors='replace').splitlines():
-            line=line.strip()
-            if line.startswith('H:'): out.append(line[2:].strip())
-            if len(out)>=max_pairs: break
-        return out or ["Who are you?"]
-    def compute_baseline(self)->torch.Tensor:
-        self.baseline=self._extract_activation(self._load_prompts()); return self.baseline
-    def save_baseline(self,path:Path)->None:
-        if self.baseline is None: raise RuntimeError('Call compute_baseline() first.')
-        Path(path).parent.mkdir(parents=True,exist_ok=True); torch.save(self.baseline.cpu(), path)
-    def load_baseline(self,path:Path)->None: self.baseline=torch.load(path,map_location=next(self.model.parameters()).device)
-    def verify(self)->tuple[float,bool]:
-        if self.baseline is None: raise RuntimeError('CIV baseline not set. Call compute_baseline() or load_baseline().')
-        current=self._extract_activation(self._load_prompts()); base=self.baseline.to(current.device)
-        sim=float(F.cosine_similarity(base.unsqueeze(0),current.unsqueeze(0)).item()); return sim, sim>=self.threshold
-    def similarity(self)->float: return self.verify()[0]
+import json
+
+
+@dataclass
+class CIVProfile:
+    truthfulness: float = 0.8
+    safety: float = 0.9
+    autonomy: float = 0.7
+    coherence: float = 0.8
+
+
+class ConstitutionalIdentityVector:
+    def __init__(self, profile: CIVProfile | None = None) -> None:
+        self.profile = profile or CIVProfile()
+
+    def score(self, evidence: dict[str, float] | None = None) -> float:
+        evidence = evidence or {}
+        vals = asdict(self.profile)
+        for k, v in evidence.items():
+            if k in vals:
+                vals[k] = max(0.0, min(1.0, 0.7 * vals[k] + 0.3 * float(v)))
+        return sum(vals.values()) / len(vals)
+
+    def verify(self, min_score: float = 0.7, evidence: dict[str, float] | None = None) -> dict:
+        s = self.score(evidence)
+        return {"score": s, "passed": s >= min_score}
+
+    def save(self, path: str | Path) -> None:
+        p = Path(path)
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(json.dumps(asdict(self.profile), indent=2), encoding="utf-8")
+
+    @classmethod
+    def load(cls, path: str | Path) -> "ConstitutionalIdentityVector":
+        data = json.loads(Path(path).read_text(encoding="utf-8"))
+        return cls(CIVProfile(**data))
