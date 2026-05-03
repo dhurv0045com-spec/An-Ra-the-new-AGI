@@ -5,6 +5,8 @@ from pathlib import Path
 import subprocess
 import tempfile
 
+from anra_paths import WORKSPACE_DIR
+
 
 @dataclass
 class SandboxResult:
@@ -16,8 +18,8 @@ class SandboxResult:
 
 
 class CodeSandbox:
-    def __init__(self, workspace: str | Path = "workspace/sandbox", timeout: int = 30) -> None:
-        self.workspace = Path(workspace)
+    def __init__(self, workspace: str | Path | None = None, timeout: int = 30) -> None:
+        self.workspace = Path(workspace) if workspace is not None else WORKSPACE_DIR / "sandbox"
         self.timeout = int(timeout)
         self.workspace.mkdir(parents=True, exist_ok=True)
 

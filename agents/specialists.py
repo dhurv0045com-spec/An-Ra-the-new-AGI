@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from training.verifier import VerifierHierarchy
 
+DEFAULT_CODE_PATH = "generated.py"
+
 
 class BaseAgent:
     def __init__(self, agent_id: str, model, tokenizer, sandbox, fs_agent, memory_router, bus) -> None:
@@ -26,7 +28,7 @@ class CoderAgent(BaseAgent):
     async def run(self, task: dict) -> dict:
         prompt = f"You are An-Ra's Coder.\n{task.get('prompt','')}"
         test_code = task.get("test_code", "")
-        path = task.get("path", "workspace/generated.py")
+        path = task.get("path", DEFAULT_CODE_PATH)
 
         attempts = 0
         code = ""

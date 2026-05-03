@@ -93,6 +93,13 @@ def inject_all_paths() -> None:
 def ensure_dirs() -> None:
     for d in REQUIRED_DIRS:
         d.mkdir(parents=True, exist_ok=True)
+    # Ensure canonical dataset exists.
+    if not DATASET_CANONICAL.exists() and DATASET_LEGACY.exists():
+        try:
+            import shutil
+            shutil.copy2(DATASET_LEGACY, DATASET_CANONICAL)
+        except Exception:
+            pass
 
 
 def get_dataset_file() -> Path:
@@ -193,4 +200,3 @@ class PathRegistry:
     DATASET = DATASET; DATASET_LEGACY = DATASET_LEGACY; OUTPUT_V2_DIR = OUTPUT_V2_DIR
     V2_BRAIN_CHECKPOINT = V2_BRAIN_CHECKPOINT; V2_IDENTITY_CHECKPOINT = V2_IDENTITY_CHECKPOINT; V2_OUROBOROS_CHECKPOINT = V2_OUROBOROS_CHECKPOINT
     V2_TOKENIZER_FILE = V2_TOKENIZER_FILE; V3_TOKENIZER_FILE = V3_TOKENIZER_FILE
-

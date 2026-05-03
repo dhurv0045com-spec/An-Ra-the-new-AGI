@@ -16,12 +16,14 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Optional
 
+from anra_paths import DRIVE_DIR, STATE_DIR
+
 TRACE_LEVEL_NUM = 5
 AUDIT_LEVEL_NUM = 25
 logging.addLevelName(TRACE_LEVEL_NUM, "TRACE")
 logging.addLevelName(AUDIT_LEVEL_NUM, "AUDIT")
 
-DEFAULT_LOG_DIR = Path("state/logs")
+DEFAULT_LOG_DIR = STATE_DIR / "logs"
 AUDIT_LOG = DEFAULT_LOG_DIR / "AUDIT_LOG.jsonl"
 SESSION_LOG = DEFAULT_LOG_DIR / "session.log"
 
@@ -144,7 +146,7 @@ class L02SessionLogManager:
 
     session_id: str
     log_dir: Path = DEFAULT_LOG_DIR
-    drive_root: Path = Path("/content/drive/MyDrive/AnRa")
+    drive_root: Path = DRIVE_DIR
 
     def _session_log_path(self) -> Path:
         return self.log_dir / f"session_{self.session_id}.log"

@@ -62,35 +62,68 @@ SYSTEM_GRAPH: Dict[str, Any] = {}
 _ctx_optimizer = ContextWindowOptimizer()
 
 
-# Memory system bridge (45J)
+# Memory system bridge. Prefer the canonical router; keep the old phase2 bridge
+# as a compatibility fallback for older Drive state.
 try:
-    import sys as _sys
-    _sys.path.insert(0, str((Path(__file__).resolve().parent / "phase2" / "memory (45J)")))
-    from memory_manager import MemoryManager # type: ignore
+    from memory.memory_router import MemoryRouter
 
     class _MemoryBridge:
         def __init__(self):
-            self._mm = MemoryManager(data_dir=str(MEMORY_DB_DIR), user_id="anra")
+            self._router = MemoryRouter()
             self.semantic = self
 
         def search(self, query: str, top_k: int = 3):
-            rows = self._mm.retrieve(query, limit=top_k, type="semantic")
-            return rows
+            rows = self._router.read(query, n=top_k, tier="episodic")
+            out = []
+            for row in rows:
+                payload = row.get("payload", row)
+                content = str(payload.get("content", ""))
+                out.append(
+                    {
+                        "summary": str(payload.get("summary") or content[:160]),
+                        "content": content,
+                        "score": row.get("score", 0.0),
+                    }
+                )
+            return out
 
         def store_turn(self, message: str, response: str, session_id: str) -> None:
-            self._mm.store_memory(
-                content=f"H: {message}\nANRA: {response}",
-                type="episodic",
-                importance="medium",
-                metadata={"session_id": session_id},
+            self._router.write(
+                f"H: {message}\nANRA: {response}",
+                metadata={"session_id": session_id, "type": "conversation_turn", "salience": 0.8},
+                tier="episodic",
             )
-            self._mm.extractor.process_single_turn("user", message, session_id)
-            self._mm.extractor.process_single_turn("assistant", response, session_id)
 
     MEMORY_SYSTEM = _MemoryBridge()
 except Exception as _mem_exc:
-    LOGGER.warning("Memory bridge unavailable: %s", _mem_exc)
-    MEMORY_SYSTEM = None
+    try:
+        import sys as _sys
+
+        _sys.path.insert(0, str(Path(__file__).resolve().parent / "phase2" / "memory (45J)"))
+        from memory_manager import MemoryManager  # type: ignore
+
+        class _LegacyMemoryBridge:
+            def __init__(self):
+                self._mm = MemoryManager(data_dir=str(MEMORY_DB_DIR), user_id="anra")
+                self.semantic = self
+
+            def search(self, query: str, top_k: int = 3):
+                return self._mm.retrieve(query, limit=top_k, type="semantic")
+
+            def store_turn(self, message: str, response: str, session_id: str) -> None:
+                self._mm.store_memory(
+                    content=f"H: {message}\nANRA: {response}",
+                    type="episodic",
+                    importance="medium",
+                    metadata={"session_id": session_id},
+                )
+                self._mm.extractor.process_single_turn("user", message, session_id)
+                self._mm.extractor.process_single_turn("assistant", response, session_id)
+
+        MEMORY_SYSTEM = _LegacyMemoryBridge()
+    except Exception as _legacy_mem_exc:
+        LOGGER.warning("Memory bridge unavailable: %s; legacy fallback unavailable: %s", _mem_exc, _legacy_mem_exc)
+        MEMORY_SYSTEM = None
 
 
 def format_memory_context(memory_results: List[Dict[str, Any]]) -> str:

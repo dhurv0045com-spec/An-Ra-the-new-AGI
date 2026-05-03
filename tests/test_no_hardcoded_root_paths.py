@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from anra_paths import DRIVE_DIR
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SCOPES = ("training", "scripts", "phase2", "phase3", "ui")
@@ -10,7 +11,7 @@ ALLOWED_FILES = {
     REPO_ROOT / "anra_paths.py",
 }
 BLOCKED_PATTERNS = (
-    re.compile(r"/content/drive/MyDrive/AnRa"),
+    re.compile(re.escape(str(DRIVE_DIR))),
     re.compile(r'Path\(\s*["\']/content'),
     re.compile(r'Path\(\s*r?["\'][A-Za-z]:\\'),
 )

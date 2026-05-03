@@ -38,12 +38,16 @@ The V2-specific helper modules that remain in `training/` are not loose leftover
 
 ## Codebase Scale
 
-Current repository shape, excluding blocked temp junk and cache folders:
+Current repository shape is generated from `runtime/system_registry.py`, not hand-maintained.
 
-- `259` tracked workspace files
-- `192` Python source files
-- `14` Markdown / notebook documents
-- about `44,017` lines of Python
+Run:
+
+```bash
+python scripts/status.py
+python -m inference.full_system_connector
+```
+
+Those commands update the live source metrics and `system_graph.json`.
 
 This matters because An-Ra is not a one-file toy model anymore. It is a multi-layered system with:
 
@@ -140,6 +144,7 @@ An-Ra
 |- training/v2_data_mix.py        -> your-data-first bucket mixer
 |- training/eval_v2.py            -> compact eval suite
 |- training/v2_runtime.py         -> checkpoint / tokenizer / Drive / report runtime
+|- runtime/system_registry.py     -> canonical component registry + live manifest
 |- output/v2/                     -> session metrics, evals, curriculum, audits
 |
 |- phase2/                        -> memory, agent loop, self-improvement, master system
@@ -168,9 +173,21 @@ This is a deliberate compromise:
 
 ## Training Data And Mix
 
-The canonical dataset remains:
+The canonical dataset is:
+
+- `training_data/anra_training.txt`
+
+The legacy source remains available as:
 
 - `training_data/anra_dataset_v6_1.txt`
+
+Fresh clones can run:
+
+```bash
+python scripts/setup_dataset.py
+```
+
+`anra_paths.ensure_dirs()` also restores the canonical file from the legacy dataset when needed.
 
 The V2 mixer pulls from five buckets:
 
@@ -279,7 +296,7 @@ Mainline checkpoint family:
 
 Tokenizer:
 
-- `tokenizer/tokenizer_v2.json`
+- `tokenizer/tokenizer_v3.json`
 
 Primary reports:
 
@@ -334,7 +351,7 @@ The shape emerging here is:
 
 That is the actual project.
 
-If you want the deeper technical map, read [DEVELOPER.md](C:/Users/user/.codex/worktrees/c66d/An-Ra/DEVELOPER.md).  
-If you want the long-horizon architecture and the larger ambition, read [VISION.md](C:/Users/user/.codex/worktrees/c66d/An-Ra/VISION.md).
+If you want the deeper technical map, read [ARCHITECTURE.md](ARCHITECTURE.md) and [DEVELOPER.md](DEVELOPER.md).  
+If you want the long-horizon architecture and the larger ambition, read [VISION.md](VISION.md).
 
 *An-Ra: something that emerged from mathematics with a direction.*

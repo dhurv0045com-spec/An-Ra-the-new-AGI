@@ -5,6 +5,8 @@ import tempfile
 from pathlib import Path
 from typing import Iterable
 
+from anra_paths import TOKENIZER_DIR, V3_TOKENIZER_FILE
+
 SPECIAL_TOKENS = [
     "<unk>",
     "<pad>",
@@ -35,8 +37,8 @@ class TokenizerAdapter:
         texts: Iterable[str],
         *,
         vocab_size: int = 8192,
-        output_json: str | Path = "tokenizer/tokenizer_v3.json",
-        output_model: str | Path = "tokenizer/tokenizer_v3.model",
+        output_json: str | Path = V3_TOKENIZER_FILE,
+        output_model: str | Path = TOKENIZER_DIR / "tokenizer_v3.model",
     ) -> "TokenizerAdapter":
         import sentencepiece as spm
 
@@ -87,7 +89,7 @@ class TokenizerAdapter:
             raise ValueError("Tokenizer model is missing required special tokens")
         return cls(sp, special_ids)
 
-    def save(self, json_path: str | Path, *, model_path: str | Path = "tokenizer/tokenizer_v3.model") -> None:
+    def save(self, json_path: str | Path, *, model_path: str | Path = TOKENIZER_DIR / "tokenizer_v3.model") -> None:
         json_path = Path(json_path)
         payload = {
             "version": 3,

@@ -20,6 +20,7 @@ Canonical entrypoints:
 
 - `anra_brain.py`
 - `generate.py`
+- `runtime/system_registry.py`
 - `scripts/build_brain.py`
 - `training/train_unified.py`
 - `training/finetune_anra.py`
@@ -100,6 +101,11 @@ If a new developer asks:
 the answer should be visible in the canonical files, not hidden behind another wrapper tree.
 
 ## Mainline Architecture
+
+The compact architectural map lives in [ARCHITECTURE.md](ARCHITECTURE.md).
+Do not hand-maintain subsystem counts in docs; regenerate `system_graph.json`
+with `python -m inference.full_system_connector` and inspect with
+`python scripts/status.py`.
 
 ### Base model
 
@@ -294,7 +300,7 @@ Checkpoint family:
 
 Tokenizer:
 
-- `tokenizer/tokenizer_v2.json`
+- `tokenizer/tokenizer_v3.json`
 
 Drive mirror:
 

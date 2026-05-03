@@ -6,6 +6,12 @@
     "<bos>",
     "<eos>"
   ],
+<<<<<<< HEAD
   "model_type": "fallback_unigram",
   "backend": "fallback"
+=======
+  "model_type": "bpe",
+  "backend": "subword",
+  "trained_at": "2026-05-02T18:36:45Z"
+>>>>>>> cf05483 (sing the moment)
 }
