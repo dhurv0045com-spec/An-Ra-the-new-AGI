@@ -1,14 +1,9 @@
 from __future__ import annotations
 import json
 from pathlib import Path
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    import torch
-
-
+import torch
 class DynamicRegretScheduler:
-    def __init__(self, optimizer: "torch.optim.Optimizer", eta_base: float = 3e-4, min_lr: float = 1e-5, max_lr: float = 3e-3) -> None:
+    def __init__(self, optimizer: torch.optim.Optimizer, eta_base: float = 3e-4, min_lr: float = 1e-5, max_lr: float = 3e-3) -> None:
         self.optimizer=optimizer; self.eta_base=float(eta_base); self.min_lr=float(min_lr); self.max_lr=float(max_lr)
         self.V_total=0.0; self.T_total=0; self._session_start_loss=None
     def session_start(self, val_loss: float)->None: self._session_start_loss=float(val_loss)

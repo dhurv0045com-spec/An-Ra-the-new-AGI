@@ -203,7 +203,7 @@ def train_anra_v2(
         warmup_steps=100,
         total_steps=50_000,
     )
-    regret_scheduler = DynamicRegretScheduler(optimizer, eta_base=3e-4)
+    regret_scheduler = DynamicRegretScheduler(base_lr=3e-4)
 
     ckpt_path = get_v2_checkpoint("brain")
     ckpt: dict[str, object] = {}
@@ -374,6 +374,8 @@ def train_anra_v2(
                 mp.step(optimizer)
                 mp.update()
                 scheduler.step()
+            for g in optimizer.param_groups:
+                g["lr"] = regret_scheduler.update(reward=max(0.0, 1.0 - float(loss.item())))
                 optimizer.zero_grad(set_to_none=True)
                 global_step += 1
                 session_step += 1

@@ -14,12 +14,6 @@ class GoalItem:
     priority: int = 100
     created_at: float = 0.0
     status: str = "queued"
-    parent_id: str | None = None
-    attempts: int = 0
-    max_attempts: int = 3
-    last_error: str = ""
-    completed_at: float | None = None
-    metadata: dict[str, object] | None = None
 
 
 class GoalQueue:
@@ -48,7 +42,7 @@ class GoalQueue:
         self.path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
     def push(self, goal_id: str, text: str, priority: int = 100) -> GoalItem:
-        item = GoalItem(goal_id=goal_id, text=text, priority=int(priority), created_at=time.time(), metadata={})
+        item = GoalItem(goal_id=goal_id, text=text, priority=int(priority), created_at=time.time())
         self._items[item.goal_id] = item
         heapq.heappush(self._heap, (item.priority, item.created_at, item.goal_id))
         self._save()
@@ -69,51 +63,8 @@ class GoalQueue:
         if not item:
             return False
         item.status = "done"
-        item.completed_at = time.time()
         self._save()
         return True
-
-    def fail(self, goal_id: str, error: str = "") -> bool:
-        item = self._items.get(goal_id)
-        if not item:
-            return False
-        item.attempts += 1
-        item.last_error = str(error)
-        item.status = "failed" if item.attempts >= item.max_attempts else "queued"
-        if item.status == "queued":
-            heapq.heappush(self._heap, (item.priority, time.time(), item.goal_id))
-        self._save()
-        return True
-
-    def generate_successor(self, goal_id: str, text: str | None = None, priority: int | None = None) -> GoalItem:
-        parent = self._items[goal_id]
-        successor_id = f"{goal_id}:next:{int(time.time() * 1000)}"
-        item = GoalItem(
-            goal_id=successor_id,
-            text=text or parent.text,
-            priority=int(parent.priority if priority is None else priority),
-            created_at=time.time(),
-            status="queued",
-            parent_id=goal_id,
-            metadata={},
-        )
-        self._items[item.goal_id] = item
-        heapq.heappush(self._heap, (item.priority, item.created_at, item.goal_id))
-        self._save()
-        return item
-
-    def status_report(self) -> dict[str, object]:
-        counts: dict[str, int] = {}
-        for item in self._items.values():
-            counts[item.status] = counts.get(item.status, 0) + 1
-        return {
-            "total": len(self._items),
-            "counts": counts,
-            "queued": counts.get("queued", 0),
-            "in_progress": counts.get("in_progress", 0),
-            "failed": counts.get("failed", 0),
-            "done": counts.get("done", 0),
-        }
 
     def list(self, status: str | None = None) -> list[GoalItem]:
         vals = list(self._items.values())
