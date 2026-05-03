@@ -4,9 +4,19 @@ from anra_paths import TRAINING_DATA_DIR, TOKENIZER_DIR
 from tokenizer.subword_tokenizer import SubwordTokenizer
 
 SPECIAL_TOKENS = [
-    "<unk>", "<pad>", "<bos>", "<eos>",
-    "<system>", "</system>", "<user>", "</user>",
-    "<assistant>", "</assistant>", "<tool>", "</tool>", "<think>",
+    "<unk>",
+    "<pad>",
+    "<bos>",
+    "<eos>",
+    "<sep>",
+    "<code>",
+    "</code>",
+    "<think>",
+    "</think>",
+    "<goal>",
+    "<ESV:v>",
+    "<ESV:a>",
+    "<ESV:d>",
 ]
 
 

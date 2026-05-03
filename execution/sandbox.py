@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+import os
 import subprocess
 import tempfile
 
@@ -35,6 +36,7 @@ class CodeSandbox:
                 text=True,
                 timeout=self.timeout,
                 cwd=str(self.workspace),
+                env=self._clean_env(),
             )
             return SandboxResult(proc.returncode == 0, int(proc.returncode), proc.stdout[:4096], proc.stderr[:4096], False)
         except subprocess.TimeoutExpired as exc:
@@ -44,3 +46,13 @@ class CodeSandbox:
         finally:
             if fp and fp.exists():
                 fp.unlink(missing_ok=True)
+
+    def _clean_env(self) -> dict[str, str]:
+        allowed = {"PATH", "HOME", "TMPDIR", "TEMP", "TMP", "LANG", "LC_ALL", "PYTHONPATH"}
+        blocked_fragments = ("KEY", "TOKEN", "SECRET", "PASSWORD", "CREDENTIAL")
+        clean = {}
+        for key, value in os.environ.items():
+            upper = key.upper()
+            if upper in allowed and not any(fragment in upper for fragment in blocked_fragments):
+                clean[key] = value
+        return clean

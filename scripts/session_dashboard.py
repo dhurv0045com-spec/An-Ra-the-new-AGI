@@ -3,9 +3,8 @@ from __future__ import annotations
 import platform
 import time
 from pathlib import Path
+import json
 
-<<<<<<< HEAD
-=======
 try:
     import torch
 except ModuleNotFoundError:
@@ -45,7 +44,6 @@ def build_session_report() -> dict[str, object]:
         "latest_metrics": metrics,
     }
 
->>>>>>> cf05483 (sing the moment)
 
 def print_session_dashboard() -> None:
     print("=" * 64)

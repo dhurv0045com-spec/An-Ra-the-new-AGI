@@ -10,6 +10,34 @@ from typing import Iterable
 _TOKEN_PATTERN = re.compile(r"\s+|[A-Za-z0-9_]+|[^\w\s]", re.UNICODE)
 
 
+class _TokenLookup:
+    def __init__(self, owner: "SubwordTokenizer") -> None:
+        self._owner = owner
+
+    def __call__(self, token: str) -> int | None:
+        return self.get(token)
+
+    def __len__(self) -> int:
+        if self._owner.backend == "hf":
+            return int(self._owner._tokenizer.get_vocab_size())
+        return len(self._owner._tokenizer["id_to_token"])
+
+    def get(self, token: str, default=None):
+        if self._owner.backend == "hf":
+            idx = self._owner._tokenizer.token_to_id(token)
+            return default if idx is None else idx
+        return self._owner._tokenizer["token_to_id"].get(token, default)
+
+    def __getitem__(self, token: str) -> int:
+        idx = self.get(token)
+        if idx is None:
+            raise KeyError(token)
+        return int(idx)
+
+    def __contains__(self, token: object) -> bool:
+        return isinstance(token, str) and self.get(token) is not None
+
+
 class SubwordTokenizer:
     """V2 tokenizer with a `tokenizers` backend and a dependency-free fallback."""
 
@@ -31,10 +59,12 @@ class SubwordTokenizer:
         self.pad_token = "<pad>"
         self.bos_token = "<bos>"
         self.eos_token = "<eos>"
-        self.unk_token_id = self.token_to_id(self.unk_token) or 0
-        self.pad_token_id = self.token_to_id(self.pad_token) or 1
-        self.bos_token_id = self.token_to_id(self.bos_token) or 2
-        self.eos_token_id = self.token_to_id(self.eos_token) or 3
+        self.token_to_id = _TokenLookup(self)
+        self.special_ids = {token: int(self.token_to_id.get(token, idx)) for idx, token in enumerate(self.special_tokens)}
+        self.unk_token_id = self.special_ids.get(self.unk_token, 0)
+        self.pad_token_id = self.special_ids.get(self.pad_token, 1)
+        self.bos_token_id = self.special_ids.get(self.bos_token, 2)
+        self.eos_token_id = self.special_ids.get(self.eos_token, 3)
 
     @staticmethod
     def _try_import_tokenizers():
@@ -69,6 +99,9 @@ class SubwordTokenizer:
                 special_tokens=special_tokens,
             )
             tokenizer.train_from_iterator(material, trainer=trainer)
+            current = tokenizer.get_vocab_size()
+            if current < vocab_size:
+                tokenizer.add_tokens([f"<reserved_{idx:05d}>" for idx in range(current, vocab_size)])
             return cls(
                 tokenizer,
                 vocab_size=tokenizer.get_vocab_size(),
@@ -105,6 +138,9 @@ class SubwordTokenizer:
         for char in sorted(chars):
             if char not in ordered_tokens and len(ordered_tokens) < vocab_size:
                 ordered_tokens.append(char)
+
+        while len(ordered_tokens) < vocab_size:
+            ordered_tokens.append(f"<reserved_{len(ordered_tokens):05d}>")
 
         token_to_id = {token: idx for idx, token in enumerate(ordered_tokens)}
         return {
@@ -203,6 +239,9 @@ class SubwordTokenizer:
         return ids
 
     def decode(self, ids: list[int]) -> str:
+        reverse_special = {idx: token for token, idx in self.special_ids.items()}
+        if ids and all(int(token_id) in reverse_special for token_id in ids):
+            return "".join(reverse_special[int(token_id)] for token_id in ids)
         filtered = [
             int(token_id)
             for token_id in ids
@@ -212,8 +251,3 @@ class SubwordTokenizer:
             return self._tokenizer.decode(filtered)
         id_to_token = self._tokenizer["id_to_token"]
         return "".join(id_to_token[token_id] for token_id in filtered if 0 <= token_id < len(id_to_token))
-
-    def token_to_id(self, token: str) -> int | None:
-        if self.backend == "hf":
-            return self._tokenizer.token_to_id(token)
-        return self._tokenizer["token_to_id"].get(token)

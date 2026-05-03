@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 import json
+import os
 import subprocess
 import time
 
@@ -40,7 +41,9 @@ class FSAgent:
     def write(self, path: str | Path, content: str) -> Path:
         p = self._resolve(path)
         p.parent.mkdir(parents=True, exist_ok=True)
-        p.write_text(content, encoding="utf-8")
+        tmp = p.with_name(f".{p.name}.{int(time.time() * 1000)}.tmp")
+        tmp.write_text(content, encoding="utf-8")
+        os.replace(tmp, p)
         self._log("write", p)
         return p
 
@@ -61,6 +64,17 @@ class FSAgent:
         return True
 
     def git_commit(self, message: str) -> tuple[int, str]:
-        proc = subprocess.run(["git", "commit", "-am", message], capture_output=True, text=True, cwd=str(self.root))
+        if not (self.root / ".git").exists():
+            init = subprocess.run(["git", "init"], capture_output=True, text=True, cwd=str(self.root))
+            if init.returncode != 0:
+                self._log("git_commit", self.root)
+                return 1, (init.stdout + init.stderr).strip()
+            subprocess.run(["git", "config", "user.email", "anra-local@example.invalid"], cwd=str(self.root), capture_output=True, text=True)
+            subprocess.run(["git", "config", "user.name", "An-Ra Local"], cwd=str(self.root), capture_output=True, text=True)
+        subprocess.run(["git", "add", "-A"], capture_output=True, text=True, cwd=str(self.root))
+        proc = subprocess.run(["git", "commit", "-m", message], capture_output=True, text=True, cwd=str(self.root))
         self._log("git_commit", self.root)
-        return int(proc.returncode), (proc.stdout + proc.stderr).strip()
+        code = int(proc.returncode)
+        if code not in {0, 1}:
+            code = 1
+        return code, (proc.stdout + proc.stderr).strip()

@@ -29,3 +29,24 @@ def test_dynamic_regret_t_zero_returns_base_lr() -> None:
     optimizer = torch.optim.AdamW([param], lr=1e-4)
     scheduler = DynamicRegretScheduler(optimizer, eta_base=3e-4)
     assert scheduler.current_lr() == 3e-4
+
+
+def test_regret_state_path_is_on_drive():
+    """REGRET_STATE must point to Drive, not local state/."""
+    from anra_paths import REGRET_STATE, DRIVE_V3_DIR
+
+    assert str(DRIVE_V3_DIR) in str(REGRET_STATE), (
+        f"REGRET_STATE={REGRET_STATE} is not under DRIVE_V3_DIR={DRIVE_V3_DIR}"
+    )
+
+
+def test_build_brain_imports_REGRET_STATE():
+    """build_brain.py must import and use REGRET_STATE from anra_paths."""
+    src = open("scripts/build_brain.py").read()
+    assert "REGRET_STATE" in src, (
+        "build_brain.py must import REGRET_STATE from anra_paths and use it for save/load"
+    )
+    assert "ROOT / \"state\" / \"regret_state" not in src and \
+           "ROOT/'state'/'regret_state" not in src, (
+        "build_brain.py must save to REGRET_STATE (Drive), not ROOT/state/regret_state.json"
+    )

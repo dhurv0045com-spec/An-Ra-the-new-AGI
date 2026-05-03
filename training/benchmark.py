@@ -1,7 +1,11 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
+from pathlib import Path
+import json
 import math
+import subprocess
+import time
 
 
 @dataclass
@@ -10,14 +14,14 @@ class BenchmarkResult:
     rlvr_pass_at_1: float
     civ_score: float
     coherence: float
+    success: bool = True
+    command_return_code: int | None = None
+    elapsed_seconds: float = 0.0
+
+    def to_dict(self) -> dict[str, object]:
+        return asdict(self)
 
 
-<<<<<<< HEAD
-def run_benchmark(*, val_loss: float, rlvr_rewards: list[float], civ_score: float, coherence: float) -> BenchmarkResult:
-    ppl = float(math.exp(min(20.0, max(-20.0, float(val_loss)))))
-    pass1 = float(sum(1 for r in rlvr_rewards if r >= 0.999) / max(1, len(rlvr_rewards)))
-    return BenchmarkResult(val_perplexity=ppl, rlvr_pass_at_1=pass1, civ_score=float(civ_score), coherence=float(coherence))
-=======
 def run_benchmark(
     *,
     val_loss: float | None = None,
@@ -64,10 +68,7 @@ def _torch_modules():
 
 
 class BenchmarkSuite:
-    """
-    Runs benchmarks by actually evaluating the model.
-    The legacy run_benchmark() API above remains a metric formatter.
-    """
+    """Run model-backed validation, coding, CIV, and coherence checks."""
 
     def __init__(
         self,
@@ -89,7 +90,6 @@ class BenchmarkSuite:
         return next(self.model.parameters()).device
 
     def val_perplexity(self, max_examples: int = 500) -> float:
-        """Cross-entropy loss to perplexity on a fixed holdout set."""
         if not self._holdout:
             return 999.0
         self.model.eval()
@@ -120,7 +120,6 @@ class BenchmarkSuite:
         return float(math.exp(min(20.0, total_loss / total_tokens)))
 
     def rlvr_pass_at_1(self, max_tasks: int = 50) -> float:
-        """Greedy decode on fixed coding tasks. Fraction with score >= 0.999."""
         if not self._coding or self.verifier is None:
             return 0.0
         self.model.eval()
@@ -151,7 +150,6 @@ class BenchmarkSuite:
         return passed / max(1, min(max_tasks, len(self._coding)))
 
     def civ_similarity(self) -> float:
-        """Cosine similarity vs frozen CIV baseline. Must stay >= 0.92."""
         if self.civ_guard is None:
             return 1.0
         try:
@@ -161,7 +159,6 @@ class BenchmarkSuite:
             return 1.0
 
     def conversation_coherence(self) -> float:
-        """Inject a secret at turn 1, ask for it at turn 20, score recall."""
         self.model.eval()
         torch, _ = _torch_modules()
         device = self._device()
@@ -219,4 +216,3 @@ class BenchmarkSuite:
             flag = "PASS" if check_fn(value) else "FAIL"
             print(f"  {flag:<4} {field_name:<28} {value:>8.4f}   target: {target_str}")
         print("=" * 64)
->>>>>>> cf05483 (sing the moment)

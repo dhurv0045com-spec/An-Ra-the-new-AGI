@@ -17,7 +17,7 @@ from torch.utils.data import DataLoader
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from anra_paths import DRIVE_V2_CHECKPOINTS, ROOT, V2_TOKENIZER_FILE, get_v2_checkpoint, inject_all_paths
+from anra_paths import DRIVE_V2_CHECKPOINTS, REGRET_STATE, ROOT, V2_TOKENIZER_FILE, get_v2_checkpoint, inject_all_paths
 from training.anra_optimizer import build_optimizer
 from training.eval_v2 import quick_eval_loss, run_compact_eval
 from training.mixed_precision import MixedPrecisionTrainer
@@ -203,7 +203,8 @@ def train_anra_v2(
         warmup_steps=100,
         total_steps=50_000,
     )
-    regret_scheduler = DynamicRegretScheduler(base_lr=3e-4)
+    regret_scheduler = DynamicRegretScheduler(optimizer, eta_base=3e-4)
+    regret_scheduler.load(REGRET_STATE)
 
     ckpt_path = get_v2_checkpoint("brain")
     ckpt: dict[str, object] = {}
@@ -492,7 +493,7 @@ def train_anra_v2(
     try:
         session_end_loss = quick_eval_loss(model, ds, device=device, max_examples=100, batch_size=batch_size, pad_id=tokenizer.pad_token_id)
         regret_lr = regret_scheduler.session_end(session_end_loss, global_step - initial_step)
-        regret_scheduler.save(ROOT / "state" / "regret_state.json")
+        regret_scheduler.save(REGRET_STATE)
         print(f"  Dynamic regret lr : {regret_lr:.8f}", flush=True)
     except Exception as exc:
         print(f"[build_brain] quick eval at session_end failed: {exc}", flush=True)

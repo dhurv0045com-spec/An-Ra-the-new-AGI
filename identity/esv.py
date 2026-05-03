@@ -3,6 +3,14 @@ from __future__ import annotations
 from dataclasses import dataclass, asdict
 from pathlib import Path
 import json
+import math
+
+try:
+    import torch
+    from torch import nn
+except Exception:  # pragma: no cover - torch-free environments still use EmotionalStateVector.
+    torch = None
+    nn = None
 
 
 @dataclass
@@ -36,3 +44,73 @@ class EmotionalStateVector:
         p = Path(path)
         p.parent.mkdir(parents=True, exist_ok=True)
         p.write_text(json.dumps(self.as_dict(), indent=2), encoding="utf-8")
+
+
+if nn is not None:
+    class ESVModule(nn.Module):
+        """Residual-stream emotional state vector predictor.
+
+        The module reads the reserved ESV channel from the residual stream and
+        exposes VAD controls used by attention, memory routing, and DGSA gates.
+        Predictor weights are zero-initialized so the system starts neutral.
+        """
+
+        def __init__(self, d_model: int = 512, d_esv: int = 64) -> None:
+            super().__init__()
+            self.d_model = int(d_model)
+            self.d_esv = int(d_esv)
+            self.predictor = nn.Sequential(
+                nn.Linear(self.d_esv, 3),
+                nn.Tanh(),
+            )
+            for m in self.predictor.modules():
+                if isinstance(m, nn.Linear):
+                    nn.init.zeros_(m.weight)
+                    if m.bias is not None:
+                        nn.init.zeros_(m.bias)
+            self.register_buffer("state", torch.zeros(3))
+
+        def forward(self, h):
+            if h.ndim != 3:
+                raise ValueError("ESVModule expects residual stream shape [batch, seq, d_model].")
+            if h.shape[-1] < self.d_esv:
+                raise ValueError(f"residual stream has {h.shape[-1]} channels, expected at least {self.d_esv}.")
+            esv_channel = h[:, :, -self.d_esv :]
+            pooled = esv_channel.mean(dim=(0, 1))
+            state = self.predictor(pooled)
+            self.state.copy_(state.detach())
+            return state
+
+        @property
+        def valence(self) -> float:
+            return float(self.state[0].item())
+
+        @property
+        def arousal(self) -> float:
+            return float(self.state[1].item())
+
+        @property
+        def dominance(self) -> float:
+            return float(self.state[2].item())
+
+        def as_dict(self) -> dict[str, float]:
+            return {
+                "valence": self.valence,
+                "arousal": self.arousal,
+                "dominance": self.dominance,
+            }
+
+        def attention_temperature(self, tau0: float = 1.0) -> float:
+            return float(tau0) * math.exp(self.arousal)
+
+        def memory_write_threshold(self, base: float = 0.5) -> float:
+            threshold = float(base) - 0.15 * self.valence + 0.15 * self.arousal
+            return max(0.01, min(0.99, threshold))
+
+        def dgsa_gate(self) -> tuple[float, float]:
+            att = 1.0 / (1.0 + math.exp(-self.dominance))
+            return 1.0 - att, att
+else:
+    class ESVModule:  # pragma: no cover - exercised only without torch installed.
+        def __init__(self, *args, **kwargs) -> None:
+            raise ImportError("ESVModule requires torch.")

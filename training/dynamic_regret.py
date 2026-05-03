@@ -1,69 +1,104 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 from pathlib import Path
 import json
 
 
-@dataclass
 class DynamicRegretScheduler:
-    """Session-aware LR scaling using moving regret.
+    """Session-aware learning-rate controller using the Besbes-Gur-Zeevi rate."""
 
-    Regret is interpreted as `target_reward - observed_reward`.
-    Positive regret increases learning pressure, low/negative regret decays LR.
-    """
+    def __init__(
+        self,
+        optimizer=None,
+        eta_base: float | None = None,
+        *,
+        base_lr: float | None = None,
+        min_lr: float = 1e-6,
+        max_lr: float = 3e-3,
+        session_file: str | Path | None = None,
+    ) -> None:
+        if optimizer is not None and not hasattr(optimizer, "param_groups"):
+            if base_lr is None and eta_base is None:
+                base_lr = float(optimizer)
+            optimizer = None
 
-    base_lr: float
-    min_scale: float = 0.25
-    max_scale: float = 2.0
-    momentum: float = 0.9
-    target_reward: float = 1.0
-    session_file: Path | None = None
-    ema_regret: float = 0.0
-    history: list[float] = field(default_factory=list)
+        self.optimizer = optimizer
+        self.eta_base = float(eta_base if eta_base is not None else (base_lr if base_lr is not None else 3e-4))
+        self.min_lr = float(min_lr)
+        self.max_lr = float(max_lr)
+        self.session_file = Path(session_file) if session_file is not None else None
+        self.V_total = 0.0
+        self.T_total = 0
+        self.session_start_loss: float | None = None
+        self._current_lr = self.eta_base
 
-    def __post_init__(self) -> None:
-        if self.session_file and self.session_file.exists():
-            try:
-                payload = json.loads(self.session_file.read_text(encoding="utf-8"))
-                self.ema_regret = float(payload.get("ema_regret", self.ema_regret))
-                self.history = [float(x) for x in payload.get("history", [])][-2048:]
-            except Exception as exc:
-                print(f"[dynamic_regret] failed loading state: {exc}")
+        if self.session_file is not None:
+            self.load(self.session_file)
+        self._apply_lr(self._current_lr)
 
-    def update(self, reward: float) -> float:
-        regret = self.target_reward - float(reward)
-        self.ema_regret = self.momentum * self.ema_regret + (1.0 - self.momentum) * regret
-        self.history.append(regret)
-        if len(self.history) > 4096:
-            self.history = self.history[-4096:]
-        return self.current_lr()
+    def _clip(self, lr: float) -> float:
+        return max(self.min_lr, min(self.max_lr, float(lr)))
 
-    def scale(self) -> float:
-        # map ema regret to bounded scale factor
-        s = 1.0 + self.ema_regret
-        if s < self.min_scale:
-            return self.min_scale
-        if s > self.max_scale:
-            return self.max_scale
-        return s
+    def _apply_lr(self, lr: float) -> float:
+        self._current_lr = self._clip(lr)
+        if self.optimizer is not None:
+            for group in self.optimizer.param_groups:
+                group["lr"] = self._current_lr
+        return self._current_lr
 
     def current_lr(self) -> float:
-        return float(self.base_lr) * self.scale()
+        return self._current_lr
 
-    def state_dict(self) -> dict:
+    def session_start(self, loss: float) -> None:
+        self.session_start_loss = float(loss)
+
+    def session_end(self, loss: float, steps: int) -> float:
+        steps = max(0, int(steps))
+        if steps == 0:
+            return self._apply_lr(self.eta_base if self.T_total == 0 else self._besbes_lr())
+
+        start = self.session_start_loss if self.session_start_loss is not None else float(loss)
+        variation = abs(float(start) - float(loss))
+        self.V_total += variation
+        self.T_total += steps
+        return self._apply_lr(self._besbes_lr())
+
+    def _besbes_lr(self) -> float:
+        if self.T_total <= 0 or self.V_total <= 0.0:
+            return self.eta_base
+        return self.eta_base * ((self.V_total / self.T_total) ** (1.0 / 3.0))
+
+    def update(self, reward: float) -> float:
+        regret = max(0.0, 1.0 - float(reward))
+        self.V_total += regret
+        self.T_total += 1
+        return self._apply_lr(self._besbes_lr())
+
+    def state_dict(self) -> dict[str, object]:
         return {
-            "base_lr": self.base_lr,
-            "min_scale": self.min_scale,
-            "max_scale": self.max_scale,
-            "momentum": self.momentum,
-            "target_reward": self.target_reward,
-            "ema_regret": self.ema_regret,
-            "history": self.history[-2048:],
+            "eta_base": self.eta_base,
+            "min_lr": self.min_lr,
+            "max_lr": self.max_lr,
+            "V_total": self.V_total,
+            "T_total": self.T_total,
+            "current_lr": self._current_lr,
         }
 
-    def save(self) -> None:
-        if self.session_file is None:
+    def load(self, path: str | Path | None = None) -> None:
+        target = Path(path) if path is not None else self.session_file
+        if target is None or not target.exists():
             return
-        self.session_file.parent.mkdir(parents=True, exist_ok=True)
-        self.session_file.write_text(json.dumps(self.state_dict(), indent=2), encoding="utf-8")
+        try:
+            payload = json.loads(target.read_text(encoding="utf-8"))
+            self.V_total = float(payload.get("V_total", self.V_total))
+            self.T_total = int(payload.get("T_total", self.T_total))
+            self._current_lr = self._clip(float(payload.get("current_lr", self._besbes_lr())))
+        except Exception as exc:
+            print(f"[dynamic_regret] failed loading state: {exc}")
+
+    def save(self, path: str | Path | None = None) -> None:
+        target = Path(path) if path is not None else self.session_file
+        if target is None:
+            return
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(json.dumps(self.state_dict(), indent=2), encoding="utf-8")

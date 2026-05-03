@@ -54,3 +54,68 @@ def test_self_modification_type_a_and_type_b_rollback(tmp_path: Path) -> None:
     result = AgentCodeMutation(tmp_path / "backups").mutate(target, "new", benchmark_cmd=["python3", "-c", "raise SystemExit(1)"])
     assert not result["accepted"]
     assert target.read_text(encoding="utf-8") == "old"
+
+
+def test_type_b_propose_method_exists():
+    assert hasattr(AgentCodeMutation, "propose")
+
+
+def test_type_b_propose_accepts_no_improvement(tmp_path: Path):
+    target = tmp_path / "agent_logic.py"
+    target.write_text("def old(): pass\n", encoding="utf-8")
+    mut = AgentCodeMutation(backup_dir=tmp_path)
+    result = mut.propose(
+        file_path=target,
+        new_content="def new(): return 42\n",
+        reason="improved function",
+    )
+    assert result["accepted"] is True
+    assert "score_before" in result
+    assert "score_after" in result
+    assert "diff" in result
+
+
+def test_type_b_propose_rollback_on_worse(tmp_path: Path):
+    class _FakeVerifier:
+        call_count = 0
+
+        def score(self, *a, **kw):
+            self.call_count += 1
+
+            class _R:
+                score = 0.9 if _FakeVerifier.call_count == 1 else 0.5
+
+            return _R()
+
+    class _FakeSandbox:
+        def execute(self, code):
+            class _R:
+                success = True
+                return_code = 0
+                stdout = "ok"
+                stderr = ""
+
+            return _R()
+
+    target = tmp_path / "agent.py"
+    original = "def good(): return 'quality'\n"
+    target.write_text(original, encoding="utf-8")
+    mut = AgentCodeMutation(backup_dir=tmp_path)
+    result = mut.propose(
+        file_path=target,
+        new_content="def bad(): pass\n",
+        sandbox=_FakeSandbox(),
+        verifier=_FakeVerifier(),
+        benchmark_tasks=[{"code": "print(1)", "type": "code"}],
+        drop_threshold=0.02,
+    )
+    assert result["accepted"] is False
+    assert target.read_text(encoding="utf-8") == original
+
+
+def test_type_b_mutate_still_works(tmp_path: Path):
+    target = tmp_path / "f.py"
+    target.write_text("x = 1\n", encoding="utf-8")
+    mut = AgentCodeMutation(backup_dir=tmp_path)
+    result = mut.mutate(target, "x = 2\n", reason="update")
+    assert result["accepted"] is True
