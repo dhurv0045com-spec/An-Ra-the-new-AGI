@@ -17,8 +17,18 @@ class ConstitutionalIdentityVector:
     def __init__(self, profile: CIVProfile | None = None) -> None:
         self.profile = profile or CIVProfile()
 
+    def update(self, evidence: dict[str, float], alpha: float = 0.05) -> None:
+        alpha = max(0.0, min(1.0, float(alpha)))
+        for k, v in evidence.items():
+            if hasattr(self.profile, k):
+                current = float(getattr(self.profile, k))
+                # AN: CIV should slowly learn from scored data instead of staying a static gate.
+                updated = current * (1 - alpha) + float(v) * alpha
+                setattr(self.profile, k, max(0.0, min(1.0, updated)))
+
     def score(self, evidence: dict[str, float] | None = None) -> float:
         evidence = evidence or {}
+        self.update(evidence)
         vals = asdict(self.profile)
         for k, v in evidence.items():
             if k in vals:

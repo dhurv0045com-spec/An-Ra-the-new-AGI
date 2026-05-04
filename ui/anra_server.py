@@ -115,7 +115,14 @@ def set_identity():
 
 @app.post("/chat")
 def chat():
-    if not state["loaded"]:
+    with lock:
+        model = state["model"]
+        tokenizer = state["tokenizer"]
+        device = state["device"]
+        step = state["step"]
+        best_loss = state["best_loss"]
+        default_use_identity = state["use_identity"]
+    if model is None or tokenizer is None:
         return _safe_json_error("Model not loaded", 503)
     payload = request.get_json(force=True, silent=True) or {}
     msg = (payload.get("message") or "").strip()
@@ -125,7 +132,7 @@ def chat():
     temp = float(payload.get("temperature", 0.85))
     max_tokens = int(payload.get("max_tokens", 120))
     top_k = int(payload.get("top_k", 40))
-    use_identity = bool(payload.get("use_identity", state["use_identity"]))
+    use_identity = bool(payload.get("use_identity", default_use_identity))
 
     prompt = f"H: {msg}\nANRA:"
     if use_identity:
@@ -133,10 +140,10 @@ def chat():
 
     t0 = time.perf_counter()
     out = generate_text(
-        state["model"],
-        state["tokenizer"],
+        model,
+        tokenizer,
         prompt,
-        device=torch.device(state["device"]),
+        device=torch.device(device),
         max_new_tokens=max_tokens,
         temperature=temp,
         top_k=top_k,
@@ -149,7 +156,7 @@ def chat():
         state["history"].append({"role": "user", "text": msg, "ts": time.time()})
         state["history"].append({"role": "anra", "text": clean, "elapsed": elapsed, "ts": time.time()})
 
-    return jsonify({"response": clean, "elapsed": elapsed, "step": state["step"], "loss": state["best_loss"]})
+    return jsonify({"response": clean, "elapsed": elapsed, "step": step, "loss": best_loss})
 
 
 @app.get("/history")

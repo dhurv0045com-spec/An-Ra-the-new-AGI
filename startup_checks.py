@@ -1,6 +1,8 @@
 """Startup validation for runtime and training-contract invariants."""
 from __future__ import annotations
 
+import warnings
+
 import torch
 
 from anra_paths import V3_TOKENIZER_FILE
@@ -14,22 +16,33 @@ _REMEDIATION = (
 
 
 def assert_flash_sdp_ready(entrypoint: str) -> None:
-    """Abort startup unless Flash SDP is enabled and CUDA backend is available."""
+    """Warn when Flash SDP acceleration is unavailable."""
     if not torch.cuda.is_available():
-        raise RuntimeError(
-            f"[{entrypoint}] CUDA is unavailable. { _REMEDIATION }"
+        warnings.warn(
+            f"[{entrypoint}] Flash SDP unavailable: CUDA is unavailable. Training will continue without "
+            f"FlashAttention acceleration. {_REMEDIATION}",
+            UserWarning,
+            stacklevel=2,
         )
+        return
 
     if not torch.backends.cuda.is_flash_attention_available():
-        raise RuntimeError(
-            f"[{entrypoint}] torch.backends.cuda.is_flash_attention_available() is False. {_REMEDIATION}"
+        warnings.warn(
+            f"[{entrypoint}] Flash SDP unavailable: torch.backends.cuda.is_flash_attention_available() is False. "
+            f"Training will continue without FlashAttention acceleration. {_REMEDIATION}",
+            UserWarning,
+            stacklevel=2,
         )
+        return
 
     if not torch.backends.cuda.flash_sdp_enabled():
-        raise RuntimeError(
-            f"[{entrypoint}] torch.backends.cuda.flash_sdp_enabled() is False. "
+        warnings.warn(
+            f"[{entrypoint}] Flash SDP unavailable: torch.backends.cuda.flash_sdp_enabled() is False. "
+            "Training will continue without FlashAttention acceleration. "
             "Set this at startup via torch.backends.cuda.enable_flash_sdp(True). "
-            f"{_REMEDIATION}"
+            f"{_REMEDIATION}",
+            UserWarning,
+            stacklevel=2,
         )
 
 

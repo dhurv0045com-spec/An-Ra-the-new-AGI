@@ -52,8 +52,8 @@ if nn is not None:
 
         The module reads the reserved ESV channel from the residual stream and
         exposes VAD controls used by attention, memory routing, and DGSA gates.
-        Predictor weights use tiny random initialization so the system starts
-        near neutral while gradients can flow immediately.
+        Predictor weights start at zero so existing checkpoints and fresh runs
+        begin from neutral emotional control.
         """
 
         def __init__(self, d_model: int = 512, d_esv: int = 64) -> None:
@@ -66,7 +66,7 @@ if nn is not None:
             )
             for m in self.predictor.modules():
                 if isinstance(m, nn.Linear):
-                    nn.init.normal_(m.weight, mean=0.0, std=0.01)
+                    nn.init.zeros_(m.weight)
                     if m.bias is not None:
                         nn.init.zeros_(m.bias)
             self.register_buffer("state", torch.zeros(3))

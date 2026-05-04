@@ -179,7 +179,7 @@ class BlockV2(nn.Module):
 
 
 class CausalTransformerV2(nn.Module):
-    def __init__(self, vocab_size: int, n_embd: int, n_head: int, n_layer: int, block_size: int, *, n_kv_head: int | None = None, rms_norm_eps: float = 1e-5, dropout: float = 0.0, mod_layers=(), base_seq_len: int = 512, target_seq_len: int = 2048, pad_token_id: int = 0):
+    def __init__(self, vocab_size: int, n_embd: int, n_head: int, n_layer: int, block_size: int, *, n_kv_head: int | None = None, rms_norm_eps: float = 1e-5, dropout: float = 0.0, mod_layers=(), base_seq_len: int = 512, target_seq_len: int = 2048, pad_token_id: int = 0, use_layer_temperature_bias: bool = True):
         super().__init__()
         if not 0 <= pad_token_id < vocab_size:
             raise ValueError(f"pad_token_id={pad_token_id} must be within vocab_size={vocab_size}")
@@ -194,6 +194,7 @@ class CausalTransformerV2(nn.Module):
         self.mod_layers = tuple(sorted(mod_layers))
         self.base_seq_len = base_seq_len
         self.target_seq_len = target_seq_len
+        self.use_layer_temperature_bias = bool(use_layer_temperature_bias)
         self.token_embedding_table = nn.Embedding(vocab_size, n_embd)
         self.blocks = nn.ModuleList([BlockV2(n_embd, n_head, n_kv_head=self.n_kv_head, eps=rms_norm_eps, dropout=dropout, base_seq_len=base_seq_len, target_seq_len=target_seq_len) for _ in range(n_layer)])
         self.mod_routers = nn.ModuleDict({str(i): MoDRouter(n_embd) for i in mod_layers})
@@ -202,6 +203,9 @@ class CausalTransformerV2(nn.Module):
         self.lm_head.weight = self.token_embedding_table.weight
         self.apply(self._init_weights)
         self.esv_module = ESVModule(d_model=n_embd, d_esv=min(64, n_embd))
+        if self.use_layer_temperature_bias:
+            # AN: let each block learn how strongly shared ESV arousal should shape its attention.
+            self.layer_temperature_bias = nn.Parameter(torch.ones(n_layer))
 
     def _init_weights(self, module: nn.Module) -> None:
         if isinstance(module, nn.Linear):
@@ -211,8 +215,8 @@ class CausalTransformerV2(nn.Module):
         elif isinstance(module, nn.Embedding):
             nn.init.normal_(module.weight, mean=0.0, std=0.02)
 
-    def model_config(self) -> dict[str, int]:
-        return {"vocab_size": self.vocab_size, "pad_token_id": self.pad_token_id, "n_embd": self.n_embd, "n_head": self.n_head, "n_layer": self.n_layer, "block_size": self.block_size, "n_kv_head": self.n_kv_head, "base_seq_len": self.base_seq_len, "target_seq_len": self.target_seq_len}
+    def model_config(self) -> dict[str, int | bool]:
+        return {"vocab_size": self.vocab_size, "pad_token_id": self.pad_token_id, "n_embd": self.n_embd, "n_head": self.n_head, "n_layer": self.n_layer, "block_size": self.block_size, "n_kv_head": self.n_kv_head, "base_seq_len": self.base_seq_len, "target_seq_len": self.target_seq_len, "use_layer_temperature_bias": self.use_layer_temperature_bias}
 
     def embed(self, idx: torch.Tensor) -> torch.Tensor:
         """Expose canonical token embedding for milestone reasoning wrappers."""
@@ -223,6 +227,8 @@ class CausalTransformerV2(nn.Module):
         for i, block in enumerate(self.blocks):
             esv_state = self.esv_module(x)
             attention_temperature = self.esv_module.attention_temperature_tensor(esv_state)
+            if self.use_layer_temperature_bias:
+                attention_temperature = attention_temperature * self.layer_temperature_bias[i]
             key = str(i)
             mod_router = self.mod_routers[key] if key in self.mod_routers else None
             x = block(x, attention_temperature=attention_temperature, mod_router=mod_router)

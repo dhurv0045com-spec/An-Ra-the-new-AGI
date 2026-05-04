@@ -14,7 +14,8 @@ import torch.nn.functional as F
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from anra_paths import DRIVE_DIR, DRIVE_MEMORY, ROOT, inject_all_paths, get_tokenizer_file
+from anra_paths import DATASET_CANONICAL, DRIVE_DIR, DRIVE_MEMORY, ROOT, get_dataset_file, get_tokenizer_file, inject_all_paths
+from training.v2_config import V2_MODEL
 inject_all_paths()
 
 from anra_brain import CausalTransformer
@@ -29,10 +30,10 @@ CONFIG = {
     "dataset": "anra_training.txt",
     "fallback_dataset": "anra_training.txt",
     "drive_dir": str(DRIVE_MEMORY),
-    "block_size": 128,
-    "n_embd": 256,
-    "n_head": 4,
-    "n_layer": 4,
+    "block_size": V2_MODEL.block_size,
+    "n_embd": V2_MODEL.n_embd,
+    "n_head": V2_MODEL.n_head,
+    "n_layer": V2_MODEL.n_layer,
 }
 
 
@@ -181,9 +182,9 @@ if __name__ == '__main__':
     memory_system = MemoryManager(data_dir=str(DRIVE_MEMORY), user_id="anra")
     populator = MemoryPopulator(model, tokenizer, memory_system)
     populator.load_from_drive()
-    dataset_path = DATASET_PRIMARY
+    dataset_path = DATASET_CANONICAL
     if not dataset_path.exists():
-        dataset_path = DATASET_FALLBACK
+        dataset_path = get_dataset_file()
     populator.populate_from_dataset(str(dataset_path))
     populator.save_to_drive()
     print(json.dumps(memory_system.stats(), indent=2))

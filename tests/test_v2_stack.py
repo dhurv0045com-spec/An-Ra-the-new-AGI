@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import pytest
 import torch
 from pathlib import Path
@@ -8,6 +9,20 @@ from anra_brain import CausalTransformerV2
 from anra_paths import DATASET
 from tokenizer.subword_tokenizer import SubwordTokenizer
 from training.v2_data_mix import IdentityStyleFilter, build_v2_training_examples
+
+
+def test_vocab_size_contract():
+    from training.v2_config import CANONICAL_VOCAB_SIZE, EXPECTED_TOKENIZER_VOCAB_SIZE
+
+    tok_path = Path("tokenizer/tokenizer_v3.json")
+    if tok_path.exists():
+        with tok_path.open(encoding="utf-8") as fh:
+            tok = json.load(fh)
+        actual = len(tok.get("token_to_id", {}))
+        assert actual == CANONICAL_VOCAB_SIZE, (
+            f"tokenizer has {actual} tokens but CANONICAL_VOCAB_SIZE={CANONICAL_VOCAB_SIZE}"
+        )
+    assert CANONICAL_VOCAB_SIZE == EXPECTED_TOKENIZER_VOCAB_SIZE
 
 
 def test_v2_model_forward_shape() -> None:

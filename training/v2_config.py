@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 
 MODEL_LINE = "v2"
-CANONICAL_VOCAB_SIZE = 4096
+CANONICAL_VOCAB_SIZE = 8192
 CANONICAL_PAD_TOKEN_ID = 0
 CANONICAL_UNK_TOKEN_ID = 1
 CANONICAL_SPECIAL_TOKENS = ["<pad>", "<unk>", "<bos>", "<eos>"]

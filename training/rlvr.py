@@ -67,6 +67,7 @@ class RLVRTrainer:
         grad_clip: float = 1.0,
         replay_pipeline=None,
         replay_min_reward: float = 0.5,
+        entropy_bonus: float = 0.01,
     ) -> None:
         if torch is None:
             raise ImportError("RLVRTrainer requires torch.")
@@ -80,10 +81,17 @@ class RLVRTrainer:
         self.grad_clip = float(grad_clip)
         self.replay_pipeline = replay_pipeline
         self.replay_min_reward = float(replay_min_reward)
+        self.entropy_bonus = float(entropy_bonus)
 
         self._ref_model = copy.deepcopy(model)
         for p in self._ref_model.parameters():
             p.requires_grad_(False)
+        self._ref_model.eval()
+        self._steps_since_sync = 0
+
+    def sync_reference(self) -> None:
+        """Refresh the KL anchor from the current policy."""
+        self._ref_model.load_state_dict(self.model.state_dict())
         self._ref_model.eval()
 
     def _device(self) -> torch.device:
@@ -152,6 +160,34 @@ class RLVRTrainer:
         comp_tgt = targets[0, target_start:]
         return comp_lp.gather(1, comp_tgt.unsqueeze(1)).squeeze(1).sum()
 
+    @_no_grad()
+    def _completion_entropy(self, prompt: str, completion: str) -> float:
+        """Mean next-token entropy over a completion under the current policy."""
+        block = getattr(self.model, "block_size", 2048)
+        device = self._device()
+        p_ids = self.tokenizer.encode(prompt)
+        c_ids = self.tokenizer.encode(completion)
+        if not c_ids:
+            return 0.0
+
+        full_ids = p_ids + c_ids
+        start = max(0, len(full_ids) - block)
+        all_ids = full_ids[start:]
+        if len(all_ids) < 2:
+            return 0.0
+
+        x = torch.tensor([all_ids[:-1]], dtype=torch.long, device=device)
+        logits, _ = self.model(x)
+        first_completion_pos = max(0, len(p_ids) - start)
+        target_start = max(0, first_completion_pos - 1)
+        if target_start >= logits.shape[1]:
+            return 0.0
+
+        comp_logits = logits[0, target_start:, :]
+        probs = F.softmax(comp_logits, dim=-1)
+        entropy = -(probs * probs.clamp_min(1e-12).log()).sum(dim=-1)
+        return float(entropy.mean().item())
+
     def train_step(self, task: RLVRTask, completions: list[str] | None = None) -> RLVRStep:
         """Generate, verify, compute GRPO loss, backpropagate, and step."""
         if completions is None:
@@ -170,7 +206,11 @@ class RLVRTrainer:
                 response=c,
                 task=task.prompt,
             )
-            rewards.append(float(vr.score))
+            reward = float(vr.score)
+            if self.entropy_bonus:
+                # AN: preserve exploration pressure so GRPO does not collapse into brittle low-entropy completions.
+                reward += self.entropy_bonus * self._completion_entropy(task.prompt, c)
+            rewards.append(reward)
 
         r = torch.tensor(rewards, dtype=torch.float32)
         mean_r = r.mean()
@@ -200,6 +240,10 @@ class RLVRTrainer:
         total_loss.backward()
         torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.grad_clip)
         self.optimizer.step()
+        self._steps_since_sync += 1
+        if self._steps_since_sync >= 100:
+            self.sync_reference()
+            self._steps_since_sync = 0
 
         step = RLVRStep(
             task=task,

@@ -48,6 +48,7 @@ class GenerationConfig:
     repetition_window: int = 64
     stop_strings: list[str] = field(default_factory=list)
     seed: Optional[int] = None
+    use_think_tokens: bool = False
 
 
 @dataclass
@@ -191,6 +192,9 @@ def generate_traced(prompt: str, cfg: GenerationConfig, *, session_id: str | Non
     del LOADED_CHECKPOINT
     _seed_all(cfg.seed)
 
+    if cfg.use_think_tokens:
+        # AN: use existing tokenizer concepts to request reflective passes without adding generation machinery.
+        prompt = f"<think>\n{prompt}"
     prompt_ids = TOKENIZER.encode(prompt, add_special_tokens=False)
     ids = [TOKENIZER.bos_token_id] + prompt_ids
     generated_ids = ids[:]
@@ -222,6 +226,8 @@ def generate_traced(prompt: str, cfg: GenerationConfig, *, session_id: str | Non
 
     answer_ids = generated_ids[prompt_token_count:]
     output_text = TOKENIZER.decode(answer_ids).strip()
+    if cfg.use_think_tokens:
+        output_text = output_text.replace("</think>", "").strip()
 
     if _IDENTITY_INJECTOR is not None:
         try:
