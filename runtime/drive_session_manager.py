@@ -32,7 +32,14 @@ class DriveSessionManager:
         self._stop = threading.Event()
         self._autosave_callback: Callable[[], None] | None = None
         self._sigterm_registered = False
-        self.session_dir.mkdir(parents=True, exist_ok=True)
+        try:
+            self.session_dir.mkdir(parents=True, exist_ok=True)
+        except OSError:
+            local_root = Path(__file__).resolve().parent.parent / "state" / "drive_sessions"
+            self.drive_dir = local_root
+            self.session_dir = self.drive_dir / session_id
+            self.manifest_path = self.session_dir / "manifest.json"
+            self.session_dir.mkdir(parents=True, exist_ok=True)
 
     def _load_manifest(self) -> dict:
         if not self.manifest_path.exists():
