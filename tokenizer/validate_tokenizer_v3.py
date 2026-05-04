@@ -23,7 +23,7 @@ SPECIAL_TOKENS = [
     "<ESV:a>",
     "<ESV:d>",
 ]
-TARGET_VOCAB = 4096
+TARGET_VOCAB = 8192
 
 
 def validate_tokenizer(tokenizer_json: Path, dataset_path: Path) -> dict[str, float | bool]:
@@ -57,5 +57,5 @@ def validate_tokenizer(tokenizer_json: Path, dataset_path: Path) -> dict[str, fl
 
 if __name__ == '__main__':
     root = Path(__file__).resolve().parents[1]
-    results = validate_tokenizer(root / 'tokenizer' / 'tokenizer_v3.json', root / 'training_data' / 'anra_dataset_v6_1.txt')
+    results = validate_tokenizer(root / 'tokenizer' / 'tokenizer_v3.json', root / 'training_data' / 'anra_training.txt')
     print(results)

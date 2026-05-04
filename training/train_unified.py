@@ -3,7 +3,6 @@ from __future__ import annotations
 import argparse
 import importlib
 import json
-import shutil
 import subprocess
 import sys
 import time
@@ -15,7 +14,7 @@ from startup_checks import assert_flash_sdp_ready
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from anra_paths import DATASET, DATASET_LEGACY, ROOT, TRAINING_DATA_DIR, ensure_dirs, inject_all_paths
+from anra_paths import DATASET, ROOT, ensure_dirs, get_dataset_file, inject_all_paths
 from training.eval_v2 import run_compact_eval
 from training.v2_config import V2_MODEL, V2_TRAINING
 from training.v2_runtime import (
@@ -34,7 +33,6 @@ inject_all_paths()
 ensure_dirs()
 
 _CANONICAL_DATASET = DATASET
-_LEGACY_DATASET = DATASET_LEGACY
 
 
 def _valid_text_dataset(path: Path) -> bool:
@@ -56,24 +54,18 @@ def resolve_dataset_path(explicit: str | None) -> Path:
             path = (ROOT / path).resolve()
         if not _valid_text_dataset(path):
             raise FileNotFoundError(
-                f"Dataset invalid or too small (must be anra_dataset_v6_1.txt with H:/ANRA: format, >100 KB): {path}"
+                f"Dataset invalid or too small (must be anra_training.txt with H:/ANRA: format, >100 KB): {path}"
             )
         return path
     if _valid_text_dataset(_CANONICAL_DATASET):
         return _CANONICAL_DATASET
-    if _valid_text_dataset(_LEGACY_DATASET):
-        print(
-            f"[Unified Trainer][WARN] Using legacy dataset fallback: {_LEGACY_DATASET}",
-            flush=True,
-        )
-        TRAINING_DATA_DIR.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(_LEGACY_DATASET, _CANONICAL_DATASET)
-        print(f"[Unified Trainer] dataset restored from Drive: {_CANONICAL_DATASET}", flush=True)
-        return _CANONICAL_DATASET
+    drive_dataset = get_dataset_file()
+    if drive_dataset != _CANONICAL_DATASET and _valid_text_dataset(drive_dataset):
+        return drive_dataset
     raise FileNotFoundError(
         "\n\n[FATAL] Training dataset not found.\n"
         f"  Expected locally: {_CANONICAL_DATASET}\n"
-        f"  Or on Drive:      {_LEGACY_DATASET}\n"
+        f"  Or on Drive:      {drive_dataset}\n"
     )
 
 

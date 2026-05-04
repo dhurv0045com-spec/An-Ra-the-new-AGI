@@ -155,11 +155,13 @@ class MoDRouter(nn.Module):
 class BlockV2(nn.Module):
     def __init__(self, n_embd: int, n_head: int, n_kv_head: int | None = None, *, eps: float = 1e-5, dropout: float = 0.0, base_seq_len: int = 512, target_seq_len: int = 2048):
         super().__init__()
-        hidden_dim = 4 * n_embd
+        hidden_dim = int(8 / 3 * n_embd)
+        hidden_dim = (hidden_dim + 63) // 64 * 64
         self.norm_1 = RMSNorm(n_embd, eps=eps)
         self.attn = MultiHeadAttentionV2(n_embd, n_head, n_kv_head=n_kv_head, dropout=dropout, base_seq_len=base_seq_len, target_seq_len=target_seq_len)
         self.norm_2 = RMSNorm(n_embd, eps=eps)
         self.mlp = SwiGLU(n_embd, hidden_dim)
+        self._normed_mlp = nn.Sequential(*[self.norm_2, self.mlp])
 
     def forward(
         self,
@@ -170,7 +172,7 @@ class BlockV2(nn.Module):
     ) -> torch.Tensor:
         x = x + self.attn(self.norm_1(x), attention_temperature=attention_temperature)
         if mod_router is not None:
-            x = mod_router(x, nn.Sequential(self.norm_2, self.mlp))
+            x = mod_router(x, self._normed_mlp)
             return x
         x = x + self.mlp(self.norm_2(x))
         return x
@@ -217,10 +219,10 @@ class CausalTransformerV2(nn.Module):
         return self.token_embedding_table(idx)
 
     def run_all_layers(self, x: torch.Tensor) -> torch.Tensor:
-        """Run the V2 residual stream from embeddings through final norm."""
-        esv_state = self.esv_module(x)
-        attention_temperature = self.esv_module.attention_temperature_tensor(esv_state)
+        """Run residual stream. ESV updates per block for layer-wise temperature."""
         for i, block in enumerate(self.blocks):
+            esv_state = self.esv_module(x)
+            attention_temperature = self.esv_module.attention_temperature_tensor(esv_state)
             key = str(i)
             mod_router = self.mod_routers[key] if key in self.mod_routers else None
             x = block(x, attention_temperature=attention_temperature, mod_router=mod_router)

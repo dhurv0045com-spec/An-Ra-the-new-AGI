@@ -65,6 +65,8 @@ class RLVRTrainer:
         kl_coeff: float = 0.04,
         max_new_tokens: int = 256,
         grad_clip: float = 1.0,
+        replay_pipeline=None,
+        replay_min_reward: float = 0.5,
     ) -> None:
         if torch is None:
             raise ImportError("RLVRTrainer requires torch.")
@@ -76,6 +78,8 @@ class RLVRTrainer:
         self.kl_coeff = float(kl_coeff)
         self.max_new_tokens = int(max_new_tokens)
         self.grad_clip = float(grad_clip)
+        self.replay_pipeline = replay_pipeline
+        self.replay_min_reward = float(replay_min_reward)
 
         self._ref_model = copy.deepcopy(model)
         for p in self._ref_model.parameters():
@@ -186,7 +190,7 @@ class RLVRTrainer:
                 lp_ref = self._compute_logprobs(self._ref_model, task.prompt, completion)
 
             policy_loss = policy_loss + (-float(advantage) * lp_cur)
-            kl_loss = kl_loss + (lp_cur - lp_ref.detach())
+            kl_loss = kl_loss + torch.clamp(lp_cur - lp_ref.detach(), min=0.0)
 
         group_size = max(1, len(completions))
         policy_loss = policy_loss / group_size
@@ -197,7 +201,7 @@ class RLVRTrainer:
         torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.grad_clip)
         self.optimizer.step()
 
-        return RLVRStep(
+        step = RLVRStep(
             task=task,
             completions=completions,
             rewards=rewards,
@@ -205,3 +209,9 @@ class RLVRTrainer:
             loss=float(total_loss.item()),
             mean_reward=float(mean_r.item()),
         )
+        if self.replay_pipeline is not None and float(mean_r.item()) < self.replay_min_reward:
+            try:
+                self.replay_pipeline.add_rlvr_step(step)
+            except Exception:
+                pass
+        return step

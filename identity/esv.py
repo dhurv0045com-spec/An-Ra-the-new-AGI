@@ -52,7 +52,8 @@ if nn is not None:
 
         The module reads the reserved ESV channel from the residual stream and
         exposes VAD controls used by attention, memory routing, and DGSA gates.
-        Predictor weights are zero-initialized so the system starts neutral.
+        Predictor weights use tiny random initialization so the system starts
+        near neutral while gradients can flow immediately.
         """
 
         def __init__(self, d_model: int = 512, d_esv: int = 64) -> None:
@@ -65,7 +66,7 @@ if nn is not None:
             )
             for m in self.predictor.modules():
                 if isinstance(m, nn.Linear):
-                    nn.init.zeros_(m.weight)
+                    nn.init.normal_(m.weight, mean=0.0, std=0.01)
                     if m.bias is not None:
                         nn.init.zeros_(m.bias)
             self.register_buffer("state", torch.zeros(3))
@@ -101,12 +102,12 @@ if nn is not None:
             }
 
         def attention_temperature(self, tau0: float = 1.0) -> float:
-            return float(tau0) * math.exp(self.arousal)
+            return float(tau0) * math.exp(-0.5 * self.arousal)
 
         def attention_temperature_tensor(self, state=None, tau0: float = 1.0):
             """Return a differentiable attention temperature from arousal."""
             state = self.state if state is None else state
-            return float(tau0) * torch.exp(state[1]).clamp(0.25, 4.0)
+            return float(tau0) * torch.exp(-0.5 * state[1]).clamp(0.25, 4.0)
 
         def memory_write_threshold(self, base: float = 0.5) -> float:
             threshold = float(base) - 0.15 * self.valence + 0.15 * self.arousal

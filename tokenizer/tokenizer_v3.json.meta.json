@@ -1,5 +1,5 @@
 {
-  "vocab_size": 4096,
+  "vocab_size": 8192,
   "special_tokens": [
     "<pad>",
     "<unk>",

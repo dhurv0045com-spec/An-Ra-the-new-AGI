@@ -109,7 +109,7 @@ class OrchestratorAgent:
                     "error": str(exc)[:200],
                 })
 
-        return {
+        summary = {
             "goals_attempted": attempted,
             "goals_completed": completed,
             "goals_failed": failed,
@@ -117,6 +117,20 @@ class OrchestratorAgent:
             "queue_status": self.goal_queue.status_report(),
             "finished_at": time.time(),
         }
+        try:
+            from identity.civ_watcher import CIVWatcher
+            from anra_paths import CIV_WATCHER_STATE
+            _watcher = CIVWatcher(state_path=CIV_WATCHER_STATE)
+            if hasattr(self, "civ_guard") and self.civ_guard is not None:
+                sim, _ = self.civ_guard.verify()
+                resp = _watcher.check(score=float(sim))
+                if resp["level"] >= 2:
+                    print(f"\n[CIVWatcher][WARN] {resp['message']}\n")
+                elif resp["level"] == 1:
+                    print(f"[CIVWatcher] {resp['message']}")
+        except Exception:
+            pass
+        return summary
 
     def _goal_to_task(self, goal) -> dict:
         """Map a GoalItem to a dispatch task dict."""

@@ -11,7 +11,6 @@ from typing import Iterable
 
 from anra_paths import (
     DATASET_CANONICAL,
-    DATASET_LEGACY,
     OUTPUT_V2_DIR,
     ROOT,
     SCRIPTS_DIR,
@@ -38,7 +37,6 @@ IGNORED_FILENAMES = {
     "package-lock.json",
     "tokenizer_v2.json",
     "tokenizer_v3.json",
-    "anra_dataset_v6_1.txt",
     "anra_training.txt",
 }
 
@@ -237,7 +235,6 @@ def artifact_status() -> dict[str, object]:
     return {
         "dataset": {
             "canonical": file_info(DATASET_CANONICAL),
-            "legacy": file_info(DATASET_LEGACY),
         },
         "tokenizer": file_info(V3_TOKENIZER_FILE),
         "checkpoints": {name: file_info(path) for name, path in checkpoints.items()},

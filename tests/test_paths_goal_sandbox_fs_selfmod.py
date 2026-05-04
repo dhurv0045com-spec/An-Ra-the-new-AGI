@@ -11,7 +11,7 @@ from self_modification.type_b import AgentCodeMutation
 
 
 def test_paths_include_canonical_dataset_and_local_memory_dirs() -> None:
-    assert get_dataset_file().name in {"anra_training.txt", "anra_dataset_v6_1.txt"}
+    assert get_dataset_file().name == "anra_training.txt"
     assert GHOST_DB_LOCAL.parent in REQUIRED_DIRS
     assert FAISS_INDEX_LOCAL.parent in REQUIRED_DIRS
 

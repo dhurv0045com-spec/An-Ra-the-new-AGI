@@ -62,7 +62,7 @@ def walk_repository(repo_root: Path) -> List[FileNode]:
             continue
         if path.suffix in {".db", ".sqlite", ".sqlite3", ".faiss", ".index", ".npy", ".npz", ".pt", ".pth"}:
             continue
-        if path.name in {"package-lock.json", "tokenizer_v2.json", "tokenizer_v3.json", "anra_dataset_v6_1.txt", "anra_training.txt"}:
+        if path.name in {"package-lock.json", "tokenizer_v2.json", "tokenizer_v3.json", "anra_training.txt"}:
             continue
         text = _safe_read_text(path)
         classes, funcs = _python_symbols(path)

@@ -57,11 +57,10 @@ SYMBOLIC_REASONING_V2_FILE = TRAINING_DATA_DIR / "symbolic_reasoning_v2.jsonl"
 
 DATASET_CANONICAL = TRAINING_DATA_DIR / "anra_training.txt"
 DATASET = DATASET_CANONICAL
-DATASET_LEGACY = TRAINING_DATA_DIR / "anra_dataset_v6_1.txt"
-DATASET_DRIVE_LEGACY = DRIVE_DIR / "anra_dataset_v6_1.txt"
 GHOST_DB_LOCAL = MEMORY_DIR_LOCAL / "ghost_memory.sqlite3"
 FAISS_INDEX_LOCAL = MEMORY_DIR_LOCAL / "episodic.faiss"
 REGRET_STATE = DRIVE_V3_DIR / "training" / "regret_state.json"
+CIV_WATCHER_STATE = DRIVE_V3_DIR / "identity" / "civ_watcher_state.json"
 
 OUTPUT_V2_DIR = ROOT / "output" / "v2"
 V2_BRAIN_CHECKPOINT = ROOT / "anra_v2_brain.pt"
@@ -99,29 +98,21 @@ def inject_all_paths() -> None:
 def ensure_dirs() -> None:
     for d in REQUIRED_DIRS:
         d.mkdir(parents=True, exist_ok=True)
-    # Ensure canonical dataset exists.
-    if not DATASET_CANONICAL.exists() and DATASET_DRIVE_LEGACY.exists():
+    drive_dataset = DRIVE_DIR / "anra_training.txt"
+    if not DATASET_CANONICAL.exists() and drive_dataset.exists():
         try:
             import shutil
-            shutil.copy2(DATASET_DRIVE_LEGACY, DATASET_CANONICAL)
+            shutil.copy2(drive_dataset, DATASET_CANONICAL)
         except Exception:
             pass
 
 
 def get_dataset_file() -> Path:
-    candidates = [
-        DATASET_CANONICAL,
-        DATASET,
-        TRAINING_DATA_DIR / "anra_dataset_v6_1.txt",
-        DATASET_LEGACY,
-        DATASET_DRIVE_LEGACY,
-        DRIVE_V2_DIR / "anra_dataset_v6_1.txt",
-        ROOT / "anra_dataset_v6_1.txt",
-    ]
+    candidates = [DATASET_CANONICAL, DRIVE_DIR / "anra_training.txt"]
     for c in candidates:
         if c.exists():
             return c
-    return DATASET
+    return DATASET_CANONICAL
 
 
 def get_tokenizer_file() -> Path:
@@ -206,7 +197,8 @@ class PathRegistry:
     DRIVE_MANIFEST = DRIVE_MANIFEST; DRIVE_AUDIT_LOG = DRIVE_AUDIT_LOG; DRIVE_GHOST_DB = DRIVE_GHOST_DB
     DRIVE_FAISS_INDEX = DRIVE_FAISS_INDEX; DRIVE_GRAPH_NODES = DRIVE_GRAPH_NODES; DRIVE_GRAPH_EDGES = DRIVE_GRAPH_EDGES
     MEMORY_DB_DIR = MEMORY_DB_DIR; TEACHER_REASONING_V2_FILE = TEACHER_REASONING_V2_FILE; SYMBOLIC_REASONING_V2_FILE = SYMBOLIC_REASONING_V2_FILE
-    DATASET = DATASET; DATASET_CANONICAL = DATASET_CANONICAL; DATASET_LEGACY = DATASET_LEGACY; DATASET_DRIVE_LEGACY = DATASET_DRIVE_LEGACY; OUTPUT_V2_DIR = OUTPUT_V2_DIR
+    DATASET = DATASET; DATASET_CANONICAL = DATASET_CANONICAL; OUTPUT_V2_DIR = OUTPUT_V2_DIR
     GHOST_DB_LOCAL = GHOST_DB_LOCAL; FAISS_INDEX_LOCAL = FAISS_INDEX_LOCAL; REGRET_STATE = REGRET_STATE
+    CIV_WATCHER_STATE = CIV_WATCHER_STATE
     V2_BRAIN_CHECKPOINT = V2_BRAIN_CHECKPOINT; V2_IDENTITY_CHECKPOINT = V2_IDENTITY_CHECKPOINT; V2_OUROBOROS_CHECKPOINT = V2_OUROBOROS_CHECKPOINT
     V2_TOKENIZER_FILE = V2_TOKENIZER_FILE; V3_TOKENIZER_FILE = V3_TOKENIZER_FILE

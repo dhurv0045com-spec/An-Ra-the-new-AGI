@@ -5,7 +5,7 @@ import torch
 from pathlib import Path
 
 from anra_brain import CausalTransformerV2
-from anra_paths import DATASET, DRIVE_DIR
+from anra_paths import DATASET
 from tokenizer.subword_tokenizer import SubwordTokenizer
 from training.v2_data_mix import IdentityStyleFilter, build_v2_training_examples
 
@@ -35,8 +35,8 @@ def test_v2_mix_keeps_own_data_dominant() -> None:
 
 
 def test_no_direct_legacy_dataset_path_usage() -> None:
-    legacy = str(DRIVE_DIR / "anra_dataset_v6_1.txt")
-    allowed = {"anra_paths.py"}
+    legacy = "anra_" + "dataset_v6_1"
+    allowed = set()
     for path in Path(".").rglob("*.py"):
         rel = path.as_posix()
         if rel in allowed:
