@@ -8,12 +8,14 @@ import time
 from pathlib import Path
 from typing import Callable, List, Tuple
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from anra_paths import DRIVE_DIR, ROOT, inject_all_paths, get_dataset_file, get_optimization_config
 inject_all_paths()
 
-import httpx
-import uvicorn
+httpx = pytest.importorskip("httpx")
+uvicorn = pytest.importorskip("uvicorn")
 
 from generate import GenerationConfig, TOKENIZER, detect_repetition, generate, generate_traced, get_model_info
 

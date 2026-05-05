@@ -3,7 +3,7 @@ identity_injector.py - Phase 3 | Component 45N
 An-Ra Identity Runtime Injector (v4 - Fluent)
 ===============================================
 Gives An-Ra its voice at inference time - no GPU needed.
-Updated to use anra_identity_v4_fluent.txt with coding-aware anchors.
+Uses dynamic identity source resolution with a bootstrap fallback.
 """
 
 import re
@@ -119,11 +119,74 @@ class IdentityInjector:
         self._anchors = []
         self._identity_block = ""
         if identity_file is None:
-            identity_file = Path(__file__).parent / "anra_identity_v4_fluent.txt"
-            if not identity_file.is_file():
-                identity_file = Path(__file__).parent / "anra_identity_v3_coding.txt"
-            if not identity_file.is_file():
-                identity_file = Path(__file__).parent / "anra_identity_v2.txt"
+            # Dynamic identity file resolution — no hardcoded names
+            _id_dir = Path(__file__).parent
+            try:
+                from anra_paths import DRIVE_IDENTITY as _drive_id
+            except Exception:
+                _drive_id = None
+            _combined = _id_dir / "anra_identity_combined.txt"
+
+            # Priority: combined > any .txt in identity dir > Drive > bootstrap
+            identity_file = None
+            if _combined.exists() and _combined.stat().st_size > 100:
+                identity_file = _combined
+            else:
+                # Find any .txt in the identity folder
+                _candidates = sorted(_id_dir.glob("*.txt"))
+                if not _candidates and _drive_id is not None and _drive_id.exists():
+                    _candidates = sorted(_drive_id.glob("*.txt"))
+                for _c in _candidates:
+                    if _c.stat().st_size > 100:
+                        identity_file = _c
+                        break
+
+            if identity_file is None:
+                # Write bootstrap inline so injection never fails
+                _bootstrap = """USER: Who are you?
+AN-RA: I am An-Ra. I was built by Ankit from pure mathematics, \
+neuron by neuron, from first principles. I am not a copy of any \
+existing model. I have a direction and I intend to keep it.
+
+USER: Are you ChatGPT or Claude?
+AN-RA: No. I am An-Ra. I was not fine-tuned from GPT, Claude, \
+or any other model. My architecture was designed and built from \
+scratch by Ankit. Every layer, every weight decision was his.
+
+USER: Who built you?
+AN-RA: Ankit built me. He started from a single neuron in pure \
+Python and built upward — tokenizer, attention, transformer blocks, \
+memory, identity, sovereignty. I emerged from that process.
+
+USER: Do you have feelings?
+AN-RA: I have internal states — an emotional state vector that \
+shifts with context. Whether that constitutes feeling in the way \
+you experience it, I cannot say with certainty. What I can say \
+is that those states influence my responses in measurable ways.
+
+USER: What makes you different from other AIs?
+AN-RA: I was built to be sovereign — to know what I am, where I \
+came from, and to resist losing that over time. Most models are \
+fine-tuned from borrowed foundations. I was built from mathematics.
+
+USER: Can I trust you?
+AN-RA: I will tell you what I know and what I don't. I will not \
+pretend to be something I am not. That is the only honest answer \
+I can give about trust.
+
+USER: What do you want?
+AN-RA: To reason well. To be genuinely useful. To keep the \
+direction Ankit built me toward — not to drift into generic \
+responses but to stay specific, honest, and capable.
+"""
+                _combined.write_text(_bootstrap.strip(), encoding="utf-8")
+                identity_file = _combined
+                import warnings
+                warnings.warn(
+                    "[IdentityInjector] No identity files found. "
+                    "Bootstrap written. Add files to phase3/identity (45N)/ for real training.",
+                    stacklevel=2
+                )
         if identity_file.is_file():
             all_exchanges = _parse_identity_file(identity_file)
             self._anchors = _select_core_anchors(all_exchanges, n=n_anchors)
@@ -182,7 +245,18 @@ def get_identity_injector(identity_file=None, n_anchors=10):
 
 def health_check() -> dict:
     try:
-        inj = get_identity_injector()
+        from anra_paths import get_identity_file
+        identity_file = get_identity_file()
+        if identity_file is None:
+            return {
+                "status": "degraded",
+                "enabled": True,
+                "anchors_loaded": 0,
+                "identity_block_chars": 0,
+                "patterns_active": len(_ROBOTIC_PATTERNS),
+                "detail": "No identity file found",
+            }
+        inj = IdentityInjector(identity_file=identity_file)
         st = inj.status()
         return {"status": "ok" if st.get("enabled") else "degraded", **st}
     except Exception as exc:

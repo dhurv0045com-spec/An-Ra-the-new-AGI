@@ -1,16 +1,73 @@
-# React + Vite
+# An-Ra Web Console
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+**Layer 07/19: `api_web`**
 
-Currently, two official plugins are available:
+This is the Phase 4 operator interface for An-Ra. It is a Vite + React dashboard connected to the system conceptually through the API/runtime layer, not a generic starter template.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Current Panels
 
-## React Compiler
+| Panel | Purpose |
+| --- | --- |
+| Dashboard | System telemetry, chat, and goal overview |
+| Neural Training | Training controls and progress surface |
+| Memory Bank | Memory inspection and recall surface |
+| Sovereignty | Audit, benchmark, and governance visibility |
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Main files:
 
-## Expanding the ESLint configuration
+- `src/App.jsx`
+- `src/index.css`
+- `src/components/SystemTelemetry.jsx`
+- `src/components/AgentGoalTracker.jsx`
+- `src/components/ChatInterface.jsx`
+- `src/components/TrainingPanel.jsx`
+- `src/components/MemoryExplorer.jsx`
+- `src/components/SovereigntyPanel.jsx`
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## Run
+
+```bash
+cd phase4/web
+npm install
+npm run dev
+```
+
+Build:
+
+```bash
+npm run build
+npm run preview
+```
+
+Lint:
+
+```bash
+npm run lint
+```
+
+## Backend Pairing
+
+The backend entry point is:
+
+```bash
+python app.py
+```
+
+The unified system entry point is:
+
+```bash
+python anra.py --status
+python anra.py --dashboard
+```
+
+## Design Direction
+
+The console should feel like an operator cockpit, not a landing page:
+
+- dense enough for repeated use
+- clear status and artifact surfaces
+- visible training and sovereignty state
+- memory and goal inspection without decorative clutter
+- direct controls only where the backend behavior is real
+
+Do not let this README drift back into Vite boilerplate. This folder is the web face of the An-Ra stack.

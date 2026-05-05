@@ -95,4 +95,5 @@ V2_REPORT_FILES = {
     "finetune_report": "v2_finetune_report.json",
     "improvement_report": "v2_improvement_report.json",
     "audit_report": "v2_audit_report.json",
+    "data_ingestion": "v2_data_ingestion_report.json",
 }

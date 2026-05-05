@@ -235,7 +235,13 @@ class MasterSystem:
         print("  [Phase 3] Initializing Identity Injector (45N)...")
         try:
             from identity_injector import IdentityInjector
-            identity_file = PROJECT_ROOT / "phase3" / "identity (45N)" / "anra_identity_v2.txt"
+            from anra_paths import get_identity_file as _get_id_file
+            identity_file = _get_id_file()
+            if identity_file is None:
+                import warnings
+                warnings.warn("[system.py] No identity file found. Identity injection skipped.")
+                self.identity = None
+                return
             self.identity = IdentityInjector(identity_file=identity_file, n_anchors=8)
             print(f"  [Phase 3] [OK] Identity injector ready "
                   f"({self.identity.status()['anchors_loaded']} anchors loaded)")
@@ -701,9 +707,13 @@ class MasterSystem:
         """
         # 45M personalization
         self.owner_modeler.observe_interaction(user_input, output, feedback=feedback)
-        self.continuous_learn.ingest(user_input, output,
-                                     source="interaction", feedback=feedback,
-                                     domain=domain)
+        try:
+            self.continuous_learn.ingest(user_input, output,
+                                         source="interaction", feedback=feedback,
+                                         domain=domain)
+        except Exception as e:
+            self.audit.log("CONTINUOUS_LEARN_INGEST_SKIPPED", "scale", "system",
+                           str(e), level="WARN")
         if len(output) > 200:
             self.knowledge_base.add_from_task(
                 task_title  = user_input[:80],

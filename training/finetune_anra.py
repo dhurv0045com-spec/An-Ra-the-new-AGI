@@ -61,7 +61,7 @@ def main() -> None:
     )
 
 
-finetune_identity_v2 = finetune_identity
+finetune_identity_current = finetune_identity
 
 
 if __name__ == "__main__":

@@ -23,9 +23,15 @@ logger = logging.getLogger(__name__)
 
 try:
     from anra_paths import inject_all_paths as _inject
+    from anra_paths import get_identity_file as _get_identity_file
     _inject()
     from identity_injector import IdentityInjector as _IdentityInjector
-    _IDENTITY_INJECTOR = _IdentityInjector()
+    _identity_file = _get_identity_file()
+    _IDENTITY_INJECTOR = (
+        _IdentityInjector(identity_file=_identity_file)
+        if _identity_file is not None
+        else None
+    )
 except Exception:
     _IDENTITY_INJECTOR = None
 

@@ -14,7 +14,6 @@ from anra_paths import (
     DRIVE_V2_CHECKPOINTS,
     OUTPUT_V2_DIR,
     ROOT,
-    TEACHER_REASONING_V2_FILE,
     V2_BRAIN_CHECKPOINT,
     V2_IDENTITY_CHECKPOINT,
     V2_OUROBOROS_CHECKPOINT,
@@ -22,6 +21,7 @@ from anra_paths import (
     ensure_dirs,
     get_dataset_file,
     get_identity_file,
+    get_teacher_files,
     get_v2_checkpoint,
 )
 from anra_brain import CausalTransformerV2
@@ -132,10 +132,23 @@ def restore_v2_artifact(name: str = "brain") -> bool:
         source = drive_root_file
 
     if source is None:
+        try:
+            if DRIVE_SESSION_MANAGER.load_family(name, local_path):
+                step = _read_step(local_path) if local_path.suffix == ".pt" else 0
+                print(f"[Restore] {name}: restored from Drive session history (step={step})")
+                return True
+        except Exception as exc:
+            logger.warning("Drive session restore failed for %s: %s", name, exc)
         print(f"[Restore] {name}: not on Drive — will start fresh")
         return False
 
-    step = _read_step(local_path)
+    try:
+        shutil.copy2(source, local_path)
+    except Exception as exc:
+        logger.warning("Drive restore failed for %s from %s: %s", local_path, source, exc)
+        return False
+
+    step = _read_step(local_path) if local_path.suffix == ".pt" else 0
     print(f"[Restore] {name}: restored from Drive (step={step})")
     return True
 
@@ -192,10 +205,9 @@ def sync_v2_artifacts(
 def _collect_tokenizer_texts(dataset_path: Path) -> list[str]:
     texts = [dataset_path.read_text(encoding="utf-8", errors="replace")]
     identity_path = get_identity_file()
-    if identity_path.exists():
+    if identity_path is not None and identity_path.exists():
         texts.append(identity_path.read_text(encoding="utf-8", errors="replace"))
-    teacher_path = TEACHER_REASONING_V2_FILE
-    if teacher_path.exists():
+    for teacher_path in get_teacher_files():
         lines = teacher_path.read_text(encoding="utf-8", errors="replace").splitlines()
         texts.extend(line for line in lines if line.strip())
     return texts

@@ -12,7 +12,14 @@ from training.dynamic_regret import DynamicRegretScheduler
 def test_dynamic_regret_besbes_gur_zeevi_formula() -> None:
     param = torch.nn.Parameter(torch.tensor([1.0]))
     optimizer = torch.optim.AdamW([param], lr=3e-4)
-    scheduler = DynamicRegretScheduler(optimizer, eta_base=3e-4, min_lr=1e-5, max_lr=3e-3)
+    scheduler = DynamicRegretScheduler(
+        optimizer,
+        eta_base=3e-4,
+        min_lr=1e-5,
+        max_lr=3e-3,
+        warmup_sessions=0,
+        min_multiplier=0.0,
+    )
 
     assert scheduler.current_lr() == 3e-4
     scheduler.session_start(1.0)
@@ -42,7 +49,9 @@ def test_regret_state_path_is_on_drive():
 
 def test_build_brain_imports_REGRET_STATE():
     """build_brain.py must import and use REGRET_STATE from anra_paths."""
-    src = open("scripts/build_brain.py").read()
+    from anra_paths import ROOT
+
+    src = (ROOT / "scripts" / "build_brain.py").read_text(encoding="utf-8")
     assert "REGRET_STATE" in src, (
         "build_brain.py must import REGRET_STATE from anra_paths and use it for save/load"
     )

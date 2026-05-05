@@ -11,7 +11,7 @@ from typing import Iterable
 import torch
 from torch.utils.data import Dataset
 
-from anra_paths import DRIVE_GHOST_DB, GHOST_DB_LOCAL, OUTPUT_V2_DIR, TEACHER_REASONING_V2_FILE, get_dataset_file, get_identity_file
+from anra_paths import DRIVE_GHOST_DB, GHOST_DB_LOCAL, OUTPUT_V2_DIR, get_dataset_file, get_identity_file, get_teacher_files
 from identity.civ import ConstitutionalIdentityVector
 from training.v2_config import IDENTITY_KEYWORDS, TEACHER_REJECT_PATTERNS, V2_TRAINING
 
@@ -146,7 +146,7 @@ def _fallback_identity_examples() -> list[TrainingExample]:
 def _load_identity_examples(base_examples: list[TrainingExample]) -> list[TrainingExample]:
     identity_path = get_identity_file()
     examples: list[TrainingExample] = []
-    if identity_path.exists():
+    if identity_path is not None and identity_path.exists():
         raw = identity_path.read_text(encoding="utf-8", errors="replace")
         examples.extend(
             TrainingExample(bucket="identity", prompt=prompt, answer=answer, source=str(identity_path))
@@ -192,30 +192,39 @@ def _apply_civ_identity_gate(examples: list[TrainingExample]) -> tuple[list[Trai
 
 
 def _load_external_teacher_examples(style_filter: IdentityStyleFilter) -> list[TrainingExample]:
-    teacher_path = TEACHER_REASONING_V2_FILE
-    if not teacher_path.exists():
+    teacher_paths = get_teacher_files()
+    if not teacher_paths:
         return []
     examples: list[TrainingExample] = []
-    for line in teacher_path.read_text(encoding="utf-8", errors="replace").splitlines():
-        line = line.strip()
-        if not line:
-            continue
-        try:
-            record = json.loads(line)
-        except json.JSONDecodeError:
-            continue
-        prompt = str(record.get("prompt", "")).strip()
-        answer = style_filter.clean(str(record.get("answer", "")).strip())
-        if style_filter.accept(prompt, answer):
-            examples.append(
-                TrainingExample(
-                    bucket="teacher",
-                    prompt=prompt,
-                    answer=answer,
-                    source=str(teacher_path),
-                    metadata={"task_type": record.get("task_type", "teacher")},
+    seen: set[tuple[str, str]] = set()
+    for teacher_path in teacher_paths:
+        for line in teacher_path.read_text(encoding="utf-8", errors="replace").splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                record = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            prompt = str(record.get("prompt", "")).strip()
+            answer = style_filter.clean(str(record.get("answer", "")).strip())
+            key = (prompt, answer)
+            if key in seen:
+                continue
+            if style_filter.accept(prompt, answer):
+                seen.add(key)
+                examples.append(
+                    TrainingExample(
+                        bucket="teacher",
+                        prompt=prompt,
+                        answer=answer,
+                        source=str(teacher_path),
+                        metadata={
+                            "task_type": record.get("task_type", "teacher"),
+                            "verified": bool(record.get("verified", False)),
+                        },
+                    )
                 )
-            )
     return examples
 
 

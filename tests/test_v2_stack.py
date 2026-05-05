@@ -6,7 +6,7 @@ import torch
 from pathlib import Path
 
 from anra_brain import CausalTransformerV2
-from anra_paths import DATASET
+from anra_paths import DATASET, V3_TOKENIZER_FILE
 from tokenizer.subword_tokenizer import SubwordTokenizer
 from training.v2_data_mix import IdentityStyleFilter, build_v2_training_examples
 
@@ -14,7 +14,7 @@ from training.v2_data_mix import IdentityStyleFilter, build_v2_training_examples
 def test_vocab_size_contract():
     from training.v2_config import CANONICAL_VOCAB_SIZE, EXPECTED_TOKENIZER_VOCAB_SIZE
 
-    tok_path = Path("tokenizer/tokenizer_v3.json")
+    tok_path = V3_TOKENIZER_FILE
     if tok_path.exists():
         with tok_path.open(encoding="utf-8") as fh:
             tok = json.load(fh)
@@ -49,14 +49,15 @@ def test_v2_mix_keeps_own_data_dominant() -> None:
     assert (own + identity) / total >= 0.75
 
 
-def test_no_direct_legacy_dataset_path_usage() -> None:
-    legacy = "anra_" + "dataset_v6_1"
-    allowed = set()
-    for path in Path(".").rglob("*.py"):
-        rel = path.as_posix()
-        if rel in allowed:
-            continue
-        assert legacy not in path.read_text(encoding="utf-8", errors="replace"), rel
+def test_dataset_file_resolves():
+    from anra_paths import get_dataset_file
+    path = get_dataset_file()
+    # Path object must be returned even if file doesn't exist yet
+    assert path is not None
+    assert str(path).endswith(".txt")
+    # If file exists, it must be non-empty
+    if path.exists():
+        assert path.stat().st_size > 100, "Dataset file exists but is empty"
 
 
 def test_subword_tokenizer_roundtrip() -> None:

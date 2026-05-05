@@ -33,14 +33,20 @@ SYMBOLIC_BRIDGE_DIR = PHASE3_DIR / "symbolic_bridge (45Q)"
 SOVEREIGNTY_DIR = PHASE3_DIR / "sovereignty (45R)"
 
 DRIVE_DIR = Path("/content/drive/MyDrive/AnRa")
+DRIVE_ROOT = DRIVE_DIR.parent
 DRIVE_CHECKPOINTS = DRIVE_DIR / "checkpoints"
 DRIVE_IDENTITY = DRIVE_DIR / "identity"
 DRIVE_LOGS = DRIVE_DIR / "logs"
 DRIVE_MEMORY = DRIVE_DIR / "memory_db"
 DRIVE_SESSIONS = DRIVE_DIR / "sessions"
+DRIVE_DATA_DIR = DRIVE_DIR / "data"
+DRIVE_CODE_DIR = DRIVE_DIR / "code"
+DRIVE_TEACHER_DIR = DRIVE_DIR / "teacher"
+DRIVE_TEACHER_FILE = DRIVE_DIR / "teacher_reasoning_v2.jsonl"
 DRIVE_V2_DIR = DRIVE_DIR / "v2"
 DRIVE_V2_CHECKPOINTS = DRIVE_V2_DIR / "checkpoints"
 DRIVE_V3_DIR = DRIVE_DIR / "v3"
+MERGED_DATA_DIR = Path("/content/anra_merged_data")
 
 # Block 2 additions
 DRIVE_MANIFEST = DRIVE_DIR / "manifest.json"
@@ -108,11 +114,20 @@ def ensure_dirs() -> None:
 
 
 def get_dataset_file() -> Path:
-    candidates = [DATASET_CANONICAL, DRIVE_DIR / "anra_training.txt"]
+    """Return best available training dataset. Never raises."""
+    candidates = [
+        MERGED_DATA_DIR / "anra_training.txt",
+        TRAINING_DATA_DIR / "anra_training.txt",
+        DRIVE_DIR / "anra_training.txt",
+    ]
     for c in candidates:
-        if c.exists():
-            return c
-    return DATASET_CANONICAL
+        try:
+            if c.exists() and c.stat().st_size > 1000:
+                return c
+        except Exception:
+            continue
+    # Return default path even if it doesn't exist yet — caller handles missing
+    return TRAINING_DATA_DIR / "anra_training.txt"
 
 
 def get_tokenizer_file() -> Path:
@@ -122,27 +137,75 @@ def get_tokenizer_file() -> Path:
     return TOKENIZER_DIR / "tokenizer.pkl"
 
 
-def get_identity_file() -> Path:
-    candidates = [
+def get_identity_file() -> Path | None:
+    """Return best available identity file. Never raises. Returns None if nothing found."""
+    # Ordered candidate locations
+    combined_candidates = [
         DRIVE_IDENTITY / "anra_identity_combined.txt",
-        DRIVE_IDENTITY / "anra_identity_v4_fluent.txt",
         IDENTITY_DIR / "anra_identity_combined.txt",
-        IDENTITY_DIR / "anra_identity_v4_fluent.txt",
         ROOT / "anra_identity_combined.txt",
-        ROOT / "anra_identity_v4_fluent.txt",
     ]
-    for c in candidates:
-        if c.exists():
+    for c in combined_candidates:
+        if c.exists() and c.stat().st_size > 100:
             return c
 
-    # broad scan across drive as final fallback
-    if DRIVE_DIR.exists():
-        patterns = ("*identity*.txt", "*identity*.md")
-        for pattern in patterns:
-            for match in DRIVE_DIR.rglob(pattern):
-                if match.is_file():
-                    return match
-    return IDENTITY_DIR / "anra_identity_combined.txt"
+    # Wildcard scan — accept ANY identity txt
+    scan_dirs = [DRIVE_IDENTITY, IDENTITY_DIR]
+    for d in scan_dirs:
+        if d.exists():
+            hits = sorted(d.glob("*identity*.txt")) + sorted(d.glob("*.txt"))
+            for h in hits:
+                if h.stat().st_size > 100:
+                    return h
+
+    for h in sorted(ROOT.glob("*identity*.txt")):
+        if h.stat().st_size > 100:
+            return h
+
+    # Drive full scan as last resort
+    if DRIVE_ROOT.exists():
+        for h in DRIVE_ROOT.rglob("*identity*.txt"):
+            if h.stat().st_size > 100:
+                return h
+
+    return None  # caller must handle None gracefully
+
+
+def get_teacher_files() -> list[Path]:
+    """Return available teacher-reasoning JSONL files from local and Drive."""
+    candidates = [
+        TEACHER_REASONING_V2_FILE,
+        DRIVE_TEACHER_FILE,
+        DRIVE_TEACHER_DIR / "teacher_reasoning_v2.jsonl",
+        DRIVE_DIR / "teacher_reasoning.jsonl",
+    ]
+    files: list[Path] = []
+    seen: set[str] = set()
+    for c in candidates:
+        try:
+            if c.exists() and c.stat().st_size > 20:
+                key = str(c.resolve())
+                if key not in seen:
+                    seen.add(key)
+                    files.append(c)
+        except Exception:
+            continue
+    if DRIVE_TEACHER_DIR.exists():
+        for c in sorted(DRIVE_TEACHER_DIR.glob("*.jsonl")):
+            try:
+                key = str(c.resolve())
+                if c.stat().st_size > 20 and key not in seen:
+                    seen.add(key)
+                    files.append(c)
+            except Exception:
+                continue
+    return files
+
+
+def get_teacher_file() -> Path | None:
+    """Return the best teacher-reasoning JSONL file, or None if unavailable."""
+    files = get_teacher_files()
+    return files[0] if files else None
 
 
 def get_checkpoint() -> Path | None:
@@ -191,8 +254,10 @@ class PathRegistry:
     AGENT_LOOP_DIR = AGENT_LOOP_DIR; SELF_IMPROVEMENT_DIR = SELF_IMPROVEMENT_DIR; MASTER_SYSTEM_DIR = MASTER_SYSTEM_DIR
     PHASE3_DIR = PHASE3_DIR; IDENTITY_DIR = IDENTITY_DIR; OUROBOROS_DIR = OUROBOROS_DIR; GHOST_MEMORY_DIR = GHOST_MEMORY_DIR
     SYMBOLIC_BRIDGE_DIR = SYMBOLIC_BRIDGE_DIR; SOVEREIGNTY_DIR = SOVEREIGNTY_DIR; DRIVE_DIR = DRIVE_DIR
-    DRIVE_CHECKPOINTS = DRIVE_CHECKPOINTS; DRIVE_IDENTITY = DRIVE_IDENTITY; DRIVE_LOGS = DRIVE_LOGS; DRIVE_MEMORY = DRIVE_MEMORY
-    DRIVE_SESSIONS = DRIVE_SESSIONS; DRIVE_V2_DIR = DRIVE_V2_DIR; DRIVE_V2_CHECKPOINTS = DRIVE_V2_CHECKPOINTS
+    DRIVE_ROOT = DRIVE_ROOT; DRIVE_CHECKPOINTS = DRIVE_CHECKPOINTS; DRIVE_IDENTITY = DRIVE_IDENTITY
+    DRIVE_LOGS = DRIVE_LOGS; DRIVE_MEMORY = DRIVE_MEMORY; DRIVE_SESSIONS = DRIVE_SESSIONS
+    DRIVE_DATA_DIR = DRIVE_DATA_DIR; DRIVE_CODE_DIR = DRIVE_CODE_DIR; DRIVE_TEACHER_DIR = DRIVE_TEACHER_DIR
+    DRIVE_TEACHER_FILE = DRIVE_TEACHER_FILE; DRIVE_V2_DIR = DRIVE_V2_DIR; DRIVE_V2_CHECKPOINTS = DRIVE_V2_CHECKPOINTS
     DRIVE_V3_DIR = DRIVE_V3_DIR
     DRIVE_MANIFEST = DRIVE_MANIFEST; DRIVE_AUDIT_LOG = DRIVE_AUDIT_LOG; DRIVE_GHOST_DB = DRIVE_GHOST_DB
     DRIVE_FAISS_INDEX = DRIVE_FAISS_INDEX; DRIVE_GRAPH_NODES = DRIVE_GRAPH_NODES; DRIVE_GRAPH_EDGES = DRIVE_GRAPH_EDGES

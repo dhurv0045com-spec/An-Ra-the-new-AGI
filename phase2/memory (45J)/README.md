@@ -1,117 +1,67 @@
-# 45J — Memory System
+# 45J - Memory System
 
-Transforms the transformer from a stateless chatbot into a personal AI that
-genuinely knows you. Every conversation grows its memory. Every prompt is
-enriched with what it already knows.
+**Layer 10/19: `phase2_memory`**
 
-## Architecture
+45J is the typed memory layer: episodic turns, semantic facts, working context, vector retrieval, and personal graph structure. It is the detailed memory implementation behind the newer unified `memory_router` layer.
 
-```
-MemoryManager (master entry point)
-├── memory/
-│   ├── store.py          SQLite persistence — all memory types
-│   ├── vectors.py        TF-IDF + numpy vector index, <50ms retrieval
-│   └── memory_types.py   Episodic / Semantic / Working typed interfaces
-├── intelligence/
-│   ├── extractor.py      Pattern + LLM fact extraction from conversations
-│   ├── retrieval.py      Hybrid search: semantic + keyword + recency + importance
-│   └── memory_intelligence.py  Importance scoring, consolidation, forgetting
-└── knowledge/
-    ├── graph.py           Personal knowledge graph (nodes, edges, reasoning)
-    └── context_builder.py Pre-generation context assembly with token budget
+## Current Role
+
+```text
+memory_router
+  -> 45J typed memory
+  -> vector retrieval
+  -> graph context
+  -> context_builder
+  -> prompt enrichment
 ```
 
-## Three Memory Types
+45J should preserve what matters across sessions and make future prompts more informed without stuffing the active context with irrelevant history.
 
-| Type     | What it stores                        | Expires        |
-|----------|---------------------------------------|----------------|
-| EPISODIC | Full conversations, specific events   | 6 months (low importance) |
-| SEMANTIC | Extracted facts about the user        | Never (high importance)   |
-| WORKING  | Current session state, active context | End of session |
+## Main Files
+
+| File | Purpose |
+| --- | --- |
+| `memory_manager.py` | Main 45J entry point |
+| `store.py` | SQLite persistence |
+| `vectors.py` | NumPy/TF-IDF vector index |
+| `memory_types.py` | Episodic, semantic, and working memory interfaces |
+| `extractor.py` | Fact extraction from conversation turns |
+| `retrieval.py` | Hybrid retrieval by semantic match, keyword, recency, and importance |
+| `memory_intelligence.py` | Scoring, consolidation, forgetting |
+| `graph.py` | Personal knowledge graph |
+| `context_builder.py` | Token-budgeted context assembly |
+
+## Memory Types
+
+| Type | Stores | Lifetime |
+| --- | --- | --- |
+| Episodic | Conversations and specific events | Pruned by age and importance |
+| Semantic | Stable facts and preferences | Long-lived when important |
+| Working | Current session state | Session-scoped |
 
 ## Quick Start
 
 ```python
 from memory_manager import MemoryManager
 
-mm = MemoryManager(data_dir="data/memory", user_id="alice")
+mm = MemoryManager(data_dir="data/memory", user_id="owner")
 mm.start_session()
-
-# Every user message
-mm.add_turn("user", "I'm a Rust developer working on a game engine called Vortex")
-mm.add_turn("assistant", "Interesting — what renderer are you using?")
-
-# Before every generation — inject memory context automatically
-enriched_prompt = mm.prepare_prompt("What are the best ECS libraries for Rust?")
-# → prompt now contains everything known about Alice + relevant memories
-
-# After conversation
-mm.process_conversation(turns)  # extracts facts, updates graph, persists
+mm.add_turn("user", "My project is called An-Ra.")
+mm.add_turn("assistant", "I will keep that in context.")
+prompt = mm.prepare_prompt("What is my project?")
+mm.process_conversation([])
 mm.cleanup()
 ```
 
-## CLI
+From this folder:
 
 ```bash
-# Store a memory
-python memory_manager.py --store "User prefers dark mode" --type semantic --importance high
-
-# Retrieve
-python memory_manager.py --retrieve "what does the user prefer" --limit 10
-
-# Knowledge graph
-python memory_manager.py --graph --export
-
-# Consolidate (merge duplicates, compress old episodes)
-python memory_manager.py --consolidate --confirm
-
-# Stats
+python test_45J.py
 python memory_manager.py --stats
-
-# Wipe everything (privacy)
-python memory_manager.py --wipe --confirm
-
-# End-to-end demo
-python memory_manager.py --demo
 ```
 
-## Integration with Inference Pipeline
+## Mainline Boundary
 
-The single integration point for 45K's agent loop:
+Use `memory/memory_router.py` when integrating memory into the current system. Use 45J directly when you need the lower-level typed store, graph, or retrieval details.
 
-```python
-# 1. On each user turn:
-mm.add_turn("user", user_message)          # extracts facts in real-time
-enriched = mm.prepare_prompt(user_message)  # injects memory context
-
-# 2. Feed enriched prompt to model — no other changes needed
-
-# 3. Record response:
-mm.add_turn("assistant", response)
-
-# 4. At session end:
-mm.process_conversation(session_turns)      # full extraction + graph update
-```
-
-## Performance
-
-- Retrieval: ~10ms over 100 memories, ~50ms over 50k (approximate search)
-- Extraction: ~2ms per turn (pattern-based), ~200ms with LLM extractor
-- Storage: SQLite WAL mode — concurrent reads, durable writes
-- Index: numpy float32 matrix — ~2MB per 1k memories
-
-## Backends
-
-Default: SQLite + numpy (zero dependencies beyond stdlib+numpy).
-
-Swap to ChromaDB or Supabase pgvector without touching any other code:
-```python
-# In memory/backend/chroma.py (stub ready for implementation)
-mm = MemoryManager(data_dir="...", backend="chroma")
-```
-
-## Tests
-
-```bash
-python test_45J.py   # 34/34 tests
-```
+45J is not only "chat history." Its best use is repair: failures, corrections, contradictions, and continuity breaks should become retrievable evidence for future learning.

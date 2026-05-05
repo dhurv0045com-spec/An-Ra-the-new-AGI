@@ -16,6 +16,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from anra_paths import DATASET, ROOT, ensure_dirs, get_dataset_file, inject_all_paths
 from training.eval_v2 import run_compact_eval
+from training.data_ingestion import mount_google_drive_if_available, prepare_training_corpus
 from training.v2_config import V2_MODEL, V2_TRAINING
 from training.v2_runtime import (
     build_v2_model,
@@ -197,8 +198,12 @@ def _run_eval_only() -> dict[str, object]:
 def main() -> None:
     assert_flash_sdp_ready("training.train_unified")
     ap = argparse.ArgumentParser(description="An-Ra unified training dispatcher")
-    ap.add_argument("--mode", default="session", choices=["session", "train", "resume", "eval", "status"])
+    ap.add_argument("--mode", default="session", choices=["session", "train", "resume", "production", "eval", "status"])
     ap.add_argument("--data_path", default=None)
+    ap.add_argument("--data_files", nargs="*", default=[])
+    ap.add_argument("--prepare_data", default="auto", choices=["auto", "always", "never"])
+    ap.add_argument("--no_drive_scan", action="store_true")
+    ap.add_argument("--max_source_mb", type=int, default=64)
     ap.add_argument("--checkpoint_path", default=str(canonical_v2_checkpoint("brain").name))
     ap.add_argument("--batch_size", type=int, default=V2_TRAINING.batch_size)
     ap.add_argument("--block_size", type=int, default=V2_MODEL.block_size)
@@ -208,6 +213,32 @@ def main() -> None:
     ap.add_argument("--ouroboros_minutes", type=int, default=10)
     ap.add_argument("--max_examples", type=int, default=None)
     args = ap.parse_args()
+
+    mount_google_drive_if_available()
+
+    data_ingestion_report: dict[str, object] | None = None
+    if args.mode not in {"status", "eval"} and args.prepare_data != "never":
+        should_prepare = (
+            args.prepare_data == "always"
+            or bool(args.data_files)
+            or args.data_path is None
+        )
+        if should_prepare:
+            report = prepare_training_corpus(
+                explicit_sources=args.data_files,
+                include_drive=not args.no_drive_scan,
+                max_source_mb=args.max_source_mb,
+                mount_drive=False,
+            )
+            data_ingestion_report = report.to_dict()
+            if args.data_path is None:
+                args.data_path = report.output_dataset
+            print(
+                "[Unified Trainer] data prepared: "
+                f"{report.total_examples} examples, {report.teacher_records} teacher records, "
+                f"{report.output_bytes / 1024**2:.2f} MB",
+                flush=True,
+            )
 
     _restore_core_artifacts()
 
@@ -234,6 +265,7 @@ def main() -> None:
         "mode": args.mode,
         "dataset": str(dataset),
         "model_line": "v2",
+        "data_ingestion": data_ingestion_report,
         "stages": {},
     }
 
@@ -256,6 +288,7 @@ def main() -> None:
     if args.max_examples is not None:
         base_cmd.extend(["--max_examples", str(args.max_examples)])
 
+    run_base_first = args.mode == "production"
     mode = "session" if args.mode == "resume" else args.mode
     if mode == "session":
         rc = run_cmd(base_cmd)
@@ -278,6 +311,14 @@ def main() -> None:
         run_report["ended_at"] = time.time()
         _write_run_report(run_report)
         return
+
+    if run_base_first:
+        rc = run_cmd(base_cmd)
+        run_report["stages"]["base"] = {"exit_code": rc}
+        if rc != 0:
+            run_report["ended_at"] = time.time()
+            _write_run_report(run_report)
+            raise SystemExit(rc)
 
     # Auto-merge identity files before identity fine-tune
     merge_script = ROOT / "scripts" / "merge_identity.py"
@@ -413,6 +454,15 @@ class UnifiedTrainer:
         ]
         if self.data_path:
             cmd.extend(["--data_path", self.data_path])
+        if kwargs.get("data_files"):
+            cmd.append("--data_files")
+            cmd.extend(str(path) for path in kwargs["data_files"])
+        if kwargs.get("prepare_data") is not None:
+            cmd.extend(["--prepare_data", str(kwargs["prepare_data"])])
+        if kwargs.get("no_drive_scan"):
+            cmd.append("--no_drive_scan")
+        if kwargs.get("max_source_mb") is not None:
+            cmd.extend(["--max_source_mb", str(kwargs["max_source_mb"])])
         if kwargs.get("max_examples") is not None:
             cmd.extend(["--max_examples", str(kwargs["max_examples"])])
         return run_cmd(cmd)
