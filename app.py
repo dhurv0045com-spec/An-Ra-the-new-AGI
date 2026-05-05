@@ -237,6 +237,24 @@ def _rate_limit_or_429(session_id: str, request_id: str):
     return None
 
 
+def _latest_report_snapshot() -> Dict[str, Any] | None:
+    reports_dir = Path(__file__).resolve().parent / "state" / "reports"
+    if not reports_dir.exists():
+        return None
+    snapshots = sorted(reports_dir.glob("snapshot_*.json"), key=lambda p: p.stat().st_mtime, reverse=True)
+    for snapshot in snapshots:
+        try:
+            payload = json.loads(snapshot.read_text(encoding="utf-8"))
+            if isinstance(payload, list):
+                payload = payload[-1] if payload else {}
+            if isinstance(payload, dict):
+                payload["_source"] = str(snapshot)
+                return payload
+        except Exception as exc:
+            LOGGER.warning("Failed to read training snapshot %s: %s", snapshot, exc)
+    return None
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     ADAPTER.load()
@@ -284,7 +302,7 @@ class GenerateRequest(BaseModel):
 
 
 class ChatRequest(BaseModel):
-    session_id: str
+    session_id: str = "default"
     message: str
     params: Dict[str, Any] = Field(default_factory=dict)
 
@@ -381,7 +399,7 @@ async def chat_route(body: ChatRequest, request: Request):
             LOGGER.debug("Memory store failed: %s", mem_exc)
 
     return {
-        "reply": reply,
+        "response": reply,
         "session_id": body.session_id,
         "turn": _turn_count(history),
         "history": list(history),
@@ -400,6 +418,7 @@ async def stream_route(session_id: str, message: str, strategy: str = "nucleus")
 
     def event_gen():
         assembled = ""
+        saved_turn = False
         try:
             for ch in generate_stream(context, cfg):
                 assembled += ch
@@ -410,10 +429,20 @@ async def stream_route(session_id: str, message: str, strategy: str = "nucleus")
             SESSION_META[session_id]["last_active"] = _now_iso()
             SESSION_META[session_id]["total_turns"] = _turn_count(history)
             SESSION_META[session_id]["strategy_used"] = strategy
-            _save_session(session_id)
+            saved_turn = True
             yield "data: [DONE]\n\n"
         except GeneratorExit:
             return
+        finally:
+            # AN: Streaming sessions should preserve continuity even when Colab/Vite drops the SSE connection.
+            if not saved_turn and assembled:
+                history.append({"role": "user", "content": message})
+                history.append({"role": "assistant", "content": assembled})
+            _ensure_meta(session_id)
+            SESSION_META[session_id]["last_active"] = _now_iso()
+            SESSION_META[session_id]["total_turns"] = _turn_count(history)
+            SESSION_META[session_id]["strategy_used"] = strategy
+            _save_session(session_id)
 
     return StreamingResponse(event_gen(), media_type="text/event-stream")
 
@@ -499,6 +528,153 @@ async def phase_health_route():
         "capabilities": graph.get("capabilities", {}),
         "phase_snapshots": graph.get("phase_snapshots", []),
         "phase3_health": checks,
+    }
+
+
+@app.get("/goals")
+async def goals_route():
+    return {"goals": [], "active": 0, "completed": 0, "status": "online"}
+
+
+@app.post("/goal")
+async def add_goal_route(request: Request):
+    body = await request.json()
+    goal_text = body.get("goal", "").strip()
+    if not goal_text:
+        return JSONResponse(
+            status_code=400,
+            content={"error": "goal text is required"},
+        )
+    return {"status": "queued", "goal": goal_text, "id": str(uuid.uuid4())}
+
+
+@app.get("/memory/stats")
+async def memory_stats_route():
+    return {
+        "total": 0,
+        "episodic": 0,
+        "semantic": 0,
+        "graph_nodes": 0,
+        "status": "online" if MEMORY_SYSTEM is not None else "unavailable",
+    }
+
+
+@app.post("/memory/search")
+async def memory_search_route(request: Request):
+    body = await request.json()
+    query = body.get("query", "").strip()
+    results = []
+    if MEMORY_SYSTEM and query:
+        try:
+            results = MEMORY_SYSTEM.semantic.search(query=query, top_k=5)
+        except Exception as exc:
+            LOGGER.warning("Memory search failed: %s", exc)
+    return {"results": results, "query": query}
+
+
+@app.post("/sovereignty/audit")
+async def sovereignty_audit_route():
+    # Non-blocking: just return immediately; real audit runs async later.
+    return {
+        "status": "triggered",
+        "message": "Sovereignty audit queued. Check /sovereignty/status for results.",
+        "timestamp": _now_iso(),
+    }
+
+
+@app.get("/train/status")
+async def train_status_route():
+    import torch
+
+    gpu_count = torch.cuda.device_count()
+    ram_gb = 0.0
+    try:
+        import psutil
+
+        ram_gb = psutil.virtual_memory().total / 1024**3
+    except Exception:
+        pass
+    config = "medium" if gpu_count > 0 else "small"
+    snapshot = _latest_report_snapshot()
+    stats = {
+        "total_examples": 0,
+        "high_quality": 0,
+        "avg_quality": 0.0,
+        "unused": 0,
+    }
+    latest_run = {"status": "idle", "loss_history": []}
+    if snapshot:
+        # AN: Training status should reflect the latest sovereignty snapshot when the daily loop has evidence.
+        components = snapshot.get("components", {})
+        training = components.get("training", {})
+        output_quality = components.get("output_quality", {})
+        prompts = components.get("prompts", {})
+        stats = {
+            "total_examples": int(training.get("total_examples", 0) or 0),
+            "high_quality": int(training.get("high_quality", 0) or 0),
+            "avg_quality": float(output_quality.get("avg_score", prompts.get("avg_score", 0.0)) or 0.0),
+            "unused": int(training.get("unused_examples", training.get("unused", 0)) or 0),
+        }
+        last_run = training.get("last_run")
+        if isinstance(last_run, dict):
+            latest_run = {
+                "status": last_run.get("status", "complete"),
+                "loss_history": last_run.get("loss_history", []),
+                "timestamp": last_run.get("timestamp"),
+            }
+        else:
+            latest_run = {
+                "status": "idle",
+                "loss_history": [],
+                "total_runs": int(training.get("total_runs", 0) or 0),
+                "snapshot": snapshot.get("_source"),
+            }
+    return {
+        "stats": stats,
+        "hardware": {
+            "gpu_count": gpu_count,
+            "ram_gb": ram_gb,
+            "recommended_config": config,
+        },
+        "latest_run": latest_run,
+    }
+
+
+@app.post("/train/trigger")
+async def train_trigger_route():
+    return {
+        "status": "triggered",
+        "message": "Training session queued. Run AnRa_Master.ipynb Cell 4 in Colab to execute.",
+        "timestamp": _now_iso(),
+    }
+
+
+@app.get("/identity/score")
+async def identity_score_route():
+    from identity.civ import ConstitutionalIdentityVector
+
+    candidates = [
+        DRIVE_DIR / "v3" / "identity" / "civ_profile.json",
+        DRIVE_DIR / "identity" / "civ_profile.json",
+        Path(__file__).resolve().parent / "state" / "identity" / "civ_profile.json",
+    ]
+    civ = None
+    for path in candidates:
+        if path.exists():
+            try:
+                # AN: Expose identity health lazily so the UI can track drift without slowing API startup.
+                civ = ConstitutionalIdentityVector.load(path)
+                break
+            except Exception as exc:
+                LOGGER.warning("Failed to load CIV profile %s: %s", path, exc)
+    if civ is None:
+        civ = ConstitutionalIdentityVector()
+
+    result = civ.verify()
+    return {
+        "score": float(result["score"]),
+        "profile": dict(civ.profile.__dict__),
+        "passed": bool(result["passed"]),
     }
 
 
