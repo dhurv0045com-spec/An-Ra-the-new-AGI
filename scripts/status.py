@@ -40,6 +40,16 @@ def main() -> None:
         f"\n  python_lines   {metrics.get('python_lines', 0)}"
     )
 
+    degraded = [
+        component
+        for component in manifest.get("components", [])
+        if isinstance(component, dict) and not component.get("runtime_ok", True)
+    ]
+    if degraded:
+        print("\nRuntime Degraded:")
+        for component in degraded:
+            print(f"  {component.get('name'):<18} {component.get('import_status')}")
+
     print("\nV2 Artifacts:")
     for label, path in [
         ("brain", get_v2_checkpoint("brain")),
@@ -53,6 +63,22 @@ def main() -> None:
 
     for db in sorted((ROOT / "state").glob("*.db")):
         print(f"DB: {db.name} | {_size(db)}")
+
+    readiness = manifest.get("training_readiness", {})
+    print("\nTraining Readiness:")
+    print(f"  score             {readiness.get('score', 0)}/{readiness.get('out_of', 10)}")
+    print(f"  ready_session     {readiness.get('ready_for_session', False)}")
+    print(f"  ready_milestone   {readiness.get('ready_for_milestone', False)}")
+    blockers = readiness.get("blockers", []) if isinstance(readiness, dict) else []
+    warnings = readiness.get("warnings", []) if isinstance(readiness, dict) else []
+    if blockers:
+        print("  blockers:")
+        for item in blockers:
+            print(f"    - {item}")
+    if warnings:
+        print("  warnings:")
+        for item in warnings[:8]:
+            print(f"    - {item}")
 
 
 if __name__ == "__main__":

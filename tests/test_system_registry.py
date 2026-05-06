@@ -3,6 +3,7 @@ from pathlib import Path
 from anra_paths import ROOT
 from inference.full_system_connector import build_capability_graph
 from runtime.system_registry import build_system_manifest, component_registry, source_metrics
+from runtime.training_readiness import assess_training_readiness
 
 
 def test_component_registry_has_core_layers():
@@ -30,3 +31,18 @@ def test_capability_graph_not_stale_workspace_path():
     stale_root = "/" + "workspace" + "/"
     assert stale_root not in str(graph)
     assert graph["capabilities"]["brain"]
+
+
+def test_manifest_exposes_training_readiness():
+    manifest = build_system_manifest(ROOT)
+    readiness = manifest["training_readiness"]
+    assert readiness["out_of"] == 10
+    assert isinstance(readiness["ready_for_session"], bool)
+    assert readiness["checks"]
+
+
+def test_readiness_distinguishes_session_from_milestone():
+    readiness = assess_training_readiness()
+    assert readiness.out_of == 10
+    assert isinstance(readiness.ready_for_session, bool)
+    assert isinstance(readiness.ready_for_milestone, bool)

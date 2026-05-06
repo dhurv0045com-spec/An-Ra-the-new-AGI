@@ -330,6 +330,20 @@ def artifact_status() -> dict[str, object]:
 def build_system_manifest(root: Path = ROOT) -> dict[str, object]:
     components = [component_status(component) for component in component_registry()]
     metrics = source_metrics(root)
+    try:
+        from runtime.training_readiness import assess_training_readiness
+
+        readiness = assess_training_readiness().to_dict()
+    except Exception as exc:
+        readiness = {
+            "score": 0,
+            "out_of": 10,
+            "ready_for_session": False,
+            "ready_for_milestone": False,
+            "blockers": [f"readiness check failed: {type(exc).__name__}"],
+            "warnings": [],
+            "checks": [],
+        }
     return {
         "generated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "repo_root": str(root),
@@ -339,6 +353,7 @@ def build_system_manifest(root: Path = ROOT) -> dict[str, object]:
         "components": components,
         "capabilities": {c["name"]: bool(c["source_ok"]) for c in components},
         "artifacts": artifact_status(),
+        "training_readiness": readiness,
     }
 
 

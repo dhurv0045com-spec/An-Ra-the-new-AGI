@@ -130,10 +130,14 @@ class DriveSessionManager:
     def register_sigterm_hook(self, callback: Callable[[], None]) -> None:
         if self._sigterm_registered:
             return
+        previous_handler = signal.getsignal(signal.SIGTERM)
 
         def _handler(signum, frame):
-            del signum, frame
             callback()
+            if callable(previous_handler):
+                previous_handler(signum, frame)
+            elif previous_handler == signal.SIG_DFL:
+                raise SystemExit(128 + int(signum))
 
         signal.signal(signal.SIGTERM, _handler)
         self._sigterm_registered = True

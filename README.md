@@ -44,6 +44,7 @@ Local V2 checkpoints: missing until restored or trained
 
 ```bash
 python scripts/status.py
+python scripts/readiness.py
 python -m inference.full_system_connector
 python -m training.train_unified --mode status
 python -m training.train_unified --mode session

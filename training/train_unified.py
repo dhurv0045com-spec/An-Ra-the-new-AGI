@@ -29,6 +29,7 @@ from training.v2_runtime import (
     v2_report_path,
     write_json,
 )
+from runtime.training_readiness import assess_training_readiness
 
 inject_all_paths()
 ensure_dirs()
@@ -103,6 +104,18 @@ def print_system_health() -> None:
 
 def _write_run_report(report: dict) -> None:
     write_json(v2_report_path("run_report"), report)
+
+
+def stage_plan_for_mode(mode: str) -> list[str]:
+    if mode in {"session", "resume"}:
+        return ["base"]
+    if mode == "eval":
+        return ["eval"]
+    if mode == "status":
+        return ["status"]
+    if mode in {"train", "production"}:
+        return ["base", "identity", "ouroboros", "self_improvement", "sovereignty_audit", "tests"]
+    raise ValueError(f"Unknown training mode: {mode}")
 
 
 def _load_json(path: Path) -> dict | None:
@@ -241,8 +254,10 @@ def main() -> None:
             )
 
     _restore_core_artifacts()
+    stage_plan = stage_plan_for_mode(args.mode)
 
     if args.mode == "status":
+        readiness = assess_training_readiness()
         print_system_health()
         print(f"[Unified Trainer] dataset={resolve_dataset_path(args.data_path)}")
         print(f"[Unified Trainer] brain_ckpt={canonical_v2_checkpoint('brain')}")
@@ -250,6 +265,15 @@ def main() -> None:
         print(f"[Unified Trainer] ouroboros_ckpt={canonical_v2_checkpoint('ouroboros')}")
         print(f"[Unified Trainer] tokenizer={ROOT / 'tokenizer' / 'tokenizer_v3.json'}")
         print(f"[Unified Trainer] milestone={_milestone_due()}")
+        print(
+            "[Unified Trainer] readiness="
+            f"{readiness.score}/{readiness.out_of} "
+            f"session={readiness.ready_for_session} milestone={readiness.ready_for_milestone}"
+        )
+        for blocker in readiness.blockers:
+            print(f"  BLOCKER {blocker}")
+        for warning in readiness.warnings[:8]:
+            print(f"  WARN    {warning}")
         return
 
     if args.mode == "eval":
@@ -257,12 +281,28 @@ def main() -> None:
         return
 
     dataset = resolve_dataset_path(args.data_path)
+    readiness = assess_training_readiness(dataset)
+    if not readiness.ready_for_session:
+        print("[Unified Trainer] readiness blockers:", flush=True)
+        for blocker in readiness.blockers:
+            print(f"  - {blocker}", flush=True)
+        raise SystemExit(2)
+    if readiness.warnings:
+        print(
+            f"[Unified Trainer] readiness {readiness.score}/{readiness.out_of}; "
+            f"{len(readiness.warnings)} warning(s)",
+            flush=True,
+        )
+        for warning in readiness.warnings[:6]:
+            print(f"  WARN {warning}", flush=True)
     print(f"[Unified Trainer] dataset={dataset}", flush=True)
     print_system_health()
 
     run_report: dict[str, object] = {
         "started_at": time.time(),
         "mode": args.mode,
+        "stage_plan": stage_plan,
+        "readiness": readiness.to_dict(),
         "dataset": str(dataset),
         "model_line": "v2",
         "data_ingestion": data_ingestion_report,
@@ -288,7 +328,7 @@ def main() -> None:
     if args.max_examples is not None:
         base_cmd.extend(["--max_examples", str(args.max_examples)])
 
-    run_base_first = args.mode == "production"
+    run_base_first = "base" in stage_plan
     mode = "session" if args.mode == "resume" else args.mode
     if mode == "session":
         rc = run_cmd(base_cmd)

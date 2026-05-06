@@ -5,6 +5,7 @@ This is the current technical map of the repository. The source of truth is `run
 ```bash
 python -m inference.full_system_connector
 python scripts/status.py
+python scripts/readiness.py
 python scripts/verify_structure.py
 ```
 

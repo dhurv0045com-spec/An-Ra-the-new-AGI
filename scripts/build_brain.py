@@ -376,8 +376,9 @@ def train_anra_v2(
                 mp.step(optimizer)
                 mp.update()
                 scheduler.step()
-            for g in optimizer.param_groups:
-                g["lr"] = regret_scheduler.update(reward=max(0.0, 1.0 - float(loss.item())))
+                lr = regret_scheduler.update(reward=max(0.0, 1.0 - float(batch_loss.item())))
+                for g in optimizer.param_groups:
+                    g["lr"] = lr
                 optimizer.zero_grad(set_to_none=True)
                 global_step += 1
                 session_step += 1

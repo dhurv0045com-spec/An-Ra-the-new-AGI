@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import signal
 from pathlib import Path
 
 from runtime.drive_session_manager import DriveSessionManager
@@ -36,3 +37,23 @@ def test_restart_restore_behavior(tmp_path: Path) -> None:
     dst = tmp_path / "ghost_restored.json"
     assert mgr_b.load_family("ghost", dst)
     assert dst.read_text(encoding="utf-8") == '{"ok": true}'
+
+
+def test_sigterm_hook_chains_existing_handler(tmp_path: Path) -> None:
+    original = signal.getsignal(signal.SIGTERM)
+    calls: list[str] = []
+
+    def previous(signum, frame):
+        del signum, frame
+        calls.append("previous")
+
+    try:
+        signal.signal(signal.SIGTERM, previous)
+        mgr = DriveSessionManager(tmp_path / "drive", session_id="sigterm")
+        mgr.register_sigterm_hook(lambda: calls.append("autosave"))
+        handler = signal.getsignal(signal.SIGTERM)
+        assert callable(handler)
+        handler(signal.SIGTERM, None)
+        assert calls == ["autosave", "previous"]
+    finally:
+        signal.signal(signal.SIGTERM, original)
