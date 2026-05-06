@@ -98,6 +98,12 @@ to_cnf                 = _mod.to_cnf
 parse_logic_formula    = _mod.parse_logic_formula
 solve_cnf              = _mod.solve_cnf
 check_proof            = _mod.check_proof
+DomainVerificationResult = _mod.DomainVerificationResult
+verify_qiskit = _mod.verify_qiskit
+verify_rdkit = _mod.verify_rdkit
+verify_verilog = _mod.verify_verilog
+verify_constraint_json = _mod.verify_constraint_json
+verify_citation_grounding = _mod.verify_citation_grounding
 
 __version__ = getattr(_mod, "__version__", "1.0.0")
 
@@ -113,6 +119,8 @@ __all__ = [
     "analyse_code", "generate_tests", "run_tests",
     "miller_rabin_is_prime", "pollard_rho_factorise",
     "to_cnf", "parse_logic_formula", "solve_cnf", "check_proof",
+    "DomainVerificationResult", "verify_qiskit", "verify_rdkit",
+    "verify_verilog", "verify_constraint_json", "verify_citation_grounding",
     "__version__",
 ]
 

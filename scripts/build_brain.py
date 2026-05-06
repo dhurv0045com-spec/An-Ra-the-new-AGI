@@ -5,7 +5,9 @@ import heapq
 import math
 import os
 import shutil
+import signal
 import sys
+import threading
 import time
 from pathlib import Path
 
@@ -15,19 +17,23 @@ from torch.utils.data import DataLoader
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from anra_paths import DRIVE_V2_CHECKPOINTS, ROOT, V2_TOKENIZER_FILE, inject_all_paths
+from anra_paths import DRIVE_V2_CHECKPOINTS, REGRET_STATE, ROOT, V2_TOKENIZER_FILE, inject_all_paths
 from training.anra_optimizer import build_optimizer
-from training.eval_v2 import run_compact_eval
+from training.eval_v2 import quick_eval_loss, run_compact_eval
 from training.mixed_precision import MixedPrecisionTrainer
 from training.scheduler import get_cosine_schedule_with_warmup
 from training.v2_config import V2_MODEL, V2_TRAINING
 from training.v2_data_mix import V2ConversationDataset, build_v2_training_examples
+from scripts.session_dashboard import print_session_dashboard
+from training.dynamic_regret import DynamicRegretScheduler
 from training.v2_runtime import (
     atomic_save,
     build_v2_model,
     load_checkpoint,
     load_or_build_v2_tokenizer,
     model_summary,
+    sync_to_drive,
+    DRIVE_SESSION_MANAGER,
     sync_v2_artifacts,
     v2_report_path,
     write_json,
@@ -37,6 +43,70 @@ inject_all_paths()
 
 EARLY_STATUS_STEPS = {1, 2, 5, 10, 20, 50, 100}
 HARD_EXAMPLE_KEEP = 16
+
+
+EMERGENCY_SAVE_TIMEOUT_SECONDS = 20.0
+_SAVE_COMPONENT_ORDER = ("model", "optimizer", "scheduler", "scaler")
+
+
+def _utc_iso(ts: float | None = None) -> str:
+    return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(time.time() if ts is None else ts))
+
+
+def _build_checkpoint_payload(
+    *,
+    model: torch.nn.Module,
+    optimizer: torch.optim.Optimizer,
+    scheduler: object,
+    mp: MixedPrecisionTrainer,
+    global_step: int,
+    epoch: int,
+    best_loss: float,
+    sessions_completed: int,
+    mix_report: object,
+) -> dict[str, object]:
+    return {
+        "model": model.state_dict(),
+        "optimizer": optimizer.state_dict(),
+        "scheduler": scheduler.state_dict(),
+        "scaler": mp.state_dict(),
+        "step": global_step,
+        "global_step": global_step,
+        "epoch": epoch,
+        "best_loss": best_loss,
+        "sessions_completed": sessions_completed,
+        "model_config": model.model_config(),
+        "mix_report": mix_report.to_dict(),
+    }
+
+
+def _emergency_save_with_timeout(payload: dict[str, object], ckpt_path: Path) -> bool:
+    status: dict[str, object] = {"ok": False, "error": None}
+
+    def _save() -> None:
+        try:
+            ordered_payload = {key: payload[key] for key in _SAVE_COMPONENT_ORDER}
+            ordered_payload.update({k: v for k, v in payload.items() if k not in ordered_payload})
+            atomic_save(ordered_payload, ckpt_path, drive_dir=None)
+            status["ok"] = True
+        except Exception as exc:
+            status["error"] = repr(exc)
+
+    worker = threading.Thread(target=_save, name="anra-emergency-save", daemon=True)
+    worker.start()
+    worker.join(timeout=EMERGENCY_SAVE_TIMEOUT_SECONDS)
+    if worker.is_alive():
+        print(
+            f"[build_brain] emergency save timeout after {EMERGENCY_SAVE_TIMEOUT_SECONDS:.1f}s; process exit continues",
+            flush=True,
+        )
+        return False
+    if not bool(status["ok"]):
+        print(f"[build_brain] emergency save failed: {status['error']}", flush=True)
+        return False
+    print("[build_brain] emergency save completed", flush=True)
+    return True
+
 
 
 def _resolve_checkpoint_path(checkpoint_path: str) -> Path:
@@ -100,7 +170,9 @@ def train_anra_v2(
     teacher_ratio: float | None = None,
     symbolic_ratio: float | None = None,
     replay_ratio: float | None = None,
+    use_ouroboros: bool = False,
 ) -> dict[str, object]:
+    print_session_dashboard()
     dataset_path = Path(data_path)
     tokenizer = load_or_build_v2_tokenizer(dataset_path=dataset_path)
     examples, mix_report = build_v2_training_examples(
@@ -124,7 +196,12 @@ def train_anra_v2(
     loader = DataLoader(ds, batch_size=batch_size, shuffle=True, drop_last=False)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = build_v2_model(vocab_size=tokenizer.vocab_size, block_size=block_size).to(device)
+    model = build_v2_model(vocab_size=tokenizer.vocab_size, block_size=block_size)
+    if use_ouroboros:
+        from ouroboros import OuroborosDecoder
+
+        model = OuroborosDecoder(model, n_passes=3)
+    model = model.to(device)
     mp = MixedPrecisionTrainer(device=device)
     optimizer = build_optimizer(model, lr=3e-4)
     scheduler = get_cosine_schedule_with_warmup(
@@ -132,17 +209,94 @@ def train_anra_v2(
         warmup_steps=100,
         total_steps=50_000,
     )
+    regret_scheduler = DynamicRegretScheduler(optimizer, eta_base=3e-4)
+    regret_scheduler.load(REGRET_STATE)
 
-    ckpt_path = _resolve_checkpoint_path(checkpoint_path)
-    _prepare_resume_target(ckpt_path, resume_from)
-    state = load_checkpoint(model, optimizer, scheduler, mp, ckpt_path, device=device, strict=False)
-    global_step = int(state["global_step"])
-    epoch = int(state["epoch"])
-    best_loss = float(state["best_loss"])
+    requested_checkpoint = Path(checkpoint_path)
+    ckpt_path = requested_checkpoint if requested_checkpoint.is_absolute() else ROOT / requested_checkpoint
+    resume_path = Path(resume_from) if resume_from else ckpt_path
+    if not resume_path.is_absolute():
+        resume_path = ROOT / resume_path
+    ckpt: dict[str, object] = {}
+    global_step = 0
+    epoch = 0
+    best_loss = float("inf")
+
+    registration_ts = time.time()
+    signal_state: dict[str, object] = {
+        "registered_at": registration_ts,
+        "registered_at_iso": _utc_iso(registration_ts),
+        "triggered": False,
+        "signal": None,
+        "emergency_save_completed": None,
+    }
+
+    def _handle_sigterm(sig_num: int, _frame: object) -> None:
+        signal_state["triggered"] = True
+        signal_state["signal"] = sig_num
+        print(
+            f"[build_brain] SIGTERM handler invoked (signal={sig_num}) at {_utc_iso()}.",
+            flush=True,
+        )
+        sessions_completed = int(ckpt.get("sessions_completed", 0) + 1) if "ckpt" in locals() else 1
+        payload = _build_checkpoint_payload(
+            model=model,
+            optimizer=optimizer,
+            scheduler=scheduler,
+            mp=mp,
+            global_step=global_step,
+            epoch=epoch,
+            best_loss=best_loss,
+            sessions_completed=sessions_completed,
+            mix_report=mix_report,
+        )
+        ok = _emergency_save_with_timeout(payload, ckpt_path)
+        signal_state["emergency_save_completed"] = ok
+        print(f"[build_brain] SIGTERM emergency save status={ok}", flush=True)
+        raise SystemExit(128 + sig_num)
+
+    signal.signal(signal.SIGTERM, _handle_sigterm)
+    print(
+        f"[build_brain] SIGTERM handler registered at {signal_state['registered_at_iso']} (pre-training).",
+        flush=True,
+    )
+
+    start_step = 0
+    best_loss = float("inf")
+    session_start_loss = float("inf")
+
+    # ── AUTO-RESUME ──────────────────────────────────────────────────────────────
+    load_path = ckpt_path if ckpt_path.exists() else resume_path
+    if load_path.exists():
+        print(f"[Resume] Found checkpoint: {load_path}", flush=True)
+        ckpt = torch.load(load_path, map_location=device, weights_only=False)
+        resume_state = load_checkpoint(model, optimizer, scheduler, mp, load_path, device=device, strict=False)
+        if resume_state["loaded"]:
+            start_step = int(resume_state["global_step"])
+            best_loss = float(resume_state["best_loss"])
+            session_start_loss = best_loss
+            print(f"[Resume] Resuming from step={start_step}  best_loss={best_loss:.4f}", flush=True)
+        else:
+            print("[Resume] Checkpoint not loaded — starting from scratch", flush=True)
+    else:
+        print("[Resume] No checkpoint found — starting from scratch", flush=True)
+    # ─────────────────────────────────────────────────────────────────────────────
+
+    try:
+        session_start_loss = quick_eval_loss(model, ds, device=device, max_examples=100, batch_size=batch_size, pad_id=tokenizer.pad_token_id)
+    except Exception as exc:
+        print(f"[build_brain] quick eval at session_start failed: {exc}", flush=True)
+        session_start_loss = best_loss
+    if math.isfinite(session_start_loss):
+        regret_scheduler.session_start(session_start_loss)
+
+    global_step = start_step
+    epoch = 0
 
     start = time.time()
     end_at = start + max_minutes * 60
-    initial_step = global_step
+    initial_step = start_step
+    session_step = 0
     optimizer.zero_grad(set_to_none=True)
     rolling_loss = 0.0
     rolling_count = 0
@@ -178,6 +332,13 @@ def train_anra_v2(
     print("=" * 62, flush=True)
     print("", flush=True)
 
+    def _autosave() -> None:
+        sync_to_drive("brain")
+        sync_to_drive("tokenizer")
+
+    DRIVE_SESSION_MANAGER.start_autosave(_autosave)
+    DRIVE_SESSION_MANAGER.register_sigterm_hook(_autosave)
+
     while time.time() < end_at:
         epoch += 1
         for xb, yb, wb, sample_idx in loader:
@@ -211,16 +372,31 @@ def train_anra_v2(
                     heapq.heapreplace(hard_examples, entry)
 
             if accum_micro_steps >= V2_TRAINING.grad_accum_steps:
+                torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
                 mp.step(optimizer)
                 mp.update()
                 scheduler.step()
+            for g in optimizer.param_groups:
+                g["lr"] = regret_scheduler.update(reward=max(0.0, 1.0 - float(loss.item())))
                 optimizer.zero_grad(set_to_none=True)
                 global_step += 1
+                session_step += 1
                 accum_micro_steps = 0
 
                 avg_loss = rolling_loss / max(1, rolling_count)
+                loss_val = avg_loss
                 last_avg_loss = avg_loss
                 best_loss = min(best_loss, avg_loss) if math.isfinite(best_loss) else avg_loss
+
+                elapsed_min = (time.time() - start) / 60.0
+                if session_step % 10 == 0:
+                    print(
+                        f"  step={global_step:6d}"
+                        f"  loss={loss_val:.4f}"
+                        f"  best={best_loss:.4f}"
+                        f"  elapsed={elapsed_min:.1f}m",
+                        flush=True,
+                    )
 
                 if global_step in EARLY_STATUS_STEPS or global_step % 200 == 0:
                     elapsed_min = (time.time() - start) / 60.0
@@ -238,11 +414,13 @@ def train_anra_v2(
                 break
 
     if accum_micro_steps > 0:
+        torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
         mp.step(optimizer)
         mp.update()
         scheduler.step()
         optimizer.zero_grad(set_to_none=True)
         global_step += 1
+        session_step += 1
         avg_loss = rolling_loss / max(1, rolling_count)
         last_avg_loss = avg_loss
         best_loss = min(best_loss, avg_loss) if math.isfinite(best_loss) else avg_loss
@@ -262,18 +440,18 @@ def train_anra_v2(
             flush=True,
         )
 
-    payload = {
-        "model_state_dict": model.state_dict(),
-        "optimizer_state_dict": optimizer.state_dict(),
-        "scheduler_state_dict": scheduler.state_dict(),
-        "scaler_state_dict": mp.state_dict(),
-        "global_step": global_step,
-        "epoch": epoch,
-        "best_loss": best_loss,
-        "model_config": model.model_config(),
-        "mix_report": mix_report.to_dict(),
-    }
-    atomic_save(payload, ckpt_path, drive_dir=DRIVE_V2_CHECKPOINTS)
+    payload = _build_checkpoint_payload(
+        model=model,
+        optimizer=optimizer,
+        scheduler=scheduler,
+        mp=mp,
+        global_step=global_step,
+        epoch=epoch,
+        best_loss=best_loss,
+        sessions_completed=(int(ckpt.get("sessions_completed", 0) + 1) if "ckpt" in locals() else 1),
+        mix_report=mix_report,
+    )
+    atomic_save(payload, ckpt_path, drive_dir=None)
 
     metrics = {
         "generated_at": time.time(),
@@ -291,6 +469,7 @@ def train_anra_v2(
         "model_config": model.model_config(),
         "checkpoint_path": str(ckpt_path),
         "mix_report": mix_report.to_dict(),
+        "signal_handler": signal_state,
     }
     write_json(v2_report_path("metrics"), metrics)
 
@@ -312,6 +491,13 @@ def train_anra_v2(
     )
 
     eval_summary = run_compact_eval(model, tokenizer, device=device, output=True)
+    try:
+        session_end_loss = quick_eval_loss(model, ds, device=device, max_examples=100, batch_size=batch_size, pad_id=tokenizer.pad_token_id)
+        regret_lr = regret_scheduler.session_end(session_end_loss, global_step - initial_step)
+        regret_scheduler.save(REGRET_STATE)
+        print(f"  Dynamic regret lr : {regret_lr:.8f}", flush=True)
+    except Exception as exc:
+        print(f"[build_brain] quick eval at session_end failed: {exc}", flush=True)
     sync_v2_artifacts(
         ckpt_path,
         tokenizer_path=V2_TOKENIZER_FILE,
@@ -322,6 +508,9 @@ def train_anra_v2(
             v2_report_path("mix_report"),
         ],
     )
+    sync_to_drive("brain")
+    sync_to_drive("tokenizer")
+    sync_to_drive("eval_summary")
 
     elapsed_total = time.time() - start
     print("", flush=True)
@@ -337,6 +526,20 @@ def train_anra_v2(
     print("  Drive synced       : yes", flush=True)
     print("=" * 62, flush=True)
     print("", flush=True)
+
+    # ── SESSION SUMMARY ──────────────────────────────────────────────────────────
+    print("\n" + "=" * 50, flush=True)
+    print("SESSION COMPLETE", flush=True)
+    print(f"  Steps this session : {session_step}", flush=True)
+    print(f"  Total steps ever   : {global_step}", flush=True)
+    print(f"  Loss at start      : {session_start_loss:.4f}", flush=True)
+    print(f"  Best loss achieved : {best_loss:.4f}", flush=True)
+    if session_start_loss != float("inf"):
+        improvement = session_start_loss - best_loss
+        direction = "improved" if improvement > 0 else "no improvement"
+        print(f"  Improvement        : {improvement:+.4f}  ({direction})", flush=True)
+    print("=" * 50 + "\n", flush=True)
+    # ─────────────────────────────────────────────────────────────────────────────
 
     return {
         "checkpoint_path": str(ckpt_path),
@@ -378,7 +581,7 @@ def main() -> None:
         symbolic_ratio=args.symbolic_ratio,
         replay_ratio=args.replay_ratio,
     )
-    print(result)
+    print(result, flush=True)
 
 
 if __name__ == "__main__":

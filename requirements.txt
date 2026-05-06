@@ -25,8 +25,14 @@ psutil
 # -- Phase 3: 45P Ghost Memory -------------------------------------------------
 sentence-transformers
 
+# -- Memory vector search ------------------------------------------------------
+faiss-cpu
+
 # -- Phase 2: 45J Memory Graph -------------------------------------------------
 networkx
+
+# -- Execution agent git support -----------------------------------------------
+gitpython
 
 # -- Muon optimizer: install separately (not on PyPI):
 #    pip install git+https://github.com/KellerJordan/Muon

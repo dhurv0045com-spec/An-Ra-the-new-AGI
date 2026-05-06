@@ -1,13 +1,28 @@
 from __future__ import annotations
 
-from pathlib import Path
-
+import json
 import pytest
 import torch
+from pathlib import Path
 
 from anra_brain import CausalTransformerV2
+from anra_paths import DATASET, V3_TOKENIZER_FILE
 from tokenizer.subword_tokenizer import SubwordTokenizer
 from training.v2_data_mix import IdentityStyleFilter, build_v2_training_examples
+
+
+def test_vocab_size_contract():
+    from training.v2_config import CANONICAL_VOCAB_SIZE, EXPECTED_TOKENIZER_VOCAB_SIZE
+
+    tok_path = V3_TOKENIZER_FILE
+    if tok_path.exists():
+        with tok_path.open(encoding="utf-8") as fh:
+            tok = json.load(fh)
+        actual = len(tok.get("token_to_id", {}))
+        assert actual == CANONICAL_VOCAB_SIZE, (
+            f"tokenizer has {actual} tokens but CANONICAL_VOCAB_SIZE={CANONICAL_VOCAB_SIZE}"
+        )
+    assert CANONICAL_VOCAB_SIZE == EXPECTED_TOKENIZER_VOCAB_SIZE
 
 
 def test_v2_model_forward_shape() -> None:
@@ -26,13 +41,23 @@ def test_identity_style_filter_rewrites_robotic_phrasing() -> None:
 
 
 def test_v2_mix_keeps_own_data_dominant() -> None:
-    dataset = Path("training_data/anra_dataset_v6_1.txt")
-    examples, report = build_v2_training_examples(dataset_path=dataset, max_examples=400)
+    examples, report = build_v2_training_examples(dataset_path=DATASET, max_examples=400)
     own = report.realized_counts.get("own", 0)
     identity = report.realized_counts.get("identity", 0)
     total = report.total_examples
     assert total > 0
     assert (own + identity) / total >= 0.75
+
+
+def test_dataset_file_resolves():
+    from anra_paths import get_dataset_file
+    path = get_dataset_file()
+    # Path object must be returned even if file doesn't exist yet
+    assert path is not None
+    assert str(path).endswith(".txt")
+    # If file exists, it must be non-empty
+    if path.exists():
+        assert path.stat().st_size > 100, "Dataset file exists but is empty"
 
 
 def test_subword_tokenizer_roundtrip() -> None:

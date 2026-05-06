@@ -21,6 +21,12 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
+raise DeprecationWarning(
+    "training/trainer.py is superseded by training/train_unified.py. "
+    "Do not use this file. It builds a GPT-2 vocab (50257) model incompatible "
+    "with An-Ra's 8192-token architecture. Delete this file or ignore it."
+)
+
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
@@ -53,7 +59,7 @@ class TrainerConfig:
     Designed to be serializable for logging and checkpointing.
     """
     # Model
-    vocab_size: int = 50257            # GPT-2 BPE vocabulary
+    vocab_size: int = 8192             # Deprecated; use training/train_unified.py
     d_model: int = 256                 # embedding dimension
     n_heads: int = 8                   # attention heads
     n_layers: int = 4                  # transformer blocks

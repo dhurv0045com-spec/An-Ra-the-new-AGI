@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 # Tokenizer singleton — reuse across dataset instances
 # ---------------------------------------------------------------------------
 
-def get_tokenizer(vocab_size: int = 50257) -> GPT2TokenizerFast:
+def get_tokenizer() -> GPT2TokenizerFast:
     """
     Returns a GPT-2 BPE tokenizer (50k vocab, proven on English text).
     Sets pad token to eos token — standard practice for decoder-only LMs.

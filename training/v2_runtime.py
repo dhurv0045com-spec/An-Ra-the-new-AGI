@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import math
 import shutil
 import time
@@ -16,17 +17,30 @@ from anra_paths import (
     V2_BRAIN_CHECKPOINT,
     V2_IDENTITY_CHECKPOINT,
     V2_OUROBOROS_CHECKPOINT,
-    V2_TOKENIZER_FILE,
+    V3_TOKENIZER_FILE,
     ensure_dirs,
     get_dataset_file,
     get_identity_file,
+    get_teacher_files,
+    get_v2_checkpoint,
 )
 from anra_brain import CausalTransformerV2
 from tokenizer.subword_tokenizer import SubwordTokenizer
-from training.v2_config import V2_MODEL, V2_REPORT_FILES
+from tokenizer.tokenizer_adapter import TokenizerAdapter
+from training.v2_config import (
+    EXPECTED_PAD_TOKEN_ID,
+    EXPECTED_SPECIAL_TOKENS,
+    EXPECTED_TOKENIZER_VOCAB_SIZE,
+    V2_MODEL,
+    V2_REPORT_FILES,
+)
+from runtime.drive_session_manager import DriveSessionManager
 
 
 ensure_dirs()
+logger = logging.getLogger(__name__)
+
+DRIVE_SESSION_MANAGER = DriveSessionManager(DRIVE_DIR)
 
 
 def canonical_v2_checkpoint(kind: str = "brain") -> Path:
@@ -57,8 +71,8 @@ def atomic_save(payload: dict, output_path: Path, *, drive_dir: Path | None = DR
         try:
             drive_dir.mkdir(parents=True, exist_ok=True)
             shutil.copy2(output_path, drive_dir / output_path.name)
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("Drive checkpoint mirror failed for %s: %s", output_path, exc)
 
 
 def write_json(path: Path, payload: dict | list) -> None:
@@ -72,56 +86,128 @@ def append_jsonl(path: Path, payload: dict) -> None:
         fh.write(json.dumps(payload, ensure_ascii=False) + "\n")
 
 
+def _read_step(path: Path) -> int:
+    """Safely read step number from checkpoint without loading full model."""
+    try:
+        ckpt = torch.load(path, map_location="cpu", weights_only=False)
+        return int(ckpt.get("step", ckpt.get("global_step", 0)))
+    except Exception as exc:
+        logger.warning("Could not read checkpoint step from %s: %s", path, exc)
+        return 0
+
+
+def _drive_artifact_path(name: str) -> Path:
+    drive_filenames = {
+        "brain": "anra_v2_brain.pt",
+        "identity": "anra_v2_identity.pt",
+        "ouroboros": "anra_v2_ouroboros.pt",
+        "tokenizer": "tokenizer_v2.json",
+        "eval_summary": "anra_v2_eval_summary.json",
+    }
+    return DRIVE_DIR / drive_filenames.get(name, f"anra_v2_{name}.pt")
+
+
+def restore_v2_artifact(name: str = "brain") -> bool:
+    """
+    Check Drive for checkpoint. If found, copy to local output dir.
+    Returns True if restored, False if starting fresh.
+    """
+    local_map = {
+        "brain": get_v2_checkpoint("brain"),
+        "identity": get_v2_checkpoint("identity"),
+        "ouroboros": get_v2_checkpoint("ouroboros"),
+        "tokenizer": V3_TOKENIZER_FILE,
+        "eval_summary": v2_report_path("eval_summary"),
+    }
+    local_path = local_map.get(name, get_v2_checkpoint(name))
+    local_path.parent.mkdir(parents=True, exist_ok=True)
+
+    drive_file = DRIVE_V2_CHECKPOINTS / _drive_artifact_path(name).name
+    drive_root_file = _drive_artifact_path(name)
+
+    source = None
+    if drive_file.exists():
+        source = drive_file
+    elif drive_root_file.exists():
+        source = drive_root_file
+
+    if source is None:
+        try:
+            if DRIVE_SESSION_MANAGER.load_family(name, local_path):
+                step = _read_step(local_path) if local_path.suffix == ".pt" else 0
+                print(f"[Restore] {name}: restored from Drive session history (step={step})")
+                return True
+        except Exception as exc:
+            logger.warning("Drive session restore failed for %s: %s", name, exc)
+        print(f"[Restore] {name}: not on Drive — will start fresh")
+        return False
+
+    try:
+        shutil.copy2(source, local_path)
+    except Exception as exc:
+        logger.warning("Drive restore failed for %s from %s: %s", local_path, source, exc)
+        return False
+
+    step = _read_step(local_path) if local_path.suffix == ".pt" else 0
+    print(f"[Restore] {name}: restored from Drive (step={step})")
+    return True
+
+
+def sync_to_drive(name: str = "brain") -> bool:
+    """
+    Copy local checkpoint to Drive. Always overwrites same file.
+    Never creates new files. Returns True on success.
+    """
+    local_map = {
+        "brain": get_v2_checkpoint("brain"),
+        "identity": get_v2_checkpoint("identity"),
+        "ouroboros": get_v2_checkpoint("ouroboros"),
+        "tokenizer": V3_TOKENIZER_FILE,
+        "eval_summary": v2_report_path("eval_summary"),
+    }
+    local_path = local_map.get(name, get_v2_checkpoint(name))
+    if not local_path.exists():
+        print(f"[Drive] {name}: local file not found, skipping")
+        return False
+
+    DRIVE_V2_CHECKPOINTS.mkdir(parents=True, exist_ok=True)
+    drive_root = _drive_artifact_path(name)
+    drive_target = DRIVE_V2_CHECKPOINTS / drive_root.name
+
+    try:
+        DRIVE_SESSION_MANAGER.save_family(name, local_path)
+        step = _read_step(local_path)
+        size_kb = local_path.stat().st_size // 1024
+        print(f"[Drive] {name}: saved (step={step}, {size_kb}KB)")
+        return True
+    except Exception as e:
+        print(f"[Drive] {name}: save failed ({e})")
+        return False
+
+
 def sync_v2_artifacts(
     checkpoint_path: Path,
     *,
     tokenizer_path: Path | None = None,
     extra_paths: list[Path] | None = None,
 ) -> None:
-    try:
-        DRIVE_V2_CHECKPOINTS.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(checkpoint_path, DRIVE_V2_CHECKPOINTS / checkpoint_path.name)
-        tok = tokenizer_path or V2_TOKENIZER_FILE
-        meta = tok.with_suffix(tok.suffix + ".meta.json")
-        if tok.exists():
-            drive_tok = DRIVE_DIR / "v2" / tok.name
-            drive_tok.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(tok, drive_tok)
-            if meta.exists():
-                shutil.copy2(meta, drive_tok.with_suffix(drive_tok.suffix + ".meta.json"))
-        for extra in extra_paths or []:
-            if extra.exists():
-                target = DRIVE_DIR / "v2" / extra.name
-                target.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(extra, target)
-    except Exception:
-        pass
-
-
-def restore_v2_artifact(local_path: Path, *, remote_name: str | None = None) -> Path | None:
-    if local_path.exists():
-        return local_path
-    remote = (DRIVE_V2_CHECKPOINTS / (remote_name or local_path.name))
-    if "tokenizer_v2" in (remote_name or local_path.name):
-        remote = DRIVE_DIR / "v2" / (remote_name or local_path.name)
-    if remote.exists():
-        local_path.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(remote, local_path)
-        meta_remote = remote.with_suffix(remote.suffix + ".meta.json")
-        meta_local = local_path.with_suffix(local_path.suffix + ".meta.json")
-        if meta_remote.exists():
-            shutil.copy2(meta_remote, meta_local)
-        return local_path
-    return None
+    del checkpoint_path, tokenizer_path
+    sync_to_drive("brain")
+    sync_to_drive("tokenizer")
+    for extra in extra_paths or []:
+        if extra.name == "v2_eval_summary.json":
+            target = get_v2_checkpoint("brain").parent / "anra_v2_eval_summary.json"
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(extra, target)
+            sync_to_drive("eval_summary")
 
 
 def _collect_tokenizer_texts(dataset_path: Path) -> list[str]:
     texts = [dataset_path.read_text(encoding="utf-8", errors="replace")]
     identity_path = get_identity_file()
-    if identity_path.exists():
+    if identity_path is not None and identity_path.exists():
         texts.append(identity_path.read_text(encoding="utf-8", errors="replace"))
-    teacher_path = ROOT / "training_data" / "teacher_reasoning_v2.jsonl"
-    if teacher_path.exists():
+    for teacher_path in get_teacher_files():
         lines = teacher_path.read_text(encoding="utf-8", errors="replace").splitlines()
         texts.extend(line for line in lines if line.strip())
     return texts
@@ -130,45 +216,150 @@ def _collect_tokenizer_texts(dataset_path: Path) -> list[str]:
 def load_or_build_v2_tokenizer(
     *,
     dataset_path: Path | None = None,
-    vocab_size: int = V2_MODEL.vocab_size,
+    vocab_size: int = EXPECTED_TOKENIZER_VOCAB_SIZE,
 ) -> SubwordTokenizer:
     dataset_path = dataset_path or get_dataset_file()
-    local = V2_TOKENIZER_FILE
+    local = V3_TOKENIZER_FILE
     if local.exists():
-        return SubwordTokenizer.load(local)
-    restored = restore_v2_artifact(local)
-    if restored is not None and restored.exists():
-        return SubwordTokenizer.load(restored)
+        tokenizer = SubwordTokenizer.load(local)
+        assert_tokenizer_contract(local, tokenizer)
+        return tokenizer
+    restored = restore_v2_artifact("tokenizer")
+    if restored and local.exists():
+        tokenizer = SubwordTokenizer.load(local)
+        assert_tokenizer_contract(local, tokenizer)
+        return tokenizer
 
     texts = _collect_tokenizer_texts(dataset_path)
-    print(f"[build_brain] Building tokenizer_v2 from {dataset_path} ...", flush=True)
+    print(f"[build_brain] Building tokenizer_v3 from {dataset_path} ...", flush=True)
     tokenizer = SubwordTokenizer.train_from_texts(texts, vocab_size=vocab_size)
     tokenizer.save(local)
+    assert_tokenizer_contract(local, tokenizer)
     try:
         drive_tok = DRIVE_DIR / "v2" / local.name
         drive_tok.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(local, drive_tok)
-        meta = local.with_suffix(local.suffix + ".meta.json")
-        if meta.exists():
-            shutil.copy2(meta, drive_tok.with_suffix(drive_tok.suffix + ".meta.json"))
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.warning("Drive tokenizer mirror failed for %s: %s", local, exc)
     print(
-        f"[build_brain] tokenizer_v2 built + mirrored to Drive. vocab_size={tokenizer.vocab_size}",
+        f"[build_brain] tokenizer_v3 built + mirrored to Drive. vocab_size={tokenizer.vocab_size}",
         flush=True,
     )
     return tokenizer
 
 
+def assert_tokenizer_contract(path: Path, tokenizer: SubwordTokenizer) -> None:
+    meta_path = path.with_suffix(path.suffix + ".meta.json")
+    meta = json.loads(meta_path.read_text(encoding="utf-8")) if meta_path.exists() else {}
+    vocab_size = int(meta.get("vocab_size", tokenizer.vocab_size))
+    special_tokens = list(meta.get("special_tokens", tokenizer.special_tokens))
+    if vocab_size != EXPECTED_TOKENIZER_VOCAB_SIZE:
+        raise AssertionError(
+            f"Tokenizer contract mismatch: vocab_size={vocab_size}, expected={EXPECTED_TOKENIZER_VOCAB_SIZE} "
+            f"(meta={meta_path})"
+        )
+    if special_tokens != EXPECTED_SPECIAL_TOKENS:
+        raise AssertionError(
+            f"Tokenizer contract mismatch: special_tokens={special_tokens}, expected={EXPECTED_SPECIAL_TOKENS} "
+            f"(meta={meta_path})"
+        )
+    if tokenizer.vocab_size != EXPECTED_TOKENIZER_VOCAB_SIZE:
+        raise AssertionError(
+            f"Tokenizer contract mismatch: tokenizer.vocab_size={tokenizer.vocab_size}, "
+            f"expected={EXPECTED_TOKENIZER_VOCAB_SIZE} ({path})"
+        )
+    if tokenizer.pad_token_id != EXPECTED_PAD_TOKEN_ID:
+        raise AssertionError(
+            f"Tokenizer contract mismatch: pad_token_id={tokenizer.pad_token_id}, "
+            f"expected={EXPECTED_PAD_TOKEN_ID} ({path})"
+        )
+
+
+def assert_model_tokenizer_contract(model: CausalTransformerV2, tokenizer: SubwordTokenizer) -> None:
+    """Ensure model embeddings and tokenizer IDs share the same training contract."""
+    if tokenizer.vocab_size != model.vocab_size:
+        raise AssertionError(
+            f"Tokenizer/model vocab mismatch: tokenizer.vocab_size={tokenizer.vocab_size}, "
+            f"model.vocab_size={model.vocab_size}"
+        )
+    if tokenizer.pad_token_id != model.pad_token_id:
+        raise AssertionError(
+            f"Tokenizer/model pad mismatch: tokenizer.pad_token_id={tokenizer.pad_token_id}, "
+            f"model.pad_token_id={model.pad_token_id}"
+        )
+
+
+def _checkpoint_vocab_size(model_state: dict[str, torch.Tensor]) -> int | None:
+    for key, weight in model_state.items():
+        if (
+            key.endswith("token_embedding_table.weight")
+            or key.endswith("lm_head.weight")
+        ) and isinstance(weight, torch.Tensor) and weight.ndim >= 2:
+            return int(weight.shape[0])
+    return None
+
+
+def _adapt_state_vocab_rows(
+    model_state: dict[str, torch.Tensor],
+    target_state: dict[str, torch.Tensor],
+) -> dict[str, torch.Tensor]:
+    """Copy old embedding rows into a larger tokenizer contract without breaking checkpoints."""
+    adapted = dict(model_state)
+    for key, old_weight in model_state.items():
+        target_weight = target_state.get(key)
+        if (
+            isinstance(old_weight, torch.Tensor)
+            and isinstance(target_weight, torch.Tensor)
+            and old_weight.ndim >= 2
+            and target_weight.ndim == old_weight.ndim
+            and old_weight.shape[1:] == target_weight.shape[1:]
+            and old_weight.shape[0] < target_weight.shape[0]
+            and (
+                key.endswith("token_embedding_table.weight")
+                or key.endswith("lm_head.weight")
+            )
+        ):
+            new_weight = target_weight.detach().clone()
+            new_weight[: old_weight.shape[0]] = old_weight.to(device=new_weight.device, dtype=new_weight.dtype)
+            adapted[key] = new_weight
+    return adapted
+
+
+def _load_state_with_base_fallback(
+    model: CausalTransformerV2,
+    model_state: dict[str, torch.Tensor],
+    *,
+    strict: bool,
+) -> None:
+    try:
+        model.load_state_dict(_adapt_state_vocab_rows(model_state, model.state_dict()), strict=strict)
+        return
+    except RuntimeError as exc:
+        base = getattr(model, "model", None)
+        if base is None:
+            raise exc
+        base.load_state_dict(_adapt_state_vocab_rows(model_state, base.state_dict()), strict=strict)
+
+
 def build_v2_model(*, vocab_size: int, block_size: int = V2_MODEL.block_size) -> CausalTransformerV2:
+    if vocab_size not in {V2_MODEL.vocab_size, EXPECTED_TOKENIZER_VOCAB_SIZE}:
+        raise AssertionError(
+            f"Model/tokenizer vocab mismatch at construction: vocab_size={vocab_size}, "
+            f"expected one of {{{V2_MODEL.vocab_size}, {EXPECTED_TOKENIZER_VOCAB_SIZE}}}"
+        )
     return CausalTransformerV2(
         vocab_size=vocab_size,
         n_embd=V2_MODEL.n_embd,
         n_head=V2_MODEL.n_head,
+        n_kv_head=V2_MODEL.n_kv_head,
         n_layer=V2_MODEL.n_layer,
         block_size=block_size,
         rms_norm_eps=V2_MODEL.rms_norm_eps,
         dropout=V2_MODEL.dropout,
+        mod_layers=set(V2_MODEL.mod_layers),
+        base_seq_len=V2_MODEL.base_seq_len,
+        target_seq_len=V2_MODEL.target_seq_len,
+        pad_token_id=V2_MODEL.pad_token_id,
     )
 
 
@@ -190,34 +381,59 @@ def load_checkpoint(
     }
     ckpt = checkpoint_path
     if not ckpt.exists():
-        restored = restore_v2_artifact(ckpt)
-        if restored is not None:
-            ckpt = restored
+        kind = "brain"
+        if "identity" in ckpt.name:
+            kind = "identity"
+        elif "ouroboros" in ckpt.name:
+            kind = "ouroboros"
+        restored = restore_v2_artifact(kind)
+        if restored:
+            ckpt = get_v2_checkpoint(kind)
     if not ckpt.exists():
         return state
 
     blob = torch.load(ckpt, map_location=device, weights_only=False)
-    model_state = blob.get("model_state_dict", blob) if isinstance(blob, dict) else blob
-    model.load_state_dict(model_state, strict=strict)
+    model_state = blob.get("model_state_dict", blob.get("model", blob)) if isinstance(blob, dict) else blob
+    if isinstance(model_state, dict):
+        ckpt_vocab_size = _checkpoint_vocab_size(model_state)
+        if ckpt_vocab_size is not None and ckpt_vocab_size > model.vocab_size:
+            raise AssertionError(
+                f"Checkpoint/model vocab mismatch: checkpoint vocab_size={ckpt_vocab_size}, "
+                f"model.vocab_size={model.vocab_size} ({ckpt})"
+            )
+    if isinstance(blob, dict):
+        ckpt_config = blob.get("model_config", {})
+        if isinstance(ckpt_config, dict):
+            ckpt_pad = ckpt_config.get("pad_token_id")
+            if ckpt_pad is not None and int(ckpt_pad) != model.pad_token_id:
+                raise AssertionError(
+                    f"Checkpoint/model pad mismatch: checkpoint pad_token_id={ckpt_pad}, "
+                    f"model.pad_token_id={model.pad_token_id} ({ckpt})"
+                )
+    try:
+        _load_state_with_base_fallback(model, model_state, strict=strict)
+    except RuntimeError:
+        print("[v2_runtime] Architecture changed — starting fresh (old checkpoint incompatible)")
+        return state
     if isinstance(blob, dict):
         if optimizer is not None:
             try:
-                optimizer.load_state_dict(blob.get("optimizer_state_dict", {}))
-            except Exception:
-                pass
+                optimizer.load_state_dict(blob.get("optimizer_state_dict", blob.get("optimizer", {})))
+            except Exception as exc:
+                logger.warning("Optimizer state restore failed from %s: %s", ckpt, exc)
         if scheduler is not None:
             try:
-                scheduler.load_state_dict(blob.get("scheduler_state_dict", {}))
-            except Exception:
-                pass
+                scheduler.load_state_dict(blob.get("scheduler_state_dict", blob.get("scheduler", {})))
+            except Exception as exc:
+                logger.warning("Scheduler state restore failed from %s: %s", ckpt, exc)
         if mp_trainer is not None:
             try:
-                scaler_state = blob.get("scaler_state_dict")
+                scaler_state = blob.get("scaler_state_dict", blob.get("scaler"))
                 if scaler_state:
                     mp_trainer.load_state_dict(scaler_state)
-            except Exception:
-                pass
-        state["global_step"] = int(blob.get("global_step", 0))
+            except Exception as exc:
+                logger.warning("Mixed-precision scaler restore failed from %s: %s", ckpt, exc)
+        state["global_step"] = int(blob.get("global_step", blob.get("step", 0)))
         state["epoch"] = int(blob.get("epoch", 0))
         state["best_loss"] = float(blob.get("best_loss", float("inf")))
     state["loaded"] = True
@@ -227,7 +443,7 @@ def load_checkpoint(
 @torch.no_grad()
 def generate_text(
     model: CausalTransformerV2,
-    tokenizer: SubwordTokenizer,
+    tokenizer: TokenizerAdapter,
     prompt: str,
     *,
     device: torch.device,
@@ -236,7 +452,8 @@ def generate_text(
     top_k: int = 40,
 ) -> str:
     model.eval()
-    ids = tokenizer.encode(prompt, add_special_tokens=True)
+    special = tokenizer.special_ids()
+    ids = [special["<bos>"]] + tokenizer.encode(prompt)
     x = torch.tensor([ids], dtype=torch.long, device=device)
     for _ in range(max_new_tokens):
         x_cond = x[:, -model.block_size :]
@@ -248,12 +465,11 @@ def generate_text(
         probs = torch.softmax(next_logits, dim=-1)
         next_token = torch.multinomial(probs, num_samples=1)
         x = torch.cat([x, next_token], dim=1)
-        if int(next_token.item()) == tokenizer.eos_token_id:
+        if int(next_token.item()) == special["<eos>"]:
             break
-    text = tokenizer.decode(x[0].tolist())
-    if prompt in text:
-        return text[len(prompt) :].strip()
-    return text.strip()
+    prompt_token_count = 1 + len(tokenizer.encode(prompt))
+    answer_ids = x[0].tolist()[prompt_token_count:]
+    return tokenizer.decode(answer_ids).strip()
 
 
 def model_summary(model: torch.nn.Module) -> dict[str, int]:
@@ -269,7 +485,8 @@ def load_session_state() -> dict[str, object]:
         return {"successful_sessions": 0, "eval_scores": []}
     try:
         return json.loads(path.read_text(encoding="utf-8"))
-    except Exception:
+    except Exception as exc:
+        logger.warning("Session state read failed from %s: %s", path, exc)
         return {"successful_sessions": 0, "eval_scores": []}
 
 

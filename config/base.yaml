@@ -14,7 +14,7 @@
 
 # ── Model Architecture ──────────────────────────────────────────────────────
 model:
-  vocab_size: 32000          # Vocabulary size (matches tokenizer)
+  vocab_size: 8192           # Vocabulary size — must match tokenizer_v3.json (8192 tokens)
   d_model: 512               # Embedding / hidden dimension
   num_layers: 8              # Number of transformer blocks
   num_heads: 8               # Query attention heads

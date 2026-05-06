@@ -2,9 +2,15 @@ from __future__ import annotations
 
 from typing import Dict, List, Sequence, Tuple
 
+try:
+    from training.v2_config import V2_MODEL
+    _MAX_CONTEXT = V2_MODEL.block_size
+except Exception:
+    _MAX_CONTEXT = 512
+
 
 class ContextWindowOptimizer:
-    MAX_CONTEXT = 1024
+    MAX_CONTEXT = _MAX_CONTEXT
     SESSION_BUDGET = 0.70
     MEMORY_BUDGET = 0.25
     MESSAGE_BUDGET = 0.05

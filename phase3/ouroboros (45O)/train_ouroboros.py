@@ -10,7 +10,7 @@ from torch.optim import AdamW
 
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from anra_paths import ROOT, DRIVE_CHECKPOINTS, get_tokenizer_file
+from anra_paths import DRIVE_CHECKPOINTS, get_dataset_file, get_tokenizer_file
 from anra_brain import CausalTransformer
 
 
@@ -51,7 +51,7 @@ def main() -> None:
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model, tok = _load_model(args.base_model, device)
-    text = (ROOT / "training_data" / "anra_dataset_v6_1.txt").read_text(encoding="utf-8", errors="replace")
+    text = get_dataset_file().read_text(encoding="utf-8", errors="replace")
     ids = torch.tensor(tok.encode(text), dtype=torch.long)
 
     optimizer = AdamW(model.parameters(), lr=args.lr, weight_decay=0.01)

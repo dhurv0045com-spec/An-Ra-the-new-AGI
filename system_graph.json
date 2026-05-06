@@ -1,127 +1,380 @@
 {
-  "repo_root": "/workspace/An-Ra-the-new-AGI",
-  "file_count": 303,
-  "python_file_count": 208,
-  "total_lines": 138257,
-  "capabilities": {
-    "turboquant": true,
-    "ouroboros": true,
-    "symbolic_bridge": true,
-    "sovereignty": true,
-    "web_ui": true,
-    "fastapi": true,
-    "integration_tests": true
+  "generated_at": "2026-05-02T22:22:59Z",
+  "repo_root": "/data/data/com.termux/files/home/An-Ra-the-new-AGI",
+  "python": "3.13.13",
+  "platform": "Android-16-aarch64-64bit",
+  "metrics": {
+    "source_files": 306,
+    "python_files": 275,
+    "markdown_files": 15,
+    "python_lines": 74567,
+    "source_lines": 78742
   },
-  "phase_snapshots": [
+  "components": [
     {
-      "name": "phase1_core",
-      "root": "core",
-      "file_count": 9,
-      "python_files": 9,
-      "total_lines": 4414,
-      "notable_files": [
-        "core/turboquant.py"
-      ]
+      "name": "brain",
+      "layer": "model",
+      "role": "V2 causal transformer core: GQA, RoPE/YaRN, MoD, Flash SDP path, tied embeddings.",
+      "paths": [
+        {
+          "path": "anra_brain.py",
+          "exists": true,
+          "kind": "file"
+        },
+        {
+          "path": "training/v2_config.py",
+          "exists": true,
+          "kind": "file"
+        },
+        {
+          "path": "training/v2_runtime.py",
+          "exists": true,
+          "kind": "file"
+        }
+      ],
+      "import_name": "anra_brain",
+      "required": true,
+      "missing": [],
+      "import_status": "degraded:ModuleNotFoundError",
+      "source_ok": true,
+      "runtime_ok": false,
+      "ok": true
     },
     {
-      "name": "phase2",
-      "root": "phase2",
-      "file_count": 92,
-      "python_files": 75,
-      "total_lines": 24637,
-      "notable_files": [
-        "phase2/master_system (45M)/README.md",
-        "phase2/master_system (45M)/_smoke_test.py",
-        "phase2/master_system (45M)/autonomy/__init__.py",
-        "phase2/master_system (45M)/autonomy/decisions.py",
-        "phase2/master_system (45M)/autonomy/engine.py",
-        "phase2/master_system (45M)/autonomy/goals.py",
-        "phase2/master_system (45M)/autonomy/proactive.py",
-        "phase2/master_system (45M)/context/__init__.py",
-        "phase2/master_system (45M)/context/session_context.py",
-        "phase2/master_system (45M)/control/__init__.py",
-        "phase2/master_system (45M)/control/control.py",
-        "phase2/master_system (45M)/llm_bridge.py",
-        "phase2/master_system (45M)/lora/__init__.py",
-        "phase2/master_system (45M)/lora/lora.py",
-        "phase2/master_system (45M)/memory/__init__.py",
-        "phase2/master_system (45M)/memory/ghost/memories.sqlite",
-        "phase2/master_system (45M)/memory/vector_memory.py",
-        "phase2/master_system (45M)/personalization/__init__.py",
-        "phase2/master_system (45M)/personalization/models.py",
-        "phase2/master_system (45M)/safety/__init__.py",
-        "phase2/master_system (45M)/safety/safety.py",
-        "phase2/master_system (45M)/scale/__init__.py",
-        "phase2/master_system (45M)/scale/pipeline.py",
-        "phase2/master_system (45M)/state/activity.log",
-        "phase2/master_system (45M)/state/decisions.db",
-        "phase2/master_system (45M)/state/engine.db",
-        "phase2/master_system (45M)/state/goals.db",
-        "phase2/master_system (45M)/state/personalization.db",
-        "phase2/master_system (45M)/state/proactive.db",
-        "phase2/master_system (45M)/state/reports/snapshot_2026-03-29.json"
-      ]
+      "name": "tokenizer",
+      "layer": "data",
+      "role": "Canonical 8192-token BPE tokenizer and dependency-light adapter surface.",
+      "paths": [
+        {
+          "path": "tokenizer/tokenizer_v3.json",
+          "exists": true,
+          "kind": "file"
+        },
+        {
+          "path": "tokenizer/tokenizer_adapter.py",
+          "exists": true,
+          "kind": "file"
+        },
+        {
+          "path": "scripts/train_tokenizer_v3.py",
+          "exists": true,
+          "kind": "file"
+        }
+      ],
+      "import_name": "tokenizer.tokenizer_adapter",
+      "required": true,
+      "missing": [],
+      "import_status": "ok",
+      "source_ok": true,
+      "runtime_ok": true,
+      "ok": true
     },
     {
-      "name": "phase3",
-      "root": "phase3",
-      "file_count": 70,
-      "python_files": 58,
-      "total_lines": 19760,
-      "notable_files": [
-        "phase3/ouroboros (45O)/README.md",
-        "phase3/ouroboros (45O)/adaptive.py",
-        "phase3/ouroboros (45O)/ouroboros.py",
-        "phase3/ouroboros (45O)/ouroboros_numpy.py",
-        "phase3/ouroboros (45O)/pass_gates.py",
-        "phase3/ouroboros (45O)/test_ouroboros.py",
-        "phase3/ouroboros (45O)/train_ouroboros.py",
-        "phase3/ouroboros (45O)/weight_sharing.py",
-        "phase3/sovereignty (45R)/README.md",
-        "phase3/sovereignty (45R)/__init__.py",
-        "phase3/sovereignty (45R)/api.py",
-        "phase3/sovereignty (45R)/auditor.py",
-        "phase3/sovereignty (45R)/auth.py",
-        "phase3/sovereignty (45R)/benchmarks.py",
-        "phase3/sovereignty (45R)/config.py",
-        "phase3/sovereignty (45R)/daemon.py",
-        "phase3/sovereignty (45R)/dead_code.py",
-        "phase3/sovereignty (45R)/demo.py",
-        "phase3/sovereignty (45R)/improver.py",
-        "phase3/sovereignty (45R)/install.py",
-        "phase3/sovereignty (45R)/logger.py",
-        "phase3/sovereignty (45R)/reporter.py",
-        "phase3/sovereignty (45R)/requirements.txt",
-        "phase3/sovereignty (45R)/resource_monitor.py",
-        "phase3/sovereignty (45R)/scheduler.py",
-        "phase3/sovereignty (45R)/service.py",
-        "phase3/sovereignty (45R)/sovereignty_bridge.py",
-        "phase3/sovereignty (45R)/uninstall.py",
-        "phase3/sovereignty (45R)/watchdog.py",
-        "phase3/symbolic_bridge (45Q)/README.md"
-      ]
+      "name": "training_loop",
+      "layer": "learning",
+      "role": "Daily/milestone trainer, dataset resolution, Drive restore, checkpoint and report runtime.",
+      "paths": [
+        {
+          "path": "training/train_unified.py",
+          "exists": true,
+          "kind": "file"
+        },
+        {
+          "path": "scripts/build_brain.py",
+          "exists": true,
+          "kind": "file"
+        },
+        {
+          "path": "training/v2_data_mix.py",
+          "exists": true,
+          "kind": "file"
+        }
+      ],
+      "import_name": "training.train_unified",
+      "required": true,
+      "missing": [],
+      "import_status": "degraded:ModuleNotFoundError",
+      "source_ok": true,
+      "runtime_ok": false,
+      "ok": true
     },
     {
-      "name": "phase4",
-      "root": "phase4",
-      "file_count": 21,
-      "python_files": 0,
-      "total_lines": 4181,
-      "notable_files": [
-        "phase4/web/src/components/SovereigntyPanel.jsx",
-        "phase4/web/src/components/SystemTelemetry.jsx"
-      ]
+      "name": "evaluation",
+      "layer": "learning",
+      "role": "Compact eval, model-running benchmark suite, verifier, and hard-example feedback.",
+      "paths": [
+        {
+          "path": "training/eval_v2.py",
+          "exists": true,
+          "kind": "file"
+        },
+        {
+          "path": "training/benchmark.py",
+          "exists": true,
+          "kind": "file"
+        },
+        {
+          "path": "training/verifier.py",
+          "exists": true,
+          "kind": "file"
+        }
+      ],
+      "import_name": "training.benchmark",
+      "required": true,
+      "missing": [],
+      "import_status": "ok",
+      "source_ok": true,
+      "runtime_ok": true,
+      "ok": true
     },
     {
-      "name": "api",
-      "root": ".",
-      "file_count": 5,
-      "python_files": 5,
-      "total_lines": 2209,
-      "notable_files": [
-        "app.py",
-        "generate.py"
-      ]
+      "name": "identity",
+      "layer": "alignment",
+      "role": "CIV residual guard plus ESV modulation and identity drift checks.",
+      "paths": [
+        {
+          "path": "identity/civ.py",
+          "exists": true,
+          "kind": "file"
+        },
+        {
+          "path": "identity/esv.py",
+          "exists": true,
+          "kind": "file"
+        }
+      ],
+      "import_name": "identity.civ",
+      "required": true,
+      "missing": [],
+      "import_status": "degraded:ModuleNotFoundError",
+      "source_ok": true,
+      "runtime_ok": false,
+      "ok": true
+    },
+    {
+      "name": "memory",
+      "layer": "continuity",
+      "role": "Unified memory router over episodic, short-term, graph, ghost, and ESV-gated writes.",
+      "paths": [
+        {
+          "path": "memory/memory_router.py",
+          "exists": true,
+          "kind": "file"
+        },
+        {
+          "path": "memory/faiss_store.py",
+          "exists": true,
+          "kind": "file"
+        }
+      ],
+      "import_name": "memory.memory_router",
+      "required": true,
+      "missing": [],
+      "import_status": "degraded:ModuleNotFoundError",
+      "source_ok": true,
+      "runtime_ok": false,
+      "ok": true
+    },
+    {
+      "name": "goals",
+      "layer": "agency",
+      "role": "Persistent priority queue for goals, retries, successors, and orchestrator dispatch.",
+      "paths": [
+        {
+          "path": "goals/goal_queue.py",
+          "exists": true,
+          "kind": "file"
+        },
+        {
+          "path": "agents/orchestrator.py",
+          "exists": true,
+          "kind": "file"
+        },
+        {
+          "path": "agents/specialists.py",
+          "exists": true,
+          "kind": "file"
+        }
+      ],
+      "import_name": "goals.goal_queue",
+      "required": true,
+      "missing": [],
+      "import_status": "ok",
+      "source_ok": true,
+      "runtime_ok": true,
+      "ok": true
+    },
+    {
+      "name": "runtime",
+      "layer": "serving",
+      "role": "Generation runtime, API surface, session dashboard, startup checks, and system registry.",
+      "paths": [
+        {
+          "path": "generate.py",
+          "exists": true,
+          "kind": "file"
+        },
+        {
+          "path": "app.py",
+          "exists": true,
+          "kind": "file"
+        },
+        {
+          "path": "scripts/session_dashboard.py",
+          "exists": true,
+          "kind": "file"
+        },
+        {
+          "path": "startup_checks.py",
+          "exists": true,
+          "kind": "file"
+        },
+        {
+          "path": "runtime/system_registry.py",
+          "exists": true,
+          "kind": "file"
+        }
+      ],
+      "import_name": "generate",
+      "required": true,
+      "missing": [],
+      "import_status": "degraded:ModuleNotFoundError",
+      "source_ok": true,
+      "runtime_ok": false,
+      "ok": true
+    },
+    {
+      "name": "self_modification",
+      "layer": "governance",
+      "role": "Type-A/Type-B patch gates, sandbox execution, audit logging, and atomic filesystem actions.",
+      "paths": [
+        {
+          "path": "self_modification/type_a.py",
+          "exists": true,
+          "kind": "file"
+        },
+        {
+          "path": "self_modification/type_b.py",
+          "exists": true,
+          "kind": "file"
+        },
+        {
+          "path": "execution/sandbox.py",
+          "exists": true,
+          "kind": "file"
+        },
+        {
+          "path": "execution/fs_agent.py",
+          "exists": true,
+          "kind": "file"
+        }
+      ],
+      "import_name": "self_modification.type_a",
+      "required": true,
+      "missing": [],
+      "import_status": "ok",
+      "source_ok": true,
+      "runtime_ok": true,
+      "ok": true
+    },
+    {
+      "name": "phase3_tools",
+      "layer": "verification",
+      "role": "Symbolic reasoning, Ouroboros reflection, ghost memory, and sovereignty promotion gates.",
+      "paths": [
+        {
+          "path": "phase3/symbolic_bridge (45Q)/symbolic_bridge.py",
+          "exists": true,
+          "kind": "file"
+        },
+        {
+          "path": "phase3/ouroboros (45O)/ouroboros_numpy.py",
+          "exists": true,
+          "kind": "file"
+        },
+        {
+          "path": "phase3/sovereignty (45R)/sovereignty_bridge.py",
+          "exists": true,
+          "kind": "file"
+        },
+        {
+          "path": "phase3/ghost_memory (45P)",
+          "exists": true,
+          "kind": "dir"
+        }
+      ],
+      "import_name": null,
+      "required": false,
+      "missing": [],
+      "import_status": "not_checked",
+      "source_ok": true,
+      "runtime_ok": true,
+      "ok": true
     }
-  ]
+  ],
+  "capabilities": {
+    "brain": true,
+    "tokenizer": true,
+    "training_loop": true,
+    "evaluation": true,
+    "identity": true,
+    "memory": true,
+    "goals": true,
+    "runtime": true,
+    "self_modification": true,
+    "phase3_tools": true
+  },
+  "artifacts": {
+    "dataset": {
+      "canonical": {
+        "path": "training_data/anra_training.txt",
+        "exists": true,
+        "size_bytes": 3984595
+      },
+      "legacy": {
+        "path": "training_data/anra_dataset_v6_1.txt",
+        "exists": true,
+        "size_bytes": 3984595
+      }
+    },
+    "tokenizer": {
+      "path": "tokenizer/tokenizer_v3.json",
+      "exists": true,
+      "size_bytes": 297498
+    },
+    "checkpoints": {
+      "brain": {
+        "path": "anra_v2_brain.pt",
+        "exists": false,
+        "size_bytes": 0
+      },
+      "identity": {
+        "path": "anra_v2_identity.pt",
+        "exists": false,
+        "size_bytes": 0
+      },
+      "ouroboros": {
+        "path": "anra_v2_ouroboros.pt",
+        "exists": false,
+        "size_bytes": 0
+      }
+    },
+    "reports": {
+      "metrics": {
+        "path": "output/v2/reports/metrics.json",
+        "exists": false,
+        "size_bytes": 0
+      },
+      "eval_summary": {
+        "path": "output/v2/v2_eval_summary.json",
+        "exists": false,
+        "size_bytes": 0
+      },
+      "curriculum": {
+        "path": "output/v2/v2_next_session_curriculum.json",
+        "exists": false,
+        "size_bytes": 0
+      }
+    }
+  }
 }

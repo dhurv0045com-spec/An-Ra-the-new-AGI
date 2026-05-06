@@ -26,8 +26,10 @@ import sys
 import os
 import json
 import argparse
+import subprocess
 from pathlib import Path
 from anra_paths import inject_all_paths, ensure_dirs
+from startup_checks import assert_flash_sdp_ready
 
 # ── Resolve all project paths ─────────────────────────────────────────────────
 PROJECT_ROOT = Path(__file__).resolve().parent
@@ -42,8 +44,6 @@ for p3 in ["identity (45N)", "ouroboros (45O)", "ghost_memory (45P)", "symbolic_
         sys.path.insert(0, str(p))
 
 # Set working directory to 45M so all relative state/ paths work
-os.chdir(str(PHASE2_45M))
-
 # Add 45M to path so system.py imports work
 sys.path.insert(0, str(PHASE2_45M))
 
@@ -131,7 +131,38 @@ def _sovereignty_trigger(system: MasterSystem):
         print("[Sovereignty] Could not trigger pipeline — daemon may not be running.")
 
 
+def _run_training(mode: str, session_minutes: int) -> int:
+    """Run unified training from the main entrypoint with live streamed logs."""
+    train_mode = "session" if mode in {"interactive", "session"} else "train"
+    cmd = [
+        sys.executable,
+        "-m",
+        "training.train_unified",
+        "--mode",
+        train_mode,
+        "--session_minutes",
+        str(session_minutes),
+    ]
+    print(f"[An-Ra] Starting training mode={train_mode} session_minutes={session_minutes}", flush=True)
+    proc = subprocess.Popen(
+        cmd,
+        cwd=str(PROJECT_ROOT),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        bufsize=1,
+        env={**os.environ, "PYTHONPATH": str(PROJECT_ROOT), "PYTHONUNBUFFERED": "1"},
+    )
+    assert proc.stdout is not None
+    for line in proc.stdout:
+        print(line, end="", flush=True)
+    proc.wait()
+    print(f"[An-Ra] Training exited with code {proc.returncode}", flush=True)
+    return int(proc.returncode or 0)
+
+
 def main():
+    assert_flash_sdp_ready("anra.py")
     # ── Extended parser ───────────────────────────────────────────────────────
     parser = build_parser()
     parser.add_argument("--phase3-status",   action="store_true",
@@ -142,8 +173,33 @@ def main():
                         help="Show the latest nightly self-improvement report")
     parser.add_argument("--sovereignty-run", action="store_true",
                         help="Trigger the sovereignty improvement pipeline now")
+    parser.add_argument("--train-session-minutes", type=int, default=30,
+                        help="Session minutes when --mode interactive/session/train is used without --start")
 
     args = parser.parse_args()
+
+    if (
+        getattr(args, "mode", "autonomous") in {"interactive", "session", "train"}
+        and not getattr(args, "start", False)
+        and not any(
+            [
+                getattr(args, "chat", False),
+                getattr(args, "goal", None),
+                getattr(args, "status", False),
+                getattr(args, "briefing", False),
+                getattr(args, "dashboard", False),
+                getattr(args, "test", False),
+                args.phase3_status,
+                args.sovereignty_report,
+                args.sovereignty_run,
+                bool(args.symbolic),
+                getattr(args, "owner_model", False),
+                getattr(args, "safety_audit", False),
+                getattr(args, "api", False),
+            ]
+        )
+    ):
+        raise SystemExit(_run_training(args.mode, args.train_session_minutes))
 
     # ── Symbolic query — no system needed ────────────────────────────────────
     if args.symbolic:

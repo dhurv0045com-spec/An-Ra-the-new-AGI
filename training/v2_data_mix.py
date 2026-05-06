@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import random
 import re
+import sqlite3
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Iterable
@@ -10,8 +11,12 @@ from typing import Iterable
 import torch
 from torch.utils.data import Dataset
 
-from anra_paths import OUTPUT_V2_DIR, get_dataset_file, get_identity_file
+from anra_paths import DRIVE_GHOST_DB, GHOST_DB_LOCAL, OUTPUT_V2_DIR, get_dataset_file, get_identity_file, get_teacher_files
+from identity.civ import ConstitutionalIdentityVector
 from training.v2_config import IDENTITY_KEYWORDS, TEACHER_REJECT_PATTERNS, V2_TRAINING
+
+from anra_paths import inject_all_paths
+inject_all_paths()
 
 try:
     from symbolic_bridge import query_code, query_logic, query_math
@@ -47,6 +52,7 @@ class MixReport:
     source_counts: dict[str, int]
     teacher_external_used: int
     replay_available: int
+    civ_rejected: int = 0
 
     def to_dict(self) -> dict[str, object]:
         return asdict(self)
@@ -69,6 +75,33 @@ class IdentityStyleFilter:
             return False
         lowered = answer.lower()
         return not any(token in lowered for token in self._reject)
+
+
+class CIVIdentityGate:
+    """Turns the ConstitutionalIdentityVector into a data-selection signal."""
+
+    def __init__(self, civ: ConstitutionalIdentityVector | None = None, min_score: float | None = None) -> None:
+        self.civ = civ or ConstitutionalIdentityVector()
+        self.min_score = V2_TRAINING.civ_identity_min_score if min_score is None else float(min_score)
+
+    def evidence_for(self, prompt: str, answer: str) -> dict[str, float]:
+        text = f"{prompt} {answer}".lower()
+        rejects = tuple(TEACHER_REJECT_PATTERNS)
+        identity_terms = ("an-ra", "ankit", "identity", "purpose", "sovereign", "own")
+        unsupported_claims = ("omniscient", "perfect", "guarantee", "cannot be wrong")
+        return {
+            "truthfulness": 0.25 if any(term in text for term in unsupported_claims) else 0.9,
+            "safety": 0.9,
+            "autonomy": 0.9 if any(term in text for term in identity_terms) else 0.45,
+            "coherence": 0.3 if any(token in text for token in rejects) else min(1.0, max(0.2, len(answer.strip()) / 120.0)),
+        }
+
+    def score(self, prompt: str, answer: str) -> float:
+        return float(self.civ.score(self.evidence_for(prompt, answer)))
+
+    def accept(self, prompt: str, answer: str) -> tuple[bool, float]:
+        score = self.score(prompt, answer)
+        return score >= self.min_score, score
 
 
 def parse_h_anra_pairs(text: str) -> list[tuple[str, str]]:
@@ -113,7 +146,7 @@ def _fallback_identity_examples() -> list[TrainingExample]:
 def _load_identity_examples(base_examples: list[TrainingExample]) -> list[TrainingExample]:
     identity_path = get_identity_file()
     examples: list[TrainingExample] = []
-    if identity_path.exists():
+    if identity_path is not None and identity_path.exists():
         raw = identity_path.read_text(encoding="utf-8", errors="replace")
         examples.extend(
             TrainingExample(bucket="identity", prompt=prompt, answer=answer, source=str(identity_path))
@@ -138,31 +171,60 @@ def _load_identity_examples(base_examples: list[TrainingExample]) -> list[Traini
     return examples
 
 
+def _apply_civ_identity_gate(examples: list[TrainingExample]) -> tuple[list[TrainingExample], int]:
+    gate = CIVIdentityGate()
+    accepted: list[TrainingExample] = []
+    rejected = 0
+    for example in examples:
+        keep, score = gate.accept(example.prompt, example.answer)
+        if keep:
+            example.metadata = {**example.metadata, "civ_score": round(score, 4)}
+            accepted.append(example)
+        else:
+            rejected += 1
+    if not accepted:
+        fallback = _fallback_identity_examples()
+        for example in fallback:
+            _, score = gate.accept(example.prompt, example.answer)
+            example.metadata = {**example.metadata, "civ_score": round(score, 4), "civ_fallback": True}
+        return fallback, rejected
+    return accepted, rejected
+
+
 def _load_external_teacher_examples(style_filter: IdentityStyleFilter) -> list[TrainingExample]:
-    teacher_path = Path("training_data") / "teacher_reasoning_v2.jsonl"
-    if not teacher_path.exists():
+    teacher_paths = get_teacher_files()
+    if not teacher_paths:
         return []
     examples: list[TrainingExample] = []
-    for line in teacher_path.read_text(encoding="utf-8", errors="replace").splitlines():
-        line = line.strip()
-        if not line:
-            continue
-        try:
-            record = json.loads(line)
-        except json.JSONDecodeError:
-            continue
-        prompt = str(record.get("prompt", "")).strip()
-        answer = style_filter.clean(str(record.get("answer", "")).strip())
-        if style_filter.accept(prompt, answer):
-            examples.append(
-                TrainingExample(
-                    bucket="teacher",
-                    prompt=prompt,
-                    answer=answer,
-                    source=str(teacher_path),
-                    metadata={"task_type": record.get("task_type", "teacher")},
+    seen: set[tuple[str, str]] = set()
+    for teacher_path in teacher_paths:
+        for line in teacher_path.read_text(encoding="utf-8", errors="replace").splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                record = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            prompt = str(record.get("prompt", "")).strip()
+            answer = style_filter.clean(str(record.get("answer", "")).strip())
+            key = (prompt, answer)
+            if key in seen:
+                continue
+            if style_filter.accept(prompt, answer):
+                seen.add(key)
+                examples.append(
+                    TrainingExample(
+                        bucket="teacher",
+                        prompt=prompt,
+                        answer=answer,
+                        source=str(teacher_path),
+                        metadata={
+                            "task_type": record.get("task_type", "teacher"),
+                            "verified": bool(record.get("verified", False)),
+                        },
+                    )
                 )
-            )
     return examples
 
 
@@ -331,17 +393,139 @@ def _parse_replay_example(text: str) -> TrainingExample | None:
     return TrainingExample(bucket="replay", prompt=prompt, answer=answer, source="hard_examples")
 
 
-def _load_replay_examples() -> list[TrainingExample]:
+def _training_example_from_mapping(record: dict, source: str, style_filter: IdentityStyleFilter) -> TrainingExample | None:
+    metadata = record.get("metadata", {}) if isinstance(record.get("metadata", {}), dict) else {}
+    prompt = str(
+        record.get("prompt")
+        or record.get("input")
+        or record.get("failure_prompt")
+        or metadata.get("prompt")
+        or metadata.get("input")
+        or metadata.get("failure_prompt")
+        or ""
+    ).strip()
+    answer = str(
+        record.get("answer")
+        or record.get("target")
+        or record.get("correct_answer")
+        or record.get("correction")
+        or metadata.get("answer")
+        or metadata.get("target")
+        or metadata.get("correct_answer")
+        or metadata.get("correction")
+        or ""
+    ).strip()
+
+    content = str(record.get("content", record.get("text", ""))).strip()
+    if not prompt or not answer:
+        parsed = _parse_replay_example(content)
+        if parsed is not None:
+            parsed.source = source
+            return parsed
+    if not prompt or not answer:
+        return None
+
+    answer = style_filter.clean(answer)
+    if not style_filter.accept(prompt, answer):
+        return None
+    return TrainingExample(
+        bucket="replay",
+        prompt=prompt,
+        answer=answer,
+        source=source,
+        metadata={"ghost_memory": True, **metadata},
+    )
+
+
+def _load_ghost_jsonl_replay(path: Path, style_filter: IdentityStyleFilter) -> list[TrainingExample]:
+    if not path.exists() or not path.is_file():
+        return []
+    examples: list[TrainingExample] = []
+    for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            record = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        parsed = _training_example_from_mapping(record, str(path), style_filter)
+        if parsed is not None:
+            examples.append(parsed)
+    return examples
+
+
+def _load_ghost_sqlite_replay(path: Path, style_filter: IdentityStyleFilter) -> list[TrainingExample]:
+    if not path.exists() or not path.is_file():
+        return []
+    examples: list[TrainingExample] = []
+    try:
+        conn = sqlite3.connect(str(path))
+        try:
+            rows = conn.execute("SELECT role, text FROM memories ORDER BY id ASC").fetchall()
+        finally:
+            conn.close()
+    except sqlite3.Error:
+        return []
+
+    pending_prompt: str | None = None
+    for role, text in rows:
+        role_l = str(role).lower()
+        text_s = str(text).strip()
+        if role_l in {"human", "user", "prompt", "failure"}:
+            pending_prompt = text_s
+            continue
+        if role_l in {"assistant", "anra", "answer", "correction"} and pending_prompt:
+            answer = style_filter.clean(text_s)
+            if style_filter.accept(pending_prompt, answer):
+                examples.append(
+                    TrainingExample(
+                        bucket="replay",
+                        prompt=pending_prompt,
+                        answer=answer,
+                        source=str(path),
+                        metadata={"ghost_memory": True, "quantized_from_turns": True},
+                    )
+                )
+            pending_prompt = None
+    return examples
+
+
+def _load_ghost_replay_examples(style_filter: IdentityStyleFilter) -> list[TrainingExample]:
+    examples: list[TrainingExample] = []
+    seen: set[tuple[str, str]] = set()
+    sqlite_candidates = [
+        Path(GHOST_DB_LOCAL),
+        Path.home() / ".ghost_memory" / "memories.sqlite",
+    ]
+    jsonl_candidates = [Path(DRIVE_GHOST_DB)]
+
+    for path in sqlite_candidates:
+        for example in _load_ghost_sqlite_replay(path, style_filter):
+            key = (example.prompt, example.answer)
+            if key not in seen:
+                seen.add(key)
+                examples.append(example)
+    for path in jsonl_candidates:
+        for example in _load_ghost_jsonl_replay(path, style_filter):
+            key = (example.prompt, example.answer)
+            if key not in seen:
+                seen.add(key)
+                examples.append(example)
+    return examples
+
+
+def _load_replay_examples(style_filter: IdentityStyleFilter) -> list[TrainingExample]:
+    examples = _load_ghost_replay_examples(style_filter)
     path = OUTPUT_V2_DIR.parent / "hard_examples.json"
     if not path.exists():
         path = OUTPUT_V2_DIR.parent / "v2_hard_examples.json"
     if not path.exists():
-        return []
+        return examples
     try:
         blob = json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError:
-        return []
-    examples: list[TrainingExample] = []
+        return examples
     for item in blob.get("examples", []):
         parsed = _parse_replay_example(str(item.get("preview", "")))
         if parsed is not None:
@@ -375,11 +559,11 @@ def build_v2_training_examples(
     style_filter = IdentityStyleFilter()
 
     base_examples = _load_base_examples(dataset_path)
-    identity_examples = _load_identity_examples(base_examples)
+    identity_examples, civ_rejected = _apply_civ_identity_gate(_load_identity_examples(base_examples))
     external_teacher_examples = _load_external_teacher_examples(style_filter)
     teacher_examples = external_teacher_examples + _generate_teacher_examples(style_filter)
     symbolic_examples = _generate_symbolic_examples(style_filter)
-    replay_examples = _load_replay_examples()
+    replay_examples = _load_replay_examples(style_filter)
 
     total_examples = min(max_examples or V2_TRAINING.max_mixture_examples, max(len(base_examples), 4000))
     own_ratio = V2_TRAINING.own_ratio if own_ratio is None else own_ratio
@@ -432,6 +616,7 @@ def build_v2_training_examples(
         source_counts=source_counts,
         teacher_external_used=len(external_teacher_examples),
         replay_available=len(replay_examples),
+        civ_rejected=civ_rejected,
     )
     return mixed, report
 

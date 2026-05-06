@@ -33,6 +33,7 @@ def train_ouroboros(
         teacher_ratio=0.20,
         symbolic_ratio=0.10,
         replay_ratio=0.10,
+        use_ouroboros=True,
     )
     report = {
         "generated_at": time.time(),

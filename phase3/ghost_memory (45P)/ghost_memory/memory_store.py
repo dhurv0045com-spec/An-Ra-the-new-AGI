@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import hashlib
 import sqlite3
+import tempfile
 import threading
 import time
 from pathlib import Path
@@ -292,15 +293,14 @@ class GhostMemory:
 
 def health_check() -> dict:
     try:
-        health_dir = Path.cwd() / ".ghost_memory_health" / "runtime"
-        health_dir.mkdir(parents=True, exist_ok=True)
-        cfg = default_config(storage_dir=health_dir)
-        store = GhostMemory(
-            config=cfg,
-            embedder=lambda text: np.full(cfg.embedding_dim, len(text), dtype=np.float32),
-        )
-        store.add_turn("human", "test message")
-        results = store.retrieve("test")
+        with tempfile.TemporaryDirectory(prefix="anra_ghost_health_") as tmp:
+            cfg = default_config(storage_dir=Path(tmp))
+            store = GhostMemory(
+                config=cfg,
+                embedder=lambda text: np.full(cfg.embedding_dim, len(text), dtype=np.float32),
+            )
+            store.add_turn("human", "test message")
+            results = store.retrieve("test")
         return {
             "status": "ok",
             "module": "ghost_memory",

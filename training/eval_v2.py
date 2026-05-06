@@ -6,8 +6,12 @@ import time
 from collections import defaultdict
 
 import torch
+import torch.nn.functional as F
 
 from training.v2_runtime import append_jsonl, generate_text, v2_report_path, write_json
+
+from anra_paths import inject_all_paths
+inject_all_paths()
 
 try:
     from symbolic_bridge import query_logic, query_math
@@ -59,6 +63,25 @@ EVAL_SUITE = [
         "verifier": "logic",
     },
 ]
+
+
+def quick_eval_loss(model, dataset, *, device: torch.device, max_examples: int = 100, batch_size: int = 8, pad_id: int = 0) -> float:
+    """Mean CE loss over up to max_examples validation examples."""
+    model.eval()
+    losses: list[float] = []
+    with torch.no_grad():
+        for start in range(0, min(len(dataset), max_examples), batch_size):
+            rows = [dataset[i] for i in range(start, min(start + batch_size, len(dataset), max_examples))]
+            if not rows:
+                break
+            xb = torch.stack([row[0] for row in rows]).to(device)
+            yb = torch.stack([row[1] for row in rows]).to(device)
+            logits, _ = model(xb)
+            loss = F.cross_entropy(logits.reshape(-1, logits.size(-1)), yb.reshape(-1), ignore_index=pad_id)
+            losses.append(float(loss.item()))
+    if not losses:
+        raise RuntimeError("[eval_v2] quick_eval_loss received an empty validation dataset")
+    return float(sum(losses) / len(losses))
 
 
 def _normalize(text: str) -> str:

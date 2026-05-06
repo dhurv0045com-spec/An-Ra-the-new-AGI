@@ -49,9 +49,11 @@ class TestIdentityInjector:
     def setup_method(self):
         from identity_injector import IdentityInjector
         # Use the real identity file if available, else let it use fallback
-        identity_file = PROJECT_ROOT / "phase3" / "identity (45N)" / "anra_identity_v2.txt"
-        self.injector = IdentityInjector(identity_file=identity_file if identity_file.is_file()
-                                         else None)
+        from anra_paths import get_identity_file
+        identity_file = get_identity_file()
+        if identity_file is None:
+            pytest.skip("No identity file available — skipping identity test")
+        self.injector = IdentityInjector(identity_file=identity_file)
 
     def test_inject_adds_identity_block(self):
         """inject() prepends the AN-RA IDENTITY CONTEXT block."""
@@ -89,9 +91,11 @@ class TestIdentityInjector:
 
     def test_identity_file_loaded(self):
         """If identity file exists, anchors should be > 0."""
-        identity_file = PROJECT_ROOT / "phase3" / "identity (45N)" / "anra_identity_v2.txt"
-        if identity_file.is_file():
-            assert self.injector.status()["anchors_loaded"] > 0
+        from anra_paths import get_identity_file
+        identity_file = get_identity_file()
+        if identity_file is None:
+            pytest.skip("No identity file available — skipping identity test")
+        assert self.injector.status()["anchors_loaded"] > 0
 
 
 class TestOuroborosNumpy:
