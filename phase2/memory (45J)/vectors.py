@@ -26,7 +26,17 @@ class EmbeddingModel:
     dim: int = 256
 
     def embed(self, text: str) -> np.ndarray:
-        raise NotImplementedError
+        tokens = re.findall(r'\b\w+\b', str(text).lower())
+        vec = np.zeros(self.dim, dtype=np.float32)
+        if not tokens:
+            return vec
+        # AN: keep the base embedder operational for smoke paths without changing
+        # the preferred TF-IDF/neural implementations selected by get_embedder().
+        for token, count in Counter(tokens).items():
+            idx = int(hashlib.sha1(token.encode("utf-8")).hexdigest()[:8], 16) % self.dim
+            vec[idx] += 1.0 + math.log(count)
+        norm = np.linalg.norm(vec)
+        return vec / norm if norm > 1e-8 else vec
 
     def embed_batch(self, texts: List[str]) -> np.ndarray:
         return np.stack([self.embed(t) for t in texts])

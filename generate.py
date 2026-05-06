@@ -9,7 +9,7 @@ from typing import Dict, Iterator, Optional
 
 import torch
 
-from anra_paths import ROOT, STATE_DIR, inject_all_paths
+from anra_paths import HAL_STATE_FILE, ROOT, STATE_DIR, inject_all_paths
 from training.v2_runtime import (
     build_v2_model,
     canonical_v2_checkpoint,
@@ -152,6 +152,12 @@ def _save_hal(session_id: str | None, hal) -> None:
     try:
         key = session_id or "__default__"
         hal.save(_hal_path(key))
+        try:
+            from runtime.hal_telemetry import publish_hal_state
+
+            publish_hal_state(hal, source=f"generate:{key}", path=HAL_STATE_FILE)
+        except Exception:
+            pass
     except Exception as exc:
         logger.warning("HAL persistence failed for session %s: %s", session_id, exc)
 

@@ -12,7 +12,7 @@ from innovation.schema import CapabilityGap
 
 
 _TOKENS = re.compile(r"\b(TODO|FIXME|MISSING|STUB|HACK)\b", re.IGNORECASE)
-_SKIP_DIRS = {".git", ".pytest_cache", "__pycache__", ".mypy_cache", ".ruff_cache", "checkpoints", "output"}
+_SKIP_DIRS = {".git", ".pytest_cache", "__pycache__", ".mypy_cache", ".ruff_cache", "checkpoints", "history", "output"}
 _SEVERITY_RANK = {"critical": 0, "moderate": 1, "minor": 2}
 
 

@@ -8,6 +8,11 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
+try:
+    from anra_paths import EPG_PATH
+except Exception:
+    EPG_PATH = None
+
 
 @dataclass
 class VerificationResult:
@@ -305,6 +310,30 @@ def verify_cross_domain_analogy(
         label="VERIFIED" if candidate.valid else "FALSIFIED",
         properties={**candidate.to_dict(), "stored_in_epg": stored},
     )
+
+
+def dispatch_domain_verifier(tool: str, payload: dict[str, Any] | None = None, *, epg_path: str | Path | None = None) -> VerificationResult:
+    payload = payload or {}
+    name = str(tool).strip().lower()
+    if name in {"verify_qiskit", "qiskit"}:
+        return verify_qiskit(str(payload.get("qasm", payload.get("code", ""))), str(payload.get("target_topology", "linear_nn")))
+    if name in {"verify_rdkit", "rdkit"}:
+        return verify_rdkit(str(payload.get("smiles", payload.get("molecule", ""))))
+    if name in {"verify_verilog", "verilog", "verilator"}:
+        return verify_verilog(str(payload.get("verilog", payload.get("code", ""))), str(payload.get("testbench", payload.get("test_code", ""))))
+    if name in {"verify_constraint_json", "constraint_json"}:
+        return verify_constraint_json(payload.get("constraints", {}), payload.get("candidate", {}))
+    if name in {"verify_citation_grounding", "citation_grounding"}:
+        return verify_citation_grounding(str(payload.get("claim", "")), epg_path=payload.get("epg_path", epg_path), memory_nodes=payload.get("memory_nodes"))
+    if name in {"verify_cross_domain_analogy", "cross_domain_analogy", "cis"}:
+        return verify_cross_domain_analogy(
+            str(payload.get("domain_a", "")),
+            str(payload.get("domain_b", "")),
+            signature_a=payload.get("signature_a"),
+            signature_b=payload.get("signature_b"),
+            epg_path=payload.get("epg_path", epg_path or EPG_PATH),
+        )
+    return VerificationResult(0.0, "domain", f"unknown domain verifier: {tool}", False, "UNKNOWN")
 
 
 def _terms(text: str) -> set[str]:

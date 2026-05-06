@@ -11,7 +11,7 @@ from typing import Iterable
 import torch
 from torch.utils.data import Dataset
 
-from anra_paths import DRIVE_GHOST_DB, GHOST_DB_LOCAL, OUTPUT_V2_DIR, get_dataset_file, get_identity_file, get_teacher_files
+from anra_paths import DRIVE_GHOST_DB, FAILURE_REPLAY_DATASET, GHOST_DB_LOCAL, OUTPUT_V2_DIR, get_dataset_file, get_identity_file, get_teacher_files
 from identity.civ import ConstitutionalIdentityVector
 from training.v2_config import IDENTITY_KEYWORDS, TEACHER_REJECT_PATTERNS, V2_1B_FRONTIER, V2_TRAINING
 
@@ -518,6 +518,18 @@ def _load_ghost_replay_examples(style_filter: IdentityStyleFilter) -> list[Train
 
 def _load_replay_examples(style_filter: IdentityStyleFilter) -> list[TrainingExample]:
     examples = _load_ghost_replay_examples(style_filter)
+    if FAILURE_REPLAY_DATASET.exists():
+        try:
+            for line in FAILURE_REPLAY_DATASET.read_text(encoding="utf-8", errors="replace").splitlines():
+                if not line.strip():
+                    continue
+                record = json.loads(line)
+                parsed = _training_example_from_mapping(record, str(FAILURE_REPLAY_DATASET), style_filter)
+                if parsed is not None:
+                    parsed.metadata["failure_replay"] = True
+                    examples.append(parsed)
+        except Exception:
+            pass
     path = OUTPUT_V2_DIR.parent / "hard_examples.json"
     if not path.exists():
         path = OUTPUT_V2_DIR.parent / "v2_hard_examples.json"

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Activity, Cpu, HardDrive, Zap, Binary } from 'lucide-react';
+import { Activity, Cpu, Zap, BrainCircuit } from 'lucide-react';
 
 const SystemTelemetry = () => {
   const [status, setStatus] = useState({
@@ -12,6 +12,7 @@ const SystemTelemetry = () => {
   });
 
   const [pulses, setPulses] = useState([]);
+  const [hal, setHal] = useState({ hormones: {}, counters: {}, anomalies: [] });
 
   useEffect(() => {
     const fetchStatus = async () => {
@@ -28,6 +29,23 @@ const SystemTelemetry = () => {
 
     const interval = setInterval(fetchStatus, 3000);
     fetchStatus();
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    const fetchHAL = async () => {
+      try {
+        const response = await fetch('/api/hal/state');
+        if (response.ok) {
+          setHal(await response.json());
+        }
+      } catch (error) {
+        console.error("HAL telemetry error:", error);
+      }
+    };
+
+    const interval = setInterval(fetchHAL, 1500);
+    fetchHAL();
     return () => clearInterval(interval);
   }, []);
 
@@ -83,6 +101,32 @@ const SystemTelemetry = () => {
              <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Uptime</div>
              <div className="mono" style={{ fontSize: '0.9rem' }}>{status.uptime}</div>
           </div>
+        </div>
+
+        <div style={{ borderTop: '1px solid var(--panel-border)', paddingTop: '18px' }}>
+           <div className="heading-sm" style={{ marginBottom: '12px', fontSize: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+             <BrainCircuit size={14} /> HAL STATE
+           </div>
+           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {['dopamine', 'serotonin', 'cortisol', 'adrenaline', 'oxytocin', 'norepinephrine', 'endorphin'].map(name => {
+                const value = Number(hal.hormones?.[name] || 0);
+                const alert = (name === 'cortisol' && value > 0.8) || (name === 'adrenaline' && value > 0.75);
+                return (
+                  <div key={name}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px' }}>
+                      <span style={{ fontSize: '0.72rem', color: alert ? 'var(--accent-emerald)' : 'var(--text-secondary)', textTransform: 'uppercase' }}>{name}</span>
+                      <span className="mono" style={{ fontSize: '0.72rem', color: alert ? 'var(--accent-emerald)' : 'var(--text-muted)' }}>{value.toFixed(2)}</span>
+                    </div>
+                    <div style={{ height: '3px', background: 'rgba(255,255,255,0.08)', borderRadius: '2px', overflow: 'hidden' }}>
+                      <div style={{ height: '100%', width: `${Math.min(100, value * 100)}%`, background: alert ? 'var(--accent-emerald)' : 'var(--accent-cyan)', transition: 'width 0.4s ease' }} />
+                    </div>
+                  </div>
+                );
+              })}
+           </div>
+           <div className="mono" style={{ marginTop: '10px', fontSize: '0.72rem', color: hal.anomalies?.length ? 'var(--accent-emerald)' : 'var(--text-muted)' }}>
+             failures={hal.counters?.consecutive_failures || 0} anomalies={hal.anomalies?.length || 0}
+           </div>
         </div>
 
         {/* Binary Drift Visualizer */}

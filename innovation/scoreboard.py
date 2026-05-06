@@ -92,7 +92,7 @@ def score_hypothesis(hyp: Hypothesis) -> InnovationScore:
         "novelty_inside_repo": _scale(novelty_inside_repo, WEIGHTS["novelty_inside_repo"]),
         "implementation_smallness": _scale(implementation_smallness, WEIGHTS["implementation_smallness"]),
         "safety_and_owner_control": _scale(safety_and_owner_control, WEIGHTS["safety_and_owner_control"]),
-        "failure_replay_value": _scale(failure_replay_value, WEIGHTS["failure_replay"]),
+        "failure_replay_value": _scale(failure_replay_value, WEIGHTS["failure_replay_value"]),
     }
     total = round(sum(values.values()), 3)
     return InnovationScore(hyp_id=hyp.hyp_id, total=total, decision=_decision(total), **values)

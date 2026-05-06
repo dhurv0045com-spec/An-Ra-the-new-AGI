@@ -5,10 +5,13 @@ import difflib
 import subprocess
 import time
 
+from anra_paths import STATE_DIR
+from self_modification.sovereignty_gate import sovereignty_audit_change
+
 
 class AgentCodeMutation:
-    def __init__(self, backup_dir: str | Path = "state/self_mod_backups") -> None:
-        self.backup_dir = Path(backup_dir)
+    def __init__(self, backup_dir: str | Path | None = None) -> None:
+        self.backup_dir = Path(backup_dir) if backup_dir is not None else STATE_DIR / "self_mod_backups"
         self.backup_dir.mkdir(parents=True, exist_ok=True)
 
     def mutate(
@@ -19,6 +22,9 @@ class AgentCodeMutation:
         benchmark_cmd: list[str] | None = None,
     ) -> dict:
         path = Path(file_path)
+        gate = sovereignty_audit_change(path, new_content, reason=reason)
+        if not gate.get("allowed"):
+            return {"accepted": False, "file": str(path), "reason": "sovereignty audit rejected change", "audit": gate}
         old = path.read_text(encoding="utf-8") if path.exists() else ""
         stamp = str(int(time.time()))
         backup = self.backup_dir / f"{path.name}.{stamp}.bak"
@@ -63,6 +69,18 @@ class AgentCodeMutation:
         Uses VerifierHierarchy instead of a subprocess shell command.
         """
         path = Path(file_path)
+        gate = sovereignty_audit_change(path, new_content, reason=reason)
+        if not gate.get("allowed"):
+            return {
+                "accepted": False,
+                "score_before": 0.0,
+                "score_after": 0.0,
+                "score_delta": 0.0,
+                "diff": "",
+                "backup": "",
+                "reason": "sovereignty audit rejected change",
+                "audit": gate,
+            }
         old_content = path.read_text(encoding="utf-8") if path.exists() else ""
 
         stamp = str(int(time.time()))

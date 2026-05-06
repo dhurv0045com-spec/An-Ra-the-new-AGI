@@ -7,6 +7,7 @@ import json
 import time
 
 from anra_paths import STATE_DIR, WORKSPACE_DIR
+from self_modification.sovereignty_gate import sovereignty_audit_change
 
 DEFAULT_TOOL_REGISTRY = STATE_DIR / "tool_library.json"
 DEFAULT_TOOL_DIR = WORKSPACE_DIR / "tools"
@@ -27,6 +28,9 @@ class ToolLibraryMutation:
         module_name = self._module_name(name)
         ast.parse(entrypoint, filename=f"{module_name}.py")
         path = self.tool_dir / f"{module_name}.py"
+        gate = sovereignty_audit_change(path, entrypoint, reason=description or f"add tool {name}")
+        if not gate.get("allowed"):
+            raise PermissionError(f"sovereignty audit rejected tool mutation: {gate}")
         path.write_text(entrypoint, encoding="utf-8")
         self._validate_import(module_name, path)
 

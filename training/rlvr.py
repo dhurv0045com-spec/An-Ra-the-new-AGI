@@ -21,6 +21,11 @@ except Exception:
     HALModule = None
 
 try:
+    from runtime.feedback_bus import record_verifier_feedback
+except Exception:
+    record_verifier_feedback = None
+
+try:
     import torch
     import torch.nn.functional as F
 except Exception:  # pragma: no cover - structural tests can still inspect this module.
@@ -205,6 +210,7 @@ class RLVRTrainer:
             completions = list(completions)
 
         rewards = []
+        verifier_results = []
         for c in completions:
             vr = self.verifier.score(
                 task.task_type,
@@ -215,6 +221,7 @@ class RLVRTrainer:
                 response=c,
                 task=task.prompt,
             )
+            verifier_results.append(vr)
             reward = float(vr.score)
             if self.entropy_bonus:
                 # AN: preserve exploration pressure so GRPO does not collapse into brittle low-entropy completions.
@@ -231,6 +238,12 @@ class RLVRTrainer:
                     "task_type": getattr(task, "task_type", ""),
                 },
             )
+            try:
+                from runtime.hal_telemetry import publish_hal_state
+
+                publish_hal_state(self.hal, source="rlvr")
+            except Exception:
+                pass
 
         r = torch.tensor(rewards, dtype=torch.float32)
         mean_r = r.mean()
@@ -289,4 +302,17 @@ class RLVRTrainer:
                 self.replay_pipeline.add_rlvr_step(step)
             except Exception:
                 pass
+        if record_verifier_feedback is not None:
+            for completion, vr in zip(completions, verifier_results):
+                try:
+                    if float(getattr(vr, "score", 0.0)) < self.replay_min_reward:
+                        record_verifier_feedback(
+                            prompt=task.prompt,
+                            response=completion,
+                            verifier_result=vr,
+                            task_type=task.task_type,
+                            hal=self.hal,
+                        )
+                except Exception:
+                    pass
         return step

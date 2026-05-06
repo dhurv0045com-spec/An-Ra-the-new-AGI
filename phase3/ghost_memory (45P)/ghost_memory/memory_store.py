@@ -75,6 +75,7 @@ class MemoryStore:
         self,
         config: Optional[GhostConfig] = None,
         embedder: Optional[EmbedFn] = None,
+        hal: object | None = None,
     ) -> None:
         """
         Open or create storage under ``config.storage_dir`` and load vector archive.
@@ -82,6 +83,7 @@ class MemoryStore:
         ``embedder`` overrides MiniLM for deterministic tests when provided.
         """
         self._config = config or default_config()
+        self._hal = hal
         self._embedder: EmbedFn = embedder or _build_default_embedder(
             self._config.embedding_model,
             self._config.embedding_dim,
@@ -168,11 +170,12 @@ class MemoryStore:
 
     def _maybe_prune(self) -> None:
         """If row count exceeds max_memories, drop lowest decay-weighted rows."""
+        max_memories = self._hal_adjusted_max_memories()
         conn = sqlite3.connect(self._config.db_path(), check_same_thread=False)
         try:
             cur = conn.execute("SELECT COUNT(*) FROM memories")
             (n,) = cur.fetchone()
-            if n <= self._config.max_memories:
+            if n <= max_memories:
                 return
             cur = conn.execute(
                 "SELECT id, created_at, role, text, vector_idx FROM memories ORDER BY id ASC"
@@ -191,7 +194,7 @@ class MemoryStore:
             )
             scored.append((d, mid, created_at, role, text, vidx))
         scored.sort(key=lambda x: x[0])
-        n_drop = len(scored) - self._config.max_memories
+        n_drop = len(scored) - max_memories
         to_remove = set(t[1] for t in scored[:n_drop])
         if not to_remove:
             return
@@ -213,6 +216,19 @@ class MemoryStore:
                 conn.close()
             self._vectors = new_vectors
             self._save_vectors_file()
+
+    def _hal_adjusted_max_memories(self) -> int:
+        if self._hal is None:
+            return int(self._config.max_memories)
+        try:
+            state = getattr(self._hal, "state", None)
+            cortisol = float(getattr(state, "cortisol", 0.0))
+            endorphin = float(getattr(state, "endorphin", 0.0))
+            # AN: threat mode preserves more long-horizon evidence; flow mode prunes harder.
+            scale = 1.0 + 0.5 * cortisol - 0.35 * endorphin
+            return max(1, int(self._config.max_memories * max(0.25, scale)))
+        except Exception:
+            return int(self._config.max_memories)
 
     def iter_retrieval_rows(self) -> List[Tuple[int, float, str, str, bytes]]:
         """
@@ -247,6 +263,7 @@ class GhostMemory:
         self,
         config: Optional[GhostConfig] = None,
         embedder: Optional[EmbedFn] = None,
+        hal: object | None = None,
     ) -> None:
         """
         Construct a façade around :class:`MemoryStore` with the same options.
@@ -255,7 +272,7 @@ class GhostMemory:
         on first embedding call.
         """
         self._config = config or default_config()
-        self._store = MemoryStore(config=self._config, embedder=embedder)
+        self._store = MemoryStore(config=self._config, embedder=embedder, hal=hal)
 
     @property
     def config(self) -> GhostConfig:

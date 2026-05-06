@@ -8,7 +8,7 @@ import subprocess
 import tempfile
 
 try:
-    from anra_paths import inject_all_paths
+    from anra_paths import EPG_PATH, WORKSPACE_DIR, inject_all_paths
 
     inject_all_paths()
     from domain_verifiers import (
@@ -20,6 +20,8 @@ try:
         verify_verilog,
     )
 except Exception:  # pragma: no cover - optional Phase 3 bridge may be unavailable.
+    EPG_PATH = None
+    WORKSPACE_DIR = Path("workspace")
     verify_qiskit = verify_rdkit = verify_verilog = verify_constraint_json = verify_citation_grounding = verify_cross_domain_analogy = None
 
 
@@ -41,8 +43,8 @@ class VerificationResult:
 
 
 class VerifierHierarchy:
-    def __init__(self, workspace: str | Path = "workspace") -> None:
-        self.workspace = Path(workspace)
+    def __init__(self, workspace: str | Path | None = None) -> None:
+        self.workspace = Path(workspace) if workspace is not None else Path(WORKSPACE_DIR)
         self.workspace.mkdir(parents=True, exist_ok=True)
 
     def _safe_exec(self, code: str) -> ExecutionResult:
@@ -165,7 +167,7 @@ class VerifierHierarchy:
                     kwargs.get("domain_b", ""),
                     signature_a=kwargs.get("signature_a"),
                     signature_b=kwargs.get("signature_b"),
-                    epg_path=kwargs.get("epg_path"),
+                    epg_path=kwargs.get("epg_path") or EPG_PATH,
                 )
             )
         if task_type == "file_state":

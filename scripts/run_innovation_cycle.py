@@ -11,6 +11,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from anra_paths import ROOT
 from innovation.gap_scanner import scan
+from innovation.action_queue import queue_actions
 from innovation.schema import CapabilityGap, Hypothesis
 from innovation.scoreboard import score_hypothesis, write_report
 
@@ -68,7 +69,9 @@ def main() -> None:
         print(f"{idx:>4} | {score.total:>5.1f} | {score.decision:<16} | {hyp.description}")
     winners = [hyp for hyp in ranked if score_by_id[hyp.hyp_id].total >= 80]
     if winners:
+        queued = queue_actions(winners, score_by_id)
         print(f"**IMPLEMENT: {winners[0].description}**")
+        print(f"Queued actions: {len(queued)}")
     print(f"Report: {report_path}")
     print(f"Context: {context_path}")
 

@@ -86,6 +86,7 @@ from .domain_verifiers import (
     verify_constraint_json,
     verify_citation_grounding,
     verify_cross_domain_analogy,
+    dispatch_domain_verifier,
 )
 
 
@@ -115,7 +116,7 @@ __all__ = [
     "check_proof",
     "DomainVerificationResult", "verify_qiskit", "verify_rdkit",
     "verify_verilog", "verify_constraint_json", "verify_citation_grounding",
-    "verify_cross_domain_analogy",
+    "verify_cross_domain_analogy", "dispatch_domain_verifier",
     # Version
     "__version__",
 ]

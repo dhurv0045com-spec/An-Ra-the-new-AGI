@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import json
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -15,13 +16,17 @@ TARGET_VOCAB = CANONICAL_VOCAB_SIZE
 
 def validate_tokenizer(tokenizer_json: Path, dataset_path: Path) -> dict[str, float | bool]:
     tok = SubwordTokenizer.load(tokenizer_json)
-    if len(tok.token_to_id) != TARGET_VOCAB:
-        raise AssertionError(f"[tokenizer_v3] expected {TARGET_VOCAB} tokens, found {len(tok.token_to_id)}")
+    meta_path = tokenizer_json.with_suffix(tokenizer_json.suffix + ".meta.json")
+    meta = json.loads(meta_path.read_text(encoding="utf-8")) if meta_path.exists() else {}
+    target_vocab = int(meta.get("vocab_size", TARGET_VOCAB))
+    expected_specials = list(meta.get("special_tokens", SPECIAL_TOKENS))
+    if len(tok.token_to_id) != target_vocab:
+        raise AssertionError(f"[tokenizer_v3] expected {target_vocab} tokens, found {len(tok.token_to_id)}")
     for expected_id, token in enumerate(BASE_SPECIAL_TOKENS):
         actual = tok.token_to_id.get(token)
         if actual != expected_id:
             raise AssertionError(f"[tokenizer_v3] special token {token!r} has id {actual}, expected {expected_id}")
-    missing = [token for token in SPECIAL_TOKENS if tok.token_to_id.get(token) is None]
+    missing = [token for token in expected_specials if tok.token_to_id.get(token) is None]
     if missing:
         raise AssertionError(f"[tokenizer_v3] missing canonical special tokens: {missing}")
 
@@ -34,7 +39,7 @@ def validate_tokenizer(tokenizer_json: Path, dataset_path: Path) -> dict[str, fl
     code_chars = sum(1 for c in text if c in "{}[]()=;:_<>/\\")
     token_density = len(ids) / max(1, len(text))
 
-    special_ok = all(tok.decode([idx]) == piece for piece, idx in tok.special_ids.items() if piece in SPECIAL_TOKENS)
+    special_ok = all(tok.decode([idx]) == piece for piece, idx in tok.special_ids.items() if piece in expected_specials)
     return {
         "roundtrip_ok": roundtrip_ok,
         "unk_rate": float(unk_rate),

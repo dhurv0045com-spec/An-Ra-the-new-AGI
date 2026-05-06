@@ -32,6 +32,7 @@ from generate import (
 )
 from inference.full_system_connector import build_capability_graph
 from inference.optimize_context_window import ContextWindowOptimizer
+from runtime.hal_telemetry import read_hal_state
 
 START_TIME = time.time()
 _COLAB_DRIVE = DRIVE_SESSIONS
@@ -470,6 +471,11 @@ async def health_route():
         "uptime_seconds": time.time() - START_TIME,
         "sessions_active": len(SESSIONS),
     }
+
+
+@app.get("/hal/state")
+async def hal_state_route():
+    return read_hal_state()
 
 
 @app.post("/reset")

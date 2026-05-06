@@ -291,11 +291,12 @@ class Planner:
         - Mark dependent steps as needing re-evaluation
     """
 
-    def __init__(self, available_tools: List[str] = None):
+    def __init__(self, available_tools: List[str] = None, hal=None):
         self.available_tools = available_tools or [
             "web_search", "code_executor", "file_manager",
             "calculator", "memory_tool", "summarizer", "task_manager",
         ]
+        self.hal = hal
 
     def plan(self, goal: GoalSpec) -> ExecutionPlan:
         """
@@ -382,12 +383,32 @@ class Planner:
                 f"Estimated duration: {len(steps) * 2}-{len(steps) * 8} minutes"
             ),
         )
+        self._adapt_for_hal(plan)
 
         logger.info(
             f"Plan {plan_id} created: {len(steps)} steps, "
             f"type={goal_type}, risk={goal.risk.value}"
         )
         return plan
+
+    def _adapt_for_hal(self, plan: ExecutionPlan) -> None:
+        if self.hal is None:
+            return
+        state = getattr(self.hal, "state", None)
+        consecutive_failures = int(getattr(state, "consecutive_failures", 0) or 0)
+        if consecutive_failures <= 3:
+            return
+        for step in plan.steps:
+            step.retry_budget = min(step.retry_budget + 1, 5)
+            step.metadata["hal_distress_mode"] = True
+            if "self_modification" in step.tools:
+                step.tools = [tool for tool in step.tools if tool != "self_modification"] or ["memory_tool"]
+            if step.priority == StepPriority.CRITICAL and "verify" not in step.instruction.lower():
+                step.instruction += "\n\n[HAL distress mode] Reduce scope and add an explicit verifier check before completion."
+        plan.notes += (
+            "\nHAL adaptation: consecutive verifier failures exceeded 3; "
+            "plan scope tightened, verification pressure increased, self-modification paused."
+        )
 
     def replan(self, plan: ExecutionPlan, failed_step: Step, new_info: str = "") -> ExecutionPlan:
         """
