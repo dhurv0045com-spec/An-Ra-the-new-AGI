@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 
-NODE_TYPES = {"HYPOTHESIS", "ACTION", "OBSERVATION", "CORRECTION", "MEMORY"}
+NODE_TYPES = {"HYPOTHESIS", "ACTION", "OBSERVATION", "CORRECTION", "MEMORY", "CROSS_DOMAIN_ANALOGY"}
 EDGE_TYPES = {"produces", "falsifies", "updates", "stores", "replays"}
 
 
@@ -146,4 +146,3 @@ class ExperimentalProofGraph:
         data = json.loads(self.path.read_text(encoding="utf-8"))
         self.nodes = {row["node_id"]: EPGNode(**row) for row in data.get("nodes", [])}
         self.edges = {row["edge_id"]: EPGEdge(**row) for row in data.get("edges", [])}
-

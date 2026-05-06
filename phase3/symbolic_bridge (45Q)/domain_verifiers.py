@@ -268,6 +268,44 @@ def verify_citation_grounding(claim: str, epg_path: str | Path | None = None, me
     )
 
 
+def verify_cross_domain_analogy(
+    domain_a: str,
+    domain_b: str,
+    *,
+    signature_a: dict[str, Any] | None = None,
+    signature_b: dict[str, Any] | None = None,
+    epg_path: str | Path | None = None,
+) -> VerificationResult:
+    try:
+        from identity.constraint_isomorphism_search import ConstraintIsomorphismSearch
+    except Exception as exc:
+        return VerificationResult(
+            score=0.0,
+            tier="unavailable",
+            reason=f"constraint isomorphism search unavailable: {exc}",
+            verified=False,
+            label="UNKNOWN",
+        )
+
+    cis = ConstraintIsomorphismSearch()
+    candidate = cis.compare(domain_a, domain_b, signature_a=signature_a, signature_b=signature_b)
+    stored = False
+    if candidate.valid and epg_path is not None:
+        stored = cis.store_confirmed_analogy(candidate, epg_path)
+    shared = candidate.shared
+    reason = (
+        f"cross-domain analogy score={candidate.score:.3f}; "
+        f"shared invariants={shared.get('invariants', [])}"
+    )
+    return VerificationResult(
+        score=candidate.score,
+        tier="domain",
+        reason=reason,
+        verified=candidate.valid,
+        label="VERIFIED" if candidate.valid else "FALSIFIED",
+        properties={**candidate.to_dict(), "stored_in_epg": stored},
+    )
+
+
 def _terms(text: str) -> set[str]:
     return {part.strip(".,:;()[]{}<>\"'").lower() for part in text.split() if len(part.strip(".,:;()[]{}<>\"'")) >= 3}
-

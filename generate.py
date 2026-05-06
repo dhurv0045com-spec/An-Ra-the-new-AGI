@@ -9,7 +9,7 @@ from typing import Dict, Iterator, Optional
 
 import torch
 
-from anra_paths import ROOT, inject_all_paths
+from anra_paths import ROOT, STATE_DIR, inject_all_paths
 from training.v2_runtime import (
     build_v2_model,
     canonical_v2_checkpoint,
@@ -40,6 +40,11 @@ try:
     _GHOST_MEMORY = _GhostMemory()
 except Exception:
     _GHOST_MEMORY = None
+
+try:
+    from identity.hal import HALModule as _HALModule
+except Exception:
+    _HALModule = None
 
 
 @dataclass
@@ -75,6 +80,8 @@ class GenerationTrace:
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 _GHOST_STORE: Dict[str, dict] = {}
 _ACTIVE_GHOST: Dict[str, object] = {}
+_HAL_STORE: Dict[str, object] = {}
+_HAL_DIR = STATE_DIR / "hal_sessions"
 
 
 def _seed_all(seed: Optional[int]) -> None:
@@ -114,6 +121,69 @@ def _get_runtime():
     if _MODEL is None:
         _MODEL, _TOKENIZER, _LOADED_CHECKPOINT = _load_runtime()
     return _MODEL, _TOKENIZER, _LOADED_CHECKPOINT
+
+
+def _hal_path(session_id: str) -> Path:
+    safe = "".join(ch if ch.isalnum() or ch in {"-", "_"} else "_" for ch in session_id)[:96]
+    return _HAL_DIR / f"{safe or 'default'}.json"
+
+
+def _get_hal(session_id: str | None):
+    if _HALModule is None:
+        return None
+    key = session_id or "__default__"
+    if key in _HAL_STORE:
+        return _HAL_STORE[key]
+    path = _hal_path(key)
+    if path.exists():
+        try:
+            hal = _HALModule.load(path)
+        except Exception:
+            hal = _HALModule()
+    else:
+        hal = _HALModule()
+    _HAL_STORE[key] = hal
+    return hal
+
+
+def _save_hal(session_id: str | None, hal) -> None:
+    if hal is None:
+        return
+    try:
+        key = session_id or "__default__"
+        hal.save(_hal_path(key))
+    except Exception as exc:
+        logger.warning("HAL persistence failed for session %s: %s", session_id, exc)
+
+
+def _attach_hal(model, hal) -> None:
+    if hal is None:
+        return
+    try:
+        if hasattr(model, "hal"):
+            model.hal = hal
+        if hasattr(model, "model") and hasattr(model.model, "hal_module"):
+            model.model.hal_module = hal
+            model.model.use_hal = True
+        if hasattr(model, "hal_module"):
+            model.hal_module = hal
+            model.use_hal = True
+    except Exception as exc:
+        logger.warning("HAL attach failed: %s", exc)
+
+
+def _generation_quality(trace_output: str, entropy_curve: list[float], max_prob_curve: list[float], repeated: bool) -> float:
+    if not trace_output.strip():
+        return 0.1
+    mean_conf = sum(max_prob_curve) / max(1, len(max_prob_curve))
+    mean_entropy = sum(entropy_curve) / max(1, len(entropy_curve))
+    entropy_penalty = min(0.25, mean_entropy / 40.0)
+    reward = 0.45 + 0.45 * mean_conf - entropy_penalty
+    if repeated:
+        reward -= 0.35
+    if "<err>" in trace_output or "failed" in trace_output.lower():
+        reward -= 0.05
+    return max(0.0, min(1.0, reward))
 
 
 def _apply_repetition_penalty(logits: torch.Tensor, generated_ids: list[int], cfg: GenerationConfig) -> torch.Tensor:
@@ -196,6 +266,11 @@ def generate_traced(prompt: str, cfg: GenerationConfig, *, session_id: str | Non
         raise ValueError("prompt must not be empty")
     MODEL, TOKENIZER, LOADED_CHECKPOINT = _get_runtime()
     del LOADED_CHECKPOINT
+    hal = _get_hal(session_id)
+    if hal is not None:
+        _attach_hal(MODEL, hal)
+        cfg = GenerationConfig(**asdict(cfg))
+        cfg.temperature = hal.generation_temperature(cfg.temperature)
     _seed_all(cfg.seed)
 
     if cfg.use_think_tokens:
@@ -247,6 +322,26 @@ def generate_traced(prompt: str, cfg: GenerationConfig, *, session_id: str | Non
 
     repetition = detect_repetition(output_text)
     elapsed_ms = (time.perf_counter() - start) * 1000
+    if hal is not None:
+        quality = _generation_quality(
+            output_text,
+            entropy_curve,
+            max_prob_curve,
+            bool(repetition["repeated_ngrams_detected"]),
+        )
+        try:
+            hal.update(
+                verifier_result=quality,
+                session_context={
+                    "task_type": "generation",
+                    "domain": "conversation",
+                    "model_incoherence_self_detected": bool(repetition["repeated_ngrams_detected"]),
+                    "near_capability_boundary": quality < 0.35,
+                },
+            )
+            _save_hal(session_id, hal)
+        except Exception as exc:
+            logger.warning("HAL update failed: %s", exc)
     return GenerationTrace(
         output=output_text,
         strategy=cfg.strategy,

@@ -13,7 +13,7 @@ from torch.utils.data import Dataset
 
 from anra_paths import DRIVE_GHOST_DB, GHOST_DB_LOCAL, OUTPUT_V2_DIR, get_dataset_file, get_identity_file, get_teacher_files
 from identity.civ import ConstitutionalIdentityVector
-from training.v2_config import IDENTITY_KEYWORDS, TEACHER_REJECT_PATTERNS, V2_TRAINING
+from training.v2_config import IDENTITY_KEYWORDS, TEACHER_REJECT_PATTERNS, V2_1B_FRONTIER, V2_TRAINING
 
 from anra_paths import inject_all_paths
 inject_all_paths()
@@ -41,6 +41,7 @@ class TrainingExample:
     prompt: str
     answer: str
     source: str
+    weight: float = 1.0
     metadata: dict[str, object] = field(default_factory=dict)
 
 
@@ -533,6 +534,51 @@ def _load_replay_examples(style_filter: IdentityStyleFilter) -> list[TrainingExa
     return examples
 
 
+def _load_frontier_dfc_examples(
+    dataset_path: Path,
+    max_examples: int = 4096,
+) -> list[TrainingExample]:
+    """Load DFC-formatted frontier science examples."""
+    dfc_path = dataset_path.parent / "frontier_dfc.jsonl"
+    if not dfc_path.exists():
+        return []
+    examples: list[TrainingExample] = []
+    with dfc_path.open(encoding="utf-8") as f:
+        for line in f:
+            try:
+                obj = json.loads(line)
+                text = obj.get("text", "")
+                if not text or "<bos>" not in text:
+                    continue
+                # Split on first <task> close tag to get prompt/answer
+                if "</task>" in text:
+                    split_point = text.index("</task>") + len("</task>")
+                    prompt = text[:split_point]
+                    answer = text[split_point:]
+                else:
+                    prompt = text[: len(text) // 2]
+                    answer = text[len(text) // 2 :]
+                examples.append(
+                    TrainingExample(
+                        bucket="frontier_dfc",
+                        prompt=prompt,
+                        answer=answer,
+                        source="frontier_dfc",
+                        weight=1.5,
+                        metadata={
+                            "domain": obj.get("domain", ""),
+                            "template": obj.get("template", ""),
+                            "verified": bool(obj.get("verified", False)),
+                        },
+                    )
+                )
+                if len(examples) >= max_examples:
+                    break
+            except Exception:
+                continue
+    return examples
+
+
 def _sample_bucket(
     rng: random.Random,
     bucket: list[TrainingExample],
@@ -564,6 +610,7 @@ def build_v2_training_examples(
     teacher_examples = external_teacher_examples + _generate_teacher_examples(style_filter)
     symbolic_examples = _generate_symbolic_examples(style_filter)
     replay_examples = _load_replay_examples(style_filter)
+    frontier_examples = _load_frontier_dfc_examples(dataset_path)
 
     total_examples = min(max_examples or V2_TRAINING.max_mixture_examples, max(len(base_examples), 4000))
     own_ratio = V2_TRAINING.own_ratio if own_ratio is None else own_ratio
@@ -588,12 +635,28 @@ def build_v2_training_examples(
         "symbolic": int(total_examples * symbolic_ratio),
     }
     requested_counts["replay"] = total_examples - sum(requested_counts.values())
+    requested_counts["frontier_dfc"] = 0
+    if frontier_examples:
+        science_target = int(total_examples * getattr(V2_1B_FRONTIER, "science_ratio", 0.20))
+        protected = requested_counts["own"] + requested_counts["identity"]
+        science_target = min(science_target, max(0, total_examples - protected))
+        removable = requested_counts["teacher"] + requested_counts["symbolic"] + requested_counts["replay"]
+        science_target = min(science_target, removable, len(frontier_examples))
+        remaining = science_target
+        for bucket_name in ("replay", "symbolic", "teacher"):
+            take = min(requested_counts[bucket_name], remaining)
+            requested_counts[bucket_name] -= take
+            remaining -= take
+            if remaining <= 0:
+                break
+        requested_counts["frontier_dfc"] = science_target
 
     mixed = []
     mixed.extend(_sample_bucket(rng, base_examples, requested_counts["own"]))
     mixed.extend(_sample_bucket(rng, identity_examples, requested_counts["identity"]))
     mixed.extend(_sample_bucket(rng, teacher_examples, requested_counts["teacher"]))
     mixed.extend(_sample_bucket(rng, symbolic_examples, requested_counts["symbolic"]))
+    mixed.extend(_sample_bucket(rng, frontier_examples, requested_counts["frontier_dfc"]))
 
     replay_target = requested_counts["replay"]
     if replay_examples:
@@ -665,7 +728,9 @@ class V2ConversationDataset(Dataset):
                 overlap_start = max(answer_start, target_start)
                 overlap_end = min(answer_end, target_end)
                 if overlap_end > overlap_start:
-                    weights[overlap_start - target_start : overlap_end - target_start] = self.answer_loss_weight
+                    weights[overlap_start - target_start : overlap_end - target_start] = (
+                        self.answer_loss_weight * float(getattr(example, "weight", 1.0))
+                    )
                     weighted_targets += overlap_end - overlap_start
 
                 self.samples.append((x, y, weights, example_idx))

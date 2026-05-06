@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 ouroboros.py — Phase 3 | Component 45O
 OuroborosDecoder: Recursive depth without added parameters.
@@ -14,6 +16,11 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from typing import Optional, Tuple
+
+try:
+    from identity.hal import HALModule
+except Exception:
+    HALModule = None
 
 
 class OuroborosDecoder(nn.Module):
@@ -34,11 +41,12 @@ class OuroborosDecoder(nn.Module):
     No new attention heads. No new feedforward stacks.
     """
 
-    def __init__(self, base_model: nn.Module, n_passes: int = 3):
+    def __init__(self, base_model: nn.Module, n_passes: int = 3, hal: HALModule | None = None):
         super().__init__()
 
         self.model    = base_model
         self.n_passes = n_passes
+        self.hal = hal
         self.d_model  = base_model.d_model  # expect base_model to expose this
         self.vocab_size = int(getattr(base_model, "vocab_size"))
         self.pad_token_id = int(getattr(base_model, "pad_token_id", 0))
@@ -104,7 +112,14 @@ class OuroborosDecoder(nn.Module):
         pass_hiddens = []
 
         # Normalize blend weights so they sum to 1 (softmax-style stability)
-        blend = F.softmax(self.blend_weights, dim=0)  # (n_passes,)
+        if self.hal is not None:
+            w = self.hal.ouroboros_weights(
+                base_weights=F.softmax(self.blend_weights, dim=0).tolist()
+            )
+            blend = torch.tensor(w, device=self.blend_weights.device,
+                                 dtype=self.blend_weights.dtype)
+        else:
+            blend = F.softmax(self.blend_weights, dim=0)
 
         for pass_idx in range(self.n_passes):
 

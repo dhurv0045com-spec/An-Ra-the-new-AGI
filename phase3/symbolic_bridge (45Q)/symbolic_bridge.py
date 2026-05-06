@@ -104,6 +104,7 @@ verify_rdkit = _mod.verify_rdkit
 verify_verilog = _mod.verify_verilog
 verify_constraint_json = _mod.verify_constraint_json
 verify_citation_grounding = _mod.verify_citation_grounding
+verify_cross_domain_analogy = _mod.verify_cross_domain_analogy
 
 __version__ = getattr(_mod, "__version__", "1.0.0")
 
@@ -121,6 +122,7 @@ __all__ = [
     "to_cnf", "parse_logic_formula", "solve_cnf", "check_proof",
     "DomainVerificationResult", "verify_qiskit", "verify_rdkit",
     "verify_verilog", "verify_constraint_json", "verify_citation_grounding",
+    "verify_cross_domain_analogy",
     "__version__",
 ]
 

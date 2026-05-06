@@ -16,6 +16,11 @@ import copy
 from dataclasses import dataclass
 
 try:
+    from identity.hal import HALModule
+except Exception:
+    HALModule = None
+
+try:
     import torch
     import torch.nn.functional as F
 except Exception:  # pragma: no cover - structural tests can still inspect this module.
@@ -61,6 +66,7 @@ class RLVRTrainer:
         tokenizer,
         optimizer: torch.optim.Optimizer,
         verifier,
+        hal: HALModule | None = None,
         G: int = 4,
         kl_coeff: float = 0.04,
         max_new_tokens: int = 256,
@@ -75,6 +81,7 @@ class RLVRTrainer:
         self.tokenizer = tokenizer
         self.optimizer = optimizer
         self.verifier = verifier
+        self.hal = hal
         self.G = int(G)
         self.kl_coeff = float(kl_coeff)
         self.max_new_tokens = int(max_new_tokens)
@@ -88,6 +95,8 @@ class RLVRTrainer:
             p.requires_grad_(False)
         self._ref_model.eval()
         self._steps_since_sync = 0
+        self._consecutive_failures: int = 0
+        self._last_effective_kl = self.kl_coeff
 
     def sync_reference(self) -> None:
         """Refresh the KL anchor from the current policy."""
@@ -212,6 +221,17 @@ class RLVRTrainer:
                 reward += self.entropy_bonus * self._completion_entropy(task.prompt, c)
             rewards.append(reward)
 
+        if self.hal is not None:
+            mean_reward_now = sum(rewards) / max(1, len(rewards))
+            self.hal.update(
+                verifier_result=mean_reward_now,
+                session_context={
+                    "consecutive_failures": self._consecutive_failures,
+                    "domain": getattr(task, "domain", ""),
+                    "task_type": getattr(task, "task_type", ""),
+                },
+            )
+
         r = torch.tensor(rewards, dtype=torch.float32)
         mean_r = r.mean()
         std_r = r.std(unbiased=False) + 1e-8
@@ -235,11 +255,22 @@ class RLVRTrainer:
         group_size = max(1, len(completions))
         policy_loss = policy_loss / group_size
         kl_loss = kl_loss / group_size
-        total_loss = policy_loss + self.kl_coeff * kl_loss
+        effective_kl = (
+            self.hal.kl_coefficient(self.kl_coeff)
+            if self.hal is not None
+            else self.kl_coeff
+        )
+        self._last_effective_kl = float(effective_kl)
+        total_loss = policy_loss + effective_kl * kl_loss
 
         total_loss.backward()
         torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.grad_clip)
         self.optimizer.step()
+        mean_r_val = sum(rewards) / max(1, len(rewards))
+        if mean_r_val < 0.35:
+            self._consecutive_failures += 1
+        else:
+            self._consecutive_failures = 0
         self._steps_since_sync += 1
         if self._steps_since_sync >= 100:
             self.sync_reference()

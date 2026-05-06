@@ -14,12 +14,13 @@ try:
     from domain_verifiers import (
         verify_citation_grounding,
         verify_constraint_json,
+        verify_cross_domain_analogy,
         verify_qiskit,
         verify_rdkit,
         verify_verilog,
     )
 except Exception:  # pragma: no cover - optional Phase 3 bridge may be unavailable.
-    verify_qiskit = verify_rdkit = verify_verilog = verify_constraint_json = verify_citation_grounding = None
+    verify_qiskit = verify_rdkit = verify_verilog = verify_constraint_json = verify_citation_grounding = verify_cross_domain_analogy = None
 
 
 @dataclass
@@ -157,6 +158,16 @@ class VerifierHierarchy:
             return self._from_domain_result(verify_constraint_json(kwargs.get("constraints", {}), kwargs.get("candidate", {})))
         if task_type == "citation_grounding" and verify_citation_grounding is not None:
             return self._from_domain_result(verify_citation_grounding(kwargs.get("claim", kwargs.get("response", "")), kwargs.get("epg_path"), kwargs.get("memory_nodes")))
+        if task_type == "cross_domain_analogy" and verify_cross_domain_analogy is not None:
+            return self._from_domain_result(
+                verify_cross_domain_analogy(
+                    kwargs.get("domain_a", ""),
+                    kwargs.get("domain_b", ""),
+                    signature_a=kwargs.get("signature_a"),
+                    signature_b=kwargs.get("signature_b"),
+                    epg_path=kwargs.get("epg_path"),
+                )
+            )
         if task_type == "file_state":
             return self.verify_file_state(kwargs.get("check_fn", lambda: False))
         if task_type == "instruction":
