@@ -7,6 +7,20 @@ import re
 import subprocess
 import tempfile
 
+try:
+    from anra_paths import inject_all_paths
+
+    inject_all_paths()
+    from domain_verifiers import (
+        verify_citation_grounding,
+        verify_constraint_json,
+        verify_qiskit,
+        verify_rdkit,
+        verify_verilog,
+    )
+except Exception:  # pragma: no cover - optional Phase 3 bridge may be unavailable.
+    verify_qiskit = verify_rdkit = verify_verilog = verify_constraint_json = verify_citation_grounding = None
+
 
 @dataclass
 class ExecutionResult:
@@ -133,8 +147,28 @@ class VerifierHierarchy:
             return self.verify_code(kwargs.get("code", ""), kwargs.get("test_code", ""))
         if task_type == "math":
             return self.verify_math(kwargs.get("expression", ""), kwargs.get("expected", ""))
+        if task_type == "qiskit" and verify_qiskit is not None:
+            return self._from_domain_result(verify_qiskit(kwargs.get("qasm", kwargs.get("code", "")), kwargs.get("target_topology", "linear_nn")))
+        if task_type == "rdkit" and verify_rdkit is not None:
+            return self._from_domain_result(verify_rdkit(kwargs.get("smiles", kwargs.get("molecule", kwargs.get("response", "")))))
+        if task_type in {"verilog", "verilator"} and verify_verilog is not None:
+            return self._from_domain_result(verify_verilog(kwargs.get("verilog", kwargs.get("code", "")), kwargs.get("testbench", kwargs.get("test_code", ""))))
+        if task_type == "constraint_json" and verify_constraint_json is not None:
+            return self._from_domain_result(verify_constraint_json(kwargs.get("constraints", {}), kwargs.get("candidate", {})))
+        if task_type == "citation_grounding" and verify_citation_grounding is not None:
+            return self._from_domain_result(verify_citation_grounding(kwargs.get("claim", kwargs.get("response", "")), kwargs.get("epg_path"), kwargs.get("memory_nodes")))
         if task_type == "file_state":
             return self.verify_file_state(kwargs.get("check_fn", lambda: False))
         if task_type == "instruction":
             return self.verify_instruction(kwargs.get("response", ""), kwargs.get("pattern", ".*"))
         return self.verify_open_ended(kwargs.get("task", ""), kwargs.get("response", ""))
+
+    def _from_domain_result(self, result) -> VerificationResult:
+        return VerificationResult(
+            float(getattr(result, "score", 0.0)),
+            1,
+            str(getattr(result, "reason", "")),
+            str(getattr(result, "stdout", "")),
+            str(getattr(result, "stderr", "")),
+            int(getattr(result, "return_code", 0)),
+        )

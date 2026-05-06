@@ -13,6 +13,10 @@ import torch.nn as nn
 from torch.nn import functional as F
 
 from identity.esv import ESVModule
+try:
+    from identity.hal import HALModule
+except Exception:  # pragma: no cover - HAL is optional for old runtimes.
+    HALModule = None
 from tokenizer.char_tokenizer import CharTokenizer
 
 
@@ -179,7 +183,7 @@ class BlockV2(nn.Module):
 
 
 class CausalTransformerV2(nn.Module):
-    def __init__(self, vocab_size: int, n_embd: int, n_head: int, n_layer: int, block_size: int, *, n_kv_head: int | None = None, rms_norm_eps: float = 1e-5, dropout: float = 0.0, mod_layers=(), base_seq_len: int = 512, target_seq_len: int = 2048, pad_token_id: int = 0, use_layer_temperature_bias: bool = True):
+    def __init__(self, vocab_size: int, n_embd: int, n_head: int, n_layer: int, block_size: int, *, n_kv_head: int | None = None, rms_norm_eps: float = 1e-5, dropout: float = 0.0, mod_layers=(), base_seq_len: int = 512, target_seq_len: int = 2048, pad_token_id: int = 0, use_layer_temperature_bias: bool = True, use_hal: bool = False, hal_module=None):
         super().__init__()
         if not 0 <= pad_token_id < vocab_size:
             raise ValueError(f"pad_token_id={pad_token_id} must be within vocab_size={vocab_size}")
@@ -195,6 +199,7 @@ class CausalTransformerV2(nn.Module):
         self.base_seq_len = base_seq_len
         self.target_seq_len = target_seq_len
         self.use_layer_temperature_bias = bool(use_layer_temperature_bias)
+        self.use_hal = bool(use_hal)
         self.token_embedding_table = nn.Embedding(vocab_size, n_embd)
         self.blocks = nn.ModuleList([BlockV2(n_embd, n_head, n_kv_head=self.n_kv_head, eps=rms_norm_eps, dropout=dropout, base_seq_len=base_seq_len, target_seq_len=target_seq_len) for _ in range(n_layer)])
         self.mod_routers = nn.ModuleDict({str(i): MoDRouter(n_embd) for i in mod_layers})
@@ -203,6 +208,14 @@ class CausalTransformerV2(nn.Module):
         self.lm_head.weight = self.token_embedding_table.weight
         self.apply(self._init_weights)
         self.esv_module = ESVModule(d_model=n_embd, d_esv=min(64, n_embd))
+        if self.use_hal:
+            if hal_module is not None:
+                self.hal_module = hal_module
+            elif HALModule is not None:
+                # AN: HAL is optional so existing V2 checkpoints keep loading unchanged.
+                self.hal_module = HALModule()
+            else:
+                self.use_hal = False
         if self.use_layer_temperature_bias:
             # AN: let each block learn how strongly shared ESV arousal should shape its attention.
             self.layer_temperature_bias = nn.Parameter(torch.ones(n_layer))
@@ -216,7 +229,7 @@ class CausalTransformerV2(nn.Module):
             nn.init.normal_(module.weight, mean=0.0, std=0.02)
 
     def model_config(self) -> dict[str, int | bool]:
-        return {"vocab_size": self.vocab_size, "pad_token_id": self.pad_token_id, "n_embd": self.n_embd, "n_head": self.n_head, "n_layer": self.n_layer, "block_size": self.block_size, "n_kv_head": self.n_kv_head, "base_seq_len": self.base_seq_len, "target_seq_len": self.target_seq_len, "use_layer_temperature_bias": self.use_layer_temperature_bias}
+        return {"vocab_size": self.vocab_size, "pad_token_id": self.pad_token_id, "n_embd": self.n_embd, "n_head": self.n_head, "n_layer": self.n_layer, "block_size": self.block_size, "n_kv_head": self.n_kv_head, "base_seq_len": self.base_seq_len, "target_seq_len": self.target_seq_len, "use_layer_temperature_bias": self.use_layer_temperature_bias, "use_hal": self.use_hal}
 
     def embed(self, idx: torch.Tensor) -> torch.Tensor:
         """Expose canonical token embedding for milestone reasoning wrappers."""
@@ -226,7 +239,10 @@ class CausalTransformerV2(nn.Module):
         """Run residual stream. ESV updates per block for layer-wise temperature."""
         for i, block in enumerate(self.blocks):
             esv_state = self.esv_module(x)
-            attention_temperature = self.esv_module.attention_temperature_tensor(esv_state)
+            if self.use_hal and hasattr(self, "hal_module"):
+                attention_temperature = self.hal_module.attention_temperature_tensor(device=x.device, dtype=x.dtype)
+            else:
+                attention_temperature = self.esv_module.attention_temperature_tensor(esv_state)
             if self.use_layer_temperature_bias:
                 attention_temperature = attention_temperature * self.layer_temperature_bias[i]
             key = str(i)

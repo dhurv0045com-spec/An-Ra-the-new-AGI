@@ -15,8 +15,9 @@ class CIVProfile:
 
 
 class ConstitutionalIdentityVector:
-    def __init__(self, profile: CIVProfile | None = None) -> None:
+    def __init__(self, profile: CIVProfile | None = None, hal_module: Any | None = None) -> None:
         self.profile = profile or CIVProfile()
+        self.hal_module = hal_module
 
     def update(self, evidence: dict[str, float], alpha: float = 0.05) -> None:
         alpha = max(0.0, min(1.0, float(alpha)))
@@ -34,7 +35,15 @@ class ConstitutionalIdentityVector:
         for k, v in evidence.items():
             if k in vals:
                 vals[k] = max(0.0, min(1.0, 0.7 * vals[k] + 0.3 * float(v)))
-        return sum(vals.values()) / len(vals)
+        score = sum(vals.values()) / len(vals)
+        if self.hal_module is not None:
+            apply_evidence = getattr(self.hal_module, "apply_civ_evidence", None)
+            apply_score = getattr(self.hal_module, "apply_civ_score", None)
+            if callable(apply_evidence):
+                apply_evidence(vals)
+            elif callable(apply_score):
+                apply_score(score)
+        return score
 
     def verify(self, min_score: float = 0.7, evidence: dict[str, float] | None = None) -> dict:
         s = self.score(evidence)

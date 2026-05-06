@@ -227,12 +227,39 @@ class SubwordTokenizer:
                 pos += len(matched)
         return ids
 
+    def _split_preserving_specials(self, text: str) -> list[str]:
+        if not text:
+            return []
+        specials = sorted((tok for tok in self.special_tokens if tok), key=len, reverse=True)
+        if not specials:
+            return _TOKEN_PATTERN.findall(text)
+        pieces: list[str] = []
+        pos = 0
+        while pos < len(text):
+            matched = None
+            for token in specials:
+                if text.startswith(token, pos):
+                    matched = token
+                    break
+            if matched is not None:
+                pieces.append(matched)
+                pos += len(matched)
+                continue
+            next_special = len(text)
+            for token in specials:
+                idx = text.find(token, pos + 1)
+                if idx != -1:
+                    next_special = min(next_special, idx)
+            pieces.extend(_TOKEN_PATTERN.findall(text[pos:next_special]))
+            pos = next_special
+        return pieces
+
     def encode(self, text: str, *, add_special_tokens: bool = False) -> list[int]:
         if self.backend == "hf":
             ids = self._tokenizer.encode(text).ids
         else:
             ids = []
-            for piece in _TOKEN_PATTERN.findall(text):
+            for piece in self._split_preserving_specials(text):
                 ids.extend(self._fallback_encode_piece(piece))
         if add_special_tokens:
             return [self.bos_token_id, *ids, self.eos_token_id]

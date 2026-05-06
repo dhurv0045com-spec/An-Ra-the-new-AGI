@@ -6,34 +6,24 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from tokenizer.subword_tokenizer import SubwordTokenizer
+from training.v2_config import BASE_SPECIAL_TOKENS, CANONICAL_SPECIAL_TOKENS, CANONICAL_VOCAB_SIZE
 
 
-SPECIAL_TOKENS = [
-    "<pad>",
-    "<unk>",
-    "<bos>",
-    "<eos>",
-    "<sep>",
-    "<code>",
-    "</code>",
-    "<think>",
-    "</think>",
-    "<goal>",
-    "<ESV:v>",
-    "<ESV:a>",
-    "<ESV:d>",
-]
-TARGET_VOCAB = 8192
+SPECIAL_TOKENS = CANONICAL_SPECIAL_TOKENS
+TARGET_VOCAB = CANONICAL_VOCAB_SIZE
 
 
 def validate_tokenizer(tokenizer_json: Path, dataset_path: Path) -> dict[str, float | bool]:
     tok = SubwordTokenizer.load(tokenizer_json)
     if len(tok.token_to_id) != TARGET_VOCAB:
         raise AssertionError(f"[tokenizer_v3] expected {TARGET_VOCAB} tokens, found {len(tok.token_to_id)}")
-    for expected_id, token in enumerate(SPECIAL_TOKENS):
+    for expected_id, token in enumerate(BASE_SPECIAL_TOKENS):
         actual = tok.token_to_id.get(token)
         if actual != expected_id:
             raise AssertionError(f"[tokenizer_v3] special token {token!r} has id {actual}, expected {expected_id}")
+    missing = [token for token in SPECIAL_TOKENS if tok.token_to_id.get(token) is None]
+    if missing:
+        raise AssertionError(f"[tokenizer_v3] missing canonical special tokens: {missing}")
 
     text = dataset_path.read_text(encoding='utf-8', errors='replace')[:20000]
 

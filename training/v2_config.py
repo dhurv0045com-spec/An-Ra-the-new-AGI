@@ -4,15 +4,50 @@ from dataclasses import dataclass
 
 
 MODEL_LINE = "v2"
-CANONICAL_VOCAB_SIZE = 8192
+BASE_VOCAB_SIZE = 8192
 CANONICAL_PAD_TOKEN_ID = 0
 CANONICAL_UNK_TOKEN_ID = 1
-CANONICAL_SPECIAL_TOKENS = ["<pad>", "<unk>", "<bos>", "<eos>"]
+BASE_SPECIAL_TOKENS = [
+    "<pad>",
+    "<unk>",
+    "<bos>",
+    "<eos>",
+    "<sep>",
+    "<code>",
+    "</code>",
+    "<think>",
+    "</think>",
+    "<goal>",
+    "<ESV:v>",
+    "<ESV:a>",
+    "<ESV:d>",
+]
+DFC_SPECIAL_TOKENS = [
+    "<state>",
+    "</state>",
+    "</goal>",
+    "<cons>",
+    "</cons>",
+    "<hyp>",
+    "</hyp>",
+    "<act>",
+    "</act>",
+    "<obs>",
+    "</obs>",
+    "<verify>",
+    "</verify>",
+    "<upd>",
+    "</upd>",
+    "<err>",
+    "</err>",
+]
+CANONICAL_SPECIAL_TOKENS = BASE_SPECIAL_TOKENS + DFC_SPECIAL_TOKENS
+CANONICAL_VOCAB_SIZE = BASE_VOCAB_SIZE + len(DFC_SPECIAL_TOKENS)
 
 
 @dataclass(frozen=True)
 class V2ModelConfig:
-    vocab_size: int = CANONICAL_VOCAB_SIZE
+    vocab_size: int = BASE_VOCAB_SIZE
     pad_token_id: int = CANONICAL_PAD_TOKEN_ID
     n_embd: int = 512
     n_head: int = 8
@@ -24,6 +59,28 @@ class V2ModelConfig:
     mod_layers: tuple = (2, 4, 6)
     base_seq_len: int = 512
     target_seq_len: int = 2048
+    use_hal: bool = False
+
+
+@dataclass(frozen=True)
+class V2FrontierModelConfig(V2ModelConfig):
+    n_embd: int = 1536
+    n_layer: int = 28
+    n_head: int = 16
+    n_kv_head: int = 4
+    block_size: int = 2048
+    vocab_size: int = CANONICAL_VOCAB_SIZE
+    science_ratio: float = 0.30
+    action_trace_ratio: float = 0.20
+    constraint_ratio: float = 0.20
+    cross_domain_ratio: float = 0.10
+    identity_ratio: float = 0.10
+    base_ratio: float = 0.10
+    aux_constraint_loss_weight: float = 0.25
+    aux_prediction_loss_weight: float = 0.20
+    aux_uncertainty_loss_weight: float = 0.15
+    rlvr_tool_reward_weight: float = 1.0
+    use_hal: bool = True
 
 
 @dataclass(frozen=True)
@@ -48,6 +105,7 @@ class V2TrainingConfig:
 
 
 V2_MODEL = V2ModelConfig()
+V2_1B_FRONTIER = V2FrontierModelConfig()
 V2_TRAINING = V2TrainingConfig()
 EXPECTED_TOKENIZER_VOCAB_SIZE = CANONICAL_VOCAB_SIZE
 EXPECTED_PAD_TOKEN_ID = CANONICAL_PAD_TOKEN_ID

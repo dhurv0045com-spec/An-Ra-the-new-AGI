@@ -1,5 +1,5 @@
 {
-  "vocab_size": 8192,
+  "vocab_size": 8209,
   "special_tokens": [
     "<pad>",
     "<unk>",
@@ -13,7 +13,24 @@
     "<goal>",
     "<ESV:v>",
     "<ESV:a>",
-    "<ESV:d>"
+    "<ESV:d>",
+    "<state>",
+    "</state>",
+    "</goal>",
+    "<cons>",
+    "</cons>",
+    "<hyp>",
+    "</hyp>",
+    "<act>",
+    "</act>",
+    "<obs>",
+    "</obs>",
+    "<verify>",
+    "</verify>",
+    "<upd>",
+    "</upd>",
+    "<err>",
+    "</err>"
   ],
   "model_type": "fallback_unigram",
   "backend": "fallback"

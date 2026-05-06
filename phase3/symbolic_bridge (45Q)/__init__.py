@@ -78,6 +78,14 @@ from .pollard_rho import factorise as pollard_rho_factorise
 from .cnf_converter import to_cnf, parse_formula as parse_logic_formula
 from .dpll_solver import solve_cnf, verify_assignment
 from .natural_deduction import check_proof
+from .domain_verifiers import (
+    VerificationResult as DomainVerificationResult,
+    verify_qiskit,
+    verify_rdkit,
+    verify_verilog,
+    verify_constraint_json,
+    verify_citation_grounding,
+)
 
 
 __version__ = VERSION
@@ -104,6 +112,8 @@ __all__ = [
     "miller_rabin_is_prime", "pollard_rho_factorise",
     "to_cnf", "parse_logic_formula", "solve_cnf",
     "check_proof",
+    "DomainVerificationResult", "verify_qiskit", "verify_rdkit",
+    "verify_verilog", "verify_constraint_json", "verify_citation_grounding",
     # Version
     "__version__",
 ]
