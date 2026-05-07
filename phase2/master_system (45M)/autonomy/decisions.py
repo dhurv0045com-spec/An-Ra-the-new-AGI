@@ -6,7 +6,7 @@ Owner configures tier boundaries. System defaults conservative on ambiguity.
 """
 
 import uuid, json, sqlite3, threading
-from datetime import datetime
+from datetime import datetime, timezone
 from dataclasses import dataclass, asdict, field
 from typing import Optional, List, Dict, Any, Callable
 from pathlib import Path
@@ -186,7 +186,7 @@ class DecisionFramework:
         tier = self._classify(category, reversible, stakes)
         req  = DecisionRequest(
             request_id      = str(uuid.uuid4()),
-            timestamp       = datetime.utcnow().isoformat(),
+            timestamp       = datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
             title           = title,
             description     = description,
             proposed_action = proposed_action,
@@ -207,7 +207,7 @@ class DecisionFramework:
         if tier == Tier.ONE:
             req.status   = "approved"
             req.decided_by = "autonomous"
-            req.decided_at = datetime.utcnow().isoformat()
+            req.decided_at = datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
             self.db.save_decision(req)
             if execute_fn:
                 self._execute(req, execute_fn)
@@ -233,7 +233,7 @@ class DecisionFramework:
         except Exception as e:
             req.outcome = f"ERROR: {e}"
             req.status  = "error"
-        req.decided_at = datetime.utcnow().isoformat()
+        req.decided_at = datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
         self.db.save_decision(req)
 
     def _notify_tier2(self, req: DecisionRequest, execute_fn: Optional[Callable]):
@@ -276,7 +276,7 @@ class DecisionFramework:
             return False
         req.status    = "approved"
         req.decided_by = "owner"
-        req.decided_at = datetime.utcnow().isoformat()
+        req.decided_at = datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
         self.db.save_decision(req)
         if request_id in self._pending_timers:
             self._pending_timers[request_id].cancel()
@@ -292,7 +292,7 @@ class DecisionFramework:
             self._pending_timers[request_id].cancel()
         req.status    = "rejected"
         req.decided_by = "owner"
-        req.decided_at = datetime.utcnow().isoformat()
+        req.decided_at = datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
         req.outcome   = reason
         self.db.save_decision(req)
         return True

@@ -9,7 +9,7 @@ domain adaptation, and model scaling recommendations.
 """
 
 import json, uuid, time, threading, sqlite3, hashlib, logging, sys
-from datetime import datetime
+from datetime import datetime, timezone
 from dataclasses import dataclass, asdict, field
 from typing import Optional, List, Dict, Any, Tuple
 from pathlib import Path
@@ -281,7 +281,7 @@ class ContinuousLearning:
 
         ex = TrainingExample(
             example_id  = hashlib.sha256((input_text+output_text).encode()).hexdigest()[:16],
-            timestamp   = datetime.utcnow().isoformat(),
+            timestamp   = datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
             source      = source,
             quality     = quality,
             input_text  = input_text[:2000],
@@ -375,7 +375,7 @@ class DistributedTrainer:
     def start_run(self, config: dict, examples: List[dict]) -> TrainingRun:
         run = TrainingRun(
             run_id      = str(uuid.uuid4()),
-            started_at  = datetime.utcnow().isoformat(),
+            started_at  = datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
             config      = config,
             total_steps = config.get("max_steps", 1000),
         )
@@ -436,7 +436,7 @@ class DistributedTrainer:
                     
                     run.status = "done"
                     run.final_loss = finetuner.train_losses[-1] if finetuner.train_losses else 0.0
-                    run.completed_at = datetime.utcnow().isoformat()
+                    run.completed_at = datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
                     self.db.save_run(run)
                     
                 except ImportError as e:
@@ -472,7 +472,7 @@ class DistributedTrainer:
 
         run.status     = "done"
         run.final_loss = loss
-        run.completed_at = datetime.utcnow().isoformat()
+        run.completed_at = datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
         ckpt = CKPT_DIR / f"run_{run.run_id[:8]}_stub.json"
         ckpt.write_text(json.dumps({"run_id": run.run_id, "final_loss": loss}))
         run.checkpoint = str(ckpt)
@@ -534,7 +534,7 @@ class DistributedTrainer:
         run.status     = "done"
         run.final_loss = float(loss)
         run.checkpoint = ckpt_path
-        run.completed_at = datetime.utcnow().isoformat()
+        run.completed_at = datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
         self.db.save_run(run)
 
 
@@ -584,7 +584,7 @@ class ScaleManager:
         hw  = self.trainer.hardware_profile()
         b   = ScaleBenchmark(
             config_name    = config_name,
-            timestamp      = datetime.utcnow().isoformat(),
+            timestamp      = datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
             loss           = loss,
             perplexity     = ppl,
             tokens_per_sec = tokens_per_sec,

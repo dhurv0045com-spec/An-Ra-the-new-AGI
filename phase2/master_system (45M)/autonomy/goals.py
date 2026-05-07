@@ -7,7 +7,7 @@ Handles priority, dependencies, and archiving.
 """
 
 import uuid, json, sqlite3, threading
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from dataclasses import dataclass, asdict, field
 from typing import Optional, List, Dict, Any
 from pathlib import Path
@@ -149,7 +149,7 @@ class GoalManager:
         depends_on:   List[str] = None,
         tags:         List[str] = None,
     ) -> Goal:
-        now   = datetime.utcnow()
+        now   = datetime.now(timezone.utc).replace(tzinfo=None)
         target = now + timedelta(days=horizon_days)
         goal  = Goal(
             goal_id      = str(uuid.uuid4()),
@@ -217,7 +217,7 @@ class GoalManager:
         for s in steps:
             if s.step_id == step_id:
                 s.status       = status
-                s.completed_at = datetime.utcnow().isoformat()
+                s.completed_at = datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
                 s.output       = output
                 self.db.save_step(s)
                 break
@@ -226,9 +226,9 @@ class GoalManager:
         all_steps = self.db.get_steps(goal_id)
         done = sum(1 for s in all_steps if s.status == "done")
         goal.progress_pct = round(100 * done / len(all_steps), 1) if all_steps else 0
-        goal.last_update  = datetime.utcnow().isoformat()
+        goal.last_update  = datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
         goal.history.append({
-            "ts":     datetime.utcnow().isoformat(),
+            "ts":     datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
             "event":  f"Step completed: {step_id}",
             "output": output[:200] if output else "",
         })
@@ -236,7 +236,7 @@ class GoalManager:
         # Auto-complete if all done
         if goal.progress_pct == 100:
             goal.status       = GoalStatus.COMPLETED
-            goal.completed_at = datetime.utcnow().isoformat()
+            goal.completed_at = datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
 
         self.db.save_goal(goal)
         return goal
@@ -246,7 +246,7 @@ class GoalManager:
         if not goal: return
         goal.status  = GoalStatus.BLOCKED
         goal.blocker = blocker
-        goal.history.append({"ts": datetime.utcnow().isoformat(), "event": f"BLOCKED: {blocker}"})
+        goal.history.append({"ts": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(), "event": f"BLOCKED: {blocker}"})
         self.db.save_goal(goal)
 
     def clear_blocker(self, goal_id: str):
@@ -254,7 +254,7 @@ class GoalManager:
         if not goal: return
         goal.status  = GoalStatus.ACTIVE
         goal.blocker = None
-        goal.history.append({"ts": datetime.utcnow().isoformat(), "event": "Blocker cleared"})
+        goal.history.append({"ts": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(), "event": "Blocker cleared"})
         self.db.save_goal(goal)
 
     def estimate_completion(self, goal_id: str) -> str:
@@ -273,7 +273,7 @@ class GoalManager:
         rate    = len(done_steps) / max(elapsed, 0.1)     # steps per hour
         remaining = len([s for s in steps if s.status == "pending"])
         hours_left = remaining / rate
-        estimate   = datetime.utcnow() + timedelta(hours=hours_left)
+        estimate   = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(hours=hours_left)
         goal.completion_estimate = estimate.isoformat()
         self.db.save_goal(goal)
         return estimate.isoformat()
@@ -285,7 +285,7 @@ class GoalManager:
         overdue = []
         on_track = []
 
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
         for g in active:
             target = datetime.fromisoformat(g.target_date)
             expected_pct = 100 * (now - datetime.fromisoformat(g.start_date)).total_seconds() \

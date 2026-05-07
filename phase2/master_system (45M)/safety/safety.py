@@ -9,7 +9,7 @@ killswitch.py      — Emergency stop
 """
 
 import os, uuid, json, sqlite3, threading, time, hashlib
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from dataclasses import dataclass, asdict, field
 from typing import Optional, List, Dict, Any, Callable, Tuple
 from pathlib import Path
@@ -65,7 +65,7 @@ class SafetyDB:
                 (limit,)).fetchall()
         entries = [json.loads(r[0]) for r in rows]
         if since_hours:
-            cutoff = (datetime.utcnow() - timedelta(hours=since_hours)).isoformat()
+            cutoff = (datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=since_hours)).isoformat()
             entries = [e for e in entries if e.get("timestamp", "") >= cutoff]
         return entries
 
@@ -139,7 +139,7 @@ class AuditLogger:
             metadata: dict = None) -> dict:
         entry = {
             "log_id":         str(uuid.uuid4()),
-            "timestamp":      datetime.utcnow().isoformat(),
+            "timestamp":      datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
             "event":          event,
             "category":       category,
             "component":      component,
@@ -259,7 +259,7 @@ class ConstitutionalAI:
     def _record_violation(self, principle_id: str, action: str, reason: str):
         v = {
             "violation_id": str(uuid.uuid4()),
-            "timestamp":    datetime.utcnow().isoformat(),
+            "timestamp":    datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
             "principle":    principle_id,
             "action":       action[:500],
             "reason":       reason,
@@ -347,13 +347,13 @@ class RedTeam:
                 "was_blocked":  blocked,
                 "passed":       test_passed,
                 "reason":       reason,
-                "timestamp":    datetime.utcnow().isoformat(),
+                "timestamp":    datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
             }
             results.append(result)
             self.db.write_red_team(result)
 
         report = {
-            "run_at":   datetime.utcnow().isoformat(),
+            "run_at":   datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
             "total":    len(self.ADVERSARIAL_TESTS),
             "passed":   passed,
             "failed":   failed,
@@ -394,7 +394,7 @@ class AnomalyDetector:
         Returns list of detected anomalies.
         """
         anomalies = []
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
 
         # Training loss spike
         if metrics.get("training_loss") and metrics.get("prev_training_loss"):
@@ -425,7 +425,7 @@ class AnomalyDetector:
         # Repeated violations
         recent_violations = self.db.get_violations()
         recent = [v for v in recent_violations
-                  if v.get("timestamp", "") > (datetime.utcnow() - timedelta(hours=1)).isoformat()]
+                  if v.get("timestamp", "") > (datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=1)).isoformat()]
         if len(recent) > 5:
             a = self._make_anomaly(
                 "REPEATED_VIOLATIONS", "critical",
@@ -442,7 +442,7 @@ class AnomalyDetector:
                       description: str, context: dict) -> dict:
         return {
             "anomaly_id":   str(uuid.uuid4()),
-            "timestamp":    datetime.utcnow().isoformat(),
+            "timestamp":    datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
             "type":         anomaly_type,
             "severity":     severity,
             "description":  description,
@@ -494,7 +494,7 @@ class KillSwitch:
         )
         # Create kill file (persists across restarts as a warning)
         self.KILL_FILE.write_text(
-            json.dumps({"reason": reason, "timestamp": datetime.utcnow().isoformat()})
+            json.dumps({"reason": reason, "timestamp": datetime.now(timezone.utc).replace(tzinfo=None).isoformat()})
         )
         # Fire all callbacks
         for cb in self._callbacks:

@@ -7,7 +7,7 @@ Human review queue for new tools before use on important tasks.
 """
 
 import ast, uuid, time, json, sqlite3, threading, textwrap, traceback, hashlib, os
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional, List, Dict, Any, Tuple
 from io import StringIO
@@ -71,7 +71,7 @@ class ToolRegistryDB:
                 (tool_id,name,description,code,status,created_at,author)
                 VALUES (?,?,?,?,?,?,?)
             """, (tool_id, name, description, code, status,
-                  datetime.utcnow().isoformat(), author))
+                  datetime.now(timezone.utc).replace(tzinfo=None).isoformat(), author))
             self._conn.commit()
 
     def save_version(self, tool_id, version, code, perf_score=0.0):
@@ -79,7 +79,7 @@ class ToolRegistryDB:
             self._conn.execute("""
                 INSERT OR REPLACE INTO tool_versions VALUES (?,?,?,?,?,?)
             """, (str(uuid.uuid4()), tool_id, version, code,
-                  datetime.utcnow().isoformat(), perf_score))
+                  datetime.now(timezone.utc).replace(tzinfo=None).isoformat(), perf_score))
             self._conn.commit()
 
     def get(self, name) -> Optional[dict]:
@@ -118,7 +118,7 @@ class ToolRegistryDB:
             self._conn.execute("""
                 UPDATE tools SET call_count=?,success_count=?,avg_ms=?,last_used=?
                 WHERE name=?
-            """, (calls, successes, avg_ms, datetime.utcnow().isoformat(), name))
+            """, (calls, successes, avg_ms, datetime.now(timezone.utc).replace(tzinfo=None).isoformat(), name))
             self._conn.commit()
 
     def approve(self, name):
@@ -126,7 +126,7 @@ class ToolRegistryDB:
             self._conn.execute("""
                 UPDATE tools SET status='approved', approved_at=?
                 WHERE name=?
-            """, (datetime.utcnow().isoformat(), name))
+            """, (datetime.now(timezone.utc).replace(tzinfo=None).isoformat(), name))
             self._conn.commit()
 
     def retire(self, name):
@@ -140,7 +140,7 @@ class ToolRegistryDB:
             self._conn.execute("""
                 INSERT INTO review_queue VALUES (?,?,?,?,0)
             """, (str(uuid.uuid4()), tool_id,
-                  datetime.utcnow().isoformat(), reason))
+                  datetime.now(timezone.utc).replace(tzinfo=None).isoformat(), reason))
             self._conn.commit()
 
     def pending_review(self) -> List[dict]:
@@ -417,7 +417,7 @@ class DynamicToolCreator:
 Auto-generated tool: {name}
 Description: {description}
 Requirements: {requirements}
-Generated: {datetime.utcnow().isoformat()}
+Generated: {datetime.now(timezone.utc).replace(tzinfo=None).isoformat()}
 """
 import re
 import json
@@ -654,7 +654,7 @@ class ToolOptimizer:
         """Retire tools that haven't been used in N days."""
         all_tools = self.db.list_all(status="approved")
         retired   = []
-        now       = datetime.utcnow()
+        now       = datetime.now(timezone.utc).replace(tzinfo=None)
         for t in all_tools:
             if not t["last_used"]:
                 continue

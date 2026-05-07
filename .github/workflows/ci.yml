@@ -26,10 +26,10 @@ jobs:
         run: |
           pip install torch --index-url https://download.pytorch.org/whl/cpu
           pip install numpy faiss-cpu pytest pytest-timeout
-          pip install -r requirements.txt || true
+          pip install -r requirements.txt
 
       - name: Verify structure
-        run: python scripts/verify_structure.py || true
+        run: python scripts/verify_structure.py
 
       - name: Run test suite
         run: |
@@ -45,7 +45,7 @@ jobs:
         run: python -m pytest tests/test_no_hardcoded_root_paths.py -v
 
       - name: Innovation cycle dry run
-        run: python scripts/run_innovation_cycle.py || true
+        run: python scripts/run_innovation_cycle.py
         env:
           PYTHONPATH: .
 
@@ -56,10 +56,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - run: pip install pyrefly || true
-      - name: Type check key modules
+      - name: Import key modules
         run: |
-          python -c "import anra_brain" 2>&1 || true
-          python -c "import identity.hal" 2>&1 || true
-          python -c "import memory.memory_router" 2>&1 || true
-          python -c "import innovation" 2>&1 || true
+          python -c "import anra_brain"
+          python -c "import identity.hal"
+          python -c "import memory.memory_router"
+          python -c "import innovation"

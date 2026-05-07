@@ -9,7 +9,7 @@ self_trainer.py    — Collect data, fine-tune, validate, deploy/rollback
 """
 
 import uuid, json, sqlite3, threading, re, time, math, hashlib
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from dataclasses import dataclass, asdict, field
 from typing import Optional, List, Dict, Any, Tuple
 from pathlib import Path
@@ -170,7 +170,7 @@ class OutputEvaluator:
 
         score = EvalScore(
             eval_id      = str(uuid.uuid4()),
-            timestamp    = datetime.utcnow().isoformat(),
+            timestamp    = datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
             goal         = goal[:500],
             output       = output[:1000],
             accuracy     = round(acc, 3),
@@ -363,7 +363,7 @@ class PromptOptimizer:
             name       = name,
             text       = text,
             version    = 1,
-            created_at = datetime.utcnow().isoformat(),
+            created_at = datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
         )
         self.db.insert("prompts", "prompt_id", pid, asdict(rec))
         return pid
@@ -456,7 +456,7 @@ class PromptOptimizer:
                 "strategy":    strategy,
                 "text":        variant_text,
                 "estimated_score": estimated,
-                "created_at":  datetime.utcnow().isoformat(),
+                "created_at":  datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
             })
             results.append({
                 "strategy": strategy,
@@ -486,7 +486,7 @@ class PromptOptimizer:
                 "name":       prompt_name,
                 "text":       full_text,
                 "version":    new_version,
-                "created_at": datetime.utcnow().isoformat(),
+                "created_at": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
                 "eval_scores": [],
                 "avg_score":   best["estimated_score"],
                 "active":      True,
@@ -581,7 +581,7 @@ class FailureAnalyzer:
         """Log a failure with full context."""
         rec = FailureRecord(
             failure_id = str(uuid.uuid4()),
-            timestamp  = datetime.utcnow().isoformat(),
+            timestamp  = datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
             goal       = goal[:500],
             step       = step[:200],
             error_type = error_type,
@@ -597,7 +597,7 @@ class FailureAnalyzer:
 
     def detect_patterns(self, window_days: int = 7) -> List[FailurePattern]:
         """Find recurring failure patterns in the recent window."""
-        since   = (datetime.utcnow() - timedelta(days=window_days)).isoformat()
+        since   = (datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=window_days)).isoformat()
         all_f   = self.db.get_all("failures", limit=5000)
         recent  = [f for f in all_f if f.get("timestamp", "") >= since]
 
@@ -663,7 +663,7 @@ class FailureAnalyzer:
     def summary_report(self, days: int = 7) -> dict:
         patterns  = self.detect_patterns(days)
         all_f     = self.db.get_all("failures", limit=5000)
-        since     = (datetime.utcnow() - timedelta(days=days)).isoformat()
+        since     = (datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=days)).isoformat()
         recent    = [f for f in all_f if f.get("timestamp", "") >= since]
         resolved  = sum(1 for f in recent if f.get("resolved"))
         by_type   = Counter(f.get("error_type", "unknown") for f in recent)
@@ -735,7 +735,7 @@ class SkillLibrary:
             existing["avg_score"] = (
                 existing["avg_score"] * (existing["use_count"] - 1) + outcome_score
             ) / existing["use_count"]
-            existing["refined_at"] = datetime.utcnow().isoformat()
+            existing["refined_at"] = datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
             self.db.insert("skills", "skill_id", existing["skill_id"], existing)
             return Skill(**existing)
 
@@ -747,7 +747,7 @@ class SkillLibrary:
             steps       = steps_taken[:10],
             tools       = list(set(tools_used)),
             example     = goal[:300],
-            created_at  = datetime.utcnow().isoformat(),
+            created_at  = datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
             avg_score   = outcome_score,
         )
         self.db.insert("skills", "skill_id", skill.skill_id, asdict(skill))
@@ -794,7 +794,7 @@ class SkillLibrary:
         skill["avg_score"]  = (
             skill["avg_score"] * (skill["use_count"] - 1) + outcome_score
         ) / skill["use_count"]
-        skill["last_used"]  = datetime.utcnow().isoformat()
+        skill["last_used"]  = datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
         self.db.insert("skills", "skill_id", skill_id, skill)
 
     def _classify_goal(self, goal: str) -> str:
@@ -889,7 +889,7 @@ class SelfTrainer:
 
         example = {
             "example_id":  hashlib.sha256((goal+output).encode()).hexdigest()[:16],
-            "timestamp":   datetime.utcnow().isoformat(),
+            "timestamp":   datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
             "goal":        goal[:500],
             "output":      output[:2000],
             "eval_score":  eval_score,
@@ -925,7 +925,7 @@ class SelfTrainer:
             run_id       = str(uuid.uuid4()),
             triggered_by = "manual",
             examples_used = 0,
-            started_at   = datetime.utcnow().isoformat(),
+            started_at   = datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
             status       = "queued",
         )
         self.db.insert("training_runs", "run_id", run.run_id, asdict(run))
@@ -936,7 +936,7 @@ class SelfTrainer:
         if len(unused) < min_ex:
             run.status = "skipped"
             run.notes  = f"Only {len(unused)} examples, need {min_ex}"
-            run.completed_at = datetime.utcnow().isoformat()
+            run.completed_at = datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
             self.db.insert("training_runs", "run_id", run.run_id, asdict(run))
             return run
 
@@ -988,7 +988,7 @@ class SelfTrainer:
             ex["used"] = True
             self.db.insert("training_examples", "example_id", ex["example_id"], ex)
 
-        run.completed_at = datetime.utcnow().isoformat()
+        run.completed_at = datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
         self.db.insert("training_runs", "run_id", run.run_id, asdict(run))
         return run
 

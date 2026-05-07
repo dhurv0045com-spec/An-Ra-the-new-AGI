@@ -21,7 +21,7 @@ import sqlite3, threading
 from typing import List, Dict, Optional, Tuple, Any
 from pathlib import Path
 from dataclasses import dataclass, asdict, field
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 STATE_DIR  = Path("state")
@@ -210,7 +210,7 @@ class VectorStore:
         mem_id = hashlib.sha256((text + str(time.time())).encode()).hexdigest()[:16]
         entry  = MemoryEntry(
             mem_id       = mem_id,
-            timestamp    = datetime.utcnow().isoformat(),
+            timestamp    = datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
             text         = text[:2000],
             category     = category,
             importance   = importance,
@@ -284,7 +284,7 @@ class VectorStore:
                 continue
             # Update access count
             entry.access_count  += 1
-            entry.last_accessed  = datetime.utcnow().isoformat()
+            entry.last_accessed  = datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
             self._update_entry(entry)
             results.append((float(scores[idx]), entry))
 

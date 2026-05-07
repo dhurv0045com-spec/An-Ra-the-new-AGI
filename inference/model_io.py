@@ -82,7 +82,7 @@ class CheckpointMetadata:
 
     # Provenance
     date_trained: str = field(
-        default_factory=lambda: datetime.datetime.utcnow().isoformat()
+        default_factory=lambda: datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None).isoformat()
     )
     notes: str = ""
 
@@ -127,7 +127,7 @@ def save_checkpoint(
     path = Path(path)
     if not overwrite and path.exists():
         stem, suffix = path.stem, path.suffix
-        ts = datetime.datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+        ts = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None).strftime("%Y%m%d_%H%M%S")
         path = path.with_name(f"{stem}_{ts}{suffix}")
 
     path.parent.mkdir(parents=True, exist_ok=True)

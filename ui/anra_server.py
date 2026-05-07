@@ -7,7 +7,7 @@ import subprocess
 import sys
 import threading
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from flask import Flask, jsonify, request, send_file
@@ -177,7 +177,7 @@ def save_conversation():
     DRIVE_ROOT.mkdir(parents=True, exist_ok=True)
     out_dir = DRIVE_ROOT / "conversations"
     out_dir.mkdir(parents=True, exist_ok=True)
-    stamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+    stamp = datetime.now(timezone.utc).replace(tzinfo=None).strftime("%Y%m%d_%H%M%S")
     path = out_dir / f"anra_chat_{stamp}.txt"
     lines = []
     for m in state["history"]:

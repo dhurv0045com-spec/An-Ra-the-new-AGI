@@ -7,7 +7,7 @@ Morning briefing. Configurable triggers.
 """
 
 import uuid, json, threading, sqlite3
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from dataclasses import dataclass, asdict, field
 from typing import Optional, List, Dict, Callable, Any
 from pathlib import Path
@@ -152,8 +152,8 @@ class ProactiveEngine:
     def fire_alert(self, level: str, category: str, title: str,
                    body: str, source: str = "system") -> ProactiveAlert:
         alert = ProactiveAlert(
-            alert_id  = datetime.utcnow().isoformat() + "_" + str(uuid.uuid4())[:8],
-            timestamp = datetime.utcnow().isoformat(),
+            alert_id  = datetime.now(timezone.utc).replace(tzinfo=None).isoformat() + "_" + str(uuid.uuid4())[:8],
+            timestamp = datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
             level     = level,
             category  = category,
             title     = title,
@@ -179,7 +179,7 @@ class ProactiveEngine:
                             self.db.save_alert(alert)
                     except Exception:
                         pass
-                m.last_check = datetime.utcnow().isoformat()
+                m.last_check = datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
                 self.db.save_monitor(m)
             self._stop.wait(timeout=600)   # check every 10 minutes
 
@@ -194,7 +194,7 @@ class ProactiveEngine:
 
     def morning_briefing(self, goals_manager=None, audit_log=None) -> str:
         """Compile a morning briefing from all sources."""
-        now   = datetime.utcnow()
+        now   = datetime.now(timezone.utc).replace(tzinfo=None)
         lines = [
             f"╔══════════════════════════════════════╗",
             f"║  MORNING BRIEFING — {now.strftime('%Y-%m-%d %H:%M')} UTC  ║",

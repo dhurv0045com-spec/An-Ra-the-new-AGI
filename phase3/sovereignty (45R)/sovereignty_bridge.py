@@ -17,7 +17,7 @@ This bridge:
   - Starts the daemon in a background thread when MasterSystem.start() is called
   - Queries the daemon's REST API (localhost:45000) for status and reports
   - Exposes the nightly report to the morning briefing system
-  - Gracefully handles psutil not being installed (feature disabled silently)
+  - Gracefully degrades resource metrics when psutil is not installed
 
 Usage (via MasterSystem):
     self.sovereignty = SovereigntyBridge(target_path=PROJECT_ROOT)
@@ -61,7 +61,7 @@ class SovereigntyBridge:
                          Defaults to the An-Ra project root.
             port:        Local port for the daemon REST API.
             data_dir:    Where the daemon stores its data/reports.
-            enabled:     If False, all methods are no-ops (psutil missing).
+            enabled:     If False, all methods are no-ops.
         """
         self._enabled    = enabled
         self._port       = port
@@ -89,13 +89,12 @@ class SovereigntyBridge:
             self._enabled = False
 
     def _check_deps(self) -> bool:
-        """Check if psutil and the sovereignty package are available."""
+        """Check whether the sovereignty package is available."""
         try:
             import psutil  # noqa: F401
         except ImportError:
-            print("  [Phase 3] [SKIP] Sovereignty daemon skipped — "
-                  "psutil not installed (pip install psutil)")
-            return False
+            print("  [Phase 3] [WARN] psutil not installed; "
+                  "sovereignty resource metrics will use fallback zeros")
         if not (self._sovereignty_pkg / "service.py").is_file():
             print("  [Phase 3] [SKIP] Sovereignty daemon skipped — "
                   "sovereignty/service.py not found")
@@ -222,7 +221,7 @@ class SovereigntyBridge:
             Report text, or a status message if not yet available.
         """
         if not self._enabled:
-            return "Sovereignty daemon not enabled (psutil missing)."
+            return "Sovereignty daemon not enabled."
 
         # Try API first
         if self._available:

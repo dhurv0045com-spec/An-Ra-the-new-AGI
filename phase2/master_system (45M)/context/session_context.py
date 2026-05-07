@@ -13,7 +13,7 @@ even after a restart or long absence.
 """
 
 import json, sqlite3, threading, uuid, hashlib
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from dataclasses import dataclass, asdict, field
 from typing import Optional, List, Dict, Any
 from pathlib import Path
@@ -127,7 +127,7 @@ class SessionDB:
         with self._lock:
             rows = self._conn.execute("SELECT data FROM facts").fetchall()
         facts = [CrossSessionFact(**json.loads(r[0])) for r in rows]
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
         # Filter expired
         facts = [f for f in facts if not f.expires_at or f.expires_at > now]
         if category:
@@ -159,7 +159,7 @@ class SessionContextManager:
     def __init__(self):
         self.db             = SessionDB()
         self._current_id    = str(uuid.uuid4())
-        self._current_start = datetime.utcnow()
+        self._current_start = datetime.now(timezone.utc).replace(tzinfo=None)
         self._turns:        List[Dict] = []
         self._pending_tasks_this_session: List[str] = []
 
@@ -175,7 +175,7 @@ class SessionContextManager:
         Extracts topics, decisions, tasks, and facts automatically.
         """
         turn = {
-            "ts":     datetime.utcnow().isoformat(),
+            "ts":     datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
             "input":  user_input[:500],
             "output": system_output[:500],
             "meta":   metadata or {},
@@ -223,7 +223,7 @@ class SessionContextManager:
     def _add_pending_task(self, title: str, context: str):
         task = PendingTask(
             task_id    = hashlib.sha256((title + self._current_id).encode()).hexdigest()[:12],
-            created_at = datetime.utcnow().isoformat(),
+            created_at = datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
             session_id = self._current_id,
             title      = title[:100],
             context    = context[:300],
@@ -234,7 +234,7 @@ class SessionContextManager:
     def _save_fact(self, content: str, category: str, source: str = "inferred"):
         fact = CrossSessionFact(
             fact_id    = hashlib.sha256(content.encode()).hexdigest()[:12],
-            timestamp  = datetime.utcnow().isoformat(),
+            timestamp  = datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
             content    = content[:300],
             category   = category,
             source     = source,
@@ -245,7 +245,7 @@ class SessionContextManager:
         """
         Close the current session. Build and save a SessionSummary.
         """
-        now      = datetime.utcnow()
+        now      = datetime.now(timezone.utc).replace(tzinfo=None)
         duration = (now - self._current_start).total_seconds() / 60
 
         # Extract topics from turns
@@ -303,7 +303,7 @@ class SessionContextManager:
         """Auto-generate a session summary from turns."""
         if not self._turns:
             return "Empty session."
-        duration = (datetime.utcnow() - self._current_start).total_seconds() / 60
+        duration = (datetime.now(timezone.utc).replace(tzinfo=None) - self._current_start).total_seconds() / 60
         n_turns  = len(self._turns)
         first_q  = self._turns[0]["input"][:80] if self._turns else ""
         return (f"Session lasted {duration:.0f} minutes with {n_turns} exchanges. "
@@ -321,7 +321,7 @@ class SessionContextManager:
         if recent:
             last = recent[0]
             last_dt = datetime.fromisoformat(last.started_at)
-            age_h   = (datetime.utcnow() - last_dt).total_seconds() / 3600
+            age_h   = (datetime.now(timezone.utc).replace(tzinfo=None) - last_dt).total_seconds() / 3600
             if age_h < 168:   # within last week
                 lines.append(f"[Last session {age_h:.0f}h ago — {last.summary[:150]}]")
                 if last.tasks_pending:
@@ -346,7 +346,7 @@ class SessionContextManager:
         recent   = self.db.get_recent_sessions(n=3)
         pending  = self.db.get_pending_tasks()
         facts    = self.db.get_facts()[:10]
-        now      = datetime.utcnow()
+        now      = datetime.now(timezone.utc).replace(tzinfo=None)
 
         lines = [
             "╔══════════════════════════════════════╗",
@@ -387,7 +387,7 @@ class SessionContextManager:
                  expires_days: Optional[int] = None):
         expires = None
         if expires_days:
-            expires = (datetime.utcnow() + timedelta(days=expires_days)).isoformat()
+            expires = (datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(days=expires_days)).isoformat()
         self._save_fact(content, category)
 
     def stats(self) -> dict:

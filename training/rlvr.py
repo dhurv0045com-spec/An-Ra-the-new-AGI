@@ -331,7 +331,7 @@ class RLVRTrainer:
         RLVR and DFC training data.
         """
         import json
-        from datetime import datetime
+        from datetime import datetime, timezone
         from anra_paths import TRAINING_DATA_DIR
 
         if not completions or not step.rewards:
@@ -363,7 +363,7 @@ class RLVRTrainer:
             "template": "failure_replay",
             "verified": False,
             "source": "live_rlvr",
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
             "reward": worst_reward,
             "task_type": task_type,
         }

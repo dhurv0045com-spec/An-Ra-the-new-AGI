@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import importlib.util
+import sys
 import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -165,6 +166,14 @@ def _data_mix_checks() -> list[ReadinessCheck]:
 def _alignment_dependency_checks() -> list[ReadinessCheck]:
     identity_file = get_identity_file()
     psutil_available = importlib.util.find_spec("psutil") is not None
+    android_runtime = hasattr(sys, "getandroidapilevel")
+    psutil_status = "ok" if psutil_available or android_runtime else "warn"
+    if psutil_available:
+        psutil_detail = "psutil available for sovereignty resource monitoring"
+    elif android_runtime:
+        psutil_detail = "psutil unsupported on Android; sovereignty will use fallback resource metrics"
+    else:
+        psutil_detail = "psutil missing; sovereignty resource monitoring is degraded"
     return [
         ReadinessCheck(
             "identity:file",
@@ -175,10 +184,8 @@ def _alignment_dependency_checks() -> list[ReadinessCheck]:
         ),
         ReadinessCheck(
             "dependency:psutil",
-            "ok" if psutil_available else "warn",
-            "psutil available for sovereignty resource monitoring"
-            if psutil_available
-            else "psutil missing; sovereignty resource monitoring is degraded",
+            psutil_status,
+            psutil_detail,
             required=False,
         ),
     ]

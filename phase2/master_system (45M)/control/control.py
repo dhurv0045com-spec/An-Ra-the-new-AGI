@@ -10,7 +10,7 @@ Works on phone and PC. Real-time. Always accessible.
 """
 
 import json, uuid, time, sys, os
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, Any, Dict, List
 from pathlib import Path
 
@@ -136,7 +136,7 @@ class ControlInterface:
     def download_backup(self, path: str = "backup.json") -> dict:
         """Export full system state as a JSON backup."""
         backup = {
-            "timestamp":   datetime.utcnow().isoformat(),
+            "timestamp":   datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
             "version":     "45M_phase3",
             "owner_model": self._sys().owner_modeler.inspect(),
             "knowledge":   self._sys().knowledge_base.export_graph(),
@@ -158,7 +158,7 @@ class Dashboard:
     def render(self) -> str:
         """Render a full system status dashboard as text."""
         s = self._sys.status() if self._sys else {}
-        now = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
+        now = datetime.now(timezone.utc).replace(tzinfo=None).strftime("%Y-%m-%d %H:%M:%S UTC")
 
         lines = [
             "╔══════════════════════════════════════════════════════╗",

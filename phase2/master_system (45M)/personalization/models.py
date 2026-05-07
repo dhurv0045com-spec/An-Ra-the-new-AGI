@@ -9,7 +9,7 @@ Never leaves the system.
 """
 
 import uuid, json, sqlite3, threading, hashlib, re
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from dataclasses import dataclass, asdict, field
 from typing import Optional, List, Dict, Any, Tuple
 from collections import Counter, defaultdict
@@ -124,7 +124,7 @@ class PersonalizationDB:
                 "SELECT data FROM owner_profile WHERE key='main'").fetchone()
         if row:
             return OwnerProfile(**json.loads(row[0]))
-        return OwnerProfile(last_updated=datetime.utcnow().isoformat())
+        return OwnerProfile(last_updated=datetime.now(timezone.utc).replace(tzinfo=None).isoformat())
 
     def add_observation(self, obs: OwnerObservation):
         with self._lock:
@@ -204,7 +204,7 @@ class OwnerModeler:
                             feedback: Optional[float] = None):
         """Process an interaction to extract owner signals."""
         profile = self.db.load_profile()
-        now     = datetime.utcnow()
+        now     = datetime.now(timezone.utc).replace(tzinfo=None)
 
         # ── Timing signals ──
         hour = now.hour
@@ -281,7 +281,7 @@ class OwnerModeler:
     def _add_observation(self, category: str, signal: str, value: Any, conf: float):
         obs = OwnerObservation(
             obs_id    = str(uuid.uuid4()),
-            timestamp = datetime.utcnow().isoformat(),
+            timestamp = datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
             category  = category,
             signal    = signal,
             value     = value,
@@ -359,7 +359,7 @@ class AdaptiveBehavior:
         """
         adapt = {
             "adapt_id":         str(uuid.uuid4()),
-            "timestamp":        datetime.utcnow().isoformat(),
+            "timestamp":        datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
             "type":             interaction_type,
             "engaged":          engaged,
             "rating":           rating,
@@ -442,7 +442,7 @@ class PersonalKnowledgeBase:
 
     def add(self, title: str, content: str, domain: str = "general",
             tags: List[str] = None, source: str = "task_output") -> KBEntry:
-        now   = datetime.utcnow().isoformat()
+        now   = datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
         entry = KBEntry(
             entry_id   = hashlib.sha256((title+content).encode()).hexdigest()[:16],
             title      = title,
@@ -486,7 +486,7 @@ class PersonalKnowledgeBase:
                 if content: e["content"]    = content
                 if title:   e["title"]      = title
                 if tags:    e["tags"]       = tags
-                e["updated_at"] = datetime.utcnow().isoformat()
+                e["updated_at"] = datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
                 self.db.save_kb_entry(e)
                 return e
         return None

@@ -19,7 +19,7 @@ a structured result the model can use in its response.
 import os, re, json, math, time, subprocess, textwrap
 import urllib.request, urllib.parse, urllib.error
 from typing import Any, Dict, Optional, List
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from io import StringIO
 import contextlib, traceback
@@ -43,7 +43,7 @@ class ToolResult:
         self.output      = output
         self.error       = error
         self.duration_ms = duration_ms
-        self.timestamp   = datetime.utcnow().isoformat()
+        self.timestamp   = datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
 
     def to_dict(self) -> dict:
         return {
@@ -109,7 +109,7 @@ def datetime_tool(query: str = "now") -> ToolResult:
     Get current datetime, or do date arithmetic.
     Examples: "now", "today", "tomorrow", "in 7 days", "days since 2024-01-01"
     """
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
     q   = query.lower().strip()
 
     if q in ("now", "current", "time"):

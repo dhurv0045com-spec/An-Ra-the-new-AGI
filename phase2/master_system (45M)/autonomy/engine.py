@@ -8,7 +8,7 @@ monitoring, resource throttling, graceful shutdown, and full activity logging.
 
 import os, time, json, uuid, signal, threading, sched, queue
 import sqlite3
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Callable, Optional, Dict, Any, List
 from pathlib import Path
 from dataclasses import dataclass, asdict, field
@@ -98,7 +98,7 @@ class EngineDB:
     def log_activity(self, event: str, component: str, detail: str, level: str = "INFO"):
         entry = ActivityLog(
             log_id=str(uuid.uuid4()),
-            timestamp=datetime.utcnow().isoformat(),
+            timestamp=datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
             event=event,
             component=component,
             detail=detail,
@@ -196,7 +196,7 @@ class TaskScheduler:
         self._registry[name] = fn
 
     def _next_run_time(self, cron_desc: str) -> str:
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
         if cron_desc == "hourly":
             nxt = now.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1)
         elif cron_desc == "nightly":
@@ -227,7 +227,7 @@ class TaskScheduler:
 
     def _run_loop(self):
         while not self._stop_evt.is_set():
-            now = datetime.utcnow().isoformat()
+            now = datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
             for task in self.db.get_tasks():
                 if not task.enabled:
                     continue
@@ -252,7 +252,7 @@ class TaskScheduler:
             log.error(f"Task {task.name} failed: {e}")
             self.db.log_activity("TASK_ERROR", "scheduler",
                                   f"Failed: {task.name}: {e}", level="ERROR")
-        task.last_run  = datetime.utcnow().isoformat()
+        task.last_run  = datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
         task.next_run  = self._next_run_time(task.cron_desc)
         task.run_count += 1
         self.db.upsert_task(task)
@@ -286,7 +286,7 @@ class Heartbeat:
         last = self.db.get_state("last_heartbeat")
         if last:
             last_dt = datetime.fromisoformat(last)
-            gap = (datetime.utcnow() - last_dt).total_seconds()
+            gap = (datetime.now(timezone.utc).replace(tzinfo=None) - last_dt).total_seconds()
             if gap > self.interval * 3:
                 msg = f"Crash recovery: last heartbeat was {gap:.0f}s ago ({last})"
                 log.warning(msg)
@@ -296,7 +296,7 @@ class Heartbeat:
 
     def _beat_loop(self):
         while not self._stop.is_set():
-            self.db.set_state("last_heartbeat", datetime.utcnow().isoformat())
+            self.db.set_state("last_heartbeat", datetime.now(timezone.utc).replace(tzinfo=None).isoformat())
             self._stop.wait(timeout=self.interval)
 
     def start(self):
@@ -424,7 +424,7 @@ class ContinuousEngine:
         self.heartbeat.start()
         self.scheduler.start()
         self._running = True
-        self.db.set_state("engine_started", datetime.utcnow().isoformat())
+        self.db.set_state("engine_started", datetime.now(timezone.utc).replace(tzinfo=None).isoformat())
         self.db.set_state("engine_running", True)
         log.info("Continuous engine running")
 
@@ -436,7 +436,7 @@ class ContinuousEngine:
         self.scheduler.stop()
         self.heartbeat.stop()
         self.db.set_state("engine_running", False)
-        self.db.set_state("engine_stopped", datetime.utcnow().isoformat())
+        self.db.set_state("engine_stopped", datetime.now(timezone.utc).replace(tzinfo=None).isoformat())
         if PID_FILE.exists():
             PID_FILE.unlink()
         self._running = False
@@ -455,7 +455,7 @@ class ContinuousEngine:
         uptime_start = self.db.get_state("engine_started")
         uptime_s = None
         if uptime_start:
-            delta = datetime.utcnow() - datetime.fromisoformat(uptime_start)
+            delta = datetime.now(timezone.utc).replace(tzinfo=None) - datetime.fromisoformat(uptime_start)
             uptime_s = int(delta.total_seconds())
         return {
             "running":       self._running,

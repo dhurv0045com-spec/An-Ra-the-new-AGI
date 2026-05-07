@@ -11,7 +11,7 @@ Rate limiting, error handling, and graceful degradation built in.
 import json, time, re, threading, hashlib
 import urllib.request, urllib.parse, urllib.error
 from abc import ABC, abstractmethod
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict, Any, List
 from pathlib import Path
 
@@ -35,7 +35,7 @@ class ConnectorResult:
         self.error     = error
         self.cached    = cached
         self.ms        = ms
-        self.timestamp = datetime.utcnow().isoformat()
+        self.timestamp = datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
 
     def to_dict(self) -> dict:
         return vars(self)
@@ -505,7 +505,7 @@ class CalendarConnector(BaseConnector):
         cal_path = self.config.get("ical_path", "")
         if not cal_path or not Path(cal_path).exists():
             # Return demo data when not configured
-            now = datetime.utcnow()
+            now = datetime.now(timezone.utc).replace(tzinfo=None)
             events = [
                 {"title": "Example: Team standup", "start": now.isoformat(),
                  "end":   (now + timedelta(hours=1)).isoformat()},
@@ -533,7 +533,7 @@ class CalendarConnector(BaseConnector):
                     "end":   dtend.group(1) if dtend else "",
                 })
 
-        cutoff = (datetime.utcnow() + timedelta(days=days)).strftime("%Y%m%d")
+        cutoff = (datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(days=days)).strftime("%Y%m%d")
         events = [e for e in events if e.get("start", "")[:8] <= cutoff]
         return ConnectorResult(self.NAME, True, {"events": events[:20]})
 

@@ -32,7 +32,7 @@ import pathlib
 import signal
 import sys
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 
 # ── Bootstrap: ensure sovereignty package is importable ───────────────────────
 _THIS_DIR = pathlib.Path(__file__).parent
@@ -63,7 +63,7 @@ def cmd_start(config: Config) -> int:
     """
     from sovereignty.daemon import Daemon
 
-    session_mgr = L02SessionLogManager(session_id=datetime.utcnow().strftime("%Y%m%dT%H%M%SZ"), log_dir=config.LOG_DIR)
+    session_mgr = L02SessionLogManager(session_id=datetime.now(timezone.utc).replace(tzinfo=None).strftime("%Y%m%dT%H%M%SZ"), log_dir=config.LOG_DIR)
     session_mgr.rotate_for_new_session()
     setup_logging(config)
     log = get_logger(__name__)

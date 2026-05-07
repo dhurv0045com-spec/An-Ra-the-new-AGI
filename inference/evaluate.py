@@ -365,7 +365,7 @@ def run_eval_suite(
         Dict with all metric values (also written to JSON report).
     """
     import datetime
-    ts = datetime.datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+    ts = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None).strftime("%Y%m%d_%H%M%S")
     print(f"\n{'='*56}")
     print(f"  Evaluation Suite — {label}  [{ts}]")
     print(f"{'='*56}\n")

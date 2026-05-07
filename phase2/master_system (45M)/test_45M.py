@@ -68,8 +68,8 @@ def run_all_tests(system=None):
     test("Scheduled tasks registered", test_scheduled_tasks)
 
     def test_crash_recovery():
-        from datetime import datetime, timedelta
-        old_time = (datetime.utcnow() - timedelta(minutes=10)).isoformat()
+        from datetime import datetime, timedelta, timezone
+        old_time = (datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(minutes=10)).isoformat()
         system.engine.db.set_state("last_heartbeat", old_time)
         msg = system.engine.heartbeat.check_crash_recovery()
         assert msg is not None, "Should detect crash"

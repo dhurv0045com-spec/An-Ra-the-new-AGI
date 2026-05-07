@@ -8,7 +8,7 @@ visualizer.py — Terminal dashboard renderer
 """
 
 import json, time, math
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional, List, Dict, Any
 from collections import defaultdict
@@ -40,7 +40,7 @@ class MetricsCollector:
 
     def collect(self) -> dict:
         """Collect a complete metrics snapshot."""
-        ts = datetime.utcnow().isoformat()
+        ts = datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
         snapshot = {"timestamp": ts, "components": {}}
 
         if self.evaluator:
@@ -103,7 +103,7 @@ class MetricsCollector:
         """Compute trends across recent snapshots."""
         snapshots = []
         for i in range(days):
-            d    = (datetime.utcnow() - timedelta(days=i)).strftime("%Y-%m-%d")
+            d    = (datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=i)).strftime("%Y-%m-%d")
             file = REPORTS_DIR / f"snapshot_{d}.json"
             if file.exists():
                 try:
@@ -190,7 +190,7 @@ class AlertSystem:
     def check(self, metrics: dict) -> List[dict]:
         """Check metrics and return any new alerts."""
         new_alerts = []
-        now        = datetime.utcnow().isoformat()
+        now        = datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
 
         # Quality drop
         qual = metrics.get("components", {}).get("output_quality", {})
@@ -240,11 +240,11 @@ class AlertSystem:
 
     def _make_alert(self, alert_type: str, severity: str, message: str) -> dict:
         return {
-            "alert_id": f"{alert_type}_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}",
+            "alert_id": f"{alert_type}_{datetime.now(timezone.utc).replace(tzinfo=None).strftime('%Y%m%d%H%M%S')}",
             "type":     alert_type,
             "severity": severity,
             "message":  message,
-            "time":     datetime.utcnow().isoformat(),
+            "time":     datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
             "acked":    False,
         }
 
@@ -270,7 +270,7 @@ class WeeklyReporter:
 
     def generate(self) -> str:
         """Generate a weekly report as a formatted string."""
-        now      = datetime.utcnow()
+        now      = datetime.now(timezone.utc).replace(tzinfo=None)
         snapshot = self.metrics.collect()
         trend    = self.metrics.trend(days=7)
         active   = self.alerts.get_active()
@@ -379,7 +379,7 @@ class TerminalDashboard:
         s      = self.system
         snap   = s.metrics.collect()
         alerts = s.alerts.get_active()
-        now    = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
+        now    = datetime.now(timezone.utc).replace(tzinfo=None).strftime("%Y-%m-%d %H:%M:%S UTC")
 
         lines = [
             "╔══════════════════════════════════════════════════════════╗",

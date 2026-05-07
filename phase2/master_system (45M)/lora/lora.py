@@ -21,6 +21,7 @@ Why this matters:
 
 import numpy as np
 import math, os, pickle, json, time
+from datetime import datetime, timezone
 from typing import List, Dict, Optional, Tuple, Any
 from pathlib import Path
 from dataclasses import dataclass, asdict, field
@@ -398,7 +399,7 @@ def train_lora(
         target_layers=["Wq", "Wv"],
         task_name=task_name,
         base_model_name=getattr(model, 'VERSION', ''),
-        created_at=__import__('datetime').datetime.utcnow().isoformat(),
+        created_at=datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
     )
     adapter = LoRAAdapter(config)
     lora_params = adapter.inject(model)

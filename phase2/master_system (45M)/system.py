@@ -237,11 +237,6 @@ class MasterSystem:
             from identity_injector import IdentityInjector
             from anra_paths import get_identity_file as _get_id_file
             identity_file = _get_id_file()
-            if identity_file is None:
-                import warnings
-                warnings.warn("[system.py] No identity file found. Identity injection skipped.")
-                self.identity = None
-                return
             self.identity = IdentityInjector(identity_file=identity_file, n_anchors=8)
             print(f"  [Phase 3] [OK] Identity injector ready "
                   f"({self.identity.status()['anchors_loaded']} anchors loaded)")
