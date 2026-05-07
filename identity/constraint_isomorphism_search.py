@@ -109,11 +109,12 @@ def jaccard(a: set[str], b: set[str]) -> float:
 
 
 class ConstraintIsomorphismSearch:
-    def __init__(self, signatures: dict[str, DomainSignature] | None = None, threshold: float = 0.65) -> None:
+    def __init__(self, signatures: dict[str, DomainSignature] | None = None, threshold: float = 0.65, epg=None) -> None:
         self.signatures = dict(KNOWN_SIGNATURES)
         if signatures:
             self.signatures.update(signatures)
         self.threshold = float(threshold)
+        self.epg = epg
 
     def signature_for(self, name: str, override: dict[str, Any] | DomainSignature | None = None) -> DomainSignature:
         if isinstance(override, DomainSignature):
@@ -146,7 +147,7 @@ class ConstraintIsomorphismSearch:
             "operators": sorted(a.operators & b.operators),
             "invariants": sorted(a.invariants & b.invariants),
         }
-        return AnalogyCandidate(
+        candidate = AnalogyCandidate(
             domain_a=a.name,
             domain_b=b.name,
             axis_scores={key: round(value, 4) for key, value in axis_scores.items()},
@@ -154,6 +155,51 @@ class ConstraintIsomorphismSearch:
             valid=score > self.threshold,
             shared=shared,
         )
+        self._write_epg_node(candidate)
+        return candidate
+
+    def search(self) -> list[AnalogyCandidate]:
+        candidates: list[AnalogyCandidate] = []
+        names = sorted(self.signatures)
+        for i, domain_a in enumerate(names):
+            for domain_b in names[i + 1 :]:
+                candidate = self.compare(domain_a, domain_b)
+                if candidate.valid:
+                    candidates.append(candidate)
+        return candidates
+
+    def _write_epg_node(self, candidate: AnalogyCandidate) -> None:
+        if not candidate.valid or self.epg is None:
+            return
+        # AN: Confirmed isomorphisms should become durable EPG evidence, not transient scores.
+        shared_keywords = set(candidate.shared.get("state", [])) | set(candidate.shared.get("operators", [])) | set(candidate.shared.get("invariants", []))
+        divergence = "domain-specific constraints diverge outside shared invariants"
+        try:
+            self.epg.add_node(
+                node_type="CROSS_DOMAIN_ANALOGY",
+                content={
+                    "domain_a": candidate.domain_a,
+                    "domain_b": candidate.domain_b,
+                    "similarity": candidate.score,
+                    "shared_structure": sorted(shared_keywords),
+                    "breaks_at": divergence,
+                    "isomorphism_type": "weighted_state_operator_invariant",
+                },
+            )
+        except TypeError:
+            self.epg.add_node(
+                "CROSS_DOMAIN_ANALOGY",
+                {
+                    "domain_a": candidate.domain_a,
+                    "domain_b": candidate.domain_b,
+                    "similarity": candidate.score,
+                    "shared_structure": sorted(shared_keywords),
+                    "breaks_at": divergence,
+                    "isomorphism_type": "weighted_state_operator_invariant",
+                },
+            )
+        except Exception:
+            pass
 
     def store_confirmed_analogy(self, candidate: AnalogyCandidate, epg_path: str | Path) -> bool:
         if not candidate.valid:

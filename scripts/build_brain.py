@@ -18,6 +18,7 @@ from torch.utils.data import DataLoader
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from anra_paths import DRIVE_V2_CHECKPOINTS, REGRET_STATE, ROOT, V2_TOKENIZER_FILE, inject_all_paths
+from runtime.safe_load import safe_torch_load
 from training.anra_optimizer import build_optimizer
 from training.eval_v2 import quick_eval_loss, run_compact_eval
 from training.mixed_precision import MixedPrecisionTrainer
@@ -197,6 +198,8 @@ def train_anra_v2(
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = build_v2_model(vocab_size=tokenizer.vocab_size, block_size=block_size)
+    if hasattr(model, "disable_kv_cache"):
+        model.disable_kv_cache()
     if use_ouroboros:
         from ouroboros import OuroborosDecoder
 
@@ -269,7 +272,7 @@ def train_anra_v2(
     load_path = ckpt_path if ckpt_path.exists() else resume_path
     if load_path.exists():
         print(f"[Resume] Found checkpoint: {load_path}", flush=True)
-        ckpt = torch.load(load_path, map_location=device, weights_only=False)
+        ckpt = safe_torch_load(load_path, map_location=device)
         resume_state = load_checkpoint(model, optimizer, scheduler, mp, load_path, device=device, strict=False)
         if resume_state["loaded"]:
             start_step = int(resume_state["global_step"])

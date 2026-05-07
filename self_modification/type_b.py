@@ -2,11 +2,12 @@ from __future__ import annotations
 
 from pathlib import Path
 import difflib
-import subprocess
+import json
+import sys
 import time
 
-from anra_paths import STATE_DIR
-from self_modification.sovereignty_gate import sovereignty_audit_change
+from anra_paths import SELF_MOD_AUDIT_LOG, STATE_DIR
+from self_modification.sovereignty_gate import SovereigntyRollback, sovereignty_audit_change
 
 
 class AgentCodeMutation:
@@ -29,27 +30,20 @@ class AgentCodeMutation:
         stamp = str(int(time.time()))
         backup = self.backup_dir / f"{path.name}.{stamp}.bak"
         backup.write_text(old, encoding="utf-8")
-        path.write_text(new_content, encoding="utf-8")
         diff = "\n".join(difflib.unified_diff(old.splitlines(), new_content.splitlines(), fromfile="old", tofile="new", lineterm=""))
-        if benchmark_cmd:
-            result = subprocess.run(
-                benchmark_cmd,
-                cwd=str(path.parent),
-                text=True,
-                capture_output=True,
-                timeout=60,
-                check=False,
-            )
-            if result.returncode != 0:
-                path.write_text(old, encoding="utf-8")
+        test_cmd = benchmark_cmd or [sys.executable, "-c", "raise SystemExit(0)"]
+        with SovereigntyRollback([path], test_cmd=test_cmd) as rollback:
+            path.write_text(new_content, encoding="utf-8")
+            if not rollback.commit():
+                self._log_rollback(path, reason or "benchmark failed; rolled back")
                 return {
                     "accepted": False,
                     "file": str(path),
                     "backup": str(backup),
                     "reason": reason or "benchmark failed; rolled back",
                     "diff": diff[:12000],
-                    "stdout": result.stdout[-4000:],
-                    "stderr": result.stderr[-4000:],
+                    "stdout": "",
+                    "stderr": "SovereigntyRollback restored original file after failed verification.",
                 }
         return {"accepted": True, "file": str(path), "backup": str(backup), "reason": reason, "diff": diff[:12000]}
 
@@ -161,3 +155,19 @@ class AgentCodeMutation:
                 scores.append(0.0)
 
         return sum(scores) / len(scores) if scores else 1.0
+
+    def _log_rollback(self, path: Path, reason: str) -> None:
+        event = {
+            "ts": time.time(),
+            "event_type": "SELF_MOD_ROLLBACK",
+            "component": "self_modification",
+            "action": "rollback",
+            "file": str(path),
+            "reason": reason,
+        }
+        try:
+            SELF_MOD_AUDIT_LOG.parent.mkdir(parents=True, exist_ok=True)
+            with SELF_MOD_AUDIT_LOG.open("a", encoding="utf-8") as f:
+                f.write(json.dumps(event, sort_keys=True) + "\n")
+        except Exception:
+            pass

@@ -17,6 +17,8 @@ from typing import Optional, Any
 import torch
 import torch.nn as nn
 
+from runtime.safe_load import safe_torch_load
+
 logger = logging.getLogger(__name__)
 
 
@@ -220,7 +222,7 @@ class CheckpointManager:
             raise FileNotFoundError(f"Checkpoint not found: {path}")
 
         logger.info(f"Loading checkpoint: {path}")
-        state = torch.load(path, map_location=device, weights_only=False)
+        state = safe_torch_load(path, map_location=device)
 
         # Restore model weights
         model.load_state_dict(state["model_state_dict"], strict=strict)

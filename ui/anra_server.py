@@ -22,6 +22,7 @@ from anra_paths import DATASET_CANONICAL, DRIVE_DIR, V2_TOKENIZER_FILE, get_v2_c
 inject_all_paths()
 
 import torch  # noqa: E402
+from runtime.safe_load import safe_torch_load  # noqa: E402
 from tokenizer.tokenizer_adapter import TokenizerAdapter  # noqa: E402
 from training.v2_runtime import build_v2_model, generate_text  # noqa: E402
 
@@ -61,7 +62,7 @@ def _load_model() -> None:
         tokenizer = TokenizerAdapter.load(V2_TOKENIZER_FILE, model_path=V2_TOKENIZER_FILE.with_suffix(".model"))
         model = build_v2_model(vocab_size=tokenizer.vocab_size())
         checkpoint_path = get_v2_checkpoint("brain")
-        ckpt = torch.load(checkpoint_path, map_location=device, weights_only=False)
+        ckpt = safe_torch_load(checkpoint_path, map_location=device)
         model.load_state_dict(ckpt.get("model_state_dict", ckpt.get("model", ckpt)), strict=False)
         model.to(device)
         model.eval()

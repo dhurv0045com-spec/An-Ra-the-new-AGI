@@ -12,6 +12,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from anra_paths import DRIVE_CHECKPOINTS, get_dataset_file, get_tokenizer_file
 from anra_brain import CausalTransformer
+from runtime.safe_load import safe_torch_load
 
 
 def _atomic_save(payload: dict, path: Path) -> None:
@@ -33,7 +34,7 @@ def _load_model(base_model: str, device: torch.device):
     with open(get_tokenizer_file(), "rb") as f:
         tok = pickle.load(f)
     model = CausalTransformer(tok.vocab_size, 256, 4, 4, 128).to(device)
-    state = torch.load(base_model, map_location=device, weights_only=False)
+    state = safe_torch_load(base_model, map_location=device)
     if isinstance(state, dict) and "model_state_dict" in state:
         state = state["model_state_dict"]
     model.load_state_dict(state, strict=False)

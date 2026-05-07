@@ -40,7 +40,8 @@ def unavailable(tool: str, install_hint: str) -> VerificationResult:
     )
 
 
-def verify_qiskit(qasm: str, target_topology: str = "linear_nn") -> VerificationResult:
+def verify_qiskit(qasm: str, target_topology: str = "linear_nn", **kwargs) -> VerificationResult:
+    target_topology = str(kwargs.get("topology", target_topology))
     try:
         from qiskit import QuantumCircuit, transpile
     except Exception:
@@ -192,7 +193,11 @@ def _extract_assertions(text: str) -> dict[str, Any]:
     }
 
 
-def verify_constraint_json(constraints: dict[str, Any], candidate: dict[str, Any]) -> VerificationResult:
+def verify_constraint_json(constraints: dict[str, Any] | list[dict[str, Any]], candidate: dict[str, Any] | None = None, **kwargs) -> VerificationResult:
+    if candidate is None:
+        candidate = kwargs.get("solution", {})
+    if isinstance(constraints, list):
+        constraints = {"constraints": constraints}
     rows = []
     constraint_list = constraints.get("constraints") if isinstance(constraints, dict) else None
     if not isinstance(constraint_list, list):

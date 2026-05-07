@@ -33,6 +33,7 @@ import torch
 import torch.nn as nn
 
 from core.turboquant import CompressedKVCache, TurboQuantConfig
+from runtime.safe_load import safe_torch_load
 
 
 def build_kv_cache(use_turboquant: bool = True, batch_size: int = 1, num_kv_heads: int = 4, max_seq_len: int = 1024, d_head: int = 64):
@@ -186,7 +187,7 @@ def load_checkpoint(
         raise FileNotFoundError(f"Checkpoint not found: {path}")
 
     device = device or ("cuda" if torch.cuda.is_available() else "cpu")
-    payload = torch.load(path, map_location=device, weights_only=False)
+    payload = safe_torch_load(path, map_location=device)
 
     # Forward-compat: warn on version mismatch but don't crash
     saved_ver = payload.get("format_version", 0)
@@ -285,7 +286,7 @@ def list_checkpoints(directory: str | Path) -> List[Dict[str, Any]]:
     rows = []
     for ckpt in sorted(directory.glob("*.pt")):
         try:
-            payload = torch.load(ckpt, map_location="cpu", weights_only=False)
+            payload = safe_torch_load(ckpt, map_location="cpu")
             meta = payload.get("metadata", {})
             rows.append({
                 "file":       ckpt.name,

@@ -197,6 +197,8 @@ def _restore_core_artifacts() -> None:
 def _run_eval_only() -> dict[str, object]:
     tokenizer = load_or_build_v2_tokenizer(dataset_path=resolve_dataset_path(None))
     model = build_v2_model(vocab_size=tokenizer.vocab_size, block_size=V2_MODEL.block_size)
+    if hasattr(model, "disable_kv_cache"):
+        model.disable_kv_cache()
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = model.to(device)
     checkpoint = canonical_v2_checkpoint("ouroboros")

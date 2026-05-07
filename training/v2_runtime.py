@@ -35,6 +35,7 @@ from training.v2_config import (
     V2_REPORT_FILES,
 )
 from runtime.drive_session_manager import DriveSessionManager
+from runtime.safe_load import safe_torch_load
 
 
 ensure_dirs()
@@ -89,7 +90,7 @@ def append_jsonl(path: Path, payload: dict) -> None:
 def _read_step(path: Path) -> int:
     """Safely read step number from checkpoint without loading full model."""
     try:
-        ckpt = torch.load(path, map_location="cpu", weights_only=False)
+        ckpt = safe_torch_load(path, map_location="cpu")
         return int(ckpt.get("step", ckpt.get("global_step", 0)))
     except Exception as exc:
         logger.warning("Could not read checkpoint step from %s: %s", path, exc)
@@ -392,7 +393,7 @@ def load_checkpoint(
     if not ckpt.exists():
         return state
 
-    blob = torch.load(ckpt, map_location=device, weights_only=False)
+    blob = safe_torch_load(ckpt, map_location=device)
     model_state = blob.get("model_state_dict", blob.get("model", blob)) if isinstance(blob, dict) else blob
     if isinstance(model_state, dict):
         ckpt_vocab_size = _checkpoint_vocab_size(model_state)

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ShieldCheck, Activity, Search, AlertCircle, FileText, CheckCircle2, Zap, Clock, ShieldX } from 'lucide-react';
+import HormonalStatePanel from './HormonalStatePanel';
 
 const SovereigntyPanel = () => {
   const [data, setData] = useState(null);
@@ -86,6 +87,7 @@ const SovereigntyPanel = () => {
 
       {/* Right Area: Status & Manual Action */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        <HormonalStatePanel />
         
         {/* Audit Status */}
         <div className="glass-panel" style={{ padding: '20px' }}>

@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import ast
 import json
+import shutil
+import subprocess
+import tempfile
 import time
 from pathlib import Path
 from typing import Any
@@ -57,3 +60,62 @@ def sovereignty_audit_change(file_path: str | Path, new_content: str, *, reason:
         pass
     return {"allowed": allowed, "event": event}
 
+
+class SovereigntyRollback:
+    """
+    Context manager that backs up affected files before
+    modification and rolls back if tests fail after.
+    """
+
+    def __init__(self, files_to_modify: list[Path], test_cmd: list[str] = None):
+        self.files = files_to_modify
+        self.test_cmd = test_cmd or [
+            "python",
+            "-m",
+            "pytest",
+            "tests/",
+            "-x",
+            "-q",
+            "--timeout=60",
+        ]
+        self.backup_dir: Path | None = None
+
+    def __enter__(self):
+        self.backup_dir = Path(tempfile.mkdtemp(prefix="anra_rollback_"))
+        for f in self.files:
+            if f.exists():
+                dest = self.backup_dir / f.name
+                shutil.copy2(f, dest)
+        return self
+
+    def commit(self) -> bool:
+        """Run tests. Return True if passed, auto-rollback if failed."""
+        result = subprocess.run(
+            self.test_cmd,
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        if result.returncode != 0:
+            self._rollback()
+            return False
+        self._cleanup()
+        return True
+
+    def _rollback(self):
+        if self.backup_dir is None:
+            return
+        for f in self.files:
+            backup = self.backup_dir / f.name
+            if backup.exists():
+                shutil.copy2(backup, f)
+        self._cleanup()
+
+    def _cleanup(self):
+        if self.backup_dir and self.backup_dir.exists():
+            shutil.rmtree(self.backup_dir, ignore_errors=True)
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if exc_type is not None:
+            self._rollback()
+        return False

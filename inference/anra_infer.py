@@ -17,6 +17,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'h
 
 from tokenizer.char_tokenizer import CharTokenizer
 from causal_transformer import CausalTransformer
+from runtime.safe_load import safe_torch_load
 
 # --- Configuration (must match training) ---
 # These parameters are hardcoded to match the training setup in build_anra_brain.py
@@ -44,7 +45,7 @@ def load_model_and_tokenizer(model_checkpoint_path, tokenizer_path):
     # Load model checkpoint
     if not os.path.exists(model_checkpoint_path):
         raise FileNotFoundError(f"Model checkpoint not found at {model_checkpoint_path}")
-    model.load_state_dict(torch.load(model_checkpoint_path, map_location=device))
+    model.load_state_dict(safe_torch_load(model_checkpoint_path, map_location=device))
     model.to(device)
     model.eval() # Set model to evaluation mode
     print(f"Model loaded from {model_checkpoint_path}. Parameters: {sum(p.numel() for p in model.parameters())/1e6:.2f}M")

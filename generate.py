@@ -60,6 +60,7 @@ class GenerationConfig:
     stop_strings: list[str] = field(default_factory=list)
     seed: Optional[int] = None
     use_think_tokens: bool = False
+    use_kv_cache: bool = True
 
 
 @dataclass
@@ -292,8 +293,17 @@ def generate_traced(prompt: str, cfg: GenerationConfig, *, session_id: str | Non
     ghost_loaded = bool(session_id and session_id in _GHOST_STORE)
 
     start = time.perf_counter()
+    kv_enabled = False
+    if cfg.use_kv_cache and hasattr(MODEL, "enable_kv_cache"):
+        MODEL.enable_kv_cache()
+        MODEL.clear_kv_cache()
+        kv_enabled = True
     for _ in range(max(0, cfg.max_tokens)):
-        x = torch.tensor([generated_ids[-MODEL.block_size :]], dtype=torch.long, device=DEVICE)
+        if kv_enabled and len(generated_ids) > prompt_token_count:
+            token_window = [generated_ids[-1]]
+        else:
+            token_window = generated_ids[-MODEL.block_size :]
+        x = torch.tensor([token_window], dtype=torch.long, device=DEVICE)
         logits, _ = MODEL(x)
         next_id, max_prob, entropy = _sample_next_token(logits[0, -1, :], cfg, generated_ids)
         generated_ids.append(next_id)
@@ -345,9 +355,12 @@ def generate_traced(prompt: str, cfg: GenerationConfig, *, session_id: str | Non
                     "near_capability_boundary": quality < 0.35,
                 },
             )
+            hal.decay(turns=1)  # AN: HAL should drift between conversation turns, not freeze at update time.
             _save_hal(session_id, hal)
         except Exception as exc:
             logger.warning("HAL update failed: %s", exc)
+    if kv_enabled:
+        MODEL.clear_kv_cache()
     return GenerationTrace(
         output=output_text,
         strategy=cfg.strategy,
@@ -357,7 +370,7 @@ def generate_traced(prompt: str, cfg: GenerationConfig, *, session_id: str | Non
         max_prob_curve=max_prob_curve,
         stopped_by=stopped_by,
         repeated_ngrams_detected=bool(repetition["repeated_ngrams_detected"]),
-        kv_cache_compressed=False,
+        kv_cache_compressed=kv_enabled,
         memory_saved_mb=0.0,
         ghost_state_loaded=ghost_loaded,
     )
@@ -419,6 +432,12 @@ def save_ghost_state(session_id: str) -> None:
 def get_model_info() -> dict[str, object]:
     MODEL, TOKENIZER, LOADED_CHECKPOINT = _get_runtime()
     summary = model_summary(MODEL)
+    kv_enabled = False
+    blocks = getattr(MODEL, "blocks", getattr(getattr(MODEL, "model", None), "blocks", []))
+    try:
+        kv_enabled = any(getattr(block.attn, "_kv_cache", None) is not None for block in blocks)
+    except Exception:
+        kv_enabled = False
     return {
         "model_line": "v2",
         "checkpoint": str(LOADED_CHECKPOINT),
@@ -429,6 +448,7 @@ def get_model_info() -> dict[str, object]:
         "device": str(DEVICE),
         "block_size": MODEL.block_size,
         "tokenizer_backend": getattr(TOKENIZER, "backend", "unknown"),
+        "kv_cache_enabled": kv_enabled,
     }
 
 

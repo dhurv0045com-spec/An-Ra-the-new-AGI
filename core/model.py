@@ -1,3 +1,5 @@
+# ARCHIVED - 45E/45H snapshot. Not importable. Read-only reference.
+# Production model: anra_brain.py
 """
 ================================================================================
 FILE: model.py

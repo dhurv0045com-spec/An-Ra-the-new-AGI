@@ -302,6 +302,8 @@ class RLVRTrainer:
                 self.replay_pipeline.add_rlvr_step(step)
             except Exception:
                 pass
+        if self._consecutive_failures >= 3:
+            self._write_failure_replay(task, completions, step)
         if record_verifier_feedback is not None:
             for completion, vr in zip(completions, verifier_results):
                 try:
@@ -316,3 +318,57 @@ class RLVRTrainer:
                 except Exception:
                     pass
         return step
+
+    def _write_failure_replay(
+        self,
+        task: RLVRTask,
+        completions: list[str],
+        step: "RLVRStep",
+    ) -> None:
+        """
+        Convert a real training failure into a FAILURE_REPLAY
+        DFC training example. This closes the loop between
+        RLVR and DFC training data.
+        """
+        import json
+        from datetime import datetime
+        from anra_paths import TRAINING_DATA_DIR
+
+        if not completions or not step.rewards:
+            return
+        worst_idx = int(min(range(len(step.rewards)), key=lambda i: step.rewards[i]))
+        failed_attempt = completions[worst_idx]
+        worst_reward = step.rewards[worst_idx]
+
+        domain = getattr(task, "domain", "general")
+        task_type = getattr(task, "task_type", "unknown")
+
+        example = {
+            "text": (
+                f"<bos>"
+                f"<task domain=\"{domain}\" type=\"failure_replay\">"
+                f"{task.prompt}"
+                f"</task>"
+                f"<act>FAILED ATTEMPT: {failed_attempt[:500]}</act>"
+                f"<obs>REWARD: {worst_reward:.3f} - below threshold 0.35. "
+                f"Verifier rejected this completion.</obs>"
+                f"<err>reward_delta: {worst_reward:.3f} - 0.35 = "
+                f"{worst_reward - 0.35:.3f}</err>"
+                f"<upd>This completion approach failed. "
+                f"Consecutive failures: {self._consecutive_failures}. "
+                f"The verifier requires a different approach.</upd>"
+                f"<eos>"
+            ),
+            "domain": domain,
+            "template": "failure_replay",
+            "verified": False,
+            "source": "live_rlvr",
+            "timestamp": datetime.utcnow().isoformat(),
+            "reward": worst_reward,
+            "task_type": task_type,
+        }
+
+        dfc_path = TRAINING_DATA_DIR / "frontier_dfc.jsonl"
+        dfc_path.parent.mkdir(parents=True, exist_ok=True)
+        with dfc_path.open("a", encoding="utf-8") as f:
+            f.write(json.dumps(example) + "\n")

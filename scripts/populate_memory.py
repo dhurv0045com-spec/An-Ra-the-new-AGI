@@ -15,6 +15,7 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from anra_paths import DATASET_CANONICAL, DRIVE_DIR, DRIVE_MEMORY, ROOT, get_dataset_file, get_tokenizer_file, inject_all_paths
+from runtime.safe_load import safe_torch_load
 from training.v2_config import V2_MODEL
 inject_all_paths()
 
@@ -153,7 +154,7 @@ def _load_model_and_tokenizer():
     if not ckpt.exists():
         ckpt = ROOT / CONFIG["fallback_checkpoint"]
     if ckpt.exists():
-        state = torch.load(ckpt, map_location="cpu")
+        state = safe_torch_load(ckpt, map_location="cpu")
         if isinstance(state, dict) and "model_state_dict" in state:
             state = state["model_state_dict"]
         model.load_state_dict(state, strict=False)

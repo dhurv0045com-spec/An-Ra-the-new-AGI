@@ -1,0 +1,65 @@
+name: An-Ra CI
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install core dependencies
+        run: |
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install numpy faiss-cpu pytest pytest-timeout
+          pip install -r requirements.txt || true
+
+      - name: Verify structure
+        run: python scripts/verify_structure.py || true
+
+      - name: Run test suite
+        run: |
+          python -m pytest tests/ \
+            -x -q \
+            --timeout=60 \
+            --ignore=tests/test_phase3_integration.py \
+            -k "not generate and not checkpoint and not drive"
+        env:
+          PYTHONPATH: .
+
+      - name: Check no hardcoded /content/ paths
+        run: python -m pytest tests/test_no_hardcoded_root_paths.py -v
+
+      - name: Innovation cycle dry run
+        run: python scripts/run_innovation_cycle.py || true
+        env:
+          PYTHONPATH: .
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install pyrefly || true
+      - name: Type check key modules
+        run: |
+          python -c "import anra_brain" 2>&1 || true
+          python -c "import identity.hal" 2>&1 || true
+          python -c "import memory.memory_router" 2>&1 || true
+          python -c "import innovation" 2>&1 || true

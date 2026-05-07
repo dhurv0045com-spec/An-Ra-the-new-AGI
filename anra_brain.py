@@ -103,6 +103,8 @@ class MultiHeadAttentionV2(nn.Module):
         self.out_proj = nn.Linear(n_embd, n_embd, bias=False)
         self.rope = RotaryEmbedding(self.head_dim, base_seq_len=base_seq_len, target_seq_len=target_seq_len)
         self.dropout = dropout
+        self._kv_cache: dict[str, torch.Tensor] | None = None
+        self._layer_idx: int = 0
 
     def forward(self, x: torch.Tensor, *, attention_temperature: torch.Tensor | float | None = None) -> torch.Tensor:
         bsz, seq_len, _ = x.shape
@@ -116,10 +118,23 @@ class MultiHeadAttentionV2(nn.Module):
         if self.groups > 1:
             k = k.repeat_interleave(self.groups, dim=1)
             v = v.repeat_interleave(self.groups, dim=1)
+        if self._kv_cache is not None:
+            cache_k = self._kv_cache.get("k")
+            cache_v = self._kv_cache.get("v")
+            if cache_k is not None and cache_v is not None:
+                k = torch.cat([cache_k, k], dim=2)
+                v = torch.cat([cache_v, v], dim=2)
+            self._kv_cache["k"] = k.detach()
+            self._kv_cache["v"] = v.detach()
+        if self._kv_cache is not None and q.size(2) == 1:
+            # AN: single-token generation can attend to all cached keys without a causal mask.
+            is_causal = False
+        else:
+            is_causal = True
         out = F.scaled_dot_product_attention(
             q, k, v, attn_mask=None,
             dropout_p=self.dropout if self.training else 0.0,
-            is_causal=True,
+            is_causal=is_causal,
         )
         out = out.transpose(1, 2).contiguous().view(bsz, seq_len, -1)
         return self.out_proj(out)
@@ -230,6 +245,22 @@ class CausalTransformerV2(nn.Module):
 
     def model_config(self) -> dict[str, int | bool]:
         return {"vocab_size": self.vocab_size, "pad_token_id": self.pad_token_id, "n_embd": self.n_embd, "n_head": self.n_head, "n_layer": self.n_layer, "block_size": self.block_size, "n_kv_head": self.n_kv_head, "base_seq_len": self.base_seq_len, "target_seq_len": self.target_seq_len, "use_layer_temperature_bias": self.use_layer_temperature_bias, "use_hal": self.use_hal}
+
+    def enable_kv_cache(self) -> None:
+        """Call before inference. Never call during training."""
+        for i, block in enumerate(self.blocks):
+            block.attn._kv_cache = {}
+            block.attn._layer_idx = i
+
+    def disable_kv_cache(self) -> None:
+        for block in self.blocks:
+            block.attn._kv_cache = None
+
+    def clear_kv_cache(self) -> None:
+        """Call between independent generation calls."""
+        for block in self.blocks:
+            if block.attn._kv_cache is not None:
+                block.attn._kv_cache.clear()
 
     def embed(self, idx: torch.Tensor) -> torch.Tensor:
         """Expose canonical token embedding for milestone reasoning wrappers."""
