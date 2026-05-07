@@ -23,6 +23,8 @@ from anra_paths import (
 
 
 SOURCE_SUFFIXES = {".py", ".md", ".ipynb", ".yaml", ".yml", ".json", ".toml"}
+DEFAULT_METRIC_HOOKS = ("latency_ms", "success", "error_type")
+_COMPONENT_ENABLED_OVERRIDES: dict[str, bool] = {}
 IGNORED_PARTS = {
     ".git",
     ".pytest_cache",
@@ -53,19 +55,40 @@ class SystemComponent:
     paths: tuple[str, ...]
     import_name: str | None = None
     required: bool = True
+    enabled: bool = True
+    metric_hooks: tuple[str, ...] = DEFAULT_METRIC_HOOKS
+
+
+def _component(**kwargs) -> SystemComponent:
+    name = str(kwargs["name"])
+    enabled = bool(kwargs.pop("enabled", True))
+    if name in _COMPONENT_ENABLED_OVERRIDES:
+        enabled = _COMPONENT_ENABLED_OVERRIDES[name]
+    else:
+        try:
+            from engine.feature_flags import is_enabled
+
+            enabled = enabled and is_enabled(name)
+        except Exception:
+            pass
+    return SystemComponent(
+        enabled=enabled,
+        metric_hooks=tuple(kwargs.pop("metric_hooks", DEFAULT_METRIC_HOOKS)),
+        **kwargs,
+    )
 
 
 def component_registry() -> list[SystemComponent]:
     """Canonical architecture map for the current An-Ra mainline."""
     return [
-        SystemComponent(
+        _component(
             name="brain",
             layer="model",
             role="V2 causal transformer core: GQA, RoPE/YaRN, MoD, Flash SDP path, tied embeddings.",
             paths=("anra_brain.py", "training/v2_config.py", "training/v2_runtime.py"),
             import_name="anra_brain",
         ),
-        SystemComponent(
+        _component(
             name="tokenizer",
             layer="data",
             role="Canonical 8192-token BPE tokenizer and dependency-light adapter surface.",
@@ -76,54 +99,54 @@ def component_registry() -> list[SystemComponent]:
             ),
             import_name="tokenizer.tokenizer_adapter",
         ),
-        SystemComponent(
+        _component(
             name="data_mix",
             layer="data",
             role="Owner-data-first corpus contract, teacher/symbolic/replay buckets, and dataset setup.",
             paths=(_rel(DATASET_CANONICAL), "training/v2_data_mix.py", "scripts/setup_dataset.py"),
         ),
-        SystemComponent(
+        _component(
             name="training_loop",
             layer="learning",
             role="Daily/milestone trainer, dataset resolution, Drive restore, checkpoint and report runtime.",
             paths=("training/train_unified.py", "scripts/build_brain.py", "training/finetune_anra.py"),
             import_name="training.train_unified",
         ),
-        SystemComponent(
+        _component(
             name="evaluation",
             layer="measurement",
             role="Compact eval, model-running benchmark suite, verifier, and hard-example feedback.",
             paths=("training/eval_v2.py", "training/benchmark.py", "training/verifier.py"),
             import_name="training.benchmark",
         ),
-        SystemComponent(
+        _component(
             name="runtime",
             layer="serving",
             role="Generation, streaming, trace capture, connector refresh, and local inference helpers.",
             paths=("generate.py", "inference/full_system_connector.py", "inference/anra_infer.py"),
             import_name="generate",
         ),
-        SystemComponent(
+        _component(
             name="api_web",
             layer="interface",
             role="FastAPI backend plus Phase 4 Vite/React operator interface.",
             paths=("app.py", "phase4/web/src/App.jsx", "phase4/web/src/index.css", "phase4/web/README.md"),
         ),
-        SystemComponent(
+        _component(
             name="identity",
             layer="alignment",
             role="CIV residual guard, ESV modulation, watcher checks, and Phase 3 identity injection.",
             paths=("identity/civ.py", "identity/esv.py", "identity/civ_watcher.py", "phase3/identity (45N)/identity_injector.py"),
             import_name="identity.civ",
         ),
-        SystemComponent(
+        _component(
             name="memory",
             layer="continuity",
             role="Unified memory router over episodic, short-term, graph, ghost, and ESV-gated writes.",
             paths=("memory/memory_router.py", "memory/faiss_store.py"),
             import_name="memory.memory_router",
         ),
-        SystemComponent(
+        _component(
             name="phase2_memory",
             layer="continuity",
             role="45J typed memory, retrieval, vector index, context builder, and personal graph.",
@@ -134,14 +157,14 @@ def component_registry() -> list[SystemComponent]:
                 "phase2/memory (45J)/context_builder.py",
             ),
         ),
-        SystemComponent(
+        _component(
             name="goals",
             layer="agency",
             role="Persistent priority queue for goals, retries, successors, and orchestrator dispatch.",
             paths=("goals/goal_queue.py", "agents/orchestrator.py", "agents/specialists.py"),
             import_name="goals.goal_queue",
         ),
-        SystemComponent(
+        _component(
             name="agent_loop",
             layer="agency",
             role="45K goal interpretation, planning, dispatch, execution, monitoring, and evaluation.",
@@ -152,7 +175,7 @@ def component_registry() -> list[SystemComponent]:
                 "phase2/agent_loop (45k)/evaluator.py",
             ),
         ),
-        SystemComponent(
+        _component(
             name="master_system",
             layer="autonomy",
             role="45M owner-control system, persistent service, long-horizon goals, safety, and personalization.",
@@ -163,7 +186,7 @@ def component_registry() -> list[SystemComponent]:
                 "phase2/master_system (45M)/control/control.py",
             ),
         ),
-        SystemComponent(
+        _component(
             name="self_improvement",
             layer="learning",
             role="45L improvement engine, dashboard, prompt/skill refinement, and session learning hooks.",
@@ -173,14 +196,14 @@ def component_registry() -> list[SystemComponent]:
                 "phase2/self_improvement (45l)/dashboard/dashboard.py",
             ),
         ),
-        SystemComponent(
+        _component(
             name="self_modification",
             layer="governance",
             role="Type-A/Type-B patch gates, sandbox execution, audit logging, and atomic filesystem actions.",
             paths=("self_modification/type_a.py", "self_modification/type_b.py", "execution/sandbox.py", "execution/fs_agent.py"),
             import_name="self_modification.type_a",
         ),
-        SystemComponent(
+        _component(
             name="ouroboros",
             layer="reflection",
             role="45O recursive reasoning, adaptive pass selection, pass gates, and milestone refinement.",
@@ -190,7 +213,7 @@ def component_registry() -> list[SystemComponent]:
                 "phase3/ouroboros (45O)/pass_gates.py",
             ),
         ),
-        SystemComponent(
+        _component(
             name="ghost_memory",
             layer="continuity",
             role="45P compressed conversation memory, retrieval, decay, and Ghost Context injection.",
@@ -200,7 +223,7 @@ def component_registry() -> list[SystemComponent]:
                 "phase3/ghost_memory (45P)/ghost_memory/injector.py",
             ),
         ),
-        SystemComponent(
+        _component(
             name="symbolic_bridge",
             layer="verification",
             role="45Q deterministic math, logic, code analysis, cross-checking, and verified response objects.",
@@ -211,7 +234,7 @@ def component_registry() -> list[SystemComponent]:
                 "phase3/symbolic_bridge (45Q)/code_verifier.py",
             ),
         ),
-        SystemComponent(
+        _component(
             name="sovereignty",
             layer="governance",
             role="45R audit, dead-code sweep, benchmark deltas, reports, and checkpoint promotion gates.",
@@ -223,6 +246,27 @@ def component_registry() -> list[SystemComponent]:
             ),
         ),
     ]
+
+
+def get_enabled_components() -> list[SystemComponent]:
+    """Return only components where enabled=True and source_ok=True."""
+    enabled: list[SystemComponent] = []
+    for component in component_registry():
+        if component.enabled and bool(component_status(component).get("source_ok")):
+            enabled.append(component)
+    return enabled
+
+
+def set_component_enabled(name: str, enabled: bool, persist: bool = False) -> None:
+    """Runtime toggle. If persist=True, write to feature_flags.json."""
+    names = {component.name for component in component_registry()}
+    if name not in names:
+        raise KeyError(f"unknown component: {name}")
+    _COMPONENT_ENABLED_OVERRIDES[name] = bool(enabled)
+    if persist:
+        from engine.feature_flags import set_flag
+
+        set_flag(name, bool(enabled))
 
 
 def _is_source_file(path: Path) -> bool:

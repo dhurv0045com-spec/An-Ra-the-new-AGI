@@ -6,6 +6,8 @@ import heapq
 import json
 import time
 
+from engine.telemetry import trace
+
 
 @dataclass
 class GoalItem:
@@ -75,6 +77,7 @@ class GoalQueue:
                 return item
         return None
 
+    @trace("goal_queue", "complete")
     def complete(self, goal_id: str) -> bool:
         item = self._items.get(goal_id)
         if not item:
@@ -84,6 +87,7 @@ class GoalQueue:
         self._save()
         return True
 
+    @trace("goal_queue", "fail")
     def fail(self, goal_id: str, error: str = "") -> bool:
         item = self._items.get(goal_id)
         if not item:

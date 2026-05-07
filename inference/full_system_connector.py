@@ -8,6 +8,7 @@ from dataclasses import dataclass, asdict
 from pathlib import Path
 from typing import Dict, Iterable, List, Tuple
 
+from engine.telemetry import trace
 from runtime.system_registry import build_system_manifest, write_system_manifest
 
 
@@ -109,6 +110,7 @@ def phase_snapshots(repo_root: Path, nodes: List[FileNode]) -> List[PhaseSnapsho
     return snapshots
 
 
+@trace("connector", "build_capability_graph")
 def build_capability_graph(repo_root: Path) -> Dict[str, object]:
     manifest = build_system_manifest(repo_root)
     nodes = walk_repository(repo_root)

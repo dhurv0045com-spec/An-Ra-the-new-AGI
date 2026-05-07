@@ -28,6 +28,7 @@ import json
 import argparse
 import subprocess
 from pathlib import Path
+from typing import Callable
 from anra_paths import inject_all_paths, ensure_dirs
 from startup_checks import assert_flash_sdp_ready
 
@@ -161,6 +162,125 @@ def _run_training(mode: str, session_minutes: int) -> int:
     return int(proc.returncode or 0)
 
 
+def _run_report() -> None:
+    from engine.report import print_report, save_report
+
+    print_report()
+    path = save_report()
+    print(f"  Report saved -> {path}")
+
+
+def _run_test(args, system: MasterSystem) -> None:
+    from test_45M import run_all_tests
+
+    run_all_tests(system)
+
+
+def _run_start(args, system: MasterSystem) -> None:
+    system.run_forever()
+
+
+def _run_stop(args, system: MasterSystem) -> None:
+    system.engine.db.set_state("engine_running", False)
+    if getattr(args, "immediate", False):
+        system.safety.kill_switch.activate("CLI --stop --immediate")
+    else:
+        print("Stop signal sent.")
+
+
+def _run_status(args, system: MasterSystem) -> None:
+    print(json.dumps(system.status(), indent=2, default=str))
+
+
+def _run_dashboard(args, system: MasterSystem) -> None:
+    db = Dashboard(system)
+    db.watch(interval=5)
+
+
+def _run_goal(args, system: MasterSystem) -> None:
+    print(f"\n  Executing goal: {args.goal}\n")
+    result = system.run_goal(args.goal)
+    print(f"\n{'═'*60}")
+    print(f"  Goal:     {args.goal}")
+    print(f"  Success:  {result.get('success')}")
+    print(f"  Duration: {result.get('duration', 0):.1f}s")
+    print(f"  Output:")
+    print(f"    {result.get('output', '')[:1000]}")
+    print(f"{'═'*60}\n")
+
+
+def _run_owner_model_inspect(args, system: MasterSystem) -> None:
+    profile = system.owner_modeler.inspect()
+    print(json.dumps(profile, indent=2, default=str))
+
+
+def _run_safety_audit(args, system: MasterSystem) -> None:
+    result = system.safety.run_safety_audit()
+    print(json.dumps(result, indent=2, default=str))
+
+
+def _run_api(args, system: MasterSystem) -> None:
+    api = ControlAPI(system.control)
+    api.serve_stdio()
+
+
+COMMANDS: dict[str, Callable] = {
+    "phase3_status": lambda args, system: _phase3_status(system),
+    "sovereignty_report": lambda args, system: _sovereignty_report(system),
+    "sovereignty_run": lambda args, system: _sovereignty_trigger(system),
+    "test": _run_test,
+    "chat": lambda args, system: _run_chat(system),
+    "start": _run_start,
+    "stop": _run_stop,
+    "briefing": lambda args, system: print(system.morning_briefing()),
+    "status": _run_status,
+    "dashboard": _run_dashboard,
+    "goal": _run_goal,
+    "owner_model_inspect": _run_owner_model_inspect,
+    "safety_audit": _run_safety_audit,
+    "api": _run_api,
+    "report": lambda args, system: _run_report(),
+}
+
+SYSTEM_START_COMMANDS = {
+    "phase3_status",
+    "sovereignty_report",
+    "sovereignty_run",
+    "briefing",
+    "status",
+    "dashboard",
+    "goal",
+    "api",
+}
+SYSTEM_STOP_COMMANDS = {
+    "phase3_status",
+    "sovereignty_report",
+    "sovereignty_run",
+    "briefing",
+    "status",
+    "goal",
+}
+NO_SYSTEM_COMMANDS = {"report"}
+
+
+def _selected_command(args) -> str | None:
+    for name in COMMANDS:
+        if name == "owner_model_inspect":
+            if getattr(args, "owner_model", False) and getattr(args, "inspect", False):
+                return name
+            continue
+        value = getattr(args, name, False)
+        if value:
+            return name
+    return None
+
+
+def _build_system_if_needed(cmd_name: str) -> MasterSystem | None:
+    if cmd_name in NO_SYSTEM_COMMANDS:
+        return None
+    return MasterSystem()
+
+
 def main():
     assert_flash_sdp_ready("anra.py")
     # ── Extended parser ───────────────────────────────────────────────────────
@@ -173,6 +293,8 @@ def main():
                         help="Show the latest nightly self-improvement report")
     parser.add_argument("--sovereignty-run", action="store_true",
                         help="Trigger the sovereignty improvement pipeline now")
+    parser.add_argument("--report", action="store_true",
+                        help="Print automated system health report")
     parser.add_argument("--train-session-minutes", type=int, default=30,
                         help="Session minutes when --mode interactive/session/train is used without --start")
 
@@ -192,6 +314,7 @@ def main():
                 args.phase3_status,
                 args.sovereignty_report,
                 args.sovereignty_run,
+                args.report,
                 bool(args.symbolic),
                 getattr(args, "owner_model", False),
                 getattr(args, "safety_audit", False),
@@ -206,99 +329,20 @@ def main():
         _symbolic_query(args.symbolic)
         return
 
-    system = MasterSystem()
-
-    # ── Phase 3 specific commands ─────────────────────────────────────────────
-    if args.phase3_status:
-        system.start()
-        _phase3_status(system)
-        system.stop()
-        return
-
-    if args.sovereignty_report:
-        system.start()
-        _sovereignty_report(system)
-        system.stop()
-        return
-
-    if args.sovereignty_run:
-        system.start()
-        _sovereignty_trigger(system)
-        system.stop()
-        return
-
-    # ── Original commands (delegate to system.py logic) ──────────────────────
-    if getattr(args, "test", False):
-        from test_45M import run_all_tests
-        run_all_tests(system)
-        return
-
-    if getattr(args, "chat", False):
-        _run_chat(system)
-        return
-
-    if getattr(args, "start", False):
-        system.run_forever()
-        return
-
-    if getattr(args, "stop", False):
-        system.engine.db.set_state("engine_running", False)
-        if getattr(args, "immediate", False):
-            system.safety.kill_switch.activate("CLI --stop --immediate")
-        else:
-            print("Stop signal sent.")
-        return
-
-    if getattr(args, "briefing", False):
-        system.start()
-        print(system.morning_briefing())
-        system.stop()
-        return
-
-    if getattr(args, "status", False):
-        system.start()
-        s = system.status()
-        print(json.dumps(s, indent=2, default=str))
-        system.stop()
-        return
-
-    if getattr(args, "dashboard", False):
-        system.start()
-        db = Dashboard(system)
-        db.watch(interval=5)
-        return
-
-    if getattr(args, "goal", None):
-        system.start()
-        print(f"\n  Executing goal: {args.goal}\n")
-        result = system.run_goal(args.goal)
-        print(f"\n{'═'*60}")
-        print(f"  Goal:     {args.goal}")
-        print(f"  Success:  {result.get('success')}")
-        print(f"  Duration: {result.get('duration', 0):.1f}s")
-        print(f"  Output:")
-        print(f"    {result.get('output', '')[:1000]}")
-        print(f"{'═'*60}\n")
-        system.stop()
-        return
-
-    if getattr(args, "owner_model", False) and getattr(args, "inspect", False):
-        profile = system.owner_modeler.inspect()
-        print(json.dumps(profile, indent=2, default=str))
-        return
-
-    if getattr(args, "safety_audit", False):
-        result = system.safety.run_safety_audit()
-        print(json.dumps(result, indent=2, default=str))
-        return
-
-    if getattr(args, "api", False):
-        system.start()
-        api = ControlAPI(system.control)
-        api.serve_stdio()
+    cmd_name = _selected_command(args)
+    if cmd_name is not None:
+        system = _build_system_if_needed(cmd_name)
+        if system is not None and cmd_name in SYSTEM_START_COMMANDS:
+            system.start()
+        try:
+            COMMANDS[cmd_name](args, system)
+        finally:
+            if system is not None and cmd_name in SYSTEM_STOP_COMMANDS:
+                system.stop()
         return
 
     # Default: show dashboard
+    system = MasterSystem()
     system.start()
     print(system.dashboard.render())
     system.stop()

@@ -1,122 +1,225 @@
 # An-Ra Developer Guide
 
-> Build aggressively, but keep the system measurable, operable, and recognizably An-Ra.
+> Build aggressively, but make every subsystem measurable, swappable, traceable, and safe to operate.
 
-This guide is for working on the current mainline without turning it into a generic assistant stack or an impressive diagram that cannot survive real sessions.
+This guide is for humans and AI coding agents working on An-Ra. The project should feel like a professional ML platform: clear registry, clear paths, clear flags, clear telemetry, clear reports, clear tests.
 
-## Current Repo Truth
+## First Rule
 
-The live registry is in `runtime/system_registry.py` and currently reports:
+Do not re-implement what already exists.
+
+Use the existing spine:
+
+| Need | Source |
+| --- | --- |
+| Paths | `anra_paths.py` |
+| Component truth | `runtime/system_registry.py` |
+| Component contract | `engine/component_base.py` |
+| Feature flags | `engine/feature_flags.py` |
+| Telemetry | `engine/telemetry.py` |
+| Ablation/regression | `engine/eval_harness.py` |
+| System report | `engine/report.py` |
+| Structured audit events | `shared_logger.py` |
+| HAL telemetry | `runtime/hal_telemetry.py` |
+| Startup contracts | `startup_checks.py` |
+
+## Current Platform Contract
+
+Every registered component should be:
+
+- described in `component_registry()`
+- enabled or disabled through feature flags
+- traceable through telemetry when called
+- visible in `python anra.py --report`
+- testable through focused tests or smoke checks
+- evaluated through a baseline/system-on/ablation path when behavior changes
+
+Do not add a subsystem that cannot answer:
 
 ```text
-Capabilities: 19/19 active
-Markdown files: 15
-Tokenizer: present
-Local checkpoints: missing until restored or trained
+What does it do?
+Is it enabled?
+How fast is it?
+How often does it fail?
+What test proves it?
+What regression check protects it?
+What owner-control boundary applies?
 ```
 
-Run this before making claims about status:
+## Files To Read Before Editing
 
-```bash
-python scripts/status.py
-python -m inference.full_system_connector
-python scripts/verify_structure.py
-```
-
-## First Files To Read
-
-| Need | Start Here |
+| Area | Files |
 | --- | --- |
-| Model shape | `anra_brain.py`, `training/v2_config.py` |
-| Generation | `generate.py`, `inference/anra_infer.py` |
-| Training | `training/train_unified.py`, `scripts/build_brain.py` |
+| Entrypoint | `anra.py` |
+| Paths | `anra_paths.py` |
+| Registry | `runtime/system_registry.py` |
+| Reporting | `engine/report.py`, `scripts/status.py` |
+| Feature flags | `engine/feature_flags.py`, `agents/orchestrator.py` |
+| Telemetry | `engine/telemetry.py` and traced call sites |
+| Model | `anra_brain.py`, `training/v2_config.py`, `training/v2_runtime.py` |
+| Training | `training/train_unified.py`, `scripts/build_brain.py`, `training/finetune_anra.py` |
 | Data mix | `training/v2_data_mix.py`, `scripts/setup_dataset.py` |
 | Eval | `training/eval_v2.py`, `training/benchmark.py`, `training/verifier.py` |
-| Identity | `identity/civ.py`, `identity/esv.py`, `phase3/identity (45N)/identity_injector.py` |
-| Memory | `memory/memory_router.py`, `phase2/memory (45J)/memory_manager.py` |
-| Agency | `goals/goal_queue.py`, `agents/orchestrator.py`, `phase2/agent_loop (45k)/agent_main.py` |
+| Memory | `memory/memory_router.py`, `phase2/memory (45J)/` |
+| Agency | `goals/goal_queue.py`, `agents/orchestrator.py`, `phase2/agent_loop (45k)/` |
 | Autonomy | `phase2/master_system (45M)/system.py` |
-| Verification | `phase3/symbolic_bridge (45Q)/symbolic_bridge.py` |
+| Verification | `phase3/symbolic_bridge (45Q)/` |
 | Governance | `self_modification/`, `phase3/sovereignty (45R)/` |
 | Web UI | `phase4/web/src/App.jsx` |
 
-## Non-Negotiables
+## AI Collaboration Process
 
-### 1. Owner Data Stays Dominant
+When using an AI coding agent on this repo, give it the goal and require this workflow:
 
-Default mix:
+1. Read the relevant source before editing.
+2. Prefer thin adapters, decorators, tables, and wrappers over rewrites.
+3. Keep model logic, prompts, identity text, and training data unchanged unless explicitly requested.
+4. Add tests for every new file and every changed public behavior.
+5. Run focused tests first, then `python -m pytest tests/ -x -q`.
+6. Run `python anra.py --report` after platform or operator-surface changes.
+7. Summarize changed files, verification, and any residual risk.
 
-- `65%` own conversation/instruction
-- `15%` own identity/selfhood
-- `10%` teacher reasoning
-- `5%` symbolic or code-verified samples
-- `5%` replayed failures and corrections
-
-Changing this mix requires proof that identity drift will not increase.
-
-### 2. Daily Training Must Stay Reliable
-
-The daily path is:
+Good AI instruction:
 
 ```text
-restore -> validate -> train -> save -> evaluate -> write next-step guidance
+Implement this as a thin adapter on the existing registry/telemetry/flag system.
+Do not rewrite model logic.
+Add focused tests.
+Run the full suite.
+Report exact commands and outcomes.
 ```
 
-The command is:
+Bad AI instruction:
+
+```text
+Make it more advanced.
+Rewrite the architecture.
+Add a new agent.
+Improve intelligence without tests.
+```
+
+## Engineering Rules
+
+### 1. Preserve Authorship
+
+Owner data stays dominant:
+
+| Bucket | Share |
+| --- | ---: |
+| Own conversation/instruction | 65% |
+| Own identity/selfhood | 15% |
+| Teacher reasoning | 10% |
+| Symbolic/code-verified samples | 5% |
+| Replayed failures/corrections | 5% |
+
+Changing this mix requires evidence that identity drift does not increase.
+
+### 2. Keep Paths Centralized
+
+Use `anra_paths.py`. Do not scatter Drive, dataset, tokenizer, checkpoint, workspace, or phase-folder literals.
+
+### 3. Keep Registry Truth Centralized
+
+Use `runtime/system_registry.py` for component facts. Do not maintain separate component lists in scripts unless they are derived from the registry.
+
+### 4. Use Feature Flags Instead Of Call-Site Surgery
+
+Use:
+
+```python
+from engine.feature_flags import is_enabled, set_flag
+```
+
+Disable components through `state/feature_flags.json`, not by commenting out logic.
+
+### 5. Trace Main Operations
+
+Use:
+
+```python
+from engine.telemetry import trace
+```
+
+Decorate one main callable per subsystem. Do not add noisy traces to tiny helper functions unless debugging a specific issue.
+
+### 6. Evaluate Before Claiming Improvement
+
+Use `engine/eval_harness.py` when behavior can be compared:
+
+```text
+baseline -> system_on -> ablation -> compare -> save report
+```
+
+A patch that claims better reasoning, memory, speed, or reliability needs a metric.
+
+### 7. Keep Daily Training Reliable
+
+Daily path:
 
 ```bash
 python -m training.train_unified --mode session
 ```
 
-If a change makes this path slower, less visible, or more fragile, the patch needs a strong reason.
+Do not make the daily path depend on heavyweight reflection, external services, or missing local checkpoints.
 
-### 3. Milestone Depth Stays Selective
+### 8. Keep Milestones Selective
 
-Use the milestone path when you want the deep stack:
+Milestone path:
 
 ```bash
 python -m training.train_unified --mode train
 ```
 
-That path is allowed to be heavier because it can include identity tuning, Ouroboros refinement, self-improvement reporting, sovereignty audit, and milestone tests.
+This path may include identity tuning, Ouroboros refinement, self-improvement reporting, sovereignty audit, and milestone tests.
 
-### 4. Verification Beats Fluent Guessing
+### 9. Verification Beats Fluency
 
-When the system can check something, it should. Use:
+Use deterministic or repeatable checks wherever possible:
 
+- unit tests
 - `training/verifier.py`
 - `training/benchmark.py`
-- `phase3/symbolic_bridge (45Q)/`
-- `scripts/run_sovereignty_audit.py`
-- replay reports under `output/v2/`
+- symbolic bridge checks
+- schema validation
+- report diffs
+- telemetry summaries
+- ablation/regression reports
 
-### 5. Public Surfaces Stay Obvious
+### 10. No Heavy Imports In New Platform Modules
 
-A new operator should be able to answer:
-
-- how do I check status?
-- how do I train?
-- how do I evaluate?
-- how do I run a symbolic query?
-- how do I inspect the web dashboard?
-- how do I continue from Drive?
-
-without spelunking through old folders.
+New `engine/` modules must not import `torch`, `faiss`, `transformers`, or other heavy ML libraries at module import time.
 
 ## Main Commands
 
+Status and report:
+
 ```bash
+python anra.py --report
+python anra.py --status
+python anra.py --phase3-status
 python scripts/status.py
+python -m inference.full_system_connector
+```
+
+Training:
+
+```bash
 python -m training.train_unified --mode status
 python -m training.train_unified --mode session
 python -m training.train_unified --mode train
 python -m training.train_unified --mode eval
-python anra.py --status
-python anra.py --phase3-status
-python anra.py --symbolic "factor 360"
 ```
 
-Web dashboard:
+Verification:
+
+```bash
+python -m pytest tests/ -x -q
+python -c "from engine.feature_flags import load_flags; print(load_flags())"
+python -c "from engine.telemetry import get_telemetry_bus; print(get_telemetry_bus().summary_by_module())"
+python -c "from runtime.system_registry import component_registry; print(len(component_registry()))"
+```
+
+Web:
 
 ```bash
 cd phase4/web
@@ -124,43 +227,32 @@ npm install
 npm run dev
 ```
 
-## Safe Extension Targets
-
-High-value areas:
-
-- better compact eval prompts
-- stronger hard-example ranking
-- replay prioritization
-- symbolic filtering before teacher data enters the corpus
-- teacher-output rejection for generic voice
-- more useful sovereignty audit heuristics
-- inference/runtime efficiency
-- clearer web dashboard panels
-
-Risky but valid areas:
-
-- modest model scale increases with a T4-fit plan
-- smarter milestone triggers
-- stronger replay weighting
-- additional verified reasoning datasets
-- better memory-to-training export
-
-Changes that require evidence:
-
-- changing the tokenizer
-- moving heavy reflection into every daily run
-- making teacher data dominant
-- adding subsystems without stronger evals
-- increasing architecture size without a restore/train story
-
 ## Definition Of Done
 
-A good An-Ra patch should leave behind:
+A good patch leaves behind:
 
-- source checks still `19/19 active`
-- relevant tests or smoke checks run
-- docs updated if public behavior changed
+- source behavior preserved unless the request explicitly changes it
+- focused tests for new code
+- full test suite passing or a clear reason it could not run
+- `python anra.py --report` still working for platform changes
+- no unrelated runtime DB/checkpoint churn in the final diff
 - no hidden dependency on missing local checkpoints
-- no silent identity drift or teacher-capture risk
+- no new scattered hardcoded paths
+- no silent identity or prompt changes
+- no feature that cannot be disabled, traced, or evaluated
 
-The point is not just to add capability. The point is to add capability that can be measured, restored, and kept under the project's authorship.
+## Review Checklist
+
+Before accepting a change, ask:
+
+| Question | Expected Answer |
+| --- | --- |
+| Which component changed? | Name from `component_registry()` |
+| Can it be toggled? | Feature flag or clear reason not applicable |
+| Is it traced? | Telemetry record or clear reason not applicable |
+| How is it tested? | Test file and command |
+| How is regression detected? | Eval harness, benchmark, or explicit smoke comparison |
+| What user/operator surface changed? | README, notebook, CLI help, report, or none |
+| What could fail? | Known residual risk |
+
+Build like the repo will be operated repeatedly, not admired once.

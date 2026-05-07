@@ -13,11 +13,13 @@ from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 
+from engine.telemetry import trace
 from . import decay as decay_mod
 from .config import GhostConfig
 from .quantizer import decompress_vector
 
 
+@trace("ghost_memory", "retrieve_memories")
 def retrieve_memories(
     query_text: str,
     rows: Sequence[Tuple[int, float, str, str, bytes]],

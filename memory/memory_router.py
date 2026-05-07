@@ -6,6 +6,7 @@ import hashlib
 import json
 
 from anra_paths import DRIVE_FAISS_INDEX, DRIVE_GHOST_DB
+from engine.telemetry import trace
 
 try:
     from identity.hal import HALModule
@@ -134,6 +135,7 @@ class MemoryRouter:
 
         return self._fit_dim(np.tanh(self._local_semantic_projection(text)))
 
+    @trace("memory_router", "write")
     def write(self, content: str, *, metadata: dict | None = None, tier: str = "episodic") -> MemoryWriteResult:
         metadata = metadata or {}
         record_id = hashlib.sha1(f"{content}|{metadata}".encode("utf-8")).hexdigest()[:16]
@@ -198,6 +200,7 @@ class MemoryRouter:
         self.episodic.save()
         return MemoryWriteResult(tier="episodic", record_id=record_id)
 
+    @trace("memory_router", "read")
     def read(self, query: str | np.ndarray, n: int = 8, *, tier: str = "episodic") -> list[dict]:
         if tier == "short_term":
             q = str(query).lower()

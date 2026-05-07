@@ -2,8 +2,17 @@ import asyncio
 import tempfile
 from pathlib import Path
 
+import pytest
+
 from agents.orchestrator import OrchestratorAgent
+from engine import telemetry
+from engine.telemetry import TelemetryBus
 from goals.goal_queue import GoalQueue
+
+
+@pytest.fixture(autouse=True)
+def _isolated_telemetry(tmp_path, monkeypatch):
+    monkeypatch.setattr(telemetry, "_bus", TelemetryBus(tmp_path / "telemetry.jsonl"))
 
 
 class _Agent:

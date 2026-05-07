@@ -4,6 +4,18 @@ import asyncio
 import time
 
 from agents.message_bus import MessageBus
+from engine.feature_flags import is_enabled
+from engine.telemetry import trace
+
+
+KIND_TO_COMPONENT = {
+    "coder": "agent_loop",
+    "research": "agent_loop",
+    "memory": "memory",
+    "critic": "evaluation",
+    "symbolic": "symbolic_bridge",
+    "ghost": "ghost_memory",
+}
 
 
 class OrchestratorAgent:
@@ -23,10 +35,14 @@ class OrchestratorAgent:
         self.bus = bus or MessageBus()
         self.goal_queue = goal_queue
 
+    @trace("orchestrator", "dispatch")
     async def dispatch(self, task: dict) -> dict:
         goal_id = task.get("goal_id")
         try:
             kind = task.get("kind", "coder")
+            component = KIND_TO_COMPONENT.get(kind, kind)
+            if not is_enabled(component):
+                return {"skipped": True, "reason": f"component '{component}' is disabled via feature flags"}
             if kind == "coder":
                 result = await self.coder.run(task)
             elif kind == "research":

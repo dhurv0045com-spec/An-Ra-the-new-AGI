@@ -2,7 +2,16 @@ from pathlib import Path
 
 from anra_paths import ROOT
 from inference.full_system_connector import build_capability_graph
-from runtime.system_registry import build_system_manifest, component_registry, source_metrics
+import json
+
+from runtime import system_registry
+from runtime.system_registry import (
+    build_system_manifest,
+    component_registry,
+    get_enabled_components,
+    set_component_enabled,
+    source_metrics,
+)
 from runtime.training_readiness import assess_training_readiness
 
 
@@ -46,3 +55,42 @@ def test_readiness_distinguishes_session_from_milestone():
     assert readiness.out_of == 10
     assert isinstance(readiness.ready_for_session, bool)
     assert isinstance(readiness.ready_for_milestone, bool)
+
+
+def test_all_components_have_metric_hooks(tmp_path, monkeypatch):
+    from engine import feature_flags
+
+    system_registry._COMPONENT_ENABLED_OVERRIDES.clear()
+    monkeypatch.setattr(feature_flags, "FLAGS_FILE", tmp_path / "missing_flags.json")
+    try:
+        for component in component_registry():
+            assert component.enabled is True
+            assert {"latency_ms", "success", "error_type"} <= set(component.metric_hooks)
+    finally:
+        system_registry._COMPONENT_ENABLED_OVERRIDES.clear()
+
+
+def test_get_enabled_components_filters_disabled(monkeypatch):
+    system_registry._COMPONENT_ENABLED_OVERRIDES.clear()
+    monkeypatch.setattr(system_registry, "component_status", lambda component: {"source_ok": True})
+    set_component_enabled("memory", False)
+    try:
+        names = {component.name for component in get_enabled_components()}
+        assert "memory" not in names
+        assert "brain" in names
+    finally:
+        system_registry._COMPONENT_ENABLED_OVERRIDES.clear()
+
+
+def test_set_component_enabled_persists(tmp_path, monkeypatch):
+    from engine import feature_flags
+
+    system_registry._COMPONENT_ENABLED_OVERRIDES.clear()
+    flags_file = tmp_path / "feature_flags.json"
+    monkeypatch.setattr(feature_flags, "FLAGS_FILE", flags_file)
+    set_component_enabled("ghost_memory", False, persist=True)
+    try:
+        data = json.loads(flags_file.read_text(encoding="utf-8"))
+        assert data["ghost_memory"] is False
+    finally:
+        system_registry._COMPONENT_ENABLED_OVERRIDES.clear()

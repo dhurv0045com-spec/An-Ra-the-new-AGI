@@ -22,6 +22,8 @@ import importlib.util
 import sys
 from pathlib import Path
 
+from engine.telemetry import trace
+
 # ── Load phase3/symbolic_bridge (45Q)/__init__.py as a properly-named package ──────────────────
 # submodule_search_locations tells importlib that relative imports like
 # `.config` and `.detector` should look in the same directory as __init__.py.
@@ -54,7 +56,7 @@ _mod = sys.modules[_PKG_NAME]
 
 # ── Re-export the public API ──────────────────────────────────────────────────
 # Top-level unified interface
-query       = _mod.query
+query       = trace("symbolic_bridge", "query")(_mod.query)
 query_math  = _mod.query_math
 query_logic = _mod.query_logic
 query_code  = _mod.query_code

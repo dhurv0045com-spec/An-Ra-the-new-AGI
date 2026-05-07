@@ -1,88 +1,221 @@
 # AN-RA
 
-> Built from zero: a transformer core, a memory spine, an agent layer, a verification layer, and a sovereignty loop around one authored center.
+> A sovereign, owner-shaped AI platform built around measurable learning, memory, verification, autonomy, and controlled self-improvement.
 
-An-Ra is a private, owner-shaped AI system. The repo is no longer a loose trail of experiments; the current mainline is a 19-layer stack with V2 as the canonical path.
+An-Ra is not a generic chatbot wrapper. It is a from-scratch AI system and operating stack: model core, tokenizer, training loop, memory, agent dispatch, identity guardrails, symbolic verification, ghost recall, self-improvement, self-modification gates, sovereignty audits, and now a measurable engineering spine.
 
-Status snapshot from `python scripts/status.py` on 2026-05-05:
+The rule of the project is simple:
 
 ```text
-Capabilities: 19/19 active
-Source files: 309
-Python files: 278
-Markdown files: 15
-Python lines: 76938
-Tokenizer: tokenizer_v3.json present
-Local V2 checkpoints: missing until restored or trained
+No magic subsystem.
+Every component must be registered, switchable, measurable, reportable, and testable.
 ```
 
-## The 19/19 Layer Map
+## Current Shape
 
-| # | Layer | Source | Role |
-| --- | --- | --- | --- |
-| 01 | `brain` | `anra_brain.py` | Canonical V2 transformer core |
-| 02 | `tokenizer` | `tokenizer/tokenizer_v3.json` | 8192-token BPE path with fallback adapter |
-| 03 | `data_mix` | `training/v2_data_mix.py` | Owner-data-first training contract |
-| 04 | `training_loop` | `training/train_unified.py` | Daily and milestone training orchestration |
-| 05 | `evaluation` | `training/eval_v2.py` | Compact eval, verifier, benchmark feedback |
-| 06 | `inference_runtime` | `generate.py` | Generation, streaming, tracing, connector refresh |
-| 07 | `api_web` | `app.py`, `phase4/web/` | API plus operator dashboard |
-| 08 | `identity` | `identity/`, `phase3/identity (45N)/` | CIV/ESV guards and runtime identity injection |
-| 09 | `memory_router` | `memory/` | Unified memory entry point |
-| 10 | `phase2_memory` | `phase2/memory (45J)/` | Typed memory, vector retrieval, graph context |
-| 11 | `goals` | `goals/`, `agents/` | Persistent goals and specialist dispatch |
-| 12 | `agent_loop` | `phase2/agent_loop (45k)/` | Goal to plan to execution to evaluation |
-| 13 | `master_system` | `phase2/master_system (45M)/` | Autonomy, owner control, safety, personalization |
-| 14 | `self_improvement` | `phase2/self_improvement (45l)/` | Improvement engine and dashboard hooks |
-| 15 | `self_modification` | `self_modification/`, `execution/` | Patch gates, sandbox, atomic filesystem actions |
-| 16 | `ouroboros` | `phase3/ouroboros (45O)/` | Recursive reasoning and milestone reflection |
-| 17 | `ghost_memory` | `phase3/ghost_memory (45P)/` | Compressed conversational recall |
-| 18 | `symbolic_bridge` | `phase3/symbolic_bridge (45Q)/` | Verified math, logic, and code reasoning |
-| 19 | `sovereignty` | `phase3/sovereignty (45R)/` | Audit, benchmark, report, and promotion governance |
+The live component source of truth is `runtime/system_registry.py`.
 
-## Main Commands
+An-Ra currently has 19 registered components:
+
+| # | Component | Role |
+| --- | --- | --- |
+| 01 | `brain` | V2 transformer core: GQA, RoPE/YaRN, MoD, Flash SDP path, tied embeddings |
+| 02 | `tokenizer` | Canonical 8192-token BPE tokenizer and adapter |
+| 03 | `data_mix` | Owner-data-first corpus contract and dataset setup |
+| 04 | `training_loop` | Daily and milestone training orchestration |
+| 05 | `evaluation` | Compact eval, benchmark, verifier, and hard-example feedback |
+| 06 | `runtime` | Generation, streaming, connector refresh, local inference helpers |
+| 07 | `api_web` | FastAPI backend and Phase 4 web operator interface |
+| 08 | `identity` | CIV/ESV guardrails, watcher checks, identity injection |
+| 09 | `memory` | Unified memory router over episodic, short-term, graph, ghost, and ESV-gated writes |
+| 10 | `phase2_memory` | Typed memory, retrieval, vector index, context builder, personal graph |
+| 11 | `goals` | Persistent goal queue, retries, successors, orchestrator dispatch |
+| 12 | `agent_loop` | Planning, execution, monitoring, evaluation |
+| 13 | `master_system` | Owner-control system, persistent service, long-horizon goals, safety |
+| 14 | `self_improvement` | Improvement engine, prompt/skill refinement, session learning hooks |
+| 15 | `self_modification` | Type-A/Type-B patch gates, sandbox execution, filesystem actions |
+| 16 | `ouroboros` | Recursive reasoning, adaptive pass selection, milestone refinement |
+| 17 | `ghost_memory` | Compressed conversation memory, decay, retrieval, context injection |
+| 18 | `symbolic_bridge` | Deterministic math, logic, code analysis, verified responses |
+| 19 | `sovereignty` | Audit, dead-code sweep, benchmark deltas, reports, promotion gates |
+
+Every component now carries:
+
+- `enabled`: runtime toggle state
+- `metric_hooks`: required measurement hooks such as latency, success, and error type
+- source status from the registry
+- telemetry summaries when it has been exercised
+
+## Engineering Spine
+
+The new platform layer lives in `engine/`.
+
+| File | Purpose |
+| --- | --- |
+| `engine/component_base.py` | Lightweight component protocol and metrics bookkeeping |
+| `engine/feature_flags.py` | Config-driven component toggles in `state/feature_flags.json` |
+| `engine/telemetry.py` | Unified JSONL tracing: latency, success, errors, output size, tokens |
+| `engine/eval_harness.py` | Baseline, system-on, ablation, and regression comparison harness |
+| `engine/report.py` | One-command health/performance snapshot |
+
+This means the important questions have direct answers:
+
+| Question | Command or API |
+| --- | --- |
+| What exists? | `component_registry()` |
+| Is it enabled? | `is_enabled("component")` |
+| How fast is it? | `get_telemetry_bus().summary_by_module()` |
+| Did it regress? | `EvalHarness().compare(baseline, current)` |
+| What broke recently? | `python anra.py --report` |
+| Can it be disabled? | `set_flag("component", False)` |
+
+## Operator Quickstart
+
+Create an environment, install dependencies, then run the report:
 
 ```bash
-python scripts/status.py
-python scripts/readiness.py
-python -m inference.full_system_connector
+python -m pip install -r requirements.txt
+python anra.py --report
+```
+
+Useful commands:
+
+```bash
+python anra.py --status
+python anra.py --phase3-status
+python anra.py --symbolic "solve x^2 - 9 = 0"
+python anra.py --goal "summarize the current system report"
 python -m training.train_unified --mode status
 python -m training.train_unified --mode session
 python -m training.train_unified --mode train
 python -m training.train_unified --mode eval
-python anra.py --status
-python anra.py --phase3-status
-python anra.py --symbolic "solve x^2 - 9 = 0"
+python -m pytest tests/ -x -q
 ```
 
-Use `session` for the normal daily path. Use `train` for the deeper milestone path: base session, identity, Ouroboros, self-improvement, sovereignty audit, then milestone tests.
+On CPU-only machines, `anra.py` may warn that Flash SDP/CUDA is unavailable. That is expected for local smoke checks; serious training should run on a CUDA-capable GPU environment.
 
-## Current Mainline
+## Colab Path
 
-The public path is:
+Use `AnRa_Master.ipynb` for the Google Colab operator workflow.
 
-- `anra_brain.py`
-- `generate.py`
-- `anra.py`
-- `app.py`
-- `scripts/build_brain.py`
-- `training/train_unified.py`
-- `training/finetune_anra.py`
-- `scripts/train_ouroboros.py`
-- `scripts/run_self_improvement.py`
-- `scripts/run_sovereignty_audit.py`
-- `AnRa_Master.ipynb`
+The notebook is now structured as a full An-Ra console:
 
-Support modules that belong to the mainline:
+1. configure session, repo, Drive, and component flags
+2. mount Drive and inspect GPU/RAM
+3. clone or update the repo
+4. select and merge owner training data
+5. restore checkpoints and run preflight checks
+6. apply feature flags and print the system report
+7. run training, evaluation, or smoke mode
+8. inspect telemetry and scorecard metrics
+9. sync reports/checkpoints back to Drive
+10. launch UI or API surfaces
 
-- `training/v2_config.py`
-- `training/v2_data_mix.py`
-- `training/v2_runtime.py`
-- `training/eval_v2.py`
+The notebook is for operating the platform, not editing its source. Source changes should happen in git, then Colab pulls the updated repo.
+
+## How To Use An-Ra As An AI System
+
+Use An-Ra in three modes:
+
+### 1. Local Inspection
+
+For status, routing, flags, telemetry, reports, symbolic checks, and fast tests:
+
+```bash
+python anra.py --report
+python anra.py --status
+python anra.py --symbolic "factor 360"
+python -c "from engine.feature_flags import disabled_components; print(disabled_components())"
+```
+
+### 2. Daily Learning
+
+For regular improvement without heavy milestone passes:
+
+```bash
+python -m training.train_unified --mode session
+```
+
+Daily sessions should keep the loop clean:
+
+```text
+restore -> validate -> train -> evaluate -> write reports -> keep failures for replay
+```
+
+### 3. Milestone Improvement
+
+For deeper training and governance:
+
+```bash
+python -m training.train_unified --mode train
+```
+
+Milestones are allowed to be heavier because they can involve identity reinforcement, Ouroboros refinement, self-improvement analysis, sovereignty audit, and promotion gates.
+
+## Feature Flags
+
+Disable a component without editing call sites:
+
+```bash
+python - <<'PY'
+from engine.feature_flags import set_flag, disabled_components
+set_flag("ghost_memory", False)
+print(disabled_components())
+PY
+```
+
+The orchestrator maps task kinds to components and skips disabled components automatically:
+
+| Task kind | Component |
+| --- | --- |
+| `coder` | `agent_loop` |
+| `research` | `agent_loop` |
+| `memory` | `memory` |
+| `critic` | `evaluation` |
+| `symbolic` | `symbolic_bridge` |
+| `ghost` | `ghost_memory` |
+
+## Telemetry And Scorecard
+
+Telemetry is written to:
+
+```text
+state/logs/telemetry.jsonl
+```
+
+Each traced call records:
+
+- module
+- operation
+- start/end time
+- elapsed milliseconds
+- success/failure
+- error type/message
+- token count when returned by the function
+- output size/type
+- confidence when present
+
+The system report turns this into an operator scorecard:
+
+```bash
+python anra.py --report
+```
+
+Scorecard axes:
+
+| Axis | Meaning |
+| --- | --- |
+| Source health | Registered files exist and required components are present |
+| Import health | Importable components do not report degraded status |
+| Enablement | Feature flags show which components are active |
+| Latency | Average traced runtime per module |
+| Reliability | Success rate and recent failures |
+| Regression | Eval harness comparison between baseline and current behavior |
+| Readiness | Training readiness checks and artifact state |
 
 ## Data Contract
 
-The default training mix stays owner-centered:
+The default training mix remains owner-centered:
 
 | Bucket | Share | Purpose |
 | --- | ---: | --- |
@@ -92,48 +225,51 @@ The default training mix stays owner-centered:
 | Symbolic or code-verified samples | 5% | Truth-checked supervision |
 | Replayed failures and corrections | 5% | Repair from real mistakes |
 
-Teacher data is an amplifier, not an owner. An-Ra should get sharper without becoming generic.
+Teacher data is an amplifier, not the owner. An-Ra should get sharper without becoming generic.
 
 ## Artifact Layout
 
 Canonical dataset:
 
-- `training_data/anra_training.txt`
+```text
+training_data/anra_training.txt
+```
 
 Tokenizer:
 
-- `tokenizer/tokenizer_v3.json`
+```text
+tokenizer/tokenizer_v3.json
+```
 
-V2 checkpoints:
+Main checkpoint names:
 
-- `anra_v2_brain.pt`
-- `anra_v2_identity.pt`
-- `anra_v2_ouroboros.pt`
+```text
+anra_v2_brain.pt
+anra_v2_identity.pt
+anra_v2_ouroboros.pt
+```
 
-Reports:
+Key runtime/report paths:
 
-- `output/v2/v2_session_train_metrics.json`
-- `output/v2/v2_hard_examples.json`
-- `output/v2/v2_eval_summary.json`
-- `output/v2/v2_next_session_curriculum.json`
-- `output/v2/v2_unified_training_report.json`
-- `output/v2/v2_improvement_report.json`
-- `output/v2/v2_audit_report.json`
+```text
+state/feature_flags.json
+state/logs/telemetry.jsonl
+output/v2/reports/
+output/v2/eval/
+```
 
-Fresh local clones may show missing checkpoints and reports. That is normal until Drive restore or training creates them.
+Fresh clones may not include local trained checkpoints. Restore them from Drive or train them.
 
-## What Makes This Repo Different
+## Development Contract
 
-An-Ra is built around a specific bet: small-compute systems need better selection, better memory of failure, better verification, and stronger identity preservation instead of pretending scale alone will solve everything.
+Do not add impressive-sounding modules unless they become measurable.
 
-The stack is now shaped to do that:
+Every serious change should answer:
 
-- train on owned data first
-- evaluate before claiming progress
-- replay failures instead of burying them
-- use symbolic and code checks where possible
-- keep daily training reliable
-- reserve heavy reflection for milestones
-- promote checkpoints by audit, not by recency
+1. What component does this improve?
+2. What metric should move?
+3. What verifier or test proves it?
+4. What failure case becomes replay or documentation?
+5. What owner-control boundary remains intact?
 
-For the technical map, read [ARCHITECTURE.md](ARCHITECTURE.md). For development rules, read [DEVELOPER.md](DEVELOPER.md). For the long-horizon intent, read [VISION.md](VISION.md).
+For implementation rules, read `DEVELOPER.md`. For the long-horizon strategy, read `VISION.md`. For the live architecture map, read `ARCHITECTURE.md`.
