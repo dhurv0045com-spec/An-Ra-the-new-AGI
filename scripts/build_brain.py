@@ -24,11 +24,13 @@ from training.eval_v2 import quick_eval_loss, run_compact_eval
 from training.mixed_precision import MixedPrecisionTrainer
 from training.scheduler import get_cosine_schedule_with_warmup
 from training.v2_config import V2_MODEL, V2_TRAINING
+from training.v2_config import V2_1B_FRONTIER, V2_1B_TRAINING
 from training.v2_data_mix import V2ConversationDataset, build_v2_training_examples
 from scripts.session_dashboard import print_session_dashboard
 from training.dynamic_regret import DynamicRegretScheduler
 from training.v2_runtime import (
     atomic_save,
+    build_frontier_model,
     build_v2_model,
     load_checkpoint,
     load_or_build_v2_tokenizer,
@@ -172,8 +174,39 @@ def train_anra_v2(
     symbolic_ratio: float | None = None,
     replay_ratio: float | None = None,
     use_ouroboros: bool = False,
+    model_size: str = "25m",
 ) -> dict[str, object]:
     print_session_dashboard()
+    training_cfg = V2_1B_TRAINING if model_size == "1b" else V2_TRAINING
+    if model_size == "1b":
+        if torch.cuda.is_available():
+            props = torch.cuda.get_device_properties(0)
+            vram_gb = props.total_memory / 1024 ** 3
+            print(f"[Trainer] GPU: {props.name}  VRAM: {vram_gb:.1f}GB")
+            if vram_gb < 20:
+                print(
+                    f"[Trainer] WARNING: {vram_gb:.1f}GB VRAM is below the 20GB minimum.\n"
+                    f"          1B training needs RTX 6000 Ada (48GB) or A100 (40-80GB).\n"
+                    f"          Continuing; reduce batch_size if it OOMs."
+                )
+        if batch_size == V2_TRAINING.batch_size:
+            batch_size = V2_1B_TRAINING.batch_size
+        if block_size == V2_MODEL.block_size:
+            block_size = V2_1B_FRONTIER.block_size
+        if max_minutes == V2_TRAINING.session_minutes:
+            max_minutes = V2_1B_TRAINING.session_minutes
+        max_examples = max_examples or V2_1B_TRAINING.max_mixture_examples
+        own_ratio = own_ratio if own_ratio is not None else V2_1B_TRAINING.own_ratio
+        identity_ratio = identity_ratio if identity_ratio is not None else V2_1B_TRAINING.identity_ratio
+        teacher_ratio = teacher_ratio if teacher_ratio is not None else V2_1B_TRAINING.teacher_ratio
+        symbolic_ratio = symbolic_ratio if symbolic_ratio is not None else V2_1B_TRAINING.symbolic_ratio
+        replay_ratio = replay_ratio if replay_ratio is not None else V2_1B_TRAINING.replay_ratio
+        print(
+            f"[Trainer] 1B FRONTIER MODE  "
+            f"batch={training_cfg.batch_size}  grad_accum={training_cfg.grad_accum_steps}"
+        )
+    else:
+        print("[Trainer] 25M BASE MODE")
     dataset_path = Path(data_path)
     tokenizer = load_or_build_v2_tokenizer(dataset_path=dataset_path)
     examples, mix_report = build_v2_training_examples(
@@ -197,7 +230,25 @@ def train_anra_v2(
     loader = DataLoader(ds, batch_size=batch_size, shuffle=True, drop_last=False)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = build_v2_model(vocab_size=tokenizer.vocab_size, block_size=block_size)
+    if model_size == "1b":
+        hal_module = None
+        if V2_1B_FRONTIER.use_hal:
+            try:
+                from anra_paths import HAL_STATE_FILE
+                from identity.hal import HALModule
+
+                if HAL_STATE_FILE.exists():
+                    hal_module = HALModule.load(str(HAL_STATE_FILE))
+                    print("[Trainer] HAL state loaded from disk")
+                else:
+                    hal_module = HALModule()
+                    print("[Trainer] HAL initialized fresh")
+            except Exception as exc:
+                print(f"[Trainer] HAL init failed: {exc}; training without HAL")
+                hal_module = None
+        model = build_frontier_model(hal_module=hal_module)
+    else:
+        model = build_v2_model(vocab_size=tokenizer.vocab_size, block_size=block_size)
     if hasattr(model, "disable_kv_cache"):
         model.disable_kv_cache()
     if use_ouroboros:
@@ -313,7 +364,7 @@ def train_anra_v2(
     gpu_name = torch.cuda.get_device_name(0) if torch.cuda.is_available() else "CPU"
     gpu_mem = torch.cuda.get_device_properties(0).total_memory / 1e9 if torch.cuda.is_available() else 0.0
     summary = model_summary(model)
-    eff_batch = batch_size * V2_TRAINING.grad_accum_steps
+    eff_batch = batch_size * training_cfg.grad_accum_steps
 
     print("", flush=True)
     print("=" * 62, flush=True)
@@ -322,7 +373,7 @@ def train_anra_v2(
     print(f"  GPU          : {gpu_name} ({gpu_mem:.1f} GB)", flush=True)
     print(f"  Parameters   : {summary['parameters']:,}", flush=True)
     print(
-        f"  Micro batch  : {batch_size}  |  Grad accum : {V2_TRAINING.grad_accum_steps}  |  Eff batch : {eff_batch}",
+        f"  Micro batch  : {batch_size}  |  Grad accum : {training_cfg.grad_accum_steps}  |  Eff batch : {eff_batch}",
         flush=True,
     )
     print(f"  Session time : {max_minutes} minutes", flush=True)
@@ -358,10 +409,10 @@ def train_anra_v2(
                     wb,
                     pad_id=tokenizer.pad_token_id,
                 )
-                loss = batch_loss / V2_TRAINING.grad_accum_steps
+                loss = batch_loss / training_cfg.grad_accum_steps
 
             mp.backward(loss)
-            rolling_loss += float(loss.item() * V2_TRAINING.grad_accum_steps)
+            rolling_loss += float(loss.item() * training_cfg.grad_accum_steps)
             rolling_count += 1
             accum_micro_steps += 1
             answer_weighted_tokens += float((wb > 1.0).sum().item())
@@ -374,7 +425,7 @@ def train_anra_v2(
                 elif entry[0] > hard_examples[0][0]:
                     heapq.heapreplace(hard_examples, entry)
 
-            if accum_micro_steps >= V2_TRAINING.grad_accum_steps:
+            if accum_micro_steps >= training_cfg.grad_accum_steps:
                 torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
                 mp.step(optimizer)
                 mp.update()
@@ -431,7 +482,7 @@ def train_anra_v2(
         print(
             f"  step={global_step:6d}  loss={avg_loss:.4f}  best={best_loss:.4f}  "
             f"elapsed={(time.time() - start) / 60.0:.1f}m  remaining={max(0.0, (end_at - time.time()) / 60.0):.1f}m"
-            f"  partial_accum={accum_micro_steps}/{V2_TRAINING.grad_accum_steps}",
+            f"  partial_accum={accum_micro_steps}/{training_cfg.grad_accum_steps}",
             flush=True,
         )
 
@@ -466,8 +517,9 @@ def train_anra_v2(
         "best_loss": round(best_loss, 4),
         "last_avg_loss": round(last_avg_loss, 4),
         "effective_batch_size": eff_batch,
-        "grad_accum_steps": V2_TRAINING.grad_accum_steps,
+        "grad_accum_steps": training_cfg.grad_accum_steps,
         "answer_loss_weight": answer_loss_weight,
+        "model_size": model_size,
         "answer_supervision_ratio": round(ds.answer_supervision_ratio, 4),
         "reply_token_ratio_seen": round(answer_weighted_tokens / max(1.0, total_target_tokens), 4),
         "model_config": model.model_config(),
@@ -562,6 +614,7 @@ def main() -> None:
     parser.add_argument("--batch_size", type=int, default=V2_TRAINING.batch_size)
     parser.add_argument("--block_size", type=int, default=V2_MODEL.block_size)
     parser.add_argument("--max_minutes", type=int, default=V2_TRAINING.session_minutes)
+    parser.add_argument("--model-size", choices=["25m", "1b"], default="25m")
     parser.add_argument("--answer_loss_weight", type=float, default=V2_TRAINING.answer_loss_weight)
     parser.add_argument("--max_examples", type=int, default=None)
     parser.add_argument("--own_ratio", type=float, default=None)
@@ -584,6 +637,7 @@ def main() -> None:
         teacher_ratio=args.teacher_ratio,
         symbolic_ratio=args.symbolic_ratio,
         replay_ratio=args.replay_ratio,
+        model_size=args.model_size,
     )
     print(result, flush=True)
 

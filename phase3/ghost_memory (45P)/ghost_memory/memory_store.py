@@ -18,6 +18,7 @@ from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 
+from engine.metric_bus import instrument
 from .config import GhostConfig, default_config
 from .injector import build_prompt, format_ghost_block
 from .quantizer import compress_vector
@@ -283,6 +284,7 @@ class GhostMemory:
         """Record a conversation line with compressed embedding."""
         return self._store.add_turn(role, text)
 
+    @instrument("ghost_memory")
     def retrieve(self, query_text: str) -> List[Dict[str, object]]:
         """Return ranked memory dicts for injection."""
         rows = self._store.iter_retrieval_rows()

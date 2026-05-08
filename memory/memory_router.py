@@ -6,6 +6,7 @@ import hashlib
 import json
 
 from anra_paths import DRIVE_FAISS_INDEX, DRIVE_GHOST_DB
+from engine.metric_bus import instrument
 from engine.telemetry import trace
 
 try:
@@ -136,6 +137,7 @@ class MemoryRouter:
         return self._fit_dim(np.tanh(self._local_semantic_projection(text)))
 
     @trace("memory_router", "write")
+    @instrument("memory")
     def write(self, content: str, *, metadata: dict | None = None, tier: str = "episodic") -> MemoryWriteResult:
         metadata = metadata or {}
         record_id = hashlib.sha1(f"{content}|{metadata}".encode("utf-8")).hexdigest()[:16]

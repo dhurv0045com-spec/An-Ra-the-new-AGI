@@ -26,6 +26,7 @@ import pathlib
 from datetime import datetime
 from typing import Dict, List, Optional, Tuple
 
+from engine.metric_bus import instrument
 from sovereignty.config import Config
 from sovereignty.logger import get_logger
 
@@ -246,6 +247,7 @@ class AuditPass:
         self._config = config
         self._target_dir = target_dir
 
+    @instrument("sovereignty")
     def run(self, date_str: Optional[str] = None) -> Dict:
         """
         Execute Pass 1 and write output files.

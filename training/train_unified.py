@@ -18,6 +18,7 @@ from anra_paths import DATASET, ROOT, ensure_dirs, get_dataset_file, inject_all_
 from training.eval_v2 import run_compact_eval
 from training.data_ingestion import mount_google_drive_if_available, prepare_training_corpus
 from training.v2_config import V2_MODEL, V2_TRAINING
+from training.v2_config import V2_1B_FRONTIER, V2_1B_TRAINING
 from training.v2_runtime import (
     build_v2_model,
     canonical_v2_checkpoint,
@@ -223,11 +224,26 @@ def main() -> None:
     ap.add_argument("--batch_size", type=int, default=V2_TRAINING.batch_size)
     ap.add_argument("--block_size", type=int, default=V2_MODEL.block_size)
     ap.add_argument("--answer_loss_weight", type=float, default=V2_TRAINING.answer_loss_weight)
-    ap.add_argument("--session_minutes", type=int, default=V2_TRAINING.session_minutes)
+    ap.add_argument("--session_minutes", "--session-minutes", type=int, default=V2_TRAINING.session_minutes)
+    ap.add_argument(
+        "--model-size",
+        choices=["25m", "1b"],
+        default="25m",
+        help="'25m' = V2_MODEL + V2_TRAINING (default). '1b' = V2_1B_FRONTIER + V2_1B_TRAINING.",
+    )
     ap.add_argument("--identity_minutes", type=int, default=12)
     ap.add_argument("--ouroboros_minutes", type=int, default=10)
     ap.add_argument("--max_examples", type=int, default=None)
     args = ap.parse_args()
+    training_cfg = V2_1B_TRAINING if args.model_size == "1b" else V2_TRAINING
+    model_cfg = V2_1B_FRONTIER if args.model_size == "1b" else V2_MODEL
+    if args.model_size == "1b":
+        if args.batch_size == V2_TRAINING.batch_size:
+            args.batch_size = V2_1B_TRAINING.batch_size
+        if args.block_size == V2_MODEL.block_size:
+            args.block_size = V2_1B_FRONTIER.block_size
+        if args.session_minutes == V2_TRAINING.session_minutes:
+            args.session_minutes = V2_1B_TRAINING.session_minutes
 
     mount_google_drive_if_available()
 
@@ -261,6 +277,7 @@ def main() -> None:
     if args.mode == "status":
         readiness = assess_training_readiness()
         print_system_health()
+        print(f"[Unified Trainer] model_size={args.model_size}")
         print(f"[Unified Trainer] dataset={resolve_dataset_path(args.data_path)}")
         print(f"[Unified Trainer] brain_ckpt={canonical_v2_checkpoint('brain')}")
         print(f"[Unified Trainer] identity_ckpt={canonical_v2_checkpoint('identity')}")
@@ -307,6 +324,7 @@ def main() -> None:
         "readiness": readiness.to_dict(),
         "dataset": str(dataset),
         "model_line": "v2",
+        "model_size": args.model_size,
         "data_ingestion": data_ingestion_report,
         "stages": {},
     }
@@ -321,11 +339,13 @@ def main() -> None:
         "--batch_size",
         str(args.batch_size),
         "--block_size",
-        str(args.block_size),
+        str(model_cfg.block_size if args.model_size == "1b" else args.block_size),
         "--answer_loss_weight",
         str(args.answer_loss_weight),
         "--max_minutes",
         str(args.session_minutes),
+        "--model-size",
+        args.model_size,
     ]
     if args.max_examples is not None:
         base_cmd.extend(["--max_examples", str(args.max_examples)])
@@ -370,7 +390,7 @@ def main() -> None:
     else:
         print("[Unified Trainer] WARN: merge_identity.py not found — skipping", flush=True)
 
-    session_timeout_minutes = max(1, args.session_minutes - V2_TRAINING.unified_trainer_overhead_minutes)
+    session_timeout_minutes = max(1, args.session_minutes - training_cfg.unified_trainer_overhead_minutes)
     print(f"[Unified Trainer] Calculated finetuning duration: {session_timeout_minutes} minutes", flush=True)
 
     identity_cmd = [
@@ -453,6 +473,7 @@ class UnifiedTrainer:
         session_minutes: int = V2_TRAINING.session_minutes,
         identity_minutes: int = 12,
         ouroboros_minutes: int = 10,
+        model_size: str = "25m",
     ):
         self.data_path = data_path
         self.checkpoint_path = checkpoint_path
@@ -462,6 +483,7 @@ class UnifiedTrainer:
         self.session_minutes = session_minutes
         self.identity_minutes = identity_minutes
         self.ouroboros_minutes = ouroboros_minutes
+        self.model_size = model_size
         self._dataset: Path | None = None
 
     def resolve_dataset(self) -> Path:
@@ -489,6 +511,8 @@ class UnifiedTrainer:
             str(self.answer_loss_weight),
             "--session_minutes",
             str(self.session_minutes),
+            "--model-size",
+            self.model_size,
             "--identity_minutes",
             str(self.identity_minutes),
             "--ouroboros_minutes",

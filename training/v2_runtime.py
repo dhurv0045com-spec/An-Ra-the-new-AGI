@@ -364,6 +364,65 @@ def build_v2_model(*, vocab_size: int, block_size: int = V2_MODEL.block_size) ->
     )
 
 
+def build_frontier_model(
+    *,
+    hal_module=None,
+) -> CausalTransformerV2:
+    """
+    Build the 1B frontier model from V2_1B_FRONTIER config.
+    KV cache is disabled for training. HAL may be None.
+    """
+    from training.v2_config import (
+        CANONICAL_VOCAB_SIZE,
+        EXPECTED_TOKENIZER_VOCAB_SIZE,
+        V2_1B_FRONTIER as cfg,
+    )
+
+    if cfg.vocab_size not in {EXPECTED_TOKENIZER_VOCAB_SIZE, CANONICAL_VOCAB_SIZE}:
+        raise AssertionError(
+            f"1B vocab mismatch: config={cfg.vocab_size} "
+            f"tokenizer={EXPECTED_TOKENIZER_VOCAB_SIZE}"
+        )
+
+    model = CausalTransformerV2(
+        vocab_size=cfg.vocab_size,
+        n_embd=cfg.n_embd,
+        n_head=cfg.n_head,
+        n_kv_head=cfg.n_kv_head,
+        n_layer=cfg.n_layer,
+        block_size=cfg.block_size,
+        rms_norm_eps=cfg.rms_norm_eps,
+        dropout=cfg.dropout,
+        mod_layers=set(cfg.mod_layers),
+        base_seq_len=cfg.base_seq_len,
+        target_seq_len=cfg.target_seq_len,
+        pad_token_id=cfg.pad_token_id,
+        use_layer_temperature_bias=True,
+        use_hal=cfg.use_hal,
+        hal_module=hal_module,
+    )
+
+    if hasattr(model, "gradient_checkpointing_enable"):
+        model.gradient_checkpointing_enable()
+        print("  [build_frontier_model] Gradient checkpointing: ENABLED")
+    else:
+        setattr(model, "gradient_checkpointing", True)
+        print("  [build_frontier_model] Gradient checkpointing flag: ENABLED")
+
+    if hasattr(model, "disable_kv_cache"):
+        model.disable_kv_cache()
+
+    total_params = sum(p.numel() for p in model.parameters())
+    print(f"[build_frontier_model] Built {total_params / 1e6:.0f}M param model")
+    print(
+        f"  n_embd={cfg.n_embd}  n_layer={cfg.n_layer}  "
+        f"n_head={cfg.n_head}  n_kv_head={cfg.n_kv_head}"
+    )
+    print(f"  block_size={cfg.block_size}  vocab={cfg.vocab_size}")
+    print(f"  HAL: {'enabled' if cfg.use_hal else 'disabled'}")
+    return model
+
+
 def load_checkpoint(
     model: CausalTransformerV2,
     optimizer: torch.optim.Optimizer | None,

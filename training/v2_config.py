@@ -65,11 +65,12 @@ class V2ModelConfig:
 @dataclass(frozen=True)
 class V2FrontierModelConfig(V2ModelConfig):
     n_embd: int = 1536
-    n_layer: int = 28
+    n_layer: int = 36
     n_head: int = 16
     n_kv_head: int = 4
     block_size: int = 2048
     vocab_size: int = CANONICAL_VOCAB_SIZE
+    mod_layers: tuple = (4, 8, 12, 16, 20, 24, 28, 32)
     science_ratio: float = 0.30
     action_trace_ratio: float = 0.20
     constraint_ratio: float = 0.20
@@ -104,9 +105,31 @@ class V2TrainingConfig:
     unified_trainer_overhead_minutes: int = 5
 
 
+@dataclass(frozen=True)
+class V2FrontierTrainingConfig(V2TrainingConfig):
+    """
+    Training hyperparameters for the 1B frontier model.
+    Separate from V2_TRAINING; do not modify V2_TRAINING.
+    """
+
+    batch_size: int = 2
+    grad_accum_steps: int = 16
+    session_minutes: int = 90
+    max_mixture_examples: int = 4096
+    milestone_every_sessions: int = 3
+    gradient_checkpointing: bool = True
+    use_bfloat16: bool = True
+    own_ratio: float = 0.55
+    identity_ratio: float = 0.15
+    teacher_ratio: float = 0.10
+    symbolic_ratio: float = 0.10
+    replay_ratio: float = 0.10
+
+
 V2_MODEL = V2ModelConfig()
 V2_1B_FRONTIER = V2FrontierModelConfig()
 V2_TRAINING = V2TrainingConfig()
+V2_1B_TRAINING = V2FrontierTrainingConfig()
 EXPECTED_TOKENIZER_VOCAB_SIZE = CANONICAL_VOCAB_SIZE
 EXPECTED_PAD_TOKEN_ID = CANONICAL_PAD_TOKEN_ID
 EXPECTED_SPECIAL_TOKENS = CANONICAL_SPECIAL_TOKENS

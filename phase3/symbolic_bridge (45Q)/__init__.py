@@ -23,6 +23,8 @@ Quick start
     print(result.full_report())
 """
 
+from engine.metric_bus import instrument
+
 from .config import VERSION, MODULE_NAME
 from .response import (
     Mode, Verdict, VerifiedResult, VerificationPass, error_result
@@ -122,6 +124,7 @@ __all__ = [
 ]
 
 
+@instrument("symbolic_bridge")
 def query(text: str) -> VerifiedResult:
     """
     Unified entry point. Auto-detects mode and routes to the correct engine.

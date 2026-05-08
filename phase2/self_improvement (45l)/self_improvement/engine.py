@@ -15,6 +15,8 @@ from typing import Optional, List, Dict, Any, Tuple
 from pathlib import Path
 from collections import Counter, defaultdict
 
+from engine.metric_bus import instrument
+
 
 STATE_DIR = Path("state")
 STATE_DIR.mkdir(parents=True, exist_ok=True)
@@ -914,6 +916,7 @@ class SelfTrainer:
 
         return False, "not needed"
 
+    @instrument("self_improvement")
     def run(self, min_examples: int = None,
             deploy_if_better: bool = True) -> TrainingRun:
         """

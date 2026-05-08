@@ -32,6 +32,8 @@ import argparse
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
+from engine.metric_bus import instrument
+
 _HERE = Path(__file__).resolve().parent
 if str(_HERE) not in sys.path:
     sys.path.insert(0, str(_HERE))
@@ -188,6 +190,7 @@ class Agent:
 
     # ── Primary interface ─────────────────────────────────────────────────
 
+    @instrument("agent_loop")
     def run(
         self,
         goal:        str,

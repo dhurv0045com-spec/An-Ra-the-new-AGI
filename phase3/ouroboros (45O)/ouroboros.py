@@ -17,6 +17,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 from typing import Optional, Tuple
 
+from engine.metric_bus import instrument
+
 try:
     from identity.hal import HALModule
 except Exception:
@@ -82,6 +84,7 @@ class OuroborosDecoder(nn.Module):
 
         # ── Total new parameters: 768 + 3 = 771 ──────────────────────────────
 
+    @instrument("ouroboros")
     def forward(
         self,
         x: torch.Tensor,

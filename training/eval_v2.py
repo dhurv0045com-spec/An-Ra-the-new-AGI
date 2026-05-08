@@ -8,6 +8,7 @@ from collections import defaultdict
 import torch
 import torch.nn.functional as F
 
+from engine.metric_bus import instrument
 from training.v2_runtime import append_jsonl, generate_text, v2_report_path, write_json
 
 from anra_paths import inject_all_paths
@@ -65,6 +66,7 @@ EVAL_SUITE = [
 ]
 
 
+@instrument("evaluation")
 def quick_eval_loss(model, dataset, *, device: torch.device, max_examples: int = 100, batch_size: int = 8, pad_id: int = 0) -> float:
     """Mean CE loss over up to max_examples validation examples."""
     model.eval()
@@ -113,6 +115,7 @@ def _verified_score(verifier: str, prompt: str, response: str) -> tuple[float, s
     return 0.0, ""
 
 
+@instrument("evaluation")
 def run_compact_eval(
     model,
     tokenizer,

@@ -5,6 +5,8 @@ from pathlib import Path
 import json
 from typing import Any
 
+from engine.metric_bus import instrument
+
 
 @dataclass
 class CIVProfile:
@@ -45,6 +47,7 @@ class ConstitutionalIdentityVector:
                 apply_score(score)
         return score
 
+    @instrument("identity")
     def verify(self, min_score: float = 0.7, evidence: dict[str, float] | None = None) -> dict:
         s = self.score(evidence)
         return {"score": s, "passed": s >= min_score}

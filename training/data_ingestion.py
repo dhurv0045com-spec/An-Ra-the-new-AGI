@@ -187,6 +187,46 @@ def _read_text(path: Path) -> str:
     return path.read_text(encoding="utf-8", errors="replace")
 
 
+def _read_text_streaming(
+    path: Path,
+    max_chars: int = 50_000_000,
+) -> str:
+    """Read up to max_chars from a text file without loading all into RAM."""
+    parts: list[str] = []
+    total = 0
+    with path.open("r", encoding="utf-8", errors="replace") as f:
+        while total < max_chars:
+            chunk = f.read(65536)
+            if not chunk:
+                break
+            parts.append(chunk)
+            total += len(chunk)
+    if total >= max_chars:
+        print(
+            f"  [data_ingestion] File capped at {max_chars // 1_000_000:.0f}MB: {path.name}"
+        )
+    return "".join(parts)
+
+
+def _stream_jsonl(path: Path, max_lines: int = 100_000):
+    """Yield parsed JSONL objects without loading all into RAM."""
+    import json as _json
+
+    count = 0
+    with path.open("r", encoding="utf-8") as f:
+        for line in f:
+            if count >= max_lines:
+                break
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                yield _json.loads(line)
+                count += 1
+            except _json.JSONDecodeError:
+                continue
+
+
 def _normalise_pair_text(raw: str) -> list[tuple[str, str]]:
     pairs = []
     for prompt, answer in PAIR_RE.findall(raw):
@@ -260,19 +300,12 @@ def _is_teacher_record(record: dict[str, object], source: Path) -> bool:
 def _load_json_records(path: Path) -> list[dict[str, object]]:
     if path.suffix.lower() == ".jsonl":
         records: list[dict[str, object]] = []
-        for line in _read_text(path).splitlines():
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                item = json.loads(line)
-            except json.JSONDecodeError:
-                continue
+        for item in _stream_jsonl(path):
             if isinstance(item, dict):
                 records.append(item)
         return records
 
-    payload = json.loads(_read_text(path))
+    payload = json.loads(_read_text_streaming(path, max_chars=50_000_000))
     if path.suffix.lower() == ".ipynb" and isinstance(payload, dict):
         records = []
         for idx, cell in enumerate(payload.get("cells", [])):
@@ -334,7 +367,7 @@ def _source_to_examples(path: Path) -> tuple[list[tuple[str, str]], list[dict[st
                 )
         return pairs, teacher_records, "structured"
 
-    raw = _read_text(path)
+    raw = _read_text_streaming(path, max_chars=50_000_000)
     pairs = _normalise_pair_text(raw)
     if pairs:
         teacher_records = []

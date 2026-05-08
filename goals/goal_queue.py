@@ -6,6 +6,7 @@ import heapq
 import json
 import time
 
+from engine.metric_bus import instrument
 from engine.telemetry import trace
 
 
@@ -78,6 +79,7 @@ class GoalQueue:
         return None
 
     @trace("goal_queue", "complete")
+    @instrument("goals")
     def complete(self, goal_id: str) -> bool:
         item = self._items.get(goal_id)
         if not item:
