@@ -20,6 +20,22 @@ Relationship to other modules:
     reporter.py reads audit_YYYYMMDD.json for the nightly report.
 """
 
+import sys
+import pathlib as _pathlib
+import types as _types
+
+# Ensure sovereignty package is importable even without inject_all_paths().
+_THIS_DIR = _pathlib.Path(__file__).resolve().parent
+_PHASE3_DIR = _THIS_DIR.parent
+if str(_PHASE3_DIR) not in sys.path:
+    sys.path.insert(0, str(_PHASE3_DIR))
+if str(_THIS_DIR) not in sys.path:
+    sys.path.insert(0, str(_THIS_DIR))
+if "sovereignty" not in sys.modules:
+    _pkg = _types.ModuleType("sovereignty")
+    _pkg.__path__ = [str(_THIS_DIR)]
+    sys.modules["sovereignty"] = _pkg
+
 import ast
 import json
 import pathlib

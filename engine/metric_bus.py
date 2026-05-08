@@ -70,6 +70,7 @@ class MetricBus:
         self._run_id = str(uuid.uuid4())[:8]
         self._session_ts = time.time()
         self._snaps: dict[str, ComponentMetricSnapshot] = {}
+        self._last_deltas: dict[str, dict] = {}
 
     @property
     def run_id(self) -> str:
@@ -133,6 +134,7 @@ class MetricBus:
             )
         else:
             run_data["deltas"] = {}
+        self._last_deltas = run_data["deltas"]
 
         run_file.write_text(json.dumps(run_data, indent=2), encoding="utf-8")
         return run_data

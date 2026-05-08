@@ -20,6 +20,8 @@ class GoalItem:
     metadata: dict = field(default_factory=dict)
     parent_id: str | None = None
     last_error: str = ""
+    retry_count: int = 0
+    max_retries: int = 5
 
 
 class GoalQueue:
@@ -54,6 +56,7 @@ class GoalQueue:
         priority: int = 100,
         metadata: dict | None = None,
         parent_id: str | None = None,
+        max_retries: int = 5,
     ) -> GoalItem:
         item = GoalItem(
             goal_id=goal_id,
@@ -62,6 +65,7 @@ class GoalQueue:
             created_at=time.time(),
             metadata=metadata or {},
             parent_id=parent_id,
+            max_retries=int(max_retries),
         )
         self._items[item.goal_id] = item
         heapq.heappush(self._heap, (item.priority, item.created_at, item.goal_id))
@@ -94,11 +98,25 @@ class GoalQueue:
         item = self._items.get(goal_id)
         if not item:
             return False
-        item.status = "queued"
+        if item.status == "dead":
+            item.last_error = str(error)
+            self._save()
+            return True
+        item.retry_count += 1
         item.last_error = str(error)
-        heapq.heappush(self._heap, (item.priority, item.created_at, item.goal_id))
+        if item.retry_count >= item.max_retries:
+            item.status = "dead"
+            print(f"[goal_queue] Goal {goal_id!r} dead after {item.retry_count} retries: {error[:120]}")
+        else:
+            backoff_priority = item.priority + (10 * item.retry_count)
+            item.status = "queued"
+            heapq.heappush(self._heap, (backoff_priority, time.time(), item.goal_id))
         self._save()
         return True
+
+    def dead_goals(self) -> list[GoalItem]:
+        """Return all permanently failed goals."""
+        return [v for v in self._items.values() if v.status == "dead"]
 
     def generate_successor(
         self,

@@ -67,9 +67,9 @@ def main() -> None:
     for idx, hyp in enumerate(ranked, start=1):
         score = score_by_id[hyp.hyp_id]
         print(f"{idx:>4} | {score.total:>5.1f} | {score.decision:<16} | {hyp.description}")
-    winners = [hyp for hyp in ranked if score_by_id[hyp.hyp_id].total >= 80]
+    winners = [hyp for hyp in ranked if score_by_id[hyp.hyp_id].total >= 70]
     if winners:
-        queued = queue_actions(winners, score_by_id)
+        queued = queue_actions(winners, score_by_id, threshold=70.0)
         print(f"**IMPLEMENT: {winners[0].description}**")
         print(f"Queued actions: {len(queued)}")
     print(f"Report: {report_path}")

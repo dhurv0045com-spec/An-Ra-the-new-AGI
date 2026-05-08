@@ -22,6 +22,7 @@ import importlib.util
 import sys
 from pathlib import Path
 
+from engine.metric_bus import instrument as _instrument
 from engine.telemetry import trace
 
 # ── Load phase3/symbolic_bridge (45Q)/__init__.py as a properly-named package ──────────────────
@@ -56,7 +57,7 @@ _mod = sys.modules[_PKG_NAME]
 
 # ── Re-export the public API ──────────────────────────────────────────────────
 # Top-level unified interface
-query       = trace("symbolic_bridge", "query")(_mod.query)
+query       = _instrument("symbolic_bridge")(trace("symbolic_bridge", "query")(_mod.query))
 query_math  = _mod.query_math
 query_logic = _mod.query_logic
 query_code  = _mod.query_code
@@ -109,6 +110,31 @@ verify_citation_grounding = _mod.verify_citation_grounding
 verify_cross_domain_analogy = _mod.verify_cross_domain_analogy
 dispatch_domain_verifier = _mod.dispatch_domain_verifier
 
+
+class SymbolicBridge:
+    @_instrument("symbolic_bridge")
+    def query(self, text: str, domain: str | None = None) -> dict:
+        if domain in {"math", "symbolic_math"}:
+            result = query_math(text)
+        elif domain in {"logic", "symbolic_logic"}:
+            result = query_logic(text)
+        elif domain in {"code", "symbolic_code"}:
+            result = query_code(text)
+        else:
+            result = query(text)
+        return result.to_dict() if hasattr(result, "to_dict") else {"result": result}
+
+    @_instrument("symbolic_bridge")
+    def verify(self, code: str, test_code: str = "") -> dict:
+        result = run_tests(test_code) if test_code else query_code(code)
+        return result.to_dict() if hasattr(result, "to_dict") else {"result": result}
+
+
+_mod.query = query
+_mod.SymbolicBridge = SymbolicBridge
+if hasattr(_mod, "__all__") and "SymbolicBridge" not in _mod.__all__:
+    _mod.__all__.append("SymbolicBridge")
+
 __version__ = getattr(_mod, "__version__", "1.0.0")
 
 __all__ = [
@@ -126,6 +152,7 @@ __all__ = [
     "DomainVerificationResult", "verify_qiskit", "verify_rdkit",
     "verify_verilog", "verify_constraint_json", "verify_citation_grounding",
     "verify_cross_domain_analogy", "dispatch_domain_verifier",
+    "SymbolicBridge",
     "__version__",
 ]
 

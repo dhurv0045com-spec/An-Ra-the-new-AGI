@@ -20,6 +20,21 @@ from lora          import LoRAManager
 from dataset_builder import DatasetBuilder
 from templates     import TemplateLibrary
 
+try:
+    from phase2.fine_tuning_45I.finetune.lora import PyTorchLoRAManager
+except Exception:
+    from lora import PyTorchLoRAManager  # type: ignore
+
+
+def attach_lora_to_model(model, rank: int = 8, alpha: float = 16.0):
+    """Attach PyTorch LoRA adapters to a CausalTransformerV2 for fine-tuning."""
+    if PyTorchLoRAManager is None:
+        raise ImportError("PyTorch is required for LoRA fine-tuning.")
+    manager = PyTorchLoRAManager(model, rank=rank, alpha=alpha)
+    counts = manager.parameter_count()
+    print(f"[LoRA] Injected: trainable={counts['trainable']:,} / total={counts['total']:,} params")
+    return manager
+
 
 # ── Minimal model interface ───────────────────────────────
 # These stubs match the interface expected from Phase 1.

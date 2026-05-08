@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import heapq
+import json
 import math
 import os
 import shutil
@@ -18,6 +19,7 @@ from torch.utils.data import DataLoader
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from anra_paths import DRIVE_V2_CHECKPOINTS, REGRET_STATE, ROOT, V2_TOKENIZER_FILE, inject_all_paths
+from engine.eval_harness import EvalHarness, EvalResult
 from runtime.safe_load import safe_torch_load
 from training.anra_optimizer import build_optimizer
 from training.eval_v2 import quick_eval_loss, run_compact_eval
@@ -158,6 +160,23 @@ def _weighted_loss(
     return sample_losses.mean(), sample_losses
 
 
+def _quick_eval_loss_value(result: float | dict[str, object]) -> float:
+    return float(result["loss"]) if isinstance(result, dict) else float(result)
+
+
+def _compact_eval_to_result(summary: dict[str, object], *, component: str = "training") -> EvalResult:
+    score = float(summary.get("overall_score", 0.0) or 0.0)
+    return EvalResult(
+        component=component,
+        mode=str(summary.get("mode", "compact_eval")),
+        task_success_rate=score,
+        avg_latency_ms=0.0,
+        error_rate=0.0,
+        notes="compact eval overall_score mapped to task_success_rate",
+        raw=list(summary.get("results", [])) if isinstance(summary.get("results", []), list) else [],
+    )
+
+
 def train_anra_v2(
     *,
     data_path: str,
@@ -249,6 +268,9 @@ def train_anra_v2(
         model = build_frontier_model(hal_module=hal_module)
     else:
         model = build_v2_model(vocab_size=tokenizer.vocab_size, block_size=block_size)
+    if model_size == "1b" and getattr(training_cfg, "gradient_checkpointing", False):
+        model.gradient_checkpointing_enable()
+        print("[build_brain] Gradient checkpointing enabled for 1B model", flush=True)
     if hasattr(model, "disable_kv_cache"):
         model.disable_kv_cache()
     if use_ouroboros:
@@ -337,7 +359,8 @@ def train_anra_v2(
     # ─────────────────────────────────────────────────────────────────────────────
 
     try:
-        session_start_loss = quick_eval_loss(model, ds, device=device, max_examples=100, batch_size=batch_size, pad_id=tokenizer.pad_token_id)
+        session_start_result = quick_eval_loss(model, ds, device=device, max_examples=100, batch_size=batch_size, pad_id=tokenizer.pad_token_id)
+        session_start_loss = _quick_eval_loss_value(session_start_result)
     except Exception as exc:
         print(f"[build_brain] quick eval at session_start failed: {exc}", flush=True)
         session_start_loss = best_loss
@@ -546,9 +569,34 @@ def train_anra_v2(
         },
     )
 
+    prev_eval_summary = None
+    eval_path = v2_report_path("eval_summary")
+    if eval_path.exists():
+        try:
+            prev_eval_summary = json.loads(eval_path.read_text(encoding="utf-8"))
+        except Exception:
+            prev_eval_summary = None
+
     eval_summary = run_compact_eval(model, tokenizer, device=device, output=True)
+    if isinstance(prev_eval_summary, dict):
+        try:
+            harness = EvalHarness()
+            regression_report = harness.compare(
+                _compact_eval_to_result(prev_eval_summary),
+                _compact_eval_to_result(eval_summary),
+            )
+            if regression_report.regressed:
+                print(
+                    f"[WARN] Regression detected: {regression_report.to_dict()}",
+                    flush=True,
+                )
+                harness.save_report(regression_report)
+        except Exception as exc:
+            print(f"[build_brain] regression check skipped: {exc}", flush=True)
+
     try:
-        session_end_loss = quick_eval_loss(model, ds, device=device, max_examples=100, batch_size=batch_size, pad_id=tokenizer.pad_token_id)
+        session_end_result = quick_eval_loss(model, ds, device=device, max_examples=100, batch_size=batch_size, pad_id=tokenizer.pad_token_id)
+        session_end_loss = _quick_eval_loss_value(session_end_result)
         regret_lr = regret_scheduler.session_end(session_end_loss, global_step - initial_step)
         regret_scheduler.save(REGRET_STATE)
         print(f"  Dynamic regret lr : {regret_lr:.8f}", flush=True)

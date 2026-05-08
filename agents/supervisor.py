@@ -18,6 +18,13 @@ from anra_paths import DRIVE_SCORECARD, SCORECARD_DIR
 from engine.feature_flags import is_enabled, set_flag
 from engine.metric_bus import get_metric_bus, reset_metric_bus
 
+try:
+    from phase2.agent_loop_45K.agent import Agent as _AgentLoop
+    _AGENT_LOOP_AVAILABLE = True
+except ImportError:
+    _AGENT_LOOP_AVAILABLE = False
+    _AgentLoop = None
+
 SUCCESS_FLOOR = 0.70
 LATENCY_REG_MS = 500
 SCORE_REG_FLOOR = -0.05
@@ -139,6 +146,57 @@ class SupervisorAgent:
         except Exception as exc:
             print(f"[Supervisor] Drive push failed (local copy is safe): {exc}")
             return False
+
+    async def run_goal(
+        self,
+        goal: str,
+        *,
+        model=None,
+        tokenizer=None,
+        timeout_seconds: float = 300.0,
+    ) -> dict:
+        """
+        Top-level entry point: supervisor -> Agent loop.
+        Runs a single goal through the 45K agent loop with instrumentation.
+        """
+        if not _AGENT_LOOP_AVAILABLE or _AgentLoop is None:
+            return {
+                "success": False,
+                "error": "Agent loop (45K) not importable. Check phase2/agent_loop (45K)/__init__.py",
+                "goal": goal,
+            }
+
+        session_id = self.start_session()
+        start = time.time()
+        try:
+            import asyncio
+            import inspect
+
+            try:
+                agent = _AgentLoop(
+                    model=model or getattr(self, "_model", None),
+                    tokenizer=tokenizer or getattr(self, "_tokenizer", None),
+                )
+            except TypeError:
+                agent = _AgentLoop()
+
+            async def _run_agent() -> dict:
+                result = agent.run(goal)
+                if inspect.isawaitable(result):
+                    result = await result
+                return result if isinstance(result, dict) else {"success": True, "output": result}
+
+            result = await asyncio.wait_for(_run_agent(), timeout=timeout_seconds)
+            result["session_id"] = session_id
+            result["elapsed"] = time.time() - start
+            self.end_session()
+            return result
+        except TimeoutError:
+            self.end_session()
+            return {"success": False, "error": f"Timeout after {timeout_seconds}s", "goal": goal}
+        except Exception as exc:
+            self.end_session()
+            return {"success": False, "error": str(exc), "goal": goal}
 
     def _detect_regressions(self, metrics: dict, deltas: dict) -> list[str]:
         flagged = []

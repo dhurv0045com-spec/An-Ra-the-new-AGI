@@ -126,21 +126,52 @@ def _load_json(path: Path) -> dict | None:
         return None
 
 
-def _milestone_due() -> dict[str, object]:
+def _milestone_due(training_cfg=None) -> dict[str, object]:
+    """Check if a milestone eval is due. Uses the active training config."""
+    cfg = training_cfg if training_cfg is not None else V2_TRAINING
     state = load_session_state()
     successful = int(state.get("successful_sessions", 0) or 0)
     entries = state.get("eval_scores", [])
     scores = [float(item.get("score", 0.0)) for item in entries if isinstance(item, dict)]
     plateau = False
-    if len(scores) >= V2_TRAINING.plateau_window:
-        recent = scores[-V2_TRAINING.plateau_window :]
-        plateau = max(recent) - min(recent) <= V2_TRAINING.plateau_delta
-    due = successful > 0 and successful % V2_TRAINING.milestone_every_sessions == 0
+    if len(scores) >= cfg.plateau_window:
+        recent = scores[-cfg.plateau_window :]
+        plateau = max(recent) - min(recent) <= cfg.plateau_delta
+    due = successful > 0 and successful % cfg.milestone_every_sessions == 0
     return {
         "successful_sessions": successful,
         "plateau_detected": plateau,
         "milestone_due": due or plateau,
     }
+
+
+def _run_innovation_if_due(training_cfg, session_n: int) -> None:
+    """Run innovation pipeline every N sessions using MetricBus deltas as input."""
+    innovation_every = getattr(training_cfg, "milestone_every_sessions", 5)
+    if session_n <= 0 or session_n % innovation_every != 0:
+        return
+    try:
+        from innovation.gap_scanner import scan
+        from innovation.hypothesis import gap_to_hypothesis
+        from innovation.scoreboard import score_hypothesis, write_report
+        from innovation.action_queue import queue_actions
+        from engine.metric_bus import get_metric_bus
+        from anra_paths import OUTPUT_V2_DIR
+
+        print("[Innovation] Running gap scan from MetricBus deltas...", flush=True)
+        mbus = get_metric_bus()
+        deltas = getattr(mbus, "_last_deltas", {})
+
+        gaps = scan(deltas)
+        hypotheses = [gap_to_hypothesis(gap) for gap in gaps]
+        scores = {hyp.hyp_id: score_hypothesis(hyp) for hyp in hypotheses}
+        approved = queue_actions(hypotheses, scores)
+
+        report_path = OUTPUT_V2_DIR / f"innovation_{int(time.time())}.json"
+        write_report(list(scores.values()), report_path)
+        print(f"[Innovation] {len(gaps)} gaps, {len(approved)} queued. Report: {report_path}", flush=True)
+    except Exception as exc:
+        print(f"[Innovation] Skipped (error): {exc}", flush=True)
 
 
 def _write_daily_curriculum() -> dict[str, object]:
@@ -283,7 +314,7 @@ def main() -> None:
         print(f"[Unified Trainer] identity_ckpt={canonical_v2_checkpoint('identity')}")
         print(f"[Unified Trainer] ouroboros_ckpt={canonical_v2_checkpoint('ouroboros')}")
         print(f"[Unified Trainer] tokenizer={ROOT / 'tokenizer' / 'tokenizer_v3.json'}")
-        print(f"[Unified Trainer] milestone={_milestone_due()}")
+        print(f"[Unified Trainer] milestone={_milestone_due(training_cfg)}")
         print(
             "[Unified Trainer] readiness="
             f"{readiness.score}/{readiness.out_of} "
@@ -362,13 +393,14 @@ def main() -> None:
         eval_summary = _load_json(v2_report_path("eval_summary")) or {}
         curriculum = _write_daily_curriculum()
         state = update_session_state(eval_score=float(eval_summary.get("overall_score", 0.0) or 0.0))
+        _run_innovation_if_due(training_cfg, int(state.get("successful_sessions", 0) or 0))
         run_report["post_session"] = {
             "eval_summary_path": str(v2_report_path("eval_summary")),
             "hard_examples_path": str(v2_report_path("hard_examples")),
             "curriculum_path": str(v2_report_path("curriculum")),
             "curriculum_recommendations": curriculum.get("recommendations", []),
             "session_state": state,
-            "milestone": _milestone_due(),
+            "milestone": _milestone_due(training_cfg),
         }
         run_report["ended_at"] = time.time()
         _write_run_report(run_report)
@@ -451,12 +483,13 @@ def main() -> None:
 
     eval_summary = _load_json(v2_report_path("eval_summary")) or {}
     state = update_session_state(eval_score=float(eval_summary.get("overall_score", 0.0) or 0.0))
+    _run_innovation_if_due(training_cfg, int(state.get("successful_sessions", 0) or 0))
     run_report["post_session"] = {
         "eval_summary_path": str(v2_report_path("eval_summary")),
         "improvement_report_path": str(v2_report_path("improvement_report")),
         "audit_report_path": str(v2_report_path("audit_report")),
         "session_state": state,
-        "milestone": _milestone_due(),
+        "milestone": _milestone_due(training_cfg),
     }
     run_report["ended_at"] = time.time()
     _write_run_report(run_report)

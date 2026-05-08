@@ -204,15 +204,45 @@ def _init_import_gaps(path: Path, root: Path, gaps: list[CapabilityGap]) -> None
             )
 
 
-def scan(repo_root: Path | None = None) -> list[CapabilityGap]:
-    """Scan the repository for concrete capability gaps."""
-    root = _repo_root(repo_root)
+def scan(metric_deltas: dict | None = None, repo_root: str | Path | None = None) -> list[CapabilityGap]:
+    """
+    Detect capability gaps.
+
+    metric_deltas: optional MetricBus._last_deltas mapping component -> metric deltas.
+    repo_root: optional path to scan for AST-based gaps.
+    """
+    if metric_deltas is not None and not isinstance(metric_deltas, dict):
+        repo_root = metric_deltas
+        metric_deltas = None
+
     gaps: list[CapabilityGap] = []
-    for path in _iter_py(root):
-        _comment_gaps(path, root, gaps)
-        _ast_gaps(path, root, gaps)
-        _use_hal_flags(path, root, gaps)
-        _init_import_gaps(path, root, gaps)
-    _system_graph_gaps(root, gaps)
+    if repo_root is not None or metric_deltas is None:
+        root = _repo_root(Path(repo_root) if repo_root is not None else None)
+        for path in _iter_py(root):
+            _comment_gaps(path, root, gaps)
+            _ast_gaps(path, root, gaps)
+            _use_hal_flags(path, root, gaps)
+            _init_import_gaps(path, root, gaps)
+        _system_graph_gaps(root, gaps)
+
+    if metric_deltas:
+        for component, deltas in metric_deltas.items():
+            if not isinstance(deltas, dict):
+                continue
+            score_delta = deltas.get("score", 0.0)
+            if isinstance(score_delta, (int, float)) and float(score_delta) < -0.05:
+                description = f"{component} score regressed by {float(score_delta):.3f}"
+                detected_in = str(component)
+                gaps.append(
+                    CapabilityGap(
+                        gap_id=_gap_id(description, detected_in),
+                        description=description,
+                        detected_in=detected_in,
+                        severity="moderate" if float(score_delta) > -0.15 else "critical",
+                        evidence=[json.dumps({"component": component, "deltas": deltas}, sort_keys=True)],
+                        detected_at=time.time(),
+                    )
+                )
+
     gaps.sort(key=lambda gap: (_SEVERITY_RANK.get(gap.severity, 99), gap.description.lower(), gap.detected_in))
     return gaps

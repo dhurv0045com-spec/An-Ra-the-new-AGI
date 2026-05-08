@@ -203,6 +203,7 @@ class MemoryRouter:
         return MemoryWriteResult(tier="episodic", record_id=record_id)
 
     @trace("memory_router", "read")
+    @instrument("memory")
     def read(self, query: str | np.ndarray, n: int = 8, *, tier: str = "episodic") -> list[dict]:
         if tier == "short_term":
             q = str(query).lower()

@@ -191,6 +191,118 @@ class LoRAManager:
         return total
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# PYTORCH INTEGRATION — attaches LoRA adapters to nn.Linear layers in a real
+# CausalTransformerV2 model. This is what actually makes fine-tuning work.
+# ─────────────────────────────────────────────────────────────────────────────
+try:
+    import torch
+    import torch.nn as nn
+
+    class LoRALinear(nn.Module):
+        """Wraps an nn.Linear with a LoRA adapter. Base weights are frozen."""
+
+        def __init__(self, linear: nn.Linear, rank: int = 8, alpha: float = 16.0) -> None:
+            super().__init__()
+            self.linear = linear
+            self.rank = rank
+            self.scale = alpha / rank
+            d_in, d_out = linear.in_features, linear.out_features
+            self.lora_A = nn.Parameter(torch.randn(d_in, rank, device=linear.weight.device, dtype=linear.weight.dtype) * 0.02)
+            self.lora_B = nn.Parameter(torch.zeros(rank, d_out, device=linear.weight.device, dtype=linear.weight.dtype))
+            for p in self.linear.parameters():
+                p.requires_grad_(False)
+
+        def forward(self, x: torch.Tensor) -> torch.Tensor:
+            base = self.linear(x)
+            delta = (x @ self.lora_A @ self.lora_B) * self.scale
+            return base + delta
+
+        def merge_weights(self) -> None:
+            """Merge LoRA delta into base weights permanently."""
+            with torch.no_grad():
+                self.linear.weight.data += (self.lora_B.T @ self.lora_A.T) * self.scale
+            self.lora_A.requires_grad_(False)
+            self.lora_B.requires_grad_(False)
+
+
+    class PyTorchLoRAManager:
+        """Injects LoRA adapters into all attention projection layers."""
+
+        DEFAULT_TARGETS = ("q_proj", "k_proj", "v_proj", "out_proj")
+
+        def __init__(
+            self,
+            model: nn.Module,
+            rank: int = 8,
+            alpha: float = 16.0,
+            target_modules: tuple[str, ...] | None = None,
+        ) -> None:
+            self.model = model
+            self.rank = rank
+            self.alpha = alpha
+            self.targets = target_modules or self.DEFAULT_TARGETS
+            self._replaced: list[tuple[nn.Module, str, nn.Linear]] = []
+            self._inject()
+
+        def _inject(self) -> None:
+            """Replace target nn.Linear layers with LoRALinear wrappers."""
+            for _, module in self.model.named_modules():
+                for attr_name in self.targets:
+                    child = getattr(module, attr_name, None)
+                    if isinstance(child, nn.Linear):
+                        wrapper = LoRALinear(child, rank=self.rank, alpha=self.alpha)
+                        setattr(module, attr_name, wrapper)
+                        self._replaced.append((module, attr_name, child))
+
+        def trainable_parameters(self) -> list[nn.Parameter]:
+            """Returns only LoRA A/B parameters."""
+            params = []
+            for _, module in self.model.named_modules():
+                if isinstance(module, LoRALinear):
+                    params.extend([module.lora_A, module.lora_B])
+            return params
+
+        def parameter_count(self) -> dict[str, int]:
+            total = sum(p.numel() for p in self.model.parameters())
+            trainable = sum(p.numel() for p in self.trainable_parameters())
+            return {"total": total, "trainable": trainable, "frozen": total - trainable}
+
+        def save(self, path: str) -> None:
+            import pathlib
+
+            state = {}
+            for name, module in self.model.named_modules():
+                if isinstance(module, LoRALinear):
+                    state[f"{name}.lora_A"] = module.lora_A.detach().cpu().tolist()
+                    state[f"{name}.lora_B"] = module.lora_B.detach().cpu().tolist()
+            pathlib.Path(path).write_text(json.dumps(state, indent=2), encoding="utf-8")
+
+        def load(self, path: str) -> None:
+            import pathlib
+
+            state = json.loads(pathlib.Path(path).read_text(encoding="utf-8"))
+            for name, module in self.model.named_modules():
+                if isinstance(module, LoRALinear):
+                    if (a := state.get(f"{name}.lora_A")) is not None:
+                        module.lora_A.data = torch.tensor(a, device=module.lora_A.device, dtype=module.lora_A.dtype)
+                    if (b := state.get(f"{name}.lora_B")) is not None:
+                        module.lora_B.data = torch.tensor(b, device=module.lora_B.device, dtype=module.lora_B.dtype)
+
+        def merge_and_restore(self) -> None:
+            """Merge LoRA into weights and unwrap all LoRALinear layers."""
+            for parent, attr_name, original_linear in self._replaced:
+                wrapper = getattr(parent, attr_name)
+                if isinstance(wrapper, LoRALinear):
+                    wrapper.merge_weights()
+                    original_linear.weight.data = wrapper.linear.weight.data.clone()
+                    setattr(parent, attr_name, original_linear)
+
+except ImportError:
+    PyTorchLoRAManager = None  # type: ignore
+    LoRALinear = None  # type: ignore
+
+
 # ============================================================
 # TEST
 # ============================================================

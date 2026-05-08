@@ -11,6 +11,7 @@ from __future__ import annotations
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
+from torch.utils.checkpoint import checkpoint as _torch_checkpoint
 
 from identity.esv import ESVModule
 try:
@@ -112,12 +113,11 @@ class MultiHeadAttentionV2(nn.Module):
         k = self.k_proj(x).view(bsz, seq_len, self.n_kv_head, self.head_dim).transpose(1, 2)
         v = self.v_proj(x).view(bsz, seq_len, self.n_kv_head, self.head_dim).transpose(1, 2)
         q, k = self.rope(q, k)
+
         if attention_temperature is not None:
             temperature = torch.as_tensor(attention_temperature, dtype=q.dtype, device=q.device).clamp_min(0.25)
             q = q / temperature
-        if self.groups > 1:
-            k = k.repeat_interleave(self.groups, dim=1)
-            v = v.repeat_interleave(self.groups, dim=1)
+
         if self._kv_cache is not None:
             cache_k = self._kv_cache.get("k")
             cache_v = self._kv_cache.get("v")
@@ -126,11 +126,12 @@ class MultiHeadAttentionV2(nn.Module):
                 v = torch.cat([cache_v, v], dim=2)
             self._kv_cache["k"] = k.detach()
             self._kv_cache["v"] = v.detach()
-        if self._kv_cache is not None and q.size(2) == 1:
-            # AN: single-token generation can attend to all cached keys without a causal mask.
-            is_causal = False
-        else:
-            is_causal = True
+
+        if self.groups > 1:
+            k = k.repeat_interleave(self.groups, dim=1)
+            v = v.repeat_interleave(self.groups, dim=1)
+
+        is_causal = not (self._kv_cache is not None and q.size(2) == 1)
         out = F.scaled_dot_product_attention(
             q, k, v, attn_mask=None,
             dropout_p=self.dropout if self.training else 0.0,
@@ -156,7 +157,8 @@ class MoDRouter(nn.Module):
         super().__init__()
         self.capacity = capacity
         self.gate = nn.Linear(d_model, 1, bias=False)
-        nn.init.zeros_(self.gate.weight)
+        nn.init.normal_(self.gate.weight, std=0.02)
+        # AN: Small normal init avoids tied top-k routing during early training.
 
     def forward(self, x: torch.Tensor, ffn: nn.Module) -> torch.Tensor:
         B, n, d = x.shape
@@ -221,6 +223,7 @@ class CausalTransformerV2(nn.Module):
         self.norm_f = RMSNorm(n_embd, eps=rms_norm_eps)
         self.lm_head = nn.Linear(n_embd, vocab_size, bias=False)
         self.lm_head.weight = self.token_embedding_table.weight
+        self.use_gradient_checkpointing: bool = False
         self.apply(self._init_weights)
         self.esv_module = ESVModule(d_model=n_embd, d_esv=min(64, n_embd))
         if self.use_hal:
@@ -262,23 +265,41 @@ class CausalTransformerV2(nn.Module):
             if block.attn._kv_cache is not None:
                 block.attn._kv_cache.clear()
 
+    def gradient_checkpointing_enable(self) -> None:
+        """Enable gradient checkpointing to trade compute for VRAM."""
+        self.use_gradient_checkpointing = True
+
+    def gradient_checkpointing_disable(self) -> None:
+        self.use_gradient_checkpointing = False
+
     def embed(self, idx: torch.Tensor) -> torch.Tensor:
         """Expose canonical token embedding for milestone reasoning wrappers."""
         return self.token_embedding_table(idx)
 
     def run_all_layers(self, x: torch.Tensor) -> torch.Tensor:
-        """Run residual stream. ESV updates per block for layer-wise temperature."""
+        """Run residual stream with optional gradient checkpointing."""
         for i, block in enumerate(self.blocks):
             esv_state = self.esv_module(x)
             if self.use_hal and hasattr(self, "hal_module"):
-                attention_temperature = self.hal_module.attention_temperature_tensor(device=x.device, dtype=x.dtype)
+                attention_temperature = self.hal_module.attention_temperature_tensor(
+                    device=x.device, dtype=x.dtype
+                )
             else:
                 attention_temperature = self.esv_module.attention_temperature_tensor(esv_state)
             if self.use_layer_temperature_bias:
                 attention_temperature = attention_temperature * self.layer_temperature_bias[i]
+
             key = str(i)
             mod_router = self.mod_routers[key] if key in self.mod_routers else None
-            x = block(x, attention_temperature=attention_temperature, mod_router=mod_router)
+
+            if self.use_gradient_checkpointing and self.training:
+                def _block_fn(x_, at_=attention_temperature, mr_=mod_router, b_=block):
+                    return b_(x_, attention_temperature=at_, mod_router=mr_)
+
+                x = _torch_checkpoint(_block_fn, x, use_reentrant=False)
+            else:
+                x = block(x, attention_temperature=attention_temperature, mod_router=mod_router)
+
         x = self.norm_f(x)
         return x
 

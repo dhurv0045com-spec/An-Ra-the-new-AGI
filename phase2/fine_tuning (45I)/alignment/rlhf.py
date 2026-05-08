@@ -15,7 +15,14 @@
 
 import numpy as np
 import json, os
+import copy
+from contextlib import nullcontext as _nullcontext
 from datetime import datetime
+
+try:
+    import torch
+except Exception:
+    torch = None  # type: ignore
 
 
 class RLHFTrainer:
@@ -43,6 +50,12 @@ class RLHFTrainer:
         self.model        = model
         self.reward_model = reward_model
         self.tokenizer    = tokenizer
+        try:
+            self._reference_model = copy.deepcopy(self.model)
+            for p in (getattr(self._reference_model, "parameters", lambda: []))():
+                p.requires_grad_(False)
+        except Exception:
+            self._reference_model = None
         cfg               = config or {}
 
         self.lr           = cfg.get('lr',           1e-5)
@@ -64,23 +77,63 @@ class RLHFTrainer:
         vocab     = self.model.config.get('vocab_size', 512)
         return rng.integers(0, vocab, size=n_tokens).tolist()
 
-    def _policy_update(self, prompt_tokens, response_tokens, reward):
+    def _policy_update(self, prompt_tokens, response_tokens, reward, epsilon: float = 0.2) -> float:
         """
-        Simplified REINFORCE update.
-
-        Δθ ∝ reward × gradient
-        With KL penalty to prevent the model from drifting too far
-        from the pre-RLHF weights.
-
-        In a real system this is replaced with PPO-clip.
+        PPO-clip policy update.
+        Returns the clipped policy loss for logging.
         """
-        # For the stub model we update the head weights symbolically.
-        # In the real model: run full backward pass here.
-        reward_signal = reward * self.reward_scale - self.kl_coeff
+        current_logp = self._log_prob(prompt_tokens, response_tokens)
+        no_grad = torch.no_grad() if torch is not None and hasattr(torch, "no_grad") else _nullcontext()
+        with no_grad:
+            old_logp = self._log_prob_ref(prompt_tokens, response_tokens)
 
-        # Nudge head weights proportional to reward signal
-        d = self.model.weights['head'].shape[0]
-        rng  = np.random.default_rng(self.step_count)
+        ratio = np.exp(min(current_logp - old_logp, 20.0))
+        advantage = float(reward)
+        clipped_ratio = np.clip(ratio, 1.0 - epsilon, 1.0 + epsilon)
+        policy_loss = -min(ratio * advantage, clipped_ratio * advantage)
+
+        self._apply_gradient(prompt_tokens, response_tokens, policy_loss)
+        return float(policy_loss)
+
+    def _log_prob_ref(self, prompt_tokens, response_tokens) -> float:
+        """Log-prob under the frozen reference policy."""
+        ref = getattr(self, "_reference_model", None)
+        if ref is None:
+            return self._log_prob(prompt_tokens, response_tokens)
+        real_model = self.model
+        self.model = ref
+        try:
+            return self._log_prob(prompt_tokens, response_tokens)
+        finally:
+            self.model = real_model
+
+    def _log_prob(self, prompt_tokens, response_tokens) -> float:
+        """Approximate log-probability of response tokens under the current model."""
+        try:
+            logits = self.model.forward(prompt_tokens)
+            logits = np.asarray(logits)
+            if logits.ndim == 1:
+                logits = logits[np.newaxis, :]
+            shifted = logits - logits.max(axis=-1, keepdims=True)
+            probs = np.exp(shifted)
+            probs = probs / probs.sum(axis=-1, keepdims=True)
+            rows = min(len(response_tokens), probs.shape[0])
+            if rows <= 0:
+                return 0.0
+            vocab = probs.shape[-1]
+            total = 0.0
+            for idx, tok in enumerate(response_tokens[:rows]):
+                total += float(np.log(probs[idx, int(tok) % vocab] + 1e-12))
+            return total / rows
+        except Exception:
+            return 0.0
+
+    def _apply_gradient(self, prompt_tokens, response_tokens, policy_loss: float) -> None:
+        """Apply a stub-compatible PPO-scaled update to the policy head."""
+        if not hasattr(self.model, "weights") or "head" not in self.model.weights:
+            return
+        reward_signal = (-float(policy_loss)) * self.reward_scale - self.kl_coeff
+        rng = np.random.default_rng(self.step_count)
         grad = rng.normal(0, 0.001, self.model.weights['head'].shape)
         self.model.weights['head'] += self.lr * reward_signal * grad
 

@@ -12,50 +12,75 @@ from runtime.system_registry import build_system_manifest
 
 
 def build_report() -> dict[str, Any]:
-    """Build a full system health and performance snapshot."""
+    """Build a full system health and performance snapshot from MetricBus + TelemetryBus."""
     manifest = build_system_manifest()
     flags = load_flags()
-    bus = get_telemetry_bus()
-
-    component_summary = []
-    for comp in manifest["components"]:
-        name = comp["name"]
-        component_summary.append(
-            {
-                "name": name,
-                "enabled": flags.get(name, True),
-                "source_ok": comp["source_ok"],
-                "import_status": comp["import_status"],
-                "missing_paths": comp.get("missing", []),
-                "metric_hooks": comp.get("metric_hooks", []),
-            }
-        )
 
     try:
-        perf_summary = bus.summary_by_module()
+        from engine.metric_bus import get_metric_bus
+
+        mbus = get_metric_bus()
+        mbus_snapshot = mbus.snapshot()
+        mbus_deltas = getattr(mbus, "_last_deltas", {})
+    except Exception as exc:
+        mbus = None
+        mbus_snapshot = {}
+        mbus_deltas = {}
+        print(f"[report] MetricBus unavailable: {exc}")
+
+    legacy_bus = get_telemetry_bus()
+    legacy_snapshot = legacy_bus.snapshot() if hasattr(legacy_bus, "snapshot") else {}
+
+    try:
+        perf_summary = legacy_bus.summary_by_module()
     except Exception:
         perf_summary = {}
 
     try:
-        recent = bus.recent(100)
+        recent = legacy_bus.recent(100)
         failures = [r for r in recent if not r.get("success")]
         recent_failures = failures[-10:]
     except Exception:
         recent_failures = []
 
+    component_summary = []
+    manifest_by_name = {comp["name"]: comp for comp in manifest["components"]}
+    all_components = sorted(set(manifest_by_name) | set(legacy_snapshot) | set(mbus_snapshot))
+    for name in all_components:
+        comp = manifest_by_name.get(name, {})
+        metrics = {**legacy_snapshot.get(name, {}), **mbus_snapshot.get(name, {})}
+        component_summary.append(
+            {
+                "name": name,
+                "component": name,
+                "enabled": flags.get(name, True),
+                "source_ok": comp.get("source_ok", True),
+                "import_status": comp.get("import_status", "unknown"),
+                "missing_paths": comp.get("missing", []),
+                "metric_hooks": comp.get("metric_hooks", []),
+                "metrics": metrics,
+                "delta": mbus_deltas.get(name, {}),
+            }
+        )
+
     return {
-        "generated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "generated_at": time.time(),
         "system_health": {
             "total_components": len(component_summary),
             "enabled_components": sum(1 for c in component_summary if c["enabled"]),
             "source_ok": sum(1 for c in component_summary if c["source_ok"]),
             "import_ok": sum(1 for c in component_summary if "degraded" not in c["import_status"]),
         },
+        "manifest": manifest,
+        "flags": flags,
+        "metric_bus": mbus_snapshot,
+        "metric_bus_deltas": mbus_deltas,
         "components": component_summary,
         "performance": perf_summary,
         "recent_failures": recent_failures,
         "training_readiness": manifest.get("training_readiness", {}),
         "artifacts": manifest.get("artifacts", {}),
+        "run_id": getattr(mbus, "_run_id", None),
     }
 
 

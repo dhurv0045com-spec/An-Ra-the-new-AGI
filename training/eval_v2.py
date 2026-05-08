@@ -67,7 +67,7 @@ EVAL_SUITE = [
 
 
 @instrument("evaluation")
-def quick_eval_loss(model, dataset, *, device: torch.device, max_examples: int = 100, batch_size: int = 8, pad_id: int = 0) -> float:
+def quick_eval_loss(model, dataset, *, device: torch.device, max_examples: int = 100, batch_size: int = 8, pad_id: int = 0) -> dict:
     """Mean CE loss over up to max_examples validation examples."""
     model.eval()
     losses: list[float] = []
@@ -83,7 +83,12 @@ def quick_eval_loss(model, dataset, *, device: torch.device, max_examples: int =
             losses.append(float(loss.item()))
     if not losses:
         raise RuntimeError("[eval_v2] quick_eval_loss received an empty validation dataset")
-    return float(sum(losses) / len(losses))
+    loss_value = float(sum(losses) / len(losses))
+    return {
+        "score": max(0.0, 1.0 - loss_value / 10.0),
+        "loss": loss_value,
+        "n_examples": len(losses),
+    }
 
 
 def _normalize(text: str) -> str:
