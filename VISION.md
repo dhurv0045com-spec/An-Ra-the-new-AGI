@@ -215,3 +215,40 @@ Here is the next experiment.
 ```
 
 That is the vision.
+
+## The DFC Framing - What An-Ra Should Learn Differently
+
+Frontier models mostly learn:
+
+```text
+internet text -> next token -> helpful answer
+```
+
+An-Ra must learn:
+
+```text
+change -> constraint -> hypothesis -> action -> measurement -> contradiction -> update
+```
+
+This is Differential Falsification Cognition (DFC). Every domain An-Ra operates in
+should be represented as change over state. Every serious claim must carry the condition
+that would prove it wrong. Every reward must come from an executable verifier, not prose.
+
+The frontier_dfc.jsonl training corpus implements this: every record is a
+hypothesis -> constraint -> verify -> update chain. This is what makes An-Ra different
+from a generic assistant at 1B scale.
+
+### The AIE Loop (An-Ra Innovation Engine)
+
+An-Ra's self-improvement must not be magical. The closed loop is:
+
+```text
+metric delta -> gap_scanner -> hypothesis -> experiment -> verifier -> delta -> memory
+```
+
+Every subsystem upgrade must answer:
+
+1. What component does this improve?
+2. What metric should move?
+3. What verifier or test proves it?
+4. What failure case becomes replay signal?

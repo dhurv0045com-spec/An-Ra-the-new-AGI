@@ -34,6 +34,7 @@ from training.v2_runtime import (
     atomic_save,
     build_frontier_model,
     build_v2_model,
+    canonical_v2_checkpoint,
     load_checkpoint,
     load_or_build_v2_tokenizer,
     model_summary,
@@ -586,11 +587,26 @@ def train_anra_v2(
                 _compact_eval_to_result(eval_summary),
             )
             if regression_report.regressed:
-                print(
-                    f"[WARN] Regression detected: {regression_report.to_dict()}",
-                    flush=True,
-                )
+                rd = regression_report.to_dict()
                 harness.save_report(regression_report)
+                severity = rd.get("severity", "low")
+                print(f"[REGRESSION] severity={severity}: {rd}", flush=True)
+                if severity in ("critical", "high"):
+                    print("[ABORT] Restoring last good checkpoint to protect model.", flush=True)
+                    prev_ckpt = canonical_v2_checkpoint("brain")
+                    if prev_ckpt.exists():
+                        load_checkpoint(model, optimizer, scheduler, mp, prev_ckpt, device=device, strict=False)
+                        print("[ABORT] Checkpoint restored. Stopping session.", flush=True)
+                    return {
+                        "checkpoint_path": str(ckpt_path),
+                        "global_step": global_step,
+                        "best_loss": best_loss,
+                        "eval_summary": eval_summary,
+                        "mix_report": mix_report.to_dict(),
+                        "aborted": True,
+                        "regression": rd,
+                    }
+                print("[WARN] Low severity regression - continuing with caution.", flush=True)
         except Exception as exc:
             print(f"[build_brain] regression check skipped: {exc}", flush=True)
 
