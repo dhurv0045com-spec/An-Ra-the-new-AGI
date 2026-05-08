@@ -9,7 +9,7 @@ from typing import Dict, Iterator, Optional
 
 import torch
 
-from anra_paths import HAL_STATE_FILE, ROOT, STATE_DIR, inject_all_paths
+from anra_paths import DRIVE_LOGS, HAL_STATE_FILE, ROOT, STATE_DIR, inject_all_paths
 from training.v2_runtime import (
     build_v2_model,
     canonical_v2_checkpoint,
@@ -153,10 +153,18 @@ def _save_hal(session_id: str | None, hal) -> None:
     try:
         key = session_id or "__default__"
         hal.save(_hal_path(key))
+        _hal_publish_path = HAL_STATE_FILE
+        _hal_save_path = DRIVE_LOGS / "hal_state.json"
+        try:
+            _hal_save_path.parent.mkdir(parents=True, exist_ok=True)
+            hal.save(str(_hal_save_path))
+            _hal_publish_path = _hal_save_path
+        except Exception:
+            hal.save(str(HAL_STATE_FILE))
         try:
             from runtime.hal_telemetry import publish_hal_state
 
-            publish_hal_state(hal, source=f"generate:{key}", path=HAL_STATE_FILE)
+            publish_hal_state(hal, source=f"generate:{key}", path=_hal_publish_path)
         except Exception:
             pass
     except Exception as exc:

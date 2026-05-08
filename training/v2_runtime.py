@@ -384,6 +384,23 @@ def build_frontier_model(
             f"tokenizer={EXPECTED_TOKENIZER_VOCAB_SIZE}"
         )
 
+    if hal_module is None and cfg.use_hal:
+        try:
+            from anra_paths import DRIVE_LOGS, HAL_STATE_FILE
+            from identity.hal import HALModule
+
+            _hal_drive_path = DRIVE_LOGS / "hal_state.json"
+            _hal_path = _hal_drive_path if _hal_drive_path.exists() else HAL_STATE_FILE
+            if _hal_path.exists():
+                hal_module = HALModule.load(str(_hal_path))
+                print(f"[build_frontier_model] HAL loaded from {_hal_path}")
+            else:
+                hal_module = HALModule()
+                print("[build_frontier_model] HAL initialized fresh")
+        except Exception as exc:
+            print(f"[build_frontier_model] HAL init failed: {exc}; continuing without HAL")
+            hal_module = None
+
     model = CausalTransformerV2(
         vocab_size=cfg.vocab_size,
         n_embd=cfg.n_embd,

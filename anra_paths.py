@@ -37,6 +37,7 @@ DRIVE_ROOT = DRIVE_DIR.parent
 DRIVE_CHECKPOINTS = DRIVE_DIR / "checkpoints"
 DRIVE_IDENTITY = DRIVE_DIR / "identity"
 DRIVE_LOGS = DRIVE_DIR / "logs"
+DRIVE_HAL_STATE = DRIVE_LOGS / "hal_state.json"
 DRIVE_MEMORY = DRIVE_DIR / "memory_db"
 DRIVE_SESSIONS = DRIVE_DIR / "sessions"
 DRIVE_DATA_DIR = DRIVE_DIR / "data"
@@ -61,7 +62,20 @@ MEMORY_DB_DIR = DRIVE_MEMORY
 EPG_PATH = STATE_DIR / "experimental_proof_graph.json"
 FALSIFICATION_LEDGER_PATH = STATE_DIR / "falsification_ledger.json"
 FAILURE_REPLAY_DATASET = STATE_DIR / "failure_replay.jsonl"
-HAL_STATE_FILE = STATE_DIR / "hal_state.json"
+
+
+def _hal_state_file() -> Path:
+    # Primary: Drive (persists across Colab resets)
+    # Fallback: local state dir
+    drive_path = DRIVE_HAL_STATE
+    try:
+        drive_path.parent.mkdir(parents=True, exist_ok=True)
+        return drive_path
+    except Exception:
+        return STATE_DIR / "hal_state.json"
+
+
+HAL_STATE_FILE = _hal_state_file()
 HAL_AUDIT_LOG = STATE_DIR / "logs" / "hal_audit.jsonl"
 AIE_ACTION_QUEUE = STATE_DIR / "innovation_actions.jsonl"
 SELF_MOD_AUDIT_LOG = STATE_DIR / "logs" / "self_mod_audit.jsonl"
@@ -266,7 +280,7 @@ class PathRegistry:
     PHASE3_DIR = PHASE3_DIR; IDENTITY_DIR = IDENTITY_DIR; OUROBOROS_DIR = OUROBOROS_DIR; GHOST_MEMORY_DIR = GHOST_MEMORY_DIR
     SYMBOLIC_BRIDGE_DIR = SYMBOLIC_BRIDGE_DIR; SOVEREIGNTY_DIR = SOVEREIGNTY_DIR; DRIVE_DIR = DRIVE_DIR
     DRIVE_ROOT = DRIVE_ROOT; DRIVE_CHECKPOINTS = DRIVE_CHECKPOINTS; DRIVE_IDENTITY = DRIVE_IDENTITY
-    DRIVE_LOGS = DRIVE_LOGS; DRIVE_MEMORY = DRIVE_MEMORY; DRIVE_SESSIONS = DRIVE_SESSIONS
+    DRIVE_LOGS = DRIVE_LOGS; DRIVE_HAL_STATE = DRIVE_HAL_STATE; DRIVE_MEMORY = DRIVE_MEMORY; DRIVE_SESSIONS = DRIVE_SESSIONS
     EPG_PATH = EPG_PATH; FALSIFICATION_LEDGER_PATH = FALSIFICATION_LEDGER_PATH
     FAILURE_REPLAY_DATASET = FAILURE_REPLAY_DATASET; HAL_STATE_FILE = HAL_STATE_FILE
     HAL_AUDIT_LOG = HAL_AUDIT_LOG; AIE_ACTION_QUEUE = AIE_ACTION_QUEUE

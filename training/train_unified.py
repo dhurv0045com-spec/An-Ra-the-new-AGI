@@ -174,6 +174,34 @@ def _run_innovation_if_due(training_cfg, session_n: int) -> None:
         print(f"[Innovation] Skipped (error): {exc}", flush=True)
 
 
+def _start_supervisor(args) -> object | None:
+    try:
+        from agents.supervisor import SupervisorAgent
+
+        _supervisor = SupervisorAgent(model_size=getattr(args, "model_size", "25m"))
+        _supervisor.start_session()
+        _session_run_id = _supervisor._bus.run_id
+        print(f"[Unified Trainer] Session tracked — run_id: {_session_run_id}")
+        return _supervisor
+    except Exception as _sup_err:
+        print(f"[Unified Trainer] Supervisor init failed: {_sup_err}")
+        return None
+
+
+def _end_supervisor(_supervisor: object | None) -> None:
+    if _supervisor is None:
+        return
+    if getattr(_supervisor, "_unified_trainer_closed", False):
+        return
+    setattr(_supervisor, "_unified_trainer_closed", True)
+    try:
+        _summary = _supervisor.end_session()
+        _supervisor.push_scorecard_to_drive(_summary)
+        print(f"[Unified Trainer] Scorecard saved — run_id: {_summary.run_id}")
+    except Exception as _sup_err:
+        print(f"[Unified Trainer] Supervisor end failed: {_sup_err}")
+
+
 def _write_daily_curriculum() -> dict[str, object]:
     eval_summary = _load_json(v2_report_path("eval_summary")) or {}
     hard_blob = _load_json(v2_report_path("hard_examples")) or {}
@@ -359,6 +387,7 @@ def main() -> None:
         "data_ingestion": data_ingestion_report,
         "stages": {},
     }
+    _supervisor = _start_supervisor(args)
 
     base_cmd = [
         sys.executable,
@@ -389,6 +418,7 @@ def main() -> None:
         if rc != 0:
             run_report["ended_at"] = time.time()
             _write_run_report(run_report)
+            _end_supervisor(_supervisor)
             raise SystemExit(rc)
         eval_summary = _load_json(v2_report_path("eval_summary")) or {}
         curriculum = _write_daily_curriculum()
@@ -404,6 +434,7 @@ def main() -> None:
         }
         run_report["ended_at"] = time.time()
         _write_run_report(run_report)
+        _end_supervisor(_supervisor)
         return
 
     if run_base_first:
@@ -412,6 +443,7 @@ def main() -> None:
         if rc != 0:
             run_report["ended_at"] = time.time()
             _write_run_report(run_report)
+            _end_supervisor(_supervisor)
             raise SystemExit(rc)
 
     # Auto-merge identity files before identity fine-tune
@@ -441,6 +473,7 @@ def main() -> None:
     if rc != 0:
         run_report["ended_at"] = time.time()
         _write_run_report(run_report)
+        _end_supervisor(_supervisor)
         raise SystemExit(rc)
 
     ouro_cmd = [
@@ -458,6 +491,7 @@ def main() -> None:
     if rc != 0:
         run_report["ended_at"] = time.time()
         _write_run_report(run_report)
+        _end_supervisor(_supervisor)
         raise SystemExit(rc)
 
     rc = run_cmd([sys.executable, str(ROOT / "scripts" / "run_self_improvement.py")])
@@ -465,6 +499,7 @@ def main() -> None:
     if rc != 0:
         run_report["ended_at"] = time.time()
         _write_run_report(run_report)
+        _end_supervisor(_supervisor)
         raise SystemExit(rc)
 
     rc = run_cmd([sys.executable, str(ROOT / "scripts" / "run_sovereignty_audit.py")])
@@ -472,6 +507,7 @@ def main() -> None:
     if rc != 0:
         run_report["ended_at"] = time.time()
         _write_run_report(run_report)
+        _end_supervisor(_supervisor)
         raise SystemExit(rc)
 
     rc = run_cmd([sys.executable, "-m", "pytest", "tests/test_v2_stack.py", "-q", "--tb=short", "--no-header"])
@@ -479,6 +515,7 @@ def main() -> None:
     if rc != 0:
         run_report["ended_at"] = time.time()
         _write_run_report(run_report)
+        _end_supervisor(_supervisor)
         raise SystemExit(rc)
 
     eval_summary = _load_json(v2_report_path("eval_summary")) or {}
@@ -493,6 +530,7 @@ def main() -> None:
     }
     run_report["ended_at"] = time.time()
     _write_run_report(run_report)
+    _end_supervisor(_supervisor)
 
 
 class UnifiedTrainer:

@@ -170,6 +170,20 @@ def _run_report() -> None:
     print(f"  Report saved -> {path}")
 
 
+def _run_supervisor_status(args, system) -> None:
+    from agents.supervisor import SupervisorAgent
+
+    sup = SupervisorAgent()
+    status = sup.status()
+    print("\nCOMPONENT STATUS")
+    print("=" * 60)
+    for name, info in sorted(status.items()):
+        flag = "✅" if info["enabled"] else "❌"
+        calls = info["metrics"].get("calls", 0)
+        sr = info["metrics"].get("success_rate", 0)
+        print(f"  {flag} {name:<28} calls={calls:>4}  sr={sr:.2f}  layer={info['layer']}")
+
+
 def _run_test(args, system: MasterSystem) -> None:
     from test_45M import run_all_tests
 
@@ -240,6 +254,7 @@ COMMANDS: dict[str, Callable] = {
     "safety_audit": _run_safety_audit,
     "api": _run_api,
     "report": lambda args, system: _run_report(),
+    "supervisor_status": _run_supervisor_status,
 }
 
 SYSTEM_START_COMMANDS = {
@@ -260,7 +275,7 @@ SYSTEM_STOP_COMMANDS = {
     "status",
     "goal",
 }
-NO_SYSTEM_COMMANDS = {"report"}
+NO_SYSTEM_COMMANDS = {"report", "supervisor_status"}
 
 
 def _selected_command(args) -> str | None:
@@ -295,6 +310,10 @@ def main():
                         help="Trigger the sovereignty improvement pipeline now")
     parser.add_argument("--report", action="store_true",
                         help="Print automated system health report")
+    parser.add_argument(
+        "--supervisor-status", action="store_true",
+        help="Show live component status from SupervisorAgent"
+    )
     parser.add_argument("--train-session-minutes", type=int, default=30,
                         help="Session minutes when --mode interactive/session/train is used without --start")
 
@@ -315,6 +334,7 @@ def main():
                 args.sovereignty_report,
                 args.sovereignty_run,
                 args.report,
+                args.supervisor_status,
                 bool(args.symbolic),
                 getattr(args, "owner_model", False),
                 getattr(args, "safety_audit", False),

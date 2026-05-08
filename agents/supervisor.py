@@ -130,7 +130,7 @@ class SupervisorAgent:
         Returns True if Drive push succeeded.
         Always succeeds locally; Drive failure is non-fatal.
         """
-        data = summary.to_dict()
+        data = self._scorecard_data(summary)
         fname = f"scorecard_{summary.run_id}.json"
 
         local = SCORECARD_DIR / fname
@@ -251,6 +251,22 @@ class SupervisorAgent:
             print(f"    - {r}")
         print(f"{'=' * 60}\n")
 
+    def _scorecard_data(self, summary: SessionSummary) -> dict:
+        data = summary.to_dict()
+        try:
+            from anra_paths import DRIVE_LOGS, HAL_STATE_FILE
+            from identity.hal import HALModule
+
+            _hal_path = DRIVE_LOGS / "hal_state.json"
+            if not _hal_path.exists():
+                _hal_path = HAL_STATE_FILE
+            if _hal_path.exists():
+                _hal = HALModule.load(str(_hal_path))
+                data["hal_state_at_end"] = _hal.state.hormones()
+        except Exception:
+            pass
+        return data
+
     def _write_scorecard(self, summary: SessionSummary) -> None:
         path = SCORECARD_DIR / f"scorecard_{summary.run_id}.json"
-        path.write_text(json.dumps(summary.to_dict(), indent=2), encoding="utf-8")
+        path.write_text(json.dumps(self._scorecard_data(summary), indent=2), encoding="utf-8")

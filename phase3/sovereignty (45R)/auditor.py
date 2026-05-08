@@ -39,6 +39,7 @@ if "sovereignty" not in sys.modules:
 import ast
 import json
 import pathlib
+import time
 from datetime import datetime
 from typing import Dict, List, Optional, Tuple
 
@@ -275,6 +276,7 @@ class AuditPass:
             Dict with 'aggregate' metrics and 'deltas' vs baseline.
         """
         date_str = date_str or datetime.now().strftime("%Y%m%d")
+        _audit_started = time.perf_counter()
         log.info("Pass 1: Scanning %s for .py files", self._target_dir)
 
         py_files = list(self._target_dir.rglob("*.py"))
@@ -304,6 +306,35 @@ class AuditPass:
         self._save_baseline(aggregate)
 
         self._log_results(aggregate, deltas)
+        try:
+            from engine.eval_harness import EvalHarness, EvalResult
+
+            harness = EvalHarness()
+            baseline = harness.load_last_report("sovereignty")
+            total = max(1, int(aggregate.get("total_functions", 0) or 0))
+            flagged = len(aggregate.get("flagged_complexity", [])) + len(
+                aggregate.get("flagged_no_docstring", [])
+            )
+            audit_score = max(0.0, min(1.0, 1.0 - (flagged / total)))
+            current_result = EvalResult(
+                component="sovereignty",
+                mode="audit",
+                task_success_rate=float(audit_score),
+                avg_latency_ms=(time.perf_counter() - _audit_started) * 1000,
+                error_rate=0.0,
+                notes=f"audit_date={date_str}",
+            )
+            if baseline:
+                baseline_data = baseline.get("current", baseline)
+                report = harness.compare(EvalResult(**baseline_data), current_result)
+                harness.save_report(report)
+                if report.regressed:
+                    print(
+                        "[Sovereignty] REGRESSION DETECTED: "
+                        f"{report.delta_success_rate:.3f}"
+                    )
+        except Exception:
+            pass
         return {"aggregate": aggregate, "deltas": deltas}
 
     def _load_baseline(self) -> Dict:

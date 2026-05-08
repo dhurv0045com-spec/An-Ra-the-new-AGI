@@ -45,7 +45,7 @@ def build_report() -> dict[str, Any]:
 
     component_summary = []
     manifest_by_name = {comp["name"]: comp for comp in manifest["components"]}
-    all_components = sorted(set(manifest_by_name) | set(legacy_snapshot) | set(mbus_snapshot))
+    all_components = sorted(manifest_by_name)
     for name in all_components:
         comp = manifest_by_name.get(name, {})
         metrics = {**legacy_snapshot.get(name, {}), **mbus_snapshot.get(name, {})}
