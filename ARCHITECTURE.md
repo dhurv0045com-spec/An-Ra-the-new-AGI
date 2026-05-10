@@ -11,6 +11,25 @@ python scripts/verify_structure.py
 
 The current source registry is `19/19 active`.
 
+## Research Foundation
+
+An-Ra's architecture was designed through three research documents covering:
+
+- Differential Falsification Cognition (DFC) - the training paradigm
+- Falsifiable Constraint Cognition (FCC) - the six training templates
+- An-Ra Innovation Engine (AIE) - self-improvement as experiment
+
+The full designs are implemented in:
+
+- `identity/hal.py` (HAL nervous system)
+- `identity/falsification_ledger.py`
+- `memory/experimental_proof_graph.py`
+- `identity/constraint_isomorphism_search.py`
+- `engine/eval_harness.py` (AIE scoring)
+- `training/rlvr.py` (RLVR with GRPO)
+- `training/star.py` (STaR reasoning)
+- `training_data/frontier_dfc.jsonl` (DFC training data)
+
 ## System Shape
 
 ```text
