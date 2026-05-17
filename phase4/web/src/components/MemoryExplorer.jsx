@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Database, Search, ZoomIn, Clock, FileText, Activity, Layers, CornerDownRight } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Database, Search, Clock, Activity } from 'lucide-react';
 
 const MemoryExplorer = () => {
   const [stats, setStats] = useState(null);
@@ -7,7 +7,7 @@ const MemoryExplorer = () => {
   const [results, setResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
 
-  const fetchStats = async () => {
+  const fetchStats = useCallback(async () => {
     try {
       const response = await fetch('/api/memory/stats');
       if (response.ok) {
@@ -16,13 +16,13 @@ const MemoryExplorer = () => {
     } catch (e) {
       console.error("Memory stats error:", e);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    fetchStats();
+    queueMicrotask(fetchStats);
     const interval = setInterval(fetchStats, 10000);
     return () => clearInterval(interval);
-  }, []);
+  }, [fetchStats]);
 
   const handleSearch = async (e) => {
     e.preventDefault();
@@ -47,6 +47,7 @@ const MemoryExplorer = () => {
   if (!stats) return <div style={{ padding: '40px', textAlign: 'center' }}>Synchronizing Memory Banks...</div>;
 
   const { memory_45j, knowledge_base, ghost_memory } = stats;
+  const ghostUsage = Math.round(Number(ghost_memory?.usage_ratio ?? ghost_memory?.compression_ratio ?? 0.45) * 100);
 
   return (
     <div className="memory-explorer animate-in" style={{ display: 'grid', gridTemplateColumns: '1fr 350px', gap: '20px', height: '100%' }}>
@@ -123,9 +124,9 @@ const MemoryExplorer = () => {
                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                    <Activity size={14} color="var(--accent-cyan)" />
                    <div style={{ flex: 1, height: '4px', background: 'rgba(255,255,255,0.1)', borderRadius: '2px' }}>
-                      <div style={{ height: '100%', width: '45%', background: 'var(--accent-cyan)', boxShadow: '0 0 10px var(--accent-cyan-glow)' }} />
-                   </div>
-                   <span className="mono" style={{ fontSize: '10px' }}>45%</span>
+                       <div style={{ height: '100%', width: `${ghostUsage}%`, background: 'var(--accent-cyan)', boxShadow: '0 0 10px var(--accent-cyan-glow)' }} />
+                    </div>
+                    <span className="mono" style={{ fontSize: '10px' }}>{ghostUsage}%</span>
                  </div>
                  <p style={{ marginTop: '8px', fontSize: '10px', color: 'var(--text-muted)' }}>
                    Compressed context state active for long-horizon task stability.

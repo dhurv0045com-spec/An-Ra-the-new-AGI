@@ -5,7 +5,7 @@ import ChatInterface from './components/ChatInterface';
 import TrainingPanel from './components/TrainingPanel';
 import MemoryExplorer from './components/MemoryExplorer';
 import SovereigntyPanel from './components/SovereigntyPanel';
-import { Layers, Settings, HelpCircle, Activity, LayoutDashboard, Database, ShieldCheck, Brain } from 'lucide-react';
+import { Settings, HelpCircle, LayoutDashboard, Database, ShieldCheck, Brain } from 'lucide-react';
 
 function App() {
   const [activeTab, setActiveTab] = useState('dashboard');

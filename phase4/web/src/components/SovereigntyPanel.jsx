@@ -1,12 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { ShieldCheck, Activity, Search, AlertCircle, FileText, CheckCircle2, Zap, Clock, ShieldX } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { ShieldCheck, Activity, FileText, CheckCircle2, Zap, Clock } from 'lucide-react';
 import HormonalStatePanel from './HormonalStatePanel';
 
 const SovereigntyPanel = () => {
   const [data, setData] = useState(null);
   const [isAuditing, setIsAuditing] = useState(false);
 
-  const fetchStatus = async () => {
+  const fetchStatus = useCallback(async () => {
     try {
       const response = await fetch('/api/sovereignty/status');
       if (response.ok) {
@@ -15,13 +15,13 @@ const SovereigntyPanel = () => {
     } catch (e) {
       console.error("Sovereignty status error:", e);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    fetchStatus();
+    queueMicrotask(fetchStatus);
     const interval = setInterval(fetchStatus, 30000); // 30s as audits are slow
     return () => clearInterval(interval);
-  }, []);
+  }, [fetchStatus]);
 
   const triggerAudit = async () => {
     setIsAuditing(true);
@@ -51,7 +51,7 @@ const SovereigntyPanel = () => {
             <ShieldCheck size={18} color="var(--accent-emerald)" /> SOVEREIGNTY SYSTEM
           </h2>
           <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-             <span className="mono" style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Status: {status}</span>
+             <span className="mono" style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Status: {enabled ? status : 'disabled'}</span>
              <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--accent-emerald)', boxShadow: '0 0 10px var(--accent-emerald)' }} />
           </div>
         </div>

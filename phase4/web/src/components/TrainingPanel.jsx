@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { Brain, Cpu, TrendingDown, Play, Info, Activity, AlertTriangle } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Brain, Cpu, TrendingDown, Play, Activity, AlertTriangle } from 'lucide-react';
 
 const TrainingPanel = () => {
   const [data, setData] = useState(null);
   const [isTraining, setIsTraining] = useState(false);
 
-  const fetchStatus = async () => {
+  const fetchStatus = useCallback(async () => {
     try {
       const response = await fetch('/api/train/status');
       if (response.ok) {
@@ -14,13 +14,13 @@ const TrainingPanel = () => {
     } catch (e) {
       console.error("Training status fetch error:", e);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    fetchStatus();
+    queueMicrotask(fetchStatus);
     const interval = setInterval(fetchStatus, 5000);
     return () => clearInterval(interval);
-  }, []);
+  }, [fetchStatus]);
 
   const triggerTraining = async () => {
     setIsTraining(true);

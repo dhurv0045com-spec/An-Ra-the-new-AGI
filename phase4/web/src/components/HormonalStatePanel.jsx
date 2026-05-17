@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { BrainCircuit, AlertTriangle, Sparkles } from 'lucide-react';
 
 const HORMONES = [
@@ -13,8 +13,7 @@ const HORMONES = [
 
 const HormonalStatePanel = () => {
   // # AN: Surface live HAL telemetry where sovereignty decisions are monitored.
-  const [state, setState] = useState({ hormones: {}, counters: {} });
-  const previous = useRef({ adrenaline: 0, cortisol: 0 });
+  const [state, setState] = useState({ hormones: {}, counters: {}, previous: { adrenaline: 0, cortisol: 0 } });
 
   useEffect(() => {
     const fetchState = async () => {
@@ -22,13 +21,13 @@ const HormonalStatePanel = () => {
         const response = await fetch('/api/hal/state');
         if (response.ok) {
           const next = await response.json();
-          setState(current => {
-            previous.current = {
+          setState(current => ({
+            ...next,
+            previous: {
               adrenaline: Number(current.hormones?.adrenaline || 0),
               cortisol: Number(current.hormones?.cortisol || 0),
-            };
-            return next;
-          });
+            },
+          }));
         }
       } catch (error) {
         console.error('HAL state error:', error);
@@ -41,7 +40,7 @@ const HormonalStatePanel = () => {
 
   const hormones = state.hormones || {};
   const cortisol = Number(hormones.cortisol || 0);
-  const adrenalineWasHigh = Number(previous.current.adrenaline || 0) > 0.5;
+  const adrenalineWasHigh = Number(state.previous?.adrenaline || 0) > 0.5;
   const stressCascade = cortisol > 0.6 && adrenalineWasHigh;
   const flowState = Number(hormones.endorphin || 0) > 0.6;
 

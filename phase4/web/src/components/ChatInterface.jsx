@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, Terminal, User, Bot, Loader2, Minimize2, Maximize2 } from 'lucide-react';
+import { Send, Terminal, User, Bot, Loader2 } from 'lucide-react';
 
 const ChatInterface = () => {
   const [messages, setMessages] = useState([

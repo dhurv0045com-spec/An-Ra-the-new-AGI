@@ -102,10 +102,38 @@ def _drive_artifact_path(name: str) -> Path:
         "brain": "anra_v2_brain.pt",
         "identity": "anra_v2_identity.pt",
         "ouroboros": "anra_v2_ouroboros.pt",
-        "tokenizer": "tokenizer_v2.json",
+        "tokenizer": "tokenizer_v3.json",
         "eval_summary": "anra_v2_eval_summary.json",
     }
     return DRIVE_DIR / drive_filenames.get(name, f"anra_v2_{name}.pt")
+
+
+def _local_artifact_path(name: str) -> Path:
+    local_map = {
+        "brain": V2_BRAIN_CHECKPOINT,
+        "identity": V2_IDENTITY_CHECKPOINT,
+        "ouroboros": V2_OUROBOROS_CHECKPOINT,
+        "tokenizer": V3_TOKENIZER_FILE,
+        "eval_summary": v2_report_path("eval_summary"),
+    }
+    return local_map.get(name, ROOT / f"anra_v2_{name}.pt")
+
+
+def _drive_restore_candidates(name: str) -> list[Path]:
+    canonical = _drive_artifact_path(name)
+    candidates = [
+        DRIVE_V2_CHECKPOINTS / canonical.name,
+        canonical,
+    ]
+    if name == "tokenizer":
+        # Backward compatibility for older Colab sessions that used the V2 name.
+        candidates.extend(
+            [
+                DRIVE_V2_CHECKPOINTS / "tokenizer_v2.json",
+                DRIVE_DIR / "tokenizer_v2.json",
+            ]
+        )
+    return candidates
 
 
 def restore_v2_artifact(name: str = "brain") -> bool:
@@ -113,35 +141,23 @@ def restore_v2_artifact(name: str = "brain") -> bool:
     Check Drive for checkpoint. If found, copy to local output dir.
     Returns True if restored, False if starting fresh.
     """
-    local_map = {
-        "brain": get_v2_checkpoint("brain"),
-        "identity": get_v2_checkpoint("identity"),
-        "ouroboros": get_v2_checkpoint("ouroboros"),
-        "tokenizer": V3_TOKENIZER_FILE,
-        "eval_summary": v2_report_path("eval_summary"),
-    }
-    local_path = local_map.get(name, get_v2_checkpoint(name))
+    local_path = _local_artifact_path(name)
     local_path.parent.mkdir(parents=True, exist_ok=True)
 
-    drive_file = DRIVE_V2_CHECKPOINTS / _drive_artifact_path(name).name
-    drive_root_file = _drive_artifact_path(name)
-
     source = None
-    if drive_file.exists():
-        source = drive_file
-    elif drive_root_file.exists():
-        source = drive_root_file
+    for candidate in _drive_restore_candidates(name):
+        if candidate.exists():
+            source = candidate
+            break
 
     if source is None:
-        try:
-            if DRIVE_SESSION_MANAGER.load_family(name, local_path):
-                step = _read_step(local_path) if local_path.suffix == ".pt" else 0
-                print(f"[Restore] {name}: restored from Drive session history (step={step})")
-                return True
-        except Exception as exc:
-            logger.warning("Drive session restore failed for %s: %s", name, exc)
         print(f"[Restore] {name}: not on Drive — will start fresh")
         return False
+
+    if local_path.exists() and local_path.stat().st_mtime >= source.stat().st_mtime:
+        step = _read_step(local_path) if local_path.suffix == ".pt" else 0
+        print(f"[Restore] {name}: already current (step={step})")
+        return True
 
     try:
         shutil.copy2(source, local_path)
@@ -159,14 +175,7 @@ def sync_to_drive(name: str = "brain") -> bool:
     Copy local checkpoint to Drive. Always overwrites same file.
     Never creates new files. Returns True on success.
     """
-    local_map = {
-        "brain": get_v2_checkpoint("brain"),
-        "identity": get_v2_checkpoint("identity"),
-        "ouroboros": get_v2_checkpoint("ouroboros"),
-        "tokenizer": V3_TOKENIZER_FILE,
-        "eval_summary": v2_report_path("eval_summary"),
-    }
-    local_path = local_map.get(name, get_v2_checkpoint(name))
+    local_path = _local_artifact_path(name)
     if not local_path.exists():
         print(f"[Drive] {name}: local file not found, skipping")
         return False
@@ -176,8 +185,10 @@ def sync_to_drive(name: str = "brain") -> bool:
     drive_target = DRIVE_V2_CHECKPOINTS / drive_root.name
 
     try:
-        DRIVE_SESSION_MANAGER.save_family(name, local_path)
-        step = _read_step(local_path)
+        drive_root.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(local_path, drive_target)
+        shutil.copy2(local_path, drive_root)
+        step = _read_step(local_path) if local_path.suffix == ".pt" else 0
         size_kb = local_path.stat().st_size // 1024
         print(f"[Drive] {name}: saved (step={step}, {size_kb}KB)")
         return True
