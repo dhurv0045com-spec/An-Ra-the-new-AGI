@@ -3,9 +3,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 import os
-import resource
 import subprocess
 import sys
+
+try:
+    import resource
+except ImportError:  # Windows and other platforms without POSIX rlimits
+    resource = None  # type: ignore[assignment]
 
 from anra_paths import WORKSPACE_DIR
 
@@ -40,14 +44,15 @@ class CodeSandbox:
         wrapped_code = SANDBOX_PREAMBLE + "\n" + code
 
         def _set_limits():
-            if sys.platform != "win32":
-                if not hasattr(sys, "getandroidapilevel"):
-                    # AN: Termux's Android linker can fail before user code under a 512 MB RLIMIT_AS.
-                    resource.setrlimit(
-                        resource.RLIMIT_AS,
-                        (512 * 1024 * 1024, 512 * 1024 * 1024),
-                    )
-                resource.setrlimit(resource.RLIMIT_CPU, (30, 30))
+            if resource is None or sys.platform == "win32":
+                return
+            if not hasattr(sys, "getandroidapilevel"):
+                # AN: Termux's Android linker can fail before user code under a 512 MB RLIMIT_AS.
+                resource.setrlimit(
+                    resource.RLIMIT_AS,
+                    (512 * 1024 * 1024, 512 * 1024 * 1024),
+                )
+            resource.setrlimit(resource.RLIMIT_CPU, (30, 30))
 
         try:
             env = self._clean_env()

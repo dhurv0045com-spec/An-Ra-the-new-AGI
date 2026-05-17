@@ -437,6 +437,17 @@ def save_ghost_state(session_id: str) -> None:
             logger.warning("Ghost state persistence failed for session %s: %s", session_id, exc)
 
 
+def get_tokenizer():
+    """Return the loaded V2 tokenizer (lazy via runtime cache)."""
+    return _get_runtime()[1]
+
+
+def __getattr__(name: str):
+    if name == "TOKENIZER":
+        return get_tokenizer()
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
 def get_model_info() -> dict[str, object]:
     MODEL, TOKENIZER, LOADED_CHECKPOINT = _get_runtime()
     summary = model_summary(MODEL)

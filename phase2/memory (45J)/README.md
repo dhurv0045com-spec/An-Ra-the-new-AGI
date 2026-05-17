@@ -1,45 +1,56 @@
-# 45J - Memory System
+# 45J — Memory System
 
-**Layer 10/19: `phase2_memory`**
+**Component 10/19 · `phase2_memory`**
 
-45J is the typed memory layer: episodic turns, semantic facts, working context, vector retrieval, and personal graph structure. It is the detailed memory implementation behind the newer unified `memory_router` layer.
+Typed memory under the unified router: episodic turns, semantic facts, working context, vectors, personal graph, token-budgeted prompt assembly.
 
-## Current Role
+**Mainline entry:** `memory/memory_router.py`  
+**Deep implementation:** this folder.
+
+---
+
+## Stack position
 
 ```text
 memory_router
-  -> 45J typed memory
-  -> vector retrieval
-  -> graph context
-  -> context_builder
-  -> prompt enrichment
+  → 45J typed store
+  → vector retrieval
+  → graph context
+  → context_builder
+  → enriched prompt
 ```
 
-45J should preserve what matters across sessions and make future prompts more informed without stuffing the active context with irrelevant history.
+45J's job: keep what matters across sessions without stuffing the active window with noise. **Failures, corrections, and contradictions** should become retrievable evidence — not chat log landfill.
 
-## Main Files
+---
 
-| File | Purpose |
+## Files
+
+| File | Role |
 | --- | --- |
-| `memory_manager.py` | Main 45J entry point |
+| `memory_manager.py` | Main API |
 | `store.py` | SQLite persistence |
-| `vectors.py` | NumPy/TF-IDF vector index |
-| `memory_types.py` | Episodic, semantic, and working memory interfaces |
-| `extractor.py` | Fact extraction from conversation turns |
-| `retrieval.py` | Hybrid retrieval by semantic match, keyword, recency, and importance |
-| `memory_intelligence.py` | Scoring, consolidation, forgetting |
+| `vectors.py` | NumPy / TF-IDF index |
+| `memory_types.py` | Episodic / semantic / working |
+| `extractor.py` | Facts from turns |
+| `retrieval.py` | Hybrid search |
+| `memory_intelligence.py` | Score, consolidate, forget |
 | `graph.py` | Personal knowledge graph |
-| `context_builder.py` | Token-budgeted context assembly |
+| `context_builder.py` | Budget-aware context |
 
-## Memory Types
+---
 
-| Type | Stores | Lifetime |
+## Memory types
+
+| Type | Holds | Lifetime |
 | --- | --- | --- |
-| Episodic | Conversations and specific events | Pruned by age and importance |
-| Semantic | Stable facts and preferences | Long-lived when important |
-| Working | Current session state | Session-scoped |
+| Episodic | Events, conversations | Pruned by age + importance |
+| Semantic | Stable facts, prefs | Long when salient |
+| Working | Current session | Session-scoped |
 
-## Quick Start
+---
+
+## Minimal example
 
 ```python
 from memory_manager import MemoryManager
@@ -47,21 +58,24 @@ from memory_manager import MemoryManager
 mm = MemoryManager(data_dir="data/memory", user_id="owner")
 mm.start_session()
 mm.add_turn("user", "My project is called An-Ra.")
-mm.add_turn("assistant", "I will keep that in context.")
+mm.add_turn("assistant", "Noted.")
 prompt = mm.prepare_prompt("What is my project?")
 mm.process_conversation([])
 mm.cleanup()
 ```
 
-From this folder:
+**Smoke:**
 
 ```bash
 python test_45J.py
 python memory_manager.py --stats
 ```
 
-## Mainline Boundary
+---
 
-Use `memory/memory_router.py` when integrating memory into the current system. Use 45J directly when you need the lower-level typed store, graph, or retrieval details.
+## Integration note
 
-45J is not only "chat history." Its best use is repair: failures, corrections, contradictions, and continuity breaks should become retrievable evidence for future learning.
+- **Shipping feature?** Wire through `memory/memory_router.py`.
+- **Debugging retrieval/graph?** Use 45J directly.
+
+HAL salience gates what reaches episodic storage upstream — see `memory/memory_router.py` and identity docs in root `WALKTHROUGH.md`.

@@ -1,23 +1,22 @@
-# 45M - Master System
+# 45M — Master System
 
-**Layer 13/19: `master_system`**
+**Component 13/19 · `master_system`**
 
-45M is the owner-control and autonomy layer. It ties goals, memory, safety, personalization, control APIs, and the LLM bridge into one system-level runtime.
-
-## Current Role
+Owner control + autonomy runtime. Goals, safety, personalization, LLM bridge, dashboard — one process that coordinates without swallowing model internals.
 
 ```text
 anra.py
-  -> 45M MasterSystem
-  -> LLMBridge / generate path
-  -> autonomy engine
-  -> goal and decision stores
-  -> owner model
-  -> safety gate
-  -> dashboard / JSON API
+  → MasterSystem (this folder)
+  → LLMBridge / generate
+  → autonomy engine
+  → goals + decisions
+  → safety gate
+  → dashboard / control API
 ```
 
-## Main Files
+---
+
+## Layout
 
 | Area | Files |
 | --- | --- |
@@ -30,39 +29,53 @@ anra.py
 | Scale | `scale/pipeline.py` |
 | Tools | `tools/tool_integrations.py` |
 
-## Main Commands
+---
 
-From the repo root:
+## Commands
+
+**Repo root (preferred):**
 
 ```bash
 python anra.py --status
 python anra.py --briefing
-python anra.py --goal "Research transformer scaling techniques"
+python anra.py --goal "Research transformer scaling tradeoffs"
 python anra.py --dashboard
 python anra.py --test
 ```
 
-From this folder:
+**This folder:**
 
 ```bash
 python system.py --status
-python system.py --test
 python system.py --briefing
+python system.py --test
 ```
 
-## Autonomy Tiers
+---
 
-| Tier | Meaning | Examples |
+## Autonomy tiers
+
+| Tier | Behavior | Examples |
 | --- | --- | --- |
-| 1 | Auto-run | Reads, calculations, safe local inspection |
-| 2 | Notify and proceed | Routine writes, goal updates, training tasks |
+| 1 | Auto-run | Read files, calc, local inspect |
+| 2 | Notify + proceed | Routine writes, goals, training tasks |
 | 3 | Wait for approval | Installs, deletes, deploys, external writes |
-| 4 | Direct instruction only | Financial, credential, irreversible actions |
+| 4 | Instruction only | Financial, credentials, irreversible |
+
+---
 
 ## State
 
-45M keeps local state in SQLite databases for decisions, goals, safety, scale, proactive behavior, personalization, tool registry, and self-improvement. These are runtime artifacts, not source truth.
+SQLite under `state/` for decisions, goals, safety, personalization, tools — **runtime artifacts**, not source of truth. Git should not track your local DBs.
 
-## Boundary
+---
 
-45M should coordinate. It should not become a dumping ground for model internals, tokenizer paths, or one-off training logic. Keep model behavior in the model/runtime layers, keep training in `training/`, and keep owner-control decisions here.
+## Boundary (keep 45M thin)
+
+| Belongs elsewhere | Belongs here |
+| --- | --- |
+| Tokenizer paths, training loops | Coordination, owner policy, session control |
+| Model architecture | Safety + autonomy decisions |
+| Raw benchmark math | When to run what, at what tier |
+
+45M coordinates. It does not become a junk drawer for one-off scripts.

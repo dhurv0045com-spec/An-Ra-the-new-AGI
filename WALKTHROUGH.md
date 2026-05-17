@@ -1,10 +1,22 @@
-# AN-RA — COMPLETE PROJECT WALKTHROUGH
+# AN-RA — Complete Project Walkthrough
 
-> A sovereign, owner-shaped AI platform built from scratch. Every layer explained, from the neural network atom to the full system.
+> The long read. Every layer from transformer atoms to sovereignty gates — written for developers who want to *understand*, not just run commands.
+
+**How to use this doc**
+
+| You want… | Start here |
+| --- | --- |
+| Run the system in 5 minutes | [`README.md`](README.md) |
+| Wire a new feature correctly | [`DEVELOPER.md`](DEVELOPER.md) |
+| See the 19-component map | [`ARCHITECTURE.md`](ARCHITECTURE.md) |
+| Understand *why* An-Ra exists | [`VISION.md`](VISION.md) |
+| Deep subsystem tour | You are here ↓ |
+
+This walkthrough is **narrative + technical**. Skim the TOC, dive into the sections you are touching, ignore the rest until you need it.
 
 ---
 
-## TABLE OF CONTENTS
+## Table of contents
 
 1. [What Is An-Ra?](#1-what-is-an-ra)
 2. [Repository Structure](#2-repository-structure)
@@ -27,9 +39,11 @@
 
 ---
 
-## 1. WHAT IS AN-RA?
+## 1. What is An-Ra?
 
-An-Ra is **not a chatbot wrapper**. It is not built on top of GPT or any other API. It is a complete AI platform built from zero:
+**Short version:** a measurable AI organism you own — not a wrapper around someone else's API.
+
+**Long version:** An-Ra is built from zero:
 
 - **Its own transformer neural network** (the brain)
 - **Its own tokenizer** — trained on owner data, 8192 vocabulary
@@ -40,20 +54,22 @@ An-Ra is **not a chatbot wrapper**. It is not built on top of GPT or any other A
 - **Its own self-improvement loop** — learns from every failure
 - **Its own governance layer** — nothing is promoted without passing an audit
 
-The philosophy of An-Ra is captured in one rule:
+One rule holds it together:
 
-```
+```text
 No magic subsystem.
 Every component must be registered, switchable, measurable, reportable, and testable.
 ```
 
-An-Ra currently has **19 registered components**. Every one has telemetry. Every one can be toggled. Every one is visible in a system report.
+**19 registered components.** Each can be toggled (`engine/feature_flags.py`), traced (`engine/telemetry.py`), and inspected (`python anra.py --report`). If you remember nothing else from this section, remember that.
 
 ---
 
-## 2. REPOSITORY STRUCTURE
+## 2. Repository structure
 
-```
+Where things live (paths centralized in `anra_paths.py` — do not scatter literals):
+
+```text
 An-Ra/
 │
 ├── anra.py                  ← Main CLI entry point
@@ -180,12 +196,12 @@ An-Ra/
 │   ├── logs/telemetry.jsonl ← Every traced call ever made
 │   └── *.db                 ← SQLite databases for state
 │
-└── tests/                   ← 30+ test files covering every system
+└── tests/                   ← 150+ tests; run: python -m pytest tests/ -q
 ```
 
 ---
 
-## 3. THE NEURAL NETWORK BRAIN
+## 3. The neural network brain
 
 **File:** `anra_brain.py`
 
@@ -1117,8 +1133,17 @@ print(bus.summary_by_module())
 
 ---
 
-*An-Ra is not a product. It is an organism — built to learn, remember, verify, improve, and explain itself.*
+---
 
-*Every component has a name. Every call has a trace. Every claim has a falsifier. Every upgrade passes a gate.*
+## Closing
 
-*That is what makes it sovereign.*
+An-Ra is not a product slide. It is an **organism** — built to learn, remember, verify, improve, and explain itself.
+
+- Every component has a **name** (`runtime/system_registry.py`)
+- Every important call can have a **trace** (`state/logs/telemetry.jsonl`)
+- Every serious claim can carry a **falsifier** (`identity/falsification_ledger.py`)
+- Every promotion can hit a **gate** (`phase3/sovereignty (45R)/`)
+
+That is what sovereign means here: not unlimited autonomy — **inspected autonomy**.
+
+**Next steps:** run `python anra.py --report`, pick one subsystem from the TOC, open its README in `phase2/` or `phase3/`, change one thing, prove it with a test. That is how this codebase is meant to be learned.

@@ -373,12 +373,13 @@ def patch_data_mix(reasoning_path: str, repo_root: str) -> int:
 
 
 def _load_reasoning_examples(
-    path: str = "training_data/reasoning.jsonl",
+    path: str | None = None,
     max_examples: int = 60000,
 ) -> list:
     import json
     from pathlib import Path
-    p = Path(path)
+    from anra_paths import REASONING_JSONL_FILE
+    p = Path(path) if path is not None else REASONING_JSONL_FILE
     if not p.exists():
         return []
     examples = []
@@ -404,7 +405,7 @@ def _load_reasoning_examples(
     if "reasoning_examples = [" not in text and "def build_v2_training_examples" in text:
         needle = "    frontier_examples = _load_frontier_dfc_examples(dataset_path)\n"
         replacement = needle + '''
-    reasoning_raw = _load_reasoning_examples(str(dataset_path.parent / "reasoning.jsonl"))
+    reasoning_raw = _load_reasoning_examples()
     reasoning_examples = []
     for item in reasoning_raw:
         raw_text = str(item.get("text", "")).strip()

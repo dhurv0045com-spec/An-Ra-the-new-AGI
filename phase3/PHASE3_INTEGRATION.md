@@ -1,33 +1,37 @@
-# An-Ra Phase 3 Integration
+# Phase 3 Integration
 
-Phase 3 is the deep-cognition band of the current `19/19` stack:
+Phase 3 is the **deep-cognition band** of the 19-component stack — where answers get verified, identity gets reinforced, memory gets compressed, reasoning gets recursive, and promotion gets gated.
 
-| Layer | Component | Role |
+| Layer | Code | Job |
 | --- | --- | --- |
-| 08/19 | 45N Identity | Runtime identity injection and response cleanup |
-| 16/19 | 45O Ouroboros | Recursive reasoning and milestone reflection |
-| 17/19 | 45P Ghost Memory | Compressed long-memory retrieval |
-| 18/19 | 45Q Symbolic Bridge | Verified math, logic, and code reasoning |
-| 19/19 | 45R Sovereignty | Audit, benchmark, report, and promotion governance |
+| 08/19 | **45N** Identity | Inject owner context; clean outputs |
+| 16/19 | **45O** Ouroboros | Multi-pass reflection; milestone refinement |
+| 17/19 | **45P** Ghost Memory | Long recall without blowing context |
+| 18/19 | **45Q** Symbolic Bridge | Math / logic / code with verdicts |
+| 19/19 | **45R** Sovereignty | Audit, benchmark, promote or quarantine |
 
-## Integrated Pipeline
+**Design rule:** Phase 3 deepens the mainline. It does not fork a second product.
+
+---
+
+## Integrated pipeline
 
 ```text
 user prompt
-  -> 45Q symbolic pre-check when the prompt is math/logic/code
-  -> 45N identity context
-  -> 45J memory context
-  -> 45P ghost context
-  -> 45O adaptive reasoning for hard prompts
-  -> generation runtime
-  -> 45N cleanup
-  -> memory write
-  -> sovereignty/audit artifacts when scheduled
+  → 45Q pre-check (math / logic / code)
+  → 45N identity context
+  → 45J memory context
+  → 45P ghost context
+  → 45O adaptive passes (hard prompts)
+  → generation
+  → 45N cleanup
+  → memory write
+  → 45R artifacts (when scheduled)
 ```
 
-## Unified Commands
+---
 
-From the repo root:
+## Commands (from repo root)
 
 ```bash
 python anra.py --phase3-status
@@ -37,31 +41,33 @@ python anra.py --sovereignty-run
 python scripts/status.py
 ```
 
-## Module Status
+---
 
-| Component | Source Status | Runtime Notes |
+## Module status
+
+| Component | Source | Runtime notes |
 | --- | --- | --- |
-| 45N Identity | Active | Falls back if identity file is absent |
-| 45O Ouroboros | Active | NumPy path is CPU-friendly; Torch path is heavier |
-| 45P Ghost Memory | Active | Mock embeddings work without downloads; real embeddings are optional |
-| 45Q Symbolic Bridge | Active | Best with `sympy`, `scipy`, and `numpy` installed |
-| 45R Sovereignty | Active | Best with `psutil`; local daemon/API only |
+| 45N Identity | Active | Graceful fallback if identity file missing |
+| 45O Ouroboros | Active | NumPy path = CPU-friendly; Torch = heavier |
+| 45P Ghost | Active | Mock embeddings OK offline; real embeds optional |
+| 45Q Symbolic | Active | Best with `sympy`, `scipy`, `numpy` |
+| 45R Sovereignty | Active | `psutil` helpful; daemon/API local only |
 
-## Import Reality
+---
 
-The Phase 3 folder names contain spaces and layer labels. For direct experiments, run from inside the component folder or use `anra.py`, which injects the relevant paths.
+## Import reality (folder names have spaces)
 
-Examples:
+Phase folders look like `symbolic_bridge (45Q)/`. **Do not fight this from random scripts.**
 
-```bash
-python anra.py --symbolic "factor 360"
-cd "phase3/symbolic_bridge (45Q)" && python demo.py
-cd "phase3/ouroboros (45O)" && python test_ouroboros.py
-```
+| Approach | When |
+| --- | --- |
+| `python anra.py --symbolic "..."` | Normal operator path (paths injected) |
+| `cd "phase3/symbolic_bridge (45Q)" && python demo.py` | Component-local experiments |
+| `cd "phase3/ouroboros (45O)" && python test_ouroboros.py` | Ouroboros smoke |
 
-## Checkpoint Story
+---
 
-The current V2 checkpoint family is:
+## Checkpoints
 
 ```text
 anra_v2_brain.pt
@@ -69,8 +75,16 @@ anra_v2_identity.pt
 anra_v2_ouroboros.pt
 ```
 
-On a fresh local clone those files may be missing. That means the source stack is present but trained artifacts need to be restored or produced.
+Fresh clone + empty Drive = **source active, weights absent**. Train or restore before expecting generation quality.
 
-## Design Rule
+---
 
-Phase 3 exists to deepen the mainline, not to replace it. Symbolic verification, ghost recall, identity, reflection, and sovereignty should feed the canonical runtime and training loop rather than forking a separate product path.
+## Per-component docs
+
+| Component | README |
+| --- | --- |
+| Identity (45N) | [`identity (45N)/README.md`](identity%20(45N)/README.md) |
+| Ouroboros (45O) | [`ouroboros (45O)/README.md`](ouroboros%20(45O)/README.md) |
+| Ghost (45P) | [`ghost_memory (45P)/README.md`](ghost_memory%20(45P)/README.md) |
+| Symbolic (45Q) | [`symbolic_bridge (45Q)/README.md`](symbolic_bridge%20(45Q)/README.md) |
+| Sovereignty (45R) | [`sovereignty (45R)/README.md`](sovereignty%20(45R)/README.md) |

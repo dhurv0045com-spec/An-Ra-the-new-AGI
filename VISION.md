@@ -1,210 +1,182 @@
-# AN-RA VISION
+# AN-RA Vision
 
-> Build a private intelligence system that learns in authored terms, verifies where reality is checkable, remembers failure, and improves under measurement instead of myth.
+> Build intelligence that learns in *your* terms, verifies where truth is checkable, remembers failure, and improves under measurement — not myth.
 
-An-Ra is an attempt to build a sovereign AI platform with a durable center. It should not become a small imitation of a generic frontier assistant. Its advantage must come from different operating principles:
+An-Ra is a bet on a **durable center**: not a small imitation of a generic frontier assistant, but a private operator that can investigate, measure, remember, improve, and explain its own state.
 
 ```text
 owned signal
--> measurable training
--> memory of failure
--> verifier-shaped reasoning
--> controlled action
--> audited self-improvement
--> identity continuity
+  → measurable training
+  → memory of failure
+  → verifier-shaped reasoning
+  → controlled action
+  → audited self-improvement
+  → identity continuity
 ```
 
-## The North Star
+---
 
-An-Ra should become a compact scientific and engineering cognition system that can:
+## North star
 
-- reason from constraints instead of vibes
-- turn uncertainty into tests
+A compact scientific cognition system that can:
+
+- reason from **constraints**, not vibes
+- turn uncertainty into **tests**
 - use symbolic and executable verification where possible
-- learn from its own failed attempts
-- keep a stable identity under new data
-- operate through safe tools and owner-approved action boundaries
+- learn from **failed attempts**
+- keep stable identity under new data
+- act through **owner-approved** boundaries
 - report what it did, how long it took, and whether it worked
 
 The ambition is not "bigger chatbot."
 
-The ambition is:
-
 ```text
-a sovereign AI operator that can investigate, measure, remember, improve, and explain its own state.
+a sovereign AI operator — investigate, measure, remember, improve, explain.
 ```
 
-## The Core Doctrine
+---
 
-The strongest independent systems will not win by scale alone. They will win by using compute more intelligently.
+## Core doctrine
 
-An-Ra should be optimized for:
+Independent systems win by using compute **intelligently**, not only massively.
 
 | Principle | Meaning |
 | --- | --- |
-| Ownership | Training signal stays rooted in the owner's data, voice, goals, and corrections |
-| Falsification | Serious claims name what would prove them wrong |
-| Verification | Math, code, logic, retrieval, and simulation checks beat fluent guessing |
-| Memory | Failures and important context become future supervision |
-| Measurement | Latency, success, errors, regressions, and readiness are visible |
-| Selective depth | Daily runs stay reliable; heavy reflection belongs in milestone passes |
-| Governance | Self-modification and promotion require gates, audit, and owner control |
+| **Ownership** | Signal rooted in owner data, voice, goals, corrections |
+| **Falsification** | Serious claims name what would prove them wrong |
+| **Verification** | Math, code, logic, retrieval beat fluent guessing |
+| **Memory** | Failures and context become future supervision |
+| **Measurement** | Latency, success, regressions, readiness are visible |
+| **Selective depth** | Daily = reliable; heavy reflection = milestones |
+| **Governance** | Self-mod and promotion need gates + audit |
 
-## Differential Falsification Cognition
+---
 
-The long-horizon research grammar is Differential Falsification Cognition.
+## Differential Falsification Cognition (DFC)
 
-Every hard problem should be shaped as:
+Hard problems get this shape:
 
 ```text
-state -> constraint -> hypothesis -> prediction -> action/check
--> observation -> error -> update -> memory -> next action
+state → constraint → hypothesis → prediction → action/check
+  → observation → error → update → memory → next action
 ```
 
-This is why calculus, control, and constraint reasoning matter. They teach the system to ask:
+Questions the system should internalize:
 
-- what is changing?
-- with respect to what?
-- what is conserved?
-- where is the gradient?
-- what is the limiting case?
-- what would falsify this?
-- what measurement updates belief?
+- What is changing? With respect to what?
+- What is conserved? Where is the gradient?
+- What is the limiting case?
+- **What would falsify this?**
+- What measurement updates belief?
 
-That grammar transfers across domains:
-
-| Domain | Constraint Shape |
+| Domain | Constraint shape |
 | --- | --- |
-| Software | state transitions, invariants, tests, complexity, repair gradients |
-| Robotics | kinematics, dynamics, feedback, stability, safety envelopes |
-| Quantum | unitary evolution, circuit equivalence, noise, error correction |
-| Biology | pathways, kinetics, dose response, evidence strength, safety boundaries |
-| Nanotech | energy landscapes, diffusion, assembly constraints, feasibility checks |
-| Chips | timing, power, heat, logic correctness, manufacturing constraints |
-| Self-improvement | capability deltas, regression detection, curriculum updates |
+| Software | state, invariants, tests, repair gradients |
+| Robotics | dynamics, feedback, safety envelopes |
+| Quantum | unitary evolution, equivalence, noise |
+| Biology | pathways, kinetics, evidence strength |
+| Self-improvement | capability deltas, regression, curriculum |
 
-An-Ra should not merely answer frontier-domain prompts. It should learn to transform them into constraint ledgers and verifier paths.
+An-Ra should not only answer frontier prompts — it should **transform** them into constraint ledgers and verifier paths.
 
-## The 19-Layer Organism
+---
 
-An-Ra's architecture is not a pile of scripts. It is an organism with organs:
+## The 19-layer organism
 
-| Organ | What It Gives |
+Not a pile of scripts — organs with jobs:
+
+| Organ | Gives you |
 | --- | --- |
 | Brain | Fast generative intuition |
 | Tokenizer | Stable language surface |
 | Data mix | Authored training gravity |
-| Training loop | Daily improvement rhythm |
+| Training loop | Daily rhythm |
 | Evaluation | Measurement before belief |
-| Runtime | Usable inference and tracing |
+| Runtime | Usable inference + traces |
 | API/Web | Operator visibility |
 | Identity | Drift resistance |
 | Memory router | Unified continuity |
-| Phase 2 memory | Typed recall and graph context |
+| Phase 2 memory | Typed recall + graph |
 | Goals | Persistent direction |
-| Agent loop | Planning and action |
+| Agent loop | Plan and act |
 | Master system | Autonomy under control |
-| Self-improvement | Learning from outcomes |
+| Self-improvement | Learn from outcomes |
 | Self-modification | Controlled code change |
 | Ouroboros | Deep recursive reasoning |
 | Ghost memory | Compressed long recall |
-| Symbolic bridge | Verified truth where checkable |
-| Sovereignty | Audit, promotion, and governance |
+| Symbolic bridge | Verified truth |
+| Sovereignty | Audit and promotion |
 
-The new engineering spine makes those organs traceable:
+Spine that makes organs accountable:
 
 ```text
-registry -> feature flags -> telemetry -> eval harness -> report
+registry → flags → telemetry → eval harness → report
 ```
 
-## The Scorecard Culture
+---
 
-An-Ra must be judged by scorecards, not hope.
+## Scorecard culture
 
-Every meaningful subsystem should expose:
+Judge by scorecards, not hope.
 
-- enabled/disabled state
-- source health
-- import health
-- call count
-- success rate
-- average latency
-- recent failures
-- regression status
-- readiness or artifact state
+Every meaningful subsystem should expose: enabled state, source/import health, call count, success rate, latency, recent failures, regression status, readiness.
 
-This is not bureaucracy. It is how the project stays real.
+> If it cannot be measured, it cannot be trusted.  
+> If it cannot be disabled, it cannot be isolated.  
+> If it cannot be baselined, it cannot claim progress.
 
-If a component cannot be measured, it cannot be trusted. If it cannot be disabled, it cannot be isolated. If it cannot be compared against a baseline, it cannot claim progress.
+---
 
-## Daily Rhythm
-
-The daily loop must remain boring and reliable:
+## Daily rhythm (boring on purpose)
 
 ```text
 restore artifacts
--> validate paths and tokenizer
--> train a bounded session
--> evaluate
--> write reports
--> keep hard examples
--> update next-session guidance
+  → validate paths + tokenizer
+  → bounded train session
+  → evaluate
+  → write reports
+  → keep hard examples
+  → update next-session guidance
 ```
 
-Daily work should strengthen the system without making every run heavy.
+---
 
-## Milestone Rhythm
-
-The milestone loop is where deeper cognition belongs:
+## Milestone rhythm (judgment)
 
 ```text
 identity reinforcement
--> Ouroboros refinement
--> self-improvement analysis
--> sovereignty audit
--> ablation/regression checks
--> promote or hold checkpoints
+  → Ouroboros refinement
+  → self-improvement analysis
+  → sovereignty audit
+  → ablation / regression
+  → promote or hold checkpoints
 ```
 
-Milestones are not just "more training." They are judgment passes.
+Milestones are not "more epochs." They are **decision passes**.
 
-## What Better Means
+---
 
-Better does not mean:
+## What "better" means
 
-- more files
-- smoother prose
-- lower loss alone
-- copying frontier assistant behavior
-- calling every new idea "AGI"
+**Not:** more files, smoother prose, lower loss alone, frontier mimicry, calling everything AGI.
 
-Better means:
+**Yes:** fewer repeated failures, stronger hard reasoning, stable identity under pressure, faster reliable runtime, better memory utility, more verified truth, clearer regressions before promotion, safer action bounds, more learning per flop.
 
-- fewer repeated failures
-- stronger reasoning on hard prompts
-- more stable identity under pressure
-- faster and more reliable runtime
-- better retrieval and memory utility
-- more truth where verification is possible
-- clearer regressions before promotion
-- safer action boundaries
-- better learning per unit of compute
+---
 
-## The Long Arc
+## Long arc
 
-The serious future roadmap:
+1. Memory → training replay (failures become data)
+2. Falsifiable hypothesis ledgers
+3. Verified reasoning reinforcement (rewards from tests, not prose)
+4. Cross-domain constraint transfer (analogies only if constraints survive)
+5. Innovation engine (experiments with metrics + rollback)
+6. Persistent self-model (strengths, gaps, contradictions, goals)
+7. Operator-grade autonomy (useful, bounded, auditable, reversible)
 
-1. Memory-to-training replay: important failures become training data.
-2. Falsifiable hypothesis ledgers: claims carry assumptions, constraints, and falsifiers.
-3. Verified reasoning reinforcement: rewards come from tests, solvers, simulators, and proof checks.
-4. Cross-domain constraint transfer: analogies are allowed only when constraints survive.
-5. Innovation engine: improvement proposals become experiments with metrics and rollback plans.
-6. Persistent self-model: strengths, uncertainties, contradictions, and goals are tracked over time.
-7. Operator-grade autonomy: action is useful, bounded, auditable, and reversible.
+Destination: **durable, inspected, improving intelligence** — not theatrical autonomy.
 
-The destination is not theatrical autonomy. It is durable, inspected, improving intelligence.
-
-An-Ra should become the system that can say:
+An-Ra should be able to say:
 
 ```text
 Here is what I tried.
@@ -214,41 +186,40 @@ Here is the evidence.
 Here is the next experiment.
 ```
 
-That is the vision.
+---
 
-## The DFC Framing - What An-Ra Should Learn Differently
+## DFC vs generic LLM training
 
-Frontier models mostly learn:
-
-```text
-internet text -> next token -> helpful answer
-```
-
-An-Ra must learn:
+**Generic:**
 
 ```text
-change -> constraint -> hypothesis -> action -> measurement -> contradiction -> update
+internet text → next token → helpful answer
 ```
 
-This is Differential Falsification Cognition (DFC). Every domain An-Ra operates in
-should be represented as change over state. Every serious claim must carry the condition
-that would prove it wrong. Every reward must come from an executable verifier, not prose.
-
-The frontier_dfc.jsonl training corpus implements this: every record is a
-hypothesis -> constraint -> verify -> update chain. This is what makes An-Ra different
-from a generic assistant at 1B scale.
-
-### The AIE Loop (An-Ra Innovation Engine)
-
-An-Ra's self-improvement must not be magical. The closed loop is:
+**An-Ra:**
 
 ```text
-metric delta -> gap_scanner -> hypothesis -> experiment -> verifier -> delta -> memory
+change → constraint → hypothesis → action → measurement → contradiction → update
 ```
 
-Every subsystem upgrade must answer:
+`frontier_dfc.jsonl` implements the chain: hypothesis → constraint → verify → update. That is the difference at 1B scale — not marketing.
 
-1. What component does this improve?
-2. What metric should move?
-3. What verifier or test proves it?
-4. What failure case becomes replay signal?
+---
+
+## AIE loop (An-Ra Innovation Engine)
+
+Self-improvement is not magic:
+
+```text
+metric delta → gap_scanner → hypothesis → experiment → verifier → delta → memory
+```
+
+Every upgrade answers:
+
+1. What component improves?
+2. What metric moves?
+3. What verifier proves it?
+4. What failure becomes replay?
+5. What owner boundary stays intact?
+
+That is the vision in operational form.

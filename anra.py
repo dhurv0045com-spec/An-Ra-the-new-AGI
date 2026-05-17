@@ -52,6 +52,17 @@ sys.path.insert(0, str(PHASE2_45M))
 from system import MasterSystem, build_parser, _run_chat, Dashboard, ControlAPI
 
 
+def _safe_console(text: object) -> str:
+    """Encode text for the active console without crashing on Unicode."""
+    s = str(text)
+    encoding = getattr(sys.stdout, "encoding", None) or "utf-8"
+    try:
+        s.encode(encoding)
+        return s
+    except (UnicodeEncodeError, LookupError):
+        return s.encode(encoding, errors="replace").decode(encoding, errors="replace")
+
+
 def _phase3_status(system: MasterSystem):
     """Print detailed Phase 3 subsystem status."""
     print(f"\n{'='*60}")
@@ -85,17 +96,17 @@ def _symbolic_query(query: str):
         sys.path.insert(0, str(PROJECT_ROOT / "phase3" / "symbolic_bridge (45Q)"))
         from symbolic_bridge import query as sym_query
         result = sym_query(query)
-        print(f"Mode:       {result.mode}")
-        print(f"Verdict:    {result.verdict}")
+        print(f"Mode:       {_safe_console(result.mode)}")
+        print(f"Verdict:    {_safe_console(result.verdict)}")
         print(f"Confidence: {result.confidence:.0%}")
-        print(f"Answer:     {result.answer_text}")
-        print(f"\nSteps:")
+        print(f"Answer:     {_safe_console(result.answer_text)}")
+        print("\nSteps:")
         for step in result.steps[:5]:
-            print(f"  {step}")
+            print(f"  {_safe_console(step)}")
         if result.warnings:
-            print(f"\nWarnings:")
+            print("\nWarnings:")
             for w in result.warnings:
-                print(f"  ⚠  {w}")
+                print(f"  [!] {_safe_console(w)}")
     except ImportError as e:
         print(f"[ERROR] Symbolic bridge not available: {e}")
         print("Install: pip install sympy scipy")
