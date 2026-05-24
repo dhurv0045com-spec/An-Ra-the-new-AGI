@@ -29,13 +29,14 @@ import argparse
 import subprocess
 from pathlib import Path
 from typing import Callable
-from anra_paths import inject_all_paths, ensure_dirs
+from anra_paths import get_agent_workspace, inject_all_paths, ensure_dirs
 from startup_checks import assert_flash_sdp_ready
 
 # ── Resolve all project paths ─────────────────────────────────────────────────
 PROJECT_ROOT = Path(__file__).resolve().parent
 inject_all_paths()
 ensure_dirs()
+os.environ.setdefault("AGENT_FILE_ROOT", str(get_agent_workspace()))
 PHASE2_45M   = PROJECT_ROOT / "phase2" / "master_system (45M)"
 
 # ── Add Phase 3 paths to sys.path for direct imports ─────────────────────────

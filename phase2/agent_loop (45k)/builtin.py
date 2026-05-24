@@ -11,6 +11,7 @@ They are registered into the ToolRegistry by register_all_tools().
 """
 
 import os
+import sys
 import re
 import ast
 import math
@@ -29,9 +30,50 @@ from registry import ToolResult, ToolDefinition, SafetyLevel, ToolRegistry
 
 logger = logging.getLogger(__name__)
 
-# Safe root for all file operations — never escape this
-_FILE_ROOT = Path(os.environ.get("AGENT_FILE_ROOT", "./agent_workspace")).resolve()
-_FILE_ROOT.mkdir(parents=True, exist_ok=True)
+
+def _file_root() -> Path:
+    """Sandbox root for file_manager / os_action (see anra_paths.get_agent_workspace)."""
+    try:
+        from anra_paths import get_agent_workspace
+
+        root = get_agent_workspace()
+    except Exception:
+        root = Path(os.environ.get("AGENT_FILE_ROOT", "./agent_workspace")).expanduser()
+    resolved = root.resolve()
+    resolved.mkdir(parents=True, exist_ok=True)
+    return resolved
+
+
+def _allowed_open_roots() -> list[Path]:
+    roots = [_file_root()]
+    extra = os.environ.get("ANRA_ALLOWED_OPEN_ROOTS", "")
+    for part in extra.split(","):
+        part = part.strip()
+        if part:
+            try:
+                roots.append(Path(part).expanduser().resolve())
+            except Exception:
+                continue
+    return roots
+
+
+def _resolve_open_path(relative_or_abs: str) -> Path | None:
+    """Resolve path for open/reveal; must stay under allowed roots."""
+    raw = relative_or_abs.strip().strip('"').strip("'")
+    if raw.lower().startswith(("http://", "https://")):
+        return None
+    candidate = Path(raw)
+    if not candidate.is_absolute():
+        candidate = (_file_root() / raw).resolve()
+    else:
+        candidate = candidate.resolve()
+    for root in _allowed_open_roots():
+        try:
+            candidate.relative_to(root)
+            return candidate
+        except ValueError:
+            continue
+    return None
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -202,9 +244,10 @@ print(json.dumps({{
 
 def _safe_path(relative: str) -> Optional[Path]:
     """Resolve a relative path under FILE_ROOT. Returns None if escaping root."""
+    root = _file_root()
     try:
-        resolved = (_FILE_ROOT / relative.lstrip("/")).resolve()
-        resolved.relative_to(_FILE_ROOT)   # raises if outside root
+        resolved = (root / relative.lstrip("/")).resolve()
+        resolved.relative_to(root)   # raises if outside root
         return resolved
     except (ValueError, Exception):
         return None
@@ -241,7 +284,7 @@ def file_manager(instruction: str, **kwargs) -> ToolResult:
         if target.is_file():
             items = [target.name]
         else:
-            items = [str(p.relative_to(_FILE_ROOT)) for p in sorted(target.iterdir())]
+            items = [str(p.relative_to(_file_root())) for p in sorted(target.iterdir())]
         return ToolResult(True, "\n".join(items) or "(empty)", data=items)
 
     elif cmd == "read":
@@ -253,7 +296,7 @@ def file_manager(instruction: str, **kwargs) -> ToolResult:
         if not path.exists():
             return ToolResult(False, "", error=f"File not found: {parts[1]}")
         content = path.read_text(encoding="utf-8", errors="replace")
-        return ToolResult(True, content, data={"path": str(path.relative_to(_FILE_ROOT)), "size": len(content)})
+        return ToolResult(True, content, data={"path": str(path.relative_to(_file_root())), "size": len(content)})
 
     elif cmd == "write":
         if len(parts) < 3:
@@ -304,7 +347,7 @@ def file_manager(instruction: str, **kwargs) -> ToolResult:
             try:
                 for i, line in enumerate(fp.read_text(encoding="utf-8", errors="replace").splitlines(), 1):
                     if re.search(pattern, line, re.IGNORECASE):
-                        matches.append(f"{fp.relative_to(_FILE_ROOT)}:{i}: {line.strip()}")
+                        matches.append(f"{fp.relative_to(_file_root())}:{i}: {line.strip()}")
             except Exception:
                 pass
         output = "\n".join(matches[:50]) if matches else f"No matches for '{pattern}'"
@@ -319,6 +362,143 @@ def file_manager(instruction: str, **kwargs) -> ToolResult:
 
     else:
         return ToolResult(False, "", error=f"Unknown file_manager command: '{cmd}'. Use: read, write, append, delete, list, search, exists")
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# 3b. OS ACTION (open file / folder / URL)
+# ──────────────────────────────────────────────────────────────────────────────
+
+def os_action(instruction: str, **kwargs) -> ToolResult:
+    """
+    Open paths or URLs with the OS default handler.
+
+    Commands:
+      open <relative-path>     — file or folder under agent workspace (or allowed roots)
+      open url <https://...>   — open in browser
+      reveal <relative-path>   — show in file explorer / Finder
+    """
+    import shutil
+    import webbrowser
+
+    instruction = instruction.strip()
+    parts = instruction.split(None, 2)
+    if not parts:
+        return ToolResult(False, "", error="os_action: empty instruction")
+
+    cmd = parts[0].lower()
+    if cmd == "open" and len(parts) >= 2 and parts[1].lower() == "url":
+        url = parts[2] if len(parts) > 2 else ""
+        if not url.startswith(("http://", "https://")):
+            return ToolResult(False, "", error="os_action: provide http(s) URL")
+        webbrowser.open(url)
+        return ToolResult(True, f"Opened URL: {url}", data={"url": url})
+
+    if cmd in ("open", "reveal"):
+        target_raw = parts[1] if len(parts) > 1 else ""
+        if target_raw.lower().startswith(("http://", "https://")):
+            webbrowser.open(target_raw)
+            return ToolResult(True, f"Opened URL: {target_raw}")
+        path = _resolve_open_path(target_raw)
+        if path is None:
+            return ToolResult(False, "", error="Path not allowed (outside workspace / allowed roots)")
+        if not path.exists():
+            return ToolResult(False, "", error=f"Not found: {target_raw}")
+
+        if os.name == "nt":
+            if cmd == "reveal" and path.is_file():
+                subprocess.run(["explorer", "/select,", str(path)], check=False)
+            else:
+                os.startfile(path)  # type: ignore[attr-defined]
+        elif sys.platform == "darwin":
+            opener = ["/usr/bin/open", "-R", str(path)] if cmd == "reveal" else ["/usr/bin/open", str(path)]
+            subprocess.run(opener, check=False)
+        else:
+            opener = shutil.which("xdg-open")
+            if not opener:
+                return ToolResult(False, "", error="xdg-open not available")
+            subprocess.run([opener, str(path)], check=False)
+
+        return ToolResult(
+            True,
+            f"{'Revealed' if cmd == 'reveal' else 'Opened'}: {path}",
+            data={"path": str(path), "command": cmd},
+        )
+
+    return ToolResult(False, "", error="os_action: use 'open <path>', 'open url <url>', or 'reveal <path>'")
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# 3c. CAD GENERATE (engineering stubs)
+# ──────────────────────────────────────────────────────────────────────────────
+
+def cad_generate(instruction: str, **kwargs) -> ToolResult:
+    """
+    Generate parametric engineering stubs into the agent engineering subfolder.
+
+    Templates: raptor_engine (default), or copy custom name if template file exists.
+    """
+    root = _file_root()
+    eng = root / "engineering"
+    eng.mkdir(parents=True, exist_ok=True)
+
+    template_key = instruction.strip().lower() or "raptor_engine"
+    template_key = template_key.replace(" ", "_")
+
+    try:
+        from anra_paths import ROOT
+
+        templates_dir = ROOT / "runtime" / "engineering_templates"
+    except Exception:
+        templates_dir = Path(__file__).resolve().parents[2] / "runtime" / "engineering_templates"
+
+    scad_src = templates_dir / f"{template_key}.scad"
+    if not scad_src.exists() and template_key != "raptor_engine":
+        return ToolResult(False, "", error=f"Unknown template '{template_key}'. Try: raptor_engine")
+
+    if not scad_src.exists():
+        scad_src = templates_dir / "raptor_engine.scad"
+
+    out_dir = eng / template_key
+    out_dir.mkdir(parents=True, exist_ok=True)
+    scad_dst = out_dir / f"{template_key}.scad"
+    stl_dst = out_dir / f"{template_key}.stl"
+    report_dst = out_dir / "REPORT.md"
+
+    scad_dst.write_text(scad_src.read_text(encoding="utf-8"), encoding="utf-8")
+
+    report_tpl = (templates_dir / "REPORT_TEMPLATE.md").read_text(encoding="utf-8")
+    report_body = report_tpl.format(
+        title=template_key.replace("_", " ").title(),
+        intent=f"Stylized {template_key} diagram for iteration and teaching.",
+        scad_path=str(scad_dst.relative_to(root)),
+        stl_path=str(stl_dst.relative_to(root)),
+    )
+    report_dst.write_text(report_body, encoding="utf-8")
+
+    import shutil
+
+    stl_note = "OpenSCAD not found — .stl not exported. Install openscad or open .scad manually."
+    openscad = shutil.which("openscad")
+    if openscad:
+        proc = subprocess.run(
+            [openscad, "-o", str(stl_dst), str(scad_dst)],
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        if proc.returncode == 0 and stl_dst.exists():
+            stl_note = f"Exported STL: {stl_dst.relative_to(root)}"
+        else:
+            stl_note = f"OpenSCAD failed: {(proc.stderr or proc.stdout)[:300]}"
+
+    summary = (
+        f"CAD package written to {out_dir.relative_to(root)}/\n"
+        f"- {scad_dst.name}\n"
+        f"- REPORT.md\n"
+        f"- {stl_note}\n"
+        f"Next: /open engineering/{template_key}/{scad_dst.name} or refine dimensions in the .scad file."
+    )
+    return ToolResult(True, summary, data={"dir": str(out_dir), "scad": str(scad_dst), "stl": str(stl_dst)})
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -548,14 +728,15 @@ def summarizer(text: str, **kwargs) -> ToolResult:
 # 7. TASK MANAGER
 # ──────────────────────────────────────────────────────────────────────────────
 
-# Persistent task store (file-backed for cross-session continuity)
-_TASK_FILE = _FILE_ROOT / ".agent_tasks.json"
+def _task_file() -> Path:
+    return _file_root() / ".agent_tasks.json"
 
 
 def _load_tasks() -> Dict:
     try:
-        if _TASK_FILE.exists():
-            return json.loads(_TASK_FILE.read_text())
+        path = _task_file()
+        if path.exists():
+            return json.loads(path.read_text(encoding="utf-8"))
     except Exception:
         pass
     return {}
@@ -563,7 +744,7 @@ def _load_tasks() -> Dict:
 
 def _save_tasks(tasks: Dict) -> None:
     try:
-        _TASK_FILE.write_text(json.dumps(tasks, indent=2))
+        _task_file().write_text(json.dumps(tasks, indent=2), encoding="utf-8")
     except Exception as e:
         logger.warning(f"task_manager: could not persist tasks: {e}")
 
@@ -767,6 +948,24 @@ def register_all_tools(registry: ToolRegistry) -> None:
             safety_level=SafetyLevel.SAFE,
             rate_limit=0,
             examples=["task_manager create step1 Research GPU options", "task_manager complete step1", "task_manager list"],
+        ),
+        ToolDefinition(
+            name="os_action",
+            description="Open a file/folder in the OS default app, reveal in explorer, or open a URL in the browser. Paths must stay in workspace.",
+            fn=os_action,
+            parameters={"instruction": "open <path> | open url <https://...> | reveal <path>"},
+            safety_level=SafetyLevel.DANGEROUS,
+            rate_limit=30,
+            examples=["os_action open engineering/raptor_engine/raptor_engine.scad", "os_action open url https://example.com"],
+        ),
+        ToolDefinition(
+            name="cad_generate",
+            description="Generate parametric OpenSCAD engineering stubs (e.g. raptor_engine diagram) under the agent engineering folder.",
+            fn=cad_generate,
+            parameters={"instruction": "template name, e.g. raptor_engine"},
+            safety_level=SafetyLevel.RESTRICTED,
+            rate_limit=10,
+            examples=["cad_generate raptor_engine", "cad_generate"],
         ),
     ]
 

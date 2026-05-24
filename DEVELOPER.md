@@ -1,218 +1,181 @@
 # An-Ra Developer Guide
 
-> Build aggressively. Ship measurably. Do not re-implement the spine.
+> Ship like a platform team: **thin changes, measured outcomes, owner boundaries intact.**
 
-This is for humans and coding agents. An-Ra should feel like a **real ML platform**: registry you trust, paths you do not grep for, flags that actually disable things, telemetry you can read, reports that tell the truth.
-
----
-
-## Rule zero
-
-**Do not re-implement what already exists.**
-
-| Need | Go here |
-| --- | --- |
-| Paths | `anra_paths.py` |
-| Component truth | `runtime/system_registry.py` |
-| Component contract | `engine/component_base.py` |
-| Feature flags | `engine/feature_flags.py` |
-| Telemetry | `engine/telemetry.py` |
-| Regression / ablation | `engine/eval_harness.py` |
-| Health snapshot | `engine/report.py` |
-| Audit events | `shared_logger.py` |
-| HAL telemetry | `runtime/hal_telemetry.py` |
-| Startup contracts | `startup_checks.py` |
+For humans and coding agents. An-Ra is ~70k lines of intentional systems — read before you edit.
 
 ---
 
-## Platform contract
+## Spine (do not reimplement)
 
-Every registered component must be:
+| Need | Module |
+|------|--------|
+| Paths | `anra_paths.py` — includes `get_agent_workspace()`, `ENGINEERING_DIR` |
+| Registry | `runtime/system_registry.py` |
+| Flags | `engine/feature_flags.py` |
+| Telemetry | `engine/telemetry.py` — `@trace` |
+| Regression | `engine/eval_harness.py` |
+| Report | `engine/report.py` |
+| Operator CLI | `runtime/operator_commands.py` |
+| Agent tools | `phase2/agent_loop (45k)/builtin.py` |
+| Audit | `state/logs/operator_actions.jsonl` |
 
-- listed in `component_registry()`
-- toggleable via feature flags
-- traceable when invoked (`@trace` on main entrypoints)
-- visible in `python anra.py --report`
-- covered by tests or explicit smoke checks
-- comparable via eval harness when behavior changes
+---
 
-**If it cannot answer these, it is not ready:**
+## Contract per component
+
+Must answer:
 
 ```text
 What does it do?
 Is it enabled?
-How fast is it?
-How often does it fail?
+How fast / how often does it fail?
 What test proves it?
-What regression check protects it?
-What owner-control boundary applies?
+What regression protects it?
+What owner boundary applies?
 ```
 
 ---
 
-## Read before you edit
+## Operator pack (recent)
 
-| Area | Files |
-| --- | --- |
-| Entry | `anra.py` |
-| Paths | `anra_paths.py` |
-| Registry | `runtime/system_registry.py` |
-| Report | `engine/report.py`, `scripts/status.py` |
-| Flags | `engine/feature_flags.py`, `agents/orchestrator.py` |
-| Model | `anra_brain.py`, `training/v2_config.py`, `training/v2_runtime.py` |
-| Training | `training/train_unified.py`, `scripts/build_brain.py` |
-| Data | `training/v2_data_mix.py`, `scripts/setup_dataset.py` |
-| Eval | `training/eval_v2.py`, `training/benchmark.py`, `training/verifier.py` |
-| Memory | `memory/memory_router.py`, `phase2/memory (45J)/` |
-| Agency | `goals/goal_queue.py`, `agents/orchestrator.py`, `phase2/agent_loop (45k)/` |
-| Autonomy | `phase2/master_system (45M)/system.py` |
-| Verify | `phase3/symbolic_bridge (45Q)/` |
-| Govern | `self_modification/`, `phase3/sovereignty (45R)/` |
-| Web | `phase4/web/src/App.jsx` |
+| Piece | Location |
+|-------|----------|
+| Workspace sandbox | `get_agent_workspace()` |
+| Slash commands | `runtime/operator_commands.py` + `_run_chat` in 45M |
+| `os_action` tool | open / reveal / URL |
+| `cad_generate` tool | `runtime/engineering_templates/` |
+| User doc | [`OPERATOR.md`](OPERATOR.md) |
+
+Adding tools: register in `register_all_tools()`, add dispatcher keywords, add test in `tests/test_operator_tools.py`, document in OPERATOR.md.
+
+**Do not** put `workspace/` or `training_data/` string literals in Python — use `anra_paths`.
 
 ---
 
-## Working with AI agents on this repo
+## Read before edit (by area)
 
-**Give the agent a goal and this workflow:**
+| Area | Files |
+|------|-------|
+| CLI | `anra.py` |
+| Operator | `runtime/operator_commands.py`, `OPERATOR.md` |
+| Agent | `phase2/agent_loop (45k)/agent_main.py`, `builtin.py`, `planner.py` |
+| Master | `phase2/master_system (45M)/system.py` |
+| Model | `anra_brain.py`, `training/v2_runtime.py` |
+| Train | `training/train_unified.py` |
+| Verify | `phase3/symbolic_bridge (45Q)/` |
+| Govern | `phase3/sovereignty (45R)/`, `self_modification/` |
 
-1. Read relevant source first.
-2. Prefer thin adapters, decorators, tables — not rewrites.
-3. Do not touch model weights, prompts, identity text, or training data unless asked.
-4. Add tests for every new public behavior.
-5. Run focused tests, then `python -m pytest tests/ -q`.
-6. Run `python anra.py --report` after platform/operator changes.
-7. Report: files changed, commands run, outcomes, residual risk.
+---
+
+## AI agent workflow
+
+1. Read relevant source.  
+2. Thin adapter / decorator — no drive-by rewrites.  
+3. Do not change weights, prompts, identity text, or training mix unless asked.  
+4. Tests for new behavior.  
+5. `python -m pytest tests/ -q`  
+6. `python anra.py --report` if platform/operator touched.  
+7. Report commands + residual risk.
 
 **Good prompt:**
 
 ```text
-Thin adapter on registry/telemetry/flags. No model rewrite.
-Focused tests. Full suite. Exact commands + results.
+Add tool X via register_all_tools. Tests. No model changes.
 ```
 
 **Bad prompt:**
 
 ```text
-Make it more advanced. Rewrite architecture. No tests.
+Rewrite architecture for AGI.
 ```
 
 ---
 
-## Engineering rules
+## Rules (expanded)
 
-### 1. Preserve authorship (65/15/10/5/5)
+### Authorship mix
 
-Changing the data mix requires evidence that identity drift does not increase.
+65/15/10/5/5 — changing it needs drift evidence (CIV / eval).
 
-### 2. Centralize paths
+### Paths
 
-`anra_paths.py` only. The linter test `test_path_registry_literals.py` will catch you.
+`anra_paths.py` only. Literal ban enforced by `test_path_registry_literals.py`.
 
-### 3. Centralize registry truth
-
-Derive lists from `component_registry()` — do not fork another component inventory.
-
-### 4. Flags over comment-out
+### Flags over comment-out
 
 ```python
 from engine.feature_flags import is_enabled, set_flag
 ```
 
-### 5. Trace main operations
+### Telemetry
 
-```python
-from engine.telemetry import trace
+One `@trace` per subsystem entrypoint — not every helper.
 
-@trace("my_module", "main_operation")
-def run(...): ...
-```
-
-One trace per subsystem entrypoint. Not every helper.
-
-### 6. Prove improvements
+### Eval before boasting
 
 ```text
-baseline → system_on → ablation → compare → save report
+baseline → system_on → ablation → compare
 ```
 
-Claims without metrics are vibes.
+### Daily vs milestone
 
-### 7. Daily path stays light
+| Mode | Command | Weight |
+|------|---------|--------|
+| Daily | `--mode session` | Light, reliable |
+| Milestone | `--mode train` | Identity, Ouroboros, sovereignty |
 
-```bash
-python -m training.train_unified --mode session
-```
+### Verification stack
 
-No mandatory Ouroboros, no hidden checkpoint deps.
+pytest · verifier · benchmark · symbolic · report diff · telemetry
 
-### 8. Milestones earn heaviness
+### `engine/` imports
 
-```bash
-python -m training.train_unified --mode train
-```
+No torch/faiss/transformers at import time in new `engine/` modules.
 
-Identity, Ouroboros, sovereignty, promotion — milestone territory.
+### Operator safety
 
-### 9. Verification beats fluency
-
-Tests, `verifier.py`, `benchmark.py`, symbolic bridge, schema checks, report diffs, telemetry, eval harness.
-
-### 10. Keep `engine/` light at import
-
-No `torch` / `faiss` / `transformers` at module import time in new `engine/` files.
+- `file_manager` / `cad_generate`: RESTRICTED  
+- `os_action`: DANGEROUS — paths under workspace or `ANRA_ALLOWED_OPEN_ROOTS`  
+- Never add silent remote shell without paired node design
 
 ---
 
-## Commands you will run constantly
+## Commands
 
 ```bash
-# Operator surface
 python anra.py --report
-python anra.py --status
-python anra.py --phase3-status
-python scripts/status.py
-
-# Training
-python -m training.train_unified --mode status
-python -m training.train_unified --mode session
-python -m training.train_unified --mode train
-python -m training.train_unified --mode eval
-
-# Verification
+python anra.py --chat
+python anra.py --goal "..."
 python -m pytest tests/ -q
-python -c "from runtime.system_registry import component_registry; print(len(component_registry()))"
-python -c "from engine.telemetry import get_telemetry_bus; print(get_telemetry_bus().summary_by_module())"
-
-# Web
-cd phase4/web && npm install && npm run dev
+python -m training.train_unified --mode session
 ```
 
 ---
 
 ## Definition of done
 
-- [ ] Behavior unchanged unless the task explicitly changed it
-- [ ] Focused tests for new code
-- [ ] Full suite green (or documented blocker)
-- [ ] `python anra.py --report` still works for platform changes
-- [ ] No stray checkpoint/DB churn in diff
-- [ ] No new hardcoded paths
-- [ ] No silent prompt/identity edits
-- [ ] Feature can be disabled, traced, or evaluated
+- [ ] Focused tests  
+- [ ] Full suite green or explained  
+- [ ] Report works if operator/platform changed  
+- [ ] OPERATOR.md updated if user-facing commands changed  
+- [ ] **Append [`docs/engineering/ENGINEERING_LOG.md`](docs/engineering/ENGINEERING_LOG.md)** (use `scripts/log_engineering_change.py`)  
+- [ ] Update [`docs/planning/MASTER_GOALS.md`](docs/planning/MASTER_GOALS.md) status if a goal was completed  
+- [ ] No path literals  
+- [ ] No silent identity/prompt drift  
+- [ ] Disable / trace / eval path exists  
 
 ---
 
-## Review checklist
+## Review table
 
-| Question | Expected |
-| --- | --- |
-| Which component? | Name from `component_registry()` |
-| Toggleable? | Flag or documented exception |
-| Traced? | Telemetry or documented exception |
-| Tested? | File + command |
-| Regression? | Eval harness / benchmark / smoke |
-| Operator surface changed? | README / CLI / report / none |
-| What could still fail? | Honest residual risk |
+| Q | A |
+|---|---|
+| Component? | registry name |
+| Toggle? | flag |
+| Traced? | telemetry |
+| Test? | file + cmd |
+| Regression? | harness |
+| Operator doc? | OPERATOR.md if needed |
 
-Build like you will operate this repo every week — not admire it once.
+Operate the repo weekly — admiration does not compound; loops do.

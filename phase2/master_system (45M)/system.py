@@ -983,8 +983,14 @@ Examples:
 def _run_chat(system: MasterSystem):
     """Interactive chat loop with memory."""
     system.start()
-    print("\n  An-Ra Chat — Type 'quit' to exit, 'goal:' prefix to run agent goals")
+    print("\n  An-Ra Chat — Type 'quit' to exit, '/help' for operator commands")
+    print("  Legacy: 'goal: ...'  |  Slash: /goal /write /open /cad /workspace")
     print("  Memory and ghost context are active.\n")
+
+    try:
+        from runtime.operator_commands import handle_slash_command
+    except Exception:
+        handle_slash_command = None  # type: ignore
 
     while True:
         try:
@@ -1003,6 +1009,15 @@ def _run_chat(system: MasterSystem):
         if user_input.lower() == "briefing":
             print(system.morning_briefing())
             continue
+
+        if handle_slash_command is not None and user_input.startswith("/"):
+            handled, msg = handle_slash_command(
+                user_input,
+                run_goal=lambda g: system.run_goal(g, show_plan=True),
+            )
+            if handled:
+                print(f"\n{msg}\n")
+                continue
 
         # Goal mode: "goal: research quantum computing"
         if user_input.lower().startswith("goal:"):

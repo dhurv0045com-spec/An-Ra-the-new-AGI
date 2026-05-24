@@ -79,6 +79,18 @@ Fresh clone + empty Drive = **source active, weights absent**. Train or restore 
 
 ---
 
+## Operator actions (cross-cutting)
+
+Phase 3 augments cognition; **45K + workspace** delivers files and CAD:
+
+```bash
+python anra.py --goal "cad_generate raptor_engine; verify key dimensions symbolically if numeric"
+```
+
+See [`OPERATOR.md`](../OPERATOR.md) and WALKTHROUGH §19.
+
+---
+
 ## Per-component docs
 
 | Component | README |

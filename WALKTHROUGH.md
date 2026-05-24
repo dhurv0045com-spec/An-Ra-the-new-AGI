@@ -11,8 +11,11 @@
 | See the 19-component map | [`ARCHITECTURE.md`](ARCHITECTURE.md) |
 | Understand *why* An-Ra exists | [`VISION.md`](VISION.md) |
 | Deep subsystem tour | You are here ↓ |
+| Track changes & backlog | [`docs/README.md`](docs/README.md) → ENGINEERING_LOG + MASTER_GOALS |
 
 This walkthrough is **narrative + technical**. Skim the TOC, dive into the sections you are touching, ignore the rest until you need it.
+
+**Tracking (not duplicated here):** All dated engineering changes go in [`docs/engineering/ENGINEERING_LOG.md`](docs/engineering/ENGINEERING_LOG.md). All project goals (research, testing, robotics, …) live in [`docs/planning/MASTER_GOALS.md`](docs/planning/MASTER_GOALS.md).
 
 ---
 
@@ -1115,11 +1118,76 @@ print(bus.summary_by_module())
 
 ---
 
+## 19. OPERATOR MODE — DESKTOP & ENGINEERING ACTIONS (ADDENDUM)
+
+> **Added:** Jarvis-shaped **do work** layer on top of chat. Full guide: [`OPERATOR.md`](OPERATOR.md).
+
+An-Ra can **act on your machine** (within a sandbox) — not only generate text.
+
+### Workspace sandbox
+
+Default root: `workspace/` (override with `AGENT_FILE_ROOT` or `ANRA_AGENT_WORKSPACE`).
+
+```bash
+python anra.py --chat
+/workspace          # via /workspace command
+```
+
+All `file_manager` paths are relative to this folder. Path escape is blocked.
+
+### New agent tools (45K)
+
+| Tool | Purpose |
+|------|---------|
+| `file_manager` | read / write / list / search / delete |
+| `os_action` | open file/folder, reveal in Explorer, open URL |
+| `cad_generate` | OpenSCAD engineering stub (e.g. `raptor_engine`) → `workspace/engineering/` |
+
+### Slash commands (interactive chat)
+
+```text
+/help
+/goal Build a raptor engine diagram and save REPORT
+/write notes.txt remember to train today
+/read notes.txt
+/open engineering/raptor_engine/raptor_engine.scad
+/cad raptor_engine
+/list
+```
+
+Audit log: `state/logs/operator_actions.jsonl`
+
+### Example: 3D raptor engine diagram (stylized)
+
+```bash
+python anra.py --goal "Use cad_generate raptor_engine, then write a short REPORT of assumptions"
+# or in chat:
+/cad raptor_engine
+```
+
+Outputs under `workspace/engineering/raptor_engine/` — `.scad`, `REPORT.md`, optional `.stl` if OpenSCAD is installed.
+
+**This is a scaffold**, not OEM engineering data. Replace dimensions from verified sources; use symbolic bridge for numeric checks.
+
+### Robotics / remote machines (roadmap)
+
+| Capability | Status |
+|------------|--------|
+| Local files + open + CAD stub | **Implemented** (operator pack) |
+| Remote friend laptop | Requires **paired An-Ra node** + consent (not silent access) |
+| ROS / robot hardware | Requires **ROS2 bridge** + sim first (future layer) |
+
+Human-like autonomy = **fast control loop** (robot) + **slow strategist** (An-Ra goals). Do not run LLM at motor frequency.
+
+---
+
 ## KEY NUMBERS TO KNOW
 
 | Parameter | Value |
 |-----------|-------|
 | Registered components | 19 |
+| Agent workspace | `workspace/` (see `get_agent_workspace()`) |
+| Operator audit | `state/logs/operator_actions.jsonl` |
 | Tokenizer vocabulary | 8,192 tokens |
 | CIVGuard drift threshold | 0.92 cosine similarity |
 | Minimum CIV passing score | 0.70 |

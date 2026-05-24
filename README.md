@@ -1,162 +1,217 @@
 # AN-RA
 
-> A sovereign, owner-shaped AI platform — measurable learning, real memory, verified reasoning, controlled autonomy.
+> **Sovereign, owner-shaped intelligence** — it learns in your terms, verifies where truth is checkable, remembers failure, and can **do work** on your machine under measurement and gates.
 
-**You cloned the repo. Good.** This is not a chatbot wrapper duct-taped to an API. It is a from-scratch stack: transformer brain, tokenizer, training loop, memory tiers, agent dispatch, identity guardrails, symbolic verification, ghost recall, self-improvement, self-mod gates, sovereignty audits — and an engineering spine that makes all of it **visible**.
+You are not looking at a ChatGPT skin. This repository is a full stack:
 
-One rule holds the whole project together:
+- Custom **transformer brain** (VQA, RoPE/YaRN, MoD)
+- **8192-token** owner-trained tokenizer
+- **Training loop** with owner-first data law (65/15/10/5/5)
+- **Memory**, **goals**, **agent loop**, **identity** (CIV / ESV / HAL)
+- **Symbolic verification**, ghost recall, Ouroboros, sovereignty audits
+- **Operator layer** — files, open, CAD stubs, slash commands ([`OPERATOR.md`](OPERATOR.md))
+
+The constitution of the codebase:
 
 ```text
 No magic subsystem.
 Every component must be registered, switchable, measurable, reportable, and testable.
 ```
 
-Run this first:
+**First command after clone:**
 
 ```bash
 python -m pip install -r requirements.txt
 python anra.py --report
 ```
 
-If you see `19/19` components with source and import OK, you are looking at a live platform — not a README fantasy.
+Green `19/19` = the organism’s organs are present. Trained weights may still be missing — see [Artifacts](#artifacts).
 
 ---
 
-## What you are looking at
+## Who this is for
 
-The canonical map lives in `runtime/system_registry.py`. Do not maintain component lists by hand anywhere else.
-
-| # | Component | What it actually does |
-| --- | --- | --- |
-| 01 | `brain` | V2 transformer: GQA, RoPE/YaRN, MoD, Flash SDP, tied embeddings |
-| 02 | `tokenizer` | 8192-token BPE, owner-trained surface |
-| 03 | `data_mix` | Owner-first corpus contract (65/15/10/5/5) |
-| 04 | `training_loop` | Daily sessions + milestone trains |
-| 05 | `evaluation` | Eval, benchmark, verifier, hard-example capture |
-| 06 | `runtime` | Generation, streaming, inference helpers |
-| 07 | `api_web` | FastAPI + Phase 4 operator UI |
-| 08 | `identity` | CIV / ESV / HAL + drift resistance |
-| 09 | `memory` | Router across episodic, short-term, graph, ghost |
-| 10 | `phase2_memory` | Typed store, vectors, graph, context builder |
-| 11 | `goals` | Persistent queue, retries, successors |
-| 12 | `agent_loop` | Plan → execute → monitor → evaluate |
-| 13 | `master_system` | Owner control, autonomy, long-horizon goals |
-| 14 | `self_improvement` | Gap-driven refinement and session learning |
-| 15 | `self_modification` | Type-A/B patches, sandbox, FS agent |
-| 16 | `ouroboros` | Recursive reasoning, adaptive passes |
-| 17 | `ghost_memory` | Compressed long recall + decay |
-| 18 | `symbolic_bridge` | Verified math, logic, code |
-| 19 | `sovereignty` | Audit, benchmarks, promotion gates |
-
-Each component exposes: `enabled`, `metric_hooks`, registry source status, and telemetry when exercised.
+| You are… | Start here |
+|----------|------------|
+| Owner / operator | This file → [`OPERATOR.md`](OPERATOR.md) → `python anra.py --chat` |
+| Developer / agent | [`DEVELOPER.md`](DEVELOPER.md) → [`ARCHITECTURE.md`](ARCHITECTURE.md) |
+| Deep learner | [`WALKTHROUGH.md`](WALKTHROUGH.md) (full tour; §19 = operator addendum) |
+| Strategist | [`VISION.md`](VISION.md) |
 
 ---
 
-## The engineering spine (`engine/`)
+## Two modes that matter
 
-This is what separates An-Ra from "impressive folder structure."
-
-| Module | Job |
-| --- | --- |
-| `component_base.py` | Component protocol + metrics bookkeeping |
-| `feature_flags.py` | Toggle subsystems via `state/feature_flags.json` |
-| `telemetry.py` | JSONL traces: latency, success, errors, tokens |
-| `eval_harness.py` | Baseline / system-on / ablation / regression |
-| `report.py` | One-command operator scorecard |
-
-**Questions you should never have to guess:**
-
-| Question | Answer |
-| --- | --- |
-| What exists? | `component_registry()` |
-| Is it on? | `is_enabled("component")` |
-| How fast? | `get_telemetry_bus().summary_by_module()` |
-| Did we regress? | `EvalHarness().compare(baseline, current)` |
-| What broke? | `python anra.py --report` |
-| Can I kill it? | `set_flag("component", False)` |
-
----
-
-## Operator quickstart
+### Talk mode
 
 ```bash
-# Health
-python anra.py --report
-python anra.py --status
-python anra.py --phase3-status
+python anra.py --chat
+```
 
-# Reasoning with receipts
+Conversation with memory and identity. Good for thinking aloud.
+
+### Work mode
+
+```bash
+python anra.py --goal "Write workspace/status.md summarizing the last report"
+```
+
+Or inside chat:
+
+```text
+/goal Build a raptor engine CAD stub and document assumptions
+/write workspace/todo.txt train session tonight
+/cad raptor_engine
+/open engineering/raptor_engine/raptor_engine.scad
+```
+
+**Rule:** If you want files opened or created, use **`/goal`**, **`goal:`**, or slash commands — not plain chat.
+
+Full operator reference: **[`OPERATOR.md`](OPERATOR.md)**
+
+---
+
+## The 19 components
+
+Source of truth: `runtime/system_registry.py` — never duplicate this table elsewhere by hand.
+
+| # | ID | One-line job |
+|---|-----|----------------|
+| 01 | `brain` | V2 causal transformer |
+| 02 | `tokenizer` | 8192 BPE, owner surface |
+| 03 | `data_mix` | 65/15/10/5/5 corpus contract |
+| 04 | `training_loop` | session + milestone trains |
+| 05 | `evaluation` | eval, benchmark, verifier |
+| 06 | `runtime` | generate, infer, stream |
+| 07 | `api_web` | FastAPI + React cockpit |
+| 08 | `identity` | CIV, ESV, HAL, drift resistance |
+| 09 | `memory` | 4-tier router |
+| 10 | `phase2_memory` | typed store, graph, vectors |
+| 11 | `goals` | persistent queue |
+| 12 | `agent_loop` | plan → execute → tools |
+| 13 | `master_system` | owner control + autonomy tiers |
+| 14 | `self_improvement` | gap-driven refinement |
+| 15 | `self_modification` | Type-A/B patches + sandbox |
+| 16 | `ouroboros` | recursive passes |
+| 17 | `ghost_memory` | compressed long recall |
+| 18 | `symbolic_bridge` | verified math/logic/code |
+| 19 | `sovereignty` | audit + promote/quarantine |
+
+Each: `enabled` flag, `metric_hooks`, registry health, telemetry when run.
+
+---
+
+## Engineering spine (`engine/`)
+
+What makes An-Ra operable instead of ornamental:
+
+| Module | Answers |
+|--------|---------|
+| `feature_flags.py` | Can I turn it off? |
+| `telemetry.py` | How fast? How often does it fail? |
+| `eval_harness.py` | Did we regress vs baseline? |
+| `report.py` | What is the scorecard right now? |
+
+```bash
+python anra.py --report          # full scorecard
+python anra.py --status          # master system
+python anra.py --phase3-status   # identity, ghost, symbolic, sovereignty
 python anra.py --symbolic "solve x^2 - 9 = 0"
+```
 
-# Agency
-python anra.py --goal "summarize the current system report"
+---
+
+## Command cheat sheet
+
+```bash
+# Health & measurement
+python anra.py --report
+python -m pytest tests/ -q
+
+# Operator / Jarvis-shaped
+python anra.py --chat
+python anra.py --goal "your imperative here"
 
 # Training
 python -m training.train_unified --mode status
-python -m training.train_unified --mode session   # daily
-python -m training.train_unified --mode train     # milestone
+python -m training.train_unified --mode session    # daily
+python -m training.train_unified --mode train      # milestone
 python -m training.train_unified --mode eval
 
-# Tests (expect green on a healthy clone)
-python -m pytest tests/ -q
+# Web UI
+cd phase4/web && npm install && npm run dev
+python app.py
 ```
 
-**CPU-only?** You may see a Flash SDP / CUDA warning from `anra.py`. That is normal for local smoke checks. Serious training wants a GPU box.
+**CPU warning:** Flash SDP/CUDA message on Windows CPU is expected for smoke tests. Train on GPU (Colab or local CUDA).
 
 ---
 
-## Three ways to run the system
+## Training rhythms
 
-### 1. Inspect (no training required)
-
-Status, flags, telemetry, symbolic checks, fast tests:
-
-```bash
-python anra.py --report
-python anra.py --symbolic "factor 360"
-python -c "from engine.feature_flags import disabled_components; print(disabled_components())"
-```
-
-### 2. Daily learning (keep it boring)
+### Daily (boring = good)
 
 ```bash
 python -m training.train_unified --mode session
 ```
 
-Loop:
-
 ```text
 restore → validate → train → evaluate → reports → replay failures
 ```
 
-### 3. Milestone (judgment pass)
+### Milestone (judgment)
 
 ```bash
 python -m training.train_unified --mode train
 ```
 
-Heavier on purpose: identity reinforcement, Ouroboros, self-improvement, sovereignty audit, promotion gates.
+Identity reinforcement, Ouroboros, self-improvement, **sovereignty promotion gate**.
+
+---
+
+## Data contract
+
+Teacher data is an **amplifier**. You are the gravitational center.
+
+| Bucket | % | Purpose |
+|--------|---:|---------|
+| Your conversation / instruction | 65 | Voice, style, behavior |
+| Your identity / selfhood | 15 | Anti-drift |
+| Teacher reasoning | 10 | Harder traces |
+| Symbolic / verified | 5 | Truth anchor |
+| Replayed failures | 5 | Mistakes → supervision |
+
+---
+
+## Artifacts
+
+```text
+training_data/anra_training.txt
+tokenizer/tokenizer_v3.json
+anra_v2_brain.pt / anra_v2_identity.pt / anra_v2_ouroboros.pt
+workspace/                              # operator sandbox (files, CAD)
+state/feature_flags.json
+state/logs/telemetry.jsonl
+state/logs/operator_actions.jsonl       # slash commands + operator audit
+output/v2/reports/
+output/v2/eval/
+```
+
+`19/19 active` ≠ checkpoints on disk. Restore from Drive or train.
 
 ---
 
 ## Feature flags
 
-Turn a subsystem off without surgery:
-
-```bash
-python -c "
+```python
 from engine.feature_flags import set_flag, disabled_components
-set_flag('ghost_memory', False)
+set_flag("ghost_memory", False)
 print(disabled_components())
-"
 ```
 
-Orchestrator routing (disabled components are skipped, not crashed):
-
-| Task kind | Component |
-| --- | --- |
-| `coder` | `agent_loop` |
-| `research` | `agent_loop` |
+| Task kind | Routes to |
+|-----------|-----------|
+| `coder` / `research` | `agent_loop` |
 | `memory` | `memory` |
 | `critic` | `evaluation` |
 | `symbolic` | `symbolic_bridge` |
@@ -164,72 +219,53 @@ Orchestrator routing (disabled components are skipped, not crashed):
 
 ---
 
-## Telemetry & scorecard
-
-Log: `state/logs/telemetry.jsonl`
-
-Each traced call records module, operation, timing, success/failure, errors, tokens, output size, confidence.
-
-```bash
-python anra.py --report
-```
-
-| Axis | Meaning |
-| --- | --- |
-| Source health | Registered files exist |
-| Import health | Components import clean |
-| Enablement | Feature flag state |
-| Latency | Avg traced ms per module |
-| Reliability | Success rate + recent failures |
-| Regression | Eval harness vs baseline |
-| Readiness | Training artifacts + preflight |
-
----
-
-## Data contract (owner stays center of gravity)
-
-| Bucket | Share | Why |
-| --- | ---: | --- |
-| Own conversation / instruction | 65% | Voice, style, normal behavior |
-| Own identity / selfhood | 15% | Drift resistance |
-| Teacher reasoning | 10% | Harder traces — amplifier, not owner |
-| Symbolic / verified samples | 5% | Truth anchor |
-| Replayed failures | 5% | Mistakes become supervision |
-
----
-
-## Artifacts you will actually touch
-
-```text
-training_data/anra_training.txt     # canonical dataset
-tokenizer/tokenizer_v3.json           # vocab
-anra_v2_brain.pt                    # main weights (may be absent on fresh clone)
-anra_v2_identity.pt
-anra_v2_ouroboros.pt
-state/feature_flags.json
-state/logs/telemetry.jsonl
-output/v2/reports/
-output/v2/eval/
-```
-
-Fresh clones often have **no checkpoints**. Restore from Drive or train them. `19/19 active` in the report means **source is present**, not that weights exist.
-
----
-
 ## Colab
 
-`AnRa_Master.ipynb` is the operator console — mount Drive, restore checkpoints, train, eval, sync reports. **Edit source in git; run operations in Colab.**
+`AnRa_Master.ipynb` — Drive, GPU, train, eval, sync. **Edit code in git; operate in Colab.**
 
 ---
 
-## Before you add anything
+## Roadmap (honest)
 
-Every serious change should answer:
+| Capability | Status |
+|------------|--------|
+| Local files, goals, CAD stub, open | **Shipped** — [`OPERATOR.md`](OPERATOR.md) |
+| Symbolic-in-every-reply | Wire in `generate.py` (next) |
+| Remote paired node | Design phase |
+| ROS2 / robotics bridge | Future layer |
 
-1. Which component does this improve?
-2. What metric should move?
-3. What test or verifier proves it?
-4. What failure becomes replay or docs?
-5. What owner-control boundary stays intact?
+“Superintelligence” here = **compounding verified loops**, not one bigger chat model.
 
-**Read next:** [`DEVELOPER.md`](DEVELOPER.md) · [`ARCHITECTURE.md`](ARCHITECTURE.md) · [`VISION.md`](VISION.md) · [`WALKTHROUGH.md`](WALKTHROUGH.md) (deep tour)
+---
+
+## Before you add code
+
+1. Which component improves?  
+2. What metric moves?  
+3. What test proves it?  
+4. What failure becomes replay?  
+5. What owner boundary stays intact?
+
+---
+
+## Documentation map
+
+| Doc | Role |
+|-----|------|
+| [`docs/README.md`](docs/README.md) | **Hub** — folder layout for all docs |
+| [`docs/engineering/ENGINEERING_LOG.md`](docs/engineering/ENGINEERING_LOG.md) | **Change tracker** — every add/change/remove (dated) |
+| [`docs/planning/MASTER_GOALS.md`](docs/planning/MASTER_GOALS.md) | **Goals backlog** — research, test, train, robotics |
+| [`OPERATOR.md`](OPERATOR.md) | **Do work** — slash commands, workspace, CAD |
+| [`DEVELOPER.md`](DEVELOPER.md) | Contribute safely |
+| [`ARCHITECTURE.md`](ARCHITECTURE.md) | Wiring diagram |
+| [`VISION.md`](VISION.md) | Why An-Ra exists |
+| [`WALKTHROUGH.md`](WALKTHROUGH.md) | Deep technical tour |
+
+**Log a change after you ship:**
+
+```bash
+python scripts/log_engineering_change.py --component agent_loop --type CHANGE \
+  --title "Short title" --summary "What and why" --verify "pytest tests/ -q"
+```
+
+Build like you will run this every week.

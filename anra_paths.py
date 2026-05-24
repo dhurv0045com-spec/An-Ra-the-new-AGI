@@ -17,6 +17,13 @@ TRAINING_DATA_DIR = ROOT / "training_data"
 OUTPUT_DIR = ROOT / "output"
 STATE_DIR = ROOT / "state"
 WORKSPACE_DIR = ROOT / "workspace"
+AGENT_WORKSPACE_DIR = WORKSPACE_DIR
+ENGINEERING_DIR = WORKSPACE_DIR / "engineering"
+OPERATOR_AUDIT_LOG = STATE_DIR / "logs" / "operator_actions.jsonl"
+DOCS_DIR = ROOT / "docs"
+ENGINEERING_LOG_FILE = DOCS_DIR / "engineering" / "ENGINEERING_LOG.md"
+ENGINEERING_LOG_STANDARD = DOCS_DIR / "engineering" / "LOG_STANDARD.md"
+MASTER_GOALS_FILE = DOCS_DIR / "planning" / "MASTER_GOALS.md"
 
 PHASE2_DIR = ROOT / "phase2"
 FINE_TUNING_DIR = PHASE2_DIR / "fine_tuning (45I)"
@@ -127,9 +134,27 @@ def inject_all_paths() -> None:
             sys.path.insert(0, s)
 
 
+def get_agent_workspace() -> Path:
+    """Sandbox root for agent file_manager / os_action tools."""
+    import os
+
+    raw = os.environ.get("AGENT_FILE_ROOT") or os.environ.get("ANRA_AGENT_WORKSPACE")
+    if raw:
+        root = Path(raw).expanduser()
+    else:
+        root = WORKSPACE_DIR
+    resolved = root.resolve()
+    resolved.mkdir(parents=True, exist_ok=True)
+    (resolved / "engineering").mkdir(parents=True, exist_ok=True)
+    return resolved
+
+
 def ensure_dirs() -> None:
     for d in REQUIRED_DIRS:
         d.mkdir(parents=True, exist_ok=True)
+    get_agent_workspace()
+    ENGINEERING_DIR.mkdir(parents=True, exist_ok=True)
+    OPERATOR_AUDIT_LOG.parent.mkdir(parents=True, exist_ok=True)
     drive_dataset = DRIVE_DIR / "anra_training.txt"
     if not DATASET_CANONICAL.exists() and drive_dataset.exists():
         try:
@@ -298,3 +323,7 @@ class PathRegistry:
     CIV_WATCHER_STATE = CIV_WATCHER_STATE
     V2_BRAIN_CHECKPOINT = V2_BRAIN_CHECKPOINT; V2_IDENTITY_CHECKPOINT = V2_IDENTITY_CHECKPOINT; V2_OUROBOROS_CHECKPOINT = V2_OUROBOROS_CHECKPOINT
     V2_TOKENIZER_FILE = V2_TOKENIZER_FILE; V3_TOKENIZER_FILE = V3_TOKENIZER_FILE
+    WORKSPACE_DIR = WORKSPACE_DIR; AGENT_WORKSPACE_DIR = AGENT_WORKSPACE_DIR
+    ENGINEERING_DIR = ENGINEERING_DIR; OPERATOR_AUDIT_LOG = OPERATOR_AUDIT_LOG
+    DOCS_DIR = DOCS_DIR; ENGINEERING_LOG_FILE = ENGINEERING_LOG_FILE
+    ENGINEERING_LOG_STANDARD = ENGINEERING_LOG_STANDARD; MASTER_GOALS_FILE = MASTER_GOALS_FILE
