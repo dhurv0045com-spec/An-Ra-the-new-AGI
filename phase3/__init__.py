@@ -25,7 +25,7 @@ def _install_phase3_aliases() -> None:
     if ouro_pkg_name not in sys.modules:
         pkg = types.ModuleType(ouro_pkg_name)
         pkg.__path__ = []
-        ouro = _load_module(f"{ouro_pkg_name}.ouroboros", _ROOT / "ouroboros (45O)" / "ouroboros.py")
+        ouro = _load_module(f"{ouro_pkg_name}.ouroboros", _ROOT / "ouroboros_45o" / "ouroboros.py")
         pkg.ouroboros = ouro
         sys.modules[ouro_pkg_name] = pkg
 
@@ -35,7 +35,7 @@ def _install_phase3_aliases() -> None:
         pkg.__path__ = []
         domain_verifiers = _load_module(
             f"{sym_pkg_name}.domain_verifiers",
-            _ROOT / "symbolic_bridge (45Q)" / "domain_verifiers.py",
+            _ROOT / "symbolic_bridge_45q" / "domain_verifiers.py",
         )
         pkg.domain_verifiers = domain_verifiers
         sys.modules[sym_pkg_name] = pkg

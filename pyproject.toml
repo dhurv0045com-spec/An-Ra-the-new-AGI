@@ -55,6 +55,7 @@ addopts = "-ra"
 markers = [
   "gpu: tests that require a CUDA-capable GPU",
 ]
+filterwarnings = ["error::DeprecationWarning"]
 
 [tool.mypy]
 python_version = "3.13"

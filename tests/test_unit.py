@@ -16,7 +16,7 @@ import pytest
 import numpy as np
 
 # Allow imports from parent directory
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
 from attention         import RotaryEmbedding, KVCache, make_causal_mask, softmax, scaled_dot_product_attention
 from multihead         import MultiHeadAttention

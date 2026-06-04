@@ -9,7 +9,7 @@ from typing import Dict, Iterator, Optional
 
 import torch
 
-from anra_paths import DRIVE_LOGS, HAL_STATE_FILE, ROOT, STATE_DIR, inject_all_paths
+from anra_paths import DRIVE_LOGS, HAL_STATE_FILE, ROOT, STATE_DIR
 from training.v2_runtime import (
     build_v2_model,
     canonical_v2_checkpoint,
@@ -18,13 +18,10 @@ from training.v2_runtime import (
     model_summary,
 )
 
-inject_all_paths()
 logger = logging.getLogger(__name__)
 
 try:
-    from anra_paths import inject_all_paths as _inject
     from anra_paths import get_identity_file as _get_identity_file
-    _inject()
     from identity_injector import IdentityInjector as _IdentityInjector
     _identity_file = _get_identity_file()
     _IDENTITY_INJECTOR = (

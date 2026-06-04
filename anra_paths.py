@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
@@ -26,18 +25,18 @@ ENGINEERING_LOG_STANDARD = DOCS_DIR / "engineering" / "LOG_STANDARD.md"
 MASTER_GOALS_FILE = DOCS_DIR / "planning" / "MASTER_GOALS.md"
 
 PHASE2_DIR = ROOT / "phase2"
-FINE_TUNING_DIR = PHASE2_DIR / "fine_tuning (45I)"
-MEMORY_DIR = PHASE2_DIR / "memory (45J)"
-AGENT_LOOP_DIR = PHASE2_DIR / "agent_loop (45k)"
-SELF_IMPROVEMENT_DIR = PHASE2_DIR / "self_improvement (45l)"
-MASTER_SYSTEM_DIR = PHASE2_DIR / "master_system (45M)"
+AGENT_LOOP_DIR = PHASE2_DIR / "agent_loop_45k"
+FINE_TUNING_DIR = PHASE2_DIR / "fine_tuning_45i"
+MEMORY_DIR = PHASE2_DIR / "memory_45j"
+SELF_IMPROVEMENT_DIR = PHASE2_DIR / "self_improvement_45l"
+MASTER_SYSTEM_DIR = PHASE2_DIR / "master_system_45m"
 
 PHASE3_DIR = ROOT / "phase3"
-IDENTITY_DIR = PHASE3_DIR / "identity (45N)"
-OUROBOROS_DIR = PHASE3_DIR / "ouroboros (45O)"
-GHOST_MEMORY_DIR = PHASE3_DIR / "ghost_memory (45P)"
-SYMBOLIC_BRIDGE_DIR = PHASE3_DIR / "symbolic_bridge (45Q)"
-SOVEREIGNTY_DIR = PHASE3_DIR / "sovereignty (45R)"
+IDENTITY_DIR = PHASE3_DIR / "identity_45n"
+OUROBOROS_DIR = PHASE3_DIR / "ouroboros_45o"
+GHOST_MEMORY_DIR = PHASE3_DIR / "ghost_memory_45p"
+SYMBOLIC_BRIDGE_DIR = PHASE3_DIR / "symbolic_bridge_45q"
+SOVEREIGNTY_DIR = PHASE3_DIR / "sovereignty_45r"
 
 DRIVE_DIR = Path("/content/drive/MyDrive/AnRa")
 DRIVE_ROOT = DRIVE_DIR.parent
@@ -122,16 +121,16 @@ REQUIRED_DIRS = [
 
 
 def inject_all_paths() -> None:
-    paths = [
-        ROOT, CORE_DIR, TRAINING_DIR, INFERENCE_DIR, CONFIG_DIR, SCRIPTS_DIR,
-        FINE_TUNING_DIR, MEMORY_DIR, AGENT_LOOP_DIR, SELF_IMPROVEMENT_DIR,
-        MASTER_SYSTEM_DIR, PHASE3_DIR, IDENTITY_DIR, OUROBOROS_DIR, GHOST_MEMORY_DIR,
-        SYMBOLIC_BRIDGE_DIR, SOVEREIGNTY_DIR,
-    ]
-    for p in reversed(paths):
-        s = str(p)
-        if s not in sys.path:
-            sys.path.insert(0, s)
+    """DEPRECATED. This function is a no-op. The anra package is installed via pip install -e .
+    All imports now use full package paths. Remove calls to this function."""
+    import warnings
+    warnings.warn(
+        "inject_all_paths() is deprecated and does nothing. "
+        "Install the package with: pip install -e . "
+        "Remove this call from your code.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
 
 
 def get_agent_workspace() -> Path:

@@ -15,8 +15,6 @@ from anra_paths import DRIVE_GHOST_DB, FAILURE_REPLAY_DATASET, GHOST_DB_LOCAL, O
 from identity.civ import ConstitutionalIdentityVector
 from training.v2_config import IDENTITY_KEYWORDS, TEACHER_REJECT_PATTERNS, V2_1B_FRONTIER, V2_TRAINING
 
-from anra_paths import inject_all_paths
-inject_all_paths()
 
 try:
     from symbolic_bridge import query_code, query_logic, query_math

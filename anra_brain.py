@@ -164,13 +164,11 @@ class MoDRouter(nn.Module):
         B, n, d = x.shape
         k = max(1, int(n * self.capacity))
         scores = self.gate(x).squeeze(-1)
-        topk = scores.topk(k, dim=-1).indices
-        idx_exp = topk.unsqueeze(-1).expand(-1, -1, d)
-        x_sel = x.gather(1, idx_exp)
-        x_proc = x_sel + ffn(x_sel)
-        out = x.clone()
-        out.scatter_(1, idx_exp, x_proc)
-        return out
+        topk_vals, topk_idx = scores.topk(k, dim=-1)
+        routing_weights = torch.zeros_like(scores)
+        routing_weights.scatter_(1, topk_idx, torch.nn.functional.softmax(topk_vals, dim=-1))
+        ffn_out = ffn(x)
+        return x + routing_weights.unsqueeze(-1) * ffn_out
 
 
 class BlockV2(nn.Module):

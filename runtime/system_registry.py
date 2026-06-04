@@ -18,7 +18,6 @@ from anra_paths import (
     V3_TOKENIZER_FILE,
     WORKSPACE_DIR,
     get_v2_checkpoint,
-    inject_all_paths,
 )
 
 
@@ -136,7 +135,7 @@ def component_registry() -> list[SystemComponent]:
             name="identity",
             layer="alignment",
             role="CIV residual guard, ESV modulation, watcher checks, and Phase 3 identity injection.",
-            paths=("identity/civ.py", "identity/esv.py", "identity/civ_watcher.py", "phase3/identity (45N)/identity_injector.py"),
+            paths=("identity/civ.py", "identity/esv.py", "identity/civ_watcher.py", "phase3/identity_45n/identity_injector.py"),
             import_name="identity.civ",
         ),
         _component(
@@ -151,10 +150,10 @@ def component_registry() -> list[SystemComponent]:
             layer="continuity",
             role="45J typed memory, retrieval, vector index, context builder, and personal graph.",
             paths=(
-                "phase2/memory (45J)/memory_manager.py",
-                "phase2/memory (45J)/store.py",
-                "phase2/memory (45J)/vectors.py",
-                "phase2/memory (45J)/context_builder.py",
+                "phase2/memory_45j/memory_manager.py",
+                "phase2/memory_45j/store.py",
+                "phase2/memory_45j/vectors.py",
+                "phase2/memory_45j/context_builder.py",
             ),
         ),
         _component(
@@ -169,10 +168,10 @@ def component_registry() -> list[SystemComponent]:
             layer="agency",
             role="45K goal interpretation, planning, dispatch, execution, monitoring, and evaluation.",
             paths=(
-                "phase2/agent_loop (45k)/agent_main.py",
-                "phase2/agent_loop (45k)/planner.py",
-                "phase2/agent_loop (45k)/executor.py",
-                "phase2/agent_loop (45k)/evaluator.py",
+                "phase2/agent_loop_45k/agent_main.py",
+                "phase2/agent_loop_45k/planner.py",
+                "phase2/agent_loop_45k/executor.py",
+                "phase2/agent_loop_45k/evaluator.py",
             ),
         ),
         _component(
@@ -180,10 +179,10 @@ def component_registry() -> list[SystemComponent]:
             layer="autonomy",
             role="45M owner-control system, persistent service, long-horizon goals, safety, and personalization.",
             paths=(
-                "phase2/master_system (45M)/system.py",
-                "phase2/master_system (45M)/llm_bridge.py",
-                "phase2/master_system (45M)/autonomy/engine.py",
-                "phase2/master_system (45M)/control/control.py",
+                "phase2/master_system_45m/system.py",
+                "phase2/master_system_45m/llm_bridge.py",
+                "phase2/master_system_45m/autonomy/engine.py",
+                "phase2/master_system_45m/control/control.py",
             ),
         ),
         _component(
@@ -191,9 +190,9 @@ def component_registry() -> list[SystemComponent]:
             layer="learning",
             role="45L improvement engine, dashboard, prompt/skill refinement, and session learning hooks.",
             paths=(
-                "phase2/self_improvement (45l)/improve.py",
-                "phase2/self_improvement (45l)/self_improvement/engine.py",
-                "phase2/self_improvement (45l)/dashboard/dashboard.py",
+                "phase2/self_improvement_45l/improve.py",
+                "phase2/self_improvement_45l/self_improvement/engine.py",
+                "phase2/self_improvement_45l/dashboard/dashboard.py",
             ),
         ),
         _component(
@@ -208,9 +207,9 @@ def component_registry() -> list[SystemComponent]:
             layer="reflection",
             role="45O recursive reasoning, adaptive pass selection, pass gates, and milestone refinement.",
             paths=(
-                "phase3/ouroboros (45O)/ouroboros_numpy.py",
-                "phase3/ouroboros (45O)/adaptive.py",
-                "phase3/ouroboros (45O)/pass_gates.py",
+                "phase3/ouroboros_45o/ouroboros_numpy.py",
+                "phase3/ouroboros_45o/adaptive.py",
+                "phase3/ouroboros_45o/pass_gates.py",
             ),
         ),
         _component(
@@ -218,9 +217,9 @@ def component_registry() -> list[SystemComponent]:
             layer="continuity",
             role="45P compressed conversation memory, retrieval, decay, and Ghost Context injection.",
             paths=(
-                "phase3/ghost_memory (45P)/ghost_memory/memory_store.py",
-                "phase3/ghost_memory (45P)/ghost_memory/retriever.py",
-                "phase3/ghost_memory (45P)/ghost_memory/injector.py",
+                "phase3/ghost_memory_45p/ghost_memory/memory_store.py",
+                "phase3/ghost_memory_45p/ghost_memory/retriever.py",
+                "phase3/ghost_memory_45p/ghost_memory/injector.py",
             ),
         ),
         _component(
@@ -228,10 +227,10 @@ def component_registry() -> list[SystemComponent]:
             layer="verification",
             role="45Q deterministic math, logic, code analysis, cross-checking, and verified response objects.",
             paths=(
-                "phase3/symbolic_bridge (45Q)/symbolic_bridge.py",
-                "phase3/symbolic_bridge (45Q)/math_solver.py",
-                "phase3/symbolic_bridge (45Q)/logic_checker.py",
-                "phase3/symbolic_bridge (45Q)/code_verifier.py",
+                "phase3/symbolic_bridge_45q/symbolic_bridge.py",
+                "phase3/symbolic_bridge_45q/math_solver.py",
+                "phase3/symbolic_bridge_45q/logic_checker.py",
+                "phase3/symbolic_bridge_45q/code_verifier.py",
             ),
         ),
         _component(
@@ -239,10 +238,10 @@ def component_registry() -> list[SystemComponent]:
             layer="governance",
             role="45R audit, dead-code sweep, benchmark deltas, reports, and checkpoint promotion gates.",
             paths=(
-                "phase3/sovereignty (45R)/sovereignty_bridge.py",
-                "phase3/sovereignty (45R)/auditor.py",
-                "phase3/sovereignty (45R)/benchmarks.py",
-                "phase3/sovereignty (45R)/reporter.py",
+                "phase3/sovereignty_45r/sovereignty_bridge.py",
+                "phase3/sovereignty_45r/auditor.py",
+                "phase3/sovereignty_45r/benchmarks.py",
+                "phase3/sovereignty_45r/reporter.py",
             ),
         ),
     ]
@@ -319,7 +318,6 @@ def component_status(component: SystemComponent) -> dict[str, object]:
     import_status = "not_checked"
     if component.import_name:
         try:
-            inject_all_paths()
             mod = importlib.import_module(component.import_name)
             health = getattr(mod, "health_check", None)
             if callable(health):

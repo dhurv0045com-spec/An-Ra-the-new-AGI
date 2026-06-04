@@ -24,7 +24,7 @@ import pytest
 import numpy as np
 from pathlib import Path
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
 from model         import LanguageModel, CheckpointCorruptError, CheckpointNotFoundError
 from config_loader import load_config

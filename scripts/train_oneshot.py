@@ -652,7 +652,7 @@ def train(args: argparse.Namespace, vram_gb: float) -> None:
     from torch.optim.lr_scheduler import CosineAnnealingLR, LinearLR, SequentialLR
 
     root = repo_root()
-    sys.path.insert(0, str(root))
+    sys.path.append(str(root))
 
     from training.v2_config import V2_1B_TRAINING, V2_TRAINING
     from training.v2_runtime import (
@@ -830,7 +830,7 @@ def main() -> None:
     _ARGS = args
 
     os.chdir(repo_root())
-    sys.path.insert(0, str(repo_root()))
+    sys.path.append(str(repo_root()))
 
     _, vram_gb = gpu_check(args)
     install_missing_dependencies()

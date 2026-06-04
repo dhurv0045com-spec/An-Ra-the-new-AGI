@@ -27,3 +27,13 @@ def test_block1_architecture(tmp_path):
     params = sum(p.numel() for p in model.parameters())
     print(f"params={params}")
     assert 24_000_000 <= params <= 64_000_000
+
+
+def test_mod_router_gate_receives_gradient():
+    model = CausalTransformerV2(vocab_size=256, n_embd=64, n_head=4, n_kv_head=2, n_layer=4, block_size=64, mod_layers={1, 2})
+    x = torch.randint(0, 256, (1, 32))
+    _, loss = model(x, x)
+    loss.backward()
+    for layer_idx, router in model.mod_routers.items():
+        assert router.gate.weight.grad is not None, f"MoD layer {layer_idx}: gate has no gradient"
+        assert router.gate.weight.grad.abs().max().item() > 1e-9, f"MoD layer {layer_idx}: gate gradient is zero — router is not learning"

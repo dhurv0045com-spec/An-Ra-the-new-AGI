@@ -21,17 +21,17 @@ from pathlib import Path
 # ── Setup paths ───────────────────────────────────────────────────────────────
 TEST_DIR     = Path(__file__).resolve().parent
 PROJECT_ROOT = TEST_DIR.parent
-PHASE2_45M   = PROJECT_ROOT / "phase2" / "master_system (45M)"
+PHASE2_45M   = PROJECT_ROOT / "phase2" / "master_system_45m"
 PHASE3       = PROJECT_ROOT / "phase3"
 
 # Add all necessary paths
 for p in [str(PHASE2_45M), str(PROJECT_ROOT)]:
     if p not in sys.path:
-        sys.path.insert(0, p)
+        sys.path.append(p)
 for p3 in ["45N", "45O", "45P", "45Q", "45R"]:
     p = str(PHASE3 / p3)
     if p not in sys.path:
-        sys.path.insert(0, p)
+        sys.path.append(p)
 
 os.chdir(str(PHASE2_45M))
 

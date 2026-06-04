@@ -10,11 +10,10 @@ from collections import Counter
 from pathlib import Path
 from typing import Any, Iterable
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+sys.path.append(str(Path(__file__).resolve().parent.parent))
 
-from anra_paths import ROOT, TRAINING_DATA_DIR, inject_all_paths
+from anra_paths import ROOT, TRAINING_DATA_DIR
 
-inject_all_paths()
 
 ONLINE_MODE = importlib.util.find_spec("datasets") is not None
 RDKIT_MODE = importlib.util.find_spec("rdkit") is not None

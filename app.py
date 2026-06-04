@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import argparse
+import asyncio
 import json
 import logging
-import sys
 import time
 import traceback
 import uuid
@@ -15,15 +15,14 @@ from typing import Any, Deque, Dict, List
 
 import httpx
 import uvicorn
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-from anra_paths import DRIVE_DIR, MEMORY_DB_DIR, DRIVE_SESSIONS, ensure_dirs, inject_all_paths
+from anra_paths import DRIVE_DIR, MEMORY_DB_DIR, DRIVE_SESSIONS, ensure_dirs
 
-inject_all_paths()
 ensure_dirs()
 
 from generate import (
@@ -98,10 +97,7 @@ try:
     MEMORY_SYSTEM = _MemoryBridge()
 except Exception as _mem_exc:
     try:
-        import sys as _sys
-
-        _sys.path.insert(0, str(Path(__file__).resolve().parent / "phase2" / "memory (45J)"))
-        from memory_manager import MemoryManager  # type: ignore
+        from phase2.memory_45j.memory_manager import MemoryManager  # type: ignore
 
         class _LegacyMemoryBridge:
             def __init__(self):
@@ -258,10 +254,10 @@ def _latest_report_snapshot() -> Dict[str, Any] | None:
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    ADAPTER.load()
+    await run_in_threadpool(ADAPTER.load)
     _load_all_sessions_from_disk()
     global SYSTEM_GRAPH
-    SYSTEM_GRAPH = build_capability_graph(Path(__file__).resolve().parent)
+    SYSTEM_GRAPH = await run_in_threadpool(build_capability_graph, Path(__file__).resolve().parent)
     LOGGER.info("Loaded model, preloaded %d sessions, indexed %d files", len(SESSIONS), SYSTEM_GRAPH.get("file_count", 0))
     yield
 
@@ -322,9 +318,9 @@ async def generate_route(body: GenerateRequest, request: Request):
     for k, v in body.params.items():
         if hasattr(cfg, k):
             setattr(cfg, k, v)
-    load_ghost_state(body.session_id)
-    trace = generate_traced(body.prompt, cfg, session_id=body.session_id)
-    save_ghost_state(body.session_id)
+    await run_in_threadpool(load_ghost_state, body.session_id)
+    trace = await run_in_threadpool(generate_traced, body.prompt, cfg, session_id=body.session_id)
+    await run_in_threadpool(save_ghost_state, body.session_id)
     entropy_avg = sum(trace.entropy_curve) / max(len(trace.entropy_curve), 1)
     max_prob_avg = sum(trace.max_prob_curve) / max(len(trace.max_prob_curve), 1)
 
@@ -367,7 +363,8 @@ async def chat_route(body: ChatRequest, request: Request):
         else:
             i += 1
 
-    ctx_result = _ctx_optimizer.build_optimized_context(
+    ctx_result = await run_in_threadpool(
+        _ctx_optimizer.build_optimized_context,
         session_history=session_pairs,
         memory_results=memory_results,
         current_message=body.message
@@ -382,9 +379,9 @@ async def chat_route(body: ChatRequest, request: Request):
         if hasattr(cfg, k):
             setattr(cfg, k, v)
     run_params = {k: v for k, v in cfg.__dict__.items() if k != 'strategy'}
-    load_ghost_state(body.session_id)
-    reply = ADAPTER.run(full_prompt, strategy=cfg.strategy, **run_params)
-    save_ghost_state(body.session_id)
+    await run_in_threadpool(load_ghost_state, body.session_id)
+    reply = await run_in_threadpool(ADAPTER.run, full_prompt, strategy=cfg.strategy, **run_params)
+    await run_in_threadpool(save_ghost_state, body.session_id)
 
     history.append({"role": "user", "content": body.message})
     history.append({"role": "assistant", "content": reply})
@@ -417,35 +414,23 @@ async def stream_route(session_id: str, message: str, strategy: str = "nucleus")
     context, _, _ = _build_context(session_id, message)
     cfg = GenerationConfig(strategy=strategy)
 
-    def event_gen():
+    async def async_event_gen():
+        loop = asyncio.get_event_loop()
+        gen_iter = await loop.run_in_executor(None, lambda: list(generate_stream(context, cfg)))
         assembled = ""
-        saved_turn = False
-        try:
-            for ch in generate_stream(context, cfg):
-                assembled += ch
-                yield f"data: {ch}\n\n"
-            history.append({"role": "user", "content": message})
-            history.append({"role": "assistant", "content": assembled})
-            _ensure_meta(session_id)
-            SESSION_META[session_id]["last_active"] = _now_iso()
-            SESSION_META[session_id]["total_turns"] = _turn_count(history)
-            SESSION_META[session_id]["strategy_used"] = strategy
-            saved_turn = True
-            yield "data: [DONE]\n\n"
-        except GeneratorExit:
-            return
-        finally:
-            # AN: Streaming sessions should preserve continuity even when Colab/Vite drops the SSE connection.
-            if not saved_turn and assembled:
-                history.append({"role": "user", "content": message})
-                history.append({"role": "assistant", "content": assembled})
-            _ensure_meta(session_id)
-            SESSION_META[session_id]["last_active"] = _now_iso()
-            SESSION_META[session_id]["total_turns"] = _turn_count(history)
-            SESSION_META[session_id]["strategy_used"] = strategy
-            _save_session(session_id)
+        for ch in gen_iter:
+            assembled += ch
+            yield f"data: {ch}\n\n"
+        history.append({"role": "user", "content": message})
+        history.append({"role": "assistant", "content": assembled})
+        _ensure_meta(session_id)
+        SESSION_META[session_id]["last_active"] = _now_iso()
+        SESSION_META[session_id]["total_turns"] = _turn_count(history)
+        SESSION_META[session_id]["strategy_used"] = strategy
+        _save_session(session_id)
+        yield "data: [DONE]\n\n"
 
-    return StreamingResponse(event_gen(), media_type="text/event-stream")
+    return StreamingResponse(async_event_gen(), media_type="text/event-stream")
 
 
 @app.get("/sessions")
@@ -461,7 +446,7 @@ async def sessions_route():
 @app.get("/health")
 @app.get("/status")
 async def health_route():
-    info = ADAPTER.info or get_model_info()
+    info = ADAPTER.info or await run_in_threadpool(get_model_info)
     return {
         "status": "ok",
         "model": "An-Ra",
@@ -508,13 +493,13 @@ async def debug_context_route(session_id: str, message: str = "debug"):
 
 @app.get("/system-map")
 async def system_map_route():
-    return SYSTEM_GRAPH or build_capability_graph(Path(__file__).resolve().parent)
+    return SYSTEM_GRAPH or await run_in_threadpool(build_capability_graph, Path(__file__).resolve().parent)
 
 
 @app.get("/phase-health")
 @app.get("/sovereignty/status")
 async def phase_health_route():
-    graph = SYSTEM_GRAPH or build_capability_graph(Path(__file__).resolve().parent)
+    graph = SYSTEM_GRAPH or await run_in_threadpool(build_capability_graph, Path(__file__).resolve().parent)
     checks: Dict[str, Dict[str, Any]] = {}
     modules = [
         ("identity_injector", "identity"),
@@ -646,13 +631,16 @@ async def train_status_route():
     }
 
 
-@app.post("/train/trigger")
-async def train_trigger_route():
-    return {
-        "status": "triggered",
-        "message": "Training session queued. Run AnRa_Master.ipynb Cell 4 in Colab to execute.",
-        "timestamp": _now_iso(),
-    }
+@app.post("/train/trigger", status_code=501)
+async def train_trigger_route() -> dict:
+    raise HTTPException(
+        status_code=501,
+        detail={
+            "error": "training_dispatch_not_implemented",
+            "message": "Automated training dispatch is not yet implemented. Use scripts/train_oneshot.py directly or AnRa_Master.ipynb for Colab.",
+            "docs": "https://github.com/your-repo/DEVELOPER.md#training",
+        }
+    )
 
 
 @app.get("/identity/score")

@@ -6,11 +6,10 @@ import sys
 from pathlib import Path
 from typing import Any
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+sys.path.append(str(Path(__file__).resolve().parent.parent))
 
-from anra_paths import ROOT, STATE_DIR, get_v2_checkpoint, inject_all_paths
+from anra_paths import ROOT, STATE_DIR, get_v2_checkpoint
 
-inject_all_paths()
 
 from identity.falsification_ledger import FalsificationLedger
 from identity.hal import HALModule
