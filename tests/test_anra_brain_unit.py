@@ -93,3 +93,19 @@ def test_loss_decreases_with_overfit_step(tiny):
         _, loss_after = tiny(idx, targets=tgt)
     assert loss_after.item() < loss_before.item(), \
         f"Loss did not decrease: {loss_before.item():.4f} → {loss_after.item():.4f}"
+
+def test_model_registered_in_registry():
+    """CausalTransformerV2 must be discoverable via MODEL_REGISTRY."""
+    from anra.core.registry import MODEL_REGISTRY
+    assert "causal_transformer_v2" in MODEL_REGISTRY, (
+        "CausalTransformerV2 is not registered. "
+        "Add @MODEL_REGISTRY.register('causal_transformer_v2') above the class definition."
+    )
+    model = MODEL_REGISTRY.build(
+        "causal_transformer_v2",
+        vocab_size=256, n_embd=64, n_head=4, n_kv_head=2,
+        n_layer=2, block_size=64,
+    )
+    idx = torch.randint(0, 256, (1, 16))
+    logits, _ = model(idx)
+    assert logits.shape == (1, 16, 256)

@@ -13,6 +13,7 @@ import torch.nn as nn
 from torch.nn import functional as F
 from torch.utils.checkpoint import checkpoint as _torch_checkpoint
 
+from anra.core.registry import MODEL_REGISTRY
 from identity.esv import ESVModule
 try:
     from identity.hal import HALModule
@@ -197,6 +198,7 @@ class BlockV2(nn.Module):
         return x
 
 
+@MODEL_REGISTRY.register("causal_transformer_v2")
 class CausalTransformerV2(nn.Module):
     def __init__(self, vocab_size: int, n_embd: int, n_head: int, n_layer: int, block_size: int, *, n_kv_head: int | None = None, rms_norm_eps: float = 1e-5, dropout: float = 0.0, mod_layers=(), base_seq_len: int = 512, target_seq_len: int = 2048, pad_token_id: int = 0, use_layer_temperature_bias: bool = True, use_hal: bool = False, hal_module=None):
         super().__init__()
