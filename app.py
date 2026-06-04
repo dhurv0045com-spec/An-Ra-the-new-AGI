@@ -21,7 +21,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
-from anra_paths import DRIVE_DIR, MEMORY_DB_DIR, DRIVE_SESSIONS, ensure_dirs
+from anra_paths import MEMORY_DB_DIR, ensure_dirs
 
 ensure_dirs()
 
@@ -34,9 +34,13 @@ from inference.optimize_context_window import ContextWindowOptimizer
 from runtime.hal_telemetry import read_hal_state
 
 START_TIME = time.time()
-_COLAB_DRIVE = DRIVE_SESSIONS
 _LOCAL_FALLBACK = Path(__file__).resolve().parent / "output" / "sessions"
-SESSION_DIR = _COLAB_DRIVE if DRIVE_DIR.parent.parent.exists() else _LOCAL_FALLBACK
+_DRIVE_AVAILABLE = __import__("pathlib").Path("/content/drive/MyDrive").exists()
+SESSION_DIR = (
+    __import__("pathlib").Path("/content/drive/MyDrive/AnRa/sessions")
+    if _DRIVE_AVAILABLE
+    else _LOCAL_FALLBACK
+)
 SESSION_DIR.mkdir(parents=True, exist_ok=True)
 LOGGER = logging.getLogger("anra.api")
 logging.basicConfig(level=logging.INFO)
@@ -701,6 +705,7 @@ async def train_trigger_route() -> dict:
 
 @app.get("/identity/score")
 async def identity_score_route():
+    from anra_paths import DRIVE_DIR
     from identity.civ import ConstitutionalIdentityVector
 
     candidates = [

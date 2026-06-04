@@ -10,6 +10,7 @@ from anra.core.registry import (
     TRAINING_REGISTRY,
     Registry,
 )
+from anra.core import model as _model_module  # triggers registration  # noqa: F401
 
 __all__ = [
     "AnRaConfig",

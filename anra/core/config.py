@@ -1,19 +1,11 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, MutableMapping
+from dataclasses import asdict, dataclass, field, fields
 from pathlib import Path
-from typing import Literal, Self, TypeVar, cast
+from typing import Any, Literal, TypeVar, cast, get_args, get_origin, get_type_hints
 
 import yaml
-from pydantic import (
-    ConfigDict,
-    Field,
-    TypeAdapter,
-    ValidationError,
-    field_validator,
-    model_validator,
-)
-from pydantic.dataclasses import dataclass
 
 
 ConfigMap = MutableMapping[str, object]
@@ -33,41 +25,89 @@ def _rename_keys(data: ConfigMap, aliases: Mapping[str, str]) -> ConfigMap:
     return normalized
 
 
-def _validate_dataclass(cls: type[T], data: object) -> T:
-    return TypeAdapter(cls).validate_python(data)
+def _field_names(cls: type[object]) -> set[str]:
+    return {field.name for field in fields(cls)}
+
+
+def _coerce_path(value: object) -> Path | None:
+    if value is None:
+        return None
+    return value if isinstance(value, Path) else Path(str(value))
+
+
+def _coerce_value(value: object, annotation: object) -> object:
+    origin = get_origin(annotation)
+    args = get_args(annotation)
+    if annotation is Path:
+        return _coerce_path(value)
+    if origin is tuple:
+        if value is None:
+            return ()
+        return tuple(cast(Any, value))
+    if origin is Literal and value not in args:
+        allowed = ", ".join(repr(arg) for arg in args)
+        raise ValueError(f"Expected one of {allowed}, got {value!r}")
+    if origin in (type(None),):
+        return value
+    if origin is None and annotation in (int, float, str, bool):
+        if value is None:
+            return value
+        return annotation(value)
+    if origin is None:
+        return value
+    if type(None) in args and value is None:
+        return None
+    non_none = [arg for arg in args if arg is not type(None)]
+    if len(non_none) == 1:
+        return _coerce_value(value, non_none[0])
+    return value
+
+
+def _build_dataclass(cls: type[T], data: Mapping[str, object]) -> T:
+    normalized = _as_plain_dict(data)
+    known = _field_names(cls)
+    unknown = sorted(set(normalized) - known)
+    if unknown:
+        joined = ", ".join(unknown)
+        raise ValueError(f"Unknown {cls.__name__} field(s): {joined}")
+    annotations = get_type_hints(cls)
+    kwargs = {
+        key: _coerce_value(value, annotations.get(key))
+        for key, value in normalized.items()
+    }
+    return cls(**kwargs)  # type: ignore[arg-type]
 
 
 def _dump_dataclass(value: object) -> dict[str, object]:
-    dumped = TypeAdapter(type(value)).dump_python(value, exclude_none=False)
-    if not isinstance(dumped, dict):
-        raise TypeError(f"Expected dataclass dump to be a dict, got {type(dumped).__name__}")
-    return cast(dict[str, object], dumped)
+    return cast(dict[str, object], asdict(value))
 
 
-@dataclass(frozen=True, slots=True, config=ConfigDict(extra="forbid", validate_assignment=True))
+@dataclass(frozen=True, slots=True)
 class ModelConfig:
     """Validated model architecture configuration."""
 
     type: str = "causal_transformer_v2"
-    vocab_size: int = Field(default=8192, gt=0)
-    n_embd: int = Field(default=512, gt=0)
-    n_layer: int = Field(default=8, gt=0)
-    n_head: int = Field(default=8, gt=0)
-    n_kv_head: int | None = Field(default=2, gt=0)
-    d_ff: int | None = Field(default=None, gt=0)
-    block_size: int = Field(default=1024, gt=0)
-    dropout: float = Field(default=0.1, ge=0.0, lt=1.0)
+    vocab_size: int = 8192
+    n_embd: int = 512
+    n_layer: int = 8
+    n_head: int = 8
+    n_kv_head: int | None = 2
+    d_ff: int | None = None
+    block_size: int = 1024
+    dropout: float = 0.1
     ffn_type: Literal["swiglu", "gelu"] = "swiglu"
-    rope_base: float = Field(default=10_000.0, gt=0.0)
+    rope_base: float = 10_000.0
     tie_weights: bool = True
-    pad_token_id: int = Field(default=0, ge=0)
-    eos_token_id: int | None = Field(default=None, ge=0)
+    pad_token_id: int = 0
+    eos_token_id: int | None = None
     use_mod: bool = False
-    mod_capacity: float = Field(default=0.5, gt=0.0, le=1.0)
+    mod_capacity: float = 0.5
     gradient_checkpointing: bool = False
+    mod_layers: tuple[int, ...] = ()
+    use_hal: bool = False
 
     @classmethod
-    def from_mapping(cls, data: Mapping[str, object]) -> Self:
+    def from_mapping(cls, data: Mapping[str, object]) -> ModelConfig:
         normalized = _rename_keys(
             _as_plain_dict(data),
             {
@@ -79,26 +119,42 @@ class ModelConfig:
                 "dropout_rate": "dropout",
             },
         )
-        return _validate_dataclass(cls, normalized)
+        return _build_dataclass(cls, normalized)
 
-    @model_validator(mode="after")
-    def validate_architecture(self) -> Self:
+    def __post_init__(self) -> None:
+        if self.vocab_size <= 0:
+            raise ValueError("model.vocab_size must be positive")
+        if self.n_embd <= 0 or self.n_layer <= 0 or self.n_head <= 0:
+            raise ValueError("model dimensions must be positive")
         n_kv_head = self.n_kv_head or self.n_head
+        if n_kv_head <= 0:
+            raise ValueError("model.n_kv_head must be positive")
         if self.n_embd % self.n_head != 0:
             raise ValueError("model.n_embd must be divisible by model.n_head")
         if self.n_head % n_kv_head != 0:
             raise ValueError("model.n_head must be divisible by model.n_kv_head")
-        if self.pad_token_id >= self.vocab_size:
+        if self.d_ff is not None and self.d_ff <= 0:
+            raise ValueError("model.d_ff must be positive")
+        if self.block_size <= 0:
+            raise ValueError("model.block_size must be positive")
+        if not 0.0 <= self.dropout < 1.0:
+            raise ValueError("model.dropout must be in [0, 1)")
+        if self.rope_base <= 0:
+            raise ValueError("model.rope_base must be positive")
+        if self.pad_token_id < 0 or self.pad_token_id >= self.vocab_size:
             raise ValueError("model.pad_token_id must be smaller than model.vocab_size")
-        if self.eos_token_id is not None and self.eos_token_id >= self.vocab_size:
+        if self.eos_token_id is not None and (
+            self.eos_token_id < 0 or self.eos_token_id >= self.vocab_size
+        ):
             raise ValueError("model.eos_token_id must be smaller than model.vocab_size")
-        return self
+        if not 0.0 < self.mod_capacity <= 1.0:
+            raise ValueError("model.mod_capacity must be in (0, 1]")
 
     def dict(self) -> dict[str, object]:
         return _dump_dataclass(self)
 
 
-@dataclass(frozen=True, slots=True, config=ConfigDict(extra="forbid", validate_assignment=True))
+@dataclass(frozen=True, slots=True)
 class TrainingConfig:
     """Validated training configuration."""
 
@@ -106,77 +162,116 @@ class TrainingConfig:
     dataset_path: Path = Path("data/train.txt")
     val_dataset_path: Path = Path("data/val.txt")
     tokenizer_path: Path = Path("tokenizer.json")
-    learning_rate: float = Field(default=3.0e-4, gt=0.0)
-    min_lr: float = Field(default=3.0e-5, ge=0.0)
-    weight_decay: float = Field(default=0.1, ge=0.0)
-    beta1: float = Field(default=0.9, gt=0.0, lt=1.0)
-    beta2: float = Field(default=0.95, gt=0.0, lt=1.0)
-    grad_clip: float = Field(default=1.0, ge=0.0)
-    max_grad_norm: float | None = Field(default=None, ge=0.0)
-    warmup_steps: int = Field(default=2000, ge=0)
-    max_steps: int = Field(default=100_000, gt=0)
+    learning_rate: float = 3.0e-4
+    min_lr: float = 3.0e-5
+    weight_decay: float = 0.1
+    beta1: float = 0.9
+    beta2: float = 0.95
+    grad_clip: float = 1.0
+    max_grad_norm: float | None = None
+    warmup_steps: int = 2000
+    max_steps: int = 100_000
     lr_schedule: Literal["cosine", "linear", "constant"] = "cosine"
-    batch_size: int = Field(default=16, gt=0)
-    gradient_accumulation: int = Field(default=1, gt=0)
-    seq_len: int = Field(default=512, gt=0)
+    batch_size: int = 16
+    gradient_accumulation: int = 1
+    seq_len: int = 512
     checkpoint_dir: Path = Path("checkpoints")
-    checkpoint_every: int = Field(default=1000, gt=0)
-    keep_last_n_checkpoints: int = Field(default=3, ge=0)
+    checkpoint_every: int = 1000
+    keep_last_n_checkpoints: int = 3
     resume_from: Path | None = None
-    eval_every: int = Field(default=500, gt=0)
-    eval_steps: int = Field(default=50, gt=0)
-    log_every: int = Field(default=10, gt=0)
+    eval_every: int = 500
+    eval_steps: int = 50
+    log_every: int = 10
     log_dir: Path = Path("logs")
     seed: int = 42
-    num_workers: int = Field(default=0, ge=0)
+    num_workers: int = 0
+    objective: str = "cross_entropy"
+    rlvr_enabled: bool = False
+    star_enabled: bool = False
 
     @classmethod
-    def from_mapping(cls, data: Mapping[str, object]) -> Self:
-        return _validate_dataclass(cls, _as_plain_dict(data))
+    def from_mapping(cls, data: Mapping[str, object]) -> TrainingConfig:
+        return _build_dataclass(cls, data)
 
-    @model_validator(mode="after")
-    def validate_schedule(self) -> Self:
-        if self.min_lr > self.learning_rate:
+    def __post_init__(self) -> None:
+        for name in ("dataset_path", "val_dataset_path", "tokenizer_path", "checkpoint_dir", "log_dir"):
+            object.__setattr__(self, name, _coerce_path(getattr(self, name)))
+        object.__setattr__(self, "resume_from", _coerce_path(self.resume_from))
+        if self.learning_rate <= 0.0:
+            raise ValueError("training.learning_rate must be positive")
+        if self.min_lr < 0.0 or self.min_lr > self.learning_rate:
             raise ValueError("training.min_lr must be less than or equal to training.learning_rate")
-        return self
+        if self.weight_decay < 0.0:
+            raise ValueError("training.weight_decay must be non-negative")
+        if not 0.0 < self.beta1 < 1.0 or not 0.0 < self.beta2 < 1.0:
+            raise ValueError("training beta values must be in (0, 1)")
+        if self.grad_clip < 0.0:
+            raise ValueError("training.grad_clip must be non-negative")
+        if self.max_grad_norm is not None and self.max_grad_norm < 0.0:
+            raise ValueError("training.max_grad_norm must be non-negative")
+        if self.warmup_steps < 0:
+            raise ValueError("training.warmup_steps must be non-negative")
+        if self.max_steps <= 0:
+            raise ValueError("training.max_steps must be positive")
+        for name in (
+            "batch_size",
+            "gradient_accumulation",
+            "seq_len",
+            "checkpoint_every",
+            "eval_every",
+            "eval_steps",
+            "log_every",
+        ):
+            if getattr(self, name) <= 0:
+                raise ValueError(f"training.{name} must be positive")
+        if self.keep_last_n_checkpoints < 0:
+            raise ValueError("training.keep_last_n_checkpoints must be non-negative")
+        if self.num_workers < 0:
+            raise ValueError("training.num_workers must be non-negative")
 
     def dict(self) -> dict[str, object]:
         return _dump_dataclass(self)
 
 
-@dataclass(frozen=True, slots=True, config=ConfigDict(extra="forbid", validate_assignment=True))
+@dataclass(frozen=True, slots=True)
 class InferenceConfig:
     """Validated inference configuration."""
 
     strategy: str = "top_p"
     checkpoint_path: Path | None = None
-    max_new_tokens: int = Field(default=200, gt=0)
-    temperature: float = Field(default=0.8, ge=0.0)
-    top_k: int = Field(default=50, ge=0)
-    top_p: float = Field(default=0.95, gt=0.0, le=1.0)
-    repetition_penalty: float = Field(default=1.1, ge=1.0)
-    batch_size: int = Field(default=1, gt=0)
+    max_new_tokens: int = 200
+    temperature: float = 0.8
+    top_k: int = 50
+    top_p: float = 0.95
+    repetition_penalty: float = 1.1
+    batch_size: int = 1
     turboquant: bool = False
     turboquant_bits: Literal[2, 4, 8] = 4
 
     @classmethod
-    def from_mapping(cls, data: Mapping[str, object]) -> Self:
-        return _validate_dataclass(cls, _as_plain_dict(data))
+    def from_mapping(cls, data: Mapping[str, object]) -> InferenceConfig:
+        return _build_dataclass(cls, data)
 
-    @field_validator("temperature")
-    @classmethod
-    def validate_temperature(cls, value: float) -> float:
-        if value == 0.0:
-            return value
-        if value < 0.05:
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "checkpoint_path", _coerce_path(self.checkpoint_path))
+        if self.max_new_tokens <= 0:
+            raise ValueError("inference.max_new_tokens must be positive")
+        if self.temperature != 0.0 and self.temperature < 0.05:
             raise ValueError("inference.temperature must be 0.0 or at least 0.05")
-        return value
+        if self.top_k < 0:
+            raise ValueError("inference.top_k must be non-negative")
+        if not 0.0 < self.top_p <= 1.0:
+            raise ValueError("inference.top_p must be in (0, 1]")
+        if self.repetition_penalty < 1.0:
+            raise ValueError("inference.repetition_penalty must be at least 1.0")
+        if self.batch_size <= 0:
+            raise ValueError("inference.batch_size must be positive")
 
     def dict(self) -> dict[str, object]:
         return _dump_dataclass(self)
 
 
-@dataclass(frozen=True, slots=True, config=ConfigDict(extra="forbid", validate_assignment=True))
+@dataclass(frozen=True, slots=True)
 class LoggingConfig:
     """Validated logging configuration."""
 
@@ -189,14 +284,14 @@ class LoggingConfig:
     wandb_run_name: str | None = None
 
     @classmethod
-    def from_mapping(cls, data: Mapping[str, object]) -> Self:
-        return _validate_dataclass(cls, _as_plain_dict(data))
+    def from_mapping(cls, data: Mapping[str, object]) -> LoggingConfig:
+        return _build_dataclass(cls, data)
 
     def dict(self) -> dict[str, object]:
         return _dump_dataclass(self)
 
 
-@dataclass(frozen=True, slots=True, config=ConfigDict(extra="forbid", validate_assignment=True))
+@dataclass(frozen=True, slots=True)
 class HardwareConfig:
     """Validated hardware and performance configuration."""
 
@@ -206,14 +301,14 @@ class HardwareConfig:
     gradient_checkpointing: bool = False
 
     @classmethod
-    def from_mapping(cls, data: Mapping[str, object]) -> Self:
-        return _validate_dataclass(cls, _as_plain_dict(data))
+    def from_mapping(cls, data: Mapping[str, object]) -> HardwareConfig:
+        return _build_dataclass(cls, data)
 
     def dict(self) -> dict[str, object]:
         return _dump_dataclass(self)
 
 
-@dataclass(frozen=True, slots=True, config=ConfigDict(extra="forbid", validate_assignment=True))
+@dataclass(frozen=True, slots=True)
 class PathsConfig:
     """Validated filesystem path configuration."""
 
@@ -226,34 +321,44 @@ class PathsConfig:
     metrics_path: Path = Path("output/metrics/events.jsonl")
 
     @classmethod
-    def from_mapping(cls, data: Mapping[str, object]) -> Self:
-        return _validate_dataclass(cls, _as_plain_dict(data))
+    def from_mapping(cls, data: Mapping[str, object]) -> PathsConfig:
+        return _build_dataclass(cls, data)
 
-    @model_validator(mode="after")
-    def validate_paths(self) -> Self:
+    def __post_init__(self) -> None:
+        for name in (
+            "output_dir",
+            "model_dir",
+            "log_dir",
+            "checkpoint_dir",
+            "state_dir",
+            "session_db",
+            "metrics_path",
+        ):
+            object.__setattr__(self, name, _coerce_path(getattr(self, name)))
         for name in ("output_dir", "model_dir", "log_dir", "checkpoint_dir", "state_dir"):
             path = getattr(self, name)
             if path == Path("/content") or str(path).startswith("/content/drive"):
                 raise ValueError(f"paths.{name} must not hardcode Colab or Google Drive paths")
-        return self
 
     def dict(self) -> dict[str, object]:
         return _dump_dataclass(self)
 
 
-@dataclass(frozen=True, slots=True, config=ConfigDict(extra="forbid", validate_assignment=True))
+@dataclass(frozen=True, slots=True)
 class AnRaConfig:
     """Validated top-level AN-RA configuration."""
 
-    model: ModelConfig = Field(default_factory=ModelConfig)
-    training: TrainingConfig = Field(default_factory=TrainingConfig)
-    inference: InferenceConfig = Field(default_factory=InferenceConfig)
-    paths: PathsConfig = Field(default_factory=PathsConfig)
-    logging: LoggingConfig = Field(default_factory=LoggingConfig)
-    hardware: HardwareConfig = Field(default_factory=HardwareConfig)
+    model: ModelConfig = field(default_factory=ModelConfig)
+    training: TrainingConfig = field(default_factory=TrainingConfig)
+    inference: InferenceConfig = field(default_factory=InferenceConfig)
+    paths: PathsConfig = field(default_factory=PathsConfig)
+    logging: LoggingConfig = field(default_factory=LoggingConfig)
+    hardware: HardwareConfig = field(default_factory=HardwareConfig)
+    experiment_name: str = "base"
+    seed: int = 42
 
     @classmethod
-    def from_yaml(cls, path: str | Path) -> Self:
+    def from_yaml(cls, path: str | Path) -> AnRaConfig:
         config_path = Path(path)
         try:
             raw = yaml.safe_load(config_path.read_text(encoding="utf-8"))
@@ -269,61 +374,44 @@ class AnRaConfig:
         return cls.from_mapping(cast(Mapping[str, object], raw))
 
     @classmethod
-    def from_mapping(cls, data: Mapping[str, object]) -> Self:
+    def from_mapping(cls, data: Mapping[str, object]) -> AnRaConfig:
         normalized = _rename_keys(_as_plain_dict(data), {"train": "training"})
 
-        model_data = normalized.get("model", {})
-        training_data = normalized.get("training", {})
-        inference_data = normalized.get("inference", {})
-        paths_data = normalized.get("paths", {})
-        logging_data = normalized.get("logging", {})
-        hardware_data = normalized.get("hardware", {})
-
-        if not isinstance(model_data, Mapping):
-            raise TypeError("config.model must be a mapping")
-        if not isinstance(training_data, Mapping):
-            raise TypeError("config.training must be a mapping")
-        if not isinstance(inference_data, Mapping):
-            raise TypeError("config.inference must be a mapping")
-        if not isinstance(paths_data, Mapping):
-            raise TypeError("config.paths must be a mapping")
-        if not isinstance(logging_data, Mapping):
-            raise TypeError("config.logging must be a mapping")
-        if not isinstance(hardware_data, Mapping):
-            raise TypeError("config.hardware must be a mapping")
-
-        known_sections = {"model", "training", "inference", "paths", "logging", "hardware"}
+        known_sections = {
+            "experiment_name",
+            "hardware",
+            "inference",
+            "logging",
+            "model",
+            "paths",
+            "seed",
+            "training",
+        }
         unknown_sections = sorted(set(normalized) - known_sections)
         if unknown_sections:
             joined = ", ".join(unknown_sections)
             raise ValueError(f"Unknown top-level configuration section(s): {joined}")
 
-        try:
-            return _validate_dataclass(
-                cls,
-                {
-                    "model": ModelConfig.from_mapping(cast(Mapping[str, object], model_data)),
-                    "training": TrainingConfig.from_mapping(
-                        cast(Mapping[str, object], training_data)
-                    ),
-                    "inference": InferenceConfig.from_mapping(
-                        cast(Mapping[str, object], inference_data)
-                    ),
-                    "paths": PathsConfig.from_mapping(cast(Mapping[str, object], paths_data)),
-                    "logging": LoggingConfig.from_mapping(cast(Mapping[str, object], logging_data)),
-                    "hardware": HardwareConfig.from_mapping(
-                        cast(Mapping[str, object], hardware_data)
-                    ),
-                },
-            )
-        except ValidationError as exc:
-            raise ValueError(f"Invalid AN-RA configuration: {exc}") from exc
+        def section(name: str) -> Mapping[str, object]:
+            value = normalized.get(name, {})
+            if not isinstance(value, Mapping):
+                raise TypeError(f"config.{name} must be a mapping")
+            return cast(Mapping[str, object], value)
 
-    @model_validator(mode="after")
-    def validate_cross_section(self) -> Self:
+        return cls(
+            model=ModelConfig.from_mapping(section("model")),
+            training=TrainingConfig.from_mapping(section("training")),
+            inference=InferenceConfig.from_mapping(section("inference")),
+            paths=PathsConfig.from_mapping(section("paths")),
+            logging=LoggingConfig.from_mapping(section("logging")),
+            hardware=HardwareConfig.from_mapping(section("hardware")),
+            experiment_name=str(normalized.get("experiment_name", "base")),
+            seed=int(cast(int | str, normalized.get("seed", 42))),
+        )
+
+    def __post_init__(self) -> None:
         if self.training.seq_len > self.model.block_size:
             raise ValueError("training.seq_len must be less than or equal to model.block_size")
-        return self
 
     def dict(self) -> dict[str, object]:
         return _dump_dataclass(self)

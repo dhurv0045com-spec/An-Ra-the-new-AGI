@@ -22,9 +22,12 @@ def _numpy():
 
 
 @dataclass
-class MemoryWriteResult:
+class MemoryWriteResult(str):
     tier: str
     record_id: str
+
+    def __new__(cls, tier: str, record_id: str):
+        return str.__new__(cls, record_id)
 
 
 class MemoryRouter:
@@ -37,6 +40,7 @@ class MemoryRouter:
         self,
         dim: int = 256,
         faiss_index_path: str | Path | None = None,
+        disable_faiss: bool = False,
         esv=None,
         hal: HALModule | None = None,
         embedding_model=None,
@@ -53,10 +57,12 @@ class MemoryRouter:
         self.graph: dict[str, list[str]] = {}
         self.ghost_db_path = Path(DRIVE_GHOST_DB)
         idx_path = Path(faiss_index_path) if faiss_index_path is not None else Path(DRIVE_FAISS_INDEX)
+        self.disable_faiss = bool(disable_faiss)
         from memory.faiss_store import FAISSEpisodicStore
 
         self.episodic = FAISSEpisodicStore(index_path=idx_path, dim=self.dim)
-        self.episodic.load()
+        if not self.disable_faiss:
+            self.episodic.load()
 
     def _fit_dim(self, vector) -> np.ndarray:
         np = _numpy()
@@ -178,10 +184,10 @@ class MemoryRouter:
                         return MemoryWriteResult(tier="short_term",
                                                 record_id=record_id)
 
-        if tier == "short_term":
+        if tier == "short_term" or self.disable_faiss:
             self.short_term.append({"record_id": record_id, "content": content, "metadata": metadata})
             self.short_term = self.short_term[-256:]
-            return MemoryWriteResult(tier=tier, record_id=record_id)
+            return MemoryWriteResult(tier="short_term", record_id=record_id)
 
         if tier == "graph":
             src = str(metadata.get("src", "root"))
@@ -231,3 +237,11 @@ class MemoryRouter:
         np = _numpy()
         qvec = query if isinstance(query, np.ndarray) else self._semantic_embed(str(query))
         return self.episodic.search(qvec, k=n)
+
+    def health(self) -> dict[str, object]:
+        return {
+            "status": "ok",
+            "dim": self.dim,
+            "disable_faiss": self.disable_faiss,
+            "short_term_count": len(self.short_term),
+        }
