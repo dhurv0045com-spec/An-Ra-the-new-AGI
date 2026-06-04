@@ -1,29 +1,28 @@
 from __future__ import annotations
 
 import argparse
+import asyncio
 import json
 import logging
-import sys
 import time
 import traceback
 import uuid
-from collections import defaultdict, deque
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Deque, Dict, List
+from typing import Any, Dict, List
 
+import aiosqlite
 import httpx
 import uvicorn
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-from anra_paths import DRIVE_DIR, MEMORY_DB_DIR, DRIVE_SESSIONS, ensure_dirs, inject_all_paths
+from anra_paths import DRIVE_DIR, MEMORY_DB_DIR, DRIVE_SESSIONS, ensure_dirs
 
-inject_all_paths()
 ensure_dirs()
 
 from generate import (
@@ -39,11 +38,120 @@ _COLAB_DRIVE = DRIVE_SESSIONS
 _LOCAL_FALLBACK = Path(__file__).resolve().parent / "output" / "sessions"
 SESSION_DIR = _COLAB_DRIVE if DRIVE_DIR.parent.parent.exists() else _LOCAL_FALLBACK
 SESSION_DIR.mkdir(parents=True, exist_ok=True)
-SESSIONS: Dict[str, Deque[Dict[str, str]]] = defaultdict(lambda: deque(maxlen=40))
-SESSION_META: Dict[str, Dict[str, Any]] = {}
-RATE_LIMIT_STORE: Dict[str, Deque[float]] = defaultdict(deque)
 LOGGER = logging.getLogger("anra.api")
 logging.basicConfig(level=logging.INFO)
+
+
+class SQLiteSessionStore:
+    """Persistent session store backed by SQLite. Survives server restarts."""
+
+    def __init__(self, db_path: Path, max_history: int = 40) -> None:
+        self._path = db_path
+        self._max_history = max_history
+        self._path.parent.mkdir(parents=True, exist_ok=True)
+
+    async def initialize(self) -> None:
+        async with aiosqlite.connect(self._path) as db:
+            await db.execute(
+                """
+                CREATE TABLE IF NOT EXISTS sessions (
+                    id TEXT PRIMARY KEY,
+                    history TEXT NOT NULL DEFAULT '[]',
+                    meta TEXT NOT NULL DEFAULT '{}',
+                    created_at REAL NOT NULL,
+                    last_active REAL NOT NULL
+                )
+                """
+            )
+            await db.execute(
+                """
+                CREATE TABLE IF NOT EXISTS rate_limits (
+                    ip TEXT NOT NULL,
+                    ts REAL NOT NULL
+                )
+                """
+            )
+            await db.execute("CREATE INDEX IF NOT EXISTS idx_rate_ip ON rate_limits(ip)")
+            await db.commit()
+
+    async def get_history(self, session_id: str) -> list[dict]:
+        async with aiosqlite.connect(self._path) as db:
+            async with db.execute("SELECT history FROM sessions WHERE id = ?", (session_id,)) as cur:
+                row = await cur.fetchone()
+                return json.loads(row[0]) if row else []
+
+    async def get_meta(self, session_id: str) -> dict[str, Any]:
+        async with aiosqlite.connect(self._path) as db:
+            async with db.execute("SELECT meta FROM sessions WHERE id = ?", (session_id,)) as cur:
+                row = await cur.fetchone()
+                return json.loads(row[0]) if row else {}
+
+    async def save_history(self, session_id: str, history: list[dict]) -> None:
+        meta = await self.get_meta(session_id)
+        await self.save_session(session_id, history, meta)
+
+    async def save_session(self, session_id: str, history: list[dict], meta: dict[str, Any]) -> None:
+        trimmed = history[-self._max_history:]
+        now = time.time()
+        async with aiosqlite.connect(self._path) as db:
+            await db.execute(
+                """INSERT INTO sessions (id, history, meta, created_at, last_active)
+                   VALUES (?, ?, ?, ?, ?)
+                   ON CONFLICT(id) DO UPDATE SET
+                       history=excluded.history,
+                       meta=excluded.meta,
+                       last_active=excluded.last_active""",
+                (session_id, json.dumps(trimmed), json.dumps(meta), now, now),
+            )
+            await db.commit()
+
+    async def list_sessions(self) -> dict[str, dict[str, Any]]:
+        async with aiosqlite.connect(self._path) as db:
+            async with db.execute("SELECT id, history, meta FROM sessions ORDER BY last_active DESC") as cur:
+                rows = await cur.fetchall()
+        sessions: dict[str, dict[str, Any]] = {}
+        for session_id, history_json, meta_json in rows:
+            sessions[session_id] = {
+                "history": json.loads(history_json),
+                "metadata": json.loads(meta_json),
+            }
+        return sessions
+
+    async def delete_session(self, session_id: str) -> None:
+        async with aiosqlite.connect(self._path) as db:
+            await db.execute("DELETE FROM sessions WHERE id = ?", (session_id,))
+            await db.commit()
+
+    async def count_sessions(self) -> int:
+        async with aiosqlite.connect(self._path) as db:
+            async with db.execute("SELECT COUNT(*) FROM sessions") as cur:
+                row = await cur.fetchone()
+                return int(row[0]) if row else 0
+
+    async def check_rate_limit(
+        self,
+        ip: str,
+        window_seconds: float = 60.0,
+        max_requests: int = 30,
+    ) -> bool:
+        """Returns True if the request is allowed, False if rate limited."""
+        cutoff = time.time() - window_seconds
+        async with aiosqlite.connect(self._path) as db:
+            await db.execute("DELETE FROM rate_limits WHERE ts < ?", (cutoff,))
+            async with db.execute(
+                "SELECT COUNT(*) FROM rate_limits WHERE ip = ? AND ts > ?", (ip, cutoff)
+            ) as cur:
+                row = await cur.fetchone()
+                count = row[0] if row else 0
+            if count >= max_requests:
+                await db.commit()
+                return False
+            await db.execute("INSERT INTO rate_limits (ip, ts) VALUES (?, ?)", (ip, time.time()))
+            await db.commit()
+            return True
+
+
+SESSION_STORE = SQLiteSessionStore(SESSION_DIR / "sessions.db", max_history=40)
 
 
 class ModelAdapter:
@@ -98,10 +206,7 @@ try:
     MEMORY_SYSTEM = _MemoryBridge()
 except Exception as _mem_exc:
     try:
-        import sys as _sys
-
-        _sys.path.insert(0, str(Path(__file__).resolve().parent / "phase2" / "memory (45J)"))
-        from memory_manager import MemoryManager  # type: ignore
+        from phase2.memory_45j.memory_manager import MemoryManager  # type: ignore
 
         class _LegacyMemoryBridge:
             def __init__(self):
@@ -144,52 +249,18 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def _ensure_meta(session_id: str) -> None:
-    if session_id not in SESSION_META:
-        SESSION_META[session_id] = {
-            "created_at": _now_iso(),
-            "last_active": _now_iso(),
-            "total_turns": 0,
-            "strategy_used": "nucleus",
-        }
+async def _get_session_history(session_id: str) -> list[dict]:
+    return await SESSION_STORE.get_history(session_id)
 
 
-def _load_all_sessions_from_disk() -> None:
-    for file in SESSION_DIR.glob("*.json"):
-        try:
-            sid = file.stem
-            payload = json.loads(file.read_text(encoding="utf-8"))
-            if isinstance(payload, list):
-                history = payload
-                meta = {"created_at": _now_iso(), "last_active": _now_iso(), "total_turns": 0, "strategy_used": "nucleus"}
-            else:
-                history = payload.get("history", [])
-                meta = payload.get("metadata", {})
-            SESSIONS[sid] = deque(history, maxlen=40)
-            _ensure_meta(sid)
-            SESSION_META[sid].update(meta)
-        except Exception as exc:
-            LOGGER.warning("Failed to preload session file %s: %s", file, exc)
+async def _append_to_session(session_id: str, new_messages: list[dict]) -> None:
+    history = await SESSION_STORE.get_history(session_id)
+    history.extend(new_messages)
+    await SESSION_STORE.save_history(session_id, history)
 
 
-def _load_session(session_id: str) -> Deque[Dict[str, str]]:
-    _ensure_meta(session_id)
-    if session_id in SESSIONS:
-        return SESSIONS[session_id]
-    file = _session_file(session_id)
-    if file.exists():
-        payload = json.loads(file.read_text(encoding="utf-8"))
-        if isinstance(payload, list):
-            SESSIONS[session_id].extend(payload)
-        else:
-            SESSIONS[session_id].extend(payload.get("history", []))
-            SESSION_META[session_id].update(payload.get("metadata", {}))
-    return SESSIONS[session_id]
-
-
-def _save_session(session_id: str) -> None:
-    payload = {"history": list(SESSIONS[session_id]), "metadata": SESSION_META.get(session_id, {})}
-    _session_file(session_id).write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+async def _save_session(session_id: str) -> None:
+    pass  # SQLiteSessionStore saves atomically on every write — no explicit flush needed.
 
 
 def _serialize_context_from_turns(turns: List[Dict[str, str]], message: str) -> str:
@@ -207,8 +278,8 @@ def _serialize_context_from_turns(turns: List[Dict[str, str]], message: str) -> 
     return "".join(context_parts) + final
 
 
-def _build_context(session_id: str, message: str) -> tuple[str, int, bool]:
-    history = list(_load_session(session_id))[-40:]
+async def _build_context(session_id: str, message: str) -> tuple[str, int, bool]:
+    history = (await _get_session_history(session_id))[-40:]
     truncated = False
     while True:
         context = _serialize_context_from_turns(history, message)
@@ -219,23 +290,14 @@ def _build_context(session_id: str, message: str) -> tuple[str, int, bool]:
         truncated = True
 
 
-def _turn_count(history: Deque[Dict[str, str]]) -> int:
+def _turn_count(history: list[dict]) -> int:
     return sum(1 for x in history if x.get("role") == "assistant")
 
 
-def _rate_limit_or_429(session_id: str, request_id: str):
-    now = time.time()
-    window = RATE_LIMIT_STORE[session_id]
-    window.append(now)
-    while window and now - window[0] > 60.0:
-        window.popleft()
-    if len(window) > 10:
-        retry_after = max(1, int(60 - (now - window[0])))
-        return JSONResponse(
-            status_code=429,
-            content={"error": "rate_limit", "request_id": request_id, "retry_after_seconds": retry_after},
-        )
-    return None
+async def _rate_limit_or_429(client_ip: str) -> None:
+    allowed = await SESSION_STORE.check_rate_limit(client_ip, window_seconds=60.0, max_requests=30)
+    if not allowed:
+        raise HTTPException(status_code=429, detail="Rate limit exceeded. Max 30 requests per minute.")
 
 
 def _latest_report_snapshot() -> Dict[str, Any] | None:
@@ -258,11 +320,11 @@ def _latest_report_snapshot() -> Dict[str, Any] | None:
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    ADAPTER.load()
-    _load_all_sessions_from_disk()
+    await SESSION_STORE.initialize()
+    await run_in_threadpool(ADAPTER.load)
     global SYSTEM_GRAPH
-    SYSTEM_GRAPH = build_capability_graph(Path(__file__).resolve().parent)
-    LOGGER.info("Loaded model, preloaded %d sessions, indexed %d files", len(SESSIONS), SYSTEM_GRAPH.get("file_count", 0))
+    SYSTEM_GRAPH = await run_in_threadpool(build_capability_graph, Path(__file__).resolve().parent)
+    LOGGER.info("An-Ra API startup complete. Session store: %s", SESSION_STORE._path)
     yield
 
 
@@ -314,17 +376,16 @@ class ResetRequest(BaseModel):
 
 @app.post("/generate")
 async def generate_route(body: GenerateRequest, request: Request):
-    limited = _rate_limit_or_429(body.session_id, request.state.request_id)
-    if limited:
-        return limited
+    client_ip = request.client.host if request.client else "unknown"
+    await _rate_limit_or_429(client_ip)
 
     cfg = GenerationConfig(strategy=body.strategy)
     for k, v in body.params.items():
         if hasattr(cfg, k):
             setattr(cfg, k, v)
-    load_ghost_state(body.session_id)
-    trace = generate_traced(body.prompt, cfg, session_id=body.session_id)
-    save_ghost_state(body.session_id)
+    await run_in_threadpool(load_ghost_state, body.session_id)
+    trace = await run_in_threadpool(generate_traced, body.prompt, cfg, session_id=body.session_id)
+    await run_in_threadpool(save_ghost_state, body.session_id)
     entropy_avg = sum(trace.entropy_curve) / max(len(trace.entropy_curve), 1)
     max_prob_avg = sum(trace.max_prob_curve) / max(len(trace.max_prob_curve), 1)
 
@@ -344,11 +405,10 @@ async def generate_route(body: GenerateRequest, request: Request):
 
 @app.post("/chat")
 async def chat_route(body: ChatRequest, request: Request):
-    limited = _rate_limit_or_429(body.session_id, request.state.request_id)
-    if limited:
-        return limited
+    client_ip = request.client.host if request.client else "unknown"
+    await _rate_limit_or_429(client_ip)
 
-    history = _load_session(body.session_id)
+    history = await _get_session_history(body.session_id)
 
     memory_results = []
     if MEMORY_SYSTEM is not None:
@@ -367,7 +427,8 @@ async def chat_route(body: ChatRequest, request: Request):
         else:
             i += 1
 
-    ctx_result = _ctx_optimizer.build_optimized_context(
+    ctx_result = await run_in_threadpool(
+        _ctx_optimizer.build_optimized_context,
         session_history=session_pairs,
         memory_results=memory_results,
         current_message=body.message
@@ -382,17 +443,17 @@ async def chat_route(body: ChatRequest, request: Request):
         if hasattr(cfg, k):
             setattr(cfg, k, v)
     run_params = {k: v for k, v in cfg.__dict__.items() if k != 'strategy'}
-    load_ghost_state(body.session_id)
-    reply = ADAPTER.run(full_prompt, strategy=cfg.strategy, **run_params)
-    save_ghost_state(body.session_id)
+    await run_in_threadpool(load_ghost_state, body.session_id)
+    reply = await run_in_threadpool(ADAPTER.run, full_prompt, strategy=cfg.strategy, **run_params)
+    await run_in_threadpool(save_ghost_state, body.session_id)
 
-    history.append({"role": "user", "content": body.message})
-    history.append({"role": "assistant", "content": reply})
-    _ensure_meta(body.session_id)
-    SESSION_META[body.session_id]["last_active"] = _now_iso()
-    SESSION_META[body.session_id]["total_turns"] = _turn_count(history)
-    SESSION_META[body.session_id]["strategy_used"] = cfg.strategy
-    _save_session(body.session_id)
+    new_messages = [
+        {"role": "user", "content": body.message},
+        {"role": "assistant", "content": reply},
+    ]
+    history.extend(new_messages)
+    await _append_to_session(body.session_id, new_messages)
+    await _save_session(body.session_id)
     if MEMORY_SYSTEM is not None:
         try:
             MEMORY_SYSTEM.store_turn(body.message, reply, body.session_id)
@@ -413,55 +474,39 @@ async def chat_route(body: ChatRequest, request: Request):
 
 @app.get("/stream")
 async def stream_route(session_id: str, message: str, strategy: str = "nucleus"):
-    history = _load_session(session_id)
-    context, _, _ = _build_context(session_id, message)
+    history = await _get_session_history(session_id)
+    context, _, _ = await _build_context(session_id, message)
     cfg = GenerationConfig(strategy=strategy)
 
-    def event_gen():
+    async def async_event_gen():
+        loop = asyncio.get_event_loop()
+        gen_iter = await loop.run_in_executor(None, lambda: list(generate_stream(context, cfg)))
         assembled = ""
-        saved_turn = False
-        try:
-            for ch in generate_stream(context, cfg):
-                assembled += ch
-                yield f"data: {ch}\n\n"
-            history.append({"role": "user", "content": message})
-            history.append({"role": "assistant", "content": assembled})
-            _ensure_meta(session_id)
-            SESSION_META[session_id]["last_active"] = _now_iso()
-            SESSION_META[session_id]["total_turns"] = _turn_count(history)
-            SESSION_META[session_id]["strategy_used"] = strategy
-            saved_turn = True
-            yield "data: [DONE]\n\n"
-        except GeneratorExit:
-            return
-        finally:
-            # AN: Streaming sessions should preserve continuity even when Colab/Vite drops the SSE connection.
-            if not saved_turn and assembled:
-                history.append({"role": "user", "content": message})
-                history.append({"role": "assistant", "content": assembled})
-            _ensure_meta(session_id)
-            SESSION_META[session_id]["last_active"] = _now_iso()
-            SESSION_META[session_id]["total_turns"] = _turn_count(history)
-            SESSION_META[session_id]["strategy_used"] = strategy
-            _save_session(session_id)
+        for ch in gen_iter:
+            assembled += ch
+            yield f"data: {ch}\n\n"
+        new_messages = [
+            {"role": "user", "content": message},
+            {"role": "assistant", "content": assembled},
+        ]
+        history.extend(new_messages)
+        await _append_to_session(session_id, new_messages)
+        await _save_session(session_id)
+        yield "data: [DONE]\n\n"
 
-    return StreamingResponse(event_gen(), media_type="text/event-stream")
+    return StreamingResponse(async_event_gen(), media_type="text/event-stream")
 
 
 @app.get("/sessions")
 async def sessions_route():
-    return {
-        "active_sessions": len(SESSIONS),
-        "session_ids": list(SESSIONS.keys()),
-        "total_turns": {sid: meta.get("total_turns", 0) for sid, meta in SESSION_META.items()},
-        "metadata": SESSION_META,
-    }
+    sessions = await SESSION_STORE.list_sessions()
+    return {"sessions": sessions, "count": len(sessions)}
 
 
 @app.get("/health")
 @app.get("/status")
 async def health_route():
-    info = ADAPTER.info or get_model_info()
+    info = ADAPTER.info or await run_in_threadpool(get_model_info)
     return {
         "status": "ok",
         "model": "An-Ra",
@@ -469,7 +514,7 @@ async def health_route():
         "device": str(info.get("device", "unknown")),
         "vocab_size": int(info.get("vocab_size", -1) or -1),  # type: ignore[arg-type]
         "uptime_seconds": time.time() - START_TIME,
-        "sessions_active": len(SESSIONS),
+        "sessions_active": await SESSION_STORE.count_sessions(),
     }
 
 
@@ -480,11 +525,7 @@ async def hal_state_route():
 
 @app.post("/reset")
 async def reset_route(body: ResetRequest):
-    SESSIONS.pop(body.session_id, None)
-    SESSION_META.pop(body.session_id, None)
-    file = _session_file(body.session_id)
-    if file.exists():
-        file.unlink()
+    await SESSION_STORE.delete_session(body.session_id)
     return {"cleared": True, "session_id": body.session_id}
 
 
@@ -502,19 +543,19 @@ async def strategies_route():
 
 @app.get("/debug/context/{session_id}")
 async def debug_context_route(session_id: str, message: str = "debug"):
-    context, _, _ = _build_context(session_id, message)
+    context, _, _ = await _build_context(session_id, message)
     return {"context": context}
 
 
 @app.get("/system-map")
 async def system_map_route():
-    return SYSTEM_GRAPH or build_capability_graph(Path(__file__).resolve().parent)
+    return SYSTEM_GRAPH or await run_in_threadpool(build_capability_graph, Path(__file__).resolve().parent)
 
 
 @app.get("/phase-health")
 @app.get("/sovereignty/status")
 async def phase_health_route():
-    graph = SYSTEM_GRAPH or build_capability_graph(Path(__file__).resolve().parent)
+    graph = SYSTEM_GRAPH or await run_in_threadpool(build_capability_graph, Path(__file__).resolve().parent)
     checks: Dict[str, Dict[str, Any]] = {}
     modules = [
         ("identity_injector", "identity"),
@@ -646,13 +687,16 @@ async def train_status_route():
     }
 
 
-@app.post("/train/trigger")
-async def train_trigger_route():
-    return {
-        "status": "triggered",
-        "message": "Training session queued. Run AnRa_Master.ipynb Cell 4 in Colab to execute.",
-        "timestamp": _now_iso(),
-    }
+@app.post("/train/trigger", status_code=501)
+async def train_trigger_route() -> dict:
+    raise HTTPException(
+        status_code=501,
+        detail={
+            "error": "training_dispatch_not_implemented",
+            "message": "Automated training dispatch is not yet implemented. Use scripts/train_oneshot.py directly or AnRa_Master.ipynb for Colab.",
+            "docs": "https://github.com/your-repo/DEVELOPER.md#training",
+        }
+    )
 
 
 @app.get("/identity/score")

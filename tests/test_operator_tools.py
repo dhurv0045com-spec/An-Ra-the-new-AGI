@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
-AGENT_DIR = ROOT / "phase2" / "agent_loop (45k)"
+AGENT_DIR = ROOT / "phase2" / "agent_loop_45k"
 
 
 @pytest.fixture(autouse=True)
@@ -16,7 +16,7 @@ def _agent_workspace(tmp_path, monkeypatch):
     ws.mkdir()
     monkeypatch.setenv("AGENT_FILE_ROOT", str(ws))
     if str(AGENT_DIR) not in sys.path:
-        sys.path.insert(0, str(AGENT_DIR))
+        sys.path.append(str(AGENT_DIR))
     yield ws
 
 

@@ -7,10 +7,10 @@ import sys
 from pathlib import Path
 
 REPO_ROOT    = Path(__file__).parent.parent
-IDENTITY_DIR = REPO_ROOT / "phase3" / "identity (45N)"
+IDENTITY_DIR = REPO_ROOT / "phase3" / "identity_45n"
 OUTPUT       = IDENTITY_DIR / "anra_identity_combined.txt"
 
-sys.path.insert(0, str(REPO_ROOT))
+sys.path.append(str(REPO_ROOT))
 from anra_paths import DRIVE_IDENTITY
 
 BOOTSTRAP_IDENTITY = """USER: Who are you?
@@ -88,7 +88,7 @@ def main() -> None:
         print("[merge_identity] No identity files found — writing bootstrap identity.")
         OUTPUT.write_text(BOOTSTRAP_IDENTITY.strip(), encoding="utf-8")
         print(f"[merge_identity] Bootstrap written: {OUTPUT.name} ({len(BOOTSTRAP_IDENTITY):,} chars)")
-        print("[merge_identity] Add .txt files to phase3/identity (45N)/ or Drive/AnRa/identity/ for better results.")
+        print("[merge_identity] Add .txt files to phase3/identity_45n/ or Drive/AnRa/identity/ for better results.")
 
 if __name__ == "__main__":
     main()

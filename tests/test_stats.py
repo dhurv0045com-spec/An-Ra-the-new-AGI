@@ -3,9 +3,8 @@ import os
 from pathlib import Path
 
 # Add project root to path
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from anra_paths import ROOT, inject_all_paths, MASTER_SYSTEM_DIR
-inject_all_paths()
+sys.path.append(str(Path(__file__).resolve().parent.parent))
+from anra_paths import ROOT, MASTER_SYSTEM_DIR
 
 import importlib.util
 path = str(MASTER_SYSTEM_DIR / "system.py")

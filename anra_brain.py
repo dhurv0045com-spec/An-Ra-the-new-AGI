@@ -13,6 +13,7 @@ import torch.nn as nn
 from torch.nn import functional as F
 from torch.utils.checkpoint import checkpoint as _torch_checkpoint
 
+from anra.core.registry import MODEL_REGISTRY
 from identity.esv import ESVModule
 try:
     from identity.hal import HALModule
@@ -164,13 +165,11 @@ class MoDRouter(nn.Module):
         B, n, d = x.shape
         k = max(1, int(n * self.capacity))
         scores = self.gate(x).squeeze(-1)
-        topk = scores.topk(k, dim=-1).indices
-        idx_exp = topk.unsqueeze(-1).expand(-1, -1, d)
-        x_sel = x.gather(1, idx_exp)
-        x_proc = x_sel + ffn(x_sel)
-        out = x.clone()
-        out.scatter_(1, idx_exp, x_proc)
-        return out
+        topk_vals, topk_idx = scores.topk(k, dim=-1)
+        routing_weights = torch.zeros_like(scores)
+        routing_weights.scatter_(1, topk_idx, torch.nn.functional.softmax(topk_vals, dim=-1))
+        ffn_out = ffn(x)
+        return x + routing_weights.unsqueeze(-1) * ffn_out
 
 
 class BlockV2(nn.Module):
@@ -199,6 +198,7 @@ class BlockV2(nn.Module):
         return x
 
 
+@MODEL_REGISTRY.register("causal_transformer_v2")
 class CausalTransformerV2(nn.Module):
     def __init__(self, vocab_size: int, n_embd: int, n_head: int, n_layer: int, block_size: int, *, n_kv_head: int | None = None, rms_norm_eps: float = 1e-5, dropout: float = 0.0, mod_layers=(), base_seq_len: int = 512, target_seq_len: int = 2048, pad_token_id: int = 0, use_layer_temperature_bias: bool = True, use_hal: bool = False, hal_module=None):
         super().__init__()

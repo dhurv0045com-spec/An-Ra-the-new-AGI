@@ -44,9 +44,9 @@ def _file_tool_call(instruction: str) -> dict[str, Any]:
     import sys
     from pathlib import Path as P
 
-    agent_dir = P(__file__).resolve().parent.parent / "phase2" / "agent_loop (45k)"
+    agent_dir = P(__file__).resolve().parent.parent / "phase2" / "agent_loop_45k"
     if str(agent_dir) not in sys.path:
-        sys.path.insert(0, str(agent_dir))
+        sys.path.append(str(agent_dir))
     from builtin import file_manager
     from registry import ToolResult
 
@@ -58,9 +58,9 @@ def _os_tool_call(instruction: str) -> dict[str, Any]:
     import sys
     from pathlib import Path as P
 
-    agent_dir = P(__file__).resolve().parent.parent / "phase2" / "agent_loop (45k)"
+    agent_dir = P(__file__).resolve().parent.parent / "phase2" / "agent_loop_45k"
     if str(agent_dir) not in sys.path:
-        sys.path.insert(0, str(agent_dir))
+        sys.path.append(str(agent_dir))
     from builtin import os_action
     from registry import ToolResult
 
@@ -72,9 +72,9 @@ def _cad_tool_call(instruction: str) -> dict[str, Any]:
     import sys
     from pathlib import Path as P
 
-    agent_dir = P(__file__).resolve().parent.parent / "phase2" / "agent_loop (45k)"
+    agent_dir = P(__file__).resolve().parent.parent / "phase2" / "agent_loop_45k"
     if str(agent_dir) not in sys.path:
-        sys.path.insert(0, str(agent_dir))
+        sys.path.append(str(agent_dir))
     from builtin import cad_generate
     from registry import ToolResult
 

@@ -8,9 +8,8 @@ import subprocess
 import tempfile
 
 try:
-    from anra_paths import EPG_PATH, WORKSPACE_DIR, inject_all_paths
+    from anra_paths import EPG_PATH, WORKSPACE_DIR
 
-    inject_all_paths()
     from domain_verifiers import (
         verify_citation_grounding,
         verify_constraint_json,

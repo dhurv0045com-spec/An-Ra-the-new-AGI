@@ -12,9 +12,9 @@ import torch
 
 from startup_checks import assert_flash_sdp_ready
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+sys.path.append(str(Path(__file__).resolve().parent.parent))
 
-from anra_paths import DATASET, ROOT, ensure_dirs, get_dataset_file, inject_all_paths
+from anra_paths import DATASET, ROOT, ensure_dirs, get_dataset_file
 from training.eval_v2 import run_compact_eval
 from training.data_ingestion import mount_google_drive_if_available, prepare_training_corpus
 from training.v2_config import V2_MODEL, V2_TRAINING
@@ -32,7 +32,6 @@ from training.v2_runtime import (
 )
 from runtime.training_readiness import assess_training_readiness
 
-inject_all_paths()
 ensure_dirs()
 
 _CANONICAL_DATASET = DATASET

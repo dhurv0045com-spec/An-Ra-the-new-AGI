@@ -4,12 +4,11 @@ import json
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+sys.path.append(str(Path(__file__).resolve().parent.parent))
 
-from anra_paths import OUTPUT_V2_DIR, ROOT, V2_TOKENIZER_FILE, get_v2_checkpoint, inject_all_paths
+from anra_paths import OUTPUT_V2_DIR, ROOT, V2_TOKENIZER_FILE, get_v2_checkpoint
 from runtime.system_registry import build_system_manifest
 
-inject_all_paths()
 
 
 def _v2_report_path(kind: str) -> Path:

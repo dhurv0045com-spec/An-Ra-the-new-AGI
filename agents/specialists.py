@@ -123,9 +123,9 @@ class MathSpecialist:
         task_description = task.get("prompt", task.get("expression", "")) if isinstance(task, dict) else str(task)
         expression = task.get("expression", task_description) if isinstance(task, dict) else task_description
         try:
-            bridge_dir = ROOT / "phase3" / "symbolic_bridge (45Q)"
+            bridge_dir = ROOT / "phase3" / "symbolic_bridge_45q"
             if str(bridge_dir) not in sys.path:
-                sys.path.insert(0, str(bridge_dir))
+                sys.path.append(str(bridge_dir))
             from math_solver import solve_equation
 
             result = solve_equation(expression)
@@ -139,7 +139,7 @@ class MathSpecialist:
             "task": task_description,
             "result": payload,
             "verified": verified,
-            "tool_used": "phase3/symbolic_bridge (45Q)/math_solver.py",
+            "tool_used": "phase3/symbolic_bridge_45q/math_solver.py",
             "time_taken": time.perf_counter() - start,
         }
 

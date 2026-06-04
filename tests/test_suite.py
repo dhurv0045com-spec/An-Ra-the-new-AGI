@@ -10,9 +10,8 @@ from typing import Callable, List, Tuple
 
 import pytest
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from anra_paths import DRIVE_DIR, ROOT, inject_all_paths, get_dataset_file, get_optimization_config
-inject_all_paths()
+sys.path.append(str(Path(__file__).resolve().parent.parent))
+from anra_paths import DRIVE_DIR, ROOT, get_dataset_file, get_optimization_config
 
 httpx = pytest.importorskip("httpx")
 uvicorn = pytest.importorskip("uvicorn")
@@ -304,7 +303,7 @@ def t21_agent_loop_initialization_test() -> Tuple[bool, str]:
     start = time.time()
     try:
         import importlib.util
-        mod_path = Path("phase2/agent_loop (45k)/agent_main.py")
+        mod_path = Path("phase2/agent_loop_45k/agent_main.py")
         spec = importlib.util.spec_from_file_location("agent_main_45k", mod_path)
         assert spec is not None and spec.loader is not None
         module = importlib.util.module_from_spec(spec)
@@ -337,7 +336,7 @@ def t22_agent_decision_loop_test() -> Tuple[bool, str]:
     start = time.time()
     try:
         import importlib.util
-        mod_path = Path("phase2/agent_loop (45k)/agent_main.py")
+        mod_path = Path("phase2/agent_loop_45k/agent_main.py")
         spec = importlib.util.spec_from_file_location("agent_main_45k", mod_path)
         assert spec is not None and spec.loader is not None
         module = importlib.util.module_from_spec(spec)

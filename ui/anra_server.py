@@ -15,11 +15,10 @@ from flask_cors import CORS
 
 REPO_PATH = Path(__file__).resolve().parents[1]
 if str(REPO_PATH) not in sys.path:
-    sys.path.insert(0, str(REPO_PATH))
+    sys.path.append(str(REPO_PATH))
 
-from anra_paths import DATASET_CANONICAL, DRIVE_DIR, V2_TOKENIZER_FILE, get_v2_checkpoint, inject_all_paths  # noqa: E402
+from anra_paths import DATASET_CANONICAL, DRIVE_DIR, V2_TOKENIZER_FILE, get_v2_checkpoint  # noqa: E402
 
-inject_all_paths()
 
 import torch  # noqa: E402
 from runtime.safe_load import safe_torch_load  # noqa: E402
