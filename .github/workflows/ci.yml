@@ -22,11 +22,10 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: pip
 
-      - name: Install core dependencies
+      - name: Install package and dependencies
         run: |
           pip install torch --index-url https://download.pytorch.org/whl/cpu
-          pip install numpy faiss-cpu pytest pytest-timeout
-          pip install -r requirements.txt
+          pip install -e ".[dev]"
 
       - name: Verify structure
         run: python scripts/verify_structure.py
