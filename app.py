@@ -7,12 +7,12 @@ import logging
 import time
 import traceback
 import uuid
-from collections import defaultdict, deque
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Deque, Dict, List
+from typing import Any, Dict, List
 
+import aiosqlite
 import httpx
 import uvicorn
 from fastapi import FastAPI, HTTPException, Request
@@ -38,11 +38,120 @@ _COLAB_DRIVE = DRIVE_SESSIONS
 _LOCAL_FALLBACK = Path(__file__).resolve().parent / "output" / "sessions"
 SESSION_DIR = _COLAB_DRIVE if DRIVE_DIR.parent.parent.exists() else _LOCAL_FALLBACK
 SESSION_DIR.mkdir(parents=True, exist_ok=True)
-SESSIONS: Dict[str, Deque[Dict[str, str]]] = defaultdict(lambda: deque(maxlen=40))
-SESSION_META: Dict[str, Dict[str, Any]] = {}
-RATE_LIMIT_STORE: Dict[str, Deque[float]] = defaultdict(deque)
 LOGGER = logging.getLogger("anra.api")
 logging.basicConfig(level=logging.INFO)
+
+
+class SQLiteSessionStore:
+    """Persistent session store backed by SQLite. Survives server restarts."""
+
+    def __init__(self, db_path: Path, max_history: int = 40) -> None:
+        self._path = db_path
+        self._max_history = max_history
+        self._path.parent.mkdir(parents=True, exist_ok=True)
+
+    async def initialize(self) -> None:
+        async with aiosqlite.connect(self._path) as db:
+            await db.execute(
+                """
+                CREATE TABLE IF NOT EXISTS sessions (
+                    id TEXT PRIMARY KEY,
+                    history TEXT NOT NULL DEFAULT '[]',
+                    meta TEXT NOT NULL DEFAULT '{}',
+                    created_at REAL NOT NULL,
+                    last_active REAL NOT NULL
+                )
+                """
+            )
+            await db.execute(
+                """
+                CREATE TABLE IF NOT EXISTS rate_limits (
+                    ip TEXT NOT NULL,
+                    ts REAL NOT NULL
+                )
+                """
+            )
+            await db.execute("CREATE INDEX IF NOT EXISTS idx_rate_ip ON rate_limits(ip)")
+            await db.commit()
+
+    async def get_history(self, session_id: str) -> list[dict]:
+        async with aiosqlite.connect(self._path) as db:
+            async with db.execute("SELECT history FROM sessions WHERE id = ?", (session_id,)) as cur:
+                row = await cur.fetchone()
+                return json.loads(row[0]) if row else []
+
+    async def get_meta(self, session_id: str) -> dict[str, Any]:
+        async with aiosqlite.connect(self._path) as db:
+            async with db.execute("SELECT meta FROM sessions WHERE id = ?", (session_id,)) as cur:
+                row = await cur.fetchone()
+                return json.loads(row[0]) if row else {}
+
+    async def save_history(self, session_id: str, history: list[dict]) -> None:
+        meta = await self.get_meta(session_id)
+        await self.save_session(session_id, history, meta)
+
+    async def save_session(self, session_id: str, history: list[dict], meta: dict[str, Any]) -> None:
+        trimmed = history[-self._max_history:]
+        now = time.time()
+        async with aiosqlite.connect(self._path) as db:
+            await db.execute(
+                """INSERT INTO sessions (id, history, meta, created_at, last_active)
+                   VALUES (?, ?, ?, ?, ?)
+                   ON CONFLICT(id) DO UPDATE SET
+                       history=excluded.history,
+                       meta=excluded.meta,
+                       last_active=excluded.last_active""",
+                (session_id, json.dumps(trimmed), json.dumps(meta), now, now),
+            )
+            await db.commit()
+
+    async def list_sessions(self) -> dict[str, dict[str, Any]]:
+        async with aiosqlite.connect(self._path) as db:
+            async with db.execute("SELECT id, history, meta FROM sessions ORDER BY last_active DESC") as cur:
+                rows = await cur.fetchall()
+        sessions: dict[str, dict[str, Any]] = {}
+        for session_id, history_json, meta_json in rows:
+            sessions[session_id] = {
+                "history": json.loads(history_json),
+                "metadata": json.loads(meta_json),
+            }
+        return sessions
+
+    async def delete_session(self, session_id: str) -> None:
+        async with aiosqlite.connect(self._path) as db:
+            await db.execute("DELETE FROM sessions WHERE id = ?", (session_id,))
+            await db.commit()
+
+    async def count_sessions(self) -> int:
+        async with aiosqlite.connect(self._path) as db:
+            async with db.execute("SELECT COUNT(*) FROM sessions") as cur:
+                row = await cur.fetchone()
+                return int(row[0]) if row else 0
+
+    async def check_rate_limit(
+        self,
+        ip: str,
+        window_seconds: float = 60.0,
+        max_requests: int = 30,
+    ) -> bool:
+        """Returns True if the request is allowed, False if rate limited."""
+        cutoff = time.time() - window_seconds
+        async with aiosqlite.connect(self._path) as db:
+            await db.execute("DELETE FROM rate_limits WHERE ts < ?", (cutoff,))
+            async with db.execute(
+                "SELECT COUNT(*) FROM rate_limits WHERE ip = ? AND ts > ?", (ip, cutoff)
+            ) as cur:
+                row = await cur.fetchone()
+                count = row[0] if row else 0
+            if count >= max_requests:
+                await db.commit()
+                return False
+            await db.execute("INSERT INTO rate_limits (ip, ts) VALUES (?, ?)", (ip, time.time()))
+            await db.commit()
+            return True
+
+
+SESSION_STORE = SQLiteSessionStore(SESSION_DIR / "sessions.db", max_history=40)
 
 
 class ModelAdapter:
