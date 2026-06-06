@@ -221,7 +221,7 @@ class MasterSystem:
         """Initialize Phase 3 Identity Injector — no GPU required."""
         print("  [Phase 3] Initializing Identity Injector (45N)...")
         try:
-            from identity_injector import IdentityInjector
+            from phase3.identity_45n.identity_injector import IdentityInjector
             from anra_paths import get_identity_file as _get_id_file
             identity_file = _get_id_file()
             self.identity = IdentityInjector(identity_file=identity_file, n_anchors=8)
@@ -251,7 +251,7 @@ class MasterSystem:
 
         # Fall back to NumPy-native implementation (always works)
         try:
-            from ouroboros_numpy import OuroborosNumpy
+            from phase3.ouroboros_45o.ouroboros_numpy import OuroborosNumpy
             if self.llm:
                 self.ouroboros = OuroborosNumpy(
                     generate_fn=self.llm.generate,
@@ -300,7 +300,7 @@ class MasterSystem:
         """Initialize Phase 3 Sovereignty Daemon (45R) for nightly self-audit."""
         print("  [Phase 3] Initializing Sovereignty Daemon (45R)...")
         try:
-            from sovereignty_bridge import SovereigntyBridge
+            from phase3.sovereignty_45r.sovereignty_bridge import SovereigntyBridge
             self.sovereignty = SovereigntyBridge(
                 target_path=PROJECT_ROOT,
                 data_dir=Path(__file__).parent / "sovereignty_data",

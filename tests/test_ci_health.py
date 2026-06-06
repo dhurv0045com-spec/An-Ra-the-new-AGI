@@ -57,7 +57,11 @@ def test_verify_structure_exits_zero():
 
 def test_no_sys_path_manipulation_in_main_package():
     violations = []
-    search_dirs = ["anra", "identity", "memory", "training", "inference", "app.py", "generate.py", "anra.py"]
+    search_dirs = [
+        "anra", "identity", "memory", "training", "inference",
+        "app.py", "generate.py", "anra.py",
+        "phase2", "phase3", "scripts", "tokenizer", "runtime",
+    ]
     for target in search_dirs:
         path = REPO / target
         if path.is_file():
@@ -72,6 +76,31 @@ def test_no_sys_path_manipulation_in_main_package():
                     if "deprecated" not in str(f) and "#" not in line.lstrip()[:3]:
                         violations.append(f"{f.relative_to(REPO)}:{i}: {line.strip()}")
     assert not violations, "sys.path manipulation found in main package files:\n" + "\n".join(violations)
+
+
+def test_no_unauthorized_wildcard_shims_at_root():
+    forbidden = ["identity_injector.py", "ouroboros_numpy.py", "sovereignty_bridge.py"]
+    present = [f for f in forbidden if (REPO / f).exists()]
+    assert not present, (
+        f"Unauthorized wildcard shim files exist at root:\n"
+        + "\n".join(present)
+        + "\nDelete them with: git rm " + " ".join(present)
+    )
+
+
+def test_pyproject_has_no_local_modules_as_deps():
+    import tomllib
+    with open(REPO / "pyproject.toml", "rb") as f:
+        data = tomllib.load(f)
+    all_deps = data["project"].get("dependencies", [])
+    for dep in all_deps:
+        pkg_name = dep.split(">=")[0].split("==")[0].split("<")[0].strip()
+        local_file = REPO / f"{pkg_name}.py"
+        assert not local_file.exists(), (
+            f"'{pkg_name}' is listed as a PyPI dependency in pyproject.toml "
+            f"but it is a local file: {local_file}. "
+            f"Remove it from dependencies."
+        )
 
 
 def test_config_base_yaml_loads_cleanly():

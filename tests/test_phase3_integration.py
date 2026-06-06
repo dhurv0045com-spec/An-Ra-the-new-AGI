@@ -47,7 +47,7 @@ class TestIdentityInjector:
     """45N — Identity Injector (CPU-only, no training required)."""
 
     def setup_method(self):
-        from identity_injector import IdentityInjector
+        from phase3.identity_45n.identity_injector import IdentityInjector
         # Use the real identity file if available, else let it use fallback
         from anra_paths import get_identity_file
         identity_file = get_identity_file()
@@ -102,7 +102,7 @@ class TestOuroborosNumpy:
     """45O — Ouroboros NumPy (CPU, no torch required)."""
 
     def setup_method(self):
-        from ouroboros_numpy import OuroborosNumpy
+        from phase3.ouroboros_45o.ouroboros_numpy import OuroborosNumpy
 
         call_log = []
 
@@ -137,13 +137,13 @@ class TestOuroborosNumpy:
 
     def test_adaptive_simple_query_uses_fewer_passes(self):
         """Simple queries should use 1 pass."""
-        from ouroboros_numpy import _estimate_complexity
+        from phase3.ouroboros_45o.ouroboros_numpy import _estimate_complexity
         n = _estimate_complexity("hi")
         assert n == 1, f"Expected 1 pass for 'hi', got {n}"
 
     def test_adaptive_complex_query_uses_more_passes(self):
         """Complex queries should use 3 passes."""
-        from ouroboros_numpy import _estimate_complexity
+        from phase3.ouroboros_45o.ouroboros_numpy import _estimate_complexity
         n = _estimate_complexity(
             "Prove that the sum of two prime numbers greater than 2 is always even "
             "using mathematical induction and derive the implications for cryptography."
@@ -152,7 +152,7 @@ class TestOuroborosNumpy:
 
     def test_disabled_mode_passthrough(self):
         """When disabled, recursive_generate should call generate once."""
-        from ouroboros_numpy import OuroborosNumpy
+        from phase3.ouroboros_45o.ouroboros_numpy import OuroborosNumpy
         calls = []
         ouro = OuroborosNumpy(
             generate_fn=lambda p, **kw: "response",
@@ -273,7 +273,7 @@ class TestSovereigntyBridge:
     def setup_method(self):
         try:
             import psutil  # noqa: F401
-            from sovereignty_bridge import SovereigntyBridge
+            from phase3.sovereignty_45r.sovereignty_bridge import SovereigntyBridge
             import tempfile
             self.data_dir = Path(tempfile.mkdtemp())
             # Don't actually start the daemon in tests
@@ -470,18 +470,18 @@ class TestImports:
     """Verify all Phase 3 modules import without errors."""
 
     def test_import_identity_injector(self):
-        import identity_injector
-        assert hasattr(identity_injector, "IdentityInjector")
-        assert hasattr(identity_injector, "get_identity_injector")
+        from phase3.identity_45n.identity_injector import IdentityInjector, get_identity_injector
+        assert IdentityInjector is not None
+        assert get_identity_injector is not None
 
     def test_import_ouroboros_numpy(self):
-        import ouroboros_numpy
-        assert hasattr(ouroboros_numpy, "OuroborosNumpy")
-        assert hasattr(ouroboros_numpy, "_estimate_complexity")
+        from phase3.ouroboros_45o.ouroboros_numpy import OuroborosNumpy, _estimate_complexity
+        assert OuroborosNumpy is not None
+        assert _estimate_complexity is not None
 
     def test_import_sovereignty_bridge(self):
-        import sovereignty_bridge
-        assert hasattr(sovereignty_bridge, "SovereigntyBridge")
+        from phase3.sovereignty_45r.sovereignty_bridge import SovereigntyBridge
+        assert SovereigntyBridge is not None
 
     def test_import_ghost_memory_available(self):
         """ghost_memory requires numpy — check availability."""

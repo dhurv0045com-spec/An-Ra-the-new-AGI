@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 try:
     from anra_paths import get_identity_file as _get_identity_file
-    from identity_injector import IdentityInjector as _IdentityInjector
+    from phase3.identity_45n.identity_injector import IdentityInjector as _IdentityInjector
     _identity_file = _get_identity_file()
     _IDENTITY_INJECTOR = (
         _IdentityInjector(identity_file=_identity_file)

@@ -29,7 +29,7 @@ from three cognitive angles and synthesizing the best answer — exactly the
 spirit of the Ouroboros architecture.
 
 Usage:
-    from ouroboros_numpy import OuroborosNumpy
+    from phase3.ouroboros_45o.ouroboros_numpy import OuroborosNumpy
 
     ouro = OuroborosNumpy(generate_fn=llm_bridge.generate)
     response = ouro.recursive_generate("What is consciousness?")
