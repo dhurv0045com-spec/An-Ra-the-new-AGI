@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import sys
+
 __version__ = "0.3.0"
 
 # Core
@@ -23,8 +25,14 @@ from anra.core.registry import (
     Registry,
 )
 
+def _anra_brain_import_in_progress() -> bool:
+    module = sys.modules.get("anra_brain")
+    return module is not None and not hasattr(module, "CausalTransformerV2")
+
+
 # Trigger registrations by importing subpackages.
-import anra.core.model  # noqa: F401
+if not _anra_brain_import_in_progress():
+    import anra.core.model  # noqa: F401
 import anra.identity.hal  # noqa: F401
 import anra.memory.router  # noqa: F401
 

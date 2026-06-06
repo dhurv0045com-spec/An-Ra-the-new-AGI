@@ -22,11 +22,12 @@ Phase 3 specific:
     python anra.py --sovereignty-run       # Trigger improvement pipeline now
 """
 
-import sys
 import os
 import json
 import argparse
 import subprocess
+import sys
+import importlib
 from pathlib import Path
 from typing import Callable
 from anra_paths import get_agent_workspace, ensure_dirs
@@ -38,18 +39,8 @@ ensure_dirs()
 os.environ.setdefault("AGENT_FILE_ROOT", str(get_agent_workspace()))
 PHASE2_45M   = PROJECT_ROOT / "phase2" / "master_system_45m"
 
-# ── Add Phase 3 paths to sys.path for direct imports ─────────────────────────
-for p3 in ["identity_45n", "ouroboros_45o", "ghost_memory_45p", "symbolic_bridge_45q", "sovereignty_45r"]:
-    p = PROJECT_ROOT / "phase3" / p3
-    if str(p) not in sys.path:
-        sys.path.append(str(p))
-
-# Set working directory to 45M so all relative state/ paths work
-# Add 45M to path so system.py imports work
-sys.path.append(str(PHASE2_45M))
-
 # ── Delegate to the master system ────────────────────────────────────────────
-from system import MasterSystem, build_parser, _run_chat, Dashboard, ControlAPI
+from phase2.master_system_45m.system import MasterSystem, build_parser, _run_chat, Dashboard, ControlAPI
 
 
 def _safe_console(text: object) -> str:
@@ -70,15 +61,15 @@ def _phase3_status(system: MasterSystem):
     print(f"{'='*60}\n")
 
     modules = [
-        ("45N — Identity Injector", "identity_injector"),
-        ("45O — Ouroboros Reasoning", "ouroboros_numpy"),
-        ("45P — Ghost State Memory", "ghost_memory"),
-        ("45Q — Symbolic Logic Bridge", "symbolic_bridge"),
-        ("45R — Sovereignty Daemon", "sovereignty_bridge"),
+        ("45N — Identity Injector", "phase3.identity_45n.identity_injector"),
+        ("45O — Ouroboros Reasoning", "phase3.ouroboros_45o.ouroboros_numpy"),
+        ("45P — Ghost State Memory", "phase3.ghost_memory_45p.ghost_memory"),
+        ("45Q — Symbolic Logic Bridge", "phase3.symbolic_bridge_45q.symbolic_bridge"),
+        ("45R — Sovereignty Daemon", "phase3.sovereignty_45r.sovereignty_bridge"),
     ]
     for name, mod_name in modules:
         try:
-            mod = __import__(mod_name)
+            mod = importlib.import_module(mod_name)
             info = mod.health_check() if hasattr(mod, "health_check") else {"status": "degraded"}
             status = info.get("status", "degraded")
         except Exception:
@@ -93,8 +84,7 @@ def _symbolic_query(query: str):
     """Run a direct 45Q symbolic query (math/logic/code)."""
     print(f"\n[ Symbolic Bridge Query ]\nQ: {query}\n")
     try:
-        sys.path.append(str(PROJECT_ROOT / "phase3" / "symbolic_bridge_45q"))
-        from symbolic_bridge import query as sym_query
+        from phase3.symbolic_bridge_45q.symbolic_bridge import query as sym_query
         result = sym_query(query)
         print(f"Mode:       {_safe_console(result.mode)}")
         print(f"Verdict:    {_safe_console(result.verdict)}")

@@ -1,10 +1,5 @@
 from __future__ import annotations
 
-import sys
-from pathlib import Path
-
-sys.path.append(str(Path(__file__).resolve().parent.parent))
-
 from anra_paths import DATASET, ROOT
 from runtime.system_registry import component_registry, component_status, missing_required_components
 
@@ -25,14 +20,19 @@ def main() -> int:
     _ensure_v2_tokenizer()
     rows = [component_status(component) for component in component_registry()]
     missing = missing_required_components(rows)
+    optional_missing = []
     if not DATASET.exists():
-        missing.append(str(DATASET.relative_to(ROOT)))
+        optional_missing.append(str(DATASET.relative_to(ROOT)))
     if missing:
-        print("Missing required files:")
+        print("ERROR: Missing required structural components:")
         for item in missing:
-            print(f"- {item}")
+            print(f"  - {item}")
         return 1
-    print(f"Structure OK - {len(rows)} components verified")
+    if optional_missing:
+        print("INFO: Optional artifacts not present (expected in CI):")
+        for item in optional_missing:
+            print(f"  - {item}")
+    print(f"Structure OK — {len(rows)} components verified")
     return 0
 
 

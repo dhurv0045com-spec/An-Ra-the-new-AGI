@@ -307,8 +307,7 @@ class EvalSuite:
 # ============================================================
 
 if __name__ == '__main__':
-    import sys, os
-    sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'finetune'))
+    import os
     from pipeline import BaseModelStub, SimpleTokenizer
 
     print("=" * 60)

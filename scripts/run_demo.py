@@ -2,11 +2,9 @@ from __future__ import annotations
 
 import json
 import re
-import sys
 from pathlib import Path
 from typing import Any
 
-sys.path.append(str(Path(__file__).resolve().parent.parent))
 
 from anra_paths import ROOT, STATE_DIR, get_v2_checkpoint
 

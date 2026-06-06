@@ -36,8 +36,6 @@ from datetime import datetime, timezone
 
 # ── Bootstrap: ensure sovereignty package is importable ───────────────────────
 _THIS_DIR = pathlib.Path(__file__).parent
-if str(_THIS_DIR.parent) not in sys.path:
-    sys.path.append(str(_THIS_DIR.parent))
 
 from sovereignty.config import Config
 from sovereignty.logger import get_logger, setup_logging, shutdown_logging

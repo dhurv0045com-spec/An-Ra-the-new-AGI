@@ -19,7 +19,6 @@ import tempfile
 import unittest
 from pathlib import Path
 
-sys.path.append(os.path.dirname(__file__))
 
 # Set workspace to a temp dir for tests
 _TEST_WS = Path(tempfile.mkdtemp())

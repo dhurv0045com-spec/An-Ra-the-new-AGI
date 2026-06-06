@@ -30,7 +30,7 @@ Usage:
     python system.py --test
 """
 
-import sys, os, argparse, json, time, traceback
+import os, argparse, json, time, traceback
 from pathlib import Path
 from typing import Optional, Dict, Any
 
@@ -38,26 +38,13 @@ from typing import Optional, Dict, Any
 PHASE2_ROOT  = Path(__file__).resolve().parent.parent   # phase2/
 PROJECT_ROOT = PHASE2_ROOT.parent                        # An-Ra/
 
-sys.path.append(str(Path(__file__).parent))           # 45M/
-sys.path.append(str(PHASE2_ROOT / "agent_loop_45k"))             # Agent Loop
-sys.path.append(str(PHASE2_ROOT / "memory_45j"))             # Memory
-sys.path.append(str(PHASE2_ROOT / "fine_tuning_45i"))             # Fine-tuning
-sys.path.append(str(PHASE2_ROOT / "self_improvement_45l"))             # Self-improvement
-sys.path.append(str(PROJECT_ROOT / "core"))           # Phase 1 model
-sys.path.append(str(PROJECT_ROOT / "config"))         # configs
-sys.path.append(str(PROJECT_ROOT))                    # project root
-sys.path.append(str(PROJECT_ROOT / "phase3" / "ouroboros_45o")) # Ouroboros (torch + numpy)
-sys.path.append(str(PROJECT_ROOT / "phase3" / "ghost_memory_45p")) # Ghost Memory
-sys.path.append(str(PROJECT_ROOT / "phase3" / "identity_45n")) # Identity Injector
-sys.path.append(str(PROJECT_ROOT / "phase3" / "symbolic_bridge_45q")) # Symbolic Logic Bridge
-sys.path.append(str(PROJECT_ROOT / "phase3" / "sovereignty_45r")) # Sovereignty Daemon
 
 # ── 45M internal subsystems ────────────────────────────────────────────────
 try:
-    from autonomy.engine import ContinuousEngine
-    from autonomy.goals import GoalManager, Priority
-    from autonomy.proactive import ProactiveEngine
-    from autonomy.decisions import DecisionFramework
+    from phase2.master_system_45m.autonomy.engine import ContinuousEngine
+    from phase2.master_system_45m.autonomy.goals import GoalManager, Priority
+    from phase2.master_system_45m.autonomy.proactive import ProactiveEngine
+    from phase2.master_system_45m.autonomy.decisions import DecisionFramework
     _AUTONOMY_OK = True
 except Exception as _e:
     _AUTONOMY_OK = False
@@ -65,7 +52,7 @@ except Exception as _e:
     print(f"  [45M] autonomy unavailable: {_e}")
 
 try:
-    from scale.pipeline import ContinuousLearning, DistributedTrainer, ScaleManager
+    from phase2.master_system_45m.scale.pipeline import ContinuousLearning, DistributedTrainer, ScaleManager
     _SCALE_OK = True
 except Exception as _e:
     _SCALE_OK = False
@@ -73,7 +60,7 @@ except Exception as _e:
     print(f"  [45M] scale.pipeline unavailable: {_e}")
 
 try:
-    from personalization.models import OwnerModeler, AdaptiveBehavior, PersonalKnowledgeBase
+    from phase2.master_system_45m.personalization.models import OwnerModeler, AdaptiveBehavior, PersonalKnowledgeBase
     _PERSONALIZATION_OK = True
 except Exception as _e:
     _PERSONALIZATION_OK = False
@@ -81,7 +68,7 @@ except Exception as _e:
     print(f"  [45M] personalization unavailable: {_e}")
 
 try:
-    from safety.safety import SafetyLayer, AuditLogger
+    from phase2.master_system_45m.safety.safety import SafetyLayer, AuditLogger
     _SAFETY_OK = True
 except Exception as _e:
     _SAFETY_OK = False
@@ -89,7 +76,7 @@ except Exception as _e:
     print(f"  [45M] safety unavailable: {_e}")
 
 try:
-    from control.control import ControlInterface, Dashboard, ControlAPI
+    from phase2.master_system_45m.control.control import ControlInterface, Dashboard, ControlAPI
     _CONTROL_OK = True
 except Exception as _e:
     _CONTROL_OK = False

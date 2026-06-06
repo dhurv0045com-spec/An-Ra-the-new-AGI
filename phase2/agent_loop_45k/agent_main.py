@@ -35,8 +35,6 @@ from typing import Any, Callable, Dict, List, Optional
 from engine.metric_bus import instrument
 
 _HERE = Path(__file__).resolve().parent
-if str(_HERE) not in sys.path:
-    sys.path.append(str(_HERE))
 
 _IMPORT_ERRORS: List[str] = []
 

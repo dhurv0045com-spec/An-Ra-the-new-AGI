@@ -7,7 +7,6 @@ import math
 import os
 import shutil
 import signal
-import sys
 import threading
 import time
 from pathlib import Path
@@ -16,7 +15,6 @@ import torch
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
 
-sys.path.append(str(Path(__file__).resolve().parent.parent))
 
 from anra_paths import DRIVE_V2_CHECKPOINTS, REGRET_STATE, ROOT, V2_TOKENIZER_FILE
 from engine.eval_harness import EvalHarness, EvalResult

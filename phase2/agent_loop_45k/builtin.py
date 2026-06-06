@@ -26,7 +26,10 @@ import textwrap
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from registry import ToolResult, ToolDefinition, SafetyLevel, ToolRegistry
+try:
+    from .registry import ToolResult, ToolDefinition, SafetyLevel, ToolRegistry
+except ImportError:
+    from registry import ToolResult, ToolDefinition, SafetyLevel, ToolRegistry
 
 logger = logging.getLogger(__name__)
 

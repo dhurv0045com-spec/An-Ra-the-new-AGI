@@ -218,6 +218,7 @@ class CausalTransformerV2(nn.Module):
         self.use_layer_temperature_bias = bool(use_layer_temperature_bias)
         self.use_hal = bool(use_hal)
         self.token_embedding_table = nn.Embedding(vocab_size, n_embd)
+        self.token_embedding = self.token_embedding_table
         self.blocks = nn.ModuleList([BlockV2(n_embd, n_head, n_kv_head=self.n_kv_head, eps=rms_norm_eps, dropout=dropout, base_seq_len=base_seq_len, target_seq_len=target_seq_len) for _ in range(n_layer)])
         self.mod_routers = nn.ModuleDict({str(i): MoDRouter(n_embd) for i in mod_layers})
         self.norm_f = RMSNorm(n_embd, eps=rms_norm_eps)
@@ -314,6 +315,29 @@ class CausalTransformerV2(nn.Module):
             bsz, time_steps, channels = logits.shape
             loss = F.cross_entropy(logits.view(bsz * time_steps, channels), targets.view(bsz * time_steps), ignore_index=self.pad_token_id)
         return logits, loss
+
+    @torch.no_grad()
+    def generate(
+        self,
+        idx: torch.Tensor,
+        max_new_tokens: int,
+        *,
+        temperature: float = 1.0,
+        top_k: int | None = None,
+    ) -> torch.Tensor:
+        self.clear_kv_cache()
+        for _ in range(max_new_tokens):
+            idx_cond = idx[:, -self.block_size :]
+            logits, _ = self(idx_cond)
+            logits = logits[:, -1, :] / max(float(temperature), 1e-6)
+            if top_k is not None:
+                values, _ = torch.topk(logits, min(int(top_k), logits.size(-1)))
+                logits = logits.masked_fill(logits < values[:, [-1]], float("-inf"))
+            probs = F.softmax(logits, dim=-1)
+            next_idx = torch.multinomial(probs, num_samples=1)
+            idx = torch.cat((idx, next_idx), dim=1)
+        self.clear_kv_cache()
+        return idx
 
 
 CausalTransformer = CausalTransformerV2

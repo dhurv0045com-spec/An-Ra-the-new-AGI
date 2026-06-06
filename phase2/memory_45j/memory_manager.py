@@ -5,7 +5,6 @@ Provides the clean interface used by the inference pipeline.
 """
 
 import os
-import sys
 import json
 import time
 import argparse
@@ -14,7 +13,6 @@ from typing import Optional, List, Dict, Any
 
 # ── Path setup ────────────────────────────────
 ROOT = Path(__file__).parent
-sys.path.append(str(ROOT))
 
 from store import MemoryStore, Memory, MemoryType, ImportanceLevel, IMPORTANCE_SCORES
 from vectors import VectorStore, TFIDFEmbedder, get_embedder

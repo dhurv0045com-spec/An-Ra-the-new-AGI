@@ -224,8 +224,6 @@ class RLHFTrainer:
 # ============================================================
 
 if __name__ == '__main__':
-    import sys
-    sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'finetune'))
     from pipeline     import BaseModelStub, SimpleTokenizer
     from reward_model import RewardModel
 

@@ -8,8 +8,6 @@ import asyncio
 
 # Add 45M to path to import llm_bridge
 m_path = Path(__file__).resolve().parent / "master_system_45m"
-if str(m_path) not in sys.path:
-    sys.path.append(str(m_path))
 
 try:
     from llm_bridge import get_llm_bridge, get_model_fn

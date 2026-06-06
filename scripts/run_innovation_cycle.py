@@ -3,13 +3,10 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import sys
 import time
 from pathlib import Path
 
-sys.path.append(str(Path(__file__).resolve().parent.parent))
-
-from anra_paths import ROOT
+from anra_paths import DATASET, ROOT
 from innovation.gap_scanner import scan
 from innovation.action_queue import queue_actions
 from innovation.schema import CapabilityGap, Hypothesis
@@ -77,4 +74,9 @@ def main() -> None:
 
 
 if __name__ == "__main__":
+    import os
+
+    if os.environ.get("CI") and not DATASET.exists():
+        print("CI environment: skipping innovation cycle (no training data)")
+        raise SystemExit(0)
     main()

@@ -44,8 +44,6 @@ from datetime import datetime
 
 # ── Bootstrap ─────────────────────────────────────────────────────────────────
 _THIS_DIR = pathlib.Path(__file__).parent
-if str(_THIS_DIR.parent) not in sys.path:
-    sys.path.append(str(_THIS_DIR.parent))
 
 
 def _print(msg: str) -> None:

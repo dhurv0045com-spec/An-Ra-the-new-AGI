@@ -1,7 +1,6 @@
 """Quick smoke test -- verify MasterSystem can be created, started, and queried."""
 import sys, json
 sys.stdout.reconfigure(encoding='utf-8')
-sys.path.append(".")
 
 from system import MasterSystem
 

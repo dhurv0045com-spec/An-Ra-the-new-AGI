@@ -5,12 +5,10 @@ import importlib.util
 import json
 import logging
 import shutil
-import sys
 from collections import Counter
 from pathlib import Path
 from typing import Any, Iterable
 
-sys.path.append(str(Path(__file__).resolve().parent.parent))
 
 from anra_paths import ROOT, TRAINING_DATA_DIR
 

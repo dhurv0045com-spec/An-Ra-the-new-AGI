@@ -11,9 +11,6 @@ import sys, os, tempfile, json
 import numpy as np
 
 ROOT = os.path.dirname(__file__)
-sys.path.append(os.path.join(ROOT, 'finetune'))
-sys.path.append(os.path.join(ROOT, 'alignment'))
-sys.path.append(os.path.join(ROOT, 'evaluation'))
 
 from finetune.lora            import LoRALayer, LoRAManager
 from finetune.dataset_builder import DatasetBuilder

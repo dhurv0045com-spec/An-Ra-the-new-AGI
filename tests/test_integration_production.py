@@ -78,6 +78,7 @@ def test_config_validates_model_fields(tmp_path):
     cfg_path.write_text(
         "experiment_name: ci_test\nmodel:\n  type: causal_transformer_v2\n"
         "  vocab_size: 256\n  n_embd: 64\n  n_head: 4\n  n_layer: 2\n  block_size: 64\n"
+        "training:\n  seq_len: 64\n"
     )
     cfg = AnRaConfig.from_yaml(cfg_path)
     assert cfg.model.vocab_size == 256
@@ -85,15 +86,17 @@ def test_config_validates_model_fields(tmp_path):
 
 
 def test_no_archived_imports_in_live_tests(tmp_path):
-    result = subprocess.run(
-        [
-            "grep",
-            "-r",
-            "from decoder import\\|from encoder import\\|from model import LanguageModel",
-            "tests/",
-        ],
-        capture_output=True,
-        text=True,
-        cwd=pathlib.Path(__file__).resolve().parents[1],
+    root = pathlib.Path(__file__).resolve().parents[1]
+    offenders = []
+    archived_imports = (
+        "from decoder import",
+        "from encoder import",
+        "from model import LanguageModel",
     )
-    assert not result.stdout.strip(), f"Archived imports in live tests:\n{result.stdout}"
+    for path in (root / "tests").rglob("*.py"):
+        if path == pathlib.Path(__file__).resolve():
+            continue
+        text = path.read_text(encoding="utf-8", errors="replace")
+        if any(pattern in text for pattern in archived_imports):
+            offenders.append(str(path.relative_to(root)))
+    assert not offenders, f"Archived imports in live tests:\n{chr(10).join(offenders)}"

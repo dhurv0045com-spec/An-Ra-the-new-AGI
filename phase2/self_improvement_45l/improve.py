@@ -23,21 +23,13 @@ _HERE = Path(__file__).resolve().parent
 _PHASE2 = _HERE.parent
 _ROOT = _PHASE2.parent
 
-for _p in [
-    str(_HERE),
-    str(_PHASE2 / "master_system_45m"),
-    str(_ROOT),
-]:
-    if _p not in sys.path:
-        sys.path.append(_p)
-
-from tools.dynamic.creator       import DynamicToolCreator, ToolOptimizer, ToolSandbox
-from tools.connectors.connectors  import ConnectorRegistry
-from self_improvement.engine      import (
+from phase2.self_improvement_45l.tools.dynamic.creator import DynamicToolCreator, ToolOptimizer, ToolSandbox
+from phase2.self_improvement_45l.tools.connectors.connectors import ConnectorRegistry
+from phase2.self_improvement_45l.self_improvement.engine import (
     OutputEvaluator, PromptOptimizer, FailureAnalyzer,
     SkillLibrary, SelfTrainer
 )
-from dashboard.dashboard import (
+from phase2.self_improvement_45l.dashboard.dashboard import (
     MetricsCollector, AlertSystem, WeeklyReporter, TerminalDashboard
 )
 

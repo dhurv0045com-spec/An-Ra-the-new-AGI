@@ -41,42 +41,24 @@ def _audit(action: str, detail: str, success: bool) -> None:
 
 
 def _file_tool_call(instruction: str) -> dict[str, Any]:
-    import sys
-    from pathlib import Path as P
-
-    agent_dir = P(__file__).resolve().parent.parent / "phase2" / "agent_loop_45k"
-    if str(agent_dir) not in sys.path:
-        sys.path.append(str(agent_dir))
-    from builtin import file_manager
-    from registry import ToolResult
+    from phase2.agent_loop_45k.builtin import file_manager
+    from phase2.agent_loop_45k.registry import ToolResult
 
     result: ToolResult = file_manager(instruction)
     return result.to_dict()
 
 
 def _os_tool_call(instruction: str) -> dict[str, Any]:
-    import sys
-    from pathlib import Path as P
-
-    agent_dir = P(__file__).resolve().parent.parent / "phase2" / "agent_loop_45k"
-    if str(agent_dir) not in sys.path:
-        sys.path.append(str(agent_dir))
-    from builtin import os_action
-    from registry import ToolResult
+    from phase2.agent_loop_45k.builtin import os_action
+    from phase2.agent_loop_45k.registry import ToolResult
 
     result: ToolResult = os_action(instruction)
     return result.to_dict()
 
 
 def _cad_tool_call(instruction: str) -> dict[str, Any]:
-    import sys
-    from pathlib import Path as P
-
-    agent_dir = P(__file__).resolve().parent.parent / "phase2" / "agent_loop_45k"
-    if str(agent_dir) not in sys.path:
-        sys.path.append(str(agent_dir))
-    from builtin import cad_generate
-    from registry import ToolResult
+    from phase2.agent_loop_45k.builtin import cad_generate
+    from phase2.agent_loop_45k.registry import ToolResult
 
     result: ToolResult = cad_generate(instruction)
     return result.to_dict()

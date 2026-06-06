@@ -8,7 +8,7 @@ continuous fine-tuning, catastrophic forgetting prevention,
 domain adaptation, and model scaling recommendations.
 """
 
-import json, uuid, time, threading, sqlite3, hashlib, logging, sys
+import json, uuid, time, threading, sqlite3, hashlib, logging
 from datetime import datetime, timezone
 from dataclasses import dataclass, asdict, field
 from typing import Optional, List, Dict, Any, Tuple
@@ -401,7 +401,6 @@ class DistributedTrainer:
             if examples:
                 try:
                     # Try to import real training infrastructure from 45I
-                    sys.path.append(str(FINE_TUNING_DIR))
                     from finetune.pipeline import FineTuner, SimpleTokenizer
                     
                     # Get the singleton LLM bridge

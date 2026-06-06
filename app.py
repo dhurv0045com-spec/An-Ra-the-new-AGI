@@ -21,7 +21,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
-from anra_paths import MEMORY_DB_DIR, ensure_dirs
+from anra_paths import DRIVE_ROOT, DRIVE_SESSIONS, MEMORY_DB_DIR, ensure_dirs
 
 ensure_dirs()
 
@@ -35,12 +35,7 @@ from runtime.hal_telemetry import read_hal_state
 
 START_TIME = time.time()
 _LOCAL_FALLBACK = Path(__file__).resolve().parent / "output" / "sessions"
-_DRIVE_AVAILABLE = __import__("pathlib").Path("/content/drive/MyDrive").exists()
-SESSION_DIR = (
-    __import__("pathlib").Path("/content/drive/MyDrive/AnRa/sessions")
-    if _DRIVE_AVAILABLE
-    else _LOCAL_FALLBACK
-)
+SESSION_DIR = DRIVE_SESSIONS if DRIVE_ROOT.exists() else _LOCAL_FALLBACK
 SESSION_DIR.mkdir(parents=True, exist_ok=True)
 LOGGER = logging.getLogger("anra.api")
 logging.basicConfig(level=logging.INFO)
@@ -509,6 +504,7 @@ async def sessions_route():
 
 @app.get("/health")
 @app.get("/status")
+@app.options("/health")
 async def health_route():
     info = ADAPTER.info or await run_in_threadpool(get_model_info)
     return {

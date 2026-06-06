@@ -32,8 +32,6 @@ from datetime import datetime
 
 # ── Bootstrap ─────────────────────────────────────────────────────────────────
 _THIS_DIR = pathlib.Path(__file__).parent
-if str(_THIS_DIR.parent) not in sys.path:
-    sys.path.append(str(_THIS_DIR.parent))
 
 # ── Colour helpers (ANSI, falls back gracefully on Windows without VT) ─────────
 _RESET  = "\033[0m"

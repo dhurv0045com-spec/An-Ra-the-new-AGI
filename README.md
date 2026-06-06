@@ -21,8 +21,15 @@ Every component must be registered, switchable, measurable, reportable, and test
 **First command after clone:**
 
 ```bash
-python -m pip install -r requirements.txt
-python anra.py --report
+# Install the package and all dependencies
+pip install torch --index-url https://download.pytorch.org/whl/cpu
+pip install -e ".[dev]"
+
+# Verify structure
+python scripts/verify_structure.py
+
+# Run tests
+python -m pytest tests/ -m "not gpu" -q
 ```
 
 Green `19/19` = the organism’s organs are present. Trained weights may still be missing — see [Artifacts](#artifacts).

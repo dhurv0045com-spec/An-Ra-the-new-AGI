@@ -389,8 +389,6 @@ def train_lora(
     Returns:
         dict with final_loss, steps, adapter_path, param_counts
     """
-    import sys
-    sys.path.append(str(Path(__file__).parent.parent.parent))
     from myai_v2 import cross_entropy_loss, TextDataset, cosine_lr_schedule, softmax
 
     # Build config and adapter
@@ -492,8 +490,6 @@ def train_lora(
 
 def demo_lora():
     """Show LoRA working end-to-end on a small model."""
-    import sys
-    sys.path.append(str(Path(__file__).parent.parent.parent))
     from myai_v2 import TransformerLM, Tokenizer, CORPUS, generate
 
     print("\n╔══════════════════════════════════════════╗")

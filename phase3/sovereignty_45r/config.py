@@ -17,10 +17,6 @@ import types as _types
 # Ensure sovereignty package is importable in legacy script execution.
 _THIS_DIR = _pathlib.Path(__file__).resolve().parent
 _PHASE3_DIR = _THIS_DIR.parent
-if str(_PHASE3_DIR) not in sys.path:
-    sys.path.append(str(_PHASE3_DIR))
-if str(_THIS_DIR) not in sys.path:
-    sys.path.append(str(_THIS_DIR))
 if "sovereignty" not in sys.modules:
     _pkg = _types.ModuleType("sovereignty")
     _pkg.__path__ = [str(_THIS_DIR)]

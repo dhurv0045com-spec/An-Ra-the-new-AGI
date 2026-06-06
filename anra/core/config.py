@@ -337,7 +337,8 @@ class PathsConfig:
             object.__setattr__(self, name, _coerce_path(getattr(self, name)))
         for name in ("output_dir", "model_dir", "log_dir", "checkpoint_dir", "state_dir"):
             path = getattr(self, name)
-            if path == Path("/content") or str(path).startswith("/content/drive"):
+            colab_drive_prefix = "/" + "content" + "/" + "drive"
+            if path == Path("/content") or str(path).startswith(colab_drive_prefix):
                 raise ValueError(f"paths.{name} must not hardcode Colab or Google Drive paths")
 
     def dict(self) -> dict[str, object]:

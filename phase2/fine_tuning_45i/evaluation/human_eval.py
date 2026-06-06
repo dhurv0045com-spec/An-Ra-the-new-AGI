@@ -8,7 +8,7 @@
 # Run:  python human_eval.py --model finetuned_v1.pt
 # ============================================================
 
-import json, os, sys, argparse
+import json, os, argparse
 import numpy as np
 from datetime import datetime
 
@@ -195,8 +195,7 @@ def compare_models(fn_a, fn_b, name_a='model_a', name_b='model_b',
 # ============================================================
 
 if __name__ == '__main__':
-    import sys, os
-    sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'finetune'))
+    import os
     from pipeline import SimpleTokenizer
 
     print("=" * 60)

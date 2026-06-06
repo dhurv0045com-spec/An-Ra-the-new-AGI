@@ -46,7 +46,32 @@ observability = [
 ]
 
 [tool.setuptools.packages.find]
-include = ["anra*"]
+include = [
+  "anra*",
+  "engine*",
+  "identity*",
+  "inference*",
+  "innovation*",
+  "memory*",
+  "phase2*",
+  "phase3*",
+  "runtime*",
+  "scripts*",
+  "tokenizer*",
+  "training*",
+]
+
+[tool.setuptools]
+py-modules = [
+  "anra_brain",
+  "anra_paths",
+  "app",
+  "generate",
+  "identity_injector",
+  "ouroboros_numpy",
+  "sovereignty_bridge",
+  "startup_checks",
+]
 
 [tool.pytest.ini_options]
 minversion = "9.0"

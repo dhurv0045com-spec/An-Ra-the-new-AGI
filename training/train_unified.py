@@ -12,8 +12,6 @@ import torch
 
 from startup_checks import assert_flash_sdp_ready
 
-sys.path.append(str(Path(__file__).resolve().parent.parent))
-
 from anra_paths import DATASET, ROOT, ensure_dirs, get_dataset_file
 from training.eval_v2 import run_compact_eval
 from training.data_ingestion import mount_google_drive_if_available, prepare_training_corpus

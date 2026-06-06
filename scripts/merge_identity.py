@@ -3,14 +3,12 @@ merge_identity.py — Collect all identity text and write combined file.
 Scans dynamically. Never fails on missing files.
 """
 import glob
-import sys
 from pathlib import Path
 
 REPO_ROOT    = Path(__file__).parent.parent
 IDENTITY_DIR = REPO_ROOT / "phase3" / "identity_45n"
 OUTPUT       = IDENTITY_DIR / "anra_identity_combined.txt"
 
-sys.path.append(str(REPO_ROOT))
 from anra_paths import DRIVE_IDENTITY
 
 BOOTSTRAP_IDENTITY = """USER: Who are you?

@@ -8,7 +8,6 @@ Run: python system.py --test
 
 import sys, os, json, time
 from pathlib import Path
-sys.path.append(str(Path(__file__).parent))
 
 
 def _pass(msg): print(f"  ✓  {msg}")

@@ -59,12 +59,32 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Import key modules
+
+      - name: Install dependencies
         run: |
-          python -c "import anra_brain"
-          python -c "import identity.hal"
-          python -c "import memory.memory_router"
-          python -c "import innovation"
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install -e ".[dev]"
+
+      - name: Verify key imports
+        run: |
+          python -c "import anra_brain; print('anra_brain OK')"
+          python -c "import anra; print('anra package OK:', anra.__version__)"
+          python -c "from anra.core.registry import MODEL_REGISTRY; print('registry OK:', MODEL_REGISTRY.list())"
+          python -c "import identity.hal; print('identity.hal OK')"
+          python -c "import memory.memory_router; print('memory_router OK')"
+        env:
+          PYTHONPATH: .
+
+      - name: Lint with ruff
+        run: ruff check anra/ tests/
+        env:
+          PYTHONPATH: .
+
+      - name: Type check with mypy
+        run: mypy anra/ --strict --ignore-missing-imports
+        env:
+          PYTHONPATH: .
