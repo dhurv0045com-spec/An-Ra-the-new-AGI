@@ -5,7 +5,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from anra_paths import OUTPUT_V2_DIR
+from anra.anra_paths import OUTPUT_V2_DIR
 from engine.feature_flags import load_flags
 from engine.telemetry import get_telemetry_bus
 from runtime.system_registry import build_system_manifest

@@ -41,7 +41,7 @@ Popular “Jarvis” = do anything instantly on any machine.
 | Layer | Meaning |
 |-------|---------|
 | **Talk** | Chat with memory + identity |
-| **Work** | Goals + tools → files, opens, CAD stubs ([`OPERATOR.md`](OPERATOR.md)) |
+| **Work** | Goals + tools → files, opens, CAD stubs ([`OPERATOR.md`](docs/OPERATOR.md)) |
 | **Verify** | Symbolic bridge + tests + sovereignty |
 | **Expand** | Remote nodes (consent), ROS (sim first) — roadmap |
 
@@ -173,7 +173,7 @@ Destination: **durable, inspected, improving intelligence** — yours.
 Run one **work** loop today:
 
 ```bash
-python anra.py --goal "cad_generate raptor_engine; summarize limits in workspace note"
+python scripts/anra.py --goal "cad_generate raptor_engine; summarize limits in workspace note"
 ```
 
 If a file appears in `workspace/` with a report, the vision is alive. If only text appears in chat, use `/goal` until the loop closes.

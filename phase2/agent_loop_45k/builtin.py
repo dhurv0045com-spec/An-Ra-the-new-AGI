@@ -34,7 +34,7 @@ logger = logging.getLogger(__name__)
 def _file_root() -> Path:
     """Sandbox root for file_manager / os_action (see anra_paths.get_agent_workspace)."""
     try:
-        from anra_paths import get_agent_workspace
+        from anra.anra_paths import get_agent_workspace
 
         root = get_agent_workspace()
     except Exception:
@@ -445,7 +445,7 @@ def cad_generate(instruction: str, **kwargs) -> ToolResult:
     template_key = template_key.replace(" ", "_")
 
     try:
-        from anra_paths import ROOT
+        from anra.anra_paths import ROOT
 
         templates_dir = ROOT / "runtime" / "engineering_templates"
     except Exception:

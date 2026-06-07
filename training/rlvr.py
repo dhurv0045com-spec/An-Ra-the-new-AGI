@@ -332,7 +332,7 @@ class RLVRTrainer:
         """
         import json
         from datetime import datetime, timezone
-        from anra_paths import TRAINING_DATA_DIR
+        from anra.anra_paths import TRAINING_DATA_DIR
 
         if not completions or not step.rewards:
             return

@@ -17,7 +17,7 @@ REPO_PATH = Path(__file__).resolve().parents[1]
 if str(REPO_PATH) not in sys.path:
     sys.path.append(str(REPO_PATH))
 
-from anra_paths import DATASET_CANONICAL, DRIVE_DIR, V2_TOKENIZER_FILE, get_v2_checkpoint  # noqa: E402
+from anra.anra_paths import DATASET_CANONICAL, DRIVE_DIR, V2_TOKENIZER_FILE, get_v2_checkpoint  # noqa: E402
 
 
 import torch  # noqa: E402

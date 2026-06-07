@@ -10,7 +10,7 @@ For humans and coding agents. An-Ra is ~70k lines of intentional systems — rea
 
 | Need | Module |
 |------|--------|
-| Paths | `anra_paths.py` — includes `get_agent_workspace()`, `ENGINEERING_DIR` |
+| Paths | `anra/anra_paths.py` — includes `get_agent_workspace()`, `ENGINEERING_DIR` |
 | Registry | `runtime/system_registry.py` |
 | Flags | `engine/feature_flags.py` |
 | Telemetry | `engine/telemetry.py` — `@trace` |
@@ -45,7 +45,7 @@ What owner boundary applies?
 | Slash commands | `runtime/operator_commands.py` + `_run_chat` in 45M |
 | `os_action` tool | open / reveal / URL |
 | `cad_generate` tool | `runtime/engineering_templates/` |
-| User doc | [`OPERATOR.md`](OPERATOR.md) |
+| User doc | [`OPERATOR.md`](docs/OPERATOR.md) |
 
 Adding tools: register in `register_all_tools()`, add dispatcher keywords, add test in `tests/test_operator_tools.py`, document in OPERATOR.md.
 
@@ -57,7 +57,7 @@ Adding tools: register in `register_all_tools()`, add dispatcher keywords, add t
 
 | Area | Files |
 |------|-------|
-| CLI | `anra.py` |
+| CLI | `scripts/anra.py` |
 | Operator | `runtime/operator_commands.py`, `OPERATOR.md` |
 | Agent | `phase2/agent_loop (45k)/agent_main.py`, `builtin.py`, `planner.py` |
 | Master | `phase2/master_system (45M)/system.py` |
@@ -75,7 +75,7 @@ Adding tools: register in `register_all_tools()`, add dispatcher keywords, add t
 3. Do not change weights, prompts, identity text, or training mix unless asked.  
 4. Tests for new behavior.  
 5. `python -m pytest tests/ -q`  
-6. `python anra.py --report` if platform/operator touched.  
+6. `python scripts/anra.py --report` if platform/operator touched.  
 7. Report commands + residual risk.
 
 **Good prompt:**
@@ -100,7 +100,7 @@ Rewrite architecture for AGI.
 
 ### Paths
 
-`anra_paths.py` only. Literal ban enforced by `test_path_registry_literals.py`.
+`anra/anra_paths.py` only. Literal ban enforced by `test_path_registry_literals.py`.
 
 ### Flags over comment-out
 
@@ -144,9 +144,9 @@ No torch/faiss/transformers at import time in new `engine/` modules.
 ## Commands
 
 ```bash
-python anra.py --report
-python anra.py --chat
-python anra.py --goal "..."
+python scripts/anra.py --report
+python scripts/anra.py --chat
+python scripts/anra.py --goal "..."
 python -m pytest tests/ -q
 python -m training.train_unified --mode session
 ```

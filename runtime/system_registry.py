@@ -9,7 +9,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Iterable
 
-from anra_paths import (
+from anra.anra_paths import (
     DATASET_CANONICAL,
     OUTPUT_V2_DIR,
     ROOT,
@@ -401,7 +401,7 @@ def build_system_manifest(root: Path = ROOT) -> dict[str, object]:
 
 def write_system_manifest(output: Path | None = None, root: Path = ROOT) -> dict[str, object]:
     manifest = build_system_manifest(root)
-    target = output or (root / "system_graph.json")
+    target = output or (root / "docs" / "system_graph.json")
     target.write_text(json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8")
     return manifest
 

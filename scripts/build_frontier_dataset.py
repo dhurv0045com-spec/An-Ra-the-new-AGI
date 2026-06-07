@@ -12,7 +12,7 @@ from typing import Any, Iterable
 
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 
-from anra_paths import ROOT, TRAINING_DATA_DIR
+from anra.anra_paths import ROOT, TRAINING_DATA_DIR
 
 
 ONLINE_MODE = importlib.util.find_spec("datasets") is not None

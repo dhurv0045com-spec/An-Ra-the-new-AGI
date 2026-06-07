@@ -7,7 +7,7 @@ import time
 from pathlib import Path
 from typing import Any, Callable
 
-from anra_paths import OPERATOR_AUDIT_LOG, get_agent_workspace
+from anra.anra_paths import OPERATOR_AUDIT_LOG, get_agent_workspace
 
 
 HELP_TEXT = """

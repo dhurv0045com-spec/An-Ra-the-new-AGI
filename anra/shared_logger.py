@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from anra_paths import DRIVE_DIR, STATE_DIR
+from anra.anra_paths import DRIVE_DIR, STATE_DIR
 
 TRACE_LEVEL_NUM = 5
 AUDIT_LEVEL_NUM = 25

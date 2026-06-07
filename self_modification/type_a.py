@@ -6,7 +6,7 @@ import importlib.util
 import json
 import time
 
-from anra_paths import STATE_DIR, WORKSPACE_DIR
+from anra.anra_paths import STATE_DIR, WORKSPACE_DIR
 from self_modification.sovereignty_gate import sovereignty_audit_change
 
 DEFAULT_TOOL_REGISTRY = STATE_DIR / "tool_library.json"

@@ -15,7 +15,7 @@ from pathlib import Path
 import sys
 
 sys.path.append(str(Path(__file__).resolve().parents[2]))
-from anra_paths import WORKSPACE_DIR
+from anra.anra_paths import WORKSPACE_DIR
 
 logger = logging.getLogger(__name__)
 

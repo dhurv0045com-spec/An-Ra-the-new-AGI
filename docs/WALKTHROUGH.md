@@ -7,9 +7,9 @@
 | You want… | Start here |
 | --- | --- |
 | Run the system in 5 minutes | [`README.md`](README.md) |
-| Wire a new feature correctly | [`DEVELOPER.md`](DEVELOPER.md) |
-| See the 19-component map | [`ARCHITECTURE.md`](ARCHITECTURE.md) |
-| Understand *why* An-Ra exists | [`VISION.md`](VISION.md) |
+| Wire a new feature correctly | [`DEVELOPER.md`](docs/DEVELOPER.md) |
+| See the 19-component map | [`ARCHITECTURE.md`](docs/ARCHITECTURE.md) |
+| Understand *why* An-Ra exists | [`VISION.md`](docs/VISION.md) |
 | Deep subsystem tour | You are here ↓ |
 | Track changes & backlog | [`docs/README.md`](docs/README.md) → ENGINEERING_LOG + MASTER_GOALS |
 
@@ -64,22 +64,22 @@ No magic subsystem.
 Every component must be registered, switchable, measurable, reportable, and testable.
 ```
 
-**19 registered components.** Each can be toggled (`engine/feature_flags.py`), traced (`engine/telemetry.py`), and inspected (`python anra.py --report`). If you remember nothing else from this section, remember that.
+**19 registered components.** Each can be toggled (`engine/feature_flags.py`), traced (`engine/telemetry.py`), and inspected (`python scripts/anra.py --report`). If you remember nothing else from this section, remember that.
 
 ---
 
 ## 2. Repository structure
 
-Where things live (paths centralized in `anra_paths.py` — do not scatter literals):
+Where things live (paths centralized in `anra/anra_paths.py` — do not scatter literals):
 
 ```text
 An-Ra/
 │
-├── anra.py                  ← Main CLI entry point
+├── scripts/anra.py                  ← Main CLI entry point
 ├── anra_brain.py            ← The V2 transformer neural network
-├── anra_paths.py            ← All file paths centralized here (no scattered literals)
-├── app.py                   ← FastAPI web backend
-├── generate.py              ← Inference / generation runtime
+├── anra/anra_paths.py            ← All file paths centralized here (no scattered literals)
+├── scripts/app.py                   ← FastAPI web backend
+├── scripts/generate.py              ← Inference / generation runtime
 │
 ├── core/                    ← Low-level transformer building blocks (archived reference)
 │   ├── attention.py         ← Attention mechanism
@@ -856,7 +856,7 @@ diff = harness.compare(baseline, current)
 
 ### report.py
 ```bash
-python anra.py --report
+python scripts/anra.py --report
 ```
 Produces a full operator scorecard across all 19 components in one command.
 
@@ -1032,19 +1032,19 @@ or hold → quarantine + report (if failed)
 pip install -r requirements.txt
 
 # See system status
-python anra.py --status
+python scripts/anra.py --status
 
 # Full health report
-python anra.py --report
+python scripts/anra.py --report
 
 # Check what components are enabled
-python anra.py --phase3-status
+python scripts/anra.py --phase3-status
 
 # Test symbolic bridge
-python anra.py --symbolic "solve x^2 - 9 = 0"
+python scripts/anra.py --symbolic "solve x^2 - 9 = 0"
 
 # Add a goal
-python anra.py --goal "analyze the current training data quality"
+python scripts/anra.py --goal "analyze the current training data quality"
 
 # Training
 python -m training.train_unified --mode status   # dry run
@@ -1058,7 +1058,7 @@ python -m pytest tests/ -x -q
 
 ### Google Colab
 
-Open `AnRa_Master.ipynb` in Colab with a T4 GPU. The notebook runs the full operator loop:
+Open `notebooks/AnRa_Master.ipynb` in Colab with a T4 GPU. The notebook runs the full operator loop:
 
 1. Configure session and component flags
 2. Mount Drive and set up GPU/RAM
@@ -1101,8 +1101,8 @@ print(bus.summary_by_module())
 | 3 | `data_mix` | `training/v2_data_mix.py` | 65/15/10/5/5 owner-first corpus |
 | 4 | `training_loop` | `training/train_unified.py` | Daily and milestone training |
 | 5 | `evaluation` | `training/eval_v2.py`, `benchmark.py` | Compact eval + hard-example feedback |
-| 6 | `runtime` | `generate.py`, `inference/` | Generation, streaming, inference |
-| 7 | `api_web` | `app.py` | FastAPI backend + web interface |
+| 6 | `runtime` | `scripts/generate.py`, `inference/` | Generation, streaming, inference |
+| 7 | `api_web` | `scripts/app.py` | FastAPI backend + web interface |
 | 8 | `identity` | `identity/civ.py`, `esv.py`, `hal.py` | CIV + ESV + HAL identity stack |
 | 9 | `memory` | `memory/memory_router.py` | 4-tier memory with HAL salience gate |
 | 10 | `phase2_memory` | `phase2/memory (45J)/` | Typed recall + personal knowledge graph |
@@ -1120,7 +1120,7 @@ print(bus.summary_by_module())
 
 ## 19. OPERATOR MODE — DESKTOP & ENGINEERING ACTIONS (ADDENDUM)
 
-> **Added:** Jarvis-shaped **do work** layer on top of chat. Full guide: [`OPERATOR.md`](OPERATOR.md).
+> **Added:** Jarvis-shaped **do work** layer on top of chat. Full guide: [`OPERATOR.md`](docs/OPERATOR.md).
 
 An-Ra can **act on your machine** (within a sandbox) — not only generate text.
 
@@ -1129,7 +1129,7 @@ An-Ra can **act on your machine** (within a sandbox) — not only generate text.
 Default root: `workspace/` (override with `AGENT_FILE_ROOT` or `ANRA_AGENT_WORKSPACE`).
 
 ```bash
-python anra.py --chat
+python scripts/anra.py --chat
 /workspace          # via /workspace command
 ```
 
@@ -1160,7 +1160,7 @@ Audit log: `state/logs/operator_actions.jsonl`
 ### Example: 3D raptor engine diagram (stylized)
 
 ```bash
-python anra.py --goal "Use cad_generate raptor_engine, then write a short REPORT of assumptions"
+python scripts/anra.py --goal "Use cad_generate raptor_engine, then write a short REPORT of assumptions"
 # or in chat:
 /cad raptor_engine
 ```
@@ -1214,4 +1214,4 @@ An-Ra is not a product slide. It is an **organism** — built to learn, remember
 
 That is what sovereign means here: not unlimited autonomy — **inspected autonomy**.
 
-**Next steps:** run `python anra.py --report`, pick one subsystem from the TOC, open its README in `phase2/` or `phase3/`, change one thing, prove it with a test. That is how this codebase is meant to be learned.
+**Next steps:** run `python scripts/anra.py --report`, pick one subsystem from the TOC, open its README in `phase2/` or `phase3/`, change one thing, prove it with a test. That is how this codebase is meant to be learned.

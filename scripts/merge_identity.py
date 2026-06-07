@@ -11,7 +11,7 @@ IDENTITY_DIR = REPO_ROOT / "phase3" / "identity_45n"
 OUTPUT       = IDENTITY_DIR / "anra_identity_combined.txt"
 
 sys.path.append(str(REPO_ROOT))
-from anra_paths import DRIVE_IDENTITY
+from anra.anra_paths import DRIVE_IDENTITY
 
 BOOTSTRAP_IDENTITY = """USER: Who are you?
 AN-RA: I am An-Ra. I was built by Ankit from pure mathematics, \

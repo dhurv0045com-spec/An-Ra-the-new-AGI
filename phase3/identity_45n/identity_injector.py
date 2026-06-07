@@ -122,7 +122,7 @@ class IdentityInjector:
             # Dynamic identity file resolution — no hardcoded names
             _id_dir = Path(__file__).parent
             try:
-                from anra_paths import DRIVE_IDENTITY as _drive_id
+                from anra.anra_paths import DRIVE_IDENTITY as _drive_id
             except Exception:
                 _drive_id = None
             _combined = _id_dir / "anra_identity_combined.txt"
@@ -245,7 +245,7 @@ def get_identity_injector(identity_file=None, n_anchors=10):
 
 def health_check() -> dict:
     try:
-        from anra_paths import get_identity_file
+        from anra.anra_paths import get_identity_file
         identity_file = get_identity_file()
         if identity_file is None:
             return {

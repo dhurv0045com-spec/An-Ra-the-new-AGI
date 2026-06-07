@@ -135,7 +135,7 @@ class OrchestratorAgent:
         }
         try:
             from identity.civ_watcher import CIVWatcher
-            from anra_paths import CIV_WATCHER_STATE
+            from anra.anra_paths import CIV_WATCHER_STATE
             _watcher = CIVWatcher(state_path=CIV_WATCHER_STATE)
             if hasattr(self, "civ_guard") and self.civ_guard is not None:
                 sim, _ = self.civ_guard.verify()

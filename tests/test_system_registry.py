@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from anra_paths import ROOT
+from anra.anra_paths import ROOT
 from inference.full_system_connector import build_capability_graph
 import json
 

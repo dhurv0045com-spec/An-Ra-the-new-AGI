@@ -6,7 +6,7 @@ import shutil
 import time
 from pathlib import Path
 
-from anra_paths import DRIVE_V2_CHECKPOINTS
+from anra.anra_paths import DRIVE_V2_CHECKPOINTS
 from training.v2_runtime import canonical_v2_checkpoint, v2_report_path, write_json
 
 

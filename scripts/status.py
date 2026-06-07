@@ -6,7 +6,7 @@ from pathlib import Path
 
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 
-from anra_paths import OUTPUT_V2_DIR, ROOT, V2_TOKENIZER_FILE, get_v2_checkpoint
+from anra.anra_paths import OUTPUT_V2_DIR, ROOT, V2_TOKENIZER_FILE, get_v2_checkpoint
 from runtime.system_registry import build_system_manifest
 
 

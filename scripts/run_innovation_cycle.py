@@ -9,7 +9,7 @@ from pathlib import Path
 
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 
-from anra_paths import ROOT
+from anra.anra_paths import ROOT
 from innovation.gap_scanner import scan
 from innovation.action_queue import queue_actions
 from innovation.schema import CapabilityGap, Hypothesis

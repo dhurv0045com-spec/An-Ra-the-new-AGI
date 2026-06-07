@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from anra_paths import DATASET_CANONICAL
+from anra.anra_paths import DATASET_CANONICAL
 from tokenizer.subword_tokenizer import SubwordTokenizer
 from tokenizer.validate_tokenizer_v3 import validate_tokenizer
 from scripts.train_tokenizer_v3 import SPECIAL_TOKENS

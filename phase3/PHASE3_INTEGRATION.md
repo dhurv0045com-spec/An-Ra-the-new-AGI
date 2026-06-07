@@ -34,10 +34,10 @@ user prompt
 ## Commands (from repo root)
 
 ```bash
-python anra.py --phase3-status
-python anra.py --symbolic "solve x^2 - 9 = 0"
-python anra.py --sovereignty-report
-python anra.py --sovereignty-run
+python scripts/anra.py --phase3-status
+python scripts/anra.py --symbolic "solve x^2 - 9 = 0"
+python scripts/anra.py --sovereignty-report
+python scripts/anra.py --sovereignty-run
 python scripts/status.py
 ```
 
@@ -61,7 +61,7 @@ Phase folders look like `symbolic_bridge (45Q)/`. **Do not fight this from rando
 
 | Approach | When |
 | --- | --- |
-| `python anra.py --symbolic "..."` | Normal operator path (paths injected) |
+| `python scripts/anra.py --symbolic "..."` | Normal operator path (paths injected) |
 | `cd "phase3/symbolic_bridge (45Q)" && python demo.py` | Component-local experiments |
 | `cd "phase3/ouroboros (45O)" && python test_ouroboros.py` | Ouroboros smoke |
 
@@ -84,7 +84,7 @@ Fresh clone + empty Drive = **source active, weights absent**. Train or restore 
 Phase 3 augments cognition; **45K + workspace** delivers files and CAD:
 
 ```bash
-python anra.py --goal "cad_generate raptor_engine; verify key dimensions symbolically if numeric"
+python scripts/anra.py --goal "cad_generate raptor_engine; verify key dimensions symbolically if numeric"
 ```
 
 See [`OPERATOR.md`](../OPERATOR.md) and WALKTHROUGH §19.

@@ -14,7 +14,7 @@ import torch.nn.functional as F
 import sys
 from pathlib import Path
 sys.path.append(str(Path(__file__).resolve().parent.parent))
-from anra_paths import DATASET_CANONICAL, DRIVE_DIR, DRIVE_MEMORY, ROOT, get_dataset_file, get_tokenizer_file
+from anra.anra_paths import DATASET_CANONICAL, DRIVE_DIR, DRIVE_MEMORY, ROOT, get_dataset_file, get_tokenizer_file
 from runtime.safe_load import safe_torch_load
 from training.v2_config import V2_MODEL
 

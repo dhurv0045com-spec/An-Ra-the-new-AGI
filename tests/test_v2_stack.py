@@ -6,7 +6,7 @@ import torch
 from pathlib import Path
 
 from anra_brain import CausalTransformerV2
-from anra_paths import DATASET, V3_TOKENIZER_FILE
+from anra.anra_paths import DATASET, V3_TOKENIZER_FILE
 from tokenizer.subword_tokenizer import SubwordTokenizer
 from training.v2_data_mix import IdentityStyleFilter, build_v2_training_examples
 
@@ -50,7 +50,7 @@ def test_v2_mix_keeps_own_data_dominant() -> None:
 
 
 def test_dataset_file_resolves():
-    from anra_paths import get_dataset_file
+    from anra.anra_paths import get_dataset_file
     path = get_dataset_file()
     # Path object must be returned even if file doesn't exist yet
     assert path is not None

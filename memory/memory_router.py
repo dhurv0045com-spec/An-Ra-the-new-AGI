@@ -5,7 +5,7 @@ from pathlib import Path
 import hashlib
 import json
 
-from anra_paths import DRIVE_FAISS_INDEX, DRIVE_GHOST_DB
+from anra.anra_paths import DRIVE_FAISS_INDEX, DRIVE_GHOST_DB
 from engine.metric_bus import instrument
 from engine.telemetry import trace
 

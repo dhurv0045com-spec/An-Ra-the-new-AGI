@@ -5,7 +5,7 @@ from pathlib import Path
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-from anra_paths import TOKENIZER_DIR, get_dataset_file
+from anra.anra_paths import TOKENIZER_DIR, get_dataset_file
 from tokenizer.subword_tokenizer import SubwordTokenizer
 from training.v2_config import CANONICAL_SPECIAL_TOKENS, CANONICAL_VOCAB_SIZE
 

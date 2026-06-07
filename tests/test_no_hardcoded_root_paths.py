@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from anra_paths import DRIVE_DIR
+from anra.anra_paths import DRIVE_DIR
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SCOPES = ("training", "scripts", "phase2", "phase3", "ui")

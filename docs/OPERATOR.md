@@ -33,7 +33,7 @@ You (owner)
 ```powershell
 cd c:\Users\user\Downloads\An-Ra
 $env:AGENT_FILE_ROOT = "$PWD\workspace"
-python anra.py --chat
+python scripts/anra.py --chat
 ```
 
 Everything `file_manager` touches stays inside this root unless you extend opens (below).
@@ -45,7 +45,7 @@ Everything `file_manager` touches stays inside this root unless you extend opens
 Start:
 
 ```bash
-python anra.py --chat
+python scripts/anra.py --chat
 ```
 
 | Command | Action |
@@ -67,9 +67,9 @@ python anra.py --chat
 ## CLI goals (non-chat)
 
 ```bash
-python anra.py --goal "Create workspace/daily.md with three priorities for training"
-python anra.py --goal "Run cad_generate raptor_engine and summarize assumptions in REPORT.md"
-python anra.py --goal "List all files in workspace and write inventory.txt"
+python scripts/anra.py --goal "Create workspace/daily.md with three priorities for training"
+python scripts/anra.py --goal "Run cad_generate raptor_engine and summarize assumptions in REPORT.md"
+python scripts/anra.py --goal "List all files in workspace and write inventory.txt"
 ```
 
 ---
@@ -95,7 +95,7 @@ Planner + dispatcher pick tools from natural language in `/goal` runs.
 ### Quick
 
 ```bash
-python anra.py --chat
+python scripts/anra.py --chat
 /cad raptor_engine
 /open engineering/raptor_engine/raptor_engine.scad
 ```
@@ -112,7 +112,7 @@ workspace/engineering/raptor_engine/
 **Critical:** This is a **diagram scaffold**, not Pratt & Whitney OEM data. You must replace dimensions from authoritative sources. Use:
 
 ```bash
-python anra.py --symbolic "verify ..."
+python scripts/anra.py --symbolic "verify ..."
 ```
 
 for numeric claims — not model prose.
@@ -168,8 +168,8 @@ Local operator pack (this doc) is step one.
 
 ## Daily operator checklist
 
-1. `python anra.py --report` — 19/19 healthy?  
-2. `python anra.py --chat` or `--goal` — one real task with a file output  
+1. `python scripts/anra.py --report` — 19/19 healthy?  
+2. `python scripts/anra.py --chat` or `--goal` — one real task with a file output  
 3. Check `workspace/` for artifacts  
 4. Check `state/logs/operator_actions.jsonl` if something surprising happened  
 5. Training days: `python -m training.train_unified --mode session`
@@ -184,13 +184,13 @@ Local operator pack (this doc) is step one.
 | Open does nothing | Path must exist; on Windows use forward slashes ok |
 | No .stl | Install [OpenSCAD](https://openscad.org/) and ensure `openscad` on PATH |
 | Agent ignores file request | Use `/goal` not plain chat |
-| Unicode console error on symbolic | Fixed in `anra.py` `_safe_console` |
+| Unicode console error on symbolic | Fixed in `scripts/anra.py` `_safe_console` |
 
 ---
 
 ## Related docs
 
 - [`README.md`](README.md) — project entry  
-- [`WALKTHROUGH.md`](WALKTHROUGH.md) §19 — operator addendum  
+- [`WALKTHROUGH.md`](docs/WALKTHROUGH.md) §19 — operator addendum  
 - [`phase2/agent_loop (45k)/README.md`](phase2/agent_loop%20(45k)/README.md) — agent internals  
-- [`VISION.md`](VISION.md) — why verification and tiers matter
+- [`VISION.md`](docs/VISION.md) — why verification and tiers matter

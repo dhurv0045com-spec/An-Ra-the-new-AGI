@@ -48,7 +48,7 @@ Copy this block for each entry (newest entries at **top** of `ENGINEERING_LOG.md
 | **Summary** | One sentence: what and why |
 | **Files** | Comma-separated paths touched |
 | **Metrics** | What should move (latency, pass rate, eval score, …) or `n/a` |
-| **Verification** | Commands run, e.g. `pytest tests/ -q`, `anra.py --report` |
+| **Verification** | Commands run, e.g. `pytest tests/ -q`, `scripts/anra.py --report` |
 | **Risk** | `low` \| `medium` \| `high` |
 | **Follow-up** | Next step or `none` |
 

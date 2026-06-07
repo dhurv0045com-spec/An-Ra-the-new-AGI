@@ -14,7 +14,7 @@ from dataclasses import dataclass, asdict, field
 from typing import Optional, List, Dict, Any, Tuple
 from pathlib import Path
 
-from anra_paths import FINE_TUNING_DIR, MASTER_SYSTEM_DIR
+from anra.anra_paths import FINE_TUNING_DIR, MASTER_SYSTEM_DIR
 
 
 logger = logging.getLogger(__name__)

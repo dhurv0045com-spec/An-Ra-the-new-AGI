@@ -5,7 +5,7 @@ import time
 from pathlib import Path
 from typing import Iterable
 
-from anra_paths import AIE_ACTION_QUEUE
+from anra.anra_paths import AIE_ACTION_QUEUE
 from innovation.schema import Hypothesis, InnovationScore
 
 

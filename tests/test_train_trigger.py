@@ -1,6 +1,6 @@
 from fastapi.testclient import TestClient
 
-from app import app
+from scripts.app import app
 
 
 def test_train_trigger_returns_501():

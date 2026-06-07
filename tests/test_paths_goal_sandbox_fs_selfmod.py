@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from anra_paths import FAISS_INDEX_LOCAL, GHOST_DB_LOCAL, REQUIRED_DIRS, get_dataset_file
+from anra.anra_paths import FAISS_INDEX_LOCAL, GHOST_DB_LOCAL, REQUIRED_DIRS, get_dataset_file
 from execution.fs_agent import FSAgent
 from execution.sandbox import CodeSandbox
 from goals.goal_queue import GoalQueue

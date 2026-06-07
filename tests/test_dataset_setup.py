@@ -1,4 +1,4 @@
-from anra_paths import DATASET_CANONICAL, ensure_dirs
+from anra.anra_paths import DATASET_CANONICAL, ensure_dirs
 
 
 def test_ensure_dirs_creates_canonical_dataset():

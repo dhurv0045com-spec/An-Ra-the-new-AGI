@@ -18,7 +18,7 @@ from torch.utils.data import DataLoader
 
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 
-from anra_paths import DRIVE_V2_CHECKPOINTS, REGRET_STATE, ROOT, V2_TOKENIZER_FILE
+from anra.anra_paths import DRIVE_V2_CHECKPOINTS, REGRET_STATE, ROOT, V2_TOKENIZER_FILE
 from engine.eval_harness import EvalHarness, EvalResult
 from runtime.safe_load import safe_torch_load
 from training.anra_optimizer import build_optimizer
@@ -253,7 +253,7 @@ def train_anra_v2(
         hal_module = None
         if V2_1B_FRONTIER.use_hal:
             try:
-                from anra_paths import HAL_STATE_FILE
+                from anra.anra_paths import HAL_STATE_FILE
                 from identity.hal import HALModule
 
                 if HAL_STATE_FILE.exists():

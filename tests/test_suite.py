@@ -11,12 +11,12 @@ from typing import Callable, List, Tuple
 import pytest
 
 sys.path.append(str(Path(__file__).resolve().parent.parent))
-from anra_paths import DRIVE_DIR, ROOT, get_dataset_file, get_optimization_config
+from anra.anra_paths import DRIVE_DIR, ROOT, get_dataset_file, get_optimization_config
 
 httpx = pytest.importorskip("httpx")
 uvicorn = pytest.importorskip("uvicorn")
 
-from generate import GenerationConfig, TOKENIZER, detect_repetition, generate, generate_traced, get_model_info
+from scripts.generate import GenerationConfig, TOKENIZER, detect_repetition, generate, generate_traced, get_model_info
 
 BASE = "http://127.0.0.1:8011"
 
@@ -33,8 +33,8 @@ def _run(name: str, fn: Callable[[], Tuple[bool, str]]):
 
 
 def t1_import_test() -> Tuple[bool, str]:
-    import generate as _g
-    import app as _a
+    import scripts.generate as generate as _g
+    import scripts.app as app as _a
 
     return True, f"imports ok ({_g.__name__}, {_a.__name__})"
 
@@ -89,7 +89,7 @@ async def _api_calls(base: str):
 
 
 def _start_server() -> None:
-    import app
+    import scripts.app as app
 
     uvicorn.run(app.app, host="127.0.0.1", port=8011, log_level="warning")
 
@@ -243,7 +243,7 @@ def t17_session_metadata_test() -> Tuple[bool, str]:
 
 
 def t18_stop_string_test() -> Tuple[bool, str]:
-    from generate import _check_stop
+    from scripts.generate import _check_stop
 
     hit, trimmed, reason = _check_stop("alpha<STOP>omega", GenerationConfig(stop_strings=["<STOP>"]))
     miss, _, reason2 = _check_stop("alpha-omega", GenerationConfig(stop_strings=["<STOP>"]))

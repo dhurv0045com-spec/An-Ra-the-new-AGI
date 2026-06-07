@@ -10,7 +10,7 @@ from typing import Iterable
 
 import torch
 
-from anra_paths import (
+from anra.anra_paths import (
     DATASET_CANONICAL,
     OUTPUT_V2_DIR,
     ROOT,

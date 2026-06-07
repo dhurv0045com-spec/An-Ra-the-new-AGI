@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from anra_paths import EPG_PATH, FAILURE_REPLAY_DATASET, FALSIFICATION_LEDGER_PATH
+from anra.anra_paths import EPG_PATH, FAILURE_REPLAY_DATASET, FALSIFICATION_LEDGER_PATH
 
 
 def _score(result: Any) -> float:

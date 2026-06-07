@@ -11,7 +11,7 @@ try:
 except ImportError:  # Windows and other platforms without POSIX rlimits
     resource = None  # type: ignore[assignment]
 
-from anra_paths import WORKSPACE_DIR
+from anra.anra_paths import WORKSPACE_DIR
 
 
 SANDBOX_PREAMBLE = '''

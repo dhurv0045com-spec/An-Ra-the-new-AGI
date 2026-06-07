@@ -235,7 +235,7 @@ class MasterSystem:
         print("  [Phase 3] Initializing Identity Injector (45N)...")
         try:
             from identity_injector import IdentityInjector
-            from anra_paths import get_identity_file as _get_id_file
+            from anra.anra_paths import get_identity_file as _get_id_file
             identity_file = _get_id_file()
             self.identity = IdentityInjector(identity_file=identity_file, n_anchors=8)
             print(f"  [Phase 3] [OK] Identity injector ready "

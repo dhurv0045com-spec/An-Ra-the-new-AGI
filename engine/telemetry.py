@@ -8,7 +8,7 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Callable
 
-from anra_paths import STATE_DIR
+from anra.anra_paths import STATE_DIR
 
 TELEMETRY_LOG = STATE_DIR / "logs" / "telemetry.jsonl"
 

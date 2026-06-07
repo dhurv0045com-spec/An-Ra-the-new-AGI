@@ -265,7 +265,7 @@ def test_failure_replay_write_method_exists():
 
 
 def test_frontier_dfc_jsonl_if_exists():
-    from anra_paths import TRAINING_DATA_DIR
+    from anra.anra_paths import TRAINING_DATA_DIR
 
     dfc_path = TRAINING_DATA_DIR / "frontier_dfc.jsonl"
     if not dfc_path.exists():

@@ -10,7 +10,7 @@ try:
 except ModuleNotFoundError:
     torch = None
 
-from anra_paths import OUTPUT_V2_DIR, STATE_DIR, V3_TOKENIZER_FILE, get_dataset_file, get_v2_checkpoint
+from anra.anra_paths import OUTPUT_V2_DIR, STATE_DIR, V3_TOKENIZER_FILE, get_dataset_file, get_v2_checkpoint
 
 
 def _file_info(path: Path) -> dict[str, object]:

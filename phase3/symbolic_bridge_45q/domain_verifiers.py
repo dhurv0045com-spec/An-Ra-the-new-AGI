@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 try:
-    from anra_paths import EPG_PATH
+    from anra.anra_paths import EPG_PATH
 except Exception:
     EPG_PATH = None
 

@@ -9,7 +9,7 @@ from pathlib import Path
 
 import torch
 
-from anra_paths import (
+from anra.anra_paths import (
     DRIVE_DIR,
     DRIVE_V2_CHECKPOINTS,
     OUTPUT_V2_DIR,
@@ -397,7 +397,7 @@ def build_frontier_model(
 
     if hal_module is None and cfg.use_hal:
         try:
-            from anra_paths import DRIVE_LOGS, HAL_STATE_FILE
+            from anra.anra_paths import DRIVE_LOGS, HAL_STATE_FILE
             from identity.hal import HALModule
 
             _hal_drive_path = DRIVE_LOGS / "hal_state.json"

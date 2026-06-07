@@ -9,7 +9,7 @@ You are not looking at a ChatGPT skin. This repository is a full stack:
 - **Training loop** with owner-first data law (65/15/10/5/5)
 - **Memory**, **goals**, **agent loop**, **identity** (CIV / ESV / HAL)
 - **Symbolic verification**, ghost recall, Ouroboros, sovereignty audits
-- **Operator layer** — files, open, CAD stubs, slash commands ([`OPERATOR.md`](OPERATOR.md))
+- **Operator layer** — files, open, CAD stubs, slash commands ([`OPERATOR.md`](docs/OPERATOR.md))
 
 The constitution of the codebase:
 
@@ -22,10 +22,47 @@ Every component must be registered, switchable, measurable, reportable, and test
 
 ```bash
 python -m pip install -r requirements.txt
-python anra.py --report
+python scripts/anra.py --report
 ```
 
 Green `19/19` = the organism’s organs are present. Trained weights may still be missing — see [Artifacts](#artifacts).
+
+---
+
+## Directory Layout & File Organization
+
+The project was recently reorganized to eliminate loose files in the root directory. Here is where you can find everything:
+
+### 1. Standalone Scripts & Entrypoints (`scripts/`)
+These files were moved from the root to the `scripts/` directory. You should now prefix commands with `python scripts/`.
+- `scripts/anra.py` (Main CLI interface, formerly `anra.py`)
+- `scripts/app.py` (Web UI entrypoint, formerly `app.py`)
+- `scripts/generate.py`
+- `scripts/anra_brain.py`
+
+### 2. Core Python Utilities (`anra/`)
+These core modules were moved from the root into the `anra/` python package directory.
+- `anra/anra_paths.py` (Centralized path management)
+- `anra/shared_logger.py`
+- `anra/startup_checks.py`
+
+### 3. Documentation (`docs/`)
+All primary markdown documentation was moved from the root.
+- `docs/ARCHITECTURE.md`
+- `docs/DEVELOPER.md`
+- `docs/OPERATOR.md`
+- `docs/VISION.md`
+- `docs/WALKTHROUGH.md`
+- `docs/system_graph.json` (Auto-generated component graph)
+
+### 4. Jupyter Notebooks (`notebooks/`)
+- `notebooks/AnRa_Master.ipynb` (Main Colab environment)
+- `notebooks/AnRa_ionet.ipynb`
+
+### 5. Architectural Subsystems
+- `phase2/` (Agent Loop, Master System, Memory)
+- `phase3/` (Identity, Ghost Memory, Ouroboros, Symbolic Bridge, Sovereignty)
+- `phase4/` (Web Cockpit)
 
 ---
 
@@ -33,10 +70,10 @@ Green `19/19` = the organism’s organs are present. Trained weights may still b
 
 | You are… | Start here |
 |----------|------------|
-| Owner / operator | This file → [`OPERATOR.md`](OPERATOR.md) → `python anra.py --chat` |
-| Developer / agent | [`DEVELOPER.md`](DEVELOPER.md) → [`ARCHITECTURE.md`](ARCHITECTURE.md) |
-| Deep learner | [`WALKTHROUGH.md`](WALKTHROUGH.md) (full tour; §19 = operator addendum) |
-| Strategist | [`VISION.md`](VISION.md) |
+| Owner / operator | This file → [`OPERATOR.md`](docs/OPERATOR.md) → `python scripts/anra.py --chat` |
+| Developer / agent | [`DEVELOPER.md`](docs/DEVELOPER.md) → [`ARCHITECTURE.md`](docs/ARCHITECTURE.md) |
+| Deep learner | [`WALKTHROUGH.md`](docs/WALKTHROUGH.md) (full tour; §19 = operator addendum) |
+| Strategist | [`VISION.md`](docs/VISION.md) |
 
 ---
 
@@ -45,7 +82,7 @@ Green `19/19` = the organism’s organs are present. Trained weights may still b
 ### Talk mode
 
 ```bash
-python anra.py --chat
+python scripts/anra.py --chat
 ```
 
 Conversation with memory and identity. Good for thinking aloud.
@@ -53,7 +90,7 @@ Conversation with memory and identity. Good for thinking aloud.
 ### Work mode
 
 ```bash
-python anra.py --goal "Write workspace/status.md summarizing the last report"
+python scripts/anra.py --goal "Write workspace/status.md summarizing the last report"
 ```
 
 Or inside chat:
@@ -67,7 +104,7 @@ Or inside chat:
 
 **Rule:** If you want files opened or created, use **`/goal`**, **`goal:`**, or slash commands — not plain chat.
 
-Full operator reference: **[`OPERATOR.md`](OPERATOR.md)**
+Full operator reference: **[`OPERATOR.md`](docs/OPERATOR.md)**
 
 ---
 
@@ -113,10 +150,10 @@ What makes An-Ra operable instead of ornamental:
 | `report.py` | What is the scorecard right now? |
 
 ```bash
-python anra.py --report          # full scorecard
-python anra.py --status          # master system
-python anra.py --phase3-status   # identity, ghost, symbolic, sovereignty
-python anra.py --symbolic "solve x^2 - 9 = 0"
+python scripts/anra.py --report          # full scorecard
+python scripts/anra.py --status          # master system
+python scripts/anra.py --phase3-status   # identity, ghost, symbolic, sovereignty
+python scripts/anra.py --symbolic "solve x^2 - 9 = 0"
 ```
 
 ---
@@ -125,12 +162,12 @@ python anra.py --symbolic "solve x^2 - 9 = 0"
 
 ```bash
 # Health & measurement
-python anra.py --report
+python scripts/anra.py --report
 python -m pytest tests/ -q
 
 # Operator / Jarvis-shaped
-python anra.py --chat
-python anra.py --goal "your imperative here"
+python scripts/anra.py --chat
+python scripts/anra.py --goal "your imperative here"
 
 # Training
 python -m training.train_unified --mode status
@@ -140,7 +177,7 @@ python -m training.train_unified --mode eval
 
 # Web UI
 cd phase4/web && npm install && npm run dev
-python app.py
+python scripts/app.py
 ```
 
 **CPU warning:** Flash SDP/CUDA message on Windows CPU is expected for smoke tests. Train on GPU (Colab or local CUDA).
@@ -221,7 +258,7 @@ print(disabled_components())
 
 ## Colab
 
-`AnRa_Master.ipynb` — Drive, GPU, train, eval, sync. **Edit code in git; operate in Colab.**
+`notebooks/AnRa_Master.ipynb` — Drive, GPU, train, eval, sync. **Edit code in git; operate in Colab.**
 
 ---
 
@@ -229,8 +266,8 @@ print(disabled_components())
 
 | Capability | Status |
 |------------|--------|
-| Local files, goals, CAD stub, open | **Shipped** — [`OPERATOR.md`](OPERATOR.md) |
-| Symbolic-in-every-reply | Wire in `generate.py` (next) |
+| Local files, goals, CAD stub, open | **Shipped** — [`OPERATOR.md`](docs/OPERATOR.md) |
+| Symbolic-in-every-reply | Wire in `scripts/generate.py` (next) |
 | Remote paired node | Design phase |
 | ROS2 / robotics bridge | Future layer |
 
@@ -255,11 +292,11 @@ print(disabled_components())
 | [`docs/README.md`](docs/README.md) | **Hub** — folder layout for all docs |
 | [`docs/engineering/ENGINEERING_LOG.md`](docs/engineering/ENGINEERING_LOG.md) | **Change tracker** — every add/change/remove (dated) |
 | [`docs/planning/MASTER_GOALS.md`](docs/planning/MASTER_GOALS.md) | **Goals backlog** — research, test, train, robotics |
-| [`OPERATOR.md`](OPERATOR.md) | **Do work** — slash commands, workspace, CAD |
-| [`DEVELOPER.md`](DEVELOPER.md) | Contribute safely |
-| [`ARCHITECTURE.md`](ARCHITECTURE.md) | Wiring diagram |
-| [`VISION.md`](VISION.md) | Why An-Ra exists |
-| [`WALKTHROUGH.md`](WALKTHROUGH.md) | Deep technical tour |
+| [`OPERATOR.md`](docs/OPERATOR.md) | **Do work** — slash commands, workspace, CAD |
+| [`DEVELOPER.md`](docs/DEVELOPER.md) | Contribute safely |
+| [`ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Wiring diagram |
+| [`VISION.md`](docs/VISION.md) | Why An-Ra exists |
+| [`WALKTHROUGH.md`](docs/WALKTHROUGH.md) | Deep technical tour |
 
 **Log a change after you ship:**
 

@@ -36,7 +36,7 @@ Checkpoint: `anra_v2_ouroboros.pt` (may be absent on fresh clone).
 
 ```bash
 # Integrated status
-python anra.py --phase3-status
+python scripts/anra.py --phase3-status
 
 # Local tests
 cd "phase3/ouroboros (45O)"

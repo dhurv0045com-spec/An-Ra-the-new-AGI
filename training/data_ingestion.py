@@ -7,7 +7,7 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Iterable
 
-from anra_paths import (
+from anra.anra_paths import (
     DATASET_CANONICAL,
     DRIVE_CHECKPOINTS,
     DRIVE_CODE_DIR,

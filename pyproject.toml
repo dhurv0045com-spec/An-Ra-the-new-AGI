@@ -46,7 +46,7 @@ observability = [
 ]
 
 [tool.setuptools.packages.find]
-include = ["anra*"]
+include = ["anra*", "scripts*"]
 
 [tool.pytest.ini_options]
 minversion = "9.0"

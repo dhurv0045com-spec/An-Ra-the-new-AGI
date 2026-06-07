@@ -6,7 +6,7 @@ import json
 import sys
 import time
 
-from anra_paths import SELF_MOD_AUDIT_LOG, STATE_DIR
+from anra.anra_paths import SELF_MOD_AUDIT_LOG, STATE_DIR
 from self_modification.sovereignty_gate import SovereigntyRollback, sovereignty_audit_change
 
 

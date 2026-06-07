@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from startup_checks import assert_flash_sdp_ready
+from anra.startup_checks import assert_flash_sdp_ready
 
 
 def test_startup_warns_when_flash_sdp_disabled(monkeypatch: pytest.MonkeyPatch) -> None:

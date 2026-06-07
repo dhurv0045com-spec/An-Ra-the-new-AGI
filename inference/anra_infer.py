@@ -6,7 +6,7 @@ import torch.nn.functional as F
 import pickle
 import argparse
 
-from startup_checks import assert_flash_sdp_ready
+from anra.startup_checks import assert_flash_sdp_ready
 
 # Add necessary paths for importing custom modules
 # Assuming anra_infer.py is in <repo_root>/inference/

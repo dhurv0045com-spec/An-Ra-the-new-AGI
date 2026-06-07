@@ -41,7 +41,7 @@ if str(_THIS_DIR.parent) not in sys.path:
 
 from sovereignty.config import Config
 from sovereignty.logger import get_logger, setup_logging, shutdown_logging
-from shared_logger import L02SessionLogManager
+from anra.shared_logger import L02SessionLogManager
 
 
 def _load_config() -> Config:

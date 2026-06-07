@@ -10,7 +10,7 @@ from torch.optim import AdamW
 
 import sys
 sys.path.append(str(Path(__file__).resolve().parents[2]))
-from anra_paths import DRIVE_CHECKPOINTS, get_dataset_file, get_tokenizer_file
+from anra.anra_paths import DRIVE_CHECKPOINTS, get_dataset_file, get_tokenizer_file
 from anra_brain import CausalTransformer
 from runtime.safe_load import safe_torch_load
 

@@ -6,7 +6,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from anra_paths import HAL_AUDIT_LOG, HAL_STATE_FILE
+from anra.anra_paths import HAL_AUDIT_LOG, HAL_STATE_FILE
 
 
 def _state_payload(hal: Any, *, source: str = "runtime") -> dict[str, Any]:

@@ -14,7 +14,7 @@ import json
 import time
 from dataclasses import dataclass
 
-from anra_paths import DRIVE_SCORECARD, SCORECARD_DIR
+from anra.anra_paths import DRIVE_SCORECARD, SCORECARD_DIR
 from engine.feature_flags import is_enabled, set_flag
 from engine.metric_bus import get_metric_bus, reset_metric_bus
 
@@ -254,7 +254,7 @@ class SupervisorAgent:
     def _scorecard_data(self, summary: SessionSummary) -> dict:
         data = summary.to_dict()
         try:
-            from anra_paths import DRIVE_LOGS, HAL_STATE_FILE
+            from anra.anra_paths import DRIVE_LOGS, HAL_STATE_FILE
             from identity.hal import HALModule
 
             _hal_path = DRIVE_LOGS / "hal_state.json"

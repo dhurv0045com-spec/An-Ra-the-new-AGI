@@ -5,7 +5,7 @@
 Owner control + autonomy runtime. Goals, safety, personalization, LLM bridge, dashboard — one process that coordinates without swallowing model internals.
 
 ```text
-anra.py
+scripts/anra.py
   → MasterSystem (this folder)
   → LLMBridge / generate
   → autonomy engine
@@ -36,11 +36,11 @@ anra.py
 **Repo root (preferred):**
 
 ```bash
-python anra.py --status
-python anra.py --briefing
-python anra.py --goal "Research transformer scaling tradeoffs"
-python anra.py --dashboard
-python anra.py --test
+python scripts/anra.py --status
+python scripts/anra.py --briefing
+python scripts/anra.py --goal "Research transformer scaling tradeoffs"
+python scripts/anra.py --dashboard
+python scripts/anra.py --test
 ```
 
 **This folder:**

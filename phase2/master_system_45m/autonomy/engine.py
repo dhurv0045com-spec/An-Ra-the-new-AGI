@@ -23,7 +23,7 @@ HEARTBEAT_INTERVAL  = 30    # seconds
 RESOURCE_CHECK_INTERVAL = 60
 
 
-from shared_logger import get_shared_logger, setup_shared_logging, emit_event
+from anra.shared_logger import get_shared_logger, setup_shared_logging, emit_event
 
 # ── Logging ────────────────────────────────────────────────────────────────────
 STATE_DIR.mkdir(parents=True, exist_ok=True)

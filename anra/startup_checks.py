@@ -5,7 +5,7 @@ import warnings
 
 import torch
 
-from anra_paths import V3_TOKENIZER_FILE
+from anra.anra_paths import V3_TOKENIZER_FILE
 from tokenizer.subword_tokenizer import SubwordTokenizer
 from training.v2_config import EXPECTED_PAD_TOKEN_ID, EXPECTED_SPECIAL_TOKENS, EXPECTED_TOKENIZER_VOCAB_SIZE
 

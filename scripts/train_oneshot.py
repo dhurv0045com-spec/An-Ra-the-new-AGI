@@ -378,7 +378,7 @@ def _load_reasoning_examples(
 ) -> list:
     import json
     from pathlib import Path
-    from anra_paths import REASONING_JSONL_FILE
+    from anra.anra_paths import REASONING_JSONL_FILE
     p = Path(path) if path is not None else REASONING_JSONL_FILE
     if not p.exists():
         return []

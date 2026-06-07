@@ -9,7 +9,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from anra_paths import ROOT, SELF_MOD_AUDIT_LOG
+from anra.anra_paths import ROOT, SELF_MOD_AUDIT_LOG
 
 
 def _under(child: Path, parent: Path) -> bool:

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from anra_paths import ENGINEERING_LOG_FILE, MASTER_GOALS_FILE
+from anra.anra_paths import ENGINEERING_LOG_FILE, MASTER_GOALS_FILE
 
 
 def test_engineering_log_exists():

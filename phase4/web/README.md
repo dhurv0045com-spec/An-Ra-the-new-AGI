@@ -2,7 +2,7 @@
 
 **Component 07/19 · `api_web`**
 
-This is the operator cockpit — not a Vite starter you forgot about. React dashboard wired to the An-Ra runtime conceptually through `app.py` and the same telemetry/goals/memory surfaces the CLI exposes.
+This is the operator cockpit — not a Vite starter you forgot about. React dashboard wired to the An-Ra runtime conceptually through `scripts/app.py` and the same telemetry/goals/memory surfaces the CLI exposes.
 
 ---
 
@@ -41,11 +41,11 @@ npm run lint
 
 ```bash
 # API
-python app.py
+python scripts/app.py
 
 # Full system CLI
-python anra.py --status
-python anra.py --dashboard
+python scripts/anra.py --status
+python scripts/anra.py --dashboard
 ```
 
 The UI should reflect **real** backend state — no decorative controls for behavior that does not exist yet.

@@ -5,7 +5,7 @@ from pathlib import Path
 
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 
-from anra_paths import DATASET, ROOT
+from anra.anra_paths import DATASET, ROOT
 from runtime.system_registry import component_registry, component_status, missing_required_components
 
 

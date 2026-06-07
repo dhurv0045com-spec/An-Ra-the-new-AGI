@@ -10,11 +10,11 @@ from pathlib import Path
 
 import torch
 
-from startup_checks import assert_flash_sdp_ready
+from anra.startup_checks import assert_flash_sdp_ready
 
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 
-from anra_paths import DATASET, ROOT, ensure_dirs, get_dataset_file
+from anra.anra_paths import DATASET, ROOT, ensure_dirs, get_dataset_file
 from training.eval_v2 import run_compact_eval
 from training.data_ingestion import mount_google_drive_if_available, prepare_training_corpus
 from training.v2_config import V2_MODEL, V2_TRAINING
@@ -155,7 +155,7 @@ def _run_innovation_if_due(training_cfg, session_n: int) -> None:
         from innovation.scoreboard import score_hypothesis, write_report
         from innovation.action_queue import queue_actions
         from engine.metric_bus import get_metric_bus
-        from anra_paths import OUTPUT_V2_DIR
+        from anra.anra_paths import OUTPUT_V2_DIR
 
         print("[Innovation] Running gap scan from MetricBus deltas...", flush=True)
         mbus = get_metric_bus()

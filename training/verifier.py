@@ -8,7 +8,7 @@ import subprocess
 import tempfile
 
 try:
-    from anra_paths import EPG_PATH, WORKSPACE_DIR
+    from anra.anra_paths import EPG_PATH, WORKSPACE_DIR
 
     from domain_verifiers import (
         verify_citation_grounding,

@@ -47,7 +47,7 @@ from datetime import datetime, timedelta
 from typing import Optional
 
 from sovereignty.config import Config
-from shared_logger import emit_audit_event, get_shared_logger
+from anra.shared_logger import emit_audit_event, get_shared_logger
 
 # ── Module-level state ────────────────────────────────────────────────────────
 _log_queue: queue.Queue = queue.Queue(maxsize=10_000)

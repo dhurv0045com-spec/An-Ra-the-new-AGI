@@ -142,7 +142,7 @@ def _use_hal_flags(path: Path, root: Path, gaps: list[CapabilityGap]) -> None:
 
 
 def _system_graph_gaps(root: Path, gaps: list[CapabilityGap]) -> None:
-    path = root / "system_graph.json"
+    path = root / "docs" / "system_graph.json"
     if not path.exists():
         return
     try:

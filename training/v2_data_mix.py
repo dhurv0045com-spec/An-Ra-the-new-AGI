@@ -11,7 +11,7 @@ from typing import Iterable
 import torch
 from torch.utils.data import Dataset
 
-from anra_paths import DRIVE_GHOST_DB, FAILURE_REPLAY_DATASET, GHOST_DB_LOCAL, OUTPUT_V2_DIR, get_dataset_file, get_identity_file, get_teacher_files
+from anra.anra_paths import DRIVE_GHOST_DB, FAILURE_REPLAY_DATASET, GHOST_DB_LOCAL, OUTPUT_V2_DIR, get_dataset_file, get_identity_file, get_teacher_files
 from identity.civ import ConstitutionalIdentityVector
 from training.v2_config import IDENTITY_KEYWORDS, TEACHER_REJECT_PATTERNS, V2_1B_FRONTIER, V2_TRAINING
 

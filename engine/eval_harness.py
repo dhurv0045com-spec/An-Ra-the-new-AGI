@@ -6,7 +6,7 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Callable
 
-from anra_paths import OUTPUT_V2_DIR
+from anra.anra_paths import OUTPUT_V2_DIR
 
 
 @dataclass

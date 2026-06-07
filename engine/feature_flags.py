@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from anra_paths import STATE_DIR
+from anra.anra_paths import STATE_DIR
 
 FLAGS_FILE = STATE_DIR / "feature_flags.json"
 

@@ -29,11 +29,11 @@ import argparse
 import subprocess
 from pathlib import Path
 from typing import Callable
-from anra_paths import get_agent_workspace, ensure_dirs
-from startup_checks import assert_flash_sdp_ready
+from anra.anra_paths import get_agent_workspace, ensure_dirs
+from anra.startup_checks import assert_flash_sdp_ready
 
 # ── Resolve all project paths ─────────────────────────────────────────────────
-PROJECT_ROOT = Path(__file__).resolve().parent
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
 ensure_dirs()
 os.environ.setdefault("AGENT_FILE_ROOT", str(get_agent_workspace()))
 PHASE2_45M   = PROJECT_ROOT / "phase2" / "master_system_45m"

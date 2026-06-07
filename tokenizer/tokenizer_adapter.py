@@ -5,7 +5,7 @@ import tempfile
 from pathlib import Path
 from typing import Iterable
 
-from anra_paths import TOKENIZER_DIR, V3_TOKENIZER_FILE
+from anra.anra_paths import TOKENIZER_DIR, V3_TOKENIZER_FILE
 
 SPECIAL_TOKENS = [
     "<pad>",

@@ -49,7 +49,7 @@ class TestIdentityInjector:
     def setup_method(self):
         from identity_injector import IdentityInjector
         # Use the real identity file if available, else let it use fallback
-        from anra_paths import get_identity_file
+        from anra.anra_paths import get_identity_file
         identity_file = get_identity_file()
         if identity_file is None:
             pytest.skip("No identity file available — skipping identity test")
@@ -91,7 +91,7 @@ class TestIdentityInjector:
 
     def test_identity_file_loaded(self):
         """If identity file exists, anchors should be > 0."""
-        from anra_paths import get_identity_file
+        from anra.anra_paths import get_identity_file
         identity_file = get_identity_file()
         if identity_file is None:
             pytest.skip("No identity file available — skipping identity test")

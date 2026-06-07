@@ -14,7 +14,7 @@
 | **Component** | `docs` |
 | **Type** | ADD |
 | **Summary** | docs/ tree with ENGINEERING_LOG, MASTER_GOALS, LOG_STANDARD, log script |
-| **Files** | docs/, scripts/log_engineering_change.py, anra_paths.py |
+| **Files** | docs/, scripts/log_engineering_change.py, anra/anra_paths.py |
 | **Metrics** | n/a |
 | **Verification** | pytest tests/test_engineering_log.py |
 | **Risk** | low |
@@ -31,7 +31,7 @@
 | **Component** | `agent_loop`, `operator`, `master_system` |
 | **Type** | ADD |
 | **Summary** | `os_action`, `cad_generate`, workspace via `get_agent_workspace()`, chat `/goal` `/write` `/open` `/cad`, audit log |
-| **Files** | `phase2/agent_loop (45k)/builtin.py`, `runtime/operator_commands.py`, `anra_paths.py`, `anra.py`, `OPERATOR.md`, `tests/test_operator_tools.py` |
+| **Files** | `phase2/agent_loop (45k)/builtin.py`, `runtime/operator_commands.py`, `anra/anra_paths.py`, `scripts/anra.py`, `OPERATOR.md`, `tests/test_operator_tools.py` |
 | **Metrics** | Operator actions auditable; tool success in agent goals |
 | **Verification** | `pytest tests/test_operator_tools.py`; full suite 163 passed |
 | **Risk** | medium — `os_action` opens OS handlers; sandbox + allowed roots |
@@ -48,7 +48,7 @@
 | **Component** | `runtime`, `tests` |
 | **Type** | FIX |
 | **Summary** | TOKENIZER lazy export; sandbox without Unix `resource`; train_oneshot path literal; symbolic Unicode console |
-| **Files** | `generate.py`, `execution/sandbox.py`, `scripts/train_oneshot.py`, `anra.py` |
+| **Files** | `scripts/generate.py`, `execution/sandbox.py`, `scripts/train_oneshot.py`, `scripts/anra.py` |
 | **Metrics** | CI green on Windows |
 | **Verification** | `pytest tests/ -q` — 156+ passed |
 | **Risk** | low |
@@ -83,8 +83,8 @@
 | **Type** | ADD |
 | **Summary** | Platform layer: component_base, feature_flags, telemetry, eval_harness, report; 19-component registry |
 | **Files** | `engine/*`, `runtime/system_registry.py` |
-| **Metrics** | `anra.py --report` scorecard axes |
-| **Verification** | `python anra.py --report` — 19/19 |
+| **Metrics** | `scripts/anra.py --report` scorecard axes |
+| **Verification** | `python scripts/anra.py --report` — 19/19 |
 | **Risk** | low |
 | **Follow-up** | Fill telemetry with real workloads |
 

@@ -149,6 +149,6 @@ def save_graph(repo_root: Path, output: Path) -> Dict[str, object]:
 
 if __name__ == "__main__":
     root = Path(__file__).resolve().parent.parent
-    out = root / "system_graph.json"
+    out = root / "docs" / "system_graph.json"
     g = write_system_manifest(out, root)
     print(json.dumps({"saved": str(out), "metrics": g["metrics"]}, indent=2))

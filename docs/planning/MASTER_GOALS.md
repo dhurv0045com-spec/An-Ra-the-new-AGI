@@ -29,7 +29,7 @@ Last reviewed: **2026-05-24**
 | P0-03 | ACTIVE | Daily `session` loop runs without hidden checkpoint deps | `training_loop` | 7 consecutive session reports | operate |
 | P0-04 | DONE | Operator pack: files, open, CAD stub, slash commands | `operator` | `pytest tests/test_operator_tools.py` | build |
 | P0-05 | NEXT | Symbolic bridge in default generation path | `symbolic_bridge`, `runtime` | Wrong math blocked before reply; telemetry | build + test |
-| P0-06 | NEXT | Telemetry non-empty after smoke session | `engine` | `anra.py --report` latency > 0 | operate |
+| P0-06 | NEXT | Telemetry non-empty after smoke session | `engine` | `scripts/anra.py --report` latency > 0 | operate |
 
 ---
 
@@ -104,7 +104,7 @@ Last reviewed: **2026-05-24**
 | ID | Status | Goal | Component | Verifier | Means |
 |----|--------|------|-----------|----------|-------|
 | C-01 | NEXT | Goal queue → orchestrator daily autopilot | `goals` | `run_session` summary JSON | operate |
-| C-02 | NEXT | Ghost memory injected in `generate.py` by default | `ghost_memory` | A/B context recall test | build |
+| C-02 | NEXT | Ghost memory injected in `scripts/generate.py` by default | `ghost_memory` | A/B context recall test | build |
 | C-03 | IDEA | Falsification ledger auto-append on symbolic verify | `identity` | Ledger entries from 45Q | build |
 | C-04 | NEXT | Agent goals use sovereignty read before destructive ops | `sovereignty` | Tier-3 block demo | test |
 

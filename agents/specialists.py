@@ -4,7 +4,7 @@ import sys
 import time
 from pathlib import Path
 
-from anra_paths import ROOT
+from anra.anra_paths import ROOT
 from execution.sandbox import CodeSandbox
 from training.verifier import VerifierHierarchy
 

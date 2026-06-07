@@ -21,11 +21,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
-from anra_paths import DRIVE_DIR, MEMORY_DB_DIR, DRIVE_SESSIONS, ensure_dirs
+from anra.anra_paths import DRIVE_DIR, MEMORY_DB_DIR, DRIVE_SESSIONS, ensure_dirs
 
 ensure_dirs()
 
-from generate import (
+from scripts.generate import (
     GenerationConfig, generate, generate_stream, generate_traced, get_model_info,
     load_ghost_state, save_ghost_state
 )

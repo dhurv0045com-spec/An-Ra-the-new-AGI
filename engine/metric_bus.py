@@ -12,7 +12,7 @@ from typing import Any
 
 def _runs_dir() -> Path:
     """Drive-first, local fallback. Call once at MetricBus init."""
-    from anra_paths import DRIVE_LOGS, STATE_DIR
+    from anra.anra_paths import DRIVE_LOGS, STATE_DIR
 
     primary = DRIVE_LOGS / "runs"
     try:
