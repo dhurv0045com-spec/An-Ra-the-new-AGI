@@ -1,12 +1,11 @@
 from __future__ import annotations
 
 import json
+
 import pytest
 import torch
-from pathlib import Path
-
-from anra_brain import CausalTransformerV2
 from anra.anra_paths import DATASET, V3_TOKENIZER_FILE
+from anra_brain import CausalTransformerV2
 from tokenizer.subword_tokenizer import SubwordTokenizer
 from training.v2_data_mix import IdentityStyleFilter, build_v2_training_examples
 

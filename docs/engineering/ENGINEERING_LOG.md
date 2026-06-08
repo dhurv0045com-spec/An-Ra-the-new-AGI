@@ -5,6 +5,142 @@
 
 ---
 
+## 2026-06-08 - CHECK - `tests` - Pre-push roadmap audit
+
+| Field | Value |
+|-------|-------|
+| **Date** | 2026-06-08 |
+| **Author** | ai-agent |
+| **Component** | `tests`, `docs` |
+| **Type** | CHECK |
+| **Summary** | Re-evaluated roadmap implementation scaffolds before git push and added a pre-push audit note |
+| **Files** | docs/planning/PRE_PUSH_AUDIT_2026_06_08.md, docs/research/ANRA_IMPLEMENTATION_ROADMAP_BEST_OF.md, docs/planning/MASTER_GOALS.md |
+| **Metrics** | Focused suite 74 passed; full suite 259 passed with 1 Windows encoding warning; compile check passed; conflict-marker sweep clean |
+| **Verification** | python -m pytest tests -q |
+| **Risk** | low |
+| **Follow-up** | Run the actual golden eval against the promoted checkpoint before claiming model-quality improvement |
+
+---
+
+## 2026-06-08 - ADD - `self_improvement` - GEPA-style reflection scaffold
+
+| Field | Value |
+|-------|-------|
+| **Date** | 2026-06-08 |
+| **Author** | ai-agent |
+| **Component** | `self_improvement`, `training_loop` |
+| **Type** | ADD |
+| **Summary** | Added trace-backed GEPA reflections and prompt/tool-policy candidate proposals; self-improvement now writes a GEPA report without auto-applying changes |
+| **Files** | training/gepa.py, scripts/run_self_improvement.py, training/v2_config.py, tests/test_gepa.py, tests/test_self_improvement_gepa.py |
+| **Metrics** | Reports trace count, reflections, candidates, scores, owner-review gate, and auto-apply disabled state |
+| **Verification** | python -m pytest tests/test_gepa.py tests/test_self_improvement_gepa.py tests/test_rlvr.py tests/test_rlvr_dapo.py tests/test_new_systems.py tests/test_optimizer_bakeoff.py tests/test_sparse_lora.py tests/test_eval_v2.py tests/test_unified_training_plan.py tests/test_anra_brain_unit.py tests/test_v2_stack.py tests/test_block1_architecture.py -q |
+| **Risk** | low |
+| **Follow-up** | Score GEPA candidates against golden eval tasks before any prompt/tool-policy promotion |
+
+---
+
+## 2026-06-08 - ADD - `training_loop` - RLVR DAPO-style telemetry scaffold
+
+| Field | Value |
+|-------|-------|
+| **Date** | 2026-06-08 |
+| **Author** | ai-agent |
+| **Component** | `training_loop`, `replay` |
+| **Type** | ADD |
+| **Summary** | Added RLVR overlong reward shaping, token-level policy-loss knob, dynamic sampling knob, KL/output/replay metrics, and richer replay provenance |
+| **Files** | training/rlvr.py, training/replay_pipeline.py, training/v2_config.py, tests/test_rlvr_dapo.py |
+| **Metrics** | Reports G, policy loss, KL loss, effective KL, output lengths, verifier pass rate, reward stats, and replay additions |
+| **Verification** | python -m pytest tests/test_rlvr.py tests/test_rlvr_dapo.py tests/test_new_systems.py tests/test_optimizer_bakeoff.py tests/test_sparse_lora.py tests/test_eval_v2.py tests/test_unified_training_plan.py tests/test_anra_brain_unit.py tests/test_v2_stack.py tests/test_block1_architecture.py -q |
+| **Risk** | low |
+| **Follow-up** | Run RLVR A/B against golden eval before changing default reasoning-training policy |
+
+---
+
+## 2026-06-08 - ADD - `training_loop` - Optimizer bake-off scaffold
+
+| Field | Value |
+|-------|-------|
+| **Date** | 2026-06-08 |
+| **Author** | ai-agent |
+| **Component** | `training_loop` |
+| **Type** | ADD |
+| **Summary** | Added named optimizer adapter/report scaffold for AdamW, Muon, SCALE, and GaLore; trainer writes the selected/fallback optimizer report |
+| **Files** | training/anra_optimizer.py, scripts/build_brain.py, training/train_unified.py, training/finetune_anra.py, training/v2_config.py, tests/test_optimizer_bakeoff.py |
+| **Metrics** | Reports trainable params, candidate optimizer state estimates, selected optimizer, fallback reason, and param groups |
+| **Verification** | python -m pytest tests/test_optimizer_bakeoff.py tests/test_sparse_lora.py tests/test_eval_v2.py tests/test_unified_training_plan.py tests/test_anra_brain_unit.py tests/test_v2_stack.py tests/test_block1_architecture.py -q |
+| **Risk** | low |
+| **Follow-up** | Run same data slice with `--optimizer adamw`, `--optimizer muon`, and optional verified SCALE/GaLore packages when installed |
+
+---
+
+## 2026-06-08 - ADD - `training_loop` - SparseLoRA logging-only estimator
+
+| Field | Value |
+|-------|-------|
+| **Date** | 2026-06-08 |
+| **Author** | ai-agent |
+| **Component** | `training_loop` |
+| **Type** | ADD |
+| **Summary** | Added SparseLoRA-style contextual sparsity estimator and identity fine-tune report hook; training remains unchanged until eval-gated comparison passes |
+| **Files** | training/sparse_lora.py, training/finetune_anra.py, training/v2_config.py, tests/test_sparse_lora.py |
+| **Metrics** | Reports active tokens, kept tokens, estimated skipped tokens, skip ratio, and measure-only decision |
+| **Verification** | python -m pytest tests/test_sparse_lora.py tests/test_eval_v2.py tests/test_unified_training_plan.py tests/test_anra_brain_unit.py tests/test_v2_stack.py tests/test_block1_architecture.py -q |
+| **Risk** | low |
+| **Follow-up** | Compare baseline LoRA/QLoRA vs SparseLoRA logging estimates on the same data slice and checkpoint |
+
+---
+
+## 2026-06-08 - ADD - `evaluation` - Golden eval baseline artifact
+
+| Field | Value |
+|-------|-------|
+| **Date** | 2026-06-08 |
+| **Author** | ai-agent |
+| **Component** | `evaluation`, `training_loop` |
+| **Type** | ADD |
+| **Summary** | Added compact-eval golden baseline schema, promotion gates, and `train_unified --mode eval` artifact hook; resolved eval/model-path merge markers |
+| **Files** | anra_brain.py, training/eval_v2.py, training/train_unified.py, training/v2_config.py, training/v2_runtime.py, tests/test_eval_v2.py, tests/test_unified_training_plan.py, tests/test_block1_architecture.py |
+| **Metrics** | Baseline captures suite scores, task outputs, thresholds, gates, and promotion decision |
+| **Verification** | python -m pytest tests/test_eval_v2.py tests/test_unified_training_plan.py tests/test_anra_brain_unit.py tests/test_v2_stack.py tests/test_block1_architecture.py -q |
+| **Risk** | low |
+| **Follow-up** | Run `python -m training.train_unified --mode eval` against the promoted checkpoint to create the real baseline JSON |
+
+---
+
+## 2026-06-08 — ADD — `docs` — Best-of intelligence efficiency research pack
+
+| Field | Value |
+|-------|-------|
+| **Date** | 2026-06-08 |
+| **Author** | ai-agent |
+| **Component** | `docs` |
+| **Type** | ADD |
+| **Summary** | Added a best-fit research paper and implementation roadmap for making An-Ra more intelligent and efficient without changing its core vision |
+| **Files** | docs/research/ANRA_BEST_RESEARCH_FOR_INTELLIGENCE_AND_EFFICIENCY.md, docs/research/ANRA_IMPLEMENTATION_ROADMAP_BEST_OF.md, docs/planning/MASTER_GOALS.md |
+| **Metrics** | 50 papers and technologies mapped to An-Ra components and priorities |
+| **Verification** | manual doc audit; source links and R-07 tracking entry present |
+| **Risk** | low |
+| **Follow-up** | Implement P0 roadmap items after eval baseline |
+
+---
+
+## 2026-06-08 — CHANGE — `operator` — Natural chat routes workspace actions
+
+| Field | Value |
+|-------|-------|
+| **Date** | 2026-06-08 |
+| **Author** | ai-agent |
+| **Component** | `operator` |
+| **Type** | CHANGE |
+| **Summary** | Plain chat routes concrete workspace requests to safe operator tools |
+| **Files** | runtime/operator_commands.py, phase2/master_system_45m/system.py, tests/test_operator_tools.py, docs/OPERATOR.md, docs/planning/MASTER_GOALS.md |
+| **Metrics** | Natural file-write UX covered by focused operator tests |
+| **Verification** | python -m pytest tests/test_operator_tools.py -q - 6 passed |
+| **Risk** | low |
+| **Follow-up** | none |
+
+---
+
 ## 2026-05-24 — ADD — `docs` — Documentation hub and tracking spine
 
 | Field | Value |
@@ -31,7 +167,7 @@
 | **Component** | `agent_loop`, `operator`, `master_system` |
 | **Type** | ADD |
 | **Summary** | `os_action`, `cad_generate`, workspace via `get_agent_workspace()`, chat `/goal` `/write` `/open` `/cad`, audit log |
-| **Files** | `phase2/agent_loop (45k)/builtin.py`, `runtime/operator_commands.py`, `anra/anra_paths.py`, `scripts/anra.py`, `OPERATOR.md`, `tests/test_operator_tools.py` |
+| **Files** | `phase2/agent_loop (45k)/builtin.py`, `runtime/operator_commands.py`, `anra/anra_paths.py`, `anra.py`, `OPERATOR.md`, `tests/test_operator_tools.py` |
 | **Metrics** | Operator actions auditable; tool success in agent goals |
 | **Verification** | `pytest tests/test_operator_tools.py`; full suite 163 passed |
 | **Risk** | medium — `os_action` opens OS handlers; sandbox + allowed roots |
@@ -48,7 +184,7 @@
 | **Component** | `runtime`, `tests` |
 | **Type** | FIX |
 | **Summary** | TOKENIZER lazy export; sandbox without Unix `resource`; train_oneshot path literal; symbolic Unicode console |
-| **Files** | `scripts/generate.py`, `execution/sandbox.py`, `scripts/train_oneshot.py`, `scripts/anra.py` |
+| **Files** | `generate.py`, `execution/sandbox.py`, `scripts/train_oneshot.py`, `anra.py` |
 | **Metrics** | CI green on Windows |
 | **Verification** | `pytest tests/ -q` — 156+ passed |
 | **Risk** | low |
@@ -83,8 +219,8 @@
 | **Type** | ADD |
 | **Summary** | Platform layer: component_base, feature_flags, telemetry, eval_harness, report; 19-component registry |
 | **Files** | `engine/*`, `runtime/system_registry.py` |
-| **Metrics** | `scripts/anra.py --report` scorecard axes |
-| **Verification** | `python scripts/anra.py --report` — 19/19 |
+| **Metrics** | `anra.py --report` scorecard axes |
+| **Verification** | `python anra.py --report` — 19/19 |
 | **Risk** | low |
 | **Follow-up** | Fill telemetry with real workloads |
 

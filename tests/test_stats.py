@@ -1,9 +1,8 @@
-import os
-from pathlib import Path
-
-from anra.anra_paths import ROOT, MASTER_SYSTEM_DIR
 
 import importlib.util
+
+from anra.anra_paths import MASTER_SYSTEM_DIR
+
 path = str(MASTER_SYSTEM_DIR / "system.py")
 spec = importlib.util.spec_from_file_location("master_system", path)
 assert spec is not None and spec.loader is not None
@@ -15,7 +14,7 @@ try:
     print("Initializing MasterSystem...")
     system = MasterSystem()
     system.start()
-    
+
     print("\nChecking Memory Stats...")
     if system.memory:
         try:
@@ -25,7 +24,7 @@ try:
             print(f"FAILED memory.stats(): {e}")
     else:
         print("Memory system not active.")
-        
+
     print("\nChecking KB Stats...")
     if system.knowledge_base:
         try:
@@ -41,7 +40,7 @@ try:
         print("Ghost memory is active.")
     else:
         print("Ghost memory not active.")
-        
+
     system.stop()
     print("\nDone.")
 

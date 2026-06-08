@@ -64,7 +64,7 @@ No magic subsystem.
 Every component must be registered, switchable, measurable, reportable, and testable.
 ```
 
-**19 registered components.** Each can be toggled (`engine/feature_flags.py`), traced (`engine/telemetry.py`), and inspected (`python scripts/anra.py --report`). If you remember nothing else from this section, remember that.
+**19 registered components.** Each can be toggled (`engine/feature_flags.py`), traced (`engine/telemetry.py`), and inspected (`python anra.py --report`). If you remember nothing else from this section, remember that.
 
 ---
 
@@ -75,11 +75,11 @@ Where things live (paths centralized in `anra/anra_paths.py` — do not scatter 
 ```text
 An-Ra/
 │
-├── scripts/anra.py                  ← Main CLI entry point
+├── anra.py                          ← Main CLI entry point
 ├── anra_brain.py            ← The V2 transformer neural network
 ├── anra/anra_paths.py            ← All file paths centralized here (no scattered literals)
-├── scripts/app.py                   ← FastAPI web backend
-├── scripts/generate.py              ← Inference / generation runtime
+├── app.py                           ← FastAPI web backend
+├── generate.py                      ← Inference / generation runtime
 │
 ├── core/                    ← Low-level transformer building blocks (archived reference)
 │   ├── attention.py         ← Attention mechanism
@@ -856,7 +856,7 @@ diff = harness.compare(baseline, current)
 
 ### report.py
 ```bash
-python scripts/anra.py --report
+python anra.py --report
 ```
 Produces a full operator scorecard across all 19 components in one command.
 
@@ -1032,19 +1032,19 @@ or hold → quarantine + report (if failed)
 pip install -r requirements.txt
 
 # See system status
-python scripts/anra.py --status
+python anra.py --status
 
 # Full health report
-python scripts/anra.py --report
+python anra.py --report
 
 # Check what components are enabled
-python scripts/anra.py --phase3-status
+python anra.py --phase3-status
 
 # Test symbolic bridge
-python scripts/anra.py --symbolic "solve x^2 - 9 = 0"
+python anra.py --symbolic "solve x^2 - 9 = 0"
 
 # Add a goal
-python scripts/anra.py --goal "analyze the current training data quality"
+python anra.py --goal "analyze the current training data quality"
 
 # Training
 python -m training.train_unified --mode status   # dry run
@@ -1101,8 +1101,8 @@ print(bus.summary_by_module())
 | 3 | `data_mix` | `training/v2_data_mix.py` | 65/15/10/5/5 owner-first corpus |
 | 4 | `training_loop` | `training/train_unified.py` | Daily and milestone training |
 | 5 | `evaluation` | `training/eval_v2.py`, `benchmark.py` | Compact eval + hard-example feedback |
-| 6 | `runtime` | `scripts/generate.py`, `inference/` | Generation, streaming, inference |
-| 7 | `api_web` | `scripts/app.py` | FastAPI backend + web interface |
+| 6 | `runtime` | `generate.py`, `inference/` | Generation, streaming, inference |
+| 7 | `api_web` | `app.py` | FastAPI backend + web interface |
 | 8 | `identity` | `identity/civ.py`, `esv.py`, `hal.py` | CIV + ESV + HAL identity stack |
 | 9 | `memory` | `memory/memory_router.py` | 4-tier memory with HAL salience gate |
 | 10 | `phase2_memory` | `phase2/memory (45J)/` | Typed recall + personal knowledge graph |
@@ -1129,7 +1129,7 @@ An-Ra can **act on your machine** (within a sandbox) — not only generate text.
 Default root: `workspace/` (override with `AGENT_FILE_ROOT` or `ANRA_AGENT_WORKSPACE`).
 
 ```bash
-python scripts/anra.py --chat
+python anra.py --chat
 /workspace          # via /workspace command
 ```
 
@@ -1160,7 +1160,7 @@ Audit log: `state/logs/operator_actions.jsonl`
 ### Example: 3D raptor engine diagram (stylized)
 
 ```bash
-python scripts/anra.py --goal "Use cad_generate raptor_engine, then write a short REPORT of assumptions"
+python anra.py --goal "Use cad_generate raptor_engine, then write a short REPORT of assumptions"
 # or in chat:
 /cad raptor_engine
 ```
@@ -1214,4 +1214,4 @@ An-Ra is not a product slide. It is an **organism** — built to learn, remember
 
 That is what sovereign means here: not unlimited autonomy — **inspected autonomy**.
 
-**Next steps:** run `python scripts/anra.py --report`, pick one subsystem from the TOC, open its README in `phase2/` or `phase3/`, change one thing, prove it with a test. That is how this codebase is meant to be learned.
+**Next steps:** run `python anra.py --report`, pick one subsystem from the TOC, open its README in `phase2/` or `phase3/`, change one thing, prove it with a test. That is how this codebase is meant to be learned.

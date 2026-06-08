@@ -102,7 +102,7 @@ def test_no_unauthorized_wildcard_shims_at_root():
     forbidden = ["identity_injector.py", "ouroboros_numpy.py", "sovereignty_bridge.py"]
     present = [f for f in forbidden if (REPO / f).exists()]
     assert not present, (
-        f"Unauthorized wildcard shim files exist at root:\n"
+        "Unauthorized wildcard shim files exist at root:\n"
         + "\n".join(present)
         + "\nDelete them with: git rm " + " ".join(present)
     )
@@ -154,7 +154,7 @@ def test_train_trigger_is_not_fake():
             sys.executable,
             "-c",
             "from fastapi.testclient import TestClient; "
-            "from scripts.app import app; "
+            "from app import app; "
             "r = TestClient(app).post('/train/trigger'); "
             "assert r.status_code == 501, r.status_code",
         ],
@@ -164,8 +164,8 @@ def test_train_trigger_is_not_fake():
         env={**__import__("os").environ, "PYTHONPATH": str(REPO)},
     )
     if result.returncode != 0:
-        app_source = (REPO / "scripts" / "app.py").read_text(encoding="utf-8", errors="replace")
-        assert "/train/trigger" in app_source, "train trigger route missing from scripts/app.py"
+        app_source = (REPO / "app.py").read_text(encoding="utf-8", errors="replace")
+        assert "/train/trigger" in app_source, "train trigger route missing from app.py"
         assert "501" in app_source, "train trigger must return 501 (not implemented)"
         assert "training_dispatch_not_implemented" in app_source, (
             "train trigger must not pretend to dispatch training"

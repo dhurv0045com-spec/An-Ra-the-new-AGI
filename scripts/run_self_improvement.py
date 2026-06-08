@@ -4,6 +4,7 @@ import json
 import time
 from pathlib import Path
 
+from training.gepa import build_gepa_report, write_gepa_report
 from training.v2_runtime import v2_report_path, write_json
 
 
@@ -37,7 +38,16 @@ def run_self_improvement() -> dict[str, object]:
     eval_summary = _load_json(v2_report_path("eval_summary")) or {}
     hard_blob = _load_json(v2_report_path("hard_examples")) or {}
     mix_report = _load_json(v2_report_path("mix_report")) or {}
+    rlvr_report = _load_json(v2_report_path("rlvr_report")) or {}
     hard_examples = hard_blob.get("examples", []) if isinstance(hard_blob, dict) else []
+    gepa_report = write_gepa_report(
+        build_gepa_report(
+            eval_summary=eval_summary if isinstance(eval_summary, dict) else {},
+            hard_examples=hard_examples if isinstance(hard_examples, list) else [],
+            rlvr_report=rlvr_report if isinstance(rlvr_report, dict) else {},
+        ),
+        output_path=v2_report_path("gepa_report"),
+    )
 
     report = {
         "generated_at": time.time(),
@@ -45,11 +55,20 @@ def run_self_improvement() -> dict[str, object]:
         "eval_summary_path": str(v2_report_path("eval_summary")),
         "hard_examples_path": str(v2_report_path("hard_examples")),
         "mix_report_path": str(v2_report_path("mix_report")),
+        "rlvr_report_path": str(v2_report_path("rlvr_report")),
+        "gepa_report_path": str(v2_report_path("gepa_report")),
         "recommendations": _recommendations(
             eval_summary if isinstance(eval_summary, dict) else {},
             hard_examples if isinstance(hard_examples, list) else [],
             mix_report if isinstance(mix_report, dict) else {},
         ),
+        "gepa": {
+            "trace_count": len(gepa_report.get("traces", [])),
+            "candidate_count": len(gepa_report.get("candidates", [])),
+            "accepted": gepa_report.get("accepted", []),
+            "auto_apply_enabled": gepa_report.get("auto_apply_enabled", False),
+            "required_gate": gepa_report.get("required_gate", ""),
+        },
     }
     write_json(v2_report_path("improvement_report"), report)
     return report

@@ -40,7 +40,7 @@ def test_dynamic_regret_t_zero_returns_base_lr() -> None:
 
 def test_regret_state_path_is_on_drive():
     """REGRET_STATE must point to Drive, not local state/."""
-    from anra.anra_paths import REGRET_STATE, DRIVE_V3_DIR
+    from anra.anra_paths import DRIVE_V3_DIR, REGRET_STATE
 
     assert str(DRIVE_V3_DIR) in str(REGRET_STATE), (
         f"REGRET_STATE={REGRET_STATE} is not under DRIVE_V3_DIR={DRIVE_V3_DIR}"

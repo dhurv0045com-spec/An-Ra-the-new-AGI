@@ -11,7 +11,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.append(str(PROJECT_ROOT))
 
 sys.path.append(str(Path(__file__).resolve().parent.parent.parent))  # project root
-from scripts.generate import generate as _v2_generate, get_model_info
+from generate import generate as _v2_generate, get_model_info
 
 
 class LLMBridge:

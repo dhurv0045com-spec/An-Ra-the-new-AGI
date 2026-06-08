@@ -3,7 +3,6 @@ import tempfile
 from pathlib import Path
 
 import pytest
-
 from agents.orchestrator import OrchestratorAgent
 from engine import telemetry
 from engine.telemetry import TelemetryBus
@@ -118,8 +117,9 @@ def test_run_session_generates_successor():
 
 
 def test_goal_to_task_routing():
-    from goals.goal_queue import GoalItem
     import time
+
+    from goals.goal_queue import GoalItem
 
     orch = OrchestratorAgent(None, None, None, None)
 

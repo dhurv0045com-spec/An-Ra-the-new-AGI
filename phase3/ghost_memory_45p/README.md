@@ -38,7 +38,7 @@ new turn
 ## Operator hooks
 
 ```bash
-python scripts/anra.py --phase3-status    # includes ghost health
+python anra.py --phase3-status    # includes ghost health
 ```
 
 Orchestrator kind `ghost` → this component. Toggle: `set_flag("ghost_memory", False)`.

@@ -16,3 +16,7 @@ def test_train_mode_runs_base_before_milestone_layers() -> None:
 
 def test_session_mode_stays_daily_base_only() -> None:
     assert stage_plan_for_mode("session") == ["base"]
+
+
+def test_eval_mode_runs_eval_only() -> None:
+    assert stage_plan_for_mode("eval") == ["eval"]

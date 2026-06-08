@@ -52,7 +52,7 @@ python test_45K.py
 **From repo root (integrated path):**
 
 ```bash
-python scripts/anra.py --goal "Compare vector memory approaches in 3 bullets"
+python anra.py --goal "Compare vector memory approaches in 3 bullets"
 ```
 
 ---
@@ -77,7 +77,7 @@ python scripts/anra.py --goal "Compare vector memory approaches in 3 bullets"
 
 ## Where 45K fits in the stack
 
-| Use 45K directly | Use master system / `scripts/anra.py` |
+| Use 45K directly | Use master system / `anra.py` |
 | --- | --- |
 | Isolated agent experiments | Goals + memory + safety + owner control |
 | Tool routing debugging | Production-style sessions |

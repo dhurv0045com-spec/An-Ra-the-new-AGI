@@ -55,7 +55,7 @@ def test_inference_importable_from_package():
 
 
 def test_schemas_importable():
-    from anra.serving.schemas import GenerateRequest, GenerateResponse
+    from anra.serving.schemas import GenerateRequest
 
     r = GenerateRequest(prompt="test")
     assert r.prompt == "test"

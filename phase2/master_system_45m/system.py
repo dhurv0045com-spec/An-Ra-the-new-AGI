@@ -988,9 +988,10 @@ def _run_chat(system: MasterSystem):
     print("  Memory and ghost context are active.\n")
 
     try:
-        from runtime.operator_commands import handle_slash_command
+        from runtime.operator_commands import handle_natural_operator_request, handle_slash_command
     except Exception:
         handle_slash_command = None  # type: ignore
+        handle_natural_operator_request = None  # type: ignore
 
     while True:
         try:
@@ -1012,6 +1013,15 @@ def _run_chat(system: MasterSystem):
 
         if handle_slash_command is not None and user_input.startswith("/"):
             handled, msg = handle_slash_command(
+                user_input,
+                run_goal=lambda g: system.run_goal(g, show_plan=True),
+            )
+            if handled:
+                print(f"\n{msg}\n")
+                continue
+
+        if handle_natural_operator_request is not None:
+            handled, msg = handle_natural_operator_request(
                 user_input,
                 run_goal=lambda g: system.run_goal(g, show_plan=True),
             )

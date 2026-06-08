@@ -21,8 +21,8 @@ LLMs are fluent. Fluency is not truth. This module answers checkable questions w
 
 ```bash
 # From repo root (paths injected)
-python scripts/anra.py --symbolic "factor 360"
-python scripts/anra.py --symbolic "Is (A->B) and (B->C) -> (A->C) a tautology?"
+python anra.py --symbolic "factor 360"
+python anra.py --symbolic "Is (A->B) and (B->C) -> (A->C) a tautology?"
 
 # Local demo
 cd "phase3/symbolic_bridge (45Q)"

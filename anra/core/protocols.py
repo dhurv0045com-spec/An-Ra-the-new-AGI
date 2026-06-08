@@ -7,7 +7,6 @@ from typing import Protocol, runtime_checkable
 
 import torch
 
-
 MetricValue = int | float | str | bool
 MetricPayload = Mapping[str, MetricValue]
 TensorBatch = Mapping[str, torch.Tensor]

@@ -56,7 +56,7 @@ def _model_output() -> tuple[str, str]:
     if not checkpoint.exists():
         return FALLBACK_OUTPUT, "no checkpoint found; using scaffolded candidate"
     try:
-        from scripts.generate import GenerationConfig, generate_traced
+        from generate import GenerationConfig, generate_traced
 
         trace = generate_traced(PROMPT, GenerationConfig(max_tokens=240, temperature=0.75), session_id="demo")
         return trace.output or FALLBACK_OUTPUT, f"checkpoint used: {checkpoint}"

@@ -83,6 +83,9 @@ class Registry(Generic[T]):
     def __contains__(self, name: str) -> bool:
         return self.contains(name)
 
+    def __getitem__(self, name: str) -> type[T]:
+        return self.get(name)
+
     def list(self) -> list[str]:
         """Return all registered names and aliases."""
 

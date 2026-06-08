@@ -2,8 +2,6 @@
 from __future__ import annotations
 
 import pytest
-from pydantic import ValidationError
-
 from anra.serving.schemas import (
     ErrorResponse,
     GenerateRequest,
@@ -11,6 +9,7 @@ from anra.serving.schemas import (
     HealthResponse,
     SessionInfo,
 )
+from pydantic import ValidationError
 
 
 def test_generate_request_defaults():

@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 import json
+import sys
 import numpy as np
 
 
@@ -23,6 +24,10 @@ class FAISSEpisodicStore:
         self._load_backend()
 
     def _load_backend(self) -> None:
+        if sys.version_info >= (3, 14):
+            self._faiss = None
+            self._index = None
+            return
         try:
             import faiss  # type: ignore
 

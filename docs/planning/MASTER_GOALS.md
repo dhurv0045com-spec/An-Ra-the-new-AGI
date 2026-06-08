@@ -4,7 +4,7 @@
 > **Status keys:** `DONE` · `ACTIVE` · `NEXT` · `BLOCKED` · `IDEA`  
 > **Update this file** when work completes. Log shipped work in [`../engineering/ENGINEERING_LOG.md`](../engineering/ENGINEERING_LOG.md).
 
-Last reviewed: **2026-05-24**
+Last reviewed: **2026-06-08**
 
 ---
 
@@ -29,7 +29,7 @@ Last reviewed: **2026-05-24**
 | P0-03 | ACTIVE | Daily `session` loop runs without hidden checkpoint deps | `training_loop` | 7 consecutive session reports | operate |
 | P0-04 | DONE | Operator pack: files, open, CAD stub, slash commands | `operator` | `pytest tests/test_operator_tools.py` | build |
 | P0-05 | NEXT | Symbolic bridge in default generation path | `symbolic_bridge`, `runtime` | Wrong math blocked before reply; telemetry | build + test |
-| P0-06 | NEXT | Telemetry non-empty after smoke session | `engine` | `scripts/anra.py --report` latency > 0 | operate |
+| P0-06 | NEXT | Telemetry non-empty after smoke session | `engine` | `anra.py --report` latency > 0 | operate |
 
 ---
 
@@ -43,6 +43,7 @@ Last reviewed: **2026-05-24**
 | R-04 | IDEA | HAL hormone → behavior correlation study | `identity` | Logged sessions + measured outcomes | research |
 | R-05 | NEXT | Engineering CAD: real turbofan dims from public sources | `operator` | REPORT.md cites sources; falsifiers listed | research |
 | R-06 | IDEA | Remote node threat model + pairing protocol | `docs` | Design doc + security checklist | research |
+| R-07 | DONE | Best-of intelligence and efficiency research pack | `docs`, `training_loop`, `runtime`, `memory` | `docs/research/ANRA_BEST_RESEARCH_FOR_INTELLIGENCE_AND_EFFICIENCY.md` + roadmap | research |
 
 ---
 
@@ -50,7 +51,7 @@ Last reviewed: **2026-05-24**
 
 | ID | Status | Goal | Component | Verifier | Means |
 |----|--------|------|-----------|----------|-------|
-| T-01 | DONE | Full pytest green on Windows | `tests` | `pytest tests/ -q` | test |
+| T-01 | DONE | Full pytest green on Windows | `tests` | `pytest tests/ -q` - 259 passed, 1 warning on 2026-06-08 | test |
 | T-02 | NEXT | CI workflow: report + pytest on push | `engine` | GitHub Actions green | build |
 | T-03 | NEXT | Eval harness golden file per component | `evaluation` | `EvalHarness.compare` in CI | test |
 | T-04 | NEXT | Phase 3 integration smoke in CI | `symbolic_bridge`, `ghost_memory` | `test_phase3_integration.py` subset | test |
@@ -69,6 +70,11 @@ Last reviewed: **2026-05-24**
 | TR-04 | NEXT | Ouroboros checkpoint milestone path | `ouroboros` | `anra_v2_ouroboros.pt` + eval | train |
 | TR-05 | IDEA | STaR + RLVR combined session mode | `training_loop` | A/B eval vs baseline | research + train |
 | TR-06 | IDEA | Distilled 25m smoke model for CPU demos | `brain` | Generation quality rubric | train |
+| TR-07 | DONE | SparseLoRA logging-only efficiency estimate | `training_loop` | `v2_sparse_lora_report.json` + focused tests | research + test |
+| TR-08 | DONE | Optimizer bake-off scaffold | `training_loop` | `v2_optimizer_bakeoff_report.json` + focused tests | research + test |
+| TR-09 | DONE | RLVR DAPO-style telemetry scaffold | `training_loop` | `v2_rlvr_report.json` + focused tests | research + test |
+| TR-10 | DONE | GEPA-style self-improvement proposals | `self_improvement` | `v2_gepa_report.json` + focused tests | research + test |
+| TR-11 | NEXT | TurboQuant and KVarN audit | `runtime` | `v2_turboquant_audit_report.json` + compression/error tests | research + test |
 
 ---
 
@@ -79,7 +85,7 @@ Last reviewed: **2026-05-24**
 | O-01 | DONE | Workspace sandbox + `get_agent_workspace()` | `operator` | Path tests | build |
 | O-02 | DONE | `os_action` open/reveal/URL | `agent_loop` | Manual + unit tests | build |
 | O-03 | DONE | `cad_generate` raptor_engine template | `operator` | `.scad` + REPORT in workspace | build |
-| O-04 | NEXT | Chat auto-routes “create file” to tools without `/goal` | `master_system` | UX test script | build |
+| O-04 | DONE | Chat auto-routes “create file” to tools without `/goal` | `master_system` | `pytest tests/test_operator_tools.py -q` | build |
 | O-05 | NEXT | CadQuery adapter (optional dep) | `operator` | STL export without OpenSCAD | build |
 | O-06 | NEXT | Web UI: operator panel (write, goal, workspace) | `api_web` | phase4 panel calls API | build |
 | O-07 | IDEA | Voice input → goal queue | `master_system` | End-to-end demo | build |
@@ -104,7 +110,7 @@ Last reviewed: **2026-05-24**
 | ID | Status | Goal | Component | Verifier | Means |
 |----|--------|------|-----------|----------|-------|
 | C-01 | NEXT | Goal queue → orchestrator daily autopilot | `goals` | `run_session` summary JSON | operate |
-| C-02 | NEXT | Ghost memory injected in `scripts/generate.py` by default | `ghost_memory` | A/B context recall test | build |
+| C-02 | NEXT | Ghost memory injected in `generate.py` by default | `ghost_memory` | A/B context recall test | build |
 | C-03 | IDEA | Falsification ledger auto-append on symbolic verify | `identity` | Ledger entries from 45Q | build |
 | C-04 | NEXT | Agent goals use sovereignty read before destructive ops | `sovereignty` | Tier-3 block demo | test |
 
@@ -139,13 +145,17 @@ Last reviewed: **2026-05-24**
 - [x] P0-04 Operator pack  
 - [ ] P0-05 Symbolic in loop  
 - [ ] P0-06 Telemetry filled  
-- [ ] O-04 Natural language → tools  
+- [x] O-04 Natural language → tools  
 
 ### Milestone B — **Train-ready**
 
 - [ ] P0-01 Promoted brain checkpoint  
 - [ ] P0-02 Eval baseline  
 - [ ] TR-02 Replay into mix  
+- [x] TR-07 SparseLoRA estimate  
+- [x] TR-08 Optimizer bake-off scaffold  
+- [x] TR-09 RLVR telemetry scaffold  
+- [x] TR-10 GEPA proposal scaffold  
 
 ### Milestone C — **Field-ready** (long arc)
 

@@ -12,17 +12,14 @@ Run:
     python -m pytest tests/test_phase3_integration.py -v
 """
 
-import json
 import subprocess
 import sys
-import time
 from pathlib import Path
 
 TEST_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = TEST_DIR.parent
 
 import pytest
-
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # MODULE-LEVEL TESTS (no MasterSystem needed)
@@ -33,9 +30,9 @@ class TestIdentityInjector:
     """45N — Identity Injector (CPU-only, no training required)."""
 
     def setup_method(self):
-        from phase3.identity_45n.identity_injector import IdentityInjector
         # Use the real identity file if available, else let it use fallback
         from anra.anra_paths import get_identity_file
+        from phase3.identity_45n.identity_injector import IdentityInjector
         identity_file = get_identity_file()
         if identity_file is None:
             pytest.skip("No identity file available — skipping identity test")
@@ -163,8 +160,8 @@ class TestGhostMemory:
         self.tmpdir = Path(tempfile.mkdtemp())
 
         try:
-            from phase3.ghost_memory_45p.ghost_memory import GhostMemory, default_config
             import numpy as np
+            from phase3.ghost_memory_45p.ghost_memory import GhostMemory, default_config
 
             cfg = default_config(storage_dir=self.tmpdir)
 
@@ -258,9 +255,10 @@ class TestSovereigntyBridge:
 
     def setup_method(self):
         try:
+            import tempfile
+
             import psutil  # noqa: F401
             from phase3.sovereignty_45r.sovereignty_bridge import SovereigntyBridge
-            import tempfile
             self.data_dir = Path(tempfile.mkdtemp())
             # Don't actually start the daemon in tests
             self.bridge = SovereigntyBridge(
@@ -335,7 +333,6 @@ class TestMasterSystemPhase3Integration:
 
     def test_ghost_memory_initialized_standalone(self):
         """Ghost memory initializes without LLM."""
-        import tempfile
         from pathlib import Path
         # Override storage to temp dir
         orig_parent = Path(self.system.__class__.__module__)

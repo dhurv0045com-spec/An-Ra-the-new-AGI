@@ -1,9 +1,8 @@
-from pathlib import Path
+
+import json
 
 from anra.anra_paths import ROOT
 from inference.full_system_connector import build_capability_graph
-import json
-
 from runtime import system_registry
 from runtime.system_registry import (
     build_system_manifest,

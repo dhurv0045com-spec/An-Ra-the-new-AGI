@@ -16,7 +16,7 @@ You (owner)
   → workspace/ artifacts + audit log
 ```
 
-**Chat alone** = language model conversation.  
+**Chat alone** = language model conversation, plus conservative auto-routing for obvious workspace actions.  
 **`/goal` or `goal:`** = full agent with tools.  
 **Slash commands** = fast direct tools without full planning.
 
@@ -33,7 +33,7 @@ You (owner)
 ```powershell
 cd c:\Users\user\Downloads\An-Ra
 $env:AGENT_FILE_ROOT = "$PWD\workspace"
-python scripts/anra.py --chat
+python anra.py --chat
 ```
 
 Everything `file_manager` touches stays inside this root unless you extend opens (below).
@@ -45,7 +45,7 @@ Everything `file_manager` touches stays inside this root unless you extend opens
 Start:
 
 ```bash
-python scripts/anra.py --chat
+python anra.py --chat
 ```
 
 | Command | Action |
@@ -60,6 +60,15 @@ python scripts/anra.py --chat
 | `/cad [template]` | Engineering stub (`raptor_engine` default) |
 | `goal: ...` | Legacy goal prefix (same as `/goal`) |
 
+Plain-English shortcuts also work for concrete workspace actions:
+
+```text
+create file notes.txt with content line one
+read notes.txt
+list files
+show workspace
+```
+
 **Audit trail:** `state/logs/operator_actions.jsonl`
 
 ---
@@ -67,9 +76,9 @@ python scripts/anra.py --chat
 ## CLI goals (non-chat)
 
 ```bash
-python scripts/anra.py --goal "Create workspace/daily.md with three priorities for training"
-python scripts/anra.py --goal "Run cad_generate raptor_engine and summarize assumptions in REPORT.md"
-python scripts/anra.py --goal "List all files in workspace and write inventory.txt"
+python anra.py --goal "Create workspace/daily.md with three priorities for training"
+python anra.py --goal "Run cad_generate raptor_engine and summarize assumptions in REPORT.md"
+python anra.py --goal "List all files in workspace and write inventory.txt"
 ```
 
 ---
@@ -95,7 +104,7 @@ Planner + dispatcher pick tools from natural language in `/goal` runs.
 ### Quick
 
 ```bash
-python scripts/anra.py --chat
+python anra.py --chat
 /cad raptor_engine
 /open engineering/raptor_engine/raptor_engine.scad
 ```
@@ -112,7 +121,7 @@ workspace/engineering/raptor_engine/
 **Critical:** This is a **diagram scaffold**, not Pratt & Whitney OEM data. You must replace dimensions from authoritative sources. Use:
 
 ```bash
-python scripts/anra.py --symbolic "verify ..."
+python anra.py --symbolic "verify ..."
 ```
 
 for numeric claims — not model prose.
@@ -168,8 +177,8 @@ Local operator pack (this doc) is step one.
 
 ## Daily operator checklist
 
-1. `python scripts/anra.py --report` — 19/19 healthy?  
-2. `python scripts/anra.py --chat` or `--goal` — one real task with a file output  
+1. `python anra.py --report` — 19/19 healthy?  
+2. `python anra.py --chat` or `--goal` — one real task with a file output  
 3. Check `workspace/` for artifacts  
 4. Check `state/logs/operator_actions.jsonl` if something surprising happened  
 5. Training days: `python -m training.train_unified --mode session`
@@ -183,8 +192,8 @@ Local operator pack (this doc) is step one.
 | “Path escapes workspace” | Use paths relative to `/workspace` |
 | Open does nothing | Path must exist; on Windows use forward slashes ok |
 | No .stl | Install [OpenSCAD](https://openscad.org/) and ensure `openscad` on PATH |
-| Agent ignores file request | Use `/goal` not plain chat |
-| Unicode console error on symbolic | Fixed in `scripts/anra.py` `_safe_console` |
+| Agent ignores file request | Include a concrete workspace path and explicit content, or use `/goal` |
+| Unicode console error on symbolic | Fixed in `anra.py` `_safe_console` |
 
 ---
 

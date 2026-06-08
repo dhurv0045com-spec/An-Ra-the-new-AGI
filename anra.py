@@ -33,7 +33,7 @@ from anra.anra_paths import get_agent_workspace, ensure_dirs
 from anra.startup_checks import assert_flash_sdp_ready
 
 # ── Resolve all project paths ─────────────────────────────────────────────────
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
+PROJECT_ROOT = Path(__file__).resolve().parent
 ensure_dirs()
 os.environ.setdefault("AGENT_FILE_ROOT", str(get_agent_workspace()))
 PHASE2_45M   = PROJECT_ROOT / "phase2" / "master_system_45m"
@@ -42,11 +42,11 @@ PHASE2_45M   = PROJECT_ROOT / "phase2" / "master_system_45m"
 for p3 in ["identity_45n", "ouroboros_45o", "ghost_memory_45p", "symbolic_bridge_45q", "sovereignty_45r"]:
     p = PROJECT_ROOT / "phase3" / p3
     if str(p) not in sys.path:
-        sys.path.append(str(p))
+        sys.path.extend([str(p)])
 
 # Set working directory to 45M so all relative state/ paths work
 # Add 45M to path so system.py imports work
-sys.path.append(str(PHASE2_45M))
+sys.path.extend([str(PHASE2_45M)])
 
 # ── Delegate to the master system ────────────────────────────────────────────
 from system import MasterSystem, build_parser, _run_chat, Dashboard, ControlAPI
@@ -93,7 +93,7 @@ def _symbolic_query(query: str):
     """Run a direct 45Q symbolic query (math/logic/code)."""
     print(f"\n[ Symbolic Bridge Query ]\nQ: {query}\n")
     try:
-        sys.path.append(str(PROJECT_ROOT / "phase3" / "symbolic_bridge_45q"))
+        sys.path.extend([str(PROJECT_ROOT / "phase3" / "symbolic_bridge_45q")])
         from symbolic_bridge import query as sym_query
         result = sym_query(query)
         print(f"Mode:       {_safe_console(result.mode)}")

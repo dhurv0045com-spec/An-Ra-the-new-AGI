@@ -173,7 +173,7 @@ Destination: **durable, inspected, improving intelligence** — yours.
 Run one **work** loop today:
 
 ```bash
-python scripts/anra.py --goal "cad_generate raptor_engine; summarize limits in workspace note"
+python anra.py --goal "cad_generate raptor_engine; summarize limits in workspace note"
 ```
 
 If a file appears in `workspace/` with a report, the vision is alive. If only text appears in chat, use `/goal` until the loop closes.

@@ -4,10 +4,14 @@ from __future__ import annotations
 import warnings
 
 import torch
+from tokenizer.subword_tokenizer import SubwordTokenizer
+from training.v2_config import (
+    EXPECTED_PAD_TOKEN_ID,
+    EXPECTED_SPECIAL_TOKENS,
+    EXPECTED_TOKENIZER_VOCAB_SIZE,
+)
 
 from anra.anra_paths import V3_TOKENIZER_FILE
-from tokenizer.subword_tokenizer import SubwordTokenizer
-from training.v2_config import EXPECTED_PAD_TOKEN_ID, EXPECTED_SPECIAL_TOKENS, EXPECTED_TOKENIZER_VOCAB_SIZE
 
 _REMEDIATION = (
     "Remediation: run on a CUDA-capable GPU build of PyTorch, install matching NVIDIA drivers/CUDA toolkit, "

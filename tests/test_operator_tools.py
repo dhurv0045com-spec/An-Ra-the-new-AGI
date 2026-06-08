@@ -13,7 +13,7 @@ def _agent_workspace(tmp_path, monkeypatch):
     ws = tmp_path / "workspace"
     ws.mkdir()
     monkeypatch.setenv("AGENT_FILE_ROOT", str(ws))
-    yield ws
+    return ws
 
 
 def test_file_manager_write_read():
@@ -59,3 +59,35 @@ def test_slash_write_command():
 
     root = Path(os.environ["AGENT_FILE_ROOT"])
     assert (root / "notes.txt").read_text(encoding="utf-8") == "line one"
+
+
+def test_natural_write_command_routes_to_file_tool():
+    from runtime.operator_commands import handle_natural_operator_request
+
+    calls = []
+
+    def _fake_goal(text: str):
+        calls.append(text)
+        return {"success": True, "output": "ok"}
+
+    handled, msg = handle_natural_operator_request(
+        "create file notes.txt with content line one",
+        run_goal=_fake_goal,
+    )
+    assert handled
+    assert "Written" in msg
+    assert calls == []
+
+    root = Path(os.environ["AGENT_FILE_ROOT"])
+    assert (root / "notes.txt").read_text(encoding="utf-8") == "line one"
+
+
+def test_natural_write_without_path_stays_chat():
+    from runtime.operator_commands import handle_natural_operator_request
+
+    handled, msg = handle_natural_operator_request(
+        "write a poem about operators",
+        run_goal=lambda text: {"success": True, "output": text},
+    )
+    assert not handled
+    assert msg == ""

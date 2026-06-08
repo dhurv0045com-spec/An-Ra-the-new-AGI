@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import pytest
-
 from anra.startup_checks import assert_flash_sdp_ready
 
 

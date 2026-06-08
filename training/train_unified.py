@@ -264,7 +264,7 @@ def _run_eval_only() -> dict[str, object]:
     if not checkpoint.exists():
         checkpoint = canonical_v2_checkpoint("brain")
     load_checkpoint(model, None, None, None, checkpoint, device=device, strict=False)
-    return run_compact_eval(model, tokenizer, device=device, output=True)
+    return run_compact_eval(model, tokenizer, device=device, output=True, golden=True)
 
 
 def main() -> None:
@@ -280,6 +280,7 @@ def main() -> None:
     ap.add_argument("--batch_size", type=int, default=V2_TRAINING.batch_size)
     ap.add_argument("--block_size", type=int, default=V2_MODEL.block_size)
     ap.add_argument("--answer_loss_weight", type=float, default=V2_TRAINING.answer_loss_weight)
+    ap.add_argument("--optimizer", choices=["auto", "adamw", "muon", "scale", "galore"], default="auto")
     ap.add_argument("--session_minutes", "--session-minutes", type=int, default=V2_TRAINING.session_minutes)
     ap.add_argument(
         "--model-size",
@@ -399,6 +400,8 @@ def main() -> None:
         str(model_cfg.block_size if args.model_size == "1b" else args.block_size),
         "--answer_loss_weight",
         str(args.answer_loss_weight),
+        "--optimizer",
+        args.optimizer,
         "--max_minutes",
         str(args.session_minutes),
         "--model-size",
@@ -542,6 +545,7 @@ class UnifiedTrainer:
         identity_minutes: int = 12,
         ouroboros_minutes: int = 10,
         model_size: str = "25m",
+        optimizer: str = "auto",
     ):
         self.data_path = data_path
         self.checkpoint_path = checkpoint_path
@@ -552,6 +556,7 @@ class UnifiedTrainer:
         self.identity_minutes = identity_minutes
         self.ouroboros_minutes = ouroboros_minutes
         self.model_size = model_size
+        self.optimizer = optimizer
         self._dataset: Path | None = None
 
     def resolve_dataset(self) -> Path:
@@ -577,6 +582,8 @@ class UnifiedTrainer:
             str(self.block_size),
             "--answer_loss_weight",
             str(self.answer_loss_weight),
+            "--optimizer",
+            self.optimizer,
             "--session_minutes",
             str(self.session_minutes),
             "--model-size",

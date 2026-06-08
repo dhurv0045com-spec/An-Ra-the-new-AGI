@@ -2,6 +2,7 @@
 Run: pytest tests/test_no_db_in_git.py
 """
 from __future__ import annotations
+
 import subprocess
 from pathlib import Path
 

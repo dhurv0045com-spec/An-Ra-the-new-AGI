@@ -22,7 +22,7 @@ Every component must be registered, switchable, measurable, reportable, and test
 
 ```bash
 python -m pip install -r requirements.txt
-python scripts/anra.py --report
+python anra.py --report
 ```
 
 Green `19/19` = the organism’s organs are present. Trained weights may still be missing — see [Artifacts](#artifacts).
@@ -35,10 +35,10 @@ The project was recently reorganized to eliminate loose files in the root direct
 
 ### 1. Standalone Scripts & Entrypoints (`scripts/`)
 These files were moved from the root to the `scripts/` directory. You should now prefix commands with `python scripts/`.
-- `scripts/anra.py` (Main CLI interface, formerly `anra.py`)
-- `scripts/app.py` (Web UI entrypoint, formerly `app.py`)
-- `scripts/generate.py`
-- `scripts/anra_brain.py`
+- `anra.py` (Main CLI interface)
+- `app.py` (FastAPI server entrypoint)
+- `generate.py`
+- `anra_brain.py` (core model definitions: CausalTransformerV2, etc.)
 
 ### 2. Core Python Utilities (`anra/`)
 These core modules were moved from the root into the `anra/` python package directory.
@@ -70,7 +70,7 @@ All primary markdown documentation was moved from the root.
 
 | You are… | Start here |
 |----------|------------|
-| Owner / operator | This file → [`OPERATOR.md`](docs/OPERATOR.md) → `python scripts/anra.py --chat` |
+| Owner / operator | This file → [`OPERATOR.md`](docs/OPERATOR.md) → `python anra.py --chat` |
 | Developer / agent | [`DEVELOPER.md`](docs/DEVELOPER.md) → [`ARCHITECTURE.md`](docs/ARCHITECTURE.md) |
 | Deep learner | [`WALKTHROUGH.md`](docs/WALKTHROUGH.md) (full tour; §19 = operator addendum) |
 | Strategist | [`VISION.md`](docs/VISION.md) |
@@ -82,7 +82,7 @@ All primary markdown documentation was moved from the root.
 ### Talk mode
 
 ```bash
-python scripts/anra.py --chat
+python anra.py --chat
 ```
 
 Conversation with memory and identity. Good for thinking aloud.
@@ -90,7 +90,7 @@ Conversation with memory and identity. Good for thinking aloud.
 ### Work mode
 
 ```bash
-python scripts/anra.py --goal "Write workspace/status.md summarizing the last report"
+python anra.py --goal "Write workspace/status.md summarizing the last report"
 ```
 
 Or inside chat:
@@ -150,10 +150,10 @@ What makes An-Ra operable instead of ornamental:
 | `report.py` | What is the scorecard right now? |
 
 ```bash
-python scripts/anra.py --report          # full scorecard
-python scripts/anra.py --status          # master system
-python scripts/anra.py --phase3-status   # identity, ghost, symbolic, sovereignty
-python scripts/anra.py --symbolic "solve x^2 - 9 = 0"
+python anra.py --report          # full scorecard
+python anra.py --status          # master system
+python anra.py --phase3-status   # identity, ghost, symbolic, sovereignty
+python anra.py --symbolic "solve x^2 - 9 = 0"
 ```
 
 ---
@@ -162,12 +162,12 @@ python scripts/anra.py --symbolic "solve x^2 - 9 = 0"
 
 ```bash
 # Health & measurement
-python scripts/anra.py --report
+python anra.py --report
 python -m pytest tests/ -q
 
 # Operator / Jarvis-shaped
-python scripts/anra.py --chat
-python scripts/anra.py --goal "your imperative here"
+python anra.py --chat
+python anra.py --goal "your imperative here"
 
 # Training
 python -m training.train_unified --mode status
@@ -177,7 +177,7 @@ python -m training.train_unified --mode eval
 
 # Web UI
 cd phase4/web && npm install && npm run dev
-python scripts/app.py
+python app.py
 ```
 
 **CPU warning:** Flash SDP/CUDA message on Windows CPU is expected for smoke tests. Train on GPU (Colab or local CUDA).
@@ -267,7 +267,7 @@ print(disabled_components())
 | Capability | Status |
 |------------|--------|
 | Local files, goals, CAD stub, open | **Shipped** — [`OPERATOR.md`](docs/OPERATOR.md) |
-| Symbolic-in-every-reply | Wire in `scripts/generate.py` (next) |
+| Symbolic-in-every-reply | Wire in `generate.py` (next) |
 | Remote paired node | Design phase |
 | ROS2 / robotics bridge | Future layer |
 

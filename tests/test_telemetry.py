@@ -1,7 +1,6 @@
 import json
 
 import pytest
-
 from engine import telemetry
 from engine.telemetry import TelemetryBus, TelemetryRecord, trace
 
@@ -38,7 +37,7 @@ def test_trace_captures_failure(tmp_path, monkeypatch):
         fn()
     row = bus.recent(1)[0]
     assert row["success"] is False
-    assert "RuntimeError: boom" == row["error"]
+    assert row["error"] == "RuntimeError: boom"
 
 
 def test_telemetry_bus_summary_by_module(tmp_path):

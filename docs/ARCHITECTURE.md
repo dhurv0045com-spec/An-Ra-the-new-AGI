@@ -17,7 +17,7 @@ Status line: **19/19 active** = source + imports OK. Checkpoints optional until 
 
 ```text
 ┌─────────────────────────────────────────────────────────┐
-│  Operator surfaces: scripts/anra.py · scripts/app.py · Colab · web UI   │
+│  Operator surfaces: anra.py · app.py · Colab · web UI                   │
 ├─────────────────────────────────────────────────────────┤
 │  Governance: sovereignty · self_mod · feature_flags     │
 ├─────────────────────────────────────────────────────────┤
@@ -58,7 +58,7 @@ prompt
   → identity inject / clean (45N + CIV)
   → memory_router + ghost retrieval
   → [optional] symbolic pre-check (45Q)
-  → generation (scripts/generate.py)
+  → generation (generate.py)
   → [optional] Ouroboros passes
   → memory write · falsification hooks · telemetry
 ```
@@ -102,8 +102,8 @@ anra_training.txt
 | 03 | `data_mix` | data | `training_data/anra_training.txt`, `v2_data_mix.py` |
 | 04 | `training_loop` | learning | `train_unified.py`, `build_brain.py` |
 | 05 | `evaluation` | measurement | `eval_v2.py`, `benchmark.py`, `verifier.py` |
-| 06 | `inference_runtime` | serving | `scripts/generate.py`, `inference/` |
-| 07 | `api_web` | interface | `scripts/app.py`, `phase4/web/` |
+| 06 | `inference_runtime` | serving | `generate.py`, `inference/` |
+| 07 | `api_web` | interface | `app.py`, `phase4/web/` |
 | 08 | `identity` | alignment | `identity/`, `phase3/identity (45N)/` |
 | 09 | `memory_router` | continuity | `memory/memory_router.py` |
 | 10 | `phase2_memory` | continuity | `phase2/memory (45J)/` |
@@ -150,7 +150,7 @@ Test: `tests/test_path_registry_literals.py`
 
 `phase2/` and `phase3/` are **capability layers**, not separate products. Prefer mainline imports:
 
-- `scripts/generate.py` not a forked inferencer
+- `generate.py` not a forked inferencer
 - `memory/memory_router.py` not ad-hoc stores
 - `training.train_unified` not one-off trainers
 

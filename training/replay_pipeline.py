@@ -97,8 +97,12 @@ class ReplayPipeline:
 
     def add_rlvr_step(self, step, min_reward: float = 0.0) -> int:
         count = 0
-        prompt = getattr(getattr(step, "task", None), "prompt", "")
-        task_id = getattr(getattr(step, "task", None), "task_id", "")
+        task = getattr(step, "task", None)
+        prompt = getattr(task, "prompt", "")
+        task_id = getattr(task, "task_id", "")
+        task_type = getattr(task, "task_type", "")
+        advantages = list(getattr(step, "advantages", []))
+        output_lengths = list(getattr(step, "output_lengths", []))
         for i, (completion, reward) in enumerate(zip(step.completions, step.rewards)):
             if float(reward) < min_reward:
                 continue
@@ -108,7 +112,17 @@ class ReplayPipeline:
                 source="rlvr",
                 score=float(reward),
                 weight=max(0.0, float(reward)),
-                metadata={"task_id": task_id, "completion_index": i},
+                metadata={
+                    "task_id": task_id,
+                    "task_type": task_type,
+                    "completion_index": i,
+                    "advantage": float(advantages[i]) if i < len(advantages) else 0.0,
+                    "output_tokens": int(output_lengths[i]) if i < len(output_lengths) else None,
+                    "verifier_pass_rate": float(getattr(step, "verifier_pass_rate", 0.0)),
+                    "mean_reward": float(getattr(step, "mean_reward", 0.0)),
+                    "source_detail": "rlvr_grpo_dapo",
+                    "dapo_config": dict(getattr(step, "dapo_config", {}) or {}),
+                },
             )
             count += 1
         return count

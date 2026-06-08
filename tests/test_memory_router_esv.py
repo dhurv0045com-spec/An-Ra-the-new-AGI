@@ -1,5 +1,4 @@
 import pytest
-
 from memory.memory_router import MemoryRouter
 
 

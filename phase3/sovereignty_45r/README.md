@@ -22,9 +22,9 @@ Fail any gate → checkpoint stays quarantined; report explains why.
 ## Operator commands
 
 ```bash
-python scripts/anra.py --sovereignty-report
-python scripts/anra.py --sovereignty-run
-python scripts/anra.py --briefing          # often includes sovereignty summary
+python anra.py --sovereignty-report
+python anra.py --sovereignty-run
+python anra.py --briefing          # often includes sovereignty summary
 python scripts/run_sovereignty_audit.py
 ```
 

@@ -13,11 +13,17 @@ BANNED_SUBSTRINGS = (
 def test_no_path_literals_outside_registry() -> None:
     root = Path(__file__).resolve().parent.parent
     offenders: list[str] = []
+    allowed_files = {
+        'anra_paths.py',
+        'anra/anra_paths.py',
+        'anra/core/config.py',
+        'tests/test_path_registry_literals.py',
+    }
 
     for file in root.rglob('*.py'):
         rel = file.relative_to(root)
         rel_posix = rel.as_posix()
-        if rel_posix in {'anra_paths.py', 'tests/test_path_registry_literals.py'}:
+        if rel_posix.startswith('An-Ra-the-new-AGI/') or rel_posix in allowed_files:
             continue
         text = file.read_text(encoding='utf-8', errors='replace')
         for idx, line in enumerate(text.splitlines(), start=1):

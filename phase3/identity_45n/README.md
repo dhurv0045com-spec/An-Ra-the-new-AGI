@@ -4,7 +4,7 @@
 
 Training teaches voice. **45N enforces it at generation time** — inject owner anchors before the model runs, clean outputs after, without silently rewriting the whole stack.
 
-Core identity math (CIV, ESV, HAL) lives in `identity/` at repo root. This folder is the **runtime injector** wired into `scripts/generate.py` and the master system.
+Core identity math (CIV, ESV, HAL) lives in `identity/` at repo root. This folder is the **runtime injector** wired into `generate.py` and the master system.
 
 ---
 
@@ -31,7 +31,7 @@ load identity file (owner exchanges / anchors)
 ## Operator
 
 ```bash
-python scripts/anra.py --phase3-status
+python anra.py --phase3-status
 ```
 
 On startup you may see: `[IdentityInjector] Loaded N exchanges...` — that is normal when the identity file exists.

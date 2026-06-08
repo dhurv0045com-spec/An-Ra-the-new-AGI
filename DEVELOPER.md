@@ -87,7 +87,7 @@ Adding tools: register in `register_all_tools()`, add dispatcher keywords, add t
 
 | Area | Files |
 |------|-------|
-| CLI | `scripts/anra.py` |
+| CLI | `anra.py` |
 | Operator | `runtime/operator_commands.py`, `OPERATOR.md` |
 | Agent | `phase2/agent_loop_45k/agent_main.py`, `builtin.py`, `planner.py` |
 | Master | `phase2/master_system_45m/system.py` |
@@ -105,7 +105,7 @@ Adding tools: register in `register_all_tools()`, add dispatcher keywords, add t
 3. Do not change weights, prompts, identity text, or training mix unless asked.  
 4. Tests for new behavior.  
 5. `python -m pytest tests/ -q`  
-6. `python scripts/anra.py --report` if platform/operator touched.  
+6. `python anra.py --report` if platform/operator touched.  
 7. Report commands + residual risk.
 
 **Good prompt:**
@@ -174,9 +174,9 @@ No torch/faiss/transformers at import time in new `engine/` modules.
 ## Commands
 
 ```bash
-python scripts/anra.py --report
-python scripts/anra.py --chat
-python scripts/anra.py --goal "..."
+python anra.py --report
+python anra.py --chat
+python anra.py --goal "..."
 python -m pytest tests/ -q
 python -m training.train_unified --mode session
 ```

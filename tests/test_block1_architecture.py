@@ -13,7 +13,15 @@ def test_block1_architecture(tmp_path):
     assert V2_MODEL.n_layer == 8
     assert V2_MODEL.block_size == 512
 
-    model = CausalTransformerV2(vocab_size=V2_MODEL.vocab_size, n_embd=512, n_head=8, n_kv_head=2, n_layer=8, block_size=512, mod_layers={2, 4, 6})
+    model = CausalTransformerV2(
+        vocab_size=V2_MODEL.vocab_size,
+        n_embd=512,
+        n_head=8,
+        n_kv_head=2,
+        n_layer=8,
+        block_size=512,
+        mod_layers={2, 4, 6},
+    )
     x = torch.randint(0, V2_MODEL.vocab_size, (2, 32))
     logits, loss = model(x, x)
     assert logits.shape == (2, 32, V2_MODEL.vocab_size)
@@ -30,10 +38,20 @@ def test_block1_architecture(tmp_path):
 
 
 def test_mod_router_gate_receives_gradient():
-    model = CausalTransformerV2(vocab_size=256, n_embd=64, n_head=4, n_kv_head=2, n_layer=4, block_size=64, mod_layers={1, 2})
+    model = CausalTransformerV2(
+        vocab_size=256,
+        n_embd=64,
+        n_head=4,
+        n_kv_head=2,
+        n_layer=4,
+        block_size=64,
+        mod_layers={1, 2},
+    )
     x = torch.randint(0, 256, (1, 32))
     _, loss = model(x, x)
     loss.backward()
     for layer_idx, router in model.mod_routers.items():
         assert router.gate.weight.grad is not None, f"MoD layer {layer_idx}: gate has no gradient"
-        assert router.gate.weight.grad.abs().max().item() > 1e-9, f"MoD layer {layer_idx}: gate gradient is zero — router is not learning"
+        assert router.gate.weight.grad.abs().max().item() > 1e-9, (
+            f"MoD layer {layer_idx}: gate gradient is zero - router is not learning"
+        )

@@ -3,9 +3,11 @@ These test the REAL model in anra_brain.py, not the archived NumPy reference in 
 All tests run on CPU. No GPU required. Must complete in under 30 seconds total.
 """
 from __future__ import annotations
+
 import pytest
 import torch
 from anra_brain import CausalTransformerV2
+
 
 @pytest.fixture(scope="module")
 def tiny() -> CausalTransformerV2:

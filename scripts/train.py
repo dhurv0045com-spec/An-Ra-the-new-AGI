@@ -25,7 +25,7 @@ from torch.optim.lr_scheduler import CosineAnnealingLR
 
 from anra.core.config import AnRaConfig
 from anra.core.registry import MODEL_REGISTRY
-from scripts.anra_brain import CausalTransformerV2  # noqa: F401
+from anra_brain import CausalTransformerV2  # noqa: F401
 
 ROOT = Path(__file__).resolve().parent.parent
 

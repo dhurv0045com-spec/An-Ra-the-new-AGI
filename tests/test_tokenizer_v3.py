@@ -3,9 +3,9 @@ from __future__ import annotations
 from pathlib import Path
 
 from anra.anra_paths import DATASET_CANONICAL
+from scripts.train_tokenizer_v3 import SPECIAL_TOKENS
 from tokenizer.subword_tokenizer import SubwordTokenizer
 from tokenizer.validate_tokenizer_v3 import validate_tokenizer
-from scripts.train_tokenizer_v3 import SPECIAL_TOKENS
 
 
 def test_tokenizer_v3_train_and_validate(tmp_path: Path) -> None:

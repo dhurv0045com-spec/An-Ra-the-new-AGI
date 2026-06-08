@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from anra.core.registry import MEMORY_REGISTRY
 from memory.memory_router import MemoryRouter as _MemoryRouter
+
+from anra.core.registry import MEMORY_REGISTRY
 
 
 @MEMORY_REGISTRY.register("memory_router", aliases=["default"])

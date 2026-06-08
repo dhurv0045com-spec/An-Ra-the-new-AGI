@@ -25,7 +25,7 @@ from anra.anra_paths import DRIVE_DIR, MEMORY_DB_DIR, DRIVE_SESSIONS, ensure_dir
 
 ensure_dirs()
 
-from scripts.generate import (
+from generate import (
     GenerationConfig, generate, generate_stream, generate_traced, get_model_info,
     load_ghost_state, save_ghost_state
 )
@@ -171,65 +171,81 @@ SYSTEM_GRAPH: Dict[str, Any] = {}
 _ctx_optimizer = ContextWindowOptimizer()
 
 
-# Memory system bridge. Prefer the canonical router; keep the old phase2 bridge
-# as a compatibility fallback for older Drive state.
-try:
-    from memory.memory_router import MemoryRouter
+# Memory system bridge. Keep initialization lazy so importing the API does not
+# load native vector backends during test collection or lightweight health checks.
+MEMORY_SYSTEM = None
+_MEMORY_INIT_ATTEMPTED = False
 
-    class _MemoryBridge:
-        def __init__(self):
-            self._router = MemoryRouter()
-            self.semantic = self
 
-        def search(self, query: str, top_k: int = 3):
-            rows = self._router.read(query, n=top_k, tier="episodic")
-            out = []
-            for row in rows:
-                payload = row.get("payload", row)
-                content = str(payload.get("content", ""))
-                out.append(
-                    {
-                        "summary": str(payload.get("summary") or content[:160]),
-                        "content": content,
-                        "score": row.get("score", 0.0),
-                    }
-                )
-            return out
+def get_memory_system():
+    global MEMORY_SYSTEM, _MEMORY_INIT_ATTEMPTED
+    if _MEMORY_INIT_ATTEMPTED:
+        return MEMORY_SYSTEM
+    _MEMORY_INIT_ATTEMPTED = True
 
-        def store_turn(self, message: str, response: str, session_id: str) -> None:
-            self._router.write(
-                f"H: {message}\nANRA: {response}",
-                metadata={"session_id": session_id, "type": "conversation_turn", "salience": 0.8},
-                tier="episodic",
-            )
-
-    MEMORY_SYSTEM = _MemoryBridge()
-except Exception as _mem_exc:
     try:
-        from phase2.memory_45j.memory_manager import MemoryManager  # type: ignore
+        from memory.memory_router import MemoryRouter
 
-        class _LegacyMemoryBridge:
+        class _MemoryBridge:
             def __init__(self):
-                self._mm = MemoryManager(data_dir=str(MEMORY_DB_DIR), user_id="anra")
+                self._router = MemoryRouter()
                 self.semantic = self
 
             def search(self, query: str, top_k: int = 3):
-                return self._mm.retrieve(query, limit=top_k, type="semantic")
+                rows = self._router.read(query, n=top_k, tier="episodic")
+                out = []
+                for row in rows:
+                    payload = row.get("payload", row)
+                    content = str(payload.get("content", ""))
+                    out.append(
+                        {
+                            "summary": str(payload.get("summary") or content[:160]),
+                            "content": content,
+                            "score": row.get("score", 0.0),
+                        }
+                    )
+                return out
 
             def store_turn(self, message: str, response: str, session_id: str) -> None:
-                self._mm.store_memory(
-                    content=f"H: {message}\nANRA: {response}",
-                    type="episodic",
-                    importance="medium",
-                    metadata={"session_id": session_id},
+                self._router.write(
+                    f"H: {message}\nANRA: {response}",
+                    metadata={"session_id": session_id, "type": "conversation_turn", "salience": 0.8},
+                    tier="episodic",
                 )
-                self._mm.extractor.process_single_turn("user", message, session_id)
-                self._mm.extractor.process_single_turn("assistant", response, session_id)
 
-        MEMORY_SYSTEM = _LegacyMemoryBridge()
-    except Exception as _legacy_mem_exc:
-        LOGGER.warning("Memory bridge unavailable: %s; legacy fallback unavailable: %s", _mem_exc, _legacy_mem_exc)
-        MEMORY_SYSTEM = None
+        MEMORY_SYSTEM = _MemoryBridge()
+        return MEMORY_SYSTEM
+    except Exception as mem_exc:
+        try:
+            from phase2.memory_45j.memory_manager import MemoryManager  # type: ignore
+
+            class _LegacyMemoryBridge:
+                def __init__(self):
+                    self._mm = MemoryManager(data_dir=str(MEMORY_DB_DIR), user_id="anra")
+                    self.semantic = self
+
+                def search(self, query: str, top_k: int = 3):
+                    return self._mm.retrieve(query, limit=top_k, type="semantic")
+
+                def store_turn(self, message: str, response: str, session_id: str) -> None:
+                    self._mm.store_memory(
+                        content=f"H: {message}\nANRA: {response}",
+                        type="episodic",
+                        importance="medium",
+                        metadata={"session_id": session_id},
+                    )
+                    self._mm.extractor.process_single_turn("user", message, session_id)
+                    self._mm.extractor.process_single_turn("assistant", response, session_id)
+
+            MEMORY_SYSTEM = _LegacyMemoryBridge()
+            return MEMORY_SYSTEM
+        except Exception as legacy_mem_exc:
+            LOGGER.warning(
+                "Memory bridge unavailable: %s; legacy fallback unavailable: %s",
+                mem_exc,
+                legacy_mem_exc,
+            )
+            return None
 
 
 def format_memory_context(memory_results: List[Dict[str, Any]]) -> str:
@@ -411,9 +427,10 @@ async def chat_route(body: ChatRequest, request: Request):
     history = await _get_session_history(body.session_id)
 
     memory_results = []
-    if MEMORY_SYSTEM is not None:
+    memory_system = get_memory_system()
+    if memory_system is not None:
         try:
-            memory_results = MEMORY_SYSTEM.semantic.search(query=body.message, top_k=3)
+            memory_results = memory_system.semantic.search(query=body.message, top_k=3)
         except Exception as mem_exc:
             LOGGER.warning("Memory query failed for session %s: %s", body.session_id, mem_exc)
 
@@ -454,9 +471,9 @@ async def chat_route(body: ChatRequest, request: Request):
     history.extend(new_messages)
     await _append_to_session(body.session_id, new_messages)
     await _save_session(body.session_id)
-    if MEMORY_SYSTEM is not None:
+    if memory_system is not None:
         try:
-            MEMORY_SYSTEM.store_turn(body.message, reply, body.session_id)
+            memory_system.store_turn(body.message, reply, body.session_id)
         except Exception as mem_exc:
             LOGGER.debug("Memory store failed: %s", mem_exc)
 
@@ -611,9 +628,10 @@ async def memory_search_route(request: Request):
     body = await request.json()
     query = body.get("query", "").strip()
     results = []
-    if MEMORY_SYSTEM and query:
+    memory_system = get_memory_system() if query else None
+    if memory_system:
         try:
-            results = MEMORY_SYSTEM.semantic.search(query=query, top_k=5)
+            results = memory_system.semantic.search(query=query, top_k=5)
         except Exception as exc:
             LOGGER.warning("Memory search failed: %s", exc)
     return {"results": results, "query": query}

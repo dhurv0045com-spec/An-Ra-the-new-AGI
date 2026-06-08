@@ -15,7 +15,6 @@ from pydantic import (
 )
 from pydantic.dataclasses import dataclass
 
-
 ConfigMap = MutableMapping[str, object]
 ConfigSource = str | Path | Mapping[str, object]
 T = TypeVar("T")

@@ -1,8 +1,8 @@
 import asyncio
+
 import pytest
-import tempfile
-from pathlib import Path
-from scripts.app import SQLiteSessionStore
+from app import SQLiteSessionStore
+
 
 @pytest.fixture
 def store(tmp_path):

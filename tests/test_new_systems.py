@@ -5,7 +5,6 @@ import tempfile
 from pathlib import Path
 
 import pytest
-import torch
 
 
 def test_hal_import_succeeds():
@@ -117,9 +116,11 @@ def test_hal_serialize_deserialize_roundtrip():
 
 
 def test_ouroboros_accepts_hal_parameter():
-    from identity.hal import HALModule
-    from phase3.ouroboros_45O import ouroboros as ou
     import inspect
+
+    from phase3.ouroboros_45O import ouroboros as ou
+
+    from identity.hal import HALModule
 
     hal = HALModule()
     sig = inspect.signature(ou.OuroborosDecoder.__init__)
@@ -128,8 +129,9 @@ def test_ouroboros_accepts_hal_parameter():
 
 
 def test_ouroboros_without_hal_unchanged():
-    from phase3.ouroboros_45O import ouroboros as ou
     import inspect
+
+    from phase3.ouroboros_45O import ouroboros as ou
 
     sig = inspect.signature(ou.OuroborosDecoder.__init__)
     param = sig.parameters.get("hal")
@@ -138,32 +140,36 @@ def test_ouroboros_without_hal_unchanged():
 
 
 def test_rlvr_has_hal_parameter():
-    from training.rlvr import RLVRTrainer
     import inspect
+
+    from training.rlvr import RLVRTrainer
 
     sig = inspect.signature(RLVRTrainer.__init__)
     assert "hal" in sig.parameters, "RLVRTrainer.__init__ missing 'hal' parameter"
 
 
 def test_rlvr_consecutive_failures_starts_at_zero():
-    from training.rlvr import RLVRTrainer
     import inspect
+
+    from training.rlvr import RLVRTrainer
 
     src = inspect.getsource(RLVRTrainer.__init__)
     assert "_consecutive_failures" in src, "_consecutive_failures counter not found in RLVRTrainer.__init__"
 
 
 def test_memory_router_accepts_hal():
-    from memory.memory_router import MemoryRouter
     import inspect
+
+    from memory.memory_router import MemoryRouter
 
     sig = inspect.signature(MemoryRouter.__init__)
     assert "hal" in sig.parameters, "MemoryRouter.__init__ missing 'hal' parameter"
 
 
 def test_memory_threat_pattern_no_threshold_gating():
-    from memory.memory_router import MemoryRouter
     import inspect
+
+    from memory.memory_router import MemoryRouter
 
     src = inspect.getsource(MemoryRouter.write)
     assert "threat_pattern" in src, "threat_pattern bypass not found in MemoryRouter.write"
@@ -214,10 +220,11 @@ def test_gap_scanner_finds_notimplementederror(tmp_path):
 
 
 def test_gap_to_hypothesis_returns_hypothesis():
+    import os
+
     from innovation.gap_scanner import scan
     from innovation.hypothesis import gap_to_hypothesis
     from innovation.schema import Hypothesis
-    import os
 
     with tempfile.TemporaryDirectory() as d:
         f = os.path.join(d, "test.py")
@@ -233,9 +240,10 @@ def test_gap_to_hypothesis_returns_hypothesis():
 
 
 def test_scoreboard_total_in_range():
-    from innovation.scoreboard import score_hypothesis
-    from innovation.schema import Hypothesis
     import time
+
+    from innovation.schema import Hypothesis
+    from innovation.scoreboard import score_hypothesis
 
     hyp = Hypothesis("test01", "gap01", "Fix missing function in module X", "pytest passes", {"test_pass_rate": +0.05}, ["no checkpoint changes"], "run pytest after fix", "pytest tests/ -x -q", time.time())
     score = score_hypothesis(hyp)

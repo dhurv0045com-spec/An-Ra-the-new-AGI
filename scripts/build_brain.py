@@ -194,6 +194,7 @@ def train_anra_v2(
     replay_ratio: float | None = None,
     use_ouroboros: bool = False,
     model_size: str = "25m",
+    optimizer_name: str = "auto",
 ) -> dict[str, object]:
     print_session_dashboard()
     training_cfg = V2_1B_TRAINING if model_size == "1b" else V2_TRAINING
@@ -279,7 +280,9 @@ def train_anra_v2(
         model = OuroborosDecoder(model, n_passes=3)
     model = model.to(device)
     mp = MixedPrecisionTrainer(device=device)
-    optimizer = build_optimizer(model, lr=3e-4)
+    optimizer = build_optimizer(model, lr=3e-4, optimizer_name=optimizer_name)
+    optimizer_report = getattr(optimizer, "_anra_optimizer_report", {"selected": {"actual": optimizer_name}})
+    write_json(v2_report_path("optimizer_bakeoff"), optimizer_report)
     scheduler = get_cosine_schedule_with_warmup(
         optimizer,
         warmup_steps=100,
@@ -543,6 +546,7 @@ def train_anra_v2(
         "grad_accum_steps": training_cfg.grad_accum_steps,
         "answer_loss_weight": answer_loss_weight,
         "model_size": model_size,
+        "optimizer": optimizer_report,
         "answer_supervision_ratio": round(ds.answer_supervision_ratio, 4),
         "reply_token_ratio_seen": round(answer_weighted_tokens / max(1.0, total_target_tokens), 4),
         "model_config": model.model_config(),
@@ -685,6 +689,7 @@ def main() -> None:
     parser.add_argument("--teacher_ratio", type=float, default=None)
     parser.add_argument("--symbolic_ratio", type=float, default=None)
     parser.add_argument("--replay_ratio", type=float, default=None)
+    parser.add_argument("--optimizer", choices=["auto", "adamw", "muon", "scale", "galore"], default="auto")
     args = parser.parse_args()
     result = train_anra_v2(
         data_path=args.data_path,
@@ -701,6 +706,7 @@ def main() -> None:
         symbolic_ratio=args.symbolic_ratio,
         replay_ratio=args.replay_ratio,
         model_size=args.model_size,
+        optimizer_name=args.optimizer,
     )
     print(result, flush=True)
 

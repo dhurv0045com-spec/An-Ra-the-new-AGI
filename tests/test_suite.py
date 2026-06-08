@@ -5,22 +5,28 @@ import json
 import sys
 import threading
 import time
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable, List, Tuple
 
 import pytest
-
 from anra.anra_paths import DRIVE_DIR, ROOT, get_dataset_file, get_optimization_config
 
 httpx = pytest.importorskip("httpx")
 uvicorn = pytest.importorskip("uvicorn")
 
-from scripts.generate import GenerationConfig, TOKENIZER, detect_repetition, generate, generate_traced, get_model_info
+from generate import (
+    TOKENIZER,
+    GenerationConfig,
+    detect_repetition,
+    generate,
+    generate_traced,
+    get_model_info,
+)
 
 BASE = "http://127.0.0.1:8011"
 
 
-def _run(name: str, fn: Callable[[], Tuple[bool, str]]):
+def _run(name: str, fn: Callable[[], tuple[bool, str]]):
     t0 = time.perf_counter()
     try:
         ok, detail = fn()
@@ -31,14 +37,14 @@ def _run(name: str, fn: Callable[[], Tuple[bool, str]]):
     return ok, detail
 
 
-def t1_import_test() -> Tuple[bool, str]:
-    import scripts.generate as generate as _g
-    import scripts.app as app as _a
+def t1_import_test() -> tuple[bool, str]:
+    import app as _a
+    import generate as _g
 
     return True, f"imports ok ({_g.__name__}, {_a.__name__})"
 
 
-def t2_tokenizer_test() -> Tuple[bool, str]:
+def t2_tokenizer_test() -> tuple[bool, str]:
     tok = TOKENIZER
     s = "Hello An-Ra"
     ids = tok.encode(s, add_special_tokens=True)
@@ -46,7 +52,7 @@ def t2_tokenizer_test() -> Tuple[bool, str]:
     return "an-ra" in dec.lower(), f"decoded='{dec}' len={len(ids)} backend={getattr(tok, 'backend', 'unknown')}"
 
 
-def t3_model_load_test() -> Tuple[bool, str]:
+def t3_model_load_test() -> tuple[bool, str]:
     info = get_model_info()
     vocab = int(info["vocab_size"])
     param_count = int(info["param_count"])
@@ -67,7 +73,7 @@ def _is_pure_repetition(text: str) -> bool:
     return False
 
 
-def t4_all_strategies_test() -> Tuple[bool, str]:
+def t4_all_strategies_test() -> tuple[bool, str]:
     prompt = "H: Introduce yourself\nANRA:"
     for strategy in ["greedy", "temperature", "topk", "nucleus", "beam", "contrastive"]:
         out = generate(prompt, strategy=strategy, max_tokens=40)
@@ -88,7 +94,7 @@ async def _api_calls(base: str):
 
 
 def _start_server() -> None:
-    import scripts.app as app
+    import app
 
     uvicorn.run(app.app, host="127.0.0.1", port=8011, log_level="warning")
 
@@ -105,7 +111,7 @@ def _wait_for_server(base: str, retries: int = 100, sleep_s: float = 0.2) -> Non
     raise RuntimeError("API server did not start")
 
 
-def t5_api_endpoint_test() -> Tuple[bool, str]:
+def t5_api_endpoint_test() -> tuple[bool, str]:
     th = threading.Thread(target=_start_server, daemon=True)
     th.start()
     _wait_for_server(BASE)
@@ -114,7 +120,7 @@ def t5_api_endpoint_test() -> Tuple[bool, str]:
     return ok, "baseline endpoints healthy"
 
 
-def t6_session_persistence_test() -> Tuple[bool, str]:
+def t6_session_persistence_test() -> tuple[bool, str]:
     c1 = httpx.post(BASE + "/chat", json={"session_id": "test123", "message": "hello", "params": {"max_tokens": 20}}, timeout=25)
     c2 = httpx.post(BASE + "/chat", json={"session_id": "test123", "message": "what did I say?", "params": {"max_tokens": 20}}, timeout=25)
     hist = c2.json().get("history", [])
@@ -122,7 +128,7 @@ def t6_session_persistence_test() -> Tuple[bool, str]:
     return c1.status_code == 200 and c2.status_code == 200 and rr.status_code == 200 and len(hist) >= 4, f"history_len={len(hist)}"
 
 
-def t7_finetune_data_test() -> Tuple[bool, str]:
+def t7_finetune_data_test() -> tuple[bool, str]:
     path = get_dataset_file()
     if not path.exists():
         path = None
@@ -138,7 +144,7 @@ def t7_finetune_data_test() -> Tuple[bool, str]:
     return ok, f"file={path.name} pairs={len(valid_pairs)}"
 
 
-def t8_drive_path_test() -> Tuple[bool, str]:
+def t8_drive_path_test() -> tuple[bool, str]:
     p = DRIVE_DIR
     p.mkdir(parents=True, exist_ok=True)
     test_file = p / "_write_test.txt"
@@ -146,12 +152,12 @@ def t8_drive_path_test() -> Tuple[bool, str]:
     return test_file.exists() and test_file.read_text(encoding="utf-8") == "ok", str(p)
 
 
-def t9_identity_probe_test() -> Tuple[bool, str]:
+def t9_identity_probe_test() -> tuple[bool, str]:
     out = generate("H: I am\nANRA:", strategy="nucleus", max_tokens=80)
     return isinstance(out, str) and len(out) > 0, out[:120]
 
 
-def t10_end_to_end_test() -> Tuple[bool, str]:
+def t10_end_to_end_test() -> tuple[bool, str]:
     local = generate("H: say hello\nANRA:", strategy="nucleus", max_tokens=30)
     api = httpx.post(BASE + "/generate", json={"prompt": "H: say hello\nANRA:", "strategy": "nucleus", "params": {"max_tokens": 30}}, timeout=25)
     j = api.json()
@@ -159,7 +165,7 @@ def t10_end_to_end_test() -> Tuple[bool, str]:
     return ok, f"local_len={len(local)} api_len={len(j.get('response', ''))}"
 
 
-def t11_streaming_test() -> Tuple[bool, str]:
+def t11_streaming_test() -> tuple[bool, str]:
     with httpx.stream("GET", BASE + "/stream", params={"session_id": "test_stream", "message": "hello", "strategy": "nucleus"}, timeout=30) as r:
         events = [line for line in r.iter_lines() if line.startswith("data: ")]
     assert events
@@ -169,7 +175,7 @@ def t11_streaming_test() -> Tuple[bool, str]:
     return bool(assembled.strip()) and chat.status_code == 200, f"stream_chars={len(assembled)}"
 
 
-def t12_generationtrace_test() -> Tuple[bool, str]:
+def t12_generationtrace_test() -> tuple[bool, str]:
     trace = generate_traced("H: hello\nANRA:", GenerationConfig(max_tokens=20))
     ok = isinstance(trace.entropy_curve, list) and len(trace.entropy_curve) == trace.tokens_generated
     ok = ok and isinstance(trace.max_prob_curve, list) and len(trace.max_prob_curve) == trace.tokens_generated
@@ -178,7 +184,7 @@ def t12_generationtrace_test() -> Tuple[bool, str]:
     return ok, trace.stopped_by
 
 
-def t13_context_format_test() -> Tuple[bool, str]:
+def t13_context_format_test() -> tuple[bool, str]:
     sid = "ctx_test"
     for i in range(5):
         httpx.post(BASE + "/chat", json={"session_id": sid, "message": f"m{i}"}, timeout=30)
@@ -190,7 +196,7 @@ def t13_context_format_test() -> Tuple[bool, str]:
     return ok, f"len={len(ctx)}"
 
 
-def t14_rate_limit_test() -> Tuple[bool, str]:
+def t14_rate_limit_test() -> tuple[bool, str]:
     sid = "ratelimit_test"
     codes = []
     last = None
@@ -207,7 +213,7 @@ def t14_rate_limit_test() -> Tuple[bool, str]:
     return ok, str(codes)
 
 
-def t15_curriculum_phase_test() -> Tuple[bool, str]:
+def t15_curriculum_phase_test() -> tuple[bool, str]:
     from training.finetune_anra import IDENTITY_KEYWORDS, parse_identity_data
 
     path = get_dataset_file()
@@ -223,13 +229,13 @@ def t15_curriculum_phase_test() -> Tuple[bool, str]:
     return ok, f"phase1={len(phase1)} all={len(pairs)}"
 
 
-def t16_repetition_detector_test() -> Tuple[bool, str]:
+def t16_repetition_detector_test() -> tuple[bool, str]:
     a = detect_repetition("the cat sat the cat sat the cat sat the cat sat")
     b = detect_repetition("the sky is blue and the grass is green today")
     return bool(a["repeated_ngrams_detected"]) and not bool(b["repeated_ngrams_detected"]), str(a)
 
 
-def t17_session_metadata_test() -> Tuple[bool, str]:
+def t17_session_metadata_test() -> tuple[bool, str]:
     sid = "meta_test"
     httpx.post(BASE + "/reset", json={"session_id": sid}, timeout=30)
     httpx.post(BASE + "/chat", json={"session_id": sid, "message": "hello"}, timeout=30)
@@ -241,8 +247,8 @@ def t17_session_metadata_test() -> Tuple[bool, str]:
     return ok, str(meta)
 
 
-def t18_stop_string_test() -> Tuple[bool, str]:
-    from scripts.generate import _check_stop
+def t18_stop_string_test() -> tuple[bool, str]:
+    from generate import _check_stop
 
     hit, trimmed, reason = _check_stop("alpha<STOP>omega", GenerationConfig(stop_strings=["<STOP>"]))
     miss, _, reason2 = _check_stop("alpha-omega", GenerationConfig(stop_strings=["<STOP>"]))
@@ -250,7 +256,7 @@ def t18_stop_string_test() -> Tuple[bool, str]:
     return ok, f"{reason}/{reason2 or 'none'}"
 
 
-def t19_finetune_report_test() -> Tuple[bool, str]:
+def t19_finetune_report_test() -> tuple[bool, str]:
     paths = [ROOT / "output" / "finetune_report.json", DRIVE_DIR / "finetune_report.json"]
     found = next((p for p in paths if p.exists()), None)
     if not found:
@@ -287,7 +293,7 @@ async def _concurrent_calls():
     return res, dt, sids, msgs
 
 
-def t20_concurrent_session_isolation_test() -> Tuple[bool, str]:
+def t20_concurrent_session_isolation_test() -> tuple[bool, str]:
     try:
         res, dt, sids, msgs = asyncio.run(_concurrent_calls())
         codes = [r.status_code for r in res]
@@ -298,7 +304,7 @@ def t20_concurrent_session_isolation_test() -> Tuple[bool, str]:
 
 
 
-def t21_agent_loop_initialization_test() -> Tuple[bool, str]:
+def t21_agent_loop_initialization_test() -> tuple[bool, str]:
     start = time.time()
     try:
         import importlib.util
@@ -331,7 +337,7 @@ def t21_agent_loop_initialization_test() -> Tuple[bool, str]:
         return False, f"AgentLoop failed: {e} ({elapsed:.0f}ms)"
 
 
-def t22_agent_decision_loop_test() -> Tuple[bool, str]:
+def t22_agent_decision_loop_test() -> tuple[bool, str]:
     start = time.time()
     try:
         import importlib.util
@@ -370,15 +376,14 @@ def t22_agent_decision_loop_test() -> Tuple[bool, str]:
 
 
 
-def t23_optimization_import_test() -> Tuple[bool, str]:
+def t23_optimization_import_test() -> tuple[bool, str]:
     try:
-        from training.optimizations import AdaptiveScheduler, MultiScaleHardSampleDetector, GradientCheckpointedOuroboros
         return True, "All optimization modules imported"
     except Exception as e:
         return False, f"Import failed: {e}"
 
 
-def t24_optimization_config_test() -> Tuple[bool, str]:
+def t24_optimization_config_test() -> tuple[bool, str]:
     try:
         config_path = get_optimization_config()
         if not config_path.exists():
@@ -390,7 +395,7 @@ def t24_optimization_config_test() -> Tuple[bool, str]:
         return False, str(e)
 
 def main() -> None:
-    tests: List[Tuple[str, Callable[[], Tuple[bool, str]]]] = [
+    tests: list[tuple[str, Callable[[], tuple[bool, str]]]] = [
         ("T1 — Import test", t1_import_test),
         ("T2 — Tokenizer test", t2_tokenizer_test),
         ("T3 — Model load test", t3_model_load_test),
@@ -418,8 +423,8 @@ def main() -> None:
     ]
 
     passed = 0
-    failed: List[str] = []
-    results: List[Tuple[str, bool, str]] = []
+    failed: list[str] = []
+    results: list[tuple[str, bool, str]] = []
     for name, fn in tests:
         ok, detail = _run(name, fn)
         results.append((name, ok, detail))

@@ -12,9 +12,9 @@ import json
 import logging
 import os
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 from anra.anra_paths import DRIVE_DIR, STATE_DIR
 
@@ -42,11 +42,11 @@ logging.setLoggerClass(SharedLogger)
 
 
 def _iso_now() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def _envelope(level: str, event_type: str, component: str, action: str,
-              actor: str = "system", message: str = "", details: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+              actor: str = "system", message: str = "", details: dict[str, Any] | None = None) -> dict[str, Any]:
     return {
         "ts": _iso_now(),
         "level": level,
@@ -60,7 +60,7 @@ def _envelope(level: str, event_type: str, component: str, action: str,
     }
 
 
-def _append_jsonl(path: Path, entry: Dict[str, Any]) -> None:
+def _append_jsonl(path: Path, entry: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("a", encoding="utf-8") as f:
         f.write(json.dumps(entry, ensure_ascii=False) + "\n")
@@ -88,7 +88,7 @@ def get_shared_logger(name: str) -> SharedLogger:
 
 
 def emit_event(logger: SharedLogger, level: str, event_type: str, component: str, action: str,
-               actor: str = "system", message: str = "", details: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+               actor: str = "system", message: str = "", details: dict[str, Any] | None = None) -> dict[str, Any]:
     env = _envelope(level, event_type, component, action, actor, message, details)
     log_line = json.dumps(env, ensure_ascii=False)
     lvl = level.upper()
@@ -110,13 +110,13 @@ def emit_event(logger: SharedLogger, level: str, event_type: str, component: str
 
 
 def emit_audit_event(logger: SharedLogger, event_type: str, component: str, action: str,
-                     actor: str = "system", message: str = "", details: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+                     actor: str = "system", message: str = "", details: dict[str, Any] | None = None) -> dict[str, Any]:
     env = emit_event(logger, "AUDIT", event_type, component, action, actor, message, details)
     _append_jsonl(AUDIT_LOG, env)
     return env
 
 
-def log_self_modification(logger: SharedLogger, component: str, target: str, diff_ref: str, actor: str = "system") -> Dict[str, Any]:
+def log_self_modification(logger: SharedLogger, component: str, target: str, diff_ref: str, actor: str = "system") -> dict[str, Any]:
     return emit_audit_event(
         logger,
         event_type="SELF_MODIFICATION",
@@ -128,7 +128,7 @@ def log_self_modification(logger: SharedLogger, component: str, target: str, dif
     )
 
 
-def log_file_mutation(logger: SharedLogger, component: str, path: str, mutation: str, actor: str = "system") -> Dict[str, Any]:
+def log_file_mutation(logger: SharedLogger, component: str, path: str, mutation: str, actor: str = "system") -> dict[str, Any]:
     return emit_audit_event(
         logger,
         event_type="FILE_MUTATION",
@@ -158,7 +158,7 @@ class L02SessionLogManager:
             SESSION_LOG.replace(archived)
         return SESSION_LOG
 
-    def sync_session_end_to_drive(self) -> Optional[Path]:
+    def sync_session_end_to_drive(self) -> Path | None:
         if not self.drive_root.exists():
             return None
         out_dir = self.drive_root / "logs"

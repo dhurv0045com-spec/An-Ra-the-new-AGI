@@ -4,6 +4,7 @@ import json
 import re
 import time
 from collections import defaultdict
+from pathlib import Path
 
 import torch
 import torch.nn.functional as F
@@ -63,6 +64,14 @@ EVAL_SUITE = [
     },
 ]
 
+GOLDEN_EVAL_SCHEMA_VERSION = 1
+GOLDEN_EVAL_THRESHOLDS = {
+    "overall_min": 0.60,
+    "identity_min": 0.70,
+    "symbolic_min": 0.60,
+    "reasoning_min": 0.60,
+}
+
 
 @instrument("evaluation")
 def quick_eval_loss(model, dataset, *, device: torch.device, max_examples: int = 100, batch_size: int = 8, pad_id: int = 0) -> dict:
@@ -118,6 +127,75 @@ def _verified_score(verifier: str, prompt: str, response: str) -> tuple[float, s
     return 0.0, ""
 
 
+def build_golden_eval_baseline(
+    summary: dict[str, object],
+    *,
+    source: str = "compact_eval",
+    thresholds: dict[str, float] | None = None,
+) -> dict[str, object]:
+    active_thresholds = dict(GOLDEN_EVAL_THRESHOLDS)
+    if thresholds:
+        active_thresholds.update({key: float(value) for key, value in thresholds.items()})
+
+    category_scores_raw = summary.get("category_scores", {})
+    category_scores = category_scores_raw if isinstance(category_scores_raw, dict) else {}
+    overall_score = float(summary.get("overall_score", 0.0) or 0.0)
+
+    gates = {
+        "overall": overall_score >= active_thresholds["overall_min"],
+        "identity": float(category_scores.get("identity", 0.0) or 0.0) >= active_thresholds["identity_min"],
+        "symbolic": float(category_scores.get("symbolic", 0.0) or 0.0) >= active_thresholds["symbolic_min"],
+        "reasoning": float(category_scores.get("reasoning", 0.0) or 0.0) >= active_thresholds["reasoning_min"],
+    }
+
+    results_raw = summary.get("results", [])
+    results = results_raw if isinstance(results_raw, list) else []
+    tasks: list[dict[str, object]] = []
+    for result in results:
+        if not isinstance(result, dict):
+            continue
+        tasks.append(
+            {
+                "id": result.get("id", ""),
+                "category": result.get("category", ""),
+                "prompt": result.get("prompt", ""),
+                "response": result.get("response", ""),
+                "score": float(result.get("score", 0.0) or 0.0),
+                "reason": result.get("reason", ""),
+                "expected": result.get("expected", ""),
+            }
+        )
+
+    generated_at = float(summary.get("generated_at", time.time()) or time.time())
+    return {
+        "schema_version": GOLDEN_EVAL_SCHEMA_VERSION,
+        "baseline_id": f"golden-{int(generated_at)}-{overall_score:.4f}",
+        "generated_at": generated_at,
+        "source": source,
+        "suite_size": len(tasks),
+        "overall_score": round(overall_score, 4),
+        "category_scores": {
+            str(category): round(float(score), 4)
+            for category, score in category_scores.items()
+        },
+        "thresholds": active_thresholds,
+        "promotion_gates": gates,
+        "promotion_allowed": all(gates.values()),
+        "tasks": tasks,
+    }
+
+
+def write_golden_eval_baseline(
+    summary: dict[str, object],
+    *,
+    source: str = "compact_eval",
+    output_path: Path | None = None,
+) -> dict[str, object]:
+    baseline = build_golden_eval_baseline(summary, source=source)
+    write_json(output_path or v2_report_path("golden_eval_baseline"), baseline)
+    return baseline
+
+
 @instrument("evaluation")
 def run_compact_eval(
     model,
@@ -125,6 +203,7 @@ def run_compact_eval(
     *,
     device: torch.device,
     output: bool = True,
+    golden: bool = False,
 ) -> dict[str, object]:
     results: list[dict[str, object]] = []
     category_scores: dict[str, list[float]] = defaultdict(list)
@@ -173,6 +252,8 @@ def run_compact_eval(
     if output:
         write_json(v2_report_path("eval_summary"), summary)
         append_jsonl(v2_report_path("eval_history"), {"ts": summary["generated_at"], "overall_score": overall, "category_scores": averages})
+        if golden:
+            write_golden_eval_baseline(summary, source="train_unified_eval")
     return summary
 
 
