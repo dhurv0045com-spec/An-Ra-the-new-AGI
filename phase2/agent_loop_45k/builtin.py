@@ -26,7 +26,7 @@ import textwrap
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from registry import ToolResult, ToolDefinition, SafetyLevel, ToolRegistry
+from phase2.agent_loop_45k.registry import ToolDefinition, SafetyLevel, ToolRegistry, ToolResult
 
 logger = logging.getLogger(__name__)
 

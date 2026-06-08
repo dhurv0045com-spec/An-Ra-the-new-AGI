@@ -2,9 +2,6 @@ from __future__ import annotations
 
 from pathlib import Path
 import json
-import sys
-
-sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from tokenizer.subword_tokenizer import SubwordTokenizer
 from training.v2_config import BASE_SPECIAL_TOKENS, CANONICAL_SPECIAL_TOKENS, CANONICAL_VOCAB_SIZE

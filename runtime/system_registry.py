@@ -84,7 +84,7 @@ def component_registry() -> list[SystemComponent]:
             name="brain",
             layer="model",
             role="V2 causal transformer core: GQA, RoPE/YaRN, MoD, Flash SDP path, tied embeddings.",
-            paths=("anra_brain.py", "training/v2_config.py", "training/v2_runtime.py"),
+            paths=("scripts/anra_brain.py", "training/v2_config.py", "training/v2_runtime.py"),
             import_name="anra_brain",
         ),
         _component(
@@ -122,14 +122,14 @@ def component_registry() -> list[SystemComponent]:
             name="runtime",
             layer="serving",
             role="Generation, streaming, trace capture, connector refresh, and local inference helpers.",
-            paths=("generate.py", "inference/full_system_connector.py", "inference/anra_infer.py"),
+            paths=("scripts/generate.py", "inference/full_system_connector.py", "inference/anra_infer.py"),
             import_name="generate",
         ),
         _component(
             name="api_web",
             layer="interface",
             role="FastAPI backend plus Phase 4 Vite/React operator interface.",
-            paths=("app.py", "phase4/web/src/App.jsx", "phase4/web/src/index.css", "phase4/web/README.md"),
+            paths=("scripts/app.py", "phase4/web/src/App.jsx", "phase4/web/src/index.css", "phase4/web/README.md"),
         ),
         _component(
             name="identity",

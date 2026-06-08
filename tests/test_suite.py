@@ -10,7 +10,6 @@ from typing import Callable, List, Tuple
 
 import pytest
 
-sys.path.append(str(Path(__file__).resolve().parent.parent))
 from anra.anra_paths import DRIVE_DIR, ROOT, get_dataset_file, get_optimization_config
 
 httpx = pytest.importorskip("httpx")

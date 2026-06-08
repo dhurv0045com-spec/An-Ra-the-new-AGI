@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import sys
+import importlib.util
 import time
 from pathlib import Path
 
@@ -124,9 +124,16 @@ class MathSpecialist:
         expression = task.get("expression", task_description) if isinstance(task, dict) else task_description
         try:
             bridge_dir = ROOT / "phase3" / "symbolic_bridge_45q"
-            if str(bridge_dir) not in sys.path:
-                sys.path.append(str(bridge_dir))
-            from math_solver import solve_equation
+            spec = importlib.util.spec_from_file_location(
+                "bridge_module", bridge_dir / "__init__.py"
+            )
+            solve_equation = None
+            if spec and spec.loader:
+                bridge = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(bridge)
+                solve_equation = bridge.solve_equation
+            if solve_equation is None:
+                raise ImportError("symbolic bridge math solver unavailable")
 
             result = solve_equation(expression)
             payload = result.to_dict() if hasattr(result, "to_dict") else str(result)

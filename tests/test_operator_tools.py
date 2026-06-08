@@ -1,13 +1,11 @@
 from __future__ import annotations
 
 import os
-import sys
 from pathlib import Path
 
 import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
-AGENT_DIR = ROOT / "phase2" / "agent_loop_45k"
 
 
 @pytest.fixture(autouse=True)
@@ -15,13 +13,11 @@ def _agent_workspace(tmp_path, monkeypatch):
     ws = tmp_path / "workspace"
     ws.mkdir()
     monkeypatch.setenv("AGENT_FILE_ROOT", str(ws))
-    if str(AGENT_DIR) not in sys.path:
-        sys.path.append(str(AGENT_DIR))
     yield ws
 
 
 def test_file_manager_write_read():
-    from builtin import file_manager
+    from phase2.agent_loop_45k.builtin import file_manager
 
     w = file_manager("write demo.txt hello operator")
     assert w.success
@@ -31,7 +27,7 @@ def test_file_manager_write_read():
 
 
 def test_cad_generate_raptor_engine():
-    from builtin import cad_generate
+    from phase2.agent_loop_45k.builtin import cad_generate
 
     result = cad_generate("raptor_engine")
     assert result.success
@@ -42,7 +38,7 @@ def test_cad_generate_raptor_engine():
 
 
 def test_os_action_rejects_escape():
-    from builtin import os_action
+    from phase2.agent_loop_45k.builtin import os_action
 
     result = os_action("open ../../../etc/passwd")
     assert not result.success

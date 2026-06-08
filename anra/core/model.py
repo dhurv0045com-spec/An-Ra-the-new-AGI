@@ -1,0 +1,26 @@
+"""
+anra/core/model.py
+Re-exports CausalTransformerV2 from anra_brain.py into the anra package.
+"""
+
+from __future__ import annotations
+
+from scripts.anra_brain import (  # noqa: F401
+    BlockV2,
+    CausalTransformerV2,
+    MoDRouter,
+    MultiHeadAttentionV2,
+    RMSNorm,
+    RotaryEmbedding,
+    SwiGLU,
+)
+
+__all__ = [
+    "CausalTransformerV2",
+    "BlockV2",
+    "MultiHeadAttentionV2",
+    "RotaryEmbedding",
+    "RMSNorm",
+    "SwiGLU",
+    "MoDRouter",
+]

@@ -12,28 +12,14 @@ Run:
     python -m pytest tests/test_phase3_integration.py -v
 """
 
-import sys
-import os
 import json
+import subprocess
+import sys
 import time
 from pathlib import Path
 
-# ── Setup paths ───────────────────────────────────────────────────────────────
-TEST_DIR     = Path(__file__).resolve().parent
+TEST_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = TEST_DIR.parent
-PHASE2_45M   = PROJECT_ROOT / "phase2" / "master_system_45m"
-PHASE3       = PROJECT_ROOT / "phase3"
-
-# Add all necessary paths
-for p in [str(PHASE2_45M), str(PROJECT_ROOT)]:
-    if p not in sys.path:
-        sys.path.append(p)
-for p3 in ["45N", "45O", "45P", "45Q", "45R"]:
-    p = str(PHASE3 / p3)
-    if p not in sys.path:
-        sys.path.append(p)
-
-os.chdir(str(PHASE2_45M))
 
 import pytest
 
@@ -47,7 +33,7 @@ class TestIdentityInjector:
     """45N — Identity Injector (CPU-only, no training required)."""
 
     def setup_method(self):
-        from identity_injector import IdentityInjector
+        from phase3.identity_45n.identity_injector import IdentityInjector
         # Use the real identity file if available, else let it use fallback
         from anra.anra_paths import get_identity_file
         identity_file = get_identity_file()
@@ -102,7 +88,7 @@ class TestOuroborosNumpy:
     """45O — Ouroboros NumPy (CPU, no torch required)."""
 
     def setup_method(self):
-        from ouroboros_numpy import OuroborosNumpy
+        from phase3.ouroboros_45o.ouroboros_numpy import OuroborosNumpy
 
         call_log = []
 
@@ -137,13 +123,13 @@ class TestOuroborosNumpy:
 
     def test_adaptive_simple_query_uses_fewer_passes(self):
         """Simple queries should use 1 pass."""
-        from ouroboros_numpy import _estimate_complexity
+        from phase3.ouroboros_45o.ouroboros_numpy import _estimate_complexity
         n = _estimate_complexity("hi")
         assert n == 1, f"Expected 1 pass for 'hi', got {n}"
 
     def test_adaptive_complex_query_uses_more_passes(self):
         """Complex queries should use 3 passes."""
-        from ouroboros_numpy import _estimate_complexity
+        from phase3.ouroboros_45o.ouroboros_numpy import _estimate_complexity
         n = _estimate_complexity(
             "Prove that the sum of two prime numbers greater than 2 is always even "
             "using mathematical induction and derive the implications for cryptography."
@@ -152,7 +138,7 @@ class TestOuroborosNumpy:
 
     def test_disabled_mode_passthrough(self):
         """When disabled, recursive_generate should call generate once."""
-        from ouroboros_numpy import OuroborosNumpy
+        from phase3.ouroboros_45o.ouroboros_numpy import OuroborosNumpy
         calls = []
         ouro = OuroborosNumpy(
             generate_fn=lambda p, **kw: "response",
@@ -177,7 +163,7 @@ class TestGhostMemory:
         self.tmpdir = Path(tempfile.mkdtemp())
 
         try:
-            from ghost_memory import GhostMemory, default_config
+            from phase3.ghost_memory_45p.ghost_memory import GhostMemory, default_config
             import numpy as np
 
             cfg = default_config(storage_dir=self.tmpdir)
@@ -222,7 +208,7 @@ class TestSymbolicBridge:
 
     def setup_method(self):
         try:
-            from symbolic_bridge import query, detect
+            from phase3.symbolic_bridge_45q import detect, query
             self.query = query
             self.detect = detect
             self.available = True
@@ -273,7 +259,7 @@ class TestSovereigntyBridge:
     def setup_method(self):
         try:
             import psutil  # noqa: F401
-            from sovereignty_bridge import SovereigntyBridge
+            from phase3.sovereignty_45r.sovereignty_bridge import SovereigntyBridge
             import tempfile
             self.data_dir = Path(tempfile.mkdtemp())
             # Don't actually start the daemon in tests
@@ -320,7 +306,7 @@ class TestMasterSystemPhase3Integration:
     @pytest.fixture(autouse=True)
     def setup_system(self):
         """Create a MasterSystem in a minimal state for testing."""
-        from system import MasterSystem
+        from phase2.master_system_45m.system import MasterSystem
         self.system = MasterSystem()
         # Don't call .start() — initialize Phase 3 modules directly to avoid
         # loading the full LLM in tests
@@ -402,7 +388,7 @@ class TestPhase3ChatPipeline:
     """Simulates the full chat pipeline with a mock LLM."""
 
     def setup_method(self):
-        from system import MasterSystem
+        from phase2.master_system_45m.system import MasterSystem
 
         class MockLLM:
             """Minimal mock LLM bridge."""
@@ -470,23 +456,23 @@ class TestImports:
     """Verify all Phase 3 modules import without errors."""
 
     def test_import_identity_injector(self):
-        import identity_injector
+        import phase3.identity_45n.identity_injector as identity_injector
         assert hasattr(identity_injector, "IdentityInjector")
         assert hasattr(identity_injector, "get_identity_injector")
 
     def test_import_ouroboros_numpy(self):
-        import ouroboros_numpy
+        import phase3.ouroboros_45o.ouroboros_numpy as ouroboros_numpy
         assert hasattr(ouroboros_numpy, "OuroborosNumpy")
         assert hasattr(ouroboros_numpy, "_estimate_complexity")
 
     def test_import_sovereignty_bridge(self):
-        import sovereignty_bridge
+        import phase3.sovereignty_45r.sovereignty_bridge as sovereignty_bridge
         assert hasattr(sovereignty_bridge, "SovereigntyBridge")
 
     def test_import_ghost_memory_available(self):
         """ghost_memory requires numpy — check availability."""
         try:
-            from ghost_memory import GhostMemory, default_config
+            from phase3.ghost_memory_45p.ghost_memory import GhostMemory, default_config
             assert GhostMemory is not None
         except ImportError:
             pytest.skip("numpy not available")
@@ -494,7 +480,7 @@ class TestImports:
     def test_import_symbolic_bridge_available(self):
         """symbolic_bridge requires sympy — check availability."""
         try:
-            from symbolic_bridge import query, detect
+            from phase3.symbolic_bridge_45q import detect, query
             assert query is not None
         except ImportError:
             pytest.skip("sympy not available")
@@ -502,7 +488,6 @@ class TestImports:
 
 # ── Entry point for running directly ─────────────────────────────────────────
 if __name__ == "__main__":
-    import subprocess
     result = subprocess.run(
         [sys.executable, "-m", "pytest", __file__, "-v", "--tb=short"],
         cwd=str(PROJECT_ROOT),

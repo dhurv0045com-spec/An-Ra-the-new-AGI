@@ -24,7 +24,7 @@ from anra.anra_paths import (
     get_teacher_files,
     get_v2_checkpoint,
 )
-from anra_brain import CausalTransformerV2
+from scripts.anra_brain import CausalTransformerV2
 from tokenizer.subword_tokenizer import SubwordTokenizer
 from tokenizer.tokenizer_adapter import TokenizerAdapter
 from training.v2_config import (

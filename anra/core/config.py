@@ -245,6 +245,7 @@ class PathsConfig:
 class AnRaConfig:
     """Validated top-level AN-RA configuration."""
 
+    experiment_name: str = "base"
     model: ModelConfig = Field(default_factory=ModelConfig)
     training: TrainingConfig = Field(default_factory=TrainingConfig)
     inference: InferenceConfig = Field(default_factory=InferenceConfig)
@@ -292,7 +293,15 @@ class AnRaConfig:
         if not isinstance(hardware_data, Mapping):
             raise TypeError("config.hardware must be a mapping")
 
-        known_sections = {"model", "training", "inference", "paths", "logging", "hardware"}
+        known_sections = {
+            "experiment_name",
+            "model",
+            "training",
+            "inference",
+            "paths",
+            "logging",
+            "hardware",
+        }
         unknown_sections = sorted(set(normalized) - known_sections)
         if unknown_sections:
             joined = ", ".join(unknown_sections)
@@ -302,6 +311,7 @@ class AnRaConfig:
             return _validate_dataclass(
                 cls,
                 {
+                    "experiment_name": str(normalized.get("experiment_name", "base")),
                     "model": ModelConfig.from_mapping(cast(Mapping[str, object], model_data)),
                     "training": TrainingConfig.from_mapping(
                         cast(Mapping[str, object], training_data)
