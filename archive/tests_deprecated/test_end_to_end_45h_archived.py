@@ -15,7 +15,6 @@ Run:  pytest tests/test_end_to_end.py -v --tb=short
 """
 
 import sys
-import os
 import math
 import shutil
 import tempfile
@@ -23,8 +22,6 @@ import subprocess
 import pytest
 import numpy as np
 from pathlib import Path
-
-sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
 from model         import LanguageModel, CheckpointCorruptError, CheckpointNotFoundError
 from config_loader import load_config

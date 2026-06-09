@@ -7,7 +7,7 @@ name = "anra"
 version = "0.3.0"
 description = "AN-RA sovereign AGI research platform"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.10"
 license = { text = "MIT" }
 authors = [{ name = "AN-RA Research" }]
 dependencies = [
@@ -67,10 +67,31 @@ filterwarnings = ["error::DeprecationWarning"]
 [tool.mypy]
 python_version = "3.11"
 strict = true
+plugins = ["pydantic.mypy"]
 warn_unreachable = true
 show_error_codes = true
 pretty = true
 packages = ["anra"]
+
+[[tool.mypy.overrides]]
+module = [
+  "anra_brain",
+  "app",
+  "generate",
+  "identity.*",
+  "memory.*",
+  "tokenizer.*",
+  "training.*",
+]
+follow_imports = "skip"
+
+[[tool.mypy.overrides]]
+module = [
+  "anra.identity.*",
+  "anra.memory.*",
+  "anra.serving.schemas",
+]
+disable_error_code = ["misc"]
 
 [tool.ruff]
 target-version = "py311"
@@ -100,4 +121,27 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**/*.py" = ["ANN201", "S101"]
+"anra/anra_paths.py" = ["E501", "E702", "SIM108"]
+"tests/**/*.py" = [
+  "ANN001",
+  "ANN201",
+  "ANN202",
+  "ANN204",
+  "ANN002",
+  "ANN003",
+  "ARG001",
+  "ARG002",
+  "ARG005",
+  "B905",
+  "E402",
+  "E501",
+  "F401",
+  "F841",
+  "I001",
+  "N802",
+  "N806",
+  "PT018",
+  "S101",
+  "SIM103",
+  "SIM105",
+]

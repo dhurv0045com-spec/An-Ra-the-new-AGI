@@ -29,6 +29,25 @@ from anra_brain import CausalTransformerV2  # noqa: F401
 
 ROOT = Path(__file__).resolve().parent.parent
 
+REJECT_WORDS = [
+    "ChatGPT",
+    "GPT-4",
+    "GPT4",
+    "Claude",
+    "Anthropic",
+    "OpenAI",
+    "As an AI",
+    "I am an AI",
+]
+
+
+def filter_dfc_text(text: str) -> str:
+    """Remove DFC rows containing teacher-identity leakage."""
+    rejected = tuple(word.lower() for word in REJECT_WORDS)
+    return "\n".join(
+        line for line in text.splitlines() if not any(word in line.lower() for word in rejected)
+    )
+
 
 def get_device(requested: str) -> torch.device:
     if requested == "auto":
@@ -38,21 +57,29 @@ def get_device(requested: str) -> torch.device:
     return torch.device(requested)
 
 
-def load_text_data(path: Path, block_size: int, device: torch.device) -> torch.Tensor:
+def load_text_data(
+    path: Path,
+    block_size: int,
+    device: torch.device,
+    *,
+    filter_dfc: bool = False,
+) -> torch.Tensor:
     """Load raw text, encode as token IDs when possible, otherwise as character IDs."""
     del block_size
     text = path.read_text(encoding="utf-8", errors="replace")
+    if filter_dfc:
+        text = filter_dfc_text(text)
     try:
-        tokenizer_path = ROOT / "tokenizer_v3.json"
+        tokenizer_path = ROOT / "tokenizer" / "tokenizer_v3.json"
         if tokenizer_path.exists():
-            from tokenizers import Tokenizer
+            from tokenizer.subword_tokenizer import SubwordTokenizer
 
-            tok = Tokenizer.from_file(str(tokenizer_path))
-            ids = tok.encode(text).ids
+            tokenizer = SubwordTokenizer.load(tokenizer_path)
+            ids = tokenizer.encode(text)
             data = torch.tensor(ids, dtype=torch.long, device=device)
         else:
             raise FileNotFoundError
-    except (ImportError, FileNotFoundError):
+    except (ImportError, FileNotFoundError, ValueError, json.JSONDecodeError):
         chars = sorted(set(text))
         c2i = {c: i for i, c in enumerate(chars)}
         ids = [c2i[c] for c in text]
@@ -87,6 +114,8 @@ def train(cfg: AnRaConfig, args: argparse.Namespace) -> None:
         n_layer=cfg.model.n_layer,
         block_size=cfg.model.block_size,
         dropout=cfg.model.dropout,
+        mod_layers=cfg.model.mod_layers,
+        use_hal=cfg.model.use_hal,
     ).to(device)
 
     n_params = sum(p.numel() for p in model.parameters())
@@ -99,7 +128,12 @@ def train(cfg: AnRaConfig, args: argparse.Namespace) -> None:
         data_path = ROOT / "output" / "synthetic_train.txt"
         data_path.write_text(synthetic)
 
-    data = load_text_data(data_path, cfg.model.block_size, device)
+    data = load_text_data(
+        data_path,
+        cfg.model.block_size,
+        device,
+        filter_dfc=args.filter_dfc,
+    )
     split = int(0.9 * len(data))
     train_data, val_data = data[:split], data[split:]
     print(f"Train tokens: {len(train_data):,}  Val tokens: {len(val_data):,}")
@@ -184,6 +218,11 @@ def main() -> None:
         default="auto",
         choices=["auto", "cpu", "cuda", "mps"],
         help="Training device",
+    )
+    parser.add_argument(
+        "--filter_dfc",
+        action="store_true",
+        help="Remove rows containing teacher-identity leakage before tokenization",
     )
     args = parser.parse_args()
 

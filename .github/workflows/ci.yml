@@ -67,9 +67,21 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Import key modules
+      - name: Install
         run: |
-          python -c "import anra_brain"
-          python -c "import identity.hal"
-          python -c "import memory.memory_router"
-          python -c "import innovation"
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install -e ".[dev]"
+      - name: Verify imports
+        run: |
+          python -c "from anra.core.model import CausalTransformerV2; print('OK')"
+          python -c "import anra; print(anra.__version__)"
+        env:
+          PYTHONPATH: .
+      - name: Lint
+        run: ruff check anra/ tests/
+        env:
+          PYTHONPATH: .
+      - name: Type check
+        run: mypy anra/ --strict --ignore-missing-imports
+        env:
+          PYTHONPATH: .

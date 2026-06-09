@@ -1,3 +1,5 @@
+# NOTE: scripts/train.py is the canonical training script for local runs.
+# This file handles tokenizer building and frontier data preparation.
 from __future__ import annotations
 
 import argparse

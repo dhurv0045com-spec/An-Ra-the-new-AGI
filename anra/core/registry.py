@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import inspect
 from collections.abc import Callable, Sequence
-from typing import Generic, TypeVar, cast
+from typing import Generic, TypeVar
 
 from anra.core.protocols import (
     IdentityModuleProtocol,
@@ -65,7 +65,7 @@ class Registry(Generic[T]):
             valid_kwargs = {
                 key: value for key, value in kwargs.items() if key in signature.parameters
             }
-        return cast(T, cls(**valid_kwargs))
+        return cls(**valid_kwargs)
 
     def get(self, name: str) -> type[T]:
         """Return the registered class for a name."""

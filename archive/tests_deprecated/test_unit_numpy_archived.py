@@ -9,14 +9,9 @@ Run:  pytest tests/test_unit.py -v --tb=short
 ================================================================================
 """
 
-import sys
-import os
 import math
 import pytest
 import numpy as np
-
-# Allow imports from parent directory
-sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
 from attention         import RotaryEmbedding, KVCache, make_causal_mask, softmax, scaled_dot_product_attention
 from multihead         import MultiHeadAttention

@@ -131,7 +131,7 @@ Last reviewed: **2026-06-08**
 
 | ID | Status | Goal | Component | Verifier | Means |
 |----|--------|------|-----------|----------|-------|
-| D-01 | DONE | `docs/` hub + engineering log + master goals | `docs` | `docs/README.md` | docs |
+| D-01 | DONE | Documentation map + engineering log + master goals | `docs` | `README.md` | docs |
 | D-02 | ACTIVE | Keep ENGINEERING_LOG current | `docs` | No untracked spine merges | operate |
 | D-03 | NEXT | Colab notebook section for operator commands | `api_web` | Notebook runs `/cad` equivalent | docs |
 | D-04 | IDEA | Video walkthrough script from WALKTHROUGH | `docs` | Published outline | docs |

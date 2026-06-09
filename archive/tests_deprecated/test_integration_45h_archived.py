@@ -9,8 +9,6 @@ Run:  pytest tests/test_integration.py -v --tb=short
 ================================================================================
 """
 
-import sys
-import os
 import json
 import math
 import shutil
@@ -18,8 +16,6 @@ import tempfile
 import pytest
 import numpy as np
 from pathlib import Path
-
-sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
 from decoder        import Decoder
 from encoder        import Encoder

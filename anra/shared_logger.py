@@ -29,13 +29,13 @@ SESSION_LOG = DEFAULT_LOG_DIR / "session.log"
 
 
 class SharedLogger(logging.Logger):
-    def trace(self, msg: str, *args, **kwargs) -> None:
+    def trace(self, msg: str, *args: object, **kwargs: Any) -> None:
         if self.isEnabledFor(TRACE_LEVEL_NUM):
-            self._log(TRACE_LEVEL_NUM, msg, args, **kwargs)
+            self.log(TRACE_LEVEL_NUM, msg, *args, **kwargs)
 
-    def audit(self, msg: str, *args, **kwargs) -> None:
+    def audit(self, msg: str, *args: object, **kwargs: Any) -> None:
         if self.isEnabledFor(AUDIT_LEVEL_NUM):
-            self._log(AUDIT_LEVEL_NUM, msg, args, **kwargs)
+            self.log(AUDIT_LEVEL_NUM, msg, *args, **kwargs)
 
 
 logging.setLoggerClass(SharedLogger)
@@ -45,8 +45,15 @@ def _iso_now() -> str:
     return datetime.now(UTC).isoformat()
 
 
-def _envelope(level: str, event_type: str, component: str, action: str,
-              actor: str = "system", message: str = "", details: dict[str, Any] | None = None) -> dict[str, Any]:
+def _envelope(
+    level: str,
+    event_type: str,
+    component: str,
+    action: str,
+    actor: str = "system",
+    message: str = "",
+    details: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     return {
         "ts": _iso_now(),
         "level": level,
@@ -87,8 +94,16 @@ def get_shared_logger(name: str) -> SharedLogger:
     return logging.getLogger(name)  # type: ignore[return-value]
 
 
-def emit_event(logger: SharedLogger, level: str, event_type: str, component: str, action: str,
-               actor: str = "system", message: str = "", details: dict[str, Any] | None = None) -> dict[str, Any]:
+def emit_event(
+    logger: SharedLogger,
+    level: str,
+    event_type: str,
+    component: str,
+    action: str,
+    actor: str = "system",
+    message: str = "",
+    details: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     env = _envelope(level, event_type, component, action, actor, message, details)
     log_line = json.dumps(env, ensure_ascii=False)
     lvl = level.upper()
@@ -109,14 +124,27 @@ def emit_event(logger: SharedLogger, level: str, event_type: str, component: str
     return env
 
 
-def emit_audit_event(logger: SharedLogger, event_type: str, component: str, action: str,
-                     actor: str = "system", message: str = "", details: dict[str, Any] | None = None) -> dict[str, Any]:
+def emit_audit_event(
+    logger: SharedLogger,
+    event_type: str,
+    component: str,
+    action: str,
+    actor: str = "system",
+    message: str = "",
+    details: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     env = emit_event(logger, "AUDIT", event_type, component, action, actor, message, details)
     _append_jsonl(AUDIT_LOG, env)
     return env
 
 
-def log_self_modification(logger: SharedLogger, component: str, target: str, diff_ref: str, actor: str = "system") -> dict[str, Any]:
+def log_self_modification(
+    logger: SharedLogger,
+    component: str,
+    target: str,
+    diff_ref: str,
+    actor: str = "system",
+) -> dict[str, Any]:
     return emit_audit_event(
         logger,
         event_type="SELF_MODIFICATION",
@@ -128,7 +156,13 @@ def log_self_modification(logger: SharedLogger, component: str, target: str, dif
     )
 
 
-def log_file_mutation(logger: SharedLogger, component: str, path: str, mutation: str, actor: str = "system") -> dict[str, Any]:
+def log_file_mutation(
+    logger: SharedLogger,
+    component: str,
+    path: str,
+    mutation: str,
+    actor: str = "system",
+) -> dict[str, Any]:
     return emit_audit_event(
         logger,
         event_type="FILE_MUTATION",

@@ -32,7 +32,7 @@ from typing import Any, Dict, List, Optional
 import torch
 import torch.nn as nn
 
-from core.turboquant import CompressedKVCache, TurboQuantConfig
+from archive.core_45eh_numpy_archived.turboquant import CompressedKVCache, TurboQuantConfig
 from runtime.safe_load import safe_torch_load
 
 

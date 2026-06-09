@@ -36,7 +36,6 @@ IGNORED_PARTS = {
 IGNORED_SUFFIXES = {".db", ".sqlite", ".sqlite3", ".faiss", ".index", ".npy", ".npz", ".pt", ".pth"}
 IGNORED_FILENAMES = {
     "package-lock.json",
-    "tokenizer_v2.json",
     "tokenizer_v3.json",
     "anra_training.txt",
 }

@@ -62,7 +62,9 @@ class ModelConfig:
     pad_token_id: int = Field(default=0, ge=0)
     eos_token_id: int | None = Field(default=None, ge=0)
     use_mod: bool = False
+    mod_layers: tuple[int, ...] = ()
     mod_capacity: float = Field(default=0.5, gt=0.0, le=1.0)
+    use_hal: bool = False
     gradient_checkpointing: bool = False
 
     @classmethod
@@ -128,6 +130,10 @@ class TrainingConfig:
     log_dir: Path = Path("logs")
     seed: int = 42
     num_workers: int = Field(default=0, ge=0)
+    objective: str = "cross_entropy"
+    rlvr_enabled: bool = False
+    star_enabled: bool = False
+    entropy_coef: float = Field(default=0.01, ge=0.0)
 
     @classmethod
     def from_mapping(cls, data: Mapping[str, object]) -> Self:
@@ -245,6 +251,7 @@ class AnRaConfig:
     """Validated top-level AN-RA configuration."""
 
     experiment_name: str = "base"
+    seed: int = 42
     model: ModelConfig = Field(default_factory=ModelConfig)
     training: TrainingConfig = Field(default_factory=TrainingConfig)
     inference: InferenceConfig = Field(default_factory=InferenceConfig)
@@ -294,6 +301,7 @@ class AnRaConfig:
 
         known_sections = {
             "experiment_name",
+            "seed",
             "model",
             "training",
             "inference",
@@ -306,15 +314,20 @@ class AnRaConfig:
             joined = ", ".join(unknown_sections)
             raise ValueError(f"Unknown top-level configuration section(s): {joined}")
 
+        normalized_training = _as_plain_dict(cast(Mapping[str, object], training_data))
+        if "seq_len" not in normalized_training:
+            normalized_training["seq_len"] = ModelConfig.from_mapping(
+                cast(Mapping[str, object], model_data)
+            ).block_size
+
         try:
             return _validate_dataclass(
                 cls,
                 {
                     "experiment_name": str(normalized.get("experiment_name", "base")),
+                    "seed": TypeAdapter(int).validate_python(normalized.get("seed", 42)),
                     "model": ModelConfig.from_mapping(cast(Mapping[str, object], model_data)),
-                    "training": TrainingConfig.from_mapping(
-                        cast(Mapping[str, object], training_data)
-                    ),
+                    "training": TrainingConfig.from_mapping(normalized_training),
                     "inference": InferenceConfig.from_mapping(
                         cast(Mapping[str, object], inference_data)
                     ),
@@ -336,3 +349,7 @@ class AnRaConfig:
 
     def dict(self) -> dict[str, object]:
         return _dump_dataclass(self)
+
+    def model_dump(self) -> Mapping[str, object]:
+        """Pydantic-style serialization used by checkpoint writers."""
+        return self.dict()

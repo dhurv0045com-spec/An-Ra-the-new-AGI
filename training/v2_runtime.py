@@ -126,11 +126,11 @@ def _drive_restore_candidates(name: str) -> list[Path]:
         canonical,
     ]
     if name == "tokenizer":
-        # Backward compatibility for older Colab sessions that used the V2 name.
+        # Older sessions may keep the canonical tokenizer in legacy checkpoint folders.
         candidates.extend(
             [
-                DRIVE_V2_CHECKPOINTS / "tokenizer_v2.json",
-                DRIVE_DIR / "tokenizer_v2.json",
+                DRIVE_V2_CHECKPOINTS / "tokenizer_v3.json",
+                DRIVE_DIR / "tokenizer_v3.json",
             ]
         )
     return candidates

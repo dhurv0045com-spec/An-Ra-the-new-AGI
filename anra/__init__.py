@@ -32,10 +32,13 @@ def _anra_brain_import_in_progress() -> bool:
 
 if not _anra_brain_import_in_progress():
     import anra.core.model  # noqa: F401
-import anra.identity.hal  # noqa: F401
-import anra.inference  # noqa: F401
-import anra.memory.router  # noqa: F401
-import anra.serving  # noqa: F401
+import anra.identity.civ  # noqa: E402, F401
+import anra.identity.esv  # noqa: E402, F401
+import anra.identity.hal  # noqa: E402, F401
+import anra.inference  # noqa: E402, F401
+import anra.memory  # noqa: E402, F401
+import anra.memory.router  # noqa: E402, F401
+import anra.serving  # noqa: E402, F401
 
 __all__ = [
     "__version__",

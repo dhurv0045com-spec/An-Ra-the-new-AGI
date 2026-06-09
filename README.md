@@ -289,7 +289,6 @@ print(disabled_components())
 
 | Doc | Role |
 |-----|------|
-| [`docs/README.md`](docs/README.md) | **Hub** — folder layout for all docs |
 | [`docs/engineering/ENGINEERING_LOG.md`](docs/engineering/ENGINEERING_LOG.md) | **Change tracker** — every add/change/remove (dated) |
 | [`docs/planning/MASTER_GOALS.md`](docs/planning/MASTER_GOALS.md) | **Goals backlog** — research, test, train, robotics |
 | [`OPERATOR.md`](docs/OPERATOR.md) | **Do work** — slash commands, workspace, CAD |

@@ -32,6 +32,20 @@ class MemoryRecord:
     score: float
     created_at: float
 
+    @property
+    def content(self) -> str:
+        """Compatibility alias used by synchronous memory tiers."""
+        return self.text
+
+
+@dataclass(frozen=True, slots=True)
+class HealthStatus:
+    """Small serializable health report shared by package components."""
+
+    healthy: bool
+    message: str
+    details: Mapping[str, int | float | str | bool]
+
 
 @dataclass(frozen=True, slots=True)
 class IdentityState:

@@ -64,6 +64,8 @@ class RLVRStep:
     policy_loss: float = 0.0
     kl_loss: float = 0.0
     effective_kl: float = 0.0
+    entropy: float = 0.0
+    entropy_coef: float = 0.0
     output_lengths: list[int] = field(default_factory=list)
     verifier_pass_rate: float = 0.0
     replay_additions: int = 0
@@ -247,6 +249,31 @@ class RLVRTrainer:
         entropy = -(probs * probs.clamp_min(1e-12).log()).sum(dim=-1)
         return float(entropy.mean().item())
 
+    def _entropy_loss(
+        self,
+        logits: torch.Tensor,
+        mask: torch.Tensor | None = None,
+    ) -> torch.Tensor:
+        """Mean policy entropy, maximized to discourage repetitive collapse."""
+        probs = torch.softmax(logits, dim=-1)
+        entropy = -(probs * torch.log_softmax(logits, dim=-1)).sum(dim=-1)
+        if mask is not None:
+            return (entropy * mask).sum() / mask.sum().clamp(min=1)
+        return entropy.mean()
+
+    def _completion_entropy_tensor(self, prompt: str, completion: str) -> torch.Tensor:
+        block = getattr(self.model, "block_size", 2048)
+        device = self._device()
+        prompt_ids = self.tokenizer.encode(prompt)
+        completion_ids = self.tokenizer.encode(completion)
+        all_ids = (prompt_ids + completion_ids)[-block:]
+        if len(all_ids) < 2:
+            return torch.zeros((), device=device)
+        x = torch.tensor([all_ids[:-1]], dtype=torch.long, device=device)
+        logits, _ = self.model(x)
+        completion_start = max(0, len(all_ids) - len(completion_ids) - 1)
+        return self._entropy_loss(logits[:, completion_start:, :])
+
     def train_step(self, task: RLVRTask, completions: list[str] | None = None) -> RLVRStep:
         """Generate, verify, compute GRPO loss, backpropagate, and step."""
         if completions is None:
@@ -307,6 +334,7 @@ class RLVRTrainer:
         device = self._device()
         policy_loss = torch.zeros((), device=device)
         kl_loss = torch.zeros((), device=device)
+        entropy = torch.zeros((), device=device)
         kl_values = []
 
         for completion, advantage, output_tokens in zip(completions, advantages, output_lengths):
@@ -318,17 +346,19 @@ class RLVRTrainer:
             kl_gap = lp_cur - lp_ref.detach()
             kl_values.append(float(kl_gap.detach().item()))
             kl_loss = kl_loss + torch.clamp(kl_gap, min=0.0)
+            entropy = entropy + self._completion_entropy_tensor(task.prompt, completion)
 
         group_size = max(1, len(completions))
         policy_loss = policy_loss / group_size
         kl_loss = kl_loss / group_size
+        entropy = entropy / group_size
         effective_kl = (
             self.hal.kl_coefficient(self.kl_coeff)
             if self.hal is not None
             else self.kl_coeff
         )
         self._last_effective_kl = float(effective_kl)
-        total_loss = policy_loss + effective_kl * kl_loss
+        total_loss = policy_loss + effective_kl * kl_loss - self.entropy_bonus * entropy
 
         total_loss.backward()
         torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.grad_clip)
@@ -353,6 +383,8 @@ class RLVRTrainer:
             "max": float(max(rewards) if rewards else 0.0),
             "kl_mean": float(sum(kl_values) / max(1, len(kl_values))),
             "output_tokens_mean": float(sum(output_lengths) / max(1, len(output_lengths))),
+            "entropy": float(entropy.detach().item()),
+            "entropy_coef": self.entropy_bonus,
         }
         step = RLVRStep(
             task=task,
@@ -364,6 +396,8 @@ class RLVRTrainer:
             policy_loss=float(policy_loss.detach().item()),
             kl_loss=float(kl_loss.detach().item()),
             effective_kl=float(effective_kl),
+            entropy=float(entropy.detach().item()),
+            entropy_coef=self.entropy_bonus,
             output_lengths=output_lengths,
             verifier_pass_rate=float(verifier_pass_rate),
             reward_stats=reward_stats,
@@ -404,6 +438,8 @@ class RLVRTrainer:
             "policy_loss": step.policy_loss,
             "kl_loss": step.kl_loss,
             "effective_kl": step.effective_kl,
+            "entropy": step.entropy,
+            "entropy_coef": step.entropy_coef,
             "mean_reward": step.mean_reward,
             "verifier_pass_rate": step.verifier_pass_rate,
             "output_lengths": step.output_lengths,

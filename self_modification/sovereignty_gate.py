@@ -53,7 +53,7 @@ def sovereignty_audit_change(file_path: str | Path, new_content: str, *, reason:
     except Exception:
         pass
     try:
-        from sovereignty.logger import audit_event
+        from phase3.sovereignty_45r.logger import audit_event
 
         audit_event("self_modification", "SELF_MOD_AUDIT", event["action"], details=event)
     except Exception:

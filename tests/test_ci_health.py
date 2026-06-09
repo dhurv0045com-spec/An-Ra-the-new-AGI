@@ -195,7 +195,43 @@ def test_no_tomllib_bare_import_in_test_files():
         for i, line in enumerate(lines, 1):
             stripped = line.strip()
             if stripped == "import tomllib" or stripped.startswith("import tomllib "):
-                assert False, (
+                pytest.fail(
                     f"{f.relative_to(REPO)}:{i} bare 'import tomllib' fails Python 3.10.\n"
                     "Use: try: import tomllib\\nexcept ImportError: import tomli as tomllib"
                 )
+
+
+def test_no_dead_core_at_root() -> None:
+    assert not (REPO / "core").exists()
+
+
+def test_no_tokenizer_v2() -> None:
+    assert not (REPO / "tokenizer" / "tokenizer_v2.json").exists()
+
+
+def test_no_runtime_snapshots_in_git() -> None:
+    result = subprocess.run(
+        ["git", "ls-files", "state/reports/", "phase2/master_system_45m/state/reports/"],
+        capture_output=True,
+        text=True,
+        cwd=REPO,
+    )
+    snapshots = [path for path in result.stdout.splitlines() if path.endswith(".json")]
+    assert not snapshots, "Runtime snapshots tracked in git:\n" + "\n".join(snapshots)
+
+
+def test_config_tiny_loads_with_anra_config() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "from anra.core.config import AnRaConfig; from pathlib import Path; "
+            "c=AnRaConfig.from_yaml(Path('config/tiny.yaml')); "
+            "assert hasattr(c.model, 'n_embd'); print('OK', c.model.n_embd)",
+        ],
+        capture_output=True,
+        text=True,
+        cwd=REPO,
+        env={**__import__("os").environ, "PYTHONPATH": str(REPO)},
+    )
+    assert result.returncode == 0, f"config/tiny.yaml fails AnRaConfig:\n{result.stderr}"

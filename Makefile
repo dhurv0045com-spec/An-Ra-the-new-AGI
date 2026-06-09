@@ -28,10 +28,10 @@ test-fast:  ## Run unit tests only (no I/O, completes in <30 seconds)
 	  -q --tb=short
 
 lint:  ## Run ruff linter
-	ruff check anra/ tests/
+	$(PYTHON) -m ruff check anra/ tests/
 
 typecheck:  ## Run mypy strict type checking on anra/ package
-	mypy anra/ --strict --ignore-missing-imports
+	$(PYTHON) -m mypy anra/ --strict --ignore-missing-imports
 
 train-tiny:  ## Train for 100 steps on CPU with tiny config (smoke test)
 	$(PYTHON) -m scripts.train --config config/tiny.yaml \

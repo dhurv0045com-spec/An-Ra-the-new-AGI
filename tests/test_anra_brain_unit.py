@@ -16,13 +16,13 @@ def tiny() -> CausalTransformerV2:
         n_layer=4, block_size=64, mod_layers={1, 2},
     )
 
-def test_forward_logits_shape(tiny):
+def test_forward_logits_shape(tiny: CausalTransformerV2) -> None:
     idx = torch.randint(0, 256, (2, 32))
     logits, loss = tiny(idx)
     assert logits.shape == (2, 32, 256), f"Expected (2,32,256) got {logits.shape}"
     assert loss is None
 
-def test_forward_with_targets_gives_scalar_loss(tiny):
+def test_forward_with_targets_gives_scalar_loss(tiny: CausalTransformerV2) -> None:
     idx = torch.randint(0, 256, (2, 32))
     tgt = torch.randint(0, 256, (2, 32))
     _, loss = tiny(idx, targets=tgt)
@@ -31,7 +31,7 @@ def test_forward_with_targets_gives_scalar_loss(tiny):
     assert loss.item() > 0
     assert not torch.isnan(loss).item()
 
-def test_no_nan_gradients_after_backward(tiny):
+def test_no_nan_gradients_after_backward(tiny: CausalTransformerV2) -> None:
     idx = torch.randint(0, 256, (1, 32))
     tgt = torch.randint(0, 256, (1, 32))
     _, loss = tiny(idx, targets=tgt)
@@ -41,7 +41,7 @@ def test_no_nan_gradients_after_backward(tiny):
             assert not torch.isnan(param.grad).any().item(), f"NaN gradient in {name}"
     tiny.zero_grad()
 
-def test_mod_router_gate_gradient_nonzero(tiny):
+def test_mod_router_gate_gradient_nonzero(tiny: CausalTransformerV2) -> None:
     idx = torch.randint(0, 256, (1, 32))
     tgt = torch.randint(0, 256, (1, 32))
     _, loss = tiny(idx, targets=tgt)
@@ -80,7 +80,7 @@ def test_gradient_checkpointing_gate_gradient_not_stale():
     model.zero_grad()
     model.gradient_checkpointing_disable()
 
-def test_kv_cache_matches_no_cache(tiny):
+def test_kv_cache_matches_no_cache(tiny: CausalTransformerV2) -> None:
     tiny.eval()
     idx = torch.randint(0, 256, (1, 16))
     with torch.no_grad():
@@ -92,16 +92,16 @@ def test_kv_cache_matches_no_cache(tiny):
     torch.testing.assert_close(logits_plain, logits_cached, atol=1e-4, rtol=1e-4)
     tiny.train()
 
-def test_tied_embeddings_share_memory(tiny):
+def test_tied_embeddings_share_memory(tiny: CausalTransformerV2) -> None:
     assert tiny.token_embedding.weight.data_ptr() == tiny.lm_head.weight.data_ptr(), \
         "Embeddings and lm_head must share weight tensor (tied embeddings)"
 
-def test_sequence_exceeds_block_size_raises(tiny):
+def test_sequence_exceeds_block_size_raises(tiny: CausalTransformerV2) -> None:
     idx = torch.randint(0, 256, (1, 65))  # block_size = 64
     with pytest.raises((ValueError, IndexError, RuntimeError)):
         tiny(idx)
 
-def test_generate_extends_sequence_by_n_tokens(tiny):
+def test_generate_extends_sequence_by_n_tokens(tiny: CausalTransformerV2) -> None:
     tiny.eval()
     idx = torch.randint(0, 256, (1, 8))
     with torch.no_grad():
@@ -109,7 +109,7 @@ def test_generate_extends_sequence_by_n_tokens(tiny):
     assert out.shape[1] == 18, f"Expected length 18 (8+10), got {out.shape[1]}"
     tiny.train()
 
-def test_loss_decreases_with_overfit_step(tiny):
+def test_loss_decreases_with_overfit_step(tiny: CausalTransformerV2) -> None:
     """Single overfit step on one batch — loss must decrease."""
     tiny.train()
     idx = torch.randint(0, 256, (1, 32))
@@ -159,3 +159,22 @@ def test_model_config_roundtrip(tiny: CausalTransformerV2):
     missing = required - set(cfg)
     assert not missing, f"model_config() missing keys: {missing}"
     json.dumps(cfg)
+
+
+def test_get_hidden_states_shape(tiny: CausalTransformerV2) -> None:
+    idx = torch.randint(0, 256, (1, 16))
+    states = tiny.get_hidden_states(idx)
+    assert len(states) == 4
+    assert all(state.shape == (1, 16, 64) for state in states)
+
+
+def test_layer_norms_are_positive(tiny: CausalTransformerV2) -> None:
+    norms = tiny.layer_norms()
+    assert len(norms) == 4
+    assert all(norm > 0 for norm in norms)
+
+
+def test_model_config_serializable(tiny: CausalTransformerV2) -> None:
+    import json
+
+    json.dumps(tiny.model_config())

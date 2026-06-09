@@ -27,10 +27,34 @@ def test_identity_registry_has_hal():
     assert "hal" in anra.IDENTITY_REGISTRY
 
 
+def test_identity_registry_has_hal_esv_civ() -> None:
+    import anra
+
+    identities = anra.IDENTITY_REGISTRY.list()
+    assert "hal" in identities
+    assert "esv" in identities
+    assert "civ" in identities
+
+
 def test_memory_registry_has_memory_router():
     import anra
 
     assert "memory_router" in anra.MEMORY_REGISTRY
+
+
+def test_memory_registry_has_bm25() -> None:
+    import anra
+
+    assert "bm25" in anra.MEMORY_REGISTRY
+
+
+def test_make_train_tiny_config_is_valid() -> None:
+    from anra.core.config import AnRaConfig
+
+    cfg = AnRaConfig.from_yaml(Path("config/tiny.yaml"))
+    assert cfg.model.n_embd == 128
+    assert cfg.model.n_layer == 4
+    assert cfg.training.learning_rate == 1e-3
 
 
 def test_config_protocol_from_package():

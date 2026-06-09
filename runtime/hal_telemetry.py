@@ -91,7 +91,7 @@ def audit_hal_anomalies(
         except Exception:
             pass
         try:
-            from sovereignty.logger import audit_event
+            from phase3.sovereignty_45r.logger import audit_event
 
             audit_event("hal", "HAL_ANOMALY", anomaly["type"], details=event["details"])
         except Exception:

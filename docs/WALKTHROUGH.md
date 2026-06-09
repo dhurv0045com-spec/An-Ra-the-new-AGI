@@ -11,7 +11,7 @@
 | See the 19-component map | [`ARCHITECTURE.md`](ARCHITECTURE.md) |
 | Understand *why* An-Ra exists | [`VISION.md`](VISION.md) |
 | Deep subsystem tour | You are here ↓ |
-| Track changes & backlog | [`docs/README.md`](README.md) → ENGINEERING_LOG + MASTER_GOALS |
+| Track changes & backlog | [`ENGINEERING_LOG.md`](engineering/ENGINEERING_LOG.md) and [`MASTER_GOALS.md`](planning/MASTER_GOALS.md) |
 
 This walkthrough is **narrative + technical**. Skim the TOC, dive into the sections you are touching, ignore the rest until you need it.
 
@@ -147,7 +147,6 @@ An-Ra/
 │   ├── subword_tokenizer.py ← BPE tokenizer implementation
 │   ├── char_tokenizer.py    ← Legacy character tokenizer
 │   ├── tokenizer_v3.json    ← Trained vocab (8192 tokens)
-│   └── tokenizer_v2.json    ← Previous version (kept for compatibility)
 │
 ├── engine/                  ← Engineering spine (measurement layer)
 │   ├── component_base.py    ← Base class every component inherits

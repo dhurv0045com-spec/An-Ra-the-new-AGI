@@ -266,6 +266,47 @@ class CausalTransformerV2(nn.Module):
             if block.attn._kv_cache is not None:
                 block.attn._kv_cache.clear()
 
+    def get_hidden_states(self, idx: torch.Tensor) -> list[torch.Tensor]:
+        """Return the residual stream after each transformer block."""
+        was_training = self.training
+        self.eval()
+        hidden_states: list[torch.Tensor] = []
+        try:
+            with torch.no_grad():
+                x = self.embed(idx)
+                for i, block in enumerate(self.blocks):
+                    esv_state = self.esv_module(x)
+                    if self.use_hal and hasattr(self, "hal_module"):
+                        attention_temperature = self.hal_module.attention_temperature_tensor(
+                            device=x.device,
+                            dtype=x.dtype,
+                        )
+                    else:
+                        attention_temperature = self.esv_module.attention_temperature_tensor(
+                            esv_state
+                        )
+                    if self.use_layer_temperature_bias:
+                        attention_temperature = (
+                            attention_temperature * self.layer_temperature_bias[i]
+                        )
+                    key = str(i)
+                    mod_router = self.mod_routers[key] if key in self.mod_routers else None
+                    x = block(
+                        x,
+                        attention_temperature=attention_temperature,
+                        mod_router=mod_router,
+                    )
+                    hidden_states.append(x.detach().cpu())
+        finally:
+            self.train(was_training)
+        return hidden_states
+
+    def layer_norms(self) -> list[float]:
+        """Return the mean L2 residual norm at each layer for a dummy input."""
+        device = self.token_embedding_table.weight.device
+        dummy = torch.zeros(1, min(8, self.block_size), dtype=torch.long, device=device)
+        return [state.norm(dim=-1).mean().item() for state in self.get_hidden_states(dummy)]
+
     def gradient_checkpointing_enable(self) -> None:
         """Enable gradient checkpointing to trade compute for VRAM."""
         self.use_gradient_checkpointing = True
