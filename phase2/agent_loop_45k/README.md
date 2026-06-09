@@ -71,7 +71,7 @@ python anra.py --goal "Compare vector memory approaches in 3 bullets"
 | `os_action` | Open file/folder/URL (sandbox) | Dangerous |
 | `cad_generate` | OpenSCAD engineering stubs | Restricted |
 
-**Operator doc:** [`OPERATOR.md`](../../OPERATOR.md) — slash commands `/goal`, `/write`, `/open`, `/cad`.
+**Operator doc:** [`OPERATOR.md`](../../docs/OPERATOR.md) — slash commands `/goal`, `/write`, `/open`, `/cad`.
 
 ---
 

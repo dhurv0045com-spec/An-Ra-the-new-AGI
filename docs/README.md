@@ -4,6 +4,16 @@ All project documentation is organized here. **Root-level files** stay as quick 
 
 ---
 
+## Start here
+
+1. Read the root [`README.md`](../README.md) to run An-Ra and understand the project at a glance.
+2. Read [`VISION.md`](VISION.md) for the purpose and guiding principles.
+3. Read [`WALKTHROUGH.md`](WALKTHROUGH.md) for the complete system tour.
+4. Use [`ARCHITECTURE.md`](ARCHITECTURE.md), [`DEVELOPER.md`](DEVELOPER.md), or [`OPERATOR.md`](OPERATOR.md) for the work you are doing.
+5. Follow ongoing decisions in the [`ENGINEERING_LOG.md`](engineering/ENGINEERING_LOG.md) and [`MASTER_GOALS.md`](planning/MASTER_GOALS.md).
+
+---
+
 ## Folder map
 
 ```text
@@ -41,9 +51,9 @@ Subsystem READMEs (stay next to code):
 | Run the system | [`../README.md`](../README.md) |
 | Log a code change | [`engineering/ENGINEERING_LOG.md`](engineering/ENGINEERING_LOG.md) + [`LOG_STANDARD.md`](engineering/LOG_STANDARD.md) |
 | See what’s left to build | [`planning/MASTER_GOALS.md`](planning/MASTER_GOALS.md) |
-| Do files / CAD / goals | [`../OPERATOR.md`](../OPERATOR.md) |
+| Do files / CAD / goals | [`OPERATOR.md`](OPERATOR.md) |
 | Contribute a patch | [`../DEVELOPER.md`](../DEVELOPER.md) |
-| Understand wiring | [`../ARCHITECTURE.md`](../ARCHITECTURE.md) |
+| Understand wiring | [`ARCHITECTURE.md`](ARCHITECTURE.md) |
 
 ---
 

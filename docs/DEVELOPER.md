@@ -45,7 +45,7 @@ What owner boundary applies?
 | Slash commands | `runtime/operator_commands.py` + `_run_chat` in 45M |
 | `os_action` tool | open / reveal / URL |
 | `cad_generate` tool | `runtime/engineering_templates/` |
-| User doc | [`OPERATOR.md`](docs/OPERATOR.md) |
+| User doc | [`OPERATOR.md`](OPERATOR.md) |
 
 Adding tools: register in `register_all_tools()`, add dispatcher keywords, add test in `tests/test_operator_tools.py`, document in OPERATOR.md.
 
@@ -159,8 +159,8 @@ python -m training.train_unified --mode session
 - [ ] Full suite green or explained  
 - [ ] Report works if operator/platform changed  
 - [ ] OPERATOR.md updated if user-facing commands changed  
-- [ ] **Append [`docs/engineering/ENGINEERING_LOG.md`](docs/engineering/ENGINEERING_LOG.md)** (use `scripts/log_engineering_change.py`)  
-- [ ] Update [`docs/planning/MASTER_GOALS.md`](docs/planning/MASTER_GOALS.md) status if a goal was completed  
+- [ ] **Append [`docs/engineering/ENGINEERING_LOG.md`](engineering/ENGINEERING_LOG.md)** (use `scripts/log_engineering_change.py`)
+- [ ] Update [`docs/planning/MASTER_GOALS.md`](planning/MASTER_GOALS.md) status if a goal was completed
 - [ ] No path literals  
 - [ ] No silent identity/prompt drift  
 - [ ] Disable / trace / eval path exists  

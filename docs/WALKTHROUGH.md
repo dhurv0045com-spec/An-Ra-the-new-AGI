@@ -7,15 +7,15 @@
 | You want… | Start here |
 | --- | --- |
 | Run the system in 5 minutes | [`README.md`](README.md) |
-| Wire a new feature correctly | [`DEVELOPER.md`](docs/DEVELOPER.md) |
-| See the 19-component map | [`ARCHITECTURE.md`](docs/ARCHITECTURE.md) |
-| Understand *why* An-Ra exists | [`VISION.md`](docs/VISION.md) |
+| Wire a new feature correctly | [`DEVELOPER.md`](DEVELOPER.md) |
+| See the 19-component map | [`ARCHITECTURE.md`](ARCHITECTURE.md) |
+| Understand *why* An-Ra exists | [`VISION.md`](VISION.md) |
 | Deep subsystem tour | You are here ↓ |
-| Track changes & backlog | [`docs/README.md`](docs/README.md) → ENGINEERING_LOG + MASTER_GOALS |
+| Track changes & backlog | [`docs/README.md`](README.md) → ENGINEERING_LOG + MASTER_GOALS |
 
 This walkthrough is **narrative + technical**. Skim the TOC, dive into the sections you are touching, ignore the rest until you need it.
 
-**Tracking (not duplicated here):** All dated engineering changes go in [`docs/engineering/ENGINEERING_LOG.md`](docs/engineering/ENGINEERING_LOG.md). All project goals (research, testing, robotics, …) live in [`docs/planning/MASTER_GOALS.md`](docs/planning/MASTER_GOALS.md).
+**Tracking (not duplicated here):** All dated engineering changes go in [`docs/engineering/ENGINEERING_LOG.md`](engineering/ENGINEERING_LOG.md). All project goals (research, testing, robotics, …) live in [`docs/planning/MASTER_GOALS.md`](planning/MASTER_GOALS.md).
 
 ---
 
@@ -1120,7 +1120,7 @@ print(bus.summary_by_module())
 
 ## 19. OPERATOR MODE — DESKTOP & ENGINEERING ACTIONS (ADDENDUM)
 
-> **Added:** Jarvis-shaped **do work** layer on top of chat. Full guide: [`OPERATOR.md`](docs/OPERATOR.md).
+> **Added:** Jarvis-shaped **do work** layer on top of chat. Full guide: [`OPERATOR.md`](OPERATOR.md).
 
 An-Ra can **act on your machine** (within a sandbox) — not only generate text.
 

@@ -76,7 +76,7 @@ owner imperative (/goal or goal:)
   → operator_actions.jsonl audit
 ```
 
-See [`OPERATOR.md`](docs/OPERATOR.md) and WALKTHROUGH §19.
+See [`OPERATOR.md`](OPERATOR.md) and WALKTHROUGH §19.
 
 ---
 
@@ -182,6 +182,6 @@ Fast control stays out of the LLM hot path.
 
 | File | Use |
 |------|-----|
-| [`OPERATOR.md`](docs/OPERATOR.md) | Desktop & engineering actions |
-| [`WALKTHROUGH.md`](docs/WALKTHROUGH.md) | Subsystem depth + §19 operator |
-| [`DEVELOPER.md`](docs/DEVELOPER.md) | Change protocol |
+| [`OPERATOR.md`](OPERATOR.md) | Desktop & engineering actions |
+| [`WALKTHROUGH.md`](WALKTHROUGH.md) | Subsystem depth + §19 operator |
+| [`DEVELOPER.md`](DEVELOPER.md) | Change protocol |

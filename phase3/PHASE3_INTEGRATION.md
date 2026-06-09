@@ -87,7 +87,7 @@ Phase 3 augments cognition; **45K + workspace** delivers files and CAD:
 python anra.py --goal "cad_generate raptor_engine; verify key dimensions symbolically if numeric"
 ```
 
-See [`OPERATOR.md`](../OPERATOR.md) and WALKTHROUGH §19.
+See [`OPERATOR.md`](../docs/OPERATOR.md) and WALKTHROUGH §19.
 
 ---
 
@@ -95,8 +95,8 @@ See [`OPERATOR.md`](../OPERATOR.md) and WALKTHROUGH §19.
 
 | Component | README |
 | --- | --- |
-| Identity (45N) | [`identity (45N)/README.md`](identity%20(45N)/README.md) |
-| Ouroboros (45O) | [`ouroboros (45O)/README.md`](ouroboros%20(45O)/README.md) |
-| Ghost (45P) | [`ghost_memory (45P)/README.md`](ghost_memory%20(45P)/README.md) |
-| Symbolic (45Q) | [`symbolic_bridge (45Q)/README.md`](symbolic_bridge%20(45Q)/README.md) |
-| Sovereignty (45R) | [`sovereignty (45R)/README.md`](sovereignty%20(45R)/README.md) |
+| Identity (45N) | [`identity_45n/README.md`](identity_45n/README.md) |
+| Ouroboros (45O) | [`ouroboros_45o/README.md`](ouroboros_45o/README.md) |
+| Ghost (45P) | [`ghost_memory_45p/README.md`](ghost_memory_45p/README.md) |
+| Symbolic (45Q) | [`symbolic_bridge_45q/README.md`](symbolic_bridge_45q/README.md) |
+| Sovereignty (45R) | [`sovereignty_45r/README.md`](sovereignty_45r/README.md) |

@@ -41,7 +41,7 @@ Popular “Jarvis” = do anything instantly on any machine.
 | Layer | Meaning |
 |-------|---------|
 | **Talk** | Chat with memory + identity |
-| **Work** | Goals + tools → files, opens, CAD stubs ([`OPERATOR.md`](docs/OPERATOR.md)) |
+| **Work** | Goals + tools → files, opens, CAD stubs ([`OPERATOR.md`](OPERATOR.md)) |
 | **Verify** | Symbolic bridge + tests + sovereignty |
 | **Expand** | Remote nodes (consent), ROS (sim first) — roadmap |
 

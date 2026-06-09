@@ -58,4 +58,4 @@ On startup you may see: `[IdentityInjector] Loaded N exchanges...` — that is n
 - Bypass sovereignty when promoting identity-tuned checkpoints
 - Confuse 45N with the full 65% identity **training** bucket (that is `v2_data_mix`)
 
-Deep dive: root [`WALKTHROUGH.md`](../../WALKTHROUGH.md) § Identity.
+Deep dive: [`WALKTHROUGH.md`](../../docs/WALKTHROUGH.md) § Identity.

@@ -65,4 +65,4 @@ python benchmarks.py
 
 Orchestrator task kind `symbolic` → this component. Respect feature flags: `set_flag("symbolic_bridge", False)` skips cleanly.
 
-Feeds DFC training: verified samples in the 5% symbolic bucket. See root [`ARCHITECTURE.md`](../../ARCHITECTURE.md).
+Feeds DFC training: verified samples in the 5% symbolic bucket. See [`ARCHITECTURE.md`](../../docs/ARCHITECTURE.md).

@@ -200,6 +200,6 @@ Local operator pack (this doc) is step one.
 ## Related docs
 
 - [`README.md`](README.md) — project entry  
-- [`WALKTHROUGH.md`](docs/WALKTHROUGH.md) §19 — operator addendum  
-- [`phase2/agent_loop (45k)/README.md`](phase2/agent_loop%20(45k)/README.md) — agent internals  
-- [`VISION.md`](docs/VISION.md) — why verification and tiers matter
+- [`WALKTHROUGH.md`](WALKTHROUGH.md) §19 — operator addendum
+- [`phase2/agent_loop_45k/README.md`](../phase2/agent_loop_45k/README.md) — agent internals
+- [`VISION.md`](VISION.md) — why verification and tiers matter
