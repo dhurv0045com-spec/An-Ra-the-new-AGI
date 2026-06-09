@@ -38,26 +38,12 @@ from typing import Optional, Dict, Any
 PHASE2_ROOT  = Path(__file__).resolve().parent.parent   # phase2/
 PROJECT_ROOT = PHASE2_ROOT.parent                        # An-Ra/
 
-sys.path.append(str(Path(__file__).parent))           # 45M/
-sys.path.append(str(PHASE2_ROOT / "agent_loop_45k"))             # Agent Loop
-sys.path.append(str(PHASE2_ROOT / "memory_45j"))             # Memory
-sys.path.append(str(PHASE2_ROOT / "fine_tuning_45i"))             # Fine-tuning
-sys.path.append(str(PHASE2_ROOT / "self_improvement_45l"))             # Self-improvement
-sys.path.append(str(PROJECT_ROOT / "core"))           # Phase 1 model
-sys.path.append(str(PROJECT_ROOT / "config"))         # configs
-sys.path.append(str(PROJECT_ROOT))                    # project root
-sys.path.append(str(PROJECT_ROOT / "phase3" / "ouroboros_45o")) # Ouroboros (torch + numpy)
-sys.path.append(str(PROJECT_ROOT / "phase3" / "ghost_memory_45p")) # Ghost Memory
-sys.path.append(str(PROJECT_ROOT / "phase3" / "identity_45n")) # Identity Injector
-sys.path.append(str(PROJECT_ROOT / "phase3" / "symbolic_bridge_45q")) # Symbolic Logic Bridge
-sys.path.append(str(PROJECT_ROOT / "phase3" / "sovereignty_45r")) # Sovereignty Daemon
-
 # ── 45M internal subsystems ────────────────────────────────────────────────
 try:
-    from autonomy.engine import ContinuousEngine
-    from autonomy.goals import GoalManager, Priority
-    from autonomy.proactive import ProactiveEngine
-    from autonomy.decisions import DecisionFramework
+    from phase2.master_system_45m.autonomy.engine import ContinuousEngine
+    from phase2.master_system_45m.autonomy.goals import GoalManager, Priority
+    from phase2.master_system_45m.autonomy.proactive import ProactiveEngine
+    from phase2.master_system_45m.autonomy.decisions import DecisionFramework
     _AUTONOMY_OK = True
 except Exception as _e:
     _AUTONOMY_OK = False
@@ -65,7 +51,11 @@ except Exception as _e:
     print(f"  [45M] autonomy unavailable: {_e}")
 
 try:
-    from scale.pipeline import ContinuousLearning, DistributedTrainer, ScaleManager
+    from phase2.master_system_45m.scale.pipeline import (
+        ContinuousLearning,
+        DistributedTrainer,
+        ScaleManager,
+    )
     _SCALE_OK = True
 except Exception as _e:
     _SCALE_OK = False
@@ -73,7 +63,11 @@ except Exception as _e:
     print(f"  [45M] scale.pipeline unavailable: {_e}")
 
 try:
-    from personalization.models import OwnerModeler, AdaptiveBehavior, PersonalKnowledgeBase
+    from phase2.master_system_45m.personalization.models import (
+        AdaptiveBehavior,
+        OwnerModeler,
+        PersonalKnowledgeBase,
+    )
     _PERSONALIZATION_OK = True
 except Exception as _e:
     _PERSONALIZATION_OK = False
@@ -81,7 +75,7 @@ except Exception as _e:
     print(f"  [45M] personalization unavailable: {_e}")
 
 try:
-    from safety.safety import SafetyLayer, AuditLogger
+    from phase2.master_system_45m.safety.safety import AuditLogger, SafetyLayer
     _SAFETY_OK = True
 except Exception as _e:
     _SAFETY_OK = False
@@ -89,7 +83,7 @@ except Exception as _e:
     print(f"  [45M] safety unavailable: {_e}")
 
 try:
-    from control.control import ControlInterface, Dashboard, ControlAPI
+    from phase2.master_system_45m.control.control import ControlAPI, ControlInterface, Dashboard
     _CONTROL_OK = True
 except Exception as _e:
     _CONTROL_OK = False
@@ -177,7 +171,7 @@ class MasterSystem:
         """Load Phase 1 Neural Network via LLMBridge singleton."""
         print("  [Phase 1] Initializing Neural Network...")
         try:
-            import llm_bridge
+            from phase2.master_system_45m import llm_bridge
             self.llm = llm_bridge.get_llm_bridge()
             print(f"  [Phase 1] [OK] Model loaded: {self.llm.lm.num_parameters:,} parameters")
         except Exception as e:
@@ -188,7 +182,7 @@ class MasterSystem:
         """Initialize the 45k Agent Loop with real tools."""
         print("  [Phase 2] Initializing Agent Loop (45k)...")
         try:
-            from agent_main import Agent
+            from phase2.agent_loop_45k.agent_main import Agent
             self.agent = Agent(
                 verbose=False,
                 log_level="WARNING",
@@ -204,7 +198,7 @@ class MasterSystem:
         """Initialize the 45J Memory System with real storage."""
         print("  [Phase 2] Initializing Memory System (45J)...")
         try:
-            from memory_manager import MemoryManager
+            from phase2.memory_45j.memory_manager import MemoryManager
             data_dir = str(Path(__file__).parent / "memory" / "data")
             model_fn = self.llm.model_fn if self.llm else None
             self.memory = MemoryManager(
@@ -223,7 +217,7 @@ class MasterSystem:
         """Initialize the 45l Self-Improvement System."""
         print("  [Phase 2] Initializing Self-Improvement (45l)...")
         try:
-            from improve import ImprovementSystem
+            from phase2.self_improvement_45l.improve import ImprovementSystem
             self.improver = ImprovementSystem()
             print(f"  [Phase 2] [OK] Self-improvement engine ready")
         except Exception as e:
@@ -234,7 +228,7 @@ class MasterSystem:
         """Initialize Phase 3 Identity Injector — no GPU required."""
         print("  [Phase 3] Initializing Identity Injector (45N)...")
         try:
-            from identity_injector import IdentityInjector
+            from phase3.identity_45n.identity_injector import IdentityInjector
             from anra.anra_paths import get_identity_file as _get_id_file
             identity_file = _get_id_file()
             self.identity = IdentityInjector(identity_file=identity_file, n_anchors=8)
@@ -264,7 +258,7 @@ class MasterSystem:
 
         # Fall back to NumPy-native implementation (always works)
         try:
-            from ouroboros_numpy import OuroborosNumpy
+            from phase3.ouroboros_45o.ouroboros_numpy import OuroborosNumpy
             if self.llm:
                 self.ouroboros = OuroborosNumpy(
                     generate_fn=self.llm.generate,
@@ -283,7 +277,7 @@ class MasterSystem:
         """Initialize Phase 3 Ghost State Memory for infinite context."""
         print("  [Phase 3] Initializing Ghost State Memory (45P)...")
         try:
-            from ghost_memory import GhostMemory, default_config
+            from phase3.ghost_memory_45p.ghost_memory import GhostMemory, default_config
             cfg = default_config(
                 storage_dir=Path(__file__).parent / "memory" / "ghost"
             )
@@ -296,7 +290,8 @@ class MasterSystem:
         """Initialize Phase 3 Symbolic Logic Bridge (45Q) for verified reasoning."""
         print("  [Phase 3] Initializing Symbolic Logic Bridge (45Q)...")
         try:
-            from symbolic_bridge import query as _sym_query, detect as _sym_detect
+            from phase3.symbolic_bridge_45q import detect as _sym_detect
+            from phase3.symbolic_bridge_45q import query as _sym_query
             self.symbolic = {"query": _sym_query, "detect": _sym_detect}
             # Quick smoke test
             _sym_detect("solve x^2 = 4")
@@ -313,7 +308,7 @@ class MasterSystem:
         """Initialize Phase 3 Sovereignty Daemon (45R) for nightly self-audit."""
         print("  [Phase 3] Initializing Sovereignty Daemon (45R)...")
         try:
-            from sovereignty_bridge import SovereigntyBridge
+            from phase3.sovereignty_45r.sovereignty_bridge import SovereigntyBridge
             self.sovereignty = SovereigntyBridge(
                 target_path=PROJECT_ROOT,
                 data_dir=Path(__file__).parent / "sovereignty_data",
@@ -1050,7 +1045,7 @@ def main():
     system  = MasterSystem()
 
     if args.test:
-        from test_45M import run_all_tests
+        from phase2.master_system_45m.test_45M import run_all_tests
         run_all_tests(system)
         return
 

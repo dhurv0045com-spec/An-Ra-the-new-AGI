@@ -33,8 +33,8 @@ __author__ = "Sovereignty Package"
 __description__ = "Transparent user-level Python self-improvement daemon"
 
 # Public re-exports for convenience
-from sovereignty.config import Config
-from sovereignty.logger import get_logger
+from phase3.sovereignty_45r.config import Config
+from phase3.sovereignty_45r.logger import get_logger
 
 __all__ = [
     "__version__",

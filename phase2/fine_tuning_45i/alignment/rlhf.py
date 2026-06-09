@@ -224,10 +224,8 @@ class RLHFTrainer:
 # ============================================================
 
 if __name__ == '__main__':
-    import sys
-    sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'finetune'))
-    from pipeline     import BaseModelStub, SimpleTokenizer
-    from reward_model import RewardModel
+    from phase2.fine_tuning_45i.finetune.pipeline import BaseModelStub, SimpleTokenizer
+    from phase2.fine_tuning_45i.alignment.reward_model import RewardModel
 
     print("=" * 55)
     print("  RLHF TRAINER SELF TEST")

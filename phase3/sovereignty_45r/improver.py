@@ -22,8 +22,8 @@ import time
 from datetime import datetime
 from typing import Optional
 
-from sovereignty.config import Config
-from sovereignty.logger import get_logger
+from phase3.sovereignty_45r.config import Config
+from phase3.sovereignty_45r.logger import get_logger
 
 log = get_logger(__name__)
 
@@ -65,10 +65,10 @@ class ImprovementPipeline:
             'partial'  — some passes completed before stop_event was set
             'failed'   — Pass 1 could not complete (nothing useful produced)
         """
-        from sovereignty.auditor import AuditPass
-        from sovereignty.dead_code import DeadCodePass
-        from sovereignty.benchmarks import BenchmarkPass
-        from sovereignty.reporter import ReportPass
+        from phase3.sovereignty_45r.auditor import AuditPass
+        from phase3.sovereignty_45r.dead_code import DeadCodePass
+        from phase3.sovereignty_45r.benchmarks import BenchmarkPass
+        from phase3.sovereignty_45r.reporter import ReportPass
 
         date_str = date_str or datetime.now().strftime("%Y%m%d")
         t_start = time.monotonic()

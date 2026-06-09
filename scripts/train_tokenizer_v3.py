@@ -1,9 +1,6 @@
 from __future__ import annotations
 
-import sys
 from pathlib import Path
-
-sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from anra.anra_paths import TOKENIZER_DIR, get_dataset_file
 from tokenizer.subword_tokenizer import SubwordTokenizer

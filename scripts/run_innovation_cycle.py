@@ -3,11 +3,8 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import sys
 import time
 from pathlib import Path
-
-sys.path.append(str(Path(__file__).resolve().parent.parent))
 
 from anra.anra_paths import ROOT
 from innovation.gap_scanner import scan

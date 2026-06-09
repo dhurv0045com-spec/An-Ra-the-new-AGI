@@ -48,8 +48,6 @@ def test_verify_structure_exits_zero():
         [
             sys.executable,
             "-c",
-            "import sys; from pathlib import Path; "
-            f"sys.path.insert(0, {str(REPO)!r}); "
             "from scripts.verify_structure import main; "
             "raise SystemExit(main())",
         ],
@@ -64,38 +62,37 @@ def test_verify_structure_exits_zero():
     )
 
 
-def test_no_sys_path_manipulation_in_main_package():
+def test_no_sys_path_in_any_non_deprecated_file():
+    """Zero tolerance for sys.path manipulation outside approved path setup files."""
+    append_call = "sys.path." + "append"
+    insert_call = "sys.path." + "insert"
     violations = []
     search_dirs = [
         "anra", "identity", "memory", "training", "inference",
-        "app.py", "generate.py", "anra.py",
+        "app.py", "generate.py", "anra.py", "anra_brain.py",
         "phase2", "phase3", "scripts", "tokenizer", "runtime",
-        "ui", "agents",
+        "ui", "agents", "tests", "engine", "core",
     ]
+    allowed_files = {"conftest.py", "anra_paths.py", "anra/anra_paths.py"}
     for target in search_dirs:
         path = REPO / target
-        if path.is_file():
-            files = [path]
-        elif path.is_dir():
-            files = list(path.rglob("*.py"))
-        else:
-            continue
+        files = [path] if path.is_file() else list(path.rglob("*.py")) if path.is_dir() else []
         for f in files:
-            rel_posix = f.relative_to(REPO).as_posix()
-            if (
-                rel_posix.startswith("phase2/")
-                or rel_posix.startswith("phase3/")
-                or rel_posix.startswith("scripts/")
-                or rel_posix == "inference/anra_infer.py"
-            ):
+            rel = f.relative_to(REPO)
+            rel_posix = rel.as_posix()
+            if rel_posix in allowed_files or "deprecated" in rel_posix:
                 continue
-            if f.name.startswith("test_") or f.name.endswith("_test.py") or f.name == "_smoke_test.py":
-                continue
-            for i, line in enumerate(f.read_text(encoding="utf-8", errors="replace").splitlines(), 1):
-                if "sys.path.insert" in line or "sys.path.append" in line:
-                    if "deprecated" not in str(f) and not line.strip().startswith("#"):
-                        violations.append(f"{rel_posix}:{i}: {line.strip()}")
-    assert not violations, "sys.path manipulation found in main package files:\n" + "\n".join(violations)
+            lines = f.read_text(encoding="utf-8", errors="replace").splitlines()
+            for i, line in enumerate(lines, 1):
+                stripped = line.strip()
+                has_path_mutation = append_call in stripped or insert_call in stripped
+                if has_path_mutation and not stripped.startswith("#"):
+                    violations.append(f"{rel}:{i}: {stripped}")
+    assert not violations, (
+        f"sys.path manipulation found in {len(violations)} location(s):\n"
+        + "\n".join(violations[:20])
+        + ("\n... and more" if len(violations) > 20 else "")
+    )
 
 
 def test_no_unauthorized_wildcard_shims_at_root():

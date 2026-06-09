@@ -29,13 +29,13 @@ import time
 from datetime import datetime
 from typing import Optional
 
-from sovereignty.api import APIServer, SharedState
-from sovereignty.config import Config
-from sovereignty.improver import ImprovementPipeline
-from sovereignty.logger import get_logger
-from sovereignty.resource_monitor import ResourceMonitor
-from sovereignty.scheduler import Scheduler
-from sovereignty.watchdog import Watchdog
+from phase3.sovereignty_45r.api import APIServer, SharedState
+from phase3.sovereignty_45r.config import Config
+from phase3.sovereignty_45r.improver import ImprovementPipeline
+from phase3.sovereignty_45r.logger import get_logger
+from phase3.sovereignty_45r.resource_monitor import ResourceMonitor
+from phase3.sovereignty_45r.scheduler import Scheduler
+from phase3.sovereignty_45r.watchdog import Watchdog
 
 log = get_logger(__name__)
 
@@ -327,7 +327,7 @@ class Daemon:
                 elif task_name == "run_full_pipeline":
                     self._maybe_spawn_pipeline()
                 elif task_name == "run_pass_1":
-                    from sovereignty.auditor import AuditPass
+                    from phase3.sovereignty_45r.auditor import AuditPass
                     AuditPass(self._config, self._target_dir).run()
                 self._state.update_task(task_id, "done")
             except Exception as exc:

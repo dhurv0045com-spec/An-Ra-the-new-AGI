@@ -25,8 +25,8 @@ import pathlib
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Tuple
 
-from sovereignty.config import Config
-from sovereignty.logger import get_logger
+from phase3.sovereignty_45r.config import Config
+from phase3.sovereignty_45r.logger import get_logger
 
 log = get_logger(__name__)
 

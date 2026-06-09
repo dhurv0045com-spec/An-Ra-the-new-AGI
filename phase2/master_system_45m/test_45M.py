@@ -7,8 +7,6 @@ Run: python system.py --test
 """
 
 import sys, os, json, time
-from pathlib import Path
-sys.path.append(str(Path(__file__).parent))
 
 
 def _pass(msg): print(f"  ✓  {msg}")
@@ -17,7 +15,7 @@ def _section(title): print(f"\n{'─'*50}\n  {title}\n{'─'*50}")
 
 
 def run_all_tests(system=None):
-    from system import MasterSystem
+    from phase2.master_system_45m.system import MasterSystem
 
     if system is None:
         system = MasterSystem()

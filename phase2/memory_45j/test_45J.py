@@ -3,15 +3,11 @@ test_45J.py — Full test suite for the memory system.
 Tests every component in isolation + integration.
 """
 
-import sys
 import os
 import time
 import tempfile
 import shutil
 from pathlib import Path
-
-ROOT = Path(__file__).parent
-sys.path.append(str(ROOT))
 
 PASS = "✓"
 FAIL = "✗"
@@ -400,7 +396,7 @@ def _run_tests(tmpdir: str):
 
     # ── Full Integration ──────────────────────────────────────
     print("\n[Full Integration]")
-    from memory_manager import MemoryManager
+    from phase2.memory_45j.memory_manager import MemoryManager
 
     @test("MemoryManager: store and retrieve")
     def _():

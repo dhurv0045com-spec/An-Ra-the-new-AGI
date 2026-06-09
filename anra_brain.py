@@ -280,25 +280,52 @@ class CausalTransformerV2(nn.Module):
     def run_all_layers(self, x: torch.Tensor) -> torch.Tensor:
         """Run residual stream with optional gradient checkpointing."""
         for i, block in enumerate(self.blocks):
-            esv_state = self.esv_module(x)
-            if self.use_hal and hasattr(self, "hal_module"):
-                attention_temperature = self.hal_module.attention_temperature_tensor(
-                    device=x.device, dtype=x.dtype
-                )
-            else:
-                attention_temperature = self.esv_module.attention_temperature_tensor(esv_state)
-            if self.use_layer_temperature_bias:
-                attention_temperature = attention_temperature * self.layer_temperature_bias[i]
-
             key = str(i)
             mod_router = self.mod_routers[key] if key in self.mod_routers else None
 
             if self.use_gradient_checkpointing and self.training:
-                def _block_fn(x_, at_=attention_temperature, mr_=mod_router, b_=block):
+                # Recompute temperature from the checkpointed residual stream during backward.
+                use_hal = self.use_hal and hasattr(self, "hal_module")
+                hal_mod = self.hal_module if use_hal else None
+                esv_mod = self.esv_module
+                bias_i = (
+                    self.layer_temperature_bias[i]
+                    if self.use_layer_temperature_bias
+                    else None
+                )
+
+                def _block_fn(
+                    x_: torch.Tensor,
+                    b_: BlockV2 = block,
+                    esv_: ESVModule = esv_mod,
+                    hal_: object = hal_mod,
+                    bias_: torch.Tensor | None = bias_i,
+                    mr_: MoDRouter | None = mod_router,
+                ) -> torch.Tensor:
+                    esv_state_ = esv_(x_)
+                    if hal_ is not None:
+                        at_ = hal_.attention_temperature_tensor(
+                            device=x_.device,
+                            dtype=x_.dtype,
+                        )
+                    else:
+                        at_ = esv_.attention_temperature_tensor(esv_state_)
+                    if bias_ is not None:
+                        at_ = at_ * bias_
                     return b_(x_, attention_temperature=at_, mod_router=mr_)
 
                 x = _torch_checkpoint(_block_fn, x, use_reentrant=False)
             else:
+                esv_state = self.esv_module(x)
+                if self.use_hal and hasattr(self, "hal_module"):
+                    attention_temperature = self.hal_module.attention_temperature_tensor(
+                        device=x.device,
+                        dtype=x.dtype,
+                    )
+                else:
+                    attention_temperature = self.esv_module.attention_temperature_tensor(esv_state)
+                if self.use_layer_temperature_bias:
+                    attention_temperature = attention_temperature * self.layer_temperature_bias[i]
                 x = block(x, attention_temperature=attention_temperature, mod_router=mod_router)
 
         x = self.norm_f(x)

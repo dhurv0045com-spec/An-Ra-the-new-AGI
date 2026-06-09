@@ -9,7 +9,7 @@ PURPOSE: Natural language → best tool selection and call formatting
 import re
 import logging
 from typing import List, Optional, Tuple
-from registry import ToolRegistry, ToolResult
+from phase2.agent_loop_45k.registry import ToolRegistry, ToolResult
 
 logger = logging.getLogger(__name__)
 

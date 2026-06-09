@@ -195,9 +195,7 @@ def compare_models(fn_a, fn_b, name_a='model_a', name_b='model_b',
 # ============================================================
 
 if __name__ == '__main__':
-    import sys, os
-    sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'finetune'))
-    from pipeline import SimpleTokenizer
+    from phase2.fine_tuning_45i.finetune.pipeline import SimpleTokenizer
 
     print("=" * 60)
     print("  HUMAN EVAL SELF TEST (simulated ratings)")

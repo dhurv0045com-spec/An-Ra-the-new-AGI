@@ -5,13 +5,7 @@ Tests every subsystem end-to-end.
 Run: python test_45L.py
 """
 
-import sys, os, json, time
-from pathlib import Path
-
-sys.path.append(str(Path(__file__).parent))
-for p in ["/home/claude/myai_v2", "/home/claude/master_system_45m"]:
-    if p not in sys.path:
-        sys.path.append(p)
+import os, json, time
 
 
 def _pass(msg): print(f"  ✓  {msg}")
@@ -20,7 +14,7 @@ def section(t):  print(f"\n{'─'*54}\n  {t}\n{'─'*54}")
 
 
 def run_all():
-    from improve import ImprovementSystem
+    from phase2.self_improvement_45l.improve import ImprovementSystem
     system = ImprovementSystem()
     passed = failed = 0
 

@@ -10,7 +10,6 @@ REPO_ROOT    = Path(__file__).parent.parent
 IDENTITY_DIR = REPO_ROOT / "phase3" / "identity_45n"
 OUTPUT       = IDENTITY_DIR / "anra_identity_combined.txt"
 
-sys.path.append(str(REPO_ROOT))
 from anra.anra_paths import DRIVE_IDENTITY
 
 BOOTSTRAP_IDENTITY = """USER: Who are you?

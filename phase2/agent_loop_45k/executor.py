@@ -26,9 +26,9 @@ from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Set
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-from planner import ExecutionPlan, Step, StepStatus, StepPriority, Planner
-from goal    import GoalSpec
-from registry     import ToolRegistry, ToolResult
+from phase2.agent_loop_45k.goal import GoalSpec
+from phase2.agent_loop_45k.planner import ExecutionPlan, Planner, Step, StepPriority, StepStatus
+from phase2.agent_loop_45k.registry import ToolRegistry, ToolResult
 
 logger = logging.getLogger(__name__)
 
@@ -36,12 +36,7 @@ logger = logging.getLogger(__name__)
 def _get_llm():
     """Lazy accessor for the global LLMBridge singleton."""
     try:
-        import sys
-        from pathlib import Path
-        m_path = Path(__file__).resolve().parent.parent / "master_system_45m"
-        if str(m_path) not in sys.path:
-            sys.path.append(str(m_path))
-        from llm_bridge import get_llm_bridge
+        from phase2.master_system_45m.llm_bridge import get_llm_bridge
         return get_llm_bridge()
     except Exception:
         return None

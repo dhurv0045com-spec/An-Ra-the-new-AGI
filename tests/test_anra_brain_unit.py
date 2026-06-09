@@ -52,6 +52,34 @@ def test_mod_router_gate_gradient_nonzero(tiny):
         assert g.abs().max().item() > 1e-9, f"MoD layer {layer_idx}: gate gradient is zero"
     tiny.zero_grad()
 
+
+def test_gradient_checkpointing_gate_gradient_not_stale():
+    """Verify that MoD gate gradients survive checkpoint recomputation."""
+    model = CausalTransformerV2(
+        vocab_size=256,
+        n_embd=64,
+        n_head=4,
+        n_kv_head=2,
+        n_layer=4,
+        block_size=64,
+        mod_layers={1, 2},
+    )
+    model.gradient_checkpointing_enable()
+    model.train()
+    idx = torch.randint(0, 256, (1, 32))
+    tgt = torch.randint(0, 256, (1, 32))
+    _, loss = model(idx, targets=tgt)
+    assert loss is not None
+    loss.backward()
+    for layer_idx, router in model.mod_routers.items():
+        gradient = router.gate.weight.grad
+        assert gradient is not None, f"MoD layer {layer_idx}: no gradient with checkpointing"
+        assert gradient.abs().max().item() > 1e-9, (
+            f"MoD layer {layer_idx}: zero gradient with checkpointing - closure bug"
+        )
+    model.zero_grad()
+    model.gradient_checkpointing_disable()
+
 def test_kv_cache_matches_no_cache(tiny):
     tiny.eval()
     idx = torch.randint(0, 256, (1, 16))
@@ -111,3 +139,23 @@ def test_model_registered_in_registry():
     idx = torch.randint(0, 256, (1, 16))
     logits, _ = model(idx)
     assert logits.shape == (1, 16, 256)
+
+
+def test_model_config_roundtrip(tiny: CausalTransformerV2):
+    """model_config() must contain every parameter needed for reconstruction."""
+    import json
+
+    cfg = tiny.model_config()
+    required = {
+        "vocab_size",
+        "n_embd",
+        "n_head",
+        "n_layer",
+        "block_size",
+        "n_kv_head",
+        "use_hal",
+        "use_layer_temperature_bias",
+    }
+    missing = required - set(cfg)
+    assert not missing, f"model_config() missing keys: {missing}"
+    json.dumps(cfg)

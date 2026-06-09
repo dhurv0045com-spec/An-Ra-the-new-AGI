@@ -44,8 +44,6 @@ from datetime import datetime
 
 # ── Bootstrap ─────────────────────────────────────────────────────────────────
 _THIS_DIR = pathlib.Path(__file__).parent
-if str(_THIS_DIR.parent) not in sys.path:
-    sys.path.append(str(_THIS_DIR.parent))
 
 
 def _print(msg: str) -> None:
@@ -115,7 +113,7 @@ class Installer:
 
     def _step2_check_writable(self) -> None:
         _print("Step 2: Checking data directory is writable...")
-        from sovereignty.config import Config
+        from phase3.sovereignty_45r.config import Config
         self._config = Config()
         parent = self._config.DATA_DIR.parent
         if not parent.exists():
@@ -142,7 +140,7 @@ class Installer:
 
     def _step5_generate_token(self) -> None:
         _print("Step 5: Generating API bearer token...")
-        from sovereignty.auth import generate_token
+        from phase3.sovereignty_45r.auth import generate_token
         token = generate_token(self._config)
         self._created.append(self._config.TOKEN_FILE)
         _print(f"  ✓ Token written to {self._config.TOKEN_FILE}")
@@ -268,7 +266,7 @@ class Installer:
 
     def _step13_verify_config_reload(self) -> None:
         _print("Step 13: Verifying config round-trip...")
-        from sovereignty.config import Config
+        from phase3.sovereignty_45r.config import Config
         reloaded = Config.from_json(self._config.CONFIG_FILE)
         if reloaded.API_PORT != self._config.API_PORT:
             raise RuntimeError("Config round-trip failed — API_PORT mismatch")

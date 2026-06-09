@@ -14,18 +14,23 @@ from typing import Optional, List, Dict, Any
 
 # ── Path setup ────────────────────────────────
 ROOT = Path(__file__).parent
-sys.path.append(str(ROOT))
 
-from store import MemoryStore, Memory, MemoryType, ImportanceLevel, IMPORTANCE_SCORES
-from vectors import VectorStore, TFIDFEmbedder, get_embedder
-from memory_types import EpisodicMemory, SemanticMemory, WorkingMemory
-from extractor import MemoryExtractor
-from retrieval import HybridRetriever, MemoryInjector
-from memory_intelligence import (
+from phase2.memory_45j.store import (
+    IMPORTANCE_SCORES,
+    ImportanceLevel,
+    Memory,
+    MemoryStore,
+    MemoryType,
+)
+from phase2.memory_45j.vectors import TFIDFEmbedder, VectorStore, get_embedder
+from phase2.memory_45j.memory_types import EpisodicMemory, SemanticMemory, WorkingMemory
+from phase2.memory_45j.extractor import MemoryExtractor
+from phase2.memory_45j.retrieval import HybridRetriever, MemoryInjector
+from phase2.memory_45j.memory_intelligence import (
     ImportanceScorer, MemoryConsolidator, ForgettingSystem
 )
-from graph import KnowledgeGraph
-from context_builder import ContextBuilder
+from phase2.memory_45j.graph import KnowledgeGraph
+from phase2.memory_45j.context_builder import ContextBuilder
 
 
 class MemoryManager:

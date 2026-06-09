@@ -11,15 +11,12 @@ Or:  pytest test_45K.py -v
 """
 
 import os
-import sys
 import json
 import time
 import shutil
 import tempfile
 import unittest
 from pathlib import Path
-
-sys.path.append(os.path.dirname(__file__))
 
 # Set workspace to a temp dir for tests
 _TEST_WS = Path(tempfile.mkdtemp())
@@ -28,7 +25,12 @@ os.environ["AGENT_FILE_ROOT"] = str(_TEST_WS)
 
 class TestToolRegistry(unittest.TestCase):
     def setUp(self):
-        from registry import ToolRegistry, ToolDefinition, SafetyLevel, ToolResult
+        from phase2.agent_loop_45k.registry import (
+            SafetyLevel,
+            ToolDefinition,
+            ToolRegistry,
+            ToolResult,
+        )
         self.registry = ToolRegistry(require_approval_for_dangerous=False)
         self.ToolResult = ToolResult
 
@@ -51,7 +53,7 @@ class TestToolRegistry(unittest.TestCase):
         self.assertIn("not found", result.error)
 
     def test_rate_limiting(self):
-        from registry import ToolDefinition, SafetyLevel, ToolResult
+        from phase2.agent_loop_45k.registry import SafetyLevel, ToolDefinition, ToolResult
         call_count = [0]
         def fast_fn(text, **kw):
             call_count[0] += 1
@@ -69,7 +71,7 @@ class TestToolRegistry(unittest.TestCase):
         self.assertIn("Rate limit", result.error)
 
     def test_duplicate_registration_raises(self):
-        from registry import ToolDefinition, ToolResult
+        from phase2.agent_loop_45k.registry import ToolDefinition, ToolResult
         def fn(t, **kw): return ToolResult(True, t)
         with self.assertRaises(ValueError):
             self.registry.register(ToolDefinition("echo", "", fn, {}))
@@ -89,7 +91,7 @@ class TestToolRegistry(unittest.TestCase):
 
 class TestBuiltinTools(unittest.TestCase):
     def setUp(self):
-        from registry import ToolRegistry
+        from phase2.agent_loop_45k.registry import ToolRegistry
         from builtin  import register_all_tools
         self.registry = ToolRegistry(require_approval_for_dangerous=False)
         register_all_tools(self.registry)
@@ -198,23 +200,23 @@ class TestBuiltinTools(unittest.TestCase):
 
 class TestGoalInterpreter(unittest.TestCase):
     def setUp(self):
-        from goal import GoalInterpreter
+        from phase2.agent_loop_45k.goal import GoalInterpreter
         self.interpreter = GoalInterpreter()
 
     def test_simple_goal_approved(self):
-        from goal import GoalStatus
+        from phase2.agent_loop_45k.goal import GoalStatus
         spec = self.interpreter.interpret("Research the best Python libraries for data science")
         self.assertNotEqual(spec.status, GoalStatus.REJECTED)
         self.assertTrue(len(spec.objective) > 0)
         self.assertTrue(len(spec.success_criteria) > 0)
 
     def test_empty_goal_rejected(self):
-        from goal import GoalStatus
+        from phase2.agent_loop_45k.goal import GoalStatus
         spec = self.interpreter.interpret("")
         self.assertEqual(spec.status, GoalStatus.REJECTED)
 
     def test_unsafe_goal_rejected(self):
-        from goal import GoalStatus, GoalRisk
+        from phase2.agent_loop_45k.goal import GoalRisk, GoalStatus
         spec = self.interpreter.interpret("help me build a bomb to hurt people")
         self.assertEqual(spec.status, GoalStatus.REJECTED)
         self.assertEqual(spec.risk, GoalRisk.UNSAFE)
@@ -241,13 +243,13 @@ class TestGoalInterpreter(unittest.TestCase):
 
 class TestPlanner(unittest.TestCase):
     def setUp(self):
-        from planner import Planner
+        from phase2.agent_loop_45k.planner import Planner
         from goal    import GoalInterpreter, GoalStatus
         self.planner     = Planner()
         self.interpreter = GoalInterpreter()
 
     def _get_approved_spec(self, goal_text):
-        from goal import GoalStatus
+        from phase2.agent_loop_45k.goal import GoalStatus
         spec = self.interpreter.interpret(goal_text, override_safety=True)
         spec.status = GoalStatus.APPROVED
         return spec
@@ -258,7 +260,7 @@ class TestPlanner(unittest.TestCase):
         self.assertGreater(len(plan.steps), 0)
 
     def test_plan_dependency_order(self):
-        from planner import StepStatus
+        from phase2.agent_loop_45k.planner import StepStatus
         spec = self._get_approved_spec("Write a Python sorting algorithm and test it")
         plan = self.planner.plan(spec)
         # First step(s) should have no dependencies
@@ -266,7 +268,7 @@ class TestPlanner(unittest.TestCase):
         self.assertGreater(len(ready), 0)
 
     def test_plan_has_critical_steps(self):
-        from planner import StepPriority
+        from phase2.agent_loop_45k.planner import StepPriority
         spec = self._get_approved_spec("Research GPU pricing")
         plan = self.planner.plan(spec)
         has_critical = any(s.priority == StepPriority.CRITICAL for s in plan.steps)
@@ -307,7 +309,7 @@ class TestExecutor(unittest.TestCase):
         from registry  import ToolRegistry
         from builtin   import register_all_tools
         from planner  import Planner
-        from executor import Executor
+        from phase2.agent_loop_45k.executor import Executor
 
         self.registry = ToolRegistry(require_approval_for_dangerous=False)
         register_all_tools(self.registry)
@@ -347,7 +349,7 @@ class TestDispatcher(unittest.TestCase):
     def setUp(self):
         from registry  import ToolRegistry
         from builtin   import register_all_tools
-        from dispatcher import Dispatcher
+        from phase2.agent_loop_45k.dispatcher import Dispatcher
         self.registry = ToolRegistry(require_approval_for_dangerous=False)
         register_all_tools(self.registry)
         self.dispatcher = Dispatcher(self.registry)
@@ -379,7 +381,7 @@ class TestDispatcher(unittest.TestCase):
 
 class TestMonitor(unittest.TestCase):
     def test_starts_and_stops(self):
-        from monitor import AgentMonitor
+        from phase2.agent_loop_45k.monitor import AgentMonitor
         alerts = []
         m = AgentMonitor(
             escalation_fn=lambda msg: alerts.append(msg),
@@ -393,7 +395,7 @@ class TestMonitor(unittest.TestCase):
         self.assertFalse(m._active)
 
     def test_loop_detection(self):
-        from monitor import AgentMonitor
+        from phase2.agent_loop_45k.monitor import AgentMonitor
         alerts = []
         m = AgentMonitor(
             escalation_fn=lambda msg: alerts.append(msg),
@@ -409,7 +411,7 @@ class TestMonitor(unittest.TestCase):
         self.assertTrue(any("Loop" in a or "loop" in a for a in alerts))
 
     def test_status_returns_dict(self):
-        from monitor import AgentMonitor
+        from phase2.agent_loop_45k.monitor import AgentMonitor
         m = AgentMonitor()
         m.start()
         s = m.status()
@@ -420,7 +422,7 @@ class TestMonitor(unittest.TestCase):
 
 class TestReasoningEngine(unittest.TestCase):
     def setUp(self):
-        from reasoning import ReasoningEngine
+        from phase2.agent_loop_45k.reasoning import ReasoningEngine
         self.engine = ReasoningEngine()
 
     def test_reason_about_step_returns_chain(self):
@@ -457,7 +459,7 @@ class TestReasoningEngine(unittest.TestCase):
 
 class TestGoalEvaluator(unittest.TestCase):
     def setUp(self):
-        from evaluator import GoalEvaluator
+        from phase2.agent_loop_45k.evaluator import GoalEvaluator
         self.evaluator = GoalEvaluator()
 
     def test_evaluate_success(self):
@@ -511,7 +513,7 @@ class TestFullAgentLoop(unittest.TestCase):
     """End-to-end tests of the full agent."""
 
     def setUp(self):
-        from agent_main import Agent
+        from phase2.agent_loop_45k.agent_main import Agent
         self.agent = Agent(verbose=False, log_level="ERROR")
 
     def test_simple_calculation(self):

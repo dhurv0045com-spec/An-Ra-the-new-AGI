@@ -26,8 +26,8 @@ import time
 from datetime import datetime
 from typing import Callable, Dict, List, Optional, Tuple
 
-from sovereignty.config import Config
-from sovereignty.logger import get_logger
+from phase3.sovereignty_45r.config import Config
+from phase3.sovereignty_45r.logger import get_logger
 
 log = get_logger(__name__)
 
@@ -149,7 +149,7 @@ def _bench_b05_scheduler_decision(config: Config) -> float:
     Returns:
         Median decision time in microseconds.
     """
-    from sovereignty.scheduler import Scheduler
+    from phase3.sovereignty_45r.scheduler import Scheduler
 
     sched = Scheduler(config)
     times = []
@@ -191,7 +191,7 @@ def _bench_b07_token_validation(config: Config) -> float:
     Returns:
         Median validation time in microseconds.
     """
-    from sovereignty.auth import validate_token
+    from phase3.sovereignty_45r.auth import validate_token
 
     times = []
     test_token = "a" * 64  # Fake token — will always fail, but measures the check

@@ -5,12 +5,9 @@ import importlib.util
 import json
 import logging
 import shutil
-import sys
 from collections import Counter
 from pathlib import Path
 from typing import Any, Iterable
-
-sys.path.append(str(Path(__file__).resolve().parent.parent))
 
 from anra.anra_paths import ROOT, TRAINING_DATA_DIR
 
@@ -20,7 +17,11 @@ RDKIT_MODE = importlib.util.find_spec("rdkit") is not None
 QISKIT_MODE = importlib.util.find_spec("qiskit") is not None
 
 try:
-    from domain_verifiers import verify_qiskit, verify_rdkit, verify_verilog
+    from phase3.symbolic_bridge_45q.domain_verifiers import (
+        verify_qiskit,
+        verify_rdkit,
+        verify_verilog,
+    )
 except Exception:
     verify_qiskit = verify_rdkit = verify_verilog = None
 

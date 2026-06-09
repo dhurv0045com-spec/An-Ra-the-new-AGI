@@ -7,24 +7,24 @@
 # All tests must pass before any version is promoted.
 # ============================================================
 
-import sys, os, tempfile, json
+import os, tempfile, json
 import numpy as np
 
-ROOT = os.path.dirname(__file__)
-sys.path.append(os.path.join(ROOT, 'finetune'))
-sys.path.append(os.path.join(ROOT, 'alignment'))
-sys.path.append(os.path.join(ROOT, 'evaluation'))
-
-from finetune.lora            import LoRALayer, LoRAManager
-from finetune.dataset_builder import DatasetBuilder
-from finetune.templates       import TemplateLibrary
-from finetune.pipeline        import FineTuner, BaseModelStub, SimpleTokenizer, cross_entropy_loss
-from alignment.reward_model   import RewardModel
-from alignment.rlhf           import RLHFTrainer
-from alignment.constitution   import ConstitutionChecker
-from alignment.feedback       import FeedbackStore
-from evaluation.eval_suite    import EvalSuite
-from evaluation.tracker       import VersionTracker
+from phase2.fine_tuning_45i.finetune.lora import LoRALayer, LoRAManager
+from phase2.fine_tuning_45i.finetune.dataset_builder import DatasetBuilder
+from phase2.fine_tuning_45i.finetune.templates import TemplateLibrary
+from phase2.fine_tuning_45i.finetune.pipeline import (
+    BaseModelStub,
+    FineTuner,
+    SimpleTokenizer,
+    cross_entropy_loss,
+)
+from phase2.fine_tuning_45i.alignment.reward_model import RewardModel
+from phase2.fine_tuning_45i.alignment.rlhf import RLHFTrainer
+from phase2.fine_tuning_45i.alignment.constitution import ConstitutionChecker
+from phase2.fine_tuning_45i.alignment.feedback import FeedbackStore
+from phase2.fine_tuning_45i.evaluation.eval_suite import EvalSuite
+from phase2.fine_tuning_45i.evaluation.tracker import VersionTracker
 
 
 PASS = "  ✓"

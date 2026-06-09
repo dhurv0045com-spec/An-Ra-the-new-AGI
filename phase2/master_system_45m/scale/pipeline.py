@@ -401,11 +401,13 @@ class DistributedTrainer:
             if examples:
                 try:
                     # Try to import real training infrastructure from 45I
-                    sys.path.append(str(FINE_TUNING_DIR))
-                    from finetune.pipeline import FineTuner, SimpleTokenizer
+                    from phase2.fine_tuning_45i.finetune.pipeline import (
+                        FineTuner,
+                        SimpleTokenizer,
+                    )
                     
                     # Get the singleton LLM bridge
-                    from llm_bridge import get_llm_bridge
+                    from phase2.master_system_45m.llm_bridge import get_llm_bridge
                     bridge = get_llm_bridge()
                     
                     # Build configuration for FineTuner

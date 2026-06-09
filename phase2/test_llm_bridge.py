@@ -3,16 +3,10 @@ Test the centralized LLM Bridge — verifies Phase 1 model loads and generates.
 """
 import sys
 sys.stdout.reconfigure(encoding='utf-8')  # type: ignore
-from pathlib import Path
 import asyncio
 
-# Add 45M to path to import llm_bridge
-m_path = Path(__file__).resolve().parent / "master_system_45m"
-if str(m_path) not in sys.path:
-    sys.path.append(str(m_path))
-
 try:
-    from llm_bridge import get_llm_bridge, get_model_fn
+    from phase2.master_system_45m.llm_bridge import get_llm_bridge, get_model_fn
 except ImportError as e:
     print(f"Failed to import llm_bridge: {e}")
     sys.exit(1)

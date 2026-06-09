@@ -20,22 +20,6 @@ Relationship to other modules:
     reporter.py reads audit_YYYYMMDD.json for the nightly report.
 """
 
-import sys
-import pathlib as _pathlib
-import types as _types
-
-# Ensure sovereignty package is importable in legacy script execution.
-_THIS_DIR = _pathlib.Path(__file__).resolve().parent
-_PHASE3_DIR = _THIS_DIR.parent
-if str(_PHASE3_DIR) not in sys.path:
-    sys.path.append(str(_PHASE3_DIR))
-if str(_THIS_DIR) not in sys.path:
-    sys.path.append(str(_THIS_DIR))
-if "sovereignty" not in sys.modules:
-    _pkg = _types.ModuleType("sovereignty")
-    _pkg.__path__ = [str(_THIS_DIR)]
-    sys.modules["sovereignty"] = _pkg
-
 import ast
 import json
 import pathlib
@@ -44,8 +28,8 @@ from datetime import datetime
 from typing import Dict, List, Optional, Tuple
 
 from engine.metric_bus import instrument
-from sovereignty.config import Config
-from sovereignty.logger import get_logger
+from phase3.sovereignty_45r.config import Config
+from phase3.sovereignty_45r.logger import get_logger
 
 log = get_logger(__name__)
 

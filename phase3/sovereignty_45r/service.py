@@ -36,11 +36,9 @@ from datetime import datetime, timezone
 
 # ── Bootstrap: ensure sovereignty package is importable ───────────────────────
 _THIS_DIR = pathlib.Path(__file__).parent
-if str(_THIS_DIR.parent) not in sys.path:
-    sys.path.append(str(_THIS_DIR.parent))
 
-from sovereignty.config import Config
-from sovereignty.logger import get_logger, setup_logging, shutdown_logging
+from phase3.sovereignty_45r.config import Config
+from phase3.sovereignty_45r.logger import get_logger, setup_logging, shutdown_logging
 from anra.shared_logger import L02SessionLogManager
 
 
@@ -61,7 +59,7 @@ def cmd_start(config: Config) -> int:
     Returns:
         Exit code: 0 on clean shutdown, 1 on error.
     """
-    from sovereignty.daemon import Daemon
+    from phase3.sovereignty_45r.daemon import Daemon
 
     session_mgr = L02SessionLogManager(session_id=datetime.now(timezone.utc).replace(tzinfo=None).strftime("%Y%m%dT%H%M%SZ"), log_dir=config.LOG_DIR)
     session_mgr.rotate_for_new_session()

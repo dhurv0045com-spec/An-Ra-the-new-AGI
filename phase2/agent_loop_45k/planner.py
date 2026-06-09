@@ -25,7 +25,7 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Set
 from enum import Enum
 
-from goal import GoalSpec, GoalRisk
+from phase2.agent_loop_45k.goal import GoalRisk, GoalSpec
 
 logger = logging.getLogger(__name__)
 

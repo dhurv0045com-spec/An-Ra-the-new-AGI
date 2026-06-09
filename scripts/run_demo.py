@@ -2,11 +2,8 @@ from __future__ import annotations
 
 import json
 import re
-import sys
 from pathlib import Path
 from typing import Any
-
-sys.path.append(str(Path(__file__).resolve().parent.parent))
 
 from anra.anra_paths import ROOT, STATE_DIR, get_v2_checkpoint
 
@@ -16,7 +13,10 @@ from identity.hal import HALModule
 from memory.experimental_proof_graph import ExperimentalProofGraph
 
 try:
-    from domain_verifiers import verify_constraint_json, verify_qiskit
+    from phase3.symbolic_bridge_45q.domain_verifiers import (
+        verify_constraint_json,
+        verify_qiskit,
+    )
 except Exception:
     verify_constraint_json = verify_qiskit = None
 

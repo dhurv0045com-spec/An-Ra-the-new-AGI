@@ -1,6 +1,5 @@
 
 import os
-import sys
 import torch
 import torch.nn.functional as F
 import pickle
@@ -8,15 +7,8 @@ import argparse
 
 from anra.startup_checks import assert_flash_sdp_ready
 
-# Add necessary paths for importing custom modules
-# Assuming anra_infer.py is in <repo_root>/inference/
-# Add <repo_root> to sys.path for tokenizer module
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-# Add <repo_root>/history/neural_network (45B) to sys.path for causal_transformer
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'history', 'neural_network (45B)')))
-
 from tokenizer.char_tokenizer import CharTokenizer
-from causal_transformer import CausalTransformer
+from anra_brain import CausalTransformer
 from runtime.safe_load import safe_torch_load
 
 # --- Configuration (must match training) ---

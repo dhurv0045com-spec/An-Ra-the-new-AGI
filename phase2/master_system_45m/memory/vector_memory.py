@@ -396,8 +396,6 @@ class MemoryAugmentedModel:
         Returns:
             (generated_text, retrieved_memories)
         """
-        import sys
-        sys.path.append(str(Path(__file__).parent.parent.parent))
         from myai_v2 import generate as base_generate
 
         retrieved = []

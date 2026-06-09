@@ -16,8 +16,6 @@ import torch
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
 
-sys.path.append(str(Path(__file__).resolve().parent.parent))
-
 from anra.anra_paths import DRIVE_V2_CHECKPOINTS, REGRET_STATE, ROOT, V2_TOKENIZER_FILE
 from engine.eval_harness import EvalHarness, EvalResult
 from runtime.safe_load import safe_torch_load

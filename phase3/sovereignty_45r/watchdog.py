@@ -27,8 +27,8 @@ import urllib.error
 from datetime import datetime
 from typing import Callable, Optional
 
-from sovereignty.config import Config
-from sovereignty.logger import get_logger
+from phase3.sovereignty_45r.config import Config
+from phase3.sovereignty_45r.logger import get_logger
 
 log = get_logger(__name__)
 

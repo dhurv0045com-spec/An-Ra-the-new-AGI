@@ -32,8 +32,6 @@ from datetime import datetime
 
 # ── Bootstrap ─────────────────────────────────────────────────────────────────
 _THIS_DIR = pathlib.Path(__file__).parent
-if str(_THIS_DIR.parent) not in sys.path:
-    sys.path.append(str(_THIS_DIR.parent))
 
 # ── Colour helpers (ANSI, falls back gracefully on Windows without VT) ─────────
 _RESET  = "\033[0m"
@@ -89,8 +87,8 @@ def scenario_startup(tmp: pathlib.Path) -> None:
     """
     _header("STARTUP", 1)
 
-    from sovereignty.config import Config
-    from sovereignty.logger import setup_logging, get_logger
+    from phase3.sovereignty_45r.config import Config
+    from phase3.sovereignty_45r.logger import setup_logging, get_logger
 
     config = Config()
     config.DATA_DIR = tmp
@@ -98,7 +96,7 @@ def scenario_startup(tmp: pathlib.Path) -> None:
     log = get_logger("demo.startup")
 
     _info("Initialising Daemon object...")
-    from sovereignty.daemon import Daemon
+    from phase3.sovereignty_45r.daemon import Daemon
     daemon = Daemon(config, target_dir=_THIS_DIR)
 
     _info("Starting all threads (no admin rights needed)...")
@@ -145,8 +143,8 @@ def scenario_pass1(tmp: pathlib.Path) -> dict:
     """
     _header("PASS 1 — DEEP CODE AUDIT", 2)
 
-    from sovereignty.config import Config
-    from sovereignty.auditor import AuditPass, _analyse_file, _aggregate
+    from phase3.sovereignty_45r.config import Config
+    from phase3.sovereignty_45r.auditor import AuditPass, _analyse_file, _aggregate
 
     config = Config()
     config.DATA_DIR = tmp
@@ -226,8 +224,8 @@ def scenario_pass2(tmp: pathlib.Path) -> dict:
     """
     _header("PASS 2 — DEAD CODE & QUALITY SWEEP", 3)
 
-    from sovereignty.config import Config
-    from sovereignty.dead_code import DeadCodePass
+    from phase3.sovereignty_45r.config import Config
+    from phase3.sovereignty_45r.dead_code import DeadCodePass
 
     config = Config()
     config.DATA_DIR = tmp
@@ -300,8 +298,8 @@ def scenario_pass3(tmp: pathlib.Path) -> dict:
     """
     _header("PASS 3 — PERFORMANCE BENCHMARKS", 4)
 
-    from sovereignty.config import Config
-    from sovereignty.benchmarks import BenchmarkPass
+    from phase3.sovereignty_45r.config import Config
+    from phase3.sovereignty_45r.benchmarks import BenchmarkPass
 
     config = Config()
     config.DATA_DIR = tmp
@@ -380,8 +378,8 @@ def scenario_pass4(
     """
     _header("PASS 4 — NIGHTLY SELF-REPORT", 5)
 
-    from sovereignty.config import Config
-    from sovereignty.reporter import ReportPass
+    from phase3.sovereignty_45r.config import Config
+    from phase3.sovereignty_45r.reporter import ReportPass
 
     config = Config()
     config.DATA_DIR = tmp
@@ -417,10 +415,10 @@ def scenario_api(tmp: pathlib.Path) -> None:
     import urllib.request
     import urllib.error
 
-    from sovereignty.config import Config
-    from sovereignty.api import APIServer, SharedState
-    from sovereignty.auth import generate_token
-    from sovereignty.logger import setup_logging
+    from phase3.sovereignty_45r.config import Config
+    from phase3.sovereignty_45r.api import APIServer, SharedState
+    from phase3.sovereignty_45r.auth import generate_token
+    from phase3.sovereignty_45r.logger import setup_logging
 
     config = Config()
     config.DATA_DIR = tmp
@@ -539,8 +537,8 @@ def scenario_watchdog(tmp: pathlib.Path) -> None:
     _header("WATCHDOG — FREEZE DETECTION & RESTART", 7)
 
     import threading
-    from sovereignty.config import Config
-    from sovereignty.watchdog import Watchdog
+    from phase3.sovereignty_45r.config import Config
+    from phase3.sovereignty_45r.watchdog import Watchdog
 
     config = Config()
     config.DATA_DIR = tmp

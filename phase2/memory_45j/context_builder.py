@@ -90,12 +90,7 @@ class ContextBuilder:
         if retrieval.has_relevant_memory(threshold=0.25):
             raw_mem_block = retrieval.to_prompt_block(header=False)
             try:
-                import sys as _sys
-                from pathlib import Path as _Path
-                m_path = _Path(__file__).resolve().parent.parent / "master_system_45m"
-                if str(m_path) not in _sys.path:
-                    _sys.path.append(str(m_path))
-                from llm_bridge import get_llm_bridge
+                from phase2.master_system_45m.llm_bridge import get_llm_bridge
                 llm = get_llm_bridge()
                 
                 prompt = (

@@ -17,12 +17,7 @@ logger = logging.getLogger(__name__)
 def _get_llm():
     """Lazy accessor for the global LLMBridge singleton."""
     try:
-        import sys as _sys
-        from pathlib import Path as _Path
-        m_path = _Path(__file__).resolve().parent.parent / "master_system_45m"
-        if str(m_path) not in _sys.path:
-            _sys.path.append(str(m_path))
-        from llm_bridge import get_llm_bridge
+        from phase2.master_system_45m.llm_bridge import get_llm_bridge
         return get_llm_bridge()
     except Exception:
         return None

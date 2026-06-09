@@ -34,10 +34,6 @@ from typing import Any, Callable, Dict, List, Optional
 
 from engine.metric_bus import instrument
 
-_HERE = Path(__file__).resolve().parent
-if str(_HERE) not in sys.path:
-    sys.path.append(str(_HERE))
-
 _IMPORT_ERRORS: List[str] = []
 
 
@@ -50,25 +46,26 @@ def _safe_import(module_name: str, attr_name: str):
         return None
 
 
-ToolRegistry = _safe_import("registry", "ToolRegistry")  # type: ignore
-get_registry = _safe_import("registry", "get_registry")  # type: ignore
-register_all_tools = _safe_import("builtin", "register_all_tools")  # type: ignore
-GoalInterpreter = _safe_import("goal", "GoalInterpreter")  # type: ignore
-GoalSpec = _safe_import("goal", "GoalSpec")  # type: ignore
-GoalStatus = _safe_import("goal", "GoalStatus")  # type: ignore
-GoalRisk = _safe_import("goal", "GoalRisk")  # type: ignore
-Planner = _safe_import("planner", "Planner")  # type: ignore
-ExecutionPlan = _safe_import("planner", "ExecutionPlan")  # type: ignore
-StepPriority = _safe_import("planner", "StepPriority")  # type: ignore
-Executor = _safe_import("executor", "Executor")  # type: ignore
-HumanEscalation = _safe_import("executor", "HumanEscalation")  # type: ignore
-Dispatcher = _safe_import("dispatcher", "Dispatcher")  # type: ignore
-AgentMonitor = _safe_import("monitor", "AgentMonitor")  # type: ignore
-ReasoningEngine = _safe_import("reasoning", "ReasoningEngine")  # type: ignore
-GoalEvaluator = _safe_import("evaluator", "GoalEvaluator")  # type: ignore
-MultiAgentCoordinator = _safe_import("coordinator", "MultiAgentCoordinator")  # type: ignore
-AgentCoordinator = _safe_import("coordinator", "AgentCoordinator")  # type: ignore
-GoalPlanner = _safe_import("planner", "Planner")  # type: ignore
+_PACKAGE = "phase2.agent_loop_45k"
+ToolRegistry = _safe_import(f"{_PACKAGE}.registry", "ToolRegistry")  # type: ignore
+get_registry = _safe_import(f"{_PACKAGE}.registry", "get_registry")  # type: ignore
+register_all_tools = _safe_import(f"{_PACKAGE}.builtin", "register_all_tools")  # type: ignore
+GoalInterpreter = _safe_import(f"{_PACKAGE}.goal", "GoalInterpreter")  # type: ignore
+GoalSpec = _safe_import(f"{_PACKAGE}.goal", "GoalSpec")  # type: ignore
+GoalStatus = _safe_import(f"{_PACKAGE}.goal", "GoalStatus")  # type: ignore
+GoalRisk = _safe_import(f"{_PACKAGE}.goal", "GoalRisk")  # type: ignore
+Planner = _safe_import(f"{_PACKAGE}.planner", "Planner")  # type: ignore
+ExecutionPlan = _safe_import(f"{_PACKAGE}.planner", "ExecutionPlan")  # type: ignore
+StepPriority = _safe_import(f"{_PACKAGE}.planner", "StepPriority")  # type: ignore
+Executor = _safe_import(f"{_PACKAGE}.executor", "Executor")  # type: ignore
+HumanEscalation = _safe_import(f"{_PACKAGE}.executor", "HumanEscalation")  # type: ignore
+Dispatcher = _safe_import(f"{_PACKAGE}.dispatcher", "Dispatcher")  # type: ignore
+AgentMonitor = _safe_import(f"{_PACKAGE}.monitor", "AgentMonitor")  # type: ignore
+ReasoningEngine = _safe_import(f"{_PACKAGE}.reasoning", "ReasoningEngine")  # type: ignore
+GoalEvaluator = _safe_import(f"{_PACKAGE}.evaluator", "GoalEvaluator")  # type: ignore
+MultiAgentCoordinator = _safe_import(f"{_PACKAGE}.coordinator", "MultiAgentCoordinator")  # type: ignore
+AgentCoordinator = _safe_import(f"{_PACKAGE}.coordinator", "AgentCoordinator")  # type: ignore
+GoalPlanner = _safe_import(f"{_PACKAGE}.planner", "Planner")  # type: ignore
 
 _OPTIONAL_AGENT_COORDINATOR_ERROR = "coordinator: module 'coordinator' has no attribute 'AgentCoordinator'"
 _IMPORT_ERRORS = [err for err in _IMPORT_ERRORS if err != _OPTIONAL_AGENT_COORDINATOR_ERROR]

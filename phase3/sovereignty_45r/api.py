@@ -35,9 +35,9 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from typing import Any, Callable, Dict, Optional
 from urllib.parse import parse_qs, urlparse
 
-from sovereignty.auth import extract_bearer, validate_token
-from sovereignty.config import Config
-from sovereignty.logger import get_logger, get_recent_lines
+from phase3.sovereignty_45r.auth import extract_bearer, validate_token
+from phase3.sovereignty_45r.config import Config
+from phase3.sovereignty_45r.logger import get_logger, get_recent_lines
 
 log = get_logger(__name__)
 
