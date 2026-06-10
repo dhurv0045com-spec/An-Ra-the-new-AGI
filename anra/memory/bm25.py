@@ -116,3 +116,6 @@ class BM25MemoryTier:
             if self._df[token] == 0:
                 del self._df[token]
         self._total_tokens -= len(doc.tokens)
+
+
+__all__ = ["BM25MemoryTier"]

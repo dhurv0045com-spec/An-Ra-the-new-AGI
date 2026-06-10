@@ -31,9 +31,9 @@ def test_identity_registry_has_hal_esv_civ() -> None:
     import anra
 
     identities = anra.IDENTITY_REGISTRY.list()
-    assert "hal" in identities
-    assert "esv" in identities
-    assert "civ" in identities
+    assert "hal" in identities, f"hal missing from IDENTITY_REGISTRY: {identities}"
+    assert "esv" in identities, f"esv missing from IDENTITY_REGISTRY: {identities}"
+    assert "civ" in identities, f"civ missing from IDENTITY_REGISTRY: {identities}"
 
 
 def test_memory_registry_has_memory_router():

@@ -23,8 +23,8 @@ test:  ## Run full test suite (skips GPU and Drive tests)
 test-fast:  ## Run unit tests only (no I/O, completes in <30 seconds)
 	$(PYTHON) -m pytest tests/test_anra_brain_unit.py \
 	  tests/test_anra_package.py tests/test_schemas.py \
-	  tests/test_session_store.py tests/test_ci_health.py \
-	  tests/test_hal.py tests/test_system_registry.py \
+	  tests/test_bm25_memory.py tests/test_session_store.py \
+	  tests/test_ci_health.py tests/test_hal.py tests/test_system_registry.py \
 	  -q --tb=short
 
 lint:  ## Run ruff linter

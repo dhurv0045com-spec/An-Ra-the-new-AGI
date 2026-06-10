@@ -202,11 +202,20 @@ def test_no_tomllib_bare_import_in_test_files():
 
 
 def test_no_dead_core_at_root() -> None:
-    assert not (REPO / "core").exists()
+    """core/ (archived NumPy) must not exist at root — it belongs in archive/."""
+    assert not (REPO / "core").exists(), (
+        "core/ (archived NumPy 45E/45H) must be moved to archive/core_45eh_numpy_archived. "
+        "Run: git mv core archive/core_45eh_numpy_archived"
+    )
 
 
 def test_no_tokenizer_v2() -> None:
-    assert not (REPO / "tokenizer" / "tokenizer_v2.json").exists()
+    """tokenizer_v2.json is dead — v3 is canonical."""
+    v2 = REPO / "tokenizer" / "tokenizer_v2.json"
+    assert not v2.exists(), (
+        "tokenizer_v2.json is superseded by tokenizer_v3.json. "
+        "Delete with: git rm tokenizer/tokenizer_v2.json"
+    )
 
 
 def test_no_runtime_snapshots_in_git() -> None:
@@ -217,7 +226,27 @@ def test_no_runtime_snapshots_in_git() -> None:
         cwd=REPO,
     )
     snapshots = [path for path in result.stdout.splitlines() if path.endswith(".json")]
-    assert not snapshots, "Runtime snapshots tracked in git:\n" + "\n".join(snapshots)
+    assert not snapshots, (
+        "Runtime snapshot JSON files tracked in git:\n" + "\n".join(snapshots)
+    )
+
+
+def test_developer_doc_has_no_stale_phase_paths() -> None:
+    """docs/DEVELOPER.md must use current directory names, not legacy space-path labels."""
+    developer_md = REPO / "docs" / "DEVELOPER.md"
+    content = developer_md.read_text(encoding="utf-8", errors="replace")
+    stale = [
+        "agent_loop (45k)",
+        "fine_tuning (45I)",
+        "identity (45N)",
+        "symbolic_bridge (45Q)",
+        "sovereignty (45R)",
+        "master_system (45M)",
+    ]
+    found = [label for label in stale if label in content]
+    assert not found, (
+        "docs/DEVELOPER.md contains stale path labels:\n" + "\n".join(found)
+    )
 
 
 def test_config_tiny_loads_with_anra_config() -> None:

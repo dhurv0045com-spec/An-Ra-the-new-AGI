@@ -1,5 +1,30 @@
 # An-Ra Developer Guide
 
+## Quick Start
+
+```bash
+# 1. Clone and install
+git clone https://github.com/your-org/An-Ra-the-new-AGI
+cd An-Ra-the-new-AGI
+pip install torch --index-url https://download.pytorch.org/whl/cpu
+pip install -e ".[dev]"
+
+# 2. Verify
+python -m scripts.verify_structure
+python -m pytest tests/ -m "not gpu" -q
+
+# 3. Train (tiny config, 100 steps, CPU)
+python -m scripts.train --config config/tiny.yaml --max_steps 100 --device cpu
+
+# 4. Serve
+PYTHONPATH=. uvicorn app:app --reload --port 8000
+curl http://localhost:8000/health
+```
+
+> Training checkpoints → `output/checkpoints/`
+> Metrics → `output/metrics/`
+> Sessions → `state/sessions.db`
+
 > Ship like a platform team: **thin changes, measured outcomes, owner boundaries intact.**
 
 For humans and coding agents. An-Ra is ~70k lines of intentional systems — read before you edit.
@@ -10,14 +35,19 @@ For humans and coding agents. An-Ra is ~70k lines of intentional systems — rea
 
 | Need | Module |
 |------|--------|
-| Paths | `anra/anra_paths.py` — includes `get_agent_workspace()`, `ENGINEERING_DIR` |
-| Registry | `runtime/system_registry.py` |
+| Paths | `anra/anra_paths.py` |
+| Config | `anra/core/config.py` — `AnRaConfig.from_yaml()` |
+| Registry | `anra/core/registry.py` — `MODEL_REGISTRY`, `MEMORY_REGISTRY`, etc. |
+| Protocols | `anra/core/protocols.py` — interfaces for all major components |
+| Model | `anra_brain.py` → `anra/core/model.py` |
+| Serving | `app.py` → `anra/serving/` |
+| Inference | `generate.py` → `anra/inference/` |
+| Identity | `identity/` → `anra/identity/` |
+| Memory | `memory/` → `anra/memory/` |
+| Training | `training/` → `anra/training/` |
 | Flags | `engine/feature_flags.py` |
-| Telemetry | `engine/telemetry.py` — `@trace` |
-| Regression | `engine/eval_harness.py` |
-| Report | `engine/report.py` |
+| Telemetry | `engine/telemetry.py` |
 | Operator CLI | `runtime/operator_commands.py` |
-| Agent tools | `phase2/agent_loop (45k)/builtin.py` |
 | Audit | `state/logs/operator_actions.jsonl` |
 
 ---
@@ -57,14 +87,14 @@ Adding tools: register in `register_all_tools()`, add dispatcher keywords, add t
 
 | Area | Files |
 |------|-------|
-| CLI | `anra.py` |
+| CLI | `scripts/anra.py` |
 | Operator | `runtime/operator_commands.py`, `OPERATOR.md` |
-| Agent | `phase2/agent_loop (45k)/agent_main.py`, `builtin.py`, `planner.py` |
-| Master | `phase2/master_system (45M)/system.py` |
+| Agent | `phase2/agent_loop_45k/agent_main.py`, `builtin.py`, `planner.py` |
+| Master | `phase2/master_system_45m/system.py` |
 | Model | `anra_brain.py`, `training/v2_runtime.py` |
-| Train | `training/train_unified.py` |
-| Verify | `phase3/symbolic_bridge (45Q)/` |
-| Govern | `phase3/sovereignty (45R)/`, `self_modification/` |
+| Train | `scripts/train.py` (local), `training/train_unified.py` (Colab/Drive) |
+| Verify | `phase3/symbolic_bridge_45q/` |
+| Govern | `phase3/sovereignty_45r/`, `self_modification/` |
 
 ---
 
@@ -75,7 +105,7 @@ Adding tools: register in `register_all_tools()`, add dispatcher keywords, add t
 3. Do not change weights, prompts, identity text, or training mix unless asked.  
 4. Tests for new behavior.  
 5. `python -m pytest tests/ -q`  
-6. `python anra.py --report` if platform/operator touched.  
+6. `python scripts/anra.py --report` if platform/operator touched.  
 7. Report commands + residual risk.
 
 **Good prompt:**
@@ -144,11 +174,14 @@ No torch/faiss/transformers at import time in new `engine/` modules.
 ## Commands
 
 ```bash
-python anra.py --report
-python anra.py --chat
-python anra.py --goal "..."
+make install          # pip install -e ".[dev]"
+make test             # full non-GPU suite
+make train-tiny       # 100-step CPU smoke train
+make lint             # ruff
+make typecheck        # mypy anra/
+python scripts/anra.py --report
+python scripts/anra.py --chat
 python -m pytest tests/ -q
-python -m training.train_unified --mode session
 ```
 
 ---
