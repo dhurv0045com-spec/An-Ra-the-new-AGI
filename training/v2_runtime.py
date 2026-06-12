@@ -130,7 +130,9 @@ def _drive_restore_candidates(name: str) -> list[Path]:
         candidates.extend(
             [
                 DRIVE_V2_CHECKPOINTS / "tokenizer_v3.json",
+                DRIVE_V2_CHECKPOINTS / "tokenizer_v2.json",
                 DRIVE_DIR / "tokenizer_v3.json",
+                DRIVE_DIR / "tokenizer_v2.json",
             ]
         )
     return candidates

@@ -8,8 +8,16 @@ import torch
 from torch.optim import AdamW
 
 
-OPTIMIZER_REPORT_SCHEMA_VERSION = 1
-OPTIMIZER_CANDIDATES = ("adamw", "muon", "scale", "galore")
+OPTIMIZER_REPORT_SCHEMA_VERSION = 2
+OPTIMIZER_CANDIDATES = (
+    "adamw",
+    "adam8bit",
+    "adafactor",
+    "muon",
+    "scale",
+    "galore",
+    "qgalore",
+)
 
 
 @dataclass(frozen=True)
@@ -59,6 +67,22 @@ def candidate_report(model: torch.nn.Module, *, config: OptimizerConfig | None =
             "notes": "Baseline optimizer; stable default for quality comparisons.",
         },
         {
+            "name": "adam8bit",
+            "status": "optional_dependency",
+            "implementation": "bitsandbytes.optim.AdamW8bit if installed",
+            "trainable_params": trainable_params,
+            "optimizer_state_bytes_estimate": trainable_params * 2,
+            "notes": "8-bit optimizer-state baseline for constrained adaptation.",
+        },
+        {
+            "name": "adafactor",
+            "status": "optional_dependency",
+            "implementation": "transformers.Adafactor if installed",
+            "trainable_params": trainable_params,
+            "optimizer_state_bytes_estimate": 0,
+            "notes": "Factored-state fallback; exact state size depends on matrix shapes.",
+        },
+        {
             "name": "muon",
             "status": "optional_dependency",
             "implementation": "muon.Muon if installed; AdamW fallback otherwise",
@@ -77,11 +101,19 @@ def candidate_report(model: torch.nn.Module, *, config: OptimizerConfig | None =
         },
         {
             "name": "galore",
-            "status": "watchlist_unavailable",
-            "implementation": "GaLore optimizer package not vendored",
+            "status": "optional_dependency",
+            "implementation": "galore_torch.GaLoreAdamW if installed",
             "trainable_params": trainable_params,
-            "optimizer_state_bytes_estimate": _adamw_state_bytes(trainable_params),
-            "notes": "Report-only candidate until a verified implementation is added.",
+            "optimizer_state_bytes_estimate": 0,
+            "notes": "Low-rank optimizer-state experiment; measure actual resident gradients.",
+        },
+        {
+            "name": "qgalore",
+            "status": "optional_dependency",
+            "implementation": "Q-GaLore package adapter when installed",
+            "trainable_params": trainable_params,
+            "optimizer_state_bytes_estimate": 0,
+            "notes": "Quantized low-rank optimizer experiment; never reported active on fallback.",
         },
     ]
     return {
@@ -123,6 +155,43 @@ def build_optimizer_with_report(
 
     if requested == "adamw":
         optimizer = _build_adamw(all_params, cfg)
+    elif requested == "adam8bit":
+        try:
+            from bitsandbytes.optim import AdamW8bit  # type: ignore
+
+            optimizer = AdamW8bit(
+                all_params,
+                lr=lr,
+                weight_decay=weight_decay,
+                betas=cfg.betas,
+                eps=cfg.eps,
+            )
+            actual = "adam8bit"
+            reason = "bitsandbytes AdamW8bit active"
+        except Exception as exc:
+            optimizer = _build_adamw(all_params, cfg)
+            actual = "adamw"
+            status = "fallback"
+            reason = f"AdamW8bit unavailable ({exc}); using AdamW fallback"
+    elif requested == "adafactor":
+        try:
+            from transformers import Adafactor  # type: ignore
+
+            optimizer = Adafactor(
+                all_params,
+                lr=lr,
+                scale_parameter=False,
+                relative_step=False,
+                warmup_init=False,
+                weight_decay=weight_decay,
+            )
+            actual = "adafactor"
+            reason = "transformers Adafactor active"
+        except Exception as exc:
+            optimizer = _build_adamw(all_params, cfg)
+            actual = "adamw"
+            status = "fallback"
+            reason = f"Adafactor unavailable ({exc}); using AdamW fallback"
     elif requested in {"auto", "muon"}:
         muon_params = [p for name, p in named_params if _is_muon_param(name, p)]
         adamw_params = [p for name, p in named_params if not _is_muon_param(name, p)]
@@ -146,7 +215,39 @@ def build_optimizer_with_report(
             actual = "adamw"
             status = "fallback"
             reason = f"Muon unavailable ({exc}); using AdamW fallback"
-    elif requested in {"scale", "galore"}:
+    elif requested == "galore":
+        matrix_params = [
+            p for name, p in named_params if p.ndim == 2 and "esv_module" not in name
+        ]
+        matrix_param_ids = {id(p) for p in matrix_params}
+        regular_params = [p for _, p in named_params if id(p) not in matrix_param_ids]
+        try:
+            from galore_torch import GaLoreAdamW  # type: ignore
+
+            groups = [
+                {
+                    "params": matrix_params,
+                    "rank": 64,
+                    "update_proj_gap": 200,
+                    "scale": 0.25,
+                    "proj_type": "std",
+                },
+                {"params": regular_params},
+            ]
+            optimizer = GaLoreAdamW(
+                groups,
+                lr=lr,
+                weight_decay=weight_decay,
+                betas=cfg.betas,
+            )
+            actual = "galore"
+            reason = "GaLoreAdamW active with identity modules exempted from projection"
+        except Exception as exc:
+            optimizer = _build_adamw(all_params, cfg)
+            actual = "adamw"
+            status = "fallback"
+            reason = f"GaLore unavailable ({exc}); using AdamW fallback"
+    elif requested in {"scale", "qgalore"}:
         optimizer = _build_adamw(all_params, cfg)
         actual = "adamw"
         status = "fallback"

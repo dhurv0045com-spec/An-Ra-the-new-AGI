@@ -31,6 +31,8 @@ from generate import (
 )
 from inference.full_system_connector import build_capability_graph
 from inference.optimize_context_window import ContextWindowOptimizer
+from intelligence.hgp import MissionNode, MissionTree
+from robotics.contracts import SkillGoal, Workflow
 from runtime.hal_telemetry import read_hal_state
 
 START_TIME = time.time()
@@ -390,6 +392,45 @@ class ResetRequest(BaseModel):
     session_id: str
 
 
+class GoalRequest(BaseModel):
+    goal: str = Field(..., min_length=1, max_length=8192)
+    constraints: List[str] = Field(default_factory=list)
+    success_criteria: List[str] = Field(default_factory=list)
+
+
+class PlanRequest(GoalRequest):
+    max_depth: int = Field(5, ge=1, le=5)
+
+
+class MemoryAddRequest(BaseModel):
+    content: str = Field(..., min_length=1, max_length=32768)
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+
+
+class WorkflowRequest(BaseModel):
+    goal: str = Field(..., min_length=1, max_length=4096)
+    skills: List[Dict[str, Any]] = Field(default_factory=list, max_length=10)
+
+
+JOBS: Dict[str, Dict[str, Any]] = {}
+PLANS: Dict[str, Dict[str, Any]] = {}
+TRAINING_CANDIDATES: Dict[str, Dict[str, Any]] = {}
+
+
+def _new_job(kind: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+    job_id = str(uuid.uuid4())
+    event = {"event": "queued", "timestamp": _now_iso(), "payload": payload}
+    job = {
+        "job_id": job_id,
+        "kind": kind,
+        "status": "queued",
+        "created_at": _now_iso(),
+        "events": [event],
+    }
+    JOBS[job_id] = job
+    return job
+
+
 @app.post("/generate")
 async def generate_route(body: GenerateRequest, request: Request):
     client_ip = request.client.host if request.client else "unknown"
@@ -597,7 +638,46 @@ async def phase_health_route():
 
 @app.get("/goals")
 async def goals_route():
-    return {"goals": [], "active": 0, "completed": 0, "status": "online"}
+    goals = [job for job in JOBS.values() if job["kind"] == "goal"]
+    return {
+        "goals": goals,
+        "active": sum(job["status"] in {"queued", "running"} for job in goals),
+        "completed": sum(job["status"] == "complete" for job in goals),
+        "status": "online",
+    }
+
+
+@app.post("/goals")
+async def goals_create_route(body: GoalRequest):
+    return _new_job(
+        "goal",
+        {
+            "goal": body.goal,
+            "constraints": body.constraints,
+            "success_criteria": body.success_criteria,
+        },
+    )
+
+
+@app.post("/plans")
+async def plans_route(body: PlanRequest):
+    plan_id = str(uuid.uuid4())
+    root = MissionNode(
+        node_id=f"{plan_id}:root",
+        title="Strategic mission",
+        objective=body.goal,
+        level=0,
+        constraints=tuple(body.constraints),
+        expected_artifacts=tuple(body.success_criteria),
+    )
+    tree = MissionTree(
+        goal=body.goal,
+        root=root,
+        success_criteria=tuple(body.success_criteria),
+    )
+    plan = {"plan_id": plan_id, **tree.to_dict(), "max_depth": body.max_depth}
+    PLANS[plan_id] = plan
+    return plan
 
 
 @app.post("/goal")
@@ -621,6 +701,103 @@ async def memory_stats_route():
         "graph_nodes": 0,
         "status": "online" if MEMORY_SYSTEM is not None else "unavailable",
     }
+
+
+@app.get("/memory")
+async def memory_route(query: str = "", top_k: int = 5):
+    memory_system = get_memory_system() if query else None
+    results = memory_system.semantic.search(query=query, top_k=top_k) if memory_system else []
+    return {"query": query, "results": results}
+
+
+@app.post("/memory")
+async def memory_add_route(body: MemoryAddRequest):
+    memory_system = get_memory_system()
+    if memory_system is None:
+        raise HTTPException(status_code=503, detail="Memory system unavailable.")
+    if hasattr(memory_system, "_router"):
+        record_id = memory_system._router.write(
+            body.content,
+            metadata={**body.metadata, "type": "api_memory"},
+            tier="episodic",
+        )
+    else:
+        memory_system.store_turn(body.content, "", "api_memory")
+        record_id = None
+    return {"stored": True, "record_id": record_id}
+
+
+@app.post("/eval")
+async def eval_route():
+    return _new_job("evaluation", {"suite": "IBS-50", "seeds": 3})
+
+
+@app.get("/training/candidates")
+async def training_candidates_route():
+    return {"candidates": list(TRAINING_CANDIDATES.values())}
+
+
+@app.post("/training/candidates")
+async def training_candidate_create_route(request: Request):
+    payload = await request.json()
+    candidate_id = str(uuid.uuid4())
+    candidate = {
+        "candidate_id": candidate_id,
+        "status": "research",
+        "base_checkpoint": payload.get("base_checkpoint"),
+        "adapter_type": payload.get("adapter_type", "lora"),
+        "promotion_allowed": False,
+        "created_at": _now_iso(),
+    }
+    TRAINING_CANDIDATES[candidate_id] = candidate
+    return candidate
+
+
+@app.post("/robotics/workflows")
+async def robotics_workflows_route(body: WorkflowRequest):
+    skills = [
+        SkillGoal(
+            skill_name=str(item.get("skill_name", item.get("skill", ""))),
+            parameters=dict(item.get("parameters", {})),
+            preconditions=tuple(item.get("preconditions", ())),
+            postconditions=tuple(item.get("postconditions", ())),
+            timeout_seconds=float(item.get("timeout_seconds", 30.0)),
+            approval_required=bool(item.get("approval_required", False)),
+            source_mission=str(item.get("source_mission", "")),
+        )
+        for item in body.skills
+    ]
+    workflow = Workflow(workflow_id=str(uuid.uuid4()), goal=body.goal, skills=skills)
+    job = _new_job(
+        "robotics_workflow",
+        {
+            "workflow_id": workflow.workflow_id,
+            "goal": workflow.goal,
+            "skills": [skill.skill_name for skill in workflow.skills],
+            "mode": "simulation_or_shadow",
+        },
+    )
+    return job
+
+
+@app.get("/jobs/{job_id}")
+async def job_status_route(job_id: str):
+    if job_id not in JOBS:
+        raise HTTPException(status_code=404, detail="Job not found.")
+    return JOBS[job_id]
+
+
+@app.get("/jobs/{job_id}/events")
+async def job_events_route(job_id: str):
+    if job_id not in JOBS:
+        raise HTTPException(status_code=404, detail="Job not found.")
+
+    async def stream_events():
+        for event in JOBS[job_id]["events"]:
+            yield f"data: {json.dumps(event)}\n\n"
+        yield "data: [DONE]\n\n"
+
+    return StreamingResponse(stream_events(), media_type="text/event-stream")
 
 
 @app.post("/memory/search")

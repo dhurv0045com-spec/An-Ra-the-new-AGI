@@ -82,14 +82,14 @@ def component_registry() -> list[SystemComponent]:
         _component(
             name="brain",
             layer="model",
-            role="V2 causal transformer core: GQA, RoPE/YaRN, MoD, Flash SDP path, tied embeddings.",
-            paths=("anra_brain.py", "training/v2_config.py", "training/v2_runtime.py"),
+            role="V3 causal transformer: bounded GQA, YaRN, sparse MCR, RIM, DSTP, tied embeddings.",
+            paths=("anra_brain.py", "anra/architecture.py", "config/anra_3b.yaml"),
             import_name="anra_brain",
         ),
         _component(
             name="tokenizer",
             layer="data",
-            role="Canonical 8192-token BPE tokenizer and dependency-light adapter surface.",
+            role="Canonical 8209-token V3 BPE tokenizer and dependency-light adapter surface.",
             paths=(
                 _rel(V3_TOKENIZER_FILE),
                 _rel(TOKENIZER_DIR / "tokenizer_adapter.py"),
@@ -242,6 +242,47 @@ def component_registry() -> list[SystemComponent]:
                 "phase3/sovereignty_45r/benchmarks.py",
                 "phase3/sovereignty_45r/reporter.py",
             ),
+        ),
+        _component(
+            name="v3_training",
+            layer="learning",
+            role="IBS-50, staged campaigns, PCGrad, optimizer adapters, DEL/CDR, CSII, and SSG.",
+            paths=(
+                "evaluation/ibs.py",
+                "training/stages.py",
+                "training/data_pipeline_v3.py",
+                "training/continual.py",
+            ),
+            import_name="training.stages",
+        ),
+        _component(
+            name="intelligence",
+            layer="cognition",
+            role="Hierarchical planning, competence, curiosity, proof memory, OGRS, and verifier search.",
+            paths=("intelligence/hgp.py", "intelligence/competence.py", "intelligence/proof_memory.py"),
+            import_name="intelligence",
+        ),
+        _component(
+            name="inference_efficiency",
+            layer="serving",
+            role="Tiered/AWKC KV retention, prefix reuse, and speculative promotion metrics.",
+            paths=("inference/kv_cache.py", "inference/prefix_cache.py", "inference/speculative.py"),
+            import_name="inference.kv_cache",
+        ),
+        _component(
+            name="robotics",
+            layer="embodiment",
+            role="Typed observations, skill goals, workflows, domain randomization, and world-model research.",
+            paths=("robotics/contracts.py", "robotics/workflow.py", "robotics/world_model.py"),
+            import_name="robotics",
+        ),
+        _component(
+            name="multimodal",
+            layer="perception",
+            role="Research-gated frozen vision/audio encoder projection into the residual stream.",
+            paths=("multimodal/projector.py",),
+            import_name="multimodal",
+            required=False,
         ),
     ]
 

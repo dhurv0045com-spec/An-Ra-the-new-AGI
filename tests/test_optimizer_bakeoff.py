@@ -21,7 +21,15 @@ def test_candidate_report_lists_optimizer_bakeoff_options() -> None:
     report = candidate_report(TinyModel())
 
     names = {candidate["name"] for candidate in report["candidates"]}
-    assert names == {"adamw", "muon", "scale", "galore"}
+    assert names == {
+        "adamw",
+        "adam8bit",
+        "adafactor",
+        "muon",
+        "scale",
+        "galore",
+        "qgalore",
+    }
     assert report["trainable_params"] > 0
 
 

@@ -20,12 +20,12 @@ import time
 from pathlib import Path
 
 import torch
-from torch.optim import AdamW
 from torch.optim.lr_scheduler import CosineAnnealingLR
 
 from anra.core.config import AnRaConfig
 from anra.core.registry import MODEL_REGISTRY
 from anra_brain import CausalTransformerV2  # noqa: F401
+from training.anra_optimizer import build_optimizer_with_report
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -116,7 +116,13 @@ def train(cfg: AnRaConfig, args: argparse.Namespace) -> None:
         dropout=cfg.model.dropout,
         mod_layers=cfg.model.mod_layers,
         use_hal=cfg.model.use_hal,
+        use_rim=cfg.model.use_rim,
+        use_dstp=cfg.model.use_dstp,
+        base_seq_len=cfg.model.base_seq_len,
+        target_seq_len=cfg.model.target_seq_len,
     ).to(device)
+    if cfg.model.gradient_checkpointing:
+        model.gradient_checkpointing_enable()
 
     n_params = sum(p.numel() for p in model.parameters())
     print(f"Parameters: {n_params:,} ({n_params / 1e6:.1f}M)")
@@ -138,11 +144,14 @@ def train(cfg: AnRaConfig, args: argparse.Namespace) -> None:
     train_data, val_data = data[:split], data[split:]
     print(f"Train tokens: {len(train_data):,}  Val tokens: {len(val_data):,}")
 
-    optimizer = AdamW(
-        model.parameters(),
+    optimizer, optimizer_report = build_optimizer_with_report(
+        model,
+        optimizer_name=args.optimizer,
         lr=cfg.training.learning_rate,
         weight_decay=cfg.training.weight_decay,
-        betas=(0.9, 0.95),
+    )
+    (metrics_dir / f"{cfg.experiment_name}_optimizer.json").write_text(
+        json.dumps(optimizer_report, indent=2, default=str), encoding="utf-8"
     )
     max_steps = args.max_steps or cfg.training.max_steps
     scheduler = CosineAnnealingLR(optimizer, T_max=max_steps, eta_min=1e-5)
@@ -157,11 +166,14 @@ def train(cfg: AnRaConfig, args: argparse.Namespace) -> None:
             for pg in optimizer.param_groups:
                 pg["lr"] = cfg.training.learning_rate * lr_scale
 
-        x, y = get_batch(train_data, cfg.model.block_size, cfg.training.batch_size)
-        _, loss = model(x, targets=y)
-
         optimizer.zero_grad(set_to_none=True)
-        loss.backward()
+        accumulated_loss = 0.0
+        for _ in range(cfg.training.gradient_accumulation):
+            x, y = get_batch(train_data, cfg.model.block_size, cfg.training.batch_size)
+            _, micro_loss = model(x, targets=y)
+            (micro_loss / cfg.training.gradient_accumulation).backward()
+            accumulated_loss += float(micro_loss.detach().item())
+        loss_value = accumulated_loss / cfg.training.gradient_accumulation
         torch.nn.utils.clip_grad_norm_(model.parameters(), cfg.training.grad_clip)
         optimizer.step()
         if step > cfg.training.warmup_steps:
@@ -170,10 +182,10 @@ def train(cfg: AnRaConfig, args: argparse.Namespace) -> None:
         if step % 100 == 0 or step == 1:
             elapsed = time.time() - start_time
             lr = optimizer.param_groups[0]["lr"]
-            print(f"step {step:6d}/{max_steps} | loss {loss.item():.4f} | lr {lr:.2e} | {elapsed:.0f}s")
+            print(f"step {step:6d}/{max_steps} | loss {loss_value:.4f} | lr {lr:.2e} | {elapsed:.0f}s")
             record = {
                 "step": step,
-                "train_loss": round(loss.item(), 6),
+                "train_loss": round(loss_value, 6),
                 "lr": round(lr, 8),
                 "elapsed_s": round(elapsed, 1),
             }
@@ -213,6 +225,11 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Train AN-RA from any machine")
     parser.add_argument("--config", default="config/tiny.yaml", help="Path to AnRaConfig YAML file")
     parser.add_argument("--max_steps", type=int, default=None, help="Override config max_steps")
+    parser.add_argument(
+        "--optimizer",
+        default="auto",
+        choices=["auto", "adamw", "adam8bit", "adafactor", "muon", "scale", "galore", "qgalore"],
+    )
     parser.add_argument(
         "--device",
         default="auto",

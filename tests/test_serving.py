@@ -18,6 +18,17 @@ def test_create_app_has_routes() -> None:
     app = create_app()
     routes = [r.path for r in app.routes]
     assert len(routes) > 0
+    for path in (
+        "/generate",
+        "/goals",
+        "/plans",
+        "/memory",
+        "/status",
+        "/eval",
+        "/training/candidates",
+        "/robotics/workflows",
+    ):
+        assert path in routes
 
 
 def test_app_attribute_accessible() -> None:

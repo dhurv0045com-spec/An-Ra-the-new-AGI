@@ -8,9 +8,12 @@ Canonical exports:
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
+from torch.nn.utils.parametrizations import spectral_norm
 from torch.utils.checkpoint import checkpoint as _torch_checkpoint
 
 from anra.core.registry import MODEL_REGISTRY
@@ -107,6 +110,7 @@ class MultiHeadAttentionV2(nn.Module):
         self.dropout = dropout
         self._kv_cache: dict[str, torch.Tensor] | None = None
         self._layer_idx: int = 0
+        self.lba_bound = 0.8 * (65504.0 / self.head_dim) ** 0.5
 
     def forward(self, x: torch.Tensor, *, attention_temperature: torch.Tensor | float | None = None) -> torch.Tensor:
         bsz, seq_len, _ = x.shape
@@ -119,6 +123,10 @@ class MultiHeadAttentionV2(nn.Module):
             temperature = torch.as_tensor(attention_temperature, dtype=q.dtype, device=q.device).clamp_min(0.25)
             q = q / temperature
 
+        bound = torch.as_tensor(self.lba_bound, dtype=q.dtype, device=q.device)
+        q = bound * torch.tanh(q / bound)
+        k = bound * torch.tanh(k / bound)
+
         if self._kv_cache is not None:
             cache_k = self._kv_cache.get("k")
             cache_v = self._kv_cache.get("v")
@@ -128,15 +136,12 @@ class MultiHeadAttentionV2(nn.Module):
             self._kv_cache["k"] = k.detach()
             self._kv_cache["v"] = v.detach()
 
-        if self.groups > 1:
-            k = k.repeat_interleave(self.groups, dim=1)
-            v = v.repeat_interleave(self.groups, dim=1)
-
         is_causal = not (self._kv_cache is not None and q.size(2) == 1)
         out = F.scaled_dot_product_attention(
             q, k, v, attn_mask=None,
             dropout_p=self.dropout if self.training else 0.0,
             is_causal=is_causal,
+            enable_gqa=self.groups > 1,
         )
         out = out.transpose(1, 2).contiguous().view(bsz, seq_len, -1)
         return self.out_proj(out)
@@ -153,23 +158,76 @@ class SwiGLU(nn.Module):
         return self.down_proj(F.silu(self.gate_proj(x)) * self.up_proj(x))
 
 
+@dataclass(frozen=True)
+class RouterContext:
+    esv_arousal: torch.Tensor | float = 0.0
+    token_entropy: torch.Tensor | float = 0.0
+    civ_similarity: torch.Tensor | float = 1.0
+
+
 class MoDRouter(nn.Module):
     def __init__(self, d_model: int, capacity: float = 0.5):
         super().__init__()
         self.capacity = capacity
         self.gate = nn.Linear(d_model, 1, bias=False)
+        self.capacity_control = nn.Parameter(torch.zeros(()))
+        self.context_weights = nn.Parameter(torch.zeros(3))
         nn.init.normal_(self.gate.weight, std=0.02)
         # AN: Small normal init avoids tied top-k routing during early training.
 
-    def forward(self, x: torch.Tensor, ffn: nn.Module) -> torch.Tensor:
+    def forward(
+        self,
+        x: torch.Tensor,
+        ffn: nn.Module,
+        ctx: RouterContext | None = None,
+    ) -> torch.Tensor:
         B, n, d = x.shape
-        k = max(1, int(n * self.capacity))
+        capacity = float(
+            torch.clamp(
+                torch.as_tensor(self.capacity, device=x.device)
+                + 0.25 * torch.tanh(self.capacity_control.detach()),
+                0.05,
+                1.0,
+            ).item()
+        )
+        k = max(1, min(n, int(n * capacity)))
         scores = self.gate(x).squeeze(-1)
         topk_vals, topk_idx = scores.topk(k, dim=-1)
-        routing_weights = torch.zeros_like(scores)
-        routing_weights.scatter_(1, topk_idx, torch.nn.functional.softmax(topk_vals, dim=-1))
-        ffn_out = ffn(x)
-        return x + routing_weights.unsqueeze(-1) * ffn_out
+        selected = x.gather(1, topk_idx.unsqueeze(-1).expand(-1, -1, d))
+        selected_out = ffn(selected)
+        routing_weights = torch.softmax(topk_vals, dim=-1).unsqueeze(-1)
+        routed = torch.zeros_like(x)
+        context_signal = torch.zeros((), device=x.device, dtype=x.dtype)
+        if ctx is not None:
+            context_values = torch.stack(
+                [
+                    torch.as_tensor(ctx.esv_arousal, device=x.device, dtype=x.dtype),
+                    torch.as_tensor(ctx.token_entropy, device=x.device, dtype=x.dtype),
+                    torch.as_tensor(ctx.civ_similarity, device=x.device, dtype=x.dtype),
+                ]
+            )
+            context_signal = torch.dot(self.context_weights.to(dtype=x.dtype), context_values)
+        route_strength = 2.0 * torch.sigmoid(self.capacity_control + context_signal)
+        routed.scatter_add_(
+            1,
+            topk_idx.unsqueeze(-1).expand(-1, -1, d),
+            route_strength * routing_weights * selected_out,
+        )
+        return x + routed
+
+
+class ResidualIdentityModulator(nn.Module):
+    """Bounded additive identity path from the reserved ESV residual channels."""
+
+    def __init__(self, d_model: int, d_esv: int = 64) -> None:
+        super().__init__()
+        self.projection = spectral_norm(nn.Linear(d_esv, d_model, bias=False))
+        self.raw_alpha = nn.Parameter(torch.zeros(()))
+
+    def forward(self, x: torch.Tensor, esv_channel: torch.Tensor) -> torch.Tensor:
+        alpha = 0.25 * torch.tanh(self.raw_alpha)
+        identity_delta = self.projection(esv_channel).view(1, 1, -1)
+        return x + alpha * identity_delta
 
 
 class BlockV2(nn.Module):
@@ -189,18 +247,23 @@ class BlockV2(nn.Module):
         *,
         attention_temperature: torch.Tensor | float | None = None,
         mod_router: MoDRouter | None = None,
+        residual_scale: torch.Tensor | float = 1.0,
     ) -> torch.Tensor:
-        x = x + self.attn(self.norm_1(x), attention_temperature=attention_temperature)
+        x = x + residual_scale * self.attn(
+            self.norm_1(x), attention_temperature=attention_temperature
+        )
         if mod_router is not None:
-            x = mod_router(x, self._normed_mlp)
+            routed = mod_router(x, self._normed_mlp)
+            x = x + residual_scale * (routed - x)
             return x
-        x = x + self.mlp(self.norm_2(x))
+        x = x + residual_scale * self.mlp(self.norm_2(x))
         return x
 
 
+@MODEL_REGISTRY.register("causal_transformer_v3")
 @MODEL_REGISTRY.register("causal_transformer_v2")
 class CausalTransformerV2(nn.Module):
-    def __init__(self, vocab_size: int, n_embd: int, n_head: int, n_layer: int, block_size: int, *, n_kv_head: int | None = None, rms_norm_eps: float = 1e-5, dropout: float = 0.0, mod_layers=(), base_seq_len: int = 512, target_seq_len: int = 2048, pad_token_id: int = 0, use_layer_temperature_bias: bool = True, use_hal: bool = False, hal_module=None):
+    def __init__(self, vocab_size: int, n_embd: int, n_head: int, n_layer: int, block_size: int, *, n_kv_head: int | None = None, rms_norm_eps: float = 1e-5, dropout: float = 0.0, mod_layers=(), base_seq_len: int = 512, target_seq_len: int = 2048, pad_token_id: int = 0, use_layer_temperature_bias: bool = True, use_hal: bool = False, hal_module=None, use_rim: bool = True, use_dstp: bool = True):
         super().__init__()
         if not 0 <= pad_token_id < vocab_size:
             raise ValueError(f"pad_token_id={pad_token_id} must be within vocab_size={vocab_size}")
@@ -217,6 +280,8 @@ class CausalTransformerV2(nn.Module):
         self.target_seq_len = target_seq_len
         self.use_layer_temperature_bias = bool(use_layer_temperature_bias)
         self.use_hal = bool(use_hal)
+        self.use_rim = bool(use_rim)
+        self.use_dstp = bool(use_dstp)
         self.token_embedding_table = nn.Embedding(vocab_size, n_embd)
         self.token_embedding = self.token_embedding_table
         self.blocks = nn.ModuleList([BlockV2(n_embd, n_head, n_kv_head=self.n_kv_head, eps=rms_norm_eps, dropout=dropout, base_seq_len=base_seq_len, target_seq_len=target_seq_len) for _ in range(n_layer)])
@@ -227,6 +292,15 @@ class CausalTransformerV2(nn.Module):
         self.use_gradient_checkpointing: bool = False
         self.apply(self._init_weights)
         self.esv_module = ESVModule(d_model=n_embd, d_esv=min(64, n_embd))
+        esv_dim = min(64, n_embd)
+        self.rim_modules = nn.ModuleList(
+            [ResidualIdentityModulator(n_embd, esv_dim) for _ in range(n_layer)]
+            if self.use_rim
+            else []
+        )
+        if self.use_dstp:
+            initial_scales = torch.linspace(0.7, 1.0, steps=n_layer)
+            self.dstp_logits = nn.Parameter(torch.logit(initial_scales / 2.0))
         if self.use_hal:
             if hal_module is not None:
                 self.hal_module = hal_module
@@ -237,7 +311,7 @@ class CausalTransformerV2(nn.Module):
                 self.use_hal = False
         if self.use_layer_temperature_bias:
             # AN: let each block learn how strongly shared ESV arousal should shape its attention.
-            self.layer_temperature_bias = nn.Parameter(torch.ones(n_layer))
+            self.register_buffer("layer_temperature_bias", torch.ones(n_layer))
 
     def _init_weights(self, module: nn.Module) -> None:
         if isinstance(module, nn.Linear):
@@ -248,7 +322,12 @@ class CausalTransformerV2(nn.Module):
             nn.init.normal_(module.weight, mean=0.0, std=0.02)
 
     def model_config(self) -> dict[str, int | bool]:
-        return {"vocab_size": self.vocab_size, "pad_token_id": self.pad_token_id, "n_embd": self.n_embd, "n_head": self.n_head, "n_layer": self.n_layer, "block_size": self.block_size, "n_kv_head": self.n_kv_head, "base_seq_len": self.base_seq_len, "target_seq_len": self.target_seq_len, "use_layer_temperature_bias": self.use_layer_temperature_bias, "use_hal": self.use_hal}
+        return {"vocab_size": self.vocab_size, "pad_token_id": self.pad_token_id, "n_embd": self.n_embd, "n_head": self.n_head, "n_layer": self.n_layer, "block_size": self.block_size, "n_kv_head": self.n_kv_head, "base_seq_len": self.base_seq_len, "target_seq_len": self.target_seq_len, "use_layer_temperature_bias": self.use_layer_temperature_bias, "use_hal": self.use_hal, "use_rim": self.use_rim, "use_dstp": self.use_dstp}
+
+    def _residual_scale(self, layer_idx: int) -> torch.Tensor | float:
+        if not self.use_dstp:
+            return 1.0
+        return 2.0 * torch.sigmoid(self.dstp_logits[layer_idx])
 
     def enable_kv_cache(self) -> None:
         """Call before inference. Never call during training."""
@@ -276,6 +355,9 @@ class CausalTransformerV2(nn.Module):
                 x = self.embed(idx)
                 for i, block in enumerate(self.blocks):
                     esv_state = self.esv_module(x)
+                    esv_channel = self.esv_module.extract_channel(x)
+                    if self.use_rim:
+                        x = self.rim_modules[i](x, esv_channel)
                     if self.use_hal and hasattr(self, "hal_module"):
                         attention_temperature = self.hal_module.attention_temperature_tensor(
                             device=x.device,
@@ -295,6 +377,7 @@ class CausalTransformerV2(nn.Module):
                         x,
                         attention_temperature=attention_temperature,
                         mod_router=mod_router,
+                        residual_scale=self._residual_scale(i),
                     )
                     hidden_states.append(x.detach().cpu())
         finally:
@@ -334,6 +417,8 @@ class CausalTransformerV2(nn.Module):
                     if self.use_layer_temperature_bias
                     else None
                 )
+                rim_i = self.rim_modules[i] if self.use_rim else None
+                scale_i = self._residual_scale(i)
 
                 def _block_fn(
                     x_: torch.Tensor,
@@ -342,8 +427,13 @@ class CausalTransformerV2(nn.Module):
                     hal_: object = hal_mod,
                     bias_: torch.Tensor | None = bias_i,
                     mr_: MoDRouter | None = mod_router,
+                    rim_: ResidualIdentityModulator | None = rim_i,
+                    scale_: torch.Tensor | float = scale_i,
                 ) -> torch.Tensor:
                     esv_state_ = esv_(x_)
+                    esv_channel_ = esv_.extract_channel(x_)
+                    if rim_ is not None:
+                        x_ = rim_(x_, esv_channel_)
                     if hal_ is not None:
                         at_ = hal_.attention_temperature_tensor(
                             device=x_.device,
@@ -353,11 +443,19 @@ class CausalTransformerV2(nn.Module):
                         at_ = esv_.attention_temperature_tensor(esv_state_)
                     if bias_ is not None:
                         at_ = at_ * bias_
-                    return b_(x_, attention_temperature=at_, mod_router=mr_)
+                    return b_(
+                        x_,
+                        attention_temperature=at_,
+                        mod_router=mr_,
+                        residual_scale=scale_,
+                    )
 
                 x = _torch_checkpoint(_block_fn, x, use_reentrant=False)
             else:
                 esv_state = self.esv_module(x)
+                esv_channel = self.esv_module.extract_channel(x)
+                if self.use_rim:
+                    x = self.rim_modules[i](x, esv_channel)
                 if self.use_hal and hasattr(self, "hal_module"):
                     attention_temperature = self.hal_module.attention_temperature_tensor(
                         device=x.device,
@@ -367,7 +465,12 @@ class CausalTransformerV2(nn.Module):
                     attention_temperature = self.esv_module.attention_temperature_tensor(esv_state)
                 if self.use_layer_temperature_bias:
                     attention_temperature = attention_temperature * self.layer_temperature_bias[i]
-                x = block(x, attention_temperature=attention_temperature, mod_router=mod_router)
+                x = block(
+                    x,
+                    attention_temperature=attention_temperature,
+                    mod_router=mod_router,
+                    residual_scale=self._residual_scale(i),
+                )
 
         x = self.norm_f(x)
         return x
@@ -412,3 +515,7 @@ class CausalTransformerV2(nn.Module):
         return idx
 
 CausalTransformer = CausalTransformerV2
+CausalTransformerV3 = CausalTransformerV2
+BlockV3 = BlockV2
+MultiHeadAttentionV3 = MultiHeadAttentionV2
+MetacognitiveRouter = MoDRouter

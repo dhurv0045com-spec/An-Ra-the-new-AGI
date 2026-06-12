@@ -72,16 +72,26 @@ if nn is not None:
                         nn.init.zeros_(m.bias)
             self.register_buffer("state", torch.zeros(3))
 
-        def forward(self, h):
+        def extract_channel(self, h):
             if h.ndim != 3:
                 raise ValueError("ESVModule expects residual stream shape [batch, seq, d_model].")
             if h.shape[-1] < self.d_esv:
                 raise ValueError(f"residual stream has {h.shape[-1]} channels, expected at least {self.d_esv}.")
             esv_channel = h[:, :, -self.d_esv :]
-            pooled = esv_channel.mean(dim=(0, 1))
-            state = self.predictor(pooled)
-            self.state.copy_(state.detach())
-            return state
+            return esv_channel.mean(dim=(0, 1))
+
+        def forward(self, h):
+            """Predict VAD state without mutating persistent runtime state."""
+            return self.predictor(self.extract_channel(h))
+
+        @torch.no_grad()
+        def commit_state(self, state) -> None:
+            """Commit a detached VAD state after a completed forward/generation step."""
+            if state.shape != self.state.shape:
+                raise ValueError(
+                    f"ESV state shape {tuple(state.shape)} does not match {tuple(self.state.shape)}."
+                )
+            self.state.copy_(state.detach().to(device=self.state.device, dtype=self.state.dtype))
 
         @property
         def valence(self) -> float:

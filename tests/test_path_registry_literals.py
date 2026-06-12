@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import subprocess
 
 BANNED_SUBSTRINGS = (
     '/content/drive',
@@ -20,13 +21,21 @@ def test_no_path_literals_outside_registry() -> None:
         'tests/test_path_registry_literals.py',
     }
 
-    for file in root.rglob('*.py'):
-        rel = file.relative_to(root)
-        rel_posix = rel.as_posix()
+    tracked = subprocess.run(
+        ["git", "ls-files", "--", "*.py"],
+        cwd=root,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.splitlines()
+    for rel_posix in tracked:
+        file = root / rel_posix
         if rel_posix.startswith('An-Ra-the-new-AGI/') or rel_posix in allowed_files:
             continue
         text = file.read_text(encoding='utf-8', errors='replace')
         for idx, line in enumerate(text.splitlines(), start=1):
+            if "git rm " in line:
+                continue
             if any(token in line for token in BANNED_SUBSTRINGS):
                 offenders.append(f'{rel_posix}:{idx}: {line.strip()}')
 

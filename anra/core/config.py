@@ -47,7 +47,7 @@ def _dump_dataclass(value: object) -> dict[str, object]:
 class ModelConfig:
     """Validated model architecture configuration."""
 
-    type: str = "causal_transformer_v2"
+    type: str = "causal_transformer_v3"
     vocab_size: int = Field(default=8192, gt=0)
     n_embd: int = Field(default=512, gt=0)
     n_layer: int = Field(default=8, gt=0)
@@ -65,6 +65,10 @@ class ModelConfig:
     mod_layers: tuple[int, ...] = ()
     mod_capacity: float = Field(default=0.5, gt=0.0, le=1.0)
     use_hal: bool = False
+    use_rim: bool = True
+    use_dstp: bool = True
+    base_seq_len: int = Field(default=512, gt=0)
+    target_seq_len: int = Field(default=2048, gt=0)
     gradient_checkpointing: bool = False
 
     @classmethod

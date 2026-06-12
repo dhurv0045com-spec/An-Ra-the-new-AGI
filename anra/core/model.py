@@ -8,19 +8,27 @@ from __future__ import annotations
 from anra_brain import (  # noqa: F401
     BlockV2,
     CausalTransformerV2,
+    CausalTransformerV3,
     MoDRouter,
+    MetacognitiveRouter,
     MultiHeadAttentionV2,
     RMSNorm,
     RotaryEmbedding,
     SwiGLU,
+    ResidualIdentityModulator,
+    RouterContext,
 )
 
 __all__ = [
     "CausalTransformerV2",
+    "CausalTransformerV3",
     "BlockV2",
     "MultiHeadAttentionV2",
     "RotaryEmbedding",
     "RMSNorm",
     "SwiGLU",
     "MoDRouter",
+    "MetacognitiveRouter",
+    "ResidualIdentityModulator",
+    "RouterContext",
 ]

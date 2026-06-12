@@ -131,23 +131,13 @@ def run_tests(test_code: str) -> SandboxResult:
     preamble = _SAFETY_PREAMBLE.replace("{memory_mb}", str(config.SANDBOX_MEMORY_MB))
     full_code = preamble + "\n" + test_code
 
-    # Write to a temporary string for subprocess via stdin
     try:
-        proc = subprocess.run(
-            [sys.executable, "-m", "unittest", "-v", "__main__"],
-            input=full_code,
-            capture_output=True,
-            text=True,
-            timeout=config.SANDBOX_TIMEOUT_SEC,
-            env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
-            # Run via -c to execute code from stdin via -m unittest __main__
-            # Actually, we need to run via -c:
-        )
-        # The above doesn't work for -m unittest; use -c approach instead
         proc = subprocess.run(
             [sys.executable, "-c", full_code + "\nimport unittest\nunittest.main(module='__main__', argv=['test'], verbosity=2, exit=False)"],
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             timeout=config.SANDBOX_TIMEOUT_SEC,
             env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
         )
