@@ -110,6 +110,12 @@ class VerifierHierarchy:
         score = 0.8 if matched and length_ok else 0.3 if matched else 0.0
         return VerificationResult(score, 2, "heuristic_instruction")
 
+    def verify_exact(self, response: str, expected: str, label: str) -> VerificationResult:
+        actual = re.sub(r"\s+", " ", response.strip().lower())
+        reference = re.sub(r"\s+", " ", expected.strip().lower())
+        passed = bool(reference) and reference in actual
+        return VerificationResult(1.0 if passed else 0.0, 1, f"{label}_{'verified' if passed else 'mismatch'}")
+
     def verify_open_ended(self, task: str, response: str) -> VerificationResult:
         response = (response or "").strip()
         if not response:
@@ -149,6 +155,12 @@ class VerifierHierarchy:
             return self.verify_code(kwargs.get("code", ""), kwargs.get("test_code", ""))
         if task_type == "math":
             return self.verify_math(kwargs.get("expression", ""), kwargs.get("expected", ""))
+        if task_type in {"logic", "date", "measurement"}:
+            return self.verify_exact(
+                kwargs.get("response", kwargs.get("expression", "")),
+                kwargs.get("expected", ""),
+                task_type,
+            )
         if task_type == "qiskit" and verify_qiskit is not None:
             return self._from_domain_result(verify_qiskit(kwargs.get("qasm", kwargs.get("code", "")), kwargs.get("target_topology", "linear_nn")))
         if task_type == "rdkit" and verify_rdkit is not None:

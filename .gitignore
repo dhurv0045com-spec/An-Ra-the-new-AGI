@@ -18,6 +18,7 @@ state/*.log
 state/*.json
 state/*.jsonl
 state/reports/*.json
+state/private_evals/
 history/
 agent_workspace/
 *.pkl

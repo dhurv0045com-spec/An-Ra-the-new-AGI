@@ -15,13 +15,13 @@ def test_tokenizer_v3_train_and_validate(tmp_path: Path) -> None:
         '<system> Keep format <user> and <assistant> markers.',
         DATASET_CANONICAL.read_text(encoding='utf-8', errors='replace')[:20000],
     ]
-    tok = SubwordTokenizer.train_from_texts(texts, vocab_size=8192, special_tokens=SPECIAL_TOKENS)
+    tok = SubwordTokenizer.train_from_texts(texts, vocab_size=8209, special_tokens=SPECIAL_TOKENS)
     tok.save(json_path)
 
-    assert tok.vocab_size == 8192
-    assert len(tok.token_to_id) == 8192
-    assert max(tok.encode('def f(x): return x+1')) < 8192
-    assert all(tok.special_ids[token] == i for i, token in enumerate(SPECIAL_TOKENS))
+    assert tok.vocab_size == 8209
+    assert len(tok.token_to_id) == 8209
+    assert max(tok.encode('def f(x): return x+1')) < 8209
+    assert tok.special_ids["<state>"] == 8192
 
     stats = validate_tokenizer(json_path, DATASET_CANONICAL)
     assert stats['roundtrip_ok']

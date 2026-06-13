@@ -1,4 +1,6 @@
-# AN-RA — Complete Project Walkthrough
+# AN-RA - Complete Project Walkthrough
+
+> **Architecture note (2026-06-13):** this is the long-form narrative. When a legacy 19-component or 45A-45R description conflicts with a lifecycle contract, [ARCHITECTURE.md](ARCHITECTURE.md), `training/train_unified.py`, and `runtime/technology_registry.py` are authoritative.
 
 > The long read. Every layer from transformer atoms to sovereignty gates — written for developers who want to *understand*, not just run commands.
 
@@ -6,7 +8,7 @@
 
 | You want… | Start here |
 | --- | --- |
-| Run the system in 5 minutes | [`README.md`](README.md) |
+| Run the system in 5 minutes | [`README.md`](../README.md) |
 | Wire a new feature correctly | [`DEVELOPER.md`](DEVELOPER.md) |
 | See the 19-component map | [`ARCHITECTURE.md`](ARCHITECTURE.md) |
 | Understand *why* An-Ra exists | [`VISION.md`](VISION.md) |
@@ -49,7 +51,7 @@ This walkthrough is **narrative + technical**. Skim the TOC, dive into the secti
 **Long version:** An-Ra is built from zero:
 
 - **Its own transformer neural network** (the brain)
-- **Its own tokenizer** — trained on owner data, 8192 vocabulary
+- **Its own tokenizer** — trained on owner data, 8209-token V3 vocabulary
 - **Its own training pipeline** — with a unique paradigm called DFC
 - **Its own identity system** — values that are numerically tracked and drift-detectable
 - **Its own memory system** — 4 tiers routed by emotional state
@@ -146,7 +148,7 @@ An-Ra/
 │   ├── tokenizer_adapter.py ← Adapts tokenizer for model input
 │   ├── subword_tokenizer.py ← BPE tokenizer implementation
 │   ├── char_tokenizer.py    ← Legacy character tokenizer
-│   ├── tokenizer_v3.json    ← Trained vocab (8192 tokens)
+│   ├── tokenizer_v3.json    ← Trained vocab (8209 tokens)
 │
 ├── engine/                  ← Engineering spine (measurement layer)
 │   ├── component_base.py    ← Base class every component inherits
@@ -310,7 +312,8 @@ MoD allows some tokens to skip certain layers, saving compute on easy tokens and
 | small | 256 | 4 | 4 | ~15M |
 | medium | 384 | 6 | 6 | ~50M |
 | large | 512 | 8 | 8 | ~90M |
-| 1b (frontier) | 1536 | 36 | 16 | ~1B |
+| frontier / 904m | 1536 | 36 | 16 / 4 GQA | 904,535,040 |
+| 3b | 2560 | 42 | 20 / 5 GQA | 2,918,251,520 |
 
 ---
 
@@ -1096,7 +1099,7 @@ print(bus.summary_by_module())
 | # | Component | Files | One Line |
 |---|-----------|-------|----------|
 | 1 | `brain` | `anra_brain.py` | Custom transformer: GQA, RoPE/YaRN, Flash SDP |
-| 2 | `tokenizer` | `tokenizer/tokenizer_v3.json` | BPE, 8192 vocab, owner-trained |
+| 2 | `tokenizer` | `tokenizer/tokenizer_v3.json` | BPE, 8209 vocab, owner-trained |
 | 3 | `data_mix` | `training/v2_data_mix.py` | 65/15/10/5/5 owner-first corpus |
 | 4 | `training_loop` | `training/train_unified.py` | Daily and milestone training |
 | 5 | `evaluation` | `training/eval_v2.py`, `benchmark.py` | Compact eval + hard-example feedback |

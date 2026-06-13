@@ -1,64 +1,62 @@
-# An-Ra Web Console
+# AN-RA Web Console
 
-**Component 07/19 · `api_web`**
-
-This is the operator cockpit — not a Vite starter you forgot about. React dashboard wired to the An-Ra runtime conceptually through `app.py` and the same telemetry/goals/memory surfaces the CLI exposes.
-
----
+The web console is an operator cockpit for real backend state. It must never decorate an unavailable capability with a working-looking control.
 
 ## Panels
 
-| Tab | What you see |
+| Panel | Evidence it should expose |
 | --- | --- |
-| **Dashboard** | Telemetry, chat, goal tracker |
-| **Neural Training** | Training controls + progress |
-| **Memory Bank** | Recall and memory inspection |
-| **Sovereignty** | Audit, benchmarks, governance |
+| Dashboard | checkpoint release, CIV, IBS, campaign stage, uptime, recovery |
+| Neural Training | campaign jobs, stage gates, optimizer and replay reports |
+| Memory Bank | retrieval results, provenance, recall benchmark status |
+| Sovereignty | SSG blockers, release manifest, quarantine and rollback |
+| Goals | typed mission/workflow state and trajectory verification |
 
-**Key files:** `src/App.jsx`, `src/index.css`, `src/components/*`
+## Run
 
----
-
-## Run locally
-
-```bash
+```powershell
 cd phase4/web
 npm install
 npm run dev
 ```
 
-Build / preview / lint:
+Quality commands:
 
-```bash
+```powershell
+npm run lint
 npm run build
 npm run preview
-npm run lint
 ```
 
----
+Backend:
 
-## Pair with backend
-
-```bash
-# API
-python app.py
-
-# Full system CLI
-python anra.py --status
-python anra.py --dashboard
+```powershell
+$env:ANRA_OWNER_TOKEN = "replace-with-a-secret"
+uvicorn app:app --host 127.0.0.1 --port 8000
 ```
 
-The UI should reflect **real** backend state — no decorative controls for behavior that does not exist yet.
+## API Contract
 
----
+The console should build around:
 
-## Design direction
+- `GET /health`
+- `GET /status`
+- `POST /generate`
+- `POST /goal`
+- `POST /session`
+- memory, evaluation, robotics and sovereignty routes exposed by `app.py`
 
-Think **cockpit**, not landing page:
+Protected calls use bearer authentication. Every operation should display its request ID and preserve server-side auditability.
 
-- dense enough for daily use
-- status and artifacts visible at a glance
-- training and sovereignty state honest
-- memory/goals inspectable without clutter
+## Design Direction
 
-If this README drifts back into generic Vite boilerplate, delete that drift. This folder is the web face of a 19-component organism.
+Think instrument panel, not landing page:
+
+- evidence before decoration;
+- blockers visible beside actions;
+- dense but calm information hierarchy;
+- no invented progress bars;
+- no success state without a backend artifact;
+- clear separation between implemented, measured and promoted.
+
+The console is successful when an operator can understand what AN-RA knows, what it is doing, what failed, and what remains blocked without opening the source tree.

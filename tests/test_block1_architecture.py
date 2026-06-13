@@ -5,7 +5,7 @@ from training.v2_config import V2_MODEL
 
 
 def test_block1_architecture(tmp_path):
-    assert V2_MODEL.vocab_size == 8192
+    assert V2_MODEL.vocab_size == 8209
     assert V2_MODEL.pad_token_id == 0
     assert V2_MODEL.n_embd == 512
     assert V2_MODEL.n_head == 8

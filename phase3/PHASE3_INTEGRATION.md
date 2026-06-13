@@ -1,71 +1,49 @@
 # Phase 3 Integration
 
-Phase 3 is the **deep-cognition band** of the 19-component stack — where answers get verified, identity gets reinforced, memory gets compressed, reasoning gets recursive, and promotion gets gated.
+Phase 3 is AN-RA's deep-cognition compatibility band. Its legacy 45N-45R names remain useful landmarks, while current lifecycle ownership lives in the canonical training, evaluation, memory, identity, and runtime modules.
 
-| Layer | Code | Job |
+## Components
+
+| Legacy code | Responsibility | Current integration |
 | --- | --- | --- |
-| 08/19 | **45N** Identity | Inject owner context; clean outputs |
-| 16/19 | **45O** Ouroboros | Multi-pass reflection; milestone refinement |
-| 17/19 | **45P** Ghost Memory | Long recall without blowing context |
-| 18/19 | **45Q** Symbolic Bridge | Math / logic / code with verdicts |
-| 19/19 | **45R** Sovereignty | Audit, benchmark, promote or quarantine |
+| 45N Identity | owner context and output identity | CIV, ESV, HAL and promotion protection |
+| 45O Ouroboros | bounded multi-pass refinement | inference policy and milestone evaluation |
+| 45P Ghost Memory | compressed long-term recall | hybrid memory router |
+| 45Q Symbolic Bridge | math, logic and code verdicts | typed verification and RLVR |
+| 45R Sovereignty | audit and governance | SSG, promotion and rollback |
 
-**Design rule:** Phase 3 deepens the mainline. It does not fork a second product.
-
----
-
-## Integrated pipeline
+## Live Flow
 
 ```text
-user prompt
-  → 45Q pre-check (math / logic / code)
-  → 45N identity context
-  → 45J memory context
-  → 45P ghost context
-  → 45O adaptive passes (hard prompts)
-  → generation
-  → 45N cleanup
-  → memory write
-  → 45R artifacts (when scheduled)
+prompt or goal
+  -> retrieve source-preserving memory
+  -> identity context
+  -> typed checkability detection
+  -> bounded reasoning/reflection
+  -> generation or workflow execution
+  -> verifier evidence
+  -> trajectory, memory and CDR update
+  -> evaluation and promotion artifacts
 ```
 
----
+Phase 3 deepens the mainline. It does not fork a second product.
 
-## Commands (from repo root)
+## Commands
 
-```bash
+```powershell
 python anra.py --phase3-status
 python anra.py --symbolic "solve x^2 - 9 = 0"
 python anra.py --sovereignty-report
-python anra.py --sovereignty-run
-python scripts/status.py
+python -m training.train_unified --mode status --model-size 3b
 ```
 
----
+## Boundaries
 
-## Module status
-
-| Component | Source | Runtime notes |
-| --- | --- | --- |
-| 45N Identity | Active | Graceful fallback if identity file missing |
-| 45O Ouroboros | Active | NumPy path = CPU-friendly; Torch = heavier |
-| 45P Ghost | Active | Mock embeddings OK offline; real embeds optional |
-| 45Q Symbolic | Active | Best with `sympy`, `scipy`, `numpy` |
-| 45R Sovereignty | Active | `psutil` helpful; daemon/API local only |
-
----
-
-## Import reality (folder names have spaces)
-
-Phase folders look like `symbolic_bridge (45Q)/`. **Do not fight this from random scripts.**
-
-| Approach | When |
-| --- | --- |
-| `python anra.py --symbolic "..."` | Normal operator path (paths injected) |
-| `cd "phase3/symbolic_bridge (45Q)" && python demo.py` | Component-local experiments |
-| `cd "phase3/ouroboros (45O)" && python test_ouroboros.py` | Ouroboros smoke |
-
----
+- Missing optional dependencies may degrade a diagnostic, but cannot produce fake success.
+- Checkable claims are routed through typed verifiers.
+- Failed reasoning traces belong in CDR and replay.
+- Identity and safety dimensions are protected during promotion.
+- A source module being importable does not mean its checkpoint or capability is promoted.
 
 ## Checkpoints
 
@@ -75,28 +53,10 @@ anra_v2_identity.pt
 anra_v2_ouroboros.pt
 ```
 
-Fresh clone + empty Drive = **source active, weights absent**. Train or restore before expecting generation quality.
+A fresh clone may have source code with no promoted weights. Restore or train through the canonical campaign before expecting model quality.
 
----
+## Related Docs
 
-## Operator actions (cross-cutting)
-
-Phase 3 augments cognition; **45K + workspace** delivers files and CAD:
-
-```bash
-python anra.py --goal "cad_generate raptor_engine; verify key dimensions symbolically if numeric"
-```
-
-See [`OPERATOR.md`](../docs/OPERATOR.md) and WALKTHROUGH §19.
-
----
-
-## Per-component docs
-
-| Component | README |
-| --- | --- |
-| Identity (45N) | [`identity_45n/README.md`](identity_45n/README.md) |
-| Ouroboros (45O) | [`ouroboros_45o/README.md`](ouroboros_45o/README.md) |
-| Ghost (45P) | [`ghost_memory_45p/README.md`](ghost_memory_45p/README.md) |
-| Symbolic (45Q) | [`symbolic_bridge_45q/README.md`](symbolic_bridge_45q/README.md) |
-| Sovereignty (45R) | [`sovereignty_45r/README.md`](sovereignty_45r/README.md) |
+- [Architecture](../docs/ARCHITECTURE.md)
+- [Operator Manual](../docs/OPERATOR.md)
+- [V3 implementation status](../docs/V3_ZERO_TO_HERO_IMPLEMENTATION.md)

@@ -63,3 +63,61 @@ def apply_pcgrad(
         parameter.grad = projected + other_grad
         telemetry.append(report)
     return telemetry
+
+
+class PCGradAccumulator:
+    """Accumulate separate objectives and replace only protected gradients."""
+
+    def __init__(self, parameters: Iterable[torch.nn.Parameter]) -> None:
+        self.parameters = [parameter for parameter in parameters if parameter.requires_grad]
+        self.owner = [torch.zeros_like(parameter) for parameter in self.parameters]
+        self.other = [torch.zeros_like(parameter) for parameter in self.parameters]
+        self.owner_steps = 0
+        self.other_steps = 0
+
+    def accumulate(
+        self,
+        *,
+        owner_loss: torch.Tensor | None,
+        other_loss: torch.Tensor | None,
+        grad_scale: float = 1.0,
+    ) -> None:
+        for loss, destination, counter in (
+            (owner_loss, self.owner, "owner_steps"),
+            (other_loss, self.other, "other_steps"),
+        ):
+            if loss is None:
+                continue
+            gradients = torch.autograd.grad(
+                loss * float(grad_scale),
+                self.parameters,
+                retain_graph=True,
+                allow_unused=True,
+            )
+            for target, gradient in zip(destination, gradients):
+                if gradient is not None:
+                    target.add_(gradient.detach())
+            setattr(self, counter, getattr(self, counter) + 1)
+
+    def materialize(self) -> list[PCGradTelemetry]:
+        telemetry: list[PCGradTelemetry] = []
+        for parameter, owner_gradient, other_gradient in zip(
+            self.parameters, self.owner, self.other
+        ):
+            if self.owner_steps == 0:
+                parameter.grad = other_gradient.clone()
+            elif self.other_steps == 0:
+                parameter.grad = owner_gradient.clone()
+            else:
+                projected, report = project_conflicting_gradient(
+                    owner_gradient, other_gradient
+                )
+                parameter.grad = projected + other_gradient
+                telemetry.append(report)
+        return telemetry
+
+    def clear(self) -> None:
+        for gradient in (*self.owner, *self.other):
+            gradient.zero_()
+        self.owner_steps = 0
+        self.other_steps = 0

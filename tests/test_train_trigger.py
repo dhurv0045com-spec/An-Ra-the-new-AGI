@@ -2,7 +2,11 @@ from app import app
 from fastapi.testclient import TestClient
 
 
-def test_train_trigger_returns_501():
-    response = TestClient(app).post("/train/trigger")
-    assert response.status_code == 501
-    assert response.json()["detail"]["error"] == "training_dispatch_not_implemented"
+def test_train_trigger_creates_persistent_job(monkeypatch):
+    monkeypatch.setattr("app.asyncio.create_task", lambda coroutine: coroutine.close())
+    response = TestClient(app).post(
+        "/train/trigger",
+        json={"model_size": "25m", "minutes": 1},
+    )
+    assert response.status_code == 200
+    assert response.json()["status"] == "queued"

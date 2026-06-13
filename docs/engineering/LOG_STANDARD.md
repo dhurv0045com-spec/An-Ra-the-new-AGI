@@ -1,4 +1,6 @@
-# Engineering Log — Entry Standard
+# Engineering Log - Entry Standard
+
+**Revised:** 2026-06-13
 
 Every human or AI change that affects a **registered component**, the **engineering spine**, or **operator behavior** must be recorded in [`ENGINEERING_LOG.md`](ENGINEERING_LOG.md).
 
@@ -29,6 +31,8 @@ This keeps An-Ra auditable: the repo should answer *what changed, when, why, and
 | `FIX` | Bug fix, no intended feature change |
 | `DOCS` | Documentation-only (still log if contract changes) |
 | `EVAL` | Baseline / milestone eval or promotion decision |
+| `MIGRATION` | Schema, checkpoint, tokenizer, data or persistent-state migration |
+| `SECURITY` | Authentication, authorization, secret, audit or boundary change |
 
 ---
 
@@ -51,6 +55,8 @@ Copy this block for each entry (newest entries at **top** of `ENGINEERING_LOG.md
 | **Verification** | Commands run, e.g. `pytest tests/ -q`, `python anra.py --report` |
 | **Risk** | `low` \| `medium` \| `high` |
 | **Follow-up** | Next step or `none` |
+| **Evidence artifacts** | Paths and hashes for reports/checkpoints/manifests, or `none` |
+| **Rollback** | Reversal procedure or immutable prior artifact |
 
 ### Detail (optional)
 - Bullet context for future readers.

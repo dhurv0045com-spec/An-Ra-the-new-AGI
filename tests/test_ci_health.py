@@ -146,31 +146,10 @@ def test_config_base_yaml_loads_cleanly():
 
 
 def test_train_trigger_is_not_fake():
-    result = subprocess.run(
-        [
-            sys.executable,
-            "-c",
-            "from fastapi.testclient import TestClient; "
-            "from app import app; "
-            "r = TestClient(app).post('/train/trigger'); "
-            "assert r.status_code == 501, r.status_code",
-        ],
-        capture_output=True,
-        text=True,
-        cwd=REPO,
-        env={**__import__("os").environ, "PYTHONPATH": str(REPO)},
-    )
-    if result.returncode != 0:
-        app_source = (REPO / "app.py").read_text(encoding="utf-8", errors="replace")
-        assert "/train/trigger" in app_source, "train trigger route missing from app.py"
-        assert "501" in app_source, "train trigger must return 501 (not implemented)"
-        assert "training_dispatch_not_implemented" in app_source, (
-            "train trigger must not pretend to dispatch training"
-        )
-        return
-    assert result.returncode == 0, (
-        f"train trigger check failed:\nstdout: {result.stdout}\nstderr: {result.stderr}"
-    )
+    app_source = (REPO / "app.py").read_text(encoding="utf-8", errors="replace")
+    assert '@app.post("/train/trigger")' in app_source
+    assert "_run_training_job" in app_source
+    assert "training_dispatch_not_implemented" not in app_source
 
 
 def test_train_script_uses_model_dump_not_dict():

@@ -1,68 +1,70 @@
-# AN-RA V3 Zero-to-Hero Implementation
+# AN-RA V3: Zero to Evidence
 
-Date: 2026-06-12
+**Current architecture review:** 2026-06-13
+**Meaning of this document:** implementation map, not a claim that every training or promotion gate has passed.
 
-## Implemented
+## Implemented Core
 
-- Canonical 8,209-token frontier, 3B, and 8M draft configurations.
-- Exact parameter accounting:
-  - Frontier transformer: 904,535,040
-  - 3B transformer: 2,918,251,520
-  - 3B identity-augmented system: 2,925,174,103
-  - Draft plus shared ESV predictor: 8,004,291
-- Pure ESV prediction with explicit `commit_state`.
-- Logit-bounded attention, native SDPA GQA, bounded RIM, DSTP, and sparse contextual MCR.
-- IBS-50, private-suite loading, three-seed capability promotion, deployment promotion, SSG, and adaptive capability ladder.
-- AdamW, AdamW8bit, Adafactor, Muon, GaLore, Q-GaLore, and SCALE adapter surface with honest fallback reporting.
-- PCGrad, LPGA research prototype, blockwise QAT, memory profiler, distributed estimates, and SADL.
-- Deterministic local shards, DEL, canonical DFC validation, CDR, provenance, licensing, and distillation intake checks.
-- Four resumable stages: foundation, owner adaptation, agency, and verified reasoning.
-- HGP, calibrated competence, learning-progress curiosity, causal proof memory, verifier search, OGRS, CSII, and reversible continual adapters.
-- Tiered/AWKC KV retention, prefix cache, speculative-decoding gates, and KV backend benchmark contract.
-- FastAPI endpoints for goals, plans, memory, evaluation jobs, training candidates, robotics workflows, and event streams.
-- Typed robotics observations and skills, workflow execution, domain randomization, sim-to-real gates, and uncertain GRU world model.
-- Frozen multimodal encoder projector for future vision/audio experiments.
+- Profiles `25m`, `frontier`/`904m`, and `3b`.
+- Exact transformer counts:
+  - Frontier: `904,535,040`
+  - 3B: `2,918,251,520`
+  - 3B with separately reported identity modules: `2,925,174,103`
+- Canonical 8,209-token tokenizer and deterministic legacy checkpoint migration.
+- RMSNorm, GQA, RoPE/YaRN, SwiGLU, LBA, RIM, ESV, HAL, DSTP, MoD/MCR, tied embeddings, and checkpointing contracts.
+- Four-stage campaign state machine with pausing gates.
+- CSII function-preserving frontier-to-3B growth and parity reporting.
+- DEL, immutable token shards, SADL, training OGRS, WSD, PCGrad, optimizer evidence, CDR, and replay refresh.
+- Verified STaR/RLVR routing, typed verifiers, and truth-coverage reporting.
+- IBS seven-dimension measurement, SSG blockers, signed promotion manifests, smoke rollback, and continual adapter isolation.
+- Typed HGP missions, verified trajectories, hybrid memory, robotics activation boundaries, and persistent API state.
+- T-01 through T-26 architectural reachability.
 
-## Operator Commands
+## Canonical Commands
 
-Verify the repository:
+Inspect 3B readiness:
 
 ```powershell
-python -m pytest -q
+python -m training.train_unified --mode status --model-size 3b
 ```
 
-Inspect the staged campaign:
+Run a small architecture session:
 
 ```powershell
-python -m scripts.train_v3 status
+python -m training.train_unified --mode session --model-size 25m --max-steps 2
 ```
 
-Dry-run a frontier foundation campaign:
+Run verification:
 
 ```powershell
-python -m scripts.train_v3 run --dry-run --stage foundation `
-  --config config/anra_frontier.yaml --optimizer galore --device cuda
+python -m pytest tests -q
 ```
 
-Run a small smoke campaign:
+## Four-Stage Campaign
 
-```powershell
-python -m scripts.train --config config/tiny.yaml --max_steps 100 `
-  --optimizer adamw --device cpu
-```
+| Stage | Minimum campaign volume | Primary gate |
+| --- | ---: | --- |
+| A: Foundation | 5B tokens | perplexity below 12 and stable numerics |
+| B: Owner Adaptation | 10B tokens | CIV above 0.85, IBS above 50%, no safety/reasoning regression |
+| C: Agency | 3B trajectory tokens | at least 1,000 verified trajectories and tool-use above 60% |
+| D: Verified Reasoning | 3B tokens | reasoning above 70%, STaR verification above 90% |
 
-## Evidence Still Required
+The minimum total is 21B campaign tokens. Dataset inventory and stage evidence decide whether a real run may proceed.
 
-The code does not claim completion of expensive empirical milestones:
+## What Still Requires Real Evidence
 
-- Train and promote the 904.5M frontier checkpoint.
-- Profile GaLore and LPGA on an actual T4.
-- Run the approximately 60B-token distributed 3B campaign.
-- Demonstrate three-seed IBS and owner-suite promotion.
-- Benchmark FP16, KIVI, TurboQuant, KVarN, and sliding-window KV backends.
-- Demonstrate speculative speedup and acceptance thresholds.
-- Collect at least 100,000 simulation transitions before world-model activation.
-- Pass randomized simulation, shadow, and supervised hardware gates.
-- Demonstrate multimodal gains before unfreezing any encoder.
+- Licensed local token inventory and immutable manifests at campaign scale.
+- A promoted frontier checkpoint and signed release manifest.
+- Three-seed IBS and private-owner evaluation results.
+- Target-hardware optimizer, memory, and throughput profiles.
+- A successful frozen-corpus growth parity artifact.
+- Stage-scale training runs and candidate checkpoints.
+- A frozen 200-question private memory benchmark.
+- Robotics activation evidence from at least 100,000 simulation transitions.
+- Production service telemetry sufficient for uptime and recovery metrics.
 
-These are operator-run evidence gates, not missing implementation decisions.
+## Definition of Done
+
+V3 is complete only when code, evidence, and promoted artifacts agree. The architecture may be implemented while a campaign remains blocked; that is correct behavior, not a failure to hide.
+
+Every future upgrade must strengthen a canonical owner and its lifecycle. It must not arrive as a patch, hidden fallback, demo-only branch, duplicated path, or unmeasured claim.

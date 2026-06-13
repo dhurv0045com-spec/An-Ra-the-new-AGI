@@ -5,6 +5,30 @@
 
 ---
 
+## 2026-06-13 - CHANGE - `architecture` - Definitive lifecycle integration and evidence hardening
+
+| Field | Value |
+|-------|-------|
+| **Date** | 2026-06-13 |
+| **Author** | ai-agent |
+| **Component** | `training`, `evaluation`, `runtime`, `memory`, `agent_loop`, `robotics`, `api_web`, `docs` |
+| **Type** | CHANGE |
+| **Summary** | Integrated the definitive architecture, then hardened migration, checkpoint failure semantics, evidence metrics, promotion verification, world-model training, and typed goal routing |
+| **Files** | canonical owners plus all maintained Markdown documents |
+| **Metrics** | exact frontier/3B counts; T-01 through T-26 reachability; M-01 through M-12 evidence schema |
+| **Verification** | focused architecture suites and full `python -m pytest tests -q` (`312 passed`) |
+| **Risk** | high |
+| **Follow-up** | produce real frontier, IBS, hardware, dataset, memory and growth evidence before 3B authorization |
+| **Evidence artifacts** | generated only by canonical commands; absent evidence remains an explicit blocker |
+| **Rollback** | promoted artifacts remain immutable; code changes are isolated by canonical owners and tests |
+
+### Detail
+
+- Compact evaluation no longer impersonates IBS, RLVR, memory, sovereignty or continual-learning evidence.
+- Legacy vocabulary rows remain exact; appended control rows are deterministic and provenance is checkpointed.
+- Incompatible checkpoints raise a typed error instead of silently starting fresh.
+- Documentation now distinguishes implemented, measured and promoted.
+
 ## 2026-06-08 - CHECK - `tests` - Pre-push roadmap audit
 
 | Field | Value |

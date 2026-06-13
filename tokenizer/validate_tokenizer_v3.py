@@ -4,7 +4,7 @@ from pathlib import Path
 import json
 
 from tokenizer.subword_tokenizer import SubwordTokenizer
-from training.v2_config import BASE_SPECIAL_TOKENS, CANONICAL_SPECIAL_TOKENS, CANONICAL_VOCAB_SIZE
+from training.v2_config import CANONICAL_SPECIAL_TOKEN_IDS, CANONICAL_SPECIAL_TOKENS, CANONICAL_VOCAB_SIZE
 
 
 SPECIAL_TOKENS = CANONICAL_SPECIAL_TOKENS
@@ -19,7 +19,7 @@ def validate_tokenizer(tokenizer_json: Path, dataset_path: Path) -> dict[str, fl
     expected_specials = list(meta.get("special_tokens", SPECIAL_TOKENS))
     if len(tok.token_to_id) != target_vocab:
         raise AssertionError(f"[tokenizer_v3] expected {target_vocab} tokens, found {len(tok.token_to_id)}")
-    for expected_id, token in enumerate(BASE_SPECIAL_TOKENS):
+    for token, expected_id in CANONICAL_SPECIAL_TOKEN_IDS.items():
         actual = tok.token_to_id.get(token)
         if actual != expected_id:
             raise AssertionError(f"[tokenizer_v3] special token {token!r} has id {actual}, expected {expected_id}")

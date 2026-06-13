@@ -1,5 +1,7 @@
 # Pre-Push Audit - 2026-06-08
 
+> **Archived evidence:** this file records what was true on June 8, 2026. It is intentionally not updated to current test counts or architecture status. Use the current engineering log and rerun the listed commands for present-day evidence.
+
 Scope: research-roadmap implementation scaffolds, operator routing work, and documentation tracking updates currently present in the working tree.
 
 ## Verification

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from fastapi import FastAPI
+from starlette.requests import Request
 
 
 def test_create_app_returns_fastapi() -> None:
@@ -53,3 +54,15 @@ def test_serving_all_export() -> None:
 
     for name in ("app", "create_app", "SQLiteSessionStore"):
         assert name in m.__all__
+
+
+def test_production_service_fails_closed_without_owner_token(monkeypatch, tmp_path) -> None:
+    import app as service
+
+    monkeypatch.setattr(service, "STATE_DIR", tmp_path)
+    monkeypatch.setenv("ANRA_SERVICE_MODE", "production")
+    monkeypatch.delenv("ANRA_OWNER_TOKEN", raising=False)
+    request = Request({"type": "http", "headers": []})
+
+    assert service._owner_auth_required() is True
+    assert service._authorized_owner(request) is False

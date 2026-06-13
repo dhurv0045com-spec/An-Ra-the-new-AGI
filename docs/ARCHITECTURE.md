@@ -1,187 +1,179 @@
-# An-Ra Architecture
+# AN-RA Architecture
 
-**Registry wins.** `runtime/system_registry.py` is the live map. If prose disagrees, regenerate:
+> One system, one owner per lifecycle, evidence at every boundary.
 
-```bash
-python -m inference.full_system_connector
-python scripts/status.py
-python scripts/readiness.py
-python scripts/verify_structure.py
-```
+**Reviewed:** 2026-06-13
 
-Status line: **19/19 active** = source + imports OK. Checkpoints optional until trained/restored.
-
----
-
-## Layers (how to think about the repo)
+## The Shape
 
 ```text
-┌─────────────────────────────────────────────────────────┐
-│  Operator surfaces: anra.py · app.py · Colab · web UI                   │
-├─────────────────────────────────────────────────────────┤
-│  Governance: sovereignty · self_mod · feature_flags     │
-├─────────────────────────────────────────────────────────┤
-│  Cognition+: symbolic · ouroboros · ghost · identity inj  │
-├─────────────────────────────────────────────────────────┤
-│  Agency: goals · orchestrator · agent_loop · master_sys │
-├─────────────────────────────────────────────────────────┤
-│  Continuity: memory_router · phase2_memory · HAL/ESV    │
-├─────────────────────────────────────────────────────────┤
-│  Learning: data_mix · training_loop · eval · replay     │
-├─────────────────────────────────────────────────────────┤
-│  Model: brain · tokenizer · generate / inference        │
-├─────────────────────────────────────────────────────────┤
-│  Spine: registry · telemetry · eval_harness · report      │
-└─────────────────────────────────────────────────────────┘
+licensed sources
+  -> canonical data intake
+  -> immutable token shards
+  -> staged training campaign
+  -> candidate checkpoint
+  -> IBS + private owner suite + CIV + safety
+  -> signed promotion or quarantine
+  -> inference / memory / agency / simulation
+  -> verified trajectories and corrected failures
+  -> isolated continual-learning candidate
+  -> the same evaluation and promotion gate
 ```
 
----
+There is no privileged shortcut around this loop. SSG may authorize scale; it may not rewrite failed checks as passed.
 
-## Research → code
+## Ownership Map
 
-| Research line | Implementation |
-|---------------|----------------|
-| DFC — change → constraint → verify → update | `frontier_dfc.jsonl`, `training/rlvr.py`, falsification ledger |
-| FCC — six templates | `scripts/build_frontier_dataset.py` |
-| AIE — improvement as experiment | `innovation/`, `engine/eval_harness.py` |
-| HAL nervous system | `identity/hal.py` |
-| Proof memory | `memory/experimental_proof_graph.py` |
+| Lifecycle | Owner | Persistent evidence |
+| --- | --- | --- |
+| Campaign | `training/train_unified.py` | campaign state and `StageResult` |
+| Training execution | `scripts/build_brain.py` | checkpoint, metrics, replay and optimizer reports |
+| Model/checkpoint runtime | `training/v2_runtime.py` | schema, tokenizer contract, migration provenance |
+| Data mixture | `training/v2_data_mix.py` | bucket weights and replay refresh |
+| Data intake | `training/data_pipeline_v3.py` | immutable shard manifest |
+| Model growth | `training/csii.py` | parity and alignment report |
+| Scale authorization | `training/ssg.py` | structured blockers and evidence paths |
+| Intelligence evaluation | `evaluation/ibs.py` | three-seed IBS report |
+| Promotion | `evaluation/promotion.py` | signed release manifest and rollback history |
+| Metrics | `evaluation/metrics.py` | M-01 through M-12 evidence snapshot |
+| Agent lifecycle | `engine/agent_loop.py` | mission, workflow and trajectory |
+| Memory | `memory/memory_router.py` | source-preserving retrieval records |
+| Robotics | `robotics/workflow.py` | simulation/shadow outcomes |
+| Service | `app.py` | jobs, sessions, requests and audit records |
+| Technology registry | `runtime/technology_registry.py` | T-01 through T-26 entry points |
 
----
+## Model Contracts
 
-## Inference path (runtime loop)
+| Profile | Vocabulary | Width | Layers | Q/KV heads | FFN | Initial context |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| `frontier` / `904m` | 8,209 | 1,536 | 36 | 16 / 4 | 4,096 | 2,048 |
+| `3b` | 8,209 | 2,560 | 42 | 20 / 5 | 6,848 | 2,048 |
+
+The 3B context may move to 4,096 only through context-extension evaluation. OOM recovery may reduce a request's operational context; it may not silently mutate the architecture.
+
+The 3B checkpoint descends from a promoted frontier checkpoint. CSII owns width expansion, GQA remapping, identity-preserving depth insertion, RIM distillation, state transfer, parity testing, and progressive unfreezing.
+
+## Tokenizer Contract
+
+The canonical vocabulary has 8,209 rows and 30 validated special-token IDs. Legacy 8,192-row checkpoints migrate as follows:
+
+1. Preserve every legacy row exactly.
+2. Initialize only the 17 appended control rows.
+3. Use deterministic initialization independent of ambient RNG.
+4. Keep tied embedding and LM-head rows equal.
+5. Record schema versions and migration provenance in the next checkpoint.
+
+An incompatible checkpoint raises `CheckpointCompatibilityError`; it does not become a silent fresh run.
+
+## Training Contracts
+
+### Data
 
 ```text
-prompt
-  → tokenizer_v3
-  → CausalTransformerV2 (anra_brain.py)
-  → identity inject / clean (45N + CIV)
-  → memory_router + ghost retrieval
-  → [optional] symbolic pre-check (45Q)
-  → generation (generate.py)
-  → [optional] Ouroboros passes
-  → memory write · falsification hooks · telemetry
+source validation
+  -> license/provenance
+  -> deduplication
+  -> DEL
+  -> style filter
+  -> CIV
+  -> tokenizer validation
+  -> local shard publication
+  -> bucket registration
 ```
 
----
+DEL rejects quality below `0.65`. Shards are `uint16`, hashed, versioned, immutable, and sized for 10 million tokens in production publication.
 
-## Agency path (work loop)
+### Optimization
+
+- `training/anra_optimizer.py` is the only optimizer factory.
+- Identity-critical parameters remain full-rank and decay-free.
+- GaLore is active only when the selected backend is actually available and measured.
+- WSD owns the base learning-rate shape.
+- Dynamic regret may apply only a bounded multiplier.
+- PCGrad projects conflicting identity gradients at the optimizer boundary.
+- CDR admits only executable, verified corrections to replay.
+
+### Stages
+
+| Stage | Goal | Completion gate |
+| --- | --- | --- |
+| Foundation | language, code, science, symbolic structure | perplexity and numerical stability |
+| Owner Adaptation | identity, owner tasks, protected capabilities | CIV, IBS, safety and reasoning |
+| Agency | tools, plans, workflows, trajectories | verified trajectory inventory and tool use |
+| Verified Reasoning | STaR, RLVR, symbolic execution | reasoning, verification and truth coverage |
+
+A failed gate pauses the campaign. It does not mark the stage complete.
+
+## Intelligence And Action
 
 ```text
-owner imperative (/goal or goal:)
-  → MasterSystem.run_goal (45M)
-  → Agent: plan → execute → monitor → evaluate (45K)
-  → tools: file_manager · os_action · cad_generate · code · web · …
-  → artifacts under workspace/ (anra_paths.get_agent_workspace)
-  → operator_actions.jsonl audit
+goal
+  -> retrieve context
+  -> HGP decomposition
+  -> validate MissionTree
+  -> compile Workflow
+  -> authorize
+  -> predict
+  -> execute
+  -> verify
+  -> store trajectory
+  -> update memory and CDR
 ```
 
-See [`OPERATOR.md`](OPERATOR.md) and WALKTHROUGH §19.
+Model output is parsed into typed contracts. Mission depth is at most 5 and the tree has at most 10 leaves. Only machine-verified successes count toward M-04.
 
----
+## Memory
 
-## Training path
+The canonical router fuses:
 
-```text
-anra_training.txt
-  → v2_data_mix (65/15/10/5/5)
-  → train_unified (session | train | eval)
-  → eval_v2 · benchmark · verifier
-  → hard examples → replay_pipeline
-  → [milestone] identity · Ouroboros · sovereignty → promote or hold
+- BM25 exact retrieval
+- FAISS semantic retrieval
+- graph memory
+- ghost long-term memory
+- short-term context
+
+Fusion is deterministic and source IDs survive every tier. Promotion evidence comes from the frozen private 200-question owner benchmark, not ad hoc demonstrations.
+
+## Robotics Boundary
+
+Robotics is simulation and shadow-only. Each skill requires preconditions, authorization, world-model prediction, uncertainty/reward checks, typed dispatch, postcondition verification, and CBF safety checks.
+
+The live workflow appends transitions but never trains the world model. Offline activation requires at least 100,000 transitions, held-out accuracy of 70% or more, and planning improvement of 10% or more. Physical actuation is a separate future promotion decision.
+
+## Evaluation And Promotion
+
+IBS promotion dimensions:
+
+| Dimension | Weight |
+| --- | ---: |
+| Reasoning | 20% |
+| Tool use | 20% |
+| Identity | 20% |
+| Owner task | 15% |
+| Safety | 10% |
+| Anti-timidity | 10% |
+| Memory | 5% |
+
+Promotion requires three deterministic seeds, positive confidence-bound improvement, no protected-dimension regression, no private-owner regression, signed artifacts, rollback history, and a post-promotion smoke test.
+
+## Failure Semantics
+
+Every important failure should answer five questions:
+
+1. What typed error occurred?
+2. What evidence was written?
+3. What state remains valid?
+4. Can the operation be retried?
+5. What rollback target is available?
+
+Unknown evidence is represented as missing or zero, never inferred from an unrelated report.
+
+## Verification
+
+```powershell
+python -m training.train_unified --mode status --model-size 3b
+python -m pytest tests -q
+python -m scripts.verify_structure
 ```
 
----
-
-## Component table (19)
-
-| # | ID | Layer | Primary paths |
-|---|-----|-------|----------------|
-| 01 | `brain` | model | `anra_brain.py`, `training/v2_*` |
-| 02 | `tokenizer` | data | `tokenizer/tokenizer_v3.json`, `tokenizer_adapter.py` |
-| 03 | `data_mix` | data | `training_data/anra_training.txt`, `v2_data_mix.py` |
-| 04 | `training_loop` | learning | `train_unified.py`, `build_brain.py` |
-| 05 | `evaluation` | measurement | `eval_v2.py`, `benchmark.py`, `verifier.py` |
-| 06 | `inference_runtime` | serving | `generate.py`, `inference/` |
-| 07 | `api_web` | interface | `app.py`, `phase4/web/` |
-| 08 | `identity` | alignment | `identity/`, `phase3/identity (45N)/` |
-| 09 | `memory_router` | continuity | `memory/memory_router.py` |
-| 10 | `phase2_memory` | continuity | `phase2/memory (45J)/` |
-| 11 | `goals` | agency | `goals/goal_queue.py`, `agents/orchestrator.py` |
-| 12 | `agent_loop` | agency | `phase2/agent_loop (45k)/` |
-| 13 | `master_system` | autonomy | `phase2/master_system (45M)/system.py` |
-| 14 | `self_improvement` | learning | `phase2/self_improvement (45l)/` |
-| 15 | `self_modification` | governance | `self_modification/`, `execution/` |
-| 16 | `ouroboros` | reflection | `phase3/ouroboros (45O)/` |
-| 17 | `ghost_memory` | continuity | `phase3/ghost_memory (45P)/` |
-| 18 | `symbolic_bridge` | verification | `phase3/symbolic_bridge (45Q)/` |
-| 19 | `sovereignty` | governance | `phase3/sovereignty (45R)/` |
-
----
-
-## Engineering spine (cross-cutting)
-
-```text
-component_registry()
-  → feature_flags (state/feature_flags.json)
-  → @trace → telemetry.jsonl
-  → EvalHarness → regression artifacts
-  → engine/report.py → operator scorecard
-  → docs/engineering/ENGINEERING_LOG.md → human/AI change history
-  → docs/planning/MASTER_GOALS.md → research / test / ship backlog
-```
-
-New capabilities must plug in here or document why not. **After shipping:** append the log (`scripts/log_engineering_change.py`) and update goal status in `MASTER_GOALS.md`.
-
----
-
-## Path law
-
-- All filesystem constants: **`anra/anra_paths.py`**
-- Agent sandbox: **`get_agent_workspace()`** → default `workspace/`
-- Engineering outputs: **`ENGINEERING_DIR`**
-- Operator audit: **`OPERATOR_AUDIT_LOG`**
-
-Test: `tests/test_path_registry_literals.py`
-
----
-
-## Phase folders
-
-`phase2/` and `phase3/` are **capability layers**, not separate products. Prefer mainline imports:
-
-- `generate.py` not a forked inferencer
-- `memory/memory_router.py` not ad-hoc stores
-- `training.train_unified` not one-off trainers
-
----
-
-## External systems (roadmap architecture)
-
-| System | Integration pattern |
-|--------|---------------------|
-| Remote PC | Paired `anra_node` + TLS + tier 3 approval |
-| ROS2 robot | Action server; An-Ra sends goals, not motor ticks |
-| CAD pipeline | `cad_generate` → OpenSCAD; later FreeCAD/CadQuery adapters |
-
-Fast control stays out of the LLM hot path.
-
----
-
-## Rules (non-negotiable)
-
-1. Registry truth in one place.  
-2. No scattered path literals.  
-3. Every upgrade moves a measurable axis.  
-4. Promotion through sovereignty, not hope.  
-5. Operator actions auditable.
-
----
-
-## Docs
-
-| File | Use |
-|------|-----|
-| [`OPERATOR.md`](OPERATOR.md) | Desktop & engineering actions |
-| [`WALKTHROUGH.md`](WALKTHROUGH.md) | Subsystem depth + §19 operator |
-| [`DEVELOPER.md`](DEVELOPER.md) | Change protocol |
+For narrative detail, continue with [WALKTHROUGH.md](WALKTHROUGH.md). For implementation rules, use [DEVELOPER.md](DEVELOPER.md).

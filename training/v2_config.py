@@ -4,6 +4,8 @@ from dataclasses import dataclass
 
 
 MODEL_LINE = "v2"
+TOKENIZER_SCHEMA_VERSION = 3
+CHECKPOINT_SCHEMA_VERSION = 3
 BASE_VOCAB_SIZE = 8192
 CANONICAL_PAD_TOKEN_ID = 0
 CANONICAL_UNK_TOKEN_ID = 1
@@ -43,11 +45,18 @@ DFC_SPECIAL_TOKENS = [
 ]
 CANONICAL_SPECIAL_TOKENS = BASE_SPECIAL_TOKENS + DFC_SPECIAL_TOKENS
 CANONICAL_VOCAB_SIZE = BASE_VOCAB_SIZE + len(DFC_SPECIAL_TOKENS)
+CANONICAL_SPECIAL_TOKEN_IDS = {
+    **{token: index for index, token in enumerate(BASE_SPECIAL_TOKENS)},
+    **{
+        token: BASE_VOCAB_SIZE + index
+        for index, token in enumerate(DFC_SPECIAL_TOKENS)
+    },
+}
 
 
 @dataclass(frozen=True)
 class V2ModelConfig:
-    vocab_size: int = BASE_VOCAB_SIZE
+    vocab_size: int = CANONICAL_VOCAB_SIZE
     pad_token_id: int = CANONICAL_PAD_TOKEN_ID
     n_embd: int = 512
     n_head: int = 8
@@ -126,13 +135,49 @@ class V2FrontierTrainingConfig(V2TrainingConfig):
     replay_ratio: float = 0.10
 
 
+@dataclass(frozen=True)
+class V23BModelConfig(V2ModelConfig):
+    vocab_size: int = CANONICAL_VOCAB_SIZE
+    n_embd: int = 2560
+    n_layer: int = 42
+    n_head: int = 20
+    n_kv_head: int = 5
+    block_size: int = 2048
+    mod_layers: tuple = (4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 34)
+    base_seq_len: int = 2048
+    target_seq_len: int = 2048
+    use_hal: bool = True
+
+
+@dataclass(frozen=True)
+class V23BTrainingConfig(V2TrainingConfig):
+    batch_size: int = 1
+    grad_accum_steps: int = 512
+    session_minutes: int = 90
+    answer_loss_weight: float = 2.35
+    max_mixture_examples: int = 4096
+    milestone_every_sessions: int = 1
+    gradient_checkpointing: bool = True
+    use_bfloat16: bool = True
+    learning_rate: float = 3e-4
+    min_lr: float = 3e-5
+    warmup_steps: int = 2000
+    max_steps: int = 1_000_000
+    weight_decay: float = 0.1
+    grad_clip: float = 1.0
+    optimizer: str = "galore"
+
+
 V2_MODEL = V2ModelConfig()
 V2_1B_FRONTIER = V2FrontierModelConfig()
 V2_TRAINING = V2TrainingConfig()
 V2_1B_TRAINING = V2FrontierTrainingConfig()
+V2_3B = V23BModelConfig()
+V2_3B_TRAINING = V23BTrainingConfig()
 EXPECTED_TOKENIZER_VOCAB_SIZE = CANONICAL_VOCAB_SIZE
 EXPECTED_PAD_TOKEN_ID = CANONICAL_PAD_TOKEN_ID
 EXPECTED_SPECIAL_TOKENS = CANONICAL_SPECIAL_TOKENS
+EXPECTED_SPECIAL_TOKEN_IDS = CANONICAL_SPECIAL_TOKEN_IDS
 
 
 IDENTITY_KEYWORDS = [
@@ -182,4 +227,26 @@ V2_REPORT_FILES = {
     "improvement_report": "v2_improvement_report.json",
     "audit_report": "v2_audit_report.json",
     "data_ingestion": "v2_data_ingestion_report.json",
+    "metrics_snapshot": "metrics/latest.json",
+    "ibs_latest": "ibs/latest.json",
+    "memory_benchmark": "memory_benchmark.json",
+    "cdr_report": "cdr_report.json",
+    "growth_report": "model_growth_3b.json",
+    "mix_control": "v2_mix_control.json",
 }
+
+
+MODEL_PROFILES = {
+    "25m": (V2_MODEL, V2_TRAINING),
+    "frontier": (V2_1B_FRONTIER, V2_1B_TRAINING),
+    "904m": (V2_1B_FRONTIER, V2_1B_TRAINING),
+    "1b": (V2_1B_FRONTIER, V2_1B_TRAINING),
+    "3b": (V2_3B, V2_3B_TRAINING),
+}
+
+
+def resolve_model_profile(name: str):
+    key = str(name).strip().lower()
+    if key not in MODEL_PROFILES:
+        raise ValueError(f"Unknown model profile {name!r}; expected one of {sorted(MODEL_PROFILES)}")
+    return MODEL_PROFILES[key]

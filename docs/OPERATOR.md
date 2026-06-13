@@ -1,5 +1,7 @@
 # An-Ra Operator Manual
 
+**Service contract (2026-06-13):** `POST /goal` and `POST /goals` are aliases of one typed handler. Set `ANRA_OWNER_TOKEN` before exposing the API beyond trusted local development.
+
 > **Do work, not just talk.** Files, opens, CAD stubs, goals — measured, sandboxed, auditable.
 
 This is the Jarvis-shaped layer: you give imperatives; An-Ra plans, calls tools, leaves artifacts on disk.
@@ -47,6 +49,15 @@ Start:
 ```bash
 python anra.py --chat
 ```
+
+Persistent API:
+
+```powershell
+$env:ANRA_OWNER_TOKEN = "replace-with-a-secret"
+uvicorn app:app --host 127.0.0.1 --port 8000
+```
+
+Protected requests use `Authorization: Bearer <token>`.
 
 | Command | Action |
 |---------|--------|
@@ -199,7 +210,7 @@ Local operator pack (this doc) is step one.
 
 ## Related docs
 
-- [`README.md`](README.md) — project entry  
+- [`README.md`](../README.md) — project entry
 - [`WALKTHROUGH.md`](WALKTHROUGH.md) §19 — operator addendum
-- [`phase2/agent_loop_45k/README.md`](../phase2/agent_loop_45k/README.md) — agent internals
+- [`phase2/agent_loop_45k/`](../phase2/agent_loop_45k/) — agent internals
 - [`VISION.md`](VISION.md) — why verification and tiers matter

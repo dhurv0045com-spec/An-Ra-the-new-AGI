@@ -2,8 +2,12 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import hmac
 import json
 import logging
+import os
+import subprocess
+import sys
 import time
 import traceback
 import uuid
@@ -21,7 +25,19 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
-from anra.anra_paths import DRIVE_DIR, MEMORY_DB_DIR, DRIVE_SESSIONS, ensure_dirs
+from anra.anra_paths import (
+    CAMPAIGN_DIR,
+    CIV_LATEST,
+    DRIVE_DIR,
+    DRIVE_SESSIONS,
+    IBS_LATEST,
+    MEMORY_DB_DIR,
+    OPERATOR_AUDIT_LOG,
+    OUTPUT_V2_DIR,
+    ROOT,
+    STATE_DIR,
+    ensure_dirs,
+)
 
 ensure_dirs()
 
@@ -31,7 +47,9 @@ from generate import (
 )
 from inference.full_system_connector import build_capability_graph
 from inference.optimize_context_window import ContextWindowOptimizer
+from engine.feature_flags import disabled_components, is_enabled
 from intelligence.hgp import MissionNode, MissionTree
+from goals.goal_queue import GoalQueue
 from robotics.contracts import SkillGoal, Workflow
 from runtime.hal_telemetry import read_hal_state
 
@@ -50,6 +68,7 @@ class SQLiteSessionStore:
     def __init__(self, db_path: Path, max_history: int = 40) -> None:
         self._path = db_path
         self._max_history = max_history
+        self._initialized = False
         self._path.parent.mkdir(parents=True, exist_ok=True)
 
     async def initialize(self) -> None:
@@ -74,15 +93,31 @@ class SQLiteSessionStore:
                 """
             )
             await db.execute("CREATE INDEX IF NOT EXISTS idx_rate_ip ON rate_limits(ip)")
+            await db.execute(
+                """
+                CREATE TABLE IF NOT EXISTS jobs (
+                    id TEXT PRIMARY KEY,
+                    payload TEXT NOT NULL,
+                    updated_at REAL NOT NULL
+                )
+                """
+            )
             await db.commit()
+        self._initialized = True
+
+    async def _ensure_initialized(self) -> None:
+        if not self._initialized:
+            await self.initialize()
 
     async def get_history(self, session_id: str) -> list[dict]:
+        await self._ensure_initialized()
         async with aiosqlite.connect(self._path) as db:
             async with db.execute("SELECT history FROM sessions WHERE id = ?", (session_id,)) as cur:
                 row = await cur.fetchone()
                 return json.loads(row[0]) if row else []
 
     async def get_meta(self, session_id: str) -> dict[str, Any]:
+        await self._ensure_initialized()
         async with aiosqlite.connect(self._path) as db:
             async with db.execute("SELECT meta FROM sessions WHERE id = ?", (session_id,)) as cur:
                 row = await cur.fetchone()
@@ -93,6 +128,7 @@ class SQLiteSessionStore:
         await self.save_session(session_id, history, meta)
 
     async def save_session(self, session_id: str, history: list[dict], meta: dict[str, Any]) -> None:
+        await self._ensure_initialized()
         trimmed = history[-self._max_history:]
         now = time.time()
         async with aiosqlite.connect(self._path) as db:
@@ -108,6 +144,7 @@ class SQLiteSessionStore:
             await db.commit()
 
     async def list_sessions(self) -> dict[str, dict[str, Any]]:
+        await self._ensure_initialized()
         async with aiosqlite.connect(self._path) as db:
             async with db.execute("SELECT id, history, meta FROM sessions ORDER BY last_active DESC") as cur:
                 rows = await cur.fetchall()
@@ -120,11 +157,13 @@ class SQLiteSessionStore:
         return sessions
 
     async def delete_session(self, session_id: str) -> None:
+        await self._ensure_initialized()
         async with aiosqlite.connect(self._path) as db:
             await db.execute("DELETE FROM sessions WHERE id = ?", (session_id,))
             await db.commit()
 
     async def count_sessions(self) -> int:
+        await self._ensure_initialized()
         async with aiosqlite.connect(self._path) as db:
             async with db.execute("SELECT COUNT(*) FROM sessions") as cur:
                 row = await cur.fetchone()
@@ -137,6 +176,7 @@ class SQLiteSessionStore:
         max_requests: int = 30,
     ) -> bool:
         """Returns True if the request is allowed, False if rate limited."""
+        await self._ensure_initialized()
         cutoff = time.time() - window_seconds
         async with aiosqlite.connect(self._path) as db:
             await db.execute("DELETE FROM rate_limits WHERE ts < ?", (cutoff,))
@@ -151,6 +191,24 @@ class SQLiteSessionStore:
             await db.execute("INSERT INTO rate_limits (ip, ts) VALUES (?, ?)", (ip, time.time()))
             await db.commit()
             return True
+
+    async def save_job(self, job: dict[str, Any]) -> None:
+        await self._ensure_initialized()
+        async with aiosqlite.connect(self._path) as db:
+            await db.execute(
+                """INSERT INTO jobs (id, payload, updated_at) VALUES (?, ?, ?)
+                   ON CONFLICT(id) DO UPDATE SET payload=excluded.payload,
+                   updated_at=excluded.updated_at""",
+                (job["job_id"], json.dumps(job), time.time()),
+            )
+            await db.commit()
+
+    async def load_jobs(self) -> dict[str, dict[str, Any]]:
+        await self._ensure_initialized()
+        async with aiosqlite.connect(self._path) as db:
+            async with db.execute("SELECT id, payload FROM jobs") as cursor:
+                rows = await cursor.fetchall()
+        return {job_id: json.loads(payload) for job_id, payload in rows}
 
 
 SESSION_STORE = SQLiteSessionStore(SESSION_DIR / "sessions.db", max_history=40)
@@ -171,6 +229,45 @@ class ModelAdapter:
 ADAPTER = ModelAdapter()
 SYSTEM_GRAPH: Dict[str, Any] = {}
 _ctx_optimizer = ContextWindowOptimizer()
+GOAL_QUEUE = GoalQueue(STATE_DIR / "goal_queue.json")
+
+
+def _configured_owner_token() -> str:
+    environment = os.environ.get("ANRA_OWNER_TOKEN", "").strip()
+    if environment:
+        return environment
+    token_path = STATE_DIR / "api_owner.token"
+    return token_path.read_text(encoding="utf-8").strip() if token_path.exists() else ""
+
+
+def _owner_auth_required() -> bool:
+    return (
+        os.environ.get("ANRA_SERVICE_MODE", "development").strip().lower()
+        == "production"
+        or bool(_configured_owner_token())
+    )
+
+
+def _authorized_owner(request: Request) -> bool:
+    expected = _configured_owner_token()
+    if not expected:
+        return not _owner_auth_required()
+    authorization = request.headers.get("authorization", "")
+    scheme, _, provided = authorization.partition(" ")
+    return scheme.lower() == "bearer" and hmac.compare_digest(provided.strip(), expected)
+
+
+def _require_owner(request: Request) -> None:
+    if not _authorized_owner(request):
+        raise HTTPException(status_code=401, detail="owner authentication required")
+
+
+def _require_feature(name: str) -> None:
+    if not is_enabled(name):
+        raise HTTPException(
+            status_code=503,
+            detail={"error": "feature_disabled", "component": name},
+        )
 
 
 # Memory system bridge. Keep initialization lazy so importing the API does not
@@ -336,9 +433,18 @@ def _latest_report_snapshot() -> Dict[str, Any] | None:
     return None
 
 
+def _latest_json(path: Path) -> dict[str, Any] | None:
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        return payload if isinstance(payload, dict) else None
+    except Exception:
+        return None
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     await SESSION_STORE.initialize()
+    JOBS.update(await SESSION_STORE.load_jobs())
     await run_in_threadpool(ADAPTER.load)
     global SYSTEM_GRAPH
     SYSTEM_GRAPH = await run_in_threadpool(build_capability_graph, Path(__file__).resolve().parent)
@@ -355,9 +461,58 @@ async def request_context_middleware(request: Request, call_next):
     request_id = str(uuid.uuid4())
     request.state.request_id = request_id
     t0 = time.perf_counter()
-    response = await call_next(request)
+    protected = {
+        "/generate",
+        "/goal",
+        "/goals",
+        "/plans",
+        "/session",
+        "/train/trigger",
+        "/training/candidates",
+        "/robotics/workflows",
+        "/memory",
+        "/memory/search",
+        "/sovereignty/audit",
+    }
+    if request.url.path in protected and not _authorized_owner(request):
+        return JSONResponse(status_code=401, content={"error": "owner_auth_required"})
+    timeout_seconds = max(
+        1.0,
+        min(600.0, float(os.environ.get("ANRA_REQUEST_TIMEOUT_SECONDS", "120"))),
+    )
+    try:
+        response = await asyncio.wait_for(
+            call_next(request),
+            timeout=timeout_seconds,
+        )
+    except asyncio.TimeoutError:
+        response = JSONResponse(
+            status_code=504,
+            content={
+                "error": "request_timeout",
+                "request_id": request_id,
+                "timeout_seconds": timeout_seconds,
+            },
+        )
     response.headers["X-Request-ID"] = request_id
     dt = (time.perf_counter() - t0) * 1000
+    OPERATOR_AUDIT_LOG.parent.mkdir(parents=True, exist_ok=True)
+    with OPERATOR_AUDIT_LOG.open("a", encoding="utf-8") as stream:
+        stream.write(
+            json.dumps(
+                {
+                    "timestamp": time.time(),
+                    "request_id": request_id,
+                    "method": request.method,
+                    "path": request.url.path,
+                    "status_code": response.status_code,
+                    "elapsed_ms": dt,
+                    "role": "owner" if _authorized_owner(request) else "anonymous",
+                },
+                sort_keys=True,
+            )
+            + "\n"
+        )
     LOGGER.info("[req_id=%s] %s %s %s %.2fms", request_id, request.method, request.url.path, response.status_code, dt)
     return response
 
@@ -417,7 +572,7 @@ PLANS: Dict[str, Dict[str, Any]] = {}
 TRAINING_CANDIDATES: Dict[str, Dict[str, Any]] = {}
 
 
-def _new_job(kind: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+async def _new_job(kind: str, payload: Dict[str, Any]) -> Dict[str, Any]:
     job_id = str(uuid.uuid4())
     event = {"event": "queued", "timestamp": _now_iso(), "payload": payload}
     job = {
@@ -428,11 +583,13 @@ def _new_job(kind: str, payload: Dict[str, Any]) -> Dict[str, Any]:
         "events": [event],
     }
     JOBS[job_id] = job
+    await SESSION_STORE.save_job(job)
     return job
 
 
 @app.post("/generate")
 async def generate_route(body: GenerateRequest, request: Request):
+    _require_feature("runtime")
     client_ip = request.client.host if request.client else "unknown"
     await _rate_limit_or_429(client_ip)
 
@@ -441,7 +598,40 @@ async def generate_route(body: GenerateRequest, request: Request):
         if hasattr(cfg, k):
             setattr(cfg, k, v)
     await run_in_threadpool(load_ghost_state, body.session_id)
-    trace = await run_in_threadpool(generate_traced, body.prompt, cfg, session_id=body.session_id)
+    try:
+        trace = await run_in_threadpool(
+            generate_traced,
+            body.prompt,
+            cfg,
+            session_id=body.session_id,
+        )
+    except RuntimeError as exc:
+        if "out of memory" not in str(exc).lower():
+            raise
+        reduced_prompt = body.prompt[-max(256, len(body.prompt) // 2) :]
+        if hasattr(cfg, "max_new_tokens"):
+            cfg.max_new_tokens = max(16, int(cfg.max_new_tokens) // 2)
+        LOGGER.warning(
+            "[req_id=%s] OOM recovery: reduced request prompt/tokens only",
+            request.state.request_id,
+        )
+        trace = await run_in_threadpool(
+            generate_traced,
+            reduced_prompt,
+            cfg,
+            session_id=body.session_id,
+        )
+    except FloatingPointError as exc:
+        await run_in_threadpool(ADAPTER.load)
+        LOGGER.error(
+            "[req_id=%s] Numerical failure; reloaded last-good checkpoint: %s",
+            request.state.request_id,
+            exc,
+        )
+        raise HTTPException(
+            status_code=503,
+            detail={"error": "numerical_recovery", "checkpoint_reloaded": True},
+        ) from exc
     await run_in_threadpool(save_ghost_state, body.session_id)
     entropy_avg = sum(trace.entropy_curve) / max(len(trace.entropy_curve), 1)
     max_prob_avg = sum(trace.max_prob_curve) / max(len(trace.max_prob_curve), 1)
@@ -565,14 +755,38 @@ async def sessions_route():
 @app.get("/status")
 async def health_route():
     info = ADAPTER.info or await run_in_threadpool(get_model_info)
+    civ = _latest_json(CIV_LATEST)
+    civ_score = float((civ or {}).get("cosine_similarity", (civ or {}).get("score", 1.0)))
+    ibs = _latest_json(IBS_LATEST) or {}
+    disabled = disabled_components()
+    auth_misconfigured = _owner_auth_required() and not _configured_owner_token()
+    status = (
+        "blocked"
+        if civ_score < 0.80 or auth_misconfigured
+        else "degraded"
+        if disabled
+        else "ok"
+    )
     return {
-        "status": "ok",
+        "status": status,
         "model": "An-Ra",
         "checkpoint": str(info.get("checkpoint", "unknown")),
         "device": str(info.get("device", "unknown")),
         "vocab_size": int(info.get("vocab_size", -1) or -1),  # type: ignore[arg-type]
         "uptime_seconds": time.time() - START_TIME,
         "sessions_active": await SESSION_STORE.count_sessions(),
+        "civ_similarity": civ_score,
+        "ibs_overall": float(ibs.get("overall", ibs.get("overall_score", 0.0))),
+        "auth_required": _owner_auth_required(),
+        "auth_configured": bool(_configured_owner_token()),
+        "disabled_components": disabled,
+        "recovery_state": {
+            "failed_jobs": sum(job.get("status") == "failed" for job in JOBS.values()),
+            "running_jobs": sum(job.get("status") == "running" for job in JOBS.values()),
+        },
+        "campaigns": [
+            path.name for path in CAMPAIGN_DIR.glob("campaign_*.json")
+        ] if CAMPAIGN_DIR.exists() else [],
     }
 
 
@@ -647,9 +861,11 @@ async def goals_route():
     }
 
 
+@app.post("/goal")
 @app.post("/goals")
 async def goals_create_route(body: GoalRequest):
-    return _new_job(
+    _require_feature("goals")
+    job = await _new_job(
         "goal",
         {
             "goal": body.goal,
@@ -657,6 +873,15 @@ async def goals_create_route(body: GoalRequest):
             "success_criteria": body.success_criteria,
         },
     )
+    GOAL_QUEUE.push(
+        job["job_id"],
+        body.goal,
+        metadata={
+            "constraints": body.constraints,
+            "success_criteria": body.success_criteria,
+        },
+    )
+    return job
 
 
 @app.post("/plans")
@@ -680,20 +905,9 @@ async def plans_route(body: PlanRequest):
     return plan
 
 
-@app.post("/goal")
-async def add_goal_route(request: Request):
-    body = await request.json()
-    goal_text = body.get("goal", "").strip()
-    if not goal_text:
-        return JSONResponse(
-            status_code=400,
-            content={"error": "goal text is required"},
-        )
-    return {"status": "queued", "goal": goal_text, "id": str(uuid.uuid4())}
-
-
 @app.get("/memory/stats")
 async def memory_stats_route():
+    _require_feature("memory")
     return {
         "total": 0,
         "episodic": 0,
@@ -705,6 +919,7 @@ async def memory_stats_route():
 
 @app.get("/memory")
 async def memory_route(query: str = "", top_k: int = 5):
+    _require_feature("memory")
     memory_system = get_memory_system() if query else None
     results = memory_system.semantic.search(query=query, top_k=top_k) if memory_system else []
     return {"query": query, "results": results}
@@ -712,6 +927,7 @@ async def memory_route(query: str = "", top_k: int = 5):
 
 @app.post("/memory")
 async def memory_add_route(body: MemoryAddRequest):
+    _require_feature("memory")
     memory_system = get_memory_system()
     if memory_system is None:
         raise HTTPException(status_code=503, detail="Memory system unavailable.")
@@ -729,7 +945,8 @@ async def memory_add_route(body: MemoryAddRequest):
 
 @app.post("/eval")
 async def eval_route():
-    return _new_job("evaluation", {"suite": "IBS-50", "seeds": 3})
+    _require_feature("evaluation")
+    return await _new_job("evaluation", {"suite": "IBS-50", "seeds": 3})
 
 
 @app.get("/training/candidates")
@@ -739,6 +956,7 @@ async def training_candidates_route():
 
 @app.post("/training/candidates")
 async def training_candidate_create_route(request: Request):
+    _require_feature("self_improvement")
     payload = await request.json()
     candidate_id = str(uuid.uuid4())
     candidate = {
@@ -755,6 +973,7 @@ async def training_candidate_create_route(request: Request):
 
 @app.post("/robotics/workflows")
 async def robotics_workflows_route(body: WorkflowRequest):
+    _require_feature("agent_loop")
     skills = [
         SkillGoal(
             skill_name=str(item.get("skill_name", item.get("skill", ""))),
@@ -768,7 +987,7 @@ async def robotics_workflows_route(body: WorkflowRequest):
         for item in body.skills
     ]
     workflow = Workflow(workflow_id=str(uuid.uuid4()), goal=body.goal, skills=skills)
-    job = _new_job(
+    job = await _new_job(
         "robotics_workflow",
         {
             "workflow_id": workflow.workflow_id,
@@ -802,6 +1021,7 @@ async def job_events_route(job_id: str):
 
 @app.post("/memory/search")
 async def memory_search_route(request: Request):
+    _require_feature("memory")
     body = await request.json()
     query = body.get("query", "").strip()
     results = []
@@ -882,16 +1102,76 @@ async def train_status_route():
     }
 
 
-@app.post("/train/trigger", status_code=501)
-async def train_trigger_route() -> dict:
-    raise HTTPException(
-        status_code=501,
-        detail={
-            "error": "training_dispatch_not_implemented",
-            "message": "Automated training dispatch is not yet implemented. Use scripts/train_oneshot.py directly or AnRa_Master.ipynb for Colab.",
-            "docs": "https://github.com/your-repo/DEVELOPER.md#training",
-        }
+async def _run_training_job(job_id: str, *, model_size: str, minutes: int) -> None:
+    job = JOBS[job_id]
+    job["status"] = "running"
+    job["events"].append({"event": "started", "timestamp": _now_iso()})
+    await SESSION_STORE.save_job(job)
+    command = [
+        sys.executable,
+        "-m",
+        "training.train_unified",
+        "--mode",
+        "session",
+        "--model-size",
+        model_size,
+        "--session-minutes",
+        str(minutes),
+    ]
+    creationflags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
+    try:
+        process = await asyncio.create_subprocess_exec(
+            *command,
+            cwd=str(ROOT),
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.STDOUT,
+            creationflags=creationflags,
+        )
+        stdout, _ = await asyncio.wait_for(process.communicate(), timeout=max(300, minutes * 90))
+        output = stdout.decode("utf-8", errors="replace")[-8000:] if stdout else ""
+        job["status"] = "complete" if process.returncode == 0 else "failed"
+        job["exit_code"] = int(process.returncode or 0)
+        job["events"].append(
+            {
+                "event": job["status"],
+                "timestamp": _now_iso(),
+                "output_tail": output,
+            }
+        )
+    except asyncio.TimeoutError:
+        process.kill()
+        await process.wait()
+        job["status"] = "failed"
+        job["events"].append({"event": "timeout", "timestamp": _now_iso()})
+    except Exception as exc:
+        job["status"] = "failed"
+        job["events"].append(
+            {"event": "error", "timestamp": _now_iso(), "error": str(exc)}
+        )
+    await SESSION_STORE.save_job(job)
+
+
+@app.post("/session")
+@app.post("/train/trigger")
+async def train_trigger_route(request: Request) -> dict:
+    _require_owner(request)
+    _require_feature("training_loop")
+    body = await request.body()
+    payload = json.loads(body) if body.strip() else {}
+    if not isinstance(payload, dict):
+        raise HTTPException(status_code=400, detail="request body must be an object")
+    model_size = str(payload.get("model_size", "25m"))
+    if model_size not in {"25m", "frontier", "904m", "1b", "3b"}:
+        raise HTTPException(status_code=400, detail="invalid model_size")
+    minutes = max(1, min(720, int(payload.get("minutes", 30))))
+    job = await _new_job(
+        "training_session",
+        {"model_size": model_size, "minutes": minutes, "owner_authorized": True},
     )
+    asyncio.create_task(
+        _run_training_job(job["job_id"], model_size=model_size, minutes=minutes)
+    )
+    return job
 
 
 @app.get("/identity/score")

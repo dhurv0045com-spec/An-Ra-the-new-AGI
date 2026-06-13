@@ -54,9 +54,11 @@ class MemoryRouter:
         self.ghost_db_path = Path(DRIVE_GHOST_DB)
         idx_path = Path(faiss_index_path) if faiss_index_path is not None else Path(DRIVE_FAISS_INDEX)
         from memory.faiss_store import FAISSEpisodicStore
+        from anra.memory.bm25 import BM25MemoryTier
 
         self.episodic = FAISSEpisodicStore(index_path=idx_path, dim=self.dim)
         self.episodic.load()
+        self.bm25 = BM25MemoryTier()
 
     def _fit_dim(self, vector) -> np.ndarray:
         np = _numpy()
@@ -199,6 +201,7 @@ class MemoryRouter:
         vec = self._semantic_embed(content)
         payload = {"content": content, **metadata}
         self.episodic.add(record_id, vec, payload)
+        self.bm25.write(content, {**metadata, "canonical_id": record_id})
         self.episodic.save()
         return MemoryWriteResult(tier="episodic", record_id=record_id)
 
@@ -227,6 +230,58 @@ class MemoryRouter:
                 except Exception:
                     continue
             return rows[-n:]
+
+        if tier == "bm25":
+            return [
+                {
+                    "record_id": record.metadata.get("canonical_id", record.id),
+                    "score": float(record.score),
+                    "payload": {"content": record.text, **record.metadata},
+                    "retriever": "bm25",
+                }
+                for record in self.bm25.read(str(query), n=n)
+            ]
+
+        if tier == "hybrid":
+            width = max(n, 8)
+            retrievals = (
+                ("semantic", self.read(query, n=width, tier="episodic")),
+                ("bm25", self.read(query, n=width, tier="bm25")),
+                ("graph", self.read(query, n=width, tier="graph")),
+                ("ghost", self.read(query, n=width, tier="ghost")),
+                ("short_term", self.read(query, n=width, tier="short_term")),
+            )
+            fused: dict[str, dict] = {}
+            for retriever, rows in retrievals:
+                for rank, row in enumerate(rows, start=1):
+                    record_id = str(
+                        row.get("record_id")
+                        or hashlib.sha1(
+                            json.dumps(row, sort_keys=True).encode("utf-8")
+                        ).hexdigest()[:16]
+                    )
+                    entry = fused.setdefault(
+                        record_id,
+                        {
+                            "record_id": record_id,
+                            "score": 0.0,
+                            "payload": row.get("payload", row),
+                            "retrievers": [],
+                            "provenance": [],
+                        },
+                    )
+                    entry["score"] += 1.0 / (60.0 + rank)
+                    entry["retrievers"].append(retriever)
+                    entry["provenance"].append(
+                        {
+                            "tier": retriever,
+                            "rank": rank,
+                            "source_id": record_id,
+                        }
+                    )
+            return sorted(
+                fused.values(), key=lambda row: float(row["score"]), reverse=True
+            )[:n]
 
         np = _numpy()
         qvec = query if isinstance(query, np.ndarray) else self._semantic_embed(str(query))

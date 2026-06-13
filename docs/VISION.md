@@ -1,5 +1,9 @@
 # AN-RA Vision
 
+**Reviewed:** 2026-06-13
+
+Vision is a constraint on engineering, not evidence of capability. AN-RA earns each claim through a checkpoint, a named evaluation, a signed decision, and a rollback path.
+
 > Private intelligence that learns in **your** terms, verifies where reality is checkable, remembers failure, **acts** when you command it, and improves under measurement — not myth.
 
 ---
@@ -75,7 +79,7 @@ Frontier models mostly learn: `text → next token → plausible answer`.
 
 An-Ra must learn: `change → constraint → test → update`.
 
-`frontier_dfc.jsonl` encodes that chain. At 1B scale, **process** is the moat — not parameter count alone.
+`frontier_dfc.jsonl` encodes that chain. At frontier scale, **process** is the moat, not parameter count alone.
 
 ---
 

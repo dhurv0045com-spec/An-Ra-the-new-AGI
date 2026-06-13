@@ -19,6 +19,7 @@ from training.eval_v2 import run_compact_eval
 from training.data_ingestion import mount_google_drive_if_available, prepare_training_corpus
 from training.v2_config import V2_MODEL, V2_TRAINING
 from training.v2_config import V2_1B_FRONTIER, V2_1B_TRAINING
+from training.v2_config import V2_3B, V2_3B_TRAINING, resolve_model_profile
 from training.v2_runtime import (
     build_v2_model,
     canonical_v2_checkpoint,
@@ -286,23 +287,35 @@ def main() -> None:
     ap.add_argument("--session_minutes", "--session-minutes", type=int, default=V2_TRAINING.session_minutes)
     ap.add_argument(
         "--model-size",
-        choices=["25m", "1b"],
+        choices=["25m", "1b", "frontier", "904m", "3b"],
         default="25m",
-        help="'25m' = V2_MODEL + V2_TRAINING (default). '1b' = V2_1B_FRONTIER + V2_1B_TRAINING.",
+        help="Registered profile: 25m, frontier/904m (legacy alias 1b), or 3b.",
+    )
+    ap.add_argument(
+        "--campaign",
+        choices=["frontier_full", "3b_full", "stage_a", "stage_b", "stage_c", "stage_d"],
+        default=None,
     )
     ap.add_argument("--identity_minutes", type=int, default=12)
     ap.add_argument("--ouroboros_minutes", type=int, default=10)
     ap.add_argument("--max_examples", type=int, default=None)
     args = ap.parse_args()
-    training_cfg = V2_1B_TRAINING if args.model_size == "1b" else V2_TRAINING
-    model_cfg = V2_1B_FRONTIER if args.model_size == "1b" else V2_MODEL
-    if args.model_size == "1b":
+    model_cfg, training_cfg = resolve_model_profile(args.model_size)
+    is_frontier = args.model_size in {"1b", "frontier", "904m"}
+    if is_frontier:
         if args.batch_size == V2_TRAINING.batch_size:
             args.batch_size = V2_1B_TRAINING.batch_size
         if args.block_size == V2_MODEL.block_size:
             args.block_size = V2_1B_FRONTIER.block_size
         if args.session_minutes == V2_TRAINING.session_minutes:
             args.session_minutes = V2_1B_TRAINING.session_minutes
+    elif args.model_size == "3b":
+        if args.batch_size == V2_TRAINING.batch_size:
+            args.batch_size = V2_3B_TRAINING.batch_size
+        if args.block_size == V2_MODEL.block_size:
+            args.block_size = V2_3B.block_size
+        if args.session_minutes == V2_TRAINING.session_minutes:
+            args.session_minutes = V2_3B_TRAINING.session_minutes
 
     mount_google_drive_if_available()
 
@@ -335,6 +348,20 @@ def main() -> None:
 
     if args.mode == "status":
         readiness = assess_training_readiness()
+        if args.model_size == "3b":
+            from training.ssg import SovereignScalingGovernor
+
+            print("[SSG] Checking scale-up criteria...")
+            scale_result = SovereignScalingGovernor().check()
+            for item in scale_result.passed:
+                print(f"[SSG] PASS: {item}")
+            for blocker in scale_result.blockers:
+                print(f"[SSG] BLOCKED: {blocker}")
+            state = "READY" if scale_result.allowed else "NOT READY"
+            print(
+                f"Training readiness: 3B {state}. "
+                f"{len(scale_result.blockers)} blocker(s)."
+            )
         print_system_health()
         print(f"[Unified Trainer] model_size={args.model_size}")
         print(f"[Unified Trainer] dataset={resolve_dataset_path(args.data_path)}")
@@ -399,7 +426,7 @@ def main() -> None:
         "--batch_size",
         str(args.batch_size),
         "--block_size",
-        str(model_cfg.block_size if args.model_size == "1b" else args.block_size),
+        str(model_cfg.block_size if args.model_size != "25m" else args.block_size),
         "--answer_loss_weight",
         str(args.answer_loss_weight),
         "--optimizer",
@@ -411,6 +438,88 @@ def main() -> None:
     ]
     if args.max_examples is not None:
         base_cmd.extend(["--max_examples", str(args.max_examples)])
+
+    if args.campaign:
+        from math import exp
+        from training.stages import CampaignConfig, StagedTrainingCampaign
+        from anra.anra_paths import (
+            OUTPUT_V2_DIR,
+            TOKEN_INVENTORY_MANIFEST,
+            TRAJECTORY_STORE,
+        )
+
+        inventory = _load_json(TOKEN_INVENTORY_MANIFEST)
+        if inventory is None or int(inventory.get("licensed_tokens", 0)) <= 0:
+            raise RuntimeError(
+                "Campaign training requires a published offline licensed-token inventory. "
+                "Run scripts/download_training_data.py --bucket base --publish-token-shards."
+            )
+
+        campaign = StagedTrainingCampaign(
+            CampaignConfig(
+                model_size=args.model_size,
+                data_path=str(dataset),
+                output_dir=str(OUTPUT_V2_DIR / "campaigns"),
+            )
+        )
+        names = (
+            ["foundation", "owner_adaptation", "agency", "verified_reasoning"]
+            if args.campaign in {"frontier_full", "3b_full"}
+            else [args.campaign]
+        )
+
+        def execute_stage(config):
+            command = list(base_cmd)
+            command.extend(["--own_ratio", str(config.owner_ratio)])
+            rc = run_cmd(command)
+            return rc, str(canonical_v2_checkpoint("brain"))
+
+        def load_stage_metrics(_config):
+            eval_report = _load_json(v2_report_path("ibs_latest")) or {}
+            compact = _load_json(v2_report_path("eval_summary")) or {}
+            train_metrics = _load_json(v2_report_path("metrics")) or {}
+            trajectory_count = 0
+            if TRAJECTORY_STORE.exists():
+                trajectory_count = sum(
+                    1
+                    for line in TRAJECTORY_STORE.read_text(encoding="utf-8").splitlines()
+                    if line.strip() and '"verified": true' in line.lower()
+                )
+            loss = float(train_metrics.get("last_avg_loss", float("inf")))
+            return {
+                "perplexity": exp(min(loss, 20.0)),
+                "numerically_stable": bool(loss < float("inf")),
+                "training_tokens": int(train_metrics.get("target_tokens_seen", 0)),
+                "tokenizer_schema_valid": bool(
+                    (_load_json(
+                        ROOT / "output" / "v2" / "data_manifests" / "tokenizer_v3.json"
+                    ) or {}).get("schema_version", 0) >= 3
+                ),
+                "civ_similarity": float(compact.get("civ_similarity", 0.0)),
+                "ibs": eval_report,
+                "verified_trajectories": trajectory_count,
+                "star_verification_rate": float(
+                    (_load_json(v2_report_path("star_report")) or {}).get(
+                        "verification_rate", 0.0
+                    )
+                ),
+                "truth_checking_coverage": float(
+                    (_load_json(v2_report_path("rlvr_report")) or {}).get(
+                        "truth_checking_coverage", 0.0
+                    )
+                ),
+            }
+
+        for stage_name in names:
+            result = campaign.run_stage(
+                stage_name,
+                execute=execute_stage,
+                load_metrics=load_stage_metrics,
+            )
+            print(json.dumps(result.__dict__, indent=2, default=str))
+            if not result.passed_gate:
+                raise SystemExit(4)
+        return
 
     run_base_first = "base" in stage_plan
     mode = "session" if args.mode == "resume" else args.mode

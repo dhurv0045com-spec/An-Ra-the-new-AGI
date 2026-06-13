@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import logging
 import math
 import shutil
@@ -14,6 +15,7 @@ from anra.anra_paths import (
     DRIVE_V2_CHECKPOINTS,
     OUTPUT_V2_DIR,
     ROOT,
+    TOKENIZER_MANIFEST,
     V2_BRAIN_CHECKPOINT,
     V2_IDENTITY_CHECKPOINT,
     V2_OUROBOROS_CHECKPOINT,
@@ -28,11 +30,17 @@ from anra_brain import CausalTransformerV2
 from tokenizer.subword_tokenizer import SubwordTokenizer
 from tokenizer.tokenizer_adapter import TokenizerAdapter
 from training.v2_config import (
+    CHECKPOINT_SCHEMA_VERSION,
     EXPECTED_PAD_TOKEN_ID,
     EXPECTED_SPECIAL_TOKENS,
+    EXPECTED_SPECIAL_TOKEN_IDS,
     EXPECTED_TOKENIZER_VOCAB_SIZE,
+    TOKENIZER_SCHEMA_VERSION,
+    V2_1B_FRONTIER,
+    V2_3B,
     V2_MODEL,
     V2_REPORT_FILES,
+    resolve_model_profile,
 )
 from runtime.drive_session_manager import DriveSessionManager
 from runtime.safe_load import safe_torch_load
@@ -42,6 +50,10 @@ ensure_dirs()
 logger = logging.getLogger(__name__)
 
 DRIVE_SESSION_MANAGER = DriveSessionManager(DRIVE_DIR)
+
+
+class CheckpointCompatibilityError(RuntimeError):
+    """Raised when a checkpoint cannot satisfy the requested model contract."""
 
 
 def canonical_v2_checkpoint(kind: str = "brain") -> Path:
@@ -235,11 +247,13 @@ def load_or_build_v2_tokenizer(
     dataset_path = dataset_path or get_dataset_file()
     local = V3_TOKENIZER_FILE
     if local.exists():
+        _migrate_tokenizer_surface(local)
         tokenizer = SubwordTokenizer.load(local)
         assert_tokenizer_contract(local, tokenizer)
         return tokenizer
     restored = restore_v2_artifact("tokenizer")
     if restored and local.exists():
+        _migrate_tokenizer_surface(local)
         tokenizer = SubwordTokenizer.load(local)
         assert_tokenizer_contract(local, tokenizer)
         return tokenizer
@@ -260,6 +274,61 @@ def load_or_build_v2_tokenizer(
         flush=True,
     )
     return tokenizer
+
+
+def _migrate_tokenizer_surface(path: Path) -> bool:
+    """Append V3 controls at IDs 8192..8208 while preserving all legacy IDs."""
+    meta_path = path.with_suffix(path.suffix + ".meta.json")
+    try:
+        meta = json.loads(meta_path.read_text(encoding="utf-8"))
+        if meta.get("backend") != "fallback":
+            return False
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        id_to_token = list(payload["id_to_token"])
+        token_to_id = dict(payload["token_to_id"])
+    except Exception:
+        return False
+    current = {
+        token: token_to_id.get(token)
+        for token in EXPECTED_SPECIAL_TOKENS
+    }
+    if current == EXPECTED_SPECIAL_TOKEN_IDS:
+        return False
+    if len(id_to_token) < EXPECTED_TOKENIZER_VOCAB_SIZE:
+        return False
+    for token, expected_id in EXPECTED_SPECIAL_TOKEN_IDS.items():
+        if expected_id < 13:
+            if id_to_token[expected_id] != token:
+                raise AssertionError(
+                    f"Legacy tokenizer row {expected_id} is {id_to_token[expected_id]!r}, "
+                    f"expected {token!r}"
+                )
+            continue
+        previous = id_to_token[expected_id]
+        token_to_id.pop(previous, None)
+        id_to_token[expected_id] = token
+        token_to_id[token] = expected_id
+    migrated = {"token_to_id": token_to_id, "id_to_token": id_to_token}
+    temporary = path.with_suffix(path.suffix + ".migrating")
+    temporary.write_text(json.dumps(migrated, indent=2), encoding="utf-8")
+    temporary.replace(path)
+    meta.update(
+        {
+            "schema_version": TOKENIZER_SCHEMA_VERSION,
+            "vocab_size": EXPECTED_TOKENIZER_VOCAB_SIZE,
+            "special_tokens": EXPECTED_SPECIAL_TOKENS,
+            "special_token_ids": EXPECTED_SPECIAL_TOKEN_IDS,
+            "migration": {
+                "source_vocab_size": 8192,
+                "appended_rows": [8192, 8208],
+                "legacy_rows_preserved": True,
+            },
+        }
+    )
+    meta_tmp = meta_path.with_suffix(meta_path.suffix + ".tmp")
+    meta_tmp.write_text(json.dumps(meta, indent=2), encoding="utf-8")
+    meta_tmp.replace(meta_path)
+    return True
 
 
 def assert_tokenizer_contract(path: Path, tokenizer: SubwordTokenizer) -> None:
@@ -287,6 +356,33 @@ def assert_tokenizer_contract(path: Path, tokenizer: SubwordTokenizer) -> None:
             f"Tokenizer contract mismatch: pad_token_id={tokenizer.pad_token_id}, "
             f"expected={EXPECTED_PAD_TOKEN_ID} ({path})"
         )
+    token_to_id = getattr(tokenizer, "token_to_id", {})
+    missing = [
+        (expected_id, token)
+        for token, expected_id in EXPECTED_SPECIAL_TOKEN_IDS.items()
+        if token_to_id.get(token) != expected_id
+    ]
+    if missing:
+        raise AssertionError(f"Tokenizer special-token ID mismatch: {missing[:5]}")
+    digest = hashlib.sha256(path.read_bytes()).hexdigest()
+    manifest = {
+        "schema_version": TOKENIZER_SCHEMA_VERSION,
+        "vocab_size": tokenizer.vocab_size,
+        "pad_token_id": tokenizer.pad_token_id,
+        "special_tokens": list(EXPECTED_SPECIAL_TOKENS),
+        "special_token_ids": {
+            token: int(token_to_id[token]) for token in EXPECTED_SPECIAL_TOKENS
+        },
+        "tokenizer_path": str(path),
+        "tokenizer_sha256": digest,
+    }
+    TOKENIZER_MANIFEST.parent.mkdir(parents=True, exist_ok=True)
+    temporary = TOKENIZER_MANIFEST.with_suffix(".tmp")
+    temporary.write_text(
+        json.dumps(manifest, indent=2, sort_keys=True),
+        encoding="utf-8",
+    )
+    temporary.replace(TOKENIZER_MANIFEST)
 
 
 def assert_model_tokenizer_contract(model: CausalTransformerV2, tokenizer: SubwordTokenizer) -> None:
@@ -317,7 +413,7 @@ def _adapt_state_vocab_rows(
     model_state: dict[str, torch.Tensor],
     target_state: dict[str, torch.Tensor],
 ) -> dict[str, torch.Tensor]:
-    """Copy old embedding rows into a larger tokenizer contract without breaking checkpoints."""
+    """Expand tokenizer tensors while preserving legacy rows bit-for-bit."""
     adapted = dict(model_state)
     for key, old_weight in model_state.items():
         target_weight = target_state.get(key)
@@ -333,10 +429,60 @@ def _adapt_state_vocab_rows(
                 or key.endswith("lm_head.weight")
             )
         ):
-            new_weight = target_weight.detach().clone()
-            new_weight[: old_weight.shape[0]] = old_weight.to(device=new_weight.device, dtype=new_weight.dtype)
+            new_weight = torch.empty_like(target_weight)
+            legacy = old_weight.to(device=new_weight.device, dtype=new_weight.dtype)
+            new_weight[: old_weight.shape[0]] = legacy
+            appended_count = target_weight.shape[0] - old_weight.shape[0]
+            base = legacy[: min(13, legacy.shape[0])].float().mean(dim=0)
+            scale = legacy.float().std().clamp_min(1e-8) * 0.01
+            rows = torch.arange(
+                1,
+                appended_count + 1,
+                device=new_weight.device,
+                dtype=torch.float32,
+            ).unsqueeze(1)
+            columns = torch.arange(
+                1,
+                legacy.shape[1] + 1,
+                device=new_weight.device,
+                dtype=torch.float32,
+            ).unsqueeze(0)
+            offsets = torch.sin(rows * columns * 0.017453292519943295)
+            offsets = offsets - offsets.mean(dim=1, keepdim=True)
+            offsets = offsets / offsets.norm(dim=1, keepdim=True).clamp_min(1e-8)
+            appended = base.unsqueeze(0) + offsets * scale
+            new_weight[old_weight.shape[0] :] = appended.to(dtype=new_weight.dtype)
             adapted[key] = new_weight
     return adapted
+
+
+def migrate_checkpoint_state(
+    model_state: dict[str, torch.Tensor],
+    target_state: dict[str, torch.Tensor],
+) -> tuple[dict[str, torch.Tensor], dict[str, object]]:
+    """Apply versioned, deterministic state migrations before loading."""
+    migrated = _adapt_state_vocab_rows(model_state, target_state)
+    changes: list[str] = []
+    if "dstp_logits" in migrated and "residual_depth_logits" in target_state:
+        migrated["residual_depth_logits"] = migrated.pop("dstp_logits")
+        changes.append("dstp_logits->residual_depth_logits")
+    if "dstp_temperature_log" not in migrated and "dstp_temperature_log" in target_state:
+        migrated["dstp_temperature_log"] = target_state["dstp_temperature_log"].detach().clone()
+        changes.append("initialize_dstp_temperature_log")
+    report = {
+        "schema_version": CHECKPOINT_SCHEMA_VERSION,
+        "tokenizer_schema_version": TOKENIZER_SCHEMA_VERSION,
+        "changes": changes,
+        "source_vocab_size": _checkpoint_vocab_size(model_state),
+        "target_vocab_size": _checkpoint_vocab_size(target_state),
+        "vocabulary_initialization": "special-row-mean-plus-deterministic-sinusoid-v1",
+        "legacy_rows_preserved": True,
+    }
+    source_vocab = report["source_vocab_size"]
+    target_vocab = report["target_vocab_size"]
+    if isinstance(source_vocab, int) and isinstance(target_vocab, int):
+        report["appended_token_rows"] = max(0, target_vocab - source_vocab)
+    return migrated, report
 
 
 def _load_state_with_base_fallback(
@@ -346,35 +492,69 @@ def _load_state_with_base_fallback(
     strict: bool,
 ) -> None:
     try:
-        model.load_state_dict(_adapt_state_vocab_rows(model_state, model.state_dict()), strict=strict)
+        model.load_state_dict(model_state, strict=strict)
         return
     except RuntimeError as exc:
         base = getattr(model, "model", None)
         if base is None:
             raise exc
-        base.load_state_dict(_adapt_state_vocab_rows(model_state, base.state_dict()), strict=strict)
+        base_migrated, _ = migrate_checkpoint_state(model_state, base.state_dict())
+        base.load_state_dict(base_migrated, strict=strict)
+
+
+def _load_hal(config) -> object | None:
+    if not getattr(config, "use_hal", False):
+        return None
+    try:
+        from anra.anra_paths import DRIVE_LOGS, HAL_STATE_FILE
+        from identity.hal import HALModule
+
+        drive_path = DRIVE_LOGS / "hal_state.json"
+        path = drive_path if drive_path.exists() else HAL_STATE_FILE
+        return HALModule.load(str(path)) if path.exists() else HALModule()
+    except Exception as exc:
+        logger.warning("HAL initialization failed: %s", exc)
+        return None
+
+
+def build_model_from_config(config, *, hal_module=None, block_size: int | None = None) -> CausalTransformerV2:
+    if config.vocab_size != EXPECTED_TOKENIZER_VOCAB_SIZE:
+        raise AssertionError(
+            f"Canonical model vocab must be {EXPECTED_TOKENIZER_VOCAB_SIZE}, got {config.vocab_size}"
+        )
+    hal_module = _load_hal(config) if hal_module is None else hal_module
+    model = CausalTransformerV2(
+        vocab_size=config.vocab_size,
+        n_embd=config.n_embd,
+        n_head=config.n_head,
+        n_kv_head=config.n_kv_head,
+        n_layer=config.n_layer,
+        block_size=block_size or config.block_size,
+        rms_norm_eps=config.rms_norm_eps,
+        dropout=config.dropout,
+        mod_layers=set(config.mod_layers),
+        base_seq_len=config.base_seq_len,
+        target_seq_len=config.target_seq_len,
+        pad_token_id=config.pad_token_id,
+        use_layer_temperature_bias=True,
+        use_hal=config.use_hal,
+        hal_module=hal_module,
+        use_rim=True,
+        use_dstp=True,
+    )
+    if getattr(config, "gradient_checkpointing", config.n_layer >= 36):
+        model.gradient_checkpointing_enable()
+    model.disable_kv_cache()
+    return model
 
 
 def build_v2_model(*, vocab_size: int, block_size: int = V2_MODEL.block_size) -> CausalTransformerV2:
-    if vocab_size not in {V2_MODEL.vocab_size, EXPECTED_TOKENIZER_VOCAB_SIZE}:
+    if vocab_size != EXPECTED_TOKENIZER_VOCAB_SIZE:
         raise AssertionError(
             f"Model/tokenizer vocab mismatch at construction: vocab_size={vocab_size}, "
             f"expected one of {{{V2_MODEL.vocab_size}, {EXPECTED_TOKENIZER_VOCAB_SIZE}}}"
         )
-    return CausalTransformerV2(
-        vocab_size=vocab_size,
-        n_embd=V2_MODEL.n_embd,
-        n_head=V2_MODEL.n_head,
-        n_kv_head=V2_MODEL.n_kv_head,
-        n_layer=V2_MODEL.n_layer,
-        block_size=block_size,
-        rms_norm_eps=V2_MODEL.rms_norm_eps,
-        dropout=V2_MODEL.dropout,
-        mod_layers=set(V2_MODEL.mod_layers),
-        base_seq_len=V2_MODEL.base_seq_len,
-        target_seq_len=V2_MODEL.target_seq_len,
-        pad_token_id=V2_MODEL.pad_token_id,
-    )
+    return build_model_from_config(V2_MODEL, block_size=block_size)
 
 
 def build_frontier_model(
@@ -385,11 +565,7 @@ def build_frontier_model(
     Build the 1B frontier model from V2_1B_FRONTIER config.
     KV cache is disabled for training. HAL may be None.
     """
-    from training.v2_config import (
-        CANONICAL_VOCAB_SIZE,
-        EXPECTED_TOKENIZER_VOCAB_SIZE,
-        V2_1B_FRONTIER as cfg,
-    )
+    cfg = V2_1B_FRONTIER
 
     if cfg.vocab_size not in {EXPECTED_TOKENIZER_VOCAB_SIZE, CANONICAL_VOCAB_SIZE}:
         raise AssertionError(
@@ -397,40 +573,7 @@ def build_frontier_model(
             f"tokenizer={EXPECTED_TOKENIZER_VOCAB_SIZE}"
         )
 
-    if hal_module is None and cfg.use_hal:
-        try:
-            from anra.anra_paths import DRIVE_LOGS, HAL_STATE_FILE
-            from identity.hal import HALModule
-
-            _hal_drive_path = DRIVE_LOGS / "hal_state.json"
-            _hal_path = _hal_drive_path if _hal_drive_path.exists() else HAL_STATE_FILE
-            if _hal_path.exists():
-                hal_module = HALModule.load(str(_hal_path))
-                print(f"[build_frontier_model] HAL loaded from {_hal_path}")
-            else:
-                hal_module = HALModule()
-                print("[build_frontier_model] HAL initialized fresh")
-        except Exception as exc:
-            print(f"[build_frontier_model] HAL init failed: {exc}; continuing without HAL")
-            hal_module = None
-
-    model = CausalTransformerV2(
-        vocab_size=cfg.vocab_size,
-        n_embd=cfg.n_embd,
-        n_head=cfg.n_head,
-        n_kv_head=cfg.n_kv_head,
-        n_layer=cfg.n_layer,
-        block_size=cfg.block_size,
-        rms_norm_eps=cfg.rms_norm_eps,
-        dropout=cfg.dropout,
-        mod_layers=set(cfg.mod_layers),
-        base_seq_len=cfg.base_seq_len,
-        target_seq_len=cfg.target_seq_len,
-        pad_token_id=cfg.pad_token_id,
-        use_layer_temperature_bias=True,
-        use_hal=cfg.use_hal,
-        hal_module=hal_module,
-    )
+    model = build_model_from_config(cfg, hal_module=hal_module)
 
     if hasattr(model, "gradient_checkpointing_enable"):
         model.gradient_checkpointing_enable()
@@ -451,6 +594,15 @@ def build_frontier_model(
     print(f"  block_size={cfg.block_size}  vocab={cfg.vocab_size}")
     print(f"  HAL: {'enabled' if cfg.use_hal else 'disabled'}")
     return model
+
+
+def build_3b_model(*, hal_module=None) -> CausalTransformerV2:
+    return build_model_from_config(V2_3B, hal_module=hal_module)
+
+
+def build_model_for_profile(profile: str, *, hal_module=None, block_size: int | None = None):
+    config, _ = resolve_model_profile(profile)
+    return build_model_from_config(config, hal_module=hal_module, block_size=block_size)
 
 
 def load_checkpoint(
@@ -501,10 +653,12 @@ def load_checkpoint(
                     f"model.pad_token_id={model.pad_token_id} ({ckpt})"
                 )
     try:
-        _load_state_with_base_fallback(model, model_state, strict=strict)
-    except RuntimeError:
-        print("[v2_runtime] Architecture changed — starting fresh (old checkpoint incompatible)")
-        return state
+        migrated_state, migration = migrate_checkpoint_state(model_state, model.state_dict())
+        _load_state_with_base_fallback(model, migrated_state, strict=strict)
+    except RuntimeError as exc:
+        raise CheckpointCompatibilityError(
+            f"Checkpoint {ckpt} is incompatible with the requested model architecture."
+        ) from exc
     if isinstance(blob, dict):
         if optimizer is not None:
             try:
@@ -527,6 +681,7 @@ def load_checkpoint(
         state["epoch"] = int(blob.get("epoch", 0))
         state["best_loss"] = float(blob.get("best_loss", float("inf")))
     state["loaded"] = True
+    state["migration"] = migration
     return state
 
 

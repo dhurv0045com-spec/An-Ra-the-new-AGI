@@ -1,92 +1,87 @@
 # Contributing to AN-RA
 
-AN-RA is a sovereign AGI research platform. These guidelines keep it
-coherent as it grows.
+AN-RA grows by strengthening canonical owners, not by collecting alternate implementations.
 
 ## Setup
 
-```bash
-git clone https://github.com/your-org/An-Ra-the-new-AGI
-cd An-Ra-the-new-AGI
-make install
-make verify
-make test-fast
+```powershell
+pip install -e ".[dev]"
+python -m scripts.verify_structure
+python -m pytest tests -q
 ```
 
-For memory and ML extras (sentence-transformers, FAISS):
+Optional ML and memory dependencies may be installed through the project extras or `make install-ml` where supported.
 
-```bash
-make install-ml
-```
+## Before Editing
 
-## Before Every Commit
+For every behavioral change, identify:
 
-```bash
-make lint
-make typecheck
-make test
-```
+1. Canonical owner.
+2. Public interface and schemas.
+3. Caller and persisted state.
+4. Metric and evidence artifact.
+5. Typed failure and recovery behavior.
+6. Rollback and migration path.
+7. Tests.
+
+If the current abstraction is weak, improve it at its source and migrate callers.
 
 ## Architecture Rules
 
-**Registry pattern - mandatory for all new components.**
-Any model, memory tier, training algorithm, inference strategy, or identity
-module must be registered:
+- Use `anra/anra_paths.py` for repository and artifact paths.
+- Use package imports; never mutate `sys.path`.
+- Do not use wildcard imports.
+- Check feature flags at the real call site.
+- Do not silently downgrade, start fresh, or claim an unavailable backend.
+- Do not infer one metric from an unrelated report.
+- Keep checkpoints immutable after promotion.
+- Keep robotics in simulation/shadow mode unless a separate physical promotion exists.
+- Register T-01 through T-26 integrations in `runtime/technology_registry.py`.
+- Log meaningful architecture and contract changes.
 
-```python
-from anra.core.registry import MODEL_REGISTRY
+## Adding Capability
 
-@MODEL_REGISTRY.register("my_new_model")
-class MyNewModel(nn.Module): ...
+1. Extend the canonical owner.
+2. Add or update typed contracts.
+3. Persist evidence atomically.
+4. Add focused tests and integration reachability.
+5. Run the smallest relevant suite.
+6. Run the full suite before delivery.
+7. Update operator/developer documentation and the engineering log.
+
+## Verification
+
+```powershell
+python -m pytest tests -q
+python -m training.train_unified --mode status --model-size 3b
+git diff --check
 ```
 
-**No sys.path manipulation.**
-The project is installed with `pip install -e .`. All imports use package paths.
-Never add path mutation calls.
-
-**No bare imports.**
-Use full package paths:
-
-```python
-# WRONG
-from model import CausalTransformerV2
-
-# RIGHT
-from anra_brain import CausalTransformerV2
-from anra.core.model import CausalTransformerV2
-```
-
-**No wildcard imports.**
-`from X import *` is banned everywhere.
-
-## Adding a New Component
-
-1. Write the implementation in the appropriate module.
-2. Register it: `@REGISTRY.register("name")`.
-3. Write tests in `tests/test_<component>.py`.
-4. Add it to the research roadmap doc if it is a new research direction.
-5. Run `make test` to confirm nothing broke.
+A blocker list from the status command is valid evidence. Do not manufacture local artifacts to make it green.
 
 ## Research Vision Lock
 
 Every contribution must preserve:
 
-- Owner-shaped data as center of gravity
-- CIV, ESV, HAL, and sovereignty gates protecting identity
-- Verifier-backed tasks (not just narrated)
-- Memory, replay, and falsification as first-class mechanisms
-- Everything registered, switchable, measurable, and testable
+- owner-shaped data as the center of gravity;
+- CIV, ESV, HAL, SSG, and promotion boundaries;
+- verifier-backed checkable reasoning;
+- memory, replay, and falsification as compounding mechanisms;
+- measurable improvement before auto-application;
+- explicit distinction between implemented, measured, and promoted.
 
-See `docs/research/ANRA_BEST_RESEARCH_FOR_INTELLIGENCE_AND_EFFICIENCY.md`
-for the ranked technology roadmap.
+## Commit Messages
 
-## Commit Message Format
+```text
+type(scope): short description
+```
 
-    type(scope): short description
+Types: `feat`, `fix`, `test`, `docs`, `refactor`, `perf`, `chore`.
 
-    Types: feat, fix, test, docs, refactor, perf, chore
-    Examples:
-      feat(training): add DAPO variant to RLVRTrainer
-      fix(model): correct gradient checkpointing closure
-      test(memory): add router integration tests
-      docs(research): add SparseLoRA fit analysis
+Examples:
+
+```text
+feat(training): persist tokenizer migration provenance
+fix(promotion): verify manifests without creating a signing key
+test(memory): add deterministic fusion benchmark coverage
+```

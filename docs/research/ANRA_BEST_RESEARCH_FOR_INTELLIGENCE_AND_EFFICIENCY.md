@@ -2,6 +2,14 @@
 
 Date: 2026-06-08
 
+**Research context updated 2026-06-13:** this is a candidate-method map. A technique becomes part of AN-RA only through the standard candidate, evidence, promotion, and rollback lifecycle. The current canonical owners are listed in [`../ARCHITECTURE.md`](../ARCHITECTURE.md).
+
+Three labels should be used when reading the recommendations:
+
+- **Candidate:** technically plausible and worth an experiment.
+- **Measured:** tested against a named baseline with artifacts.
+- **Promoted:** passed protected capability, identity, safety, owner, and deployment gates.
+
 Purpose: identify the best research and technologies for making An-Ra more intelligent, faster, cheaper to train, and more efficient while preserving the original An-Ra vision: sovereign, owner-shaped, memory-rich, verifier-grounded intelligence.
 
 This is not a hype list. It is a fit analysis. A method is valuable only if it increases An-Ra's ability to run more verified learning loops, remember more faithfully, reason with fewer wasted tokens, train under constrained hardware, or preserve identity while improving.

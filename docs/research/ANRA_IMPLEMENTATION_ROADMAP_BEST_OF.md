@@ -2,6 +2,8 @@
 
 Date: 2026-06-08
 
+**Roadmap context updated 2026-06-13:** the status table below is a historical snapshot of the June 8 scaffold pass. Current architecture and priorities live in [`../ARCHITECTURE.md`](../ARCHITECTURE.md) and [`../planning/MASTER_GOALS.md`](../planning/MASTER_GOALS.md). Historical test counts are preserved as dated evidence, not current totals.
+
 This roadmap converts `ANRA_BEST_RESEARCH_FOR_INTELLIGENCE_AND_EFFICIENCY.md` into implementation-ready work. It keeps the An-Ra vision fixed: owner-shaped intelligence, verifier-grounded improvement, memory continuity, sovereignty gates, and measurable subsystem health.
 
 ## Operating Rule

@@ -9,6 +9,7 @@ Canonical exports:
 from __future__ import annotations
 
 from dataclasses import dataclass
+import math
 
 import torch
 import torch.nn as nn
@@ -29,10 +30,15 @@ class RMSNorm(nn.Module):
     def __init__(self, dim: int, eps: float = 1e-5):
         super().__init__()
         self.weight = nn.Parameter(torch.ones(dim))
+        self.register_buffer("multiplicity_weight", torch.ones(dim), persistent=True)
         self.eps = eps
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        scale = torch.rsqrt(x.pow(2).mean(dim=-1, keepdim=True) + self.eps)
+        mean_square = (x.pow(2) * self.multiplicity_weight).mean(
+            dim=-1,
+            keepdim=True,
+        )
+        scale = torch.rsqrt(mean_square + self.eps)
         return x * scale * self.weight
 
 
@@ -284,6 +290,11 @@ class CausalTransformerV2(nn.Module):
         self.use_dstp = bool(use_dstp)
         self.token_embedding_table = nn.Embedding(vocab_size, n_embd)
         self.token_embedding = self.token_embedding_table
+        self.register_buffer(
+            "embedding_input_scale",
+            torch.ones(n_embd),
+            persistent=True,
+        )
         self.blocks = nn.ModuleList([BlockV2(n_embd, n_head, n_kv_head=self.n_kv_head, eps=rms_norm_eps, dropout=dropout, base_seq_len=base_seq_len, target_seq_len=target_seq_len) for _ in range(n_layer)])
         self.mod_routers = nn.ModuleDict({str(i): MoDRouter(n_embd) for i in mod_layers})
         self.norm_f = RMSNorm(n_embd, eps=rms_norm_eps)
@@ -298,9 +309,18 @@ class CausalTransformerV2(nn.Module):
             if self.use_rim
             else []
         )
+        self.residual_depth_logits = nn.Parameter(torch.zeros(n_layer))
         if self.use_dstp:
-            initial_scales = torch.linspace(0.7, 1.0, steps=n_layer)
-            self.dstp_logits = nn.Parameter(torch.logit(initial_scales / 2.0))
+            layer = torch.arange(n_layer, dtype=torch.float32)
+            denom = max(1, n_layer - 1)
+            initial_temperatures = 0.65 + (1.35 - 0.65) * (
+                1.0 + torch.cos(math.pi * layer / denom)
+            ) / 2.0
+            self.register_buffer(
+                "dstp_temperature_log",
+                initial_temperatures.log(),
+                persistent=True,
+            )
         if self.use_hal:
             if hal_module is not None:
                 self.hal_module = hal_module
@@ -325,9 +345,12 @@ class CausalTransformerV2(nn.Module):
         return {"vocab_size": self.vocab_size, "pad_token_id": self.pad_token_id, "n_embd": self.n_embd, "n_head": self.n_head, "n_layer": self.n_layer, "block_size": self.block_size, "n_kv_head": self.n_kv_head, "base_seq_len": self.base_seq_len, "target_seq_len": self.target_seq_len, "use_layer_temperature_bias": self.use_layer_temperature_bias, "use_hal": self.use_hal, "use_rim": self.use_rim, "use_dstp": self.use_dstp}
 
     def _residual_scale(self, layer_idx: int) -> torch.Tensor | float:
+        return 2.0 * torch.sigmoid(self.residual_depth_logits[layer_idx])
+
+    def _dstp_temperature(self, layer_idx: int) -> torch.Tensor | float:
         if not self.use_dstp:
             return 1.0
-        return 2.0 * torch.sigmoid(self.dstp_logits[layer_idx])
+        return self.dstp_temperature_log[layer_idx].exp().clamp(0.25, 4.0)
 
     def enable_kv_cache(self) -> None:
         """Call before inference. Never call during training."""
@@ -371,6 +394,7 @@ class CausalTransformerV2(nn.Module):
                         attention_temperature = (
                             attention_temperature * self.layer_temperature_bias[i]
                         )
+                    attention_temperature = attention_temperature * self._dstp_temperature(i)
                     key = str(i)
                     mod_router = self.mod_routers[key] if key in self.mod_routers else None
                     x = block(
@@ -399,7 +423,7 @@ class CausalTransformerV2(nn.Module):
 
     def embed(self, idx: torch.Tensor) -> torch.Tensor:
         """Expose canonical token embedding for milestone reasoning wrappers."""
-        return self.token_embedding_table(idx)
+        return self.token_embedding_table(idx) * self.embedding_input_scale
 
     def run_all_layers(self, x: torch.Tensor) -> torch.Tensor:
         """Run residual stream with optional gradient checkpointing."""
@@ -443,6 +467,7 @@ class CausalTransformerV2(nn.Module):
                         at_ = esv_.attention_temperature_tensor(esv_state_)
                     if bias_ is not None:
                         at_ = at_ * bias_
+                    at_ = at_ * self._dstp_temperature(i)
                     return b_(
                         x_,
                         attention_temperature=at_,
@@ -465,6 +490,7 @@ class CausalTransformerV2(nn.Module):
                     attention_temperature = self.esv_module.attention_temperature_tensor(esv_state)
                 if self.use_layer_temperature_bias:
                     attention_temperature = attention_temperature * self.layer_temperature_bias[i]
+                attention_temperature = attention_temperature * self._dstp_temperature(i)
                 x = block(
                     x,
                     attention_temperature=attention_temperature,
@@ -472,8 +498,19 @@ class CausalTransformerV2(nn.Module):
                     residual_scale=self._residual_scale(i),
                 )
 
+        if not self.training and "esv_state" in locals():
+            self._pending_esv_state = esv_state.detach()
         x = self.norm_f(x)
         return x
+
+    @torch.no_grad()
+    def commit_pending_esv_state(self) -> bool:
+        state = getattr(self, "_pending_esv_state", None)
+        if state is None:
+            return False
+        self.esv_module.commit_state(state)
+        self._pending_esv_state = None
+        return True
 
     def forward(self, idx: torch.Tensor, targets: torch.Tensor | None = None):
         _, seq_len = idx.shape
@@ -500,6 +537,7 @@ class CausalTransformerV2(nn.Module):
         for _ in range(int(max_new_tokens)):
             idx_cond = idx[:, -self.block_size :]
             logits, _ = self(idx_cond)
+            self.commit_pending_esv_state()
             logits = logits[:, -1, :]
             if temperature <= 0:
                 next_id = torch.argmax(logits, dim=-1, keepdim=True)

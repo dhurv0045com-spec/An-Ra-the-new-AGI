@@ -126,6 +126,8 @@ class RLVRTrainer:
         self._consecutive_failures: int = 0
         self._last_effective_kl = self.kl_coeff
         self.last_step_report: dict[str, object] | None = None
+        self._detected_checkable_outputs = 0
+        self._routed_checkable_outputs = 0
 
     def sync_reference(self) -> None:
         """Refresh the KL anchor from the current policy."""
@@ -182,6 +184,23 @@ class RLVRTrainer:
         if overflow <= 0:
             return reward
         return reward - self.dapo_config.overlong_penalty * overflow
+
+    @staticmethod
+    def _is_checkable(task: RLVRTask) -> bool:
+        return task.task_type in {
+            "code",
+            "math",
+            "logic",
+            "date",
+            "measurement",
+            "instruction",
+            "file_state",
+            "constraint_json",
+            "qiskit",
+            "rdkit",
+            "verilog",
+            "citation_grounding",
+        }
 
     def _compute_logprobs(self, model_to_use, prompt: str, completion: str) -> torch.Tensor:
         """Sum log-probs for completion tokens given prompt."""
@@ -286,17 +305,27 @@ class RLVRTrainer:
         output_lengths = []
         verifier_results = []
         for c in completions:
-            vr = self.verifier.score(
-                task.task_type,
-                code=c,
-                test_code=task.test_code,
-                expression=c,
-                expected=task.expected,
-                response=c,
-                task=task.prompt,
-            )
+            if self._is_checkable(task):
+                self._detected_checkable_outputs += 1
+                vr = self.verifier.score(
+                    task.task_type,
+                    code=c,
+                    test_code=task.test_code,
+                    expression=c,
+                    expected=task.expected,
+                    response=c,
+                    task=task.prompt,
+                )
+                self._routed_checkable_outputs += 1
+            else:
+                from training.verifier import VerificationResult
+
+                vr = VerificationResult(0.0, 3, "unverifiable_neutral")
             verifier_results.append(vr)
-            reward = float(vr.score)
+            score = float(vr.score)
+            reward = 1.0 if score >= self.dapo_config.verifier_pass_threshold else (
+                -0.5 if self._is_checkable(task) else 0.0
+            )
             raw_rewards.append(reward)
             output_tokens = self._completion_token_count(c)
             output_lengths.append(output_tokens)
@@ -446,6 +475,10 @@ class RLVRTrainer:
             "reward_stats": step.reward_stats,
             "replay_additions": step.replay_additions,
             "dapo_config": step.dapo_config,
+            "detected_checkable_outputs": self._detected_checkable_outputs,
+            "routed_checkable_outputs": self._routed_checkable_outputs,
+            "truth_checking_coverage": self._routed_checkable_outputs
+            / max(1, self._detected_checkable_outputs),
         }
 
     def write_last_step_report(self, output_path=None) -> dict[str, object]:

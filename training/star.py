@@ -13,6 +13,8 @@ Chain format:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import hashlib
+import json
 import re
 
 try:
@@ -41,6 +43,8 @@ class STaRExample:
     score: float
     source: str
     weight: float = 1.0
+    verifier_evidence: tuple[dict[str, object], ...] = ()
+    evidence_hash: str = ""
 
     @property
     def rationale(self) -> str:
@@ -55,6 +59,7 @@ class STaRLoop:
     threshold: float = 0.9
     max_tokens: int = 512
     accepted: list[STaRExample] = field(default_factory=list)
+    quarantined: list[STaRExample] = field(default_factory=list)
 
     def _device(self) -> torch.device:
         if self.model is not None and hasattr(self.model, "parameters"):
@@ -102,6 +107,61 @@ class STaRLoop:
         match = re.match(r"^(?:final\s+answer|answer)\s*:\s*(.+)$", answer, flags=re.I | re.S)
         return match.group(1).strip() if match else answer
 
+    def _verify_intermediate_claims(
+        self,
+        chain: str,
+        *,
+        task_type: str,
+    ) -> tuple[bool, tuple[dict[str, object], ...]]:
+        claims: list[str] = []
+        if task_type == "math":
+            claims = re.findall(
+                r"(?<![<>=])\b[-+*/().0-9x ]+\s*=\s*[-+*/().0-9x ]+\b",
+                chain,
+            )
+        elif task_type in {"logic", "date", "measurement", "code"}:
+            claims = [
+                line.strip()
+                for line in chain.splitlines()
+                if any(
+                    marker in line.lower()
+                    for marker in ("therefore", "equals", "result:", "assert ")
+                )
+            ]
+        evidence: list[dict[str, object]] = []
+        for claim in claims:
+            if task_type == "math" and "=" in claim:
+                left, right = claim.split("=", 1)
+                result = self.verifier.score(
+                    "math",
+                    expression=left.strip(),
+                    expected=right.strip(),
+                )
+            else:
+                result = self.verifier.score(
+                    task_type,
+                    response=claim,
+                    expected=claim,
+                    code=claim,
+                    test_code="",
+                )
+            evidence.append(
+                {
+                    "verifier": task_type,
+                    "input": claim,
+                    "result": float(result.score),
+                    "confidence": float(result.score),
+                    "reason": str(result.reason),
+                }
+            )
+        return all(float(item["result"]) >= self.threshold for item in evidence), tuple(evidence)
+
+    @staticmethod
+    def _evidence_hash(evidence: tuple[dict[str, object], ...]) -> str:
+        return hashlib.sha256(
+            json.dumps(evidence, sort_keys=True).encode("utf-8")
+        ).hexdigest()
+
     def step(
         self,
         prompt: str,
@@ -124,6 +184,10 @@ class STaRLoop:
                 response=answer,
                 task=prompt,
             )
+            claims_ok, evidence = self._verify_intermediate_claims(
+                chain,
+                task_type=task_type,
+            )
             ex = STaRExample(
                 prompt=prompt,
                 chain=chain,
@@ -131,9 +195,11 @@ class STaRLoop:
                 score=float(vr.score),
                 source="direct",
                 weight=1.0,
+                verifier_evidence=evidence,
+                evidence_hash=self._evidence_hash(evidence),
             )
             results.append(ex)
-            if vr.score >= self.threshold:
+            if vr.score >= self.threshold and claims_ok:
                 self.accepted.append(ex)
                 found = True
 
@@ -150,12 +216,32 @@ class STaRLoop:
                 prompt=prompt,
                 chain=chain,
                 answer=correct_answer,
-                score=0.5,
+                score=0.0,
                 source="rationalization",
                 weight=0.5,
             )
             results.append(ex)
-            self.accepted.append(ex)
+            answer = self._extract_answer(chain)
+            vr = self.verifier.score(
+                task_type,
+                code=answer,
+                expression=answer,
+                expected=correct_answer,
+                response=answer,
+                task=prompt,
+            )
+            claims_ok, evidence = self._verify_intermediate_claims(
+                chain,
+                task_type=task_type,
+            )
+            ex.score = float(vr.score)
+            ex.verifier_evidence = evidence
+            ex.evidence_hash = self._evidence_hash(evidence)
+            if vr.score >= self.threshold and claims_ok:
+                ex.source = "verified_rationalization"
+                self.accepted.append(ex)
+            else:
+                self.quarantined.append(ex)
 
         return results
 
@@ -217,9 +303,23 @@ class STaRLoop:
                 "score": x.score,
                 "source": x.source,
                 "weight": x.weight,
+                "verifier_evidence": x.verifier_evidence,
+                "evidence_hash": x.evidence_hash,
             }
             for x in self.accepted
         ]
+
+    def report(self) -> dict[str, float | int]:
+        total = len(self.accepted) + len(self.quarantined)
+        verified = len(self.accepted)
+        return {
+            "generated": total,
+            "verified": verified,
+            "quarantined": len(self.quarantined),
+            "verification_rate": verified / total if total else 0.0,
+            "verification_required": True,
+            "accept_unverified": False,
+        }
 
     def generate(self, prompt: str, n: int = 4) -> list[str]:
         """Backward-compatible generation API."""

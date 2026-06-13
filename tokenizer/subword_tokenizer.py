@@ -86,6 +86,28 @@ class SubwordTokenizer:
         imports = cls._try_import_tokenizers()
         special_tokens = list(special_tokens or ["<pad>", "<unk>", "<bos>", "<eos>"])
         material = list(texts)
+        legacy_extension = (
+            vocab_size == 8209
+            and len(special_tokens) == 30
+            and special_tokens[:13]
+            == [
+                "<pad>",
+                "<unk>",
+                "<bos>",
+                "<eos>",
+                "<sep>",
+                "<code>",
+                "</code>",
+                "<think>",
+                "</think>",
+                "<goal>",
+                "<ESV:v>",
+                "<ESV:a>",
+                "<ESV:d>",
+            ]
+        )
+        trainer_specials = special_tokens[:13] if legacy_extension else special_tokens
+        trainer_vocab_size = 8192 if legacy_extension else vocab_size
 
         if imports is not None:
             Tokenizer, decoders, models, normalizers, pre_tokenizers, trainers = imports
@@ -94,11 +116,21 @@ class SubwordTokenizer:
             tokenizer.pre_tokenizer = pre_tokenizers.ByteLevel(add_prefix_space=False)
             tokenizer.decoder = decoders.ByteLevel()
             trainer = trainers.BpeTrainer(
-                vocab_size=vocab_size,
+                vocab_size=trainer_vocab_size,
                 min_frequency=min_frequency,
-                special_tokens=special_tokens,
+                special_tokens=trainer_specials,
             )
             tokenizer.train_from_iterator(material, trainer=trainer)
+            if legacy_extension:
+                current = tokenizer.get_vocab_size()
+                if current < 8192:
+                    tokenizer.add_tokens(
+                        [
+                            f"<reserved_{idx:05d}>"
+                            for idx in range(current, 8192)
+                        ]
+                    )
+                tokenizer.add_special_tokens(special_tokens[13:])
             current = tokenizer.get_vocab_size()
             if current < vocab_size:
                 tokenizer.add_tokens([f"<reserved_{idx:05d}>" for idx in range(current, vocab_size)])
@@ -110,7 +142,15 @@ class SubwordTokenizer:
                 backend="hf",
             )
 
-        vocab = cls._train_fallback_vocab(material, vocab_size=vocab_size, special_tokens=special_tokens)
+        vocab = cls._train_fallback_vocab(
+            material,
+            vocab_size=trainer_vocab_size,
+            special_tokens=trainer_specials,
+        )
+        if legacy_extension:
+            for token in special_tokens[13:]:
+                vocab["token_to_id"][token] = len(vocab["id_to_token"])
+                vocab["id_to_token"].append(token)
         return cls(
             vocab,
             vocab_size=len(vocab["id_to_token"]),

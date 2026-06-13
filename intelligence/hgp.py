@@ -53,6 +53,34 @@ class MissionTree:
             missing = set(node.dependencies) - ids
             if missing:
                 raise ValueError(f"Node {node.node_id} has missing dependencies: {missing}")
+            if node.retry_budget < 0:
+                raise ValueError(f"Node {node.node_id} has a negative retry budget.")
+            if any(not value.strip() for value in node.constraints):
+                raise ValueError(f"Node {node.node_id} has an empty constraint.")
+            if any(not value.strip() for value in node.expected_artifacts):
+                raise ValueError(f"Node {node.node_id} has an empty expected artifact.")
+        for leaf in leaves:
+            if not leaf.verification:
+                raise ValueError(f"Leaf {leaf.node_id} has no verification rule.")
+            if any(not rule.verifier.strip() or not rule.criterion.strip() for rule in leaf.verification):
+                raise ValueError(f"Leaf {leaf.node_id} has an invalid verification rule.")
+        graph = {node.node_id: set(node.dependencies) for node in nodes}
+        visiting: set[str] = set()
+        visited: set[str] = set()
+
+        def visit(node_id: str) -> None:
+            if node_id in visiting:
+                raise ValueError(f"Mission dependency cycle includes {node_id}.")
+            if node_id in visited:
+                return
+            visiting.add(node_id)
+            for dependency in graph[node_id]:
+                visit(dependency)
+            visiting.remove(node_id)
+            visited.add(node_id)
+
+        for node_id in graph:
+            visit(node_id)
 
     def to_dict(self) -> dict[str, object]:
         return {"goal": self.goal, "root": asdict(self.root), "success_criteria": self.success_criteria}

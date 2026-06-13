@@ -62,8 +62,8 @@ def test_star_extract_answer():
     assert s._extract_answer("no think tags\nanswer here") == "answer here"
 
 
-def test_star_rationalization_fires(monkeypatch: pytest.MonkeyPatch):
-    """When all attempts fail and correct_answer is given, rationalization runs."""
+def test_star_unverified_rationalization_is_quarantined(monkeypatch: pytest.MonkeyPatch):
+    """Known answers do not bypass verification for generated rationalizations."""
     from training.star import STaRLoop
 
     class _Tok:
@@ -87,4 +87,5 @@ def test_star_rationalization_fires(monkeypatch: pytest.MonkeyPatch):
 
     assert examples[-1].source == "rationalization"
     assert examples[-1].weight == 0.5
-    assert loop.accepted[-1].answer == "42"
+    assert not loop.accepted
+    assert loop.quarantined[-1].answer == "42"

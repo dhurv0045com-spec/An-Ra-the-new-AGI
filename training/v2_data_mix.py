@@ -14,6 +14,8 @@ from torch.utils.data import Dataset
 from anra.anra_paths import DRIVE_GHOST_DB, FAILURE_REPLAY_DATASET, GHOST_DB_LOCAL, OUTPUT_V2_DIR, get_dataset_file, get_identity_file, get_teacher_files
 from identity.civ import ConstitutionalIdentityVector
 from training.v2_config import IDENTITY_KEYWORDS, TEACHER_REJECT_PATTERNS, V2_1B_FRONTIER, V2_TRAINING
+from training.data_ledger import DataEntropyLedger, DataQuality
+from training.sadl import normalized_mix
 
 
 try:
@@ -52,6 +54,9 @@ class MixReport:
     teacher_external_used: int
     replay_available: int
     civ_rejected: int = 0
+    del_rejected: int = 0
+    duplicate_rejected: int = 0
+    active_weights: dict[str, float] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, object]:
         return asdict(self)
@@ -101,6 +106,92 @@ class CIVIdentityGate:
     def accept(self, prompt: str, answer: str) -> tuple[bool, float]:
         score = self.score(prompt, answer)
         return score >= self.min_score, score
+
+
+class TrainingDataMixController:
+    """Owns SADL base weights and bounded post-eval OGRS adjustments."""
+
+    def __init__(self, parameter_count: int) -> None:
+        self.parameter_count = int(parameter_count)
+        self.base = normalized_mix(max(1, self.parameter_count))
+        self.weights = dict(self.base)
+        self.annealing = False
+
+    def update_from_civ(self, civ_similarity: float) -> dict[str, float]:
+        score = float(civ_similarity)
+        if score < 0.85:
+            raise RuntimeError(
+                f"SOVEREIGNTY EVENT: CIV similarity {score:.3f} is below 0.85"
+            )
+        drift = max(0.0, 0.92 - score)
+        owner = min(0.80, self.base["owner"] + drift * 1.5)
+        identity = min(0.25, self.base["identity"] + drift)
+        remaining = max(0.0, 1.0 - owner - identity)
+        other_names = ("teacher", "symbolic", "replay")
+        other_total = sum(self.base[name] for name in other_names)
+        self.weights = {"owner": owner, "identity": identity}
+        self.weights.update(
+            {
+                name: remaining * self.base[name] / max(other_total, 1e-12)
+                for name in other_names
+            }
+        )
+        return dict(self.weights)
+
+    def enter_annealing_phase(self) -> dict[str, float]:
+        self.annealing = True
+        owner_identity = self.weights["owner"] + self.weights["identity"]
+        scale = 0.90 / max(owner_identity, 1e-12)
+        owner = min(0.80, self.weights["owner"] * scale)
+        identity = 0.90 - owner
+        remaining = 0.10
+        other_names = ("teacher", "symbolic", "replay")
+        other_total = sum(self.weights[name] for name in other_names)
+        self.weights = {"owner": owner, "identity": identity}
+        self.weights.update(
+            {
+                name: remaining * self.weights[name] / max(other_total, 1e-12)
+                for name in other_names
+            }
+        )
+        return dict(self.weights)
+
+
+def _quality_for_example(example: TrainingExample) -> DataQuality:
+    verified = bool(example.metadata.get("verified", example.bucket in {"own", "identity"}))
+    owner_related = example.bucket in {"own", "identity", "replay"}
+    return DataQuality(
+        difficulty_percentile=float(example.metadata.get("difficulty_percentile", 0.5)),
+        novelty=float(example.metadata.get("novelty", 0.75)),
+        provenance=float(example.metadata.get("provenance", 0.95 if owner_related else 0.75)),
+        verification=1.0 if verified else 0.55,
+        identity_relevance=0.9 if owner_related else 0.55,
+        license_score=float(example.metadata.get("license_score", 1.0)),
+    )
+
+
+def _deduplicate_and_filter(
+    examples: list[TrainingExample],
+    *,
+    ledger: DataEntropyLedger,
+) -> tuple[list[TrainingExample], int, int]:
+    accepted: list[TrainingExample] = []
+    seen: set[tuple[str, str]] = set()
+    del_rejected = 0
+    duplicate_rejected = 0
+    for example in examples:
+        key = (example.prompt.strip().lower(), example.answer.strip().lower())
+        if key in seen:
+            duplicate_rejected += 1
+            continue
+        seen.add(key)
+        keep, score = ledger.evaluate(_quality_for_example(example))
+        example.metadata = {**example.metadata, "del_score": round(score, 4)}
+        if not keep:
+            del_rejected += 1
+            continue
+        accepted.append(example)
+    return accepted, del_rejected, duplicate_rejected
 
 
 def parse_h_anra_pairs(text: str) -> list[tuple[str, str]]:
@@ -609,6 +700,8 @@ def build_v2_training_examples(
     teacher_ratio: float | None = None,
     symbolic_ratio: float | None = None,
     replay_ratio: float | None = None,
+    model_params: int = 0,
+    use_del: bool = True,
 ) -> tuple[list[TrainingExample], MixReport]:
     dataset_path = dataset_path or get_dataset_file()
     rng = random.Random(seed)
@@ -621,13 +714,50 @@ def build_v2_training_examples(
     symbolic_examples = _generate_symbolic_examples(style_filter)
     replay_examples = _load_replay_examples(style_filter)
     frontier_examples = _load_frontier_dfc_examples(dataset_path)
+    ledger = DataEntropyLedger()
+    all_buckets = [
+        base_examples,
+        identity_examples,
+        teacher_examples,
+        symbolic_examples,
+        replay_examples,
+        frontier_examples,
+    ]
+    del_rejected = 0
+    duplicate_rejected = 0
+    if use_del:
+        filtered = []
+        for bucket in all_buckets:
+            rows, rejected, duplicates = _deduplicate_and_filter(bucket, ledger=ledger)
+            filtered.append(rows)
+            del_rejected += rejected
+            duplicate_rejected += duplicates
+        (
+            base_examples,
+            identity_examples,
+            teacher_examples,
+            symbolic_examples,
+            replay_examples,
+            frontier_examples,
+        ) = filtered
 
     total_examples = min(max_examples or V2_TRAINING.max_mixture_examples, max(len(base_examples), 4000))
-    own_ratio = V2_TRAINING.own_ratio if own_ratio is None else own_ratio
-    identity_ratio = V2_TRAINING.identity_ratio if identity_ratio is None else identity_ratio
-    teacher_ratio = V2_TRAINING.teacher_ratio if teacher_ratio is None else teacher_ratio
-    symbolic_ratio = V2_TRAINING.symbolic_ratio if symbolic_ratio is None else symbolic_ratio
-    replay_ratio = V2_TRAINING.replay_ratio if replay_ratio is None else replay_ratio
+    controller = TrainingDataMixController(model_params or 904_535_040)
+    active = controller.weights
+    control_path = OUTPUT_V2_DIR / "v2_mix_control.json"
+    if control_path.exists():
+        try:
+            persisted = json.loads(control_path.read_text(encoding="utf-8"))
+            persisted_weights = persisted.get("weights", {})
+            if set(persisted_weights) == {"owner", "identity", "teacher", "symbolic", "replay"}:
+                active = {name: float(value) for name, value in persisted_weights.items()}
+        except Exception:
+            pass
+    own_ratio = active["owner"] if own_ratio is None else own_ratio
+    identity_ratio = active["identity"] if identity_ratio is None else identity_ratio
+    teacher_ratio = active["teacher"] if teacher_ratio is None else teacher_ratio
+    symbolic_ratio = active["symbolic"] if symbolic_ratio is None else symbolic_ratio
+    replay_ratio = active["replay"] if replay_ratio is None else replay_ratio
 
     ratio_total = own_ratio + identity_ratio + teacher_ratio + symbolic_ratio + replay_ratio
     if ratio_total <= 0:
@@ -690,6 +820,15 @@ def build_v2_training_examples(
         teacher_external_used=len(external_teacher_examples),
         replay_available=len(replay_examples),
         civ_rejected=civ_rejected,
+        del_rejected=del_rejected,
+        duplicate_rejected=duplicate_rejected,
+        active_weights={
+            "owner": own_ratio,
+            "identity": identity_ratio,
+            "teacher": teacher_ratio,
+            "symbolic": symbolic_ratio,
+            "replay": replay_ratio,
+        },
     )
     return mixed, report
 
@@ -703,51 +842,76 @@ class V2ConversationDataset(Dataset):
         *,
         answer_loss_weight: float,
     ):
-        self.examples = list(examples)
-        self.block_size = block_size
+        self.examples: list[TrainingExample] = []
+        self.tokenizer = tokenizer
+        self.block_size = int(block_size)
         self.answer_loss_weight = float(max(1.0, answer_loss_weight))
         self.pad_id = int(tokenizer.pad_token_id)
         self.bos_id = int(tokenizer.bos_token_id)
         self.eos_id = int(tokenizer.eos_token_id)
         self.samples: list[tuple[torch.Tensor, torch.Tensor, torch.Tensor, int]] = []
         self.bucket_counts: dict[str, int] = {}
-        weighted_targets = 0.0
+        self._known_examples: set[tuple[str, str, str]] = set()
+        self._weighted_targets = 0.0
+        self.answer_supervision_ratio = 0.0
+        self._append_examples(list(examples))
 
-        for example_idx, example in enumerate(self.examples):
-            prefix = f"H: {example.prompt}\nANRA:"
-            prefix_ids = tokenizer.encode(prefix, add_special_tokens=False)
-            answer_ids = tokenizer.encode(f" {example.answer}", add_special_tokens=False)
+    def _append_examples(self, examples: list[TrainingExample]) -> int:
+        weighted_targets = 0.0
+        added = 0
+        for example in examples:
+            key = (example.source, example.prompt, example.answer)
+            if key in self._known_examples:
+                continue
+            self._known_examples.add(key)
+            example_idx = len(self.examples)
+            self.examples.append(example)
+            added += 1
+            prefix_ids = self.tokenizer.encode(
+                f"H: {example.prompt}\nANRA:", add_special_tokens=False
+            )
+            answer_ids = self.tokenizer.encode(
+                f" {example.answer}", add_special_tokens=False
+            )
             full_ids = [self.bos_id, *prefix_ids, *answer_ids, self.eos_id]
             answer_start = 1 + len(prefix_ids)
             answer_end = answer_start + len(answer_ids)
-            stride = max(32, block_size // 2)
+            stride = max(32, self.block_size // 2)
             upper = max(1, len(full_ids) - 1)
 
             for start in range(0, upper, stride):
-                chunk = full_ids[start : start + block_size + 1]
+                chunk = full_ids[start : start + self.block_size + 1]
                 if len(chunk) < 8:
                     continue
-                if len(chunk) < block_size + 1:
-                    chunk = chunk + [self.pad_id] * (block_size + 1 - len(chunk))
-
-                x = torch.tensor(chunk[:block_size], dtype=torch.long)
-                y = torch.tensor(chunk[1 : block_size + 1], dtype=torch.long)
-                weights = torch.ones(block_size, dtype=torch.float32)
+                if len(chunk) < self.block_size + 1:
+                    chunk += [self.pad_id] * (self.block_size + 1 - len(chunk))
+                x = torch.tensor(chunk[: self.block_size], dtype=torch.long)
+                y = torch.tensor(chunk[1 : self.block_size + 1], dtype=torch.long)
+                weights = torch.ones(self.block_size, dtype=torch.float32)
                 target_start = start + 1
-                target_end = start + block_size + 1
+                target_end = start + self.block_size + 1
                 overlap_start = max(answer_start, target_start)
                 overlap_end = min(answer_end, target_end)
                 if overlap_end > overlap_start:
-                    weights[overlap_start - target_start : overlap_end - target_start] = (
-                        self.answer_loss_weight * float(getattr(example, "weight", 1.0))
-                    )
+                    weights[
+                        overlap_start - target_start : overlap_end - target_start
+                    ] = self.answer_loss_weight * float(example.weight)
                     weighted_targets += overlap_end - overlap_start
-
                 self.samples.append((x, y, weights, example_idx))
-                self.bucket_counts[example.bucket] = self.bucket_counts.get(example.bucket, 0) + 1
+                self.bucket_counts[example.bucket] = (
+                    self.bucket_counts.get(example.bucket, 0) + 1
+                )
 
-        total_targets = max(1, len(self.samples) * block_size)
-        self.answer_supervision_ratio = weighted_targets / total_targets
+        self._weighted_targets += weighted_targets
+        total_targets = max(1, len(self.samples) * self.block_size)
+        self.answer_supervision_ratio = self._weighted_targets / total_targets
+        return added
+
+    def reload_replay_bucket(self) -> int:
+        return self._append_examples(_load_replay_examples(IdentityStyleFilter()))
+
+    def bucket_for_sample(self, example_index: int) -> str:
+        return self.examples[int(example_index)].bucket
 
     def __len__(self) -> int:
         return len(self.samples)

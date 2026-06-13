@@ -11,6 +11,10 @@ import sys
 from pathlib import Path
 from typing import Any, Callable
 
+from anra.anra_paths import DATA_MANIFEST_DIR, TOKEN_INVENTORY_MANIFEST
+from training.data_ledger import DataQuality
+from training.data_pipeline_v3 import SourceRecord, TokenShardPublisher
+
 
 TRAINING_DATA_DIR = Path("training_data")
 
@@ -388,6 +392,72 @@ def print_summary() -> None:
     print(f"    identity data    → identity   0.10 (10%)")
 
 
+def publish_fineweb_token_shards() -> dict[str, Any]:
+    fineweb_path = TRAINING_DATA_DIR / "fineweb_edu.txt"
+    if not fineweb_path.exists():
+        raise FileNotFoundError(
+            "FineWeb-Edu must be downloaded before token-shard publication."
+        )
+    from training.v2_runtime import load_or_build_v2_tokenizer
+
+    tokenizer = load_or_build_v2_tokenizer(
+        dataset_path=TRAINING_DATA_DIR / "anra_training.txt"
+    )
+    revision_dir = DATA_MANIFEST_DIR / "fineweb_edu_v3"
+
+    def records():
+        with fineweb_path.open("r", encoding="utf-8", errors="replace") as stream:
+            buffer: list[str] = []
+            for line in stream:
+                if line.strip():
+                    buffer.append(line.strip())
+                    continue
+                if buffer:
+                    yield SourceRecord(
+                        text="\n".join(buffer),
+                        source="FineWeb-Edu",
+                        license="ODC-By",
+                        bucket="foundation",
+                        quality=DataQuality(0.5, 0.8, 0.9, 0.6, 0.2, 1.0),
+                        source_revision="HuggingFaceFW/fineweb-edu:sample-10BT",
+                    )
+                    buffer = []
+            if buffer:
+                yield SourceRecord(
+                    text="\n".join(buffer),
+                    source="FineWeb-Edu",
+                    license="ODC-By",
+                    bucket="foundation",
+                    quality=DataQuality(0.5, 0.8, 0.9, 0.6, 0.2, 1.0),
+                    source_revision="HuggingFaceFW/fineweb-edu:sample-10BT",
+                )
+
+    manifest = TokenShardPublisher(
+        revision_dir,
+        tokenizer_version="v3",
+    ).publish(records(), tokenizer)
+    inventory = {
+        "schema_version": 3,
+        "licensed_tokens": int(manifest["total_tokens"]),
+        "sources": [
+            {
+                "name": "FineWeb-Edu",
+                "revision": "HuggingFaceFW/fineweb-edu:sample-10BT",
+                "license": "ODC-By",
+                "manifest": str(revision_dir / "manifest.json"),
+            }
+        ],
+    }
+    TOKEN_INVENTORY_MANIFEST.parent.mkdir(parents=True, exist_ok=True)
+    temporary = TOKEN_INVENTORY_MANIFEST.with_suffix(".tmp")
+    temporary.write_text(
+        json.dumps(inventory, indent=2, sort_keys=True),
+        encoding="utf-8",
+    )
+    temporary.replace(TOKEN_INVENTORY_MANIFEST)
+    return inventory
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Download An-Ra training data buckets.")
     parser.add_argument(
@@ -396,6 +466,11 @@ def parse_args() -> argparse.Namespace:
         help="Download only one bucket. Omit to build all buckets.",
     )
     parser.add_argument("--dry-run", action="store_true", help="Show planned work without downloading.")
+    parser.add_argument(
+        "--publish-token-shards",
+        action="store_true",
+        help="Publish immutable 10M-token uint16 FineWeb-Edu shards after download.",
+    )
     return parser.parse_args()
 
 
@@ -423,6 +498,10 @@ def main() -> int:
             download_reasoning(load_dataset, dry_run=args.dry_run)
         elif bucket == "science":
             download_science(load_dataset, dry_run=args.dry_run)
+
+    if args.publish_token_shards and not args.dry_run:
+        inventory = publish_fineweb_token_shards()
+        print(f"Published licensed token inventory: {inventory['licensed_tokens']:,}")
 
     print_summary()
     return 0

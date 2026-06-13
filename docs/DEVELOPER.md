@@ -1,5 +1,7 @@
 # An-Ra Developer Guide
 
+> **Current contract (2026-06-13):** canonical lifecycles live in the ownership map below. Older phase adapters are compatibility surfaces, not permission to create a second implementation.
+
 ## Quick Start
 
 ```bash
@@ -13,11 +15,14 @@ pip install -e ".[dev]"
 python -m scripts.verify_structure
 python -m pytest tests/ -m "not gpu" -q
 
-# 3. Train (tiny config, 100 steps, CPU)
-python -m scripts.train --config config/tiny.yaml --max_steps 100 --device cpu
+# 3. Exercise the integrated training spine
+python -m training.train_unified --mode session --model-size 25m --max-steps 2
 
-# 4. Serve
-PYTHONPATH=. uvicorn app:app --reload --port 8000
+# 4. Inspect real 3B blockers
+python -m training.train_unified --mode status --model-size 3b
+
+# 5. Serve
+uvicorn app:app --reload --port 8000
 curl http://localhost:8000/health
 ```
 
@@ -32,6 +37,24 @@ For humans and coding agents. An-Ra is ~70k lines of intentional systems — rea
 ---
 
 ## Spine (do not reimplement)
+
+The decisive lifecycle owners are:
+
+| Need | Canonical owner |
+|------|-----------------|
+| Campaign | `training/train_unified.py` |
+| Training execution | `scripts/build_brain.py` |
+| Model and checkpoints | `training/v2_runtime.py` |
+| Data mix and replay | `training/v2_data_mix.py` |
+| Model growth | `training/csii.py` |
+| Evaluation | `evaluation/ibs.py` |
+| Promotion and rollback | `evaluation/promotion.py` |
+| Scale authorization | `training/ssg.py` |
+| Agent lifecycle | `engine/agent_loop.py` |
+| Robotics workflow | `robotics/workflow.py` |
+| Persistent service | `app.py` |
+
+Compatibility packages may re-export these owners, but they do not own lifecycle behavior.
 
 | Need | Module |
 |------|--------|
@@ -92,7 +115,7 @@ Adding tools: register in `register_all_tools()`, add dispatcher keywords, add t
 | Agent | `phase2/agent_loop_45k/agent_main.py`, `builtin.py`, `planner.py` |
 | Master | `phase2/master_system_45m/system.py` |
 | Model | `anra_brain.py`, `training/v2_runtime.py` |
-| Train | `scripts/train.py` (local), `training/train_unified.py` (Colab/Drive) |
+| Train | `training/train_unified.py`, then `scripts/build_brain.py` |
 | Verify | `phase3/symbolic_bridge_45q/` |
 | Govern | `phase3/sovereignty_45r/`, `self_modification/` |
 
