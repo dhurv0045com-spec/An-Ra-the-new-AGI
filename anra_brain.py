@@ -288,6 +288,8 @@ class CausalTransformerV2(nn.Module):
         self.use_hal = bool(use_hal)
         self.use_rim = bool(use_rim)
         self.use_dstp = bool(use_dstp)
+        self.cognitive_extension = None
+        self._last_cognitive_evidence: list[dict[str, torch.Tensor]] = []
         self.token_embedding_table = nn.Embedding(vocab_size, n_embd)
         self.token_embedding = self.token_embedding_table
         self.register_buffer(
@@ -425,8 +427,59 @@ class CausalTransformerV2(nn.Module):
         """Expose canonical token embedding for milestone reasoning wrappers."""
         return self.token_embedding_table(idx) * self.embedding_input_scale
 
-    def run_all_layers(self, x: torch.Tensor) -> torch.Tensor:
+    def attach_cognitive_extension(self, extension: nn.Module) -> None:
+        """Attach a separately counted cognitive extension to the base model."""
+        extension_width = int(getattr(extension, "d_model", -1))
+        if extension_width != self.n_embd:
+            raise ValueError(
+                f"cognitive extension width {extension_width} != model width {self.n_embd}"
+            )
+        self.cognitive_extension = extension
+
+    def detach_cognitive_extension(self) -> nn.Module | None:
+        extension = self.cognitive_extension
+        self.cognitive_extension = None
+        self._last_cognitive_evidence = []
+        return extension
+
+    def base_parameter_count(self) -> int:
+        """Count transformer parameters without separately packaged extensions."""
+        return sum(
+            parameter.numel()
+            for name, parameter in self.named_parameters()
+            if not name.startswith("cognitive_extension.")
+        )
+
+    def cognitive_parameter_count(self) -> int:
+        extension = self.cognitive_extension
+        return 0 if extension is None else sum(p.numel() for p in extension.parameters())
+
+    def _apply_cognitive_extension(
+        self,
+        x: torch.Tensor,
+        layer_index: int,
+        attention_mask: torch.Tensor | None,
+    ) -> torch.Tensor:
+        extension = self.cognitive_extension
+        if extension is None:
+            return x
+        x, evidence = extension.apply_layer(
+            x,
+            layer_index,
+            attention_mask=attention_mask,
+        )
+        if evidence:
+            self._last_cognitive_evidence.append(evidence)
+        return x
+
+    def run_all_layers(
+        self,
+        x: torch.Tensor,
+        *,
+        attention_mask: torch.Tensor | None = None,
+    ) -> torch.Tensor:
         """Run residual stream with optional gradient checkpointing."""
+        self._last_cognitive_evidence = []
         for i, block in enumerate(self.blocks):
             key = str(i)
             mod_router = self.mod_routers[key] if key in self.mod_routers else None
@@ -497,6 +550,7 @@ class CausalTransformerV2(nn.Module):
                     mod_router=mod_router,
                     residual_scale=self._residual_scale(i),
                 )
+            x = self._apply_cognitive_extension(x, i, attention_mask)
 
         if not self.training and "esv_state" in locals():
             self._pending_esv_state = esv_state.detach()
@@ -523,6 +577,29 @@ class CausalTransformerV2(nn.Module):
             bsz, time_steps, channels = logits.shape
             loss = F.cross_entropy(logits.view(bsz * time_steps, channels), targets.view(bsz * time_steps), ignore_index=self.pad_token_id)
         return logits, loss
+
+    def forward_cognitive(
+        self,
+        idx: torch.Tensor,
+        targets: torch.Tensor | None = None,
+        *,
+        attention_mask: torch.Tensor | None = None,
+    ):
+        """Forward with typed extension evidence while preserving ``forward``."""
+        _, seq_len = idx.shape
+        if seq_len > self.block_size:
+            raise ValueError(f"sequence length {seq_len} exceeds block size {self.block_size}")
+        x = self.run_all_layers(self.embed(idx), attention_mask=attention_mask)
+        logits = self.lm_head(x)
+        loss = None
+        if targets is not None:
+            bsz, time_steps, channels = logits.shape
+            loss = F.cross_entropy(
+                logits.view(bsz * time_steps, channels),
+                targets.view(bsz * time_steps),
+                ignore_index=self.pad_token_id,
+            )
+        return logits, loss, tuple(self._last_cognitive_evidence)
 
     @torch.no_grad()
     def generate(

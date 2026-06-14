@@ -250,4 +250,21 @@
 
 ---
 
+## 2026-06-14 - ADD - `cognition` - Cognitive extension and T4 readiness
+
+| Field | Value |
+|-------|-------|
+| **Date** | 2026-06-14 |
+| **Author** | codex |
+| **Component** | `cognition`, `training`, `evaluation`, `service` |
+| **Type** | ADD |
+| **Summary** | Added C-01 through C-07 facade, exact zero-gated causal extension, consent/encrypted owner model, causal corpus/trainer, AGI evidence schemas, T4 preflight, Colab bootstrap, APIs and docs |
+| **Files** | `cognition/*`, `data/causal_corpus.py`, `training/preflight.py`, `training/causal_trainer.py`, `evaluation/agi_benchmarks.py`, `app.py` |
+| **Metrics** | Exact corpus total 7,500; unsupported frontier/3B T4 launches blocked before allocation |
+| **Verification** | `pytest tests/test_cognitive_architecture.py`; full suite |
+| **Risk** | medium |
+| **Follow-up** | Run signed 25M Colab campaign and collect A-01/A-02 evidence |
+
+---
+
 *Append new entries above this line. Do not delete history without owner approval.*

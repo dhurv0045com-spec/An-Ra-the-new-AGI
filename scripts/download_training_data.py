@@ -17,6 +17,14 @@ from training.data_pipeline_v3 import SourceRecord, TokenShardPublisher
 
 
 TRAINING_DATA_DIR = Path("training_data")
+DOWNLOAD_STATUS = DATA_MANIFEST_DIR / "download_status.json"
+
+
+class SourceDownloadFailure(RuntimeError):
+    def __init__(self, source: str, message: str) -> None:
+        super().__init__(f"{source}: {message}")
+        self.source = source
+        self.message = message
 
 
 def load_datasets_import(dry_run: bool = False) -> Callable[..., Any] | None:
@@ -385,11 +393,11 @@ def print_summary() -> None:
             print(f"  {fname:<30} MISSING")
     print(f"\n  TOTAL: {total_gb:.2f} GB")
     print(f"  Estimated tokens: ~{int(total_gb * 250_000):,}")
-    print(f"\n  Recommended data mix in training:")
-    print(f"    base_corpus.txt  → own_ratio  0.55 (55%)")
-    print(f"    reasoning.jsonl  → teacher    0.25 (25%)")
-    print(f"    frontier_dfc     → science    0.10 (10%)")
-    print(f"    identity data    → identity   0.10 (10%)")
+    print("\n  Recommended data mix in training:")
+    print("    base_corpus.txt  -> own_ratio  0.55 (55%)")
+    print("    reasoning.jsonl  -> teacher    0.25 (25%)")
+    print("    frontier_dfc     -> science    0.10 (10%)")
+    print("    identity data    -> identity   0.10 (10%)")
 
 
 def publish_fineweb_token_shards() -> dict[str, Any]:
@@ -491,19 +499,41 @@ def main() -> int:
         print("Mode: dry run")
     print()
 
+    results: list[dict[str, Any]] = []
     for bucket in buckets:
         if bucket == "base":
-            download_base(load_dataset, dry_run=args.dry_run)
+            results.append(download_base(load_dataset, dry_run=args.dry_run))
         elif bucket == "reasoning":
-            download_reasoning(load_dataset, dry_run=args.dry_run)
+            results.append(download_reasoning(load_dataset, dry_run=args.dry_run))
         elif bucket == "science":
-            download_science(load_dataset, dry_run=args.dry_run)
+            results.append(download_science(load_dataset, dry_run=args.dry_run))
 
     if args.publish_token_shards and not args.dry_run:
         inventory = publish_fineweb_token_shards()
         print(f"Published licensed token inventory: {inventory['licensed_tokens']:,}")
 
     print_summary()
+    failures = [
+        SourceDownloadFailure(result["bucket"], str(error))
+        for result in results
+        for error in result.get("errors", [])
+    ]
+    status = {
+        "schema_version": 1,
+        "status": "dry_run" if args.dry_run else "incomplete" if failures else "complete",
+        "buckets": results,
+        "failures": [
+            {"source": failure.source, "message": failure.message}
+            for failure in failures
+        ],
+    }
+    DOWNLOAD_STATUS.parent.mkdir(parents=True, exist_ok=True)
+    temporary = DOWNLOAD_STATUS.with_suffix(".tmp")
+    temporary.write_text(json.dumps(status, indent=2, sort_keys=True), encoding="utf-8")
+    temporary.replace(DOWNLOAD_STATUS)
+    if failures:
+        print(f"INCOMPLETE INVENTORY: {len(failures)} source failure(s). See {DOWNLOAD_STATUS}")
+        return 2
     return 0
 
 

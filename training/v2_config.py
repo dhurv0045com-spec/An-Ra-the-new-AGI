@@ -232,6 +232,7 @@ V2_REPORT_FILES = {
     "memory_benchmark": "memory_benchmark.json",
     "cdr_report": "cdr_report.json",
     "growth_report": "model_growth_3b.json",
+    "causal_extension": "cognition/causal_extension_training.json",
     "mix_control": "v2_mix_control.json",
 }
 

@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import heapq
 import json
 import math
 import os
 import shutil
 import signal
+import subprocess
 import sys
 import threading
 import time
@@ -91,6 +93,138 @@ EMERGENCY_SAVE_TIMEOUT_SECONDS = 20.0
 _SAVE_COMPONENT_ORDER = ("model", "optimizer", "scheduler", "scaler")
 
 
+def build_causal_extension_trainer(
+    model: torch.nn.Module,
+    *,
+    total_steps: int,
+    warmup_steps: int,
+    optimizer_name: str = "auto",
+):
+    """Canonical build-brain integration point for extension-only causal training."""
+    from cognition.cre import CognitiveCausalExtension
+    from training.causal_trainer import CausalExtensionTrainer
+
+    layer_count = int(getattr(model, "n_layer"))
+    integration_layers = tuple(
+        sorted({0, max(0, layer_count // 2), max(0, layer_count - 1)})
+    )
+    extension = CognitiveCausalExtension(
+        int(getattr(model, "n_embd")),
+        integration_layers=integration_layers,
+    ).to(next(model.parameters()).device)
+    model.attach_cognitive_extension(extension)
+    trainer = CausalExtensionTrainer(
+        model,
+        extension,
+        total_steps=total_steps,
+        warmup_steps=warmup_steps,
+        cdr_path=str(FAILURE_REPLAY_DATASET),
+        optimizer_name=optimizer_name,
+    )
+    return extension, trainer
+
+
+def train_causal_extension(
+    *,
+    data_path: str,
+    base_checkpoint: str,
+    output_path: str,
+    model_size: str,
+    batch_size: int,
+    block_size: int,
+    max_minutes: int,
+    optimizer_name: str,
+) -> dict[str, object]:
+    from cognition.checkpoint import save_cognitive_extension
+    from training.causal_trainer import CausalCorpusDataset
+
+    corpus_path = Path(data_path)
+    if not corpus_path.exists():
+        raise FileNotFoundError(
+            f"Causal corpus is missing: {corpus_path}. Run python -m data.causal_corpus."
+        )
+    tokenizer = load_or_build_v2_tokenizer(
+        dataset_path=ROOT / "training_data" / "anra_training.txt"
+    )
+    if model_size in {"1b", "frontier", "904m"}:
+        model = build_frontier_model()
+    elif model_size == "3b":
+        model = build_3b_model()
+    else:
+        model = build_v2_model(vocab_size=tokenizer.vocab_size, block_size=block_size)
+    checkpoint = _resolve_checkpoint_path(base_checkpoint)
+    if checkpoint.exists():
+        load_checkpoint(
+            model,
+            None,
+            None,
+            None,
+            checkpoint,
+            device=torch.device("cpu"),
+            strict=False,
+        )
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model = model.to(device)
+    extension, trainer = build_causal_extension_trainer(
+        model,
+        total_steps=50_000,
+        warmup_steps=100,
+        optimizer_name=optimizer_name,
+    )
+    dataset = CausalCorpusDataset(
+        corpus_path,
+        tokenizer,
+        block_size,
+        extension.rank,
+    )
+    loader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
+    deadline = time.time() + max_minutes * 60
+    steps = 0
+    latest: dict[str, float] = {}
+    while time.time() < deadline:
+        for batch in loader:
+            input_ids = batch.pop("input_ids").to(device)
+            target_ids = batch.pop("target_ids").to(device)
+            attention_mask = batch.pop("attention_mask").to(device)
+            labels = {name: value.to(device) for name, value in batch.items()}
+            latest = trainer.step(
+                input_ids,
+                target_ids,
+                labels,
+                attention_mask=attention_mask,
+            )
+            steps += 1
+            if time.time() >= deadline:
+                break
+    base_hash = (
+        hashlib.sha256(checkpoint.read_bytes()).hexdigest()
+        if checkpoint.exists()
+        else "uninitialized-base"
+    )
+    tokenizer_hash = hashlib.sha256(V2_TOKENIZER_FILE.read_bytes()).hexdigest()
+    try:
+        source_commit = subprocess.check_output(
+            ["git", "rev-parse", "HEAD"],
+            cwd=ROOT,
+            text=True,
+            stderr=subprocess.DEVNULL,
+        ).strip()
+    except (OSError, subprocess.CalledProcessError):
+        source_commit = "unknown"
+    manifest = save_cognitive_extension(
+        extension,
+        output_path,
+        base_checkpoint_hash=base_hash,
+        tokenizer_hash=tokenizer_hash,
+        source_commit=source_commit,
+        release="cognition-v1",
+        training_state=trainer.state_dict(),
+    )
+    report = {"steps": steps, "metrics": latest, "manifest": manifest}
+    write_json(v2_report_path("causal_extension"), report)
+    return report
+
+
 def _utc_iso(ts: float | None = None) -> str:
     return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(time.time() if ts is None else ts))
 
@@ -116,6 +250,20 @@ def _build_checkpoint_payload(
     mix_report: object,
     migration: dict[str, object] | None = None,
 ) -> dict[str, object]:
+    try:
+        source_commit = subprocess.check_output(
+            ["git", "rev-parse", "HEAD"],
+            cwd=ROOT,
+            text=True,
+            stderr=subprocess.DEVNULL,
+        ).strip()
+    except (OSError, subprocess.CalledProcessError):
+        source_commit = "unknown"
+    data_manifests = {}
+    manifest_root = ROOT / "output" / "v2" / "data_manifests"
+    if manifest_root.exists():
+        for path in sorted(manifest_root.glob("*.json")):
+            data_manifests[path.name] = hashlib.sha256(path.read_bytes()).hexdigest()
     return {
         "checkpoint_schema_version": CHECKPOINT_SCHEMA_VERSION,
         "tokenizer_schema_version": TOKENIZER_SCHEMA_VERSION,
@@ -135,6 +283,19 @@ def _build_checkpoint_payload(
         "sessions_completed": sessions_completed,
         "model_config": model.model_config(),
         "mix_report": mix_report.to_dict(),
+        "rng_states": {
+            "torch": torch.get_rng_state(),
+            "cuda": torch.cuda.get_rng_state_all() if torch.cuda.is_available() else [],
+        },
+        "source_commit": source_commit,
+        "dataset_manifest_hashes": data_manifests,
+        "cognitive_extension_release": "cognition-v1",
+        "consent_safe_metadata": {
+            "owner_derived_data_authorized": bool(
+                os.environ.get("ANRA_OWNER_DATA_AUTHORIZED", "").lower()
+                in {"1", "true", "yes"}
+            )
+        },
     }
 
 
@@ -1163,7 +1324,29 @@ def main() -> None:
     parser.add_argument("--symbolic_ratio", type=float, default=None)
     parser.add_argument("--replay_ratio", type=float, default=None)
     parser.add_argument("--optimizer", choices=["auto", "adamw", "muon", "scale", "galore"], default="auto")
+    parser.add_argument(
+        "--training-objective",
+        choices=["base", "causal-extension"],
+        default="base",
+    )
+    parser.add_argument(
+        "--cognitive-output",
+        default=str(ROOT / "output" / "v2" / "cognition" / "causal_extension.pt"),
+    )
     args = parser.parse_args()
+    if args.training_objective == "causal-extension":
+        result = train_causal_extension(
+            data_path=args.data_path,
+            base_checkpoint=args.checkpoint_path,
+            output_path=args.cognitive_output,
+            model_size=args.model_size,
+            batch_size=args.batch_size,
+            block_size=args.block_size,
+            max_minutes=args.max_minutes,
+            optimizer_name=args.optimizer,
+        )
+        print(result, flush=True)
+        return
     result = train_anra_v2(
         data_path=args.data_path,
         checkpoint_path=args.checkpoint_path,

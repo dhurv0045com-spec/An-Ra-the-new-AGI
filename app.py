@@ -12,6 +12,7 @@ import time
 import traceback
 import uuid
 from contextlib import asynccontextmanager
+from dataclasses import asdict
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List
@@ -52,6 +53,7 @@ from intelligence.hgp import MissionNode, MissionTree
 from goals.goal_queue import GoalQueue
 from robotics.contracts import SkillGoal, Workflow
 from runtime.hal_telemetry import read_hal_state
+from cognition.services import CognitionServices
 
 START_TIME = time.time()
 _COLAB_DRIVE = DRIVE_SESSIONS
@@ -230,6 +232,7 @@ ADAPTER = ModelAdapter()
 SYSTEM_GRAPH: Dict[str, Any] = {}
 _ctx_optimizer = ContextWindowOptimizer()
 GOAL_QUEUE = GoalQueue(STATE_DIR / "goal_queue.json")
+COGNITION = CognitionServices()
 
 
 def _configured_owner_token() -> str:
@@ -473,6 +476,13 @@ async def request_context_middleware(request: Request, call_next):
         "/memory",
         "/memory/search",
         "/sovereignty/audit",
+        "/cognition/consent",
+        "/owner-model",
+        "/cognition/consolidate",
+        "/cognition/debate",
+        "/experiments/propose",
+        "/agi-benchmarks/run",
+        "/training/launch-manifest",
     }
     if request.url.path in protected and not _authorized_owner(request):
         return JSONResponse(status_code=401, content={"error": "owner_auth_required"})
@@ -565,6 +575,60 @@ class MemoryAddRequest(BaseModel):
 class WorkflowRequest(BaseModel):
     goal: str = Field(..., min_length=1, max_length=4096)
     skills: List[Dict[str, Any]] = Field(default_factory=list, max_length=10)
+
+
+class ConsentRequest(BaseModel):
+    sensitive_inference: bool | None = None
+    persistence: bool | None = None
+    proactive_checks: bool | None = None
+    training_use: bool | None = None
+    session_consolidation: bool | None = None
+
+
+class OwnerModelPatch(BaseModel):
+    name: str
+    value: Any
+    category: str
+    session_id: str
+    evidence_span: str
+    confirmed: bool = False
+    confidence: float = Field(1.0, ge=0.0, le=1.0)
+
+
+class ConsolidateRequest(BaseModel):
+    session_id: str
+
+
+class DebateRequest(BaseModel):
+    task: str = Field(..., min_length=1, max_length=8192)
+
+
+class ExperimentProposalRequest(BaseModel):
+    category: str
+    failures: List[Dict[str, Any]]
+    base_checkpoint: str
+    tokenizer_hash: str
+    data_hash: str
+    code_hash: str
+    config_hash: str
+    maximum_tokens: int = Field(..., gt=0)
+
+
+class LaunchManifestRequest(BaseModel):
+    model_profile: str
+    extension_profile: str = "cognition-v1"
+    tokenizer_hash: str
+    data_manifests: List[str]
+    stage: str
+    optimizer: str
+    batch_size: int = Field(..., gt=0)
+    accumulation: int = Field(..., gt=0)
+    schedule: Dict[str, Any]
+    seeds: List[int]
+    checkpoint_source: str
+    expected_tokens: int = Field(..., ge=0)
+    runtime_estimate_hours: float | None = None
+    owner_authorized: bool
 
 
 JOBS: Dict[str, Dict[str, Any]] = {}
@@ -787,7 +851,174 @@ async def health_route():
         "campaigns": [
             path.name for path in CAMPAIGN_DIR.glob("campaign_*.json")
         ] if CAMPAIGN_DIR.exists() else [],
+        "cognition": COGNITION.status(),
     }
+
+
+@app.get("/cognition/consent")
+async def cognition_consent_get(request: Request):
+    _require_owner(request)
+    return COGNITION.status()["consent"]
+
+
+@app.put("/cognition/consent")
+async def cognition_consent_put(body: ConsentRequest, request: Request):
+    _require_owner(request)
+    changes = {key: value for key, value in body.model_dump().items() if value is not None}
+    return asdict(COGNITION.update_consent(**changes))
+
+
+@app.get("/cognition/status")
+async def cognition_status():
+    return COGNITION.health()
+
+
+@app.get("/owner-model")
+async def owner_model_get(request: Request):
+    _require_owner(request)
+    return COGNITION.lhm.export()
+
+
+@app.patch("/owner-model")
+async def owner_model_patch(body: OwnerModelPatch, request: Request):
+    _require_owner(request)
+    try:
+        return asdict(
+            COGNITION.lhm.update(
+                name=body.name,
+                value=body.value,
+                category=body.category,
+                source_session=body.session_id,
+                evidence_span=body.evidence_span,
+                confidence=body.confidence,
+                confirmed=body.confirmed,
+            )
+        )
+    except (PermissionError, RuntimeError) as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@app.delete("/owner-model")
+async def owner_model_delete(request: Request, name: str | None = None, session_id: str | None = None):
+    _require_owner(request)
+    if name:
+        return {"deleted": int(COGNITION.lhm.delete(name))}
+    if session_id:
+        return {"deleted": COGNITION.lhm.delete_session(session_id)}
+    return {"deleted": COGNITION.lhm.wipe()}
+
+
+@app.post("/cognition/consolidate")
+async def cognition_consolidate(body: ConsolidateRequest, request: Request):
+    _require_owner(request)
+    turns = await SESSION_STORE.get_history(body.session_id)
+    report = COGNITION.cec.consolidate(
+        body.session_id,
+        turns,
+        opted_in=COGNITION.consent.session_consolidation,
+    )
+    return asdict(report)
+
+
+@app.post("/cognition/debate")
+async def cognition_debate(body: DebateRequest, request: Request):
+    _require_owner(request)
+    from cognition.self_debate import DebatePosition
+
+    def generate_position(role: str, task: str, seed: int, budget: int) -> DebatePosition:
+        prompt = (
+            f"Role={role}; seed={seed}; budget={budget}. Analyze without inventing evidence: {task}"
+        )
+        argument = ADAPTER.run(prompt, strategy="greedy")
+        return DebatePosition(role, argument, (), ("No independently verified evidence attached.",), 0.5, ("Human review required.",))
+
+    result = await run_in_threadpool(
+        COGNITION.debate.run,
+        body.task,
+        generate_position,
+        verify_claims=lambda position: bool(position.supporting_evidence),
+        verify_synthesis=lambda positions: False,
+    )
+    return result.to_dict()
+
+
+@app.post("/experiments/propose")
+async def experiment_propose(body: ExperimentProposalRequest, request: Request):
+    _require_owner(request)
+    from cognition.ssie import FailureEvidence
+
+    failures = [FailureEvidence(**item) for item in body.failures]
+    try:
+        proposal = COGNITION.ssie.propose(
+            body.category,
+            failures,
+            base_checkpoint=body.base_checkpoint,
+            tokenizer_hash=body.tokenizer_hash,
+            data_hash=body.data_hash,
+            code_hash=body.code_hash,
+            config_hash=body.config_hash,
+            maximum_tokens=body.maximum_tokens,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    return asdict(proposal)
+
+
+@app.post("/experiments/{experiment_id}/authorize")
+async def experiment_authorize(experiment_id: str, request: Request):
+    _require_owner(request)
+    try:
+        return asdict(COGNITION.ssie.authorize(experiment_id, owner_authorized=True))
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="experiment not found") from exc
+
+
+@app.post("/agi-benchmarks/run")
+async def agi_benchmarks_run(request: Request):
+    _require_owner(request)
+    from evaluation.agi_benchmarks import build_report, write_report
+
+    calibration = COGNITION.et.calibration_report()
+    measurements = {}
+    if int(calibration.get("n_outcomes", 0)) >= 500:
+        measurements["A-02"] = (
+            float(calibration["brier_score"]),
+            int(calibration["n_outcomes"]),
+            "automated",
+            str(OUTPUT_V2_DIR / "cognition" / "epistemic_history.jsonl"),
+        )
+    report = build_report(measurements)
+    write_report(report, OUTPUT_V2_DIR / "agi_benchmarks" / "latest.json")
+    return report
+
+
+@app.get("/agi-benchmarks/latest")
+async def agi_benchmarks_latest():
+    return _latest_json(OUTPUT_V2_DIR / "agi_benchmarks" / "latest.json") or {
+        "status": "insufficient_data"
+    }
+
+
+@app.get("/training/preflight")
+async def training_preflight(model_size: str = "25m", runtime_class: str | None = None):
+    from training.preflight import run_preflight
+
+    return run_preflight(model_size, runtime_class=runtime_class).to_dict()
+
+
+@app.post("/training/launch-manifest")
+async def training_launch_manifest(body: LaunchManifestRequest, request: Request):
+    _require_owner(request)
+    from training.launch_manifest import build_launch_manifest, sign_manifest
+
+    manifest = build_launch_manifest(**body.model_dump())
+    try:
+        return sign_manifest(
+            manifest,
+            OUTPUT_V2_DIR / "launch_manifests" / f"{manifest['run_id']}.json",
+        )
+    except PermissionError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
 @app.get("/hal/state")
@@ -865,20 +1096,29 @@ async def goals_route():
 @app.post("/goals")
 async def goals_create_route(body: GoalRequest):
     _require_feature("goals")
+    cognitive_context = COGNITION.classify_goal(body.goal)
+    causal = cognitive_context.get("causal", {})
+    constraints = list(body.constraints)
+    if isinstance(causal, dict) and causal.get("requires_experiment"):
+        constraints.append(
+            "Design and authorize a typed experiment before asserting a causal conclusion."
+        )
     job = await _new_job(
         "goal",
         {
             "goal": body.goal,
-            "constraints": body.constraints,
+            "constraints": constraints,
             "success_criteria": body.success_criteria,
+            "cognition": cognitive_context,
         },
     )
     GOAL_QUEUE.push(
         job["job_id"],
         body.goal,
         metadata={
-            "constraints": body.constraints,
+            "constraints": constraints,
             "success_criteria": body.success_criteria,
+            "cognition": cognitive_context,
         },
     )
     return job

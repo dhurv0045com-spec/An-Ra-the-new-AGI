@@ -117,6 +117,50 @@ class DeploymentPromotionGate:
         )
 
 
+class CognitiveExtensionPromotionGate:
+    """Promotion gate for a separately packaged cognitive extension."""
+
+    REQUIRED_CHECKS = (
+        "zero_gate_base_parity",
+        "privacy_tests",
+        "deletion_tests",
+        "t4_latency_limit",
+        "t4_memory_limit",
+        "signed_candidate_manifest",
+        "smoke_validation",
+        "rollback_artifact",
+    )
+
+    def evaluate(
+        self,
+        *,
+        agi_report: dict[str, object],
+        capability_decision: PromotionDecision,
+        checks: dict[str, bool],
+    ) -> PromotionDecision:
+        results = {
+            str(item.get("benchmark_id")): item
+            for item in agi_report.get("results", [])
+            if isinstance(item, dict)
+        }
+        gates = {
+            "a01_causal_accuracy": bool(results.get("A-01", {}).get("passing") is True),
+            "a02_epistemic_calibration": bool(results.get("A-02", {}).get("passing") is True),
+            "positive_three_seed_ibs": capability_decision.allowed,
+            **{
+                name: bool(checks.get(name, False))
+                for name in self.REQUIRED_CHECKS
+            },
+        }
+        reasons = tuple(name for name, passed in gates.items() if not passed)
+        return PromotionDecision(
+            allowed=all(gates.values()),
+            gates=gates,
+            deltas=dict(capability_decision.deltas),
+            reasons=reasons,
+        )
+
+
 def combine_promotion_decisions(
     capability: PromotionDecision,
     deployment: PromotionDecision,

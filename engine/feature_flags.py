@@ -27,6 +27,14 @@ _DEFAULTS: dict[str, bool] = {
     "ghost_memory": True,
     "symbolic_bridge": True,
     "sovereignty": True,
+    "cognition": True,
+    "causal_reasoning": True,
+    "epistemic_tracker": True,
+    "human_model": True,
+    "ssie": True,
+    "cdse": True,
+    "cec": True,
+    "self_debate": True,
 }
 
 

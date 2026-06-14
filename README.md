@@ -17,6 +17,10 @@ AN-RA is a research system, not a chatbot wrapper. It joins a custom transformer
 - Robotics restricted to simulation and shadow execution.
 - Authenticated service surfaces in `app.py`.
 - Reachability contracts for T-01 through T-26 and evidence schemas for M-01 through M-12.
+- Versioned C-01 through C-07 cognitive services with consent, encryption, evidence maturity, and separate extension checkpoints.
+- Honest Colab T4 runtime classes and a pre-allocation training preflight.
+
+The included 7,500-record causal curriculum is deterministic synthetic development data. It is explicitly marked non-promotion-grade until independently verified licensed source evidence is published.
 
 This does **not** mean a 3B release is automatically trainable or promoted. Missing checkpoints, dataset manifests, hardware profiles, IBS evidence, growth parity, and release evidence remain explicit blockers.
 
@@ -25,6 +29,7 @@ This does **not** mean a 3B release is automatically trainable or promoted. Miss
 ```powershell
 python -m scripts.verify_structure
 python -m training.train_unified --mode status --model-size 3b
+python -m training.train_unified --mode preflight --model-size 25m
 python -m pytest tests -q
 ```
 
@@ -51,6 +56,8 @@ python -m training.train_unified --mode session --model-size 25m --max-steps 2
 | Robotics workflow | `robotics/workflow.py` |
 | Persistent API | `app.py` |
 | Technology reachability | `runtime/technology_registry.py` |
+| Cognitive services | `cognition/services.py` |
+| T4 preflight | `training/preflight.py` |
 
 The rule is simple: improve the owner. Do not add a competing path beside it.
 
@@ -104,6 +111,8 @@ Core interfaces:
 - `POST /session`
 - `GET /status`
 - `GET /health`
+- `GET /cognition/status`
+- `GET /training/preflight`
 
 Set `ANRA_OWNER_TOKEN` for bearer authentication. Training, session, goal, memory, sovereignty, and robotics actions are owner-protected surfaces.
 
@@ -123,6 +132,7 @@ robotics/      typed simulation/shadow workflows and world model
 inference/     generation, cache, speculative and serving helpers
 identity/      CIV, ESV, HAL and identity contracts
 runtime/       registries, technology reachability, recovery, audit helpers
+cognition/     causal, epistemic, owner-model, experiment, synthesis, consolidation, debate
 scripts/       executable training and operator entry points
 tests/         architecture, behavior, migration, recovery and promotion tests
 docs/          operating model, architecture, development, research and history
@@ -138,6 +148,7 @@ docs/          operating model, architecture, development, research and history
 - [Master Goals](docs/planning/MASTER_GOALS.md)
 - [Engineering Log](docs/engineering/ENGINEERING_LOG.md)
 - [V3 implementation status](docs/V3_ZERO_TO_HERO_IMPLEMENTATION.md)
+- [Cognitive architecture and T4 readiness](docs/COGNITIVE_ARCHITECTURE.md)
 
 ## Engineering Constitution
 

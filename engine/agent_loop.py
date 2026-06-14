@@ -39,6 +39,7 @@ class AgentLoop:
         trajectory_store: TrajectoryStore | None = None,
         checkpoint_id: str = "",
         tokenizer_id: str = "",
+        cognition_services=None,
     ) -> None:
         self.hgp = HierarchicalGoalPlanner(max_depth=5, max_workflow=10)
         self.decomposer = decomposer
@@ -52,6 +53,7 @@ class AgentLoop:
         self.cdr = CorrectedFailureCurriculum(FAILURE_REPLAY_DATASET)
         self.checkpoint_id = checkpoint_id
         self.tokenizer_id = tokenizer_id
+        self.cognition = cognition_services
 
     def run(
         self,
@@ -62,8 +64,17 @@ class AgentLoop:
     ) -> AgentResult:
         if not is_enabled("agent_loop"):
             return AgentResult(False, False, {}, error="agent_loop feature disabled")
+        cognitive_context: dict[str, object] = {}
+        if self.cognition is not None and is_enabled("cognition"):
+            cognitive_context = self.cognition.classify_goal(goal)
         context = self.memory_retrieve(goal, 8) if self.memory_retrieve else []
         enriched_goal = goal if not context else f"{goal}\nRetrieved context: {context}"
+        causal = cognitive_context.get("causal", {})
+        if isinstance(causal, dict) and causal.get("requires_experiment"):
+            enriched_goal += (
+                "\nRequired mission node: design a typed, authorized experiment before "
+                "claiming an interventional conclusion."
+            )
         try:
             tree = self.hgp.decompose(
                 enriched_goal,
@@ -124,6 +135,7 @@ class AgentLoop:
                     raise PermissionError("Recovered workflow authorization denied.")
                 executed = self.workflow_executor.execute(workflow)
             verified, method, evidence = self.verifier(tree, executed)
+            evidence = {**evidence, "cognition": cognitive_context}
             success = executed.state == WorkflowState.COMPLETED and verified
             artifacts = tuple(
                 artifact
@@ -145,10 +157,15 @@ class AgentLoop:
                 tool_results=list(executed.trace),
             )
             if not success:
+                category = (
+                    "reasoning"
+                    if isinstance(causal, dict) and causal.get("causal_type") != "unknown"
+                    else "execution"
+                )
                 self.cdr.capture_task_result(
                     prompt=goal,
                     output=str(executed.trace),
-                    category="execution",
+                    category=category,
                     success=False,
                     diagnosis=str(evidence),
                     verifier=method,

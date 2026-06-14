@@ -112,7 +112,7 @@ def stage_plan_for_mode(mode: str) -> list[str]:
         return ["base"]
     if mode == "eval":
         return ["eval"]
-    if mode == "status":
+    if mode in {"status", "preflight"}:
         return ["status"]
     if mode in {"train", "production"}:
         return ["base", "identity", "ouroboros", "self_improvement", "sovereignty_audit", "tests"]
@@ -273,7 +273,7 @@ def _run_eval_only() -> dict[str, object]:
 def main() -> None:
     assert_flash_sdp_ready("training.train_unified")
     ap = argparse.ArgumentParser(description="An-Ra unified training dispatcher")
-    ap.add_argument("--mode", default="session", choices=["session", "train", "resume", "production", "eval", "status"])
+    ap.add_argument("--mode", default="session", choices=["session", "train", "resume", "production", "eval", "status", "preflight"])
     ap.add_argument("--data_path", default=None)
     ap.add_argument("--data_files", nargs="*", default=[])
     ap.add_argument("--prepare_data", default="auto", choices=["auto", "always", "never"])
@@ -299,7 +299,39 @@ def main() -> None:
     ap.add_argument("--identity_minutes", type=int, default=12)
     ap.add_argument("--ouroboros_minutes", type=int, default=10)
     ap.add_argument("--max_examples", type=int, default=None)
+    ap.add_argument("--launch-manifest", default=None)
+    ap.add_argument(
+        "--training-objective",
+        choices=["base", "causal-extension"],
+        default="base",
+    )
+    ap.add_argument(
+        "--runtime-class",
+        choices=["t4_full_25m", "t4_frontier_smoke", "t4_3b_preflight"],
+        default=None,
+    )
     args = ap.parse_args()
+    launch_manifest: dict[str, object] | None = None
+    if args.launch_manifest:
+        from training.launch_manifest import load_and_validate_manifest
+
+        launch_manifest = load_and_validate_manifest(args.launch_manifest)
+        args.model_size = str(launch_manifest["model_profile"])
+        args.optimizer = str(launch_manifest["optimizer"])
+        args.batch_size = int(launch_manifest["batch_size"])
+        checkpoint_source = str(launch_manifest["checkpoint_source"])
+        if checkpoint_source:
+            args.checkpoint_path = checkpoint_source
+        stage = str(launch_manifest["stage"])
+        if stage in {
+            "frontier_full",
+            "3b_full",
+            "stage_a",
+            "stage_b",
+            "stage_c",
+            "stage_d",
+        }:
+            args.campaign = stage
     model_cfg, training_cfg = resolve_model_profile(args.model_size)
     is_frontier = args.model_size in {"1b", "frontier", "904m"}
     if is_frontier:
@@ -320,7 +352,7 @@ def main() -> None:
     mount_google_drive_if_available()
 
     data_ingestion_report: dict[str, object] | None = None
-    if args.mode not in {"status", "eval"} and args.prepare_data != "never":
+    if args.mode not in {"status", "preflight", "eval"} and args.prepare_data != "never":
         should_prepare = (
             args.prepare_data == "always"
             or bool(args.data_files)
@@ -345,6 +377,13 @@ def main() -> None:
 
     _restore_core_artifacts()
     stage_plan = stage_plan_for_mode(args.mode)
+
+    if args.mode == "preflight":
+        from training.preflight import run_preflight
+
+        decision = run_preflight(args.model_size, runtime_class=args.runtime_class)
+        print(json.dumps(decision.to_dict(), indent=2, sort_keys=True))
+        raise SystemExit(0 if decision.allowed else 2)
 
     if args.mode == "status":
         readiness = assess_training_readiness()
@@ -412,6 +451,7 @@ def main() -> None:
         "model_line": "v2",
         "model_size": args.model_size,
         "data_ingestion": data_ingestion_report,
+        "launch_manifest": launch_manifest,
         "stages": {},
     }
     _supervisor = _start_supervisor(args)
@@ -435,6 +475,8 @@ def main() -> None:
         str(args.session_minutes),
         "--model-size",
         args.model_size,
+        "--training-objective",
+        args.training_objective,
     ]
     if args.max_examples is not None:
         base_cmd.extend(["--max_examples", str(args.max_examples)])

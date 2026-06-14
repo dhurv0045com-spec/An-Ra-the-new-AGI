@@ -2,7 +2,7 @@
 
 > One backlog for architecture, evidence, training, agency, robotics, deployment and research.
 
-**Reviewed:** 2026-06-13
+**Reviewed:** 2026-06-14
 **Status keys:** `DONE`, `ACTIVE`, `NEXT`, `BLOCKED`, `IDEA`
 
 `DONE` means the implementation contract and tests exist. It does not imply a model or deployment has been promoted.
@@ -103,5 +103,19 @@
 | CI-05 | NEXT | Run first real adapter candidate | signed adapter release or quarantine |
 
 ## Documentation Rule
+
+## Cognitive Architecture And T4
+
+| ID | Status | Goal | Verifier |
+| --- | --- | --- | --- |
+| CG-01 | DONE | C-01 through C-07 typed ownership and reachability | cognition registry tests |
+| CG-02 | DONE | Exact zero-gated causal extension attachment | base-logit parity test |
+| CG-03 | DONE | Consent-bound encrypted owner model | persistence/deletion tests |
+| CG-04 | DONE | Exact 7,500-record synthetic causal curriculum builder | count/hash tests and non-promotion manifest |
+| CG-09 | BLOCKED | Promotion-grade causal corpus evidence | pinned licensed sources and independent verification |
+| CG-05 | DONE | A-01 through A-07 evidence maturity schema | benchmark report tests |
+| CG-06 | DONE | T4 preflight and unsupported-launch refusal | preflight tests |
+| CG-07 | NEXT | Run complete 25M cognitive smoke on Colab T4 | signed run manifest |
+| CG-08 | BLOCKED | Promote causal extension | A-01, A-02, IBS, privacy, rollback evidence |
 
 Every goal must point to executable evidence. Dated audits stay historical. Current manuals describe live ownership. Research notes propose experiments; they do not declare promotion.
