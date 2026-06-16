@@ -16,6 +16,7 @@ from training.anra_optimizer import build_optimizer_with_report
 from training.cdr import CorrectedFailureCurriculum
 from training.mixed_precision import MixedPrecisionTrainer
 from training.pcgrad import PCGradAccumulator
+from training.rlvr import RLVRTrainer
 from training.wsd_scheduler import get_wsd_schedule
 
 
@@ -59,6 +60,7 @@ class CausalExtensionTrainer:
         cdr_path: str,
         optimizer_name: str = "auto",
         lr: float = 3e-4,
+        rlvr_trainer: RLVRTrainer | None = None,
     ) -> None:
         self.model = model
         self.extension = extension
@@ -77,6 +79,7 @@ class CausalExtensionTrainer:
         self.pcgrad = PCGradAccumulator(extension.parameters())
         self.cdr = CorrectedFailureCurriculum(cdr_path)
         self.mp = MixedPrecisionTrainer(device=next(model.parameters()).device)
+        self.rlvr_trainer = rlvr_trainer
 
     @staticmethod
     def losses(
@@ -138,15 +141,22 @@ class CausalExtensionTrainer:
     ) -> dict[str, float]:
         self.optimizer.zero_grad(set_to_none=True)
         with self.mp.autocast():
-            _, language_loss, evidence = self.model.forward_cognitive(
+            logits, language_loss, evidence = self.model.forward_cognitive(
                 input_ids,
                 target_ids,
                 attention_mask=attention_mask,
             )
             assert language_loss is not None
             losses = self.losses(language_loss, evidence, labels)
+            total_loss = losses.total
+            if self.rlvr_trainer is not None:
+                policy_entropy = self.rlvr_trainer._entropy_loss(logits)
+                entropy_coefficient = float(
+                    getattr(self.rlvr_trainer, "entropy_bonus", 0.01)
+                )
+                total_loss = total_loss - entropy_coefficient * policy_entropy
         self.pcgrad.accumulate(
-            owner_loss=losses.total,
+            owner_loss=total_loss,
             other_loss=language_loss,
             grad_scale=self.mp.scale,
         )

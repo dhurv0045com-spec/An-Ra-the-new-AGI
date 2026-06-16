@@ -1,5 +1,10 @@
 from __future__ import annotations
 
+# AN-RA iterate900 branch:
+# "frontier" is the only public training profile.
+# It is the 900M-class experiment model; the current build has 908,098,891 parameters:
+# 1536d, 36L, 16 attention heads, 4 KV heads, 2048 context, HAL enabled.
+
 from dataclasses import dataclass
 
 
@@ -79,7 +84,9 @@ class V2FrontierModelConfig(V2ModelConfig):
     n_kv_head: int = 4
     block_size: int = 2048
     vocab_size: int = CANONICAL_VOCAB_SIZE
-    mod_layers: tuple = (4, 8, 12, 16, 20, 24, 28, 32)
+    mod_layers: tuple = (4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 34)
+    base_seq_len: int = 2048
+    target_seq_len: int = 2048
     science_ratio: float = 0.30
     action_trace_ratio: float = 0.20
     constraint_ratio: float = 0.20
@@ -135,45 +142,10 @@ class V2FrontierTrainingConfig(V2TrainingConfig):
     replay_ratio: float = 0.10
 
 
-@dataclass(frozen=True)
-class V23BModelConfig(V2ModelConfig):
-    vocab_size: int = CANONICAL_VOCAB_SIZE
-    n_embd: int = 2560
-    n_layer: int = 42
-    n_head: int = 20
-    n_kv_head: int = 5
-    block_size: int = 2048
-    mod_layers: tuple = (4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 34)
-    base_seq_len: int = 2048
-    target_seq_len: int = 2048
-    use_hal: bool = True
-
-
-@dataclass(frozen=True)
-class V23BTrainingConfig(V2TrainingConfig):
-    batch_size: int = 1
-    grad_accum_steps: int = 512
-    session_minutes: int = 90
-    answer_loss_weight: float = 2.35
-    max_mixture_examples: int = 4096
-    milestone_every_sessions: int = 1
-    gradient_checkpointing: bool = True
-    use_bfloat16: bool = True
-    learning_rate: float = 3e-4
-    min_lr: float = 3e-5
-    warmup_steps: int = 2000
-    max_steps: int = 1_000_000
-    weight_decay: float = 0.1
-    grad_clip: float = 1.0
-    optimizer: str = "galore"
-
-
 V2_MODEL = V2ModelConfig()
 V2_1B_FRONTIER = V2FrontierModelConfig()
 V2_TRAINING = V2TrainingConfig()
 V2_1B_TRAINING = V2FrontierTrainingConfig()
-V2_3B = V23BModelConfig()
-V2_3B_TRAINING = V23BTrainingConfig()
 EXPECTED_TOKENIZER_VOCAB_SIZE = CANONICAL_VOCAB_SIZE
 EXPECTED_PAD_TOKEN_ID = CANONICAL_PAD_TOKEN_ID
 EXPECTED_SPECIAL_TOKENS = CANONICAL_SPECIAL_TOKENS
@@ -237,17 +209,14 @@ V2_REPORT_FILES = {
 }
 
 
-MODEL_PROFILES = {
-    "25m": (V2_MODEL, V2_TRAINING),
+MODEL_SIZES = {
     "frontier": (V2_1B_FRONTIER, V2_1B_TRAINING),
-    "904m": (V2_1B_FRONTIER, V2_1B_TRAINING),
-    "1b": (V2_1B_FRONTIER, V2_1B_TRAINING),
-    "3b": (V2_3B, V2_3B_TRAINING),
 }
+MODEL_PROFILES = MODEL_SIZES
 
 
 def resolve_model_profile(name: str):
     key = str(name).strip().lower()
-    if key not in MODEL_PROFILES:
-        raise ValueError(f"Unknown model profile {name!r}; expected one of {sorted(MODEL_PROFILES)}")
-    return MODEL_PROFILES[key]
+    if key not in MODEL_SIZES:
+        raise ValueError(f"Unknown model profile {name!r}; expected one of {sorted(MODEL_SIZES)}")
+    return MODEL_SIZES[key]

@@ -742,7 +742,7 @@ def build_v2_training_examples(
         ) = filtered
 
     total_examples = min(max_examples or V2_TRAINING.max_mixture_examples, max(len(base_examples), 4000))
-    controller = TrainingDataMixController(model_params or 904_535_040)
+    controller = TrainingDataMixController(model_params or 908_098_891)
     active = controller.weights
     control_path = OUTPUT_V2_DIR / "v2_mix_control.json"
     if control_path.exists():

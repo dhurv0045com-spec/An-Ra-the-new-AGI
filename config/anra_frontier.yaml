@@ -11,7 +11,7 @@ model:
   dropout: 0.0
   tie_weights: true
   use_mod: true
-  mod_layers: [4, 8, 12, 16, 20, 24, 28, 32]
+  mod_layers: [4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 34]
   mod_capacity: 0.5
   use_hal: true
   gradient_checkpointing: true

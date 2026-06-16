@@ -1000,7 +1000,7 @@ async def agi_benchmarks_latest():
 
 
 @app.get("/training/preflight")
-async def training_preflight(model_size: str = "25m", runtime_class: str | None = None):
+async def training_preflight(model_size: str = "frontier", runtime_class: str | None = "t4_frontier_smoke"):
     from training.preflight import run_preflight
 
     return run_preflight(model_size, runtime_class=runtime_class).to_dict()
@@ -1400,9 +1400,9 @@ async def train_trigger_route(request: Request) -> dict:
     payload = json.loads(body) if body.strip() else {}
     if not isinstance(payload, dict):
         raise HTTPException(status_code=400, detail="request body must be an object")
-    model_size = str(payload.get("model_size", "25m"))
-    if model_size not in {"25m", "frontier", "904m", "1b", "3b"}:
-        raise HTTPException(status_code=400, detail="invalid model_size")
+    model_size = str(payload.get("model_size", "frontier"))
+    if model_size != "frontier":
+        raise HTTPException(status_code=400, detail="iterate900 accepts only model_size=frontier")
     minutes = max(1, min(720, int(payload.get("minutes", 30))))
     job = await _new_job(
         "training_session",

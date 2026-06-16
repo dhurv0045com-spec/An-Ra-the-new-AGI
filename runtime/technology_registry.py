@@ -30,7 +30,7 @@ TECHNOLOGIES = (
     TechnologyContract("T-05", "CDR", "failure curriculum", "training.cdr:CorrectedFailureCurriculum.capture_task_result", ("M-07",)),
     TechnologyContract("T-06", "PCGrad", "optimizer boundary", "training.pcgrad:PCGradAccumulator.materialize", ("M-03",)),
     TechnologyContract("T-07", "SADL", "data mix", "training.sadl:normalized_mix", ("M-03",)),
-    TechnologyContract("T-08", "3B model", "model runtime", "training.v2_runtime:build_3b_model", ("M-01", "M-12")),
+    TechnologyContract("T-08", "900M frontier model", "model runtime", "training.v2_runtime:build_frontier_model", ("M-01", "M-12")),
     TechnologyContract("T-09", "WSD", "scheduler", "training.wsd_scheduler:get_wsd_schedule", ("M-02", "M-03")),
     TechnologyContract("T-10", "ESV pure commit", "identity state", "identity.esv:ESVModule.commit_state", ("M-03",)),
     TechnologyContract("T-11", "DSTP", "model forward", "anra_brain:CausalTransformerV2._dstp_temperature", ("M-03",)),

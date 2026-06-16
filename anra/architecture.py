@@ -52,17 +52,6 @@ FRONTIER = ArchitectureContract(
     n_query_heads=16,
     n_kv_heads=4,
     d_ff=4096,
-    mod_layers=(4, 8, 12, 16, 20, 24, 28, 32),
-)
-
-ANRA_3B = ArchitectureContract(
-    name="anra-3b",
-    vocab_size=CANONICAL_VOCAB_SIZE,
-    d_model=2560,
-    n_layers=42,
-    n_query_heads=20,
-    n_kv_heads=5,
-    d_ff=6848,
     mod_layers=(4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 34),
 )
 
@@ -80,15 +69,13 @@ DRAFT = ArchitectureContract(
 def verify_canonical_counts() -> dict[str, int]:
     counts = {
         "frontier_transformer": FRONTIER.transformer_parameters(),
-        "anra_3b_transformer": ANRA_3B.transformer_parameters(),
-        "anra_3b_full": ANRA_3B.full_system_parameters(),
+        "frontier_full": FRONTIER.full_system_parameters(),
         "draft_transformer": DRAFT.transformer_parameters(),
         "draft_full": DRAFT.transformer_parameters() + DRAFT.esv_dim * 3 + 3,
     }
     expected = {
         "frontier_transformer": 904_535_040,
-        "anra_3b_transformer": 2_918_251_520,
-        "anra_3b_full": 2_925_174_103,
+        "frontier_full": 908_098_891,
         "draft_transformer": 8_004_096,
         "draft_full": 8_004_291,
     }

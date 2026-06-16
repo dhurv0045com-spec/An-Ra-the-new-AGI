@@ -12,7 +12,7 @@ import os
 from anra.anra_paths import (
     CIV_LATEST,
     IBS_LATEST,
-    MEMORY_PROFILE_3B,
+    MEMORY_PROFILE_FRONTIER,
     MODEL_GROWTH_REPORT,
     PROMOTED_RELEASE_MANIFEST,
     SSG_AUDIT_LOG,
@@ -61,12 +61,12 @@ class SovereignScalingGovernor:
     def check(
         self,
         *,
-        target_profile: str = "3b",
-        target_params: int = 2_918_251_520,
+        target_profile: str = "frontier",
+        target_params: int = 908_098_891,
         checkpoint_path: str | Path = V2_BRAIN_CHECKPOINT,
         ibs_path: str | Path = IBS_LATEST,
         civ_path: str | Path = CIV_LATEST,
-        memory_profile_path: str | Path = MEMORY_PROFILE_3B,
+        memory_profile_path: str | Path = MEMORY_PROFILE_FRONTIER,
         growth_report_path: str | Path = MODEL_GROWTH_REPORT,
         token_manifest_path: str | Path = TOKEN_INVENTORY_MANIFEST,
         tokenizer_manifest_path: str | Path = TOKENIZER_MANIFEST,
@@ -129,17 +129,17 @@ class SovereignScalingGovernor:
 
         profile = self._load(paths["memory_profile"])
         if profile is None:
-            blocked.append(f"No measured 3B memory profile at {paths['memory_profile']}")
+            blocked.append(f"No measured frontier memory profile at {paths['memory_profile']}")
         else:
             peak_bytes = float(profile.get("peak_reserved_bytes", 0.0))
             peak_gb = float(profile.get("peak_gb", peak_bytes / 1024**3))
             throughput = float(profile.get("tokens_per_second", 0.0))
             if peak_gb <= 0 or peak_gb > self.MAX_PEAK_GB:
-                blocked.append(f"Measured peak memory {peak_gb:.2f} GB is outside 3B budget")
+                blocked.append(f"Measured peak memory {peak_gb:.2f} GB is outside frontier budget")
             else:
                 passed.append("measured memory")
             if throughput <= 0:
-                blocked.append("Measured 3B throughput is missing")
+                blocked.append("Measured frontier throughput is missing")
             else:
                 passed.append("measured throughput")
 

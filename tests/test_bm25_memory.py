@@ -13,7 +13,7 @@ def test_write_and_exact_read(store: BM25MemoryTier) -> None:
     store.write("The capital of France is Paris", {"type": "fact"})
     result = store.read("capital France", n=1)
     assert len(result) == 1
-    assert "Paris" in result[0].content
+    assert "Paris" in result[0].text
 
 
 def test_empty_returns_empty(store: BM25MemoryTier) -> None:
@@ -24,7 +24,7 @@ def test_ranks_relevant_higher(store: BM25MemoryTier) -> None:
     store.write("Python is a programming language", {})
     store.write("The weather is sunny today", {})
     result = store.read("Python programming", n=2)
-    assert "Python is a programming" in result[0].content
+    assert "Python is a programming" in result[0].text
 
 
 def test_delete_removes_doc(store: BM25MemoryTier) -> None:

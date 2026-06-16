@@ -36,6 +36,9 @@ ml = [
   "sentence-transformers>=2.6.0",
   "transformers>=4.40.0",
 ]
+evidence = [
+  "thirdeye-evidence @ git+https://github.com/dhurv0045com-spec/thirdeye.git@main",
+]
 dev = [
   "mypy>=1.8.0",
   "pytest>=8.0.0",

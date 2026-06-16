@@ -25,7 +25,7 @@ from anra.anra_paths import (
 from runtime.training_readiness import assess_training_readiness
 
 
-RUNTIME_CLASSES = ("t4_full_25m", "t4_frontier_smoke", "t4_3b_preflight")
+RUNTIME_CLASSES = ("t4_frontier_smoke",)
 
 
 @dataclass(frozen=True)
@@ -75,28 +75,22 @@ def run_preflight(
     hardware: HardwareProfile | None = None,
 ) -> LaunchDecision:
     profile = model_size.lower()
-    runtime_class = runtime_class or (
-        "t4_full_25m" if profile == "25m" else
-        "t4_frontier_smoke" if profile in {"frontier", "904m", "1b"} else
-        "t4_3b_preflight"
-    )
+    runtime_class = runtime_class or "t4_frontier_smoke"
     if runtime_class not in RUNTIME_CLASSES:
         raise ValueError(f"Unknown runtime class: {runtime_class}")
     hw = hardware or detect_hardware()
     readiness = assess_training_readiness()
     blockers = list(readiness.blockers)
     warnings = list(readiness.warnings)
+    if profile != "frontier":
+        blockers.append("iterate900 supports only the 900M-class frontier profile")
     if not hw.cuda_available:
         blockers.append("CUDA GPU unavailable")
     is_t4 = "T4" in hw.gpu_name.upper()
-    if profile in {"frontier", "904m", "1b"} and runtime_class != "t4_frontier_smoke":
+    if profile == "frontier" and runtime_class != "t4_frontier_smoke":
         blockers.append("T4 permits frontier smoke/adapter work only without a measured full-campaign profile")
-    if profile == "3b":
-        blockers.append("3B full allocation/training is prohibited on T4 preflight")
-    if profile in {"frontier", "904m", "1b"} and not TOKEN_INVENTORY_MANIFEST.exists():
+    if profile == "frontier" and not TOKEN_INVENTORY_MANIFEST.exists():
         warnings.append("licensed token inventory missing; smoke work is allowed but a full campaign is not")
-    if runtime_class == "t4_full_25m" and profile != "25m":
-        blockers.append("t4_full_25m runtime class only supports the 25m profile")
     consent_path = STATE_DIR / "cognition" / "consent.json"
     checks = {
         "hardware": asdict(hw),
@@ -119,11 +113,8 @@ def run_preflight(
         "precision": "bf16" if hw.bf16_supported else "fp16",
     }
     supported_mode = (
-        profile == "25m"
-        or (
-            profile in {"frontier", "904m", "1b"}
-            and runtime_class == "t4_frontier_smoke"
-        )
+        profile == "frontier"
+        and runtime_class == "t4_frontier_smoke"
     )
     return LaunchDecision(
         allowed=not blockers and supported_mode,
@@ -132,8 +123,7 @@ def run_preflight(
         blockers=tuple(dict.fromkeys(blockers)),
         warnings=tuple(warnings),
         estimated_runtime_hours=(
-            6.0 if profile == "25m" and is_t4
-            else 0.5 if runtime_class == "t4_frontier_smoke" and is_t4
+            0.5 if runtime_class == "t4_frontier_smoke" and is_t4
             else None
         ),
         recommended_profile=runtime_class,

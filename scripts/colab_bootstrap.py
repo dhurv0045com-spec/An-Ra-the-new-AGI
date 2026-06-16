@@ -14,6 +14,8 @@ import time
 
 import torch
 
+from anra.anra_paths import DRIVE_DIR
+
 
 def sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
@@ -26,9 +28,9 @@ def run(command: list[str], *, cwd: Path | None = None) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--repo", default=str(Path.cwd()))
-    parser.add_argument("--drive-root", default="/content/drive/MyDrive/AnRa")
+    parser.add_argument("--drive-root", default=str(DRIVE_DIR))
     parser.add_argument("--install", action="store_true")
-    parser.add_argument("--model-size", default="25m", choices=["25m", "frontier", "904m", "3b"])
+    parser.add_argument("--model-size", default="frontier", choices=["frontier"])
     args = parser.parse_args()
     repo = Path(args.repo).resolve()
     constraints = repo / "constraints-colab-t4.txt"

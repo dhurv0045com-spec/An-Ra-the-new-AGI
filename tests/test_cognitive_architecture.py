@@ -219,13 +219,13 @@ def test_cognitive_promotion_gate_blocks_missing_evidence():
     assert "rollback_artifact" in decision.reasons
 
 
-def test_t4_frontier_smoke_is_supported_but_3b_is_blocked_before_allocation():
+def test_t4_frontier_smoke_is_supported_and_old_profiles_are_blocked():
     t4 = HardwareProfile("Tesla T4", True, 16 * 1024**3, 32 * 1024**3, 100 * 1024**3, False)
     frontier = run_preflight("frontier", runtime_class="t4_frontier_smoke", hardware=t4)
-    three_b = run_preflight("3b", runtime_class="t4_3b_preflight", hardware=t4)
+    legacy = run_preflight("25m", runtime_class="t4_frontier_smoke", hardware=t4)
     assert frontier.allowed
-    assert not three_b.allowed
-    assert any("3B full allocation" in blocker for blocker in three_b.blockers)
+    assert not legacy.allowed
+    assert any("iterate900 supports only" in blocker for blocker in legacy.blockers)
 
 
 def test_cognition_registry_reachable():
@@ -239,7 +239,7 @@ def test_signed_launch_manifest_is_enforced(tmp_path: Path, monkeypatch):
 
     key = "manifest-test-key"
     manifest = build_launch_manifest(
-        model_profile="25m",
+        model_profile="frontier",
         extension_profile="cognition-v1",
         tokenizer_hash=hashlib.sha256(V3_TOKENIZER_FILE.read_bytes()).hexdigest(),
         data_manifests=[],
@@ -257,7 +257,7 @@ def test_signed_launch_manifest_is_enforced(tmp_path: Path, monkeypatch):
     path = tmp_path / "launch.json"
     sign_manifest(manifest, path, key=key)
     loaded = load_and_validate_manifest(path, key=key)
-    assert loaded["model_profile"] == "25m"
+    assert loaded["model_profile"] == "frontier"
     loaded["batch_size"] = 2
     path.write_text(__import__("json").dumps(loaded), encoding="utf-8")
     with pytest.raises(PermissionError):

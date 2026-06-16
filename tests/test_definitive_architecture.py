@@ -224,3 +224,20 @@ def test_function_preserving_growth_handles_gqa_head_change() -> None:
 def test_all_t01_through_t26_entrypoints_are_reachable() -> None:
     reachable = validate_technology_reachability()
     assert list(reachable) == [f"T-{index:02d}" for index in range(1, 27)]
+
+
+def test_all_c01_through_c07_entrypoints_are_reachable() -> None:
+    from runtime.cognition_registry import (
+        COGNITIVE_CAPABILITIES,
+        validate_cognition_reachability,
+    )
+
+    reachable = validate_cognition_reachability()
+    expected = [
+        f"C-{index:02d}"
+        for index in range(1, len(COGNITIVE_CAPABILITIES) + 1)
+    ]
+    assert list(reachable) == expected, (
+        f"Cognitive contracts {set(expected) - set(reachable)} are not reachable. "
+        "Update runtime/cognition_registry.py if the entrypoint changed."
+    )

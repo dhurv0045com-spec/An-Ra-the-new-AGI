@@ -17,11 +17,10 @@ from anra.startup_checks import assert_flash_sdp_ready
 from anra.anra_paths import DATASET, ROOT, ensure_dirs, get_dataset_file
 from training.eval_v2 import run_compact_eval
 from training.data_ingestion import mount_google_drive_if_available, prepare_training_corpus
-from training.v2_config import V2_MODEL, V2_TRAINING
 from training.v2_config import V2_1B_FRONTIER, V2_1B_TRAINING
-from training.v2_config import V2_3B, V2_3B_TRAINING, resolve_model_profile
+from training.v2_config import resolve_model_profile
 from training.v2_runtime import (
-    build_v2_model,
+    build_frontier_model,
     canonical_v2_checkpoint,
     load_checkpoint,
     load_or_build_v2_tokenizer,
@@ -128,7 +127,7 @@ def _load_json(path: Path) -> dict | None:
 
 def _milestone_due(training_cfg=None) -> dict[str, object]:
     """Check if a milestone eval is due. Uses the active training config."""
-    cfg = training_cfg if training_cfg is not None else V2_TRAINING
+    cfg = training_cfg if training_cfg is not None else V2_1B_TRAINING
     state = load_session_state()
     successful = int(state.get("successful_sessions", 0) or 0)
     entries = state.get("eval_scores", [])
@@ -178,7 +177,7 @@ def _start_supervisor(args) -> object | None:
     try:
         from agents.supervisor import SupervisorAgent
 
-        _supervisor = SupervisorAgent(model_size=getattr(args, "model_size", "25m"))
+        _supervisor = SupervisorAgent(model_size=getattr(args, "model_size", "frontier"))
         _supervisor.start_session()
         _session_run_id = _supervisor._bus.run_id
         print(f"[Unified Trainer] Session tracked — run_id: {_session_run_id}")
@@ -256,7 +255,7 @@ def _restore_core_artifacts() -> None:
 
 def _run_eval_only() -> dict[str, object]:
     tokenizer = load_or_build_v2_tokenizer(dataset_path=resolve_dataset_path(None))
-    model = build_v2_model(vocab_size=tokenizer.vocab_size, block_size=V2_MODEL.block_size)
+    model = build_frontier_model()
     if hasattr(model, "disable_kv_cache"):
         model.disable_kv_cache()
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -279,21 +278,21 @@ def main() -> None:
     ap.add_argument("--prepare_data", default="auto", choices=["auto", "always", "never"])
     ap.add_argument("--no_drive_scan", action="store_true")
     ap.add_argument("--max_source_mb", type=int, default=64)
-    ap.add_argument("--checkpoint_path", default=str(canonical_v2_checkpoint("brain").name))
-    ap.add_argument("--batch_size", type=int, default=V2_TRAINING.batch_size)
-    ap.add_argument("--block_size", type=int, default=V2_MODEL.block_size)
-    ap.add_argument("--answer_loss_weight", type=float, default=V2_TRAINING.answer_loss_weight)
+    ap.add_argument("--checkpoint_path", default="anra_frontier_900m.pt")
+    ap.add_argument("--batch_size", type=int, default=V2_1B_TRAINING.batch_size)
+    ap.add_argument("--block_size", type=int, default=V2_1B_FRONTIER.block_size)
+    ap.add_argument("--answer_loss_weight", type=float, default=V2_1B_TRAINING.answer_loss_weight)
     ap.add_argument("--optimizer", choices=["auto", "adamw", "muon", "scale", "galore"], default="auto")
-    ap.add_argument("--session_minutes", "--session-minutes", type=int, default=V2_TRAINING.session_minutes)
+    ap.add_argument("--session_minutes", "--session-minutes", type=int, default=V2_1B_TRAINING.session_minutes)
     ap.add_argument(
         "--model-size",
-        choices=["25m", "1b", "frontier", "904m", "3b"],
-        default="25m",
-        help="Registered profile: 25m, frontier/904m (legacy alias 1b), or 3b.",
+        choices=["frontier"],
+        default="frontier",
+        help="iterate900 profile: 900M-class frontier model.",
     )
     ap.add_argument(
         "--campaign",
-        choices=["frontier_full", "3b_full", "stage_a", "stage_b", "stage_c", "stage_d"],
+        choices=["frontier_full", "stage_a", "stage_b", "stage_c", "stage_d"],
         default=None,
     )
     ap.add_argument("--identity_minutes", type=int, default=12)
@@ -307,8 +306,8 @@ def main() -> None:
     )
     ap.add_argument(
         "--runtime-class",
-        choices=["t4_full_25m", "t4_frontier_smoke", "t4_3b_preflight"],
-        default=None,
+        choices=["t4_frontier_smoke"],
+        default="t4_frontier_smoke",
     )
     args = ap.parse_args()
     launch_manifest: dict[str, object] | None = None
@@ -325,7 +324,6 @@ def main() -> None:
         stage = str(launch_manifest["stage"])
         if stage in {
             "frontier_full",
-            "3b_full",
             "stage_a",
             "stage_b",
             "stage_c",
@@ -333,21 +331,14 @@ def main() -> None:
         }:
             args.campaign = stage
     model_cfg, training_cfg = resolve_model_profile(args.model_size)
-    is_frontier = args.model_size in {"1b", "frontier", "904m"}
+    is_frontier = args.model_size == "frontier"
     if is_frontier:
-        if args.batch_size == V2_TRAINING.batch_size:
+        if args.batch_size == V2_1B_TRAINING.batch_size:
             args.batch_size = V2_1B_TRAINING.batch_size
-        if args.block_size == V2_MODEL.block_size:
+        if args.block_size == V2_1B_FRONTIER.block_size:
             args.block_size = V2_1B_FRONTIER.block_size
-        if args.session_minutes == V2_TRAINING.session_minutes:
+        if args.session_minutes == V2_1B_TRAINING.session_minutes:
             args.session_minutes = V2_1B_TRAINING.session_minutes
-    elif args.model_size == "3b":
-        if args.batch_size == V2_TRAINING.batch_size:
-            args.batch_size = V2_3B_TRAINING.batch_size
-        if args.block_size == V2_MODEL.block_size:
-            args.block_size = V2_3B.block_size
-        if args.session_minutes == V2_TRAINING.session_minutes:
-            args.session_minutes = V2_3B_TRAINING.session_minutes
 
     mount_google_drive_if_available()
 
@@ -387,20 +378,6 @@ def main() -> None:
 
     if args.mode == "status":
         readiness = assess_training_readiness()
-        if args.model_size == "3b":
-            from training.ssg import SovereignScalingGovernor
-
-            print("[SSG] Checking scale-up criteria...")
-            scale_result = SovereignScalingGovernor().check()
-            for item in scale_result.passed:
-                print(f"[SSG] PASS: {item}")
-            for blocker in scale_result.blockers:
-                print(f"[SSG] BLOCKED: {blocker}")
-            state = "READY" if scale_result.allowed else "NOT READY"
-            print(
-                f"Training readiness: 3B {state}. "
-                f"{len(scale_result.blockers)} blocker(s)."
-            )
         print_system_health()
         print(f"[Unified Trainer] model_size={args.model_size}")
         print(f"[Unified Trainer] dataset={resolve_dataset_path(args.data_path)}")
@@ -466,7 +443,7 @@ def main() -> None:
         "--batch_size",
         str(args.batch_size),
         "--block_size",
-        str(model_cfg.block_size if args.model_size != "25m" else args.block_size),
+        str(model_cfg.block_size),
         "--answer_loss_weight",
         str(args.answer_loss_weight),
         "--optimizer",
@@ -506,7 +483,7 @@ def main() -> None:
         )
         names = (
             ["foundation", "owner_adaptation", "agency", "verified_reasoning"]
-            if args.campaign in {"frontier_full", "3b_full"}
+            if args.campaign == "frontier_full"
             else [args.campaign]
         )
 
@@ -690,14 +667,14 @@ class UnifiedTrainer:
     def __init__(
         self,
         data_path: str | None = None,
-        checkpoint_path: str = "anra_v2_brain.pt",
-        batch_size: int = V2_TRAINING.batch_size,
-        block_size: int = V2_MODEL.block_size,
-        answer_loss_weight: float = V2_TRAINING.answer_loss_weight,
-        session_minutes: int = V2_TRAINING.session_minutes,
+        checkpoint_path: str = "anra_frontier_900m.pt",
+        batch_size: int = V2_1B_TRAINING.batch_size,
+        block_size: int = V2_1B_FRONTIER.block_size,
+        answer_loss_weight: float = V2_1B_TRAINING.answer_loss_weight,
+        session_minutes: int = V2_1B_TRAINING.session_minutes,
         identity_minutes: int = 12,
         ouroboros_minutes: int = 10,
-        model_size: str = "25m",
+        model_size: str = "frontier",
         optimizer: str = "auto",
     ):
         self.data_path = data_path

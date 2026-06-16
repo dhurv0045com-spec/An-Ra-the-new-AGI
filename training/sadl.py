@@ -8,7 +8,7 @@ import math
 def owner_weight(
     parameter_count: int,
     *,
-    reference_parameters: int = 904_535_040,
+    reference_parameters: int = 908_098_891,
     base_weight: float = 0.65,
     scale_gain: float = 0.05,
     floor: float = 0.50,

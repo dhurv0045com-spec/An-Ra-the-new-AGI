@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
-from collections import Counter
-from dataclasses import asdict, dataclass
 import hashlib
 import json
+from collections import Counter
+from collections.abc import Iterator
+from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Iterator
 
+from anra.anra_paths import TRAINING_DATA_DIR
 
 TARGET_COUNTS = {
     "observational": 2000,
@@ -50,7 +51,10 @@ def _record(kind: str, index: int) -> CausalRecord:
     x, y, z = f"x_{index}", f"y_{index}", f"z_{index}"
     if kind == "observational":
         prompt = f"In {family}, {x} and {y} move together. What can be concluded?"
-        answer = "Association is observational; causation requires intervention or an identified causal model."
+        answer = (
+            "Association is observational; causation requires intervention "
+            "or an identified causal model."
+        )
         intervention, confounders, requires = None, (), False
     elif kind == "interventional":
         prompt = f"In {family}, intervene to set {x}=1. Predict the effect on {y}."
@@ -58,11 +62,20 @@ def _record(kind: str, index: int) -> CausalRecord:
         intervention, confounders, requires = f"do({x}=1)", (), True
     elif kind == "counterfactual":
         prompt = f"Given observed {x}=1 and {y}=1, what would {y} have been if {x}=0?"
-        answer = "Abduce latent state, apply the intervention, then predict under the same latent state."
+        answer = (
+            "Abduce latent state, apply the intervention, then predict under "
+            "the same latent state."
+        )
         intervention, confounders, requires = f"do({x}=0)", (), True
     else:
-        prompt = f"{z} affects both {x} and {y}; an observational study reports correlation. Assess it."
-        answer = f"The estimate is confounded by {z}; adjust, randomize, or use a valid identification strategy."
+        prompt = (
+            f"{z} affects both {x} and {y}; an observational study reports "
+            "correlation. Assess it."
+        )
+        answer = (
+            f"The estimate is confounded by {z}; adjust, randomize, or use "
+            "a valid identification strategy."
+        )
         intervention, confounders, requires = None, (z,), True
     canonical = {
         "prompt": prompt,
@@ -134,4 +147,9 @@ def publish_causal_corpus(output_path: str | Path) -> dict[str, object]:
 
 
 if __name__ == "__main__":
-    print(json.dumps(publish_causal_corpus("training_data/causal_corpus.jsonl"), indent=2))
+    print(
+        json.dumps(
+            publish_causal_corpus(TRAINING_DATA_DIR / "causal_corpus.jsonl"),
+            indent=2,
+        )
+    )

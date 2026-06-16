@@ -30,6 +30,7 @@ from anra_brain import CausalTransformerV2
 from tokenizer.subword_tokenizer import SubwordTokenizer
 from tokenizer.tokenizer_adapter import TokenizerAdapter
 from training.v2_config import (
+    CANONICAL_VOCAB_SIZE,
     CHECKPOINT_SCHEMA_VERSION,
     EXPECTED_PAD_TOKEN_ID,
     EXPECTED_SPECIAL_TOKENS,
@@ -37,7 +38,6 @@ from training.v2_config import (
     EXPECTED_TOKENIZER_VOCAB_SIZE,
     TOKENIZER_SCHEMA_VERSION,
     V2_1B_FRONTIER,
-    V2_3B,
     V2_MODEL,
     V2_REPORT_FILES,
     resolve_model_profile,
@@ -594,10 +594,6 @@ def build_frontier_model(
     print(f"  block_size={cfg.block_size}  vocab={cfg.vocab_size}")
     print(f"  HAL: {'enabled' if cfg.use_hal else 'disabled'}")
     return model
-
-
-def build_3b_model(*, hal_module=None) -> CausalTransformerV2:
-    return build_model_from_config(V2_3B, hal_module=hal_module)
 
 
 def build_model_for_profile(profile: str, *, hal_module=None, block_size: int | None = None):

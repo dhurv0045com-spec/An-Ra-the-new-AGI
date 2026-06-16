@@ -16,6 +16,10 @@ import threading
 import time
 from pathlib import Path
 
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
 import torch
 import torch.nn.functional as F
 from torch.utils.data import DataLoader, WeightedRandomSampler
@@ -25,17 +29,14 @@ from anra.anra_paths import (
     DRIVE_V2_CHECKPOINTS,
     FAILURE_REPLAY_DATASET,
     IBS_LATEST,
-    MODEL_GROWTH_REPORT,
-    QUARANTINE_DIR,
     REGRET_STATE,
     ROOT,
     SOVEREIGNTY_EVENTS,
     V2_TOKENIZER_FILE,
-    V2_BRAIN_CHECKPOINT,
-    V3_3B_CHECKPOINT,
 )
 from engine.eval_harness import EvalHarness, EvalResult
 from engine.feature_flags import is_enabled
+from evaluation.intelligence_telemetry import create_intelligence_session
 from runtime.safe_load import safe_torch_load
 from training.anra_optimizer import (
     IDENTITY_PARAMETER_PATTERNS,
@@ -54,8 +55,6 @@ from training.v2_config import (
     TOKENIZER_SCHEMA_VERSION,
     V2_1B_FRONTIER,
     V2_1B_TRAINING,
-    V2_3B,
-    V2_3B_TRAINING,
     V2_MODEL,
     V2_TRAINING,
     resolve_model_profile,
@@ -70,8 +69,6 @@ from training.dynamic_regret import DynamicRegretScheduler
 from training.v2_runtime import (
     atomic_save,
     build_frontier_model,
-    build_3b_model,
-    build_v2_model,
     canonical_v2_checkpoint,
     load_checkpoint,
     load_or_build_v2_tokenizer,
@@ -146,12 +143,9 @@ def train_causal_extension(
     tokenizer = load_or_build_v2_tokenizer(
         dataset_path=ROOT / "training_data" / "anra_training.txt"
     )
-    if model_size in {"1b", "frontier", "904m"}:
-        model = build_frontier_model()
-    elif model_size == "3b":
-        model = build_3b_model()
-    else:
-        model = build_v2_model(vocab_size=tokenizer.vocab_size, block_size=block_size)
+    if model_size != "frontier":
+        raise ValueError("iterate900 supports only --model-size frontier")
+    model = build_frontier_model()
     checkpoint = _resolve_checkpoint_path(base_checkpoint)
     if checkpoint.exists():
         load_checkpoint(
@@ -394,12 +388,12 @@ def _compact_eval_to_result(summary: dict[str, object], *, component: str = "tra
 def train_anra_v2(
     *,
     data_path: str,
-    checkpoint_path: str = "anra_v2_brain.pt",
+    checkpoint_path: str = "anra_frontier_900m.pt",
     resume_from: str | None = None,
-    batch_size: int = V2_TRAINING.batch_size,
-    block_size: int = V2_MODEL.block_size,
-    max_minutes: int = V2_TRAINING.session_minutes,
-    answer_loss_weight: float = V2_TRAINING.answer_loss_weight,
+    batch_size: int = V2_1B_TRAINING.batch_size,
+    block_size: int = V2_1B_FRONTIER.block_size,
+    max_minutes: int = V2_1B_TRAINING.session_minutes,
+    answer_loss_weight: float = V2_1B_TRAINING.answer_loss_weight,
     max_examples: int | None = None,
     own_ratio: float | None = None,
     identity_ratio: float | None = None,
@@ -407,7 +401,7 @@ def train_anra_v2(
     symbolic_ratio: float | None = None,
     replay_ratio: float | None = None,
     use_ouroboros: bool = False,
-    model_size: str = "25m",
+    model_size: str = "frontier",
     optimizer_name: str = "auto",
 ) -> dict[str, object]:
     for required_component in ("training_loop", "data_mix", "evaluation"):
@@ -416,24 +410,12 @@ def train_anra_v2(
                 f"Required component is disabled at its call site: {required_component}"
             )
     print_session_dashboard()
+    if model_size != "frontier":
+        raise ValueError("iterate900 supports only --model-size frontier")
     model_cfg, training_cfg = resolve_model_profile(model_size)
-    is_frontier = model_size in {"1b", "frontier", "904m"}
+    is_frontier = model_size == "frontier"
     growth_teacher = None
     growth_alignment = None
-    if model_size == "3b" and Path(checkpoint_path).name == V2_BRAIN_CHECKPOINT.name:
-        checkpoint_path = str(V3_3B_CHECKPOINT)
-    if model_size == "3b":
-        from training.ssg import SovereignScalingGovernor
-
-        target_exists = _resolve_checkpoint_path(checkpoint_path).exists()
-        gate = SovereignScalingGovernor().check(
-            phase="training" if target_exists else "growth"
-        )
-        print(f"[SSG] Checking {gate.phase} criteria...", flush=True)
-        if not gate.allowed:
-            for blocker in gate.blockers:
-                print(f"[SSG] BLOCKED: {blocker}", flush=True)
-            raise SystemExit(3)
     if is_frontier:
         if torch.cuda.is_available():
             props = torch.cuda.get_device_properties(0)
@@ -442,7 +424,7 @@ def train_anra_v2(
             if vram_gb < 20:
                 print(
                     f"[Trainer] WARNING: {vram_gb:.1f}GB VRAM is below the 20GB minimum.\n"
-                    f"          1B training needs RTX 6000 Ada (48GB) or A100 (40-80GB).\n"
+                    f"          900M frontier training is tight on a T4.\n"
                     f"          Continuing; reduce batch_size if it OOMs."
                 )
         if batch_size == V2_TRAINING.batch_size:
@@ -458,19 +440,9 @@ def train_anra_v2(
         symbolic_ratio = symbolic_ratio if symbolic_ratio is not None else V2_1B_TRAINING.symbolic_ratio
         replay_ratio = replay_ratio if replay_ratio is not None else V2_1B_TRAINING.replay_ratio
         print(
-            f"[Trainer] 1B FRONTIER MODE  "
+            f"[Trainer] 900M FRONTIER MODE  "
             f"batch={training_cfg.batch_size}  grad_accum={training_cfg.grad_accum_steps}"
         )
-    elif model_size == "3b":
-        batch_size = 1 if batch_size == V2_TRAINING.batch_size else batch_size
-        block_size = V2_3B.block_size if block_size == V2_MODEL.block_size else block_size
-        max_examples = max_examples or V2_3B_TRAINING.max_mixture_examples
-        print(
-            f"[Trainer] 3B GROWTH MODE batch={batch_size} "
-            f"grad_accum={training_cfg.grad_accum_steps}"
-        )
-    else:
-        print("[Trainer] 25M BASE MODE")
     dataset_path = Path(data_path)
     tokenizer = load_or_build_v2_tokenizer(dataset_path=dataset_path)
     examples, mix_report = build_v2_training_examples(
@@ -481,21 +453,9 @@ def train_anra_v2(
         teacher_ratio=teacher_ratio,
         symbolic_ratio=symbolic_ratio,
         replay_ratio=replay_ratio,
-        model_params=(
-            2_918_251_520
-            if model_size == "3b"
-            else 904_535_040
-            if is_frontier
-            else 25_000_000
-        ),
+        model_params=908_098_891,
     )
-    training_mix_controller = TrainingDataMixController(
-        2_918_251_520
-        if model_size == "3b"
-        else 904_535_040
-        if is_frontier
-        else 25_000_000
-    )
+    training_mix_controller = TrainingDataMixController(908_098_891)
     if mix_report.active_weights:
         training_mix_controller.weights = dict(mix_report.active_weights)
     write_json(v2_report_path("mix_report"), mix_report.to_dict())
@@ -556,76 +516,9 @@ def train_anra_v2(
                 print(f"[Trainer] HAL init failed: {exc}; training without HAL")
                 hal_module = None
         model = build_frontier_model(hal_module=hal_module)
-    elif model_size == "3b":
-        model = build_3b_model()
-        if not _resolve_checkpoint_path(checkpoint_path).exists():
-            parent_path = canonical_v2_checkpoint("brain")
-            if not parent_path.exists():
-                raise RuntimeError("3B growth requires a promoted frontier checkpoint.")
-            parent = build_frontier_model()
-            load_checkpoint(parent, None, None, None, parent_path, device=torch.device("cpu"), strict=False)
-            from training.csii import (
-                CrossScaleIdentityInheritance,
-                GrowthAlignmentController,
-            )
-
-            growth = CrossScaleIdentityInheritance.grow(
-                parent, model, source_checkpoint=parent_path
-            )
-            frozen_tokens = ds[0][0][: min(16, block_size)].unsqueeze(0)
-            parity = CrossScaleIdentityInheritance.verify_parity(
-                parent,
-                model,
-                frozen_tokens,
-            )
-            growth_payload = {
-                **growth.__dict__,
-                **parity,
-                "frozen_corpus_hash": __import__("hashlib").sha256(
-                    frozen_tokens.numpy().tobytes()
-                ).hexdigest(),
-            }
-            CrossScaleIdentityInheritance.write_report(
-                growth_payload,
-                MODEL_GROWTH_REPORT,
-            )
-            growth_candidate = _resolve_checkpoint_path(checkpoint_path).with_suffix(
-                ".growth-candidate.pt"
-            )
-            atomic_save(
-                {
-                    "schema_version": 3,
-                    "model_state_dict": model.state_dict(),
-                    "model_config": model.model_config(),
-                    "growth_report": growth_payload,
-                },
-                growth_candidate,
-                drive_dir=None,
-            )
-            final_gate = SovereignScalingGovernor().check(phase="training")
-            if not final_gate.allowed:
-                QUARANTINE_DIR.mkdir(parents=True, exist_ok=True)
-                quarantined = QUARANTINE_DIR / growth_candidate.name
-                shutil.move(str(growth_candidate), quarantined)
-                for blocker in final_gate.blockers:
-                    print(f"[SSG] BLOCKED: {blocker}", flush=True)
-                raise SystemExit(3)
-            growth_teacher = parent
-            growth_alignment = GrowthAlignmentController(
-                parent,
-                model,
-                identity_layers=growth.identity_layers,
-            )
-            print(
-                f"[CSII] Grew frontier {growth.source_width}x{growth.source_layers} "
-                f"to {growth.target_width}x{growth.target_layers}",
-                flush=True,
-            )
-    else:
-        model = build_v2_model(vocab_size=tokenizer.vocab_size, block_size=block_size)
-    if (is_frontier or model_size == "3b") and getattr(training_cfg, "gradient_checkpointing", False):
+    if getattr(training_cfg, "gradient_checkpointing", False):
         model.gradient_checkpointing_enable()
-        print("[build_brain] Gradient checkpointing enabled for 1B model", flush=True)
+        print("[build_brain] Gradient checkpointing enabled for 900M model", flush=True)
     if hasattr(model, "disable_kv_cache"):
         model.disable_kv_cache()
     if use_ouroboros:
@@ -633,6 +526,7 @@ def train_anra_v2(
 
         model = OuroborosDecoder(model, n_passes=3)
     model = model.to(device)
+    intelligence_session = create_intelligence_session(model)
     if growth_teacher is not None:
         growth_teacher = growth_teacher.to(device)
     mp = MixedPrecisionTrainer(device=device)
@@ -801,6 +695,8 @@ def train_anra_v2(
     while time.time() < end_at:
         epoch += 1
         for xb, yb, wb, sample_idx in loader:
+            if intelligence_session is not None:
+                intelligence_session.begin_step(global_step)
             if first_batch_wall is None:
                 first_batch_wall = time.time()
             xb = xb.to(device)
@@ -893,7 +789,15 @@ def train_anra_v2(
                 pcgrad_reports.extend(pcgrad.materialize())
                 if growth_alignment is not None:
                     growth_alignment.mask_inactive_gradients()
-                torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+                gradient_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+                if intelligence_session is not None:
+                    intelligence_session.record_optimizer_step(
+                        step=global_step,
+                        loss=float(batch_loss.item()),
+                        learning_rate=float(optimizer.param_groups[0]["lr"]),
+                        gradient_norm=float(gradient_norm),
+                        tokens=int((yb != tokenizer.pad_token_id).sum().item()),
+                    )
                 mp.step(optimizer)
                 mp.update()
                 scheduler.step()
@@ -988,7 +892,15 @@ def train_anra_v2(
         pcgrad_reports.extend(pcgrad.materialize())
         if growth_alignment is not None:
             growth_alignment.mask_inactive_gradients()
-        torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+        gradient_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+        if intelligence_session is not None:
+            intelligence_session.record_optimizer_step(
+                step=global_step,
+                loss=float(last_avg_loss),
+                learning_rate=float(optimizer.param_groups[0]["lr"]),
+                gradient_norm=float(gradient_norm),
+                tokens=int(total_target_tokens),
+            )
         mp.step(optimizer)
         mp.update()
         scheduler.step()
@@ -1104,6 +1016,22 @@ def train_anra_v2(
             prev_eval_summary = None
 
     eval_summary = run_compact_eval(model, tokenizer, device=device, output=True)
+    intelligence_report = None
+    if intelligence_session is not None:
+        try:
+            intelligence_report = intelligence_session.finalize(
+                checkpoint_id=f"{Path(ckpt_path).name}:step-{global_step:012d}",
+                capability_score=float(eval_summary.get("overall_score", 0.0)),
+                capability_samples=max(
+                    1,
+                    len(eval_summary.get("results", eval_summary.get("items", []))),
+                ),
+            )
+            metrics["thirdeye_intelligence"] = intelligence_report
+            write_json(v2_report_path("metrics"), metrics)
+        except Exception as exc:
+            intelligence_session.hooks.close()
+            print(f"[ThirdEye] Intelligence report failed: {exc}", flush=True)
     civ_similarity = float(
         eval_summary.get(
             "civ_similarity",
@@ -1306,17 +1234,17 @@ def train_anra_v2(
 def main() -> None:
     parser = argparse.ArgumentParser(description="Canonical An-Ra base trainer")
     parser.add_argument("--data_path", required=True)
-    parser.add_argument("--checkpoint_path", default="anra_v2_brain.pt")
+    parser.add_argument("--checkpoint_path", default="anra_frontier_900m.pt")
     parser.add_argument("--resume_from", default=None)
-    parser.add_argument("--batch_size", type=int, default=V2_TRAINING.batch_size)
-    parser.add_argument("--block_size", type=int, default=V2_MODEL.block_size)
-    parser.add_argument("--max_minutes", type=int, default=V2_TRAINING.session_minutes)
+    parser.add_argument("--batch_size", type=int, default=V2_1B_TRAINING.batch_size)
+    parser.add_argument("--block_size", type=int, default=V2_1B_FRONTIER.block_size)
+    parser.add_argument("--max_minutes", type=int, default=V2_1B_TRAINING.session_minutes)
     parser.add_argument(
         "--model-size",
-        choices=["25m", "1b", "frontier", "904m", "3b"],
-        default="25m",
+        choices=["frontier"],
+        default="frontier",
     )
-    parser.add_argument("--answer_loss_weight", type=float, default=V2_TRAINING.answer_loss_weight)
+    parser.add_argument("--answer_loss_weight", type=float, default=V2_1B_TRAINING.answer_loss_weight)
     parser.add_argument("--max_examples", type=int, default=None)
     parser.add_argument("--own_ratio", type=float, default=None)
     parser.add_argument("--identity_ratio", type=float, default=None)

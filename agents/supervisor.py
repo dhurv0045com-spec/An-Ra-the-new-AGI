@@ -2,7 +2,7 @@
 SupervisorAgent - top-level controller for the An-Ra agent system.
 
 Owner interface:
-    supervisor = SupervisorAgent(model_size="1b")
+    supervisor = SupervisorAgent(model_size="frontier")
     supervisor.start_session()
     # ... run training / inference / agent tasks ...
     summary = supervisor.end_session()
@@ -62,7 +62,7 @@ class SessionSummary:
 
 
 class SupervisorAgent:
-    def __init__(self, model_size: str = "25m") -> None:
+    def __init__(self, model_size: str = "frontier") -> None:
         self._model_size = model_size
         self._started_at: float | None = None
         self._bus = None
