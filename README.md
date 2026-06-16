@@ -2,8 +2,8 @@
 
 `iterate900` is the AN-RA branch for one focused experiment:
 
-**train and measure a 900M-class AN-RA frontier model on a T4 GPU, while keeping
-the full feature stack from the larger experimental system.**
+**train and measure a 900M-class AN-RA frontier model on Colab accelerators,
+while keeping the full feature stack from the larger experimental system.**
 
 This branch is not for 25M training and it is not for the old 3B model. The only
 public trainable profile is:
@@ -85,6 +85,21 @@ results before training. Before a campaign runs, it may show some training or
 runtime systems as missing activation evidence. After training/evaluation, those
 reports become the comparison record.
 
+## Runtime Paths
+
+This branch now has two explicit training paths:
+
+| Runtime | Notebook | Trainer | Use when |
+| --- | --- | --- | --- |
+| T4 CUDA GPU | `notebooks/AN_RA_T4_TRAINING.ipynb` | `scripts/build_brain.py` | You selected a T4 GPU in Colab |
+| TPU / PyTorch-XLA | `notebooks/AN_RA_TPU_TRAINING.ipynb` | `scripts/build_brain_tpu.py` | You selected a TPU runtime in Colab |
+
+The two paths use the same `frontier` model profile, tokenizer contract, data
+mixture, checkpoint name, Drive checkpoint folder, HAL/ESV/RIM/DSTP/MoD model
+features, and ThirdEye evidence hooks. They differ only in runtime mechanics:
+CUDA mixed precision for T4, PyTorch/XLA device loading, optimizer stepping, and
+checkpoint saving for TPU.
+
 ## Google Colab T4 Setup
 
 Use this when you want the simple notebook-style workflow: open Colab, select a
@@ -139,6 +154,58 @@ Recommended direct training command:
   --batch_size 1 \
   --max_minutes 90
 ```
+
+## Google Colab TPU Setup
+
+Use this when Colab gives you a free TPU runtime. TPU is not CUDA, so do not run
+the T4 notebook on it. Use the TPU notebook:
+
+```text
+notebooks/AN_RA_TPU_TRAINING.ipynb
+```
+
+The notebook does this automatically:
+
+1. Mounts Google Drive.
+2. Clones or updates the `iterate900` branch.
+3. Installs PyTorch/XLA for TPU.
+4. Installs AN-RA without overwriting the TPU torch stack.
+5. Downloads/prepares the current training data profile.
+6. Runs the TPU bootstrap report.
+7. Starts training with the dedicated XLA trainer.
+8. Saves `anra_frontier_900m.pt` locally and mirrors it to:
+
+```text
+/content/drive/MyDrive/AnRa/v2/checkpoints/anra_frontier_900m.pt
+```
+
+Direct TPU command:
+
+```python
+%cd /content/An-Ra-the-new-AGI
+
+!python scripts/build_brain_tpu.py \
+  --data_path training_data/anra_training.txt \
+  --checkpoint_path anra_frontier_900m.pt \
+  --model-size frontier \
+  --batch_size 1 \
+  --grad_accum_steps 16 \
+  --optimizer adafactor \
+  --max_minutes 180 \
+  --log_every 1
+```
+
+TPU notes:
+
+- The first optimizer step can take several minutes because XLA compiles the
+  graph. After compilation, step logs should appear regularly.
+- The TPU path defaults to `adafactor` because AdamW optimizer state is very
+  large for a 900M model. You can use `--optimizer adamw`, but it needs much more
+  memory and creates larger checkpoints.
+- ThirdEye intelligence telemetry is attempted by default. If it adds too much
+  overhead during a baseline run, set `ANRA_THIRDEYE_INTELLIGENCE=0`.
+- This is not an architecture change. It is the same 900M-class frontier model
+  running through PyTorch/XLA.
 
 ## Data Requirements
 
