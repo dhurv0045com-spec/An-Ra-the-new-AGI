@@ -28,6 +28,7 @@ from evaluation.intelligence_telemetry import create_intelligence_session
 from training.anra_optimizer import build_optimizer
 from training.tpu_runtime import (
     TPUUnavailableError,
+    freeze_parametrized_spectral_norms_for_xla,
     load_checkpoint_cpu_first,
     require_torch_xla,
     restore_checkpoint_from_drive,
@@ -248,6 +249,13 @@ def train_anra_tpu(
     if hasattr(model, "disable_kv_cache"):
         model.disable_kv_cache()
     model = model.to(device)
+    frozen_parametrizations = freeze_parametrized_spectral_norms_for_xla(model)
+    if frozen_parametrizations:
+        print(
+            f"[TPU] Frozen {len(frozen_parametrizations)} spectral-norm parametrization(s) "
+            "for XLA memory compatibility.",
+            flush=True,
+        )
     tied_lm_head = ensure_tied_lm_head(model)
     summary = model_summary(model)
     if not tied_lm_head:
@@ -323,6 +331,7 @@ def train_anra_tpu(
     print(f"  Micro batch         : {batch_size}", flush=True)
     print(f"  Grad accumulation   : {grad_accum_steps}", flush=True)
     print(f"  Grad checkpointing  : disabled on TPU/XLA", flush=True)
+    print(f"  Frozen SN params    : {len(frozen_parametrizations)}", flush=True)
     print(f"  Optimizer           : {optimizer_report.get('selected', {}).get('actual', optimizer_name)}", flush=True)
     print(f"  Examples/windows    : {len(examples):,}/{len(dataset):,}", flush=True)
     print(f"  Session minutes     : {max_minutes}", flush=True)
@@ -476,6 +485,7 @@ def train_anra_tpu(
         "model_parameters": summary["parameters"],
         "expected_tied_parameters": MODEL_PARAM_COUNT,
         "tied_lm_head": tied_lm_head,
+        "frozen_spectral_norm_parametrizations": frozen_parametrizations,
         "transformer_parameters": TRANSFORMER_PARAM_COUNT,
         "third_eye": telemetry_report,
     }

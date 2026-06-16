@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 import torch
+from torch.nn.utils import parametrize
 
 from anra.anra_paths import DRIVE_V2_CHECKPOINTS
 from runtime.safe_load import safe_torch_load
@@ -142,3 +143,23 @@ def restore_checkpoint_from_drive(checkpoint_path: Path) -> bool:
             print(f"[TPU Resume] restored {candidate} -> {checkpoint_path}", flush=True)
             return True
     return False
+
+
+def freeze_parametrized_spectral_norms_for_xla(model: torch.nn.Module) -> list[str]:
+    """
+    Materialize parametrized spectral-norm weights before XLA execution.
+
+    PyTorch spectral_norm parametrizations can build large SyncTensorsGraph
+    programs on TPU for many tiny RIM projections. Removing the parametrization
+    preserves the current normalized weight tensor and avoids per-forward XLA
+    spectral norm graph construction.
+    """
+    frozen: list[str] = []
+    for module_name, module in model.named_modules():
+        try:
+            if parametrize.is_parametrized(module, "weight"):
+                parametrize.remove_parametrizations(module, "weight", leave_parametrized=True)
+                frozen.append(f"{module_name}.weight")
+        except Exception as exc:
+            print(f"[TPU] spectral norm freeze skipped for {module_name}: {exc}", flush=True)
+    return frozen
