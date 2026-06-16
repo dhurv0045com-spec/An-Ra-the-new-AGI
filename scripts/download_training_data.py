@@ -22,6 +22,26 @@ from training.data_pipeline_v3 import SourceRecord, TokenShardPublisher
 
 TRAINING_DATA_DIR = Path("training_data")
 DOWNLOAD_STATUS = DATA_MANIFEST_DIR / "download_status.json"
+DATA_PROFILES = {
+    "smoke": {
+        "fineweb_docs": 2_000,
+        "redpajama_docs": 1_000,
+        "reasoning_per_source": 1_000,
+        "science_per_source": 500,
+    },
+    "t4-15gb": {
+        "fineweb_docs": 120_000,
+        "redpajama_docs": 40_000,
+        "reasoning_per_source": 20_000,
+        "science_per_source": 10_000,
+    },
+    "full": {
+        "fineweb_docs": 1_000_000,
+        "redpajama_docs": 800_000,
+        "reasoning_per_source": None,
+        "science_per_source": None,
+    },
+}
 
 
 class SourceDownloadFailure(RuntimeError):
@@ -60,12 +80,21 @@ def prompt_key_from_dfc_text(text: str) -> str:
     return text[prompt_start + 1 : prompt_end][:100]
 
 
-def download_base(load_dataset: Callable[..., Any] | None, dry_run: bool = False) -> dict[str, Any]:
+def download_base(
+    load_dataset: Callable[..., Any] | None,
+    dry_run: bool = False,
+    *,
+    fineweb_docs: int = 1_000_000,
+    redpajama_docs: int = 800_000,
+) -> dict[str, Any]:
     output = TRAINING_DATA_DIR / "base_corpus.txt"
     stats: dict[str, Any] = {"bucket": "base", "output": str(output), "documents": 0, "errors": []}
 
     if dry_run:
-        print(f"DRY RUN: would download FineWeb-Edu and RedPajama into {output}")
+        print(
+            "DRY RUN: would download "
+            f"{fineweb_docs:,} FineWeb-Edu docs and {redpajama_docs:,} RedPajama docs into {output}"
+        )
         return stats
 
     assert load_dataset is not None
@@ -86,7 +115,7 @@ def download_base(load_dataset: Callable[..., Any] | None, dry_run: bool = False
                     if text:
                         f.write(text.strip() + "\n\n")
                         count += 1
-                    if count >= 1_000_000:
+                    if count >= fineweb_docs:
                         break
                 except Exception:
                     continue
@@ -113,7 +142,7 @@ def download_base(load_dataset: Callable[..., Any] | None, dry_run: bool = False
                     if text and len(text) > 200:
                         f.write(text.strip() + "\n\n")
                         count += 1
-                    if count >= 800_000:
+                    if count >= redpajama_docs:
                         break
                 except Exception:
                     continue
@@ -140,7 +169,12 @@ def download_base(load_dataset: Callable[..., Any] | None, dry_run: bool = False
     return stats
 
 
-def download_reasoning(load_dataset: Callable[..., Any] | None, dry_run: bool = False) -> dict[str, Any]:
+def download_reasoning(
+    load_dataset: Callable[..., Any] | None,
+    dry_run: bool = False,
+    *,
+    per_source_limit: int | None = None,
+) -> dict[str, Any]:
     output = TRAINING_DATA_DIR / "reasoning.jsonl"
     stats: dict[str, Any] = {"bucket": "reasoning", "output": str(output), "examples": 0, "errors": []}
 
@@ -232,7 +266,8 @@ def download_reasoning(load_dataset: Callable[..., Any] | None, dry_run: bool = 
                         )
                         count += 1
                         total += 1
-                        if max_n and count >= max_n:
+                        limit = min(max_n, per_source_limit) if max_n and per_source_limit else (per_source_limit or max_n)
+                        if limit and count >= limit:
                             break
                     except Exception:
                         continue
@@ -247,7 +282,12 @@ def download_reasoning(load_dataset: Callable[..., Any] | None, dry_run: bool = 
     return stats
 
 
-def download_science(load_dataset: Callable[..., Any] | None, dry_run: bool = False) -> dict[str, Any]:
+def download_science(
+    load_dataset: Callable[..., Any] | None,
+    dry_run: bool = False,
+    *,
+    per_source_limit: int | None = None,
+) -> dict[str, Any]:
     output = TRAINING_DATA_DIR / "frontier_dfc.jsonl"
     stats: dict[str, Any] = {"bucket": "science", "output": str(output), "examples": 0, "errors": []}
 
@@ -362,7 +402,8 @@ def download_science(load_dataset: Callable[..., Any] | None, dry_run: bool = Fa
                         out.write(json.dumps(dfc_entry, ensure_ascii=False) + "\n")
                         count += 1
                         added += 1
-                        if max_n and count >= max_n:
+                        limit = min(max_n, per_source_limit) if max_n and per_source_limit else (per_source_limit or max_n)
+                        if limit and count >= limit:
                             break
                     except Exception:
                         continue
@@ -473,6 +514,12 @@ def publish_fineweb_token_shards() -> dict[str, Any]:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Download An-Ra training data buckets.")
     parser.add_argument(
+        "--profile",
+        choices=sorted(DATA_PROFILES),
+        default="t4-15gb",
+        help="Data size profile. t4-15gb is the default Colab/Drive-friendly profile.",
+    )
+    parser.add_argument(
         "--bucket",
         choices=["base", "reasoning", "science"],
         help="Download only one bucket. Omit to build all buckets.",
@@ -482,6 +529,17 @@ def parse_args() -> argparse.Namespace:
         "--publish-token-shards",
         action="store_true",
         help="Publish immutable 10M-token uint16 FineWeb-Edu shards after download.",
+    )
+    parser.add_argument(
+        "--prepare-corpus",
+        action="store_true",
+        help="Convert downloaded files into anra_training.txt and teacher_reasoning_v2.jsonl.",
+    )
+    parser.add_argument(
+        "--max-source-mb",
+        type=int,
+        default=4096,
+        help="Maximum downloaded source file size to ingest when --prepare-corpus is set.",
     )
     return parser.parse_args()
 
@@ -498,23 +556,63 @@ def main() -> int:
 
     print("AN-RA TRAINING DATA DOWNLOAD")
     print("=" * 60)
+    print(f"Profile: {args.profile}")
     print(f"Buckets: {', '.join(buckets)}")
     if args.dry_run:
         print("Mode: dry run")
     print()
 
+    profile = DATA_PROFILES[args.profile]
     results: list[dict[str, Any]] = []
     for bucket in buckets:
         if bucket == "base":
-            results.append(download_base(load_dataset, dry_run=args.dry_run))
+            results.append(
+                download_base(
+                    load_dataset,
+                    dry_run=args.dry_run,
+                    fineweb_docs=int(profile["fineweb_docs"]),
+                    redpajama_docs=int(profile["redpajama_docs"]),
+                )
+            )
         elif bucket == "reasoning":
-            results.append(download_reasoning(load_dataset, dry_run=args.dry_run))
+            results.append(
+                download_reasoning(
+                    load_dataset,
+                    dry_run=args.dry_run,
+                    per_source_limit=profile["reasoning_per_source"],
+                )
+            )
         elif bucket == "science":
-            results.append(download_science(load_dataset, dry_run=args.dry_run))
+            results.append(
+                download_science(
+                    load_dataset,
+                    dry_run=args.dry_run,
+                    per_source_limit=profile["science_per_source"],
+                )
+            )
 
     if args.publish_token_shards and not args.dry_run:
         inventory = publish_fineweb_token_shards()
         print(f"Published licensed token inventory: {inventory['licensed_tokens']:,}")
+
+    if args.prepare_corpus and not args.dry_run:
+        from training.data_ingestion import prepare_training_corpus
+
+        sources = [
+            TRAINING_DATA_DIR / "base_corpus.txt",
+            TRAINING_DATA_DIR / "reasoning.jsonl",
+            TRAINING_DATA_DIR / "frontier_dfc.jsonl",
+        ]
+        report = prepare_training_corpus(
+            explicit_sources=[source for source in sources if source.exists()],
+            include_drive=True,
+            max_source_mb=args.max_source_mb,
+            mount_drive=False,
+        )
+        print(
+            "Prepared AN-RA corpus: "
+            f"{report.total_examples:,} examples, {report.teacher_records:,} teacher records"
+        )
 
     print_summary()
     failures = [

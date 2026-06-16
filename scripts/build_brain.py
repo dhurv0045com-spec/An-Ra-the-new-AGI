@@ -339,15 +339,41 @@ def _prepare_resume_target(checkpoint_path: Path, resume_from: str | None) -> No
     if resume_from:
         candidate = _resolve_checkpoint_path(resume_from)
         if not candidate.exists():
-            drive_copy = DRIVE_V2_CHECKPOINTS / candidate.name
-            candidate = drive_copy if drive_copy.exists() else None
+            candidate = None
+            for drive_copy in (
+                DRIVE_V2_CHECKPOINTS / Path(resume_from).name,
+                DRIVE_V2_CHECKPOINTS.parent.parent / Path(resume_from).name,
+            ):
+                if drive_copy.exists():
+                    candidate = drive_copy
+                    break
     if candidate is None:
-        drive_copy = DRIVE_V2_CHECKPOINTS / checkpoint_path.name
-        candidate = drive_copy if drive_copy.exists() else None
+        for drive_copy in (
+            DRIVE_V2_CHECKPOINTS / checkpoint_path.name,
+            DRIVE_V2_CHECKPOINTS.parent.parent / checkpoint_path.name,
+        ):
+            if drive_copy.exists():
+                candidate = drive_copy
+                break
     if candidate is not None and candidate.exists():
         checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(candidate, checkpoint_path)
         print(f"[build_brain] restored checkpoint: {candidate} -> {checkpoint_path}", flush=True)
+
+
+def _sync_training_checkpoint_to_drive(checkpoint_path: Path) -> None:
+    if not checkpoint_path.exists():
+        return
+    for target in (
+        DRIVE_V2_CHECKPOINTS / checkpoint_path.name,
+        DRIVE_V2_CHECKPOINTS.parent.parent / checkpoint_path.name,
+    ):
+        try:
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(checkpoint_path, target)
+            print(f"[Drive] frontier checkpoint saved: {target}", flush=True)
+        except Exception as exc:
+            print(f"[Drive] frontier checkpoint mirror failed for {target}: {exc}", flush=True)
 
 
 def _weighted_loss(
@@ -563,6 +589,7 @@ def train_anra_v2(
 
     requested_checkpoint = Path(checkpoint_path)
     ckpt_path = requested_checkpoint if requested_checkpoint.is_absolute() else ROOT / requested_checkpoint
+    _prepare_resume_target(ckpt_path, resume_from)
     resume_path = Path(resume_from) if resume_from else ckpt_path
     if not resume_path.is_absolute():
         resume_path = ROOT / resume_path
@@ -602,6 +629,8 @@ def train_anra_v2(
             migration=checkpoint_migration,
         )
         ok = _emergency_save_with_timeout(payload, ckpt_path)
+        if ok:
+            _sync_training_checkpoint_to_drive(ckpt_path)
         signal_state["emergency_save_completed"] = ok
         print(f"[build_brain] SIGTERM emergency save status={ok}", flush=True)
         raise SystemExit(128 + sig_num)
@@ -650,6 +679,11 @@ def train_anra_v2(
     end_at = start + max_minutes * 60
     initial_step = start_step
     session_step = 0
+    checkpoint_every_seconds = max(
+        300,
+        int(float(os.environ.get("ANRA_CHECKPOINT_EVERY_MIN", "25")) * 60),
+    )
+    next_checkpoint_at = time.time() + checkpoint_every_seconds
     optimizer.zero_grad(set_to_none=True)
     rolling_loss = 0.0
     rolling_count = 0
@@ -885,6 +919,23 @@ def train_anra_v2(
                         flush=True,
                     )
 
+                if time.time() >= next_checkpoint_at:
+                    payload = _build_checkpoint_payload(
+                        model=model,
+                        optimizer=optimizer,
+                        scheduler=scheduler,
+                        mp=mp,
+                        global_step=global_step,
+                        epoch=epoch,
+                        best_loss=best_loss,
+                        sessions_completed=(int(ckpt.get("sessions_completed", 0)) if "ckpt" in locals() else 0),
+                        mix_report=mix_report,
+                        migration=checkpoint_migration,
+                    )
+                    atomic_save(payload, ckpt_path, drive_dir=DRIVE_V2_CHECKPOINTS)
+                    _sync_training_checkpoint_to_drive(ckpt_path)
+                    next_checkpoint_at = time.time() + checkpoint_every_seconds
+
             if time.time() >= end_at:
                 break
 
@@ -939,7 +990,8 @@ def train_anra_v2(
         mix_report=mix_report,
         migration=checkpoint_migration,
     )
-    atomic_save(payload, ckpt_path, drive_dir=None)
+    atomic_save(payload, ckpt_path, drive_dir=DRIVE_V2_CHECKPOINTS)
+    _sync_training_checkpoint_to_drive(ckpt_path)
 
     metrics = {
         "generated_at": time.time(),
@@ -1190,6 +1242,7 @@ def train_anra_v2(
         ],
     )
     sync_to_drive("brain")
+    _sync_training_checkpoint_to_drive(ckpt_path)
     sync_to_drive("tokenizer")
     sync_to_drive("eval_summary")
 

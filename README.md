@@ -144,6 +144,14 @@ Recommended direct training command:
 The checked-in starter data is enough to test the pipeline, but it is not enough
 to make a 900M model broadly capable.
 
+Tokens are the unit of training exposure. A token is a small piece of text/code,
+and every optimizer step teaches the model from a batch of tokens. Loss is a
+measurement of prediction error on the current training distribution; it is not a
+complete intelligence score, and the goal is not simply "loss = 0.1". A very low
+loss on a small repeated dataset can mean memorization. For this branch, the goal
+is: broad data, stable identity, improving held-out evals, and ThirdEye evidence
+showing which subsystems helped.
+
 Use these rough targets:
 
 | Goal | Token target | Meaning |
@@ -156,6 +164,26 @@ Use these rough targets:
 A single Colab T4 is useful for iterative experiments, continuation runs, and
 feature comparisons. It is not a fast way to complete a full 20B-token pretrain
 from scratch. For that, use many sessions, remote workers, or a larger GPU pool.
+
+## Data Philosophy
+
+AN-RA should not be trained as a pile of random internet text. It should be
+trained as layers:
+
+| Layer | Meaning | How it is used |
+| --- | --- | --- |
+| Identity | Who AN-RA is, its purpose, style, continuity, owner facts, and principles | Replayed every session so broad data does not erase identity |
+| Skill | Code, math, science, writing, tool use, verification, debugging | Trains capability |
+| World Knowledge | High-quality educational/web text, science, history, philosophy, biotech, neuroscience, robotics | Gives breadth |
+| Reasoning | Math, logic, causal examples, verifier traces, DFC records | Teaches structured thought |
+| Agency | Task traces, planning, self-checking, memory use, safe autonomy | Teaches action loops |
+| Evidence | Evaluations, hard examples, replay corrections, ThirdEye reports | Teaches the next experiment |
+
+The identity layer should appear in every session, but not as blind repetition of
+one tiny file. The trainer mixes identity, owner, teacher, symbolic, replay, and
+frontier DFC examples; hard examples and corrections are fed back as replay so
+the model continues from previous sessions without only memorizing yesterday's
+data.
 
 Recommended domain mix for AN-RA:
 
@@ -174,15 +202,19 @@ The built-in downloader already knows these buckets:
 ```python
 %cd /content/An-Ra-the-new-AGI
 
-# See what it will download.
-!python scripts/download_training_data.py --dry-run
+# See what the Colab-friendly profile will download.
+!python scripts/download_training_data.py --profile t4-15gb --dry-run
 
-# Download all current buckets: base, reasoning, and science.
-!python scripts/download_training_data.py
+# Download and convert all current buckets into trainer-readable files.
+!python scripts/download_training_data.py --profile t4-15gb --prepare-corpus
 
 # Optional: publish token shards and a licensed token inventory for readiness checks.
-!python scripts/download_training_data.py --bucket base --publish-token-shards
+!python scripts/download_training_data.py --profile t4-15gb --bucket base --publish-token-shards
 ```
+
+The notebook runs the `t4-15gb` profile automatically on the first data cell.
+Use `FORCE_DATA_REBUILD = True` only when you intentionally want to rebuild the
+local Colab data.
 
 Current built-in sources include:
 
@@ -265,6 +297,37 @@ notebooks/AN_RA_T4_TRAINING.ipynb
 
 Use that notebook if you want the old experience: open it in Colab, run cells,
 watch the loss on screen, and let the branch handle setup/training/evaluation.
+
+## Multi-Session Training
+
+A 900M model will not finish in one Colab session. Train it as repeated sessions:
+
+1. Open the notebook.
+2. Mount Drive.
+3. Run setup and data cells.
+4. Train for `90`, `120`, or `180` minutes.
+5. Let the trainer save the checkpoint and reports.
+6. End the runtime.
+7. Next time, run the notebook again.
+
+The trainer restores `anra_frontier_900m.pt` from Google Drive when present and
+continues from its saved `global_step`, optimizer, scheduler, scaler, best loss,
+and replay state. It also mirrors the frontier checkpoint during long sessions.
+
+Useful session-length command:
+
+```python
+!python scripts/build_brain.py \
+  --data_path training_data/anra_training.txt \
+  --checkpoint_path anra_frontier_900m.pt \
+  --model-size frontier \
+  --max_minutes 180
+```
+
+Drive storage note: a 900M training checkpoint can be large because it includes
+model weights and optimizer state. With a 15GB Drive limit, keep only the latest
+frontier checkpoint and do not store many old checkpoints or raw datasets in
+Drive.
 
 ## If T4 Runs Out Of Memory
 
