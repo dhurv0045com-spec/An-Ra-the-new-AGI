@@ -238,8 +238,13 @@ def train_anra_tpu(
     device_loader = pl.MpDeviceLoader(loader, device)
 
     model = build_frontier_model()
-    if hasattr(model, "gradient_checkpointing_enable"):
-        model.gradient_checkpointing_enable()
+    if hasattr(model, "gradient_checkpointing_disable"):
+        model.gradient_checkpointing_disable()
+        print(
+            "[TPU] PyTorch gradient checkpointing disabled: torch.utils.checkpoint "
+            "does not support xla device type in this Colab runtime.",
+            flush=True,
+        )
     if hasattr(model, "disable_kv_cache"):
         model.disable_kv_cache()
     model = model.to(device)
@@ -317,6 +322,7 @@ def train_anra_tpu(
     print(f"  Context             : {block_size}", flush=True)
     print(f"  Micro batch         : {batch_size}", flush=True)
     print(f"  Grad accumulation   : {grad_accum_steps}", flush=True)
+    print(f"  Grad checkpointing  : disabled on TPU/XLA", flush=True)
     print(f"  Optimizer           : {optimizer_report.get('selected', {}).get('actual', optimizer_name)}", flush=True)
     print(f"  Examples/windows    : {len(examples):,}/{len(dataset):,}", flush=True)
     print(f"  Session minutes     : {max_minutes}", flush=True)

@@ -485,7 +485,12 @@ class CausalTransformerV2(nn.Module):
             key = str(i)
             mod_router = self.mod_routers[key] if key in self.mod_routers else None
 
-            if self.use_gradient_checkpointing and self.training:
+            use_checkpoint = (
+                self.use_gradient_checkpointing
+                and self.training
+                and x.device.type != "xla"
+            )
+            if use_checkpoint:
                 # Recompute temperature from the checkpointed residual stream during backward.
                 use_hal = self.use_hal and hasattr(self, "hal_module")
                 hal_mod = self.hal_module if use_hal else None

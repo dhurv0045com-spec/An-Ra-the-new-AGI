@@ -51,6 +51,12 @@ def test_tpu_notebook_is_valid_and_uses_dedicated_trainer() -> None:
     assert "/content/thirdeye" in joined
 
 
+def test_tpu_trainer_disables_pytorch_checkpointing_for_xla() -> None:
+    source = (ROOT / "scripts" / "build_brain_tpu.py").read_text(encoding="utf-8")
+    assert "gradient_checkpointing_disable" in source
+    assert "does not support xla device type" in source
+
+
 def test_readme_documents_tpu_path() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     assert "notebooks/AN_RA_TPU_TRAINING.ipynb" in readme
