@@ -38,6 +38,7 @@ from training.v2_config import (
     EXPECTED_TOKENIZER_VOCAB_SIZE,
     TOKENIZER_SCHEMA_VERSION,
     V2_1B_FRONTIER,
+    V2_FRONTIER_PARAMETER_COUNT,
     V2_MODEL,
     V2_REPORT_FILES,
     resolve_model_profile,
@@ -562,14 +563,14 @@ def build_frontier_model(
     hal_module=None,
 ) -> CausalTransformerV2:
     """
-    Build the 1B frontier model from V2_1B_FRONTIER config.
+    Build the branch frontier model from V2_1B_FRONTIER config.
     KV cache is disabled for training. HAL may be None.
     """
     cfg = V2_1B_FRONTIER
 
     if cfg.vocab_size not in {EXPECTED_TOKENIZER_VOCAB_SIZE, CANONICAL_VOCAB_SIZE}:
         raise AssertionError(
-            f"1B vocab mismatch: config={cfg.vocab_size} "
+            f"frontier vocab mismatch: config={cfg.vocab_size} "
             f"tokenizer={EXPECTED_TOKENIZER_VOCAB_SIZE}"
         )
 
@@ -587,6 +588,11 @@ def build_frontier_model(
 
     total_params = sum(p.numel() for p in model.parameters())
     print(f"[build_frontier_model] Built {total_params / 1e6:.0f}M param model")
+    if total_params != V2_FRONTIER_PARAMETER_COUNT:
+        print(
+            f"[build_frontier_model] WARNING: expected {V2_FRONTIER_PARAMETER_COUNT:,} "
+            f"params for this branch, got {total_params:,}"
+        )
     print(
         f"  n_embd={cfg.n_embd}  n_layer={cfg.n_layer}  "
         f"n_head={cfg.n_head}  n_kv_head={cfg.n_kv_head}"

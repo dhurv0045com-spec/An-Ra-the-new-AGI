@@ -1402,7 +1402,7 @@ async def train_trigger_route(request: Request) -> dict:
         raise HTTPException(status_code=400, detail="request body must be an object")
     model_size = str(payload.get("model_size", "frontier"))
     if model_size != "frontier":
-        raise HTTPException(status_code=400, detail="iterate900 accepts only model_size=frontier")
+        raise HTTPException(status_code=400, detail="iterate500 accepts only model_size=frontier")
     minutes = max(1, min(720, int(payload.get("minutes", 30))))
     job = await _new_job(
         "training_session",

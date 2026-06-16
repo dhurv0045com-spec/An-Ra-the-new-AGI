@@ -82,7 +82,7 @@ def component_registry() -> list[SystemComponent]:
         _component(
             name="brain",
             layer="model",
-            role="900M-class frontier transformer: bounded GQA, YaRN, sparse MCR, RIM, DSTP, HAL, tied embeddings.",
+            role="500M-class frontier transformer: bounded GQA, YaRN, sparse MCR, RIM, DSTP, HAL, tied embeddings.",
             paths=("anra_brain.py", "anra/architecture.py", "config/anra_frontier.yaml"),
             import_name="anra_brain",
         ),

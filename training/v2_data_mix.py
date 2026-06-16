@@ -13,7 +13,7 @@ from torch.utils.data import Dataset
 
 from anra.anra_paths import DRIVE_GHOST_DB, FAILURE_REPLAY_DATASET, GHOST_DB_LOCAL, OUTPUT_V2_DIR, get_dataset_file, get_identity_file, get_teacher_files
 from identity.civ import ConstitutionalIdentityVector
-from training.v2_config import IDENTITY_KEYWORDS, TEACHER_REJECT_PATTERNS, V2_1B_FRONTIER, V2_TRAINING
+from training.v2_config import IDENTITY_KEYWORDS, TEACHER_REJECT_PATTERNS, V2_1B_FRONTIER, V2_FRONTIER_PARAMETER_COUNT, V2_TRAINING
 from training.data_ledger import DataEntropyLedger, DataQuality
 from training.sadl import normalized_mix
 
@@ -742,7 +742,7 @@ def build_v2_training_examples(
         ) = filtered
 
     total_examples = min(max_examples or V2_TRAINING.max_mixture_examples, max(len(base_examples), 4000))
-    controller = TrainingDataMixController(model_params or 908_098_891)
+    controller = TrainingDataMixController(model_params or V2_FRONTIER_PARAMETER_COUNT)
     active = controller.weights
     control_path = OUTPUT_V2_DIR / "v2_mix_control.json"
     if control_path.exists():

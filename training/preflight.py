@@ -83,7 +83,7 @@ def run_preflight(
     blockers = list(readiness.blockers)
     warnings = list(readiness.warnings)
     if profile != "frontier":
-        blockers.append("iterate900 supports only the 900M-class frontier profile")
+        blockers.append("iterate500 supports only the 500M-class frontier profile")
     if not hw.cuda_available:
         blockers.append("CUDA GPU unavailable")
     is_t4 = "T4" in hw.gpu_name.upper()

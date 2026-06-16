@@ -1,4 +1,4 @@
-"""Google Colab TPU bootstrap and runtime report for iterate900."""
+"""Google Colab TPU bootstrap and runtime report for iterate500."""
 
 from __future__ import annotations
 

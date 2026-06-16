@@ -9,7 +9,7 @@ from identity.esv import ESVModule
 
 def test_canonical_parameter_contract() -> None:
     counts = verify_canonical_counts()
-    assert counts["frontier_full"] == 908_098_891
+    assert counts["frontier_full"] == 499_167_019
     assert counts["draft_full"] == 8_004_291
 
 

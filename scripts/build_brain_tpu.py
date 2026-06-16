@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Dedicated PyTorch/XLA trainer for AN-RA iterate900 on Colab TPU runtimes."""
+"""Dedicated PyTorch/XLA trainer for AN-RA iterate500 on Colab TPU runtimes."""
 
 from __future__ import annotations
 
@@ -41,6 +41,8 @@ from training.v2_config import (
     TOKENIZER_SCHEMA_VERSION,
     V2_1B_FRONTIER,
     V2_1B_TRAINING,
+    V2_FRONTIER_PARAMETER_COUNT,
+    V2_FRONTIER_TRANSFORMER_PARAMETER_COUNT,
     resolve_model_profile,
 )
 from training.v2_data_mix import (
@@ -63,10 +65,10 @@ from training.wsd_scheduler import get_wsd_schedule, phase_for_step
 from runtime.hal_telemetry import publish_hal_state
 
 
-MODEL_PARAM_COUNT = 908_098_891
-MIN_900M_CLASS_PARAMS = 850_000_000
-MAX_900M_CLASS_PARAMS = 1_000_000_000
-TRANSFORMER_PARAM_COUNT = 904_535_040
+MODEL_PARAM_COUNT = V2_FRONTIER_PARAMETER_COUNT
+MIN_500M_CLASS_PARAMS = 450_000_000
+MAX_500M_CLASS_PARAMS = 600_000_000
+TRANSFORMER_PARAM_COUNT = V2_FRONTIER_TRANSFORMER_PARAMETER_COUNT
 
 
 def _source_commit() -> str:
@@ -190,7 +192,7 @@ def train_anra_tpu(
     model_size: str,
 ) -> dict[str, Any]:
     if model_size != "frontier":
-        raise ValueError("iterate900 TPU training supports only --model-size frontier")
+        raise ValueError("iterate500 TPU training supports only --model-size frontier")
     if torch.cuda.is_available():
         raise RuntimeError(
             "This is the TPU trainer, but CUDA is visible. Use scripts/build_brain.py for T4/CUDA."
@@ -204,7 +206,7 @@ def train_anra_tpu(
 
     model_cfg, training_cfg = resolve_model_profile(model_size)
     if model_cfg != V2_1B_FRONTIER:
-        raise AssertionError("TPU route must use the 900M frontier config.")
+        raise AssertionError("TPU route must use the 500M frontier config.")
     max_examples = max_examples or V2_1B_TRAINING.max_mixture_examples
 
     dataset_path = _resolve_path(data_path)
@@ -260,9 +262,9 @@ def train_anra_tpu(
     summary = model_summary(model)
     if not tied_lm_head:
         raise AssertionError("Frontier model must keep token embeddings and LM head tied on TPU.")
-    if not MIN_900M_CLASS_PARAMS <= int(summary["parameters"]) <= MAX_900M_CLASS_PARAMS:
+    if not MIN_500M_CLASS_PARAMS <= int(summary["parameters"]) <= MAX_500M_CLASS_PARAMS:
         raise AssertionError(
-            f"Unexpected 900M-class frontier parameter count: {summary['parameters']:,}"
+            f"Unexpected 500M-class frontier parameter count: {summary['parameters']:,}"
         )
 
     learning_rate = float(getattr(training_cfg, "learning_rate", 3e-4))
@@ -320,7 +322,7 @@ def train_anra_tpu(
 
     print("", flush=True)
     print("=" * 66, flush=True)
-    print("  AN-RA ITERATE900 TPU TRAINING SESSION", flush=True)
+    print("  AN-RA ITERATE500 TPU TRAINING SESSION", flush=True)
     print("=" * 66, flush=True)
     print(f"  Device              : {device}", flush=True)
     print(f"  Parameters          : {summary['parameters']:,}", flush=True)
@@ -495,9 +497,9 @@ def train_anra_tpu(
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="AN-RA iterate900 TPU trainer")
+    parser = argparse.ArgumentParser(description="AN-RA iterate500 TPU trainer")
     parser.add_argument("--data_path", default=str(DATASET))
-    parser.add_argument("--checkpoint_path", default="anra_frontier_900m.pt")
+    parser.add_argument("--checkpoint_path", default="anra_frontier_500m.pt")
     parser.add_argument("--model-size", default="frontier", choices=["frontier"])
     parser.add_argument("--batch_size", type=int, default=1)
     parser.add_argument("--block_size", type=int, default=V2_1B_FRONTIER.block_size)

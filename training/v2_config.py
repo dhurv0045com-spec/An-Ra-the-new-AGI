@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-# AN-RA iterate900 branch:
+# AN-RA iterate500 branch:
 # "frontier" is the only public training profile.
-# It is the 900M-class experiment model; the current build has 908,098,891 parameters:
-# 1536d, 36L, 16 attention heads, 4 KV heads, 2048 context, HAL enabled.
+# It is the 500M-class experiment model; the current build has 499,167,019 parameters:
+# 1280d, 28L, 16 attention heads, 4 KV heads, 1024 context, HAL enabled.
 
 from dataclasses import dataclass
 
@@ -11,6 +11,8 @@ from dataclasses import dataclass
 MODEL_LINE = "v2"
 TOKENIZER_SCHEMA_VERSION = 3
 CHECKPOINT_SCHEMA_VERSION = 4
+V2_FRONTIER_PARAMETER_COUNT = 499_167_019
+V2_FRONTIER_TRANSFORMER_PARAMETER_COUNT = 496_857_600
 BASE_VOCAB_SIZE = 8192
 CANONICAL_PAD_TOKEN_ID = 0
 CANONICAL_UNK_TOKEN_ID = 1
@@ -78,15 +80,15 @@ class V2ModelConfig:
 
 @dataclass(frozen=True)
 class V2FrontierModelConfig(V2ModelConfig):
-    n_embd: int = 1536
-    n_layer: int = 36
+    n_embd: int = 1280
+    n_layer: int = 28
     n_head: int = 16
     n_kv_head: int = 4
-    block_size: int = 2048
+    block_size: int = 1024
     vocab_size: int = CANONICAL_VOCAB_SIZE
-    mod_layers: tuple = (4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 34)
-    base_seq_len: int = 2048
-    target_seq_len: int = 2048
+    mod_layers: tuple = (4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26)
+    base_seq_len: int = 1024
+    target_seq_len: int = 1024
     science_ratio: float = 0.30
     action_trace_ratio: float = 0.20
     constraint_ratio: float = 0.20
@@ -124,13 +126,13 @@ class V2TrainingConfig:
 @dataclass(frozen=True)
 class V2FrontierTrainingConfig(V2TrainingConfig):
     """
-    Training hyperparameters for the 1B frontier model.
+    Training hyperparameters for the 500M frontier model.
     Separate from V2_TRAINING; do not modify V2_TRAINING.
     """
 
-    batch_size: int = 2
+    batch_size: int = 1
     grad_accum_steps: int = 16
-    session_minutes: int = 90
+    session_minutes: int = 180
     max_mixture_examples: int = 4096
     milestone_every_sessions: int = 3
     gradient_checkpointing: bool = True

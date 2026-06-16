@@ -10,6 +10,10 @@ import sys
 import time
 from pathlib import Path
 
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
 import torch
 
 from anra.startup_checks import assert_flash_sdp_ready
@@ -278,7 +282,7 @@ def main() -> None:
     ap.add_argument("--prepare_data", default="auto", choices=["auto", "always", "never"])
     ap.add_argument("--no_drive_scan", action="store_true")
     ap.add_argument("--max_source_mb", type=int, default=64)
-    ap.add_argument("--checkpoint_path", default="anra_frontier_900m.pt")
+    ap.add_argument("--checkpoint_path", default="anra_frontier_500m.pt")
     ap.add_argument("--batch_size", type=int, default=V2_1B_TRAINING.batch_size)
     ap.add_argument("--block_size", type=int, default=V2_1B_FRONTIER.block_size)
     ap.add_argument("--answer_loss_weight", type=float, default=V2_1B_TRAINING.answer_loss_weight)
@@ -288,7 +292,7 @@ def main() -> None:
         "--model-size",
         choices=["frontier"],
         default="frontier",
-        help="iterate900 profile: 900M-class frontier model.",
+        help="iterate500 profile: 500M-class frontier model.",
     )
     ap.add_argument(
         "--campaign",
@@ -667,7 +671,7 @@ class UnifiedTrainer:
     def __init__(
         self,
         data_path: str | None = None,
-        checkpoint_path: str = "anra_frontier_900m.pt",
+        checkpoint_path: str = "anra_frontier_500m.pt",
         batch_size: int = V2_1B_TRAINING.batch_size,
         block_size: int = V2_1B_FRONTIER.block_size,
         answer_loss_weight: float = V2_1B_TRAINING.answer_loss_weight,

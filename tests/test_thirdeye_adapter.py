@@ -14,7 +14,7 @@ from training.v2_runtime import build_frontier_model, model_summary
 def test_reference_model_and_activation_probes() -> None:
     model = build_frontier_model()
 
-    assert 850_000_000 <= model_summary(model)["parameters"] <= 1_000_000_000
+    assert 450_000_000 <= model_summary(model)["parameters"] <= 600_000_000
     snapshot = activation_snapshot(model)
     assert snapshot["anra.esv"] is True
     assert snapshot["anra.rim"] is True

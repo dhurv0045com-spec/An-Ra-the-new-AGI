@@ -30,7 +30,7 @@ print(f'VRAM: {torch.cuda.get_device_properties(0).total_memory/1e9:.0f} GB')
 # Edit SESSION_MINUTES here:
 SESSION_MINUTES=${SESSION_MINUTES:-150}
 MODEL_SIZE=${MODEL_SIZE:-frontier}
-CHECKPOINT_PATH=${CHECKPOINT_PATH:-anra_frontier_900m.pt}
+CHECKPOINT_PATH=${CHECKPOINT_PATH:-anra_frontier_500m.pt}
 DATA_PATH=${DATA_PATH:-training_data/anra_training.txt}
 
 echo "Starting training: $MODEL_SIZE, $SESSION_MINUTES minutes"

@@ -16,8 +16,8 @@ from training.sadl import normalized_mix, owner_weight
 
 
 def test_sadl_frontier_owner_weight_and_floor() -> None:
-    assert round(owner_weight(908_098_891), 4) == 0.65
-    mix = normalized_mix(908_098_891)
+    assert round(owner_weight(499_167_019), 4) == 0.65
+    mix = normalized_mix(499_167_019)
     assert abs(sum(mix.values()) - 1.0) < 1e-9
     assert mix["owner"] >= 0.50
 

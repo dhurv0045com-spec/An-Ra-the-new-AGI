@@ -9,6 +9,8 @@ import time
 import hmac
 import os
 
+from training.v2_config import V2_FRONTIER_PARAMETER_COUNT
+
 from anra.anra_paths import (
     CIV_LATEST,
     IBS_LATEST,
@@ -62,7 +64,7 @@ class SovereignScalingGovernor:
         self,
         *,
         target_profile: str = "frontier",
-        target_params: int = 908_098_891,
+        target_params: int = V2_FRONTIER_PARAMETER_COUNT,
         checkpoint_path: str | Path = V2_BRAIN_CHECKPOINT,
         ibs_path: str | Path = IBS_LATEST,
         civ_path: str | Path = CIV_LATEST,

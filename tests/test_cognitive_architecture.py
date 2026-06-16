@@ -225,7 +225,7 @@ def test_t4_frontier_smoke_is_supported_and_old_profiles_are_blocked():
     legacy = run_preflight("25m", runtime_class="t4_frontier_smoke", hardware=t4)
     assert frontier.allowed
     assert not legacy.allowed
-    assert any("iterate900 supports only" in blocker for blocker in legacy.blockers)
+    assert any("iterate500 supports only" in blocker for blocker in legacy.blockers)
 
 
 def test_cognition_registry_reachable():

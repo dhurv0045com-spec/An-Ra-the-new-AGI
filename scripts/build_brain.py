@@ -54,6 +54,7 @@ from training.v2_config import (
     TOKENIZER_SCHEMA_VERSION,
     V2_1B_FRONTIER,
     V2_1B_TRAINING,
+    V2_FRONTIER_PARAMETER_COUNT,
     V2_MODEL,
     V2_TRAINING,
     resolve_model_profile,
@@ -148,7 +149,7 @@ def train_causal_extension(
         dataset_path=ROOT / "training_data" / "anra_training.txt"
     )
     if model_size != "frontier":
-        raise ValueError("iterate900 supports only --model-size frontier")
+        raise ValueError("iterate500 supports only --model-size frontier")
     model = build_frontier_model()
     checkpoint = _resolve_checkpoint_path(base_checkpoint)
     if checkpoint.exists():
@@ -416,7 +417,7 @@ def _compact_eval_to_result(summary: dict[str, object], *, component: str = "tra
 def train_anra_v2(
     *,
     data_path: str,
-    checkpoint_path: str = "anra_frontier_900m.pt",
+    checkpoint_path: str = "anra_frontier_500m.pt",
     resume_from: str | None = None,
     batch_size: int = V2_1B_TRAINING.batch_size,
     block_size: int = V2_1B_FRONTIER.block_size,
@@ -440,7 +441,7 @@ def train_anra_v2(
             )
     print_session_dashboard()
     if model_size != "frontier":
-        raise ValueError("iterate900 supports only --model-size frontier")
+        raise ValueError("iterate500 supports only --model-size frontier")
     model_cfg, training_cfg = resolve_model_profile(model_size)
     is_frontier = model_size == "frontier"
     growth_teacher = None
@@ -448,7 +449,7 @@ def train_anra_v2(
     if is_frontier:
         if not torch.cuda.is_available() and os.environ.get("ANRA_ALLOW_CPU_FRONTIER", "0") != "1":
             raise RuntimeError(
-                "iterate900 frontier training requires a CUDA GPU. "
+                "iterate500 frontier training requires a CUDA GPU. "
                 "Your runtime is CPU/TPU, not T4. In Colab choose "
                 "Runtime -> Change runtime type -> T4 GPU, then rerun from the top."
             )
@@ -464,7 +465,7 @@ def train_anra_v2(
             if vram_gb < 20:
                 print(
                     f"[Trainer] WARNING: {vram_gb:.1f}GB VRAM is below the 20GB minimum.\n"
-                    f"          900M frontier training is tight on a T4.\n"
+                    f"          500M frontier training is tight but practical on a T4.\n"
                     f"          Continuing; reduce batch_size if it OOMs.",
                     flush=True,
                 )
@@ -481,7 +482,7 @@ def train_anra_v2(
         symbolic_ratio = symbolic_ratio if symbolic_ratio is not None else V2_1B_TRAINING.symbolic_ratio
         replay_ratio = replay_ratio if replay_ratio is not None else V2_1B_TRAINING.replay_ratio
         print(
-            f"[Trainer] 900M FRONTIER MODE  "
+            f"[Trainer] 500M FRONTIER MODE  "
             f"batch={training_cfg.batch_size}  grad_accum={training_cfg.grad_accum_steps}"
         )
     dataset_path = Path(data_path)
@@ -494,9 +495,9 @@ def train_anra_v2(
         teacher_ratio=teacher_ratio,
         symbolic_ratio=symbolic_ratio,
         replay_ratio=replay_ratio,
-        model_params=908_098_891,
+        model_params=V2_FRONTIER_PARAMETER_COUNT,
     )
-    training_mix_controller = TrainingDataMixController(908_098_891)
+    training_mix_controller = TrainingDataMixController(V2_FRONTIER_PARAMETER_COUNT)
     if mix_report.active_weights:
         training_mix_controller.weights = dict(mix_report.active_weights)
     write_json(v2_report_path("mix_report"), mix_report.to_dict())
@@ -565,7 +566,7 @@ def train_anra_v2(
         model = build_frontier_model(hal_module=hal_module)
     if getattr(training_cfg, "gradient_checkpointing", False):
         model.gradient_checkpointing_enable()
-        print("[build_brain] Gradient checkpointing enabled for 900M model", flush=True)
+        print("[build_brain] Gradient checkpointing enabled for 500M model", flush=True)
     if hasattr(model, "disable_kv_cache"):
         model.disable_kv_cache()
     if use_ouroboros:
@@ -1361,7 +1362,7 @@ def train_anra_v2(
 def main() -> None:
     parser = argparse.ArgumentParser(description="Canonical An-Ra base trainer")
     parser.add_argument("--data_path", required=True)
-    parser.add_argument("--checkpoint_path", default="anra_frontier_900m.pt")
+    parser.add_argument("--checkpoint_path", default="anra_frontier_500m.pt")
     parser.add_argument("--resume_from", default=None)
     parser.add_argument("--batch_size", type=int, default=V2_1B_TRAINING.batch_size)
     parser.add_argument("--block_size", type=int, default=V2_1B_FRONTIER.block_size)

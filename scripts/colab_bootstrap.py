@@ -50,7 +50,7 @@ def require_cuda_gpu() -> None:
     if torch.cuda.is_available():
         return
     raise SystemExit(
-        "AN-RA iterate900 requires a CUDA GPU runtime. "
+        "AN-RA iterate500 requires a CUDA GPU runtime. "
         "In Colab, use Runtime -> Change runtime type -> T4 GPU. "
         "TPU v5e/CPU runtimes are not supported by this PyTorch trainer."
     )

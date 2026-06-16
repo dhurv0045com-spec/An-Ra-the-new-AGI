@@ -25,15 +25,15 @@ def main() -> None:
     parser.add_argument(
         "--without-model",
         action="store_true",
-        help="Skip construction of the 900M frontier model and report only artifact probes.",
+        help="Skip construction of the 500M frontier model and report only artifact probes.",
     )
     args = parser.parse_args()
     model = None
     if not args.without_model:
         model = build_frontier_model()
         summary = model_summary(model)
-        if not 850_000_000 <= int(summary["parameters"]) <= 1_000_000_000:
-            raise RuntimeError(f"Unexpected 900M-class frontier parameter count: {summary}")
+        if not 450_000_000 <= int(summary["parameters"]) <= 600_000_000:
+            raise RuntimeError(f"Unexpected 500M-class frontier parameter count: {summary}")
     result = run_one_click(profile=args.profile, model=model)
     print(
         json.dumps(
