@@ -29,15 +29,28 @@ def run(command: list[str], *, cwd: Path | None = None) -> None:
     subprocess.run(command, cwd=cwd, check=True)
 
 
+def require_cuda_gpu() -> None:
+    if torch.cuda.is_available():
+        return
+    raise SystemExit(
+        "AN-RA iterate900 requires a CUDA GPU runtime. "
+        "In Colab, use Runtime -> Change runtime type -> T4 GPU. "
+        "TPU v5e/CPU runtimes are not supported by this PyTorch trainer."
+    )
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--repo", default=str(Path.cwd()))
     parser.add_argument("--drive-root", default=str(DRIVE_DIR))
     parser.add_argument("--install", action="store_true")
     parser.add_argument("--model-size", default="frontier", choices=["frontier"])
+    parser.add_argument("--allow-non-cuda", action="store_true")
     args = parser.parse_args()
     repo = Path(args.repo).resolve()
     constraints = repo / "constraints-colab-t4.txt"
+    if not args.allow_non_cuda:
+        require_cuda_gpu()
     if args.install:
         run([sys.executable, "-m", "pip", "install", "-e", f"{repo}[evidence]", "-c", str(constraints)])
     drive = Path(args.drive_root)

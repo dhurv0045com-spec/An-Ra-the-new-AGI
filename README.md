@@ -136,6 +136,7 @@ Recommended direct training command:
   --data_path training_data/anra_training.txt \
   --checkpoint_path anra_frontier_900m.pt \
   --model-size frontier \
+  --batch_size 1 \
   --max_minutes 90
 ```
 
@@ -304,11 +305,16 @@ A 900M model will not finish in one Colab session. Train it as repeated sessions
 
 1. Open the notebook.
 2. Mount Drive.
-3. Run setup and data cells.
-4. Train for `90`, `120`, or `180` minutes.
-5. Let the trainer save the checkpoint and reports.
-6. End the runtime.
-7. Next time, run the notebook again.
+3. Confirm the first cell prints `cuda available: True` and an NVIDIA GPU name.
+4. Run setup and data cells.
+5. Train for `90`, `120`, or `180` minutes.
+6. Let the trainer save the checkpoint and reports.
+7. End the runtime.
+8. Next time, run the notebook again.
+
+If Colab says TPU, v5e, CPU, or `cuda available: False`, stop immediately and
+change runtime type to `T4 GPU`. The PyTorch trainer does not train this branch
+on TPU.
 
 The trainer restores `anra_frontier_900m.pt` from Google Drive when present and
 continues from its saved `global_step`, optimizer, scheduler, scaler, best loss,
@@ -321,6 +327,7 @@ Useful session-length command:
   --data_path training_data/anra_training.txt \
   --checkpoint_path anra_frontier_900m.pt \
   --model-size frontier \
+  --batch_size 1 \
   --max_minutes 180
 ```
 

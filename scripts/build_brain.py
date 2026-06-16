@@ -426,6 +426,7 @@ def train_anra_v2(
     use_ouroboros: bool = False,
     model_size: str = "frontier",
     optimizer_name: str = "auto",
+    start_eval_examples: int = 0,
 ) -> dict[str, object]:
     for required_component in ("training_loop", "data_mix", "evaluation"):
         if not is_enabled(required_component):
@@ -440,15 +441,27 @@ def train_anra_v2(
     growth_teacher = None
     growth_alignment = None
     if is_frontier:
+        if not torch.cuda.is_available() and os.environ.get("ANRA_ALLOW_CPU_FRONTIER", "0") != "1":
+            raise RuntimeError(
+                "iterate900 frontier training requires a CUDA GPU. "
+                "Your runtime is CPU/TPU, not T4. In Colab choose "
+                "Runtime -> Change runtime type -> T4 GPU, then rerun from the top."
+            )
         if torch.cuda.is_available():
             props = torch.cuda.get_device_properties(0)
             vram_gb = props.total_memory / 1024 ** 3
-            print(f"[Trainer] GPU: {props.name}  VRAM: {vram_gb:.1f}GB")
+            print(f"[Trainer] GPU: {props.name}  VRAM: {vram_gb:.1f}GB", flush=True)
+            if "T4" not in props.name.upper():
+                print(
+                    f"[Trainer] WARNING: expected a T4-class CUDA GPU; got {props.name}.",
+                    flush=True,
+                )
             if vram_gb < 20:
                 print(
                     f"[Trainer] WARNING: {vram_gb:.1f}GB VRAM is below the 20GB minimum.\n"
                     f"          900M frontier training is tight on a T4.\n"
-                    f"          Continuing; reduce batch_size if it OOMs."
+                    f"          Continuing; reduce batch_size if it OOMs.",
+                    flush=True,
                 )
         if batch_size == V2_TRAINING.batch_size:
             batch_size = V2_1B_TRAINING.batch_size
@@ -660,12 +673,26 @@ def train_anra_v2(
         print("[Resume] No checkpoint found — starting from scratch", flush=True)
     # ─────────────────────────────────────────────────────────────────────────────
 
-    try:
-        session_start_result = quick_eval_loss(model, ds, device=device, max_examples=100, batch_size=batch_size, pad_id=tokenizer.pad_token_id)
-        session_start_loss = _quick_eval_loss_value(session_start_result)
-    except Exception as exc:
-        print(f"[build_brain] quick eval at session_start failed: {exc}", flush=True)
-        session_start_loss = best_loss
+    if start_eval_examples > 0:
+        try:
+            print(
+                f"[build_brain] running startup quick eval on {start_eval_examples} examples...",
+                flush=True,
+            )
+            session_start_result = quick_eval_loss(
+                model,
+                ds,
+                device=device,
+                max_examples=start_eval_examples,
+                batch_size=batch_size,
+                pad_id=tokenizer.pad_token_id,
+            )
+            session_start_loss = _quick_eval_loss_value(session_start_result)
+        except Exception as exc:
+            print(f"[build_brain] quick eval at session_start failed: {exc}", flush=True)
+            session_start_loss = best_loss
+    else:
+        print("[build_brain] startup quick eval skipped so first loss appears sooner.", flush=True)
     if math.isfinite(session_start_loss):
         regret_scheduler.session_start(session_start_loss)
 
@@ -722,6 +749,10 @@ def train_anra_v2(
 
     DRIVE_SESSION_MANAGER.start_autosave(_autosave)
     DRIVE_SESSION_MANAGER.register_sigterm_hook(_autosave)
+    print(
+        "[build_brain] entering training loop; first optimizer step may still take several minutes on T4.",
+        flush=True,
+    )
 
     while time.time() < end_at:
         epoch += 1
@@ -1296,6 +1327,12 @@ def main() -> None:
     )
     parser.add_argument("--answer_loss_weight", type=float, default=V2_1B_TRAINING.answer_loss_weight)
     parser.add_argument("--max_examples", type=int, default=None)
+    parser.add_argument(
+        "--start_eval_examples",
+        type=int,
+        default=0,
+        help="Run startup quick-eval before training. Default 0 skips it for faster first loss.",
+    )
     parser.add_argument("--own_ratio", type=float, default=None)
     parser.add_argument("--identity_ratio", type=float, default=None)
     parser.add_argument("--teacher_ratio", type=float, default=None)
@@ -1341,6 +1378,7 @@ def main() -> None:
         replay_ratio=args.replay_ratio,
         model_size=args.model_size,
         optimizer_name=args.optimizer,
+        start_eval_examples=args.start_eval_examples,
     )
     print(result, flush=True)
 
