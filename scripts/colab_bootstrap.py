@@ -39,7 +39,7 @@ def main() -> None:
     repo = Path(args.repo).resolve()
     constraints = repo / "constraints-colab-t4.txt"
     if args.install:
-        run([sys.executable, "-m", "pip", "install", "-e", str(repo), "-c", str(constraints)])
+        run([sys.executable, "-m", "pip", "install", "-e", f"{repo}[evidence]", "-c", str(constraints)])
     drive = Path(args.drive_root)
     colab_root = Path(os.environ.get("ANRA_COLAB_ROOT", str(Path("/") / "content")))
     scratch = colab_root / "anra-scratch" if colab_root.exists() else repo / "output" / "scratch"

@@ -100,6 +100,9 @@ T4 GPU, run the cells, watch losses, and save checkpoints.
 8. Start training.
 9. Run ThirdEye evaluation after the session.
 
+The bootstrap installs AN-RA plus the optional ThirdEye evidence SDK, so the
+notebook can run the report commands in a fresh Colab runtime.
+
 Colab setup cell:
 
 ```python
