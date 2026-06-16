@@ -139,6 +139,77 @@ Recommended direct training command:
   --max_minutes 90
 ```
 
+## Data Requirements
+
+The checked-in starter data is enough to test the pipeline, but it is not enough
+to make a 900M model broadly capable.
+
+Use these rough targets:
+
+| Goal | Token target | Meaning |
+| --- | ---: | --- |
+| Smoke test | `1M - 10M` tokens | Proves the trainer runs |
+| First useful experiment | `100M - 500M` tokens | Loss curves and feature checks become meaningful |
+| Serious continued pretraining | `2B - 5B` tokens | Good for comparing AN-RA features on T4 sessions |
+| Near compute-optimal 900M training | `18B - 20B+` tokens | Around 20 tokens per parameter; too large for a quick single-T4 run |
+
+A single Colab T4 is useful for iterative experiments, continuation runs, and
+feature comparisons. It is not a fast way to complete a full 20B-token pretrain
+from scratch. For that, use many sessions, remote workers, or a larger GPU pool.
+
+Recommended domain mix for AN-RA:
+
+| Domain | Target Share | Purpose |
+| --- | ---: | --- |
+| High-quality web / education | `35% - 45%` | General language, facts, explanations |
+| Math and formal reasoning | `10% - 15%` | Stepwise problem solving |
+| Code | `10% - 15%` | Tool use, structure, debugging, exactness |
+| Science / papers / summaries | `10% - 15%` | Technical concepts and hypothesis language |
+| Instruction / dialogue | `10% - 15%` | Usable assistant behavior |
+| AN-RA identity / owner data | `5% - 10%` | Identity, style, goals, continuity |
+| Verification / DFC / tool traces | `5% - 10%` | Grounded reasoning and ThirdEye evidence |
+
+The built-in downloader already knows these buckets:
+
+```python
+%cd /content/An-Ra-the-new-AGI
+
+# See what it will download.
+!python scripts/download_training_data.py --dry-run
+
+# Download all current buckets: base, reasoning, and science.
+!python scripts/download_training_data.py
+
+# Optional: publish token shards and a licensed token inventory for readiness checks.
+!python scripts/download_training_data.py --bucket base --publish-token-shards
+```
+
+Current built-in sources include:
+
+| Source | Domain | Use |
+| --- | --- | --- |
+| `HuggingFaceFW/fineweb-edu` `sample-10BT` | education/web | best first base corpus |
+| `togethercomputer/RedPajama-Data-V2` sample | web | extra broad web text with quality signals |
+| `HuggingFaceH4/ultrachat_200k` | dialogue/instruction | conversation behavior |
+| `openai/gsm8k` | math | grade-school math reasoning |
+| `lighteval/MATH` | math | harder math reasoning |
+| `microsoft/orca-math-word-problems-200k` | math | teacher-style math |
+| `meta-math/MetaMathQA` | math | math instruction |
+| `WizardLMTeam/WizardCoder_evol_instruct_110k` | code instruction | code reasoning |
+| `laion/Scientific-Summaries` | science | scientific summaries |
+
+Good next sources to add after the first experiment:
+
+| Source | Why |
+| --- | --- |
+| `allenai/dolma` | broad open corpus across web, academic text, code, books, and encyclopedic data |
+| `bigcode/the-stack-v2` | large source-code corpus with provenance and license metadata |
+| FineWeb-Edu larger samples | scale from `10BT` toward `100BT` when storage allows |
+
+Keep a license manifest for every source. For mixed-license instruction
+collections, use them only for research unless the source-level licenses are
+audited.
+
 You should see training output with step, loss, best loss, learning rate, and
 checkpoint progress. This is the closest path to the training flow you used
 before, but locked to the 900M `frontier` profile.

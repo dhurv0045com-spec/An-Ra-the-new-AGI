@@ -11,6 +11,10 @@ import sys
 from pathlib import Path
 from typing import Any, Callable
 
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
 from anra.anra_paths import DATA_MANIFEST_DIR, TOKEN_INVENTORY_MANIFEST
 from training.data_ledger import DataQuality
 from training.data_pipeline_v3 import SourceRecord, TokenShardPublisher
@@ -392,7 +396,7 @@ def print_summary() -> None:
         else:
             print(f"  {fname:<30} MISSING")
     print(f"\n  TOTAL: {total_gb:.2f} GB")
-    print(f"  Estimated tokens: ~{int(total_gb * 250_000):,}")
+    print(f"  Estimated tokens: ~{int(total_gb * 250_000_000):,}")
     print("\n  Recommended data mix in training:")
     print("    base_corpus.txt  -> own_ratio  0.55 (55%)")
     print("    reasoning.jsonl  -> teacher    0.25 (25%)")
