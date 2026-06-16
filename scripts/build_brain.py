@@ -364,16 +364,13 @@ def _prepare_resume_target(checkpoint_path: Path, resume_from: str | None) -> No
 def _sync_training_checkpoint_to_drive(checkpoint_path: Path) -> None:
     if not checkpoint_path.exists():
         return
-    for target in (
-        DRIVE_V2_CHECKPOINTS / checkpoint_path.name,
-        DRIVE_V2_CHECKPOINTS.parent.parent / checkpoint_path.name,
-    ):
-        try:
-            target.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(checkpoint_path, target)
-            print(f"[Drive] frontier checkpoint saved: {target}", flush=True)
-        except Exception as exc:
-            print(f"[Drive] frontier checkpoint mirror failed for {target}: {exc}", flush=True)
+    target = DRIVE_V2_CHECKPOINTS / checkpoint_path.name
+    try:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(checkpoint_path, target)
+        print(f"[Drive] frontier checkpoint saved: {target}", flush=True)
+    except Exception as exc:
+        print(f"[Drive] frontier checkpoint mirror failed for {target}: {exc}", flush=True)
 
 
 def _weighted_loss(
