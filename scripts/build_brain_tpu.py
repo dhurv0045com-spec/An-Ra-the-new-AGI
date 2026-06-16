@@ -99,7 +99,7 @@ def _make_loader(
 ) -> DataLoader:
     if not active_weights:
         return DataLoader(dataset, batch_size=batch_size, shuffle=True, drop_last=False)
-    buckets = [dataset.bucket_for_sample(index) for index in range(len(dataset))]
+    buckets = [dataset.bucket_for_window(index) for index in range(len(dataset))]
     bucket_counts: dict[str, int] = {}
     for bucket in buckets:
         bucket_counts[bucket] = bucket_counts.get(bucket, 0) + 1

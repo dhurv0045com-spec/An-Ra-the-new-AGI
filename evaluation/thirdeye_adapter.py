@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import json
+import sqlite3
 import sys
+import time
 from pathlib import Path
 from typing import Any
 
@@ -281,6 +283,68 @@ def register_project(home: str | Path = THIRDEYE_HOME) -> Any:
     return eye
 
 
+def _feature_to_dict(feature: Any) -> dict[str, Any]:
+    if hasattr(feature, "to_dict"):
+        return dict(feature.to_dict())
+    data = dict(getattr(feature, "__dict__", {}))
+    variants = data.get("variants")
+    if variants is not None:
+        data["variants"] = [
+            item.to_dict() if hasattr(item, "to_dict") else dict(getattr(item, "__dict__", {}))
+            for item in variants
+        ]
+    category = data.get("category")
+    if category is not None and not isinstance(category, str):
+        data["category"] = getattr(category, "value", str(category))
+    return data
+
+
+def _write_fallback_report(
+    *,
+    profile: str,
+    snapshot: dict[str, bool],
+    home: str | Path,
+    error: Exception,
+) -> dict[str, Any]:
+    features = [_feature_to_dict(feature) for feature in feature_specs()]
+    inactive = [
+        feature
+        for feature in features
+        if not bool(snapshot.get(str(feature.get("feature_id")), False))
+    ]
+    recommended = [
+        {
+            "feature_id": feature.get("feature_id"),
+            "reason": "No current activation evidence in local fallback report.",
+            "protocol": "system_audit",
+        }
+        for feature in inactive[:8]
+    ]
+    report_dir = Path(home) / "reports" / PROJECT_ID
+    report_dir.mkdir(parents=True, exist_ok=True)
+    bundle = {
+        "project": {
+            "project_id": PROJECT_ID,
+            "name": "AN-RA",
+            "privacy_mode": "aggregate",
+        },
+        "profile": profile,
+        "features": features,
+        "recommended_experiments": recommended,
+        "activation_snapshot": snapshot,
+        "fallback": {
+            "reason": "ThirdEye SDK storage failed; local AN-RA fallback report was written.",
+            "error_type": type(error).__name__,
+            "error": str(error),
+            "generated_at": time.time(),
+        },
+    }
+    report_path = report_dir / "one_click_fallback.json"
+    report_path.write_text(json.dumps(bundle, indent=2, sort_keys=True), encoding="utf-8")
+    bundle["report_paths"] = {"fallback": str(report_path)}
+    return bundle
+
+
 def activation_snapshot(model: Any | None = None) -> dict[str, bool]:
     snapshot = {
         "anra.optimizer": (OUTPUT_V2_DIR / "v2_optimizer_bakeoff_report.json").exists(),
@@ -343,12 +407,31 @@ def run_one_click(
     model: Any | None = None,
     home: str | Path = THIRDEYE_HOME,
 ) -> dict[str, Any]:
-    eye = register_project(home)
     snapshot = activation_snapshot(model)
-    record_activation_audit(eye, snapshot)
-    result = eye.evaluate(PROJECT_ID, profile)
-    result["activation_snapshot"] = snapshot
-    return result
+    try:
+        eye = register_project(home)
+        record_activation_audit(eye, snapshot)
+        result = eye.evaluate(PROJECT_ID, profile)
+        result["activation_snapshot"] = snapshot
+        return result
+    except sqlite3.OperationalError as exc:
+        if "unixepoch" not in str(exc).lower():
+            raise
+        return _write_fallback_report(
+            profile=profile,
+            snapshot=snapshot,
+            home=home,
+            error=exc,
+        )
+    except Exception as exc:
+        if "unixepoch" not in str(exc).lower():
+            raise
+        return _write_fallback_report(
+            profile=profile,
+            snapshot=snapshot,
+            home=home,
+            error=exc,
+        )
 
 
 def write_summary(result: dict[str, Any], path: str | Path) -> Path:

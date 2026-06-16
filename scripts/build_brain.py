@@ -512,7 +512,7 @@ def train_anra_v2(
                 drop_last=False,
             )
         bucket_counts: dict[str, int] = {}
-        buckets = [ds.bucket_for_sample(index) for index in range(len(ds))]
+        buckets = [ds.bucket_for_window(index) for index in range(len(ds))]
         for bucket in buckets:
             bucket_counts[bucket] = bucket_counts.get(bucket, 0) + 1
         sample_weights = [

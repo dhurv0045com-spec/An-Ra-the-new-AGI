@@ -913,6 +913,11 @@ class V2ConversationDataset(Dataset):
     def bucket_for_sample(self, example_index: int) -> str:
         return self.examples[int(example_index)].bucket
 
+    def bucket_for_window(self, sample_index: int) -> str:
+        """Return the source bucket for a dataset window index."""
+        _x, _y, _weights, example_index = self.samples[int(sample_index)]
+        return self.bucket_for_sample(int(example_index))
+
     def __len__(self) -> int:
         return len(self.samples)
 
