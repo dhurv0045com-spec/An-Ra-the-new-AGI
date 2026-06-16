@@ -35,6 +35,12 @@ DATA_PROFILES = {
         "reasoning_per_source": 20_000,
         "science_per_source": 10_000,
     },
+    "tpu": {
+        "fineweb_docs": 120_000,
+        "redpajama_docs": 40_000,
+        "reasoning_per_source": 20_000,
+        "science_per_source": 10_000,
+    },
     "full": {
         "fineweb_docs": 1_000_000,
         "redpajama_docs": 800_000,

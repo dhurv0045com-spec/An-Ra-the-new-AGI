@@ -76,7 +76,8 @@ class RotaryEmbedding(nn.Module):
     def _build_cache(self, seq_len: int, device: torch.device, dtype: torch.dtype) -> None:
         if (self._cached_cos is not None
                 and self._cached_seq_len >= seq_len
-                and self._cached_cos.dtype == dtype):
+                and self._cached_cos.dtype == dtype
+                and self._cached_cos.device == device):
             return
         positions = torch.arange(seq_len, device=device, dtype=self.inv_freq.dtype)
         freqs = torch.outer(positions, self.inv_freq.to(device))

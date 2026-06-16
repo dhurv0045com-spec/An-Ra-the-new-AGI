@@ -48,8 +48,33 @@ def test_anra_session_collects_deep_signals_without_changing_forward() -> None:
         gradient_norm=1.0,
         tokens=tokens.numel(),
     )
+    signal_ids = {signal.signal_id for signal in session.monitor.collector.signals}
+    assert {"training.loss", "training.gradient_norm"} <= signal_ids
     session.hooks.close()
 
     assert torch.equal(expected, actual)
     observed = {signal.subsystem_id for signal in session.monitor.collector.signals}
     assert observed >= {"anra.embeddings", "anra.attention", "anra.mlp", "anra.output"}
+
+
+def test_anra_session_records_hal_hormone_signals() -> None:
+    from identity.hal import HALModule
+
+    model = CausalTransformerV2(
+        vocab_size=128,
+        n_embd=32,
+        n_head=4,
+        n_kv_head=2,
+        n_layer=2,
+        block_size=8,
+        mod_layers=(1,),
+        use_hal=True,
+        hal_module=HALModule(),
+    )
+    session = ANRAIntelligenceSession(model, sample_every=1)
+    session.begin_step(0)
+    session.record_hal_step(step=0, hal_state=model.hal_module.state)
+    session.hooks.close()
+
+    signal_ids = {signal.signal_id for signal in session.monitor.collector.signals}
+    assert {"hal.dopamine", "hal.cortisol", "hal.consecutive_failures"} <= signal_ids

@@ -70,7 +70,7 @@ def compute_fisher_diagonal(
     losses: Iterable[torch.Tensor],
 ) -> dict[str, torch.Tensor]:
     fisher = {
-        name: torch.zeros_like(parameter, device="cpu")
+        name: torch.zeros_like(parameter)
         for name, parameter in model.named_parameters()
         if parameter.requires_grad
     }
@@ -80,7 +80,7 @@ def compute_fisher_diagonal(
         loss.backward(retain_graph=True)
         for name, parameter in model.named_parameters():
             if name in fisher and parameter.grad is not None:
-                fisher[name] += parameter.grad.detach().float().cpu().pow(2)
+                fisher[name] += parameter.grad.detach().float().pow(2)
         count += 1
     if count:
         for name in fisher:
@@ -99,8 +99,8 @@ def ewc_penalty(
         if name not in reference or name not in fisher:
             continue
         penalty = penalty + (
-            fisher[name].to(parameter.device)
-            * (parameter - reference[name].to(parameter.device)).pow(2)
+            fisher[name]
+            * (parameter - reference[name]).pow(2)
         ).sum()
     return float(coefficient) * penalty
 
@@ -198,7 +198,7 @@ class ContinualLearningOrchestrator:
         )
         training_rows = list(examples) + list(replay_examples[:replay_count])
         reference = {
-            name: parameter.detach().cpu().clone()
+            name: parameter.detach().clone()
             for name, parameter in model.named_parameters()
             if parameter.requires_grad
         }

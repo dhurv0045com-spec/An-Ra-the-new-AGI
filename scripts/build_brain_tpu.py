@@ -23,7 +23,7 @@ import torch
 import torch.nn.functional as F
 from torch.utils.data import DataLoader, WeightedRandomSampler
 
-from anra.anra_paths import ROOT
+from anra.anra_paths import DATASET, ROOT
 from evaluation.intelligence_telemetry import create_intelligence_session
 from training.anra_optimizer import build_optimizer
 from training.tpu_runtime import (
@@ -49,15 +49,22 @@ from training.v2_data_mix import (
 )
 from training.v2_runtime import (
     build_frontier_model,
+    ensure_tied_lm_head,
+    get_hal_module,
+    hal_state_dict,
     load_or_build_v2_tokenizer,
     model_summary,
+    update_hal_from_training,
     v2_report_path,
     write_json,
 )
 from training.wsd_scheduler import get_wsd_schedule, phase_for_step
+from runtime.hal_telemetry import publish_hal_state
 
 
 MODEL_PARAM_COUNT = 908_098_891
+MIN_900M_CLASS_PARAMS = 850_000_000
+MAX_900M_CLASS_PARAMS = 1_000_000_000
 TRANSFORMER_PARAM_COUNT = 904_535_040
 
 
@@ -154,6 +161,7 @@ def _checkpoint_payload(
         "best_loss": best_loss,
         "sessions_completed": sessions_completed,
         "model_config": model.model_config(),
+        "hal_state": hal_state_dict(model),
         "mix_report": mix_report.to_dict(),
         "source_commit": _source_commit(),
         "dataset_manifest_hashes": data_manifests,
@@ -235,10 +243,13 @@ def train_anra_tpu(
     if hasattr(model, "disable_kv_cache"):
         model.disable_kv_cache()
     model = model.to(device)
+    tied_lm_head = ensure_tied_lm_head(model)
     summary = model_summary(model)
-    if int(summary["parameters"]) != MODEL_PARAM_COUNT:
+    if not tied_lm_head:
+        raise AssertionError("Frontier model must keep token embeddings and LM head tied on TPU.")
+    if not MIN_900M_CLASS_PARAMS <= int(summary["parameters"]) <= MAX_900M_CLASS_PARAMS:
         raise AssertionError(
-            f"Unexpected model parameter count: {summary['parameters']:,} != {MODEL_PARAM_COUNT:,}"
+            f"Unexpected 900M-class frontier parameter count: {summary['parameters']:,}"
         )
 
     learning_rate = float(getattr(training_cfg, "learning_rate", 3e-4))
@@ -300,6 +311,7 @@ def train_anra_tpu(
     print("=" * 66, flush=True)
     print(f"  Device              : {device}", flush=True)
     print(f"  Parameters          : {summary['parameters']:,}", flush=True)
+    print(f"  Tied LM head        : {tied_lm_head}", flush=True)
     print(f"  Transformer params  : {TRANSFORMER_PARAM_COUNT:,}", flush=True)
     print(f"  Hidden/layers/heads : {V2_1B_FRONTIER.n_embd}/{V2_1B_FRONTIER.n_layer}/{V2_1B_FRONTIER.n_head}", flush=True)
     print(f"  Context             : {block_size}", flush=True)
@@ -334,13 +346,19 @@ def train_anra_tpu(
             global_step=global_step,
             epoch=epoch,
             best_loss=best_loss,
-            sessions_completed=sessions_completed + 1,
+            sessions_completed=sessions_completed,
             mix_report=mix_report,
             tokenizer_hash=tokenizer_hash,
             migration=checkpoint_migration,
         )
         print(f"[TPU Checkpoint] saving reason={reason} step={global_step}", flush=True)
         xla_save_checkpoint(payload, ckpt_path, xm=xm, mirror_to_drive=True)
+        try:
+            hal = get_hal_module(model)
+            if hal is not None:
+                publish_hal_state(hal, source=f"training_tpu:{reason}")
+        except Exception as exc:
+            print(f"[HAL] TPU publish skipped: {exc}", flush=True)
 
     while time.time() < end_at and not stop_requested:
         for batch in device_loader:
@@ -363,11 +381,12 @@ def train_anra_tpu(
             if accum_micro_steps >= grad_accum_steps:
                 grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
                 xm.optimizer_step(optimizer, barrier=True)
-                scheduler.step()
-                optimizer.zero_grad(set_to_none=True)
                 xm.mark_step()
                 last_loss = float(last_loss_tensor.cpu().item()) if last_loss_tensor is not None else float("nan")
-                grad_norm_value = float(grad_norm.detach().cpu().item()) if torch.is_tensor(grad_norm) else float(grad_norm)
+                try:
+                    grad_norm_value = float(grad_norm.detach().cpu().item()) if torch.is_tensor(grad_norm) else float(grad_norm)
+                except Exception:
+                    grad_norm_value = float("nan")
                 if not math.isfinite(last_loss):
                     print("[TPU] non-finite loss detected after optimizer step; stopping to protect checkpoint.", flush=True)
                     stop_requested = True
@@ -378,7 +397,17 @@ def train_anra_tpu(
                 session_optimizer_steps += 1
                 accum_micro_steps = 0
                 best_loss = min(best_loss, last_loss)
+                update_hal_from_training(
+                    model,
+                    loss=last_loss,
+                    best_loss=best_loss,
+                    gradient_norm=grad_norm_value,
+                    step=global_step,
+                )
                 if intelligence_session is not None:
+                    hal = get_hal_module(model)
+                    if hal is not None:
+                        intelligence_session.record_hal_step(step=global_step, hal_state=hal.state)
                     try:
                         intelligence_session.record_optimizer_step(
                             step=global_step,
@@ -389,6 +418,8 @@ def train_anra_tpu(
                         )
                     except Exception as exc:
                         print(f"[ThirdEye] TPU telemetry step skipped: {exc}", flush=True)
+                scheduler.step()
+                optimizer.zero_grad(set_to_none=True)
 
                 if global_step <= 3 or global_step % max(1, log_every) == 0:
                     avg_loss = rolling_loss / max(1, rolling_count)
@@ -437,6 +468,8 @@ def train_anra_tpu(
         "grad_accum_steps": grad_accum_steps,
         "block_size": block_size,
         "model_parameters": summary["parameters"],
+        "expected_tied_parameters": MODEL_PARAM_COUNT,
+        "tied_lm_head": tied_lm_head,
         "transformer_parameters": TRANSFORMER_PARAM_COUNT,
         "third_eye": telemetry_report,
     }
@@ -447,7 +480,7 @@ def train_anra_tpu(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="AN-RA iterate900 TPU trainer")
-    parser.add_argument("--data_path", default="training_data/anra_training.txt")
+    parser.add_argument("--data_path", default=str(DATASET))
     parser.add_argument("--checkpoint_path", default="anra_frontier_900m.pt")
     parser.add_argument("--model-size", default="frontier", choices=["frontier"])
     parser.add_argument("--batch_size", type=int, default=1)

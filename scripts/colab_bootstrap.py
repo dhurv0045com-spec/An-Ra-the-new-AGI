@@ -29,6 +29,23 @@ def run(command: list[str], *, cwd: Path | None = None) -> None:
     subprocess.run(command, cwd=cwd, check=True)
 
 
+def install_thirdeye(repo: Path) -> Path:
+    target = repo.parent / "thirdeye"
+    if not target.exists():
+        run(
+            [
+                "git",
+                "clone",
+                "--depth",
+                "1",
+                "https://github.com/dhurv0045com-spec/thirdeye.git",
+                str(target),
+            ]
+        )
+    run([sys.executable, "-m", "pip", "install", "-q", "-e", str(target)])
+    return target
+
+
 def require_cuda_gpu() -> None:
     if torch.cuda.is_available():
         return
@@ -44,6 +61,7 @@ def main() -> None:
     parser.add_argument("--repo", default=str(Path.cwd()))
     parser.add_argument("--drive-root", default=str(DRIVE_DIR))
     parser.add_argument("--install", action="store_true")
+    parser.add_argument("--install-thirdeye", action="store_true")
     parser.add_argument("--model-size", default="frontier", choices=["frontier"])
     parser.add_argument("--allow-non-cuda", action="store_true")
     args = parser.parse_args()
@@ -53,6 +71,9 @@ def main() -> None:
         require_cuda_gpu()
     if args.install:
         run([sys.executable, "-m", "pip", "install", "-e", f"{repo}[evidence]", "-c", str(constraints)])
+    thirdeye_path = None
+    if args.install or args.install_thirdeye:
+        thirdeye_path = install_thirdeye(repo)
     drive = Path(args.drive_root)
     colab_root = Path(os.environ.get("ANRA_COLAB_ROOT", str(Path("/") / "content")))
     scratch = colab_root / "anra-scratch" if colab_root.exists() else repo / "output" / "scratch"
@@ -69,6 +90,7 @@ def main() -> None:
         "bf16": bool(torch.cuda.is_available() and torch.cuda.is_bf16_supported()),
         "flash_sdp": bool(torch.cuda.is_available() and torch.backends.cuda.flash_sdp_enabled()),
         "repo": str(repo),
+        "thirdeye": str(thirdeye_path) if thirdeye_path else None,
         "scratch": str(scratch),
         "drive": str(drive),
         "constraints_sha256": sha256(constraints),

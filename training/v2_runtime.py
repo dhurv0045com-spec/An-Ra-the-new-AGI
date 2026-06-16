@@ -616,6 +616,7 @@ def load_checkpoint(
         "global_step": 0,
         "epoch": 0,
         "best_loss": float("inf"),
+        "sessions_completed": 0,
     }
     ckpt = checkpoint_path
     if not ckpt.exists():
@@ -676,6 +677,8 @@ def load_checkpoint(
         state["global_step"] = int(blob.get("global_step", blob.get("step", 0)))
         state["epoch"] = int(blob.get("epoch", 0))
         state["best_loss"] = float(blob.get("best_loss", float("inf")))
+        state["sessions_completed"] = int(blob.get("sessions_completed", 0))
+        restore_hal_state(model, blob.get("hal_state", {}))
     state["loaded"] = True
     state["migration"] = migration
     return state
@@ -718,6 +721,94 @@ def model_summary(model: torch.nn.Module) -> dict[str, int]:
         "parameters": sum(param.numel() for param in model.parameters()),
         "trainable_parameters": sum(param.numel() for param in model.parameters() if param.requires_grad),
     }
+
+
+def ensure_tied_lm_head(model: torch.nn.Module) -> bool:
+    """
+    Re-assert AN-RA's tied embedding/LM-head contract after device moves.
+
+    Some accelerator backends can materialize the tied Parameter as a separate
+    object during ``model.to(device)``. The architecture still expects tied
+    embeddings, so training entrypoints call this after moving the model.
+    """
+    target = getattr(model, "model", model)
+    embedding = getattr(target, "token_embedding_table", None)
+    lm_head = getattr(target, "lm_head", None)
+    if embedding is None or lm_head is None:
+        return False
+    if getattr(lm_head, "weight", None) is not getattr(embedding, "weight", None):
+        lm_head.weight = embedding.weight
+    return getattr(lm_head, "weight", None) is getattr(embedding, "weight", None)
+
+
+def hal_state_dict(model: torch.nn.Module) -> dict[str, object]:
+    target = getattr(model, "model", model)
+    hal = getattr(target, "hal_module", None)
+    state = getattr(hal, "state", None)
+    if state is None:
+        return {}
+    if hasattr(state, "__dataclass_fields__"):
+        return {name: getattr(state, name) for name in state.__dataclass_fields__}
+    return dict(getattr(state, "__dict__", {}))
+
+
+def restore_hal_state(model: torch.nn.Module, payload: object) -> bool:
+    if not isinstance(payload, dict) or not payload:
+        return False
+    target = getattr(model, "model", model)
+    hal = getattr(target, "hal_module", None)
+    state = getattr(hal, "state", None)
+    if state is None:
+        return False
+    for key, value in payload.items():
+        if not hasattr(state, key):
+            continue
+        current = getattr(state, key)
+        try:
+            setattr(state, key, type(current)(value))
+        except Exception:
+            setattr(state, key, value)
+    return True
+
+
+def get_hal_module(model: torch.nn.Module) -> object | None:
+    target = getattr(model, "model", model)
+    return getattr(target, "hal_module", None)
+
+
+def update_hal_from_training(
+    model: torch.nn.Module,
+    *,
+    loss: float,
+    best_loss: float,
+    gradient_norm: float,
+    step: int,
+) -> dict[str, object]:
+    hal = get_hal_module(model)
+    if hal is None:
+        return {}
+    improved = float(loss) <= float(best_loss) if math.isfinite(float(best_loss)) else True
+    verifier_score = max(0.0, min(1.0, 1.0 / (1.0 + max(0.0, float(loss)))))
+    context = {
+        "training_step": int(step),
+        "loss_improved": bool(improved),
+        "near_capability_boundary": bool(float(loss) < 1.5),
+        "model_incoherence_self_detected": bool(not math.isfinite(float(loss))),
+        "high_gradient_norm": bool(math.isfinite(float(gradient_norm)) and float(gradient_norm) > 1.0),
+    }
+    if hasattr(hal, "update"):
+        try:
+            hal.update(
+                verifier_result=verifier_score,
+                civ_score=None,
+                session_context=context,
+                decay_turns=1 if step % 10 == 0 else 0,
+            )
+        except TypeError:
+            hal.update(verifier_score, None, context)
+    elif hasattr(hal, "decay"):
+        hal.decay(1 if step % 10 == 0 else 0)
+    return hal_state_dict(model)
 
 
 def load_session_state() -> dict[str, object]:

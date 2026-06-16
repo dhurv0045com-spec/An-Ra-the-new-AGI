@@ -208,6 +208,18 @@ def feature_specs() -> list[Any]:
         ),
         _feature(
             sdk,
+            "anra.dfc",
+            "Differential Falsification Cognition",
+            "training",
+            "Train on structured hypothesis, observation, verification, and correction traces.",
+            requires_retraining=True,
+            probe="training_data.frontier_dfc",
+            benefits=("causal_accuracy", "verifier_pass_rate", "self_correction"),
+            regressions=("perplexity",),
+            protected=("truthfulness", "identity_retention"),
+        ),
+        _feature(
+            sdk,
             "anra.rlvr",
             "Reinforcement Learning from Verifiable Rewards",
             "training",
@@ -349,6 +361,7 @@ def activation_snapshot(model: Any | None = None) -> dict[str, bool]:
     snapshot = {
         "anra.optimizer": (OUTPUT_V2_DIR / "v2_optimizer_bakeoff_report.json").exists(),
         "anra.data_mix": (OUTPUT_V2_DIR / "v2_dataset_mix.json").exists(),
+        "anra.dfc": (ROOT / "training_data" / "frontier_dfc.jsonl").exists(),
         "anra.rlvr": (OUTPUT_V2_DIR / "v2_rlvr_report.json").exists(),
         "anra.memory": (OUTPUT_V2_DIR / "memory_benchmark.json").exists(),
         "anra.verification": False,

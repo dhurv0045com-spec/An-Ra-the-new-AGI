@@ -37,7 +37,6 @@ from anra.anra_paths import (
 from engine.eval_harness import EvalHarness, EvalResult
 from engine.feature_flags import is_enabled
 from evaluation.intelligence_telemetry import create_intelligence_session
-from runtime.safe_load import safe_torch_load
 from training.anra_optimizer import (
     IDENTITY_PARAMETER_PATTERNS,
     build_optimizer,
@@ -70,15 +69,20 @@ from training.v2_runtime import (
     atomic_save,
     build_frontier_model,
     canonical_v2_checkpoint,
+    ensure_tied_lm_head,
+    get_hal_module,
     load_checkpoint,
     load_or_build_v2_tokenizer,
     model_summary,
     sync_to_drive,
     DRIVE_SESSION_MANAGER,
+    hal_state_dict,
     sync_v2_artifacts,
     v2_report_path,
+    update_hal_from_training,
     write_json,
 )
+from runtime.hal_telemetry import publish_hal_state
 from training.wsd_scheduler import get_wsd_schedule, phase_for_step
 
 
@@ -276,6 +280,7 @@ def _build_checkpoint_payload(
         "best_loss": best_loss,
         "sessions_completed": sessions_completed,
         "model_config": model.model_config(),
+        "hal_state": hal_state_dict(model),
         "mix_report": mix_report.to_dict(),
         "rng_states": {
             "torch": torch.get_rng_state(),
@@ -504,12 +509,19 @@ def train_anra_v2(
     if len(ds) == 0:
         raise RuntimeError("V2ConversationDataset produced zero training windows.")
     def make_loader(active_weights: dict[str, float] | None = None) -> DataLoader:
+        num_workers = 2 if torch.cuda.is_available() else 0
+        loader_kwargs = {
+            "batch_size": batch_size,
+            "drop_last": False,
+            "pin_memory": torch.cuda.is_available(),
+            "num_workers": num_workers,
+            "persistent_workers": num_workers > 0,
+        }
         if active_weights is None:
             return DataLoader(
                 ds,
-                batch_size=batch_size,
                 shuffle=True,
-                drop_last=False,
+                **loader_kwargs,
             )
         bucket_counts: dict[str, int] = {}
         buckets = [ds.bucket_for_window(index) for index in range(len(ds))]
@@ -527,9 +539,8 @@ def train_anra_v2(
         )
         return DataLoader(
             ds,
-            batch_size=batch_size,
             sampler=sampler,
-            drop_last=False,
+            **loader_kwargs,
         )
 
     loader = make_loader()
@@ -562,6 +573,7 @@ def train_anra_v2(
 
         model = OuroborosDecoder(model, n_passes=3)
     model = model.to(device)
+    ensure_tied_lm_head(model)
     intelligence_session = create_intelligence_session(model)
     if growth_teacher is not None:
         growth_teacher = growth_teacher.to(device)
@@ -659,9 +671,9 @@ def train_anra_v2(
     load_path = ckpt_path if ckpt_path.exists() else resume_path
     if load_path.exists():
         print(f"[Resume] Found checkpoint: {load_path}", flush=True)
-        ckpt = safe_torch_load(load_path, map_location=device)
         resume_state = load_checkpoint(model, optimizer, scheduler, mp, load_path, device=device, strict=False)
         if resume_state["loaded"]:
+            ckpt["sessions_completed"] = int(resume_state.get("sessions_completed", 0))
             checkpoint_migration = dict(resume_state.get("migration", {}))
             start_step = int(resume_state["global_step"])
             best_loss = float(resume_state["best_loss"])
@@ -761,9 +773,9 @@ def train_anra_v2(
                 intelligence_session.begin_step(global_step)
             if first_batch_wall is None:
                 first_batch_wall = time.time()
-            xb = xb.to(device)
-            yb = yb.to(device)
-            wb = wb.to(device)
+            xb = xb.to(device, non_blocking=True)
+            yb = yb.to(device, non_blocking=True)
+            wb = wb.to(device, non_blocking=True)
             with mp.autocast():
                 logits, _ = model(xb)
                 batch_loss, sample_losses = _weighted_loss(
@@ -794,6 +806,8 @@ def train_anra_v2(
                 )
                 optimizer.zero_grad(set_to_none=True)
                 pcgrad.clear()
+                if device.type == "cuda":
+                    torch.cuda.empty_cache()
                 if ckpt_path.exists():
                     load_checkpoint(
                         model,
@@ -852,20 +866,31 @@ def train_anra_v2(
                 if growth_alignment is not None:
                     growth_alignment.mask_inactive_gradients()
                 gradient_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+                loss_float = float(batch_loss.item())
+                grad_float = float(gradient_norm)
                 if intelligence_session is not None:
                     intelligence_session.record_optimizer_step(
                         step=global_step,
-                        loss=float(batch_loss.item()),
+                        loss=loss_float,
                         learning_rate=float(optimizer.param_groups[0]["lr"]),
-                        gradient_norm=float(gradient_norm),
+                        gradient_norm=grad_float,
                         tokens=int((yb != tokenizer.pad_token_id).sum().item()),
                     )
+                update_hal_from_training(
+                    model,
+                    loss=loss_float,
+                    best_loss=best_loss,
+                    gradient_norm=grad_float,
+                    step=global_step,
+                )
+                if intelligence_session is not None:
+                    hal = get_hal_module(model)
+                    if hal is not None:
+                        intelligence_session.record_hal_step(step=global_step, hal_state=hal.state)
                 mp.step(optimizer)
                 mp.update()
                 scheduler.step()
-                regret_lr = regret_scheduler.update(
-                    reward=max(0.0, 1.0 - float(batch_loss.item()))
-                )
+                regret_lr = regret_scheduler.update(reward=max(0.0, 1.0 - loss_float))
                 multiplier = max(0.5, min(1.5, regret_lr / max(learning_rate, 1e-12)))
                 scheduled_lrs = scheduler.get_last_lr()
                 for group, scheduled_lr in zip(optimizer.param_groups, scheduled_lrs):
@@ -874,9 +899,7 @@ def train_anra_v2(
                 pcgrad.clear()
                 global_step += 1
                 if growth_alignment is not None:
-                    growth_alignment.configure_trainable_parameters(
-                        global_step - initial_step
-                    )
+                    growth_alignment.configure_trainable_parameters(global_step - initial_step)
                 session_step += 1
                 accum_micro_steps = 0
 
@@ -884,11 +907,7 @@ def train_anra_v2(
                 loss_val = avg_loss
                 last_avg_loss = avg_loss
                 best_loss = min(best_loss, avg_loss) if math.isfinite(best_loss) else avg_loss
-                phase = phase_for_step(
-                    global_step,
-                    warmup_steps=warmup_steps,
-                    total_steps=total_steps,
-                )
+                phase = phase_for_step(global_step, warmup_steps=warmup_steps, total_steps=total_steps)
                 if phase.annealing_started and not annealing_started:
                     annealing_started = True
                     annealed_weights = training_mix_controller.enter_annealing_phase()
@@ -905,13 +924,13 @@ def train_anra_v2(
                     print("[WSD] Entered decay phase; owner annealing is active.", flush=True)
 
                 running_mean = rolling_loss / max(1, rolling_count)
-                if float(batch_loss.item()) > max(3.0 * running_mean, running_mean + 2.0):
+                if loss_float > max(3.0 * running_mean, running_mean + 2.0):
                     with torch.no_grad():
                         cdr.capture_step_failure(
                             input_tokens=xb,
                             target_tokens=yb,
                             predicted_tokens=logits.argmax(dim=-1),
-                            loss=float(batch_loss.item()),
+                            loss=loss_float,
                             step=global_step,
                             tokenizer=tokenizer,
                         )
@@ -936,7 +955,6 @@ def train_anra_v2(
                     )
 
                 if global_step in EARLY_STATUS_STEPS or global_step % 200 == 0:
-                    elapsed_min = (time.time() - start) / 60.0
                     remaining_min = max(0.0, (end_at - time.time()) / 60.0)
                     startup_note = ""
                     if global_step in EARLY_STATUS_STEPS and first_batch_wall is not None:
@@ -961,6 +979,14 @@ def train_anra_v2(
                         migration=checkpoint_migration,
                     )
                     atomic_save(payload, ckpt_path, drive_dir=DRIVE_V2_CHECKPOINTS)
+                    if device.type == "cuda":
+                        torch.cuda.empty_cache()
+                    try:
+                        hal = get_hal_module(model)
+                        if hal is not None:
+                            publish_hal_state(hal, source="training")
+                    except Exception as exc:
+                        print(f"[HAL] checkpoint publish skipped: {exc}", flush=True)
                     _sync_training_checkpoint_to_drive(ckpt_path)
                     next_checkpoint_at = time.time() + checkpoint_every_seconds
 
@@ -972,14 +998,26 @@ def train_anra_v2(
         if growth_alignment is not None:
             growth_alignment.mask_inactive_gradients()
         gradient_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+        grad_float = float(gradient_norm)
         if intelligence_session is not None:
             intelligence_session.record_optimizer_step(
                 step=global_step,
                 loss=float(last_avg_loss),
                 learning_rate=float(optimizer.param_groups[0]["lr"]),
-                gradient_norm=float(gradient_norm),
+                gradient_norm=grad_float,
                 tokens=int(total_target_tokens),
             )
+        update_hal_from_training(
+            model,
+            loss=float(last_avg_loss),
+            best_loss=best_loss,
+            gradient_norm=grad_float,
+            step=global_step,
+        )
+        if intelligence_session is not None:
+            hal = get_hal_module(model)
+            if hal is not None:
+                intelligence_session.record_hal_step(step=global_step, hal_state=hal.state)
         mp.step(optimizer)
         mp.update()
         scheduler.step()
@@ -1019,6 +1057,14 @@ def train_anra_v2(
         migration=checkpoint_migration,
     )
     atomic_save(payload, ckpt_path, drive_dir=DRIVE_V2_CHECKPOINTS)
+    if device.type == "cuda":
+        torch.cuda.empty_cache()
+    try:
+        hal = get_hal_module(model)
+        if hal is not None:
+            publish_hal_state(hal, source="training")
+    except Exception as exc:
+        print(f"[HAL] final publish skipped: {exc}", flush=True)
     _sync_training_checkpoint_to_drive(ckpt_path)
 
     metrics = {

@@ -47,6 +47,8 @@ def test_tpu_notebook_is_valid_and_uses_dedicated_trainer() -> None:
     assert "scripts/build_brain.py --data_path" not in joined
     assert "torch_xla[tpu]" in joined
     assert "--no-deps -e" in joined
+    assert "DATA_PROFILE = 'tpu'" in joined
+    assert "/content/thirdeye" in joined
 
 
 def test_readme_documents_tpu_path() -> None:

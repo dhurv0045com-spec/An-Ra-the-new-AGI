@@ -13,6 +13,7 @@ from training.v2_runtime import (
     CheckpointCompatibilityError,
     _load_state_with_base_fallback,
     migrate_checkpoint_state,
+    restore_hal_state,
 )
 
 
@@ -97,6 +98,7 @@ def load_checkpoint_cpu_first(
         state["epoch"] = int(blob.get("epoch", 0))
         state["best_loss"] = float(blob.get("best_loss", float("inf")))
         state["sessions_completed"] = int(blob.get("sessions_completed", 0))
+        restore_hal_state(model, blob.get("hal_state", {}))
 
     state["loaded"] = True
     state["migration"] = migration

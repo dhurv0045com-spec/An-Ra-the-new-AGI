@@ -145,6 +145,33 @@ class ANRAIntelligenceSession:
             tokens_per_second=float(tokens) / elapsed,
         )
 
+    def record_hal_step(self, *, step: int, hal_state: Any) -> None:
+        if not getattr(self.hooks, "active", False):
+            return
+        try:
+            from thirdeye.models import MetricDirection, SignalKind
+        except Exception:
+            return
+        hormones = hal_state.hormones() if hasattr(hal_state, "hormones") else {}
+        for name, value in hormones.items():
+            self.monitor.collector.record(
+                f"hal.{name}",
+                float(value),
+                step=step,
+                subsystem_id="anra.hal",
+                kind=SignalKind.RELIABILITY,
+                direction=MetricDirection.LOWER if name == "cortisol" else MetricDirection.TARGET,
+            )
+        if hasattr(hal_state, "consecutive_failures"):
+            self.monitor.collector.record(
+                "hal.consecutive_failures",
+                float(getattr(hal_state, "consecutive_failures", 0)),
+                step=step,
+                subsystem_id="anra.hal",
+                kind=SignalKind.RELIABILITY,
+                direction=MetricDirection.LOWER,
+            )
+
     def finalize(
         self,
         *,
