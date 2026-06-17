@@ -691,6 +691,32 @@ def load_checkpoint(
 
 
 @torch.no_grad()
+def tokenizer_special_ids(tokenizer) -> dict[str, int]:
+    """Return special token IDs for both tokenizer surfaces used by AN-RA."""
+    special_attr = getattr(tokenizer, "special_ids", None)
+    if callable(special_attr):
+        special = dict(special_attr())
+    elif isinstance(special_attr, dict):
+        special = dict(special_attr)
+    else:
+        special = {}
+
+    if "<bos>" not in special and hasattr(tokenizer, "bos_token_id"):
+        special["<bos>"] = int(getattr(tokenizer, "bos_token_id"))
+    if "<eos>" not in special and hasattr(tokenizer, "eos_token_id"):
+        special["<eos>"] = int(getattr(tokenizer, "eos_token_id"))
+    if "<pad>" not in special and hasattr(tokenizer, "pad_token_id"):
+        special["<pad>"] = int(getattr(tokenizer, "pad_token_id"))
+    if "<unk>" not in special and hasattr(tokenizer, "unk_token_id"):
+        special["<unk>"] = int(getattr(tokenizer, "unk_token_id"))
+
+    missing = [token for token in ("<bos>", "<eos>") if token not in special]
+    if missing:
+        raise TypeError(f"Tokenizer is missing required special token IDs: {missing}")
+    return special
+
+
+@torch.no_grad()
 def generate_text(
     model: CausalTransformerV2,
     tokenizer: TokenizerAdapter,
@@ -702,7 +728,7 @@ def generate_text(
     top_k: int = 40,
 ) -> str:
     model.eval()
-    special = tokenizer.special_ids()
+    special = tokenizer_special_ids(tokenizer)
     ids = [special["<bos>"]] + tokenizer.encode(prompt)
     x = torch.tensor([ids], dtype=torch.long, device=device)
     for _ in range(max_new_tokens):
