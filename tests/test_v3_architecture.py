@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import torch
+import yaml
 
 from anra.architecture import verify_canonical_counts
 from anra_brain import CausalTransformerV3
@@ -11,6 +14,22 @@ def test_canonical_parameter_contract() -> None:
     counts = verify_canonical_counts()
     assert counts["frontier_full"] == 499_167_019
     assert counts["draft_full"] == 8_004_291
+
+
+def test_frontier_yaml_matches_iterate500_contract() -> None:
+    config = yaml.safe_load(Path("config/anra_frontier.yaml").read_text(encoding="utf-8"))
+    model = config["model"]
+    training = config["training"]
+
+    assert model["n_embd"] == 1280
+    assert model["n_layer"] == 28
+    assert model["n_head"] == 16
+    assert model["n_kv_head"] == 4
+    assert model["d_ff"] == 3456
+    assert model["block_size"] == 1024
+    assert model["mod_layers"] == [4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26]
+    assert training["seq_len"] == 1024
+    assert training["gradient_accumulation"] == 16
 
 
 def test_esv_forward_is_pure_until_commit() -> None:

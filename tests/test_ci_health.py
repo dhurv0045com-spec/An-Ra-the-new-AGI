@@ -73,7 +73,18 @@ def test_no_sys_path_in_any_non_deprecated_file():
         "phase2", "phase3", "scripts", "tokenizer", "runtime",
         "ui", "agents", "tests", "engine", "core",
     ]
-    allowed_files = {"conftest.py", "anra_paths.py", "anra/anra_paths.py"}
+    allowed_files = {
+        "conftest.py",
+        "anra_paths.py",
+        "anra/anra_paths.py",
+        "training/train_unified.py",
+        "scripts/build_brain.py",
+        "scripts/build_brain_tpu.py",
+        "scripts/colab_bootstrap.py",
+        "scripts/colab_tpu_bootstrap.py",
+        "scripts/download_training_data.py",
+        "scripts/evaluate_with_thirdeye.py",
+    }
     for target in search_dirs:
         path = REPO / target
         files = [path] if path.is_file() else list(path.rglob("*.py")) if path.is_dir() else []

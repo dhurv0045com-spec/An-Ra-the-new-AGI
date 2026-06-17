@@ -145,9 +145,13 @@ class V2FrontierTrainingConfig(V2TrainingConfig):
 
 
 V2_MODEL = V2ModelConfig()
-V2_1B_FRONTIER = V2FrontierModelConfig()
+V2_FRONTIER = V2FrontierModelConfig()
 V2_TRAINING = V2TrainingConfig()
-V2_1B_TRAINING = V2FrontierTrainingConfig()
+V2_FRONTIER_TRAINING = V2FrontierTrainingConfig()
+# Backward-compatible aliases for older imports. On iterate500 these point to
+# the 500M-class frontier config, not a 1B model.
+V2_1B_FRONTIER = V2_FRONTIER
+V2_1B_TRAINING = V2_FRONTIER_TRAINING
 EXPECTED_TOKENIZER_VOCAB_SIZE = CANONICAL_VOCAB_SIZE
 EXPECTED_PAD_TOKEN_ID = CANONICAL_PAD_TOKEN_ID
 EXPECTED_SPECIAL_TOKENS = CANONICAL_SPECIAL_TOKENS
@@ -205,14 +209,14 @@ V2_REPORT_FILES = {
     "ibs_latest": "ibs/latest.json",
     "memory_benchmark": "memory_benchmark.json",
     "cdr_report": "cdr_report.json",
-    "growth_report": "model_growth_3b.json",
+    "growth_report": "model_growth_frontier.json",
     "causal_extension": "cognition/causal_extension_training.json",
     "mix_control": "v2_mix_control.json",
 }
 
 
 MODEL_SIZES = {
-    "frontier": (V2_1B_FRONTIER, V2_1B_TRAINING),
+    "frontier": (V2_FRONTIER, V2_FRONTIER_TRAINING),
 }
 MODEL_PROFILES = MODEL_SIZES
 

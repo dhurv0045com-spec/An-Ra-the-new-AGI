@@ -2,16 +2,16 @@ experiment_name: anra_v3_frontier
 model:
   type: causal_transformer_v3
   vocab_size: 8209
-  n_embd: 1536
-  n_layer: 36
+  n_embd: 1280
+  n_layer: 28
   n_head: 16
   n_kv_head: 4
-  d_ff: 4096
-  block_size: 2048
+  d_ff: 3456
+  block_size: 1024
   dropout: 0.0
   tie_weights: true
   use_mod: true
-  mod_layers: [4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 34]
+  mod_layers: [4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26]
   mod_capacity: 0.5
   use_hal: true
   gradient_checkpointing: true
@@ -19,9 +19,9 @@ training:
   dataset_path: data/anra_v3/train
   val_dataset_path: data/anra_v3/validation
   tokenizer_path: tokenizer/tokenizer_v3.json
-  seq_len: 2048
+  seq_len: 1024
   batch_size: 1
-  gradient_accumulation: 64
+  gradient_accumulation: 16
   max_steps: 100000
   checkpoint_every: 1000
   eval_every: 1000

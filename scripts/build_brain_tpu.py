@@ -39,10 +39,10 @@ from training.v2_config import (
     EXPECTED_SPECIAL_TOKEN_IDS,
     EXPECTED_TOKENIZER_VOCAB_SIZE,
     TOKENIZER_SCHEMA_VERSION,
-    V2_1B_FRONTIER,
-    V2_1B_TRAINING,
+    V2_FRONTIER,
     V2_FRONTIER_PARAMETER_COUNT,
     V2_FRONTIER_TRANSFORMER_PARAMETER_COUNT,
+    V2_FRONTIER_TRAINING,
     resolve_model_profile,
 )
 from training.v2_data_mix import (
@@ -205,9 +205,9 @@ def train_anra_tpu(
     print(f"[TPU] device={device} supported_devices={xla_devices}", flush=True)
 
     model_cfg, training_cfg = resolve_model_profile(model_size)
-    if model_cfg != V2_1B_FRONTIER:
+    if model_cfg != V2_FRONTIER:
         raise AssertionError("TPU route must use the 500M frontier config.")
-    max_examples = max_examples or V2_1B_TRAINING.max_mixture_examples
+    max_examples = max_examples or V2_FRONTIER_TRAINING.max_mixture_examples
 
     dataset_path = _resolve_path(data_path)
     tokenizer = load_or_build_v2_tokenizer(dataset_path=dataset_path)
@@ -217,11 +217,11 @@ def train_anra_tpu(
     examples, mix_report = build_v2_training_examples(
         dataset_path=dataset_path,
         max_examples=max_examples,
-        own_ratio=V2_1B_TRAINING.own_ratio,
-        identity_ratio=V2_1B_TRAINING.identity_ratio,
-        teacher_ratio=V2_1B_TRAINING.teacher_ratio,
-        symbolic_ratio=V2_1B_TRAINING.symbolic_ratio,
-        replay_ratio=V2_1B_TRAINING.replay_ratio,
+        own_ratio=V2_FRONTIER_TRAINING.own_ratio,
+        identity_ratio=V2_FRONTIER_TRAINING.identity_ratio,
+        teacher_ratio=V2_FRONTIER_TRAINING.teacher_ratio,
+        symbolic_ratio=V2_FRONTIER_TRAINING.symbolic_ratio,
+        replay_ratio=V2_FRONTIER_TRAINING.replay_ratio,
         model_params=MODEL_PARAM_COUNT,
     )
     write_json(v2_report_path("mix_report"), mix_report.to_dict())
@@ -328,7 +328,7 @@ def train_anra_tpu(
     print(f"  Parameters          : {summary['parameters']:,}", flush=True)
     print(f"  Tied LM head        : {tied_lm_head}", flush=True)
     print(f"  Transformer params  : {TRANSFORMER_PARAM_COUNT:,}", flush=True)
-    print(f"  Hidden/layers/heads : {V2_1B_FRONTIER.n_embd}/{V2_1B_FRONTIER.n_layer}/{V2_1B_FRONTIER.n_head}", flush=True)
+    print(f"  Hidden/layers/heads : {V2_FRONTIER.n_embd}/{V2_FRONTIER.n_layer}/{V2_FRONTIER.n_head}", flush=True)
     print(f"  Context             : {block_size}", flush=True)
     print(f"  Micro batch         : {batch_size}", flush=True)
     print(f"  Grad accumulation   : {grad_accum_steps}", flush=True)
@@ -502,11 +502,11 @@ def main() -> None:
     parser.add_argument("--checkpoint_path", default="anra_frontier_500m.pt")
     parser.add_argument("--model-size", default="frontier", choices=["frontier"])
     parser.add_argument("--batch_size", type=int, default=1)
-    parser.add_argument("--block_size", type=int, default=V2_1B_FRONTIER.block_size)
-    parser.add_argument("--max_minutes", type=int, default=V2_1B_TRAINING.session_minutes)
-    parser.add_argument("--grad_accum_steps", type=int, default=V2_1B_TRAINING.grad_accum_steps)
+    parser.add_argument("--block_size", type=int, default=V2_FRONTIER.block_size)
+    parser.add_argument("--max_minutes", type=int, default=V2_FRONTIER_TRAINING.session_minutes)
+    parser.add_argument("--grad_accum_steps", type=int, default=V2_FRONTIER_TRAINING.grad_accum_steps)
     parser.add_argument("--max_examples", type=int, default=None)
-    parser.add_argument("--answer_loss_weight", type=float, default=V2_1B_TRAINING.answer_loss_weight)
+    parser.add_argument("--answer_loss_weight", type=float, default=V2_FRONTIER_TRAINING.answer_loss_weight)
     parser.add_argument(
         "--optimizer",
         default="adafactor",

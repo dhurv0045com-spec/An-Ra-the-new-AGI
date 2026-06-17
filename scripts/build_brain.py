@@ -52,9 +52,9 @@ from training.v2_config import (
     EXPECTED_SPECIAL_TOKEN_IDS,
     EXPECTED_TOKENIZER_VOCAB_SIZE,
     TOKENIZER_SCHEMA_VERSION,
-    V2_1B_FRONTIER,
-    V2_1B_TRAINING,
+    V2_FRONTIER,
     V2_FRONTIER_PARAMETER_COUNT,
+    V2_FRONTIER_TRAINING,
     V2_MODEL,
     V2_TRAINING,
     resolve_model_profile,
@@ -419,10 +419,10 @@ def train_anra_v2(
     data_path: str,
     checkpoint_path: str = "anra_frontier_500m.pt",
     resume_from: str | None = None,
-    batch_size: int = V2_1B_TRAINING.batch_size,
-    block_size: int = V2_1B_FRONTIER.block_size,
-    max_minutes: int = V2_1B_TRAINING.session_minutes,
-    answer_loss_weight: float = V2_1B_TRAINING.answer_loss_weight,
+    batch_size: int = V2_FRONTIER_TRAINING.batch_size,
+    block_size: int = V2_FRONTIER.block_size,
+    max_minutes: int = V2_FRONTIER_TRAINING.session_minutes,
+    answer_loss_weight: float = V2_FRONTIER_TRAINING.answer_loss_weight,
     max_examples: int | None = None,
     own_ratio: float | None = None,
     identity_ratio: float | None = None,
@@ -462,25 +462,25 @@ def train_anra_v2(
                     f"[Trainer] WARNING: expected a T4-class CUDA GPU; got {props.name}.",
                     flush=True,
                 )
-            if vram_gb < 20:
+            if vram_gb < 14:
                 print(
-                    f"[Trainer] WARNING: {vram_gb:.1f}GB VRAM is below the 20GB minimum.\n"
-                    f"          500M frontier training is tight but practical on a T4.\n"
+                    f"[Trainer] WARNING: {vram_gb:.1f}GB VRAM is below the 14GB practical floor.\n"
+                    f"          500M frontier training may still OOM on this runtime.\n"
                     f"          Continuing; reduce batch_size if it OOMs.",
                     flush=True,
                 )
         if batch_size == V2_TRAINING.batch_size:
-            batch_size = V2_1B_TRAINING.batch_size
+            batch_size = V2_FRONTIER_TRAINING.batch_size
         if block_size == V2_MODEL.block_size:
-            block_size = V2_1B_FRONTIER.block_size
+            block_size = V2_FRONTIER.block_size
         if max_minutes == V2_TRAINING.session_minutes:
-            max_minutes = V2_1B_TRAINING.session_minutes
-        max_examples = max_examples or V2_1B_TRAINING.max_mixture_examples
-        own_ratio = own_ratio if own_ratio is not None else V2_1B_TRAINING.own_ratio
-        identity_ratio = identity_ratio if identity_ratio is not None else V2_1B_TRAINING.identity_ratio
-        teacher_ratio = teacher_ratio if teacher_ratio is not None else V2_1B_TRAINING.teacher_ratio
-        symbolic_ratio = symbolic_ratio if symbolic_ratio is not None else V2_1B_TRAINING.symbolic_ratio
-        replay_ratio = replay_ratio if replay_ratio is not None else V2_1B_TRAINING.replay_ratio
+            max_minutes = V2_FRONTIER_TRAINING.session_minutes
+        max_examples = max_examples or V2_FRONTIER_TRAINING.max_mixture_examples
+        own_ratio = own_ratio if own_ratio is not None else V2_FRONTIER_TRAINING.own_ratio
+        identity_ratio = identity_ratio if identity_ratio is not None else V2_FRONTIER_TRAINING.identity_ratio
+        teacher_ratio = teacher_ratio if teacher_ratio is not None else V2_FRONTIER_TRAINING.teacher_ratio
+        symbolic_ratio = symbolic_ratio if symbolic_ratio is not None else V2_FRONTIER_TRAINING.symbolic_ratio
+        replay_ratio = replay_ratio if replay_ratio is not None else V2_FRONTIER_TRAINING.replay_ratio
         print(
             f"[Trainer] 500M FRONTIER MODE  "
             f"batch={training_cfg.batch_size}  grad_accum={training_cfg.grad_accum_steps}"
@@ -549,7 +549,7 @@ def train_anra_v2(
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     if is_frontier:
         hal_module = None
-        if V2_1B_FRONTIER.use_hal:
+        if V2_FRONTIER.use_hal:
             try:
                 from anra.anra_paths import HAL_STATE_FILE
                 from identity.hal import HALModule
@@ -1364,15 +1364,15 @@ def main() -> None:
     parser.add_argument("--data_path", required=True)
     parser.add_argument("--checkpoint_path", default="anra_frontier_500m.pt")
     parser.add_argument("--resume_from", default=None)
-    parser.add_argument("--batch_size", type=int, default=V2_1B_TRAINING.batch_size)
-    parser.add_argument("--block_size", type=int, default=V2_1B_FRONTIER.block_size)
-    parser.add_argument("--max_minutes", type=int, default=V2_1B_TRAINING.session_minutes)
+    parser.add_argument("--batch_size", type=int, default=V2_FRONTIER_TRAINING.batch_size)
+    parser.add_argument("--block_size", type=int, default=V2_FRONTIER.block_size)
+    parser.add_argument("--max_minutes", type=int, default=V2_FRONTIER_TRAINING.session_minutes)
     parser.add_argument(
         "--model-size",
         choices=["frontier"],
         default="frontier",
     )
-    parser.add_argument("--answer_loss_weight", type=float, default=V2_1B_TRAINING.answer_loss_weight)
+    parser.add_argument("--answer_loss_weight", type=float, default=V2_FRONTIER_TRAINING.answer_loss_weight)
     parser.add_argument("--max_examples", type=int, default=None)
     parser.add_argument(
         "--start_eval_examples",

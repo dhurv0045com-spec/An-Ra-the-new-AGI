@@ -13,7 +13,7 @@ from torch.utils.data import Dataset
 
 from anra.anra_paths import DRIVE_GHOST_DB, FAILURE_REPLAY_DATASET, GHOST_DB_LOCAL, OUTPUT_V2_DIR, get_dataset_file, get_identity_file, get_teacher_files
 from identity.civ import ConstitutionalIdentityVector
-from training.v2_config import IDENTITY_KEYWORDS, TEACHER_REJECT_PATTERNS, V2_1B_FRONTIER, V2_FRONTIER_PARAMETER_COUNT, V2_TRAINING
+from training.v2_config import IDENTITY_KEYWORDS, TEACHER_REJECT_PATTERNS, V2_FRONTIER, V2_FRONTIER_PARAMETER_COUNT, V2_TRAINING
 from training.data_ledger import DataEntropyLedger, DataQuality
 from training.sadl import normalized_mix
 
@@ -777,7 +777,7 @@ def build_v2_training_examples(
     requested_counts["replay"] = total_examples - sum(requested_counts.values())
     requested_counts["frontier_dfc"] = 0
     if frontier_examples:
-        science_target = int(total_examples * getattr(V2_1B_FRONTIER, "science_ratio", 0.20))
+        science_target = int(total_examples * getattr(V2_FRONTIER, "science_ratio", 0.20))
         protected = requested_counts["own"] + requested_counts["identity"]
         science_target = min(science_target, max(0, total_examples - protected))
         removable = requested_counts["teacher"] + requested_counts["symbolic"] + requested_counts["replay"]

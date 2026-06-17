@@ -37,7 +37,7 @@ from training.v2_config import (
     EXPECTED_SPECIAL_TOKEN_IDS,
     EXPECTED_TOKENIZER_VOCAB_SIZE,
     TOKENIZER_SCHEMA_VERSION,
-    V2_1B_FRONTIER,
+    V2_FRONTIER,
     V2_FRONTIER_PARAMETER_COUNT,
     V2_MODEL,
     V2_REPORT_FILES,
@@ -563,10 +563,10 @@ def build_frontier_model(
     hal_module=None,
 ) -> CausalTransformerV2:
     """
-    Build the branch frontier model from V2_1B_FRONTIER config.
+    Build the branch frontier model from V2_FRONTIER config.
     KV cache is disabled for training. HAL may be None.
     """
-    cfg = V2_1B_FRONTIER
+    cfg = V2_FRONTIER
 
     if cfg.vocab_size not in {EXPECTED_TOKENIZER_VOCAB_SIZE, CANONICAL_VOCAB_SIZE}:
         raise AssertionError(

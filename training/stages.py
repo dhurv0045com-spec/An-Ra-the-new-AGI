@@ -8,6 +8,8 @@ import json
 from pathlib import Path
 from typing import Callable
 
+from training.v2_config import V2_FRONTIER_PARAMETER_COUNT
+
 
 class TrainingStage(str, Enum):
     FOUNDATION = "foundation"
@@ -103,7 +105,7 @@ class CampaignState:
         return {
             "stages": [asdict(config) for config in self.stages],
             "state": self.state,
-            "frontier_reference_tokens": 18_090_700_800,
+            "frontier_reference_tokens": V2_FRONTIER_PARAMETER_COUNT * 20,
             "three_b_from_scratch_reference_tokens": 58_365_030_400,
             "three_b_continuation_minimum_tokens": 21_000_000_000,
             "single_t4_role": "smoke_profile_adapter_pilot_inference",

@@ -21,7 +21,7 @@ from anra.startup_checks import assert_flash_sdp_ready
 from anra.anra_paths import DATASET, ROOT, ensure_dirs, get_dataset_file
 from training.eval_v2 import run_compact_eval
 from training.data_ingestion import mount_google_drive_if_available, prepare_training_corpus
-from training.v2_config import V2_1B_FRONTIER, V2_1B_TRAINING
+from training.v2_config import V2_FRONTIER, V2_FRONTIER_TRAINING
 from training.v2_config import resolve_model_profile
 from training.v2_runtime import (
     build_frontier_model,
@@ -131,7 +131,7 @@ def _load_json(path: Path) -> dict | None:
 
 def _milestone_due(training_cfg=None) -> dict[str, object]:
     """Check if a milestone eval is due. Uses the active training config."""
-    cfg = training_cfg if training_cfg is not None else V2_1B_TRAINING
+    cfg = training_cfg if training_cfg is not None else V2_FRONTIER_TRAINING
     state = load_session_state()
     successful = int(state.get("successful_sessions", 0) or 0)
     entries = state.get("eval_scores", [])
@@ -283,11 +283,11 @@ def main() -> None:
     ap.add_argument("--no_drive_scan", action="store_true")
     ap.add_argument("--max_source_mb", type=int, default=64)
     ap.add_argument("--checkpoint_path", default="anra_frontier_500m.pt")
-    ap.add_argument("--batch_size", type=int, default=V2_1B_TRAINING.batch_size)
-    ap.add_argument("--block_size", type=int, default=V2_1B_FRONTIER.block_size)
-    ap.add_argument("--answer_loss_weight", type=float, default=V2_1B_TRAINING.answer_loss_weight)
+    ap.add_argument("--batch_size", type=int, default=V2_FRONTIER_TRAINING.batch_size)
+    ap.add_argument("--block_size", type=int, default=V2_FRONTIER.block_size)
+    ap.add_argument("--answer_loss_weight", type=float, default=V2_FRONTIER_TRAINING.answer_loss_weight)
     ap.add_argument("--optimizer", choices=["auto", "adamw", "muon", "scale", "galore"], default="auto")
-    ap.add_argument("--session_minutes", "--session-minutes", type=int, default=V2_1B_TRAINING.session_minutes)
+    ap.add_argument("--session_minutes", "--session-minutes", type=int, default=V2_FRONTIER_TRAINING.session_minutes)
     ap.add_argument(
         "--model-size",
         choices=["frontier"],
@@ -337,12 +337,12 @@ def main() -> None:
     model_cfg, training_cfg = resolve_model_profile(args.model_size)
     is_frontier = args.model_size == "frontier"
     if is_frontier:
-        if args.batch_size == V2_1B_TRAINING.batch_size:
-            args.batch_size = V2_1B_TRAINING.batch_size
-        if args.block_size == V2_1B_FRONTIER.block_size:
-            args.block_size = V2_1B_FRONTIER.block_size
-        if args.session_minutes == V2_1B_TRAINING.session_minutes:
-            args.session_minutes = V2_1B_TRAINING.session_minutes
+        if args.batch_size == V2_FRONTIER_TRAINING.batch_size:
+            args.batch_size = V2_FRONTIER_TRAINING.batch_size
+        if args.block_size == V2_FRONTIER.block_size:
+            args.block_size = V2_FRONTIER.block_size
+        if args.session_minutes == V2_FRONTIER_TRAINING.session_minutes:
+            args.session_minutes = V2_FRONTIER_TRAINING.session_minutes
 
     mount_google_drive_if_available()
 
@@ -672,10 +672,10 @@ class UnifiedTrainer:
         self,
         data_path: str | None = None,
         checkpoint_path: str = "anra_frontier_500m.pt",
-        batch_size: int = V2_1B_TRAINING.batch_size,
-        block_size: int = V2_1B_FRONTIER.block_size,
-        answer_loss_weight: float = V2_1B_TRAINING.answer_loss_weight,
-        session_minutes: int = V2_1B_TRAINING.session_minutes,
+        batch_size: int = V2_FRONTIER_TRAINING.batch_size,
+        block_size: int = V2_FRONTIER.block_size,
+        answer_loss_weight: float = V2_FRONTIER_TRAINING.answer_loss_weight,
+        session_minutes: int = V2_FRONTIER_TRAINING.session_minutes,
         identity_minutes: int = 12,
         ouroboros_minutes: int = 10,
         model_size: str = "frontier",
