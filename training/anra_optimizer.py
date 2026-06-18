@@ -180,6 +180,17 @@ def build_optimizer_with_report(
     def adamw() -> torch.optim.Optimizer:
         return AdamW(groups, lr=cfg.lr, betas=cfg.betas, eps=cfg.eps)
 
+    def adafactor() -> torch.optim.Optimizer:
+        from transformers import Adafactor  # type: ignore
+
+        return Adafactor(
+            groups,
+            lr=cfg.lr,
+            scale_parameter=False,
+            relative_step=False,
+            warmup_init=False,
+        )
+
     if requested == "adamw":
         optimizer = adamw()
     elif requested == "adam8bit":
@@ -194,15 +205,7 @@ def build_optimizer_with_report(
             reason = f"AdamW8bit unavailable ({exc}); using AdamW"
     elif requested == "adafactor":
         try:
-            from transformers import Adafactor  # type: ignore
-
-            optimizer = Adafactor(
-                groups,
-                lr=cfg.lr,
-                scale_parameter=False,
-                relative_step=False,
-                warmup_init=False,
-            )
+            optimizer = adafactor()
             reason = "transformers Adafactor active"
         except Exception as exc:
             optimizer = adamw()
@@ -224,9 +227,18 @@ def build_optimizer_with_report(
             selected = "muon" if requested == "auto" else requested
             reason = f"Muon active; projected params={_param_count(muon_params):,}"
         except Exception as exc:
-            optimizer = adamw()
-            actual, status = "adamw", "fallback"
-            reason = f"Muon unavailable ({exc}); using identity-aware AdamW"
+            muon_error = exc
+            try:
+                optimizer = adafactor()
+                actual, status = "adafactor", "fallback"
+                reason = f"Muon unavailable ({muon_error}); using memory-light Adafactor"
+            except Exception as adafactor_exc:
+                optimizer = adamw()
+                actual, status = "adamw", "fallback"
+                reason = (
+                    f"Muon unavailable ({muon_error}); Adafactor unavailable "
+                    f"({adafactor_exc}); using identity-aware AdamW"
+                )
     elif requested == "galore":
         try:
             try:

@@ -100,7 +100,7 @@ def build_causal_extension_trainer(
     *,
     total_steps: int,
     warmup_steps: int,
-    optimizer_name: str = "auto",
+    optimizer_name: str = "adafactor",
 ):
     """Canonical build-brain integration point for extension-only causal training."""
     from cognition.cre import CognitiveCausalExtension
@@ -431,7 +431,7 @@ def train_anra_v2(
     replay_ratio: float | None = None,
     use_ouroboros: bool = False,
     model_size: str = "frontier",
-    optimizer_name: str = "auto",
+    optimizer_name: str = "adafactor",
     start_eval_examples: int = 0,
 ) -> dict[str, object]:
     for required_component in ("training_loop", "data_mix", "evaluation"):
@@ -1385,7 +1385,11 @@ def main() -> None:
     parser.add_argument("--teacher_ratio", type=float, default=None)
     parser.add_argument("--symbolic_ratio", type=float, default=None)
     parser.add_argument("--replay_ratio", type=float, default=None)
-    parser.add_argument("--optimizer", choices=["auto", "adamw", "muon", "scale", "galore"], default="auto")
+    parser.add_argument(
+        "--optimizer",
+        choices=["auto", "adamw", "adam8bit", "adafactor", "muon", "scale", "galore", "qgalore"],
+        default="adafactor",
+    )
     parser.add_argument(
         "--training-objective",
         choices=["base", "causal-extension"],

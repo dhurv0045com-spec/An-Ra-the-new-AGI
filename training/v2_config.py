@@ -131,8 +131,11 @@ class V2FrontierTrainingConfig(V2TrainingConfig):
     """
 
     batch_size: int = 1
-    grad_accum_steps: int = 16
+    grad_accum_steps: int = 8
     session_minutes: int = 180
+    learning_rate: float = 4e-4
+    warmup_steps: int = 32
+    weight_decay: float = 0.05
     max_mixture_examples: int = 4096
     milestone_every_sessions: int = 3
     gradient_checkpointing: bool = True

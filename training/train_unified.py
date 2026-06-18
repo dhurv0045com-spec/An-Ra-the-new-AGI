@@ -286,7 +286,11 @@ def main() -> None:
     ap.add_argument("--batch_size", type=int, default=V2_FRONTIER_TRAINING.batch_size)
     ap.add_argument("--block_size", type=int, default=V2_FRONTIER.block_size)
     ap.add_argument("--answer_loss_weight", type=float, default=V2_FRONTIER_TRAINING.answer_loss_weight)
-    ap.add_argument("--optimizer", choices=["auto", "adamw", "muon", "scale", "galore"], default="auto")
+    ap.add_argument(
+        "--optimizer",
+        choices=["auto", "adamw", "adam8bit", "adafactor", "muon", "scale", "galore", "qgalore"],
+        default="adafactor",
+    )
     ap.add_argument("--session_minutes", "--session-minutes", type=int, default=V2_FRONTIER_TRAINING.session_minutes)
     ap.add_argument(
         "--model-size",
@@ -679,7 +683,7 @@ class UnifiedTrainer:
         identity_minutes: int = 12,
         ouroboros_minutes: int = 10,
         model_size: str = "frontier",
-        optimizer: str = "auto",
+        optimizer: str = "adafactor",
     ):
         self.data_path = data_path
         self.checkpoint_path = checkpoint_path

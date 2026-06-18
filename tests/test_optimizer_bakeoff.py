@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import torch
+import pytest
 
 from training.anra_optimizer import build_optimizer_with_report, candidate_report
+from training.v2_config import V2_FRONTIER_TRAINING
 from training.v2_runtime import v2_report_path
 
 
@@ -49,6 +51,24 @@ def test_unavailable_scale_falls_back_without_claiming_active_scale() -> None:
     assert report["selected"]["requested"] == "scale"
     assert report["selected"]["actual"] == "adamw"
     assert report["selected"]["status"] == "fallback"
+
+
+def test_auto_prefers_memory_light_adafactor_when_muon_unavailable() -> None:
+    pytest.importorskip("transformers")
+
+    _optimizer, report = build_optimizer_with_report(TinyModel(), optimizer_name="auto")
+
+    assert report["selected"]["requested"] == "auto"
+    assert report["selected"]["actual"] in {"muon", "adafactor"}
+    if report["selected"]["actual"] == "adafactor":
+        assert "memory-light Adafactor" in report["selected"]["reason"]
+
+
+def test_iterate500_frontier_training_defaults_are_fast_t4_profile() -> None:
+    assert V2_FRONTIER_TRAINING.batch_size == 1
+    assert V2_FRONTIER_TRAINING.grad_accum_steps == 8
+    assert V2_FRONTIER_TRAINING.learning_rate == 4e-4
+    assert V2_FRONTIER_TRAINING.warmup_steps == 32
 
 
 def test_optimizer_bakeoff_report_path_is_registered() -> None:
