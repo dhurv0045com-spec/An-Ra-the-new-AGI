@@ -8,6 +8,7 @@ from evaluation.thirdeye_adapter import (
     feature_specs,
     run_one_click,
 )
+from scripts.show_thirdeye_summary import render_summary
 from training.v2_runtime import build_frontier_model, model_summary
 
 
@@ -54,3 +55,29 @@ def test_one_click_falls_back_for_colab_sqlite_unixepoch(monkeypatch, tmp_path) 
     assert result["fallback"]["error_type"] == "OperationalError"
     assert "fallback" in result["report_paths"]
     assert __import__("pathlib").Path(result["report_paths"]["fallback"]).exists()
+
+
+def test_colab_thirdeye_summary_is_visible(tmp_path) -> None:
+    result = {
+        "project": {"project_id": PROJECT_ID},
+        "profile": "quick",
+        "features": [{"feature_id": "anra.optimizer"}, {"feature_id": "anra.hal"}],
+        "recommended_experiments": [
+            {
+                "feature_id": "anra.hal",
+                "protocol": "system_audit",
+                "reason": "No current activation evidence.",
+            }
+        ],
+        "activation_snapshot": {"anra.optimizer": True, "anra.hal": False},
+        "report_paths": {"fallback": str(tmp_path / "one_click_fallback.json")},
+    }
+
+    text = render_summary(result, intelligence_path=tmp_path / "missing_intelligence.json")
+
+    assert "THIRD EYE EVIDENCE DASHBOARD" in text
+    assert "Feature Activation" in text
+    assert "OK   anra.optimizer" in text
+    assert "MISS anra.hal" in text
+    assert "Subsystem Intelligence" in text
+    assert "not found yet" in text
