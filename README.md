@@ -119,6 +119,12 @@ The checkpoint is mirrored to:
 /content/drive/MyDrive/AnRa/v2/checkpoints/anra_frontier_500m.pt
 ```
 
+On resume, the trainer also tries to restore `anra_frontier_500m.pt` from visible
+shared Drive locations and, in Colab, from Shared-with-me through the Google
+Drive API. Restored shared checkpoints are copied into the local runtime first;
+new checkpoints are still written back to your own `MyDrive/AnRa/v2/checkpoints`
+folder.
+
 Train sessions sequentially. Do not run T4 and TPU at the same time on the same checkpoint.
 
 ## Data

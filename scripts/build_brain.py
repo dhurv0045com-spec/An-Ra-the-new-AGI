@@ -47,6 +47,7 @@ from training.continual import assess_continual_readiness
 from training.eval_v2 import quick_eval_loss, run_compact_eval
 from training.mixed_precision import MixedPrecisionTrainer
 from training.pcgrad import PCGradAccumulator
+from training.shared_checkpoint import restore_shared_checkpoint
 from training.v2_config import (
     CHECKPOINT_SCHEMA_VERSION,
     EXPECTED_SPECIAL_TOKEN_IDS,
@@ -365,6 +366,11 @@ def _prepare_resume_target(checkpoint_path: Path, resume_from: str | None) -> No
         checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(candidate, checkpoint_path)
         print(f"[build_brain] restored checkpoint: {candidate} -> {checkpoint_path}", flush=True)
+        return
+    shared_name = Path(resume_from).name if resume_from else checkpoint_path.name
+    restored = restore_shared_checkpoint(checkpoint_path, shared_name)
+    if restored is not None:
+        print(f"[build_brain] restored shared checkpoint: {restored} -> {checkpoint_path}", flush=True)
 
 
 def _sync_training_checkpoint_to_drive(checkpoint_path: Path) -> None:

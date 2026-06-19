@@ -10,6 +10,7 @@ from torch.nn.utils import parametrize
 
 from anra.anra_paths import DRIVE_V2_CHECKPOINTS
 from runtime.safe_load import safe_torch_load
+from training.shared_checkpoint import restore_shared_checkpoint
 from training.v2_runtime import (
     CheckpointCompatibilityError,
     _load_state_with_base_fallback,
@@ -142,7 +143,8 @@ def restore_checkpoint_from_drive(checkpoint_path: Path) -> bool:
             shutil.copy2(candidate, checkpoint_path)
             print(f"[TPU Resume] restored {candidate} -> {checkpoint_path}", flush=True)
             return True
-    return False
+    restored = restore_shared_checkpoint(checkpoint_path, checkpoint_path.name)
+    return restored is not None
 
 
 def freeze_parametrized_spectral_norms_for_xla(model: torch.nn.Module) -> list[str]:
