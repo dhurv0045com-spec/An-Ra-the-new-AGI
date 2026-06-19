@@ -986,6 +986,9 @@ def train_anra_v2(
                         migration=checkpoint_migration,
                     )
                     atomic_save(payload, ckpt_path, drive_dir=DRIVE_V2_CHECKPOINTS)
+                    drive_checkpoint = DRIVE_V2_CHECKPOINTS / ckpt_path.name
+                    if drive_checkpoint.exists():
+                        print(f"[Drive] frontier checkpoint saved: {drive_checkpoint}", flush=True)
                     if device.type == "cuda":
                         torch.cuda.empty_cache()
                     try:
@@ -994,7 +997,6 @@ def train_anra_v2(
                             publish_hal_state(hal, source="training")
                     except Exception as exc:
                         print(f"[HAL] checkpoint publish skipped: {exc}", flush=True)
-                    _sync_training_checkpoint_to_drive(ckpt_path)
                     next_checkpoint_at = time.time() + checkpoint_every_seconds
 
             if time.time() >= end_at:
@@ -1064,6 +1066,9 @@ def train_anra_v2(
         migration=checkpoint_migration,
     )
     atomic_save(payload, ckpt_path, drive_dir=DRIVE_V2_CHECKPOINTS)
+    drive_checkpoint = DRIVE_V2_CHECKPOINTS / ckpt_path.name
+    if drive_checkpoint.exists():
+        print(f"[Drive] frontier checkpoint saved: {drive_checkpoint}", flush=True)
     if device.type == "cuda":
         torch.cuda.empty_cache()
     try:
@@ -1072,7 +1077,6 @@ def train_anra_v2(
             publish_hal_state(hal, source="training")
     except Exception as exc:
         print(f"[HAL] final publish skipped: {exc}", flush=True)
-    _sync_training_checkpoint_to_drive(ckpt_path)
 
     metrics = {
         "generated_at": time.time(),
