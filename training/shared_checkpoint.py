@@ -9,6 +9,7 @@ from anra.anra_paths import DRIVE_DIR, DRIVE_ROOT, DRIVE_V2_CHECKPOINTS
 
 GOOGLE_DRIVE_FILE_SCOPE = "https://www.googleapis.com/auth/drive.readonly"
 GOOGLE_DRIVE_SHORTCUT_MIME = "application/vnd.google-apps.shortcut"
+GOOGLE_DRIVE_FILE_ID_ENV = "ANRA_SHARED_CHECKPOINT_FILE_ID"
 
 
 def _escape_drive_query(value: str) -> str:
@@ -68,23 +69,37 @@ def _drive_service():
         from google.colab import auth  # type: ignore
 
         auth.authenticate_user()
-    except Exception:
-        pass
+    except Exception as exc:
+        print(f"[Drive Shared] Colab API authentication was unavailable: {exc}", flush=True)
 
     try:
         import google.auth  # type: ignore
         from googleapiclient.discovery import build  # type: ignore
-    except Exception:
+    except Exception as exc:
+        print(f"[Drive Shared] Google Drive API dependencies unavailable: {exc}", flush=True)
         return None
 
     try:
         credentials, _project = google.auth.default(scopes=[GOOGLE_DRIVE_FILE_SCOPE])
         return build("drive", "v3", credentials=credentials, cache_discovery=False)
-    except Exception:
+    except Exception as exc:
+        print(f"[Drive Shared] Google Drive API service setup failed: {exc}", flush=True)
         return None
 
 
 def _find_drive_api_file(service, filename: str) -> dict[str, object] | None:
+    explicit_file_id = os.environ.get(GOOGLE_DRIVE_FILE_ID_ENV, "").strip()
+    if explicit_file_id:
+        try:
+            response = service.files().get(
+                fileId=explicit_file_id,
+                supportsAllDrives=True,
+                fields="id,name,mimeType,shortcutDetails(targetId,targetMimeType)",
+            ).execute()
+            return dict(response)
+        except Exception as exc:
+            print(f"[Drive Shared] configured file id could not be read: {exc}", flush=True)
+
     escaped = _escape_drive_query(filename)
     queries = [
         f"sharedWithMe and name = '{escaped}' and trashed = false",
@@ -109,12 +124,33 @@ def _find_drive_api_file(service, filename: str) -> dict[str, object] | None:
                 )
                 .execute()
             )
-        except Exception:
+        except Exception as exc:
+            print(f"[Drive Shared] API search failed for checkpoint '{filename}': {exc}", flush=True)
             continue
         files = response.get("files", [])
         if files:
             return dict(files[0])
     return None
+
+
+def _cache_in_my_drive(checkpoint: Path) -> None:
+    """Cache a restored shared checkpoint in the current user's MyDrive once."""
+    target = DRIVE_V2_CHECKPOINTS / checkpoint.name
+    try:
+        if target.resolve() == checkpoint.resolve():
+            return
+    except OSError:
+        pass
+    try:
+        if target.exists() and target.stat().st_size == checkpoint.stat().st_size:
+            print(f"[Drive Shared] MyDrive checkpoint cache already exists: {target}", flush=True)
+            return
+        target.parent.mkdir(parents=True, exist_ok=True)
+        print(f"[Drive Shared] caching checkpoint in MyDrive: {target}", flush=True)
+        shutil.copy2(checkpoint, target)
+        print(f"[Drive Shared] MyDrive checkpoint cache ready: {target}", flush=True)
+    except Exception as exc:
+        print(f"[Drive Shared] could not cache checkpoint in MyDrive: {exc}", flush=True)
 
 
 def _download_drive_api_file(service, file_id: str, destination: Path) -> bool:
@@ -148,21 +184,26 @@ def restore_shared_checkpoint(destination: Path, filename: str | None = None) ->
     if destination.exists():
         return destination
 
+    print(f"[Drive Shared] looking for checkpoint: {filename}", flush=True)
     candidate = find_filesystem_checkpoint(filename)
     if candidate is not None:
         destination.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(candidate, destination)
         print(f"[Drive Shared] restored {candidate} -> {destination}", flush=True)
+        _cache_in_my_drive(destination)
         return candidate
 
     if os.environ.get("ANRA_SHARED_DRIVE_API", "1") == "0":
+        print("[Drive Shared] API lookup disabled and no mounted Drive checkpoint was found.", flush=True)
         return None
 
     service = _drive_service()
     if service is None:
+        print("[Drive Shared] no mounted or API-visible checkpoint was found.", flush=True)
         return None
     file_meta = _find_drive_api_file(service, filename)
     if file_meta is None:
+        print(f"[Drive Shared] no Shared-with-me checkpoint named '{filename}' was found.", flush=True)
         return None
 
     file_id = str(file_meta.get("id", ""))
@@ -175,5 +216,6 @@ def restore_shared_checkpoint(destination: Path, filename: str | None = None) ->
 
     print(f"[Drive Shared] downloading Shared-with-me checkpoint {filename}", flush=True)
     if _download_drive_api_file(service, file_id, destination):
+        _cache_in_my_drive(destination)
         return Path(f"drive-api:{file_id}")
     return None

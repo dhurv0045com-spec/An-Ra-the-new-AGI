@@ -619,6 +619,11 @@ def train_anra_v2(
     requested_checkpoint = Path(checkpoint_path)
     ckpt_path = requested_checkpoint if requested_checkpoint.is_absolute() else ROOT / requested_checkpoint
     _prepare_resume_target(ckpt_path, resume_from)
+    if os.environ.get("ANRA_REQUIRE_RESUME", "0") == "1" and not ckpt_path.exists():
+        raise RuntimeError(
+            "ANRA_REQUIRE_RESUME=1, but no checkpoint was restored. "
+            "Refusing to start from scratch and overwrite the intended experiment."
+        )
     resume_path = Path(resume_from) if resume_from else ckpt_path
     if not resume_path.is_absolute():
         resume_path = ROOT / resume_path
