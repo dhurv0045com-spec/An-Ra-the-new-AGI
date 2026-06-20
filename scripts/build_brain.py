@@ -297,6 +297,7 @@ def _build_checkpoint_payload(
         # prepared corpus profile. Keep this explicit rather than inferring it
         # from whichever files happen to be present in a fresh Colab runtime.
         "data_profile": os.environ.get("ANRA_DATA_PROFILE", "unknown"),
+        "training_data_layout": os.environ.get("ANRA_TRAINING_DATA_LAYOUT", "unknown"),
         "dataset_manifest_hashes": data_manifests,
         "cognitive_extension_release": "cognition-v1",
         "consent_safe_metadata": {
@@ -342,6 +343,29 @@ def _assert_resume_data_profile_compatible(
         "Refusing to resume with a different data profile: "
         f"checkpoint={saved}, active={active}. Restore the original prepared corpus, "
         "or set ANRA_ALLOW_DATA_PROFILE_CHANGE=1 only for an intentional new experiment."
+    )
+
+
+def _assert_resume_data_layout_compatible(
+    checkpoint_layout: object,
+    active_layout: str,
+) -> None:
+    """Keep packed and legacy-padded training runs as distinct experiments."""
+    saved = str(checkpoint_layout or "unknown").strip()
+    active = active_layout.strip() or "unknown"
+    if saved in {"unknown", "unlabelled", "unlabeled"}:
+        print(
+            "[Resume] Checkpoint predates data-layout tracking; the configured layout transition is explicit: "
+            f"{active}.",
+            flush=True,
+        )
+        return
+    if saved == active:
+        print(f"[Resume] Data layout verified: {active}", flush=True)
+        return
+    raise RuntimeError(
+        "Refusing to resume with a different training data layout: "
+        f"checkpoint={saved}, active={active}. Start a separate experiment for this change."
     )
 
 
@@ -719,6 +743,10 @@ def train_anra_v2(
                 resume_state.get("data_profile"),
                 os.environ.get("ANRA_DATA_PROFILE", "unknown"),
             )
+            _assert_resume_data_layout_compatible(
+                resume_state.get("training_data_layout"),
+                os.environ.get("ANRA_TRAINING_DATA_LAYOUT", "unknown"),
+            )
             ckpt["sessions_completed"] = int(resume_state.get("sessions_completed", 0))
             checkpoint_migration = dict(resume_state.get("migration", {}))
             start_step = int(resume_state["global_step"])
@@ -801,6 +829,10 @@ def train_anra_v2(
     )
     print(f"  Checkpoint   : {ckpt_path}", flush=True)
     print(f"  Data mix     : {mix_report.realized_counts}", flush=True)
+    print(
+        f"  Data layout  : {ds.PACKING_LAYOUT} | token utilization {ds.token_utilization:.1%}",
+        flush=True,
+    )
     print(
         "  PCGrad       : normal-backward fast path" if pcgrad_fast_path
         else "  PCGrad       : mixed-batch gradient separation",
@@ -1162,6 +1194,8 @@ def train_anra_v2(
         "model_size": model_size,
         "optimizer": optimizer_report,
         "answer_supervision_ratio": round(ds.answer_supervision_ratio, 4),
+        "data_layout": ds.PACKING_LAYOUT,
+        "token_utilization": round(ds.token_utilization, 4),
         "reply_token_ratio_seen": round(answer_weighted_tokens / max(1.0, total_target_tokens), 4),
         "target_tokens_seen": int(total_target_tokens),
         "model_config": model.model_config(),

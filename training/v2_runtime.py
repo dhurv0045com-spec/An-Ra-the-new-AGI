@@ -624,6 +624,7 @@ def load_checkpoint(
         "best_loss": float("inf"),
         "sessions_completed": 0,
         "data_profile": "unknown",
+        "training_data_layout": "unknown",
     }
     ckpt = checkpoint_path
     if not ckpt.exists():
@@ -686,6 +687,7 @@ def load_checkpoint(
         state["best_loss"] = float(blob.get("best_loss", float("inf")))
         state["sessions_completed"] = int(blob.get("sessions_completed", 0))
         state["data_profile"] = str(blob.get("data_profile", "unknown"))
+        state["training_data_layout"] = str(blob.get("training_data_layout", "unknown"))
         restore_hal_state(model, blob.get("hal_state", {}))
     state["loaded"] = True
     state["migration"] = migration

@@ -92,3 +92,23 @@ def test_dataset_window_bucket_handles_multi_window_examples() -> None:
 
     assert len(dataset) > len(dataset.examples)
     assert {dataset.bucket_for_window(index) for index in range(len(dataset))} == {"teacher"}
+
+
+def test_dataset_packs_short_examples_without_mixing_buckets() -> None:
+    examples = [
+        TrainingExample(bucket="own", prompt=f"p{index}", answer="short", source="test")
+        for index in range(8)
+    ] + [
+        TrainingExample(bucket="teacher", prompt=f"t{index}", answer="short", source="test")
+        for index in range(8)
+    ]
+    dataset = V2ConversationDataset(
+        examples,
+        _TinyTokenizer(),
+        block_size=64,
+        answer_loss_weight=1.5,
+    )
+
+    assert len(dataset) < len(examples)
+    assert dataset.token_utilization > 0.5
+    assert {dataset.bucket_for_window(index) for index in range(len(dataset))} == {"own", "teacher"}

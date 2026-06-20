@@ -834,6 +834,16 @@ def build_v2_training_examples(
 
 
 class V2ConversationDataset(Dataset):
+    """Bucket-preserving packed conversational language-model dataset.
+
+    Training examples are often much shorter than the model context. Packing
+    examples from the same bucket into a window turns padding-only compute into
+    supervised tokens without mixing owner and non-owner gradients inside a
+    microbatch.
+    """
+
+    PACKING_LAYOUT = "bucket_packed_v1"
+
     def __init__(
         self,
         examples: Iterable[TrainingExample],
@@ -853,10 +863,14 @@ class V2ConversationDataset(Dataset):
         self.bucket_counts: dict[str, int] = {}
         self._known_examples: set[tuple[str, str, str]] = set()
         self._weighted_targets = 0.0
+        self._nonpad_target_tokens = 0
         self.answer_supervision_ratio = 0.0
+        self.token_utilization = 0.0
         self._append_examples(list(examples))
 
     def _append_examples(self, examples: list[TrainingExample]) -> int:
+        packed_segments: dict[str, list[tuple[list[int], list[float], int]]] = {}
+        bucket_order: list[str] = []
         weighted_targets = 0.0
         added = 0
         for example in examples:
@@ -879,33 +893,99 @@ class V2ConversationDataset(Dataset):
             stride = max(32, self.block_size // 2)
             upper = max(1, len(full_ids) - 1)
 
+            if example.bucket not in packed_segments:
+                packed_segments[example.bucket] = []
+                bucket_order.append(example.bucket)
+
             for start in range(0, upper, stride):
                 chunk = full_ids[start : start + self.block_size + 1]
                 if len(chunk) < 8:
                     continue
-                if len(chunk) < self.block_size + 1:
-                    chunk += [self.pad_id] * (self.block_size + 1 - len(chunk))
-                x = torch.tensor(chunk[: self.block_size], dtype=torch.long)
-                y = torch.tensor(chunk[1 : self.block_size + 1], dtype=torch.long)
-                weights = torch.ones(self.block_size, dtype=torch.float32)
+                target_weights = [1.0] * (len(chunk) - 1)
                 target_start = start + 1
                 target_end = start + self.block_size + 1
                 overlap_start = max(answer_start, target_start)
                 overlap_end = min(answer_end, target_end)
                 if overlap_end > overlap_start:
-                    weights[
-                        overlap_start - target_start : overlap_end - target_start
-                    ] = self.answer_loss_weight * float(example.weight)
+                    answer_weight = self.answer_loss_weight * float(example.weight)
+                    for offset in range(overlap_start - target_start, overlap_end - target_start):
+                        target_weights[offset] = answer_weight
                     weighted_targets += overlap_end - overlap_start
-                self.samples.append((x, y, weights, example_idx))
-                self.bucket_counts[example.bucket] = (
-                    self.bucket_counts.get(example.bucket, 0) + 1
+                # The first token in each source segment is not supervised when
+                # following the prior segment's EOS. This avoids teaching an
+                # artificial cross-example transition while retaining EOS loss.
+                packed_segments[example.bucket].append(
+                    (list(chunk), [0.0, *target_weights], example_idx)
+                )
+
+        for bucket in bucket_order:
+            tokens: list[int] = []
+            token_weights: list[float] = []
+            representative_index = -1
+            for segment_tokens, segment_weights, example_index in packed_segments[bucket]:
+                if tokens and len(tokens) + len(segment_tokens) > self.block_size + 1:
+                    self._append_packed_window(
+                        bucket,
+                        tokens,
+                        token_weights,
+                        representative_index,
+                    )
+                    tokens, token_weights, representative_index = [], [], -1
+                if representative_index < 0:
+                    representative_index = example_index
+                tokens.extend(segment_tokens)
+                token_weights.extend(segment_weights)
+                if len(tokens) == self.block_size + 1:
+                    self._append_packed_window(
+                        bucket,
+                        tokens,
+                        token_weights,
+                        representative_index,
+                    )
+                    tokens, token_weights, representative_index = [], [], -1
+            if tokens:
+                self._append_packed_window(
+                    bucket,
+                    tokens,
+                    token_weights,
+                    representative_index,
                 )
 
         self._weighted_targets += weighted_targets
-        total_targets = max(1, len(self.samples) * self.block_size)
-        self.answer_supervision_ratio = self._weighted_targets / total_targets
+        self.answer_supervision_ratio = self._weighted_targets / max(1, self._nonpad_target_tokens)
+        self.token_utilization = self._nonpad_target_tokens / max(1, len(self.samples) * self.block_size)
         return added
+
+    def _append_packed_window(
+        self,
+        bucket: str,
+        tokens: list[int],
+        token_weights: list[float],
+        representative_index: int,
+    ) -> None:
+        if len(tokens) < 8 or len(tokens) != len(token_weights):
+            return
+        x_values = tokens[:-1]
+        y_values = tokens[1:]
+        weights = token_weights[1:]
+        target_count = len(y_values)
+        pad = self.block_size - target_count
+        if pad < 0:
+            raise ValueError("Packed training window exceeds configured block size")
+        if pad:
+            x_values.extend([self.pad_id] * pad)
+            y_values.extend([self.pad_id] * pad)
+            weights.extend([0.0] * pad)
+        self.samples.append(
+            (
+                torch.tensor(x_values, dtype=torch.long),
+                torch.tensor(y_values, dtype=torch.long),
+                torch.tensor(weights, dtype=torch.float32),
+                representative_index,
+            )
+        )
+        self.bucket_counts[bucket] = self.bucket_counts.get(bucket, 0) + 1
+        self._nonpad_target_tokens += target_count
 
     def reload_replay_bucket(self) -> int:
         return self._append_examples(_load_replay_examples(IdentityStyleFilter()))
