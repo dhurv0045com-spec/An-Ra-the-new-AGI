@@ -10,7 +10,11 @@ from torch.nn.utils import parametrize
 
 from anra.anra_paths import DRIVE_V2_CHECKPOINTS
 from runtime.safe_load import safe_torch_load
-from training.shared_checkpoint import restore_shared_checkpoint
+from training.shared_checkpoint import (
+    record_filesystem_checkpoint_origin,
+    restore_shared_checkpoint,
+    sync_checkpoint_to_origin,
+)
 from training.v2_runtime import (
     CheckpointCompatibilityError,
     _load_state_with_base_fallback,
@@ -122,12 +126,11 @@ def xla_save_checkpoint(
     tmp.replace(checkpoint_path)
     if mirror_to_drive:
         try:
-            DRIVE_V2_CHECKPOINTS.mkdir(parents=True, exist_ok=True)
-            target = DRIVE_V2_CHECKPOINTS / checkpoint_path.name
-            shutil.copy2(checkpoint_path, target)
-            print(f"[TPU Drive] checkpoint mirrored: {target}", flush=True)
+            target = sync_checkpoint_to_origin(checkpoint_path)
+            print(f"[TPU Drive] checkpoint published: {target}", flush=True)
         except Exception as exc:
-            print(f"[TPU Drive] checkpoint mirror failed: {exc}", flush=True)
+            print(f"[TPU Drive] checkpoint publish failed: {exc}", flush=True)
+            raise
 
 
 def restore_checkpoint_from_drive(checkpoint_path: Path) -> bool:
@@ -141,6 +144,7 @@ def restore_checkpoint_from_drive(checkpoint_path: Path) -> bool:
         if candidate.exists():
             checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(candidate, checkpoint_path)
+            record_filesystem_checkpoint_origin(checkpoint_path.name, candidate)
             print(f"[TPU Resume] restored {candidate} -> {checkpoint_path}", flush=True)
             return True
     restored = restore_shared_checkpoint(checkpoint_path, checkpoint_path.name)

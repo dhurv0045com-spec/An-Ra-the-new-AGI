@@ -83,6 +83,7 @@ def test_no_sys_path_in_any_non_deprecated_file():
         "scripts/colab_bootstrap.py",
         "scripts/colab_tpu_bootstrap.py",
         "scripts/download_training_data.py",
+        "scripts/colab_prepare_data.py",
         "scripts/evaluate_with_thirdeye.py",
         "scripts/show_thirdeye_summary.py",
     }

@@ -47,7 +47,11 @@ from training.continual import assess_continual_readiness
 from training.eval_v2 import quick_eval_loss, run_compact_eval
 from training.mixed_precision import MixedPrecisionTrainer
 from training.pcgrad import PCGradAccumulator
-from training.shared_checkpoint import restore_shared_checkpoint
+from training.shared_checkpoint import (
+    record_filesystem_checkpoint_origin,
+    restore_shared_checkpoint,
+    sync_checkpoint_to_origin,
+)
 from training.v2_config import (
     CHECKPOINT_SCHEMA_VERSION,
     EXPECTED_SPECIAL_TOKEN_IDS,
@@ -342,31 +346,14 @@ def _resolve_checkpoint_path(checkpoint_path: str) -> Path:
 def _prepare_resume_target(checkpoint_path: Path, resume_from: str | None) -> None:
     if checkpoint_path.exists():
         return
-    candidate = None
     if resume_from:
         candidate = _resolve_checkpoint_path(resume_from)
-        if not candidate.exists():
-            candidate = None
-            for drive_copy in (
-                DRIVE_V2_CHECKPOINTS / Path(resume_from).name,
-                DRIVE_V2_CHECKPOINTS.parent.parent / Path(resume_from).name,
-            ):
-                if drive_copy.exists():
-                    candidate = drive_copy
-                    break
-    if candidate is None:
-        for drive_copy in (
-            DRIVE_V2_CHECKPOINTS / checkpoint_path.name,
-            DRIVE_V2_CHECKPOINTS.parent.parent / checkpoint_path.name,
-        ):
-            if drive_copy.exists():
-                candidate = drive_copy
-                break
-    if candidate is not None and candidate.exists():
-        checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(candidate, checkpoint_path)
-        print(f"[build_brain] restored checkpoint: {candidate} -> {checkpoint_path}", flush=True)
-        return
+        if candidate.exists():
+            checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(candidate, checkpoint_path)
+            record_filesystem_checkpoint_origin(checkpoint_path.name, candidate)
+            print(f"[build_brain] restored checkpoint: {candidate} -> {checkpoint_path}", flush=True)
+            return
     shared_name = Path(resume_from).name if resume_from else checkpoint_path.name
     restored = restore_shared_checkpoint(checkpoint_path, shared_name)
     if restored is not None:
@@ -376,13 +363,11 @@ def _prepare_resume_target(checkpoint_path: Path, resume_from: str | None) -> No
 def _sync_training_checkpoint_to_drive(checkpoint_path: Path) -> None:
     if not checkpoint_path.exists():
         return
-    target = DRIVE_V2_CHECKPOINTS / checkpoint_path.name
     try:
-        target.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(checkpoint_path, target)
-        print(f"[Drive] frontier checkpoint saved: {target}", flush=True)
+        sync_checkpoint_to_origin(checkpoint_path)
     except Exception as exc:
-        print(f"[Drive] frontier checkpoint mirror failed for {target}: {exc}", flush=True)
+        print(f"[Drive] checkpoint publish failed: {exc}", flush=True)
+        raise
 
 
 def _weighted_loss(
@@ -990,10 +975,8 @@ def train_anra_v2(
                         mix_report=mix_report,
                         migration=checkpoint_migration,
                     )
-                    atomic_save(payload, ckpt_path, drive_dir=DRIVE_V2_CHECKPOINTS)
-                    drive_checkpoint = DRIVE_V2_CHECKPOINTS / ckpt_path.name
-                    if drive_checkpoint.exists():
-                        print(f"[Drive] frontier checkpoint saved: {drive_checkpoint}", flush=True)
+                    atomic_save(payload, ckpt_path, drive_dir=None)
+                    _sync_training_checkpoint_to_drive(ckpt_path)
                     if device.type == "cuda":
                         torch.cuda.empty_cache()
                     try:
@@ -1070,10 +1053,8 @@ def train_anra_v2(
         mix_report=mix_report,
         migration=checkpoint_migration,
     )
-    atomic_save(payload, ckpt_path, drive_dir=DRIVE_V2_CHECKPOINTS)
-    drive_checkpoint = DRIVE_V2_CHECKPOINTS / ckpt_path.name
-    if drive_checkpoint.exists():
-        print(f"[Drive] frontier checkpoint saved: {drive_checkpoint}", flush=True)
+    atomic_save(payload, ckpt_path, drive_dir=None)
+    _sync_training_checkpoint_to_drive(ckpt_path)
     if device.type == "cuda":
         torch.cuda.empty_cache()
     try:

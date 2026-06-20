@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib
+from importlib import metadata
 import json
 import os
 from pathlib import Path
@@ -11,6 +13,7 @@ import platform
 import subprocess
 import sys
 import time
+from typing import Iterable
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
@@ -29,6 +32,68 @@ def run(command: list[str], *, cwd: Path | None = None) -> None:
     subprocess.run(command, cwd=cwd, check=True)
 
 
+RUNTIME_REQUIREMENTS = {
+    "datasets": ("datasets", "3.2.0"),
+    "transformers": ("transformers", "4.40.0"),
+    "tokenizers": ("tokenizers", "0.19.0"),
+    "yaml": ("PyYAML", "6.0.0"),
+    "psutil": ("psutil", "5.9.0"),
+    "scipy": ("scipy", "1.12.0"),
+    "sympy": ("sympy", "1.12.0"),
+    "tqdm": ("tqdm", "4.66.0"),
+}
+
+
+def _version_at_least(installed: str, minimum: str) -> bool:
+    try:
+        from packaging.version import Version
+
+        return Version(installed) >= Version(minimum)
+    except Exception:
+        return installed >= minimum
+
+
+def missing_runtime_packages(requirements: dict[str, tuple[str, str]] = RUNTIME_REQUIREMENTS) -> list[str]:
+    """Return only the small runtime packages absent from the Colab image."""
+    missing: list[str] = []
+    for module_name, (package_name, minimum_version) in requirements.items():
+        try:
+            importlib.import_module(module_name)
+            installed = metadata.version(package_name)
+        except Exception:
+            missing.append(f"{package_name}>={minimum_version}")
+            continue
+        if not _version_at_least(installed, minimum_version):
+            missing.append(f"{package_name}>={minimum_version}")
+    return missing
+
+
+def install_runtime_packages(packages: Iterable[str]) -> list[str]:
+    packages = list(packages)
+    if not packages:
+        print("[Colab] runtime dependencies already available; skipping pip download.")
+        return []
+    print(f"[Colab] installing only missing runtime packages: {', '.join(packages)}")
+    run(
+        [
+            sys.executable,
+            "-m",
+            "pip",
+            "install",
+            "-q",
+            "--disable-pip-version-check",
+            "--prefer-binary",
+            *packages,
+        ]
+    )
+    return packages
+
+
+def install_project(repo: Path) -> None:
+    """Expose this checkout without asking pip to replace Colab's CUDA torch."""
+    run([sys.executable, "-m", "pip", "install", "-q", "--no-deps", "-e", str(repo)])
+
+
 def install_thirdeye(repo: Path) -> Path:
     target = repo.parent / "thirdeye"
     if not target.exists():
@@ -42,7 +107,7 @@ def install_thirdeye(repo: Path) -> Path:
                 str(target),
             ]
         )
-    run([sys.executable, "-m", "pip", "install", "-q", "-e", str(target)])
+    run([sys.executable, "-m", "pip", "install", "-q", "--no-deps", "-e", str(target)])
     return target
 
 
@@ -62,6 +127,11 @@ def main() -> None:
     parser.add_argument("--drive-root", default=str(DRIVE_DIR))
     parser.add_argument("--install", action="store_true")
     parser.add_argument("--install-thirdeye", action="store_true")
+    parser.add_argument(
+        "--preflight",
+        action="store_true",
+        help="Run the slower full unified-trainer preflight after bootstrap.",
+    )
     parser.add_argument("--model-size", default="frontier", choices=["frontier"])
     parser.add_argument("--allow-non-cuda", action="store_true")
     args = parser.parse_args()
@@ -69,8 +139,10 @@ def main() -> None:
     constraints = repo / "constraints-colab-t4.txt"
     if not args.allow_non_cuda:
         require_cuda_gpu()
+    installed_packages: list[str] = []
     if args.install:
-        run([sys.executable, "-m", "pip", "install", "-e", f"{repo}[evidence]", "-c", str(constraints)])
+        installed_packages = install_runtime_packages(missing_runtime_packages())
+        install_project(repo)
     thirdeye_path = None
     if args.install or args.install_thirdeye:
         thirdeye_path = install_thirdeye(repo)
@@ -94,6 +166,7 @@ def main() -> None:
         "scratch": str(scratch),
         "drive": str(drive),
         "constraints_sha256": sha256(constraints),
+        "installed_runtime_packages": installed_packages,
         "secrets_in_environment": {
             "owner_token": bool(os.environ.get("ANRA_OWNER_TOKEN")),
             "manifest_key": bool(os.environ.get("ANRA_MANIFEST_SIGNING_KEY")),
@@ -102,6 +175,9 @@ def main() -> None:
     report_path = scratch / "bootstrap_report.json"
     report_path.write_text(json.dumps(report, indent=2, sort_keys=True), encoding="utf-8")
     print(json.dumps(report, indent=2, sort_keys=True))
+    if not args.preflight:
+        print("[Colab] fast bootstrap complete; full preflight skipped for faster session start.")
+        return
     command = [
         sys.executable,
         "-m",

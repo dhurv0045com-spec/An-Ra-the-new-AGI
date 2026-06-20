@@ -35,6 +35,12 @@ DATA_PROFILES = {
         "reasoning_per_source": 20_000,
         "science_per_source": 10_000,
     },
+    "t4-cached": {
+        "fineweb_docs": 100_000,
+        "redpajama_docs": 20_000,
+        "reasoning_per_source": 8_000,
+        "science_per_source": 4_000,
+    },
     "tpu": {
         "fineweb_docs": 120_000,
         "redpajama_docs": 40_000,
