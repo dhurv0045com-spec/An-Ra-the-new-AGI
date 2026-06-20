@@ -1,0 +1,22 @@
+from __future__ import annotations
+
+import pytest
+
+from scripts.build_brain import _assert_resume_data_profile_compatible
+
+
+def test_resume_accepts_matching_data_profile(monkeypatch) -> None:
+    monkeypatch.delenv("ANRA_ALLOW_DATA_PROFILE_CHANGE", raising=False)
+    _assert_resume_data_profile_compatible("t4-15gb", "t4-15gb")
+
+
+def test_resume_rejects_changed_data_profile(monkeypatch) -> None:
+    monkeypatch.delenv("ANRA_ALLOW_DATA_PROFILE_CHANGE", raising=False)
+
+    with pytest.raises(RuntimeError, match="different data profile"):
+        _assert_resume_data_profile_compatible("t4-15gb", "t4-cached")
+
+
+def test_resume_allows_explicit_profile_experiment(monkeypatch) -> None:
+    monkeypatch.setenv("ANRA_ALLOW_DATA_PROFILE_CHANGE", "1")
+    _assert_resume_data_profile_compatible("t4-15gb", "t4-cached")

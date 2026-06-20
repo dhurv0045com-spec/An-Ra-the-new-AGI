@@ -293,6 +293,10 @@ def _build_checkpoint_payload(
             "cuda": torch.cuda.get_rng_state_all() if torch.cuda.is_available() else [],
         },
         "source_commit": source_commit,
+        # A resumed optimizer state is only comparable when it sees the same
+        # prepared corpus profile. Keep this explicit rather than inferring it
+        # from whichever files happen to be present in a fresh Colab runtime.
+        "data_profile": os.environ.get("ANRA_DATA_PROFILE", "unknown"),
         "dataset_manifest_hashes": data_manifests,
         "cognitive_extension_release": "cognition-v1",
         "consent_safe_metadata": {
@@ -302,6 +306,43 @@ def _build_checkpoint_payload(
             )
         },
     }
+
+
+def _assert_resume_data_profile_compatible(
+    checkpoint_profile: object,
+    active_profile: str,
+) -> None:
+    """Prevent a checkpoint from silently continuing on another corpus profile."""
+    saved = str(checkpoint_profile or "unknown").strip()
+    active = active_profile.strip() or "unknown"
+    if saved in {"unknown", "unlabelled", "unlabeled"}:
+        print(
+            "[Resume] Checkpoint predates data-profile tracking; continuity cannot be verified. "
+            f"Training with active profile={active}.",
+            flush=True,
+        )
+        return
+    if active in {"unknown", "unlabelled", "unlabeled"}:
+        print(
+            f"[Resume] Active data profile is not declared; checkpoint profile={saved}.",
+            flush=True,
+        )
+        return
+    if saved == active:
+        print(f"[Resume] Data profile verified: {active}", flush=True)
+        return
+    if os.environ.get("ANRA_ALLOW_DATA_PROFILE_CHANGE", "0") == "1":
+        print(
+            "[Resume] WARNING: data-profile change explicitly allowed: "
+            f"{saved} -> {active}.",
+            flush=True,
+        )
+        return
+    raise RuntimeError(
+        "Refusing to resume with a different data profile: "
+        f"checkpoint={saved}, active={active}. Restore the original prepared corpus, "
+        "or set ANRA_ALLOW_DATA_PROFILE_CHANGE=1 only for an intentional new experiment."
+    )
 
 
 def _emergency_save_with_timeout(payload: dict[str, object], ckpt_path: Path) -> bool:
@@ -670,6 +711,10 @@ def train_anra_v2(
         print(f"[Resume] Found checkpoint: {load_path}", flush=True)
         resume_state = load_checkpoint(model, optimizer, scheduler, mp, load_path, device=device, strict=False)
         if resume_state["loaded"]:
+            _assert_resume_data_profile_compatible(
+                resume_state.get("data_profile"),
+                os.environ.get("ANRA_DATA_PROFILE", "unknown"),
+            )
             ckpt["sessions_completed"] = int(resume_state.get("sessions_completed", 0))
             checkpoint_migration = dict(resume_state.get("migration", {}))
             start_step = int(resume_state["global_step"])
@@ -720,8 +765,10 @@ def train_anra_v2(
     optimizer.zero_grad(set_to_none=True)
     rolling_loss = 0.0
     rolling_count = 0
+    accumulated_step_loss = 0.0
     accum_micro_steps = 0
     last_avg_loss = best_loss if math.isfinite(best_loss) else 0.0
+    loss_ema: float | None = None
     first_batch_wall = None
     hard_examples: list[tuple[float, int]] = []
     answer_weighted_tokens = 0.0
@@ -845,8 +892,10 @@ def train_anra_v2(
                 )
 
             mp.backward(loss)
-            rolling_loss += float(loss.item() * training_cfg.grad_accum_steps)
+            microbatch_loss = float(batch_loss.item())
+            rolling_loss += microbatch_loss
             rolling_count += 1
+            accumulated_step_loss += microbatch_loss
             accum_micro_steps += 1
             answer_weighted_tokens += float((wb > 1.0).sum().item())
             total_target_tokens += float((yb != tokenizer.pad_token_id).sum().item())
@@ -863,7 +912,10 @@ def train_anra_v2(
                 if growth_alignment is not None:
                     growth_alignment.mask_inactive_gradients()
                 gradient_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-                loss_float = float(batch_loss.item())
+                # The optimizer step represents all accumulation microbatches,
+                # not merely the final one. The old final-microbatch value made
+                # HAL and adaptive LR react to random hard examples.
+                loss_float = accumulated_step_loss / accum_micro_steps
                 grad_float = float(gradient_norm)
                 if intelligence_session is not None:
                     intelligence_session.record_optimizer_step(
@@ -899,11 +951,12 @@ def train_anra_v2(
                     growth_alignment.configure_trainable_parameters(global_step - initial_step)
                 session_step += 1
                 accum_micro_steps = 0
+                accumulated_step_loss = 0.0
 
                 avg_loss = rolling_loss / max(1, rolling_count)
-                loss_val = avg_loss
                 last_avg_loss = avg_loss
-                best_loss = min(best_loss, avg_loss) if math.isfinite(best_loss) else avg_loss
+                loss_ema = loss_float if loss_ema is None else 0.9 * loss_ema + 0.1 * loss_float
+                best_loss = min(best_loss, loss_ema) if math.isfinite(best_loss) else loss_ema
                 phase = phase_for_step(global_step, warmup_steps=warmup_steps, total_steps=total_steps)
                 if phase.annealing_started and not annealing_started:
                     annealing_started = True
@@ -945,8 +998,11 @@ def train_anra_v2(
                 if session_step % 10 == 0:
                     print(
                         f"  step={global_step:6d}"
-                        f"  loss={loss_val:.4f}"
-                        f"  best={best_loss:.4f}"
+                        f"  step_loss={loss_float:.4f}"
+                        f"  ema_loss={loss_ema:.4f}"
+                        f"  session_avg={avg_loss:.4f}"
+                        f"  best_train={best_loss:.4f}"
+                        f"  lr={optimizer.param_groups[0]['lr']:.2e}"
                         f"  elapsed={elapsed_min:.1f}m",
                         flush=True,
                     )
@@ -957,7 +1013,9 @@ def train_anra_v2(
                     if global_step in EARLY_STATUS_STEPS and first_batch_wall is not None:
                         startup_note = f"  startup={(first_batch_wall - start):.1f}s"
                     print(
-                        f"  step={global_step:6d}  loss={avg_loss:.4f}  best={best_loss:.4f}  "
+                        f"  step={global_step:6d}  step_loss={loss_float:.4f}  "
+                        f"ema_loss={loss_ema:.4f}  session_avg={avg_loss:.4f}  "
+                        f"best_train={best_loss:.4f}  "
                         f"elapsed={elapsed_min:.1f}m  remaining={remaining_min:.1f}m{startup_note}",
                         flush=True,
                     )
@@ -996,17 +1054,18 @@ def train_anra_v2(
             growth_alignment.mask_inactive_gradients()
         gradient_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
         grad_float = float(gradient_norm)
+        partial_step_loss = accumulated_step_loss / accum_micro_steps
         if intelligence_session is not None:
             intelligence_session.record_optimizer_step(
                 step=global_step,
-                loss=float(last_avg_loss),
+                loss=partial_step_loss,
                 learning_rate=float(optimizer.param_groups[0]["lr"]),
                 gradient_norm=grad_float,
                 tokens=int(total_target_tokens),
             )
         update_hal_from_training(
             model,
-            loss=float(last_avg_loss),
+            loss=partial_step_loss,
             best_loss=best_loss,
             gradient_norm=grad_float,
             step=global_step,
@@ -1024,9 +1083,11 @@ def train_anra_v2(
         session_step += 1
         avg_loss = rolling_loss / max(1, rolling_count)
         last_avg_loss = avg_loss
-        best_loss = min(best_loss, avg_loss) if math.isfinite(best_loss) else avg_loss
+        loss_ema = partial_step_loss if loss_ema is None else 0.9 * loss_ema + 0.1 * partial_step_loss
+        best_loss = min(best_loss, loss_ema) if math.isfinite(best_loss) else loss_ema
         print(
-            f"  step={global_step:6d}  loss={avg_loss:.4f}  best={best_loss:.4f}  "
+            f"  step={global_step:6d}  step_loss={partial_step_loss:.4f}  "
+            f"ema_loss={loss_ema:.4f}  session_avg={avg_loss:.4f}  best_train={best_loss:.4f}  "
             f"elapsed={(time.time() - start) / 60.0:.1f}m  remaining={max(0.0, (end_at - time.time()) / 60.0):.1f}m"
             f"  partial_accum={accum_micro_steps}/{training_cfg.grad_accum_steps}",
             flush=True,
@@ -1036,7 +1097,7 @@ def train_anra_v2(
         elapsed_min = (time.time() - start) / 60.0
         remaining_min = max(0.0, (end_at - time.time()) / 60.0)
         print(
-            f"  step={global_step:6d}  loss={last_avg_loss:.4f}  best={best_loss:.4f}  "
+            f"  step={global_step:6d}  session_avg={last_avg_loss:.4f}  best_train={best_loss:.4f}  "
             f"elapsed={elapsed_min:.1f}m  remaining={remaining_min:.1f}m",
             flush=True,
         )

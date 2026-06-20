@@ -616,13 +616,14 @@ def load_checkpoint(
     *,
     device: torch.device,
     strict: bool = False,
-) -> dict[str, float | int | bool | str]:
+) -> dict[str, object]:
     state = {
         "loaded": False,
         "global_step": 0,
         "epoch": 0,
         "best_loss": float("inf"),
         "sessions_completed": 0,
+        "data_profile": "unknown",
     }
     ckpt = checkpoint_path
     if not ckpt.exists():
@@ -684,6 +685,7 @@ def load_checkpoint(
         state["epoch"] = int(blob.get("epoch", 0))
         state["best_loss"] = float(blob.get("best_loss", float("inf")))
         state["sessions_completed"] = int(blob.get("sessions_completed", 0))
+        state["data_profile"] = str(blob.get("data_profile", "unknown"))
         restore_hal_state(model, blob.get("hal_state", {}))
     state["loaded"] = True
     state["migration"] = migration

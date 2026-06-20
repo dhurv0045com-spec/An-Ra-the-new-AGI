@@ -35,6 +35,7 @@ def test_t4_notebook_uses_fast_bootstrap_and_persistent_data_cache() -> None:
 
     assert "scripts/colab_prepare_data.py" in source
     assert "DATA_PROFILE = 't4-cached'" in source
+    assert "os.environ['ANRA_DATA_PROFILE'] = DATA_PROFILE" in source
     assert "scripts/download_training_data.py --profile $DATA_PROFILE" not in source
     assert "PIP_DISABLE_PIP_VERSION_CHECK" in source
 
