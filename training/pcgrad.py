@@ -99,6 +99,23 @@ class PCGradAccumulator:
                     target.add_(gradient.detach())
             setattr(self, counter, getattr(self, counter) + 1)
 
+    def accumulate_existing_gradients(self, *, owner: bool) -> None:
+        """Capture gradients from the normal backward pass for one-source batches.
+
+        A batch containing only owner or only non-owner data does not need a
+        second ``autograd.grad`` traversal. The regular backward pass already
+        produced exactly that source's gradients. We retain protected gradients
+        here, clear them from the normal accumulator, and apply PCGrad at the
+        optimizer boundary as usual.
+        """
+        destination = self.owner if owner else self.other
+        for parameter, target in zip(self.parameters, destination):
+            if parameter.grad is not None:
+                target.add_(parameter.grad.detach())
+                parameter.grad.zero_()
+        counter = "owner_steps" if owner else "other_steps"
+        setattr(self, counter, getattr(self, counter) + 1)
+
     def materialize(self) -> list[PCGradTelemetry]:
         telemetry: list[PCGradTelemetry] = []
         for parameter, owner_gradient, other_gradient in zip(

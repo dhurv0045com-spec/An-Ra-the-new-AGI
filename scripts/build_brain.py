@@ -579,6 +579,10 @@ def train_anra_v2(
     loader = make_loader()
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    if device.type == "cuda":
+        # T4 has fixed training shapes here. Let cuDNN select its fastest
+        # convolution kernels without changing numerical semantics.
+        torch.backends.cudnn.benchmark = True
     if is_frontier:
         hal_module = None
         if V2_FRONTIER.use_hal:
@@ -778,6 +782,7 @@ def train_anra_v2(
     gpu_mem = torch.cuda.get_device_properties(0).total_memory / 1e9 if torch.cuda.is_available() else 0.0
     summary = model_summary(model)
     eff_batch = batch_size * training_cfg.grad_accum_steps
+    pcgrad_fast_path = batch_size == 1
 
     print("", flush=True)
     print("=" * 62, flush=True)
@@ -796,6 +801,11 @@ def train_anra_v2(
     )
     print(f"  Checkpoint   : {ckpt_path}", flush=True)
     print(f"  Data mix     : {mix_report.realized_counts}", flush=True)
+    print(
+        "  PCGrad       : normal-backward fast path" if pcgrad_fast_path
+        else "  PCGrad       : mixed-batch gradient separation",
+        flush=True,
+    )
     print("=" * 62, flush=True)
     print("", flush=True)
 
@@ -874,24 +884,31 @@ def train_anra_v2(
             ]
             owner_positions = [i for i, flag in enumerate(owner_flags) if flag]
             other_positions = [i for i, flag in enumerate(owner_flags) if not flag]
-            owner_loss = (
-                sample_losses[owner_positions].mean() / training_cfg.grad_accum_steps
-                if owner_positions
-                else None
-            )
-            other_loss = (
-                sample_losses[other_positions].mean() / training_cfg.grad_accum_steps
-                if other_positions
-                else None
-            )
-            if owner_loss is not None or other_loss is not None:
-                pcgrad.accumulate(
-                    owner_loss=owner_loss,
-                    other_loss=other_loss,
-                    grad_scale=mp.scale,
+            # A single-example microbatch belongs to one data source. Its
+            # normal backward pass is exactly the gradient PCGrad needs, so
+            # avoid an additional graph traversal. Multi-example CLI runs
+            # retain the explicit source-gradient calculation.
+            if not pcgrad_fast_path:
+                owner_loss = (
+                    sample_losses[owner_positions].mean() / training_cfg.grad_accum_steps
+                    if owner_positions
+                    else None
                 )
+                other_loss = (
+                    sample_losses[other_positions].mean() / training_cfg.grad_accum_steps
+                    if other_positions
+                    else None
+                )
+                if owner_loss is not None or other_loss is not None:
+                    pcgrad.accumulate(
+                        owner_loss=owner_loss,
+                        other_loss=other_loss,
+                        grad_scale=mp.scale,
+                    )
 
             mp.backward(loss)
+            if pcgrad_fast_path:
+                pcgrad.accumulate_existing_gradients(owner=owner_flags[0])
             microbatch_loss = float(batch_loss.item())
             rolling_loss += microbatch_loss
             rolling_count += 1
@@ -995,6 +1012,9 @@ def train_anra_v2(
                         )
 
                 elapsed_min = (time.time() - start) / 60.0
+                elapsed_seconds = max(1e-6, time.time() - start)
+                tokens_per_second = total_target_tokens / elapsed_seconds
+                optimizer_steps_per_hour = session_step * 3600.0 / elapsed_seconds
                 if session_step % 10 == 0:
                     print(
                         f"  step={global_step:6d}"
@@ -1003,6 +1023,8 @@ def train_anra_v2(
                         f"  session_avg={avg_loss:.4f}"
                         f"  best_train={best_loss:.4f}"
                         f"  lr={optimizer.param_groups[0]['lr']:.2e}"
+                        f"  tok/s={tokens_per_second:.0f}"
+                        f"  steps/h={optimizer_steps_per_hour:.1f}"
                         f"  elapsed={elapsed_min:.1f}m",
                         flush=True,
                     )
@@ -1016,6 +1038,7 @@ def train_anra_v2(
                         f"  step={global_step:6d}  step_loss={loss_float:.4f}  "
                         f"ema_loss={loss_ema:.4f}  session_avg={avg_loss:.4f}  "
                         f"best_train={best_loss:.4f}  "
+                        f"tok/s={tokens_per_second:.0f}  steps/h={optimizer_steps_per_hour:.1f}  "
                         f"elapsed={elapsed_min:.1f}m  remaining={remaining_min:.1f}m{startup_note}",
                         flush=True,
                     )

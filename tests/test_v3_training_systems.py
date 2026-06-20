@@ -5,7 +5,7 @@ import torch
 from training.cdr import CorrectedFailure, CorrectedFailureCurriculum
 from training.data_pipeline_v3 import ShardedDataPipeline, SourceRecord
 from training.data_ledger import DataQuality
-from training.pcgrad import project_conflicting_gradient
+from training.pcgrad import PCGradAccumulator, project_conflicting_gradient
 from training.stages import CampaignState, TrainingStage
 
 
@@ -26,6 +26,18 @@ def test_pcgrad_removes_negative_conflict() -> None:
     projected, telemetry = project_conflicting_gradient(primary, secondary)
     assert telemetry.conflict
     assert torch.dot(projected, secondary) >= -1e-6
+
+
+def test_pcgrad_captures_normal_backward_gradient_for_single_source_batch() -> None:
+    parameter = torch.nn.Parameter(torch.zeros(2))
+    parameter.grad = torch.tensor([3.0, -2.0])
+    accumulator = PCGradAccumulator([parameter])
+
+    accumulator.accumulate_existing_gradients(owner=True)
+
+    assert torch.equal(accumulator.owner[0], torch.tensor([3.0, -2.0]))
+    assert torch.equal(parameter.grad, torch.zeros(2))
+    assert accumulator.owner_steps == 1
 
 
 def test_data_pipeline_is_hash_reproducible(tmp_path) -> None:
