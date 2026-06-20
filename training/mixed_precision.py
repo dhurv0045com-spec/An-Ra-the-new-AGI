@@ -127,13 +127,18 @@ class MixedPrecisionTrainer:
         else:
             loss.backward()
 
-    def clip_gradients(self, model: nn.Module, max_norm: float = 1.0) -> float:
+    def clip_gradients(
+        self,
+        model: nn.Module,
+        optimizer: torch.optim.Optimizer,
+        max_norm: float = 1.0,
+    ) -> float:
         """
         Clip gradients by global norm. Unscales first if needed.
         Returns pre-clipping global grad norm for monitoring.
         """
         if self._needs_scaler:
-            self.scaler.unscale_(self._last_optimizer)
+            self.scaler.unscale_(optimizer)
         norm = torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm)
         return norm.item()
 
@@ -201,11 +206,7 @@ def amp_step(
     """
     mp.backward(loss)
 
-    # Unscale before clipping so we clip actual gradients
-    if mp._needs_scaler:
-        mp.scaler.unscale_(optimizer)
-
-    grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), max_grad_norm).item()
+    grad_norm = mp.clip_gradients(model, optimizer, max_grad_norm)
     mp.step(optimizer)
     mp.update()
 

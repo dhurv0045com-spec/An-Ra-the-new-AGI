@@ -81,7 +81,6 @@ from training.v2_runtime import (
     load_or_build_v2_tokenizer,
     model_summary,
     sync_to_drive,
-    DRIVE_SESSION_MANAGER,
     hal_state_dict,
     sync_v2_artifacts,
     v2_report_path,
@@ -297,7 +296,7 @@ def _build_checkpoint_payload(
         # prepared corpus profile. Keep this explicit rather than inferring it
         # from whichever files happen to be present in a fresh Colab runtime.
         "data_profile": os.environ.get("ANRA_DATA_PROFILE", "unknown"),
-        "training_data_layout": os.environ.get("ANRA_TRAINING_DATA_LAYOUT", "unknown"),
+        "training_data_layout": _active_training_data_layout(),
         "dataset_manifest_hashes": data_manifests,
         "cognitive_extension_release": "cognition-v1",
         "consent_safe_metadata": {
@@ -307,6 +306,17 @@ def _build_checkpoint_payload(
             )
         },
     }
+
+
+def _active_training_data_layout() -> str:
+    """Return the only dataset layout supported by the current base trainer."""
+    configured = os.environ.get("ANRA_TRAINING_DATA_LAYOUT", "").strip()
+    if configured and configured != V2ConversationDataset.PACKING_LAYOUT:
+        raise RuntimeError(
+            "This trainer only supports "
+            f"{V2ConversationDataset.PACKING_LAYOUT}; got ANRA_TRAINING_DATA_LAYOUT={configured}."
+        )
+    return V2ConversationDataset.PACKING_LAYOUT
 
 
 def _assert_resume_data_profile_compatible(
@@ -745,7 +755,7 @@ def train_anra_v2(
             )
             _assert_resume_data_layout_compatible(
                 resume_state.get("training_data_layout"),
-                os.environ.get("ANRA_TRAINING_DATA_LAYOUT", "unknown"),
+                _active_training_data_layout(),
             )
             ckpt["sessions_completed"] = int(resume_state.get("sessions_completed", 0))
             checkpoint_migration = dict(resume_state.get("migration", {}))
@@ -841,14 +851,8 @@ def train_anra_v2(
     print("=" * 62, flush=True)
     print("", flush=True)
 
-    def _autosave() -> None:
-        sync_to_drive("brain")
-        sync_to_drive("tokenizer")
-
-    DRIVE_SESSION_MANAGER.start_autosave(_autosave)
-    DRIVE_SESSION_MANAGER.register_sigterm_hook(_autosave)
     print(
-        "[build_brain] entering training loop; first optimizer step may still take several minutes on T4.",
+        "[build_brain] entering training loop; SIGTERM and timed frontier checkpoints are active.",
         flush=True,
     )
 
@@ -960,7 +964,7 @@ def train_anra_v2(
                 pcgrad_reports.extend(pcgrad.materialize())
                 if growth_alignment is not None:
                     growth_alignment.mask_inactive_gradients()
-                gradient_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+                gradient_norm = mp.clip_gradients(model, optimizer, 1.0)
                 # The optimizer step represents all accumulation microbatches,
                 # not merely the final one. The old final-microbatch value made
                 # HAL and adaptive LR react to random hard examples.
@@ -1107,7 +1111,7 @@ def train_anra_v2(
         pcgrad_reports.extend(pcgrad.materialize())
         if growth_alignment is not None:
             growth_alignment.mask_inactive_gradients()
-        gradient_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+        gradient_norm = mp.clip_gradients(model, optimizer, 1.0)
         grad_float = float(gradient_norm)
         partial_step_loss = accumulated_step_loss / accum_micro_steps
         if intelligence_session is not None:
@@ -1256,7 +1260,19 @@ def train_anra_v2(
         except Exception:
             prev_eval_summary = None
 
-    eval_summary = run_compact_eval(model, tokenizer, device=device, output=True)
+    try:
+        eval_summary = run_compact_eval(model, tokenizer, device=device, output=True)
+    except Exception as exc:
+        # The frontier checkpoint has already been persisted above. Evaluation
+        # must report its own failure without converting a successful training
+        # session into an apparent training failure.
+        print(f"[Eval] compact evaluation failed after checkpoint save: {exc}", flush=True)
+        eval_summary = {
+            "overall_score": 0.0,
+            "results": [],
+            "error": f"{type(exc).__name__}: {exc}",
+        }
+        write_json(v2_report_path("eval_summary"), eval_summary)
     intelligence_report = None
     if intelligence_session is not None:
         try:
@@ -1430,7 +1446,6 @@ def train_anra_v2(
             v2_report_path("mix_report"),
         ],
     )
-    sync_to_drive("brain")
     _sync_training_checkpoint_to_drive(ckpt_path)
     sync_to_drive("tokenizer")
     sync_to_drive("eval_summary")

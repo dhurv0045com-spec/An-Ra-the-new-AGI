@@ -47,3 +47,11 @@ def test_colab_bootstrap_keeps_existing_cuda_torch() -> None:
     assert '"--no-deps", "-e", str(repo)' in source
     assert 'f"{repo}[evidence]"' not in source
     assert "full preflight skipped" in source
+
+
+def test_frontier_trainer_has_no_legacy_brain_autosave() -> None:
+    source = (ROOT / "scripts" / "build_brain.py").read_text(encoding="utf-8")
+
+    assert 'sync_to_drive("brain")' not in source
+    assert "DRIVE_SESSION_MANAGER" not in source
+    assert "compact evaluation failed after checkpoint save" in source

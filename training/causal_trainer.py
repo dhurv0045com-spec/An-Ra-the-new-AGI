@@ -161,9 +161,7 @@ class CausalExtensionTrainer:
             grad_scale=self.mp.scale,
         )
         telemetry = self.pcgrad.materialize()
-        if self.mp._needs_scaler:
-            self.mp.scaler.unscale_(self.optimizer)
-        torch.nn.utils.clip_grad_norm_(self.extension.parameters(), 1.0)
+        self.mp.clip_gradients(self.extension, self.optimizer, 1.0)
         self.mp.step(self.optimizer)
         self.mp.update()
         self.scheduler.step()
