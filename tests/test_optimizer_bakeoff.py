@@ -102,6 +102,7 @@ def test_iterate500_frontier_training_defaults_are_fast_t4_profile() -> None:
     assert V2_FRONTIER_TRAINING.grad_accum_steps == 8
     assert V2_FRONTIER_TRAINING.learning_rate == 4e-4
     assert V2_FRONTIER_TRAINING.warmup_steps == 32
+    assert V2_FRONTIER_TRAINING.max_mixture_examples == 4096
 
 
 def test_optimizer_bakeoff_report_path_is_registered() -> None:

@@ -1,13 +1,19 @@
 from __future__ import annotations
 
 import json
+import random
 
 import pytest
 import torch
 from anra.anra_paths import DATASET, V3_TOKENIZER_FILE
 from anra_brain import CausalTransformerV2
 from tokenizer.subword_tokenizer import SubwordTokenizer
-from training.v2_data_mix import IdentityStyleFilter, build_v2_training_examples
+from training.v2_data_mix import (
+    IdentityStyleFilter,
+    TrainingExample,
+    _sample_bucket,
+    build_v2_training_examples,
+)
 
 
 def test_vocab_size_contract():
@@ -46,6 +52,17 @@ def test_v2_mix_keeps_own_data_dominant() -> None:
     total = report.total_examples
     assert total > 0
     assert (own + identity) / total >= 0.75
+
+
+def test_bucket_sampler_uses_all_examples_before_repeating() -> None:
+    examples = [
+        TrainingExample(bucket="own", prompt=f"p{i}", answer=f"a{i}", source="test")
+        for i in range(4)
+    ]
+    sampled = _sample_bucket(random.Random(7), examples, 6)
+
+    assert {item.prompt for item in sampled[:4]} == {item.prompt for item in examples}
+    assert len(sampled) == 6
 
 
 def test_dataset_file_resolves():

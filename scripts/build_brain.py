@@ -238,6 +238,16 @@ def _read_json(path: Path) -> dict[str, object] | None:
     return payload if isinstance(payload, dict) else None
 
 
+def _session_data_mix_seed(base_seed: int = 1337) -> int:
+    """Rotate the deterministic training sample after each completed session."""
+    state = _read_json(REGRET_STATE) or {}
+    try:
+        completed_sessions = max(0, int(state.get("session_count", 0)))
+    except (TypeError, ValueError):
+        completed_sessions = 0
+    return int(base_seed) + completed_sessions
+
+
 def _build_checkpoint_payload(
     *,
     model: torch.nn.Module,
@@ -551,8 +561,10 @@ def train_anra_v2(
         )
     dataset_path = Path(data_path)
     tokenizer = load_or_build_v2_tokenizer(dataset_path=dataset_path)
+    data_mix_seed = _session_data_mix_seed()
     examples, mix_report = build_v2_training_examples(
         dataset_path=dataset_path,
+        seed=data_mix_seed,
         max_examples=max_examples,
         own_ratio=own_ratio,
         identity_ratio=identity_ratio,
@@ -565,6 +577,7 @@ def train_anra_v2(
     if mix_report.active_weights:
         training_mix_controller.weights = dict(mix_report.active_weights)
     write_json(v2_report_path("mix_report"), mix_report.to_dict())
+    print(f"[Trainer] Data mix sampling seed: {data_mix_seed}", flush=True)
     ds = V2ConversationDataset(
         examples,
         tokenizer,

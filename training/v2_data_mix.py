@@ -57,6 +57,7 @@ class MixReport:
     del_rejected: int = 0
     duplicate_rejected: int = 0
     active_weights: dict[str, float] = field(default_factory=dict)
+    sampling_seed: int = 1337
 
     def to_dict(self) -> dict[str, object]:
         return asdict(self)
@@ -687,7 +688,14 @@ def _sample_bucket(
 ) -> list[TrainingExample]:
     if target_count <= 0 or not bucket:
         return []
-    return [rng.choice(bucket) for _ in range(target_count)]
+    # Cover each available example once before repeating it. This matters on
+    # long Colab sessions: replacement-only sampling can waste updates on the
+    # same examples while unseen examples remain in the local corpus.
+    if target_count <= len(bucket):
+        return rng.sample(bucket, target_count)
+    sampled = rng.sample(bucket, len(bucket))
+    sampled.extend(rng.choice(bucket) for _ in range(target_count - len(bucket)))
+    return sampled
 
 
 def build_v2_training_examples(
@@ -829,6 +837,7 @@ def build_v2_training_examples(
             "symbolic": symbolic_ratio,
             "replay": replay_ratio,
         },
+        sampling_seed=seed,
     )
     return mixed, report
 
