@@ -325,7 +325,7 @@ def sync_checkpoint_to_origin(checkpoint: Path) -> Path:
 
 def restore_shared_checkpoint(destination: Path, filename: str | None = None) -> Path | None:
     """
-    Copy a checkpoint from visible shared Drive locations or Shared-with-me API.
+    Copy a checkpoint from the owner's My Drive or an editor-visible shared Drive file.
 
     Returns the source marker/path if a checkpoint was restored. Writes always
     land in the caller's normal local checkpoint path.
@@ -333,9 +333,19 @@ def restore_shared_checkpoint(destination: Path, filename: str | None = None) ->
     destination = Path(destination)
     filename = filename or destination.name
     print(f"[Drive Shared] looking for checkpoint: {filename}", flush=True)
+    # Prefer the current account's My Drive master. If it is absent, editors
+    # fall through to the same master's Shared-with-me Drive API view.
+    candidate = find_filesystem_checkpoint(filename)
+    if candidate is not None:
+        if destination.resolve() != candidate.resolve():
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(candidate, destination)
+        print(f"[Drive Shared] restored {candidate} -> {destination}", flush=True)
+        _record_filesystem_origin(filename, candidate)
+        return candidate
+
     service = _drive_service() if os.environ.get("ANRA_SHARED_DRIVE_API", "1") != "0" else None
     if service is not None:
-        # Prefer the actual Shared-with-me file over a stale private copy created by an older run.
         shared_meta = _find_drive_api_file(service, filename, shared_only=True)
         shared_target = _resolve_api_target(service, shared_meta) if shared_meta else None
         if shared_target is not None:
@@ -346,20 +356,11 @@ def restore_shared_checkpoint(destination: Path, filename: str | None = None) ->
 
     if os.environ.get(REQUIRE_SHARED_MASTER_ENV, "0") == "1":
         print(
-            "[Drive Shared] required shared master checkpoint was not found; "
+            "[Drive Shared] required master checkpoint was not found in My Drive or Shared with me; "
             "private Drive copies are disabled.",
             flush=True,
         )
         return None
-
-    candidate = find_filesystem_checkpoint(filename)
-    if candidate is not None:
-        if destination.resolve() != candidate.resolve():
-            destination.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(candidate, destination)
-        print(f"[Drive Shared] restored {candidate} -> {destination}", flush=True)
-        _record_filesystem_origin(filename, candidate)
-        return candidate
 
     if service is None:
         print("[Drive Shared] API lookup disabled and no mounted Drive checkpoint was found.", flush=True)

@@ -91,3 +91,21 @@ def test_required_shared_master_never_creates_private_drive_copy(monkeypatch, tm
         shared.sync_checkpoint_to_origin(checkpoint)
 
     assert not (tmp_path / "drive" / "MyDrive" / "AnRa" / "v2" / "checkpoints").exists()
+
+
+def test_required_master_accepts_owner_mydrive_and_updates_it_in_place(monkeypatch, tmp_path: Path) -> None:
+    _patch_drive(monkeypatch, tmp_path)
+    filename = "anra_frontier_500m.pt"
+    master = shared.DRIVE_V2_CHECKPOINTS / filename
+    master.parent.mkdir(parents=True)
+    master.write_bytes(b"owner-master")
+    destination = tmp_path / "repo" / filename
+    monkeypatch.setenv(shared.REQUIRE_SHARED_MASTER_ENV, "1")
+
+    restored = shared.restore_shared_checkpoint(destination)
+    destination.write_bytes(b"updated-master")
+    published = shared.sync_checkpoint_to_origin(destination)
+
+    assert restored == master
+    assert published == master
+    assert master.read_bytes() == b"updated-master"
