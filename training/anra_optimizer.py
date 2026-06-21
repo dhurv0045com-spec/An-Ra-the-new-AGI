@@ -164,6 +164,48 @@ def repair_optimizer_param_group_defaults(optimizer: torch.optim.Optimizer) -> t
     return tuple(sorted(repaired))
 
 
+def repair_optimizer_resume_state(optimizer: torch.optim.Optimizer) -> tuple[str, ...]:
+    """Repair optimizer metadata and discard only malformed Adafactor moments.
+
+    Older Transformers releases saved Adafactor state with different fields.
+    Loading those tensors into a newer release can succeed but fail at the first
+    optimizer step. Model weights and the global training step remain valid, so
+    reset only the incompatible optimizer moments in that case.
+    """
+    repaired = list(repair_optimizer_param_group_defaults(optimizer))
+    if optimizer.__class__.__name__ != "Adafactor":
+        return tuple(repaired)
+
+    invalid_state = False
+    for group in optimizer.param_groups:
+        for parameter in group.get("params", []):
+            state = optimizer.state.get(parameter, {})
+            if not state:
+                continue
+            try:
+                factored, use_first_moment = optimizer._get_options(group, parameter.shape)
+            except (AttributeError, KeyError, TypeError):
+                invalid_state = True
+                break
+            required = {"step"}
+            if factored:
+                required.update({"exp_avg_sq_row", "exp_avg_sq_col"})
+            else:
+                required.add("exp_avg_sq")
+            if use_first_moment:
+                required.add("exp_avg")
+            if not required.issubset(state):
+                invalid_state = True
+                break
+        if invalid_state:
+            break
+
+    if invalid_state:
+        optimizer.state.clear()
+        repaired.append("adafactor_moments_reset")
+    return tuple(repaired)
+
+
 def build_optimizer_with_report(
     model: torch.nn.Module,
     *,

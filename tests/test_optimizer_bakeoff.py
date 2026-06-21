@@ -6,7 +6,7 @@ import pytest
 from training.anra_optimizer import (
     build_optimizer_with_report,
     candidate_report,
-    repair_optimizer_param_group_defaults,
+    repair_optimizer_resume_state,
 )
 from training.v2_config import V2_FRONTIER_TRAINING
 from training.v2_runtime import v2_report_path
@@ -78,16 +78,22 @@ def test_adafactor_checkpoint_without_beta1_is_repaired_before_step() -> None:
         relative_step=False,
         warmup_init=False,
     )
+    model(torch.tensor([[1, 2, 3]])).sum().backward()
+    optimizer.step()
+    optimizer.zero_grad(set_to_none=True)
     legacy_state = optimizer.state_dict()
     for group in legacy_state["param_groups"]:
         group.pop("beta1", None)
+    for state in legacy_state["state"].values():
+        state.pop("exp_avg_sq_row", None)
     optimizer.load_state_dict(legacy_state)
 
-    repaired = repair_optimizer_param_group_defaults(optimizer)
+    repaired = repair_optimizer_resume_state(optimizer)
     model(torch.tensor([[1, 2, 3]])).sum().backward()
     optimizer.step()
 
     assert "beta1" in repaired
+    assert "adafactor_moments_reset" in repaired
 
 
 def test_iterate500_frontier_training_defaults_are_fast_t4_profile() -> None:

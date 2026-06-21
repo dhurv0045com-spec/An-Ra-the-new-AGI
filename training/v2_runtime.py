@@ -29,7 +29,7 @@ from anra.anra_paths import (
 from anra_brain import CausalTransformerV2
 from tokenizer.subword_tokenizer import SubwordTokenizer
 from tokenizer.tokenizer_adapter import TokenizerAdapter
-from training.anra_optimizer import repair_optimizer_param_group_defaults
+from training.anra_optimizer import repair_optimizer_resume_state
 from training.v2_config import (
     CANONICAL_VOCAB_SIZE,
     CHECKPOINT_SCHEMA_VERSION,
@@ -669,10 +669,10 @@ def load_checkpoint(
         if optimizer is not None:
             try:
                 optimizer.load_state_dict(blob.get("optimizer_state_dict", blob.get("optimizer", {})))
-                repaired = repair_optimizer_param_group_defaults(optimizer)
+                repaired = repair_optimizer_resume_state(optimizer)
                 if repaired:
                     logger.warning(
-                        "Repaired missing optimizer checkpoint fields from %s: %s",
+                        "Repaired incompatible optimizer checkpoint state from %s: %s",
                         ckpt,
                         ", ".join(repaired),
                     )
