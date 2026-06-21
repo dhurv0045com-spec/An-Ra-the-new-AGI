@@ -89,6 +89,18 @@ def install_runtime_packages(packages: Iterable[str]) -> list[str]:
     return packages
 
 
+def configure_local_pip_cache() -> Path:
+    """Keep pip's content-addressed cache out of mounted Google Drive."""
+    requested = Path(os.environ.get("ANRA_PIP_CACHE", "/content/.cache/pip"))
+    cache = requested.expanduser()
+    cache.mkdir(parents=True, exist_ok=True)
+    previous = os.environ.get("PIP_CACHE_DIR", "")
+    os.environ["PIP_CACHE_DIR"] = str(cache)
+    if "/content/drive/" in previous.replace("\\", "/"):
+        print(f"[Colab] moved pip cache off Drive: {cache}")
+    return cache
+
+
 def install_project(repo: Path) -> None:
     """Expose this checkout without asking pip to replace Colab's CUDA torch."""
     run([sys.executable, "-m", "pip", "install", "-q", "--no-deps", "-e", str(repo)])
@@ -139,6 +151,7 @@ def main() -> None:
     constraints = repo / "constraints-colab-t4.txt"
     if not args.allow_non_cuda:
         require_cuda_gpu()
+    pip_cache = configure_local_pip_cache()
     installed_packages: list[str] = []
     if args.install:
         installed_packages = install_runtime_packages(missing_runtime_packages())
@@ -164,6 +177,7 @@ def main() -> None:
         "repo": str(repo),
         "thirdeye": str(thirdeye_path) if thirdeye_path else None,
         "scratch": str(scratch),
+        "pip_cache": str(pip_cache),
         "drive": str(drive),
         "constraints_sha256": sha256(constraints),
         "installed_runtime_packages": installed_packages,

@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
+from scripts.colab_bootstrap import configure_local_pip_cache
 from scripts.colab_prepare_data import CACHE_FILES, cache_is_valid, copy_cached_files, write_manifest
 
 
@@ -40,6 +42,7 @@ def test_t4_notebook_uses_fast_bootstrap_and_persistent_data_cache() -> None:
     assert "ANRA_REQUIRE_SHARED_MASTER" in source
     assert "scripts/download_training_data.py --profile $DATA_PROFILE" not in source
     assert "PIP_DISABLE_PIP_VERSION_CHECK" in source
+    assert "/content/drive/MyDrive/AnRa/cache/pip" not in source
 
 
 def test_colab_bootstrap_keeps_existing_cuda_torch() -> None:
@@ -48,6 +51,20 @@ def test_colab_bootstrap_keeps_existing_cuda_torch() -> None:
     assert '"--no-deps", "-e", str(repo)' in source
     assert 'f"{repo}[evidence]"' not in source
     assert "full preflight skipped" in source
+    assert "configure_local_pip_cache" in source
+    assert '"/content/.cache/pip"' in source
+
+
+def test_colab_bootstrap_overrides_a_drive_pip_cache(monkeypatch, tmp_path: Path) -> None:
+    local_cache = tmp_path / "local-pip-cache"
+    monkeypatch.setenv("ANRA_PIP_CACHE", str(local_cache))
+    monkeypatch.setenv("PIP_CACHE_DIR", "/content/drive/MyDrive/AnRa/cache/pip")
+
+    configured = configure_local_pip_cache()
+
+    assert configured == local_cache
+    assert configured.is_dir()
+    assert os.environ["PIP_CACHE_DIR"] == str(local_cache)
 
 
 def test_frontier_trainer_has_no_legacy_brain_autosave() -> None:
