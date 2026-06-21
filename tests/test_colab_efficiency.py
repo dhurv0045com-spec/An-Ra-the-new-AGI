@@ -53,6 +53,7 @@ def test_colab_bootstrap_keeps_existing_cuda_torch() -> None:
     assert "full preflight skipped" in source
     assert "configure_local_pip_cache" in source
     assert '"/content/.cache/pip"' in source
+    assert '"git", "-C", str(target), "pull", "--ff-only", "origin", "main"' in source
 
 
 def test_colab_bootstrap_overrides_a_drive_pip_cache(monkeypatch, tmp_path: Path) -> None:

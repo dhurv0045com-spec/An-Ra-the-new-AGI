@@ -119,6 +119,10 @@ def install_thirdeye(repo: Path) -> Path:
                 str(target),
             ]
         )
+    else:
+        run(["git", "-C", str(target), "fetch", "origin", "main"])
+        run(["git", "-C", str(target), "checkout", "main"])
+        run(["git", "-C", str(target), "pull", "--ff-only", "origin", "main"])
     run([sys.executable, "-m", "pip", "install", "-q", "--no-deps", "-e", str(target)])
     return target
 
