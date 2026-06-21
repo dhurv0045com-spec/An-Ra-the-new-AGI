@@ -469,7 +469,7 @@ def prepare_training_corpus(
     max_source_mb: int = 64,
     mount_drive: bool = True,
     mirror_merged: bool = True,
-    mirror_teacher: bool = True,
+    mirror_teacher: bool = False,
 ) -> IngestionReport:
     """Merge local/Drive owner data into the canonical H:/ANRA: corpus."""
     if mount_drive:
@@ -571,6 +571,8 @@ def prepare_training_corpus(
         for record in teacher_records:
             fh.write(json.dumps(record, ensure_ascii=False) + "\n")
     if mirror_teacher:
+        # Legacy opt-in only. The Colab data cache is the canonical persistent
+        # copy; mirroring here would create a second root-level teacher file.
         try:
             DRIVE_TEACHER_FILE.parent.mkdir(parents=True, exist_ok=True)
             with DRIVE_TEACHER_FILE.open("w", encoding="utf-8") as fh:

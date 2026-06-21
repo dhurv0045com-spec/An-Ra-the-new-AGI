@@ -11,6 +11,7 @@ def _patch_artifact_paths(monkeypatch, tmp_path: Path) -> tuple[Path, Path]:
     local = tmp_path / "repo"
     drive = tmp_path / "drive" / "AnRa"
     monkeypatch.setattr(rt, "DRIVE_DIR", drive)
+    monkeypatch.setattr(rt, "DRIVE_V2_DIR", drive / "v2")
     monkeypatch.setattr(rt, "DRIVE_V2_CHECKPOINTS", drive / "v2" / "checkpoints")
     monkeypatch.setattr(rt, "ROOT", local)
     monkeypatch.setattr(rt, "V2_BRAIN_CHECKPOINT", local / "anra_v2_brain.pt")
@@ -21,7 +22,7 @@ def _patch_artifact_paths(monkeypatch, tmp_path: Path) -> tuple[Path, Path]:
     return local, drive
 
 
-def test_sync_to_drive_uses_only_fixed_artifact_names(monkeypatch, tmp_path: Path) -> None:
+def test_sync_to_drive_uses_one_canonical_artifact_path(monkeypatch, tmp_path: Path) -> None:
     _local, drive = _patch_artifact_paths(monkeypatch, tmp_path)
     rt.V2_BRAIN_CHECKPOINT.parent.mkdir(parents=True, exist_ok=True)
     rt.V3_TOKENIZER_FILE.parent.mkdir(parents=True, exist_ok=True)
@@ -32,14 +33,15 @@ def test_sync_to_drive_uses_only_fixed_artifact_names(monkeypatch, tmp_path: Pat
     assert rt.sync_to_drive("tokenizer")
 
     fixed_files = {
-        drive / "anra_v2_brain.pt",
-        drive / "tokenizer_v3.json",
         drive / "v2" / "checkpoints" / "anra_v2_brain.pt",
-        drive / "v2" / "checkpoints" / "tokenizer_v3.json",
+        drive / "v2" / "tokenizer_v3.json",
     }
     for path in fixed_files:
         assert path.exists(), path
 
+    assert not (drive / "anra_v2_brain.pt").exists()
+    assert not (drive / "tokenizer_v3.json").exists()
+    assert not (drive / "v2" / "checkpoints" / "tokenizer_v3.json").exists()
     assert not (drive / "sessions").exists()
     assert list((drive / "v2" / "checkpoints").glob("*step*.pt")) == []
     assert list((drive / "v2" / "checkpoints").glob("*_v1_*.pt")) == []

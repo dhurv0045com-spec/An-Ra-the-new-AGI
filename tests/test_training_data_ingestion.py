@@ -46,4 +46,5 @@ def test_prepare_training_corpus_merges_text_code_and_teacher(tmp_path):
     assert report.total_examples >= 3
     assert report.teacher_records == 1
     assert json.loads(teacher_lines[0])["verified"] is True
+    assert report.teacher_output == str(teacher_output)
     assert report_path.exists()

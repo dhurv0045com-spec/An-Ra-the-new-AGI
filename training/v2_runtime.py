@@ -12,6 +12,7 @@ import torch
 
 from anra.anra_paths import (
     DRIVE_DIR,
+    DRIVE_V2_DIR,
     DRIVE_V2_CHECKPOINTS,
     OUTPUT_V2_DIR,
     ROOT,
@@ -119,7 +120,13 @@ def _drive_artifact_path(name: str) -> Path:
         "tokenizer": "tokenizer_v3.json",
         "eval_summary": "anra_v2_eval_summary.json",
     }
-    return DRIVE_DIR / drive_filenames.get(name, f"anra_v2_{name}.pt")
+    filename = drive_filenames.get(name, f"anra_v2_{name}.pt")
+    # Tokenizer and reports are immutable/small V2 artifacts. Checkpoints use
+    # the dedicated checkpoint directory. Each artifact has one canonical
+    # Drive path; legacy restore candidates remain supported below.
+    if name in {"brain", "identity", "ouroboros"}:
+        return DRIVE_V2_CHECKPOINTS / filename
+    return DRIVE_V2_DIR / filename
 
 
 def _local_artifact_path(name: str) -> Path:
@@ -188,22 +195,22 @@ def restore_v2_artifact(name: str = "brain") -> bool:
 
 def sync_to_drive(name: str = "brain") -> bool:
     """
-    Copy local checkpoint to Drive. Always overwrites same file.
-    Never creates new files. Returns True on success.
+    Sync one legacy artifact to its canonical Drive path.
+
+    This compatibility helper intentionally writes one file, not the old pair
+    of root and checkpoint-directory copies. Frontier training checkpoints use
+    the shared-master publisher instead.
     """
     local_path = _local_artifact_path(name)
     if not local_path.exists():
         print(f"[Drive] {name}: local file not found, skipping")
         return False
 
-    DRIVE_V2_CHECKPOINTS.mkdir(parents=True, exist_ok=True)
-    drive_root = _drive_artifact_path(name)
-    drive_target = DRIVE_V2_CHECKPOINTS / drive_root.name
+    drive_target = _drive_artifact_path(name)
 
     try:
-        drive_root.parent.mkdir(parents=True, exist_ok=True)
+        drive_target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(local_path, drive_target)
-        shutil.copy2(local_path, drive_root)
         step = _read_step(local_path) if local_path.suffix == ".pt" else 0
         size_kb = local_path.stat().st_size // 1024
         print(f"[Drive] {name}: saved (step={step}, {size_kb}KB)")
@@ -266,7 +273,7 @@ def load_or_build_v2_tokenizer(
     tokenizer.save(local)
     assert_tokenizer_contract(local, tokenizer)
     try:
-        drive_tok = DRIVE_DIR / "v2" / local.name
+        drive_tok = DRIVE_V2_DIR / local.name
         drive_tok.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(local, drive_tok)
     except Exception as exc:
