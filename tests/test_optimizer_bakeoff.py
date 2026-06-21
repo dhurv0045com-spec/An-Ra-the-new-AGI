@@ -3,7 +3,11 @@ from __future__ import annotations
 import torch
 import pytest
 
-from training.anra_optimizer import build_optimizer_with_report, candidate_report
+from training.anra_optimizer import (
+    build_optimizer_with_report,
+    candidate_report,
+    repair_optimizer_param_group_defaults,
+)
 from training.v2_config import V2_FRONTIER_TRAINING
 from training.v2_runtime import v2_report_path
 
@@ -62,6 +66,28 @@ def test_auto_prefers_memory_light_adafactor_when_muon_unavailable() -> None:
     assert report["selected"]["actual"] in {"muon", "adafactor"}
     if report["selected"]["actual"] == "adafactor":
         assert "memory-light Adafactor" in report["selected"]["reason"]
+
+
+def test_adafactor_checkpoint_without_beta1_is_repaired_before_step() -> None:
+    transformers = pytest.importorskip("transformers")
+    model = TinyModel()
+    optimizer = transformers.Adafactor(
+        model.parameters(),
+        lr=1e-3,
+        scale_parameter=False,
+        relative_step=False,
+        warmup_init=False,
+    )
+    legacy_state = optimizer.state_dict()
+    for group in legacy_state["param_groups"]:
+        group.pop("beta1", None)
+    optimizer.load_state_dict(legacy_state)
+
+    repaired = repair_optimizer_param_group_defaults(optimizer)
+    model(torch.tensor([[1, 2, 3]])).sum().backward()
+    optimizer.step()
+
+    assert "beta1" in repaired
 
 
 def test_iterate500_frontier_training_defaults_are_fast_t4_profile() -> None:

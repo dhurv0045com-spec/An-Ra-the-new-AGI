@@ -51,23 +51,23 @@ def _candidate_roots(filename: str) -> list[Path]:
 
 
 def find_filesystem_checkpoint(filename: str) -> Path | None:
-    """Find a checkpoint visible through the mounted Drive filesystem."""
+    """Find the newest checkpoint visible through the mounted Drive filesystem."""
+    matches: list[Path] = []
     for root in _candidate_roots(filename):
         candidate = root / filename
         if candidate.is_file():
-            return candidate
+            matches.append(candidate)
         if root.name == "Shareddrives" and root.exists():
             try:
-                matches = sorted(
-                    (path for path in root.rglob(filename) if path.is_file()),
-                    key=lambda path: path.stat().st_mtime,
-                    reverse=True,
-                )
+                matches.extend(path for path in root.rglob(filename) if path.is_file())
             except OSError:
-                matches = []
-            if matches:
-                return matches[0]
-    return None
+                pass
+    if not matches:
+        return None
+    # Older notebook versions could leave a stale private copy beside the
+    # current shared master. Pick the latest checkpoint rather than silently
+    # rewinding an experiment to whichever directory happens to be checked first.
+    return max(matches, key=lambda path: path.stat().st_mtime_ns)
 
 
 def _drive_service(*, writable: bool = False):
@@ -115,11 +115,13 @@ def _find_drive_api_file(
     escaped = _escape_drive_query(filename)
     queries = [f"sharedWithMe and name = '{escaped}' and trashed = false"]
     if not shared_only:
-        queries.append(f"name = '{escaped}' and trashed = false")
+        queries.insert(0, f"name = '{escaped}' and trashed = false")
     fields = (
         "files(id,name,mimeType,modifiedTime,size,version,shared,ownedByMe,capabilities(canEdit),"
         "shortcutDetails(targetId,targetMimeType),owners(displayName,emailAddress))"
     )
+    matches: list[dict[str, object]] = []
+    seen_ids: set[str] = set()
     for query in queries:
         try:
             response = (
@@ -138,10 +140,15 @@ def _find_drive_api_file(
         except Exception as exc:
             print(f"[Drive Shared] API search failed for checkpoint '{filename}': {exc}", flush=True)
             continue
-        files = response.get("files", [])
-        if files:
-            return dict(files[0])
-    return None
+        for file_meta in response.get("files", []):
+            item = dict(file_meta)
+            file_id = str(item.get("id", ""))
+            if file_id and file_id not in seen_ids:
+                matches.append(item)
+                seen_ids.add(file_id)
+    if not matches:
+        return None
+    return max(matches, key=lambda item: str(item.get("modifiedTime", "")))
 
 
 def _origin_path(filename: str) -> Path:
@@ -333,26 +340,27 @@ def restore_shared_checkpoint(destination: Path, filename: str | None = None) ->
     destination = Path(destination)
     filename = filename or destination.name
     print(f"[Drive Shared] looking for checkpoint: {filename}", flush=True)
-    # Prefer the current account's My Drive master. If it is absent, editors
-    # fall through to the same master's Shared-with-me Drive API view.
+    service = _drive_service() if os.environ.get("ANRA_SHARED_DRIVE_API", "1") != "0" else None
+    if service is not None:
+        # The Drive API can see both the owner's My Drive file and an editor's
+        # Shared-with-me file. It chooses by modified time, which prevents an
+        # old duplicate from rewinding a newer training session.
+        master_meta = _find_drive_api_file(service, filename)
+        master_target = _resolve_api_target(service, master_meta) if master_meta else None
+        if master_target is not None:
+            print(f"[Drive Shared] downloading newest master checkpoint {filename}", flush=True)
+            if _download_drive_api_file(service, str(master_target["id"]), destination):
+                _record_api_origin(filename, master_target)
+                return Path(f"drive-api:{master_target['id']}")
+
     candidate = find_filesystem_checkpoint(filename)
     if candidate is not None:
         if destination.resolve() != candidate.resolve():
             destination.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(candidate, destination)
-        print(f"[Drive Shared] restored {candidate} -> {destination}", flush=True)
+        print(f"[Drive Shared] restored newest mounted checkpoint {candidate} -> {destination}", flush=True)
         _record_filesystem_origin(filename, candidate)
         return candidate
-
-    service = _drive_service() if os.environ.get("ANRA_SHARED_DRIVE_API", "1") != "0" else None
-    if service is not None:
-        shared_meta = _find_drive_api_file(service, filename, shared_only=True)
-        shared_target = _resolve_api_target(service, shared_meta) if shared_meta else None
-        if shared_target is not None:
-            print(f"[Drive Shared] downloading shared master checkpoint {filename}", flush=True)
-            if _download_drive_api_file(service, str(shared_target["id"]), destination):
-                _record_api_origin(filename, shared_target)
-                return Path(f"drive-api:{shared_target['id']}")
 
     if os.environ.get(REQUIRE_SHARED_MASTER_ENV, "0") == "1":
         print(

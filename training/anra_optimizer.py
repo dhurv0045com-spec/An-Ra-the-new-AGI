@@ -152,6 +152,18 @@ def _regular_groups(
     ]
 
 
+def repair_optimizer_param_group_defaults(optimizer: torch.optim.Optimizer) -> tuple[str, ...]:
+    """Restore defaults omitted by checkpoints made with older optimizer versions."""
+    defaults = dict(getattr(optimizer, "defaults", {}))
+    repaired: set[str] = set()
+    for group in optimizer.param_groups:
+        for key, value in defaults.items():
+            if key not in group:
+                group[key] = value
+                repaired.add(key)
+    return tuple(sorted(repaired))
+
+
 def build_optimizer_with_report(
     model: torch.nn.Module,
     *,

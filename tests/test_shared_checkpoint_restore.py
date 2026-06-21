@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from pathlib import Path
+import os
+import time
 
 import training.shared_checkpoint as shared
 import pytest
@@ -109,3 +111,19 @@ def test_required_master_accepts_owner_mydrive_and_updates_it_in_place(monkeypat
     assert restored == master
     assert published == master
     assert master.read_bytes() == b"updated-master"
+
+
+def test_filesystem_resume_chooses_newest_duplicate_checkpoint(monkeypatch, tmp_path: Path) -> None:
+    mounted = _patch_drive(monkeypatch, tmp_path)
+    filename = "anra_frontier_500m.pt"
+    stale = shared.DRIVE_V2_CHECKPOINTS / filename
+    newest = mounted / "Shareddrives" / "research" / filename
+    stale.parent.mkdir(parents=True)
+    newest.parent.mkdir(parents=True)
+    stale.write_bytes(b"step-450")
+    newest.write_bytes(b"step-800")
+    now = time.time()
+    os.utime(stale, (now - 60, now - 60))
+    os.utime(newest, (now, now))
+
+    assert shared.find_filesystem_checkpoint(filename) == newest

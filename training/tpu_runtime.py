@@ -10,6 +10,7 @@ from torch.nn.utils import parametrize
 
 from anra.anra_paths import DRIVE_V2_CHECKPOINTS
 from runtime.safe_load import safe_torch_load
+from training.anra_optimizer import repair_optimizer_param_group_defaults
 from training.shared_checkpoint import (
     record_filesystem_checkpoint_origin,
     restore_shared_checkpoint,
@@ -92,6 +93,13 @@ def load_checkpoint_cpu_first(
         if optimizer is not None:
             try:
                 optimizer.load_state_dict(blob.get("optimizer_state_dict", blob.get("optimizer", {})))
+                repaired = repair_optimizer_param_group_defaults(optimizer)
+                if repaired:
+                    logger.warning(
+                        "Repaired missing TPU optimizer checkpoint fields from %s: %s",
+                        checkpoint_path,
+                        ", ".join(repaired),
+                    )
                 optimizer_state_to_device(optimizer, device)
             except Exception as exc:
                 logger.warning("TPU optimizer state restore skipped from %s: %s", checkpoint_path, exc)
