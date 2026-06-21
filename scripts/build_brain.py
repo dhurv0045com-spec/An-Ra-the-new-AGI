@@ -80,9 +80,7 @@ from training.v2_runtime import (
     load_checkpoint,
     load_or_build_v2_tokenizer,
     model_summary,
-    sync_to_drive,
     hal_state_dict,
-    sync_v2_artifacts,
     v2_report_path,
     update_hal_from_training,
     write_json,
@@ -1436,19 +1434,10 @@ def train_anra_v2(
         print(f"  Dynamic regret lr : {regret_lr:.8f}", flush=True)
     except Exception as exc:
         print(f"[build_brain] quick eval at session_end failed: {exc}", flush=True)
-    sync_v2_artifacts(
-        ckpt_path,
-        tokenizer_path=V2_TOKENIZER_FILE,
-        extra_paths=[
-            v2_report_path("metrics"),
-            v2_report_path("hard_examples"),
-            v2_report_path("eval_summary"),
-            v2_report_path("mix_report"),
-        ],
-    )
+    # The frontier checkpoint has exactly one Drive destination: the shared
+    # master that was restored at session start. Do not invoke legacy V2
+    # artifact mirroring here; it creates duplicate multi-gigabyte brain files.
     _sync_training_checkpoint_to_drive(ckpt_path)
-    sync_to_drive("tokenizer")
-    sync_to_drive("eval_summary")
 
     elapsed_total = time.time() - start
     print("", flush=True)

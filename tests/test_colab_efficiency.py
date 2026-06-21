@@ -37,6 +37,7 @@ def test_t4_notebook_uses_fast_bootstrap_and_persistent_data_cache() -> None:
     assert "DATA_PROFILE = 't4-cached'" in source
     assert "os.environ['ANRA_DATA_PROFILE'] = DATA_PROFILE" in source
     assert "ANRA_TRAINING_DATA_LAYOUT" in source
+    assert "ANRA_REQUIRE_SHARED_MASTER" in source
     assert "scripts/download_training_data.py --profile $DATA_PROFILE" not in source
     assert "PIP_DISABLE_PIP_VERSION_CHECK" in source
 
@@ -53,5 +54,6 @@ def test_frontier_trainer_has_no_legacy_brain_autosave() -> None:
     source = (ROOT / "scripts" / "build_brain.py").read_text(encoding="utf-8")
 
     assert 'sync_to_drive("brain")' not in source
+    assert "sync_v2_artifacts" not in source
     assert "DRIVE_SESSION_MANAGER" not in source
     assert "compact evaluation failed after checkpoint save" in source

@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import training.shared_checkpoint as shared
+import pytest
 
 
 def _patch_drive(monkeypatch, tmp_path: Path) -> Path:
@@ -77,3 +78,16 @@ def test_drive_api_origin_uses_api_publisher(monkeypatch, tmp_path: Path) -> Non
     published = shared.sync_checkpoint_to_origin(checkpoint)
 
     assert published == expected
+
+
+def test_required_shared_master_never_creates_private_drive_copy(monkeypatch, tmp_path: Path) -> None:
+    _patch_drive(monkeypatch, tmp_path)
+    checkpoint = tmp_path / "repo" / "anra_frontier_500m.pt"
+    checkpoint.parent.mkdir(parents=True)
+    checkpoint.write_bytes(b"checkpoint")
+    monkeypatch.setenv(shared.REQUIRE_SHARED_MASTER_ENV, "1")
+
+    with pytest.raises(RuntimeError, match="No shared master checkpoint origin"):
+        shared.sync_checkpoint_to_origin(checkpoint)
+
+    assert not (tmp_path / "drive" / "MyDrive" / "AnRa" / "v2" / "checkpoints").exists()

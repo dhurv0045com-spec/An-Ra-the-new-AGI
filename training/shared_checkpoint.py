@@ -14,6 +14,7 @@ GOOGLE_DRIVE_READ_SCOPE = "https://www.googleapis.com/auth/drive.readonly"
 GOOGLE_DRIVE_WRITE_SCOPE = "https://www.googleapis.com/auth/drive"
 GOOGLE_DRIVE_SHORTCUT_MIME = "application/vnd.google-apps.shortcut"
 GOOGLE_DRIVE_FILE_ID_ENV = "ANRA_SHARED_CHECKPOINT_FILE_ID"
+REQUIRE_SHARED_MASTER_ENV = "ANRA_REQUIRE_SHARED_MASTER"
 CHECKPOINT_ORIGIN_DIR = OUTPUT_V2_DIR / "checkpoint_origins"
 
 
@@ -310,6 +311,11 @@ def sync_checkpoint_to_origin(checkpoint: Path) -> Path:
             target = _copy_checkpoint_to_path(checkpoint, source)
             print(f"[Drive] checkpoint updated at source: {target}", flush=True)
             return target
+    if os.environ.get(REQUIRE_SHARED_MASTER_ENV, "0") == "1":
+        raise RuntimeError(
+            "No shared master checkpoint origin is recorded. Refusing to create a private "
+            "Drive copy. Restore the shared master before training."
+        )
     target = DRIVE_V2_CHECKPOINTS / checkpoint.name
     target = _copy_checkpoint_to_path(checkpoint, target)
     _record_filesystem_origin(checkpoint.name, target)
@@ -337,6 +343,14 @@ def restore_shared_checkpoint(destination: Path, filename: str | None = None) ->
             if _download_drive_api_file(service, str(shared_target["id"]), destination):
                 _record_api_origin(filename, shared_target)
                 return Path(f"drive-api:{shared_target['id']}")
+
+    if os.environ.get(REQUIRE_SHARED_MASTER_ENV, "0") == "1":
+        print(
+            "[Drive Shared] required shared master checkpoint was not found; "
+            "private Drive copies are disabled.",
+            flush=True,
+        )
+        return None
 
     candidate = find_filesystem_checkpoint(filename)
     if candidate is not None:
