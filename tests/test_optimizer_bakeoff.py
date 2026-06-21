@@ -6,7 +6,7 @@ import pytest
 from training.anra_optimizer import (
     build_optimizer_with_report,
     candidate_report,
-    repair_optimizer_resume_state,
+    restore_optimizer_state_for_resume,
 )
 from training.v2_config import V2_FRONTIER_TRAINING
 from training.v2_runtime import v2_report_path
@@ -68,7 +68,7 @@ def test_auto_prefers_memory_light_adafactor_when_muon_unavailable() -> None:
         assert "memory-light Adafactor" in report["selected"]["reason"]
 
 
-def test_adafactor_checkpoint_without_beta1_is_repaired_before_step() -> None:
+def test_adafactor_resume_uses_fresh_moments_for_legacy_state() -> None:
     transformers = pytest.importorskip("transformers")
     model = TinyModel()
     optimizer = transformers.Adafactor(
@@ -86,14 +86,15 @@ def test_adafactor_checkpoint_without_beta1_is_repaired_before_step() -> None:
         group.pop("beta1", None)
     for state in legacy_state["state"].values():
         state.pop("exp_avg_sq_row", None)
-    optimizer.load_state_dict(legacy_state)
+    for group in legacy_state["param_groups"]:
+        group["eps"] = 1e-8
 
-    repaired = repair_optimizer_resume_state(optimizer)
+    repaired = restore_optimizer_state_for_resume(optimizer, legacy_state)
     model(torch.tensor([[1, 2, 3]])).sum().backward()
     optimizer.step()
 
-    assert "beta1" in repaired
-    assert "adafactor_moments_reset" in repaired
+    assert repaired == ("adafactor_fresh_moments",)
+    assert isinstance(optimizer.param_groups[0]["eps"], tuple)
 
 
 def test_iterate500_frontier_training_defaults_are_fast_t4_profile() -> None:

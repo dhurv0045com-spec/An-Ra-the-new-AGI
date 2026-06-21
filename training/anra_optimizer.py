@@ -206,6 +206,26 @@ def repair_optimizer_resume_state(optimizer: torch.optim.Optimizer) -> tuple[str
     return tuple(repaired)
 
 
+def restore_optimizer_state_for_resume(
+    optimizer: torch.optim.Optimizer,
+    state_dict: object,
+) -> tuple[str, ...]:
+    """Restore compatible optimizer state without risking cross-version Adafactor failures.
+
+    Adafactor's serialized state and group defaults have changed across
+    Transformers releases. Its moments are an optimization aid, not model
+    knowledge, so a resumed AN-RA run deliberately starts fresh Adafactor
+    moments while preserving model weights, global step, and scheduler state.
+    """
+    if optimizer.__class__.__name__ == "Adafactor":
+        optimizer.state.clear()
+        return ("adafactor_fresh_moments",)
+    if not isinstance(state_dict, dict):
+        return ()
+    optimizer.load_state_dict(state_dict)
+    return repair_optimizer_resume_state(optimizer)
+
+
 def build_optimizer_with_report(
     model: torch.nn.Module,
     *,

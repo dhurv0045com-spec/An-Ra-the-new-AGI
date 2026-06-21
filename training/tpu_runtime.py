@@ -10,7 +10,7 @@ from torch.nn.utils import parametrize
 
 from anra.anra_paths import DRIVE_V2_CHECKPOINTS
 from runtime.safe_load import safe_torch_load
-from training.anra_optimizer import repair_optimizer_resume_state
+from training.anra_optimizer import restore_optimizer_state_for_resume
 from training.shared_checkpoint import (
     record_filesystem_checkpoint_origin,
     restore_shared_checkpoint,
@@ -92,11 +92,13 @@ def load_checkpoint_cpu_first(
     if isinstance(blob, dict):
         if optimizer is not None:
             try:
-                optimizer.load_state_dict(blob.get("optimizer_state_dict", blob.get("optimizer", {})))
-                repaired = repair_optimizer_resume_state(optimizer)
+                repaired = restore_optimizer_state_for_resume(
+                    optimizer,
+                    blob.get("optimizer_state_dict", blob.get("optimizer", {})),
+                )
                 if repaired:
                     logger.warning(
-                        "Repaired incompatible TPU optimizer checkpoint state from %s: %s",
+                        "Using safe TPU optimizer resume policy for %s: %s",
                         checkpoint_path,
                         ", ".join(repaired),
                     )
