@@ -801,6 +801,11 @@ async def developer_ui_route():
     return HTMLResponse(DEVELOPER_UI_HTML)
 
 
+@app.get("/", response_class=HTMLResponse)
+async def developer_ui_root_route():
+    return HTMLResponse(DEVELOPER_UI_HTML)
+
+
 class GenerateRequest(BaseModel):
     prompt: str
     strategy: str = "nucleus"
