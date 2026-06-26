@@ -23,7 +23,7 @@ import uvicorn
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
 from anra.anra_paths import (
@@ -538,6 +538,267 @@ async def global_exception_handler(request: Request, exc: Exception):
             "message": "An internal error occurred.",
         },
     )
+
+
+DEVELOPER_UI_HTML = """
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>An-Ra Developer UI</title>
+  <style>
+    :root {
+      --bg: #050608;
+      --panel: #0d1117;
+      --panel-2: #111823;
+      --border: #223044;
+      --text: #eef4ff;
+      --muted: #8da0b8;
+      --cyan: #00e5ff;
+      --green: #22ff99;
+      --purple: #a855f7;
+      --red: #ff5c7a;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at 12% 10%, rgba(0, 229, 255, 0.12), transparent 32%),
+        radial-gradient(circle at 86% 88%, rgba(168, 85, 247, 0.14), transparent 34%),
+        var(--bg);
+      color: var(--text);
+    }
+    button, input, textarea { font: inherit; }
+    .app { min-height: 100vh; display: grid; grid-template-rows: 72px 1fr; }
+    header {
+      display: flex; align-items: center; justify-content: space-between; gap: 18px;
+      padding: 14px 22px; border-bottom: 1px solid var(--border);
+      background: rgba(5, 6, 8, 0.84); position: sticky; top: 0; z-index: 5;
+    }
+    .brand { display: flex; align-items: center; gap: 12px; min-width: 190px; }
+    .logo { width: 34px; height: 34px; border-radius: 8px; background: linear-gradient(135deg, var(--cyan), var(--purple)); box-shadow: 0 0 24px rgba(0, 229, 255, 0.26); }
+    .brand strong { display: block; letter-spacing: 0.08em; }
+    .brand span { display: block; color: var(--muted); font-size: 12px; margin-top: 2px; }
+    nav { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+    nav button, .secondary {
+      border: 1px solid var(--border); background: rgba(255, 255, 255, 0.035); color: var(--muted);
+      border-radius: 8px; padding: 9px 12px; cursor: pointer;
+    }
+    nav button.active, .secondary:hover { color: var(--cyan); border-color: rgba(0, 229, 255, 0.55); }
+    main { padding: 18px; min-height: 0; }
+    .grid { display: grid; grid-template-columns: minmax(300px, 420px) 1fr; gap: 18px; height: calc(100vh - 108px); min-height: 560px; }
+    .matrix-grid { display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 18px; height: calc(100vh - 108px); min-height: 560px; }
+    .panel {
+      background: rgba(13, 17, 23, 0.86); border: 1px solid var(--border); border-radius: 10px;
+      box-shadow: 0 14px 50px rgba(0, 0, 0, 0.34); overflow: hidden; min-height: 0;
+    }
+    .panel-head { padding: 14px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .panel-head h2, .panel-head h3 { margin: 0; font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--cyan); }
+    .panel-body { padding: 16px; overflow: auto; height: calc(100% - 49px); }
+    .chat { display: flex; flex-direction: column; height: 100%; }
+    .messages { flex: 1; overflow: auto; padding: 18px; display: flex; flex-direction: column; gap: 14px; }
+    .msg { max-width: 86%; padding: 12px 14px; border-radius: 10px; line-height: 1.5; white-space: pre-wrap; border: 1px solid var(--border); background: rgba(255, 255, 255, 0.04); }
+    .msg.user { align-self: flex-end; background: rgba(0, 229, 255, 0.16); color: white; border-color: rgba(0, 229, 255, 0.42); }
+    .msg.assistant { align-self: flex-start; }
+    form { display: flex; gap: 10px; padding: 14px; border-top: 1px solid var(--border); background: rgba(0, 0, 0, 0.18); }
+    textarea {
+      flex: 1; resize: none; min-height: 48px; max-height: 140px; border-radius: 8px;
+      background: #070b10; color: var(--text); border: 1px solid var(--border); padding: 12px; outline: none;
+    }
+    form button {
+      min-width: 96px; border: 1px solid rgba(0, 229, 255, 0.55); color: #001014;
+      background: var(--cyan); border-radius: 8px; cursor: pointer; font-weight: 700;
+    }
+    .cards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 14px; }
+    .card { background: rgba(255, 255, 255, 0.035); border: 1px solid var(--border); border-radius: 8px; padding: 13px; min-height: 84px; }
+    .label { color: var(--muted); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 8px; }
+    .value { color: var(--cyan); font-family: ui-monospace, SFMono-Regular, Consolas, monospace; overflow-wrap: anywhere; }
+    pre { margin: 0; white-space: pre-wrap; word-break: break-word; color: #cfe7ff; font: 12px/1.45 ui-monospace, SFMono-Regular, Consolas, monospace; }
+    .bars { display: flex; flex-direction: column; gap: 12px; }
+    .bar-row { display: grid; gap: 5px; }
+    .bar-top { display: flex; justify-content: space-between; color: var(--muted); font-size: 12px; text-transform: uppercase; }
+    .bar { height: 6px; background: rgba(255,255,255,0.08); border-radius: 99px; overflow: hidden; }
+    .bar-fill { height: 100%; background: linear-gradient(90deg, var(--cyan), var(--green)); }
+    .hidden { display: none; }
+    .status-line { color: var(--muted); font: 12px ui-monospace, SFMono-Regular, Consolas, monospace; }
+    .error { color: var(--red); border-color: rgba(255, 92, 122, 0.55); }
+    @media (max-width: 980px) {
+      .grid, .matrix-grid { grid-template-columns: 1fr; height: auto; }
+      .panel { min-height: 380px; }
+      .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      header { align-items: flex-start; flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <div class="brand">
+        <div class="logo"></div>
+        <div><strong>AN-RA DEVELOPER</strong><span>backend-served Colab console</span></div>
+      </div>
+      <nav>
+        <button id="tab-dashboard" class="active" type="button">DASHBOARD</button>
+        <button id="tab-matrix" type="button">MATRIX</button>
+      </nav>
+      <button class="secondary" id="refresh" type="button">Refresh</button>
+    </header>
+    <main>
+      <section id="dashboard" class="grid">
+        <div class="panel">
+          <div class="panel-head"><h2>Runtime</h2><span class="status-line" id="runtime-line">loading</span></div>
+          <div class="panel-body">
+            <div class="cards">
+              <div class="card"><div class="label">Status</div><div class="value" id="status-status">-</div></div>
+              <div class="card"><div class="label">Device</div><div class="value" id="status-device">-</div></div>
+              <div class="card"><div class="label">Profile</div><div class="value" id="status-profile">-</div></div>
+              <div class="card"><div class="label">Params</div><div class="value" id="status-params">-</div></div>
+            </div>
+            <div class="card"><div class="label">Checkpoint</div><div class="value" id="status-checkpoint">-</div></div>
+          </div>
+        </div>
+        <div class="panel chat">
+          <div class="panel-head"><h2>Neural Interface</h2><span class="status-line" id="chat-status">ready</span></div>
+          <div class="messages" id="messages">
+            <div class="msg assistant">Neural bridge established. Ask the model a task or run an experiment prompt.</div>
+          </div>
+          <form id="chat-form">
+            <textarea id="prompt" placeholder="Talk to An-Ra..." rows="2"></textarea>
+            <button id="send" type="submit">Send</button>
+          </form>
+        </div>
+      </section>
+      <section id="matrix" class="matrix-grid hidden">
+        <div class="panel">
+          <div class="panel-head"><h2>Developer Matrix</h2><span class="status-line" id="matrix-line">loading</span></div>
+          <div class="panel-body">
+            <div class="cards">
+              <div class="card"><div class="label">Train Step</div><div class="value" id="matrix-step">-</div></div>
+              <div class="card"><div class="label">Best Loss</div><div class="value" id="matrix-loss">-</div></div>
+              <div class="card"><div class="label">Context</div><div class="value" id="matrix-context">-</div></div>
+              <div class="card"><div class="label">Sessions</div><div class="value" id="matrix-sessions">-</div></div>
+            </div>
+            <div class="panel" style="height: calc(100% - 110px);"><div class="panel-head"><h3>Runtime Payload</h3></div><div class="panel-body"><pre id="status-json">{}</pre></div></div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><h2>Behind The Screen</h2></div>
+          <div class="panel-body">
+            <div class="bars" id="hal-bars"></div>
+            <div style="height: 14px;"></div>
+            <div class="panel" style="height: 42%;"><div class="panel-head"><h3>HAL Raw</h3></div><div class="panel-body"><pre id="hal-json">{}</pre></div></div>
+            <div style="height: 14px;"></div>
+            <div class="panel" style="height: 42%;"><div class="panel-head"><h3>Sessions</h3></div><div class="panel-body"><pre id="sessions-json">{}</pre></div></div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const fmt = (v) => v === null || v === undefined || v === "" ? "-" : (typeof v === "number" ? (Number.isInteger(v) ? String(v) : v.toFixed(4)) : String(v));
+    let lastPayloads = {};
+
+    function setTab(name) {
+      $("dashboard").classList.toggle("hidden", name !== "dashboard");
+      $("matrix").classList.toggle("hidden", name !== "matrix");
+      $("tab-dashboard").classList.toggle("active", name === "dashboard");
+      $("tab-matrix").classList.toggle("active", name === "matrix");
+    }
+
+    async function getJson(path) {
+      const res = await fetch(path);
+      if (!res.ok) throw new Error(`${path} -> ${res.status} ${await res.text()}`);
+      return res.json();
+    }
+
+    async function refresh() {
+      try {
+        const [status, hal, sessions, phase] = await Promise.all([
+          getJson("/status"),
+          getJson("/hal/state"),
+          getJson("/sessions"),
+          getJson("/phase-health"),
+        ]);
+        lastPayloads = { status, hal, sessions, phase };
+        const cp = status.checkpoint_state || {};
+        $("runtime-line").textContent = new Date().toLocaleTimeString();
+        $("matrix-line").textContent = new Date().toLocaleTimeString();
+        $("status-status").textContent = fmt(status.status);
+        $("status-device").textContent = fmt(status.device);
+        $("status-profile").textContent = fmt(status.profile);
+        $("status-params").textContent = fmt(status.param_count);
+        $("status-checkpoint").textContent = fmt(status.checkpoint);
+        $("matrix-step").textContent = fmt(cp.global_step);
+        $("matrix-loss").textContent = fmt(cp.best_loss);
+        $("matrix-context").textContent = status.block_size ? `${status.block_size} tokens` : "-";
+        $("matrix-sessions").textContent = fmt(status.sessions_active ?? sessions.count);
+        $("status-json").textContent = JSON.stringify(status, null, 2);
+        $("hal-json").textContent = JSON.stringify(hal, null, 2);
+        $("sessions-json").textContent = JSON.stringify(sessions, null, 2);
+        const hormones = hal.hormones || {};
+        $("hal-bars").innerHTML = Object.entries(hormones).sort().map(([name, raw]) => {
+          const value = Math.max(0, Math.min(1, Number(raw || 0)));
+          return `<div class="bar-row"><div class="bar-top"><span>${name}</span><span>${value.toFixed(3)}</span></div><div class="bar"><div class="bar-fill" style="width:${value * 100}%"></div></div></div>`;
+        }).join("") || '<div class="status-line">No HAL state published yet.</div>';
+      } catch (err) {
+        $("runtime-line").textContent = String(err);
+        $("runtime-line").classList.add("error");
+      }
+    }
+
+    function addMessage(role, text) {
+      const div = document.createElement("div");
+      div.className = `msg ${role}`;
+      div.textContent = text;
+      $("messages").appendChild(div);
+      $("messages").scrollTop = $("messages").scrollHeight;
+    }
+
+    $("chat-form").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const message = $("prompt").value.trim();
+      if (!message) return;
+      $("prompt").value = "";
+      addMessage("user", message);
+      $("chat-status").textContent = "thinking";
+      $("send").disabled = true;
+      try {
+        const res = await fetch("/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ session_id: "colab_developer_ui", message, params: { strategy: "nucleus" } }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(JSON.stringify(data));
+        addMessage("assistant", data.response || JSON.stringify(data, null, 2));
+        $("chat-status").textContent = `turn ${data.turn ?? "-"}`;
+        refresh();
+      } catch (err) {
+        addMessage("assistant", `Error: ${err}`);
+        $("chat-status").textContent = "error";
+      } finally {
+        $("send").disabled = false;
+      }
+    });
+
+    $("tab-dashboard").addEventListener("click", () => setTab("dashboard"));
+    $("tab-matrix").addEventListener("click", () => setTab("matrix"));
+    $("refresh").addEventListener("click", refresh);
+    refresh();
+    setInterval(refresh, 3500);
+  </script>
+</body>
+</html>
+"""
+
+
+@app.get("/developer", response_class=HTMLResponse)
+async def developer_ui_route():
+    return HTMLResponse(DEVELOPER_UI_HTML)
 
 
 class GenerateRequest(BaseModel):
