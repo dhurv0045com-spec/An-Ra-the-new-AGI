@@ -6,7 +6,7 @@ import TrainingPanel from './components/TrainingPanel';
 import MemoryExplorer from './components/MemoryExplorer';
 import SovereigntyPanel from './components/SovereigntyPanel';
 import DeveloperMatrix from './components/DeveloperMatrix';
-import { Settings, HelpCircle, LayoutDashboard, Database, ShieldCheck, Brain, CircuitBoard } from 'lucide-react';
+import { Settings, HelpCircle, LayoutDashboard, Database, ShieldCheck, Brain, Activity } from 'lucide-react';
 
 function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -57,7 +57,7 @@ function App() {
              <ShieldCheck size={18} /> SOVEREIGNTY
            </button>
            <button onClick={() => setActiveTab('matrix')} style={{ background: 'transparent', border: 'none', color: activeTab === 'matrix' ? 'var(--accent-cyan)' : 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', transition: 'var(--transition-smooth)', fontSize: '0.9rem', fontWeight: 600 }}>
-             <CircuitBoard size={18} /> MATRIX
+             <Activity size={18} /> MATRIX
            </button>
         </nav>
 

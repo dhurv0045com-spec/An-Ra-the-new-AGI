@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Activity, CircuitBoard, Cpu, Database, Gauge, RefreshCcw, TerminalSquare } from 'lucide-react';
+import { Activity, BrainCircuit, Cpu, Database, Terminal, Zap } from 'lucide-react';
 
 const fmt = (value, fallback = '-') => {
   if (value === null || value === undefined || value === '') return fallback;
@@ -25,7 +25,7 @@ const JsonPanel = ({ title, data }) => (
   <div className="glass-panel" style={{ minHeight: 0 }}>
     <div className="panel-header" style={{ padding: '14px 16px', borderBottom: '1px solid var(--panel-border)' }}>
       <h3 className="heading-sm" style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px' }}>
-        <TerminalSquare size={15} /> {title}
+        <Terminal size={15} /> {title}
       </h3>
     </div>
     <pre className="mono" style={{ margin: 0, padding: '16px', overflow: 'auto', color: 'var(--text-secondary)', fontSize: '11px', lineHeight: 1.45, whiteSpace: 'pre-wrap' }}>
@@ -78,10 +78,10 @@ const DeveloperMatrix = () => {
       <div className="glass-panel" style={{ padding: '20px', gap: '18px', minHeight: 0 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px' }}>
           <h2 className="heading-sm" style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--accent-cyan)' }}>
-            <CircuitBoard size={18} /> DEVELOPER MATRIX
+            <BrainCircuit size={18} /> DEVELOPER MATRIX
           </h2>
           <button onClick={refresh} style={{ border: '1px solid var(--panel-border)', background: 'rgba(255,255,255,0.04)', color: 'var(--text-secondary)', borderRadius: '8px', padding: '8px 10px', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-            <RefreshCcw size={14} /> {lastRefresh || 'refresh'}
+            <Activity size={14} /> {lastRefresh || 'refresh'}
           </button>
         </div>
 
@@ -90,12 +90,12 @@ const DeveloperMatrix = () => {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: '12px' }}>
           <StatTile icon={<Activity size={14} />} label="Runtime" value={status?.status} />
           <StatTile icon={<Cpu size={14} />} label="Device" value={status?.device} accent="var(--accent-purple)" />
-          <StatTile icon={<Gauge size={14} />} label="Profile" value={status?.profile} />
+          <StatTile icon={<Zap size={14} />} label="Profile" value={status?.profile} />
           <StatTile icon={<Database size={14} />} label="Sessions" value={status?.sessions_active ?? sessions?.count} accent="var(--accent-emerald)" />
-          <StatTile icon={<CircuitBoard size={14} />} label="Parameters" value={status?.param_count} />
-          <StatTile icon={<TerminalSquare size={14} />} label="Context" value={status?.block_size ? `${status.block_size} tokens` : '-'} />
+          <StatTile icon={<BrainCircuit size={14} />} label="Parameters" value={status?.param_count} />
+          <StatTile icon={<Terminal size={14} />} label="Context" value={status?.block_size ? `${status.block_size} tokens` : '-'} />
           <StatTile icon={<Activity size={14} />} label="Train Step" value={checkpointState.global_step} accent="var(--accent-purple)" />
-          <StatTile icon={<Gauge size={14} />} label="Best Loss" value={checkpointState.best_loss} accent="var(--accent-emerald)" />
+          <StatTile icon={<Zap size={14} />} label="Best Loss" value={checkpointState.best_loss} accent="var(--accent-emerald)" />
         </div>
 
         <div style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid var(--panel-border)', borderRadius: '8px', padding: '14px' }}>
