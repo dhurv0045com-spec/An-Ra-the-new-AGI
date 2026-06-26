@@ -50,7 +50,7 @@ def apply_pcgrad(
     owner_grads = torch.autograd.grad(owner_loss, params, retain_graph=True, allow_unused=True)
     other_grads = torch.autograd.grad(other_loss, params, retain_graph=True, allow_unused=True)
     telemetry: list[PCGradTelemetry] = []
-    for parameter, owner_grad, other_grad in zip(params, owner_grads, other_grads):
+    for parameter, owner_grad, other_grad in zip(params, owner_grads, other_grads, strict=True):
         if owner_grad is None and other_grad is None:
             continue
         if owner_grad is None:
@@ -94,7 +94,7 @@ class PCGradAccumulator:
                 retain_graph=True,
                 allow_unused=True,
             )
-            for target, gradient in zip(destination, gradients):
+            for target, gradient in zip(destination, gradients, strict=True):
                 if gradient is not None:
                     target.add_(gradient.detach())
             setattr(self, counter, getattr(self, counter) + 1)
@@ -109,7 +109,7 @@ class PCGradAccumulator:
         optimizer boundary as usual.
         """
         destination = self.owner if owner else self.other
-        for parameter, target in zip(self.parameters, destination):
+        for parameter, target in zip(self.parameters, destination, strict=True):
             if parameter.grad is not None:
                 target.add_(parameter.grad.detach())
                 parameter.grad.zero_()
@@ -119,7 +119,10 @@ class PCGradAccumulator:
     def materialize(self) -> list[PCGradTelemetry]:
         telemetry: list[PCGradTelemetry] = []
         for parameter, owner_gradient, other_gradient in zip(
-            self.parameters, self.owner, self.other
+            self.parameters,
+            self.owner,
+            self.other,
+            strict=True,
         ):
             if self.owner_steps == 0:
                 parameter.grad = other_gradient.clone()

@@ -16,7 +16,6 @@ and checkpoints correctly via scheduler.state_dict().
 
 import logging
 import math
-from typing import Optional
 
 import torch
 from torch.optim import Optimizer
@@ -78,7 +77,9 @@ def get_cosine_schedule_with_warmup(
     Returns:
         LambdaLR scheduler instance.
     """
-    fn = lambda step: _cosine_warmup_lr_lambda(step, warmup_steps, total_steps, min_lr_ratio)
+    def fn(step: int) -> float:
+        return _cosine_warmup_lr_lambda(step, warmup_steps, total_steps, min_lr_ratio)
+
     return LambdaLR(optimizer, lr_lambda=fn, last_epoch=last_epoch)
 
 
@@ -120,7 +121,7 @@ class TransformerScheduler:
         eps: float = 1e-8,
         min_lr_ratio: float = 0.1,
         resume_step: int = 0,
-    ):
+    ) -> None:
         self.peak_lr = peak_lr
         self.warmup_steps = warmup_steps
         self.total_steps = total_steps
@@ -128,11 +129,11 @@ class TransformerScheduler:
         # Separate weight-decayed vs non-decayed params
         # Biases and layernorm parameters should not be weight-decayed
         decay_params = [
-            p for name, p in model.named_parameters()
+            p for _name, p in model.named_parameters()
             if p.requires_grad and p.dim() >= 2
         ]
         no_decay_params = [
-            p for name, p in model.named_parameters()
+            p for _name, p in model.named_parameters()
             if p.requires_grad and p.dim() < 2
         ]
 
@@ -162,25 +163,25 @@ class TransformerScheduler:
             f"warmup={warmup_steps}, total={total_steps}"
         )
 
-    def step(self):
+    def step(self) -> None:
         """Advance optimizer and scheduler by one step."""
         self.optimizer.step()
         self.scheduler.step()
 
-    def zero_grad(self, set_to_none: bool = True):
+    def zero_grad(self, set_to_none: bool = True) -> None:
         self.optimizer.zero_grad(set_to_none=set_to_none)
 
     def current_lr(self) -> float:
         """Return the current learning rate (for logging)."""
         return self.scheduler.get_last_lr()[0]
 
-    def state_dict(self) -> dict:
+    def state_dict(self) -> dict[str, object]:
         return {
             "optimizer": self.optimizer.state_dict(),
             "scheduler": self.scheduler.state_dict(),
         }
 
-    def load_state_dict(self, state: dict):
+    def load_state_dict(self, state: dict[str, object]) -> None:
         self.optimizer.load_state_dict(state["optimizer"])
         self.scheduler.load_state_dict(state["scheduler"])
 

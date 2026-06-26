@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import math
 import logging
+import os
 import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -9,8 +10,10 @@ from typing import Dict, Iterator, Optional
 
 import torch
 
-from anra.anra_paths import DRIVE_LOGS, HAL_STATE_FILE, ROOT, STATE_DIR
+from anra.anra_paths import DRIVE_LOGS, FRONTIER_CHECKPOINT, HAL_STATE_FILE, ROOT, STATE_DIR
+from training.v2_config import V2_FRONTIER_PARAMETER_COUNT
 from training.v2_runtime import (
+    build_frontier_model,
     build_v2_model,
     canonical_v2_checkpoint,
     load_checkpoint,
@@ -80,6 +83,18 @@ _GHOST_STORE: Dict[str, dict] = {}
 _ACTIVE_GHOST: Dict[str, object] = {}
 _HAL_STORE: Dict[str, object] = {}
 _HAL_DIR = STATE_DIR / "hal_sessions"
+_RUNTIME_PROFILE = "unknown"
+_RUNTIME_LOAD_STATE: dict[str, object] = {}
+
+
+def _reset_runtime_cache() -> None:
+    """Test/helper hook: force the next generation call to reload model state."""
+    global _MODEL, _TOKENIZER, _LOADED_CHECKPOINT, _RUNTIME_PROFILE, _RUNTIME_LOAD_STATE
+    _MODEL = None
+    _TOKENIZER = None
+    _LOADED_CHECKPOINT = None
+    _RUNTIME_PROFILE = "unknown"
+    _RUNTIME_LOAD_STATE = {}
 
 
 def _seed_all(seed: Optional[int]) -> None:
@@ -90,7 +105,64 @@ def _seed_all(seed: Optional[int]) -> None:
         torch.cuda.manual_seed_all(seed)
 
 
-def _load_runtime():
+def _requested_checkpoint_path() -> Path | None:
+    raw = os.environ.get("ANRA_CHECKPOINT_PATH", "").strip()
+    if not raw:
+        return None
+    path = Path(raw).expanduser()
+    return path if path.is_absolute() else (ROOT / path).resolve()
+
+
+def _frontier_mode_requested() -> bool:
+    profile = os.environ.get("ANRA_MODEL_PROFILE", "").strip().lower()
+    if profile in {"frontier", "iterate500"}:
+        return True
+    checkpoint = _requested_checkpoint_path()
+    if checkpoint is not None:
+        return True
+    return FRONTIER_CHECKPOINT.exists()
+
+
+def _resolve_frontier_checkpoint() -> Path:
+    checkpoint = _requested_checkpoint_path() or FRONTIER_CHECKPOINT
+    if checkpoint.exists():
+        return checkpoint
+    try:
+        from training.shared_checkpoint import restore_shared_checkpoint
+
+        restored = restore_shared_checkpoint(checkpoint, checkpoint.name)
+        if restored is not None and checkpoint.exists():
+            return checkpoint
+    except Exception as exc:
+        logger.warning("frontier checkpoint restore failed for %s: %s", checkpoint, exc)
+    raise FileNotFoundError(
+        "Frontier runtime requested, but anra_frontier_500m.pt was not found. "
+        "Set ANRA_CHECKPOINT_PATH to the trained checkpoint or restore the shared Drive master first."
+    )
+
+
+def _load_frontier_runtime():
+    tokenizer = load_or_build_v2_tokenizer()
+    checkpoint = _resolve_frontier_checkpoint()
+    model = build_frontier_model()
+    model = model.to(DEVICE)
+    state = load_checkpoint(model, None, None, None, checkpoint, device=DEVICE, strict=False)
+    if not state.get("loaded"):
+        raise RuntimeError(f"Frontier checkpoint did not load: {checkpoint}")
+    summary = model_summary(model)
+    params = int(summary["parameters"])
+    if params != V2_FRONTIER_PARAMETER_COUNT:
+        raise RuntimeError(
+            f"Frontier parameter contract mismatch: got {params:,}, "
+            f"expected {V2_FRONTIER_PARAMETER_COUNT:,}"
+        )
+    model.eval()
+    if hasattr(model, "disable_kv_cache"):
+        model.disable_kv_cache()
+    return model, tokenizer, checkpoint, "frontier", state
+
+
+def _load_legacy_runtime():
     tokenizer = load_or_build_v2_tokenizer()
     checkpoint = canonical_v2_checkpoint("ouroboros")
     use_ouroboros = checkpoint.exists()
@@ -104,9 +176,15 @@ def _load_runtime():
         checkpoint = canonical_v2_checkpoint("identity")
     if not checkpoint.exists():
         checkpoint = canonical_v2_checkpoint("brain")
-    load_checkpoint(model, None, None, None, checkpoint, device=DEVICE, strict=False)
+    state = load_checkpoint(model, None, None, None, checkpoint, device=DEVICE, strict=False)
     model.eval()
-    return model, tokenizer, checkpoint
+    return model, tokenizer, checkpoint, "legacy", state
+
+
+def _load_runtime():
+    if _frontier_mode_requested():
+        return _load_frontier_runtime()
+    return _load_legacy_runtime()
 
 
 _MODEL = None
@@ -115,9 +193,15 @@ _LOADED_CHECKPOINT = None
 
 
 def _get_runtime():
-    global _MODEL, _TOKENIZER, _LOADED_CHECKPOINT
+    global _MODEL, _TOKENIZER, _LOADED_CHECKPOINT, _RUNTIME_PROFILE, _RUNTIME_LOAD_STATE
     if _MODEL is None:
-        _MODEL, _TOKENIZER, _LOADED_CHECKPOINT = _load_runtime()
+        (
+            _MODEL,
+            _TOKENIZER,
+            _LOADED_CHECKPOINT,
+            _RUNTIME_PROFILE,
+            _RUNTIME_LOAD_STATE,
+        ) = _load_runtime()
     return _MODEL, _TOKENIZER, _LOADED_CHECKPOINT
 
 
@@ -456,15 +540,26 @@ def get_model_info() -> dict[str, object]:
         kv_enabled = False
     return {
         "model_line": "v2",
+        "profile": _RUNTIME_PROFILE,
         "checkpoint": str(LOADED_CHECKPOINT),
         "vocab_size": TOKENIZER.vocab_size,
         "param_count": summary["parameters"],
         "trainable_parameters": summary["trainable_parameters"],
         "d_model": getattr(MODEL, "d_model", None),
+        "n_layer": getattr(MODEL, "n_layer", None),
+        "n_head": getattr(MODEL, "n_head", None),
+        "n_kv_head": getattr(MODEL, "n_kv_head", None),
         "device": str(DEVICE),
         "block_size": MODEL.block_size,
         "tokenizer_backend": getattr(TOKENIZER, "backend", "unknown"),
         "kv_cache_enabled": kv_enabled,
+        "checkpoint_state": {
+            "global_step": _RUNTIME_LOAD_STATE.get("global_step", 0),
+            "best_loss": _RUNTIME_LOAD_STATE.get("best_loss", float("inf")),
+            "sessions_completed": _RUNTIME_LOAD_STATE.get("sessions_completed", 0),
+            "data_profile": _RUNTIME_LOAD_STATE.get("data_profile", "unknown"),
+            "training_data_layout": _RUNTIME_LOAD_STATE.get("training_data_layout", "unknown"),
+        },
     }
 
 

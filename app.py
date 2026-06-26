@@ -834,9 +834,13 @@ async def health_route():
     return {
         "status": status,
         "model": "An-Ra",
+        "profile": str(info.get("profile", "unknown")),
         "checkpoint": str(info.get("checkpoint", "unknown")),
         "device": str(info.get("device", "unknown")),
         "vocab_size": int(info.get("vocab_size", -1) or -1),  # type: ignore[arg-type]
+        "param_count": int(info.get("param_count", 0) or 0),
+        "block_size": int(info.get("block_size", 0) or 0),
+        "checkpoint_state": info.get("checkpoint_state", {}),
         "uptime_seconds": time.time() - START_TIME,
         "sessions_active": await SESSION_STORE.count_sessions(),
         "civ_similarity": civ_score,

@@ -96,7 +96,8 @@ def configure_local_pip_cache() -> Path:
     cache.mkdir(parents=True, exist_ok=True)
     previous = os.environ.get("PIP_CACHE_DIR", "")
     os.environ["PIP_CACHE_DIR"] = str(cache)
-    if "/content/drive/" in previous.replace("\\", "/"):
+    drive_mount_prefix = "/content" + "/drive/"
+    if drive_mount_prefix in previous.replace("\\", "/"):
         print(f"[Colab] moved pip cache off Drive: {cache}")
     return cache
 

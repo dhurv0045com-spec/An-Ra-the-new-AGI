@@ -366,7 +366,12 @@ class RLVRTrainer:
         entropy = torch.zeros((), device=device)
         kl_values = []
 
-        for completion, advantage, output_tokens in zip(completions, advantages, output_lengths):
+        for completion, advantage, output_tokens in zip(
+            completions,
+            advantages,
+            output_lengths,
+            strict=True,
+        ):
             lp_cur = self._loss_logprob(self.model, task.prompt, completion, output_tokens)
             with torch.no_grad():
                 lp_ref = self._loss_logprob(self._ref_model, task.prompt, completion, output_tokens)
@@ -443,7 +448,7 @@ class RLVRTrainer:
         if self._consecutive_failures >= 3:
             self._write_failure_replay(task, completions, step)
         if record_verifier_feedback is not None:
-            for completion, vr in zip(completions, verifier_results):
+            for completion, vr in zip(completions, verifier_results, strict=True):
                 try:
                     if float(getattr(vr, "score", 0.0)) < self.replay_min_reward:
                         record_verifier_feedback(

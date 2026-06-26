@@ -10,9 +10,9 @@ Designed to be injected into the trainer with zero coupling.
 import json
 import logging
 import math
+import random
+import tempfile
 from pathlib import Path
-from typing import Optional
-
 import matplotlib
 matplotlib.use("Agg")  # non-interactive backend — safe on headless servers
 import matplotlib.pyplot as plt
@@ -43,7 +43,7 @@ class LossTracker:
         log_dir: str = "./logs",
         smoothing: float = 0.95,
         overfit_ratio: float = 1.3,
-    ):
+    ) -> None:
         self.log_dir = Path(log_dir)
         self.log_dir.mkdir(parents=True, exist_ok=True)
         self.smoothing = smoothing
@@ -60,7 +60,7 @@ class LossTracker:
         self.train_epoch_losses: list[float] = []  # mean train loss per epoch
 
         # Internal EMA state
-        self._ema: Optional[float] = None
+        self._ema: float | None = None
 
         # Best validation loss seen
         self.best_val_loss: float = float("inf")
@@ -90,7 +90,7 @@ class LossTracker:
 
         return self._ema
 
-    def record_epoch(self, epoch: int, val_loss: float, train_loss: float):
+    def record_epoch(self, epoch: int, val_loss: float, train_loss: float) -> None:
         """
         Record end-of-epoch validation loss.
         Detects overfitting and tracks the best checkpoint epoch.
@@ -120,7 +120,7 @@ class LossTracker:
     # Persistence
     # ------------------------------------------------------------------
 
-    def save(self):
+    def save(self) -> None:
         """Serialize full history to JSON — safe for resume."""
         history = {
             "train_steps": self.train_steps,
@@ -132,7 +132,7 @@ class LossTracker:
             "best_val_loss": self.best_val_loss,
             "best_val_epoch": self.best_val_epoch,
         }
-        with open(self._history_path, "w") as f:
+        with open(self._history_path, "w", encoding="utf-8") as f:
             json.dump(history, f, indent=2)
 
     def load(self) -> bool:
@@ -142,7 +142,7 @@ class LossTracker:
         """
         if not self._history_path.exists():
             return False
-        with open(self._history_path) as f:
+        with open(self._history_path, encoding="utf-8") as f:
             h = json.load(f)
         self.train_steps = h["train_steps"]
         self.train_losses = h["train_losses"]
@@ -163,7 +163,7 @@ class LossTracker:
     # Visualization
     # ------------------------------------------------------------------
 
-    def plot(self, save_path: Optional[str] = None):
+    def plot(self, save_path: str | None = None) -> None:
         """
         Generate and save a two-panel loss curve figure:
         - Top: step-level train loss (raw + smoothed EMA)
@@ -240,7 +240,9 @@ class LossTracker:
             lines.append(f"  Current train loss : {self.train_smooth[-1]:.4f} (EMA)")
         if self.val_losses:
             lines.append(f"  Last val loss      : {self.val_losses[-1]:.4f}")
-            lines.append(f"  Best val loss      : {self.best_val_loss:.4f} @ epoch {self.best_val_epoch}")
+            lines.append(
+                f"  Best val loss      : {self.best_val_loss:.4f} @ epoch {self.best_val_epoch}"
+            )
         lines.append("─" * 50)
         return "\n".join(lines)
 
@@ -254,8 +256,6 @@ class LossTracker:
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    import tempfile, random, math
-
     print("=" * 60)
     print("Step 23: Loss Tracker — self test")
     print("=" * 60)
@@ -278,7 +278,10 @@ if __name__ == "__main__":
             train_mean = sum(epoch_losses) / len(epoch_losses)
             val_loss = train_mean + random.uniform(0.05, 0.15)  # val slightly worse
             tracker.record_epoch(epoch, val_loss=val_loss, train_loss=train_mean)
-            print(f"  Epoch {epoch}: train={train_mean:.4f}  val={val_loss:.4f}  ppl={tracker.perplexity(val_loss):.1f}")
+            print(
+                f"  Epoch {epoch}: train={train_mean:.4f}  "
+                f"val={val_loss:.4f}  ppl={tracker.perplexity(val_loss):.1f}"
+            )
 
         print()
         print(tracker.summary())

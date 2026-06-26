@@ -9,8 +9,9 @@ Falls back gracefully to float32 on CPU/MPS with no code changes.
 """
 
 import logging
+import time
+from collections.abc import Iterator
 from contextlib import contextmanager
-from typing import Optional
 
 import torch
 import torch.nn as nn
@@ -69,11 +70,11 @@ class MixedPrecisionTrainer:
 
     def __init__(
         self,
-        device: Optional[torch.device] = None,
-        enabled: Optional[bool] = None,
+        device: torch.device | None = None,
+        enabled: bool | None = None,
         init_scale: float = 2.0 ** 16,
         growth_interval: int = 2000,
-    ):
+    ) -> None:
         self.device = device or get_device()
         self.dtype = amp_dtype(self.device)
 
@@ -108,7 +109,7 @@ class MixedPrecisionTrainer:
             logger.info("Mixed precision: disabled (CPU/MPS - running float32)")
 
     @contextmanager
-    def autocast(self):
+    def autocast(self) -> Iterator[None]:
         """
         Context manager for forward pass in reduced precision.
         LayerNorm, softmax, loss automatically stay in float32.
@@ -120,7 +121,7 @@ class MixedPrecisionTrainer:
         ):
             yield
 
-    def backward(self, loss: torch.Tensor):
+    def backward(self, loss: torch.Tensor) -> None:
         """Scale loss (if float16) and run backward. Prevents gradient underflow."""
         if self._needs_scaler:
             self.scaler.scale(loss).backward()
@@ -155,16 +156,16 @@ class MixedPrecisionTrainer:
             optimizer.step()
             return True
 
-    def update(self):
+    def update(self) -> None:
         """Update scaler after each step. Adjusts scale based on overflow."""
         if self._needs_scaler:
             self.scaler.update()
 
-    def state_dict(self) -> dict:
+    def state_dict(self) -> dict[str, object]:
         """Serialize scaler state for checkpointing."""
         return self.scaler.state_dict()
 
-    def load_state_dict(self, state: dict):
+    def load_state_dict(self, state: dict[str, object]) -> None:
         """Restore scaler state from checkpoint."""
         self.scaler.load_state_dict(state)
 
@@ -173,7 +174,7 @@ class MixedPrecisionTrainer:
         """Current gradient scale factor (for logging)."""
         return self.scaler.get_scale() if self._needs_scaler else 1.0
 
-    def log_stats(self) -> dict:
+    def log_stats(self) -> dict[str, object]:
         """Return AMP stats for logging."""
         return {
             "amp_enabled": self.enabled,
@@ -187,9 +188,9 @@ def amp_step(
     model: nn.Module,
     optimizer: torch.optim.Optimizer,
     mp: "MixedPrecisionTrainer",
-    scheduler=None,
+    scheduler: object | None = None,
     max_grad_norm: float = 1.0,
-) -> dict:
+) -> dict[str, float]:
     """
     Complete backward -> unscale -> clip -> step -> update cycle.
 
@@ -219,8 +220,6 @@ def amp_step(
 
 
 if __name__ == "__main__":
-    import time
-
     print("=" * 60)
     print("Step 26: Mixed Precision Training - self test")
     print("=" * 60)
@@ -228,7 +227,13 @@ if __name__ == "__main__":
     device = get_device()
 
     class MiniTransformer(nn.Module):
-        def __init__(self, vocab=256, d=128, heads=4, layers=2):
+        def __init__(
+            self,
+            vocab: int = 256,
+            d: int = 128,
+            heads: int = 4,
+            layers: int = 2,
+        ) -> None:
             super().__init__()
             self.embed = nn.Embedding(vocab, d)
             enc_layer = nn.TransformerEncoderLayer(
@@ -237,7 +242,7 @@ if __name__ == "__main__":
             self.encoder = nn.TransformerEncoder(enc_layer, num_layers=layers)
             self.head = nn.Linear(d, vocab)
 
-        def forward(self, x):
+        def forward(self, x: torch.Tensor) -> torch.Tensor:
             return self.head(self.encoder(self.embed(x)))
 
     model = MiniTransformer().to(device)

@@ -354,7 +354,11 @@ if __name__ == "__main__":
         assert loaded_meta.epoch == 5
         assert loaded_meta.dataset == "test_corpus"
         # Verify weights transferred exactly
-        for (n1, p1), (n2, p2) in zip(model.named_parameters(), model2.named_parameters()):
+        for (n1, p1), (n2, p2) in zip(
+            model.named_parameters(),
+            model2.named_parameters(),
+            strict=True,
+        ):
             assert torch.allclose(p1, p2), f"Weight mismatch: {n1}"
         print("load_checkpoint ✓")
 

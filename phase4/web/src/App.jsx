@@ -5,7 +5,8 @@ import ChatInterface from './components/ChatInterface';
 import TrainingPanel from './components/TrainingPanel';
 import MemoryExplorer from './components/MemoryExplorer';
 import SovereigntyPanel from './components/SovereigntyPanel';
-import { Settings, HelpCircle, LayoutDashboard, Database, ShieldCheck, Brain } from 'lucide-react';
+import DeveloperMatrix from './components/DeveloperMatrix';
+import { Settings, HelpCircle, LayoutDashboard, Database, ShieldCheck, Brain, CircuitBoard } from 'lucide-react';
 
 function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -26,6 +27,8 @@ function App() {
         return <MemoryExplorer />;
       case 'sovereignty':
         return <SovereigntyPanel />;
+      case 'matrix':
+        return <DeveloperMatrix />;
       default:
         return <div style={{ padding: '40px', textAlign: 'center' }}>Module under construction.</div>;
     }
@@ -52,6 +55,9 @@ function App() {
            </button>
            <button onClick={() => setActiveTab('sovereignty')} style={{ background: 'transparent', border: 'none', color: activeTab === 'sovereignty' ? 'var(--accent-cyan)' : 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', transition: 'var(--transition-smooth)', fontSize: '0.9rem', fontWeight: 600 }}>
              <ShieldCheck size={18} /> SOVEREIGNTY
+           </button>
+           <button onClick={() => setActiveTab('matrix')} style={{ background: 'transparent', border: 'none', color: activeTab === 'matrix' ? 'var(--accent-cyan)' : 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', transition: 'var(--transition-smooth)', fontSize: '0.9rem', fontWeight: 600 }}>
+             <CircuitBoard size={18} /> MATRIX
            </button>
         </nav>
 

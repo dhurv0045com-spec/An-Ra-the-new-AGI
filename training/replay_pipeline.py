@@ -103,7 +103,7 @@ class ReplayPipeline:
         task_type = getattr(task, "task_type", "")
         advantages = list(getattr(step, "advantages", []))
         output_lengths = list(getattr(step, "output_lengths", []))
-        for i, (completion, reward) in enumerate(zip(step.completions, step.rewards)):
+        for i, (completion, reward) in enumerate(zip(step.completions, step.rewards, strict=True)):
             if float(reward) < min_reward:
                 continue
             self.add(

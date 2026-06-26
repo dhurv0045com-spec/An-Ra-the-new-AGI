@@ -27,7 +27,7 @@ class SpeculativeBenchmark:
 
 def accept_draft_prefix(draft_tokens: list[int], target_tokens: list[int]) -> int:
     accepted = 0
-    for draft, target in zip(draft_tokens, target_tokens):
+    for draft, target in zip(draft_tokens, target_tokens, strict=False):
         if draft != target:
             break
         accepted += 1
