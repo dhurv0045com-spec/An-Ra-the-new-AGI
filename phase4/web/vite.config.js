@@ -9,6 +9,7 @@ export default defineConfig({
     emptyOutDir: true, // Empties the target directory first
   },
   server: {
+    allowedHosts: true,
     proxy: {
       '/api': {
         target: 'http://127.0.0.1:8000',
