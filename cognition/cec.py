@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field
 import hashlib
 import json
-from pathlib import Path
 import time
-from typing import Callable
+from collections.abc import Callable
+from dataclasses import asdict, dataclass, field
+from pathlib import Path
 
 
 @dataclass(frozen=True)
@@ -35,7 +35,9 @@ class ContinuousExperienceConsolidator:
 
     @staticmethod
     def content_hash(session_id: str, turns: list[dict[str, object]]) -> str:
-        payload = json.dumps({"session_id": session_id, "turns": turns}, sort_keys=True, separators=(",", ":"))
+        payload = json.dumps(
+            {"session_id": session_id, "turns": turns}, sort_keys=True, separators=(",", ":")
+        )
         return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
     def consolidate(
@@ -52,7 +54,9 @@ class ContinuousExperienceConsolidator:
         if existing:
             return ConsolidationReport(**existing)
         if not opted_in:
-            report = ConsolidationReport(session_id, digest, "skipped_no_consent", 0.0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+            report = ConsolidationReport(
+                session_id, digest, "skipped_no_consent", 0.0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+            )
             self._persist(report)
             return report
         owner_lessons = domain_corrections = verified_claims = successes = failures = 0

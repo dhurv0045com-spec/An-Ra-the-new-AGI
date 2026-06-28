@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
 import hashlib
 import json
-from pathlib import Path
 import time
-from typing import Any
+from dataclasses import asdict, dataclass
+from pathlib import Path
 
 from anra.anra_paths import TRAJECTORY_STORE
 
@@ -36,10 +35,17 @@ class TrajectoryStore:
         self.path = Path(path)
 
     @staticmethod
-    def _redact(value: Any) -> Any:
+    def _redact(value: object) -> object:
         if isinstance(value, dict):
             return {
-                str(key): ("[REDACTED]" if any(token in str(key).lower() for token in ("token", "secret", "password", "key")) else TrajectoryStore._redact(item))
+                str(key): (
+                    "[REDACTED]"
+                    if any(
+                        token in str(key).lower()
+                        for token in ("token", "secret", "password", "key")
+                    )
+                    else TrajectoryStore._redact(item)
+                )
                 for key, item in value.items()
             }
         if isinstance(value, (list, tuple)):
@@ -95,10 +101,7 @@ class TrajectoryStore:
         for line in self.path.read_text(encoding="utf-8").splitlines():
             try:
                 row = json.loads(line)
-                count += int(
-                    bool(row.get("verified", False))
-                    and bool(row.get("success", False))
-                )
+                count += int(bool(row.get("verified", False)) and bool(row.get("success", False)))
             except Exception:
                 continue
         return count

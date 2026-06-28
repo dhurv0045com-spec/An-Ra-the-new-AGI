@@ -47,7 +47,7 @@ class BaseComponent:
     name: str = "unnamed"
     version: str = "0.1.0"
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._metrics = ComponentMetrics(name=self.name)
 
     def health(self) -> dict[str, Any]:
@@ -59,7 +59,7 @@ class BaseComponent:
     def run(self, payload: dict[str, Any]) -> dict[str, Any]:
         raise NotImplementedError
 
-    def _record_call(self, *, success: bool, latency_ms: float, error: str | None = None):
+    def _record_call(self, *, success: bool, latency_ms: float, error: str | None = None) -> None:
         self._metrics.calls_total += 1
         self._metrics.total_latency_ms += latency_ms
         if success:

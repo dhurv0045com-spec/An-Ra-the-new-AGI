@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import hashlib
 import json
+from dataclasses import dataclass
 from pathlib import Path
 
 import torch
 from torch import nn
-from torch.nn import functional as F
+from torch.nn import functional as F  # noqa: N812 - canonical PyTorch alias
 from torch.utils.data import Dataset
 
 from training.anra_optimizer import build_optimizer_with_report
@@ -114,9 +114,8 @@ class CausalExtensionTrainer:
         )
         counterfactual_mask = labels["is_counterfactual"].float()
         counterfactual_consistency = (
-            (consistency_per_item * counterfactual_mask).sum()
-            / counterfactual_mask.sum().clamp_min(1.0)
-        )
+            consistency_per_item * counterfactual_mask
+        ).sum() / counterfactual_mask.sum().clamp_min(1.0)
         calibration = F.mse_loss(latest["confidence"], labels["confidence"].float())
         return CausalLosses(
             causal_type=type_loss,
@@ -151,9 +150,7 @@ class CausalExtensionTrainer:
             total_loss = losses.total
             if self.rlvr_trainer is not None:
                 policy_entropy = self.rlvr_trainer._entropy_loss(logits)
-                entropy_coefficient = float(
-                    getattr(self.rlvr_trainer, "entropy_bonus", 0.01)
-                )
+                entropy_coefficient = float(getattr(self.rlvr_trainer, "entropy_bonus", 0.01))
                 total_loss = total_loss - entropy_coefficient * policy_entropy
         self.pcgrad.accumulate(
             owner_loss=total_loss,
@@ -173,9 +170,7 @@ class CausalExtensionTrainer:
             "intervention_extraction": float(losses.intervention_extraction.detach()),
             "confounder": float(losses.confounder.detach()),
             "requires_experiment": float(losses.requires_experiment.detach()),
-            "counterfactual_consistency": float(
-                losses.counterfactual_consistency.detach()
-            ),
+            "counterfactual_consistency": float(losses.counterfactual_consistency.detach()),
             "verified_answer": float(losses.verified_answer.detach()),
             "calibration": float(losses.calibration.detach()),
             "sparsity": float(losses.sparsity.detach()),
@@ -202,7 +197,13 @@ class CausalCorpusDataset(Dataset):
         "confounded": 3,
     }
 
-    def __init__(self, path: str | Path, tokenizer, block_size: int, rank: int) -> None:
+    def __init__(
+        self,
+        path: str | Path,
+        tokenizer: object,
+        block_size: int,
+        rank: int,
+    ) -> None:
         self.rows = [
             json.loads(line)
             for line in Path(path).read_text(encoding="utf-8").splitlines()
@@ -229,7 +230,7 @@ class CausalCorpusDataset(Dataset):
                     mask[start : start + len(phrase_ids)] = 1.0
         return mask
 
-    def __getitem__(self, index: int):
+    def __getitem__(self, index: int) -> dict[str, torch.Tensor]:
         row = self.rows[index]
         prompt_ids = self.tokenizer.encode(
             f"H: {row['prompt']}\nANRA:",

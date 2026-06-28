@@ -1,6 +1,6 @@
 """Curriculum learning phases for An-Ra training."""
+
 from dataclasses import dataclass
-from typing import List
 
 
 @dataclass
@@ -14,7 +14,7 @@ class CurriculumPhase:
     description: str
 
 
-SCHEDULE: List[CurriculumPhase] = [
+SCHEDULE: list[CurriculumPhase] = [
     CurriculumPhase("warmup", 0, 2, 0.1, 0.3, 1, "LM only, easy samples"),
     CurriculumPhase("ramp", 2, 5, 0.5, 0.6, 2, "Consistency enabled"),
     CurriculumPhase("main", 5, 9, 1.0, 1.0, 3, "Full Ouroboros"),

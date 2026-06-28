@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sys
+from importlib.util import find_spec
 
 __version__ = "0.3.0"
 
@@ -30,7 +31,13 @@ def _anra_brain_import_in_progress() -> bool:
     return module is not None and not hasattr(module, "CausalTransformerV2")
 
 
-if not _anra_brain_import_in_progress():
+def _torch_available() -> bool:
+    if "torch" in sys.modules and sys.modules["torch"] is None:
+        return False
+    return find_spec("torch") is not None
+
+
+if _torch_available() and not _anra_brain_import_in_progress():
     import anra.core.model  # noqa: F401
 import anra.identity.civ  # noqa: E402, F401
 import anra.identity.esv  # noqa: E402, F401

@@ -2,9 +2,12 @@
 # This file handles Colab and Google Drive data ingestion.
 from __future__ import annotations
 
+# Direct script execution must bootstrap the repository before package imports.
+# ruff: noqa: E402
 import argparse
 import importlib
 import json
+import os
 import subprocess
 import sys
 import time
@@ -15,14 +18,13 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 import torch
-
-from anra.startup_checks import assert_flash_sdp_ready
-
 from anra.anra_paths import DATASET, ROOT, ensure_dirs, get_dataset_file
-from training.eval_v2 import run_compact_eval
+from anra.startup_checks import assert_flash_sdp_ready
+from runtime.training_readiness import assess_training_readiness
+
 from training.data_ingestion import mount_google_drive_if_available, prepare_training_corpus
-from training.v2_config import V2_FRONTIER, V2_FRONTIER_TRAINING
-from training.v2_config import resolve_model_profile
+from training.eval_v2 import run_compact_eval
+from training.v2_config import V2_FRONTIER, V2_FRONTIER_TRAINING, resolve_model_profile
 from training.v2_runtime import (
     build_frontier_model,
     canonical_v2_checkpoint,
@@ -34,7 +36,6 @@ from training.v2_runtime import (
     v2_report_path,
     write_json,
 )
-from runtime.training_readiness import assess_training_readiness
 
 ensure_dirs()
 
@@ -60,7 +61,8 @@ def resolve_dataset_path(explicit: str | None) -> Path:
             path = (ROOT / path).resolve()
         if not _valid_text_dataset(path):
             raise FileNotFoundError(
-                f"Dataset invalid or too small (must be anra_training.txt with H:/ANRA: format, >100 KB): {path}"
+                "Dataset invalid or too small (must be anra_training.txt with "
+                f"H:/ANRA: format, >100 KB): {path}"
             )
         return path
     if _valid_text_dataset(_CANONICAL_DATASET):
@@ -129,7 +131,7 @@ def _load_json(path: Path) -> dict | None:
         return None
 
 
-def _milestone_due(training_cfg=None) -> dict[str, object]:
+def _milestone_due(training_cfg: object | None = None) -> dict[str, object]:
     """Check if a milestone eval is due. Uses the active training config."""
     cfg = training_cfg if training_cfg is not None else V2_FRONTIER_TRAINING
     state = load_session_state()
@@ -148,18 +150,18 @@ def _milestone_due(training_cfg=None) -> dict[str, object]:
     }
 
 
-def _run_innovation_if_due(training_cfg, session_n: int) -> None:
+def _run_innovation_if_due(training_cfg: object, session_n: int) -> None:
     """Run innovation pipeline every N sessions using MetricBus deltas as input."""
     innovation_every = getattr(training_cfg, "milestone_every_sessions", 5)
     if session_n <= 0 or session_n % innovation_every != 0:
         return
     try:
+        from anra.anra_paths import OUTPUT_V2_DIR
+        from engine.metric_bus import get_metric_bus
+        from innovation.action_queue import queue_actions
         from innovation.gap_scanner import scan
         from innovation.hypothesis import gap_to_hypothesis
         from innovation.scoreboard import score_hypothesis, write_report
-        from innovation.action_queue import queue_actions
-        from engine.metric_bus import get_metric_bus
-        from anra.anra_paths import OUTPUT_V2_DIR
 
         print("[Innovation] Running gap scan from MetricBus deltas...", flush=True)
         mbus = get_metric_bus()
@@ -172,12 +174,15 @@ def _run_innovation_if_due(training_cfg, session_n: int) -> None:
 
         report_path = OUTPUT_V2_DIR / f"innovation_{int(time.time())}.json"
         write_report(list(scores.values()), report_path)
-        print(f"[Innovation] {len(gaps)} gaps, {len(approved)} queued. Report: {report_path}", flush=True)
+        print(
+            f"[Innovation] {len(gaps)} gaps, {len(approved)} queued. Report: {report_path}",
+            flush=True,
+        )
     except Exception as exc:
         print(f"[Innovation] Skipped (error): {exc}", flush=True)
 
 
-def _start_supervisor(args) -> object | None:
+def _start_supervisor(args: object) -> object | None:
     try:
         from agents.supervisor import SupervisorAgent
 
@@ -196,7 +201,7 @@ def _end_supervisor(_supervisor: object | None) -> None:
         return
     if getattr(_supervisor, "_unified_trainer_closed", False):
         return
-    setattr(_supervisor, "_unified_trainer_closed", True)
+    _supervisor._unified_trainer_closed = True
     try:
         _summary = _supervisor.end_session()
         _supervisor.push_scorecard_to_drive(_summary)
@@ -210,13 +215,19 @@ def _write_daily_curriculum() -> dict[str, object]:
     hard_blob = _load_json(v2_report_path("hard_examples")) or {}
     mix_report = _load_json(v2_report_path("mix_report")) or {}
     recommendations: list[str] = []
-    category_scores = eval_summary.get("category_scores", {}) if isinstance(eval_summary, dict) else {}
+    category_scores = (
+        eval_summary.get("category_scores", {}) if isinstance(eval_summary, dict) else {}
+    )
     if float(category_scores.get("identity", 0.0) or 0.0) < 0.7:
-        recommendations.append("Increase identity-heavy turns next session to keep An-Ra's voice anchored.")
+        recommendations.append(
+            "Increase identity-heavy turns next session to keep An-Ra's voice anchored."
+        )
     if float(category_scores.get("symbolic", 0.0) or 0.0) < 0.6:
         recommendations.append("Increase verified symbolic/code samples next session.")
     if float(category_scores.get("reasoning", 0.0) or 0.0) < 0.6:
-        recommendations.append("Feed more teacher-style reasoning traces through the teacher bucket.")
+        recommendations.append(
+            "Feed more teacher-style reasoning traces through the teacher bucket."
+        )
     if not recommendations:
         recommendations.append("Keep the current training mix; no category is lagging badly.")
     report = {
@@ -224,7 +235,9 @@ def _write_daily_curriculum() -> dict[str, object]:
         "eval_summary_path": str(v2_report_path("eval_summary")),
         "hard_examples_path": str(v2_report_path("hard_examples")),
         "mix_report_path": str(v2_report_path("mix_report")),
-        "top_hard_examples": (hard_blob.get("examples", [])[:6] if isinstance(hard_blob, dict) else []),
+        "top_hard_examples": (
+            hard_blob.get("examples", [])[:6] if isinstance(hard_blob, dict) else []
+        ),
         "category_scores": category_scores,
         "recommendations": recommendations,
         "mix_report": mix_report if isinstance(mix_report, dict) else {},
@@ -276,7 +289,11 @@ def _run_eval_only() -> dict[str, object]:
 def main() -> None:
     assert_flash_sdp_ready("training.train_unified")
     ap = argparse.ArgumentParser(description="An-Ra unified training dispatcher")
-    ap.add_argument("--mode", default="session", choices=["session", "train", "resume", "production", "eval", "status", "preflight"])
+    ap.add_argument(
+        "--mode",
+        default="session",
+        choices=["session", "train", "resume", "production", "eval", "status", "preflight"],
+    )
     ap.add_argument("--data_path", default=None)
     ap.add_argument("--data_files", nargs="*", default=[])
     ap.add_argument("--prepare_data", default="auto", choices=["auto", "always", "never"])
@@ -285,13 +302,20 @@ def main() -> None:
     ap.add_argument("--checkpoint_path", default="anra_frontier_500m.pt")
     ap.add_argument("--batch_size", type=int, default=V2_FRONTIER_TRAINING.batch_size)
     ap.add_argument("--block_size", type=int, default=V2_FRONTIER.block_size)
-    ap.add_argument("--answer_loss_weight", type=float, default=V2_FRONTIER_TRAINING.answer_loss_weight)
+    ap.add_argument(
+        "--answer_loss_weight", type=float, default=V2_FRONTIER_TRAINING.answer_loss_weight
+    )
     ap.add_argument(
         "--optimizer",
         choices=["auto", "adamw", "adam8bit", "adafactor", "muon", "scale", "galore", "qgalore"],
         default="adafactor",
     )
-    ap.add_argument("--session_minutes", "--session-minutes", type=int, default=V2_FRONTIER_TRAINING.session_minutes)
+    ap.add_argument(
+        "--session_minutes",
+        "--session-minutes",
+        type=int,
+        default=V2_FRONTIER_TRAINING.session_minutes,
+    )
     ap.add_argument(
         "--model-size",
         choices=["frontier"],
@@ -300,7 +324,7 @@ def main() -> None:
     )
     ap.add_argument(
         "--campaign",
-        choices=["frontier_full", "stage_a", "stage_b", "stage_c", "stage_d"],
+        choices=["frontier_full", "stage_a", "stage_b", "stage_c", "stage_d", "stage_e"],
         default=None,
     )
     ap.add_argument("--identity_minutes", type=int, default=12)
@@ -319,6 +343,7 @@ def main() -> None:
     )
     args = ap.parse_args()
     launch_manifest: dict[str, object] | None = None
+    manifest_resume_from: str | None = None
     if args.launch_manifest:
         from training.launch_manifest import load_and_validate_manifest
 
@@ -327,8 +352,11 @@ def main() -> None:
         args.optimizer = str(launch_manifest["optimizer"])
         args.batch_size = int(launch_manifest["batch_size"])
         checkpoint_source = str(launch_manifest["checkpoint_source"])
+        artifact_path = str(launch_manifest.get("artifact_path", "")).strip()
         if checkpoint_source:
-            args.checkpoint_path = checkpoint_source
+            manifest_resume_from = checkpoint_source
+        if artifact_path:
+            args.checkpoint_path = artifact_path
         stage = str(launch_manifest["stage"])
         if stage in {
             "frontier_full",
@@ -336,6 +364,7 @@ def main() -> None:
             "stage_b",
             "stage_c",
             "stage_d",
+            "stage_e",
         }:
             args.campaign = stage
     model_cfg, training_cfg = resolve_model_profile(args.model_size)
@@ -353,9 +382,7 @@ def main() -> None:
     data_ingestion_report: dict[str, object] | None = None
     if args.mode not in {"status", "preflight", "eval"} and args.prepare_data != "never":
         should_prepare = (
-            args.prepare_data == "always"
-            or bool(args.data_files)
-            or args.data_path is None
+            args.prepare_data == "always" or bool(args.data_files) or args.data_path is None
         )
         if should_prepare:
             report = prepare_training_corpus(
@@ -465,15 +492,19 @@ def main() -> None:
     ]
     if args.max_examples is not None:
         base_cmd.extend(["--max_examples", str(args.max_examples)])
+    if manifest_resume_from:
+        base_cmd.extend(["--resume_from", manifest_resume_from])
 
     if args.campaign:
         from math import exp
-        from training.stages import CampaignConfig, StagedTrainingCampaign
+
         from anra.anra_paths import (
             OUTPUT_V2_DIR,
             TOKEN_INVENTORY_MANIFEST,
             TRAJECTORY_STORE,
         )
+
+        from training.stages import CampaignConfig, StagedTrainingCampaign
 
         inventory = _load_json(TOKEN_INVENTORY_MANIFEST)
         if inventory is None or int(inventory.get("licensed_tokens", 0)) <= 0:
@@ -490,18 +521,50 @@ def main() -> None:
             )
         )
         names = (
-            ["foundation", "owner_adaptation", "agency", "verified_reasoning"]
+            [
+                "foundation",
+                "owner_adaptation",
+                "agency",
+                "verified_reasoning",
+                "verifier_replay",
+            ]
             if args.campaign == "frontier_full"
             else [args.campaign]
         )
 
-        def execute_stage(config):
+        def execute_stage(config: object) -> tuple[int, str]:
             command = list(base_cmd)
-            command.extend(["--own_ratio", str(config.owner_ratio)])
-            rc = run_cmd(command)
+            command.extend(
+                [
+                    "--training-layout",
+                    config.training_layout,
+                    "--continuation-phase",
+                    config.continuation_phase,
+                ]
+            )
+            if config.training_layout == "raw_causal_shards_v1":
+                manifest = str(inventory.get("manifest", ""))
+                if not manifest:
+                    raise RuntimeError("Token inventory does not name its immutable manifest")
+                command.extend(["--token-shard-manifest", manifest])
+                validation_manifest = str(inventory.get("validation_manifest", ""))
+                if not validation_manifest:
+                    raise RuntimeError("Token inventory does not name its validation manifest")
+                command.extend(["--validation-shard-manifest", validation_manifest])
+            else:
+                command.extend(["--own_ratio", str(config.owner_ratio)])
+            previous_phase = os.environ.get("ANRA_CONTINUATION_PHASE")
+            os.environ["ANRA_CONTINUATION_PHASE"] = config.continuation_phase
+            try:
+                rc = run_cmd(command)
+            finally:
+                if previous_phase is None:
+                    os.environ.pop("ANRA_CONTINUATION_PHASE", None)
+                else:
+                    os.environ["ANRA_CONTINUATION_PHASE"] = previous_phase
             return rc, str(canonical_v2_checkpoint("brain"))
 
-        def load_stage_metrics(_config):
+        def load_stage_metrics(_config: object) -> dict[str, object]:
             eval_report = _load_json(v2_report_path("ibs_latest")) or {}
             compact = _load_json(v2_report_path("eval_summary")) or {}
             train_metrics = _load_json(v2_report_path("metrics")) or {}
@@ -516,19 +579,19 @@ def main() -> None:
             return {
                 "perplexity": exp(min(loss, 20.0)),
                 "numerically_stable": bool(loss < float("inf")),
-                "training_tokens": int(train_metrics.get("target_tokens_seen", 0)),
+                "training_tokens": int(train_metrics.get("phase_tokens_seen", 0)),
                 "tokenizer_schema_valid": bool(
-                    (_load_json(
-                        ROOT / "output" / "v2" / "data_manifests" / "tokenizer_v3.json"
-                    ) or {}).get("schema_version", 0) >= 3
+                    (
+                        _load_json(ROOT / "output" / "v2" / "data_manifests" / "tokenizer_v3.json")
+                        or {}
+                    ).get("schema_version", 0)
+                    >= 3
                 ),
                 "civ_similarity": float(compact.get("civ_similarity", 0.0)),
                 "ibs": eval_report,
                 "verified_trajectories": trajectory_count,
                 "star_verification_rate": float(
-                    (_load_json(v2_report_path("star_report")) or {}).get(
-                        "verification_rate", 0.0
-                    )
+                    (_load_json(v2_report_path("star_report")) or {}).get("verification_rate", 0.0)
                 ),
                 "truth_checking_coverage": float(
                     (_load_json(v2_report_path("rlvr_report")) or {}).get(
@@ -560,7 +623,9 @@ def main() -> None:
             raise SystemExit(rc)
         eval_summary = _load_json(v2_report_path("eval_summary")) or {}
         curriculum = _write_daily_curriculum()
-        state = update_session_state(eval_score=float(eval_summary.get("overall_score", 0.0) or 0.0))
+        state = update_session_state(
+            eval_score=float(eval_summary.get("overall_score", 0.0) or 0.0)
+        )
         _run_innovation_if_due(training_cfg, int(state.get("successful_sessions", 0) or 0))
         run_report["post_session"] = {
             "eval_summary_path": str(v2_report_path("eval_summary")),
@@ -592,8 +657,13 @@ def main() -> None:
     else:
         print("[Unified Trainer] WARN: merge_identity.py not found — skipping", flush=True)
 
-    session_timeout_minutes = max(1, args.session_minutes - training_cfg.unified_trainer_overhead_minutes)
-    print(f"[Unified Trainer] Calculated finetuning duration: {session_timeout_minutes} minutes", flush=True)
+    session_timeout_minutes = max(
+        1, args.session_minutes - training_cfg.unified_trainer_overhead_minutes
+    )
+    print(
+        f"[Unified Trainer] Calculated finetuning duration: {session_timeout_minutes} minutes",
+        flush=True,
+    )
 
     identity_cmd = [
         sys.executable,
@@ -648,7 +718,17 @@ def main() -> None:
         _end_supervisor(_supervisor)
         raise SystemExit(rc)
 
-    rc = run_cmd([sys.executable, "-m", "pytest", "tests/test_v2_stack.py", "-q", "--tb=short", "--no-header"])
+    rc = run_cmd(
+        [
+            sys.executable,
+            "-m",
+            "pytest",
+            "tests/test_v2_stack.py",
+            "-q",
+            "--tb=short",
+            "--no-header",
+        ]
+    )
     run_report["stages"]["tests"] = {"exit_code": rc}
     if rc != 0:
         run_report["ended_at"] = time.time()
@@ -684,7 +764,7 @@ class UnifiedTrainer:
         ouroboros_minutes: int = 10,
         model_size: str = "frontier",
         optimizer: str = "adafactor",
-    ):
+    ) -> None:
         self.data_path = data_path
         self.checkpoint_path = checkpoint_path
         self.batch_size = batch_size
@@ -705,7 +785,7 @@ class UnifiedTrainer:
     def health_check(self) -> None:
         print_system_health()
 
-    def train(self, mode: str = "session", **kwargs) -> int:
+    def train(self, mode: str = "session", **kwargs: object) -> int:
         cmd = [
             sys.executable,
             "-m",
@@ -764,4 +844,3 @@ AnRaTrainer = UnifiedTrainer
 
 if __name__ == "__main__":
     main()
-             

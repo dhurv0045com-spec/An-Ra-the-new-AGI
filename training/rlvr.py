@@ -10,11 +10,14 @@ GRPO: Group Relative Policy Optimization.
   - Policy gradient + KL penalty against frozen reference
   - Backpropagate, clip, step
 """
+
 from __future__ import annotations
 
+import contextlib
 import copy
 import time
 from dataclasses import asdict, dataclass, field
+from datetime import UTC
 
 try:
     from identity.hal import HALModule
@@ -28,17 +31,17 @@ except Exception:
 
 try:
     import torch
-    import torch.nn.functional as F
+    import torch.nn.functional as F  # noqa: N812 - canonical PyTorch alias
 except Exception:  # pragma: no cover - structural tests can still inspect this module.
     torch = None
     F = None
 
 
-def _no_grad():
+def _no_grad() -> object:
     if torch is not None:
         return torch.no_grad()
 
-    def decorator(fn):
+    def decorator(fn: object) -> object:
         return fn
 
     return decorator
@@ -79,7 +82,7 @@ class RLVRDapoConfig:
     overlong_token_limit: int = 256
     token_level_policy_loss: bool = False
     dynamic_sampling: bool = False
-    max_dynamic_G: int = 8
+    max_dynamic_G: int = 8  # noqa: N815 - serialized DAPO schema field
     verifier_pass_threshold: float = 0.5
 
 
@@ -88,16 +91,16 @@ class RLVRTrainer:
 
     def __init__(
         self,
-        model,
-        tokenizer,
+        model: object,
+        tokenizer: object,
         optimizer: torch.optim.Optimizer,
-        verifier,
+        verifier: object,
         hal: HALModule | None = None,
-        G: int = 4,
+        G: int = 4,  # noqa: N803 - public RLVR group-size parameter
         kl_coeff: float = 0.04,
         max_new_tokens: int = 256,
         grad_clip: float = 1.0,
-        replay_pipeline=None,
+        replay_pipeline: object | None = None,
         replay_min_reward: float = 0.5,
         entropy_bonus: float = 0.01,
         dapo_config: RLVRDapoConfig | None = None,
@@ -171,7 +174,9 @@ class RLVRTrainer:
     def _sample_count_for_task(self) -> int:
         if not self.dapo_config.dynamic_sampling:
             return self.G
-        extra = min(max(0, self._consecutive_failures), max(0, self.dapo_config.max_dynamic_G - self.G))
+        extra = min(
+            max(0, self._consecutive_failures), max(0, self.dapo_config.max_dynamic_G - self.G)
+        )
         return max(1, self.G + extra)
 
     def _completion_token_count(self, completion: str) -> int:
@@ -202,7 +207,12 @@ class RLVRTrainer:
             "citation_grounding",
         }
 
-    def _compute_logprobs(self, model_to_use, prompt: str, completion: str) -> torch.Tensor:
+    def _compute_logprobs(
+        self,
+        model_to_use: object,
+        prompt: str,
+        completion: str,
+    ) -> torch.Tensor:
         """Sum log-probs for completion tokens given prompt."""
         block = getattr(self.model, "block_size", 2048)
         device = self._device()
@@ -234,7 +244,13 @@ class RLVRTrainer:
         comp_tgt = targets[0, target_start:]
         return comp_lp.gather(1, comp_tgt.unsqueeze(1)).squeeze(1).sum()
 
-    def _loss_logprob(self, model_to_use, prompt: str, completion: str, output_tokens: int) -> torch.Tensor:
+    def _loss_logprob(
+        self,
+        model_to_use: object,
+        prompt: str,
+        completion: str,
+        output_tokens: int,
+    ) -> torch.Tensor:
         logprob = self._compute_logprobs(model_to_use, prompt, completion)
         if self.dapo_config.token_level_policy_loss:
             return logprob / max(1, int(output_tokens))
@@ -323,15 +339,18 @@ class RLVRTrainer:
                 vr = VerificationResult(0.0, 3, "unverifiable_neutral")
             verifier_results.append(vr)
             score = float(vr.score)
-            reward = 1.0 if score >= self.dapo_config.verifier_pass_threshold else (
-                -0.5 if self._is_checkable(task) else 0.0
+            reward = (
+                1.0
+                if score >= self.dapo_config.verifier_pass_threshold
+                else (-0.5 if self._is_checkable(task) else 0.0)
             )
             raw_rewards.append(reward)
             output_tokens = self._completion_token_count(c)
             output_lengths.append(output_tokens)
             reward = self._shape_reward(reward, output_tokens)
             if self.entropy_bonus:
-                # AN: preserve exploration pressure so GRPO does not collapse into brittle low-entropy completions.
+                # Preserve exploration so GRPO does not collapse into brittle,
+                # low-entropy completions.
                 reward += self.entropy_bonus * self._completion_entropy(task.prompt, c)
             rewards.append(reward)
 
@@ -387,9 +406,7 @@ class RLVRTrainer:
         kl_loss = kl_loss / group_size
         entropy = entropy / group_size
         effective_kl = (
-            self.hal.kl_coefficient(self.kl_coeff)
-            if self.hal is not None
-            else self.kl_coeff
+            self.hal.kl_coefficient(self.kl_coeff) if self.hal is not None else self.kl_coeff
         )
         self._last_effective_kl = float(effective_kl)
         total_loss = policy_loss + effective_kl * kl_loss - self.entropy_bonus * entropy
@@ -439,10 +456,8 @@ class RLVRTrainer:
         )
         replay_additions = 0
         if self.replay_pipeline is not None and float(mean_r.item()) < self.replay_min_reward:
-            try:
+            with contextlib.suppress(Exception):
                 replay_additions = int(self.replay_pipeline.add_rlvr_step(step))
-            except Exception:
-                pass
         step.replay_additions = replay_additions
         self.last_step_report = self._step_report(step)
         if self._consecutive_failures >= 3:
@@ -486,7 +501,7 @@ class RLVRTrainer:
             / max(1, self._detected_checkable_outputs),
         }
 
-    def write_last_step_report(self, output_path=None) -> dict[str, object]:
+    def write_last_step_report(self, output_path: object | None = None) -> dict[str, object]:
         if self.last_step_report is None:
             raise RuntimeError("No RLVR step has been run yet.")
         from training.v2_runtime import v2_report_path, write_json
@@ -499,7 +514,7 @@ class RLVRTrainer:
         self,
         task: RLVRTask,
         completions: list[str],
-        step: "RLVRStep",
+        step: RLVRStep,
     ) -> None:
         """
         Convert a real training failure into a FAILURE_REPLAY
@@ -507,7 +522,8 @@ class RLVRTrainer:
         RLVR and DFC training data.
         """
         import json
-        from datetime import datetime, timezone
+        from datetime import datetime
+
         from anra.anra_paths import TRAINING_DATA_DIR
 
         if not completions or not step.rewards:
@@ -522,7 +538,7 @@ class RLVRTrainer:
         example = {
             "text": (
                 f"<bos>"
-                f"<task domain=\"{domain}\" type=\"failure_replay\">"
+                f'<task domain="{domain}" type="failure_replay">'
                 f"{task.prompt}"
                 f"</task>"
                 f"<act>FAILED ATTEMPT: {failed_attempt[:500]}</act>"
@@ -539,7 +555,7 @@ class RLVRTrainer:
             "template": "failure_replay",
             "verified": False,
             "source": "live_rlvr",
-            "timestamp": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
+            "timestamp": datetime.now(UTC).replace(tzinfo=None).isoformat(),
             "reward": worst_reward,
             "task_type": task_type,
         }

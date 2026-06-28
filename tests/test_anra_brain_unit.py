@@ -92,6 +92,30 @@ def test_kv_cache_matches_no_cache(tiny: CausalTransformerV2) -> None:
     torch.testing.assert_close(logits_plain, logits_cached, atol=1e-4, rtol=1e-4)
     tiny.train()
 
+
+def test_incremental_kv_cache_uses_absolute_rotary_position(
+    tiny: CausalTransformerV2,
+) -> None:
+    tiny.eval()
+    mode = tiny.configure_runtime_mode("diagnostic")
+    prompt = torch.randint(0, 256, (1, 12))
+    next_token = torch.randint(0, 256, (1, 1))
+    with torch.no_grad():
+        full_logits, _ = tiny(torch.cat([prompt, next_token], dim=1))
+    tiny.enable_kv_cache()
+    tiny.clear_kv_cache()
+    with torch.no_grad():
+        tiny(prompt)
+        cached_logits, _ = tiny(next_token)
+    tiny.disable_kv_cache()
+    tiny.restore_runtime_mode(mode)
+    torch.testing.assert_close(
+        full_logits[:, -1, :],
+        cached_logits[:, -1, :],
+        atol=1e-4,
+        rtol=1e-4,
+    )
+
 def test_tied_embeddings_share_memory(tiny: CausalTransformerV2) -> None:
     assert tiny.token_embedding.weight.data_ptr() == tiny.lm_head.weight.data_ptr(), \
         "Embeddings and lm_head must share weight tensor (tied embeddings)"

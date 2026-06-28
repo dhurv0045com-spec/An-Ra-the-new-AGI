@@ -7,6 +7,7 @@ from pathlib import Path
 
 from anra.anra_paths import ensure_dirs, get_dataset_file
 from scripts.build_brain import train_anra_v2
+
 from training.sparse_lora import SparseLoRAEstimateConfig, write_sparse_lora_report_from_dataset
 from training.v2_runtime import canonical_v2_checkpoint, v2_report_path, write_json
 
@@ -65,7 +66,9 @@ def main() -> None:
     parser.add_argument("--max_minutes", type=int, default=12)
     parser.add_argument("--max_examples", type=int, default=8000)
     parser.add_argument("--sparse_lora_mode", choices=["off", "logging"], default="logging")
-    parser.add_argument("--optimizer", choices=["auto", "adamw", "muon", "scale", "galore"], default="auto")
+    parser.add_argument(
+        "--optimizer", choices=["auto", "adamw", "muon", "scale", "galore"], default="auto"
+    )
     args = parser.parse_args()
     print(
         json.dumps(

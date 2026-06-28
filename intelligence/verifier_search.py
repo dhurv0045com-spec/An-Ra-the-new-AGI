@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable
 
 
 @dataclass(frozen=True)
@@ -31,11 +31,7 @@ class VerifierSearch:
 
     def verify(self, claim: str, claim_type: str = "general") -> VerificationOutcome:
         route = self.routes.get(claim_type, self.routes["general"])
-        outcomes = [
-            self.verifiers[name](claim)
-            for name in route
-            if name in self.verifiers
-        ]
+        outcomes = [self.verifiers[name](claim) for name in route if name in self.verifiers]
         if not outcomes:
             return VerificationOutcome(False, 0.0, "none", "No verifier available.")
         weighted = sum(item.confidence * float(item.passed) for item in outcomes)

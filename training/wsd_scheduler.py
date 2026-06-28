@@ -34,7 +34,9 @@ def wsd_multiplier(
     return max(min_lr_ratio, 1.0 - progress * (1.0 - min_lr_ratio))
 
 
-def phase_for_step(step: int, *, warmup_steps: int, total_steps: int, decay_fraction: float = 0.1) -> WSDPhase:
+def phase_for_step(
+    step: int, *, warmup_steps: int, total_steps: int, decay_fraction: float = 0.1
+) -> WSDPhase:
     decay_start = max(warmup_steps, int(total_steps * (1.0 - decay_fraction)))
     if step < warmup_steps:
         return WSDPhase("warmup", step, False)

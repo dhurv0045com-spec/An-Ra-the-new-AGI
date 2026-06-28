@@ -1,11 +1,12 @@
 """Replay pipeline for verifier-approved self-improvement examples."""
+
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field
-from pathlib import Path
 import json
 import random
-from typing import Iterable
+from collections.abc import Iterable
+from dataclasses import asdict, dataclass, field
+from pathlib import Path
 
 
 @dataclass
@@ -95,7 +96,7 @@ class ReplayPipeline:
             count += 1
         return count
 
-    def add_rlvr_step(self, step, min_reward: float = 0.0) -> int:
+    def add_rlvr_step(self, step: object, min_reward: float = 0.0) -> int:
         count = 0
         task = getattr(step, "task", None)
         prompt = getattr(task, "prompt", "")
@@ -155,7 +156,7 @@ class ReplayPipeline:
         return out
 
     @classmethod
-    def load(cls, path: str | Path, max_size: int = 8192) -> "ReplayPipeline":
+    def load(cls, path: str | Path, max_size: int = 8192) -> ReplayPipeline:
         pipe = cls(max_size=max_size, path=path)
         p = Path(path)
         if not p.exists():
@@ -176,9 +177,9 @@ class ReplayPipeline:
 
     def finetune(
         self,
-        model,
-        tokenizer,
-        optimizer,
+        model: object,
+        tokenizer: object,
+        optimizer: object,
         *,
         n_steps: int = 50,
         batch_size: int = 1,
@@ -189,7 +190,7 @@ class ReplayPipeline:
             return []
 
         import torch
-        import torch.nn.functional as F
+        import torch.nn.functional as F  # noqa: N812 - canonical PyTorch alias
 
         model.train()
         device = next(model.parameters()).device

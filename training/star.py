@@ -10,26 +10,27 @@ Chain format:
   </think>
   [final answer]
 """
+
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 import hashlib
 import json
 import re
+from dataclasses import dataclass, field
 
 try:
     import torch
-    import torch.nn.functional as F
+    import torch.nn.functional as F  # noqa: N812 - canonical PyTorch alias
 except Exception:  # pragma: no cover - structural tests can inspect without torch.
     torch = None
     F = None
 
 
-def _no_grad():
+def _no_grad() -> object:
     if torch is not None:
         return torch.no_grad()
 
-    def decorator(fn):
+    def decorator(fn: object) -> object:
         return fn
 
     return decorator
@@ -158,9 +159,7 @@ class STaRLoop:
 
     @staticmethod
     def _evidence_hash(evidence: tuple[dict[str, object], ...]) -> str:
-        return hashlib.sha256(
-            json.dumps(evidence, sort_keys=True).encode("utf-8")
-        ).hexdigest()
+        return hashlib.sha256(json.dumps(evidence, sort_keys=True).encode("utf-8")).hexdigest()
 
     def step(
         self,

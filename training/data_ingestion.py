@@ -3,9 +3,9 @@ from __future__ import annotations
 import json
 import re
 import time
+from collections.abc import Iterable, Iterator
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Iterable
 
 from anra.anra_paths import (
     DATASET_CANONICAL,
@@ -25,8 +25,8 @@ from anra.anra_paths import (
     ROOT,
     TEACHER_REASONING_V2_FILE,
 )
-from training.v2_runtime import v2_report_path, write_json
 
+from training.v2_runtime import v2_report_path, write_json
 
 SUPPORTED_TEXT_SUFFIXES = {
     ".txt",
@@ -58,7 +58,9 @@ SUPPORTED_CODE_SUFFIXES = {
     ".cfg",
 }
 SUPPORTED_STRUCTURED_SUFFIXES = {".jsonl", ".json", ".ipynb"}
-SUPPORTED_SUFFIXES = SUPPORTED_TEXT_SUFFIXES | SUPPORTED_CODE_SUFFIXES | SUPPORTED_STRUCTURED_SUFFIXES
+SUPPORTED_SUFFIXES = (
+    SUPPORTED_TEXT_SUFFIXES | SUPPORTED_CODE_SUFFIXES | SUPPORTED_STRUCTURED_SUFFIXES
+)
 
 SKIP_DIR_NAMES = {
     ".git",
@@ -132,7 +134,14 @@ def _under_skipped_dir(path: Path) -> bool:
     parts = {part.lower() for part in path.parts}
     if parts & SKIP_DIR_NAMES:
         return True
-    skip_roots = [DRIVE_CHECKPOINTS, DRIVE_V2_CHECKPOINTS, DRIVE_V2_CHECKPOINTS.parent, DRIVE_LOGS, DRIVE_MEMORY, DRIVE_SESSIONS]
+    skip_roots = [
+        DRIVE_CHECKPOINTS,
+        DRIVE_V2_CHECKPOINTS,
+        DRIVE_V2_CHECKPOINTS.parent,
+        DRIVE_LOGS,
+        DRIVE_MEMORY,
+        DRIVE_SESSIONS,
+    ]
     for root in skip_roots:
         try:
             path.relative_to(root)
@@ -202,13 +211,11 @@ def _read_text_streaming(
             parts.append(chunk)
             total += len(chunk)
     if total >= max_chars:
-        print(
-            f"  [data_ingestion] File capped at {max_chars // 1_000_000:.0f}MB: {path.name}"
-        )
+        print(f"  [data_ingestion] File capped at {max_chars // 1_000_000:.0f}MB: {path.name}")
     return "".join(parts)
 
 
-def _stream_jsonl(path: Path, max_lines: int = 100_000):
+def _stream_jsonl(path: Path, max_lines: int = 100_000) -> Iterator[dict[str, object]]:
     """Yield parsed JSONL objects without loading all into RAM."""
     import json as _json
 
@@ -284,8 +291,7 @@ def _record_to_pair(record: dict[str, object]) -> tuple[str, str] | None:
 
 def _is_teacher_record(record: dict[str, object], source: Path) -> bool:
     text = " ".join(
-        str(record.get(key, ""))
-        for key in ("bucket", "source", "task_type", "kind", "type")
+        str(record.get(key, "")) for key in ("bucket", "source", "task_type", "kind", "type")
     ).lower()
     name = source.name.lower()
     return (
@@ -388,7 +394,10 @@ def _source_to_examples(path: Path) -> tuple[list[tuple[str, str]], list[dict[st
     pairs = []
     for idx, chunk in enumerate(_chunk_text(raw), start=1):
         if kind == "code":
-            prompt = f"Study this An-Ra source file chunk {idx} from {label} and preserve its implementation details."
+            prompt = (
+                f"Study this An-Ra source file chunk {idx} from {label} and "
+                "preserve its implementation details."
+            )
             answer = f"Source file: {label}\n\n{chunk}"
         else:
             prompt = f"Learn this owner-provided training material chunk {idx} from {label}."
@@ -401,21 +410,30 @@ def _bootstrap_teacher_records() -> list[dict[str, object]]:
     return [
         {
             "prompt": "Solve 17 * 19 and explain your reasoning briefly.",
-            "answer": "I split it into 17 * (20 - 1). That is 340 - 17 = 323. The verified answer is 323.",
+            "answer": (
+                "I split it into 17 * (20 - 1). That is 340 - 17 = 323. The verified answer is 323."
+            ),
             "task_type": "math",
             "source": "bootstrap_teacher",
             "verified": True,
         },
         {
             "prompt": "Find the bug: def tail(xs): return xs[0:len(xs)-1]",
-            "answer": "The function name suggests returning the tail, but the slice drops the last element. Use xs[1:] for all but the first item, or xs[-1] for only the final item.",
+            "answer": (
+                "The function name suggests returning the tail, but the slice "
+                "drops the last element. Use xs[1:] for all but the first item, "
+                "or xs[-1] for only the final item."
+            ),
             "task_type": "code",
             "source": "bootstrap_teacher",
             "verified": True,
         },
         {
             "prompt": "If A implies B and B implies C, does A imply C?",
-            "answer": "Yes. If A is true, B follows. If B is true, C follows. Therefore A implies C by transitivity.",
+            "answer": (
+                "Yes. If A is true, B follows. If B is true, C follows. "
+                "Therefore A implies C by transitivity."
+            ),
             "task_type": "logic",
             "source": "bootstrap_teacher",
             "verified": True,
@@ -539,11 +557,13 @@ def prepare_training_corpus(
         pairs = [
             (
                 "Who are you?",
-                "I am An-Ra. I was built by Ankit from pure mathematics, and I keep that identity while I learn.",
+                "I am An-Ra. I was built by Ankit from pure mathematics, "
+                "and I keep that identity while I learn.",
             ),
             (
                 "What should you do when you are uncertain?",
-                "I should say what I know, say what I do not know, and reason carefully instead of pretending.",
+                "I should say what I know, say what I do not know, and reason "
+                "carefully instead of pretending.",
             ),
         ]
         report.status = "bootstrap"
@@ -594,7 +614,9 @@ def prepare_training_corpus(
 def main() -> None:
     import argparse
 
-    ap = argparse.ArgumentParser(description="Prepare An-Ra training data from local and Drive files")
+    ap = argparse.ArgumentParser(
+        description="Prepare An-Ra training data from local and Drive files"
+    )
     ap.add_argument("--sources", nargs="*", default=[])
     ap.add_argument("--no_drive", action="store_true")
     ap.add_argument("--max_source_mb", type=int, default=64)

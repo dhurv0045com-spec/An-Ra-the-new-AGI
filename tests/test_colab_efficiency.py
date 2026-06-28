@@ -36,7 +36,7 @@ def test_t4_notebook_uses_fast_bootstrap_and_persistent_data_cache() -> None:
     source = "\n".join("".join(cell.get("source", [])) for cell in notebook["cells"])
 
     assert "scripts/colab_prepare_data.py" in source
-    assert "DATA_PROFILE = 't4-cached'" in source
+    assert "DATA_PROFILE = '30gb'" in source
     assert "os.environ['ANRA_DATA_PROFILE'] = DATA_PROFILE" in source
     assert "ANRA_TRAINING_DATA_LAYOUT" in source
     assert "ANRA_REQUIRE_SHARED_MASTER" in source

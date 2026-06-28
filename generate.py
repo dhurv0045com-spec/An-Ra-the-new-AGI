@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import hashlib
 import math
 import logging
 import os
+import re
+import threading
 import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -10,7 +13,14 @@ from typing import Dict, Iterator, Optional
 
 import torch
 
-from anra.anra_paths import DRIVE_LOGS, FRONTIER_CHECKPOINT, HAL_STATE_FILE, ROOT, STATE_DIR
+from anra.anra_paths import (
+    DRIVE_LOGS,
+    FRONTIER_CHECKPOINT,
+    HAL_STATE_FILE,
+    ROOT,
+    STATE_DIR,
+    V3_TOKENIZER_FILE,
+)
 from training.v2_config import V2_FRONTIER_PARAMETER_COUNT
 from training.v2_runtime import (
     build_frontier_model,
@@ -49,18 +59,24 @@ except Exception:
 
 @dataclass
 class GenerationConfig:
-    strategy: str = "nucleus"
-    max_tokens: int = 200
-    temperature: float = 0.8
+    strategy: str = "greedy"
+    max_tokens: int = 128
+    temperature: float = 0.7
     top_k: int = 40
     top_p: float = 0.92
     beam_width: int = 4
     repetition_penalty: float = 1.15
     repetition_window: int = 64
     stop_strings: list[str] = field(default_factory=list)
-    seed: Optional[int] = None
+    seed: Optional[int] = 0
     use_think_tokens: bool = False
-    use_kv_cache: bool = True
+    use_kv_cache: bool = False
+    mode: str = "diagnostic"
+    allow_control_tokens: bool = False
+    ablated_subsystem: str | None = None
+    verifier_score: float | None = None
+    task_success: bool | None = None
+    civ_score: float | None = None
 
 
 @dataclass
@@ -76,15 +92,25 @@ class GenerationTrace:
     kv_cache_compressed: bool = False
     memory_saved_mb: float = 0.0
     ghost_state_loaded: bool = False
+    prompt_tokens: int = 0
+    mode: str = "diagnostic"
+    quality_state: str = "unknown"
+    language_fragment_detected: bool = False
+    subsystem_trace: dict[str, object] = field(default_factory=dict)
+    output_token_ids: list[int] = field(default_factory=list)
+    eos_valid: bool = False
 
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 _GHOST_STORE: Dict[str, dict] = {}
-_ACTIVE_GHOST: Dict[str, object] = {}
 _HAL_STORE: Dict[str, object] = {}
+_ESV_STORE: Dict[str, torch.Tensor] = {}
 _HAL_DIR = STATE_DIR / "hal_sessions"
 _RUNTIME_PROFILE = "unknown"
 _RUNTIME_LOAD_STATE: dict[str, object] = {}
+_GENERATION_LOCK = threading.RLock()
+_KV_CACHE_PARITY_VERIFIED = False
+_KV_CACHE_PARITY_IN_PROGRESS = False
 
 
 def _reset_runtime_cache() -> None:
@@ -95,6 +121,18 @@ def _reset_runtime_cache() -> None:
     _LOADED_CHECKPOINT = None
     _RUNTIME_PROFILE = "unknown"
     _RUNTIME_LOAD_STATE = {}
+
+
+def _sha256_file(path: Path, chunk_size: int = 8 * 1024 * 1024) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(chunk_size), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _native_model(model):
+    return getattr(model, "model", model)
 
 
 def _seed_all(seed: Optional[int]) -> None:
@@ -149,6 +187,13 @@ def _load_frontier_runtime():
     state = load_checkpoint(model, None, None, None, checkpoint, device=DEVICE, strict=False)
     if not state.get("loaded"):
         raise RuntimeError(f"Frontier checkpoint did not load: {checkpoint}")
+    load_report = state.get("load_report", {})
+    if isinstance(load_report, dict) and not load_report.get("exact_core_load", True):
+        raise RuntimeError(
+            "Frontier checkpoint has missing or mismatched core tensors: "
+            f"missing={load_report.get('core_missing_keys', [])} "
+            f"mismatched={load_report.get('core_mismatched_keys', [])}"
+        )
     summary = model_summary(model)
     params = int(summary["parameters"])
     if params != V2_FRONTIER_PARAMETER_COUNT:
@@ -268,15 +313,61 @@ def _attach_hal(model, hal) -> None:
         logger.warning("HAL attach failed: %s", exc)
 
 
-def _generation_quality(trace_output: str, entropy_curve: list[float], max_prob_curve: list[float], repeated: bool) -> float:
+def _language_fragment_detected(text: str) -> bool:
+    stripped = text.strip()
+    if not stripped:
+        return True
+    printable = sum(character.isprintable() for character in stripped) / len(stripped)
+    words = [word for word in stripped.replace("\n", " ").split(" ") if word]
+    if printable < 0.98:
+        return True
+    if len(words) >= 12:
+        one_char = sum(len(word.strip(".,!?;:'\"()[]{}")) <= 1 for word in words)
+        if one_char / len(words) > 0.45:
+            return True
+        if "```" not in stripped and not any(symbol in stripped for symbol in ("{", "};", "=>")):
+            lexical_words = re.findall(r"[a-zA-Z]+", stripped.lower())
+            common = {
+                "a", "about", "after", "all", "also", "an", "and", "answer",
+                "are", "as", "at", "be", "because", "before", "but", "by",
+                "can", "context", "data", "do", "does", "for", "from", "has",
+                "have", "how", "i", "if", "in", "into", "is", "it", "its",
+                "model", "not", "of", "on", "or", "result", "should", "so",
+                "system", "task", "that", "the", "their", "then", "this", "to",
+                "use", "was", "we", "what", "when", "which", "with", "would",
+                "you", "your",
+            }
+            common_ratio = sum(word in common for word in lexical_words) / max(
+                1, len(lexical_words)
+            )
+            if len(lexical_words) >= 12 and common_ratio < 0.18:
+                return True
+    return False
+
+
+def _generation_quality(
+    trace_output: str,
+    entropy_curve: list[float],
+    repeated: bool,
+    fragmented: bool,
+    stopped_by: str,
+) -> float:
     if not trace_output.strip():
-        return 0.1
-    mean_conf = sum(max_prob_curve) / max(1, len(max_prob_curve))
+        return 0.0
     mean_entropy = sum(entropy_curve) / max(1, len(entropy_curve))
-    entropy_penalty = min(0.25, mean_entropy / 40.0)
-    reward = 0.45 + 0.45 * mean_conf - entropy_penalty
+    reward = 0.55
+    if 1.0 <= mean_entropy <= 8.5:
+        reward += 0.15
     if repeated:
+        reward -= 0.45
+    if fragmented:
+        reward -= 0.45
+    if stopped_by == "max_tokens":
+        reward -= 0.20
+    elif stopped_by == "repetition_guard":
         reward -= 0.35
+    elif stopped_by in {"eos", "stop_string"}:
+        reward += 0.10
     if "<err>" in trace_output or "failed" in trace_output.lower():
         reward -= 0.05
     return max(0.0, min(1.0, reward))
@@ -288,17 +379,48 @@ def _apply_repetition_penalty(logits: torch.Tensor, generated_ids: list[int], cf
     adjusted = logits.clone()
     recent = generated_ids[-cfg.repetition_window :]
     for token_id in set(recent):
-        adjusted[token_id] /= cfg.repetition_penalty
+        if adjusted[token_id] >= 0:
+            adjusted[token_id] /= cfg.repetition_penalty
+        else:
+            adjusted[token_id] *= cfg.repetition_penalty
     return adjusted
 
 
-def _sample_next_token(logits: torch.Tensor, cfg: GenerationConfig, generated_ids: list[int]) -> tuple[int, float, float]:
+def _blocked_token_ids(tokenizer, cfg: GenerationConfig) -> set[int]:
+    special = getattr(tokenizer, "special_ids", {})
+    if callable(special):
+        special = special()
+    blocked = {
+        int(getattr(tokenizer, "pad_token_id", 0)),
+        int(getattr(tokenizer, "bos_token_id", 2)),
+        int(getattr(tokenizer, "unk_token_id", 1)),
+    }
+    if not cfg.allow_control_tokens and isinstance(special, dict):
+        eos = int(getattr(tokenizer, "eos_token_id", 3))
+        blocked.update(int(value) for value in special.values() if int(value) != eos)
+    return blocked
+
+
+def _sample_next_token(
+    logits: torch.Tensor,
+    cfg: GenerationConfig,
+    generated_ids: list[int],
+    *,
+    blocked_ids: set[int] | None = None,
+) -> tuple[int, float, float]:
+    if not torch.isfinite(logits).all():
+        raise FloatingPointError("generation logits contain NaN or infinity")
     logits = _apply_repetition_penalty(logits, generated_ids, cfg)
+    for token_id in blocked_ids or ():
+        if 0 <= token_id < logits.numel():
+            logits[token_id] = float("-inf")
     strategy = cfg.strategy.lower()
     temperature = max(cfg.temperature, 1e-6)
 
     if strategy == "greedy" or temperature < 1e-4:
         probs = torch.softmax(logits, dim=-1)
+        if not torch.isfinite(probs).all() or float(probs.sum().item()) <= 0:
+            raise FloatingPointError("generation probabilities are invalid")
         next_token = int(torch.argmax(probs).item())
         entropy = float(-(probs * probs.clamp_min(1e-12).log()).sum().item())
         return next_token, float(probs[next_token].item()), entropy
@@ -327,6 +449,8 @@ def _sample_next_token(logits: torch.Tensor, cfg: GenerationConfig, generated_id
         logits[sorted_indices] = sorted_logits
 
     probs = torch.softmax(logits, dim=-1)
+    if not torch.isfinite(probs).all() or float(probs.sum().item()) <= 0:
+        raise FloatingPointError("generation probabilities are invalid")
     next_token = int(torch.multinomial(probs, num_samples=1).item())
     entropy = float(-(probs * probs.clamp_min(1e-12).log()).sum().item())
     return next_token, float(probs[next_token].item()), entropy
@@ -360,112 +484,315 @@ def detect_repetition(text: str) -> dict[str, object]:
 def generate_traced(prompt: str, cfg: GenerationConfig, *, session_id: str | None = None) -> GenerationTrace:
     if not prompt or not prompt.strip():
         raise ValueError("prompt must not be empty")
-    MODEL, TOKENIZER, LOADED_CHECKPOINT = _get_runtime()
-    del LOADED_CHECKPOINT
-    hal = _get_hal(session_id)
-    if hal is not None:
-        _attach_hal(MODEL, hal)
-        cfg = GenerationConfig(**asdict(cfg))
-        cfg.temperature = hal.generation_temperature(cfg.temperature)
-    _seed_all(cfg.seed)
+    if cfg.mode not in {"diagnostic", "native", "full_system"}:
+        raise ValueError("mode must be diagnostic, native, or full_system")
+    cfg = GenerationConfig(**asdict(cfg))
+    cfg.max_tokens = max(1, int(cfg.max_tokens))
+    cfg.top_p = max(1e-6, min(1.0, float(cfg.top_p)))
+    cfg.top_k = max(1, int(cfg.top_k))
+    if cfg.use_kv_cache and not (
+        _KV_CACHE_PARITY_VERIFIED or _KV_CACHE_PARITY_IN_PROGRESS
+    ):
+        raise RuntimeError(
+            "KV cache is disabled until /diagnostics/cache-parity proves exact token parity"
+        )
 
-    if cfg.use_think_tokens:
-        # AN: use existing tokenizer concepts to request reflective passes without adding generation machinery.
-        prompt = f"<think>\n{prompt}"
-    prompt_ids = TOKENIZER.encode(prompt, add_special_tokens=False)
-    ids = [TOKENIZER.bos_token_id] + prompt_ids
-    generated_ids = ids[:]
-    prompt_token_count = len(ids)
-    entropy_curve: list[float] = []
-    max_prob_curve: list[float] = []
-    stopped_by = "max_tokens"
-    ghost_loaded = bool(session_id and session_id in _GHOST_STORE)
+    with _GENERATION_LOCK:
+        model, tokenizer, _ = _get_runtime()
+        native_model = _native_model(model)
+        load_report = _RUNTIME_LOAD_STATE.get("load_report", {})
+        if (
+            cfg.mode in {"native", "full_system"}
+            and isinstance(load_report, dict)
+            and not load_report.get("exact_native_load", True)
+        ):
+            raise RuntimeError(
+                "Native runtime is blocked by missing subsystem tensors: "
+                f"{load_report.get('subsystem_missing_keys', [])}"
+            )
+        hal = (
+            _get_hal(session_id)
+            if cfg.mode == "full_system" and cfg.ablated_subsystem != "hal"
+            else None
+        )
+        if hal is not None:
+            _attach_hal(model, hal)
+            adjusted = hal.generation_temperature(cfg.temperature)
+            cfg.temperature = max(cfg.temperature - 0.10, min(cfg.temperature + 0.10, adjusted))
+        _seed_all(cfg.seed)
 
-    start = time.perf_counter()
-    kv_enabled = False
-    if cfg.use_kv_cache and hasattr(MODEL, "enable_kv_cache"):
-        MODEL.enable_kv_cache()
-        MODEL.clear_kv_cache()
-        kv_enabled = True
-    for _ in range(max(0, cfg.max_tokens)):
-        if kv_enabled and len(generated_ids) > prompt_token_count:
-            token_window = [generated_ids[-1]]
-        else:
-            token_window = generated_ids[-MODEL.block_size :]
-        x = torch.tensor([token_window], dtype=torch.long, device=DEVICE)
-        logits, _ = MODEL(x)
-        next_id, max_prob, entropy = _sample_next_token(logits[0, -1, :], cfg, generated_ids)
-        generated_ids.append(next_id)
-        entropy_curve.append(entropy)
-        max_prob_curve.append(max_prob)
+        runtime_mode_state = None
+        if hasattr(native_model, "configure_runtime_mode"):
+            runtime_mode_state = native_model.configure_runtime_mode(cfg.mode)
+        if cfg.ablated_subsystem and hasattr(native_model, "neutralize_subsystem"):
+            native_model.neutralize_subsystem(cfg.ablated_subsystem)
+        esv_module = getattr(native_model, "esv_module", None)
+        prior_esv_state = None
+        if esv_module is not None and hasattr(esv_module, "state"):
+            prior_esv_state = esv_module.state.detach().clone()
+            if cfg.mode == "diagnostic" or (session_id and session_id not in _ESV_STORE):
+                esv_module.state.zero_()
+            elif session_id and session_id in _ESV_STORE:
+                esv_module.state.copy_(_ESV_STORE[session_id].to(esv_module.state))
 
-        if next_id == TOKENIZER.eos_token_id:
-            stopped_by = "eos"
-            break
+        if cfg.use_think_tokens:
+            prompt = f"<think>\n{prompt}"
+        prompt_ids = tokenizer.encode(prompt, add_special_tokens=False)
+        max_prompt = max(1, model.block_size - cfg.max_tokens - 1)
+        prompt_ids = prompt_ids[-max_prompt:]
+        ids = [tokenizer.bos_token_id, *prompt_ids]
+        generated_ids = ids[:]
+        answer_ids: list[int] = []
+        prompt_token_count = len(ids)
+        entropy_curve: list[float] = []
+        max_prob_curve: list[float] = []
+        stopped_by = "max_tokens"
+        ghost_loaded = bool(
+            cfg.mode == "full_system" and session_id and session_id in _GHOST_STORE
+        )
+        blocked_ids = _blocked_token_ids(tokenizer, cfg)
 
-        current_text = TOKENIZER.decode(generated_ids)
-        hit, trimmed, reason = _check_stop(current_text, cfg)
-        if hit:
-            generated_ids = TOKENIZER.encode(trimmed, add_special_tokens=False)
-            stopped_by = reason
-            break
-
-    answer_ids = generated_ids[prompt_token_count:]
-    output_text = TOKENIZER.decode(answer_ids).strip()
-    if cfg.use_think_tokens:
-        output_text = output_text.replace("</think>", "").strip()
-
-    if _IDENTITY_INJECTOR is not None:
+        start = time.perf_counter()
+        kv_enabled = False
+        generation_completed = False
+        if cfg.use_kv_cache and hasattr(model, "enable_kv_cache"):
+            model.enable_kv_cache()
+            model.clear_kv_cache()
+            kv_enabled = True
         try:
-            output_text = _IDENTITY_INJECTOR.clean(output_text)
-        except Exception as exc:
-            logger.warning("Identity injector cleanup failed: %s", exc)
+            for _ in range(cfg.max_tokens):
+                if len(generated_ids) >= model.block_size and not kv_enabled:
+                    stopped_by = "context_limit"
+                    break
+                if kv_enabled and answer_ids:
+                    token_window = [generated_ids[-1]]
+                else:
+                    token_window = generated_ids[-model.block_size :]
+                x = torch.tensor([token_window], dtype=torch.long, device=DEVICE)
+                logits, _ = model(x)
+                next_id, max_prob, entropy = _sample_next_token(
+                    logits[0, -1, :],
+                    cfg,
+                    answer_ids,
+                    blocked_ids=blocked_ids,
+                )
+                generated_ids.append(next_id)
+                answer_ids.append(next_id)
+                entropy_curve.append(entropy)
+                max_prob_curve.append(max_prob)
 
-    if session_id:
-        _ACTIVE_GHOST["session_id"] = session_id
-        _ACTIVE_GHOST["last_output"] = output_text
+                if next_id == tokenizer.eos_token_id:
+                    stopped_by = "eos"
+                    break
 
-    repetition = detect_repetition(output_text)
-    elapsed_ms = (time.perf_counter() - start) * 1000
-    if hal is not None:
+                current_text = tokenizer.decode(answer_ids)
+                hit, trimmed, reason = _check_stop(current_text, cfg)
+                if hit:
+                    answer_ids = tokenizer.encode(trimmed, add_special_tokens=False)
+                    stopped_by = reason
+                    break
+                if len(answer_ids) >= 12 and detect_repetition(current_text)["repeated_ngrams_detected"]:
+                    stopped_by = "repetition_guard"
+                    break
+            generation_completed = True
+        finally:
+            if kv_enabled:
+                model.clear_kv_cache()
+                model.disable_kv_cache()
+            if runtime_mode_state is not None:
+                native_model.restore_runtime_mode(runtime_mode_state)
+            if not generation_completed and prior_esv_state is not None:
+                esv_module.state.copy_(prior_esv_state)
+                native_model._pending_esv_state = None
+
+        output_text = tokenizer.decode(answer_ids).strip()
+        if cfg.use_think_tokens:
+            output_text = output_text.replace("</think>", "").strip()
+        if _IDENTITY_INJECTOR is not None:
+            try:
+                output_text = _IDENTITY_INJECTOR.clean(output_text)
+            except Exception as exc:
+                logger.warning("Identity injector cleanup failed: %s", exc)
+
+        repetition = detect_repetition(output_text)
+        repeated = bool(repetition["repeated_ngrams_detected"])
+        fragmented = _language_fragment_detected(output_text)
         quality = _generation_quality(
             output_text,
             entropy_curve,
-            max_prob_curve,
-            bool(repetition["repeated_ngrams_detected"]),
+            repeated,
+            fragmented,
+            stopped_by,
         )
-        try:
-            hal.update(
-                verifier_result=quality,
-                session_context={
-                    "task_type": "generation",
-                    "domain": "conversation",
-                    "model_incoherence_self_detected": bool(repetition["repeated_ngrams_detected"]),
-                    "near_capability_boundary": quality < 0.35,
-                },
-            )
-            hal.decay(turns=1)  # AN: HAL should drift between conversation turns, not freeze at update time.
-            _save_hal(session_id, hal)
-        except Exception as exc:
-            logger.warning("HAL update failed: %s", exc)
-    if kv_enabled:
-        MODEL.clear_kv_cache()
-    return GenerationTrace(
-        output=output_text,
-        strategy=cfg.strategy,
-        tokens_generated=len(entropy_curve),
-        time_ms=elapsed_ms,
-        entropy_curve=entropy_curve,
-        max_prob_curve=max_prob_curve,
-        stopped_by=stopped_by,
-        repeated_ngrams_detected=bool(repetition["repeated_ngrams_detected"]),
-        kv_cache_compressed=kv_enabled,
-        memory_saved_mb=0.0,
-        ghost_state_loaded=ghost_loaded,
+        quality_state = "accepted" if quality >= 0.65 else "rejected"
+
+        if quality_state == "accepted":
+            if cfg.mode != "diagnostic" and hasattr(native_model, "commit_pending_esv_state"):
+                native_model.commit_pending_esv_state()
+                if session_id and esv_module is not None:
+                    _ESV_STORE[session_id] = esv_module.state.detach().cpu().clone()
+            if session_id and cfg.mode == "full_system":
+                state = dict(_GHOST_STORE.get(session_id, {}))
+                state.update({"session_id": session_id, "last_output": output_text})
+                _GHOST_STORE[session_id] = state
+                if _GHOST_MEMORY is not None:
+                    try:
+                        _GHOST_MEMORY.store(session_id, state)
+                    except Exception as exc:
+                        logger.warning("Ghost state persistence failed for %s: %s", session_id, exc)
+            if (
+                hal is not None
+                and cfg.verifier_score is not None
+                and cfg.task_success is not None
+            ):
+                try:
+                    hal.update(
+                        verifier_result=max(0.0, min(1.0, cfg.verifier_score)),
+                        session_context={
+                            "task_type": "generation",
+                            "domain": "conversation",
+                            "task_success": cfg.task_success,
+                            "civ_score": cfg.civ_score,
+                            "model_incoherence_self_detected": repeated or fragmented,
+                            "near_capability_boundary": cfg.verifier_score < 0.65,
+                        },
+                    )
+                    _save_hal(session_id, hal)
+                except Exception as exc:
+                    logger.warning("HAL update failed: %s", exc)
+        elif prior_esv_state is not None:
+            esv_module.state.copy_(prior_esv_state)
+            native_model._pending_esv_state = None
+
+        if cfg.mode == "diagnostic" and prior_esv_state is not None:
+            esv_module.state.copy_(prior_esv_state)
+            native_model._pending_esv_state = None
+
+        elapsed_ms = (time.perf_counter() - start) * 1000
+        subsystem_trace: dict[str, object] = {
+            "mode": cfg.mode,
+            "mod_executed": cfg.mode != "diagnostic",
+            "rim_executed": cfg.mode != "diagnostic",
+            "dstp_executed": cfg.mode != "diagnostic",
+            "esv_executed": cfg.mode != "diagnostic",
+            "esv_committed": quality_state == "accepted" and cfg.mode != "diagnostic",
+            "hal_executed": hal is not None,
+            "hal_updated": bool(
+                hal is not None
+                and cfg.verifier_score is not None
+                and cfg.task_success is not None
+            ),
+            "ghost_executed": cfg.mode == "full_system" and bool(session_id),
+            "ablated_subsystem": cfg.ablated_subsystem,
+        }
+        if cfg.ablated_subsystem in {"mod", "rim", "dstp", "esv", "hal"}:
+            subsystem_trace[f"{cfg.ablated_subsystem}_executed"] = False
+        if hasattr(native_model, "subsystem_telemetry"):
+            subsystem_trace["model"] = native_model.subsystem_telemetry()
+        if esv_module is not None and hasattr(esv_module, "as_dict"):
+            subsystem_trace["esv"] = esv_module.as_dict()
+        if hal is not None and hasattr(hal, "state"):
+            subsystem_trace["hal"] = hal.state.hormones()
+        return GenerationTrace(
+            output=output_text,
+            strategy=cfg.strategy,
+            tokens_generated=len(entropy_curve),
+            time_ms=elapsed_ms,
+            entropy_curve=entropy_curve,
+            max_prob_curve=max_prob_curve,
+            stopped_by=stopped_by,
+            repeated_ngrams_detected=repeated,
+            kv_cache_compressed=kv_enabled,
+            memory_saved_mb=0.0,
+            ghost_state_loaded=ghost_loaded,
+            prompt_tokens=prompt_token_count,
+            mode=cfg.mode,
+            quality_state=quality_state,
+            language_fragment_detected=fragmented,
+            subsystem_trace=subsystem_trace,
+            output_token_ids=[int(token_id) for token_id in answer_ids],
+            eos_valid=stopped_by == "eos",
+        )
+
+
+def verify_kv_cache_parity(
+    prompt: str = "H: Verify cache parity for An-Ra.\nANRA:",
+    *,
+    max_tokens: int = 16,
+) -> dict[str, object]:
+    global _KV_CACHE_PARITY_IN_PROGRESS, _KV_CACHE_PARITY_VERIFIED
+    baseline = generate_traced(
+        prompt,
+        GenerationConfig(
+            strategy="greedy",
+            max_tokens=max_tokens,
+            seed=0,
+            use_kv_cache=False,
+            mode="diagnostic",
+        ),
+        session_id="cache_parity_probe",
     )
+    _KV_CACHE_PARITY_IN_PROGRESS = True
+    try:
+        cached = generate_traced(
+            prompt,
+            GenerationConfig(
+                strategy="greedy",
+                max_tokens=max_tokens,
+                seed=0,
+                use_kv_cache=True,
+                mode="diagnostic",
+            ),
+            session_id="cache_parity_probe",
+        )
+    finally:
+        _KV_CACHE_PARITY_IN_PROGRESS = False
+    _KV_CACHE_PARITY_VERIFIED = baseline.output_token_ids == cached.output_token_ids
+    return {
+        "verified": _KV_CACHE_PARITY_VERIFIED,
+        "prompt_tokens": baseline.prompt_tokens,
+        "tokens_compared": len(baseline.output_token_ids),
+        "uncached_tokens": baseline.output_token_ids,
+        "cached_tokens": cached.output_token_ids,
+    }
 
 
-def generate(prompt: str, strategy: str = "nucleus", max_tokens: int = 200, **kwargs) -> str:
+def verify_session_state_isolation() -> dict[str, object]:
+    """Probe request-scoped stores without changing persistent user sessions."""
+    suffix = str(time.time_ns())
+    session_a = f"isolation_a_{suffix}"
+    session_b = f"isolation_b_{suffix}"
+    with _GENERATION_LOCK:
+        try:
+            _ESV_STORE[session_a] = torch.tensor([0.11, 0.22, 0.33])
+            _ESV_STORE[session_b] = torch.tensor([-0.11, -0.22, -0.33])
+            _GHOST_STORE[session_a] = {"session_id": session_a, "sentinel": "a"}
+            _GHOST_STORE[session_b] = {"session_id": session_b, "sentinel": "b"}
+            esv_isolated = (
+                not torch.equal(_ESV_STORE[session_a], _ESV_STORE[session_b])
+                and _ESV_STORE[session_a].data_ptr() != _ESV_STORE[session_b].data_ptr()
+            )
+            ghost_isolated = (
+                _GHOST_STORE[session_a].get("sentinel") == "a"
+                and _GHOST_STORE[session_b].get("sentinel") == "b"
+            )
+            hal_isolated = _hal_path(session_a) != _hal_path(session_b)
+            verified = esv_isolated and ghost_isolated and hal_isolated
+            return {
+                "verified": verified,
+                "generation_serialized": True,
+                "esv_isolated": esv_isolated,
+                "ghost_isolated": ghost_isolated,
+                "hal_paths_isolated": hal_isolated,
+            }
+        finally:
+            _ESV_STORE.pop(session_a, None)
+            _ESV_STORE.pop(session_b, None)
+            _GHOST_STORE.pop(session_a, None)
+            _GHOST_STORE.pop(session_b, None)
+
+
+def generate(prompt: str, strategy: str = "greedy", max_tokens: int = 128, **kwargs) -> str:
     cfg = GenerationConfig(strategy=strategy, max_tokens=max_tokens)
     for key, value in kwargs.items():
         if hasattr(cfg, key):
@@ -476,44 +803,72 @@ def generate(prompt: str, strategy: str = "nucleus", max_tokens: int = 200, **kw
 
 
 def generate_stream(prompt: str, cfg: GenerationConfig) -> Iterator[str]:
-    MODEL, TOKENIZER, _ = _get_runtime()
-    _seed_all(cfg.seed)
-    prompt_ids = TOKENIZER.encode(prompt, add_special_tokens=False)
-    generated_ids = [TOKENIZER.bos_token_id] + prompt_ids
-    prompt_token_count = len(generated_ids)
-    for _ in range(max(0, cfg.max_tokens)):
-        x = torch.tensor(
-            [generated_ids[-MODEL.block_size:]], dtype=torch.long, device=DEVICE
+    with _GENERATION_LOCK:
+        model, tokenizer, _ = _get_runtime()
+        native_model = _native_model(model)
+        runtime_mode_state = None
+        if hasattr(native_model, "configure_runtime_mode"):
+            runtime_mode_state = native_model.configure_runtime_mode(cfg.mode)
+        esv_module = getattr(native_model, "esv_module", None)
+        prior_esv_state = (
+            esv_module.state.detach().clone()
+            if esv_module is not None and hasattr(esv_module, "state")
+            else None
         )
-        with torch.no_grad():
-            logits, _ = MODEL(x)
-        next_id, _, _ = _sample_next_token(logits[0, -1, :], cfg, generated_ids)
-        generated_ids.append(next_id)
-        if next_id == TOKENIZER.eos_token_id:
-            break
-        token_text = TOKENIZER.decode([next_id])
-        if token_text:
-            yield token_text
+        _seed_all(cfg.seed)
+        prompt_ids = tokenizer.encode(prompt, add_special_tokens=False)
+        generated_ids = [tokenizer.bos_token_id, *prompt_ids[-(model.block_size - 1) :]]
+        answer_ids: list[int] = []
+        blocked_ids = _blocked_token_ids(tokenizer, cfg)
+        try:
+            for _ in range(max(0, cfg.max_tokens)):
+                x = torch.tensor(
+                    [generated_ids[-model.block_size :]], dtype=torch.long, device=DEVICE
+                )
+                with torch.no_grad():
+                    logits, _ = model(x)
+                next_id, _, _ = _sample_next_token(
+                    logits[0, -1, :],
+                    cfg,
+                    answer_ids,
+                    blocked_ids=blocked_ids,
+                )
+                generated_ids.append(next_id)
+                answer_ids.append(next_id)
+                if next_id == tokenizer.eos_token_id:
+                    break
+                token_text = tokenizer.decode([next_id])
+                if token_text:
+                    yield token_text
+        finally:
+            if runtime_mode_state is not None:
+                native_model.restore_runtime_mode(runtime_mode_state)
+            if prior_esv_state is not None:
+                esv_module.state.copy_(prior_esv_state)
+                native_model._pending_esv_state = None
 
 
-def load_ghost_state(session_id: str) -> None:
-    _ACTIVE_GHOST.clear()
+def load_ghost_state(session_id: str) -> dict[str, object]:
+    state: dict[str, object] = {}
     if _GHOST_MEMORY is not None:
         try:
             stored = _GHOST_MEMORY.retrieve(session_id) or {}
-            _ACTIVE_GHOST.update(stored)
+            state.update(stored)
         except Exception:
-            _ACTIVE_GHOST.update(_GHOST_STORE.get(session_id, {}))
+            state.update(_GHOST_STORE.get(session_id, {}))
     else:
-        _ACTIVE_GHOST.update(_GHOST_STORE.get(session_id, {}))
-    _ACTIVE_GHOST["session_id"] = session_id
+        state.update(_GHOST_STORE.get(session_id, {}))
+    state["session_id"] = session_id
+    _GHOST_STORE[session_id] = state
+    return dict(state)
 
 
 def save_ghost_state(session_id: str) -> None:
-    _GHOST_STORE[session_id] = dict(_ACTIVE_GHOST)
+    state = dict(_GHOST_STORE.get(session_id, {"session_id": session_id}))
+    _GHOST_STORE[session_id] = state
     if _GHOST_MEMORY is not None:
         try:
-            _GHOST_MEMORY.store(session_id, dict(_ACTIVE_GHOST))
+            _GHOST_MEMORY.store(session_id, state)
         except Exception as exc:
             logger.warning("Ghost state persistence failed for session %s: %s", session_id, exc)
 
@@ -538,10 +893,18 @@ def get_model_info() -> dict[str, object]:
         kv_enabled = any(getattr(block.attn, "_kv_cache", None) is not None for block in blocks)
     except Exception:
         kv_enabled = False
+    checkpoint_sha256 = _sha256_file(Path(LOADED_CHECKPOINT))
+    tokenizer_sha256 = (
+        _sha256_file(V3_TOKENIZER_FILE)
+        if V3_TOKENIZER_FILE.exists()
+        else "missing"
+    )
     return {
         "model_line": "v2",
         "profile": _RUNTIME_PROFILE,
         "checkpoint": str(LOADED_CHECKPOINT),
+        "checkpoint_sha256": checkpoint_sha256,
+        "tokenizer_sha256": tokenizer_sha256,
         "vocab_size": TOKENIZER.vocab_size,
         "param_count": summary["parameters"],
         "trainable_parameters": summary["trainable_parameters"],
@@ -559,6 +922,16 @@ def get_model_info() -> dict[str, object]:
             "sessions_completed": _RUNTIME_LOAD_STATE.get("sessions_completed", 0),
             "data_profile": _RUNTIME_LOAD_STATE.get("data_profile", "unknown"),
             "training_data_layout": _RUNTIME_LOAD_STATE.get("training_data_layout", "unknown"),
+            "tokens_seen": _RUNTIME_LOAD_STATE.get("tokens_seen", 0),
+            "continuation_token_counts": _RUNTIME_LOAD_STATE.get(
+                "continuation_token_counts", {}
+            ),
+            "best_validation_loss": _RUNTIME_LOAD_STATE.get(
+                "best_validation_loss", float("inf")
+            ),
+            "tokenizer_identity": _RUNTIME_LOAD_STATE.get("tokenizer_identity", {}),
+            "load_report": _RUNTIME_LOAD_STATE.get("load_report", {}),
+            "migration": _RUNTIME_LOAD_STATE.get("migration", {}),
         },
     }
 

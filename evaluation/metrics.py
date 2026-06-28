@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
 import json
-from pathlib import Path
 import time
+from dataclasses import asdict, dataclass
+from pathlib import Path
 
 from anra.anra_paths import METRIC_HISTORY, METRIC_SNAPSHOT
 

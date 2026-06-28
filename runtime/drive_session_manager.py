@@ -7,9 +7,9 @@ import shutil
 import signal
 import threading
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable
 
 
 @dataclass(frozen=True)
@@ -22,7 +22,9 @@ class FamilyConfig:
 class DriveSessionManager:
     EMERGENCY_SAVE_ORDER = ["ghost", "graph", "lora", "replay", "training_state", "goals", "logs"]
 
-    def __init__(self, drive_dir: Path, session_id: str = "default", autosave_minutes: int = 30) -> None:
+    def __init__(
+        self, drive_dir: Path, session_id: str = "default", autosave_minutes: int = 30
+    ) -> None:
         self.drive_dir = Path(drive_dir)
         self.session_id = session_id
         self.session_dir = self.drive_dir / "sessions" / session_id
@@ -69,18 +71,23 @@ class DriveSessionManager:
         target = family_dir / f"{family}_v1_{ts}{ext}"
         shutil.copy2(source, target)
 
-        versions = sorted(family_dir.glob(f"{family}_v1_*{ext}"), key=lambda p: p.stat().st_mtime, reverse=True)
+        versions = sorted(
+            family_dir.glob(f"{family}_v1_*{ext}"), key=lambda p: p.stat().st_mtime, reverse=True
+        )
         for old in versions[3:]:
             old.unlink(missing_ok=True)
 
         manifest = self._load_manifest()
         family_manifest = manifest.setdefault("families", {}).setdefault(family, {"versions": []})
-        family_manifest["versions"].insert(0, {
-            "path": str(target.relative_to(self.session_dir)),
-            "sha256": self._sha256(target),
-            "size": target.stat().st_size,
-            "mtime": int(target.stat().st_mtime),
-        })
+        family_manifest["versions"].insert(
+            0,
+            {
+                "path": str(target.relative_to(self.session_dir)),
+                "sha256": self._sha256(target),
+                "size": target.stat().st_size,
+                "mtime": int(target.stat().st_mtime),
+            },
+        )
         family_manifest["versions"] = family_manifest["versions"][:3]
         self._save_manifest(manifest)
         return target
@@ -132,7 +139,7 @@ class DriveSessionManager:
             return
         previous_handler = signal.getsignal(signal.SIGTERM)
 
-        def _handler(signum, frame):
+        def _handler(signum: int, frame: object) -> None:
             callback()
             if callable(previous_handler):
                 previous_handler(signum, frame)

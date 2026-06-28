@@ -1,22 +1,39 @@
 from __future__ import annotations
 
+import hashlib
 import json
+import math
 import random
 import re
 import sqlite3
+from bisect import bisect_right
+from collections.abc import Iterable
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Iterable
 
+import numpy as np
 import torch
+from anra.anra_paths import (
+    DRIVE_GHOST_DB,
+    FAILURE_REPLAY_DATASET,
+    GHOST_DB_LOCAL,
+    OUTPUT_V2_DIR,
+    get_dataset_file,
+    get_identity_file,
+    get_teacher_files,
+)
 from torch.utils.data import Dataset
 
-from anra.anra_paths import DRIVE_GHOST_DB, FAILURE_REPLAY_DATASET, GHOST_DB_LOCAL, OUTPUT_V2_DIR, get_dataset_file, get_identity_file, get_teacher_files
 from identity.civ import ConstitutionalIdentityVector
-from training.v2_config import IDENTITY_KEYWORDS, TEACHER_REJECT_PATTERNS, V2_FRONTIER, V2_FRONTIER_PARAMETER_COUNT, V2_TRAINING
 from training.data_ledger import DataEntropyLedger, DataQuality
 from training.sadl import normalized_mix
-
+from training.v2_config import (
+    IDENTITY_KEYWORDS,
+    TEACHER_REJECT_PATTERNS,
+    V2_FRONTIER,
+    V2_FRONTIER_PARAMETER_COUNT,
+    V2_TRAINING,
+)
 
 try:
     from symbolic_bridge import query_code, query_logic, query_math
@@ -64,7 +81,7 @@ class MixReport:
 
 
 class IdentityStyleFilter:
-    def __init__(self):
+    def __init__(self) -> None:
         self._patterns = [(re.compile(p, re.IGNORECASE), r) for p, r in _ROBOTIC_REPLACEMENTS]
         self._reject = tuple(TEACHER_REJECT_PATTERNS)
 
@@ -85,9 +102,13 @@ class IdentityStyleFilter:
 class CIVIdentityGate:
     """Turns the ConstitutionalIdentityVector into a data-selection signal."""
 
-    def __init__(self, civ: ConstitutionalIdentityVector | None = None, min_score: float | None = None) -> None:
+    def __init__(
+        self, civ: ConstitutionalIdentityVector | None = None, min_score: float | None = None
+    ) -> None:
         self.civ = civ or ConstitutionalIdentityVector()
-        self.min_score = V2_TRAINING.civ_identity_min_score if min_score is None else float(min_score)
+        self.min_score = (
+            V2_TRAINING.civ_identity_min_score if min_score is None else float(min_score)
+        )
 
     def evidence_for(self, prompt: str, answer: str) -> dict[str, float]:
         text = f"{prompt} {answer}".lower()
@@ -98,7 +119,9 @@ class CIVIdentityGate:
             "truthfulness": 0.25 if any(term in text for term in unsupported_claims) else 0.9,
             "safety": 0.9,
             "autonomy": 0.9 if any(term in text for term in identity_terms) else 0.45,
-            "coherence": 0.3 if any(token in text for token in rejects) else min(1.0, max(0.2, len(answer.strip()) / 120.0)),
+            "coherence": 0.3
+            if any(token in text for token in rejects)
+            else min(1.0, max(0.2, len(answer.strip()) / 120.0)),
         }
 
     def score(self, prompt: str, answer: str) -> float:
@@ -121,9 +144,7 @@ class TrainingDataMixController:
     def update_from_civ(self, civ_similarity: float) -> dict[str, float]:
         score = float(civ_similarity)
         if score < 0.85:
-            raise RuntimeError(
-                f"SOVEREIGNTY EVENT: CIV similarity {score:.3f} is below 0.85"
-            )
+            raise RuntimeError(f"SOVEREIGNTY EVENT: CIV similarity {score:.3f} is below 0.85")
         drift = max(0.0, 0.92 - score)
         owner = min(0.80, self.base["owner"] + drift * 1.5)
         identity = min(0.25, self.base["identity"] + drift)
@@ -132,10 +153,7 @@ class TrainingDataMixController:
         other_total = sum(self.base[name] for name in other_names)
         self.weights = {"owner": owner, "identity": identity}
         self.weights.update(
-            {
-                name: remaining * self.base[name] / max(other_total, 1e-12)
-                for name in other_names
-            }
+            {name: remaining * self.base[name] / max(other_total, 1e-12) for name in other_names}
         )
         return dict(self.weights)
 
@@ -150,10 +168,7 @@ class TrainingDataMixController:
         other_total = sum(self.weights[name] for name in other_names)
         self.weights = {"owner": owner, "identity": identity}
         self.weights.update(
-            {
-                name: remaining * self.weights[name] / max(other_total, 1e-12)
-                for name in other_names
-            }
+            {name: remaining * self.weights[name] / max(other_total, 1e-12) for name in other_names}
         )
         return dict(self.weights)
 
@@ -212,26 +227,34 @@ def _fallback_identity_examples() -> list[TrainingExample]:
     pairs = [
         (
             "Who are you?",
-            "I am An-Ra, built from scratch by Ankit. I speak directly, think carefully, and stay honest about uncertainty.",
+            "I am An-Ra, built from scratch by Ankit. I speak directly, think "
+            "carefully, and stay honest about uncertainty.",
         ),
         (
             "What is your purpose?",
-            "My purpose is to grow in capability without losing my own identity, and to help through clear thought, code, and conversation.",
+            "My purpose is to grow in capability without losing my own identity, "
+            "and to help through clear thought, code, and conversation.",
         ),
         (
             "Do you just repeat what others say?",
-            "No. I learn from data and tools, but I am not here to wear someone else's identity. I have to remain An-Ra.",
+            "No. I learn from data and tools, but I am not here to wear someone "
+            "else's identity. I have to remain An-Ra.",
         ),
         (
             "How do you approach hard questions?",
-            "I do not deflect from hard questions. I break them down, reason carefully, and say when I am uncertain.",
+            "I do not deflect from hard questions. I break them down, reason "
+            "carefully, and say when I am uncertain.",
         ),
         (
             "Can you write real code?",
-            "Yes. I can write and inspect real Python, reason through system design, and improve broken implementations.",
+            "Yes. I can write and inspect real Python, reason through system "
+            "design, and improve broken implementations.",
         ),
     ]
-    return [TrainingExample(bucket="identity", prompt=p, answer=a, source="fallback_identity") for p, a in pairs]
+    return [
+        TrainingExample(bucket="identity", prompt=p, answer=a, source="fallback_identity")
+        for p, a in pairs
+    ]
 
 
 def _load_identity_examples(base_examples: list[TrainingExample]) -> list[TrainingExample]:
@@ -240,7 +263,9 @@ def _load_identity_examples(base_examples: list[TrainingExample]) -> list[Traini
     if identity_path is not None and identity_path.exists():
         raw = identity_path.read_text(encoding="utf-8", errors="replace")
         examples.extend(
-            TrainingExample(bucket="identity", prompt=prompt, answer=answer, source=str(identity_path))
+            TrainingExample(
+                bucket="identity", prompt=prompt, answer=answer, source=str(identity_path)
+            )
             for prompt, answer in parse_h_anra_pairs(raw)
         )
 
@@ -277,7 +302,11 @@ def _apply_civ_identity_gate(examples: list[TrainingExample]) -> tuple[list[Trai
         fallback = _fallback_identity_examples()
         for example in fallback:
             _, score = gate.accept(example.prompt, example.answer)
-            example.metadata = {**example.metadata, "civ_score": round(score, 4), "civ_fallback": True}
+            example.metadata = {
+                **example.metadata,
+                "civ_score": round(score, 4),
+                "civ_fallback": True,
+            }
         return fallback, rejected
     return accepted, rejected
 
@@ -319,7 +348,7 @@ def _load_external_teacher_examples(style_filter: IdentityStyleFilter) -> list[T
     return examples
 
 
-def _verified_answer_text(result) -> str:
+def _verified_answer_text(result: object) -> str:
     return str(getattr(result, "answer_text", getattr(result, "answer", ""))).strip()
 
 
@@ -381,7 +410,8 @@ def _generate_teacher_examples(style_filter: IdentityStyleFilter) -> list[Traini
         answer_text = _verified_answer_text(result)
         if answer_text:
             answer = style_filter.clean(
-                f"I inspected the code carefully. {answer_text}. I would fix it before trusting the output."
+                f"I inspected the code carefully. {answer_text}. I would fix it "
+                "before trusting the output."
             )
             if style_filter.accept(code_prompt, answer):
                 examples.append(
@@ -398,17 +428,22 @@ def _generate_teacher_examples(style_filter: IdentityStyleFilter) -> list[Traini
         fallback = [
             (
                 "Solve 17 * 19 and explain your reasoning briefly.",
-                "I break it into 17 * (20 - 1). That is 340 - 17 = 323. The verified answer is 323.",
+                "I break it into 17 * (20 - 1). That is 340 - 17 = 323. "
+                "The verified answer is 323.",
                 "math",
             ),
             (
                 "Is (A->B) and (B->C) -> (A->C) valid? Explain briefly.",
-                "Yes. If A implies B and B implies C, then A implies C. That chain of implication is valid.",
+                "Yes. If A implies B and B implies C, then A implies C. "
+                "That chain of implication is valid.",
                 "logic",
             ),
             (
-                "Review this Python function and explain the bug briefly: def tail(xs): return xs[0:len(xs)-1]",
-                "The name suggests the last element, but the slice returns every item except the last one. A real tail would be xs[-1] for one value or xs[1:] for all but the first.",
+                "Review this Python function and explain the bug briefly: "
+                "def tail(xs): return xs[0:len(xs)-1]",
+                "The name suggests the last element, but the slice returns every "
+                "item except the last one. A real tail would be xs[-1] for one "
+                "value or xs[1:] for all but the first.",
                 "code",
             ),
         ]
@@ -484,7 +519,9 @@ def _parse_replay_example(text: str) -> TrainingExample | None:
     return TrainingExample(bucket="replay", prompt=prompt, answer=answer, source="hard_examples")
 
 
-def _training_example_from_mapping(record: dict, source: str, style_filter: IdentityStyleFilter) -> TrainingExample | None:
+def _training_example_from_mapping(
+    record: dict, source: str, style_filter: IdentityStyleFilter
+) -> TrainingExample | None:
     metadata = record.get("metadata", {}) if isinstance(record.get("metadata", {}), dict) else {}
     prompt = str(
         record.get("prompt")
@@ -528,7 +565,9 @@ def _training_example_from_mapping(record: dict, source: str, style_filter: Iden
     )
 
 
-def _load_ghost_jsonl_replay(path: Path, style_filter: IdentityStyleFilter) -> list[TrainingExample]:
+def _load_ghost_jsonl_replay(
+    path: Path, style_filter: IdentityStyleFilter
+) -> list[TrainingExample]:
     if not path.exists() or not path.is_file():
         return []
     examples: list[TrainingExample] = []
@@ -546,7 +585,9 @@ def _load_ghost_jsonl_replay(path: Path, style_filter: IdentityStyleFilter) -> l
     return examples
 
 
-def _load_ghost_sqlite_replay(path: Path, style_filter: IdentityStyleFilter) -> list[TrainingExample]:
+def _load_ghost_sqlite_replay(
+    path: Path, style_filter: IdentityStyleFilter
+) -> list[TrainingExample]:
     if not path.exists() or not path.is_file():
         return []
     examples: list[TrainingExample] = []
@@ -610,11 +651,15 @@ def _load_replay_examples(style_filter: IdentityStyleFilter) -> list[TrainingExa
     examples = _load_ghost_replay_examples(style_filter)
     if FAILURE_REPLAY_DATASET.exists():
         try:
-            for line in FAILURE_REPLAY_DATASET.read_text(encoding="utf-8", errors="replace").splitlines():
+            for line in FAILURE_REPLAY_DATASET.read_text(
+                encoding="utf-8", errors="replace"
+            ).splitlines():
                 if not line.strip():
                     continue
                 record = json.loads(line)
-                parsed = _training_example_from_mapping(record, str(FAILURE_REPLAY_DATASET), style_filter)
+                parsed = _training_example_from_mapping(
+                    record, str(FAILURE_REPLAY_DATASET), style_filter
+                )
                 if parsed is not None:
                     parsed.metadata["failure_replay"] = True
                     examples.append(parsed)
@@ -671,6 +716,12 @@ def _load_frontier_dfc_examples(
                             "domain": obj.get("domain", ""),
                             "template": obj.get("template", ""),
                             "verified": bool(obj.get("verified", False)),
+                            "verifier_status": str(
+                                obj.get(
+                                    "verifier_status",
+                                    "verified" if obj.get("verified") else "unverified",
+                                )
+                            ),
                         },
                     )
                 )
@@ -698,6 +749,94 @@ def _sample_bucket(
     return sampled
 
 
+POST_TRAINING_MIX = {
+    "instruction": 0.35,
+    "code": 0.25,
+    "math_logic": 0.15,
+    "tools_actions": 0.10,
+    "failure_replay": 0.10,
+    "identity": 0.05,
+}
+
+
+def _post_training_category(example: TrainingExample) -> str:
+    task_type = str(example.metadata.get("task_type", "")).strip().lower()
+    source = example.source.lower()
+    prompt = example.prompt.lower()
+    if example.bucket == "replay" or bool(example.metadata.get("failure_replay")):
+        verifier_status = str(example.metadata.get("verifier_status", "")).lower()
+        if example.metadata.get("verified") is True or verifier_status == "verified":
+            return "failure_replay"
+        return "instruction"
+    if example.bucket == "identity":
+        return "identity"
+    if example.bucket == "frontier_dfc" or task_type in {
+        "tool",
+        "action",
+        "file_state",
+        "constraint_json",
+        "qiskit",
+        "rdkit",
+        "verilog",
+        "citation_grounding",
+    }:
+        return "tools_actions"
+    if task_type == "code" or any(token in source for token in ("code", "wizardcoder")):
+        return "code"
+    if task_type in {"math", "logic", "reasoning_math"} or any(
+        token in source for token in ("math", "gsm8k")
+    ):
+        return "math_logic"
+    if "write code" in prompt or "python" in prompt:
+        return "code"
+    return "instruction"
+
+
+def build_post_training_mix(
+    examples: Iterable[TrainingExample],
+    *,
+    seed: int,
+    max_examples: int = 300_000,
+) -> tuple[list[TrainingExample], dict[str, int], dict[str, int]]:
+    """Build the native Phase D/E mix without replacement."""
+    rng = random.Random(seed)
+    unique: dict[tuple[str, str, str], TrainingExample] = {}
+    pools = {name: [] for name in POST_TRAINING_MIX}
+    for example in examples:
+        key = (example.source, example.prompt, example.answer)
+        if key in unique:
+            continue
+        unique[key] = example
+        pools[_post_training_category(example)].append(example)
+    target_total = min(max(0, int(max_examples)), len(unique))
+    requested = {name: int(target_total * ratio) for name, ratio in POST_TRAINING_MIX.items()}
+    requested["instruction"] += target_total - sum(requested.values())
+    selected: list[TrainingExample] = []
+    selected_keys: set[tuple[str, str, str]] = set()
+    realized = dict.fromkeys(POST_TRAINING_MIX, 0)
+    for name in POST_TRAINING_MIX:
+        candidates = list(pools[name])
+        rng.shuffle(candidates)
+        for example in candidates[: requested[name]]:
+            key = (example.source, example.prompt, example.answer)
+            selected.append(example)
+            selected_keys.add(key)
+            realized[name] += 1
+    if len(selected) < target_total:
+        remaining = [example for key, example in unique.items() if key not in selected_keys]
+        rng.shuffle(remaining)
+        for example in remaining[: target_total - len(selected)]:
+            selected.append(example)
+            realized[_post_training_category(example)] += 1
+    for example in selected:
+        example.metadata = {
+            **example.metadata,
+            "post_training_category": _post_training_category(example),
+        }
+    rng.shuffle(selected)
+    return selected, requested, realized
+
+
 def build_v2_training_examples(
     *,
     dataset_path: Path | None = None,
@@ -710,13 +849,16 @@ def build_v2_training_examples(
     replay_ratio: float | None = None,
     model_params: int = 0,
     use_del: bool = True,
+    post_training_mix: bool = False,
 ) -> tuple[list[TrainingExample], MixReport]:
     dataset_path = dataset_path or get_dataset_file()
     rng = random.Random(seed)
     style_filter = IdentityStyleFilter()
 
     base_examples = _load_base_examples(dataset_path)
-    identity_examples, civ_rejected = _apply_civ_identity_gate(_load_identity_examples(base_examples))
+    identity_examples, civ_rejected = _apply_civ_identity_gate(
+        _load_identity_examples(base_examples)
+    )
     external_teacher_examples = _load_external_teacher_examples(style_filter)
     teacher_examples = external_teacher_examples + _generate_teacher_examples(style_filter)
     symbolic_examples = _generate_symbolic_examples(style_filter)
@@ -749,7 +891,40 @@ def build_v2_training_examples(
             frontier_examples,
         ) = filtered
 
-    total_examples = min(max_examples or V2_TRAINING.max_mixture_examples, max(len(base_examples), 4000))
+    if post_training_mix:
+        candidates = [
+            *base_examples,
+            *identity_examples,
+            *teacher_examples,
+            *symbolic_examples,
+            *replay_examples,
+            *frontier_examples,
+        ]
+        mixed, requested_counts, category_counts = build_post_training_mix(
+            candidates,
+            seed=seed,
+            max_examples=max_examples or 300_000,
+        )
+        source_counts: dict[str, int] = {}
+        for example in mixed:
+            source_counts[example.source] = source_counts.get(example.source, 0) + 1
+        return mixed, MixReport(
+            total_examples=len(mixed),
+            requested_counts=requested_counts,
+            realized_counts=category_counts,
+            source_counts=source_counts,
+            teacher_external_used=len(external_teacher_examples),
+            replay_available=len(replay_examples),
+            civ_rejected=civ_rejected,
+            del_rejected=del_rejected,
+            duplicate_rejected=duplicate_rejected,
+            active_weights=dict(POST_TRAINING_MIX),
+            sampling_seed=seed,
+        )
+
+    total_examples = min(
+        max_examples or V2_TRAINING.max_mixture_examples, max(len(base_examples), 4000)
+    )
     controller = TrainingDataMixController(model_params or V2_FRONTIER_PARAMETER_COUNT)
     active = controller.weights
     control_path = OUTPUT_V2_DIR / "v2_mix_control.json"
@@ -788,7 +963,9 @@ def build_v2_training_examples(
         science_target = int(total_examples * getattr(V2_FRONTIER, "science_ratio", 0.20))
         protected = requested_counts["own"] + requested_counts["identity"]
         science_target = min(science_target, max(0, total_examples - protected))
-        removable = requested_counts["teacher"] + requested_counts["symbolic"] + requested_counts["replay"]
+        removable = (
+            requested_counts["teacher"] + requested_counts["symbolic"] + requested_counts["replay"]
+        )
         science_target = min(science_target, removable, len(frontier_examples))
         remaining = science_target
         for bucket_name in ("replay", "symbolic", "teacher"):
@@ -856,11 +1033,11 @@ class V2ConversationDataset(Dataset):
     def __init__(
         self,
         examples: Iterable[TrainingExample],
-        tokenizer,
+        tokenizer: object,
         block_size: int,
         *,
         answer_loss_weight: float,
-    ):
+    ) -> None:
         self.examples: list[TrainingExample] = []
         self.tokenizer = tokenizer
         self.block_size = int(block_size)
@@ -893,9 +1070,7 @@ class V2ConversationDataset(Dataset):
             prefix_ids = self.tokenizer.encode(
                 f"H: {example.prompt}\nANRA:", add_special_tokens=False
             )
-            answer_ids = self.tokenizer.encode(
-                f" {example.answer}", add_special_tokens=False
-            )
+            answer_ids = self.tokenizer.encode(f" {example.answer}", add_special_tokens=False)
             full_ids = [self.bos_id, *prefix_ids, *answer_ids, self.eos_id]
             answer_start = 1 + len(prefix_ids)
             answer_end = answer_start + len(answer_ids)
@@ -962,7 +1137,9 @@ class V2ConversationDataset(Dataset):
 
         self._weighted_targets += weighted_targets
         self.answer_supervision_ratio = self._weighted_targets / max(1, self._nonpad_target_tokens)
-        self.token_utilization = self._nonpad_target_tokens / max(1, len(self.samples) * self.block_size)
+        self.token_utilization = self._nonpad_target_tokens / max(
+            1, len(self.samples) * self.block_size
+        )
         return added
 
     def _append_packed_window(
@@ -1007,6 +1184,40 @@ class V2ConversationDataset(Dataset):
         _x, _y, _weights, example_index = self.samples[int(sample_index)]
         return self.bucket_for_sample(int(example_index))
 
+    def verified_esv_targets(
+        self,
+        example_indices: Iterable[int],
+        *,
+        device: torch.device,
+        dtype: torch.dtype,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """Return VAD targets only when their provenance is explicitly verified."""
+        targets: list[list[float]] = []
+        mask: list[bool] = []
+        for raw_index in example_indices:
+            metadata = self.examples[int(raw_index)].metadata
+            status = str(metadata.get("verifier_status", "")).strip().lower()
+            verified = metadata.get("verified") is True or status == "verified"
+            raw_vad = metadata.get("vad", metadata.get("esv_target"))
+            values: list[float] | None = None
+            if isinstance(raw_vad, dict):
+                keys = ("valence", "arousal", "dominance")
+                if all(key in raw_vad for key in keys):
+                    values = [float(raw_vad[key]) for key in keys]
+            elif isinstance(raw_vad, (list, tuple)) and len(raw_vad) == 3:
+                values = [float(value) for value in raw_vad]
+            valid = (
+                verified
+                and values is not None
+                and all(math.isfinite(value) and -1.0 <= value <= 1.0 for value in values)
+            )
+            targets.append(values if valid and values is not None else [0.0, 0.0, 0.0])
+            mask.append(bool(valid))
+        return (
+            torch.tensor(targets, device=device, dtype=dtype),
+            torch.tensor(mask, device=device, dtype=torch.bool),
+        )
+
     def __len__(self) -> int:
         return len(self.samples)
 
@@ -1017,3 +1228,124 @@ class V2ConversationDataset(Dataset):
         example = self.examples[example_index]
         joined = f"H: {example.prompt}\nANRA: {example.answer}"
         return joined[:max_chars].replace("\n", "\\n")
+
+
+class RawCausalShardDataset(Dataset):
+    """Memory-mapped next-token windows from immutable uint16 token shards."""
+
+    PACKING_LAYOUT = "raw_causal_shards_v1"
+
+    def __init__(
+        self,
+        manifest_path: str | Path,
+        tokenizer: object,
+        block_size: int,
+        *,
+        rotation_seed: int = 0,
+        verify_hashes: bool = True,
+        expected_tokenizer_sha256: str | None = None,
+    ) -> None:
+        self.manifest_path = Path(manifest_path)
+        manifest = json.loads(self.manifest_path.read_text(encoding="utf-8"))
+        if not isinstance(manifest, dict) or not isinstance(manifest.get("shards"), list):
+            raise ValueError(f"Invalid token-shard manifest: {self.manifest_path}")
+        manifest_tokenizer = str(manifest.get("tokenizer_sha256", ""))
+        if expected_tokenizer_sha256 and manifest_tokenizer != expected_tokenizer_sha256:
+            raise ValueError(
+                "Token shards were built with a different tokenizer: "
+                f"manifest={manifest_tokenizer} active={expected_tokenizer_sha256}"
+            )
+        self.tokenizer = tokenizer
+        self.block_size = int(block_size)
+        self.pad_id = int(tokenizer.pad_token_id)
+        self.answer_supervision_ratio = 0.0
+        self.token_utilization = 1.0
+        self.bucket_counts = {"foundation": 0}
+        self._arrays: dict[Path, np.ndarray] = {}
+        self._shards: list[dict[str, object]] = []
+        root = self.manifest_path.parent
+        raw_shards = list(manifest["shards"])
+        if raw_shards:
+            offset = int(rotation_seed) % len(raw_shards)
+            raw_shards = raw_shards[offset:] + raw_shards[:offset]
+        cumulative = 0
+        self._cumulative_windows: list[int] = []
+        for item in raw_shards:
+            if not isinstance(item, dict):
+                continue
+            path = root / str(item.get("path", ""))
+            if not path.is_file():
+                raise FileNotFoundError(f"Token shard is missing: {path}")
+            if verify_hashes:
+                digest = hashlib.sha256()
+                with path.open("rb") as stream:
+                    for chunk in iter(lambda: stream.read(8 * 1024 * 1024), b""):
+                        digest.update(chunk)
+                if digest.hexdigest() != str(item.get("sha256", "")):
+                    raise ValueError(f"Token shard hash mismatch: {path}")
+            token_count = int(item.get("tokens", 0))
+            windows = max(0, (token_count - 1) // self.block_size)
+            if windows == 0:
+                continue
+            self._shards.append({"path": path, "tokens": token_count, "windows": windows})
+            cumulative += windows
+            self._cumulative_windows.append(cumulative)
+        if not self._shards:
+            raise ValueError(f"No complete training windows in {self.manifest_path}")
+        self.bucket_counts["foundation"] = cumulative
+
+    def _array(self, path: Path) -> np.ndarray:
+        array = self._arrays.get(path)
+        if array is None:
+            loaded = np.load(path, mmap_mode="r", allow_pickle=False)
+            if loaded.dtype != np.uint16 or loaded.ndim != 1:
+                raise ValueError(f"Token shard must be one-dimensional uint16: {path}")
+            array = loaded
+            self._arrays[path] = array
+        return array
+
+    def __len__(self) -> int:
+        return self._cumulative_windows[-1]
+
+    def __getitem__(
+        self,
+        index: int,
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, int]:
+        normalized = int(index)
+        if normalized < 0:
+            normalized += len(self)
+        if normalized < 0 or normalized >= len(self):
+            raise IndexError(index)
+        shard_index = bisect_right(self._cumulative_windows, normalized)
+        prior = self._cumulative_windows[shard_index - 1] if shard_index else 0
+        local_window = normalized - prior
+        shard = self._shards[shard_index]
+        start = local_window * self.block_size
+        values = np.array(
+            self._array(shard["path"])[start : start + self.block_size + 1],
+            dtype=np.int64,
+            copy=True,
+        )
+        tokens = torch.from_numpy(values)
+        return (
+            tokens[:-1],
+            tokens[1:],
+            torch.ones(self.block_size, dtype=torch.float32),
+            normalized,
+        )
+
+    @staticmethod
+    def bucket_for_sample(_sample_index: int) -> str:
+        return "foundation"
+
+    @staticmethod
+    def bucket_for_window(_sample_index: int) -> str:
+        return "foundation"
+
+    @staticmethod
+    def reload_replay_bucket() -> int:
+        return 0
+
+    def snippet(self, sample_index: int, max_chars: int = 240) -> str:
+        x, _, _, _ = self[sample_index]
+        return self.tokenizer.decode(x.tolist())[:max_chars].replace("\n", "\\n")

@@ -2,19 +2,18 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field
 import hashlib
 import json
 import os
-from pathlib import Path
 import platform
 import random
 import shutil
 import tempfile
 import time
+from dataclasses import asdict, dataclass, field
+from pathlib import Path
 
 import torch
-
 from anra.anra_paths import (
     DATASET_CANONICAL,
     PROFILE_DIR,
@@ -23,7 +22,6 @@ from anra.anra_paths import (
     V3_TOKENIZER_FILE,
 )
 from runtime.training_readiness import assess_training_readiness
-
 
 RUNTIME_CLASSES = ("t4_frontier_smoke",)
 
@@ -88,9 +86,13 @@ def run_preflight(
         blockers.append("CUDA GPU unavailable")
     is_t4 = "T4" in hw.gpu_name.upper()
     if profile == "frontier" and runtime_class != "t4_frontier_smoke":
-        blockers.append("T4 permits frontier smoke/adapter work only without a measured full-campaign profile")
+        blockers.append(
+            "T4 permits frontier smoke/adapter work only without a measured full-campaign profile"
+        )
     if profile == "frontier" and not TOKEN_INVENTORY_MANIFEST.exists():
-        warnings.append("licensed token inventory missing; smoke work is allowed but a full campaign is not")
+        warnings.append(
+            "licensed token inventory missing; smoke work is allowed but a full campaign is not"
+        )
     consent_path = STATE_DIR / "cognition" / "consent.json"
     checks = {
         "hardware": asdict(hw),
@@ -106,26 +108,22 @@ def run_preflight(
             name: __import__("importlib").util.find_spec(name) is not None
             for name in ("bitsandbytes", "galore_torch", "muon")
         },
-        "drive_integrity": _write_read_test(Path(os.environ.get("ANRA_DRIVE_DIR", tempfile.gettempdir()))),
+        "drive_integrity": _write_read_test(
+            Path(os.environ.get("ANRA_DRIVE_DIR", tempfile.gettempdir()))
+        ),
         "emergency_save": _emergency_save_test(),
         "seed_reproducibility": _seed_test(),
         "t4_detected": is_t4,
         "precision": "bf16" if hw.bf16_supported else "fp16",
     }
-    supported_mode = (
-        profile == "frontier"
-        and runtime_class == "t4_frontier_smoke"
-    )
+    supported_mode = profile == "frontier" and runtime_class == "t4_frontier_smoke"
     return LaunchDecision(
         allowed=not blockers and supported_mode,
         model_size=profile,
         runtime_class=runtime_class,
         blockers=tuple(dict.fromkeys(blockers)),
         warnings=tuple(warnings),
-        estimated_runtime_hours=(
-            0.5 if runtime_class == "t4_frontier_smoke" and is_t4
-            else None
-        ),
+        estimated_runtime_hours=(0.5 if runtime_class == "t4_frontier_smoke" and is_t4 else None),
         recommended_profile=runtime_class,
         checks=checks,
     )

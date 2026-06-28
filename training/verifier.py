@@ -1,15 +1,15 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from pathlib import Path
 import os
 import re
 import subprocess
 import tempfile
+from collections.abc import Callable
+from dataclasses import dataclass
+from pathlib import Path
 
 try:
     from anra.anra_paths import EPG_PATH, WORKSPACE_DIR
-
     from domain_verifiers import (
         verify_citation_grounding,
         verify_constraint_json,
@@ -21,7 +21,9 @@ try:
 except Exception:  # pragma: no cover - optional Phase 3 bridge may be unavailable.
     EPG_PATH = None
     WORKSPACE_DIR = Path("workspace")
-    verify_qiskit = verify_rdkit = verify_verilog = verify_constraint_json = verify_citation_grounding = verify_cross_domain_analogy = None
+    verify_qiskit = verify_rdkit = verify_verilog = verify_constraint_json = (
+        verify_citation_grounding
+    ) = verify_cross_domain_analogy = None
 
 
 @dataclass
@@ -53,7 +55,9 @@ class VerifierHierarchy:
             os.close(fd)
             tmp_path = Path(raw_path)
             tmp_path.write_text(code, encoding="utf-8")
-            env = {k: v for k, v in os.environ.items() if k in {"PATH", "PYTHONPATH", "HOME", "TMPDIR"}}
+            env = {
+                k: v for k, v in os.environ.items() if k in {"PATH", "PYTHONPATH", "HOME", "TMPDIR"}
+            }
             proc = subprocess.run(
                 ["python3", str(tmp_path)],
                 capture_output=True,
@@ -83,7 +87,9 @@ class VerifierHierarchy:
         if result.return_code == 0:
             return VerificationResult(0.7, 1, "ran_without_tests", result.stdout, result.stderr, 0)
         if "SyntaxError" in result.stderr or "Traceback" in result.stderr:
-            return VerificationResult(0.2, 1, "runtime_or_syntax_error", result.stdout, result.stderr, result.return_code)
+            return VerificationResult(
+                0.2, 1, "runtime_or_syntax_error", result.stdout, result.stderr, result.return_code
+            )
         return VerificationResult(0.0, 1, "crash", result.stdout, result.stderr, result.return_code)
 
     def verify_math(self, expression: str, expected: str) -> VerificationResult:
@@ -93,14 +99,18 @@ class VerifierHierarchy:
             lhs = sp.sympify(expression)
             rhs = sp.sympify(expected)
             ok = bool(sp.simplify(lhs - rhs) == 0)
-            return VerificationResult(1.0 if ok else 0.0, 1, "equivalent" if ok else "not_equivalent")
+            return VerificationResult(
+                1.0 if ok else 0.0, 1, "equivalent" if ok else "not_equivalent"
+            )
         except Exception as exc:
             return VerificationResult(0.0, 1, f"math_error: {exc}")
 
-    def verify_file_state(self, check_fn) -> VerificationResult:
+    def verify_file_state(self, check_fn: Callable[[], object]) -> VerificationResult:
         try:
             ok = bool(check_fn())
-            return VerificationResult(1.0 if ok else 0.0, 1, "file_state_ok" if ok else "file_state_mismatch")
+            return VerificationResult(
+                1.0 if ok else 0.0, 1, "file_state_ok" if ok else "file_state_mismatch"
+            )
         except Exception as exc:
             return VerificationResult(0.0, 1, f"file_state_error: {exc}")
 
@@ -114,7 +124,9 @@ class VerifierHierarchy:
         actual = re.sub(r"\s+", " ", response.strip().lower())
         reference = re.sub(r"\s+", " ", expected.strip().lower())
         passed = bool(reference) and reference in actual
-        return VerificationResult(1.0 if passed else 0.0, 1, f"{label}_{'verified' if passed else 'mismatch'}")
+        return VerificationResult(
+            1.0 if passed else 0.0, 1, f"{label}_{'verified' if passed else 'mismatch'}"
+        )
 
     def verify_open_ended(self, task: str, response: str) -> VerificationResult:
         response = (response or "").strip()
@@ -150,7 +162,7 @@ class VerifierHierarchy:
         score = min(0.85, max(0.0, score))
         return VerificationResult(score, 3, "open_ended_semantic_heuristic")
 
-    def score(self, task_type: str, **kwargs) -> VerificationResult:
+    def score(self, task_type: str, **kwargs: object) -> VerificationResult:
         if task_type == "code":
             return self.verify_code(kwargs.get("code", ""), kwargs.get("test_code", ""))
         if task_type == "math":
@@ -162,15 +174,37 @@ class VerifierHierarchy:
                 task_type,
             )
         if task_type == "qiskit" and verify_qiskit is not None:
-            return self._from_domain_result(verify_qiskit(kwargs.get("qasm", kwargs.get("code", "")), kwargs.get("target_topology", "linear_nn")))
+            return self._from_domain_result(
+                verify_qiskit(
+                    kwargs.get("qasm", kwargs.get("code", "")),
+                    kwargs.get("target_topology", "linear_nn"),
+                )
+            )
         if task_type == "rdkit" and verify_rdkit is not None:
-            return self._from_domain_result(verify_rdkit(kwargs.get("smiles", kwargs.get("molecule", kwargs.get("response", "")))))
+            return self._from_domain_result(
+                verify_rdkit(
+                    kwargs.get("smiles", kwargs.get("molecule", kwargs.get("response", "")))
+                )
+            )
         if task_type in {"verilog", "verilator"} and verify_verilog is not None:
-            return self._from_domain_result(verify_verilog(kwargs.get("verilog", kwargs.get("code", "")), kwargs.get("testbench", kwargs.get("test_code", ""))))
+            return self._from_domain_result(
+                verify_verilog(
+                    kwargs.get("verilog", kwargs.get("code", "")),
+                    kwargs.get("testbench", kwargs.get("test_code", "")),
+                )
+            )
         if task_type == "constraint_json" and verify_constraint_json is not None:
-            return self._from_domain_result(verify_constraint_json(kwargs.get("constraints", {}), kwargs.get("candidate", {})))
+            return self._from_domain_result(
+                verify_constraint_json(kwargs.get("constraints", {}), kwargs.get("candidate", {}))
+            )
         if task_type == "citation_grounding" and verify_citation_grounding is not None:
-            return self._from_domain_result(verify_citation_grounding(kwargs.get("claim", kwargs.get("response", "")), kwargs.get("epg_path"), kwargs.get("memory_nodes")))
+            return self._from_domain_result(
+                verify_citation_grounding(
+                    kwargs.get("claim", kwargs.get("response", "")),
+                    kwargs.get("epg_path"),
+                    kwargs.get("memory_nodes"),
+                )
+            )
         if task_type == "cross_domain_analogy" and verify_cross_domain_analogy is not None:
             return self._from_domain_result(
                 verify_cross_domain_analogy(
@@ -187,7 +221,7 @@ class VerifierHierarchy:
             return self.verify_instruction(kwargs.get("response", ""), kwargs.get("pattern", ".*"))
         return self.verify_open_ended(kwargs.get("task", ""), kwargs.get("response", ""))
 
-    def _from_domain_result(self, result) -> VerificationResult:
+    def _from_domain_result(self, result: object) -> VerificationResult:
         return VerificationResult(
             float(getattr(result, "score", 0.0)),
             1,

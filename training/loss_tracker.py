@@ -13,7 +13,9 @@ import math
 import random
 import tempfile
 from pathlib import Path
+
 import matplotlib
+
 matplotlib.use("Agg")  # non-interactive backend — safe on headless servers
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
@@ -104,7 +106,7 @@ class LossTracker:
             logger.warning(
                 f"[Epoch {epoch}] Overfitting detected: "
                 f"val={val_loss:.4f} train={train_loss:.4f} "
-                f"ratio={val_loss/train_loss:.2f}x"
+                f"ratio={val_loss / train_loss:.2f}x"
             )
 
         # Track best val
@@ -155,8 +157,10 @@ class LossTracker:
         # Restore EMA state from last recorded smooth value
         if self.train_smooth:
             self._ema = self.train_smooth[-1]
-        logger.info(f"Loss history restored: {len(self.train_steps)} train steps, "
-                    f"{len(self.val_epochs)} val epochs")
+        logger.info(
+            f"Loss history restored: {len(self.train_steps)} train steps, "
+            f"{len(self.val_epochs)} val epochs"
+        )
         return True
 
     # ------------------------------------------------------------------
@@ -184,12 +188,19 @@ class LossTracker:
         ax0 = axes[0]
         if self.train_steps:
             ax0.plot(
-                self.train_steps, self.train_losses,
-                color="#3a86ff", alpha=0.25, linewidth=0.8, label="Train loss (raw)"
+                self.train_steps,
+                self.train_losses,
+                color="#3a86ff",
+                alpha=0.25,
+                linewidth=0.8,
+                label="Train loss (raw)",
             )
             ax0.plot(
-                self.train_steps, self.train_smooth,
-                color="#3a86ff", linewidth=1.8, label="Train loss (EMA)"
+                self.train_steps,
+                self.train_smooth,
+                color="#3a86ff",
+                linewidth=1.8,
+                label="Train loss (EMA)",
             )
         ax0.set_xlabel("Step", color="#aaaaaa")
         ax0.set_ylabel("Loss", color="#aaaaaa")
@@ -200,23 +211,36 @@ class LossTracker:
         ax1 = axes[1]
         if self.val_epochs:
             ax1.plot(
-                self.val_epochs, self.train_epoch_losses,
-                color="#3a86ff", linewidth=2, marker="o", markersize=4, label="Train loss"
+                self.val_epochs,
+                self.train_epoch_losses,
+                color="#3a86ff",
+                linewidth=2,
+                marker="o",
+                markersize=4,
+                label="Train loss",
             )
             ax1.plot(
-                self.val_epochs, self.val_losses,
-                color="#ff6b6b", linewidth=2, marker="s", markersize=4, label="Val loss"
+                self.val_epochs,
+                self.val_losses,
+                color="#ff6b6b",
+                linewidth=2,
+                marker="s",
+                markersize=4,
+                label="Val loss",
             )
             # Mark best val epoch
             if self.best_val_epoch >= 0 and self.best_val_epoch in self.val_epochs:
                 bi = self.val_epochs.index(self.best_val_epoch)
                 ax1.axvline(
-                    self.best_val_epoch, color="#ffd166", linewidth=1,
-                    linestyle=":", alpha=0.8
+                    self.best_val_epoch, color="#ffd166", linewidth=1, linestyle=":", alpha=0.8
                 )
                 ax1.scatter(
-                    [self.best_val_epoch], [self.val_losses[bi]],
-                    color="#ffd166", zorder=5, s=80, label=f"Best val ({self.best_val_loss:.4f})"
+                    [self.best_val_epoch],
+                    [self.val_losses[bi]],
+                    color="#ffd166",
+                    zorder=5,
+                    s=80,
+                    label=f"Best val ({self.best_val_loss:.4f})",
                 )
         ax1.set_xlabel("Epoch", color="#aaaaaa")
         ax1.set_ylabel("Loss", color="#aaaaaa")

@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import json
 import time
+from collections.abc import Callable
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Callable
 
 from anra.anra_paths import OUTPUT_V2_DIR
 
@@ -41,7 +41,7 @@ class RegressionReport:
 class EvalHarness:
     """Run any callable task against a component in different modes."""
 
-    def __init__(self, output_dir: Path = OUTPUT_V2_DIR / "eval"):
+    def __init__(self, output_dir: Path = OUTPUT_V2_DIR / "eval") -> None:
         self._output_dir = output_dir
         self._output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -108,10 +108,14 @@ class EvalHarness:
                 success = bool(out.get("success", True)) if isinstance(out, dict) else True
                 latency = (time.perf_counter() - t0) * 1000
                 tokens = out.get("tokens_used") if isinstance(out, dict) else None
-                results.append({"success": success, "latency_ms": latency, "tokens": tokens, "error": None})
+                results.append(
+                    {"success": success, "latency_ms": latency, "tokens": tokens, "error": None}
+                )
             except Exception as exc:
                 latency = (time.perf_counter() - t0) * 1000
-                results.append({"success": False, "latency_ms": latency, "tokens": None, "error": str(exc)})
+                results.append(
+                    {"success": False, "latency_ms": latency, "tokens": None, "error": str(exc)}
+                )
 
         n = len(results)
         success_rate = sum(1 for r in results if r["success"]) / n if n else 0.0
@@ -130,11 +134,17 @@ class EvalHarness:
             raw=results,
         )
 
-    def compare(self, baseline: EvalResult, current: EvalResult, regression_threshold: float = 0.05) -> RegressionReport:
+    def compare(
+        self, baseline: EvalResult, current: EvalResult, regression_threshold: float = 0.05
+    ) -> RegressionReport:
         delta_success = current.task_success_rate - baseline.task_success_rate
         delta_latency = current.avg_latency_ms - baseline.avg_latency_ms
         regressed = delta_success < -regression_threshold
-        verdict = "regressed" if regressed else ("improved" if delta_success > regression_threshold else "neutral")
+        verdict = (
+            "regressed"
+            if regressed
+            else ("improved" if delta_success > regression_threshold else "neutral")
+        )
         return RegressionReport(
             component=current.component,
             baseline=baseline,

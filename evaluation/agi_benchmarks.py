@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
 import json
-from pathlib import Path
 import time
+from dataclasses import asdict, dataclass
+from pathlib import Path
 from typing import Literal
-
 
 EvidenceMaturity = Literal["automated", "human_reviewed", "longitudinal", "insufficient_data"]
 
@@ -58,7 +57,9 @@ def evaluate_result(benchmark_id: str, value: float, sample_count: int) -> bool 
     raise ValueError(f"Unknown AGI benchmark: {benchmark_id}")
 
 
-def build_report(measurements: dict[str, tuple[float, int, EvidenceMaturity, str | None]]) -> dict[str, object]:
+def build_report(
+    measurements: dict[str, tuple[float, int, EvidenceMaturity, str | None]],
+) -> dict[str, object]:
     results = []
     for spec in SPECS:
         measurement = measurements.get(spec.benchmark_id)
@@ -83,7 +84,9 @@ def build_report(measurements: dict[str, tuple[float, int, EvidenceMaturity, str
         "promotion_ready": all(
             result["passing"] is True
             for result in results
-            if next(spec for spec in SPECS if spec.benchmark_id == result["benchmark_id"]).promotion_blocking
+            if next(
+                spec for spec in SPECS if spec.benchmark_id == result["benchmark_id"]
+            ).promotion_blocking
         ),
     }
 

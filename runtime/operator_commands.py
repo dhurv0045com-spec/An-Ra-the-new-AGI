@@ -5,9 +5,9 @@ from __future__ import annotations
 import json
 import re
 import time
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable
-
+from typing import Any
 
 HELP_TEXT = """
 An-Ra operator commands (chat mode):
@@ -188,14 +188,18 @@ def handle_natural_operator_request(
         _audit("natural_open", target, r.get("success", False))
         return True, r.get("output") or r.get("error", "open failed")
 
-    cad_match = re.search(r"\b(?:generate|create|make)\s+(?:cad|openscad)\s+(?P<template>[\w-]+)?", raw, re.IGNORECASE)
+    cad_match = re.search(
+        r"\b(?:generate|create|make)\s+(?:cad|openscad)\s+(?P<template>[\w-]+)?", raw, re.IGNORECASE
+    )
     if cad_match:
         template = cad_match.group("template") or "raptor_engine"
         r = _cad_tool_call(template)
         _audit("natural_cad", template, r.get("success", False))
         return True, r.get("output") or r.get("error", "cad failed")
 
-    goal_match = re.search(r"\b(?:run|execute|start)\s+(?:a\s+)?goal\s+(?P<goal>.+)", raw, re.IGNORECASE)
+    goal_match = re.search(
+        r"\b(?:run|execute|start)\s+(?:a\s+)?goal\s+(?P<goal>.+)", raw, re.IGNORECASE
+    )
     if goal_match:
         goal = goal_match.group("goal").strip()
         _audit("natural_goal", goal, True)

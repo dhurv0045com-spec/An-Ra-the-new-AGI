@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import hashlib
 import hmac
 import json
 import logging
@@ -15,7 +16,7 @@ from contextlib import asynccontextmanager
 from dataclasses import asdict
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Literal
 
 import aiosqlite
 import httpx
@@ -43,8 +44,15 @@ from anra.anra_paths import (
 ensure_dirs()
 
 from generate import (
-    GenerationConfig, generate, generate_stream, generate_traced, get_model_info,
-    load_ghost_state, save_ghost_state
+    GenerationConfig,
+    detect_repetition,
+    generate,
+    generate_stream,
+    generate_traced,
+    get_model_info,
+    get_tokenizer,
+    verify_kv_cache_parity,
+    verify_session_state_isolation,
 )
 from inference.full_system_connector import build_capability_graph
 from inference.optimize_context_window import ContextWindowOptimizer
@@ -449,7 +457,12 @@ async def lifespan(_: FastAPI):
     await SESSION_STORE.initialize()
     JOBS.update(await SESSION_STORE.load_jobs())
     await run_in_threadpool(ADAPTER.load)
-    global SYSTEM_GRAPH
+    global SYSTEM_GRAPH, _ctx_optimizer
+    tokenizer = await run_in_threadpool(get_tokenizer)
+    _ctx_optimizer = ContextWindowOptimizer(
+        tokenizer=tokenizer,
+        max_context=int(ADAPTER.info.get("block_size", 1024) or 1024),
+    )
     SYSTEM_GRAPH = await run_in_threadpool(build_capability_graph, Path(__file__).resolve().parent)
     LOGGER.info("An-Ra API startup complete. Session store: %s", SESSION_STORE._path)
     yield
@@ -667,6 +680,11 @@ DEVELOPER_UI_HTML = """
           </div>
           <form id="chat-form">
             <textarea id="prompt" placeholder="Talk to An-Ra..." rows="2"></textarea>
+            <select id="model-mode" class="secondary" aria-label="Runtime mode">
+              <option value="diagnostic">Diagnostic</option>
+              <option value="native">Native</option>
+              <option value="full_system">Full system</option>
+            </select>
             <button id="send" type="submit">Send</button>
           </form>
         </div>
@@ -692,6 +710,10 @@ DEVELOPER_UI_HTML = """
             <div class="panel" style="height: 42%;"><div class="panel-head"><h3>HAL Raw</h3></div><div class="panel-body"><pre id="hal-json">{}</pre></div></div>
             <div style="height: 14px;"></div>
             <div class="panel" style="height: 42%;"><div class="panel-head"><h3>Sessions</h3></div><div class="panel-body"><pre id="sessions-json">{}</pre></div></div>
+            <div style="height: 14px;"></div>
+            <div class="panel" style="height: 58%;"><div class="panel-head"><h3>Last Generation Trace</h3></div><div class="panel-body"><pre id="trace-json">No generation trace yet.</pre></div></div>
+            <div style="height: 14px;"></div>
+            <div class="panel" style="height: 42%;"><div class="panel-head"><h3>Evaluation Gates</h3></div><div class="panel-body"><pre id="evaluation-json">{}</pre></div></div>
           </div>
         </div>
       </section>
@@ -717,13 +739,14 @@ DEVELOPER_UI_HTML = """
 
     async function refresh() {
       try {
-        const [status, hal, sessions, phase] = await Promise.all([
+        const [status, hal, sessions, phase, evaluation] = await Promise.all([
           getJson("/status"),
           getJson("/hal/state"),
           getJson("/sessions"),
           getJson("/phase-health"),
+          getJson("/evaluations/current"),
         ]);
-        lastPayloads = { status, hal, sessions, phase };
+        lastPayloads = { status, hal, sessions, phase, evaluation };
         const cp = status.checkpoint_state || {};
         $("runtime-line").textContent = new Date().toLocaleTimeString();
         $("matrix-line").textContent = new Date().toLocaleTimeString();
@@ -739,6 +762,7 @@ DEVELOPER_UI_HTML = """
         $("status-json").textContent = JSON.stringify(status, null, 2);
         $("hal-json").textContent = JSON.stringify(hal, null, 2);
         $("sessions-json").textContent = JSON.stringify(sessions, null, 2);
+        $("evaluation-json").textContent = JSON.stringify(evaluation, null, 2);
         const hormones = hal.hormones || {};
         $("hal-bars").innerHTML = Object.entries(hormones).sort().map(([name, raw]) => {
           const value = Math.max(0, Math.min(1, Number(raw || 0)));
@@ -770,12 +794,20 @@ DEVELOPER_UI_HTML = """
         const res = await fetch("/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ session_id: "colab_developer_ui", message, params: { strategy: "nucleus" } }),
+          body: JSON.stringify({
+            session_id: "colab_developer_ui",
+            message,
+            params: { strategy: "greedy", mode: $("model-mode").value, max_tokens: 128, seed: 0, use_kv_cache: false },
+          }),
         });
         const data = await res.json();
         if (!res.ok) throw new Error(JSON.stringify(data));
         addMessage("assistant", data.response || JSON.stringify(data, null, 2));
-        $("chat-status").textContent = `turn ${data.turn ?? "-"}`;
+        if (data.trace_id) {
+          const trace = await getJson(`/traces/${data.trace_id}`);
+          $("trace-json").textContent = JSON.stringify(trace, null, 2);
+        }
+        $("chat-status").textContent = `${data.quality_state || "unknown"} | ${data.generation?.stopped_by || "-"}`;
         refresh();
       } catch (err) {
         addMessage("assistant", `Error: ${err}`);
@@ -806,17 +838,47 @@ async def developer_ui_root_route():
     return HTMLResponse(DEVELOPER_UI_HTML)
 
 
+class GenerationParams(BaseModel):
+    strategy: Literal["greedy", "nucleus", "topk", "beam", "contrastive"] = "greedy"
+    max_tokens: int = Field(128, ge=1, le=512)
+    temperature: float = Field(0.7, ge=0.0, le=2.0)
+    top_k: int = Field(40, ge=1, le=512)
+    top_p: float = Field(0.92, gt=0.0, le=1.0)
+    beam_width: int = Field(4, ge=1, le=16)
+    repetition_penalty: float = Field(1.15, ge=1.0, le=2.0)
+    repetition_window: int = Field(64, ge=1, le=512)
+    stop_strings: List[str] = Field(default_factory=list, max_length=16)
+    seed: int | None = 0
+    use_think_tokens: bool = False
+    use_kv_cache: bool = False
+    mode: Literal["diagnostic", "native", "full_system"] = "diagnostic"
+    allow_control_tokens: bool = False
+    ablated_subsystem: Literal["mod", "rim", "dstp", "esv", "hal"] | None = None
+    verifier_score: float | None = Field(None, ge=0.0, le=1.0)
+    task_success: bool | None = None
+    civ_score: float | None = Field(None, ge=0.0, le=1.0)
+
+
 class GenerateRequest(BaseModel):
-    prompt: str
-    strategy: str = "nucleus"
+    prompt: str = Field(..., min_length=1, max_length=32768)
+    strategy: Literal["greedy", "nucleus", "topk", "beam", "contrastive"] = "greedy"
     session_id: str = "generate_default"
-    params: Dict[str, Any] = Field(default_factory=dict)
+    params: GenerationParams = Field(default_factory=GenerationParams)
 
 
 class ChatRequest(BaseModel):
-    session_id: str = "default"
-    message: str
-    params: Dict[str, Any] = Field(default_factory=dict)
+    session_id: str = Field("default", min_length=1, max_length=96)
+    message: str = Field(..., min_length=1, max_length=32768)
+    params: GenerationParams = Field(default_factory=GenerationParams)
+
+
+class CacheParityRequest(BaseModel):
+    prompt: str = Field(
+        "H: Verify cache parity for An-Ra.\nANRA:",
+        min_length=1,
+        max_length=4096,
+    )
+    max_tokens: int = Field(16, ge=1, le=64)
 
 
 class ResetRequest(BaseModel):
@@ -900,6 +962,15 @@ class LaunchManifestRequest(BaseModel):
 JOBS: Dict[str, Dict[str, Any]] = {}
 PLANS: Dict[str, Dict[str, Any]] = {}
 TRAINING_CANDIDATES: Dict[str, Dict[str, Any]] = {}
+TRACE_STORE: Dict[str, Dict[str, Any]] = {}
+
+
+def _record_trace(payload: Dict[str, Any]) -> str:
+    trace_id = str(uuid.uuid4())
+    TRACE_STORE[trace_id] = payload
+    while len(TRACE_STORE) > 1000:
+        TRACE_STORE.pop(next(iter(TRACE_STORE)))
+    return trace_id
 
 
 async def _new_job(kind: str, payload: Dict[str, Any]) -> Dict[str, Any]:
@@ -923,11 +994,9 @@ async def generate_route(body: GenerateRequest, request: Request):
     client_ip = request.client.host if request.client else "unknown"
     await _rate_limit_or_429(client_ip)
 
-    cfg = GenerationConfig(strategy=body.strategy)
-    for k, v in body.params.items():
-        if hasattr(cfg, k):
-            setattr(cfg, k, v)
-    await run_in_threadpool(load_ghost_state, body.session_id)
+    values = body.params.model_dump()
+    values["strategy"] = body.strategy
+    cfg = GenerationConfig(**values)
     try:
         trace = await run_in_threadpool(
             generate_traced,
@@ -939,8 +1008,7 @@ async def generate_route(body: GenerateRequest, request: Request):
         if "out of memory" not in str(exc).lower():
             raise
         reduced_prompt = body.prompt[-max(256, len(body.prompt) // 2) :]
-        if hasattr(cfg, "max_new_tokens"):
-            cfg.max_new_tokens = max(16, int(cfg.max_new_tokens) // 2)
+        cfg.max_tokens = max(16, int(cfg.max_tokens) // 2)
         LOGGER.warning(
             "[req_id=%s] OOM recovery: reduced request prompt/tokens only",
             request.state.request_id,
@@ -962,20 +1030,32 @@ async def generate_route(body: GenerateRequest, request: Request):
             status_code=503,
             detail={"error": "numerical_recovery", "checkpoint_reloaded": True},
         ) from exc
-    await run_in_threadpool(save_ghost_state, body.session_id)
     entropy_avg = sum(trace.entropy_curve) / max(len(trace.entropy_curve), 1)
     max_prob_avg = sum(trace.max_prob_curve) / max(len(trace.max_prob_curve), 1)
+    trace_payload = {
+        "request_id": request.state.request_id,
+        "session_id": body.session_id,
+        "prompt": body.prompt,
+        "generation": asdict(trace),
+        "config": asdict(cfg),
+    }
+    trace_id = _record_trace(trace_payload)
 
     return {
         "response": trace.output,
         "strategy": trace.strategy,
         "tokens_generated": trace.tokens_generated,
         "time_ms": trace.time_ms,
+        "trace_id": trace_id,
+        "quality_state": trace.quality_state,
         "trace": {
             "entropy_avg": entropy_avg,
             "max_prob_avg": max_prob_avg,
             "repeated_ngrams": trace.repeated_ngrams_detected,
             "stopped_by": trace.stopped_by,
+            "prompt_tokens": trace.prompt_tokens,
+            "mode": trace.mode,
+            "language_fragment_detected": trace.language_fragment_detected,
         },
     }
 
@@ -985,10 +1065,11 @@ async def chat_route(body: ChatRequest, request: Request):
     client_ip = request.client.host if request.client else "unknown"
     await _rate_limit_or_429(client_ip)
 
+    cfg = GenerationConfig(**body.params.model_dump())
     history = await _get_session_history(body.session_id)
 
     memory_results = []
-    memory_system = get_memory_system()
+    memory_system = get_memory_system() if cfg.mode == "full_system" else None
     if memory_system is not None:
         try:
             memory_results = memory_system.semantic.search(query=body.message, top_k=3)
@@ -1009,52 +1090,214 @@ async def chat_route(body: ChatRequest, request: Request):
         _ctx_optimizer.build_optimized_context,
         session_history=session_pairs,
         memory_results=memory_results,
-        current_message=body.message
+        current_message=body.message,
+        max_new_tokens=cfg.max_tokens,
+        mode=cfg.mode,
     )
-    context = ctx_result["context"]
-    memory_context = format_memory_context(memory_results) if memory_results else ""
-    full_prompt = f"{memory_context}\n\n{context}" if memory_context else context
+    full_prompt = ctx_result["context"]
+    trace = await run_in_threadpool(
+        generate_traced,
+        full_prompt,
+        cfg,
+        session_id=body.session_id,
+    )
+    reply = trace.output
 
-    strategy = body.params.get("strategy", "nucleus")
-    cfg = GenerationConfig(strategy=strategy)
-    for k, v in body.params.items():
-        if hasattr(cfg, k):
-            setattr(cfg, k, v)
-    run_params = {k: v for k, v in cfg.__dict__.items() if k != 'strategy'}
-    await run_in_threadpool(load_ghost_state, body.session_id)
-    reply = await run_in_threadpool(ADAPTER.run, full_prompt, strategy=cfg.strategy, **run_params)
-    await run_in_threadpool(save_ghost_state, body.session_id)
+    persisted = trace.quality_state == "accepted"
+    if persisted:
+        new_messages = [
+            {"role": "user", "content": body.message},
+            {"role": "assistant", "content": reply},
+        ]
+        history.extend(new_messages)
+        await _append_to_session(body.session_id, new_messages)
+        await _save_session(body.session_id)
+        if memory_system is not None:
+            try:
+                memory_system.store_turn(body.message, reply, body.session_id)
+            except Exception as mem_exc:
+                LOGGER.debug("Memory store failed: %s", mem_exc)
 
-    new_messages = [
-        {"role": "user", "content": body.message},
-        {"role": "assistant", "content": reply},
-    ]
-    history.extend(new_messages)
-    await _append_to_session(body.session_id, new_messages)
-    await _save_session(body.session_id)
-    if memory_system is not None:
-        try:
-            memory_system.store_turn(body.message, reply, body.session_id)
-        except Exception as mem_exc:
-            LOGGER.debug("Memory store failed: %s", mem_exc)
+    trace_id = _record_trace(
+        {
+            "request_id": request.state.request_id,
+            "session_id": body.session_id,
+            "formatted_prompt": full_prompt,
+            "context": ctx_result,
+            "memory_results": memory_results,
+            "config": asdict(cfg),
+            "generation": asdict(trace),
+            "persisted": persisted,
+        }
+    )
 
     return {
         "response": reply,
         "session_id": body.session_id,
         "turn": _turn_count(history),
         "history": list(history),
+        "trace_id": trace_id,
+        "quality_state": trace.quality_state,
+        "persisted": persisted,
         "context_length": ctx_result["context_length"],
+        "prompt_tokens": ctx_result["prompt_tokens"],
+        "token_allocation": ctx_result["token_allocation"],
         "turns_included": ctx_result["turns_included"],
         "context_truncated": ctx_result["context_truncated"],
         "memory_truncated": ctx_result["memory_truncated"],
+        "generation": {
+            "tokens_generated": trace.tokens_generated,
+            "stopped_by": trace.stopped_by,
+            "repeated_ngrams": trace.repeated_ngrams_detected,
+            "language_fragment_detected": trace.language_fragment_detected,
+            "time_ms": trace.time_ms,
+            "mode": trace.mode,
+        },
     }
 
 
+@app.get("/traces/{trace_id}")
+async def trace_route(trace_id: str):
+    trace = TRACE_STORE.get(trace_id)
+    if trace is None:
+        raise HTTPException(status_code=404, detail="trace not found")
+    return trace
+
+
+@app.get("/evaluations/current")
+async def current_evaluation_route():
+    return {
+        "golden": _latest_json(OUTPUT_V2_DIR / "v2_golden_eval_baseline.json"),
+        "validation": _latest_json(OUTPUT_V2_DIR / "v2_validation_history.json"),
+        "session": _latest_json(OUTPUT_V2_DIR / "v2_eval_summary.json"),
+        "release_evidence": _latest_json(OUTPUT_V2_DIR / "release_evidence.json"),
+        "promotion_requirements": {
+            "checkpoint_tensor_accounting": 1.0,
+            "coherent_responses": 0.90,
+            "instruction_format_compliance": 0.85,
+            "repetition_eos_failure_max": 0.01,
+            "cross_session_leakage_max": 0.0,
+            "validation_regression_max": 0.02,
+        },
+    }
+
+
+@app.post("/diagnostics/cache-parity")
+async def cache_parity_route(body: CacheParityRequest):
+    report = await run_in_threadpool(
+        verify_kv_cache_parity,
+        body.prompt,
+        max_tokens=body.max_tokens,
+    )
+    if not report["verified"]:
+        raise HTTPException(status_code=409, detail=report)
+    return report
+
+
+@app.get("/diagnostics/session-isolation")
+async def session_isolation_route():
+    report = await run_in_threadpool(verify_session_state_isolation)
+    if not report["verified"]:
+        raise HTTPException(status_code=409, detail=report)
+    return report
+
+
+def _checkpoint_manifest_hashes_verified(checkpoint_state: dict[str, Any]) -> bool:
+    expected = checkpoint_state.get("data_manifests", {})
+    if not isinstance(expected, dict) or not expected:
+        return False
+    root = OUTPUT_V2_DIR / "data_manifests"
+    for name, saved_digest in expected.items():
+        path = root / str(name)
+        if not path.is_file():
+            return False
+        digest = hashlib.sha256(path.read_bytes()).hexdigest()
+        if not hmac.compare_digest(digest, str(saved_digest)):
+            return False
+    return True
+
+
+@app.get("/diagnostics/release-evidence")
+async def release_evidence_route():
+    info = ADAPTER.info or await run_in_threadpool(get_model_info)
+    checkpoint_state = info.get("checkpoint_state", {})
+    if not isinstance(checkpoint_state, dict):
+        checkpoint_state = {}
+    cache = await run_in_threadpool(verify_kv_cache_parity)
+    isolation = await run_in_threadpool(verify_session_state_isolation)
+    load_report = checkpoint_state.get("load_report", {})
+    tokenizer_identity = checkpoint_state.get("tokenizer_identity", {})
+    history = checkpoint_state.get("validation_history", [])
+    losses = [
+        float(item["loss"])
+        for item in history
+        if isinstance(item, dict) and isinstance(item.get("loss"), (int, float))
+    ]
+    validation_ok = bool(losses) and losses[-1] <= min(losses) * 1.02
+    model_config = checkpoint_state.get("model_config", {})
+    configuration_ok = (
+        isinstance(model_config, dict)
+        and all(
+            key in model_config
+            for key in ("vocab_size", "n_embd", "n_layer", "n_head", "block_size")
+        )
+        and checkpoint_state.get("source_commit") not in {None, "", "unknown"}
+    )
+    rollback = _latest_json(OUTPUT_V2_DIR / "rollback_drill.json") or {}
+    evidence = {
+        "checkpoint_tensor_accounting": bool(
+            isinstance(load_report, dict)
+            and load_report.get("all_target_tensors_accounted") is True
+        ),
+        "tokenizer_compatibility": bool(
+            isinstance(tokenizer_identity, dict)
+            and tokenizer_identity.get("verified") is True
+        ),
+        "cache_parity": cache.get("verified") is True,
+        "zero_session_state_leakage": isolation.get("verified") is True,
+        "validation_loss_regression_within_2pct": validation_ok,
+        "corpus_manifest_verified": _checkpoint_manifest_hashes_verified(checkpoint_state),
+        "configuration_manifest_verified": configuration_ok,
+        "rollback_drill_passed": rollback.get("passed") is True,
+    }
+    report = {
+        "generated_at": time.time(),
+        "evidence": evidence,
+        "cache": cache,
+        "session_isolation": isolation,
+        "release_ready": all(evidence.values()),
+    }
+    target = OUTPUT_V2_DIR / "release_evidence.json"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    temporary = target.with_suffix(".tmp")
+    temporary.write_text(json.dumps(report, indent=2, sort_keys=True), encoding="utf-8")
+    temporary.replace(target)
+    return report
+
+
 @app.get("/stream")
-async def stream_route(session_id: str, message: str, strategy: str = "nucleus"):
+async def stream_route(session_id: str, message: str, strategy: str = "greedy"):
     history = await _get_session_history(session_id)
-    context, _, _ = await _build_context(session_id, message)
-    cfg = GenerationConfig(strategy=strategy)
+    session_pairs = []
+    index = 0
+    while index < len(history) - 1:
+        if history[index].get("role") == "user" and history[index + 1].get("role") == "assistant":
+            session_pairs.append(
+                (history[index].get("content", ""), history[index + 1].get("content", ""))
+            )
+            index += 2
+        else:
+            index += 1
+    cfg = GenerationConfig(strategy=strategy, mode="diagnostic", use_kv_cache=False)
+    context_result = await run_in_threadpool(
+        _ctx_optimizer.build_optimized_context,
+        session_history=session_pairs,
+        memory_results=[],
+        current_message=message,
+        max_new_tokens=cfg.max_tokens,
+        mode=cfg.mode,
+    )
+    context = context_result["context"]
 
     async def async_event_gen():
         loop = asyncio.get_event_loop()
@@ -1063,13 +1306,16 @@ async def stream_route(session_id: str, message: str, strategy: str = "nucleus")
         for ch in gen_iter:
             assembled += ch
             yield f"data: {ch}\n\n"
-        new_messages = [
-            {"role": "user", "content": message},
-            {"role": "assistant", "content": assembled},
-        ]
-        history.extend(new_messages)
-        await _append_to_session(session_id, new_messages)
-        await _save_session(session_id)
+        repeated = bool(detect_repetition(assembled)["repeated_ngrams_detected"])
+        accepted = bool(assembled.strip()) and not repeated
+        if accepted:
+            new_messages = [
+                {"role": "user", "content": message},
+                {"role": "assistant", "content": assembled},
+            ]
+            history.extend(new_messages)
+            await _append_to_session(session_id, new_messages)
+            await _save_session(session_id)
         yield "data: [DONE]\n\n"
 
     return StreamingResponse(async_event_gen(), media_type="text/event-stream")
@@ -1090,6 +1336,27 @@ async def health_route():
     ibs = _latest_json(IBS_LATEST) or {}
     disabled = disabled_components()
     auth_misconfigured = _owner_auth_required() and not _configured_owner_token()
+    checkpoint_state = info.get("checkpoint_state", {})
+    load_report = checkpoint_state.get("load_report", {}) if isinstance(checkpoint_state, dict) else {}
+    tokenizer_identity = (
+        checkpoint_state.get("tokenizer_identity", {})
+        if isinstance(checkpoint_state, dict)
+        else {}
+    )
+    bundle_status = (
+        "verified"
+        if load_report.get("all_target_tensors_accounted", False)
+        and tokenizer_identity.get("verified", False)
+        else "unverified"
+    )
+    golden = _latest_json(OUTPUT_V2_DIR / "v2_golden_eval_baseline.json") or {}
+    quality_status = (
+        "passed"
+        if golden.get("promotion_allowed") is True
+        else "failed"
+        if golden
+        else "unverified"
+    )
     status = (
         "blocked"
         if civ_score < 0.80 or auth_misconfigured
@@ -1099,14 +1366,19 @@ async def health_route():
     )
     return {
         "status": status,
+        "service_status": "ready",
+        "bundle_status": bundle_status,
+        "quality_status": quality_status,
         "model": "An-Ra",
         "profile": str(info.get("profile", "unknown")),
         "checkpoint": str(info.get("checkpoint", "unknown")),
+        "checkpoint_sha256": str(info.get("checkpoint_sha256", "unknown")),
+        "tokenizer_sha256": str(info.get("tokenizer_sha256", "unknown")),
         "device": str(info.get("device", "unknown")),
         "vocab_size": int(info.get("vocab_size", -1) or -1),  # type: ignore[arg-type]
         "param_count": int(info.get("param_count", 0) or 0),
         "block_size": int(info.get("block_size", 0) or 0),
-        "checkpoint_state": info.get("checkpoint_state", {}),
+        "checkpoint_state": checkpoint_state,
         "uptime_seconds": time.time() - START_TIME,
         "sessions_active": await SESSION_STORE.count_sessions(),
         "civ_similarity": civ_score,

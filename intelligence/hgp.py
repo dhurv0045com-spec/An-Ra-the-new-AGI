@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field
 import hashlib
-from typing import Callable, Iterable
+from collections.abc import Callable, Iterable
+from dataclasses import asdict, dataclass, field
 
 
 @dataclass(frozen=True)
@@ -25,9 +25,9 @@ class MissionNode:
     verification: tuple[VerificationRule, ...] = ()
     retry_budget: int = 3
     recovery: str = "replan"
-    children: list["MissionNode"] = field(default_factory=list)
+    children: list[MissionNode] = field(default_factory=list)
 
-    def walk(self) -> Iterable["MissionNode"]:
+    def walk(self) -> Iterable[MissionNode]:
         yield self
         for child in self.children:
             yield from child.walk()
@@ -62,7 +62,10 @@ class MissionTree:
         for leaf in leaves:
             if not leaf.verification:
                 raise ValueError(f"Leaf {leaf.node_id} has no verification rule.")
-            if any(not rule.verifier.strip() or not rule.criterion.strip() for rule in leaf.verification):
+            if any(
+                not rule.verifier.strip() or not rule.criterion.strip()
+                for rule in leaf.verification
+            ):
                 raise ValueError(f"Leaf {leaf.node_id} has an invalid verification rule.")
         graph = {node.node_id: set(node.dependencies) for node in nodes}
         visiting: set[str] = set()
@@ -83,7 +86,11 @@ class MissionTree:
             visit(node_id)
 
     def to_dict(self) -> dict[str, object]:
-        return {"goal": self.goal, "root": asdict(self.root), "success_criteria": self.success_criteria}
+        return {
+            "goal": self.goal,
+            "root": asdict(self.root),
+            "success_criteria": self.success_criteria,
+        }
 
 
 @dataclass(frozen=True)
@@ -108,10 +115,12 @@ class HierarchicalGoalPlanner:
         title: str,
         objective: str,
         level: int,
-        **kwargs,
+        **kwargs: object,
     ) -> MissionNode:
-        digest = hashlib.sha256(f"{title}:{objective}:{level}".encode("utf-8")).hexdigest()[:12]
-        return MissionNode(node_id=f"mission-{digest}", title=title, objective=objective, level=level, **kwargs)
+        digest = hashlib.sha256(f"{title}:{objective}:{level}".encode()).hexdigest()[:12]
+        return MissionNode(
+            node_id=f"mission-{digest}", title=title, objective=objective, level=level, **kwargs
+        )
 
     def decompose(
         self,

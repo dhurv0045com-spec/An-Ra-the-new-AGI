@@ -31,6 +31,21 @@ def test_resume_rejects_changed_data_layout() -> None:
         _assert_resume_data_layout_compatible("legacy_padded_v0", "bucket_packed_v1")
 
 
+@pytest.mark.parametrize(
+    ("saved", "active", "phase"),
+    [
+        ("bucket_packed_v1", "raw_causal_shards_v1", "A"),
+        ("raw_causal_shards_v1", "bucket_packed_v1", "D"),
+    ],
+)
+def test_resume_allows_planned_curriculum_layout_transition(
+    saved: str,
+    active: str,
+    phase: str,
+) -> None:
+    _assert_resume_data_layout_compatible(saved, active, phase)
+
+
 def test_current_trainer_enforces_packed_layout(monkeypatch) -> None:
     monkeypatch.delenv("ANRA_TRAINING_DATA_LAYOUT", raising=False)
     assert _active_training_data_layout() == "bucket_packed_v1"

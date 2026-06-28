@@ -6,15 +6,13 @@ import hashlib
 import hmac
 import json
 import os
-from pathlib import Path
 import subprocess
 import time
 import uuid
+from pathlib import Path
 
 import torch
-
 from anra.anra_paths import ROOT, V3_TOKENIZER_FILE
-
 
 REQUIRED_FIELDS = {
     "schema_version",
@@ -34,13 +32,20 @@ REQUIRED_FIELDS = {
     "checkpoint_source",
     "expected_tokens",
     "owner_authorized",
+    "worker_id",
+    "worker_role",
+    "artifact_path",
+    "shard_assignment",
+    "checkpoint_read_only",
     "signature",
 }
 
 
 def _git(command: list[str]) -> str:
     try:
-        return subprocess.check_output(["git", *command], text=True, stderr=subprocess.DEVNULL).strip()
+        return subprocess.check_output(
+            ["git", *command], text=True, stderr=subprocess.DEVNULL
+        ).strip()
     except (OSError, subprocess.CalledProcessError):
         return "unknown"
 
@@ -61,10 +66,15 @@ def build_launch_manifest(
     expected_tokens: int,
     runtime_estimate_hours: float | None,
     owner_authorized: bool,
+    worker_id: str = "coordinator",
+    worker_role: str = "coordinator",
+    artifact_path: str = "",
+    shard_assignment: list[int] | None = None,
+    checkpoint_read_only: bool = True,
 ) -> dict[str, object]:
     dirty = _git(["status", "--porcelain"])
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "run_id": str(uuid.uuid4()),
         "created_at": time.time(),
         "hardware": {
@@ -88,15 +98,25 @@ def build_launch_manifest(
         "expected_tokens": int(expected_tokens),
         "runtime_estimate_hours": runtime_estimate_hours,
         "owner_authorized": bool(owner_authorized),
+        "worker_id": worker_id,
+        "worker_role": worker_role,
+        "artifact_path": artifact_path,
+        "shard_assignment": list(shard_assignment or []),
+        "checkpoint_read_only": bool(checkpoint_read_only),
     }
 
 
-def sign_manifest(manifest: dict[str, object], path: str | Path, *, key: str | None = None) -> dict[str, object]:
+def sign_manifest(
+    manifest: dict[str, object], path: str | Path, *, key: str | None = None
+) -> dict[str, object]:
     signing_key = key or os.environ.get("ANRA_MANIFEST_SIGNING_KEY", "")
     if not signing_key:
         raise PermissionError("ANRA_MANIFEST_SIGNING_KEY is required to sign a launch manifest.")
     unsigned = json.dumps(manifest, sort_keys=True, separators=(",", ":")).encode("utf-8")
-    signed = {**manifest, "signature": hmac.new(signing_key.encode("utf-8"), unsigned, hashlib.sha256).hexdigest()}
+    signed = {
+        **manifest,
+        "signature": hmac.new(signing_key.encode("utf-8"), unsigned, hashlib.sha256).hexdigest(),
+    }
     target = Path(path)
     target.parent.mkdir(parents=True, exist_ok=True)
     temporary = target.with_suffix(".tmp")
@@ -126,7 +146,7 @@ def load_and_validate_manifest(
     missing = sorted(REQUIRED_FIELDS - payload.keys())
     if missing:
         raise ValueError(f"Launch manifest missing fields: {missing}")
-    if int(payload["schema_version"]) != 1:
+    if int(payload["schema_version"]) != 2:
         raise ValueError("Unsupported launch-manifest schema version.")
     if not verify_manifest(payload, key=key):
         raise PermissionError("Launch manifest signature verification failed.")
@@ -146,4 +166,79 @@ def load_and_validate_manifest(
             manifest_path = ROOT / manifest_path
         if not manifest_path.exists():
             raise FileNotFoundError(f"Launch data manifest is missing: {manifest_path}")
+    artifact_raw = str(payload["artifact_path"]).strip()
+    checkpoint_raw = str(payload["checkpoint_source"]).strip()
+    if artifact_raw and checkpoint_raw and Path(artifact_raw) == Path(checkpoint_raw):
+        raise ValueError("A worker artifact path must not overwrite its source checkpoint")
+    if not bool(payload["checkpoint_read_only"]):
+        raise ValueError("Experiment-farm workers must treat source checkpoints as read-only")
     return payload
+
+
+def build_experiment_farm_manifests(
+    *,
+    output_dir: str | Path,
+    base: dict[str, object],
+    key: str | None = None,
+) -> list[dict[str, object]]:
+    """Create seven signed, non-overlapping An-Ra experiment jobs."""
+    roles = (
+        "shard_validation",
+        "tokenizer_fertility",
+        "mod_ablation",
+        "rim_esv_ablation",
+        "dstp_hal_ablation",
+        "continuation_candidate",
+        "evaluation_reproducibility",
+    )
+    root = Path(output_dir)
+    manifests: list[dict[str, object]] = []
+    for index, role in enumerate(roles):
+        worker_id = f"colab-{index + 1:02d}"
+        artifact = root / "artifacts" / worker_id / "candidate.pt"
+        manifest = build_launch_manifest(
+            **base,
+            worker_id=worker_id,
+            worker_role=role,
+            artifact_path=str(artifact),
+            shard_assignment=[index],
+            checkpoint_read_only=True,
+        )
+        manifests.append(
+            sign_manifest(
+                manifest,
+                root / "jobs" / f"{worker_id}.json",
+                key=key,
+            )
+        )
+    return manifests
+
+
+def select_experiment_candidate(report_paths: list[str | Path]) -> dict[str, object]:
+    """Select one proven worker artifact; never average unrelated optimizer states."""
+    candidates: list[dict[str, object]] = []
+    for report_path in report_paths:
+        payload = json.loads(Path(report_path).read_text(encoding="utf-8"))
+        if not isinstance(payload, dict):
+            continue
+        if not payload.get("completed") or not payload.get("reproducible"):
+            continue
+        if not payload.get("checkpoint_tensor_accounting"):
+            continue
+        candidates.append(payload)
+    if not candidates:
+        raise RuntimeError("No experiment-farm candidate passed reproducibility and tensor gates")
+    selected = max(
+        candidates,
+        key=lambda item: (
+            float(item.get("capability_score", 0.0)),
+            -float(item.get("validation_loss", float("inf"))),
+        ),
+    )
+    return {
+        "selected_worker": selected.get("worker_id"),
+        "checkpoint": selected.get("artifact_path"),
+        "capability_score": selected.get("capability_score"),
+        "validation_loss": selected.get("validation_loss"),
+        "selection_policy": "capability_then_validation_loss_no_weight_averaging",
+    }

@@ -1,12 +1,11 @@
-from __future__ import annotations
-
 """Repository-wide connector and capability graph for An-Ra."""
+
+from __future__ import annotations
 
 import ast
 import json
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Dict, Iterable, List, Tuple
 
 from engine.telemetry import trace
 from runtime.system_registry import build_system_manifest, write_system_manifest
@@ -18,8 +17,8 @@ class FileNode:
     size_bytes: int
     line_count: int
     has_python: bool
-    classes: List[str]
-    functions: List[str]
+    classes: list[str]
+    functions: list[str]
 
 
 @dataclass
@@ -29,7 +28,7 @@ class PhaseSnapshot:
     file_count: int
     python_files: int
     total_lines: int
-    notable_files: List[str]
+    notable_files: list[str]
 
 
 def _safe_read_text(path: Path) -> str:
@@ -39,7 +38,7 @@ def _safe_read_text(path: Path) -> str:
         return ""
 
 
-def _python_symbols(path: Path) -> Tuple[List[str], List[str]]:
+def _python_symbols(path: Path) -> tuple[list[str], list[str]]:
     if path.suffix != ".py":
         return [], []
     src = _safe_read_text(path)
@@ -54,14 +53,36 @@ def _python_symbols(path: Path) -> Tuple[List[str], List[str]]:
     return classes, funcs
 
 
-def walk_repository(repo_root: Path) -> List[FileNode]:
-    nodes: List[FileNode] = []
+def walk_repository(repo_root: Path) -> list[FileNode]:
+    nodes: list[FileNode] = []
     for path in sorted(repo_root.rglob("*")):
         if not path.is_file():
             continue
-        if any(part in {".git", ".pytest_cache", "__pycache__", "node_modules", "output", "state", "workspace"} for part in path.parts):
+        if any(
+            part
+            in {
+                ".git",
+                ".pytest_cache",
+                "__pycache__",
+                "node_modules",
+                "output",
+                "state",
+                "workspace",
+            }
+            for part in path.parts
+        ):
             continue
-        if path.suffix in {".db", ".sqlite", ".sqlite3", ".faiss", ".index", ".npy", ".npz", ".pt", ".pth"}:
+        if path.suffix in {
+            ".db",
+            ".sqlite",
+            ".sqlite3",
+            ".faiss",
+            ".index",
+            ".npy",
+            ".npz",
+            ".pt",
+            ".pth",
+        }:
             continue
         if path.name in {"package-lock.json", "tokenizer_v3.json", "anra_training.txt"}:
             continue
@@ -80,7 +101,7 @@ def walk_repository(repo_root: Path) -> List[FileNode]:
     return nodes
 
 
-def phase_snapshots(repo_root: Path, nodes: List[FileNode]) -> List[PhaseSnapshot]:
+def phase_snapshots(_repo_root: Path, nodes: list[FileNode]) -> list[PhaseSnapshot]:
     phases = [
         ("phase1_core", "core"),
         ("phase2", "phase2"),
@@ -89,14 +110,34 @@ def phase_snapshots(repo_root: Path, nodes: List[FileNode]) -> List[PhaseSnapsho
         ("api", "."),
     ]
 
-    snapshots: List[PhaseSnapshot] = []
+    snapshots: list[PhaseSnapshot] = []
     for name, root in phases:
         prefix = "" if root == "." else root + "/"
         scoped = [n for n in nodes if root == "." or n.path.startswith(prefix)]
         if root == ".":
-            scoped = [n for n in nodes if n.path in {"anra.py", "app.py", "generate.py", "finetune_anra.py", "test_suite.py"}]
+            scoped = [
+                n
+                for n in nodes
+                if n.path
+                in {"anra.py", "app.py", "generate.py", "finetune_anra.py", "test_suite.py"}
+            ]
         py = [n for n in scoped if n.has_python]
-        notable = [n.path for n in scoped if any(k in n.path.lower() for k in ["turboquant", "ouroboros", "symbolic", "sovereignty", "system", "app.py", "generate.py"])]
+        notable = [
+            n.path
+            for n in scoped
+            if any(
+                k in n.path.lower()
+                for k in [
+                    "turboquant",
+                    "ouroboros",
+                    "symbolic",
+                    "sovereignty",
+                    "system",
+                    "app.py",
+                    "generate.py",
+                ]
+            )
+        ]
         snapshots.append(
             PhaseSnapshot(
                 name=name,
@@ -111,7 +152,7 @@ def phase_snapshots(repo_root: Path, nodes: List[FileNode]) -> List[PhaseSnapsho
 
 
 @trace("connector", "build_capability_graph")
-def build_capability_graph(repo_root: Path) -> Dict[str, object]:
+def build_capability_graph(repo_root: Path) -> dict[str, object]:
     manifest = build_system_manifest(repo_root)
     nodes = walk_repository(repo_root)
     snapshots = phase_snapshots(repo_root, nodes)
@@ -129,7 +170,7 @@ def build_capability_graph(repo_root: Path) -> Dict[str, object]:
         }
     )
 
-    graph = {
+    return {
         **manifest,
         "repo_root": str(repo_root),
         "file_count": len(nodes),
@@ -138,10 +179,9 @@ def build_capability_graph(repo_root: Path) -> Dict[str, object]:
         "capabilities": capabilities,
         "phase_snapshots": [asdict(s) for s in snapshots],
     }
-    return graph
 
 
-def save_graph(repo_root: Path, output: Path) -> Dict[str, object]:
+def save_graph(repo_root: Path, output: Path) -> dict[str, object]:
     graph = build_capability_graph(repo_root)
     output.write_text(json.dumps(graph, indent=2, ensure_ascii=False), encoding="utf-8")
     return graph

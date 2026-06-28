@@ -72,7 +72,7 @@ class MixedPrecisionTrainer:
         self,
         device: torch.device | None = None,
         enabled: bool | None = None,
-        init_scale: float = 2.0 ** 16,
+        init_scale: float = 2.0**16,
         growth_interval: int = 2000,
     ) -> None:
         self.device = device or get_device()
@@ -80,7 +80,7 @@ class MixedPrecisionTrainer:
 
         # AMP speedup only on CUDA
         if enabled is None:
-            self.enabled = (self.device.type == "cuda")
+            self.enabled = self.device.type == "cuda"
         else:
             self.enabled = enabled
 
@@ -152,9 +152,8 @@ class MixedPrecisionTrainer:
         if self._needs_scaler:
             self.scaler.step(optimizer)
             return True
-        else:
-            optimizer.step()
-            return True
+        optimizer.step()
+        return True
 
     def update(self) -> None:
         """Update scaler after each step. Adjusts scale based on overflow."""
@@ -267,12 +266,14 @@ if __name__ == "__main__":
         losses.append(loss.item())
 
         if step % 10 == 0:
-            print(f"  Step {step:3d}: loss={loss.item():.4f}  "
-                  f"grad_norm={stats['grad_norm']:.4f}  "
-                  f"scale={stats['grad_scale']:.0f}")
+            print(
+                f"  Step {step:3d}: loss={loss.item():.4f}  "
+                f"grad_norm={stats['grad_norm']:.4f}  "
+                f"scale={stats['grad_scale']:.0f}"
+            )
 
     elapsed = time.perf_counter() - t0
-    print(f"\n30 steps in {elapsed:.2f}s ({30/elapsed:.1f} steps/sec)")
+    print(f"\n30 steps in {elapsed:.2f}s ({30 / elapsed:.1f} steps/sec)")
 
     # State dict round-trip
     sd = mp.state_dict()

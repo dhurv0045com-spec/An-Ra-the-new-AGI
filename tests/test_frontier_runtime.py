@@ -27,6 +27,17 @@ class _FakeModel:
         self.kv_disabled = True
 
 
+class _CharacterTokenizer:
+    @staticmethod
+    def encode(text: str, *, add_special_tokens: bool = False) -> list[int]:
+        del add_special_tokens
+        return [ord(character) for character in text]
+
+    @staticmethod
+    def decode(ids: list[int]) -> str:
+        return "".join(chr(value) for value in ids)
+
+
 def test_frontier_runtime_refuses_missing_checkpoint(monkeypatch, tmp_path: Path) -> None:
     import generate
 
@@ -106,6 +117,7 @@ def test_model_info_exposes_frontier_proof_fields(monkeypatch, tmp_path: Path) -
     import generate
 
     generate._reset_runtime_cache()
+
     checkpoint = tmp_path / "anra_frontier_500m.pt"
     checkpoint.write_bytes(b"fake")
     monkeypatch.setenv("ANRA_MODEL_PROFILE", "frontier")
@@ -141,3 +153,61 @@ def test_model_info_exposes_frontier_proof_fields(monkeypatch, tmp_path: Path) -
     assert info["checkpoint_state"]["global_step"] == 6927
 
     generate._reset_runtime_cache()
+
+
+def test_repetition_penalty_moves_repeated_logits_down() -> None:
+    import torch
+    import generate
+
+    logits = torch.tensor([0.0, 2.0, -2.0])
+    adjusted = generate._apply_repetition_penalty(
+        logits,
+        [1, 2],
+        generate.GenerationConfig(repetition_penalty=2.0),
+    )
+    assert adjusted[1].item() == 1.0
+    assert adjusted[2].item() == -4.0
+
+
+def test_request_scoped_runtime_state_isolation_probe() -> None:
+    import generate
+
+    esv_keys = set(generate._ESV_STORE)
+    ghost_keys = set(generate._GHOST_STORE)
+    report = generate.verify_session_state_isolation()
+
+    assert report["verified"] is True
+    assert report["generation_serialized"] is True
+    assert set(generate._ESV_STORE) == esv_keys
+    assert set(generate._GHOST_STORE) == ghost_keys
+
+
+def test_prompt_assembly_preserves_current_message_and_inserts_memory_once() -> None:
+    from inference.optimize_context_window import ContextWindowOptimizer
+
+    optimizer = ContextWindowOptimizer(_CharacterTokenizer(), max_context=180)
+    result = optimizer.build_optimized_context(
+        [("old question", "old answer")],
+        [{"content": "remember cobalt"}],
+        "current message must remain complete",
+        max_new_tokens=32,
+        mode="full_system",
+    )
+    assert result["formatted_prompt"].endswith("H: current message must remain complete\nANRA:")
+    assert result["formatted_prompt"].count("remember cobalt") == 1
+    assert result["prompt_tokens"] + result["reserved_output_tokens"] + 1 <= 180
+
+
+def test_prompt_assembly_truncates_old_history_before_current_message() -> None:
+    from inference.optimize_context_window import ContextWindowOptimizer
+
+    optimizer = ContextWindowOptimizer(_CharacterTokenizer(), max_context=96)
+    result = optimizer.build_optimized_context(
+        [("old " * 20, "answer " * 20)],
+        [],
+        "newest request",
+        max_new_tokens=24,
+        mode="diagnostic",
+    )
+    assert "newest request" in result["formatted_prompt"]
+    assert result["context_truncated"] is True

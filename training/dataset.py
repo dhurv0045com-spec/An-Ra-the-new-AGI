@@ -7,16 +7,14 @@ tokenization, batching, padding, truncation, and shuffling.
 Memory-efficient: streams large corpora without loading all into RAM.
 """
 
-import os
-import math
 import logging
-from typing import Optional, Iterator
+from collections.abc import Iterator
 
 import torch
-from torch.utils.data import Dataset, DataLoader, IterableDataset
 
 # HuggingFace ecosystem — best-in-class for LM data pipelines
-from datasets import load_dataset, DatasetDict
+from datasets import load_dataset
+from torch.utils.data import DataLoader, Dataset, IterableDataset
 from transformers import GPT2TokenizerFast
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
@@ -26,6 +24,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Tokenizer singleton — reuse across dataset instances
 # ---------------------------------------------------------------------------
+
 
 def get_tokenizer() -> GPT2TokenizerFast:
     """
@@ -40,6 +39,7 @@ def get_tokenizer() -> GPT2TokenizerFast:
 # ---------------------------------------------------------------------------
 # Core dataset — packed token sequences (no padding waste)
 # ---------------------------------------------------------------------------
+
 
 class PackedTextDataset(Dataset):
     """
@@ -59,10 +59,10 @@ class PackedTextDataset(Dataset):
     def __init__(
         self,
         texts: list[str],
-        tokenizer,
+        tokenizer: object,
         seq_len: int = 512,
-        stride: Optional[int] = None,
-    ):
+        stride: int | None = None,
+    ) -> None:
         self.seq_len = seq_len
         self.stride = stride or seq_len  # non-overlapping by default
         self.tokenizer = tokenizer
@@ -76,8 +76,7 @@ class PackedTextDataset(Dataset):
         # Compute number of complete windows
         self.n_samples = max(0, (len(self.tokens) - seq_len) // self.stride)
         logger.info(
-            f"Total tokens: {len(self.tokens):,} → "
-            f"{self.n_samples:,} samples at seq_len={seq_len}"
+            f"Total tokens: {len(self.tokens):,} → {self.n_samples:,} samples at seq_len={seq_len}"
         )
 
     def __len__(self) -> int:
@@ -96,6 +95,7 @@ class PackedTextDataset(Dataset):
 # Streaming dataset — for corpora too large to tokenize upfront
 # ---------------------------------------------------------------------------
 
+
 class StreamingTextDataset(IterableDataset):
     """
     Memory-efficient streaming dataset for very large corpora.
@@ -110,7 +110,13 @@ class StreamingTextDataset(IterableDataset):
         text_col:   Name of the text column in the dataset.
     """
 
-    def __init__(self, hf_dataset, tokenizer, seq_len: int = 512, text_col: str = "text"):
+    def __init__(
+        self,
+        hf_dataset: object,
+        tokenizer: object,
+        seq_len: int = 512,
+        text_col: str = "text",
+    ) -> None:
         self.dataset = hf_dataset
         self.tokenizer = tokenizer
         self.seq_len = seq_len
@@ -121,9 +127,7 @@ class StreamingTextDataset(IterableDataset):
         buffer: list[int] = []
         for example in self.dataset:
             # Tokenize one document at a time
-            ids = self.tokenizer.encode(
-                example[self.text_col], add_special_tokens=False
-            )
+            ids = self.tokenizer.encode(example[self.text_col], add_special_tokens=False)
             buffer.extend(ids)
             buffer.append(self.eos_id)  # document boundary
 
@@ -139,6 +143,7 @@ class StreamingTextDataset(IterableDataset):
 # ---------------------------------------------------------------------------
 # High-level factory — picks dataset and returns DataLoaders
 # ---------------------------------------------------------------------------
+
 
 class LMDataModule:
     """
@@ -168,7 +173,7 @@ class LMDataModule:
         num_workers: int = 2,
         cache_dir: str = "./data_cache",
         streaming: bool = False,
-    ):
+    ) -> None:
         self.dataset_name = dataset_name
         self.dataset_config = dataset_config
         self.seq_len = seq_len
@@ -182,7 +187,7 @@ class LMDataModule:
         self._val_ds = None
         self._test_ds = None
 
-    def setup(self):
+    def setup(self) -> None:
         """Download (if needed) and prepare all dataset splits."""
         logger.info(f"Loading dataset: {self.dataset_name}/{self.dataset_config}")
 
@@ -195,30 +200,18 @@ class LMDataModule:
 
         if self.streaming:
             # Streaming: wrap each split in StreamingTextDataset
-            self._train_ds = StreamingTextDataset(
-                raw["train"], self.tokenizer, self.seq_len
-            )
-            self._val_ds = StreamingTextDataset(
-                raw["validation"], self.tokenizer, self.seq_len
-            )
-            self._test_ds = StreamingTextDataset(
-                raw["test"], self.tokenizer, self.seq_len
-            )
+            self._train_ds = StreamingTextDataset(raw["train"], self.tokenizer, self.seq_len)
+            self._val_ds = StreamingTextDataset(raw["validation"], self.tokenizer, self.seq_len)
+            self._test_ds = StreamingTextDataset(raw["test"], self.tokenizer, self.seq_len)
         else:
             # Eager: tokenize everything up front — fast iteration during training
-            def get_texts(split):
+            def get_texts(split: str) -> list[str]:
                 # Filter empty strings (WikiText has section headers as empty lines)
                 return [t for t in raw[split]["text"] if t.strip()]
 
-            self._train_ds = PackedTextDataset(
-                get_texts("train"), self.tokenizer, self.seq_len
-            )
-            self._val_ds = PackedTextDataset(
-                get_texts("validation"), self.tokenizer, self.seq_len
-            )
-            self._test_ds = PackedTextDataset(
-                get_texts("test"), self.tokenizer, self.seq_len
-            )
+            self._train_ds = PackedTextDataset(get_texts("train"), self.tokenizer, self.seq_len)
+            self._val_ds = PackedTextDataset(get_texts("validation"), self.tokenizer, self.seq_len)
+            self._test_ds = PackedTextDataset(get_texts("test"), self.tokenizer, self.seq_len)
 
         logger.info("Dataset setup complete.")
 
@@ -229,8 +222,8 @@ class LMDataModule:
             batch_size=self.batch_size,
             shuffle=(not self.streaming),  # IterableDataset can't be shuffled by loader
             num_workers=self.num_workers,
-            pin_memory=True,      # speeds up CPU→GPU transfer
-            drop_last=True,       # avoid ragged final batch
+            pin_memory=True,  # speeds up CPU→GPU transfer
+            drop_last=True,  # avoid ragged final batch
             persistent_workers=(self.num_workers > 0),
         )
 
@@ -270,6 +263,7 @@ class LMDataModule:
 # Collate function for variable-length sequences (optional, not needed for packed)
 # ---------------------------------------------------------------------------
 
+
 def collate_with_padding(batch: list[dict], pad_id: int = 0) -> dict[str, torch.Tensor]:
     """
     Pads sequences in a batch to the same length.
@@ -281,10 +275,10 @@ def collate_with_padding(batch: list[dict], pad_id: int = 0) -> dict[str, torch.
     attention_mask = torch.zeros(len(batch), max_len, dtype=torch.long)
 
     for i, b in enumerate(batch):
-        L = b["input_ids"].size(0)
-        input_ids[i, :L] = b["input_ids"]
-        labels[i, :L] = b["labels"]
-        attention_mask[i, :L] = 1
+        length = b["input_ids"].size(0)
+        input_ids[i, :length] = b["input_ids"]
+        labels[i, :length] = b["labels"]
+        attention_mask[i, :length] = 1
 
     return {"input_ids": input_ids, "labels": labels, "attention_mask": attention_mask}
 
@@ -323,7 +317,7 @@ if __name__ == "__main__":
     # Benchmark loader throughput
     t0 = time.perf_counter()
     n_batches = 20
-    for i, b in enumerate(loader):
+    for i, _b in enumerate(loader):
         if i >= n_batches:
             break
     elapsed = time.perf_counter() - t0

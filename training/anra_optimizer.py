@@ -1,12 +1,11 @@
 from __future__ import annotations
 
 import time
+from collections.abc import Iterable
 from dataclasses import asdict, dataclass
-from typing import Iterable
 
 import torch
 from torch.optim import AdamW
-
 
 OPTIMIZER_REPORT_SCHEMA_VERSION = 3
 OPTIMIZER_CANDIDATES = (
@@ -31,6 +30,14 @@ IDENTITY_PARAMETER_PATTERNS = (
     "lm_head",
     "norm_f",
 )
+SUBSYSTEM_PARAMETER_PATTERNS = (
+    "esv_module",
+    "hal_module",
+    "rim_modules",
+    "mod_routers",
+    "dstp_temperature",
+    "residual_depth",
+)
 
 
 @dataclass(frozen=True)
@@ -41,12 +48,15 @@ class OptimizerConfig:
     betas: tuple[float, float] = (0.9, 0.95)
     eps: float = 1e-8
     identity_lr_multiplier: float = 2.0
+    subsystem_lr_multiplier: float = 2.0
     galore_rank: int = 64
     galore_projection_gap: int = 200
 
 
 def _trainable_named_parameters(model: torch.nn.Module) -> list[tuple[str, torch.nn.Parameter]]:
-    return [(name, parameter) for name, parameter in model.named_parameters() if parameter.requires_grad]
+    return [
+        (name, parameter) for name, parameter in model.named_parameters() if parameter.requires_grad
+    ]
 
 
 def _param_count(params: Iterable[torch.nn.Parameter]) -> int:
@@ -71,11 +81,26 @@ def partition_parameters(
     return identity, matrix
 
 
+def partition_learning_rates(
+    model: torch.nn.Module,
+) -> tuple[list[tuple[str, torch.nn.Parameter]], list[tuple[str, torch.nn.Parameter]]]:
+    base: list[tuple[str, torch.nn.Parameter]] = []
+    subsystem: list[tuple[str, torch.nn.Parameter]] = []
+    for name, parameter in _trainable_named_parameters(model):
+        target = (
+            subsystem if any(pattern in name for pattern in SUBSYSTEM_PARAMETER_PATTERNS) else base
+        )
+        target.append((name, parameter))
+    return base, subsystem
+
+
 def _is_muon_param(name: str, parameter: torch.nn.Parameter) -> bool:
     return parameter.ndim == 2 and not is_identity_parameter(name, parameter)
 
 
-def candidate_report(model: torch.nn.Module, *, config: OptimizerConfig | None = None) -> dict[str, object]:
+def candidate_report(
+    model: torch.nn.Module, *, config: OptimizerConfig | None = None
+) -> dict[str, object]:
     cfg = config or OptimizerConfig()
     named = _trainable_named_parameters(model)
     identity_named, matrix_named = partition_parameters(model)
@@ -141,15 +166,22 @@ def candidate_report(model: torch.nn.Module, *, config: OptimizerConfig | None =
 
 
 def _regular_groups(
-    matrix_params: list[torch.nn.Parameter],
-    identity_params: list[torch.nn.Parameter],
+    base_params: list[torch.nn.Parameter],
+    subsystem_params: list[torch.nn.Parameter],
     cfg: OptimizerConfig,
 ) -> list[dict[str, object]]:
-    identity_lr = min(cfg.lr * cfg.identity_lr_multiplier, cfg.lr + 3e-4)
-    return [
-        {"params": matrix_params, "lr": cfg.lr, "weight_decay": cfg.weight_decay},
-        {"params": identity_params, "lr": identity_lr, "weight_decay": 0.0},
-    ]
+    groups: list[dict[str, object]] = []
+    if base_params:
+        groups.append({"params": base_params, "lr": cfg.lr, "weight_decay": cfg.weight_decay})
+    if subsystem_params:
+        groups.append(
+            {
+                "params": subsystem_params,
+                "lr": cfg.lr * cfg.subsystem_lr_multiplier,
+                "weight_decay": 0.0,
+            }
+        )
+    return groups
 
 
 def repair_optimizer_param_group_defaults(optimizer: torch.optim.Optimizer) -> tuple[str, ...]:
@@ -236,7 +268,8 @@ def build_optimizer_with_report(
     requested = optimizer_name.strip().lower()
     if requested not in {"auto", *OPTIMIZER_CANDIDATES}:
         raise ValueError(
-            f"Unknown optimizer {optimizer_name!r}. Expected auto or {', '.join(OPTIMIZER_CANDIDATES)}"
+            f"Unknown optimizer {optimizer_name!r}. Expected auto or "
+            f"{', '.join(OPTIMIZER_CANDIDATES)}"
         )
     cfg = OptimizerConfig(name=requested, lr=lr, weight_decay=weight_decay)
     report = candidate_report(model, config=cfg)
@@ -244,7 +277,10 @@ def build_optimizer_with_report(
     identity_named, matrix_named = partition_parameters(model)
     identity_params = [parameter for _, parameter in identity_named]
     matrix_params = [parameter for _, parameter in matrix_named]
-    groups = _regular_groups(matrix_params, identity_params, cfg)
+    base_named, subsystem_named = partition_learning_rates(model)
+    base_params = [parameter for _, parameter in base_named]
+    subsystem_params = [parameter for _, parameter in subsystem_named]
+    groups = _regular_groups(base_params, subsystem_params, cfg)
 
     selected = requested
     actual = requested
@@ -357,14 +393,17 @@ def build_optimizer_with_report(
         "status": status,
         "reason": reason or f"{actual} selected",
         "lr": cfg.lr,
-        "identity_lr": min(cfg.lr * cfg.identity_lr_multiplier, cfg.lr + 3e-4),
+        "identity_lr": cfg.lr * cfg.subsystem_lr_multiplier,
+        "subsystem_lr": cfg.lr * cfg.subsystem_lr_multiplier,
         "weight_decay": cfg.weight_decay,
         "param_groups": len(optimizer.param_groups),
         "identity_params": _param_count(identity_params),
         "matrix_params": _param_count(matrix_params),
+        "base_lr_params": _param_count(base_params),
+        "subsystem_lr_params": _param_count(subsystem_params),
         "galore_rank": cfg.galore_rank if actual == "galore" else None,
     }
-    setattr(optimizer, "_anra_optimizer_report", report)
+    optimizer._anra_optimizer_report = report
     selected_report = report["selected"]
     print(
         f"[anra_optimizer] requested={requested} actual={actual} "
@@ -378,7 +417,7 @@ def build_optimizer(
     lr: float = 3e-4,
     weight_decay: float = 0.01,
     optimizer_name: str = "auto",
-):
+) -> torch.optim.Optimizer:
     optimizer, _ = build_optimizer_with_report(
         model,
         optimizer_name=optimizer_name,

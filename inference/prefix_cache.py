@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from collections import OrderedDict
 import hashlib
+from collections import OrderedDict
 from typing import Any
 
 
@@ -19,7 +19,7 @@ class PrefixCache:
         payload = f"{model_id}:" + ",".join(str(token) for token in token_ids)
         return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
-    def get(self, model_id: str, token_ids: list[int] | tuple[int, ...]) -> Any | None:
+    def get(self, model_id: str, token_ids: list[int] | tuple[int, ...]) -> object | None:
         key = self.key(model_id, token_ids)
         value = self._entries.get(key)
         if value is None:
@@ -29,7 +29,12 @@ class PrefixCache:
         self._entries.move_to_end(key)
         return value
 
-    def put(self, model_id: str, token_ids: list[int] | tuple[int, ...], value: Any) -> None:
+    def put(
+        self,
+        model_id: str,
+        token_ids: list[int] | tuple[int, ...],
+        value: object,
+    ) -> None:
         key = self.key(model_id, token_ids)
         self._entries[key] = value
         self._entries.move_to_end(key)

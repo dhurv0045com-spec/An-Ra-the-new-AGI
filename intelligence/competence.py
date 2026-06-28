@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import math
 import time
+from dataclasses import dataclass
 
 
 @dataclass
@@ -42,9 +42,7 @@ class CalibratedCompetenceModel:
         timestamp: float | None = None,
     ) -> DomainCompetence:
         now = time.time() if timestamp is None else float(timestamp)
-        current = self.domains.get(
-            domain, DomainCompetence(0.0, 0.0, 0.0, now, 0)
-        )
+        current = self.domains.get(domain, DomainCompetence(0.0, 0.0, 0.0, now, 0))
         n = current.samples + 1
         accuracy = (current.accuracy * current.samples + float(correct)) / n
         calibration_event = 1.0 - abs(float(confidence) - float(correct))

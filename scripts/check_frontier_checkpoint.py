@@ -85,19 +85,32 @@ def _checkpoint_report(path: Path) -> dict[str, Any]:
     }
 
     errors: list[str] = []
-    if blob.get("checkpoint_schema_version") != CHECKPOINT_SCHEMA_VERSION:
+    warnings: list[str] = []
+    checkpoint_schema = int(blob.get("checkpoint_schema_version", 0) or 0)
+    if checkpoint_schema <= 0 or checkpoint_schema > CHECKPOINT_SCHEMA_VERSION:
         errors.append(
-            f"checkpoint_schema_version={blob.get('checkpoint_schema_version')} "
-            f"expected={CHECKPOINT_SCHEMA_VERSION}"
+            f"unsupported checkpoint_schema_version={checkpoint_schema}; "
+            f"runtime maximum={CHECKPOINT_SCHEMA_VERSION}"
+        )
+    elif checkpoint_schema < CHECKPOINT_SCHEMA_VERSION:
+        warnings.append(
+            f"checkpoint schema {checkpoint_schema} requires named migration to "
+            f"schema {CHECKPOINT_SCHEMA_VERSION} on load"
         )
     if blob.get("tokenizer_schema_version") != TOKENIZER_SCHEMA_VERSION:
         errors.append(
             f"tokenizer_schema_version={blob.get('tokenizer_schema_version')} "
             f"expected={TOKENIZER_SCHEMA_VERSION}"
         )
-    if int(tokenizer_contract.get("vocab_size", 0) or 0) != EXPECTED_TOKENIZER_VOCAB_SIZE:
+    contract_vocab = tokenizer_contract.get("vocab_size")
+    if contract_vocab is None and token_shape and token_shape[0] == EXPECTED_TOKENIZER_VOCAB_SIZE:
+        warnings.append(
+            "legacy checkpoint has no tokenizer_contract.vocab_size; tensor shape "
+            "is compatible and runtime tokenizer probes are required"
+        )
+    elif int(contract_vocab or 0) != EXPECTED_TOKENIZER_VOCAB_SIZE:
         errors.append(
-            f"tokenizer_contract.vocab_size={tokenizer_contract.get('vocab_size')} "
+            f"tokenizer_contract.vocab_size={contract_vocab} "
             f"expected={EXPECTED_TOKENIZER_VOCAB_SIZE}"
         )
     expected_config = {
@@ -121,9 +134,15 @@ def _checkpoint_report(path: Path) -> dict[str, Any]:
         errors.append(f"lm_head shape mismatch: {lm_shape}")
     if int(blob.get("global_step", blob.get("step", 0)) or 0) <= 0:
         errors.append("global_step is not positive")
+    if not tokenizer_contract.get("vocabulary_sha256"):
+        warnings.append("legacy checkpoint has no vocabulary hash; runtime probe gate is required")
+    if not tokenizer_contract.get("probe_sha256"):
+        warnings.append("legacy checkpoint has no 500-probe tokenizer fingerprint")
 
     report["ok"] = not errors
     report["errors"] = errors
+    report["warnings"] = warnings
+    report["migration_required"] = checkpoint_schema < CHECKPOINT_SCHEMA_VERSION
     return report
 
 

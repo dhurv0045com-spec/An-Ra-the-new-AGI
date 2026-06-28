@@ -1,10 +1,9 @@
 from __future__ import annotations
 
 import time
+from collections.abc import Iterable
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Iterable
-
 
 GEPA_SCHEMA_VERSION = 1
 
@@ -131,7 +130,9 @@ def traces_from_rlvr_report(rlvr_report: dict[str, object]) -> list[GEPATrace]:
 def reflect_on_trace(trace: GEPATrace) -> dict[str, object]:
     failure = trace.failure
     if failure == "verifier_grounding_weak":
-        cause = "The response likely needs a verifier-first instruction before free-form explanation."
+        cause = (
+            "The response likely needs a verifier-first instruction before free-form explanation."
+        )
         edit = "Require symbolic/tool verification before final answer when a verifier exists."
         target = "symbolic_tool_policy"
     elif failure == "identity_or_owner_voice_weak":
@@ -143,7 +144,10 @@ def reflect_on_trace(trace: GEPATrace) -> dict[str, object]:
         edit = "Require explicit recall of user-provided keys before explaining context."
         target = "memory_prompt"
     elif failure == "high_loss_training_example":
-        cause = "A training example remains difficult and should become hard replay with a corrected target."
+        cause = (
+            "A training example remains difficult and should become hard replay "
+            "with a corrected target."
+        )
         edit = "Route this example into hard-replay review before increasing its training weight."
         target = "replay_policy"
     elif failure == "low_verifier_pass_rate":
@@ -239,13 +243,17 @@ def build_gepa_report(
         "scores": scores,
         "accepted": [],
         "notes": [
-            "GEPA candidates are proposals only; no prompt or tool policy is changed automatically.",
-            "A candidate can promote only after eval comparison shows no identity, verifier, or safety regression.",
+            "GEPA candidates are proposals only; no prompt or tool policy is "
+            "changed automatically.",
+            "A candidate can promote only after eval comparison shows no identity, "
+            "verifier, or safety regression.",
         ],
     }
 
 
-def write_gepa_report(report: dict[str, object], output_path: Path | None = None) -> dict[str, object]:
+def write_gepa_report(
+    report: dict[str, object], output_path: Path | None = None
+) -> dict[str, object]:
     from training.v2_runtime import v2_report_path, write_json
 
     path = output_path or v2_report_path("gepa_report")

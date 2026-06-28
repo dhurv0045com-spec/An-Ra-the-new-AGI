@@ -2,28 +2,28 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
-import json
-from pathlib import Path
-import time
 import hmac
+import json
 import os
-
-from training.v2_config import V2_FRONTIER_PARAMETER_COUNT
+import time
+from dataclasses import asdict, dataclass
+from pathlib import Path
 
 from anra.anra_paths import (
     CIV_LATEST,
+    DEPLOYMENT_BOUNDARY_REPORT,
     IBS_LATEST,
     MEMORY_PROFILE_FRONTIER,
     MODEL_GROWTH_REPORT,
     PROMOTED_RELEASE_MANIFEST,
-    SSG_AUDIT_LOG,
     SOVEREIGNTY_TEST_REPORT,
-    DEPLOYMENT_BOUNDARY_REPORT,
+    SSG_AUDIT_LOG,
     TOKEN_INVENTORY_MANIFEST,
     TOKENIZER_MANIFEST,
     V2_BRAIN_CHECKPOINT,
 )
+
+from training.v2_config import V2_FRONTIER_PARAMETER_COUNT
 
 
 @dataclass(frozen=True)
@@ -162,7 +162,9 @@ class SovereignScalingGovernor:
         else:
             tokens = int(inventory.get("licensed_tokens", inventory.get("total_tokens", 0)))
             if tokens < self.MIN_CONTINUATION_TOKENS:
-                blocked.append(f"Licensed token inventory {tokens:,} < {self.MIN_CONTINUATION_TOKENS:,}")
+                blocked.append(
+                    f"Licensed token inventory {tokens:,} < {self.MIN_CONTINUATION_TOKENS:,}"
+                )
             else:
                 passed.append("licensed token inventory")
 

@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field
 import json
-from pathlib import Path
 import time
-
+from dataclasses import asdict, dataclass, field
+from pathlib import Path
 
 FAILURE_CATEGORIES = {
     "reasoning",
@@ -67,15 +66,15 @@ class CorrectedFailureCurriculum:
     def capture_step_failure(
         self,
         *,
-        input_tokens,
-        target_tokens,
-        predicted_tokens,
+        input_tokens: object,
+        target_tokens: object,
+        predicted_tokens: object,
         loss: float,
         step: int,
-        tokenizer,
+        tokenizer: object,
         category: str = "reasoning",
     ) -> CorrectedFailure:
-        def decode(value) -> str:
+        def decode(value: object) -> str:
             tensor = value[0] if getattr(value, "ndim", 1) > 1 else value
             values = tensor.detach().cpu().tolist()
             pad = getattr(tokenizer, "pad_token_id", None)
@@ -132,11 +131,7 @@ class CorrectedFailureCurriculum:
 
     def flush_to_dataset(self, replay_path: str | Path | None = None) -> int:
         target = Path(replay_path) if replay_path is not None else self.path
-        ready = [
-            record
-            for record in self._queue
-            if record.verified and record.corrected_target
-        ]
+        ready = [record for record in self._queue if record.verified and record.corrected_target]
         if not ready:
             return 0
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -158,9 +153,7 @@ class CorrectedFailureCurriculum:
                     + "\n"
                 )
         ready_ids = {id(record) for record in ready}
-        self._queue = [
-            record for record in self._queue if id(record) not in ready_ids
-        ]
+        self._queue = [record for record in self._queue if id(record) not in ready_ids]
         self._metrics["replayed"] += len(ready)
         self._metrics["closed"] += len(ready)
         return len(ready)

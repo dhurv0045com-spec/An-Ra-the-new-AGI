@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
 import time
-from typing import Callable
+from collections.abc import Callable
+from dataclasses import asdict, dataclass
 
 import torch
 

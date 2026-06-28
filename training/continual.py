@@ -2,23 +2,24 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from dataclasses import asdict
 import json
 import math
-from pathlib import Path
 import shutil
 import time
-from typing import Callable, Iterable, Sequence
 import uuid
+from collections.abc import Callable, Iterable, Sequence
+from dataclasses import asdict, dataclass
+from pathlib import Path
 
 import torch
 from torch import nn
-from torch.nn import functional as F
+from torch.nn import functional as F  # noqa: N812 - canonical PyTorch alias
 
 
 class LoRALinear(nn.Module):
-    def __init__(self, base: nn.Linear, rank: int = 8, alpha: float = 16.0, dora: bool = False) -> None:
+    def __init__(
+        self, base: nn.Linear, rank: int = 8, alpha: float = 16.0, dora: bool = False
+    ) -> None:
         super().__init__()
         self.base = base
         for parameter in self.base.parameters():
@@ -28,9 +29,7 @@ class LoRALinear(nn.Module):
         self.lora_a = nn.Parameter(torch.empty(self.rank, base.in_features))
         self.lora_b = nn.Parameter(torch.zeros(base.out_features, self.rank))
         nn.init.kaiming_uniform_(self.lora_a, a=math.sqrt(5))
-        self.magnitude = (
-            nn.Parameter(base.weight.detach().norm(dim=1)) if dora else None
-        )
+        self.magnitude = nn.Parameter(base.weight.detach().norm(dim=1)) if dora else None
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         base_output = self.base(x)
@@ -98,10 +97,7 @@ def ewc_penalty(
     for name, parameter in model.named_parameters():
         if name not in reference or name not in fisher:
             continue
-        penalty = penalty + (
-            fisher[name]
-            * (parameter - reference[name]).pow(2)
-        ).sum()
+        penalty = penalty + (fisher[name] * (parameter - reference[name]).pow(2)).sum()
     return float(coefficient) * penalty
 
 
@@ -241,9 +237,7 @@ class ContinualLearningOrchestrator:
             owner_baseline=owner_baseline,
             owner_candidate=owner_candidate,
         )
-        deployment_decision = DeploymentPromotionGate().evaluate(
-            deployment_checks or {}
-        )
+        deployment_decision = DeploymentPromotionGate().evaluate(deployment_checks or {})
         decision = combine_promotion_decisions(
             capability_decision,
             deployment_decision,
@@ -317,7 +311,9 @@ def assess_continual_readiness(usable_examples: int) -> dict[str, object]:
         "usable_examples": count,
         "minimum_examples": ContinualLearningOrchestrator.MIN_EXAMPLES,
         "ready": count >= ContinualLearningOrchestrator.MIN_EXAMPLES,
-        "action": "train_isolated_adapter" if count >= ContinualLearningOrchestrator.MIN_EXAMPLES else "skip",
+        "action": "train_isolated_adapter"
+        if count >= ContinualLearningOrchestrator.MIN_EXAMPLES
+        else "skip",
     }
 
 

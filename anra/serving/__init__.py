@@ -7,17 +7,15 @@ This package provides the clean import path and re-exports the app factory.
 
 from __future__ import annotations
 
-from typing import Any
 
-
-def create_app() -> Any:
+def create_app() -> object:
     """Return the configured FastAPI application instance."""
     from app import app
 
     return app
 
 
-def __getattr__(name: str) -> Any:
+def __getattr__(name: str) -> object:
     if name == "app":
         from app import app
 

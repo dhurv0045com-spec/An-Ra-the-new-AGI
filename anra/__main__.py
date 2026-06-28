@@ -5,6 +5,7 @@ Usage after `pip install -e .`:
     anra --report         # system status report
     anra --help           # show all options
 """
+
 from __future__ import annotations
 
 import runpy

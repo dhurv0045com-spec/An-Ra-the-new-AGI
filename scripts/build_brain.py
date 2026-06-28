@@ -2,6 +2,8 @@
 # This file handles tokenizer building and frontier data preparation.
 from __future__ import annotations
 
+# Direct execution bootstraps repository imports after resolving REPO_ROOT.
+# ruff: noqa: E402
 import argparse
 import hashlib
 import heapq
@@ -21,22 +23,23 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 import torch
-import torch.nn.functional as F
-from torch.utils.data import DataLoader, WeightedRandomSampler
-
+import torch.nn.functional as F  # noqa: N812 - canonical PyTorch alias
 from anra.anra_paths import (
     CDR_REPORT,
-    DRIVE_V2_CHECKPOINTS,
     FAILURE_REPLAY_DATASET,
     IBS_LATEST,
+    OUTPUT_V2_DIR,
     REGRET_STATE,
     ROOT,
     SOVEREIGNTY_EVENTS,
+    TOKENIZER_MANIFEST,
     V2_TOKENIZER_FILE,
 )
 from engine.eval_harness import EvalHarness, EvalResult
 from engine.feature_flags import is_enabled
 from evaluation.intelligence_telemetry import create_intelligence_session
+from runtime.hal_telemetry import publish_hal_state
+from torch.utils.data import DataLoader, WeightedRandomSampler
 from training.anra_optimizer import (
     IDENTITY_PARAMETER_PATTERNS,
     build_optimizer,
@@ -44,6 +47,7 @@ from training.anra_optimizer import (
 )
 from training.cdr import CorrectedFailureCurriculum
 from training.continual import assess_continual_readiness
+from training.dynamic_regret import DynamicRegretScheduler
 from training.eval_v2 import quick_eval_loss, run_compact_eval
 from training.mixed_precision import MixedPrecisionTrainer
 from training.pcgrad import PCGradAccumulator
@@ -65,29 +69,28 @@ from training.v2_config import (
     resolve_model_profile,
 )
 from training.v2_data_mix import (
+    MixReport,
+    RawCausalShardDataset,
     TrainingDataMixController,
     V2ConversationDataset,
     build_v2_training_examples,
 )
-from scripts.session_dashboard import print_session_dashboard
-from training.dynamic_regret import DynamicRegretScheduler
 from training.v2_runtime import (
     atomic_save,
     build_frontier_model,
     canonical_v2_checkpoint,
     ensure_tied_lm_head,
     get_hal_module,
+    hal_state_dict,
     load_checkpoint,
     load_or_build_v2_tokenizer,
     model_summary,
-    hal_state_dict,
     v2_report_path,
-    update_hal_from_training,
     write_json,
 )
-from runtime.hal_telemetry import publish_hal_state
 from training.wsd_scheduler import get_wsd_schedule, phase_for_step
 
+from scripts.session_dashboard import print_session_dashboard
 
 EARLY_STATUS_STEPS = {1, 2, 5, 10, 20, 50, 100}
 HARD_EXAMPLE_KEEP = 16
@@ -103,17 +106,15 @@ def build_causal_extension_trainer(
     total_steps: int,
     warmup_steps: int,
     optimizer_name: str = "adafactor",
-):
+) -> object:
     """Canonical build-brain integration point for extension-only causal training."""
     from cognition.cre import CognitiveCausalExtension
     from training.causal_trainer import CausalExtensionTrainer
 
-    layer_count = int(getattr(model, "n_layer"))
-    integration_layers = tuple(
-        sorted({0, max(0, layer_count // 2), max(0, layer_count - 1)})
-    )
+    layer_count = int(model.n_layer)
+    integration_layers = tuple(sorted({0, max(0, layer_count // 2), max(0, layer_count - 1)}))
     extension = CognitiveCausalExtension(
-        int(getattr(model, "n_embd")),
+        int(model.n_embd),
         integration_layers=integration_layers,
     ).to(next(model.parameters()).device)
     model.attach_cognitive_extension(extension)
@@ -248,6 +249,29 @@ def _session_data_mix_seed(base_seed: int = 1337) -> int:
     return int(base_seed) + completed_sessions
 
 
+def _tokenizer_checkpoint_contract() -> dict[str, object]:
+    if not V2_TOKENIZER_FILE.exists():
+        raise FileNotFoundError(f"Canonical tokenizer is missing: {V2_TOKENIZER_FILE}")
+    raw = V2_TOKENIZER_FILE.read_bytes()
+    payload = json.loads(raw.decode("utf-8"))
+    vocabulary = payload.get("token_to_id", {}) if isinstance(payload, dict) else {}
+    vocabulary_bytes = json.dumps(
+        vocabulary,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    manifest = _read_json(TOKENIZER_MANIFEST) or {}
+    return {
+        "schema_version": TOKENIZER_SCHEMA_VERSION,
+        "sha256": hashlib.sha256(raw).hexdigest(),
+        "vocabulary_sha256": hashlib.sha256(vocabulary_bytes).hexdigest(),
+        "vocab_size": EXPECTED_TOKENIZER_VOCAB_SIZE,
+        "special_token_ids": EXPECTED_SPECIAL_TOKEN_IDS,
+        "probe_count": int(manifest.get("probe_count", 0)),
+        "probe_sha256": str(manifest.get("probe_sha256", "")),
+    }
+
+
 def _build_checkpoint_payload(
     *,
     model: torch.nn.Module,
@@ -260,6 +284,11 @@ def _build_checkpoint_payload(
     sessions_completed: int,
     mix_report: object,
     migration: dict[str, object] | None = None,
+    tokens_seen: int = 0,
+    unique_token_ids_seen: set[int] | None = None,
+    continuation_token_counts: dict[str, int] | None = None,
+    best_validation_loss: float = float("inf"),
+    validation_history: list[dict[str, object]] | None = None,
 ) -> dict[str, object]:
     try:
         source_commit = subprocess.check_output(
@@ -275,13 +304,11 @@ def _build_checkpoint_payload(
     if manifest_root.exists():
         for path in sorted(manifest_root.glob("*.json")):
             data_manifests[path.name] = hashlib.sha256(path.read_bytes()).hexdigest()
+    tokenizer_contract = _tokenizer_checkpoint_contract()
     return {
         "checkpoint_schema_version": CHECKPOINT_SCHEMA_VERSION,
         "tokenizer_schema_version": TOKENIZER_SCHEMA_VERSION,
-        "tokenizer_contract": {
-            "vocab_size": EXPECTED_TOKENIZER_VOCAB_SIZE,
-            "special_token_ids": EXPECTED_SPECIAL_TOKEN_IDS,
-        },
+        "tokenizer_contract": tokenizer_contract,
         "migration_provenance": migration,
         "model": model.state_dict(),
         "optimizer": optimizer.state_dict(),
@@ -292,6 +319,12 @@ def _build_checkpoint_payload(
         "epoch": epoch,
         "best_loss": best_loss,
         "sessions_completed": sessions_completed,
+        "tokens_seen": int(tokens_seen),
+        "unique_token_ids_seen": sorted(unique_token_ids_seen or set()),
+        "unique_tokens_seen": len(unique_token_ids_seen or set()),
+        "continuation_token_counts": dict(continuation_token_counts or {}),
+        "best_validation_loss": float(best_validation_loss),
+        "validation_history": list(validation_history or []),
         "model_config": model.model_config(),
         "hal_state": hal_state_dict(model),
         "mix_report": mix_report.to_dict(),
@@ -309,22 +342,25 @@ def _build_checkpoint_payload(
         "cognitive_extension_release": "cognition-v1",
         "consent_safe_metadata": {
             "owner_derived_data_authorized": bool(
-                os.environ.get("ANRA_OWNER_DATA_AUTHORIZED", "").lower()
-                in {"1", "true", "yes"}
+                os.environ.get("ANRA_OWNER_DATA_AUTHORIZED", "").lower() in {"1", "true", "yes"}
             )
         },
     }
 
 
 def _active_training_data_layout() -> str:
-    """Return the only dataset layout supported by the current base trainer."""
+    """Return the explicit dataset layout recorded in every checkpoint."""
     configured = os.environ.get("ANRA_TRAINING_DATA_LAYOUT", "").strip()
-    if configured and configured != V2ConversationDataset.PACKING_LAYOUT:
+    allowed = {
+        V2ConversationDataset.PACKING_LAYOUT,
+        RawCausalShardDataset.PACKING_LAYOUT,
+    }
+    if configured and configured not in allowed:
         raise RuntimeError(
             "This trainer only supports "
-            f"{V2ConversationDataset.PACKING_LAYOUT}; got ANRA_TRAINING_DATA_LAYOUT={configured}."
+            f"{sorted(allowed)}; got ANRA_TRAINING_DATA_LAYOUT={configured}."
         )
-    return V2ConversationDataset.PACKING_LAYOUT
+    return configured or V2ConversationDataset.PACKING_LAYOUT
 
 
 def _assert_resume_data_profile_compatible(
@@ -352,8 +388,7 @@ def _assert_resume_data_profile_compatible(
         return
     if os.environ.get("ANRA_ALLOW_DATA_PROFILE_CHANGE", "0") == "1":
         print(
-            "[Resume] WARNING: data-profile change explicitly allowed: "
-            f"{saved} -> {active}.",
+            f"[Resume] WARNING: data-profile change explicitly allowed: {saved} -> {active}.",
             flush=True,
         )
         return
@@ -367,19 +402,38 @@ def _assert_resume_data_profile_compatible(
 def _assert_resume_data_layout_compatible(
     checkpoint_layout: object,
     active_layout: str,
+    continuation_phase: str = "D",
 ) -> None:
-    """Keep packed and legacy-padded training runs as distinct experiments."""
+    """Allow only the explicit raw/chat layout transitions in the curriculum."""
     saved = str(checkpoint_layout or "unknown").strip()
     active = active_layout.strip() or "unknown"
     if saved in {"unknown", "unlabelled", "unlabeled"}:
         print(
-            "[Resume] Checkpoint predates data-layout tracking; the configured layout transition is explicit: "
+            "[Resume] Checkpoint predates data-layout tracking; the configured "
+            "layout transition is explicit: "
             f"{active}.",
             flush=True,
         )
         return
     if saved == active:
         print(f"[Resume] Data layout verified: {active}", flush=True)
+        return
+    phase = continuation_phase.upper()
+    planned_transition = (
+        saved == V2ConversationDataset.PACKING_LAYOUT
+        and active == RawCausalShardDataset.PACKING_LAYOUT
+        and phase in {"A", "B", "C"}
+    ) or (
+        saved == RawCausalShardDataset.PACKING_LAYOUT
+        and active == V2ConversationDataset.PACKING_LAYOUT
+        and phase in {"D", "E"}
+    )
+    if planned_transition:
+        print(
+            f"[Resume] Planned curriculum layout transition: {saved} -> {active} "
+            f"for phase {phase}.",
+            flush=True,
+        )
         return
     raise RuntimeError(
         "Refusing to resume with a different training data layout: "
@@ -404,7 +458,8 @@ def _emergency_save_with_timeout(payload: dict[str, object], ckpt_path: Path) ->
     worker.join(timeout=EMERGENCY_SAVE_TIMEOUT_SECONDS)
     if worker.is_alive():
         print(
-            f"[build_brain] emergency save timeout after {EMERGENCY_SAVE_TIMEOUT_SECONDS:.1f}s; process exit continues",
+            "[build_brain] emergency save timeout after "
+            f"{EMERGENCY_SAVE_TIMEOUT_SECONDS:.1f}s; process exit continues",
             flush=True,
         )
         return False
@@ -413,7 +468,6 @@ def _emergency_save_with_timeout(payload: dict[str, object], ckpt_path: Path) ->
         return False
     print("[build_brain] emergency save completed", flush=True)
     return True
-
 
 
 def _resolve_checkpoint_path(checkpoint_path: str) -> Path:
@@ -435,12 +489,16 @@ def _prepare_resume_target(checkpoint_path: Path, resume_from: str | None) -> No
             checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(candidate, checkpoint_path)
             record_filesystem_checkpoint_origin(checkpoint_path.name, candidate)
-            print(f"[build_brain] restored checkpoint: {candidate} -> {checkpoint_path}", flush=True)
+            print(
+                f"[build_brain] restored checkpoint: {candidate} -> {checkpoint_path}", flush=True
+            )
             return
     shared_name = Path(resume_from).name if resume_from else checkpoint_path.name
     restored = restore_shared_checkpoint(checkpoint_path, shared_name)
     if restored is not None:
-        print(f"[build_brain] restored shared checkpoint: {restored} -> {checkpoint_path}", flush=True)
+        print(
+            f"[build_brain] restored shared checkpoint: {restored} -> {checkpoint_path}", flush=True
+        )
 
 
 def _sync_training_checkpoint_to_drive(checkpoint_path: Path) -> None:
@@ -467,7 +525,9 @@ def _weighted_loss(
         reduction="none",
     ).view(bsz, seq_len)
     effective_weights = weights * (targets != pad_id).float()
-    sample_losses = (per_token * effective_weights).sum(dim=1) / effective_weights.sum(dim=1).clamp_min(1.0)
+    sample_losses = (per_token * effective_weights).sum(dim=1) / effective_weights.sum(
+        dim=1
+    ).clamp_min(1.0)
     return sample_losses.mean(), sample_losses
 
 
@@ -475,7 +535,9 @@ def _quick_eval_loss_value(result: float | dict[str, object]) -> float:
     return float(result["loss"]) if isinstance(result, dict) else float(result)
 
 
-def _compact_eval_to_result(summary: dict[str, object], *, component: str = "training") -> EvalResult:
+def _compact_eval_to_result(
+    summary: dict[str, object], *, component: str = "training"
+) -> EvalResult:
     score = float(summary.get("overall_score", 0.0) or 0.0)
     return EvalResult(
         component=component,
@@ -484,8 +546,64 @@ def _compact_eval_to_result(summary: dict[str, object], *, component: str = "tra
         avg_latency_ms=0.0,
         error_rate=0.0,
         notes="compact eval overall_score mapped to task_success_rate",
-        raw=list(summary.get("results", [])) if isinstance(summary.get("results", []), list) else [],
+        raw=list(summary.get("results", []))
+        if isinstance(summary.get("results", []), list)
+        else [],
     )
+
+
+def _configure_continuation_phase(
+    model: torch.nn.Module,
+    phase: str,
+) -> dict[str, object]:
+    native_model = getattr(model, "model", model)
+    phase_name = phase.upper()
+    subsystem_patterns = (
+        "mod_routers.",
+        "rim_modules.",
+        "esv_module.",
+        "residual_depth_logits",
+        "dstp_temperature_log",
+        "hal_module.",
+    )
+    phase_b_target = os.environ.get("ANRA_PHASE_B_SUBSYSTEM", "mod").strip().lower()
+    target_patterns = {
+        "mod": ("mod_routers.",),
+        "rim": ("rim_modules.",),
+        "dstp": ("residual_depth_logits", "dstp_temperature_log"),
+        "esv": ("esv_module.",),
+    }
+    if phase_b_target not in target_patterns:
+        raise ValueError("ANRA_PHASE_B_SUBSYSTEM must be mod, rim, dstp, or esv")
+    frozen: list[str] = []
+    active: list[str] = []
+    for name, parameter in native_model.named_parameters():
+        if not name.startswith(subsystem_patterns):
+            continue
+        trainable = phase_name not in {"A", "B"}
+        if phase_name == "B":
+            trainable = name.startswith(target_patterns[phase_b_target])
+        parameter.requires_grad_(trainable)
+        (active if trainable else frozen).append(name)
+    capacity = 1.0 if phase_name in {"A", "B"} else 0.75
+    parity = os.environ.get("ANRA_SUBSYSTEM_VALIDATION_PARITY", "0").lower()
+    if phase_name in {"D", "E"} and parity in {"1", "true", "yes"}:
+        capacity = 0.5
+    if hasattr(native_model, "set_mod_capacity"):
+        native_model.set_mod_capacity(capacity)
+    report = {
+        "phase": phase_name,
+        "phase_b_subsystem": phase_b_target if phase_name == "B" else None,
+        "mod_capacity": capacity,
+        "active_subsystem_parameters": active,
+        "frozen_subsystem_parameters": frozen,
+    }
+    print(
+        f"[Continuation] phase={phase_name} mod_capacity={capacity:.2f} "
+        f"active_native={len(active)} frozen_native={len(frozen)}",
+        flush=True,
+    )
+    return report
 
 
 def train_anra_v2(
@@ -507,6 +625,10 @@ def train_anra_v2(
     model_size: str = "frontier",
     optimizer_name: str = "adafactor",
     start_eval_examples: int = 0,
+    training_layout: str = V2ConversationDataset.PACKING_LAYOUT,
+    token_shard_manifest: str | None = None,
+    validation_shard_manifest: str | None = None,
+    continuation_phase: str = "D",
 ) -> dict[str, object]:
     for required_component in ("training_loop", "data_mix", "evaluation"):
         if not is_enabled(required_component):
@@ -516,6 +638,12 @@ def train_anra_v2(
     print_session_dashboard()
     if model_size != "frontier":
         raise ValueError("iterate500 supports only --model-size frontier")
+    if training_layout not in {
+        V2ConversationDataset.PACKING_LAYOUT,
+        RawCausalShardDataset.PACKING_LAYOUT,
+    }:
+        raise ValueError(f"unsupported training layout: {training_layout}")
+    os.environ["ANRA_TRAINING_DATA_LAYOUT"] = training_layout
     model_cfg, training_cfg = resolve_model_profile(model_size)
     is_frontier = model_size == "frontier"
     growth_teacher = None
@@ -529,7 +657,7 @@ def train_anra_v2(
             )
         if torch.cuda.is_available():
             props = torch.cuda.get_device_properties(0)
-            vram_gb = props.total_memory / 1024 ** 3
+            vram_gb = props.total_memory / 1024**3
             print(f"[Trainer] GPU: {props.name}  VRAM: {vram_gb:.1f}GB", flush=True)
             if "T4" not in props.name.upper():
                 print(
@@ -549,12 +677,25 @@ def train_anra_v2(
             block_size = V2_FRONTIER.block_size
         if max_minutes == V2_TRAINING.session_minutes:
             max_minutes = V2_FRONTIER_TRAINING.session_minutes
-        max_examples = max_examples or V2_FRONTIER_TRAINING.max_mixture_examples
+        if max_examples is None:
+            max_examples = (
+                300_000
+                if continuation_phase.upper() in {"D", "E"}
+                else V2_FRONTIER_TRAINING.max_mixture_examples
+            )
         own_ratio = own_ratio if own_ratio is not None else V2_FRONTIER_TRAINING.own_ratio
-        identity_ratio = identity_ratio if identity_ratio is not None else V2_FRONTIER_TRAINING.identity_ratio
-        teacher_ratio = teacher_ratio if teacher_ratio is not None else V2_FRONTIER_TRAINING.teacher_ratio
-        symbolic_ratio = symbolic_ratio if symbolic_ratio is not None else V2_FRONTIER_TRAINING.symbolic_ratio
-        replay_ratio = replay_ratio if replay_ratio is not None else V2_FRONTIER_TRAINING.replay_ratio
+        identity_ratio = (
+            identity_ratio if identity_ratio is not None else V2_FRONTIER_TRAINING.identity_ratio
+        )
+        teacher_ratio = (
+            teacher_ratio if teacher_ratio is not None else V2_FRONTIER_TRAINING.teacher_ratio
+        )
+        symbolic_ratio = (
+            symbolic_ratio if symbolic_ratio is not None else V2_FRONTIER_TRAINING.symbolic_ratio
+        )
+        replay_ratio = (
+            replay_ratio if replay_ratio is not None else V2_FRONTIER_TRAINING.replay_ratio
+        )
         print(
             f"[Trainer] 500M FRONTIER MODE  "
             f"batch={training_cfg.batch_size}  grad_accum={training_cfg.grad_accum_steps}"
@@ -562,30 +703,81 @@ def train_anra_v2(
     dataset_path = Path(data_path)
     tokenizer = load_or_build_v2_tokenizer(dataset_path=dataset_path)
     data_mix_seed = _session_data_mix_seed()
-    examples, mix_report = build_v2_training_examples(
-        dataset_path=dataset_path,
-        seed=data_mix_seed,
-        max_examples=max_examples,
-        own_ratio=own_ratio,
-        identity_ratio=identity_ratio,
-        teacher_ratio=teacher_ratio,
-        symbolic_ratio=symbolic_ratio,
-        replay_ratio=replay_ratio,
-        model_params=V2_FRONTIER_PARAMETER_COUNT,
-    )
     training_mix_controller = TrainingDataMixController(V2_FRONTIER_PARAMETER_COUNT)
-    if mix_report.active_weights:
-        training_mix_controller.weights = dict(mix_report.active_weights)
-    write_json(v2_report_path("mix_report"), mix_report.to_dict())
     print(f"[Trainer] Data mix sampling seed: {data_mix_seed}", flush=True)
-    ds = V2ConversationDataset(
-        examples,
-        tokenizer,
-        block_size,
-        answer_loss_weight=answer_loss_weight,
-    )
+    if training_layout == RawCausalShardDataset.PACKING_LAYOUT:
+        if not token_shard_manifest:
+            raise ValueError("raw causal training requires --token-shard-manifest")
+        manifest_path = Path(token_shard_manifest)
+        if not manifest_path.is_absolute():
+            manifest_path = ROOT / manifest_path
+        ds = RawCausalShardDataset(
+            manifest_path,
+            tokenizer,
+            block_size,
+            rotation_seed=data_mix_seed,
+            verify_hashes=True,
+            expected_tokenizer_sha256=str(
+                (_read_json(TOKENIZER_MANIFEST) or {}).get("tokenizer_sha256", "")
+            ),
+        )
+        validation_manifest_path = (
+            Path(validation_shard_manifest)
+            if validation_shard_manifest
+            else manifest_path.parent / "validation" / "manifest.json"
+        )
+        if not validation_manifest_path.is_absolute():
+            validation_manifest_path = ROOT / validation_manifest_path
+        if not validation_manifest_path.is_file():
+            raise FileNotFoundError(
+                f"Immutable validation manifest is missing: {validation_manifest_path}"
+            )
+        eval_ds = RawCausalShardDataset(
+            validation_manifest_path,
+            tokenizer,
+            block_size,
+            rotation_seed=0,
+            verify_hashes=True,
+            expected_tokenizer_sha256=str(
+                (_read_json(TOKENIZER_MANIFEST) or {}).get("tokenizer_sha256", "")
+            ),
+        )
+        mix_report = MixReport(
+            total_examples=len(ds),
+            requested_counts={"foundation": len(ds)},
+            realized_counts={"foundation": len(ds)},
+            source_counts={str(manifest_path): len(ds)},
+            teacher_external_used=0,
+            replay_available=0,
+            active_weights={"foundation": 1.0},
+            sampling_seed=data_mix_seed,
+        )
+    else:
+        examples, mix_report = build_v2_training_examples(
+            dataset_path=dataset_path,
+            seed=data_mix_seed,
+            max_examples=max_examples,
+            own_ratio=own_ratio,
+            identity_ratio=identity_ratio,
+            teacher_ratio=teacher_ratio,
+            symbolic_ratio=symbolic_ratio,
+            replay_ratio=replay_ratio,
+            model_params=V2_FRONTIER_PARAMETER_COUNT,
+            post_training_mix=continuation_phase.upper() in {"D", "E"},
+        )
+        if set(mix_report.active_weights) == set(training_mix_controller.weights):
+            training_mix_controller.weights = dict(mix_report.active_weights)
+        ds = V2ConversationDataset(
+            examples,
+            tokenizer,
+            block_size,
+            answer_loss_weight=answer_loss_weight,
+        )
+        eval_ds = ds
+    write_json(v2_report_path("mix_report"), mix_report.to_dict())
     if len(ds) == 0:
-        raise RuntimeError("V2ConversationDataset produced zero training windows.")
+        raise RuntimeError(f"{training_layout} produced zero training windows.")
+
     def make_loader(active_weights: dict[str, float] | None = None) -> DataLoader:
         num_workers = 2 if torch.cuda.is_available() else 0
         loader_kwargs = {
@@ -595,9 +787,9 @@ def train_anra_v2(
             "num_workers": num_workers,
             "persistent_workers": num_workers > 0,
         }
-        if active_weights is None:
+        if active_weights is None or training_layout == RawCausalShardDataset.PACKING_LAYOUT:
             return DataLoader(
-                ds,
+                eval_ds,
                 shuffle=True,
                 **loader_kwargs,
             )
@@ -633,6 +825,7 @@ def train_anra_v2(
         if V2_FRONTIER.use_hal:
             try:
                 from anra.anra_paths import HAL_STATE_FILE
+
                 from identity.hal import HALModule
 
                 if HAL_STATE_FILE.exists():
@@ -644,7 +837,18 @@ def train_anra_v2(
             except Exception as exc:
                 print(f"[Trainer] HAL init failed: {exc}; training without HAL")
                 hal_module = None
-        model = build_frontier_model(hal_module=hal_module)
+        if block_size > V2_FRONTIER.block_size:
+            growth_evidence = _read_json(OUTPUT_V2_DIR / "context_growth_evidence.json") or {}
+            if (
+                float(growth_evidence.get("coherence_rate", 0.0)) < 0.90
+                or float(growth_evidence.get("short_context_regression", 1.0)) >= 0.02
+                or not bool(growth_evidence.get("retrieval_accuracy_improved", False))
+            ):
+                raise RuntimeError(
+                    "Context growth is blocked until coherence >= 0.90, short-context "
+                    "regression < 2%, and retrieval accuracy improves."
+                )
+        model = build_frontier_model(hal_module=hal_module, block_size=block_size)
     if getattr(training_cfg, "gradient_checkpointing", False):
         model.gradient_checkpointing_enable()
         print("[build_brain] Gradient checkpointing enabled for 500M model", flush=True)
@@ -656,6 +860,7 @@ def train_anra_v2(
         model = OuroborosDecoder(model, n_passes=3)
     model = model.to(device)
     ensure_tied_lm_head(model)
+    continuation_report = _configure_continuation_phase(model, continuation_phase)
     intelligence_session = create_intelligence_session(model)
     if growth_teacher is not None:
         growth_teacher = growth_teacher.to(device)
@@ -669,7 +874,9 @@ def train_anra_v2(
     )
     if growth_alignment is not None:
         growth_alignment.configure_trainable_parameters(0)
-    optimizer_report = getattr(optimizer, "_anra_optimizer_report", {"selected": {"actual": optimizer_name}})
+    optimizer_report = getattr(
+        optimizer, "_anra_optimizer_report", {"selected": {"actual": optimizer_name}}
+    )
     write_json(v2_report_path("optimizer_bakeoff"), optimizer_report)
     total_steps = int(getattr(training_cfg, "max_steps", 50_000))
     warmup_steps = int(getattr(training_cfg, "warmup_steps", 100))
@@ -682,17 +889,27 @@ def train_anra_v2(
     regret_scheduler = DynamicRegretScheduler(None, eta_base=learning_rate)
     regret_scheduler.load(REGRET_STATE)
     cdr = CorrectedFailureCurriculum(FAILURE_REPLAY_DATASET)
-    protected_parameters = [
-        parameter
-        for name, parameter in model.named_parameters()
-        if parameter.requires_grad and is_identity_parameter(name, parameter)
-    ]
+    pcgrad_enabled = (
+        training_layout == V2ConversationDataset.PACKING_LAYOUT
+        and continuation_phase.upper() in {"D", "E"}
+    )
+    protected_parameters = (
+        [
+            parameter
+            for name, parameter in model.named_parameters()
+            if parameter.requires_grad and is_identity_parameter(name, parameter)
+        ]
+        if pcgrad_enabled
+        else []
+    )
     pcgrad = PCGradAccumulator(protected_parameters)
     pcgrad_reports = []
     annealing_started = False
 
     requested_checkpoint = Path(checkpoint_path)
-    ckpt_path = requested_checkpoint if requested_checkpoint.is_absolute() else ROOT / requested_checkpoint
+    ckpt_path = (
+        requested_checkpoint if requested_checkpoint.is_absolute() else ROOT / requested_checkpoint
+    )
     _prepare_resume_target(ckpt_path, resume_from)
     if os.environ.get("ANRA_REQUIRE_RESUME", "0") == "1" and not ckpt_path.exists():
         raise RuntimeError(
@@ -707,6 +924,11 @@ def train_anra_v2(
     epoch = 0
     best_loss = float("inf")
     checkpoint_migration: dict[str, object] | None = None
+    campaign_tokens_seen = 0
+    known_token_ids: set[int] = set()
+    continuation_token_counts: dict[str, int] = {}
+    best_validation_loss = float("inf")
+    validation_history: list[dict[str, object]] = []
 
     registration_ts = time.time()
     signal_state: dict[str, object] = {
@@ -736,6 +958,11 @@ def train_anra_v2(
             sessions_completed=sessions_completed,
             mix_report=mix_report,
             migration=checkpoint_migration,
+            tokens_seen=campaign_tokens_seen,
+            unique_token_ids_seen=known_token_ids,
+            continuation_token_counts=continuation_token_counts,
+            best_validation_loss=best_validation_loss,
+            validation_history=validation_history,
         )
         ok = _emergency_save_with_timeout(payload, ckpt_path)
         if ok:
@@ -746,7 +973,8 @@ def train_anra_v2(
 
     signal.signal(signal.SIGTERM, _handle_sigterm)
     print(
-        f"[build_brain] SIGTERM handler registered at {signal_state['registered_at_iso']} (pre-training).",
+        "[build_brain] SIGTERM handler registered at "
+        f"{signal_state['registered_at_iso']} (pre-training).",
         flush=True,
     )
 
@@ -758,8 +986,21 @@ def train_anra_v2(
     load_path = ckpt_path if ckpt_path.exists() else resume_path
     if load_path.exists():
         print(f"[Resume] Found checkpoint: {load_path}", flush=True)
-        resume_state = load_checkpoint(model, optimizer, scheduler, mp, load_path, device=device, strict=False)
+        resume_state = load_checkpoint(
+            model, optimizer, scheduler, mp, load_path, device=device, strict=False
+        )
         if resume_state["loaded"]:
+            load_report = resume_state.get("load_report", {})
+            if (
+                not isinstance(load_report, dict)
+                or not load_report.get("exact_core_load", False)
+                or not load_report.get("exact_native_load", False)
+                or not load_report.get("all_target_tensors_accounted", False)
+            ):
+                raise RuntimeError(
+                    "Checkpoint failed exact core-tensor accounting; refusing to continue "
+                    f"training: {load_report}"
+                )
             _assert_resume_data_profile_compatible(
                 resume_state.get("data_profile"),
                 os.environ.get("ANRA_DATA_PROFILE", "unknown"),
@@ -767,13 +1008,28 @@ def train_anra_v2(
             _assert_resume_data_layout_compatible(
                 resume_state.get("training_data_layout"),
                 _active_training_data_layout(),
+                continuation_phase,
             )
             ckpt["sessions_completed"] = int(resume_state.get("sessions_completed", 0))
+            campaign_tokens_seen = int(resume_state.get("tokens_seen", 0))
+            known_token_ids.update(
+                int(value) for value in resume_state.get("unique_token_ids_seen", [])
+            )
+            continuation_token_counts.update(
+                {
+                    str(name): int(value)
+                    for name, value in resume_state.get("continuation_token_counts", {}).items()
+                }
+            )
+            best_validation_loss = float(resume_state.get("best_validation_loss", float("inf")))
+            validation_history = list(resume_state.get("validation_history", []))
             checkpoint_migration = dict(resume_state.get("migration", {}))
             start_step = int(resume_state["global_step"])
             best_loss = float(resume_state["best_loss"])
             session_start_loss = best_loss
-            print(f"[Resume] Resuming from step={start_step}  best_loss={best_loss:.4f}", flush=True)
+            print(
+                f"[Resume] Resuming from step={start_step}  best_loss={best_loss:.4f}", flush=True
+            )
         else:
             print("[Resume] Checkpoint not loaded — starting from scratch", flush=True)
     else:
@@ -820,6 +1076,8 @@ def train_anra_v2(
     rolling_count = 0
     accumulated_step_loss = 0.0
     accum_micro_steps = 0
+    pending_trained_tokens = 0
+    pending_token_ids: set[int] = set()
     last_avg_loss = best_loss if math.isfinite(best_loss) else 0.0
     loss_ema: float | None = None
     first_batch_wall = None
@@ -828,10 +1086,12 @@ def train_anra_v2(
     total_target_tokens = 0.0
 
     gpu_name = torch.cuda.get_device_name(0) if torch.cuda.is_available() else "CPU"
-    gpu_mem = torch.cuda.get_device_properties(0).total_memory / 1e9 if torch.cuda.is_available() else 0.0
+    gpu_mem = (
+        torch.cuda.get_device_properties(0).total_memory / 1e9 if torch.cuda.is_available() else 0.0
+    )
     summary = model_summary(model)
     eff_batch = batch_size * training_cfg.grad_accum_steps
-    pcgrad_fast_path = batch_size == 1
+    pcgrad_fast_path = pcgrad_enabled and batch_size == 1
 
     print("", flush=True)
     print("=" * 62, flush=True)
@@ -840,12 +1100,14 @@ def train_anra_v2(
     print(f"  GPU          : {gpu_name} ({gpu_mem:.1f} GB)", flush=True)
     print(f"  Parameters   : {summary['parameters']:,}", flush=True)
     print(
-        f"  Micro batch  : {batch_size}  |  Grad accum : {training_cfg.grad_accum_steps}  |  Eff batch : {eff_batch}",
+        f"  Micro batch  : {batch_size}  |  Grad accum : "
+        f"{training_cfg.grad_accum_steps}  |  Eff batch : {eff_batch}",
         flush=True,
     )
     print(f"  Session time : {max_minutes} minutes", flush=True)
     print(
-        f"  Resuming     : step {global_step:,}  |  best loss {best_loss if math.isfinite(best_loss) else float('inf'):.4f}",
+        f"  Resuming     : step {global_step:,}  |  best loss "
+        f"{best_loss if math.isfinite(best_loss) else float('inf'):.4f}",
         flush=True,
     )
     print(f"  Checkpoint   : {ckpt_path}", flush=True)
@@ -854,11 +1116,14 @@ def train_anra_v2(
         f"  Data layout  : {ds.PACKING_LAYOUT} | token utilization {ds.token_utilization:.1%}",
         flush=True,
     )
-    print(
-        "  PCGrad       : normal-backward fast path" if pcgrad_fast_path
-        else "  PCGrad       : mixed-batch gradient separation",
-        flush=True,
+    pcgrad_status = (
+        "disabled for foundation continuation"
+        if not pcgrad_enabled
+        else "normal-backward fast path"
+        if pcgrad_fast_path
+        else "mixed-batch gradient separation"
     )
+    print(f"  PCGrad       : {pcgrad_status}", flush=True)
     print("=" * 62, flush=True)
     print("", flush=True)
 
@@ -893,6 +1158,24 @@ def train_anra_v2(
                         target_logits=logits,
                     )
                     batch_loss = batch_loss + alignment_penalty
+                native_model = getattr(model, "model", model)
+                if hasattr(ds, "verified_esv_targets") and hasattr(
+                    native_model,
+                    "_last_esv_prediction",
+                ):
+                    esv_targets, esv_mask = ds.verified_esv_targets(
+                        sample_idx.tolist(),
+                        device=logits.device,
+                        dtype=native_model._last_esv_prediction.dtype,
+                    )
+                    if bool(esv_mask.any()):
+                        esv_prediction = native_model._last_esv_prediction
+                        batch_loss = batch_loss + 0.01 * torch.nn.functional.mse_loss(
+                            esv_prediction[esv_mask],
+                            esv_targets[esv_mask],
+                        )
+                if hasattr(native_model, "native_regularization_loss"):
+                    batch_loss = batch_loss + native_model.native_regularization_loss()
                 loss = batch_loss / training_cfg.grad_accum_steps
 
             if not torch.isfinite(batch_loss):
@@ -926,8 +1209,7 @@ def train_anra_v2(
                 continue
 
             owner_flags = [
-                ds.bucket_for_sample(index) in {"own", "identity"}
-                for index in sample_idx.tolist()
+                ds.bucket_for_sample(index) in {"own", "identity"} for index in sample_idx.tolist()
             ]
             owner_positions = [i for i, flag in enumerate(owner_flags) if flag]
             other_positions = [i for i, flag in enumerate(owner_flags) if not flag]
@@ -935,7 +1217,7 @@ def train_anra_v2(
             # normal backward pass is exactly the gradient PCGrad needs, so
             # avoid an additional graph traversal. Multi-example CLI runs
             # retain the explicit source-gradient calculation.
-            if not pcgrad_fast_path:
+            if pcgrad_enabled and not pcgrad_fast_path:
                 owner_loss = (
                     sample_losses[owner_positions].mean() / training_cfg.grad_accum_steps
                     if owner_positions
@@ -963,8 +1245,15 @@ def train_anra_v2(
             accum_micro_steps += 1
             answer_weighted_tokens += float((wb > 1.0).sum().item())
             total_target_tokens += float((yb != tokenizer.pad_token_id).sum().item())
+            target_ids = yb[yb != tokenizer.pad_token_id]
+            pending_trained_tokens += int(target_ids.numel())
+            pending_token_ids.update(int(value) for value in target_ids.unique().tolist())
 
-            for sample_loss, example_index in zip(sample_losses.detach().cpu().tolist(), sample_idx.tolist()):
+            for sample_loss, example_index in zip(
+                sample_losses.detach().cpu().tolist(),
+                sample_idx.tolist(),
+                strict=True,
+            ):
                 entry = (float(sample_loss), int(example_index))
                 if len(hard_examples) < HARD_EXAMPLE_KEEP:
                     heapq.heappush(hard_examples, entry)
@@ -972,7 +1261,8 @@ def train_anra_v2(
                     heapq.heapreplace(hard_examples, entry)
 
             if accum_micro_steps >= training_cfg.grad_accum_steps:
-                pcgrad_reports.extend(pcgrad.materialize())
+                if pcgrad_enabled:
+                    pcgrad_reports.extend(pcgrad.materialize())
                 if growth_alignment is not None:
                     growth_alignment.mask_inactive_gradients()
                 gradient_norm = mp.clip_gradients(model, optimizer, 1.0)
@@ -989,13 +1279,6 @@ def train_anra_v2(
                         gradient_norm=grad_float,
                         tokens=int((yb != tokenizer.pad_token_id).sum().item()),
                     )
-                update_hal_from_training(
-                    model,
-                    loss=loss_float,
-                    best_loss=best_loss,
-                    gradient_norm=grad_float,
-                    step=global_step,
-                )
                 if intelligence_session is not None:
                     hal = get_hal_module(model)
                     if hal is not None:
@@ -1003,10 +1286,22 @@ def train_anra_v2(
                 mp.step(optimizer)
                 mp.update()
                 scheduler.step()
+                campaign_tokens_seen += pending_trained_tokens
+                phase_key = continuation_phase.upper()
+                continuation_token_counts[phase_key] = (
+                    continuation_token_counts.get(phase_key, 0) + pending_trained_tokens
+                )
+                known_token_ids.update(pending_token_ids)
+                pending_trained_tokens = 0
+                pending_token_ids.clear()
                 regret_lr = regret_scheduler.update(reward=max(0.0, 1.0 - loss_float))
                 multiplier = max(0.5, min(1.5, regret_lr / max(learning_rate, 1e-12)))
                 scheduled_lrs = scheduler.get_last_lr()
-                for group, scheduled_lr in zip(optimizer.param_groups, scheduled_lrs):
+                for group, scheduled_lr in zip(
+                    optimizer.param_groups,
+                    scheduled_lrs,
+                    strict=True,
+                ):
                     group["lr"] = scheduled_lr * multiplier
                 optimizer.zero_grad(set_to_none=True)
                 pcgrad.clear()
@@ -1021,8 +1316,14 @@ def train_anra_v2(
                 last_avg_loss = avg_loss
                 loss_ema = loss_float if loss_ema is None else 0.9 * loss_ema + 0.1 * loss_float
                 best_loss = min(best_loss, loss_ema) if math.isfinite(best_loss) else loss_ema
-                phase = phase_for_step(global_step, warmup_steps=warmup_steps, total_steps=total_steps)
-                if phase.annealing_started and not annealing_started:
+                phase = phase_for_step(
+                    global_step, warmup_steps=warmup_steps, total_steps=total_steps
+                )
+                if (
+                    training_layout == V2ConversationDataset.PACKING_LAYOUT
+                    and phase.annealing_started
+                    and not annealing_started
+                ):
                     annealing_started = True
                     annealed_weights = training_mix_controller.enter_annealing_phase()
                     loader = make_loader(annealed_weights)
@@ -1090,7 +1391,47 @@ def train_anra_v2(
                         flush=True,
                     )
 
-                if time.time() >= next_checkpoint_at:
+                if global_step % 250 == 0:
+                    was_training = model.training
+                    model.eval()
+                    try:
+                        validation_result = quick_eval_loss(
+                            model,
+                            eval_ds,
+                            device=device,
+                            max_examples=50,
+                            batch_size=batch_size,
+                            pad_id=tokenizer.pad_token_id,
+                        )
+                        validation_loss = _quick_eval_loss_value(validation_result)
+                        best_validation_loss = min(
+                            best_validation_loss,
+                            validation_loss,
+                        )
+                        validation_history.append(
+                            {
+                                "step": global_step,
+                                "loss": validation_loss,
+                                "best_loss": best_validation_loss,
+                            }
+                        )
+                        write_json(
+                            v2_report_path("validation_history"),
+                            {
+                                "generated_at": time.time(),
+                                "layout": eval_ds.PACKING_LAYOUT,
+                                "history": validation_history,
+                            },
+                        )
+                        print(
+                            f"  validation step={global_step} loss={validation_loss:.4f} "
+                            f"best={best_validation_loss:.4f}",
+                            flush=True,
+                        )
+                    finally:
+                        model.train(was_training)
+
+                if global_step % 500 == 0 or time.time() >= next_checkpoint_at:
                     payload = _build_checkpoint_payload(
                         model=model,
                         optimizer=optimizer,
@@ -1099,9 +1440,16 @@ def train_anra_v2(
                         global_step=global_step,
                         epoch=epoch,
                         best_loss=best_loss,
-                        sessions_completed=(int(ckpt.get("sessions_completed", 0)) if "ckpt" in locals() else 0),
+                        sessions_completed=(
+                            int(ckpt.get("sessions_completed", 0)) if "ckpt" in locals() else 0
+                        ),
                         mix_report=mix_report,
                         migration=checkpoint_migration,
+                        tokens_seen=campaign_tokens_seen,
+                        unique_token_ids_seen=known_token_ids,
+                        continuation_token_counts=continuation_token_counts,
+                        best_validation_loss=best_validation_loss,
+                        validation_history=validation_history,
                     )
                     atomic_save(payload, ckpt_path, drive_dir=None)
                     _sync_training_checkpoint_to_drive(ckpt_path)
@@ -1119,47 +1467,14 @@ def train_anra_v2(
                 break
 
     if accum_micro_steps > 0:
-        pcgrad_reports.extend(pcgrad.materialize())
-        if growth_alignment is not None:
-            growth_alignment.mask_inactive_gradients()
-        gradient_norm = mp.clip_gradients(model, optimizer, 1.0)
-        grad_float = float(gradient_norm)
-        partial_step_loss = accumulated_step_loss / accum_micro_steps
-        if intelligence_session is not None:
-            intelligence_session.record_optimizer_step(
-                step=global_step,
-                loss=partial_step_loss,
-                learning_rate=float(optimizer.param_groups[0]["lr"]),
-                gradient_norm=grad_float,
-                tokens=int(total_target_tokens),
-            )
-        update_hal_from_training(
-            model,
-            loss=partial_step_loss,
-            best_loss=best_loss,
-            gradient_norm=grad_float,
-            step=global_step,
-        )
-        if intelligence_session is not None:
-            hal = get_hal_module(model)
-            if hal is not None:
-                intelligence_session.record_hal_step(step=global_step, hal_state=hal.state)
-        mp.step(optimizer)
-        mp.update()
-        scheduler.step()
         optimizer.zero_grad(set_to_none=True)
         pcgrad.clear()
-        global_step += 1
-        session_step += 1
-        avg_loss = rolling_loss / max(1, rolling_count)
-        last_avg_loss = avg_loss
-        loss_ema = partial_step_loss if loss_ema is None else 0.9 * loss_ema + 0.1 * partial_step_loss
-        best_loss = min(best_loss, loss_ema) if math.isfinite(best_loss) else loss_ema
+        pending_trained_tokens = 0
+        pending_token_ids.clear()
         print(
-            f"  step={global_step:6d}  step_loss={partial_step_loss:.4f}  "
-            f"ema_loss={loss_ema:.4f}  session_avg={avg_loss:.4f}  best_train={best_loss:.4f}  "
-            f"elapsed={(time.time() - start) / 60.0:.1f}m  remaining={max(0.0, (end_at - time.time()) / 60.0):.1f}m"
-            f"  partial_accum={accum_micro_steps}/{training_cfg.grad_accum_steps}",
+            "  discarded_partial_accum="
+            f"{accum_micro_steps}/{training_cfg.grad_accum_steps}; "
+            "checkpoint remains on the last complete optimizer boundary.",
             flush=True,
         )
 
@@ -1167,7 +1482,8 @@ def train_anra_v2(
         elapsed_min = (time.time() - start) / 60.0
         remaining_min = max(0.0, (end_at - time.time()) / 60.0)
         print(
-            f"  step={global_step:6d}  session_avg={last_avg_loss:.4f}  best_train={best_loss:.4f}  "
+            f"  step={global_step:6d}  session_avg={last_avg_loss:.4f}  "
+            f"best_train={best_loss:.4f}  "
             f"elapsed={elapsed_min:.1f}m  remaining={remaining_min:.1f}m",
             flush=True,
         )
@@ -1180,9 +1496,16 @@ def train_anra_v2(
         global_step=global_step,
         epoch=epoch,
         best_loss=best_loss,
-        sessions_completed=(int(ckpt.get("sessions_completed", 0) + 1) if "ckpt" in locals() else 1),
+        sessions_completed=(
+            int(ckpt.get("sessions_completed", 0) + 1) if "ckpt" in locals() else 1
+        ),
         mix_report=mix_report,
         migration=checkpoint_migration,
+        tokens_seen=campaign_tokens_seen,
+        unique_token_ids_seen=known_token_ids,
+        continuation_token_counts=continuation_token_counts,
+        best_validation_loss=best_validation_loss,
+        validation_history=validation_history,
     )
     atomic_save(payload, ckpt_path, drive_dir=None)
     _sync_training_checkpoint_to_drive(ckpt_path)
@@ -1213,7 +1536,12 @@ def train_anra_v2(
         "token_utilization": round(ds.token_utilization, 4),
         "reply_token_ratio_seen": round(answer_weighted_tokens / max(1.0, total_target_tokens), 4),
         "target_tokens_seen": int(total_target_tokens),
+        "campaign_tokens_seen": campaign_tokens_seen,
+        "phase_tokens_seen": continuation_token_counts.get(continuation_phase.upper(), 0),
         "model_config": model.model_config(),
+        "continuation": continuation_report,
+        "best_validation_loss": best_validation_loss,
+        "validation_history": validation_history,
         "checkpoint_path": str(ckpt_path),
         "mix_report": mix_report.to_dict(),
         "signal_handler": signal_state,
@@ -1252,7 +1580,9 @@ def train_anra_v2(
             "sample_index": sample_index,
             "preview": ds.snippet(sample_index),
         }
-        for loss_value, sample_index in sorted(hard_examples, key=lambda item: item[0], reverse=True)
+        for loss_value, sample_index in sorted(
+            hard_examples, key=lambda item: item[0], reverse=True
+        )
     ]
     write_json(
         v2_report_path("hard_examples"),
@@ -1307,6 +1637,8 @@ def train_anra_v2(
         )
     )
     try:
+        if ds.PACKING_LAYOUT == RawCausalShardDataset.PACKING_LAYOUT:
+            raise LookupError("raw foundation continuation does not use identity mix control")
         adjusted_weights = training_mix_controller.update_from_civ(civ_similarity)
         write_json(
             v2_report_path("mix_control"),
@@ -1322,6 +1654,8 @@ def train_anra_v2(
             f"owner weight: {adjusted_weights['owner']:.3f}",
             flush=True,
         )
+    except LookupError as exc:
+        print(f"[OGRS] skipped: {exc}.", flush=True)
     except RuntimeError as exc:
         SOVEREIGNTY_EVENTS.parent.mkdir(parents=True, exist_ok=True)
         with SOVEREIGNTY_EVENTS.open("a", encoding="utf-8") as stream:
@@ -1424,7 +1758,9 @@ def train_anra_v2(
                     print("[ABORT] Restoring last good checkpoint to protect model.", flush=True)
                     prev_ckpt = canonical_v2_checkpoint("brain")
                     if prev_ckpt.exists():
-                        load_checkpoint(model, optimizer, scheduler, mp, prev_ckpt, device=device, strict=False)
+                        load_checkpoint(
+                            model, optimizer, scheduler, mp, prev_ckpt, device=device, strict=False
+                        )
                         print("[ABORT] Checkpoint restored. Stopping session.", flush=True)
                     return {
                         "checkpoint_path": str(ckpt_path),
@@ -1440,7 +1776,14 @@ def train_anra_v2(
             print(f"[build_brain] regression check skipped: {exc}", flush=True)
 
     try:
-        session_end_result = quick_eval_loss(model, ds, device=device, max_examples=100, batch_size=batch_size, pad_id=tokenizer.pad_token_id)
+        session_end_result = quick_eval_loss(
+            model,
+            eval_ds,
+            device=device,
+            max_examples=100,
+            batch_size=batch_size,
+            pad_id=tokenizer.pad_token_id,
+        )
         session_end_loss = _quick_eval_loss_value(session_end_result)
         regret_lr = regret_scheduler.session_end(session_end_loss, global_step - initial_step)
         regret_scheduler.save(REGRET_STATE)
@@ -1503,8 +1846,25 @@ def main() -> None:
         choices=["frontier"],
         default="frontier",
     )
-    parser.add_argument("--answer_loss_weight", type=float, default=V2_FRONTIER_TRAINING.answer_loss_weight)
+    parser.add_argument(
+        "--answer_loss_weight", type=float, default=V2_FRONTIER_TRAINING.answer_loss_weight
+    )
     parser.add_argument("--max_examples", type=int, default=None)
+    parser.add_argument(
+        "--training-layout",
+        choices=[
+            V2ConversationDataset.PACKING_LAYOUT,
+            RawCausalShardDataset.PACKING_LAYOUT,
+        ],
+        default=V2ConversationDataset.PACKING_LAYOUT,
+    )
+    parser.add_argument("--token-shard-manifest", default=None)
+    parser.add_argument("--validation-shard-manifest", default=None)
+    parser.add_argument(
+        "--continuation-phase",
+        choices=["A", "B", "C", "D", "E"],
+        default="D",
+    )
     parser.add_argument(
         "--start_eval_examples",
         type=int,
@@ -1561,6 +1921,10 @@ def main() -> None:
         model_size=args.model_size,
         optimizer_name=args.optimizer,
         start_eval_examples=args.start_eval_examples,
+        training_layout=args.training_layout,
+        token_shard_manifest=args.token_shard_manifest,
+        validation_shard_manifest=args.validation_shard_manifest,
+        continuation_phase=args.continuation_phase,
     )
     print(result, flush=True)
 

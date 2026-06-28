@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-
 CANONICAL_VOCAB_SIZE = 8209
 
 
@@ -40,8 +39,16 @@ class ArchitectureContract:
         esv_predictor = self.esv_dim * 3 + 3
         rims = self.n_layers * (self.esv_dim * self.d_model + 1)
         mcr = len(self.mod_layers) * (self.d_model + 4)
-        dstp = self.n_layers
-        return self.transformer_parameters() + esv_predictor + rims + mcr + dstp
+        residual_depth = self.n_layers
+        dstp_temperatures = self.n_layers
+        return (
+            self.transformer_parameters()
+            + esv_predictor
+            + rims
+            + mcr
+            + residual_depth
+            + dstp_temperatures
+        )
 
 
 FRONTIER = ArchitectureContract(
@@ -76,7 +83,7 @@ def verify_canonical_counts() -> dict[str, int]:
     }
     expected = {
         "frontier_transformer": 496_857_600,
-        "frontier_full": 499_167_019,
+        "frontier_full": 499_167_047,
         "draft_transformer": 8_004_096,
         "draft_full": 8_004_291,
     }

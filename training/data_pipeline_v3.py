@@ -2,16 +2,15 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
 import hashlib
 import json
+from collections.abc import Callable, Iterable
+from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Callable, Iterable
 
 import numpy as np
 
 from training.data_ledger import DataEntropyLedger, DataQuality
-
 
 DFC_TAGS = (
     "[GOAL]",
@@ -72,6 +71,11 @@ class ShardedDataPipeline:
             "cc-by-4.0",
             "mit",
             "apache-2.0",
+            "bsd",
+            "bsd-2-clause",
+            "bsd-3-clause",
+            "isc",
+            "mpl-2.0",
             "public-domain",
             "owner",
         }
@@ -106,7 +110,8 @@ class ShardedDataPipeline:
         manifest_path = self.output_dir / "manifest.json"
         if manifest_path.exists():
             raise FileExistsError(
-                f"Published shard set is immutable; create a new revision directory: {self.output_dir}"
+                "Published shard set is immutable; create a new revision "
+                f"directory: {self.output_dir}"
             )
         accepted: list[tuple[SourceRecord, float]] = []
         rejected: list[dict[str, object]] = []
@@ -116,9 +121,7 @@ class ShardedDataPipeline:
             if reason is None:
                 accepted.append((record, score))
             else:
-                rejected.append(
-                    {"source": record.source, "score": score, "reason": reason}
-                )
+                rejected.append({"source": record.source, "score": score, "reason": reason})
 
         manifests: list[dict[str, object]] = []
         for shard_index, start in enumerate(range(0, len(accepted), self.shard_size)):
@@ -173,9 +176,7 @@ class ShardedDataPipeline:
             ],
         }
         temporary = manifest_path.with_suffix(".tmp")
-        temporary.write_text(
-            json.dumps(manifest, indent=2, sort_keys=True), encoding="utf-8"
-        )
+        temporary.write_text(json.dumps(manifest, indent=2, sort_keys=True), encoding="utf-8")
         temporary.replace(manifest_path)
         return manifest
 
@@ -190,11 +191,13 @@ class TokenShardPublisher:
         tokenizer_version: str,
         tokenizer_schema_version: int = 3,
         tokens_per_shard: int = 10_000_000,
+        tokenizer_sha256: str = "unknown",
     ) -> None:
         self.output_dir = Path(output_dir)
         self.tokenizer_version = str(tokenizer_version)
         self.tokenizer_schema_version = int(tokenizer_schema_version)
         self.tokens_per_shard = int(tokens_per_shard)
+        self.tokenizer_sha256 = str(tokenizer_sha256)
         if self.tokens_per_shard <= 0:
             raise ValueError("tokens_per_shard must be positive")
 
@@ -207,7 +210,7 @@ class TokenShardPublisher:
         return digest.hexdigest()
 
     @staticmethod
-    def _token_ids(tokenizer, text: str) -> list[int]:
+    def _token_ids(tokenizer: object, text: str) -> list[int]:
         values = tokenizer.encode(text)
         if hasattr(values, "ids"):
             values = values.ids
@@ -219,17 +222,16 @@ class TokenShardPublisher:
     def publish(
         self,
         records: Iterable[SourceRecord],
-        tokenizer,
+        tokenizer: object,
         *,
         allow_partial_final: bool = False,
     ) -> dict[str, object]:
         manifest_path = self.output_dir / "manifest.json"
         if manifest_path.exists():
-            raise FileExistsError(
-                f"Token shard publication is immutable: {manifest_path}"
-            )
+            raise FileExistsError(f"Token shard publication is immutable: {manifest_path}")
         self.output_dir.mkdir(parents=True, exist_ok=True)
         buffer: list[int] = []
+        buffer_segments: list[dict[str, object]] = []
         shards: list[dict[str, object]] = []
         source_revisions: set[str] = set()
         licenses: set[str] = set()
@@ -240,6 +242,46 @@ class TokenShardPublisher:
         seen_hashes: set[str] = set()
         rejection_counts: dict[str, int] = {}
         accepted_records = 0
+        source_counts: dict[str, int] = {}
+        verifier_counts: dict[str, int] = {}
+
+        def consume_segment_metadata(token_count: int) -> dict[str, object]:
+            remaining = int(token_count)
+            records: set[str] = set()
+            sources: dict[str, int] = {}
+            revisions: set[str] = set()
+            shard_licenses: set[str] = set()
+            verifier_statuses: dict[str, int] = {}
+            quality_sums: dict[str, float] = {}
+            while remaining > 0 and buffer_segments:
+                segment = buffer_segments[0]
+                take = min(remaining, int(segment["tokens"]))
+                source = str(segment["source"])
+                sources[source] = sources.get(source, 0) + take
+                records.add(str(segment["record_hash"]))
+                revisions.add(str(segment["revision"]))
+                shard_licenses.add(str(segment["license"]))
+                verifier = str(segment["verifier_status"])
+                verifier_statuses[verifier] = verifier_statuses.get(verifier, 0) + take
+                quality = segment["quality"]
+                if isinstance(quality, dict):
+                    for name, value in quality.items():
+                        quality_sums[name] = quality_sums.get(name, 0.0) + float(value) * take
+                segment["tokens"] = int(segment["tokens"]) - take
+                remaining -= take
+                if int(segment["tokens"]) == 0:
+                    buffer_segments.pop(0)
+            return {
+                "record_count": len(records),
+                "source_token_mix": sources,
+                "source_revisions": sorted(revisions),
+                "licenses": sorted(shard_licenses),
+                "verifier_token_distribution": verifier_statuses,
+                "quality_distribution": {
+                    name: round(value / max(1, token_count), 6)
+                    for name, value in quality_sums.items()
+                },
+            }
 
         def write_shard(values: list[int], index: int, *, partial: bool) -> None:
             array = np.asarray(values, dtype=np.uint16)
@@ -248,6 +290,7 @@ class TokenShardPublisher:
             with temporary.open("wb") as stream:
                 np.save(stream, array, allow_pickle=False)
             temporary.replace(target)
+            metadata = consume_segment_metadata(int(array.size))
             shards.append(
                 {
                     "path": target.name,
@@ -255,6 +298,8 @@ class TokenShardPublisher:
                     "dtype": "uint16",
                     "partial": partial,
                     "sha256": self._sha256(target),
+                    "tokenizer_sha256": self.tokenizer_sha256,
+                    **metadata,
                 }
             )
 
@@ -269,7 +314,26 @@ class TokenShardPublisher:
             accepted_records += 1
             source_revisions.add(record.source_revision)
             licenses.add(record.license)
-            buffer.extend(self._token_ids(tokenizer, record.text))
+            source_counts[record.source] = source_counts.get(record.source, 0) + 1
+            verifier_counts[record.verifier_status] = (
+                verifier_counts.get(record.verifier_status, 0) + 1
+            )
+            token_ids = self._token_ids(tokenizer, record.text)
+            eos_id = int(getattr(tokenizer, "eos_token_id", -1))
+            if eos_id >= 0 and (not token_ids or token_ids[-1] != eos_id):
+                token_ids.append(eos_id)
+            buffer.extend(token_ids)
+            buffer_segments.append(
+                {
+                    "tokens": len(token_ids),
+                    "source": record.source,
+                    "revision": record.source_revision,
+                    "license": record.license,
+                    "verifier_status": record.verifier_status,
+                    "quality": asdict(record.quality),
+                    "record_hash": hashlib.sha256(record.text.strip().encode("utf-8")).hexdigest(),
+                }
+            )
             while len(buffer) >= self.tokens_per_shard:
                 write_shard(
                     buffer[: self.tokens_per_shard],
@@ -285,17 +349,19 @@ class TokenShardPublisher:
             "schema_version": 3,
             "tokenizer_schema_version": self.tokenizer_schema_version,
             "tokenizer_version": self.tokenizer_version,
+            "tokenizer_sha256": self.tokenizer_sha256,
             "tokens_per_shard": self.tokens_per_shard,
             "total_tokens": sum(int(item["tokens"]) for item in shards),
             "pending_tokens": len(buffer),
             "accepted_records": accepted_records,
+            "source_record_mix": source_counts,
+            "verifier_record_distribution": verifier_counts,
             "rejection_counts": rejection_counts,
             "quality": validator.ledger.report(),
             "source_revisions": sorted(source_revisions),
             "licenses": sorted(licenses),
             "commoncrawl_terms_validated": any(
-                "commoncrawl" in value.lower() or "odc-by" in value.lower()
-                for value in licenses
+                "commoncrawl" in value.lower() or "odc-by" in value.lower() for value in licenses
             ),
             "shards": shards,
             "pipeline_order": [

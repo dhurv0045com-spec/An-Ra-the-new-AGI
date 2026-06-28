@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import json
-from pathlib import Path
 import time
-from typing import Callable
+from collections.abc import Callable
+from dataclasses import dataclass
+from pathlib import Path
 
 from anra.anra_paths import PRIVATE_EVAL_DIR
 
@@ -84,19 +84,14 @@ def run_memory_benchmark(
     rows = []
     for task in tasks:
         results = retrieve(task.query, 3)
-        ids = [
-            str(result.get("record_id", result.get("id", "")))
-            for result in results
-        ]
+        ids = [str(result.get("record_id", result.get("id", ""))) for result in results]
         if not ids:
             empty += 1
         hit1 = bool(ids and ids[0] in task.relevant_ids)
         hit3 = any(record_id in task.relevant_ids for record_id in ids[:3])
         top1 += int(hit1)
         top3 += int(hit3)
-        provenance += int(
-            all("payload" in result or "metadata" in result for result in results)
-        )
+        provenance += int(all("payload" in result or "metadata" in result for result in results))
         rows.append({"task_id": task.task_id, "ids": ids, "hit1": hit1, "hit3": hit3})
     count = max(1, len(tasks))
     return {
@@ -121,18 +116,16 @@ def run_hybrid_memory_benchmark(
     stale_ids: set[str] | None = None,
 ) -> dict[str, object]:
     if len(tasks) != 200:
-        raise ValueError("The frozen private owner-memory benchmark must contain exactly 200 tasks.")
+        raise ValueError(
+            "The frozen private owner-memory benchmark must contain exactly 200 tasks."
+        )
     stale_ids = stale_ids or set()
     reports = {
         "bm25": run_memory_benchmark(tasks, bm25, label="bm25"),
         "faiss": run_memory_benchmark(tasks, semantic, label="faiss"),
         "combined": run_memory_benchmark(tasks, combined, label="combined"),
     }
-    returned_ids = [
-        record_id
-        for row in reports["combined"]["results"]
-        for record_id in row["ids"]
-    ]
+    returned_ids = [record_id for row in reports["combined"]["results"] for record_id in row["ids"]]
     reports["combined"]["stale_memory_rate"] = sum(
         record_id in stale_ids for record_id in returned_ids
     ) / max(1, len(returned_ids))

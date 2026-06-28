@@ -65,7 +65,7 @@ def _feature(
     benefits: tuple[str, ...] = (),
     regressions: tuple[str, ...] = (),
     protected: tuple[str, ...] = (),
-) -> Any:
+) -> object:
     variants = (
         sdk["FeatureVariant"]("off", "Disabled", is_control=True),
         sdk["FeatureVariant"]("on", "Enabled"),
@@ -276,7 +276,7 @@ def feature_specs() -> list[Any]:
     ]
 
 
-def register_project(home: str | Path = THIRDEYE_HOME) -> Any:
+def register_project(home: str | Path = THIRDEYE_HOME) -> object:
     sdk = _load_sdk()
     eye = sdk["ThirdEye"](home)
     eye.register_project(
@@ -295,7 +295,7 @@ def register_project(home: str | Path = THIRDEYE_HOME) -> Any:
     return eye
 
 
-def _feature_to_dict(feature: Any) -> dict[str, Any]:
+def _feature_to_dict(feature: object) -> dict[str, Any]:
     if hasattr(feature, "to_dict"):
         return dict(feature.to_dict())
     data = dict(getattr(feature, "__dict__", {}))
@@ -357,7 +357,7 @@ def _write_fallback_report(
     return bundle
 
 
-def activation_snapshot(model: Any | None = None) -> dict[str, bool]:
+def activation_snapshot(model: object | None = None) -> dict[str, bool]:
     snapshot = {
         "anra.optimizer": (OUTPUT_V2_DIR / "v2_optimizer_bakeoff_report.json").exists(),
         "anra.data_mix": (OUTPUT_V2_DIR / "v2_dataset_mix.json").exists(),
@@ -389,7 +389,7 @@ def activation_snapshot(model: Any | None = None) -> dict[str, bool]:
     return snapshot
 
 
-def record_activation_audit(eye: Any, snapshot: dict[str, bool]) -> None:
+def record_activation_audit(eye: object, snapshot: dict[str, bool]) -> None:
     sdk = _load_sdk()
     for feature in feature_specs():
         active = bool(snapshot.get(feature.feature_id, False))
@@ -417,7 +417,7 @@ def record_activation_audit(eye: Any, snapshot: dict[str, bool]) -> None:
 def run_one_click(
     *,
     profile: str = "auto",
-    model: Any | None = None,
+    model: object | None = None,
     home: str | Path = THIRDEYE_HOME,
 ) -> dict[str, Any]:
     snapshot = activation_snapshot(model)

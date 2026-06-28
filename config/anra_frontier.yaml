@@ -23,6 +23,6 @@ training:
   batch_size: 1
   gradient_accumulation: 16
   max_steps: 100000
-  checkpoint_every: 1000
-  eval_every: 1000
+  checkpoint_every: 500
+  eval_every: 250
   eval_steps: 50

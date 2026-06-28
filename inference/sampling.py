@@ -16,16 +16,13 @@ in that canonical pipeline.
 
 from __future__ import annotations
 
-import math
-from typing import Optional
-
 import torch
-import torch.nn.functional as F
-
+import torch.nn.functional as F  # noqa: N812 - canonical PyTorch alias
 
 # ─────────────────────────────────────────────
 # Step 28 — Temperature
 # ─────────────────────────────────────────────
+
 
 def apply_temperature(logits: torch.Tensor, temperature: float) -> torch.Tensor:
     """
@@ -52,6 +49,7 @@ def apply_temperature(logits: torch.Tensor, temperature: float) -> torch.Tensor:
 # Step 29 — Top-k
 # ─────────────────────────────────────────────
 
+
 def apply_top_k(logits: torch.Tensor, k: int) -> torch.Tensor:
     """
     Zero out every logit except the k highest, preventing sampling
@@ -65,7 +63,7 @@ def apply_top_k(logits: torch.Tensor, k: int) -> torch.Tensor:
         Filtered logits with -inf in all non-top-k positions.
     """
     if k <= 0 or k >= logits.size(-1):
-        return logits                          # no-op
+        return logits  # no-op
 
     # kth_vals: smallest value among the top-k
     kth_vals = torch.topk(logits, k).values[..., -1, None]
@@ -77,6 +75,7 @@ def apply_top_k(logits: torch.Tensor, k: int) -> torch.Tensor:
 # ─────────────────────────────────────────────
 # Step 30 — Top-p (nucleus)
 # ─────────────────────────────────────────────
+
 
 def apply_top_p(logits: torch.Tensor, p: float) -> torch.Tensor:
     """
@@ -95,7 +94,7 @@ def apply_top_p(logits: torch.Tensor, p: float) -> torch.Tensor:
         Filtered logits with -inf outside the nucleus.
     """
     if p >= 1.0:
-        return logits                          # no-op
+        return logits  # no-op
 
     # Sort descending to walk the probability mass
     sorted_logits, sorted_idx = torch.sort(logits, descending=True)
@@ -108,13 +107,13 @@ def apply_top_p(logits: torch.Tensor, p: float) -> torch.Tensor:
     sorted_logits[remove_mask] = float("-inf")
 
     # Scatter filtered values back to original vocabulary order
-    filtered = torch.zeros_like(logits).scatter_(0, sorted_idx, sorted_logits)
-    return filtered
+    return torch.zeros_like(logits).scatter_(0, sorted_idx, sorted_logits)
 
 
 # ─────────────────────────────────────────────
 # Unified sampler — composes all three
 # ─────────────────────────────────────────────
+
 
 def sample_token(
     logits: torch.Tensor,
@@ -134,7 +133,7 @@ def sample_token(
     Returns:
         A single sampled integer token id.
     """
-    logits = logits.float()             # ensure fp32 for numerical stability
+    logits = logits.float()  # ensure fp32 for numerical stability
 
     # 1. Top-k filter (cuts long tail absolutely)
     logits = apply_top_k(logits, top_k)
@@ -154,6 +153,7 @@ def sample_token(
 # Full autoregressive sampling loop
 # ─────────────────────────────────────────────
 
+
 def sampling_decode(
     model: torch.nn.Module,
     input_ids: torch.Tensor,
@@ -161,7 +161,7 @@ def sampling_decode(
     temperature: float = 1.0,
     top_k: int = 0,
     top_p: float = 1.0,
-    eos_token_id: Optional[int] = None,
+    eos_token_id: int | None = None,
     device: str = "cpu",
 ) -> torch.Tensor:
     """
@@ -182,8 +182,7 @@ def sampling_decode(
                 out = out[0]
 
             logits = out[0, -1, :] if out.dim() == 3 else out[-1, :]
-            next_id = sample_token(logits, temperature=temperature,
-                                   top_k=top_k, top_p=top_p)
+            next_id = sample_token(logits, temperature=temperature, top_k=top_k, top_p=top_p)
 
             ids = torch.cat([ids, torch.tensor([[next_id]], device=device)], dim=1)
 
@@ -204,10 +203,11 @@ if __name__ == "__main__":
 
     # --- Temperature ---
     cold = apply_temperature(logits, 0.1)
-    hot  = apply_temperature(logits, 2.0)
+    hot = apply_temperature(logits, 2.0)
     # Cold should concentrate probability more
-    assert F.softmax(cold, dim=-1).max() > F.softmax(hot, dim=-1).max(), \
+    assert F.softmax(cold, dim=-1).max() > F.softmax(hot, dim=-1).max(), (
         "Temperature: cold should be sharper than hot"
+    )
     print("Temperature ✓")
 
     # --- Top-k ---
@@ -226,8 +226,7 @@ if __name__ == "__main__":
     print(f"Top-p (p={p}) ✓  nucleus mass={mass:.4f}")
 
     # --- Unified sampler: 1000 draws, no error ---
-    samples = [sample_token(logits, temperature=0.8, top_k=50, top_p=0.95)
-               for _ in range(1000)]
+    samples = [sample_token(logits, temperature=0.8, top_k=50, top_p=0.95) for _ in range(1000)]
     assert all(0 <= s < V for s in samples), "sample_token out of vocab range"
     print(f"sample_token: 1000 draws, all in [0, {V}) ✓")
 

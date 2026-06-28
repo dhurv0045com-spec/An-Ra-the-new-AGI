@@ -99,9 +99,9 @@ def test_adafactor_resume_uses_fresh_moments_for_legacy_state() -> None:
 
 def test_iterate500_frontier_training_defaults_are_fast_t4_profile() -> None:
     assert V2_FRONTIER_TRAINING.batch_size == 1
-    assert V2_FRONTIER_TRAINING.grad_accum_steps == 8
-    assert V2_FRONTIER_TRAINING.learning_rate == 4e-4
-    assert V2_FRONTIER_TRAINING.warmup_steps == 32
+    assert V2_FRONTIER_TRAINING.grad_accum_steps == 16
+    assert V2_FRONTIER_TRAINING.learning_rate == 1e-4
+    assert V2_FRONTIER_TRAINING.warmup_steps == 1_000
     assert V2_FRONTIER_TRAINING.max_mixture_examples == 4096
 
 

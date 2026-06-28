@@ -63,14 +63,12 @@ def _record(kind: str, index: int) -> CausalRecord:
     elif kind == "counterfactual":
         prompt = f"Given observed {x}=1 and {y}=1, what would {y} have been if {x}=0?"
         answer = (
-            "Abduce latent state, apply the intervention, then predict under "
-            "the same latent state."
+            "Abduce latent state, apply the intervention, then predict under the same latent state."
         )
         intervention, confounders, requires = f"do({x}=0)", (), True
     else:
         prompt = (
-            f"{z} affects both {x} and {y}; an observational study reports "
-            "correlation. Assess it."
+            f"{z} affects both {x} and {y}; an observational study reports correlation. Assess it."
         )
         answer = (
             f"The estimate is confounded by {z}; adjust, randomize, or use "

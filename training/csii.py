@@ -2,14 +2,15 @@
 
 from __future__ import annotations
 
-import torch
-from torch.nn import functional as F
-from dataclasses import asdict, dataclass
 import hashlib
 import json
-from pathlib import Path
 import time
-from typing import Iterable
+from collections.abc import Iterable
+from dataclasses import asdict, dataclass
+from pathlib import Path
+
+import torch
+from torch.nn import functional as F  # noqa: N812 - canonical PyTorch alias
 
 
 @dataclass(frozen=True)
@@ -32,8 +33,8 @@ class GrowthAlignmentController:
 
     def __init__(
         self,
-        source,
-        target,
+        source: object,
+        target: object,
         *,
         identity_layers: Iterable[int],
         new_only_steps: int = 1_000,
@@ -47,26 +48,21 @@ class GrowthAlignmentController:
         for parameter in self.source.parameters():
             parameter.requires_grad_(False)
         self.source.eval()
-        self._active_names = {
-            name for name, _ in self.target.named_parameters()
-        }
+        self._active_names = {name for name, _ in self.target.named_parameters()}
 
     def configure_trainable_parameters(self, step: int) -> dict[str, int]:
         step = max(0, int(step))
         if step >= self.alignment_steps:
             for parameter in self.target.parameters():
                 parameter.requires_grad_(True)
-            self._active_names = {
-                name for name, _ in self.target.named_parameters()
-            }
+            self._active_names = {name for name, _ in self.target.named_parameters()}
             return {"trainable": sum(p.numel() for p in self.target.parameters()), "phase": 2}
         active_names: set[str] = set()
         for parameter in self.target.parameters():
             parameter.requires_grad_(True)
-        for name, parameter in self.target.named_parameters():
+        for name, _parameter in self.target.named_parameters():
             inserted = any(
-                name.startswith(f"blocks.{layer}.")
-                or name.startswith(f"rim_modules.{layer}.")
+                name.startswith(f"blocks.{layer}.") or name.startswith(f"rim_modules.{layer}.")
                 for layer in self.identity_layers
             )
             identity_surface = any(
@@ -90,7 +86,7 @@ class GrowthAlignmentController:
                 1,
                 round(self.target.n_layer * min(1.0, inherited_fraction)),
             )
-            for name, parameter in self.target.named_parameters():
+            for name, _parameter in self.target.named_parameters():
                 for layer in range(inherited_layers):
                     if name.startswith(f"blocks.{layer}.") or name.startswith(
                         f"rim_modules.{layer}."
@@ -195,10 +191,9 @@ class CrossScaleIdentityInheritance:
                 col_index,
                 minlength=source.shape[1],
             ).float()
-        return (
-            source[row_index][:, col_index]
-            / col_counts[col_index][None, :]
-        ).to(dtype=target.dtype)
+        return (source[row_index][:, col_index] / col_counts[col_index][None, :]).to(
+            dtype=target.dtype
+        )
 
     @staticmethod
     def _attention_mapping(
@@ -223,8 +218,7 @@ class CrossScaleIdentityInheritance:
             source_head = (
                 source_group
                 if kv_projection
-                else source_group * source_per_group
-                + within_group % source_per_group
+                else source_group * source_per_group + within_group % source_per_group
             )
             mapped.extend(
                 source_head * source_head_dim + dim % source_head_dim
@@ -243,8 +237,8 @@ class CrossScaleIdentityInheritance:
         source_tensor: torch.Tensor,
         target_tensor: torch.Tensor,
         *,
-        source_model,
-        target_model,
+        source_model: object,
+        target_model: object,
         kind: str,
     ) -> torch.Tensor:
         source_head_dim = source_model.n_embd // source_model.n_head
@@ -265,8 +259,7 @@ class CrossScaleIdentityInheritance:
                 kv_projection=kv_projection,
             )
             expanded = (
-                source_tensor[row_index][:, hidden_index]
-                / hidden_counts[hidden_index][None, :]
+                source_tensor[row_index][:, hidden_index] / hidden_counts[hidden_index][None, :]
             )
             if kind in {"q", "k"}:
                 scale = (target_head_dim / source_head_dim) ** 0.25
@@ -282,10 +275,9 @@ class CrossScaleIdentityInheritance:
                 target_kv_heads=target_model.n_kv_head,
                 kv_projection=False,
             )
-            return (
-                source_tensor[hidden_index][:, col_index]
-                / col_counts[col_index][None, :]
-            ).to(dtype=target_tensor.dtype)
+            return (source_tensor[hidden_index][:, col_index] / col_counts[col_index][None, :]).to(
+                dtype=target_tensor.dtype
+            )
         raise ValueError(f"Unknown attention projection kind: {kind}")
 
     @classmethod
@@ -299,12 +291,20 @@ class CrossScaleIdentityInheritance:
         return target
 
     @staticmethod
-    def _layer_map(source_layers: int, target_layers: int) -> tuple[dict[int, int], tuple[int, ...]]:
+    def _layer_map(
+        source_layers: int, target_layers: int
+    ) -> tuple[dict[int, int], tuple[int, ...]]:
         inserted = tuple(
-            sorted(set(round((i + 1) * target_layers / (target_layers - source_layers + 1)) - 1
-                       for i in range(target_layers - source_layers)))
+            sorted(
+                {
+                    round((i + 1) * target_layers / (target_layers - source_layers + 1)) - 1
+                    for i in range(target_layers - source_layers)
+                }
+            )
         )
-        inserted = tuple(i for i in inserted if 0 <= i < target_layers)[: target_layers - source_layers]
+        inserted = tuple(i for i in inserted if 0 <= i < target_layers)[
+            : target_layers - source_layers
+        ]
         mapping: dict[int, int] = {}
         src = 0
         for target in range(target_layers):
@@ -315,12 +315,18 @@ class CrossScaleIdentityInheritance:
         return mapping, inserted
 
     @staticmethod
-    def _identity_initialize_block(block) -> None:
+    def _identity_initialize_block(block: object) -> None:
         torch.nn.init.zeros_(block.attn.out_proj.weight)
         torch.nn.init.zeros_(block.mlp.down_proj.weight)
 
     @classmethod
-    def grow(cls, source, target, *, source_checkpoint: str | Path | None = None) -> GrowthReport:
+    def grow(
+        cls,
+        source: object,
+        target: object,
+        *,
+        source_checkpoint: str | Path | None = None,
+    ) -> GrowthReport:
         source_state = source.state_dict()
         target_state = target.state_dict()
         layer_map, inserted = cls._layer_map(source.n_layer, target.n_layer)
@@ -328,14 +334,7 @@ class CrossScaleIdentityInheritance:
 
         for target_key, target_tensor in list(target_state.items()):
             source_key = target_key
-            if target_key.startswith("blocks."):
-                parts = target_key.split(".")
-                target_layer = int(parts[1])
-                if target_layer in inserted:
-                    continue
-                parts[1] = str(layer_map[target_layer])
-                source_key = ".".join(parts)
-            elif target_key.startswith("rim_modules."):
+            if target_key.startswith("blocks.") or target_key.startswith("rim_modules."):
                 parts = target_key.split(".")
                 target_layer = int(parts[1])
                 if target_layer in inserted:
@@ -376,8 +375,7 @@ class CrossScaleIdentityInheritance:
                     target.n_embd,
                 )
                 target_state[target_key] = (
-                    source_tensor[:, hidden_index]
-                    / hidden_counts[hidden_index][None, :]
+                    source_tensor[:, hidden_index] / hidden_counts[hidden_index][None, :]
                 ).to(dtype=target_tensor.dtype)
             elif source_tensor.ndim == target_tensor.ndim == 2:
                 target_state[target_key] = cls._expand_model_matrix(
@@ -395,9 +393,7 @@ class CrossScaleIdentityInheritance:
                     source.n_embd,
                     target.n_embd,
                 )
-                target_state[target_key] = source_tensor[hidden_index].to(
-                    dtype=target_tensor.dtype
-                )
+                target_state[target_key] = source_tensor[hidden_index].to(dtype=target_tensor.dtype)
             else:
                 target_state[target_key] = cls._expand_tensor(source_tensor, target_tensor)
             copied += 1
@@ -411,11 +407,7 @@ class CrossScaleIdentityInheritance:
             target.embedding_input_scale.copy_(
                 hidden_counts[hidden_index].to(target.embedding_input_scale)
             )
-            norm_multiplicity = (
-                target.n_embd
-                / source.n_embd
-                / hidden_counts[hidden_index]
-            )
+            norm_multiplicity = target.n_embd / source.n_embd / hidden_counts[hidden_index]
             for module in target.modules():
                 if hasattr(module, "multiplicity_weight"):
                     module.multiplicity_weight.copy_(
@@ -425,16 +417,14 @@ class CrossScaleIdentityInheritance:
             cls._identity_initialize_block(target.blocks[layer])
         target.esv_module.predictor.load_state_dict(source.esv_module.predictor.state_dict())
         with torch.no_grad():
-            if hasattr(source, "dstp_temperature_log") and hasattr(
-                target, "dstp_temperature_log"
-            ):
+            if hasattr(source, "dstp_temperature_log") and hasattr(target, "dstp_temperature_log"):
                 target.dstp_temperature_log.copy_(
-                F.interpolate(
-                    source.dstp_temperature_log.detach().view(1, 1, -1),
-                    size=target.n_layer,
-                    mode="linear",
-                    align_corners=True,
-                ).view_as(target.dstp_temperature_log)
+                    F.interpolate(
+                        source.dstp_temperature_log.detach().view(1, 1, -1),
+                        size=target.n_layer,
+                        mode="linear",
+                        align_corners=True,
+                    ).view_as(target.dstp_temperature_log)
                 )
             target.residual_depth_logits.copy_(
                 F.interpolate(
@@ -462,7 +452,11 @@ class CrossScaleIdentityInheritance:
 
     @staticmethod
     @torch.no_grad()
-    def verify_parity(source, target, token_ids: torch.Tensor) -> dict[str, float]:
+    def verify_parity(
+        source: object,
+        target: object,
+        token_ids: torch.Tensor,
+    ) -> dict[str, float]:
         source.eval()
         target.eval()
         source_logits, _ = source(token_ids.to(next(source.parameters()).device))
@@ -486,7 +480,7 @@ class CrossScaleIdentityInheritance:
         return target
 
     @staticmethod
-    def transfer(source, target) -> dict[str, object]:
+    def transfer(source: object, target: object) -> dict[str, object]:
         copied: list[str] = []
         target.esv_module.predictor.load_state_dict(source.esv_module.predictor.state_dict())
         copied.append("esv_predictor")

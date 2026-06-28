@@ -195,7 +195,7 @@ class HALModule(nn.Module if nn is not None else object):
         h = self.state
         value = base + 0.10 * h.dopamine - 0.20 * h.cortisol - 0.30 * h.adrenaline + 0.15 * h.endorphin - 0.05 * h.norepinephrine
         value += float(self.active_preset.get("generation_temperature_delta", 0.0) or 0.0)
-        return _clamp(value, 0.3, 1.4)
+        return _clamp(value, max(0.01, base - 0.10), base + 0.10)
 
     def kl_coefficient(self, base: float = 0.04) -> float:
         h = self.state
@@ -227,7 +227,7 @@ class HALModule(nn.Module if nn is not None else object):
     def attention_temperature(self, base: float = 1.0) -> float:
         esv = self.hal_to_esv()
         arousal = esv["stress"] - 0.4 * esv["focus"]
-        return _clamp(base * math.exp(0.5 * arousal), 0.25, 4.0)
+        return _clamp(base * math.exp(0.5 * arousal), base * 0.85, base * 1.15)
 
     def attention_temperature_tensor(self, *, device=None, dtype=None, base: float = 1.0):
         value = self.attention_temperature(base)

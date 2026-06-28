@@ -6,9 +6,10 @@ from pathlib import Path
 from typing import Any
 
 from anra.anra_paths import OUTPUT_V2_DIR
+from runtime.system_registry import build_system_manifest
+
 from engine.feature_flags import load_flags
 from engine.telemetry import get_telemetry_bus
-from runtime.system_registry import build_system_manifest
 
 
 def build_report() -> dict[str, Any]:
@@ -111,9 +112,14 @@ def print_report() -> None:
         perf = report["performance"].get(comp["name"], {})
         latency = perf.get("avg_latency_ms", 0.0)
         success = perf.get("success_rate", 0.0)
-        print(f"  [{flag}] src={src:<2} import={imp:<4} perf={success:.2f}/{latency:.2f}ms  {comp['name']}")
+        print(
+            f"  [{flag}] src={src:<2} import={imp:<4} "
+            f"perf={success:.2f}/{latency:.2f}ms  {comp['name']}"
+        )
     if report["recent_failures"]:
         print(f"\n  Recent failures ({len(report['recent_failures'])}):")
         for failure in report["recent_failures"]:
-            print(f"    {failure.get('module')} / {failure.get('operation')}: {failure.get('error')}")
+            print(
+                f"    {failure.get('module')} / {failure.get('operation')}: {failure.get('error')}"
+            )
     print(f"{'=' * 60}\n")

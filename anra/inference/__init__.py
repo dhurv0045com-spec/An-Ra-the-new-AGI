@@ -7,16 +7,14 @@ This package provides the clean import path.
 
 from __future__ import annotations
 
-from typing import Any
 
-
-def generate_traced(*args: Any, **kwargs: Any) -> Any:
+def generate_traced(*args: object, **kwargs: object) -> object:
     from generate import generate_traced as _generate_traced
 
     return _generate_traced(*args, **kwargs)
 
 
-def generate_stream(*args: Any, **kwargs: Any) -> Any:
+def generate_stream(*args: object, **kwargs: object) -> object:
     from generate import generate_stream as _generate_stream
 
     return _generate_stream(*args, **kwargs)

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from pathlib import Path
 import json
+from pathlib import Path
 
 
 class DynamicRegretScheduler:
@@ -9,7 +9,7 @@ class DynamicRegretScheduler:
 
     def __init__(
         self,
-        optimizer=None,
+        optimizer: object | None = None,
         eta_base: float | None = None,
         *,
         base_lr: float | None = None,
@@ -25,7 +25,9 @@ class DynamicRegretScheduler:
             optimizer = None
 
         self.optimizer = optimizer
-        self.eta_base = float(eta_base if eta_base is not None else (base_lr if base_lr is not None else 3e-4))
+        self.eta_base = float(
+            eta_base if eta_base is not None else (base_lr if base_lr is not None else 3e-4)
+        )
         self.min_lr = float(min_lr)
         self.max_lr = float(max_lr)
         self.session_file = Path(session_file) if session_file is not None else None

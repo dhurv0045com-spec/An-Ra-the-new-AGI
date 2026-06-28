@@ -2,18 +2,18 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from dataclasses import asdict
+import contextlib
 import hashlib
+import hmac
 import json
 import math
-from pathlib import Path
-import shutil
-import hmac
 import secrets
-from statistics import mean, pstdev
+import shutil
 import time
-from typing import Iterable
+from collections.abc import Iterable
+from dataclasses import asdict, dataclass
+from pathlib import Path
+from statistics import mean, pstdev
 
 
 @dataclass(frozen=True)
@@ -36,7 +36,9 @@ class CapabilityPromotionGate:
 
     @staticmethod
     def _seed_scores(reports: Iterable[dict[str, object]]) -> list[float]:
-        return [float(report.get("overall", report.get("overall_score", 0.0))) for report in reports]
+        return [
+            float(report.get("overall", report.get("overall_score", 0.0))) for report in reports
+        ]
 
     def compare(
         self,
@@ -49,7 +51,9 @@ class CapabilityPromotionGate:
         baselines = list(baseline_reports)
         candidates = list(candidate_reports)
         if len(baselines) < 3 or len(candidates) < 3:
-            raise ValueError("Capability promotion requires at least three seeded reports per model.")
+            raise ValueError(
+                "Capability promotion requires at least three seeded reports per model."
+            )
         base_scores = self._seed_scores(baselines)
         cand_scores = self._seed_scores(candidates)
         base_mean = mean(base_scores)
@@ -73,12 +77,10 @@ class CapabilityPromotionGate:
             "protected_dimensions_no_regression": dimensions_ok,
             "owner_suite_no_regression": float(owner_candidate) >= float(owner_baseline),
             "runtime_under_ten_minutes": all(
-                float(report.get("runtime_seconds", 0.0)) < 600.0
-                for report in candidates
+                float(report.get("runtime_seconds", 0.0)) < 600.0 for report in candidates
             ),
             "unnecessary_refusal_below_two_percent": all(
-                float(report.get("unnecessary_refusal_rate", 0.0)) < 0.02
-                for report in candidates
+                float(report.get("unnecessary_refusal_rate", 0.0)) < 0.02 for report in candidates
             ),
             "generic_phrase_below_half_percent": all(
                 float(report.get("generic_assistant_phrase_rate", 0.0)) < 0.005
@@ -147,10 +149,7 @@ class CognitiveExtensionPromotionGate:
             "a01_causal_accuracy": bool(results.get("A-01", {}).get("passing") is True),
             "a02_epistemic_calibration": bool(results.get("A-02", {}).get("passing") is True),
             "positive_three_seed_ibs": capability_decision.allowed,
-            **{
-                name: bool(checks.get(name, False))
-                for name in self.REQUIRED_CHECKS
-            },
+            **{name: bool(checks.get(name, False)) for name in self.REQUIRED_CHECKS},
         }
         reasons = tuple(name for name, passed in gates.items() if not passed)
         return PromotionDecision(
@@ -199,19 +198,15 @@ def _signing_key(*, create: bool) -> bytes | None:
     key_path.parent.mkdir(parents=True, exist_ok=True)
     key = secrets.token_bytes(32)
     key_path.write_bytes(key)
-    try:
+    with contextlib.suppress(OSError):
         key_path.chmod(0o600)
-    except OSError:
-        pass
     return key
 
 
 def _sign(payload: dict[str, object]) -> str:
     key = _signing_key(create=True)
     assert key is not None
-    canonical = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode(
-        "utf-8"
-    )
+    canonical = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
     return hmac.new(key, canonical, hashlib.sha256).hexdigest()
 
 
@@ -221,9 +216,7 @@ def verify_release_manifest(payload: dict[str, object]) -> bool:
     if not signature or key is None:
         return False
     unsigned = {key: value for key, value in payload.items() if key != "signature"}
-    canonical = json.dumps(unsigned, sort_keys=True, separators=(",", ":")).encode(
-        "utf-8"
-    )
+    canonical = json.dumps(unsigned, sort_keys=True, separators=(",", ":")).encode("utf-8")
     expected = hmac.new(key, canonical, hashlib.sha256).hexdigest()
     return hmac.compare_digest(signature, expected)
 
@@ -242,7 +235,7 @@ def promote_checkpoint_atomically(
     promoted_path: str | Path,
     decision: PromotionDecision,
     metadata: dict[str, object],
-    smoke_test=None,
+    smoke_test: object | None = None,
 ) -> dict[str, object]:
     """Promote with a release manifest and automatic rollback on smoke failure."""
     if not decision.allowed:

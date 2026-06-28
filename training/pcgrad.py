@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Iterable
 
 import torch
 
@@ -129,9 +129,7 @@ class PCGradAccumulator:
             elif self.other_steps == 0:
                 parameter.grad = owner_gradient.clone()
             else:
-                projected, report = project_conflicting_gradient(
-                    owner_gradient, other_gradient
-                )
+                projected, report = project_conflicting_gradient(owner_gradient, other_gradient)
                 parameter.grad = projected + other_gradient
                 telemetry.append(report)
         return telemetry

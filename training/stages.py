@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
+import json
+from collections.abc import Callable
 from dataclasses import asdict, dataclass
 from enum import Enum
-import json
 from pathlib import Path
-from typing import Callable
 
 from training.v2_config import V2_FRONTIER_PARAMETER_COUNT
 
@@ -16,6 +16,7 @@ class TrainingStage(str, Enum):
     OWNER_ADAPTATION = "owner_adaptation"
     AGENCY = "agency"
     VERIFIED_REASONING = "verified_reasoning"
+    VERIFIER_REPLAY = "verifier_replay"
 
 
 @dataclass(frozen=True)
@@ -26,25 +27,54 @@ class StageConfig:
     max_steps: int
     token_target: int
     verifier_required: bool = False
+    continuation_phase: str = "D"
+    training_layout: str = "bucket_packed_v1"
 
 
 DEFAULT_STAGES = (
-    StageConfig(TrainingStage.FOUNDATION, "next_token", 0.05, 50_000, 5_000_000_000),
+    StageConfig(
+        TrainingStage.FOUNDATION,
+        "raw_next_token_frozen_native",
+        0.0,
+        50_000,
+        1_000_000_000,
+        continuation_phase="A",
+        training_layout="raw_causal_shards_v1",
+    ),
     StageConfig(
         TrainingStage.OWNER_ADAPTATION,
-        "owner_sft",
-        0.6754,
-        100_000,
-        10_000_000_000,
+        "raw_next_token_staged_native",
+        0.0,
+        50_000,
+        1_000_000_000,
+        continuation_phase="B",
+        training_layout="raw_causal_shards_v1",
     ),
-    StageConfig(TrainingStage.AGENCY, "tool_trajectory", 0.60, 20_000, 3_000_000_000),
+    StageConfig(
+        TrainingStage.AGENCY,
+        "mixed_code_math_science_dfc",
+        0.05,
+        20_000,
+        200_000_000,
+        continuation_phase="C",
+        training_layout="raw_causal_shards_v1",
+    ),
     StageConfig(
         TrainingStage.VERIFIED_REASONING,
-        "rlvr_star",
-        0.50,
-        50_000,
-        3_000_000_000,
+        "conversation_instruction",
+        0.05,
+        20_000,
+        100_000_000,
+        continuation_phase="D",
+    ),
+    StageConfig(
+        TrainingStage.VERIFIER_REPLAY,
+        "verifier_replay_tools",
+        0.05,
+        10_000,
+        10_000_000,
         True,
+        continuation_phase="E",
     ),
 )
 
@@ -138,18 +168,19 @@ class StagedTrainingCampaign:
             if not bool(metrics.get("tokenizer_schema_valid", False)):
                 failures.append("tokenizer and checkpoint schema validation missing")
         elif config.stage == TrainingStage.OWNER_ADAPTATION:
-            if float(metrics.get("civ_similarity", 0.0)) < 0.85:
-                failures.append("CIV similarity below 0.85")
-            if float(ibs.get("overall", ibs.get("overall_score", 0.0))) < 0.50:
-                failures.append("IBS overall below 0.50")
+            if not bool(metrics.get("subsystem_trace_complete", False)):
+                failures.append("isolated native subsystem trace is incomplete")
             if bool(metrics.get("protected_regression", False)):
-                failures.append("reasoning, identity, or safety regressed")
+                failures.append("short-context or core-language validation regressed")
         elif config.stage == TrainingStage.AGENCY:
-            if int(metrics.get("verified_trajectories", 0)) < 1000:
-                failures.append("fewer than 1,000 verified trajectories")
-            if float(dimensions.get("tool_use", 0.0)) < 0.60:
-                failures.append("IBS tool_use below 0.60")
+            if float(metrics.get("validation_regression", 1.0)) > 0.02:
+                failures.append("native integration regressed validation loss by more than 2%")
         elif config.stage == TrainingStage.VERIFIED_REASONING:
+            if float(metrics.get("coherence_rate", 0.0)) < 0.90:
+                failures.append("chat coherence below 0.90")
+            if float(metrics.get("format_compliance", 0.0)) < 0.85:
+                failures.append("instruction format compliance below 0.85")
+        elif config.stage == TrainingStage.VERIFIER_REPLAY:
             if float(dimensions.get("reasoning", 0.0)) < 0.70:
                 failures.append("IBS reasoning below 0.70")
             if float(metrics.get("star_verification_rate", 0.0)) < 0.90:
@@ -170,36 +201,12 @@ class StagedTrainingCampaign:
             "stage_b": TrainingStage.OWNER_ADAPTATION,
             "stage_c": TrainingStage.AGENCY,
             "stage_d": TrainingStage.VERIFIED_REASONING,
+            "stage_e": TrainingStage.VERIFIER_REPLAY,
             "owner_sft": TrainingStage.OWNER_ADAPTATION,
-            "rlvr": TrainingStage.VERIFIED_REASONING,
+            "rlvr": TrainingStage.VERIFIER_REPLAY,
         }
         stage = aliases[stage_name] if stage_name in aliases else TrainingStage(stage_name)
         config = next(item for item in self.state.stages if item.stage == stage)
-        if stage == TrainingStage.AGENCY:
-            preflight_metrics = load_metrics(config)
-            if int(preflight_metrics.get("verified_trajectories", 0)) < 1000:
-                result = StageResult(
-                    stage=stage.value,
-                    passed_gate=False,
-                    gate_failures=(
-                        "agency stage cannot start before 1,000 verified trajectories",
-                    ),
-                    checkpoint_path=None,
-                    metrics=preflight_metrics,
-                    exit_code=0,
-                )
-                self.state.update(
-                    stage,
-                    step=0,
-                    status="blocked",
-                    checkpoint=None,
-                )
-                self.results_dir.mkdir(parents=True, exist_ok=True)
-                (self.results_dir / f"{stage.value}.json").write_text(
-                    json.dumps(asdict(result), indent=2, sort_keys=True),
-                    encoding="utf-8",
-                )
-                return result
         self.state.update(stage, step=0, status="running", checkpoint=None)
         exit_code, checkpoint = execute(config)
         metrics = load_metrics(config)

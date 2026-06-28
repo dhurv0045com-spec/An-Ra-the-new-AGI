@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
-import torch
-from torch import nn
-from torch.nn import functional as F
 import hashlib
 import json
 from dataclasses import dataclass
 from pathlib import Path
+
+import torch
+from torch import nn
+from torch.nn import functional as F  # noqa: N812 - canonical PyTorch alias
 
 
 class PredictiveWorldModel(nn.Module):

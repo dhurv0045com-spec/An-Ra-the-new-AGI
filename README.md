@@ -15,7 +15,7 @@ frontier
 Current built model size:
 
 ```text
-499,167,019 parameters
+499,167,047 parameters
 ```
 
 Core transformer accounting:

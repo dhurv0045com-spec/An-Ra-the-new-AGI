@@ -2,15 +2,14 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field
 import hashlib
 import json
-from pathlib import Path
 import time
+from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Literal
 
 from anra.anra_paths import OUTPUT_V2_DIR
-
 
 SourceType = Literal[
     "training_verified",
@@ -100,12 +99,22 @@ class EpistemicTracker:
     ) -> EpistemicState:
         evidence = evidence or []
         verified = [item for item in evidence if bool(item.get("verified", False))]
-        independent = len({str(item.get("source_id", "")) for item in verified if item.get("source_id")})
-        provenance = sum(float(item.get("provenance", 0.0)) for item in evidence) / max(1, len(evidence))
+        independent = len(
+            {str(item.get("source_id", "")) for item in verified if item.get("source_id")}
+        )
+        provenance = sum(float(item.get("provenance", 0.0)) for item in evidence) / max(
+            1, len(evidence)
+        )
         recency = sum(float(item.get("recency", 1.0)) for item in evidence) / max(1, len(evidence))
         verifier = sum(float(item.get("score", 0.0)) for item in verified) / max(1, len(verified))
         depth = len(derivation_chain or [])
-        base = 0.15 + 0.30 * provenance + 0.30 * verifier + 0.15 * min(1.0, independent / 3) + 0.10 * recency
+        base = (
+            0.15
+            + 0.30 * provenance
+            + 0.30 * verifier
+            + 0.15 * min(1.0, independent / 3)
+            + 0.10 * recency
+        )
         if not evidence:
             base = 0.25 if source_type == "confabulated" else 0.50
         base *= 0.95**depth
@@ -171,7 +180,9 @@ class EpistemicTracker:
             self._calibration[domain] = max(0.25, min(1.5, actual / max(0.05, predicted)))
         self.calibration_path.parent.mkdir(parents=True, exist_ok=True)
         temporary = self.calibration_path.with_suffix(".tmp")
-        temporary.write_text(json.dumps(self._calibration, indent=2, sort_keys=True), encoding="utf-8")
+        temporary.write_text(
+            json.dumps(self._calibration, indent=2, sort_keys=True), encoding="utf-8"
+        )
         temporary.replace(self.calibration_path)
         return dict(self._calibration)
 
@@ -200,7 +211,8 @@ class EpistemicTracker:
                 "brier_score": sum(
                     (float(item["predicted_conf"]) - float(bool(item["was_correct"]))) ** 2
                     for item in rows
-                ) / len(rows),
+                )
+                / len(rows),
                 "calibration_multiplier": float(self._calibration.get(domain, 1.0)),
             }
         return {

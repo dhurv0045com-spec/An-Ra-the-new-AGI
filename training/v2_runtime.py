@@ -1,19 +1,19 @@
 from __future__ import annotations
 
-import json
 import hashlib
+import json
 import logging
 import math
 import shutil
 import time
 from pathlib import Path
+from typing import TypedDict
 
 import torch
-
 from anra.anra_paths import (
     DRIVE_DIR,
-    DRIVE_V2_DIR,
     DRIVE_V2_CHECKPOINTS,
+    DRIVE_V2_DIR,
     OUTPUT_V2_DIR,
     ROOT,
     TOKENIZER_MANIFEST,
@@ -28,15 +28,18 @@ from anra.anra_paths import (
     get_v2_checkpoint,
 )
 from anra_brain import CausalTransformerV2
+from runtime.drive_session_manager import DriveSessionManager
+from runtime.safe_load import safe_torch_load
 from tokenizer.subword_tokenizer import SubwordTokenizer
 from tokenizer.tokenizer_adapter import TokenizerAdapter
+
 from training.anra_optimizer import restore_optimizer_state_for_resume
 from training.v2_config import (
     CANONICAL_VOCAB_SIZE,
     CHECKPOINT_SCHEMA_VERSION,
     EXPECTED_PAD_TOKEN_ID,
-    EXPECTED_SPECIAL_TOKENS,
     EXPECTED_SPECIAL_TOKEN_IDS,
+    EXPECTED_SPECIAL_TOKENS,
     EXPECTED_TOKENIZER_VOCAB_SIZE,
     TOKENIZER_SCHEMA_VERSION,
     V2_FRONTIER,
@@ -45,9 +48,6 @@ from training.v2_config import (
     V2_REPORT_FILES,
     resolve_model_profile,
 )
-from runtime.drive_session_manager import DriveSessionManager
-from runtime.safe_load import safe_torch_load
-
 
 ensure_dirs()
 logger = logging.getLogger(__name__)
@@ -57,6 +57,25 @@ DRIVE_SESSION_MANAGER = DriveSessionManager(DRIVE_DIR)
 
 class CheckpointCompatibilityError(RuntimeError):
     """Raised when a checkpoint cannot satisfy the requested model contract."""
+
+
+class CheckpointLoadReport(TypedDict, total=False):
+    loaded_keys: list[str]
+    loaded_key_count: int
+    target_key_count: int
+    missing_keys: list[str]
+    unexpected_keys: list[str]
+    mismatched_shapes: dict[str, object]
+    source_shape_changes: dict[str, object]
+    newly_initialized_keys: list[str]
+    core_missing_keys: list[str]
+    core_mismatched_keys: list[str]
+    subsystem_missing_keys: list[str]
+    subsystem_mismatched_keys: list[str]
+    migration: dict[str, object]
+    exact_core_load: bool
+    exact_native_load: bool
+    all_target_tensors_accounted: bool
 
 
 def canonical_v2_checkpoint(kind: str = "brain") -> Path:
@@ -78,7 +97,9 @@ def v2_report_path(key: str) -> Path:
     return v2_output_file(filename)
 
 
-def atomic_save(payload: dict, output_path: Path, *, drive_dir: Path | None = DRIVE_V2_CHECKPOINTS) -> None:
+def atomic_save(
+    payload: dict, output_path: Path, *, drive_dir: Path | None = DRIVE_V2_CHECKPOINTS
+) -> None:
     output_path.parent.mkdir(parents=True, exist_ok=True)
     tmp = output_path.with_suffix(output_path.suffix + ".tmp")
     torch.save(payload, tmp)
@@ -297,10 +318,7 @@ def _migrate_tokenizer_surface(path: Path) -> bool:
         token_to_id = dict(payload["token_to_id"])
     except Exception:
         return False
-    current = {
-        token: token_to_id.get(token)
-        for token in EXPECTED_SPECIAL_TOKENS
-    }
+    current = {token: token_to_id.get(token) for token in EXPECTED_SPECIAL_TOKENS}
     if current == EXPECTED_SPECIAL_TOKEN_IDS:
         return False
     if len(id_to_token) < EXPECTED_TOKENIZER_VOCAB_SIZE:
@@ -347,12 +365,14 @@ def assert_tokenizer_contract(path: Path, tokenizer: SubwordTokenizer) -> None:
     special_tokens = list(meta.get("special_tokens", tokenizer.special_tokens))
     if vocab_size != EXPECTED_TOKENIZER_VOCAB_SIZE:
         raise AssertionError(
-            f"Tokenizer contract mismatch: vocab_size={vocab_size}, expected={EXPECTED_TOKENIZER_VOCAB_SIZE} "
+            f"Tokenizer contract mismatch: vocab_size={vocab_size}, "
+            f"expected={EXPECTED_TOKENIZER_VOCAB_SIZE} "
             f"(meta={meta_path})"
         )
     if special_tokens != EXPECTED_SPECIAL_TOKENS:
         raise AssertionError(
-            f"Tokenizer contract mismatch: special_tokens={special_tokens}, expected={EXPECTED_SPECIAL_TOKENS} "
+            f"Tokenizer contract mismatch: special_tokens={special_tokens}, "
+            f"expected={EXPECTED_SPECIAL_TOKENS} "
             f"(meta={meta_path})"
         )
     if tokenizer.vocab_size != EXPECTED_TOKENIZER_VOCAB_SIZE:
@@ -374,16 +394,23 @@ def assert_tokenizer_contract(path: Path, tokenizer: SubwordTokenizer) -> None:
     if missing:
         raise AssertionError(f"Tokenizer special-token ID mismatch: {missing[:5]}")
     digest = hashlib.sha256(path.read_bytes()).hexdigest()
+    probe_sha256 = _tokenizer_probe_fingerprint(tokenizer)
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    vocabulary = payload.get("token_to_id", {}) if isinstance(payload, dict) else {}
+    vocabulary_sha256 = hashlib.sha256(
+        json.dumps(vocabulary, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
     manifest = {
         "schema_version": TOKENIZER_SCHEMA_VERSION,
         "vocab_size": tokenizer.vocab_size,
         "pad_token_id": tokenizer.pad_token_id,
         "special_tokens": list(EXPECTED_SPECIAL_TOKENS),
-        "special_token_ids": {
-            token: int(token_to_id[token]) for token in EXPECTED_SPECIAL_TOKENS
-        },
+        "special_token_ids": {token: int(token_to_id[token]) for token in EXPECTED_SPECIAL_TOKENS},
         "tokenizer_path": str(path),
         "tokenizer_sha256": digest,
+        "vocabulary_sha256": vocabulary_sha256,
+        "probe_count": 500,
+        "probe_sha256": probe_sha256,
     }
     TOKENIZER_MANIFEST.parent.mkdir(parents=True, exist_ok=True)
     temporary = TOKENIZER_MANIFEST.with_suffix(".tmp")
@@ -394,7 +421,48 @@ def assert_tokenizer_contract(path: Path, tokenizer: SubwordTokenizer) -> None:
     temporary.replace(TOKENIZER_MANIFEST)
 
 
-def assert_model_tokenizer_contract(model: CausalTransformerV2, tokenizer: SubwordTokenizer) -> None:
+def _tokenizer_probe_fingerprint(
+    tokenizer: SubwordTokenizer,
+    count: int = 500,
+) -> str:
+    """Fingerprint fixed encode/decode behavior, not JSON formatting."""
+    encoded_probes: list[list[int]] = []
+    for index in range(count):
+        text = (
+            f"H: An-Ra tokenizer probe {index:03d}: "
+            f"code_{index % 17} = ({index % 97} + {index % 31}); "
+            f"logic, math, science, memory.\nANRA: verified {index % 11}."
+        )
+        encoded = tokenizer.encode(text, add_special_tokens=False)
+        decoded = tokenizer.decode(encoded)
+        if tokenizer.encode(decoded, add_special_tokens=False) != encoded:
+            raise AssertionError(f"Tokenizer encode/decode probe {index} is not ID-stable")
+        encoded_probes.append([int(token_id) for token_id in encoded])
+    material = json.dumps(encoded_probes, separators=(",", ":")).encode("utf-8")
+    return hashlib.sha256(material).hexdigest()
+
+
+def _active_tokenizer_identity() -> dict[str, object]:
+    if not V3_TOKENIZER_FILE.exists():
+        return {"available": False}
+    raw = V3_TOKENIZER_FILE.read_bytes()
+    payload = json.loads(raw.decode("utf-8"))
+    vocabulary = payload.get("token_to_id", {}) if isinstance(payload, dict) else {}
+    tokenizer = SubwordTokenizer.load(V3_TOKENIZER_FILE)
+    return {
+        "available": True,
+        "sha256": hashlib.sha256(raw).hexdigest(),
+        "vocabulary_sha256": hashlib.sha256(
+            json.dumps(vocabulary, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        ).hexdigest(),
+        "probe_count": 500,
+        "probe_sha256": _tokenizer_probe_fingerprint(tokenizer),
+    }
+
+
+def assert_model_tokenizer_contract(
+    model: CausalTransformerV2, tokenizer: SubwordTokenizer
+) -> None:
     """Ensure model embeddings and tokenizer IDs share the same training contract."""
     if tokenizer.vocab_size != model.vocab_size:
         raise AssertionError(
@@ -411,9 +479,10 @@ def assert_model_tokenizer_contract(model: CausalTransformerV2, tokenizer: Subwo
 def _checkpoint_vocab_size(model_state: dict[str, torch.Tensor]) -> int | None:
     for key, weight in model_state.items():
         if (
-            key.endswith("token_embedding_table.weight")
-            or key.endswith("lm_head.weight")
-        ) and isinstance(weight, torch.Tensor) and weight.ndim >= 2:
+            (key.endswith("token_embedding_table.weight") or key.endswith("lm_head.weight"))
+            and isinstance(weight, torch.Tensor)
+            and weight.ndim >= 2
+        ):
             return int(weight.shape[0])
     return None
 
@@ -433,16 +502,12 @@ def _adapt_state_vocab_rows(
             and target_weight.ndim == old_weight.ndim
             and old_weight.shape[1:] == target_weight.shape[1:]
             and old_weight.shape[0] < target_weight.shape[0]
-            and (
-                key.endswith("token_embedding_table.weight")
-                or key.endswith("lm_head.weight")
-            )
+            and (key.endswith("token_embedding_table.weight") or key.endswith("lm_head.weight"))
         ):
             new_weight = torch.empty_like(target_weight)
             legacy = old_weight.to(device=new_weight.device, dtype=new_weight.dtype)
             new_weight[: old_weight.shape[0]] = legacy
             appended_count = target_weight.shape[0] - old_weight.shape[0]
-            base = legacy[: min(13, legacy.shape[0])].float().mean(dim=0)
             scale = legacy.float().std().clamp_min(1e-8) * 0.01
             rows = torch.arange(
                 1,
@@ -459,7 +524,23 @@ def _adapt_state_vocab_rows(
             offsets = torch.sin(rows * columns * 0.017453292519943295)
             offsets = offsets - offsets.mean(dim=1, keepdim=True)
             offsets = offsets / offsets.norm(dim=1, keepdim=True).clamp_min(1e-8)
-            appended = base.unsqueeze(0) + offsets * scale
+            tokenizer_payload = json.loads(V3_TOKENIZER_FILE.read_text(encoding="utf-8"))
+            id_to_token = list(tokenizer_payload.get("id_to_token", []))
+            token_to_id = dict(tokenizer_payload.get("token_to_id", {}))
+            bases: list[torch.Tensor] = []
+            for row_index in range(old_weight.shape[0], target_weight.shape[0]):
+                token = id_to_token[row_index] if row_index < len(id_to_token) else ""
+                constituent_ids = [
+                    int(token_to_id[character])
+                    for character in token
+                    if character in token_to_id
+                    and int(token_to_id[character]) < old_weight.shape[0]
+                ]
+                if not constituent_ids:
+                    constituent_ids = list(range(min(13, legacy.shape[0])))
+                bases.append(legacy[constituent_ids].float().mean(dim=0))
+            base_rows = torch.stack(bases, dim=0)
+            appended = base_rows + offsets * scale
             new_weight[old_weight.shape[0] :] = appended.to(dtype=new_weight.dtype)
             adapted[key] = new_weight
     return adapted
@@ -499,23 +580,104 @@ def _load_state_with_base_fallback(
     model_state: dict[str, torch.Tensor],
     *,
     strict: bool,
-) -> None:
+) -> object:
     try:
-        model.load_state_dict(model_state, strict=strict)
-        return
+        return model.load_state_dict(model_state, strict=strict)
     except RuntimeError as exc:
         base = getattr(model, "model", None)
         if base is None:
             raise exc
         base_migrated, _ = migrate_checkpoint_state(model_state, base.state_dict())
-        base.load_state_dict(base_migrated, strict=strict)
+        return base.load_state_dict(base_migrated, strict=strict)
 
 
-def _load_hal(config) -> object | None:
+def checkpoint_load_report(
+    source_state: dict[str, torch.Tensor],
+    target_state: dict[str, torch.Tensor],
+    migrated_state: dict[str, torch.Tensor],
+    incompatible: object,
+    migration: dict[str, object],
+) -> CheckpointLoadReport:
+    """Describe every tensor disposition instead of treating strict=False as proof."""
+    source_keys = set(source_state)
+    target_keys = set(target_state)
+    migrated_keys = set(migrated_state)
+    source_shape_changes = {
+        key: {
+            "checkpoint": list(source_state[key].shape),
+            "model": list(target_state[key].shape),
+        }
+        for key in sorted(source_keys & target_keys)
+        if isinstance(source_state[key], torch.Tensor)
+        and isinstance(target_state[key], torch.Tensor)
+        and source_state[key].shape != target_state[key].shape
+    }
+    mismatched_shapes = {
+        key: {
+            "migrated": list(migrated_state[key].shape),
+            "model": list(target_state[key].shape),
+        }
+        for key in sorted(migrated_keys & target_keys)
+        if isinstance(migrated_state[key], torch.Tensor)
+        and isinstance(target_state[key], torch.Tensor)
+        and migrated_state[key].shape != target_state[key].shape
+    }
+    runtime_missing = list(getattr(incompatible, "missing_keys", []))
+    runtime_unexpected = list(getattr(incompatible, "unexpected_keys", []))
+    missing = sorted((target_keys - migrated_keys) | set(runtime_missing))
+    unexpected = sorted((migrated_keys - target_keys) | set(runtime_unexpected))
+    initialized = sorted(target_keys - source_keys - set(missing))
+    loaded = sorted(
+        key
+        for key in target_keys & migrated_keys
+        if key not in mismatched_shapes and key not in missing
+    )
+    core_prefixes = (
+        "token_embedding_table",
+        "token_embedding",
+        "embedding_input_scale",
+        "lm_head",
+        "blocks.",
+        "norm_f",
+    )
+    subsystem_prefixes = (
+        "esv_module.",
+        "rim_modules.",
+        "mod_routers.",
+        "residual_depth_logits",
+        "dstp_temperature_log",
+        "layer_temperature_bias",
+    )
+    core_missing = [key for key in missing if key.startswith(core_prefixes)]
+    core_mismatched = [key for key in mismatched_shapes if key.startswith(core_prefixes)]
+    subsystem_missing = [key for key in missing if key.startswith(subsystem_prefixes)]
+    subsystem_mismatched = [key for key in mismatched_shapes if key.startswith(subsystem_prefixes)]
+    return {
+        "loaded_keys": loaded,
+        "loaded_key_count": len(loaded),
+        "target_key_count": len(target_keys),
+        "missing_keys": missing,
+        "unexpected_keys": unexpected,
+        "mismatched_shapes": mismatched_shapes,
+        "source_shape_changes": source_shape_changes,
+        "newly_initialized_keys": initialized,
+        "core_missing_keys": core_missing,
+        "core_mismatched_keys": core_mismatched,
+        "subsystem_missing_keys": subsystem_missing,
+        "subsystem_mismatched_keys": subsystem_mismatched,
+        "migration": migration,
+        "exact_core_load": not core_missing and not core_mismatched,
+        "exact_native_load": not subsystem_missing and not subsystem_mismatched,
+        "all_target_tensors_accounted": (not missing and not mismatched_shapes and not unexpected),
+    }
+
+
+def _load_hal(config: object) -> object | None:
     if not getattr(config, "use_hal", False):
         return None
     try:
         from anra.anra_paths import DRIVE_LOGS, HAL_STATE_FILE
+
         from identity.hal import HALModule
 
         drive_path = DRIVE_LOGS / "hal_state.json"
@@ -526,24 +688,31 @@ def _load_hal(config) -> object | None:
         return None
 
 
-def build_model_from_config(config, *, hal_module=None, block_size: int | None = None) -> CausalTransformerV2:
+def build_model_from_config(
+    config: object,
+    *,
+    hal_module: object | None = None,
+    block_size: int | None = None,
+) -> CausalTransformerV2:
     if config.vocab_size != EXPECTED_TOKENIZER_VOCAB_SIZE:
         raise AssertionError(
-            f"Canonical model vocab must be {EXPECTED_TOKENIZER_VOCAB_SIZE}, got {config.vocab_size}"
+            f"Canonical model vocab must be {EXPECTED_TOKENIZER_VOCAB_SIZE}, "
+            f"got {config.vocab_size}"
         )
     hal_module = _load_hal(config) if hal_module is None else hal_module
+    effective_block_size = int(block_size or config.block_size)
     model = CausalTransformerV2(
         vocab_size=config.vocab_size,
         n_embd=config.n_embd,
         n_head=config.n_head,
         n_kv_head=config.n_kv_head,
         n_layer=config.n_layer,
-        block_size=block_size or config.block_size,
+        block_size=effective_block_size,
         rms_norm_eps=config.rms_norm_eps,
         dropout=config.dropout,
         mod_layers=set(config.mod_layers),
         base_seq_len=config.base_seq_len,
-        target_seq_len=config.target_seq_len,
+        target_seq_len=max(int(config.target_seq_len), effective_block_size),
         pad_token_id=config.pad_token_id,
         use_layer_temperature_bias=True,
         use_hal=config.use_hal,
@@ -557,7 +726,9 @@ def build_model_from_config(config, *, hal_module=None, block_size: int | None =
     return model
 
 
-def build_v2_model(*, vocab_size: int, block_size: int = V2_MODEL.block_size) -> CausalTransformerV2:
+def build_v2_model(
+    *, vocab_size: int, block_size: int = V2_MODEL.block_size
+) -> CausalTransformerV2:
     if vocab_size != EXPECTED_TOKENIZER_VOCAB_SIZE:
         raise AssertionError(
             f"Model/tokenizer vocab mismatch at construction: vocab_size={vocab_size}, "
@@ -568,7 +739,8 @@ def build_v2_model(*, vocab_size: int, block_size: int = V2_MODEL.block_size) ->
 
 def build_frontier_model(
     *,
-    hal_module=None,
+    hal_module: object | None = None,
+    block_size: int | None = None,
 ) -> CausalTransformerV2:
     """
     Build the branch frontier model from V2_FRONTIER config.
@@ -582,13 +754,19 @@ def build_frontier_model(
             f"tokenizer={EXPECTED_TOKENIZER_VOCAB_SIZE}"
         )
 
-    model = build_model_from_config(cfg, hal_module=hal_module)
+    if block_size is not None and int(block_size) not in {1024, 1536, 2048}:
+        raise ValueError("Frontier context length must be 1024, 1536, or 2048")
+    model = build_model_from_config(
+        cfg,
+        hal_module=hal_module,
+        block_size=block_size,
+    )
 
     if hasattr(model, "gradient_checkpointing_enable"):
         model.gradient_checkpointing_enable()
         print("  [build_frontier_model] Gradient checkpointing: ENABLED")
     else:
-        setattr(model, "gradient_checkpointing", True)
+        model.gradient_checkpointing = True
         print("  [build_frontier_model] Gradient checkpointing flag: ENABLED")
 
     if hasattr(model, "disable_kv_cache"):
@@ -605,12 +783,17 @@ def build_frontier_model(
         f"  n_embd={cfg.n_embd}  n_layer={cfg.n_layer}  "
         f"n_head={cfg.n_head}  n_kv_head={cfg.n_kv_head}"
     )
-    print(f"  block_size={cfg.block_size}  vocab={cfg.vocab_size}")
+    print(f"  block_size={model.block_size}  vocab={cfg.vocab_size}")
     print(f"  HAL: {'enabled' if cfg.use_hal else 'disabled'}")
     return model
 
 
-def build_model_for_profile(profile: str, *, hal_module=None, block_size: int | None = None):
+def build_model_for_profile(
+    profile: str,
+    *,
+    hal_module: object | None = None,
+    block_size: int | None = None,
+) -> CausalTransformerV2:
     config, _ = resolve_model_profile(profile)
     return build_model_from_config(config, hal_module=hal_module, block_size=block_size)
 
@@ -618,8 +801,8 @@ def build_model_for_profile(profile: str, *, hal_module=None, block_size: int | 
 def load_checkpoint(
     model: CausalTransformerV2,
     optimizer: torch.optim.Optimizer | None,
-    scheduler,
-    mp_trainer,
+    scheduler: object | None,
+    mp_trainer: object | None,
     checkpoint_path: Path,
     *,
     device: torch.device,
@@ -633,6 +816,12 @@ def load_checkpoint(
         "sessions_completed": 0,
         "data_profile": "unknown",
         "training_data_layout": "unknown",
+        "tokens_seen": 0,
+        "unique_token_ids_seen": [],
+        "continuation_token_counts": {},
+        "best_validation_loss": float("inf"),
+        "validation_history": [],
+        "tokenizer_identity": {"verified": False, "reason": "checkpoint_not_loaded"},
     }
     ckpt = checkpoint_path
     if not ckpt.exists():
@@ -648,7 +837,9 @@ def load_checkpoint(
         return state
 
     blob = safe_torch_load(ckpt, map_location=device)
-    model_state = blob.get("model_state_dict", blob.get("model", blob)) if isinstance(blob, dict) else blob
+    model_state = (
+        blob.get("model_state_dict", blob.get("model", blob)) if isinstance(blob, dict) else blob
+    )
     if isinstance(model_state, dict):
         ckpt_vocab_size = _checkpoint_vocab_size(model_state)
         if ckpt_vocab_size is not None and ckpt_vocab_size > model.vocab_size:
@@ -665,9 +856,49 @@ def load_checkpoint(
                     f"Checkpoint/model pad mismatch: checkpoint pad_token_id={ckpt_pad}, "
                     f"model.pad_token_id={model.pad_token_id} ({ckpt})"
                 )
+        saved_tokenizer = blob.get("tokenizer_contract", {})
+        active_tokenizer = _active_tokenizer_identity()
+        tokenizer_identity = {
+            "verified": False,
+            "saved": saved_tokenizer,
+            "active": active_tokenizer,
+            "reason": "legacy_checkpoint_missing_tokenizer_fingerprint",
+        }
+        if isinstance(saved_tokenizer, dict):
+            comparisons = {
+                key: (saved_tokenizer.get(key), active_tokenizer.get(key))
+                for key in ("vocabulary_sha256", "probe_sha256")
+                if saved_tokenizer.get(key)
+            }
+            mismatches = {
+                key: {"checkpoint": values[0], "active": values[1]}
+                for key, values in comparisons.items()
+                if values[0] != values[1]
+            }
+            if mismatches:
+                raise CheckpointCompatibilityError(
+                    f"Checkpoint tokenizer IDs differ from the active tokenizer: {mismatches}"
+                )
+            if len(comparisons) == 2:
+                tokenizer_identity["verified"] = True
+                tokenizer_identity["reason"] = "vocabulary_and_500_probes_match"
+            tokenizer_identity["file_sha256_matches"] = (
+                saved_tokenizer.get("sha256") == active_tokenizer.get("sha256")
+                if saved_tokenizer.get("sha256")
+                else None
+            )
+        state["tokenizer_identity"] = tokenizer_identity
     try:
-        migrated_state, migration = migrate_checkpoint_state(model_state, model.state_dict())
-        _load_state_with_base_fallback(model, migrated_state, strict=strict)
+        target_state = model.state_dict()
+        migrated_state, migration = migrate_checkpoint_state(model_state, target_state)
+        incompatible = _load_state_with_base_fallback(model, migrated_state, strict=strict)
+        load_report = checkpoint_load_report(
+            model_state,
+            target_state,
+            migrated_state,
+            incompatible,
+            migration,
+        )
     except RuntimeError as exc:
         raise CheckpointCompatibilityError(
             f"Checkpoint {ckpt} is incompatible with the requested model architecture."
@@ -689,7 +920,9 @@ def load_checkpoint(
                 logger.warning("Optimizer state restore failed from %s: %s", ckpt, exc)
         if scheduler is not None:
             try:
-                scheduler.load_state_dict(blob.get("scheduler_state_dict", blob.get("scheduler", {})))
+                scheduler.load_state_dict(
+                    blob.get("scheduler_state_dict", blob.get("scheduler", {}))
+                )
             except Exception as exc:
                 logger.warning("Scheduler state restore failed from %s: %s", ckpt, exc)
         if mp_trainer is not None:
@@ -705,14 +938,23 @@ def load_checkpoint(
         state["sessions_completed"] = int(blob.get("sessions_completed", 0))
         state["data_profile"] = str(blob.get("data_profile", "unknown"))
         state["training_data_layout"] = str(blob.get("training_data_layout", "unknown"))
+        state["tokens_seen"] = int(blob.get("tokens_seen", 0))
+        state["unique_token_ids_seen"] = list(blob.get("unique_token_ids_seen", []))
+        state["continuation_token_counts"] = dict(blob.get("continuation_token_counts", {}))
+        state["best_validation_loss"] = float(blob.get("best_validation_loss", float("inf")))
+        state["validation_history"] = list(blob.get("validation_history", []))
+        state["data_manifests"] = dict(blob.get("data_manifests", {}))
+        state["model_config"] = dict(blob.get("model_config", {}))
+        state["source_commit"] = str(blob.get("source_commit", "unknown"))
         restore_hal_state(model, blob.get("hal_state", {}))
     state["loaded"] = True
     state["migration"] = migration
+    state["load_report"] = load_report
     return state
 
 
 @torch.no_grad()
-def tokenizer_special_ids(tokenizer) -> dict[str, int]:
+def tokenizer_special_ids(tokenizer: object) -> dict[str, int]:
     """Return special token IDs for both tokenizer surfaces used by AN-RA."""
     special_attr = getattr(tokenizer, "special_ids", None)
     if callable(special_attr):
@@ -723,13 +965,13 @@ def tokenizer_special_ids(tokenizer) -> dict[str, int]:
         special = {}
 
     if "<bos>" not in special and hasattr(tokenizer, "bos_token_id"):
-        special["<bos>"] = int(getattr(tokenizer, "bos_token_id"))
+        special["<bos>"] = int(tokenizer.bos_token_id)
     if "<eos>" not in special and hasattr(tokenizer, "eos_token_id"):
-        special["<eos>"] = int(getattr(tokenizer, "eos_token_id"))
+        special["<eos>"] = int(tokenizer.eos_token_id)
     if "<pad>" not in special and hasattr(tokenizer, "pad_token_id"):
-        special["<pad>"] = int(getattr(tokenizer, "pad_token_id"))
+        special["<pad>"] = int(tokenizer.pad_token_id)
     if "<unk>" not in special and hasattr(tokenizer, "unk_token_id"):
-        special["<unk>"] = int(getattr(tokenizer, "unk_token_id"))
+        special["<unk>"] = int(tokenizer.unk_token_id)
 
     missing = [token for token in ("<bos>", "<eos>") if token not in special]
     if missing:
@@ -772,7 +1014,9 @@ def generate_text(
 def model_summary(model: torch.nn.Module) -> dict[str, int]:
     return {
         "parameters": sum(param.numel() for param in model.parameters()),
-        "trainable_parameters": sum(param.numel() for param in model.parameters() if param.requires_grad),
+        "trainable_parameters": sum(
+            param.numel() for param in model.parameters() if param.requires_grad
+        ),
     }
 
 
@@ -847,7 +1091,9 @@ def update_hal_from_training(
         "loss_improved": bool(improved),
         "near_capability_boundary": bool(float(loss) < 1.5),
         "model_incoherence_self_detected": bool(not math.isfinite(float(loss))),
-        "high_gradient_norm": bool(math.isfinite(float(gradient_norm)) and float(gradient_norm) > 1.0),
+        "high_gradient_norm": bool(
+            math.isfinite(float(gradient_norm)) and float(gradient_norm) > 1.0
+        ),
     }
     if hasattr(hal, "update"):
         try:

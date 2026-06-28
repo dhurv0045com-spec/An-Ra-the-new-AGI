@@ -37,7 +37,9 @@ class TieredKVCache:
         arousal: float = 0.0,
         identity_critical: bool = False,
     ) -> None:
-        bounded_arousal = max(0.0, min(self.arousal_weight_cap, float(arousal) * self.arousal_weight_cap))
+        bounded_arousal = max(
+            0.0, min(self.arousal_weight_cap, float(arousal) * self.arousal_weight_cap)
+        )
         priority = max(0.0, min(1.0, float(salience))) + bounded_arousal
         self.layers.setdefault(int(layer), []).append(
             KVSegment(

@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field
 import time
+from dataclasses import asdict, dataclass, field
 from typing import Any, Literal
 
 from cognition.storage import EncryptionUnavailable, SensitiveStateStore
-
 
 ConfirmationState = Literal["inferred", "confirmed", "rejected"]
 
@@ -77,7 +76,9 @@ class LongitudinalHumanModel:
         if not self.consent.persistence:
             return
         if not self.store.available:
-            raise EncryptionUnavailable("Owner-model persistence is enabled but encryption is unavailable.")
+            raise EncryptionUnavailable(
+                "Owner-model persistence is enabled but encryption is unavailable."
+            )
         self.store.write(
             "owner_model",
             {
@@ -91,7 +92,7 @@ class LongitudinalHumanModel:
         self,
         *,
         name: str,
-        value: Any,
+        value: object,
         category: str,
         source_session: str,
         evidence_span: str,
@@ -141,7 +142,9 @@ class LongitudinalHumanModel:
         self._save()
         return item
 
-    def correct(self, name: str, value: Any, *, evidence_span: str = "owner correction") -> ProfileField:
+    def correct(
+        self, name: str, value: object, *, evidence_span: str = "owner correction"
+    ) -> ProfileField:
         item = self.fields[name]
         item.value = value
         item.evidence_span = evidence_span
@@ -193,7 +196,10 @@ class LongitudinalHumanModel:
         ]
         if len(confirmed_signals) < 2:
             return False
-        return self.last_checkin is None or current - self.last_checkin >= self.checkin_cooldown_seconds
+        return (
+            self.last_checkin is None
+            or current - self.last_checkin >= self.checkin_cooldown_seconds
+        )
 
     def mark_checkin(self, *, now: float | None = None) -> None:
         self.last_checkin = now or time.time()

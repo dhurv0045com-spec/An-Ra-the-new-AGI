@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 
 import torch
@@ -33,12 +34,13 @@ class LPGAAccumulator:
             if parameter.requires_grad and parameter.ndim == 2:
                 self._handles.append(parameter.register_hook(self._hook(parameter)))
 
-    def _hook(self, parameter: torch.nn.Parameter):
+    def _hook(
+        self,
+        parameter: torch.nn.Parameter,
+    ) -> Callable[[torch.Tensor], torch.Tensor]:
         def compress(gradient: torch.Tensor) -> torch.Tensor:
             rank = min(self.rank, min(gradient.shape))
-            left, singular, right = torch.linalg.svd(
-                gradient.detach().float(), full_matrices=False
-            )
+            left, singular, right = torch.linalg.svd(gradient.detach().float(), full_matrices=False)
             projected = _ProjectedGradient(
                 left[:, :rank].cpu(),
                 singular[:rank].cpu(),

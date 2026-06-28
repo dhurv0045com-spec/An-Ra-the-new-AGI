@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any
 
 
-class EncryptionUnavailable(RuntimeError):
+class EncryptionUnavailable(RuntimeError):  # noqa: N818 - public compatibility name
     pass
 
 
@@ -30,7 +30,7 @@ class SensitiveStateStore:
             return False
         return True
 
-    def _fernet(self):
+    def _fernet(self) -> object:
         if not self.available:
             raise EncryptionUnavailable(
                 "Sensitive persistence requires ANRA_OWNER_STATE_KEY and cryptography."

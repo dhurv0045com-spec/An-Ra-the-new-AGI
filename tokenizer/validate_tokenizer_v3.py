@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 from pathlib import Path
+from collections import Counter
 import json
+import re
 
 from tokenizer.subword_tokenizer import SubwordTokenizer
 from training.v2_config import CANONICAL_SPECIAL_TOKEN_IDS, CANONICAL_SPECIAL_TOKENS, CANONICAL_VOCAB_SIZE
@@ -45,6 +47,100 @@ def validate_tokenizer(tokenizer_json: Path, dataset_path: Path) -> dict[str, fl
         "vocab_size_ok": True,
         "special_tokens_ok": True,
     }
+
+
+def audit_token_fertility(
+    tokenizer_json: Path,
+    corpus_paths: list[Path],
+    *,
+    max_units: int = 1_000_000,
+) -> dict[str, object]:
+    tokenizer = SubwordTokenizer.load(tokenizer_json)
+    units: list[str] = []
+    pattern = re.compile(r"[A-Za-z_][A-Za-z0-9_]*|\d+(?:\.\d+)?|[^\w\s]+")
+    for path in corpus_paths:
+        with path.open("r", encoding="utf-8", errors="replace") as stream:
+            for line in stream:
+                units.extend(pattern.findall(line))
+                if len(units) >= max_units:
+                    break
+        if len(units) >= max_units:
+            break
+    units = units[:max_units]
+    frequencies = Counter(units)
+    current_tokens = sum(len(tokenizer.encode(unit)) for unit in units)
+    existing = getattr(tokenizer, "token_to_id", {})
+    candidates = [
+        unit
+        for unit, _ in frequencies.most_common()
+        if len(unit) > 1 and existing.get(unit) is None
+    ][: 16_384 - tokenizer.vocab_size]
+    candidate_set = set(candidates)
+    projected_tokens = sum(
+        1 if unit in candidate_set else len(tokenizer.encode(unit)) for unit in units
+    )
+    reduction = (current_tokens - projected_tokens) / max(1, current_tokens)
+    return {
+        "schema_version": 1,
+        "sampled_units": len(units),
+        "current_tokens": current_tokens,
+        "projected_tokens": projected_tokens,
+        "projected_reduction": round(reduction, 6),
+        "candidate_count": len(candidates),
+        "eligible_for_schema_v4": len(units) >= max_units and reduction >= 0.15,
+        "candidate_tokens": candidates,
+    }
+
+
+def build_append_only_v4(
+    tokenizer_json: Path,
+    output_json: Path,
+    audit: dict[str, object],
+) -> Path:
+    if not bool(audit.get("eligible_for_schema_v4", False)):
+        raise RuntimeError("Tokenizer v4 growth requires a one-million-unit audit and >=15% reduction")
+    payload = json.loads(tokenizer_json.read_text(encoding="utf-8"))
+    token_to_id = dict(payload["token_to_id"])
+    id_to_token = list(payload["id_to_token"])
+    if len(id_to_token) != 8209:
+        raise ValueError("Append-only v4 growth requires the canonical 8,209-token v3 base")
+    if any(token_to_id.get(token) != token_id for token, token_id in CANONICAL_SPECIAL_TOKEN_IDS.items()):
+        raise ValueError("Canonical token IDs changed before v4 growth")
+    for candidate in audit.get("candidate_tokens", []):
+        token = str(candidate)
+        if token and token not in token_to_id and len(id_to_token) < 16_384:
+            token_to_id[token] = len(id_to_token)
+            id_to_token.append(token)
+    while len(id_to_token) < 16_384:
+        token = f"<v4_reserved_{len(id_to_token):05d}>"
+        token_to_id[token] = len(id_to_token)
+        id_to_token.append(token)
+    output_json.parent.mkdir(parents=True, exist_ok=True)
+    temporary = output_json.with_suffix(output_json.suffix + ".tmp")
+    temporary.write_text(
+        json.dumps({"token_to_id": token_to_id, "id_to_token": id_to_token}, indent=2),
+        encoding="utf-8",
+    )
+    temporary.replace(output_json)
+    meta = json.loads(
+        tokenizer_json.with_suffix(tokenizer_json.suffix + ".meta.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    meta.update(
+        {
+            "schema_version": 4,
+            "vocab_size": 16_384,
+            "base_vocab_size": 8_209,
+            "append_only": True,
+            "fertility_audit": audit,
+        }
+    )
+    output_json.with_suffix(output_json.suffix + ".meta.json").write_text(
+        json.dumps(meta, indent=2, sort_keys=True),
+        encoding="utf-8",
+    )
+    return output_json
 
 
 if __name__ == '__main__':

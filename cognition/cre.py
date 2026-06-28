@@ -2,14 +2,13 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field
 import re
+from dataclasses import asdict, dataclass
 from typing import Literal
 
 import torch
 from torch import nn
-from torch.nn import functional as F
-
+from torch.nn import functional as F  # noqa: N812 - canonical PyTorch alias
 
 CausalType = Literal["observational", "interventional", "counterfactual", "unknown"]
 
@@ -69,10 +68,9 @@ class CausalRouter(nn.Module):
         routing = F.softmax(logits, dim=-1)
         hidden = self.down(x)
         expert_outputs = torch.stack([expert(hidden) for expert in self.experts], dim=2)
-        mixed = (
-            expert_outputs
-            * routing[:, None, :3, None].to(dtype=expert_outputs.dtype)
-        ).sum(dim=2)
+        mixed = (expert_outputs * routing[:, None, :3, None].to(dtype=expert_outputs.dtype)).sum(
+            dim=2
+        )
         gate = 0.25 * torch.tanh(self.raw_gate)
         output = x + gate * mixed
         return output, {
@@ -80,9 +78,7 @@ class CausalRouter(nn.Module):
             "routing_weights": routing,
             "confidence": torch.sigmoid(self.confidence_head(pooled)).squeeze(-1),
             "confounder_risk": torch.sigmoid(self.confounder_head(pooled)).squeeze(-1),
-            "requires_experiment": torch.sigmoid(
-                self.requires_experiment_head(pooled)
-            ).squeeze(-1),
+            "requires_experiment": torch.sigmoid(self.requires_experiment_head(pooled)).squeeze(-1),
             "variable_logits": self.variable_head(x).squeeze(-1),
             "intervention_logits": self.intervention_head(x).squeeze(-1),
             "counterfactual_embedding": F.normalize(
@@ -109,7 +105,7 @@ class CognitiveCausalExtension(nn.Module):
         super().__init__()
         self.d_model = int(d_model)
         self.rank = int(rank)
-        self.integration_layers = tuple(sorted(set(int(i) for i in integration_layers)))
+        self.integration_layers = tuple(sorted({int(i) for i in integration_layers}))
         self.router = CausalRouter(self.d_model, self.rank)
 
     def applies_to(self, layer_index: int) -> bool:
@@ -154,7 +150,7 @@ class CausalReasoningEngine:
     )
     _VARIABLE = re.compile(r"\b[A-Z][A-Za-z0-9_-]{1,30}\b")
 
-    def __init__(self, model=None, tokenizer=None) -> None:
+    def __init__(self, model: object | None = None, tokenizer: object | None = None) -> None:
         self.model = model
         self.tokenizer = tokenizer or getattr(model, "tokenizer", None)
 
@@ -196,7 +192,9 @@ class CausalReasoningEngine:
                 if requires_experiment
                 else ("observational evidence",)
             ),
-            falsification_path="A controlled intervention or valid causal model contradicts the predicted effect.",
+            falsification_path=(
+                "A controlled intervention or valid causal model contradicts the predicted effect."
+            ),
         )
 
     def detect_confounder_risk(self, claim: str) -> float:

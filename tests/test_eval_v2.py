@@ -8,11 +8,11 @@ from training import eval_v2
 def _summary(overrides: dict | None = None) -> dict[str, object]:
     payload: dict[str, object] = {
         "generated_at": 1_717_171_717.0,
-        "overall_score": 0.75,
+        "overall_score": 0.95,
         "category_scores": {
-            "identity": 0.8,
-            "symbolic": 0.7,
-            "reasoning": 0.65,
+            "identity": 0.95,
+            "symbolic": 0.9,
+            "reasoning": 0.9,
         },
         "results": [
             {
@@ -34,7 +34,7 @@ def _summary(overrides: dict | None = None) -> dict[str, object]:
 def test_build_golden_eval_baseline_records_gates_and_tasks() -> None:
     baseline = eval_v2.build_golden_eval_baseline(_summary(), source="unit-test")
 
-    assert baseline["schema_version"] == 1
+    assert baseline["schema_version"] == 2
     assert baseline["source"] == "unit-test"
     assert baseline["promotion_allowed"] is True
     assert baseline["promotion_gates"] == {
@@ -42,6 +42,9 @@ def test_build_golden_eval_baseline_records_gates_and_tasks() -> None:
         "identity": True,
         "symbolic": True,
         "reasoning": True,
+        "coherence": True,
+        "format": True,
+        "repetition": True,
     }
     assert baseline["suite_size"] == 1
     assert baseline["tasks"][0]["id"] == "identity_self"
@@ -49,7 +52,12 @@ def test_build_golden_eval_baseline_records_gates_and_tasks() -> None:
 
 def test_build_golden_eval_baseline_blocks_promotion_when_threshold_missed() -> None:
     baseline = eval_v2.build_golden_eval_baseline(
-        _summary({"overall_score": 0.5, "category_scores": {"identity": 0.9, "symbolic": 0.9, "reasoning": 0.9}})
+        _summary(
+            {
+                "overall_score": 0.5,
+                "category_scores": {"identity": 0.9, "symbolic": 0.9, "reasoning": 0.9},
+            }
+        )
     )
 
     assert baseline["promotion_allowed"] is False
@@ -69,3 +77,19 @@ def test_write_golden_eval_baseline_uses_report_path(tmp_path, monkeypatch) -> N
 
     assert target.exists()
     assert json.loads(target.read_text(encoding="utf-8")) == baseline
+
+
+def test_release_evidence_requires_every_structural_gate() -> None:
+    missing = eval_v2.release_evidence_gates(
+        {
+            "checkpoint_tensor_accounting": True,
+            "tokenizer_compatibility": True,
+        }
+    )
+    complete = eval_v2.release_evidence_gates(
+        dict.fromkeys(eval_v2.REQUIRED_RELEASE_EVIDENCE, True)
+    )
+
+    assert missing["checkpoint_tensor_accounting"] is True
+    assert missing["cache_parity"] is False
+    assert all(complete.values())

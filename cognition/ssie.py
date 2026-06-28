@@ -2,14 +2,13 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field
 import hashlib
 import json
 import time
 import uuid
-from typing import Literal
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
-
+from typing import Literal
 
 FailureCategory = Literal[
     "reasoning",
@@ -69,7 +68,9 @@ class ScientificSelfImprovementEngine:
         self.completed: dict[str, dict[str, object]] = {}
         self._load()
 
-    def qualifying_patterns(self, failures: list[FailureEvidence]) -> dict[str, list[FailureEvidence]]:
+    def qualifying_patterns(
+        self, failures: list[FailureEvidence]
+    ) -> dict[str, list[FailureEvidence]]:
         sessions = sorted({row.session_id for row in failures})[-self.analysis_window :]
         window = [row for row in failures if row.session_id in sessions]
         groups: dict[str, list[FailureEvidence]] = {}
@@ -100,7 +101,9 @@ class ScientificSelfImprovementEngine:
             experiment_id=f"ssie-{uuid.uuid4().hex[:12]}",
             category=category,
             hypothesis=f"An isolated LoRA/DoRA candidate can reduce verified {category} failures.",
-            falsification=f"Reject when three-seed candidate delta is below -0.02 or protected gates regress.",
+            falsification=(
+                "Reject when three-seed candidate delta is below -0.02 or protected gates regress."
+            ),
             evidence_hashes=tuple(row.content_hash for row in evidence if row.category == category),
             base_checkpoint=base_checkpoint,
             tokenizer_hash=tokenizer_hash,
@@ -129,7 +132,11 @@ class ScientificSelfImprovementEngine:
         if not signed:
             raise ValueError("Experiment result must be signed.")
         proposal.status = "completed"
-        self.completed[experiment_id] = {"proposal_digest": proposal.digest(), **result, "signed": True}
+        self.completed[experiment_id] = {
+            "proposal_digest": proposal.digest(),
+            **result,
+            "signed": True,
+        }
         self._save()
 
     def cognition_theory(self) -> list[dict[str, object]]:
@@ -145,9 +152,7 @@ class ScientificSelfImprovementEngine:
         self.state_path.parent.mkdir(parents=True, exist_ok=True)
         payload = {
             "schema_version": 1,
-            "proposals": {
-                key: asdict(value) for key, value in self.proposals.items()
-            },
+            "proposals": {key: asdict(value) for key, value in self.proposals.items()},
             "completed": self.completed,
         }
         temporary = self.state_path.with_suffix(".tmp")

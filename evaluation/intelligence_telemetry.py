@@ -104,7 +104,7 @@ def subsystem_specs() -> list[Any]:
 class ANRAIntelligenceSession:
     """Low-overhead bridge between an AN-RA training session and ThirdEye."""
 
-    def __init__(self, model: Any, *, sample_every: int = 25) -> None:
+    def __init__(self, model: object, *, sample_every: int = 25) -> None:
         _load_sdk()
         from thirdeye.intelligence import IntelligenceMonitor, PyTorchSubsystemCollector
 
@@ -145,7 +145,7 @@ class ANRAIntelligenceSession:
             tokens_per_second=float(tokens) / elapsed,
         )
 
-    def record_hal_step(self, *, step: int, hal_state: Any) -> None:
+    def record_hal_step(self, *, step: int, hal_state: object) -> None:
         if not getattr(self.hooks, "active", False):
             return
         try:
@@ -214,7 +214,7 @@ class ANRAIntelligenceSession:
         }
 
 
-def create_intelligence_session(model: Any) -> ANRAIntelligenceSession | None:
+def create_intelligence_session(model: object) -> ANRAIntelligenceSession | None:
     if os.environ.get("ANRA_THIRDEYE_INTELLIGENCE", "1") == "0":
         return None
     try:

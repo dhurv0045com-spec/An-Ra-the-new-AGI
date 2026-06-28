@@ -6,10 +6,10 @@ from pathlib import Path
 from typing import Any
 
 import torch
-from torch.nn.utils import parametrize
-
 from anra.anra_paths import DRIVE_V2_CHECKPOINTS
 from runtime.safe_load import safe_torch_load
+from torch.nn.utils import parametrize
+
 from training.anra_optimizer import restore_optimizer_state_for_resume
 from training.shared_checkpoint import (
     record_filesystem_checkpoint_origin,
@@ -22,7 +22,6 @@ from training.v2_runtime import (
     migrate_checkpoint_state,
     restore_hal_state,
 )
-
 
 logger = logging.getLogger(__name__)
 
@@ -55,7 +54,7 @@ def optimizer_state_to_device(optimizer: torch.optim.Optimizer, device: torch.de
 def load_checkpoint_cpu_first(
     model: torch.nn.Module,
     optimizer: torch.optim.Optimizer | None,
-    scheduler: Any,
+    scheduler: object,
     checkpoint_path: Path,
     *,
     device: torch.device,
@@ -77,7 +76,9 @@ def load_checkpoint_cpu_first(
         return state
 
     blob = safe_torch_load(checkpoint_path, map_location="cpu")
-    model_state = blob.get("model_state_dict", blob.get("model", blob)) if isinstance(blob, dict) else blob
+    model_state = (
+        blob.get("model_state_dict", blob.get("model", blob)) if isinstance(blob, dict) else blob
+    )
     if not isinstance(model_state, dict):
         raise CheckpointCompatibilityError(f"Checkpoint has no model state: {checkpoint_path}")
 
@@ -104,12 +105,18 @@ def load_checkpoint_cpu_first(
                     )
                 optimizer_state_to_device(optimizer, device)
             except Exception as exc:
-                logger.warning("TPU optimizer state restore skipped from %s: %s", checkpoint_path, exc)
+                logger.warning(
+                    "TPU optimizer state restore skipped from %s: %s", checkpoint_path, exc
+                )
         if scheduler is not None:
             try:
-                scheduler.load_state_dict(blob.get("scheduler_state_dict", blob.get("scheduler", {})))
+                scheduler.load_state_dict(
+                    blob.get("scheduler_state_dict", blob.get("scheduler", {}))
+                )
             except Exception as exc:
-                logger.warning("TPU scheduler state restore skipped from %s: %s", checkpoint_path, exc)
+                logger.warning(
+                    "TPU scheduler state restore skipped from %s: %s", checkpoint_path, exc
+                )
         state["global_step"] = int(blob.get("global_step", blob.get("step", 0)))
         state["epoch"] = int(blob.get("epoch", 0))
         state["best_loss"] = float(blob.get("best_loss", float("inf")))
@@ -125,7 +132,7 @@ def xla_save_checkpoint(
     payload: dict[str, Any],
     checkpoint_path: Path,
     *,
-    xm: Any,
+    xm: object,
     mirror_to_drive: bool = True,
 ) -> None:
     """Save a TPU checkpoint with XLA materialization and an optional Drive mirror."""

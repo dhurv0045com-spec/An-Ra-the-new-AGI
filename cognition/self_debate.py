@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
 import hashlib
-from typing import Callable
-
+from collections.abc import Callable
+from dataclasses import asdict, dataclass
 
 ROLES = ("evidence", "devils_advocate", "causal_reasoner", "uncertainty", "synthesis")
 
@@ -44,7 +43,9 @@ class DebateRiskClassifier:
 
     def classify(self, task: str) -> tuple[str, ...]:
         lowered = task.lower()
-        return tuple(name for name, terms in self.TERMS.items() if any(term in lowered for term in terms))
+        return tuple(
+            name for name, terms in self.TERMS.items() if any(term in lowered for term in terms)
+        )
 
 
 class MultiAgentSelfDebate:
@@ -66,10 +67,12 @@ class MultiAgentSelfDebate:
             return DebateResult(False, False, (), (), "", ())
         positions: list[DebatePosition] = []
         for role in ROLES:
-            seed = int(hashlib.sha256(f"{task}:{role}".encode("utf-8")).hexdigest()[:8], 16)
+            seed = int(hashlib.sha256(f"{task}:{role}".encode()).hexdigest()[:8], 16)
             position = generate_position(role, task, seed, self.token_budget_per_role)
             if position.role != role:
-                raise ValueError(f"Debate role isolation violated: expected {role}, got {position.role}")
+                raise ValueError(
+                    f"Debate role isolation violated: expected {role}, got {position.role}"
+                )
             positions.append(position)
         frozen = tuple(positions)
         evidence_passed = all(verify_claims(position) for position in frozen[:-1])

@@ -71,9 +71,7 @@ class BM25MemoryTier:
                 if term_frequency == 0 or document_frequency == 0:
                     continue
                 inverse_frequency = math.log(
-                    (document_count - document_frequency + 0.5)
-                    / (document_frequency + 0.5)
-                    + 1
+                    (document_count - document_frequency + 0.5) / (document_frequency + 0.5) + 1
                 )
                 denominator = term_frequency + self.K1 * (
                     1 - self.B + self.B * document_length / max(average_length, 1)

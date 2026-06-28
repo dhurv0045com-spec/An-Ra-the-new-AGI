@@ -2,16 +2,14 @@ from __future__ import annotations
 
 # AN-RA iterate500 branch:
 # "frontier" is the only public training profile.
-# It is the 500M-class experiment model; the current build has 499,167,019 parameters:
+# It is the 500M-class experiment model; the current build has 499,167,047 parameters:
 # 1280d, 28L, 16 attention heads, 4 KV heads, 1024 context, HAL enabled.
-
 from dataclasses import dataclass
-
 
 MODEL_LINE = "v2"
 TOKENIZER_SCHEMA_VERSION = 3
-CHECKPOINT_SCHEMA_VERSION = 4
-V2_FRONTIER_PARAMETER_COUNT = 499_167_019
+CHECKPOINT_SCHEMA_VERSION = 5
+V2_FRONTIER_PARAMETER_COUNT = 499_167_047
 V2_FRONTIER_TRANSFORMER_PARAMETER_COUNT = 496_857_600
 BASE_VOCAB_SIZE = 8192
 CANONICAL_PAD_TOKEN_ID = 0
@@ -54,10 +52,7 @@ CANONICAL_SPECIAL_TOKENS = BASE_SPECIAL_TOKENS + DFC_SPECIAL_TOKENS
 CANONICAL_VOCAB_SIZE = BASE_VOCAB_SIZE + len(DFC_SPECIAL_TOKENS)
 CANONICAL_SPECIAL_TOKEN_IDS = {
     **{token: index for index, token in enumerate(BASE_SPECIAL_TOKENS)},
-    **{
-        token: BASE_VOCAB_SIZE + index
-        for index, token in enumerate(DFC_SPECIAL_TOKENS)
-    },
+    **{token: BASE_VOCAB_SIZE + index for index, token in enumerate(DFC_SPECIAL_TOKENS)},
 }
 
 
@@ -131,10 +126,12 @@ class V2FrontierTrainingConfig(V2TrainingConfig):
     """
 
     batch_size: int = 1
-    grad_accum_steps: int = 8
+    grad_accum_steps: int = 16
     session_minutes: int = 180
-    learning_rate: float = 4e-4
-    warmup_steps: int = 32
+    learning_rate: float = 1e-4
+    warmup_steps: int = 1_000
+    max_steps: int = 50_000
+    min_lr: float = 1e-5
     weight_decay: float = 0.05
     max_mixture_examples: int = 4096
     milestone_every_sessions: int = 3
@@ -215,6 +212,7 @@ V2_REPORT_FILES = {
     "growth_report": "model_growth_frontier.json",
     "causal_extension": "cognition/causal_extension_training.json",
     "mix_control": "v2_mix_control.json",
+    "validation_history": "v2_validation_history.json",
 }
 
 
@@ -224,7 +222,7 @@ MODEL_SIZES = {
 MODEL_PROFILES = MODEL_SIZES
 
 
-def resolve_model_profile(name: str):
+def resolve_model_profile(name: str) -> tuple[V2ModelConfig, V2TrainingConfig]:
     key = str(name).strip().lower()
     if key not in MODEL_SIZES:
         raise ValueError(f"Unknown model profile {name!r}; expected one of {sorted(MODEL_SIZES)}")

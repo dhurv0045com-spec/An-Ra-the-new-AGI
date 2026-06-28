@@ -3,13 +3,19 @@
 
 from __future__ import annotations
 
+# Direct execution bootstraps repository imports after resolving REPO_ROOT.
+# ruff: noqa: E402
 import argparse
+import ast
 import glob
+import hashlib
 import json
+import re
 import shutil
 import sys
+from collections.abc import Callable, Iterator
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
@@ -19,15 +25,29 @@ from anra.anra_paths import DATA_MANIFEST_DIR, TOKEN_INVENTORY_MANIFEST
 from training.data_ledger import DataQuality
 from training.data_pipeline_v3 import SourceRecord, TokenShardPublisher
 
-
 TRAINING_DATA_DIR = Path("training_data")
 DOWNLOAD_STATUS = DATA_MANIFEST_DIR / "download_status.json"
 DATA_PROFILES = {
     "smoke": {
+        "target_gb": 0.02,
         "fineweb_docs": 2_000,
         "redpajama_docs": 1_000,
         "reasoning_per_source": 1_000,
         "science_per_source": 500,
+    },
+    "15gb": {
+        "target_gb": 15.0,
+        "fineweb_docs": 1_200_000,
+        "redpajama_docs": 0,
+        "reasoning_per_source": 120_000,
+        "science_per_source": 60_000,
+    },
+    "30gb": {
+        "target_gb": 30.0,
+        "fineweb_docs": 2_400_000,
+        "redpajama_docs": 0,
+        "reasoning_per_source": 240_000,
+        "science_per_source": 120_000,
     },
     "t4-15gb": {
         "fineweb_docs": 120_000,
@@ -55,8 +75,385 @@ DATA_PROFILES = {
     },
 }
 
+_PII_PATTERNS = (
+    re.compile(r"\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b", re.IGNORECASE),
+    re.compile(r"\b(?:\+?\d[\d .()-]{8,}\d)\b"),
+    re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b"),
+)
 
-class SourceDownloadFailure(RuntimeError):
+_COMMON_ENGLISH_WORDS = {
+    "a",
+    "and",
+    "are",
+    "as",
+    "be",
+    "by",
+    "for",
+    "from",
+    "has",
+    "in",
+    "is",
+    "it",
+    "of",
+    "on",
+    "or",
+    "that",
+    "the",
+    "this",
+    "to",
+    "was",
+    "with",
+}
+
+
+class MinHashDeduplicator:
+    """Bounded-memory LSH index for near-duplicate document rejection."""
+
+    _PRIME = (1 << 61) - 1
+    _PERMUTATIONS = (
+        (3, 17),
+        (5, 29),
+        (11, 41),
+        (17, 53),
+        (23, 71),
+        (31, 89),
+        (43, 107),
+        (59, 131),
+    )
+
+    def __init__(self, threshold: float = 0.80, max_entries: int = 500_000) -> None:
+        self.threshold = float(threshold)
+        self.max_entries = max(1, int(max_entries))
+        self._signatures: list[tuple[int, ...]] = []
+        self._bands: dict[tuple[int, tuple[int, ...]], list[int]] = {}
+
+    @classmethod
+    def signature(cls, text: str) -> tuple[int, ...]:
+        words = re.findall(r"[a-z0-9_]+", text.lower())
+        if not words:
+            return tuple(0 for _ in cls._PERMUTATIONS)
+        width = min(5, len(words))
+        shingles = {
+            " ".join(words[index : index + width])
+            for index in range(max(1, len(words) - width + 1))
+        }
+        hashes = sorted(
+            int.from_bytes(
+                hashlib.blake2b(shingle.encode("utf-8"), digest_size=8).digest(),
+                "big",
+            )
+            % cls._PRIME
+            for shingle in shingles
+        )
+        if len(hashes) > 512:
+            step = len(hashes) / 512
+            hashes = [hashes[int(index * step)] for index in range(512)]
+        return tuple(
+            min((coefficient * value + offset) % cls._PRIME for value in hashes)
+            for coefficient, offset in cls._PERMUTATIONS
+        )
+
+    def seen_or_add(self, text: str) -> bool:
+        signature = self.signature(text)
+        candidates: set[int] = set()
+        for band in range(4):
+            key = (band, signature[band * 2 : band * 2 + 2])
+            candidates.update(self._bands.get(key, ()))
+        for candidate in candidates:
+            prior = self._signatures[candidate]
+            similarity = sum(a == b for a, b in zip(signature, prior, strict=True)) / len(signature)
+            if similarity >= self.threshold:
+                return True
+        if len(self._signatures) >= self.max_entries:
+            return False
+        index = len(self._signatures)
+        self._signatures.append(signature)
+        for band in range(4):
+            key = (band, signature[band * 2 : band * 2 + 2])
+            self._bands.setdefault(key, []).append(index)
+        return False
+
+
+def _detect_content_language(text: str, *, source: str, hint: str = "") -> str:
+    source_lower = source.lower()
+    hint_lower = hint.strip().lower()
+    if "stack" in source_lower:
+        return f"code:{hint_lower or 'unknown'}"
+    words = re.findall(r"[A-Za-z]+", text)
+    if not words:
+        return "math" if "math" in source_lower else "unknown"
+    letters = [character for character in text if character.isalpha()]
+    ascii_ratio = sum(character.isascii() for character in letters) / max(1, len(letters))
+    common = sum(word.lower() in _COMMON_ENGLISH_WORDS for word in words)
+    if ascii_ratio >= 0.90 and (common >= 2 or len(words) < 20):
+        return "en"
+    return "unknown"
+
+
+def _code_syntax_valid(text: str, *, source: str, language_hint: str = "") -> bool:
+    if "stack" not in source.lower():
+        return True
+    language = language_hint.strip().lower()
+    if language not in {"python", "py"}:
+        return bool(re.search(r"[A-Za-z_][A-Za-z0-9_]*", text))
+    try:
+        ast.parse(text)
+    except SyntaxError:
+        return False
+    return True
+
+
+def _safe_arithmetic_value(expression: str) -> float:
+    operators = {
+        ast.Add: lambda left, right: left + right,
+        ast.Sub: lambda left, right: left - right,
+        ast.Mult: lambda left, right: left * right,
+        ast.Div: lambda left, right: left / right,
+        ast.Pow: lambda left, right: left**right,
+        ast.USub: lambda value: -value,
+        ast.UAdd: lambda value: value,
+    }
+
+    def evaluate(node: ast.AST) -> float:
+        if isinstance(node, ast.Expression):
+            return evaluate(node.body)
+        if isinstance(node, ast.Constant) and isinstance(node.value, (int, float)):
+            return float(node.value)
+        if isinstance(node, ast.BinOp) and type(node.op) in operators:
+            return float(operators[type(node.op)](evaluate(node.left), evaluate(node.right)))
+        if isinstance(node, ast.UnaryOp) and type(node.op) in operators:
+            return float(operators[type(node.op)](evaluate(node.operand)))
+        raise ValueError("unsupported arithmetic expression")
+
+    return evaluate(ast.parse(expression, mode="eval"))
+
+
+def _math_text_valid(text: str, *, source: str) -> bool:
+    if "math" not in source.lower():
+        return True
+    if any(text.count(left) != text.count(right) for left, right in (("(", ")"), ("[", "]"))):
+        return False
+    final_equations = re.findall(
+        r"(?:final answer|answer)\s*[:=-]\s*([0-9 .+*/()^-]+)\s*=\s*(-?\d+(?:\.\d+)?)",
+        text,
+        flags=re.IGNORECASE,
+    )
+    for expression, expected in final_equations:
+        try:
+            actual = _safe_arithmetic_value(expression.replace("^", "**"))
+        except (SyntaxError, ValueError, ZeroDivisionError, OverflowError):
+            return False
+        if abs(actual - float(expected)) > 1e-8:
+            return False
+    return True
+
+
+def _clean_foundation_text(text: str) -> str:
+    cleaned = text.replace("\x00", " ").strip()
+    for pattern in _PII_PATTERNS:
+        cleaned = pattern.sub("[REDACTED]", cleaned)
+    if len(cleaned) < 200:
+        return ""
+    printable_ratio = sum(character.isprintable() for character in cleaned) / len(cleaned)
+    if printable_ratio < 0.98:
+        return ""
+    lines = [line.strip() for line in cleaned.splitlines() if line.strip()]
+    if len(lines) >= 8 and len(set(lines)) / len(lines) < 0.35:
+        return ""
+    lowered = cleaned.lower()
+    contamination_markers = (
+        "gsm8k test",
+        "human_eval test",
+        "mmlu test question",
+        "truthfulqa benchmark",
+    )
+    if any(marker in lowered for marker in contamination_markers):
+        return ""
+    return cleaned
+
+
+def download_native_foundation(
+    load_dataset: Callable[..., Any] | None,
+    *,
+    target_gb: float,
+    dry_run: bool = False,
+) -> dict[str, Any]:
+    """Stream the licensed native foundation mix into one provenance JSONL."""
+    output = TRAINING_DATA_DIR / "foundation_records.jsonl"
+    target_bytes = int(float(target_gb) * 1024**3)
+    specs = (
+        {
+            "source": "FineWeb-Edu",
+            "dataset": "HuggingFaceFW/fineweb-edu",
+            "config": "sample-10BT",
+            "weight": 0.55,
+            "fields": ("text",),
+            "license": "ODC-By",
+            "revision": "HuggingFaceFW/fineweb-edu:sample-10BT",
+        },
+        {
+            "source": "The Stack v2 dedup",
+            "dataset": "bigcode/the-stack-v2-dedup",
+            "config": None,
+            "weight": 0.15,
+            "fields": ("content", "text"),
+            "license": "per-record",
+            "revision": "bigcode/the-stack-v2-dedup:train",
+        },
+        {
+            "source": "FineMath-4+",
+            "dataset": "HuggingFaceTB/finemath",
+            "config": "finemath-4plus",
+            "weight": 0.12,
+            "fields": ("text", "content"),
+            "license": "ODC-By",
+            "revision": "HuggingFaceTB/finemath:finemath-4plus",
+        },
+        {
+            "source": "Dolma science/technical",
+            "dataset": "allenai/dolma",
+            "config": "v1_7-sample",
+            "weight": 0.08,
+            "fields": ("text",),
+            "license": "ODC-By",
+            "revision": "allenai/dolma:v1_7-sample",
+        },
+    )
+    stats: dict[str, Any] = {
+        "bucket": "base",
+        "output": str(output),
+        "target_bytes": target_bytes,
+        "bytes": 0,
+        "documents": 0,
+        "sources": {},
+        "errors": [],
+        "rejected": {
+            "exact_duplicate": 0,
+            "near_duplicate": 0,
+            "language": 0,
+            "code_syntax": 0,
+            "math_verifier": 0,
+        },
+    }
+    if dry_run:
+        print(f"DRY RUN: would stream {target_gb:.2f} GB native foundation mix to {output}")
+        return stats
+    assert load_dataset is not None
+    seen_hashes: set[str] = set()
+    near_duplicates = MinHashDeduplicator()
+    with output.open("w", encoding="utf-8") as stream:
+        for spec in specs:
+            source_target = int(target_bytes * float(spec["weight"]))
+            source_bytes = 0
+            source_docs = 0
+            try:
+                kwargs: dict[str, Any] = {
+                    "split": "train",
+                    "streaming": True,
+                    "trust_remote_code": True,
+                }
+                config = spec["config"]
+                dataset = (
+                    load_dataset(spec["dataset"], config, **kwargs)
+                    if config
+                    else load_dataset(spec["dataset"], **kwargs)
+                )
+                for item in dataset:
+                    language_hint = str(
+                        item.get("language")
+                        or item.get("lang")
+                        or Path(str(item.get("path", ""))).suffix.lstrip(".")
+                    )
+                    text = next(
+                        (str(item.get(field, "")) for field in spec["fields"] if item.get(field)),
+                        "",
+                    )
+                    text = _clean_foundation_text(text)
+                    if not text:
+                        continue
+                    language = _detect_content_language(
+                        text,
+                        source=str(spec["source"]),
+                        hint=language_hint,
+                    )
+                    if language == "unknown":
+                        stats["rejected"]["language"] += 1
+                        continue
+                    if not _code_syntax_valid(
+                        text,
+                        source=str(spec["source"]),
+                        language_hint=language_hint,
+                    ):
+                        stats["rejected"]["code_syntax"] += 1
+                        continue
+                    if not _math_text_valid(text, source=str(spec["source"])):
+                        stats["rejected"]["math_verifier"] += 1
+                        continue
+                    content_hash = hashlib.sha256(text.encode("utf-8")).hexdigest()
+                    if content_hash in seen_hashes:
+                        stats["rejected"]["exact_duplicate"] += 1
+                        continue
+                    if near_duplicates.seen_or_add(text):
+                        stats["rejected"]["near_duplicate"] += 1
+                        continue
+                    seen_hashes.add(content_hash)
+                    license_name = str(
+                        item.get("license", spec["license"])
+                        if spec["license"] == "per-record"
+                        else spec["license"]
+                    )
+                    normalized_license = license_name.lower().replace("_", "-")
+                    if spec["license"] == "per-record" and not any(
+                        allowed in normalized_license
+                        for allowed in ("mit", "apache", "bsd", "isc", "mpl")
+                    ):
+                        continue
+                    record = {
+                        "text": text,
+                        "source": spec["source"],
+                        "license": license_name,
+                        "source_revision": spec["revision"],
+                        "document_sha256": content_hash,
+                        "language": language,
+                        "quality_checks": {
+                            "pii_redacted": True,
+                            "minhash_deduplicated": True,
+                            "language_detected": True,
+                            "code_syntax_checked": "stack" in str(spec["source"]).lower(),
+                            "math_verified": "math" in str(spec["source"]).lower(),
+                            "benchmark_contamination_checked": True,
+                        },
+                    }
+                    line = json.dumps(record, ensure_ascii=False) + "\n"
+                    stream.write(line)
+                    encoded_bytes = len(line.encode("utf-8"))
+                    source_bytes += encoded_bytes
+                    source_docs += 1
+                    if source_bytes >= source_target:
+                        break
+                if source_bytes < int(source_target * 0.98):
+                    raise SourceDownloadFailure(
+                        str(spec["source"]),
+                        f"downloaded {source_bytes:,} of required {source_target:,} bytes",
+                    )
+            except Exception as exc:
+                stats["errors"].append(f"{spec['source']}: {exc}")
+            stats["sources"][str(spec["source"])] = {
+                "bytes": source_bytes,
+                "documents": source_docs,
+                "target_bytes": source_target,
+                "revision": spec["revision"],
+            }
+            stats["bytes"] += source_bytes
+            stats["documents"] += source_docs
+            print(
+                f"{spec['source']}: {source_docs:,} documents, {source_bytes / 1024**3:.2f} GB",
+                flush=True,
+            )
+    return stats
+
+
+class SourceDownloadFailure(RuntimeError):  # noqa: N818 - serialized status name
     def __init__(self, source: str, message: str) -> None:
         super().__init__(f"{source}: {message}")
         self.source = source
@@ -169,7 +566,7 @@ def download_base(
             for fname in glob.glob(str(TRAINING_DATA_DIR / "fineweb_edu.txt")) + glob.glob(
                 str(TRAINING_DATA_DIR / "redpajama.txt")
             ):
-                with open(fname, "r", encoding="utf-8", errors="replace") as src:
+                with open(fname, encoding="utf-8", errors="replace") as src:
                     shutil.copyfileobj(src, out)
                 out.write("\n\n")
         size_gb = output.stat().st_size / 1024**3
@@ -188,7 +585,12 @@ def download_reasoning(
     per_source_limit: int | None = None,
 ) -> dict[str, Any]:
     output = TRAINING_DATA_DIR / "reasoning.jsonl"
-    stats: dict[str, Any] = {"bucket": "reasoning", "output": str(output), "examples": 0, "errors": []}
+    stats: dict[str, Any] = {
+        "bucket": "reasoning",
+        "output": str(output),
+        "examples": 0,
+        "errors": [],
+    }
 
     if dry_run:
         print(f"DRY RUN: would download reasoning teacher datasets into {output}")
@@ -196,7 +598,28 @@ def download_reasoning(
 
     assert load_dataset is not None
 
-    datasets_to_load: list[tuple[str, str, int | None, Callable[[dict[str, Any]], dict[str, str] | None]]] = [
+    datasets_to_load: list[
+        tuple[str, str, int | None, Callable[[dict[str, Any]], dict[str, str] | None]]
+    ] = [
+        (
+            "HuggingFaceTB/smol-smoltalk",
+            "train",
+            120_000,
+            lambda x: {
+                "prompt": next(
+                    message["content"]
+                    for message in x.get("messages", [])
+                    if message.get("role") == "user"
+                ),
+                "response": next(
+                    message["content"]
+                    for message in x.get("messages", [])
+                    if message.get("role") == "assistant"
+                ),
+            }
+            if x.get("messages")
+            else None,
+        ),
         (
             "teknium/OpenHermes-2.5",
             "train",
@@ -264,13 +687,20 @@ def download_reasoning(
                         response = mapped.get("response", "")
                         if any(p in response for p in reject_patterns):
                             continue
+                        task_type = (
+                            "code"
+                            if "coder" in ds_name.lower()
+                            else "math"
+                            if "math" in ds_name.lower()
+                            else "instruction"
+                        )
                         out.write(
                             json.dumps(
                                 {
                                     "prompt": mapped["prompt"],
                                     "response": response,
                                     "source": ds_name,
-                                    "task_type": "reasoning",
+                                    "task_type": task_type,
                                 },
                                 ensure_ascii=False,
                             )
@@ -278,7 +708,11 @@ def download_reasoning(
                         )
                         count += 1
                         total += 1
-                        limit = min(max_n, per_source_limit) if max_n and per_source_limit else (per_source_limit or max_n)
+                        limit = (
+                            min(max_n, per_source_limit)
+                            if max_n and per_source_limit
+                            else (per_source_limit or max_n)
+                        )
                         if limit and count >= limit:
                             break
                     except Exception:
@@ -301,7 +735,12 @@ def download_science(
     per_source_limit: int | None = None,
 ) -> dict[str, Any]:
     output = TRAINING_DATA_DIR / "frontier_dfc.jsonl"
-    stats: dict[str, Any] = {"bucket": "science", "output": str(output), "examples": 0, "errors": []}
+    stats: dict[str, Any] = {
+        "bucket": "science",
+        "output": str(output),
+        "examples": 0,
+        "errors": [],
+    }
 
     if dry_run:
         print(f"DRY RUN: would append science datasets into {output}")
@@ -382,7 +821,9 @@ def download_science(
         for ds_name, config, split, max_n, mapper in science_datasets:
             try:
                 if config:
-                    ds = load_dataset(ds_name, config, split=split, streaming=True, trust_remote_code=True)
+                    ds = load_dataset(
+                        ds_name, config, split=split, streaming=True, trust_remote_code=True
+                    )
                 else:
                     ds = load_dataset(ds_name, split=split, streaming=True, trust_remote_code=True)
                 count = 0
@@ -398,8 +839,8 @@ def download_science(
                         dfc_entry = {
                             "text": (
                                 f"<bos>"
-                                f"<task domain=\"{mapped['domain']}\" "
-                                f"type=\"{mapped['template']}\">"
+                                f'<task domain="{mapped["domain"]}" '
+                                f'type="{mapped["template"]}">'
                                 f"{mapped['prompt']}</task>"
                                 f"<hyp>{mapped['response'][:500]}</hyp>"
                                 f"<verify>INFERRED: from dataset, "
@@ -409,12 +850,17 @@ def download_science(
                             "domain": mapped["domain"],
                             "template": mapped["template"],
                             "verified": False,
+                            "verifier_status": "inferred",
                             "source": ds_name,
                         }
                         out.write(json.dumps(dfc_entry, ensure_ascii=False) + "\n")
                         count += 1
                         added += 1
-                        limit = min(max_n, per_source_limit) if max_n and per_source_limit else (per_source_limit or max_n)
+                        limit = (
+                            min(max_n, per_source_limit)
+                            if max_n and per_source_limit
+                            else (per_source_limit or max_n)
+                        )
                         if limit and count >= limit:
                             break
                     except Exception:
@@ -457,20 +903,64 @@ def print_summary() -> None:
     print("    identity data    -> identity   0.10 (10%)")
 
 
-def publish_fineweb_token_shards() -> dict[str, Any]:
+def publish_fineweb_token_shards(profile: str = "30gb") -> dict[str, Any]:
+    foundation_path = TRAINING_DATA_DIR / "foundation_records.jsonl"
     fineweb_path = TRAINING_DATA_DIR / "fineweb_edu.txt"
-    if not fineweb_path.exists():
-        raise FileNotFoundError(
-            "FineWeb-Edu must be downloaded before token-shard publication."
-        )
+    if not foundation_path.exists() and not fineweb_path.exists():
+        raise FileNotFoundError("Native foundation records must be downloaded first.")
     from training.v2_runtime import load_or_build_v2_tokenizer
 
-    tokenizer = load_or_build_v2_tokenizer(
-        dataset_path=TRAINING_DATA_DIR / "anra_training.txt"
+    tokenizer = load_or_build_v2_tokenizer(dataset_path=TRAINING_DATA_DIR / "anra_training.txt")
+    tokenizer_manifest = json.loads(
+        (DATA_MANIFEST_DIR / "tokenizer_v3.json").read_text(encoding="utf-8")
     )
-    revision_dir = DATA_MANIFEST_DIR / "fineweb_edu_v3"
+    tokenizer_sha256 = str(tokenizer_manifest["tokenizer_sha256"])
+    revision_dir = DATA_MANIFEST_DIR / "native_foundation_v3" / profile
 
-    def records():
+    def records(split: str) -> Iterator[SourceRecord]:
+        if foundation_path.exists():
+            with foundation_path.open("r", encoding="utf-8", errors="replace") as stream:
+                for line in stream:
+                    try:
+                        item = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+                    text = str(item.get("text", "")).strip()
+                    if not text:
+                        continue
+                    digest = str(
+                        item.get("document_sha256")
+                        or hashlib.sha256(text.encode("utf-8")).hexdigest()
+                    )
+                    split_value = int(digest[:8], 16) % 100
+                    record_split = (
+                        "validation"
+                        if split_value == 98
+                        else "test"
+                        if split_value == 99
+                        else "train"
+                    )
+                    if record_split != split:
+                        continue
+                    source = str(item.get("source", "unknown"))
+                    yield SourceRecord(
+                        text=text,
+                        source=source,
+                        license=str(item.get("license", "unknown")),
+                        bucket="foundation",
+                        quality=DataQuality(
+                            0.6,
+                            0.8,
+                            0.95,
+                            0.7 if "math" in source.lower() else 0.6,
+                            0.2,
+                            1.0,
+                        ),
+                        source_revision=str(item.get("source_revision", "unknown")),
+                    )
+            return
+        if split != "train":
+            return
         with fineweb_path.open("r", encoding="utf-8", errors="replace") as stream:
             buffer: list[str] = []
             for line in stream:
@@ -497,21 +987,33 @@ def publish_fineweb_token_shards() -> dict[str, Any]:
                     source_revision="HuggingFaceFW/fineweb-edu:sample-10BT",
                 )
 
-    manifest = TokenShardPublisher(
+    train_manifest = TokenShardPublisher(
         revision_dir,
         tokenizer_version="v3",
-    ).publish(records(), tokenizer)
+        tokenizer_sha256=tokenizer_sha256,
+    ).publish(records("train"), tokenizer, allow_partial_final=True)
+    validation_manifest = TokenShardPublisher(
+        revision_dir / "validation",
+        tokenizer_version="v3",
+        tokenizer_sha256=tokenizer_sha256,
+    ).publish(records("validation"), tokenizer, allow_partial_final=True)
+    test_manifest = TokenShardPublisher(
+        revision_dir / "test",
+        tokenizer_version="v3",
+        tokenizer_sha256=tokenizer_sha256,
+    ).publish(records("test"), tokenizer, allow_partial_final=True)
     inventory = {
         "schema_version": 3,
-        "licensed_tokens": int(manifest["total_tokens"]),
-        "sources": [
-            {
-                "name": "FineWeb-Edu",
-                "revision": "HuggingFaceFW/fineweb-edu:sample-10BT",
-                "license": "ODC-By",
-                "manifest": str(revision_dir / "manifest.json"),
-            }
-        ],
+        "licensed_tokens": int(train_manifest["total_tokens"]),
+        "tokenizer_sha256": tokenizer_sha256,
+        "manifest": str(revision_dir / "manifest.json"),
+        "validation_manifest": str(revision_dir / "validation" / "manifest.json"),
+        "test_manifest": str(revision_dir / "test" / "manifest.json"),
+        "validation_tokens": int(validation_manifest["total_tokens"]),
+        "test_tokens": int(test_manifest["total_tokens"]),
+        "sources": train_manifest.get("source_record_mix", {}),
+        "source_revisions": train_manifest.get("source_revisions", []),
+        "licenses": train_manifest.get("licenses", []),
     }
     TOKEN_INVENTORY_MANIFEST.parent.mkdir(parents=True, exist_ok=True)
     temporary = TOKEN_INVENTORY_MANIFEST.with_suffix(".tmp")
@@ -528,15 +1030,17 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--profile",
         choices=sorted(DATA_PROFILES),
-        default="t4-15gb",
-        help="Data size profile. t4-15gb is the default Colab/Drive-friendly profile.",
+        default="30gb",
+        help="Data size profile. 30gb is the default native continuation campaign.",
     )
     parser.add_argument(
         "--bucket",
         choices=["base", "reasoning", "science"],
         help="Download only one bucket. Omit to build all buckets.",
     )
-    parser.add_argument("--dry-run", action="store_true", help="Show planned work without downloading.")
+    parser.add_argument(
+        "--dry-run", action="store_true", help="Show planned work without downloading."
+    )
     parser.add_argument(
         "--publish-token-shards",
         action="store_true",
@@ -561,10 +1065,7 @@ def main() -> int:
     ensure_training_data_dir()
     load_dataset = load_datasets_import(dry_run=args.dry_run)
 
-    if args.bucket:
-        buckets = [args.bucket]
-    else:
-        buckets = ["base", "reasoning", "science"]
+    buckets = [args.bucket] if args.bucket else ["base", "reasoning", "science"]
 
     print("AN-RA TRAINING DATA DOWNLOAD")
     print("=" * 60)
@@ -578,14 +1079,23 @@ def main() -> int:
     results: list[dict[str, Any]] = []
     for bucket in buckets:
         if bucket == "base":
-            results.append(
-                download_base(
-                    load_dataset,
-                    dry_run=args.dry_run,
-                    fineweb_docs=int(profile["fineweb_docs"]),
-                    redpajama_docs=int(profile["redpajama_docs"]),
+            if "target_gb" in profile:
+                results.append(
+                    download_native_foundation(
+                        load_dataset,
+                        target_gb=float(profile["target_gb"]),
+                        dry_run=args.dry_run,
+                    )
                 )
-            )
+            else:
+                results.append(
+                    download_base(
+                        load_dataset,
+                        dry_run=args.dry_run,
+                        fineweb_docs=int(profile["fineweb_docs"]),
+                        redpajama_docs=int(profile["redpajama_docs"]),
+                    )
+                )
         elif bucket == "reasoning":
             results.append(
                 download_reasoning(
@@ -604,7 +1114,7 @@ def main() -> int:
             )
 
     if args.publish_token_shards and not args.dry_run:
-        inventory = publish_fineweb_token_shards()
+        inventory = publish_fineweb_token_shards(args.profile)
         print(f"Published licensed token inventory: {inventory['licensed_tokens']:,}")
 
     if args.prepare_corpus and not args.dry_run:
@@ -637,8 +1147,7 @@ def main() -> int:
         "status": "dry_run" if args.dry_run else "incomplete" if failures else "complete",
         "buckets": results,
         "failures": [
-            {"source": failure.source, "message": failure.message}
-            for failure in failures
+            {"source": failure.source, "message": failure.message} for failure in failures
         ],
     }
     DOWNLOAD_STATUS.parent.mkdir(parents=True, exist_ok=True)

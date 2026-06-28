@@ -71,6 +71,7 @@ if nn is not None:
                     if m.bias is not None:
                         nn.init.zeros_(m.bias)
             self.register_buffer("state", torch.zeros(3))
+            self._last_temporal_loss = torch.zeros(())
 
         def extract_channel(self, h):
             if h.ndim != 3:
@@ -78,15 +79,28 @@ if nn is not None:
             if h.shape[-1] < self.d_esv:
                 raise ValueError(f"residual stream has {h.shape[-1]} channels, expected at least {self.d_esv}.")
             esv_channel = h[:, :, -self.d_esv :]
-            return esv_channel.mean(dim=(0, 1))
+            return esv_channel.mean(dim=1)
 
         def forward(self, h):
             """Predict VAD state without mutating persistent runtime state."""
-            return self.predictor(self.extract_channel(h))
+            token_states = self.predictor(h[:, :, -self.d_esv :])
+            if token_states.shape[1] > 1:
+                self._last_temporal_loss = (
+                    token_states[:, 1:] - token_states[:, :-1]
+                ).pow(2).mean()
+            else:
+                self._last_temporal_loss = token_states.sum() * 0.0
+            return token_states.mean(dim=1)
+
+        def temporal_consistency_loss(self):
+            """Return the latest unlabelled sequence-consistency regularizer."""
+            return self._last_temporal_loss
 
         @torch.no_grad()
         def commit_state(self, state) -> None:
             """Commit a detached VAD state after a completed forward/generation step."""
+            if state.ndim == 2:
+                state = state.mean(dim=0)
             if state.shape != self.state.shape:
                 raise ValueError(
                     f"ESV state shape {tuple(state.shape)} does not match {tuple(self.state.shape)}."
@@ -118,7 +132,8 @@ if nn is not None:
         def attention_temperature_tensor(self, state=None, tau0: float = 1.0):
             """Return a differentiable attention temperature from arousal."""
             state = self.state if state is None else state
-            return float(tau0) * torch.exp(-0.5 * state[1]).clamp(0.25, 4.0)
+            arousal = state[..., 1].mean()
+            return float(tau0) * torch.exp(-0.5 * arousal).clamp(0.5, 2.0)
 
         def memory_write_threshold(self, base: float = 0.5) -> float:
             threshold = float(base) - 0.15 * self.valence + 0.15 * self.arousal

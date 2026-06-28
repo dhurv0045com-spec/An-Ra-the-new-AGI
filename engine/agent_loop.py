@@ -2,17 +2,17 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import asdict, dataclass
-from pathlib import Path
-from typing import Callable
 
 from anra.anra_paths import FAILURE_REPLAY_DATASET
-from engine.feature_flags import is_enabled
-from engine.trajectories import TrajectoryStore
 from intelligence.hgp import HierarchicalGoalPlanner, MissionNode, MissionTree, WorkflowStep
 from robotics.contracts import SkillGoal, Workflow, WorkflowState
 from robotics.workflow import WorkflowExecutor
 from training.cdr import CorrectedFailureCurriculum
+
+from engine.feature_flags import is_enabled
+from engine.trajectories import TrajectoryStore
 
 
 @dataclass(frozen=True)
@@ -39,7 +39,7 @@ class AgentLoop:
         trajectory_store: TrajectoryStore | None = None,
         checkpoint_id: str = "",
         tokenizer_id: str = "",
-        cognition_services=None,
+        cognition_services: object | None = None,
     ) -> None:
         self.hgp = HierarchicalGoalPlanner(max_depth=5, max_workflow=10)
         self.decomposer = decomposer
@@ -48,7 +48,7 @@ class AgentLoop:
         self.verifier = verifier
         self.recover_node = recover_node
         self.memory_retrieve = memory_retrieve
-        self.authorize = authorize or (lambda workflow: True)
+        self.authorize = authorize or (lambda _workflow: True)
         self.trajectories = trajectory_store or TrajectoryStore()
         self.cdr = CorrectedFailureCurriculum(FAILURE_REPLAY_DATASET)
         self.checkpoint_id = checkpoint_id
@@ -138,9 +138,7 @@ class AgentLoop:
             evidence = {**evidence, "cognition": cognitive_context}
             success = executed.state == WorkflowState.COMPLETED and verified
             artifacts = tuple(
-                artifact
-                for trace in executed.trace
-                for artifact in trace.get("artifacts", ())
+                artifact for trace in executed.trace for artifact in trace.get("artifacts", ())
             )
             record = self.trajectories.append(
                 goal=goal,

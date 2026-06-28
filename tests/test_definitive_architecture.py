@@ -13,11 +13,22 @@ from training.continual import (
 )
 from training.data_ledger import DataQuality
 from training.data_pipeline_v3 import SourceRecord, TokenShardPublisher
+from training.v2_data_mix import (
+    RawCausalShardDataset,
+    TrainingExample,
+    build_post_training_mix,
+)
 from training.csii import CrossScaleIdentityInheritance
 from training.ssg import SovereignScalingGovernor
 from training.v2_runtime import migrate_checkpoint_state
 from anra_brain import CausalTransformerV2
 from runtime.technology_registry import validate_technology_reachability
+from scripts.download_training_data import (
+    MinHashDeduplicator,
+    _code_syntax_valid,
+    _detect_content_language,
+    _math_text_valid,
+)
 
 
 class _Tokenizer:
@@ -58,6 +69,119 @@ def test_token_shards_are_uint16_hashed_and_immutable(tmp_path) -> None:
         pass
     else:
         raise AssertionError("published token shards must be immutable")
+
+
+def test_raw_causal_dataset_trains_every_next_token(tmp_path) -> None:
+    class Tokenizer:
+        pad_token_id = 0
+        eos_token_id = 3
+
+        @staticmethod
+        def encode(text: str) -> list[int]:
+            return [4 + ord(character) % 50 for character in text]
+
+        @staticmethod
+        def decode(ids: list[int]) -> str:
+            return " ".join(str(value) for value in ids)
+
+    output = tmp_path / "raw"
+    publisher = TokenShardPublisher(
+        output,
+        tokenizer_version="v3-test",
+        tokenizer_sha256="tokenizer-hash",
+        tokens_per_shard=16,
+    )
+    publisher.publish(
+        [
+            SourceRecord(
+                "abcdefghijklmnopqrstuvwxyz",
+                "unit",
+                "MIT",
+                "foundation",
+                _quality(),
+            )
+        ],
+        Tokenizer(),
+        allow_partial_final=True,
+    )
+    dataset = RawCausalShardDataset(
+        output / "manifest.json",
+        Tokenizer(),
+        block_size=8,
+        expected_tokenizer_sha256="tokenizer-hash",
+    )
+    x, y, weights, _ = dataset[0]
+    torch.testing.assert_close(x[1:], y[:-1])
+    assert torch.all(weights == 1)
+
+
+def test_native_corpus_quality_filters_cover_near_duplicates_and_domains() -> None:
+    deduplicator = MinHashDeduplicator()
+    base = (
+        "The model learns from verified technical documents and preserves the "
+        "complete implementation context for every training example. "
+    ) * 12
+    near_duplicate = base + "The final sentence is metadata only."
+
+    assert deduplicator.seen_or_add(base) is False
+    assert deduplicator.seen_or_add(near_duplicate) is True
+    assert _detect_content_language(base, source="FineWeb-Edu") == "en"
+    assert _detect_content_language("数学模型数据", source="FineWeb-Edu") == "unknown"
+    assert _code_syntax_valid(
+        "def add(a, b):\n    return a + b\n",
+        source="The Stack v2 dedup",
+        language_hint="python",
+    )
+    assert not _code_syntax_valid(
+        "def broken(:\n    pass\n",
+        source="The Stack v2 dedup",
+        language_hint="python",
+    )
+    assert _math_text_valid("Final answer: 2 + 3 = 5", source="FineMath-4+")
+    assert not _math_text_valid("Final answer: 2 + 3 = 9", source="FineMath-4+")
+
+
+def test_post_training_mix_is_proportional_and_without_replacement() -> None:
+    category_examples = {
+        "instruction": ("teacher", "instruction"),
+        "code": ("teacher", "code"),
+        "math_logic": ("teacher", "math"),
+        "tools_actions": ("frontier_dfc", "tool"),
+        "failure_replay": ("replay", "reasoning"),
+        "identity": ("identity", "identity"),
+    }
+    examples = [
+        TrainingExample(
+            bucket=bucket,
+            prompt=f"{category} prompt {index}",
+            answer=f"{category} answer {index}",
+            source=f"{category}-{index}",
+            metadata={
+                "task_type": task_type,
+                "verified": category == "failure_replay",
+            },
+        )
+        for category, (bucket, task_type) in category_examples.items()
+        for index in range(50)
+    ]
+
+    mixed, requested, realized = build_post_training_mix(
+        examples,
+        seed=11,
+        max_examples=100,
+    )
+
+    assert len(mixed) == 100
+    assert len({(item.source, item.prompt, item.answer) for item in mixed}) == 100
+    assert requested == {
+        "instruction": 35,
+        "code": 25,
+        "math_logic": 15,
+        "tools_actions": 10,
+        "failure_replay": 10,
+        "identity": 5,
+    }
+    assert realized == requested
 
 
 def test_checkpoint_migration_preserves_legacy_rows_and_initializes_dstp() -> None:
@@ -233,10 +357,7 @@ def test_all_c01_through_c07_entrypoints_are_reachable() -> None:
     )
 
     reachable = validate_cognition_reachability()
-    expected = [
-        f"C-{index:02d}"
-        for index in range(1, len(COGNITIVE_CAPABILITIES) + 1)
-    ]
+    expected = [f"C-{index:02d}" for index in range(1, len(COGNITIVE_CAPABILITIES) + 1)]
     assert list(reachable) == expected, (
         f"Cognitive contracts {set(expected) - set(reachable)} are not reachable. "
         "Update runtime/cognition_registry.py if the entrypoint changed."
