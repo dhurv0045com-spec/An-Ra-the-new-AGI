@@ -1018,6 +1018,7 @@ def load_checkpoint(
         state["data_manifests"] = dict(
             blob.get("data_manifests", blob.get("dataset_manifest_hashes", {}))
         )
+        state["data_manifest_payloads"] = dict(blob.get("data_manifest_payloads", {}))
         state["model_config"] = dict(blob.get("model_config", {}))
         state["source_commit"] = str(blob.get("source_commit", "unknown"))
         restore_hal_state(model, blob.get("hal_state", {}))

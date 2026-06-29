@@ -251,12 +251,51 @@ def test_release_private_promotion_gate_rehashes_heldout_artifact(tmp_path: Path
         "capability_allowed": True,
         "task_count": len(tasks),
         "suite_metadata": metadata,
+        "model_bundle": {
+            "checkpoint_sha256": "checkpoint-hash",
+            "tokenizer_sha256": "tokenizer-hash",
+            "runtime_source_commit": "runtime-commit",
+            "runtime_worktree_clean": True,
+        },
     }
+    expected = dict(report["model_bundle"])
 
-    assert app._private_promotion_verified(report) is True
+    assert app._private_promotion_verified(report, expected_bundle=expected) is True
+    stale = {**expected, "checkpoint_sha256": "different-checkpoint"}
+    assert app._private_promotion_verified(report, expected_bundle=stale) is False
     suite_path = Path(str(metadata["suite_path"]))
     suite_path.write_bytes(suite_path.read_bytes() + b"{}\n")
-    assert app._private_promotion_verified(report) is False
+    assert app._private_promotion_verified(report, expected_bundle=expected) is False
+
+
+def test_checkpoint_embedded_manifests_restore_with_hash_verification(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    import hashlib
+    import generate
+
+    payload = b'{"schema_version":3,"shards":[]}'
+    digest = hashlib.sha256(payload).hexdigest()
+    monkeypatch.setattr(generate, "_get_runtime", lambda: (object(), object(), tmp_path / "x.pt"))
+    monkeypatch.setattr(
+        generate,
+        "_RUNTIME_LOAD_STATE",
+        {
+            "data_manifests": {"native/manifest.json": digest},
+            "data_manifest_payloads": {"native/manifest.json": payload},
+        },
+    )
+
+    report = generate.restore_embedded_data_manifests(tmp_path / "restored")
+
+    assert report["complete"] is True
+    assert report["restored"] == 1
+    assert (tmp_path / "restored" / "native" / "manifest.json").read_bytes() == payload
+
+    generate._RUNTIME_LOAD_STATE["data_manifest_payloads"]["native/manifest.json"] = b"tampered"
+    with pytest.raises(ValueError, match="hash mismatch"):
+        generate.restore_embedded_data_manifests(tmp_path / "other")
 
 
 def test_prompt_assembly_preserves_current_message_and_inserts_memory_once() -> None:

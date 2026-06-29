@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import hmac
 import math
 import logging
 import os
@@ -1023,6 +1024,52 @@ def save_ghost_state(session_id: str) -> None:
 def get_tokenizer():
     """Return the loaded V2 tokenizer (lazy via runtime cache)."""
     return _get_runtime()[1]
+
+
+def restore_embedded_data_manifests(root: str | Path) -> dict[str, object]:
+    """Restore exact corpus manifests embedded in a future native checkpoint."""
+    _get_runtime()
+    expected = _RUNTIME_LOAD_STATE.get("data_manifests", {})
+    payloads = _RUNTIME_LOAD_STATE.get("data_manifest_payloads", {})
+    if not isinstance(expected, dict) or not isinstance(payloads, dict):
+        return {"available": False, "restored": 0, "verified": 0, "missing": []}
+    destination_root = Path(root).resolve()
+    restored = 0
+    verified = 0
+    missing: list[str] = []
+    for name, expected_digest in expected.items():
+        relative = Path(str(name))
+        target = (destination_root / relative).resolve()
+        if destination_root != target and destination_root not in target.parents:
+            raise ValueError(f"Checkpoint manifest path escapes destination root: {name}")
+        payload = payloads.get(name)
+        if not isinstance(payload, (bytes, bytearray)):
+            missing.append(str(name))
+            continue
+        raw = bytes(payload)
+        digest = hashlib.sha256(raw).hexdigest()
+        if not hmac.compare_digest(digest, str(expected_digest)):
+            raise ValueError(f"Embedded checkpoint manifest hash mismatch: {name}")
+        if target.is_file() and hmac.compare_digest(
+            _sha256_file(target),
+            str(expected_digest),
+        ):
+            verified += 1
+            continue
+        target.parent.mkdir(parents=True, exist_ok=True)
+        temporary = target.with_suffix(target.suffix + ".tmp")
+        temporary.write_bytes(raw)
+        temporary.replace(target)
+        restored += 1
+        verified += 1
+    return {
+        "available": bool(payloads),
+        "restored": restored,
+        "verified": verified,
+        "expected": len(expected),
+        "missing": missing,
+        "complete": bool(expected) and verified == len(expected) and not missing,
+    }
 
 
 def __getattr__(name: str):

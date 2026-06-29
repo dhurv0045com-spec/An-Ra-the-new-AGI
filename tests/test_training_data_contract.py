@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import hashlib
 
 import pytest
 
@@ -8,6 +9,7 @@ from scripts.build_brain import (
     _active_training_data_layout,
     _assert_resume_data_layout_compatible,
     _assert_resume_data_profile_compatible,
+    _collect_data_manifest_payloads,
     _freeze_training_lineage,
 )
 
@@ -82,3 +84,15 @@ def test_training_lineage_freezes_checkpoint_tokenizer_and_manifests(
     assert archived is not None
     assert Path(archived).read_bytes() == b"checkpoint-v1"
     assert frozen["data_manifest_sha256"]
+
+
+def test_checkpoint_collects_complete_manifest_bytes(tmp_path: Path) -> None:
+    root = tmp_path / "manifests"
+    nested = root / "native" / "manifest.json"
+    nested.parent.mkdir(parents=True)
+    nested.write_bytes(b'{"shards":[{"sha256":"abc"}]}')
+
+    hashes, payloads = _collect_data_manifest_payloads(root)
+
+    assert payloads == {"native/manifest.json": nested.read_bytes()}
+    assert hashes["native/manifest.json"] == hashlib.sha256(nested.read_bytes()).hexdigest()

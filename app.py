@@ -55,6 +55,7 @@ from generate import (
     generate_traced,
     get_model_info,
     get_tokenizer,
+    restore_embedded_data_manifests,
     verify_kv_cache_parity,
     verify_session_state_isolation,
 )
@@ -1448,6 +1449,48 @@ def _private_eval_root() -> Path:
     return drive_root if DRIVE_DIR.exists() else PRIVATE_EVAL_DIR / "private_v1"
 
 
+def _runtime_source_commit() -> str:
+    try:
+        return subprocess.check_output(
+            ["git", "rev-parse", "HEAD"],
+            cwd=ROOT,
+            text=True,
+            stderr=subprocess.DEVNULL,
+        ).strip()
+    except Exception:
+        return "unknown"
+
+
+def _runtime_worktree_clean() -> bool:
+    try:
+        status = subprocess.check_output(
+            ["git", "status", "--porcelain"],
+            cwd=ROOT,
+            text=True,
+            stderr=subprocess.DEVNULL,
+        )
+        return not status.strip()
+    except Exception:
+        return False
+
+
+def _evaluation_model_bundle(info: dict[str, Any]) -> dict[str, object]:
+    checkpoint_state = info.get("checkpoint_state", {})
+    checkpoint_source_commit = (
+        checkpoint_state.get("source_commit", "unknown")
+        if isinstance(checkpoint_state, dict)
+        else "unknown"
+    )
+    return {
+        "checkpoint_path": str(info.get("checkpoint", "unknown")),
+        "checkpoint_sha256": str(info.get("checkpoint_sha256", "unknown")),
+        "tokenizer_sha256": str(info.get("tokenizer_sha256", "unknown")),
+        "checkpoint_source_commit": str(checkpoint_source_commit),
+        "runtime_source_commit": _runtime_source_commit(),
+        "runtime_worktree_clean": _runtime_worktree_clean(),
+    }
+
+
 def _write_json_atomically(path: Path, payload: dict[str, object]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_suffix(path.suffix + ".tmp")
@@ -1456,6 +1499,8 @@ def _write_json_atomically(path: Path, payload: dict[str, object]) -> None:
 
 
 def _run_private_promotion_evaluation() -> dict[str, object]:
+    info = get_model_info()
+    model_bundle = _evaluation_model_bundle(info)
     private_root = _private_eval_root()
     tasks, suite_metadata = ensure_private_eval_suite(private_root)
     reviews_path = private_root / "human_reviews.json"
@@ -1526,6 +1571,7 @@ def _run_private_promotion_evaluation() -> dict[str, object]:
         human_reviews={str(key): bool(value) for key, value in reviews.items()},
         progress_callback=persist_progress,
     )
+    report["model_bundle"] = model_bundle
     _write_json_atomically(OUTPUT_V2_DIR / "private_promotion_eval.json", report)
     _write_json_atomically(
         progress_path,
@@ -1694,12 +1740,15 @@ async def recovery_gate_route():
         run_recovery_prompt_gate,
         recovery_generator,
     )
+    info = ADAPTER.info or await run_in_threadpool(get_model_info)
+    report["model_bundle"] = _evaluation_model_bundle(info)
     baseline_path = OUTPUT_V2_DIR / "recovery_baseline.json"
     if not baseline_path.exists():
         baseline_payload = {
             "schema_version": report["schema_version"],
             "generated_at": report["generated_at"],
             "prompt_suite_sha256": report["prompt_suite_sha256"],
+            "model_bundle": report["model_bundle"],
             "baseline": report["baseline"],
             "baseline_outputs": report["baseline_outputs"],
         }
@@ -1747,7 +1796,30 @@ def _checkpoint_manifest_hashes_verified(checkpoint_state: dict[str, Any]) -> bo
     return True
 
 
-def _private_promotion_verified(report: dict[str, Any]) -> bool:
+def _evaluation_bundle_matches(
+    report: dict[str, Any],
+    expected: dict[str, object],
+) -> bool:
+    bundle = report.get("model_bundle", {})
+    if not isinstance(bundle, dict):
+        return False
+    hashes_match = all(
+        expected.get(key) not in {None, "", "unknown"}
+        and hmac.compare_digest(str(bundle.get(key, "")), str(expected[key]))
+        for key in ("checkpoint_sha256", "tokenizer_sha256", "runtime_source_commit")
+    )
+    return bool(
+        hashes_match
+        and bundle.get("runtime_worktree_clean") is True
+        and expected.get("runtime_worktree_clean") is True
+    )
+
+
+def _private_promotion_verified(
+    report: dict[str, Any],
+    *,
+    expected_bundle: dict[str, object],
+) -> bool:
     metadata = report.get("suite_metadata", {})
     if (
         report.get("capability_allowed") is not True
@@ -1755,6 +1827,7 @@ def _private_promotion_verified(report: dict[str, Any]) -> bool:
         or not isinstance(metadata, dict)
         or metadata.get("verified") is not True
         or metadata.get("origin") != "private_artifact"
+        or not _evaluation_bundle_matches(report, expected_bundle)
     ):
         return False
     suite_path = Path(str(metadata.get("suite_path", "")))
@@ -1777,6 +1850,7 @@ def _private_promotion_verified(report: dict[str, Any]) -> bool:
 @app.get("/diagnostics/release-evidence")
 async def release_evidence_route():
     info = ADAPTER.info or await run_in_threadpool(get_model_info)
+    expected_evaluation_bundle = _evaluation_model_bundle(info)
     checkpoint_state = info.get("checkpoint_state", {})
     if not isinstance(checkpoint_state, dict):
         checkpoint_state = {}
@@ -1803,6 +1877,10 @@ async def release_evidence_route():
     rollback = _latest_json(OUTPUT_V2_DIR / "rollback_drill.json") or {}
     recovery = _latest_json(OUTPUT_V2_DIR / "recovery_gate.json") or {}
     private_promotion = _latest_json(OUTPUT_V2_DIR / "private_promotion_eval.json") or {}
+    manifest_restore = await run_in_threadpool(
+        restore_embedded_data_manifests,
+        OUTPUT_V2_DIR / "data_manifests",
+    )
     manifest_names = (
         list(checkpoint_state.get("data_manifests", {}).keys())
         if isinstance(checkpoint_state.get("data_manifests", {}), dict)
@@ -1827,7 +1905,6 @@ async def release_evidence_route():
         source_commit=str(checkpoint_state.get("source_commit", "unknown")),
         evaluation_paths=[
             OUTPUT_V2_DIR / "recovery_gate.json",
-            OUTPUT_V2_DIR / "v2_golden_eval_baseline.json",
             *private_evaluation_paths,
         ],
         rollback_path=OUTPUT_V2_DIR / "rollback_drill.json",
@@ -1847,10 +1924,21 @@ async def release_evidence_route():
         "corpus_manifest_verified": _checkpoint_manifest_hashes_verified(checkpoint_state),
         "configuration_manifest_verified": configuration_ok,
         "rollback_drill_passed": (
-            rollback.get("passed") is True and verify_release_manifest(rollback)
+            rollback.get("passed") is True
+            and verify_release_manifest(rollback)
+            and hmac.compare_digest(
+                str(rollback.get("checkpoint_sha256", "")),
+                str(expected_evaluation_bundle["checkpoint_sha256"]),
+            )
         ),
-        "recovery_prompt_gate": recovery.get("passed") is True,
-        "private_promotion_evaluation": _private_promotion_verified(private_promotion),
+        "recovery_prompt_gate": bool(
+            recovery.get("passed") is True
+            and _evaluation_bundle_matches(recovery, expected_evaluation_bundle)
+        ),
+        "private_promotion_evaluation": _private_promotion_verified(
+            private_promotion,
+            expected_bundle=expected_evaluation_bundle,
+        ),
         "signed_release_bundle": verify_release_bundle_manifest(release_bundle),
     }
     report = {
@@ -1858,6 +1946,7 @@ async def release_evidence_route():
         "evidence": evidence,
         "cache": cache,
         "session_isolation": isolation,
+        "embedded_manifest_restore": manifest_restore,
         "private_promotion": {
             "capability_allowed": private_promotion.get("capability_allowed", False),
             "capability_gates": private_promotion.get("capability_gates", {}),

@@ -374,6 +374,20 @@ def _tokenizer_checkpoint_contract() -> dict[str, object]:
     }
 
 
+def _collect_data_manifest_payloads(
+    manifest_root: Path,
+) -> tuple[dict[str, str], dict[str, bytes]]:
+    hashes: dict[str, str] = {}
+    payloads: dict[str, bytes] = {}
+    if manifest_root.exists():
+        for path in sorted(manifest_root.rglob("*.json")):
+            relative = path.relative_to(manifest_root).as_posix()
+            payload = path.read_bytes()
+            hashes[relative] = hashlib.sha256(payload).hexdigest()
+            payloads[relative] = payload
+    return hashes, payloads
+
+
 def _build_checkpoint_payload(
     *,
     model: torch.nn.Module,
@@ -403,12 +417,8 @@ def _build_checkpoint_payload(
         ).strip()
     except (OSError, subprocess.CalledProcessError):
         source_commit = "unknown"
-    data_manifests = {}
     manifest_root = ROOT / "output" / "v2" / "data_manifests"
-    if manifest_root.exists():
-        for path in sorted(manifest_root.rglob("*.json")):
-            relative = path.relative_to(manifest_root).as_posix()
-            data_manifests[relative] = hashlib.sha256(path.read_bytes()).hexdigest()
+    data_manifests, data_manifest_payloads = _collect_data_manifest_payloads(manifest_root)
     tokenizer_contract = _tokenizer_checkpoint_contract()
     return {
         "checkpoint_schema_version": CHECKPOINT_SCHEMA_VERSION,
@@ -447,6 +457,7 @@ def _build_checkpoint_payload(
         "training_data_layout": _active_training_data_layout(),
         "data_manifests": data_manifests,
         "dataset_manifest_hashes": data_manifests,
+        "data_manifest_payloads": data_manifest_payloads,
         "cognitive_extension_release": "cognition-v1",
         "consent_safe_metadata": {
             "owner_derived_data_authorized": bool(

@@ -143,6 +143,27 @@ def _checkpoint_report(path: Path) -> dict[str, Any]:
         warnings.append("legacy checkpoint has no vocabulary hash; runtime probe gate is required")
     if not tokenizer_contract.get("probe_sha256"):
         warnings.append("legacy checkpoint has no 500-probe tokenizer fingerprint")
+    manifest_hashes = blob.get("data_manifests", blob.get("dataset_manifest_hashes", {}))
+    manifest_payloads = blob.get("data_manifest_payloads", {})
+    embedded_manifests_valid = bool(manifest_hashes)
+    if isinstance(manifest_hashes, dict) and isinstance(manifest_payloads, dict):
+        for name, expected_digest in manifest_hashes.items():
+            payload = manifest_payloads.get(name)
+            if not isinstance(payload, (bytes, bytearray)) or hashlib.sha256(
+                bytes(payload)
+            ).hexdigest() != str(expected_digest):
+                embedded_manifests_valid = False
+                break
+    else:
+        embedded_manifests_valid = False
+    report["embedded_data_manifests"] = {
+        "count": len(manifest_hashes) if isinstance(manifest_hashes, dict) else 0,
+        "complete": embedded_manifests_valid,
+    }
+    if checkpoint_schema >= 6 and not embedded_manifests_valid:
+        errors.append("schema v6 checkpoint is missing complete hash-verified data manifests")
+    elif not embedded_manifests_valid:
+        warnings.append("legacy checkpoint is not self-contained for corpus manifest restoration")
 
     report["ok"] = not errors
     report["errors"] = errors
