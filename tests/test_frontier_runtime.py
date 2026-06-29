@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -205,6 +206,7 @@ def test_request_scoped_runtime_isolation_executes_generation_probe(monkeypatch)
 
     def fake_generate(_prompt, _config, *, session_id=None):
         assert session_id is not None
+        assert _config.persist_adaptive_state is False
         calls.append(session_id)
         generate._ESV_STORE[session_id] = generate._ESV_STORE[session_id] + 0.01
         generate._GHOST_STORE[session_id]["generated"] = True
@@ -240,6 +242,7 @@ def test_private_promotion_route_starts_background_job(monkeypatch) -> None:
     asyncio.run(scenario())
     assert completed == [True]
     assert "open-review" in app.DEVELOPER_UI_HTML
+    assert "run-integration" in app.DEVELOPER_UI_HTML
 
 
 def test_release_private_promotion_gate_rehashes_heldout_artifact(tmp_path: Path) -> None:
@@ -296,6 +299,146 @@ def test_checkpoint_embedded_manifests_restore_with_hash_verification(
     generate._RUNTIME_LOAD_STATE["data_manifest_payloads"]["native/manifest.json"] = b"tampered"
     with pytest.raises(ValueError, match="hash mismatch"):
         generate.restore_embedded_data_manifests(tmp_path / "other")
+
+
+def test_full_system_integration_evidence_requires_every_bound_check() -> None:
+    import app
+
+    bundle = {
+        "checkpoint_sha256": "checkpoint",
+        "tokenizer_sha256": "tokenizer",
+        "runtime_source_commit": "commit",
+        "runtime_worktree_clean": True,
+    }
+    checks = dict.fromkeys(
+        (
+            "model_and_native_subsystems",
+            "ghost_path",
+            "evaluation_state_not_persisted",
+            "memory",
+            "verifier",
+            "agent_execution",
+            "sandboxed_tool",
+            "cognition",
+            "capability_graph",
+        ),
+        True,
+    )
+    report = {"passed": True, "checks": checks, "model_bundle": bundle}
+
+    assert app._full_system_integration_verified(report, expected_bundle=bundle)
+    report["checks"]["memory"] = False
+    assert not app._full_system_integration_verified(report, expected_bundle=bundle)
+
+
+def test_evaluation_generation_executes_ghost_path_without_persisting_state(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    import torch
+    import generate
+    from anra_brain import CausalTransformerV2
+
+    class Tokenizer:
+        bos_token_id = 1
+        eos_token_id = 2
+        pad_token_id = 0
+        vocab_size = 64
+        special_ids = {"<pad>": 0, "<bos>": 1, "<eos>": 2}
+
+        @staticmethod
+        def encode(text: str, *, add_special_tokens: bool = False) -> list[int]:
+            del add_special_tokens
+            return [3 + (ord(character) % 50) for character in text]
+
+        @staticmethod
+        def decode(_ids: list[int]) -> str:
+            return "valid complete response with enough words"
+
+    class GhostRecorder:
+        writes = 0
+
+        def store(self, *_args, **_kwargs):
+            self.writes += 1
+
+    model = CausalTransformerV2(
+        vocab_size=64,
+        n_embd=32,
+        n_head=4,
+        n_kv_head=2,
+        n_layer=2,
+        block_size=64,
+        mod_layers={1},
+    ).eval()
+    initial_esv = torch.tensor([0.2, -0.1, 0.3])
+    model.esv_module.state.copy_(initial_esv)
+    recorder = GhostRecorder()
+    monkeypatch.setattr(generate, "_get_runtime", lambda: (model, Tokenizer(), tmp_path / "x.pt"))
+    monkeypatch.setattr(generate, "_RUNTIME_LOAD_STATE", {"load_report": {"exact_native_load": True}})
+    monkeypatch.setattr(generate, "_get_hal", lambda _session_id: None)
+    monkeypatch.setattr(generate, "_GHOST_MEMORY", recorder)
+    monkeypatch.setattr(generate, "_generation_quality", lambda *_args, **_kwargs: 1.0)
+    monkeypatch.setattr(generate, "_language_fragment_detected", lambda _text: False)
+    session_id = "nonpersistent_eval"
+
+    trace = generate.generate_traced(
+        "H: probe\nANRA:",
+        generate.GenerationConfig(
+            max_tokens=2,
+            mode="full_system",
+            persist_adaptive_state=False,
+        ),
+        session_id=session_id,
+    )
+
+    assert trace.subsystem_trace["ghost_executed"] is True
+    assert trace.subsystem_trace["adaptive_state_persisted"] is False
+    assert session_id not in generate._GHOST_STORE
+    assert session_id not in generate._ESV_STORE
+    assert recorder.writes == 0
+    torch.testing.assert_close(model.esv_module.state, initial_esv)
+
+
+def test_full_system_probe_executes_real_memory_agent_tool_cognition_and_verifier(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    import app
+
+    subsystem_trace = {
+        "model_executed": True,
+        "mod_executed": True,
+        "rim_executed": True,
+        "dstp_executed": True,
+        "esv_executed": True,
+        "hal_executed": True,
+        "ghost_executed": True,
+        "adaptive_state_persisted": False,
+    }
+    monkeypatch.setattr(
+        app,
+        "generate_traced",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            subsystem_trace=subsystem_trace,
+            quality_state="accepted",
+            stopped_by="eos",
+        ),
+    )
+    monkeypatch.setattr(app, "clear_session_runtime_state", lambda _session_id: None)
+    monkeypatch.setattr(app, "get_model_info", lambda: {})
+    monkeypatch.setattr(
+        app,
+        "_evaluation_model_bundle",
+        lambda _info: {"runtime_worktree_clean": True},
+    )
+    monkeypatch.setattr(app, "OUTPUT_V2_DIR", tmp_path / "output")
+    monkeypatch.setattr("anra.anra_paths.OPERATOR_AUDIT_LOG", tmp_path / "operator.jsonl")
+    monkeypatch.setenv("ANRA_AGENT_WORKSPACE", str(tmp_path / "workspace"))
+
+    report = app._run_full_system_integration_probe()
+
+    assert report["passed"] is True, report
+    assert all(report["checks"].values())
 
 
 def test_prompt_assembly_preserves_current_message_and_inserts_memory_once() -> None:

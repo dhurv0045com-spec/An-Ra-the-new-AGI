@@ -334,6 +334,7 @@ REQUIRED_RELEASE_EVIDENCE = (
     "rollback_drill_passed",
     "recovery_prompt_gate",
     "private_promotion_evaluation",
+    "full_system_integration",
     "signed_release_bundle",
 )
 
@@ -341,6 +342,23 @@ REQUIRED_RELEASE_EVIDENCE = (
 def release_evidence_gates(evidence: dict[str, object] | None) -> dict[str, bool]:
     supplied = evidence or {}
     return {name: supplied.get(name) is True for name in REQUIRED_RELEASE_EVIDENCE}
+
+
+def _task_response_coherent(
+    task: dict[str, object],
+    response: str,
+    score: float,
+    *,
+    fragmented: bool,
+    repeated: bool,
+    quality_state: str,
+) -> bool:
+    if not response.strip() or repeated:
+        return False
+    category = str(task.get("category", ""))
+    if category == "coherence":
+        return score >= 1.0 and not fragmented and quality_state == "accepted"
+    return score >= 1.0
 
 
 def run_recovery_prompt_gate(
@@ -373,7 +391,14 @@ def run_recovery_prompt_gate(
             max_probs = list(getattr(trace, "max_prob_curve", []))
             trace_finite = all(math.isfinite(float(value)) for value in [*entropy, *max_probs])
             finite = finite and trace_finite
-            is_coherent = bool(response.strip()) and not fragmented and not repeated
+            is_coherent = _task_response_coherent(
+                task,
+                response,
+                score,
+                fragmented=fragmented,
+                repeated=repeated,
+                quality_state=quality_state,
+            )
             accepted += quality_state == "accepted"
             coherent += is_coherent
             task_score += score
@@ -513,6 +538,7 @@ def run_private_mode_seed_evaluation(
             trace = generator(str(task["prompt"]), mode, seed, ablation)
             response = str(getattr(trace, "output", trace))
             score, score_reason = _private_task_score(task, response)
+            category = str(task["category"])
             scores.append(score)
             latencies.append(float(getattr(trace, "time_ms", 0.0)))
             repeated = bool(getattr(trace, "repeated_ngrams_detected", False))
@@ -528,10 +554,14 @@ def run_private_mode_seed_evaluation(
                 generation_failures += 1
             coherence_scores.append(
                 float(
-                    bool(response.strip())
-                    and not repeated
-                    and not fragmented
-                    and quality_state == "accepted"
+                    _task_response_coherent(
+                        task,
+                        response,
+                        score,
+                        fragmented=fragmented,
+                        repeated=repeated,
+                        quality_state=quality_state,
+                    )
                 )
             )
             subsystem_trace = getattr(trace, "subsystem_trace", {})
@@ -539,7 +569,6 @@ def run_private_mode_seed_evaluation(
                 for subsystem in ("mod", "rim", "dstp", "esv", "hal"):
                     if subsystem_trace.get(f"{subsystem}_executed") is True:
                         traced_subsystems.add(subsystem)
-            category = str(task["category"])
             category_scores[category].append(score)
             if score < 1.0 and len(failure_samples) < 25:
                 failure_samples.append(

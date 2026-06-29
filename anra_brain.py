@@ -24,7 +24,7 @@ try:
     from identity.hal import HALModule
 except Exception:  # pragma: no cover - HAL is optional for old runtimes.
     HALModule = None
-from tokenizer.char_tokenizer import CharTokenizer
+from tokenizer.char_tokenizer import CharTokenizer  # noqa: F401 - compatibility export
 
 
 class RMSNorm(nn.Module):
@@ -409,6 +409,7 @@ class CausalTransformerV2(nn.Module):
             "rim": 0,
             "dstp": 0,
             "esv": 0,
+            "esv_features": 0,
             "hal": 0,
         }
         self.cognitive_extension = None
@@ -820,8 +821,10 @@ class CausalTransformerV2(nn.Module):
                         residual_scale=scale_,
                     )
 
-                if native_context:
+                if self.use_esv_control:
                     self._subsystem_execution["esv"] += 1
+                if native_context:
+                    self._subsystem_execution["esv_features"] += 1
                 if rim_i is not None:
                     self._subsystem_execution["rim"] += 1
                 if use_hal:
@@ -835,7 +838,9 @@ class CausalTransformerV2(nn.Module):
                 if native_context:
                     esv_state = self.esv_module(x)
                     esv_channel = self.esv_module.extract_channel(x)
-                    self._subsystem_execution["esv"] += 1
+                    self._subsystem_execution["esv_features"] += 1
+                    if self.use_esv_control:
+                        self._subsystem_execution["esv"] += 1
                 else:
                     esv_state = torch.zeros((x.shape[0], 3), device=x.device, dtype=x.dtype)
                     esv_channel = None

@@ -90,7 +90,7 @@ def walk_repository(repo_root: Path) -> list[FileNode]:
         classes, funcs = _python_symbols(path)
         nodes.append(
             FileNode(
-                path=str(path.relative_to(repo_root)),
+                path=path.relative_to(repo_root).as_posix(),
                 size_bytes=path.stat().st_size,
                 line_count=text.count("\n") + (1 if text else 0),
                 has_python=path.suffix == ".py",

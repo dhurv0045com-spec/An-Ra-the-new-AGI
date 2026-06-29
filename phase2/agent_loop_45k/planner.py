@@ -311,7 +311,7 @@ class Planner:
         Raises:
             ValueError: If goal is not APPROVED.
         """
-        from goal import GoalStatus
+        from phase2.agent_loop_45k.goal import GoalStatus
         if goal.status not in (GoalStatus.APPROVED, GoalStatus.ACTIVE):
             raise ValueError(
                 f"Cannot plan goal with status {goal.status.value}. "

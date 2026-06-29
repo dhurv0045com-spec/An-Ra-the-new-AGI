@@ -117,7 +117,38 @@ def test_diagnostic_mode_records_no_native_subsystem_execution() -> None:
         model(torch.randint(0, 64, (1, 8)))
     execution = model.subsystem_telemetry()["execution"]
     model.restore_runtime_mode(prior)
-    assert execution == {"mod": 0, "rim": 0, "dstp": 0, "esv": 0, "hal": 0}
+    assert execution == {
+        "mod": 0,
+        "rim": 0,
+        "dstp": 0,
+        "esv": 0,
+        "esv_features": 0,
+        "hal": 0,
+    }
+
+
+def test_esv_control_ablation_keeps_rim_dependency_visible_without_false_esv_trace() -> None:
+    model = CausalTransformerV2(
+        vocab_size=64,
+        n_embd=32,
+        n_head=4,
+        n_kv_head=2,
+        n_layer=2,
+        block_size=16,
+        mod_layers={1},
+    )
+    prior = model.configure_runtime_mode("native")
+    model.neutralize_subsystem("esv")
+    model.begin_subsystem_trace()
+    model.eval()
+    with torch.no_grad():
+        model(torch.randint(0, 64, (1, 8)))
+    execution = model.subsystem_telemetry()["execution"]
+    model.restore_runtime_mode(prior)
+
+    assert execution["esv"] == 0
+    assert execution["esv_features"] > 0
+    assert execution["rim"] > 0
 
 
 def test_gradient_checkpointing_gate_gradient_not_stale():
@@ -206,8 +237,18 @@ def test_generate_extends_sequence_by_n_tokens(tiny: CausalTransformerV2) -> Non
     tiny.train()
 
 
-def test_loss_decreases_with_overfit_step(tiny: CausalTransformerV2) -> None:
+def test_loss_decreases_with_overfit_step() -> None:
     """Single overfit step on one batch — loss must decrease."""
+    torch.manual_seed(1701)
+    tiny = CausalTransformerV2(
+        vocab_size=256,
+        n_embd=64,
+        n_head=4,
+        n_kv_head=2,
+        n_layer=2,
+        block_size=64,
+        mod_layers={1},
+    )
     tiny.train()
     idx = torch.randint(0, 256, (1, 32))
     tgt = torch.randint(0, 256, (1, 32))

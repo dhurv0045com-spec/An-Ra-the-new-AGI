@@ -67,8 +67,14 @@ MultiAgentCoordinator = _safe_import(f"{_PACKAGE}.coordinator", "MultiAgentCoord
 AgentCoordinator = _safe_import(f"{_PACKAGE}.coordinator", "AgentCoordinator")  # type: ignore
 GoalPlanner = _safe_import(f"{_PACKAGE}.planner", "Planner")  # type: ignore
 
-_OPTIONAL_AGENT_COORDINATOR_ERROR = "coordinator: module 'coordinator' has no attribute 'AgentCoordinator'"
-_IMPORT_ERRORS = [err for err in _IMPORT_ERRORS if err != _OPTIONAL_AGENT_COORDINATOR_ERROR]
+_IMPORT_ERRORS = [
+    error
+    for error in _IMPORT_ERRORS
+    if not (
+        error.startswith(f"{_PACKAGE}.coordinator:")
+        and "has no attribute 'AgentCoordinator'" in error
+    )
+]
 
 logger = logging.getLogger(__name__)
 

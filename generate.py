@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import hashlib
 import hmac
-import math
 import logging
 import os
 import re
@@ -21,7 +20,10 @@ from anra.anra_paths import (
     ROOT,
     STATE_DIR,
 )
-from training.v2_config import V2_FRONTIER_PARAMETER_COUNT, frontier_parameter_count
+from training.v2_config import (  # noqa: F401 - legacy public runtime export
+    V2_FRONTIER_PARAMETER_COUNT,
+    frontier_parameter_count,
+)
 from training.v2_runtime import (
     active_tokenizer_path,
     build_frontier_model,
@@ -78,6 +80,7 @@ class GenerationConfig:
     verifier_score: float | None = None
     task_success: bool | None = None
     civ_score: float | None = None
+    persist_adaptive_state: bool = True
 
 
 class SubsystemTrace(TypedDict, total=False):
@@ -89,10 +92,12 @@ class SubsystemTrace(TypedDict, total=False):
     rim_executed: bool
     dstp_executed: bool
     esv_executed: bool
+    esv_feature_extraction_executed: bool
     esv_committed: bool
     hal_executed: bool
     hal_updated: bool
     ghost_executed: bool
+    adaptive_state_persisted: bool
     ablated_subsystem: str | None
     model: dict[str, object]
     esv: dict[str, float]
@@ -715,21 +720,28 @@ def generate_traced(
         quality_state = "accepted" if quality >= 0.65 else "rejected"
 
         if quality_state == "accepted":
-            if cfg.mode != "diagnostic" and hasattr(native_model, "commit_pending_esv_state"):
+            if (
+                cfg.persist_adaptive_state
+                and cfg.mode != "diagnostic"
+                and hasattr(native_model, "commit_pending_esv_state")
+            ):
                 esv_committed = bool(native_model.commit_pending_esv_state())
                 if session_id and esv_module is not None:
                     _ESV_STORE[session_id] = esv_module.state.detach().cpu().clone()
             if session_id and cfg.mode == "full_system":
-                state = dict(_GHOST_STORE.get(session_id, {}))
-                state.update({"session_id": session_id, "last_output": output_text})
-                _GHOST_STORE[session_id] = state
                 ghost_executed = True
-                if _GHOST_MEMORY is not None:
-                    try:
-                        _GHOST_MEMORY.store(session_id, state)
-                    except Exception as exc:
-                        logger.warning("Ghost state persistence failed for %s: %s", session_id, exc)
-            if hal is not None:
+                if cfg.persist_adaptive_state:
+                    state = dict(_GHOST_STORE.get(session_id, {}))
+                    state.update({"session_id": session_id, "last_output": output_text})
+                    _GHOST_STORE[session_id] = state
+                    if _GHOST_MEMORY is not None:
+                        try:
+                            _GHOST_MEMORY.store(session_id, state)
+                        except Exception as exc:
+                            logger.warning(
+                                "Ghost state persistence failed for %s: %s", session_id, exc
+                            )
+            if hal is not None and cfg.persist_adaptive_state:
                 try:
                     coherence_score = 0.0 if fragmented or repeated else 0.60
                     verifier_score = (
@@ -762,7 +774,7 @@ def generate_traced(
             esv_module.state.copy_(prior_esv_state)
             native_model._pending_esv_state = None
 
-        if cfg.mode == "diagnostic" and prior_esv_state is not None:
+        if (cfg.mode == "diagnostic" or not cfg.persist_adaptive_state) and prior_esv_state is not None:
             esv_module.state.copy_(prior_esv_state)
             native_model._pending_esv_state = None
 
@@ -779,14 +791,17 @@ def generate_traced(
             "rim_executed": int(execution.get("rim", 0)) > 0,
             "dstp_executed": int(execution.get("dstp", 0)) > 0,
             "esv_executed": int(execution.get("esv", 0)) > 0,
+            "esv_feature_extraction_executed": int(execution.get("esv_features", 0)) > 0,
             "esv_committed": esv_committed,
             "hal_executed": int(execution.get("hal", 0)) > 0,
             "hal_updated": hal_updated,
             "ghost_executed": ghost_executed,
+            "adaptive_state_persisted": bool(
+                cfg.persist_adaptive_state
+                and (esv_committed or hal_updated or ghost_executed)
+            ),
             "ablated_subsystem": cfg.ablated_subsystem,
         }
-        if cfg.ablated_subsystem in {"mod", "rim", "dstp", "esv", "hal"}:
-            subsystem_trace[f"{cfg.ablated_subsystem}_executed"] = False
         if model_telemetry:
             subsystem_trace["model"] = model_telemetry
         if esv_module is not None and hasattr(esv_module, "as_dict"):
@@ -894,6 +909,7 @@ def verify_session_state_isolation(*, probe_generation: bool = False) -> dict[st
                         seed=9127,
                         use_kv_cache=False,
                         mode="native",
+                        persist_adaptive_state=False,
                     ),
                     session_id=session_a,
                 )

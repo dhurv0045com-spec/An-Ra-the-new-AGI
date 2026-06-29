@@ -9,9 +9,8 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
-from anra.anra_paths import STATE_DIR
-
-TELEMETRY_LOG = STATE_DIR / "logs" / "telemetry.jsonl"
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+TELEMETRY_LOG = PROJECT_ROOT / "state" / "logs" / "telemetry.jsonl"
 
 
 @dataclass

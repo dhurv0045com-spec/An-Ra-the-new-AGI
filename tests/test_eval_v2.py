@@ -101,6 +101,16 @@ def test_release_evidence_requires_every_structural_gate() -> None:
 
 def test_recovery_gate_runs_200_before_after_and_deterministic_replay() -> None:
     calls: list[tuple[str, str, int]] = []
+    tasks = [
+        {
+            "id": f"recovery_{index:03d}",
+            "category": "coherence",
+            "prompt": f"H: write complete response {index}\nANRA:",
+            "expected": "complete",
+            "scorer": "coherent_contains",
+        }
+        for index in range(200)
+    ]
 
     def generator(prompt: str, mode: str, seed: int, _ablation: str | None):
         calls.append((prompt, mode, seed))
@@ -116,7 +126,7 @@ def test_recovery_gate_runs_200_before_after_and_deterministic_replay() -> None:
             max_prob_curve=[0.8],
         )
 
-    report = eval_v2.run_recovery_prompt_gate(generator)
+    report = eval_v2.run_recovery_prompt_gate(generator, tasks=tasks)
 
     assert len(calls) == 600
     assert report["baseline"]["prompt_count"] == 200
@@ -217,6 +227,36 @@ def test_private_identity_and_dfc_scorers_reject_keyword_only_shortcuts() -> Non
     )
     assert eval_v2._private_task_score(dfc, empty_labels)[0] == 0.0
     assert eval_v2._private_task_score(dfc, populated)[0] == 1.0
+
+
+def test_coherence_uses_task_contract_for_intentionally_short_answers() -> None:
+    math_task = {"category": "math"}
+    prose_task = {"category": "coherence"}
+
+    assert eval_v2._task_response_coherent(
+        math_task,
+        "42",
+        1.0,
+        fragmented=True,
+        repeated=False,
+        quality_state="rejected",
+    )
+    assert not eval_v2._task_response_coherent(
+        math_task,
+        "41",
+        0.0,
+        fragmented=False,
+        repeated=False,
+        quality_state="accepted",
+    )
+    assert not eval_v2._task_response_coherent(
+        prose_task,
+        "nonce",
+        1.0,
+        fragmented=True,
+        repeated=False,
+        quality_state="rejected",
+    )
 
 
 def test_private_promotion_requires_each_seed_trace_latency_and_blinded_review() -> None:

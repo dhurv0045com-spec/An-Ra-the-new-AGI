@@ -10,6 +10,7 @@ import os
 import re
 import subprocess
 import sys
+import tempfile
 import time
 import traceback
 import uuid
@@ -780,6 +781,7 @@ DEVELOPER_UI_HTML = """
               <button class="secondary" id="run-rollback" type="button">Rollback drill</button>
               <button class="secondary" id="run-recovery" type="button">200-prompt gate</button>
               <button class="secondary" id="run-private" type="button">Full promotion eval</button>
+              <button class="secondary" id="run-integration" type="button">Integration probe</button>
               <button class="secondary" id="open-review" type="button">Review outputs</button>
             </div>
             <span class="status-line" id="matrix-line">loading</span>
@@ -990,6 +992,7 @@ DEVELOPER_UI_HTML = """
     $("run-rollback").addEventListener("click", () => postDiagnostic("/diagnostics/rollback-drill", "run-rollback", "running rollback drill"));
     $("run-recovery").addEventListener("click", () => postDiagnostic("/diagnostics/recovery-gate", "run-recovery", "running 200-prompt gate"));
     $("run-private").addEventListener("click", () => postDiagnostic("/evaluations/private-promotion", "run-private", "running 500-task x 3-seed promotion evaluation; keep this cell open"));
+    $("run-integration").addEventListener("click", () => postDiagnostic("/diagnostics/full-system-integration", "run-integration", "running full-system integration probe"));
     $("open-review").addEventListener("click", openReviewQueue);
     $("review-reject").addEventListener("click", () => recordReview(false));
     $("review-accept").addEventListener("click", () => recordReview(true));
@@ -1430,6 +1433,9 @@ async def current_evaluation_route():
         "private_promotion_progress": _latest_json(
             OUTPUT_V2_DIR / "private_promotion_progress.json"
         ),
+        "full_system_integration": _latest_json(
+            OUTPUT_V2_DIR / "full_system_integration.json"
+        ),
         "promotion_requirements": {
             "checkpoint_tensor_accounting": 1.0,
             "coherent_responses": 0.90,
@@ -1536,6 +1542,7 @@ def _run_private_promotion_evaluation() -> dict[str, object]:
                     use_kv_cache=False,
                     mode=mode,
                     ablated_subsystem=ablation,
+                    persist_adaptive_state=False,
                 ),
                 session_id=session_id,
             )
@@ -1630,6 +1637,129 @@ async def private_promotion_status_route():
         if not running
         else None,
     }
+
+
+def _run_full_system_integration_probe() -> dict[str, object]:
+    checks: dict[str, bool] = {}
+    details: dict[str, object] = {}
+    info = get_model_info()
+    session_id = f"integration_probe_{uuid.uuid4().hex[:12]}"
+    try:
+        trace = generate_traced(
+            "H: Write one clear sentence confirming an An-Ra integration probe.\nANRA:",
+            GenerationConfig(
+                strategy="greedy",
+                max_tokens=64,
+                seed=4417,
+                use_kv_cache=False,
+                mode="full_system",
+                persist_adaptive_state=False,
+            ),
+            session_id=session_id,
+        )
+        subsystem_trace = dict(trace.subsystem_trace)
+        checks["model_and_native_subsystems"] = all(
+            subsystem_trace.get(f"{name}_executed") is True
+            for name in ("mod", "rim", "dstp", "esv", "hal")
+        ) and subsystem_trace.get("model_executed") is True
+        checks["ghost_path"] = subsystem_trace.get("ghost_executed") is True
+        checks["evaluation_state_not_persisted"] = (
+            subsystem_trace.get("adaptive_state_persisted") is False
+        )
+        details["generation"] = {
+            "quality_state": trace.quality_state,
+            "stopped_by": trace.stopped_by,
+            "subsystem_trace": subsystem_trace,
+        }
+    finally:
+        clear_session_runtime_state(session_id)
+
+    with tempfile.TemporaryDirectory(prefix="anra-integration-") as temporary_dir:
+        temporary_root = Path(temporary_dir)
+        from memory.memory_router import MemoryRouter
+        from phase2.agent_loop_45k.agent_main import Agent
+        from training.verifier import VerifierHierarchy
+
+        nonce = f"integration-{uuid.uuid4().hex}"
+        router = MemoryRouter(dim=32, faiss_index_path=temporary_root / "episodic.faiss")
+        write_result = router.write(nonce, metadata={"probe": True}, tier="short_term")
+        memory_hits = router.read(nonce, n=1, tier="short_term")
+        checks["memory"] = bool(
+            write_result.tier == "short_term"
+            and memory_hits
+            and nonce in str(memory_hits[0].get("content", ""))
+        )
+        details["memory"] = {
+            "tier": write_result.tier,
+            "hits": len(memory_hits),
+        }
+
+        verifier = VerifierHierarchy(temporary_root / "verifier")
+        verification = verifier.verify_math("2 + 3", "5")
+        checks["verifier"] = verification.score == 1.0 and verification.tier == 1
+        details["verifier"] = asdict(verification)
+
+        agent = Agent(verbose=False, approve_each_step=False, max_tool_calls=8)
+        agent_result = agent.run(
+            "List workspace files without modifying anything",
+            clarify=False,
+            show_plan=False,
+        )
+        checks["agent_execution"] = bool(
+            len(agent.registry) > 0 and agent_result.get("success") is True
+        )
+        details["agent"] = {
+            "registered_tools": len(agent.registry),
+            "success": agent_result.get("success", False),
+            "output_preview": str(agent_result.get("output", ""))[:240],
+        }
+
+    operator = _dispatch_full_system_operator("/list .")
+    checks["sandboxed_tool"] = bool(operator["handled"] and operator["tool_executed"])
+    details["tool"] = {
+        "handled": operator["handled"],
+        "tool_executed": operator["tool_executed"],
+        "response_preview": str(operator["response"])[:240],
+    }
+
+    cognition = COGNITION.health()
+    enabled = cognition.get("enabled", {})
+    checks["cognition"] = bool(
+        cognition.get("status") == "ok"
+        and isinstance(enabled, dict)
+        and enabled
+        and all(bool(value) for value in enabled.values())
+    )
+    details["cognition"] = cognition
+
+    graph = build_capability_graph(ROOT)
+    capabilities = graph.get("capabilities", {})
+    checks["capability_graph"] = bool(
+        isinstance(capabilities, dict)
+        and capabilities.get("fastapi")
+        and capabilities.get("integration_tests")
+        and capabilities.get("symbolic_bridge")
+    )
+    details["capability_graph"] = capabilities
+
+    report = {
+        "schema_version": 1,
+        "generated_at": time.time(),
+        "model_bundle": _evaluation_model_bundle(info),
+        "checks": checks,
+        "details": details,
+        "passed": all(checks.values()),
+    }
+    _write_json_atomically(OUTPUT_V2_DIR / "full_system_integration.json", report)
+    return report
+
+
+@app.post("/diagnostics/full-system-integration")
+async def full_system_integration_route():
+    report = await run_in_threadpool(_run_full_system_integration_probe)
+    if not report["passed"]:
+        raise HTTPException(status_code=409, detail=report)
+    return report
 
 
 @app.get("/evaluations/private-review-queue")
@@ -1730,6 +1860,7 @@ async def recovery_gate_route():
                     use_kv_cache=False,
                     mode=mode,
                     ablated_subsystem=ablation,
+                    persist_adaptive_state=False,
                 ),
                 session_id=session_id,
             )
@@ -1847,6 +1978,32 @@ def _private_promotion_verified(
     )
 
 
+def _full_system_integration_verified(
+    report: dict[str, Any],
+    *,
+    expected_bundle: dict[str, object],
+) -> bool:
+    checks = report.get("checks", {})
+    required = {
+        "model_and_native_subsystems",
+        "ghost_path",
+        "evaluation_state_not_persisted",
+        "memory",
+        "verifier",
+        "agent_execution",
+        "sandboxed_tool",
+        "cognition",
+        "capability_graph",
+    }
+    return bool(
+        report.get("passed") is True
+        and isinstance(checks, dict)
+        and required.issubset(checks)
+        and all(checks.get(name) is True for name in required)
+        and _evaluation_bundle_matches(report, expected_bundle)
+    )
+
+
 @app.get("/diagnostics/release-evidence")
 async def release_evidence_route():
     info = ADAPTER.info or await run_in_threadpool(get_model_info)
@@ -1877,6 +2034,9 @@ async def release_evidence_route():
     rollback = _latest_json(OUTPUT_V2_DIR / "rollback_drill.json") or {}
     recovery = _latest_json(OUTPUT_V2_DIR / "recovery_gate.json") or {}
     private_promotion = _latest_json(OUTPUT_V2_DIR / "private_promotion_eval.json") or {}
+    full_system_integration = (
+        _latest_json(OUTPUT_V2_DIR / "full_system_integration.json") or {}
+    )
     manifest_restore = await run_in_threadpool(
         restore_embedded_data_manifests,
         OUTPUT_V2_DIR / "data_manifests",
@@ -1906,6 +2066,7 @@ async def release_evidence_route():
         evaluation_paths=[
             OUTPUT_V2_DIR / "recovery_gate.json",
             *private_evaluation_paths,
+            OUTPUT_V2_DIR / "full_system_integration.json",
         ],
         rollback_path=OUTPUT_V2_DIR / "rollback_drill.json",
         output_path=OUTPUT_V2_DIR / "release_bundle.json",
@@ -1939,6 +2100,10 @@ async def release_evidence_route():
             private_promotion,
             expected_bundle=expected_evaluation_bundle,
         ),
+        "full_system_integration": _full_system_integration_verified(
+            full_system_integration,
+            expected_bundle=expected_evaluation_bundle,
+        ),
         "signed_release_bundle": verify_release_bundle_manifest(release_bundle),
     }
     report = {
@@ -1951,6 +2116,10 @@ async def release_evidence_route():
             "capability_allowed": private_promotion.get("capability_allowed", False),
             "capability_gates": private_promotion.get("capability_gates", {}),
             "human_review": private_promotion.get("human_review", {}),
+        },
+        "full_system_integration": {
+            "passed": full_system_integration.get("passed", False),
+            "checks": full_system_integration.get("checks", {}),
         },
         "release_ready": all(evidence.values()),
     }

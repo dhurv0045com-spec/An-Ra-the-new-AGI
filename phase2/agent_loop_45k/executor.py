@@ -42,6 +42,20 @@ def _get_llm():
         return None
 
 
+def _deterministic_tool_input(tool_name: str, instruction: str, step: "Step") -> str:
+    """Produce valid safe commands when no language bridge is available."""
+    compact = " ".join(instruction.split())[:800]
+    if tool_name == "memory_tool":
+        return f"store {step.step_id} {compact}"
+    if tool_name == "task_manager":
+        return f"create {step.step_id} {step.title}"
+    if tool_name == "file_manager" and any(
+        term in compact.lower() for term in ("list", "files", "workspace", "verify")
+    ):
+        return "list ."
+    return compact
+
+
 @dataclass
 class StepOutcome:
     """Result of executing one step."""
@@ -362,7 +376,7 @@ class Executor:
                     logger.warning(f"LLM tool arg generation failed: {e}. Falling back.")
                     tool_input = instruction
             else:
-                tool_input = instruction
+                tool_input = _deterministic_tool_input(tool_name, instruction, step)
 
             result = self.registry.call(
                 tool_name, tool_input,
