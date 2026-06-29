@@ -169,6 +169,22 @@ def test_repetition_penalty_moves_repeated_logits_down() -> None:
     assert adjusted[2].item() == -4.0
 
 
+def test_full_system_operator_dispatch_connects_explicit_agent_goal(monkeypatch) -> None:
+    import app
+
+    monkeypatch.setattr(
+        app,
+        "_run_native_agent_goal",
+        lambda goal: {"success": True, "output": f"completed:{goal}"},
+    )
+    result = app._dispatch_full_system_operator("/goal inspect native routing")
+
+    assert result["handled"] is True
+    assert result["agent_executed"] is True
+    assert result["tool_executed"] is False
+    assert "completed:inspect native routing" in result["response"]
+
+
 def test_request_scoped_runtime_state_isolation_probe() -> None:
     import generate
 

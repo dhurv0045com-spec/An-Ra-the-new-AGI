@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import json
+from types import SimpleNamespace
+
+import pytest
 
 from training import eval_v2
 
@@ -93,3 +96,55 @@ def test_release_evidence_requires_every_structural_gate() -> None:
     assert missing["checkpoint_tensor_accounting"] is True
     assert missing["cache_parity"] is False
     assert all(complete.values())
+
+
+def test_recovery_gate_runs_200_before_after_and_deterministic_replay() -> None:
+    calls: list[tuple[str, str, int]] = []
+
+    def generator(prompt: str, mode: str, seed: int, _ablation: str | None):
+        calls.append((prompt, mode, seed))
+        token_ids = [ord(character) % 97 for character in prompt[:16]]
+        return SimpleNamespace(
+            output="A complete grammatical An-Ra response.",
+            output_token_ids=token_ids,
+            quality_state="accepted",
+            language_fragment_detected=False,
+            repeated_ngrams_detected=False,
+            stopped_by="eos",
+            entropy_curve=[2.0],
+            max_prob_curve=[0.8],
+        )
+
+    report = eval_v2.run_recovery_prompt_gate(generator)
+
+    assert len(calls) == 600
+    assert report["baseline"]["prompt_count"] == 200
+    assert report["candidate"]["prompt_count"] == 200
+    assert report["gates"]["deterministic_replay"] is True
+    assert report["passed"] is True
+    assert report["primary_failure"] == "none"
+
+
+def test_context_growth_evidence_requires_ordered_growth_and_all_gates() -> None:
+    report = eval_v2.build_context_growth_evidence(
+        source_context=1024,
+        target_context=1536,
+        coherence_rate=0.92,
+        short_context_baseline_loss=2.0,
+        short_context_candidate_loss=2.02,
+        retrieval_baseline_accuracy=0.70,
+        retrieval_candidate_accuracy=0.75,
+    )
+
+    assert report["short_context_regression"] == pytest.approx(0.01)
+    assert report["passed"] is True
+    with pytest.raises(ValueError, match="1024->1536"):
+        eval_v2.build_context_growth_evidence(
+            source_context=1024,
+            target_context=2048,
+            coherence_rate=1.0,
+            short_context_baseline_loss=2.0,
+            short_context_candidate_loss=2.0,
+            retrieval_baseline_accuracy=0.5,
+            retrieval_candidate_accuracy=0.6,
+        )

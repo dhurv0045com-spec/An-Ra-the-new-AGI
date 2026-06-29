@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field
-from pathlib import Path
 import json
 import time
+from dataclasses import asdict, dataclass, field
+from pathlib import Path
 from typing import Any
-
 
 AXES = ("state", "operators", "invariants")
 WEIGHTS = {"state": 0.2, "operators": 0.3, "invariants": 0.5}
@@ -19,7 +18,7 @@ class DomainSignature:
     invariants: set[str] = field(default_factory=set)
 
     @classmethod
-    def from_mapping(cls, name: str, mapping: dict[str, Any]) -> "DomainSignature":
+    def from_mapping(cls, name: str, mapping: dict[str, Any]) -> DomainSignature:
         return cls(
             name=name,
             state=_token_set(mapping.get("state", mapping.get("variables", []))),
@@ -73,7 +72,12 @@ KNOWN_SIGNATURES: dict[str, DomainSignature] = {
         name="nanotech_self_assembly",
         state={"monomers", "configuration", "energy_landscape", "interfaces", "medium"},
         operators={"assemble", "rotate", "minimize", "dock", "anneal"},
-        invariants={"free_energy_minimum", "kinetic_traps", "steric_constraints", "binding_geometry"},
+        invariants={
+            "free_energy_minimum",
+            "kinetic_traps",
+            "steric_constraints",
+            "binding_geometry",
+        },
     ),
     "qec_syndrome": DomainSignature(
         name="qec_syndrome",
@@ -109,14 +113,21 @@ def jaccard(a: set[str], b: set[str]) -> float:
 
 
 class ConstraintIsomorphismSearch:
-    def __init__(self, signatures: dict[str, DomainSignature] | None = None, threshold: float = 0.65, epg=None) -> None:
+    def __init__(
+        self,
+        signatures: dict[str, DomainSignature] | None = None,
+        threshold: float = 0.65,
+        epg=None,
+    ) -> None:
         self.signatures = dict(KNOWN_SIGNATURES)
         if signatures:
             self.signatures.update(signatures)
         self.threshold = float(threshold)
         self.epg = epg
 
-    def signature_for(self, name: str, override: dict[str, Any] | DomainSignature | None = None) -> DomainSignature:
+    def signature_for(
+        self, name: str, override: dict[str, Any] | DomainSignature | None = None
+    ) -> DomainSignature:
         if isinstance(override, DomainSignature):
             return override
         if isinstance(override, dict):
@@ -172,7 +183,11 @@ class ConstraintIsomorphismSearch:
         if not candidate.valid or self.epg is None:
             return
         # AN: Confirmed isomorphisms should become durable EPG evidence, not transient scores.
-        shared_keywords = set(candidate.shared.get("state", [])) | set(candidate.shared.get("operators", [])) | set(candidate.shared.get("invariants", []))
+        shared_keywords = (
+            set(candidate.shared.get("state", []))
+            | set(candidate.shared.get("operators", []))
+            | set(candidate.shared.get("invariants", []))
+        )
         divergence = "domain-specific constraints diverge outside shared invariants"
         try:
             self.epg.add_node(

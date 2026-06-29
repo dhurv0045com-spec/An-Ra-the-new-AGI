@@ -16,8 +16,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from anra.anra_paths import DRIVE_DATA_DIR
-
+from anra.anra_paths import DRIVE_DATA_DIR  # noqa: E402 - direct-script path bootstrap
 
 CACHE_SCHEMA_VERSION = 2
 CACHE_FILES = (
@@ -166,13 +165,7 @@ def main() -> int:
     local = repo / "training_data"
     drive = cache_dir(Path(args.drive_root), args.profile)
     local_tokens = repo / TOKEN_SHARD_RELATIVE / args.profile
-    drive_tokens = (
-        Path(args.drive_root)
-        / "data"
-        / "iterate500"
-        / "token_shards"
-        / args.profile
-    )
+    drive_tokens = Path(args.drive_root) / "data" / "iterate500" / "token_shards" / args.profile
 
     def token_cache_valid(root: Path) -> bool:
         manifests = list(root.rglob("manifest.json")) if root.exists() else []
@@ -191,6 +184,10 @@ def main() -> int:
         if not train_manifest.is_file():
             return False
         train_payload = json.loads(train_manifest.read_text(encoding="utf-8"))
+        if args.profile in {"15gb", "30gb"} and not bool(
+            train_payload.get("campaign_mix_verified", False)
+        ):
+            return False
         return bool(train_payload.get("shards"))
 
     def restore_token_cache(source: Path, destination: Path) -> None:

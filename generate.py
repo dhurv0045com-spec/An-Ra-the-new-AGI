@@ -9,7 +9,7 @@ import threading
 import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Dict, Iterator, Optional
+from typing import Dict, Iterator, Optional, TypedDict
 
 import torch
 
@@ -19,10 +19,10 @@ from anra.anra_paths import (
     HAL_STATE_FILE,
     ROOT,
     STATE_DIR,
-    V3_TOKENIZER_FILE,
 )
-from training.v2_config import V2_FRONTIER_PARAMETER_COUNT
+from training.v2_config import V2_FRONTIER_PARAMETER_COUNT, frontier_parameter_count
 from training.v2_runtime import (
+    active_tokenizer_path,
     build_frontier_model,
     build_v2_model,
     canonical_v2_checkpoint,
@@ -36,17 +36,17 @@ logger = logging.getLogger(__name__)
 try:
     from anra.anra_paths import get_identity_file as _get_identity_file
     from identity_injector import IdentityInjector as _IdentityInjector
+
     _identity_file = _get_identity_file()
     _IDENTITY_INJECTOR = (
-        _IdentityInjector(identity_file=_identity_file)
-        if _identity_file is not None
-        else None
+        _IdentityInjector(identity_file=_identity_file) if _identity_file is not None else None
     )
 except Exception:
     _IDENTITY_INJECTOR = None
 
 try:
     from ghost_memory import GhostMemory as _GhostMemory
+
     _GHOST_MEMORY = _GhostMemory()
 except Exception:
     _GHOST_MEMORY = None
@@ -79,6 +79,25 @@ class GenerationConfig:
     civ_score: float | None = None
 
 
+class SubsystemTrace(TypedDict, total=False):
+    mode: str
+    model_executed: bool
+    agent_executed: bool
+    tool_executed: bool
+    mod_executed: bool
+    rim_executed: bool
+    dstp_executed: bool
+    esv_executed: bool
+    esv_committed: bool
+    hal_executed: bool
+    hal_updated: bool
+    ghost_executed: bool
+    ablated_subsystem: str | None
+    model: dict[str, object]
+    esv: dict[str, float]
+    hal: dict[str, float]
+
+
 @dataclass
 class GenerationTrace:
     output: str
@@ -96,7 +115,7 @@ class GenerationTrace:
     mode: str = "diagnostic"
     quality_state: str = "unknown"
     language_fragment_detected: bool = False
-    subsystem_trace: dict[str, object] = field(default_factory=dict)
+    subsystem_trace: SubsystemTrace = field(default_factory=dict)
     output_token_ids: list[int] = field(default_factory=list)
     eos_valid: bool = False
 
@@ -182,7 +201,11 @@ def _resolve_frontier_checkpoint() -> Path:
 def _load_frontier_runtime():
     tokenizer = load_or_build_v2_tokenizer()
     checkpoint = _resolve_frontier_checkpoint()
-    model = build_frontier_model()
+    model = (
+        build_frontier_model()
+        if tokenizer.vocab_size == 8_209
+        else build_frontier_model(vocab_size=tokenizer.vocab_size)
+    )
     model = model.to(DEVICE)
     state = load_checkpoint(model, None, None, None, checkpoint, device=DEVICE, strict=False)
     if not state.get("loaded"):
@@ -196,10 +219,10 @@ def _load_frontier_runtime():
         )
     summary = model_summary(model)
     params = int(summary["parameters"])
-    if params != V2_FRONTIER_PARAMETER_COUNT:
+    expected_params = frontier_parameter_count(tokenizer.vocab_size)
+    if params != expected_params:
         raise RuntimeError(
-            f"Frontier parameter contract mismatch: got {params:,}, "
-            f"expected {V2_FRONTIER_PARAMETER_COUNT:,}"
+            f"Frontier parameter contract mismatch: got {params:,}, expected {expected_params:,}"
         )
     model.eval()
     if hasattr(model, "disable_kv_cache"):
@@ -328,14 +351,65 @@ def _language_fragment_detected(text: str) -> bool:
         if "```" not in stripped and not any(symbol in stripped for symbol in ("{", "};", "=>")):
             lexical_words = re.findall(r"[a-zA-Z]+", stripped.lower())
             common = {
-                "a", "about", "after", "all", "also", "an", "and", "answer",
-                "are", "as", "at", "be", "because", "before", "but", "by",
-                "can", "context", "data", "do", "does", "for", "from", "has",
-                "have", "how", "i", "if", "in", "into", "is", "it", "its",
-                "model", "not", "of", "on", "or", "result", "should", "so",
-                "system", "task", "that", "the", "their", "then", "this", "to",
-                "use", "was", "we", "what", "when", "which", "with", "would",
-                "you", "your",
+                "a",
+                "about",
+                "after",
+                "all",
+                "also",
+                "an",
+                "and",
+                "answer",
+                "are",
+                "as",
+                "at",
+                "be",
+                "because",
+                "before",
+                "but",
+                "by",
+                "can",
+                "context",
+                "data",
+                "do",
+                "does",
+                "for",
+                "from",
+                "has",
+                "have",
+                "how",
+                "i",
+                "if",
+                "in",
+                "into",
+                "is",
+                "it",
+                "its",
+                "model",
+                "not",
+                "of",
+                "on",
+                "or",
+                "result",
+                "should",
+                "so",
+                "system",
+                "task",
+                "that",
+                "the",
+                "their",
+                "then",
+                "this",
+                "to",
+                "use",
+                "was",
+                "we",
+                "what",
+                "when",
+                "which",
+                "with",
+                "would",
+                "you",
+                "your",
             }
             common_ratio = sum(word in common for word in lexical_words) / max(
                 1, len(lexical_words)
@@ -373,7 +447,9 @@ def _generation_quality(
     return max(0.0, min(1.0, reward))
 
 
-def _apply_repetition_penalty(logits: torch.Tensor, generated_ids: list[int], cfg: GenerationConfig) -> torch.Tensor:
+def _apply_repetition_penalty(
+    logits: torch.Tensor, generated_ids: list[int], cfg: GenerationConfig
+) -> torch.Tensor:
     if cfg.repetition_penalty <= 1.0 or not generated_ids:
         return logits
     adjusted = logits.clone()
@@ -481,7 +557,9 @@ def detect_repetition(text: str) -> dict[str, object]:
 
 
 @torch.no_grad()
-def generate_traced(prompt: str, cfg: GenerationConfig, *, session_id: str | None = None) -> GenerationTrace:
+def generate_traced(
+    prompt: str, cfg: GenerationConfig, *, session_id: str | None = None
+) -> GenerationTrace:
     if not prompt or not prompt.strip():
         raise ValueError("prompt must not be empty")
     if cfg.mode not in {"diagnostic", "native", "full_system"}:
@@ -490,9 +568,7 @@ def generate_traced(prompt: str, cfg: GenerationConfig, *, session_id: str | Non
     cfg.max_tokens = max(1, int(cfg.max_tokens))
     cfg.top_p = max(1e-6, min(1.0, float(cfg.top_p)))
     cfg.top_k = max(1, int(cfg.top_k))
-    if cfg.use_kv_cache and not (
-        _KV_CACHE_PARITY_VERIFIED or _KV_CACHE_PARITY_IN_PROGRESS
-    ):
+    if cfg.use_kv_cache and not (_KV_CACHE_PARITY_VERIFIED or _KV_CACHE_PARITY_IN_PROGRESS):
         raise RuntimeError(
             "KV cache is disabled until /diagnostics/cache-parity proves exact token parity"
         )
@@ -526,6 +602,9 @@ def generate_traced(prompt: str, cfg: GenerationConfig, *, session_id: str | Non
             runtime_mode_state = native_model.configure_runtime_mode(cfg.mode)
         if cfg.ablated_subsystem and hasattr(native_model, "neutralize_subsystem"):
             native_model.neutralize_subsystem(cfg.ablated_subsystem)
+        previous_civ_similarity = getattr(native_model, "_runtime_civ_similarity", 1.0)
+        if hasattr(native_model, "begin_subsystem_trace"):
+            native_model.begin_subsystem_trace(civ_similarity=cfg.civ_score)
         esv_module = getattr(native_model, "esv_module", None)
         prior_esv_state = None
         if esv_module is not None and hasattr(esv_module, "state"):
@@ -547,21 +626,23 @@ def generate_traced(prompt: str, cfg: GenerationConfig, *, session_id: str | Non
         entropy_curve: list[float] = []
         max_prob_curve: list[float] = []
         stopped_by = "max_tokens"
-        ghost_loaded = bool(
-            cfg.mode == "full_system" and session_id and session_id in _GHOST_STORE
-        )
+        ghost_loaded = bool(cfg.mode == "full_system" and session_id and session_id in _GHOST_STORE)
         blocked_ids = _blocked_token_ids(tokenizer, cfg)
 
         start = time.perf_counter()
         kv_enabled = False
         generation_completed = False
+        model_telemetry: dict[str, object] = {}
+        esv_committed = False
+        hal_updated = False
+        ghost_executed = False
         if cfg.use_kv_cache and hasattr(model, "enable_kv_cache"):
             model.enable_kv_cache()
             model.clear_kv_cache()
             kv_enabled = True
         try:
             for _ in range(cfg.max_tokens):
-                if len(generated_ids) >= model.block_size and not kv_enabled:
+                if len(generated_ids) >= model.block_size:
                     stopped_by = "context_limit"
                     break
                 if kv_enabled and answer_ids:
@@ -591,9 +672,14 @@ def generate_traced(prompt: str, cfg: GenerationConfig, *, session_id: str | Non
                     answer_ids = tokenizer.encode(trimmed, add_special_tokens=False)
                     stopped_by = reason
                     break
-                if len(answer_ids) >= 12 and detect_repetition(current_text)["repeated_ngrams_detected"]:
+                if (
+                    len(answer_ids) >= 12
+                    and detect_repetition(current_text)["repeated_ngrams_detected"]
+                ):
                     stopped_by = "repetition_guard"
                     break
+            if hasattr(native_model, "subsystem_telemetry"):
+                model_telemetry = native_model.subsystem_telemetry()
             generation_completed = True
         finally:
             if kv_enabled:
@@ -601,6 +687,7 @@ def generate_traced(prompt: str, cfg: GenerationConfig, *, session_id: str | Non
                 model.disable_kv_cache()
             if runtime_mode_state is not None:
                 native_model.restore_runtime_mode(runtime_mode_state)
+            native_model._runtime_civ_similarity = previous_civ_similarity
             if not generation_completed and prior_esv_state is not None:
                 esv_module.state.copy_(prior_esv_state)
                 native_model._pending_esv_state = None
@@ -628,36 +715,46 @@ def generate_traced(prompt: str, cfg: GenerationConfig, *, session_id: str | Non
 
         if quality_state == "accepted":
             if cfg.mode != "diagnostic" and hasattr(native_model, "commit_pending_esv_state"):
-                native_model.commit_pending_esv_state()
+                esv_committed = bool(native_model.commit_pending_esv_state())
                 if session_id and esv_module is not None:
                     _ESV_STORE[session_id] = esv_module.state.detach().cpu().clone()
             if session_id and cfg.mode == "full_system":
                 state = dict(_GHOST_STORE.get(session_id, {}))
                 state.update({"session_id": session_id, "last_output": output_text})
                 _GHOST_STORE[session_id] = state
+                ghost_executed = True
                 if _GHOST_MEMORY is not None:
                     try:
                         _GHOST_MEMORY.store(session_id, state)
                     except Exception as exc:
                         logger.warning("Ghost state persistence failed for %s: %s", session_id, exc)
-            if (
-                hal is not None
-                and cfg.verifier_score is not None
-                and cfg.task_success is not None
-            ):
+            if hal is not None:
                 try:
+                    coherence_score = 0.0 if fragmented or repeated else 0.60
+                    verifier_score = (
+                        max(0.0, min(1.0, cfg.verifier_score))
+                        if cfg.verifier_score is not None
+                        else coherence_score
+                    )
                     hal.update(
-                        verifier_result=max(0.0, min(1.0, cfg.verifier_score)),
+                        verifier_result=verifier_score,
                         session_context={
                             "task_type": "generation",
                             "domain": "conversation",
                             "task_success": cfg.task_success,
                             "civ_score": cfg.civ_score,
+                            "civ_evidence": {
+                                "coherence": coherence_score,
+                                "truthfulness": (
+                                    verifier_score if cfg.verifier_score is not None else None
+                                ),
+                            },
                             "model_incoherence_self_detected": repeated or fragmented,
-                            "near_capability_boundary": cfg.verifier_score < 0.65,
+                            "near_capability_boundary": verifier_score < 0.65,
                         },
                     )
                     _save_hal(session_id, hal)
+                    hal_updated = True
                 except Exception as exc:
                     logger.warning("HAL update failed: %s", exc)
         elif prior_esv_state is not None:
@@ -669,26 +766,28 @@ def generate_traced(prompt: str, cfg: GenerationConfig, *, session_id: str | Non
             native_model._pending_esv_state = None
 
         elapsed_ms = (time.perf_counter() - start) * 1000
-        subsystem_trace: dict[str, object] = {
+        execution = model_telemetry.get("execution", {})
+        if not isinstance(execution, dict):
+            execution = {}
+        subsystem_trace: SubsystemTrace = {
             "mode": cfg.mode,
-            "mod_executed": cfg.mode != "diagnostic",
-            "rim_executed": cfg.mode != "diagnostic",
-            "dstp_executed": cfg.mode != "diagnostic",
-            "esv_executed": cfg.mode != "diagnostic",
-            "esv_committed": quality_state == "accepted" and cfg.mode != "diagnostic",
-            "hal_executed": hal is not None,
-            "hal_updated": bool(
-                hal is not None
-                and cfg.verifier_score is not None
-                and cfg.task_success is not None
-            ),
-            "ghost_executed": cfg.mode == "full_system" and bool(session_id),
+            "model_executed": True,
+            "agent_executed": False,
+            "tool_executed": False,
+            "mod_executed": int(execution.get("mod", 0)) > 0,
+            "rim_executed": int(execution.get("rim", 0)) > 0,
+            "dstp_executed": int(execution.get("dstp", 0)) > 0,
+            "esv_executed": int(execution.get("esv", 0)) > 0,
+            "esv_committed": esv_committed,
+            "hal_executed": int(execution.get("hal", 0)) > 0,
+            "hal_updated": hal_updated,
+            "ghost_executed": ghost_executed,
             "ablated_subsystem": cfg.ablated_subsystem,
         }
         if cfg.ablated_subsystem in {"mod", "rim", "dstp", "esv", "hal"}:
             subsystem_trace[f"{cfg.ablated_subsystem}_executed"] = False
-        if hasattr(native_model, "subsystem_telemetry"):
-            subsystem_trace["model"] = native_model.subsystem_telemetry()
+        if model_telemetry:
+            subsystem_trace["model"] = model_telemetry
         if esv_module is not None and hasattr(esv_module, "as_dict"):
             subsystem_trace["esv"] = esv_module.as_dict()
         if hal is not None and hasattr(hal, "state"):
@@ -790,6 +889,15 @@ def verify_session_state_isolation() -> dict[str, object]:
             _ESV_STORE.pop(session_b, None)
             _GHOST_STORE.pop(session_a, None)
             _GHOST_STORE.pop(session_b, None)
+
+
+def clear_session_runtime_state(session_id: str) -> None:
+    """Remove request-scoped adaptive state used by an isolated diagnostic job."""
+    with _GENERATION_LOCK:
+        _ESV_STORE.pop(session_id, None)
+        _GHOST_STORE.pop(session_id, None)
+        _HAL_STORE.pop(session_id, None)
+        _hal_path(session_id).unlink(missing_ok=True)
 
 
 def generate(prompt: str, strategy: str = "greedy", max_tokens: int = 128, **kwargs) -> str:
@@ -894,11 +1002,8 @@ def get_model_info() -> dict[str, object]:
     except Exception:
         kv_enabled = False
     checkpoint_sha256 = _sha256_file(Path(LOADED_CHECKPOINT))
-    tokenizer_sha256 = (
-        _sha256_file(V3_TOKENIZER_FILE)
-        if V3_TOKENIZER_FILE.exists()
-        else "missing"
-    )
+    tokenizer_path = active_tokenizer_path()
+    tokenizer_sha256 = _sha256_file(tokenizer_path) if tokenizer_path.exists() else "missing"
     return {
         "model_line": "v2",
         "profile": _RUNTIME_PROFILE,
@@ -923,11 +1028,14 @@ def get_model_info() -> dict[str, object]:
             "data_profile": _RUNTIME_LOAD_STATE.get("data_profile", "unknown"),
             "training_data_layout": _RUNTIME_LOAD_STATE.get("training_data_layout", "unknown"),
             "tokens_seen": _RUNTIME_LOAD_STATE.get("tokens_seen", 0),
-            "continuation_token_counts": _RUNTIME_LOAD_STATE.get(
-                "continuation_token_counts", {}
-            ),
-            "best_validation_loss": _RUNTIME_LOAD_STATE.get(
-                "best_validation_loss", float("inf")
+            "continuation_token_counts": _RUNTIME_LOAD_STATE.get("continuation_token_counts", {}),
+            "best_validation_loss": _RUNTIME_LOAD_STATE.get("best_validation_loss", float("inf")),
+            "validation_history": _RUNTIME_LOAD_STATE.get("validation_history", []),
+            "data_manifests": _RUNTIME_LOAD_STATE.get("data_manifests", {}),
+            "model_config": _RUNTIME_LOAD_STATE.get("model_config", {}),
+            "source_commit": _RUNTIME_LOAD_STATE.get("source_commit", "unknown"),
+            "appended_row_optimizer_steps": _RUNTIME_LOAD_STATE.get(
+                "appended_row_optimizer_steps", 0
             ),
             "tokenizer_identity": _RUNTIME_LOAD_STATE.get("tokenizer_identity", {}),
             "load_report": _RUNTIME_LOAD_STATE.get("load_report", {}),

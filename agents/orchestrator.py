@@ -7,7 +7,6 @@ from agents.message_bus import MessageBus
 from engine.feature_flags import is_enabled
 from engine.telemetry import trace
 
-
 KIND_TO_COMPONENT = {
     "coder": "agent_loop",
     "research": "agent_loop",
@@ -42,7 +41,10 @@ class OrchestratorAgent:
             kind = task.get("kind", "coder")
             component = KIND_TO_COMPONENT.get(kind, kind)
             if not is_enabled(component):
-                return {"skipped": True, "reason": f"component '{component}' is disabled via feature flags"}
+                return {
+                    "skipped": True,
+                    "reason": f"component '{component}' is disabled via feature flags",
+                }
             if kind == "coder":
                 result = await self.coder.run(task)
             elif kind == "research":
@@ -55,7 +57,9 @@ class OrchestratorAgent:
                 raise ValueError(f"unknown kind: {kind}")
             if self.goal_queue is not None and goal_id:
                 self.goal_queue.complete(str(goal_id))
-            await self.bus.publish("results", {"task": task, "result": result}, sender="orchestrator")
+            await self.bus.publish(
+                "results", {"task": task, "result": result}, sender="orchestrator"
+            )
             return result
         except Exception as exc:
             if self.goal_queue is not None and goal_id:
@@ -110,20 +114,24 @@ class OrchestratorAgent:
                     failed += 1
                     error = result.get("error", "task returned success=False")
                     self.goal_queue.fail(goal.goal_id, error=error)
-                results.append({
-                    "goal_id": goal.goal_id,
-                    "text": goal.text[:80],
-                    "success": success,
-                })
+                results.append(
+                    {
+                        "goal_id": goal.goal_id,
+                        "text": goal.text[:80],
+                        "success": success,
+                    }
+                )
             except Exception as exc:
                 # dispatch() already called goal_queue.fail()
                 failed += 1
-                results.append({
-                    "goal_id": goal.goal_id,
-                    "text": goal.text[:80],
-                    "success": False,
-                    "error": str(exc)[:200],
-                })
+                results.append(
+                    {
+                        "goal_id": goal.goal_id,
+                        "text": goal.text[:80],
+                        "success": False,
+                        "error": str(exc)[:200],
+                    }
+                )
 
         summary = {
             "goals_attempted": attempted,
@@ -134,8 +142,9 @@ class OrchestratorAgent:
             "finished_at": time.time(),
         }
         try:
-            from identity.civ_watcher import CIVWatcher
             from anra.anra_paths import CIV_WATCHER_STATE
+            from identity.civ_watcher import CIVWatcher
+
             _watcher = CIVWatcher(state_path=CIV_WATCHER_STATE)
             if hasattr(self, "civ_guard") and self.civ_guard is not None:
                 sim, _ = self.civ_guard.verify()
@@ -153,7 +162,9 @@ class OrchestratorAgent:
         text = (goal.text or "").lower()
         if any(kw in text for kw in ("code", "implement", "write", "build", "fix", "create")):
             kind = "coder"
-        elif any(kw in text for kw in ("research", "find", "read", "summarize", "analyse", "analyze")):
+        elif any(
+            kw in text for kw in ("research", "find", "read", "summarize", "analyse", "analyze")
+        ):
             kind = "research"
         elif any(kw in text for kw in ("remember", "recall", "store", "retrieve", "memory")):
             kind = "memory"

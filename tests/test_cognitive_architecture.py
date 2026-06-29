@@ -154,10 +154,7 @@ def test_cec_is_idempotent_and_quarantines_unverified(tmp_path: Path):
 
 
 def test_ssie_requires_repeated_failure_pattern_and_authorization():
-    evidence = [
-        FailureEvidence(f"s{i}", "reasoning", "failure", f"h{i}")
-        for i in range(3)
-    ]
+    evidence = [FailureEvidence(f"s{i}", "reasoning", "failure", f"h{i}") for i in range(3)]
     engine = ScientificSelfImprovementEngine()
     proposal = engine.propose(
         "reasoning",
@@ -247,7 +244,11 @@ def test_signed_launch_manifest_is_enforced(tmp_path: Path, monkeypatch):
         optimizer="adamw",
         batch_size=1,
         accumulation=1,
-        schedule={"kind": "wsd"},
+        schedule={
+            "kind": "cosine_with_warmup",
+            "warmup_fraction": 0.02,
+            "min_lr": 1e-5,
+        },
         seeds=[1301],
         checkpoint_source="",
         expected_tokens=0,

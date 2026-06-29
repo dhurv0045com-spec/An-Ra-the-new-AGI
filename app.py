@@ -7,6 +7,7 @@ import hmac
 import json
 import logging
 import os
+import re
 import subprocess
 import sys
 import time
@@ -39,12 +40,14 @@ from anra.anra_paths import (
     ROOT,
     STATE_DIR,
     ensure_dirs,
+    get_identity_file,
 )
 
 ensure_dirs()
 
 from generate import (
     GenerationConfig,
+    clear_session_runtime_state,
     detect_repetition,
     generate,
     generate_stream,
@@ -54,6 +57,12 @@ from generate import (
     verify_kv_cache_parity,
     verify_session_state_isolation,
 )
+from evaluation.promotion import (
+    build_release_bundle_manifest,
+    run_rollback_drill,
+    verify_release_bundle_manifest,
+    verify_release_manifest,
+)
 from inference.full_system_connector import build_capability_graph
 from inference.optimize_context_window import ContextWindowOptimizer
 from engine.feature_flags import disabled_components, is_enabled
@@ -62,6 +71,8 @@ from goals.goal_queue import GoalQueue
 from robotics.contracts import SkillGoal, Workflow
 from runtime.hal_telemetry import read_hal_state
 from cognition.services import CognitionServices
+from training.eval_v2 import build_context_growth_evidence, run_recovery_prompt_gate
+from training.v2_runtime import active_tokenizer_path
 
 START_TIME = time.time()
 _COLAB_DRIVE = DRIVE_SESSIONS
@@ -122,7 +133,9 @@ class SQLiteSessionStore:
     async def get_history(self, session_id: str) -> list[dict]:
         await self._ensure_initialized()
         async with aiosqlite.connect(self._path) as db:
-            async with db.execute("SELECT history FROM sessions WHERE id = ?", (session_id,)) as cur:
+            async with db.execute(
+                "SELECT history FROM sessions WHERE id = ?", (session_id,)
+            ) as cur:
                 row = await cur.fetchone()
                 return json.loads(row[0]) if row else []
 
@@ -137,9 +150,11 @@ class SQLiteSessionStore:
         meta = await self.get_meta(session_id)
         await self.save_session(session_id, history, meta)
 
-    async def save_session(self, session_id: str, history: list[dict], meta: dict[str, Any]) -> None:
+    async def save_session(
+        self, session_id: str, history: list[dict], meta: dict[str, Any]
+    ) -> None:
         await self._ensure_initialized()
-        trimmed = history[-self._max_history:]
+        trimmed = history[-self._max_history :]
         now = time.time()
         async with aiosqlite.connect(self._path) as db:
             await db.execute(
@@ -156,7 +171,9 @@ class SQLiteSessionStore:
     async def list_sessions(self) -> dict[str, dict[str, Any]]:
         await self._ensure_initialized()
         async with aiosqlite.connect(self._path) as db:
-            async with db.execute("SELECT id, history, meta FROM sessions ORDER BY last_active DESC") as cur:
+            async with db.execute(
+                "SELECT id, history, meta FROM sessions ORDER BY last_active DESC"
+            ) as cur:
                 rows = await cur.fetchall()
         sessions: dict[str, dict[str, Any]] = {}
         for session_id, history_json, meta_json in rows:
@@ -239,6 +256,40 @@ class ModelAdapter:
 ADAPTER = ModelAdapter()
 SYSTEM_GRAPH: Dict[str, Any] = {}
 _ctx_optimizer = ContextWindowOptimizer()
+_identity_context = ""
+
+
+def _run_native_agent_goal(goal: str) -> dict[str, Any]:
+    from phase2.agent_loop_45k.agent_main import Agent
+
+    agent = Agent(verbose=False, approve_each_step=False)
+    return agent.run(goal, clarify=False, show_plan=False)
+
+
+def _dispatch_full_system_operator(message: str) -> dict[str, Any]:
+    """Dispatch only explicit operator-shaped requests; normal text remains chat."""
+    from runtime.operator_commands import (
+        handle_natural_operator_request,
+        handle_slash_command,
+    )
+
+    stripped = message.strip()
+    run_goal = _run_native_agent_goal
+    if stripped.startswith("/"):
+        handled, response = handle_slash_command(stripped, run_goal=run_goal)
+    else:
+        handled, response = handle_natural_operator_request(stripped, run_goal=run_goal)
+    agent_requested = stripped.lower().startswith("/goal") or bool(
+        re.search(r"\b(?:run|execute|start)\s+(?:a\s+)?goal\b", stripped, re.IGNORECASE)
+    )
+    return {
+        "handled": handled,
+        "response": response,
+        "agent_executed": handled and agent_requested,
+        "tool_executed": handled and not agent_requested,
+    }
+
+
 GOAL_QUEUE = GoalQueue(STATE_DIR / "goal_queue.json")
 COGNITION = CognitionServices()
 
@@ -252,11 +303,9 @@ def _configured_owner_token() -> str:
 
 
 def _owner_auth_required() -> bool:
-    return (
-        os.environ.get("ANRA_SERVICE_MODE", "development").strip().lower()
-        == "production"
-        or bool(_configured_owner_token())
-    )
+    return os.environ.get(
+        "ANRA_SERVICE_MODE", "development"
+    ).strip().lower() == "production" or bool(_configured_owner_token())
 
 
 def _authorized_owner(request: Request) -> bool:
@@ -319,7 +368,11 @@ def get_memory_system():
             def store_turn(self, message: str, response: str, session_id: str) -> None:
                 self._router.write(
                     f"H: {message}\nANRA: {response}",
-                    metadata={"session_id": session_id, "type": "conversation_turn", "salience": 0.8},
+                    metadata={
+                        "session_id": session_id,
+                        "type": "conversation_turn",
+                        "salience": 0.8,
+                    },
                     tier="episodic",
                 )
 
@@ -362,7 +415,7 @@ def format_memory_context(memory_results: List[Dict[str, Any]]) -> str:
     lines = ["[Retrieved Memory Context]"]
     for i, item in enumerate(memory_results, start=1):
         lines.append(f"{i}. {item.get('summary', '')}")
-        if item.get('content'):
+        if item.get("content"):
             lines.append(f"   detail: {item.get('content')[:240]}")
     return "\n".join(lines)
 
@@ -423,14 +476,18 @@ def _turn_count(history: list[dict]) -> int:
 async def _rate_limit_or_429(client_ip: str) -> None:
     allowed = await SESSION_STORE.check_rate_limit(client_ip, window_seconds=60.0, max_requests=30)
     if not allowed:
-        raise HTTPException(status_code=429, detail="Rate limit exceeded. Max 30 requests per minute.")
+        raise HTTPException(
+            status_code=429, detail="Rate limit exceeded. Max 30 requests per minute."
+        )
 
 
 def _latest_report_snapshot() -> Dict[str, Any] | None:
     reports_dir = Path(__file__).resolve().parent / "state" / "reports"
     if not reports_dir.exists():
         return None
-    snapshots = sorted(reports_dir.glob("snapshot_*.json"), key=lambda p: p.stat().st_mtime, reverse=True)
+    snapshots = sorted(
+        reports_dir.glob("snapshot_*.json"), key=lambda p: p.stat().st_mtime, reverse=True
+    )
     for snapshot in snapshots:
         try:
             payload = json.loads(snapshot.read_text(encoding="utf-8"))
@@ -457,11 +514,17 @@ async def lifespan(_: FastAPI):
     await SESSION_STORE.initialize()
     JOBS.update(await SESSION_STORE.load_jobs())
     await run_in_threadpool(ADAPTER.load)
-    global SYSTEM_GRAPH, _ctx_optimizer
+    global SYSTEM_GRAPH, _ctx_optimizer, _identity_context
     tokenizer = await run_in_threadpool(get_tokenizer)
     _ctx_optimizer = ContextWindowOptimizer(
         tokenizer=tokenizer,
         max_context=int(ADAPTER.info.get("block_size", 1024) or 1024),
+    )
+    identity_path = get_identity_file()
+    _identity_context = (
+        identity_path.read_text(encoding="utf-8", errors="replace")
+        if identity_path is not None and identity_path.is_file()
+        else "An-Ra is the native model serving this session."
     )
     SYSTEM_GRAPH = await run_in_threadpool(build_capability_graph, Path(__file__).resolve().parent)
     LOGGER.info("An-Ra API startup complete. Session store: %s", SESSION_STORE._path)
@@ -536,13 +599,24 @@ async def request_context_middleware(request: Request, call_next):
             )
             + "\n"
         )
-    LOGGER.info("[req_id=%s] %s %s %s %.2fms", request_id, request.method, request.url.path, response.status_code, dt)
+    LOGGER.info(
+        "[req_id=%s] %s %s %s %.2fms",
+        request_id,
+        request.method,
+        request.url.path,
+        response.status_code,
+        dt,
+    )
     return response
 
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
-    LOGGER.exception("[req_id=%s] Unhandled error\n%s", getattr(request.state, "request_id", "unknown"), traceback.format_exc())
+    LOGGER.exception(
+        "[req_id=%s] Unhandled error\n%s",
+        getattr(request.state, "request_id", "unknown"),
+        traceback.format_exc(),
+    )
     return JSONResponse(
         status_code=500,
         content={
@@ -691,7 +765,14 @@ DEVELOPER_UI_HTML = """
       </section>
       <section id="matrix" class="matrix-grid hidden">
         <div class="panel">
-          <div class="panel-head"><h2>Developer Matrix</h2><span class="status-line" id="matrix-line">loading</span></div>
+          <div class="panel-head">
+            <h2>Developer Matrix</h2>
+            <div>
+              <button class="secondary" id="run-rollback" type="button">Rollback drill</button>
+              <button class="secondary" id="run-recovery" type="button">200-prompt gate</button>
+            </div>
+            <span class="status-line" id="matrix-line">loading</span>
+          </div>
           <div class="panel-body">
             <div class="cards">
               <div class="card"><div class="label">Train Step</div><div class="value" id="matrix-step">-</div></div>
@@ -735,6 +816,24 @@ DEVELOPER_UI_HTML = """
       const res = await fetch(path);
       if (!res.ok) throw new Error(`${path} -> ${res.status} ${await res.text()}`);
       return res.json();
+    }
+
+    async function postDiagnostic(path, buttonId, runningLabel) {
+      const button = $(buttonId);
+      button.disabled = true;
+      $("matrix-line").textContent = runningLabel;
+      try {
+        const res = await fetch(path, { method: "POST" });
+        const payload = await res.json();
+        if (!res.ok) throw new Error(JSON.stringify(payload));
+        $("evaluation-json").textContent = JSON.stringify(payload, null, 2);
+        await getJson("/diagnostics/release-evidence");
+        await refresh();
+      } catch (error) {
+        $("evaluation-json").textContent = `Diagnostic failed: ${error}`;
+      } finally {
+        button.disabled = false;
+      }
     }
 
     async function refresh() {
@@ -820,6 +919,8 @@ DEVELOPER_UI_HTML = """
     $("tab-dashboard").addEventListener("click", () => setTab("dashboard"));
     $("tab-matrix").addEventListener("click", () => setTab("matrix"));
     $("refresh").addEventListener("click", refresh);
+    $("run-rollback").addEventListener("click", () => postDiagnostic("/diagnostics/rollback-drill", "run-rollback", "running rollback drill"));
+    $("run-recovery").addEventListener("click", () => postDiagnostic("/diagnostics/recovery-gate", "run-recovery", "running 200-prompt gate"));
     refresh();
     setInterval(refresh, 3500);
   </script>
@@ -879,6 +980,16 @@ class CacheParityRequest(BaseModel):
         max_length=4096,
     )
     max_tokens: int = Field(16, ge=1, le=64)
+
+
+class ContextGrowthEvidenceRequest(BaseModel):
+    source_context: Literal[1024, 1536]
+    target_context: Literal[1536, 2048]
+    coherence_rate: float = Field(..., ge=0.0, le=1.0)
+    short_context_baseline_loss: float = Field(..., gt=0.0)
+    short_context_candidate_loss: float = Field(..., gt=0.0)
+    retrieval_baseline_accuracy: float = Field(..., ge=0.0, le=1.0)
+    retrieval_candidate_accuracy: float = Field(..., ge=0.0, le=1.0)
 
 
 class ResetRequest(BaseModel):
@@ -1068,6 +1179,64 @@ async def chat_route(body: ChatRequest, request: Request):
     cfg = GenerationConfig(**body.params.model_dump())
     history = await _get_session_history(body.session_id)
 
+    if cfg.mode == "full_system":
+        operator = await run_in_threadpool(
+            _dispatch_full_system_operator,
+            body.message,
+        )
+        if operator["handled"]:
+            reply = str(operator["response"])
+            new_messages = [
+                {"role": "user", "content": body.message},
+                {"role": "assistant", "content": reply},
+            ]
+            history.extend(new_messages)
+            await _append_to_session(body.session_id, new_messages)
+            await _save_session(body.session_id)
+            subsystem_trace = {
+                "mode": "full_system",
+                "agent_executed": bool(operator["agent_executed"]),
+                "tool_executed": bool(operator["tool_executed"]),
+                "model_executed": False,
+            }
+            trace_id = _record_trace(
+                {
+                    "request_id": request.state.request_id,
+                    "session_id": body.session_id,
+                    "formatted_prompt": body.message,
+                    "context": {"operator_dispatch": True},
+                    "memory_results": [],
+                    "config": asdict(cfg),
+                    "generation": {
+                        "output": reply,
+                        "stopped_by": "operator_dispatch",
+                        "quality_state": "accepted",
+                        "subsystem_trace": subsystem_trace,
+                    },
+                }
+            )
+            return {
+                "response": reply,
+                "session_id": body.session_id,
+                "turn": _turn_count(history),
+                "history": list(history),
+                "trace_id": trace_id,
+                "quality_state": "accepted",
+                "persisted": True,
+                "context_length": 0,
+                "prompt_tokens": 0,
+                "token_allocation": {},
+                "generation": {
+                    "tokens_generated": 0,
+                    "time_ms": 0.0,
+                    "stopped_by": "operator_dispatch",
+                    "repeated_ngrams": False,
+                    "language_fragment_detected": False,
+                    "subsystems": subsystem_trace,
+                    "mode": "full_system",
+                },
+            }
+
     memory_results = []
     memory_system = get_memory_system() if cfg.mode == "full_system" else None
     if memory_system is not None:
@@ -1092,6 +1261,7 @@ async def chat_route(body: ChatRequest, request: Request):
         memory_results=memory_results,
         current_message=body.message,
         max_new_tokens=cfg.max_tokens,
+        identity_context=_identity_context,
         mode=cfg.mode,
     )
     full_prompt = ctx_result["context"]
@@ -1170,6 +1340,10 @@ async def current_evaluation_route():
         "golden": _latest_json(OUTPUT_V2_DIR / "v2_golden_eval_baseline.json"),
         "validation": _latest_json(OUTPUT_V2_DIR / "v2_validation_history.json"),
         "session": _latest_json(OUTPUT_V2_DIR / "v2_eval_summary.json"),
+        "recovery": _latest_json(OUTPUT_V2_DIR / "recovery_gate.json"),
+        "recovery_baseline": _latest_json(OUTPUT_V2_DIR / "recovery_baseline.json"),
+        "rollback_drill": _latest_json(OUTPUT_V2_DIR / "rollback_drill.json"),
+        "release_bundle": _latest_json(OUTPUT_V2_DIR / "release_bundle.json"),
         "release_evidence": _latest_json(OUTPUT_V2_DIR / "release_evidence.json"),
         "promotion_requirements": {
             "checkpoint_tensor_accounting": 1.0,
@@ -1180,6 +1354,18 @@ async def current_evaluation_route():
             "validation_regression_max": 0.02,
         },
     }
+
+
+@app.post("/evaluations/context-growth")
+async def context_growth_evidence_route(body: ContextGrowthEvidenceRequest):
+    report = build_context_growth_evidence(**body.model_dump())
+    target = OUTPUT_V2_DIR / "context_growth_evidence.json"
+    temporary = target.with_suffix(".tmp")
+    temporary.write_text(json.dumps(report, indent=2, sort_keys=True), encoding="utf-8")
+    temporary.replace(target)
+    if not report["passed"]:
+        raise HTTPException(status_code=409, detail=report)
+    return report
 
 
 @app.post("/diagnostics/cache-parity")
@@ -1198,6 +1384,77 @@ async def cache_parity_route(body: CacheParityRequest):
 async def session_isolation_route():
     report = await run_in_threadpool(verify_session_state_isolation)
     if not report["verified"]:
+        raise HTTPException(status_code=409, detail=report)
+    return report
+
+
+@app.post("/diagnostics/recovery-gate")
+async def recovery_gate_route():
+    call_index = 0
+
+    def recovery_generator(
+        prompt: str,
+        mode: str,
+        seed: int,
+        ablation: str | None,
+    ):
+        nonlocal call_index
+        call_index += 1
+        session_id = f"recovery_gate_{call_index:04d}"
+        try:
+            return generate_traced(
+                prompt,
+                GenerationConfig(
+                    strategy="greedy",
+                    max_tokens=64,
+                    seed=seed,
+                    use_kv_cache=False,
+                    mode=mode,
+                    ablated_subsystem=ablation,
+                ),
+                session_id=session_id,
+            )
+        finally:
+            clear_session_runtime_state(session_id)
+
+    report = await run_in_threadpool(
+        run_recovery_prompt_gate,
+        recovery_generator,
+    )
+    baseline_path = OUTPUT_V2_DIR / "recovery_baseline.json"
+    if not baseline_path.exists():
+        baseline_payload = {
+            "schema_version": report["schema_version"],
+            "generated_at": report["generated_at"],
+            "prompt_suite_sha256": report["prompt_suite_sha256"],
+            "baseline": report["baseline"],
+            "baseline_outputs": report["baseline_outputs"],
+        }
+        baseline_tmp = baseline_path.with_suffix(".tmp")
+        baseline_tmp.write_text(
+            json.dumps(baseline_payload, indent=2, sort_keys=True),
+            encoding="utf-8",
+        )
+        baseline_tmp.replace(baseline_path)
+    target = OUTPUT_V2_DIR / "recovery_gate.json"
+    temporary = target.with_suffix(".tmp")
+    temporary.write_text(json.dumps(report, indent=2, sort_keys=True), encoding="utf-8")
+    temporary.replace(target)
+    return report
+
+
+@app.post("/diagnostics/rollback-drill")
+async def rollback_drill_route():
+    info = ADAPTER.info or await run_in_threadpool(get_model_info)
+    checkpoint = Path(str(info.get("checkpoint", "")))
+    report = await run_in_threadpool(
+        run_rollback_drill,
+        checkpoint,
+        report_path=OUTPUT_V2_DIR / "rollback_drill.json",
+    )
+    if not verify_release_manifest(report):
+        raise HTTPException(status_code=500, detail="rollback drill signature verification failed")
+    if not report.get("passed"):
         raise HTTPException(status_code=409, detail=report)
     return report
 
@@ -1244,21 +1501,46 @@ async def release_evidence_route():
         and checkpoint_state.get("source_commit") not in {None, "", "unknown"}
     )
     rollback = _latest_json(OUTPUT_V2_DIR / "rollback_drill.json") or {}
+    recovery = _latest_json(OUTPUT_V2_DIR / "recovery_gate.json") or {}
+    manifest_names = (
+        list(checkpoint_state.get("data_manifests", {}).keys())
+        if isinstance(checkpoint_state.get("data_manifests", {}), dict)
+        else []
+    )
+    release_bundle = await run_in_threadpool(
+        build_release_bundle_manifest,
+        checkpoint_path=Path(str(info.get("checkpoint", ""))),
+        tokenizer_path=active_tokenizer_path(),
+        corpus_manifest_paths=[
+            OUTPUT_V2_DIR / "data_manifests" / str(name) for name in manifest_names
+        ],
+        model_config=model_config if isinstance(model_config, dict) else {},
+        source_commit=str(checkpoint_state.get("source_commit", "unknown")),
+        evaluation_paths=[
+            OUTPUT_V2_DIR / "recovery_gate.json",
+            OUTPUT_V2_DIR / "v2_golden_eval_baseline.json",
+        ],
+        rollback_path=OUTPUT_V2_DIR / "rollback_drill.json",
+        output_path=OUTPUT_V2_DIR / "release_bundle.json",
+    )
     evidence = {
         "checkpoint_tensor_accounting": bool(
             isinstance(load_report, dict)
             and load_report.get("all_target_tensors_accounted") is True
         ),
         "tokenizer_compatibility": bool(
-            isinstance(tokenizer_identity, dict)
-            and tokenizer_identity.get("verified") is True
+            isinstance(tokenizer_identity, dict) and tokenizer_identity.get("verified") is True
         ),
         "cache_parity": cache.get("verified") is True,
         "zero_session_state_leakage": isolation.get("verified") is True,
         "validation_loss_regression_within_2pct": validation_ok,
         "corpus_manifest_verified": _checkpoint_manifest_hashes_verified(checkpoint_state),
         "configuration_manifest_verified": configuration_ok,
-        "rollback_drill_passed": rollback.get("passed") is True,
+        "rollback_drill_passed": (
+            rollback.get("passed") is True and verify_release_manifest(rollback)
+        ),
+        "recovery_prompt_gate": recovery.get("passed") is True,
+        "signed_release_bundle": verify_release_bundle_manifest(release_bundle),
     }
     report = {
         "generated_at": time.time(),
@@ -1295,6 +1577,7 @@ async def stream_route(session_id: str, message: str, strategy: str = "greedy"):
         memory_results=[],
         current_message=message,
         max_new_tokens=cfg.max_tokens,
+        identity_context=_identity_context,
         mode=cfg.mode,
     )
     context = context_result["context"]
@@ -1337,11 +1620,11 @@ async def health_route():
     disabled = disabled_components()
     auth_misconfigured = _owner_auth_required() and not _configured_owner_token()
     checkpoint_state = info.get("checkpoint_state", {})
-    load_report = checkpoint_state.get("load_report", {}) if isinstance(checkpoint_state, dict) else {}
+    load_report = (
+        checkpoint_state.get("load_report", {}) if isinstance(checkpoint_state, dict) else {}
+    )
     tokenizer_identity = (
-        checkpoint_state.get("tokenizer_identity", {})
-        if isinstance(checkpoint_state, dict)
-        else {}
+        checkpoint_state.get("tokenizer_identity", {}) if isinstance(checkpoint_state, dict) else {}
     )
     bundle_status = (
         "verified"
@@ -1358,11 +1641,7 @@ async def health_route():
         else "unverified"
     )
     status = (
-        "blocked"
-        if civ_score < 0.80 or auth_misconfigured
-        else "degraded"
-        if disabled
-        else "ok"
+        "blocked" if civ_score < 0.80 or auth_misconfigured else "degraded" if disabled else "ok"
     )
     return {
         "status": status,
@@ -1390,9 +1669,9 @@ async def health_route():
             "failed_jobs": sum(job.get("status") == "failed" for job in JOBS.values()),
             "running_jobs": sum(job.get("status") == "running" for job in JOBS.values()),
         },
-        "campaigns": [
-            path.name for path in CAMPAIGN_DIR.glob("campaign_*.json")
-        ] if CAMPAIGN_DIR.exists() else [],
+        "campaigns": [path.name for path in CAMPAIGN_DIR.glob("campaign_*.json")]
+        if CAMPAIGN_DIR.exists()
+        else [],
         "cognition": COGNITION.status(),
     }
 
@@ -1441,7 +1720,9 @@ async def owner_model_patch(body: OwnerModelPatch, request: Request):
 
 
 @app.delete("/owner-model")
-async def owner_model_delete(request: Request, name: str | None = None, session_id: str | None = None):
+async def owner_model_delete(
+    request: Request, name: str | None = None, session_id: str | None = None
+):
     _require_owner(request)
     if name:
         return {"deleted": int(COGNITION.lhm.delete(name))}
@@ -1472,7 +1753,14 @@ async def cognition_debate(body: DebateRequest, request: Request):
             f"Role={role}; seed={seed}; budget={budget}. Analyze without inventing evidence: {task}"
         )
         argument = ADAPTER.run(prompt, strategy="greedy")
-        return DebatePosition(role, argument, (), ("No independently verified evidence attached.",), 0.5, ("Human review required.",))
+        return DebatePosition(
+            role,
+            argument,
+            (),
+            ("No independently verified evidence attached.",),
+            0.5,
+            ("Human review required.",),
+        )
 
     result = await run_in_threadpool(
         COGNITION.debate.run,
@@ -1542,7 +1830,9 @@ async def agi_benchmarks_latest():
 
 
 @app.get("/training/preflight")
-async def training_preflight(model_size: str = "frontier", runtime_class: str | None = "t4_frontier_smoke"):
+async def training_preflight(
+    model_size: str = "frontier", runtime_class: str | None = "t4_frontier_smoke"
+):
     from training.preflight import run_preflight
 
     return run_preflight(model_size, runtime_class=runtime_class).to_dict()
@@ -1582,7 +1872,10 @@ async def strategies_route():
         "topk": {"description": "Top-k sampling", "params": {"top_k": 40}},
         "nucleus": {"description": "Top-p nucleus sampling", "params": {"top_p": 0.92}},
         "beam": {"description": "Beam search", "params": {"beam_width": 4}},
-        "contrastive": {"description": "Contrastive or nucleus fallback", "params": {"top_p": 0.92}},
+        "contrastive": {
+            "description": "Contrastive or nucleus fallback",
+            "params": {"top_p": 0.92},
+        },
     }
 
 
@@ -1594,13 +1887,17 @@ async def debug_context_route(session_id: str, message: str = "debug"):
 
 @app.get("/system-map")
 async def system_map_route():
-    return SYSTEM_GRAPH or await run_in_threadpool(build_capability_graph, Path(__file__).resolve().parent)
+    return SYSTEM_GRAPH or await run_in_threadpool(
+        build_capability_graph, Path(__file__).resolve().parent
+    )
 
 
 @app.get("/phase-health")
 @app.get("/sovereignty/status")
 async def phase_health_route():
-    graph = SYSTEM_GRAPH or await run_in_threadpool(build_capability_graph, Path(__file__).resolve().parent)
+    graph = SYSTEM_GRAPH or await run_in_threadpool(
+        build_capability_graph, Path(__file__).resolve().parent
+    )
     checks: Dict[str, Dict[str, Any]] = {}
     modules = [
         ("identity_injector", "identity"),
@@ -1612,7 +1909,11 @@ async def phase_health_route():
         try:
             mod = __import__(mod_name)
             fn = getattr(mod, "health_check", None)
-            checks[key] = dict(fn()) if callable(fn) else {"status": "degraded", "detail": "health_check missing"}  # type: ignore[arg-type]
+            checks[key] = (
+                dict(fn())
+                if callable(fn)
+                else {"status": "degraded", "detail": "health_check missing"}
+            )  # type: ignore[arg-type]
         except Exception as exc:
             checks[key] = {"status": "degraded", "detail": str(exc)}
     return {
@@ -1856,7 +2157,9 @@ async def train_status_route():
         stats = {
             "total_examples": int(training.get("total_examples", 0) or 0),
             "high_quality": int(training.get("high_quality", 0) or 0),
-            "avg_quality": float(output_quality.get("avg_score", prompts.get("avg_score", 0.0)) or 0.0),
+            "avg_quality": float(
+                output_quality.get("avg_score", prompts.get("avg_score", 0.0)) or 0.0
+            ),
             "unused": int(training.get("unused_examples", training.get("unused", 0)) or 0),
         }
         last_run = training.get("last_run")
@@ -1927,9 +2230,7 @@ async def _run_training_job(job_id: str, *, model_size: str, minutes: int) -> No
         job["events"].append({"event": "timeout", "timestamp": _now_iso()})
     except Exception as exc:
         job["status"] = "failed"
-        job["events"].append(
-            {"event": "error", "timestamp": _now_iso(), "error": str(exc)}
-        )
+        job["events"].append({"event": "error", "timestamp": _now_iso(), "error": str(exc)})
     await SESSION_STORE.save_job(job)
 
 
@@ -1950,9 +2251,7 @@ async def train_trigger_route(request: Request) -> dict:
         "training_session",
         {"model_size": model_size, "minutes": minutes, "owner_authorized": True},
     )
-    asyncio.create_task(
-        _run_training_job(job["job_id"], model_size=model_size, minutes=minutes)
-    )
+    asyncio.create_task(_run_training_job(job["job_id"], model_size=model_size, minutes=minutes))
     return job
 
 

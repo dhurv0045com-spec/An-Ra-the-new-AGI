@@ -77,17 +77,23 @@ class ContextWindowOptimizer:
 
     @staticmethod
     def _normalize_memory(memory_results: list[Any]) -> list[str]:
-        memories: list[str] = []
-        for result in memory_results:
+        ranked: list[tuple[float, int, str]] = []
+        for index, result in enumerate(memory_results):
             if isinstance(result, dict):
                 summary = str(result.get("summary", "")).strip()
                 content = str(result.get("content", "")).strip()
                 merged = summary if not content or content == summary else f"{summary}\n{content}"
                 if merged.strip():
-                    memories.append(merged.strip())
+                    score = result.get("score", result.get("similarity", 0.0))
+                    try:
+                        rank = float(score)
+                    except (TypeError, ValueError):
+                        rank = 0.0
+                    ranked.append((rank, index, merged.strip()))
             elif str(result).strip():
-                memories.append(str(result).strip())
-        return memories
+                ranked.append((0.0, index, str(result).strip()))
+        ranked.sort(key=lambda item: (-item[0], item[1]))
+        return [memory for _score, _index, memory in ranked]
 
     def build_optimized_context(
         self,
@@ -124,7 +130,9 @@ class ContextWindowOptimizer:
                 part = f"H: {user}\nANRA: {assistant}\n"
                 count = self._token_count(part)
                 if used + count > budget:
-                    continue
+                    # History is newest-first here. Once the next-newest turn
+                    # does not fit, do not replace it with less relevant older turns.
+                    break
                 selected.insert(0, part)
                 used += count
             return selected, used

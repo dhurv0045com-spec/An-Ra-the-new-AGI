@@ -12,7 +12,9 @@ import uuid
 from pathlib import Path
 
 import torch
-from anra.anra_paths import ROOT, V3_TOKENIZER_FILE
+from anra.anra_paths import ROOT
+
+from training.v2_runtime import active_tokenizer_path
 
 REQUIRED_FIELDS = {
     "schema_version",
@@ -155,9 +157,17 @@ def load_and_validate_manifest(
     if str(payload["extension_profile"]) not in {"none", "cognition-v1"}:
         raise ValueError("Unsupported cognitive extension profile.")
     schedule = payload["learning_rate_schedule"]
-    if not isinstance(schedule, dict) or str(schedule.get("kind", "")).lower() != "wsd":
-        raise ValueError("Canonical launches require a WSD learning-rate schedule.")
-    tokenizer_hash = hashlib.sha256(V3_TOKENIZER_FILE.read_bytes()).hexdigest()
+    if not isinstance(schedule, dict) or str(schedule.get("kind", "")).lower() not in {
+        "cosine",
+        "cosine_with_warmup",
+    }:
+        raise ValueError("Canonical launches require a cosine learning-rate schedule.")
+    if abs(float(schedule.get("warmup_fraction", 0.0)) - 0.02) > 1e-9:
+        raise ValueError("Canonical continuation launches require exactly 2% warmup.")
+    if abs(float(schedule.get("min_lr", 0.0)) - 1e-5) > 1e-12:
+        raise ValueError("Canonical continuation launches must decay to min_lr=1e-5.")
+    tokenizer_path = active_tokenizer_path()
+    tokenizer_hash = hashlib.sha256(tokenizer_path.read_bytes()).hexdigest()
     if not hmac.compare_digest(str(payload["tokenizer_hash"]), tokenizer_hash):
         raise ValueError("Launch manifest tokenizer hash does not match the canonical tokenizer.")
     for entry in payload["data_manifests"]:

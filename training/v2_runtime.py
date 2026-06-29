@@ -4,6 +4,7 @@ import hashlib
 import json
 import logging
 import math
+import os
 import shutil
 import time
 from pathlib import Path
@@ -42,10 +43,11 @@ from training.v2_config import (
     EXPECTED_SPECIAL_TOKENS,
     EXPECTED_TOKENIZER_VOCAB_SIZE,
     TOKENIZER_SCHEMA_VERSION,
+    TOKENIZER_V4_VOCAB_SIZE,
     V2_FRONTIER,
-    V2_FRONTIER_PARAMETER_COUNT,
     V2_MODEL,
     V2_REPORT_FILES,
+    frontier_parameter_count,
     resolve_model_profile,
 )
 
@@ -53,6 +55,14 @@ ensure_dirs()
 logger = logging.getLogger(__name__)
 
 DRIVE_SESSION_MANAGER = DriveSessionManager(DRIVE_DIR)
+
+
+def active_tokenizer_path() -> Path:
+    configured = os.environ.get("ANRA_TOKENIZER_PATH", "").strip()
+    if not configured:
+        return V3_TOKENIZER_FILE
+    path = Path(configured).expanduser()
+    return path if path.is_absolute() else (ROOT / path).resolve()
 
 
 class CheckpointCompatibilityError(RuntimeError):
@@ -275,12 +285,15 @@ def load_or_build_v2_tokenizer(
     vocab_size: int = EXPECTED_TOKENIZER_VOCAB_SIZE,
 ) -> SubwordTokenizer:
     dataset_path = dataset_path or get_dataset_file()
-    local = V3_TOKENIZER_FILE
+    local = active_tokenizer_path()
     if local.exists():
-        _migrate_tokenizer_surface(local)
+        if local == V3_TOKENIZER_FILE:
+            _migrate_tokenizer_surface(local)
         tokenizer = SubwordTokenizer.load(local)
         assert_tokenizer_contract(local, tokenizer)
         return tokenizer
+    if local != V3_TOKENIZER_FILE:
+        raise FileNotFoundError(f"Configured append-only tokenizer does not exist: {local}")
     restored = restore_v2_artifact("tokenizer")
     if restored and local.exists():
         _migrate_tokenizer_surface(local)
@@ -363,22 +376,26 @@ def assert_tokenizer_contract(path: Path, tokenizer: SubwordTokenizer) -> None:
     meta = json.loads(meta_path.read_text(encoding="utf-8")) if meta_path.exists() else {}
     vocab_size = int(meta.get("vocab_size", tokenizer.vocab_size))
     special_tokens = list(meta.get("special_tokens", tokenizer.special_tokens))
-    if vocab_size != EXPECTED_TOKENIZER_VOCAB_SIZE:
+    allowed_vocab_sizes = {EXPECTED_TOKENIZER_VOCAB_SIZE, TOKENIZER_V4_VOCAB_SIZE}
+    if vocab_size not in allowed_vocab_sizes:
         raise AssertionError(
             f"Tokenizer contract mismatch: vocab_size={vocab_size}, "
-            f"expected={EXPECTED_TOKENIZER_VOCAB_SIZE} "
+            f"expected one of {sorted(allowed_vocab_sizes)} "
             f"(meta={meta_path})"
         )
+    schema_version = int(meta.get("schema_version", TOKENIZER_SCHEMA_VERSION))
+    if vocab_size == TOKENIZER_V4_VOCAB_SIZE and schema_version != 4:
+        raise AssertionError("A 16,384-token tokenizer must declare schema_version=4")
     if special_tokens != EXPECTED_SPECIAL_TOKENS:
         raise AssertionError(
             f"Tokenizer contract mismatch: special_tokens={special_tokens}, "
             f"expected={EXPECTED_SPECIAL_TOKENS} "
             f"(meta={meta_path})"
         )
-    if tokenizer.vocab_size != EXPECTED_TOKENIZER_VOCAB_SIZE:
+    if tokenizer.vocab_size != vocab_size:
         raise AssertionError(
             f"Tokenizer contract mismatch: tokenizer.vocab_size={tokenizer.vocab_size}, "
-            f"expected={EXPECTED_TOKENIZER_VOCAB_SIZE} ({path})"
+            f"metadata={vocab_size} ({path})"
         )
     if tokenizer.pad_token_id != EXPECTED_PAD_TOKEN_ID:
         raise AssertionError(
@@ -401,7 +418,7 @@ def assert_tokenizer_contract(path: Path, tokenizer: SubwordTokenizer) -> None:
         json.dumps(vocabulary, sort_keys=True, separators=(",", ":")).encode("utf-8")
     ).hexdigest()
     manifest = {
-        "schema_version": TOKENIZER_SCHEMA_VERSION,
+        "schema_version": schema_version,
         "vocab_size": tokenizer.vocab_size,
         "pad_token_id": tokenizer.pad_token_id,
         "special_tokens": list(EXPECTED_SPECIAL_TOKENS),
@@ -443,14 +460,16 @@ def _tokenizer_probe_fingerprint(
 
 
 def _active_tokenizer_identity() -> dict[str, object]:
-    if not V3_TOKENIZER_FILE.exists():
+    path = active_tokenizer_path()
+    if not path.exists():
         return {"available": False}
-    raw = V3_TOKENIZER_FILE.read_bytes()
+    raw = path.read_bytes()
     payload = json.loads(raw.decode("utf-8"))
     vocabulary = payload.get("token_to_id", {}) if isinstance(payload, dict) else {}
-    tokenizer = SubwordTokenizer.load(V3_TOKENIZER_FILE)
+    tokenizer = SubwordTokenizer.load(path)
     return {
         "available": True,
+        "path": str(path),
         "sha256": hashlib.sha256(raw).hexdigest(),
         "vocabulary_sha256": hashlib.sha256(
             json.dumps(vocabulary, sort_keys=True, separators=(",", ":")).encode("utf-8")
@@ -524,20 +543,30 @@ def _adapt_state_vocab_rows(
             offsets = torch.sin(rows * columns * 0.017453292519943295)
             offsets = offsets - offsets.mean(dim=1, keepdim=True)
             offsets = offsets / offsets.norm(dim=1, keepdim=True).clamp_min(1e-8)
-            tokenizer_payload = json.loads(V3_TOKENIZER_FILE.read_text(encoding="utf-8"))
+            tokenizer_payload = json.loads(active_tokenizer_path().read_text(encoding="utf-8"))
             id_to_token = list(tokenizer_payload.get("id_to_token", []))
             token_to_id = dict(tokenizer_payload.get("token_to_id", {}))
             bases: list[torch.Tensor] = []
             for row_index in range(old_weight.shape[0], target_weight.shape[0]):
                 token = id_to_token[row_index] if row_index < len(id_to_token) else ""
-                constituent_ids = [
-                    int(token_to_id[character])
-                    for character in token
-                    if character in token_to_id
-                    and int(token_to_id[character]) < old_weight.shape[0]
-                ]
+                constituent_ids: list[int] = []
+                position = 0
+                while position < len(token):
+                    matched_id = None
+                    matched_end = position
+                    for end in range(len(token), position, -1):
+                        candidate_id = token_to_id.get(token[position:end])
+                        if candidate_id is not None and int(candidate_id) < old_weight.shape[0]:
+                            matched_id = int(candidate_id)
+                            matched_end = end
+                            break
+                    if matched_id is None:
+                        position += 1
+                    else:
+                        constituent_ids.append(matched_id)
+                        position = matched_end
                 if not constituent_ids:
-                    constituent_ids = list(range(min(13, legacy.shape[0])))
+                    constituent_ids = [min(1, legacy.shape[0] - 1)]
                 bases.append(legacy[constituent_ids].float().mean(dim=0))
             base_rows = torch.stack(bases, dim=0)
             appended = base_rows + offsets * scale
@@ -559,9 +588,33 @@ def migrate_checkpoint_state(
     if "dstp_temperature_log" not in migrated and "dstp_temperature_log" in target_state:
         migrated["dstp_temperature_log"] = target_state["dstp_temperature_log"].detach().clone()
         changes.append("initialize_dstp_temperature_log")
+    neutral_native_prefixes = (
+        "esv_module.",
+        "rim_modules.",
+        "mod_routers.",
+    )
+    neutral_native_exact = {
+        "embedding_input_scale",
+        "residual_depth_logits",
+        "layer_temperature_bias",
+    }
+    for key in sorted(target_state):
+        if key in migrated:
+            continue
+        if key not in neutral_native_exact and not key.startswith(neutral_native_prefixes):
+            continue
+        value = target_state[key].detach().clone()
+        if key.endswith("mod_routers") or ".gate.weight" in key:
+            value.zero_()
+        migrated[key] = value
+        changes.append(f"initialize_native:{key}")
     report = {
         "schema_version": CHECKPOINT_SCHEMA_VERSION,
-        "tokenizer_schema_version": TOKENIZER_SCHEMA_VERSION,
+        "tokenizer_schema_version": (
+            4
+            if _checkpoint_vocab_size(target_state) == TOKENIZER_V4_VOCAB_SIZE
+            else TOKENIZER_SCHEMA_VERSION
+        ),
         "changes": changes,
         "source_vocab_size": _checkpoint_vocab_size(model_state),
         "target_vocab_size": _checkpoint_vocab_size(target_state),
@@ -693,16 +746,22 @@ def build_model_from_config(
     *,
     hal_module: object | None = None,
     block_size: int | None = None,
+    vocab_size: int | None = None,
 ) -> CausalTransformerV2:
-    if config.vocab_size != EXPECTED_TOKENIZER_VOCAB_SIZE:
+    effective_vocab_size = int(vocab_size or config.vocab_size)
+    if effective_vocab_size not in {
+        EXPECTED_TOKENIZER_VOCAB_SIZE,
+        TOKENIZER_V4_VOCAB_SIZE,
+    }:
         raise AssertionError(
-            f"Canonical model vocab must be {EXPECTED_TOKENIZER_VOCAB_SIZE}, "
-            f"got {config.vocab_size}"
+            "Canonical model vocab must preserve IDs 0-8208 and use either "
+            f"{EXPECTED_TOKENIZER_VOCAB_SIZE} or {TOKENIZER_V4_VOCAB_SIZE} rows; "
+            f"got {effective_vocab_size}"
         )
     hal_module = _load_hal(config) if hal_module is None else hal_module
     effective_block_size = int(block_size or config.block_size)
     model = CausalTransformerV2(
-        vocab_size=config.vocab_size,
+        vocab_size=effective_vocab_size,
         n_embd=config.n_embd,
         n_head=config.n_head,
         n_kv_head=config.n_kv_head,
@@ -729,18 +788,19 @@ def build_model_from_config(
 def build_v2_model(
     *, vocab_size: int, block_size: int = V2_MODEL.block_size
 ) -> CausalTransformerV2:
-    if vocab_size != EXPECTED_TOKENIZER_VOCAB_SIZE:
+    if vocab_size not in {EXPECTED_TOKENIZER_VOCAB_SIZE, TOKENIZER_V4_VOCAB_SIZE}:
         raise AssertionError(
             f"Model/tokenizer vocab mismatch at construction: vocab_size={vocab_size}, "
             f"expected one of {{{V2_MODEL.vocab_size}, {EXPECTED_TOKENIZER_VOCAB_SIZE}}}"
         )
-    return build_model_from_config(V2_MODEL, block_size=block_size)
+    return build_model_from_config(V2_MODEL, block_size=block_size, vocab_size=vocab_size)
 
 
 def build_frontier_model(
     *,
     hal_module: object | None = None,
     block_size: int | None = None,
+    vocab_size: int | None = None,
 ) -> CausalTransformerV2:
     """
     Build the branch frontier model from V2_FRONTIER config.
@@ -760,6 +820,7 @@ def build_frontier_model(
         cfg,
         hal_module=hal_module,
         block_size=block_size,
+        vocab_size=vocab_size,
     )
 
     if hasattr(model, "gradient_checkpointing_enable"):
@@ -774,9 +835,10 @@ def build_frontier_model(
 
     total_params = sum(p.numel() for p in model.parameters())
     print(f"[build_frontier_model] Built {total_params / 1e6:.0f}M param model")
-    if total_params != V2_FRONTIER_PARAMETER_COUNT:
+    expected_params = frontier_parameter_count(model.vocab_size)
+    if total_params != expected_params:
         print(
-            f"[build_frontier_model] WARNING: expected {V2_FRONTIER_PARAMETER_COUNT:,} "
+            f"[build_frontier_model] WARNING: expected {expected_params:,} "
             f"params for this branch, got {total_params:,}"
         )
     print(
@@ -793,9 +855,15 @@ def build_model_for_profile(
     *,
     hal_module: object | None = None,
     block_size: int | None = None,
+    vocab_size: int | None = None,
 ) -> CausalTransformerV2:
     config, _ = resolve_model_profile(profile)
-    return build_model_from_config(config, hal_module=hal_module, block_size=block_size)
+    return build_model_from_config(
+        config,
+        hal_module=hal_module,
+        block_size=block_size,
+        vocab_size=vocab_size,
+    )
 
 
 def load_checkpoint(
@@ -821,6 +889,8 @@ def load_checkpoint(
         "continuation_token_counts": {},
         "best_validation_loss": float("inf"),
         "validation_history": [],
+        "appended_row_optimizer_steps": 0,
+        "raw_window_consumption": {},
         "tokenizer_identity": {"verified": False, "reason": "checkpoint_not_loaded"},
     }
     ckpt = checkpoint_path
@@ -943,7 +1013,11 @@ def load_checkpoint(
         state["continuation_token_counts"] = dict(blob.get("continuation_token_counts", {}))
         state["best_validation_loss"] = float(blob.get("best_validation_loss", float("inf")))
         state["validation_history"] = list(blob.get("validation_history", []))
-        state["data_manifests"] = dict(blob.get("data_manifests", {}))
+        state["appended_row_optimizer_steps"] = int(blob.get("appended_row_optimizer_steps", 0))
+        state["raw_window_consumption"] = dict(blob.get("raw_window_consumption", {}))
+        state["data_manifests"] = dict(
+            blob.get("data_manifests", blob.get("dataset_manifest_hashes", {}))
+        )
         state["model_config"] = dict(blob.get("model_config", {}))
         state["source_commit"] = str(blob.get("source_commit", "unknown"))
         restore_hal_state(model, blob.get("hal_state", {}))

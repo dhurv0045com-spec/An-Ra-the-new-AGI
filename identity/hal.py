@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field
 import json
 import math
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
@@ -14,7 +14,6 @@ except Exception:  # pragma: no cover
     nn = None
 
 from identity.associative_trigger_table import AssociativeTriggerTable
-
 
 HORMONE_BASELINES = {
     "dopamine": 0.3,
@@ -62,7 +61,9 @@ class HALState:
 class HALModule(nn.Module if nn is not None else object):
     """Hormonal Analog Layer controlling ESV, generation, memory, RLVR, and Ouroboros."""
 
-    def __init__(self, state: HALState | None = None, att: AssociativeTriggerTable | None = None) -> None:
+    def __init__(
+        self, state: HALState | None = None, att: AssociativeTriggerTable | None = None
+    ) -> None:
         if nn is not None:
             super().__init__()
         self.state = state or HALState()
@@ -95,7 +96,7 @@ class HALModule(nn.Module if nn is not None else object):
         session_context: dict[str, Any] | None = None,
     ) -> dict[str, float]:
         ctx = session_context or {}
-        delta = {name: 0.0 for name in HORMONE_BASELINES}
+        delta = dict.fromkeys(HORMONE_BASELINES, 0.0)
 
         score = self._extract_score(verifier_result)
         if score is not None:
@@ -112,19 +113,52 @@ class HALModule(nn.Module if nn is not None else object):
                 self.state.consecutive_high_reward_outputs = 0
             self.state.rolling_verifier_mean = 0.9 * mean + 0.1 * score
 
-        if ctx.get("novel_connection_detected") or ctx.get("task_solved_after_3_failures") or ctx.get("unexpected_praise"):
+        if (
+            ctx.get("novel_connection_detected")
+            or ctx.get("task_solved_after_3_failures")
+            or ctx.get("unexpected_praise")
+        ):
             delta["dopamine"] += 0.14
-        if self.state.consecutive_failures > 3 or ctx.get("adversarial_input_detected") or ctx.get("identity_contradiction_attempted") or ctx.get("values_violation_required"):
+        if ctx.get("task_success") is True and score is not None and score >= 0.80:
+            delta["dopamine"] += 0.10
+            delta["serotonin"] += 0.03
+        elif ctx.get("task_success") is False:
+            delta["cortisol"] += 0.12
+            delta["adrenaline"] += 0.08
+        if (
+            self.state.consecutive_failures > 3
+            or ctx.get("adversarial_input_detected")
+            or ctx.get("identity_contradiction_attempted")
+            or ctx.get("values_violation_required")
+        ):
             delta["cortisol"] += 0.18
-        if ctx.get("safety_relevant_detection") or ctx.get("unexpected_task_type_shift") or ctx.get("model_incoherence_self_detected"):
+        if (
+            ctx.get("safety_relevant_detection")
+            or ctx.get("unexpected_task_type_shift")
+            or ctx.get("model_incoherence_self_detected")
+        ):
             delta["adrenaline"] += 0.28
-        if ctx.get("cooperative_session_turn_count", 0) > 5 or ctx.get("no_adversarial_inputs_recent_5_turns"):
+        if ctx.get("cooperative_session_turn_count", 0) > 5 or ctx.get(
+            "no_adversarial_inputs_recent_5_turns"
+        ):
             delta["serotonin"] += 0.04
-        if ctx.get("user_personal_disclosure") or ctx.get("user_defends_model") or ctx.get("consecutive_sessions_same_user"):
+        if (
+            ctx.get("user_personal_disclosure")
+            or ctx.get("user_defends_model")
+            or ctx.get("consecutive_sessions_same_user")
+        ):
             delta["oxytocin"] += 0.08
-        if ctx.get("novel_problem_type") or ctx.get("conflicting_constraints_detected") or ctx.get("near_capability_boundary"):
+        if (
+            ctx.get("novel_problem_type")
+            or ctx.get("conflicting_constraints_detected")
+            or ctx.get("near_capability_boundary")
+        ):
             delta["norepinephrine"] += 0.16
-        if self.state.consecutive_high_reward_outputs >= 3 or ctx.get("deep_multi_turn_problem_solving") or ctx.get("domain_matches_strongest_training"):
+        if (
+            self.state.consecutive_high_reward_outputs >= 3
+            or ctx.get("deep_multi_turn_problem_solving")
+            or ctx.get("domain_matches_strongest_training")
+        ):
             delta["endorphin"] += 0.12
 
         if civ_score is not None:
@@ -133,7 +167,11 @@ class HALModule(nn.Module if nn is not None else object):
         if isinstance(evidence, dict):
             self.apply_civ_evidence(evidence, delta=delta)
 
-        preset = self.att.lookup(self.state.hormones(), domain=str(ctx.get("domain", "")), task_type=str(ctx.get("task_type", "")))
+        preset = self.att.lookup(
+            self.state.hormones(),
+            domain=str(ctx.get("domain", "")),
+            task_type=str(ctx.get("task_type", "")),
+        )
         if preset is not None:
             self.active_preset = dict(preset.behavior)
             for name, value in preset.hormone_deltas.items():
@@ -154,8 +192,10 @@ class HALModule(nn.Module if nn is not None else object):
         self.decay(decay_turns)
         return self.apply_delta(self.appraise(verifier_result, civ_score, session_context))
 
-    def apply_civ_score(self, civ_score: float, *, delta: dict[str, float] | None = None) -> HALState:
-        target = delta if delta is not None else {name: 0.0 for name in HORMONE_BASELINES}
+    def apply_civ_score(
+        self, civ_score: float, *, delta: dict[str, float] | None = None
+    ) -> HALState:
+        target = delta if delta is not None else dict.fromkeys(HORMONE_BASELINES, 0.0)
         if civ_score < 0.65:
             target["cortisol"] = target.get("cortisol", 0.0) + 0.3
             target["adrenaline"] = target.get("adrenaline", 0.0) + 0.15
@@ -165,8 +205,10 @@ class HALModule(nn.Module if nn is not None else object):
             return self.apply_delta(target)
         return self.state
 
-    def apply_civ_evidence(self, evidence: dict[str, float], *, delta: dict[str, float] | None = None) -> HALState:
-        target = delta if delta is not None else {name: 0.0 for name in HORMONE_BASELINES}
+    def apply_civ_evidence(
+        self, evidence: dict[str, float], *, delta: dict[str, float] | None = None
+    ) -> HALState:
+        target = delta if delta is not None else dict.fromkeys(HORMONE_BASELINES, 0.0)
         truthfulness = evidence.get("truthfulness")
         coherence = evidence.get("coherence")
         if truthfulness is not None and float(truthfulness) < 0.65:
@@ -181,8 +223,12 @@ class HALModule(nn.Module if nn is not None else object):
     def hal_to_esv(self) -> dict[str, float]:
         h = self.state
         calm = 0.35 * h.serotonin + 0.25 * h.endorphin - 0.30 * h.cortisol - 0.15 * h.adrenaline
-        focus = 0.35 * h.norepinephrine + 0.20 * h.dopamine - 0.25 * h.cortisol - 0.10 * h.adrenaline
-        curiosity = 0.30 * h.dopamine + 0.25 * h.norepinephrine + 0.15 * h.oxytocin - 0.20 * h.cortisol
+        focus = (
+            0.35 * h.norepinephrine + 0.20 * h.dopamine - 0.25 * h.cortisol - 0.10 * h.adrenaline
+        )
+        curiosity = (
+            0.30 * h.dopamine + 0.25 * h.norepinephrine + 0.15 * h.oxytocin - 0.20 * h.cortisol
+        )
         stress = 0.50 * h.cortisol + 0.35 * h.adrenaline - 0.15 * h.serotonin - 0.10 * h.endorphin
         return {
             "calm": _clamp(calm),
@@ -193,21 +239,38 @@ class HALModule(nn.Module if nn is not None else object):
 
     def generation_temperature(self, base: float = 0.8) -> float:
         h = self.state
-        value = base + 0.10 * h.dopamine - 0.20 * h.cortisol - 0.30 * h.adrenaline + 0.15 * h.endorphin - 0.05 * h.norepinephrine
+        value = (
+            base
+            + 0.10 * h.dopamine
+            - 0.20 * h.cortisol
+            - 0.30 * h.adrenaline
+            + 0.15 * h.endorphin
+            - 0.05 * h.norepinephrine
+        )
         value += float(self.active_preset.get("generation_temperature_delta", 0.0) or 0.0)
         return _clamp(value, max(0.01, base - 0.10), base + 0.10)
 
     def kl_coefficient(self, base: float = 0.04) -> float:
         h = self.state
-        return _clamp(base - 0.015 * h.endorphin + 0.020 * h.cortisol + 0.010 * h.adrenaline, 0.01, 0.15)
+        return _clamp(
+            base - 0.015 * h.endorphin + 0.020 * h.cortisol + 0.010 * h.adrenaline, 0.01, 0.15
+        )
 
     def memory_threshold(self, base: float = 0.5) -> float:
         h = self.state
-        value = base - 0.20 * h.dopamine + 0.25 * h.cortisol - 0.15 * h.oxytocin - 0.10 * h.norepinephrine
+        value = (
+            base
+            - 0.20 * h.dopamine
+            + 0.25 * h.cortisol
+            - 0.15 * h.oxytocin
+            - 0.10 * h.norepinephrine
+        )
         value += float(self.active_preset.get("memory_salience_delta", 0.0) or 0.0)
         return _clamp(value, 0.1, 0.9)
 
-    def ouroboros_weights(self, base_weights: list[float] | tuple[float, ...] = (1 / 3, 1 / 3, 1 / 3)) -> list[float]:
+    def ouroboros_weights(
+        self, base_weights: list[float] | tuple[float, ...] = (1 / 3, 1 / 3, 1 / 3)
+    ) -> list[float]:
         h = self.state
         w = [float(x) for x in base_weights[:3]]
         while len(w) < 3:
@@ -239,7 +302,7 @@ class HALModule(nn.Module if nn is not None else object):
         return {"state": asdict(self.state), "active_preset": self.active_preset}
 
     @classmethod
-    def deserialize(cls, payload: dict[str, Any]) -> "HALModule":
+    def deserialize(cls, payload: dict[str, Any]) -> HALModule:
         return cls(state=HALState(**dict(payload.get("state", {}))))
 
     def save(self, path: str | Path) -> None:
@@ -248,7 +311,7 @@ class HALModule(nn.Module if nn is not None else object):
         p.write_text(json.dumps(self.serialize(), indent=2), encoding="utf-8")
 
     @classmethod
-    def load(cls, path: str | Path) -> "HALModule":
+    def load(cls, path: str | Path) -> HALModule:
         return cls.deserialize(json.loads(Path(path).read_text(encoding="utf-8")))
 
     def _extract_score(self, verifier_result: Any) -> float | None:
@@ -264,4 +327,3 @@ class HALModule(nn.Module if nn is not None else object):
         if score is None:
             score = getattr(verifier_result, "confidence", None)
         return None if score is None else _clamp(float(score))
-

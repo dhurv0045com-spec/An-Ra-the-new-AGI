@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import importlib.util
 import time
-from pathlib import Path
 
 from anra.anra_paths import ROOT
 from execution.sandbox import CodeSandbox
@@ -12,7 +11,9 @@ DEFAULT_CODE_PATH = "generated.py"
 
 
 class BaseAgent:
-    def __init__(self, agent_id: str, model, tokenizer, sandbox, fs_agent, memory_router, bus) -> None:
+    def __init__(
+        self, agent_id: str, model, tokenizer, sandbox, fs_agent, memory_router, bus
+    ) -> None:
         self.agent_id = agent_id
         self.model = model
         self.tokenizer = tokenizer
@@ -32,7 +33,7 @@ class BaseAgent:
 
 class CoderAgent(BaseAgent):
     async def run(self, task: dict) -> dict:
-        prompt = f"You are An-Ra's Coder.\n{task.get('prompt','')}"
+        prompt = f"You are An-Ra's Coder.\n{task.get('prompt', '')}"
         test_code = task.get("test_code", "")
         path = task.get("path", DEFAULT_CODE_PATH)
 
@@ -50,7 +51,12 @@ class CoderAgent(BaseAgent):
             prompt += f"\nFix this error:\n{last.stderr}"
 
         self.fs_agent.write(path, code)
-        return {"code": code, "stdout": (last.stdout if last else ""), "success": success, "attempts": attempts}
+        return {
+            "code": code,
+            "stdout": (last.stdout if last else ""),
+            "success": success,
+            "attempts": attempts,
+        }
 
 
 class ResearcherAgent(BaseAgent):
@@ -71,7 +77,9 @@ class ResearcherAgent(BaseAgent):
 class MemoryAgent(BaseAgent):
     async def run(self, task: dict) -> dict:
         q = task.get("query", "")
-        results = self.memory_router.read(q, n=int(task.get("n", 8)), tier=task.get("tier", "episodic"))
+        results = self.memory_router.read(
+            q, n=int(task.get("n", 8)), tier=task.get("tier", "episodic")
+        )
         context = "\n".join([str(r) for r in results])
         return {"context": context, "n_results": len(results)}
 
@@ -94,7 +102,12 @@ class CriticAgent(BaseAgent):
             check_fn=task.get("check_fn", lambda: False),
             pattern=task.get("pattern", ".*"),
         )
-        return {"score": float(res.score), "tier": int(res.tier), "reason": res.reason, "approved": res.score >= 0.7}
+        return {
+            "score": float(res.score),
+            "tier": int(res.tier),
+            "reason": res.reason,
+            "approved": res.score >= 0.7,
+        }
 
 
 # AN: Specialist wrappers connect existing tool infrastructure to previously inert agent roles.
@@ -104,13 +117,19 @@ class CodeSpecialist:
 
     def run(self, task) -> dict:
         start = time.perf_counter()
-        task_description = task.get("prompt", task.get("code", "")) if isinstance(task, dict) else str(task)
+        task_description = (
+            task.get("prompt", task.get("code", "")) if isinstance(task, dict) else str(task)
+        )
         code = task.get("code", task_description) if isinstance(task, dict) else task_description
         result = self.sandbox.execute(code)
         return {
             "agent": "code",
             "task": task_description,
-            "result": {"stdout": result.stdout, "stderr": result.stderr, "return_code": result.return_code},
+            "result": {
+                "stdout": result.stdout,
+                "stderr": result.stderr,
+                "return_code": result.return_code,
+            },
             "verified": bool(result.success),
             "tool_used": "execution/sandbox.py",
             "time_taken": time.perf_counter() - start,
@@ -120,8 +139,12 @@ class CodeSpecialist:
 class MathSpecialist:
     def run(self, task) -> dict:
         start = time.perf_counter()
-        task_description = task.get("prompt", task.get("expression", "")) if isinstance(task, dict) else str(task)
-        expression = task.get("expression", task_description) if isinstance(task, dict) else task_description
+        task_description = (
+            task.get("prompt", task.get("expression", "")) if isinstance(task, dict) else str(task)
+        )
+        expression = (
+            task.get("expression", task_description) if isinstance(task, dict) else task_description
+        )
         try:
             bridge_dir = ROOT / "phase3" / "symbolic_bridge_45q"
             spec = importlib.util.spec_from_file_location(
@@ -157,14 +180,20 @@ class ResearchSpecialist:
 
     def run(self, task) -> dict:
         start = time.perf_counter()
-        task_description = task.get("query", task.get("prompt", "")) if isinstance(task, dict) else str(task)
+        task_description = (
+            task.get("query", task.get("prompt", "")) if isinstance(task, dict) else str(task)
+        )
         try:
             router = self.memory_router
             if router is None:
                 from memory.memory_router import MemoryRouter
 
                 router = MemoryRouter()
-            rows = router.read(task_description, n=int(task.get("n", 8)) if isinstance(task, dict) else 8, tier=task.get("tier", "episodic") if isinstance(task, dict) else "episodic")
+            rows = router.read(
+                task_description,
+                n=int(task.get("n", 8)) if isinstance(task, dict) else 8,
+                tier=task.get("tier", "episodic") if isinstance(task, dict) else "episodic",
+            )
             payload = rows
             verified = True
         except Exception as exc:

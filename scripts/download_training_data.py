@@ -21,12 +21,25 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from anra.anra_paths import DATA_MANIFEST_DIR, TOKEN_INVENTORY_MANIFEST
+from anra.anra_paths import (
+    DATA_MANIFEST_DIR,
+    TOKEN_INVENTORY_MANIFEST,
+    get_identity_file,
+)
 from training.data_ledger import DataQuality
 from training.data_pipeline_v3 import SourceRecord, TokenShardPublisher
 
 TRAINING_DATA_DIR = Path("training_data")
 DOWNLOAD_STATUS = DATA_MANIFEST_DIR / "download_status.json"
+FOUNDATION_CAMPAIGN_MIX = {
+    "fineweb_edu": 0.55,
+    "permissive_code": 0.15,
+    "finemath": 0.12,
+    "science_technical": 0.08,
+    "verified_instruction": 0.05,
+    "verified_dfc": 0.03,
+    "identity_replay": 0.02,
+}
 DATA_PROFILES = {
     "smoke": {
         "target_gb": 0.02,
@@ -104,6 +117,27 @@ _COMMON_ENGLISH_WORDS = {
     "was",
     "with",
 }
+
+_DATASET_REVISION_CACHE: dict[str, str] = {}
+
+
+def resolve_dataset_revision(dataset_name: str) -> str:
+    """Resolve a mutable Hub name to the immutable commit used by this campaign."""
+    cached = _DATASET_REVISION_CACHE.get(dataset_name)
+    if cached:
+        return cached
+    try:
+        from huggingface_hub import HfApi
+
+        revision = str(HfApi().dataset_info(dataset_name).sha or "").strip()
+    except Exception as exc:
+        raise RuntimeError(
+            f"Could not resolve immutable revision for {dataset_name}: {exc}"
+        ) from exc
+    if not re.fullmatch(r"[0-9a-f]{40}", revision):
+        raise RuntimeError(f"Dataset {dataset_name} returned non-immutable revision {revision!r}")
+    _DATASET_REVISION_CACHE[dataset_name] = revision
+    return revision
 
 
 class MinHashDeduplicator:
@@ -323,6 +357,9 @@ def download_native_foundation(
         "bucket": "base",
         "output": str(output),
         "target_bytes": target_bytes,
+        "raw_foundation_target_bytes": int(target_bytes * 0.90),
+        "supplemental_target_bytes": int(target_bytes * 0.10),
+        "campaign_mix": FOUNDATION_CAMPAIGN_MIX,
         "bytes": 0,
         "documents": 0,
         "sources": {},
@@ -346,11 +383,14 @@ def download_native_foundation(
             source_target = int(target_bytes * float(spec["weight"]))
             source_bytes = 0
             source_docs = 0
+            resolved_revision = ""
             try:
+                resolved_revision = resolve_dataset_revision(str(spec["dataset"]))
                 kwargs: dict[str, Any] = {
                     "split": "train",
                     "streaming": True,
                     "trust_remote_code": True,
+                    "revision": resolved_revision,
                 }
                 config = spec["config"]
                 dataset = (
@@ -412,7 +452,9 @@ def download_native_foundation(
                         "text": text,
                         "source": spec["source"],
                         "license": license_name,
-                        "source_revision": spec["revision"],
+                        "source_revision": (
+                            f"{spec['dataset']}@{resolved_revision}:{spec['config'] or 'default'}"
+                        ),
                         "document_sha256": content_hash,
                         "language": language,
                         "quality_checks": {
@@ -442,7 +484,11 @@ def download_native_foundation(
                 "bytes": source_bytes,
                 "documents": source_docs,
                 "target_bytes": source_target,
-                "revision": spec["revision"],
+                "revision": (
+                    f"{spec['dataset']}@{resolved_revision}:{spec['config'] or 'default'}"
+                    if resolved_revision
+                    else str(spec["revision"])
+                ),
             }
             stats["bytes"] += source_bytes
             stats["documents"] += source_docs
@@ -677,7 +723,14 @@ def download_reasoning(
     with output.open("w", encoding="utf-8") as out:
         for ds_name, split, max_n, mapper in datasets_to_load:
             try:
-                ds = load_dataset(ds_name, split=split, streaming=True, trust_remote_code=True)
+                resolved_revision = resolve_dataset_revision(ds_name)
+                ds = load_dataset(
+                    ds_name,
+                    split=split,
+                    streaming=True,
+                    trust_remote_code=True,
+                    revision=resolved_revision,
+                )
                 count = 0
                 for item in ds:
                     try:
@@ -700,6 +753,7 @@ def download_reasoning(
                                     "prompt": mapped["prompt"],
                                     "response": response,
                                     "source": ds_name,
+                                    "source_revision": resolved_revision,
                                     "task_type": task_type,
                                 },
                                 ensure_ascii=False,
@@ -820,12 +874,24 @@ def download_science(
     with output.open("a", encoding="utf-8") as out:
         for ds_name, config, split, max_n, mapper in science_datasets:
             try:
+                resolved_revision = resolve_dataset_revision(ds_name)
                 if config:
                     ds = load_dataset(
-                        ds_name, config, split=split, streaming=True, trust_remote_code=True
+                        ds_name,
+                        config,
+                        split=split,
+                        streaming=True,
+                        trust_remote_code=True,
+                        revision=resolved_revision,
                     )
                 else:
-                    ds = load_dataset(ds_name, split=split, streaming=True, trust_remote_code=True)
+                    ds = load_dataset(
+                        ds_name,
+                        split=split,
+                        streaming=True,
+                        trust_remote_code=True,
+                        revision=resolved_revision,
+                    )
                 count = 0
                 for item in ds:
                     try:
@@ -852,6 +918,7 @@ def download_science(
                             "verified": False,
                             "verifier_status": "inferred",
                             "source": ds_name,
+                            "source_revision": resolved_revision,
                         }
                         out.write(json.dumps(dfc_entry, ensure_ascii=False) + "\n")
                         count += 1
@@ -958,15 +1025,23 @@ def publish_fineweb_token_shards(profile: str = "30gb") -> dict[str, Any]:
                         ),
                         source_revision=str(item.get("source_revision", "unknown")),
                     )
-            return
-        if split != "train":
-            return
-        with fineweb_path.open("r", encoding="utf-8", errors="replace") as stream:
-            buffer: list[str] = []
-            for line in stream:
-                if line.strip():
-                    buffer.append(line.strip())
-                    continue
+        elif split == "train":
+            with fineweb_path.open("r", encoding="utf-8", errors="replace") as stream:
+                buffer: list[str] = []
+                for line in stream:
+                    if line.strip():
+                        buffer.append(line.strip())
+                        continue
+                    if buffer:
+                        yield SourceRecord(
+                            text="\n".join(buffer),
+                            source="FineWeb-Edu",
+                            license="ODC-By",
+                            bucket="foundation",
+                            quality=DataQuality(0.5, 0.8, 0.9, 0.6, 0.2, 1.0),
+                            source_revision="HuggingFaceFW/fineweb-edu:sample-10BT",
+                        )
+                        buffer = []
                 if buffer:
                     yield SourceRecord(
                         text="\n".join(buffer),
@@ -976,15 +1051,94 @@ def publish_fineweb_token_shards(profile: str = "30gb") -> dict[str, Any]:
                         quality=DataQuality(0.5, 0.8, 0.9, 0.6, 0.2, 1.0),
                         source_revision="HuggingFaceFW/fineweb-edu:sample-10BT",
                     )
-                    buffer = []
-            if buffer:
+
+        reasoning_path = TRAINING_DATA_DIR / "reasoning.jsonl"
+        if reasoning_path.is_file():
+            with reasoning_path.open("r", encoding="utf-8", errors="replace") as stream:
+                for line in stream:
+                    try:
+                        item = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+                    source = str(item.get("source", ""))
+                    if source != "HuggingFaceTB/smol-smoltalk":
+                        continue
+                    prompt = str(item.get("prompt", "")).strip()
+                    response = str(item.get("response", "")).strip()
+                    if not prompt or not response:
+                        continue
+                    text = f"H: {prompt}\nANRA: {response}"
+                    digest = hashlib.sha256(text.encode("utf-8")).hexdigest()
+                    split_value = int(digest[:8], 16) % 100
+                    record_split = (
+                        "validation"
+                        if split_value == 98
+                        else "test"
+                        if split_value == 99
+                        else "train"
+                    )
+                    if record_split != split:
+                        continue
+                    yield SourceRecord(
+                        text=text,
+                        source="Smol-SmolTalk verified instruction",
+                        license="Apache-2.0",
+                        bucket="instruction",
+                        quality=DataQuality(0.7, 0.85, 0.95, 0.8, 0.3, 1.0),
+                        verifier_status="verified",
+                        source_revision=str(
+                            item.get("source_revision", "HuggingFaceTB/smol-smoltalk")
+                        ),
+                    )
+
+        dfc_path = TRAINING_DATA_DIR / "frontier_dfc.jsonl"
+        if dfc_path.is_file():
+            with dfc_path.open("r", encoding="utf-8", errors="replace") as stream:
+                for line in stream:
+                    try:
+                        item = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+                    if str(item.get("verifier_status", "unverified")) != "verified":
+                        continue
+                    text = str(item.get("text", "")).strip()
+                    if not text:
+                        continue
+                    digest = hashlib.sha256(text.encode("utf-8")).hexdigest()
+                    split_value = int(digest[:8], 16) % 100
+                    record_split = (
+                        "validation"
+                        if split_value == 98
+                        else "test"
+                        if split_value == 99
+                        else "train"
+                    )
+                    if record_split != split:
+                        continue
+                    yield SourceRecord(
+                        text=text,
+                        source="An-Ra verified DFC",
+                        license="owner",
+                        bucket="dfc",
+                        quality=DataQuality(0.8, 0.9, 1.0, 0.95, 0.4, 1.0),
+                        verifier_status="verified",
+                        source_revision=str(
+                            item.get("source_revision", item.get("source", "owner-verified"))
+                        ),
+                    )
+
+        identity_path = get_identity_file()
+        if split == "train" and identity_path is not None and identity_path.is_file():
+            identity_text = identity_path.read_text(encoding="utf-8", errors="replace").strip()
+            if identity_text:
                 yield SourceRecord(
-                    text="\n".join(buffer),
-                    source="FineWeb-Edu",
-                    license="ODC-By",
-                    bucket="foundation",
-                    quality=DataQuality(0.5, 0.8, 0.9, 0.6, 0.2, 1.0),
-                    source_revision="HuggingFaceFW/fineweb-edu:sample-10BT",
+                    text=identity_text,
+                    source="An-Ra identity replay",
+                    license="owner",
+                    bucket="identity",
+                    quality=DataQuality(0.9, 0.9, 1.0, 0.9, 0.5, 1.0),
+                    verifier_status="verified",
+                    source_revision=hashlib.sha256(identity_text.encode("utf-8")).hexdigest(),
                 )
 
     train_manifest = TokenShardPublisher(
@@ -1002,6 +1156,62 @@ def publish_fineweb_token_shards(profile: str = "30gb") -> dict[str, Any]:
         tokenizer_version="v3",
         tokenizer_sha256=tokenizer_sha256,
     ).publish(records("test"), tokenizer, allow_partial_final=True)
+
+    def campaign_bucket(source: str) -> str:
+        lowered = source.lower()
+        if "fineweb" in lowered:
+            return "fineweb_edu"
+        if "stack" in lowered:
+            return "permissive_code"
+        if "finemath" in lowered:
+            return "finemath"
+        if "dolma" in lowered:
+            return "science_technical"
+        if "smol-smoltalk" in lowered:
+            return "verified_instruction"
+        if "verified dfc" in lowered:
+            return "verified_dfc"
+        if "identity replay" in lowered:
+            return "identity_replay"
+        return "unclassified"
+
+    category_tokens = dict.fromkeys(FOUNDATION_CAMPAIGN_MIX, 0)
+    unclassified_tokens = 0
+    for source, token_count in train_manifest.get("source_token_mix", {}).items():
+        bucket = campaign_bucket(str(source))
+        if bucket == "unclassified":
+            unclassified_tokens += int(token_count)
+        else:
+            category_tokens[bucket] += int(token_count)
+    classified_total = sum(category_tokens.values())
+    realized_mix = {
+        name: count / max(1, classified_total) for name, count in category_tokens.items()
+    }
+    mix_deviation = {
+        name: realized_mix[name] - target for name, target in FOUNDATION_CAMPAIGN_MIX.items()
+    }
+    campaign_mix_verified = (
+        classified_total > 0
+        and unclassified_tokens == 0
+        and all(count > 0 for count in category_tokens.values())
+        and all(abs(value) <= 0.03 for value in mix_deviation.values())
+    )
+    train_manifest.update(
+        {
+            "campaign_mix_target": FOUNDATION_CAMPAIGN_MIX,
+            "campaign_mix_realized": realized_mix,
+            "campaign_mix_deviation": mix_deviation,
+            "campaign_mix_verified": campaign_mix_verified,
+            "unclassified_tokens": unclassified_tokens,
+        }
+    )
+    manifest_path = revision_dir / "manifest.json"
+    manifest_tmp = manifest_path.with_suffix(".tmp")
+    manifest_tmp.write_text(
+        json.dumps(train_manifest, indent=2, sort_keys=True),
+        encoding="utf-8",
+    )
+    manifest_tmp.replace(manifest_path)
     inventory = {
         "schema_version": 3,
         "licensed_tokens": int(train_manifest["total_tokens"]),
@@ -1014,6 +1224,10 @@ def publish_fineweb_token_shards(profile: str = "30gb") -> dict[str, Any]:
         "sources": train_manifest.get("source_record_mix", {}),
         "source_revisions": train_manifest.get("source_revisions", []),
         "licenses": train_manifest.get("licenses", []),
+        "campaign_mix_target": FOUNDATION_CAMPAIGN_MIX,
+        "campaign_mix_realized": realized_mix,
+        "campaign_mix_verified": campaign_mix_verified,
+        "unclassified_tokens": unclassified_tokens,
     }
     TOKEN_INVENTORY_MANIFEST.parent.mkdir(parents=True, exist_ok=True)
     temporary = TOKEN_INVENTORY_MANIFEST.with_suffix(".tmp")
@@ -1077,6 +1291,7 @@ def main() -> int:
 
     profile = DATA_PROFILES[args.profile]
     results: list[dict[str, Any]] = []
+    inventory: dict[str, Any] | None = None
     for bucket in buckets:
         if bucket == "base":
             if "target_gb" in profile:
@@ -1142,10 +1357,36 @@ def main() -> int:
         for result in results
         for error in result.get("errors", [])
     ]
+    campaign_bytes = sum(
+        Path(str(result.get("output", ""))).stat().st_size
+        for result in results
+        if result.get("output") and Path(str(result["output"])).is_file()
+    )
+    target_gb = float(profile.get("target_gb", 0.0))
+    if target_gb and campaign_bytes < int(target_gb * 1024**3 * 0.98):
+        failures.append(
+            SourceDownloadFailure(
+                "campaign_size",
+                f"prepared {campaign_bytes / 1024**3:.2f} GB of required {target_gb:.2f} GB",
+            )
+        )
+    if (
+        inventory is not None
+        and args.profile in {"15gb", "30gb"}
+        and not bool(inventory.get("campaign_mix_verified", False))
+    ):
+        failures.append(
+            SourceDownloadFailure(
+                "campaign_mix",
+                "immutable shards do not satisfy the 55/15/12/8/5/3/2 token mix",
+            )
+        )
     status = {
         "schema_version": 1,
         "status": "dry_run" if args.dry_run else "incomplete" if failures else "complete",
         "buckets": results,
+        "campaign_bytes": campaign_bytes,
+        "campaign_target_gb": target_gb,
         "failures": [
             {"source": failure.source, "message": failure.message} for failure in failures
         ],

@@ -19,9 +19,10 @@ from anra.anra_paths import (
     PROFILE_DIR,
     STATE_DIR,
     TOKEN_INVENTORY_MANIFEST,
-    V3_TOKENIZER_FILE,
 )
 from runtime.training_readiness import assess_training_readiness
+
+from training.v2_runtime import active_tokenizer_path
 
 RUNTIME_CLASSES = ("t4_frontier_smoke",)
 
@@ -98,7 +99,7 @@ def run_preflight(
         "hardware": asdict(hw),
         "python": platform.python_version(),
         "torch": torch.__version__,
-        "tokenizer_exists": V3_TOKENIZER_FILE.exists(),
+        "tokenizer_exists": active_tokenizer_path().exists(),
         "dataset_exists": DATASET_CANONICAL.exists(),
         "token_inventory_exists": TOKEN_INVENTORY_MANIFEST.exists(),
         "measured_profile_exists": (PROFILE_DIR / f"memory_profile_{profile}.json").exists(),

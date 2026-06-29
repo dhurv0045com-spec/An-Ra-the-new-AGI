@@ -46,6 +46,15 @@ def test_esv_attention_temperature_neutral():
     assert abs(esv.attention_temperature(tau0=1.0) - 1.0) < 1e-6
 
 
+def test_esv_attention_temperature_is_per_sample() -> None:
+    esv = ESVModule(d_model=8, d_esv=4)
+    state = torch.tensor([[0.0, -1.0, 0.0], [0.0, 1.0, 0.0]])
+    temperature = esv.attention_temperature_tensor(state)
+
+    assert temperature.shape == (2, 1, 1, 1)
+    assert temperature[0].item() != temperature[1].item()
+
+
 def test_esv_temporal_consistency_is_differentiable_per_sample() -> None:
     esv = ESVModule(d_model=8, d_esv=4)
     with torch.no_grad():

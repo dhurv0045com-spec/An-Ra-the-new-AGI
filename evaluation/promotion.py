@@ -9,6 +9,7 @@ import json
 import math
 import secrets
 import shutil
+import tempfile
 import time
 from collections.abc import Iterable
 from dataclasses import asdict, dataclass
@@ -221,6 +222,107 @@ def verify_release_manifest(payload: dict[str, object]) -> bool:
     return hmac.compare_digest(signature, expected)
 
 
+def build_release_bundle_manifest(
+    *,
+    checkpoint_path: str | Path,
+    tokenizer_path: str | Path,
+    corpus_manifest_paths: Iterable[str | Path],
+    model_config: dict[str, object],
+    source_commit: str,
+    evaluation_paths: Iterable[str | Path],
+    rollback_path: str | Path,
+    output_path: str | Path,
+) -> dict[str, object]:
+    """Sign the complete artifact bundle required for an An-Ra promotion."""
+
+    def artifact(path_value: str | Path) -> dict[str, object]:
+        path = Path(path_value)
+        return {
+            "path": str(path),
+            "exists": path.is_file(),
+            "sha256": _sha256(path) if path.is_file() else "",
+            "size_bytes": path.stat().st_size if path.is_file() else 0,
+        }
+
+    checkpoint = artifact(checkpoint_path)
+    tokenizer = artifact(tokenizer_path)
+    corpus = [artifact(path) for path in corpus_manifest_paths]
+    evaluations = [artifact(path) for path in evaluation_paths]
+    rollback = artifact(rollback_path)
+    config_material = json.dumps(
+        model_config,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    gates = {
+        "checkpoint": bool(checkpoint["exists"]),
+        "tokenizer": bool(tokenizer["exists"]),
+        "corpus_manifests": bool(corpus) and all(bool(item["exists"]) for item in corpus),
+        "configuration": bool(model_config) and source_commit not in {"", "unknown"},
+        "evaluations": bool(evaluations) and all(bool(item["exists"]) for item in evaluations),
+        "rollback": bool(rollback["exists"]),
+    }
+    payload: dict[str, object] = {
+        "schema_version": 1,
+        "generated_at": time.time(),
+        "source_commit": source_commit,
+        "configuration": model_config,
+        "configuration_sha256": hashlib.sha256(config_material).hexdigest(),
+        "artifacts": {
+            "checkpoint": checkpoint,
+            "tokenizer": tokenizer,
+            "corpus_manifests": corpus,
+            "evaluations": evaluations,
+            "rollback": rollback,
+        },
+        "gates": gates,
+        "complete": all(gates.values()),
+    }
+    payload["signature"] = _sign(payload)
+    target = Path(output_path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    temporary = target.with_suffix(target.suffix + ".tmp")
+    temporary.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+    temporary.replace(target)
+    return payload
+
+
+def verify_release_bundle_manifest(payload: dict[str, object]) -> bool:
+    if not verify_release_manifest(payload) or payload.get("complete") is not True:
+        return False
+    artifacts = payload.get("artifacts", {})
+    if not isinstance(artifacts, dict):
+        return False
+    entries: list[dict[str, object]] = []
+    for key in ("checkpoint", "tokenizer", "rollback"):
+        item = artifacts.get(key)
+        if isinstance(item, dict):
+            entries.append(item)
+    for key in ("corpus_manifests", "evaluations"):
+        value = artifacts.get(key, [])
+        if isinstance(value, list):
+            entries.extend(item for item in value if isinstance(item, dict))
+    if not entries:
+        return False
+    for item in entries:
+        path = Path(str(item.get("path", "")))
+        if not path.is_file() or not hmac.compare_digest(
+            _sha256(path),
+            str(item.get("sha256", "")),
+        ):
+            return False
+    configuration = payload.get("configuration", {})
+    material = json.dumps(
+        configuration,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    return hmac.compare_digest(
+        hashlib.sha256(material).hexdigest(),
+        str(payload.get("configuration_sha256", "")),
+    )
+
+
 def _audit(event: dict[str, object]) -> None:
     from anra.anra_paths import OPERATOR_AUDIT_LOG
 
@@ -300,3 +402,81 @@ def promote_checkpoint_atomically(
         }
     )
     return manifest
+
+
+def run_rollback_drill(
+    checkpoint_path: str | Path,
+    *,
+    report_path: str | Path | None = None,
+) -> dict[str, object]:
+    """Prove a failed promotion restores the previous checkpoint byte-for-byte."""
+    source = Path(checkpoint_path)
+    if not source.is_file():
+        raise FileNotFoundError(source)
+    from anra.anra_paths import OUTPUT_V2_DIR, ROLLBACK_DIR
+
+    OUTPUT_V2_DIR.mkdir(parents=True, exist_ok=True)
+    ROLLBACK_DIR.mkdir(parents=True, exist_ok=True)
+    source_before = _sha256(source)
+    rollback_before = set(ROLLBACK_DIR.glob("*"))
+    failure_observed = False
+    restored_hash = ""
+    rollback_artifact_hash = ""
+    with tempfile.TemporaryDirectory(prefix="anra-rollback-drill-") as temporary_dir:
+        root = Path(temporary_dir)
+        promoted = root / "promoted.pt"
+        candidate = root / "candidate.pt"
+        shutil.copy2(source, promoted)
+        shutil.copy2(source, candidate)
+        with candidate.open("ab") as stream:
+            stream.write(b"ANRA_ROLLBACK_DRILL_INVALID_CANDIDATE")
+        decision = PromotionDecision(
+            allowed=True,
+            gates={"rollback_drill_authorized": True},
+            deltas={},
+            reasons=(),
+        )
+        try:
+            promote_checkpoint_atomically(
+                candidate_path=candidate,
+                promoted_path=promoted,
+                decision=decision,
+                metadata={"purpose": "rollback_drill"},
+                smoke_test=lambda _path: False,
+            )
+        except RuntimeError as exc:
+            failure_observed = "rollback completed" in str(exc).lower()
+        restored_hash = _sha256(promoted) if promoted.exists() else "missing"
+
+    new_rollback_artifacts = sorted(
+        set(ROLLBACK_DIR.glob("*")) - rollback_before,
+        key=lambda path: path.name,
+    )
+    if new_rollback_artifacts:
+        rollback_artifact_hash = _sha256(new_rollback_artifacts[-1])
+        for artifact in new_rollback_artifacts:
+            artifact.unlink(missing_ok=True)
+    source_after = _sha256(source)
+    gates = {
+        "intentional_smoke_failure_observed": failure_observed,
+        "promoted_checkpoint_restored": restored_hash == source_before,
+        "source_checkpoint_unchanged": source_after == source_before,
+        "rollback_artifact_verified": rollback_artifact_hash == source_before,
+    }
+    report: dict[str, object] = {
+        "schema_version": 1,
+        "generated_at": time.time(),
+        "checkpoint": str(source),
+        "checkpoint_sha256": source_before,
+        "restored_sha256": restored_hash,
+        "rollback_artifact_sha256": rollback_artifact_hash,
+        "gates": gates,
+        "passed": all(gates.values()),
+    }
+    report["signature"] = _sign(report)
+    target = Path(report_path) if report_path is not None else OUTPUT_V2_DIR / "rollback_drill.json"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    temporary = target.with_suffix(target.suffix + ".tmp")
+    temporary.write_text(json.dumps(report, indent=2, sort_keys=True), encoding="utf-8")
+    temporary.replace(target)
+    return report

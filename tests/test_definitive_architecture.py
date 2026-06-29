@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import numpy as np
 import torch
@@ -11,16 +12,19 @@ from training.continual import (
     assess_continual_readiness,
     proposal_auto_application_allowed,
 )
+from training.anra_optimizer import build_append_only_row_learning_rate
 from training.data_ledger import DataQuality
 from training.data_pipeline_v3 import SourceRecord, TokenShardPublisher
 from training.v2_data_mix import (
     RawCausalShardDataset,
     TrainingExample,
+    WindowConsumptionTracker,
     build_post_training_mix,
 )
 from training.csii import CrossScaleIdentityInheritance
 from training.ssg import SovereignScalingGovernor
 from training.v2_runtime import migrate_checkpoint_state
+from training.v2_config import frontier_parameter_count
 from anra_brain import CausalTransformerV2
 from runtime.technology_registry import validate_technology_reachability
 from scripts.download_training_data import (
@@ -29,6 +33,7 @@ from scripts.download_training_data import (
     _detect_content_language,
     _math_text_valid,
 )
+from tokenizer.validate_tokenizer_v3 import build_append_only_v4
 
 
 class _Tokenizer:
@@ -61,6 +66,7 @@ def test_token_shards_are_uint16_hashed_and_immutable(tmp_path) -> None:
         _Tokenizer(),
     )
     assert manifest["total_tokens"] == 8
+    assert manifest["source_token_mix"] == {"FineWeb-Edu": 8}
     assert all(item["tokens"] == 4 for item in manifest["shards"])
     assert np.load(output / manifest["shards"][0]["path"]).dtype == np.uint16
     try:
@@ -113,6 +119,61 @@ def test_raw_causal_dataset_trains_every_next_token(tmp_path) -> None:
     x, y, weights, _ = dataset[0]
     torch.testing.assert_close(x[1:], y[:-1])
     assert torch.all(weights == 1)
+
+
+def test_raw_window_ids_are_stable_across_shard_rotation(tmp_path) -> None:
+    class Tokenizer:
+        pad_token_id = 0
+        eos_token_id = -1
+
+        @staticmethod
+        def encode(text: str) -> list[int]:
+            return [ord(character) for character in text]
+
+        @staticmethod
+        def decode(ids: list[int]) -> str:
+            return "".join(chr(value) for value in ids)
+
+    output = tmp_path / "rotated"
+    TokenShardPublisher(
+        output,
+        tokenizer_version="test",
+        tokenizer_sha256="hash",
+        tokens_per_shard=8,
+    ).publish(
+        [SourceRecord("abcdefghijklmnopqrstuvwxyz", "unit", "MIT", "foundation", _quality())],
+        Tokenizer(),
+        allow_partial_final=True,
+    )
+    first = RawCausalShardDataset(
+        output / "manifest.json",
+        Tokenizer(),
+        block_size=4,
+        rotation_seed=0,
+        expected_tokenizer_sha256="hash",
+    )
+    rotated = RawCausalShardDataset(
+        output / "manifest.json",
+        Tokenizer(),
+        block_size=4,
+        rotation_seed=1,
+        expected_tokenizer_sha256="hash",
+    )
+    assert {first[index][3] for index in range(len(first))} == {
+        rotated[index][3] for index in range(len(rotated))
+    }
+
+
+def test_window_consumption_tracker_persists_unique_and_repeat_counts() -> None:
+    tracker = WindowConsumptionTracker(16, 1024)
+    tracker.mark([1, 2, 2, 3])
+    restored = WindowConsumptionTracker(16, 1024, state=tracker.state_dict())
+    report = restored.report(phase_target_tokens=10_000)
+
+    assert report["unique_tokens_consumed"] == 3 * 1024
+    assert report["repeated_windows"] == 1
+    assert report["repeated_token_percentage"] == 25.0
+    assert report["remaining_phase_tokens"] == 10_000 - 3 * 1024
 
 
 def test_native_corpus_quality_filters_cover_near_duplicates_and_domains() -> None:
@@ -237,6 +298,81 @@ def test_checkpoint_vocabulary_migration_is_deterministic() -> None:
     torch.testing.assert_close(
         first["token_embedding_table.weight"],
         first["lm_head.weight"],
+    )
+
+
+def test_checkpoint_migration_names_and_neutralizes_new_native_tensors() -> None:
+    source = {"token_embedding_table.weight": torch.ones(8, 4)}
+    target = {
+        "token_embedding_table.weight": torch.ones(8, 4),
+        "mod_routers.0.gate.weight": torch.randn(1, 4),
+        "mod_routers.0.context_weights": torch.zeros(3),
+        "rim_modules.0.raw_alpha": torch.zeros(()),
+        "esv_module.predictor.0.weight": torch.zeros(3, 4),
+        "residual_depth_logits": torch.zeros(2),
+    }
+    migrated, report = migrate_checkpoint_state(source, target)
+
+    torch.testing.assert_close(
+        migrated["mod_routers.0.gate.weight"],
+        torch.zeros(1, 4),
+    )
+    assert set(migrated) == set(target)
+    assert "initialize_native:residual_depth_logits" in report["changes"]
+
+
+def test_append_only_rows_receive_three_times_realized_update() -> None:
+    class ExpandedEmbedding(torch.nn.Module):
+        def __init__(self) -> None:
+            super().__init__()
+            self.token_embedding_table = torch.nn.Embedding(6, 2)
+
+    model = ExpandedEmbedding()
+    optimizer = torch.optim.SGD(model.parameters(), lr=0.1)
+    controller = build_append_only_row_learning_rate(
+        model,
+        base_rows=4,
+        multiplier=3.0,
+        max_steps=2,
+    )
+    assert controller is not None
+    before_all = model.token_embedding_table.weight.detach().clone()
+    model.token_embedding_table.weight.grad = torch.ones_like(model.token_embedding_table.weight)
+    appended_before = controller.capture()
+    optimizer.step()
+    controller.apply(appended_before)
+    delta = before_all - model.token_embedding_table.weight.detach()
+    torch.testing.assert_close(delta[:4], torch.full((4, 2), 0.1))
+    torch.testing.assert_close(delta[4:], torch.full((2, 2), 0.3))
+    assert controller.report()["steps_completed"] == 1
+
+
+def test_append_only_v4_preserves_every_v3_token_id(tmp_path) -> None:
+    source = Path(__file__).resolve().parents[1] / "tokenizer" / "tokenizer_v3.json"
+    source_meta = source.with_suffix(source.suffix + ".meta.json")
+    tokenizer_path = tmp_path / "tokenizer_v3.json"
+    tokenizer_path.write_bytes(source.read_bytes())
+    tokenizer_path.with_suffix(tokenizer_path.suffix + ".meta.json").write_bytes(
+        source_meta.read_bytes()
+    )
+    original = json.loads(tokenizer_path.read_text(encoding="utf-8"))
+    output = tmp_path / "tokenizer_v4.json"
+    build_append_only_v4(
+        tokenizer_path,
+        output,
+        {
+            "eligible_for_schema_v4": True,
+            "sampled_units": 1_000_000,
+            "projected_reduction": 0.20,
+            "candidate_tokens": ["native_extension_token"],
+        },
+    )
+    grown = json.loads(output.read_text(encoding="utf-8"))
+    assert grown["id_to_token"][:8209] == original["id_to_token"]
+    assert len(grown["id_to_token"]) == 16_384
+    assert (
+        frontier_parameter_count(16_384) - frontier_parameter_count(8_209)
+        == (16_384 - 8_209) * 1_280
     )
 
 

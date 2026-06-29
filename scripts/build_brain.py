@@ -42,6 +42,7 @@ from runtime.hal_telemetry import publish_hal_state
 from torch.utils.data import DataLoader, WeightedRandomSampler
 from training.anra_optimizer import (
     IDENTITY_PARAMETER_PATTERNS,
+    build_append_only_row_learning_rate,
     build_optimizer,
     is_identity_parameter,
 )
@@ -51,6 +52,7 @@ from training.dynamic_regret import DynamicRegretScheduler
 from training.eval_v2 import quick_eval_loss, run_compact_eval
 from training.mixed_precision import MixedPrecisionTrainer
 from training.pcgrad import PCGradAccumulator
+from training.scheduler import get_cosine_schedule_with_warmup
 from training.shared_checkpoint import (
     record_filesystem_checkpoint_origin,
     restore_shared_checkpoint,
@@ -62,10 +64,10 @@ from training.v2_config import (
     EXPECTED_TOKENIZER_VOCAB_SIZE,
     TOKENIZER_SCHEMA_VERSION,
     V2_FRONTIER,
-    V2_FRONTIER_PARAMETER_COUNT,
     V2_FRONTIER_TRAINING,
     V2_MODEL,
     V2_TRAINING,
+    frontier_parameter_count,
     resolve_model_profile,
 )
 from training.v2_data_mix import (
@@ -73,9 +75,11 @@ from training.v2_data_mix import (
     RawCausalShardDataset,
     TrainingDataMixController,
     V2ConversationDataset,
+    WindowConsumptionTracker,
     build_v2_training_examples,
 )
 from training.v2_runtime import (
+    active_tokenizer_path,
     atomic_save,
     build_frontier_model,
     canonical_v2_checkpoint,
@@ -88,12 +92,18 @@ from training.v2_runtime import (
     v2_report_path,
     write_json,
 )
-from training.wsd_scheduler import get_wsd_schedule, phase_for_step
 
 from scripts.session_dashboard import print_session_dashboard
 
 EARLY_STATUS_STEPS = {1, 2, 5, 10, 20, 50, 100}
 HARD_EXAMPLE_KEEP = 16
+CONTINUATION_PHASE_TOKEN_TARGETS = {
+    "A": 1_000_000_000,
+    "B": 1_000_000_000,
+    "C": 200_000_000,
+    "D": 100_000_000,
+    "E": 10_000_000,
+}
 
 
 EMERGENCY_SAVE_TIMEOUT_SECONDS = 20.0
@@ -239,6 +249,97 @@ def _read_json(path: Path) -> dict[str, object] | None:
     return payload if isinstance(payload, dict) else None
 
 
+def _sha256_path(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(8 * 1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _freeze_training_lineage(
+    *,
+    checkpoint_path: Path,
+    tokenizer_path: Path,
+    model_config: dict[str, object],
+    data_manifests: list[Path],
+) -> dict[str, object]:
+    """Preserve the exact pre-training artifacts before any optimizer step."""
+    source_checkpoint = checkpoint_path.resolve()
+    source_tokenizer = tokenizer_path.resolve()
+    if not source_tokenizer.is_file():
+        raise FileNotFoundError(f"Cannot freeze missing tokenizer: {source_tokenizer}")
+    checkpoint_hash = (
+        _sha256_path(source_checkpoint) if source_checkpoint.is_file() else "uninitialized"
+    )
+    tokenizer_hash = _sha256_path(source_tokenizer)
+    archive_root = source_checkpoint.parent / ".anra_lineage"
+    archive_root.mkdir(parents=True, exist_ok=True)
+
+    def preserve(source: Path, target: Path) -> None:
+        if target.exists():
+            if _sha256_path(target) != _sha256_path(source):
+                raise RuntimeError(f"Lineage archive hash collision: {target}")
+            return
+        shutil.copy2(source, target)
+
+    checkpoint_archive: Path | None = None
+    if source_checkpoint.is_file():
+        checkpoint_archive = archive_root / f"checkpoint-{checkpoint_hash}.pt"
+        preserve(source_checkpoint, checkpoint_archive)
+    tokenizer_archive = archive_root / f"tokenizer-{tokenizer_hash}.json"
+    preserve(source_tokenizer, tokenizer_archive)
+    tokenizer_meta = source_tokenizer.with_suffix(source_tokenizer.suffix + ".meta.json")
+    tokenizer_meta_archive = None
+    if tokenizer_meta.is_file():
+        tokenizer_meta_hash = _sha256_path(tokenizer_meta)
+        tokenizer_meta_archive = archive_root / f"tokenizer-meta-{tokenizer_meta_hash}.json"
+        preserve(tokenizer_meta, tokenizer_meta_archive)
+
+    manifest_hashes = {
+        str(path.resolve()): _sha256_path(path.resolve())
+        for path in data_manifests
+        if path.resolve().is_file()
+    }
+    try:
+        source_commit = subprocess.check_output(
+            ["git", "rev-parse", "HEAD"],
+            cwd=ROOT,
+            text=True,
+            stderr=subprocess.DEVNULL,
+        ).strip()
+    except (OSError, subprocess.CalledProcessError):
+        source_commit = "unknown"
+    payload: dict[str, object] = {
+        "schema_version": 1,
+        "created_at": time.time(),
+        "checkpoint_source": str(source_checkpoint),
+        "checkpoint_sha256": checkpoint_hash,
+        "checkpoint_archive": str(checkpoint_archive) if checkpoint_archive else None,
+        "tokenizer_source": str(source_tokenizer),
+        "tokenizer_sha256": tokenizer_hash,
+        "tokenizer_archive": str(tokenizer_archive),
+        "tokenizer_meta_archive": (str(tokenizer_meta_archive) if tokenizer_meta_archive else None),
+        "model_config": dict(model_config),
+        "data_manifest_sha256": manifest_hashes,
+        "source_commit": source_commit,
+    }
+    identity = hashlib.sha256(
+        json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+    immutable = archive_root / f"lineage-{identity}.json"
+    if not immutable.exists():
+        temporary = immutable.with_suffix(".tmp")
+        temporary.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+        temporary.replace(immutable)
+    current = OUTPUT_V2_DIR / "lineage_freeze.json"
+    current.parent.mkdir(parents=True, exist_ok=True)
+    current_tmp = current.with_suffix(".tmp")
+    current_tmp.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+    current_tmp.replace(current)
+    return payload
+
+
 def _session_data_mix_seed(base_seed: int = 1337) -> int:
     """Rotate the deterministic training sample after each completed session."""
     state = _read_json(REGRET_STATE) or {}
@@ -250,9 +351,10 @@ def _session_data_mix_seed(base_seed: int = 1337) -> int:
 
 
 def _tokenizer_checkpoint_contract() -> dict[str, object]:
-    if not V2_TOKENIZER_FILE.exists():
-        raise FileNotFoundError(f"Canonical tokenizer is missing: {V2_TOKENIZER_FILE}")
-    raw = V2_TOKENIZER_FILE.read_bytes()
+    tokenizer_path = active_tokenizer_path()
+    if not tokenizer_path.exists():
+        raise FileNotFoundError(f"Canonical tokenizer is missing: {tokenizer_path}")
+    raw = tokenizer_path.read_bytes()
     payload = json.loads(raw.decode("utf-8"))
     vocabulary = payload.get("token_to_id", {}) if isinstance(payload, dict) else {}
     vocabulary_bytes = json.dumps(
@@ -262,10 +364,10 @@ def _tokenizer_checkpoint_contract() -> dict[str, object]:
     ).encode("utf-8")
     manifest = _read_json(TOKENIZER_MANIFEST) or {}
     return {
-        "schema_version": TOKENIZER_SCHEMA_VERSION,
+        "schema_version": int(manifest.get("schema_version", TOKENIZER_SCHEMA_VERSION)),
         "sha256": hashlib.sha256(raw).hexdigest(),
         "vocabulary_sha256": hashlib.sha256(vocabulary_bytes).hexdigest(),
-        "vocab_size": EXPECTED_TOKENIZER_VOCAB_SIZE,
+        "vocab_size": int(manifest.get("vocab_size", EXPECTED_TOKENIZER_VOCAB_SIZE)),
         "special_token_ids": EXPECTED_SPECIAL_TOKEN_IDS,
         "probe_count": int(manifest.get("probe_count", 0)),
         "probe_sha256": str(manifest.get("probe_sha256", "")),
@@ -289,6 +391,8 @@ def _build_checkpoint_payload(
     continuation_token_counts: dict[str, int] | None = None,
     best_validation_loss: float = float("inf"),
     validation_history: list[dict[str, object]] | None = None,
+    appended_row_optimizer_steps: int = 0,
+    raw_window_consumption: dict[str, object] | None = None,
 ) -> dict[str, object]:
     try:
         source_commit = subprocess.check_output(
@@ -302,12 +406,13 @@ def _build_checkpoint_payload(
     data_manifests = {}
     manifest_root = ROOT / "output" / "v2" / "data_manifests"
     if manifest_root.exists():
-        for path in sorted(manifest_root.glob("*.json")):
-            data_manifests[path.name] = hashlib.sha256(path.read_bytes()).hexdigest()
+        for path in sorted(manifest_root.rglob("*.json")):
+            relative = path.relative_to(manifest_root).as_posix()
+            data_manifests[relative] = hashlib.sha256(path.read_bytes()).hexdigest()
     tokenizer_contract = _tokenizer_checkpoint_contract()
     return {
         "checkpoint_schema_version": CHECKPOINT_SCHEMA_VERSION,
-        "tokenizer_schema_version": TOKENIZER_SCHEMA_VERSION,
+        "tokenizer_schema_version": int(tokenizer_contract["schema_version"]),
         "tokenizer_contract": tokenizer_contract,
         "migration_provenance": migration,
         "model": model.state_dict(),
@@ -325,6 +430,8 @@ def _build_checkpoint_payload(
         "continuation_token_counts": dict(continuation_token_counts or {}),
         "best_validation_loss": float(best_validation_loss),
         "validation_history": list(validation_history or []),
+        "appended_row_optimizer_steps": int(appended_row_optimizer_steps),
+        "raw_window_consumption": dict(raw_window_consumption or {}),
         "model_config": model.model_config(),
         "hal_state": hal_state_dict(model),
         "mix_report": mix_report.to_dict(),
@@ -338,6 +445,7 @@ def _build_checkpoint_payload(
         # from whichever files happen to be present in a fresh Colab runtime.
         "data_profile": os.environ.get("ANRA_DATA_PROFILE", "unknown"),
         "training_data_layout": _active_training_data_layout(),
+        "data_manifests": data_manifests,
         "dataset_manifest_hashes": data_manifests,
         "cognitive_extension_release": "cognition-v1",
         "consent_safe_metadata": {
@@ -702,8 +810,9 @@ def train_anra_v2(
         )
     dataset_path = Path(data_path)
     tokenizer = load_or_build_v2_tokenizer(dataset_path=dataset_path)
+    model_parameter_contract = frontier_parameter_count(tokenizer.vocab_size)
     data_mix_seed = _session_data_mix_seed()
-    training_mix_controller = TrainingDataMixController(V2_FRONTIER_PARAMETER_COUNT)
+    training_mix_controller = TrainingDataMixController(model_parameter_contract)
     print(f"[Trainer] Data mix sampling seed: {data_mix_seed}", flush=True)
     if training_layout == RawCausalShardDataset.PACKING_LAYOUT:
         if not token_shard_manifest:
@@ -762,7 +871,7 @@ def train_anra_v2(
             teacher_ratio=teacher_ratio,
             symbolic_ratio=symbolic_ratio,
             replay_ratio=replay_ratio,
-            model_params=V2_FRONTIER_PARAMETER_COUNT,
+            model_params=model_parameter_contract,
             post_training_mix=continuation_phase.upper() in {"D", "E"},
         )
         if set(mix_report.active_weights) == set(training_mix_controller.weights):
@@ -777,6 +886,11 @@ def train_anra_v2(
     write_json(v2_report_path("mix_report"), mix_report.to_dict())
     if len(ds) == 0:
         raise RuntimeError(f"{training_layout} produced zero training windows.")
+    window_consumption = (
+        WindowConsumptionTracker(len(ds), block_size)
+        if training_layout == RawCausalShardDataset.PACKING_LAYOUT
+        else None
+    )
 
     def make_loader(active_weights: dict[str, float] | None = None) -> DataLoader:
         num_workers = 2 if torch.cuda.is_available() else 0
@@ -848,7 +962,11 @@ def train_anra_v2(
                     "Context growth is blocked until coherence >= 0.90, short-context "
                     "regression < 2%, and retrieval accuracy improves."
                 )
-        model = build_frontier_model(hal_module=hal_module, block_size=block_size)
+        model = build_frontier_model(
+            hal_module=hal_module,
+            block_size=block_size,
+            vocab_size=tokenizer.vocab_size,
+        )
     if getattr(training_cfg, "gradient_checkpointing", False):
         model.gradient_checkpointing_enable()
         print("[build_brain] Gradient checkpointing enabled for 500M model", flush=True)
@@ -877,10 +995,18 @@ def train_anra_v2(
     optimizer_report = getattr(
         optimizer, "_anra_optimizer_report", {"selected": {"actual": optimizer_name}}
     )
+    appended_row_lr = build_append_only_row_learning_rate(
+        model,
+        base_rows=EXPECTED_TOKENIZER_VOCAB_SIZE,
+        multiplier=3.0,
+        max_steps=2_000,
+    )
+    if appended_row_lr is not None:
+        optimizer_report["append_only_rows"] = appended_row_lr.report()
     write_json(v2_report_path("optimizer_bakeoff"), optimizer_report)
     total_steps = int(getattr(training_cfg, "max_steps", 50_000))
-    warmup_steps = int(getattr(training_cfg, "warmup_steps", 100))
-    scheduler = get_wsd_schedule(
+    warmup_steps = max(1, int(total_steps * 0.02))
+    scheduler = get_cosine_schedule_with_warmup(
         optimizer,
         warmup_steps=warmup_steps,
         total_steps=total_steps,
@@ -919,6 +1045,20 @@ def train_anra_v2(
     resume_path = Path(resume_from) if resume_from else ckpt_path
     if not resume_path.is_absolute():
         resume_path = ROOT / resume_path
+    lineage_manifest_paths: list[Path] = []
+    for raw_manifest in (token_shard_manifest, validation_shard_manifest):
+        if not raw_manifest:
+            continue
+        manifest_path = Path(raw_manifest)
+        if not manifest_path.is_absolute():
+            manifest_path = ROOT / manifest_path
+        lineage_manifest_paths.append(manifest_path)
+    _freeze_training_lineage(
+        checkpoint_path=ckpt_path if ckpt_path.exists() else resume_path,
+        tokenizer_path=active_tokenizer_path(),
+        model_config=model.model_config(),
+        data_manifests=lineage_manifest_paths,
+    )
     ckpt: dict[str, object] = {}
     global_step = 0
     epoch = 0
@@ -963,6 +1103,12 @@ def train_anra_v2(
             continuation_token_counts=continuation_token_counts,
             best_validation_loss=best_validation_loss,
             validation_history=validation_history,
+            appended_row_optimizer_steps=(
+                appended_row_lr.steps_completed if appended_row_lr is not None else 0
+            ),
+            raw_window_consumption=(
+                window_consumption.state_dict() if window_consumption is not None else None
+            ),
         )
         ok = _emergency_save_with_timeout(payload, ckpt_path)
         if ok:
@@ -1024,6 +1170,14 @@ def train_anra_v2(
             best_validation_loss = float(resume_state.get("best_validation_loss", float("inf")))
             validation_history = list(resume_state.get("validation_history", []))
             checkpoint_migration = dict(resume_state.get("migration", {}))
+            if appended_row_lr is not None:
+                appended_row_lr.steps_completed = int(
+                    resume_state.get("appended_row_optimizer_steps", 0)
+                )
+            if window_consumption is not None:
+                raw_consumption_state = resume_state.get("raw_window_consumption", {})
+                if isinstance(raw_consumption_state, dict) and raw_consumption_state:
+                    window_consumption.load_state_dict(raw_consumption_state)
             start_step = int(resume_state["global_step"])
             best_loss = float(resume_state["best_loss"])
             session_start_loss = best_loss
@@ -1035,6 +1189,25 @@ def train_anra_v2(
     else:
         print("[Resume] No checkpoint found — starting from scratch", flush=True)
     # ─────────────────────────────────────────────────────────────────────────────
+
+    if window_consumption is not None:
+        phase_target = CONTINUATION_PHASE_TOKEN_TARGETS.get(continuation_phase.upper())
+        consumption_report = window_consumption.report(phase_target_tokens=phase_target)
+        print(
+            "[Campaign] "
+            f"unique_tokens={consumption_report['unique_tokens_consumed']:,} "
+            f"repeated={consumption_report['repeated_token_percentage']:.3f}% "
+            f"remaining_phase_tokens={consumption_report['remaining_phase_tokens']:,}",
+            flush=True,
+        )
+        print(
+            f"[Campaign] source_mix={getattr(ds, 'manifest', {}).get('campaign_mix_realized', {})}",
+            flush=True,
+        )
+        print(
+            f"[Campaign] best_validation_loss={best_validation_loss}",
+            flush=True,
+        )
 
     if start_eval_examples > 0:
         try:
@@ -1078,6 +1251,7 @@ def train_anra_v2(
     accum_micro_steps = 0
     pending_trained_tokens = 0
     pending_token_ids: set[int] = set()
+    pending_window_indices: list[int] = []
     last_avg_loss = best_loss if math.isfinite(best_loss) else 0.0
     loss_ema: float | None = None
     first_batch_wall = None
@@ -1190,6 +1364,11 @@ def train_anra_v2(
                 )
                 optimizer.zero_grad(set_to_none=True)
                 pcgrad.clear()
+                accum_micro_steps = 0
+                accumulated_step_loss = 0.0
+                pending_trained_tokens = 0
+                pending_token_ids.clear()
+                pending_window_indices.clear()
                 if device.type == "cuda":
                     torch.cuda.empty_cache()
                 if ckpt_path.exists():
@@ -1248,6 +1427,8 @@ def train_anra_v2(
             target_ids = yb[yb != tokenizer.pad_token_id]
             pending_trained_tokens += int(target_ids.numel())
             pending_token_ids.update(int(value) for value in target_ids.unique().tolist())
+            if window_consumption is not None:
+                pending_window_indices.extend(int(value) for value in sample_idx.tolist())
 
             for sample_loss, example_index in zip(
                 sample_losses.detach().cpu().tolist(),
@@ -1283,7 +1464,12 @@ def train_anra_v2(
                     hal = get_hal_module(model)
                     if hal is not None:
                         intelligence_session.record_hal_step(step=global_step, hal_state=hal.state)
+                appended_rows_before = (
+                    appended_row_lr.capture() if appended_row_lr is not None else None
+                )
                 mp.step(optimizer)
+                if appended_row_lr is not None:
+                    appended_row_lr.apply(appended_rows_before)
                 mp.update()
                 scheduler.step()
                 campaign_tokens_seen += pending_trained_tokens
@@ -1292,8 +1478,11 @@ def train_anra_v2(
                     continuation_token_counts.get(phase_key, 0) + pending_trained_tokens
                 )
                 known_token_ids.update(pending_token_ids)
+                if window_consumption is not None:
+                    window_consumption.mark(pending_window_indices)
                 pending_trained_tokens = 0
                 pending_token_ids.clear()
+                pending_window_indices.clear()
                 regret_lr = regret_scheduler.update(reward=max(0.0, 1.0 - loss_float))
                 multiplier = max(0.5, min(1.5, regret_lr / max(learning_rate, 1e-12)))
                 scheduled_lrs = scheduler.get_last_lr()
@@ -1316,12 +1505,9 @@ def train_anra_v2(
                 last_avg_loss = avg_loss
                 loss_ema = loss_float if loss_ema is None else 0.9 * loss_ema + 0.1 * loss_float
                 best_loss = min(best_loss, loss_ema) if math.isfinite(best_loss) else loss_ema
-                phase = phase_for_step(
-                    global_step, warmup_steps=warmup_steps, total_steps=total_steps
-                )
                 if (
                     training_layout == V2ConversationDataset.PACKING_LAYOUT
-                    and phase.annealing_started
+                    and global_step >= int(total_steps * 0.90)
                     and not annealing_started
                 ):
                     annealing_started = True
@@ -1450,6 +1636,14 @@ def train_anra_v2(
                         continuation_token_counts=continuation_token_counts,
                         best_validation_loss=best_validation_loss,
                         validation_history=validation_history,
+                        appended_row_optimizer_steps=(
+                            appended_row_lr.steps_completed if appended_row_lr is not None else 0
+                        ),
+                        raw_window_consumption=(
+                            window_consumption.state_dict()
+                            if window_consumption is not None
+                            else None
+                        ),
                     )
                     atomic_save(payload, ckpt_path, drive_dir=None)
                     _sync_training_checkpoint_to_drive(ckpt_path)
@@ -1471,6 +1665,7 @@ def train_anra_v2(
         pcgrad.clear()
         pending_trained_tokens = 0
         pending_token_ids.clear()
+        pending_window_indices.clear()
         print(
             "  discarded_partial_accum="
             f"{accum_micro_steps}/{training_cfg.grad_accum_steps}; "
@@ -1506,6 +1701,12 @@ def train_anra_v2(
         continuation_token_counts=continuation_token_counts,
         best_validation_loss=best_validation_loss,
         validation_history=validation_history,
+        appended_row_optimizer_steps=(
+            appended_row_lr.steps_completed if appended_row_lr is not None else 0
+        ),
+        raw_window_consumption=(
+            window_consumption.state_dict() if window_consumption is not None else None
+        ),
     )
     atomic_save(payload, ckpt_path, drive_dir=None)
     _sync_training_checkpoint_to_drive(ckpt_path)
@@ -1531,6 +1732,9 @@ def train_anra_v2(
         "answer_loss_weight": answer_loss_weight,
         "model_size": model_size,
         "optimizer": optimizer_report,
+        "append_only_row_learning": (
+            appended_row_lr.report() if appended_row_lr is not None else None
+        ),
         "answer_supervision_ratio": round(ds.answer_supervision_ratio, 4),
         "data_layout": ds.PACKING_LAYOUT,
         "token_utilization": round(ds.token_utilization, 4),
@@ -1538,6 +1742,13 @@ def train_anra_v2(
         "target_tokens_seen": int(total_target_tokens),
         "campaign_tokens_seen": campaign_tokens_seen,
         "phase_tokens_seen": continuation_token_counts.get(continuation_phase.upper(), 0),
+        "raw_window_consumption": (
+            window_consumption.report(
+                phase_target_tokens=CONTINUATION_PHASE_TOKEN_TARGETS.get(continuation_phase.upper())
+            )
+            if window_consumption is not None
+            else None
+        ),
         "model_config": model.model_config(),
         "continuation": continuation_report,
         "best_validation_loss": best_validation_loss,
@@ -1546,9 +1757,11 @@ def train_anra_v2(
         "mix_report": mix_report.to_dict(),
         "signal_handler": signal_state,
         "scheduler": {
-            "name": "wsd",
+            "name": "cosine_with_warmup",
             "warmup_steps": warmup_steps,
+            "warmup_fraction": 0.02,
             "total_steps": total_steps,
+            "min_lr": float(getattr(training_cfg, "min_lr", learning_rate * 0.1)),
             "annealing_started": annealing_started,
         },
         "pcgrad": {

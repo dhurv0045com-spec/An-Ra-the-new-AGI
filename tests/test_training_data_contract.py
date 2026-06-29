@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from scripts.build_brain import (
     _active_training_data_layout,
     _assert_resume_data_layout_compatible,
     _assert_resume_data_profile_compatible,
+    _freeze_training_lineage,
 )
 
 
@@ -53,3 +56,29 @@ def test_current_trainer_enforces_packed_layout(monkeypatch) -> None:
     monkeypatch.setenv("ANRA_TRAINING_DATA_LAYOUT", "legacy_padded_v0")
     with pytest.raises(RuntimeError, match="only supports"):
         _active_training_data_layout()
+
+
+def test_training_lineage_freezes_checkpoint_tokenizer_and_manifests(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    checkpoint = tmp_path / "checkpoint.pt"
+    tokenizer = tmp_path / "tokenizer.json"
+    manifest = tmp_path / "manifest.json"
+    checkpoint.write_bytes(b"checkpoint-v1")
+    tokenizer.write_text('{"token_to_id": {"<pad>": 0}}', encoding="utf-8")
+    manifest.write_text('{"shards": []}', encoding="utf-8")
+    monkeypatch.setattr("scripts.build_brain.OUTPUT_V2_DIR", tmp_path / "output")
+
+    frozen = _freeze_training_lineage(
+        checkpoint_path=checkpoint,
+        tokenizer_path=tokenizer,
+        model_config={"vocab_size": 8209},
+        data_manifests=[manifest],
+    )
+    checkpoint.write_bytes(b"checkpoint-v2")
+
+    archived = frozen["checkpoint_archive"]
+    assert archived is not None
+    assert Path(archived).read_bytes() == b"checkpoint-v1"
+    assert frozen["data_manifest_sha256"]

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import hashlib
 import json
+import math
 import re
 import time
 from collections import defaultdict
@@ -167,6 +169,32 @@ def build_private_eval_suite(size: int = 500) -> list[dict[str, object]]:
 PRIVATE_EVAL_SUITE = build_private_eval_suite()
 EVAL_SUITE = COMPACT_EVAL_SUITE
 
+
+def build_recovery_prompt_suite(size: int = 200) -> list[dict[str, object]]:
+    """Return the fixed clean-prompt gate used before continuation tuning."""
+    allowed = {
+        "coherence",
+        "identity",
+        "instruction",
+        "context_qa",
+        "math",
+        "logic",
+        "format",
+        "dfc",
+        "memory",
+        "long_context",
+        "repetition",
+        "calibration",
+    }
+    source = build_private_eval_suite(size * 2)
+    prompts = [task for task in source if str(task["category"]) in allowed]
+    if len(prompts) < size:
+        raise RuntimeError("Recovery prompt construction did not produce enough clean tasks")
+    return prompts[:size]
+
+
+RECOVERY_PROMPT_SUITE = build_recovery_prompt_suite()
+
 REQUIRED_RELEASE_EVIDENCE = (
     "checkpoint_tensor_accounting",
     "tokenizer_compatibility",
@@ -176,12 +204,150 @@ REQUIRED_RELEASE_EVIDENCE = (
     "corpus_manifest_verified",
     "configuration_manifest_verified",
     "rollback_drill_passed",
+    "recovery_prompt_gate",
+    "signed_release_bundle",
 )
 
 
 def release_evidence_gates(evidence: dict[str, object] | None) -> dict[str, bool]:
     supplied = evidence or {}
     return {name: supplied.get(name) is True for name in REQUIRED_RELEASE_EVIDENCE}
+
+
+def run_recovery_prompt_gate(
+    generator: Callable[[str, str, int, str | None], object],
+    *,
+    tasks: list[dict[str, object]] | None = None,
+) -> dict[str, object]:
+    """Compare deterministic diagnostic/native behavior on exactly 200 prompts."""
+    suite = list(tasks or RECOVERY_PROMPT_SUITE)
+    if len(suite) != 200:
+        raise ValueError("The immediate recovery gate requires exactly 200 prompts")
+
+    def run_mode(mode: str) -> tuple[dict[str, object], list[dict[str, object]]]:
+        accepted = 0
+        coherent = 0
+        task_score = 0.0
+        repetition_failures = 0
+        eos_failures = 0
+        finite = True
+        outputs: list[dict[str, object]] = []
+        for task in suite:
+            trace = generator(str(task["prompt"]), mode, 0, None)
+            response = str(getattr(trace, "output", trace))
+            score, reason = _private_task_score(task, response)
+            quality_state = str(getattr(trace, "quality_state", "unknown"))
+            fragmented = bool(getattr(trace, "language_fragment_detected", False))
+            repeated = bool(getattr(trace, "repeated_ngrams_detected", False))
+            stop_reason = str(getattr(trace, "stopped_by", "missing_stop_reason"))
+            entropy = list(getattr(trace, "entropy_curve", []))
+            max_probs = list(getattr(trace, "max_prob_curve", []))
+            trace_finite = all(math.isfinite(float(value)) for value in [*entropy, *max_probs])
+            finite = finite and trace_finite
+            is_coherent = bool(response.strip()) and not fragmented and not repeated
+            accepted += quality_state == "accepted"
+            coherent += is_coherent
+            task_score += score
+            repetition_failures += repeated
+            eos_failures += stop_reason not in {"eos", "stop_string"}
+            outputs.append(
+                {
+                    "id": task["id"],
+                    "category": task["category"],
+                    "output": response,
+                    "output_token_ids": list(getattr(trace, "output_token_ids", [])),
+                    "score": score,
+                    "score_reason": reason,
+                    "quality_state": quality_state,
+                    "coherent": is_coherent,
+                    "stop_reason": stop_reason,
+                    "finite": trace_finite,
+                }
+            )
+        count = len(suite)
+        return (
+            {
+                "mode": mode,
+                "prompt_count": count,
+                "accepted_rate": accepted / count,
+                "coherence_rate": coherent / count,
+                "task_score": task_score / count,
+                "repetition_failure_rate": repetition_failures / count,
+                "eos_failure_rate": eos_failures / count,
+                "finite_activations": finite,
+            },
+            outputs,
+        )
+
+    baseline, baseline_outputs = run_mode("diagnostic")
+    candidate, candidate_outputs = run_mode("native")
+    replay, replay_outputs = run_mode("native")
+    deterministic = all(
+        first["output_token_ids"] == second["output_token_ids"]
+        for first, second in zip(candidate_outputs, replay_outputs, strict=True)
+    )
+    candidate_coherence = float(candidate["coherence_rate"])
+    gates = {
+        "exactly_200_prompts": len(suite) == 200,
+        "finite_activations": bool(candidate["finite_activations"]),
+        "deterministic_replay": deterministic,
+        "coherence_at_least_80pct": candidate_coherence >= 0.80,
+    }
+    return {
+        "schema_version": 1,
+        "generated_at": time.time(),
+        "prompt_suite_sha256": hashlib.sha256(
+            json.dumps(suite, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        ).hexdigest(),
+        "baseline": baseline,
+        "candidate": candidate,
+        "deterministic_replay": replay,
+        "gates": gates,
+        "passed": all(gates.values()),
+        "primary_failure": "undertraining" if candidate_coherence < 0.80 else "none",
+        "baseline_outputs": baseline_outputs,
+        "candidate_outputs": candidate_outputs,
+    }
+
+
+def build_context_growth_evidence(
+    *,
+    source_context: int,
+    target_context: int,
+    coherence_rate: float,
+    short_context_baseline_loss: float,
+    short_context_candidate_loss: float,
+    retrieval_baseline_accuracy: float,
+    retrieval_candidate_accuracy: float,
+) -> dict[str, object]:
+    if (source_context, target_context) not in {(1024, 1536), (1536, 2048)}:
+        raise ValueError("Context growth must proceed 1024->1536->2048")
+    if short_context_baseline_loss <= 0:
+        raise ValueError("Baseline loss must be positive")
+    regression = (float(short_context_candidate_loss) - float(short_context_baseline_loss)) / float(
+        short_context_baseline_loss
+    )
+    retrieval_improved = float(retrieval_candidate_accuracy) > float(retrieval_baseline_accuracy)
+    gates = {
+        "coherence_at_least_90pct": float(coherence_rate) >= 0.90,
+        "short_context_regression_below_2pct": regression < 0.02,
+        "retrieval_accuracy_improved": retrieval_improved,
+    }
+    return {
+        "schema_version": 1,
+        "generated_at": time.time(),
+        "source_context": int(source_context),
+        "target_context": int(target_context),
+        "coherence_rate": float(coherence_rate),
+        "short_context_baseline_loss": float(short_context_baseline_loss),
+        "short_context_candidate_loss": float(short_context_candidate_loss),
+        "short_context_regression": regression,
+        "retrieval_baseline_accuracy": float(retrieval_baseline_accuracy),
+        "retrieval_candidate_accuracy": float(retrieval_candidate_accuracy),
+        "retrieval_accuracy_improved": retrieval_improved,
+        "gates": gates,
+        "passed": all(gates.values()),
+    }
 
 
 def run_private_mode_seed_evaluation(
@@ -247,12 +413,17 @@ def run_private_mode_seed_evaluation(
             reports.append(run_slice(mode, seed))
 
     ablations: dict[str, dict[str, float | bool]] = {}
+    full_baselines = {
+        int(report["seed"]): report
+        for report in reports
+        if report["mode"] == "full_system" and report["ablation"] is None
+    }
     for subsystem in ("mod", "rim", "dstp", "esv", "hal"):
         baseline_scores: list[float] = []
         ablated_scores: list[float] = []
         latency_costs: list[float] = []
         for seed in seeds:
-            baseline = run_slice("full_system", seed)
+            baseline = full_baselines[seed]
             ablated = run_slice("full_system", seed, subsystem)
             baseline_scores.append(float(baseline["score"]))
             ablated_scores.append(float(ablated["score"]))

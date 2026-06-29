@@ -53,6 +53,79 @@ class OptimizerConfig:
     galore_projection_gap: int = 200
 
 
+class AppendOnlyRowLearningRate:
+    """Scale realized optimizer updates for append-only tokenizer rows."""
+
+    def __init__(
+        self,
+        parameter: torch.nn.Parameter,
+        *,
+        base_rows: int,
+        multiplier: float = 3.0,
+        max_steps: int = 2_000,
+        steps_completed: int = 0,
+    ) -> None:
+        self.parameter = parameter
+        self.base_rows = int(base_rows)
+        self.multiplier = float(multiplier)
+        self.max_steps = int(max_steps)
+        self.steps_completed = max(0, int(steps_completed))
+        if parameter.ndim != 2 or parameter.shape[0] <= self.base_rows:
+            raise ValueError("Append-only row learning requires an expanded embedding matrix")
+        if self.multiplier < 1.0 or self.max_steps < 0:
+            raise ValueError("Invalid append-only row learning schedule")
+
+    @property
+    def appended_rows(self) -> int:
+        return int(self.parameter.shape[0] - self.base_rows)
+
+    def capture(self) -> torch.Tensor | None:
+        if self.steps_completed >= self.max_steps:
+            return None
+        return self.parameter[self.base_rows :].detach().clone()
+
+    @torch.no_grad()
+    def apply(self, before: torch.Tensor | None) -> bool:
+        if before is None:
+            return False
+        current = self.parameter[self.base_rows :]
+        current.copy_(before + self.multiplier * (current - before))
+        self.steps_completed += 1
+        return True
+
+    def report(self) -> dict[str, object]:
+        return {
+            "base_rows": self.base_rows,
+            "appended_rows": self.appended_rows,
+            "learning_rate_multiplier": self.multiplier,
+            "max_optimizer_steps": self.max_steps,
+            "steps_completed": self.steps_completed,
+            "active": self.steps_completed < self.max_steps,
+        }
+
+
+def build_append_only_row_learning_rate(
+    model: torch.nn.Module,
+    *,
+    base_rows: int,
+    multiplier: float = 3.0,
+    max_steps: int = 2_000,
+    steps_completed: int = 0,
+) -> AppendOnlyRowLearningRate | None:
+    native_model = getattr(model, "model", model)
+    embedding = getattr(native_model, "token_embedding_table", None)
+    parameter = getattr(embedding, "weight", None)
+    if not isinstance(parameter, torch.nn.Parameter) or parameter.shape[0] <= base_rows:
+        return None
+    return AppendOnlyRowLearningRate(
+        parameter,
+        base_rows=base_rows,
+        multiplier=multiplier,
+        max_steps=max_steps,
+        steps_completed=steps_completed,
+    )
+
+
 def _trainable_named_parameters(model: torch.nn.Module) -> list[tuple[str, torch.nn.Parameter]]:
     return [
         (name, parameter) for name, parameter in model.named_parameters() if parameter.requires_grad

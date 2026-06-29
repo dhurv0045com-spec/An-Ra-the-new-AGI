@@ -50,6 +50,7 @@ DFC_SPECIAL_TOKENS = [
 ]
 CANONICAL_SPECIAL_TOKENS = BASE_SPECIAL_TOKENS + DFC_SPECIAL_TOKENS
 CANONICAL_VOCAB_SIZE = BASE_VOCAB_SIZE + len(DFC_SPECIAL_TOKENS)
+TOKENIZER_V4_VOCAB_SIZE = 16_384
 CANONICAL_SPECIAL_TOKEN_IDS = {
     **{token: index for index, token in enumerate(BASE_SPECIAL_TOKENS)},
     **{token: BASE_VOCAB_SIZE + index for index, token in enumerate(DFC_SPECIAL_TOKENS)},
@@ -156,6 +157,15 @@ EXPECTED_TOKENIZER_VOCAB_SIZE = CANONICAL_VOCAB_SIZE
 EXPECTED_PAD_TOKEN_ID = CANONICAL_PAD_TOKEN_ID
 EXPECTED_SPECIAL_TOKENS = CANONICAL_SPECIAL_TOKENS
 EXPECTED_SPECIAL_TOKEN_IDS = CANONICAL_SPECIAL_TOKEN_IDS
+
+
+def frontier_parameter_count(vocab_size: int = CANONICAL_VOCAB_SIZE) -> int:
+    """Parameter contract for append-only vocabulary growth with tied embeddings."""
+    if vocab_size < CANONICAL_VOCAB_SIZE:
+        raise ValueError("Frontier vocabulary cannot remove canonical token rows")
+    return (
+        V2_FRONTIER_PARAMETER_COUNT + (int(vocab_size) - CANONICAL_VOCAB_SIZE) * V2_FRONTIER.n_embd
+    )
 
 
 IDENTITY_KEYWORDS = [

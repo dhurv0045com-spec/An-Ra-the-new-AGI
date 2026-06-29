@@ -6,18 +6,15 @@ import json
 from pathlib import Path
 from typing import Any
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-
 import torch
-
 from anra.anra_paths import FRONTIER_CHECKPOINT, OUTPUT_V2_DIR, ROOT
 from runtime.safe_load import safe_torch_load
 from training.v2_config import (
     CHECKPOINT_SCHEMA_VERSION,
     EXPECTED_TOKENIZER_VOCAB_SIZE,
-    TOKENIZER_SCHEMA_VERSION,
+    TOKENIZER_V4_VOCAB_SIZE,
     V2_FRONTIER,
-    V2_FRONTIER_PARAMETER_COUNT,
+    frontier_parameter_count,
 )
 
 
@@ -60,6 +57,11 @@ def _checkpoint_report(path: Path) -> dict[str, Any]:
     token_shape = _tensor_shape(state, "token_embedding_table.weight")
     lm_shape = _tensor_shape(state, "lm_head.weight")
     first_block = _tensor_shape(state, "blocks.0.attn.q_proj.weight")
+    checkpoint_vocab = int(
+        (model_config.get("vocab_size") if isinstance(model_config, dict) else 0)
+        or (token_shape[0] if token_shape else 0)
+    )
+    expected_tokenizer_schema = 4 if checkpoint_vocab == TOKENIZER_V4_VOCAB_SIZE else 3
 
     report = {
         "ok": True,
@@ -81,7 +83,11 @@ def _checkpoint_report(path: Path) -> dict[str, Any]:
             "lm_head.weight": lm_shape,
             "blocks.0.attn.q_proj.weight": first_block,
         },
-        "expected_frontier_params": V2_FRONTIER_PARAMETER_COUNT,
+        "expected_frontier_params": (
+            frontier_parameter_count(checkpoint_vocab)
+            if checkpoint_vocab >= EXPECTED_TOKENIZER_VOCAB_SIZE
+            else None
+        ),
     }
 
     errors: list[str] = []
@@ -97,10 +103,10 @@ def _checkpoint_report(path: Path) -> dict[str, Any]:
             f"checkpoint schema {checkpoint_schema} requires named migration to "
             f"schema {CHECKPOINT_SCHEMA_VERSION} on load"
         )
-    if blob.get("tokenizer_schema_version") != TOKENIZER_SCHEMA_VERSION:
+    if blob.get("tokenizer_schema_version") != expected_tokenizer_schema:
         errors.append(
             f"tokenizer_schema_version={blob.get('tokenizer_schema_version')} "
-            f"expected={TOKENIZER_SCHEMA_VERSION}"
+            f"expected={expected_tokenizer_schema}"
         )
     contract_vocab = tokenizer_contract.get("vocab_size")
     if contract_vocab is None and token_shape and token_shape[0] == EXPECTED_TOKENIZER_VOCAB_SIZE:
@@ -108,13 +114,10 @@ def _checkpoint_report(path: Path) -> dict[str, Any]:
             "legacy checkpoint has no tokenizer_contract.vocab_size; tensor shape "
             "is compatible and runtime tokenizer probes are required"
         )
-    elif int(contract_vocab or 0) != EXPECTED_TOKENIZER_VOCAB_SIZE:
-        errors.append(
-            f"tokenizer_contract.vocab_size={contract_vocab} "
-            f"expected={EXPECTED_TOKENIZER_VOCAB_SIZE}"
-        )
+    elif int(contract_vocab or 0) != checkpoint_vocab:
+        errors.append(f"tokenizer_contract.vocab_size={contract_vocab} expected={checkpoint_vocab}")
     expected_config = {
-        "vocab_size": EXPECTED_TOKENIZER_VOCAB_SIZE,
+        "vocab_size": checkpoint_vocab,
         "n_embd": V2_FRONTIER.n_embd,
         "n_layer": V2_FRONTIER.n_layer,
         "n_head": V2_FRONTIER.n_head,
@@ -128,9 +131,11 @@ def _checkpoint_report(path: Path) -> dict[str, Any]:
                 errors.append(f"model_config.{key}={actual} expected={expected}")
     else:
         errors.append("model_config is missing or not a dict")
-    if token_shape is None or token_shape[0] != EXPECTED_TOKENIZER_VOCAB_SIZE:
+    if checkpoint_vocab not in {EXPECTED_TOKENIZER_VOCAB_SIZE, TOKENIZER_V4_VOCAB_SIZE}:
+        errors.append(f"unsupported append-only vocabulary size: {checkpoint_vocab}")
+    if token_shape is None or token_shape[0] != checkpoint_vocab:
         errors.append(f"token embedding shape mismatch: {token_shape}")
-    if lm_shape is None or lm_shape[0] != EXPECTED_TOKENIZER_VOCAB_SIZE:
+    if lm_shape is None or lm_shape[0] != checkpoint_vocab:
         errors.append(f"lm_head shape mismatch: {lm_shape}")
     if int(blob.get("global_step", blob.get("step", 0)) or 0) <= 0:
         errors.append("global_step is not positive")

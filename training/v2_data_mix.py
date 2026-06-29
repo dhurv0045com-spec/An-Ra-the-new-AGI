@@ -1249,6 +1249,7 @@ class RawCausalShardDataset(Dataset):
         manifest = json.loads(self.manifest_path.read_text(encoding="utf-8"))
         if not isinstance(manifest, dict) or not isinstance(manifest.get("shards"), list):
             raise ValueError(f"Invalid token-shard manifest: {self.manifest_path}")
+        self.manifest = manifest
         manifest_tokenizer = str(manifest.get("tokenizer_sha256", ""))
         if expected_tokenizer_sha256 and manifest_tokenizer != expected_tokenizer_sha256:
             raise ValueError(
@@ -1264,15 +1265,21 @@ class RawCausalShardDataset(Dataset):
         self._arrays: dict[Path, np.ndarray] = {}
         self._shards: list[dict[str, object]] = []
         root = self.manifest_path.parent
-        raw_shards = list(manifest["shards"])
-        if raw_shards:
-            offset = int(rotation_seed) % len(raw_shards)
-            raw_shards = raw_shards[offset:] + raw_shards[:offset]
-        cumulative = 0
-        self._cumulative_windows: list[int] = []
-        for item in raw_shards:
+        stable_shards: list[tuple[dict[str, object], int]] = []
+        stable_cursor = 0
+        for item in manifest["shards"]:
             if not isinstance(item, dict):
                 continue
+            windows = max(0, (int(item.get("tokens", 0)) - 1) // self.block_size)
+            if windows:
+                stable_shards.append((item, stable_cursor))
+                stable_cursor += windows
+        if stable_shards:
+            offset = int(rotation_seed) % len(stable_shards)
+            stable_shards = stable_shards[offset:] + stable_shards[:offset]
+        cumulative = 0
+        self._cumulative_windows: list[int] = []
+        for item, stable_start in stable_shards:
             path = root / str(item.get("path", ""))
             if not path.is_file():
                 raise FileNotFoundError(f"Token shard is missing: {path}")
@@ -1287,7 +1294,14 @@ class RawCausalShardDataset(Dataset):
             windows = max(0, (token_count - 1) // self.block_size)
             if windows == 0:
                 continue
-            self._shards.append({"path": path, "tokens": token_count, "windows": windows})
+            self._shards.append(
+                {
+                    "path": path,
+                    "tokens": token_count,
+                    "windows": windows,
+                    "stable_start": stable_start,
+                }
+            )
             cumulative += windows
             self._cumulative_windows.append(cumulative)
         if not self._shards:
@@ -1327,11 +1341,12 @@ class RawCausalShardDataset(Dataset):
             copy=True,
         )
         tokens = torch.from_numpy(values)
+        stable_index = int(shard["stable_start"]) + local_window
         return (
             tokens[:-1],
             tokens[1:],
             torch.ones(self.block_size, dtype=torch.float32),
-            normalized,
+            stable_index,
         )
 
     @staticmethod
@@ -1349,3 +1364,75 @@ class RawCausalShardDataset(Dataset):
     def snippet(self, sample_index: int, max_chars: int = 240) -> str:
         x, _, _, _ = self[sample_index]
         return self.tokenizer.decode(x.tolist())[:max_chars].replace("\n", "\\n")
+
+
+class WindowConsumptionTracker:
+    """Compact cross-session accounting for immutable raw-token windows."""
+
+    def __init__(
+        self,
+        total_windows: int,
+        block_size: int,
+        *,
+        state: dict[str, object] | None = None,
+    ) -> None:
+        self.total_windows = max(0, int(total_windows))
+        self.block_size = max(1, int(block_size))
+        self._bits = bytearray((self.total_windows + 7) // 8)
+        self.unique_windows = 0
+        self.repeated_windows = 0
+        if state:
+            self.load_state_dict(state)
+
+    def mark(self, indices: Iterable[int]) -> None:
+        for raw_index in indices:
+            index = int(raw_index)
+            if index < 0 or index >= self.total_windows:
+                raise IndexError(index)
+            byte_index, bit_index = divmod(index, 8)
+            mask = 1 << bit_index
+            if self._bits[byte_index] & mask:
+                self.repeated_windows += 1
+            else:
+                self._bits[byte_index] |= mask
+                self.unique_windows += 1
+
+    def state_dict(self) -> dict[str, object]:
+        return {
+            "schema_version": 1,
+            "total_windows": self.total_windows,
+            "block_size": self.block_size,
+            "bits": bytes(self._bits),
+            "unique_windows": self.unique_windows,
+            "repeated_windows": self.repeated_windows,
+        }
+
+    def load_state_dict(self, state: dict[str, object]) -> None:
+        if int(state.get("total_windows", -1)) != self.total_windows:
+            raise ValueError("Raw shard window inventory changed across continuation sessions")
+        if int(state.get("block_size", -1)) != self.block_size:
+            raise ValueError("Raw shard block size changed across continuation sessions")
+        bits = bytes(state.get("bits", b""))
+        if len(bits) != len(self._bits):
+            raise ValueError("Raw shard consumption bitmap has an invalid length")
+        self._bits[:] = bits
+        self.unique_windows = int(state.get("unique_windows", 0))
+        self.repeated_windows = int(state.get("repeated_windows", 0))
+        if self.unique_windows != sum(byte.bit_count() for byte in self._bits):
+            raise ValueError("Raw shard consumption bitmap count is inconsistent")
+
+    def report(self, *, phase_target_tokens: int | None = None) -> dict[str, object]:
+        total_visits = self.unique_windows + self.repeated_windows
+        unique_tokens = self.unique_windows * self.block_size
+        return {
+            "total_windows": self.total_windows,
+            "unique_windows_consumed": self.unique_windows,
+            "repeated_windows": self.repeated_windows,
+            "unique_tokens_consumed": unique_tokens,
+            "repeated_token_percentage": (100.0 * self.repeated_windows / max(1, total_visits)),
+            "remaining_phase_tokens": (
+                max(0, int(phase_target_tokens) - unique_tokens)
+                if phase_target_tokens is not None
+                else None
+            ),
+        }

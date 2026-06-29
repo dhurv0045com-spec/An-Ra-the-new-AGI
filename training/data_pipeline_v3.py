@@ -243,6 +243,7 @@ class TokenShardPublisher:
         rejection_counts: dict[str, int] = {}
         accepted_records = 0
         source_counts: dict[str, int] = {}
+        source_token_counts: dict[str, int] = {}
         verifier_counts: dict[str, int] = {}
 
         def consume_segment_metadata(token_count: int) -> dict[str, object]:
@@ -322,6 +323,9 @@ class TokenShardPublisher:
             eos_id = int(getattr(tokenizer, "eos_token_id", -1))
             if eos_id >= 0 and (not token_ids or token_ids[-1] != eos_id):
                 token_ids.append(eos_id)
+            source_token_counts[record.source] = source_token_counts.get(record.source, 0) + len(
+                token_ids
+            )
             buffer.extend(token_ids)
             buffer_segments.append(
                 {
@@ -355,6 +359,7 @@ class TokenShardPublisher:
             "pending_tokens": len(buffer),
             "accepted_records": accepted_records,
             "source_record_mix": source_counts,
+            "source_token_mix": source_token_counts,
             "verifier_record_distribution": verifier_counts,
             "rejection_counts": rejection_counts,
             "quality": validator.ledger.report(),

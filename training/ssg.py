@@ -171,13 +171,26 @@ class SovereignScalingGovernor:
         tokenizer_manifest = self._load(paths["tokenizer_manifest"])
         if tokenizer_manifest is None:
             blocked.append(f"No tokenizer manifest at {paths['tokenizer_manifest']}")
-        elif (
-            int(tokenizer_manifest.get("vocab_size", 0)) != 8209
-            or int(tokenizer_manifest.get("schema_version", 0)) < 3
-        ):
-            blocked.append("Tokenizer manifest is not the canonical 8,209-token V3 contract")
         else:
-            passed.append("tokenizer manifest")
+            tokenizer_vocab = int(tokenizer_manifest.get("vocab_size", 0))
+            tokenizer_schema = int(tokenizer_manifest.get("schema_version", 0))
+            fertility = tokenizer_manifest.get("fertility_audit", {})
+            canonical_v3 = tokenizer_vocab == 8_209 and tokenizer_schema == 3
+            eligible_v4 = (
+                tokenizer_vocab == 16_384
+                and tokenizer_schema == 4
+                and isinstance(fertility, dict)
+                and int(fertility.get("sampled_units", 0)) >= 1_000_000
+                and float(fertility.get("projected_reduction", 0.0)) >= 0.15
+                and bool(fertility.get("eligible_for_schema_v4", False))
+            )
+            if not (canonical_v3 or eligible_v4):
+                blocked.append(
+                    "Tokenizer manifest is neither canonical V3 nor "
+                    "evidence-qualified append-only V4"
+                )
+            else:
+                passed.append("tokenizer manifest")
 
         for key, label in (
             ("sovereignty_tests", "sovereignty tests"),
