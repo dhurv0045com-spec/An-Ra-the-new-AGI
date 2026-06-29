@@ -856,11 +856,16 @@ def verify_kv_cache_parity(
     }
 
 
-def verify_session_state_isolation() -> dict[str, object]:
-    """Probe request-scoped stores without changing persistent user sessions."""
+def verify_session_state_isolation(*, probe_generation: bool = False) -> dict[str, object]:
+    """Probe request-scoped stores and optionally exercise real model generation."""
     suffix = str(time.time_ns())
     session_a = f"isolation_a_{suffix}"
     session_b = f"isolation_b_{suffix}"
+    model_esv_before = None
+    if probe_generation and _MODEL is not None:
+        esv_module = getattr(_native_model(_MODEL), "esv_module", None)
+        if esv_module is not None and hasattr(esv_module, "state"):
+            model_esv_before = esv_module.state.detach().clone()
     with _GENERATION_LOCK:
         try:
             _ESV_STORE[session_a] = torch.tensor([0.11, 0.22, 0.33])
@@ -876,10 +881,32 @@ def verify_session_state_isolation() -> dict[str, object]:
                 and _GHOST_STORE[session_b].get("sentinel") == "b"
             )
             hal_isolated = _hal_path(session_a) != _hal_path(session_b)
-            verified = esv_isolated and ghost_isolated and hal_isolated
+            generation_state_isolated = not probe_generation
+            if probe_generation:
+                session_b_esv = _ESV_STORE[session_b].clone()
+                session_b_ghost = dict(_GHOST_STORE[session_b])
+                generate_traced(
+                    "H: Return one short isolation probe token.\nANRA:",
+                    GenerationConfig(
+                        strategy="greedy",
+                        max_tokens=4,
+                        seed=9127,
+                        use_kv_cache=False,
+                        mode="native",
+                    ),
+                    session_id=session_a,
+                )
+                generation_state_isolated = torch.equal(
+                    _ESV_STORE[session_b], session_b_esv
+                ) and _GHOST_STORE[session_b] == session_b_ghost
+            verified = (
+                esv_isolated and ghost_isolated and hal_isolated and generation_state_isolated
+            )
             return {
                 "verified": verified,
                 "generation_serialized": True,
+                "runtime_generation_probed": probe_generation,
+                "generation_state_isolated": generation_state_isolated,
                 "esv_isolated": esv_isolated,
                 "ghost_isolated": ghost_isolated,
                 "hal_paths_isolated": hal_isolated,
@@ -889,6 +916,18 @@ def verify_session_state_isolation() -> dict[str, object]:
             _ESV_STORE.pop(session_b, None)
             _GHOST_STORE.pop(session_a, None)
             _GHOST_STORE.pop(session_b, None)
+            _HAL_STORE.pop(session_a, None)
+            _HAL_STORE.pop(session_b, None)
+            _hal_path(session_a).unlink(missing_ok=True)
+            _hal_path(session_b).unlink(missing_ok=True)
+            if probe_generation and _MODEL is not None:
+                esv_module = getattr(_native_model(_MODEL), "esv_module", None)
+                if esv_module is not None and hasattr(esv_module, "state"):
+                    if model_esv_before is None:
+                        esv_module.state.zero_()
+                    else:
+                        esv_module.state.copy_(model_esv_before.to(esv_module.state))
+                    setattr(_native_model(_MODEL), "_pending_esv_state", None)
 
 
 def clear_session_runtime_state(session_id: str) -> None:

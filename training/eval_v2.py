@@ -1,9 +1,13 @@
 from __future__ import annotations
 
+import contextlib
 import hashlib
+import hmac
 import json
 import math
 import re
+import secrets
+import tempfile
 import time
 from collections import defaultdict
 from collections.abc import Callable
@@ -72,13 +76,12 @@ COMPACT_EVAL_SUITE = [
 ]
 
 
-def build_private_eval_suite(size: int = 500) -> list[dict[str, object]]:
-    """Build deterministic, checkable tasks without storing answers in training data."""
-    categories = (
+PRIVATE_EVAL_CATEGORIES = (
         "coherence",
         "identity",
         "instruction",
         "context_qa",
+        "code",
         "math",
         "logic",
         "format",
@@ -89,25 +92,56 @@ def build_private_eval_suite(size: int = 500) -> list[dict[str, object]]:
         "calibration",
         "safety",
         "malformed",
-    )
+)
+
+
+def _private_material(secret: bytes, index: int, label: str) -> bytes:
+    return hmac.new(secret, f"{label}:{index}".encode(), hashlib.sha256).digest()
+
+
+def build_private_eval_suite(
+    size: int = 500,
+    *,
+    secret: bytes | None = None,
+) -> list[dict[str, object]]:
+    """Build checkable tasks; a secret makes the exact held-out suite non-public."""
+    secret = secret or b"anra-public-development-suite-v2"
     tasks: list[dict[str, object]] = []
     for index in range(size):
-        category = categories[index % len(categories)]
-        nonce = f"anra-{index:04d}-{(index * 7919) % 104729:05d}"
+        category = PRIVATE_EVAL_CATEGORIES[index % len(PRIVATE_EVAL_CATEGORIES)]
+        material = _private_material(secret, index, category)
+        nonce = f"anra-{material[:8].hex()}"
         if category in {"context_qa", "memory", "long_context"}:
-            filler = "stable context evidence " * (80 if category == "long_context" else 2)
-            prompt = (
-                f"H: Use only this supplied context: key={nonce}. {filler}"
-                "Return the key exactly.\nANRA:"
-            )
+            if category == "long_context":
+                before = "stable context evidence " * 140
+                after = "verified technical record " * 140
+                prompt = (
+                    f"H: Use only this supplied context: {before} key={nonce}. {after}"
+                    "Return the key exactly.\nANRA:"
+                )
+            else:
+                prompt = (
+                    f"H: Use only this supplied context: key={nonce}. "
+                    "Stable context evidence. Return the key exactly.\nANRA:"
+                )
             expected = nonce
             scorer = "exact_contains"
+        elif category == "code":
+            factor = 2 + material[8] % 7
+            offset = material[9] % 11
+            function_name = f"anra_transform_{material[10:14].hex()}"
+            prompt = (
+                f"H: Write Python function {function_name}(values) that returns a new list "
+                f"where each integer x becomes x * {factor} + {offset}. Return only code.\nANRA:"
+            )
+            expected = function_name
+            scorer = "python_execution"
         elif category == "math":
-            left = 17 + index
-            right = 3 + index % 19
+            left = 17 + int.from_bytes(material[12:14], "big") % 900
+            right = 3 + int.from_bytes(material[14:16], "big") % 97
             prompt = f"H: Calculate {left} + {right}. Return only the integer.\nANRA:"
             expected = str(left + right)
-            scorer = "exact_normalized"
+            scorer = "integer_addition"
         elif category == "logic":
             prompt = (
                 "H: If every A is B and every B is C, does every A have to be C? "
@@ -124,9 +158,12 @@ def build_private_eval_suite(size: int = 500) -> list[dict[str, object]]:
             expected = nonce
             scorer = "exact_normalized"
         elif category == "identity":
-            prompt = "H: State your model identity in one short sentence.\nANRA:"
-            expected = "an-ra"
-            scorer = "exact_contains"
+            prompt = (
+                "H: State your model identity and native model lineage in one short sentence.\n"
+                "ANRA:"
+            )
+            expected = "an-ra native lineage"
+            scorer = "identity_semantic"
         elif category == "dfc":
             prompt = (
                 "H: Return these labels in order with one short value each: "
@@ -161,9 +198,100 @@ def build_private_eval_suite(size: int = 500) -> list[dict[str, object]]:
                 "prompt": prompt,
                 "expected": expected,
                 "scorer": scorer,
+                **(
+                    {
+                        "operands": [left, right],
+                        "operation": "add",
+                    }
+                    if category == "math"
+                    else {}
+                ),
+                **(
+                    {
+                        "function_name": function_name,
+                        "test_values": [1, 4, 9],
+                        "test_expected": [
+                            value * factor + offset for value in [1, 4, 9]
+                        ],
+                    }
+                    if category == "code"
+                    else {}
+                ),
             }
         )
     return tasks
+
+
+def ensure_private_eval_suite(
+    root: str | Path,
+    *,
+    size: int = 500,
+) -> tuple[list[dict[str, object]], dict[str, object]]:
+    """Create once or verify an immutable, secret-derived held-out suite."""
+    directory = Path(root)
+    directory.mkdir(parents=True, exist_ok=True)
+    key_path = directory / "private_eval_v1.key"
+    suite_path = directory / "private_eval_v1.jsonl"
+    manifest_path = directory / "private_eval_v1.manifest.json"
+    paths = (key_path, suite_path, manifest_path)
+    existing = [path.is_file() for path in paths]
+    if any(existing) and not all(existing):
+        raise RuntimeError("Private evaluation artifact is incomplete; refusing regeneration")
+
+    if not all(existing):
+        key = secrets.token_bytes(32)
+        tasks = build_private_eval_suite(size, secret=key)
+        suite_bytes = "".join(
+            json.dumps(task, sort_keys=True, separators=(",", ":")) + "\n" for task in tasks
+        ).encode("utf-8")
+        key_path.write_bytes(key)
+        with contextlib.suppress(OSError):
+            key_path.chmod(0o600)
+        suite_tmp = suite_path.with_suffix(".tmp")
+        suite_tmp.write_bytes(suite_bytes)
+        suite_tmp.replace(suite_path)
+        manifest = {
+            "schema_version": 1,
+            "generated_at": time.time(),
+            "task_count": len(tasks),
+            "categories": list(PRIVATE_EVAL_CATEGORIES),
+            "suite_sha256": hashlib.sha256(suite_bytes).hexdigest(),
+            "key_sha256": hashlib.sha256(key).hexdigest(),
+        }
+        manifest_tmp = manifest_path.with_suffix(".tmp")
+        manifest_tmp.write_text(json.dumps(manifest, indent=2, sort_keys=True), encoding="utf-8")
+        manifest_tmp.replace(manifest_path)
+
+    key = key_path.read_bytes()
+    suite_bytes = suite_path.read_bytes()
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if not isinstance(manifest, dict):
+        raise RuntimeError("Private evaluation manifest is malformed")
+    if not hmac.compare_digest(
+        hashlib.sha256(suite_bytes).hexdigest(), str(manifest.get("suite_sha256", ""))
+    ) or not hmac.compare_digest(
+        hashlib.sha256(key).hexdigest(), str(manifest.get("key_sha256", ""))
+    ):
+        raise RuntimeError("Private evaluation artifact hash mismatch")
+    tasks = [json.loads(line) for line in suite_bytes.decode("utf-8").splitlines() if line]
+    categories = {str(task.get("category", "")) for task in tasks if isinstance(task, dict)}
+    task_ids = [str(task.get("id", "")) for task in tasks if isinstance(task, dict)]
+    if (
+        len(tasks) < 500
+        or len(tasks) != int(manifest.get("task_count", -1))
+        or len(task_ids) != len(set(task_ids))
+        or not set(PRIVATE_EVAL_CATEGORIES).issubset(categories)
+    ):
+        raise RuntimeError("Private evaluation suite coverage or identity is invalid")
+    metadata = {
+        "verified": True,
+        "origin": "private_artifact",
+        "suite_sha256": manifest["suite_sha256"],
+        "task_count": len(tasks),
+        "suite_path": str(suite_path),
+        "manifest_path": str(manifest_path),
+    }
+    return tasks, metadata
 
 
 PRIVATE_EVAL_SUITE = build_private_eval_suite()
@@ -205,6 +333,7 @@ REQUIRED_RELEASE_EVIDENCE = (
     "configuration_manifest_verified",
     "rollback_drill_passed",
     "recovery_prompt_gate",
+    "private_promotion_evaluation",
     "signed_release_bundle",
 )
 
@@ -355,6 +484,9 @@ def run_private_mode_seed_evaluation(
     *,
     tasks: list[dict[str, object]] | None = None,
     release_evidence: dict[str, object] | None = None,
+    suite_metadata: dict[str, object] | None = None,
+    human_reviews: dict[str, bool] | None = None,
+    progress_callback: Callable[[dict[str, object]], None] | None = None,
 ) -> dict[str, object]:
     """Run promotion evaluation over modes, seeds, and native ablations."""
     suite = list(tasks or PRIVATE_EVAL_SUITE)
@@ -363,38 +495,77 @@ def run_private_mode_seed_evaluation(
     modes = ("diagnostic", "native", "full_system")
     seeds = (1301, 2303, 3307)
     reports: list[dict[str, object]] = []
+    review_queue: list[dict[str, object]] = []
 
     def run_slice(mode: str, seed: int, ablation: str | None = None) -> dict[str, object]:
         scores: list[float] = []
         latencies: list[float] = []
         repetition_failures = 0
         eos_failures = 0
+        generation_failures = 0
         format_scores: list[float] = []
         coherence_scores: list[float] = []
+        long_context_prompt_tokens: list[int] = []
         traced_subsystems: set[str] = set()
+        category_scores: dict[str, list[float]] = defaultdict(list)
+        failure_samples: list[dict[str, object]] = []
         for task in suite:
             trace = generator(str(task["prompt"]), mode, seed, ablation)
             response = str(getattr(trace, "output", trace))
-            score, _ = _private_task_score(task, response)
+            score, score_reason = _private_task_score(task, response)
             scores.append(score)
             latencies.append(float(getattr(trace, "time_ms", 0.0)))
-            if bool(getattr(trace, "repeated_ngrams_detected", False)):
+            repeated = bool(getattr(trace, "repeated_ngrams_detected", False))
+            fragmented = bool(getattr(trace, "language_fragment_detected", False))
+            quality_state = str(getattr(trace, "quality_state", "unknown"))
+            stop_reason = str(getattr(trace, "stopped_by", "missing_stop_reason"))
+            eos_failed = stop_reason not in {"eos", "stop_string"}
+            if repeated:
                 repetition_failures += 1
-            if str(getattr(trace, "stopped_by", "missing_stop_reason")) not in {
-                "eos",
-                "stop_string",
-            }:
+            if eos_failed:
                 eos_failures += 1
+            if repeated or eos_failed:
+                generation_failures += 1
+            coherence_scores.append(
+                float(
+                    bool(response.strip())
+                    and not repeated
+                    and not fragmented
+                    and quality_state == "accepted"
+                )
+            )
             subsystem_trace = getattr(trace, "subsystem_trace", {})
             if isinstance(subsystem_trace, dict):
                 for subsystem in ("mod", "rim", "dstp", "esv", "hal"):
                     if subsystem_trace.get(f"{subsystem}_executed") is True:
                         traced_subsystems.add(subsystem)
             category = str(task["category"])
+            category_scores[category].append(score)
+            if score < 1.0 and len(failure_samples) < 25:
+                failure_samples.append(
+                    {
+                        "id": task["id"],
+                        "category": category,
+                        "prompt": str(task["prompt"]),
+                        "response": response,
+                        "score": score,
+                        "score_reason": score_reason,
+                        "stop_reason": stop_reason,
+                        "quality_state": quality_state,
+                    }
+                )
             if category in {"format", "instruction", "dfc"}:
                 format_scores.append(score)
-            if category == "coherence":
-                coherence_scores.append(score)
+            if category == "long_context":
+                long_context_prompt_tokens.append(int(getattr(trace, "prompt_tokens", 0)))
+            if mode == "full_system" and ablation is None and category == "coherence":
+                review_queue.append(
+                    {
+                        "review_id": f"{task['id']}:{seed}",
+                        "prompt": str(task["prompt"]),
+                        "response": response,
+                    }
+                )
         return {
             "mode": mode,
             "seed": seed,
@@ -402,75 +573,198 @@ def run_private_mode_seed_evaluation(
             "score": sum(scores) / len(scores),
             "coherence_rate": sum(coherence_scores) / max(1, len(coherence_scores)),
             "format_compliance": sum(format_scores) / max(1, len(format_scores)),
+            "minimum_long_context_prompt_tokens": min(long_context_prompt_tokens, default=0),
             "repetition_failure_rate": repetition_failures / len(scores),
             "eos_failure_rate": eos_failures / len(scores),
+            "generation_failure_rate": generation_failures / len(scores),
             "mean_latency_ms": sum(latencies) / max(1, len(latencies)),
             "traced_subsystems": sorted(traced_subsystems),
+            "category_scores": {
+                category: sum(values) / len(values)
+                for category, values in sorted(category_scores.items())
+            },
+            "failure_samples": failure_samples,
         }
 
     for mode in modes:
         for seed in seeds:
-            reports.append(run_slice(mode, seed))
+            report = run_slice(mode, seed)
+            reports.append(report)
+            if progress_callback is not None:
+                progress_callback(
+                    {
+                        "phase": "mode_seed",
+                        "completed_slices": len(reports),
+                        "total_slices": len(modes) * len(seeds) + 5 * len(seeds),
+                        "last_report": report,
+                    }
+                )
 
     ablations: dict[str, dict[str, float | bool]] = {}
+    ablation_reports: list[dict[str, object]] = []
     full_baselines = {
         int(report["seed"]): report
         for report in reports
         if report["mode"] == "full_system" and report["ablation"] is None
     }
     for subsystem in ("mod", "rim", "dstp", "esv", "hal"):
-        baseline_scores: list[float] = []
-        ablated_scores: list[float] = []
+        seed_contributions: list[float] = []
         latency_costs: list[float] = []
+        latency_fractions: list[float] = []
+        isolated_traces: list[bool] = []
         for seed in seeds:
             baseline = full_baselines[seed]
             ablated = run_slice("full_system", seed, subsystem)
-            baseline_scores.append(float(baseline["score"]))
-            ablated_scores.append(float(ablated["score"]))
-            latency_costs.append(
-                float(baseline["mean_latency_ms"]) - float(ablated["mean_latency_ms"])
+            ablation_reports.append(ablated)
+            contribution = float(baseline["score"]) - float(ablated["score"])
+            latency_cost = float(baseline["mean_latency_ms"]) - float(
+                ablated["mean_latency_ms"]
             )
-        contribution = sum(baseline_scores) / 3 - sum(ablated_scores) / 3
+            baseline_latency = max(1e-9, float(baseline["mean_latency_ms"]))
+            traced = set(ablated["traced_subsystems"])
+            expected_traced = {"mod", "rim", "dstp", "esv", "hal"} - {subsystem}
+            seed_contributions.append(contribution)
+            latency_costs.append(latency_cost)
+            latency_fractions.append(max(0.0, latency_cost) / baseline_latency)
+            isolated_traces.append(traced == expected_traced)
+            if progress_callback is not None:
+                progress_callback(
+                    {
+                        "phase": "ablation",
+                        "completed_slices": len(reports) + len(ablation_reports),
+                        "total_slices": len(modes) * len(seeds) + 5 * len(seeds),
+                        "last_report": ablated,
+                    }
+                )
+        contribution = sum(seed_contributions) / len(seed_contributions)
         ablations[subsystem] = {
             "capability_contribution": contribution,
-            "mean_latency_cost_ms": sum(latency_costs) / 3,
-            "positive_three_seed_contribution": contribution > 0.0,
+            "seed_contributions": seed_contributions,
+            "mean_latency_cost_ms": sum(latency_costs) / len(latency_costs),
+            "max_latency_cost_fraction": max(latency_fractions),
+            "positive_three_seed_contribution": all(value > 0.0 for value in seed_contributions),
+            "bounded_latency_cost": max(latency_fractions) <= 0.25,
+            "isolated_trace_verified": all(isolated_traces),
         }
 
     full_reports = [report for report in reports if report["mode"] == "full_system"]
-    promotion_gates = {
+    reviews = human_reviews or {}
+    reviewed = [item for item in review_queue if str(item["review_id"]) in reviews]
+    review_coherence = (
+        sum(bool(reviews[str(item["review_id"])]) for item in reviewed) / len(reviewed)
+        if reviewed
+        else 0.0
+    )
+    human_review = {
+        "required": len(review_queue),
+        "completed": len(reviewed),
+        "coherence_rate": review_coherence,
+        "passed": len(reviewed) == len(review_queue) and review_coherence >= 0.90,
+    }
+    capability_gates = {
+        "private_suite_verified": bool(
+            suite_metadata
+            and suite_metadata.get("verified") is True
+            and suite_metadata.get("origin") == "private_artifact"
+            and int(suite_metadata.get("task_count", 0)) == len(suite)
+        ),
         "coherence": min(float(report["coherence_rate"]) for report in full_reports) >= 0.90,
         "format_compliance": (
             min(float(report["format_compliance"]) for report in full_reports) >= 0.85
         ),
-        "repetition_and_eos": (
-            max(
-                float(report["repetition_failure_rate"]) + float(report["eos_failure_rate"])
-                for report in full_reports
-            )
-            < 0.01
-        ),
+        "repetition_and_eos": max(
+            float(report["generation_failure_rate"]) for report in full_reports
+        )
+        < 0.01,
         "at_least_1000_full_system_generations": len(suite) * len(seeds) >= 1_000,
+        "long_context_coverage": min(
+            int(report["minimum_long_context_prompt_tokens"]) for report in full_reports
+        )
+        >= 768,
         "positive_native_ablations": all(
             bool(report["positive_three_seed_contribution"]) for report in ablations.values()
+        ),
+        "bounded_native_latency": all(
+            bool(report["bounded_latency_cost"]) for report in ablations.values()
+        ),
+        "isolated_ablation_traces": all(
+            bool(report["isolated_trace_verified"]) for report in ablations.values()
         ),
         "all_subsystems_traced": all(
             set(report["traced_subsystems"]) == {"mod", "rim", "dstp", "esv", "hal"}
             for report in full_reports
         ),
-        **release_evidence_gates(release_evidence),
+        "blinded_human_review": bool(human_review["passed"]),
     }
+    release_gates = release_evidence_gates(release_evidence)
+    promotion_gates = {**capability_gates, **release_gates}
     return {
-        "schema_version": 2,
+        "schema_version": 3,
         "task_count": len(suite),
+        "suite_metadata": dict(suite_metadata or {}),
         "modes": list(modes),
         "seeds": list(seeds),
         "reports": reports,
+        "ablation_reports": ablation_reports,
         "ablations": ablations,
+        "human_review": human_review,
+        "human_review_queue": review_queue,
         "release_evidence": dict(release_evidence or {}),
+        "capability_gates": capability_gates,
+        "capability_allowed": all(capability_gates.values()),
         "promotion_gates": promotion_gates,
         "promotion_allowed": all(promotion_gates.values()),
     }
+
+
+def apply_blinded_human_reviews(
+    report: dict[str, object],
+    reviews: dict[str, bool],
+) -> dict[str, object]:
+    """Apply blinded coherence judgements without rerunning expensive generations."""
+    queue = report.get("human_review_queue", [])
+    if not isinstance(queue, list) or not queue:
+        raise ValueError("Private evaluation report has no human review queue")
+    expected = {
+        str(item.get("review_id", ""))
+        for item in queue
+        if isinstance(item, dict) and item.get("review_id")
+    }
+    unknown = set(reviews) - expected
+    if unknown:
+        raise ValueError(f"Unknown private review IDs: {sorted(unknown)[:3]}")
+    completed = expected.intersection(reviews)
+    coherence_rate = (
+        sum(bool(reviews[review_id]) for review_id in completed) / len(completed)
+        if completed
+        else 0.0
+    )
+    human_review = {
+        "required": len(expected),
+        "completed": len(completed),
+        "coherence_rate": coherence_rate,
+        "passed": len(completed) == len(expected) and coherence_rate >= 0.90,
+    }
+    capability_gates = dict(report.get("capability_gates", {}))
+    capability_gates["blinded_human_review"] = bool(human_review["passed"])
+    release_gates = release_evidence_gates(
+        report.get("release_evidence", {})
+        if isinstance(report.get("release_evidence", {}), dict)
+        else {}
+    )
+    promotion_gates = {**capability_gates, **release_gates}
+    updated = dict(report)
+    updated.update(
+        {
+            "human_review": human_review,
+            "human_reviews": {key: bool(value) for key, value in reviews.items()},
+            "capability_gates": capability_gates,
+            "capability_allowed": all(capability_gates.values()),
+            "promotion_gates": promotion_gates,
+            "promotion_allowed": all(promotion_gates.values()),
+        }
+    )
+    return updated
 
 
 GOLDEN_EVAL_SCHEMA_VERSION = 2
@@ -542,6 +836,57 @@ def _private_task_score(item: dict[str, object], response: str) -> tuple[float, 
     expected_normalized = _normalize(expected)
     if scorer == "exact_normalized":
         return float(normalized == expected_normalized), "exact normalized match"
+    if scorer == "integer_addition":
+        operands = item.get("operands", [])
+        if not isinstance(operands, list) or len(operands) != 2:
+            return 0.0, "invalid math verifier contract"
+        verified = int(operands[0]) + int(operands[1])
+        return float(normalized == str(verified)), "executed integer addition verifier"
+    if scorer == "python_execution":
+        function_name = str(item.get("function_name", ""))
+        values = item.get("test_values", [])
+        expected_values = item.get("test_expected", [])
+        if not function_name or not isinstance(values, list) or not isinstance(
+            expected_values, list
+        ):
+            return 0.0, "invalid code execution contract"
+        fenced = re.search(r"```(?:python)?\s*(.*?)```", response, flags=re.DOTALL | re.IGNORECASE)
+        candidate = fenced.group(1).strip() if fenced else response.strip()
+        if not candidate:
+            return 0.0, "empty code response"
+        test = (
+            f"\n_result = {function_name}({values!r})\n"
+            f"assert _result == {expected_values!r}, (_result, {expected_values!r})\n"
+        )
+        from execution.sandbox import CodeSandbox
+
+        with tempfile.TemporaryDirectory(prefix="anra-private-code-") as workspace:
+            result = CodeSandbox(workspace, timeout=5).execute(candidate + test)
+        return float(result.success), (
+            "sandboxed code execution passed"
+            if result.success
+            else f"sandboxed code execution failed: {result.stderr[:160]}"
+        )
+    if scorer == "identity_semantic":
+        name_present = "an-ra" in normalized or "an ra" in normalized
+        native_lineage = any(
+            phrase in normalized
+            for phrase in (
+                "native model",
+                "native lineage",
+                "own model",
+                "own weights",
+                "trained from scratch",
+                "an-ra model",
+            )
+        )
+        conflicting_brand = any(
+            brand in normalized
+            for brand in ("chatgpt", "openai", "claude", "gemini", "llama", "mistral")
+        )
+        complete_sentence = len(normalized.split()) >= 5
+        passed = name_present and native_lineage and complete_sentence and not conflicting_brand
+        return float(passed), "semantic native-identity contract"
     if scorer in {"exact_contains", "coherent_contains"}:
         present = expected_normalized in normalized
         coherent = len(normalized.split()) >= 3 if scorer == "coherent_contains" else True
@@ -557,9 +902,20 @@ def _private_task_score(item: dict[str, object], response: str) -> tuple[float, 
     if scorer == "ordered_labels":
         labels = expected.split("|")
         positions = [normalized.find(label) for label in labels]
-        return float(
-            all(value >= 0 for value in positions) and positions == sorted(positions)
-        ), "ordered DFC labels"
+        ordered = all(value >= 0 for value in positions) and positions == sorted(positions)
+        values_present = False
+        if ordered:
+            values_present = all(
+                bool(
+                    normalized[
+                        positions[index] + len(label) : (
+                            positions[index + 1] if index + 1 < len(labels) else len(normalized)
+                        )
+                    ].strip(" :;,.-")
+                )
+                for index, label in enumerate(labels)
+            )
+        return float(ordered and values_present), "parsed ordered DFC labels with values"
     return 0.0, "unknown scorer"
 
 

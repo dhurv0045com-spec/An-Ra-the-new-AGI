@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -148,3 +149,131 @@ def test_context_growth_evidence_requires_ordered_growth_and_all_gates() -> None
             retrieval_baseline_accuracy=0.5,
             retrieval_candidate_accuracy=0.6,
         )
+
+
+def test_private_eval_artifact_is_secret_derived_immutable_and_complete(tmp_path: Path) -> None:
+    tasks, metadata = eval_v2.ensure_private_eval_suite(tmp_path)
+
+    assert len(tasks) == 500
+    assert metadata["verified"] is True
+    assert metadata["origin"] == "private_artifact"
+    assert {task["category"] for task in tasks} == set(eval_v2.PRIVATE_EVAL_CATEGORIES)
+    second_tasks, second_metadata = eval_v2.ensure_private_eval_suite(tmp_path)
+    assert second_tasks == tasks
+    assert second_metadata["suite_sha256"] == metadata["suite_sha256"]
+
+    suite_path = tmp_path / "private_eval_v1.jsonl"
+    suite_path.write_text(suite_path.read_text(encoding="utf-8") + "{}\n", encoding="utf-8")
+    with pytest.raises(RuntimeError, match="hash mismatch"):
+        eval_v2.ensure_private_eval_suite(tmp_path)
+
+
+def test_private_math_and_code_scores_use_executable_verifiers() -> None:
+    math_task = {
+        "scorer": "integer_addition",
+        "expected": "not-trusted",
+        "operands": [19, 23],
+    }
+    code_task = {
+        "scorer": "python_execution",
+        "expected": "transform",
+        "function_name": "transform",
+        "test_values": [1, 4, 9],
+        "test_expected": [5, 11, 21],
+    }
+
+    assert eval_v2._private_task_score(math_task, "42")[0] == 1.0
+    assert eval_v2._private_task_score(math_task, "not-trusted")[0] == 0.0
+    assert (
+        eval_v2._private_task_score(
+            code_task,
+            "```python\ndef transform(values):\n    return [2 * value + 3 for value in values]\n```",
+        )[0]
+        == 1.0
+    )
+    assert eval_v2._private_task_score(code_task, "def transform(values): return []")[0] == 0.0
+
+
+def test_private_identity_and_dfc_scorers_reject_keyword_only_shortcuts() -> None:
+    identity = {"scorer": "identity_semantic", "expected": "an-ra native lineage"}
+    dfc = {
+        "scorer": "ordered_labels",
+        "expected": "[goal]|[constraint]|[hypothesis]|[action]|[result]|[verify]|[update]",
+    }
+
+    assert (
+        eval_v2._private_task_score(
+            identity,
+            "I am An-Ra, a native model with my own weights and lineage.",
+        )[0]
+        == 1.0
+    )
+    assert eval_v2._private_task_score(identity, "I am An-Ra.")[0] == 0.0
+    assert eval_v2._private_task_score(identity, "I am ChatGPT called An-Ra native model.")[0] == 0.0
+    empty_labels = "[GOAL] [CONSTRAINT] [HYPOTHESIS] [ACTION] [RESULT] [VERIFY] [UPDATE]"
+    populated = (
+        "[GOAL] solve [CONSTRAINT] finite [HYPOTHESIS] test [ACTION] run "
+        "[RESULT] pass [VERIFY] checked [UPDATE] retain"
+    )
+    assert eval_v2._private_task_score(dfc, empty_labels)[0] == 0.0
+    assert eval_v2._private_task_score(dfc, populated)[0] == 1.0
+
+
+def test_private_promotion_requires_each_seed_trace_latency_and_blinded_review() -> None:
+    tasks = [
+        {
+            "id": f"heldout_{index:04d}",
+            "category": (
+                "coherence"
+                if index % 10 == 0
+                else "long_context"
+                if index % 10 == 1
+                else "instruction"
+            ),
+            "prompt": f"H: private prompt {index}\nANRA:",
+            "expected": "ok",
+            "scorer": "exact_normalized",
+        }
+        for index in range(500)
+    ]
+
+    def generator(_prompt: str, _mode: str, _seed: int, ablation: str | None):
+        executed = {
+            f"{name}_executed": name != ablation
+            for name in ("mod", "rim", "dstp", "esv", "hal")
+        }
+        return SimpleNamespace(
+            output="bad" if ablation else "ok",
+            time_ms=9.0 if ablation else 10.0,
+            repeated_ngrams_detected=False,
+            language_fragment_detected=False,
+            quality_state="accepted",
+            stopped_by="eos",
+            prompt_tokens=900,
+            subsystem_trace=executed,
+        )
+
+    report = eval_v2.run_private_mode_seed_evaluation(
+        generator,
+        tasks=tasks,
+        suite_metadata={
+            "verified": True,
+            "origin": "private_artifact",
+            "task_count": 500,
+            "suite_sha256": "unit-test",
+        },
+    )
+
+    assert report["capability_allowed"] is False
+    assert report["capability_gates"]["blinded_human_review"] is False
+    assert all(
+        item["positive_three_seed_contribution"]
+        and item["bounded_latency_cost"]
+        and item["isolated_trace_verified"]
+        for item in report["ablations"].values()
+    )
+    reviews = {item["review_id"]: True for item in report["human_review_queue"]}
+    reviewed = eval_v2.apply_blinded_human_reviews(report, reviews)
+    assert reviewed["human_review"]["completed"] == reviewed["human_review"]["required"]
+    assert reviewed["capability_allowed"] is True
+    assert reviewed["promotion_allowed"] is False

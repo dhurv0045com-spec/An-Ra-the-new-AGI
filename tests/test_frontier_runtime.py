@@ -198,6 +198,67 @@ def test_request_scoped_runtime_state_isolation_probe() -> None:
     assert set(generate._GHOST_STORE) == ghost_keys
 
 
+def test_request_scoped_runtime_isolation_executes_generation_probe(monkeypatch) -> None:
+    import generate
+
+    calls: list[str] = []
+
+    def fake_generate(_prompt, _config, *, session_id=None):
+        assert session_id is not None
+        calls.append(session_id)
+        generate._ESV_STORE[session_id] = generate._ESV_STORE[session_id] + 0.01
+        generate._GHOST_STORE[session_id]["generated"] = True
+        return object()
+
+    monkeypatch.setattr(generate, "generate_traced", fake_generate)
+    report = generate.verify_session_state_isolation(probe_generation=True)
+
+    assert report["verified"] is True
+    assert report["runtime_generation_probed"] is True
+    assert report["generation_state_isolated"] is True
+    assert len(calls) == 1
+
+
+def test_private_promotion_route_starts_background_job(monkeypatch) -> None:
+    import asyncio
+    import app
+
+    completed: list[bool] = []
+    app._PRIVATE_EVAL_TASK = None
+    monkeypatch.setattr(
+        app,
+        "_run_private_promotion_evaluation",
+        lambda: completed.append(True) or {"capability_allowed": False},
+    )
+
+    async def scenario():
+        result = await app.private_promotion_evaluation_route()
+        assert result["status"] == "started"
+        assert app._PRIVATE_EVAL_TASK is not None
+        await app._PRIVATE_EVAL_TASK
+
+    asyncio.run(scenario())
+    assert completed == [True]
+    assert "open-review" in app.DEVELOPER_UI_HTML
+
+
+def test_release_private_promotion_gate_rehashes_heldout_artifact(tmp_path: Path) -> None:
+    import app
+    from training.eval_v2 import ensure_private_eval_suite
+
+    tasks, metadata = ensure_private_eval_suite(tmp_path)
+    report = {
+        "capability_allowed": True,
+        "task_count": len(tasks),
+        "suite_metadata": metadata,
+    }
+
+    assert app._private_promotion_verified(report) is True
+    suite_path = Path(str(metadata["suite_path"]))
+    suite_path.write_bytes(suite_path.read_bytes() + b"{}\n")
+    assert app._private_promotion_verified(report) is False
+
+
 def test_prompt_assembly_preserves_current_message_and_inserts_memory_once() -> None:
     from inference.optimize_context_window import ContextWindowOptimizer
 

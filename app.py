@@ -37,6 +37,7 @@ from anra.anra_paths import (
     MEMORY_DB_DIR,
     OPERATOR_AUDIT_LOG,
     OUTPUT_V2_DIR,
+    PRIVATE_EVAL_DIR,
     ROOT,
     STATE_DIR,
     ensure_dirs,
@@ -71,7 +72,13 @@ from goals.goal_queue import GoalQueue
 from robotics.contracts import SkillGoal, Workflow
 from runtime.hal_telemetry import read_hal_state
 from cognition.services import CognitionServices
-from training.eval_v2 import build_context_growth_evidence, run_recovery_prompt_gate
+from training.eval_v2 import (
+    apply_blinded_human_reviews,
+    build_context_growth_evidence,
+    ensure_private_eval_suite,
+    run_private_mode_seed_evaluation,
+    run_recovery_prompt_gate,
+)
 from training.v2_runtime import active_tokenizer_path
 
 START_TIME = time.time()
@@ -81,6 +88,7 @@ SESSION_DIR = _COLAB_DRIVE if DRIVE_DIR.parent.parent.exists() else _LOCAL_FALLB
 SESSION_DIR.mkdir(parents=True, exist_ok=True)
 LOGGER = logging.getLogger("anra.api")
 logging.basicConfig(level=logging.INFO)
+_PRIVATE_EVAL_TASK: asyncio.Task[object] | None = None
 
 
 class SQLiteSessionStore:
@@ -770,6 +778,8 @@ DEVELOPER_UI_HTML = """
             <div>
               <button class="secondary" id="run-rollback" type="button">Rollback drill</button>
               <button class="secondary" id="run-recovery" type="button">200-prompt gate</button>
+              <button class="secondary" id="run-private" type="button">Full promotion eval</button>
+              <button class="secondary" id="open-review" type="button">Review outputs</button>
             </div>
             <span class="status-line" id="matrix-line">loading</span>
           </div>
@@ -795,6 +805,16 @@ DEVELOPER_UI_HTML = """
             <div class="panel" style="height: 58%;"><div class="panel-head"><h3>Last Generation Trace</h3></div><div class="panel-body"><pre id="trace-json">No generation trace yet.</pre></div></div>
             <div style="height: 14px;"></div>
             <div class="panel" style="height: 42%;"><div class="panel-head"><h3>Evaluation Gates</h3></div><div class="panel-body"><pre id="evaluation-json">{}</pre></div></div>
+            <div id="review-section" class="hidden" style="margin-top: 14px; border-top: 1px solid var(--border); padding-top: 14px;">
+              <div class="panel-head"><h3>Blinded Coherence Review</h3><span class="status-line" id="review-status">-</span></div>
+              <pre id="review-prompt"></pre>
+              <div style="height: 10px;"></div>
+              <pre id="review-response"></pre>
+              <div style="display: flex; gap: 8px; margin-top: 12px;">
+                <button class="secondary" id="review-reject" type="button">Reject</button>
+                <button id="review-accept" type="button">Coherent</button>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -804,6 +824,9 @@ DEVELOPER_UI_HTML = """
     const $ = (id) => document.getElementById(id);
     const fmt = (v) => v === null || v === undefined || v === "" ? "-" : (typeof v === "number" ? (Number.isInteger(v) ? String(v) : v.toFixed(4)) : String(v));
     let lastPayloads = {};
+    let reviewQueue = [];
+    let reviewVotes = {};
+    let reviewIndex = 0;
 
     function setTab(name) {
       $("dashboard").classList.toggle("hidden", name !== "dashboard");
@@ -881,6 +904,50 @@ DEVELOPER_UI_HTML = """
       $("messages").scrollTop = $("messages").scrollHeight;
     }
 
+    function renderReview() {
+      const item = reviewQueue[reviewIndex];
+      $("review-section").classList.toggle("hidden", !item);
+      if (!item) return;
+      $("review-status").textContent = `${reviewIndex + 1} / ${reviewQueue.length}`;
+      $("review-prompt").textContent = item.prompt;
+      $("review-response").textContent = item.response;
+    }
+
+    async function openReviewQueue() {
+      try {
+        const payload = await getJson("/evaluations/private-review-queue");
+        reviewQueue = payload.queue || [];
+        reviewVotes = {};
+        reviewIndex = 0;
+        renderReview();
+      } catch (error) {
+        $("evaluation-json").textContent = `Review queue unavailable: ${error}`;
+      }
+    }
+
+    async function recordReview(coherent) {
+      const item = reviewQueue[reviewIndex];
+      if (!item) return;
+      reviewVotes[item.review_id] = coherent;
+      reviewIndex += 1;
+      if (reviewIndex < reviewQueue.length) {
+        renderReview();
+        return;
+      }
+      const reviews = Object.entries(reviewVotes).map(([review_id, value]) => ({ review_id, coherent: value }));
+      const response = await fetch("/evaluations/private-review", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reviews }),
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(JSON.stringify(payload));
+      $("review-section").classList.add("hidden");
+      $("evaluation-json").textContent = JSON.stringify(payload, null, 2);
+      await getJson("/diagnostics/release-evidence");
+      await refresh();
+    }
+
     $("chat-form").addEventListener("submit", async (event) => {
       event.preventDefault();
       const message = $("prompt").value.trim();
@@ -921,6 +988,10 @@ DEVELOPER_UI_HTML = """
     $("refresh").addEventListener("click", refresh);
     $("run-rollback").addEventListener("click", () => postDiagnostic("/diagnostics/rollback-drill", "run-rollback", "running rollback drill"));
     $("run-recovery").addEventListener("click", () => postDiagnostic("/diagnostics/recovery-gate", "run-recovery", "running 200-prompt gate"));
+    $("run-private").addEventListener("click", () => postDiagnostic("/evaluations/private-promotion", "run-private", "running 500-task x 3-seed promotion evaluation; keep this cell open"));
+    $("open-review").addEventListener("click", openReviewQueue);
+    $("review-reject").addEventListener("click", () => recordReview(false));
+    $("review-accept").addEventListener("click", () => recordReview(true));
     refresh();
     setInterval(refresh, 3500);
   </script>
@@ -990,6 +1061,15 @@ class ContextGrowthEvidenceRequest(BaseModel):
     short_context_candidate_loss: float = Field(..., gt=0.0)
     retrieval_baseline_accuracy: float = Field(..., ge=0.0, le=1.0)
     retrieval_candidate_accuracy: float = Field(..., ge=0.0, le=1.0)
+
+
+class HumanReviewItem(BaseModel):
+    review_id: str = Field(..., min_length=1, max_length=128)
+    coherent: bool
+
+
+class HumanReviewRequest(BaseModel):
+    reviews: List[HumanReviewItem] = Field(..., min_length=1, max_length=256)
 
 
 class ResetRequest(BaseModel):
@@ -1345,6 +1425,10 @@ async def current_evaluation_route():
         "rollback_drill": _latest_json(OUTPUT_V2_DIR / "rollback_drill.json"),
         "release_bundle": _latest_json(OUTPUT_V2_DIR / "release_bundle.json"),
         "release_evidence": _latest_json(OUTPUT_V2_DIR / "release_evidence.json"),
+        "private_promotion": _latest_json(OUTPUT_V2_DIR / "private_promotion_eval.json"),
+        "private_promotion_progress": _latest_json(
+            OUTPUT_V2_DIR / "private_promotion_progress.json"
+        ),
         "promotion_requirements": {
             "checkpoint_tensor_accounting": 1.0,
             "coherent_responses": 0.90,
@@ -1353,6 +1437,195 @@ async def current_evaluation_route():
             "cross_session_leakage_max": 0.0,
             "validation_regression_max": 0.02,
         },
+    }
+
+
+def _private_eval_root() -> Path:
+    configured = os.environ.get("ANRA_PRIVATE_EVAL_DIR", "").strip()
+    if configured:
+        return Path(configured).expanduser()
+    drive_root = DRIVE_DIR / "evaluations" / "private_v1"
+    return drive_root if DRIVE_DIR.exists() else PRIVATE_EVAL_DIR / "private_v1"
+
+
+def _write_json_atomically(path: Path, payload: dict[str, object]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_suffix(path.suffix + ".tmp")
+    temporary.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+    temporary.replace(path)
+
+
+def _run_private_promotion_evaluation() -> dict[str, object]:
+    private_root = _private_eval_root()
+    tasks, suite_metadata = ensure_private_eval_suite(private_root)
+    reviews_path = private_root / "human_reviews.json"
+    reviews_payload = _latest_json(reviews_path) or {}
+    reviews = reviews_payload.get("reviews", {})
+    if (
+        not isinstance(reviews, dict)
+        or reviews_payload.get("suite_sha256") != suite_metadata["suite_sha256"]
+    ):
+        reviews = {}
+    progress_path = OUTPUT_V2_DIR / "private_promotion_progress.json"
+    call_index = 0
+
+    def evaluator_generator(
+        prompt: str,
+        mode: str,
+        seed: int,
+        ablation: str | None,
+    ):
+        nonlocal call_index
+        call_index += 1
+        session_id = f"private_eval_{call_index:06d}"
+        try:
+            return generate_traced(
+                prompt,
+                GenerationConfig(
+                    strategy="nucleus",
+                    max_tokens=96,
+                    temperature=0.7,
+                    top_p=0.90,
+                    top_k=40,
+                    seed=seed,
+                    use_kv_cache=False,
+                    mode=mode,
+                    ablated_subsystem=ablation,
+                ),
+                session_id=session_id,
+            )
+        finally:
+            clear_session_runtime_state(session_id)
+
+    def persist_progress(progress: dict[str, object]) -> None:
+        _write_json_atomically(
+            progress_path,
+            {
+                "schema_version": 1,
+                "updated_at": time.time(),
+                "suite_sha256": suite_metadata["suite_sha256"],
+                **progress,
+            },
+        )
+
+    _write_json_atomically(
+        progress_path,
+        {
+            "schema_version": 1,
+            "updated_at": time.time(),
+            "phase": "starting",
+            "completed_slices": 0,
+            "total_slices": 24,
+            "suite_sha256": suite_metadata["suite_sha256"],
+        },
+    )
+    report = run_private_mode_seed_evaluation(
+        evaluator_generator,
+        tasks=tasks,
+        suite_metadata=suite_metadata,
+        human_reviews={str(key): bool(value) for key, value in reviews.items()},
+        progress_callback=persist_progress,
+    )
+    _write_json_atomically(OUTPUT_V2_DIR / "private_promotion_eval.json", report)
+    _write_json_atomically(
+        progress_path,
+        {
+            "schema_version": 1,
+            "updated_at": time.time(),
+            "phase": "complete",
+            "completed_slices": 24,
+            "total_slices": 24,
+            "suite_sha256": suite_metadata["suite_sha256"],
+            "capability_allowed": report["capability_allowed"],
+        },
+    )
+    return report
+
+
+@app.post("/evaluations/private-promotion", status_code=202)
+async def private_promotion_evaluation_route():
+    global _PRIVATE_EVAL_TASK
+    if _PRIVATE_EVAL_TASK is not None and not _PRIVATE_EVAL_TASK.done():
+        return {
+            "status": "running",
+            "progress": _latest_json(OUTPUT_V2_DIR / "private_promotion_progress.json"),
+        }
+
+    async def run_job() -> None:
+        progress_path = OUTPUT_V2_DIR / "private_promotion_progress.json"
+        try:
+            await run_in_threadpool(_run_private_promotion_evaluation)
+        except Exception as exc:
+            LOGGER.exception("Private promotion evaluation failed")
+            _write_json_atomically(
+                progress_path,
+                {
+                    "schema_version": 1,
+                    "updated_at": time.time(),
+                    "phase": "failed",
+                    "error": str(exc),
+                },
+            )
+
+    _PRIVATE_EVAL_TASK = asyncio.create_task(run_job())
+    return {
+        "status": "started",
+        "progress": _latest_json(OUTPUT_V2_DIR / "private_promotion_progress.json"),
+    }
+
+
+@app.get("/evaluations/private-promotion/status")
+async def private_promotion_status_route():
+    running = _PRIVATE_EVAL_TASK is not None and not _PRIVATE_EVAL_TASK.done()
+    return {
+        "running": running,
+        "progress": _latest_json(OUTPUT_V2_DIR / "private_promotion_progress.json"),
+        "report": _latest_json(OUTPUT_V2_DIR / "private_promotion_eval.json")
+        if not running
+        else None,
+    }
+
+
+@app.get("/evaluations/private-review-queue")
+async def private_review_queue_route():
+    report = _latest_json(OUTPUT_V2_DIR / "private_promotion_eval.json")
+    if not report:
+        raise HTTPException(status_code=404, detail="Run the private promotion evaluation first")
+    return {
+        "blinded": True,
+        "instructions": (
+            "Mark coherent=true only for relevant, grammatical, non-repetitive answers."
+        ),
+        "status": report.get("human_review", {}),
+        "queue": report.get("human_review_queue", []),
+    }
+
+
+@app.post("/evaluations/private-review")
+async def private_review_route(body: HumanReviewRequest):
+    report_path = OUTPUT_V2_DIR / "private_promotion_eval.json"
+    report = _latest_json(report_path)
+    if not report:
+        raise HTTPException(status_code=404, detail="Run the private promotion evaluation first")
+    reviews = {item.review_id: item.coherent for item in body.reviews}
+    try:
+        updated = apply_blinded_human_reviews(report, reviews)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    _write_json_atomically(report_path, updated)
+    _write_json_atomically(
+        _private_eval_root() / "human_reviews.json",
+        {
+            "schema_version": 1,
+            "updated_at": time.time(),
+            "suite_sha256": updated.get("suite_metadata", {}).get("suite_sha256", ""),
+            "reviews": reviews,
+        },
+    )
+    return {
+        "human_review": updated["human_review"],
+        "capability_gates": updated["capability_gates"],
+        "capability_allowed": updated["capability_allowed"],
     }
 
 
@@ -1382,7 +1655,7 @@ async def cache_parity_route(body: CacheParityRequest):
 
 @app.get("/diagnostics/session-isolation")
 async def session_isolation_route():
-    report = await run_in_threadpool(verify_session_state_isolation)
+    report = await run_in_threadpool(verify_session_state_isolation, probe_generation=True)
     if not report["verified"]:
         raise HTTPException(status_code=409, detail=report)
     return report
@@ -1474,6 +1747,33 @@ def _checkpoint_manifest_hashes_verified(checkpoint_state: dict[str, Any]) -> bo
     return True
 
 
+def _private_promotion_verified(report: dict[str, Any]) -> bool:
+    metadata = report.get("suite_metadata", {})
+    if (
+        report.get("capability_allowed") is not True
+        or int(report.get("task_count", 0)) < 500
+        or not isinstance(metadata, dict)
+        or metadata.get("verified") is not True
+        or metadata.get("origin") != "private_artifact"
+    ):
+        return False
+    suite_path = Path(str(metadata.get("suite_path", "")))
+    manifest_path = Path(str(metadata.get("manifest_path", "")))
+    if not suite_path.is_file() or not manifest_path.is_file():
+        return False
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except Exception:
+        return False
+    suite_digest = hashlib.sha256(suite_path.read_bytes()).hexdigest()
+    return bool(
+        isinstance(manifest, dict)
+        and int(manifest.get("task_count", 0)) == int(report.get("task_count", 0))
+        and hmac.compare_digest(suite_digest, str(metadata.get("suite_sha256", "")))
+        and hmac.compare_digest(suite_digest, str(manifest.get("suite_sha256", "")))
+    )
+
+
 @app.get("/diagnostics/release-evidence")
 async def release_evidence_route():
     info = ADAPTER.info or await run_in_threadpool(get_model_info)
@@ -1481,7 +1781,7 @@ async def release_evidence_route():
     if not isinstance(checkpoint_state, dict):
         checkpoint_state = {}
     cache = await run_in_threadpool(verify_kv_cache_parity)
-    isolation = await run_in_threadpool(verify_session_state_isolation)
+    isolation = await run_in_threadpool(verify_session_state_isolation, probe_generation=True)
     load_report = checkpoint_state.get("load_report", {})
     tokenizer_identity = checkpoint_state.get("tokenizer_identity", {})
     history = checkpoint_state.get("validation_history", [])
@@ -1502,11 +1802,20 @@ async def release_evidence_route():
     )
     rollback = _latest_json(OUTPUT_V2_DIR / "rollback_drill.json") or {}
     recovery = _latest_json(OUTPUT_V2_DIR / "recovery_gate.json") or {}
+    private_promotion = _latest_json(OUTPUT_V2_DIR / "private_promotion_eval.json") or {}
     manifest_names = (
         list(checkpoint_state.get("data_manifests", {}).keys())
         if isinstance(checkpoint_state.get("data_manifests", {}), dict)
         else []
     )
+    private_metadata = private_promotion.get("suite_metadata", {})
+    private_evaluation_paths = [OUTPUT_V2_DIR / "private_promotion_eval.json"]
+    if isinstance(private_metadata, dict):
+        private_evaluation_paths.extend(
+            Path(str(private_metadata[key]))
+            for key in ("suite_path", "manifest_path")
+            if private_metadata.get(key)
+        )
     release_bundle = await run_in_threadpool(
         build_release_bundle_manifest,
         checkpoint_path=Path(str(info.get("checkpoint", ""))),
@@ -1519,6 +1828,7 @@ async def release_evidence_route():
         evaluation_paths=[
             OUTPUT_V2_DIR / "recovery_gate.json",
             OUTPUT_V2_DIR / "v2_golden_eval_baseline.json",
+            *private_evaluation_paths,
         ],
         rollback_path=OUTPUT_V2_DIR / "rollback_drill.json",
         output_path=OUTPUT_V2_DIR / "release_bundle.json",
@@ -1540,6 +1850,7 @@ async def release_evidence_route():
             rollback.get("passed") is True and verify_release_manifest(rollback)
         ),
         "recovery_prompt_gate": recovery.get("passed") is True,
+        "private_promotion_evaluation": _private_promotion_verified(private_promotion),
         "signed_release_bundle": verify_release_bundle_manifest(release_bundle),
     }
     report = {
@@ -1547,6 +1858,11 @@ async def release_evidence_route():
         "evidence": evidence,
         "cache": cache,
         "session_isolation": isolation,
+        "private_promotion": {
+            "capability_allowed": private_promotion.get("capability_allowed", False),
+            "capability_gates": private_promotion.get("capability_gates", {}),
+            "human_review": private_promotion.get("human_review", {}),
+        },
         "release_ready": all(evidence.values()),
     }
     target = OUTPUT_V2_DIR / "release_evidence.json"
