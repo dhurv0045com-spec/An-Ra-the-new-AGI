@@ -134,6 +134,7 @@ _HAL_DIR = STATE_DIR / "hal_sessions"
 _RUNTIME_PROFILE = "unknown"
 _RUNTIME_LOAD_STATE: dict[str, object] = {}
 _GENERATION_LOCK = threading.RLock()
+_RUNTIME_LOAD_LOCK = threading.RLock()
 _KV_CACHE_PARITY_VERIFIED = False
 _KV_CACHE_PARITY_IN_PROGRESS = False
 
@@ -268,14 +269,15 @@ _LOADED_CHECKPOINT = None
 
 def _get_runtime():
     global _MODEL, _TOKENIZER, _LOADED_CHECKPOINT, _RUNTIME_PROFILE, _RUNTIME_LOAD_STATE
-    if _MODEL is None:
-        (
-            _MODEL,
-            _TOKENIZER,
-            _LOADED_CHECKPOINT,
-            _RUNTIME_PROFILE,
-            _RUNTIME_LOAD_STATE,
-        ) = _load_runtime()
+    with _RUNTIME_LOAD_LOCK:
+        if _MODEL is None:
+            (
+                _MODEL,
+                _TOKENIZER,
+                _LOADED_CHECKPOINT,
+                _RUNTIME_PROFILE,
+                _RUNTIME_LOAD_STATE,
+            ) = _load_runtime()
     return _MODEL, _TOKENIZER, _LOADED_CHECKPOINT
 
 

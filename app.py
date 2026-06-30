@@ -55,7 +55,6 @@ from generate import (
     generate_stream,
     generate_traced,
     get_model_info,
-    get_tokenizer,
     restore_embedded_data_manifests,
     verify_kv_cache_parity,
     verify_session_state_isolation,
@@ -81,7 +80,7 @@ from training.eval_v2 import (
     run_private_mode_seed_evaluation,
     run_recovery_prompt_gate,
 )
-from training.v2_runtime import active_tokenizer_path
+from training.v2_runtime import active_tokenizer_path, load_or_build_v2_tokenizer
 
 START_TIME = time.time()
 _COLAB_DRIVE = DRIVE_SESSIONS
@@ -91,6 +90,7 @@ SESSION_DIR.mkdir(parents=True, exist_ok=True)
 LOGGER = logging.getLogger("anra.api")
 logging.basicConfig(level=logging.INFO)
 _PRIVATE_EVAL_TASK: asyncio.Task[object] | None = None
+_MODEL_LOAD_TASK: asyncio.Task[object] | None = None
 
 
 class SQLiteSessionStore:
@@ -254,9 +254,15 @@ SESSION_STORE = SQLiteSessionStore(SESSION_DIR / "sessions.db", max_history=40)
 class ModelAdapter:
     def __init__(self) -> None:
         self.info: Dict[str, Any] = {}
+        self.load_error = ""
 
     def load(self) -> None:
-        self.info = get_model_info()
+        try:
+            self.info = get_model_info()
+            self.load_error = ""
+        except Exception as exc:
+            self.load_error = f"{type(exc).__name__}: {exc}"
+            LOGGER.exception("An-Ra model background load failed")
 
     def run(self, prompt: str, strategy: str = "nucleus", **params: Any) -> str:
         # SWAP POINT: replace only this line to redirect to a new backend model runtime.
@@ -523,9 +529,10 @@ def _latest_json(path: Path) -> dict[str, Any] | None:
 async def lifespan(_: FastAPI):
     await SESSION_STORE.initialize()
     JOBS.update(await SESSION_STORE.load_jobs())
-    await run_in_threadpool(ADAPTER.load)
-    global SYSTEM_GRAPH, _ctx_optimizer, _identity_context
-    tokenizer = await run_in_threadpool(get_tokenizer)
+    global SYSTEM_GRAPH, _ctx_optimizer, _identity_context, _MODEL_LOAD_TASK
+    _MODEL_LOAD_TASK = asyncio.create_task(run_in_threadpool(ADAPTER.load))
+    # Tokenizer construction is cheap and does not allocate the 499M model.
+    tokenizer = await run_in_threadpool(load_or_build_v2_tokenizer)
     _ctx_optimizer = ContextWindowOptimizer(
         tokenizer=tokenizer,
         max_context=int(ADAPTER.info.get("block_size", 1024) or 1024),
@@ -574,7 +581,7 @@ async def request_context_middleware(request: Request, call_next):
         return JSONResponse(status_code=401, content={"error": "owner_auth_required"})
     timeout_seconds = max(
         1.0,
-        min(600.0, float(os.environ.get("ANRA_REQUEST_TIMEOUT_SECONDS", "120"))),
+        min(600.0, float(os.environ.get("ANRA_REQUEST_TIMEOUT_SECONDS", "600"))),
     )
     try:
         response = await asyncio.wait_for(
@@ -2006,6 +2013,14 @@ def _full_system_integration_verified(
 
 @app.get("/diagnostics/release-evidence")
 async def release_evidence_route():
+    if not ADAPTER.info:
+        return {
+            "status": "model_load_failed" if ADAPTER.load_error else "model_loading",
+            "model_error": ADAPTER.load_error or None,
+            "cache": {"verified": False},
+            "session_isolation": {"verified": False},
+            "evidence": {},
+        }
     info = ADAPTER.info or await run_in_threadpool(get_model_info)
     expected_evaluation_bundle = _evaluation_model_bundle(info)
     checkpoint_state = info.get("checkpoint_state", {})
@@ -2187,7 +2202,7 @@ async def sessions_route():
 @app.get("/health")
 @app.get("/status")
 async def health_route():
-    info = ADAPTER.info or await run_in_threadpool(get_model_info)
+    info = ADAPTER.info
     civ = _latest_json(CIV_LATEST)
     civ_score = float((civ or {}).get("cosine_similarity", (civ or {}).get("score", 1.0)))
     ibs = _latest_json(IBS_LATEST) or {}
@@ -2219,7 +2234,10 @@ async def health_route():
     )
     return {
         "status": status,
-        "service_status": "ready",
+        "service_status": (
+            "model_load_failed" if ADAPTER.load_error else "ready" if info else "model_loading"
+        ),
+        "model_error": ADAPTER.load_error or None,
         "bundle_status": bundle_status,
         "quality_status": quality_status,
         "model": "An-Ra",
