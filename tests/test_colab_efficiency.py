@@ -44,6 +44,10 @@ def test_t4_notebook_uses_fast_bootstrap_and_persistent_data_cache() -> None:
     assert "PIP_DISABLE_PIP_VERSION_CHECK" in source
     drive_pip_cache = "/content" + "/drive/MyDrive/AnRa/cache/pip"
     assert drive_pip_cache not in source
+    final_cell = "".join(notebook["cells"][-1].get("source", []))
+    assert "proof = subprocess.run" in final_cell
+    assert "proof.returncode != 0" in final_cell
+    assert "backend will now verify core tensors directly" in final_cell
 
 
 def test_colab_bootstrap_keeps_existing_cuda_torch() -> None:
