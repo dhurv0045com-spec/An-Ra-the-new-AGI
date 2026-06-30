@@ -4,7 +4,7 @@ import json
 import os
 from pathlib import Path
 
-from scripts.colab_bootstrap import configure_local_pip_cache
+from scripts.colab_bootstrap import RUNTIME_REQUIREMENTS, configure_local_pip_cache
 from scripts.colab_prepare_data import CACHE_FILES, cache_is_valid, copy_cached_files, write_manifest
 
 
@@ -14,7 +14,7 @@ ROOT = Path(__file__).resolve().parents[1]
 def _write_cache_files(root: Path) -> None:
     root.mkdir(parents=True, exist_ok=True)
     for index, name in enumerate(CACHE_FILES):
-        (root / name).write_bytes(f"prepared-{index}".encode("utf-8"))
+        (root / name).write_bytes(f"prepared-{index}".encode())
 
 
 def test_drive_data_cache_round_trip(tmp_path: Path) -> None:
@@ -55,6 +55,23 @@ def test_colab_bootstrap_keeps_existing_cuda_torch() -> None:
     assert "configure_local_pip_cache" in source
     assert '"/content/.cache/pip"' in source
     assert '"git", "-C", str(target), "pull", "--ff-only", "origin", "main"' in source
+    assert "if args.install_thirdeye:" in source
+    assert "if args.install or args.install_thirdeye:" not in source
+
+
+def test_colab_bootstrap_installs_backend_requirements_for_one_cell_ui() -> None:
+    required_modules = {
+        "aiosqlite",
+        "cryptography",
+        "fastapi",
+        "git",
+        "httpx",
+        "networkx",
+        "pydantic",
+        "uvicorn",
+    }
+
+    assert required_modules <= RUNTIME_REQUIREMENTS.keys()
 
 
 def test_colab_bootstrap_overrides_a_drive_pip_cache(monkeypatch, tmp_path: Path) -> None:

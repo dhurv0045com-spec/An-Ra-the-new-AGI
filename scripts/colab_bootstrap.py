@@ -5,23 +5,22 @@ from __future__ import annotations
 import argparse
 import hashlib
 import importlib
-from importlib import metadata
 import json
 import os
-from pathlib import Path
 import platform
 import subprocess
 import sys
 import time
-from typing import Iterable
+from collections.abc import Iterable
+from importlib import metadata
+from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-import torch
-
-from anra.anra_paths import DRIVE_DIR
+import torch  # noqa: E402
+from anra.anra_paths import DRIVE_DIR  # noqa: E402
 
 
 def sha256(path: Path) -> str:
@@ -33,9 +32,17 @@ def run(command: list[str], *, cwd: Path | None = None) -> None:
 
 
 RUNTIME_REQUIREMENTS = {
+    "aiosqlite": ("aiosqlite", "0.19.0"),
+    "cryptography": ("cryptography", "42.0.0"),
     "datasets": ("datasets", "3.2.0"),
+    "fastapi": ("fastapi", "0.110.0"),
+    "git": ("GitPython", "3.1.40"),
+    "httpx": ("httpx", "0.27.0"),
+    "networkx": ("networkx", "3.2.0"),
+    "pydantic": ("pydantic", "2.5.0"),
     "transformers": ("transformers", "4.40.0"),
     "tokenizers": ("tokenizers", "0.19.0"),
+    "uvicorn": ("uvicorn", "0.27.0"),
     "yaml": ("PyYAML", "6.0.0"),
     "psutil": ("psutil", "5.9.0"),
     "scipy": ("scipy", "1.12.0"),
@@ -53,7 +60,9 @@ def _version_at_least(installed: str, minimum: str) -> bool:
         return installed >= minimum
 
 
-def missing_runtime_packages(requirements: dict[str, tuple[str, str]] = RUNTIME_REQUIREMENTS) -> list[str]:
+def missing_runtime_packages(
+    requirements: dict[str, tuple[str, str]] = RUNTIME_REQUIREMENTS,
+) -> list[str]:
     """Return only the small runtime packages absent from the Colab image."""
     missing: list[str] = []
     for module_name, (package_name, minimum_version) in requirements.items():
@@ -162,7 +171,9 @@ def main() -> None:
         installed_packages = install_runtime_packages(missing_runtime_packages())
         install_project(repo)
     thirdeye_path = None
-    if args.install or args.install_thirdeye:
+    # ThirdEye is useful for training evidence, but chat/UI bootstrap must not
+    # depend on a second Git checkout or an avoidable network operation.
+    if args.install_thirdeye:
         thirdeye_path = install_thirdeye(repo)
     drive = Path(args.drive_root)
     colab_root = Path(os.environ.get("ANRA_COLAB_ROOT", str(Path("/") / "content")))
