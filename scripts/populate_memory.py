@@ -5,18 +5,21 @@ import pickle
 import re
 from datetime import datetime
 from pathlib import Path
-from typing import List, Tuple
 
 import torch
 import torch.nn.functional as F
-
-from anra.anra_paths import DATASET_CANONICAL, DRIVE_DIR, DRIVE_MEMORY, ROOT, get_dataset_file, get_tokenizer_file
+from anra.anra_paths import (
+    DATASET_CANONICAL,
+    DRIVE_DIR,
+    DRIVE_MEMORY,
+    ROOT,
+    get_dataset_file,
+    get_tokenizer_file,
+)
+from anra_brain import CausalTransformer
+from phase2.memory_45j.memory_manager import MemoryManager
 from runtime.safe_load import safe_torch_load
 from training.v2_config import V2_MODEL
-
-from anra_brain import CausalTransformer
-
-from phase2.memory_45j.memory_manager import MemoryManager
 
 CONFIG = {
     "checkpoint": "anra_brain_identity.pt",

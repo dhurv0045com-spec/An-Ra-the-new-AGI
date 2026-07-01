@@ -6,8 +6,9 @@ import time
 from pathlib import Path
 
 from anra.anra_paths import ensure_dirs, get_dataset_file
-from scripts.build_brain import train_anra_v2
 from training.v2_runtime import canonical_v2_checkpoint, v2_output_file, write_json
+
+from scripts.build_brain import train_anra_v2
 
 ensure_dirs()
 

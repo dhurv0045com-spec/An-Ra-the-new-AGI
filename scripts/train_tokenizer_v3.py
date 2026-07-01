@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from pathlib import Path
-
 from anra.anra_paths import TOKENIZER_DIR, get_dataset_file
 from tokenizer.subword_tokenizer import SubwordTokenizer
 from training.v2_config import CANONICAL_SPECIAL_TOKENS, CANONICAL_VOCAB_SIZE

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+# ruff: noqa: E501
 import argparse
 import asyncio
 import hashlib
@@ -14,21 +15,16 @@ import tempfile
 import time
 import traceback
 import uuid
+from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from dataclasses import asdict
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Dict, List, Literal
+from typing import Any, Literal
 
 import aiosqlite
 import httpx
 import uvicorn
-from fastapi import FastAPI, HTTPException, Request
-from fastapi.concurrency import run_in_threadpool
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
-from pydantic import BaseModel, Field
-
 from anra.anra_paths import (
     CAMPAIGN_DIR,
     CIV_LATEST,
@@ -44,9 +40,18 @@ from anra.anra_paths import (
     ensure_dirs,
     get_identity_file,
 )
-
-ensure_dirs()
-
+from cognition.services import CognitionServices
+from engine.feature_flags import disabled_components, is_enabled
+from evaluation.promotion import (
+    build_release_bundle_manifest,
+    run_rollback_drill,
+    verify_release_bundle_manifest,
+    verify_release_manifest,
+)
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.concurrency import run_in_threadpool
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 from generate import (
     GenerationConfig,
     clear_session_runtime_state,
@@ -59,20 +64,14 @@ from generate import (
     verify_kv_cache_parity,
     verify_session_state_isolation,
 )
-from evaluation.promotion import (
-    build_release_bundle_manifest,
-    run_rollback_drill,
-    verify_release_bundle_manifest,
-    verify_release_manifest,
-)
+from goals.goal_queue import GoalQueue
 from inference.full_system_connector import build_capability_graph
 from inference.optimize_context_window import ContextWindowOptimizer
-from engine.feature_flags import disabled_components, is_enabled
 from intelligence.hgp import MissionNode, MissionTree
-from goals.goal_queue import GoalQueue
+from pydantic import BaseModel, Field
 from robotics.contracts import SkillGoal, Workflow
 from runtime.hal_telemetry import read_hal_state
-from cognition.services import CognitionServices
+from starlette.responses import Response
 from training.eval_v2 import (
     apply_blinded_human_reviews,
     build_context_growth_evidence,
@@ -81,6 +80,8 @@ from training.eval_v2 import (
     run_recovery_prompt_gate,
 )
 from training.v2_runtime import active_tokenizer_path, load_or_build_v2_tokenizer
+
+ensure_dirs()
 
 START_TIME = time.time()
 _COLAB_DRIVE = DRIVE_SESSIONS
@@ -142,19 +143,19 @@ class SQLiteSessionStore:
 
     async def get_history(self, session_id: str) -> list[dict]:
         await self._ensure_initialized()
-        async with aiosqlite.connect(self._path) as db:
-            async with db.execute(
-                "SELECT history FROM sessions WHERE id = ?", (session_id,)
-            ) as cur:
-                row = await cur.fetchone()
-                return json.loads(row[0]) if row else []
+        async with aiosqlite.connect(self._path) as db, db.execute(
+            "SELECT history FROM sessions WHERE id = ?", (session_id,)
+        ) as cur:
+            row = await cur.fetchone()
+            return json.loads(row[0]) if row else []
 
     async def get_meta(self, session_id: str) -> dict[str, Any]:
         await self._ensure_initialized()
-        async with aiosqlite.connect(self._path) as db:
-            async with db.execute("SELECT meta FROM sessions WHERE id = ?", (session_id,)) as cur:
-                row = await cur.fetchone()
-                return json.loads(row[0]) if row else {}
+        async with aiosqlite.connect(self._path) as db, db.execute(
+            "SELECT meta FROM sessions WHERE id = ?", (session_id,)
+        ) as cur:
+            row = await cur.fetchone()
+            return json.loads(row[0]) if row else {}
 
     async def save_history(self, session_id: str, history: list[dict]) -> None:
         meta = await self.get_meta(session_id)
@@ -180,11 +181,10 @@ class SQLiteSessionStore:
 
     async def list_sessions(self) -> dict[str, dict[str, Any]]:
         await self._ensure_initialized()
-        async with aiosqlite.connect(self._path) as db:
-            async with db.execute(
-                "SELECT id, history, meta FROM sessions ORDER BY last_active DESC"
-            ) as cur:
-                rows = await cur.fetchall()
+        async with aiosqlite.connect(self._path) as db, db.execute(
+            "SELECT id, history, meta FROM sessions ORDER BY last_active DESC"
+        ) as cur:
+            rows = await cur.fetchall()
         sessions: dict[str, dict[str, Any]] = {}
         for session_id, history_json, meta_json in rows:
             sessions[session_id] = {
@@ -201,10 +201,11 @@ class SQLiteSessionStore:
 
     async def count_sessions(self) -> int:
         await self._ensure_initialized()
-        async with aiosqlite.connect(self._path) as db:
-            async with db.execute("SELECT COUNT(*) FROM sessions") as cur:
-                row = await cur.fetchone()
-                return int(row[0]) if row else 0
+        async with aiosqlite.connect(self._path) as db, db.execute(
+            "SELECT COUNT(*) FROM sessions"
+        ) as cur:
+            row = await cur.fetchone()
+            return int(row[0]) if row else 0
 
     async def check_rate_limit(
         self,
@@ -242,9 +243,10 @@ class SQLiteSessionStore:
 
     async def load_jobs(self) -> dict[str, dict[str, Any]]:
         await self._ensure_initialized()
-        async with aiosqlite.connect(self._path) as db:
-            async with db.execute("SELECT id, payload FROM jobs") as cursor:
-                rows = await cursor.fetchall()
+        async with aiosqlite.connect(self._path) as db, db.execute(
+            "SELECT id, payload FROM jobs"
+        ) as cursor:
+            rows = await cursor.fetchall()
         return {job_id: json.loads(payload) for job_id, payload in rows}
 
 
@@ -253,7 +255,7 @@ SESSION_STORE = SQLiteSessionStore(SESSION_DIR / "sessions.db", max_history=40)
 
 class ModelAdapter:
     def __init__(self) -> None:
-        self.info: Dict[str, Any] = {}
+        self.info: dict[str, Any] = {}
         self.load_error = ""
 
     def load(self) -> None:
@@ -270,7 +272,7 @@ class ModelAdapter:
 
 
 ADAPTER = ModelAdapter()
-SYSTEM_GRAPH: Dict[str, Any] = {}
+SYSTEM_GRAPH: dict[str, Any] = {}
 _ctx_optimizer = ContextWindowOptimizer()
 _identity_context = ""
 
@@ -352,7 +354,7 @@ MEMORY_SYSTEM = None
 _MEMORY_INIT_ATTEMPTED = False
 
 
-def get_memory_system():
+def get_memory_system() -> object | None:
     global MEMORY_SYSTEM, _MEMORY_INIT_ATTEMPTED
     if _MEMORY_INIT_ATTEMPTED:
         return MEMORY_SYSTEM
@@ -362,11 +364,11 @@ def get_memory_system():
         from memory.memory_router import MemoryRouter
 
         class _MemoryBridge:
-            def __init__(self):
+            def __init__(self) -> None:
                 self._router = MemoryRouter()
                 self.semantic = self
 
-            def search(self, query: str, top_k: int = 3):
+            def search(self, query: str, top_k: int = 3) -> list[dict[str, object]]:
                 rows = self._router.read(query, n=top_k, tier="episodic")
                 out = []
                 for row in rows:
@@ -399,11 +401,11 @@ def get_memory_system():
             from phase2.memory_45j.memory_manager import MemoryManager  # type: ignore
 
             class _LegacyMemoryBridge:
-                def __init__(self):
+                def __init__(self) -> None:
                     self._mm = MemoryManager(data_dir=str(MEMORY_DB_DIR), user_id="anra")
                     self.semantic = self
 
-                def search(self, query: str, top_k: int = 3):
+                def search(self, query: str, top_k: int = 3) -> list[object]:
                     return self._mm.retrieve(query, limit=top_k, type="semantic")
 
                 def store_turn(self, message: str, response: str, session_id: str) -> None:
@@ -427,7 +429,7 @@ def get_memory_system():
             return None
 
 
-def format_memory_context(memory_results: List[Dict[str, Any]]) -> str:
+def format_memory_context(memory_results: list[dict[str, Any]]) -> str:
     lines = ["[Retrieved Memory Context]"]
     for i, item in enumerate(memory_results, start=1):
         lines.append(f"{i}. {item.get('summary', '')}")
@@ -441,7 +443,7 @@ def _session_file(session_id: str) -> Path:
 
 
 def _now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 async def _get_session_history(session_id: str) -> list[dict]:
@@ -458,8 +460,8 @@ async def _save_session(session_id: str) -> None:
     pass  # SQLiteSessionStore saves atomically on every write — no explicit flush needed.
 
 
-def _serialize_context_from_turns(turns: List[Dict[str, str]], message: str) -> str:
-    context_parts: List[str] = []
+def _serialize_context_from_turns(turns: list[dict[str, str]], message: str) -> str:
+    context_parts: list[str] = []
     i = 0
     while i < len(turns) - 1:
         if turns[i]["role"] == "user" and turns[i + 1]["role"] == "assistant":
@@ -497,7 +499,7 @@ async def _rate_limit_or_429(client_ip: str) -> None:
         )
 
 
-def _latest_report_snapshot() -> Dict[str, Any] | None:
+def _latest_report_snapshot() -> dict[str, Any] | None:
     reports_dir = Path(__file__).resolve().parent / "state" / "reports"
     if not reports_dir.exists():
         return None
@@ -526,7 +528,7 @@ def _latest_json(path: Path) -> dict[str, Any] | None:
 
 
 @asynccontextmanager
-async def lifespan(_: FastAPI):
+async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     await SESSION_STORE.initialize()
     JOBS.update(await SESSION_STORE.load_jobs())
     global SYSTEM_GRAPH, _ctx_optimizer, _identity_context, _MODEL_LOAD_TASK
@@ -553,7 +555,10 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], all
 
 
 @app.middleware("http")
-async def request_context_middleware(request: Request, call_next):
+async def request_context_middleware(
+    request: Request,
+    call_next: Callable[[Request], Awaitable[Response]],
+) -> Response:
     request_id = str(uuid.uuid4())
     request.state.request_id = request_id
     t0 = time.perf_counter()
@@ -588,7 +593,7 @@ async def request_context_middleware(request: Request, call_next):
             call_next(request),
             timeout=timeout_seconds,
         )
-    except asyncio.TimeoutError:
+    except TimeoutError:
         response = JSONResponse(
             status_code=504,
             content={
@@ -628,7 +633,7 @@ async def request_context_middleware(request: Request, call_next):
 
 
 @app.exception_handler(Exception)
-async def global_exception_handler(request: Request, exc: Exception):
+async def global_exception_handler(request: Request, _exc: Exception) -> JSONResponse:
     LOGGER.exception(
         "[req_id=%s] Unhandled error\n%s",
         getattr(request.state, "request_id", "unknown"),
@@ -1012,12 +1017,12 @@ DEVELOPER_UI_HTML = """
 
 
 @app.get("/developer", response_class=HTMLResponse)
-async def developer_ui_route():
+async def developer_ui_route() -> HTMLResponse:
     return HTMLResponse(DEVELOPER_UI_HTML)
 
 
 @app.get("/", response_class=HTMLResponse)
-async def developer_ui_root_route():
+async def developer_ui_root_route() -> HTMLResponse:
     return HTMLResponse(DEVELOPER_UI_HTML)
 
 
@@ -1030,7 +1035,7 @@ class GenerationParams(BaseModel):
     beam_width: int = Field(4, ge=1, le=16)
     repetition_penalty: float = Field(1.15, ge=1.0, le=2.0)
     repetition_window: int = Field(64, ge=1, le=512)
-    stop_strings: List[str] = Field(default_factory=list, max_length=16)
+    stop_strings: list[str] = Field(default_factory=list, max_length=16)
     seed: int | None = 0
     use_think_tokens: bool = False
     use_kv_cache: bool = False
@@ -1080,7 +1085,7 @@ class HumanReviewItem(BaseModel):
 
 
 class HumanReviewRequest(BaseModel):
-    reviews: List[HumanReviewItem] = Field(..., min_length=1, max_length=256)
+    reviews: list[HumanReviewItem] = Field(..., min_length=1, max_length=256)
 
 
 class ResetRequest(BaseModel):
@@ -1089,8 +1094,8 @@ class ResetRequest(BaseModel):
 
 class GoalRequest(BaseModel):
     goal: str = Field(..., min_length=1, max_length=8192)
-    constraints: List[str] = Field(default_factory=list)
-    success_criteria: List[str] = Field(default_factory=list)
+    constraints: list[str] = Field(default_factory=list)
+    success_criteria: list[str] = Field(default_factory=list)
 
 
 class PlanRequest(GoalRequest):
@@ -1099,12 +1104,12 @@ class PlanRequest(GoalRequest):
 
 class MemoryAddRequest(BaseModel):
     content: str = Field(..., min_length=1, max_length=32768)
-    metadata: Dict[str, Any] = Field(default_factory=dict)
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class WorkflowRequest(BaseModel):
     goal: str = Field(..., min_length=1, max_length=4096)
-    skills: List[Dict[str, Any]] = Field(default_factory=list, max_length=10)
+    skills: list[dict[str, Any]] = Field(default_factory=list, max_length=10)
 
 
 class ConsentRequest(BaseModel):
@@ -1135,7 +1140,7 @@ class DebateRequest(BaseModel):
 
 class ExperimentProposalRequest(BaseModel):
     category: str
-    failures: List[Dict[str, Any]]
+    failures: list[dict[str, Any]]
     base_checkpoint: str
     tokenizer_hash: str
     data_hash: str
@@ -1148,26 +1153,26 @@ class LaunchManifestRequest(BaseModel):
     model_profile: str
     extension_profile: str = "cognition-v1"
     tokenizer_hash: str
-    data_manifests: List[str]
+    data_manifests: list[str]
     stage: str
     optimizer: str
     batch_size: int = Field(..., gt=0)
     accumulation: int = Field(..., gt=0)
-    schedule: Dict[str, Any]
-    seeds: List[int]
+    schedule: dict[str, Any]
+    seeds: list[int]
     checkpoint_source: str
     expected_tokens: int = Field(..., ge=0)
     runtime_estimate_hours: float | None = None
     owner_authorized: bool
 
 
-JOBS: Dict[str, Dict[str, Any]] = {}
-PLANS: Dict[str, Dict[str, Any]] = {}
-TRAINING_CANDIDATES: Dict[str, Dict[str, Any]] = {}
-TRACE_STORE: Dict[str, Dict[str, Any]] = {}
+JOBS: dict[str, dict[str, Any]] = {}
+PLANS: dict[str, dict[str, Any]] = {}
+TRAINING_CANDIDATES: dict[str, dict[str, Any]] = {}
+TRACE_STORE: dict[str, dict[str, Any]] = {}
 
 
-def _record_trace(payload: Dict[str, Any]) -> str:
+def _record_trace(payload: dict[str, Any]) -> str:
     trace_id = str(uuid.uuid4())
     TRACE_STORE[trace_id] = payload
     while len(TRACE_STORE) > 1000:
@@ -1175,7 +1180,7 @@ def _record_trace(payload: Dict[str, Any]) -> str:
     return trace_id
 
 
-async def _new_job(kind: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+async def _new_job(kind: str, payload: dict[str, Any]) -> dict[str, Any]:
     job_id = str(uuid.uuid4())
     event = {"event": "queued", "timestamp": _now_iso(), "payload": payload}
     job = {
@@ -1191,7 +1196,7 @@ async def _new_job(kind: str, payload: Dict[str, Any]) -> Dict[str, Any]:
 
 
 @app.post("/generate")
-async def generate_route(body: GenerateRequest, request: Request):
+async def generate_route(body: GenerateRequest, request: Request) -> dict[str, Any]:
     _require_feature("runtime")
     client_ip = request.client.host if request.client else "unknown"
     await _rate_limit_or_429(client_ip)
@@ -1263,7 +1268,7 @@ async def generate_route(body: GenerateRequest, request: Request):
 
 
 @app.post("/chat")
-async def chat_route(body: ChatRequest, request: Request):
+async def chat_route(body: ChatRequest, request: Request) -> dict[str, Any]:
     client_ip = request.client.host if request.client else "unknown"
     await _rate_limit_or_429(client_ip)
 
@@ -1418,7 +1423,7 @@ async def chat_route(body: ChatRequest, request: Request):
 
 
 @app.get("/traces/{trace_id}")
-async def trace_route(trace_id: str):
+async def trace_route(trace_id: str) -> dict[str, Any]:
     trace = TRACE_STORE.get(trace_id)
     if trace is None:
         raise HTTPException(status_code=404, detail="trace not found")
@@ -1426,7 +1431,7 @@ async def trace_route(trace_id: str):
 
 
 @app.get("/evaluations/current")
-async def current_evaluation_route():
+async def current_evaluation_route() -> dict[str, Any]:
     return {
         "golden": _latest_json(OUTPUT_V2_DIR / "v2_golden_eval_baseline.json"),
         "validation": _latest_json(OUTPUT_V2_DIR / "v2_validation_history.json"),
@@ -1532,7 +1537,7 @@ def _run_private_promotion_evaluation() -> dict[str, object]:
         mode: str,
         seed: int,
         ablation: str | None,
-    ):
+    ) -> object:
         nonlocal call_index
         call_index += 1
         session_id = f"private_eval_{call_index:06d}"
@@ -1603,7 +1608,7 @@ def _run_private_promotion_evaluation() -> dict[str, object]:
 
 
 @app.post("/evaluations/private-promotion", status_code=202)
-async def private_promotion_evaluation_route():
+async def private_promotion_evaluation_route() -> dict[str, Any]:
     global _PRIVATE_EVAL_TASK
     if _PRIVATE_EVAL_TASK is not None and not _PRIVATE_EVAL_TASK.done():
         return {
@@ -1635,7 +1640,7 @@ async def private_promotion_evaluation_route():
 
 
 @app.get("/evaluations/private-promotion/status")
-async def private_promotion_status_route():
+async def private_promotion_status_route() -> dict[str, Any]:
     running = _PRIVATE_EVAL_TASK is not None and not _PRIVATE_EVAL_TASK.done()
     return {
         "running": running,
@@ -1762,7 +1767,7 @@ def _run_full_system_integration_probe() -> dict[str, object]:
 
 
 @app.post("/diagnostics/full-system-integration")
-async def full_system_integration_route():
+async def full_system_integration_route() -> dict[str, Any]:
     report = await run_in_threadpool(_run_full_system_integration_probe)
     if not report["passed"]:
         raise HTTPException(status_code=409, detail=report)
@@ -1770,7 +1775,7 @@ async def full_system_integration_route():
 
 
 @app.get("/evaluations/private-review-queue")
-async def private_review_queue_route():
+async def private_review_queue_route() -> dict[str, Any]:
     report = _latest_json(OUTPUT_V2_DIR / "private_promotion_eval.json")
     if not report:
         raise HTTPException(status_code=404, detail="Run the private promotion evaluation first")
@@ -1785,7 +1790,7 @@ async def private_review_queue_route():
 
 
 @app.post("/evaluations/private-review")
-async def private_review_route(body: HumanReviewRequest):
+async def private_review_route(body: HumanReviewRequest) -> dict[str, Any]:
     report_path = OUTPUT_V2_DIR / "private_promotion_eval.json"
     report = _latest_json(report_path)
     if not report:
@@ -1813,7 +1818,7 @@ async def private_review_route(body: HumanReviewRequest):
 
 
 @app.post("/evaluations/context-growth")
-async def context_growth_evidence_route(body: ContextGrowthEvidenceRequest):
+async def context_growth_evidence_route(body: ContextGrowthEvidenceRequest) -> dict[str, Any]:
     report = build_context_growth_evidence(**body.model_dump())
     target = OUTPUT_V2_DIR / "context_growth_evidence.json"
     temporary = target.with_suffix(".tmp")
@@ -1825,7 +1830,7 @@ async def context_growth_evidence_route(body: ContextGrowthEvidenceRequest):
 
 
 @app.post("/diagnostics/cache-parity")
-async def cache_parity_route(body: CacheParityRequest):
+async def cache_parity_route(body: CacheParityRequest) -> dict[str, Any]:
     report = await run_in_threadpool(
         verify_kv_cache_parity,
         body.prompt,
@@ -1837,7 +1842,7 @@ async def cache_parity_route(body: CacheParityRequest):
 
 
 @app.get("/diagnostics/session-isolation")
-async def session_isolation_route():
+async def session_isolation_route() -> dict[str, Any]:
     report = await run_in_threadpool(verify_session_state_isolation, probe_generation=True)
     if not report["verified"]:
         raise HTTPException(status_code=409, detail=report)
@@ -1845,7 +1850,7 @@ async def session_isolation_route():
 
 
 @app.post("/diagnostics/recovery-gate")
-async def recovery_gate_route():
+async def recovery_gate_route() -> dict[str, Any]:
     call_index = 0
 
     def recovery_generator(
@@ -1853,7 +1858,7 @@ async def recovery_gate_route():
         mode: str,
         seed: int,
         ablation: str | None,
-    ):
+    ) -> object:
         nonlocal call_index
         call_index += 1
         session_id = f"recovery_gate_{call_index:04d}"
@@ -1904,7 +1909,7 @@ async def recovery_gate_route():
 
 
 @app.post("/diagnostics/rollback-drill")
-async def rollback_drill_route():
+async def rollback_drill_route() -> dict[str, Any]:
     info = ADAPTER.info or await run_in_threadpool(get_model_info)
     checkpoint = Path(str(info.get("checkpoint", "")))
     report = await run_in_threadpool(
@@ -2012,7 +2017,7 @@ def _full_system_integration_verified(
 
 
 @app.get("/diagnostics/release-evidence")
-async def release_evidence_route():
+async def release_evidence_route() -> dict[str, Any]:
     if not ADAPTER.info:
         return {
             "status": "model_load_failed" if ADAPTER.load_error else "model_loading",
@@ -2147,7 +2152,9 @@ async def release_evidence_route():
 
 
 @app.get("/stream")
-async def stream_route(session_id: str, message: str, strategy: str = "greedy"):
+async def stream_route(
+    session_id: str, message: str, strategy: str = "greedy"
+) -> StreamingResponse:
     history = await _get_session_history(session_id)
     session_pairs = []
     index = 0
@@ -2171,7 +2178,7 @@ async def stream_route(session_id: str, message: str, strategy: str = "greedy"):
     )
     context = context_result["context"]
 
-    async def async_event_gen():
+    async def async_event_gen() -> AsyncIterator[str]:
         loop = asyncio.get_event_loop()
         gen_iter = await loop.run_in_executor(None, lambda: list(generate_stream(context, cfg)))
         assembled = ""
@@ -2194,14 +2201,14 @@ async def stream_route(session_id: str, message: str, strategy: str = "greedy"):
 
 
 @app.get("/sessions")
-async def sessions_route():
+async def sessions_route() -> dict[str, Any]:
     sessions = await SESSION_STORE.list_sessions()
     return {"sessions": sessions, "count": len(sessions)}
 
 
 @app.get("/health")
 @app.get("/status")
-async def health_route():
+async def health_route() -> dict[str, Any]:
     info = ADAPTER.info
     civ = _latest_json(CIV_LATEST)
     civ_score = float((civ or {}).get("cosine_similarity", (civ or {}).get("score", 1.0)))
@@ -2269,31 +2276,31 @@ async def health_route():
 
 
 @app.get("/cognition/consent")
-async def cognition_consent_get(request: Request):
+async def cognition_consent_get(request: Request) -> dict[str, Any]:
     _require_owner(request)
     return COGNITION.status()["consent"]
 
 
 @app.put("/cognition/consent")
-async def cognition_consent_put(body: ConsentRequest, request: Request):
+async def cognition_consent_put(body: ConsentRequest, request: Request) -> dict[str, Any]:
     _require_owner(request)
     changes = {key: value for key, value in body.model_dump().items() if value is not None}
     return asdict(COGNITION.update_consent(**changes))
 
 
 @app.get("/cognition/status")
-async def cognition_status():
+async def cognition_status() -> dict[str, Any]:
     return COGNITION.health()
 
 
 @app.get("/owner-model")
-async def owner_model_get(request: Request):
+async def owner_model_get(request: Request) -> dict[str, Any]:
     _require_owner(request)
     return COGNITION.lhm.export()
 
 
 @app.patch("/owner-model")
-async def owner_model_patch(body: OwnerModelPatch, request: Request):
+async def owner_model_patch(body: OwnerModelPatch, request: Request) -> dict[str, Any]:
     _require_owner(request)
     try:
         return asdict(
@@ -2314,7 +2321,7 @@ async def owner_model_patch(body: OwnerModelPatch, request: Request):
 @app.delete("/owner-model")
 async def owner_model_delete(
     request: Request, name: str | None = None, session_id: str | None = None
-):
+) -> dict[str, Any]:
     _require_owner(request)
     if name:
         return {"deleted": int(COGNITION.lhm.delete(name))}
@@ -2324,7 +2331,7 @@ async def owner_model_delete(
 
 
 @app.post("/cognition/consolidate")
-async def cognition_consolidate(body: ConsolidateRequest, request: Request):
+async def cognition_consolidate(body: ConsolidateRequest, request: Request) -> dict[str, Any]:
     _require_owner(request)
     turns = await SESSION_STORE.get_history(body.session_id)
     report = COGNITION.cec.consolidate(
@@ -2336,7 +2343,7 @@ async def cognition_consolidate(body: ConsolidateRequest, request: Request):
 
 
 @app.post("/cognition/debate")
-async def cognition_debate(body: DebateRequest, request: Request):
+async def cognition_debate(body: DebateRequest, request: Request) -> dict[str, Any]:
     _require_owner(request)
     from cognition.self_debate import DebatePosition
 
@@ -2359,13 +2366,13 @@ async def cognition_debate(body: DebateRequest, request: Request):
         body.task,
         generate_position,
         verify_claims=lambda position: bool(position.supporting_evidence),
-        verify_synthesis=lambda positions: False,
+        verify_synthesis=lambda _positions: False,
     )
     return result.to_dict()
 
 
 @app.post("/experiments/propose")
-async def experiment_propose(body: ExperimentProposalRequest, request: Request):
+async def experiment_propose(body: ExperimentProposalRequest, request: Request) -> dict[str, Any]:
     _require_owner(request)
     from cognition.ssie import FailureEvidence
 
@@ -2387,7 +2394,7 @@ async def experiment_propose(body: ExperimentProposalRequest, request: Request):
 
 
 @app.post("/experiments/{experiment_id}/authorize")
-async def experiment_authorize(experiment_id: str, request: Request):
+async def experiment_authorize(experiment_id: str, request: Request) -> dict[str, Any]:
     _require_owner(request)
     try:
         return asdict(COGNITION.ssie.authorize(experiment_id, owner_authorized=True))
@@ -2396,7 +2403,7 @@ async def experiment_authorize(experiment_id: str, request: Request):
 
 
 @app.post("/agi-benchmarks/run")
-async def agi_benchmarks_run(request: Request):
+async def agi_benchmarks_run(request: Request) -> dict[str, Any]:
     _require_owner(request)
     from evaluation.agi_benchmarks import build_report, write_report
 
@@ -2415,7 +2422,7 @@ async def agi_benchmarks_run(request: Request):
 
 
 @app.get("/agi-benchmarks/latest")
-async def agi_benchmarks_latest():
+async def agi_benchmarks_latest() -> dict[str, Any]:
     return _latest_json(OUTPUT_V2_DIR / "agi_benchmarks" / "latest.json") or {
         "status": "insufficient_data"
     }
@@ -2424,14 +2431,14 @@ async def agi_benchmarks_latest():
 @app.get("/training/preflight")
 async def training_preflight(
     model_size: str = "frontier", runtime_class: str | None = "t4_frontier_smoke"
-):
+) -> dict[str, Any]:
     from training.preflight import run_preflight
 
     return run_preflight(model_size, runtime_class=runtime_class).to_dict()
 
 
 @app.post("/training/launch-manifest")
-async def training_launch_manifest(body: LaunchManifestRequest, request: Request):
+async def training_launch_manifest(body: LaunchManifestRequest, request: Request) -> dict[str, Any]:
     _require_owner(request)
     from training.launch_manifest import build_launch_manifest, sign_manifest
 
@@ -2446,18 +2453,18 @@ async def training_launch_manifest(body: LaunchManifestRequest, request: Request
 
 
 @app.get("/hal/state")
-async def hal_state_route():
+async def hal_state_route() -> dict[str, Any]:
     return read_hal_state()
 
 
 @app.post("/reset")
-async def reset_route(body: ResetRequest):
+async def reset_route(body: ResetRequest) -> dict[str, Any]:
     await SESSION_STORE.delete_session(body.session_id)
     return {"cleared": True, "session_id": body.session_id}
 
 
 @app.get("/strategies")
-async def strategies_route():
+async def strategies_route() -> dict[str, Any]:
     return {
         "greedy": {"description": "Deterministic argmax decoding", "params": {}},
         "temperature": {"description": "Temperature sampling", "params": {"temperature": 0.8}},
@@ -2472,13 +2479,13 @@ async def strategies_route():
 
 
 @app.get("/debug/context/{session_id}")
-async def debug_context_route(session_id: str, message: str = "debug"):
+async def debug_context_route(session_id: str, message: str = "debug") -> dict[str, Any]:
     context, _, _ = await _build_context(session_id, message)
     return {"context": context}
 
 
 @app.get("/system-map")
-async def system_map_route():
+async def system_map_route() -> dict[str, Any]:
     return SYSTEM_GRAPH or await run_in_threadpool(
         build_capability_graph, Path(__file__).resolve().parent
     )
@@ -2486,11 +2493,11 @@ async def system_map_route():
 
 @app.get("/phase-health")
 @app.get("/sovereignty/status")
-async def phase_health_route():
+async def phase_health_route() -> dict[str, Any]:
     graph = SYSTEM_GRAPH or await run_in_threadpool(
         build_capability_graph, Path(__file__).resolve().parent
     )
-    checks: Dict[str, Dict[str, Any]] = {}
+    checks: dict[str, dict[str, Any]] = {}
     modules = [
         ("identity_injector", "identity"),
         ("ouroboros_numpy", "ouroboros"),
@@ -2517,7 +2524,7 @@ async def phase_health_route():
 
 
 @app.get("/goals")
-async def goals_route():
+async def goals_route() -> dict[str, Any]:
     goals = [job for job in JOBS.values() if job["kind"] == "goal"]
     return {
         "goals": goals,
@@ -2529,7 +2536,7 @@ async def goals_route():
 
 @app.post("/goal")
 @app.post("/goals")
-async def goals_create_route(body: GoalRequest):
+async def goals_create_route(body: GoalRequest) -> dict[str, Any]:
     _require_feature("goals")
     cognitive_context = COGNITION.classify_goal(body.goal)
     causal = cognitive_context.get("causal", {})
@@ -2560,7 +2567,7 @@ async def goals_create_route(body: GoalRequest):
 
 
 @app.post("/plans")
-async def plans_route(body: PlanRequest):
+async def plans_route(body: PlanRequest) -> dict[str, Any]:
     plan_id = str(uuid.uuid4())
     root = MissionNode(
         node_id=f"{plan_id}:root",
@@ -2581,7 +2588,7 @@ async def plans_route(body: PlanRequest):
 
 
 @app.get("/memory/stats")
-async def memory_stats_route():
+async def memory_stats_route() -> dict[str, Any]:
     _require_feature("memory")
     return {
         "total": 0,
@@ -2593,7 +2600,7 @@ async def memory_stats_route():
 
 
 @app.get("/memory")
-async def memory_route(query: str = "", top_k: int = 5):
+async def memory_route(query: str = "", top_k: int = 5) -> dict[str, Any]:
     _require_feature("memory")
     memory_system = get_memory_system() if query else None
     results = memory_system.semantic.search(query=query, top_k=top_k) if memory_system else []
@@ -2601,7 +2608,7 @@ async def memory_route(query: str = "", top_k: int = 5):
 
 
 @app.post("/memory")
-async def memory_add_route(body: MemoryAddRequest):
+async def memory_add_route(body: MemoryAddRequest) -> dict[str, Any]:
     _require_feature("memory")
     memory_system = get_memory_system()
     if memory_system is None:
@@ -2619,18 +2626,18 @@ async def memory_add_route(body: MemoryAddRequest):
 
 
 @app.post("/eval")
-async def eval_route():
+async def eval_route() -> dict[str, Any]:
     _require_feature("evaluation")
     return await _new_job("evaluation", {"suite": "IBS-50", "seeds": 3})
 
 
 @app.get("/training/candidates")
-async def training_candidates_route():
+async def training_candidates_route() -> dict[str, Any]:
     return {"candidates": list(TRAINING_CANDIDATES.values())}
 
 
 @app.post("/training/candidates")
-async def training_candidate_create_route(request: Request):
+async def training_candidate_create_route(request: Request) -> dict[str, Any]:
     _require_feature("self_improvement")
     payload = await request.json()
     candidate_id = str(uuid.uuid4())
@@ -2647,7 +2654,7 @@ async def training_candidate_create_route(request: Request):
 
 
 @app.post("/robotics/workflows")
-async def robotics_workflows_route(body: WorkflowRequest):
+async def robotics_workflows_route(body: WorkflowRequest) -> dict[str, Any]:
     _require_feature("agent_loop")
     skills = [
         SkillGoal(
@@ -2662,7 +2669,7 @@ async def robotics_workflows_route(body: WorkflowRequest):
         for item in body.skills
     ]
     workflow = Workflow(workflow_id=str(uuid.uuid4()), goal=body.goal, skills=skills)
-    job = await _new_job(
+    return await _new_job(
         "robotics_workflow",
         {
             "workflow_id": workflow.workflow_id,
@@ -2671,22 +2678,21 @@ async def robotics_workflows_route(body: WorkflowRequest):
             "mode": "simulation_or_shadow",
         },
     )
-    return job
 
 
 @app.get("/jobs/{job_id}")
-async def job_status_route(job_id: str):
+async def job_status_route(job_id: str) -> dict[str, Any]:
     if job_id not in JOBS:
         raise HTTPException(status_code=404, detail="Job not found.")
     return JOBS[job_id]
 
 
 @app.get("/jobs/{job_id}/events")
-async def job_events_route(job_id: str):
+async def job_events_route(job_id: str) -> StreamingResponse:
     if job_id not in JOBS:
         raise HTTPException(status_code=404, detail="Job not found.")
 
-    async def stream_events():
+    async def stream_events() -> AsyncIterator[str]:
         for event in JOBS[job_id]["events"]:
             yield f"data: {json.dumps(event)}\n\n"
         yield "data: [DONE]\n\n"
@@ -2695,7 +2701,7 @@ async def job_events_route(job_id: str):
 
 
 @app.post("/memory/search")
-async def memory_search_route(request: Request):
+async def memory_search_route(request: Request) -> dict[str, Any]:
     _require_feature("memory")
     body = await request.json()
     query = body.get("query", "").strip()
@@ -2710,7 +2716,7 @@ async def memory_search_route(request: Request):
 
 
 @app.post("/sovereignty/audit")
-async def sovereignty_audit_route():
+async def sovereignty_audit_route() -> dict[str, Any]:
     # Non-blocking: just return immediately; real audit runs async later.
     return {
         "status": "triggered",
@@ -2720,7 +2726,7 @@ async def sovereignty_audit_route():
 
 
 @app.get("/train/status")
-async def train_status_route():
+async def train_status_route() -> dict[str, Any]:
     import torch
 
     gpu_count = torch.cuda.device_count()
@@ -2815,7 +2821,7 @@ async def _run_training_job(job_id: str, *, model_size: str, minutes: int) -> No
                 "output_tail": output,
             }
         )
-    except asyncio.TimeoutError:
+    except TimeoutError:
         process.kill()
         await process.wait()
         job["status"] = "failed"
@@ -2848,7 +2854,7 @@ async def train_trigger_route(request: Request) -> dict:
 
 
 @app.get("/identity/score")
-async def identity_score_route():
+async def identity_score_route() -> dict[str, Any]:
     from identity.civ import ConstitutionalIdentityVector
 
     candidates = [
@@ -2876,7 +2882,7 @@ async def identity_score_route():
     }
 
 
-async def test_api(base_url: str = "http://127.0.0.1:8000") -> None:
+async def test_api(base_url: str) -> None:
     async with httpx.AsyncClient(base_url=base_url, timeout=30) as client:
         assert (await client.get("/health")).status_code == 200
 

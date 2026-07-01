@@ -21,10 +21,10 @@ if str(REPO_ROOT) not in sys.path:
 
 import torch
 import torch.nn.functional as F
-from torch.utils.data import DataLoader, WeightedRandomSampler
-
 from anra.anra_paths import DATASET, ROOT
 from evaluation.intelligence_telemetry import create_intelligence_session
+from runtime.hal_telemetry import publish_hal_state
+from torch.utils.data import DataLoader, WeightedRandomSampler
 from training.anra_optimizer import build_optimizer
 from training.tpu_runtime import (
     TPUUnavailableError,
@@ -41,8 +41,8 @@ from training.v2_config import (
     TOKENIZER_SCHEMA_VERSION,
     V2_FRONTIER,
     V2_FRONTIER_PARAMETER_COUNT,
-    V2_FRONTIER_TRANSFORMER_PARAMETER_COUNT,
     V2_FRONTIER_TRAINING,
+    V2_FRONTIER_TRANSFORMER_PARAMETER_COUNT,
     resolve_model_profile,
 )
 from training.v2_data_mix import (
@@ -62,8 +62,6 @@ from training.v2_runtime import (
     write_json,
 )
 from training.wsd_scheduler import get_wsd_schedule, phase_for_step
-from runtime.hal_telemetry import publish_hal_state
-
 
 MODEL_PARAM_COUNT = V2_FRONTIER_PARAMETER_COUNT
 MIN_500M_CLASS_PARAMS = 450_000_000
@@ -332,7 +330,7 @@ def train_anra_tpu(
     print(f"  Context             : {block_size}", flush=True)
     print(f"  Micro batch         : {batch_size}", flush=True)
     print(f"  Grad accumulation   : {grad_accum_steps}", flush=True)
-    print(f"  Grad checkpointing  : disabled on TPU/XLA", flush=True)
+    print("  Grad checkpointing  : disabled on TPU/XLA", flush=True)
     print(f"  Frozen SN params    : {len(frozen_parametrizations)}", flush=True)
     print(f"  Optimizer           : {optimizer_report.get('selected', {}).get('actual', optimizer_name)}", flush=True)
     print(f"  Examples/windows    : {len(examples):,}/{len(dataset):,}", flush=True)

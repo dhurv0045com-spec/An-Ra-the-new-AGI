@@ -20,11 +20,10 @@ import time
 from pathlib import Path
 
 import torch
-from torch.optim.lr_scheduler import CosineAnnealingLR
-
 from anra.core.config import AnRaConfig
 from anra.core.registry import MODEL_REGISTRY
 from anra_brain import CausalTransformerV2  # noqa: F401
+from torch.optim.lr_scheduler import CosineAnnealingLR
 from training.anra_optimizer import build_optimizer_with_report
 
 ROOT = Path(__file__).resolve().parent.parent

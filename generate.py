@@ -7,12 +7,12 @@ import os
 import re
 import threading
 import time
+from collections.abc import Iterator
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Dict, Iterator, Optional, TypedDict
+from typing import TypedDict
 
 import torch
-
 from anra.anra_paths import (
     DRIVE_LOGS,
     FRONTIER_CHECKPOINT,
@@ -71,7 +71,7 @@ class GenerationConfig:
     repetition_penalty: float = 1.15
     repetition_window: int = 64
     stop_strings: list[str] = field(default_factory=list)
-    seed: Optional[int] = 0
+    seed: int | None = 0
     use_think_tokens: bool = False
     use_kv_cache: bool = False
     mode: str = "diagnostic"
@@ -127,9 +127,9 @@ class GenerationTrace:
 
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-_GHOST_STORE: Dict[str, dict] = {}
-_HAL_STORE: Dict[str, object] = {}
-_ESV_STORE: Dict[str, torch.Tensor] = {}
+_GHOST_STORE: dict[str, dict] = {}
+_HAL_STORE: dict[str, object] = {}
+_ESV_STORE: dict[str, torch.Tensor] = {}
 _HAL_DIR = STATE_DIR / "hal_sessions"
 _RUNTIME_PROFILE = "unknown"
 _RUNTIME_LOAD_STATE: dict[str, object] = {}
@@ -157,11 +157,11 @@ def _sha256_file(path: Path, chunk_size: int = 8 * 1024 * 1024) -> str:
     return digest.hexdigest()
 
 
-def _native_model(model):
+def _native_model(model: object) -> object:
     return getattr(model, "model", model)
 
 
-def _seed_all(seed: Optional[int]) -> None:
+def _seed_all(seed: int | None) -> None:
     if seed is None:
         return
     torch.manual_seed(seed)
@@ -201,11 +201,12 @@ def _resolve_frontier_checkpoint() -> Path:
         logger.warning("frontier checkpoint restore failed for %s: %s", checkpoint, exc)
     raise FileNotFoundError(
         "Frontier runtime requested, but anra_frontier_500m.pt was not found. "
-        "Set ANRA_CHECKPOINT_PATH to the trained checkpoint or restore the shared Drive master first."
+        "Set ANRA_CHECKPOINT_PATH to the trained checkpoint or restore the shared "
+        "Drive master first."
     )
 
 
-def _load_frontier_runtime():
+def _load_frontier_runtime() -> tuple[object, object, Path, str, dict[str, object]]:
     tokenizer = load_or_build_v2_tokenizer()
     checkpoint = _resolve_frontier_checkpoint()
     model = (
@@ -237,7 +238,7 @@ def _load_frontier_runtime():
     return model, tokenizer, checkpoint, "frontier", state
 
 
-def _load_legacy_runtime():
+def _load_legacy_runtime() -> tuple[object, object, Path, str, dict[str, object]]:
     tokenizer = load_or_build_v2_tokenizer()
     checkpoint = canonical_v2_checkpoint("ouroboros")
     use_ouroboros = checkpoint.exists()
@@ -256,7 +257,7 @@ def _load_legacy_runtime():
     return model, tokenizer, checkpoint, "legacy", state
 
 
-def _load_runtime():
+def _load_runtime() -> tuple[object, object, Path, str, dict[str, object]]:
     if _frontier_mode_requested():
         return _load_frontier_runtime()
     return _load_legacy_runtime()
@@ -267,7 +268,7 @@ _TOKENIZER = None
 _LOADED_CHECKPOINT = None
 
 
-def _get_runtime():
+def _get_runtime() -> tuple[object, object, Path | None]:
     global _MODEL, _TOKENIZER, _LOADED_CHECKPOINT, _RUNTIME_PROFILE, _RUNTIME_LOAD_STATE
     with _RUNTIME_LOAD_LOCK:
         if _MODEL is None:
@@ -286,7 +287,7 @@ def _hal_path(session_id: str) -> Path:
     return _HAL_DIR / f"{safe or 'default'}.json"
 
 
-def _get_hal(session_id: str | None):
+def _get_hal(session_id: str | None) -> object | None:
     if _HALModule is None:
         return None
     key = session_id or "__default__"
@@ -304,7 +305,7 @@ def _get_hal(session_id: str | None):
     return hal
 
 
-def _save_hal(session_id: str | None, hal) -> None:
+def _save_hal(session_id: str | None, hal: object) -> None:
     if hal is None:
         return
     try:
@@ -328,7 +329,7 @@ def _save_hal(session_id: str | None, hal) -> None:
         logger.warning("HAL persistence failed for session %s: %s", session_id, exc)
 
 
-def _attach_hal(model, hal) -> None:
+def _attach_hal(model: object, hal: object) -> None:
     if hal is None:
         return
     try:
@@ -470,7 +471,7 @@ def _apply_repetition_penalty(
     return adjusted
 
 
-def _blocked_token_ids(tokenizer, cfg: GenerationConfig) -> set[int]:
+def _blocked_token_ids(tokenizer: object, cfg: GenerationConfig) -> set[int]:
     special = getattr(tokenizer, "special_ids", {})
     if callable(special):
         special = special()
@@ -551,7 +552,7 @@ def detect_repetition(text: str) -> dict[str, object]:
     tokens = text.split()
     if len(tokens) < 8:
         return {"repeated_ngrams_detected": False, "ngram": "", "count": 0}
-    seen: Dict[str, int] = {}
+    seen: dict[str, int] = {}
     for n in (3, 4):
         for idx in range(0, len(tokens) - n + 1):
             gram = " ".join(tokens[idx : idx + n])
@@ -776,7 +777,10 @@ def generate_traced(
             esv_module.state.copy_(prior_esv_state)
             native_model._pending_esv_state = None
 
-        if (cfg.mode == "diagnostic" or not cfg.persist_adaptive_state) and prior_esv_state is not None:
+        if (
+            (cfg.mode == "diagnostic" or not cfg.persist_adaptive_state)
+            and prior_esv_state is not None
+        ):
             esv_module.state.copy_(prior_esv_state)
             native_model._pending_esv_state = None
 
@@ -946,7 +950,7 @@ def verify_session_state_isolation(*, probe_generation: bool = False) -> dict[st
                         esv_module.state.zero_()
                     else:
                         esv_module.state.copy_(model_esv_before.to(esv_module.state))
-                    setattr(_native_model(_MODEL), "_pending_esv_state", None)
+                    _native_model(_MODEL)._pending_esv_state = None
 
 
 def clear_session_runtime_state(session_id: str) -> None:
@@ -958,7 +962,12 @@ def clear_session_runtime_state(session_id: str) -> None:
         _hal_path(session_id).unlink(missing_ok=True)
 
 
-def generate(prompt: str, strategy: str = "greedy", max_tokens: int = 128, **kwargs) -> str:
+def generate(
+    prompt: str,
+    strategy: str = "greedy",
+    max_tokens: int = 128,
+    **kwargs: object,
+) -> str:
     cfg = GenerationConfig(strategy=strategy, max_tokens=max_tokens)
     for key, value in kwargs.items():
         if hasattr(cfg, key):
@@ -1039,7 +1048,7 @@ def save_ghost_state(session_id: str) -> None:
             logger.warning("Ghost state persistence failed for session %s: %s", session_id, exc)
 
 
-def get_tokenizer():
+def get_tokenizer() -> object:
     """Return the loaded V2 tokenizer (lazy via runtime cache)."""
     return _get_runtime()[1]
 
@@ -1090,40 +1099,40 @@ def restore_embedded_data_manifests(root: str | Path) -> dict[str, object]:
     }
 
 
-def __getattr__(name: str):
+def __getattr__(name: str) -> object:
     if name == "TOKENIZER":
         return get_tokenizer()
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 def get_model_info() -> dict[str, object]:
-    MODEL, TOKENIZER, LOADED_CHECKPOINT = _get_runtime()
-    summary = model_summary(MODEL)
+    model, tokenizer, loaded_checkpoint = _get_runtime()
+    summary = model_summary(model)
     kv_enabled = False
-    blocks = getattr(MODEL, "blocks", getattr(getattr(MODEL, "model", None), "blocks", []))
+    blocks = getattr(model, "blocks", getattr(getattr(model, "model", None), "blocks", []))
     try:
         kv_enabled = any(getattr(block.attn, "_kv_cache", None) is not None for block in blocks)
     except Exception:
         kv_enabled = False
-    checkpoint_sha256 = _sha256_file(Path(LOADED_CHECKPOINT))
+    checkpoint_sha256 = _sha256_file(Path(loaded_checkpoint))
     tokenizer_path = active_tokenizer_path()
     tokenizer_sha256 = _sha256_file(tokenizer_path) if tokenizer_path.exists() else "missing"
     return {
         "model_line": "v2",
         "profile": _RUNTIME_PROFILE,
-        "checkpoint": str(LOADED_CHECKPOINT),
+        "checkpoint": str(loaded_checkpoint),
         "checkpoint_sha256": checkpoint_sha256,
         "tokenizer_sha256": tokenizer_sha256,
-        "vocab_size": TOKENIZER.vocab_size,
+        "vocab_size": tokenizer.vocab_size,
         "param_count": summary["parameters"],
         "trainable_parameters": summary["trainable_parameters"],
-        "d_model": getattr(MODEL, "d_model", None),
-        "n_layer": getattr(MODEL, "n_layer", None),
-        "n_head": getattr(MODEL, "n_head", None),
-        "n_kv_head": getattr(MODEL, "n_kv_head", None),
+        "d_model": getattr(model, "d_model", None),
+        "n_layer": getattr(model, "n_layer", None),
+        "n_head": getattr(model, "n_head", None),
+        "n_kv_head": getattr(model, "n_kv_head", None),
         "device": str(DEVICE),
-        "block_size": MODEL.block_size,
-        "tokenizer_backend": getattr(TOKENIZER, "backend", "unknown"),
+        "block_size": model.block_size,
+        "tokenizer_backend": getattr(tokenizer, "backend", "unknown"),
         "kv_cache_enabled": kv_enabled,
         "checkpoint_state": {
             "global_step": _RUNTIME_LOAD_STATE.get("global_step", 0),

@@ -10,7 +10,6 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 
 from anra.anra_paths import OUTPUT_V2_DIR, ROOT
 
-
 SMOKE_PROMPTS = [
     "H: Who are you?\nANRA:",
     "H: Explain your current training state in three short sentences.\nANRA:",

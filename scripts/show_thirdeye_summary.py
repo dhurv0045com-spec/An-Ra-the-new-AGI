@@ -12,7 +12,12 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from evaluation.thirdeye_adapter import PROJECT_ID, THIRDEYE_HOME, activation_snapshot, run_one_click
+from evaluation.thirdeye_adapter import (
+    PROJECT_ID,
+    THIRDEYE_HOME,
+    activation_snapshot,
+    run_one_click,
+)
 from training.v2_runtime import build_frontier_model, model_summary
 
 
@@ -55,9 +60,7 @@ def _summarize_intelligence(intelligence: dict[str, Any] | None) -> list[str]:
         lines.append(f"    signals captured: {len(signals)}")
 
     subsystems = intelligence.get("subsystems")
-    if isinstance(subsystems, list):
-        lines.append(f"    subsystems tracked: {len(subsystems)}")
-    elif isinstance(subsystems, dict):
+    if isinstance(subsystems, list) or isinstance(subsystems, dict):
         lines.append(f"    subsystems tracked: {len(subsystems)}")
 
     if len(lines) == 1:

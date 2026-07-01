@@ -3,7 +3,6 @@ merge_identity.py — Collect all identity text and write combined file.
 Scans dynamically. Never fails on missing files.
 """
 import glob
-import sys
 from pathlib import Path
 
 REPO_ROOT    = Path(__file__).parent.parent

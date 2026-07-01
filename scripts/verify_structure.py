@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from pathlib import Path
-
 from anra.anra_paths import DATASET, ROOT
-from runtime.system_registry import component_registry, component_status, missing_required_components
-
+from runtime.system_registry import (
+    component_registry,
+    component_status,
+    missing_required_components,
+)
 
 
 def _ensure_v2_tokenizer() -> None:
