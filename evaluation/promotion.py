@@ -16,6 +16,9 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from statistics import mean, pstdev
 
+from evaluation.agi_benchmarks import build_report
+from evaluation.capability_ladder import evaluate_capability_ladder
+
 
 @dataclass(frozen=True)
 class PromotionDecision:
@@ -23,6 +26,30 @@ class PromotionDecision:
     gates: dict[str, bool]
     deltas: dict[str, float]
     reasons: tuple[str, ...]
+
+
+def build_capability_comparison_report(
+    *,
+    baseline_metrics: dict[str, float | bool],
+    candidate_metrics: dict[str, float | bool],
+    agi_measurements: dict[str, tuple[float, int, str, str | None]],
+) -> dict[str, object]:
+    baseline_ladder = evaluate_capability_ladder(baseline_metrics)
+    candidate_ladder = evaluate_capability_ladder(candidate_metrics)
+    agi_report = build_report(agi_measurements)  # type: ignore[arg-type]
+    insufficient = [
+        str(result["benchmark_id"])
+        for result in agi_report["results"]
+        if result["maturity"] == "insufficient_data"
+    ]
+    return {
+        "schema_version": 1,
+        "baseline": baseline_ladder,
+        "candidate": candidate_ladder,
+        "agi_benchmarks": agi_report,
+        "insufficient_data": insufficient,
+        "promotion_ready": not insufficient and bool(agi_report["promotion_ready"]),
+    }
 
 
 class CapabilityPromotionGate:
@@ -346,7 +373,7 @@ def promote_checkpoint_atomically(
     promoted = Path(promoted_path)
     if not candidate.exists():
         raise FileNotFoundError(candidate)
-    from anra.anra_paths import RELEASES_DIR, ROLLBACK_DIR
+    from anra.anra_paths import ACTIVE_RELEASE_MANIFEST, RELEASES_DIR, ROLLBACK_DIR
 
     RELEASES_DIR.mkdir(parents=True, exist_ok=True)
     ROLLBACK_DIR.mkdir(parents=True, exist_ok=True)
@@ -383,6 +410,11 @@ def promote_checkpoint_atomically(
         "rollback_checkpoint": str(rollback) if rollback else None,
         "decision": asdict(decision),
         "metadata": metadata,
+        "tokenizer": metadata.get("tokenizer"),
+        "tokenizer_sha256": metadata.get("tokenizer_sha256"),
+        "architecture": metadata.get("architecture", "frontier-500m"),
+        "data_manifests": metadata.get("data_manifests", {}),
+        "configuration_sha256": metadata.get("configuration_sha256"),
     }
     manifest["signature"] = _sign(manifest)
     release_manifest = RELEASES_DIR / f"{release_id}.json"
@@ -391,6 +423,20 @@ def promote_checkpoint_atomically(
     current_tmp = current.with_suffix(".tmp")
     current_tmp.write_text(json.dumps(manifest, indent=2, sort_keys=True), encoding="utf-8")
     current_tmp.replace(current)
+    try:
+        ACTIVE_RELEASE_MANIFEST.parent.mkdir(parents=True, exist_ok=True)
+        active_tmp = ACTIVE_RELEASE_MANIFEST.with_suffix(".tmp")
+        active_tmp.write_text(json.dumps(manifest, indent=2, sort_keys=True), encoding="utf-8")
+        active_tmp.replace(ACTIVE_RELEASE_MANIFEST)
+    except OSError as exc:
+        _audit(
+            {
+                "event": "active_release_manifest_write_failed",
+                "release_id": release_id,
+                "timestamp": time.time(),
+                "error": str(exc),
+            }
+        )
     _audit(
         {
             "event": "checkpoint_promoted",

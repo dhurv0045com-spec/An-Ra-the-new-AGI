@@ -544,14 +544,28 @@ def _adapt_state_vocab_rows(
             offsets = offsets - offsets.mean(dim=1, keepdim=True)
             offsets = offsets / offsets.norm(dim=1, keepdim=True).clamp_min(1e-8)
             tokenizer_payload = json.loads(active_tokenizer_path().read_text(encoding="utf-8"))
+            tokenizer_meta_path = active_tokenizer_path().with_suffix(
+                active_tokenizer_path().suffix + ".meta.json"
+            )
+            tokenizer_meta = (
+                json.loads(tokenizer_meta_path.read_text(encoding="utf-8"))
+                if tokenizer_meta_path.is_file()
+                else {}
+            )
+            decompositions = tokenizer_meta.get("token_decompositions", {})
             id_to_token = list(tokenizer_payload.get("id_to_token", []))
             token_to_id = dict(tokenizer_payload.get("token_to_id", {}))
             bases: list[torch.Tensor] = []
             for row_index in range(old_weight.shape[0], target_weight.shape[0]):
                 token = id_to_token[row_index] if row_index < len(id_to_token) else ""
-                constituent_ids: list[int] = []
+                declared = decompositions.get(token, []) if isinstance(decompositions, dict) else []
+                constituent_ids = [
+                    int(value)
+                    for value in declared
+                    if isinstance(value, int) and 0 <= int(value) < old_weight.shape[0]
+                ]
                 position = 0
-                while position < len(token):
+                while not constituent_ids and position < len(token):
                     matched_id = None
                     matched_end = position
                     for end in range(len(token), position, -1):
@@ -618,7 +632,7 @@ def migrate_checkpoint_state(
         "changes": changes,
         "source_vocab_size": _checkpoint_vocab_size(model_state),
         "target_vocab_size": _checkpoint_vocab_size(target_state),
-        "vocabulary_initialization": "special-row-mean-plus-deterministic-sinusoid-v1",
+        "vocabulary_initialization": "declared-decomposition-mean-plus-deterministic-sinusoid-v2",
         "legacy_rows_preserved": True,
     }
     source_vocab = report["source_vocab_size"]

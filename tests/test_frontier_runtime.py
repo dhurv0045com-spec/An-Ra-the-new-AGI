@@ -118,7 +118,6 @@ def test_model_info_exposes_frontier_proof_fields(monkeypatch, tmp_path: Path) -
     import generate
 
     generate._reset_runtime_cache()
-
     checkpoint = tmp_path / "anra_frontier_500m.pt"
     checkpoint.write_bytes(b"fake")
     monkeypatch.setenv("ANRA_MODEL_PROFILE", "frontier")
@@ -154,6 +153,52 @@ def test_model_info_exposes_frontier_proof_fields(monkeypatch, tmp_path: Path) -
     assert info["checkpoint_state"]["global_step"] == 6927
 
     generate._reset_runtime_cache()
+
+
+def test_model_adapter_publishes_readiness_atomically(monkeypatch) -> None:
+    import app
+
+    adapter = app.ModelAdapter()
+    monkeypatch.setattr(
+        app,
+        "get_model_info",
+        lambda: {
+            "checkpoint": "/tmp/anra.pt",
+            "checkpoint_sha256": "checkpoint",
+            "tokenizer_sha256": "tokenizer",
+            "device": "cuda",
+            "profile": "frontier",
+            "vocab_size": 8209,
+            "param_count": 499_167_047,
+            "block_size": 1024,
+        },
+    )
+
+    with pytest.raises(app.HTTPException) as pending:
+        adapter.require_ready()
+    assert pending.value.status_code == 503
+
+    adapter.load()
+
+    assert adapter.readiness()["stage"] == "ready"
+    assert adapter.readiness()["ready"] is True
+    assert adapter.info["param_count"] == 499_167_047
+    adapter.require_ready()
+
+
+def test_model_adapter_fails_closed_on_placeholder_metadata(monkeypatch) -> None:
+    import app
+
+    adapter = app.ModelAdapter()
+    monkeypatch.setattr(app, "get_model_info", lambda: {"profile": "unknown"})
+
+    adapter.load()
+
+    assert adapter.readiness()["stage"] == "failed"
+    assert adapter.info == {}
+    with pytest.raises(app.HTTPException) as failed:
+        adapter.require_ready()
+    assert failed.value.detail["error"] == "model_not_ready"
 
 
 def test_repetition_penalty_moves_repeated_logits_down() -> None:
@@ -227,6 +272,7 @@ def test_private_promotion_route_starts_background_job(monkeypatch) -> None:
 
     completed: list[bool] = []
     app._PRIVATE_EVAL_TASK = None
+    monkeypatch.setattr(app.ADAPTER, "require_ready", lambda: None)
     monkeypatch.setattr(
         app,
         "_run_private_promotion_evaluation",

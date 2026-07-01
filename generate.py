@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import json
 import logging
 import os
 import re
@@ -14,9 +15,11 @@ from typing import TypedDict
 
 import torch
 from anra.anra_paths import (
+    ACTIVE_RELEASE_MANIFEST,
     DRIVE_LOGS,
     FRONTIER_CHECKPOINT,
     HAL_STATE_FILE,
+    PROMOTED_RELEASE_MANIFEST,
     ROOT,
     STATE_DIR,
 )
@@ -177,6 +180,32 @@ def _requested_checkpoint_path() -> Path | None:
     return path if path.is_absolute() else (ROOT / path).resolve()
 
 
+def _configure_active_release(checkpoint: Path) -> dict[str, object]:
+    """Select small release-side artifacts without changing the Colab cell."""
+    for manifest_path in (ACTIVE_RELEASE_MANIFEST, PROMOTED_RELEASE_MANIFEST):
+        if not manifest_path.is_file():
+            continue
+        try:
+            payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        if not isinstance(payload, dict):
+            continue
+        metadata = payload.get("metadata", {})
+        metadata = metadata if isinstance(metadata, dict) else {}
+        tokenizer_value = payload.get("tokenizer") or metadata.get("tokenizer")
+        if tokenizer_value and not os.environ.get("ANRA_TOKENIZER_PATH"):
+            tokenizer_path = Path(str(tokenizer_value)).expanduser()
+            if not tokenizer_path.is_absolute():
+                tokenizer_path = (ROOT / tokenizer_path).resolve()
+            if tokenizer_path.is_file():
+                os.environ["ANRA_TOKENIZER_PATH"] = str(tokenizer_path)
+        payload["manifest_path"] = str(manifest_path)
+        payload["requested_checkpoint"] = str(checkpoint)
+        return payload
+    return {}
+
+
 def _frontier_mode_requested() -> bool:
     profile = os.environ.get("ANRA_MODEL_PROFILE", "").strip().lower()
     if profile in {"frontier", "iterate500"}:
@@ -207,8 +236,9 @@ def _resolve_frontier_checkpoint() -> Path:
 
 
 def _load_frontier_runtime() -> tuple[object, object, Path, str, dict[str, object]]:
-    tokenizer = load_or_build_v2_tokenizer()
     checkpoint = _resolve_frontier_checkpoint()
+    active_release = _configure_active_release(checkpoint)
+    tokenizer = load_or_build_v2_tokenizer()
     model = (
         build_frontier_model()
         if tokenizer.vocab_size == 8_209
@@ -216,6 +246,7 @@ def _load_frontier_runtime() -> tuple[object, object, Path, str, dict[str, objec
     )
     model = model.to(DEVICE)
     state = load_checkpoint(model, None, None, None, checkpoint, device=DEVICE, strict=False)
+    state["active_release"] = active_release
     if not state.get("loaded"):
         raise RuntimeError(f"Frontier checkpoint did not load: {checkpoint}")
     load_report = state.get("load_report", {})

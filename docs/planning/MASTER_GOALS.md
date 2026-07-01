@@ -1,5 +1,10 @@
 # Master Goals
 
+## P0-01: Recover Native Language Coherence
+
+Prove tokenizer competence, truthful checkpoint loading, deterministic generation,
+and coherent dialogue before activating or promoting adaptive subsystems.
+
 `iterate500` exists to make the native An-Ra model trainable, inspectable, and
 evidence-gated on practical Colab hardware.
 

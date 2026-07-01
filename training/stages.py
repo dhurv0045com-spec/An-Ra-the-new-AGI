@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 from collections.abc import Callable
 from dataclasses import asdict, dataclass
 from enum import Enum
@@ -136,10 +137,45 @@ class CampaignState:
             "stages": [asdict(config) for config in self.stages],
             "state": self.state,
             "frontier_reference_tokens": V2_FRONTIER_PARAMETER_COUNT * 20,
-            "three_b_from_scratch_reference_tokens": 58_365_030_400,
-            "three_b_continuation_minimum_tokens": 21_000_000_000,
+            "draft_proof_tokens": 32_000_000,
+            "frontier_rescue_tokens": 110_000_000,
+            "frontier_recovery_floor_tokens": 2_310_000_000,
             "single_t4_role": "smoke_profile_adapter_pilot_inference",
         }
+
+
+def training_progress_report(
+    *,
+    phase: str,
+    phase_tokens_seen: int,
+    tokens_per_second: float,
+    session_minutes: int = 180,
+) -> dict[str, object]:
+    targets = {
+        "DRAFT": 32_000_000,
+        "RESCUE": 110_000_000,
+        **{config.continuation_phase: config.token_target for config in DEFAULT_STAGES},
+    }
+    normalized = phase.strip().upper()
+    target = int(targets.get(normalized, 0))
+    seen = max(0, int(phase_tokens_seen))
+    remaining = max(0, target - seen)
+    throughput = max(0.0, float(tokens_per_second))
+    session_tokens = int(throughput * max(1, session_minutes) * 60)
+    sessions_remaining = (
+        math.ceil(remaining / session_tokens) if remaining and session_tokens else None
+    )
+    return {
+        "schema_version": 1,
+        "phase": normalized,
+        "tokens_seen": seen,
+        "target_tokens": target,
+        "completion": min(1.0, seen / target) if target else 0.0,
+        "tokens_per_second": throughput,
+        "session_minutes": int(session_minutes),
+        "tokens_per_session": session_tokens,
+        "sessions_remaining": sessions_remaining,
+    }
 
 
 class StagedTrainingCampaign:

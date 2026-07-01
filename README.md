@@ -23,6 +23,10 @@ contributions, and rollback path are all proven.**
 | I want to... | Use this |
 | --- | --- |
 | Chat with the trained model in Colab | Open `notebooks/AN_RA_T4_TRAINING.ipynb` and run **Cell 10 only** |
+| Train on a TPU runtime | Open `notebooks/AN_RA_TPU_TRAINING.ipynb` and follow its staged cells |
+
+The TPU path uses PyTorch/XLA through `scripts/build_brain_tpu.py`; the T4 path
+continues to use the CUDA trainer and permanent Cell 10 runtime.
 | See what happens behind each response | Open the **Matrix** tab after Cell 10 starts the UI |
 | Validate a checkpoint from the terminal | `python scripts/check_frontier_checkpoint.py --checkpoint anra_frontier_500m.pt` |
 | Run a deterministic smoke conversation | `python scripts/chat_frontier.py --checkpoint anra_frontier_500m.pt --suite smoke` |

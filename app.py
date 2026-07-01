@@ -12,6 +12,7 @@ import re
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import traceback
 import uuid
@@ -75,10 +76,12 @@ from starlette.responses import Response
 from training.eval_v2 import (
     apply_blinded_human_reviews,
     build_context_growth_evidence,
+    build_frontier_recovery_decision,
     ensure_private_eval_suite,
     run_private_mode_seed_evaluation,
     run_recovery_prompt_gate,
 )
+from anra.core.protocols import RuntimeReadinessReport
 from training.v2_runtime import active_tokenizer_path, load_or_build_v2_tokenizer
 
 ensure_dirs()
@@ -257,13 +260,71 @@ class ModelAdapter:
     def __init__(self) -> None:
         self.info: dict[str, Any] = {}
         self.load_error = ""
+        self._lock = threading.RLock()
+        now = time.time()
+        self._readiness = RuntimeReadinessReport(
+            stage="starting",
+            ready=False,
+            progress=0.0,
+            started_at=now,
+            updated_at=now,
+        )
+
+    def set_stage(self, stage: str, progress: float, error: str | None = None) -> None:
+        with self._lock:
+            self._readiness = RuntimeReadinessReport(
+                stage=stage,
+                ready=stage == "ready",
+                progress=max(0.0, min(1.0, float(progress))),
+                started_at=self._readiness.started_at,
+                updated_at=time.time(),
+                error=error,
+            )
+
+    def readiness(self) -> dict[str, object]:
+        with self._lock:
+            return asdict(self._readiness)
+
+    def require_ready(self) -> None:
+        report = self.readiness()
+        if report["ready"] is not True:
+            raise HTTPException(
+                status_code=503,
+                detail={"error": "model_not_ready", "readiness": report},
+            )
 
     def load(self) -> None:
+        self.set_stage("building_model", 0.30)
         try:
-            self.info = get_model_info()
-            self.load_error = ""
+            info = get_model_info()
+            self.set_stage("verifying_artifacts", 0.85)
+            required = {
+                "checkpoint",
+                "checkpoint_sha256",
+                "tokenizer_sha256",
+                "device",
+                "profile",
+                "vocab_size",
+                "param_count",
+                "block_size",
+            }
+            missing = sorted(
+                key
+                for key in required
+                if info.get(key) in {None, "", "unknown", "missing", 0, -1}
+            )
+            if missing:
+                raise RuntimeError(f"Runtime metadata is incomplete: {missing}")
+            with self._lock:
+                self.info = dict(info)
+                self.load_error = ""
+            self.set_stage("ready", 1.0)
         except Exception as exc:
-            self.load_error = f"{type(exc).__name__}: {exc}"
+            error = f"{type(exc).__name__}: {exc}"
+            with self._lock:
+                self.info = {}
+                self.load_error = error
+            self.set_stage("failed", 1.0, error=error)
             LOGGER.exception("An-Ra model background load failed")
 
     def run(self, prompt: str, strategy: str = "nucleus", **params: Any) -> str:
@@ -532,8 +593,7 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     await SESSION_STORE.initialize()
     JOBS.update(await SESSION_STORE.load_jobs())
     global SYSTEM_GRAPH, _ctx_optimizer, _identity_context, _MODEL_LOAD_TASK
-    _MODEL_LOAD_TASK = asyncio.create_task(run_in_threadpool(ADAPTER.load))
-    # Tokenizer construction is cheap and does not allocate the 499M model.
+    ADAPTER.set_stage("loading_tokenizer", 0.10)
     tokenizer = await run_in_threadpool(load_or_build_v2_tokenizer)
     _ctx_optimizer = ContextWindowOptimizer(
         tokenizer=tokenizer,
@@ -546,6 +606,8 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         else "An-Ra is the native model serving this session."
     )
     SYSTEM_GRAPH = await run_in_threadpool(build_capability_graph, Path(__file__).resolve().parent)
+    ADAPTER.set_stage("loading_checkpoint", 0.20)
+    _MODEL_LOAD_TASK = asyncio.create_task(run_in_threadpool(ADAPTER.load))
     LOGGER.info("An-Ra API startup complete. Session store: %s", SESSION_STORE._path)
     yield
 
@@ -885,8 +947,17 @@ DEVELOPER_UI_HTML = """
         ]);
         lastPayloads = { status, hal, sessions, phase, evaluation };
         const cp = status.checkpoint_state || {};
-        $("runtime-line").textContent = new Date().toLocaleTimeString();
-        $("matrix-line").textContent = new Date().toLocaleTimeString();
+        const modelReady = status.readiness?.ready === true;
+        const readinessLabel = modelReady
+          ? `ready | ${new Date().toLocaleTimeString()}`
+          : `${status.readiness?.stage || "starting"} | ${Math.round((status.readiness?.progress || 0) * 100)}%`;
+        $("runtime-line").textContent = readinessLabel;
+        $("matrix-line").textContent = readinessLabel;
+        $("send").disabled = !modelReady;
+        $("prompt").disabled = !modelReady;
+        ["run-rollback", "run-recovery", "run-private", "run-integration"].forEach((id) => {
+          $(id).disabled = !modelReady;
+        });
         $("status-status").textContent = fmt(status.status);
         $("status-device").textContent = fmt(status.device);
         $("status-profile").textContent = fmt(status.profile);
@@ -1197,6 +1268,7 @@ async def _new_job(kind: str, payload: dict[str, Any]) -> dict[str, Any]:
 
 @app.post("/generate")
 async def generate_route(body: GenerateRequest, request: Request) -> dict[str, Any]:
+    ADAPTER.require_ready()
     _require_feature("runtime")
     client_ip = request.client.host if request.client else "unknown"
     await _rate_limit_or_429(client_ip)
@@ -1269,6 +1341,7 @@ async def generate_route(body: GenerateRequest, request: Request) -> dict[str, A
 
 @app.post("/chat")
 async def chat_route(body: ChatRequest, request: Request) -> dict[str, Any]:
+    ADAPTER.require_ready()
     client_ip = request.client.host if request.client else "unknown"
     await _rate_limit_or_429(client_ip)
 
@@ -1438,6 +1511,10 @@ async def current_evaluation_route() -> dict[str, Any]:
         "session": _latest_json(OUTPUT_V2_DIR / "v2_eval_summary.json"),
         "recovery": _latest_json(OUTPUT_V2_DIR / "recovery_gate.json"),
         "recovery_baseline": _latest_json(OUTPUT_V2_DIR / "recovery_baseline.json"),
+        "recovery_decision": _latest_json(OUTPUT_V2_DIR / "recovery_decision.json"),
+        "draft_proof": _latest_json(OUTPUT_V2_DIR / "draft_proof.json"),
+        "tokenizer_recovery": _latest_json(OUTPUT_V2_DIR / "tokenizer_recovery.json"),
+        "data_routes": _latest_json(OUTPUT_V2_DIR / "data_route_report.json"),
         "rollback_drill": _latest_json(OUTPUT_V2_DIR / "rollback_drill.json"),
         "release_bundle": _latest_json(OUTPUT_V2_DIR / "release_bundle.json"),
         "release_evidence": _latest_json(OUTPUT_V2_DIR / "release_evidence.json"),
@@ -1609,6 +1686,7 @@ def _run_private_promotion_evaluation() -> dict[str, object]:
 
 @app.post("/evaluations/private-promotion", status_code=202)
 async def private_promotion_evaluation_route() -> dict[str, Any]:
+    ADAPTER.require_ready()
     global _PRIVATE_EVAL_TASK
     if _PRIVATE_EVAL_TASK is not None and not _PRIVATE_EVAL_TASK.done():
         return {
@@ -1768,6 +1846,7 @@ def _run_full_system_integration_probe() -> dict[str, object]:
 
 @app.post("/diagnostics/full-system-integration")
 async def full_system_integration_route() -> dict[str, Any]:
+    ADAPTER.require_ready()
     report = await run_in_threadpool(_run_full_system_integration_probe)
     if not report["passed"]:
         raise HTTPException(status_code=409, detail=report)
@@ -1851,6 +1930,7 @@ async def session_isolation_route() -> dict[str, Any]:
 
 @app.post("/diagnostics/recovery-gate")
 async def recovery_gate_route() -> dict[str, Any]:
+    ADAPTER.require_ready()
     call_index = 0
 
     def recovery_generator(
@@ -1885,7 +1965,10 @@ async def recovery_gate_route() -> dict[str, Any]:
     )
     info = ADAPTER.info or await run_in_threadpool(get_model_info)
     report["model_bundle"] = _evaluation_model_bundle(info)
+    checkpoint_state = info.get("checkpoint_state", {})
+    checkpoint_state = checkpoint_state if isinstance(checkpoint_state, dict) else {}
     baseline_path = OUTPUT_V2_DIR / "recovery_baseline.json"
+    baseline_payload = _latest_json(baseline_path)
     if not baseline_path.exists():
         baseline_payload = {
             "schema_version": report["schema_version"],
@@ -1894,6 +1977,7 @@ async def recovery_gate_route() -> dict[str, Any]:
             "model_bundle": report["model_bundle"],
             "baseline": report["baseline"],
             "baseline_outputs": report["baseline_outputs"],
+            "checkpoint_state": checkpoint_state,
         }
         baseline_tmp = baseline_path.with_suffix(".tmp")
         baseline_tmp.write_text(
@@ -1901,6 +1985,35 @@ async def recovery_gate_route() -> dict[str, Any]:
             encoding="utf-8",
         )
         baseline_tmp.replace(baseline_path)
+    baseline_state = (
+        baseline_payload.get("checkpoint_state", {})
+        if isinstance(baseline_payload, dict)
+        else {}
+    )
+    baseline_state = baseline_state if isinstance(baseline_state, dict) else {}
+    candidate_metrics = report.get("candidate", {})
+    candidate_metrics = candidate_metrics if isinstance(candidate_metrics, dict) else {}
+    draft_proof = _latest_json(OUTPUT_V2_DIR / "draft_proof.json") or {}
+    rescue_tokens = max(
+        0,
+        int(checkpoint_state.get("tokens_seen", 0))
+        - int(baseline_state.get("tokens_seen", 0)),
+    )
+    recovery_decision = build_frontier_recovery_decision(
+        draft_proof_passed=draft_proof.get("passed") is True,
+        rescue_tokens_seen=rescue_tokens,
+        baseline_validation_loss=float(
+            baseline_state.get("best_validation_loss", float("inf"))
+        ),
+        candidate_validation_loss=float(
+            checkpoint_state.get("best_validation_loss", float("inf"))
+        ),
+        candidate_coherence_rate=float(candidate_metrics.get("coherence_rate", 0.0)),
+        generation_failure_rate=float(candidate_metrics.get("repetition_failure_rate", 1.0))
+        + float(candidate_metrics.get("eos_failure_rate", 1.0)),
+    )
+    report["recovery_decision"] = recovery_decision
+    _write_json_atomically(OUTPUT_V2_DIR / "recovery_decision.json", recovery_decision)
     target = OUTPUT_V2_DIR / "recovery_gate.json"
     temporary = target.with_suffix(".tmp")
     temporary.write_text(json.dumps(report, indent=2, sort_keys=True), encoding="utf-8")
@@ -1910,6 +2023,7 @@ async def recovery_gate_route() -> dict[str, Any]:
 
 @app.post("/diagnostics/rollback-drill")
 async def rollback_drill_route() -> dict[str, Any]:
+    ADAPTER.require_ready()
     info = ADAPTER.info or await run_in_threadpool(get_model_info)
     checkpoint = Path(str(info.get("checkpoint", "")))
     report = await run_in_threadpool(
@@ -2018,10 +2132,12 @@ def _full_system_integration_verified(
 
 @app.get("/diagnostics/release-evidence")
 async def release_evidence_route() -> dict[str, Any]:
-    if not ADAPTER.info:
+    readiness = ADAPTER.readiness()
+    if readiness["ready"] is not True:
         return {
-            "status": "model_load_failed" if ADAPTER.load_error else "model_loading",
-            "model_error": ADAPTER.load_error or None,
+            "status": str(readiness["stage"]),
+            "readiness": readiness,
+            "model_error": readiness.get("error"),
             "cache": {"verified": False},
             "session_isolation": {"verified": False},
             "evidence": {},
@@ -2155,6 +2271,7 @@ async def release_evidence_route() -> dict[str, Any]:
 async def stream_route(
     session_id: str, message: str, strategy: str = "greedy"
 ) -> StreamingResponse:
+    ADAPTER.require_ready()
     history = await _get_session_history(session_id)
     session_pairs = []
     index = 0
@@ -2210,6 +2327,7 @@ async def sessions_route() -> dict[str, Any]:
 @app.get("/status")
 async def health_route() -> dict[str, Any]:
     info = ADAPTER.info
+    readiness = ADAPTER.readiness()
     civ = _latest_json(CIV_LATEST)
     civ_score = float((civ or {}).get("cosine_similarity", (civ or {}).get("score", 1.0)))
     ibs = _latest_json(IBS_LATEST) or {}
@@ -2237,14 +2355,21 @@ async def health_route() -> dict[str, Any]:
         else "unverified"
     )
     status = (
-        "blocked" if civ_score < 0.80 or auth_misconfigured else "degraded" if disabled else "ok"
+        "failed"
+        if readiness["stage"] == "failed"
+        else "loading"
+        if readiness["ready"] is not True
+        else "blocked"
+        if civ_score < 0.80 or auth_misconfigured
+        else "degraded"
+        if disabled
+        else "ok"
     )
     return {
         "status": status,
-        "service_status": (
-            "model_load_failed" if ADAPTER.load_error else "ready" if info else "model_loading"
-        ),
-        "model_error": ADAPTER.load_error or None,
+        "service_status": str(readiness["stage"]),
+        "readiness": readiness,
+        "model_error": readiness.get("error"),
         "bundle_status": bundle_status,
         "quality_status": quality_status,
         "model": "An-Ra",

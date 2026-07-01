@@ -504,6 +504,53 @@ def build_context_growth_evidence(
     }
 
 
+def build_frontier_recovery_decision(
+    *,
+    draft_proof_passed: bool,
+    rescue_tokens_seen: int,
+    baseline_validation_loss: float,
+    candidate_validation_loss: float,
+    candidate_coherence_rate: float,
+    generation_failure_rate: float,
+) -> dict[str, object]:
+    """Choose continuation or a clean native restart after one capped rescue."""
+    gates = {
+        "draft_pipeline_proven": bool(draft_proof_passed),
+        "rescue_consumed_110m_tokens": int(rescue_tokens_seen) >= 110_000_000,
+        "coherence_at_least_80pct": float(candidate_coherence_rate) >= 0.80,
+        "validation_improved": (
+            math.isfinite(float(baseline_validation_loss))
+            and math.isfinite(float(candidate_validation_loss))
+            and float(candidate_validation_loss) < float(baseline_validation_loss)
+        ),
+        "generation_failures_below_2pct": float(generation_failure_rate) < 0.02,
+    }
+    evidence_complete = gates["draft_pipeline_proven"] and gates["rescue_consumed_110m_tokens"]
+    passed = all(gates.values())
+    action = (
+        "continue_existing_lineage"
+        if passed
+        else "clean_native_500m_restart"
+        if evidence_complete
+        else "collect_required_evidence"
+    )
+    return {
+        "schema_version": 1,
+        "generated_at": time.time(),
+        "gates": gates,
+        "passed": passed,
+        "action": action,
+        "rescue_token_cap": 110_000_000,
+        "metrics": {
+            "rescue_tokens_seen": int(rescue_tokens_seen),
+            "baseline_validation_loss": float(baseline_validation_loss),
+            "candidate_validation_loss": float(candidate_validation_loss),
+            "candidate_coherence_rate": float(candidate_coherence_rate),
+            "generation_failure_rate": float(generation_failure_rate),
+        },
+    }
+
+
 def run_private_mode_seed_evaluation(
     generator: Callable[[str, str, int, str | None], object],
     *,

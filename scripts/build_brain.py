@@ -39,6 +39,7 @@ from engine.eval_harness import EvalHarness, EvalResult
 from engine.feature_flags import is_enabled
 from evaluation.intelligence_telemetry import create_intelligence_session
 from runtime.hal_telemetry import publish_hal_state
+from runtime.safe_load import safe_torch_load
 from torch.utils.data import DataLoader, WeightedRandomSampler
 from training.anra_optimizer import (
     IDENTITY_PARAMETER_PATTERNS,
@@ -47,7 +48,8 @@ from training.anra_optimizer import (
     is_identity_parameter,
 )
 from training.cdr import CorrectedFailureCurriculum
-from training.continual import assess_continual_readiness
+from training.continual import assess_continual_readiness, ewc_penalty
+from training.data_routing import build_data_route_report
 from training.dynamic_regret import DynamicRegretScheduler
 from training.eval_v2 import quick_eval_loss, run_compact_eval
 from training.mixed_precision import MixedPrecisionTrainer
@@ -894,6 +896,32 @@ def train_anra_v2(
             answer_loss_weight=answer_loss_weight,
         )
         eval_ds = ds
+    if training_layout == RawCausalShardDataset.PACKING_LAYOUT:
+        manifest_payload = _read_json(manifest_path) or {}
+        source_mix = manifest_payload.get("source_mix", {})
+        source_classes = list(source_mix) if isinstance(source_mix, dict) else []
+        if not source_classes:
+            source_classes = sorted(
+                {
+                    str(shard.get("source_class", shard.get("source", "")))
+                    for shard in manifest_payload.get("shards", [])
+                    if isinstance(shard, dict)
+                    and shard.get("source_class", shard.get("source"))
+                }
+            )
+    else:
+        source_classes = sorted({example.bucket for example in examples})
+    if not source_classes:
+        raise RuntimeError("Training data does not declare any routable source classes")
+    data_route_report = build_data_route_report(source_classes)
+    data_route_report.update(
+        {
+            "training_layout": training_layout,
+            "tokenizer_path": str(active_tokenizer_path()),
+            "tokenizer_sha256": hashlib.sha256(active_tokenizer_path().read_bytes()).hexdigest(),
+        }
+    )
+    write_json(OUTPUT_V2_DIR / "data_route_report.json", data_route_report)
     write_json(v2_report_path("mix_report"), mix_report.to_dict())
     if len(ds) == 0:
         raise RuntimeError(f"{training_layout} produced zero training windows.")
@@ -1201,6 +1229,37 @@ def train_anra_v2(
         print("[Resume] No checkpoint found — starting from scratch", flush=True)
     # ─────────────────────────────────────────────────────────────────────────────
 
+    ewc_weight = max(0.0, float(os.environ.get("ANRA_EWC_WEIGHT", "0")))
+    ewc_reference: dict[str, torch.Tensor] = {}
+    ewc_fisher: dict[str, torch.Tensor] = {}
+    ewc_state_value = os.environ.get("ANRA_EWC_STATE", "").strip()
+    if ewc_weight > 0.0:
+        if not ewc_state_value:
+            raise RuntimeError("ANRA_EWC_WEIGHT requires ANRA_EWC_STATE")
+        ewc_payload = safe_torch_load(Path(ewc_state_value), map_location="cpu")
+        if not isinstance(ewc_payload, dict):
+            raise TypeError("EWC state must be a dictionary")
+        raw_reference = ewc_payload.get("reference", {})
+        raw_fisher = ewc_payload.get("fisher", {})
+        if not isinstance(raw_reference, dict) or not isinstance(raw_fisher, dict):
+            raise TypeError("EWC state requires reference and fisher dictionaries")
+        ewc_reference = {
+            str(name): value.to(device=device)
+            for name, value in raw_reference.items()
+            if isinstance(value, torch.Tensor)
+        }
+        ewc_fisher = {
+            str(name): value.to(device=device)
+            for name, value in raw_fisher.items()
+            if isinstance(value, torch.Tensor)
+        }
+        if not ewc_reference or not ewc_fisher:
+            raise RuntimeError("EWC state has no usable tensors")
+        print(
+            f"[Trainer] EWC active weight={ewc_weight} tensors={len(ewc_fisher)}",
+            flush=True,
+        )
+
     if window_consumption is not None:
         phase_target = CONTINUATION_PHASE_TOKEN_TARGETS.get(continuation_phase.upper())
         consumption_report = window_consumption.report(phase_target_tokens=phase_target)
@@ -1259,6 +1318,7 @@ def train_anra_v2(
     rolling_loss = 0.0
     rolling_count = 0
     accumulated_step_loss = 0.0
+    accumulated_ewc_loss = 0.0
     accum_micro_steps = 0
     pending_trained_tokens = 0
     pending_token_ids: set[int] = set()
@@ -1361,6 +1421,12 @@ def train_anra_v2(
                         )
                 if hasattr(native_model, "native_regularization_loss"):
                     batch_loss = batch_loss + native_model.native_regularization_loss()
+                current_ewc_loss = (
+                    ewc_penalty(native_model, ewc_reference, ewc_fisher, ewc_weight)
+                    if ewc_weight > 0.0
+                    else torch.zeros((), device=batch_loss.device, dtype=batch_loss.dtype)
+                )
+                batch_loss = batch_loss + current_ewc_loss
                 loss = batch_loss / training_cfg.grad_accum_steps
 
             if not torch.isfinite(batch_loss):
@@ -1377,6 +1443,7 @@ def train_anra_v2(
                 pcgrad.clear()
                 accum_micro_steps = 0
                 accumulated_step_loss = 0.0
+                accumulated_ewc_loss = 0.0
                 pending_trained_tokens = 0
                 pending_token_ids.clear()
                 pending_window_indices.clear()
@@ -1432,6 +1499,7 @@ def train_anra_v2(
             rolling_loss += microbatch_loss
             rolling_count += 1
             accumulated_step_loss += microbatch_loss
+            accumulated_ewc_loss += float(current_ewc_loss.detach().item())
             accum_micro_steps += 1
             answer_weighted_tokens += float((wb > 1.0).sum().item())
             total_target_tokens += float((yb != tokenizer.pad_token_id).sum().item())
@@ -1462,6 +1530,7 @@ def train_anra_v2(
                 # not merely the final one. The old final-microbatch value made
                 # HAL and adaptive LR react to random hard examples.
                 loss_float = accumulated_step_loss / accum_micro_steps
+                last_ewc_loss = accumulated_ewc_loss / accum_micro_steps
                 grad_float = float(gradient_norm)
                 if intelligence_session is not None:
                     intelligence_session.record_optimizer_step(
@@ -1511,6 +1580,7 @@ def train_anra_v2(
                 session_step += 1
                 accum_micro_steps = 0
                 accumulated_step_loss = 0.0
+                accumulated_ewc_loss = 0.0
 
                 avg_loss = rolling_loss / max(1, rolling_count)
                 last_avg_loss = avg_loss
@@ -1774,6 +1844,12 @@ def train_anra_v2(
             "total_steps": total_steps,
             "min_lr": float(getattr(training_cfg, "min_lr", learning_rate * 0.1)),
             "annealing_started": annealing_started,
+        },
+        "ewc": {
+            "active": ewc_weight > 0.0,
+            "weight": ewc_weight,
+            "last_optimizer_step_loss": locals().get("last_ewc_loss", 0.0),
+            "state_path": ewc_state_value or None,
         },
         "pcgrad": {
             "comparisons": len(pcgrad_reports),

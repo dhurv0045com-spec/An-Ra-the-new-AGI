@@ -97,7 +97,11 @@ def ewc_penalty(
     for name, parameter in model.named_parameters():
         if name not in reference or name not in fisher:
             continue
-        penalty = penalty + (fisher[name] * (parameter - reference[name]).pow(2)).sum()
+        reference_tensor = reference[name].to(device=parameter.device, dtype=parameter.dtype)
+        fisher_tensor = fisher[name].to(device=parameter.device, dtype=parameter.dtype)
+        if reference_tensor.shape != parameter.shape or fisher_tensor.shape != parameter.shape:
+            continue
+        penalty = penalty + (fisher_tensor * (parameter - reference_tensor).pow(2)).sum()
     return float(coefficient) * penalty
 
 

@@ -1,7 +1,11 @@
 from __future__ import annotations
 
 from evaluation.ibs import IBSBenchmark, IBS_DIMENSIONS
-from evaluation.promotion import CapabilityPromotionGate, DeploymentPromotionGate
+from evaluation.promotion import (
+    CapabilityPromotionGate,
+    DeploymentPromotionGate,
+    build_capability_comparison_report,
+)
 from evaluation.scale_gate import evaluate_scale_up
 
 
@@ -23,7 +27,7 @@ def test_capability_and_deployment_promotions_are_separate() -> None:
     )
     assert capability.allowed
     deployment = DeploymentPromotionGate().evaluate(
-        {name: True for name in DeploymentPromotionGate.REQUIRED}
+        dict.fromkeys(DeploymentPromotionGate.REQUIRED, True)
     )
     assert deployment.allowed
 
@@ -38,3 +42,13 @@ def test_scale_gate_uses_capability_not_parameter_count() -> None:
         max_compute_budget=25,
     )
     assert result.allowed
+
+
+def test_capability_comparison_fails_closed_on_missing_evidence() -> None:
+    report = build_capability_comparison_report(
+        baseline_metrics={},
+        candidate_metrics={"novel_problem_solving": 0.9},
+        agi_measurements={},
+    )
+    assert not report["promotion_ready"]
+    assert "A-01" in report["insufficient_data"]

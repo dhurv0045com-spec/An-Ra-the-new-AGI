@@ -53,6 +53,18 @@ class HealthStatus:
 
 
 @dataclass(frozen=True, slots=True)
+class RuntimeReadinessReport:
+    """Atomic serving readiness state exposed by status and operator surfaces."""
+
+    stage: str
+    ready: bool
+    progress: float
+    started_at: float
+    updated_at: float
+    error: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class IdentityState:
     """Serializable identity-module state exposed to observability and checkpoints."""
 

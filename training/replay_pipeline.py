@@ -128,6 +128,43 @@ class ReplayPipeline:
             count += 1
         return count
 
+    def add_falsification_ledger(self, ledger_or_path: object) -> int:
+        """Import verifier-rejected claims as bounded corrective replay."""
+        from identity.falsification_ledger import FalsificationLedger
+
+        ledger = (
+            ledger_or_path
+            if isinstance(ledger_or_path, FalsificationLedger)
+            else FalsificationLedger(Path(str(ledger_or_path)))
+        )
+        count = 0
+        for record in ledger.query(status="FALSIFIED"):
+            evidence = record.evidence[-1] if record.evidence else {}
+            correction = (
+                str(evidence.get("correction", "")).strip()
+                if isinstance(evidence, dict)
+                else ""
+            )
+            target = correction or (
+                "FALSIFIED. Do not repeat this claim. "
+                f"Failure condition: {record.would_be_false_if or 'verifier rejected it'}. "
+                f"Next verifier: {record.next_verifier or 'independent verification required'}."
+            )
+            self.add(
+                record.claim,
+                target,
+                source="falsification_ledger",
+                score=max(0.0, 1.0 - record.confidence),
+                weight=1.0,
+                metadata={
+                    "claim_id": record.claim_id,
+                    "status": record.status,
+                    "next_verifier": record.next_verifier,
+                },
+            )
+            count += 1
+        return count
+
     def sample(
         self,
         batch_size: int,
