@@ -975,13 +975,18 @@ def publish_fineweb_token_shards(profile: str = "30gb") -> dict[str, Any]:
     fineweb_path = TRAINING_DATA_DIR / "fineweb_edu.txt"
     if not foundation_path.exists() and not fineweb_path.exists():
         raise FileNotFoundError("Native foundation records must be downloaded first.")
-    from training.v2_runtime import load_or_build_v2_tokenizer
+    from training.v2_runtime import active_tokenizer_path, load_or_build_v2_tokenizer
 
     tokenizer = load_or_build_v2_tokenizer(dataset_path=TRAINING_DATA_DIR / "anra_training.txt")
-    tokenizer_manifest = json.loads(
-        (DATA_MANIFEST_DIR / "tokenizer_v3.json").read_text(encoding="utf-8")
+    tokenizer_path = active_tokenizer_path()
+    tokenizer_sha256 = hashlib.sha256(tokenizer_path.read_bytes()).hexdigest()
+    tokenizer_version = str(
+        json.loads(
+            tokenizer_path.with_suffix(tokenizer_path.suffix + ".meta.json").read_text(
+                encoding="utf-8"
+            )
+        ).get("schema_version", "unknown")
     )
-    tokenizer_sha256 = str(tokenizer_manifest["tokenizer_sha256"])
     revision_dir = DATA_MANIFEST_DIR / "native_foundation_v3" / profile
 
     def records(split: str) -> Iterator[SourceRecord]:
@@ -1143,17 +1148,17 @@ def publish_fineweb_token_shards(profile: str = "30gb") -> dict[str, Any]:
 
     train_manifest = TokenShardPublisher(
         revision_dir,
-        tokenizer_version="v3",
+        tokenizer_version=tokenizer_version,
         tokenizer_sha256=tokenizer_sha256,
     ).publish(records("train"), tokenizer, allow_partial_final=True)
     validation_manifest = TokenShardPublisher(
         revision_dir / "validation",
-        tokenizer_version="v3",
+        tokenizer_version=tokenizer_version,
         tokenizer_sha256=tokenizer_sha256,
     ).publish(records("validation"), tokenizer, allow_partial_final=True)
     test_manifest = TokenShardPublisher(
         revision_dir / "test",
-        tokenizer_version="v3",
+        tokenizer_version=tokenizer_version,
         tokenizer_sha256=tokenizer_sha256,
     ).publish(records("test"), tokenizer, allow_partial_final=True)
 
@@ -1261,6 +1266,11 @@ def parse_args() -> argparse.Namespace:
         help="Publish immutable 10M-token uint16 FineWeb-Edu shards after download.",
     )
     parser.add_argument(
+        "--shards-only",
+        action="store_true",
+        help="Publish token shards from an already prepared local corpus without downloads.",
+    )
+    parser.add_argument(
         "--prepare-corpus",
         action="store_true",
         help="Convert downloaded files into anra_training.txt and teacher_reasoning_v2.jsonl.",
@@ -1277,6 +1287,15 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
     ensure_training_data_dir()
+    if args.shards_only:
+        if args.dry_run or args.prepare_corpus or not args.publish_token_shards:
+            raise ValueError(
+                "--shards-only requires --publish-token-shards and cannot be combined "
+                "with --dry-run or --prepare-corpus"
+            )
+        inventory = publish_fineweb_token_shards(args.profile)
+        print(f"Published licensed token inventory: {inventory['licensed_tokens']:,}")
+        return 0
     load_dataset = load_datasets_import(dry_run=args.dry_run)
 
     buckets = [args.bucket] if args.bucket else ["base", "reasoning", "science"]

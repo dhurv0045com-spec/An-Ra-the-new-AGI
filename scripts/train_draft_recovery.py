@@ -1,5 +1,7 @@
 """Train a small native An-Ra model to prove tokenizer and shard correctness."""
 
+# ruff: noqa: E402
+
 from __future__ import annotations
 
 import argparse
@@ -12,6 +14,10 @@ import subprocess
 import sys
 import time
 from pathlib import Path
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
 import numpy as np
 import torch
@@ -43,6 +49,7 @@ def main() -> int:
     parser.add_argument("--learning-rate", type=float, default=3e-4)
     parser.add_argument("--seed", type=int, default=1337)
     parser.add_argument("--drive-root", default="")
+    parser.add_argument("--tokenizer-tag", default="draft")
     args = parser.parse_args()
     if args.drive_root and (
         not args.train_manifest.is_file() or not args.validation_manifest.is_file()
@@ -57,6 +64,8 @@ def main() -> int:
                 "30gb",
                 "--drive-root",
                 args.drive_root,
+                "--tokenizer-tag",
+                args.tokenizer_tag,
             ],
             check=True,
         )

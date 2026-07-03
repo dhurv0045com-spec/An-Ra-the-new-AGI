@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -16,7 +17,10 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from anra.anra_paths import DRIVE_DATA_DIR  # noqa: E402 - direct-script path bootstrap
+from anra.anra_paths import (  # noqa: E402 - direct-script path bootstrap
+    DRIVE_DATA_DIR,
+    V3_TOKENIZER_FILE,
+)
 
 CACHE_SCHEMA_VERSION = 2
 CACHE_FILES = (
@@ -111,7 +115,7 @@ def copy_cached_files(
     for name in _profile_files(profile):
         source_path = source / name
         target_path = destination / name
-        if target_path.exists() and target_path.stat().st_size == source_path.stat().st_size:
+        if target_path.exists() and _sha256(target_path) == _sha256(source_path):
             print(f"[Data Cache] local file already current: {name}", flush=True)
             continue
         print(f"[Data Cache] restoring {name}", flush=True)
@@ -126,7 +130,7 @@ def cache_local_files(source: Path, destination: Path, profile: str) -> None:
         if not source_path.is_file():
             raise FileNotFoundError(f"Prepared training file is missing: {source_path}")
         target_path = destination / name
-        if target_path.exists() and target_path.stat().st_size == source_path.stat().st_size:
+        if target_path.exists() and _sha256(target_path) == _sha256(source_path):
             print(f"[Data Cache] Drive file already current: {name}", flush=True)
             continue
         print(f"[Data Cache] caching {name} in MyDrive", flush=True)
@@ -153,6 +157,19 @@ def build_fresh_data(repo: Path, profile: str) -> None:
     subprocess.run(command, cwd=repo, check=True)
 
 
+def publish_restored_token_shards(repo: Path, profile: str) -> None:
+    command = [
+        sys.executable,
+        "scripts/download_training_data.py",
+        "--profile",
+        profile,
+        "--publish-token-shards",
+        "--shards-only",
+    ]
+    print("[Data Cache] verified corpus restored; publishing tokenizer-specific shards.")
+    subprocess.run(command, cwd=repo, check=True)
+
+
 def write_cache_report(
     repo: Path,
     profile: str,
@@ -160,12 +177,16 @@ def write_cache_report(
     local_tokens: Path,
     drive: Path,
     drive_tokens: Path,
+    tokenizer_tag: str,
+    tokenizer_sha256: str,
 ) -> Path:
     manifests = sorted(local_tokens.rglob("manifest.json"))
     payload = {
         "schema_version": 1,
         "generated_at": time.time(),
         "profile": profile,
+        "tokenizer_tag": tokenizer_tag,
+        "tokenizer_sha256": tokenizer_sha256,
         "local_corpus": str(local),
         "drive_corpus": str(drive),
         "local_token_root": str(local_tokens),
@@ -189,6 +210,7 @@ def main() -> int:
     parser.add_argument("--repo", default=str(REPO_ROOT))
     parser.add_argument("--profile", choices=["smoke", "15gb", "30gb"], default="30gb")
     parser.add_argument("--drive-root", default=str(DRIVE_DATA_DIR.parent))
+    parser.add_argument("--tokenizer-tag", default="active")
     parser.add_argument("--force-rebuild", action="store_true")
     args = parser.parse_args()
 
@@ -196,7 +218,18 @@ def main() -> int:
     local = repo / "training_data"
     drive = cache_dir(Path(args.drive_root), args.profile)
     local_tokens = repo / TOKEN_SHARD_RELATIVE / args.profile
-    drive_tokens = Path(args.drive_root) / "data" / "iterate500" / "token_shards" / args.profile
+    drive_tokens = (
+        Path(args.drive_root)
+        / "data"
+        / "iterate500"
+        / "token_shards"
+        / args.profile
+        / args.tokenizer_tag
+    )
+    tokenizer_path = Path(os.environ.get("ANRA_TOKENIZER_PATH", str(V3_TOKENIZER_FILE)))
+    if not tokenizer_path.is_file():
+        raise FileNotFoundError(f"Active tokenizer is missing: {tokenizer_path}")
+    active_tokenizer_sha256 = _sha256(tokenizer_path)
 
     def token_cache_valid(root: Path) -> bool:
         manifests = list(root.rglob("manifest.json")) if root.exists() else []
@@ -215,6 +248,8 @@ def main() -> int:
         if not train_manifest.is_file():
             return False
         train_payload = json.loads(train_manifest.read_text(encoding="utf-8"))
+        if str(train_payload.get("tokenizer_sha256", "")) != active_tokenizer_sha256:
+            return False
         if args.profile in {"15gb", "30gb"} and not bool(
             train_payload.get("campaign_mix_verified", False)
         ):
@@ -238,7 +273,16 @@ def main() -> int:
         and token_cache_valid(local_tokens)
     ):
         print_cache_summary(local, "local prepared corpus ready")
-        write_cache_report(repo, args.profile, local, local_tokens, drive, drive_tokens)
+        write_cache_report(
+            repo,
+            args.profile,
+            local,
+            local_tokens,
+            drive,
+            drive_tokens,
+            args.tokenizer_tag,
+            active_tokenizer_sha256,
+        )
         return 0
 
     if (
@@ -252,7 +296,37 @@ def main() -> int:
         if not cache_is_valid(local, args.profile):
             raise RuntimeError("Data cache restore finished but local validation failed.")
         print_cache_summary(local, "local prepared corpus ready")
-        write_cache_report(repo, args.profile, local, local_tokens, drive, drive_tokens)
+        write_cache_report(
+            repo,
+            args.profile,
+            local,
+            local_tokens,
+            drive,
+            drive_tokens,
+            args.tokenizer_tag,
+            active_tokenizer_sha256,
+        )
+        return 0
+
+    if not args.force_rebuild and cache_is_valid(drive, args.profile):
+        print_cache_summary(drive, "restoring verified corpus for a new tokenizer")
+        copy_cached_files(drive, local, args.profile)
+        if not cache_is_valid(local, args.profile):
+            raise RuntimeError("Verified corpus restore failed local hash validation.")
+        publish_restored_token_shards(repo, args.profile)
+        restore_token_cache(local_tokens, drive_tokens)
+        if not token_cache_valid(local_tokens) or not token_cache_valid(drive_tokens):
+            raise RuntimeError("Tokenizer-specific shard publication failed validation.")
+        write_cache_report(
+            repo,
+            args.profile,
+            local,
+            local_tokens,
+            drive,
+            drive_tokens,
+            args.tokenizer_tag,
+            active_tokenizer_sha256,
+        )
         return 0
 
     build_fresh_data(repo, args.profile)
@@ -267,7 +341,16 @@ def main() -> int:
     ):
         raise RuntimeError("Fresh data build completed but cache validation failed.")
     print_cache_summary(drive, "MyDrive cache ready for future sessions")
-    write_cache_report(repo, args.profile, local, local_tokens, drive, drive_tokens)
+    write_cache_report(
+        repo,
+        args.profile,
+        local,
+        local_tokens,
+        drive,
+        drive_tokens,
+        args.tokenizer_tag,
+        active_tokenizer_sha256,
+    )
     return 0
 
 
