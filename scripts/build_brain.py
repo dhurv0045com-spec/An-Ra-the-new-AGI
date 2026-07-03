@@ -437,6 +437,8 @@ def _build_checkpoint_payload(
         "best_loss": best_loss,
         "sessions_completed": sessions_completed,
         "tokens_seen": int(tokens_seen),
+        "completed_optimizer_boundary": True,
+        "accum_micro_steps": 0,
         "unique_token_ids_seen": sorted(unique_token_ids_seen or set()),
         "unique_tokens_seen": len(unique_token_ids_seen or set()),
         "continuation_token_counts": dict(continuation_token_counts or {}),
@@ -750,6 +752,7 @@ def train_anra_v2(
     token_shard_manifest: str | None = None,
     validation_shard_manifest: str | None = None,
     continuation_phase: str = "D",
+    max_phase_tokens: int | None = None,
 ) -> dict[str, object]:
     for required_component in ("training_loop", "data_mix", "evaluation"):
         if not is_enabled(required_component):
@@ -1313,6 +1316,10 @@ def train_anra_v2(
         300,
         int(float(os.environ.get("ANRA_CHECKPOINT_EVERY_MIN", "25")) * 60),
     )
+    durable_checkpoint_steps = max(
+        1,
+        int(os.environ.get("ANRA_DURABLE_CHECKPOINT_STEPS", "100")),
+    )
     next_checkpoint_at = time.time() + checkpoint_every_seconds
     optimizer.zero_grad(set_to_none=True)
     rolling_loss = 0.0
@@ -1377,7 +1384,10 @@ def train_anra_v2(
         flush=True,
     )
 
-    while time.time() < end_at:
+    while time.time() < end_at and (
+        max_phase_tokens is None
+        or continuation_token_counts.get(continuation_phase.upper(), 0) < max_phase_tokens
+    ):
         epoch += 1
         for xb, yb, wb, sample_idx in loader:
             if intelligence_session is not None:
@@ -1581,6 +1591,22 @@ def train_anra_v2(
                 accum_micro_steps = 0
                 accumulated_step_loss = 0.0
                 accumulated_ewc_loss = 0.0
+                write_json(
+                    OUTPUT_V2_DIR / "training_progress_journal.json",
+                    {
+                        "schema_version": 1,
+                        "updated_at": time.time(),
+                        "global_step": global_step,
+                        "completed_optimizer_boundary": True,
+                        "accumulation_step": 0,
+                        "tokens_seen": campaign_tokens_seen,
+                        "phase": continuation_phase.upper(),
+                        "phase_tokens_seen": continuation_token_counts.get(
+                            continuation_phase.upper(), 0
+                        ),
+                        "checkpoint_path": str(ckpt_path),
+                    },
+                )
 
                 avg_loss = rolling_loss / max(1, rolling_count)
                 last_avg_loss = avg_loss
@@ -1698,7 +1724,10 @@ def train_anra_v2(
                     finally:
                         model.train(was_training)
 
-                if global_step % 500 == 0 or time.time() >= next_checkpoint_at:
+                if (
+                    global_step % durable_checkpoint_steps == 0
+                    or time.time() >= next_checkpoint_at
+                ):
                     payload = _build_checkpoint_payload(
                         model=model,
                         optimizer=optimizer,
@@ -1739,6 +1768,16 @@ def train_anra_v2(
                     next_checkpoint_at = time.time() + checkpoint_every_seconds
 
             if time.time() >= end_at:
+                break
+            if (
+                max_phase_tokens is not None
+                and continuation_token_counts.get(continuation_phase.upper(), 0)
+                >= max_phase_tokens
+            ):
+                print(
+                    f"[Campaign] phase token cap reached: {max_phase_tokens:,}",
+                    flush=True,
+                )
                 break
 
     if accum_micro_steps > 0:
@@ -2166,6 +2205,12 @@ def main() -> None:
         default="D",
     )
     parser.add_argument(
+        "--max-phase-tokens",
+        type=int,
+        default=None,
+        help="Stop at the first complete optimizer boundary reaching this phase token count.",
+    )
+    parser.add_argument(
         "--start_eval_examples",
         type=int,
         default=0,
@@ -2225,6 +2270,7 @@ def main() -> None:
         token_shard_manifest=args.token_shard_manifest,
         validation_shard_manifest=args.validation_shard_manifest,
         continuation_phase=args.continuation_phase,
+        max_phase_tokens=args.max_phase_tokens,
     )
     print(result, flush=True)
 

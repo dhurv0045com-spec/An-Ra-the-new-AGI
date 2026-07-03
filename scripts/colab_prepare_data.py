@@ -153,6 +153,37 @@ def build_fresh_data(repo: Path, profile: str) -> None:
     subprocess.run(command, cwd=repo, check=True)
 
 
+def write_cache_report(
+    repo: Path,
+    profile: str,
+    local: Path,
+    local_tokens: Path,
+    drive: Path,
+    drive_tokens: Path,
+) -> Path:
+    manifests = sorted(local_tokens.rglob("manifest.json"))
+    payload = {
+        "schema_version": 1,
+        "generated_at": time.time(),
+        "profile": profile,
+        "local_corpus": str(local),
+        "drive_corpus": str(drive),
+        "local_token_root": str(local_tokens),
+        "drive_token_root": str(drive_tokens),
+        "token_manifests": {
+            str(path.relative_to(repo)): _sha256(path) for path in manifests
+        },
+        "corpus_valid": cache_is_valid(local, profile),
+        "passed": cache_is_valid(local, profile) and bool(manifests),
+    }
+    target = repo / "output" / "v2" / "colab_data_cache_report.json"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    temporary = target.with_suffix(".tmp")
+    temporary.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+    temporary.replace(target)
+    return target
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Restore or build a persistent Colab data cache")
     parser.add_argument("--repo", default=str(REPO_ROOT))
@@ -207,6 +238,7 @@ def main() -> int:
         and token_cache_valid(local_tokens)
     ):
         print_cache_summary(local, "local prepared corpus ready")
+        write_cache_report(repo, args.profile, local, local_tokens, drive, drive_tokens)
         return 0
 
     if (
@@ -220,6 +252,7 @@ def main() -> int:
         if not cache_is_valid(local, args.profile):
             raise RuntimeError("Data cache restore finished but local validation failed.")
         print_cache_summary(local, "local prepared corpus ready")
+        write_cache_report(repo, args.profile, local, local_tokens, drive, drive_tokens)
         return 0
 
     build_fresh_data(repo, args.profile)
@@ -234,6 +267,7 @@ def main() -> int:
     ):
         raise RuntimeError("Fresh data build completed but cache validation failed.")
     print_cache_summary(drive, "MyDrive cache ready for future sessions")
+    write_cache_report(repo, args.profile, local, local_tokens, drive, drive_tokens)
     return 0
 
 
