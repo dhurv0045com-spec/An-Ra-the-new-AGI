@@ -409,6 +409,42 @@ def _require_feature(name: str) -> None:
         )
 
 
+def _classify_chat_cognition(message: str) -> dict[str, Any] | None:
+    """Causal/debate classification of a full-system chat message.
+
+    Cognition is part of the full-system contract, so it must run on the real
+    request path, not only behind dedicated /cognition endpoints. Failures
+    degrade to None; they never break generation.
+    """
+    if not is_enabled("cognition"):
+        return None
+    try:
+        return COGNITION.classify_goal(message)
+    except Exception as exc:
+        LOGGER.warning("Cognition classification failed: %s", exc)
+        return None
+
+
+def _record_generation_epistemics(session_id: str, request_id: str, *, accepted: bool) -> bool:
+    """Append the generation outcome to the epistemic calibration history.
+
+    Every accepted/rejected full-system generation is a real observed outcome;
+    recording it gives the epistemic tracker live calibration data instead of
+    an empty history.
+    """
+    try:
+        COGNITION.et.record_outcome(
+            f"generation:{session_id}:{request_id}",
+            was_correct=accepted,
+            domain="conversation",
+            verifier="generation_quality",
+        )
+        return True
+    except Exception as exc:
+        LOGGER.warning("Epistemic outcome recording failed: %s", exc)
+        return False
+
+
 # Memory system bridge. Keep initialization lazy so importing the API does not
 # load native vector backends during test collection or lightweight health checks.
 MEMORY_SYSTEM = None
@@ -1414,6 +1450,10 @@ async def chat_route(body: ChatRequest, request: Request) -> dict[str, Any]:
         except Exception as mem_exc:
             LOGGER.warning("Memory query failed for session %s: %s", body.session_id, mem_exc)
 
+    cognition_context = (
+        _classify_chat_cognition(body.message) if cfg.mode == "full_system" else None
+    )
+
     session_pairs = []
     turns = list(history)
     i = 0
@@ -1457,6 +1497,13 @@ async def chat_route(body: ChatRequest, request: Request) -> dict[str, Any]:
             except Exception as mem_exc:
                 LOGGER.debug("Memory store failed: %s", mem_exc)
 
+    if cognition_context is not None:
+        cognition_context["epistemic_recorded"] = await run_in_threadpool(
+            lambda: _record_generation_epistemics(
+                body.session_id, request.state.request_id, accepted=persisted
+            )
+        )
+
     trace_id = _record_trace(
         {
             "request_id": request.state.request_id,
@@ -1464,6 +1511,7 @@ async def chat_route(body: ChatRequest, request: Request) -> dict[str, Any]:
             "formatted_prompt": full_prompt,
             "context": ctx_result,
             "memory_results": memory_results,
+            "cognition": cognition_context,
             "config": asdict(cfg),
             "generation": asdict(trace),
             "persisted": persisted,
@@ -2616,32 +2664,53 @@ async def system_map_route() -> dict[str, Any]:
     )
 
 
+# Each phase-3 subsystem lives in its own package under ``phase3/``. The health
+# probe must load the real module by its canonical dotted path and run its real
+# ``health_check`` -- the previous bare ``__import__("identity_injector")`` always
+# raised ModuleNotFoundError, which made every subsystem look degraded regardless
+# of its true state while the endpoint still asserted a top-level "ok".
+_PHASE3_HEALTH_MODULES: tuple[tuple[str, str], ...] = (
+    ("identity", "phase3.identity_45n.identity_injector"),
+    ("ouroboros", "phase3.ouroboros_45o.ouroboros_numpy"),
+    ("symbolic", "phase3.symbolic_bridge_45q.symbolic_bridge"),
+    ("sovereignty", "phase3.sovereignty_45r.sovereignty_bridge"),
+    ("ghost_memory", "phase3.ghost_memory_45p.ghost_memory"),
+)
+
+
+def _run_phase3_health_checks() -> dict[str, dict[str, Any]]:
+    import importlib
+
+    checks: dict[str, dict[str, Any]] = {}
+    for key, module_name in _PHASE3_HEALTH_MODULES:
+        try:
+            module = importlib.import_module(module_name)
+            health = getattr(module, "health_check", None)
+            if callable(health):
+                result = dict(health())
+                result.setdefault("status", "ok")
+                checks[key] = result
+            else:
+                checks[key] = {"status": "degraded", "detail": "health_check missing"}
+        except Exception as exc:  # pragma: no cover - defensive: report, never crash
+            checks[key] = {"status": "degraded", "detail": f"{type(exc).__name__}: {exc}"}
+    return checks
+
+
 @app.get("/phase-health")
 @app.get("/sovereignty/status")
 async def phase_health_route() -> dict[str, Any]:
     graph = SYSTEM_GRAPH or await run_in_threadpool(
         build_capability_graph, Path(__file__).resolve().parent
     )
-    checks: dict[str, dict[str, Any]] = {}
-    modules = [
-        ("identity_injector", "identity"),
-        ("ouroboros_numpy", "ouroboros"),
-        ("symbolic_bridge", "symbolic"),
-        ("sovereignty_bridge", "sovereignty"),
-    ]
-    for mod_name, key in modules:
-        try:
-            mod = __import__(mod_name)
-            fn = getattr(mod, "health_check", None)
-            checks[key] = (
-                dict(fn())
-                if callable(fn)
-                else {"status": "degraded", "detail": "health_check missing"}
-            )  # type: ignore[arg-type]
-        except Exception as exc:
-            checks[key] = {"status": "degraded", "detail": str(exc)}
+    checks = await run_in_threadpool(_run_phase3_health_checks)
+    # The aggregate status is the honest conjunction of the real sub-checks: it
+    # is "ok" only when every phase-3 subsystem reports healthy, never asserted.
+    healthy = all(str(check.get("status")) == "ok" for check in checks.values())
+    degraded = sorted(key for key, check in checks.items() if str(check.get("status")) != "ok")
     return {
-        "status": "ok",
+        "status": "ok" if healthy else "degraded",
+        "degraded_subsystems": degraded,
         "capabilities": graph.get("capabilities", {}),
         "phase_snapshots": graph.get("phase_snapshots", []),
         "phase3_health": checks,

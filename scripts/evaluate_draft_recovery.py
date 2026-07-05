@@ -40,13 +40,16 @@ def main() -> int:
         raise RuntimeError(f"draft checkpoint mismatch: missing={missing}, unexpected={unexpected}")
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device).eval()
-    evaluation = run_compact_eval(model, tokenizer, device=device, output=False)
+    evaluation = run_compact_eval(model, tokenizer, device=device, output=False, seed=0)
     coherence = float(evaluation.get("coherence_rate", 0.0))
     validation_loss = float(checkpoint.get("validation_loss", float("inf")))
     report = {
-        "schema_version": 1,
+        "schema_version": 2,
         "checkpoint": str(args.checkpoint),
         "coherence_rate": coherence,
+        "coherence_basis": evaluation.get("coherence_basis", "unknown"),
+        "repetition_failure_rate": float(evaluation.get("repetition_failure_rate", 0.0)),
+        "decoding": evaluation.get("decoding", {}),
         "validation_loss": validation_loss,
         "finite_validation": math.isfinite(validation_loss),
         "evaluation": evaluation,

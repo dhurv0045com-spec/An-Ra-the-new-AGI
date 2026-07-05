@@ -317,3 +317,75 @@ def test_private_promotion_requires_each_seed_trace_latency_and_blinded_review()
     assert reviewed["human_review"]["completed"] == reviewed["human_review"]["required"]
     assert reviewed["capability_allowed"] is True
     assert reviewed["promotion_allowed"] is False
+
+
+class _StubTokenizer:
+    special_ids = {"<bos>": 2, "<eos>": 3}
+
+    def encode(self, text: str) -> list[int]:
+        return [4 + (ord(character) % 12) for character in text[:32]] or [4]
+
+    def decode(self, ids: list[int]) -> str:
+        return " ".join(str(token) for token in ids)
+
+
+def _tiny_model():
+    import torch
+
+    from training.v2_runtime import CausalTransformerV2
+
+    torch.manual_seed(1)
+    return CausalTransformerV2(
+        vocab_size=16,
+        n_embd=16,
+        n_head=2,
+        n_kv_head=1,
+        n_layer=1,
+        block_size=64,
+        use_hal=False,
+    )
+
+
+def test_run_compact_eval_is_deterministic_across_runs() -> None:
+    import torch
+
+    model = _tiny_model()
+    tokenizer = _StubTokenizer()
+    device = torch.device("cpu")
+    first = eval_v2.run_compact_eval(model, tokenizer, device=device, output=False)
+    second = eval_v2.run_compact_eval(model, tokenizer, device=device, output=False)
+
+    assert [row["response"] for row in first["results"]] == [
+        row["response"] for row in second["results"]
+    ]
+    assert first["decoding"]["deterministic"] is True
+    assert first["decoding"]["seed"] == 0
+
+
+def test_run_compact_eval_seed_changes_sampled_output() -> None:
+    import torch
+
+    model = _tiny_model()
+    tokenizer = _StubTokenizer()
+    device = torch.device("cpu")
+    base = eval_v2.run_compact_eval(model, tokenizer, device=device, output=False, seed=0)
+    other = eval_v2.run_compact_eval(model, tokenizer, device=device, output=False, seed=7)
+
+    assert [row["response"] for row in base["results"]] != [
+        row["response"] for row in other["results"]
+    ]
+
+
+def test_run_compact_eval_reports_metric_basis_without_dedicated_rows() -> None:
+    import torch
+
+    model = _tiny_model()
+    summary = eval_v2.run_compact_eval(
+        model, _StubTokenizer(), device=torch.device("cpu"), output=False
+    )
+    # The compact suite has no coherence/repetition categories, so both metrics
+    # must come from the honest surface fallback, not a vacuous 0.0.
+    assert summary["coherence_basis"] == "surface_fragment_fallback"
+    assert summary["repetition_basis"] == "surface_ngram_fallback"
+    assert 0.0 <= summary["coherence_rate"] <= 1.0
+    assert 0.0 <= summary["repetition_failure_rate"] <= 1.0

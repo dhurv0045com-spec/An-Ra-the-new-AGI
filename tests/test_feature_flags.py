@@ -37,7 +37,17 @@ def test_is_enabled_respects_override(tmp_path, monkeypatch):
     feature_flags.set_flag("memory", False)
 
     assert feature_flags.is_enabled("memory") is False
-    assert feature_flags.is_enabled("unknown_component") is True
+    # An unregistered name must never read as an enabled capability: the old
+    # always-True default let typos and unwired features pass every gate.
+    assert feature_flags.is_enabled("unknown_component") is False
+
+
+def test_every_registry_component_has_an_explicit_flag_default():
+    from runtime.system_registry import component_registry
+
+    registered = {component.name for component in component_registry()}
+    missing = registered - set(feature_flags._DEFAULTS)
+    assert not missing, f"registry components lack flag defaults: {sorted(missing)}"
 
 
 def test_disabled_components_list(tmp_path, monkeypatch):

@@ -1078,11 +1078,24 @@ def generate_text(
     max_new_tokens: int = 96,
     temperature: float = 0.9,
     top_k: int = 40,
+    greedy: bool = False,
+    seed: int | None = None,
 ) -> str:
+    """Generate a continuation.
+
+    ``greedy=True`` selects argmax decoding, the deterministic recovery
+    baseline. Otherwise sampling uses a local generator seeded by ``seed``
+    when provided, so evaluation evidence replays exactly without mutating
+    the global RNG state.
+    """
     model.eval()
     special = tokenizer_special_ids(tokenizer)
     ids = [special["<bos>"]] + tokenizer.encode(prompt)
     x = torch.tensor([ids], dtype=torch.long, device=device)
+    generator: torch.Generator | None = None
+    if seed is not None and not greedy:
+        generator = torch.Generator(device=device)
+        generator.manual_seed(int(seed))
     for _ in range(max_new_tokens):
         x_cond = x[:, -model.block_size :]
         logits, _ = model(x_cond)
@@ -1090,8 +1103,11 @@ def generate_text(
         if top_k > 0:
             values, _ = torch.topk(next_logits, min(top_k, next_logits.size(-1)))
             next_logits = next_logits.masked_fill(next_logits < values[:, [-1]], float("-inf"))
-        probs = torch.softmax(next_logits, dim=-1)
-        next_token = torch.multinomial(probs, num_samples=1)
+        if greedy:
+            next_token = torch.argmax(next_logits, dim=-1, keepdim=True)
+        else:
+            probs = torch.softmax(next_logits, dim=-1)
+            next_token = torch.multinomial(probs, num_samples=1, generator=generator)
         x = torch.cat([x, next_token], dim=1)
         if int(next_token.item()) == special["<eos>"]:
             break

@@ -16,6 +16,7 @@ from pathlib import Path
 import torch
 import torch.nn.functional as F  # noqa: N812 - canonical PyTorch alias
 from engine.metric_bus import instrument
+from generate import detect_repetition, language_fragment_detected
 
 from training.v2_runtime import append_jsonl, generate_text, v2_report_path, write_json
 
@@ -1090,6 +1091,12 @@ def write_golden_eval_baseline(
 
 
 @instrument("evaluation")
+def _item_seed(base_seed: int, item_id: str) -> int:
+    """Stable per-item sampling seed, independent of suite order and platform."""
+    material = hashlib.sha256(f"{base_seed}:{item_id}".encode()).digest()
+    return int.from_bytes(material[:8], "big") % (2**31 - 1)
+
+
 def run_compact_eval(
     model: object,
     tokenizer: object,
@@ -1097,7 +1104,14 @@ def run_compact_eval(
     device: torch.device,
     output: bool = True,
     golden: bool = False,
+    seed: int = 0,
 ) -> dict[str, object]:
+    """Score the model on the compact or private suite.
+
+    Generation evidence must replay exactly: every item samples from a local
+    generator seeded by ``(seed, item id)``, so two runs of the same
+    checkpoint produce identical summaries and gate decisions.
+    """
     results: list[dict[str, object]] = []
     category_scores: dict[str, list[float]] = defaultdict(list)
 
@@ -1111,6 +1125,7 @@ def run_compact_eval(
             max_new_tokens=96,
             temperature=0.8,
             top_k=40,
+            seed=_item_seed(seed, str(item["id"])),
         )
         if "scorer" in item:
             score, reason = _private_task_score(item, response)
@@ -1157,24 +1172,55 @@ def run_compact_eval(
     format_rows = [
         result for result in results if result.get("category") in {"format", "instruction", "dfc"}
     ]
+    # A suite without dedicated coherence/repetition tasks (the compact suite)
+    # must not report 0.0 as if it were measured: coherence_rate would then be
+    # structurally unable to pass any gate and repetition_failure_rate would
+    # vacuously pass every gate. Fall back to surface checks on every response
+    # using the same detectors the generation path trusts, and record which
+    # basis produced the number.
+    if coherence_rows:
+        coherence_rate = sum(float(row["score"]) for row in coherence_rows) / len(coherence_rows)
+        coherence_basis = "coherence_category_scores"
+    else:
+        surface_coherent = [
+            not language_fragment_detected(str(row["response"])) for row in results
+        ]
+        coherence_rate = sum(surface_coherent) / max(1, len(surface_coherent))
+        coherence_basis = "surface_fragment_fallback"
+    if repetition_rows:
+        repetition_failure_rate = sum(
+            float(row["score"]) < 1.0 for row in repetition_rows
+        ) / len(repetition_rows)
+        repetition_basis = "repetition_category_scores"
+    else:
+        repeated_flags = [
+            bool(detect_repetition(str(row["response"]))["repeated_ngrams_detected"])
+            for row in results
+        ]
+        repetition_failure_rate = sum(repeated_flags) / max(1, len(repeated_flags))
+        repetition_basis = "surface_ngram_fallback"
     summary = {
         "generated_at": time.time(),
         "overall_score": overall,
         "category_scores": averages,
         "results": results,
-        "coherence_rate": round(
-            sum(float(row["score"]) for row in coherence_rows) / max(1, len(coherence_rows)),
-            4,
-        ),
+        "coherence_rate": round(coherence_rate, 4),
+        "coherence_basis": coherence_basis,
         "format_compliance": round(
             sum(float(row["score"]) for row in format_rows) / max(1, len(format_rows)),
             4,
         ),
-        "repetition_failure_rate": round(
-            sum(float(row["score"]) < 1.0 for row in repetition_rows)
-            / max(1, len(repetition_rows)),
-            4,
-        ),
+        "repetition_failure_rate": round(repetition_failure_rate, 4),
+        "repetition_basis": repetition_basis,
+        "decoding": {
+            "strategy": "sampling",
+            "temperature": 0.8,
+            "top_k": 40,
+            "max_new_tokens": 96,
+            "seed": seed,
+            "per_item_seeding": "sha256(seed:item_id)",
+            "deterministic": True,
+        },
     }
     if output:
         write_json(v2_report_path("eval_summary"), summary)

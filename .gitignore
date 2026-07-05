@@ -23,6 +23,9 @@ state/*.json
 state/*.jsonl
 state/reports/*.json
 state/private_evals/
+state/ghost_memory/
+state/hal_sessions/
+state/civ_sessions/
 history/
 agent_workspace/
 phase2/master_system_45m/memory/data/

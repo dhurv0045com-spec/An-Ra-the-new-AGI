@@ -41,7 +41,7 @@ logger = logging.getLogger(__name__)
 
 try:
     from anra.anra_paths import get_identity_file as _get_identity_file
-    from identity_injector import IdentityInjector as _IdentityInjector
+    from phase3.identity_45n.identity_injector import IdentityInjector as _IdentityInjector
 
     _identity_file = _get_identity_file()
     _IDENTITY_INJECTOR = (
@@ -51,16 +51,21 @@ except Exception:
     _IDENTITY_INJECTOR = None
 
 try:
-    from ghost_memory import GhostMemory as _GhostMemory
-
-    _GHOST_MEMORY = _GhostMemory()
+    from phase3.ghost_memory_45p.ghost_memory import GhostMemory as _GhostMemory
+    from phase3.ghost_memory_45p.ghost_memory import default_config as _ghost_default_config
 except Exception:
-    _GHOST_MEMORY = None
+    _GhostMemory = None  # type: ignore[assignment,misc]
+    _ghost_default_config = None  # type: ignore[assignment]
 
 try:
     from identity.hal import HALModule as _HALModule
 except Exception:
     _HALModule = None
+
+try:
+    from identity.civ import ConstitutionalIdentityVector as _CIVVector
+except Exception:
+    _CIVVector = None  # type: ignore[assignment,misc]
 
 
 @dataclass
@@ -105,6 +110,7 @@ class SubsystemTrace(TypedDict, total=False):
     model: dict[str, object]
     esv: dict[str, float]
     hal: dict[str, float]
+    symbolic_verifier: dict[str, object]
 
 
 @dataclass
@@ -118,7 +124,9 @@ class GenerationTrace:
     stopped_by: str
     repeated_ngrams_detected: bool
     kv_cache_compressed: bool = False
-    memory_saved_mb: float = 0.0
+    # None means "not measured" (cache disabled); a float is a real measurement.
+    # Reporting 0.0 unconditionally presented an unmeasured quantity as data.
+    memory_saved_mb: float | None = None
     ghost_state_loaded: bool = False
     prompt_tokens: int = 0
     mode: str = "diagnostic"
@@ -131,9 +139,13 @@ class GenerationTrace:
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 _GHOST_STORE: dict[str, dict] = {}
+_GHOST_MEMORY_DIR = STATE_DIR / "ghost_memory"
+_GHOST_MEMORY_SESSIONS: dict[str, object] = {}
 _HAL_STORE: dict[str, object] = {}
 _ESV_STORE: dict[str, torch.Tensor] = {}
 _HAL_DIR = STATE_DIR / "hal_sessions"
+_CIV_STORE: dict[str, object] = {}
+_CIV_DIR = STATE_DIR / "civ_sessions"
 _RUNTIME_PROFILE = "unknown"
 _RUNTIME_LOAD_STATE: dict[str, object] = {}
 _GENERATION_LOCK = threading.RLock()
@@ -318,6 +330,163 @@ def _hal_path(session_id: str) -> Path:
     return _HAL_DIR / f"{safe or 'default'}.json"
 
 
+def _ghost_session_key(session_id: str) -> str:
+    """Collision-safe directory key; session ids are untrusted client strings."""
+    return hashlib.sha256(session_id.encode("utf-8")).hexdigest()[:32]
+
+
+def _ghost_hash_embed(text: str, dim: int) -> object:
+    """Deterministic native feature-hash embedding.
+
+    Ghost memory's default embedder downloads an external sentence-transformer
+    model; An-Ra owns its own stack, so retrieval uses the same blake2b feature
+    hashing family as the memory router: no network, no borrowed weights, and
+    identical vectors for identical text on every platform.
+    """
+    import numpy as np
+
+    vec = np.zeros(dim, dtype=np.float32)
+    tokens = re.findall(r"[a-z0-9]+", text.lower())
+    for pos, tok in enumerate(tokens):
+        features = {tok, tok[:4], tok[-4:]}
+        features.update(tok[i : i + 3] for i in range(max(1, len(tok) - 2)))
+        weight = 1.0 / (1.0 + pos * 0.01)
+        for feature in features:
+            digest = hashlib.blake2b(feature.encode("utf-8"), digest_size=8).digest()
+            index = int.from_bytes(digest, "little") % dim
+            sign = 1.0 if digest[0] & 1 else -1.0
+            vec[index] += sign * weight
+    norm = float(np.linalg.norm(vec))
+    if norm > 0.0:
+        vec /= norm
+    return vec
+
+
+def _ghost_memory_for(session_id: str | None) -> object | None:
+    """Durable per-session ghost store; one directory per session is the
+    isolation boundary because the underlying schema has no session column."""
+    if _GhostMemory is None or _ghost_default_config is None or not session_id:
+        return None
+    key = _ghost_session_key(session_id)
+    cached = _GHOST_MEMORY_SESSIONS.get(key)
+    if cached is not None:
+        return cached
+    try:
+        config = _ghost_default_config(storage_dir=_GHOST_MEMORY_DIR / key)
+        # The default 0.65 threshold was tuned for MiniLM embeddings. Measured
+        # native hash-embedding cosines: related text 0.40-0.69, unrelated
+        # 0.09-0.21, so 0.30 separates them with margin on both sides.
+        config.similarity_thresh = 0.30
+        dim = int(config.embedding_dim)
+        ghost = _GhostMemory(
+            config=config,
+            embedder=lambda text: _ghost_hash_embed(text, dim),
+        )
+    except Exception as exc:
+        logger.warning("Ghost memory unavailable for session %s: %s", session_id, exc)
+        return None
+    _GHOST_MEMORY_SESSIONS[key] = ghost
+    return ghost
+
+
+_SYMBOLIC_BRIDGE_STATE: dict[str, object] = {}
+
+
+def _symbolic_bridge_module() -> object | None:
+    """Lazy-load the 45Q bridge; sympy import costs seconds, pay it once."""
+    if "module" not in _SYMBOLIC_BRIDGE_STATE:
+        try:
+            from phase3.symbolic_bridge_45q import symbolic_bridge as bridge
+
+            _SYMBOLIC_BRIDGE_STATE["module"] = bridge
+        except Exception as exc:
+            logger.warning("Symbolic bridge unavailable: %s", exc)
+            _SYMBOLIC_BRIDGE_STATE["module"] = None
+    return _SYMBOLIC_BRIDGE_STATE["module"]
+
+
+def _extract_user_message(prompt: str) -> str:
+    """Last human turn from the canonical `H: ...\\nANRA:` prompt format."""
+    tail = prompt.rsplit("H:", 1)[-1]
+    return tail.split("\nANRA:", 1)[0].strip()
+
+
+def _normalized_symbolic_text(text: str) -> str:
+    return re.sub(r"\s+", "", text.lower())
+
+
+def _symbolic_verify(prompt: str, output_text: str) -> dict[str, object] | None:
+    """DFC check: derive the symbolic answer independently, test the output.
+
+    Returns None when the message is not a math/logic task or the bridge is
+    unavailable; a report with ``score: None`` when the bridge cannot verify
+    the task; and a binary score when a verified reference answer exists.
+    Confidence must be earned by checking, never asserted.
+    """
+    bridge = _symbolic_bridge_module()
+    if bridge is None:
+        return None
+    message = _extract_user_message(prompt)
+    if not message:
+        return None
+    try:
+        detection = bridge.detect(message)
+        mode_name = getattr(detection.mode, "name", str(detection.mode))
+        if mode_name not in {"MATH", "LOGIC"}:
+            return None
+        result = bridge.query(message)
+        verdict = getattr(result.verdict, "name", str(result.verdict))
+        expected = str(result.answer_text or "").strip()
+        report: dict[str, object] = {
+            "mode": mode_name,
+            "verdict": verdict,
+            "expected": expected,
+            "score": None,
+        }
+        if verdict == "VERIFIED" and expected:
+            matched = _normalized_symbolic_text(expected) in _normalized_symbolic_text(
+                output_text
+            )
+            report["score"] = 1.0 if matched else 0.0
+        return report
+    except Exception as exc:
+        logger.warning("Symbolic verification failed: %s", exc)
+        return None
+
+
+def _civ_path(session_id: str) -> Path:
+    safe = "".join(ch if ch.isalnum() or ch in {"-", "_"} else "_" for ch in session_id)[:96]
+    return _CIV_DIR / f"{safe or 'default'}.json"
+
+
+def _get_civ(session_id: str | None) -> object | None:
+    """Per-session constitutional identity vector, persisted across restarts."""
+    if _CIVVector is None:
+        return None
+    key = session_id or "__default__"
+    if key in _CIV_STORE:
+        return _CIV_STORE[key]
+    path = _civ_path(key)
+    if path.exists():
+        try:
+            civ = _CIVVector.load(path)
+        except Exception:
+            civ = _CIVVector()
+    else:
+        civ = _CIVVector()
+    _CIV_STORE[key] = civ
+    return civ
+
+
+def _save_civ(session_id: str | None, civ: object) -> None:
+    if civ is None:
+        return
+    try:
+        civ.save(_civ_path(session_id or "__default__"))
+    except Exception as exc:
+        logger.warning("CIV persistence failed for session %s: %s", session_id, exc)
+
+
 def _get_hal(session_id: str | None) -> object | None:
     if _HALModule is None:
         return None
@@ -374,6 +543,11 @@ def _attach_hal(model: object, hal: object) -> None:
             model.use_hal = True
     except Exception as exc:
         logger.warning("HAL attach failed: %s", exc)
+
+
+def language_fragment_detected(text: str) -> bool:
+    """Public surface-coherence check shared by generation and evaluation."""
+    return _language_fragment_detected(text)
 
 
 def _language_fragment_detected(text: str) -> bool:
@@ -643,8 +817,21 @@ def generate_traced(
         if cfg.ablated_subsystem and hasattr(native_model, "neutralize_subsystem"):
             native_model.neutralize_subsystem(cfg.ablated_subsystem)
         previous_civ_similarity = getattr(native_model, "_runtime_civ_similarity", 1.0)
+        # The router must see a measured identity score, never a silent constant.
+        # Diagnostic mode stays neutral (subsystems are off); otherwise an
+        # explicit operator-provided civ_score wins, and the session's own
+        # evidence-updated CIV profile is the default measurement.
+        civ = None
+        measured_civ_score = cfg.civ_score
+        if cfg.mode != "diagnostic":
+            civ = _get_civ(session_id)
+            if measured_civ_score is None and civ is not None:
+                try:
+                    measured_civ_score = float(civ.score())
+                except Exception as exc:
+                    logger.warning("CIV scoring failed for session %s: %s", session_id, exc)
         if hasattr(native_model, "begin_subsystem_trace"):
-            native_model.begin_subsystem_trace(civ_similarity=cfg.civ_score)
+            native_model.begin_subsystem_trace(civ_similarity=measured_civ_score)
         esv_module = getattr(native_model, "esv_module", None)
         prior_esv_state = None
         if esv_module is not None and hasattr(esv_module, "state"):
@@ -737,7 +924,10 @@ def generate_traced(
             output_text = output_text.replace("</think>", "").strip()
         if _IDENTITY_INJECTOR is not None:
             try:
-                output_text = _IDENTITY_INJECTOR.clean(output_text)
+                # The injector's real surface is clean_response(); the old
+                # .clean() call could never run because the module never
+                # imported, which hid the missing method.
+                output_text = _IDENTITY_INJECTOR.clean_response(output_text)
             except Exception as exc:
                 logger.warning("Identity injector cleanup failed: %s", exc)
 
@@ -752,6 +942,15 @@ def generate_traced(
             stopped_by,
         )
         quality_state = "accepted" if quality >= 0.65 else "rejected"
+
+        # Falsification pass: on symbolic tasks the answer is checkable, so
+        # check it. The report lands in the trace whether or not the output
+        # was accepted; the score feeds HAL/CIV truthfulness only when no
+        # operator-supplied verifier already scored this generation.
+        symbolic_report: dict[str, object] | None = None
+        if cfg.mode == "full_system":
+            symbolic_report = _symbolic_verify(prompt, output_text)
+        symbolic_score = symbolic_report.get("score") if symbolic_report else None
 
         if quality_state == "accepted":
             if (
@@ -768,32 +967,39 @@ def generate_traced(
                     state = dict(_GHOST_STORE.get(session_id, {}))
                     state.update({"session_id": session_id, "last_output": output_text})
                     _GHOST_STORE[session_id] = state
-                    if _GHOST_MEMORY is not None:
+                    ghost = _ghost_memory_for(session_id)
+                    if ghost is not None:
                         try:
-                            _GHOST_MEMORY.store(session_id, state)
+                            ghost.add_turn("anra", output_text)
                         except Exception as exc:
                             logger.warning(
                                 "Ghost state persistence failed for %s: %s", session_id, exc
                             )
+            # HAL and CIV adapt from verified evidence, so their coherence
+            # input must be the real per-generation quality signal (entropy
+            # band, repetition, fragmentation, stop reason), not a flat
+            # constant. Detected incoherence still hard-zeros the score.
+            coherence_score = 0.0 if fragmented or repeated else float(quality)
+            externally_verified = cfg.verifier_score is not None or symbolic_score is not None
+            if cfg.verifier_score is not None:
+                verifier_score = max(0.0, min(1.0, cfg.verifier_score))
+            elif symbolic_score is not None:
+                verifier_score = float(symbolic_score)
+            else:
+                verifier_score = coherence_score
             if hal is not None and cfg.persist_adaptive_state:
                 try:
-                    coherence_score = 0.0 if fragmented or repeated else 0.60
-                    verifier_score = (
-                        max(0.0, min(1.0, cfg.verifier_score))
-                        if cfg.verifier_score is not None
-                        else coherence_score
-                    )
                     hal.update(
                         verifier_result=verifier_score,
                         session_context={
                             "task_type": "generation",
                             "domain": "conversation",
                             "task_success": cfg.task_success,
-                            "civ_score": cfg.civ_score,
+                            "civ_score": measured_civ_score,
                             "civ_evidence": {
                                 "coherence": coherence_score,
                                 "truthfulness": (
-                                    verifier_score if cfg.verifier_score is not None else None
+                                    verifier_score if externally_verified else None
                                 ),
                             },
                             "model_incoherence_self_detected": repeated or fragmented,
@@ -804,6 +1010,19 @@ def generate_traced(
                     hal_updated = True
                 except Exception as exc:
                     logger.warning("HAL update failed: %s", exc)
+            if civ is not None and cfg.persist_adaptive_state and cfg.mode != "diagnostic":
+                try:
+                    # The identity profile drifts only on measured evidence:
+                    # coherence is always computed; truthfulness only when an
+                    # operator verifier or the symbolic falsification pass
+                    # actually scored this generation.
+                    civ_evidence = {"coherence": coherence_score}
+                    if externally_verified:
+                        civ_evidence["truthfulness"] = verifier_score
+                    civ.update(civ_evidence)
+                    _save_civ(session_id, civ)
+                except Exception as exc:
+                    logger.warning("CIV update failed: %s", exc)
         elif prior_esv_state is not None:
             esv_module.state.copy_(prior_esv_state)
             native_model._pending_esv_state = None
@@ -845,6 +1064,8 @@ def generate_traced(
             subsystem_trace["esv"] = esv_module.as_dict()
         if hal is not None and hasattr(hal, "state"):
             subsystem_trace["hal"] = hal.state.hormones()
+        if symbolic_report is not None:
+            subsystem_trace["symbolic_verifier"] = symbolic_report
         return GenerationTrace(
             output=output_text,
             strategy=cfg.strategy,
@@ -855,7 +1076,7 @@ def generate_traced(
             stopped_by=stopped_by,
             repeated_ngrams_detected=repeated,
             kv_cache_compressed=kv_enabled,
-            memory_saved_mb=0.0,
+            memory_saved_mb=None,
             ghost_state_loaded=ghost_loaded,
             prompt_tokens=prompt_token_count,
             mode=cfg.mode,
@@ -899,9 +1120,25 @@ def verify_kv_cache_parity(
         )
     finally:
         _KV_CACHE_PARITY_IN_PROGRESS = False
-    _KV_CACHE_PARITY_VERIFIED = baseline.output_token_ids == cached.output_token_ids
+
+    def _curves_close(first: list[float], second: list[float]) -> bool:
+        return len(first) == len(second) and all(
+            abs(a - b) <= 1e-3 for a, b in zip(first, second, strict=True)
+        )
+
+    token_parity = baseline.output_token_ids == cached.output_token_ids
+    # Token equality alone is blind to cache corruption that shifts logits
+    # without flipping the greedy argmax (measured: a stale cached token moved
+    # logits by 0.117 while every sampled token still matched). The per-step
+    # entropy and max-probability curves expose distribution-level divergence.
+    distribution_parity = _curves_close(
+        baseline.entropy_curve, cached.entropy_curve
+    ) and _curves_close(baseline.max_prob_curve, cached.max_prob_curve)
+    _KV_CACHE_PARITY_VERIFIED = token_parity and distribution_parity
     return {
         "verified": _KV_CACHE_PARITY_VERIFIED,
+        "token_parity": token_parity,
+        "distribution_parity": distribution_parity,
         "prompt_tokens": baseline.prompt_tokens,
         "tokens_compared": len(baseline.output_token_ids),
         "uncached_tokens": baseline.output_token_ids,
@@ -989,8 +1226,11 @@ def clear_session_runtime_state(session_id: str) -> None:
     with _GENERATION_LOCK:
         _ESV_STORE.pop(session_id, None)
         _GHOST_STORE.pop(session_id, None)
+        _GHOST_MEMORY_SESSIONS.pop(_ghost_session_key(session_id), None)
         _HAL_STORE.pop(session_id, None)
         _hal_path(session_id).unlink(missing_ok=True)
+        _CIV_STORE.pop(session_id, None)
+        _civ_path(session_id).unlink(missing_ok=True)
 
 
 def generate(
@@ -1055,26 +1295,29 @@ def generate_stream(prompt: str, cfg: GenerationConfig) -> Iterator[str]:
 
 
 def load_ghost_state(session_id: str) -> dict[str, object]:
-    state: dict[str, object] = {}
-    if _GHOST_MEMORY is not None:
-        try:
-            stored = _GHOST_MEMORY.retrieve(session_id) or {}
-            state.update(stored)
-        except Exception:
-            state.update(_GHOST_STORE.get(session_id, {}))
-    else:
-        state.update(_GHOST_STORE.get(session_id, {}))
+    """Return the session's in-process ghost state plus durable ranked snippets."""
+    state: dict[str, object] = dict(_GHOST_STORE.get(session_id, {}))
     state["session_id"] = session_id
-    _GHOST_STORE[session_id] = state
-    return dict(state)
+    _GHOST_STORE[session_id] = dict(state)
+    ghost = _ghost_memory_for(session_id)
+    query = str(state.get("last_output") or "").strip()
+    if ghost is not None and query:
+        try:
+            state["snippets"] = ghost.retrieve(query)
+        except Exception as exc:
+            logger.warning("Ghost retrieval failed for session %s: %s", session_id, exc)
+    state.setdefault("snippets", [])
+    return state
 
 
 def save_ghost_state(session_id: str) -> None:
     state = dict(_GHOST_STORE.get(session_id, {"session_id": session_id}))
     _GHOST_STORE[session_id] = state
-    if _GHOST_MEMORY is not None:
+    ghost = _ghost_memory_for(session_id)
+    last_output = str(state.get("last_output") or "").strip()
+    if ghost is not None and last_output:
         try:
-            _GHOST_MEMORY.store(session_id, state)
+            ghost.add_turn("anra", last_output)
         except Exception as exc:
             logger.warning("Ghost state persistence failed for session %s: %s", session_id, exc)
 

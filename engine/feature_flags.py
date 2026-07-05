@@ -34,6 +34,11 @@ _DEFAULTS: dict[str, bool] = {
     "cdse": True,
     "cec": True,
     "self_debate": True,
+    "inference_efficiency": True,
+    "intelligence": True,
+    "multimodal": True,
+    "robotics": True,
+    "v3_training": True,
 }
 
 
@@ -48,7 +53,9 @@ def load_flags() -> dict[str, bool]:
 
 
 def is_enabled(component_name: str) -> bool:
-    return load_flags().get(component_name, True)
+    # An unknown component name is not a capability: returning True for any
+    # string meant a typo or unregistered feature silently passed every gate.
+    return load_flags().get(component_name, False)
 
 
 def set_flag(component_name: str, enabled: bool) -> None:

@@ -1941,7 +1941,7 @@ def train_anra_v2(
             prev_eval_summary = None
 
     try:
-        eval_summary = run_compact_eval(model, tokenizer, device=device, output=True)
+        eval_summary = run_compact_eval(model, tokenizer, device=device, output=True, seed=0)
     except Exception as exc:
         # The frontier checkpoint has already been persisted above. Evaluation
         # must report its own failure without converting a successful training

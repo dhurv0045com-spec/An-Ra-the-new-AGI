@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ast
+import importlib
 import json
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -151,6 +152,41 @@ def phase_snapshots(_repo_root: Path, nodes: list[FileNode]) -> list[PhaseSnapsh
     return snapshots
 
 
+# A runtime capability is claimed only when its module imports and, where the
+# module defines health_check(), reports healthy. A file whose name merely
+# contains the right substring proves nothing and previously made every one of
+# these flags unconditionally True.
+_RUNTIME_CAPABILITY_MODULES: dict[str, tuple[str, str | None]] = {
+    "turboquant": ("archive.core_45eh_numpy_archived.turboquant", "CompressedKVCache"),
+    "ouroboros": ("phase3.ouroboros_45o.ouroboros_numpy", None),
+    "symbolic_bridge": ("phase3.symbolic_bridge_45q.symbolic_bridge", None),
+    "sovereignty": ("phase3.sovereignty_45r.sovereignty_bridge", None),
+    "ghost_memory": ("phase3.ghost_memory_45p.ghost_memory", None),
+    "identity_injector": ("phase3.identity_45n.identity_injector", None),
+}
+
+
+def probe_module_capability(module_name: str, required_symbol: str | None = None) -> bool:
+    """True only if the module imports and demonstrates it works.
+
+    Modules exposing ``health_check()`` must report ``status: ok``; modules
+    without one must at least expose ``required_symbol`` when specified.
+    """
+    try:
+        module = importlib.import_module(module_name)
+    except Exception:
+        return False
+    health = getattr(module, "health_check", None)
+    if callable(health):
+        try:
+            return str(dict(health()).get("status", "")) == "ok"
+        except Exception:
+            return False
+    if required_symbol is not None:
+        return hasattr(module, required_symbol)
+    return True
+
+
 @trace("connector", "build_capability_graph")
 def build_capability_graph(repo_root: Path) -> dict[str, object]:
     manifest = build_system_manifest(repo_root)
@@ -160,10 +196,13 @@ def build_capability_graph(repo_root: Path) -> dict[str, object]:
     capabilities = dict(manifest.get("capabilities", {}))
     capabilities.update(
         {
-            "turboquant": any("turboquant" in n.path.lower() for n in nodes),
-            "ouroboros": any("ouroboros" in n.path.lower() for n in nodes),
-            "symbolic_bridge": any("symbolic_bridge" in n.path.lower() for n in nodes),
-            "sovereignty": any("sovereignty" in n.path.lower() for n in nodes),
+            name: probe_module_capability(module_name, required_symbol)
+            for name, (module_name, required_symbol) in _RUNTIME_CAPABILITY_MODULES.items()
+        }
+    )
+    capabilities.update(
+        {
+            # Static assets: presence is the honest semantic for these three.
             "web_ui": any(n.path.startswith("phase4/web/") for n in nodes),
             "fastapi": any(n.path == "app.py" for n in nodes),
             "integration_tests": any(n.path.startswith("tests/") for n in nodes),

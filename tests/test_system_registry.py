@@ -93,3 +93,41 @@ def test_set_component_enabled_persists(tmp_path, monkeypatch):
         assert data["ghost_memory"] is False
     finally:
         system_registry._COMPONENT_ENABLED_OVERRIDES.clear()
+
+
+def test_probe_module_capability_requires_real_health():
+    from inference.full_system_connector import probe_module_capability
+
+    # A module that does not exist can never be a capability.
+    assert probe_module_capability("phase3.definitely_not_a_module") is False
+    # A real module whose health_check reports ok is a capability; turboquant
+    # defines health_check too, so that evidence outranks symbol presence.
+    assert probe_module_capability("phase3.ouroboros_45o.ouroboros_numpy") is True
+    assert (
+        probe_module_capability(
+            "archive.core_45eh_numpy_archived.turboquant", "CompressedKVCache"
+        )
+        is True
+    )
+    # A module without health_check must expose the required symbol.
+    assert probe_module_capability("runtime.safe_load", "safe_torch_load") is True
+    assert probe_module_capability("runtime.safe_load", "no_such_symbol") is False
+
+
+def test_capability_graph_flags_come_from_probes(monkeypatch):
+    from inference import full_system_connector
+
+    # Force one probe to fail; the graph must report that capability False
+    # instead of falling back to "a file with this substring exists".
+    real_probe = full_system_connector.probe_module_capability
+
+    def fake_probe(module_name: str, required_symbol=None):
+        if "symbolic_bridge" in module_name:
+            return False
+        return real_probe(module_name, required_symbol)
+
+    monkeypatch.setattr(full_system_connector, "probe_module_capability", fake_probe)
+    graph = full_system_connector.build_capability_graph(ROOT)
+    capabilities = graph["capabilities"]
+    assert capabilities["symbolic_bridge"] is False
+    assert capabilities["ouroboros"] is True

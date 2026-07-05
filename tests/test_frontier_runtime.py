@@ -404,7 +404,7 @@ def test_evaluation_generation_executes_ghost_path_without_persisting_state(
     class GhostRecorder:
         writes = 0
 
-        def store(self, *_args, **_kwargs):
+        def add_turn(self, *_args, **_kwargs):
             self.writes += 1
 
     model = CausalTransformerV2(
@@ -422,7 +422,7 @@ def test_evaluation_generation_executes_ghost_path_without_persisting_state(
     monkeypatch.setattr(generate, "_get_runtime", lambda: (model, Tokenizer(), tmp_path / "x.pt"))
     monkeypatch.setattr(generate, "_RUNTIME_LOAD_STATE", {"load_report": {"exact_native_load": True}})
     monkeypatch.setattr(generate, "_get_hal", lambda _session_id: None)
-    monkeypatch.setattr(generate, "_GHOST_MEMORY", recorder)
+    monkeypatch.setattr(generate, "_ghost_memory_for", lambda _session_id: recorder)
     monkeypatch.setattr(generate, "_generation_quality", lambda *_args, **_kwargs: 1.0)
     monkeypatch.setattr(generate, "_language_fragment_detected", lambda _text: False)
     session_id = "nonpersistent_eval"
@@ -516,3 +516,79 @@ def test_prompt_assembly_truncates_old_history_before_current_message() -> None:
     )
     assert "newest request" in result["formatted_prompt"]
     assert result["context_truncated"] is True
+
+
+def test_hal_receives_real_quality_signal_not_a_constant(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    """HAL's coherence evidence must be the computed quality, never a flat 0.60."""
+    import torch
+
+    import generate
+    from anra_brain import CausalTransformerV2
+
+    class Tokenizer:
+        bos_token_id = 1
+        eos_token_id = 2
+        pad_token_id = 0
+        vocab_size = 64
+        special_ids = {"<pad>": 0, "<bos>": 1, "<eos>": 2}
+
+        @staticmethod
+        def encode(text: str, *, add_special_tokens: bool = False) -> list[int]:
+            del add_special_tokens
+            return [3 + (ord(character) % 50) for character in text]
+
+        @staticmethod
+        def decode(_ids: list[int]) -> str:
+            return "valid complete response with enough words"
+
+    class HalRecorder:
+        def __init__(self) -> None:
+            self.civ_evidence: dict[str, object] | None = None
+
+        def generation_temperature(self, temperature: float) -> float:
+            return temperature
+
+        def update(self, *, verifier_result, session_context):
+            del verifier_result
+            self.civ_evidence = dict(session_context["civ_evidence"])
+
+        def save(self, *_args, **_kwargs) -> None:
+            return None
+
+    model = CausalTransformerV2(
+        vocab_size=64,
+        n_embd=32,
+        n_head=4,
+        n_kv_head=2,
+        n_layer=2,
+        block_size=64,
+        mod_layers={1},
+    ).eval()
+    recorder = HalRecorder()
+    monkeypatch.setattr(generate, "_get_runtime", lambda: (model, Tokenizer(), tmp_path / "x.pt"))
+    monkeypatch.setattr(
+        generate, "_RUNTIME_LOAD_STATE", {"load_report": {"exact_native_load": True}}
+    )
+    monkeypatch.setattr(generate, "_get_hal", lambda _session_id: recorder)
+    monkeypatch.setattr(generate, "_attach_hal", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(generate, "_save_hal", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(generate, "_language_fragment_detected", lambda _text: False)
+    monkeypatch.setattr(generate, "detect_repetition", lambda _text: {"repeated_ngrams_detected": False, "ngram": "", "count": 0})
+    # A distinctive, non-constant quality value that must flow through to HAL.
+    monkeypatch.setattr(generate, "_generation_quality", lambda *_a, **_k: 0.83)
+
+    generate.generate_traced(
+        "H: probe\nANRA:",
+        generate.GenerationConfig(
+            max_tokens=2,
+            mode="full_system",
+            persist_adaptive_state=True,
+        ),
+        session_id="hal_quality_probe",
+    )
+
+    assert recorder.civ_evidence is not None
+    assert recorder.civ_evidence["coherence"] == 0.83
