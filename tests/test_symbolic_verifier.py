@@ -66,6 +66,7 @@ def test_correct_symbolic_answer_scores_one(monkeypatch, tmp_path: Path) -> None
     assert report["mode"] == "MATH"
     assert report["verdict"] == "VERIFIED"
     assert report["score"] == 1.0
+    assert report["reason"] == "symbolic_output_matched"
 
 
 def test_wrong_symbolic_answer_scores_zero(monkeypatch, tmp_path: Path) -> None:

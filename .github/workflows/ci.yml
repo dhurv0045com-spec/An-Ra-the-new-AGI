@@ -41,6 +41,18 @@ jobs:
         env:
           PYTHONPATH: .
 
+      - name: Experience Ledger write benchmark and crash/flush stress
+        run: |
+          python scripts/benchmark_experience_ledger.py \
+            --events 1000 \
+            --max-p50-ms 10 \
+            --max-p99-ms 50 \
+            --crash-stress \
+            --stress-workers 2 \
+            --stress-events 100
+        env:
+          PYTHONPATH: .
+
       - name: Run type checking on anra package
         run: mypy anra/ --strict --ignore-missing-imports
 

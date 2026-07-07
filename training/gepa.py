@@ -201,6 +201,17 @@ def candidates_from_reflections(reflections: list[dict[str, object]]) -> list[GE
 
 
 def score_candidate(candidate: GEPACandidate) -> dict[str, object]:
+    from verification import DEFAULT_VERIFIER_REGISTRY
+
+    verification = DEFAULT_VERIFIER_REGISTRY.verify(
+        "gepa_candidate",
+        {
+            "evidence_trace_ids": candidate.evidence_trace_ids,
+            "predicted_delta": candidate.predicted_delta,
+            "proposed_text": candidate.proposed_text,
+            "owner_approval_required": candidate.owner_approval_required,
+        },
+    )
     eval_delta = float(candidate.predicted_delta.get("eval_success", 0.0))
     cost = max(1, int(candidate.rollout_cost_estimate))
     evidence = len(candidate.evidence_trace_ids)
@@ -208,7 +219,16 @@ def score_candidate(candidate: GEPACandidate) -> dict[str, object]:
     return {
         "candidate_id": candidate.candidate_id,
         "score": score,
-        "decision": "owner_review" if score >= 4.0 else "collect_more_evidence",
+        "decision": (
+            "owner_review"
+            if score >= 4.0 and float(verification.score) >= 0.8
+            else "collect_more_evidence"
+        ),
+        "verifier": {
+            "name": "gepa_candidate",
+            "score": float(verification.score),
+            "reason": str(verification.reason),
+        },
         "pareto": {
             "predicted_eval_delta": eval_delta,
             "rollout_cost_estimate": cost,

@@ -23,7 +23,7 @@ from anra.anra_paths import (
     V2_BRAIN_CHECKPOINT,
 )
 
-from training.v2_config import V2_FRONTIER_PARAMETER_COUNT
+from training.v2_config import V2_FRONTIER_PARAMETER_COUNT, is_v4_vocab_size
 
 
 @dataclass(frozen=True)
@@ -177,7 +177,7 @@ class SovereignScalingGovernor:
             fertility = tokenizer_manifest.get("fertility_audit", {})
             canonical_v3 = tokenizer_vocab == 8_209 and tokenizer_schema == 3
             eligible_v4 = (
-                tokenizer_vocab == 16_384
+                is_v4_vocab_size(tokenizer_vocab)
                 and tokenizer_schema == 4
                 and isinstance(fertility, dict)
                 and int(fertility.get("sampled_units", 0)) >= 1_000_000

@@ -1,3 +1,5 @@
+# Legacy specialist constructors intentionally accept heterogeneous runtime adapters.
+# ruff: noqa: ANN001, ANN002, ANN003
 from __future__ import annotations
 
 import importlib.util
@@ -6,6 +8,7 @@ import time
 from anra.anra_paths import ROOT
 from execution.sandbox import CodeSandbox
 from training.verifier import VerifierHierarchy
+from verification import DEFAULT_VERIFIER_REGISTRY
 
 DEFAULT_CODE_PATH = "generated.py"
 
@@ -91,16 +94,20 @@ class CriticAgent(BaseAgent):
 
     async def run(self, task: dict) -> dict:
         task_type = task.get("task_type", "open")
-        res = self.verifier.score(
-            task_type,
-            code=task.get("code", ""),
-            test_code=task.get("test_code", ""),
-            response=task.get("response", task.get("code", "")),
-            task=task.get("prompt", ""),
-            expression=task.get("expression", ""),
-            expected=task.get("expected", ""),
-            check_fn=task.get("check_fn", lambda: False),
-            pattern=task.get("pattern", ".*"),
+        verifier_name = task_type if task_type in DEFAULT_VERIFIER_REGISTRY else "open_ended"
+        res = DEFAULT_VERIFIER_REGISTRY.verify(
+            verifier_name,
+            {
+                "code": task.get("code", ""),
+                "test_code": task.get("test_code", ""),
+                "response": task.get("response", task.get("code", "")),
+                "task": task.get("prompt", ""),
+                "expression": task.get("expression", ""),
+                "expected": task.get("expected", ""),
+                "check_fn": task.get("check_fn", lambda: False),
+                "pattern": task.get("pattern", ".*"),
+            },
+            context=self.verifier,
         )
         return {
             "score": float(res.score),

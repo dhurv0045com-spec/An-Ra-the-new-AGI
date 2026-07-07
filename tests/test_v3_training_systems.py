@@ -3,7 +3,7 @@ from __future__ import annotations
 import torch
 
 from training.cdr import CorrectedFailure, CorrectedFailureCurriculum
-from training.data_pipeline_v3 import ShardedDataPipeline, SourceRecord
+from training.data_pipeline_v3 import ShardedDataPipeline, SourceRecord, validate_dfc
 from training.data_ledger import DataQuality
 from training.data_routing import build_data_route_report, route_source_class
 from training.pcgrad import PCGradAccumulator, project_conflicting_gradient
@@ -77,6 +77,15 @@ def test_data_pipeline_is_hash_reproducible(tmp_path) -> None:
     first = ShardedDataPipeline(tmp_path / "a", tokenizer_version="v3").preprocess(records)
     second = ShardedDataPipeline(tmp_path / "b", tokenizer_version="v3").preprocess(records)
     assert first["shards"][0]["sha256"] == second["shards"][0]["sha256"]
+
+
+def test_dfc_format_validation_uses_registered_contract() -> None:
+    valid = (
+        "[GOAL] g [CONSTRAINT] c [HYPOTHESIS] h [ACTION] a "
+        "[RESULT] r [VERIFY] v [UPDATE] u"
+    )
+    assert validate_dfc(valid) is True
+    assert validate_dfc("[GOAL] g [UPDATE] too early [CONSTRAINT] c") is False
 
 
 def test_cdr_accepts_only_verified_corrections(tmp_path) -> None:

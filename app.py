@@ -41,6 +41,7 @@ from anra.anra_paths import (
     ensure_dirs,
     get_identity_file,
 )
+from anra.core.protocols import RuntimeReadinessReport
 from cognition.services import CognitionServices
 from engine.feature_flags import disabled_components, is_enabled
 from evaluation.promotion import (
@@ -71,6 +72,7 @@ from inference.optimize_context_window import ContextWindowOptimizer
 from intelligence.hgp import MissionNode, MissionTree
 from pydantic import BaseModel, Field
 from robotics.contracts import SkillGoal, Workflow
+from runtime.experience_ledger import record_experience
 from runtime.hal_telemetry import read_hal_state
 from starlette.responses import Response
 from training.eval_v2 import (
@@ -81,7 +83,6 @@ from training.eval_v2 import (
     run_private_mode_seed_evaluation,
     run_recovery_prompt_gate,
 )
-from anra.core.protocols import RuntimeReadinessReport
 from training.v2_runtime import active_tokenizer_path, load_or_build_v2_tokenizer
 
 ensure_dirs()
@@ -361,12 +362,25 @@ def _dispatch_full_system_operator(message: str) -> dict[str, Any]:
     agent_requested = stripped.lower().startswith("/goal") or bool(
         re.search(r"\b(?:run|execute|start)\s+(?:a\s+)?goal\b", stripped, re.IGNORECASE)
     )
-    return {
+    result = {
         "handled": handled,
         "response": response,
         "agent_executed": handled and agent_requested,
         "tool_executed": handled and not agent_requested,
     }
+    if handled:
+        record_experience(
+            kind="agent" if agent_requested else "tool",
+            inputs={"message": stripped},
+            output=response,
+            gate_record={"allowed": True, "gate": "explicit_operator_request"},
+            source="app.operator_dispatch",
+            metadata={
+                "agent_executed": bool(result["agent_executed"]),
+                "tool_executed": bool(result["tool_executed"]),
+            },
+        )
+    return result
 
 
 GOAL_QUEUE = GoalQueue(STATE_DIR / "goal_queue.json")
@@ -465,8 +479,13 @@ def get_memory_system() -> object | None:
                 self._router = MemoryRouter()
                 self.semantic = self
 
-            def search(self, query: str, top_k: int = 3) -> list[dict[str, object]]:
-                rows = self._router.read(query, n=top_k, tier="episodic")
+            def search(
+                self,
+                query: str,
+                top_k: int = 3,
+                trace_id: str | None = None,
+            ) -> list[dict[str, object]]:
+                rows = self._router.read(query, n=top_k, tier="hybrid", trace_id=trace_id)
                 out = []
                 for row in rows:
                     payload = row.get("payload", row)
@@ -476,11 +495,18 @@ def get_memory_system() -> object | None:
                             "summary": str(payload.get("summary") or content[:160]),
                             "content": content,
                             "score": row.get("score", 0.0),
+                            "provenance": row.get("provenance", []),
                         }
                     )
                 return out
 
-            def store_turn(self, message: str, response: str, session_id: str) -> None:
+            def store_turn(
+                self,
+                message: str,
+                response: str,
+                session_id: str,
+                trace_id: str | None = None,
+            ) -> None:
                 self._router.write(
                     f"H: {message}\nANRA: {response}",
                     metadata={
@@ -489,6 +515,7 @@ def get_memory_system() -> object | None:
                         "salience": 0.8,
                     },
                     tier="episodic",
+                    trace_id=trace_id,
                 )
 
         MEMORY_SYSTEM = _MemoryBridge()
@@ -502,10 +529,23 @@ def get_memory_system() -> object | None:
                     self._mm = MemoryManager(data_dir=str(MEMORY_DB_DIR), user_id="anra")
                     self.semantic = self
 
-                def search(self, query: str, top_k: int = 3) -> list[object]:
+                def search(
+                    self,
+                    query: str,
+                    top_k: int = 3,
+                    trace_id: str | None = None,
+                ) -> list[object]:
+                    del trace_id
                     return self._mm.retrieve(query, limit=top_k, type="semantic")
 
-                def store_turn(self, message: str, response: str, session_id: str) -> None:
+                def store_turn(
+                    self,
+                    message: str,
+                    response: str,
+                    session_id: str,
+                    trace_id: str | None = None,
+                ) -> None:
+                    del trace_id
                     self._mm.store_memory(
                         content=f"H: {message}\nANRA: {response}",
                         type="episodic",
@@ -681,6 +721,14 @@ async def request_context_middleware(
         "/training/launch-manifest",
     }
     if request.url.path in protected and not _authorized_owner(request):
+        record_experience(
+            trace_id=request_id,
+            kind="gate",
+            inputs={"method": request.method, "path": request.url.path},
+            output={"status_code": 401},
+            gate_record={"allowed": False, "gate": "owner_auth", "role": "anonymous"},
+            source="app.request_gate",
+        )
         return JSONResponse(status_code=401, content={"error": "owner_auth_required"})
     timeout_seconds = max(
         1.0,
@@ -719,6 +767,19 @@ async def request_context_middleware(
             )
             + "\n"
         )
+    record_experience(
+        trace_id=request_id,
+        kind="gate",
+        inputs={"method": request.method, "path": request.url.path},
+        output={"status_code": response.status_code},
+        gate_record={
+            "allowed": response.status_code != 401,
+            "gate": "owner_auth" if request.url.path in protected else "public_route",
+            "role": "owner" if _authorized_owner(request) else "anonymous",
+        },
+        latency={"request_ms": dt},
+        source="app.request_gate",
+    )
     LOGGER.info(
         "[req_id=%s] %s %s %s %.2fms",
         request_id,
@@ -1284,6 +1345,37 @@ def _record_trace(payload: dict[str, Any]) -> str:
     TRACE_STORE[trace_id] = payload
     while len(TRACE_STORE) > 1000:
         TRACE_STORE.pop(next(iter(TRACE_STORE)))
+    generation = payload.get("generation", {})
+    subsystem_trace = generation.get("subsystem_trace", {}) if isinstance(generation, dict) else {}
+    kind = "chat"
+    if subsystem_trace.get("tool_executed"):
+        kind = "tool_result"
+    elif subsystem_trace.get("agent_executed"):
+        kind = "agent_result"
+    output = generation.get("output") if isinstance(generation, dict) else None
+    tokens = {
+        "prompt": int(generation.get("prompt_tokens", 0) or 0),
+        "output": int(generation.get("tokens_generated", 0) or 0),
+    }
+    record_experience(
+        trace_id=trace_id,
+        kind=kind,
+        inputs={
+            "request_id": payload.get("request_id"),
+            "session_id": payload.get("session_id"),
+            "prompt": payload.get("formatted_prompt", payload.get("prompt", "")),
+            "config": payload.get("config", {}),
+        },
+        output=output,
+        gate_record={
+            "allowed": generation.get("quality_state", "accepted") == "accepted",
+            "gate": "generation_quality",
+        },
+        tokens=tokens,
+        latency={"generation_ms": float(generation.get("time_ms", 0.0) or 0.0)},
+        source="app.trace",
+        metadata={"persisted": payload.get("persisted")},
+    )
     return trace_id
 
 
@@ -1446,7 +1538,11 @@ async def chat_route(body: ChatRequest, request: Request) -> dict[str, Any]:
     memory_system = get_memory_system() if cfg.mode == "full_system" else None
     if memory_system is not None:
         try:
-            memory_results = memory_system.semantic.search(query=body.message, top_k=3)
+            memory_results = memory_system.semantic.search(
+                query=body.message,
+                top_k=3,
+                trace_id=request.state.request_id,
+            )
         except Exception as mem_exc:
             LOGGER.warning("Memory query failed for session %s: %s", body.session_id, mem_exc)
 
@@ -1493,7 +1589,12 @@ async def chat_route(body: ChatRequest, request: Request) -> dict[str, Any]:
         await _save_session(body.session_id)
         if memory_system is not None:
             try:
-                memory_system.store_turn(body.message, reply, body.session_id)
+                memory_system.store_turn(
+                    body.message,
+                    reply,
+                    body.session_id,
+                    trace_id=request.state.request_id,
+                )
             except Exception as mem_exc:
                 LOGGER.debug("Memory store failed: %s", mem_exc)
 
@@ -2794,15 +2895,23 @@ async def memory_stats_route() -> dict[str, Any]:
 
 
 @app.get("/memory")
-async def memory_route(query: str = "", top_k: int = 5) -> dict[str, Any]:
+async def memory_route(request: Request, query: str = "", top_k: int = 5) -> dict[str, Any]:
     _require_feature("memory")
     memory_system = get_memory_system() if query else None
-    results = memory_system.semantic.search(query=query, top_k=top_k) if memory_system else []
+    results = (
+        memory_system.semantic.search(
+            query=query,
+            top_k=top_k,
+            trace_id=getattr(request.state, "request_id", None),
+        )
+        if memory_system
+        else []
+    )
     return {"query": query, "results": results}
 
 
 @app.post("/memory")
-async def memory_add_route(body: MemoryAddRequest) -> dict[str, Any]:
+async def memory_add_route(body: MemoryAddRequest, request: Request) -> dict[str, Any]:
     _require_feature("memory")
     memory_system = get_memory_system()
     if memory_system is None:
@@ -2812,11 +2921,21 @@ async def memory_add_route(body: MemoryAddRequest) -> dict[str, Any]:
             body.content,
             metadata={**body.metadata, "type": "api_memory"},
             tier="episodic",
+            trace_id=getattr(request.state, "request_id", None),
         )
     else:
-        memory_system.store_turn(body.content, "", "api_memory")
+        memory_system.store_turn(
+            body.content,
+            "",
+            "api_memory",
+            trace_id=getattr(request.state, "request_id", None),
+        )
         record_id = None
-    return {"stored": True, "record_id": record_id}
+    return {
+        "stored": True,
+        "record_id": getattr(record_id, "record_id", record_id),
+        "tier": getattr(record_id, "tier", None),
+    }
 
 
 @app.post("/eval")
@@ -2903,7 +3022,11 @@ async def memory_search_route(request: Request) -> dict[str, Any]:
     memory_system = get_memory_system() if query else None
     if memory_system:
         try:
-            results = memory_system.semantic.search(query=query, top_k=5)
+            results = memory_system.semantic.search(
+                query=query,
+                top_k=5,
+                trace_id=getattr(request.state, "request_id", None),
+            )
         except Exception as exc:
             LOGGER.warning("Memory search failed: %s", exc)
     return {"results": results, "query": query}

@@ -50,8 +50,22 @@ DFC_SPECIAL_TOKENS = [
 ]
 CANONICAL_SPECIAL_TOKENS = BASE_SPECIAL_TOKENS + DFC_SPECIAL_TOKENS
 CANONICAL_VOCAB_SIZE = BASE_VOCAB_SIZE + len(DFC_SPECIAL_TOKENS)
+# V4 append-only growth ceilings. 16,384 is the in-session-proven fallback
+# (MASTER_UPGRADE fallback route: "V4-32k blocked => V4-16k append => >=1.2x").
+# 32,768 is the canonical V4 ceiling (Layer 3): candidates come from the >=50MB
+# campaign corpus, IDs 0-8208 immutable, byte + reserved multimodal/control IDs.
 TOKENIZER_V4_VOCAB_SIZE = 16_384
+TOKENIZER_V4_32K_VOCAB_SIZE = 32_768
+CANONICAL_V4_VOCAB_SIZE = TOKENIZER_V4_32K_VOCAB_SIZE
+V4_VOCAB_SIZES = (TOKENIZER_V4_VOCAB_SIZE, TOKENIZER_V4_32K_VOCAB_SIZE)
 V2_FRONTIER_V4_PARAMETER_COUNT = 509_631_047
+# 499,167,047 + (32,768 - 8,209) * 1,280 (tied-embedding append contract).
+V2_FRONTIER_V4_32K_PARAMETER_COUNT = 530_602_567
+
+
+def is_v4_vocab_size(vocab_size: int) -> bool:
+    """True when the size is one of the sanctioned append-only V4 ceilings."""
+    return int(vocab_size) in V4_VOCAB_SIZES
 CANONICAL_SPECIAL_TOKEN_IDS = {
     **{token: index for index, token in enumerate(BASE_SPECIAL_TOKENS)},
     **{token: BASE_VOCAB_SIZE + index for index, token in enumerate(DFC_SPECIAL_TOKENS)},
@@ -167,10 +181,15 @@ def frontier_parameter_count(vocab_size: int = CANONICAL_VOCAB_SIZE) -> int:
     count = (
         V2_FRONTIER_PARAMETER_COUNT + (int(vocab_size) - CANONICAL_VOCAB_SIZE) * V2_FRONTIER.n_embd
     )
-    if vocab_size == TOKENIZER_V4_VOCAB_SIZE and count != V2_FRONTIER_V4_PARAMETER_COUNT:
+    pinned_v4_counts = {
+        TOKENIZER_V4_VOCAB_SIZE: V2_FRONTIER_V4_PARAMETER_COUNT,
+        TOKENIZER_V4_32K_VOCAB_SIZE: V2_FRONTIER_V4_32K_PARAMETER_COUNT,
+    }
+    expected = pinned_v4_counts.get(int(vocab_size))
+    if expected is not None and count != expected:
         raise AssertionError(
-            f"Frontier V4 parameter contract mismatch: {count:,} "
-            f"!= {V2_FRONTIER_V4_PARAMETER_COUNT:,}"
+            f"Frontier V4 parameter contract mismatch at vocab {vocab_size:,}: "
+            f"{count:,} != {expected:,}"
         )
     return count
 

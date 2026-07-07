@@ -43,13 +43,18 @@ from training.v2_config import (
     EXPECTED_SPECIAL_TOKENS,
     EXPECTED_TOKENIZER_VOCAB_SIZE,
     TOKENIZER_SCHEMA_VERSION,
-    TOKENIZER_V4_VOCAB_SIZE,
     V2_FRONTIER,
     V2_MODEL,
     V2_REPORT_FILES,
+    V4_VOCAB_SIZES,
     frontier_parameter_count,
+    is_v4_vocab_size,
     resolve_model_profile,
 )
+
+# Every canonical vocab An-Ra may load: the frozen V3 base plus the sanctioned
+# append-only V4 ceilings (16,384 proven fallback, 32,768 canonical).
+ALLOWED_CANONICAL_VOCAB_SIZES = (EXPECTED_TOKENIZER_VOCAB_SIZE, *V4_VOCAB_SIZES)
 
 ensure_dirs()
 logger = logging.getLogger(__name__)
@@ -376,7 +381,7 @@ def assert_tokenizer_contract(path: Path, tokenizer: SubwordTokenizer) -> None:
     meta = json.loads(meta_path.read_text(encoding="utf-8")) if meta_path.exists() else {}
     vocab_size = int(meta.get("vocab_size", tokenizer.vocab_size))
     special_tokens = list(meta.get("special_tokens", tokenizer.special_tokens))
-    allowed_vocab_sizes = {EXPECTED_TOKENIZER_VOCAB_SIZE, TOKENIZER_V4_VOCAB_SIZE}
+    allowed_vocab_sizes = set(ALLOWED_CANONICAL_VOCAB_SIZES)
     if vocab_size not in allowed_vocab_sizes:
         raise AssertionError(
             f"Tokenizer contract mismatch: vocab_size={vocab_size}, "
@@ -384,8 +389,8 @@ def assert_tokenizer_contract(path: Path, tokenizer: SubwordTokenizer) -> None:
             f"(meta={meta_path})"
         )
     schema_version = int(meta.get("schema_version", TOKENIZER_SCHEMA_VERSION))
-    if vocab_size == TOKENIZER_V4_VOCAB_SIZE and schema_version != 4:
-        raise AssertionError("A 16,384-token tokenizer must declare schema_version=4")
+    if is_v4_vocab_size(vocab_size) and schema_version != 4:
+        raise AssertionError("An append-only V4 tokenizer must declare schema_version=4")
     if special_tokens != EXPECTED_SPECIAL_TOKENS:
         raise AssertionError(
             f"Tokenizer contract mismatch: special_tokens={special_tokens}, "
@@ -626,7 +631,7 @@ def migrate_checkpoint_state(
         "schema_version": CHECKPOINT_SCHEMA_VERSION,
         "tokenizer_schema_version": (
             4
-            if _checkpoint_vocab_size(target_state) == TOKENIZER_V4_VOCAB_SIZE
+            if is_v4_vocab_size(_checkpoint_vocab_size(target_state) or 0)
             else TOKENIZER_SCHEMA_VERSION
         ),
         "changes": changes,
@@ -763,14 +768,10 @@ def build_model_from_config(
     vocab_size: int | None = None,
 ) -> CausalTransformerV2:
     effective_vocab_size = int(vocab_size or config.vocab_size)
-    if effective_vocab_size not in {
-        EXPECTED_TOKENIZER_VOCAB_SIZE,
-        TOKENIZER_V4_VOCAB_SIZE,
-    }:
+    if effective_vocab_size not in ALLOWED_CANONICAL_VOCAB_SIZES:
         raise AssertionError(
-            "Canonical model vocab must preserve IDs 0-8208 and use either "
-            f"{EXPECTED_TOKENIZER_VOCAB_SIZE} or {TOKENIZER_V4_VOCAB_SIZE} rows; "
-            f"got {effective_vocab_size}"
+            "Canonical model vocab must preserve IDs 0-8208 and use one of "
+            f"{list(ALLOWED_CANONICAL_VOCAB_SIZES)} rows; got {effective_vocab_size}"
         )
     hal_module = _load_hal(config) if hal_module is None else hal_module
     effective_block_size = int(block_size or config.block_size)
@@ -802,10 +803,10 @@ def build_model_from_config(
 def build_v2_model(
     *, vocab_size: int, block_size: int = V2_MODEL.block_size
 ) -> CausalTransformerV2:
-    if vocab_size not in {EXPECTED_TOKENIZER_VOCAB_SIZE, TOKENIZER_V4_VOCAB_SIZE}:
+    if vocab_size not in ALLOWED_CANONICAL_VOCAB_SIZES:
         raise AssertionError(
             f"Model/tokenizer vocab mismatch at construction: vocab_size={vocab_size}, "
-            f"expected one of {{{V2_MODEL.vocab_size}, {EXPECTED_TOKENIZER_VOCAB_SIZE}}}"
+            f"expected one of {list(ALLOWED_CANONICAL_VOCAB_SIZES)}"
         )
     return build_model_from_config(V2_MODEL, block_size=block_size, vocab_size=vocab_size)
 

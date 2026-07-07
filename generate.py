@@ -444,10 +444,14 @@ def _symbolic_verify(prompt: str, output_text: str) -> dict[str, object] | None:
             "score": None,
         }
         if verdict == "VERIFIED" and expected:
-            matched = _normalized_symbolic_text(expected) in _normalized_symbolic_text(
-                output_text
+            from verification import DEFAULT_VERIFIER_REGISTRY
+
+            checked = DEFAULT_VERIFIER_REGISTRY.verify(
+                "symbolic_output",
+                {"expected": expected, "response": output_text, "mode": mode_name},
             )
-            report["score"] = 1.0 if matched else 0.0
+            report["score"] = float(checked.score)
+            report["reason"] = str(checked.reason)
         return report
     except Exception as exc:
         logger.warning("Symbolic verification failed: %s", exc)

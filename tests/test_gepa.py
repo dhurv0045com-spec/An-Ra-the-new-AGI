@@ -29,6 +29,8 @@ def test_gepa_builds_trace_backed_candidates_from_eval_failures() -> None:
     assert report["candidates"]
     assert report["candidates"][0]["owner_approval_required"] is True
     assert report["scores"][0]["decision"] in {"owner_review", "collect_more_evidence"}
+    assert report["scores"][0]["verifier"]["name"] == "gepa_candidate"
+    assert report["scores"][0]["verifier"]["score"] == 1.0
 
 
 def test_gepa_report_writer_uses_registered_path(tmp_path) -> None:

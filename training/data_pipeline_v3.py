@@ -9,6 +9,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 
 import numpy as np
+from retrieval import CorpusDedupIndex
 
 from training.data_ledger import DataEntropyLedger, DataQuality
 
@@ -36,8 +37,13 @@ class SourceRecord:
 
 
 def validate_dfc(text: str) -> bool:
-    positions = [text.find(tag) for tag in DFC_TAGS]
-    return all(position >= 0 for position in positions) and positions == sorted(positions)
+    from verification import DEFAULT_VERIFIER_REGISTRY
+
+    result = DEFAULT_VERIFIER_REGISTRY.verify(
+        "dfc_format",
+        {"text": text, "tags": DFC_TAGS},
+    )
+    return float(result.score) == 1.0
 
 
 class ShardedDataPipeline:
@@ -50,6 +56,7 @@ class ShardedDataPipeline:
         ledger: DataEntropyLedger | None = None,
         style_filter: Callable[[str], bool] | None = None,
         civ_floor: float = 0.85,
+        dedup_index: CorpusDedupIndex | None = None,
     ) -> None:
         self.output_dir = Path(output_dir)
         self.tokenizer_version = tokenizer_version
@@ -57,6 +64,7 @@ class ShardedDataPipeline:
         self.ledger = ledger or DataEntropyLedger()
         self.style_filter = style_filter or (lambda text: bool(text.strip()))
         self.civ_floor = float(civ_floor)
+        self.dedup_index = dedup_index or CorpusDedupIndex()
 
     @staticmethod
     def _license_allowed(record: SourceRecord) -> bool:
@@ -91,7 +99,12 @@ class ShardedDataPipeline:
         if not self._license_allowed(record):
             return "license_or_provenance", 0.0
         content_hash = hashlib.sha256(record.text.strip().encode("utf-8")).hexdigest()
-        if content_hash in seen_hashes:
+        decision = self.dedup_index.check_and_add(
+            record.text,
+            record_id=content_hash,
+            metadata={"source": record.source, "bucket": record.bucket},
+        )
+        if content_hash in seen_hashes or decision.duplicate:
             return "duplicate", 0.0
         seen_hashes.add(content_hash)
         keep, score = self.ledger.evaluate(record.quality)

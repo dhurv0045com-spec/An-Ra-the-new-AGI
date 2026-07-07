@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from pathlib import Path
 import json
 import sys
+from dataclasses import dataclass
+from pathlib import Path
+
 import numpy as np
 
 
@@ -59,7 +60,7 @@ class FAISSEpisodicStore:
         if self._index is not None:
             sims, idxs = self._index.search(q.reshape(1, -1), k)
             out = []
-            for score, idx in zip(sims[0], idxs[0]):
+            for score, idx in zip(sims[0], idxs[0], strict=False):
                 if idx < 0:
                     continue
                 r = self._records[int(idx)]
@@ -70,9 +71,25 @@ class FAISSEpisodicStore:
         sims = mat @ q
         order = np.argsort(-sims)[:k]
         return [
-            {"record_id": self._records[i].record_id, "score": float(sims[i]), "payload": self._records[i].payload}
+            {
+                "record_id": self._records[i].record_id,
+                "score": float(sims[i]),
+                "payload": self._records[i].payload,
+            }
             for i in order
         ]
+
+    def delete(self, record_id: str) -> bool:
+        remaining = [record for record in self._records if record.record_id != record_id]
+        if len(remaining) == len(self._records):
+            return False
+        self._records = remaining
+        if self._faiss is not None:
+            self._index = self._faiss.IndexFlatIP(self.dim)
+            if self._records:
+                self._index.add(np.stack([record.vector for record in self._records], axis=0))
+        self.save()
+        return True
 
     def save(self) -> None:
         self.index_path.parent.mkdir(parents=True, exist_ok=True)

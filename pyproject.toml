@@ -64,6 +64,8 @@ include = [
   "evaluation*",
   "runtime*",
   "training*",
+  "retrieval*",
+  "verification*",
 ]
 
 [tool.pytest.ini_options]

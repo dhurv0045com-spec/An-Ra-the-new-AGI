@@ -10,12 +10,15 @@ from training.v2_config import (
     CANONICAL_SPECIAL_TOKEN_IDS,
     CANONICAL_SPECIAL_TOKENS,
     CANONICAL_VOCAB_SIZE,
+    TOKENIZER_V4_VOCAB_SIZE,
+    V4_VOCAB_SIZES,
 )
 
 from tokenizer.subword_tokenizer import SubwordTokenizer
 
 SPECIAL_TOKENS = CANONICAL_SPECIAL_TOKENS
 TARGET_VOCAB = CANONICAL_VOCAB_SIZE
+V3_BASE_VOCAB_SIZE = 8_209
 
 
 class TokenizerCompetenceReport(TypedDict):
@@ -138,7 +141,12 @@ def audit_token_fertility(
     corpus_paths: list[Path],
     *,
     max_units: int = 1_000_000,
+    target_vocab_size: int = TOKENIZER_V4_VOCAB_SIZE,
 ) -> dict[str, object]:
+    if target_vocab_size not in V4_VOCAB_SIZES:
+        raise ValueError(
+            f"Append-only audit ceiling must be one of {V4_VOCAB_SIZES}; got {target_vocab_size}"
+        )
     tokenizer = SubwordTokenizer.load(tokenizer_json)
     units: list[str] = []
     pattern = re.compile(r"[A-Za-z_][A-Za-z0-9_]*|\d+(?:\.\d+)?|[^\w\s]+")
@@ -154,11 +162,14 @@ def audit_token_fertility(
     frequencies = Counter(units)
     current_tokens = sum(len(tokenizer.encode(unit)) for unit in units)
     existing = getattr(tokenizer, "token_to_id", {})
+    # Reserve room for the 256 byte tokens the byte-fallback build always adds.
+    byte_room = sum(1 for value in range(256) if existing.get(f"<0x{value:02X}>") is None)
+    candidate_budget = max(0, target_vocab_size - tokenizer.vocab_size - byte_room)
     candidates = [
         unit
         for unit, _ in frequencies.most_common()
         if len(unit) > 1 and existing.get(unit) is None
-    ][: 16_384 - tokenizer.vocab_size]
+    ][:candidate_budget]
     candidate_set = set(candidates)
     projected_tokens = sum(
         1 if unit in candidate_set else len(tokenizer.encode(unit)) for unit in units
@@ -166,6 +177,7 @@ def audit_token_fertility(
     reduction = (current_tokens - projected_tokens) / max(1, current_tokens)
     return {
         "schema_version": 1,
+        "target_vocab_size": int(target_vocab_size),
         "sampled_units": len(units),
         "current_tokens": current_tokens,
         "projected_tokens": projected_tokens,
@@ -180,7 +192,19 @@ def build_append_only_v4(
     tokenizer_json: Path,
     output_json: Path,
     audit: dict[str, object],
+    *,
+    target_vocab_size: int = TOKENIZER_V4_VOCAB_SIZE,
 ) -> Path:
+    """Grow the frozen V3 base to a V4 ceiling by appending only new rows.
+
+    ``target_vocab_size`` selects the proven 16,384 fallback (default) or the
+    canonical 32,768 ceiling. IDs 0-8208 are preserved bit-for-bit; every new
+    id is byte-token, audit candidate, or reserved padding.
+    """
+    if target_vocab_size not in V4_VOCAB_SIZES:
+        raise ValueError(
+            f"Append-only v4 ceiling must be one of {V4_VOCAB_SIZES}; got {target_vocab_size}"
+        )
     if not bool(audit.get("eligible_for_schema_v4", False)):
         raise RuntimeError(
             "Tokenizer v4 growth requires a one-million-unit audit and >=15% reduction"
@@ -188,31 +212,34 @@ def build_append_only_v4(
     payload = json.loads(tokenizer_json.read_text(encoding="utf-8"))
     token_to_id = dict(payload["token_to_id"])
     id_to_token = list(payload["id_to_token"])
-    if len(id_to_token) != 8209:
+    if len(id_to_token) != V3_BASE_VOCAB_SIZE:
         raise ValueError("Append-only v4 growth requires the canonical 8,209-token v3 base")
     if any(
         token_to_id.get(token) != token_id
         for token, token_id in CANONICAL_SPECIAL_TOKEN_IDS.items()
     ):
         raise ValueError("Canonical token IDs changed before v4 growth")
+    frozen_prefix = list(id_to_token)
     decompositions: dict[str, list[int]] = {}
     base_tokenizer = SubwordTokenizer.load(tokenizer_json)
     for value in range(256):
         token = f"<0x{value:02X}>"
-        if token not in token_to_id and len(id_to_token) < 16_384:
+        if token not in token_to_id and len(id_to_token) < target_vocab_size:
             token_to_id[token] = len(id_to_token)
             id_to_token.append(token)
             decompositions[token] = [base_tokenizer.unk_token_id]
     for candidate in audit.get("candidate_tokens", []):
         token = str(candidate)
-        if token and token not in token_to_id and len(id_to_token) < 16_384:
+        if token and token not in token_to_id and len(id_to_token) < target_vocab_size:
             token_to_id[token] = len(id_to_token)
             id_to_token.append(token)
             decompositions[token] = base_tokenizer.encode(token)
-    while len(id_to_token) < 16_384:
+    while len(id_to_token) < target_vocab_size:
         token = f"<v4_reserved_{len(id_to_token):05d}>"
         token_to_id[token] = len(id_to_token)
         id_to_token.append(token)
+    if id_to_token[:V3_BASE_VOCAB_SIZE] != frozen_prefix:
+        raise AssertionError("Append-only v4 growth mutated the frozen V3 prefix")
     output_json.parent.mkdir(parents=True, exist_ok=True)
     temporary = output_json.with_suffix(output_json.suffix + ".tmp")
     temporary.write_text(
@@ -228,8 +255,8 @@ def build_append_only_v4(
     meta.update(
         {
             "schema_version": 4,
-            "vocab_size": 16_384,
-            "base_vocab_size": 8_209,
+            "vocab_size": int(target_vocab_size),
+            "base_vocab_size": V3_BASE_VOCAB_SIZE,
             "append_only": True,
             "backend": "native_append_v4",
             "model_type": "native_greedy_byte_subword",

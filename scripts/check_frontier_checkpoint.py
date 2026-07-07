@@ -12,9 +12,10 @@ from runtime.safe_load import safe_torch_load
 from training.v2_config import (
     CHECKPOINT_SCHEMA_VERSION,
     EXPECTED_TOKENIZER_VOCAB_SIZE,
-    TOKENIZER_V4_VOCAB_SIZE,
     V2_FRONTIER,
+    V4_VOCAB_SIZES,
     frontier_parameter_count,
+    is_v4_vocab_size,
 )
 
 
@@ -61,7 +62,7 @@ def _checkpoint_report(path: Path) -> dict[str, Any]:
         (model_config.get("vocab_size") if isinstance(model_config, dict) else 0)
         or (token_shape[0] if token_shape else 0)
     )
-    expected_tokenizer_schema = 4 if checkpoint_vocab == TOKENIZER_V4_VOCAB_SIZE else 3
+    expected_tokenizer_schema = 4 if is_v4_vocab_size(checkpoint_vocab) else 3
 
     report = {
         "ok": True,
@@ -131,7 +132,7 @@ def _checkpoint_report(path: Path) -> dict[str, Any]:
                 errors.append(f"model_config.{key}={actual} expected={expected}")
     else:
         errors.append("model_config is missing or not a dict")
-    if checkpoint_vocab not in {EXPECTED_TOKENIZER_VOCAB_SIZE, TOKENIZER_V4_VOCAB_SIZE}:
+    if checkpoint_vocab not in {EXPECTED_TOKENIZER_VOCAB_SIZE, *V4_VOCAB_SIZES}:
         errors.append(f"unsupported append-only vocabulary size: {checkpoint_vocab}")
     if token_shape is None or token_shape[0] != checkpoint_vocab:
         errors.append(f"token embedding shape mismatch: {token_shape}")

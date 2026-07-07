@@ -26,6 +26,8 @@ state/private_evals/
 state/ghost_memory/
 state/hal_sessions/
 state/civ_sessions/
+state/experience_ledger/
+workspace/pytest_*/
 history/
 agent_workspace/
 phase2/master_system_45m/memory/data/
