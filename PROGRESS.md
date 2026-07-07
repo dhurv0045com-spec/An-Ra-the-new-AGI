@@ -29,7 +29,7 @@ ledger stress/overhead CI, and the sibling `gpu cluster` P0/P1 control-plane
 security/storage pass. Stage 1 (Make It Speak) remains gated on the real
 checkpoint + training compute.
 
-**Test baseline:** 518 non-GPU tests passing, 1 skipped. `ruff` clean on all
+**Test baseline:** 542 non-GPU tests passing, 1 skipped. `ruff` clean on all
 changed files. Full suite command:
 ```
 py -3.14 -m pytest tests/ -m "not gpu" \
@@ -97,6 +97,24 @@ list. Headline changes:
   undertraining decision rule; executed → blocked on the artifact (exit 3).
 - 18 new focused tests; suite 518 passed / 1 skipped; ruff clean.
 
+## Done (2026-07-07 session — Stream B executable half)
+
+- Canonical 32k V4 append migration generalized and proven, Law-1-clean and
+  non-destructive: `CANONICAL_V4_VOCAB_SIZE = 32_768` with a pinned
+  530,602,567-param contract; `build_append_only_v4`/`audit_token_fertility`
+  take a `target_vocab_size` ceiling; the frozen 8,209-token V3 prefix is
+  asserted before every V4 write; 16,384 retained as the proven fallback.
+- All vocab gates (runtime, checkpoint validator, ssg) accept {8209, 16384,
+  32768} via `is_v4_vocab_size`.
+- Pinned, license-checked upstream corpus manifests: `training/corpus_manifest.py`
+  → `output/v2/data_manifests/upstream_corpus_manifest.json` (7 sources,
+  allowlisted licenses, immutable revisions, weights sum 1.0, content-hashed).
+- Campaign-slice builder (`scripts/build_campaign_slice.py`, deterministic
+  held-out source splits, >=50MB gate) and 32k V4 build CLI
+  (`scripts/build_v4_tokenizer.py`, self-proving) shipped and executed on the
+  local corpus (honestly ineligible: needs the >=50MB campaign corpus).
+- 24 new focused tests; suite 542 passed / 1 skipped; ruff clean.
+
 ## Next Action (start here)
 
 **Stream E - ledger-derived transparency projections.** Define the UI-facing
@@ -106,7 +124,7 @@ surface trace IDs, event kinds, gate/verifier outcomes, memory record IDs,
 provenance, and hashes. (The forecast-ledger schema + pre-launch timestamp
 audit box on Stream E is already delivered.)
 
-**Owner actions that unblock the rest of Stream A:**
+**Owner actions that unblock the rest of Streams A and B:**
 1. Restore the real checkpoint (or set `ANRA_CHECKPOINT_PATH`), then run
    `py -3.14 scripts/freeze_baseline_hashes.py` and
    `py -3.14 scripts/run_checkpoint_forensics.py --run-generation` — this
@@ -114,6 +132,11 @@ audit box on Stream E is already delivered.)
    undertraining decision in one pass.
 2. Set `ANRA_MANIFEST_SIGNING_KEY`, then emit the signed pilot manifests:
    `py -3.14 -m training.pilot_factorial --owner-authorized`.
+3. Acquire the corpus, then build the canonical V4:
+   `py -3.14 scripts/download_training_data.py --profile 30gb` →
+   `py -3.14 scripts/build_campaign_slice.py` (>=50MB slice) →
+   `py -3.14 scripts/build_v4_tokenizer.py` (canonical 32k V4) → run the
+   pre-registered `p150-v4tok` 150M three-seed pilot on GPU.
 
 ## Blocking Dependencies (not solvable in the code environment)
 
