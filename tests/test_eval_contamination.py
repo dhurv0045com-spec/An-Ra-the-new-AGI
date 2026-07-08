@@ -50,12 +50,15 @@ def test_eval_prompts_not_in_training_shards(tmp_path: Path) -> None:
                 for line_idx, line in enumerate(f, 1):
                     if not line.strip():
                         continue
-                    event = json.loads(line)
-                    # Check both exact prompt hashes and inputs_hash
-                    if event.get("inputs_hash") in protected:
-                        violations.append(f"{path.name}:{line_idx} contains protected hash {event['inputs_hash']}")
-                    # If there's raw text, we could hash it and check, but typical training shards
-                    # only store hashes of the inputs for exact-match deduplication or lookup.
+                    try:
+                        event = json.loads(line)
+                        # Check both exact prompt hashes and inputs_hash
+                        if event.get("inputs_hash") in protected:
+                            violations.append(f"{path.name}:{line_idx} contains protected hash {event['inputs_hash']}")
+                        # If there's raw text, we could hash it and check, but typical training shards
+                        # only store hashes of the inputs for exact-match deduplication or lookup.
+                    except json.JSONDecodeError:
+                        violations.append(f"{path.name}:{line_idx} is malformed JSON, potential obfuscated leak")
         return violations
 
     # 6. Verify it catches the leak

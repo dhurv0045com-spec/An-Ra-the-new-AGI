@@ -104,7 +104,7 @@ class EloHarness:
         
         return actual_score_a
 
-    def check_regression(self, candidate_checkpoint: str, baseline_checkpoint: str) -> bool:
+    def check_regression(self, candidate_checkpoint: str, baseline_checkpoint: str, threshold: float = 50.0) -> bool:
         """Evaluate if the candidate regresses against the baseline.
         
         A regression in this context means the candidate has a significantly lower Elo rating
@@ -116,5 +116,5 @@ class EloHarness:
         if cand_rating.matches == 0:
             return False # Cannot determine regression without data
             
-        # Example regression criteria: 50 Elo points lower
-        return cand_rating.rating < base_rating.rating - 50.0
+        # A regression requires sufficient statistical evidence; here we use an Elo drop threshold.
+        return cand_rating.rating < base_rating.rating - threshold
