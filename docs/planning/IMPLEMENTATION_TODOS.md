@@ -96,13 +96,13 @@ code plus focused tests exist; it does not waive a quantitative campaign gate.
 
 ### Stream E - Evaluation, safety, and product
 
-- [ ] Stratify the private suite by capability and contamination source.
-- [ ] Add source-hash contamination firewall checks to evaluation CI.
+- [x] Stratify the private suite by capability and contamination source.
+- [x] Add source-hash contamination firewall checks to evaluation CI.
 - [x] Add the forecast-ledger schema and pre-launch timestamp audit.
       *(Delivered with Stream A: `training/forecast_ledger.py`, schema v1,
       hash-chained entries, `audit_pre_launch` voids post-hoc forecasts.)*
-- [ ] Establish regression CI and blinded Elo harness baselines.
-- [ ] Define UI ledger projections for verification, memory, and gate visibility.
+- [x] Establish regression CI and blinded Elo harness baselines.
+- [x] Define UI ledger projections for verification, memory, and gate visibility.
 
 ## P1 - Weeks 3-6
 
