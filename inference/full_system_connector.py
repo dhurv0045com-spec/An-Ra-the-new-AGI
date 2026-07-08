@@ -179,7 +179,8 @@ def probe_module_capability(module_name: str, required_symbol: str | None = None
     health = getattr(module, "health_check", None)
     if callable(health):
         try:
-            return str(dict(health()).get("status", "")) == "ok"
+            res = health()
+            return isinstance(res, dict) and res.get("status") == "ok"
         except Exception:
             return False
     if required_symbol is not None:
@@ -193,7 +194,8 @@ def build_capability_graph(repo_root: Path) -> dict[str, object]:
     nodes = walk_repository(repo_root)
     snapshots = phase_snapshots(repo_root, nodes)
 
-    capabilities = dict(manifest.get("capabilities", {}))
+    manifest_caps = manifest.get("capabilities", {})
+    capabilities = dict(manifest_caps) if isinstance(manifest_caps, dict) else {}
     capabilities.update(
         {
             name: probe_module_capability(module_name, required_symbol)
@@ -221,7 +223,8 @@ def build_capability_graph(repo_root: Path) -> dict[str, object]:
 
 
 def save_graph(repo_root: Path, output: Path) -> dict[str, object]:
-    graph = build_capability_graph(repo_root)
+    from typing import cast
+    graph = cast(dict[str, object], build_capability_graph(repo_root))
     output.write_text(json.dumps(graph, indent=2, ensure_ascii=False), encoding="utf-8")
     return graph
 

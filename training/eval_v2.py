@@ -199,6 +199,7 @@ def build_private_eval_suite(
                 "prompt": prompt,
                 "expected": expected,
                 "scorer": scorer,
+                "contamination_source": "human_crafted" if index % 3 == 0 else "synthetic_amplified",
                 **(
                     {
                         "operands": [left, right],

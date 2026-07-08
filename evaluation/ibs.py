@@ -38,6 +38,7 @@ class IBSTask:
     prompt: str
     verifier: str
     seed: int
+    contamination_source: str = "human_crafted"
     expected: str = ""
     metadata: dict[str, object] = field(default_factory=dict)
 
@@ -84,6 +85,7 @@ def _default_tasks() -> list[IBSTask]:
                     prompt=prompt_template.format(n=index),
                     verifier=verifier,
                     seed=seed,
+                    contamination_source="human_crafted" if index % 2 == 0 else "synthetic_amplified",
                 )
             )
             seed += 1
