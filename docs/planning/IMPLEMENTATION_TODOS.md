@@ -7,22 +7,27 @@ code plus focused tests exist; it does not waive a quantitative campaign gate.
 
 ### Stream A - Model and campaign
 
-- [ ] Obtain or locate the real 500M checkpoint without adding it to git.
-      *(Blocked on the owner artifact. Locator ships in
-      `scripts/run_checkpoint_forensics.py`: explicit arg →
-      `ANRA_CHECKPOINT_PATH` → canonical path; reports blocked, exit 3.)*
+- [x] Obtain or locate the real 500M checkpoint without adding it to git.
+      *(Owner artifact located 2026-07-10 at
+      `C:\Users\ankit\Downloads\anra_frontier_500m.pt`; 2,000,680,247 bytes,
+      SHA-256 `648354a42d68c22769450a3aaa249e93689b21fbe72e68b07dcc15c6f7f4d393`.
+      Recorded source commit `e8d90d9...` is an ancestor of this branch.)*
 - [x] Freeze checkpoint, tokenizer, config, and corpus-manifest hashes.
       *(`scripts/freeze_baseline_hashes.py` → `output/v2/baseline_freeze.json`,
-      executed 2026-07-07: tokenizer/config/corpus frozen; checkpoint hash
-      slot reports `blocked_on_artifact` until the file exists.)*
-- [ ] Run exact tensor accounting and the 500 tokenizer probes.
-      *(500 probes executed live 2026-07-07 and match the frozen fingerprint;
-      tensor accounting is wired in the forensics driver but blocked on the
-      checkpoint artifact.)*
-- [ ] Run deterministic generation and the 200-prompt recovery gate.
+      re-executed 2026-07-10 with checkpoint, tokenizer, config, and corpus
+      identities all frozen.)*
+- [x] Run exact tensor accounting and the 500 tokenizer probes.
+      *(499,167,047 parameters; all 608 target tensors accounted for; zero
+      missing, unexpected, or shape-mismatched tensors; exact core/native
+      load. All 500 tokenizer probes match fingerprint `db1075ad...`.)*
+- [x] Run deterministic generation and the 200-prompt recovery gate.
       *(Driver ready: `scripts/run_checkpoint_forensics.py --run-generation`
       — greedy, seed 0, cache off, coherence gate 80%, undertraining decision
-      rule. Blocked on the checkpoint artifact.)*
+      rule. Full CUDA gate launched 2026-07-10 on the RTX 4050; acceptance
+      completed 2026-07-10: 200 diagnostic + 200 native + 200 replay prompts;
+      exact load/replay passed, but coherence was 0.0% versus the 80% gate.
+      The final verdict is undertraining, not recovery; see
+      `output/v2/stream_a_forensics.json`.)*
 - [x] Convert the pilot factorial into pre-registered launch manifests, three seeds each.
       *(`training/pilot_factorial.py`: 23 cells, seeds 1301/2602/3903, signed
       schema-2 manifests, Law-1 scratch lineage; owner emits the set with

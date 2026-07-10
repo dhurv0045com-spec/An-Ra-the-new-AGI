@@ -1415,12 +1415,20 @@ def get_model_info() -> dict[str, object]:
         "checkpoint_state": {
             "global_step": _RUNTIME_LOAD_STATE.get("global_step", 0),
             "best_loss": _RUNTIME_LOAD_STATE.get("best_loss", float("inf")),
+            "best_training_loss": _RUNTIME_LOAD_STATE.get(
+                "best_training_loss",
+                _RUNTIME_LOAD_STATE.get("best_loss", float("inf")),
+            ),
+            "best_validation_loss": _RUNTIME_LOAD_STATE.get(
+                "best_validation_loss",
+                float("inf"),
+            ),
+            "loss_semantics": _RUNTIME_LOAD_STATE.get("loss_semantics", {}),
             "sessions_completed": _RUNTIME_LOAD_STATE.get("sessions_completed", 0),
             "data_profile": _RUNTIME_LOAD_STATE.get("data_profile", "unknown"),
             "training_data_layout": _RUNTIME_LOAD_STATE.get("training_data_layout", "unknown"),
             "tokens_seen": _RUNTIME_LOAD_STATE.get("tokens_seen", 0),
             "continuation_token_counts": _RUNTIME_LOAD_STATE.get("continuation_token_counts", {}),
-            "best_validation_loss": _RUNTIME_LOAD_STATE.get("best_validation_loss", float("inf")),
             "validation_history": _RUNTIME_LOAD_STATE.get("validation_history", []),
             "data_manifests": _RUNTIME_LOAD_STATE.get("data_manifests", {}),
             "model_config": _RUNTIME_LOAD_STATE.get("model_config", {}),

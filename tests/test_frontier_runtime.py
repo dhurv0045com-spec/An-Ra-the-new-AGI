@@ -151,6 +151,7 @@ def test_model_info_exposes_frontier_proof_fields(monkeypatch, tmp_path: Path) -
     assert info["param_count"] == generate.V2_FRONTIER_PARAMETER_COUNT
     assert info["block_size"] == 1024
     assert info["checkpoint_state"]["global_step"] == 6927
+    assert info["checkpoint_state"]["best_training_loss"] == 0.3279
 
     generate._reset_runtime_cache()
 

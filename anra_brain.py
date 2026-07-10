@@ -8,16 +8,19 @@ Canonical exports:
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import math
+from collections.abc import Iterable, Iterator
+from contextlib import AbstractContextManager, contextmanager, nullcontext
+from dataclasses import dataclass
+from functools import partial
 
 import torch
 import torch.nn as nn
-from torch.nn import functional as F
+from anra.core.registry import MODEL_REGISTRY
+from torch.nn import functional as F  # noqa: N812 - conventional torch alias
 from torch.nn.utils.parametrizations import spectral_norm
 from torch.utils.checkpoint import checkpoint as _torch_checkpoint
 
-from anra.core.registry import MODEL_REGISTRY
 from identity.esv import ESVModule
 
 try:
@@ -27,8 +30,31 @@ except Exception:  # pragma: no cover - HAL is optional for old runtimes.
 from tokenizer.char_tokenizer import CharTokenizer  # noqa: F401 - compatibility export
 
 
+@contextmanager
+def _freeze_rim_spectral_norm_updates(
+    rim: ResidualIdentityModulator | None,
+) -> Iterator[None]:
+    """Keep checkpoint recomputation from advancing spectral-norm state twice."""
+    if rim is None:
+        yield
+        return
+    projection = rim.projection
+    was_training = projection.training
+    projection.eval()
+    try:
+        yield
+    finally:
+        projection.train(was_training)
+
+
+def _checkpoint_contexts(
+    rim: ResidualIdentityModulator | None,
+) -> tuple[AbstractContextManager[None], AbstractContextManager[None]]:
+    return nullcontext(), _freeze_rim_spectral_norm_updates(rim)
+
+
 class RMSNorm(nn.Module):
-    def __init__(self, dim: int, eps: float = 1e-5):
+    def __init__(self, dim: int, eps: float = 1e-5) -> None:
         super().__init__()
         self.weight = nn.Parameter(torch.ones(dim))
         self.register_buffer("multiplicity_weight", torch.ones(dim), persistent=True)
@@ -52,7 +78,7 @@ def _rotate_half(x: torch.Tensor) -> torch.Tensor:
 class RotaryEmbedding(nn.Module):
     def __init__(
         self, dim: int, base: int = 10000, base_seq_len: int = 512, target_seq_len: int = 2048
-    ):
+    ) -> None:
         super().__init__()
         self.dim = dim
         self.base = base
@@ -121,7 +147,7 @@ class MultiHeadAttentionV2(nn.Module):
         dropout: float = 0.0,
         base_seq_len: int = 512,
         target_seq_len: int = 2048,
-    ):
+    ) -> None:
         super().__init__()
         if n_embd % n_head != 0:
             raise ValueError(f"n_embd={n_embd} must be divisible by n_head={n_head}")
@@ -196,7 +222,7 @@ class MultiHeadAttentionV2(nn.Module):
 
 
 class SwiGLU(nn.Module):
-    def __init__(self, n_embd: int, hidden_dim: int):
+    def __init__(self, n_embd: int, hidden_dim: int) -> None:
         super().__init__()
         self.gate_proj = nn.Linear(n_embd, hidden_dim, bias=False)
         self.up_proj = nn.Linear(n_embd, hidden_dim, bias=False)
@@ -214,7 +240,7 @@ class RouterContext:
 
 
 class MoDRouter(nn.Module):
-    def __init__(self, d_model: int, capacity: float = 0.5):
+    def __init__(self, d_model: int, capacity: float = 0.5) -> None:
         super().__init__()
         self.capacity = capacity
         self.gate = nn.Linear(d_model, 1, bias=False)
@@ -321,7 +347,7 @@ class BlockV2(nn.Module):
         dropout: float = 0.0,
         base_seq_len: int = 512,
         target_seq_len: int = 2048,
-    ):
+    ) -> None:
         super().__init__()
         hidden_dim = int(8 / 3 * n_embd)
         hidden_dim = (hidden_dim + 63) // 64 * 64
@@ -352,10 +378,8 @@ class BlockV2(nn.Module):
         )
         if mod_router is not None:
             routed = mod_router(x, self._normed_mlp, router_context)
-            x = x + residual_scale * (routed - x)
-            return x
-        x = x + residual_scale * self.mlp(self.norm_2(x))
-        return x
+            return x + residual_scale * (routed - x)
+        return x + residual_scale * self.mlp(self.norm_2(x))
 
 
 @MODEL_REGISTRY.register("causal_transformer_v3")
@@ -372,16 +396,16 @@ class CausalTransformerV2(nn.Module):
         n_kv_head: int | None = None,
         rms_norm_eps: float = 1e-5,
         dropout: float = 0.0,
-        mod_layers=(),
+        mod_layers: Iterable[int] = (),
         base_seq_len: int = 512,
         target_seq_len: int = 2048,
         pad_token_id: int = 0,
         use_layer_temperature_bias: bool = True,
         use_hal: bool = False,
-        hal_module=None,
+        hal_module: object | None = None,
         use_rim: bool = True,
         use_dstp: bool = True,
-    ):
+    ) -> None:
         super().__init__()
         if not 0 <= pad_token_id < vocab_size:
             raise ValueError(f"pad_token_id={pad_token_id} must be within vocab_size={vocab_size}")
@@ -833,7 +857,12 @@ class CausalTransformerV2(nn.Module):
                     self._subsystem_execution["dstp"] += 1
                 if mod_router is not None:
                     self._subsystem_execution["mod"] += 1
-                x = _torch_checkpoint(_block_fn, x, use_reentrant=False)
+                x = _torch_checkpoint(
+                    _block_fn,
+                    x,
+                    use_reentrant=False,
+                    context_fn=partial(_checkpoint_contexts, rim_i),
+                )
             else:
                 if native_context:
                     esv_state = self.esv_module(x)
@@ -895,7 +924,11 @@ class CausalTransformerV2(nn.Module):
         self._pending_esv_state = None
         return True
 
-    def forward(self, idx: torch.Tensor, targets: torch.Tensor | None = None):
+    def forward(
+        self,
+        idx: torch.Tensor,
+        targets: torch.Tensor | None = None,
+    ) -> tuple[torch.Tensor, torch.Tensor | None]:
         _, seq_len = idx.shape
         if seq_len > self.block_size:
             raise ValueError(f"sequence length {seq_len} exceeds block size {self.block_size}")
@@ -917,7 +950,11 @@ class CausalTransformerV2(nn.Module):
         targets: torch.Tensor | None = None,
         *,
         attention_mask: torch.Tensor | None = None,
-    ):
+    ) -> tuple[
+        torch.Tensor,
+        torch.Tensor | None,
+        tuple[dict[str, torch.Tensor], ...],
+    ]:
         """Forward with typed extension evidence while preserving ``forward``."""
         _, seq_len = idx.shape
         if seq_len > self.block_size:

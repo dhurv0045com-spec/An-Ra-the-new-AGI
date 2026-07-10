@@ -896,6 +896,8 @@ def load_checkpoint(
         "global_step": 0,
         "epoch": 0,
         "best_loss": float("inf"),
+        "best_training_loss": float("inf"),
+        "loss_semantics": {},
         "sessions_completed": 0,
         "data_profile": "unknown",
         "training_data_layout": "unknown",
@@ -1020,6 +1022,11 @@ def load_checkpoint(
         state["global_step"] = int(blob.get("global_step", blob.get("step", 0)))
         state["epoch"] = int(blob.get("epoch", 0))
         state["best_loss"] = float(blob.get("best_loss", float("inf")))
+        state["best_training_loss"] = float(
+            blob.get("best_training_loss", state["best_loss"])
+        )
+        semantics = blob.get("loss_semantics", {})
+        state["loss_semantics"] = dict(semantics) if isinstance(semantics, dict) else {}
         state["sessions_completed"] = int(blob.get("sessions_completed", 0))
         state["data_profile"] = str(blob.get("data_profile", "unknown"))
         state["training_data_layout"] = str(blob.get("training_data_layout", "unknown"))

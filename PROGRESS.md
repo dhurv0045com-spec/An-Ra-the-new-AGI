@@ -88,15 +88,24 @@ smoke checks. M6 also passed its real bounded-domain pilot, classifying all
 conclusions), so M6 is checked. M1-M5 and M7 remain blocked on their exact
 training, benchmark, data, or human-sovereignty evidence.
 
-The remaining TODO executor was run against local artifacts on 2026-07-10.
-Checkpoint forensics again reports `blocked` because the real 500M checkpoint
-is absent; its 500 tokenizer probes still pass. The campaign-slice builder
+The real 500M checkpoint was supplied on 2026-07-10 and frozen outside git at
+`C:\Users\ankit\Downloads\anra_frontier_500m.pt` (2,000,680,247 bytes;
+SHA-256 `648354a4...d393`). Its recorded source commit is an ancestor of this
+branch. Schema-4-to-6 loading accounts for all 608 target tensors with zero
+missing, unexpected, or mismatched tensors; the 500 tokenizer probes match the
+frozen manifest. A CUDA smoke ran on the RTX 4050 at 7.44 tokens/second and was
+quality-rejected. The completed 600-generation deterministic recovery audit
+(200 diagnostic, 200 native, 200 replay) found 0.0% coherence against the 80%
+gate. Exact loading, finite activations, and deterministic replay passed, but
+the checkpoint is conclusively undertrained and is not a recoverable serving
+candidate. Artifact-specific defects and the recovery program are recorded in
+`docs/engineering/CHECKPOINT_FORENSICS.md`. The campaign-slice builder
 successfully proves held-out disjointness but produces only 3.40 MB from the
 available source, below the mandatory 50 MB gate. Local recovery, post-training
 ablation, and all-seven moonshot gates are now code-complete and fail closed;
 they await their specific compute/data evidence.
 
-**Test baseline:** 581 non-GPU tests passing, 1 skipped. `ruff` clean on all
+**Test baseline:** 585 non-GPU tests passing, 1 skipped. `ruff` clean on all
 changed files. Full suite command:
 ```
 py -3.14 -m pytest tests/ -m "not gpu" \
@@ -184,22 +193,19 @@ list. Headline changes:
 
 ## Next Action (start here)
 
-**P1/P2 campaign and cluster proof gates.** Run measured throughput and actual
-kill-9 recovery once the real checkpoint is restored; execute the completed
+**Do not continue the failed legacy checkpoint; proceed only through the named
+fresh-training evidence path.** Acquire the required campaign corpus, then run
+the pre-registered three-seed pilot/scratch control, measured throughput, and
+actual kill-9 recovery; execute the completed
 control-plane telemetry, chaos, live 24-hour soak, and five-preemption gates
 against Drive and authorized workers; then use a real 50-goal suite, latency
 budget data, 20-scenario UI study, and adversarial/canary release evidence
 before checking the remaining P2 boxes.
 
 **Owner actions that unblock the rest of Streams A and B:**
-1. Restore the real checkpoint (or set `ANRA_CHECKPOINT_PATH`), then run
-   `py -3.14 scripts/freeze_baseline_hashes.py` and
-   `py -3.14 scripts/run_checkpoint_forensics.py --run-generation` — this
-   completes tensor accounting, the recovery gate, and the Part 0
-   undertraining decision in one pass.
-2. Set `ANRA_MANIFEST_SIGNING_KEY`, then emit the signed pilot manifests:
+1. Set `ANRA_MANIFEST_SIGNING_KEY`, then emit the signed pilot manifests:
    `py -3.14 -m training.pilot_factorial --owner-authorized`.
-3. Acquire the corpus, then build the canonical V4:
+2. Acquire the corpus, then build the canonical V4:
    `py -3.14 scripts/download_training_data.py --profile 30gb` →
    `py -3.14 scripts/build_campaign_slice.py` (>=50MB slice) →
    `py -3.14 scripts/build_v4_tokenizer.py` (canonical 32k V4) → run the
@@ -210,7 +216,9 @@ before checking the remaining P2 boxes.
 - **Training compute.** Recommended: rent one A100 for ~$60–120 to train 10B
   tokens (the single highest-leverage action for this project). Fallback:
   Colab TPU v2-8 fleet (free, ~3–5 sessions for Phase A).
-- **The real checkpoint file** (kept outside git per repo policy).
+- **Owner signing authority and live external evidence.** The checkpoint is
+  now present outside git; pilot signing, GPU campaigns, live soak/preemption,
+  production canary, usability, and independent evaluation evidence remain.
 
 ## Standing Rules
 

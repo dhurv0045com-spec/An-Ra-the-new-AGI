@@ -79,6 +79,15 @@ _SOURCE_SUFFIXES = {
 _MAX_SOURCE_BYTES = 2 * 1024 * 1024
 
 
+def _excluded_tree_part(name: str) -> bool:
+    normalized = name.lower()
+    return (
+        normalized in _EXCLUDED_TREE_PARTS
+        or normalized.startswith(".venv")
+        or normalized.startswith("venv-")
+    )
+
+
 def _python_symbols(path: Path, source: str | None = None) -> tuple[list[str], list[str]]:
     if path.suffix != ".py":
         return [], []
@@ -98,7 +107,7 @@ def walk_repository(repo_root: Path) -> list[FileNode]:
     nodes: list[FileNode] = []
     for directory, dirnames, filenames in os.walk(repo_root):
         dirnames[:] = sorted(
-            name for name in dirnames if name not in _EXCLUDED_TREE_PARTS
+            name for name in dirnames if not _excluded_tree_part(name)
         )
         root = Path(directory)
         for filename in sorted(filenames):

@@ -140,6 +140,10 @@ def test_repository_walk_prunes_runtime_data_and_virtualenvs(tmp_path):
     (tmp_path / "training_data" / "huge.jsonl").write_text("ignored")
     (tmp_path / ".venv" / "Lib").mkdir(parents=True)
     (tmp_path / ".venv" / "Lib" / "dependency.py").write_text("def ignored(): ...\n")
+    (tmp_path / ".venv-cuda" / "Lib").mkdir(parents=True)
+    (tmp_path / ".venv-cuda" / "Lib" / "cuda_dependency.py").write_text(
+        "def ignored_cuda(): ...\n"
+    )
 
     nodes = walk_repository(tmp_path)
 

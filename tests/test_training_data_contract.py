@@ -4,14 +4,26 @@ from pathlib import Path
 import hashlib
 
 import pytest
+import torch
+from torch.utils.data import DataLoader, TensorDataset
 
 from scripts.build_brain import (
     _active_training_data_layout,
     _assert_resume_data_layout_compatible,
     _assert_resume_data_profile_compatible,
+    _assert_training_loader_dataset,
     _collect_data_manifest_payloads,
     _freeze_training_lineage,
 )
+
+
+def test_training_loader_cannot_select_validation_dataset() -> None:
+    training = TensorDataset(torch.arange(4))
+    validation = TensorDataset(torch.arange(2))
+    _assert_training_loader_dataset(DataLoader(training), training, validation)
+
+    with pytest.raises(RuntimeError, match="validation dataset selected"):
+        _assert_training_loader_dataset(DataLoader(validation), training, validation)
 
 
 def test_resume_accepts_matching_data_profile(monkeypatch) -> None:

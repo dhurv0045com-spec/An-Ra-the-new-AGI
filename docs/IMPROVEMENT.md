@@ -4,6 +4,9 @@ This is the evidence-driven path from the current research checkpoint to a model
 that can be promoted with credible claims. It records problems, their likely
 causes, the implemented controls, and the next measurable action.
 
+The artifact-specific defect reconstruction and recovery ledger is maintained
+in `docs/engineering/CHECKPOINT_FORENSICS.md`.
+
 ## First Principle
 
 An-Ra is improved in place. No external pretrained weights replace its model,

@@ -1,5 +1,39 @@
 # Engineering Log
 
+## 2026-07-10 - VERIFICATION - 500M GPU recovery gate completed
+
+| Field | Value |
+|-------|-------|
+| **Date** | 2026-07-10 |
+| **Author** | Codex |
+| **Component** | owner-supplied 500M checkpoint; RTX 4050 behavioral recovery gate |
+| **Type** | VERIFICATION |
+| **Summary** | Completed the cache-off, greedy, seed-0 behavioral audit without modifying the checkpoint: 200 diagnostic prompts, 200 native prompts, and 200 deterministic-replay prompts. The artifact retained exact load, finite activation, and deterministic-replay evidence, but failed the actual capability gate: 0.0% coherence against the required 80%. The checkpoint is structurally intact yet behaviorally disqualified as undertrained; it is not a recovered serving candidate. |
+| **Evidence** | `output/v2/stream_a_forensics.json`, generated 2026-07-10 23:30:32 local time; prompt-suite SHA-256 `0bcd88f6c4d77fd7265f371ae3e6b0865f7988830b88dca44c4457c6858449b9`. |
+| **Metrics** | Diagnostic acceptance 2.5%; native/replay acceptance 3.0%; diagnostic EOS failure 97.0%; coherence 0.0%; required coherence 80.0%. |
+| **Risk** | Do not promote, serve, or select this checkpoint based on its legacy `best_loss`. The evidence supports undertraining; it does not uniquely assign causality among all documented historical defects. |
+| **Follow-up** | Preserve the artifact as a baseline. Compare a named fresh-optimizer continuation against a scratch control at equal verified tokens and three seeds, using immutable validation and the same behavioral gate. |
+| **Planning record** | `docs/engineering/MODEL_RECOVERY_AND_TRAINING_BLUEPRINT.md` translates the forensic evidence into the data, trainer, architecture-ablation, evaluation, and scaling sequence. |
+
+---
+
+## 2026-07-10 - FORENSICS/FIX - Real 500M checkpoint reconstruction and training-parity repair
+
+| Field | Value |
+|-------|-------|
+| **Date** | 2026-07-10 |
+| **Author** | Codex |
+| **Component** | owner-supplied 500M checkpoint; historical trainer reconstruction; activation-checkpoint parity; CUDA forensics |
+| **Type** | FORENSICS + CRITICAL FIX + VERIFICATION |
+| **Summary** | Froze and structurally proved the real 1.863 GiB checkpoint without modifying it. Schema-4-to-6 migration accounts for all 608 target tensors with exact core/native load and all 500 tokenizer probes matching. Reconstructed the recorded source commit and proved why its `best_loss=0.32788` is not capability evidence: it is minimum training-loss EMA, “quick validation” reused the training dataset, each session capped the mixture at 4,096 examples, and the entire run had an upper bound of 56.75M target positions. Verified historical defects include late-bound layer temperature during checkpoint backward, dormant context routing, no router balance/z loss, checkpoint publication before behavioral evaluation, partial-accumulation optimizer steps, and non-trainable temperature buffers. A new exact parity regression then found and fixed a second live checkpointing bug: RIM spectral normalization advanced power-iteration state again during backward recomputation, producing different gradients from plain execution. Recompute now freezes that state update and every parameter gradient matches. Added a weight-pathology profiler; the actual artifact has no non-finite values, but all 12 router context vectors are zero and unregularized residual scales range 0.361–1.638. The current raw-shard trainer was also caught selecting `eval_ds` for its training loader; it now selects `ds` and fails closed on any future dataset-identity violation before a campaign can contaminate validation. |
+| **Files** | `docs/engineering/CHECKPOINT_FORENSICS.md`, `docs/IMPROVEMENT.md`, `anra_brain.py`, `scripts/build_brain.py`, `scripts/profile_checkpoint_pathologies.py`, profiler/parity/data-boundary regressions, checkpoint/TODO/progress records, `.gitignore` |
+| **Metrics** | Checkpoint SHA-256 `648354a4...d393`; 499,167,047 runtime parameters; 608/608 tensor load; 0 mismatches; 0 non-finite serialized elements; CUDA smoke 7.44 tok/s on RTX 4050; full non-GPU suite 585 passed / 1 skipped; focused architecture tests 23 passed. |
+| **Verification** | Safe checkpoint proof; frozen 500-probe tokenizer fingerprint; source-commit ancestry; direct CUDA smoke; content-hashed pathology report `9fb39287...29b4`; exact checkpoint-on/off logits/loss/all-gradient regression; full non-GPU pytest; changed-file ruff. |
+| **Risk** | Superseded by the completed recovery-gate record above: the checkpoint is structurally intact but behaviorally disqualified as undertrained. |
+| **Follow-up** | Preserve the artifact as a baseline, then compare a named fresh-optimizer continuation against a scratch control at equal verified tokens and three seeds. Never select on minimum training loss. |
+
+---
+
 ## 2026-07-10 - FEAT/SECURITY - Cluster P4 signed promotion and executable rollback
 
 | Field | Value |

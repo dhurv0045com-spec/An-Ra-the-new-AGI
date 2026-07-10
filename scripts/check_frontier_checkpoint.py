@@ -1,12 +1,25 @@
+# ruff: noqa: E402
 from __future__ import annotations
 
 import argparse
 import hashlib
 import json
+import subprocess
+import sys
 from pathlib import Path
 from typing import Any
 
 import torch
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if __name__ == "__main__" and not __package__:
+    completed = subprocess.run(
+        [sys.executable, "-m", "scripts.check_frontier_checkpoint", *sys.argv[1:]],
+        cwd=REPO_ROOT,
+        check=False,
+    )
+    raise SystemExit(completed.returncode)
+
 from anra.anra_paths import FRONTIER_CHECKPOINT, OUTPUT_V2_DIR, ROOT
 from runtime.safe_load import safe_torch_load
 from training.v2_config import (

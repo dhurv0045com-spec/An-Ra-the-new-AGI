@@ -434,7 +434,15 @@ def _build_checkpoint_payload(
         "step": global_step,
         "global_step": global_step,
         "epoch": epoch,
+        # Retained for legacy readers only. Never use it as a promotion metric.
         "best_loss": best_loss,
+        "best_training_loss": best_loss,
+        "loss_semantics": {
+            "best_loss": "legacy alias of best_training_loss",
+            "best_training_loss": "minimum exponential-moving-average weighted training loss",
+            "best_validation_loss": "minimum loss on the immutable validation dataset",
+            "promotion_metric": "best_validation_loss plus behavioral and verifier gates",
+        },
         "sessions_completed": sessions_completed,
         "tokens_seen": int(tokens_seen),
         "completed_optimizer_boundary": True,
@@ -656,6 +664,24 @@ def _weighted_loss(
 
 def _quick_eval_loss_value(result: float | dict[str, object]) -> float:
     return float(result["loss"]) if isinstance(result, dict) else float(result)
+
+
+def _assert_training_loader_dataset(
+    loader: DataLoader,
+    training_dataset: object,
+    validation_dataset: object,
+) -> None:
+    """Fail closed if a training loader crosses into the validation boundary."""
+    if loader.dataset is not training_dataset:
+        selected_validation = (
+            training_dataset is not validation_dataset and loader.dataset is validation_dataset
+        )
+        reason = (
+            "validation dataset selected"
+            if selected_validation
+            else "unknown dataset selected"
+        )
+        raise RuntimeError(f"training loader boundary violation: {reason}")
 
 
 def _compact_eval_to_result(
@@ -945,7 +971,7 @@ def train_anra_v2(
         }
         if active_weights is None or training_layout == RawCausalShardDataset.PACKING_LAYOUT:
             return DataLoader(
-                eval_ds,
+                ds,
                 shuffle=True,
                 **loader_kwargs,
             )
@@ -970,6 +996,7 @@ def train_anra_v2(
         )
 
     loader = make_loader()
+    _assert_training_loader_dataset(loader, ds, eval_ds)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     if device.type == "cuda":

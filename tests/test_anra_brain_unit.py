@@ -5,6 +5,8 @@ All tests run on CPU. No GPU required. Must complete in under 30 seconds total.
 
 from __future__ import annotations
 
+import copy
+
 import pytest
 import torch
 from anra_brain import CausalTransformerV2, MoDRouter, RouterContext
@@ -177,6 +179,51 @@ def test_gradient_checkpointing_gate_gradient_not_stale():
         )
     model.zero_grad()
     model.gradient_checkpointing_disable()
+
+
+def test_gradient_checkpointing_matches_plain_forward_and_gradients() -> None:
+    """Checkpoint recomputation must represent the exact same layer function."""
+    torch.manual_seed(20260710)
+    plain = CausalTransformerV2(
+        vocab_size=128,
+        n_embd=32,
+        n_head=4,
+        n_kv_head=2,
+        n_layer=4,
+        block_size=32,
+        mod_layers={1, 2},
+    )
+    checkpointed = copy.deepcopy(plain)
+    plain.gradient_checkpointing_disable()
+    checkpointed.gradient_checkpointing_enable()
+    plain.train()
+    checkpointed.train()
+    idx = torch.randint(0, 128, (1, 24))
+    targets = torch.randint(0, 128, (1, 24))
+
+    plain_logits, plain_loss = plain(idx, targets=targets)
+    checkpointed_logits, checkpointed_loss = checkpointed(idx, targets=targets)
+    assert plain_loss is not None and checkpointed_loss is not None
+    plain_total = plain_loss + plain.native_regularization_loss()
+    checkpointed_total = checkpointed_loss + checkpointed.native_regularization_loss()
+    plain_total.backward()
+    checkpointed_total.backward()
+
+    torch.testing.assert_close(plain_logits, checkpointed_logits, atol=1e-6, rtol=1e-6)
+    torch.testing.assert_close(plain_total, checkpointed_total, atol=1e-6, rtol=1e-6)
+    checkpointed_parameters = dict(checkpointed.named_parameters())
+    for name, parameter in plain.named_parameters():
+        other = checkpointed_parameters[name]
+        if parameter.grad is None or other.grad is None:
+            assert parameter.grad is other.grad, f"gradient presence differs for {name}"
+            continue
+        torch.testing.assert_close(
+            parameter.grad,
+            other.grad,
+            atol=2e-6,
+            rtol=2e-5,
+            msg=lambda message, param=name: f"gradient mismatch for {param}: {message}",
+        )
 
 
 def test_kv_cache_matches_no_cache(tiny: CausalTransformerV2) -> None:
