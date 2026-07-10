@@ -121,7 +121,10 @@ code plus focused tests exist; it does not waive a quantitative campaign gate.
       throughput only from counter deltas, serves an operator-only campaign
       dashboard, and fences pause/drain/halt/resume plus worker replacement.
       P3 has fail-closed G-C1/G-C2/G-C3 evidence evaluators; simulated evidence
-      cannot pass. 21 focused tests pass. The still-open box requires actual
+      cannot pass. P4 now requires An-Ra's signed, checkpoint-bound Gate-6,
+      reproducibility, adversarial, and rollback evidence before promotion and
+      can atomically restore a validated prior full checkpoint. The 27-test
+      cluster suite passes. The still-open box requires actual
       Drive/worker chaos timing, a live 24-hour two-worker soak, and five live
       preemption drills.)*
 - [x] Build hybrid retrieval and memory-tier recall CI.
@@ -260,8 +263,10 @@ checkpoint then `py -3.14 scripts/run_checkpoint_forensics.py --run-generation`;
 
 P1 and P2's code-executable mechanisms are implemented and focused-test
 verified. The cluster P2 telemetry/dashboard/control path and P3 fail-closed
-chaos, soak, and preemption evidence validators are now implemented too; their
-gate remains intentionally unchecked until supplied with live evidence. The
+chaos, soak, and preemption evidence validators are now implemented too. P4's
+signed cross-repo promotion envelope and executable rollback are implemented;
+their real G-C6/G-C7 evidence remains open. The cluster gate remains
+intentionally unchecked until supplied with live evidence. The
 remaining work is evidence-bound: P1's three-seed winner, measured throughput
 and kill-9 recovery, live cluster chaos/soak; P2's actual Phases B-E,
 post-training ablations, full Gate 6, and the external human/production

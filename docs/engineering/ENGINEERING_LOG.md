@@ -1,5 +1,22 @@
 # Engineering Log
 
+## 2026-07-10 - FEAT/SECURITY - Cluster P4 signed promotion and executable rollback
+
+| Field | Value |
+|-------|-------|
+| **Date** | 2026-07-10 |
+| **Author** | Codex |
+| **Component** | cross-repository control-plane P4; An-Ra evidence producer; cluster promotion/rollback |
+| **Type** | FEAT + SECURITY + VERIFICATION |
+| **Summary** | Implemented the next incomplete `CLUSTER_CONTROL_PLANE.md` phase across both repositories without widening their dependency boundary. An-Ra now builds an owner-signed promotion envelope bound to the checkpoint SHA-256 and a concrete source commit; it validates Gate-6 metrics, two same-manifest/same-seed bit-exact reruns (G-C6), the adversarial promotion audit, and a locally signed rollback drill. The cluster verifies the fixed schema and all four evidence hashes and rejects the old arbitrary `{"gate": true}` authorization shape. Promotion now uses the actually active verified release as the rollback target. Added an executable rollback that resolves the prior artifact, verifies ledger hash/size, loads it with `weights_only=True`, validates complete model/optimizer/scheduler/tokenizer/data-position state at an optimizer boundary, atomically restores bytes, emits a signed report, and repoints the active release only after success. A corruption regression proves failed rollback leaves the active release unchanged. Promotion/rollback operator actions are audit-recorded. The cluster integration verifier now checks the An-Ra P4 CLI and gate-name contract. |
+| **Files** | An-Ra: `evaluation/cluster_promotion_evidence.py`, focused tests, control-plane/TODO/progress records. Cluster: `backend/promotion_evidence.py`, `backend/recovery.py`, `backend/campaign_routes.py`, `scripts/verify_anra_integration.py`, `tests/test_promotion_and_rollback.py`. |
+| **Metrics** | An-Ra: 581 non-GPU tests passed / 1 skipped. Cluster: 27 passed. Cross-repo integration: 8 jobs / 0 errors. Changed-file ruff and diff checks clean. |
+| **Verification** | Full pytest in both repositories; `py -3.14 scripts/verify_anra_integration.py --anra-repo <An-Ra>`; focused P4 tests; changed-file ruff; `git diff --check`. |
+| **Risk** | P4 code paths are fail-closed, but the real G-C6/G-C7 campaign exits remain unearned until owner-signed evaluation evidence and a Drive-backed full-checkpoint rollback drill exist. No production release was promoted in this local implementation run. |
+| **Follow-up** | Generate the envelope from the restored real checkpoint and Gate-6 reports, execute the rollback through Drive, then proceed to P5's smoke-to-rescue ladder only after G-C1-G-C7 live evidence passes. |
+
+---
+
 ## 2026-07-10 - FEAT/EXECUTION - Moonshot local execution and M6 acceptance
 
 | Field | Value |

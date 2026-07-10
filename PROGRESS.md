@@ -56,14 +56,18 @@ ledger-only trust evidence; and canary/adversarial/rollback/bundle drill gates
 fail closed. These are deterministic local tests, not a real campaign,
 production canary, or human study.
 
-The linked `gpu cluster` control plane now also has its P2/P3 local mechanism
+The linked `gpu cluster` control plane now also has its P2/P3/P4 local mechanism
 layer: append-only heartbeat samples derive throughput from observed counter
 deltas; an operator-only dashboard exposes worker telemetry, incidents, quota,
 and verified artifacts; pause/drain/halt/resume and replacement-worker actions
 are audit-recorded and preserve lease fencing. G-C1 chaos, G-C2 soak, and G-C3
 preemption evaluators fail closed unless every required timestamped, **live**
 evidence record is present; a local simulation is never a campaign pass. The
-cluster changes pass the full 24-test suite and ruff, but there is no claim of a
+P4 boundary now rejects operator-supplied boolean gates and requires An-Ra's
+signed checkpoint-bound Gate-6, bit-exact reproducibility, adversarial-audit,
+and rollback-drill evidence. Rollback atomically restores and validates the
+previous full checkpoint before changing the active release. The cluster
+changes pass the full 27-test suite and ruff, but there is no claim of a
 Drive-backed chaos run, 24-hour soak, or five real Colab preemptions.
 
 The Stream-B 30 GB first-tranche acquisition was started as one managed
@@ -92,7 +96,7 @@ available source, below the mandatory 50 MB gate. Local recovery, post-training
 ablation, and all-seven moonshot gates are now code-complete and fail closed;
 they await their specific compute/data evidence.
 
-**Test baseline:** 578 non-GPU tests passing, 1 skipped. `ruff` clean on all
+**Test baseline:** 581 non-GPU tests passing, 1 skipped. `ruff` clean on all
 changed files. Full suite command:
 ```
 py -3.14 -m pytest tests/ -m "not gpu" \

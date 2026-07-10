@@ -356,6 +356,31 @@ P0–P2 are laptop-only work (agent-executable now). P3 needs one Colab
 account; P5 needs the fleet and the restored baseline checkpoint
 (step.md preconditions stand).
 
+### Implementation status - 2026-07-10
+
+- **P0-P2 local mechanisms implemented.** Security fencing, three-tier quota
+  accounting, real journal telemetry, operator controls, and three-generation
+  backups are exercised in the cluster suite.
+- **P3 evidence evaluators implemented, live exits still open.** G-C1/G-C2/
+  G-C3 reject missing, simulated, short-duration, or incomplete evidence. No
+  real Drive chaos run, 24-hour soak, or five-preemption campaign is claimed.
+- **P4 local mechanisms implemented, live exits still open.** An-Ra now emits
+  a signed, checkpoint-bound promotion envelope containing Gate-6 evaluation,
+  bit-exact same-manifest/same-seed reproducibility, adversarial-audit, and
+  signed rollback-drill evidence. The cluster rejects arbitrary boolean gates
+  and validates the fixed envelope without importing An-Ra code. Promotion
+  records the previously active verified release as its rollback target.
+  Rollback now copies the previous full checkpoint atomically, validates model,
+  optimizer, scheduler, tokenizer, optimizer-boundary, and data-position state,
+  writes a signed `RollbackReport`, and only then repoints `active_release.json`.
+  Corrupt bytes leave the active release unchanged. The real G-C6/G-C7 exits
+  remain open until owner-signed evaluation artifacts and a Drive-backed
+  checkpoint drill are supplied.
+- **Cross-repository drift check passes.** The cluster integration verifier
+  executes An-Ra CLI help surfaces and checks the four P4 gate names; current
+  result: 8 job contracts, zero errors. Cluster suite: 27 passed. An-Ra
+  non-GPU suite: 581 passed, 1 skipped.
+
 ## 12. Risks, assumptions, unresolved decisions
 
 - **Assumed:** Colab availability at ~3h/session/account; Drive API rate
