@@ -72,8 +72,14 @@ from inference.optimize_context_window import ContextWindowOptimizer
 from intelligence.hgp import MissionNode, MissionTree
 from pydantic import BaseModel, Field
 from robotics.contracts import SkillGoal, Workflow
-from runtime.experience_ledger import record_experience
+from runtime.answer_contracts import (
+    ContextFinding,
+    build_answer_contract,
+    filter_untrusted_records,
+)
+from runtime.experience_ledger import get_default_ledger, record_experience
 from runtime.hal_telemetry import read_hal_state
+from runtime.ledger_projections import projection_for_trace
 from starlette.responses import Response
 from training.eval_v2 import (
     apply_blinded_human_reviews,
@@ -978,6 +984,8 @@ DEVELOPER_UI_HTML = """
             <div style="height: 14px;"></div>
             <div class="panel" style="height: 58%;"><div class="panel-head"><h3>Last Generation Trace</h3></div><div class="panel-body"><pre id="trace-json">No generation trace yet.</pre></div></div>
             <div style="height: 14px;"></div>
+            <div class="panel" style="height: 42%;"><div class="panel-head"><h3>Ledger Trust Surface</h3></div><div class="panel-body"><pre id="trust-json">No trust evidence yet.</pre></div></div>
+            <div style="height: 14px;"></div>
             <div class="panel" style="height: 42%;"><div class="panel-head"><h3>Evaluation Gates</h3></div><div class="panel-body"><pre id="evaluation-json">{}</pre></div></div>
             <div id="review-section" class="hidden" style="margin-top: 14px; border-top: 1px solid var(--border); padding-top: 14px;">
               <div class="panel-head"><h3>Blinded Coherence Review</h3><span class="status-line" id="review-status">-</span></div>
@@ -1155,6 +1163,8 @@ DEVELOPER_UI_HTML = """
         if (data.trace_id) {
           const trace = await getJson(`/traces/${data.trace_id}`);
           $("trace-json").textContent = JSON.stringify(trace, null, 2);
+          const trust = await getJson(`/traces/${data.trace_id}/trust`);
+          $("trust-json").textContent = JSON.stringify(trust, null, 2);
         }
         $("chat-status").textContent = `${data.quality_state || "unknown"} | ${data.generation?.stopped_by || "-"}`;
         refresh();
@@ -1379,6 +1389,35 @@ def _record_trace(payload: dict[str, Any]) -> str:
     return trace_id
 
 
+def _record_answer_contract(
+    *,
+    trace_id: str,
+    prompt: object,
+    response: object,
+    context_findings: list[ContextFinding] | tuple[ContextFinding, ...] = (),
+) -> dict[str, object]:
+    """Persist a hash-only answer trust contract under the serving trace."""
+    contract = build_answer_contract(
+        trace_id=trace_id,
+        prompt=prompt,
+        response=response,
+        context_findings=context_findings,
+    )
+    record_experience(
+        trace_id=trace_id,
+        kind="answer_contract",
+        inputs={"prompt_hash": contract["prompt_hash"]},
+        output=contract,
+        gate_record={
+            "allowed": bool(contract["context_safe"]),
+            "gate": "untrusted_context",
+            "reason": str(contract["trust_state"]),
+        },
+        source="app.answer_contract",
+    )
+    return contract
+
+
 async def _new_job(kind: str, payload: dict[str, Any]) -> dict[str, Any]:
     job_id = str(uuid.uuid4())
     event = {"event": "queued", "timestamp": _now_iso(), "payload": payload}
@@ -1447,6 +1486,11 @@ async def generate_route(body: GenerateRequest, request: Request) -> dict[str, A
         "config": asdict(cfg),
     }
     trace_id = _record_trace(trace_payload)
+    proof = _record_answer_contract(
+        trace_id=trace_id,
+        prompt=body.prompt,
+        response=trace.output,
+    )
 
     return {
         "response": trace.output,
@@ -1455,6 +1499,7 @@ async def generate_route(body: GenerateRequest, request: Request) -> dict[str, A
         "time_ms": trace.time_ms,
         "trace_id": trace_id,
         "quality_state": trace.quality_state,
+        "proof": proof,
         "trace": {
             "entropy_avg": entropy_avg,
             "max_prob_avg": max_prob_avg,
@@ -1512,6 +1557,11 @@ async def chat_route(body: ChatRequest, request: Request) -> dict[str, Any]:
                     },
                 }
             )
+            proof = _record_answer_contract(
+                trace_id=trace_id,
+                prompt=body.message,
+                response=reply,
+            )
             return {
                 "response": reply,
                 "session_id": body.session_id,
@@ -1520,6 +1570,7 @@ async def chat_route(body: ChatRequest, request: Request) -> dict[str, Any]:
                 "trace_id": trace_id,
                 "quality_state": "accepted",
                 "persisted": True,
+                "proof": proof,
                 "context_length": 0,
                 "prompt_tokens": 0,
                 "token_allocation": {},
@@ -1535,6 +1586,7 @@ async def chat_route(body: ChatRequest, request: Request) -> dict[str, Any]:
             }
 
     memory_results = []
+    context_findings: list[ContextFinding] = []
     memory_system = get_memory_system() if cfg.mode == "full_system" else None
     if memory_system is not None:
         try:
@@ -1545,6 +1597,11 @@ async def chat_route(body: ChatRequest, request: Request) -> dict[str, Any]:
             )
         except Exception as mem_exc:
             LOGGER.warning("Memory query failed for session %s: %s", body.session_id, mem_exc)
+    if memory_results:
+        memory_results, context_findings = filter_untrusted_records(
+            memory_results,
+            source="memory_retrieval",
+        )
 
     cognition_context = (
         _classify_chat_cognition(body.message) if cfg.mode == "full_system" else None
@@ -1618,6 +1675,12 @@ async def chat_route(body: ChatRequest, request: Request) -> dict[str, Any]:
             "persisted": persisted,
         }
     )
+    proof = _record_answer_contract(
+        trace_id=trace_id,
+        prompt=body.message,
+        response=reply,
+        context_findings=context_findings,
+    )
 
     return {
         "response": reply,
@@ -1627,6 +1690,7 @@ async def chat_route(body: ChatRequest, request: Request) -> dict[str, Any]:
         "trace_id": trace_id,
         "quality_state": trace.quality_state,
         "persisted": persisted,
+        "proof": proof,
         "context_length": ctx_result["context_length"],
         "prompt_tokens": ctx_result["prompt_tokens"],
         "token_allocation": ctx_result["token_allocation"],
@@ -1650,6 +1714,19 @@ async def trace_route(trace_id: str) -> dict[str, Any]:
     if trace is None:
         raise HTTPException(status_code=404, detail="trace not found")
     return trace
+
+
+@app.get("/traces/{trace_id}/trust")
+async def trace_trust_route(trace_id: str) -> dict[str, object]:
+    """Ledger-derived trust view; deliberately excludes raw prompts and answers."""
+    projection = await run_in_threadpool(
+        projection_for_trace,
+        get_default_ledger(),
+        trace_id,
+    )
+    if not any(projection[key] for key in ("verification", "memory", "gates")):
+        raise HTTPException(status_code=404, detail="trace trust evidence not found")
+    return projection
 
 
 @app.get("/evaluations/current")
@@ -1939,18 +2016,21 @@ def _run_full_system_integration_probe() -> dict[str, object]:
         details["verifier"] = asdict(verification)
 
         agent = Agent(verbose=False, approve_each_step=False, max_tool_calls=8)
-        agent_result = agent.run(
-            "List workspace files without modifying anything",
-            clarify=False,
-            show_plan=False,
+        agent_result = agent.dispatcher.dispatch(
+            "file_manager: list .",
+            step_id="full-system-integration-probe",
         )
         checks["agent_execution"] = bool(
-            len(agent.registry) > 0 and agent_result.get("success") is True
+            len(agent.registry) > 0
+            and agent_result.success is True
+            and agent_result.tool_name == "file_manager"
         )
         details["agent"] = {
             "registered_tools": len(agent.registry),
-            "success": agent_result.get("success", False),
-            "output_preview": str(agent_result.get("output", ""))[:240],
+            "execution_mode": "bounded_explicit_dispatch",
+            "success": agent_result.success,
+            "tool_name": agent_result.tool_name,
+            "output_preview": str(agent_result.output)[:240],
         }
 
     operator = _dispatch_full_system_operator("/list .")

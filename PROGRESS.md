@@ -14,7 +14,7 @@ session, read this file, then continue from "Next Action".
 
 ---
 
-## Current State (2026-07-07)
+## Current State (2026-07-10)
 
 **Where we are in the plan:** Foundation hardening continues to move. MASTER_UPGRADE v2
 Week 1 tokenizer slice is executed: per-source fertility measured with evidence
@@ -29,7 +29,70 @@ ledger stress/overhead CI, and the sibling `gpu cluster` P0/P1 control-plane
 security/storage pass. Stage 1 (Make It Speak) remains gated on the real
 checkpoint + training compute.
 
-**Test baseline:** 542 non-GPU tests passing, 1 skipped. `ruff` clean on all
+P1's local runtime foundations are now complete: shared-retriever recall CI,
+hash-only proof-carrying answer contracts, retrieval-context injection
+filtering, and deterministic continuous-batching/paged-KV primitives. P2
+now has a content-addressed adapter hot-load registry, a fail-closed
+plan-act-verify runner with a 50-case harness, and API-exposed ledger-only
+trust projections. This does not claim campaign, latency, soak, usability, or
+real-goal gates have run; the live TODO distinguishes its code/test completion
+from the still-required external evidence.
+
+The accumulated implementation was re-audited on 2026-07-10. Semantic answer
+contracts now reject internally contradictory re-signed payloads; verified
+latency includes decode overhead and requires a comparator cohort;
+post-training evidence must beat its ablation; and irreversible plan actions
+must pass a named authorization verifier before the action is called. Large
+adapter hashes are streamed, ghost memory is offline-deterministic by default,
+and full-system repository discovery excludes runtime data, virtual
+environments, and caches. These corrections close local fail-open and
+unbounded-scan paths; they do not substitute for external campaign evidence.
+
+P2's remaining local mechanisms are exercised: accelerator promotion requires
+speculative benefit, token/distribution parity, <=1% QAT drift, and latency
+evidence; DPO has a reference-policy objective; GEPA has a ten-cycle
+proposal-only evidence runner requiring a rejection; the developer UI renders
+ledger-only trust evidence; and canary/adversarial/rollback/bundle drill gates
+fail closed. These are deterministic local tests, not a real campaign,
+production canary, or human study.
+
+The linked `gpu cluster` control plane now also has its P2/P3 local mechanism
+layer: append-only heartbeat samples derive throughput from observed counter
+deltas; an operator-only dashboard exposes worker telemetry, incidents, quota,
+and verified artifacts; pause/drain/halt/resume and replacement-worker actions
+are audit-recorded and preserve lease fencing. G-C1 chaos, G-C2 soak, and G-C3
+preemption evaluators fail closed unless every required timestamped, **live**
+evidence record is present; a local simulation is never a campaign pass. The
+cluster changes pass the full 24-test suite and ruff, but there is no claim of a
+Drive-backed chaos run, 24-hour soak, or five real Colab preemptions.
+
+The Stream-B 30 GB first-tranche acquisition was started as one managed
+background process on 2026-07-10 after a 313 GB-free-disk preflight. Its
+standard streaming client had to be installed and the downloader was corrected
+to remove the obsolete/unsafe `trust_remote_code` parameter required by
+`datasets` 5; the focused compatibility test passes. The transfer is not
+credited until its own completion status and immutable shard/manifest checks
+pass; 30 GB is also only the first tranche toward the master plan's 120 GB
+target.
+
+The moonshot executor now runs every local-safe M1-M7 path and keeps smoke
+evidence separate from acceptance evidence. The 2026-07-10 execution wrote
+`output/v2/moonshot_local_execution.json` and
+`output/v2/moonshot_pilot_status.json`: all seven local paths passed their
+smoke checks. M6 also passed its real bounded-domain pilot, classifying all
+100 fixed proof cases correctly (50 valid chains and 50 adversarial injected
+conclusions), so M6 is checked. M1-M5 and M7 remain blocked on their exact
+training, benchmark, data, or human-sovereignty evidence.
+
+The remaining TODO executor was run against local artifacts on 2026-07-10.
+Checkpoint forensics again reports `blocked` because the real 500M checkpoint
+is absent; its 500 tokenizer probes still pass. The campaign-slice builder
+successfully proves held-out disjointness but produces only 3.40 MB from the
+available source, below the mandatory 50 MB gate. Local recovery, post-training
+ablation, and all-seven moonshot gates are now code-complete and fail closed;
+they await their specific compute/data evidence.
+
+**Test baseline:** 578 non-GPU tests passing, 1 skipped. `ruff` clean on all
 changed files. Full suite command:
 ```
 py -3.14 -m pytest tests/ -m "not gpu" \
@@ -117,12 +180,12 @@ list. Headline changes:
 
 ## Next Action (start here)
 
-**Stream E - ledger-derived transparency projections.** Define the UI-facing
-summary contract for verification, memory, and gate visibility from replay-safe
-Experience Ledger events. Keep raw prompt/memory content out of the projection;
-surface trace IDs, event kinds, gate/verifier outcomes, memory record IDs,
-provenance, and hashes. (The forecast-ledger schema + pre-launch timestamp
-audit box on Stream E is already delivered.)
+**P1/P2 campaign and cluster proof gates.** Run measured throughput and actual
+kill-9 recovery once the real checkpoint is restored; execute the completed
+control-plane telemetry, chaos, live 24-hour soak, and five-preemption gates
+against Drive and authorized workers; then use a real 50-goal suite, latency
+budget data, 20-scenario UI study, and adversarial/canary release evidence
+before checking the remaining P2 boxes.
 
 **Owner actions that unblock the rest of Streams A and B:**
 1. Restore the real checkpoint (or set `ANRA_CHECKPOINT_PATH`), then run

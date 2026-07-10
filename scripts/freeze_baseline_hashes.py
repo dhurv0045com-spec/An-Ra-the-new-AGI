@@ -170,7 +170,7 @@ def main() -> int:
     parser.add_argument(
         "--allow-missing-checkpoint",
         action="store_true",
-        help="Freeze tokenizer/config/corpus identities even while the "
+        help="Freeze tokenizer, config, and corpus identities even while the "
         "checkpoint artifact is still blocked.",
     )
     args = parser.parse_args()

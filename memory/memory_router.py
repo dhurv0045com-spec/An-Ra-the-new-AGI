@@ -12,12 +12,9 @@ from pathlib import Path
 from anra.anra_paths import DRIVE_FAISS_INDEX, DRIVE_GHOST_DB
 from engine.metric_bus import instrument
 from engine.telemetry import trace
-from retrieval import (
-    BM25RetrieverAdapter,
-    HybridRetriever,
-    RetrievalQuery,
-    VectorRetrieverAdapter,
-)
+from retrieval.adapters import BM25RetrieverAdapter, VectorRetrieverAdapter
+from retrieval.hybrid import HybridRetriever
+from retrieval.protocols import RetrievalQuery
 
 try:
     from identity.hal import HALModule

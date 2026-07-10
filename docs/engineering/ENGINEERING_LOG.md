@@ -1,5 +1,141 @@
 # Engineering Log
 
+## 2026-07-10 - FEAT/EXECUTION - Moonshot local execution and M6 acceptance
+
+| Field | Value |
+|-------|-------|
+| **Date** | 2026-07-10 |
+| **Author** | Codex |
+| **Component** | M1-M7 local execution; master-plan acceptance gates; M6 formal proofs |
+| **Type** | FEAT + SECURITY + VERIFICATION |
+| **Summary** | Reconciled the moonshot registry against the actual MASTER_UPGRADE gates, replacing weaker placeholder metrics: M1/M3 now require exact-150M three-seed evidence, M2 requires all three staged vision gates, M4 requires held-out simulation and digital-transition gains, M5 requires >=20k pairs and >=10% recall@5 gain, and M7 requires 10 human-approved merges with signed sovereignty records and zero reverts/unauthorized applies. Added one executor that runs every local-safe M1-M7 path but never treats shape/smoke evidence as campaign acceptance. Hardened the M6 verifier so facts can enter only through premises and implications only through explicit rules; arbitrary conclusion steps are rejected. Executed a hash-addressed 100-case M6 pilot (50 valid chains, 50 adversarial injected conclusions): 100/100 classifications correct, passing the >=95% gate. M6 alone is checked; M1-M5 and M7 remain explicitly blocked. Also removed a retrieval/memory circular import that prevented clean-process moonshot execution. |
+| **Files** | `training/moonshot_pilots.py`, `training/moonshot_execution.py`, `training/formal_proof_pilot.py`, `verification/formal.py`, `memory/memory_router.py`, `scripts/run_moonshot_pilots.py`, moonshot tests, `docs/planning/IMPLEMENTATION_TODOS.md`, `PROGRESS.md` |
+| **Metrics** | M6: 100 proof cases, 50 positive / 50 adversarial, 1.00 deterministic pass rate, gate >=0.95. All seven local paths executed and passed smoke checks. Full non-GPU suite: 578 passed / 1 skipped. |
+| **Verification** | `py -3.14 -m scripts.run_moonshot_pilots --execute-local`; 26 focused tests; full non-GPU pytest; changed-file ruff; `git diff --check`. |
+| **Risk** | low for M6's bounded propositional certificate domain. M1-M5 and M7 are not promoted from local smoke results; their real compute/data/human gates remain mandatory. |
+| **Follow-up** | Finish the language campaign and corpus acquisition, then execute the exact-150M M1/M3 jobs, post-Gate-6 M2, trained M4/M5 evaluations, and real owner-reviewed M7 ladder evidence. |
+
+---
+
+## 2026-07-10 - SECURITY/REVIEW - Full upgrade execution audit and fail-closed hardening
+
+| Field | Value |
+|-------|-------|
+| **Date** | 2026-07-10 |
+| **Author** | Codex |
+| **Component** | accumulated MASTER_UPGRADE implementation across runtime, agents, serving, memory, repository integration, and pilot execution |
+| **Type** | SECURITY REVIEW + FIX + VERIFICATION |
+| **Summary** | Audited the accumulated implementation and corrected evidence paths that could pass while contradicting their stated contract. Answer contracts now validate schema types, SHA-256 fields, findings/verdicts, response presence, and derived trust-state consistency even after an attacker recomputes the outer hash. Verified-answer latency now measures complete TTFT-plus-decode p95 and requires both verified and unverified comparator samples. Every post-training method must now outperform its finite ablation score. Irreversible plan steps require a successful named pre-action authorization verifier; adversarial tests prove the action is never invoked when authorization is absent or denied. Adapter artifacts are hashed incrementally. Ghost memory defaults to a deterministic offline embedder, with the external sentence-transformer explicitly opt-in. Capability-graph discovery prunes virtual environments, caches, outputs, and training data and caps source reads, preventing a live multi-GB corpus from stalling full-system startup. The full-system agent probe now exercises a bounded real dispatcher action. The moonshot CLI reliably re-enters the current workspace instead of resolving a stale globally installed package. |
+| **Files** | `runtime/answer_contracts.py`, `inference/serving_gates.py`, `inference/adapters.py`, `agents/plan_act_verify.py`, `training/post_training_ablations.py`, `phase3/ghost_memory_45p/ghost_memory/memory_store.py`, `inference/full_system_connector.py`, `app.py`, `scripts/run_moonshot_pilots.py`, focused regressions, planning/progress records |
+| **Metrics** | An-Ra full non-GPU suite: 575 passed / 1 skipped. Sibling cluster full suite: 24 passed. Changed-file ruff and `git diff --check`: clean. The managed 30 GB acquisition remains active and uncredited pending completion/manifest verification. |
+| **Verification** | `py -3.14 -m pytest tests -m "not gpu" --ignore=tests/test_drive_session_manager_integration.py --ignore=tests/test_v2_drive_artifacts.py --timeout=60 -q`; full sibling cluster `pytest`; changed-file `ruff check`; `git diff --check`; direct moonshot entry-point regression. |
+| **Risk** | lower at the local mechanism layer. No checkpoint, corpus, training, soak, canary, human-study, or moonshot promotion is inferred from deterministic tests. |
+| **Follow-up** | Let the corpus acquisition finish and verify its immutable manifests; restore the owner-held checkpoint and signing key; then execute the real three-seed, GPU, chaos/soak/preemption, post-training, canary, usability, and independent evaluation gates. |
+
+---
+
+## 2026-07-10 - FEAT/EXECUTION - Moonshot pilot gate executor
+
+| Field | Value |
+|-------|-------|
+| **Date** | 2026-07-10 |
+| **Author** | Codex |
+| **Component** | M1-M7 pilot evidence execution |
+| **Type** | FEAT + VERIFICATION |
+| **Summary** | Added one fail-closed runner for all seven moonshots. It loads only recorded metric evidence, evaluates each registered threshold, writes a durable status report, and classifies absent metrics as `blocked`. Executed against the real evidence directory: M1 through M7 are all blocked, with no failures and no passes claimed. |
+| **Files** | `scripts/run_moonshot_pilots.py`, `tests/test_run_moonshot_pilots.py`, `output/v2/moonshot_pilot_status.json`, planning/progress records |
+| **Metrics** | 9 focused moonshot/gate tests pass; ruff clean; first report: 7 blocked / 0 passed / 0 failed. |
+| **Verification** | `py -3.14 -m pytest tests/test_moonshots.py tests/test_run_moonshot_pilots.py tests/test_remaining_todo_gates.py -q`; focused `ruff check`; `py -3.14 -m scripts.run_moonshot_pilots`. |
+| **Risk** | none added — the runner cannot launch training, modify model lineage, or apply proposals. |
+| **Follow-up** | Supply pilot artifacts and measured evidence; emit signed M1/M3/M5 manifests once the owner signing key is available; preserve the plan's non-critical-path ordering. |
+
+---
+
+## 2026-07-10 - FIX/EXECUTION - Stream B standard streaming ingestion
+
+| Field | Value |
+|-------|-------|
+| **Date** | 2026-07-10 |
+| **Author** | Codex |
+| **Component** | `scripts/download_training_data.py`; pinned corpus acquisition |
+| **Type** | COMPATIBILITY FIX + EXECUTION |
+| **Summary** | The actual 30 GB acquisition preflight found 313 GB free but the installed `datasets` 5 client rejected the obsolete `trust_remote_code` argument. Removed that argument from every streaming source path, preserving immutable revisions and avoiding remote dataset-code execution. Added a regression test that validates each native foundation source uses the standard streaming contract. After safely terminating two accidentally detached overlapping writers and deleting their unusable partial file, restarted exactly one hidden, logged downloader process. |
+| **Files** | `.gitignore`, `pyproject.toml`, `scripts/download_training_data.py`, `tests/test_download_training_data.py`, `PROGRESS.md`, `docs/planning/IMPLEMENTATION_TODOS.md` |
+| **Metrics** | 14 focused Stream-A/B/remaining-gate tests pass; downloader compatibility test passes; C: preflight 335,618,834,432 bytes free. |
+| **Verification** | `py -3.14 -m pytest tests/test_download_training_data.py tests/test_build_campaign_slice.py tests/test_stream_a_forensics.py tests/test_remaining_todo_gates.py -q`; focused `ruff check`; downloader dry run. |
+| **Risk** | high-duration external operation — no corpus-size or provenance gate is claimed until the single process completes, its status is `complete`, source errors are empty, and token shards/manifests validate. |
+| **Follow-up** | Monitor the managed 30 GB download, publish immutable token shards, re-run the 50 MB held-out slice and V4 audit, then acquire further licensed tranches to the 120 GB plan target. |
+
+---
+
+## 2026-07-10 - FEAT/SECURITY - Cluster P2 truth surfaces and P3 evidence gates
+
+| Field | Value |
+|-------|-------|
+| **Date** | 2026-07-10 |
+| **Author** | Codex |
+| **Component** | sibling `gpu cluster` control plane: reliable v2 telemetry, operator controls, chaos/soak/preemption gates |
+| **Type** | FEAT + SECURITY + VERIFICATION |
+| **Summary** | Added durable `WorkerTelemetry` and `OperatorAudit` records. Signed worker heartbeats now persist append-only progress samples, while the operator-only campaign dashboard calculates throughput strictly from successive token-counter deltas and exposes worker status, quota, incidents, jobs, and verified artifacts. New pause/drain/resume/halt controls fence lease issuance and halt refuses artifact commits; replacement-worker revokes the old encrypted secret and safely requeues its lease. The dashboard UI uses the v2 campaign control route. Legacy cluster init and training-control mutation routes now require the operator bearer token. P3 adds G-C1 chaos, G-C2 24-hour soak, and G-C3 five-preemption evaluators: missing, simulated, short-duration, or evidence-free data fails closed. |
+| **Files** | sibling repo: `backend/database.py`, `backend/campaign.py`, `backend/campaign_routes.py`, `backend/observability.py`, `backend/chaos.py`, `backend/main.py`, frontend campaign-status/control files, focused tests; An-Ra: TODO board and progress log |
+| **Metrics** | 21 focused cluster tests pass; ruff clean. Simulated chaos is deliberately `local_harness_passed` only, never `campaign_gate_passed`. |
+| **Verification** | `py -3.14 -m pytest tests/test_campaign_observability.py tests/test_cluster_chaos_gates.py tests/test_reliable_campaign.py tests/test_auth_and_cluster.py tests/test_coordinator_controls.py tests/test_worker_artifacts.py -q`; focused `ruff check`; `git diff --check`. |
+| **Risk** | medium — this is local orchestration and evidence validation. It does not substitute for real Drive transactions, live tunnels, a 24-hour two-worker soak, or five physical preemption recoveries. |
+| **Follow-up** | Feed signed/timestamped live reports to G-C1/G-C2/G-C3, then run the owner-held checkpoint/corpus/pilot campaign gates. |
+
+---
+
+## 2026-07-10 - FEAT - Remaining TODO fail-closed execution gates
+
+| Field | Value |
+|-------|-------|
+| **Date** | 2026-07-10 |
+| **Author** | Codex |
+| **Component** | checkpoint recovery; post-training evidence; moonshot pilots; campaign probes |
+| **Type** | FEAT + VERIFICATION |
+| **Summary** | Executed the remaining locally runnable TODO probes and added missing fail-closed machinery. `run_checkpoint_forensics.py --run-generation` correctly reports blocked because the real 500M artifact is not present, while retaining the passing 500-probe tokenizer fingerprint. `build_campaign_slice.py` re-proved held-out split disjointness but only has 3.40 MB, so the 50 MB gate remains blocked. Added `training/recovery_drill.py`, which terminates an isolated checkpoint writer then restores its exact boundary and optimizer state; `training/post_training_ablations.py`, which requires reports and ablations for SFT/RLVR/STaR/DPO/self-distillation; and `training/moonshot_pilots.py`, which registers all M1–M7 acceptance metrics and rejects missing evidence. |
+| **Files** | training/recovery_drill.py, training/post_training_ablations.py, training/moonshot_pilots.py, tests/test_remaining_todo_gates.py, docs/planning/IMPLEMENTATION_TODOS.md, PROGRESS.md |
+| **Metrics** | 3 new gate tests pass; recovery drill terminates and restores a real isolated process checkpoint. Campaign slice: 3.3966 MB / required 50 MB. |
+| **Verification** | `py -3.14 scripts/run_checkpoint_forensics.py --run-generation` (expected blocked); `py -3.14 scripts/build_campaign_slice.py` (valid but below minimum); `py -3.14 -m pytest tests/test_remaining_todo_gates.py -q`; focused `ruff check`. |
+| **Risk** | none from the local gates; external campaign progress is still blocked by the absent checkpoint, corpus scale, credentials, GPU/fleet, telemetry duration, and independent evaluation evidence. |
+| **Follow-up** | Owner must restore the checkpoint, authorize/sign pilot manifests, provide the licensed corpus and compute fleet, then execute the saved gate runners with real artifacts. |
+
+---
+
+## 2026-07-10 - FEAT - P2 execution harnesses, gates, and trust UI
+
+| Field | Value |
+|-------|-------|
+| **Date** | 2026-07-10 |
+| **Author** | Codex |
+| **Component** | serving promotion gates; DPO; GEPA cadence; release drills; developer UI |
+| **Type** | FEAT |
+| **Summary** | Completed P2's locally executable mechanisms. Accelerator promotion now fail-closes unless speculative acceptance/speed, token and distribution parity, <=1% QAT output drift, and TTFT/decode/verified-latency budgets pass. Added a reference-policy DPO objective, a ten-cycle proposal-only GEPA runner that records external review and requires a justified rejection, and fail-closed canary/adversarial aggregation gates around existing signed rollback and release-bundle evidence. The backend-served developer UI now fetches and renders only `/traces/{trace_id}/trust`; `ui/usability.py` holds the versioned 20-scenario acceptance script. |
+| **Files** | inference/serving_gates.py, training/dpo.py, training/qat.py, training/gepa_cycles.py, evaluation/release_drills.py, ui/usability.py, app.py, tests/test_p2_execution.py, docs/planning/IMPLEMENTATION_TODOS.md, PROGRESS.md |
+| **Metrics** | 44 focused P2/P1/GEPA/new-system tests passed; ruff clean on all P2 files. |
+| **Verification** | `py -3.14 -m pytest tests/test_p2_execution.py tests/test_p1_p2_foundations.py tests/test_gepa.py tests/test_new_systems.py -q`; focused `ruff check`. |
+| **Risk** | medium - all executed P2 evidence is deterministic local test evidence. Real Phase B-E runs, post-training ablations, owner-held 50-goal evaluation, human usability study, latency hardware profile, and production canary remain separate mandatory evidence gates. |
+| **Follow-up** | Restore the checkpoint and compute fleet, then run the remaining campaign gates with saved artifacts and independent review. |
+
+---
+
+## 2026-07-10 - FEAT/SECURITY - P1/P2 local serving, trust, and agent foundations
+
+| Field | Value |
+|-------|-------|
+| **Date** | 2026-07-10 |
+| **Author** | Codex |
+| **Component** | serving primitives; answer contracts; retrieval recall; trust projections; plan-act-verify |
+| **Type** | FEAT + SECURITY |
+| **Summary** | Implemented the locally executable P1/P2 foundations. `evaluation/retrieval_recall.py` measures recall@5/20/50 against the shared retrieval contract and fails closed on invalid or empty suites. `runtime/answer_contracts.py` scans untrusted retrieved spans for instruction override, role impersonation, prompt-exfiltration, and delimiter attacks; tainted memories are removed before chat context construction. `/generate` and `/chat` now return and ledger a tamper-evident hash-only answer contract, while `/traces/{trace_id}/trust` renders only ledger-derived verifier, memory lifecycle, and gate projections. Added `ContinuousBatchScheduler` and bounded `PagedKVCache` serving primitives, plus content-addressed adapter registration/hot activation with checkpoint/tokenizer lineage and mutation checks. Added a fail-closed plan-act-verify runner and 50-case harness. |
+| **Files** | runtime/answer_contracts.py, runtime/ledger_projections.py, inference/serving_runtime.py, inference/adapters.py, evaluation/retrieval_recall.py, agents/plan_act_verify.py, app.py, tests/test_p1_p2_foundations.py, tests/test_ledger_projections.py, docs/planning/IMPLEMENTATION_TODOS.md, PROGRESS.md |
+| **Metrics** | 23 focused P1/P2/retrieval/registry tests passed; 21 serving/integration-focused tests passed; ruff clean on touched files and `anra/`. |
+| **Verification** | `py -3.14 -m pytest tests/test_p1_p2_foundations.py tests/test_ledger_projections.py tests/test_retrieval_substrate.py tests/test_verifier_registry.py -q`; `py -3.14 -m pytest tests/test_serving.py tests/test_integration_production.py tests/test_p1_p2_foundations.py tests/test_ledger_projections.py -q`; focused `ruff check`. |
+| **Risk** | medium - the proof contract honestly reports unverified when no task-specific verifier ran; the 50-case runner test validates orchestration mechanics, not a full owner-held real-goal benchmark. No campaign, latency, soak, usability, or cluster chaos claim is made. |
+| **Follow-up** | Execute the blocked measured/owner gates, then add workload-backed latency CI, the real 50-goal suite, 20-scenario usability evidence, and adversarial/canary release drills. |
+
+---
+
 ## 2026-07-07 - FEAT - Stream B - Canonical 32k V4 append migration, pinned corpus manifests, campaign-slice + V4 build CLIs
 
 | Field | Value |

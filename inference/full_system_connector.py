@@ -5,6 +5,7 @@ from __future__ import annotations
 import ast
 import importlib
 import json
+import os
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
@@ -39,10 +40,49 @@ def _safe_read_text(path: Path) -> str:
         return ""
 
 
-def _python_symbols(path: Path) -> tuple[list[str], list[str]]:
+_EXCLUDED_TREE_PARTS = {
+    ".git",
+    ".mypy_cache",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".tox",
+    ".uv-cache",
+    ".venv",
+    "__pycache__",
+    "agent_workspace",
+    "build",
+    "dist",
+    "history",
+    "logs",
+    "models",
+    "node_modules",
+    "output",
+    "state",
+    "training_data",
+    "venv",
+    "workspace",
+}
+_SOURCE_SUFFIXES = {
+    ".css",
+    ".html",
+    ".js",
+    ".json",
+    ".jsx",
+    ".md",
+    ".py",
+    ".toml",
+    ".ts",
+    ".tsx",
+    ".yaml",
+    ".yml",
+}
+_MAX_SOURCE_BYTES = 2 * 1024 * 1024
+
+
+def _python_symbols(path: Path, source: str | None = None) -> tuple[list[str], list[str]]:
     if path.suffix != ".py":
         return [], []
-    src = _safe_read_text(path)
+    src = _safe_read_text(path) if source is None else source
     if not src.strip():
         return [], []
     try:
@@ -56,49 +96,36 @@ def _python_symbols(path: Path) -> tuple[list[str], list[str]]:
 
 def walk_repository(repo_root: Path) -> list[FileNode]:
     nodes: list[FileNode] = []
-    for path in sorted(repo_root.rglob("*")):
-        if not path.is_file():
-            continue
-        if any(
-            part
-            in {
-                ".git",
-                ".pytest_cache",
-                "__pycache__",
-                "node_modules",
-                "output",
-                "state",
-                "workspace",
-            }
-            for part in path.parts
-        ):
-            continue
-        if path.suffix in {
-            ".db",
-            ".sqlite",
-            ".sqlite3",
-            ".faiss",
-            ".index",
-            ".npy",
-            ".npz",
-            ".pt",
-            ".pth",
-        }:
-            continue
-        if path.name in {"package-lock.json", "tokenizer_v3.json", "anra_training.txt"}:
-            continue
-        text = _safe_read_text(path)
-        classes, funcs = _python_symbols(path)
-        nodes.append(
-            FileNode(
-                path=path.relative_to(repo_root).as_posix(),
-                size_bytes=path.stat().st_size,
-                line_count=text.count("\n") + (1 if text else 0),
-                has_python=path.suffix == ".py",
-                classes=classes[:25],
-                functions=funcs[:50],
-            )
+    for directory, dirnames, filenames in os.walk(repo_root):
+        dirnames[:] = sorted(
+            name for name in dirnames if name not in _EXCLUDED_TREE_PARTS
         )
+        root = Path(directory)
+        for filename in sorted(filenames):
+            path = root / filename
+            if path.suffix.lower() not in _SOURCE_SUFFIXES:
+                continue
+            try:
+                size_bytes = path.stat().st_size
+            except OSError:
+                continue
+            if size_bytes > _MAX_SOURCE_BYTES or path.name in {
+                "package-lock.json",
+                "tokenizer_v3.json",
+            }:
+                continue
+            text = _safe_read_text(path)
+            classes, funcs = _python_symbols(path, text)
+            nodes.append(
+                FileNode(
+                    path=path.relative_to(repo_root).as_posix(),
+                    size_bytes=size_bytes,
+                    line_count=text.count("\n") + (1 if text else 0),
+                    has_python=path.suffix == ".py",
+                    classes=classes[:25],
+                    functions=funcs[:50],
+                )
+            )
     return nodes
 
 

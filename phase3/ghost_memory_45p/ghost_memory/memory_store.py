@@ -9,16 +9,17 @@ but callers may inject a mock embedder for tests and offline demos.
 from __future__ import annotations
 
 import hashlib
+import os
 import sqlite3
 import tempfile
 import threading
 import time
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
-
 from engine.metric_bus import instrument
+
 from .config import GhostConfig, default_config
 from .injector import build_prompt, format_ghost_block
 from .quantizer import compress_vector
@@ -28,24 +29,32 @@ EmbedFn = Callable[[str], np.ndarray]
 
 
 def _build_default_embedder(model_name: str, embedding_dim: int) -> EmbedFn:
-    try:
-        from sentence_transformers import SentenceTransformer
-
+    provider = os.environ.get("ANRA_GHOST_EMBEDDER", "hash").strip().lower()
+    if provider == "sentence-transformer":
+        try:
+            from sentence_transformers import SentenceTransformer
+        except ImportError as exc:
+            raise RuntimeError(
+                "ANRA_GHOST_EMBEDDER requests sentence-transformer, but the optional "
+                "dependency is unavailable"
+            ) from exc
         model = SentenceTransformer(model_name)
 
-        def _embed(text: str) -> np.ndarray:
+        def _embed_sentence_transformer(text: str) -> np.ndarray:
             vec = model.encode([text], show_progress_bar=False)[0]
             return np.asarray(vec, dtype=np.float32).ravel()
 
-        return _embed
-    except ImportError:
-        def _embed_fallback(text: str) -> np.ndarray:
-            digest = hashlib.sha256(text.encode("utf-8", errors="replace")).digest()
-            seed = int.from_bytes(digest[:8], "big", signed=False) % (2**32)
-            rng = np.random.default_rng(seed)
-            return rng.standard_normal(embedding_dim).astype(np.float32)
+        return _embed_sentence_transformer
+    if provider != "hash":
+        raise ValueError(f"unsupported ANRA_GHOST_EMBEDDER provider: {provider}")
 
-        return _embed_fallback
+    def _embed_hash(text: str) -> np.ndarray:
+        digest = hashlib.sha256(text.encode("utf-8", errors="replace")).digest()
+        seed = int.from_bytes(digest[:8], "big", signed=False) % (2**32)
+        rng = np.random.default_rng(seed)
+        return rng.standard_normal(embedding_dim).astype(np.float32)
+
+    return _embed_hash
 
 
 def _ensure_schema(conn: sqlite3.Connection) -> None:
@@ -74,14 +83,16 @@ class MemoryStore:
 
     def __init__(
         self,
-        config: Optional[GhostConfig] = None,
-        embedder: Optional[EmbedFn] = None,
+        config: GhostConfig | None = None,
+        embedder: EmbedFn | None = None,
         hal: object | None = None,
     ) -> None:
         """
         Open or create storage under ``config.storage_dir`` and load vector archive.
 
-        ``embedder`` overrides MiniLM for deterministic tests when provided.
+        ``embedder`` overrides the deterministic local hash embedder. Set
+        ``ANRA_GHOST_EMBEDDER=sentence-transformer`` to explicitly opt into
+        the optional MiniLM backend.
         """
         self._config = config or default_config()
         self._hal = hal
@@ -90,7 +101,7 @@ class MemoryStore:
             self._config.embedding_dim,
         )
         self._lock = threading.RLock()
-        self._vectors: List[bytes] = []
+        self._vectors: list[bytes] = []
         self._storage_dir = Path(self._config.storage_dir)
         self._storage_dir.mkdir(parents=True, exist_ok=True)
         self._load_vectors_file()
@@ -196,11 +207,11 @@ class MemoryStore:
             scored.append((d, mid, created_at, role, text, vidx))
         scored.sort(key=lambda x: x[0])
         n_drop = len(scored) - max_memories
-        to_remove = set(t[1] for t in scored[:n_drop])
+        to_remove = {item[1] for item in scored[:n_drop]}
         if not to_remove:
             return
         kept = [t for t in scored if t[1] not in to_remove]
-        new_vectors: List[bytes] = []
+        new_vectors: list[bytes] = []
         with self._lock:
             conn = sqlite3.connect(self._config.db_path(), check_same_thread=False)
             try:
@@ -209,7 +220,9 @@ class MemoryStore:
                     new_idx = len(new_vectors)
                     new_vectors.append(self._vectors[int(vidx)])
                     conn.execute(
-                        "INSERT INTO memories (id, created_at, role, text, vector_idx) VALUES (?, ?, ?, ?, ?)",
+                        "INSERT INTO memories "
+                        "(id, created_at, role, text, vector_idx) "
+                        "VALUES (?, ?, ?, ?, ?)",
                         (mid, created_at, role, text, new_idx),
                     )
                 conn.commit()
@@ -231,7 +244,7 @@ class MemoryStore:
         except Exception:
             return int(self._config.max_memories)
 
-    def iter_retrieval_rows(self) -> List[Tuple[int, float, str, str, bytes]]:
+    def iter_retrieval_rows(self) -> list[tuple[int, float, str, str, bytes]]:
         """
         Return all memories as tuples for the retriever.
 
@@ -246,7 +259,7 @@ class MemoryStore:
                 sql_rows = cur.fetchall()
             finally:
                 conn.close()
-        out: List[Tuple[int, float, str, str, bytes]] = []
+        out: list[tuple[int, float, str, str, bytes]] = []
         for mid, created_at, role, text, vidx in sql_rows:
             blob = self._vectors[int(vidx)]
             out.append((int(mid), float(created_at), str(role), str(text), blob))
@@ -262,8 +275,8 @@ class GhostMemory:
 
     def __init__(
         self,
-        config: Optional[GhostConfig] = None,
-        embedder: Optional[EmbedFn] = None,
+        config: GhostConfig | None = None,
+        embedder: EmbedFn | None = None,
         hal: object | None = None,
     ) -> None:
         """
@@ -285,7 +298,7 @@ class GhostMemory:
         return self._store.add_turn(role, text)
 
     @instrument("ghost_memory")
-    def retrieve(self, query_text: str) -> List[Dict[str, object]]:
+    def retrieve(self, query_text: str) -> list[dict[str, object]]:
         """Return ranked memory dicts for injection."""
         rows = self._store.iter_retrieval_rows()
         return retrieve_memories(

@@ -10,6 +10,10 @@ data/
 data/*
 !data/__init__.py
 !data/causal_corpus.py
+training_data/foundation_records.jsonl
+training_data/reasoning.jsonl
+training_data/fineweb_edu.txt
+training_data/redpajama.txt
 output/
 output/checkpoints/
 output/metrics/

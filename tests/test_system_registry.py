@@ -2,7 +2,7 @@
 import json
 
 from anra.anra_paths import ROOT
-from inference.full_system_connector import build_capability_graph
+from inference.full_system_connector import build_capability_graph, walk_repository
 from runtime import system_registry
 from runtime.system_registry import (
     build_system_manifest,
@@ -131,3 +131,17 @@ def test_capability_graph_flags_come_from_probes(monkeypatch):
     capabilities = graph["capabilities"]
     assert capabilities["symbolic_bridge"] is False
     assert capabilities["ouroboros"] is True
+
+
+def test_repository_walk_prunes_runtime_data_and_virtualenvs(tmp_path):
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "module.py").write_text("def live():\n    return True\n")
+    (tmp_path / "training_data").mkdir()
+    (tmp_path / "training_data" / "huge.jsonl").write_text("ignored")
+    (tmp_path / ".venv" / "Lib").mkdir(parents=True)
+    (tmp_path / ".venv" / "Lib" / "dependency.py").write_text("def ignored(): ...\n")
+
+    nodes = walk_repository(tmp_path)
+
+    assert [node.path for node in nodes] == ["src/module.py"]
+    assert nodes[0].functions == ["live"]

@@ -30,6 +30,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+data = [
+  "datasets>=5.0.0",
+]
 ml = [
   "accelerate>=1.0.0",
   "faiss-cpu>=1.7.4",

@@ -389,7 +389,6 @@ def download_native_foundation(
                 kwargs: dict[str, Any] = {
                     "split": "train",
                     "streaming": True,
-                    "trust_remote_code": True,
                     "revision": resolved_revision,
                 }
                 config = spec["config"]
@@ -587,7 +586,6 @@ def download_base(
             name="sample",
             split="train",
             streaming=True,
-            trust_remote_code=True,
         )
         count = 0
         with redpajama_path.open("w", encoding="utf-8") as f:
@@ -728,7 +726,6 @@ def download_reasoning(
                     ds_name,
                     split=split,
                     streaming=True,
-                    trust_remote_code=True,
                     revision=resolved_revision,
                 )
                 count = 0
@@ -881,7 +878,6 @@ def download_science(
                         config,
                         split=split,
                         streaming=True,
-                        trust_remote_code=True,
                         revision=resolved_revision,
                     )
                 else:
@@ -889,7 +885,6 @@ def download_science(
                         ds_name,
                         split=split,
                         streaming=True,
-                        trust_remote_code=True,
                         revision=resolved_revision,
                     )
                 count = 0

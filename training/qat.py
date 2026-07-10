@@ -69,3 +69,18 @@ def attach_qat(
         setattr(parent, child_name, QATLinear(module, bits=bits, block_size=block_size))
         attached.append(module_name)
     return attached
+
+
+def qat_parity_report(reference: torch.Tensor, candidate: torch.Tensor) -> dict[str, float | bool]:
+    """Measure QAT output drift; promotion allows at most one-percent relative error."""
+    if reference.shape != candidate.shape or reference.numel() == 0:
+        raise ValueError("reference and candidate outputs must have the same non-empty shape")
+    error = (reference.float() - candidate.float()).abs()
+    scale = reference.float().abs().clamp_min(1e-6)
+    relative = error / scale
+    max_relative_error = float(relative.max().item())
+    return {
+        "max_relative_error": max_relative_error,
+        "mean_relative_error": float(relative.mean().item()),
+        "passed": max_relative_error <= 0.01,
+    }
