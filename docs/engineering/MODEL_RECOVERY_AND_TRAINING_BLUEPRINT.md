@@ -34,7 +34,7 @@ EMA, not held-out validation. See
 |---|---|---|
 | Capability measurement | `best_loss=0.32788` was minimum training-loss EMA, while validation reused training data and could not block checkpoint publication. | Select only on immutable validation plus behavioral/verifier gates. |
 | Training scale | The recorded upper bound is only `6,927 × 8 × 1,024 = 56.75M` target positions, or at most 0.114 positions/parameter. | Log exact non-padding tokens and train a deliberate token budget. |
-| Data objective | Repeated `H: prompt / ANRA: answer` scaffolding mixed easy prompt prediction with answer prediction. | Report answer-only loss and per-domain loss alongside total loss. |
+| Data objective | Repeated `H: prompt / ANRA: answer` scaffolding mixed easy prompt prediction with answer prediction. | Explicit token masks now separate answer/scaffold loss; add per-domain reporting before campaign launch. |
 | Gradient checkpointing | A late-bound layer index changed DSTP temperature during backward recomputation; RIM spectral normalization also advanced state on recomputation. | Keep the fixed parity harness mandatory before every architecture/training change. |
 | Routing | Router context was not passed; no balance or z-loss trained the old router. Saved router context vectors are all zero. | Measure route entropy/load/context sensitivity and compare routed versus dense controls. |
 | Temperature controls | DSTP and layer-temperature controls were buffers rather than learned values in the historical model. | Either intentionally freeze and document them, or make them parameters with tests proving optimizer updates. |
@@ -44,8 +44,9 @@ EMA, not held-out validation. See
 
 ## Training target and token budget
 
-The current model contract is 499,167,047 parameters. The program should use
-two explicit scales:
+The legacy checkpoint contract is 499,167,047 parameters. The repaired schema-7
+candidate is 499,167,075 parameters because its 28 per-layer temperature
+controls are now genuinely trainable. The program should use two explicit scales:
 
 | Stage | Verified-token budget | Purpose | Promotion requirement |
 |---|---:|---|---|

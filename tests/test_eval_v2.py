@@ -5,8 +5,45 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+import torch
 
 from training import eval_v2
+
+
+def test_quick_eval_loss_separates_answer_scaffold_and_weighted_ce() -> None:
+    class Model(torch.nn.Module):
+        def forward(self, inputs):
+            logits = torch.zeros((*inputs.shape, 4), dtype=torch.float32, device=inputs.device)
+            logits[:, 1, 2] = 4.0
+            return logits, None
+
+    rows = [
+        (
+            torch.tensor([3, 1, 2]),
+            torch.tensor([1, 2, 0]),
+            torch.tensor([1.0, 2.0, 0.0]),
+            0,
+            torch.tensor([False, True, False]),
+        )
+    ]
+
+    report = eval_v2.quick_eval_loss(
+        Model(),
+        rows,
+        device=torch.device("cpu"),
+        max_examples=1,
+        batch_size=1,
+        pad_id=0,
+    )
+
+    assert report["n_examples"] == 1
+    assert report["target_tokens"] == 2
+    assert report["answer_tokens"] == 1
+    assert report["scaffold_tokens"] == 1
+    assert report["answer_loss"] < report["scaffold_loss"]
+    assert report["answer_loss"] < report["weighted_loss"] < report["loss"]
+    assert report["domain_losses"]["unknown"]["answer_tokens"] == 1
+    assert report["domain_losses"]["unknown"]["target_tokens"] == 2
 
 
 def _summary(overrides: dict | None = None) -> dict[str, object]:

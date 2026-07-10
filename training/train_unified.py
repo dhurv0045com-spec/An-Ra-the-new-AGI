@@ -531,8 +531,15 @@ def main() -> None:
             if args.campaign == "frontier_full"
             else [args.campaign]
         )
+        stage_validation_offsets: dict[str, int] = {}
+
+        def validation_history() -> list[dict[str, object]]:
+            payload = _load_json(v2_report_path("validation_history")) or {}
+            history = payload.get("history", [])
+            return [dict(row) for row in history if isinstance(row, dict)]
 
         def execute_stage(config: object) -> tuple[int, str]:
+            stage_validation_offsets[str(config.stage.value)] = len(validation_history())
             command = list(base_cmd)
             command.extend(
                 [
@@ -576,6 +583,11 @@ def main() -> None:
                     if line.strip() and '"verified": true' in line.lower()
                 )
             loss = float(train_metrics.get("last_avg_loss", float("inf")))
+            history = validation_history()
+            offset = stage_validation_offsets.get(str(_config.stage.value), len(history))
+            new_validation = history[offset:]
+            validation_baseline = new_validation[0] if new_validation else {}
+            validation_candidate = new_validation[-1] if len(new_validation) >= 2 else {}
             return {
                 "perplexity": exp(min(loss, 20.0)),
                 "numerically_stable": bool(loss < float("inf")),
@@ -588,6 +600,12 @@ def main() -> None:
                     >= 3
                 ),
                 "civ_similarity": float(compact.get("civ_similarity", 0.0)),
+                "coherence_rate": float(compact.get("coherence_rate", 0.0)),
+                "format_compliance": float(
+                    (compact.get("category_scores", {}) or {}).get("format", 0.0)
+                ),
+                "validation_baseline": validation_baseline,
+                "validation_candidate": validation_candidate,
                 "ibs": eval_report,
                 "verified_trajectories": trajectory_count,
                 "star_verification_rate": float(

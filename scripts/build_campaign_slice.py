@@ -35,6 +35,9 @@ MIN_SLICE_MB = 50.0
 # Per-line held-out selection: sha256(line)[0] in this half-open range. 26/256
 # ~= 10% held out, deterministic and stable across runs and machines.
 HELDOUT_HASH_CEILING = 26
+LARGE_SOURCE_BYTES = 256 * 1024 * 1024
+STREAMING_SLICE_MB = 64.0
+CAMPAIGN_WEIGHTS = {source.key: source.weight for source in CAMPAIGN_CORPUS_SOURCES}
 
 
 def _is_heldout(line: str) -> bool:
@@ -43,6 +46,169 @@ def _is_heldout(line: str) -> bool:
 
 def _sha256_text(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def _sha256_path(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(8 * 1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _campaign_key(source: str, fallback: str) -> str:
+    lowered = source.lower()
+    if "fineweb" in lowered:
+        return "fineweb_edu"
+    if "stack" in lowered or "code" in lowered:
+        return "permissive_code"
+    if "finemath" in lowered or "math" in lowered:
+        return "finemath"
+    if "dolma" in lowered or "science" in lowered or "technical" in lowered:
+        return "science_technical"
+    if "smol" in lowered or "instruction" in lowered:
+        return "verified_instruction"
+    if "dfc" in lowered:
+        return "verified_dfc"
+    if "identity" in lowered or "replay" in lowered:
+        return "identity_replay"
+    return fallback if fallback in CAMPAIGN_WEIGHTS else "unclassified"
+
+
+def _record_text_and_key(line: str, fallback: str) -> tuple[str, str]:
+    stripped = line.strip()
+    if not stripped:
+        return "", "unclassified"
+    try:
+        payload = json.loads(stripped)
+    except json.JSONDecodeError:
+        return stripped + "\n", _campaign_key(fallback, fallback)
+    if not isinstance(payload, dict):
+        return "", "unclassified"
+    text = str(payload.get("text", "")).strip()
+    if not text:
+        prompt = str(payload.get("prompt", "")).strip()
+        answer = str(payload.get("response", payload.get("answer", ""))).strip()
+        text = f"H: {prompt}\nANRA: {answer}" if prompt and answer else ""
+    return (text + "\n" if text else ""), _campaign_key(
+        str(payload.get("source", fallback)), fallback
+    )
+
+
+def build_streaming_campaign_slice(
+    sources: dict[str, Path],
+    output_dir: str | Path = CAMPAIGN_SLICE_DIR,
+    *,
+    min_slice_mb: float = MIN_SLICE_MB,
+    max_train_mb: float = STREAMING_SLICE_MB,
+) -> dict[str, object]:
+    """Build a bounded seven-source slice without materializing source files."""
+    root = Path(output_dir)
+    heldout_dir = root / "heldout"
+    heldout_dir.mkdir(parents=True, exist_ok=True)
+    train_path = root / "campaign_slice_train.txt"
+    train_tmp = train_path.with_suffix(".tmp")
+    total_budget = max(1, int(max_train_mb * 1_048_576))
+    heldout_budget = max(64 * 1024, int(total_budget * 0.02))
+    quotas = {key: int(total_budget * weight) for key, weight in CAMPAIGN_WEIGHTS.items()}
+    stats = {
+        key: {"train_bytes": 0, "heldout_bytes": 0, "train_lines": 0, "heldout_lines": 0}
+        for key in CAMPAIGN_WEIGHTS
+    }
+    train_hashes: set[str] = set()
+    heldout_hashes: dict[str, set[str]] = {key: set() for key in CAMPAIGN_WEIGHTS}
+    heldout_streams: dict[str, object] = {}
+    heldout_temps: dict[str, Path] = {}
+    unclassified_lines = 0
+
+    try:
+        for key in CAMPAIGN_WEIGHTS:
+            temporary = heldout_dir / f"{key}.tmp"
+            heldout_temps[key] = temporary
+            heldout_streams[key] = temporary.open("w", encoding="utf-8")
+        with train_tmp.open("w", encoding="utf-8") as train_stream:
+            for fallback in sorted(sources):
+                path = sources[fallback]
+                if not path.is_file():
+                    continue
+                with path.open("r", encoding="utf-8", errors="replace") as source_stream:
+                    for line in source_stream:
+                        text, key = _record_text_and_key(line, fallback)
+                        if not text or key not in CAMPAIGN_WEIGHTS:
+                            unclassified_lines += 1
+                            continue
+                        encoded = text.encode("utf-8")
+                        digest = hashlib.sha256(encoded).hexdigest()
+                        row = stats[key]
+                        if _is_heldout(text):
+                            if (
+                                row["heldout_bytes"] < heldout_budget
+                                and digest not in heldout_hashes[key]
+                            ):
+                                heldout_streams[key].write(text)
+                                heldout_hashes[key].add(digest)
+                                row["heldout_bytes"] += len(encoded)
+                                row["heldout_lines"] += 1
+                            continue
+                        if row["train_bytes"] >= quotas[key] or digest in train_hashes:
+                            continue
+                        train_stream.write(text)
+                        train_hashes.add(digest)
+                        row["train_bytes"] += len(encoded)
+                        row["train_lines"] += 1
+    finally:
+        for stream in heldout_streams.values():
+            stream.close()
+
+    train_tmp.replace(train_path)
+    per_source: dict[str, dict[str, object]] = {}
+    for key, row in stats.items():
+        heldout_path = heldout_dir / f"{key}.txt"
+        heldout_temps[key].replace(heldout_path)
+        per_source[key] = {
+            "status": "sliced" if row["train_lines"] or row["heldout_lines"] else "missing",
+            **row,
+            "heldout_path": str(heldout_path),
+            "heldout_sha256": _sha256_path(heldout_path),
+            "heldout_disjoint": not bool(train_hashes & heldout_hashes[key]),
+        }
+
+    total_train_bytes = sum(int(row["train_bytes"]) for row in stats.values())
+    realized = {
+        key: int(row["train_bytes"]) / max(1, total_train_bytes) for key, row in stats.items()
+    }
+    deviations = {key: abs(realized[key] - CAMPAIGN_WEIGHTS[key]) for key in CAMPAIGN_WEIGHTS}
+    all_sources_present = all(int(row["train_lines"]) > 0 for row in stats.values())
+    mix_verified = all_sources_present and max(deviations.values(), default=1.0) <= 0.02
+    train_mb = total_train_bytes / 1_048_576
+    all_disjoint = all(bool(row["heldout_disjoint"]) for row in per_source.values())
+    manifest: dict[str, object] = {
+        "schema_version": 2,
+        "mode": "bounded_streaming",
+        "train_path": str(train_path),
+        "train_bytes": total_train_bytes,
+        "train_mb": round(train_mb, 4),
+        "train_sha256": _sha256_path(train_path),
+        "min_slice_mb": float(min_slice_mb),
+        "max_train_mb": float(max_train_mb),
+        "meets_min_slice": train_mb >= min_slice_mb,
+        "heldout_split_rule": f"sha256(line)[0] < {HELDOUT_HASH_CEILING}",
+        "sources": per_source,
+        "sources_sliced": sum(row["status"] == "sliced" for row in per_source.values()),
+        "all_heldout_disjoint": all_disjoint,
+        "campaign_mix_target": CAMPAIGN_WEIGHTS,
+        "campaign_mix_realized": realized,
+        "campaign_mix_deviation": deviations,
+        "campaign_mix_verified": mix_verified,
+        "all_required_sources_present": all_sources_present,
+        "unclassified_lines": unclassified_lines,
+        "ready_for_v4": bool(train_mb >= min_slice_mb and all_disjoint and mix_verified),
+    }
+    manifest_path = root / "campaign_slice_manifest.json"
+    manifest_tmp = manifest_path.with_suffix(".tmp")
+    manifest_tmp.write_text(json.dumps(manifest, indent=2, sort_keys=True), encoding="utf-8")
+    manifest_tmp.replace(manifest_path)
+    return manifest
 
 
 def split_source(path: Path) -> tuple[str, str, int, int]:
@@ -65,6 +231,12 @@ def build_campaign_slice(
 ) -> dict[str, object]:
     if not sources:
         raise ValueError("The campaign slice requires at least one source file")
+    if any(path.is_file() and path.stat().st_size >= LARGE_SOURCE_BYTES for path in sources.values()):
+        return build_streaming_campaign_slice(
+            sources,
+            output_dir,
+            min_slice_mb=min_slice_mb,
+        )
     root = Path(output_dir)
     heldout_dir = root / "heldout"
     heldout_dir.mkdir(parents=True, exist_ok=True)
@@ -134,8 +306,11 @@ def build_campaign_slice(
 def _default_sources() -> dict[str, Path]:
     """Best-effort local sources so the builder is runnable without arguments."""
     candidates = {
+        "native_foundation": ROOT / "training_data" / "foundation_records.jsonl",
         "fineweb_edu": ROOT / "training_data" / "anra_training.txt",
         "permissive_code": ROOT / "training_data" / "base_corpus.txt",
+        "verified_instruction": ROOT / "training_data" / "reasoning.jsonl",
+        "verified_dfc": ROOT / "training_data" / "frontier_dfc.jsonl",
     }
     return {key: path for key, path in candidates.items() if path.is_file()}
 
@@ -180,7 +355,7 @@ def main() -> int:
         sources, args.output_dir, min_slice_mb=args.min_slice_mb
     )
     print(json.dumps(manifest, indent=2, sort_keys=True))
-    return 0 if manifest["meets_min_slice"] else 3
+    return 0 if manifest.get("ready_for_v4", manifest["meets_min_slice"]) else 3
 
 
 if __name__ == "__main__":

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import math
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import asdict, dataclass
 from enum import Enum
 from pathlib import Path
@@ -95,6 +95,101 @@ class StageResult:
     checkpoint_path: str | None
     metrics: dict[str, object]
     exit_code: int
+
+
+def build_validation_regression_gate(
+    baseline: Mapping[str, object],
+    candidate: Mapping[str, object],
+    *,
+    max_relative_regression: float = 0.02,
+    require_answer: bool = False,
+) -> dict[str, object]:
+    """Compare immutable, domain-stratified validation evidence fail-closed."""
+    failures: list[str] = []
+    baseline_identity = str(baseline.get("validation_identity", ""))
+    candidate_identity = str(candidate.get("validation_identity", ""))
+    if not baseline_identity or baseline_identity != candidate_identity:
+        failures.append("validation identity is missing or changed")
+    baseline_step = int(baseline.get("step", -1))
+    candidate_step = int(candidate.get("step", -1))
+    if candidate_step <= baseline_step:
+        failures.append("candidate validation is not newer than the baseline")
+
+    def finite_loss(report: Mapping[str, object], key: str, label: str) -> float | None:
+        raw = report.get(key)
+        if raw is None:
+            failures.append(f"{label} is missing")
+            return None
+        value = float(raw)
+        if not math.isfinite(value) or value < 0.0:
+            failures.append(f"{label} must be finite and non-negative")
+            return None
+        return value
+
+    comparisons: dict[str, dict[str, float]] = {}
+
+    def compare(label: str, base_value: float | None, candidate_value: float | None) -> None:
+        if base_value is None or candidate_value is None:
+            return
+        regression = (candidate_value - base_value) / max(base_value, 1e-12)
+        comparisons[label] = {
+            "baseline": base_value,
+            "candidate": candidate_value,
+            "relative_regression": regression,
+        }
+        if regression > max_relative_regression:
+            failures.append(
+                f"{label} regressed by {regression:.2%} > {max_relative_regression:.2%}"
+            )
+
+    compare(
+        "overall.loss",
+        finite_loss(baseline, "loss", "baseline overall loss"),
+        finite_loss(candidate, "loss", "candidate overall loss"),
+    )
+    baseline_domains = baseline.get("domain_losses", {})
+    candidate_domains = candidate.get("domain_losses", {})
+    baseline_domains = baseline_domains if isinstance(baseline_domains, Mapping) else {}
+    candidate_domains = candidate_domains if isinstance(candidate_domains, Mapping) else {}
+    if not baseline_domains:
+        failures.append("baseline domain losses are missing")
+    for domain in sorted(baseline_domains):
+        base_domain = baseline_domains[domain]
+        candidate_domain = candidate_domains.get(domain)
+        if not isinstance(base_domain, Mapping):
+            failures.append(f"baseline domain {domain} is invalid")
+            continue
+        if not isinstance(candidate_domain, Mapping):
+            failures.append(f"candidate domain {domain} is missing")
+            continue
+        compare(
+            f"domain.{domain}.loss",
+            finite_loss(base_domain, "loss", f"baseline {domain} loss"),
+            finite_loss(candidate_domain, "loss", f"candidate {domain} loss"),
+        )
+        if require_answer:
+            compare(
+                f"domain.{domain}.answer_loss",
+                finite_loss(
+                    base_domain,
+                    "answer_loss",
+                    f"baseline {domain} answer loss",
+                ),
+                finite_loss(
+                    candidate_domain,
+                    "answer_loss",
+                    f"candidate {domain} answer loss",
+                ),
+            )
+    return {
+        "schema_version": 1,
+        "passed": not failures,
+        "max_relative_regression": float(max_relative_regression),
+        "require_answer": bool(require_answer),
+        "validation_identity": baseline_identity or None,
+        "comparisons": comparisons,
+        "failures": failures,
+    }
 
 
 class CampaignState:
@@ -195,6 +290,18 @@ class StagedTrainingCampaign:
             failures.append(
                 f"training tokens {training_tokens:,} < stage target {config.token_target:,}"
             )
+        if config.stage != TrainingStage.FOUNDATION:
+            baseline = metrics.get("validation_baseline", {})
+            candidate = metrics.get("validation_candidate", {})
+            baseline = baseline if isinstance(baseline, Mapping) else {}
+            candidate = candidate if isinstance(candidate, Mapping) else {}
+            validation_gate = build_validation_regression_gate(
+                baseline,
+                candidate,
+                require_answer=config.stage
+                in {TrainingStage.VERIFIED_REASONING, TrainingStage.VERIFIER_REPLAY},
+            )
+            failures.extend(str(value) for value in validation_gate["failures"])
         if config.stage == TrainingStage.FOUNDATION:
             perplexity = float(metrics.get("perplexity", float("inf")))
             if perplexity >= 12.0:
@@ -206,11 +313,8 @@ class StagedTrainingCampaign:
         elif config.stage == TrainingStage.OWNER_ADAPTATION:
             if not bool(metrics.get("subsystem_trace_complete", False)):
                 failures.append("isolated native subsystem trace is incomplete")
-            if bool(metrics.get("protected_regression", False)):
-                failures.append("short-context or core-language validation regressed")
         elif config.stage == TrainingStage.AGENCY:
-            if float(metrics.get("validation_regression", 1.0)) > 0.02:
-                failures.append("native integration regressed validation loss by more than 2%")
+            pass
         elif config.stage == TrainingStage.VERIFIED_REASONING:
             if float(metrics.get("coherence_rate", 0.0)) < 0.90:
                 failures.append("chat coherence below 0.90")

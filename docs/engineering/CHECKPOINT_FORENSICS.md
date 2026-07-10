@@ -75,11 +75,13 @@ alone proves the cause of incoherence; that requires the registered ablation.
   2026-07-10: 200 diagnostic, 200 native, and 200 deterministic-replay prompts
   with greedy decoding and seed 0. The prompt-suite SHA-256 is
   `0bcd88f6c4d77fd7265f371ae3e6b0865f7988830b88dca44c4457c6858449b9`.
-  The result was **failed: undertraining**: 0.0% coherence against the 80%
-  threshold; diagnostic acceptance 2.5%, native/replay acceptance 3.0%; and
-  diagnostic EOS failure 97.0%. Finite activations and deterministic replay
-  passed. The final atomic report is `output/v2/stream_a_forensics.json`
-  (generated 2026-07-10 23:30:32 local time). This rules out promotion or a
+  The schema-6 result was **failed: undertraining** at 0.0% coherence against
+  the 80% threshold. After the named schema-7 repair, the complete CUDA replay
+  again failed at 0.0% coherence; diagnostic/native/replay acceptance were all
+  0.0% and diagnostic/native EOS failure was 100%. Finite activations and
+  deterministic replay passed. The final atomic report is
+  `output/v2/stream_a_forensics.json` (generated 2026-07-11 02:51:32 local
+  time). This rules out promotion or a
   claimed recovery of this checkpoint; it does not prove that every individual
   architecture alert caused the failure.
 
@@ -185,20 +187,25 @@ forward still performs its normal single update. A permanent regression compares
 the complete logits, total loss, gradient presence, and every parameter gradient
 between checkpointed and plain models; 23 focused architecture tests pass.
 
-### F-10 — advertised trainable temperature controls were buffers (high, unresolved)
+### F-10 — advertised trainable temperature controls were buffers (high, fixed in schema 7)
 
 At the checkpoint commit, both `dstp_temperature_log` and
 `layer_temperature_bias` were registered buffers. The latter still carries a
 source comment saying each block should “learn” its influence, but an all-ones
 buffer cannot receive optimizer gradients. The saved profile confirms no
 learning occurred: the layer bias is uniformly 1.0 and DSTP is its exact
-initial schedule. Recovery code has made DSTP trainable with an anchor
-regularizer, but layer bias remains neutral and non-trainable.
-
-Do not silently convert the remaining buffer because that changes the model’s
-parameter contract. Pre-register an ablation comparing removal versus a named
-trainable schema revision, then update the pinned parameter count only if the
-measured candidate wins.
+initial schedule. Recovery code first made DSTP trainable with an anchor
+regularizer. Schema 7 now replaces the remaining direct-scale buffer with a
+positive log-space parameter, clamps its realized multiplier to `[0.5, 2.0]`,
+anchors it to neutral with native regularization, reports it in telemetry, and
+places it in the subsystem optimizer group. The named migration converts a
+legacy positive scale with `log(scale)` and rejects non-finite or non-positive
+values. The 28 newly trainable scalars update the current V3 contract from
+499,167,047 to 499,167,075 parameters; legacy artifact identity remains
+499,167,047. Focused migration/gradient/optimizer tests and the full 590-test
+non-GPU suite pass. This creates a valid pilot candidate; removal versus
+trainable-control ablation is still required before a campaign winner is
+frozen.
 
 ### F-11 — raw campaign training loader selected validation shards (critical, fixed)
 
@@ -213,6 +220,43 @@ if any training loader selects an unknown or validation dataset, and a focused
 regression injects the validation loader to prove rejection. No raw-shard
 campaign had been launched, so this was prevented before contaminating a new
 checkpoint.
+
+### F-12 — validation collapsed answer quality into aggregate CE (high, fixed)
+
+The repaired trainer still returned only aggregate validation cross-entropy.
+Although conversational training applied answer weights, validation discarded
+both those weights and the identity of answer tokens. Prompt/scaffold tokens
+could therefore lower the reported validation loss while answer generation
+remained poor—the same class of evidence failure exposed by the legacy
+checkpoint.
+
+Conversational packing now carries an explicit boolean answer mask independent
+of numeric loss weights through GPU and TPU loaders. Training records exact
+answer/scaffold token counts and losses; validation reports total, weighted,
+answer-only, and scaffold-only CE with token denominators. Checkpoints expose
+`best_answer_validation_loss` separately from total validation loss and retain
+the semantics. Raw foundation shards intentionally emit an all-false answer
+mask because ordinary causal text has no answer boundary. The full non-GPU
+suite passes with 593 tests and one skip.
+
+### F-13 — conversational validation reused training examples (critical, fixed)
+
+After F-11 corrected raw-shard selection, the conversational D/E path still
+assigned `eval_ds = ds`. It therefore had no held-out boundary at all. The
+pipeline now groups records by declared source/document/content hash when
+available, otherwise by normalized source+prompt+answer SHA-256, and assigns
+whole groups before tokenization. It emits a content-hashed split manifest with
+train/validation group lists, per-bucket counts, and an asserted empty overlap.
+GPU and TPU training consume only the training side; immutable validation uses
+a distinct dataset instance bound to the split hash.
+
+Stage promotion no longer accepts `protected_regression` or
+`validation_regression` claims supplied as booleans/scalars. It compares a
+newer candidate against its same-identity baseline, requires every protected
+domain, caps total/domain regression at 2%, and requires answer-domain evidence
+for conversational/replay stages. Missing, reused, changed-identity, non-finite,
+or regressed evidence blocks promotion. Full non-GPU verification: 597 passed,
+1 skipped.
 
 ## Open hypotheses requiring measurement
 

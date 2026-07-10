@@ -1,17 +1,24 @@
 from __future__ import annotations
 
 import hashlib
+import json
 from pathlib import Path
 from types import SimpleNamespace
 
 import torch
+import pytest
 
 from scripts.freeze_baseline_hashes import (
     build_freeze_report,
     freeze_tokenizer,
     resolve_checkpoint,
 )
-from scripts.run_checkpoint_forensics import COHERENCE_RECOVERY_GATE, run_forensics
+from scripts.run_checkpoint_forensics import (
+    COHERENCE_RECOVERY_GATE,
+    assert_generation_device,
+    run_forensics,
+)
+from scripts.run_checkpoint_forensics import publish_forensics_report
 
 
 def test_resolve_checkpoint_prefers_explicit_then_env(monkeypatch, tmp_path: Path) -> None:
@@ -37,7 +44,8 @@ def test_freeze_report_is_frozen_even_while_checkpoint_is_blocked(tmp_path: Path
     assert tokenizer["probe_match_vs_manifest"] is True
 
     config = report["config"]
-    assert config["contract"]["parameter_count"] == 499_167_047
+    assert config["contract"]["parameter_count"] == 499_167_075
+    assert config["contract"]["checkpoint_schema_version"] == 7
     assert len(config["contract_sha256"]) == 64
 
     manifests = report["corpus_manifests"]
@@ -74,6 +82,15 @@ def test_forensics_without_checkpoint_reports_blocked(tmp_path: Path) -> None:
     assert "blocked on the real checkpoint" in str(report["verdict"])
 
 
+def test_forensics_cuda_requirement_refuses_silent_cpu_fallback(monkeypatch) -> None:
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: False)
+
+    with pytest.raises(RuntimeError, match="refusing a silent CPU fallback"):
+        assert_generation_device("cuda")
+
+    assert_generation_device("auto")
+
+
 def test_forensics_runs_recovery_gate_with_injected_generator(tmp_path: Path) -> None:
     checkpoint = tmp_path / "candidate.pt"
     torch.save({"model": {"token_embedding_table.weight": torch.zeros(4, 4)}}, checkpoint)
@@ -95,9 +112,32 @@ def test_forensics_runs_recovery_gate_with_injected_generator(tmp_path: Path) ->
 
     gate = report["steps"]["recovery_gate"]
     assert gate["status"] in {"passed", "failed"}
+    assert report["complete"] is True
     assert 0.0 <= float(gate["coherence_rate"]) <= 1.0
     assert gate["gate"] == COHERENCE_RECOVERY_GATE
     assert gate["report"]["candidate"]["prompt_count"] == 200
     # The fake blob cannot satisfy exact tensor accounting.
     assert report["steps"]["tensor_accounting"]["status"] == "failed"
-    assert report["complete"] is False
+    assert report["failed"] is True
+
+
+def test_forensics_publication_refuses_to_downgrade_executed_gate(tmp_path: Path) -> None:
+    output = tmp_path / "forensics.json"
+    completed = {
+        "checkpoint": "same.pt",
+        "complete": True,
+        "failed": True,
+        "steps": {"recovery_gate": {"status": "failed", "report": {"passed": False}}},
+    }
+    incomplete = {
+        "checkpoint": "same.pt",
+        "complete": False,
+        "failed": False,
+        "steps": {"recovery_gate": {"status": "skipped"}},
+    }
+    assert publish_forensics_report(completed, output)["written"] is True
+
+    publication = publish_forensics_report(incomplete, output)
+
+    assert publication["written"] is False
+    assert json.loads(output.read_text(encoding="utf-8")) == completed

@@ -12,6 +12,7 @@ import hashlib
 import json
 import re
 import shutil
+import sqlite3
 import sys
 from collections.abc import Callable, Iterator
 from pathlib import Path
@@ -31,6 +32,8 @@ from training.data_pipeline_v3 import SourceRecord, TokenShardPublisher
 
 TRAINING_DATA_DIR = Path("training_data")
 DOWNLOAD_STATUS = DATA_MANIFEST_DIR / "download_status.json"
+FOUNDATION_AUDIT_REPORT = DATA_MANIFEST_DIR.parent / "foundation_records_audit.json"
+FOUNDATION_RESUME_INDEX = DATA_MANIFEST_DIR.parent / "foundation_records_index.sqlite3"
 FOUNDATION_CAMPAIGN_MIX = {
     "fineweb_edu": 0.55,
     "permissive_code": 0.15,
@@ -188,7 +191,9 @@ class MinHashDeduplicator:
         )
 
     def seen_or_add(self, text: str) -> bool:
-        signature = self.signature(text)
+        return self.seen_or_add_signature(self.signature(text))
+
+    def seen_or_add_signature(self, signature: tuple[int, ...]) -> bool:
         candidates: set[int] = set()
         for band in range(4):
             key = (band, signature[band * 2 : band * 2 + 2])
@@ -200,12 +205,18 @@ class MinHashDeduplicator:
                 return True
         if len(self._signatures) >= self.max_entries:
             return False
+        self.add_signature(signature)
+        return False
+
+    def add_signature(self, signature: tuple[int, ...]) -> bool:
+        if len(self._signatures) >= self.max_entries:
+            return False
         index = len(self._signatures)
         self._signatures.append(signature)
         for band in range(4):
             key = (band, signature[band * 2 : band * 2 + 2])
             self._bands.setdefault(key, []).append(index)
-        return False
+        return True
 
 
 def _detect_content_language(text: str, *, source: str, hint: str = "") -> str:
@@ -311,6 +322,7 @@ def download_native_foundation(
     *,
     target_gb: float,
     dry_run: bool = False,
+    resume: bool = False,
 ) -> dict[str, Any]:
     """Stream the licensed native foundation mix into one provenance JSONL."""
     output = TRAINING_DATA_DIR / "foundation_records.jsonl"
@@ -376,15 +388,88 @@ def download_native_foundation(
         print(f"DRY RUN: would stream {target_gb:.2f} GB native foundation mix to {output}")
         return stats
     assert load_dataset is not None
-    seen_hashes: set[str] = set()
     near_duplicates = MinHashDeduplicator()
-    with output.open("w", encoding="utf-8") as stream:
+    seen_hashes: set[str] = set()
+    resume_db: sqlite3.Connection | None = None
+    existing_sources: dict[str, dict[str, int]] = {}
+    if output.exists():
+        if not resume:
+            raise FileExistsError(
+                f"Refusing to truncate existing foundation corpus: {output}. "
+                "Audit it, then pass --resume."
+            )
+        if not FOUNDATION_AUDIT_REPORT.is_file() or not FOUNDATION_RESUME_INDEX.is_file():
+            raise RuntimeError(
+                "Safe resume requires foundation_records_audit.json and "
+                "foundation_records_index.sqlite3"
+            )
+        audit = json.loads(FOUNDATION_AUDIT_REPORT.read_text(encoding="utf-8"))
+        if audit.get("resume_safe") is not True:
+            raise RuntimeError("Foundation audit did not authorize safe resume")
+        if int(audit.get("corpus_size_bytes", -1)) != output.stat().st_size:
+            raise RuntimeError("Foundation corpus changed after its resume audit")
+        resume_db = sqlite3.connect(FOUNDATION_RESUME_INDEX)
+        indexed_size = resume_db.execute(
+            "SELECT value FROM metadata WHERE key='corpus_size_bytes'"
+        ).fetchone()
+        if indexed_size is None or int(indexed_size[0]) != output.stat().st_size:
+            resume_db.close()
+            raise RuntimeError("Foundation resume index does not match corpus size")
+        for source, documents, source_bytes in resume_db.execute(
+            "SELECT source, COUNT(*), SUM(line_bytes) FROM documents GROUP BY source"
+        ):
+            existing_sources[str(source)] = {
+                "documents": int(documents),
+                "bytes": int(source_bytes),
+            }
+        for (encoded_signature,) in resume_db.execute(
+            "SELECT signature FROM minhash_signatures ORDER BY rowid"
+        ):
+            near_duplicates.add_signature(
+                tuple(int(value) for value in json.loads(str(encoded_signature)))
+            )
+
+    def exact_seen(content_hash: str) -> bool:
+        if resume_db is None:
+            return content_hash in seen_hashes
+        return (
+            resume_db.execute(
+                "SELECT 1 FROM documents WHERE document_sha256=?", (content_hash,)
+            ).fetchone()
+            is not None
+        )
+
+    mode = "a" if output.exists() else "w"
+    pending_index_writes = 0
+    with output.open(mode, encoding="utf-8") as stream:
         for spec in specs:
             source_target = int(target_bytes * float(spec["weight"]))
-            source_bytes = 0
-            source_docs = 0
+            existing = existing_sources.get(str(spec["source"]), {})
+            source_bytes = int(existing.get("bytes", 0))
+            source_docs = int(existing.get("documents", 0))
+            resumed_bytes = source_bytes
+            resumed_docs = source_docs
             resolved_revision = ""
             try:
+                if source_bytes >= source_target:
+                    stats["sources"][str(spec["source"])] = {
+                        "bytes": source_bytes,
+                        "documents": source_docs,
+                        "target_bytes": source_target,
+                        "resumed_bytes": resumed_bytes,
+                        "resumed_documents": resumed_docs,
+                        "downloaded_this_run_bytes": 0,
+                        "downloaded_this_run_documents": 0,
+                        "revision": str(spec["revision"]),
+                    }
+                    stats["bytes"] += source_bytes
+                    stats["documents"] += source_docs
+                    print(
+                        f"{spec['source']}: resume quota already complete "
+                        f"({source_bytes / 1024**3:.2f} GB)",
+                        flush=True,
+                    )
+                    continue
                 resolved_revision = resolve_dataset_revision(str(spec["dataset"]))
                 kwargs: dict[str, Any] = {
                     "split": "train",
@@ -428,14 +513,6 @@ def download_native_foundation(
                     if not _math_text_valid(text, source=str(spec["source"])):
                         stats["rejected"]["math_verifier"] += 1
                         continue
-                    content_hash = hashlib.sha256(text.encode("utf-8")).hexdigest()
-                    if content_hash in seen_hashes:
-                        stats["rejected"]["exact_duplicate"] += 1
-                        continue
-                    if near_duplicates.seen_or_add(text):
-                        stats["rejected"]["near_duplicate"] += 1
-                        continue
-                    seen_hashes.add(content_hash)
                     license_name = str(
                         item.get("license", spec["license"])
                         if spec["license"] == "per-record"
@@ -447,6 +524,16 @@ def download_native_foundation(
                         for allowed in ("mit", "apache", "bsd", "isc", "mpl")
                     ):
                         continue
+                    content_hash = hashlib.sha256(text.encode("utf-8")).hexdigest()
+                    if exact_seen(content_hash):
+                        stats["rejected"]["exact_duplicate"] += 1
+                        continue
+                    signature = MinHashDeduplicator.signature(text)
+                    signature_count_before = len(near_duplicates._signatures)
+                    if near_duplicates.seen_or_add_signature(signature):
+                        stats["rejected"]["near_duplicate"] += 1
+                        continue
+                    signature_added = len(near_duplicates._signatures) > signature_count_before
                     record = {
                         "text": text,
                         "source": spec["source"],
@@ -470,6 +557,25 @@ def download_native_foundation(
                     encoded_bytes = len(line.encode("utf-8"))
                     source_bytes += encoded_bytes
                     source_docs += 1
+                    if resume_db is None:
+                        seen_hashes.add(content_hash)
+                    else:
+                        resume_db.execute(
+                            "INSERT INTO documents(document_sha256, source, line_bytes) "
+                            "VALUES (?, ?, ?)",
+                            (content_hash, str(spec["source"]), encoded_bytes),
+                        )
+                        if signature_added:
+                            resume_db.execute(
+                                "INSERT OR IGNORE INTO minhash_signatures"
+                                "(document_sha256, signature) VALUES (?, ?)",
+                                (content_hash, json.dumps(signature, separators=(",", ":"))),
+                            )
+                        pending_index_writes += 1
+                        if pending_index_writes >= 1_000:
+                            stream.flush()
+                            resume_db.commit()
+                            pending_index_writes = 0
                     if source_bytes >= source_target:
                         break
                 if source_bytes < int(source_target * 0.98):
@@ -483,6 +589,10 @@ def download_native_foundation(
                 "bytes": source_bytes,
                 "documents": source_docs,
                 "target_bytes": source_target,
+                "resumed_bytes": resumed_bytes,
+                "resumed_documents": resumed_docs,
+                "downloaded_this_run_bytes": source_bytes - resumed_bytes,
+                "downloaded_this_run_documents": source_docs - resumed_docs,
                 "revision": (
                     f"{spec['dataset']}@{resolved_revision}:{spec['config'] or 'default'}"
                     if resolved_revision
@@ -495,6 +605,14 @@ def download_native_foundation(
                 f"{spec['source']}: {source_docs:,} documents, {source_bytes / 1024**3:.2f} GB",
                 flush=True,
             )
+        if resume_db is not None:
+            stream.flush()
+            resume_db.execute(
+                "INSERT OR REPLACE INTO metadata(key, value) VALUES ('corpus_size_bytes', ?)",
+                (str(output.stat().st_size),),
+            )
+            resume_db.commit()
+            resume_db.close()
     return stats
 
 
@@ -1256,6 +1374,11 @@ def parse_args() -> argparse.Namespace:
         "--dry-run", action="store_true", help="Show planned work without downloading."
     )
     parser.add_argument(
+        "--resume",
+        action="store_true",
+        help="Append to an audited foundation corpus; never truncates existing data.",
+    )
+    parser.add_argument(
         "--publish-token-shards",
         action="store_true",
         help="Publish immutable 10M-token uint16 FineWeb-Edu shards after download.",
@@ -1294,6 +1417,8 @@ def main() -> int:
     load_dataset = load_datasets_import(dry_run=args.dry_run)
 
     buckets = [args.bucket] if args.bucket else ["base", "reasoning", "science"]
+    if args.resume and buckets != ["base"]:
+        raise ValueError("--resume currently requires --bucket base")
 
     print("AN-RA TRAINING DATA DOWNLOAD")
     print("=" * 60)
@@ -1314,6 +1439,7 @@ def main() -> int:
                         load_dataset,
                         target_gb=float(profile["target_gb"]),
                         dry_run=args.dry_run,
+                        resume=args.resume,
                     )
                 )
             else:

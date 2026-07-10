@@ -2,14 +2,15 @@ from __future__ import annotations
 
 # AN-RA iterate500 branch:
 # "frontier" is the only public training profile.
-# It is the 500M-class experiment model; the current build has 499,167,047 parameters:
+# It is the 500M-class experiment model; schema 7 has 499,167,075 parameters:
 # 1280d, 28L, 16 attention heads, 4 KV heads, 1024 context, HAL enabled.
 from dataclasses import dataclass
 
 MODEL_LINE = "v2"
 TOKENIZER_SCHEMA_VERSION = 3
-CHECKPOINT_SCHEMA_VERSION = 6
-V2_FRONTIER_PARAMETER_COUNT = 499_167_047
+CHECKPOINT_SCHEMA_VERSION = 7
+LEGACY_V2_FRONTIER_PARAMETER_COUNT = 499_167_047
+V2_FRONTIER_PARAMETER_COUNT = 499_167_075
 V2_FRONTIER_TRANSFORMER_PARAMETER_COUNT = 496_857_600
 BASE_VOCAB_SIZE = 8192
 CANONICAL_PAD_TOKEN_ID = 0
@@ -58,9 +59,9 @@ TOKENIZER_V4_VOCAB_SIZE = 16_384
 TOKENIZER_V4_32K_VOCAB_SIZE = 32_768
 CANONICAL_V4_VOCAB_SIZE = TOKENIZER_V4_32K_VOCAB_SIZE
 V4_VOCAB_SIZES = (TOKENIZER_V4_VOCAB_SIZE, TOKENIZER_V4_32K_VOCAB_SIZE)
-V2_FRONTIER_V4_PARAMETER_COUNT = 509_631_047
-# 499,167,047 + (32,768 - 8,209) * 1,280 (tied-embedding append contract).
-V2_FRONTIER_V4_32K_PARAMETER_COUNT = 530_602_567
+V2_FRONTIER_V4_PARAMETER_COUNT = 509_631_075
+# 499,167,075 + (32,768 - 8,209) * 1,280 (tied-embedding append contract).
+V2_FRONTIER_V4_32K_PARAMETER_COUNT = 530_602_595
 
 
 def is_v4_vocab_size(vocab_size: int) -> bool:

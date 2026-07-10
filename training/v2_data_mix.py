@@ -62,6 +62,107 @@ class TrainingExample:
     metadata: dict[str, object] = field(default_factory=dict)
 
 
+def _example_split_identity(example: TrainingExample) -> str:
+    declared = next(
+        (
+            str(example.metadata[key]).strip()
+            for key in ("source_hash", "document_hash", "content_hash")
+            if str(example.metadata.get(key, "")).strip()
+        ),
+        "",
+    )
+    material = declared or json.dumps(
+        {
+            "source": example.source,
+            "prompt": " ".join(example.prompt.split()),
+            "answer": " ".join(example.answer.split()),
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    return hashlib.sha256(material.encode("utf-8")).hexdigest()
+
+
+def split_conversation_validation(
+    examples: Iterable[TrainingExample],
+    *,
+    validation_fraction: float = 0.05,
+) -> tuple[list[TrainingExample], list[TrainingExample], dict[str, object]]:
+    """Split content groups before tokenization and prove zero cross-split overlap."""
+    rows = list(examples)
+    if not 0.0 < validation_fraction < 0.5:
+        raise ValueError("validation_fraction must be between 0 and 0.5")
+    groups: dict[str, list[TrainingExample]] = {}
+    for example in rows:
+        groups.setdefault(_example_split_identity(example), []).append(example)
+    if len(groups) < 2:
+        raise RuntimeError("conversation validation requires at least two content groups")
+
+    threshold = int(validation_fraction * 10_000)
+    validation_keys = {
+        key for key in groups if int(key[:8], 16) % 10_000 < threshold
+    }
+    if not validation_keys:
+        validation_keys.add(min(groups))
+    if validation_keys == set(groups):
+        validation_keys.remove(max(validation_keys))
+
+    buckets = sorted({example.bucket for example in rows})
+    for bucket in buckets:
+        bucket_keys = sorted(
+            key
+            for key, grouped in groups.items()
+            if any(example.bucket == bucket for example in grouped)
+        )
+        if len(bucket_keys) >= 2 and not any(key in validation_keys for key in bucket_keys):
+            validation_keys.add(bucket_keys[0])
+        if bucket_keys and all(key in validation_keys for key in bucket_keys):
+            validation_keys.remove(bucket_keys[-1])
+
+    train = [
+        example
+        for key, grouped in groups.items()
+        if key not in validation_keys
+        for example in grouped
+    ]
+    validation = [
+        example
+        for key, grouped in groups.items()
+        if key in validation_keys
+        for example in grouped
+    ]
+    train_keys = {_example_split_identity(example) for example in train}
+    heldout_keys = {_example_split_identity(example) for example in validation}
+    overlap = sorted(train_keys & heldout_keys)
+    if not train or not validation or overlap:
+        raise RuntimeError(
+            "conversation validation split failed: "
+            f"train={len(train)} validation={len(validation)} overlap={len(overlap)}"
+        )
+    report: dict[str, object] = {
+        "schema_version": 1,
+        "algorithm": "declared-source-or-normalized-record-sha256-v1",
+        "validation_fraction": float(validation_fraction),
+        "total_examples": len(rows),
+        "train_examples": len(train),
+        "validation_examples": len(validation),
+        "train_group_hashes": sorted(train_keys),
+        "validation_group_hashes": sorted(heldout_keys),
+        "overlap_group_hashes": overlap,
+        "bucket_counts": {
+            bucket: {
+                "train": sum(example.bucket == bucket for example in train),
+                "validation": sum(example.bucket == bucket for example in validation),
+            }
+            for bucket in buckets
+        },
+    }
+    report["split_sha256"] = hashlib.sha256(
+        json.dumps(report, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+    return train, validation, report
+
+
 @dataclass
 class MixReport:
     total_examples: int
@@ -1037,15 +1138,19 @@ class V2ConversationDataset(Dataset):
         block_size: int,
         *,
         answer_loss_weight: float,
+        validation_identity: str | None = None,
     ) -> None:
         self.examples: list[TrainingExample] = []
         self.tokenizer = tokenizer
         self.block_size = int(block_size)
         self.answer_loss_weight = float(max(1.0, answer_loss_weight))
+        self.validation_identity = str(validation_identity or "") or None
         self.pad_id = int(tokenizer.pad_token_id)
         self.bos_id = int(tokenizer.bos_token_id)
         self.eos_id = int(tokenizer.eos_token_id)
-        self.samples: list[tuple[torch.Tensor, torch.Tensor, torch.Tensor, int]] = []
+        self.samples: list[
+            tuple[torch.Tensor, torch.Tensor, torch.Tensor, int, torch.Tensor]
+        ] = []
         self.bucket_counts: dict[str, int] = {}
         self._known_examples: set[tuple[str, str, str]] = set()
         self._weighted_targets = 0.0
@@ -1055,7 +1160,9 @@ class V2ConversationDataset(Dataset):
         self._append_examples(list(examples))
 
     def _append_examples(self, examples: list[TrainingExample]) -> int:
-        packed_segments: dict[str, list[tuple[list[int], list[float], int]]] = {}
+        packed_segments: dict[
+            str, list[tuple[list[int], list[float], list[bool], int]]
+        ] = {}
         bucket_order: list[str] = []
         weighted_targets = 0.0
         added = 0
@@ -1086,6 +1193,7 @@ class V2ConversationDataset(Dataset):
                 if len(chunk) < 8:
                     continue
                 target_weights = [1.0] * (len(chunk) - 1)
+                target_answer_mask = [False] * (len(chunk) - 1)
                 target_start = start + 1
                 target_end = start + self.block_size + 1
                 overlap_start = max(answer_start, target_start)
@@ -1094,44 +1202,60 @@ class V2ConversationDataset(Dataset):
                     answer_weight = self.answer_loss_weight * float(example.weight)
                     for offset in range(overlap_start - target_start, overlap_end - target_start):
                         target_weights[offset] = answer_weight
+                        target_answer_mask[offset] = True
                     weighted_targets += overlap_end - overlap_start
                 # The first token in each source segment is not supervised when
                 # following the prior segment's EOS. This avoids teaching an
                 # artificial cross-example transition while retaining EOS loss.
                 packed_segments[example.bucket].append(
-                    (list(chunk), [0.0, *target_weights], example_idx)
+                    (
+                        list(chunk),
+                        [0.0, *target_weights],
+                        [False, *target_answer_mask],
+                        example_idx,
+                    )
                 )
 
         for bucket in bucket_order:
             tokens: list[int] = []
             token_weights: list[float] = []
+            answer_mask: list[bool] = []
             representative_index = -1
-            for segment_tokens, segment_weights, example_index in packed_segments[bucket]:
+            for (
+                segment_tokens,
+                segment_weights,
+                segment_answer_mask,
+                example_index,
+            ) in packed_segments[bucket]:
                 if tokens and len(tokens) + len(segment_tokens) > self.block_size + 1:
                     self._append_packed_window(
                         bucket,
                         tokens,
                         token_weights,
+                        answer_mask,
                         representative_index,
                     )
-                    tokens, token_weights, representative_index = [], [], -1
+                    tokens, token_weights, answer_mask, representative_index = [], [], [], -1
                 if representative_index < 0:
                     representative_index = example_index
                 tokens.extend(segment_tokens)
                 token_weights.extend(segment_weights)
+                answer_mask.extend(segment_answer_mask)
                 if len(tokens) == self.block_size + 1:
                     self._append_packed_window(
                         bucket,
                         tokens,
                         token_weights,
+                        answer_mask,
                         representative_index,
                     )
-                    tokens, token_weights, representative_index = [], [], -1
+                    tokens, token_weights, answer_mask, representative_index = [], [], [], -1
             if tokens:
                 self._append_packed_window(
                     bucket,
                     tokens,
                     token_weights,
+                    answer_mask,
                     representative_index,
                 )
 
@@ -1147,13 +1271,19 @@ class V2ConversationDataset(Dataset):
         bucket: str,
         tokens: list[int],
         token_weights: list[float],
+        answer_mask: list[bool],
         representative_index: int,
     ) -> None:
-        if len(tokens) < 8 or len(tokens) != len(token_weights):
+        if (
+            len(tokens) < 8
+            or len(tokens) != len(token_weights)
+            or len(tokens) != len(answer_mask)
+        ):
             return
         x_values = tokens[:-1]
         y_values = tokens[1:]
         weights = token_weights[1:]
+        target_answer_mask = answer_mask[1:]
         target_count = len(y_values)
         pad = self.block_size - target_count
         if pad < 0:
@@ -1162,12 +1292,14 @@ class V2ConversationDataset(Dataset):
             x_values.extend([self.pad_id] * pad)
             y_values.extend([self.pad_id] * pad)
             weights.extend([0.0] * pad)
+            target_answer_mask.extend([False] * pad)
         self.samples.append(
             (
                 torch.tensor(x_values, dtype=torch.long),
                 torch.tensor(y_values, dtype=torch.long),
                 torch.tensor(weights, dtype=torch.float32),
                 representative_index,
+                torch.tensor(target_answer_mask, dtype=torch.bool),
             )
         )
         self.bucket_counts[bucket] = self.bucket_counts.get(bucket, 0) + 1
@@ -1181,7 +1313,7 @@ class V2ConversationDataset(Dataset):
 
     def bucket_for_window(self, sample_index: int) -> str:
         """Return the source bucket for a dataset window index."""
-        _x, _y, _weights, example_index = self.samples[int(sample_index)]
+        _x, _y, _weights, example_index, _answer_mask = self.samples[int(sample_index)]
         return self.bucket_for_sample(int(example_index))
 
     def verified_esv_targets(
@@ -1221,7 +1353,9 @@ class V2ConversationDataset(Dataset):
     def __len__(self) -> int:
         return len(self.samples)
 
-    def __getitem__(self, index: int) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, int]:
+    def __getitem__(
+        self, index: int
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, int, torch.Tensor]:
         return self.samples[index]
 
     def snippet(self, example_index: int, max_chars: int = 240) -> str:
@@ -1246,10 +1380,12 @@ class RawCausalShardDataset(Dataset):
         expected_tokenizer_sha256: str | None = None,
     ) -> None:
         self.manifest_path = Path(manifest_path)
-        manifest = json.loads(self.manifest_path.read_text(encoding="utf-8"))
+        manifest_bytes = self.manifest_path.read_bytes()
+        manifest = json.loads(manifest_bytes.decode("utf-8"))
         if not isinstance(manifest, dict) or not isinstance(manifest.get("shards"), list):
             raise ValueError(f"Invalid token-shard manifest: {self.manifest_path}")
         self.manifest = manifest
+        self.validation_identity = hashlib.sha256(manifest_bytes).hexdigest()
         manifest_tokenizer = str(manifest.get("tokenizer_sha256", ""))
         if expected_tokenizer_sha256 and manifest_tokenizer != expected_tokenizer_sha256:
             raise ValueError(
@@ -1261,7 +1397,7 @@ class RawCausalShardDataset(Dataset):
         self.pad_id = int(tokenizer.pad_token_id)
         self.answer_supervision_ratio = 0.0
         self.token_utilization = 1.0
-        self.bucket_counts = {"foundation": 0}
+        self.bucket_counts: dict[str, int] = {}
         self._arrays: dict[Path, np.ndarray] = {}
         self._shards: list[dict[str, object]] = []
         root = self.manifest_path.parent
@@ -1300,13 +1436,19 @@ class RawCausalShardDataset(Dataset):
                     "tokens": token_count,
                     "windows": windows,
                     "stable_start": stable_start,
+                    "source_class": str(
+                        item.get("source_class", item.get("source", "foundation"))
+                    ),
                 }
             )
+            source_class = str(
+                item.get("source_class", item.get("source", "foundation"))
+            )
+            self.bucket_counts[source_class] = self.bucket_counts.get(source_class, 0) + windows
             cumulative += windows
             self._cumulative_windows.append(cumulative)
         if not self._shards:
             raise ValueError(f"No complete training windows in {self.manifest_path}")
-        self.bucket_counts["foundation"] = cumulative
 
     def _array(self, path: Path) -> np.ndarray:
         array = self._arrays.get(path)
@@ -1324,7 +1466,7 @@ class RawCausalShardDataset(Dataset):
     def __getitem__(
         self,
         index: int,
-    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, int]:
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, int, torch.Tensor]:
         normalized = int(index)
         if normalized < 0:
             normalized += len(self)
@@ -1347,22 +1489,32 @@ class RawCausalShardDataset(Dataset):
             tokens[1:],
             torch.ones(self.block_size, dtype=torch.float32),
             stable_index,
+            torch.zeros(self.block_size, dtype=torch.bool),
         )
 
-    @staticmethod
-    def bucket_for_sample(_sample_index: int) -> str:
+    def bucket_for_sample(self, sample_index: int) -> str:
+        stable_index = int(sample_index)
+        for shard in self._shards:
+            start = int(shard["stable_start"])
+            if start <= stable_index < start + int(shard["windows"]):
+                return str(shard["source_class"])
         return "foundation"
 
-    @staticmethod
-    def bucket_for_window(_sample_index: int) -> str:
-        return "foundation"
+    def bucket_for_window(self, sample_index: int) -> str:
+        normalized = int(sample_index)
+        if normalized < 0:
+            normalized += len(self)
+        if normalized < 0 or normalized >= len(self):
+            raise IndexError(sample_index)
+        shard_index = bisect_right(self._cumulative_windows, normalized)
+        return str(self._shards[shard_index]["source_class"])
 
     @staticmethod
     def reload_replay_bucket() -> int:
         return 0
 
     def snippet(self, sample_index: int, max_chars: int = 240) -> str:
-        x, _, _, _ = self[sample_index]
+        x, _, _, _, _ = self[sample_index]
         return self.tokenizer.decode(x.tolist())[:max_chars].replace("\n", "\\n")
 
 

@@ -87,6 +87,7 @@ def profile_checkpoint(path: Path) -> dict[str, object]:
         "residual_depth_logits",
         "dstp_temperature_log",
         "layer_temperature_bias",
+        "layer_temperature_bias_log",
         "esv_module.state",
         "token_embedding_table.weight",
     ):

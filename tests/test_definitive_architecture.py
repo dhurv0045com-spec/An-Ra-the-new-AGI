@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 import numpy as np
+import pytest
 import torch
 
 from evaluation.ibs import IBSBenchmark
@@ -116,9 +117,12 @@ def test_raw_causal_dataset_trains_every_next_token(tmp_path) -> None:
         block_size=8,
         expected_tokenizer_sha256="tokenizer-hash",
     )
-    x, y, weights, _ = dataset[0]
+    x, y, weights, _, answer_mask = dataset[0]
     torch.testing.assert_close(x[1:], y[:-1])
     assert torch.all(weights == 1)
+    assert not answer_mask.any()
+    assert dataset.bucket_for_window(0) == "foundation"
+    assert dataset.bucket_for_sample(dataset[0][3]) == "foundation"
 
 
 def test_raw_window_ids_are_stable_across_shard_rotation(tmp_path) -> None:
@@ -258,6 +262,7 @@ def test_checkpoint_migration_preserves_legacy_rows_and_initializes_dstp() -> No
         "lm_head.weight": torch.zeros(8209, 4),
         "residual_depth_logits": torch.zeros(2),
         "dstp_temperature_log": torch.ones(2),
+        "layer_temperature_bias_log": torch.zeros(2),
     }
     migrated, report = migrate_checkpoint_state(source, target)
     torch.testing.assert_close(
@@ -266,9 +271,45 @@ def test_checkpoint_migration_preserves_legacy_rows_and_initializes_dstp() -> No
     )
     torch.testing.assert_close(migrated["residual_depth_logits"], legacy_depth)
     torch.testing.assert_close(migrated["dstp_temperature_log"], torch.ones(2))
+    torch.testing.assert_close(migrated["layer_temperature_bias_log"], torch.zeros(2))
     assert report["source_vocab_size"] == 8192
     assert report["target_vocab_size"] == 8209
     assert report["appended_token_rows"] == 17
+
+
+def test_checkpoint_migration_converts_legacy_temperature_scale_to_log_parameter() -> None:
+    source = {
+        "token_embedding_table.weight": torch.ones(8, 4),
+        "layer_temperature_bias": torch.tensor([0.5, 1.0, 2.0]),
+    }
+    target = {
+        "token_embedding_table.weight": torch.ones(8, 4),
+        "layer_temperature_bias_log": torch.zeros(3),
+    }
+
+    migrated, report = migrate_checkpoint_state(source, target)
+
+    assert "layer_temperature_bias" not in migrated
+    torch.testing.assert_close(
+        migrated["layer_temperature_bias_log"],
+        torch.tensor([0.5, 1.0, 2.0]).log(),
+    )
+    assert "layer_temperature_bias->layer_temperature_bias_log" in report["changes"]
+    assert report["schema_version"] == 7
+
+
+def test_checkpoint_migration_rejects_invalid_legacy_temperature_scale() -> None:
+    source = {
+        "token_embedding_table.weight": torch.ones(8, 4),
+        "layer_temperature_bias": torch.tensor([1.0, 0.0]),
+    }
+    target = {
+        "token_embedding_table.weight": torch.ones(8, 4),
+        "layer_temperature_bias_log": torch.zeros(2),
+    }
+
+    with pytest.raises(ValueError, match="finite positive"):
+        migrate_checkpoint_state(source, target)
 
 
 def test_checkpoint_vocabulary_migration_is_deterministic() -> None:

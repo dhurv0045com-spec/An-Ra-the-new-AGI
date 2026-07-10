@@ -496,8 +496,9 @@ class CausalTransformerV2(nn.Module):
             else:
                 self.use_hal = False
         if self.use_layer_temperature_bias:
-            # AN: let each block learn how strongly shared ESV arousal should shape its attention.
-            self.register_buffer("layer_temperature_bias", torch.ones(n_layer))
+            # Positive, bounded per-layer multiplier. Log-space keeps the neutral
+            # initialization exact and prevents sign flips in attention temperature.
+            self.layer_temperature_bias_log = nn.Parameter(torch.zeros(n_layer))
 
     def _init_weights(self, module: nn.Module) -> None:
         if isinstance(module, nn.Linear):
@@ -582,6 +583,11 @@ class CausalTransformerV2(nn.Module):
             return 1.0
         return self.dstp_temperature_log[layer_idx].exp().clamp(0.5, 2.0)
 
+    def _layer_temperature_bias(self, layer_idx: int) -> torch.Tensor | float:
+        if not self.use_layer_temperature_bias:
+            return 1.0
+        return self.layer_temperature_bias_log[layer_idx].exp().clamp(0.5, 2.0)
+
     def _router_context(self, x: torch.Tensor, esv_state: torch.Tensor) -> RouterContext:
         probabilities = torch.softmax(x.float(), dim=-1)
         entropy = -(probabilities * probabilities.clamp_min(1e-8).log()).sum(dim=-1)
@@ -621,6 +627,8 @@ class CausalTransformerV2(nn.Module):
                 loss
                 + 0.001 * (self.dstp_temperature_log - self.dstp_temperature_initial).pow(2).mean()
             )
+        if self.use_layer_temperature_bias:
+            loss = loss + 0.001 * self.layer_temperature_bias_log.pow(2).mean()
         if self.use_esv_control:
             loss = loss + 0.001 * self.esv_module.temporal_consistency_loss()
         return loss
@@ -634,6 +642,12 @@ class CausalTransformerV2(nn.Module):
                 float(value) for value in self.dstp_temperature_log.detach().exp().cpu()
             ]
             if self.use_dstp
+            else [],
+            "layer_temperature_biases": [
+                float(value)
+                for value in self.layer_temperature_bias_log.detach().exp().clamp(0.5, 2.0).cpu()
+            ]
+            if self.use_layer_temperature_bias
             else [],
             "residual_scales": [
                 float(value)
@@ -694,10 +708,7 @@ class CausalTransformerV2(nn.Module):
                         )
                     else:
                         attention_temperature = torch.ones((), device=x.device, dtype=x.dtype)
-                    if self.use_layer_temperature_bias:
-                        attention_temperature = (
-                            attention_temperature * self.layer_temperature_bias[i]
-                        )
+                    attention_temperature = attention_temperature * self._layer_temperature_bias(i)
                     if self.use_dstp:
                         self._subsystem_execution["dstp"] += 1
                     attention_temperature = attention_temperature * self._dstp_temperature(i)
@@ -799,7 +810,9 @@ class CausalTransformerV2(nn.Module):
                 use_hal = self.use_hal and hasattr(self, "hal_module")
                 hal_mod = self.hal_module if use_hal else None
                 esv_mod = self.esv_module
-                bias_i = self.layer_temperature_bias[i] if self.use_layer_temperature_bias else None
+                bias_i = (
+                    self._layer_temperature_bias(i) if self.use_layer_temperature_bias else None
+                )
                 rim_i = self.rim_modules[i] if self.use_rim else None
                 scale_i = self._residual_scale(i)
 
@@ -887,8 +900,7 @@ class CausalTransformerV2(nn.Module):
                     attention_temperature = self.esv_module.attention_temperature_tensor(esv_state)
                 else:
                     attention_temperature = torch.ones((), device=x.device, dtype=x.dtype)
-                if self.use_layer_temperature_bias:
-                    attention_temperature = attention_temperature * self.layer_temperature_bias[i]
+                attention_temperature = attention_temperature * self._layer_temperature_bias(i)
                 if self.use_dstp:
                     self._subsystem_execution["dstp"] += 1
                 attention_temperature = attention_temperature * self._dstp_temperature(i)

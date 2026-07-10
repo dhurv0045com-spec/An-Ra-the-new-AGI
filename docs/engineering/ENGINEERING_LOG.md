@@ -1,5 +1,55 @@
 # Engineering Log
 
+## 2026-07-11 - VERIFICATION - Schema-7 CUDA replay and baseline freeze
+
+| Field | Value |
+|-------|-------|
+| **Date** | 2026-07-11 |
+| **Author** | Codex |
+| **Component** | schema-4 legacy checkpoint migration to schema-7 runtime; RTX 4050 recovery gate; baseline freeze |
+| **Type** | VERIFICATION |
+| **Summary** | Re-executed all 600 cache-off greedy generations under the repaired schema-7 runtime with a hard CUDA requirement. The report completed and published atomically. Exact structure, finite activations, tokenizer probes, and deterministic replay pass; capability fails decisively: 0.0% coherence and acceptance with 100% EOS failure. Re-froze the unchanged checkpoint, schema-7 config contract, tokenizer fingerprint, and corpus manifests. |
+| **Evidence** | `output/v2/stream_a_forensics.json` generated 2026-07-11 02:51:32; `output/v2/baseline_freeze.json`; checkpoint SHA-256 `648354a42d68c22769450a3aaa249e93689b21fbe72e68b07dcc15c6f7f4d393`; config contract SHA-256 `15321a16d8ddc28c1b825384ac5f2ffded0a66ea20aedbe73772874b17c14215`. |
+| **Metrics** | 600/600 generations; coherence 0.0% / required 80%; diagnostic/native/replay acceptance 0.0%; diagnostic/native EOS failure 100%; current schema-7 contract 499,167,075 parameters. |
+| **Risk** | The artifact remains structurally useful only as a forensic baseline. It is not a serving or continuation winner. The schema-7 architecture candidate still requires scratch/continuation pilots; this replay does not promote it. |
+| **Follow-up** | Continue data/campaign preflight. Do not spend training compute until corpus manifests, tokenizer pilot, throughput, recovery, and immutable validation gates pass. |
+
+---
+
+## 2026-07-11 - TRAIN/FIX - Explicit answer-only loss contract across GPU and TPU
+
+| Field | Value |
+|-------|-------|
+| **Date** | 2026-07-11 |
+| **Author** | Codex |
+| **Component** | conversational packing; GPU/TPU/draft trainers; immutable validation; checkpoint/runtime metadata |
+| **Type** | TRAIN + FIX + VERIFICATION |
+| **Summary** | Closed the scaffold-loss and held-out-boundary gaps exposed by the legacy checkpoint. Conversational packing now emits a boolean token-level answer mask independent from numeric loss weights. GPU and TPU consumers preserve the mask; training records answer/scaffold NLL and exact denominators; validation reports total, weighted, answer-only, scaffold-only, and per-domain CE; checkpoints/runtime metadata preserve `best_answer_validation_loss` separately. The former conversational `eval_ds = ds` path is replaced by deterministic whole-content-group assignment before tokenization, distinct datasets, and a hashed zero-overlap manifest. Stage promotion computes same-identity, newer baseline/candidate domain regressions rather than trusting supplied flags. Raw causal foundation shards emit an all-false answer mask because they have no conversational answer boundary. |
+| **Files** | `training/v2_data_mix.py`, `training/eval_v2.py`, `training/stages.py`, `training/train_unified.py`, `scripts/build_brain.py`, `scripts/build_brain_tpu.py`, `scripts/train_draft_recovery.py`, `training/v2_runtime.py`, `generate.py`, focused regressions and planning/forensic records |
+| **Metrics** | Focused cross-path verification: 66 passed after final gate integration. Full non-GPU suite: 597 passed, 1 skipped. |
+| **Verification** | Synthetic logits prove answer/scaffold/weighted/total CE separation; packed conversation mask presence; raw shard source identity/no-answer contract; deterministic grouped split and overlap rejection; identity/newness/domain promotion regression tests; training breakdown test; Python compilation; changed-file ruff and diff check; full suite. |
+| **Risk** | Foundation shards intentionally have no answer-only metric. Promotion now blocks until a new validation measurement exists after the preflight baseline; short runs that never produce a second measurement cannot pass by reusing evidence. |
+| **Follow-up** | Finish the schema-7 CUDA replay, freeze current hashes, then audit remaining stage metrics and campaign preflight for any asserted rather than derived evidence. |
+
+---
+
+## 2026-07-11 - ARCH/FIX - Schema-7 trainable temperature control and evidence publication guard
+
+| Field | Value |
+|-------|-------|
+| **Date** | 2026-07-11 |
+| **Author** | Codex |
+| **Component** | layer-temperature architecture; checkpoint migration; optimizer partitioning; Stream-A evidence publication |
+| **Type** | ARCH + FIX + VERIFICATION |
+| **Summary** | Resolved forensic F-10 through a named schema-7 candidate. The per-layer temperature control is now a neutral-initialized log-space parameter with a positive `[0.5, 2.0]` realized bound, native anchor regularization, subsystem telemetry, and subsystem learning-rate coverage. Legacy direct scales migrate with `log(scale)`; non-finite/non-positive values fail closed. The 28 newly trainable scalars update the V3/V4 parameter contracts exactly. Also fixed the forensic driver so a structural/skipped rerun cannot overwrite an already executed behavioral gate, and `complete` now denotes terminal execution independently from pass/fail. |
+| **Files** | `anra_brain.py`, `anra/architecture.py`, `training/v2_config.py`, `training/v2_runtime.py`, `training/anra_optimizer.py`, `scripts/run_checkpoint_forensics.py`, profiler support, focused regressions, README/planning/forensic records |
+| **Metrics** | Schema 7 V3: 499,167,075 parameters; V4-16k: 509,631,075; V4-32k: 530,602,595. Focused: 62 passed. Full non-GPU suite: 590 passed, 1 skipped. Legacy schema-4 structural checker migrates to schema 7 with zero reported errors. |
+| **Verification** | Trainability/finite-gradient/bounds/telemetry test; legacy conversion and invalid-scale rejection; subsystem optimizer partition test; canonical count proof; checkpoint-on/off all-gradient parity; evidence-downgrade regression; full non-GPU suite; changed-file ruff. |
+| **Risk** | This is an architecture candidate, not an ablation winner. The removal-versus-trainable three-seed pilot remains mandatory before campaign selection. A schema-7 CUDA behavioral replay is active because the prior canonical report must be refreshed under the new runtime contract. |
+| **Follow-up** | Finish the CUDA replay, freeze schema-7 hashes, then continue the highest-impact locally executable training-pipeline audit while corpus/pilot compute remains external. |
+
+---
+
 ## 2026-07-10 - VERIFICATION - 500M GPU recovery gate completed
 
 | Field | Value |

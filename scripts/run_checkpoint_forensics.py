@@ -36,6 +36,53 @@ FORENSICS_REPORT = OUTPUT_V2_DIR / "stream_a_forensics.json"
 COHERENCE_RECOVERY_GATE = 0.80
 
 
+def assert_generation_device(required_device: str) -> None:
+    if required_device == "auto":
+        return
+    if required_device != "cuda":
+        raise ValueError(f"Unsupported required generation device: {required_device}")
+    import torch
+
+    if not torch.cuda.is_available():
+        raise RuntimeError(
+            "CUDA generation was required but torch.cuda.is_available() is false; "
+            "refusing a silent CPU fallback"
+        )
+
+
+def _recovery_gate_executed(report: dict[str, object]) -> bool:
+    steps = report.get("steps", {})
+    steps = steps if isinstance(steps, dict) else {}
+    gate = steps.get("recovery_gate", {})
+    gate = gate if isinstance(gate, dict) else {}
+    return gate.get("status") in {"passed", "failed"} and isinstance(gate.get("report"), dict)
+
+
+def publish_forensics_report(report: dict[str, object], output: Path) -> dict[str, object]:
+    """Atomically publish without downgrading completed generation evidence."""
+    if output.is_file():
+        try:
+            existing = json.loads(output.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            existing = None
+        if (
+            isinstance(existing, dict)
+            and existing.get("checkpoint") == report.get("checkpoint")
+            and _recovery_gate_executed(existing)
+            and not _recovery_gate_executed(report)
+        ):
+            return {
+                "written": False,
+                "reason": "refused_to_replace_executed_recovery_gate_with_incomplete_report",
+                "path": str(output),
+            }
+    output.parent.mkdir(parents=True, exist_ok=True)
+    temporary = output.with_suffix(output.suffix + ".tmp")
+    temporary.write_text(json.dumps(report, indent=2, sort_keys=True), encoding="utf-8")
+    temporary.replace(output)
+    return {"written": True, "reason": "published", "path": str(output)}
+
+
 def _frontier_generator() -> Callable[[str, str, int, str | None], object]:
     """Deterministic greedy generator over the real checkpoint (heavy import)."""
     from generate import GenerationConfig, clear_session_runtime_state, generate_traced
@@ -153,7 +200,7 @@ def run_forensics(
         "checkpoint": str(checkpoint),
         "steps": steps,
         "verdict": verdict,
-        "complete": statuses <= {"passed"},
+        "complete": statuses <= {"passed", "failed"},
         "blocked": "blocked" in statuses,
         "failed": "failed" in statuses,
     }
@@ -168,7 +215,16 @@ def main() -> int:
         action="store_true",
         help="Load the model and run the 200-prompt deterministic recovery gate.",
     )
+    parser.add_argument(
+        "--generation-device",
+        choices=("cuda", "auto"),
+        default="cuda",
+        help="Require CUDA for the expensive gate (default) or explicitly allow auto fallback.",
+    )
     args = parser.parse_args()
+
+    if args.run_generation:
+        assert_generation_device(args.generation_device)
 
     report = run_forensics(
         resolve_checkpoint(args.checkpoint),
@@ -177,11 +233,10 @@ def main() -> int:
     output = Path(args.json_out)
     if not output.is_absolute():
         output = ROOT / output
-    output.parent.mkdir(parents=True, exist_ok=True)
-    temporary = output.with_suffix(".tmp")
-    temporary.write_text(json.dumps(report, indent=2, sort_keys=True), encoding="utf-8")
-    temporary.replace(output)
-    print(json.dumps({k: v for k, v in report.items() if k != "steps"}, indent=2, sort_keys=True))
+    publication = publish_forensics_report(report, output)
+    summary = {k: v for k, v in report.items() if k != "steps"}
+    summary["publication"] = publication
+    print(json.dumps(summary, indent=2, sort_keys=True))
     if report["failed"]:
         return 2
     if report["blocked"]:

@@ -7,7 +7,11 @@ from training.data_pipeline_v3 import ShardedDataPipeline, SourceRecord, validat
 from training.data_ledger import DataQuality
 from training.data_routing import build_data_route_report, route_source_class
 from training.pcgrad import PCGradAccumulator, project_conflicting_gradient
-from training.stages import CampaignState, TrainingStage
+from training.stages import (
+    CampaignState,
+    TrainingStage,
+    build_validation_regression_gate,
+)
 from training.stages import training_progress_report
 
 
@@ -116,3 +120,46 @@ def test_campaign_stages_resume(tmp_path) -> None:
     )
     resumed = CampaignState(path)
     assert resumed.next_stage().stage == TrainingStage.OWNER_ADAPTATION
+
+
+def test_validation_regression_gate_is_identity_bound_and_domain_stratified() -> None:
+    baseline = {
+        "step": 100,
+        "validation_identity": "a" * 64,
+        "loss": 2.0,
+        "domain_losses": {
+            "teacher": {"loss": 2.0, "answer_loss": 2.2},
+            "symbolic": {"loss": 1.5, "answer_loss": 1.6},
+        },
+    }
+    candidate = {
+        "step": 200,
+        "validation_identity": "a" * 64,
+        "loss": 2.01,
+        "domain_losses": {
+            "teacher": {"loss": 2.01, "answer_loss": 2.21},
+            "symbolic": {"loss": 1.49, "answer_loss": 1.59},
+        },
+    }
+
+    passed = build_validation_regression_gate(baseline, candidate, require_answer=True)
+    assert passed["passed"] is True
+
+    candidate["validation_identity"] = "b" * 64
+    candidate["domain_losses"]["teacher"]["answer_loss"] = 2.5
+    failed = build_validation_regression_gate(baseline, candidate, require_answer=True)
+
+    assert failed["passed"] is False
+    assert any("identity" in failure for failure in failed["failures"])
+    assert any("teacher.answer_loss" in failure for failure in failed["failures"])
+
+
+def test_validation_regression_gate_rejects_reused_or_missing_evidence() -> None:
+    report = build_validation_regression_gate(
+        {"step": 100, "loss": 2.0, "domain_losses": {}},
+        {"step": 100, "loss": 2.0, "domain_losses": {}},
+    )
+
+    assert report["passed"] is False
+    assert any("not newer" in failure for failure in report["failures"])
+    assert any("domain losses" in failure for failure in report["failures"])

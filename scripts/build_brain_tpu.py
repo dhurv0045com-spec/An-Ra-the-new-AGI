@@ -49,6 +49,7 @@ from training.v2_data_mix import (
     TrainingDataMixController,
     V2ConversationDataset,
     build_v2_training_examples,
+    split_conversation_validation,
 )
 from training.v2_runtime import (
     build_frontier_model,
@@ -227,8 +228,15 @@ def train_anra_tpu(
     if mix_report.active_weights:
         mix_controller.weights = dict(mix_report.active_weights)
 
+    training_examples, validation_examples, conversation_split = split_conversation_validation(
+        examples
+    )
+    write_json(
+        ROOT / "output" / "v2" / "data_manifests" / "conversation_validation_split.json",
+        conversation_split,
+    )
     dataset = V2ConversationDataset(
-        examples,
+        training_examples,
         tokenizer,
         block_size,
         answer_loss_weight=answer_loss_weight,
@@ -333,7 +341,11 @@ def train_anra_tpu(
     print("  Grad checkpointing  : disabled on TPU/XLA", flush=True)
     print(f"  Frozen SN params    : {len(frozen_parametrizations)}", flush=True)
     print(f"  Optimizer           : {optimizer_report.get('selected', {}).get('actual', optimizer_name)}", flush=True)
-    print(f"  Examples/windows    : {len(examples):,}/{len(dataset):,}", flush=True)
+    print(
+        f"  Train/validation/windows: {len(training_examples):,}/"
+        f"{len(validation_examples):,}/{len(dataset):,}",
+        flush=True,
+    )
     print(f"  Session minutes     : {max_minutes}", flush=True)
     print("=" * 66, flush=True)
     print("[TPU] First step can take several minutes because XLA compiles the graph once.", flush=True)
@@ -379,7 +391,7 @@ def train_anra_tpu(
         for batch in device_loader:
             if time.time() >= end_at or stop_requested:
                 break
-            x, y, weights, _sample_idx = batch
+            x, y, weights, _sample_idx, _answer_mask = batch
             if intelligence_session is not None:
                 intelligence_session.begin_step(global_step + 1)
             logits, _ = model(x)

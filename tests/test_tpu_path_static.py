@@ -5,8 +5,14 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 from training.tpu_runtime import TPUUnavailableError, require_torch_xla
-from training.v2_data_mix import TrainingExample, V2ConversationDataset
+from training.v2_data_mix import (
+    TrainingExample,
+    V2ConversationDataset,
+    split_conversation_validation,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -92,6 +98,52 @@ def test_dataset_window_bucket_handles_multi_window_examples() -> None:
 
     assert len(dataset) > len(dataset.examples)
     assert {dataset.bucket_for_window(index) for index in range(len(dataset))} == {"teacher"}
+    assert any(bool(dataset[index][4].any()) for index in range(len(dataset)))
+
+
+def test_conversation_validation_split_is_deterministic_grouped_and_disjoint() -> None:
+    examples = [
+        TrainingExample(
+            bucket="own" if index % 2 == 0 else "teacher",
+            prompt=f"prompt {index}",
+            answer=f"answer {index}",
+            source="unit",
+            metadata={"source_hash": f"source-{index // 2}"},
+        )
+        for index in range(12)
+    ]
+
+    first_train, first_validation, first_report = split_conversation_validation(examples)
+    second_train, second_validation, second_report = split_conversation_validation(examples)
+
+    assert first_report == second_report
+    assert [(row.prompt, row.answer) for row in first_train] == [
+        (row.prompt, row.answer) for row in second_train
+    ]
+    assert [(row.prompt, row.answer) for row in first_validation] == [
+        (row.prompt, row.answer) for row in second_validation
+    ]
+    assert first_report["overlap_group_hashes"] == []
+    assert len(first_report["split_sha256"]) == 64
+    train_sources = {row.metadata["source_hash"] for row in first_train}
+    validation_sources = {row.metadata["source_hash"] for row in first_validation}
+    assert train_sources.isdisjoint(validation_sources)
+    assert set(first_report["bucket_counts"]) == {"own", "teacher"}
+
+
+def test_conversation_validation_split_rejects_single_content_group() -> None:
+    rows = [
+        TrainingExample(
+            bucket="own",
+            prompt="same",
+            answer="same",
+            source="unit",
+            metadata={"source_hash": "only-source"},
+        )
+    ]
+
+    with pytest.raises(RuntimeError, match="at least two content groups"):
+        split_conversation_validation(rows)
 
 
 def test_dataset_packs_short_examples_without_mixing_buckets() -> None:

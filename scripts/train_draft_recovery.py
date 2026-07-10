@@ -111,7 +111,7 @@ def main() -> int:
     started = time.time()
     model.train()
     while tokens_seen < args.target_tokens:
-        for inputs, targets, _weights, _indices in loader:
+        for inputs, targets, _weights, _indices, _answer_mask in loader:
             inputs = inputs.to(device)
             targets = targets.to(device)
             with torch.autocast(
@@ -145,7 +145,7 @@ def main() -> int:
     losses = []
     with torch.no_grad():
         for index in range(min(100, len(validation))):
-            inputs, targets, _weights, _stable = validation[index]
+            inputs, targets, _weights, _stable, _answer_mask = validation[index]
             logits, _ = model(inputs.unsqueeze(0).to(device))
             losses.append(
                 float(

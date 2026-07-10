@@ -41,6 +41,7 @@ class ArchitectureContract:
         mcr = len(self.mod_layers) * (self.d_model + 4)
         residual_depth = self.n_layers
         dstp_temperatures = self.n_layers
+        layer_temperature_biases = self.n_layers
         return (
             self.transformer_parameters()
             + esv_predictor
@@ -48,6 +49,7 @@ class ArchitectureContract:
             + mcr
             + residual_depth
             + dstp_temperatures
+            + layer_temperature_biases
         )
 
 
@@ -83,7 +85,7 @@ def verify_canonical_counts() -> dict[str, int]:
     }
     expected = {
         "frontier_transformer": 496_857_600,
-        "frontier_full": 499_167_047,
+        "frontier_full": 499_167_075,
         "draft_transformer": 8_004_096,
         "draft_full": 8_004_291,
     }

@@ -6,8 +6,10 @@ import pytest
 from training.anra_optimizer import (
     build_optimizer_with_report,
     candidate_report,
+    partition_learning_rates,
     restore_optimizer_state_for_resume,
 )
+from anra_brain import CausalTransformerV2
 from training.v2_config import V2_FRONTIER_TRAINING
 from training.v2_runtime import v2_report_path
 
@@ -46,6 +48,24 @@ def test_build_optimizer_selects_adamw_baseline() -> None:
     assert report["selected"]["requested"] == "adamw"
     assert report["selected"]["actual"] == "adamw"
     assert report["selected"]["status"] == "active"
+
+
+def test_layer_temperature_parameter_receives_subsystem_learning_rate() -> None:
+    model = CausalTransformerV2(
+        vocab_size=64,
+        n_embd=32,
+        n_head=4,
+        n_kv_head=2,
+        n_layer=2,
+        block_size=16,
+    )
+
+    base, subsystem = partition_learning_rates(model)
+
+    base_names = {name for name, _ in base}
+    subsystem_names = {name for name, _ in subsystem}
+    assert "layer_temperature_bias_log" not in base_names
+    assert "layer_temperature_bias_log" in subsystem_names
 
 
 def test_unavailable_scale_falls_back_without_claiming_active_scale() -> None:

@@ -26,8 +26,32 @@ code plus focused tests exist; it does not waive a quantitative campaign gate.
       rule. Full CUDA gate launched 2026-07-10 on the RTX 4050; acceptance
       completed 2026-07-10: 200 diagnostic + 200 native + 200 replay prompts;
       exact load/replay passed, but coherence was 0.0% versus the 80% gate.
+      Schema-7 CUDA replay completed 2026-07-11 with 0.0% acceptance and 100%
+      EOS failure across diagnostic/native evidence.
       The final verdict is undertraining, not recovery; see
       `output/v2/stream_a_forensics.json`.)*
+- [x] Repair the checkpoint-era temperature-control trainability contract.
+      *(Schema 7 replaces the neutral `layer_temperature_bias` buffer with a
+      bounded positive log-parameter, migrates legacy scales deterministically,
+      rejects invalid scales, regularizes and telemeters the realized values,
+      and routes the 28 parameters through the subsystem optimizer group.
+      Current contract: 499,167,075; legacy artifact: 499,167,047. The code
+      candidate is complete; three-seed removal-vs-trainable ablation remains a
+      campaign selection gate.)*
+- [x] Separate answer quality from prompt/scaffold training and validation loss.
+      *(Conversational packing now emits explicit token-level answer masks to
+      GPU and TPU paths. Training and immutable validation report total,
+      weighted, answer-only, and scaffold-only CE with exact token counts;
+      schema-7 checkpoints retain `best_answer_validation_loss`. Raw foundation
+      shards correctly declare no answer boundary. Full suite: 593 passed,
+      1 skipped.)*
+- [x] Make conversational validation immutable and promotion evidence-derived.
+      *(D/E examples are grouped by declared source/content identity or
+      normalized record SHA-256 before tokenization; train/validation datasets
+      are distinct and a hashed zero-overlap split manifest is emitted. Raw
+      validation remains manifest-bound. Stage gates compute same-identity,
+      newer, per-domain/answer regression evidence and reject trusted boolean
+      claims. Full suite: 597 passed, 1 skipped.)*
 - [x] Convert the pilot factorial into pre-registered launch manifests, three seeds each.
       *(`training/pilot_factorial.py`: 23 cells, seeds 1301/2602/3903, signed
       schema-2 manifests, Law-1 scratch lineage; owner emits the set with

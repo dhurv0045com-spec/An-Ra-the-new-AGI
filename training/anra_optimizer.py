@@ -37,6 +37,7 @@ SUBSYSTEM_PARAMETER_PATTERNS = (
     "mod_routers",
     "dstp_temperature",
     "residual_depth",
+    "layer_temperature_bias",
 )
 
 

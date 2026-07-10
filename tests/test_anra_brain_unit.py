@@ -181,6 +181,38 @@ def test_gradient_checkpointing_gate_gradient_not_stale():
     model.gradient_checkpointing_disable()
 
 
+def test_layer_temperature_bias_is_trainable_positive_bounded_and_reported() -> None:
+    model = CausalTransformerV2(
+        vocab_size=64,
+        n_embd=32,
+        n_head=4,
+        n_kv_head=2,
+        n_layer=2,
+        block_size=16,
+        mod_layers={1},
+    )
+    assert isinstance(model.layer_temperature_bias_log, torch.nn.Parameter)
+    assert model.layer_temperature_bias_log.requires_grad
+    torch.testing.assert_close(model._layer_temperature_bias(0), torch.tensor(1.0))
+
+    with torch.no_grad():
+        model.layer_temperature_bias_log.copy_(torch.tensor([-100.0, 100.0]))
+    torch.testing.assert_close(model._layer_temperature_bias(0), torch.tensor(0.5))
+    torch.testing.assert_close(model._layer_temperature_bias(1), torch.tensor(2.0))
+    assert model.subsystem_telemetry()["layer_temperature_biases"] == [0.5, 2.0]
+
+    with torch.no_grad():
+        model.layer_temperature_bias_log.zero_()
+    logits, loss = model(torch.randint(0, 64, (1, 12)), torch.randint(0, 64, (1, 12)))
+    assert logits.shape == (1, 12, 64)
+    assert loss is not None
+    (loss + model.native_regularization_loss()).backward()
+    gradient = model.layer_temperature_bias_log.grad
+    assert gradient is not None
+    assert torch.isfinite(gradient).all()
+    assert gradient.abs().max().item() > 0.0
+
+
 def test_gradient_checkpointing_matches_plain_forward_and_gradients() -> None:
     """Checkpoint recomputation must represent the exact same layer function."""
     torch.manual_seed(20260710)

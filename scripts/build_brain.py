@@ -79,6 +79,7 @@ from training.v2_data_mix import (
     V2ConversationDataset,
     WindowConsumptionTracker,
     build_v2_training_examples,
+    split_conversation_validation,
 )
 from training.v2_runtime import (
     active_tokenizer_path,
@@ -406,6 +407,7 @@ def _build_checkpoint_payload(
     unique_token_ids_seen: set[int] | None = None,
     continuation_token_counts: dict[str, int] | None = None,
     best_validation_loss: float = float("inf"),
+    best_answer_validation_loss: float = float("inf"),
     validation_history: list[dict[str, object]] | None = None,
     appended_row_optimizer_steps: int = 0,
     raw_window_consumption: dict[str, object] | None = None,
@@ -441,6 +443,9 @@ def _build_checkpoint_payload(
             "best_loss": "legacy alias of best_training_loss",
             "best_training_loss": "minimum exponential-moving-average weighted training loss",
             "best_validation_loss": "minimum loss on the immutable validation dataset",
+            "best_answer_validation_loss": (
+                "minimum answer-token-only loss on immutable conversational validation"
+            ),
             "promotion_metric": "best_validation_loss plus behavioral and verifier gates",
         },
         "sessions_completed": sessions_completed,
@@ -451,6 +456,7 @@ def _build_checkpoint_payload(
         "unique_tokens_seen": len(unique_token_ids_seen or set()),
         "continuation_token_counts": dict(continuation_token_counts or {}),
         "best_validation_loss": float(best_validation_loss),
+        "best_answer_validation_loss": float(best_answer_validation_loss),
         "validation_history": list(validation_history or []),
         "appended_row_optimizer_steps": int(appended_row_optimizer_steps),
         "raw_window_consumption": dict(raw_window_consumption or {}),
@@ -646,9 +652,10 @@ def _weighted_loss(
     logits: torch.Tensor,
     targets: torch.Tensor,
     weights: torch.Tensor,
+    answer_mask: torch.Tensor,
     *,
     pad_id: int,
-) -> tuple[torch.Tensor, torch.Tensor]:
+) -> tuple[torch.Tensor, torch.Tensor, dict[str, torch.Tensor]]:
     bsz, seq_len, channels = logits.shape
     per_token = F.cross_entropy(
         logits.view(bsz * seq_len, channels),
@@ -659,7 +666,16 @@ def _weighted_loss(
     sample_losses = (per_token * effective_weights).sum(dim=1) / effective_weights.sum(
         dim=1
     ).clamp_min(1.0)
-    return sample_losses.mean(), sample_losses
+    nonpad = targets != pad_id
+    answer = answer_mask.bool() & nonpad
+    scaffold = (~answer_mask.bool()) & nonpad
+    breakdown = {
+        "answer_nll_sum": per_token[answer].sum(),
+        "answer_tokens": answer.sum(),
+        "scaffold_nll_sum": per_token[scaffold].sum(),
+        "scaffold_tokens": scaffold.sum(),
+    }
+    return sample_losses.mean(), sample_losses, breakdown
 
 
 def _quick_eval_loss_value(result: float | dict[str, object]) -> float:
@@ -918,13 +934,28 @@ def train_anra_v2(
         )
         if set(mix_report.active_weights) == set(training_mix_controller.weights):
             training_mix_controller.weights = dict(mix_report.active_weights)
+        training_examples, validation_examples, conversation_split = (
+            split_conversation_validation(examples)
+        )
+        write_json(
+            OUTPUT_V2_DIR / "data_manifests" / "conversation_validation_split.json",
+            conversation_split,
+        )
         ds = V2ConversationDataset(
-            examples,
+            training_examples,
             tokenizer,
             block_size,
             answer_loss_weight=answer_loss_weight,
         )
-        eval_ds = ds
+        eval_ds = V2ConversationDataset(
+            validation_examples,
+            tokenizer,
+            block_size,
+            answer_loss_weight=answer_loss_weight,
+            validation_identity=str(conversation_split["split_sha256"]),
+        )
+        if ds is eval_ds:
+            raise RuntimeError("conversation training and validation datasets must be distinct")
     if training_layout == RawCausalShardDataset.PACKING_LAYOUT:
         manifest_payload = _read_json(manifest_path) or {}
         source_mix = manifest_payload.get("source_mix", {})
@@ -1137,6 +1168,7 @@ def train_anra_v2(
     known_token_ids: set[int] = set()
     continuation_token_counts: dict[str, int] = {}
     best_validation_loss = float("inf")
+    best_answer_validation_loss = float("inf")
     validation_history: list[dict[str, object]] = []
 
     registration_ts = time.time()
@@ -1171,6 +1203,7 @@ def train_anra_v2(
             unique_token_ids_seen=known_token_ids,
             continuation_token_counts=continuation_token_counts,
             best_validation_loss=best_validation_loss,
+            best_answer_validation_loss=best_answer_validation_loss,
             validation_history=validation_history,
             appended_row_optimizer_steps=(
                 appended_row_lr.steps_completed if appended_row_lr is not None else 0
@@ -1237,6 +1270,9 @@ def train_anra_v2(
                 }
             )
             best_validation_loss = float(resume_state.get("best_validation_loss", float("inf")))
+            best_answer_validation_loss = float(
+                resume_state.get("best_answer_validation_loss", float("inf"))
+            )
             validation_history = list(resume_state.get("validation_history", []))
             checkpoint_migration = dict(resume_state.get("migration", {}))
             if appended_row_lr is not None:
@@ -1317,13 +1353,37 @@ def train_anra_v2(
             )
             session_start_result = quick_eval_loss(
                 model,
-                ds,
+                eval_ds,
                 device=device,
                 max_examples=start_eval_examples,
                 batch_size=batch_size,
                 pad_id=tokenizer.pad_token_id,
             )
             session_start_loss = _quick_eval_loss_value(session_start_result)
+            answer_start_loss = session_start_result.get("answer_loss")
+            best_validation_loss = min(best_validation_loss, session_start_loss)
+            if answer_start_loss is not None:
+                best_answer_validation_loss = min(
+                    best_answer_validation_loss,
+                    float(answer_start_loss),
+                )
+            validation_history.append(
+                {
+                    "step": global_step,
+                    "kind": "preflight",
+                    **session_start_result,
+                    "best_validation_loss": best_validation_loss,
+                    "best_answer_validation_loss": best_answer_validation_loss,
+                }
+            )
+            write_json(
+                v2_report_path("validation_history"),
+                {
+                    "generated_at": time.time(),
+                    "layout": eval_ds.PACKING_LAYOUT,
+                    "history": validation_history,
+                },
+            )
         except Exception as exc:
             print(f"[build_brain] quick eval at session_start failed: {exc}", flush=True)
             session_start_loss = best_loss
@@ -1353,6 +1413,10 @@ def train_anra_v2(
     rolling_count = 0
     accumulated_step_loss = 0.0
     accumulated_ewc_loss = 0.0
+    accumulated_answer_nll = 0.0
+    accumulated_answer_tokens = 0
+    accumulated_scaffold_nll = 0.0
+    accumulated_scaffold_tokens = 0
     accum_micro_steps = 0
     pending_trained_tokens = 0
     pending_token_ids: set[int] = set()
@@ -1416,7 +1480,7 @@ def train_anra_v2(
         or continuation_token_counts.get(continuation_phase.upper(), 0) < max_phase_tokens
     ):
         epoch += 1
-        for xb, yb, wb, sample_idx in loader:
+        for xb, yb, wb, sample_idx, answer_mask in loader:
             if intelligence_session is not None:
                 intelligence_session.begin_step(global_step)
             if first_batch_wall is None:
@@ -1424,12 +1488,14 @@ def train_anra_v2(
             xb = xb.to(device, non_blocking=True)
             yb = yb.to(device, non_blocking=True)
             wb = wb.to(device, non_blocking=True)
+            answer_mask = answer_mask.to(device, non_blocking=True)
             with mp.autocast():
                 logits, _ = model(xb)
-                batch_loss, sample_losses = _weighted_loss(
+                batch_loss, sample_losses, loss_breakdown = _weighted_loss(
                     logits,
                     yb,
                     wb,
+                    answer_mask,
                     pad_id=tokenizer.pad_token_id,
                 )
                 if growth_alignment is not None:
@@ -1481,6 +1547,10 @@ def train_anra_v2(
                 accum_micro_steps = 0
                 accumulated_step_loss = 0.0
                 accumulated_ewc_loss = 0.0
+                accumulated_answer_nll = 0.0
+                accumulated_answer_tokens = 0
+                accumulated_scaffold_nll = 0.0
+                accumulated_scaffold_tokens = 0
                 pending_trained_tokens = 0
                 pending_token_ids.clear()
                 pending_window_indices.clear()
@@ -1537,8 +1607,16 @@ def train_anra_v2(
             rolling_count += 1
             accumulated_step_loss += microbatch_loss
             accumulated_ewc_loss += float(current_ewc_loss.detach().item())
+            accumulated_answer_nll += float(loss_breakdown["answer_nll_sum"].detach().item())
+            accumulated_answer_tokens += int(loss_breakdown["answer_tokens"].detach().item())
+            accumulated_scaffold_nll += float(
+                loss_breakdown["scaffold_nll_sum"].detach().item()
+            )
+            accumulated_scaffold_tokens += int(
+                loss_breakdown["scaffold_tokens"].detach().item()
+            )
             accum_micro_steps += 1
-            answer_weighted_tokens += float((wb > 1.0).sum().item())
+            answer_weighted_tokens += float(answer_mask.sum().item())
             total_target_tokens += float((yb != tokenizer.pad_token_id).sum().item())
             target_ids = yb[yb != tokenizer.pad_token_id]
             pending_trained_tokens += int(target_ids.numel())
@@ -1567,6 +1645,16 @@ def train_anra_v2(
                 # not merely the final one. The old final-microbatch value made
                 # HAL and adaptive LR react to random hard examples.
                 loss_float = accumulated_step_loss / accum_micro_steps
+                answer_loss_float = (
+                    accumulated_answer_nll / accumulated_answer_tokens
+                    if accumulated_answer_tokens
+                    else None
+                )
+                scaffold_loss_float = (
+                    accumulated_scaffold_nll / accumulated_scaffold_tokens
+                    if accumulated_scaffold_tokens
+                    else None
+                )
                 last_ewc_loss = accumulated_ewc_loss / accum_micro_steps
                 grad_float = float(gradient_norm)
                 if intelligence_session is not None:
@@ -1618,15 +1706,22 @@ def train_anra_v2(
                 accum_micro_steps = 0
                 accumulated_step_loss = 0.0
                 accumulated_ewc_loss = 0.0
+                accumulated_answer_nll = 0.0
+                accumulated_answer_tokens = 0
+                accumulated_scaffold_nll = 0.0
+                accumulated_scaffold_tokens = 0
                 write_json(
                     OUTPUT_V2_DIR / "training_progress_journal.json",
                     {
-                        "schema_version": 1,
+                        "schema_version": 2,
                         "updated_at": time.time(),
                         "global_step": global_step,
                         "completed_optimizer_boundary": True,
                         "accumulation_step": 0,
                         "tokens_seen": campaign_tokens_seen,
+                        "weighted_training_loss": loss_float,
+                        "answer_training_loss": answer_loss_float,
+                        "scaffold_training_loss": scaffold_loss_float,
                         "phase": continuation_phase.upper(),
                         "phase_tokens_seen": continuation_token_counts.get(
                             continuation_phase.upper(), 0
@@ -1724,15 +1819,22 @@ def train_anra_v2(
                             pad_id=tokenizer.pad_token_id,
                         )
                         validation_loss = _quick_eval_loss_value(validation_result)
+                        answer_validation_loss = validation_result.get("answer_loss")
                         best_validation_loss = min(
                             best_validation_loss,
                             validation_loss,
                         )
+                        if answer_validation_loss is not None:
+                            best_answer_validation_loss = min(
+                                best_answer_validation_loss,
+                                float(answer_validation_loss),
+                            )
                         validation_history.append(
                             {
                                 "step": global_step,
-                                "loss": validation_loss,
-                                "best_loss": best_validation_loss,
+                                **validation_result,
+                                "best_validation_loss": best_validation_loss,
+                                "best_answer_validation_loss": best_answer_validation_loss,
                             }
                         )
                         write_json(
@@ -1745,7 +1847,9 @@ def train_anra_v2(
                         )
                         print(
                             f"  validation step={global_step} loss={validation_loss:.4f} "
-                            f"best={best_validation_loss:.4f}",
+                            f"answer={answer_validation_loss} "
+                            f"best={best_validation_loss:.4f} "
+                            f"best_answer={best_answer_validation_loss}",
                             flush=True,
                         )
                     finally:
@@ -1772,6 +1876,7 @@ def train_anra_v2(
                         unique_token_ids_seen=known_token_ids,
                         continuation_token_counts=continuation_token_counts,
                         best_validation_loss=best_validation_loss,
+                        best_answer_validation_loss=best_answer_validation_loss,
                         validation_history=validation_history,
                         appended_row_optimizer_steps=(
                             appended_row_lr.steps_completed if appended_row_lr is not None else 0
@@ -1847,6 +1952,7 @@ def train_anra_v2(
         unique_token_ids_seen=known_token_ids,
         continuation_token_counts=continuation_token_counts,
         best_validation_loss=best_validation_loss,
+        best_answer_validation_loss=best_answer_validation_loss,
         validation_history=validation_history,
         appended_row_optimizer_steps=(
             appended_row_lr.steps_completed if appended_row_lr is not None else 0
@@ -1899,6 +2005,7 @@ def train_anra_v2(
         "model_config": model.model_config(),
         "continuation": continuation_report,
         "best_validation_loss": best_validation_loss,
+        "best_answer_validation_loss": best_answer_validation_loss,
         "validation_history": validation_history,
         "checkpoint_path": str(ckpt_path),
         "mix_report": mix_report.to_dict(),

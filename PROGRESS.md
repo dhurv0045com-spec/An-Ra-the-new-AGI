@@ -14,7 +14,7 @@ session, read this file, then continue from "Next Action".
 
 ---
 
-## Current State (2026-07-10)
+## Current State (2026-07-11)
 
 **Where we are in the plan:** Foundation hardening continues to move. MASTER_UPGRADE v2
 Week 1 tokenizer slice is executed: per-source fertility measured with evidence
@@ -91,7 +91,7 @@ training, benchmark, data, or human-sovereignty evidence.
 The real 500M checkpoint was supplied on 2026-07-10 and frozen outside git at
 `C:\Users\ankit\Downloads\anra_frontier_500m.pt` (2,000,680,247 bytes;
 SHA-256 `648354a4...d393`). Its recorded source commit is an ancestor of this
-branch. Schema-4-to-6 loading accounts for all 608 target tensors with zero
+branch. Schema-4-to-7 loading accounts for all target tensors with zero
 missing, unexpected, or mismatched tensors; the 500 tokenizer probes match the
 frozen manifest. A CUDA smoke ran on the RTX 4050 at 7.44 tokens/second and was
 quality-rejected. The completed 600-generation deterministic recovery audit
@@ -105,7 +105,38 @@ available source, below the mandatory 50 MB gate. Local recovery, post-training
 ablation, and all-seven moonshot gates are now code-complete and fail closed;
 they await their specific compute/data evidence.
 
-**Test baseline:** 585 non-GPU tests passing, 1 skipped. `ruff` clean on all
+The remaining F-10 architecture defect is repaired in schema 7. The per-layer
+temperature multiplier is now a bounded positive log-parameter rather than an
+advertised-but-inert buffer; legacy positive scales migrate by `log(scale)` and
+invalid scales fail closed. Native regularization, telemetry, optimizer-group
+coverage, gradient proof, and exact parameter contracts are tested. The current
+candidate has 499,167,075 parameters (28 more trainable scalars than the legacy
+artifact); it still requires the registered three-seed ablation before campaign
+selection. Forensic publication now refuses to overwrite an executed recovery
+gate with a skipped structural report. The schema-7 CUDA replay completed and
+refreshed the canonical artifact: exact structure and deterministic replay pass,
+but coherence/acceptance remain 0.0% and EOS failure is 100%. The current
+contract, tokenizer probes, corpus manifests, and unchanged checkpoint hash are
+frozen in `output/v2/baseline_freeze.json` (config contract SHA-256
+`15321a16...c14215`).
+
+The training/evaluation loss contract is also repaired. Conversational data
+now carries an explicit answer-token mask instead of inferring answers from a
+numeric weight threshold. GPU, TPU, draft, validation, checkpoint, and runtime
+metadata paths distinguish total, weighted, answer-only, and scaffold-only CE
+with exact denominators. This closes the remaining path by which easy prompt
+scaffolding could make validation look healthy while answers remained poor.
+
+Conversational validation itself is now held out. The former D/E `eval_ds = ds`
+path is replaced by deterministic whole-content-group assignment before
+tokenization, distinct dataset objects, and a hashed zero-overlap split
+manifest shared by GPU/TPU paths. Validation is stratified by raw source class
+or conversational bucket. Stage promotion computes same-identity, newer
+baseline/candidate regressions per protected domain (including answer loss in
+conversational stages) and fails closed on missing/reused/operator-asserted
+evidence.
+
+**Test baseline:** 597 non-GPU tests passing, 1 skipped. `ruff` clean on all
 changed files. Full suite command:
 ```
 py -3.14 -m pytest tests/ -m "not gpu" \

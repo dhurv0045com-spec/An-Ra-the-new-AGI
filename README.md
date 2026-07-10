@@ -83,7 +83,7 @@ and is not required for an ordinary chat session.
 | Property | Frontier profile |
 | --- | ---: |
 | Model class | `CausalTransformerV2` / frontier V3 configuration |
-| Total parameters | `499,167,047` |
+| Total parameters | `499,167,075` (schema 7; legacy schema-4 artifact: `499,167,047`) |
 | Transformer parameters | `496,857,600` |
 | Vocabulary | `8,209` canonical tokens |
 | Hidden size | `1,280` |

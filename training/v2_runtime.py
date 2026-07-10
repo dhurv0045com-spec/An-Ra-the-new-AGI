@@ -607,6 +607,24 @@ def migrate_checkpoint_state(
     if "dstp_temperature_log" not in migrated and "dstp_temperature_log" in target_state:
         migrated["dstp_temperature_log"] = target_state["dstp_temperature_log"].detach().clone()
         changes.append("initialize_dstp_temperature_log")
+    legacy_layer_temperature = migrated.pop("layer_temperature_bias", None)
+    if "layer_temperature_bias_log" in target_state:
+        if legacy_layer_temperature is not None:
+            if not torch.isfinite(legacy_layer_temperature).all() or not (
+                legacy_layer_temperature > 0
+            ).all():
+                raise ValueError(
+                    "Legacy layer_temperature_bias must contain finite positive multipliers"
+                )
+            migrated["layer_temperature_bias_log"] = legacy_layer_temperature.float().log().to(
+                dtype=target_state["layer_temperature_bias_log"].dtype
+            )
+            changes.append("layer_temperature_bias->layer_temperature_bias_log")
+        elif "layer_temperature_bias_log" not in migrated:
+            migrated["layer_temperature_bias_log"] = (
+                target_state["layer_temperature_bias_log"].detach().clone()
+            )
+            changes.append("initialize_native:layer_temperature_bias_log")
     neutral_native_prefixes = (
         "esv_module.",
         "rim_modules.",
@@ -615,7 +633,7 @@ def migrate_checkpoint_state(
     neutral_native_exact = {
         "embedding_input_scale",
         "residual_depth_logits",
-        "layer_temperature_bias",
+        "layer_temperature_bias_log",
     }
     for key in sorted(target_state):
         if key in migrated:
@@ -718,7 +736,7 @@ def checkpoint_load_report(
         "mod_routers.",
         "residual_depth_logits",
         "dstp_temperature_log",
-        "layer_temperature_bias",
+        "layer_temperature_bias_log",
     )
     core_missing = [key for key in missing if key.startswith(core_prefixes)]
     core_mismatched = [key for key in mismatched_shapes if key.startswith(core_prefixes)]
@@ -905,6 +923,7 @@ def load_checkpoint(
         "unique_token_ids_seen": [],
         "continuation_token_counts": {},
         "best_validation_loss": float("inf"),
+        "best_answer_validation_loss": float("inf"),
         "validation_history": [],
         "appended_row_optimizer_steps": 0,
         "raw_window_consumption": {},
@@ -1034,6 +1053,9 @@ def load_checkpoint(
         state["unique_token_ids_seen"] = list(blob.get("unique_token_ids_seen", []))
         state["continuation_token_counts"] = dict(blob.get("continuation_token_counts", {}))
         state["best_validation_loss"] = float(blob.get("best_validation_loss", float("inf")))
+        state["best_answer_validation_loss"] = float(
+            blob.get("best_answer_validation_loss", float("inf"))
+        )
         state["validation_history"] = list(blob.get("validation_history", []))
         state["appended_row_optimizer_steps"] = int(blob.get("appended_row_optimizer_steps", 0))
         state["raw_window_consumption"] = dict(blob.get("raw_window_consumption", {}))

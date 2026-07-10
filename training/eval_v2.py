@@ -199,7 +199,9 @@ def build_private_eval_suite(
                 "prompt": prompt,
                 "expected": expected,
                 "scorer": scorer,
-                "contamination_source": "human_crafted" if material[11] % 2 == 0 else "synthetic_amplified",
+                "contamination_source": (
+                    "human_crafted" if material[11] % 2 == 0 else "synthetic_amplified"
+                ),
                 **(
                     {
                         "operands": [left, right],
@@ -867,9 +869,18 @@ def quick_eval_loss(
     batch_size: int = 8,
     pad_id: int = 0,
 ) -> dict:
-    """Mean CE loss over up to max_examples validation examples."""
+    """Token-weighted validation CE with explicit answer/scaffold separation."""
     model.eval()
-    losses: list[float] = []
+    total_nll = 0.0
+    total_tokens = 0
+    weighted_nll = 0.0
+    total_weight = 0.0
+    answer_nll = 0.0
+    answer_tokens = 0
+    scaffold_nll = 0.0
+    scaffold_tokens = 0
+    evaluated_examples = 0
+    domain_totals: dict[str, dict[str, float]] = {}
     with torch.no_grad():
         for start in range(0, min(len(dataset), max_examples), batch_size):
             rows = [
@@ -880,18 +891,108 @@ def quick_eval_loss(
                 break
             xb = torch.stack([row[0] for row in rows]).to(device)
             yb = torch.stack([row[1] for row in rows]).to(device)
+            weights = torch.stack([row[2] for row in rows]).to(device)
+            answer_mask = torch.stack(
+                [
+                    row[4]
+                    if len(row) >= 5
+                    else torch.zeros_like(row[1], dtype=torch.bool)
+                    for row in rows
+                ]
+            ).to(device)
             logits, _ = model(xb)
-            loss = F.cross_entropy(
-                logits.reshape(-1, logits.size(-1)), yb.reshape(-1), ignore_index=pad_id
-            )
-            losses.append(float(loss.item()))
-    if not losses:
+            per_token = F.cross_entropy(
+                logits.reshape(-1, logits.size(-1)),
+                yb.reshape(-1),
+                reduction="none",
+            ).view_as(yb)
+            nonpad = yb != pad_id
+            effective_weights = weights * nonpad.to(dtype=weights.dtype)
+            answer = answer_mask & nonpad
+            scaffold = (~answer_mask) & nonpad
+            total_nll += float(per_token[nonpad].sum().item())
+            total_tokens += int(nonpad.sum().item())
+            weighted_nll += float((per_token * effective_weights).sum().item())
+            total_weight += float(effective_weights.sum().item())
+            answer_nll += float(per_token[answer].sum().item())
+            answer_tokens += int(answer.sum().item())
+            scaffold_nll += float(per_token[scaffold].sum().item())
+            scaffold_tokens += int(scaffold.sum().item())
+            for offset, _row in enumerate(rows):
+                dataset_index = start + offset
+                domain = (
+                    str(dataset.bucket_for_window(dataset_index))
+                    if hasattr(dataset, "bucket_for_window")
+                    else "unknown"
+                )
+                totals = domain_totals.setdefault(
+                    domain,
+                    {
+                        "nll": 0.0,
+                        "tokens": 0.0,
+                        "weighted_nll": 0.0,
+                        "weight": 0.0,
+                        "answer_nll": 0.0,
+                        "answer_tokens": 0.0,
+                        "scaffold_nll": 0.0,
+                        "scaffold_tokens": 0.0,
+                        "examples": 0.0,
+                    },
+                )
+                row_nonpad = nonpad[offset]
+                row_answer = answer[offset]
+                row_scaffold = scaffold[offset]
+                row_weights = effective_weights[offset]
+                totals["nll"] += float(per_token[offset][row_nonpad].sum().item())
+                totals["tokens"] += float(row_nonpad.sum().item())
+                totals["weighted_nll"] += float(
+                    (per_token[offset] * row_weights).sum().item()
+                )
+                totals["weight"] += float(row_weights.sum().item())
+                totals["answer_nll"] += float(per_token[offset][row_answer].sum().item())
+                totals["answer_tokens"] += float(row_answer.sum().item())
+                totals["scaffold_nll"] += float(
+                    per_token[offset][row_scaffold].sum().item()
+                )
+                totals["scaffold_tokens"] += float(row_scaffold.sum().item())
+                totals["examples"] += 1.0
+            evaluated_examples += len(rows)
+    if total_tokens == 0:
         raise RuntimeError("[eval_v2] quick_eval_loss received an empty validation dataset")
-    loss_value = float(sum(losses) / len(losses))
+    loss_value = total_nll / total_tokens
+    domain_losses = {
+        domain: {
+            "loss": values["nll"] / max(values["tokens"], 1.0),
+            "weighted_loss": values["weighted_nll"] / max(values["weight"], 1.0),
+            "answer_loss": (
+                values["answer_nll"] / values["answer_tokens"]
+                if values["answer_tokens"]
+                else None
+            ),
+            "scaffold_loss": (
+                values["scaffold_nll"] / values["scaffold_tokens"]
+                if values["scaffold_tokens"]
+                else None
+            ),
+            "answer_tokens": int(values["answer_tokens"]),
+            "scaffold_tokens": int(values["scaffold_tokens"]),
+            "target_tokens": int(values["tokens"]),
+            "n_examples": int(values["examples"]),
+        }
+        for domain, values in sorted(domain_totals.items())
+    }
     return {
         "score": max(0.0, 1.0 - loss_value / 10.0),
         "loss": loss_value,
-        "n_examples": len(losses),
+        "weighted_loss": weighted_nll / max(total_weight, 1.0),
+        "answer_loss": answer_nll / answer_tokens if answer_tokens else None,
+        "scaffold_loss": scaffold_nll / scaffold_tokens if scaffold_tokens else None,
+        "answer_tokens": answer_tokens,
+        "scaffold_tokens": scaffold_tokens,
+        "target_tokens": total_tokens,
+        "n_examples": evaluated_examples,
+        "domain_losses": domain_losses,
+        "validation_identity": getattr(dataset, "validation_identity", None),
     }
 
 

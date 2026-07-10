@@ -1423,6 +1423,10 @@ def get_model_info() -> dict[str, object]:
                 "best_validation_loss",
                 float("inf"),
             ),
+            "best_answer_validation_loss": _RUNTIME_LOAD_STATE.get(
+                "best_answer_validation_loss",
+                float("inf"),
+            ),
             "loss_semantics": _RUNTIME_LOAD_STATE.get("loss_semantics", {}),
             "sessions_completed": _RUNTIME_LOAD_STATE.get("sessions_completed", 0),
             "data_profile": _RUNTIME_LOAD_STATE.get("data_profile", "unknown"),

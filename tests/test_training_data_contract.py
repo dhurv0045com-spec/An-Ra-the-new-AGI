@@ -14,7 +14,30 @@ from scripts.build_brain import (
     _assert_training_loader_dataset,
     _collect_data_manifest_payloads,
     _freeze_training_lineage,
+    _weighted_loss,
 )
+
+
+def test_weighted_training_loss_reports_explicit_answer_and_scaffold_tokens() -> None:
+    logits = torch.zeros((1, 3, 4), dtype=torch.float32)
+    logits[0, 1, 2] = 4.0
+    targets = torch.tensor([[1, 2, 0]])
+    weights = torch.tensor([[1.0, 2.0, 0.0]])
+    answer_mask = torch.tensor([[False, True, False]])
+
+    loss, sample_losses, breakdown = _weighted_loss(
+        logits,
+        targets,
+        weights,
+        answer_mask,
+        pad_id=0,
+    )
+
+    assert torch.isfinite(loss)
+    assert sample_losses.shape == (1,)
+    assert int(breakdown["answer_tokens"].item()) == 1
+    assert int(breakdown["scaffold_tokens"].item()) == 1
+    assert breakdown["answer_nll_sum"] < breakdown["scaffold_nll_sum"]
 
 
 def test_training_loader_cannot_select_validation_dataset() -> None:
