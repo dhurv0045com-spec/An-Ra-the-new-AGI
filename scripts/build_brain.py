@@ -1,5 +1,4 @@
-# NOTE: scripts/train.py is the canonical training script for local runs.
-# This file handles tokenizer building and frontier data preparation.
+# Canonical phase trainer. The legacy scripts/train.py path is fail-closed.
 from __future__ import annotations
 
 # Direct execution bootstraps repository imports after resolving REPO_ROOT.
@@ -49,6 +48,7 @@ from training.anra_optimizer import (
 )
 from training.cdr import CorrectedFailureCurriculum
 from training.continual import assess_continual_readiness, ewc_penalty
+from training.curriculum_sampler import CURRICULUMS, ScheduledCurriculumSampler
 from training.data_routing import build_data_route_report
 from training.dynamic_regret import DynamicRegretScheduler
 from training.eval_v2 import quick_eval_loss, run_compact_eval
@@ -70,6 +70,7 @@ from training.v2_config import (
     V2_MODEL,
     V2_TRAINING,
     frontier_parameter_count,
+    model_parameter_count,
     resolve_model_profile,
 )
 from training.v2_data_mix import (
@@ -85,6 +86,7 @@ from training.v2_runtime import (
     active_tokenizer_path,
     atomic_save,
     build_frontier_model,
+    build_model_for_profile,
     canonical_v2_checkpoint,
     ensure_tied_lm_head,
     get_hal_module,
@@ -165,7 +167,7 @@ def train_causal_extension(
         dataset_path=ROOT / "training_data" / "anra_training.txt"
     )
     if model_size != "frontier":
-        raise ValueError("iterate500 supports only --model-size frontier")
+        raise ValueError("causal-extension training currently requires --model-size frontier")
     model = build_frontier_model()
     checkpoint = _resolve_checkpoint_path(base_checkpoint)
     if checkpoint.exists():
@@ -424,6 +426,7 @@ def _build_checkpoint_payload(
     manifest_root = ROOT / "output" / "v2" / "data_manifests"
     data_manifests, data_manifest_payloads = _collect_data_manifest_payloads(manifest_root)
     tokenizer_contract = _tokenizer_checkpoint_contract()
+    native_model = getattr(model, "model", model)
     return {
         "checkpoint_schema_version": CHECKPOINT_SCHEMA_VERSION,
         "tokenizer_schema_version": int(tokenizer_contract["schema_version"]),
@@ -461,6 +464,7 @@ def _build_checkpoint_payload(
         "appended_row_optimizer_steps": int(appended_row_optimizer_steps),
         "raw_window_consumption": dict(raw_window_consumption or {}),
         "model_config": model.model_config(),
+        "training_recipe": dict(getattr(native_model, "training_recipe", {})),
         "hal_state": hal_state_dict(model),
         "mix_report": mix_report.to_dict(),
         "rng_states": {
@@ -539,7 +543,7 @@ def _assert_resume_data_profile_compatible(
 def _assert_resume_data_layout_compatible(
     checkpoint_layout: object,
     active_layout: str,
-    continuation_phase: str = "D",
+    continuation_phase: str = "A",
 ) -> None:
     """Allow only the explicit raw/chat layout transitions in the curriculum."""
     saved = str(checkpoint_layout or "unknown").strip()
@@ -678,6 +682,25 @@ def _weighted_loss(
     return sample_losses.mean(), sample_losses, breakdown
 
 
+def _masked_logit_z_loss(
+    logits: torch.Tensor,
+    targets: torch.Tensor,
+    *,
+    pad_id: int,
+    weight: float,
+) -> torch.Tensor:
+    """Penalize runaway logit scale over real target positions only."""
+    if weight < 0:
+        raise ValueError("logit z-loss weight must be non-negative")
+    if weight == 0:
+        return logits.sum() * 0.0
+    valid = (targets != pad_id).to(dtype=torch.float32)
+    log_partition = torch.logsumexp(logits.float(), dim=-1)
+    return float(weight) * (
+        (log_partition.square() * valid).sum() / valid.sum().clamp_min(1.0)
+    )
+
+
 def _quick_eval_loss_value(result: float | dict[str, object]) -> float:
     return float(result["loss"]) if isinstance(result, dict) else float(result)
 
@@ -723,34 +746,69 @@ def _configure_continuation_phase(
 ) -> dict[str, object]:
     native_model = getattr(model, "model", model)
     phase_name = phase.upper()
+    if phase_name not in {"A", "B", "C", "D", "E"}:
+        raise ValueError(f"unknown continuation phase: {phase}")
     subsystem_patterns = (
         "mod_routers.",
         "rim_modules.",
         "esv_module.",
         "residual_depth_logits",
         "dstp_temperature_log",
+        "layer_temperature_bias_log",
         "hal_module.",
     )
     phase_b_target = os.environ.get("ANRA_PHASE_B_SUBSYSTEM", "mod").strip().lower()
     target_patterns = {
         "mod": ("mod_routers.",),
         "rim": ("rim_modules.",),
-        "dstp": ("residual_depth_logits", "dstp_temperature_log"),
+        "dstp": (
+            "residual_depth_logits",
+            "dstp_temperature_log",
+            "layer_temperature_bias_log",
+        ),
         "esv": ("esv_module.",),
+        "hal": ("hal_module.",),
     }
     if phase_b_target not in target_patterns:
-        raise ValueError("ANRA_PHASE_B_SUBSYSTEM must be mod, rim, dstp, or esv")
+        raise ValueError("ANRA_PHASE_B_SUBSYSTEM must be mod, rim, dstp, esv, or hal")
+
+    known_subsystems = set(target_patterns)
+    if phase_name == "A":
+        enabled_subsystems: set[str] = set()
+        policy_source = "dense_foundation_contract"
+    elif phase_name == "B":
+        enabled_subsystems = {phase_b_target}
+        policy_source = "isolated_phase_b_ablation"
+    else:
+        declared = os.environ.get("ANRA_ENABLED_SUBSYSTEMS", "").strip()
+        if not declared:
+            raise RuntimeError(
+                f"Phase {phase_name} requires ANRA_ENABLED_SUBSYSTEMS from the "
+                "frozen three-seed pilot winner; refusing an implicit all-on recipe"
+            )
+        enabled_subsystems = {
+            value.strip().lower() for value in declared.split(",") if value.strip()
+        }
+        unknown = enabled_subsystems - known_subsystems
+        if unknown:
+            raise ValueError(f"ANRA_ENABLED_SUBSYSTEMS contains unknown values: {sorted(unknown)}")
+        policy_source = "declared_pilot_winner"
+
+    if not hasattr(native_model, "configure_subsystems"):
+        raise TypeError("Training model does not implement explicit subsystem policies")
+    activation = native_model.configure_subsystems(enabled_subsystems)
     frozen: list[str] = []
     active: list[str] = []
     for name, parameter in native_model.named_parameters():
         if not name.startswith(subsystem_patterns):
             continue
-        trainable = phase_name not in {"A", "B"}
-        if phase_name == "B":
-            trainable = name.startswith(target_patterns[phase_b_target])
+        trainable = any(
+            subsystem in enabled_subsystems and name.startswith(patterns)
+            for subsystem, patterns in target_patterns.items()
+        )
         parameter.requires_grad_(trainable)
         (active if trainable else frozen).append(name)
-    capacity = 1.0 if phase_name in {"A", "B"} else 0.75
+    capacity = 0.5 if "mod" in enabled_subsystems else 1.0
     parity = os.environ.get("ANRA_SUBSYSTEM_VALIDATION_PARITY", "0").lower()
     if phase_name in {"D", "E"} and parity in {"1", "true", "yes"}:
         capacity = 0.5
@@ -760,11 +818,15 @@ def _configure_continuation_phase(
         "phase": phase_name,
         "phase_b_subsystem": phase_b_target if phase_name == "B" else None,
         "mod_capacity": capacity,
+        "enabled_subsystems": sorted(enabled_subsystems),
+        "subsystem_activation": activation,
+        "policy_source": policy_source,
         "active_subsystem_parameters": active,
         "frozen_subsystem_parameters": frozen,
     }
     print(
-        f"[Continuation] phase={phase_name} mod_capacity={capacity:.2f} "
+        f"[Continuation] phase={phase_name} enabled={sorted(enabled_subsystems)} "
+        f"mod_capacity={capacity:.2f} "
         f"active_native={len(active)} frozen_native={len(frozen)}",
         flush=True,
     )
@@ -793,8 +855,13 @@ def train_anra_v2(
     training_layout: str = V2ConversationDataset.PACKING_LAYOUT,
     token_shard_manifest: str | None = None,
     validation_shard_manifest: str | None = None,
-    continuation_phase: str = "D",
+    continuation_phase: str = "A",
     max_phase_tokens: int | None = None,
+    use_qk_norm: bool | None = None,
+    attention_pattern: str | None = None,
+    use_mtp: bool = False,
+    use_moe: bool = False,
+    curriculum: str = "none",
 ) -> dict[str, object]:
     for required_component in ("training_loop", "data_mix", "evaluation"):
         if not is_enabled(required_component):
@@ -802,16 +869,21 @@ def train_anra_v2(
                 f"Required component is disabled at its call site: {required_component}"
             )
     print_session_dashboard()
-    if model_size != "frontier":
-        raise ValueError("iterate500 supports only --model-size frontier")
+    if model_size not in {"frontier", "pilot-50m", "pilot-150m"}:
+        raise ValueError("model size must be frontier, pilot-50m, or pilot-150m")
     if training_layout not in {
         V2ConversationDataset.PACKING_LAYOUT,
         RawCausalShardDataset.PACKING_LAYOUT,
     }:
         raise ValueError(f"unsupported training layout: {training_layout}")
+    if curriculum not in CURRICULUMS:
+        raise ValueError(f"unsupported curriculum: {curriculum}")
+    if curriculum != "none" and training_layout != RawCausalShardDataset.PACKING_LAYOUT:
+        raise ValueError("pilot curricula require immutable raw causal shards")
     os.environ["ANRA_TRAINING_DATA_LAYOUT"] = training_layout
     model_cfg, training_cfg = resolve_model_profile(model_size)
     is_frontier = model_size == "frontier"
+    is_pilot = model_size.startswith("pilot-")
     growth_teacher = None
     growth_alignment = None
     if is_frontier:
@@ -866,9 +938,40 @@ def train_anra_v2(
             f"[Trainer] 500M FRONTIER MODE  "
             f"batch={training_cfg.batch_size}  grad_accum={training_cfg.grad_accum_steps}"
         )
+    elif is_pilot:
+        if not torch.cuda.is_available() and os.environ.get("ANRA_ALLOW_CPU_PILOT", "0") != "1":
+            raise RuntimeError(
+                f"{model_size} training requires CUDA; set ANRA_ALLOW_CPU_PILOT=1 "
+                "only for a deliberately tiny trainer smoke test"
+            )
+        if max_examples is None:
+            max_examples = training_cfg.max_mixture_examples
+        own_ratio = own_ratio if own_ratio is not None else training_cfg.own_ratio
+        identity_ratio = (
+            identity_ratio if identity_ratio is not None else training_cfg.identity_ratio
+        )
+        teacher_ratio = teacher_ratio if teacher_ratio is not None else training_cfg.teacher_ratio
+        symbolic_ratio = (
+            symbolic_ratio if symbolic_ratio is not None else training_cfg.symbolic_ratio
+        )
+        replay_ratio = replay_ratio if replay_ratio is not None else training_cfg.replay_ratio
+        print(
+            f"[Trainer] {model_size.upper()} SCRATCH PILOT  "
+            f"batch={batch_size} grad_accum={training_cfg.grad_accum_steps}",
+            flush=True,
+        )
     dataset_path = Path(data_path)
     tokenizer = load_or_build_v2_tokenizer(dataset_path=dataset_path)
-    model_parameter_contract = frontier_parameter_count(tokenizer.vocab_size)
+    model_parameter_contract = (
+        frontier_parameter_count(tokenizer.vocab_size)
+        if is_frontier
+        else model_parameter_count(
+            model_cfg,
+            tokenizer.vocab_size,
+            mtp_depth=2 if use_mtp else 0,
+            moe_routed_experts=8 if use_moe else 0,
+        )
+    )
     data_mix_seed = _session_data_mix_seed()
     training_mix_controller = TrainingDataMixController(model_parameter_contract)
     print(f"[Trainer] Data mix sampling seed: {data_mix_seed}", flush=True)
@@ -1000,6 +1103,29 @@ def train_anra_v2(
             "num_workers": num_workers,
             "persistent_workers": num_workers > 0,
         }
+        if curriculum != "none":
+            required_source = {
+                "code-before-prose": "permissive_code",
+                "math-density-ramp": "finemath",
+                "identity-mix-late": "identity_replay",
+            }[curriculum]
+            ranges = ds.source_window_ranges()
+            if required_source not in ranges:
+                raise RuntimeError(
+                    f"curriculum {curriculum} requires source class {required_source}"
+                )
+            sample_budget = (
+                math.ceil(max_phase_tokens / block_size)
+                if max_phase_tokens is not None
+                else len(ds)
+            )
+            sampler = ScheduledCurriculumSampler(
+                ranges,
+                curriculum=curriculum,
+                num_samples=sample_budget,
+                seed=data_mix_seed,
+            )
+            return DataLoader(ds, sampler=sampler, **loader_kwargs)
         if active_weights is None or training_layout == RawCausalShardDataset.PACKING_LAYOUT:
             return DataLoader(
                 ds,
@@ -1066,7 +1192,27 @@ def train_anra_v2(
             hal_module=hal_module,
             block_size=block_size,
             vocab_size=tokenizer.vocab_size,
+            use_qk_norm=use_qk_norm,
+            attention_pattern=attention_pattern,
+            use_mtp=use_mtp,
+            use_moe=use_moe,
         )
+    else:
+        model = build_model_for_profile(
+            model_size,
+            block_size=block_size,
+            vocab_size=tokenizer.vocab_size,
+            use_qk_norm=use_qk_norm,
+            attention_pattern=attention_pattern,
+            use_mtp=use_mtp,
+            use_moe=use_moe,
+        )
+        actual_parameters = sum(parameter.numel() for parameter in model.parameters())
+        if actual_parameters != model_parameter_contract:
+            raise AssertionError(
+                f"{model_size} parameter accounting mismatch: "
+                f"{actual_parameters:,} != {model_parameter_contract:,}"
+            )
     if getattr(training_cfg, "gradient_checkpointing", False):
         model.gradient_checkpointing_enable()
         print("[build_brain] Gradient checkpointing enabled for 500M model", flush=True)
@@ -1078,6 +1224,14 @@ def train_anra_v2(
         model = OuroborosDecoder(model, n_passes=3)
     model = model.to(device)
     ensure_tied_lm_head(model)
+    native_model = getattr(model, "model", model)
+    native_model.training_recipe = {
+        "model_profile": model_size,
+        "training_layout": training_layout,
+        "curriculum": curriculum,
+        "max_phase_tokens": max_phase_tokens,
+        "optimizer": optimizer_name,
+    }
     continuation_report = _configure_continuation_phase(model, continuation_phase)
     intelligence_session = create_intelligence_session(model)
     if growth_teacher is not None:
@@ -1095,6 +1249,12 @@ def train_anra_v2(
     optimizer_report = getattr(
         optimizer, "_anra_optimizer_report", {"selected": {"actual": optimizer_name}}
     )
+    actual_optimizer = str(optimizer_report.get("selected", {}).get("actual", ""))
+    if is_pilot and actual_optimizer != optimizer_name:
+        raise RuntimeError(
+            f"Pilot requested optimizer={optimizer_name}, but backend selected "
+            f"{actual_optimizer or 'unknown'}; causal pilot cells may not use fallbacks"
+        )
     appended_row_lr = build_append_only_row_learning_rate(
         model,
         base_rows=EXPECTED_TOKENIZER_VOCAB_SIZE,
@@ -1413,6 +1573,7 @@ def train_anra_v2(
     rolling_count = 0
     accumulated_step_loss = 0.0
     accumulated_ewc_loss = 0.0
+    accumulated_logit_z_loss = 0.0
     accumulated_answer_nll = 0.0
     accumulated_answer_tokens = 0
     accumulated_scaffold_nll = 0.0
@@ -1498,6 +1659,20 @@ def train_anra_v2(
                     answer_mask,
                     pad_id=tokenizer.pad_token_id,
                 )
+                current_logit_z_loss = _masked_logit_z_loss(
+                    logits,
+                    yb,
+                    pad_id=tokenizer.pad_token_id,
+                    weight=training_cfg.logit_z_loss_weight,
+                )
+                batch_loss = batch_loss + current_logit_z_loss
+                native_model = getattr(model, "model", model)
+                current_mtp_loss = (
+                    native_model.multi_token_prediction_loss(yb)
+                    if use_mtp and hasattr(native_model, "multi_token_prediction_loss")
+                    else torch.zeros((), device=batch_loss.device, dtype=batch_loss.dtype)
+                )
+                batch_loss = batch_loss + current_mtp_loss
                 if growth_alignment is not None:
                     alignment_step = max(0, global_step - initial_step)
                     alignment_penalty = growth_alignment.alignment_loss(
@@ -1506,7 +1681,6 @@ def train_anra_v2(
                         target_logits=logits,
                     )
                     batch_loss = batch_loss + alignment_penalty
-                native_model = getattr(model, "model", model)
                 if hasattr(ds, "verified_esv_targets") and hasattr(
                     native_model,
                     "_last_esv_prediction",
@@ -1547,6 +1721,7 @@ def train_anra_v2(
                 accum_micro_steps = 0
                 accumulated_step_loss = 0.0
                 accumulated_ewc_loss = 0.0
+                accumulated_logit_z_loss = 0.0
                 accumulated_answer_nll = 0.0
                 accumulated_answer_tokens = 0
                 accumulated_scaffold_nll = 0.0
@@ -1607,6 +1782,7 @@ def train_anra_v2(
             rolling_count += 1
             accumulated_step_loss += microbatch_loss
             accumulated_ewc_loss += float(current_ewc_loss.detach().item())
+            accumulated_logit_z_loss += float(current_logit_z_loss.detach().item())
             accumulated_answer_nll += float(loss_breakdown["answer_nll_sum"].detach().item())
             accumulated_answer_tokens += int(loss_breakdown["answer_tokens"].detach().item())
             accumulated_scaffold_nll += float(
@@ -1656,6 +1832,7 @@ def train_anra_v2(
                     else None
                 )
                 last_ewc_loss = accumulated_ewc_loss / accum_micro_steps
+                last_logit_z_loss = accumulated_logit_z_loss / accum_micro_steps
                 grad_float = float(gradient_norm)
                 if intelligence_session is not None:
                     intelligence_session.record_optimizer_step(
@@ -1673,6 +1850,8 @@ def train_anra_v2(
                     appended_row_lr.capture() if appended_row_lr is not None else None
                 )
                 mp.step(optimizer)
+                if hasattr(native_model, "update_moe_balance"):
+                    native_model.update_moe_balance()
                 if appended_row_lr is not None:
                     appended_row_lr.apply(appended_rows_before)
                 mp.update()
@@ -1706,6 +1885,7 @@ def train_anra_v2(
                 accum_micro_steps = 0
                 accumulated_step_loss = 0.0
                 accumulated_ewc_loss = 0.0
+                accumulated_logit_z_loss = 0.0
                 accumulated_answer_nll = 0.0
                 accumulated_answer_tokens = 0
                 accumulated_scaffold_nll = 0.0
@@ -1722,6 +1902,7 @@ def train_anra_v2(
                         "weighted_training_loss": loss_float,
                         "answer_training_loss": answer_loss_float,
                         "scaffold_training_loss": scaffold_loss_float,
+                        "logit_z_loss": last_logit_z_loss,
                         "phase": continuation_phase.upper(),
                         "phase_tokens_seen": continuation_token_counts.get(
                             continuation_phase.upper(), 0
@@ -2024,6 +2205,23 @@ def train_anra_v2(
             "last_optimizer_step_loss": locals().get("last_ewc_loss", 0.0),
             "state_path": ewc_state_value or None,
         },
+        "logit_scale_control": {
+            "z_loss_weight": training_cfg.logit_z_loss_weight,
+            "last_optimizer_step_loss": locals().get("last_logit_z_loss", 0.0),
+        },
+        "multi_token_prediction": {
+            "enabled": use_mtp,
+            "depth": 2 if use_mtp else 0,
+            "loss_weight": 0.2 if use_mtp else 0.0,
+            "last_microbatch_loss": float(
+                locals().get("current_mtp_loss", torch.zeros(())).detach().cpu()
+            ),
+        },
+        "curriculum": {
+            "name": curriculum,
+            "expected_token_budget": max_phase_tokens,
+            "sampling_basis": "immutable_source_window_share",
+        },
         "pcgrad": {
             "comparisons": len(pcgrad_reports),
             "conflict_rate": (
@@ -2316,7 +2514,7 @@ def main() -> None:
     parser.add_argument("--max_minutes", type=int, default=V2_FRONTIER_TRAINING.session_minutes)
     parser.add_argument(
         "--model-size",
-        choices=["frontier"],
+        choices=["frontier", "pilot-50m", "pilot-150m"],
         default="frontier",
     )
     parser.add_argument(
@@ -2333,10 +2531,19 @@ def main() -> None:
     )
     parser.add_argument("--token-shard-manifest", default=None)
     parser.add_argument("--validation-shard-manifest", default=None)
+    parser.add_argument("--qk-norm", choices=["on", "off"], default=None)
+    parser.add_argument("--mtp", choices=["on", "off"], default="off")
+    parser.add_argument(
+        "--moe", choices=["off", "upcycle-8r1s-top2"], default="off"
+    )
+    parser.add_argument("--curriculum", choices=sorted(CURRICULUMS), default="none")
+    parser.add_argument(
+        "--attention-pattern", choices=["hybrid", "full-only"], default=None
+    )
     parser.add_argument(
         "--continuation-phase",
         choices=["A", "B", "C", "D", "E"],
-        default="D",
+        default="A",
     )
     parser.add_argument(
         "--max-phase-tokens",
@@ -2405,6 +2612,11 @@ def main() -> None:
         validation_shard_manifest=args.validation_shard_manifest,
         continuation_phase=args.continuation_phase,
         max_phase_tokens=args.max_phase_tokens,
+        use_qk_norm=(None if args.qk_norm is None else args.qk_norm == "on"),
+        attention_pattern=args.attention_pattern,
+        use_mtp=args.mtp == "on",
+        use_moe=args.moe != "off",
+        curriculum=args.curriculum,
     )
     print(result, flush=True)
 

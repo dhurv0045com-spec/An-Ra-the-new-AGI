@@ -13,9 +13,125 @@ from scripts.build_brain import (
     _assert_resume_data_profile_compatible,
     _assert_training_loader_dataset,
     _collect_data_manifest_payloads,
+    _configure_continuation_phase,
     _freeze_training_lineage,
+    _masked_logit_z_loss,
     _weighted_loss,
 )
+from anra_brain import CausalTransformerV2
+from training.v2_runtime import (
+    CheckpointCompatibilityError,
+    assert_checkpoint_optimizer_boundary,
+    load_checkpoint,
+)
+
+
+def _phase_model() -> CausalTransformerV2:
+    return CausalTransformerV2(
+        vocab_size=64,
+        n_embd=32,
+        n_head=4,
+        n_layer=2,
+        block_size=16,
+        mod_layers={1},
+    )
+
+
+def test_phase_a_is_a_true_dense_baseline() -> None:
+    model = _phase_model()
+    report = _configure_continuation_phase(model, "A")
+    assert report["enabled_subsystems"] == []
+    assert report["policy_source"] == "dense_foundation_contract"
+    assert not any(report["subsystem_activation"].values())
+    assert all(
+        not parameter.requires_grad
+        for name, parameter in model.named_parameters()
+        if name.startswith(
+            (
+                "mod_routers.",
+                "rim_modules.",
+                "esv_module.",
+                "residual_depth_logits",
+                "dstp_temperature_log",
+                "layer_temperature_bias_log",
+            )
+        )
+    )
+
+
+def test_phase_b_activates_only_the_declared_ablation(monkeypatch) -> None:
+    model = _phase_model()
+    monkeypatch.setenv("ANRA_PHASE_B_SUBSYSTEM", "mod")
+    report = _configure_continuation_phase(model, "B")
+    assert report["enabled_subsystems"] == ["mod"]
+    assert report["mod_capacity"] == 0.5
+    assert model.use_mod is True
+    assert model.use_rim is False
+    assert model.use_dstp is False
+
+
+def test_later_phase_rejects_an_implicit_all_on_recipe(monkeypatch) -> None:
+    monkeypatch.delenv("ANRA_ENABLED_SUBSYSTEMS", raising=False)
+    with pytest.raises(RuntimeError, match="frozen three-seed pilot winner"):
+        _configure_continuation_phase(_phase_model(), "C")
+
+
+def test_schema7_checkpoint_must_be_on_an_optimizer_boundary(tmp_path: Path) -> None:
+    checkpoint = tmp_path / "partial.pt"
+    with pytest.raises(CheckpointCompatibilityError, match="complete optimizer boundary"):
+        assert_checkpoint_optimizer_boundary(
+            {
+                "checkpoint_schema_version": 7,
+                "completed_optimizer_boundary": False,
+                "accum_micro_steps": 3,
+            },
+            checkpoint,
+        )
+    with pytest.raises(CheckpointCompatibilityError, match="accum_micro_steps=-1"):
+        assert_checkpoint_optimizer_boundary(
+            {"checkpoint_schema_version": 7}, checkpoint
+        )
+    assert_checkpoint_optimizer_boundary(
+        {
+            "checkpoint_schema_version": 7,
+            "completed_optimizer_boundary": True,
+            "accum_micro_steps": 0,
+        },
+        checkpoint,
+    )
+
+
+def test_checkpoint_cannot_silently_add_mtp_or_moe(tmp_path: Path) -> None:
+    source = _phase_model()
+    checkpoint = tmp_path / "dense.pt"
+    torch.save(
+        {
+            "checkpoint_schema_version": 7,
+            "completed_optimizer_boundary": True,
+            "accum_micro_steps": 0,
+            "model": source.state_dict(),
+            "model_config": source.model_config(),
+        },
+        checkpoint,
+    )
+    mtp_target = CausalTransformerV2(
+        vocab_size=64,
+        n_embd=32,
+        n_head=4,
+        n_layer=2,
+        block_size=16,
+        mod_layers={1},
+        use_mtp=True,
+    )
+    with pytest.raises(CheckpointCompatibilityError, match="use_mtp=False"):
+        load_checkpoint(
+            mtp_target,
+            None,
+            None,
+            None,
+            checkpoint,
+            device=torch.device("cpu"),
+        )
 
 
 def test_weighted_training_loss_reports_explicit_answer_and_scaffold_tokens() -> None:
@@ -38,6 +154,22 @@ def test_weighted_training_loss_reports_explicit_answer_and_scaffold_tokens() ->
     assert int(breakdown["answer_tokens"].item()) == 1
     assert int(breakdown["scaffold_tokens"].item()) == 1
     assert breakdown["answer_nll_sum"] < breakdown["scaffold_nll_sum"]
+
+
+def test_masked_logit_z_loss_penalizes_overconfidence_and_ignores_padding() -> None:
+    targets = torch.tensor([[1, 2, 0]])
+    calm = torch.zeros((1, 3, 4))
+    extreme = calm.clone()
+    extreme[:, :2, 1] = 100.0
+    calm_loss = _masked_logit_z_loss(calm, targets, pad_id=0, weight=1e-4)
+    extreme_loss = _masked_logit_z_loss(extreme, targets, pad_id=0, weight=1e-4)
+    padded_extreme = extreme.clone()
+    padded_extreme[:, 2] = 1_000.0
+    padded_loss = _masked_logit_z_loss(
+        padded_extreme, targets, pad_id=0, weight=1e-4
+    )
+    assert extreme_loss > calm_loss
+    torch.testing.assert_close(padded_loss, extreme_loss)
 
 
 def test_training_loader_cannot_select_validation_dataset() -> None:

@@ -43,7 +43,8 @@ in `pyproject.toml`; `requirements.txt` is intentionally empty.
 | API and developer UI | `python app.py --host 127.0.0.1 --port 8000` |
 | Frontier checkpoint proof | `python scripts/check_frontier_checkpoint.py` |
 | Frontier chat/smoke suite | `python scripts/chat_frontier.py` |
-| T4 trainer | `python scripts/build_brain.py` |
+| CUDA phase trainer | `python -m scripts.build_brain` |
+| Unified campaign runner | `python -m training.train_unified` |
 | TPU trainer | `python scripts/build_brain_tpu.py` |
 | Unified training dispatcher | `python -m training.train_unified` |
 | Corpus download | `python scripts/download_training_data.py` |

@@ -231,7 +231,10 @@ def build_campaign_slice(
 ) -> dict[str, object]:
     if not sources:
         raise ValueError("The campaign slice requires at least one source file")
-    if any(path.is_file() and path.stat().st_size >= LARGE_SOURCE_BYTES for path in sources.values()):
+    if any(
+        path.is_file() and path.stat().st_size >= LARGE_SOURCE_BYTES
+        for path in sources.values()
+    ):
         return build_streaming_campaign_slice(
             sources,
             output_dir,

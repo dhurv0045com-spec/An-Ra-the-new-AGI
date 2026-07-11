@@ -258,13 +258,42 @@ for conversational/replay stages. Missing, reused, changed-identity, non-finite,
 or regressed evidence blocks promotion. Full non-GPU verification: 597 passed,
 1 skipped.
 
+## CUDA forward-path findings (2026-07-11)
+
+The fixed eight-prompt activation set was executed on the local RTX 4050 in
+diagnostic and native modes. The artifact has no non-finite activations, and
+router selection is spread across token positions (normalized position entropy
+0.92-0.97), so positional router collapse is not the primary failure.
+
+The actual failures are stronger:
+
+- diagnostic/native next-token entropy is only `0.003507` / `0.0000434` nats,
+  with mean top-1 probability `0.999743` / `0.999997`;
+- residual RMS grows `14.87 -> 282.26` in diagnostic mode and
+  `6.93 -> 208.82` in native mode, with maxima above 7,000;
+- router gate means range from `0.0289` to `0.8392`; layers 4 and 8 are
+  effectively near-closed even though their position selection is distributed;
+- every router context vector remains exactly zero;
+- embedding-row L2 norms are globally inflated (median `1.94`, maximum `2.44`),
+  rather than one repeated token alone having an isolated bad row.
+
+The static report's 891,954,790 tensor-entry elements include aliased tied
+weights. Unique serialized storage is 1,997,115,800 bytes, consistent with the
+500M-class artifact; the profiler now reports both quantities explicitly.
+
+The fresh architecture now depth-scales attention output and MLP down
+projections and adds masked logit z-loss. A 28-layer scratch smoke measured
+residual RMS `0.021 -> 0.064`, 5.47-nat output entropy, and 2.4% mean top-1.
+These are stability checks, not capability evidence.
+
 ## Open hypotheses requiring measurement
 
-- Router collapse or pathological residual/temperature values may already be
-  encoded in the learned weights. Inspect per-layer router selection entropy,
-  residual scales, ESV state, and activation norms on a fixed prompt set.
-- The small `t4-cached` mixture may contain duplicates, narrow templates, or
-  source imbalance not reconstructable from the two legacy manifest hashes.
+- The fixed activation run proves output/residual/gate-strength pathologies but
+  does not isolate how much came from initialization, narrow repeated data, or
+  the historical objective. Only matched scratch/continuation ablations can.
+- The recovered 17.5GB interrupted corpus audited as 100% FineWeb-Edu. It is
+  structurally clean but not a usable campaign mixture until the remaining
+  pinned code, math, science, instruction, DFC, and identity sources exist.
 - V3’s measured English fertility tax (2.518 tokens/word) likely reduced
   effective linguistic coverage, but it cannot by itself explain all
   incoherence.
@@ -275,9 +304,9 @@ or regressed evidence blocks promotion. Full non-GPU verification: 597 passed,
 
 ## Recovery and replacement program
 
-1. **Finish baseline behavior.** Complete the 200-prompt diagnostic recovery
+1. **Baseline behavior complete.** The 200-prompt diagnostic recovery
    gate and save every output, token ID, stop reason, and coherence judgment.
-2. **Profile the legacy weights.** Record activation norms, router entropy,
+2. **Legacy profile complete.** Activation norms, router entropy,
    residual scales, temperatures, NaN/Inf counts, output entropy, and EOS rate.
 3. **Do not blindly continue the old optimizer.** Preserve the checkpoint as
    a baseline. Any continuation must start from a named, tested migration and

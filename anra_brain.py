@@ -8,6 +8,7 @@ Canonical exports:
 
 from __future__ import annotations
 
+import copy
 import math
 from collections.abc import Iterable, Iterator
 from contextlib import AbstractContextManager, contextmanager, nullcontext
@@ -147,6 +148,8 @@ class MultiHeadAttentionV2(nn.Module):
         dropout: float = 0.0,
         base_seq_len: int = 512,
         target_seq_len: int = 2048,
+        use_qk_norm: bool = False,
+        sliding_window: int | None = None,
     ) -> None:
         super().__init__()
         if n_embd % n_head != 0:
@@ -158,6 +161,10 @@ class MultiHeadAttentionV2(nn.Module):
         )
         self.head_dim = n_embd // n_head
         self.groups = self.n_head // self.n_kv_head
+        self.use_qk_norm = bool(use_qk_norm)
+        self.sliding_window = int(sliding_window) if sliding_window else None
+        if self.sliding_window is not None and self.sliding_window < 1:
+            raise ValueError("sliding_window must be positive when enabled")
 
         self.q_proj = nn.Linear(n_embd, n_head * self.head_dim, bias=False)
         self.k_proj = nn.Linear(n_embd, self.n_kv_head * self.head_dim, bias=False)
@@ -182,6 +189,13 @@ class MultiHeadAttentionV2(nn.Module):
         position_offset = 0
         if self._kv_cache is not None:
             position_offset = int(self._kv_cache.get("position", 0))
+        if self.use_qk_norm:
+            # Parameter-free per-head QK-Norm keeps the checkpoint tensor
+            # schema stable while preventing query/key norm drift. RoPE is an
+            # orthogonal transform, so applying normalization before it
+            # preserves the intended unit-RMS geometry.
+            q = F.rms_norm(q, (self.head_dim,))
+            k = F.rms_norm(k, (self.head_dim,))
         q, k = self.rope(q, k, position_offset=position_offset)
 
         if attention_temperature is not None:
@@ -200,19 +214,36 @@ class MultiHeadAttentionV2(nn.Module):
             if cache_k is not None and cache_v is not None:
                 k = torch.cat([cache_k, k], dim=2)
                 v = torch.cat([cache_v, v], dim=2)
-            if k.size(2) > self.max_cache_len:
-                k = k[:, :, -self.max_cache_len :, :]
-                v = v[:, :, -self.max_cache_len :, :]
+            cache_limit = self.max_cache_len
+            if self.sliding_window is not None:
+                cache_limit = min(cache_limit, self.sliding_window)
+            if k.size(2) > cache_limit:
+                k = k[:, :, -cache_limit:, :]
+                v = v[:, :, -cache_limit:, :]
             self._kv_cache["k"] = k.detach()
             self._kv_cache["v"] = v.detach()
             self._kv_cache["position"] = position_offset + seq_len
 
         is_causal = not (self._kv_cache is not None and q.size(2) == 1)
+        attention_mask = None
+        if self.sliding_window is not None and k.size(2) > self.sliding_window:
+            # SDPA boolean masks use True for positions that may participate.
+            # Express positions relative to the retained key sequence so this
+            # works for both full-sequence training and multi-token cache use.
+            query_positions = torch.arange(
+                k.size(2) - q.size(2), k.size(2), device=q.device
+            ).unsqueeze(1)
+            key_positions = torch.arange(k.size(2), device=q.device).unsqueeze(0)
+            attention_mask = (
+                (key_positions <= query_positions)
+                & (key_positions > query_positions - self.sliding_window)
+            )[None, None, :, :]
+            is_causal = False
         out = F.scaled_dot_product_attention(
             q,
             k,
             v,
-            attn_mask=None,
+            attn_mask=attention_mask,
             dropout_p=self.dropout if self.training else 0.0,
             is_causal=is_causal,
             enable_gqa=self.groups > 1,
@@ -232,6 +263,93 @@ class SwiGLU(nn.Module):
         return self.down_proj(F.silu(self.gate_proj(x)) * self.up_proj(x))
 
 
+class SparseUpcycledMoE(nn.Module):
+    """Eight routed SwiGLU experts plus one always-on shared expert.
+
+    Routed experts are cloned from the shared dense MLP after initialization.
+    Consequently ``0.5 * (shared + routed)`` is exactly the original dense
+    function at step zero even though each token selects only two routed
+    experts. Load balancing uses a persistent score bias updated only after a
+    completed optimizer boundary; no auxiliary loss competes with language
+    modeling and checkpoint recomputation cannot advance balancing state.
+    """
+
+    def __init__(
+        self,
+        dense: SwiGLU,
+        *,
+        routed_experts: int = 8,
+        top_k: int = 2,
+        balance_rate: float = 1e-3,
+    ) -> None:
+        super().__init__()
+        if routed_experts < 2 or not 1 <= top_k <= routed_experts:
+            raise ValueError("MoE requires at least two experts and a valid top_k")
+        self.routed_experts = int(routed_experts)
+        self.top_k = int(top_k)
+        self.balance_rate = float(balance_rate)
+        width = dense.gate_proj.in_features
+        self.shared_expert = dense
+        self.experts = nn.ModuleList(copy.deepcopy(dense) for _ in range(routed_experts))
+        self.router = nn.Linear(width, routed_experts, bias=False)
+        self.register_buffer("expert_bias", torch.zeros(routed_experts), persistent=True)
+        self.register_buffer(
+            "expert_load_ema",
+            torch.full((routed_experts,), 1.0 / routed_experts),
+            persistent=True,
+        )
+        self._last_load: torch.Tensor | None = None
+        self._load_batches = 0
+
+    def reset_from_shared(self) -> None:
+        state = self.shared_expert.state_dict()
+        for expert in self.experts:
+            expert.load_state_dict(state)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        shape = x.shape
+        flat = x.reshape(-1, shape[-1])
+        route_scores = self.router(flat).float() + self.expert_bias
+        top_values, top_indices = route_scores.topk(self.top_k, dim=-1)
+        route_weights = torch.softmax(top_values, dim=-1).to(dtype=x.dtype)
+        routed = torch.zeros_like(flat)
+        for expert_index, expert in enumerate(self.experts):
+            assignments = (top_indices == expert_index).nonzero(as_tuple=False)
+            if assignments.numel() == 0:
+                continue
+            token_indices = assignments[:, 0]
+            slots = assignments[:, 1]
+            expert_output = expert(flat.index_select(0, token_indices))
+            weighted = expert_output * route_weights[token_indices, slots].unsqueeze(-1)
+            routed.index_add_(0, token_indices, weighted)
+        if self.training:
+            with torch.no_grad():
+                load = torch.bincount(
+                    top_indices.reshape(-1), minlength=self.routed_experts
+                ).float()
+                normalized_load = load / max(1, top_indices.numel())
+                self._last_load = (
+                    normalized_load
+                    if self._last_load is None
+                    else self._last_load + normalized_load
+                )
+                self._load_batches += 1
+        output = 0.5 * (self.shared_expert(flat) + routed)
+        return output.reshape(shape)
+
+    @torch.no_grad()
+    def update_balance(self) -> None:
+        if self._last_load is None:
+            return
+        observed = self._last_load / max(1, self._load_batches)
+        self.expert_load_ema.mul_(0.9).add_(observed.to(self.expert_load_ema), alpha=0.1)
+        target = 1.0 / self.routed_experts
+        self.expert_bias.add_(self.balance_rate * (target - self.expert_load_ema))
+        self.expert_bias.clamp_(-0.1, 0.1)
+        self._last_load = None
+        self._load_batches = 0
+
+
 @dataclass(frozen=True)
 class RouterContext:
     esv_arousal: torch.Tensor | float = 0.0
@@ -248,6 +366,8 @@ class MoDRouter(nn.Module):
         self.context_weights = nn.Parameter(torch.zeros(3))
         nn.init.normal_(self.gate.weight, std=0.02)
         self.last_telemetry: dict[str, float] = {}
+        self.telemetry_enabled = False
+        self._telemetry_tensors: dict[str, torch.Tensor] = {}
         self._last_balance_loss: torch.Tensor | None = None
         self._last_z_loss: torch.Tensor | None = None
         # AN: Small normal init avoids tied top-k routing during early training.
@@ -259,14 +379,10 @@ class MoDRouter(nn.Module):
         ctx: RouterContext | None = None,
     ) -> torch.Tensor:
         _batch_size, n, d = x.shape
-        capacity = float(
-            torch.clamp(
-                torch.as_tensor(self.capacity, device=x.device)
-                + 0.25 * torch.tanh(self.capacity_control.detach()),
-                0.05,
-                1.0,
-            ).item()
-        )
+        # Discrete token count is an explicit experiment setting. The learned
+        # capacity_control remains a differentiable gate bias; deriving ``k``
+        # from it would require a CUDA-synchronizing .item() on every layer.
+        capacity = max(0.05, min(1.0, float(self.capacity)))
         k = max(1, min(n, int(n * capacity)))
         scores = self.gate(x).squeeze(-1)
         if ctx is not None:
@@ -302,23 +418,37 @@ class MoDRouter(nn.Module):
             )
         self._last_balance_loss = (gate_probabilities.mean() - capacity).pow(2)
         self._last_z_loss = torch.logaddexp(torch.zeros_like(scores), scores).pow(2).mean()
-        with torch.no_grad():
-            self.last_telemetry = {
-                "capacity": capacity,
-                "selected_fraction": float(k / max(1, n)),
-                "gate_mean": float(gate_probabilities.mean().item()),
-                "gate_entropy": float(
-                    -(
-                        gate_probabilities * gate_probabilities.clamp_min(1e-8).log()
-                        + (1.0 - gate_probabilities)
-                        * (1.0 - gate_probabilities).clamp_min(1e-8).log()
+        if self.telemetry_enabled:
+            with torch.no_grad():
+                gate_entropy = -(
+                    gate_probabilities * gate_probabilities.clamp_min(1e-8).log()
+                    + (1.0 - gate_probabilities)
+                    * (1.0 - gate_probabilities).clamp_min(1e-8).log()
+                ).mean()
+                self._telemetry_tensors = {
+                    "capacity": torch.as_tensor(capacity, device=x.device),
+                    "selected_fraction": torch.as_tensor(k / max(1, n), device=x.device),
+                    "gate_mean": gate_probabilities.mean().detach(),
+                    "gate_entropy": gate_entropy.detach(),
+                    "gate_saturation_fraction": (
+                        (gate_probabilities < 0.01) | (gate_probabilities > 0.99)
                     )
+                    .float()
                     .mean()
-                    .item()
-                ),
-                "routed_update_norm": float(routed.norm(dim=-1).mean().item()),
-            }
+                    .detach(),
+                    "score_std": scores.float().std(unbiased=False).detach(),
+                    "routed_update_norm": routed.norm(dim=-1).mean().detach(),
+                }
         return x + routed
+
+    def telemetry(self) -> dict[str, float]:
+        """Materialize the latest trace once, outside the hot forward path."""
+        if self._telemetry_tensors:
+            self.last_telemetry = {
+                key: float(value.float().cpu().item())
+                for key, value in self._telemetry_tensors.items()
+            }
+        return dict(self.last_telemetry)
 
 
 class ResidualIdentityModulator(nn.Module):
@@ -347,6 +477,9 @@ class BlockV2(nn.Module):
         dropout: float = 0.0,
         base_seq_len: int = 512,
         target_seq_len: int = 2048,
+        use_qk_norm: bool = False,
+        sliding_window: int | None = None,
+        use_moe: bool = False,
     ) -> None:
         super().__init__()
         hidden_dim = int(8 / 3 * n_embd)
@@ -359,9 +492,12 @@ class BlockV2(nn.Module):
             dropout=dropout,
             base_seq_len=base_seq_len,
             target_seq_len=target_seq_len,
+            use_qk_norm=use_qk_norm,
+            sliding_window=sliding_window,
         )
         self.norm_2 = RMSNorm(n_embd, eps=eps)
-        self.mlp = SwiGLU(n_embd, hidden_dim)
+        dense_mlp = SwiGLU(n_embd, hidden_dim)
+        self.mlp: nn.Module = SparseUpcycledMoE(dense_mlp) if use_moe else dense_mlp
         self._normed_mlp = nn.Sequential(*[self.norm_2, self.mlp])
 
     def forward(
@@ -405,6 +541,13 @@ class CausalTransformerV2(nn.Module):
         hal_module: object | None = None,
         use_rim: bool = True,
         use_dstp: bool = True,
+        use_qk_norm: bool = False,
+        sliding_window: int | None = None,
+        full_attention_every: int = 0,
+        use_mtp: bool = False,
+        mtp_depth: int = 2,
+        mtp_loss_weight: float = 0.2,
+        use_moe: bool = False,
     ) -> None:
         super().__init__()
         if not 0 <= pad_token_id < vocab_size:
@@ -424,6 +567,17 @@ class CausalTransformerV2(nn.Module):
         self.use_hal = bool(use_hal)
         self.use_rim = bool(use_rim)
         self.use_dstp = bool(use_dstp)
+        self.use_qk_norm = bool(use_qk_norm)
+        self.sliding_window = int(sliding_window) if sliding_window else None
+        self.full_attention_every = int(full_attention_every)
+        if self.full_attention_every < 0:
+            raise ValueError("full_attention_every cannot be negative")
+        self.use_mtp = bool(use_mtp)
+        self.mtp_depth = int(mtp_depth) if self.use_mtp else 0
+        self.mtp_loss_weight = float(mtp_loss_weight)
+        if self.mtp_depth < 0 or self.mtp_loss_weight < 0.0:
+            raise ValueError("MTP depth and loss weight cannot be negative")
+        self.use_moe = bool(use_moe)
         self.use_mod = True
         self.use_esv_control = True
         self.use_residual_depth = True
@@ -455,8 +609,19 @@ class CausalTransformerV2(nn.Module):
                     dropout=dropout,
                     base_seq_len=base_seq_len,
                     target_seq_len=target_seq_len,
+                    use_qk_norm=self.use_qk_norm,
+                    sliding_window=(
+                        None
+                        if self.sliding_window is None
+                        or (
+                            self.full_attention_every > 0
+                            and (layer_index + 1) % self.full_attention_every == 0
+                        )
+                        else self.sliding_window
+                    ),
+                    use_moe=self.use_moe,
                 )
-                for _ in range(n_layer)
+                for layer_index in range(n_layer)
             ]
         )
         for block in self.blocks:
@@ -465,8 +630,31 @@ class CausalTransformerV2(nn.Module):
         self.norm_f = RMSNorm(n_embd, eps=rms_norm_eps)
         self.lm_head = nn.Linear(n_embd, vocab_size, bias=False)
         self.lm_head.weight = self.token_embedding_table.weight
+        self.mtp_norms = nn.ModuleList(
+            [RMSNorm(n_embd, eps=rms_norm_eps) for _ in range(self.mtp_depth)]
+        )
+        self.mtp_projections = nn.ModuleList(
+            [nn.Linear(n_embd, n_embd, bias=False) for _ in range(self.mtp_depth)]
+        )
+        self._last_hidden: torch.Tensor | None = None
         self.use_gradient_checkpointing: bool = False
         self.apply(self._init_weights)
+        # Deep pre-norm transformers need depth-scaled residual projections.
+        # Initializing every projection at 0.02 causes residual variance to
+        # accumulate across depth before training can correct it.
+        residual_std = 0.02 / math.sqrt(2 * max(1, n_layer))
+        for block in self.blocks:
+            nn.init.normal_(block.attn.out_proj.weight, mean=0.0, std=residual_std)
+            if isinstance(block.mlp, SparseUpcycledMoE):
+                nn.init.normal_(
+                    block.mlp.shared_expert.down_proj.weight,
+                    mean=0.0,
+                    std=residual_std,
+                )
+                block.mlp.reset_from_shared()
+            else:
+                nn.init.normal_(block.mlp.down_proj.weight, mean=0.0, std=residual_std)
+        self.initialization_scheme = "depth_scaled_residual_v1"
         self.esv_module = ESVModule(d_model=n_embd, d_esv=min(64, n_embd))
         esv_dim = min(64, n_embd)
         self.rim_modules = nn.ModuleList(
@@ -508,7 +696,7 @@ class CausalTransformerV2(nn.Module):
         elif isinstance(module, nn.Embedding):
             nn.init.normal_(module.weight, mean=0.0, std=0.02)
 
-    def model_config(self) -> dict[str, int | bool]:
+    def model_config(self) -> dict[str, int | float | bool | str]:
         return {
             "vocab_size": self.vocab_size,
             "pad_token_id": self.pad_token_id,
@@ -526,7 +714,40 @@ class CausalTransformerV2(nn.Module):
             "use_mod": self.use_mod,
             "use_esv_control": self.use_esv_control,
             "use_residual_depth": self.use_residual_depth,
+            "use_qk_norm": self.use_qk_norm,
+            "sliding_window": self.sliding_window or 0,
+            "full_attention_every": self.full_attention_every,
+            "use_mtp": self.use_mtp,
+            "mtp_depth": self.mtp_depth,
+            "mtp_loss_weight": self.mtp_loss_weight,
+            "use_moe": self.use_moe,
+            "moe_routed_experts": 8 if self.use_moe else 0,
+            "moe_top_k": 2 if self.use_moe else 0,
+            "initialization_scheme": self.initialization_scheme,
         }
+
+    def configure_attention(
+        self,
+        *,
+        use_qk_norm: bool,
+        sliding_window: int | None,
+        full_attention_every: int,
+    ) -> None:
+        """Apply an explicit, checkpoint-recorded attention experiment."""
+        self.use_qk_norm = bool(use_qk_norm)
+        self.sliding_window = int(sliding_window) if sliding_window else None
+        self.full_attention_every = int(full_attention_every)
+        for index, block in enumerate(self.blocks):
+            block.attn.use_qk_norm = self.use_qk_norm
+            block.attn.sliding_window = (
+                None
+                if self.sliding_window is None
+                or (
+                    self.full_attention_every > 0
+                    and (index + 1) % self.full_attention_every == 0
+                )
+                else self.sliding_window
+            )
 
     def configure_runtime_mode(self, mode: str) -> dict[str, bool]:
         if mode not in {"diagnostic", "native", "full_system"}:
@@ -538,6 +759,7 @@ class CausalTransformerV2(nn.Module):
             "use_esv_control": self.use_esv_control,
             "use_residual_depth": self.use_residual_depth,
             "use_hal": self.use_hal,
+            "use_layer_temperature_bias": self.use_layer_temperature_bias,
         }
         native_enabled = mode != "diagnostic"
         self.use_mod = native_enabled
@@ -545,6 +767,7 @@ class CausalTransformerV2(nn.Module):
         self.use_dstp = native_enabled
         self.use_esv_control = native_enabled
         self.use_residual_depth = native_enabled
+        self.use_layer_temperature_bias = native_enabled
         self.use_hal = mode == "full_system" and hasattr(self, "hal_module")
         return previous
 
@@ -559,12 +782,23 @@ class CausalTransformerV2(nn.Module):
         self._runtime_civ_similarity = (
             1.0 if civ_similarity is None else max(0.0, min(1.0, float(civ_similarity)))
         )
+        for router in self.mod_routers.values():
+            router.telemetry_enabled = True
+
+    def end_subsystem_trace(self) -> None:
+        """Disable optional router instrumentation after a request completes."""
+        for router in self.mod_routers.values():
+            router.telemetry_enabled = False
 
     def neutralize_subsystem(self, name: str) -> None:
         controls = {
             "mod": ("use_mod",),
             "rim": ("use_rim",),
-            "dstp": ("use_dstp", "use_residual_depth"),
+            "dstp": (
+                "use_dstp",
+                "use_residual_depth",
+                "use_layer_temperature_bias",
+            ),
             "esv": ("use_esv_control",),
             "hal": ("use_hal",),
         }
@@ -572,6 +806,30 @@ class CausalTransformerV2(nn.Module):
             raise ValueError(f"unknown subsystem ablation: {name}")
         for attribute in controls[name]:
             setattr(self, attribute, False)
+
+    def configure_subsystems(self, enabled: Iterable[str]) -> dict[str, bool]:
+        """Apply an explicit, reproducible native-subsystem activation policy."""
+        requested = {str(name).strip().lower() for name in enabled}
+        known = {"mod", "rim", "dstp", "esv", "hal"}
+        unknown = requested - known
+        if unknown:
+            raise ValueError(f"unknown native subsystems: {sorted(unknown)}")
+        if "hal" in requested and not hasattr(self, "hal_module"):
+            raise ValueError("HAL was requested but no HAL module is available")
+        self.use_mod = "mod" in requested
+        self.use_rim = "rim" in requested
+        self.use_dstp = "dstp" in requested
+        self.use_residual_depth = "dstp" in requested
+        self.use_layer_temperature_bias = "dstp" in requested
+        self.use_esv_control = "esv" in requested
+        self.use_hal = "hal" in requested
+        return {
+            "mod": self.use_mod,
+            "rim": self.use_rim,
+            "dstp": self.use_dstp,
+            "esv": self.use_esv_control,
+            "hal": self.use_hal,
+        }
 
     def _residual_scale(self, layer_idx: int) -> torch.Tensor | float:
         if not self.use_residual_depth:
@@ -637,7 +895,7 @@ class CausalTransformerV2(nn.Module):
         return {
             "execution": dict(self._subsystem_execution),
             "router_civ_similarity": float(self._runtime_civ_similarity),
-            "mod": {key: dict(router.last_telemetry) for key, router in self.mod_routers.items()},
+            "mod": {key: router.telemetry() for key, router in self.mod_routers.items()},
             "dstp_temperatures": [
                 float(value) for value in self.dstp_temperature_log.detach().exp().cpu()
             ]
@@ -945,6 +1203,7 @@ class CausalTransformerV2(nn.Module):
         if seq_len > self.block_size:
             raise ValueError(f"sequence length {seq_len} exceeds block size {self.block_size}")
         x = self.run_all_layers(self.embed(idx))
+        self._last_hidden = x
         logits = self.lm_head(x)
         loss = None
         if targets is not None:
@@ -955,6 +1214,50 @@ class CausalTransformerV2(nn.Module):
                 ignore_index=self.pad_token_id,
             )
         return logits, loss
+
+    def multi_token_prediction_loss(self, targets: torch.Tensor) -> torch.Tensor:
+        """Predict horizons +2..+(depth+1) from the shared final residual.
+
+        ``targets[:, i]`` is already the next token for input position ``i``;
+        head zero therefore aligns with ``targets[:, 1:]`` (+2), head one
+        with ``targets[:, 2:]`` (+3), and so on. Heads share the canonical
+        embedding matrix as their vocabulary projection.
+        """
+        hidden = self._last_hidden
+        if not self.use_mtp or self.mtp_depth == 0:
+            return torch.zeros(
+                (), device=targets.device, dtype=self.token_embedding_table.weight.dtype
+            )
+        if hidden is None or hidden.shape[:2] != targets.shape:
+            raise RuntimeError("MTP loss requires targets from the immediately preceding forward")
+        losses: list[torch.Tensor] = []
+        for offset, (norm, projection) in enumerate(
+            zip(self.mtp_norms, self.mtp_projections, strict=True), start=1
+        ):
+            if targets.size(1) <= offset:
+                continue
+            future_targets = targets[:, offset:]
+            if not bool((future_targets != self.pad_token_id).any()):
+                continue
+            future_hidden = projection(norm(hidden[:, :-offset, :]))
+            future_logits = F.linear(future_hidden, self.token_embedding_table.weight)
+            losses.append(
+                F.cross_entropy(
+                    future_logits.reshape(-1, self.vocab_size),
+                    future_targets.reshape(-1),
+                    ignore_index=self.pad_token_id,
+                )
+            )
+        if not losses:
+            return hidden.sum() * 0.0
+        return self.mtp_loss_weight * torch.stack(losses).mean()
+
+    @torch.no_grad()
+    def update_moe_balance(self) -> None:
+        """Advance aux-loss-free expert balancing at an optimizer boundary."""
+        for block in self.blocks:
+            if isinstance(block.mlp, SparseUpcycledMoE):
+                block.mlp.update_balance()
 
     def forward_cognitive(
         self,

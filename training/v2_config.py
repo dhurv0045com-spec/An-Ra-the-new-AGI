@@ -88,6 +88,9 @@ class V2ModelConfig:
     base_seq_len: int = 512
     target_seq_len: int = 2048
     use_hal: bool = False
+    use_qk_norm: bool = True
+    sliding_window: int = 1024
+    full_attention_every: int = 4
 
 
 @dataclass(frozen=True)
@@ -115,11 +118,42 @@ class V2FrontierModelConfig(V2ModelConfig):
 
 
 @dataclass(frozen=True)
+class V2Pilot50ModelConfig(V2ModelConfig):
+    """Approximately 58M parameters: cheap scaling-law and pipeline anchor."""
+
+    n_embd: int = 640
+    n_layer: int = 12
+    n_head: int = 10
+    n_kv_head: int = 2
+    block_size: int = 2048
+    mod_layers: tuple = (3, 5, 7, 9, 11)
+    base_seq_len: int = 2048
+    target_seq_len: int = 2048
+    use_hal: bool = False
+
+
+@dataclass(frozen=True)
+class V2Pilot150ModelConfig(V2ModelConfig):
+    """Approximately 160M parameters: canonical three-seed pilot scale."""
+
+    n_embd: int = 896
+    n_layer: int = 18
+    n_head: int = 14
+    n_kv_head: int = 2
+    block_size: int = 2048
+    mod_layers: tuple = (4, 6, 8, 10, 12, 14, 16)
+    base_seq_len: int = 2048
+    target_seq_len: int = 2048
+    use_hal: bool = False
+
+
+@dataclass(frozen=True)
 class V2TrainingConfig:
     batch_size: int = 32
     grad_accum_steps: int = 8
     session_minutes: int = 30
     answer_loss_weight: float = 1.75
+    logit_z_loss_weight: float = 1e-4
     teacher_ratio: float = 0.10
     own_ratio: float = 0.65
     identity_ratio: float = 0.15
@@ -161,10 +195,42 @@ class V2FrontierTrainingConfig(V2TrainingConfig):
     replay_ratio: float = 0.10
 
 
+@dataclass(frozen=True)
+class V2Pilot50TrainingConfig(V2TrainingConfig):
+    batch_size: int = 8
+    grad_accum_steps: int = 8
+    session_minutes: int = 120
+    learning_rate: float = 3e-4
+    warmup_steps: int = 1_000
+    max_steps: int = 50_000
+    min_lr: float = 1e-5
+    weight_decay: float = 0.1
+    max_mixture_examples: int = 16_000
+    gradient_checkpointing: bool = False
+
+
+@dataclass(frozen=True)
+class V2Pilot150TrainingConfig(V2TrainingConfig):
+    batch_size: int = 4
+    grad_accum_steps: int = 8
+    session_minutes: int = 180
+    learning_rate: float = 2e-4
+    warmup_steps: int = 1_000
+    max_steps: int = 100_000
+    min_lr: float = 1e-5
+    weight_decay: float = 0.1
+    max_mixture_examples: int = 16_000
+    gradient_checkpointing: bool = True
+
+
 V2_MODEL = V2ModelConfig()
 V2_FRONTIER = V2FrontierModelConfig()
+V2_PILOT_50M = V2Pilot50ModelConfig()
+V2_PILOT_150M = V2Pilot150ModelConfig()
 V2_TRAINING = V2TrainingConfig()
 V2_FRONTIER_TRAINING = V2FrontierTrainingConfig()
+V2_PILOT_50M_TRAINING = V2Pilot50TrainingConfig()
+V2_PILOT_150M_TRAINING = V2Pilot150TrainingConfig()
 # Backward-compatible aliases for older imports. On iterate500 these point to
 # the 500M-class frontier config, not a 1B model.
 V2_1B_FRONTIER = V2_FRONTIER
@@ -193,6 +259,49 @@ def frontier_parameter_count(vocab_size: int = CANONICAL_VOCAB_SIZE) -> int:
             f"{count:,} != {expected:,}"
         )
     return count
+
+
+def model_parameter_count(
+    config: V2ModelConfig,
+    vocab_size: int | None = None,
+    *,
+    mtp_depth: int = 0,
+    moe_routed_experts: int = 0,
+) -> int:
+    """Exact parameter count for the shared dense/native architecture."""
+    vocab = int(vocab_size or config.vocab_size)
+    width = int(config.n_embd)
+    layers = int(config.n_layer)
+    head_dim = width // int(config.n_head)
+    kv_width = int(config.n_kv_head) * head_dim
+    hidden = ((int(8 / 3 * width) + 63) // 64) * 64
+    per_block = (
+        2 * width
+        + width * width
+        + 2 * width * kv_width
+        + width * width
+        + 3 * width * hidden
+    )
+    router_params = len(config.mod_layers) * (width + 4)
+    esv_dim = min(64, width)
+    esv_predictor = esv_dim * 3 + 3
+    rim_params = layers * (width * esv_dim + 1)
+    depth_controls = 3 * layers
+    base = (
+        vocab * width
+        + layers * per_block
+        + router_params
+        + width
+        + esv_predictor
+        + rim_params
+        + depth_controls
+    )
+    # Each future-token head has one RMSNorm vector and one d_model x
+    # d_model projection. Vocabulary projection reuses the tied embedding.
+    mtp = max(0, int(mtp_depth)) * (width + width * width)
+    routed = max(0, int(moe_routed_experts))
+    moe = layers * routed * (3 * width * hidden) + layers * width * routed
+    return base + mtp + moe
 
 
 IDENTITY_KEYWORDS = [
@@ -255,6 +364,8 @@ V2_REPORT_FILES = {
 
 MODEL_SIZES = {
     "frontier": (V2_FRONTIER, V2_FRONTIER_TRAINING),
+    "pilot-50m": (V2_PILOT_50M, V2_PILOT_50M_TRAINING),
+    "pilot-150m": (V2_PILOT_150M, V2_PILOT_150M_TRAINING),
 }
 MODEL_PROFILES = MODEL_SIZES
 

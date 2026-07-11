@@ -37,6 +37,9 @@ EMA, not held-out validation. See
 | Data objective | Repeated `H: prompt / ANRA: answer` scaffolding mixed easy prompt prediction with answer prediction. | Explicit token masks now separate answer/scaffold loss; add per-domain reporting before campaign launch. |
 | Gradient checkpointing | A late-bound layer index changed DSTP temperature during backward recomputation; RIM spectral normalization also advanced state on recomputation. | Keep the fixed parity harness mandatory before every architecture/training change. |
 | Routing | Router context was not passed; no balance or z-loss trained the old router. Saved router context vectors are all zero. | Measure route entropy/load/context sensitivity and compare routed versus dense controls. |
+| Forward stability | CUDA profiling found 99.974-99.9997% mean top-1 probability and 19-30x residual-RMS amplification through depth. Every residual projection had used the same 0.02 initialization scale. | Depth-scale residual output projections, apply masked logit z-loss, and block promotion on output-entropy/residual telemetry. |
+| Phase isolation | Phase A froze native parameters but still executed their forward effects, so the claimed dense baseline was not dense. | Phase A disables all native subsystems; Phase B activates exactly one; later phases require an explicit pilot-selected set. |
+| GPU telemetry | Router telemetry materialized multiple CUDA `.item()` values inside every routed forward. | Keep trace values detached on device and materialize once outside the hot path. |
 | Temperature controls | DSTP and layer-temperature controls were buffers rather than learned values in the historical model. | Either intentionally freeze and document them, or make them parameters with tests proving optimizer updates. |
 | Data boundary | Raw-shard training selected the validation dataset. | Keep the new loader-identity fail-closed assertion and source-hash split checks. |
 | Artifact integrity | The legacy schema lacked full corpus/validation/token metadata and used permissive loading. | Every new checkpoint must carry exact manifests, token counts, validation history, tokenizer fingerprint, config hash, and tensor disposition proof. |
@@ -67,6 +70,13 @@ small-model pilots, and inference gates. It is not a practical full-training
 device for a 500M model campaign. Use the existing cluster/TPU route or a
 larger rented accelerator only after the small-scale gates demonstrate that the
 recipe is worth the compute.
+
+The executable scratch profiles are `pilot-50m` (57,374,343 parameters at V3)
+and `pilot-150m` (159,127,207 parameters). A manifest is launchable only when
+every declared axis maps to the trainer, it binds distinct immutable train and
+validation shards, the requested optimizer backend is actually active, and
+the expected-token cap is enforced. Unsupported axes are blockers, never
+aliases for the dense baseline.
 
 ## Data: quality, legality, and split discipline
 

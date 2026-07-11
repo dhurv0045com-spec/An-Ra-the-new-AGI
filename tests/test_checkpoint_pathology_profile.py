@@ -2,7 +2,11 @@ from __future__ import annotations
 
 import torch
 
-from scripts.profile_checkpoint_pathologies import profile_checkpoint
+from scripts.profile_checkpoint_pathologies import (
+    _ActivationAccumulator,
+    _normalized_entropy,
+    profile_checkpoint,
+)
 from runtime.experience_ledger import content_hash
 
 
@@ -44,3 +48,12 @@ def test_checkpoint_pathology_profile_rejects_nonfinite_weights(tmp_path) -> Non
 
     assert report["passed_numerical_integrity"] is False
     assert report["nonfinite_elements"] == 1
+
+
+def test_activation_accumulator_and_router_entropy_are_finite() -> None:
+    accumulator = _ActivationAccumulator()
+    accumulator.add("layer", torch.tensor([[[1.0, 2.0], [3.0, float("nan")]]]))
+    row = accumulator.report()["layer"]
+    assert row["nonfinite"] == 1
+    assert row["mean_rms"] > 0
+    assert _normalized_entropy(torch.ones(16)) == 1.0

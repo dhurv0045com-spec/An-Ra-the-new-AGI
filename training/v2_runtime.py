@@ -74,6 +74,22 @@ class CheckpointCompatibilityError(RuntimeError):
     """Raised when a checkpoint cannot satisfy the requested model contract."""
 
 
+def assert_checkpoint_optimizer_boundary(blob: object, checkpoint: Path) -> None:
+    """Reject modern checkpoints captured inside gradient accumulation."""
+    if not isinstance(blob, dict):
+        return
+    schema = int(blob.get("checkpoint_schema_version", 0) or 0)
+    if schema < 6:
+        return
+    complete = blob.get("completed_optimizer_boundary") is True
+    accumulation = int(blob.get("accum_micro_steps", -1) or 0)
+    if not complete or accumulation != 0:
+        raise CheckpointCompatibilityError(
+            f"Checkpoint {checkpoint} is not on a complete optimizer boundary: "
+            f"completed={complete}, accum_micro_steps={accumulation}"
+        )
+
+
 class CheckpointLoadReport(TypedDict, total=False):
     loaded_keys: list[str]
     loaded_key_count: int
@@ -784,6 +800,10 @@ def build_model_from_config(
     hal_module: object | None = None,
     block_size: int | None = None,
     vocab_size: int | None = None,
+    use_qk_norm: bool | None = None,
+    attention_pattern: str | None = None,
+    use_mtp: bool = False,
+    use_moe: bool = False,
 ) -> CausalTransformerV2:
     effective_vocab_size = int(vocab_size or config.vocab_size)
     if effective_vocab_size not in ALLOWED_CANONICAL_VOCAB_SIZES:
@@ -793,6 +813,12 @@ def build_model_from_config(
         )
     hal_module = _load_hal(config) if hal_module is None else hal_module
     effective_block_size = int(block_size or config.block_size)
+    qk_norm = bool(config.use_qk_norm if use_qk_norm is None else use_qk_norm)
+    pattern = str(attention_pattern or "hybrid")
+    if pattern not in {"hybrid", "full-only"}:
+        raise ValueError("attention_pattern must be hybrid or full-only")
+    sliding_window = int(config.sliding_window) if pattern == "hybrid" else None
+    full_attention_every = int(config.full_attention_every) if pattern == "hybrid" else 0
     model = CausalTransformerV2(
         vocab_size=effective_vocab_size,
         n_embd=config.n_embd,
@@ -811,6 +837,11 @@ def build_model_from_config(
         hal_module=hal_module,
         use_rim=True,
         use_dstp=True,
+        use_qk_norm=qk_norm,
+        sliding_window=sliding_window,
+        full_attention_every=full_attention_every,
+        use_mtp=use_mtp,
+        use_moe=use_moe,
     )
     if getattr(config, "gradient_checkpointing", config.n_layer >= 36):
         model.gradient_checkpointing_enable()
@@ -834,6 +865,10 @@ def build_frontier_model(
     hal_module: object | None = None,
     block_size: int | None = None,
     vocab_size: int | None = None,
+    use_qk_norm: bool | None = None,
+    attention_pattern: str | None = None,
+    use_mtp: bool = False,
+    use_moe: bool = False,
 ) -> CausalTransformerV2:
     """
     Build the branch frontier model from V2_FRONTIER config.
@@ -854,6 +889,10 @@ def build_frontier_model(
         hal_module=hal_module,
         block_size=block_size,
         vocab_size=vocab_size,
+        use_qk_norm=use_qk_norm,
+        attention_pattern=attention_pattern,
+        use_mtp=use_mtp,
+        use_moe=use_moe,
     )
 
     if hasattr(model, "gradient_checkpointing_enable"):
@@ -889,6 +928,10 @@ def build_model_for_profile(
     hal_module: object | None = None,
     block_size: int | None = None,
     vocab_size: int | None = None,
+    use_qk_norm: bool | None = None,
+    attention_pattern: str | None = None,
+    use_mtp: bool = False,
+    use_moe: bool = False,
 ) -> CausalTransformerV2:
     config, _ = resolve_model_profile(profile)
     return build_model_from_config(
@@ -896,6 +939,10 @@ def build_model_for_profile(
         hal_module=hal_module,
         block_size=block_size,
         vocab_size=vocab_size,
+        use_qk_norm=use_qk_norm,
+        attention_pattern=attention_pattern,
+        use_mtp=use_mtp,
+        use_moe=use_moe,
     )
 
 
@@ -943,6 +990,7 @@ def load_checkpoint(
         return state
 
     blob = safe_torch_load(ckpt, map_location=device)
+    assert_checkpoint_optimizer_boundary(blob, ckpt)
     model_state = (
         blob.get("model_state_dict", blob.get("model", blob)) if isinstance(blob, dict) else blob
     )
@@ -962,6 +1010,28 @@ def load_checkpoint(
                     f"Checkpoint/model pad mismatch: checkpoint pad_token_id={ckpt_pad}, "
                     f"model.pad_token_id={model.pad_token_id} ({ckpt})"
                 )
+            if hasattr(model, "configure_attention"):
+                # Missing fields identify the pre-QK-Norm/full-attention
+                # lineage. Preserve those logits exactly on resume instead of
+                # silently imposing the new scratch-training architecture.
+                model.configure_attention(
+                    use_qk_norm=bool(ckpt_config.get("use_qk_norm", False)),
+                    sliding_window=(
+                        int(ckpt_config.get("sliding_window", 0)) or None
+                    ),
+                    full_attention_every=int(
+                        ckpt_config.get("full_attention_every", 0)
+                    ),
+                )
+            for feature in ("use_mtp", "use_moe"):
+                saved = bool(ckpt_config.get(feature, False))
+                active = bool(getattr(model, feature, False))
+                if saved != active:
+                    raise CheckpointCompatibilityError(
+                        f"Checkpoint {feature}={saved} does not match requested "
+                        f"architecture {feature}={active}; use a named scratch/upcycle "
+                        "experiment instead of partial tensor loading"
+                    )
         saved_tokenizer = blob.get("tokenizer_contract", {})
         active_tokenizer = _active_tokenizer_identity()
         tokenizer_identity = {
@@ -994,6 +1064,15 @@ def load_checkpoint(
                 else None
             )
         state["tokenizer_identity"] = tokenizer_identity
+        saved_recipe = blob.get("training_recipe", {})
+        active_recipe = getattr(model, "training_recipe", {})
+        if isinstance(saved_recipe, dict) and saved_recipe and isinstance(active_recipe, dict):
+            for field in ("model_profile", "training_layout", "curriculum"):
+                if field in active_recipe and saved_recipe.get(field) != active_recipe.get(field):
+                    raise CheckpointCompatibilityError(
+                        f"Checkpoint training recipe changed at {field}: "
+                        f"saved={saved_recipe.get(field)!r}, active={active_recipe.get(field)!r}"
+                    )
     try:
         target_state = model.state_dict()
         migrated_state, migration = migrate_checkpoint_state(model_state, target_state)

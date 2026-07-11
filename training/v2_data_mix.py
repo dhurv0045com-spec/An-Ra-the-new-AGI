@@ -1509,6 +1509,16 @@ class RawCausalShardDataset(Dataset):
         shard_index = bisect_right(self._cumulative_windows, normalized)
         return str(self._shards[shard_index]["source_class"])
 
+    def source_window_ranges(self) -> dict[str, tuple[tuple[int, int], ...]]:
+        """Return compact dataset-index ranges grouped by immutable source."""
+        grouped: dict[str, list[tuple[int, int]]] = {}
+        start = 0
+        for shard in self._shards:
+            stop = start + int(shard["windows"])
+            grouped.setdefault(str(shard["source_class"]), []).append((start, stop))
+            start = stop
+        return {name: tuple(ranges) for name, ranges in grouped.items()}
+
     @staticmethod
     def reload_replay_bucket() -> int:
         return 0

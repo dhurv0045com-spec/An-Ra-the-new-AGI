@@ -318,9 +318,9 @@ def main() -> None:
     )
     ap.add_argument(
         "--model-size",
-        choices=["frontier"],
+        choices=["frontier", "pilot-50m", "pilot-150m"],
         default="frontier",
-        help="iterate500 profile: 500M-class frontier model.",
+        help="Frontier campaign or executable 50M/150M scratch pilot profile.",
     )
     ap.add_argument(
         "--campaign",
@@ -348,6 +348,7 @@ def main() -> None:
         from training.launch_manifest import load_and_validate_manifest
 
         launch_manifest = load_and_validate_manifest(args.launch_manifest)
+        os.environ["ANRA_TOKENIZER_PATH"] = str(launch_manifest["tokenizer_path"])
         args.model_size = str(launch_manifest["model_profile"])
         args.optimizer = str(launch_manifest["optimizer"])
         args.batch_size = int(launch_manifest["batch_size"])
@@ -494,6 +495,58 @@ def main() -> None:
         base_cmd.extend(["--max_examples", str(args.max_examples)])
     if manifest_resume_from:
         base_cmd.extend(["--resume_from", manifest_resume_from])
+    if launch_manifest and args.model_size.startswith("pilot-"):
+        signed_data = [str(value) for value in launch_manifest["data_manifests"]]
+        validation_manifests = [
+            value for value in signed_data if "validation" in value.replace("\\", "/")
+        ]
+        training_manifests = [value for value in signed_data if value not in validation_manifests]
+        if len(training_manifests) != 1 or len(validation_manifests) != 1:
+            raise RuntimeError(
+                "Pilot launch manifest must bind exactly one train and one "
+                "validation shard manifest"
+            )
+        base_cmd.extend(
+            [
+                "--training-layout",
+                "raw_causal_shards_v1",
+                "--token-shard-manifest",
+                training_manifests[0],
+                "--validation-shard-manifest",
+                validation_manifests[0],
+            ]
+        )
+        base_cmd.extend(
+            ["--max-phase-tokens", str(int(launch_manifest["expected_tokens"]))]
+        )
+        pilot_axes = dict(launch_manifest.get("pilot_axes", {}))
+        qk_norm = str(pilot_axes.get("qk_norm", "on"))
+        attention_pattern = str(pilot_axes.get("attention", "hybrid"))
+        mtp = str(pilot_axes.get("mtp", "off"))
+        moe = str(pilot_axes.get("moe", "off"))
+        curriculum = str(pilot_axes.get("curriculum", "none"))
+        if qk_norm not in {"on", "off"}:
+            raise RuntimeError(f"Unsupported signed qk_norm pilot axis: {qk_norm}")
+        if attention_pattern not in {"hybrid", "full-only"}:
+            raise RuntimeError(
+                f"Unsupported signed attention pilot axis: {attention_pattern}"
+            )
+        if mtp not in {"on", "off"}:
+            raise RuntimeError(f"Unsupported signed mtp pilot axis: {mtp}")
+        if moe not in {"off", "upcycle-8r1s-top2"}:
+            raise RuntimeError(f"Unsupported signed moe pilot axis: {moe}")
+        if curriculum not in {
+            "none",
+            "code-before-prose",
+            "math-density-ramp",
+            "identity-mix-late",
+        }:
+            raise RuntimeError(f"Unsupported signed curriculum pilot axis: {curriculum}")
+        base_cmd.extend(["--qk-norm", qk_norm])
+        base_cmd.extend(["--attention-pattern", attention_pattern])
+        base_cmd.extend(["--mtp", mtp])
+        base_cmd.extend(["--moe", moe])
+        base_cmd.extend(["--curriculum", curriculum])
 
     if args.campaign:
         from math import exp

@@ -1,5 +1,97 @@
 # Engineering Log
 
+## 2026-07-11 - DATA/PERF - Compact MinHash resume index
+
+| Field | Value |
+|-------|-------|
+| **Date** | 2026-07-11 |
+| **Author** | Codex |
+| **Component** | 30GB corpus acquisition; near-duplicate resume state |
+| **Type** | DATA + PERF + RELIABILITY |
+| **Summary** | Replaced the boxed `list[tuple[int]]` signature store and one-list-per-band LSH map with flat uint64 signature storage and integer singleton buckets that promote to lists only on collision. The running old worker had spent ~40 minutes and >5 GiB rebuilding 500k signatures without changing the corpus. After confirming the corpus size still exactly matched the completed audit, it was stopped and restarted on the compact implementation with unbuffered logs. Dedup thresholds, signatures, bands, and append-only SQLite/corpus contracts are unchanged. |
+| **Evidence** | Deterministic 100k synthetic-signature benchmark: 0.649 s, ~154,042 inserts/s, 62.08 MiB tracemalloc peak. Dedup/audit focused verification: 24 passed. Restart precondition: corpus bytes = audit bytes = 17,500,932,024. |
+| **Risk** | Network/API failures can still interrupt source acquisition. Any appended bytes invalidate the old audit for another restart, so a fresh audit is mandatory before resuming again. |
+| **Follow-up** | Let the optimized worker acquire Stack/FineMath/Dolma; on completion, rerun the streaming audit before slice/token-shard publication. |
+
+---
+
+## 2026-07-11 - TRAIN/FIX - Per-cell tokenizer and shard binding
+
+| Field | Value |
+|-------|-------|
+| **Date** | 2026-07-11 |
+| **Author** | Codex |
+| **Component** | signed launch manifests; V3/V4 factorial isolation |
+| **Type** | TRAIN + DATA + FIX |
+| **Summary** | Closed a mixed-factorial reproducibility flaw: manifests formerly hashed the one process-global active tokenizer, which could mislabel V3 and V4 cells. Every launch now binds an explicit tokenizer artifact path and verifies its hash. Pilot construction selects V3 tokenizer/V3 shards or canonical V4 tokenizer/V4 shards per cell; the unified trainer exports the signed path to the child process. A V4 stream blocker is resolved only when those artifacts exist and pass construction checks. |
+| **Evidence** | Pilot, signed-manifest, cognition-manifest, and training-contract checks: 35 passed, 1 skipped. |
+| **Risk** | Canonical V4 artifacts do not exist yet; V4 cells remain correctly blocked. The local draft tokenizer is not accepted as the canonical path. |
+| **Follow-up** | After the seven-source slice passes, build `tokenizer/tokenizer_v4_32k.json`, publish V4 train/validation shards, then regenerate signed manifests. |
+
+---
+
+## 2026-07-11 - TRAIN/DATA - Executable curriculum-order factorial
+
+| Field | Value |
+|-------|-------|
+| **Date** | 2026-07-11 |
+| **Author** | Codex |
+| **Component** | immutable raw-shard sampling; pilot manifests; checkpoint recipes |
+| **Type** | TRAIN + DATA + VERIFICATION |
+| **Summary** | Implemented code-before-prose, math-density-ramp, and identity-mix-late as deterministic progress-dependent source sampling over the signed expected-token budget. The sampler stores compact shard ranges rather than millions of Python window entries, preserves the realized corpus mix when a multiplier is 1.0, requires the targeted source class, and samples training only. Curriculum identity is persisted in checkpoint training-recipe metadata and a changed curriculum/layout/profile fails closed on resume. With dense/Muon/QK/SWA/MTP/MoE work, all 17 ordinary V3 factorial cells are trainer-mapped; only three V4-dependent and three moonshot cells remain evidence-blocked. |
+| **Evidence** | Curriculum curve/order/determinism tests plus pilot and training-contract checks: 25 passed. Campaign preflight reports 17/23 trainer-mapped. |
+| **Risk** | The schedules encode the pre-registered hypotheses, not proven optimal order. Weighted replacement can repeat windows; the existing window-consumption tracker quantifies repeat rate, and matched-token validation determines the winner. |
+| **Follow-up** | Complete mixed-source corpus and immutable shards, set the owner signing key, generate manifests, then run the mapped cells without changing their schedules post hoc. |
+
+---
+
+## 2026-07-11 - ARCH/TRAIN - Executable MTP and sparse-upcycled MoE axes
+
+| Field | Value |
+|-------|-------|
+| **Date** | 2026-07-11 |
+| **Author** | Codex |
+| **Component** | pilot architecture axes; canonical trainer; checkpoint compatibility |
+| **Type** | ARCH + TRAIN + VERIFICATION |
+| **Summary** | Replaced two factorial-only labels with actual model/trainer behavior. MTP uses two per-horizon RMSNorm/projection heads tied through the canonical embedding to predict +2 and +3 tokens, contributing a 0.2-weight loss. MoE replaces each dense SwiGLU with eight routed clones and one always-on shared expert, executes top-2 assignments sparsely, and scales shared+routed output for exact dense-function parity at initialization. Load balancing is aux-loss-free: observed expert utilization updates a bounded persistent routing bias only after a complete optimizer step. Signed manifest axes now select both features; exact total parameter accounting includes inactive experts; dense/MTP/MoE checkpoint mismatches fail closed. |
+| **Evidence** | MTP RTX 4050: 58,194,823/58,194,823 expected parameters, base CE 9.1169, weighted MTP loss 1.8077, finite gradients, 486.44 MiB peak at the bounded sequence. MoE CUDA kernel smoke: finite CE 5.5495 and gradients, balance bias advanced, 22.37 MiB peak on a small model. Focused architecture/trainer checks passed (55). |
+| **Cost** | MoE total parameters are 375,940,743 (50M dense anchor) and 1,100,615,335 (150M dense anchor); MTP+MoE totals are 376,761,223 and 1,102,222,759. Active expert compute is shared + top-2, but optimizer/checkpoint memory follows total parameters. |
+| **Risk** | Kernel correctness and dense parity do not prove capability-per-active-FLOP gains. Full MoE pilots exceed comfortable RTX 4050 optimizer memory and require the campaign cluster or rented accelerator. Sparse routing throughput needs measurement; three-seed gates decide adoption. |
+| **Follow-up** | Finish immutable data and launch the mapped dense/Muon/QK/SWA/MTP/MoE cells. Implement curriculum-axis scheduling; keep V4 and moonshots blocked on their declared evidence. |
+
+---
+
+## 2026-07-11 - ARCH/FIX - QK-Norm, hybrid attention, and stronger cache parity
+
+| Field | Value |
+|-------|-------|
+| **Date** | 2026-07-11 |
+| **Author** | Codex |
+| **Component** | production attention; pilot mapping; checkpoint lineage; KV-cache gate |
+| **Type** | ARCH + TRAIN + VERIFICATION |
+| **Summary** | Implemented parameter-free per-head QK-Norm and the planned 3:1 1024-token sliding-window/full-attention hybrid as explicit model settings. The settings are checkpoint-recorded; pre-feature checkpoints are restored to full-attention/no-QK behavior, so loading old lineage cannot silently change logits. Signed pilot axes now reach the canonical trainer, making the QK-Norm-off and full-attention-only ablations executable. Strengthened KV-cache parity with a deterministic 16-bin full-distribution probe per decode step after a depth-scaled scratch model made entropy/max-probability alone too insensitive to stale-cache poisoning. |
+| **Evidence** | Focused architecture, pilot, data-contract, and cache tests: 48 passed, followed by 34 targeted tests after explicit attention-contract coverage. RTX 4050 scratch pilot forward/backward: 57,374,343 parameters, loss 9.1206, finite logits and gradients, 498.68 MiB peak allocated VRAM. |
+| **Risk** | Implementation and numerical stability are not evidence that the hybrid wins. The QK-Norm and attention-pattern cells still require immutable data, three seeds, matched tokens/compute, and pre-registered acceptance metrics. Pilot contexts are now 2048 tokens so the 1024-token SWA pattern is causally distinct; this raises pilot memory/throughput cost and must be measured before launch. |
+| **Follow-up** | Finish corpus/source mixing and immutable shards, then launch the now-mapped cells. Implement or retire MoE/MTP/curriculum axes before calling the full factorial executable. |
+
+---
+
+## 2026-07-11 - ARCH/DATA/FIX - Forward-path collapse diagnosis and fresh-campaign hardening
+
+| Field | Value |
+|-------|-------|
+| **Date** | 2026-07-11 |
+| **Author** | Codex |
+| **Component** | CUDA checkpoint activation forensics; model initialization; phase policies; loss-scale control; resumable corpus; executable pilot profiles |
+| **Type** | ARCH + DATA + TRAIN + VERIFICATION |
+| **Summary** | Extended the real-checkpoint inspection from static weights to diagnostic/native CUDA forwards. The legacy artifact is finite but its output distribution is effectively deterministic, residual streams amplify sharply with depth, router context is dormant, and two routed layers have near-closed gates. Repaired the fresh path with depth-scaled residual projection initialization, masked logit z-loss, a truly dense Phase A, isolated Phase-B subsystem activation, explicit later-phase recipes, and CUDA telemetry without hot-path `.item()` synchronization. Added exact 57.4M/159.1M pilot profiles; manifests now bind immutable train/validation shards, block unimplemented axes, forbid optimizer fallback, and cap actual tokens. Made the 17.5GB corpus audit byte-resumable/WAL-safe; it completed with zero structural failures and proved the interrupted artifact contains only FineWeb-Edu. Safe mixed-source resume is active. |
+| **Evidence** | `output/v2/checkpoint_pathology_profile.json`; `output/v2/foundation_records_audit.json`; `output/v2/foundation_records_index.sqlite3`; `scripts/campaign_status.py`. |
+| **Metrics** | Legacy diagnostic/native mean top-1 probability 99.974%/99.9997%; output entropy 0.00351/0.0000434 nats; residual RMS 14.87→282.26 diagnostic and 6.93→208.82 native; router position entropy 0.92–0.97, gate means as low as 0.0289. Fresh 28-layer scratch smoke: residual RMS 0.021→0.064, entropy 5.47 nats, top-1 2.4%. CUDA 57.4M forward/backward: finite, 499MB peak. Corpus: 17,500,932,024 bytes, 3,347,036 records, zero audit failures, 100% FineWeb-Edu. |
+| **Risk** | These corrections prevent known failure modes but do not prove intelligence or a winning recipe. Advanced pilot axes remain blocked until each has a real trainer mapping and three-seed evidence. The active data resume depends on external network reliability. |
+| **Follow-up** | Complete the remaining 30GB source mix, publish immutable train/validation/test shards, build the seven-source >=50MB tokenizer slice, then execute only launchable signed pilots. |
+
+---
+
 ## 2026-07-11 - VERIFICATION - Schema-7 CUDA replay and baseline freeze
 
 | Field | Value |

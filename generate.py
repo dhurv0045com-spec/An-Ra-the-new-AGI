@@ -121,6 +121,10 @@ class GenerationTrace:
     time_ms: float
     entropy_curve: list[float]
     max_prob_curve: list[float]
+    # Compact full-distribution evidence: probability mass hashed into 16
+    # deterministic token-ID bins at every decode step. This catches cache
+    # corruption that leaves argmax, entropy, and max probability unchanged.
+    distribution_probe_curve: list[list[float]]
     stopped_by: str
     repeated_ngrams_detected: bool
     kv_cache_compressed: bool = False
@@ -856,6 +860,7 @@ def generate_traced(
         prompt_token_count = len(ids)
         entropy_curve: list[float] = []
         max_prob_curve: list[float] = []
+        distribution_probe_curve: list[list[float]] = []
         stopped_by = "max_tokens"
         ghost_loaded = bool(cfg.mode == "full_system" and session_id and session_id in _GHOST_STORE)
         blocked_ids = _blocked_token_ids(tokenizer, cfg)
@@ -882,6 +887,14 @@ def generate_traced(
                     token_window = generated_ids[-model.block_size :]
                 x = torch.tensor([token_window], dtype=torch.long, device=DEVICE)
                 logits, _ = model(x)
+                raw_probs = torch.softmax(logits[0, -1, :].float(), dim=-1)
+                probe = torch.zeros(16, dtype=torch.float32, device=raw_probs.device)
+                probe.scatter_add_(
+                    0,
+                    torch.arange(raw_probs.numel(), device=raw_probs.device) % 16,
+                    raw_probs,
+                )
+                distribution_probe_curve.append(probe.cpu().tolist())
                 next_id, max_prob, entropy = _sample_next_token(
                     logits[0, -1, :],
                     cfg,
@@ -916,6 +929,8 @@ def generate_traced(
             if kv_enabled:
                 model.clear_kv_cache()
                 model.disable_kv_cache()
+            if hasattr(native_model, "end_subsystem_trace"):
+                native_model.end_subsystem_trace()
             if runtime_mode_state is not None:
                 native_model.restore_runtime_mode(runtime_mode_state)
             native_model._runtime_civ_similarity = previous_civ_similarity
@@ -1077,6 +1092,7 @@ def generate_traced(
             time_ms=elapsed_ms,
             entropy_curve=entropy_curve,
             max_prob_curve=max_prob_curve,
+            distribution_probe_curve=distribution_probe_curve,
             stopped_by=stopped_by,
             repeated_ngrams_detected=repeated,
             kv_cache_compressed=kv_enabled,
@@ -1138,6 +1154,17 @@ def verify_kv_cache_parity(
     distribution_parity = _curves_close(
         baseline.entropy_curve, cached.entropy_curve
     ) and _curves_close(baseline.max_prob_curve, cached.max_prob_curve)
+    probe_parity = len(baseline.distribution_probe_curve) == len(
+        cached.distribution_probe_curve
+    ) and all(
+        _curves_close(first, second)
+        for first, second in zip(
+            baseline.distribution_probe_curve,
+            cached.distribution_probe_curve,
+            strict=True,
+        )
+    )
+    distribution_parity = distribution_parity and probe_parity
     _KV_CACHE_PARITY_VERIFIED = token_parity and distribution_parity
     return {
         "verified": _KV_CACHE_PARITY_VERIFIED,

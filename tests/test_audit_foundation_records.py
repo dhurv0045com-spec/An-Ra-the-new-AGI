@@ -2,7 +2,10 @@ from __future__ import annotations
 
 import hashlib
 import json
+import sqlite3
 from pathlib import Path
+
+import pytest
 
 from scripts.audit_foundation_records import audit_foundation_records
 
@@ -65,3 +68,39 @@ def test_foundation_audit_rejects_duplicate_and_partial_tail(tmp_path: Path) -> 
     assert report["resume_safe"] is False
     assert report["failures"]["duplicate_records"] == 1
     assert report["failures"]["missing_trailing_newline"] == 1
+
+
+def test_foundation_audit_resumes_only_matching_committed_boundary(
+    tmp_path: Path, monkeypatch
+) -> None:
+    corpus = tmp_path / "foundation.jsonl"
+    rows = [_record(f"record {index}") for index in range(4)]
+    _write(corpus, rows)
+    index = tmp_path / "index.sqlite3"
+    report = tmp_path / "report.json"
+
+    import scripts.audit_foundation_records as audit_module
+
+    monkeypatch.setattr(audit_module, "COMMIT_EVERY_RECORDS", 1)
+    original_checkpoint = audit_module._checkpoint_progress
+    calls = 0
+
+    def interrupt_after_first(*args, **kwargs):
+        nonlocal calls
+        original_checkpoint(*args, **kwargs)
+        calls += 1
+        if calls == 1:
+            raise RuntimeError("injected interruption")
+
+    monkeypatch.setattr(audit_module, "_checkpoint_progress", interrupt_after_first)
+    with pytest.raises(RuntimeError, match="injected interruption"):
+        audit_foundation_records(corpus, report_path=report, index_path=index)
+
+    monkeypatch.setattr(audit_module, "_checkpoint_progress", original_checkpoint)
+    resumed = audit_foundation_records(corpus, report_path=report, index_path=index)
+    assert resumed["resumed_partial_audit"] is True
+    assert resumed["valid_records"] == 4
+    with sqlite3.connect(index) as connection:
+        assert connection.execute("SELECT COUNT(*) FROM documents").fetchone()[0] == 4
+    assert not Path(str(index) + "-wal").exists()
+    assert not Path(str(index) + "-shm").exists()

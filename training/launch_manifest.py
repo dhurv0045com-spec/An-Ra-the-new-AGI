@@ -24,6 +24,7 @@ REQUIRED_FIELDS = {
     "model_profile",
     "extension_profile",
     "tokenizer_hash",
+    "tokenizer_path",
     "data_manifests",
     "stage",
     "optimizer",
@@ -57,6 +58,7 @@ def build_launch_manifest(
     model_profile: str,
     extension_profile: str,
     tokenizer_hash: str,
+    tokenizer_path: str | None = None,
     data_manifests: list[str],
     stage: str,
     optimizer: str,
@@ -75,6 +77,9 @@ def build_launch_manifest(
     checkpoint_read_only: bool = True,
 ) -> dict[str, object]:
     dirty = _git(["status", "--porcelain"])
+    bound_tokenizer = Path(tokenizer_path) if tokenizer_path else active_tokenizer_path()
+    if not bound_tokenizer.is_absolute():
+        bound_tokenizer = (ROOT / bound_tokenizer).resolve()
     return {
         "schema_version": 2,
         "run_id": str(uuid.uuid4()),
@@ -89,6 +94,7 @@ def build_launch_manifest(
         "model_profile": model_profile,
         "extension_profile": extension_profile,
         "tokenizer_hash": tokenizer_hash,
+        "tokenizer_path": str(bound_tokenizer),
         "data_manifests": data_manifests,
         "stage": stage,
         "optimizer": optimizer,
@@ -154,6 +160,10 @@ def load_and_validate_manifest(
         raise PermissionError("Launch manifest signature verification failed.")
     if not bool(payload["owner_authorized"]):
         raise PermissionError("Launch manifest lacks explicit owner authorization.")
+    if str(payload.get("blocked_on", "")).strip():
+        raise PermissionError(
+            f"Launch manifest is blocked on: {payload['blocked_on']}"
+        )
     if str(payload["extension_profile"]) not in {"none", "cognition-v1"}:
         raise ValueError("Unsupported cognitive extension profile.")
     schedule = payload["learning_rate_schedule"]
@@ -166,10 +176,14 @@ def load_and_validate_manifest(
         raise ValueError("Canonical continuation launches require exactly 2% warmup.")
     if abs(float(schedule.get("min_lr", 0.0)) - 1e-5) > 1e-12:
         raise ValueError("Canonical continuation launches must decay to min_lr=1e-5.")
-    tokenizer_path = active_tokenizer_path()
+    tokenizer_path = Path(str(payload["tokenizer_path"]))
+    if not tokenizer_path.is_absolute():
+        tokenizer_path = (ROOT / tokenizer_path).resolve()
+    if not tokenizer_path.is_file():
+        raise FileNotFoundError(f"Launch tokenizer artifact is missing: {tokenizer_path}")
     tokenizer_hash = hashlib.sha256(tokenizer_path.read_bytes()).hexdigest()
     if not hmac.compare_digest(str(payload["tokenizer_hash"]), tokenizer_hash):
-        raise ValueError("Launch manifest tokenizer hash does not match the canonical tokenizer.")
+        raise ValueError("Launch manifest tokenizer hash does not match its bound artifact.")
     for entry in payload["data_manifests"]:
         manifest_path = Path(str(entry))
         if not manifest_path.is_absolute():

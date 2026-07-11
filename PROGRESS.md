@@ -16,6 +16,66 @@ session, read this file, then continue from "Next Action".
 
 ## Current State (2026-07-11)
 
+The deeper recovery pass now includes real CUDA activation evidence, not only
+generation samples and static tensors. The legacy checkpoint is finite but its
+output distribution is collapsed (99.974-99.9997% mean top-1), residual RMS
+amplifies 19-30x through depth, router context is dormant, and two routed layers
+are near-closed. Fresh training now uses depth-scaled residual initialization,
+masked logit z-loss, a truly dense Phase A, isolated Phase B, explicit later
+subsystem recipes, and synchronization-free hot-path router telemetry. Exact
+57.4M/159.1M pilot profiles are runnable; signed pilots bind immutable
+train/validation shards and unimplemented axes remain blocked.
+
+The planned attention foundation is no longer merely asserted: parameter-free
+per-head QK-Norm and a 3:1 sliding-window/full-attention pattern are part of the
+checkpoint-recorded model contract. Legacy artifacts restore their old
+no-QK/full-attention semantics, while scratch pilots default to the new path.
+The QK-Norm-off and full-attention-only factorial cells are now executable.
+A bounded RTX 4050 forward/backward on the 57,374,343-parameter pilot was
+finite at 498.7 MiB peak VRAM. The generation cache gate now also compares a
+compact full-distribution fingerprint, catching stale-cache faults that leave
+greedy tokens, entropy, and maximum probability unchanged.
+
+The MTP and MoE factorial labels now map to real training behavior. MTP uses
+two future-token heads (+2/+3) with a recorded weighted auxiliary loss; its
+57M anchor becomes 58,194,823 parameters and passed a finite RTX 4050
+forward/backward. The 8-routed + 1-shared top-2 MoE starts with exact dense
+function parity, performs sparse expert computation, and balances load through
+optimizer-bound routing bias rather than an auxiliary loss. Total expert-bank
+sizes are explicit (375,940,743 at the 50M anchor; 1,100,615,335 at 150M), so
+these runs require cluster-class optimizer memory even though active FLOPs are
+sparse. Checkpoints cannot silently cross dense/MTP/MoE architecture boundaries.
+
+The three curriculum cells are also executable. A deterministic source-range
+sampler applies code-first, math-ramp, or identity-late multipliers over the
+exact signed token budget while preserving immutable shards and held-out data.
+The curriculum is checkpoint-bound. Campaign status now reports 17/23 cells
+trainer-mapped; the remaining six are exactly the three V4-dependent cells and
+three evidence-gated moonshots, not hidden baseline fallbacks.
+
+Pilot manifests now bind a tokenizer path as well as its hash. V3 and V4 cells
+select distinct tokenizer artifacts and train/validation shard families, and
+the signed path is inherited by the trainer process. This closes the prior
+risk that generating a mixed factorial under one global tokenizer could label
+a V4 cell with V3 tokens (or vice versa).
+
+Final verification for this implementation slice: **625 passed, 1 skipped**
+in 229.62 seconds; changed-file Ruff and `git diff --check` are clean.
+
+The resume LSH representation was then compacted after the old worker spent
+about 40 minutes rebuilding 500k signatures at >5 GiB working memory without
+touching the corpus. The replacement stores signatures in flat uint64 memory
+and singleton bands as integers; a 100k benchmark reached ~154k inserts/sec at
+62.08 MiB peak. The old worker was safely replaced only after verifying the
+17,500,932,024-byte corpus still matched the audit. The optimized append-only
+resume is active with unbuffered logs.
+
+The interrupted 17.50GB corpus completed its full streaming audit: 3,347,036
+valid records, zero structural/hash/license/duplicate failures, but every row
+is FineWeb-Edu. Safe append-only acquisition of the missing code/math/science
+portion of the 30GB tranche is active. `scripts/campaign_status.py` is the
+plain-language fail-closed campaign preflight.
+
 **Where we are in the plan:** Foundation hardening continues to move. MASTER_UPGRADE v2
 Week 1 tokenizer slice is executed: per-source fertility measured with evidence
 (`output/v2/fertility_week1.json`), V3 tax confirmed (English 2.518 tok/word vs

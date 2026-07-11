@@ -9,7 +9,14 @@ import copy
 
 import pytest
 import torch
-from anra_brain import CausalTransformerV2, MoDRouter, RouterContext
+from anra_brain import (
+    CausalTransformerV2,
+    MoDRouter,
+    MultiHeadAttentionV2,
+    RouterContext,
+    SparseUpcycledMoE,
+    SwiGLU,
+)
 
 
 @pytest.fixture(scope="module")
@@ -113,6 +120,7 @@ def test_diagnostic_mode_records_no_native_subsystem_execution() -> None:
         mod_layers={1},
     )
     prior = model.configure_runtime_mode("diagnostic")
+    assert model.use_layer_temperature_bias is False
     model.begin_subsystem_trace(civ_similarity=0.25)
     model.eval()
     with torch.no_grad():
@@ -126,6 +134,29 @@ def test_diagnostic_mode_records_no_native_subsystem_execution() -> None:
         "esv": 0,
         "esv_features": 0,
         "hal": 0,
+    }
+
+
+def test_explicit_subsystem_policy_is_dense_or_isolated() -> None:
+    model = CausalTransformerV2(
+        vocab_size=64,
+        n_embd=32,
+        n_head=4,
+        n_layer=2,
+        block_size=16,
+        mod_layers={1},
+    )
+    dense = model.configure_subsystems(set())
+    assert not any(dense.values())
+    assert model.use_layer_temperature_bias is False
+
+    isolated = model.configure_subsystems({"mod"})
+    assert isolated == {
+        "mod": True,
+        "rim": False,
+        "dstp": False,
+        "esv": False,
+        "hal": False,
     }
 
 
@@ -147,6 +178,7 @@ def test_esv_control_ablation_keeps_rim_dependency_visible_without_false_esv_tra
         model(torch.randint(0, 64, (1, 8)))
     execution = model.subsystem_telemetry()["execution"]
     model.restore_runtime_mode(prior)
+    assert model.use_layer_temperature_bias is True
 
     assert execution["esv"] == 0
     assert execution["esv_features"] > 0
@@ -301,6 +333,23 @@ def test_tied_embeddings_share_memory(tiny: CausalTransformerV2) -> None:
     )
 
 
+def test_residual_projections_use_depth_scaled_initialization() -> None:
+    torch.manual_seed(17)
+    model = CausalTransformerV2(
+        vocab_size=128,
+        n_embd=256,
+        n_head=8,
+        n_layer=8,
+        block_size=16,
+        mod_layers=(),
+    )
+    expected = 0.02 / (16**0.5)
+    assert model.initialization_scheme == "depth_scaled_residual_v1"
+    assert abs(model.blocks[0].attn.out_proj.weight.std().item() - expected) < 0.0002
+    assert abs(model.blocks[0].mlp.down_proj.weight.std().item() - expected) < 0.0002
+    assert model.blocks[0].attn.q_proj.weight.std().item() > expected * 3
+
+
 def test_sequence_exceeds_block_size_raises(tiny: CausalTransformerV2) -> None:
     idx = torch.randint(0, 256, (1, 65))  # block_size = 64
     with pytest.raises((ValueError, IndexError, RuntimeError)):
@@ -402,3 +451,95 @@ def test_model_config_serializable(tiny: CausalTransformerV2) -> None:
     import json
 
     json.dumps(tiny.model_config())
+
+
+def test_qk_norm_and_hybrid_attention_are_explicit_model_contracts() -> None:
+    model = CausalTransformerV2(
+        vocab_size=64,
+        n_embd=32,
+        n_head=4,
+        n_kv_head=2,
+        n_layer=4,
+        block_size=16,
+        mod_layers=(),
+        use_qk_norm=True,
+        sliding_window=4,
+        full_attention_every=4,
+    )
+    assert [block.attn.sliding_window for block in model.blocks] == [4, 4, 4, None]
+    assert all(block.attn.use_qk_norm for block in model.blocks)
+    assert model.model_config()["use_qk_norm"] is True
+    assert model.model_config()["sliding_window"] == 4
+    assert model.model_config()["full_attention_every"] == 4
+
+
+def test_sliding_attention_excludes_tokens_older_than_its_window() -> None:
+    torch.manual_seed(19)
+    attention = MultiHeadAttentionV2(
+        n_embd=32,
+        n_head=4,
+        n_kv_head=2,
+        target_seq_len=16,
+        sliding_window=3,
+        use_qk_norm=True,
+    ).eval()
+    original = torch.randn(1, 6, 32)
+    changed = original.clone()
+    changed[:, 0, :] += 100.0
+    with torch.no_grad():
+        original_last = attention(original)[:, -1, :]
+        changed_last = attention(changed)[:, -1, :]
+    torch.testing.assert_close(original_last, changed_last, atol=1e-6, rtol=1e-6)
+
+
+def test_mtp_heads_have_finite_weighted_future_token_gradients() -> None:
+    torch.manual_seed(23)
+    model = CausalTransformerV2(
+        vocab_size=64,
+        n_embd=32,
+        n_head=4,
+        n_kv_head=2,
+        n_layer=2,
+        block_size=16,
+        mod_layers=(),
+        use_mtp=True,
+        mtp_depth=2,
+        mtp_loss_weight=0.2,
+    )
+    inputs = torch.randint(1, 64, (2, 12))
+    targets = torch.randint(1, 64, (2, 12))
+    model(inputs)
+    mtp_loss = model.multi_token_prediction_loss(targets)
+    assert torch.isfinite(mtp_loss)
+    assert mtp_loss.item() > 0.0
+    mtp_loss.backward()
+    assert all(
+        projection.weight.grad is not None
+        and torch.isfinite(projection.weight.grad).all()
+        and projection.weight.grad.abs().sum() > 0
+        for projection in model.mtp_projections
+    )
+
+
+def test_sparse_moe_upcycle_starts_with_exact_dense_function_parity() -> None:
+    torch.manual_seed(29)
+    dense = SwiGLU(16, 32)
+    moe = SparseUpcycledMoE(dense, routed_experts=8, top_k=2).eval()
+    inputs = torch.randn(3, 7, 16)
+    with torch.no_grad():
+        expected = dense(inputs)
+        actual = moe(inputs)
+    torch.testing.assert_close(actual, expected, atol=1e-6, rtol=1e-6)
+
+
+def test_sparse_moe_balances_with_persistent_bias_not_auxiliary_loss() -> None:
+    torch.manual_seed(31)
+    moe = SparseUpcycledMoE(SwiGLU(16, 32), routed_experts=8, top_k=2).train()
+    with torch.no_grad():
+        moe.router.weight.zero_()
+    output = moe(torch.randn(2, 5, 16))
+    output.square().mean().backward()
+    before = moe.expert_bias.clone()
+    moe.update_balance()
+    assert not torch.equal(before, moe.expert_bias)
+    assert torch.isclose(moe.expert_load_ema.sum(), torch.tensor(1.0))

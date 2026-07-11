@@ -14,6 +14,7 @@ import re
 import shutil
 import sqlite3
 import sys
+from array import array
 from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import Any
@@ -161,8 +162,20 @@ class MinHashDeduplicator:
     def __init__(self, threshold: float = 0.80, max_entries: int = 500_000) -> None:
         self.threshold = float(threshold)
         self.max_entries = max(1, int(max_entries))
-        self._signatures: list[tuple[int, ...]] = []
-        self._bands: dict[tuple[int, tuple[int, ...]], list[int]] = {}
+        # Flat uint64 storage avoids four million boxed Python integers at the
+        # 500k-entry resume ceiling. Most LSH buckets contain one signature, so
+        # store a bare integer until a collision actually needs a list.
+        self._signatures = array("Q")
+        self._bands: dict[tuple[int, int, int], int | list[int]] = {}
+
+    @property
+    def count(self) -> int:
+        return len(self._signatures) // len(self._PERMUTATIONS)
+
+    def _signature_at(self, index: int) -> tuple[int, ...]:
+        width = len(self._PERMUTATIONS)
+        start = int(index) * width
+        return tuple(self._signatures[start : start + width])
 
     @classmethod
     def signature(cls, text: str) -> tuple[int, ...]:
@@ -196,26 +209,36 @@ class MinHashDeduplicator:
     def seen_or_add_signature(self, signature: tuple[int, ...]) -> bool:
         candidates: set[int] = set()
         for band in range(4):
-            key = (band, signature[band * 2 : band * 2 + 2])
-            candidates.update(self._bands.get(key, ()))
+            key = (band, signature[band * 2], signature[band * 2 + 1])
+            stored = self._bands.get(key)
+            if isinstance(stored, int):
+                candidates.add(stored)
+            elif stored:
+                candidates.update(stored)
         for candidate in candidates:
-            prior = self._signatures[candidate]
+            prior = self._signature_at(candidate)
             similarity = sum(a == b for a, b in zip(signature, prior, strict=True)) / len(signature)
             if similarity >= self.threshold:
                 return True
-        if len(self._signatures) >= self.max_entries:
+        if self.count >= self.max_entries:
             return False
         self.add_signature(signature)
         return False
 
     def add_signature(self, signature: tuple[int, ...]) -> bool:
-        if len(self._signatures) >= self.max_entries:
+        if self.count >= self.max_entries:
             return False
-        index = len(self._signatures)
-        self._signatures.append(signature)
+        index = self.count
+        self._signatures.extend(signature)
         for band in range(4):
-            key = (band, signature[band * 2 : band * 2 + 2])
-            self._bands.setdefault(key, []).append(index)
+            key = (band, signature[band * 2], signature[band * 2 + 1])
+            stored = self._bands.get(key)
+            if stored is None:
+                self._bands[key] = index
+            elif isinstance(stored, int):
+                self._bands[key] = [stored, index]
+            else:
+                stored.append(index)
         return True
 
 
@@ -529,11 +552,11 @@ def download_native_foundation(
                         stats["rejected"]["exact_duplicate"] += 1
                         continue
                     signature = MinHashDeduplicator.signature(text)
-                    signature_count_before = len(near_duplicates._signatures)
+                    signature_count_before = near_duplicates.count
                     if near_duplicates.seen_or_add_signature(signature):
                         stats["rejected"]["near_duplicate"] += 1
                         continue
-                    signature_added = len(near_duplicates._signatures) > signature_count_before
+                    signature_added = near_duplicates.count > signature_count_before
                     record = {
                         "text": text,
                         "source": spec["source"],

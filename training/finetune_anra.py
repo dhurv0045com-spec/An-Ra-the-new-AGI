@@ -47,6 +47,7 @@ def finetune_identity(
         symbolic_ratio=0.04,
         replay_ratio=0.08,
         optimizer_name=optimizer_name,
+        continuation_phase="D",
     )
     report = {
         "generated_at": time.time(),

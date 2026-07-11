@@ -19,7 +19,7 @@ import os
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from anra.anra_paths import ROOT
+from anra.anra_paths import ROOT, V3_TOKENIZER_FILE
 
 from training.forecast_ledger import (
     FORECAST_LEDGER,
@@ -27,7 +27,7 @@ from training.forecast_ledger import (
     register_forecast,
 )
 from training.launch_manifest import build_launch_manifest, sign_manifest
-from training.v2_runtime import active_tokenizer_path
+from training.v2_config import resolve_model_profile
 
 PILOT_SEEDS = (1301, 2602, 3903)
 PILOT_SCHEDULE = {
@@ -35,7 +35,15 @@ PILOT_SCHEDULE = {
     "warmup_fraction": 0.02,
     "min_lr": 1e-5,
 }
-PILOT_DATA_MANIFESTS = ["output/v2/data_manifests/tokenizer_v3.json"]
+PILOT_DATA_MANIFESTS = [
+    "output/v2/data_manifests/native_foundation_v3/30gb/manifest.json",
+    "output/v2/data_manifests/native_foundation_v3/30gb/validation/manifest.json",
+]
+PILOT_V4_DATA_MANIFESTS = [
+    "output/v2/data_manifests/native_foundation_v4/30gb/manifest.json",
+    "output/v2/data_manifests/native_foundation_v4/30gb/validation/manifest.json",
+]
+PILOT_V4_TOKENIZER = ROOT / "tokenizer" / "tokenizer_v4_32k.json"
 EXPECTED_TOKENS_BY_SCALE = {"50m": 500_000_000, "150m": 1_500_000_000}
 
 
@@ -359,6 +367,29 @@ def factorial_summary(cells: tuple[PilotCell, ...] = PILOT_FACTORIAL) -> dict[st
     }
 
 
+def execution_blocker(
+    cell: PilotCell, *, resolved_blockers: frozenset[str] = frozenset()
+) -> str:
+    """Name any axis that is not yet mapped to the canonical trainer."""
+    if cell.blocked_on and cell.blocked_on not in resolved_blockers:
+        return cell.blocked_on
+    supported_keys = {
+        "optimizer",
+        "moe",
+        "mtp",
+        "tokenizer",
+        "qk_norm",
+        "attention",
+        "curriculum",
+    }
+    unsupported_keys = set(cell.axes) - supported_keys
+    if unsupported_keys:
+        return "unimplemented-pilot-axes:" + ",".join(sorted(unsupported_keys))
+    if cell.axes.get("tokenizer", "v3") != "v3":
+        return "stream-b-canonical-v4"
+    return ""
+
+
 def build_pilot_launch_manifests(
     output_dir: str | Path,
     *,
@@ -367,6 +398,8 @@ def build_pilot_launch_manifests(
     seeds: tuple[int, ...] = PILOT_SEEDS,
     cells: tuple[PilotCell, ...] = PILOT_FACTORIAL,
     ledger_path: str | Path = FORECAST_LEDGER,
+    data_manifests: tuple[str, ...] = tuple(PILOT_DATA_MANIFESTS),
+    v4_data_manifests: tuple[str, ...] = tuple(PILOT_V4_DATA_MANIFESTS),
 ) -> list[dict[str, object]]:
     """Register forecasts, then emit one signed manifest per cell (3 seeds).
 
@@ -383,9 +416,23 @@ def build_pilot_launch_manifests(
         # leave orphan pre-registrations in the canonical ledger.
         raise PermissionError("ANRA_MANIFEST_SIGNING_KEY is required to sign a launch manifest.")
     root = Path(output_dir)
-    tokenizer_hash = hashlib.sha256(active_tokenizer_path().read_bytes()).hexdigest()
     manifests: list[dict[str, object]] = []
     for cell in cells:
+        uses_v4 = cell.axes.get("tokenizer", "v3") != "v3"
+        cell_data = v4_data_manifests if uses_v4 else data_manifests
+        if len(cell_data) != 2 or "validation" not in cell_data[1].replace("\\", "/"):
+            raise ValueError("Pilot cells require distinct train and validation shard manifests")
+        for raw_path in cell_data:
+            manifest_path = Path(raw_path)
+            if not manifest_path.is_absolute():
+                manifest_path = ROOT / manifest_path
+            if not manifest_path.is_file():
+                raise FileNotFoundError(f"Pilot data manifest is missing: {manifest_path}")
+        tokenizer_path = PILOT_V4_TOKENIZER if uses_v4 else V3_TOKENIZER_FILE
+        if not tokenizer_path.is_file():
+            raise FileNotFoundError(f"Pilot tokenizer artifact is missing: {tokenizer_path}")
+        tokenizer_hash = hashlib.sha256(tokenizer_path.read_bytes()).hexdigest()
+        _, training_config = resolve_model_profile(f"pilot-{cell.scale}")
         forecast = register_forecast(
             cell_id=cell.cell_id,
             metric=cell.metric,
@@ -400,11 +447,12 @@ def build_pilot_launch_manifests(
             model_profile=f"pilot-{cell.scale}",
             extension_profile="none",
             tokenizer_hash=tokenizer_hash,
-            data_manifests=list(PILOT_DATA_MANIFESTS),
+            tokenizer_path=str(tokenizer_path),
+            data_manifests=list(cell_data),
             stage=f"pilot-factorial-{cell.scale}",
             optimizer=cell.optimizer,
-            batch_size=32,
-            accumulation=8,
+            batch_size=training_config.batch_size,
+            accumulation=training_config.grad_accum_steps,
             schedule=dict(PILOT_SCHEDULE),
             seeds=list(seeds),
             checkpoint_source="scratch",
@@ -422,7 +470,8 @@ def build_pilot_launch_manifests(
         manifest["pilot_axes"] = dict(cell.axes)
         manifest["pilot_scale"] = cell.scale
         manifest["moonshot"] = cell.moonshot
-        manifest["blocked_on"] = cell.blocked_on
+        resolved = frozenset({"stream-b-canonical-v4"}) if uses_v4 else frozenset()
+        manifest["blocked_on"] = execution_blocker(cell, resolved_blockers=resolved)
         manifest["forecast_id"] = forecast["forecast_id"]
         signed = sign_manifest(manifest, root / "cells" / f"{cell.cell_id}.json", key=key)
         audit = audit_pre_launch(signed, path=ledger_path)

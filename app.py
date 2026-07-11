@@ -1331,6 +1331,7 @@ class LaunchManifestRequest(BaseModel):
     model_profile: str
     extension_profile: str = "cognition-v1"
     tokenizer_hash: str
+    tokenizer_path: str | None = None
     data_manifests: list[str]
     stage: str
     optimizer: str

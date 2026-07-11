@@ -52,11 +52,40 @@ code plus focused tests exist; it does not waive a quantitative campaign gate.
       validation remains manifest-bound. Stage gates compute same-identity,
       newer, per-domain/answer regression evidence and reject trusted boolean
       claims. Full suite: 597 passed, 1 skipped.)*
+- [x] Implement QK-Norm and the 3:1 sliding-window/full-attention backbone.
+      *(Parameter-free per-head QK-Norm and explicit 1024-token sliding-window
+      layers with every fourth layer full-attention now live in the canonical
+      model contract. Old checkpoints restore their recorded legacy semantics;
+      no silent attention migration occurs. `p150-qknorm-off` and
+      `p150-swa-full` are now real trainer-mapped ablations. RTX 4050 smoke on
+      the 57,374,343-parameter pilot produced finite logits/loss/gradients at
+      498.7 MiB peak; three-seed acceptance evidence remains mandatory.)*
+- [x] Implement executable MTP and sparse-upcycled MoE pilot axes.
+      *(MTP adds two tied-vocabulary heads for +2/+3 future tokens and an
+      explicit 0.2-weight trainer loss. MoE replaces each dense MLP with eight
+      top-2 routed clones plus one shared expert; the step-zero function is
+      exactly dense-equivalent and expert load uses optimizer-bound score-bias
+      updates with no auxiliary loss. Signed axes reach the canonical trainer,
+      parameter totals include all inactive experts, and checkpoint feature
+      mismatches fail closed. RTX 4050 smokes produced finite losses/gradients.
+      Acceptance still requires matched-token/active-FLOP three-seed pilots.)*
+- [x] Implement the three curriculum-order pilot schedules.
+      *(A compact-range deterministic sampler implements code-before-prose,
+      math-density-ramp, and identity-mix-late over the signed expected-token
+      budget. Relative multipliers preserve the immutable corpus distribution
+      at 1.0, targeted source classes are mandatory, validation is untouched,
+      and checkpoint training-recipe metadata rejects order changes on resume.
+      All 17 non-V4/non-moonshot factorial cells are now trainer-mapped.)*
 - [x] Convert the pilot factorial into pre-registered launch manifests, three seeds each.
       *(`training/pilot_factorial.py`: 23 cells, seeds 1301/2602/3903, signed
       schema-2 manifests, Law-1 scratch lineage; owner emits the set with
       `py -3.14 -m training.pilot_factorial --owner-authorized` once
-      `ANRA_MANIFEST_SIGNING_KEY` is set.)*
+      `ANRA_MANIFEST_SIGNING_KEY` is set. Exact `pilot-50m` and `pilot-150m`
+      model profiles now build and run. Manifests bind distinct immutable
+      train/validation shard inputs, an explicit V3-or-V4 tokenizer artifact,
+      and exact token caps; optimizer fallbacks and unimplemented axes fail
+      closed instead of silently running a baseline. V4 cells bind separately
+      tokenized V4 shards and cannot inherit the process-global V3 hash.)*
 - [x] Record forecast-ledger predictions before every pilot launch.
       *(`training/forecast_ledger.py`: hash-chained append-only ledger;
       `build_pilot_launch_manifests` registers the forecast before the
@@ -78,15 +107,22 @@ code plus focused tests exist; it does not waive a quantitative campaign gate.
       *(Blocked on network + storage + hours. Machinery exists:
       `scripts/download_training_data.py` — pinned revisions, MinHash dedup,
       PII/contamination cleaning, license gate, token-shard publisher.)*
+      *(2026-07-11 audit: the interrupted 17.50GB artifact contains 3,347,036
+      structurally valid, exactly deduplicated FineWeb-Edu records and no other
+      source class. The WAL-safe resume index is finalized; safe acquisition of
+      the remaining 30GB tranche sources is active.)*
 - [ ] Produce the at-least-50 MB tokenizer campaign slice with held-out source splits.
       *(Builder shipped: `scripts/build_campaign_slice.py` — deterministic
       per-source held-out split, disjointness + >=50MB gate. Executed on the
       local corpus (3.4MB train, held-out disjoint); the 50MB itself is
       corpus-blocked.)*
+      *(The large-corpus path is now bounded streaming rather than loading the
+      17.5GB JSONL into RAM; readiness additionally requires all seven source
+      classes and <=2-point mix deviation.)*
 - [x] Generalize the proven append migration to the canonical 32k V4 ceiling.
       *(`build_append_only_v4`/`audit_token_fertility` now take a `target_vocab_size`
       ceiling; canonical `CANONICAL_V4_VOCAB_SIZE = 32_768` with a pinned
-      530,602,567-param contract; 16,384 retained as the proven fallback.
+      530,602,595-param contract; 16,384 retained as the proven fallback.
       Runtime/checkpoint/ssg gates accept both via `is_v4_vocab_size`. CLI:
       `scripts/build_v4_tokenizer.py`.)*
 - [x] Prove IDs 0-8208 unchanged, round-trip, checkpoint migration, and fertility gates.
@@ -240,6 +276,15 @@ acceptance pilot. M1-M5 and M7 remain blocked on external evidence.
       signed sovereignty records, zero reverts, and zero unauthorized applies.)*
 
 ## Review ledger (Fable 5 audit of Codex-checked work)
+
+- **2026-07-11 - architecture/data/campaign hardening audit.** Added CUDA
+  activation forensics, resumable 17.5GB corpus audit/indexing, exact pilot
+  profiles, dense phase isolation, depth-scaled initialization, logit z-loss,
+  QK-Norm/SWA, executable MTP/MoE/curriculum axes, per-cell tokenizer/shard
+  binding, and fail-closed legacy trainer removal. Final consolidated suite:
+  625 passed, 1 skipped; changed-file Ruff and diff checks pass. Data volume,
+  V4, signed launches, three-seed outcomes, and soak/recovery remain open
+  evidence gates.
 
 - **2026-07-10 - full accumulated implementation audit.** The local mechanism
   layer was rerun end to end (575 non-GPU tests pass, 1 skipped; sibling
