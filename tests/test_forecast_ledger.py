@@ -80,6 +80,7 @@ def test_pre_launch_audit_passes_when_forecast_predates_manifest(tmp_path: Path)
     manifest = {
         "forecast_id": forecast["forecast_id"],
         "pilot_cell_id": "p150-muon",
+        "seed": 1301,
         "created_at": time.time() + 1.0,
     }
     audit = forecast_ledger.audit_pre_launch(manifest, path=ledger)
@@ -93,6 +94,7 @@ def test_pre_launch_audit_rejects_post_hoc_forecast(tmp_path: Path) -> None:
     manifest = {
         "forecast_id": forecast["forecast_id"],
         "pilot_cell_id": "p150-muon",
+        "seed": 1301,
         "created_at": float(forecast["registered_at"]) - 60.0,
     }
     with pytest.raises(forecast_ledger.ForecastAuditError, match="Post-hoc"):
@@ -121,18 +123,24 @@ def test_pre_launch_audit_rejects_missing_or_mismatched_forecast(tmp_path: Path)
 
 def test_outcomes_feed_the_calibration_report(tmp_path: Path) -> None:
     ledger = tmp_path / "forecasts.jsonl"
+    hit_evidence = tmp_path / "hit.json"
+    miss_evidence = tmp_path / "miss.json"
+    hit_evidence.write_text('{"metric":1.45}', encoding="utf-8")
+    miss_evidence.write_text('{"metric":1.05}', encoding="utf-8")
     hit = _register(ledger)
     miss = _register(ledger, cell_id="p150-moe")
     forecast_ledger.record_outcome(
         forecast_id=str(hit["forecast_id"]),
         realized_value=1.45,
         verdict="adopted",
+        evidence_path=str(hit_evidence),
         path=ledger,
     )
     forecast_ledger.record_outcome(
         forecast_id=str(miss["forecast_id"]),
         realized_value=1.05,
         verdict="rejected",
+        evidence_path=str(miss_evidence),
         path=ledger,
     )
 
@@ -148,5 +156,15 @@ def test_outcomes_feed_the_calibration_report(tmp_path: Path) -> None:
             forecast_id="unknown",
             realized_value=1.0,
             verdict="adopted",
+            evidence_path=str(hit_evidence),
+            path=ledger,
+        )
+
+    with pytest.raises(forecast_ledger.ForecastLedgerError, match="already"):
+        forecast_ledger.record_outcome(
+            forecast_id=str(hit["forecast_id"]),
+            realized_value=1.4,
+            verdict="adopted",
+            evidence_path=str(hit_evidence),
             path=ledger,
         )

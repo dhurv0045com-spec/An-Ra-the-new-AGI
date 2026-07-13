@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from collections.abc import Callable, Iterable
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -34,14 +35,27 @@ class SourceRecord:
     verifier_status: str = "not_applicable"
     source_revision: str = "unknown"
     civ_score: float = 1.0
+    source_class: str = ""
 
 
 def validate_dfc(text: str) -> bool:
     from verification import DEFAULT_VERIFIER_REGISTRY
 
+    tags = DFC_TAGS
+    if "<task" in text:
+        tags = (
+            "<task",
+            "</task>",
+            "<hyp>",
+            "</hyp>",
+            "<cons>",
+            "</cons>",
+            "<verify>",
+            "</verify>",
+        )
     result = DEFAULT_VERIFIER_REGISTRY.verify(
         "dfc_format",
-        {"text": text, "tags": DFC_TAGS},
+        {"text": text, "tags": tags},
     )
     return float(result.score) == 1.0
 
@@ -68,15 +82,24 @@ class ShardedDataPipeline:
 
     @staticmethod
     def _license_allowed(record: SourceRecord) -> bool:
-        license_name = record.license.strip().lower().replace("_", "-")
-        if "fineweb" in record.source.lower():
-            return license_name in {"odc-by", "odc-by-1.0"}
-        return license_name in {
+        raw_parts = re.split(
+            r"\s+(?:AND|OR)\s+|[,;]",
+            record.license.strip(),
+            flags=re.IGNORECASE,
+        )
+        licenses = {
+            part.strip().lower().replace("_", "-")
+            for part in raw_parts
+            if part.strip()
+        }
+        allowed = {
             "odc-by",
             "odc-by-1.0",
             "commoncrawl-terms",
             "cc-by",
             "cc-by-4.0",
+            "cc-by-sa",
+            "cc0",
             "mit",
             "apache-2.0",
             "bsd",
@@ -85,8 +108,12 @@ class ShardedDataPipeline:
             "isc",
             "mpl-2.0",
             "public-domain",
+            "unlicense",
             "owner",
         }
+        if "fineweb" in record.source.lower():
+            return licenses in ({"odc-by"}, {"odc-by-1.0"})
+        return bool(licenses) and licenses <= allowed
 
     def _reject_reason(
         self,
@@ -238,6 +265,8 @@ class TokenShardPublisher:
         tokenizer: object,
         *,
         allow_partial_final: bool = False,
+        minimum_replay_tokens: dict[str, int] | None = None,
+        progress_callback: Callable[[dict[str, object]], None] | None = None,
     ) -> dict[str, object]:
         manifest_path = self.output_dir / "manifest.json"
         if manifest_path.exists():
@@ -257,12 +286,30 @@ class TokenShardPublisher:
         accepted_records = 0
         source_counts: dict[str, int] = {}
         source_token_counts: dict[str, int] = {}
+        source_class_token_counts: dict[str, int] = {}
+        source_class_replayed_tokens: dict[str, int] = {}
         verifier_counts: dict[str, int] = {}
+        active_source_class = ""
+        replay_targets = {
+            str(name): max(0, int(tokens))
+            for name, tokens in (minimum_replay_tokens or {}).items()
+        }
+        oversized_replay = {
+            name: tokens
+            for name, tokens in replay_targets.items()
+            if tokens > self.tokens_per_shard
+        }
+        if oversized_replay:
+            raise ValueError(
+                "minimum replay targets must fit inside one source-pure shard: "
+                f"{oversized_replay}"
+            )
 
         def consume_segment_metadata(token_count: int) -> dict[str, object]:
             remaining = int(token_count)
             records: set[str] = set()
             sources: dict[str, int] = {}
+            source_classes: dict[str, int] = {}
             revisions: set[str] = set()
             shard_licenses: set[str] = set()
             verifier_statuses: dict[str, int] = {}
@@ -272,6 +319,8 @@ class TokenShardPublisher:
                 take = min(remaining, int(segment["tokens"]))
                 source = str(segment["source"])
                 sources[source] = sources.get(source, 0) + take
+                source_class = str(segment["source_class"])
+                source_classes[source_class] = source_classes.get(source_class, 0) + take
                 records.add(str(segment["record_hash"]))
                 revisions.add(str(segment["revision"]))
                 shard_licenses.add(str(segment["license"]))
@@ -288,6 +337,7 @@ class TokenShardPublisher:
             return {
                 "record_count": len(records),
                 "source_token_mix": sources,
+                "source_class_token_mix": source_classes,
                 "source_revisions": sorted(revisions),
                 "licenses": sorted(shard_licenses),
                 "verifier_token_distribution": verifier_statuses,
@@ -305,6 +355,9 @@ class TokenShardPublisher:
                 np.save(stream, array, allow_pickle=False)
             temporary.replace(target)
             metadata = consume_segment_metadata(int(array.size))
+            source_classes = dict(metadata["source_class_token_mix"])
+            if len(source_classes) != 1:
+                raise RuntimeError("Token shard publication mixed source classes")
             shards.append(
                 {
                     "path": target.name,
@@ -313,9 +366,53 @@ class TokenShardPublisher:
                     "partial": partial,
                     "sha256": self._sha256(target),
                     "tokenizer_sha256": self.tokenizer_sha256,
+                    "source_class": next(iter(source_classes)),
                     **metadata,
                 }
             )
+            if progress_callback is not None:
+                progress_callback(dict(shards[-1]))
+
+        def materialize_minimum_replay(source_class: str) -> None:
+            target = replay_targets.get(source_class, 0)
+            existing = source_class_token_counts.get(source_class, 0)
+            needed = max(0, target - existing)
+            if needed == 0:
+                return
+            if not buffer or not buffer_segments:
+                raise RuntimeError(
+                    f"Cannot replay empty source class {source_class!r} to {target} tokens"
+                )
+            templates: list[tuple[list[int], dict[str, object]]] = []
+            cursor = 0
+            for segment in buffer_segments:
+                count = int(segment["tokens"])
+                if count <= 0:
+                    continue
+                templates.append((list(buffer[cursor : cursor + count]), dict(segment)))
+                cursor += count
+            if cursor != len(buffer) or not templates:
+                raise RuntimeError("Replay metadata does not cover the pending token buffer")
+            while needed > 0:
+                for token_template, segment_template in templates:
+                    take = min(needed, len(token_template))
+                    if take <= 0:
+                        continue
+                    buffer.extend(token_template[:take])
+                    replay_segment = dict(segment_template)
+                    replay_segment["tokens"] = take
+                    buffer_segments.append(replay_segment)
+                    source = str(replay_segment["source"])
+                    source_token_counts[source] = source_token_counts.get(source, 0) + take
+                    source_class_token_counts[source_class] = (
+                        source_class_token_counts.get(source_class, 0) + take
+                    )
+                    source_class_replayed_tokens[source_class] = (
+                        source_class_replayed_tokens.get(source_class, 0) + take
+                    )
+                    needed -= take
+                    if needed == 0:
+                        break
 
         for record in records:
             reason, _ = validator._reject_reason(
@@ -339,11 +436,21 @@ class TokenShardPublisher:
             source_token_counts[record.source] = source_token_counts.get(record.source, 0) + len(
                 token_ids
             )
+            source_class = record.source_class.strip() or record.bucket.strip() or "unclassified"
+            if active_source_class and source_class != active_source_class and buffer:
+                materialize_minimum_replay(active_source_class)
+                write_shard(buffer, len(shards), partial=True)
+                buffer = []
+            active_source_class = source_class
+            source_class_token_counts[source_class] = (
+                source_class_token_counts.get(source_class, 0) + len(token_ids)
+            )
             buffer.extend(token_ids)
             buffer_segments.append(
                 {
                     "tokens": len(token_ids),
                     "source": record.source,
+                    "source_class": source_class,
                     "revision": record.source_revision,
                     "license": record.license,
                     "verifier_status": record.verifier_status,
@@ -358,6 +465,8 @@ class TokenShardPublisher:
                     partial=False,
                 )
                 del buffer[: self.tokens_per_shard]
+        if buffer:
+            materialize_minimum_replay(active_source_class)
         if buffer and allow_partial_final:
             write_shard(buffer, len(shards), partial=True)
             buffer = []
@@ -373,6 +482,8 @@ class TokenShardPublisher:
             "accepted_records": accepted_records,
             "source_record_mix": source_counts,
             "source_token_mix": source_token_counts,
+            "source_class_token_mix": source_class_token_counts,
+            "source_class_replayed_tokens": source_class_replayed_tokens,
             "verifier_record_distribution": verifier_counts,
             "rejection_counts": rejection_counts,
             "quality": validator.ledger.report(),

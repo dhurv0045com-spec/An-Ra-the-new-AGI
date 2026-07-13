@@ -26,6 +26,7 @@ from training.data_ingestion import mount_google_drive_if_available, prepare_tra
 from training.eval_v2 import run_compact_eval
 from training.v2_config import V2_FRONTIER, V2_FRONTIER_TRAINING, resolve_model_profile
 from training.v2_runtime import (
+    active_tokenizer_identity,
     build_frontier_model,
     canonical_v2_checkpoint,
     load_checkpoint,
@@ -108,8 +109,23 @@ def print_system_health() -> None:
     print()
 
 
-def _write_run_report(report: dict) -> None:
-    write_json(v2_report_path("run_report"), report)
+def run_report_path(report: dict[str, object]) -> Path:
+    """Keep signed worker evidence beside its unique artifact."""
+    manifest = report.get("launch_manifest")
+    if isinstance(manifest, dict):
+        artifact = str(manifest.get("artifact_path", "")).strip()
+        if artifact:
+            path = Path(artifact)
+            if not path.is_absolute():
+                path = (ROOT / path).resolve()
+            return path.with_suffix(".run.json")
+    return v2_report_path("run_report")
+
+
+def _write_run_report(report: dict[str, object]) -> None:
+    target = run_report_path(report)
+    report["run_report_path"] = str(target)
+    write_json(target, report)
 
 
 def stage_plan_for_mode(mode: str) -> list[str]:
@@ -129,6 +145,53 @@ def _load_json(path: Path) -> dict | None:
         return json.loads(path.read_text(encoding="utf-8"))
     except Exception:
         return None
+
+
+def checkpoint_resume_path(checkpoint_source: object) -> str | None:
+    """Resolve a signed checkpoint source without treating scratch as a path."""
+    value = str(checkpoint_source or "").strip()
+    if not value or value.lower() == "scratch":
+        return None
+    return value
+
+
+def resolve_campaign_inventory(
+    launch_manifest: dict[str, object] | None,
+    model_size: str,
+    default_inventory_path: Path,
+) -> dict | None:
+    """Resolve tokens from the exact data manifest bound to a signed pilot."""
+    if not launch_manifest or not model_size.startswith("pilot-"):
+        return _load_json(default_inventory_path)
+    manifests = launch_manifest.get("data_manifests")
+    if not isinstance(manifests, list) or not manifests:
+        raise RuntimeError("Signed pilot launch manifest has no training data manifest")
+    roles = launch_manifest.get("data_manifest_roles")
+    if not isinstance(roles, dict):
+        raise RuntimeError("Signed pilot launch manifest has no data-manifest roles")
+    train_manifests = [
+        str(entry) for entry in manifests if str(roles.get(str(entry), "")) == "train"
+    ]
+    if len(train_manifests) != 1:
+        raise RuntimeError("Signed pilot launch manifest must bind exactly one train manifest")
+    signed_train_manifest = Path(train_manifests[0])
+    if not signed_train_manifest.is_absolute():
+        signed_train_manifest = (ROOT / signed_train_manifest).resolve()
+    inventory = _load_json(signed_train_manifest)
+    if inventory is None:
+        raise RuntimeError(
+            f"Signed pilot training manifest is unreadable: {signed_train_manifest}"
+        )
+    total_tokens = int(inventory.get("total_tokens", 0))
+    if total_tokens <= 0:
+        raise RuntimeError(
+            f"Signed pilot training manifest has no tokens: {signed_train_manifest}"
+        )
+    return {
+        **inventory,
+        "licensed_tokens": total_tokens,
+        "manifest": str(signed_train_manifest),
+    }
 
 
 def _milestone_due(training_cfg: object | None = None) -> dict[str, object]:
@@ -331,6 +394,7 @@ def main() -> None:
     ap.add_argument("--ouroboros_minutes", type=int, default=10)
     ap.add_argument("--max_examples", type=int, default=None)
     ap.add_argument("--launch-manifest", default=None)
+    ap.add_argument("--seed", type=int, default=1337)
     ap.add_argument(
         "--training-objective",
         choices=["base", "causal-extension"],
@@ -352,12 +416,16 @@ def main() -> None:
         args.model_size = str(launch_manifest["model_profile"])
         args.optimizer = str(launch_manifest["optimizer"])
         args.batch_size = int(launch_manifest["batch_size"])
+        args.seed = int(launch_manifest["seed"])
         checkpoint_source = str(launch_manifest["checkpoint_source"])
         artifact_path = str(launch_manifest.get("artifact_path", "")).strip()
-        if checkpoint_source:
-            manifest_resume_from = checkpoint_source
+        manifest_resume_from = checkpoint_resume_path(checkpoint_source)
         if artifact_path:
             args.checkpoint_path = artifact_path
+            report_root = Path(artifact_path)
+            if not report_root.is_absolute():
+                report_root = (ROOT / report_root).resolve()
+            os.environ["ANRA_RUN_REPORT_DIR"] = str(report_root.with_suffix(".reports"))
         stage = str(launch_manifest["stage"])
         if stage in {
             "frontier_full",
@@ -463,6 +531,7 @@ def main() -> None:
         "dataset": str(dataset),
         "model_line": "v2",
         "model_size": args.model_size,
+        "seed": args.seed,
         "data_ingestion": data_ingestion_report,
         "launch_manifest": launch_manifest,
         "stages": {},
@@ -488,6 +557,8 @@ def main() -> None:
         str(args.session_minutes),
         "--model-size",
         args.model_size,
+        "--seed",
+        str(args.seed),
         "--training-objective",
         args.training_objective,
     ]
@@ -497,10 +568,14 @@ def main() -> None:
         base_cmd.extend(["--resume_from", manifest_resume_from])
     if launch_manifest and args.model_size.startswith("pilot-"):
         signed_data = [str(value) for value in launch_manifest["data_manifests"]]
+        roles = {
+            str(key): str(value)
+            for key, value in dict(launch_manifest["data_manifest_roles"]).items()
+        }
+        training_manifests = [value for value in signed_data if roles.get(value) == "train"]
         validation_manifests = [
-            value for value in signed_data if "validation" in value.replace("\\", "/")
+            value for value in signed_data if roles.get(value) == "validation"
         ]
-        training_manifests = [value for value in signed_data if value not in validation_manifests]
         if len(training_manifests) != 1 or len(validation_manifests) != 1:
             raise RuntimeError(
                 "Pilot launch manifest must bind exactly one train and one "
@@ -559,7 +634,11 @@ def main() -> None:
 
         from training.stages import CampaignConfig, StagedTrainingCampaign
 
-        inventory = _load_json(TOKEN_INVENTORY_MANIFEST)
+        inventory = resolve_campaign_inventory(
+            launch_manifest,
+            args.model_size,
+            TOKEN_INVENTORY_MANIFEST,
+        )
         if inventory is None or int(inventory.get("licensed_tokens", 0)) <= 0:
             raise RuntimeError(
                 "Campaign training requires a published offline licensed-token inventory. "
@@ -641,16 +720,14 @@ def main() -> None:
             new_validation = history[offset:]
             validation_baseline = new_validation[0] if new_validation else {}
             validation_candidate = new_validation[-1] if len(new_validation) >= 2 else {}
+            tokenizer_identity = active_tokenizer_identity()
             return {
                 "perplexity": exp(min(loss, 20.0)),
                 "numerically_stable": bool(loss < float("inf")),
                 "training_tokens": int(train_metrics.get("phase_tokens_seen", 0)),
                 "tokenizer_schema_valid": bool(
-                    (
-                        _load_json(ROOT / "output" / "v2" / "data_manifests" / "tokenizer_v3.json")
-                        or {}
-                    ).get("schema_version", 0)
-                    >= 3
+                    tokenizer_identity.get("available") is True
+                    and int(tokenizer_identity.get("schema_version", 0)) >= 3
                 ),
                 "civ_similarity": float(compact.get("civ_similarity", 0.0)),
                 "coherence_rate": float(compact.get("coherence_rate", 0.0)),

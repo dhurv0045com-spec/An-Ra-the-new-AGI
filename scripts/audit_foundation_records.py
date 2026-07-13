@@ -12,12 +12,11 @@ from typing import BinaryIO
 
 from anra.anra_paths import OUTPUT_V2_DIR, ROOT
 
-from scripts.download_training_data import MinHashDeduplicator
+from scripts.download_training_data import MinHashDeduplicator, foundation_licenses_allowed
 
 DEFAULT_CORPUS = ROOT / "training_data" / "foundation_records.jsonl"
 DEFAULT_REPORT = OUTPUT_V2_DIR / "foundation_records_audit.json"
 DEFAULT_INDEX = OUTPUT_V2_DIR / "foundation_records_index.sqlite3"
-ALLOWED_LICENSE_MARKERS = ("odc-by", "mit", "apache", "bsd", "isc", "mpl")
 AUDIT_SCHEMA_VERSION = 2
 COMMIT_EVERY_RECORDS = 10_000
 FINGERPRINT_WINDOW_BYTES = 1024 * 1024
@@ -246,8 +245,8 @@ def audit_foundation_records(
             if computed_hash != declared_hash:
                 failures["hash_mismatches"] += 1
                 continue
-            normalized_license = license_name.lower().replace("_", "-")
-            if not any(marker in normalized_license for marker in ALLOWED_LICENSE_MARKERS):
+            license_allowed, _normalized_licenses = foundation_licenses_allowed(license_name)
+            if not license_allowed:
                 failures["disallowed_licenses"] += 1
                 continue
             quality = item.get("quality_checks", {})

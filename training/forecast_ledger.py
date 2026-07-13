@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import time
 import uuid
 from collections.abc import Mapping
@@ -130,17 +131,32 @@ def record_outcome(
     path: str | Path = FORECAST_LEDGER,
 ) -> dict[str, object]:
     """Append the realized result for a registered forecast (calibration data)."""
+    entries = read_ledger(path)
     forecasts = {
         str(entry.get("forecast_id")): entry
-        for entry in read_ledger(path)
+        for entry in entries
         if entry.get("kind") == "forecast"
     }
     if forecast_id not in forecasts:
         raise ForecastLedgerError(f"Outcome references unknown forecast_id {forecast_id}")
+    if any(
+        entry.get("kind") == "outcome" and entry.get("forecast_id") == forecast_id
+        for entry in entries
+    ):
+        raise ForecastLedgerError(f"Forecast {forecast_id} already has a recorded outcome")
+    value = float(realized_value)
+    if not math.isfinite(value):
+        raise ForecastLedgerError("Forecast outcomes require a finite realized value")
+    if not str(verdict).strip():
+        raise ForecastLedgerError("Forecast outcomes require a non-empty verdict")
+    evidence = Path(evidence_path)
+    if not evidence_path or not evidence.is_file():
+        raise ForecastLedgerError("Forecast outcomes require an existing evidence file")
+    evidence_hash = hashlib.sha256(evidence.read_bytes()).hexdigest()
     forecast = forecasts[forecast_id]
     in_range = (
         float(forecast["predicted_low"])
-        <= float(realized_value)
+        <= value
         <= float(forecast["predicted_high"])
     )
     entry = {
@@ -149,10 +165,11 @@ def record_outcome(
         "forecast_id": forecast_id,
         "cell_id": forecast["cell_id"],
         "metric": forecast["metric"],
-        "realized_value": float(realized_value),
+        "realized_value": value,
         "within_predicted_range": in_range,
         "verdict": verdict,
-        "evidence_path": evidence_path,
+        "evidence_path": str(evidence.resolve()),
+        "evidence_sha256": evidence_hash,
         "recorded_at": time.time(),
     }
     return _append_entry(entry, path)
@@ -196,6 +213,12 @@ def audit_pre_launch(
         raise ForecastAuditError(
             f"Forecast {forecast_id} belongs to cell {forecast.get('cell_id')}, "
             f"manifest claims {cell_id}"
+        )
+    manifest_seed = int(manifest.get("seed", -1))
+    forecast_seeds = {int(seed) for seed in forecast.get("seeds", [])}
+    if manifest_seed not in forecast_seeds:
+        raise ForecastAuditError(
+            f"Launch seed {manifest_seed} was not pre-registered for forecast {forecast_id}"
         )
     registered_at = float(forecast["registered_at"])
     created_at = float(manifest.get("created_at", 0.0))

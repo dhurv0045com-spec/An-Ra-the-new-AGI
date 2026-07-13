@@ -125,6 +125,98 @@ def test_raw_causal_dataset_trains_every_next_token(tmp_path) -> None:
     assert dataset.bucket_for_sample(dataset[0][3]) == "foundation"
 
 
+def test_token_shards_preserve_campaign_source_class_boundaries(tmp_path) -> None:
+    output = tmp_path / "source-pure"
+    manifest = TokenShardPublisher(
+        output,
+        tokenizer_version="v3-test",
+        tokenizer_sha256="hash",
+        tokens_per_shard=64,
+    ).publish(
+        [
+            SourceRecord(
+                "abcdefghijk",
+                "FineWeb-Edu",
+                "ODC-By",
+                "foundation",
+                _quality(),
+                source_class="fineweb_edu",
+            ),
+            SourceRecord(
+                "def valid_code(): return 1",
+                "Common Pile Stack v2 open code",
+                "MIT AND Apache-2.0",
+                "foundation",
+                _quality(),
+                source_class="permissive_code",
+            ),
+        ],
+        _Tokenizer(),
+        allow_partial_final=True,
+    )
+
+    assert [shard["source_class"] for shard in manifest["shards"]] == [
+        "fineweb_edu",
+        "permissive_code",
+    ]
+    assert manifest["source_class_token_mix"] == {
+        "fineweb_edu": 11,
+        "permissive_code": 26,
+    }
+    dataset = RawCausalShardDataset(
+        output / "manifest.json",
+        type(
+            "Tokenizer",
+            (),
+            {"pad_token_id": 0, "encode": staticmethod(_Tokenizer().encode)},
+        )(),
+        block_size=4,
+        expected_tokenizer_sha256="hash",
+    )
+    assert set(dataset.source_window_ranges()) == {"fineweb_edu", "permissive_code"}
+
+
+def test_short_identity_source_is_explicitly_replayed_to_trainable_windows(
+    tmp_path,
+) -> None:
+    output = tmp_path / "identity-replay"
+    manifest = TokenShardPublisher(
+        output,
+        tokenizer_version="v3-test",
+        tokenizer_sha256="hash",
+        tokens_per_shard=10_000,
+    ).publish(
+        [
+            SourceRecord(
+                "H: Who are you?\nANRA: I am An-Ra.",
+                "An-Ra identity replay",
+                "owner",
+                "identity",
+                _quality(),
+                source_class="identity_replay",
+            )
+        ],
+        _Tokenizer(),
+        allow_partial_final=True,
+        minimum_replay_tokens={"identity_replay": 4097},
+    )
+
+    assert manifest["source_class_token_mix"]["identity_replay"] == 4097
+    assert manifest["source_class_replayed_tokens"]["identity_replay"] > 0
+    dataset = RawCausalShardDataset(
+        output / "manifest.json",
+        type(
+            "Tokenizer",
+            (),
+            {"pad_token_id": 0, "encode": staticmethod(_Tokenizer().encode)},
+        )(),
+        block_size=2048,
+        expected_tokenizer_sha256="hash",
+    )
+    assert len(dataset) == 2
+    assert set(dataset.source_window_ranges()) == {"identity_replay"}
+
+
 def test_raw_window_ids_are_stable_across_shard_rotation(tmp_path) -> None:
     class Tokenizer:
         pad_token_id = 0

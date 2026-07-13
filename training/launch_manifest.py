@@ -26,13 +26,17 @@ REQUIRED_FIELDS = {
     "tokenizer_hash",
     "tokenizer_path",
     "data_manifests",
+    "data_manifest_hashes",
+    "data_manifest_roles",
     "stage",
     "optimizer",
     "batch_size",
     "accumulation",
     "learning_rate_schedule",
+    "seed",
     "seeds",
     "checkpoint_source",
+    "checkpoint_source_hash",
     "expected_tokens",
     "owner_authorized",
     "worker_id",
@@ -60,6 +64,7 @@ def build_launch_manifest(
     tokenizer_hash: str,
     tokenizer_path: str | None = None,
     data_manifests: list[str],
+    data_manifest_roles: dict[str, str] | None = None,
     stage: str,
     optimizer: str,
     batch_size: int,
@@ -76,12 +81,43 @@ def build_launch_manifest(
     shard_assignment: list[int] | None = None,
     checkpoint_read_only: bool = True,
 ) -> dict[str, object]:
+    if len(seeds) != 1:
+        raise ValueError("One launch manifest must represent exactly one training seed.")
+    seed = int(seeds[0])
+    if seed < 0 or seed > 2**32 - 1:
+        raise ValueError("Launch seed must be in [0, 2**32-1].")
     dirty = _git(["status", "--porcelain"])
     bound_tokenizer = Path(tokenizer_path) if tokenizer_path else active_tokenizer_path()
     if not bound_tokenizer.is_absolute():
         bound_tokenizer = (ROOT / bound_tokenizer).resolve()
+    data_manifest_hashes: dict[str, str] = {}
+    for entry in data_manifests:
+        manifest_path = Path(str(entry))
+        if not manifest_path.is_absolute():
+            manifest_path = (ROOT / manifest_path).resolve()
+        if not manifest_path.is_file():
+            raise FileNotFoundError(f"Launch data manifest is missing: {manifest_path}")
+        data_manifest_hashes[str(entry)] = hashlib.sha256(
+            manifest_path.read_bytes()
+        ).hexdigest()
+    roles = {str(key): str(value) for key, value in (data_manifest_roles or {}).items()}
+    if set(roles) != set(data_manifest_hashes):
+        if data_manifests:
+            raise ValueError("Every launch data manifest requires an explicit role.")
+        roles = {}
+    if any(role not in {"train", "validation", "test"} for role in roles.values()):
+        raise ValueError("Launch data manifest roles must be train, validation, or test.")
+    checkpoint_source_value = str(checkpoint_source).strip() or "scratch"
+    checkpoint_source_hash = ""
+    if checkpoint_source_value.lower() != "scratch":
+        checkpoint_path = Path(checkpoint_source_value)
+        if not checkpoint_path.is_absolute():
+            checkpoint_path = (ROOT / checkpoint_path).resolve()
+        if not checkpoint_path.is_file():
+            raise FileNotFoundError(f"Launch source checkpoint is missing: {checkpoint_path}")
+        checkpoint_source_hash = hashlib.sha256(checkpoint_path.read_bytes()).hexdigest()
     return {
-        "schema_version": 2,
+        "schema_version": 3,
         "run_id": str(uuid.uuid4()),
         "created_at": time.time(),
         "hardware": {
@@ -96,13 +132,17 @@ def build_launch_manifest(
         "tokenizer_hash": tokenizer_hash,
         "tokenizer_path": str(bound_tokenizer),
         "data_manifests": data_manifests,
+        "data_manifest_hashes": data_manifest_hashes,
+        "data_manifest_roles": roles,
         "stage": stage,
         "optimizer": optimizer,
         "batch_size": int(batch_size),
         "accumulation": int(accumulation),
         "learning_rate_schedule": schedule,
-        "seeds": seeds,
-        "checkpoint_source": checkpoint_source,
+        "seed": seed,
+        "seeds": [seed],
+        "checkpoint_source": checkpoint_source_value,
+        "checkpoint_source_hash": checkpoint_source_hash,
         "expected_tokens": int(expected_tokens),
         "runtime_estimate_hours": runtime_estimate_hours,
         "owner_authorized": bool(owner_authorized),
@@ -146,6 +186,7 @@ def load_and_validate_manifest(
     path: str | Path,
     *,
     key: str | None = None,
+    allow_blocked: bool = False,
 ) -> dict[str, object]:
     target = Path(path)
     payload = json.loads(target.read_text(encoding="utf-8"))
@@ -154,13 +195,23 @@ def load_and_validate_manifest(
     missing = sorted(REQUIRED_FIELDS - payload.keys())
     if missing:
         raise ValueError(f"Launch manifest missing fields: {missing}")
-    if int(payload["schema_version"]) != 2:
+    if int(payload["schema_version"]) != 3:
         raise ValueError("Unsupported launch-manifest schema version.")
+    seeds = payload["seeds"]
+    if (
+        not isinstance(seeds, list)
+        or len(seeds) != 1
+        or int(seeds[0]) != int(payload["seed"])
+    ):
+        raise ValueError("Launch manifest must bind exactly one matching training seed.")
+    seed = int(payload["seed"])
+    if seed < 0 or seed > 2**32 - 1:
+        raise ValueError("Launch seed must be in [0, 2**32-1].")
     if not verify_manifest(payload, key=key):
         raise PermissionError("Launch manifest signature verification failed.")
     if not bool(payload["owner_authorized"]):
         raise PermissionError("Launch manifest lacks explicit owner authorization.")
-    if str(payload.get("blocked_on", "")).strip():
+    if str(payload.get("blocked_on", "")).strip() and not allow_blocked:
         raise PermissionError(
             f"Launch manifest is blocked on: {payload['blocked_on']}"
         )
@@ -184,14 +235,56 @@ def load_and_validate_manifest(
     tokenizer_hash = hashlib.sha256(tokenizer_path.read_bytes()).hexdigest()
     if not hmac.compare_digest(str(payload["tokenizer_hash"]), tokenizer_hash):
         raise ValueError("Launch manifest tokenizer hash does not match its bound artifact.")
-    for entry in payload["data_manifests"]:
+    data_manifests = payload["data_manifests"]
+    data_manifest_hashes = payload["data_manifest_hashes"]
+    data_manifest_roles = payload["data_manifest_roles"]
+    if (
+        not isinstance(data_manifests, list)
+        or not isinstance(data_manifest_hashes, dict)
+        or not isinstance(data_manifest_roles, dict)
+    ):
+        raise ValueError(
+            "Launch data manifest bindings must include a list, hash object, and role object."
+        )
+    if len(data_manifests) != len({str(entry) for entry in data_manifests}):
+        raise ValueError("Launch data manifests must be unique.")
+    if set(data_manifest_hashes) != {str(entry) for entry in data_manifests}:
+        raise ValueError("Launch data manifest hash keys do not match declared paths.")
+    if set(data_manifest_roles) != set(data_manifest_hashes):
+        raise ValueError("Launch data manifest role keys do not match declared paths.")
+    if any(
+        str(role) not in {"train", "validation", "test"}
+        for role in data_manifest_roles.values()
+    ):
+        raise ValueError("Launch data manifest contains an unsupported role.")
+    for entry in data_manifests:
         manifest_path = Path(str(entry))
         if not manifest_path.is_absolute():
-            manifest_path = ROOT / manifest_path
-        if not manifest_path.exists():
+            manifest_path = (ROOT / manifest_path).resolve()
+        if not manifest_path.is_file():
             raise FileNotFoundError(f"Launch data manifest is missing: {manifest_path}")
+        actual_hash = hashlib.sha256(manifest_path.read_bytes()).hexdigest()
+        if not hmac.compare_digest(str(data_manifest_hashes[str(entry)]), actual_hash):
+            raise ValueError(
+                f"Launch data manifest hash does not match its bound artifact: {manifest_path}"
+            )
     artifact_raw = str(payload["artifact_path"]).strip()
     checkpoint_raw = str(payload["checkpoint_source"]).strip()
+    checkpoint_hash = str(payload["checkpoint_source_hash"]).strip()
+    if checkpoint_raw.lower() == "scratch":
+        if checkpoint_hash:
+            raise ValueError("Scratch launches must not declare a checkpoint-source hash")
+    else:
+        checkpoint_path = Path(checkpoint_raw)
+        if not checkpoint_path.is_absolute():
+            checkpoint_path = (ROOT / checkpoint_path).resolve()
+        if not checkpoint_path.is_file():
+            raise FileNotFoundError(
+                f"Launch source checkpoint is missing: {checkpoint_path}"
+            )
+        actual_checkpoint_hash = hashlib.sha256(checkpoint_path.read_bytes()).hexdigest()
+        if not hmac.compare_digest(checkpoint_hash, actual_checkpoint_hash):
+            raise ValueError("Launch checkpoint hash does not match its bound artifact")
     if artifact_raw and checkpoint_raw and Path(artifact_raw) == Path(checkpoint_raw):
         raise ValueError("A worker artifact path must not overwrite its source checkpoint")
     if not bool(payload["checkpoint_read_only"]):

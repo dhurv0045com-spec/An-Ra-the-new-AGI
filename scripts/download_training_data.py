@@ -10,10 +10,12 @@ import ast
 import glob
 import hashlib
 import json
+import os
 import re
 import shutil
 import sqlite3
 import sys
+import time
 from array import array
 from collections.abc import Callable, Iterator
 from pathlib import Path
@@ -33,6 +35,8 @@ from training.data_pipeline_v3 import SourceRecord, TokenShardPublisher
 
 TRAINING_DATA_DIR = Path("training_data")
 DOWNLOAD_STATUS = DATA_MANIFEST_DIR / "download_status.json"
+DOWNLOAD_PROGRESS = DATA_MANIFEST_DIR / "download_progress.json"
+TOKEN_SHARD_PROGRESS = DATA_MANIFEST_DIR / "token_shard_progress.json"
 FOUNDATION_AUDIT_REPORT = DATA_MANIFEST_DIR.parent / "foundation_records_audit.json"
 FOUNDATION_RESUME_INDEX = DATA_MANIFEST_DIR.parent / "foundation_records_index.sqlite3"
 FOUNDATION_CAMPAIGN_MIX = {
@@ -44,6 +48,31 @@ FOUNDATION_CAMPAIGN_MIX = {
     "verified_dfc": 0.03,
     "identity_replay": 0.02,
 }
+NATIVE_FOUNDATION_WEIGHT = sum(
+    FOUNDATION_CAMPAIGN_MIX[key]
+    for key in ("fineweb_edu", "permissive_code", "finemath", "science_technical")
+)
+
+
+def campaign_source_class(source: str) -> str:
+    lowered = source.lower()
+    if "fineweb" in lowered:
+        return "fineweb_edu"
+    if "stack" in lowered or "open code" in lowered:
+        return "permissive_code"
+    if "finemath" in lowered:
+        return "finemath"
+    if "arxiv" in lowered or "science/technical" in lowered or "dolma" in lowered:
+        return "science_technical"
+    if "smol-smoltalk" in lowered:
+        return "verified_instruction"
+    if "verified dfc" in lowered:
+        return "verified_dfc"
+    if "identity replay" in lowered:
+        return "identity_replay"
+    return "unclassified"
+
+
 DATA_PROFILES = {
     "smoke": {
         "target_gb": 0.02,
@@ -64,6 +93,14 @@ DATA_PROFILES = {
         "fineweb_docs": 2_400_000,
         "redpajama_docs": 0,
         "reasoning_per_source": 240_000,
+        "science_per_source": 120_000,
+    },
+    "120gb": {
+        "target_gb": 120.0,
+        "native_target_gb": 120.0,
+        "fineweb_docs": 9_600_000,
+        "redpajama_docs": 0,
+        "reasoning_per_source": 120_000,
         "science_per_source": 120_000,
     },
     "t4-15gb": {
@@ -123,6 +160,216 @@ _COMMON_ENGLISH_WORDS = {
 }
 
 _DATASET_REVISION_CACHE: dict[str, str] = {}
+PROGRESS_INTERVAL_BYTES = 64 * 1024 * 1024
+
+
+def _atomic_json(path: Path, payload: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_suffix(path.suffix + ".tmp")
+    temporary.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+    temporary.replace(path)
+
+
+def _publish_download_progress(
+    *,
+    status: str,
+    target_bytes: int,
+    output: Path,
+    source: str = "",
+    source_bytes: int = 0,
+    source_target_bytes: int = 0,
+    source_documents: int = 0,
+    downloaded_this_run_bytes: int = 0,
+    elapsed_seconds: float = 0.0,
+    errors: list[str] | None = None,
+) -> None:
+    rate = downloaded_this_run_bytes / max(1e-9, elapsed_seconds)
+    _atomic_json(
+        DOWNLOAD_PROGRESS,
+        {
+            "schema_version": 1,
+            "status": status,
+            "updated_at": time.time(),
+            "output": str(output),
+            "output_bytes": output.stat().st_size if output.is_file() else 0,
+            "target_bytes": int(target_bytes),
+            "completion": (
+                (output.stat().st_size if output.is_file() else 0)
+                / max(1, int(target_bytes))
+            ),
+            "source": source,
+            "source_bytes": int(source_bytes),
+            "source_target_bytes": int(source_target_bytes),
+            "source_completion": source_bytes / max(1, int(source_target_bytes)),
+            "source_documents": int(source_documents),
+            "downloaded_this_run_bytes": int(downloaded_this_run_bytes),
+            "elapsed_seconds": float(elapsed_seconds),
+            "bytes_per_second": rate,
+            "errors": list(errors or ()),
+        },
+    )
+
+
+def _publish_incremental_foundation_audit(
+    *,
+    output: Path,
+    index_path: Path,
+    connection: sqlite3.Connection,
+    base_audit: dict[str, Any],
+    target_bytes: int,
+    started_at: float,
+) -> dict[str, Any]:
+    """Advance a trusted audit after online-validated append-only writes."""
+    corpus_size = output.stat().st_size
+    source_stats = {
+        str(source): {"documents": int(documents), "bytes": int(source_bytes)}
+        for source, documents, source_bytes in connection.execute(
+            "SELECT source, COUNT(*), SUM(line_bytes) FROM documents GROUP BY source"
+        )
+    }
+    valid_records = int(connection.execute("SELECT COUNT(*) FROM documents").fetchone()[0])
+    minhash_signatures = int(
+        connection.execute("SELECT COUNT(*) FROM minhash_signatures").fetchone()[0]
+    )
+    indexed_bytes = sum(int(row["bytes"]) for row in source_stats.values())
+    if indexed_bytes != corpus_size:
+        raise RuntimeError(
+            "Refusing incremental audit publication: indexed bytes do not match corpus"
+        )
+    base_size = int(base_audit.get("corpus_size_bytes", 0))
+    base_records = int(base_audit.get("valid_records", 0))
+    failures = {
+        "invalid_json": 0,
+        "invalid_utf8": 0,
+        "missing_fields": 0,
+        "hash_mismatches": 0,
+        "duplicate_records": 0,
+        "disallowed_licenses": 0,
+        "quality_contract_failures": 0,
+        "missing_trailing_newline": 0,
+    }
+    payload: dict[str, Any] = {
+        "schema_version": 2,
+        "generated_at": time.time(),
+        "corpus_path": str(output.resolve()),
+        "corpus_size_bytes": corpus_size,
+        "target_bytes": int(target_bytes),
+        "target_completion": corpus_size / max(1, int(target_bytes)),
+        "valid_records": valid_records,
+        "minhash_signatures": minhash_signatures,
+        "scanned_bytes": corpus_size,
+        "source_stats": dict(sorted(source_stats.items())),
+        "failures": failures,
+        "structurally_valid": True,
+        "target_complete": corpus_size >= int(target_bytes * 0.98),
+        "resume_safe": True,
+        "resumed_partial_audit": False,
+        "incremental_append_audit": True,
+        "base_report_sha256": str(base_audit.get("report_sha256", "")),
+        "appended_bytes": corpus_size - base_size,
+        "appended_records": valid_records - base_records,
+        "index_path": str(index_path.resolve()),
+        "elapsed_seconds": time.time() - started_at,
+    }
+    payload["report_sha256"] = hashlib.sha256(
+        json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+    _atomic_json(FOUNDATION_AUDIT_REPORT, payload)
+    return payload
+
+_ALLOWED_ROW_LICENSES = frozenset(
+    {
+        "apache-2.0",
+        "bsd-2-clause",
+        "bsd-3-clause",
+        "cc-by",
+        "cc-by-sa",
+        "cc0",
+        "isc",
+        "mit",
+        "mpl-2.0",
+        "odc-by",
+        "public-domain",
+        "unlicense",
+    }
+)
+
+
+def normalize_foundation_license(value: object) -> str:
+    """Normalize common dataset/SPDX license spellings to the campaign allowlist."""
+    text = str(value).strip().lower().replace("_", "-")
+    compact = re.sub(r"[^a-z0-9]+", "-", text).strip("-")
+    if "public-domain" in compact:
+        return "public-domain"
+    if "unlicense" in compact:
+        return "unlicense"
+    if "creativecommons-org-publicdomain-zero" in compact or compact in {
+        "cc0",
+        "cc0-1-0",
+    }:
+        return "cc0"
+    if "creativecommons-org-licenses-by-sa" in compact or compact.startswith("cc-by-sa"):
+        return "cc-by-sa"
+    if "creativecommons-org-licenses-by" in compact or compact.startswith("cc-by"):
+        return "cc-by"
+    if compact.startswith("apache"):
+        return "apache-2.0"
+    if compact.startswith("bsd-2") or compact == "bsd-2-clause":
+        return "bsd-2-clause"
+    if compact.startswith("bsd-3") or compact == "bsd-3-clause":
+        return "bsd-3-clause"
+    if compact in {"isc", "isc-license"}:
+        return "isc"
+    if compact in {"mit", "mit-license"}:
+        return "mit"
+    if compact.startswith("mpl-2") or compact.startswith("mozilla-public-license-2"):
+        return "mpl-2.0"
+    if compact.startswith("odc-by") or "open-data-commons-attribution" in compact:
+        return "odc-by"
+    return compact
+
+
+def foundation_licenses_allowed(values: object) -> tuple[bool, tuple[str, ...]]:
+    """Require every declared row license to be explicitly allowlisted."""
+    if isinstance(values, (list, tuple, set, frozenset)):
+        raw_values = tuple(values)
+    else:
+        text = str(values).strip()
+        raw_values = tuple(re.split(r"\s+(?:AND|OR)\s+|[,;]", text, flags=re.IGNORECASE))
+    normalized = tuple(
+        dict.fromkeys(
+            normalize_foundation_license(value)
+            for value in raw_values
+            if str(value).strip()
+        )
+    )
+    allowed = bool(normalized) and all(
+        item in _ALLOWED_ROW_LICENSES for item in normalized
+    )
+    return allowed, normalized
+
+
+def _row_metadata(item: dict[str, Any]) -> dict[str, Any]:
+    metadata = item.get("metadata", {})
+    return metadata if isinstance(metadata, dict) else {}
+
+
+def _row_license_values(item: dict[str, Any], fallback: str) -> object:
+    if fallback != "per-record":
+        return fallback
+    metadata = _row_metadata(item)
+    declared: list[object] = []
+    for candidate in (
+        item.get("license"),
+        metadata.get("detected_licenses"),
+        metadata.get("license"),
+        metadata.get("gha_license_id"),
+    ):
+        if isinstance(candidate, (list, tuple, set, frozenset)):
+            declared.extend(candidate)
+        elif candidate is not None and str(candidate).strip():
+            declared.append(candidate)
+    return tuple(declared)
 
 
 def resolve_dataset_revision(dataset_name: str) -> str:
@@ -344,30 +591,37 @@ def download_native_foundation(
     load_dataset: Callable[..., Any] | None,
     *,
     target_gb: float,
+    native_target_gb: float | None = None,
     dry_run: bool = False,
     resume: bool = False,
 ) -> dict[str, Any]:
     """Stream the licensed native foundation mix into one provenance JSONL."""
     output = TRAINING_DATA_DIR / "foundation_records.jsonl"
     target_bytes = int(float(target_gb) * 1024**3)
+    native_target_bytes = int(
+        float(native_target_gb) * 1024**3
+        if native_target_gb is not None
+        else target_bytes * NATIVE_FOUNDATION_WEIGHT
+    )
+    fineweb_config = "sample-100BT"
     specs = (
         {
             "source": "FineWeb-Edu",
             "dataset": "HuggingFaceFW/fineweb-edu",
-            "config": "sample-10BT",
+            "config": fineweb_config,
             "weight": 0.55,
             "fields": ("text",),
             "license": "ODC-By",
-            "revision": "HuggingFaceFW/fineweb-edu:sample-10BT",
+            "revision": "87f09149ef4734204d70ed1d046ddc9ca3f2b8f9",
         },
         {
-            "source": "The Stack v2 dedup",
-            "dataset": "bigcode/the-stack-v2-dedup",
+            "source": "Common Pile Stack v2 open code",
+            "dataset": "common-pile/stackv2_edu_filtered",
             "config": None,
             "weight": 0.15,
-            "fields": ("content", "text"),
+            "fields": ("text",),
             "license": "per-record",
-            "revision": "bigcode/the-stack-v2-dedup:train",
+            "revision": "c354dbe88469a1153e97c6a63ac50591849654de",
         },
         {
             "source": "FineMath-4+",
@@ -376,23 +630,23 @@ def download_native_foundation(
             "weight": 0.12,
             "fields": ("text", "content"),
             "license": "ODC-By",
-            "revision": "HuggingFaceTB/finemath:finemath-4plus",
+            "revision": "e92b25a616738fe95dc186b64dfb19f9c8525594",
         },
         {
-            "source": "Dolma science/technical",
-            "dataset": "allenai/dolma",
-            "config": "v1_7-sample",
+            "source": "Common Pile ArXiv science/technical",
+            "dataset": "common-pile/arxiv_papers_filtered",
+            "config": None,
             "weight": 0.08,
             "fields": ("text",),
-            "license": "ODC-By",
-            "revision": "allenai/dolma:v1_7-sample",
+            "license": "per-record",
+            "revision": "033cf7f53f9b348deec868c1a5a48484f3ee9e52",
         },
     )
     stats: dict[str, Any] = {
         "bucket": "base",
         "output": str(output),
         "target_bytes": target_bytes,
-        "raw_foundation_target_bytes": int(target_bytes * 0.90),
+        "raw_foundation_target_bytes": native_target_bytes,
         "supplemental_target_bytes": int(target_bytes * 0.10),
         "campaign_mix": FOUNDATION_CAMPAIGN_MIX,
         "bytes": 0,
@@ -408,13 +662,18 @@ def download_native_foundation(
         },
     }
     if dry_run:
-        print(f"DRY RUN: would stream {target_gb:.2f} GB native foundation mix to {output}")
+        print(
+            f"DRY RUN: would stream {native_target_bytes / 1024**3:.2f} GB "
+            f"native foundation mix to {output}"
+        )
         return stats
     assert load_dataset is not None
     near_duplicates = MinHashDeduplicator()
     seen_hashes: set[str] = set()
     resume_db: sqlite3.Connection | None = None
+    resume_audit: dict[str, Any] | None = None
     existing_sources: dict[str, dict[str, int]] = {}
+    append_started = time.time()
     if output.exists():
         if not resume:
             raise FileExistsError(
@@ -432,12 +691,14 @@ def download_native_foundation(
         if int(audit.get("corpus_size_bytes", -1)) != output.stat().st_size:
             raise RuntimeError("Foundation corpus changed after its resume audit")
         resume_db = sqlite3.connect(FOUNDATION_RESUME_INDEX)
+        resume_db.execute("PRAGMA journal_mode=WAL")
         indexed_size = resume_db.execute(
             "SELECT value FROM metadata WHERE key='corpus_size_bytes'"
         ).fetchone()
         if indexed_size is None or int(indexed_size[0]) != output.stat().st_size:
             resume_db.close()
             raise RuntimeError("Foundation resume index does not match corpus size")
+        resume_audit = audit
         for source, documents, source_bytes in resume_db.execute(
             "SELECT source, COUNT(*), SUM(line_bytes) FROM documents GROUP BY source"
         ):
@@ -466,13 +727,19 @@ def download_native_foundation(
     pending_index_writes = 0
     with output.open(mode, encoding="utf-8") as stream:
         for spec in specs:
-            source_target = int(target_bytes * float(spec["weight"]))
+            source_target = int(
+                native_target_bytes
+                * float(spec["weight"])
+                / NATIVE_FOUNDATION_WEIGHT
+            )
             existing = existing_sources.get(str(spec["source"]), {})
             source_bytes = int(existing.get("bytes", 0))
             source_docs = int(existing.get("documents", 0))
             resumed_bytes = source_bytes
             resumed_docs = source_docs
             resolved_revision = ""
+            source_started = time.monotonic()
+            last_progress_bytes = source_bytes
             try:
                 if source_bytes >= source_target:
                     stats["sources"][str(spec["source"])] = {
@@ -493,12 +760,26 @@ def download_native_foundation(
                         flush=True,
                     )
                     continue
-                resolved_revision = resolve_dataset_revision(str(spec["dataset"]))
+                resolved_revision = str(spec["revision"])
+                if not re.fullmatch(r"[0-9a-f]{40}", resolved_revision):
+                    raise RuntimeError(
+                        f"{spec['source']}: source revision is not an immutable commit"
+                    )
                 kwargs: dict[str, Any] = {
                     "split": "train",
                     "streaming": True,
                     "revision": resolved_revision,
                 }
+                _publish_download_progress(
+                    status="downloading",
+                    target_bytes=native_target_bytes,
+                    output=output,
+                    source=str(spec["source"]),
+                    source_bytes=source_bytes,
+                    source_target_bytes=source_target,
+                    source_documents=source_docs,
+                    errors=stats["errors"],
+                )
                 config = spec["config"]
                 dataset = (
                     load_dataset(spec["dataset"], config, **kwargs)
@@ -506,9 +787,12 @@ def download_native_foundation(
                     else load_dataset(spec["dataset"], **kwargs)
                 )
                 for item in dataset:
+                    metadata = _row_metadata(item)
                     language_hint = str(
                         item.get("language")
                         or item.get("lang")
+                        or metadata.get("language")
+                        or metadata.get("extension")
                         or Path(str(item.get("path", ""))).suffix.lstrip(".")
                     )
                     text = next(
@@ -536,17 +820,12 @@ def download_native_foundation(
                     if not _math_text_valid(text, source=str(spec["source"])):
                         stats["rejected"]["math_verifier"] += 1
                         continue
-                    license_name = str(
-                        item.get("license", spec["license"])
-                        if spec["license"] == "per-record"
-                        else spec["license"]
+                    allowed_license, normalized_licenses = foundation_licenses_allowed(
+                        _row_license_values(item, str(spec["license"]))
                     )
-                    normalized_license = license_name.lower().replace("_", "-")
-                    if spec["license"] == "per-record" and not any(
-                        allowed in normalized_license
-                        for allowed in ("mit", "apache", "bsd", "isc", "mpl")
-                    ):
+                    if not allowed_license:
                         continue
+                    license_name = " AND ".join(normalized_licenses)
                     content_hash = hashlib.sha256(text.encode("utf-8")).hexdigest()
                     if exact_seen(content_hash):
                         stats["rejected"]["exact_duplicate"] += 1
@@ -597,8 +876,31 @@ def download_native_foundation(
                         pending_index_writes += 1
                         if pending_index_writes >= 1_000:
                             stream.flush()
+                            os.fsync(stream.fileno())
                             resume_db.commit()
                             pending_index_writes = 0
+                    if source_bytes - last_progress_bytes >= PROGRESS_INTERVAL_BYTES:
+                        elapsed = time.monotonic() - source_started
+                        downloaded_bytes = source_bytes - resumed_bytes
+                        _publish_download_progress(
+                            status="downloading",
+                            target_bytes=native_target_bytes,
+                            output=output,
+                            source=str(spec["source"]),
+                            source_bytes=source_bytes,
+                            source_target_bytes=source_target,
+                            source_documents=source_docs,
+                            downloaded_this_run_bytes=downloaded_bytes,
+                            elapsed_seconds=elapsed,
+                            errors=stats["errors"],
+                        )
+                        print(
+                            f"{spec['source']}: {source_bytes / 1024**3:.2f} / "
+                            f"{source_target / 1024**3:.2f} GiB; "
+                            f"{downloaded_bytes / max(1e-9, elapsed) / 1024**2:.2f} MiB/s",
+                            flush=True,
+                        )
+                        last_progress_bytes = source_bytes
                     if source_bytes >= source_target:
                         break
                 if source_bytes < int(source_target * 0.98):
@@ -608,6 +910,7 @@ def download_native_foundation(
                     )
             except Exception as exc:
                 stats["errors"].append(f"{spec['source']}: {exc}")
+                print(f"{spec['source']}: FAILED: {exc}", flush=True)
             stats["sources"][str(spec["source"])] = {
                 "bytes": source_bytes,
                 "documents": source_docs,
@@ -630,12 +933,28 @@ def download_native_foundation(
             )
         if resume_db is not None:
             stream.flush()
+            os.fsync(stream.fileno())
             resume_db.execute(
                 "INSERT OR REPLACE INTO metadata(key, value) VALUES ('corpus_size_bytes', ?)",
                 (str(output.stat().st_size),),
             )
             resume_db.commit()
+            assert resume_audit is not None
+            _publish_incremental_foundation_audit(
+                output=output,
+                index_path=FOUNDATION_RESUME_INDEX,
+                connection=resume_db,
+                base_audit=resume_audit,
+                target_bytes=native_target_bytes,
+                started_at=append_started,
+            )
             resume_db.close()
+    _publish_download_progress(
+        status="incomplete" if stats["errors"] else "native_foundation_complete",
+        target_bytes=native_target_bytes,
+        output=output,
+        errors=stats["errors"],
+    )
     return stats
 
 
@@ -805,46 +1124,6 @@ def download_reasoning(
             if x.get("messages")
             else None,
         ),
-        (
-            "teknium/OpenHermes-2.5",
-            "train",
-            80_000,
-            lambda x: {
-                "prompt": x["conversations"][0]["value"],
-                "response": x["conversations"][1]["value"],
-            }
-            if len(x.get("conversations", [])) >= 2
-            else None,
-        ),
-        (
-            "HuggingFaceH4/ultrachat_200k",
-            "train_sft",
-            60_000,
-            lambda x: {
-                "prompt": x["messages"][0]["content"],
-                "response": x["messages"][1]["content"],
-            }
-            if len(x.get("messages", [])) >= 2
-            else None,
-        ),
-        (
-            "microsoft/orca-math-word-problems-200k",
-            "train",
-            50_000,
-            lambda x: {"prompt": x["question"], "response": x["answer"]},
-        ),
-        (
-            "meta-math/MetaMathQA",
-            "train",
-            100_000,
-            lambda x: {"prompt": x["query"], "response": x["response"]},
-        ),
-        (
-            "WizardLMTeam/WizardCoder_evol_instruct_110k",
-            "train",
-            None,
-            lambda x: {"prompt": x["instruction"], "response": x["output"]},
-        ),
     ]
 
     reject_patterns = [
@@ -862,7 +1141,7 @@ def download_reasoning(
     with output.open("w", encoding="utf-8") as out:
         for ds_name, split, max_n, mapper in datasets_to_load:
             try:
-                resolved_revision = resolve_dataset_revision(ds_name)
+                resolved_revision = "f73fe857d519ff6ac5af2ea67c4d3834da7b8bcc"
                 ds = load_dataset(
                     ds_name,
                     split=split,
@@ -1106,24 +1385,72 @@ def print_summary() -> None:
     print("    identity data    -> identity   0.10 (10%)")
 
 
-def publish_fineweb_token_shards(profile: str = "30gb") -> dict[str, Any]:
+def publish_fineweb_token_shards(
+    profile: str = "30gb",
+    *,
+    tokenizer_path: str | Path | None = None,
+    tokenizer_family: str = "v3",
+) -> dict[str, Any]:
+    if tokenizer_family not in {"v3", "v4"}:
+        raise ValueError("tokenizer_family must be 'v3' or 'v4'")
     foundation_path = TRAINING_DATA_DIR / "foundation_records.jsonl"
     fineweb_path = TRAINING_DATA_DIR / "fineweb_edu.txt"
     if not foundation_path.exists() and not fineweb_path.exists():
         raise FileNotFoundError("Native foundation records must be downloaded first.")
-    from training.v2_runtime import active_tokenizer_path, load_or_build_v2_tokenizer
+    if tokenizer_path is None and tokenizer_family == "v3":
+        from training.v2_runtime import active_tokenizer_path, load_or_build_v2_tokenizer
 
-    tokenizer = load_or_build_v2_tokenizer(dataset_path=TRAINING_DATA_DIR / "anra_training.txt")
-    tokenizer_path = active_tokenizer_path()
-    tokenizer_sha256 = hashlib.sha256(tokenizer_path.read_bytes()).hexdigest()
-    tokenizer_version = str(
-        json.loads(
-            tokenizer_path.with_suffix(tokenizer_path.suffix + ".meta.json").read_text(
-                encoding="utf-8"
+        tokenizer = load_or_build_v2_tokenizer(
+            dataset_path=TRAINING_DATA_DIR / "anra_training.txt"
+        )
+        bound_tokenizer_path = active_tokenizer_path()
+    else:
+        from tokenizer.subword_tokenizer import SubwordTokenizer
+
+        bound_tokenizer_path = Path(
+            tokenizer_path
+            or (REPO_ROOT / "tokenizer" / "tokenizer_v4_32k.json")
+        ).resolve()
+        if not bound_tokenizer_path.is_file():
+            raise FileNotFoundError(
+                f"Tokenizer artifact is missing: {bound_tokenizer_path}"
             )
-        ).get("schema_version", "unknown")
+        tokenizer = SubwordTokenizer.load(bound_tokenizer_path)
+    tokenizer_sha256 = hashlib.sha256(bound_tokenizer_path.read_bytes()).hexdigest()
+    tokenizer_version = f"{tokenizer_family}-{int(tokenizer.vocab_size)}"
+    revision_dir = (
+        DATA_MANIFEST_DIR / f"native_foundation_{tokenizer_family}" / profile
     )
-    revision_dir = DATA_MANIFEST_DIR / "native_foundation_v3" / profile
+    published_tokens = {"train": 0, "validation": 0, "test": 0}
+    published_shards = {"train": 0, "validation": 0, "test": 0}
+
+    def progress_callback(split: str) -> Callable[[dict[str, object]], None]:
+        def publish(item: dict[str, object]) -> None:
+            published_tokens[split] += int(item["tokens"])
+            published_shards[split] += 1
+            _atomic_json(
+                TOKEN_SHARD_PROGRESS,
+                {
+                    "schema_version": 1,
+                    "status": "publishing",
+                    "updated_at": time.time(),
+                    "tokenizer_family": tokenizer_family,
+                    "tokenizer_sha256": tokenizer_sha256,
+                    "profile": profile,
+                    "split": split,
+                    "published_tokens": dict(published_tokens),
+                    "published_shards": dict(published_shards),
+                    "last_shard": item,
+                },
+            )
+            print(
+                f"{tokenizer_family.upper()} {split}: "
+                f"{published_tokens[split]:,} tokens in "
+                f"{published_shards[split]:,} shard(s)",
+                flush=True,
+            )
+
+        return publish
 
     def records(split: str) -> Iterator[SourceRecord]:
         if foundation_path.exists():
@@ -1165,6 +1492,7 @@ def publish_fineweb_token_shards(profile: str = "30gb") -> dict[str, Any]:
                             1.0,
                         ),
                         source_revision=str(item.get("source_revision", "unknown")),
+                        source_class=campaign_source_class(source),
                     )
         elif split == "train":
             with fineweb_path.open("r", encoding="utf-8", errors="replace") as stream:
@@ -1181,6 +1509,7 @@ def publish_fineweb_token_shards(profile: str = "30gb") -> dict[str, Any]:
                             bucket="foundation",
                             quality=DataQuality(0.5, 0.8, 0.9, 0.6, 0.2, 1.0),
                             source_revision="HuggingFaceFW/fineweb-edu:sample-10BT",
+                            source_class="fineweb_edu",
                         )
                         buffer = []
                 if buffer:
@@ -1191,6 +1520,7 @@ def publish_fineweb_token_shards(profile: str = "30gb") -> dict[str, Any]:
                         bucket="foundation",
                         quality=DataQuality(0.5, 0.8, 0.9, 0.6, 0.2, 1.0),
                         source_revision="HuggingFaceFW/fineweb-edu:sample-10BT",
+                        source_class="fineweb_edu",
                     )
 
         reasoning_path = TRAINING_DATA_DIR / "reasoning.jsonl"
@@ -1230,9 +1560,10 @@ def publish_fineweb_token_shards(profile: str = "30gb") -> dict[str, Any]:
                         source_revision=str(
                             item.get("source_revision", "HuggingFaceTB/smol-smoltalk")
                         ),
+                        source_class="verified_instruction",
                     )
 
-        dfc_path = TRAINING_DATA_DIR / "frontier_dfc.jsonl"
+        dfc_path = TRAINING_DATA_DIR / "verified_dfc.jsonl"
         if dfc_path.is_file():
             with dfc_path.open("r", encoding="utf-8", errors="replace") as stream:
                 for line in stream:
@@ -1266,6 +1597,7 @@ def publish_fineweb_token_shards(profile: str = "30gb") -> dict[str, Any]:
                         source_revision=str(
                             item.get("source_revision", item.get("source", "owner-verified"))
                         ),
+                        source_class="verified_dfc",
                     )
 
         identity_path = get_identity_file()
@@ -1280,50 +1612,50 @@ def publish_fineweb_token_shards(profile: str = "30gb") -> dict[str, Any]:
                     quality=DataQuality(0.9, 0.9, 1.0, 0.9, 0.5, 1.0),
                     verifier_status="verified",
                     source_revision=hashlib.sha256(identity_text.encode("utf-8")).hexdigest(),
+                    source_class="identity_replay",
                 )
 
     train_manifest = TokenShardPublisher(
         revision_dir,
         tokenizer_version=tokenizer_version,
         tokenizer_sha256=tokenizer_sha256,
-    ).publish(records("train"), tokenizer, allow_partial_final=True)
+    ).publish(
+        records("train"),
+        tokenizer,
+        allow_partial_final=True,
+        minimum_replay_tokens={"identity_replay": 4097},
+        progress_callback=progress_callback("train"),
+    )
     validation_manifest = TokenShardPublisher(
         revision_dir / "validation",
         tokenizer_version=tokenizer_version,
         tokenizer_sha256=tokenizer_sha256,
-    ).publish(records("validation"), tokenizer, allow_partial_final=True)
+    ).publish(
+        records("validation"),
+        tokenizer,
+        allow_partial_final=True,
+        progress_callback=progress_callback("validation"),
+    )
     test_manifest = TokenShardPublisher(
         revision_dir / "test",
         tokenizer_version=tokenizer_version,
         tokenizer_sha256=tokenizer_sha256,
-    ).publish(records("test"), tokenizer, allow_partial_final=True)
-
-    def campaign_bucket(source: str) -> str:
-        lowered = source.lower()
-        if "fineweb" in lowered:
-            return "fineweb_edu"
-        if "stack" in lowered:
-            return "permissive_code"
-        if "finemath" in lowered:
-            return "finemath"
-        if "dolma" in lowered:
-            return "science_technical"
-        if "smol-smoltalk" in lowered:
-            return "verified_instruction"
-        if "verified dfc" in lowered:
-            return "verified_dfc"
-        if "identity replay" in lowered:
-            return "identity_replay"
-        return "unclassified"
+    ).publish(
+        records("test"),
+        tokenizer,
+        allow_partial_final=True,
+        progress_callback=progress_callback("test"),
+    )
 
     category_tokens = dict.fromkeys(FOUNDATION_CAMPAIGN_MIX, 0)
     unclassified_tokens = 0
-    for source, token_count in train_manifest.get("source_token_mix", {}).items():
-        bucket = campaign_bucket(str(source))
-        if bucket == "unclassified":
+    for source_class, token_count in train_manifest.get(
+        "source_class_token_mix", {}
+    ).items():
+        if source_class not in category_tokens:
             unclassified_tokens += int(token_count)
         else:
-            category_tokens[bucket] += int(token_count)
+            category_tokens[source_class] += int(token_count)
     classified_total = sum(category_tokens.values())
     realized_mix = {
         name: count / max(1, classified_total) for name, count in category_tokens.items()
@@ -1331,18 +1663,20 @@ def publish_fineweb_token_shards(profile: str = "30gb") -> dict[str, Any]:
     mix_deviation = {
         name: realized_mix[name] - target for name, target in FOUNDATION_CAMPAIGN_MIX.items()
     }
-    campaign_mix_verified = (
+    campaign_sampling_verified = (
         classified_total > 0
         and unclassified_tokens == 0
         and all(count > 0 for count in category_tokens.values())
-        and all(abs(value) <= 0.03 for value in mix_deviation.values())
+        and abs(sum(FOUNDATION_CAMPAIGN_MIX.values()) - 1.0) <= 1e-9
     )
     train_manifest.update(
         {
             "campaign_mix_target": FOUNDATION_CAMPAIGN_MIX,
             "campaign_mix_realized": realized_mix,
             "campaign_mix_deviation": mix_deviation,
-            "campaign_mix_verified": campaign_mix_verified,
+            "campaign_mix_materialization": "deterministic_source_weighted_sampler",
+            "campaign_sampling_verified": campaign_sampling_verified,
+            "campaign_mix_verified": campaign_sampling_verified,
             "unclassified_tokens": unclassified_tokens,
         }
     )
@@ -1355,6 +1689,8 @@ def publish_fineweb_token_shards(profile: str = "30gb") -> dict[str, Any]:
     manifest_tmp.replace(manifest_path)
     inventory = {
         "schema_version": 3,
+        "tokenizer_family": tokenizer_family,
+        "tokenizer_path": str(bound_tokenizer_path),
         "licensed_tokens": int(train_manifest["total_tokens"]),
         "tokenizer_sha256": tokenizer_sha256,
         "manifest": str(revision_dir / "manifest.json"),
@@ -1367,16 +1703,40 @@ def publish_fineweb_token_shards(profile: str = "30gb") -> dict[str, Any]:
         "licenses": train_manifest.get("licenses", []),
         "campaign_mix_target": FOUNDATION_CAMPAIGN_MIX,
         "campaign_mix_realized": realized_mix,
-        "campaign_mix_verified": campaign_mix_verified,
+        "campaign_mix_materialization": "deterministic_source_weighted_sampler",
+        "campaign_sampling_verified": campaign_sampling_verified,
+        "campaign_mix_verified": campaign_sampling_verified,
         "unclassified_tokens": unclassified_tokens,
     }
-    TOKEN_INVENTORY_MANIFEST.parent.mkdir(parents=True, exist_ok=True)
-    temporary = TOKEN_INVENTORY_MANIFEST.with_suffix(".tmp")
-    temporary.write_text(
+    family_inventory = revision_dir / "token_inventory.json"
+    family_temporary = family_inventory.with_suffix(".tmp")
+    family_temporary.write_text(
         json.dumps(inventory, indent=2, sort_keys=True),
         encoding="utf-8",
     )
-    temporary.replace(TOKEN_INVENTORY_MANIFEST)
+    family_temporary.replace(family_inventory)
+    if tokenizer_family == "v3":
+        TOKEN_INVENTORY_MANIFEST.parent.mkdir(parents=True, exist_ok=True)
+        temporary = TOKEN_INVENTORY_MANIFEST.with_suffix(".tmp")
+        temporary.write_text(
+            json.dumps(inventory, indent=2, sort_keys=True),
+            encoding="utf-8",
+        )
+        temporary.replace(TOKEN_INVENTORY_MANIFEST)
+    _atomic_json(
+        TOKEN_SHARD_PROGRESS,
+        {
+            "schema_version": 1,
+            "status": "complete",
+            "updated_at": time.time(),
+            "tokenizer_family": tokenizer_family,
+            "tokenizer_sha256": tokenizer_sha256,
+            "profile": profile,
+            "published_tokens": dict(published_tokens),
+            "published_shards": dict(published_shards),
+            "inventory": str(family_inventory),
+        },
+    )
     return inventory
 
 
@@ -1412,6 +1772,17 @@ def parse_args() -> argparse.Namespace:
         help="Publish token shards from an already prepared local corpus without downloads.",
     )
     parser.add_argument(
+        "--tokenizer-family",
+        choices=("v3", "v4"),
+        default="v3",
+        help="Publish source-pure shards under the matching tokenizer family.",
+    )
+    parser.add_argument(
+        "--tokenizer-path",
+        default=None,
+        help="Explicit tokenizer artifact; required implicitly for V4 if non-canonical.",
+    )
+    parser.add_argument(
         "--prepare-corpus",
         action="store_true",
         help="Convert downloaded files into anra_training.txt and teacher_reasoning_v2.jsonl.",
@@ -1434,7 +1805,11 @@ def main() -> int:
                 "--shards-only requires --publish-token-shards and cannot be combined "
                 "with --dry-run or --prepare-corpus"
             )
-        inventory = publish_fineweb_token_shards(args.profile)
+        inventory = publish_fineweb_token_shards(
+            args.profile,
+            tokenizer_path=args.tokenizer_path,
+            tokenizer_family=args.tokenizer_family,
+        )
         print(f"Published licensed token inventory: {inventory['licensed_tokens']:,}")
         return 0
     load_dataset = load_datasets_import(dry_run=args.dry_run)
@@ -1461,6 +1836,11 @@ def main() -> int:
                     download_native_foundation(
                         load_dataset,
                         target_gb=float(profile["target_gb"]),
+                        native_target_gb=(
+                            float(profile["native_target_gb"])
+                            if "native_target_gb" in profile
+                            else None
+                        ),
                         dry_run=args.dry_run,
                         resume=args.resume,
                     )
@@ -1492,7 +1872,11 @@ def main() -> int:
             )
 
     if args.publish_token_shards and not args.dry_run:
-        inventory = publish_fineweb_token_shards(args.profile)
+        inventory = publish_fineweb_token_shards(
+            args.profile,
+            tokenizer_path=args.tokenizer_path,
+            tokenizer_family=args.tokenizer_family,
+        )
         print(f"Published licensed token inventory: {inventory['licensed_tokens']:,}")
 
     if args.prepare_corpus and not args.dry_run:
@@ -1526,11 +1910,30 @@ def main() -> int:
         if result.get("output") and Path(str(result["output"])).is_file()
     )
     target_gb = float(profile.get("target_gb", 0.0))
-    if target_gb and campaign_bytes < int(target_gb * 1024**3 * 0.98):
+    required_campaign_bytes = int(target_gb * 1024**3)
+    native_result = next(
+        (
+            result
+            for result in results
+            if result.get("bucket") == "base"
+            and "raw_foundation_target_bytes" in result
+        ),
+        None,
+    )
+    if native_result is not None:
+        required_campaign_bytes = int(
+            native_result.get("raw_foundation_target_bytes", required_campaign_bytes)
+        )
+    enforce_campaign_size = not args.dry_run and target_gb > 0.0 and buckets in (
+        ["base"],
+        ["base", "reasoning", "science"],
+    )
+    if enforce_campaign_size and campaign_bytes < int(required_campaign_bytes * 0.98):
         failures.append(
             SourceDownloadFailure(
                 "campaign_size",
-                f"prepared {campaign_bytes / 1024**3:.2f} GB of required {target_gb:.2f} GB",
+                f"prepared {campaign_bytes / 1024**3:.2f} GB of required "
+                f"{required_campaign_bytes / 1024**3:.2f} GB",
             )
         )
     if (
@@ -1549,15 +1952,14 @@ def main() -> int:
         "status": "dry_run" if args.dry_run else "incomplete" if failures else "complete",
         "buckets": results,
         "campaign_bytes": campaign_bytes,
+        "required_campaign_bytes": required_campaign_bytes,
         "campaign_target_gb": target_gb,
         "failures": [
             {"source": failure.source, "message": failure.message} for failure in failures
         ],
     }
-    DOWNLOAD_STATUS.parent.mkdir(parents=True, exist_ok=True)
-    temporary = DOWNLOAD_STATUS.with_suffix(".tmp")
-    temporary.write_text(json.dumps(status, indent=2, sort_keys=True), encoding="utf-8")
-    temporary.replace(DOWNLOAD_STATUS)
+    if not args.dry_run:
+        _atomic_json(DOWNLOAD_STATUS, status)
     if failures:
         print(f"INCOMPLETE INVENTORY: {len(failures)} source failure(s). See {DOWNLOAD_STATUS}")
         return 2

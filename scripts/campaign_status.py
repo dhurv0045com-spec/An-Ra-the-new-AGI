@@ -18,6 +18,7 @@ STATUS_REPORT = OUTPUT_V2_DIR / "campaign_status.json"
 FOUNDATION_CORPUS = ROOT / "training_data" / "foundation_records.jsonl"
 FOUNDATION_AUDIT = OUTPUT_V2_DIR / "foundation_records_audit.json"
 FOUNDATION_PROGRESS = OUTPUT_V2_DIR / "foundation_records_audit.json.progress.json"
+DOWNLOAD_PROGRESS = OUTPUT_V2_DIR / "data_manifests" / "download_progress.json"
 CAMPAIGN_SLICE = OUTPUT_V2_DIR / "campaign_slice" / "campaign_slice_manifest.json"
 V4_BUILD = OUTPUT_V2_DIR / "v4_tokenizer_build.json"
 PILOT_CELLS = OUTPUT_V2_DIR / "campaigns" / "pilots" / "cells"
@@ -60,6 +61,7 @@ def inspect_campaign_status(
     *,
     phase: str = "pilot",
     target_gb: float = 30.0,
+    native_target_gb: float | None = None,
 ) -> dict[str, object]:
     phase_name = phase.lower()
     if phase_name not in {"pilot", "phase-a", "phase-b", "phase-c", "posttrain"}:
@@ -83,9 +85,19 @@ def inspect_campaign_status(
     )
 
     corpus_bytes = FOUNDATION_CORPUS.stat().st_size if FOUNDATION_CORPUS.is_file() else 0
-    target_bytes = int(target_gb * 1024**3)
+    campaign_target_bytes = int(target_gb * 1024**3)
+    native_target_bytes = int(
+        float(native_target_gb) * 1024**3
+        if native_target_gb is not None
+        else campaign_target_bytes * 0.90
+    )
     audit = _read_json(FOUNDATION_AUDIT)
     progress = _read_json(FOUNDATION_PROGRESS)
+    download_progress = _read_json(DOWNLOAD_PROGRESS)
+    download_active = (
+        download_progress.get("status") == "downloading"
+        and time.time() - float(download_progress.get("updated_at", 0.0)) < 1_200
+    )
     audit_matches = (
         audit.get("resume_safe") is True
         and int(audit.get("corpus_size_bytes", -1)) == corpus_bytes
@@ -94,7 +106,18 @@ def inspect_campaign_status(
         audit_status = "ok"
         audit_detail = f"audited {corpus_bytes / 1024**3:.2f} GiB; resume-safe"
         audit_action = ""
-    elif progress:
+    elif download_active:
+        source = str(download_progress.get("source", "native source"))
+        source_completion = 100.0 * float(
+            download_progress.get("source_completion", 0.0)
+        )
+        audit_status = "waiting"
+        audit_detail = (
+            f"audited base is being extended by {source} "
+            f"({source_completion:.2f}% source quota); final audit is pending"
+        )
+        audit_action = "Let the managed downloader finish and publish its incremental audit."
+    elif progress and progress.get("status") == "scanning":
         completion = 100.0 * float(progress.get("completion", 0.0))
         audit_status = "waiting"
         audit_detail = (
@@ -116,16 +139,18 @@ def inspect_campaign_status(
         )
     )
 
-    corpus_complete = corpus_bytes >= int(target_bytes * 0.98)
+    corpus_complete = corpus_bytes >= int(native_target_bytes * 0.98)
     checks.append(
         _check(
             "foundation_volume",
-            "ok" if corpus_complete else "blocker",
-            f"{corpus_bytes / 1024**3:.2f} / {target_gb:.2f} GiB acquired",
+            "ok" if corpus_complete else "waiting" if download_active else "blocker",
+            f"{corpus_bytes / 1024**3:.2f} / "
+            f"{native_target_bytes / 1024**3:.2f} GiB native foundation acquired",
             (
                 "After the audit passes, run scripts.download_training_data "
-                "--profile 30gb --bucket base --resume."
-                if not corpus_complete
+                f"--profile {'120gb' if native_target_bytes >= 120 * 1024**3 else '30gb'} "
+                "--bucket base --resume."
+                if not corpus_complete and not download_active
                 else ""
             ),
             path=FOUNDATION_CORPUS,
@@ -142,7 +167,11 @@ def inspect_campaign_status(
                 f"{float(slice_manifest.get('train_mb', 0.0)):.2f} MiB; "
                 f"seven-source mix={slice_manifest.get('campaign_mix_verified', False)}"
             ),
-            "Run scripts.build_campaign_slice after all seven source classes exist."
+            (
+                "The managed Stream-B continuation will build the seven-source slice."
+                if download_active
+                else "Run scripts.build_campaign_slice after all seven source classes exist."
+            )
             if not slice_ready
             else "",
             path=CAMPAIGN_SLICE,
@@ -156,7 +185,11 @@ def inspect_campaign_status(
             "canonical_v4",
             "ok" if v4_ready else "blocker",
             str(v4.get("status", "missing or not eligible")),
-            "Build V4 from the ready campaign slice and pass held-out fertility gates."
+            (
+                "The managed Stream-B continuation will build and prove canonical V4."
+                if download_active
+                else "Build V4 from the ready campaign slice and pass held-out fertility gates."
+            )
             if not v4_ready
             else "",
             path=V4_BUILD,
@@ -173,23 +206,38 @@ def inspect_campaign_status(
         )
     )
 
-    cell_paths = sorted(PILOT_CELLS.glob("*.json")) if PILOT_CELLS.is_dir() else []
+    cell_paths = sorted(PILOT_CELLS.rglob("seed-*.json")) if PILOT_CELLS.is_dir() else []
     expected_cells = len(PILOT_FACTORIAL)
-    mapped_definitions = [cell for cell in PILOT_FACTORIAL if not execution_blocker(cell)]
+    expected_runs = expected_cells * 3
+    critical_cells = [cell for cell in PILOT_FACTORIAL if not cell.moonshot]
+    expected_critical_runs = len(critical_cells) * 3
+    resolved = frozenset({"stream-b-canonical-v4"}) if v4_ready else frozenset()
+    mapped_definitions = [
+        cell
+        for cell in critical_cells
+        if not execution_blocker(cell, resolved_blockers=resolved)
+    ]
     cell_payloads = [_read_json(path) for path in cell_paths]
-    launchable_cells = [
-        payload for payload in cell_payloads if not str(payload.get("blocked_on", "")).strip()
+    critical_payloads = [
+        payload for payload in cell_payloads if payload.get("moonshot") is not True
+    ]
+    launchable_critical_runs = [
+        payload
+        for payload in critical_payloads
+        if not str(payload.get("blocked_on", "")).strip()
     ]
     pilot_manifests_ready = (
-        len(cell_paths) == expected_cells and len(launchable_cells) == expected_cells
+        len(cell_paths) == expected_runs
+        and len(critical_payloads) == expected_critical_runs
+        and len(launchable_critical_runs) == expected_critical_runs
     )
     checks.append(
         _check(
             "pilot_launch_manifests",
             "ok" if pilot_manifests_ready else "blocker",
-            f"{len(cell_paths)} / {expected_cells} present; "
-            f"{len(launchable_cells)} signed launchable; "
-            f"{len(mapped_definitions)} / {expected_cells} trainer-mapped",
+            f"{len(cell_paths)} / {expected_runs} seed-run manifests present; "
+            f"{len(launchable_critical_runs)} / {expected_critical_runs} critical runs launchable; "
+            f"{len(mapped_definitions)} / {len(critical_cells)} critical cells trainer-mapped",
             (
                 "Satisfy or explicitly retire the remaining evidence-blocked axes, then run "
                 "python -m training.pilot_factorial --owner-authorized after the "
@@ -237,7 +285,10 @@ def inspect_campaign_status(
         )
 
     free_bytes = shutil.disk_usage(ROOT).free
-    minimum_free = max(20 * 1024**3, target_bytes - corpus_bytes + 10 * 1024**3)
+    minimum_free = max(
+        20 * 1024**3,
+        max(campaign_target_bytes, native_target_bytes) - corpus_bytes + 10 * 1024**3,
+    )
     checks.append(
         _check(
             "disk_headroom",
@@ -268,9 +319,14 @@ def main() -> int:
         default="pilot",
     )
     parser.add_argument("--target-gb", type=float, default=30.0)
+    parser.add_argument("--native-target-gb", type=float, default=None)
     parser.add_argument("--json-out", default=str(STATUS_REPORT))
     args = parser.parse_args()
-    report = inspect_campaign_status(phase=args.phase, target_gb=args.target_gb)
+    report = inspect_campaign_status(
+        phase=args.phase,
+        target_gb=args.target_gb,
+        native_target_gb=args.native_target_gb,
+    )
     output = Path(args.json_out)
     _atomic_json(output, report)
     print(json.dumps(report, indent=2, sort_keys=True))

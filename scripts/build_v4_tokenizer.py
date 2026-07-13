@@ -37,7 +37,55 @@ from training.v2_config import (
 )
 
 V4_BUILD_REPORT = OUTPUT_V2_DIR / "v4_tokenizer_build.json"
+CAMPAIGN_SLICE_MANIFEST = (
+    OUTPUT_V2_DIR / "campaign_slice" / "campaign_slice_manifest.json"
+)
 BYTE_PROBE = "campaign V4 bytes: cafe λ ∑ \U0001f680 中文"
+
+
+def _sha256_path(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _validate_campaign_slice(
+    manifest_path: Path,
+    corpus_paths: list[Path],
+) -> dict[str, object]:
+    try:
+        payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError(f"Canonical V4 requires a readable campaign manifest: {exc}") from exc
+    if not isinstance(payload, dict) or payload.get("ready_for_v4") is not True:
+        raise ValueError("Canonical V4 requires a campaign slice with ready_for_v4=true")
+    required_flags = (
+        "meets_min_slice",
+        "all_heldout_disjoint",
+        "campaign_mix_verified",
+        "all_required_sources_present",
+    )
+    if not all(payload.get(flag) is True for flag in required_flags):
+        raise ValueError("Canonical V4 campaign slice failed a required provenance gate")
+    train_path = Path(str(payload.get("train_path", "")))
+    if not train_path.is_absolute():
+        train_path = (ROOT / train_path).resolve()
+    resolved_corpora = {path.resolve() for path in corpus_paths if path.is_file()}
+    if resolved_corpora != {train_path}:
+        raise ValueError(
+            "Canonical V4 corpus must be exactly the manifest-bound train slice"
+        )
+    expected_hash = str(payload.get("train_sha256", ""))
+    if not expected_hash or _sha256_path(train_path) != expected_hash:
+        raise ValueError("Canonical V4 campaign slice hash does not match its manifest")
+    return {
+        "manifest": str(manifest_path.resolve()),
+        "manifest_sha256": _sha256_path(manifest_path),
+        "train_sha256": expected_hash,
+        "train_bytes": int(payload.get("train_bytes", 0)),
+    }
 
 
 def _prove_append(base_json: Path, grown_json: Path, ceiling: int) -> dict[str, object]:
@@ -70,6 +118,7 @@ def build_v4(
     ceiling: int = CANONICAL_V4_VOCAB_SIZE,
     max_units: int = 1_000_000,
     base_json: Path = V3_TOKENIZER_FILE,
+    campaign_manifest: Path | None = None,
 ) -> dict[str, object]:
     if ceiling not in V4_VOCAB_SIZES:
         raise ValueError(f"--ceiling must be one of {V4_VOCAB_SIZES}; got {ceiling}")
@@ -82,6 +131,11 @@ def build_v4(
             "campaign slice first (scripts/build_campaign_slice.py).",
             "searched": [str(path) for path in corpus_paths],
         }
+    campaign_lineage = (
+        _validate_campaign_slice(campaign_manifest, present)
+        if campaign_manifest is not None
+        else None
+    )
     audit = audit_token_fertility(
         base_json, present, max_units=max_units, target_vocab_size=ceiling
     )
@@ -90,6 +144,7 @@ def build_v4(
             "status": "audit_not_eligible",
             "ceiling": ceiling,
             "audit": {k: v for k, v in audit.items() if k != "candidate_tokens"},
+            "campaign_lineage": campaign_lineage,
             "note": "Audit needs >=1M units and >=15% projected reduction; the "
             "corpus is too small or too redundant to justify V4 growth.",
         }
@@ -102,6 +157,7 @@ def build_v4(
         "output_sha256": hashlib.sha256(output_json.read_bytes()).hexdigest(),
         "audit": {k: v for k, v in audit.items() if k != "candidate_tokens"},
         "candidate_count": audit.get("candidate_count", 0),
+        "campaign_lineage": campaign_lineage,
         "proof": proof,
     }
 
@@ -122,6 +178,11 @@ def main() -> int:
         default=str(ROOT / "tokenizer" / "tokenizer_v4_32k.json"),
     )
     parser.add_argument("--json-out", default=str(V4_BUILD_REPORT))
+    parser.add_argument(
+        "--campaign-manifest",
+        default=str(CAMPAIGN_SLICE_MANIFEST),
+        help="Ready, hash-bound seven-source campaign slice manifest.",
+    )
     args = parser.parse_args()
 
     if args.corpus:
@@ -129,13 +190,13 @@ def main() -> int:
     else:
         corpus = [
             OUTPUT_V2_DIR / "campaign_slice" / "campaign_slice_train.txt",
-            ROOT / "training_data" / "anra_training.txt",
         ]
     report = build_v4(
         corpus,
         Path(args.output),
         ceiling=int(args.ceiling),
         max_units=int(args.max_units),
+        campaign_manifest=Path(args.campaign_manifest),
     )
     output = Path(args.json_out)
     output.parent.mkdir(parents=True, exist_ok=True)

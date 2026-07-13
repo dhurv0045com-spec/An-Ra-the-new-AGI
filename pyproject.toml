@@ -40,7 +40,7 @@ ml = [
   "transformers>=4.40.0",
 ]
 evidence = [
-  "thirdeye-evidence @ git+https://github.com/dhurv0045com-spec/thirdeye.git@main",
+  "thirdeye-evidence @ git+https://github.com/dhurv0045com-spec/thirdeye.git@e691a79",
 ]
 dev = [
   "mypy>=1.8.0",

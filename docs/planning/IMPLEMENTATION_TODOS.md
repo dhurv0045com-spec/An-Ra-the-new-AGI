@@ -78,7 +78,11 @@ code plus focused tests exist; it does not waive a quantitative campaign gate.
       All 17 non-V4/non-moonshot factorial cells are now trainer-mapped.)*
 - [x] Convert the pilot factorial into pre-registered launch manifests, three seeds each.
       *(`training/pilot_factorial.py`: 23 cells, seeds 1301/2602/3903, signed
-      schema-2 manifests, Law-1 scratch lineage; owner emits the set with
+      schema-3 manifests with immutable data-manifest hashes and explicit
+      train/validation roles, Law-1 scratch lineage; each seed is a separate
+      signed run with a unique artifact path (69 manifests total), rather than
+      three labels attached to one unseeded process;
+      owner emits the set with
       `py -3.14 -m training.pilot_factorial --owner-authorized` once
       `ANRA_MANIFEST_SIGNING_KEY` is set. Exact `pilot-50m` and `pilot-150m`
       model profiles now build and run. Manifests bind distinct immutable
@@ -86,6 +90,10 @@ code plus focused tests exist; it does not waive a quantitative campaign gate.
       and exact token caps; optimizer fallbacks and unimplemented axes fail
       closed instead of silently running a baseline. V4 cells bind separately
       tokenized V4 shards and cannot inherit the process-global V3 hash.)*
+      *(`scripts/run_pilot_queue.py` validates signatures, immutable inputs,
+      forecast timestamps, blockers, seed/run identity, and completed artifacts;
+      writes a resumable queue plan and per-run status/log evidence; excludes
+      moonshots by default; and requires explicit `--execute` plus CUDA.)*
 - [x] Record forecast-ledger predictions before every pilot launch.
       *(`training/forecast_ledger.py`: hash-chained append-only ledger;
       `build_pilot_launch_manifests` registers the forecast before the
@@ -111,6 +119,19 @@ code plus focused tests exist; it does not waive a quantitative campaign gate.
       structurally valid, exactly deduplicated FineWeb-Edu records and no other
       source class. The WAL-safe resume index is finalized; safe acquisition of
       the remaining 30GB tranche sources is active.)*
+      *(2026-07-13 repair: the first resume reached 21.58GB before exposing two
+      upstream failures. Gated Stack v2 and script-only Dolma were replaced by
+      immutable Common Pile Stack-v2-open-code and openly licensed ArXiv
+      parquet revisions. Row licenses now fail closed individually. A real
+      `120gb` native profile, live progress report, fsync-before-index commits,
+      and chained incremental append audits are implemented. A fresh audit is
+      complete: 21,582,998,123 bytes / 4,113,170 records / zero failures. The
+      repaired 30GB resume passed that boundary and is actively appending from
+      the resume-safe index toward the 27GiB native target. A fail-closed
+      `scripts.execute_stream_b` continuation is queued to build the slice,
+      canonical V4, and both tokenizer-specific shard families afterward. A
+      second continuation starts the full 120GiB pinned acquisition only after
+      that report reaches `status=complete`.)*
 - [ ] Produce the at-least-50 MB tokenizer campaign slice with held-out source splits.
       *(Builder shipped: `scripts/build_campaign_slice.py` — deterministic
       per-source held-out split, disjointness + >=50MB gate. Executed on the
@@ -119,6 +140,12 @@ code plus focused tests exist; it does not waive a quantitative campaign gate.
       *(The large-corpus path is now bounded streaming rather than loading the
       17.5GB JSONL into RAM; readiness additionally requires all seven source
       classes and <=2-point mix deviation.)*
+      *(2026-07-13: the canonical instruction source is acquired at its pinned
+      revision: 120,000 SmolTalk rows / 230,753,834 bytes. A new verifier-bank
+      builder emitted 2,249 unique, deterministically verified DFC records /
+      4,195,921 bytes; unverified historical synthetic DFC is now rejected.
+      Identity is explicitly replay-weighted and reported. The remaining slice
+      blockers are the queued code and science downloads.)*
 - [x] Generalize the proven append migration to the canonical 32k V4 ceiling.
       *(`build_append_only_v4`/`audit_token_fertility` now take a `target_vocab_size`
       ceiling; canonical `CANONICAL_V4_VOCAB_SIZE = 32_768` with a pinned
@@ -277,6 +304,21 @@ acceptance pilot. M1-M5 and M7 remain blocked on external evidence.
 
 ## Review ledger (Fable 5 audit of Codex-checked work)
 
+- **2026-07-13 - acquisition/provenance recovery.** Replaced two inaccessible
+  upstream sources with public, exact-commit Common Pile parquet datasets;
+  tightened per-row license validation so mixed permissive/disallowed rows
+  cannot pass by substring; acquired the pinned 120k instruction tranche;
+  generated a 4MB verifier-backed DFC corpus; prevented inferred DFC from
+  entering the verified bucket; added explicit identity replay accounting,
+  live source/rate telemetry, a 120GB acquisition profile, fsync ordering, and
+  hash-chained incremental audit publication. Canonical V4 CLI execution now
+  requires the ready seven-source slice and its exact content hash. Token
+  publication now creates source-pure shards, materializes a minimum trainable
+  identity replay shard, and the deterministic sampler enforces the declared
+  campaign mix instead of inheriting raw corpus imbalance. Focused
+  data/tokenizer verification: 33 passed. The audit/download and all later
+  quantitative training gates remain open until their artifacts complete.
+
 - **2026-07-11 - architecture/data/campaign hardening audit.** Added CUDA
   activation forensics, resumable 17.5GB corpus audit/indexing, exact pilot
   profiles, dense phase isolation, depth-scaled initialization, logit z-loss,
@@ -328,12 +370,14 @@ corpus manifests are emitted, and the campaign-slice + V4-build CLIs are
 shipped. Remaining Stream B work is data/compute-blocked: acquire >=120GB,
 produce the >=50MB slice, then run the 150M V4 pilot.
 
-Owner actions that unblock the rest: (A-checkpoint) restore the real
-checkpoint then `py -3.14 scripts/run_checkpoint_forensics.py --run-generation`;
-(A-manifests) set `ANRA_MANIFEST_SIGNING_KEY` then
+The legacy checkpoint forensics and CUDA activation profile are complete; the
+artifact is a rejected baseline, not a continuation candidate. Remaining owner
+action (A-manifests): set `ANRA_MANIFEST_SIGNING_KEY` then
 `py -3.14 -m training.pilot_factorial --owner-authorized`; (B-corpus)
-`py -3.14 scripts/download_training_data.py --profile 30gb` then
-`scripts/build_campaign_slice.py` then `scripts/build_v4_tokenizer.py`.
+allow the managed audited `--profile 30gb --bucket base --resume` worker to
+finish, then run `py -3.14 -m scripts.build_campaign_slice` and
+`py -3.14 -m scripts.build_v4_tokenizer`. Publish the V3 and V4 shard families
+before generating the signed factorial manifests.
 
 P1 and P2's code-executable mechanisms are implemented and focused-test
 verified. The cluster P2 telemetry/dashboard/control path and P3 fail-closed

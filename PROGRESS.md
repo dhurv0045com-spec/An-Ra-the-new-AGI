@@ -14,7 +14,93 @@ session, read this file, then continue from "Next Action".
 
 ---
 
-## Current State (2026-07-11)
+## Current State (2026-07-13)
+
+The stopped 30GB resume was diagnosed rather than credited as complete. It
+reached 21,582,998,123 bytes: FineWeb-Edu met its quota and FineMath added
+3.865GB, but Stack v2 required authentication and the installed dataset client
+rejected Dolma's legacy loading script. Both are now replaced by exact-commit,
+streamable Common Pile sources: openly licensed Stack v2 code and openly
+licensed ArXiv science/technical text. A live integration probe loaded one
+valid row from all four native sources with zero errors. License enforcement is
+now per row and requires every declared license to be allowlisted.
+
+The missing non-foundation inputs are no longer placeholders. The pinned
+SmolTalk instruction tranche completed at 120,000 examples / 230,753,834
+bytes. `scripts/build_verified_dfc_corpus.py` produced 2,249 unique records /
+4,195,921 bytes, split across deterministic formal-proof and constraint
+verifiers, with every row verified. Historical inferred synthetic DFC is
+explicitly barred from the verified campaign bucket. The tokenizer-slice
+builder records identity replay bytes instead of pretending the 1.5KB identity
+source contains a megabyte of unique data.
+
+Acquisition now publishes live byte/rate/source progress, fsyncs corpus bytes
+before committing the matching SQLite boundary, and can advance a trusted
+audit through a hash-chained online-validated append. The `120gb` native corpus
+profile is executable on the pinned larger FineWeb tranche. The full audit of
+the 21,582,998,123-byte file completed with 4,113,170 valid records and zero
+structural, hash, license, duplicate, or quality failures. The repaired 30GB
+resume passed that fail-closed boundary and is actively appending from the
+resume-safe index toward the 27GiB native target. Canonical
+V4 execution now also requires a ready seven-source slice manifest and exact
+train-slice hash. Immutable token shards now stop at source-class boundaries;
+the raw trainer deterministically samples the declared 55/15/12/8/5/3/2 mix,
+and the tiny identity source is explicitly replay-materialized to 4,097 tokens
+so it produces real 2,048-token windows. V3/V4 shards now publish into distinct
+tokenizer-bound families, and signed pilots derive token capacity from their
+own signed train manifest instead of a global V3 inventory. Consolidated
+data/tokenizer/sampler/orchestration/pilot-contract verification: **75 passed**
+in 26.63 seconds; changed-file Ruff and diff checks are clean.
+
+The signed-launch path is now genuinely three-seed executable. Each of the 23
+factorial cells expands to three independently signed schema-3 run manifests
+(69 total), each with one exact seed, a unique checkpoint artifact, immutable
+train/validation manifest hashes, and explicit data roles. The signed seed is
+wired into Python, Torch, CUDA, model initialization, and raw-shard sampling.
+The old representation placed three seed values in one manifest while starting
+only one unseeded trainer, so it could not have produced three replicas. V4
+checkpoint contracts and campaign gates now derive schema, vocabulary hash,
+special-token IDs, and probe fingerprint from the live signed tokenizer rather
+than the global V3 manifest. Invalid sampler weights/modifiers fail closed, and
+V4 cells become launchable only after the canonical Stream-B artifacts resolve
+their blocker. Scratch manifests no longer become a bogus `--resume_from
+scratch` path, while real continuation sources are byte-hash-bound. Additional
+focused verification: **64 passed, 1 skipped**;
+changed-file Ruff and diff checks remain clean.
+
+The ablation farm now has a resumable local dispatcher rather than a folder of
+manifests with no execution path. `scripts/run_pilot_queue.py` verifies the
+signature, immutable tokenizer/data/checkpoint hashes, forecast lead time,
+blocker state, seed/run identity, and prior completion evidence before planning
+each job. It writes an atomic queue plan plus per-seed status/log files, skips
+completed replicas, excludes moonshots by default, runs base-only sessions,
+and refuses non-CUDA execution unless explicitly overridden. Signed-worker run
+reports are stored beside their unique checkpoint instead of racing on the
+single global report path. Metrics, evaluation summaries, mix control, CDR,
+data-route evidence, and progress journals are likewise isolated into a
+per-seed report directory inherited by the trainer child process.
+Forecast outcomes now reject non-finite values, duplicate resolution, blank
+verdicts, and missing evidence; every accepted outcome records the resolved
+evidence path and its SHA-256 in the append-only forecast chain.
+
+Design suggestion for later review (non-binding): ThirdEye could become the
+canonical evidence/reporting plane while An-Ra retains the signed launch and
+model-specific enforcement contract. That would allow one normalized run,
+artifact, metric, and evidence record without requiring the repositories to be
+merged. Duplicate An-Ra reporting could be reduced only after parity tests;
+local fallback behavior could remain available if ThirdEye is unavailable.
+
+`scripts.execute_stream_b` is queued behind the managed downloader. It will
+fail closed unless the final audit matches the corpus, the native target is
+complete, all four native source classes are non-empty, and every audit failure
+count is zero. On success it builds the seven-source slice and canonical V4,
+then publishes distinct V3/V4 train/validation/test shard families. Shard
+progress is written continuously to
+`output/v2/data_manifests/token_shard_progress.json`.
+A second managed continuation is waiting on that report and will extend the
+same audited corpus to the full 120GiB native target only when Stream B ends in
+`status=complete`; a failed slice, V4 proof, or shard publication prevents the
+large acquisition from starting.
 
 The deeper recovery pass now includes real CUDA activation evidence, not only
 generation samples and static tensors. The legacy checkpoint is finite but its
@@ -267,8 +353,8 @@ list. Headline changes:
 ## Done (2026-07-07 session — Stream B executable half)
 
 - Canonical 32k V4 append migration generalized and proven, Law-1-clean and
-  non-destructive: `CANONICAL_V4_VOCAB_SIZE = 32_768` with a pinned
-  530,602,567-param contract; `build_append_only_v4`/`audit_token_fertility`
+  non-destructive: `CANONICAL_V4_VOCAB_SIZE = 32_768` with the current schema-7
+  530,602,595-param contract; `build_append_only_v4`/`audit_token_fertility`
   take a `target_vocab_size` ceiling; the frozen 8,209-token V3 prefix is
   asserted before every V4 write; 16,384 retained as the proven fallback.
 - All vocab gates (runtime, checkpoint validator, ssg) accept {8209, 16384,
@@ -294,13 +380,17 @@ budget data, 20-scenario UI study, and adversarial/canary release evidence
 before checking the remaining P2 boxes.
 
 **Owner actions that unblock the rest of Streams A and B:**
-1. Set `ANRA_MANIFEST_SIGNING_KEY`, then emit the signed pilot manifests:
-   `py -3.14 -m training.pilot_factorial --owner-authorized`.
-2. Acquire the corpus, then build the canonical V4:
+1. Let the managed acquisition finish, then build canonical V4 and publish
+   immutable V3/V4 train, validation, and test shard families:
    `py -3.14 scripts/download_training_data.py --profile 30gb` →
    `py -3.14 scripts/build_campaign_slice.py` (>=50MB slice) →
    `py -3.14 scripts/build_v4_tokenizer.py` (canonical 32k V4) → run the
-   pre-registered `p150-v4tok` 150M three-seed pilot on GPU.
+   pre-registered `p150-v4tok` 150M three-seed pilot on GPU. The queued
+   `py -3.14 -m scripts.execute_stream_b` runner performs the build and shard
+   sequence fail-closed.
+2. Set `ANRA_MANIFEST_SIGNING_KEY`, emit all 69 signed seed-run manifests with
+   `py -3.14 -m training.pilot_factorial --owner-authorized`, then dispatch
+   only the non-moonshot critical runs on cluster-class GPU compute.
 
 ## Blocking Dependencies (not solvable in the code environment)
 

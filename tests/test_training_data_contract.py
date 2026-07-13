@@ -16,6 +16,7 @@ from scripts.build_brain import (
     _configure_continuation_phase,
     _freeze_training_lineage,
     _masked_logit_z_loss,
+    _tokenizer_checkpoint_contract,
     _weighted_loss,
 )
 from anra_brain import CausalTransformerV2
@@ -263,3 +264,26 @@ def test_checkpoint_collects_complete_manifest_bytes(tmp_path: Path) -> None:
 
     assert payloads == {"native/manifest.json": nested.read_bytes()}
     assert hashes["native/manifest.json"] == hashlib.sha256(nested.read_bytes()).hexdigest()
+
+
+def test_checkpoint_tokenizer_contract_uses_live_active_identity(monkeypatch) -> None:
+    identity = {
+        "available": True,
+        "schema_version": 4,
+        "sha256": "v4-file-hash",
+        "vocabulary_sha256": "v4-vocabulary-hash",
+        "vocab_size": 32_768,
+        "special_token_ids": {"<pad>": 0, "<unk>": 1},
+        "probe_count": 500,
+        "probe_sha256": "v4-probe-hash",
+    }
+    monkeypatch.setattr(
+        "scripts.build_brain.active_tokenizer_identity", lambda: identity
+    )
+
+    contract = _tokenizer_checkpoint_contract()
+
+    assert contract["schema_version"] == 4
+    assert contract["vocab_size"] == 32_768
+    assert contract["sha256"] == "v4-file-hash"
+    assert contract["probe_sha256"] == "v4-probe-hash"

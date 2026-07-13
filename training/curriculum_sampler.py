@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import random
 from collections.abc import Callable, Iterator, Sequence
 
@@ -49,10 +50,11 @@ class ScheduledCurriculumSampler(Sampler[int]):
         curriculum: str,
         num_samples: int,
         seed: int,
+        target_mass: dict[str, float] | None = None,
         multiplier_fn: Callable[[str, float], dict[str, float]] = curriculum_multipliers,
     ) -> None:
-        if curriculum not in CURRICULUMS - {"none"}:
-            raise ValueError("Scheduled sampler requires a named non-default curriculum")
+        if curriculum not in CURRICULUMS:
+            raise ValueError("Scheduled sampler requires a registered curriculum")
         self.curriculum = curriculum
         self.num_samples = max(1, int(num_samples))
         self.seed = int(seed)
@@ -74,7 +76,35 @@ class ScheduledCurriculumSampler(Sampler[int]):
             name: sum(stop - start for start, stop in normalized[name]) for name in self.names
         }
         total = sum(self.bucket_counts.values())
-        self.base_mass = {name: self.bucket_counts[name] / total for name in self.names}
+        if target_mass is None:
+            self.base_mass = {
+                name: self.bucket_counts[name] / total for name in self.names
+            }
+        else:
+            declared_targets: dict[str, float] = {}
+            for name, raw_weight in target_mass.items():
+                weight = float(raw_weight)
+                if not math.isfinite(weight) or weight < 0.0:
+                    raise ValueError(
+                        "target source mix weight must be finite and non-negative: "
+                        f"{name}={raw_weight}"
+                    )
+                declared_targets[str(name)] = weight
+            missing = sorted(set(declared_targets) - set(self.names))
+            if missing:
+                raise ValueError(
+                    f"target source mix has no immutable windows for: {missing}"
+                )
+            positive_targets = {
+                name: weight for name, weight in declared_targets.items() if weight > 0.0
+            }
+            target_total = sum(positive_targets.values())
+            if not math.isfinite(target_total) or target_total <= 0.0:
+                raise ValueError("target source mix must assign positive mass")
+            self.base_mass = {
+                name: positive_targets.get(name, 0.0) / target_total
+                for name in self.names
+            }
 
     def __len__(self) -> int:
         return self.num_samples
@@ -84,19 +114,28 @@ class ScheduledCurriculumSampler(Sampler[int]):
         for position in range(self.num_samples):
             progress = position / max(1, self.num_samples - 1)
             modifiers = self.multiplier_fn(self.curriculum, progress)
-            weights = [
-                self.base_mass[name] * max(0.0, modifiers.get(name, 1.0))
-                for name in self.names
-            ]
+            weights: list[float] = []
+            for name in self.names:
+                modifier = float(modifiers.get(name, 1.0))
+                if not math.isfinite(modifier) or modifier < 0.0:
+                    raise RuntimeError(
+                        "curriculum modifier must be finite and non-negative: "
+                        f"{name}={modifier}"
+                    )
+                weights.append(self.base_mass[name] * modifier)
             total = sum(weights)
-            if total <= 0.0:
+            if not math.isfinite(total) or total <= 0.0:
                 raise RuntimeError("curriculum schedule assigned zero mass to every source")
             threshold = rng.random() * total
             cumulative = 0.0
-            selected = self.names[-1]
+            selected = next(
+                name
+                for name, weight in reversed(tuple(zip(self.names, weights, strict=True)))
+                if weight > 0.0
+            )
             for name, weight in zip(self.names, weights, strict=True):
                 cumulative += weight
-                if threshold <= cumulative:
+                if threshold < cumulative:
                     selected = name
                     break
             offset = rng.randrange(self.bucket_counts[selected])

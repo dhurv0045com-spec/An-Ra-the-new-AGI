@@ -1,5 +1,49 @@
 # Engineering Log
 
+## 2026-07-13 - OBS/FIX - ThirdEye boundary inspection and dependency pin
+
+| Field | Value |
+|-------|-------|
+| **Date** | 2026-07-13 |
+| **Author** | Codex |
+| **Component** | standalone ThirdEye integration; An-Ra evidence boundary |
+| **Type** | OBSERVABILITY + FIX + PROVENANCE |
+| **Summary** | Inspected the downloaded standalone ThirdEye repository at commit `e691a79`. ThirdEye is the generic evidence control plane: Project → Feature → Protocol → Run → Metric → Evidence → Decision, with SQLite storage, content-addressed artifacts, controlled-protocol grading, reports, and calibrated intelligence telemetry. An-Ra’s adapter is the project-specific registration/telemetry bridge, while An-Ra’s signed launch manifest and forecast ledger remain domain-specific pre-launch gates; they are complementary rather than two competing intelligence engines. Pinned An-Ra’s dependency from moving `main` to the inspected immutable ThirdEye commit so the evidence semantics cannot drift between runs. |
+| **Evidence** | Standalone ThirdEye test suite passes; An-Ra adapter tests were already present. |
+| **Follow-up** | Normalize each signed An-Ra launch into one ThirdEye `RunManifest`, attach the signed manifest/checkpoint as content-addressed artifacts, emit training metrics through ThirdEye, and use ThirdEye reports as the human-facing evidence surface. Retire duplicate An-Ra reporting only after parity is proven. |
+
+---
+
+## 2026-07-13 - TRAIN/FIX - Real per-seed launches and live tokenizer lineage
+
+| Field | Value |
+|-------|-------|
+| **Date** | 2026-07-13 |
+| **Author** | Codex |
+| **Component** | pilot factorial; signed data lineage; trainer determinism; V4 checkpoint contract |
+| **Type** | TRAIN + FIX + RELIABILITY + VERIFICATION |
+| **Summary** | Corrected a false three-seed execution contract: the factorial formerly put three seed numbers in one signed manifest but launched one trainer without an explicit seed. It now emits one signed run per cell per seed (69 total), gives every run a unique checkpoint path/worker identity, and propagates the signed seed through Python, Torch, CUDA, model initialization, and immutable-shard sampling. Launch schema 3 hashes every bound data manifest, assigns explicit train/validation roles, and re-hashes artifacts at validation so post-sign mutation fails closed. Real continuation checkpoints are hash-bound too; scratch launches no longer try to load a path literally named `scratch`. Removed the last global-V3 assumptions from checkpoint metadata and staged tokenizer gates: schema, vocab size/hash, special IDs, and the 500-probe fingerprint now come from the active signed tokenizer. Hardened target-mix sampling against non-finite/negative weights and zero-mass edge selection. Fixed resolved V4 cells so they actually become launchable; moonshots remain outside critical-path readiness. Added a resumable dispatcher that validates signed jobs and forecast lead time, skips completed runs, excludes moonshots by default, requires explicit CUDA execution, and writes per-seed status/log evidence. Worker run reports and mutable selection evidence are isolated per artifact/seed, preventing parallel jobs from overwriting metrics, evaluations, mix control, CDR, data-route evidence, or progress journals. Forecast outcomes now require finite values and an existing SHA-256-bound evidence file and reject duplicate resolution. The launch-manifest API accepts the required data roles. |
+| **Evidence** | Focused signed-launch, forecast, pilot, tokenizer-lineage, dispatcher, trainer-plan, and sampler suite: 64 passed, 1 skipped in 9.45s. Changed-file Ruff and `git diff --check` clean. RTX 4050 runtime: Torch 2.11.0+cu128, CUDA available, 6GB VRAM. |
+| **Risk** | No run outcome is credited. The 69 manifests require completed immutable V3/V4 shards and the owner-held signing key; the 150M/MoE factorial requires cluster-class memory and compute. |
+| **Follow-up** | Let the queued Stream-B runner finish the audited 30GB tranche, seven-source slice, canonical V4, and both shard families. Then sign the 69 manifests and dispatch critical non-moonshot replicas; keep M1/M3/M5 pilot-gated. |
+
+---
+
+## 2026-07-13 - DATA/FIX - Recoverable public corpus acquisition and verified slice inputs
+
+| Field | Value |
+|-------|-------|
+| **Date** | 2026-07-13 |
+| **Author** | Codex |
+| **Component** | licensed corpus acquisition; audit/resume; tokenizer campaign slice; canonical V4 lineage |
+| **Type** | DATA + FIX + RELIABILITY + VERIFICATION |
+| **Summary** | Diagnosed the 21.58GB resume stop: Stack v2 is authentication-gated and Dolma's loading script is incompatible with the installed datasets client. Replaced them with immutable Common Pile Stack-v2-open-code and openly licensed ArXiv parquet revisions, validated each live, and made per-row licensing all-of rather than unsafe substring-any. Added source/rate progress, fsync-before-SQLite ordering, WAL resume, hash-chained incremental append audits, and an executable 120GB native profile. Acquired 120k pinned SmolTalk instruction examples. Added a deterministic verifier-bank DFC builder; unverified historical DFC can no longer enter the verified slice. Identity replay is explicit in slice evidence. Canonical V4 CLI runs now bind the ready campaign manifest and exact slice hash. Token publication is source-pure, explicitly materializes a trainable identity replay shard, and raw training deterministically enforces the signed campaign mix rather than silently following physical corpus imbalance. V3 and V4 publication now use separate tokenizer-bound shard families and inventories; a signed pilot resolves token capacity from its own signed train manifest rather than the process-global V3 inventory. |
+| **Evidence** | Live streaming probe: 4/4 native sources, one accepted row each, zero errors. Full 21,582,998,123-byte integrity pass: 4,113,170 valid records, zero structural/hash/license/duplicate/quality failures, resume-safe SQLite index. Instruction corpus: 120,000 rows / 230,753,834 bytes. Verified DFC: 2,249 unique rows / 4,195,921 bytes, 1,125 formal-proof + 1,124 constraint-verifier records, all verified. Final focused data/slice/V4/curriculum/shard/orchestration/pilot-contract suite: 75 passed in 26.63s; changed-file Ruff and diff checks clean. |
+| **Risk** | The repaired network resume is actively appending from the proven audit toward 27GiB; it is not yet complete. No 30GB/120GB volume, V4 fertility, signed launch, three-seed, or model-quality gate is credited yet. The owner signing key and cluster-class pilot compute remain external blockers. |
+| **Follow-up** | A managed `scripts.execute_stream_b` continuation is queued behind the active 30GB worker. It revalidates completed audit/source evidence, builds the seven-source 64MB slice, runs the bound V4 audit/build, and publishes immutable, family-specific V3/V4 inventories with live shard progress and restart safety at completed-family boundaries. A second fail-closed continuation starts the 120GB pinned acquisition only if Stream B reports complete. After the first runner passes, set the owner signing key, generate manifests, and launch the pre-registered pilots. |
+
+---
+
 ## 2026-07-11 - DATA/PERF - Compact MinHash resume index
 
 | Field | Value |

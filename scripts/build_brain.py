@@ -9,6 +9,7 @@ import heapq
 import json
 import math
 import os
+import random
 import shutil
 import signal
 import subprocess
@@ -24,14 +25,12 @@ if str(REPO_ROOT) not in sys.path:
 import torch
 import torch.nn.functional as F  # noqa: N812 - canonical PyTorch alias
 from anra.anra_paths import (
-    CDR_REPORT,
     FAILURE_REPLAY_DATASET,
     IBS_LATEST,
     OUTPUT_V2_DIR,
     REGRET_STATE,
     ROOT,
     SOVEREIGNTY_EVENTS,
-    TOKENIZER_MANIFEST,
     V2_TOKENIZER_FILE,
 )
 from engine.eval_harness import EvalHarness, EvalResult
@@ -62,9 +61,7 @@ from training.shared_checkpoint import (
 )
 from training.v2_config import (
     CHECKPOINT_SCHEMA_VERSION,
-    EXPECTED_SPECIAL_TOKEN_IDS,
     EXPECTED_TOKENIZER_VOCAB_SIZE,
-    TOKENIZER_SCHEMA_VERSION,
     V2_FRONTIER,
     V2_FRONTIER_TRAINING,
     V2_MODEL,
@@ -83,6 +80,7 @@ from training.v2_data_mix import (
     split_conversation_validation,
 )
 from training.v2_runtime import (
+    active_tokenizer_identity,
     active_tokenizer_path,
     atomic_save,
     build_frontier_model,
@@ -356,26 +354,19 @@ def _session_data_mix_seed(base_seed: int = 1337) -> int:
 
 
 def _tokenizer_checkpoint_contract() -> dict[str, object]:
-    tokenizer_path = active_tokenizer_path()
-    if not tokenizer_path.exists():
-        raise FileNotFoundError(f"Canonical tokenizer is missing: {tokenizer_path}")
-    raw = tokenizer_path.read_bytes()
-    payload = json.loads(raw.decode("utf-8"))
-    vocabulary = payload.get("token_to_id", {}) if isinstance(payload, dict) else {}
-    vocabulary_bytes = json.dumps(
-        vocabulary,
-        sort_keys=True,
-        separators=(",", ":"),
-    ).encode("utf-8")
-    manifest = _read_json(TOKENIZER_MANIFEST) or {}
+    identity = active_tokenizer_identity()
+    if identity.get("available") is not True:
+        raise FileNotFoundError(
+            f"Canonical tokenizer is missing: {active_tokenizer_path()}"
+        )
     return {
-        "schema_version": int(manifest.get("schema_version", TOKENIZER_SCHEMA_VERSION)),
-        "sha256": hashlib.sha256(raw).hexdigest(),
-        "vocabulary_sha256": hashlib.sha256(vocabulary_bytes).hexdigest(),
-        "vocab_size": int(manifest.get("vocab_size", EXPECTED_TOKENIZER_VOCAB_SIZE)),
-        "special_token_ids": EXPECTED_SPECIAL_TOKEN_IDS,
-        "probe_count": int(manifest.get("probe_count", 0)),
-        "probe_sha256": str(manifest.get("probe_sha256", "")),
+        "schema_version": int(identity["schema_version"]),
+        "sha256": str(identity["sha256"]),
+        "vocabulary_sha256": str(identity["vocabulary_sha256"]),
+        "vocab_size": int(identity["vocab_size"]),
+        "special_token_ids": dict(identity["special_token_ids"]),
+        "probe_count": int(identity["probe_count"]),
+        "probe_sha256": str(identity["probe_sha256"]),
     }
 
 
@@ -862,6 +853,7 @@ def train_anra_v2(
     use_mtp: bool = False,
     use_moe: bool = False,
     curriculum: str = "none",
+    seed: int = 1337,
 ) -> dict[str, object]:
     for required_component in ("training_loop", "data_mix", "evaluation"):
         if not is_enabled(required_component):
@@ -880,6 +872,13 @@ def train_anra_v2(
         raise ValueError(f"unsupported curriculum: {curriculum}")
     if curriculum != "none" and training_layout != RawCausalShardDataset.PACKING_LAYOUT:
         raise ValueError("pilot curricula require immutable raw causal shards")
+    seed = int(seed)
+    if seed < 0 or seed > 2**32 - 1:
+        raise ValueError("training seed must be in [0, 2**32-1]")
+    random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
     os.environ["ANRA_TRAINING_DATA_LAYOUT"] = training_layout
     model_cfg, training_cfg = resolve_model_profile(model_size)
     is_frontier = model_size == "frontier"
@@ -962,6 +961,9 @@ def train_anra_v2(
         )
     dataset_path = Path(data_path)
     tokenizer = load_or_build_v2_tokenizer(dataset_path=dataset_path)
+    tokenizer_identity = active_tokenizer_identity()
+    if tokenizer_identity.get("available") is not True:
+        raise RuntimeError("Active tokenizer identity could not be established")
     model_parameter_contract = (
         frontier_parameter_count(tokenizer.vocab_size)
         if is_frontier
@@ -972,7 +974,7 @@ def train_anra_v2(
             moe_routed_experts=8 if use_moe else 0,
         )
     )
-    data_mix_seed = _session_data_mix_seed()
+    data_mix_seed = seed if is_pilot else _session_data_mix_seed(base_seed=seed)
     training_mix_controller = TrainingDataMixController(model_parameter_contract)
     print(f"[Trainer] Data mix sampling seed: {data_mix_seed}", flush=True)
     if training_layout == RawCausalShardDataset.PACKING_LAYOUT:
@@ -987,9 +989,7 @@ def train_anra_v2(
             block_size,
             rotation_seed=data_mix_seed,
             verify_hashes=True,
-            expected_tokenizer_sha256=str(
-                (_read_json(TOKENIZER_MANIFEST) or {}).get("tokenizer_sha256", "")
-            ),
+            expected_tokenizer_sha256=str(tokenizer_identity["sha256"]),
         )
         validation_manifest_path = (
             Path(validation_shard_manifest)
@@ -1008,9 +1008,7 @@ def train_anra_v2(
             block_size,
             rotation_seed=0,
             verify_hashes=True,
-            expected_tokenizer_sha256=str(
-                (_read_json(TOKENIZER_MANIFEST) or {}).get("tokenizer_sha256", "")
-            ),
+            expected_tokenizer_sha256=str(tokenizer_identity["sha256"]),
         )
         mix_report = MixReport(
             total_examples=len(ds),
@@ -1084,7 +1082,7 @@ def train_anra_v2(
             "tokenizer_sha256": hashlib.sha256(active_tokenizer_path().read_bytes()).hexdigest(),
         }
     )
-    write_json(OUTPUT_V2_DIR / "data_route_report.json", data_route_report)
+    write_json(v2_report_path("data_route_report.json"), data_route_report)
     write_json(v2_report_path("mix_report"), mix_report.to_dict())
     if len(ds) == 0:
         raise RuntimeError(f"{training_layout} produced zero training windows.")
@@ -1103,17 +1101,23 @@ def train_anra_v2(
             "num_workers": num_workers,
             "persistent_workers": num_workers > 0,
         }
-        if curriculum != "none":
-            required_source = {
-                "code-before-prose": "permissive_code",
-                "math-density-ramp": "finemath",
-                "identity-mix-late": "identity_replay",
-            }[curriculum]
+        if training_layout == RawCausalShardDataset.PACKING_LAYOUT:
             ranges = ds.source_window_ranges()
-            if required_source not in ranges:
-                raise RuntimeError(
-                    f"curriculum {curriculum} requires source class {required_source}"
-                )
+            if curriculum != "none":
+                required_source = {
+                    "code-before-prose": "permissive_code",
+                    "math-density-ramp": "finemath",
+                    "identity-mix-late": "identity_replay",
+                }[curriculum]
+                if required_source not in ranges:
+                    raise RuntimeError(
+                        f"curriculum {curriculum} requires source class {required_source}"
+                    )
+            target_mix = ds.manifest.get("campaign_mix_target", {})
+            if target_mix and ds.manifest.get("campaign_mix_verified") is not True:
+                raise RuntimeError("raw campaign manifest has an unverified source-mix recipe")
+            if not isinstance(target_mix, dict):
+                raise RuntimeError("raw campaign source-mix recipe must be an object")
             sample_budget = (
                 math.ceil(max_phase_tokens / block_size)
                 if max_phase_tokens is not None
@@ -1124,6 +1128,9 @@ def train_anra_v2(
                 curriculum=curriculum,
                 num_samples=sample_budget,
                 seed=data_mix_seed,
+                target_mass={str(key): float(value) for key, value in target_mix.items()}
+                if target_mix
+                else None,
             )
             return DataLoader(ds, sampler=sampler, **loader_kwargs)
         if active_weights is None or training_layout == RawCausalShardDataset.PACKING_LAYOUT:
@@ -1231,6 +1238,7 @@ def train_anra_v2(
         "curriculum": curriculum,
         "max_phase_tokens": max_phase_tokens,
         "optimizer": optimizer_name,
+        "seed": seed,
     }
     continuation_report = _configure_continuation_phase(model, continuation_phase)
     intelligence_session = create_intelligence_session(model)
@@ -1891,7 +1899,7 @@ def train_anra_v2(
                 accumulated_scaffold_nll = 0.0
                 accumulated_scaffold_tokens = 0
                 write_json(
-                    OUTPUT_V2_DIR / "training_progress_journal.json",
+                    v2_report_path("training_progress_journal.json"),
                     {
                         "schema_version": 2,
                         "updated_at": time.time(),
@@ -2243,7 +2251,8 @@ def train_anra_v2(
         ),
     }
     write_json(v2_report_path("metrics"), metrics)
-    write_json(CDR_REPORT, cdr.report())
+    cdr_report_path = v2_report_path("cdr_report.json")
+    write_json(cdr_report_path, cdr.report())
 
     hard_examples_report = [
         {
@@ -2402,7 +2411,7 @@ def train_anra_v2(
             "M-04": "trajectory_store.jsonl",
             "M-05": str(rlvr_report_path),
             "M-06": str(rlvr_report_path),
-            "M-07": str(CDR_REPORT),
+            "M-07": str(cdr_report_path),
             "M-08": str(memory_report_path),
             "M-09": str(improvement_report_path),
             "M-10": "no sovereignty-accuracy evidence produced",
@@ -2537,6 +2546,7 @@ def main() -> None:
         "--moe", choices=["off", "upcycle-8r1s-top2"], default="off"
     )
     parser.add_argument("--curriculum", choices=sorted(CURRICULUMS), default="none")
+    parser.add_argument("--seed", type=int, default=1337)
     parser.add_argument(
         "--attention-pattern", choices=["hybrid", "full-only"], default=None
     )
@@ -2617,6 +2627,7 @@ def main() -> None:
         use_mtp=args.mtp == "on",
         use_moe=args.moe != "off",
         curriculum=args.curriculum,
+        seed=args.seed,
     )
     print(result, flush=True)
 

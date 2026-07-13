@@ -41,7 +41,7 @@ from training.v2_config import (
     V2_FRONTIER_PARAMETER_COUNT,
     V2_FRONTIER_TRANSFORMER_PARAMETER_COUNT,
 )
-from training.v2_runtime import _active_tokenizer_identity
+from training.v2_runtime import active_tokenizer_identity
 
 BASELINE_FREEZE = OUTPUT_V2_DIR / "baseline_freeze.json"
 
@@ -82,7 +82,7 @@ def freeze_checkpoint(path: Path) -> dict[str, object]:
 
 
 def freeze_tokenizer() -> dict[str, object]:
-    identity = _active_tokenizer_identity()
+    identity = active_tokenizer_identity()
     if not identity.get("available"):
         return {"available": False, "status": "missing"}
     recorded = {}

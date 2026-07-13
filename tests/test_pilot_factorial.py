@@ -56,6 +56,19 @@ def test_factorial_definition_is_complete_and_unique() -> None:
     } <= executable
 
 
+def test_v4_axis_becomes_launchable_only_after_stream_b_is_resolved() -> None:
+    cell = next(cell for cell in pilot_factorial.PILOT_FACTORIAL if cell.cell_id == "p150-v4tok")
+
+    assert pilot_factorial.execution_blocker(cell) == "stream-b-canonical-v4"
+    assert (
+        pilot_factorial.execution_blocker(
+            cell,
+            resolved_blockers=frozenset({"stream-b-canonical-v4"}),
+        )
+        == ""
+    )
+
+
 def test_build_manifests_registers_forecasts_first_and_audits(tmp_path: Path) -> None:
     ledger = tmp_path / "forecasts.jsonl"
     cells = pilot_factorial.PILOT_FACTORIAL[:2]
@@ -75,19 +88,27 @@ def test_build_manifests_registers_forecasts_first_and_audits(tmp_path: Path) ->
         data_manifests=(str(train_manifest), str(validation_manifest)),
     )
 
-    assert len(manifests) == 2
+    assert len(manifests) == len(cells) * len(pilot_factorial.PILOT_SEEDS)
     forecasts = [entry for entry in read_ledger(ledger) if entry["kind"] == "forecast"]
     assert len(forecasts) == 2
-    for manifest, cell in zip(manifests, cells, strict=True):
-        assert manifest["pilot_cell_id"] == cell.cell_id
-        assert manifest["seeds"] == list(pilot_factorial.PILOT_SEEDS)
+    cell_ids = {cell.cell_id for cell in cells}
+    for manifest in manifests:
+        assert manifest["pilot_cell_id"] in cell_ids
+        assert manifest["seeds"] == [manifest["pilot_seed"]]
+        assert manifest["seed"] == manifest["pilot_seed"]
+        assert manifest["pilot_seed"] in pilot_factorial.PILOT_SEEDS
         assert manifest["checkpoint_source"] == "scratch"
         assert Path(str(manifest["tokenizer_path"])).is_file()
         assert manifest["checkpoint_read_only"] is True
         audit = audit_pre_launch(manifest, path=ledger)
         assert audit["passed"] is True
         assert audit["lead_seconds"] >= 0
-        path = tmp_path / "cells" / f"{cell.cell_id}.json"
+        path = (
+            tmp_path
+            / "cells"
+            / str(manifest["pilot_cell_id"])
+            / f"seed-{manifest['pilot_seed']}.json"
+        )
         assert path.exists()
         loaded = load_and_validate_manifest(path, key=KEY)
         assert loaded["forecast_id"] == manifest["forecast_id"]
@@ -122,14 +143,14 @@ def test_post_hoc_forecast_swap_is_detected(tmp_path: Path) -> None:
     validation_manifest.parent.mkdir()
     train_manifest.write_text("{}", encoding="utf-8")
     validation_manifest.write_text("{}", encoding="utf-8")
-    (manifest,) = pilot_factorial.build_pilot_launch_manifests(
+    manifest = pilot_factorial.build_pilot_launch_manifests(
         tmp_path,
         owner_authorized=True,
         key=KEY,
         cells=pilot_factorial.PILOT_FACTORIAL[:1],
         ledger_path=ledger,
         data_manifests=(str(train_manifest), str(validation_manifest)),
-    )
+    )[0]
     # A forecast registered after the manifest exists must not certify it.
     late = pilot_factorial.register_forecast(
         cell_id=str(manifest["pilot_cell_id"]),
@@ -137,7 +158,7 @@ def test_post_hoc_forecast_swap_is_detected(tmp_path: Path) -> None:
         predicted_low=1.0,
         predicted_high=2.0,
         gate="post-hoc",
-        seeds=[1, 2, 3],
+        seeds=[int(manifest["seed"]), 2, 3],
         path=ledger,
     )
     doctored = dict(manifest)
@@ -164,7 +185,74 @@ def test_manifest_files_are_valid_json_with_signatures(tmp_path: Path) -> None:
         data_manifests=(str(train_manifest), str(validation_manifest)),
     )
     cell_id = pilot_factorial.PILOT_FACTORIAL[0].cell_id
-    payload = json.loads((tmp_path / "cells" / f"{cell_id}.json").read_text(encoding="utf-8"))
+    payload = json.loads(
+        (
+            tmp_path
+            / "cells"
+            / cell_id
+            / f"seed-{pilot_factorial.PILOT_SEEDS[0]}.json"
+        ).read_text(encoding="utf-8")
+    )
     assert payload["signature"]
-    assert payload["schema_version"] == 2
+    assert payload["schema_version"] == 3
+    assert set(payload["data_manifest_hashes"]) == set(payload["data_manifests"])
+    assert set(payload["data_manifest_roles"].values()) == {"train", "validation"}
     assert payload["pilot_axes"]
+
+
+def test_blocked_manifest_can_be_audited_but_not_launched(tmp_path: Path) -> None:
+    ledger = tmp_path / "forecasts.jsonl"
+    train_manifest = tmp_path / "train" / "manifest.json"
+    validation_manifest = tmp_path / "validation" / "manifest.json"
+    train_manifest.parent.mkdir()
+    validation_manifest.parent.mkdir()
+    train_manifest.write_text("{}", encoding="utf-8")
+    validation_manifest.write_text("{}", encoding="utf-8")
+    cell = next(cell for cell in pilot_factorial.PILOT_FACTORIAL if cell.moonshot)
+    signed = pilot_factorial.build_pilot_launch_manifests(
+        tmp_path,
+        owner_authorized=True,
+        key=KEY,
+        cells=(cell,),
+        ledger_path=ledger,
+        data_manifests=(str(train_manifest), str(validation_manifest)),
+    )[0]
+    path = (
+        tmp_path
+        / "cells"
+        / cell.cell_id
+        / f"seed-{signed['seed']}.json"
+    )
+
+    with pytest.raises(PermissionError, match="blocked on"):
+        load_and_validate_manifest(path, key=KEY)
+    audited = load_and_validate_manifest(path, key=KEY, allow_blocked=True)
+    assert audited["blocked_on"]
+
+
+def test_signed_launch_rejects_data_manifest_changed_after_signing(tmp_path: Path) -> None:
+    ledger = tmp_path / "forecasts.jsonl"
+    train_manifest = tmp_path / "train" / "manifest.json"
+    validation_manifest = tmp_path / "validation" / "manifest.json"
+    train_manifest.parent.mkdir()
+    validation_manifest.parent.mkdir()
+    train_manifest.write_text('{"version":1}', encoding="utf-8")
+    validation_manifest.write_text('{"version":1}', encoding="utf-8")
+    manifest = pilot_factorial.build_pilot_launch_manifests(
+        tmp_path,
+        owner_authorized=True,
+        key=KEY,
+        cells=pilot_factorial.PILOT_FACTORIAL[:1],
+        ledger_path=ledger,
+        data_manifests=(str(train_manifest), str(validation_manifest)),
+    )[0]
+    signed_path = (
+        tmp_path
+        / "cells"
+        / str(manifest["pilot_cell_id"])
+        / f"seed-{manifest['pilot_seed']}.json"
+    )
+    train_manifest.write_text('{"version":2}', encoding="utf-8")
+
+    with pytest.raises(ValueError, match="hash does not match"):
+        load_and_validate_manifest(signed_path, key=KEY)

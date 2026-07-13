@@ -385,7 +385,13 @@ def execution_blocker(
     unsupported_keys = set(cell.axes) - supported_keys
     if unsupported_keys:
         return "unimplemented-pilot-axes:" + ",".join(sorted(unsupported_keys))
-    if cell.axes.get("tokenizer", "v3") != "v3":
+    tokenizer = cell.axes.get("tokenizer", "v3")
+    if tokenizer not in {"v3", "v4-campaign-candidate"}:
+        return f"unsupported-pilot-tokenizer:{tokenizer}"
+    if (
+        tokenizer != "v3"
+        and "stream-b-canonical-v4" not in resolved_blockers
+    ):
         return "stream-b-canonical-v4"
     return ""
 
@@ -443,41 +449,62 @@ def build_pilot_launch_manifests(
             rationale=cell.rationale,
             path=ledger_path,
         )
-        manifest = build_launch_manifest(
-            model_profile=f"pilot-{cell.scale}",
-            extension_profile="none",
-            tokenizer_hash=tokenizer_hash,
-            tokenizer_path=str(tokenizer_path),
-            data_manifests=list(cell_data),
-            stage=f"pilot-factorial-{cell.scale}",
-            optimizer=cell.optimizer,
-            batch_size=training_config.batch_size,
-            accumulation=training_config.grad_accum_steps,
-            schedule=dict(PILOT_SCHEDULE),
-            seeds=list(seeds),
-            checkpoint_source="scratch",
-            expected_tokens=EXPECTED_TOKENS_BY_SCALE[cell.scale],
-            runtime_estimate_hours=None,
-            owner_authorized=owner_authorized,
-            worker_id=f"pilot-{cell.cell_id}",
-            worker_role="pilot_cell",
-            artifact_path=str(
-                ROOT / "output" / "v2" / "campaigns" / "pilots" / "artifacts" / f"{cell.cell_id}.pt"
-            ),
-            checkpoint_read_only=True,
-        )
-        manifest["pilot_cell_id"] = cell.cell_id
-        manifest["pilot_axes"] = dict(cell.axes)
-        manifest["pilot_scale"] = cell.scale
-        manifest["moonshot"] = cell.moonshot
-        resolved = frozenset({"stream-b-canonical-v4"}) if uses_v4 else frozenset()
-        manifest["blocked_on"] = execution_blocker(cell, resolved_blockers=resolved)
-        manifest["forecast_id"] = forecast["forecast_id"]
-        signed = sign_manifest(manifest, root / "cells" / f"{cell.cell_id}.json", key=key)
-        audit = audit_pre_launch(signed, path=ledger_path)
-        if not audit["passed"]:  # pragma: no cover - audit raises on failure
-            raise PermissionError(f"Pre-launch audit failed for {cell.cell_id}")
-        manifests.append(signed)
+        for seed in seeds:
+            manifest = build_launch_manifest(
+                model_profile=f"pilot-{cell.scale}",
+                extension_profile="none",
+                tokenizer_hash=tokenizer_hash,
+                tokenizer_path=str(tokenizer_path),
+                data_manifests=list(cell_data),
+                data_manifest_roles={
+                    str(cell_data[0]): "train",
+                    str(cell_data[1]): "validation",
+                },
+                stage=f"pilot-factorial-{cell.scale}",
+                optimizer=cell.optimizer,
+                batch_size=training_config.batch_size,
+                accumulation=training_config.grad_accum_steps,
+                schedule=dict(PILOT_SCHEDULE),
+                seeds=[int(seed)],
+                checkpoint_source="scratch",
+                expected_tokens=EXPECTED_TOKENS_BY_SCALE[cell.scale],
+                runtime_estimate_hours=None,
+                owner_authorized=owner_authorized,
+                worker_id=f"pilot-{cell.cell_id}-s{seed}",
+                worker_role="pilot_cell_seed",
+                artifact_path=str(
+                    ROOT
+                    / "output"
+                    / "v2"
+                    / "campaigns"
+                    / "pilots"
+                    / "artifacts"
+                    / cell.cell_id
+                    / f"seed-{seed}.pt"
+                ),
+                checkpoint_read_only=True,
+            )
+            manifest["pilot_cell_id"] = cell.cell_id
+            manifest["pilot_axes"] = dict(cell.axes)
+            manifest["pilot_scale"] = cell.scale
+            manifest["pilot_seed"] = int(seed)
+            manifest["moonshot"] = cell.moonshot
+            resolved = frozenset({"stream-b-canonical-v4"}) if uses_v4 else frozenset()
+            manifest["blocked_on"] = execution_blocker(
+                cell, resolved_blockers=resolved
+            )
+            manifest["forecast_id"] = forecast["forecast_id"]
+            signed = sign_manifest(
+                manifest,
+                root / "cells" / cell.cell_id / f"seed-{seed}.json",
+                key=key,
+            )
+            audit = audit_pre_launch(signed, path=ledger_path)
+            if not audit["passed"]:  # pragma: no cover - audit raises on failure
+                raise PermissionError(
+                    f"Pre-launch audit failed for {cell.cell_id} seed {seed}"
+                )
+            manifests.append(signed)
     return manifests
 
 

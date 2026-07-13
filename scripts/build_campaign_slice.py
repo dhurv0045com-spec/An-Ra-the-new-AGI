@@ -27,7 +27,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from anra.anra_paths import OUTPUT_V2_DIR, ROOT
+from anra.anra_paths import OUTPUT_V2_DIR, ROOT, get_identity_file
 from training.corpus_manifest import CAMPAIGN_CORPUS_SOURCES
 
 CAMPAIGN_SLICE_DIR = OUTPUT_V2_DIR / "campaign_slice"
@@ -38,6 +38,7 @@ HELDOUT_HASH_CEILING = 26
 LARGE_SOURCE_BYTES = 256 * 1024 * 1024
 STREAMING_SLICE_MB = 64.0
 CAMPAIGN_WEIGHTS = {source.key: source.weight for source in CAMPAIGN_CORPUS_SOURCES}
+REPLAY_WEIGHTED_SOURCES = frozenset({"identity_replay"})
 
 
 def _is_heldout(line: str) -> bool:
@@ -85,6 +86,11 @@ def _record_text_and_key(line: str, fallback: str) -> tuple[str, str]:
         return stripped + "\n", _campaign_key(fallback, fallback)
     if not isinstance(payload, dict):
         return "", "unclassified"
+    if fallback == "verified_dfc" and not (
+        payload.get("verified") is True
+        or str(payload.get("verifier_status", "")).lower() == "verified"
+    ):
+        return "", "unclassified"
     text = str(payload.get("text", "")).strip()
     if not text:
         prompt = str(payload.get("prompt", "")).strip()
@@ -112,7 +118,14 @@ def build_streaming_campaign_slice(
     heldout_budget = max(64 * 1024, int(total_budget * 0.02))
     quotas = {key: int(total_budget * weight) for key, weight in CAMPAIGN_WEIGHTS.items()}
     stats = {
-        key: {"train_bytes": 0, "heldout_bytes": 0, "train_lines": 0, "heldout_lines": 0}
+        key: {
+            "train_bytes": 0,
+            "heldout_bytes": 0,
+            "train_lines": 0,
+            "heldout_lines": 0,
+            "replayed_bytes": 0,
+            "replayed_lines": 0,
+        }
         for key in CAMPAIGN_WEIGHTS
     }
     train_hashes: set[str] = set()
@@ -120,6 +133,9 @@ def build_streaming_campaign_slice(
     heldout_streams: dict[str, object] = {}
     heldout_temps: dict[str, Path] = {}
     unclassified_lines = 0
+    replay_pools: dict[str, list[str]] = {
+        key: [] for key in REPLAY_WEIGHTED_SOURCES
+    }
 
     try:
         for key in CAMPAIGN_WEIGHTS:
@@ -156,6 +172,22 @@ def build_streaming_campaign_slice(
                         train_hashes.add(digest)
                         row["train_bytes"] += len(encoded)
                         row["train_lines"] += 1
+                        if key in replay_pools:
+                            replay_pools[key].append(text)
+            for key, pool in replay_pools.items():
+                row = stats[key]
+                if not pool:
+                    continue
+                replay_index = 0
+                while row["train_bytes"] < quotas[key]:
+                    text = pool[replay_index % len(pool)]
+                    train_stream.write(text)
+                    encoded_bytes = len(text.encode("utf-8"))
+                    row["train_bytes"] += encoded_bytes
+                    row["train_lines"] += 1
+                    row["replayed_bytes"] += encoded_bytes
+                    row["replayed_lines"] += 1
+                    replay_index += 1
     finally:
         for stream in heldout_streams.values():
             stream.close()
@@ -201,6 +233,7 @@ def build_streaming_campaign_slice(
         "campaign_mix_deviation": deviations,
         "campaign_mix_verified": mix_verified,
         "all_required_sources_present": all_sources_present,
+        "replay_weighted_sources": sorted(REPLAY_WEIGHTED_SOURCES),
         "unclassified_lines": unclassified_lines,
         "ready_for_v4": bool(train_mb >= min_slice_mb and all_disjoint and mix_verified),
     }
@@ -308,12 +341,19 @@ def build_campaign_slice(
 
 def _default_sources() -> dict[str, Path]:
     """Best-effort local sources so the builder is runnable without arguments."""
-    candidates = {
+    identity_path = get_identity_file()
+    canonical = {
         "native_foundation": ROOT / "training_data" / "foundation_records.jsonl",
+        "verified_instruction": ROOT / "training_data" / "reasoning.jsonl",
+        "verified_dfc": ROOT / "training_data" / "verified_dfc.jsonl",
+        "identity_replay": identity_path or ROOT / "training_data" / "identity_replay.txt",
+    }
+    if canonical["native_foundation"].is_file():
+        return {key: path for key, path in canonical.items() if path.is_file()}
+    candidates = {
+        **canonical,
         "fineweb_edu": ROOT / "training_data" / "anra_training.txt",
         "permissive_code": ROOT / "training_data" / "base_corpus.txt",
-        "verified_instruction": ROOT / "training_data" / "reasoning.jsonl",
-        "verified_dfc": ROOT / "training_data" / "frontier_dfc.jsonl",
     }
     return {key: path for key, path in candidates.items() if path.is_file()}
 

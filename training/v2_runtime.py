@@ -125,6 +125,13 @@ def v2_output_file(name: str) -> Path:
 
 def v2_report_path(key: str) -> Path:
     filename = V2_REPORT_FILES.get(key, key)
+    isolated_root = os.environ.get("ANRA_RUN_REPORT_DIR", "").strip()
+    if isolated_root:
+        root = Path(isolated_root)
+        if not root.is_absolute():
+            root = (ROOT / root).resolve()
+        root.mkdir(parents=True, exist_ok=True)
+        return root / filename
     return v2_output_file(filename)
 
 
@@ -480,7 +487,7 @@ def _tokenizer_probe_fingerprint(
     return hashlib.sha256(material).hexdigest()
 
 
-def _active_tokenizer_identity() -> dict[str, object]:
+def active_tokenizer_identity() -> dict[str, object]:
     path = active_tokenizer_path()
     if not path.exists():
         return {"available": False}
@@ -488,10 +495,21 @@ def _active_tokenizer_identity() -> dict[str, object]:
     payload = json.loads(raw.decode("utf-8"))
     vocabulary = payload.get("token_to_id", {}) if isinstance(payload, dict) else {}
     tokenizer = SubwordTokenizer.load(path)
+    meta_path = path.with_suffix(path.suffix + ".meta.json")
+    meta = (
+        json.loads(meta_path.read_text(encoding="utf-8"))
+        if meta_path.is_file()
+        else {}
+    )
     return {
         "available": True,
         "path": str(path),
         "sha256": hashlib.sha256(raw).hexdigest(),
+        "schema_version": int(meta.get("schema_version", TOKENIZER_SCHEMA_VERSION)),
+        "vocab_size": int(tokenizer.vocab_size),
+        "special_token_ids": {
+            token: int(tokenizer.token_to_id[token]) for token in EXPECTED_SPECIAL_TOKENS
+        },
         "vocabulary_sha256": hashlib.sha256(
             json.dumps(vocabulary, sort_keys=True, separators=(",", ":")).encode("utf-8")
         ).hexdigest(),
@@ -1033,7 +1051,7 @@ def load_checkpoint(
                         "experiment instead of partial tensor loading"
                     )
         saved_tokenizer = blob.get("tokenizer_contract", {})
-        active_tokenizer = _active_tokenizer_identity()
+        active_tokenizer = active_tokenizer_identity()
         tokenizer_identity = {
             "verified": False,
             "saved": saved_tokenizer,
