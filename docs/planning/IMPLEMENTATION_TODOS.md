@@ -132,7 +132,7 @@ code plus focused tests exist; it does not waive a quantitative campaign gate.
       canonical V4, and both tokenizer-specific shard families afterward. A
       second continuation starts the full 120GiB pinned acquisition only after
       that report reaches `status=complete`.)*
-- [ ] Produce the at-least-50 MB tokenizer campaign slice with held-out source splits.
+- [x] Produce the at-least-50 MB tokenizer campaign slice with held-out source splits.
       *(Builder shipped: `scripts/build_campaign_slice.py` — deterministic
       per-source held-out split, disjointness + >=50MB gate. Executed on the
       local corpus (3.4MB train, held-out disjoint); the 50MB itself is
@@ -146,6 +146,13 @@ code plus focused tests exist; it does not waive a quantitative campaign gate.
       4,195,921 bytes; unverified historical synthetic DFC is now rejected.
       Identity is explicitly replay-weighted and reported. The remaining slice
       blockers are the queued code and science downloads.)*
+      *(Executed 2026-07-15: the fully audited 27.002 GiB native tranche produced
+      a 64.024 MiB bounded slice across all seven required source classes. The
+      deterministic held-out sets are disjoint, the 55/15/12/8/5/3/2 mix is
+      within the two-point gate, and `ready_for_v4=true`. The bound canonical
+      32,768-ID V4 was rebuilt with the V3 prefix unchanged, byte round-trip
+      proof, 530,602,595-parameter contract, and 38.9932% projected token
+      reduction.)*
 - [x] Generalize the proven append migration to the canonical 32k V4 ceiling.
       *(`build_append_only_v4`/`audit_token_fertility` now take a `target_vocab_size`
       ceiling; canonical `CANONICAL_V4_VOCAB_SIZE = 32_768` with a pinned
@@ -367,8 +374,11 @@ Stream B's code-executable half is done (2026-07-07): the canonical 32k V4
 append migration is generalized and proven (IDs 0-8208 frozen, byte-safe
 round-trip, checkpoint migration, param contract), pinned license-checked
 corpus manifests are emitted, and the campaign-slice + V4-build CLIs are
-shipped. Remaining Stream B work is data/compute-blocked: acquire >=120GB,
-produce the >=50MB slice, then run the 150M V4 pilot.
+shipped. The >=50MB slice and bound canonical V4 gate completed on 2026-07-15.
+Remaining Stream B work is execution-bound: recover and audit the owner-stopped
+append (roughly 29GB), explicitly choose whether the campaign remains at that
+volume or resumes toward >=120GB, publish tokenizer-bound shards, then run the
+150M V4 pilot.
 
 The legacy checkpoint forensics and CUDA activation profile are complete; the
 artifact is a rejected baseline, not a continuation candidate. Remaining owner

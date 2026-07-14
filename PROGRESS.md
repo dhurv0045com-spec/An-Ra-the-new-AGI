@@ -14,7 +14,37 @@ session, read this file, then continue from "Next Action".
 
 ---
 
-## Current State (2026-07-13)
+## Current State (2026-07-15)
+
+**2026-07-15 execution update.** The interrupted 30GB append was recovered by a
+new full audit of the final 28,993,027,495-byte corpus: 5,274,479 valid records,
+all four native source classes, and zero structural, hash, license, duplicate,
+or quality failures. The seven-source campaign builder then produced a 64.024
+MiB train slice with deterministic disjoint held-out sets and a verified
+55/15/12/8/5/3/2 mix. The bound canonical 32,768-ID V4 passed frozen-prefix,
+byte-round-trip, parameter-contract, and fertility gates; projected token
+reduction is 38.9932%. Stream B is complete through V4 (`--skip-shards`). A
+120GB native extension was started from the audited boundary, then stopped at
+the owner's request at roughly 29GB. No downloader is active. The appended
+tail is journaled but requires recovery and a refreshed audit before training.
+
+Execution also exposed and repaired two restart defects before the 120GB run:
+the downloader now commits the exact fsynced corpus-byte boundary in the same
+SQLite transaction as appended document rows and can discard only an
+uncommitted tail after a hard termination; partial reasoning/science runs now
+write scope-specific status files and cannot overwrite base-corpus completion.
+Stream B requires explicit completed base-bucket evidence. Tokenizer fallback
+encoding preserves exact IDs while using a single compiled special-token scan
+and bounded piece caching (1,003-case parity probe; ~1.95x sampled speedup).
+
+CUDA is available again on the local RTX 4050 (6 GiB, BF16). Measured,
+non-promoting training probes: the 57.4M profile at 256 tokens reached 840.6
+tok/s and 1.11 GiB peak allocation; the 159.1M profile reached 552.8 tok/s and
+3.04 GiB at 256 tokens. At its configured 2,048-token context and microbatch 1,
+the 159.1M profile reached 255.4 tok/s while allocating 8.0 GiB, exceeding
+physical VRAM and relying on Windows spill. At that measured rate, 1.5B tokens
+would take about 68 days per seed locally; the required three-seed pilot remains
+a cluster/cloud execution, not a credible single-4050 campaign.
 
 The stopped 30GB resume was diagnosed rather than credited as complete. It
 reached 21,582,998,123 bytes: FineWeb-Edu met its quota and FineMath added

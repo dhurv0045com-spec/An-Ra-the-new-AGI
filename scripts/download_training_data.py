@@ -277,6 +277,76 @@ def _publish_incremental_foundation_audit(
     _atomic_json(FOUNDATION_AUDIT_REPORT, payload)
     return payload
 
+
+def _commit_foundation_resume_boundary(
+    *,
+    stream: Any,
+    output: Path,
+    connection: sqlite3.Connection,
+) -> int:
+    """Commit one recoverable file/index boundary in durability order."""
+    stream.flush()
+    os.fsync(stream.fileno())
+    corpus_size = output.stat().st_size
+    connection.execute(
+        "INSERT OR REPLACE INTO metadata(key, value) VALUES ('corpus_size_bytes', ?)",
+        (str(corpus_size),),
+    )
+    connection.commit()
+    return corpus_size
+
+
+def _recover_committed_foundation_append(
+    *,
+    output: Path,
+    connection: sqlite3.Connection,
+    audit: dict[str, Any],
+    target_bytes: int,
+    started_at: float,
+) -> dict[str, Any]:
+    """Discard only an uncommitted file tail after a hard-terminated append."""
+    metadata = {
+        str(key): str(value)
+        for key, value in connection.execute("SELECT key, value FROM metadata")
+    }
+    audit_size = int(audit.get("corpus_size_bytes", -1))
+    indexed_size = int(metadata.get("corpus_size_bytes", "-1"))
+    corpus_size = output.stat().st_size
+    if metadata.get("base_report_sha256") != str(audit.get("report_sha256", "")):
+        raise RuntimeError("Foundation append journal is not bound to the resume audit")
+    if int(metadata.get("base_corpus_size_bytes", "-1")) != audit_size:
+        raise RuntimeError("Foundation append journal has the wrong audited base boundary")
+    if not (audit_size <= indexed_size <= corpus_size):
+        raise RuntimeError("Foundation append boundaries are inconsistent")
+    indexed_document_bytes = int(
+        connection.execute("SELECT COALESCE(SUM(line_bytes), 0) FROM documents").fetchone()[0]
+    )
+    if indexed_document_bytes != indexed_size:
+        raise RuntimeError("Foundation index rows do not match its committed byte boundary")
+    if corpus_size > indexed_size:
+        with output.open("r+b") as stream:
+            stream.truncate(indexed_size)
+            stream.flush()
+            os.fsync(stream.fileno())
+    recovered = _publish_incremental_foundation_audit(
+        output=output,
+        index_path=FOUNDATION_RESUME_INDEX,
+        connection=connection,
+        base_audit=audit,
+        target_bytes=target_bytes,
+        started_at=started_at,
+    )
+    connection.execute(
+        "INSERT OR REPLACE INTO metadata(key, value) VALUES (?, ?)",
+        ("base_report_sha256", str(recovered["report_sha256"])),
+    )
+    connection.execute(
+        "INSERT OR REPLACE INTO metadata(key, value) VALUES (?, ?)",
+        ("base_corpus_size_bytes", str(recovered["corpus_size_bytes"])),
+    )
+    connection.commit()
+    return recovered
+
 _ALLOWED_ROW_LICENSES = frozenset(
     {
         "apache-2.0",
@@ -688,17 +758,39 @@ def download_native_foundation(
         audit = json.loads(FOUNDATION_AUDIT_REPORT.read_text(encoding="utf-8"))
         if audit.get("resume_safe") is not True:
             raise RuntimeError("Foundation audit did not authorize safe resume")
-        if int(audit.get("corpus_size_bytes", -1)) != output.stat().st_size:
-            raise RuntimeError("Foundation corpus changed after its resume audit")
         resume_db = sqlite3.connect(FOUNDATION_RESUME_INDEX)
         resume_db.execute("PRAGMA journal_mode=WAL")
         indexed_size = resume_db.execute(
             "SELECT value FROM metadata WHERE key='corpus_size_bytes'"
         ).fetchone()
-        if indexed_size is None or int(indexed_size[0]) != output.stat().st_size:
+        if indexed_size is None:
             resume_db.close()
-            raise RuntimeError("Foundation resume index does not match corpus size")
-        resume_audit = audit
+            raise RuntimeError("Foundation resume index has no committed byte boundary")
+        audit_size = int(audit.get("corpus_size_bytes", -1))
+        corpus_size = output.stat().st_size
+        if audit_size == corpus_size and int(indexed_size[0]) == corpus_size:
+            resume_audit = audit
+            resume_db.execute(
+                "INSERT OR REPLACE INTO metadata(key, value) VALUES (?, ?)",
+                ("base_report_sha256", str(audit.get("report_sha256", ""))),
+            )
+            resume_db.execute(
+                "INSERT OR REPLACE INTO metadata(key, value) VALUES (?, ?)",
+                ("base_corpus_size_bytes", str(audit_size)),
+            )
+            resume_db.commit()
+        else:
+            try:
+                resume_audit = _recover_committed_foundation_append(
+                    output=output,
+                    connection=resume_db,
+                    audit=audit,
+                    target_bytes=native_target_bytes,
+                    started_at=append_started,
+                )
+            except Exception:
+                resume_db.close()
+                raise
         for source, documents, source_bytes in resume_db.execute(
             "SELECT source, COUNT(*), SUM(line_bytes) FROM documents GROUP BY source"
         ):
@@ -875,9 +967,11 @@ def download_native_foundation(
                             )
                         pending_index_writes += 1
                         if pending_index_writes >= 1_000:
-                            stream.flush()
-                            os.fsync(stream.fileno())
-                            resume_db.commit()
+                            _commit_foundation_resume_boundary(
+                                stream=stream,
+                                output=output,
+                                connection=resume_db,
+                            )
                             pending_index_writes = 0
                     if source_bytes - last_progress_bytes >= PROGRESS_INTERVAL_BYTES:
                         elapsed = time.monotonic() - source_started
@@ -932,13 +1026,11 @@ def download_native_foundation(
                 flush=True,
             )
         if resume_db is not None:
-            stream.flush()
-            os.fsync(stream.fileno())
-            resume_db.execute(
-                "INSERT OR REPLACE INTO metadata(key, value) VALUES ('corpus_size_bytes', ?)",
-                (str(output.stat().st_size),),
+            _commit_foundation_resume_boundary(
+                stream=stream,
+                output=output,
+                connection=resume_db,
             )
-            resume_db.commit()
             assert resume_audit is not None
             _publish_incremental_foundation_audit(
                 output=output,
@@ -978,6 +1070,14 @@ def load_datasets_import(dry_run: bool = False) -> Callable[..., Any] | None:
 
 def ensure_training_data_dir() -> None:
     TRAINING_DATA_DIR.mkdir(parents=True, exist_ok=True)
+
+
+def _download_status_path(buckets: list[str]) -> Path:
+    """Keep partial bucket runs from overwriting foundation campaign truth."""
+    if buckets == ["base"] or buckets == ["base", "reasoning", "science"]:
+        return DOWNLOAD_STATUS
+    scope = "_".join(sorted(buckets))
+    return DATA_MANIFEST_DIR / f"download_status_{scope}.json"
 
 
 def prompt_key_from_dfc_text(text: str) -> str:
@@ -1950,6 +2050,7 @@ def main() -> int:
     status = {
         "schema_version": 1,
         "status": "dry_run" if args.dry_run else "incomplete" if failures else "complete",
+        "requested_buckets": buckets,
         "buckets": results,
         "campaign_bytes": campaign_bytes,
         "required_campaign_bytes": required_campaign_bytes,
@@ -1958,10 +2059,11 @@ def main() -> int:
             {"source": failure.source, "message": failure.message} for failure in failures
         ],
     }
+    status_path = _download_status_path(buckets)
     if not args.dry_run:
-        _atomic_json(DOWNLOAD_STATUS, status)
+        _atomic_json(status_path, status)
     if failures:
-        print(f"INCOMPLETE INVENTORY: {len(failures)} source failure(s). See {DOWNLOAD_STATUS}")
+        print(f"INCOMPLETE INVENTORY: {len(failures)} source failure(s). See {status_path}")
         return 2
     return 0
 

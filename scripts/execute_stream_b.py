@@ -73,6 +73,19 @@ def validate_native_foundation() -> dict[str, Any]:
     source_stats = audit.get("source_stats")
     if status.get("status") != "complete":
         raise RuntimeError("Native foundation downloader has not completed successfully")
+    requested_buckets = status.get("requested_buckets")
+    bucket_results = status.get("buckets")
+    recorded_buckets = {
+        str(item.get("bucket"))
+        for item in bucket_results
+        if isinstance(item, dict) and item.get("bucket")
+    } if isinstance(bucket_results, list) else set()
+    if not (
+        isinstance(requested_buckets, list)
+        and "base" in requested_buckets
+        and "base" in recorded_buckets
+    ):
+        raise RuntimeError("Download status does not prove a completed base bucket")
     if audit.get("resume_safe") is not True or audit.get("target_complete") is not True:
         raise RuntimeError("Native foundation audit is not complete and resume-safe")
     if int(audit.get("corpus_size_bytes", -1)) != corpus_bytes:

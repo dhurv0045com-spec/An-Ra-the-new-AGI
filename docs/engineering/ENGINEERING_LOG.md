@@ -1,5 +1,20 @@
 # Engineering Log
 
+## 2026-07-15 - DATA/FIX - Hard-kill append recovery and completed V4 campaign slice
+
+| Field | Value |
+|-------|-------|
+| **Date** | 2026-07-15 |
+| **Author** | Codex |
+| **Component** | native corpus journal; download status; Stream-B gate; fallback tokenizer |
+| **Type** | DATA + FIX + RELIABILITY + EXECUTION |
+| **Summary** | Recovered the terminated 30GB append with a full corpus audit, then executed the seven-source slice and canonical V4 gates. Fixed the underlying restart boundary: every 1,000-record append now fsyncs corpus bytes before committing the exact byte boundary with SQLite rows, and a bound restart may truncate only the uncommitted tail. Bucket-only downloads no longer overwrite the authoritative base status, and Stream B requires explicit base-bucket evidence. Replaced repeated per-special-token scans with one compiled split and added bounded fallback-piece caching without changing IDs. |
+| **Evidence** | Full audit: 28,993,027,495 bytes, 5,274,479 records, four native classes, zero failures. Campaign slice: 64.024 MiB, seven sources, held-out disjoint, mix verified. V4: 32,768 IDs, V3 prefix stable, byte round-trip proven, 38.9932% projected reduction. Minimal checks: Ruff clean; 3 downloader recovery/status tests and 4 Stream-B gate tests pass; 1,003 old/new tokenizer parity cases match with ~1.95x sampled speedup. CUDA probes: 57.4M/256 = 840.6 tok/s at 1.11 GiB; 159.1M/256 = 552.8 tok/s at 3.04 GiB; 159.1M/2,048/microbatch-1 = 255.4 tok/s at 8.0 GiB allocated, beyond the 4050's physical VRAM. |
+| **Risk** | The owner stopped the 120GB acquisition at roughly 29GB. Only the 27.002GiB prefix has final audit evidence; the later journaled append requires recovery and a refreshed audit. Full immutable shard publication remains incomplete. The 150M three-seed pilot still requires completed shards, owner signing authority, and CUDA-visible execution. |
+| **Follow-up** | Recover and audit the stopped append without automatically resuming acquisition, choose the approved campaign volume, then publish tokenizer-bound shard families and prepare the signed V4 pilot. |
+
+---
+
 ## 2026-07-13 - OBS/FIX - ThirdEye boundary inspection and dependency pin
 
 | Field | Value |

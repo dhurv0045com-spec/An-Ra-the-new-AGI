@@ -67,6 +67,19 @@ class SubwordTokenizer:
         self.unk_token_id = self.special_ids.get(self.unk_token, 1)
         self.bos_token_id = self.special_ids.get(self.bos_token, 2)
         self.eos_token_id = self.special_ids.get(self.eos_token, 3)
+        ordered_specials = sorted(
+            (token for token in self.special_tokens if token),
+            key=len,
+            reverse=True,
+        )
+        self._special_token_set = frozenset(ordered_specials)
+        self._special_pattern = (
+            re.compile("(" + "|".join(re.escape(token) for token in ordered_specials) + ")")
+            if ordered_specials
+            else None
+        )
+        self._piece_cache: dict[str, tuple[int, ...]] = {}
+        self._piece_cache_limit = 131_072
 
     @staticmethod
     def _try_import_tokenizers() -> tuple[object, ...] | None:
@@ -268,9 +281,15 @@ class SubwordTokenizer:
         return path
 
     def _fallback_encode_piece(self, piece: str) -> list[int]:
+        cached = self._piece_cache.get(piece)
+        if cached is not None:
+            return list(cached)
         vocab = self._tokenizer["token_to_id"]
         if piece in vocab:
-            return [int(vocab[piece])]
+            result = (int(vocab[piece]),)
+            if len(self._piece_cache) < self._piece_cache_limit:
+                self._piece_cache[piece] = result
+            return list(result)
 
         ids: list[int] = []
         pos = 0
@@ -295,33 +314,23 @@ class SubwordTokenizer:
             else:
                 ids.append(int(vocab[matched]))
                 pos += len(matched)
+        if len(self._piece_cache) < self._piece_cache_limit:
+            self._piece_cache[piece] = tuple(ids)
         return ids
 
     def _split_preserving_specials(self, text: str) -> list[str]:
         if not text:
             return []
-        specials = sorted((tok for tok in self.special_tokens if tok), key=len, reverse=True)
-        if not specials:
+        if self._special_pattern is None:
             return _TOKEN_PATTERN.findall(text)
         pieces: list[str] = []
-        pos = 0
-        while pos < len(text):
-            matched = None
-            for token in specials:
-                if text.startswith(token, pos):
-                    matched = token
-                    break
-            if matched is not None:
-                pieces.append(matched)
-                pos += len(matched)
+        for part in self._special_pattern.split(text):
+            if not part:
                 continue
-            next_special = len(text)
-            for token in specials:
-                idx = text.find(token, pos + 1)
-                if idx != -1:
-                    next_special = min(next_special, idx)
-            pieces.extend(_TOKEN_PATTERN.findall(text[pos:next_special]))
-            pos = next_special
+            if part in self._special_token_set:
+                pieces.append(part)
+            else:
+                pieces.extend(_TOKEN_PATTERN.findall(part))
         return pieces
 
     def encode(self, text: str, *, add_special_tokens: bool = False) -> list[int]:

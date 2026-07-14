@@ -33,7 +33,14 @@ def test_native_foundation_gate_requires_matching_complete_source_audit(
             "failures": {"invalid_json": 0, "disallowed_licenses": 0},
         },
     )
-    _write_json(status, {"status": "complete"})
+    _write_json(
+        status,
+        {
+            "status": "complete",
+            "requested_buckets": ["base"],
+            "buckets": [{"bucket": "base"}],
+        },
+    )
     monkeypatch.setattr(stream_b, "FOUNDATION_CORPUS", corpus)
     monkeypatch.setattr(stream_b, "FOUNDATION_AUDIT", audit)
     monkeypatch.setattr(stream_b, "DOWNLOAD_STATUS", status)
@@ -59,12 +66,52 @@ def test_native_foundation_gate_rejects_missing_source_class(tmp_path, monkeypat
             "failures": {"invalid_json": 0},
         },
     )
-    _write_json(status, {"status": "complete"})
+    _write_json(
+        status,
+        {
+            "status": "complete",
+            "requested_buckets": ["base"],
+            "buckets": [{"bucket": "base"}],
+        },
+    )
     monkeypatch.setattr(stream_b, "FOUNDATION_CORPUS", corpus)
     monkeypatch.setattr(stream_b, "FOUNDATION_AUDIT", audit)
     monkeypatch.setattr(stream_b, "DOWNLOAD_STATUS", status)
 
     with pytest.raises(RuntimeError, match="source coverage failed"):
+        stream_b.validate_native_foundation()
+
+
+def test_native_foundation_gate_rejects_reasoning_only_status(
+    tmp_path, monkeypatch
+) -> None:
+    corpus = tmp_path / "foundation.jsonl"
+    corpus.write_text('{"text":"verified"}\n', encoding="utf-8")
+    audit = tmp_path / "audit.json"
+    status = tmp_path / "status.json"
+    _write_json(
+        audit,
+        {
+            "resume_safe": True,
+            "target_complete": True,
+            "corpus_size_bytes": corpus.stat().st_size,
+            "source_stats": {},
+            "failures": {},
+        },
+    )
+    _write_json(
+        status,
+        {
+            "status": "complete",
+            "requested_buckets": ["reasoning"],
+            "buckets": [{"bucket": "reasoning"}],
+        },
+    )
+    monkeypatch.setattr(stream_b, "FOUNDATION_CORPUS", corpus)
+    monkeypatch.setattr(stream_b, "FOUNDATION_AUDIT", audit)
+    monkeypatch.setattr(stream_b, "DOWNLOAD_STATUS", status)
+
+    with pytest.raises(RuntimeError, match="completed base bucket"):
         stream_b.validate_native_foundation()
 
 
