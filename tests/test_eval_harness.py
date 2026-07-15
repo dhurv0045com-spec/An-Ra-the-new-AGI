@@ -20,7 +20,7 @@ def test_run_baseline_disables_component(tmp_path, monkeypatch):
 
     assert result.mode == "baseline"
     assert seen == [False, False]
-    assert feature_flags.is_enabled("ouroboros") is True
+    assert feature_flags.is_enabled("ouroboros") is False
 
 
 def test_run_system_on_enables_component(tmp_path, monkeypatch):
@@ -45,13 +45,13 @@ def test_ablation_isolates_one_component(tmp_path, monkeypatch):
     harness = EvalHarness(output_dir=tmp_path / "eval")
 
     def runner(task):
-        return {"success": not feature_flags.is_enabled("ghost_memory")}
+        return {"success": not feature_flags.is_enabled("ouroboros")}
 
-    result = harness.run_ablation("ghost_memory", _tasks(), runner)
+    result = harness.run_ablation("ouroboros", _tasks(), runner)
 
     assert result.mode == "ablation"
     assert result.task_success_rate == 1.0
-    assert feature_flags.is_enabled("ghost_memory") is True
+    assert feature_flags.is_enabled("ouroboros") is False
 
 
 def test_compare_detects_regression():

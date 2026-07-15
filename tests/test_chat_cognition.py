@@ -49,15 +49,15 @@ def test_record_generation_epistemics_appends_real_history(
     )
     monkeypatch.setattr(app, "COGNITION", services)
 
-    assert app._record_generation_epistemics("session-x", "req-1", accepted=True) is True
-    assert app._record_generation_epistemics("session-x", "req-2", accepted=False) is True
+    assert app._record_generation_epistemics("session-x", "req-1", verifier_score=1.0) is True
+    assert app._record_generation_epistemics("session-x", "req-2", verifier_score=0.0) is True
 
     history = (tmp_path / "output" / "epistemic_history.jsonl").read_text(encoding="utf-8")
     records = [json.loads(line) for line in history.splitlines() if line.strip()]
     assert len(records) == 2
     assert records[0]["was_correct"] is True
     assert records[1]["was_correct"] is False
-    assert all(record["verifier"] == "generation_quality" for record in records)
+    assert all(record["verifier"] == "symbolic_verifier" for record in records)
     assert all(record["domain"] == "conversation" for record in records)
 
 
@@ -71,4 +71,9 @@ def test_record_generation_epistemics_degrades_on_error(monkeypatch) -> None:
         et = BrokenTracker()
 
     monkeypatch.setattr(app, "COGNITION", BrokenServices())
-    assert app._record_generation_epistemics("sess", "req", accepted=True) is False
+    assert app._record_generation_epistemics("sess", "req", verifier_score=1.0) is False
+
+
+def test_record_generation_epistemics_rejects_unverified_quality() -> None:
+    assert app._record_generation_epistemics("sess", "req", verifier_score=None) is False
+    assert app._record_generation_epistemics("sess", "req", verifier_score=0.7) is False

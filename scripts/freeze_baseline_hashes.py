@@ -27,7 +27,7 @@ if str(REPO_ROOT) not in sys.path:
 
 from anra.anra_paths import (
     DATA_MANIFEST_DIR,
-    FRONTIER_CHECKPOINT,
+    LEGACY_500M_CHECKPOINT,
     OUTPUT_V2_DIR,
     ROOT,
     TOKENIZER_MANIFEST,
@@ -60,7 +60,7 @@ def resolve_checkpoint(explicit: str | None = None) -> Path:
     if candidate:
         path = Path(candidate).expanduser()
         return path if path.is_absolute() else (ROOT / path).resolve()
-    return FRONTIER_CHECKPOINT
+    return LEGACY_500M_CHECKPOINT
 
 
 def freeze_checkpoint(path: Path) -> dict[str, object]:

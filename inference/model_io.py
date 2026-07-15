@@ -29,8 +29,9 @@ from typing import Any
 
 import torch
 import torch.nn as nn
-from archive.core_45eh_numpy_archived.turboquant import CompressedKVCache, TurboQuantConfig
 from runtime.safe_load import safe_torch_load
+
+from inference.turboquant import CompressedKVCache, TurboQuantConfig
 
 
 def build_kv_cache(

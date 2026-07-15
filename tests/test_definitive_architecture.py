@@ -34,7 +34,6 @@ from scripts.download_training_data import (
     _detect_content_language,
     _math_text_valid,
 )
-from tokenizer.validate_tokenizer_v3 import build_append_only_v4
 
 
 class _Tokenizer:
@@ -478,35 +477,6 @@ def test_append_only_rows_receive_three_times_realized_update() -> None:
     torch.testing.assert_close(delta[:4], torch.full((4, 2), 0.1))
     torch.testing.assert_close(delta[4:], torch.full((2, 2), 0.3))
     assert controller.report()["steps_completed"] == 1
-
-
-def test_append_only_v4_preserves_every_v3_token_id(tmp_path) -> None:
-    source = Path(__file__).resolve().parents[1] / "tokenizer" / "tokenizer_v3.json"
-    source_meta = source.with_suffix(source.suffix + ".meta.json")
-    tokenizer_path = tmp_path / "tokenizer_v3.json"
-    tokenizer_path.write_bytes(source.read_bytes())
-    tokenizer_path.with_suffix(tokenizer_path.suffix + ".meta.json").write_bytes(
-        source_meta.read_bytes()
-    )
-    original = json.loads(tokenizer_path.read_text(encoding="utf-8"))
-    output = tmp_path / "tokenizer_v4.json"
-    build_append_only_v4(
-        tokenizer_path,
-        output,
-        {
-            "eligible_for_schema_v4": True,
-            "sampled_units": 1_000_000,
-            "projected_reduction": 0.20,
-            "candidate_tokens": ["native_extension_token"],
-        },
-    )
-    grown = json.loads(output.read_text(encoding="utf-8"))
-    assert grown["id_to_token"][:8209] == original["id_to_token"]
-    assert len(grown["id_to_token"]) == 16_384
-    assert (
-        frontier_parameter_count(16_384) - frontier_parameter_count(8_209)
-        == (16_384 - 8_209) * 1_280
-    )
 
 
 def test_ssg_growth_phase_defers_only_parity(tmp_path) -> None:

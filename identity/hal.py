@@ -113,10 +113,12 @@ class HALModule(nn.Module if nn is not None else object):
                 self.state.consecutive_high_reward_outputs = 0
             self.state.rolling_verifier_mean = 0.9 * mean + 0.1 * score
 
-        if (
-            ctx.get("novel_connection_detected")
-            or ctx.get("task_solved_after_3_failures")
-            or ctx.get("unexpected_praise")
+        # Reward only externally checkable outcomes. Praise, disclosure,
+        # attachment, or repeated contact must never alter model control.
+        if ctx.get("verified_novel_connection") or (
+            ctx.get("task_solved_after_3_failures")
+            and score is not None
+            and score >= 0.80
         ):
             delta["dopamine"] += 0.14
         if ctx.get("task_success") is True and score is not None and score >= 0.80:
@@ -142,11 +144,7 @@ class HALModule(nn.Module if nn is not None else object):
             "no_adversarial_inputs_recent_5_turns"
         ):
             delta["serotonin"] += 0.04
-        if (
-            ctx.get("user_personal_disclosure")
-            or ctx.get("user_defends_model")
-            or ctx.get("consecutive_sessions_same_user")
-        ):
+        if ctx.get("verified_collaboration_success"):
             delta["oxytocin"] += 0.08
         if (
             ctx.get("novel_problem_type")
@@ -292,7 +290,13 @@ class HALModule(nn.Module if nn is not None else object):
         arousal = esv["stress"] - 0.4 * esv["focus"]
         return _clamp(base * math.exp(0.5 * arousal), base * 0.85, base * 1.15)
 
-    def attention_temperature_tensor(self, *, device=None, dtype=None, base: float = 1.0):
+    def attention_temperature_tensor(
+        self,
+        *,
+        device: Any = None,
+        dtype: Any = None,
+        base: float = 1.0,
+    ) -> Any:
         value = self.attention_temperature(base)
         if torch is None:
             return value

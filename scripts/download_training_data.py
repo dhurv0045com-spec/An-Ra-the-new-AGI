@@ -1489,33 +1489,22 @@ def publish_fineweb_token_shards(
     profile: str = "30gb",
     *,
     tokenizer_path: str | Path | None = None,
-    tokenizer_family: str = "v3",
+    tokenizer_family: str = "v4",
 ) -> dict[str, Any]:
-    if tokenizer_family not in {"v3", "v4"}:
-        raise ValueError("tokenizer_family must be 'v3' or 'v4'")
+    if tokenizer_family != "v4":
+        raise ValueError("Only canonical tokenizer_family='v4' is supported")
     foundation_path = TRAINING_DATA_DIR / "foundation_records.jsonl"
     fineweb_path = TRAINING_DATA_DIR / "fineweb_edu.txt"
     if not foundation_path.exists() and not fineweb_path.exists():
         raise FileNotFoundError("Native foundation records must be downloaded first.")
-    if tokenizer_path is None and tokenizer_family == "v3":
-        from training.v2_runtime import active_tokenizer_path, load_or_build_v2_tokenizer
+    from tokenizer.subword_tokenizer import SubwordTokenizer
 
-        tokenizer = load_or_build_v2_tokenizer(
-            dataset_path=TRAINING_DATA_DIR / "anra_training.txt"
-        )
-        bound_tokenizer_path = active_tokenizer_path()
-    else:
-        from tokenizer.subword_tokenizer import SubwordTokenizer
-
-        bound_tokenizer_path = Path(
-            tokenizer_path
-            or (REPO_ROOT / "tokenizer" / "tokenizer_v4_32k.json")
-        ).resolve()
-        if not bound_tokenizer_path.is_file():
-            raise FileNotFoundError(
-                f"Tokenizer artifact is missing: {bound_tokenizer_path}"
-            )
-        tokenizer = SubwordTokenizer.load(bound_tokenizer_path)
+    bound_tokenizer_path = Path(
+        tokenizer_path or (REPO_ROOT / "tokenizer" / "tokenizer_v4_32k.json")
+    ).resolve()
+    if not bound_tokenizer_path.is_file():
+        raise FileNotFoundError(f"Tokenizer artifact is missing: {bound_tokenizer_path}")
+    tokenizer = SubwordTokenizer.load(bound_tokenizer_path)
     tokenizer_sha256 = hashlib.sha256(bound_tokenizer_path.read_bytes()).hexdigest()
     tokenizer_version = f"{tokenizer_family}-{int(tokenizer.vocab_size)}"
     revision_dir = (
@@ -1815,14 +1804,10 @@ def publish_fineweb_token_shards(
         encoding="utf-8",
     )
     family_temporary.replace(family_inventory)
-    if tokenizer_family == "v3":
-        TOKEN_INVENTORY_MANIFEST.parent.mkdir(parents=True, exist_ok=True)
-        temporary = TOKEN_INVENTORY_MANIFEST.with_suffix(".tmp")
-        temporary.write_text(
-            json.dumps(inventory, indent=2, sort_keys=True),
-            encoding="utf-8",
-        )
-        temporary.replace(TOKEN_INVENTORY_MANIFEST)
+    TOKEN_INVENTORY_MANIFEST.parent.mkdir(parents=True, exist_ok=True)
+    temporary = TOKEN_INVENTORY_MANIFEST.with_suffix(".tmp")
+    temporary.write_text(json.dumps(inventory, indent=2, sort_keys=True), encoding="utf-8")
+    temporary.replace(TOKEN_INVENTORY_MANIFEST)
     _atomic_json(
         TOKEN_SHARD_PROGRESS,
         {
@@ -1873,9 +1858,9 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--tokenizer-family",
-        choices=("v3", "v4"),
-        default="v3",
-        help="Publish source-pure shards under the matching tokenizer family.",
+        choices=("v4",),
+        default="v4",
+        help="Publish source-pure shards bound to canonical V4.",
     )
     parser.add_argument(
         "--tokenizer-path",

@@ -284,7 +284,7 @@ def register_project(home: str | Path = THIRDEYE_HOME) -> object:
             project_id=PROJECT_ID,
             name="AN-RA",
             description=(
-                "Reference integration for the iterate500 500M-class AN-RA frontier model "
+                "Reference integration for the canonical 181M AN-RA V4 model "
                 "and its training, cognition, memory, agent, evaluation, and runtime systems."
             ),
             privacy_mode="aggregate",

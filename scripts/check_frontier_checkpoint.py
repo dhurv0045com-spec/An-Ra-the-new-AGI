@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 import torch
+from anra_brain import ANRA_V4_ARCHITECTURE_VERSION
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if __name__ == "__main__" and not __package__:
@@ -20,15 +21,13 @@ if __name__ == "__main__" and not __package__:
     )
     raise SystemExit(completed.returncode)
 
-from anra.anra_paths import FRONTIER_CHECKPOINT, OUTPUT_V2_DIR, ROOT
+from anra.anra_paths import ANRA_V4_CHECKPOINT, OUTPUT_V2_DIR, ROOT
 from runtime.safe_load import safe_torch_load
 from training.v2_config import (
+    ANRA_V4_MODEL,
     CHECKPOINT_SCHEMA_VERSION,
     EXPECTED_TOKENIZER_VOCAB_SIZE,
-    V2_FRONTIER,
-    V4_VOCAB_SIZES,
-    frontier_parameter_count,
-    is_v4_vocab_size,
+    model_parameter_count,
 )
 
 
@@ -75,7 +74,7 @@ def _checkpoint_report(path: Path) -> dict[str, Any]:
         (model_config.get("vocab_size") if isinstance(model_config, dict) else 0)
         or (token_shape[0] if token_shape else 0)
     )
-    expected_tokenizer_schema = 4 if is_v4_vocab_size(checkpoint_vocab) else 3
+    expected_tokenizer_schema = 4
 
     report = {
         "ok": True,
@@ -97,25 +96,16 @@ def _checkpoint_report(path: Path) -> dict[str, Any]:
             "lm_head.weight": lm_shape,
             "blocks.0.attn.q_proj.weight": first_block,
         },
-        "expected_frontier_params": (
-            frontier_parameter_count(checkpoint_vocab)
-            if checkpoint_vocab >= EXPECTED_TOKENIZER_VOCAB_SIZE
-            else None
-        ),
+        "expected_model_params": model_parameter_count(ANRA_V4_MODEL, checkpoint_vocab),
     }
 
     errors: list[str] = []
     warnings: list[str] = []
     checkpoint_schema = int(blob.get("checkpoint_schema_version", 0) or 0)
-    if checkpoint_schema <= 0 or checkpoint_schema > CHECKPOINT_SCHEMA_VERSION:
+    if checkpoint_schema != CHECKPOINT_SCHEMA_VERSION:
         errors.append(
-            f"unsupported checkpoint_schema_version={checkpoint_schema}; "
-            f"runtime maximum={CHECKPOINT_SCHEMA_VERSION}"
-        )
-    elif checkpoint_schema < CHECKPOINT_SCHEMA_VERSION:
-        warnings.append(
-            f"checkpoint schema {checkpoint_schema} requires named migration to "
-            f"schema {CHECKPOINT_SCHEMA_VERSION} on load"
+            f"canonical V4 requires checkpoint_schema_version={CHECKPOINT_SCHEMA_VERSION}; "
+            f"got {checkpoint_schema}"
         )
     if blob.get("tokenizer_schema_version") != expected_tokenizer_schema:
         errors.append(
@@ -131,22 +121,37 @@ def _checkpoint_report(path: Path) -> dict[str, Any]:
     elif int(contract_vocab or 0) != checkpoint_vocab:
         errors.append(f"tokenizer_contract.vocab_size={contract_vocab} expected={checkpoint_vocab}")
     expected_config = {
+        "architecture_version": ANRA_V4_ARCHITECTURE_VERSION,
         "vocab_size": checkpoint_vocab,
-        "n_embd": V2_FRONTIER.n_embd,
-        "n_layer": V2_FRONTIER.n_layer,
-        "n_head": V2_FRONTIER.n_head,
-        "n_kv_head": V2_FRONTIER.n_kv_head,
-        "block_size": V2_FRONTIER.block_size,
+        "pad_token_id": ANRA_V4_MODEL.pad_token_id,
+        "n_embd": ANRA_V4_MODEL.n_embd,
+        "n_layer": ANRA_V4_MODEL.n_layer,
+        "n_head": ANRA_V4_MODEL.n_head,
+        "n_kv_head": ANRA_V4_MODEL.n_kv_head,
+        "d_ff": ANRA_V4_MODEL.d_ff,
+        "block_size": ANRA_V4_MODEL.block_size,
+        "rope_base": ANRA_V4_MODEL.rope_base,
+        "rms_norm_eps": ANRA_V4_MODEL.rms_norm_eps,
+        "dropout": ANRA_V4_MODEL.dropout,
+        "mod_layers": ANRA_V4_MODEL.mod_layers,
+        "base_seq_len": ANRA_V4_MODEL.base_seq_len,
+        "target_seq_len": ANRA_V4_MODEL.target_seq_len,
+        "use_qk_norm": ANRA_V4_MODEL.use_qk_norm,
+        "sliding_window": ANRA_V4_MODEL.sliding_window,
+        "full_attention_every": ANRA_V4_MODEL.full_attention_every,
+        "use_mtp": False,
+        "use_moe": False,
+        "initialization_scheme": "depth_scaled_residual_v1",
     }
     if isinstance(model_config, dict):
         for key, expected in expected_config.items():
             actual = model_config.get(key)
-            if int(actual or 0) != int(expected):
+            if actual != expected:
                 errors.append(f"model_config.{key}={actual} expected={expected}")
     else:
         errors.append("model_config is missing or not a dict")
-    if checkpoint_vocab not in {EXPECTED_TOKENIZER_VOCAB_SIZE, *V4_VOCAB_SIZES}:
-        errors.append(f"unsupported append-only vocabulary size: {checkpoint_vocab}")
+    if checkpoint_vocab != EXPECTED_TOKENIZER_VOCAB_SIZE:
+        errors.append(f"canonical V4 vocabulary must be 32768, got {checkpoint_vocab}")
     if token_shape is None or token_shape[0] != checkpoint_vocab:
         errors.append(f"token embedding shape mismatch: {token_shape}")
     if lm_shape is None or lm_shape[0] != checkpoint_vocab:
@@ -182,16 +187,16 @@ def _checkpoint_report(path: Path) -> dict[str, Any]:
     report["ok"] = not errors
     report["errors"] = errors
     report["warnings"] = warnings
-    report["migration_required"] = checkpoint_schema < CHECKPOINT_SCHEMA_VERSION
+    report["migration_required"] = False
     return report
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Verify an iterate500 frontier checkpoint.")
-    parser.add_argument("--checkpoint", default=str(FRONTIER_CHECKPOINT))
+    parser = argparse.ArgumentParser(description="Verify the canonical An-Ra V4 checkpoint.")
+    parser.add_argument("--checkpoint", default=str(ANRA_V4_CHECKPOINT))
     parser.add_argument(
         "--json-out",
-        default=str(OUTPUT_V2_DIR / "frontier_checkpoint_proof.json"),
+        default=str(OUTPUT_V2_DIR / "v4_checkpoint_proof.json"),
         help="Where to write the proof report.",
     )
     args = parser.parse_args()

@@ -12,7 +12,6 @@ from pathlib import Path
 
 import torch
 from anra.anra_paths import OUTPUT_V2_DIR, ROOT
-from training.pilot_factorial import PILOT_FACTORIAL, execution_blocker
 
 STATUS_REPORT = OUTPUT_V2_DIR / "campaign_status.json"
 FOUNDATION_CORPUS = ROOT / "training_data" / "foundation_records.jsonl"
@@ -21,8 +20,7 @@ FOUNDATION_PROGRESS = OUTPUT_V2_DIR / "foundation_records_audit.json.progress.js
 DOWNLOAD_PROGRESS = OUTPUT_V2_DIR / "data_manifests" / "download_progress.json"
 CAMPAIGN_SLICE = OUTPUT_V2_DIR / "campaign_slice" / "campaign_slice_manifest.json"
 V4_BUILD = OUTPUT_V2_DIR / "v4_tokenizer_build.json"
-PILOT_CELLS = OUTPUT_V2_DIR / "campaigns" / "pilots" / "cells"
-TOKEN_SHARDS = OUTPUT_V2_DIR / "data_manifests" / "native_foundation_v3"
+TOKEN_SHARDS = OUTPUT_V2_DIR / "data_manifests" / "native_foundation_v4"
 
 
 def _read_json(path: Path) -> dict[str, object]:
@@ -206,62 +204,18 @@ def inspect_campaign_status(
         )
     )
 
-    cell_paths = sorted(PILOT_CELLS.rglob("seed-*.json")) if PILOT_CELLS.is_dir() else []
-    expected_cells = len(PILOT_FACTORIAL)
-    expected_runs = expected_cells * 3
-    critical_cells = [cell for cell in PILOT_FACTORIAL if not cell.moonshot]
-    expected_critical_runs = len(critical_cells) * 3
-    resolved = frozenset({"stream-b-canonical-v4"}) if v4_ready else frozenset()
-    mapped_definitions = [
-        cell
-        for cell in critical_cells
-        if not execution_blocker(cell, resolved_blockers=resolved)
-    ]
-    cell_payloads = [_read_json(path) for path in cell_paths]
-    critical_payloads = [
-        payload for payload in cell_payloads if payload.get("moonshot") is not True
-    ]
-    launchable_critical_runs = [
-        payload
-        for payload in critical_payloads
-        if not str(payload.get("blocked_on", "")).strip()
-    ]
-    pilot_manifests_ready = (
-        len(cell_paths) == expected_runs
-        and len(critical_payloads) == expected_critical_runs
-        and len(launchable_critical_runs) == expected_critical_runs
-    )
+    shard_manifests = sorted(TOKEN_SHARDS.glob("*/manifest.json"))
     checks.append(
         _check(
-            "pilot_launch_manifests",
-            "ok" if pilot_manifests_ready else "blocker",
-            f"{len(cell_paths)} / {expected_runs} seed-run manifests present; "
-            f"{len(launchable_critical_runs)} / {expected_critical_runs} critical runs launchable; "
-            f"{len(mapped_definitions)} / {len(critical_cells)} critical cells trainer-mapped",
-            (
-                "Satisfy or explicitly retire the remaining evidence-blocked axes, then run "
-                "python -m training.pilot_factorial --owner-authorized after the "
-                "signing key and immutable shard inputs are ready."
-                if not pilot_manifests_ready
-                else ""
-            ),
-            path=PILOT_CELLS,
+            "immutable_v4_token_shards",
+            "ok" if shard_manifests else "blocker",
+            f"{len(shard_manifests)} V4 profile manifest(s)",
+            "Publish V4 train/validation/test token shards before training."
+            if not shard_manifests
+            else "",
+            path=TOKEN_SHARDS,
         )
     )
-
-    if phase_name != "pilot":
-        shard_manifests = sorted(TOKEN_SHARDS.glob("*/manifest.json"))
-        checks.append(
-            _check(
-                "immutable_token_shards",
-                "ok" if shard_manifests else "blocker",
-                f"{len(shard_manifests)} profile manifest(s)",
-                "Publish separate train/validation/test token shards before Phase A."
-                if not shard_manifests
-                else "",
-                path=TOKEN_SHARDS,
-            )
-        )
     if phase_name in {"phase-c", "posttrain"}:
         declared = os.environ.get("ANRA_ENABLED_SUBSYSTEMS", "").strip()
         checks.append(
@@ -269,7 +223,7 @@ def inspect_campaign_status(
                 "frozen_subsystem_recipe",
                 "ok" if declared else "blocker",
                 declared or "no pilot-selected native subsystem set declared",
-                "Bind ANRA_ENABLED_SUBSYSTEMS to the signed three-seed winner.",
+                "Bind ANRA_ENABLED_SUBSYSTEMS only to separately promoted pilot evidence.",
             )
         )
     if phase_name == "posttrain":

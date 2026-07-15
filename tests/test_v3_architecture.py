@@ -3,16 +3,16 @@ from __future__ import annotations
 from pathlib import Path
 
 import torch
+import pytest
 import yaml
 
 from anra.architecture import verify_canonical_counts
 from anra_brain import CausalTransformerV3
 from identity.esv import ESVModule
 from training.v2_config import (
-    V2_FRONTIER,
-    V2_FRONTIER_PARAMETER_COUNT,
-    V2_PILOT_50M,
-    V2_PILOT_150M,
+    ANRA_V4_MODEL,
+    ANRA_V4_MODEL_PARAMETER_COUNT,
+    CANONICAL_MODEL_PROFILE,
     model_parameter_count,
     resolve_model_profile,
 )
@@ -20,16 +20,15 @@ from training.v2_config import (
 
 def test_canonical_parameter_contract() -> None:
     counts = verify_canonical_counts()
-    assert counts["frontier_full"] == 499_167_075
-    assert counts["draft_full"] == 8_004_291
+    assert counts["frontier_full"] == 181_132_071
+    assert set(counts) == {"frontier_transformer", "frontier_full"}
 
 
-def test_executable_pilot_profiles_have_exact_parameter_contracts() -> None:
-    assert model_parameter_count(V2_FRONTIER) == V2_FRONTIER_PARAMETER_COUNT
-    assert model_parameter_count(V2_PILOT_50M) == 57_374_343
-    assert model_parameter_count(V2_PILOT_150M) == 159_127_207
-    assert resolve_model_profile("pilot-50m")[0] is V2_PILOT_50M
-    assert resolve_model_profile("pilot-150m")[0] is V2_PILOT_150M
+def test_canonical_v4_profile_has_exact_parameter_contract() -> None:
+    assert model_parameter_count(ANRA_V4_MODEL) == ANRA_V4_MODEL_PARAMETER_COUNT
+    assert resolve_model_profile(CANONICAL_MODEL_PROFILE)[0] is ANRA_V4_MODEL
+    with pytest.raises(ValueError, match="Unknown model profile"):
+        resolve_model_profile("pilot-150m")
 
 
 def test_frontier_yaml_matches_iterate500_contract() -> None:
@@ -37,15 +36,21 @@ def test_frontier_yaml_matches_iterate500_contract() -> None:
     model = config["model"]
     training = config["training"]
 
-    assert model["n_embd"] == 1280
-    assert model["n_layer"] == 28
-    assert model["n_head"] == 16
-    assert model["n_kv_head"] == 4
-    assert model["d_ff"] == 3456
-    assert model["block_size"] == 1024
-    assert model["mod_layers"] == [4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26]
-    assert training["seq_len"] == 1024
-    assert training["gradient_accumulation"] == 16
+    assert model["vocab_size"] == 32768
+    assert model["n_embd"] == 896
+    assert model["n_layer"] == 18
+    assert model["n_head"] == 14
+    assert model["n_kv_head"] == 2
+    assert model["d_ff"] == 2432
+    assert model["block_size"] == 2048
+    assert model["mod_layers"] == [4, 6, 8, 10, 12, 14, 16]
+    assert model["subsystem_policy"] == "explicit_trained_recipe_only"
+    assert model["use_mod"] is False
+    assert model["use_rim"] is False
+    assert model["use_dstp"] is False
+    assert training["seq_len"] == 2048
+    assert training["batch_size"] == 1
+    assert training["gradient_accumulation"] == 32
 
 
 def test_esv_forward_is_pure_until_commit() -> None:

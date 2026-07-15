@@ -56,22 +56,26 @@ def test_readiness_distinguishes_session_from_milestone():
     assert isinstance(readiness.ready_for_milestone, bool)
 
 
-def test_all_components_have_metric_hooks(tmp_path, monkeypatch):
+def test_all_components_have_policy_and_metric_hooks(tmp_path, monkeypatch):
     from engine import feature_flags
 
     system_registry._COMPONENT_ENABLED_OVERRIDES.clear()
     monkeypatch.setattr(feature_flags, "FLAGS_FILE", tmp_path / "missing_flags.json")
     try:
         for component in component_registry():
-            assert component.enabled is True
             assert {"latency_ms", "success", "error_type"} <= set(component.metric_hooks)
+            assert component.maturity
+            assert component.claim_level in {"operational", "source_only"}
+            assert component.evidence_required
+        assert next(c for c in component_registry() if c.name == "brain").enabled is True
+        assert next(c for c in component_registry() if c.name == "ouroboros").enabled is False
     finally:
         system_registry._COMPONENT_ENABLED_OVERRIDES.clear()
 
 
 def test_get_enabled_components_filters_disabled(monkeypatch):
     system_registry._COMPONENT_ENABLED_OVERRIDES.clear()
-    monkeypatch.setattr(system_registry, "component_status", lambda component: {"source_ok": True})
+    monkeypatch.setattr(system_registry, "component_status", lambda component: {"capability": True})
     set_component_enabled("memory", False)
     try:
         names = {component.name for component in get_enabled_components()}
@@ -81,16 +85,24 @@ def test_get_enabled_components_filters_disabled(monkeypatch):
         system_registry._COMPONENT_ENABLED_OVERRIDES.clear()
 
 
+def test_source_presence_is_not_capability_evidence() -> None:
+    pilot = next(c for c in component_registry() if c.name == "ouroboros")
+    status = system_registry.component_status(pilot)
+    assert status["source_ok"] is True
+    assert status["capability"] is False
+    assert status["status"] in {"inactive", "source_only"}
+
+
 def test_set_component_enabled_persists(tmp_path, monkeypatch):
     from engine import feature_flags
 
     system_registry._COMPONENT_ENABLED_OVERRIDES.clear()
     flags_file = tmp_path / "feature_flags.json"
     monkeypatch.setattr(feature_flags, "FLAGS_FILE", flags_file)
-    set_component_enabled("ghost_memory", False, persist=True)
+    set_component_enabled("ouroboros", False, persist=True)
     try:
         data = json.loads(flags_file.read_text(encoding="utf-8"))
-        assert data["ghost_memory"] is False
+        assert data["ouroboros"] is False
     finally:
         system_registry._COMPONENT_ENABLED_OVERRIDES.clear()
 
@@ -105,7 +117,7 @@ def test_probe_module_capability_requires_real_health():
     assert probe_module_capability("phase3.ouroboros_45o.ouroboros_numpy") is True
     assert (
         probe_module_capability(
-            "archive.core_45eh_numpy_archived.turboquant", "CompressedKVCache"
+            "inference.turboquant", "CompressedKVCache"
         )
         is True
     )
@@ -130,7 +142,8 @@ def test_capability_graph_flags_come_from_probes(monkeypatch):
     graph = full_system_connector.build_capability_graph(ROOT)
     capabilities = graph["capabilities"]
     assert capabilities["symbolic_bridge"] is False
-    assert capabilities["ouroboros"] is True
+    assert capabilities["ouroboros"] is False
+    assert graph["runtime_evidence"]["ouroboros"] is True
 
 
 def test_repository_walk_prunes_runtime_data_and_virtualenvs(tmp_path):

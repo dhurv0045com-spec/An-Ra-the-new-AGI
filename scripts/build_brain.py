@@ -9,7 +9,6 @@ import heapq
 import json
 import math
 import os
-import random
 import shutil
 import signal
 import subprocess
@@ -28,7 +27,6 @@ from anra.anra_paths import (
     FAILURE_REPLAY_DATASET,
     IBS_LATEST,
     OUTPUT_V2_DIR,
-    REGRET_STATE,
     ROOT,
     SOVEREIGNTY_EVENTS,
     V2_TOKENIZER_FILE,
@@ -47,12 +45,22 @@ from training.anra_optimizer import (
 )
 from training.cdr import CorrectedFailureCurriculum
 from training.continual import assess_continual_readiness, ewc_penalty
-from training.curriculum_sampler import CURRICULUMS, ScheduledCurriculumSampler
+from training.curriculum_sampler import (
+    CURRICULUMS,
+    SAMPLER_ALGORITHM,
+    ScheduledCurriculumSampler,
+)
 from training.data_routing import build_data_route_report
-from training.dynamic_regret import DynamicRegretScheduler
 from training.eval_v2 import quick_eval_loss, run_compact_eval
 from training.mixed_precision import MixedPrecisionTrainer
 from training.pcgrad import PCGradAccumulator
+from training.reproducibility import (
+    DETERMINISM_MODE,
+    capture_rng_states,
+    make_data_generator,
+    seed_everything,
+    seed_worker,
+)
 from training.scheduler import get_cosine_schedule_with_warmup
 from training.shared_checkpoint import (
     record_filesystem_checkpoint_origin,
@@ -60,13 +68,14 @@ from training.shared_checkpoint import (
     sync_checkpoint_to_origin,
 )
 from training.v2_config import (
+    ANRA_V4_MODEL,
+    ANRA_V4_TRAINING,
+    CANONICAL_FOUNDATION_OPTIMIZER,
+    CANONICAL_FOUNDATION_SCHEDULE,
+    CANONICAL_MODEL_PROFILE,
+    CANONICAL_TRAINING_SEED,
     CHECKPOINT_SCHEMA_VERSION,
     EXPECTED_TOKENIZER_VOCAB_SIZE,
-    V2_FRONTIER,
-    V2_FRONTIER_TRAINING,
-    V2_MODEL,
-    V2_TRAINING,
-    frontier_parameter_count,
     model_parameter_count,
     resolve_model_profile,
 )
@@ -83,7 +92,6 @@ from training.v2_runtime import (
     active_tokenizer_identity,
     active_tokenizer_path,
     atomic_save,
-    build_frontier_model,
     build_model_for_profile,
     canonical_v2_checkpoint,
     ensure_tied_lm_head,
@@ -95,6 +103,7 @@ from training.v2_runtime import (
     v2_report_path,
     write_json,
 )
+from training.verified_process import VERIFIED_PROCESS_OBJECTIVE
 
 from scripts.session_dashboard import print_session_dashboard
 
@@ -118,7 +127,7 @@ def build_causal_extension_trainer(
     *,
     total_steps: int,
     warmup_steps: int,
-    optimizer_name: str = "adafactor",
+    optimizer_name: str = CANONICAL_FOUNDATION_OPTIMIZER,
 ) -> object:
     """Canonical build-brain integration point for extension-only causal training."""
     from cognition.cre import CognitiveCausalExtension
@@ -164,9 +173,11 @@ def train_causal_extension(
     tokenizer = load_or_build_v2_tokenizer(
         dataset_path=ROOT / "training_data" / "anra_training.txt"
     )
-    if model_size != "frontier":
-        raise ValueError("causal-extension training currently requires --model-size frontier")
-    model = build_frontier_model()
+    if model_size != CANONICAL_MODEL_PROFILE:
+        raise ValueError(
+            f"causal-extension training requires --model-size {CANONICAL_MODEL_PROFILE}"
+        )
+    model = build_model_for_profile(model_size, vocab_size=tokenizer.vocab_size)
     checkpoint = _resolve_checkpoint_path(base_checkpoint)
     if checkpoint.exists():
         load_checkpoint(
@@ -343,16 +354,6 @@ def _freeze_training_lineage(
     return payload
 
 
-def _session_data_mix_seed(base_seed: int = 1337) -> int:
-    """Rotate the deterministic training sample after each completed session."""
-    state = _read_json(REGRET_STATE) or {}
-    try:
-        completed_sessions = max(0, int(state.get("session_count", 0)))
-    except (TypeError, ValueError):
-        completed_sessions = 0
-    return int(base_seed) + completed_sessions
-
-
 def _tokenizer_checkpoint_contract() -> dict[str, object]:
     identity = active_tokenizer_identity()
     if identity.get("available") is not True:
@@ -404,6 +405,9 @@ def _build_checkpoint_payload(
     validation_history: list[dict[str, object]] | None = None,
     appended_row_optimizer_steps: int = 0,
     raw_window_consumption: dict[str, object] | None = None,
+    data_sampler_state: dict[str, object] | None = None,
+    data_generator: torch.Generator | None = None,
+    seed_contract: dict[str, object] | None = None,
 ) -> dict[str, object]:
     try:
         source_commit = subprocess.check_output(
@@ -454,14 +458,13 @@ def _build_checkpoint_payload(
         "validation_history": list(validation_history or []),
         "appended_row_optimizer_steps": int(appended_row_optimizer_steps),
         "raw_window_consumption": dict(raw_window_consumption or {}),
+        "data_sampler_state": dict(data_sampler_state or {}),
         "model_config": model.model_config(),
         "training_recipe": dict(getattr(native_model, "training_recipe", {})),
+        "seed_contract": dict(seed_contract or {}),
         "hal_state": hal_state_dict(model),
         "mix_report": mix_report.to_dict(),
-        "rng_states": {
-            "torch": torch.get_rng_state(),
-            "cuda": torch.cuda.get_rng_state_all() if torch.cuda.is_available() else [],
-        },
+        "rng_states": capture_rng_states(data_generator=data_generator),
         "source_commit": source_commit,
         # A resumed optimizer state is only comparable when it sees the same
         # prepared corpus profile. Keep this explicit rather than inferring it
@@ -746,7 +749,6 @@ def _configure_continuation_phase(
         "residual_depth_logits",
         "dstp_temperature_log",
         "layer_temperature_bias_log",
-        "hal_module.",
     )
     phase_b_target = os.environ.get("ANRA_PHASE_B_SUBSYSTEM", "mod").strip().lower()
     target_patterns = {
@@ -758,10 +760,9 @@ def _configure_continuation_phase(
             "layer_temperature_bias_log",
         ),
         "esv": ("esv_module.",),
-        "hal": ("hal_module.",),
     }
     if phase_b_target not in target_patterns:
-        raise ValueError("ANRA_PHASE_B_SUBSYSTEM must be mod, rim, dstp, esv, or hal")
+        raise ValueError("ANRA_PHASE_B_SUBSYSTEM must be mod, rim, dstp, or esv")
 
     known_subsystems = set(target_patterns)
     if phase_name == "A":
@@ -774,8 +775,8 @@ def _configure_continuation_phase(
         declared = os.environ.get("ANRA_ENABLED_SUBSYSTEMS", "").strip()
         if not declared:
             raise RuntimeError(
-                f"Phase {phase_name} requires ANRA_ENABLED_SUBSYSTEMS from the "
-                "frozen three-seed pilot winner; refusing an implicit all-on recipe"
+                f"Phase {phase_name} requires an explicit ANRA_ENABLED_SUBSYSTEMS "
+                "recipe; refusing an implicit all-on architecture"
             )
         enabled_subsystems = {
             value.strip().lower() for value in declared.split(",") if value.strip()
@@ -783,7 +784,7 @@ def _configure_continuation_phase(
         unknown = enabled_subsystems - known_subsystems
         if unknown:
             raise ValueError(f"ANRA_ENABLED_SUBSYSTEMS contains unknown values: {sorted(unknown)}")
-        policy_source = "declared_pilot_winner"
+        policy_source = "declared_architecture_recipe"
 
     if not hasattr(native_model, "configure_subsystems"):
         raise TypeError("Training model does not implement explicit subsystem policies")
@@ -827,12 +828,12 @@ def _configure_continuation_phase(
 def train_anra_v2(
     *,
     data_path: str,
-    checkpoint_path: str = "anra_frontier_500m.pt",
+    checkpoint_path: str = "anra_v4_180m.pt",
     resume_from: str | None = None,
-    batch_size: int = V2_FRONTIER_TRAINING.batch_size,
-    block_size: int = V2_FRONTIER.block_size,
-    max_minutes: int = V2_FRONTIER_TRAINING.session_minutes,
-    answer_loss_weight: float = V2_FRONTIER_TRAINING.answer_loss_weight,
+    batch_size: int = ANRA_V4_TRAINING.batch_size,
+    block_size: int = ANRA_V4_MODEL.block_size,
+    max_minutes: int = ANRA_V4_TRAINING.session_minutes,
+    answer_loss_weight: float = ANRA_V4_TRAINING.answer_loss_weight,
     max_examples: int | None = None,
     own_ratio: float | None = None,
     identity_ratio: float | None = None,
@@ -840,8 +841,8 @@ def train_anra_v2(
     symbolic_ratio: float | None = None,
     replay_ratio: float | None = None,
     use_ouroboros: bool = False,
-    model_size: str = "frontier",
-    optimizer_name: str = "adafactor",
+    model_size: str = CANONICAL_MODEL_PROFILE,
+    optimizer_name: str = CANONICAL_FOUNDATION_OPTIMIZER,
     start_eval_examples: int = 0,
     training_layout: str = V2ConversationDataset.PACKING_LAYOUT,
     token_shard_manifest: str | None = None,
@@ -853,7 +854,7 @@ def train_anra_v2(
     use_mtp: bool = False,
     use_moe: bool = False,
     curriculum: str = "none",
-    seed: int = 1337,
+    seed: int = CANONICAL_TRAINING_SEED,
 ) -> dict[str, object]:
     for required_component in ("training_loop", "data_mix", "evaluation"):
         if not is_enabled(required_component):
@@ -861,8 +862,8 @@ def train_anra_v2(
                 f"Required component is disabled at its call site: {required_component}"
             )
     print_session_dashboard()
-    if model_size not in {"frontier", "pilot-50m", "pilot-150m"}:
-        raise ValueError("model size must be frontier, pilot-50m, or pilot-150m")
+    if model_size != CANONICAL_MODEL_PROFILE:
+        raise ValueError(f"model size must be {CANONICAL_MODEL_PROFILE}")
     if training_layout not in {
         V2ConversationDataset.PACKING_LAYOUT,
         RawCausalShardDataset.PACKING_LAYOUT,
@@ -872,111 +873,49 @@ def train_anra_v2(
         raise ValueError(f"unsupported curriculum: {curriculum}")
     if curriculum != "none" and training_layout != RawCausalShardDataset.PACKING_LAYOUT:
         raise ValueError("pilot curricula require immutable raw causal shards")
-    seed = int(seed)
-    if seed < 0 or seed > 2**32 - 1:
-        raise ValueError("training seed must be in [0, 2**32-1]")
-    random.seed(seed)
-    torch.manual_seed(seed)
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed_all(seed)
+    seed_report = seed_everything(seed)
+    seed = seed_report.seed
     os.environ["ANRA_TRAINING_DATA_LAYOUT"] = training_layout
     model_cfg, training_cfg = resolve_model_profile(model_size)
-    is_frontier = model_size == "frontier"
-    is_pilot = model_size.startswith("pilot-")
     growth_teacher = None
     growth_alignment = None
-    if is_frontier:
-        if not torch.cuda.is_available() and os.environ.get("ANRA_ALLOW_CPU_FRONTIER", "0") != "1":
-            raise RuntimeError(
-                "iterate500 frontier training requires a CUDA GPU. "
-                "Your runtime is CPU/TPU, not T4. In Colab choose "
-                "Runtime -> Change runtime type -> T4 GPU, then rerun from the top."
-            )
-        if torch.cuda.is_available():
-            props = torch.cuda.get_device_properties(0)
-            vram_gb = props.total_memory / 1024**3
-            print(f"[Trainer] GPU: {props.name}  VRAM: {vram_gb:.1f}GB", flush=True)
-            if "T4" not in props.name.upper():
-                print(
-                    f"[Trainer] WARNING: expected a T4-class CUDA GPU; got {props.name}.",
-                    flush=True,
-                )
-            if vram_gb < 14:
-                print(
-                    f"[Trainer] WARNING: {vram_gb:.1f}GB VRAM is below the 14GB practical floor.\n"
-                    f"          500M frontier training may still OOM on this runtime.\n"
-                    f"          Continuing; reduce batch_size if it OOMs.",
-                    flush=True,
-                )
-        if batch_size == V2_TRAINING.batch_size:
-            batch_size = V2_FRONTIER_TRAINING.batch_size
-        if block_size == V2_MODEL.block_size:
-            block_size = V2_FRONTIER.block_size
-        if max_minutes == V2_TRAINING.session_minutes:
-            max_minutes = V2_FRONTIER_TRAINING.session_minutes
-        if max_examples is None:
-            max_examples = (
-                300_000
-                if continuation_phase.upper() in {"D", "E"}
-                else V2_FRONTIER_TRAINING.max_mixture_examples
-            )
-        own_ratio = own_ratio if own_ratio is not None else V2_FRONTIER_TRAINING.own_ratio
-        identity_ratio = (
-            identity_ratio if identity_ratio is not None else V2_FRONTIER_TRAINING.identity_ratio
+    if not torch.cuda.is_available() and os.environ.get("ANRA_ALLOW_CPU_PILOT", "0") != "1":
+        raise RuntimeError(
+            f"{model_size} training requires CUDA; set ANRA_ALLOW_CPU_PILOT=1 "
+            "only for a deliberately tiny trainer smoke test"
         )
-        teacher_ratio = (
-            teacher_ratio if teacher_ratio is not None else V2_FRONTIER_TRAINING.teacher_ratio
-        )
-        symbolic_ratio = (
-            symbolic_ratio if symbolic_ratio is not None else V2_FRONTIER_TRAINING.symbolic_ratio
-        )
-        replay_ratio = (
-            replay_ratio if replay_ratio is not None else V2_FRONTIER_TRAINING.replay_ratio
-        )
-        print(
-            f"[Trainer] 500M FRONTIER MODE  "
-            f"batch={training_cfg.batch_size}  grad_accum={training_cfg.grad_accum_steps}"
-        )
-    elif is_pilot:
-        if not torch.cuda.is_available() and os.environ.get("ANRA_ALLOW_CPU_PILOT", "0") != "1":
-            raise RuntimeError(
-                f"{model_size} training requires CUDA; set ANRA_ALLOW_CPU_PILOT=1 "
-                "only for a deliberately tiny trainer smoke test"
-            )
-        if max_examples is None:
-            max_examples = training_cfg.max_mixture_examples
-        own_ratio = own_ratio if own_ratio is not None else training_cfg.own_ratio
-        identity_ratio = (
-            identity_ratio if identity_ratio is not None else training_cfg.identity_ratio
-        )
-        teacher_ratio = teacher_ratio if teacher_ratio is not None else training_cfg.teacher_ratio
-        symbolic_ratio = (
-            symbolic_ratio if symbolic_ratio is not None else training_cfg.symbolic_ratio
-        )
-        replay_ratio = replay_ratio if replay_ratio is not None else training_cfg.replay_ratio
-        print(
-            f"[Trainer] {model_size.upper()} SCRATCH PILOT  "
-            f"batch={batch_size} grad_accum={training_cfg.grad_accum_steps}",
-            flush=True,
-        )
+    if max_examples is None:
+        max_examples = training_cfg.max_mixture_examples
+    own_ratio = own_ratio if own_ratio is not None else training_cfg.own_ratio
+    identity_ratio = identity_ratio if identity_ratio is not None else training_cfg.identity_ratio
+    teacher_ratio = teacher_ratio if teacher_ratio is not None else training_cfg.teacher_ratio
+    symbolic_ratio = symbolic_ratio if symbolic_ratio is not None else training_cfg.symbolic_ratio
+    replay_ratio = replay_ratio if replay_ratio is not None else training_cfg.replay_ratio
+    print(
+        f"[Trainer] {model_size.upper()} SCRATCH TRAINING  "
+        f"batch={batch_size} grad_accum={training_cfg.grad_accum_steps}",
+        flush=True,
+    )
     dataset_path = Path(data_path)
     tokenizer = load_or_build_v2_tokenizer(dataset_path=dataset_path)
     tokenizer_identity = active_tokenizer_identity()
     if tokenizer_identity.get("available") is not True:
         raise RuntimeError("Active tokenizer identity could not be established")
-    model_parameter_contract = (
-        frontier_parameter_count(tokenizer.vocab_size)
-        if is_frontier
-        else model_parameter_count(
-            model_cfg,
-            tokenizer.vocab_size,
-            mtp_depth=2 if use_mtp else 0,
-            moe_routed_experts=8 if use_moe else 0,
-        )
+    model_parameter_contract = model_parameter_count(
+        model_cfg,
+        tokenizer.vocab_size,
+        mtp_depth=2 if use_mtp else 0,
+        moe_routed_experts=8 if use_moe else 0,
     )
-    data_mix_seed = seed if is_pilot else _session_data_mix_seed(base_seed=seed)
+    data_mix_seed = seed
     training_mix_controller = TrainingDataMixController(model_parameter_contract)
     print(f"[Trainer] Data mix sampling seed: {data_mix_seed}", flush=True)
+    print(
+        "[Trainer] Seed contract: "
+        f"{seed_report.determinism_mode} seed={seed_report.seed} "
+        f"python_hash_seed_matches={seed_report.python_hash_seed_matches}",
+        flush=True,
+    )
     if training_layout == RawCausalShardDataset.PACKING_LAYOUT:
         if not token_shard_manifest:
             raise ValueError("raw causal training requires --token-shard-manifest")
@@ -990,6 +929,7 @@ def train_anra_v2(
             rotation_seed=data_mix_seed,
             verify_hashes=True,
             expected_tokenizer_sha256=str(tokenizer_identity["sha256"]),
+            verified_process_multiplier=training_cfg.verified_process_multiplier,
         )
         validation_manifest_path = (
             Path(validation_shard_manifest)
@@ -1092,7 +1032,37 @@ def train_anra_v2(
         else None
     )
 
-    def make_loader(active_weights: dict[str, float] | None = None) -> DataLoader:
+    data_generator = make_data_generator(seed)
+    raw_sample_budget: int | None = None
+    if training_layout == RawCausalShardDataset.PACKING_LAYOUT:
+        target_windows = (
+            math.ceil(max_phase_tokens / block_size)
+            if max_phase_tokens is not None
+            else len(ds)
+        )
+        optimizer_windows = batch_size * training_cfg.grad_accum_steps
+        raw_sample_budget = (
+            math.ceil(target_windows / optimizer_windows) * optimizer_windows
+        )
+    data_sampler_position = 0
+
+    def current_data_sampler_state() -> dict[str, object]:
+        if raw_sample_budget is None:
+            return {}
+        return {
+            "schema_version": 1,
+            "algorithm": SAMPLER_ALGORITHM,
+            "seed": seed,
+            "position": data_sampler_position,
+            "num_samples": raw_sample_budget,
+            "curriculum": curriculum,
+        }
+
+    def make_loader(
+        active_weights: dict[str, float] | None = None,
+        *,
+        sample_offset: int = 0,
+    ) -> DataLoader:
         num_workers = 2 if torch.cuda.is_available() else 0
         loader_kwargs = {
             "batch_size": batch_size,
@@ -1100,6 +1070,8 @@ def train_anra_v2(
             "pin_memory": torch.cuda.is_available(),
             "num_workers": num_workers,
             "persistent_workers": num_workers > 0,
+            "generator": data_generator,
+            "worker_init_fn": seed_worker,
         }
         if training_layout == RawCausalShardDataset.PACKING_LAYOUT:
             ranges = ds.source_window_ranges()
@@ -1118,16 +1090,13 @@ def train_anra_v2(
                 raise RuntimeError("raw campaign manifest has an unverified source-mix recipe")
             if not isinstance(target_mix, dict):
                 raise RuntimeError("raw campaign source-mix recipe must be an object")
-            sample_budget = (
-                math.ceil(max_phase_tokens / block_size)
-                if max_phase_tokens is not None
-                else len(ds)
-            )
+            assert raw_sample_budget is not None
             sampler = ScheduledCurriculumSampler(
                 ranges,
                 curriculum=curriculum,
-                num_samples=sample_budget,
+                num_samples=raw_sample_budget,
                 seed=data_mix_seed,
+                start_position=sample_offset,
                 target_mass={str(key): float(value) for key, value in target_mix.items()}
                 if target_mix
                 else None,
@@ -1164,65 +1133,32 @@ def train_anra_v2(
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     if device.type == "cuda":
-        # T4 has fixed training shapes here. Let cuDNN select its fastest
-        # convolution kernels without changing numerical semantics.
-        torch.backends.cudnn.benchmark = True
-    if is_frontier:
-        hal_module = None
-        if V2_FRONTIER.use_hal:
-            try:
-                from anra.anra_paths import HAL_STATE_FILE
-
-                from identity.hal import HALModule
-
-                if HAL_STATE_FILE.exists():
-                    hal_module = HALModule.load(str(HAL_STATE_FILE))
-                    print("[Trainer] HAL state loaded from disk")
-                else:
-                    hal_module = HALModule()
-                    print("[Trainer] HAL initialized fresh")
-            except Exception as exc:
-                print(f"[Trainer] HAL init failed: {exc}; training without HAL")
-                hal_module = None
-        if block_size > V2_FRONTIER.block_size:
-            growth_evidence = _read_json(OUTPUT_V2_DIR / "context_growth_evidence.json") or {}
-            if (
-                float(growth_evidence.get("coherence_rate", 0.0)) < 0.90
-                or float(growth_evidence.get("short_context_regression", 1.0)) >= 0.02
-                or not bool(growth_evidence.get("retrieval_accuracy_improved", False))
-            ):
-                raise RuntimeError(
-                    "Context growth is blocked until coherence >= 0.90, short-context "
-                    "regression < 2%, and retrieval accuracy improves."
-                )
-        model = build_frontier_model(
-            hal_module=hal_module,
-            block_size=block_size,
-            vocab_size=tokenizer.vocab_size,
-            use_qk_norm=use_qk_norm,
-            attention_pattern=attention_pattern,
-            use_mtp=use_mtp,
-            use_moe=use_moe,
+        # ``seed_everything`` establishes the reproducible-same-stack
+        # contract. Do not silently undo it here: cuDNN benchmarking can
+        # select a different kernel after a restart even when the shapes are
+        # fixed. This transformer is dominated by matmul/attention kernels,
+        # so enabling convolution autotuning has no justified foundation
+        # benefit anyway.
+        torch.backends.cudnn.benchmark = False
+        torch.backends.cudnn.deterministic = True
+    model = build_model_for_profile(
+        model_size,
+        block_size=block_size,
+        vocab_size=tokenizer.vocab_size,
+        use_qk_norm=use_qk_norm,
+        attention_pattern=attention_pattern,
+        use_mtp=use_mtp,
+        use_moe=use_moe,
+    )
+    actual_parameters = sum(parameter.numel() for parameter in model.parameters())
+    if actual_parameters != model_parameter_contract:
+        raise AssertionError(
+            f"{model_size} parameter accounting mismatch: "
+            f"{actual_parameters:,} != {model_parameter_contract:,}"
         )
-    else:
-        model = build_model_for_profile(
-            model_size,
-            block_size=block_size,
-            vocab_size=tokenizer.vocab_size,
-            use_qk_norm=use_qk_norm,
-            attention_pattern=attention_pattern,
-            use_mtp=use_mtp,
-            use_moe=use_moe,
-        )
-        actual_parameters = sum(parameter.numel() for parameter in model.parameters())
-        if actual_parameters != model_parameter_contract:
-            raise AssertionError(
-                f"{model_size} parameter accounting mismatch: "
-                f"{actual_parameters:,} != {model_parameter_contract:,}"
-            )
     if getattr(training_cfg, "gradient_checkpointing", False):
         model.gradient_checkpointing_enable()
-        print("[build_brain] Gradient checkpointing enabled for 500M model", flush=True)
+        print("[build_brain] Gradient checkpointing enabled for V4 model", flush=True)
     if hasattr(model, "disable_kv_cache"):
         model.disable_kv_cache()
     if use_ouroboros:
@@ -1239,6 +1175,16 @@ def train_anra_v2(
         "max_phase_tokens": max_phase_tokens,
         "optimizer": optimizer_name,
         "seed": seed,
+        "schedule": CANONICAL_FOUNDATION_SCHEDULE,
+        "gradient_clip_norm": training_cfg.max_grad_norm,
+        "verified_process_objective": VERIFIED_PROCESS_OBJECTIVE,
+        "verified_process_multiplier": training_cfg.verified_process_multiplier,
+        "sampler_algorithm": (
+            SAMPLER_ALGORITHM
+            if training_layout == RawCausalShardDataset.PACKING_LAYOUT
+            else "torch_random_sampler_v1"
+        ),
+        "determinism_mode": DETERMINISM_MODE,
     }
     continuation_report = _configure_continuation_phase(model, continuation_phase)
     intelligence_session = create_intelligence_session(model)
@@ -1258,7 +1204,7 @@ def train_anra_v2(
         optimizer, "_anra_optimizer_report", {"selected": {"actual": optimizer_name}}
     )
     actual_optimizer = str(optimizer_report.get("selected", {}).get("actual", ""))
-    if is_pilot and actual_optimizer != optimizer_name:
+    if actual_optimizer != optimizer_name:
         raise RuntimeError(
             f"Pilot requested optimizer={optimizer_name}, but backend selected "
             f"{actual_optimizer or 'unknown'}; causal pilot cells may not use fallbacks"
@@ -1280,8 +1226,6 @@ def train_anra_v2(
         total_steps=total_steps,
         min_lr_ratio=float(getattr(training_cfg, "min_lr", learning_rate * 0.1)) / learning_rate,
     )
-    regret_scheduler = DynamicRegretScheduler(None, eta_base=learning_rate)
-    regret_scheduler.load(REGRET_STATE)
     cdr = CorrectedFailureCurriculum(FAILURE_REPLAY_DATASET)
     pcgrad_enabled = (
         training_layout == V2ConversationDataset.PACKING_LAYOUT
@@ -1379,6 +1323,9 @@ def train_anra_v2(
             raw_window_consumption=(
                 window_consumption.state_dict() if window_consumption is not None else None
             ),
+            data_sampler_state=current_data_sampler_state(),
+            data_generator=data_generator,
+            seed_contract=seed_report.to_dict(),
         )
         ok = _emergency_save_with_timeout(payload, ckpt_path)
         if ok:
@@ -1403,7 +1350,15 @@ def train_anra_v2(
     if load_path.exists():
         print(f"[Resume] Found checkpoint: {load_path}", flush=True)
         resume_state = load_checkpoint(
-            model, optimizer, scheduler, mp, load_path, device=device, strict=False
+            model,
+            optimizer,
+            scheduler,
+            mp,
+            load_path,
+            device=device,
+            strict=False,
+            resume_training=True,
+            data_generator=data_generator,
         )
         if resume_state["loaded"]:
             load_report = resume_state.get("load_report", {})
@@ -1451,6 +1406,35 @@ def train_anra_v2(
                 raw_consumption_state = resume_state.get("raw_window_consumption", {})
                 if isinstance(raw_consumption_state, dict) and raw_consumption_state:
                     window_consumption.load_state_dict(raw_consumption_state)
+                sampler_state = resume_state.get("data_sampler_state", {})
+                if not isinstance(sampler_state, dict) or not sampler_state:
+                    raise RuntimeError("Raw V4 resume is missing its sampler cursor")
+                expected_sampler = {
+                    "algorithm": SAMPLER_ALGORITHM,
+                    "seed": seed,
+                    "num_samples": raw_sample_budget,
+                    "curriculum": curriculum,
+                }
+                mismatches = {
+                    key: {"checkpoint": sampler_state.get(key), "active": value}
+                    for key, value in expected_sampler.items()
+                    if sampler_state.get(key) != value
+                }
+                if mismatches:
+                    raise RuntimeError(
+                        f"Raw V4 sampler contract changed across resume: {mismatches}"
+                    )
+                data_sampler_position = int(sampler_state.get("position", -1))
+                if not 0 <= data_sampler_position <= int(raw_sample_budget or 0):
+                    raise RuntimeError("Raw V4 sampler cursor is outside its campaign budget")
+                visits = window_consumption.unique_windows + window_consumption.repeated_windows
+                if visits != data_sampler_position:
+                    raise RuntimeError(
+                        "Raw V4 sampler cursor disagrees with window-consumption evidence: "
+                        f"cursor={data_sampler_position}, visits={visits}"
+                    )
+                loader = make_loader(sample_offset=data_sampler_position)
+                _assert_training_loader_dataset(loader, ds, eval_ds)
             start_step = int(resume_state["global_step"])
             best_loss = float(resume_state["best_loss"])
             session_start_loss = best_loss
@@ -1557,9 +1541,6 @@ def train_anra_v2(
             session_start_loss = best_loss
     else:
         print("[build_brain] startup quick eval skipped so first loss appears sooner.", flush=True)
-    if math.isfinite(session_start_loss):
-        regret_scheduler.session_start(session_start_loss)
-
     global_step = start_step
     epoch = 0
 
@@ -1595,6 +1576,7 @@ def train_anra_v2(
     first_batch_wall = None
     hard_examples: list[tuple[float, int]] = []
     answer_weighted_tokens = 0.0
+    verified_process_weighted_tokens = 0
     total_target_tokens = 0.0
 
     gpu_name = torch.cuda.get_device_name(0) if torch.cuda.is_available() else "CPU"
@@ -1648,12 +1630,18 @@ def train_anra_v2(
         max_phase_tokens is None
         or continuation_token_counts.get(continuation_phase.upper(), 0) < max_phase_tokens
     ):
+        if raw_sample_budget is not None:
+            if data_sampler_position >= raw_sample_budget:
+                break
+            loader = make_loader(sample_offset=data_sampler_position)
+            _assert_training_loader_dataset(loader, ds, eval_ds)
         epoch += 1
         for xb, yb, wb, sample_idx, answer_mask in loader:
             if intelligence_session is not None:
                 intelligence_session.begin_step(global_step)
             if first_batch_wall is None:
                 first_batch_wall = time.time()
+            verified_process_weighted_tokens += int((wb > 1.0).sum().item())
             xb = xb.to(device, non_blocking=True)
             yb = yb.to(device, non_blocking=True)
             wb = wb.to(device, non_blocking=True)
@@ -1748,6 +1736,8 @@ def train_anra_v2(
                         ckpt_path,
                         device=device,
                         strict=False,
+                        resume_training=True,
+                        data_generator=data_generator,
                     )
                 print(
                     "[Recovery] Non-finite batch quarantined; last-good checkpoint reloaded.",
@@ -1824,7 +1814,9 @@ def train_anra_v2(
                     pcgrad_reports.extend(pcgrad.materialize())
                 if growth_alignment is not None:
                     growth_alignment.mask_inactive_gradients()
-                gradient_norm = mp.clip_gradients(model, optimizer, 1.0)
+                gradient_norm = mp.clip_gradients(
+                    model, optimizer, training_cfg.max_grad_norm
+                )
                 # The optimizer step represents all accumulation microbatches,
                 # not merely the final one. The old final-microbatch value made
                 # HAL and adaptive LR react to random hard examples.
@@ -1842,6 +1834,35 @@ def train_anra_v2(
                 last_ewc_loss = accumulated_ewc_loss / accum_micro_steps
                 last_logit_z_loss = accumulated_logit_z_loss / accum_micro_steps
                 grad_float = float(gradient_norm)
+                appended_rows_before = (
+                    appended_row_lr.capture() if appended_row_lr is not None else None
+                )
+                mp.step(optimizer)
+                step_succeeded = mp.update()
+                if not step_succeeded:
+                    optimizer.zero_grad(set_to_none=True)
+                    pcgrad.clear()
+                    accum_micro_steps = 0
+                    accumulated_step_loss = 0.0
+                    accumulated_ewc_loss = 0.0
+                    accumulated_logit_z_loss = 0.0
+                    accumulated_answer_nll = 0.0
+                    accumulated_answer_tokens = 0
+                    accumulated_scaffold_nll = 0.0
+                    accumulated_scaffold_tokens = 0
+                    pending_trained_tokens = 0
+                    pending_token_ids.clear()
+                    pending_window_indices.clear()
+                    print(
+                        "[AMP] Non-finite gradients skipped; optimizer, scheduler, "
+                        "token counters, and sampler cursor were not advanced.",
+                        flush=True,
+                    )
+                    break
+                if hasattr(native_model, "update_moe_balance"):
+                    native_model.update_moe_balance()
+                if appended_row_lr is not None:
+                    appended_row_lr.apply(appended_rows_before)
                 if intelligence_session is not None:
                     intelligence_session.record_optimizer_step(
                         step=global_step,
@@ -1850,19 +1871,12 @@ def train_anra_v2(
                         gradient_norm=grad_float,
                         tokens=int((yb != tokenizer.pad_token_id).sum().item()),
                     )
-                if intelligence_session is not None:
                     hal = get_hal_module(model)
                     if hal is not None:
-                        intelligence_session.record_hal_step(step=global_step, hal_state=hal.state)
-                appended_rows_before = (
-                    appended_row_lr.capture() if appended_row_lr is not None else None
-                )
-                mp.step(optimizer)
-                if hasattr(native_model, "update_moe_balance"):
-                    native_model.update_moe_balance()
-                if appended_row_lr is not None:
-                    appended_row_lr.apply(appended_rows_before)
-                mp.update()
+                        intelligence_session.record_hal_step(
+                            step=global_step,
+                            hal_state=hal.state,
+                        )
                 scheduler.step()
                 campaign_tokens_seen += pending_trained_tokens
                 phase_key = continuation_phase.upper()
@@ -1872,18 +1886,10 @@ def train_anra_v2(
                 known_token_ids.update(pending_token_ids)
                 if window_consumption is not None:
                     window_consumption.mark(pending_window_indices)
+                    data_sampler_position += len(pending_window_indices)
                 pending_trained_tokens = 0
                 pending_token_ids.clear()
                 pending_window_indices.clear()
-                regret_lr = regret_scheduler.update(reward=max(0.0, 1.0 - loss_float))
-                multiplier = max(0.5, min(1.5, regret_lr / max(learning_rate, 1e-12)))
-                scheduled_lrs = scheduler.get_last_lr()
-                for group, scheduled_lr in zip(
-                    optimizer.param_groups,
-                    scheduled_lrs,
-                    strict=True,
-                ):
-                    group["lr"] = scheduled_lr * multiplier
                 optimizer.zero_grad(set_to_none=True)
                 pcgrad.clear()
                 global_step += 1
@@ -2075,6 +2081,9 @@ def train_anra_v2(
                             if window_consumption is not None
                             else None
                         ),
+                        data_sampler_state=current_data_sampler_state(),
+                        data_generator=data_generator,
+                        seed_contract=seed_report.to_dict(),
                     )
                     atomic_save(payload, ckpt_path, drive_dir=None)
                     _sync_training_checkpoint_to_drive(ckpt_path)
@@ -2149,6 +2158,9 @@ def train_anra_v2(
         raw_window_consumption=(
             window_consumption.state_dict() if window_consumption is not None else None
         ),
+        data_sampler_state=current_data_sampler_state(),
+        data_generator=data_generator,
+        seed_contract=seed_report.to_dict(),
     )
     atomic_save(payload, ckpt_path, drive_dir=None)
     _sync_training_checkpoint_to_drive(ckpt_path)
@@ -2174,6 +2186,15 @@ def train_anra_v2(
         "answer_loss_weight": answer_loss_weight,
         "model_size": model_size,
         "optimizer": optimizer_report,
+        "training_algorithm": {
+            "optimizer": optimizer_name,
+            "schedule": CANONICAL_FOUNDATION_SCHEDULE,
+            "adaptive_lr_overlay": False,
+            "gradient_clip_norm": training_cfg.max_grad_norm,
+            "verified_process_objective": VERIFIED_PROCESS_OBJECTIVE,
+            "verified_process_multiplier": training_cfg.verified_process_multiplier,
+            "determinism": seed_report.to_dict(),
+        },
         "append_only_row_learning": (
             appended_row_lr.report() if appended_row_lr is not None else None
         ),
@@ -2182,6 +2203,7 @@ def train_anra_v2(
         "token_utilization": round(ds.token_utilization, 4),
         "reply_token_ratio_seen": round(answer_weighted_tokens / max(1.0, total_target_tokens), 4),
         "target_tokens_seen": int(total_target_tokens),
+        "verified_process_weighted_tokens": verified_process_weighted_tokens,
         "campaign_tokens_seen": campaign_tokens_seen,
         "phase_tokens_seen": continuation_token_counts.get(continuation_phase.upper(), 0),
         "raw_window_consumption": (
@@ -2229,6 +2251,7 @@ def train_anra_v2(
             "name": curriculum,
             "expected_token_budget": max_phase_tokens,
             "sampling_basis": "immutable_source_window_share",
+            "sampler_state": current_data_sampler_state(),
         },
         "pcgrad": {
             "comparisons": len(pcgrad_reports),
@@ -2439,7 +2462,15 @@ def train_anra_v2(
                     prev_ckpt = canonical_v2_checkpoint("brain")
                     if prev_ckpt.exists():
                         load_checkpoint(
-                            model, optimizer, scheduler, mp, prev_ckpt, device=device, strict=False
+                            model,
+                            optimizer,
+                            scheduler,
+                            mp,
+                            prev_ckpt,
+                            device=device,
+                            strict=False,
+                            resume_training=True,
+                            data_generator=data_generator,
                         )
                         print("[ABORT] Checkpoint restored. Stopping session.", flush=True)
                     return {
@@ -2465,9 +2496,7 @@ def train_anra_v2(
             pad_id=tokenizer.pad_token_id,
         )
         session_end_loss = _quick_eval_loss_value(session_end_result)
-        regret_lr = regret_scheduler.session_end(session_end_loss, global_step - initial_step)
-        regret_scheduler.save(REGRET_STATE)
-        print(f"  Dynamic regret lr : {regret_lr:.8f}", flush=True)
+        print(f"  Session-end validation loss : {session_end_loss:.6f}", flush=True)
     except Exception as exc:
         print(f"[build_brain] quick eval at session_end failed: {exc}", flush=True)
     # The frontier checkpoint has exactly one Drive destination: the shared
@@ -2516,18 +2545,18 @@ def train_anra_v2(
 def main() -> None:
     parser = argparse.ArgumentParser(description="Canonical An-Ra base trainer")
     parser.add_argument("--data_path", required=True)
-    parser.add_argument("--checkpoint_path", default="anra_frontier_500m.pt")
+    parser.add_argument("--checkpoint_path", default="anra_v4_180m.pt")
     parser.add_argument("--resume_from", default=None)
-    parser.add_argument("--batch_size", type=int, default=V2_FRONTIER_TRAINING.batch_size)
-    parser.add_argument("--block_size", type=int, default=V2_FRONTIER.block_size)
-    parser.add_argument("--max_minutes", type=int, default=V2_FRONTIER_TRAINING.session_minutes)
+    parser.add_argument("--batch_size", type=int, default=ANRA_V4_TRAINING.batch_size)
+    parser.add_argument("--block_size", type=int, default=ANRA_V4_MODEL.block_size)
+    parser.add_argument("--max_minutes", type=int, default=ANRA_V4_TRAINING.session_minutes)
     parser.add_argument(
         "--model-size",
-        choices=["frontier", "pilot-50m", "pilot-150m"],
-        default="frontier",
+        choices=[CANONICAL_MODEL_PROFILE],
+        default=CANONICAL_MODEL_PROFILE,
     )
     parser.add_argument(
-        "--answer_loss_weight", type=float, default=V2_FRONTIER_TRAINING.answer_loss_weight
+        "--answer_loss_weight", type=float, default=ANRA_V4_TRAINING.answer_loss_weight
     )
     parser.add_argument("--max_examples", type=int, default=None)
     parser.add_argument(
@@ -2546,7 +2575,7 @@ def main() -> None:
         "--moe", choices=["off", "upcycle-8r1s-top2"], default="off"
     )
     parser.add_argument("--curriculum", choices=sorted(CURRICULUMS), default="none")
-    parser.add_argument("--seed", type=int, default=1337)
+    parser.add_argument("--seed", type=int, default=CANONICAL_TRAINING_SEED)
     parser.add_argument(
         "--attention-pattern", choices=["hybrid", "full-only"], default=None
     )
@@ -2575,7 +2604,7 @@ def main() -> None:
     parser.add_argument(
         "--optimizer",
         choices=["auto", "adamw", "adam8bit", "adafactor", "muon", "scale", "galore", "qgalore"],
-        default="adafactor",
+        default=CANONICAL_FOUNDATION_OPTIMIZER,
     )
     parser.add_argument(
         "--training-objective",

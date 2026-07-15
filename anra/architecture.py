@@ -1,10 +1,10 @@
-"""Canonical AN-RA V3 architecture contracts and exact parameter accounting."""
+"""Canonical AN-RA V4 architecture contract and exact parameter accounting."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 
-CANONICAL_VOCAB_SIZE = 8209
+CANONICAL_VOCAB_SIZE = 32_768
 
 
 @dataclass(frozen=True)
@@ -54,40 +54,25 @@ class ArchitectureContract:
 
 
 FRONTIER = ArchitectureContract(
-    name="anra-frontier-500m",
+    name="anra-v4-180m",
     vocab_size=CANONICAL_VOCAB_SIZE,
-    d_model=1280,
-    n_layers=28,
-    n_query_heads=16,
-    n_kv_heads=4,
-    d_ff=3456,
-    context_length=1024,
-    mod_layers=(4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26),
-)
-
-DRAFT = ArchitectureContract(
-    name="anra-draft",
-    vocab_size=CANONICAL_VOCAB_SIZE,
-    d_model=256,
-    n_layers=8,
-    n_query_heads=4,
+    d_model=896,
+    n_layers=18,
+    n_query_heads=14,
     n_kv_heads=2,
-    d_ff=704,
+    d_ff=2432,
+    context_length=2048,
+    mod_layers=(4, 6, 8, 10, 12, 14, 16),
 )
-
 
 def verify_canonical_counts() -> dict[str, int]:
     counts = {
         "frontier_transformer": FRONTIER.transformer_parameters(),
         "frontier_full": FRONTIER.full_system_parameters(),
-        "draft_transformer": DRAFT.transformer_parameters(),
-        "draft_full": DRAFT.transformer_parameters() + DRAFT.esv_dim * 3 + 3,
     }
     expected = {
-        "frontier_transformer": 496_857_600,
-        "frontier_full": 499_167_075,
-        "draft_transformer": 8_004_096,
-        "draft_full": 8_004_291,
+        "frontier_transformer": 180_093_312,
+        "frontier_full": 181_132_071,
     }
     if counts != expected:
         raise AssertionError(f"Canonical parameter contract mismatch: {counts} != {expected}")

@@ -14,31 +14,27 @@ _DEFAULTS: dict[str, bool] = {
     "evaluation": True,
     "runtime": True,
     "api_web": True,
-    "identity": True,
+    "identity": False,
     "memory": True,
-    "phase2_memory": True,
     "goals": True,
-    "agent_loop": True,
-    "master_system": True,
-    "self_improvement": True,
-    "self_modification": True,
-    "ouroboros": True,
-    "ghost_memory": True,
+    "agent_loop": False,
+    "self_modification": False,
+    "ouroboros": False,
     "symbolic_bridge": True,
     "sovereignty": True,
     "cognition": True,
-    "causal_reasoning": True,
-    "epistemic_tracker": True,
-    "human_model": True,
-    "ssie": True,
-    "cdse": True,
-    "cec": True,
-    "self_debate": True,
-    "inference_efficiency": True,
-    "intelligence": True,
-    "multimodal": True,
-    "robotics": True,
-    "v3_training": True,
+    "causal_reasoning": False,
+    "epistemic_tracker": False,
+    "human_model": False,
+    "ssie": False,
+    "cdse": False,
+    "cec": False,
+    "self_debate": False,
+    "inference_efficiency": False,
+    "intelligence": False,
+    "multimodal": False,
+    "robotics": False,
+    "v4_training": True,
 }
 
 
@@ -46,7 +42,14 @@ def load_flags() -> dict[str, bool]:
     if FLAGS_FILE.exists():
         try:
             overrides = json.loads(FLAGS_FILE.read_text(encoding="utf-8"))
-            return {**_DEFAULTS, **overrides}
+            if not isinstance(overrides, dict):
+                return dict(_DEFAULTS)
+            known = {
+                str(name): bool(value)
+                for name, value in overrides.items()
+                if name in _DEFAULTS and isinstance(value, bool)
+            }
+            return {**_DEFAULTS, **known}
         except Exception:
             pass
     return dict(_DEFAULTS)
@@ -59,6 +62,8 @@ def is_enabled(component_name: str) -> bool:
 
 
 def set_flag(component_name: str, enabled: bool) -> None:
+    if component_name not in _DEFAULTS:
+        raise KeyError(f"unknown feature flag: {component_name}")
     flags = load_flags()
     flags[component_name] = bool(enabled)
     FLAGS_FILE.parent.mkdir(parents=True, exist_ok=True)

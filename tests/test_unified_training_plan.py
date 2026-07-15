@@ -16,9 +16,7 @@ from training.v2_runtime import v2_report_path
 def test_train_mode_runs_base_before_milestone_layers() -> None:
     assert stage_plan_for_mode("train") == [
         "base",
-        "identity",
-        "ouroboros",
-        "self_improvement",
+        "evaluation",
         "sovereignty_audit",
         "tests",
     ]
@@ -72,7 +70,7 @@ def test_signed_pilot_inventory_is_bound_to_its_train_manifest(tmp_path) -> None
                 str(signed_train): "train",
             },
         },
-        "pilot-150m",
+        "anra-v4-180m",
         global_inventory,
     )
 
@@ -91,6 +89,6 @@ def test_signed_pilot_inventory_fails_closed_on_empty_manifest(tmp_path) -> None
                 "data_manifests": [str(signed_train)],
                 "data_manifest_roles": {str(signed_train): "train"},
             },
-            "pilot-150m",
+            "anra-v4-180m",
             tmp_path / "unused.json",
         )

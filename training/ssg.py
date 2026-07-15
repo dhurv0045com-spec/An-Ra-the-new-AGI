@@ -23,7 +23,7 @@ from anra.anra_paths import (
     V2_BRAIN_CHECKPOINT,
 )
 
-from training.v2_config import V2_FRONTIER_PARAMETER_COUNT, is_v4_vocab_size
+from training.v2_config import ANRA_V4_MODEL_PARAMETER_COUNT, is_v4_vocab_size
 
 
 @dataclass(frozen=True)
@@ -64,7 +64,7 @@ class SovereignScalingGovernor:
         self,
         *,
         target_profile: str = "frontier",
-        target_params: int = V2_FRONTIER_PARAMETER_COUNT,
+        target_params: int = ANRA_V4_MODEL_PARAMETER_COUNT,
         checkpoint_path: str | Path = V2_BRAIN_CHECKPOINT,
         ibs_path: str | Path = IBS_LATEST,
         civ_path: str | Path = CIV_LATEST,
@@ -175,7 +175,6 @@ class SovereignScalingGovernor:
             tokenizer_vocab = int(tokenizer_manifest.get("vocab_size", 0))
             tokenizer_schema = int(tokenizer_manifest.get("schema_version", 0))
             fertility = tokenizer_manifest.get("fertility_audit", {})
-            canonical_v3 = tokenizer_vocab == 8_209 and tokenizer_schema == 3
             eligible_v4 = (
                 is_v4_vocab_size(tokenizer_vocab)
                 and tokenizer_schema == 4
@@ -184,10 +183,9 @@ class SovereignScalingGovernor:
                 and float(fertility.get("projected_reduction", 0.0)) >= 0.15
                 and bool(fertility.get("eligible_for_schema_v4", False))
             )
-            if not (canonical_v3 or eligible_v4):
+            if not eligible_v4:
                 blocked.append(
-                    "Tokenizer manifest is neither canonical V3 nor "
-                    "evidence-qualified append-only V4"
+                    "Tokenizer manifest is not evidence-qualified canonical V4"
                 )
             else:
                 passed.append("tokenizer manifest")

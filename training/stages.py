@@ -9,7 +9,7 @@ from dataclasses import asdict, dataclass
 from enum import Enum
 from pathlib import Path
 
-from training.v2_config import V2_FRONTIER_PARAMETER_COUNT
+from training.v2_config import ANRA_V4_MODEL_PARAMETER_COUNT
 
 
 class TrainingStage(str, Enum):
@@ -231,7 +231,7 @@ class CampaignState:
         return {
             "stages": [asdict(config) for config in self.stages],
             "state": self.state,
-            "frontier_reference_tokens": V2_FRONTIER_PARAMETER_COUNT * 20,
+            "v4_reference_tokens": ANRA_V4_MODEL_PARAMETER_COUNT * 20,
             "draft_proof_tokens": 32_000_000,
             "frontier_rescue_tokens": 110_000_000,
             "frontier_recovery_floor_tokens": 2_310_000_000,

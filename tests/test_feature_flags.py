@@ -13,12 +13,24 @@ class _Agent:
         return {"success": True}
 
 
-def test_default_all_enabled(tmp_path, monkeypatch):
+def test_defaults_enable_canonical_and_disable_unproven_systems(tmp_path, monkeypatch):
     monkeypatch.setattr(feature_flags, "FLAGS_FILE", tmp_path / "missing.json")
 
     flags = feature_flags.load_flags()
-    assert flags
-    assert all(flags.values())
+    assert flags["brain"] is True
+    assert flags["memory"] is True
+    assert flags["v4_training"] is True
+    for name in ("ouroboros", "robotics", "multimodal"):
+        assert flags[name] is False
+    assert "v3_training" not in flags
+
+
+def test_unknown_flag_cannot_be_persisted(tmp_path, monkeypatch):
+    import pytest
+
+    monkeypatch.setattr(feature_flags, "FLAGS_FILE", tmp_path / "flags.json")
+    with pytest.raises(KeyError, match="unknown feature flag"):
+        feature_flags.set_flag("imaginary_capability", True)
 
 
 def test_set_flag_persists(tmp_path, monkeypatch):
@@ -53,9 +65,9 @@ def test_every_registry_component_has_an_explicit_flag_default():
 def test_disabled_components_list(tmp_path, monkeypatch):
     monkeypatch.setattr(feature_flags, "FLAGS_FILE", tmp_path / "feature_flags.json")
 
-    feature_flags.set_flag("ghost_memory", False)
+    feature_flags.set_flag("ouroboros", False)
 
-    assert "ghost_memory" in feature_flags.disabled_components()
+    assert "ouroboros" in feature_flags.disabled_components()
     assert "brain" in feature_flags.enabled_components()
 
 

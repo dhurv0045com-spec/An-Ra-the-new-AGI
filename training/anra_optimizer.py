@@ -245,8 +245,14 @@ def _regular_groups(
     cfg: OptimizerConfig,
 ) -> list[dict[str, object]]:
     groups: list[dict[str, object]] = []
-    if base_params:
-        groups.append({"params": base_params, "lr": cfg.lr, "weight_decay": cfg.weight_decay})
+    base_decay = [parameter for parameter in base_params if parameter.ndim >= 2]
+    base_no_decay = [parameter for parameter in base_params if parameter.ndim < 2]
+    if base_decay:
+        groups.append(
+            {"params": base_decay, "lr": cfg.lr, "weight_decay": cfg.weight_decay}
+        )
+    if base_no_decay:
+        groups.append({"params": base_no_decay, "lr": cfg.lr, "weight_decay": 0.0})
     if subsystem_params:
         groups.append(
             {
@@ -475,6 +481,12 @@ def build_optimizer_with_report(
         "matrix_params": _param_count(matrix_params),
         "base_lr_params": _param_count(base_params),
         "subsystem_lr_params": _param_count(subsystem_params),
+        "weight_decay_params": _param_count(
+            parameter for parameter in base_params if parameter.ndim >= 2
+        ),
+        "no_weight_decay_params": _param_count(
+            parameter for parameter in base_params if parameter.ndim < 2
+        ),
         "galore_rank": cfg.galore_rank if actual == "galore" else None,
     }
     optimizer._anra_optimizer_report = report

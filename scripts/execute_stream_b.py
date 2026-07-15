@@ -10,16 +10,13 @@ from pathlib import Path
 from typing import Any
 
 from anra.anra_paths import DATA_MANIFEST_DIR, OUTPUT_V2_DIR, ROOT
+from training.v2_config import EXPECTED_SPECIAL_TOKEN_IDS, EXPECTED_TOKENIZER_VOCAB_SIZE
+from training.v2_runtime import active_tokenizer_identity, load_or_build_v2_tokenizer
 
 from scripts.build_campaign_slice import (
     CAMPAIGN_SLICE_DIR,
     _default_sources,
     build_campaign_slice,
-)
-from scripts.build_v4_tokenizer import (
-    CAMPAIGN_SLICE_MANIFEST,
-    V4_BUILD_REPORT,
-    build_v4,
 )
 from scripts.download_training_data import publish_fineweb_token_shards
 
@@ -61,6 +58,29 @@ def _sha256(path: Path) -> str:
         for chunk in iter(lambda: stream.read(8 * 1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def validate_canonical_v4() -> dict[str, Any]:
+    """Prove the one checked-in tokenizer satisfies the active V4 contract."""
+    tokenizer = load_or_build_v2_tokenizer()
+    identity = active_tokenizer_identity()
+    expected_ids = {token: int(token_id) for token, token_id in EXPECTED_SPECIAL_TOKEN_IDS.items()}
+    if identity.get("available") is not True:
+        raise RuntimeError("Canonical V4 tokenizer is unavailable")
+    if int(identity.get("schema_version", -1)) != 4:
+        raise RuntimeError("Canonical tokenizer does not declare schema version 4")
+    if int(identity.get("vocab_size", -1)) != EXPECTED_TOKENIZER_VOCAB_SIZE:
+        raise RuntimeError("Canonical tokenizer is not the required 32,768-token V4")
+    if identity.get("special_token_ids") != expected_ids:
+        raise RuntimeError("Canonical V4 special-token IDs changed")
+    if int(identity.get("probe_count", 0)) != 500:
+        raise RuntimeError("Canonical V4 behavior fingerprint is incomplete")
+    if tokenizer.vocab_size != EXPECTED_TOKENIZER_VOCAB_SIZE:
+        raise RuntimeError("Loaded tokenizer and V4 identity disagree")
+    return {
+        "status": "validated",
+        **identity,
+    }
 
 
 def validate_native_foundation() -> dict[str, Any]:
@@ -153,24 +173,12 @@ def execute_stream_b(*, profile: str = "30gb", publish_shards: bool = True) -> d
     if slice_report.get("ready_for_v4") is not True:
         raise RuntimeError("Seven-source campaign slice did not pass the V4 gate")
 
-    train_path = Path(str(slice_report["train_path"]))
-    if not train_path.is_absolute():
-        train_path = (ROOT / train_path).resolve()
-    v4_report = build_v4(
-        [train_path],
-        V4_TOKENIZER,
-        campaign_manifest=CAMPAIGN_SLICE_MANIFEST,
-    )
-    _atomic_json(V4_BUILD_REPORT, v4_report)
+    v4_report = validate_canonical_v4()
     report["stages"]["canonical_v4"] = v4_report
     _atomic_json(STREAM_B_REPORT, report)
-    if v4_report.get("status") != "built":
-        raise RuntimeError(
-            f"Canonical V4 did not pass fertility/proof gates: {v4_report.get('status')}"
-        )
 
     if publish_shards:
-        for family, tokenizer_path in (("v3", None), ("v4", V4_TOKENIZER)):
+        for family, tokenizer_path in (("v4", V4_TOKENIZER),):
             inventory = _existing_family_inventory(family, profile)
             if inventory is None:
                 inventory = publish_fineweb_token_shards(

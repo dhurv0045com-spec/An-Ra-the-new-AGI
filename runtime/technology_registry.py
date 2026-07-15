@@ -60,9 +60,9 @@ TECHNOLOGIES = (
     TechnologyContract("T-07", "SADL", "data mix", "training.sadl:normalized_mix", ("M-03",)),
     TechnologyContract(
         "T-08",
-        "500M frontier model",
+        "Canonical V4 model",
         "model runtime",
-        "training.v2_runtime:build_frontier_model",
+        "training.v2_runtime:build_model_for_profile",
         ("M-01", "M-12"),
     ),
     TechnologyContract(

@@ -8,6 +8,13 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from threading import RLock
 
+from anra.extensions import (
+    CapabilityAdapterSpec,
+    detach_candidate_adapters,
+    load_capability_adapter,
+)
+from torch import nn
+
 
 def _sha256(path: Path) -> str:
     digest = hashlib.sha256()
@@ -92,3 +99,36 @@ class AdapterRegistry:
                 "active_adapter": asdict(active) if active else None,
                 "registered_adapters": len(self._artifacts),
             }
+
+    def activate_on_model(
+        self,
+        adapter_id: str | None,
+        model: nn.Module,
+        *,
+        base_model_profile: str,
+        base_checkpoint_hash: str,
+        tokenizer_hash: str,
+    ) -> CapabilityAdapterSpec | None:
+        """Strictly attach or remove a registered parameter-efficient capability."""
+
+        artifact = self.activate(
+            adapter_id,
+            base_checkpoint_hash=base_checkpoint_hash,
+            tokenizer_hash=tokenizer_hash,
+        )
+        if artifact is None:
+            detach_candidate_adapters(model)
+            return None
+        try:
+            return load_capability_adapter(
+                model,
+                artifact.path,
+                expected_base_model_profile=base_model_profile,
+                expected_base_checkpoint_sha256=base_checkpoint_hash,
+                expected_tokenizer_sha256=tokenizer_hash,
+            )
+        except Exception:
+            with self._lock:
+                self._active = None
+            detach_candidate_adapters(model)
+            raise

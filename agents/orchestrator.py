@@ -13,7 +13,6 @@ KIND_TO_COMPONENT = {
     "memory": "memory",
     "critic": "evaluation",
     "symbolic": "symbolic_bridge",
-    "ghost": "ghost_memory",
 }
 
 

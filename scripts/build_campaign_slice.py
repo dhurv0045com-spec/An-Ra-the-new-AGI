@@ -5,7 +5,7 @@ The canonical V4 candidates must come from the campaign corpus, measured on
 genuinely held-out per-source text. This builder takes already-acquired local
 source files (one per campaign source key), splits each source deterministically
 into a train slice and a held-out slice by a per-line hash rule (the same rule
-family as scripts/measure_tokenizer_fertility.py), and emits:
+family as the canonical V4 validation path), and emits:
 
 - campaign_slice_train.txt   -- concatenated train text (the tokenizer corpus)
 - heldout/<source_key>.txt   -- per-source held-out text (fertility measurement)

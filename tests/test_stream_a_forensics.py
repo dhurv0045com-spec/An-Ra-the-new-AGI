@@ -45,12 +45,12 @@ def test_freeze_report_is_frozen_even_while_checkpoint_is_blocked(tmp_path: Path
 
     config = report["config"]
     assert config["contract"]["parameter_count"] == 499_167_075
-    assert config["contract"]["checkpoint_schema_version"] == 7
+    assert config["contract"]["checkpoint_schema_version"] == 8
     assert len(config["contract_sha256"]) == 64
 
     manifests = report["corpus_manifests"]
     assert manifests["count"] >= 1
-    assert "tokenizer_v3.json" in manifests["manifests"]
+    assert "tokenizer_v4_32k.manifest.json" in manifests["manifests"]
 
 
 def test_freeze_report_hashes_a_present_checkpoint(tmp_path: Path) -> None:

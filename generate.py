@@ -16,22 +16,23 @@ from typing import TypedDict
 import torch
 from anra.anra_paths import (
     ACTIVE_RELEASE_MANIFEST,
+    ANRA_V4_CHECKPOINT,
     DRIVE_LOGS,
-    FRONTIER_CHECKPOINT,
     HAL_STATE_FILE,
     PROMOTED_RELEASE_MANIFEST,
     ROOT,
     STATE_DIR,
 )
-from training.v2_config import (  # noqa: F401 - legacy public runtime export
-    V2_FRONTIER_PARAMETER_COUNT,
-    frontier_parameter_count,
+from engine.feature_flags import is_enabled
+from training.v2_config import (
+    ANRA_V4_MODEL,
+    ANRA_V4_MODEL_PARAMETER_COUNT,
+    CANONICAL_MODEL_PROFILE,
+    model_parameter_count,
 )
 from training.v2_runtime import (
     active_tokenizer_path,
-    build_frontier_model,
-    build_v2_model,
-    canonical_v2_checkpoint,
+    build_model_for_profile,
     load_checkpoint,
     load_or_build_v2_tokenizer,
     model_summary,
@@ -49,13 +50,6 @@ try:
     )
 except Exception:
     _IDENTITY_INJECTOR = None
-
-try:
-    from phase3.ghost_memory_45p.ghost_memory import GhostMemory as _GhostMemory
-    from phase3.ghost_memory_45p.ghost_memory import default_config as _ghost_default_config
-except Exception:
-    _GhostMemory = None  # type: ignore[assignment,misc]
-    _ghost_default_config = None  # type: ignore[assignment]
 
 try:
     from identity.hal import HALModule as _HALModule
@@ -104,7 +98,6 @@ class SubsystemTrace(TypedDict, total=False):
     esv_committed: bool
     hal_executed: bool
     hal_updated: bool
-    ghost_executed: bool
     adaptive_state_persisted: bool
     ablated_subsystem: str | None
     model: dict[str, object]
@@ -131,7 +124,6 @@ class GenerationTrace:
     # None means "not measured" (cache disabled); a float is a real measurement.
     # Reporting 0.0 unconditionally presented an unmeasured quantity as data.
     memory_saved_mb: float | None = None
-    ghost_state_loaded: bool = False
     prompt_tokens: int = 0
     mode: str = "diagnostic"
     quality_state: str = "unknown"
@@ -142,9 +134,6 @@ class GenerationTrace:
 
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-_GHOST_STORE: dict[str, dict] = {}
-_GHOST_MEMORY_DIR = STATE_DIR / "ghost_memory"
-_GHOST_MEMORY_SESSIONS: dict[str, object] = {}
 _HAL_STORE: dict[str, object] = {}
 _ESV_STORE: dict[str, torch.Tensor] = {}
 _HAL_DIR = STATE_DIR / "hal_sessions"
@@ -223,17 +212,12 @@ def _configure_active_release(checkpoint: Path) -> dict[str, object]:
 
 
 def _frontier_mode_requested() -> bool:
-    profile = os.environ.get("ANRA_MODEL_PROFILE", "").strip().lower()
-    if profile in {"frontier", "iterate500"}:
-        return True
-    checkpoint = _requested_checkpoint_path()
-    if checkpoint is not None:
-        return True
-    return FRONTIER_CHECKPOINT.exists()
+    """Compatibility name: the runtime is now always canonical V4."""
+    return True
 
 
 def _resolve_frontier_checkpoint() -> Path:
-    checkpoint = _requested_checkpoint_path() or FRONTIER_CHECKPOINT
+    checkpoint = _requested_checkpoint_path() or ANRA_V4_CHECKPOINT
     if checkpoint.exists():
         return checkpoint
     try:
@@ -245,9 +229,9 @@ def _resolve_frontier_checkpoint() -> Path:
     except Exception as exc:
         logger.warning("frontier checkpoint restore failed for %s: %s", checkpoint, exc)
     raise FileNotFoundError(
-        "Frontier runtime requested, but anra_frontier_500m.pt was not found. "
-        "Set ANRA_CHECKPOINT_PATH to the trained checkpoint or restore the shared "
-        "Drive master first."
+        "Canonical V4 runtime requested, but anra_v4_180m.pt was not found. "
+        "Set ANRA_CHECKPOINT_PATH to a trained V4 checkpoint. Legacy checkpoint "
+        "fallback is disabled."
     )
 
 
@@ -255,16 +239,30 @@ def _load_frontier_runtime() -> tuple[object, object, Path, str, dict[str, objec
     checkpoint = _resolve_frontier_checkpoint()
     active_release = _configure_active_release(checkpoint)
     tokenizer = load_or_build_v2_tokenizer()
-    model = (
-        build_frontier_model()
-        if tokenizer.vocab_size == 8_209
-        else build_frontier_model(vocab_size=tokenizer.vocab_size)
+    model = build_model_for_profile(
+        CANONICAL_MODEL_PROFILE, vocab_size=tokenizer.vocab_size
     )
     model = model.to(DEVICE)
     state = load_checkpoint(model, None, None, None, checkpoint, device=DEVICE, strict=False)
     state["active_release"] = active_release
     if not state.get("loaded"):
         raise RuntimeError(f"Frontier checkpoint did not load: {checkpoint}")
+    saved_model_config = state.get("model_config", {})
+    approved = (
+        saved_model_config.get("approved_subsystems", [])
+        if isinstance(saved_model_config, dict)
+        else []
+    )
+    if not isinstance(approved, list):
+        raise RuntimeError("Checkpoint approved_subsystems must be a list")
+    # Validate and retain the trained recipe, then return the resident model to
+    # dense mode. Per-request runtime modes may activate only this recipe.
+    if not hasattr(model, "configure_subsystems"):
+        if approved:
+            raise RuntimeError("Checkpoint approves native subsystems but model cannot gate them")
+    else:
+        model.configure_subsystems(approved)
+        model.configure_subsystems((), approve=False)
     load_report = state.get("load_report", {})
     if isinstance(load_report, dict) and not load_report.get("exact_core_load", True):
         raise RuntimeError(
@@ -274,7 +272,12 @@ def _load_frontier_runtime() -> tuple[object, object, Path, str, dict[str, objec
         )
     summary = model_summary(model)
     params = int(summary["parameters"])
-    expected_params = frontier_parameter_count(tokenizer.vocab_size)
+    expected_params = model_parameter_count(ANRA_V4_MODEL, tokenizer.vocab_size)
+    if expected_params != ANRA_V4_MODEL_PARAMETER_COUNT:
+        raise RuntimeError(
+            f"Canonical V4 parameter definition drifted: {expected_params:,} != "
+            f"{ANRA_V4_MODEL_PARAMETER_COUNT:,}"
+        )
     if params != expected_params:
         raise RuntimeError(
             f"Frontier parameter contract mismatch: got {params:,}, expected {expected_params:,}"
@@ -282,32 +285,18 @@ def _load_frontier_runtime() -> tuple[object, object, Path, str, dict[str, objec
     model.eval()
     if hasattr(model, "disable_kv_cache"):
         model.disable_kv_cache()
-    return model, tokenizer, checkpoint, "frontier", state
+    return model, tokenizer, checkpoint, CANONICAL_MODEL_PROFILE, state
 
 
 def _load_legacy_runtime() -> tuple[object, object, Path, str, dict[str, object]]:
-    tokenizer = load_or_build_v2_tokenizer()
-    checkpoint = canonical_v2_checkpoint("ouroboros")
-    use_ouroboros = checkpoint.exists()
-    model = build_v2_model(vocab_size=tokenizer.vocab_size)
-    if use_ouroboros:
-        from ouroboros import OuroborosDecoder
-
-        model = OuroborosDecoder(model, n_passes=3)
-    model = model.to(DEVICE)
-    if not checkpoint.exists():
-        checkpoint = canonical_v2_checkpoint("identity")
-    if not checkpoint.exists():
-        checkpoint = canonical_v2_checkpoint("brain")
-    state = load_checkpoint(model, None, None, None, checkpoint, device=DEVICE, strict=False)
-    model.eval()
-    return model, tokenizer, checkpoint, "legacy", state
+    raise RuntimeError(
+        "Legacy runtime loading was removed. Use explicit checkpoint-forensics tools "
+        "for V3 artifacts; serving accepts only canonical V4."
+    )
 
 
 def _load_runtime() -> tuple[object, object, Path, str, dict[str, object]]:
-    if _frontier_mode_requested():
-        return _load_frontier_runtime()
-    return _load_legacy_runtime()
+    return _load_frontier_runtime()
 
 
 _MODEL = None
@@ -332,65 +321,6 @@ def _get_runtime() -> tuple[object, object, Path | None]:
 def _hal_path(session_id: str) -> Path:
     safe = "".join(ch if ch.isalnum() or ch in {"-", "_"} else "_" for ch in session_id)[:96]
     return _HAL_DIR / f"{safe or 'default'}.json"
-
-
-def _ghost_session_key(session_id: str) -> str:
-    """Collision-safe directory key; session ids are untrusted client strings."""
-    return hashlib.sha256(session_id.encode("utf-8")).hexdigest()[:32]
-
-
-def _ghost_hash_embed(text: str, dim: int) -> object:
-    """Deterministic native feature-hash embedding.
-
-    Ghost memory's default embedder downloads an external sentence-transformer
-    model; An-Ra owns its own stack, so retrieval uses the same blake2b feature
-    hashing family as the memory router: no network, no borrowed weights, and
-    identical vectors for identical text on every platform.
-    """
-    import numpy as np
-
-    vec = np.zeros(dim, dtype=np.float32)
-    tokens = re.findall(r"[a-z0-9]+", text.lower())
-    for pos, tok in enumerate(tokens):
-        features = {tok, tok[:4], tok[-4:]}
-        features.update(tok[i : i + 3] for i in range(max(1, len(tok) - 2)))
-        weight = 1.0 / (1.0 + pos * 0.01)
-        for feature in features:
-            digest = hashlib.blake2b(feature.encode("utf-8"), digest_size=8).digest()
-            index = int.from_bytes(digest, "little") % dim
-            sign = 1.0 if digest[0] & 1 else -1.0
-            vec[index] += sign * weight
-    norm = float(np.linalg.norm(vec))
-    if norm > 0.0:
-        vec /= norm
-    return vec
-
-
-def _ghost_memory_for(session_id: str | None) -> object | None:
-    """Durable per-session ghost store; one directory per session is the
-    isolation boundary because the underlying schema has no session column."""
-    if _GhostMemory is None or _ghost_default_config is None or not session_id:
-        return None
-    key = _ghost_session_key(session_id)
-    cached = _GHOST_MEMORY_SESSIONS.get(key)
-    if cached is not None:
-        return cached
-    try:
-        config = _ghost_default_config(storage_dir=_GHOST_MEMORY_DIR / key)
-        # The default 0.65 threshold was tuned for MiniLM embeddings. Measured
-        # native hash-embedding cosines: related text 0.40-0.69, unrelated
-        # 0.09-0.21, so 0.30 separates them with margin on both sides.
-        config.similarity_thresh = 0.30
-        dim = int(config.embedding_dim)
-        ghost = _GhostMemory(
-            config=config,
-            embedder=lambda text: _ghost_hash_embed(text, dim),
-        )
-    except Exception as exc:
-        logger.warning("Ghost memory unavailable for session %s: %s", session_id, exc)
-        return None
-    _GHOST_MEMORY_SESSIONS[key] = ghost
-    return ghost
 
 
 _SYMBOLIC_BRIDGE_STATE: dict[str, object] = {}
@@ -538,6 +468,7 @@ def _save_hal(session_id: str | None, hal: object) -> None:
 
 
 def _attach_hal(model: object, hal: object) -> None:
+    """Attach HAL to external wrappers without enabling attention control."""
     if hal is None:
         return
     try:
@@ -545,10 +476,8 @@ def _attach_hal(model: object, hal: object) -> None:
             model.hal = hal
         if hasattr(model, "model") and hasattr(model.model, "hal_module"):
             model.model.hal_module = hal
-            model.model.use_hal = True
         if hasattr(model, "hal_module"):
             model.hal_module = hal
-            model.use_hal = True
     except Exception as exc:
         logger.warning("HAL attach failed: %s", exc)
 
@@ -862,7 +791,6 @@ def generate_traced(
         max_prob_curve: list[float] = []
         distribution_probe_curve: list[list[float]] = []
         stopped_by = "max_tokens"
-        ghost_loaded = bool(cfg.mode == "full_system" and session_id and session_id in _GHOST_STORE)
         blocked_ids = _blocked_token_ids(tokenizer, cfg)
 
         start = time.perf_counter()
@@ -871,7 +799,6 @@ def generate_traced(
         model_telemetry: dict[str, object] = {}
         esv_committed = False
         hal_updated = False
-        ghost_executed = False
         if cfg.use_kv_cache and hasattr(model, "enable_kv_cache"):
             model.enable_kv_cache()
             model.clear_kv_cache()
@@ -941,7 +868,7 @@ def generate_traced(
         output_text = tokenizer.decode(answer_ids).strip()
         if cfg.use_think_tokens:
             output_text = output_text.replace("</think>", "").strip()
-        if _IDENTITY_INJECTOR is not None:
+        if is_enabled("identity") and _IDENTITY_INJECTOR is not None:
             try:
                 # The injector's real surface is clean_response(); the old
                 # .clean() call could never run because the module never
@@ -980,20 +907,6 @@ def generate_traced(
                 esv_committed = bool(native_model.commit_pending_esv_state())
                 if session_id and esv_module is not None:
                     _ESV_STORE[session_id] = esv_module.state.detach().cpu().clone()
-            if session_id and cfg.mode == "full_system":
-                ghost_executed = True
-                if cfg.persist_adaptive_state:
-                    state = dict(_GHOST_STORE.get(session_id, {}))
-                    state.update({"session_id": session_id, "last_output": output_text})
-                    _GHOST_STORE[session_id] = state
-                    ghost = _ghost_memory_for(session_id)
-                    if ghost is not None:
-                        try:
-                            ghost.add_turn("anra", output_text)
-                        except Exception as exc:
-                            logger.warning(
-                                "Ghost state persistence failed for %s: %s", session_id, exc
-                            )
             # HAL and CIV adapt from verified evidence, so their coherence
             # input must be the real per-generation quality signal (entropy
             # band, repetition, fragmentation, stop reason), not a flat
@@ -1068,12 +981,11 @@ def generate_traced(
             "esv_executed": int(execution.get("esv", 0)) > 0,
             "esv_feature_extraction_executed": int(execution.get("esv_features", 0)) > 0,
             "esv_committed": esv_committed,
-            "hal_executed": int(execution.get("hal", 0)) > 0,
+            "hal_executed": hal is not None or int(execution.get("hal", 0)) > 0,
             "hal_updated": hal_updated,
-            "ghost_executed": ghost_executed,
             "adaptive_state_persisted": bool(
                 cfg.persist_adaptive_state
-                and (esv_committed or hal_updated or ghost_executed)
+                and (esv_committed or hal_updated)
             ),
             "ablated_subsystem": cfg.ablated_subsystem,
         }
@@ -1097,7 +1009,6 @@ def generate_traced(
             repeated_ngrams_detected=repeated,
             kv_cache_compressed=kv_enabled,
             memory_saved_mb=None,
-            ghost_state_loaded=ghost_loaded,
             prompt_tokens=prompt_token_count,
             mode=cfg.mode,
             quality_state=quality_state,
@@ -1191,21 +1102,14 @@ def verify_session_state_isolation(*, probe_generation: bool = False) -> dict[st
         try:
             _ESV_STORE[session_a] = torch.tensor([0.11, 0.22, 0.33])
             _ESV_STORE[session_b] = torch.tensor([-0.11, -0.22, -0.33])
-            _GHOST_STORE[session_a] = {"session_id": session_a, "sentinel": "a"}
-            _GHOST_STORE[session_b] = {"session_id": session_b, "sentinel": "b"}
             esv_isolated = (
                 not torch.equal(_ESV_STORE[session_a], _ESV_STORE[session_b])
                 and _ESV_STORE[session_a].data_ptr() != _ESV_STORE[session_b].data_ptr()
-            )
-            ghost_isolated = (
-                _GHOST_STORE[session_a].get("sentinel") == "a"
-                and _GHOST_STORE[session_b].get("sentinel") == "b"
             )
             hal_isolated = _hal_path(session_a) != _hal_path(session_b)
             generation_state_isolated = not probe_generation
             if probe_generation:
                 session_b_esv = _ESV_STORE[session_b].clone()
-                session_b_ghost = dict(_GHOST_STORE[session_b])
                 generate_traced(
                     "H: Return one short isolation probe token.\nANRA:",
                     GenerationConfig(
@@ -1220,9 +1124,9 @@ def verify_session_state_isolation(*, probe_generation: bool = False) -> dict[st
                 )
                 generation_state_isolated = torch.equal(
                     _ESV_STORE[session_b], session_b_esv
-                ) and _GHOST_STORE[session_b] == session_b_ghost
+                )
             verified = (
-                esv_isolated and ghost_isolated and hal_isolated and generation_state_isolated
+                esv_isolated and hal_isolated and generation_state_isolated
             )
             return {
                 "verified": verified,
@@ -1230,14 +1134,11 @@ def verify_session_state_isolation(*, probe_generation: bool = False) -> dict[st
                 "runtime_generation_probed": probe_generation,
                 "generation_state_isolated": generation_state_isolated,
                 "esv_isolated": esv_isolated,
-                "ghost_isolated": ghost_isolated,
                 "hal_paths_isolated": hal_isolated,
             }
         finally:
             _ESV_STORE.pop(session_a, None)
             _ESV_STORE.pop(session_b, None)
-            _GHOST_STORE.pop(session_a, None)
-            _GHOST_STORE.pop(session_b, None)
             _HAL_STORE.pop(session_a, None)
             _HAL_STORE.pop(session_b, None)
             _hal_path(session_a).unlink(missing_ok=True)
@@ -1256,8 +1157,6 @@ def clear_session_runtime_state(session_id: str) -> None:
     """Remove request-scoped adaptive state used by an isolated diagnostic job."""
     with _GENERATION_LOCK:
         _ESV_STORE.pop(session_id, None)
-        _GHOST_STORE.pop(session_id, None)
-        _GHOST_MEMORY_SESSIONS.pop(_ghost_session_key(session_id), None)
         _HAL_STORE.pop(session_id, None)
         _hal_path(session_id).unlink(missing_ok=True)
         _CIV_STORE.pop(session_id, None)
@@ -1323,34 +1222,6 @@ def generate_stream(prompt: str, cfg: GenerationConfig) -> Iterator[str]:
             if prior_esv_state is not None:
                 esv_module.state.copy_(prior_esv_state)
                 native_model._pending_esv_state = None
-
-
-def load_ghost_state(session_id: str) -> dict[str, object]:
-    """Return the session's in-process ghost state plus durable ranked snippets."""
-    state: dict[str, object] = dict(_GHOST_STORE.get(session_id, {}))
-    state["session_id"] = session_id
-    _GHOST_STORE[session_id] = dict(state)
-    ghost = _ghost_memory_for(session_id)
-    query = str(state.get("last_output") or "").strip()
-    if ghost is not None and query:
-        try:
-            state["snippets"] = ghost.retrieve(query)
-        except Exception as exc:
-            logger.warning("Ghost retrieval failed for session %s: %s", session_id, exc)
-    state.setdefault("snippets", [])
-    return state
-
-
-def save_ghost_state(session_id: str) -> None:
-    state = dict(_GHOST_STORE.get(session_id, {"session_id": session_id}))
-    _GHOST_STORE[session_id] = state
-    ghost = _ghost_memory_for(session_id)
-    last_output = str(state.get("last_output") or "").strip()
-    if ghost is not None and last_output:
-        try:
-            ghost.add_turn("anra", last_output)
-        except Exception as exc:
-            logger.warning("Ghost state persistence failed for session %s: %s", session_id, exc)
 
 
 def get_tokenizer() -> object:

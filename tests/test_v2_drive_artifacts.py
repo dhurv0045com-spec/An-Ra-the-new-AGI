@@ -17,7 +17,7 @@ def _patch_artifact_paths(monkeypatch, tmp_path: Path) -> tuple[Path, Path]:
     monkeypatch.setattr(rt, "V2_BRAIN_CHECKPOINT", local / "anra_v2_brain.pt")
     monkeypatch.setattr(rt, "V2_IDENTITY_CHECKPOINT", local / "anra_v2_identity.pt")
     monkeypatch.setattr(rt, "V2_OUROBOROS_CHECKPOINT", local / "anra_v2_ouroboros.pt")
-    monkeypatch.setattr(rt, "V3_TOKENIZER_FILE", local / "tokenizer" / "tokenizer_v3.json")
+    monkeypatch.setattr(rt, "V4_TOKENIZER_FILE", local / "tokenizer" / "tokenizer_v4_32k.json")
     monkeypatch.setattr(rt, "OUTPUT_V2_DIR", local / "output" / "v2")
     return local, drive
 
@@ -25,16 +25,16 @@ def _patch_artifact_paths(monkeypatch, tmp_path: Path) -> tuple[Path, Path]:
 def test_sync_to_drive_uses_one_canonical_artifact_path(monkeypatch, tmp_path: Path) -> None:
     _local, drive = _patch_artifact_paths(monkeypatch, tmp_path)
     rt.V2_BRAIN_CHECKPOINT.parent.mkdir(parents=True, exist_ok=True)
-    rt.V3_TOKENIZER_FILE.parent.mkdir(parents=True, exist_ok=True)
+    rt.V4_TOKENIZER_FILE.parent.mkdir(parents=True, exist_ok=True)
     torch.save({"step": 7, "model": {}}, rt.V2_BRAIN_CHECKPOINT)
-    rt.V3_TOKENIZER_FILE.write_text('{"token_to_id": {}}', encoding="utf-8")
+    rt.V4_TOKENIZER_FILE.write_text('{"token_to_id": {}}', encoding="utf-8")
 
     assert rt.sync_to_drive("brain")
     assert rt.sync_to_drive("tokenizer")
 
     fixed_files = {
         drive / "v2" / "checkpoints" / "anra_v2_brain.pt",
-        drive / "v2" / "tokenizer_v3.json",
+        drive / "v2" / "tokenizer_v4_32k.json",
     }
     for path in fixed_files:
         assert path.exists(), path
@@ -62,11 +62,11 @@ def test_restore_v2_artifact_keeps_newer_local_checkpoint(monkeypatch, tmp_path:
     assert rt._read_step(rt.V2_BRAIN_CHECKPOINT) == 99
 
 
-def test_restore_tokenizer_accepts_legacy_v2_drive_name(monkeypatch, tmp_path: Path) -> None:
+def test_restore_tokenizer_uses_canonical_v4_drive_name(monkeypatch, tmp_path: Path) -> None:
     _local, drive = _patch_artifact_paths(monkeypatch, tmp_path)
-    legacy_tokenizer = drive / "v2" / "checkpoints" / "tokenizer_v2.json"
-    legacy_tokenizer.parent.mkdir(parents=True, exist_ok=True)
-    legacy_tokenizer.write_text('{"legacy": true}', encoding="utf-8")
+    canonical_tokenizer = drive / "v2" / "tokenizer_v4_32k.json"
+    canonical_tokenizer.parent.mkdir(parents=True, exist_ok=True)
+    canonical_tokenizer.write_text('{"v4": true}', encoding="utf-8")
 
     assert rt.restore_v2_artifact("tokenizer")
-    assert rt.V3_TOKENIZER_FILE.read_text(encoding="utf-8") == '{"legacy": true}'
+    assert rt.V4_TOKENIZER_FILE.read_text(encoding="utf-8") == '{"v4": true}'

@@ -6,6 +6,8 @@ import math
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass
 
+from training.v2_config import ANRA_V4_MODEL_PARAMETER_COUNT
+
 
 @dataclass(frozen=True)
 class MoonshotPilot:
@@ -29,10 +31,10 @@ MOONSHOT_PILOTS = (
         {
             "short_context_ratio": 0.98,
             "long_context_speedup": 1.5,
-            "model_parameters": 150_000_000,
+            "model_parameters": ANRA_V4_MODEL_PARAMETER_COUNT,
             "seed_count": 3,
         },
-        {"model_parameters": 150_000_000},
+        {"model_parameters": ANRA_V4_MODEL_PARAMETER_COUNT},
     ),
     MoonshotPilot(
         "m2",
@@ -64,10 +66,13 @@ MOONSHOT_PILOTS = (
         {
             "reasoning_score_ratio": 1.15,
             "inference_flops_ratio": 0.0,
-            "model_parameters": 150_000_000,
+            "model_parameters": ANRA_V4_MODEL_PARAMETER_COUNT,
             "seed_count": 3,
         },
-        {"inference_flops_ratio": 1.0, "model_parameters": 150_000_000},
+        {
+            "inference_flops_ratio": 1.0,
+            "model_parameters": ANRA_V4_MODEL_PARAMETER_COUNT,
+        },
     ),
     MoonshotPilot(
         "m4",

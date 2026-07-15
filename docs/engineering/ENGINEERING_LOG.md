@@ -1,5 +1,80 @@
 # Engineering Log
 
+## 2026-07-16 - ARCH/TRAIN - Verified and extensible intelligence foundation
+
+| Field | Value |
+|-------|-------|
+| **Date** | 2026-07-16 |
+| **Author** | Codex |
+| **Component** | verified process objective, LoRA/DoRA capability contract, continual learning, serving activation, reasoning budget, GPU canary |
+| **Type** | ARCHITECTURE + TRAINING + RELIABILITY + VERIFICATION |
+| **Summary** | Added a bounded process-supervision objective that weights only complete tagged spans from verifier-produced DFC training shards and binds its identity/multiplier into exact resume. Consolidated parameter-efficient learning behind one immutable-base LoRA/DoRA contract with strict targets, adapter-only state, SHA-256 checkpoint/tokenizer lineage, atomic artifact writes, reversible detach, and activation rollback. Continual candidates now use that artifact contract. Added an inspectable, non-acting adaptive reasoning budget with explicit retrieval/verifier blockers. |
+| **Evidence** | Focused contract tests pass, including DoRA normalization/gradients, device/dtype inheritance, exact detach/reload, wrong-lineage rejection, failed-activation rollback, span eligibility/bounds, reasoning caps, and resume recipe checks. The local RTX 4050 executed the full 181,132,071-parameter V4 base with DoRA on 54 Q/V/down projections: 919,296 trainable adapter parameters, one BF16 AdamW step, 5.80 s, 1,300 MiB peak, finite 10.655715 total loss and 4.011755 pre-clip gradient norm, no checkpoint written. The initial canary found the CPU-allocation defect for adapters attached after GPU placement; the primitive was corrected and rerun successfully. |
+| **Risk** | A one-step random-token canary proves only execution, gradients, and memory. It does not prove that process weighting, DoRA, adaptive compute, MTP, or any subsystem improves language, reasoning, autonomy, or AGI capability. The dense seed-1301 checkpoint and held-out comparisons do not yet exist. |
+| **Follow-up** | Train the unchanged dense V4 baseline first. Then evaluate one hypothesis at a time: matched MTP, process-weight ablation, or a typed capability adapter. Promote only reproducible held-out gains; keep MoE/SSM/latent/HAL/moonshots isolated. |
+
+---
+
+## 2026-07-15 - TRAIN/FIX - Deterministic V4 foundation and exact resume
+
+| Field | Value |
+|-------|-------|
+| **Date** | 2026-07-15 |
+| **Author** | Codex |
+| **Component** | canonical seed, sampler, optimizer, scheduler, AMP, checkpoint resume, preflight |
+| **Type** | ARCHITECTURE + TRAINING + RELIABILITY + VERIFICATION |
+| **Summary** | Replaced the seed label with an executable reproducibility contract. Unified both active dispatchers on seed 1301 and the `t4_v4_session` runtime. Schema 9 now captures/restores Python, NumPy, Torch, CUDA, DataLoader, optimizer, scheduler, scaler, recipe, and raw-sampler cursor state; exact training resume fails closed on any missing or changed component. Replaced session-restarting RNG sampling with a counter-based SHA-256 sampler whose suffix is directly addressable. Made AdamW plus 2% warmup/cosine decay the sole foundation algorithm, removed the unproven dynamic-regret LR overlay, applied weight decay only to matrix parameters, and prevented skipped AMP steps from advancing any progress state. |
+| **Evidence** | Complete RNG snapshot/replay and schema-9 optimizer/scheduler/scaler/model resume pass on a trained tiny transformer; raw sampler suffix at position 173 exactly matches the uninterrupted run. Local RTX 4050 dense V4 canary: all 181,132,071 parameters, BF16 AdamW, sequence 64, 5.48 s, 3,499.82 MiB peak, CE/total loss 10.546875/10.558056, finite 64.08894 pre-clip gradient norm. Two seed-1301 builds matched fingerprint (`5d6854db...`), logits, and 10.566532 initial loss; seed 1302 differed (`8cbcff...`, 10.479838), proving that random initial loss cannot select a quality seed. Full MTP candidate canary: 182,739,495 parameters, sequence 64, 4.08 s, 3,527.00 MiB peak, finite CE 10.611328 + weighted MTP 2.084721 and gradients. Focused CPU suites, Ruff, and compilation pass. |
+| **Risk** | Deterministic replay is scoped to the same software/hardware stack; bitwise equality across different GPU architectures is not claimed. Sequence-64 canaries prove execution and local memory feasibility only. They do not prove full 2,048-token fit, throughput, language quality, MTP benefit, or AGI capability. No checkpoint or training campaign was created. |
+| **Follow-up** | Run the signed seed-1301 dense V4 campaign on a 16 GiB T4 at the real context and prove one kill/restart continuation. If its metrics are healthy, run one matched seed-1301 MTP comparison; replicate only a meaningful signal before promotion. |
+
+---
+
+## 2026-07-15 - RECLAMATION - Dependency-led legacy removal
+
+| Field | Value |
+|-------|-------|
+| **Date** | 2026-07-15 |
+| **Author** | Codex |
+| **Component** | runtime ownership, tokenizer lineage, UI, memory, orchestration, tests, plans |
+| **Type** | RECLAMATION + FIX + VERIFICATION |
+| **Summary** | Completed the final dependency-led cleanup. Deleted duplicate Phase-2 memory, GhostMemory, MasterSystem, placeholder self-improvement, the unused React/Flask UI stack, retired V3/16k tokenizer construction, the 69-run factorial, obsolete tests, recovery notebooks/scripts, and the dead archive tree. Runtime replay can no longer ingest chat memory implicitly. Stream B validates the fixed 32,768-token V4 identity and publishes V4-only shards. The one live archived dependency, TurboQuant, moved into `inference/`; the rejected checkpoint builder is explicitly forensic-only. |
+| **Evidence** | Dependency scans find no Python imports of removed packages or V3 builders. Modified core compiles. Focused contract set: 65 tests passed after correcting two stale expectations; targeted reruns passed. Ruff passed on the affected canonical modules, and `git diff --check` reported no whitespace errors. The regenerated system manifest contains no removed component paths. |
+| **Risk** | Historical dated evidence still mentions retired mechanisms, but it is labeled historical and is not an executable path. No training, model-quality claim, or GPU workload was performed. |
+| **Follow-up** | Publish canonical V4 shards, then run the owner-started seed-1301 T4 training notebook. Treat optional architecture work as isolated pilots only. |
+
+---
+
+## 2026-07-15 - ARCH/FIX - V4 pre-training architecture gate
+
+| Field | Value |
+|-------|-------|
+| **Date** | 2026-07-15 |
+| **Author** | Codex |
+| **Component** | V4 decoder, attention, configuration, checkpoint contract, T4 recipe |
+| **Type** | ARCHITECTURE + FIX + VERIFICATION |
+| **Summary** | Audited the sole 181M V4 path before training. Corrected a fundamental RoPE mismatch: adjacent-pair rotation had been fed a concatenated rather than pair-repeated phase layout. Added schema-8 architecture identity, bounded composed attention temperature, neutral DSTP initialization, executable `d_ff` and `rope_base`, validated router/head/feed-forward geometry, V4 registry/config identity, and a T4-safe microbatch 1 × accumulation 32 recipe. Kept MTP, MoE, HAL, cognitive extensions, and moonshots outside the canonical path. |
+| **Evidence** | Actual construction = 181,132,071 parameters; finite full-model `[1,4,32768]` logits; expected 14 local + 4 full layers; 104 focused architecture/runtime/configuration tests pass; Ruff clean on affected modules. |
+| **Risk** | No inspection proves capability before training. Peak T4 memory and throughput remain measurements for the first seed-1301 session. Schema-8 V4 intentionally rejects checkpoints missing the corrected rotary contract. |
+| **Follow-up** | Treat this architecture as frozen for seed 1301. Change it only through a new named scratch architecture after measured evidence. |
+
+---
+
+## 2026-07-15 - ARCH/FIX - V4 promoted to the sole active model lineage
+
+| Field | Value |
+|-------|-------|
+| **Date** | 2026-07-15 |
+| **Author** | Codex |
+| **Component** | model profile, tokenizer, training, serving, Colab, readiness |
+| **Type** | ARCHITECTURE + RECLAMATION |
+| **Summary** | Promoted `anra-v4-180m` (181,132,071 parameters) and the 32,768-token V4 tokenizer to the only supported training and serving contract. Removed legacy model-size selection and tokenizer fallback, deleted the V3/draft artifacts, recovery scripts, and duplicate notebooks, made serving reject non-V4 checkpoints, and reduced unified training to one checkpoint lineage instead of sequential V2 brain/identity/ouroboros models. The T4 notebook uses the single canonical seed 1301 and never restores a shared legacy master. |
+| **Evidence** | Model construction reports exactly 181,132,071 parameters. Focused V4/runtime/training/config/CI/registry tests pass (37 tests); changed Python files are Ruff-clean and compile successfully. No model training or GPU workload was started. |
+| **Risk** | The canonical V4 checkpoint does not exist yet; quality remains unmeasured until an owner-started T4/GPU run produces it. Historical research scripts outside supported entry points may still describe earlier factorial experiments. |
+| **Follow-up** | Train seed 1301 from scratch in the canonical T4 notebook, then inspect checkpoint compatibility and generation quality. |
+
+---
+
 ## 2026-07-15 - DATA/FIX - Hard-kill append recovery and completed V4 campaign slice
 
 | Field | Value |
@@ -214,7 +289,7 @@
 | **Metrics** | Diagnostic acceptance 2.5%; native/replay acceptance 3.0%; diagnostic EOS failure 97.0%; coherence 0.0%; required coherence 80.0%. |
 | **Risk** | Do not promote, serve, or select this checkpoint based on its legacy `best_loss`. The evidence supports undertraining; it does not uniquely assign causality among all documented historical defects. |
 | **Follow-up** | Preserve the artifact as a baseline. Compare a named fresh-optimizer continuation against a scratch control at equal verified tokens and three seeds, using immutable validation and the same behavioral gate. |
-| **Planning record** | `docs/engineering/MODEL_RECOVERY_AND_TRAINING_BLUEPRINT.md` translates the forensic evidence into the data, trainer, architecture-ablation, evaluation, and scaling sequence. |
+| **Planning record** | The former recovery blueprint was superseded by `docs/engineering/V4_ARCHITECTURE_GATE.md` and the current `TODO.md` summary after the legacy checkpoint was rejected. |
 
 ---
 

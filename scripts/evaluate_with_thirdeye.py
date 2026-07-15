@@ -12,7 +12,8 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from evaluation.thirdeye_adapter import run_one_click
-from training.v2_runtime import build_frontier_model, model_summary
+from training.v2_config import ANRA_V4_MODEL_PARAMETER_COUNT, CANONICAL_MODEL_PROFILE
+from training.v2_runtime import build_model_for_profile, model_summary
 
 
 def main() -> None:
@@ -25,15 +26,15 @@ def main() -> None:
     parser.add_argument(
         "--without-model",
         action="store_true",
-        help="Skip construction of the 500M frontier model and report only artifact probes.",
+        help="Skip construction of the canonical V4 model and report only artifact probes.",
     )
     args = parser.parse_args()
     model = None
     if not args.without_model:
-        model = build_frontier_model()
+        model = build_model_for_profile(CANONICAL_MODEL_PROFILE)
         summary = model_summary(model)
-        if not 450_000_000 <= int(summary["parameters"]) <= 600_000_000:
-            raise RuntimeError(f"Unexpected 500M-class frontier parameter count: {summary}")
+        if int(summary["parameters"]) != ANRA_V4_MODEL_PARAMETER_COUNT:
+            raise RuntimeError(f"Unexpected canonical V4 parameter count: {summary}")
     result = run_one_click(profile=args.profile, model=model)
     print(
         json.dumps(

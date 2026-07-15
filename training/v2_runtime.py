@@ -12,6 +12,7 @@ from typing import TypedDict
 
 import torch
 from anra.anra_paths import (
+    ANRA_V4_CHECKPOINT,
     DRIVE_DIR,
     DRIVE_V2_CHECKPOINTS,
     DRIVE_V2_DIR,
@@ -21,20 +22,20 @@ from anra.anra_paths import (
     V2_BRAIN_CHECKPOINT,
     V2_IDENTITY_CHECKPOINT,
     V2_OUROBOROS_CHECKPOINT,
-    V3_TOKENIZER_FILE,
+    V4_TOKENIZER_FILE,
     ensure_dirs,
-    get_dataset_file,
     get_identity_file,
     get_teacher_files,
     get_v2_checkpoint,
 )
-from anra_brain import CausalTransformerV2
+from anra_brain import ANRA_V4_ARCHITECTURE_VERSION, CausalTransformerV2
 from runtime.drive_session_manager import DriveSessionManager
 from runtime.safe_load import safe_torch_load
 from tokenizer.subword_tokenizer import SubwordTokenizer
 from tokenizer.tokenizer_adapter import TokenizerAdapter
 
 from training.anra_optimizer import restore_optimizer_state_for_resume
+from training.reproducibility import restore_rng_states
 from training.v2_config import (
     CANONICAL_VOCAB_SIZE,
     CHECKPOINT_SCHEMA_VERSION,
@@ -46,15 +47,14 @@ from training.v2_config import (
     V2_FRONTIER,
     V2_MODEL,
     V2_REPORT_FILES,
-    V4_VOCAB_SIZES,
     frontier_parameter_count,
     is_v4_vocab_size,
     resolve_model_profile,
 )
 
-# Every canonical vocab An-Ra may load: the frozen V3 base plus the sanctioned
-# append-only V4 ceilings (16,384 proven fallback, 32,768 canonical).
-ALLOWED_CANONICAL_VOCAB_SIZES = (EXPECTED_TOKENIZER_VOCAB_SIZE, *V4_VOCAB_SIZES)
+# Active runtime accepts exactly the canonical 32k V4 vocabulary. Legacy
+# checkpoint inspection has a separate explicit compatibility path.
+ALLOWED_CANONICAL_VOCAB_SIZES = (EXPECTED_TOKENIZER_VOCAB_SIZE,)
 
 ensure_dirs()
 logger = logging.getLogger(__name__)
@@ -63,11 +63,8 @@ DRIVE_SESSION_MANAGER = DriveSessionManager(DRIVE_DIR)
 
 
 def active_tokenizer_path() -> Path:
-    configured = os.environ.get("ANRA_TOKENIZER_PATH", "").strip()
-    if not configured:
-        return V3_TOKENIZER_FILE
-    path = Path(configured).expanduser()
-    return path if path.is_absolute() else (ROOT / path).resolve()
+    """Return the one supported tokenizer; environment overrides are retired."""
+    return V4_TOKENIZER_FILE
 
 
 class CheckpointCompatibilityError(RuntimeError):
@@ -110,12 +107,15 @@ class CheckpointLoadReport(TypedDict, total=False):
 
 
 def canonical_v2_checkpoint(kind: str = "brain") -> Path:
+    if kind == "brain":
+        return ANRA_V4_CHECKPOINT
     mapping = {
-        "brain": V2_BRAIN_CHECKPOINT,
         "identity": V2_IDENTITY_CHECKPOINT,
         "ouroboros": V2_OUROBOROS_CHECKPOINT,
     }
-    return mapping.get(kind, V2_BRAIN_CHECKPOINT)
+    if kind not in mapping:
+        raise ValueError(f"Unsupported legacy checkpoint kind: {kind}")
+    return mapping[kind]
 
 
 def v2_output_file(name: str) -> Path:
@@ -176,7 +176,7 @@ def _drive_artifact_path(name: str) -> Path:
         "brain": "anra_v2_brain.pt",
         "identity": "anra_v2_identity.pt",
         "ouroboros": "anra_v2_ouroboros.pt",
-        "tokenizer": "tokenizer_v3.json",
+        "tokenizer": "tokenizer_v4_32k.json",
         "eval_summary": "anra_v2_eval_summary.json",
     }
     filename = drive_filenames.get(name, f"anra_v2_{name}.pt")
@@ -193,7 +193,7 @@ def _local_artifact_path(name: str) -> Path:
         "brain": V2_BRAIN_CHECKPOINT,
         "identity": V2_IDENTITY_CHECKPOINT,
         "ouroboros": V2_OUROBOROS_CHECKPOINT,
-        "tokenizer": V3_TOKENIZER_FILE,
+        "tokenizer": V4_TOKENIZER_FILE,
         "eval_summary": v2_report_path("eval_summary"),
     }
     return local_map.get(name, ROOT / f"anra_v2_{name}.pt")
@@ -201,21 +201,10 @@ def _local_artifact_path(name: str) -> Path:
 
 def _drive_restore_candidates(name: str) -> list[Path]:
     canonical = _drive_artifact_path(name)
-    candidates = [
+    return [
         DRIVE_V2_CHECKPOINTS / canonical.name,
         canonical,
     ]
-    if name == "tokenizer":
-        # Older sessions may keep the canonical tokenizer in legacy checkpoint folders.
-        candidates.extend(
-            [
-                DRIVE_V2_CHECKPOINTS / "tokenizer_v3.json",
-                DRIVE_V2_CHECKPOINTS / "tokenizer_v2.json",
-                DRIVE_DIR / "tokenizer_v3.json",
-                DRIVE_DIR / "tokenizer_v2.json",
-            ]
-        )
-    return candidates
 
 
 def restore_v2_artifact(name: str = "brain") -> bool:
@@ -312,91 +301,16 @@ def load_or_build_v2_tokenizer(
     dataset_path: Path | None = None,
     vocab_size: int = EXPECTED_TOKENIZER_VOCAB_SIZE,
 ) -> SubwordTokenizer:
-    dataset_path = dataset_path or get_dataset_file()
+    del dataset_path, vocab_size
     local = active_tokenizer_path()
-    if local.exists():
-        if local == V3_TOKENIZER_FILE:
-            _migrate_tokenizer_surface(local)
-        tokenizer = SubwordTokenizer.load(local)
-        assert_tokenizer_contract(local, tokenizer)
-        return tokenizer
-    if local != V3_TOKENIZER_FILE:
-        raise FileNotFoundError(f"Configured append-only tokenizer does not exist: {local}")
-    restored = restore_v2_artifact("tokenizer")
-    if restored and local.exists():
-        _migrate_tokenizer_surface(local)
-        tokenizer = SubwordTokenizer.load(local)
-        assert_tokenizer_contract(local, tokenizer)
-        return tokenizer
-
-    texts = _collect_tokenizer_texts(dataset_path)
-    print(f"[build_brain] Building tokenizer_v3 from {dataset_path} ...", flush=True)
-    tokenizer = SubwordTokenizer.train_from_texts(texts, vocab_size=vocab_size)
-    tokenizer.save(local)
+    if not local.exists():
+        raise FileNotFoundError(
+            f"Canonical V4 tokenizer does not exist: {local}. "
+            "Legacy tokenizer restore/build fallback is disabled."
+        )
+    tokenizer = SubwordTokenizer.load(local)
     assert_tokenizer_contract(local, tokenizer)
-    try:
-        drive_tok = DRIVE_V2_DIR / local.name
-        drive_tok.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(local, drive_tok)
-    except Exception as exc:
-        logger.warning("Drive tokenizer mirror failed for %s: %s", local, exc)
-    print(
-        f"[build_brain] tokenizer_v3 built + mirrored to Drive. vocab_size={tokenizer.vocab_size}",
-        flush=True,
-    )
     return tokenizer
-
-
-def _migrate_tokenizer_surface(path: Path) -> bool:
-    """Append V3 controls at IDs 8192..8208 while preserving all legacy IDs."""
-    meta_path = path.with_suffix(path.suffix + ".meta.json")
-    try:
-        meta = json.loads(meta_path.read_text(encoding="utf-8"))
-        if meta.get("backend") != "fallback":
-            return False
-        payload = json.loads(path.read_text(encoding="utf-8"))
-        id_to_token = list(payload["id_to_token"])
-        token_to_id = dict(payload["token_to_id"])
-    except Exception:
-        return False
-    current = {token: token_to_id.get(token) for token in EXPECTED_SPECIAL_TOKENS}
-    if current == EXPECTED_SPECIAL_TOKEN_IDS:
-        return False
-    if len(id_to_token) < EXPECTED_TOKENIZER_VOCAB_SIZE:
-        return False
-    for token, expected_id in EXPECTED_SPECIAL_TOKEN_IDS.items():
-        if expected_id < 13:
-            if id_to_token[expected_id] != token:
-                raise AssertionError(
-                    f"Legacy tokenizer row {expected_id} is {id_to_token[expected_id]!r}, "
-                    f"expected {token!r}"
-                )
-            continue
-        previous = id_to_token[expected_id]
-        token_to_id.pop(previous, None)
-        id_to_token[expected_id] = token
-        token_to_id[token] = expected_id
-    migrated = {"token_to_id": token_to_id, "id_to_token": id_to_token}
-    temporary = path.with_suffix(path.suffix + ".migrating")
-    temporary.write_text(json.dumps(migrated, indent=2), encoding="utf-8")
-    temporary.replace(path)
-    meta.update(
-        {
-            "schema_version": TOKENIZER_SCHEMA_VERSION,
-            "vocab_size": EXPECTED_TOKENIZER_VOCAB_SIZE,
-            "special_tokens": EXPECTED_SPECIAL_TOKENS,
-            "special_token_ids": EXPECTED_SPECIAL_TOKEN_IDS,
-            "migration": {
-                "source_vocab_size": 8192,
-                "appended_rows": [8192, 8208],
-                "legacy_rows_preserved": True,
-            },
-        }
-    )
-    meta_tmp = meta_path.with_suffix(meta_path.suffix + ".tmp")
-    meta_tmp.write_text(json.dumps(meta, indent=2), encoding="utf-8")
-    meta_tmp.replace(meta_path)
-    return True
 
 
 def assert_tokenizer_contract(path: Path, tokenizer: SubwordTokenizer) -> None:
@@ -846,6 +760,8 @@ def build_model_from_config(
         block_size=effective_block_size,
         rms_norm_eps=config.rms_norm_eps,
         dropout=config.dropout,
+        d_ff=config.d_ff,
+        rope_base=config.rope_base,
         mod_layers=set(config.mod_layers),
         base_seq_len=config.base_seq_len,
         target_seq_len=max(int(config.target_seq_len), effective_block_size),
@@ -861,6 +777,10 @@ def build_model_from_config(
         use_mtp=use_mtp,
         use_moe=use_moe,
     )
+    # A canonical construction is always the dense foundation. Experimental
+    # native modules are present only as explicit pilot slots and must be
+    # activated by a recorded continuation-phase recipe.
+    model.configure_subsystems((), approve=False)
     if getattr(config, "gradient_checkpointing", config.n_layer >= 36):
         model.gradient_checkpointing_enable()
     model.disable_kv_cache()
@@ -878,7 +798,7 @@ def build_v2_model(
     return build_model_from_config(V2_MODEL, block_size=block_size, vocab_size=vocab_size)
 
 
-def build_frontier_model(
+def build_legacy_500m_model(
     *,
     hal_module: object | None = None,
     block_size: int | None = None,
@@ -889,8 +809,7 @@ def build_frontier_model(
     use_moe: bool = False,
 ) -> CausalTransformerV2:
     """
-    Build the branch frontier model from V2_FRONTIER config.
-    KV cache is disabled for training. HAL may be None.
+    Reconstruct the rejected 500M checkpoint architecture for forensics only.
     """
     cfg = V2_FRONTIER
 
@@ -915,20 +834,20 @@ def build_frontier_model(
 
     if hasattr(model, "gradient_checkpointing_enable"):
         model.gradient_checkpointing_enable()
-        print("  [build_frontier_model] Gradient checkpointing: ENABLED")
+        print("  [build_legacy_500m_model] Gradient checkpointing: ENABLED")
     else:
         model.gradient_checkpointing = True
-        print("  [build_frontier_model] Gradient checkpointing flag: ENABLED")
+        print("  [build_legacy_500m_model] Gradient checkpointing flag: ENABLED")
 
     if hasattr(model, "disable_kv_cache"):
         model.disable_kv_cache()
 
     total_params = sum(p.numel() for p in model.parameters())
-    print(f"[build_frontier_model] Built {total_params / 1e6:.0f}M param model")
+    print(f"[build_legacy_500m_model] Built {total_params / 1e6:.0f}M param model")
     expected_params = frontier_parameter_count(model.vocab_size)
     if total_params != expected_params:
         print(
-            f"[build_frontier_model] WARNING: expected {expected_params:,} "
+            f"[build_legacy_500m_model] WARNING: expected {expected_params:,} "
             f"params for this branch, got {total_params:,}"
         )
     print(
@@ -973,6 +892,8 @@ def load_checkpoint(
     *,
     device: torch.device,
     strict: bool = False,
+    resume_training: bool = False,
+    data_generator: torch.Generator | None = None,
 ) -> dict[str, object]:
     state = {
         "loaded": False,
@@ -992,6 +913,8 @@ def load_checkpoint(
         "validation_history": [],
         "appended_row_optimizer_steps": 0,
         "raw_window_consumption": {},
+        "data_sampler_state": {},
+        "rng_restore": {},
         "tokenizer_identity": {"verified": False, "reason": "checkpoint_not_loaded"},
     }
     ckpt = checkpoint_path
@@ -1009,6 +932,18 @@ def load_checkpoint(
 
     blob = safe_torch_load(ckpt, map_location=device)
     assert_checkpoint_optimizer_boundary(blob, ckpt)
+    if resume_training:
+        if not isinstance(blob, dict):
+            raise CheckpointCompatibilityError(
+                "Training resume requires a structured canonical checkpoint"
+            )
+        schema = int(blob.get("checkpoint_schema_version", 0) or 0)
+        if schema != CHECKPOINT_SCHEMA_VERSION:
+            raise CheckpointCompatibilityError(
+                "Exact V4 training resume requires checkpoint schema "
+                f"{CHECKPOINT_SCHEMA_VERSION}; found {schema}. Load older checkpoints "
+                "for inspection only or begin a new scratch run."
+            )
     model_state = (
         blob.get("model_state_dict", blob.get("model", blob)) if isinstance(blob, dict) else blob
     )
@@ -1022,6 +957,60 @@ def load_checkpoint(
     if isinstance(blob, dict):
         ckpt_config = blob.get("model_config", {})
         if isinstance(ckpt_config, dict):
+            canonical_v4 = (
+                model.vocab_size == EXPECTED_TOKENIZER_VOCAB_SIZE
+                and model.n_embd == 896
+                and model.n_layer == 18
+            )
+            saved_architecture = str(ckpt_config.get("architecture_version", ""))
+            if canonical_v4 and saved_architecture != ANRA_V4_ARCHITECTURE_VERSION:
+                raise CheckpointCompatibilityError(
+                    "Canonical V4 checkpoint architecture mismatch: "
+                    f"saved={saved_architecture or 'missing'}, "
+                    f"required={ANRA_V4_ARCHITECTURE_VERSION}. Start V4 from scratch; "
+                    "do not resume a pre-V4 rotary layout."
+                )
+            if canonical_v4:
+                active_config = model.model_config()
+                immutable_fields = (
+                    "vocab_size",
+                    "pad_token_id",
+                    "n_embd",
+                    "n_head",
+                    "n_layer",
+                    "block_size",
+                    "n_kv_head",
+                    "d_ff",
+                    "rope_base",
+                    "rms_norm_eps",
+                    "dropout",
+                    "mod_layers",
+                    "base_seq_len",
+                    "target_seq_len",
+                    "use_qk_norm",
+                    "sliding_window",
+                    "full_attention_every",
+                    "use_mtp",
+                    "use_moe",
+                    "initialization_scheme",
+                )
+                mismatches: dict[str, dict[str, object]] = {}
+                for field in immutable_fields:
+                    saved_value = ckpt_config.get(field)
+                    active_value = active_config.get(field)
+                    if field == "mod_layers":
+                        saved_value = tuple(saved_value or ())
+                        active_value = tuple(active_value or ())
+                    if saved_value != active_value:
+                        mismatches[field] = {
+                            "checkpoint": saved_value,
+                            "active": active_value,
+                        }
+                if mismatches:
+                    raise CheckpointCompatibilityError(
+                        "Canonical V4 immutable architecture fields changed: "
+                        f"{mismatches}. Start a new named scratch architecture."
+                    )
             ckpt_pad = ckpt_config.get("pad_token_id")
             if ckpt_pad is not None and int(ckpt_pad) != model.pad_token_id:
                 raise AssertionError(
@@ -1085,7 +1074,19 @@ def load_checkpoint(
         saved_recipe = blob.get("training_recipe", {})
         active_recipe = getattr(model, "training_recipe", {})
         if isinstance(saved_recipe, dict) and saved_recipe and isinstance(active_recipe, dict):
-            for field in ("model_profile", "training_layout", "curriculum"):
+            for field in (
+                "model_profile",
+                "training_layout",
+                "curriculum",
+                "optimizer",
+                "seed",
+                "schedule",
+                "gradient_clip_norm",
+                "verified_process_objective",
+                "verified_process_multiplier",
+                "sampler_algorithm",
+                "determinism_mode",
+            ):
                 if field in active_recipe and saved_recipe.get(field) != active_recipe.get(field):
                     raise CheckpointCompatibilityError(
                         f"Checkpoint training recipe changed at {field}: "
@@ -1109,10 +1110,17 @@ def load_checkpoint(
     if isinstance(blob, dict):
         if optimizer is not None:
             try:
+                optimizer_state = blob.get("optimizer_state_dict", blob.get("optimizer"))
+                if resume_training and not isinstance(optimizer_state, dict):
+                    raise TypeError("checkpoint is missing optimizer state")
                 repaired = restore_optimizer_state_for_resume(
                     optimizer,
-                    blob.get("optimizer_state_dict", blob.get("optimizer", {})),
+                    optimizer_state,
                 )
+                if resume_training and "adafactor_fresh_moments" in repaired:
+                    raise RuntimeError(
+                        "Adafactor moments cannot be restored exactly by this installed stack"
+                    )
                 if repaired:
                     logger.warning(
                         "Using safe optimizer resume policy for %s: %s",
@@ -1120,21 +1128,46 @@ def load_checkpoint(
                         ", ".join(repaired),
                     )
             except Exception as exc:
+                if resume_training:
+                    raise CheckpointCompatibilityError(
+                        f"Optimizer state cannot be resumed exactly from {ckpt}"
+                    ) from exc
                 logger.warning("Optimizer state restore failed from %s: %s", ckpt, exc)
         if scheduler is not None:
             try:
-                scheduler.load_state_dict(
-                    blob.get("scheduler_state_dict", blob.get("scheduler", {}))
-                )
+                scheduler_state = blob.get("scheduler_state_dict", blob.get("scheduler"))
+                if resume_training and not isinstance(scheduler_state, dict):
+                    raise TypeError("checkpoint is missing scheduler state")
+                scheduler.load_state_dict(scheduler_state or {})
             except Exception as exc:
+                if resume_training:
+                    raise CheckpointCompatibilityError(
+                        f"Scheduler state cannot be resumed exactly from {ckpt}"
+                    ) from exc
                 logger.warning("Scheduler state restore failed from %s: %s", ckpt, exc)
         if mp_trainer is not None:
             try:
                 scaler_state = blob.get("scaler_state_dict", blob.get("scaler"))
-                if scaler_state:
+                if resume_training and scaler_state is None:
+                    raise TypeError("checkpoint is missing mixed-precision state")
+                if scaler_state is not None:
                     mp_trainer.load_state_dict(scaler_state)
             except Exception as exc:
+                if resume_training:
+                    raise CheckpointCompatibilityError(
+                        f"Mixed-precision state cannot be resumed exactly from {ckpt}"
+                    ) from exc
                 logger.warning("Mixed-precision scaler restore failed from %s: %s", ckpt, exc)
+        if resume_training:
+            try:
+                state["rng_restore"] = restore_rng_states(
+                    blob.get("rng_states"),
+                    data_generator=data_generator,
+                )
+            except Exception as exc:
+                raise CheckpointCompatibilityError(
+                    f"RNG state cannot be resumed exactly from {ckpt}"
+                ) from exc
         state["global_step"] = int(blob.get("global_step", blob.get("step", 0)))
         state["epoch"] = int(blob.get("epoch", 0))
         state["best_loss"] = float(blob.get("best_loss", float("inf")))
@@ -1156,6 +1189,7 @@ def load_checkpoint(
         state["validation_history"] = list(blob.get("validation_history", []))
         state["appended_row_optimizer_steps"] = int(blob.get("appended_row_optimizer_steps", 0))
         state["raw_window_consumption"] = dict(blob.get("raw_window_consumption", {}))
+        state["data_sampler_state"] = dict(blob.get("data_sampler_state", {}))
         state["data_manifests"] = dict(
             blob.get("data_manifests", blob.get("dataset_manifest_hashes", {}))
         )

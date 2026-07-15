@@ -9,18 +9,18 @@ from evaluation.thirdeye_adapter import (
     run_one_click,
 )
 from scripts.show_thirdeye_summary import render_summary
-from training.v2_runtime import build_frontier_model, model_summary
+from training.v2_runtime import build_model_for_profile, model_summary
 
 
 def test_reference_model_and_activation_probes() -> None:
-    model = build_frontier_model()
+    model = build_model_for_profile("anra-v4-180m")
 
-    assert 450_000_000 <= model_summary(model)["parameters"] <= 600_000_000
+    assert model_summary(model)["parameters"] == 181_132_071
     snapshot = activation_snapshot(model)
     assert snapshot["anra.esv"] is True
-    assert snapshot["anra.rim"] is True
-    assert snapshot["anra.dstp"] is True
-    assert snapshot["anra.hal"] is True
+    assert snapshot["anra.rim"] is False
+    assert snapshot["anra.dstp"] is False
+    assert snapshot["anra.hal"] is False
 
 
 def test_feature_registry_is_hierarchical() -> None:

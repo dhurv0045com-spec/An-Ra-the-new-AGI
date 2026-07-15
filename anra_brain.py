@@ -1,9 +1,8 @@
 """An-Ra mainline model and tokenizer definitions.
 
-Canonical exports:
-- CausalTransformer          -> V2 mainline decoder
-- CausalTransformerV2        -> explicit V2 class name
-- CharTokenizer             -> legacy char tokenizer (kept for compatibility)
+Canonical implementation: the An-Ra V4 decoder used by the sole active model
+profile. Historical Python aliases remain import-compatible but are not
+selectable model profiles.
 """
 
 from __future__ import annotations
@@ -29,6 +28,8 @@ try:
 except Exception:  # pragma: no cover - HAL is optional for old runtimes.
     HALModule = None
 from tokenizer.char_tokenizer import CharTokenizer  # noqa: F401 - compatibility export
+
+ANRA_V4_ARCHITECTURE_VERSION = "anra_v4_rope_interleaved_v1"
 
 
 @contextmanager
@@ -81,6 +82,10 @@ class RotaryEmbedding(nn.Module):
         self, dim: int, base: int = 10000, base_seq_len: int = 512, target_seq_len: int = 2048
     ) -> None:
         super().__init__()
+        if dim <= 0 or dim % 2:
+            raise ValueError("RoPE head dimension must be a positive even integer")
+        if base <= 1 or base_seq_len <= 0 or target_seq_len <= 0:
+            raise ValueError("RoPE base and sequence lengths must be positive")
         self.dim = dim
         self.base = base
         self.base_seq_len = base_seq_len
@@ -117,7 +122,10 @@ class RotaryEmbedding(nn.Module):
             return
         positions = torch.arange(seq_len, device=device, dtype=self.inv_freq.dtype)
         freqs = torch.outer(positions, self.inv_freq.to(device))
-        emb = torch.cat([freqs, freqs], dim=-1)
+        # _rotate_half rotates adjacent pairs (0,1), (2,3), ...; therefore
+        # each pair must receive the same phase. Concatenating the frequency
+        # vector would pair different phases and corrupt the rotary geometry.
+        emb = torch.repeat_interleave(freqs, 2, dim=-1)
         self._cached_cos = emb.cos()[None, None, :, :].to(dtype=dtype)
         self._cached_sin = emb.sin()[None, None, :, :].to(dtype=dtype)
         self._cached_seq_len = seq_len
@@ -148,6 +156,7 @@ class MultiHeadAttentionV2(nn.Module):
         dropout: float = 0.0,
         base_seq_len: int = 512,
         target_seq_len: int = 2048,
+        rope_base: int = 10_000,
         use_qk_norm: bool = False,
         sliding_window: int | None = None,
     ) -> None:
@@ -156,9 +165,10 @@ class MultiHeadAttentionV2(nn.Module):
             raise ValueError(f"n_embd={n_embd} must be divisible by n_head={n_head}")
         self.n_head = n_head
         self.n_kv_head = n_kv_head if n_kv_head is not None else n_head
-        assert self.n_head % self.n_kv_head == 0, (
-            f"n_head={n_head} must be divisible by n_kv_head={self.n_kv_head}"
-        )
+        if self.n_kv_head <= 0 or self.n_head % self.n_kv_head != 0:
+            raise ValueError(
+                f"n_head={n_head} must be divisible by positive n_kv_head={self.n_kv_head}"
+            )
         self.head_dim = n_embd // n_head
         self.groups = self.n_head // self.n_kv_head
         self.use_qk_norm = bool(use_qk_norm)
@@ -171,7 +181,10 @@ class MultiHeadAttentionV2(nn.Module):
         self.v_proj = nn.Linear(n_embd, self.n_kv_head * self.head_dim, bias=False)
         self.out_proj = nn.Linear(n_embd, n_embd, bias=False)
         self.rope = RotaryEmbedding(
-            self.head_dim, base_seq_len=base_seq_len, target_seq_len=target_seq_len
+            self.head_dim,
+            base=rope_base,
+            base_seq_len=base_seq_len,
+            target_seq_len=target_seq_len,
         )
         self.dropout = dropout
         self._kv_cache: dict[str, torch.Tensor | int] | None = None
@@ -201,7 +214,7 @@ class MultiHeadAttentionV2(nn.Module):
         if attention_temperature is not None:
             temperature = torch.as_tensor(
                 attention_temperature, dtype=q.dtype, device=q.device
-            ).clamp_min(0.25)
+            ).clamp(0.5, 2.0)
             q = q / temperature
 
         bound = torch.as_tensor(self.lba_bound, dtype=q.dtype, device=q.device)
@@ -477,13 +490,17 @@ class BlockV2(nn.Module):
         dropout: float = 0.0,
         base_seq_len: int = 512,
         target_seq_len: int = 2048,
+        rope_base: int = 10_000,
+        d_ff: int | None = None,
         use_qk_norm: bool = False,
         sliding_window: int | None = None,
         use_moe: bool = False,
     ) -> None:
         super().__init__()
-        hidden_dim = int(8 / 3 * n_embd)
+        hidden_dim = int(d_ff) if d_ff is not None else int(8 / 3 * n_embd)
         hidden_dim = (hidden_dim + 63) // 64 * 64
+        if hidden_dim <= 0:
+            raise ValueError("SwiGLU hidden dimension must be positive")
         self.norm_1 = RMSNorm(n_embd, eps=eps)
         self.attn = MultiHeadAttentionV2(
             n_embd,
@@ -492,6 +509,7 @@ class BlockV2(nn.Module):
             dropout=dropout,
             base_seq_len=base_seq_len,
             target_seq_len=target_seq_len,
+            rope_base=rope_base,
             use_qk_norm=use_qk_norm,
             sliding_window=sliding_window,
         )
@@ -518,8 +536,10 @@ class BlockV2(nn.Module):
         return x + residual_scale * self.mlp(self.norm_2(x))
 
 
-@MODEL_REGISTRY.register("causal_transformer_v3")
-@MODEL_REGISTRY.register("causal_transformer_v2")
+@MODEL_REGISTRY.register(
+    "causal_transformer_v4",
+    aliases=("causal_transformer_v2", "causal_transformer_v3"),
+)
 class CausalTransformerV2(nn.Module):
     def __init__(
         self,
@@ -532,6 +552,8 @@ class CausalTransformerV2(nn.Module):
         n_kv_head: int | None = None,
         rms_norm_eps: float = 1e-5,
         dropout: float = 0.0,
+        d_ff: int | None = None,
+        rope_base: int = 10_000,
         mod_layers: Iterable[int] = (),
         base_seq_len: int = 512,
         target_seq_len: int = 2048,
@@ -553,6 +575,7 @@ class CausalTransformerV2(nn.Module):
         if not 0 <= pad_token_id < vocab_size:
             raise ValueError(f"pad_token_id={pad_token_id} must be within vocab_size={vocab_size}")
         self.vocab_size = vocab_size
+        self.architecture_version = ANRA_V4_ARCHITECTURE_VERSION
         self.pad_token_id = int(pad_token_id)
         self.n_embd = n_embd
         self.d_model = n_embd
@@ -560,6 +583,13 @@ class CausalTransformerV2(nn.Module):
         self.n_kv_head = n_kv_head if n_kv_head is not None else n_head
         self.n_layer = n_layer
         self.block_size = block_size
+        self.rms_norm_eps = float(rms_norm_eps)
+        self.dropout = float(dropout)
+        derived_d_ff = (int(8 / 3 * n_embd) + 63) // 64 * 64
+        self.d_ff = int(d_ff) if d_ff is not None else derived_d_ff
+        if self.d_ff <= 0 or self.d_ff % 64 != 0:
+            raise ValueError("d_ff must be positive and divisible by 64")
+        self.rope_base = int(rope_base)
         self.mod_layers = tuple(sorted(mod_layers))
         self.base_seq_len = base_seq_len
         self.target_seq_len = target_seq_len
@@ -581,6 +611,9 @@ class CausalTransformerV2(nn.Module):
         self.use_mod = True
         self.use_esv_control = True
         self.use_residual_depth = True
+        # Native modules are pilot-capable, not implicitly approved. Training
+        # records the exact recipe that a checkpoint has actually optimized.
+        self.approved_subsystems: tuple[str, ...] = ()
         self._runtime_civ_similarity = 1.0
         self._subsystem_execution = {
             "mod": 0,
@@ -609,6 +642,8 @@ class CausalTransformerV2(nn.Module):
                     dropout=dropout,
                     base_seq_len=base_seq_len,
                     target_seq_len=target_seq_len,
+                    rope_base=self.rope_base,
+                    d_ff=self.d_ff,
                     use_qk_norm=self.use_qk_norm,
                     sliding_window=(
                         None
@@ -664,11 +699,10 @@ class CausalTransformerV2(nn.Module):
         )
         self.residual_depth_logits = nn.Parameter(torch.zeros(n_layer))
         if self.use_dstp:
-            layer = torch.arange(n_layer, dtype=torch.float32)
-            denom = max(1, n_layer - 1)
-            initial_temperatures = (
-                0.65 + (1.35 - 0.65) * (1.0 + torch.cos(math.pi * layer / denom)) / 2.0
-            )
+            # Native controls enter a trained dense backbone without changing
+            # its function. Per-layer temperature structure must be learned,
+            # not imposed as an unverified depth schedule at activation time.
+            initial_temperatures = torch.ones(n_layer, dtype=torch.float32)
             self.dstp_temperature_log = nn.Parameter(initial_temperatures.log())
             self.register_buffer(
                 "dstp_temperature_initial",
@@ -696,15 +730,21 @@ class CausalTransformerV2(nn.Module):
         elif isinstance(module, nn.Embedding):
             nn.init.normal_(module.weight, mean=0.0, std=0.02)
 
-    def model_config(self) -> dict[str, int | float | bool | str]:
+    def model_config(self) -> dict[str, object]:
         return {
+            "architecture_version": self.architecture_version,
             "vocab_size": self.vocab_size,
             "pad_token_id": self.pad_token_id,
             "n_embd": self.n_embd,
             "n_head": self.n_head,
             "n_layer": self.n_layer,
             "block_size": self.block_size,
+            "rms_norm_eps": self.rms_norm_eps,
+            "dropout": self.dropout,
+            "d_ff": self.d_ff,
+            "rope_base": self.rope_base,
             "n_kv_head": self.n_kv_head,
+            "mod_layers": self.mod_layers,
             "base_seq_len": self.base_seq_len,
             "target_seq_len": self.target_seq_len,
             "use_layer_temperature_bias": self.use_layer_temperature_bias,
@@ -723,6 +763,7 @@ class CausalTransformerV2(nn.Module):
             "use_moe": self.use_moe,
             "moe_routed_experts": 8 if self.use_moe else 0,
             "moe_top_k": 2 if self.use_moe else 0,
+            "approved_subsystems": list(self.approved_subsystems),
             "initialization_scheme": self.initialization_scheme,
         }
 
@@ -761,14 +802,12 @@ class CausalTransformerV2(nn.Module):
             "use_hal": self.use_hal,
             "use_layer_temperature_bias": self.use_layer_temperature_bias,
         }
-        native_enabled = mode != "diagnostic"
-        self.use_mod = native_enabled
-        self.use_rim = native_enabled
-        self.use_dstp = native_enabled
-        self.use_esv_control = native_enabled
-        self.use_residual_depth = native_enabled
-        self.use_layer_temperature_bias = native_enabled
-        self.use_hal = mode == "full_system" and hasattr(self, "hal_module")
+        enabled = set(self.approved_subsystems) if mode != "diagnostic" else set()
+        self._set_subsystem_activation(enabled)
+        # HAL remains an external, evidence-driven runtime controller. It may
+        # influence bounded sampling/memory policy, but an untrained heuristic
+        # must never perturb the transformer's attention activations.
+        self.use_hal = False
         return previous
 
     def restore_runtime_mode(self, state: dict[str, bool]) -> None:
@@ -807,28 +846,36 @@ class CausalTransformerV2(nn.Module):
         for attribute in controls[name]:
             setattr(self, attribute, False)
 
-    def configure_subsystems(self, enabled: Iterable[str]) -> dict[str, bool]:
-        """Apply an explicit, reproducible native-subsystem activation policy."""
-        requested = {str(name).strip().lower() for name in enabled}
-        known = {"mod", "rim", "dstp", "esv", "hal"}
-        unknown = requested - known
-        if unknown:
-            raise ValueError(f"unknown native subsystems: {sorted(unknown)}")
-        if "hal" in requested and not hasattr(self, "hal_module"):
-            raise ValueError("HAL was requested but no HAL module is available")
+    def _set_subsystem_activation(self, requested: set[str]) -> None:
         self.use_mod = "mod" in requested
         self.use_rim = "rim" in requested
         self.use_dstp = "dstp" in requested
         self.use_residual_depth = "dstp" in requested
         self.use_layer_temperature_bias = "dstp" in requested
         self.use_esv_control = "esv" in requested
-        self.use_hal = "hal" in requested
+        self.use_hal = False
+
+    def configure_subsystems(
+        self,
+        enabled: Iterable[str],
+        *,
+        approve: bool = True,
+    ) -> dict[str, bool]:
+        """Apply and optionally record an explicit trained subsystem recipe."""
+        requested = {str(name).strip().lower() for name in enabled}
+        known = {"mod", "rim", "dstp", "esv"}
+        unknown = requested - known
+        if unknown:
+            raise ValueError(f"unknown native subsystems: {sorted(unknown)}")
+        self._set_subsystem_activation(requested)
+        if approve:
+            self.approved_subsystems = tuple(sorted(requested))
         return {
             "mod": self.use_mod,
             "rim": self.use_rim,
             "dstp": self.use_dstp,
             "esv": self.use_esv_control,
-            "hal": self.use_hal,
+            "hal": False,
         }
 
     def _residual_scale(self, layer_idx: int) -> torch.Tensor | float:
@@ -1316,6 +1363,7 @@ class CausalTransformerV2(nn.Module):
 
 
 CausalTransformer = CausalTransformerV2
+CausalTransformerV4 = CausalTransformerV2
 CausalTransformerV3 = CausalTransformerV2
 BlockV3 = BlockV2
 MultiHeadAttentionV3 = MultiHeadAttentionV2

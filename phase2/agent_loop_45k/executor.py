@@ -34,12 +34,8 @@ logger = logging.getLogger(__name__)
 
 # ── LLM Bridge (singleton, loaded once by system.py) ──────────────────────────
 def _get_llm():
-    """Lazy accessor for the global LLMBridge singleton."""
-    try:
-        from phase2.master_system_45m.llm_bridge import get_llm_bridge
-        return get_llm_bridge()
-    except Exception:
-        return None
+    """No implicit model bridge: agent execution is deterministic until injected."""
+    return None
 
 
 def _deterministic_tool_input(tool_name: str, instruction: str, step: "Step") -> str:

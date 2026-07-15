@@ -1,14 +1,14 @@
 from __future__ import annotations
 
-# AN-RA iterate500 branch:
-# "frontier" is the only public training profile.
-# It is the 500M-class experiment model; schema 7 has 499,167,075 parameters:
-# 1280d, 28L, 16 attention heads, 4 KV heads, 1024 context, HAL enabled.
+# Canonical An-Ra V4 training contract. Historical constants below exist only
+# for forensic readers; MODEL_SIZES exposes exactly one supported profile.
 from dataclasses import dataclass
 
-MODEL_LINE = "v2"
-TOKENIZER_SCHEMA_VERSION = 3
-CHECKPOINT_SCHEMA_VERSION = 7
+from training.reproducibility import CANONICAL_TRAINING_SEED
+
+MODEL_LINE = "v4"
+TOKENIZER_SCHEMA_VERSION = 4
+CHECKPOINT_SCHEMA_VERSION = 9
 LEGACY_V2_FRONTIER_PARAMETER_COUNT = 499_167_047
 V2_FRONTIER_PARAMETER_COUNT = 499_167_075
 V2_FRONTIER_TRANSFORMER_PARAMETER_COUNT = 496_857_600
@@ -51,22 +51,21 @@ DFC_SPECIAL_TOKENS = [
 ]
 CANONICAL_SPECIAL_TOKENS = BASE_SPECIAL_TOKENS + DFC_SPECIAL_TOKENS
 CANONICAL_VOCAB_SIZE = BASE_VOCAB_SIZE + len(DFC_SPECIAL_TOKENS)
-# V4 append-only growth ceilings. 16,384 is the in-session-proven fallback
-# (MASTER_UPGRADE fallback route: "V4-32k blocked => V4-16k append => >=1.2x").
-# 32,768 is the canonical V4 ceiling (Layer 3): candidates come from the >=50MB
-# campaign corpus, IDs 0-8208 immutable, byte + reserved multimodal/control IDs.
-TOKENIZER_V4_VOCAB_SIZE = 16_384
+# V4 has one vocabulary contract. Historical V3/16k construction paths are
+# deliberately absent from supported configuration.
 TOKENIZER_V4_32K_VOCAB_SIZE = 32_768
 CANONICAL_V4_VOCAB_SIZE = TOKENIZER_V4_32K_VOCAB_SIZE
-V4_VOCAB_SIZES = (TOKENIZER_V4_VOCAB_SIZE, TOKENIZER_V4_32K_VOCAB_SIZE)
-V2_FRONTIER_V4_PARAMETER_COUNT = 509_631_075
 # 499,167,075 + (32,768 - 8,209) * 1,280 (tied-embedding append contract).
 V2_FRONTIER_V4_32K_PARAMETER_COUNT = 530_602_595
+CANONICAL_MODEL_PROFILE = "anra-v4-180m"
+ANRA_V4_MODEL_PARAMETER_COUNT = 181_132_071
+CANONICAL_FOUNDATION_OPTIMIZER = "adamw"
+CANONICAL_FOUNDATION_SCHEDULE = "cosine_with_warmup_v1"
 
 
 def is_v4_vocab_size(vocab_size: int) -> bool:
-    """True when the size is one of the sanctioned append-only V4 ceilings."""
-    return int(vocab_size) in V4_VOCAB_SIZES
+    """True only for the canonical V4 vocabulary."""
+    return int(vocab_size) == CANONICAL_V4_VOCAB_SIZE
 CANONICAL_SPECIAL_TOKEN_IDS = {
     **{token: index for index, token in enumerate(BASE_SPECIAL_TOKENS)},
     **{token: BASE_VOCAB_SIZE + index for index, token in enumerate(DFC_SPECIAL_TOKENS)},
@@ -84,6 +83,8 @@ class V2ModelConfig:
     block_size: int = 512
     rms_norm_eps: float = 1e-5
     dropout: float = 0.0
+    d_ff: int | None = None
+    rope_base: int = 10_000
     mod_layers: tuple = (2, 4, 6)
     base_seq_len: int = 512
     target_seq_len: int = 2048
@@ -91,6 +92,24 @@ class V2ModelConfig:
     use_qk_norm: bool = True
     sliding_window: int = 1024
     full_attention_every: int = 4
+
+    def __post_init__(self) -> None:
+        if self.vocab_size <= 0 or self.n_embd <= 0 or self.n_layer <= 0:
+            raise ValueError("model vocabulary, width, and depth must be positive")
+        if self.n_head <= 0 or self.n_embd % self.n_head != 0:
+            raise ValueError("n_embd must be divisible by positive n_head")
+        if self.n_kv_head <= 0 or self.n_head % self.n_kv_head != 0:
+            raise ValueError("n_head must be divisible by positive n_kv_head")
+        if (self.n_embd // self.n_head) % 2:
+            raise ValueError("attention head dimension must be even for RoPE")
+        if self.d_ff is not None and (self.d_ff <= 0 or self.d_ff % 64 != 0):
+            raise ValueError("d_ff must be positive and divisible by 64")
+        if self.block_size <= 0 or self.base_seq_len <= 0 or self.target_seq_len <= 0:
+            raise ValueError("context lengths must be positive")
+        if len(set(self.mod_layers)) != len(self.mod_layers) or any(
+            layer < 0 or layer >= self.n_layer for layer in self.mod_layers
+        ):
+            raise ValueError("mod_layers must be unique zero-based layer indices")
 
 
 @dataclass(frozen=True)
@@ -134,7 +153,7 @@ class V2Pilot50ModelConfig(V2ModelConfig):
 
 @dataclass(frozen=True)
 class V2Pilot150ModelConfig(V2ModelConfig):
-    """Approximately 160M parameters: canonical three-seed pilot scale."""
+    """Historical 160M geometry retained for forensic configuration parsing."""
 
     n_embd: int = 896
     n_layer: int = 18
@@ -148,9 +167,28 @@ class V2Pilot150ModelConfig(V2ModelConfig):
 
 
 @dataclass(frozen=True)
+class AnRaV4ModelConfig(V2ModelConfig):
+    """The sole active model: 181M parameters, optimized for one T4 session."""
+
+    vocab_size: int = CANONICAL_V4_VOCAB_SIZE
+    n_embd: int = 896
+    n_layer: int = 18
+    n_head: int = 14
+    n_kv_head: int = 2
+    d_ff: int = 2432
+    block_size: int = 2048
+    mod_layers: tuple = (4, 6, 8, 10, 12, 14, 16)
+    base_seq_len: int = 2048
+    target_seq_len: int = 2048
+    use_hal: bool = False
+
+
+@dataclass(frozen=True)
 class V2TrainingConfig:
     batch_size: int = 32
     grad_accum_steps: int = 8
+    max_grad_norm: float = 1.0
+    verified_process_multiplier: float = 1.25
     session_minutes: int = 30
     answer_loss_weight: float = 1.75
     logit_z_loss_weight: float = 1e-4
@@ -223,6 +261,16 @@ class V2Pilot150TrainingConfig(V2TrainingConfig):
     gradient_checkpointing: bool = True
 
 
+@dataclass(frozen=True)
+class AnRaV4TrainingConfig(V2Pilot150TrainingConfig):
+    """Canonical V4 training settings for seed 1301."""
+
+    batch_size: int = 1
+    grad_accum_steps: int = 32
+    seed: int = CANONICAL_TRAINING_SEED
+    optimizer: str = CANONICAL_FOUNDATION_OPTIMIZER
+
+
 V2_MODEL = V2ModelConfig()
 V2_FRONTIER = V2FrontierModelConfig()
 V2_PILOT_50M = V2Pilot50ModelConfig()
@@ -231,11 +279,13 @@ V2_TRAINING = V2TrainingConfig()
 V2_FRONTIER_TRAINING = V2FrontierTrainingConfig()
 V2_PILOT_50M_TRAINING = V2Pilot50TrainingConfig()
 V2_PILOT_150M_TRAINING = V2Pilot150TrainingConfig()
+ANRA_V4_MODEL = AnRaV4ModelConfig()
+ANRA_V4_TRAINING = AnRaV4TrainingConfig()
 # Backward-compatible aliases for older imports. On iterate500 these point to
 # the 500M-class frontier config, not a 1B model.
 V2_1B_FRONTIER = V2_FRONTIER
 V2_1B_TRAINING = V2_FRONTIER_TRAINING
-EXPECTED_TOKENIZER_VOCAB_SIZE = CANONICAL_VOCAB_SIZE
+EXPECTED_TOKENIZER_VOCAB_SIZE = CANONICAL_V4_VOCAB_SIZE
 EXPECTED_PAD_TOKEN_ID = CANONICAL_PAD_TOKEN_ID
 EXPECTED_SPECIAL_TOKENS = CANONICAL_SPECIAL_TOKENS
 EXPECTED_SPECIAL_TOKEN_IDS = CANONICAL_SPECIAL_TOKEN_IDS
@@ -249,7 +299,6 @@ def frontier_parameter_count(vocab_size: int = CANONICAL_VOCAB_SIZE) -> int:
         V2_FRONTIER_PARAMETER_COUNT + (int(vocab_size) - CANONICAL_VOCAB_SIZE) * V2_FRONTIER.n_embd
     )
     pinned_v4_counts = {
-        TOKENIZER_V4_VOCAB_SIZE: V2_FRONTIER_V4_PARAMETER_COUNT,
         TOKENIZER_V4_32K_VOCAB_SIZE: V2_FRONTIER_V4_32K_PARAMETER_COUNT,
     }
     expected = pinned_v4_counts.get(int(vocab_size))
@@ -274,7 +323,7 @@ def model_parameter_count(
     layers = int(config.n_layer)
     head_dim = width // int(config.n_head)
     kv_width = int(config.n_kv_head) * head_dim
-    hidden = ((int(8 / 3 * width) + 63) // 64) * 64
+    hidden = int(config.d_ff or ((int(8 / 3 * width) + 63) // 64) * 64)
     per_block = (
         2 * width
         + width * width
@@ -362,11 +411,7 @@ V2_REPORT_FILES = {
 }
 
 
-MODEL_SIZES = {
-    "frontier": (V2_FRONTIER, V2_FRONTIER_TRAINING),
-    "pilot-50m": (V2_PILOT_50M, V2_PILOT_50M_TRAINING),
-    "pilot-150m": (V2_PILOT_150M, V2_PILOT_150M_TRAINING),
-}
+MODEL_SIZES = {CANONICAL_MODEL_PROFILE: (ANRA_V4_MODEL, ANRA_V4_TRAINING)}
 MODEL_PROFILES = MODEL_SIZES
 
 

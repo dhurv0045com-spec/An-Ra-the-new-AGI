@@ -22,19 +22,15 @@ OPERATOR_AUDIT_LOG = STATE_DIR / "logs" / "operator_actions.jsonl"
 DOCS_DIR = ROOT / "docs"
 ENGINEERING_LOG_FILE = DOCS_DIR / "engineering" / "ENGINEERING_LOG.md"
 ENGINEERING_LOG_STANDARD = DOCS_DIR / "engineering" / "LOG_STANDARD.md"
-MASTER_GOALS_FILE = DOCS_DIR / "planning" / "MASTER_GOALS.md"
+V4_ARCHITECTURE_GATE_FILE = DOCS_DIR / "engineering" / "V4_ARCHITECTURE_GATE.md"
 
 PHASE2_DIR = ROOT / "phase2"
 AGENT_LOOP_DIR = PHASE2_DIR / "agent_loop_45k"
 FINE_TUNING_DIR = PHASE2_DIR / "fine_tuning_45i"
-MEMORY_DIR = PHASE2_DIR / "memory_45j"
-SELF_IMPROVEMENT_DIR = PHASE2_DIR / "self_improvement_45l"
-MASTER_SYSTEM_DIR = PHASE2_DIR / "master_system_45m"
 
 PHASE3_DIR = ROOT / "phase3"
 IDENTITY_DIR = PHASE3_DIR / "identity_45n"
 OUROBOROS_DIR = PHASE3_DIR / "ouroboros_45o"
-GHOST_MEMORY_DIR = PHASE3_DIR / "ghost_memory_45p"
 SYMBOLIC_BRIDGE_DIR = PHASE3_DIR / "symbolic_bridge_45q"
 SOVEREIGNTY_DIR = PHASE3_DIR / "sovereignty_45r"
 
@@ -58,7 +54,7 @@ MERGED_DATA_DIR = Path("/content/anra_merged_data")
 # Block 2 additions
 DRIVE_MANIFEST = DRIVE_DIR / "manifest.json"
 DRIVE_AUDIT_LOG = DRIVE_LOGS / "audit.log"
-DRIVE_GHOST_DB = DRIVE_MEMORY / "ghost_memory.sqlite3"
+DRIVE_MEMORY_JOURNAL = DRIVE_MEMORY / "memory_journal.jsonl"
 DRIVE_FAISS_INDEX = DRIVE_MEMORY / "episodic.faiss"
 DRIVE_GRAPH_NODES = DRIVE_MEMORY / "graph_nodes.json"
 DRIVE_GRAPH_EDGES = DRIVE_MEMORY / "graph_edges.json"
@@ -91,13 +87,11 @@ REASONING_JSONL_FILE = TRAINING_DATA_DIR / "reasoning.jsonl"
 
 DATASET_CANONICAL = TRAINING_DATA_DIR / "anra_training.txt"
 DATASET = DATASET_CANONICAL
-GHOST_DB_LOCAL = MEMORY_DIR_LOCAL / "ghost_memory.sqlite3"
 FAISS_INDEX_LOCAL = MEMORY_DIR_LOCAL / "episodic.faiss"
 REGRET_STATE = DRIVE_V3_DIR / "training" / "regret_state.json"
 CIV_WATCHER_STATE = DRIVE_V3_DIR / "identity" / "civ_watcher_state.json"
 
 OUTPUT_V2_DIR = ROOT / "output" / "v2"
-OUTPUT_V3_DIR = ROOT / "output" / "v3"
 METRICS_DIR = OUTPUT_V2_DIR / "metrics"
 IBS_DIR = OUTPUT_V2_DIR / "ibs"
 RELEASES_DIR = OUTPUT_V2_DIR / "releases"
@@ -116,7 +110,7 @@ CIV_LATEST = OUTPUT_V2_DIR / "civ_latest.json"
 MEMORY_PROFILE_FRONTIER = PROFILE_DIR / "memory_profile_frontier.json"
 MODEL_GROWTH_REPORT = OUTPUT_V2_DIR / "model_growth_frontier.json"
 TOKEN_INVENTORY_MANIFEST = DATA_MANIFEST_DIR / "token_inventory.json"
-TOKENIZER_MANIFEST = DATA_MANIFEST_DIR / "tokenizer_v3.json"
+TOKENIZER_MANIFEST = DATA_MANIFEST_DIR / "tokenizer_v4_32k.manifest.json"
 PROMOTED_RELEASE_MANIFEST = RELEASES_DIR / "current.json"
 ACTIVE_RELEASE_MANIFEST = DRIVE_V2_DIR / "active_release.json"
 SSG_AUDIT_LOG = STATE_DIR / "logs" / "ssg_audit.jsonl"
@@ -126,18 +120,18 @@ DEPLOYMENT_BOUNDARY_REPORT = OUTPUT_V2_DIR / "deployment_boundary_tests.json"
 SCORECARD_DIR = OUTPUT_V2_DIR / "scorecards"
 DRIVE_SCORECARD = DRIVE_LOGS / "scorecards"
 V2_BRAIN_CHECKPOINT = ROOT / "anra_v2_brain.pt"
-FRONTIER_CHECKPOINT = ROOT / "anra_frontier_500m.pt"
+LEGACY_500M_CHECKPOINT = ROOT / "anra_frontier_500m.pt"
+ANRA_V4_CHECKPOINT = ROOT / "anra_v4_180m.pt"
 V2_IDENTITY_CHECKPOINT = ROOT / "anra_v2_identity.pt"
 V2_OUROBOROS_CHECKPOINT = ROOT / "anra_v2_ouroboros.pt"
-V3_TOKENIZER_FILE = TOKENIZER_DIR / "tokenizer_v3.json"
-V2_TOKENIZER_FILE = V3_TOKENIZER_FILE
+V4_TOKENIZER_FILE = TOKENIZER_DIR / "tokenizer_v4_32k.json"
+V2_TOKENIZER_FILE = V4_TOKENIZER_FILE
 
 REQUIRED_DIRS = [
     STATE_DIR,
     OUTPUT_DIR / "checkpoints",
     OUTPUT_DIR / "logs",
     OUTPUT_V2_DIR,
-    OUTPUT_V3_DIR,
     METRICS_DIR,
     IBS_DIR,
     RELEASES_DIR,
@@ -317,24 +311,20 @@ def get_optimization_config() -> Path:
 
 
 def get_v2_tokenizer_file() -> Path:
-    candidates = [
-        V3_TOKENIZER_FILE,
-        ROOT / "tokenizer_v3.json",
-        DRIVE_V2_DIR / "tokenizer_v3.json",
-    ]
-    for c in candidates:
-        if c.exists():
-            return c
-    return V2_TOKENIZER_FILE
+    """Return the sole active tokenizer; legacy lookup is forbidden here."""
+    return V4_TOKENIZER_FILE
 
 
 def get_v2_checkpoint(kind: str = "brain") -> Path:
+    if kind == "brain":
+        return ANRA_V4_CHECKPOINT
     mapping = {
-        "brain": [V2_BRAIN_CHECKPOINT, DRIVE_V2_CHECKPOINTS / V2_BRAIN_CHECKPOINT.name],
         "identity": [V2_IDENTITY_CHECKPOINT, DRIVE_V2_CHECKPOINTS / V2_IDENTITY_CHECKPOINT.name],
         "ouroboros": [V2_OUROBOROS_CHECKPOINT, DRIVE_V2_CHECKPOINTS / V2_OUROBOROS_CHECKPOINT.name],
     }
-    candidates = mapping.get(kind, mapping["brain"])
+    if kind not in mapping:
+        raise ValueError(f"Unsupported legacy checkpoint kind: {kind}")
+    candidates = mapping[kind]
     for c in candidates:
         if c.exists():
             return c
@@ -361,14 +351,10 @@ class PathRegistry:
     WORKSPACE_DIR = WORKSPACE_DIR
     PHASE2_DIR = PHASE2_DIR
     FINE_TUNING_DIR = FINE_TUNING_DIR
-    MEMORY_DIR = MEMORY_DIR
     AGENT_LOOP_DIR = AGENT_LOOP_DIR
-    SELF_IMPROVEMENT_DIR = SELF_IMPROVEMENT_DIR
-    MASTER_SYSTEM_DIR = MASTER_SYSTEM_DIR
     PHASE3_DIR = PHASE3_DIR
     IDENTITY_DIR = IDENTITY_DIR
     OUROBOROS_DIR = OUROBOROS_DIR
-    GHOST_MEMORY_DIR = GHOST_MEMORY_DIR
     SYMBOLIC_BRIDGE_DIR = SYMBOLIC_BRIDGE_DIR
     SOVEREIGNTY_DIR = SOVEREIGNTY_DIR
     DRIVE_DIR = DRIVE_DIR
@@ -395,7 +381,7 @@ class PathRegistry:
     DRIVE_V3_DIR = DRIVE_V3_DIR
     DRIVE_MANIFEST = DRIVE_MANIFEST
     DRIVE_AUDIT_LOG = DRIVE_AUDIT_LOG
-    DRIVE_GHOST_DB = DRIVE_GHOST_DB
+    DRIVE_MEMORY_JOURNAL = DRIVE_MEMORY_JOURNAL
     DRIVE_FAISS_INDEX = DRIVE_FAISS_INDEX
     DRIVE_GRAPH_NODES = DRIVE_GRAPH_NODES
     DRIVE_GRAPH_EDGES = DRIVE_GRAPH_EDGES
@@ -406,7 +392,6 @@ class PathRegistry:
     DATASET = DATASET
     DATASET_CANONICAL = DATASET_CANONICAL
     OUTPUT_V2_DIR = OUTPUT_V2_DIR
-    OUTPUT_V3_DIR = OUTPUT_V3_DIR
     METRICS_DIR = METRICS_DIR
     IBS_DIR = IBS_DIR
     RELEASES_DIR = RELEASES_DIR
@@ -432,7 +417,6 @@ class PathRegistry:
     SOVEREIGNTY_EVENTS = SOVEREIGNTY_EVENTS
     SCORECARD_DIR = SCORECARD_DIR
     DRIVE_SCORECARD = DRIVE_SCORECARD
-    GHOST_DB_LOCAL = GHOST_DB_LOCAL
     FAISS_INDEX_LOCAL = FAISS_INDEX_LOCAL
     REGRET_STATE = REGRET_STATE
     CIV_WATCHER_STATE = CIV_WATCHER_STATE
@@ -440,7 +424,7 @@ class PathRegistry:
     V2_IDENTITY_CHECKPOINT = V2_IDENTITY_CHECKPOINT
     V2_OUROBOROS_CHECKPOINT = V2_OUROBOROS_CHECKPOINT
     V2_TOKENIZER_FILE = V2_TOKENIZER_FILE
-    V3_TOKENIZER_FILE = V3_TOKENIZER_FILE
+    V4_TOKENIZER_FILE = V4_TOKENIZER_FILE
     WORKSPACE_DIR = WORKSPACE_DIR
     AGENT_WORKSPACE_DIR = AGENT_WORKSPACE_DIR
     ENGINEERING_DIR = ENGINEERING_DIR
@@ -448,4 +432,4 @@ class PathRegistry:
     DOCS_DIR = DOCS_DIR
     ENGINEERING_LOG_FILE = ENGINEERING_LOG_FILE
     ENGINEERING_LOG_STANDARD = ENGINEERING_LOG_STANDARD
-    MASTER_GOALS_FILE = MASTER_GOALS_FILE
+    V4_ARCHITECTURE_GATE_FILE = V4_ARCHITECTURE_GATE_FILE

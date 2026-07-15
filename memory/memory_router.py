@@ -9,7 +9,7 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
-from anra.anra_paths import DRIVE_FAISS_INDEX, DRIVE_GHOST_DB
+from anra.anra_paths import DRIVE_FAISS_INDEX, DRIVE_MEMORY_JOURNAL
 from engine.metric_bus import instrument
 from engine.telemetry import trace
 from retrieval.adapters import BM25RetrieverAdapter, VectorRetrieverAdapter
@@ -37,7 +37,7 @@ class MemoryWriteResult:
 class MemoryRouter:
     """Unified interface over memory tiers.
 
-    Tiers: episodic (faiss), ghost metadata, short-term cache, and graph placeholders.
+    Tiers: episodic (FAISS), durable journal, short-term cache, and graph placeholders.
     """
 
     def __init__(
@@ -58,7 +58,7 @@ class MemoryRouter:
         self.embedding_fn = embedding_fn
         self.short_term: list[dict] = []
         self.graph: dict[str, list[str]] = {}
-        self.ghost_db_path = Path(DRIVE_GHOST_DB)
+        self.journal_path = Path(DRIVE_MEMORY_JOURNAL)
         idx_path = Path(faiss_index_path) if faiss_index_path is not None else Path(DRIVE_FAISS_INDEX)
         from anra.memory.bm25 import BM25MemoryTier
 
@@ -290,10 +290,10 @@ class MemoryRouter:
             self.graph.setdefault(src, []).append(dst)
             return finish(MemoryWriteResult(tier=tier, record_id=record_id))
 
-        if tier == "ghost":
-            self.ghost_db_path.parent.mkdir(parents=True, exist_ok=True)
+        if tier == "journal":
+            self.journal_path.parent.mkdir(parents=True, exist_ok=True)
             row = {"record_id": record_id, "content": content, "metadata": metadata}
-            with self.ghost_db_path.open("a", encoding="utf-8") as f:
+            with self.journal_path.open("a", encoding="utf-8") as f:
                 f.write(json.dumps(row) + "\n")
             return finish(MemoryWriteResult(tier=tier, record_id=record_id))
 
@@ -326,12 +326,12 @@ class MemoryRouter:
             key = str(query)
             return finish([{"src": key, "dst": dst} for dst in self.graph.get(key, [])[:n]])
 
-        if tier == "ghost":
-            if not self.ghost_db_path.exists():
+        if tier == "journal":
+            if not self.journal_path.exists():
                 return finish([])
             q = str(query).lower()
             rows = []
-            for line in self.ghost_db_path.read_text(encoding="utf-8").splitlines():
+            for line in self.journal_path.read_text(encoding="utf-8").splitlines():
                 try:
                     row = json.loads(line)
                     if q in str(row.get("content", "")).lower():
@@ -402,10 +402,10 @@ class MemoryRouter:
         elif tier == "episodic":
             deleted = self.episodic.delete(record_id)
             deleted = self.bm25.delete_canonical(record_id) or deleted
-        elif tier == "ghost":
-            if self.ghost_db_path.exists():
+        elif tier == "journal":
+            if self.journal_path.exists():
                 kept: list[str] = []
-                for line in self.ghost_db_path.read_text(encoding="utf-8").splitlines():
+                for line in self.journal_path.read_text(encoding="utf-8").splitlines():
                     try:
                         row = json.loads(line)
                     except Exception:
@@ -416,7 +416,7 @@ class MemoryRouter:
                     else:
                         kept.append(line)
                 if deleted:
-                    self.ghost_db_path.write_text(
+                    self.journal_path.write_text(
                         ("\n".join(kept) + "\n") if kept else "",
                         encoding="utf-8",
                     )

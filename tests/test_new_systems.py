@@ -34,6 +34,23 @@ def test_hal_decay_moves_toward_baseline():
     assert post < pre, f"cortisol did not decay: {pre} -> {post}"
 
 
+def test_hal_ignores_social_attachment_signals():
+    from identity.hal import HALModule
+
+    hal = HALModule()
+    before = hal.state.hormones()
+    delta = hal.appraise(
+        session_context={
+            "unexpected_praise": True,
+            "user_personal_disclosure": True,
+            "user_defends_model": True,
+            "consecutive_sessions_same_user": True,
+        }
+    )
+    assert delta == {}
+    assert hal.state.hormones() == before
+
+
 def test_hal_adrenaline_cortisol_cascade():
     from identity.hal import HALModule
 

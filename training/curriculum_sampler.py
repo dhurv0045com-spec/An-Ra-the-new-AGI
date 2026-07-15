@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+import hashlib
 import math
-import random
 from collections.abc import Callable, Iterator, Sequence
 
 from torch.utils.data import Sampler
 
 CURRICULUMS = {"none", "code-before-prose", "math-density-ramp", "identity-mix-late"}
+SAMPLER_ALGORITHM = "counter_based_sha256_v1"
 
 
 def curriculum_multipliers(name: str, progress: float) -> dict[str, float]:
@@ -50,6 +51,7 @@ class ScheduledCurriculumSampler(Sampler[int]):
         curriculum: str,
         num_samples: int,
         seed: int,
+        start_position: int = 0,
         target_mass: dict[str, float] | None = None,
         multiplier_fn: Callable[[str, float], dict[str, float]] = curriculum_multipliers,
     ) -> None:
@@ -57,6 +59,9 @@ class ScheduledCurriculumSampler(Sampler[int]):
             raise ValueError("Scheduled sampler requires a registered curriculum")
         self.curriculum = curriculum
         self.num_samples = max(1, int(num_samples))
+        self.start_position = int(start_position)
+        if self.start_position < 0 or self.start_position > self.num_samples:
+            raise ValueError("start_position must be within the declared sample budget")
         self.seed = int(seed)
         self.multiplier_fn = multiplier_fn
         normalized = {
@@ -107,11 +112,31 @@ class ScheduledCurriculumSampler(Sampler[int]):
             }
 
     def __len__(self) -> int:
-        return self.num_samples
+        return self.num_samples - self.start_position
+
+    def state_dict(self, *, position: int | None = None) -> dict[str, object]:
+        cursor = self.start_position if position is None else int(position)
+        if cursor < 0 or cursor > self.num_samples:
+            raise ValueError("sampler cursor is outside its sample budget")
+        return {
+            "schema_version": 1,
+            "algorithm": SAMPLER_ALGORITHM,
+            "seed": self.seed,
+            "position": cursor,
+            "num_samples": self.num_samples,
+            "curriculum": self.curriculum,
+        }
+
+    def _counter_values(self, position: int) -> tuple[float, int]:
+        payload = f"{SAMPLER_ALGORITHM}:{self.seed}:{position}".encode("ascii")
+        digest = hashlib.sha256(payload).digest()
+        unit = int.from_bytes(digest[:8], "big") / float(2**64)
+        offset = int.from_bytes(digest[8:16], "big")
+        return unit, offset
 
     def __iter__(self) -> Iterator[int]:
-        rng = random.Random(self.seed)
-        for position in range(self.num_samples):
+        for position in range(self.start_position, self.num_samples):
+            unit, offset_key = self._counter_values(position)
             progress = position / max(1, self.num_samples - 1)
             modifiers = self.multiplier_fn(self.curriculum, progress)
             weights: list[float] = []
@@ -126,7 +151,7 @@ class ScheduledCurriculumSampler(Sampler[int]):
             total = sum(weights)
             if not math.isfinite(total) or total <= 0.0:
                 raise RuntimeError("curriculum schedule assigned zero mass to every source")
-            threshold = rng.random() * total
+            threshold = unit * total
             cumulative = 0.0
             selected = next(
                 name
@@ -138,7 +163,7 @@ class ScheduledCurriculumSampler(Sampler[int]):
                 if threshold < cumulative:
                     selected = name
                     break
-            offset = rng.randrange(self.bucket_counts[selected])
+            offset = offset_key % self.bucket_counts[selected]
             for start, stop in self.bucket_ranges[selected]:
                 width = stop - start
                 if offset < width:

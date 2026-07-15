@@ -19,7 +19,7 @@ if str(REPO_ROOT) not in sys.path:
 
 from anra.anra_paths import (  # noqa: E402 - direct-script path bootstrap
     DRIVE_DATA_DIR,
-    V3_TOKENIZER_FILE,
+    V4_TOKENIZER_FILE,
 )
 
 CACHE_SCHEMA_VERSION = 2
@@ -30,7 +30,7 @@ CACHE_FILES = (
     "teacher_reasoning_v2.jsonl",
 )
 MANIFEST_NAME = "colab_data_cache.json"
-TOKEN_SHARD_RELATIVE = Path("output") / "v2" / "data_manifests" / "native_foundation_v3"
+TOKEN_SHARD_RELATIVE = Path("output") / "v2" / "data_manifests" / "native_foundation_v4"
 
 
 def _profile_files(profile: str) -> tuple[str, ...]:
@@ -226,7 +226,7 @@ def main() -> int:
         / args.profile
         / args.tokenizer_tag
     )
-    tokenizer_path = Path(os.environ.get("ANRA_TOKENIZER_PATH", str(V3_TOKENIZER_FILE)))
+    tokenizer_path = Path(os.environ.get("ANRA_TOKENIZER_PATH", str(V4_TOKENIZER_FILE)))
     if not tokenizer_path.is_file():
         raise FileNotFoundError(f"Active tokenizer is missing: {tokenizer_path}")
     active_tokenizer_sha256 = _sha256(tokenizer_path)

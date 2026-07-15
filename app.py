@@ -32,7 +32,6 @@ from anra.anra_paths import (
     DRIVE_DIR,
     DRIVE_SESSIONS,
     IBS_LATEST,
-    MEMORY_DB_DIR,
     OPERATOR_AUDIT_LOG,
     OUTPUT_V2_DIR,
     PRIVATE_EVAL_DIR,
@@ -69,6 +68,7 @@ from generate import (
 from goals.goal_queue import GoalQueue
 from inference.full_system_connector import build_capability_graph
 from inference.optimize_context_window import ContextWindowOptimizer
+from inference.reasoning_budget import plan_for_prompt
 from intelligence.hgp import MissionNode, MissionTree
 from pydantic import BaseModel, Field
 from robotics.contracts import SkillGoal, Workflow
@@ -89,6 +89,7 @@ from training.eval_v2 import (
     run_private_mode_seed_evaluation,
     run_recovery_prompt_gate,
 )
+from training.v2_config import CANONICAL_MODEL_PROFILE
 from training.v2_runtime import active_tokenizer_path, load_or_build_v2_tokenizer
 
 ensure_dirs()
@@ -360,14 +361,21 @@ def _dispatch_full_system_operator(message: str) -> dict[str, Any]:
     )
 
     stripped = message.strip()
-    run_goal = _run_native_agent_goal
+    run_goal = _run_native_agent_goal if is_enabled("agent_loop") else None
+    agent_requested = stripped.lower().startswith("/goal") or bool(
+        re.search(r"\b(?:run|execute|start)\s+(?:a\s+)?goal\b", stripped, re.IGNORECASE)
+    )
+    if agent_requested and run_goal is None:
+        return {
+            "handled": True,
+            "response": "Agent execution is disabled by policy.",
+            "agent_executed": False,
+            "tool_executed": False,
+        }
     if stripped.startswith("/"):
         handled, response = handle_slash_command(stripped, run_goal=run_goal)
     else:
         handled, response = handle_natural_operator_request(stripped, run_goal=run_goal)
-    agent_requested = stripped.lower().startswith("/goal") or bool(
-        re.search(r"\b(?:run|execute|start)\s+(?:a\s+)?goal\b", stripped, re.IGNORECASE)
-    )
     result = {
         "handled": handled,
         "response": response,
@@ -445,19 +453,22 @@ def _classify_chat_cognition(message: str) -> dict[str, Any] | None:
         return None
 
 
-def _record_generation_epistemics(session_id: str, request_id: str, *, accepted: bool) -> bool:
-    """Append the generation outcome to the epistemic calibration history.
-
-    Every accepted/rejected full-system generation is a real observed outcome;
-    recording it gives the epistemic tracker live calibration data instead of
-    an empty history.
-    """
+def _record_generation_epistemics(
+    session_id: str,
+    request_id: str,
+    *,
+    verifier_score: float | None,
+    verifier: str = "symbolic_verifier",
+) -> bool:
+    """Record only an independently verified binary correctness outcome."""
+    if verifier_score is None or float(verifier_score) not in {0.0, 1.0}:
+        return False
     try:
         COGNITION.et.record_outcome(
             f"generation:{session_id}:{request_id}",
-            was_correct=accepted,
+            was_correct=bool(verifier_score),
             domain="conversation",
-            verifier="generation_quality",
+            verifier=verifier,
         )
         return True
     except Exception as exc:
@@ -527,49 +538,10 @@ def get_memory_system() -> object | None:
         MEMORY_SYSTEM = _MemoryBridge()
         return MEMORY_SYSTEM
     except Exception as mem_exc:
-        try:
-            from phase2.memory_45j.memory_manager import MemoryManager  # type: ignore
-
-            class _LegacyMemoryBridge:
-                def __init__(self) -> None:
-                    self._mm = MemoryManager(data_dir=str(MEMORY_DB_DIR), user_id="anra")
-                    self.semantic = self
-
-                def search(
-                    self,
-                    query: str,
-                    top_k: int = 3,
-                    trace_id: str | None = None,
-                ) -> list[object]:
-                    del trace_id
-                    return self._mm.retrieve(query, limit=top_k, type="semantic")
-
-                def store_turn(
-                    self,
-                    message: str,
-                    response: str,
-                    session_id: str,
-                    trace_id: str | None = None,
-                ) -> None:
-                    del trace_id
-                    self._mm.store_memory(
-                        content=f"H: {message}\nANRA: {response}",
-                        type="episodic",
-                        importance="medium",
-                        metadata={"session_id": session_id},
-                    )
-                    self._mm.extractor.process_single_turn("user", message, session_id)
-                    self._mm.extractor.process_single_turn("assistant", response, session_id)
-
-            MEMORY_SYSTEM = _LegacyMemoryBridge()
-            return MEMORY_SYSTEM
-        except Exception as legacy_mem_exc:
-            LOGGER.warning(
-                "Memory bridge unavailable: %s; legacy fallback unavailable: %s",
-                mem_exc,
-                legacy_mem_exc,
-            )
-            return None
+        # A failure must not fork the user's memories into an unrelated legacy
+        # database with different retrieval and deletion semantics.
+        LOGGER.warning("Canonical memory bridge unavailable: %s", mem_exc)
+        return None
 
 
 def format_memory_context(memory_results: list[dict[str, Any]]) -> str:
@@ -1280,6 +1252,16 @@ class PlanRequest(GoalRequest):
     max_depth: int = Field(5, ge=1, le=5)
 
 
+class ReasoningBudgetRequest(BaseModel):
+    prompt: str = Field(..., min_length=1, max_length=32768)
+    domain: str = Field("general", min_length=1, max_length=128)
+    competence: float = Field(0.0, ge=0.0, le=1.0)
+    verifier_available: bool = True
+    retrieval_available: bool = True
+    irreversible_action: bool = False
+    owner_token_cap: int = Field(512, ge=1, le=4096)
+
+
 class MemoryAddRequest(BaseModel):
     content: str = Field(..., min_length=1, max_length=32768)
     metadata: dict[str, Any] = Field(default_factory=dict)
@@ -1657,9 +1639,13 @@ async def chat_route(body: ChatRequest, request: Request) -> dict[str, Any]:
                 LOGGER.debug("Memory store failed: %s", mem_exc)
 
     if cognition_context is not None:
+        symbolic = trace.subsystem_trace.get("symbolic_verifier", {})
+        verifier_score = symbolic.get("score") if isinstance(symbolic, dict) else None
         cognition_context["epistemic_recorded"] = await run_in_threadpool(
             lambda: _record_generation_epistemics(
-                body.session_id, request.state.request_id, accepted=persisted
+                body.session_id,
+                request.state.request_id,
+                verifier_score=verifier_score,
             )
         )
 
@@ -1975,11 +1961,25 @@ def _run_full_system_integration_probe() -> dict[str, object]:
             session_id=session_id,
         )
         subsystem_trace = dict(trace.subsystem_trace)
-        checks["model_and_native_subsystems"] = all(
-            subsystem_trace.get(f"{name}_executed") is True
-            for name in ("mod", "rim", "dstp", "esv", "hal")
-        ) and subsystem_trace.get("model_executed") is True
-        checks["ghost_path"] = subsystem_trace.get("ghost_executed") is True
+        checkpoint_state = info.get("checkpoint_state", {})
+        checkpoint_state = checkpoint_state if isinstance(checkpoint_state, dict) else {}
+        model_config = checkpoint_state.get("model_config", {})
+        model_config = model_config if isinstance(model_config, dict) else {}
+        approved_raw = model_config.get("approved_subsystems", [])
+        approved_native = (
+            {str(name) for name in approved_raw} if isinstance(approved_raw, list) else set()
+        )
+        native_names = {"mod", "rim", "dstp", "esv"}
+        approved_native &= native_names
+        native_recipe_executed_exactly = all(
+            (subsystem_trace.get(f"{name}_executed") is True) == (name in approved_native)
+            for name in native_names
+        )
+        checks["model_and_native_subsystems"] = bool(
+            subsystem_trace.get("model_executed") is True
+            and native_recipe_executed_exactly
+            and subsystem_trace.get("hal_executed") is True
+        )
         checks["evaluation_state_not_persisted"] = (
             subsystem_trace.get("adaptive_state_persisted") is False
         )
@@ -1987,6 +1987,7 @@ def _run_full_system_integration_probe() -> dict[str, object]:
             "quality_state": trace.quality_state,
             "stopped_by": trace.stopped_by,
             "subsystem_trace": subsystem_trace,
+            "approved_native_subsystems": sorted(approved_native),
         }
     finally:
         clear_session_runtime_state(session_id)
@@ -2047,8 +2048,7 @@ def _run_full_system_integration_probe() -> dict[str, object]:
     checks["cognition"] = bool(
         cognition.get("status") == "ok"
         and isinstance(enabled, dict)
-        and enabled
-        and all(bool(value) for value in enabled.values())
+        and enabled.get("cognition") is True
     )
     details["cognition"] = cognition
 
@@ -2342,7 +2342,6 @@ def _full_system_integration_verified(
     checks = report.get("checks", {})
     required = {
         "model_and_native_subsystems",
-        "ghost_path",
         "evaluation_state_not_persisted",
         "memory",
         "verifier",
@@ -2785,7 +2784,8 @@ async def agi_benchmarks_latest() -> dict[str, Any]:
 
 @app.get("/training/preflight")
 async def training_preflight(
-    model_size: str = "frontier", runtime_class: str | None = "t4_frontier_smoke"
+    model_size: str = CANONICAL_MODEL_PROFILE,
+    runtime_class: str | None = "t4_v4_session",
 ) -> dict[str, Any]:
     from training.preflight import run_preflight
 
@@ -2856,7 +2856,6 @@ _PHASE3_HEALTH_MODULES: tuple[tuple[str, str], ...] = (
     ("ouroboros", "phase3.ouroboros_45o.ouroboros_numpy"),
     ("symbolic", "phase3.symbolic_bridge_45q.symbolic_bridge"),
     ("sovereignty", "phase3.sovereignty_45r.sovereignty_bridge"),
-    ("ghost_memory", "phase3.ghost_memory_45p.ghost_memory"),
 )
 
 
@@ -2871,11 +2870,22 @@ def _run_phase3_health_checks() -> dict[str, dict[str, Any]]:
             if callable(health):
                 result = dict(health())
                 result.setdefault("status", "ok")
+                flag_name = "identity" if key == "identity" else key
+                result["enabled"] = is_enabled(flag_name)
+                result["capability"] = bool(
+                    result.get("status") == "ok" and result["enabled"]
+                )
                 checks[key] = result
             else:
                 checks[key] = {"status": "degraded", "detail": "health_check missing"}
         except Exception as exc:  # pragma: no cover - defensive: report, never crash
             checks[key] = {"status": "degraded", "detail": f"{type(exc).__name__}: {exc}"}
+        flag_name = "identity" if key == "identity" else key
+        checks[key].setdefault("enabled", is_enabled(flag_name))
+        checks[key].setdefault(
+            "capability",
+            bool(checks[key].get("status") == "ok" and checks[key]["enabled"]),
+        )
     return checks
 
 
@@ -2888,8 +2898,9 @@ async def phase_health_route() -> dict[str, Any]:
     checks = await run_in_threadpool(_run_phase3_health_checks)
     # The aggregate status is the honest conjunction of the real sub-checks: it
     # is "ok" only when every phase-3 subsystem reports healthy, never asserted.
-    healthy = all(str(check.get("status")) == "ok" for check in checks.values())
-    degraded = sorted(key for key, check in checks.items() if str(check.get("status")) != "ok")
+    active = {key: check for key, check in checks.items() if check.get("enabled") is True}
+    healthy = all(str(check.get("status")) == "ok" for check in active.values())
+    degraded = sorted(key for key, check in active.items() if str(check.get("status")) != "ok")
     return {
         "status": "ok" if healthy else "degraded",
         "degraded_subsystems": degraded,
@@ -2961,6 +2972,21 @@ async def plans_route(body: PlanRequest) -> dict[str, Any]:
     plan = {"plan_id": plan_id, **tree.to_dict(), "max_depth": body.max_depth}
     PLANS[plan_id] = plan
     return plan
+
+
+@app.post("/reasoning/plan")
+async def reasoning_plan_route(body: ReasoningBudgetRequest) -> dict[str, object]:
+    """Return an inspectable compute plan; this route performs no actions."""
+
+    return plan_for_prompt(
+        body.prompt,
+        domain=body.domain,
+        competence=body.competence,
+        verifier_available=body.verifier_available,
+        retrieval_available=body.retrieval_available,
+        irreversible_action=body.irreversible_action,
+        owner_token_cap=body.owner_token_cap,
+    ).to_dict()
 
 
 @app.get("/memory/stats")
@@ -3049,6 +3075,7 @@ async def training_candidate_create_route(request: Request) -> dict[str, Any]:
 
 @app.post("/robotics/workflows")
 async def robotics_workflows_route(body: WorkflowRequest) -> dict[str, Any]:
+    _require_feature("robotics")
     _require_feature("agent_loop")
     skills = [
         SkillGoal(
@@ -3239,9 +3266,12 @@ async def train_trigger_route(request: Request) -> dict:
     payload = json.loads(body) if body.strip() else {}
     if not isinstance(payload, dict):
         raise HTTPException(status_code=400, detail="request body must be an object")
-    model_size = str(payload.get("model_size", "frontier"))
-    if model_size != "frontier":
-        raise HTTPException(status_code=400, detail="iterate500 accepts only model_size=frontier")
+    model_size = str(payload.get("model_size", CANONICAL_MODEL_PROFILE))
+    if model_size != CANONICAL_MODEL_PROFILE:
+        raise HTTPException(
+            status_code=400,
+            detail=f"An-Ra accepts only model_size={CANONICAL_MODEL_PROFILE}",
+        )
     minutes = max(1, min(720, int(payload.get("minutes", 30))))
     job = await _new_job(
         "training_session",

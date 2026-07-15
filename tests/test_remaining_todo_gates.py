@@ -35,7 +35,7 @@ def test_moonshot_pilots_are_fail_closed_on_missing_or_bad_metrics() -> None:
         {
             "short_context_ratio": 0.99,
             "long_context_speedup": 1.6,
-            "model_parameters": 150_000_000,
+            "model_parameters": 181_132_071,
             "seed_count": 3,
         },
     )
@@ -46,7 +46,7 @@ def test_moonshot_pilots_are_fail_closed_on_missing_or_bad_metrics() -> None:
         {
             "reasoning_score_ratio": 1.05,
             "inference_flops_ratio": 1.0,
-            "model_parameters": 150_000_000,
+            "model_parameters": 181_132_071,
             "seed_count": 3,
         },
     )["passed"] is False

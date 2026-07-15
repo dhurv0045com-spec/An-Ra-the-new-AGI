@@ -2,10 +2,9 @@ from __future__ import annotations
 
 import json
 import tempfile
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Iterable
-
-from anra.anra_paths import TOKENIZER_DIR, V3_TOKENIZER_FILE
+from typing import Any
 
 SPECIAL_TOKENS = [
     "<pad>",
@@ -27,7 +26,7 @@ SPECIAL_TOKENS = [
 class TokenizerAdapter:
     """SentencePiece-BPE adapter with a minimal surface API."""
 
-    def __init__(self, processor, special_ids: dict[str, int]):
+    def __init__(self, processor: Any, special_ids: dict[str, int]) -> None:
         self._sp = processor
         self._special_ids = dict(special_ids)
 
@@ -37,9 +36,25 @@ class TokenizerAdapter:
         texts: Iterable[str],
         *,
         vocab_size: int = 4096,
-        output_json: str | Path = V3_TOKENIZER_FILE,
-        output_model: str | Path = TOKENIZER_DIR / "tokenizer_v3.model",
-    ) -> "TokenizerAdapter":
+        output_json: str | Path | None = None,
+        output_model: str | Path | None = None,
+    ) -> TokenizerAdapter:
+        del cls, texts, vocab_size, output_json, output_model
+        raise RuntimeError(
+            "Ad-hoc tokenizer training is retired. Build the provenance-bound "
+            "canonical V4 tokenizer artifact."
+        )
+
+    @classmethod
+    def _train_legacy_sentencepiece(
+        cls,
+        texts: Iterable[str],
+        *,
+        vocab_size: int,
+        output_json: str | Path,
+        output_model: str | Path,
+    ) -> TokenizerAdapter:
+        """Quarantined implementation retained only for forensic reproduction."""
         import sentencepiece as spm
 
         output_json = Path(output_json)
@@ -50,7 +65,7 @@ class TokenizerAdapter:
         with tempfile.TemporaryDirectory() as td:
             corpus = Path(td) / "spm_corpus.txt"
             corpus.write_text("\n".join(texts), encoding="utf-8")
-            model_prefix = str(Path(td) / "tokenizer_v3")
+            model_prefix = str(Path(td) / "tokenizer_model")
             spm.SentencePieceTrainer.train(
                 input=str(corpus),
                 model_prefix=model_prefix,
@@ -76,7 +91,9 @@ class TokenizerAdapter:
         return adapter
 
     @classmethod
-    def load(cls, json_path: str | Path, *, model_path: str | Path | None = None) -> "TokenizerAdapter":
+    def load(
+        cls, json_path: str | Path, *, model_path: str | Path | None = None
+    ) -> TokenizerAdapter:
         import sentencepiece as spm
 
         json_path = Path(json_path)
@@ -89,8 +106,11 @@ class TokenizerAdapter:
             raise ValueError("Tokenizer model is missing required special tokens")
         return cls(sp, special_ids)
 
-    def save(self, json_path: str | Path, *, model_path: str | Path = TOKENIZER_DIR / "tokenizer_v3.model") -> None:
+    def save(
+        self, json_path: str | Path, *, model_path: str | Path | None = None
+    ) -> None:
         json_path = Path(json_path)
+        model_path = Path(model_path) if model_path else json_path.with_suffix(".model")
         payload = {
             "version": 3,
             "model_type": "sentencepiece_bpe",

@@ -1,11 +1,8 @@
 # AN-RA Progress Log
 
-Cross-session resume anchor. Read `docs/planning/MASTER_UPGRADE.md` (**v3,
-FINAL — the Unified Intelligence Program**: five parallel workstreams, the
-Experience Ledger spine, moonshot registry, 12-week campaign) for the
-blueprint now being implemented, `docs/planning/MASTER_PLAN.md` for the
-underlying stage plan, and `docs/IMPROVEMENT.md` for the gated recovery
-sequence. The plan is frozen; sessions now execute workstream slices.
+Cross-session resume anchor. Read `TODO.md` for the short unfinished
+work list and `docs/engineering/V4_ARCHITECTURE_GATE.md` for the governing
+architecture and evidence contract. Superseded long-form plans were removed.
 Training execution runs through the GPU-cluster control plane (companion doc:
 `docs/planning/CLUSTER_CONTROL_PLANE.md`, adopted as MASTER_UPGRADE Layer
 12-B after two-repo code inspection 2026-07-06; cluster P0 security fixes are
@@ -14,7 +11,42 @@ session, read this file, then continue from "Next Action".
 
 ---
 
-## Current State (2026-07-15)
+## Current State (2026-07-16)
+
+**2026-07-16 intelligence-foundation update.** V4 now has one canonical,
+reversible extension boundary rather than disconnected adapter mechanisms.
+Verified DFC process spans receive a bounded 1.25x training weight only when
+their tags are complete; ordinary rows, validation, and malformed/truncated
+spans are unchanged, and the objective is bound into exact-resume metadata.
+LoRA/DoRA capability artifacts freeze the base and cryptographically bind their
+adapter-only tensors to the exact checkpoint, V4 tokenizer, model profile,
+target modules, shapes, and source commit. Serving activation fails closed and
+rolls back state. A transparent reasoning-budget policy now returns bounded
+direct/verify/retrieve/search plans through `/reasoning/plan` without executing
+tools or claiming capability. On the RTX 4050, the full 181,132,071-parameter
+base plus 54 DoRA targets completed one BF16 AdamW step in 5.80 seconds with
+919,296 trainable parameters and 1,300 MiB peak allocation. The canary caught
+and verified a real GPU device/dtype attachment fix. No checkpoint, dataset
+training, or intelligence-quality claim was produced.
+
+**2026-07-15 foundation hardening update.** The canonical V4 run is now one
+explicit training algorithm rather than a collection of overlapping controls:
+AdamW with matrix-only weight decay, gradient clipping, 2% warmup, and cosine
+decay to 1e-5. The dynamic-regret LR overlay was removed from the foundation.
+Seed 1301 is enforced as a reproducibility address, not treated as a quality
+setting. Schema 9 checkpoints bind and exactly restore Python, NumPy, Torch,
+CUDA, DataLoader, optimizer, scheduler, scaler, recipe, and counter-based raw
+sampler state. A resume with missing state, reset Adafactor moments, another
+seed/optimizer/recipe, or a mismatched sampler cursor now fails closed. AMP
+overflow cannot advance progress evidence. Focused CPU verification passes;
+the CUDA path was then rechecked successfully on the local RTX 4050. One
+bounded sequence-64 dense update exercised all 181,132,071 parameters in 5.48
+seconds at 3,499.82 MiB peak allocation with finite loss and gradients. A
+same-seed rebuild reproduced its fingerprint/logits; another seed changed
+them, confirming that seed is a replay address rather than a quality setting.
+The 182,739,495-parameter MTP candidate also completed one bounded update in
+4.08 seconds at 3,527.00 MiB. No checkpoint, long training run, full-context
+memory claim, or model-quality claim was produced.
 
 **2026-07-15 execution update.** The interrupted 30GB append was recovered by a
 new full audit of the final 28,993,027,495-byte corpus: 5,274,479 valid records,
@@ -120,17 +152,12 @@ artifact, metric, and evidence record without requiring the repositories to be
 merged. Duplicate An-Ra reporting could be reduced only after parity tests;
 local fallback behavior could remain available if ThirdEye is unavailable.
 
-`scripts.execute_stream_b` is queued behind the managed downloader. It will
-fail closed unless the final audit matches the corpus, the native target is
-complete, all four native source classes are non-empty, and every audit failure
-count is zero. On success it builds the seven-source slice and canonical V4,
-then publishes distinct V3/V4 train/validation/test shard families. Shard
+`scripts.execute_stream_b` now validates the completed native audit and
+seven-source slice, proves the fixed canonical V4 identity, and publishes only
+V4 train/validation/test shards. It cannot rebuild or fall back to V3. Shard
 progress is written continuously to
-`output/v2/data_manifests/token_shard_progress.json`.
-A second managed continuation is waiting on that report and will extend the
-same audited corpus to the full 120GiB native target only when Stream B ends in
-`status=complete`; a failed slice, V4 proof, or shard publication prevents the
-large acquisition from starting.
+`output/v2/data_manifests/token_shard_progress.json`. No acquisition or
+training worker is running automatically.
 
 The deeper recovery pass now includes real CUDA activation evidence, not only
 generation samples and static tensors. The legacy checkpoint is finite but its
@@ -274,8 +301,8 @@ quality-rejected. The completed 600-generation deterministic recovery audit
 (200 diagnostic, 200 native, 200 replay) found 0.0% coherence against the 80%
 gate. Exact loading, finite activations, and deterministic replay passed, but
 the checkpoint is conclusively undertrained and is not a recoverable serving
-candidate. Artifact-specific defects and the recovery program are recorded in
-`docs/engineering/CHECKPOINT_FORENSICS.md`. The campaign-slice builder
+candidate. Artifact-specific defects and the recovery decision remain recorded
+in `docs/engineering/ENGINEERING_LOG.md`. The campaign-slice builder
 successfully proves held-out disjointness but produces only 3.40 MB from the
 available source, below the mandatory 50 MB gate. Local recovery, post-training
 ablation, and all-seven moonshot gates are now code-complete and fail closed;
@@ -333,6 +360,10 @@ list. Headline changes:
 
 ## Done (2026-07-06 session)
 
+The dated entries below are historical evidence, not runnable instructions.
+V3 builders, draft artifacts, and the old factorial named in those entries
+were deleted in the 2026-07-15 reclamation; use the V4-only action section.
+
 - MASTER_UPGRADE.md rebuilt to v2 (the 1000× program: pilot-science ladder,
   MoE sparse upcycling, serving stack, eval science, 12-week calendar, risk
   register). PROGRESS/plan pointers updated.
@@ -360,7 +391,7 @@ list. Headline changes:
   rotate, seal, verify, and prune by retention; CI has a p50/p99 write benchmark
   plus crash/flush stress probe; the sibling `gpu cluster` repo has P0 auth/
   worker hardening and P1 three-tier quota-ledger accounting.
-- The executable campaign board is `docs/planning/IMPLEMENTATION_TODOS.md`.
+- The authoritative unfinished-work list is `TODO.md`.
 
 ## Done (2026-07-07 session — Stream A executable half)
 
@@ -398,29 +429,32 @@ list. Headline changes:
   local corpus (honestly ineligible: needs the >=50MB campaign corpus).
 - 24 new focused tests; suite 542 passed / 1 skipped; ruff clean.
 
-## Next Action (start here)
+## Next Action (start here) — V4 canonical path
 
-**Do not continue the failed legacy checkpoint; proceed only through the named
-fresh-training evidence path.** Acquire the required campaign corpus, then run
-the pre-registered three-seed pilot/scratch control, measured throughput, and
-actual kill-9 recovery; execute the completed
-control-plane telemetry, chaos, live 24-hour soak, and five-preemption gates
-against Drive and authorized workers; then use a real 50-goal suite, latency
-budget data, 20-scenario UI study, and adversarial/canary release evidence
-before checking the remaining P2 boxes.
+The active repository is now V4-only. New training and serving use the
+181,132,071-parameter `anra-v4-180m` profile, the 32,768-token canonical V4
+tokenizer, and one checkpoint lineage named `anra_v4_180m.pt`. V3 has been
+deleted and cannot be selected through supported entry points. Separate
+V2 identity/ouroboros fine-tune checkpoints are no longer part of the unified
+training sequence; those capabilities belong in the one model's curriculum.
 
-**Owner actions that unblock the rest of Streams A and B:**
-1. Let the managed acquisition finish, then build canonical V4 and publish
-   immutable V3/V4 train, validation, and test shard families:
-   `py -3.14 scripts/download_training_data.py --profile 30gb` →
-   `py -3.14 scripts/build_campaign_slice.py` (>=50MB slice) →
-   `py -3.14 scripts/build_v4_tokenizer.py` (canonical 32k V4) → run the
-   pre-registered `p150-v4tok` 150M three-seed pilot on GPU. The queued
-   `py -3.14 -m scripts.execute_stream_b` runner performs the build and shard
-   sequence fail-closed.
-2. Set `ANRA_MANIFEST_SIGNING_KEY`, emit all 69 signed seed-run manifests with
-   `py -3.14 -m training.pilot_factorial --owner-authorized`, then dispatch
-   only the non-moonshot critical runs on cluster-class GPU compute.
+The next owner action is to open `notebooks/AN_RA_T4_TRAINING.ipynb` in one T4
+Colab and train the canonical seed 1301 against the published V4 shards. The
+normal workflow does not require two additional seed runs. No GPU training was
+started during this migration.
+
+The foundation code is ready for that run: exact resume, verified process
+weighting, and bounded evidence counters are part of the canonical recipe.
+MTP, MoE, SSM, latent reasoning, HAL promotion, and moonshots remain separate
+experiments. Do not combine them into the first baseline. Reversible
+capability adapters become useful only after the immutable base checkpoint
+exists; their local one-step canary is execution evidence, not a reason to
+promote an unmeasured capability.
+
+After the primary run, inspect generation quality and checkpoint compatibility
+before spending compute on replication, ablations, moonshots, soak tests, or
+promotion. The historical 69-run factorial remains research evidence tooling,
+not the default training plan.
 
 ## Blocking Dependencies (not solvable in the code environment)
 

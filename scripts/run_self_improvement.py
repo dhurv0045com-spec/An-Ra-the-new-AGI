@@ -23,7 +23,7 @@ def _recommendations(eval_summary: dict, hard_examples: list[dict], mix_report: 
     if float(category_scores.get("identity", 0.0) or 0.0) < 0.7:
         recs.append("Bias the next identity fine-tune toward self-description, purpose, and worldview prompts.")
     if float(category_scores.get("continuity", 0.0) or 0.0) < 0.6:
-        recs.append("Replay more continuity-heavy hard examples through ghost_memory-style curriculum.")
+        recs.append("Replay verified continuity failures through the provenance-bound replay dataset.")
     previews = " ".join(str(item.get("preview", "")) for item in hard_examples[:8]).lower()
     if any(token in previews for token in ["debug", "python", "code", "test"]):
         recs.append("Add more teacher-generated code-debug examples with verified fixes.")

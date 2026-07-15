@@ -73,7 +73,7 @@ def test_phase_b_activates_only_the_declared_ablation(monkeypatch) -> None:
 
 def test_later_phase_rejects_an_implicit_all_on_recipe(monkeypatch) -> None:
     monkeypatch.delenv("ANRA_ENABLED_SUBSYSTEMS", raising=False)
-    with pytest.raises(RuntimeError, match="frozen three-seed pilot winner"):
+    with pytest.raises(RuntimeError, match="explicit ANRA_ENABLED_SUBSYSTEMS"):
         _configure_continuation_phase(_phase_model(), "C")
 
 

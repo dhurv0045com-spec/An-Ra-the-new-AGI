@@ -99,6 +99,8 @@ class MixedPrecisionTrainer:
                 growth_interval=growth_interval,
                 enabled=self._needs_scaler,
             )
+        self._scale_before_step = self.scale
+        self._last_step_succeeded = True
 
         if self.enabled:
             logger.info(
@@ -149,16 +151,25 @@ class MixedPrecisionTrainer:
         Returns True if step was taken.
         """
         self._last_optimizer = optimizer
+        self._scale_before_step = self.scale
         if self._needs_scaler:
             self.scaler.step(optimizer)
             return True
         optimizer.step()
+        self._last_step_succeeded = True
         return True
 
-    def update(self) -> None:
-        """Update scaler after each step. Adjusts scale based on overflow."""
+    def update(self) -> bool:
+        """Update the scaler and report whether the optimizer step executed."""
         if self._needs_scaler:
             self.scaler.update()
+            # GradScaler lowers its scale when it skipped an optimizer step
+            # because of non-finite gradients. Growth or equality means the
+            # step was safe and did execute.
+            self._last_step_succeeded = self.scale >= self._scale_before_step
+        else:
+            self._last_step_succeeded = True
+        return self._last_step_succeeded
 
     def state_dict(self) -> dict[str, object]:
         """Serialize scaler state for checkpointing."""
@@ -208,14 +219,18 @@ def amp_step(
 
     grad_norm = mp.clip_gradients(model, optimizer, max_grad_norm)
     mp.step(optimizer)
-    mp.update()
+    step_succeeded = mp.update()
 
-    if scheduler is not None:
+    if scheduler is not None and step_succeeded:
         scheduler.step()
 
     optimizer.zero_grad(set_to_none=True)
 
-    return {"grad_norm": grad_norm, "grad_scale": mp.scale}
+    return {
+        "grad_norm": grad_norm,
+        "grad_scale": mp.scale,
+        "step_succeeded": float(step_succeeded),
+    }
 
 
 if __name__ == "__main__":

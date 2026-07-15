@@ -5,7 +5,6 @@ import json
 import math
 import random
 import re
-import sqlite3
 from bisect import bisect_right
 from collections.abc import Iterable
 from dataclasses import asdict, dataclass, field
@@ -14,9 +13,7 @@ from pathlib import Path
 import numpy as np
 import torch
 from anra.anra_paths import (
-    DRIVE_GHOST_DB,
     FAILURE_REPLAY_DATASET,
-    GHOST_DB_LOCAL,
     OUTPUT_V2_DIR,
     get_dataset_file,
     get_identity_file,
@@ -28,10 +25,11 @@ from identity.civ import ConstitutionalIdentityVector
 from training.data_ledger import DataEntropyLedger, DataQuality
 from training.sadl import normalized_mix
 from training.v2_config import (
+    ANRA_V4_MODEL,
+    ANRA_V4_MODEL_PARAMETER_COUNT,
+    CANONICAL_TRAINING_SEED,
     IDENTITY_KEYWORDS,
     TEACHER_REJECT_PATTERNS,
-    V2_FRONTIER,
-    V2_FRONTIER_PARAMETER_COUNT,
     V2_TRAINING,
 )
 
@@ -175,7 +173,7 @@ class MixReport:
     del_rejected: int = 0
     duplicate_rejected: int = 0
     active_weights: dict[str, float] = field(default_factory=dict)
-    sampling_seed: int = 1337
+    sampling_seed: int = CANONICAL_TRAINING_SEED
 
     def to_dict(self) -> dict[str, object]:
         return asdict(self)
@@ -662,94 +660,12 @@ def _training_example_from_mapping(
         prompt=prompt,
         answer=answer,
         source=source,
-        metadata={"ghost_memory": True, **metadata},
+        metadata={"verified_replay": True, **metadata},
     )
 
 
-def _load_ghost_jsonl_replay(
-    path: Path, style_filter: IdentityStyleFilter
-) -> list[TrainingExample]:
-    if not path.exists() or not path.is_file():
-        return []
-    examples: list[TrainingExample] = []
-    for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
-        line = line.strip()
-        if not line:
-            continue
-        try:
-            record = json.loads(line)
-        except json.JSONDecodeError:
-            continue
-        parsed = _training_example_from_mapping(record, str(path), style_filter)
-        if parsed is not None:
-            examples.append(parsed)
-    return examples
-
-
-def _load_ghost_sqlite_replay(
-    path: Path, style_filter: IdentityStyleFilter
-) -> list[TrainingExample]:
-    if not path.exists() or not path.is_file():
-        return []
-    examples: list[TrainingExample] = []
-    try:
-        conn = sqlite3.connect(str(path))
-        try:
-            rows = conn.execute("SELECT role, text FROM memories ORDER BY id ASC").fetchall()
-        finally:
-            conn.close()
-    except sqlite3.Error:
-        return []
-
-    pending_prompt: str | None = None
-    for role, text in rows:
-        role_l = str(role).lower()
-        text_s = str(text).strip()
-        if role_l in {"human", "user", "prompt", "failure"}:
-            pending_prompt = text_s
-            continue
-        if role_l in {"assistant", "anra", "answer", "correction"} and pending_prompt:
-            answer = style_filter.clean(text_s)
-            if style_filter.accept(pending_prompt, answer):
-                examples.append(
-                    TrainingExample(
-                        bucket="replay",
-                        prompt=pending_prompt,
-                        answer=answer,
-                        source=str(path),
-                        metadata={"ghost_memory": True, "quantized_from_turns": True},
-                    )
-                )
-            pending_prompt = None
-    return examples
-
-
-def _load_ghost_replay_examples(style_filter: IdentityStyleFilter) -> list[TrainingExample]:
-    examples: list[TrainingExample] = []
-    seen: set[tuple[str, str]] = set()
-    sqlite_candidates = [
-        Path(GHOST_DB_LOCAL),
-        Path.home() / ".ghost_memory" / "memories.sqlite",
-    ]
-    jsonl_candidates = [Path(DRIVE_GHOST_DB)]
-
-    for path in sqlite_candidates:
-        for example in _load_ghost_sqlite_replay(path, style_filter):
-            key = (example.prompt, example.answer)
-            if key not in seen:
-                seen.add(key)
-                examples.append(example)
-    for path in jsonl_candidates:
-        for example in _load_ghost_jsonl_replay(path, style_filter):
-            key = (example.prompt, example.answer)
-            if key not in seen:
-                seen.add(key)
-                examples.append(example)
-    return examples
-
-
 def _load_replay_examples(style_filter: IdentityStyleFilter) -> list[TrainingExample]:
-    examples = _load_ghost_replay_examples(style_filter)
+    examples: list[TrainingExample] = []
     if FAILURE_REPLAY_DATASET.exists():
         try:
             for line in FAILURE_REPLAY_DATASET.read_text(
@@ -941,7 +857,7 @@ def build_post_training_mix(
 def build_v2_training_examples(
     *,
     dataset_path: Path | None = None,
-    seed: int = 1337,
+    seed: int = CANONICAL_TRAINING_SEED,
     max_examples: int | None = None,
     own_ratio: float | None = None,
     identity_ratio: float | None = None,
@@ -1026,7 +942,7 @@ def build_v2_training_examples(
     total_examples = min(
         max_examples or V2_TRAINING.max_mixture_examples, max(len(base_examples), 4000)
     )
-    controller = TrainingDataMixController(model_params or V2_FRONTIER_PARAMETER_COUNT)
+    controller = TrainingDataMixController(model_params or ANRA_V4_MODEL_PARAMETER_COUNT)
     active = controller.weights
     control_path = OUTPUT_V2_DIR / "v2_mix_control.json"
     if control_path.exists():
@@ -1061,7 +977,7 @@ def build_v2_training_examples(
     requested_counts["replay"] = total_examples - sum(requested_counts.values())
     requested_counts["frontier_dfc"] = 0
     if frontier_examples:
-        science_target = int(total_examples * getattr(V2_FRONTIER, "science_ratio", 0.20))
+        science_target = int(total_examples * getattr(ANRA_V4_MODEL, "science_ratio", 0.20))
         protected = requested_counts["own"] + requested_counts["identity"]
         science_target = min(science_target, max(0, total_examples - protected))
         removable = (
@@ -1378,6 +1294,7 @@ class RawCausalShardDataset(Dataset):
         rotation_seed: int = 0,
         verify_hashes: bool = True,
         expected_tokenizer_sha256: str | None = None,
+        verified_process_multiplier: float = 1.0,
     ) -> None:
         self.manifest_path = Path(manifest_path)
         manifest_bytes = self.manifest_path.read_bytes()
@@ -1397,6 +1314,13 @@ class RawCausalShardDataset(Dataset):
         self.pad_id = int(tokenizer.pad_token_id)
         self.answer_supervision_ratio = 0.0
         self.token_utilization = 1.0
+        self.verified_process_multiplier = float(verified_process_multiplier)
+        if not 1.0 <= self.verified_process_multiplier <= 2.0:
+            raise ValueError("verified process multiplier must be in [1.0, 2.0]")
+        self.special_token_ids = {
+            str(token): int(token_id)
+            for token, token_id in dict(getattr(tokenizer, "special_ids", {})).items()
+        }
         self.bucket_counts: dict[str, int] = {}
         self._arrays: dict[Path, np.ndarray] = {}
         self._shards: list[dict[str, object]] = []
@@ -1484,10 +1408,26 @@ class RawCausalShardDataset(Dataset):
         )
         tokens = torch.from_numpy(values)
         stable_index = int(shard["stable_start"]) + local_window
+        targets = tokens[1:]
+        weights = torch.ones(self.block_size, dtype=torch.float32)
+        if (
+            str(shard["source_class"]) == "verified_dfc"
+            and self.verified_process_multiplier > 1.0
+        ):
+            from training.verified_process import apply_verified_process_weights
+
+            weights, _ = apply_verified_process_weights(
+                targets.unsqueeze(0),
+                weights.unsqueeze(0),
+                verified_rows=torch.tensor([True]),
+                special_token_ids=self.special_token_ids,
+                multiplier=self.verified_process_multiplier,
+            )
+            weights = weights.squeeze(0)
         return (
             tokens[:-1],
-            tokens[1:],
-            torch.ones(self.block_size, dtype=torch.float32),
+            targets,
+            weights,
             stable_index,
             torch.zeros(self.block_size, dtype=torch.bool),
         )

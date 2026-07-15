@@ -18,21 +18,27 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 import torch
-from anra.anra_paths import DATASET, ROOT, ensure_dirs, get_dataset_file
+from anra.anra_paths import ANRA_V4_CHECKPOINT, DATASET, ROOT, ensure_dirs, get_dataset_file
 from anra.startup_checks import assert_flash_sdp_ready
 from runtime.training_readiness import assess_training_readiness
 
 from training.data_ingestion import mount_google_drive_if_available, prepare_training_corpus
 from training.eval_v2 import run_compact_eval
-from training.v2_config import V2_FRONTIER, V2_FRONTIER_TRAINING, resolve_model_profile
+from training.v2_config import (
+    ANRA_V4_MODEL,
+    ANRA_V4_TRAINING,
+    CANONICAL_FOUNDATION_OPTIMIZER,
+    CANONICAL_MODEL_PROFILE,
+    CANONICAL_TRAINING_SEED,
+    resolve_model_profile,
+)
 from training.v2_runtime import (
     active_tokenizer_identity,
-    build_frontier_model,
+    build_model_for_profile,
     canonical_v2_checkpoint,
     load_checkpoint,
     load_or_build_v2_tokenizer,
     load_session_state,
-    restore_v2_artifact,
     update_session_state,
     v2_report_path,
     write_json,
@@ -96,7 +102,6 @@ def print_system_health() -> None:
     subsystems = {
         "identity": "identity_injector",
         "ouroboros": "ouroboros_numpy",
-        "ghost_memory": "ghost_memory",
         "symbolic_bridge": "symbolic_bridge",
         "sovereignty": "sovereignty_bridge",
         "turboquant": "turboquant",
@@ -136,7 +141,7 @@ def stage_plan_for_mode(mode: str) -> list[str]:
     if mode in {"status", "preflight"}:
         return ["status"]
     if mode in {"train", "production"}:
-        return ["base", "identity", "ouroboros", "self_improvement", "sovereignty_audit", "tests"]
+        return ["base", "evaluation", "sovereignty_audit", "tests"]
     raise ValueError(f"Unknown training mode: {mode}")
 
 
@@ -160,8 +165,8 @@ def resolve_campaign_inventory(
     model_size: str,
     default_inventory_path: Path,
 ) -> dict | None:
-    """Resolve tokens from the exact data manifest bound to a signed pilot."""
-    if not launch_manifest or not model_size.startswith("pilot-"):
+    """Resolve tokens from the exact manifest bound to canonical V4 training."""
+    if not launch_manifest or model_size != CANONICAL_MODEL_PROFILE:
         return _load_json(default_inventory_path)
     manifests = launch_manifest.get("data_manifests")
     if not isinstance(manifests, list) or not manifests:
@@ -196,7 +201,7 @@ def resolve_campaign_inventory(
 
 def _milestone_due(training_cfg: object | None = None) -> dict[str, object]:
     """Check if a milestone eval is due. Uses the active training config."""
-    cfg = training_cfg if training_cfg is not None else V2_FRONTIER_TRAINING
+    cfg = training_cfg if training_cfg is not None else ANRA_V4_TRAINING
     state = load_session_state()
     successful = int(state.get("successful_sessions", 0) or 0)
     entries = state.get("eval_scores", [])
@@ -249,7 +254,9 @@ def _start_supervisor(args: object) -> object | None:
     try:
         from agents.supervisor import SupervisorAgent
 
-        _supervisor = SupervisorAgent(model_size=getattr(args, "model_size", "frontier"))
+        _supervisor = SupervisorAgent(
+            model_size=getattr(args, "model_size", CANONICAL_MODEL_PROFILE)
+        )
         _supervisor.start_session()
         _session_run_id = _supervisor._bus.run_id
         print(f"[Unified Trainer] Session tracked — run_id: {_session_run_id}")
@@ -327,24 +334,21 @@ def run_cmd(cmd: list[str], *, cwd: Path | None = None) -> int:
 
 
 def _restore_core_artifacts() -> None:
-    restore_v2_artifact("brain")
-    restore_v2_artifact("identity")
-    restore_v2_artifact("ouroboros")
-    restore_v2_artifact("tokenizer")
+    # V4 owns one checkpoint lineage. The caller's checkpoint path controls
+    # resume; no independent V2 identity or ouroboros weights are restored.
+    load_or_build_v2_tokenizer(dataset_path=resolve_dataset_path(None))
 
 
 def _run_eval_only() -> dict[str, object]:
     tokenizer = load_or_build_v2_tokenizer(dataset_path=resolve_dataset_path(None))
-    model = build_frontier_model()
+    model = build_model_for_profile(
+        CANONICAL_MODEL_PROFILE, vocab_size=tokenizer.vocab_size
+    )
     if hasattr(model, "disable_kv_cache"):
         model.disable_kv_cache()
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = model.to(device)
-    checkpoint = canonical_v2_checkpoint("ouroboros")
-    if not checkpoint.exists():
-        checkpoint = canonical_v2_checkpoint("identity")
-    if not checkpoint.exists():
-        checkpoint = canonical_v2_checkpoint("brain")
+    checkpoint = ANRA_V4_CHECKPOINT
     load_checkpoint(model, None, None, None, checkpoint, device=device, strict=False)
     return run_compact_eval(model, tokenizer, device=device, output=True, golden=True)
 
@@ -362,28 +366,28 @@ def main() -> None:
     ap.add_argument("--prepare_data", default="auto", choices=["auto", "always", "never"])
     ap.add_argument("--no_drive_scan", action="store_true")
     ap.add_argument("--max_source_mb", type=int, default=64)
-    ap.add_argument("--checkpoint_path", default="anra_frontier_500m.pt")
-    ap.add_argument("--batch_size", type=int, default=V2_FRONTIER_TRAINING.batch_size)
-    ap.add_argument("--block_size", type=int, default=V2_FRONTIER.block_size)
+    ap.add_argument("--checkpoint_path", default="anra_v4_180m.pt")
+    ap.add_argument("--batch_size", type=int, default=ANRA_V4_TRAINING.batch_size)
+    ap.add_argument("--block_size", type=int, default=ANRA_V4_MODEL.block_size)
     ap.add_argument(
-        "--answer_loss_weight", type=float, default=V2_FRONTIER_TRAINING.answer_loss_weight
+        "--answer_loss_weight", type=float, default=ANRA_V4_TRAINING.answer_loss_weight
     )
     ap.add_argument(
         "--optimizer",
         choices=["auto", "adamw", "adam8bit", "adafactor", "muon", "scale", "galore", "qgalore"],
-        default="adafactor",
+        default=CANONICAL_FOUNDATION_OPTIMIZER,
     )
     ap.add_argument(
         "--session_minutes",
         "--session-minutes",
         type=int,
-        default=V2_FRONTIER_TRAINING.session_minutes,
+        default=ANRA_V4_TRAINING.session_minutes,
     )
     ap.add_argument(
         "--model-size",
-        choices=["frontier", "pilot-50m", "pilot-150m"],
-        default="frontier",
-        help="Frontier campaign or executable 50M/150M scratch pilot profile.",
+        choices=[CANONICAL_MODEL_PROFILE],
+        default=CANONICAL_MODEL_PROFILE,
+        help="The sole active canonical V4 model profile.",
     )
     ap.add_argument(
         "--campaign",
@@ -394,7 +398,7 @@ def main() -> None:
     ap.add_argument("--ouroboros_minutes", type=int, default=10)
     ap.add_argument("--max_examples", type=int, default=None)
     ap.add_argument("--launch-manifest", default=None)
-    ap.add_argument("--seed", type=int, default=1337)
+    ap.add_argument("--seed", type=int, default=CANONICAL_TRAINING_SEED)
     ap.add_argument(
         "--training-objective",
         choices=["base", "causal-extension"],
@@ -402,8 +406,8 @@ def main() -> None:
     )
     ap.add_argument(
         "--runtime-class",
-        choices=["t4_frontier_smoke"],
-        default="t4_frontier_smoke",
+        choices=["t4_v4_session"],
+        default="t4_v4_session",
     )
     args = ap.parse_args()
     launch_manifest: dict[str, object] | None = None
@@ -437,14 +441,9 @@ def main() -> None:
         }:
             args.campaign = stage
     model_cfg, training_cfg = resolve_model_profile(args.model_size)
-    is_frontier = args.model_size == "frontier"
-    if is_frontier:
-        if args.batch_size == V2_FRONTIER_TRAINING.batch_size:
-            args.batch_size = V2_FRONTIER_TRAINING.batch_size
-        if args.block_size == V2_FRONTIER.block_size:
-            args.block_size = V2_FRONTIER.block_size
-        if args.session_minutes == V2_FRONTIER_TRAINING.session_minutes:
-            args.session_minutes = V2_FRONTIER_TRAINING.session_minutes
+    # The child phase trainer inherits this at interpreter startup, making
+    # hash-based Python containers part of the signed seed contract.
+    os.environ["PYTHONHASHSEED"] = str(args.seed)
 
     mount_google_drive_if_available()
 
@@ -485,10 +484,8 @@ def main() -> None:
         print_system_health()
         print(f"[Unified Trainer] model_size={args.model_size}")
         print(f"[Unified Trainer] dataset={resolve_dataset_path(args.data_path)}")
-        print(f"[Unified Trainer] brain_ckpt={canonical_v2_checkpoint('brain')}")
-        print(f"[Unified Trainer] identity_ckpt={canonical_v2_checkpoint('identity')}")
-        print(f"[Unified Trainer] ouroboros_ckpt={canonical_v2_checkpoint('ouroboros')}")
-        print(f"[Unified Trainer] tokenizer={ROOT / 'tokenizer' / 'tokenizer_v3.json'}")
+        print(f"[Unified Trainer] checkpoint={canonical_v2_checkpoint('brain')}")
+        print(f"[Unified Trainer] tokenizer={ROOT / 'tokenizer' / 'tokenizer_v4_32k.json'}")
         print(f"[Unified Trainer] milestone={_milestone_due(training_cfg)}")
         print(
             "[Unified Trainer] readiness="
@@ -529,7 +526,7 @@ def main() -> None:
         "stage_plan": stage_plan,
         "readiness": readiness.to_dict(),
         "dataset": str(dataset),
-        "model_line": "v2",
+        "model_line": "v4",
         "model_size": args.model_size,
         "seed": args.seed,
         "data_ingestion": data_ingestion_report,
@@ -566,7 +563,7 @@ def main() -> None:
         base_cmd.extend(["--max_examples", str(args.max_examples)])
     if manifest_resume_from:
         base_cmd.extend(["--resume_from", manifest_resume_from])
-    if launch_manifest and args.model_size.startswith("pilot-"):
+    if launch_manifest and args.model_size == CANONICAL_MODEL_PROFILE:
         signed_data = [str(value) for value in launch_manifest["data_manifests"]]
         roles = {
             str(key): str(value)
@@ -797,67 +794,9 @@ def main() -> None:
             _end_supervisor(_supervisor)
             raise SystemExit(rc)
 
-    # Auto-merge identity files before identity fine-tune
-    merge_script = ROOT / "scripts" / "merge_identity.py"
-    if merge_script.exists():
-        print("[Unified Trainer] Running merge_identity.py ...", flush=True)
-        run_cmd([sys.executable, str(merge_script)])
-    else:
-        print("[Unified Trainer] WARN: merge_identity.py not found — skipping", flush=True)
-
-    session_timeout_minutes = max(
-        1, args.session_minutes - training_cfg.unified_trainer_overhead_minutes
-    )
-    print(
-        f"[Unified Trainer] Calculated finetuning duration: {session_timeout_minutes} minutes",
-        flush=True,
-    )
-
-    identity_cmd = [
-        sys.executable,
-        "-m",
-        "training.finetune_anra",
-        "--data_path",
-        str(dataset),
-        "--max_minutes",
-        str(session_timeout_minutes),
-    ]
-    if args.max_examples is not None:
-        identity_cmd.extend(["--max_examples", str(args.max_examples)])
-    rc = run_cmd(identity_cmd)
-    run_report["stages"]["identity"] = {"exit_code": rc}
-    if rc != 0:
-        run_report["ended_at"] = time.time()
-        _write_run_report(run_report)
-        _end_supervisor(_supervisor)
-        raise SystemExit(rc)
-
-    ouro_cmd = [
-        sys.executable,
-        str(ROOT / "scripts" / "train_ouroboros.py"),
-        "--data_path",
-        str(dataset),
-        "--max_minutes",
-        str(args.ouroboros_minutes),
-    ]
-    if args.max_examples is not None:
-        ouro_cmd.extend(["--max_examples", str(args.max_examples)])
-    rc = run_cmd(ouro_cmd)
-    run_report["stages"]["ouroboros"] = {"exit_code": rc}
-    if rc != 0:
-        run_report["ended_at"] = time.time()
-        _write_run_report(run_report)
-        _end_supervisor(_supervisor)
-        raise SystemExit(rc)
-
-    rc = run_cmd([sys.executable, str(ROOT / "scripts" / "run_self_improvement.py")])
-    run_report["stages"]["self_improvement"] = {"exit_code": rc}
-    if rc != 0:
-        run_report["ended_at"] = time.time()
-        _write_run_report(run_report)
-        _end_supervisor(_supervisor)
-        raise SystemExit(rc)
-
+    # V4 is trained as one continuous checkpoint. Identity, verified reasoning,
+    # and self-improvement examples are curriculum/data phases, not separately
+    # fine-tuned model files.
     rc = run_cmd([sys.executable, str(ROOT / "scripts" / "run_sovereignty_audit.py")])
     run_report["stages"]["sovereignty_audit"] = {"exit_code": rc}
     if rc != 0:
@@ -903,15 +842,15 @@ class UnifiedTrainer:
     def __init__(
         self,
         data_path: str | None = None,
-        checkpoint_path: str = "anra_frontier_500m.pt",
-        batch_size: int = V2_FRONTIER_TRAINING.batch_size,
-        block_size: int = V2_FRONTIER.block_size,
-        answer_loss_weight: float = V2_FRONTIER_TRAINING.answer_loss_weight,
-        session_minutes: int = V2_FRONTIER_TRAINING.session_minutes,
+        checkpoint_path: str = "anra_v4_180m.pt",
+        batch_size: int = ANRA_V4_TRAINING.batch_size,
+        block_size: int = ANRA_V4_MODEL.block_size,
+        answer_loss_weight: float = ANRA_V4_TRAINING.answer_loss_weight,
+        session_minutes: int = ANRA_V4_TRAINING.session_minutes,
         identity_minutes: int = 12,
         ouroboros_minutes: int = 10,
-        model_size: str = "frontier",
-        optimizer: str = "adafactor",
+        model_size: str = CANONICAL_MODEL_PROFILE,
+        optimizer: str = CANONICAL_FOUNDATION_OPTIMIZER,
     ) -> None:
         self.data_path = data_path
         self.checkpoint_path = checkpoint_path

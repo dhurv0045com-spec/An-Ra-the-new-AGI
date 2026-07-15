@@ -29,7 +29,7 @@ def test_tpu_trainer_help_does_not_require_torch_xla() -> None:
     )
     assert result.returncode == 0
     assert "--grad_accum_steps" in result.stdout
-    assert "frontier" in result.stdout
+    assert "anra-v4-180m" in result.stdout
 
 
 def test_tpu_runtime_missing_xla_error_is_actionable() -> None:
@@ -41,20 +41,9 @@ def test_tpu_runtime_missing_xla_error_is_actionable() -> None:
         assert "torch_xla[tpu]" in message
 
 
-def test_tpu_notebook_is_valid_and_uses_dedicated_trainer() -> None:
-    notebook_path = ROOT / "notebooks" / "AN_RA_TPU_TRAINING.ipynb"
-    payload = json.loads(notebook_path.read_text(encoding="utf-8"))
-    joined = "\n".join(
-        "".join(cell.get("source", []))
-        for cell in payload["cells"]
-    )
-    assert payload["metadata"]["accelerator"] == "TPU"
-    assert "scripts/build_brain_tpu.py" in joined
-    assert "scripts/build_brain.py --data_path" not in joined
-    assert "torch_xla[tpu]" in joined
-    assert "--no-deps -e" in joined
-    assert "DATA_PROFILE = 'tpu'" in joined
-    assert "/content/thirdeye" in joined
+def test_only_canonical_t4_notebook_is_published() -> None:
+    assert (ROOT / "notebooks" / "AN_RA_T4_TRAINING.ipynb").exists()
+    assert not (ROOT / "notebooks" / "AN_RA_TPU_TRAINING.ipynb").exists()
 
 
 def test_tpu_trainer_disables_pytorch_checkpointing_for_xla() -> None:
@@ -63,11 +52,11 @@ def test_tpu_trainer_disables_pytorch_checkpointing_for_xla() -> None:
     assert "does not support xla device type" in source
 
 
-def test_readme_documents_tpu_path() -> None:
+def test_readme_documents_canonical_v4_path() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
-    assert "notebooks/AN_RA_TPU_TRAINING.ipynb" in readme
-    assert "scripts/build_brain_tpu.py" in readme
-    assert "PyTorch/XLA" in readme
+    assert "notebooks/AN_RA_T4_TRAINING.ipynb" in readme
+    assert "anra-v4-180m" in readme
+    assert "anra_frontier_500m.pt" not in readme
 
 
 class _TinyTokenizer:

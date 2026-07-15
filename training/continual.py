@@ -12,56 +12,13 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 
 import torch
+from anra.extensions import (
+    adapter_state_dict,
+    attach_candidate_adapters,
+    save_capability_adapter,
+    sha256_file,
+)
 from torch import nn
-from torch.nn import functional as F  # noqa: N812 - canonical PyTorch alias
-
-
-class LoRALinear(nn.Module):
-    def __init__(
-        self, base: nn.Linear, rank: int = 8, alpha: float = 16.0, dora: bool = False
-    ) -> None:
-        super().__init__()
-        self.base = base
-        for parameter in self.base.parameters():
-            parameter.requires_grad = False
-        self.rank = int(rank)
-        self.scale = float(alpha) / max(1, self.rank)
-        self.lora_a = nn.Parameter(torch.empty(self.rank, base.in_features))
-        self.lora_b = nn.Parameter(torch.zeros(base.out_features, self.rank))
-        nn.init.kaiming_uniform_(self.lora_a, a=math.sqrt(5))
-        self.magnitude = nn.Parameter(base.weight.detach().norm(dim=1)) if dora else None
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        base_output = self.base(x)
-        delta = F.linear(F.linear(x, self.lora_a), self.lora_b) * self.scale
-        if self.magnitude is not None:
-            direction = self.base.weight.detach() + self.scale * (self.lora_b @ self.lora_a)
-            norm = direction.norm(dim=1).clamp_min(1e-6)
-            delta = delta * (self.magnitude / norm).view(*([1] * (delta.ndim - 1)), -1)
-        return base_output + delta
-
-
-def attach_candidate_adapters(
-    model: nn.Module,
-    *,
-    rank: int = 8,
-    alpha: float = 16.0,
-    dora: bool = False,
-    predicate: Callable[[str, nn.Linear], bool] | None = None,
-) -> list[str]:
-    for parameter in model.parameters():
-        parameter.requires_grad = False
-    attached: list[str] = []
-    for module_name, module in list(model.named_modules()):
-        if not isinstance(module, nn.Linear):
-            continue
-        if predicate is not None and not predicate(module_name, module):
-            continue
-        parent_name, _, child_name = module_name.rpartition(".")
-        parent = model.get_submodule(parent_name) if parent_name else model
-        setattr(parent, child_name, LoRALinear(module, rank=rank, alpha=alpha, dora=dora))
-        attached.append(module_name)
-    return attached
 
 
 def compute_fisher_diagonal(
@@ -149,17 +106,14 @@ class ContinualLearningOrchestrator:
 
     @staticmethod
     def _adapter_state(model: nn.Module) -> dict[str, torch.Tensor]:
-        return {
-            name: value.detach().cpu()
-            for name, value in model.state_dict().items()
-            if ".lora_a" in name or ".lora_b" in name or ".magnitude" in name
-        }
+        return adapter_state_dict(model)
 
     def run(
         self,
         *,
         model: nn.Module,
         base_checkpoint: str | Path,
+        tokenizer_hash: str,
         examples: Sequence[object],
         replay_examples: Sequence[object],
         train_candidate: Callable[
@@ -207,15 +161,17 @@ class ContinualLearningOrchestrator:
         candidate_id = f"adapter-{int(time.time())}-{uuid.uuid4().hex[:8]}"
         self.candidate_dir.mkdir(parents=True, exist_ok=True)
         adapter_path = self.candidate_dir / f"{candidate_id}.pt"
-        torch.save(
-            {
-                "schema_version": 1,
-                "candidate_id": candidate_id,
-                "base_checkpoint": str(base_checkpoint),
-                "attached_modules": attached,
-                "state_dict": self._adapter_state(model),
-            },
+        base_path = Path(base_checkpoint)
+        if not base_path.is_file():
+            raise FileNotFoundError("continual adapter requires the immutable base checkpoint")
+        save_capability_adapter(
+            model,
             adapter_path,
+            capability_id=candidate_id,
+            base_model_profile="anra-v4-180m",
+            base_checkpoint_sha256=sha256_file(base_path),
+            tokenizer_sha256=tokenizer_hash,
+            source_commit="continual-learning-orchestrator",
         )
 
         baseline_reports = [evaluate(None, seed) for seed in self.SEEDS]
@@ -270,6 +226,12 @@ class ContinualLearningOrchestrator:
             QUARANTINE_DIR.mkdir(parents=True, exist_ok=True)
             quarantined = QUARANTINE_DIR / adapter_path.name
             shutil.move(str(adapter_path), quarantined)
+            adapter_manifest = adapter_path.with_suffix(adapter_path.suffix + ".manifest.json")
+            if adapter_manifest.is_file():
+                shutil.move(
+                    str(adapter_manifest),
+                    QUARANTINE_DIR / adapter_manifest.name,
+                )
             return ContinualRunResult(
                 status="quarantined",
                 usable_examples=usable,
@@ -289,6 +251,14 @@ class ContinualLearningOrchestrator:
             },
             smoke_test=smoke_test,
         )
+        adapter_manifest = adapter_path.with_suffix(adapter_path.suffix + ".manifest.json")
+        promoted_manifest = self.promoted_adapter.with_suffix(
+            self.promoted_adapter.suffix + ".manifest.json"
+        )
+        promoted_manifest.parent.mkdir(parents=True, exist_ok=True)
+        temporary_manifest = promoted_manifest.with_suffix(promoted_manifest.suffix + ".tmp")
+        shutil.copy2(adapter_manifest, temporary_manifest)
+        temporary_manifest.replace(promoted_manifest)
         return ContinualRunResult(
             status="promoted",
             usable_examples=usable,

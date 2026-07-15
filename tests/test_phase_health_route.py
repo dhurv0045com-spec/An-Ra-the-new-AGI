@@ -21,7 +21,6 @@ def test_phase3_health_loads_real_modules_and_reports_ok() -> None:
         "ouroboros",
         "symbolic",
         "sovereignty",
-        "ghost_memory",
     }
     assert all(check.get("status") == "ok" for check in checks.values()), checks
 
@@ -37,12 +36,12 @@ def test_phase_health_reports_degraded_when_a_subsystem_fails(monkeypatch) -> No
     # Point one entry at a module that cannot exist; the endpoint must degrade
     # honestly rather than paper over the failure with a hardcoded "ok".
     broken = tuple(
-        (key, "phase3.definitely_not_a_real_module_xyz" if key == "symbolic" else module_name)
+        (key, "phase3.definitely_not_a_real_module_xyz" if key == "sovereignty" else module_name)
         for key, module_name in app._PHASE3_HEALTH_MODULES
     )
     monkeypatch.setattr(app, "_PHASE3_HEALTH_MODULES", broken)
     result = asyncio.run(app.phase_health_route())
     assert result["status"] == "degraded"
-    assert "symbolic" in result["degraded_subsystems"]
-    assert result["phase3_health"]["symbolic"]["status"] == "degraded"
-    assert "ModuleNotFoundError" in result["phase3_health"]["symbolic"]["detail"]
+    assert "sovereignty" in result["degraded_subsystems"]
+    assert result["phase3_health"]["sovereignty"]["status"] == "degraded"
+    assert "ModuleNotFoundError" in result["phase3_health"]["sovereignty"]["detail"]

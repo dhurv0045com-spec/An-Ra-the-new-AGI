@@ -47,7 +47,8 @@ def _dump_dataclass(value: object) -> dict[str, object]:
 class ModelConfig:
     """Validated model architecture configuration."""
 
-    type: str = "causal_transformer_v3"
+    type: str = "causal_transformer_v4"
+    architecture_version: str = "anra_v4_rope_interleaved_v1"
     vocab_size: int = Field(default=8192, gt=0)
     n_embd: int = Field(default=512, gt=0)
     n_layer: int = Field(default=8, gt=0)
@@ -58,6 +59,7 @@ class ModelConfig:
     dropout: float = Field(default=0.1, ge=0.0, lt=1.0)
     ffn_type: Literal["swiglu", "gelu"] = "swiglu"
     rope_base: float = Field(default=10_000.0, gt=0.0)
+    rms_norm_eps: float = Field(default=1.0e-5, gt=0.0)
     tie_weights: bool = True
     pad_token_id: int = Field(default=0, ge=0)
     eos_token_id: int | None = Field(default=None, ge=0)
@@ -67,6 +69,12 @@ class ModelConfig:
     use_hal: bool = False
     use_rim: bool = True
     use_dstp: bool = True
+    use_qk_norm: bool = True
+    sliding_window: int | None = Field(default=1024, gt=0)
+    full_attention_every: int = Field(default=4, ge=0)
+    use_mtp: bool = False
+    use_moe: bool = False
+    initialization_scheme: str = "depth_scaled_residual_v1"
     base_seq_len: int = Field(default=512, gt=0)
     target_seq_len: int = Field(default=2048, gt=0)
     gradient_checkpointing: bool = False
@@ -97,6 +105,12 @@ class ModelConfig:
             raise ValueError("model.pad_token_id must be smaller than model.vocab_size")
         if self.eos_token_id is not None and self.eos_token_id >= self.vocab_size:
             raise ValueError("model.eos_token_id must be smaller than model.vocab_size")
+        if len(set(self.mod_layers)) != len(self.mod_layers):
+            raise ValueError("model.mod_layers cannot contain duplicates")
+        if any(layer < 0 or layer >= self.n_layer for layer in self.mod_layers):
+            raise ValueError("model.mod_layers must reference existing zero-based layers")
+        if self.d_ff is not None and self.d_ff % 64 != 0:
+            raise ValueError("model.d_ff must be divisible by 64")
         return self
 
     def dict(self) -> dict[str, object]:

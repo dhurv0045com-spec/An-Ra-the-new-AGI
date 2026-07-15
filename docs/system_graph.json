@@ -1,20 +1,20 @@
 {
-  "generated_at": "2026-05-02T22:22:59Z",
-  "repo_root": "/data/data/com.termux/files/home/An-Ra-the-new-AGI",
-  "python": "3.13.13",
-  "platform": "Android-16-aarch64-64bit",
+  "generated_at": "2026-07-15T16:53:41Z",
+  "repo_root": "C:\\Users\\ankit\\Downloads\\An-Ra-the-new-AGI-1",
+  "python": "3.14.5",
+  "platform": "Windows-11-10.0.26200-SP0",
   "metrics": {
-    "source_files": 306,
-    "python_files": 275,
-    "markdown_files": 15,
-    "python_lines": 74567,
-    "source_lines": 78742
+    "source_files": 22232,
+    "python_files": 12635,
+    "markdown_files": 82,
+    "python_lines": 5716446,
+    "source_lines": 6024507
   },
   "components": [
     {
       "name": "brain",
       "layer": "model",
-      "role": "V2 causal transformer core: GQA, RoPE/YaRN, MoD, Flash SDP path, tied embeddings.",
+      "role": "Canonical 181M V4 transformer: GQA, QK-Norm, hybrid attention, stable residual initialization, and tied embeddings.",
       "paths": [
         {
           "path": "anra_brain.py",
@@ -22,51 +22,113 @@
           "kind": "file"
         },
         {
-          "path": "training/v2_config.py",
+          "path": "anra/architecture.py",
           "exists": true,
           "kind": "file"
         },
         {
-          "path": "training/v2_runtime.py",
+          "path": "config/anra_frontier.yaml",
           "exists": true,
           "kind": "file"
         }
       ],
       "import_name": "anra_brain",
       "required": true,
+      "enabled": true,
+      "metric_hooks": [
+        "latency_ms",
+        "success",
+        "error_type"
+      ],
+      "maturity": "canonical",
+      "claim_level": "operational",
+      "evidence_required": "trained V4 checkpoint and release gates",
       "missing": [],
-      "import_status": "degraded:ModuleNotFoundError",
+      "import_status": "ok",
       "source_ok": true,
-      "runtime_ok": false,
+      "runtime_ok": true,
+      "status": "available",
+      "capability": true,
       "ok": true
     },
     {
       "name": "tokenizer",
       "layer": "data",
-      "role": "Canonical 8192-token BPE tokenizer and dependency-light adapter surface.",
+      "role": "Canonical 32,768-token append-only V4 tokenizer.",
       "paths": [
         {
-          "path": "tokenizer/tokenizer_v3.json",
+          "path": "tokenizer/tokenizer_v4_32k.json",
           "exists": true,
           "kind": "file"
         },
         {
-          "path": "tokenizer/tokenizer_adapter.py",
+          "path": "tokenizer/subword_tokenizer.py",
           "exists": true,
           "kind": "file"
         },
         {
-          "path": "scripts/train_tokenizer_v3.py",
+          "path": "scripts/execute_stream_b.py",
           "exists": true,
           "kind": "file"
         }
       ],
       "import_name": "tokenizer.tokenizer_adapter",
       "required": true,
+      "enabled": true,
+      "metric_hooks": [
+        "latency_ms",
+        "success",
+        "error_type"
+      ],
+      "maturity": "canonical",
+      "claim_level": "operational",
+      "evidence_required": "hash/fertility/round-trip contract",
       "missing": [],
       "import_status": "ok",
       "source_ok": true,
       "runtime_ok": true,
+      "status": "available",
+      "capability": true,
+      "ok": true
+    },
+    {
+      "name": "data_mix",
+      "layer": "data",
+      "role": "Owner-data-first corpus contract, teacher/symbolic/replay buckets, and dataset setup.",
+      "paths": [
+        {
+          "path": "training_data/anra_training.txt",
+          "exists": true,
+          "kind": "file"
+        },
+        {
+          "path": "training/v2_data_mix.py",
+          "exists": true,
+          "kind": "file"
+        },
+        {
+          "path": "scripts/setup_dataset.py",
+          "exists": true,
+          "kind": "file"
+        }
+      ],
+      "import_name": "training.v2_data_mix",
+      "required": true,
+      "enabled": true,
+      "metric_hooks": [
+        "latency_ms",
+        "success",
+        "error_type"
+      ],
+      "maturity": "canonical",
+      "claim_level": "operational",
+      "evidence_required": "licensed immutable shard manifests",
+      "missing": [],
+      "import_status": "ok",
+      "source_ok": true,
+      "runtime_ok": true,
+      "status": "available",
+      "capability": true,
       "ok": true
     },
     {
@@ -85,22 +147,33 @@
           "kind": "file"
         },
         {
-          "path": "training/v2_data_mix.py",
+          "path": "training/finetune_anra.py",
           "exists": true,
           "kind": "file"
         }
       ],
       "import_name": "training.train_unified",
       "required": true,
+      "enabled": true,
+      "metric_hooks": [
+        "latency_ms",
+        "success",
+        "error_type"
+      ],
+      "maturity": "canonical",
+      "claim_level": "operational",
+      "evidence_required": "successful bounded GPU training run",
       "missing": [],
-      "import_status": "degraded:ModuleNotFoundError",
+      "import_status": "ok",
       "source_ok": true,
-      "runtime_ok": false,
+      "runtime_ok": true,
+      "status": "available",
+      "capability": true,
       "ok": true
     },
     {
       "name": "evaluation",
-      "layer": "learning",
+      "layer": "measurement",
       "role": "Compact eval, model-running benchmark suite, verifier, and hard-example feedback.",
       "paths": [
         {
@@ -121,16 +194,102 @@
       ],
       "import_name": "training.benchmark",
       "required": true,
+      "enabled": true,
+      "metric_hooks": [
+        "latency_ms",
+        "success",
+        "error_type"
+      ],
+      "maturity": "canonical",
+      "claim_level": "operational",
+      "evidence_required": "held-out uncontaminated evaluation results",
       "missing": [],
       "import_status": "ok",
       "source_ok": true,
       "runtime_ok": true,
+      "status": "available",
+      "capability": true,
       "ok": true
+    },
+    {
+      "name": "runtime",
+      "layer": "serving",
+      "role": "Generation, streaming, trace capture, connector refresh, and local inference helpers.",
+      "paths": [
+        {
+          "path": "generate.py",
+          "exists": true,
+          "kind": "file"
+        },
+        {
+          "path": "inference/full_system_connector.py",
+          "exists": true,
+          "kind": "file"
+        },
+        {
+          "path": "inference/anra_infer.py",
+          "exists": true,
+          "kind": "file"
+        }
+      ],
+      "import_name": "generate",
+      "required": true,
+      "enabled": true,
+      "metric_hooks": [
+        "latency_ms",
+        "success",
+        "error_type"
+      ],
+      "maturity": "canonical",
+      "claim_level": "operational",
+      "evidence_required": "checkpoint quality and cache-parity gates",
+      "missing": [],
+      "import_status": "ok",
+      "source_ok": true,
+      "runtime_ok": true,
+      "status": "available",
+      "capability": true,
+      "ok": true
+    },
+    {
+      "name": "api_web",
+      "layer": "interface",
+      "role": "Canonical FastAPI backend and embedded Developer UI.",
+      "paths": [
+        {
+          "path": "app.py",
+          "exists": true,
+          "kind": "file"
+        },
+        {
+          "path": "ui/usability.py",
+          "exists": true,
+          "kind": "file"
+        }
+      ],
+      "import_name": null,
+      "required": true,
+      "enabled": true,
+      "metric_hooks": [
+        "latency_ms",
+        "success",
+        "error_type"
+      ],
+      "maturity": "canonical",
+      "claim_level": "source_only",
+      "evidence_required": "live API/UI integration probe",
+      "missing": [],
+      "import_status": "not_checked",
+      "source_ok": true,
+      "runtime_ok": false,
+      "status": "source_only",
+      "capability": false,
+      "ok": false
     },
     {
       "name": "identity",
       "layer": "alignment",
-      "role": "CIV residual guard plus ESV modulation and identity drift checks.",
+      "role": "CIV residual guard, ESV modulation, watcher checks, and Phase 3 identity injection.",
       "paths": [
         {
           "path": "identity/civ.py",
@@ -141,20 +300,41 @@
           "path": "identity/esv.py",
           "exists": true,
           "kind": "file"
+        },
+        {
+          "path": "identity/civ_watcher.py",
+          "exists": true,
+          "kind": "file"
+        },
+        {
+          "path": "phase3/identity_45n/identity_injector.py",
+          "exists": true,
+          "kind": "file"
         }
       ],
       "import_name": "identity.civ",
       "required": true,
+      "enabled": false,
+      "metric_hooks": [
+        "latency_ms",
+        "success",
+        "error_type"
+      ],
+      "maturity": "pilot",
+      "claim_level": "source_only",
+      "evidence_required": "separate CIV/ESV/identity-conditioning evidence",
       "missing": [],
-      "import_status": "degraded:ModuleNotFoundError",
+      "import_status": "ok",
       "source_ok": true,
-      "runtime_ok": false,
-      "ok": true
+      "runtime_ok": true,
+      "status": "source_only",
+      "capability": false,
+      "ok": false
     },
     {
       "name": "memory",
       "layer": "continuity",
-      "role": "Unified memory router over episodic, short-term, graph, ghost, and ESV-gated writes.",
+      "role": "Unified memory router over episodic, short-term, graph, and ESV-gated writes.",
       "paths": [
         {
           "path": "memory/memory_router.py",
@@ -169,10 +349,21 @@
       ],
       "import_name": "memory.memory_router",
       "required": true,
+      "enabled": true,
+      "metric_hooks": [
+        "latency_ms",
+        "success",
+        "error_type"
+      ],
+      "maturity": "canonical",
+      "claim_level": "operational",
+      "evidence_required": "retrieval relevance and isolation evaluation",
       "missing": [],
-      "import_status": "degraded:ModuleNotFoundError",
+      "import_status": "ok",
       "source_ok": true,
-      "runtime_ok": false,
+      "runtime_ok": true,
+      "status": "available",
+      "capability": true,
       "ok": true
     },
     {
@@ -198,50 +389,67 @@
       ],
       "import_name": "goals.goal_queue",
       "required": true,
+      "enabled": true,
+      "metric_hooks": [
+        "latency_ms",
+        "success",
+        "error_type"
+      ],
+      "maturity": "available",
+      "claim_level": "operational",
+      "evidence_required": "bounded dispatch and recovery evidence",
       "missing": [],
       "import_status": "ok",
       "source_ok": true,
       "runtime_ok": true,
+      "status": "available",
+      "capability": true,
       "ok": true
     },
     {
-      "name": "runtime",
-      "layer": "serving",
-      "role": "Generation runtime, API surface, session dashboard, startup checks, and system registry.",
+      "name": "agent_loop",
+      "layer": "agency",
+      "role": "45K goal interpretation, planning, dispatch, execution, monitoring, and evaluation.",
       "paths": [
         {
-          "path": "generate.py",
+          "path": "phase2/agent_loop_45k/agent_main.py",
           "exists": true,
           "kind": "file"
         },
         {
-          "path": "app.py",
+          "path": "phase2/agent_loop_45k/planner.py",
           "exists": true,
           "kind": "file"
         },
         {
-          "path": "scripts/session_dashboard.py",
+          "path": "phase2/agent_loop_45k/executor.py",
           "exists": true,
           "kind": "file"
         },
         {
-          "path": "startup_checks.py",
-          "exists": true,
-          "kind": "file"
-        },
-        {
-          "path": "runtime/system_registry.py",
+          "path": "phase2/agent_loop_45k/evaluator.py",
           "exists": true,
           "kind": "file"
         }
       ],
-      "import_name": "generate",
+      "import_name": null,
       "required": true,
+      "enabled": false,
+      "metric_hooks": [
+        "latency_ms",
+        "success",
+        "error_type"
+      ],
+      "maturity": "operator_gated",
+      "claim_level": "source_only",
+      "evidence_required": "sandbox and authorization proof",
       "missing": [],
-      "import_status": "degraded:ModuleNotFoundError",
+      "import_status": "not_checked",
       "source_ok": true,
       "runtime_ok": false,
-      "ok": true
+      "status": "source_only",
+      "capability": false,
+      "ok": false
     },
     {
       "name": "self_modification",
@@ -271,110 +479,517 @@
       ],
       "import_name": "self_modification.type_a",
       "required": true,
+      "enabled": false,
+      "metric_hooks": [
+        "latency_ms",
+        "success",
+        "error_type"
+      ],
+      "maturity": "proposal_only",
+      "claim_level": "operational",
+      "evidence_required": "human approval and rollback evidence",
       "missing": [],
       "import_status": "ok",
       "source_ok": true,
       "runtime_ok": true,
-      "ok": true
+      "status": "inactive",
+      "capability": false,
+      "ok": false
     },
     {
-      "name": "phase3_tools",
-      "layer": "verification",
-      "role": "Symbolic reasoning, Ouroboros reflection, ghost memory, and sovereignty promotion gates.",
+      "name": "ouroboros",
+      "layer": "reflection",
+      "role": "45O recursive reasoning, adaptive pass selection, pass gates, and milestone refinement.",
       "paths": [
         {
-          "path": "phase3/symbolic_bridge (45Q)/symbolic_bridge.py",
+          "path": "phase3/ouroboros_45o/ouroboros_numpy.py",
           "exists": true,
           "kind": "file"
         },
         {
-          "path": "phase3/ouroboros (45O)/ouroboros_numpy.py",
+          "path": "phase3/ouroboros_45o/adaptive.py",
           "exists": true,
           "kind": "file"
         },
         {
-          "path": "phase3/sovereignty (45R)/sovereignty_bridge.py",
+          "path": "phase3/ouroboros_45o/pass_gates.py",
           "exists": true,
           "kind": "file"
-        },
-        {
-          "path": "phase3/ghost_memory (45P)",
-          "exists": true,
-          "kind": "dir"
         }
       ],
       "import_name": null,
-      "required": false,
+      "required": true,
+      "enabled": false,
+      "metric_hooks": [
+        "latency_ms",
+        "success",
+        "error_type"
+      ],
+      "maturity": "pilot",
+      "claim_level": "source_only",
+      "evidence_required": "matched-compute reasoning improvement",
       "missing": [],
       "import_status": "not_checked",
       "source_ok": true,
+      "runtime_ok": false,
+      "status": "source_only",
+      "capability": false,
+      "ok": false
+    },
+    {
+      "name": "symbolic_bridge",
+      "layer": "verification",
+      "role": "45Q deterministic math, logic, code analysis, cross-checking, and verified response objects.",
+      "paths": [
+        {
+          "path": "phase3/symbolic_bridge_45q/symbolic_bridge.py",
+          "exists": true,
+          "kind": "file"
+        },
+        {
+          "path": "phase3/symbolic_bridge_45q/math_solver.py",
+          "exists": true,
+          "kind": "file"
+        },
+        {
+          "path": "phase3/symbolic_bridge_45q/logic_checker.py",
+          "exists": true,
+          "kind": "file"
+        },
+        {
+          "path": "phase3/symbolic_bridge_45q/code_verifier.py",
+          "exists": true,
+          "kind": "file"
+        }
+      ],
+      "import_name": "phase3.symbolic_bridge_45q.symbolic_bridge",
+      "required": true,
+      "enabled": true,
+      "metric_hooks": [
+        "latency_ms",
+        "success",
+        "error_type"
+      ],
+      "maturity": "available",
+      "claim_level": "operational",
+      "evidence_required": "domain-specific verifier coverage",
+      "missing": [],
+      "import_status": "ok",
+      "source_ok": true,
       "runtime_ok": true,
+      "status": "available",
+      "capability": true,
       "ok": true
+    },
+    {
+      "name": "sovereignty",
+      "layer": "governance",
+      "role": "45R audit, dead-code sweep, benchmark deltas, reports, and checkpoint promotion gates.",
+      "paths": [
+        {
+          "path": "phase3/sovereignty_45r/sovereignty_bridge.py",
+          "exists": true,
+          "kind": "file"
+        },
+        {
+          "path": "phase3/sovereignty_45r/auditor.py",
+          "exists": true,
+          "kind": "file"
+        },
+        {
+          "path": "phase3/sovereignty_45r/benchmarks.py",
+          "exists": true,
+          "kind": "file"
+        },
+        {
+          "path": "phase3/sovereignty_45r/reporter.py",
+          "exists": true,
+          "kind": "file"
+        }
+      ],
+      "import_name": null,
+      "required": true,
+      "enabled": true,
+      "metric_hooks": [
+        "latency_ms",
+        "success",
+        "error_type"
+      ],
+      "maturity": "available",
+      "claim_level": "source_only",
+      "evidence_required": "real audit evidence, not simulation",
+      "missing": [],
+      "import_status": "not_checked",
+      "source_ok": true,
+      "runtime_ok": false,
+      "status": "source_only",
+      "capability": false,
+      "ok": false
+    },
+    {
+      "name": "v4_training",
+      "layer": "learning",
+      "role": "IBS-50, staged campaigns, PCGrad, optimizer adapters, DEL/CDR, CSII, and SSG.",
+      "paths": [
+        {
+          "path": "evaluation/ibs.py",
+          "exists": true,
+          "kind": "file"
+        },
+        {
+          "path": "training/stages.py",
+          "exists": true,
+          "kind": "file"
+        },
+        {
+          "path": "training/data_pipeline_v3.py",
+          "exists": true,
+          "kind": "file"
+        },
+        {
+          "path": "training/continual.py",
+          "exists": true,
+          "kind": "file"
+        }
+      ],
+      "import_name": "training.stages",
+      "required": true,
+      "enabled": true,
+      "metric_hooks": [
+        "latency_ms",
+        "success",
+        "error_type"
+      ],
+      "maturity": "canonical",
+      "claim_level": "operational",
+      "evidence_required": "canonical campaign execution",
+      "missing": [],
+      "import_status": "ok",
+      "source_ok": true,
+      "runtime_ok": true,
+      "status": "available",
+      "capability": true,
+      "ok": true
+    },
+    {
+      "name": "intelligence",
+      "layer": "cognition",
+      "role": "Hierarchical planning, competence, curiosity, proof memory, OGRS, and verifier search.",
+      "paths": [
+        {
+          "path": "intelligence/hgp.py",
+          "exists": true,
+          "kind": "file"
+        },
+        {
+          "path": "intelligence/competence.py",
+          "exists": true,
+          "kind": "file"
+        },
+        {
+          "path": "intelligence/proof_memory.py",
+          "exists": true,
+          "kind": "file"
+        }
+      ],
+      "import_name": "intelligence",
+      "required": true,
+      "enabled": false,
+      "metric_hooks": [
+        "latency_ms",
+        "success",
+        "error_type"
+      ],
+      "maturity": "pilot",
+      "claim_level": "operational",
+      "evidence_required": "task-level capability evidence",
+      "missing": [],
+      "import_status": "ok",
+      "source_ok": true,
+      "runtime_ok": true,
+      "status": "inactive",
+      "capability": false,
+      "ok": false
+    },
+    {
+      "name": "inference_efficiency",
+      "layer": "serving",
+      "role": "Tiered/AWKC KV retention, prefix reuse, and speculative promotion metrics.",
+      "paths": [
+        {
+          "path": "inference/kv_cache.py",
+          "exists": true,
+          "kind": "file"
+        },
+        {
+          "path": "inference/prefix_cache.py",
+          "exists": true,
+          "kind": "file"
+        },
+        {
+          "path": "inference/speculative.py",
+          "exists": true,
+          "kind": "file"
+        }
+      ],
+      "import_name": "inference.kv_cache",
+      "required": true,
+      "enabled": false,
+      "metric_hooks": [
+        "latency_ms",
+        "success",
+        "error_type"
+      ],
+      "maturity": "gated",
+      "claim_level": "operational",
+      "evidence_required": "exact parity and latency improvement",
+      "missing": [],
+      "import_status": "ok",
+      "source_ok": true,
+      "runtime_ok": true,
+      "status": "inactive",
+      "capability": false,
+      "ok": false
+    },
+    {
+      "name": "robotics",
+      "layer": "embodiment",
+      "role": "Typed observations, skill goals, workflows, domain randomization, and world-model research.",
+      "paths": [
+        {
+          "path": "robotics/contracts.py",
+          "exists": true,
+          "kind": "file"
+        },
+        {
+          "path": "robotics/workflow.py",
+          "exists": true,
+          "kind": "file"
+        },
+        {
+          "path": "robotics/world_model.py",
+          "exists": true,
+          "kind": "file"
+        }
+      ],
+      "import_name": "robotics",
+      "required": true,
+      "enabled": false,
+      "metric_hooks": [
+        "latency_ms",
+        "success",
+        "error_type"
+      ],
+      "maturity": "pilot",
+      "claim_level": "operational",
+      "evidence_required": "simulator and hardware safety evidence",
+      "missing": [],
+      "import_status": "ok",
+      "source_ok": true,
+      "runtime_ok": true,
+      "status": "inactive",
+      "capability": false,
+      "ok": false
+    },
+    {
+      "name": "multimodal",
+      "layer": "perception",
+      "role": "Research-gated frozen vision/audio encoder projection into the residual stream.",
+      "paths": [
+        {
+          "path": "multimodal/projector.py",
+          "exists": true,
+          "kind": "file"
+        }
+      ],
+      "import_name": "multimodal",
+      "required": false,
+      "enabled": false,
+      "metric_hooks": [
+        "latency_ms",
+        "success",
+        "error_type"
+      ],
+      "maturity": "pilot",
+      "claim_level": "operational",
+      "evidence_required": "licensed data and held-out multimodal quality",
+      "missing": [],
+      "import_status": "ok",
+      "source_ok": true,
+      "runtime_ok": true,
+      "status": "inactive",
+      "capability": false,
+      "ok": false
     }
   ],
   "capabilities": {
     "brain": true,
     "tokenizer": true,
+    "data_mix": true,
     "training_loop": true,
     "evaluation": true,
-    "identity": true,
+    "runtime": true,
+    "api_web": false,
+    "identity": false,
     "memory": true,
     "goals": true,
-    "runtime": true,
-    "self_modification": true,
-    "phase3_tools": true
+    "agent_loop": false,
+    "self_modification": false,
+    "ouroboros": false,
+    "symbolic_bridge": true,
+    "sovereignty": false,
+    "v4_training": true,
+    "intelligence": false,
+    "inference_efficiency": false,
+    "robotics": false,
+    "multimodal": false
   },
   "artifacts": {
     "dataset": {
       "canonical": {
-        "path": "training_data/anra_training.txt",
+        "path": "training_data\\anra_training.txt",
         "exists": true,
-        "size_bytes": 3984595
-      },
-      "legacy": {
-        "path": "training_data/anra_dataset_v6_1.txt",
-        "exists": true,
-        "size_bytes": 3984595
+        "size_bytes": 4038085
       }
     },
     "tokenizer": {
-      "path": "tokenizer/tokenizer_v3.json",
+      "path": "tokenizer\\tokenizer_v4_32k.json",
       "exists": true,
-      "size_bytes": 297498
+      "size_bytes": 1278433
     },
     "checkpoints": {
-      "brain": {
-        "path": "anra_v2_brain.pt",
-        "exists": false,
-        "size_bytes": 0
-      },
-      "identity": {
-        "path": "anra_v2_identity.pt",
-        "exists": false,
-        "size_bytes": 0
-      },
-      "ouroboros": {
-        "path": "anra_v2_ouroboros.pt",
+      "v4": {
+        "path": "anra_v4_180m.pt",
         "exists": false,
         "size_bytes": 0
       }
     },
     "reports": {
       "metrics": {
-        "path": "output/v2/reports/metrics.json",
+        "path": "output\\v2\\reports\\metrics.json",
         "exists": false,
         "size_bytes": 0
       },
       "eval_summary": {
-        "path": "output/v2/v2_eval_summary.json",
+        "path": "output\\v2\\v2_eval_summary.json",
         "exists": false,
         "size_bytes": 0
       },
       "curriculum": {
-        "path": "output/v2/v2_next_session_curriculum.json",
+        "path": "output\\v2\\v2_next_session_curriculum.json",
         "exists": false,
         "size_bytes": 0
       }
     }
+  },
+  "training_readiness": {
+    "generated_at": 1784134421.2372408,
+    "score": 6,
+    "out_of": 10,
+    "ready_for_session": true,
+    "ready_for_milestone": false,
+    "blockers": [],
+    "warnings": [
+      "device: CUDA unavailable; training will run on CPU",
+      "checkpoint:brain: missing; training can create it, but resume/promotion cannot use it yet",
+      "report:metrics: missing until a session/eval writes it",
+      "report:eval_summary: missing until a session/eval writes it",
+      "report:curriculum: missing until a session/eval writes it",
+      "report:mix_report: missing until a session/eval writes it",
+      "data_mix:teacher: no teacher JSONL found at training_data/teacher_reasoning_v2.jsonl"
+    ],
+    "checks": [
+      {
+        "name": "dataset",
+        "status": "ok",
+        "detail": "4038085 bytes with H:/ANRA: turns",
+        "required": true,
+        "path": "training_data/anra_training.txt"
+      },
+      {
+        "name": "tokenizer",
+        "status": "ok",
+        "detail": "32768 tokens, pad=0",
+        "required": true,
+        "path": "tokenizer/tokenizer_v4_32k.json"
+      },
+      {
+        "name": "device",
+        "status": "warn",
+        "detail": "CUDA unavailable; training will run on CPU",
+        "required": false,
+        "path": null
+      },
+      {
+        "name": "checkpoint:brain",
+        "status": "warn",
+        "detail": "missing; training can create it, but resume/promotion cannot use it yet",
+        "required": false,
+        "path": "anra_v4_180m.pt"
+      },
+      {
+        "name": "report:metrics",
+        "status": "warn",
+        "detail": "missing until a session/eval writes it",
+        "required": false,
+        "path": "output/v2/v2_session_train_metrics.json"
+      },
+      {
+        "name": "report:eval_summary",
+        "status": "warn",
+        "detail": "missing until a session/eval writes it",
+        "required": false,
+        "path": "output/v2/v2_eval_summary.json"
+      },
+      {
+        "name": "report:curriculum",
+        "status": "warn",
+        "detail": "missing until a session/eval writes it",
+        "required": false,
+        "path": "output/v2/v2_next_session_curriculum.json"
+      },
+      {
+        "name": "report:mix_report",
+        "status": "warn",
+        "detail": "missing until a session/eval writes it",
+        "required": false,
+        "path": "output/v2/v2_dataset_mix.json"
+      },
+      {
+        "name": "data_mix:teacher",
+        "status": "warn",
+        "detail": "no teacher JSONL found at training_data/teacher_reasoning_v2.jsonl",
+        "required": false,
+        "path": "training_data/teacher_reasoning_v2.jsonl"
+      },
+      {
+        "name": "data_mix:frontier_dfc",
+        "status": "ok",
+        "detail": "frontier DFC examples available",
+        "required": false,
+        "path": "training_data/frontier_dfc.jsonl"
+      },
+      {
+        "name": "data_mix:failure_replay",
+        "status": "ok",
+        "detail": "failure replay dataset available",
+        "required": false,
+        "path": "state/failure_replay.jsonl"
+      },
+      {
+        "name": "identity:file",
+        "status": "ok",
+        "detail": "identity file available",
+        "required": false,
+        "path": "phase3/identity_45n/anra_identity_combined.txt"
+      },
+      {
+        "name": "dependency:psutil",
+        "status": "ok",
+        "detail": "psutil available for sovereignty resource monitoring",
+        "required": false,
+        "path": null
+      }
+    ]
   }
 }

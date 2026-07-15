@@ -120,7 +120,7 @@ def walk_repository(repo_root: Path) -> list[FileNode]:
                 continue
             if size_bytes > _MAX_SOURCE_BYTES or path.name in {
                 "package-lock.json",
-                "tokenizer_v3.json",
+                "tokenizer_v4_32k.json",
             }:
                 continue
             text = _safe_read_text(path)
@@ -193,12 +193,19 @@ def phase_snapshots(_repo_root: Path, nodes: list[FileNode]) -> list[PhaseSnapsh
 # contains the right substring proves nothing and previously made every one of
 # these flags unconditionally True.
 _RUNTIME_CAPABILITY_MODULES: dict[str, tuple[str, str | None]] = {
-    "turboquant": ("archive.core_45eh_numpy_archived.turboquant", "CompressedKVCache"),
+    "turboquant": ("inference.turboquant", "CompressedKVCache"),
     "ouroboros": ("phase3.ouroboros_45o.ouroboros_numpy", None),
     "symbolic_bridge": ("phase3.symbolic_bridge_45q.symbolic_bridge", None),
     "sovereignty": ("phase3.sovereignty_45r.sovereignty_bridge", None),
-    "ghost_memory": ("phase3.ghost_memory_45p.ghost_memory", None),
     "identity_injector": ("phase3.identity_45n.identity_injector", None),
+}
+
+_RUNTIME_CAPABILITY_FLAGS: dict[str, str] = {
+    "turboquant": "inference_efficiency",
+    "ouroboros": "ouroboros",
+    "symbolic_bridge": "symbolic_bridge",
+    "sovereignty": "sovereignty",
+    "identity_injector": "identity",
 }
 
 
@@ -232,16 +239,23 @@ def build_capability_graph(repo_root: Path) -> dict[str, object]:
 
     manifest_caps = manifest.get("capabilities", {})
     capabilities = dict(manifest_caps) if isinstance(manifest_caps, dict) else {}
+    runtime_evidence = {
+        name: probe_module_capability(module_name, required_symbol)
+        for name, (module_name, required_symbol) in _RUNTIME_CAPABILITY_MODULES.items()
+    }
     capabilities.update(
         {
-            name: probe_module_capability(module_name, required_symbol)
-            for name, (module_name, required_symbol) in _RUNTIME_CAPABILITY_MODULES.items()
+            name: bool(
+                runtime_evidence[name]
+                and capabilities.get(_RUNTIME_CAPABILITY_FLAGS[name], False)
+            )
+            for name in _RUNTIME_CAPABILITY_MODULES
         }
     )
     capabilities.update(
         {
             # Static assets: presence is the honest semantic for these three.
-            "web_ui": any(n.path.startswith("phase4/web/") for n in nodes),
+            "web_ui": any(n.path == "app.py" for n in nodes),
             "fastapi": any(n.path == "app.py" for n in nodes),
             "integration_tests": any(n.path.startswith("tests/") for n in nodes),
         }
@@ -254,6 +268,7 @@ def build_capability_graph(repo_root: Path) -> dict[str, object]:
         "python_file_count": sum(1 for n in nodes if n.has_python),
         "total_lines": sum(n.line_count for n in nodes),
         "capabilities": capabilities,
+        "runtime_evidence": runtime_evidence,
         "phase_snapshots": [asdict(s) for s in snapshots],
     }
 

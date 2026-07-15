@@ -14,7 +14,7 @@ from anra.anra_paths import (
     OUTPUT_V2_DIR,
     ROOT,
     TEACHER_REASONING_V2_FILE,
-    V3_TOKENIZER_FILE,
+    V4_TOKENIZER_FILE,
     get_identity_file,
     get_teacher_files,
     get_v2_checkpoint,
@@ -88,7 +88,7 @@ def _text_dataset_status(path: Path) -> ReadinessCheck:
 def _tokenizer_status(path: Path) -> ReadinessCheck:
     if not path.exists():
         return ReadinessCheck(
-            "tokenizer", "blocker", "tokenizer_v3.json is missing", path=_rel(path)
+            "tokenizer", "blocker", "canonical tokenizer_v4_32k.json is missing", path=_rel(path)
         )
     meta_path = path.with_suffix(path.suffix + ".meta.json")
     try:
@@ -132,7 +132,7 @@ def _tokenizer_status(path: Path) -> ReadinessCheck:
 
 def _checkpoint_checks() -> list[ReadinessCheck]:
     checks: list[ReadinessCheck] = []
-    for name in ("brain", "identity", "ouroboros"):
+    for name in ("brain",):
         path = get_v2_checkpoint(name)
         if path.exists():
             checks.append(
@@ -259,7 +259,7 @@ def _alignment_dependency_checks() -> list[ReadinessCheck]:
 def _compute_checks(dataset_path: Path) -> list[ReadinessCheck]:
     checks = [
         _text_dataset_status(dataset_path),
-        _tokenizer_status(V3_TOKENIZER_FILE),
+        _tokenizer_status(V4_TOKENIZER_FILE),
         ReadinessCheck(
             "device",
             "ok" if torch.cuda.is_available() else "warn",

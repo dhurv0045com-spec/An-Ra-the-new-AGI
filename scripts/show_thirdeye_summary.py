@@ -18,7 +18,8 @@ from evaluation.thirdeye_adapter import (
     activation_snapshot,
     run_one_click,
 )
-from training.v2_runtime import build_frontier_model, model_summary
+from training.v2_config import ANRA_V4_MODEL_PARAMETER_COUNT, CANONICAL_MODEL_PROFILE
+from training.v2_runtime import build_model_for_profile, model_summary
 
 
 def _load_json(path: Path) -> dict[str, Any] | None:
@@ -179,16 +180,16 @@ def render_summary(
 def main() -> None:
     parser = argparse.ArgumentParser(description="Show a visible ThirdEye dashboard in Colab")
     parser.add_argument("--profile", choices=["quick", "standard", "exhaustive", "auto"], default="quick")
-    parser.add_argument("--with-model", action="store_true", help="Build the frontier model for architecture activation probes.")
+    parser.add_argument("--with-model", action="store_true", help="Build canonical V4 for architecture activation probes.")
     parser.add_argument("--without-model", action="store_true", help="Compatibility flag; model construction is skipped unless --with-model is set.")
     args = parser.parse_args()
 
     model = None
     if args.with_model and not args.without_model:
-        model = build_frontier_model()
+        model = build_model_for_profile(CANONICAL_MODEL_PROFILE)
         summary = model_summary(model)
-        if not 450_000_000 <= int(summary["parameters"]) <= 600_000_000:
-            raise RuntimeError(f"Unexpected 500M-class frontier parameter count: {summary}")
+        if int(summary["parameters"]) != ANRA_V4_MODEL_PARAMETER_COUNT:
+            raise RuntimeError(f"Unexpected canonical V4 parameter count: {summary}")
 
     warning = None
     try:

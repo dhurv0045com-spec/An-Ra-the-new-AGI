@@ -7,16 +7,16 @@ import pytest
 
 
 class _Tokenizer:
-    vocab_size = 8209
+    vocab_size = 32768
     backend = "test"
 
 
 class _FakeModel:
-    d_model = 1280
-    n_layer = 28
-    n_head = 16
-    n_kv_head = 4
-    block_size = 1024
+    d_model = 896
+    n_layer = 18
+    n_head = 14
+    n_kv_head = 2
+    block_size = 2048
 
     def to(self, _device):
         return self
@@ -43,16 +43,16 @@ def test_frontier_runtime_refuses_missing_checkpoint(monkeypatch, tmp_path: Path
     import generate
 
     generate._reset_runtime_cache()
-    missing = tmp_path / "anra_frontier_500m.pt"
-    monkeypatch.setenv("ANRA_MODEL_PROFILE", "frontier")
-    monkeypatch.setattr(generate, "FRONTIER_CHECKPOINT", missing)
+    missing = tmp_path / "anra_v4_180m.pt"
+    monkeypatch.setenv("ANRA_MODEL_PROFILE", "anra-v4-180m")
+    monkeypatch.setattr(generate, "ANRA_V4_CHECKPOINT", missing)
     monkeypatch.setattr(generate, "_requested_checkpoint_path", lambda: missing)
     monkeypatch.setattr(
         "training.shared_checkpoint.restore_shared_checkpoint",
         lambda *_args, **_kwargs: None,
     )
 
-    with pytest.raises(FileNotFoundError, match="Frontier runtime requested"):
+    with pytest.raises(FileNotFoundError, match="Canonical V4 runtime requested"):
         generate._load_runtime()
 
     generate._reset_runtime_cache()
@@ -62,25 +62,20 @@ def test_frontier_runtime_uses_frontier_builder(monkeypatch, tmp_path: Path) -> 
     import generate
 
     generate._reset_runtime_cache()
-    checkpoint = tmp_path / "anra_frontier_500m.pt"
+    checkpoint = tmp_path / "anra_v4_180m.pt"
     checkpoint.write_bytes(b"fake")
     calls: list[str] = []
 
-    monkeypatch.setenv("ANRA_MODEL_PROFILE", "frontier")
-    monkeypatch.setattr(generate, "FRONTIER_CHECKPOINT", checkpoint)
+    monkeypatch.setenv("ANRA_MODEL_PROFILE", "anra-v4-180m")
+    monkeypatch.setattr(generate, "ANRA_V4_CHECKPOINT", checkpoint)
     monkeypatch.setattr(generate, "_requested_checkpoint_path", lambda: checkpoint)
     monkeypatch.setattr(generate, "load_or_build_v2_tokenizer", lambda: _Tokenizer())
 
-    def build_frontier():
-        calls.append("frontier")
+    def build_v4(profile, **_kwargs):
+        calls.append(profile)
         return _FakeModel()
 
-    def build_legacy(**_kwargs):
-        calls.append("legacy")
-        raise AssertionError("legacy builder must not be used for frontier runtime")
-
-    monkeypatch.setattr(generate, "build_frontier_model", build_frontier)
-    monkeypatch.setattr(generate, "build_v2_model", build_legacy)
+    monkeypatch.setattr(generate, "build_model_for_profile", build_v4)
     monkeypatch.setattr(
         generate,
         "load_checkpoint",
@@ -97,19 +92,19 @@ def test_frontier_runtime_uses_frontier_builder(monkeypatch, tmp_path: Path) -> 
         generate,
         "model_summary",
         lambda _model: {
-            "parameters": generate.V2_FRONTIER_PARAMETER_COUNT,
-            "trainable_parameters": generate.V2_FRONTIER_PARAMETER_COUNT,
+            "parameters": generate.ANRA_V4_MODEL_PARAMETER_COUNT,
+            "trainable_parameters": generate.ANRA_V4_MODEL_PARAMETER_COUNT,
         },
     )
 
     model, tokenizer, loaded, profile, state = generate._load_runtime()
 
     assert isinstance(model, _FakeModel)
-    assert tokenizer.vocab_size == 8209
+    assert tokenizer.vocab_size == 32768
     assert loaded == checkpoint
-    assert profile == "frontier"
+    assert profile == "anra-v4-180m"
     assert state["global_step"] == 6927
-    assert calls == ["frontier"]
+    assert calls == ["anra-v4-180m"]
 
     generate._reset_runtime_cache()
 
@@ -118,13 +113,15 @@ def test_model_info_exposes_frontier_proof_fields(monkeypatch, tmp_path: Path) -
     import generate
 
     generate._reset_runtime_cache()
-    checkpoint = tmp_path / "anra_frontier_500m.pt"
+    checkpoint = tmp_path / "anra_v4_180m.pt"
     checkpoint.write_bytes(b"fake")
-    monkeypatch.setenv("ANRA_MODEL_PROFILE", "frontier")
-    monkeypatch.setattr(generate, "FRONTIER_CHECKPOINT", checkpoint)
+    monkeypatch.setenv("ANRA_MODEL_PROFILE", "anra-v4-180m")
+    monkeypatch.setattr(generate, "ANRA_V4_CHECKPOINT", checkpoint)
     monkeypatch.setattr(generate, "_requested_checkpoint_path", lambda: checkpoint)
     monkeypatch.setattr(generate, "load_or_build_v2_tokenizer", lambda: _Tokenizer())
-    monkeypatch.setattr(generate, "build_frontier_model", lambda: _FakeModel())
+    monkeypatch.setattr(
+        generate, "build_model_for_profile", lambda *_args, **_kwargs: _FakeModel()
+    )
     monkeypatch.setattr(
         generate,
         "load_checkpoint",
@@ -139,17 +136,17 @@ def test_model_info_exposes_frontier_proof_fields(monkeypatch, tmp_path: Path) -
         generate,
         "model_summary",
         lambda _model: {
-            "parameters": generate.V2_FRONTIER_PARAMETER_COUNT,
-            "trainable_parameters": generate.V2_FRONTIER_PARAMETER_COUNT,
+            "parameters": generate.ANRA_V4_MODEL_PARAMETER_COUNT,
+            "trainable_parameters": generate.ANRA_V4_MODEL_PARAMETER_COUNT,
         },
     )
 
     info = generate.get_model_info()
 
-    assert info["profile"] == "frontier"
+    assert info["profile"] == "anra-v4-180m"
     assert info["checkpoint"] == str(checkpoint)
-    assert info["param_count"] == generate.V2_FRONTIER_PARAMETER_COUNT
-    assert info["block_size"] == 1024
+    assert info["param_count"] == generate.ANRA_V4_MODEL_PARAMETER_COUNT
+    assert info["block_size"] == 2048
     assert info["checkpoint_state"]["global_step"] == 6927
     assert info["checkpoint_state"]["best_training_loss"] == 0.3279
 
@@ -168,10 +165,10 @@ def test_model_adapter_publishes_readiness_atomically(monkeypatch) -> None:
             "checkpoint_sha256": "checkpoint",
             "tokenizer_sha256": "tokenizer",
             "device": "cuda",
-            "profile": "frontier",
-            "vocab_size": 8209,
-            "param_count": 499_167_047,
-            "block_size": 1024,
+            "profile": "anra-v4-180m",
+            "vocab_size": 32768,
+            "param_count": 181_132_071,
+            "block_size": 2048,
         },
     )
 
@@ -183,7 +180,7 @@ def test_model_adapter_publishes_readiness_atomically(monkeypatch) -> None:
 
     assert adapter.readiness()["stage"] == "ready"
     assert adapter.readiness()["ready"] is True
-    assert adapter.info["param_count"] == 499_167_047
+    assert adapter.info["param_count"] == 181_132_071
     adapter.require_ready()
 
 
@@ -219,6 +216,7 @@ def test_repetition_penalty_moves_repeated_logits_down() -> None:
 def test_full_system_operator_dispatch_connects_explicit_agent_goal(monkeypatch) -> None:
     import app
 
+    monkeypatch.setattr(app, "is_enabled", lambda name: name == "agent_loop")
     monkeypatch.setattr(
         app,
         "_run_native_agent_goal",
@@ -232,17 +230,27 @@ def test_full_system_operator_dispatch_connects_explicit_agent_goal(monkeypatch)
     assert "completed:inspect native routing" in result["response"]
 
 
+def test_full_system_operator_dispatch_rejects_disabled_agent_goal(monkeypatch) -> None:
+    import app
+
+    monkeypatch.setattr(app, "is_enabled", lambda _name: False)
+    result = app._dispatch_full_system_operator("/goal inspect native routing")
+
+    assert result["handled"] is True
+    assert result["agent_executed"] is False
+    assert result["tool_executed"] is False
+    assert "disabled" in result["response"].lower()
+
+
 def test_request_scoped_runtime_state_isolation_probe() -> None:
     import generate
 
     esv_keys = set(generate._ESV_STORE)
-    ghost_keys = set(generate._GHOST_STORE)
     report = generate.verify_session_state_isolation()
 
     assert report["verified"] is True
     assert report["generation_serialized"] is True
     assert set(generate._ESV_STORE) == esv_keys
-    assert set(generate._GHOST_STORE) == ghost_keys
 
 
 def test_request_scoped_runtime_isolation_executes_generation_probe(monkeypatch) -> None:
@@ -255,7 +263,6 @@ def test_request_scoped_runtime_isolation_executes_generation_probe(monkeypatch)
         assert _config.persist_adaptive_state is False
         calls.append(session_id)
         generate._ESV_STORE[session_id] = generate._ESV_STORE[session_id] + 0.01
-        generate._GHOST_STORE[session_id]["generated"] = True
         return object()
 
     monkeypatch.setattr(generate, "generate_traced", fake_generate)
@@ -360,7 +367,6 @@ def test_full_system_integration_evidence_requires_every_bound_check() -> None:
     checks = dict.fromkeys(
         (
             "model_and_native_subsystems",
-            "ghost_path",
             "evaluation_state_not_persisted",
             "memory",
             "verifier",
@@ -378,74 +384,6 @@ def test_full_system_integration_evidence_requires_every_bound_check() -> None:
     assert not app._full_system_integration_verified(report, expected_bundle=bundle)
 
 
-def test_evaluation_generation_executes_ghost_path_without_persisting_state(
-    monkeypatch,
-    tmp_path: Path,
-) -> None:
-    import torch
-    import generate
-    from anra_brain import CausalTransformerV2
-
-    class Tokenizer:
-        bos_token_id = 1
-        eos_token_id = 2
-        pad_token_id = 0
-        vocab_size = 64
-        special_ids = {"<pad>": 0, "<bos>": 1, "<eos>": 2}
-
-        @staticmethod
-        def encode(text: str, *, add_special_tokens: bool = False) -> list[int]:
-            del add_special_tokens
-            return [3 + (ord(character) % 50) for character in text]
-
-        @staticmethod
-        def decode(_ids: list[int]) -> str:
-            return "valid complete response with enough words"
-
-    class GhostRecorder:
-        writes = 0
-
-        def add_turn(self, *_args, **_kwargs):
-            self.writes += 1
-
-    model = CausalTransformerV2(
-        vocab_size=64,
-        n_embd=32,
-        n_head=4,
-        n_kv_head=2,
-        n_layer=2,
-        block_size=64,
-        mod_layers={1},
-    ).eval()
-    initial_esv = torch.tensor([0.2, -0.1, 0.3])
-    model.esv_module.state.copy_(initial_esv)
-    recorder = GhostRecorder()
-    monkeypatch.setattr(generate, "_get_runtime", lambda: (model, Tokenizer(), tmp_path / "x.pt"))
-    monkeypatch.setattr(generate, "_RUNTIME_LOAD_STATE", {"load_report": {"exact_native_load": True}})
-    monkeypatch.setattr(generate, "_get_hal", lambda _session_id: None)
-    monkeypatch.setattr(generate, "_ghost_memory_for", lambda _session_id: recorder)
-    monkeypatch.setattr(generate, "_generation_quality", lambda *_args, **_kwargs: 1.0)
-    monkeypatch.setattr(generate, "_language_fragment_detected", lambda _text: False)
-    session_id = "nonpersistent_eval"
-
-    trace = generate.generate_traced(
-        "H: probe\nANRA:",
-        generate.GenerationConfig(
-            max_tokens=2,
-            mode="full_system",
-            persist_adaptive_state=False,
-        ),
-        session_id=session_id,
-    )
-
-    assert trace.subsystem_trace["ghost_executed"] is True
-    assert trace.subsystem_trace["adaptive_state_persisted"] is False
-    assert session_id not in generate._GHOST_STORE
-    assert session_id not in generate._ESV_STORE
-    assert recorder.writes == 0
-    torch.testing.assert_close(model.esv_module.state, initial_esv)
-
-
 def test_full_system_probe_executes_real_memory_agent_tool_cognition_and_verifier(
     monkeypatch,
     tmp_path: Path,
@@ -454,12 +392,11 @@ def test_full_system_probe_executes_real_memory_agent_tool_cognition_and_verifie
 
     subsystem_trace = {
         "model_executed": True,
-        "mod_executed": True,
-        "rim_executed": True,
-        "dstp_executed": True,
-        "esv_executed": True,
+        "mod_executed": False,
+        "rim_executed": False,
+        "dstp_executed": False,
+        "esv_executed": False,
         "hal_executed": True,
-        "ghost_executed": True,
         "adaptive_state_persisted": False,
     }
     monkeypatch.setattr(

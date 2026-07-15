@@ -163,13 +163,13 @@ def profile_checkpoint_activations(
     from tokenizer.subword_tokenizer import SubwordTokenizer
     from training.v2_runtime import (
         active_tokenizer_path,
-        build_frontier_model,
+        build_legacy_500m_model,
         load_checkpoint,
     )
 
     torch_device = torch.device(device)
     tokenizer = SubwordTokenizer.load(active_tokenizer_path())
-    model = build_frontier_model(vocab_size=tokenizer.vocab_size).to(torch_device)
+    model = build_legacy_500m_model(vocab_size=tokenizer.vocab_size).to(torch_device)
     load_state = load_checkpoint(
         model,
         None,

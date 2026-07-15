@@ -1,27 +1,41 @@
-experiment_name: anra_v3_frontier
+experiment_name: anra_v4_180m
 model:
-  type: causal_transformer_v3
-  vocab_size: 8209
-  n_embd: 1280
-  n_layer: 28
-  n_head: 16
-  n_kv_head: 4
-  d_ff: 3456
-  block_size: 1024
+  type: causal_transformer_v4
+  architecture_version: anra_v4_rope_interleaved_v1
+  vocab_size: 32768
+  n_embd: 896
+  n_layer: 18
+  n_head: 14
+  n_kv_head: 2
+  d_ff: 2432
+  block_size: 2048
+  rms_norm_eps: 0.00001
   dropout: 0.0
+  rope_base: 10000
+  base_seq_len: 2048
+  target_seq_len: 2048
   tie_weights: true
-  use_mod: true
-  mod_layers: [4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26]
+  use_qk_norm: true
+  sliding_window: 1024
+  full_attention_every: 4
+  subsystem_policy: explicit_trained_recipe_only
+  use_mod: false
+  mod_layers: [4, 6, 8, 10, 12, 14, 16]
   mod_capacity: 0.5
-  use_hal: true
+  use_hal: false
+  use_rim: false
+  use_dstp: false
+  use_mtp: false
+  use_moe: false
+  initialization_scheme: depth_scaled_residual_v1
   gradient_checkpointing: true
 training:
-  dataset_path: data/anra_v3/train
-  val_dataset_path: data/anra_v3/validation
-  tokenizer_path: tokenizer/tokenizer_v3.json
-  seq_len: 1024
+  dataset_path: output/v2/data_manifests/native_foundation_v4/30gb/manifest.json
+  val_dataset_path: output/v2/data_manifests/native_foundation_v4/30gb/validation/manifest.json
+  tokenizer_path: tokenizer/tokenizer_v4_32k.json
+  seq_len: 2048
   batch_size: 1
-  gradient_accumulation: 16
+  gradient_accumulation: 32
   max_steps: 100000
   checkpoint_every: 500
   eval_every: 250

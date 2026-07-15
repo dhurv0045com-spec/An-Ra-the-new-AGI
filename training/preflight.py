@@ -6,7 +6,6 @@ import hashlib
 import json
 import os
 import platform
-import random
 import shutil
 import tempfile
 import time
@@ -22,9 +21,17 @@ from anra.anra_paths import (
 )
 from runtime.training_readiness import assess_training_readiness
 
+from training.reproducibility import (
+    CANONICAL_TRAINING_SEED,
+    capture_rng_states,
+    make_data_generator,
+    restore_rng_states,
+    seed_everything,
+)
+from training.v2_config import CANONICAL_MODEL_PROFILE
 from training.v2_runtime import active_tokenizer_path
 
-RUNTIME_CLASSES = ("t4_frontier_smoke",)
+RUNTIME_CLASSES = ("t4_v4_session",)
 
 
 @dataclass(frozen=True)
@@ -74,23 +81,25 @@ def run_preflight(
     hardware: HardwareProfile | None = None,
 ) -> LaunchDecision:
     profile = model_size.lower()
-    runtime_class = runtime_class or "t4_frontier_smoke"
+    runtime_class = runtime_class or "t4_v4_session"
     if runtime_class not in RUNTIME_CLASSES:
         raise ValueError(f"Unknown runtime class: {runtime_class}")
     hw = hardware or detect_hardware()
     readiness = assess_training_readiness()
     blockers = list(readiness.blockers)
     warnings = list(readiness.warnings)
-    if profile != "frontier":
-        blockers.append("iterate500 supports only the 500M-class frontier profile")
+    if profile != CANONICAL_MODEL_PROFILE:
+        blockers.append(f"An-Ra supports only the {CANONICAL_MODEL_PROFILE} profile")
     if not hw.cuda_available:
         blockers.append("CUDA GPU unavailable")
-    is_t4 = "T4" in hw.gpu_name.upper()
-    if profile == "frontier" and runtime_class != "t4_frontier_smoke":
+    elif hw.vram_bytes < 14 * 1024**3:
         blockers.append(
-            "T4 permits frontier smoke/adapter work only without a measured full-campaign profile"
+            "Canonical V4 requires at least 14 GiB VRAM at microbatch 1 and 2,048 tokens"
         )
-    if profile == "frontier" and not TOKEN_INVENTORY_MANIFEST.exists():
+    is_t4 = "T4" in hw.gpu_name.upper()
+    if profile == CANONICAL_MODEL_PROFILE and runtime_class != "t4_v4_session":
+        blockers.append("The canonical V4 model requires the t4_v4_session runtime class")
+    if profile == CANONICAL_MODEL_PROFILE and not TOKEN_INVENTORY_MANIFEST.exists():
         warnings.append(
             "licensed token inventory missing; smoke work is allowed but a full campaign is not"
         )
@@ -117,14 +126,16 @@ def run_preflight(
         "t4_detected": is_t4,
         "precision": "bf16" if hw.bf16_supported else "fp16",
     }
-    supported_mode = profile == "frontier" and runtime_class == "t4_frontier_smoke"
+    supported_mode = (
+        profile == CANONICAL_MODEL_PROFILE and runtime_class == "t4_v4_session"
+    )
     return LaunchDecision(
         allowed=not blockers and supported_mode,
         model_size=profile,
         runtime_class=runtime_class,
         blockers=tuple(dict.fromkeys(blockers)),
         warnings=tuple(warnings),
-        estimated_runtime_hours=(0.5 if runtime_class == "t4_frontier_smoke" and is_t4 else None),
+        estimated_runtime_hours=(3.0 if runtime_class == "t4_v4_session" and is_t4 else None),
         recommended_profile=runtime_class,
         checks=checks,
     )
@@ -154,10 +165,26 @@ def _emergency_save_test() -> bool:
 
 
 def _seed_test() -> bool:
-    random.seed(1301)
-    left = [random.random() for _ in range(4)]
-    random.seed(1301)
-    return left == [random.random() for _ in range(4)]
+    previous = capture_rng_states()
+    try:
+        seed_everything(CANONICAL_TRAINING_SEED)
+        generator = make_data_generator(CANONICAL_TRAINING_SEED)
+        checkpoint = capture_rng_states(data_generator=generator)
+        expected = (
+            torch.rand(4),
+            torch.randint(0, 10_000, (4,), generator=generator),
+        )
+        restore_rng_states(checkpoint, data_generator=generator)
+        replayed = (
+            torch.rand(4),
+            torch.randint(0, 10_000, (4,), generator=generator),
+        )
+        return all(
+            torch.equal(left, right)
+            for left, right in zip(expected, replayed, strict=True)
+        )
+    finally:
+        restore_rng_states(previous)
 
 
 def _owner_data_authorized(consent_path: Path) -> bool:

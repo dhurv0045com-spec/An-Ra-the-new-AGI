@@ -216,13 +216,17 @@ def test_cognitive_promotion_gate_blocks_missing_evidence():
     assert "rollback_artifact" in decision.reasons
 
 
-def test_t4_frontier_smoke_is_supported_and_old_profiles_are_blocked():
+def test_t4_v4_session_is_supported_and_old_profiles_are_blocked(monkeypatch):
+    readiness = type("Readiness", (), {"blockers": [], "warnings": []})()
+    monkeypatch.setattr("training.preflight.assess_training_readiness", lambda: readiness)
     t4 = HardwareProfile("Tesla T4", True, 16 * 1024**3, 32 * 1024**3, 100 * 1024**3, False)
-    frontier = run_preflight("frontier", runtime_class="t4_frontier_smoke", hardware=t4)
-    legacy = run_preflight("25m", runtime_class="t4_frontier_smoke", hardware=t4)
-    assert frontier.allowed
+    canonical = run_preflight(
+        "anra-v4-180m", runtime_class="t4_v4_session", hardware=t4
+    )
+    legacy = run_preflight("frontier", runtime_class="t4_v4_session", hardware=t4)
+    assert canonical.allowed
     assert not legacy.allowed
-    assert any("iterate500 supports only" in blocker for blocker in legacy.blockers)
+    assert any("supports only" in blocker for blocker in legacy.blockers)
 
 
 def test_cognition_registry_reachable():
@@ -231,14 +235,14 @@ def test_cognition_registry_reachable():
 
 
 def test_signed_launch_manifest_is_enforced(tmp_path: Path, monkeypatch):
-    from anra.anra_paths import V3_TOKENIZER_FILE
+    from anra.anra_paths import V4_TOKENIZER_FILE
     import hashlib
 
     key = "manifest-test-key"
     manifest = build_launch_manifest(
         model_profile="frontier",
         extension_profile="cognition-v1",
-        tokenizer_hash=hashlib.sha256(V3_TOKENIZER_FILE.read_bytes()).hexdigest(),
+        tokenizer_hash=hashlib.sha256(V4_TOKENIZER_FILE.read_bytes()).hexdigest(),
         data_manifests=[],
         stage="smoke",
         optimizer="adamw",

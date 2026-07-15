@@ -5,7 +5,7 @@ import random
 
 import pytest
 import torch
-from anra.anra_paths import DATASET, V3_TOKENIZER_FILE
+from anra.anra_paths import DATASET, V4_TOKENIZER_FILE
 from anra_brain import CausalTransformerV2
 from tokenizer.subword_tokenizer import SubwordTokenizer
 from training.v2_data_mix import (
@@ -19,7 +19,7 @@ from training.v2_data_mix import (
 def test_vocab_size_contract():
     from training.v2_config import CANONICAL_VOCAB_SIZE, EXPECTED_TOKENIZER_VOCAB_SIZE
 
-    tok_path = V3_TOKENIZER_FILE
+    tok_path = V4_TOKENIZER_FILE
     if tok_path.exists():
         with tok_path.open(encoding="utf-8") as fh:
             tok = json.load(fh)

@@ -24,7 +24,7 @@ def test_moonshot_executor_accepts_only_complete_passing_evidence() -> None:
             "m1": {
                 "short_context_ratio": 0.99,
                 "long_context_speedup": 1.6,
-                "model_parameters": 150_000_000,
+                "model_parameters": 181_132_071,
                 "seed_count": 3,
             },
             "m2": {
@@ -37,7 +37,7 @@ def test_moonshot_executor_accepts_only_complete_passing_evidence() -> None:
             "m3": {
                 "reasoning_score_ratio": 1.16,
                 "inference_flops_ratio": 1.0,
-                "model_parameters": 150_000_000,
+                "model_parameters": 181_132_071,
                 "seed_count": 3,
             },
             "m4": {

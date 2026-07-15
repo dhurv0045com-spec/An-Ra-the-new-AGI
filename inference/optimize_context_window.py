@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 from typing import Any
 
-from training.v2_config import V2_FRONTIER
+from training.v2_config import ANRA_V4_MODEL
 
 
 @dataclass(frozen=True)
@@ -31,7 +31,7 @@ class PromptAssemblyTrace:
 class ContextWindowOptimizer:
     """Build the exact frontier prompt using tokenizer-token budgets."""
 
-    MAX_CONTEXT = V2_FRONTIER.block_size
+    MAX_CONTEXT = ANRA_V4_MODEL.block_size
     DEFAULT_OUTPUT_TOKENS = 128
 
     def __init__(self, tokenizer: object | None = None, max_context: int | None = None) -> None:

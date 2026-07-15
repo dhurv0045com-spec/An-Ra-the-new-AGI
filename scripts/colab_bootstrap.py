@@ -158,7 +158,9 @@ def main() -> None:
         action="store_true",
         help="Run the slower full unified-trainer preflight after bootstrap.",
     )
-    parser.add_argument("--model-size", default="frontier", choices=["frontier"])
+    parser.add_argument(
+        "--model-size", default="anra-v4-180m", choices=["anra-v4-180m"]
+    )
     parser.add_argument("--allow-non-cuda", action="store_true")
     args = parser.parse_args()
     repo = Path(args.repo).resolve()

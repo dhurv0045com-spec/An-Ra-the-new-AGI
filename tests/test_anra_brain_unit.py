@@ -160,6 +160,34 @@ def test_explicit_subsystem_policy_is_dense_or_isolated() -> None:
     }
 
 
+def test_runtime_can_activate_only_the_checkpoint_approved_recipe() -> None:
+    model = CausalTransformerV2(
+        vocab_size=64,
+        n_embd=32,
+        n_head=4,
+        n_layer=2,
+        block_size=16,
+        mod_layers={1},
+    )
+
+    prior = model.configure_runtime_mode("full_system")
+    assert not model.use_mod
+    assert not model.use_rim
+    assert not model.use_dstp
+    assert not model.use_esv_control
+    assert not model.use_hal
+    model.restore_runtime_mode(prior)
+
+    model.configure_subsystems({"mod", "esv"})
+    prior = model.configure_runtime_mode("native")
+    assert model.use_mod
+    assert model.use_esv_control
+    assert not model.use_rim
+    assert not model.use_dstp
+    assert not model.use_hal
+    model.restore_runtime_mode(prior)
+
+
 def test_esv_control_ablation_keeps_rim_dependency_visible_without_false_esv_trace() -> None:
     model = CausalTransformerV2(
         vocab_size=64,
@@ -170,6 +198,7 @@ def test_esv_control_ablation_keeps_rim_dependency_visible_without_false_esv_tra
         block_size=16,
         mod_layers={1},
     )
+    model.configure_subsystems({"mod", "rim", "dstp", "esv"})
     prior = model.configure_runtime_mode("native")
     model.neutralize_subsystem("esv")
     model.begin_subsystem_trace()

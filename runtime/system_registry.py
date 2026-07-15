@@ -15,13 +15,36 @@ from anra.anra_paths import (
     ROOT,
     SCRIPTS_DIR,
     TOKENIZER_DIR,
-    V3_TOKENIZER_FILE,
+    V4_TOKENIZER_FILE,
     get_v2_checkpoint,
 )
 
 SOURCE_SUFFIXES = {".py", ".md", ".ipynb", ".yaml", ".yml", ".json", ".toml"}
 DEFAULT_METRIC_HOOKS = ("latency_ms", "success", "error_type")
 _COMPONENT_ENABLED_OVERRIDES: dict[str, bool] = {}
+_COMPONENT_POLICIES: dict[str, tuple[str, str, str]] = {
+    # name: (maturity, claim level, evidence still required)
+    "brain": ("canonical", "operational", "trained V4 checkpoint and release gates"),
+    "tokenizer": ("canonical", "operational", "hash/fertility/round-trip contract"),
+    "data_mix": ("canonical", "operational", "licensed immutable shard manifests"),
+    "training_loop": ("canonical", "operational", "successful bounded GPU training run"),
+    "evaluation": ("canonical", "operational", "held-out uncontaminated evaluation results"),
+    "runtime": ("canonical", "operational", "checkpoint quality and cache-parity gates"),
+    "api_web": ("canonical", "source_only", "live API/UI integration probe"),
+    "identity": ("pilot", "source_only", "separate CIV/ESV/identity-conditioning evidence"),
+    "memory": ("canonical", "operational", "retrieval relevance and isolation evaluation"),
+    "goals": ("available", "operational", "bounded dispatch and recovery evidence"),
+    "agent_loop": ("operator_gated", "source_only", "sandbox and authorization proof"),
+    "self_modification": ("proposal_only", "operational", "human approval and rollback evidence"),
+    "ouroboros": ("pilot", "source_only", "matched-compute reasoning improvement"),
+    "symbolic_bridge": ("available", "operational", "domain-specific verifier coverage"),
+    "sovereignty": ("available", "source_only", "real audit evidence, not simulation"),
+    "v4_training": ("canonical", "operational", "canonical campaign execution"),
+    "intelligence": ("pilot", "operational", "task-level capability evidence"),
+    "inference_efficiency": ("gated", "operational", "exact parity and latency improvement"),
+    "robotics": ("pilot", "operational", "simulator and hardware safety evidence"),
+    "multimodal": ("pilot", "operational", "licensed data and held-out multimodal quality"),
+}
 IGNORED_PARTS = {
     ".git",
     ".pytest_cache",
@@ -34,7 +57,7 @@ IGNORED_PARTS = {
 IGNORED_SUFFIXES = {".db", ".sqlite", ".sqlite3", ".faiss", ".index", ".npy", ".npz", ".pt", ".pth"}
 IGNORED_FILENAMES = {
     "package-lock.json",
-    "tokenizer_v3.json",
+    "tokenizer_v4_32k.json",
     "anra_training.txt",
 }
 
@@ -53,10 +76,17 @@ class SystemComponent:
     required: bool = True
     enabled: bool = True
     metric_hooks: tuple[str, ...] = DEFAULT_METRIC_HOOKS
+    maturity: str = "quarantined"
+    claim_level: str = "source_only"
+    evidence_required: str = "explicit acceptance evidence"
 
 
 def _component(**kwargs: object) -> SystemComponent:
     name = str(kwargs["name"])
+    maturity, claim_level, evidence_required = _COMPONENT_POLICIES.get(
+        name,
+        ("quarantined", "source_only", "explicit acceptance evidence"),
+    )
     enabled = bool(kwargs.pop("enabled", True))
     if name in _COMPONENT_ENABLED_OVERRIDES:
         enabled = _COMPONENT_ENABLED_OVERRIDES[name]
@@ -70,6 +100,9 @@ def _component(**kwargs: object) -> SystemComponent:
     return SystemComponent(
         enabled=enabled,
         metric_hooks=tuple(kwargs.pop("metric_hooks", DEFAULT_METRIC_HOOKS)),
+        maturity=maturity,
+        claim_level=claim_level,
+        evidence_required=evidence_required,
         **kwargs,
     )
 
@@ -81,8 +114,8 @@ def component_registry() -> list[SystemComponent]:
             name="brain",
             layer="model",
             role=(
-                "500M-class frontier transformer: bounded GQA, YaRN, sparse MCR, "
-                "RIM, DSTP, HAL, tied embeddings."
+                "Canonical 181M V4 transformer: GQA, QK-Norm, hybrid attention, "
+                "stable residual initialization, and tied embeddings."
             ),
             paths=("anra_brain.py", "anra/architecture.py", "config/anra_frontier.yaml"),
             import_name="anra_brain",
@@ -90,11 +123,11 @@ def component_registry() -> list[SystemComponent]:
         _component(
             name="tokenizer",
             layer="data",
-            role="Canonical 8209-token V3 BPE tokenizer and dependency-light adapter surface.",
+            role="Canonical 32,768-token append-only V4 tokenizer.",
             paths=(
-                _rel(V3_TOKENIZER_FILE),
-                _rel(TOKENIZER_DIR / "tokenizer_adapter.py"),
-                _rel(SCRIPTS_DIR / "train_tokenizer_v3.py"),
+                _rel(V4_TOKENIZER_FILE),
+                _rel(TOKENIZER_DIR / "subword_tokenizer.py"),
+                _rel(SCRIPTS_DIR / "execute_stream_b.py"),
             ),
             import_name="tokenizer.tokenizer_adapter",
         ),
@@ -110,6 +143,7 @@ def component_registry() -> list[SystemComponent]:
                 "training/v2_data_mix.py",
                 "scripts/setup_dataset.py",
             ),
+            import_name="training.v2_data_mix",
         ),
         _component(
             name="training_loop",
@@ -155,12 +189,10 @@ def component_registry() -> list[SystemComponent]:
         _component(
             name="api_web",
             layer="interface",
-            role="FastAPI backend plus Phase 4 Vite/React operator interface.",
+            role="Canonical FastAPI backend and embedded Developer UI.",
             paths=(
                 "app.py",
-                "phase4/web/src/App.jsx",
-                "phase4/web/src/index.css",
-                "phase4/web/README.md",
+                "ui/usability.py",
             ),
         ),
         _component(
@@ -182,22 +214,11 @@ def component_registry() -> list[SystemComponent]:
             name="memory",
             layer="continuity",
             role=(
-                "Unified memory router over episodic, short-term, graph, ghost, "
+                "Unified memory router over episodic, short-term, graph, "
                 "and ESV-gated writes."
             ),
             paths=("memory/memory_router.py", "memory/faiss_store.py"),
             import_name="memory.memory_router",
-        ),
-        _component(
-            name="phase2_memory",
-            layer="continuity",
-            role="45J typed memory, retrieval, vector index, context builder, and personal graph.",
-            paths=(
-                "phase2/memory_45j/memory_manager.py",
-                "phase2/memory_45j/store.py",
-                "phase2/memory_45j/vectors.py",
-                "phase2/memory_45j/context_builder.py",
-            ),
         ),
         _component(
             name="goals",
@@ -225,33 +246,6 @@ def component_registry() -> list[SystemComponent]:
                 "phase2/agent_loop_45k/planner.py",
                 "phase2/agent_loop_45k/executor.py",
                 "phase2/agent_loop_45k/evaluator.py",
-            ),
-        ),
-        _component(
-            name="master_system",
-            layer="autonomy",
-            role=(
-                "45M owner-control system, persistent service, long-horizon "
-                "goals, safety, and personalization."
-            ),
-            paths=(
-                "phase2/master_system_45m/system.py",
-                "phase2/master_system_45m/llm_bridge.py",
-                "phase2/master_system_45m/autonomy/engine.py",
-                "phase2/master_system_45m/control/control.py",
-            ),
-        ),
-        _component(
-            name="self_improvement",
-            layer="learning",
-            role=(
-                "45L improvement engine, dashboard, prompt/skill refinement, "
-                "and session learning hooks."
-            ),
-            paths=(
-                "phase2/self_improvement_45l/improve.py",
-                "phase2/self_improvement_45l/self_improvement/engine.py",
-                "phase2/self_improvement_45l/dashboard/dashboard.py",
             ),
         ),
         _component(
@@ -283,18 +277,6 @@ def component_registry() -> list[SystemComponent]:
             ),
         ),
         _component(
-            name="ghost_memory",
-            layer="continuity",
-            role=(
-                "45P compressed conversation memory, retrieval, decay, and Ghost Context injection."
-            ),
-            paths=(
-                "phase3/ghost_memory_45p/ghost_memory/memory_store.py",
-                "phase3/ghost_memory_45p/ghost_memory/retriever.py",
-                "phase3/ghost_memory_45p/ghost_memory/injector.py",
-            ),
-        ),
-        _component(
             name="symbolic_bridge",
             layer="verification",
             role=(
@@ -307,6 +289,7 @@ def component_registry() -> list[SystemComponent]:
                 "phase3/symbolic_bridge_45q/logic_checker.py",
                 "phase3/symbolic_bridge_45q/code_verifier.py",
             ),
+            import_name="phase3.symbolic_bridge_45q.symbolic_bridge",
         ),
         _component(
             name="sovereignty",
@@ -323,7 +306,7 @@ def component_registry() -> list[SystemComponent]:
             ),
         ),
         _component(
-            name="v3_training",
+            name="v4_training",
             layer="learning",
             role="IBS-50, staged campaigns, PCGrad, optimizer adapters, DEL/CDR, CSII, and SSG.",
             paths=(
@@ -385,10 +368,10 @@ def component_registry() -> list[SystemComponent]:
 
 
 def get_enabled_components() -> list[SystemComponent]:
-    """Return only components where enabled=True and source_ok=True."""
+    """Return components that are enabled and have operational evidence."""
     enabled: list[SystemComponent] = []
     for component in component_registry():
-        if component.enabled and bool(component_status(component).get("source_ok")):
+        if component.enabled and bool(component_status(component).get("capability")):
             enabled.append(component)
     return enabled
 
@@ -466,8 +449,23 @@ def component_status(component: SystemComponent) -> dict[str, object]:
                 import_status = "ok"
         except Exception as exc:
             import_status = f"degraded:{type(exc).__name__}"
-    source_ok = not missing or not component.required
-    runtime_ok = not import_status.startswith("degraded")
+    source_ok = not missing
+    runtime_ok = import_status == "ok"
+    if not source_ok:
+        status = "unavailable"
+    elif import_status.startswith("degraded"):
+        status = "degraded"
+    elif component.claim_level != "operational" or import_status == "not_checked":
+        status = "source_only"
+    elif not component.enabled:
+        status = "inactive"
+    else:
+        status = "available"
+    capability = bool(
+        component.enabled
+        and status == "available"
+        and component.maturity in {"canonical", "available"}
+    )
     return {
         **asdict(component),
         "paths": paths,
@@ -475,7 +473,9 @@ def component_status(component: SystemComponent) -> dict[str, object]:
         "import_status": import_status,
         "source_ok": source_ok,
         "runtime_ok": runtime_ok,
-        "ok": source_ok,
+        "status": status,
+        "capability": capability,
+        "ok": capability,
     }
 
 
@@ -485,11 +485,7 @@ def artifact_status() -> dict[str, object]:
         "eval_summary": OUTPUT_V2_DIR / "v2_eval_summary.json",
         "curriculum": OUTPUT_V2_DIR / "v2_next_session_curriculum.json",
     }
-    checkpoints = {
-        "brain": get_v2_checkpoint("brain"),
-        "identity": get_v2_checkpoint("identity"),
-        "ouroboros": get_v2_checkpoint("ouroboros"),
-    }
+    checkpoints = {"v4": get_v2_checkpoint("brain")}
 
     def file_info(path: Path) -> dict[str, object]:
         return {
@@ -502,7 +498,7 @@ def artifact_status() -> dict[str, object]:
         "dataset": {
             "canonical": file_info(DATASET_CANONICAL),
         },
-        "tokenizer": file_info(V3_TOKENIZER_FILE),
+        "tokenizer": file_info(V4_TOKENIZER_FILE),
         "checkpoints": {name: file_info(path) for name, path in checkpoints.items()},
         "reports": {name: file_info(path) for name, path in reports.items()},
     }
@@ -532,7 +528,7 @@ def build_system_manifest(root: Path = ROOT) -> dict[str, object]:
         "platform": platform.platform(),
         "metrics": metrics,
         "components": components,
-        "capabilities": {c["name"]: bool(c["source_ok"]) for c in components},
+        "capabilities": {c["name"]: bool(c["capability"]) for c in components},
         "artifacts": artifact_status(),
         "training_readiness": readiness,
     }

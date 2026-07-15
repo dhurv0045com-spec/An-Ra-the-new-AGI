@@ -19,7 +19,7 @@ from training.moonshot_pilots import MOONSHOT_PILOTS, evaluate_moonshot_pilot
 
 _EXTERNAL_BLOCKERS: dict[str, tuple[str, ...]] = {
     "m1": (
-        "150M three-seed training artifacts",
+        "canonical 181M matched three-run training artifacts",
         "matched short-context capability evaluation",
         "matched long-context throughput benchmark",
     ),
@@ -30,7 +30,7 @@ _EXTERNAL_BLOCKERS: dict[str, tuple[str, ...]] = {
         "held-out 5k retrieval and 200-item vision-QA suites",
     ),
     "m3": (
-        "150M three-seed latent and token-thinking checkpoints",
+        "canonical 181M matched three-run latent and token-thinking checkpoints",
         "matched-inference-FLOP reasoning evaluation",
     ),
     "m4": (

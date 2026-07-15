@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# ruff: noqa: E402,E501,N812
 """Dedicated PyTorch/XLA trainer for AN-RA iterate500 on Colab TPU runtimes."""
 
 from __future__ import annotations
@@ -21,7 +22,7 @@ if str(REPO_ROOT) not in sys.path:
 
 import torch
 import torch.nn.functional as F
-from anra.anra_paths import DATASET, ROOT
+from anra.anra_paths import DATASET, ROOT, V4_TOKENIZER_FILE
 from evaluation.intelligence_telemetry import create_intelligence_session
 from runtime.hal_telemetry import publish_hal_state
 from torch.utils.data import DataLoader, WeightedRandomSampler
@@ -35,14 +36,14 @@ from training.tpu_runtime import (
     xla_save_checkpoint,
 )
 from training.v2_config import (
+    ANRA_V4_MODEL,
+    ANRA_V4_MODEL_PARAMETER_COUNT,
+    ANRA_V4_TRAINING,
+    CANONICAL_MODEL_PROFILE,
     CHECKPOINT_SCHEMA_VERSION,
     EXPECTED_SPECIAL_TOKEN_IDS,
     EXPECTED_TOKENIZER_VOCAB_SIZE,
     TOKENIZER_SCHEMA_VERSION,
-    V2_FRONTIER,
-    V2_FRONTIER_PARAMETER_COUNT,
-    V2_FRONTIER_TRAINING,
-    V2_FRONTIER_TRANSFORMER_PARAMETER_COUNT,
     resolve_model_profile,
 )
 from training.v2_data_mix import (
@@ -52,7 +53,7 @@ from training.v2_data_mix import (
     split_conversation_validation,
 )
 from training.v2_runtime import (
-    build_frontier_model,
+    build_model_for_profile,
     ensure_tied_lm_head,
     get_hal_module,
     hal_state_dict,
@@ -64,10 +65,10 @@ from training.v2_runtime import (
 )
 from training.wsd_scheduler import get_wsd_schedule, phase_for_step
 
-MODEL_PARAM_COUNT = V2_FRONTIER_PARAMETER_COUNT
-MIN_500M_CLASS_PARAMS = 450_000_000
-MAX_500M_CLASS_PARAMS = 600_000_000
-TRANSFORMER_PARAM_COUNT = V2_FRONTIER_TRANSFORMER_PARAMETER_COUNT
+MODEL_PARAM_COUNT = ANRA_V4_MODEL_PARAMETER_COUNT
+MIN_CANONICAL_PARAMS = 175_000_000
+MAX_CANONICAL_PARAMS = 190_000_000
+TRANSFORMER_PARAM_COUNT = ANRA_V4_MODEL_PARAMETER_COUNT
 
 
 def _source_commit() -> str:
@@ -190,8 +191,10 @@ def train_anra_tpu(
     log_every: int,
     model_size: str,
 ) -> dict[str, Any]:
-    if model_size != "frontier":
-        raise ValueError("iterate500 TPU training supports only --model-size frontier")
+    if model_size != CANONICAL_MODEL_PROFILE:
+        raise ValueError(
+            f"TPU training supports only --model-size {CANONICAL_MODEL_PROFILE}"
+        )
     if torch.cuda.is_available():
         raise RuntimeError(
             "This is the TPU trainer, but CUDA is visible. Use scripts/build_brain.py for T4/CUDA."
@@ -204,23 +207,23 @@ def train_anra_tpu(
     print(f"[TPU] device={device} supported_devices={xla_devices}", flush=True)
 
     model_cfg, training_cfg = resolve_model_profile(model_size)
-    if model_cfg != V2_FRONTIER:
-        raise AssertionError("TPU route must use the 500M frontier config.")
-    max_examples = max_examples or V2_FRONTIER_TRAINING.max_mixture_examples
+    if model_cfg != ANRA_V4_MODEL:
+        raise AssertionError("TPU route must use the canonical V4 model config.")
+    max_examples = max_examples or ANRA_V4_TRAINING.max_mixture_examples
 
     dataset_path = _resolve_path(data_path)
     tokenizer = load_or_build_v2_tokenizer(dataset_path=dataset_path)
-    tokenizer_file = ROOT / "tokenizer" / "tokenizer_v3.json"
+    tokenizer_file = V4_TOKENIZER_FILE
     tokenizer_hash = hashlib.sha256(tokenizer_file.read_bytes()).hexdigest() if tokenizer_file.exists() else "missing"
 
     examples, mix_report = build_v2_training_examples(
         dataset_path=dataset_path,
         max_examples=max_examples,
-        own_ratio=V2_FRONTIER_TRAINING.own_ratio,
-        identity_ratio=V2_FRONTIER_TRAINING.identity_ratio,
-        teacher_ratio=V2_FRONTIER_TRAINING.teacher_ratio,
-        symbolic_ratio=V2_FRONTIER_TRAINING.symbolic_ratio,
-        replay_ratio=V2_FRONTIER_TRAINING.replay_ratio,
+        own_ratio=ANRA_V4_TRAINING.own_ratio,
+        identity_ratio=ANRA_V4_TRAINING.identity_ratio,
+        teacher_ratio=ANRA_V4_TRAINING.teacher_ratio,
+        symbolic_ratio=ANRA_V4_TRAINING.symbolic_ratio,
+        replay_ratio=ANRA_V4_TRAINING.replay_ratio,
         model_params=MODEL_PARAM_COUNT,
     )
     write_json(v2_report_path("mix_report"), mix_report.to_dict())
@@ -246,7 +249,9 @@ def train_anra_tpu(
     loader = _make_loader(dataset, batch_size=batch_size, active_weights=mix_controller.weights)
     device_loader = pl.MpDeviceLoader(loader, device)
 
-    model = build_frontier_model()
+    model = build_model_for_profile(
+        CANONICAL_MODEL_PROFILE, vocab_size=tokenizer.vocab_size
+    )
     if hasattr(model, "gradient_checkpointing_disable"):
         model.gradient_checkpointing_disable()
         print(
@@ -267,10 +272,10 @@ def train_anra_tpu(
     tied_lm_head = ensure_tied_lm_head(model)
     summary = model_summary(model)
     if not tied_lm_head:
-        raise AssertionError("Frontier model must keep token embeddings and LM head tied on TPU.")
-    if not MIN_500M_CLASS_PARAMS <= int(summary["parameters"]) <= MAX_500M_CLASS_PARAMS:
+        raise AssertionError("Canonical V4 model must keep token embeddings and LM head tied on TPU.")
+    if not MIN_CANONICAL_PARAMS <= int(summary["parameters"]) <= MAX_CANONICAL_PARAMS:
         raise AssertionError(
-            f"Unexpected 500M-class frontier parameter count: {summary['parameters']:,}"
+            f"Unexpected canonical V4 parameter count: {summary['parameters']:,}"
         )
 
     learning_rate = float(getattr(training_cfg, "learning_rate", 3e-4))
@@ -334,7 +339,7 @@ def train_anra_tpu(
     print(f"  Parameters          : {summary['parameters']:,}", flush=True)
     print(f"  Tied LM head        : {tied_lm_head}", flush=True)
     print(f"  Transformer params  : {TRANSFORMER_PARAM_COUNT:,}", flush=True)
-    print(f"  Hidden/layers/heads : {V2_FRONTIER.n_embd}/{V2_FRONTIER.n_layer}/{V2_FRONTIER.n_head}", flush=True)
+    print(f"  Hidden/layers/heads : {ANRA_V4_MODEL.n_embd}/{ANRA_V4_MODEL.n_layer}/{ANRA_V4_MODEL.n_head}", flush=True)
     print(f"  Context             : {block_size}", flush=True)
     print(f"  Micro batch         : {batch_size}", flush=True)
     print(f"  Grad accumulation   : {grad_accum_steps}", flush=True)
@@ -509,14 +514,16 @@ def train_anra_tpu(
 def main() -> None:
     parser = argparse.ArgumentParser(description="AN-RA iterate500 TPU trainer")
     parser.add_argument("--data_path", default=str(DATASET))
-    parser.add_argument("--checkpoint_path", default="anra_frontier_500m.pt")
-    parser.add_argument("--model-size", default="frontier", choices=["frontier"])
+    parser.add_argument("--checkpoint_path", default="anra_v4_180m.pt")
+    parser.add_argument(
+        "--model-size", default=CANONICAL_MODEL_PROFILE, choices=[CANONICAL_MODEL_PROFILE]
+    )
     parser.add_argument("--batch_size", type=int, default=1)
-    parser.add_argument("--block_size", type=int, default=V2_FRONTIER.block_size)
-    parser.add_argument("--max_minutes", type=int, default=V2_FRONTIER_TRAINING.session_minutes)
-    parser.add_argument("--grad_accum_steps", type=int, default=V2_FRONTIER_TRAINING.grad_accum_steps)
+    parser.add_argument("--block_size", type=int, default=ANRA_V4_MODEL.block_size)
+    parser.add_argument("--max_minutes", type=int, default=ANRA_V4_TRAINING.session_minutes)
+    parser.add_argument("--grad_accum_steps", type=int, default=ANRA_V4_TRAINING.grad_accum_steps)
     parser.add_argument("--max_examples", type=int, default=None)
-    parser.add_argument("--answer_loss_weight", type=float, default=V2_FRONTIER_TRAINING.answer_loss_weight)
+    parser.add_argument("--answer_loss_weight", type=float, default=ANRA_V4_TRAINING.answer_loss_weight)
     parser.add_argument(
         "--optimizer",
         default="adafactor",
