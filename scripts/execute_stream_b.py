@@ -145,12 +145,35 @@ def _existing_family_inventory(family: str, profile: str) -> dict[str, Any] | No
     inventory = _read_json(inventory_path)
     if inventory.get("tokenizer_family") != family:
         raise RuntimeError(f"Shard inventory family mismatch: {inventory_path}")
+    if inventory.get("campaign_sampling_verified") is not True:
+        raise RuntimeError(f"Shard inventory did not pass campaign sampling: {inventory_path}")
+    tokenizer_sha256 = str(inventory.get("tokenizer_sha256", ""))
+    train_manifest: dict[str, Any] | None = None
     for key in ("manifest", "validation_manifest", "test_manifest"):
         path = Path(str(inventory.get(key, "")))
         if not path.is_absolute():
             path = (ROOT / path).resolve()
         if not path.is_file():
             raise RuntimeError(f"Shard inventory references missing {key}: {path}")
+        manifest = _read_json(path)
+        if key == "manifest":
+            train_manifest = manifest
+        if manifest.get("tokenizer_sha256") != tokenizer_sha256:
+            raise RuntimeError(f"Shard manifest tokenizer mismatch: {path}")
+        for shard in manifest.get("shards", []):
+            if not isinstance(shard, dict) or not str(shard.get("path", "")):
+                raise RuntimeError(f"Shard manifest contains an invalid entry: {path}")
+            shard_path = path.parent / str(shard["path"])
+            if not shard_path.is_file():
+                raise RuntimeError(f"Shard manifest references a missing artifact: {shard_path}")
+    if train_manifest is None:
+        raise RuntimeError("Train shard manifest was not resolved")
+    if train_manifest.get("campaign_sampling_verified") is not True:
+        raise RuntimeError("Train shard manifest did not pass campaign sampling")
+    if int(train_manifest.get("total_tokens", -1)) != int(
+        inventory.get("licensed_tokens", -2)
+    ):
+        raise RuntimeError("Train shard inventory token count does not match its manifest")
     return inventory
 
 

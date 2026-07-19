@@ -204,15 +204,53 @@ def inspect_campaign_status(
         )
     )
 
-    shard_manifests = sorted(TOKEN_SHARDS.glob("*/manifest.json"))
+    shard_inventories = sorted(TOKEN_SHARDS.glob("*/token_inventory.json"))
+    ready_inventories: list[Path] = []
+    rejected_inventories: list[str] = []
+    for inventory_path in shard_inventories:
+        inventory = _read_json(inventory_path)
+        manifest_path = Path(str(inventory.get("manifest", "")))
+        validation_path = Path(str(inventory.get("validation_manifest", "")))
+        test_path = Path(str(inventory.get("test_manifest", "")))
+        if not manifest_path.is_absolute():
+            manifest_path = (ROOT / manifest_path).resolve()
+        if not validation_path.is_absolute():
+            validation_path = (ROOT / validation_path).resolve()
+        if not test_path.is_absolute():
+            test_path = (ROOT / test_path).resolve()
+        manifest = _read_json(manifest_path)
+        ready = (
+            inventory.get("tokenizer_family") == "v4"
+            and inventory.get("campaign_sampling_verified") is True
+            and inventory.get("campaign_mix_verified") is True
+            and manifest.get("campaign_sampling_verified") is True
+            and manifest.get("campaign_mix_verified") is True
+            and validation_path.is_file()
+            and test_path.is_file()
+            and int(inventory.get("licensed_tokens", 0)) > 0
+        )
+        if ready:
+            ready_inventories.append(inventory_path)
+        else:
+            rejected_inventories.append(inventory_path.parent.name)
     checks.append(
         _check(
             "immutable_v4_token_shards",
-            "ok" if shard_manifests else "blocker",
-            f"{len(shard_manifests)} V4 profile manifest(s)",
-            "Publish V4 train/validation/test token shards before training."
-            if not shard_manifests
-            else "",
+            "ok" if ready_inventories else "blocker",
+            (
+                f"{len(ready_inventories)} ready V4 profile(s)"
+                + (
+                    f"; rejected={','.join(rejected_inventories)}"
+                    if rejected_inventories
+                    else ""
+                )
+            ),
+            (
+                "Publish V4 train/validation/test shards with a verified seven-source "
+                "sampling manifest before training."
+                if not ready_inventories
+                else ""
+            ),
             path=TOKEN_SHARDS,
         )
     )

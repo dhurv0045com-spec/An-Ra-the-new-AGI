@@ -17,17 +17,17 @@ from training.v2_data_mix import (
 
 
 def test_vocab_size_contract():
-    from training.v2_config import CANONICAL_VOCAB_SIZE, EXPECTED_TOKENIZER_VOCAB_SIZE
+    from training.v2_config import EXPECTED_TOKENIZER_VOCAB_SIZE
 
     tok_path = V4_TOKENIZER_FILE
     if tok_path.exists():
         with tok_path.open(encoding="utf-8") as fh:
             tok = json.load(fh)
         actual = len(tok.get("token_to_id", {}))
-        assert actual == CANONICAL_VOCAB_SIZE, (
-            f"tokenizer has {actual} tokens but CANONICAL_VOCAB_SIZE={CANONICAL_VOCAB_SIZE}"
+        assert actual == EXPECTED_TOKENIZER_VOCAB_SIZE, (
+            f"tokenizer has {actual} tokens but V4 expects {EXPECTED_TOKENIZER_VOCAB_SIZE}"
         )
-    assert CANONICAL_VOCAB_SIZE == EXPECTED_TOKENIZER_VOCAB_SIZE
+    assert EXPECTED_TOKENIZER_VOCAB_SIZE == 32_768
 
 
 def test_v2_model_forward_shape() -> None:
@@ -85,3 +85,20 @@ def test_subword_tokenizer_roundtrip() -> None:
     ids = tok.encode("H: Hello\nANRA: I am An-Ra.", add_special_tokens=True)
     text = tok.decode(ids)
     assert "an-ra" in text.lower()
+
+
+def test_native_append_tokenizer_uses_exact_longest_prefixes() -> None:
+    tokens = ["<pad>", "<unk>", "<bos>", "<eos>", "a", "ab", "abc", "b", "c"]
+    payload = {
+        "id_to_token": tokens,
+        "token_to_id": {token: index for index, token in enumerate(tokens)},
+    }
+    tokenizer = SubwordTokenizer(
+        payload,
+        vocab_size=len(tokens),
+        special_tokens=tokens[:4],
+        model_type="append_only_v4",
+        backend="native_append_v4",
+    )
+
+    assert tokenizer.encode("abcab") == [6, 5]

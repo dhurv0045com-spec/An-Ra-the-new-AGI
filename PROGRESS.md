@@ -11,7 +11,33 @@ session, read this file, then continue from "Next Action".
 
 ---
 
-## Current State (2026-07-16)
+## Current State (2026-07-20)
+
+**2026-07-20 V4 data-publication update.** The interrupted append journal was
+reconciled without rescanning the verified 28.99 GB prefix. A Windows text-mode
+defect had written CRLF while recording LF byte lengths, producing exactly one
+missing index byte for each of 411,000 appended records; recovery now migrates
+only that provable shape and all future appends write encoded bytes directly.
+The resulting 31,160,180,241-byte corpus contains 5,685,479 records, all four
+native source classes, and zero published audit failures. The V4 tokenizer's
+quadratic longest-piece search was replaced by an exact prefix trie (250-sample
+parity; 32 MiB probe: 2.02M tok/s), and immutable shard publication no longer
+rebuilds an unbounded BM25 dedup index after the corpus MinHash audit.
+
+Publication produced 11,423,800,574 train tokens, 115,134,145 validation
+tokens, and 117,260,614 test tokens. Its first manifest correctly failed closed
+because verified DFC and identity quality metadata scored 0.630/0.635 below the
+0.650 band-pass threshold. Their truthful difficulty percentiles were repaired;
+2,200 train DFC records plus identity replay were added as source-pure shards,
+with 24/25 DFC records added to validation/test. The seven-source deterministic
+sampling contract now passes. Full manifest construction with SHA-256 checking
+loaded 1,148 train, 16 validation, and 16 test shards at context 2,048 in 30.4
+seconds, exposing 5,577,097 train windows and all seven train source classes.
+Stream B is complete. Focused verification: 55 passed; changed-file Ruff and
+diff checks are clean. No model training or cloud spending occurred. The only
+remaining pre-training gate is a full-context GPU rehearsal with exact
+kill/restart recovery; local CUDA visibility is currently blocked by Windows
+GPU permissions and must be restored or moved to the bounded cloud rehearsal.
 
 **2026-07-16 intelligence-foundation update.** V4 now has one canonical,
 reversible extension boundary rather than disconnected adapter mechanisms.

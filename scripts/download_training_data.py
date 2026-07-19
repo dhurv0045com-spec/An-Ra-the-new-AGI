@@ -321,6 +321,31 @@ def _recover_committed_foundation_append(
     indexed_document_bytes = int(
         connection.execute("SELECT COALESCE(SUM(line_bytes), 0) FROM documents").fetchone()[0]
     )
+    indexed_documents = int(
+        connection.execute("SELECT COUNT(*) FROM documents").fetchone()[0]
+    )
+    base_records = int(audit.get("valid_records", -1))
+    appended_records = indexed_documents - base_records
+    byte_discrepancy = indexed_size - indexed_document_bytes
+    # Historical Windows append sessions opened the corpus in text mode. Python
+    # translated each written LF to CRLF while ``line_bytes`` recorded the
+    # pre-translation UTF-8 length, leaving one uncounted byte per appended row.
+    # Repair only the exact, provable shape of that defect; every other mismatch
+    # remains fail-closed.
+    if appended_records > 0 and byte_discrepancy == appended_records:
+        cursor = connection.execute(
+            "UPDATE documents SET line_bytes = line_bytes + 1 WHERE rowid IN ("
+            "SELECT rowid FROM documents ORDER BY rowid LIMIT -1 OFFSET ?)",
+            (base_records,),
+        )
+        if cursor.rowcount != appended_records:
+            raise RuntimeError("Legacy newline accounting repair changed the wrong row count")
+        connection.execute(
+            "INSERT OR REPLACE INTO metadata(key, value) VALUES (?, ?)",
+            ("legacy_windows_newline_rows_repaired", str(appended_records)),
+        )
+        connection.commit()
+        indexed_document_bytes += appended_records
     if indexed_document_bytes != indexed_size:
         raise RuntimeError("Foundation index rows do not match its committed byte boundary")
     if corpus_size > indexed_size:
@@ -346,6 +371,40 @@ def _recover_committed_foundation_append(
     )
     connection.commit()
     return recovered
+
+
+def recover_native_foundation_append() -> dict[str, Any]:
+    """Finalize only the durable append journal without acquiring more data."""
+    output = TRAINING_DATA_DIR / "foundation_records.jsonl"
+    if not output.is_file() or not FOUNDATION_AUDIT_REPORT.is_file():
+        raise FileNotFoundError("Foundation corpus and audit report are required")
+    if not FOUNDATION_RESUME_INDEX.is_file():
+        raise FileNotFoundError("Foundation resume index is required")
+    audit = json.loads(FOUNDATION_AUDIT_REPORT.read_text(encoding="utf-8"))
+    if audit.get("resume_safe") is not True:
+        raise RuntimeError("Foundation audit did not authorize append recovery")
+    connection = sqlite3.connect(FOUNDATION_RESUME_INDEX)
+    connection.execute("PRAGMA journal_mode=WAL")
+    try:
+        indexed_row = connection.execute(
+            "SELECT value FROM metadata WHERE key='corpus_size_bytes'"
+        ).fetchone()
+        if indexed_row is None:
+            raise RuntimeError("Foundation resume index has no committed byte boundary")
+        audit_size = int(audit.get("corpus_size_bytes", -1))
+        indexed_size = int(indexed_row[0])
+        corpus_size = output.stat().st_size
+        if audit_size == indexed_size == corpus_size:
+            return audit
+        return _recover_committed_foundation_append(
+            output=output,
+            connection=connection,
+            audit=audit,
+            target_bytes=int(audit.get("target_bytes", audit_size)),
+            started_at=time.time(),
+        )
+    finally:
+        connection.close()
 
 _ALLOWED_ROW_LICENSES = frozenset(
     {
@@ -815,9 +874,9 @@ def download_native_foundation(
             is not None
         )
 
-    mode = "a" if output.exists() else "w"
+    mode = "ab" if output.exists() else "wb"
     pending_index_writes = 0
-    with output.open(mode, encoding="utf-8") as stream:
+    with output.open(mode) as stream:
         for spec in specs:
             source_target = int(
                 native_target_bytes
@@ -946,9 +1005,11 @@ def download_native_foundation(
                             "benchmark_contamination_checked": True,
                         },
                     }
-                    line = json.dumps(record, ensure_ascii=False) + "\n"
-                    stream.write(line)
-                    encoded_bytes = len(line.encode("utf-8"))
+                    encoded_line = (json.dumps(record, ensure_ascii=False) + "\n").encode(
+                        "utf-8"
+                    )
+                    stream.write(encoded_line)
+                    encoded_bytes = len(encoded_line)
                     source_bytes += encoded_bytes
                     source_docs += 1
                     if resume_db is None:
@@ -1485,6 +1546,64 @@ def print_summary() -> None:
     print("    identity data    -> identity   0.10 (10%)")
 
 
+def _record_split(digest: str) -> str:
+    split_value = int(digest[:8], 16) % 100
+    return "validation" if split_value == 98 else "test" if split_value == 99 else "train"
+
+
+def _verified_supplemental_records(split: str) -> Iterator[SourceRecord]:
+    """Yield verifier-backed DFC and owner identity records for one split."""
+    dfc_path = TRAINING_DATA_DIR / "verified_dfc.jsonl"
+    if dfc_path.is_file():
+        with dfc_path.open("r", encoding="utf-8", errors="strict") as stream:
+            for line in stream:
+                try:
+                    item = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if str(item.get("verifier_status", "unverified")) != "verified":
+                    continue
+                text = str(item.get("text", "")).strip()
+                if not text:
+                    continue
+                digest = hashlib.sha256(text.encode("utf-8")).hexdigest()
+                if _record_split(digest) != split:
+                    continue
+                yield SourceRecord(
+                    text=text,
+                    source="An-Ra verified DFC",
+                    license="owner",
+                    bucket="dfc",
+                    # Difficulty is a percentile consumed by a band-pass gate;
+                    # 0.8 incorrectly scored verified rows below admission.
+                    quality=DataQuality(0.65, 0.9, 1.0, 0.95, 0.4, 1.0),
+                    verifier_status="verified",
+                    source_revision=str(
+                        item.get("source_revision", item.get("source", "owner-verified"))
+                    ),
+                    source_class="verified_dfc",
+                )
+
+    identity_path = get_identity_file()
+    if split == "train" and identity_path is not None and identity_path.is_file():
+        identity_text = identity_path.read_text(
+            encoding="utf-8", errors="strict"
+        ).strip()
+        if identity_text:
+            yield SourceRecord(
+                text=identity_text,
+                source="An-Ra identity replay",
+                license="owner",
+                bucket="identity",
+                # Identity is neither a high-difficulty nor easy-data outlier;
+                # the ledger's neutral band-pass center is the truthful value.
+                quality=DataQuality(0.5, 0.9, 1.0, 0.9, 0.5, 1.0),
+                verifier_status="verified",
+                source_revision=hashlib.sha256(identity_text.encode("utf-8")).hexdigest(),
+                source_class="identity_replay",
+            )
+
+
 def publish_fineweb_token_shards(
     profile: str = "30gb",
     *,
@@ -1652,57 +1771,7 @@ def publish_fineweb_token_shards(
                         source_class="verified_instruction",
                     )
 
-        dfc_path = TRAINING_DATA_DIR / "verified_dfc.jsonl"
-        if dfc_path.is_file():
-            with dfc_path.open("r", encoding="utf-8", errors="replace") as stream:
-                for line in stream:
-                    try:
-                        item = json.loads(line)
-                    except json.JSONDecodeError:
-                        continue
-                    if str(item.get("verifier_status", "unverified")) != "verified":
-                        continue
-                    text = str(item.get("text", "")).strip()
-                    if not text:
-                        continue
-                    digest = hashlib.sha256(text.encode("utf-8")).hexdigest()
-                    split_value = int(digest[:8], 16) % 100
-                    record_split = (
-                        "validation"
-                        if split_value == 98
-                        else "test"
-                        if split_value == 99
-                        else "train"
-                    )
-                    if record_split != split:
-                        continue
-                    yield SourceRecord(
-                        text=text,
-                        source="An-Ra verified DFC",
-                        license="owner",
-                        bucket="dfc",
-                        quality=DataQuality(0.8, 0.9, 1.0, 0.95, 0.4, 1.0),
-                        verifier_status="verified",
-                        source_revision=str(
-                            item.get("source_revision", item.get("source", "owner-verified"))
-                        ),
-                        source_class="verified_dfc",
-                    )
-
-        identity_path = get_identity_file()
-        if split == "train" and identity_path is not None and identity_path.is_file():
-            identity_text = identity_path.read_text(encoding="utf-8", errors="replace").strip()
-            if identity_text:
-                yield SourceRecord(
-                    text=identity_text,
-                    source="An-Ra identity replay",
-                    license="owner",
-                    bucket="identity",
-                    quality=DataQuality(0.9, 0.9, 1.0, 0.9, 0.5, 1.0),
-                    verifier_status="verified",
-                    source_revision=hashlib.sha256(identity_text.encode("utf-8")).hexdigest(),
-                    source_class="identity_replay",
-                )
+        yield from _verified_supplemental_records(split)
 
     train_manifest = TokenShardPublisher(
         revision_dir,
@@ -1825,6 +1894,256 @@ def publish_fineweb_token_shards(
     return inventory
 
 
+def _merge_integer_maps(*values: object) -> dict[str, int]:
+    merged: dict[str, int] = {}
+    for value in values:
+        if not isinstance(value, dict):
+            continue
+        for key, count in value.items():
+            merged[str(key)] = merged.get(str(key), 0) + int(count)
+    return merged
+
+
+def _merge_token_manifests(
+    base: dict[str, Any],
+    supplemental: dict[str, Any],
+    *,
+    renamed_shards: list[dict[str, Any]],
+    base_sha256: str,
+) -> dict[str, Any]:
+    if base.get("tokenizer_sha256") != supplemental.get("tokenizer_sha256"):
+        raise RuntimeError("Supplemental tokenizer identity does not match base shards")
+    merged = dict(base)
+    for key in (
+        "source_record_mix",
+        "source_token_mix",
+        "source_class_token_mix",
+        "source_class_replayed_tokens",
+        "verifier_record_distribution",
+        "rejection_counts",
+    ):
+        merged[key] = _merge_integer_maps(base.get(key), supplemental.get(key))
+    merged["shards"] = [*base.get("shards", []), *renamed_shards]
+    merged["total_tokens"] = int(base.get("total_tokens", 0)) + int(
+        supplemental.get("total_tokens", 0)
+    )
+    merged["pending_tokens"] = int(base.get("pending_tokens", 0)) + int(
+        supplemental.get("pending_tokens", 0)
+    )
+    merged["accepted_records"] = int(base.get("accepted_records", 0)) + int(
+        supplemental.get("accepted_records", 0)
+    )
+    merged["source_revisions"] = sorted(
+        {str(value) for value in base.get("source_revisions", [])}
+        | {str(value) for value in supplemental.get("source_revisions", [])}
+    )
+    merged["licenses"] = sorted(
+        {str(value) for value in base.get("licenses", [])}
+        | {str(value) for value in supplemental.get("licenses", [])}
+    )
+    base_quality = base.get("quality", {})
+    supplemental_quality = supplemental.get("quality", {})
+    accepted = int(base_quality.get("accepted", 0)) + int(
+        supplemental_quality.get("accepted", 0)
+    )
+    rejected = int(base_quality.get("rejected", 0)) + int(
+        supplemental_quality.get("rejected", 0)
+    )
+    merged["quality"] = {
+        "threshold": base_quality.get("threshold", supplemental_quality.get("threshold")),
+        "accepted": accepted,
+        "rejected": rejected,
+        "acceptance_rate": accepted / max(1, accepted + rejected),
+        "weights": base_quality.get("weights", supplemental_quality.get("weights", {})),
+    }
+    merged["augmentation"] = {
+        "schema_version": 1,
+        "reason": "restore_verified_dfc_and_identity_after_correcting_band_pass_metadata",
+        "base_manifest_sha256": base_sha256,
+        "supplemental_tokens": int(supplemental.get("total_tokens", 0)),
+        "supplemental_records": int(supplemental.get("accepted_records", 0)),
+        "created_at": time.time(),
+    }
+    return merged
+
+
+def augment_verified_v4_shards(
+    profile: str = "30gb",
+    *,
+    tokenizer_path: str | Path | None = None,
+) -> dict[str, Any]:
+    """Repair an unpromoted failed-mix publication without re-encoding native shards."""
+    from tokenizer.subword_tokenizer import SubwordTokenizer
+
+    bound_tokenizer_path = Path(
+        tokenizer_path or (REPO_ROOT / "tokenizer" / "tokenizer_v4_32k.json")
+    ).resolve()
+    tokenizer = SubwordTokenizer.load(bound_tokenizer_path)
+    tokenizer_sha256 = hashlib.sha256(bound_tokenizer_path.read_bytes()).hexdigest()
+    revision_dir = DATA_MANIFEST_DIR / "native_foundation_v4" / profile
+    inventory_path = revision_dir / "token_inventory.json"
+    if not inventory_path.is_file():
+        raise FileNotFoundError(f"V4 inventory is missing: {inventory_path}")
+    inventory = json.loads(inventory_path.read_text(encoding="utf-8"))
+    if inventory.get("tokenizer_sha256") != tokenizer_sha256:
+        raise RuntimeError("Inventory tokenizer hash does not match the requested V4 tokenizer")
+    if inventory.get("campaign_sampling_verified") is True:
+        return inventory
+
+    split_dirs = {
+        "train": revision_dir,
+        "validation": revision_dir / "validation",
+        "test": revision_dir / "test",
+    }
+    manifests: dict[str, dict[str, Any]] = {}
+    base_hashes: dict[str, str] = {}
+    for split, directory in split_dirs.items():
+        path = directory / "manifest.json"
+        if not path.is_file():
+            raise FileNotFoundError(path)
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        if payload.get("augmentation"):
+            raise RuntimeError(f"Shard manifest was already augmented: {path}")
+        manifests[split] = payload
+        base_hashes[split] = hashlib.sha256(path.read_bytes()).hexdigest()
+
+    existing_classes = {
+        key
+        for key, count in manifests["train"].get("source_class_token_mix", {}).items()
+        if int(count) > 0
+    }
+    missing_classes = set(FOUNDATION_CAMPAIGN_MIX) - existing_classes
+    repairable = {"verified_dfc", "identity_replay"}
+    if not missing_classes or not missing_classes <= repairable:
+        raise RuntimeError(
+            f"Refusing non-surgical shard augmentation; missing classes={sorted(missing_classes)}"
+        )
+
+    staging = revision_dir / ".verified-repair.tmp"
+    if staging.exists():
+        shutil.rmtree(staging)
+    combined: dict[str, dict[str, Any]] = {}
+    try:
+        for split, directory in split_dirs.items():
+            records = (
+                record
+                for record in _verified_supplemental_records(split)
+                if record.source_class in missing_classes
+            )
+            supplemental = TokenShardPublisher(
+                staging / split,
+                tokenizer_version=f"v4-{int(tokenizer.vocab_size)}",
+                tokenizer_sha256=tokenizer_sha256,
+            ).publish(
+                records,
+                tokenizer,
+                allow_partial_final=True,
+                minimum_replay_tokens=(
+                    {"identity_replay": 4097}
+                    if split == "train" and "identity_replay" in missing_classes
+                    else None
+                ),
+            )
+            renamed_shards: list[dict[str, Any]] = []
+            for index, shard in enumerate(supplemental.get("shards", [])):
+                source = staging / split / str(shard["path"])
+                target_name = f"tokens-verified-{index:05d}.npy"
+                target = directory / target_name
+                if target.exists():
+                    raise FileExistsError(f"Supplemental shard already exists: {target}")
+                source.replace(target)
+                renamed = dict(shard)
+                renamed["path"] = target_name
+                if hashlib.sha256(target.read_bytes()).hexdigest() != renamed.get("sha256"):
+                    raise RuntimeError(f"Supplemental shard hash mismatch: {target}")
+                renamed_shards.append(renamed)
+            combined[split] = _merge_token_manifests(
+                manifests[split],
+                supplemental,
+                renamed_shards=renamed_shards,
+                base_sha256=base_hashes[split],
+            )
+
+        category_tokens = {
+            key: int(combined["train"]["source_class_token_mix"].get(key, 0))
+            for key in FOUNDATION_CAMPAIGN_MIX
+        }
+        unclassified_tokens = sum(
+            int(count)
+            for key, count in combined["train"]["source_class_token_mix"].items()
+            if key not in FOUNDATION_CAMPAIGN_MIX
+        )
+        classified_total = sum(category_tokens.values())
+        realized_mix = {
+            key: count / max(1, classified_total) for key, count in category_tokens.items()
+        }
+        sampling_verified = (
+            classified_total > 0
+            and unclassified_tokens == 0
+            and all(count > 0 for count in category_tokens.values())
+        )
+        combined["train"].update(
+            {
+                "campaign_mix_target": FOUNDATION_CAMPAIGN_MIX,
+                "campaign_mix_realized": realized_mix,
+                "campaign_mix_deviation": {
+                    key: realized_mix[key] - target
+                    for key, target in FOUNDATION_CAMPAIGN_MIX.items()
+                },
+                "campaign_mix_materialization": "deterministic_source_weighted_sampler",
+                "campaign_sampling_verified": sampling_verified,
+                "campaign_mix_verified": sampling_verified,
+                "unclassified_tokens": unclassified_tokens,
+            }
+        )
+        if not sampling_verified:
+            raise RuntimeError("Verified-source augmentation did not satisfy campaign sampling")
+
+        for split, directory in split_dirs.items():
+            _atomic_json(directory / "manifest.json", combined[split])
+
+        inventory.update(
+            {
+                "licensed_tokens": int(combined["train"]["total_tokens"]),
+                "validation_tokens": int(combined["validation"]["total_tokens"]),
+                "test_tokens": int(combined["test"]["total_tokens"]),
+                "sources": combined["train"].get("source_record_mix", {}),
+                "source_revisions": combined["train"].get("source_revisions", []),
+                "licenses": combined["train"].get("licenses", []),
+                "campaign_mix_realized": realized_mix,
+                "campaign_sampling_verified": True,
+                "campaign_mix_verified": True,
+                "unclassified_tokens": unclassified_tokens,
+                "augmentation": combined["train"]["augmentation"],
+            }
+        )
+        _atomic_json(inventory_path, inventory)
+        _atomic_json(TOKEN_INVENTORY_MANIFEST, inventory)
+        _atomic_json(
+            TOKEN_SHARD_PROGRESS,
+            {
+                "schema_version": 1,
+                "status": "complete",
+                "updated_at": time.time(),
+                "tokenizer_family": "v4",
+                "tokenizer_sha256": tokenizer_sha256,
+                "profile": profile,
+                "published_tokens": {
+                    split: int(payload["total_tokens"]) for split, payload in combined.items()
+                },
+                "published_shards": {
+                    split: len(payload["shards"]) for split, payload in combined.items()
+                },
+                "inventory": str(inventory_path),
+                "augmentation": inventory["augmentation"],
+            },
+        )
+        return inventory
+    finally:
+        if staging.exists():
+            shutil.rmtree(staging)
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Download An-Ra training data buckets.")
     parser.add_argument(
@@ -1845,6 +2164,16 @@ def parse_args() -> argparse.Namespace:
         "--resume",
         action="store_true",
         help="Append to an audited foundation corpus; never truncates existing data.",
+    )
+    parser.add_argument(
+        "--recover-only",
+        action="store_true",
+        help="Finalize the durable append journal without downloading additional data.",
+    )
+    parser.add_argument(
+        "--repair-verified-shards",
+        action="store_true",
+        help="Augment a failed-mix V4 publication with verified DFC and identity shards.",
     )
     parser.add_argument(
         "--publish-token-shards",
@@ -1884,6 +2213,23 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
     ensure_training_data_dir()
+    if args.recover_only:
+        if args.shards_only or args.publish_token_shards or args.prepare_corpus or args.dry_run:
+            raise ValueError("--recover-only cannot be combined with other execution modes")
+        report = recover_native_foundation_append()
+        print(json.dumps(report, indent=2, sort_keys=True))
+        return 0
+    if args.repair_verified_shards:
+        if args.shards_only or args.publish_token_shards or args.prepare_corpus or args.dry_run:
+            raise ValueError(
+                "--repair-verified-shards cannot be combined with other execution modes"
+            )
+        inventory = augment_verified_v4_shards(
+            args.profile,
+            tokenizer_path=args.tokenizer_path,
+        )
+        print(json.dumps(inventory, indent=2, sort_keys=True))
+        return 0
     if args.shards_only:
         if args.dry_run or args.prepare_corpus or not args.publish_token_shards:
             raise ValueError(

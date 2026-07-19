@@ -80,6 +80,19 @@ class SubwordTokenizer:
         )
         self._piece_cache: dict[str, tuple[int, ...]] = {}
         self._piece_cache_limit = 131_072
+        self._fallback_trie: dict[object, object] = {}
+        if self.backend != "hf":
+            for token, token_id in self._tokenizer["token_to_id"].items():
+                if not token:
+                    continue
+                node = self._fallback_trie
+                for character in token:
+                    child = node.get(character)
+                    if child is None:
+                        child = {}
+                        node[character] = child
+                    node = child
+                node[None] = int(token_id)
 
     @staticmethod
     def _try_import_tokenizers() -> tuple[object, ...] | None:
@@ -294,13 +307,21 @@ class SubwordTokenizer:
         ids: list[int] = []
         pos = 0
         while pos < len(piece):
-            matched = None
-            for end in range(len(piece), pos, -1):
-                candidate = piece[pos:end]
-                if candidate in vocab:
-                    matched = candidate
+            node = self._fallback_trie
+            cursor = pos
+            matched_id: int | None = None
+            matched_end = pos
+            while cursor < len(piece):
+                child = node.get(piece[cursor])
+                if not isinstance(child, dict):
                     break
-            if matched is None:
+                node = child
+                cursor += 1
+                terminal = node.get(None)
+                if terminal is not None:
+                    matched_id = int(terminal)
+                    matched_end = cursor
+            if matched_id is None:
                 char = piece[pos]
                 if self.backend == "native_append_v4":
                     byte_ids = [vocab.get(f"<0x{value:02X}>") for value in char.encode("utf-8")]
@@ -312,8 +333,8 @@ class SubwordTokenizer:
                     ids.append(int(vocab.get(char, vocab[self.unk_token])))
                 pos += 1
             else:
-                ids.append(int(vocab[matched]))
-                pos += len(matched)
+                ids.append(matched_id)
+                pos = matched_end
         if len(self._piece_cache) < self._piece_cache_limit:
             self._piece_cache[piece] = tuple(ids)
         return ids

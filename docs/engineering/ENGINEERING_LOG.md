@@ -15,6 +15,23 @@
 
 ---
 
+## 2026-07-20 - FIX - V4 data pipeline - Recover append journal and publish training-ready shards
+
+| Field | Value |
+|-------|-------|
+| **Date** | 2026-07-20 |
+| **Author** | codex |
+| **Component** | native corpus audit, V4 tokenizer, immutable token shards, campaign gates |
+| **Type** | FIX + EXECUTION |
+| **Summary** | Reconciled 411,000 online-validated append records, repaired the exact Windows CRLF accounting defect, replaced quadratic V4 longest-piece lookup with a parity-preserving trie, removed redundant BM25 reconstruction from post-audit token publication, repaired verified DFC/identity band-pass metadata, and completed fail-closed seven-source V4 shard publication. |
+| **Files** | scripts/download_training_data.py, scripts/execute_stream_b.py, scripts/campaign_status.py, tokenizer/subword_tokenizer.py, training/data_pipeline_v3.py, focused tests |
+| **Metrics** | corpus 31,160,180,241 bytes / 5,685,479 records; train 11,423,800,574 tokens; validation 115,134,145; test 117,260,614; 1,148/16/16 shards; 5,577,097 context-2048 train windows |
+| **Verification** | append recovery zero failures; prefix-trie parity on 250 real samples; 32 MiB throughput probe 2.02M tok/s; all shard SHA-256 checks and first-window loads passed in 30.4s; Stream B complete; 55 focused tests passed; Ruff and diff checks clean |
+| **Risk** | low-medium - data manifests changed before any training launch; augmentation is explicitly provenance-bound to the failed base-manifest hash and allowed only for missing verified_dfc/identity classes |
+| **Follow-up** | restore CUDA visibility or deploy the bounded L40 rehearsal; prove context-2048 memory and exact kill/restart before signing the clean Phase-A launch |
+
+---
+
 ## 2026-07-15 - TRAIN/FIX - Deterministic V4 foundation and exact resume
 
 | Field | Value |

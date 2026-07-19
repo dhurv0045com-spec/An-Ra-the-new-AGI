@@ -1,6 +1,6 @@
 # An-Ra — What We Do Next
 
-Updated: 2026-07-16
+Updated: 2026-07-20
 
 This is the single short forward plan. `PROGRESS.md` records what happened,
 `ENGINEERING_LOG.md` preserves evidence, and `V4_ARCHITECTURE_GATE.md` defines
@@ -32,8 +32,8 @@ a controlled comparison and can be removed or rolled back safely.
 
 ### 1. Finish the trainable foundation
 
-- [ ] Recover and audit the corpus tail; approve the final data volume.
-- [ ] Publish licensed, deduplicated, decontaminated, immutable V4 train and
+- [x] Recover and audit the corpus tail; approve the final data volume.
+- [x] Publish licensed, deduplicated, decontaminated, immutable V4 train and
   validation shards with exact hashes and source mix.
 - [ ] Complete full-context preflight and exact kill/restart recovery.
 - [ ] Train the dense V4 seed-1301 baseline and freeze its checkpoint lineage.

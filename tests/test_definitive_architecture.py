@@ -386,7 +386,7 @@ def test_checkpoint_migration_converts_legacy_temperature_scale_to_log_parameter
         torch.tensor([0.5, 1.0, 2.0]).log(),
     )
     assert "layer_temperature_bias->layer_temperature_bias_log" in report["changes"]
-    assert report["schema_version"] == 7
+    assert report["schema_version"] == 9
 
 
 def test_checkpoint_migration_rejects_invalid_legacy_temperature_scale() -> None:

@@ -71,6 +71,7 @@ class ShardedDataPipeline:
         style_filter: Callable[[str], bool] | None = None,
         civ_floor: float = 0.85,
         dedup_index: CorpusDedupIndex | None = None,
+        near_duplicate_check: bool = True,
     ) -> None:
         self.output_dir = Path(output_dir)
         self.tokenizer_version = tokenizer_version
@@ -79,6 +80,7 @@ class ShardedDataPipeline:
         self.style_filter = style_filter or (lambda text: bool(text.strip()))
         self.civ_floor = float(civ_floor)
         self.dedup_index = dedup_index or CorpusDedupIndex()
+        self.near_duplicate_check = bool(near_duplicate_check)
 
     @staticmethod
     def _license_allowed(record: SourceRecord) -> bool:
@@ -126,13 +128,16 @@ class ShardedDataPipeline:
         if not self._license_allowed(record):
             return "license_or_provenance", 0.0
         content_hash = hashlib.sha256(record.text.strip().encode("utf-8")).hexdigest()
-        decision = self.dedup_index.check_and_add(
-            record.text,
-            record_id=content_hash,
-            metadata={"source": record.source, "bucket": record.bucket},
-        )
-        if content_hash in seen_hashes or decision.duplicate:
+        if content_hash in seen_hashes:
             return "duplicate", 0.0
+        if self.near_duplicate_check:
+            decision = self.dedup_index.check_and_add(
+                record.text,
+                record_id=content_hash,
+                metadata={"source": record.source, "bucket": record.bucket},
+            )
+            if decision.duplicate:
+                return "duplicate", 0.0
         seen_hashes.add(content_hash)
         keep, score = self.ledger.evaluate(record.quality)
         if not keep:
@@ -280,6 +285,10 @@ class TokenShardPublisher:
         validator = ShardedDataPipeline(
             self.output_dir / "_validation",
             tokenizer_version=self.tokenizer_version,
+            # Native corpus publication consumes a hash/MinHash-audited source.
+            # Rebuilding a retrieval index for millions of unchanged records is
+            # redundant and unbounded; exact duplicate rejection remains live.
+            near_duplicate_check=False,
         )
         seen_hashes: set[str] = set()
         rejection_counts: dict[str, int] = {}

@@ -233,6 +233,69 @@ def test_native_foundation_resume_discards_only_uncommitted_append_tail(
     assert recovered_audit["resume_safe"] is True
 
 
+def test_recover_only_repairs_legacy_windows_newline_accounting(
+    tmp_path, monkeypatch
+) -> None:
+    monkeypatch.setattr(downloader, "TRAINING_DATA_DIR", tmp_path)
+    audit_report = tmp_path / "audit.json"
+    audit_index = tmp_path / "index.sqlite3"
+    monkeypatch.setattr(downloader, "FOUNDATION_AUDIT_REPORT", audit_report)
+    monkeypatch.setattr(downloader, "FOUNDATION_RESUME_INDEX", audit_index)
+    corpus = tmp_path / "foundation_records.jsonl"
+    text = "the and audited base document " * 20
+    base_record = {
+        "text": text,
+        "source": "FineWeb-Edu",
+        "license": "odc-by",
+        "source_revision": "a" * 40,
+        "document_sha256": hashlib.sha256(text.encode()).hexdigest(),
+        "quality_checks": {
+            "pii_redacted": True,
+            "minhash_deduplicated": True,
+            "language_detected": True,
+            "benchmark_contamination_checked": True,
+        },
+    }
+    corpus.write_text(json.dumps(base_record) + "\n", encoding="utf-8", newline="")
+    audit_foundation_records(
+        corpus, report_path=audit_report, index_path=audit_index, target_bytes=1
+    )
+    base_audit = json.loads(audit_report.read_text(encoding="utf-8"))
+    base_size = corpus.stat().st_size
+    appended_text = "the and legacy windows append document " * 20
+    appended_hash = hashlib.sha256(appended_text.encode()).hexdigest()
+    appended_record = {**base_record, "text": appended_text, "document_sha256": appended_hash}
+    logical_line = (json.dumps(appended_record) + "\n").encode()
+    physical_line = logical_line[:-1] + b"\r\n"
+    with corpus.open("ab") as stream:
+        stream.write(physical_line)
+    committed_size = corpus.stat().st_size
+    with sqlite3.connect(audit_index) as connection:
+        connection.execute(
+            "INSERT INTO documents(document_sha256, source, line_bytes) VALUES (?, ?, ?)",
+            (appended_hash, "FineWeb-Edu", len(logical_line)),
+        )
+        connection.executemany(
+            "INSERT OR REPLACE INTO metadata(key, value) VALUES (?, ?)",
+            [
+                ("base_report_sha256", base_audit["report_sha256"]),
+                ("base_corpus_size_bytes", str(base_size)),
+                ("corpus_size_bytes", str(committed_size)),
+            ],
+        )
+
+    recovered = downloader.recover_native_foundation_append()
+
+    assert recovered["corpus_size_bytes"] == committed_size
+    with sqlite3.connect(audit_index) as connection:
+        assert connection.execute(
+            "SELECT SUM(line_bytes) FROM documents"
+        ).fetchone()[0] == committed_size
+        assert connection.execute(
+            "SELECT value FROM metadata WHERE key='legacy_windows_newline_rows_repaired'"
+        ).fetchone()[0] == "1"
+
+
 def test_v4_shard_publication_binds_family_tokenizer_and_inventory(
     tmp_path, monkeypatch
 ) -> None:
@@ -284,4 +347,107 @@ def test_v4_shard_publication_binds_family_tokenizer_and_inventory(
     )
     assert progress["status"] == "complete"
     assert progress["tokenizer_family"] == "v4"
-    assert not (manifests / "global_inventory.json").exists()
+    global_inventory = json.loads(
+        (manifests / "global_inventory.json").read_text(encoding="utf-8")
+    )
+    assert global_inventory["tokenizer_sha256"] == inventory["tokenizer_sha256"]
+
+
+def test_verified_shard_repair_adds_only_missing_campaign_classes(
+    tmp_path, monkeypatch
+) -> None:
+    training_data = tmp_path / "training_data"
+    manifests = tmp_path / "manifests"
+    identity = tmp_path / "identity.txt"
+    training_data.mkdir()
+    identity.write_text("An-Ra identity continuity and owner provenance.", encoding="utf-8")
+    dfc_text = (
+        '<task domain="logic">Prove alpha.</task>'
+        "<hyp>Alpha follows.</hyp><cons>alpha</cons><verify>verified</verify>"
+    )
+    (training_data / "verified_dfc.jsonl").write_text(
+        json.dumps(
+            {
+                "text": dfc_text,
+                "verifier_status": "verified",
+                "source_revision": "d" * 40,
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    tokenizer = SubwordTokenizer.train_from_texts(
+        [dfc_text, identity.read_text(encoding="utf-8")],
+        vocab_size=128,
+        min_frequency=1,
+        allow_fallback=True,
+    )
+    tokenizer_path = tokenizer.save(tmp_path / "tokenizer_v4.json")
+    tokenizer_sha256 = hashlib.sha256(tokenizer_path.read_bytes()).hexdigest()
+    family = manifests / "native_foundation_v4" / "30gb"
+    native_classes = {
+        "fineweb_edu": 1,
+        "permissive_code": 1,
+        "finemath": 1,
+        "science_technical": 1,
+        "verified_instruction": 1,
+    }
+    base_manifest = {
+        "schema_version": 3,
+        "tokenizer_sha256": tokenizer_sha256,
+        "total_tokens": 5,
+        "pending_tokens": 0,
+        "accepted_records": 5,
+        "source_record_mix": dict.fromkeys(native_classes, 1),
+        "source_token_mix": dict.fromkeys(native_classes, 1),
+        "source_class_token_mix": native_classes,
+        "source_class_replayed_tokens": {},
+        "verifier_record_distribution": {"not_applicable": 5},
+        "rejection_counts": {},
+        "source_revisions": ["a" * 40],
+        "licenses": ["owner"],
+        "quality": {
+            "threshold": 0.65,
+            "accepted": 5,
+            "rejected": 0,
+            "acceptance_rate": 1.0,
+            "weights": {},
+        },
+        "shards": [],
+    }
+    for directory in (family, family / "validation", family / "test"):
+        directory.mkdir(parents=True)
+        (directory / "manifest.json").write_text(
+            json.dumps(base_manifest), encoding="utf-8"
+        )
+    inventory = {
+        "schema_version": 3,
+        "tokenizer_family": "v4",
+        "tokenizer_sha256": tokenizer_sha256,
+        "campaign_sampling_verified": False,
+        "campaign_mix_verified": False,
+        "manifest": str(family / "manifest.json"),
+        "validation_manifest": str(family / "validation" / "manifest.json"),
+        "test_manifest": str(family / "test" / "manifest.json"),
+    }
+    (family / "token_inventory.json").write_text(
+        json.dumps(inventory), encoding="utf-8"
+    )
+    monkeypatch.setattr(downloader, "TRAINING_DATA_DIR", training_data)
+    monkeypatch.setattr(downloader, "DATA_MANIFEST_DIR", manifests)
+    monkeypatch.setattr(
+        downloader, "TOKEN_INVENTORY_MANIFEST", manifests / "global_inventory.json"
+    )
+    monkeypatch.setattr(downloader, "TOKEN_SHARD_PROGRESS", manifests / "progress.json")
+    monkeypatch.setattr(downloader, "get_identity_file", lambda: identity)
+
+    repaired = downloader.augment_verified_v4_shards(
+        "30gb", tokenizer_path=tokenizer_path
+    )
+
+    manifest = json.loads((family / "manifest.json").read_text(encoding="utf-8"))
+    assert repaired["campaign_sampling_verified"] is True
+    assert manifest["source_class_token_mix"]["verified_dfc"] > 0
+    assert manifest["source_class_token_mix"]["identity_replay"] >= 4097
+    assert len(manifest["shards"]) == 2
+    assert all(item["path"].startswith("tokens-verified-") for item in manifest["shards"])
