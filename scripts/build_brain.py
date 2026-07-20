@@ -1075,8 +1075,13 @@ def train_anra_v2(
     data_generator = make_data_generator(seed)
     raw_sample_budget: int | None = None
     if training_layout == RawCausalShardDataset.PACKING_LAYOUT:
+        signed_profile_reset = (
+            os.environ.get("ANRA_RESET_DATA_SAMPLER_ON_PROFILE_CHANGE", "0") == "1"
+        )
         target_windows = (
-            math.ceil(max_phase_tokens / block_size)
+            len(ds)
+            if signed_profile_reset
+            else math.ceil(max_phase_tokens / block_size)
             if max_phase_tokens is not None
             else len(ds)
         )
