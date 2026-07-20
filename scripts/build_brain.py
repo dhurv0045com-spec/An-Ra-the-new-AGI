@@ -861,6 +861,7 @@ def train_anra_v2(
     curriculum: str = "none",
     seed: int = CANONICAL_TRAINING_SEED,
     post_session_eval: bool = True,
+    rehearsal_interrupt_after_microsteps: int | None = None,
 ) -> dict[str, object]:
     for required_component in ("training_loop", "data_mix", "evaluation"):
         if not is_enabled(required_component):
@@ -879,6 +880,13 @@ def train_anra_v2(
         raise ValueError(f"unsupported curriculum: {curriculum}")
     if curriculum != "none" and training_layout != RawCausalShardDataset.PACKING_LAYOUT:
         raise ValueError("pilot curricula require immutable raw causal shards")
+    if rehearsal_interrupt_after_microsteps is not None:
+        if post_session_eval:
+            raise ValueError(
+                "rehearsal interruption requires --post-session-eval none"
+            )
+        if rehearsal_interrupt_after_microsteps < 1:
+            raise ValueError("rehearsal interruption microsteps must be positive")
     seed_report = seed_everything(seed)
     seed = seed_report.seed
     os.environ["ANRA_TRAINING_DATA_LAYOUT"] = training_layout
@@ -1603,6 +1611,7 @@ def train_anra_v2(
     accumulated_scaffold_nll = 0.0
     accumulated_scaffold_tokens = 0
     accum_micro_steps = 0
+    session_micro_steps = 0
     pending_trained_tokens = 0
     pending_token_ids: set[int] = set()
     pending_window_indices: list[int] = []
@@ -1825,6 +1834,17 @@ def train_anra_v2(
                 loss_breakdown["scaffold_tokens"].detach().item()
             )
             accum_micro_steps += 1
+            session_micro_steps += 1
+            if (
+                rehearsal_interrupt_after_microsteps is not None
+                and session_micro_steps == rehearsal_interrupt_after_microsteps
+            ):
+                print(
+                    "[build_brain] rehearsal fault injection requested after "
+                    f"{session_micro_steps} microsteps.",
+                    flush=True,
+                )
+                _handle_sigterm(signal.SIGTERM, None)
             answer_weighted_tokens += float(answer_mask.sum().item())
             total_target_tokens += float((yb != tokenizer.pad_token_id).sum().item())
             target_ids = yb[yb != tokenizer.pad_token_id]
@@ -2675,6 +2695,15 @@ def main() -> None:
         default="full",
         help="Use 'none' only for bounded execution/restart rehearsals.",
     )
+    parser.add_argument(
+        "--rehearsal-interrupt-after-microsteps",
+        type=int,
+        default=None,
+        help=(
+            "Rehearsal-only deterministic fault injection. It requests the normal "
+            "deferred SIGTERM checkpoint path after N session microsteps."
+        ),
+    )
     parser.add_argument("--own_ratio", type=float, default=None)
     parser.add_argument("--identity_ratio", type=float, default=None)
     parser.add_argument("--teacher_ratio", type=float, default=None)
@@ -2737,6 +2766,9 @@ def main() -> None:
         curriculum=args.curriculum,
         seed=args.seed,
         post_session_eval=args.post_session_eval == "full",
+        rehearsal_interrupt_after_microsteps=(
+            args.rehearsal_interrupt_after_microsteps
+        ),
     )
     print(result, flush=True)
 

@@ -435,6 +435,12 @@ def main() -> None:
         default="full",
         help="Use 'none' only for bounded execution/restart rehearsals.",
     )
+    ap.add_argument(
+        "--rehearsal-interrupt-after-microsteps",
+        type=int,
+        default=None,
+        help="Exercise the deferred interruption checkpoint path in a bounded rehearsal.",
+    )
     ap.add_argument("--seed", type=int, default=CANONICAL_TRAINING_SEED)
     ap.add_argument(
         "--training-objective",
@@ -601,6 +607,17 @@ def main() -> None:
     ]
     if args.max_examples is not None:
         base_cmd.extend(["--max_examples", str(args.max_examples)])
+    if args.rehearsal_interrupt_after_microsteps is not None:
+        if args.post_session_eval != "none":
+            raise RuntimeError(
+                "Rehearsal interruption requires --post-session-eval none"
+            )
+        base_cmd.extend(
+            [
+                "--rehearsal-interrupt-after-microsteps",
+                str(args.rehearsal_interrupt_after_microsteps),
+            ]
+        )
     if manifest_resume_from:
         base_cmd.extend(["--resume_from", manifest_resume_from])
     if launch_manifest and args.model_size == CANONICAL_MODEL_PROFILE:
