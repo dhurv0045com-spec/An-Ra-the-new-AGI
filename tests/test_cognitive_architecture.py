@@ -239,10 +239,18 @@ def test_signed_launch_manifest_is_enforced(tmp_path: Path, monkeypatch):
     import hashlib
 
     key = "manifest-test-key"
+    tokenizer = tmp_path / V4_TOKENIZER_FILE.name
+    tokenizer.write_bytes(V4_TOKENIZER_FILE.read_bytes())
+    tokenizer_metadata = tokenizer.with_suffix(tokenizer.suffix + ".meta.json")
+    canonical_metadata = V4_TOKENIZER_FILE.with_suffix(
+        V4_TOKENIZER_FILE.suffix + ".meta.json"
+    ).read_bytes()
+    tokenizer_metadata.write_bytes(canonical_metadata)
     manifest = build_launch_manifest(
         model_profile="frontier",
         extension_profile="cognition-v1",
-        tokenizer_hash=hashlib.sha256(V4_TOKENIZER_FILE.read_bytes()).hexdigest(),
+        tokenizer_hash=hashlib.sha256(tokenizer.read_bytes()).hexdigest(),
+        tokenizer_path=str(tokenizer),
         data_manifests=[],
         stage="smoke",
         optimizer="adamw",
@@ -263,6 +271,10 @@ def test_signed_launch_manifest_is_enforced(tmp_path: Path, monkeypatch):
     sign_manifest(manifest, path, key=key)
     loaded = load_and_validate_manifest(path, key=key)
     assert loaded["model_profile"] == "frontier"
+    tokenizer_metadata.write_bytes(canonical_metadata + b"\n")
+    with pytest.raises(ValueError, match="metadata hash"):
+        load_and_validate_manifest(path, key=key)
+    tokenizer_metadata.write_bytes(canonical_metadata)
     loaded["batch_size"] = 2
     path.write_text(__import__("json").dumps(loaded), encoding="utf-8")
     with pytest.raises(PermissionError):

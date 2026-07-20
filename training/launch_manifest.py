@@ -25,6 +25,8 @@ REQUIRED_FIELDS = {
     "extension_profile",
     "tokenizer_hash",
     "tokenizer_path",
+    "tokenizer_metadata_hash",
+    "tokenizer_metadata_path",
     "data_manifests",
     "data_manifest_hashes",
     "data_manifest_roles",
@@ -90,6 +92,11 @@ def build_launch_manifest(
     bound_tokenizer = Path(tokenizer_path) if tokenizer_path else active_tokenizer_path()
     if not bound_tokenizer.is_absolute():
         bound_tokenizer = (ROOT / bound_tokenizer).resolve()
+    tokenizer_metadata = bound_tokenizer.with_suffix(bound_tokenizer.suffix + ".meta.json")
+    if not tokenizer_metadata.is_file():
+        raise FileNotFoundError(
+            f"Launch tokenizer metadata sidecar is missing: {tokenizer_metadata}"
+        )
     data_manifest_hashes: dict[str, str] = {}
     for entry in data_manifests:
         manifest_path = Path(str(entry))
@@ -131,6 +138,10 @@ def build_launch_manifest(
         "extension_profile": extension_profile,
         "tokenizer_hash": tokenizer_hash,
         "tokenizer_path": str(bound_tokenizer),
+        "tokenizer_metadata_hash": hashlib.sha256(
+            tokenizer_metadata.read_bytes()
+        ).hexdigest(),
+        "tokenizer_metadata_path": str(tokenizer_metadata),
         "data_manifests": data_manifests,
         "data_manifest_hashes": data_manifest_hashes,
         "data_manifest_roles": roles,
@@ -238,6 +249,26 @@ def load_and_validate_manifest(
     # Downstream runtime code must consume the exact artifact validated above,
     # independent of the process working directory or pack installation path.
     payload["tokenizer_path"] = str(tokenizer_path)
+    tokenizer_metadata_path = Path(str(payload["tokenizer_metadata_path"]))
+    if not tokenizer_metadata_path.is_absolute():
+        tokenizer_metadata_path = (ROOT / tokenizer_metadata_path).resolve()
+    expected_metadata_path = tokenizer_path.with_suffix(tokenizer_path.suffix + ".meta.json")
+    if tokenizer_metadata_path != expected_metadata_path:
+        raise ValueError("Launch tokenizer metadata is not the bound tokenizer sidecar.")
+    if not tokenizer_metadata_path.is_file():
+        raise FileNotFoundError(
+            f"Launch tokenizer metadata artifact is missing: {tokenizer_metadata_path}"
+        )
+    tokenizer_metadata_hash = hashlib.sha256(
+        tokenizer_metadata_path.read_bytes()
+    ).hexdigest()
+    if not hmac.compare_digest(
+        str(payload["tokenizer_metadata_hash"]), tokenizer_metadata_hash
+    ):
+        raise ValueError(
+            "Launch manifest tokenizer metadata hash does not match its bound artifact."
+        )
+    payload["tokenizer_metadata_path"] = str(tokenizer_metadata_path)
     data_manifests = payload["data_manifests"]
     data_manifest_hashes = payload["data_manifest_hashes"]
     data_manifest_roles = payload["data_manifest_roles"]
