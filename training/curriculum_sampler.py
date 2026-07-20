@@ -54,6 +54,41 @@ def source_replay_budget_violations(
     return violations
 
 
+def validate_sampler_resume_contract(
+    state: dict[str, object],
+    *,
+    seed: int,
+    curriculum: str,
+    active_num_samples: int,
+) -> int:
+    """Validate a raw sampler cursor and return its restart position."""
+    expected = {
+        "algorithm": SAMPLER_ALGORITHM,
+        "seed": int(seed),
+        "curriculum": str(curriculum),
+    }
+    mismatches = {
+        key: {"checkpoint": state.get(key), "active": value}
+        for key, value in expected.items()
+        if state.get(key) != value
+    }
+    if mismatches:
+        raise RuntimeError(f"Raw V4 sampler contract changed across resume: {mismatches}")
+    saved_budget = int(state.get("num_samples", -1))
+    position = int(state.get("position", -1))
+    if saved_budget <= 0:
+        raise RuntimeError("Raw V4 resume has an invalid sampler budget")
+    if not 0 <= position <= int(active_num_samples):
+        raise RuntimeError("Raw V4 sampler cursor is outside its campaign budget")
+    if int(active_num_samples) < saved_budget:
+        raise RuntimeError("Raw V4 sampler budget cannot shrink across resume")
+    if curriculum != "none" and saved_budget != int(active_num_samples):
+        raise RuntimeError(
+            "A scheduled curriculum cannot change its sample horizon across resume"
+        )
+    return position
+
+
 def curriculum_multipliers(name: str, progress: float) -> dict[str, float]:
     """Return relative source multipliers at campaign progress in [0, 1]."""
     if name not in CURRICULUMS:

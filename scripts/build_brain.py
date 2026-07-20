@@ -50,6 +50,7 @@ from training.curriculum_sampler import (
     SAMPLER_ALGORITHM,
     ScheduledCurriculumSampler,
     source_replay_budget_violations,
+    validate_sampler_resume_contract,
 )
 from training.data_routing import build_data_route_report
 from training.eval_v2 import quick_eval_loss, run_compact_eval
@@ -1425,24 +1426,12 @@ def train_anra_v2(
                 sampler_state = resume_state.get("data_sampler_state", {})
                 if not isinstance(sampler_state, dict) or not sampler_state:
                     raise RuntimeError("Raw V4 resume is missing its sampler cursor")
-                expected_sampler = {
-                    "algorithm": SAMPLER_ALGORITHM,
-                    "seed": seed,
-                    "num_samples": raw_sample_budget,
-                    "curriculum": curriculum,
-                }
-                mismatches = {
-                    key: {"checkpoint": sampler_state.get(key), "active": value}
-                    for key, value in expected_sampler.items()
-                    if sampler_state.get(key) != value
-                }
-                if mismatches:
-                    raise RuntimeError(
-                        f"Raw V4 sampler contract changed across resume: {mismatches}"
-                    )
-                data_sampler_position = int(sampler_state.get("position", -1))
-                if not 0 <= data_sampler_position <= int(raw_sample_budget or 0):
-                    raise RuntimeError("Raw V4 sampler cursor is outside its campaign budget")
+                data_sampler_position = validate_sampler_resume_contract(
+                    sampler_state,
+                    seed=seed,
+                    curriculum=curriculum,
+                    active_num_samples=int(raw_sample_budget or 0),
+                )
                 visits = window_consumption.unique_windows + window_consumption.repeated_windows
                 if visits != data_sampler_position:
                     raise RuntimeError(
@@ -2346,20 +2335,24 @@ def train_anra_v2(
         write_json(v2_report_path("eval_summary"), eval_summary)
     intelligence_report = None
     if intelligence_session is not None:
-        try:
-            intelligence_report = intelligence_session.finalize(
-                checkpoint_id=f"{Path(ckpt_path).name}:step-{global_step:012d}",
-                capability_score=float(eval_summary.get("overall_score", 0.0)),
-                capability_samples=max(
-                    1,
-                    len(eval_summary.get("results", eval_summary.get("items", []))),
-                ),
-            )
-            metrics["thirdeye_intelligence"] = intelligence_report
-            write_json(v2_report_path("metrics"), metrics)
-        except Exception as exc:
+        if not post_session_eval:
             intelligence_session.hooks.close()
-            print(f"[ThirdEye] Intelligence report failed: {exc}", flush=True)
+            print("[ThirdEye] evaluation/calibration skipped for rehearsal.", flush=True)
+        else:
+            try:
+                intelligence_report = intelligence_session.finalize(
+                    checkpoint_id=f"{Path(ckpt_path).name}:step-{global_step:012d}",
+                    capability_score=float(eval_summary.get("overall_score", 0.0)),
+                    capability_samples=max(
+                        1,
+                        len(eval_summary.get("results", eval_summary.get("items", []))),
+                    ),
+                )
+                metrics["thirdeye_intelligence"] = intelligence_report
+                write_json(v2_report_path("metrics"), metrics)
+            except Exception as exc:
+                intelligence_session.hooks.close()
+                print(f"[ThirdEye] Intelligence report failed: {exc}", flush=True)
     civ_similarity = float(
         eval_summary.get(
             "civ_similarity",

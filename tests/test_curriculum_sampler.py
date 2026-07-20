@@ -8,6 +8,7 @@ from training.curriculum_sampler import (
     ScheduledCurriculumSampler,
     curriculum_multipliers,
     source_replay_budget_violations,
+    validate_sampler_resume_contract,
 )
 
 
@@ -118,3 +119,37 @@ def test_foundation_replay_budget_accepts_broad_native_mix() -> None:
         },
         num_samples=500_000,
     )
+
+
+def test_none_curriculum_can_extend_its_resume_horizon() -> None:
+    assert (
+        validate_sampler_resume_contract(
+            {
+                "algorithm": "counter_based_sha256_v1",
+                "seed": 1301,
+                "curriculum": "none",
+                "position": 32,
+                "num_samples": 32,
+            },
+            seed=1301,
+            curriculum="none",
+            active_num_samples=64,
+        )
+        == 32
+    )
+
+
+def test_scheduled_curriculum_cannot_extend_its_resume_horizon() -> None:
+    with pytest.raises(RuntimeError, match="scheduled curriculum"):
+        validate_sampler_resume_contract(
+            {
+                "algorithm": "counter_based_sha256_v1",
+                "seed": 1301,
+                "curriculum": "math-density-ramp",
+                "position": 32,
+                "num_samples": 32,
+            },
+            seed=1301,
+            curriculum="math-density-ramp",
+            active_num_samples=64,
+        )
