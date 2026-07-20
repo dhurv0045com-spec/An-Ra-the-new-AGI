@@ -63,8 +63,19 @@ DRIVE_SESSION_MANAGER = DriveSessionManager(DRIVE_DIR)
 
 
 def active_tokenizer_path() -> Path:
-    """Return the one supported tokenizer; environment overrides are retired."""
-    return V4_TOKENIZER_FILE
+    """Return the canonical or launch-bound V4 tokenizer artifact.
+
+    Signed launch manifests set ``ANRA_TOKENIZER_PATH`` only after verifying the
+    artifact's bound hash.  Resolving it here makes portable cloud packs use the
+    exact tokenizer that produced their token shards.  The tokenizer contract is
+    still enforced by ``load_or_build_v2_tokenizer`` so this is not a legacy
+    tokenizer compatibility escape hatch.
+    """
+    configured = os.environ.get("ANRA_TOKENIZER_PATH", "").strip()
+    if not configured:
+        return V4_TOKENIZER_FILE
+    path = Path(configured).expanduser()
+    return path.resolve() if path.is_absolute() else (ROOT / path).resolve()
 
 
 class CheckpointCompatibilityError(RuntimeError):

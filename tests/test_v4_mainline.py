@@ -34,9 +34,36 @@ def test_active_runtime_loads_canonical_v4() -> None:
     assert tokenizer.pad_token_id == 0
 
 
-def test_active_runtime_ignores_retired_tokenizer_override(monkeypatch) -> None:
-    monkeypatch.setenv("ANRA_TOKENIZER_PATH", "tokenizer/tokenizer_v3.json")
-    assert active_tokenizer_path() == V4_TOKENIZER_FILE
+def test_active_runtime_resolves_launch_bound_v4_tokenizer(monkeypatch, tmp_path) -> None:
+    portable = tmp_path / "portable_v4.json"
+    portable.write_bytes(V4_TOKENIZER_FILE.read_bytes())
+    source_meta = V4_TOKENIZER_FILE.with_suffix(V4_TOKENIZER_FILE.suffix + ".meta.json")
+    portable.with_suffix(portable.suffix + ".meta.json").write_bytes(
+        source_meta.read_bytes()
+    )
+
+    monkeypatch.setenv("ANRA_TOKENIZER_PATH", str(portable))
+    assert active_tokenizer_path() == portable.resolve()
+    assert load_or_build_v2_tokenizer().vocab_size == 32_768
+
+
+def test_launch_bound_tokenizer_cannot_bypass_v4_contract(monkeypatch, tmp_path) -> None:
+    legacy = tmp_path / "tokenizer_v3.json"
+    legacy.write_bytes(V4_TOKENIZER_FILE.read_bytes())
+    source_meta = V4_TOKENIZER_FILE.with_suffix(V4_TOKENIZER_FILE.suffix + ".meta.json")
+    metadata = json.loads(source_meta.read_text(encoding="utf-8"))
+    metadata["schema_version"] = 3
+    legacy.with_suffix(legacy.suffix + ".meta.json").write_text(
+        json.dumps(metadata), encoding="utf-8"
+    )
+    monkeypatch.setenv("ANRA_TOKENIZER_PATH", str(legacy))
+
+    try:
+        load_or_build_v2_tokenizer()
+    except AssertionError:
+        pass
+    else:
+        raise AssertionError("A launch-bound legacy tokenizer bypassed the V4 contract")
 
 
 def test_t4_notebook_has_no_legacy_training_path() -> None:

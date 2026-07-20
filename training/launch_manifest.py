@@ -235,6 +235,9 @@ def load_and_validate_manifest(
     tokenizer_hash = hashlib.sha256(tokenizer_path.read_bytes()).hexdigest()
     if not hmac.compare_digest(str(payload["tokenizer_hash"]), tokenizer_hash):
         raise ValueError("Launch manifest tokenizer hash does not match its bound artifact.")
+    # Downstream runtime code must consume the exact artifact validated above,
+    # independent of the process working directory or pack installation path.
+    payload["tokenizer_path"] = str(tokenizer_path)
     data_manifests = payload["data_manifests"]
     data_manifest_hashes = payload["data_manifest_hashes"]
     data_manifest_roles = payload["data_manifest_roles"]
