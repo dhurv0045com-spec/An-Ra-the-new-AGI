@@ -650,7 +650,13 @@ def _sync_training_checkpoint_to_drive(checkpoint_path: Path) -> None:
         sync_checkpoint_to_origin(checkpoint_path)
     except Exception as exc:
         print(f"[Drive] checkpoint publish failed: {exc}", flush=True)
-        raise
+        if os.environ.get("ANRA_REQUIRE_SHARED_MASTER", "0") == "1":
+            raise
+        print(
+            "[Drive] continuing with the durable local checkpoint; "
+            "shared publication is not required for this run.",
+            flush=True,
+        )
 
 
 def _weighted_loss(
