@@ -15,11 +15,9 @@ session, read this file, then continue from "Next Action".
 
 **2026-07-20 local full-context rehearsal and source-policy correction.** The
 RTX 4050 completed one real V4 optimizer update at context 2,048: 181,132,071
-parameters, microbatch 1, accumulation 32, exactly 65,536 tokens, 939 tok/s,
-3.66 GB observed VRAM, and finite loss 10.6735. The 2.17 GB schema-9 checkpoint
-records step 1, a complete optimizer boundary, zero partial accumulation, the
-seed-1301 determinism contract, and the exact sampler cursor. The deliberately
-short run then exposed that the old 55/15/12/8/5/3/2 raw sampler selected three
+parameters, microbatch 1, accumulation 32, exactly 65,536 tokens, and about
+3.66 GB observed VRAM. The deliberately short first run exposed that the old
+55/15/12/8/5/3/2 raw sampler selected three
 identity windows from a corpus containing only two, repeating one inside the
 first update. At campaign scale, fixed 2% identity and 3% DFC shares would
 replay tiny supervised sources thousands to millions of times. Phase A now
@@ -27,11 +25,18 @@ samples only the four broad native corpora at their normalized relative mix;
 instruction, verified DFC, and identity remain immutable and audited but are
 reserved for structured continuation. A runtime replay-budget gate rejects any
 future raw source policy exceeding four passes over its unique windows. The
-corrected 1B-token Phase-A policy has zero replay-budget violations. The first
-checkpoint is rehearsal evidence only and is not eligible for resume after the
-manifest-policy correction. Next: create a fresh signed one-update checkpoint
-under the corrected policy and prove exact restart once, without running the
-expensive post-session generation suite.
+corrected 1B-token Phase-A policy has zero replay-budget violations. Its signed
+part-1 checkpoint reached step 1/cursor 32 with 65,536 tokens, 32/32 unique
+windows, 1,142 tok/s, and loss 10.6880. A separately signed resume restored the
+optimizer, RNG, and sampler suffix, then reached step 2/cursor 64 with 131,072
+tokens, 64/64 unique windows, 1,366 tok/s, and loss 10.6697. Both artifacts are
+separate and SHA-256 verified. The run exposed and fixed two more provenance
+defects: a resumed worker artifact could overwrite its read-only source, and
+signed launches left `data_profile=unknown` instead of binding the train-
+manifest hash. Bounded rehearsal mode now skips compact generation, held-out
+validation, and ThirdEye evaluation/calibration after checkpoint persistence.
+The remaining recovery gate is a same-commit mid-session signal interruption;
+completed-session checkpoint continuation is proven.
 
 **2026-07-20 V4 data-publication update.** The interrupted append journal was
 reconciled without rescanning the verified 28.99 GB prefix. A Windows text-mode

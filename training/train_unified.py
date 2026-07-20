@@ -209,6 +209,25 @@ def resolve_campaign_inventory(
     }
 
 
+def launch_data_profile(launch_manifest: dict[str, object]) -> str:
+    """Return the exact signed training-manifest identity for checkpoint lineage."""
+    roles = {
+        str(key): str(value)
+        for key, value in dict(launch_manifest["data_manifest_roles"]).items()
+    }
+    hashes = {
+        str(key): str(value)
+        for key, value in dict(launch_manifest["data_manifest_hashes"]).items()
+    }
+    train_manifests = [path for path, role in roles.items() if role == "train"]
+    if len(train_manifests) != 1:
+        raise RuntimeError("Signed launch must bind exactly one training manifest")
+    train_manifest = train_manifests[0]
+    if train_manifest not in hashes or not hashes[train_manifest]:
+        raise RuntimeError("Signed launch has no hash for its training manifest")
+    return "manifest-sha256:" + hashes[train_manifest]
+
+
 def _milestone_due(training_cfg: object | None = None) -> dict[str, object]:
     """Check if a milestone eval is due. Uses the active training config."""
     cfg = training_cfg if training_cfg is not None else ANRA_V4_TRAINING
@@ -437,6 +456,7 @@ def main() -> None:
         args.optimizer = str(launch_manifest["optimizer"])
         args.batch_size = int(launch_manifest["batch_size"])
         args.seed = int(launch_manifest["seed"])
+        os.environ["ANRA_DATA_PROFILE"] = launch_data_profile(launch_manifest)
         checkpoint_source = str(launch_manifest["checkpoint_source"])
         artifact_path = str(launch_manifest.get("artifact_path", "")).strip()
         manifest_resume_from = checkpoint_resume_path(checkpoint_source)

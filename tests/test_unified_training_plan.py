@@ -6,6 +6,7 @@ import pytest
 
 from training.train_unified import (
     checkpoint_resume_path,
+    launch_data_profile,
     resolve_campaign_inventory,
     run_report_path,
     stage_plan_for_mode,
@@ -96,3 +97,12 @@ def test_signed_pilot_inventory_fails_closed_on_empty_manifest(tmp_path) -> None
             "anra-v4-180m",
             tmp_path / "unused.json",
         )
+
+
+def test_signed_launch_data_profile_is_the_train_manifest_hash() -> None:
+    manifest = {
+        "data_manifest_roles": {"train.json": "train", "validation.json": "validation"},
+        "data_manifest_hashes": {"train.json": "abc123", "validation.json": "def456"},
+    }
+
+    assert launch_data_profile(manifest) == "manifest-sha256:abc123"

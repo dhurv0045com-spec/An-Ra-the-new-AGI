@@ -65,7 +65,6 @@ from training.reproducibility import (
 )
 from training.scheduler import get_cosine_schedule_with_warmup
 from training.shared_checkpoint import (
-    record_filesystem_checkpoint_origin,
     restore_shared_checkpoint,
     sync_checkpoint_to_origin,
 )
@@ -625,7 +624,6 @@ def _prepare_resume_target(checkpoint_path: Path, resume_from: str | None) -> No
         if candidate.exists():
             checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(candidate, checkpoint_path)
-            record_filesystem_checkpoint_origin(checkpoint_path.name, candidate)
             print(
                 f"[build_brain] restored checkpoint: {candidate} -> {checkpoint_path}", flush=True
             )
