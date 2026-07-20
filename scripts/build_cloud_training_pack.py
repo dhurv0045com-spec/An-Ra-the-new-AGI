@@ -9,6 +9,7 @@ import json
 import math
 import os
 import shutil
+import subprocess
 from pathlib import Path
 
 import numpy as np
@@ -23,6 +24,15 @@ PHASE_A_MIX = {
 }
 DEFAULT_SOURCE = ROOT / "output" / "v2" / "data_manifests" / "native_foundation_v4" / "30gb"
 DEFAULT_OUTPUT = ROOT / "output" / "v2" / "cloud_packs" / "v4_phase_a_170m_seed1301"
+
+
+def _git_commit() -> str:
+    try:
+        return subprocess.check_output(
+            ["git", "rev-parse", "HEAD"], text=True, stderr=subprocess.DEVNULL
+        ).strip()
+    except (OSError, subprocess.CalledProcessError):
+        return "unknown"
 
 
 def _sha256(path: Path) -> str:
@@ -85,6 +95,7 @@ def verify_cloud_pack(root: Path, *, key: str | None = None) -> dict[str, object
 def finalize_cloud_pack_metadata(root: Path) -> dict[str, object]:
     manifest_path = root / "pack_manifest.json"
     payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    payload["builder_commit"] = _git_commit()
     launch_template = {
         "schema_version": 1,
         "pack": payload["name"],
@@ -351,6 +362,7 @@ def build_cloud_pack(
         "schema_version": 1,
         "name": "anra-v4-phase-a-170m-seed1301",
         "model_profile": "anra-v4-180m",
+        "builder_commit": _git_commit(),
         "seed": seed,
         "training_tokens_requested": training_tokens,
         "training_tokens_effective": train_manifest["usable_training_tokens"],

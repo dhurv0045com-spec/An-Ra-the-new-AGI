@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import subprocess
 from pathlib import Path
 
 from training.launch_manifest import build_launch_manifest, sign_manifest
@@ -21,6 +22,14 @@ def create_cloud_launch(
 ) -> dict[str, object]:
     pack_root = pack_root.resolve()
     pack = json.loads((pack_root / "pack_manifest.json").read_text(encoding="utf-8"))
+    active_commit = subprocess.check_output(
+        ["git", "rev-parse", "HEAD"], text=True
+    ).strip()
+    if active_commit != str(pack.get("builder_commit", "")):
+        raise RuntimeError(
+            "cloud worker checkout does not match the pack builder commit: "
+            f"worker={active_commit} pack={pack.get('builder_commit')}"
+        )
     tokenizer = pack_root / str(pack["tokenizer_path"])
     train_manifest = pack_root / str(pack["train_manifest"])
     validation_manifest = pack_root / str(pack["validation_manifest"])
