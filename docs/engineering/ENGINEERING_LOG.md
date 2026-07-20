@@ -1,5 +1,20 @@
 # Engineering Log
 
+## 2026-07-20 - DATA/TRAIN - Portable 170M-token V4 cloud pack
+
+| Field | Value |
+|-------|-------|
+| **Date** | 2026-07-20 |
+| **Author** | Codex |
+| **Component** | V4 raw shards, compact cloud publication, deterministic sampler, signed launch preparation |
+| **Type** | DATA + TRAINING + RELIABILITY |
+| **Summary** | Added an immutable cloud-pack builder that extracts broadly distributed contiguous regions from the audited V4 train and validation shards, preserves the corrected four-source Phase-A proportions, copies the exact tokenizer, hashes every file, and signs the aggregate inventory. Added worker-side launch creation so hardware/runtime/commit/path provenance is signed only where the run will execute. Compact packs use a direct-addressable global affine permutation rather than replacement sampling; the first epoch is a true permutation and resume remains an exact suffix. |
+| **Evidence** | Published 170,000,384 usable training tokens (83,008 context-2,048 windows), 10,485,760 validation tokens, 54 files, and 362,289,531 bytes. Source windows: FineWeb-Edu 50,727; permissive code 13,835; FineMath 11,068; science/technical 7,378. All 83,008 seed-1301 sampled indices are unique. Full file hash and HMAC signature verification passed. Focused sampler/pack/resume/checkpoint suite: 39 passed; Ruff, compilation, and diff checks pass. |
+| **Risk** | This artifact prepares a bounded cloud baseline but does not claim that 170M tokens are enough for a useful final model. The actual IO.NET worker has not been purchased or launched, so throughput and dollar cost remain unmeasured. |
+| **Follow-up** | Create one RTX 4090 worker, transfer the 362 MB pack, generate the truthful signed scratch manifest, run the ten-minute benchmark, and continue from a separately signed resume artifact only if the projected run fits the hard spending cap. |
+
+---
+
 ## 2026-07-20 - RELIABILITY - Exact same-commit interruption and recovery
 
 | Field | Value |

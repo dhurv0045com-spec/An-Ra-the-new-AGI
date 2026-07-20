@@ -13,6 +13,21 @@ session, read this file, then continue from "Next Action".
 
 ## Current State (2026-07-20)
 
+**2026-07-20 portable 170M-token cloud pack.** A compact V4 Phase-A package was
+materialized from distributed regions of the audited native shards instead of
+copying the full 21.7 GiB publication. It contains 170,000,384 usable training
+tokens, 10,485,760 held-out validation tokens, the exact V4 tokenizer, and a
+signed 54-file/362,289,531-byte inventory. Its 83,008 training windows realize
+the corrected source policy at 61.111% FineWeb-Edu, 16.667% permissive code,
+13.334% FineMath, and 8.888% science/technical. Compact packs now declare a
+direct-addressable affine permutation sampler: every window in the first pass
+is visited exactly once, restart remains cursor-addressable, and a changed pack
+size fails closed. Full hash verification passed, the signature verifies, and
+the concrete seed-1301 order contains 83,008/83,008 unique windows. The pack is
+at `output/v2/cloud_packs/v4_phase_a_170m_seed1301`; a cloud launch is generated
+and signed only after worker creation so its commit, runtime, hardware, paths,
+and checkpoint source remain truthful.
+
 **2026-07-20 exact same-commit interruption/restart gate passed.** Windows
 console break delivery proved unsuitable because it could kill the trainer
 before Python handled the signal, so a rehearsal-only deterministic fault

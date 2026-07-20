@@ -47,7 +47,9 @@ from training.cdr import CorrectedFailureCurriculum
 from training.continual import assess_continual_readiness, ewc_penalty
 from training.curriculum_sampler import (
     CURRICULUMS,
+    PERMUTATION_SAMPLER_ALGORITHM,
     SAMPLER_ALGORITHM,
+    DeterministicPermutationSampler,
     ScheduledCurriculumSampler,
     source_replay_budget_violations,
     validate_sampler_resume_contract,
@@ -930,6 +932,8 @@ def train_anra_v2(
         f"python_hash_seed_matches={seed_report.python_hash_seed_matches}",
         flush=True,
     )
+    raw_sampling_policy = "source_weighted_replacement_v1"
+    active_sampler_algorithm = "torch_random_sampler_v1"
     if training_layout == RawCausalShardDataset.PACKING_LAYOUT:
         if not token_shard_manifest:
             raise ValueError("raw causal training requires --token-shard-manifest")
@@ -1013,6 +1017,19 @@ def train_anra_v2(
             raise RuntimeError("conversation training and validation datasets must be distinct")
     if training_layout == RawCausalShardDataset.PACKING_LAYOUT:
         manifest_payload = _read_json(manifest_path) or {}
+        raw_sampling_policy = str(
+            manifest_payload.get("sampling_policy", "source_weighted_replacement_v1")
+        )
+        if raw_sampling_policy not in {
+            "source_weighted_replacement_v1",
+            PERMUTATION_SAMPLER_ALGORITHM,
+        }:
+            raise RuntimeError(f"unsupported raw sampling policy: {raw_sampling_policy}")
+        active_sampler_algorithm = (
+            PERMUTATION_SAMPLER_ALGORITHM
+            if raw_sampling_policy == PERMUTATION_SAMPLER_ALGORITHM
+            else SAMPLER_ALGORITHM
+        )
         source_mix = manifest_payload.get("source_mix", {})
         source_classes = list(source_mix) if isinstance(source_mix, dict) else []
         if not source_classes:
@@ -1063,14 +1080,17 @@ def train_anra_v2(
     def current_data_sampler_state() -> dict[str, object]:
         if raw_sample_budget is None:
             return {}
-        return {
+        state: dict[str, object] = {
             "schema_version": 1,
-            "algorithm": SAMPLER_ALGORITHM,
+            "algorithm": active_sampler_algorithm,
             "seed": seed,
             "position": data_sampler_position,
             "num_samples": raw_sample_budget,
             "curriculum": curriculum,
         }
+        if active_sampler_algorithm == PERMUTATION_SAMPLER_ALGORITHM:
+            state["dataset_size"] = len(ds)
+        return state
 
     def make_loader(
         active_weights: dict[str, float] | None = None,
@@ -1088,6 +1108,24 @@ def train_anra_v2(
             "worker_init_fn": seed_worker,
         }
         if training_layout == RawCausalShardDataset.PACKING_LAYOUT:
+            if raw_sampling_policy == PERMUTATION_SAMPLER_ALGORITHM:
+                if curriculum != "none":
+                    raise RuntimeError(
+                        "compact permutation packs support only the dense foundation curriculum"
+                    )
+                assert raw_sample_budget is not None
+                if raw_sample_budget > len(ds):
+                    raise RuntimeError(
+                        "compact permutation pack has fewer unique windows than its token budget: "
+                        f"windows={len(ds)} requested={raw_sample_budget}"
+                    )
+                sampler = DeterministicPermutationSampler(
+                    len(ds),
+                    num_samples=raw_sample_budget,
+                    seed=data_mix_seed,
+                    start_position=sample_offset,
+                )
+                return DataLoader(ds, sampler=sampler, **loader_kwargs)
             ranges = ds.source_window_ranges()
             if curriculum != "none":
                 required_source = {
@@ -1207,11 +1245,7 @@ def train_anra_v2(
         "gradient_clip_norm": training_cfg.max_grad_norm,
         "verified_process_objective": VERIFIED_PROCESS_OBJECTIVE,
         "verified_process_multiplier": training_cfg.verified_process_multiplier,
-        "sampler_algorithm": (
-            SAMPLER_ALGORITHM
-            if training_layout == RawCausalShardDataset.PACKING_LAYOUT
-            else "torch_random_sampler_v1"
-        ),
+        "sampler_algorithm": active_sampler_algorithm,
         "determinism_mode": DETERMINISM_MODE,
     }
     continuation_report = _configure_continuation_phase(model, continuation_phase)
@@ -1464,6 +1498,12 @@ def train_anra_v2(
                     seed=seed,
                     curriculum=curriculum,
                     active_num_samples=int(raw_sample_budget or 0),
+                    algorithm=active_sampler_algorithm,
+                    dataset_size=(
+                        len(ds)
+                        if active_sampler_algorithm == PERMUTATION_SAMPLER_ALGORITHM
+                        else None
+                    ),
                 )
                 visits = window_consumption.unique_windows + window_consumption.repeated_windows
                 if visits != data_sampler_position:

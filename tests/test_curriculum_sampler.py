@@ -5,11 +5,53 @@ import math
 import pytest
 
 from training.curriculum_sampler import (
+    PERMUTATION_SAMPLER_ALGORITHM,
+    DeterministicPermutationSampler,
     ScheduledCurriculumSampler,
     curriculum_multipliers,
     source_replay_budget_violations,
     validate_sampler_resume_contract,
 )
+
+
+def test_compact_pack_sampler_is_unique_deterministic_and_exactly_resumable() -> None:
+    full = list(
+        DeterministicPermutationSampler(257, num_samples=257, seed=1301)
+    )
+    replay = list(
+        DeterministicPermutationSampler(257, num_samples=257, seed=1301)
+    )
+    resumed = list(
+        DeterministicPermutationSampler(
+            257, num_samples=257, seed=1301, start_position=93
+        )
+    )
+
+    assert full == replay
+    assert len(set(full)) == 257
+    assert resumed == full[93:]
+    assert DeterministicPermutationSampler(
+        257, num_samples=257, seed=1301
+    ).state_dict()["algorithm"] == PERMUTATION_SAMPLER_ALGORITHM
+
+
+def test_compact_pack_resume_rejects_changed_dataset_size() -> None:
+    with pytest.raises(RuntimeError, match="dataset size changed"):
+        validate_sampler_resume_contract(
+            {
+                "algorithm": PERMUTATION_SAMPLER_ALGORITHM,
+                "seed": 1301,
+                "curriculum": "none",
+                "position": 32,
+                "num_samples": 64,
+                "dataset_size": 64,
+            },
+            seed=1301,
+            curriculum="none",
+            active_num_samples=64,
+            algorithm=PERMUTATION_SAMPLER_ALGORITHM,
+            dataset_size=65,
+        )
 
 
 def test_curriculum_curves_match_pre_registered_order() -> None:

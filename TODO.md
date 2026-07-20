@@ -41,6 +41,9 @@ a controlled comparison and can be removed or rolled back safely.
 - [x] Fault-inject a mid-session termination and resume under the same source
   commit. The safe-boundary checkpoint discarded eight partial microbatches,
   preserved cursor 32, and resumed to cursor 96 without mutating its source.
+- [x] Publish a portable 170M-token Phase-A cloud pack with the V4 tokenizer,
+  a separate validation split, signed file inventory, exact source proportions,
+  and a zero-repeat deterministic permutation sampler.
 - [ ] Train the dense V4 seed-1301 baseline and freeze its checkpoint lineage.
 - [ ] Measure throughput, memory, losses by source, perplexity, generation
   coherence, reasoning, retrieval, and verifier-grounded behavior.

@@ -10,7 +10,80 @@ from torch.utils.data import Sampler
 
 CURRICULUMS = {"none", "code-before-prose", "math-density-ramp", "identity-mix-late"}
 SAMPLER_ALGORITHM = "counter_based_sha256_v1"
+PERMUTATION_SAMPLER_ALGORITHM = "global_affine_permutation_v1"
 MAX_FOUNDATION_SOURCE_EPOCHS = 4.0
+
+
+class DeterministicPermutationSampler(Sampler[int]):
+    """Direct-addressable shuffled epochs without replacement.
+
+    Compact cloud packs should not pay to transfer unused tokens or silently
+    resample the same windows. Each epoch is an affine permutation over the
+    complete dataset. The mapping is deterministic at every absolute position,
+    so a resumed worker can start at its saved cursor without rebuilding state.
+    """
+
+    def __init__(
+        self,
+        dataset_size: int,
+        *,
+        num_samples: int,
+        seed: int,
+        start_position: int = 0,
+    ) -> None:
+        self.dataset_size = int(dataset_size)
+        self.num_samples = int(num_samples)
+        self.seed = int(seed)
+        self.start_position = int(start_position)
+        if self.dataset_size < 1:
+            raise ValueError("permutation sampler requires a non-empty dataset")
+        if self.num_samples < 1:
+            raise ValueError("permutation sampler requires a positive sample budget")
+        if not 0 <= self.start_position <= self.num_samples:
+            raise ValueError("start_position must be within the declared sample budget")
+
+    def __len__(self) -> int:
+        return self.num_samples - self.start_position
+
+    def state_dict(self, *, position: int | None = None) -> dict[str, object]:
+        cursor = self.start_position if position is None else int(position)
+        if not 0 <= cursor <= self.num_samples:
+            raise ValueError("sampler cursor is outside its sample budget")
+        return {
+            "schema_version": 1,
+            "algorithm": PERMUTATION_SAMPLER_ALGORITHM,
+            "seed": self.seed,
+            "position": cursor,
+            "num_samples": self.num_samples,
+            "dataset_size": self.dataset_size,
+            "curriculum": "none",
+        }
+
+    def _parameters(self, epoch: int) -> tuple[int, int]:
+        digest = hashlib.sha256(
+            f"{PERMUTATION_SAMPLER_ALGORITHM}:{self.seed}:{epoch}".encode("ascii")
+        ).digest()
+        if self.dataset_size == 1:
+            return 1, 0
+        multiplier = int.from_bytes(digest[:8], "big") % self.dataset_size
+        multiplier = max(1, multiplier)
+        while math.gcd(multiplier, self.dataset_size) != 1:
+            multiplier = (multiplier + 1) % self.dataset_size
+            if multiplier == 0:
+                multiplier = 1
+        offset = int.from_bytes(digest[8:16], "big") % self.dataset_size
+        return multiplier, offset
+
+    def __iter__(self) -> Iterator[int]:
+        cached_epoch = -1
+        multiplier = 1
+        offset = 0
+        for position in range(self.start_position, self.num_samples):
+            epoch, local_position = divmod(position, self.dataset_size)
+            if epoch != cached_epoch:
+                multiplier, offset = self._parameters(epoch)
+                cached_epoch = epoch
+            yield (multiplier * local_position + offset) % self.dataset_size
 
 
 def source_replay_budget_violations(
@@ -60,10 +133,12 @@ def validate_sampler_resume_contract(
     seed: int,
     curriculum: str,
     active_num_samples: int,
+    algorithm: str = SAMPLER_ALGORITHM,
+    dataset_size: int | None = None,
 ) -> int:
     """Validate a raw sampler cursor and return its restart position."""
     expected = {
-        "algorithm": SAMPLER_ALGORITHM,
+        "algorithm": str(algorithm),
         "seed": int(seed),
         "curriculum": str(curriculum),
     }
@@ -86,6 +161,13 @@ def validate_sampler_resume_contract(
         raise RuntimeError(
             "A scheduled curriculum cannot change its sample horizon across resume"
         )
+    if algorithm == PERMUTATION_SAMPLER_ALGORITHM:
+        saved_size = int(state.get("dataset_size", -1))
+        if dataset_size is None or saved_size != int(dataset_size):
+            raise RuntimeError(
+                "Raw V4 permutation dataset size changed across resume: "
+                f"checkpoint={saved_size} active={dataset_size}"
+            )
     return position
 
 
