@@ -354,7 +354,9 @@ def run_cmd(cmd: list[str], *, cwd: Path | None = None) -> int:
         stderr=subprocess.STDOUT,
         text=True,
         bufsize=1,
+        creationflags=(subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0),
     )
+    print(f"[Unified Trainer] child_pid={proc.pid}", flush=True)
     assert proc.stdout is not None
     for line in proc.stdout:
         print(line, end="", flush=True)

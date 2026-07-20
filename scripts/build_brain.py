@@ -409,6 +409,7 @@ def _build_checkpoint_payload(
     data_sampler_state: dict[str, object] | None = None,
     data_generator: torch.Generator | None = None,
     seed_contract: dict[str, object] | None = None,
+    rng_states_override: dict[str, object] | None = None,
 ) -> dict[str, object]:
     try:
         source_commit = subprocess.check_output(
@@ -465,7 +466,11 @@ def _build_checkpoint_payload(
         "seed_contract": dict(seed_contract or {}),
         "hal_state": hal_state_dict(model),
         "mix_report": mix_report.to_dict(),
-        "rng_states": capture_rng_states(data_generator=data_generator),
+        "rng_states": (
+            dict(rng_states_override)
+            if rng_states_override is not None
+            else capture_rng_states(data_generator=data_generator)
+        ),
         "source_commit": source_commit,
         # A resumed optimizer state is only comparable when it sees the same
         # prepared corpus profile. Keep this explicit rather than inferring it
@@ -1306,22 +1311,33 @@ def train_anra_v2(
         "signal": None,
         "emergency_save_completed": None,
     }
+    termination_request: dict[str, int | None] = {"signal": None}
+    boundary_rng_states = capture_rng_states(data_generator=data_generator)
+    boundary_epoch = epoch
 
     def _handle_sigterm(sig_num: int, _frame: object) -> None:
         signal_state["triggered"] = True
         signal_state["signal"] = sig_num
+        termination_request["signal"] = sig_num
         print(
-            f"[build_brain] SIGTERM handler invoked (signal={sig_num}) at {_utc_iso()}.",
+            f"[build_brain] termination requested (signal={sig_num}) at {_utc_iso()}; "
+            "deferring save until an optimizer-safe boundary.",
             flush=True,
         )
-        sessions_completed = int(ckpt.get("sessions_completed", 0) + 1) if "ckpt" in locals() else 1
+
+    def _save_interrupted_boundary(
+        sig_num: int,
+        *,
+        discarded_micro_steps: int,
+    ) -> None:
+        sessions_completed = int(ckpt.get("sessions_completed", 0) + 1)
         payload = _build_checkpoint_payload(
             model=model,
             optimizer=optimizer,
             scheduler=scheduler,
             mp=mp,
             global_step=global_step,
-            epoch=epoch,
+            epoch=boundary_epoch,
             best_loss=best_loss,
             sessions_completed=sessions_completed,
             mix_report=mix_report,
@@ -1341,15 +1357,26 @@ def train_anra_v2(
             data_sampler_state=current_data_sampler_state(),
             data_generator=data_generator,
             seed_contract=seed_report.to_dict(),
+            rng_states_override=boundary_rng_states,
         )
+        payload["interruption"] = {
+            "signal": int(sig_num),
+            "safe_optimizer_boundary": True,
+            "discarded_micro_steps": int(discarded_micro_steps),
+            "global_step": int(global_step),
+            "sampler_position": int(data_sampler_position),
+            "requested_at": _utc_iso(),
+        }
         ok = _emergency_save_with_timeout(payload, ckpt_path)
         if ok:
             _sync_training_checkpoint_to_drive(ckpt_path)
         signal_state["emergency_save_completed"] = ok
-        print(f"[build_brain] SIGTERM emergency save status={ok}", flush=True)
+        print(f"[build_brain] deferred termination save status={ok}", flush=True)
         raise SystemExit(128 + sig_num)
 
     signal.signal(signal.SIGTERM, _handle_sigterm)
+    if os.name == "nt" and hasattr(signal, "SIGBREAK"):
+        signal.signal(signal.SIGBREAK, _handle_sigterm)
     print(
         "[build_brain] SIGTERM handler registered at "
         f"{signal_state['registered_at_iso']} (pre-training).",
@@ -1449,6 +1476,11 @@ def train_anra_v2(
     else:
         print("[Resume] No checkpoint found — starting from scratch", flush=True)
     # ─────────────────────────────────────────────────────────────────────────────
+
+    boundary_rng_states = capture_rng_states(data_generator=data_generator)
+    boundary_epoch = epoch
+    if termination_request["signal"] is not None:
+        _save_interrupted_boundary(int(termination_request["signal"]), discarded_micro_steps=0)
 
     ewc_weight = max(0.0, float(os.environ.get("ANRA_EWC_WEIGHT", "0")))
     ewc_reference: dict[str, torch.Tensor] = {}
@@ -1932,6 +1964,13 @@ def train_anra_v2(
                 last_avg_loss = avg_loss
                 loss_ema = loss_float if loss_ema is None else 0.9 * loss_ema + 0.1 * loss_float
                 best_loss = min(best_loss, loss_ema) if math.isfinite(best_loss) else loss_ema
+                boundary_rng_states = capture_rng_states(data_generator=data_generator)
+                boundary_epoch = epoch
+                if termination_request["signal"] is not None:
+                    _save_interrupted_boundary(
+                        int(termination_request["signal"]),
+                        discarded_micro_steps=0,
+                    )
                 if (
                     training_layout == V2ConversationDataset.PACKING_LAYOUT
                     and global_step >= int(total_steps * 0.90)
@@ -2099,6 +2138,19 @@ def train_anra_v2(
                     except Exception as exc:
                         print(f"[HAL] checkpoint publish skipped: {exc}", flush=True)
                     next_checkpoint_at = time.time() + checkpoint_every_seconds
+
+            if termination_request["signal"] is not None:
+                discarded_micro_steps = accum_micro_steps
+                optimizer.zero_grad(set_to_none=True)
+                pcgrad.clear()
+                accum_micro_steps = 0
+                pending_trained_tokens = 0
+                pending_token_ids.clear()
+                pending_window_indices.clear()
+                _save_interrupted_boundary(
+                    int(termination_request["signal"]),
+                    discarded_micro_steps=discarded_micro_steps,
+                )
 
             if time.time() >= end_at:
                 break
