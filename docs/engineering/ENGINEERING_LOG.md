@@ -1,5 +1,20 @@
 # Engineering Log
 
+## 2026-07-20 - RELIABILITY - Exact same-commit interruption and recovery
+
+| Field | Value |
+|-------|-------|
+| **Date** | 2026-07-20 |
+| **Author** | Codex |
+| **Component** | V4 trainer termination handling, checkpoint provenance, deterministic sampler |
+| **Type** | RELIABILITY + TRAINING |
+| **Summary** | Replaced an unreliable Windows console-break drill with a rehearsal-only deterministic fault injector that enters the trainer's production deferred-SIGTERM path. Signal handling only records intent; checkpoint serialization occurs synchronously after gradients and pending data from an incomplete accumulation are discarded. The injector is unavailable with normal post-session evaluation, so it cannot silently enter an ordinary campaign. |
+| **Evidence** | Signed commit `1138be50...`, RTX 4050, 181,132,071 parameters, context 2,048, batch 1 x accumulation 32. Termination requested at session microstep 40 after step 1; checkpoint records `safe_optimizer_boundary=true`, `discarded_micro_steps=8`, 65,536 tokens, cursor 32, 32 unique/0 repeat windows, and SHA-256 `4953682a...`. A separately signed resume under the same commit reached step 3, 196,608 tokens, cursor 96, 96 unique/0 repeat windows, loss 10.6677, and SHA-256 `837f7721...`. The source SHA stayed unchanged. Focused tests: 24 passed; Ruff and compilation passed. GPU idle afterward. |
+| **Risk** | This proves exact checkpoint/restart mechanics, not model quality. The bounded rehearsal intentionally skipped held-out and behavioral evaluation. An operating-system hard kill can never execute an in-process handler; durability against that case depends on the last already-persisted optimizer-boundary checkpoint. |
+| **Follow-up** | Start the signed dense V4 seed-1301 baseline, then measure held-out loss, generation coherence, reasoning, retrieval, verification, throughput, and memory before comparing any optional subsystem. |
+
+---
+
 ## 2026-07-20 - TRAIN/FIX - Full-context rehearsal and raw-source replay firewall
 
 | Field | Value |

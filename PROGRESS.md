@@ -13,6 +13,22 @@ session, read this file, then continue from "Next Action".
 
 ## Current State (2026-07-20)
 
+**2026-07-20 exact same-commit interruption/restart gate passed.** Windows
+console break delivery proved unsuitable because it could kill the trainer
+before Python handled the signal, so a rehearsal-only deterministic fault
+injector was added. It invokes the production deferred-SIGTERM path after an
+explicit microstep count and is rejected unless expensive post-session
+evaluation is disabled. On the RTX 4050, signed commit `1138be50...` completed
+step 1, then requested termination after 40 microsteps. The emergency artifact
+records 65,536 committed tokens, sampler cursor 32, safe optimizer boundary,
+and eight discarded partial microbatches. Its SHA-256 remained
+`4953682a...` while a separately signed, same-commit resume restored it and
+completed steps 2-3: 196,608 tokens, cursor 96, 96 unique windows, zero repeats,
+and final source commit `1138be50...`. The resumed artifact is
+`837f7721...`; the local GPU is idle. The foundation recovery preflight is now
+complete. The next work is actual dense V4 baseline training and held-out
+capability evaluation, not more rehearsal.
+
 **2026-07-20 local full-context rehearsal and source-policy correction.** The
 RTX 4050 completed one real V4 optimizer update at context 2,048: 181,132,071
 parameters, microbatch 1, accumulation 32, exactly 65,536 tokens, and about
@@ -35,8 +51,8 @@ defects: a resumed worker artifact could overwrite its read-only source, and
 signed launches left `data_profile=unknown` instead of binding the train-
 manifest hash. Bounded rehearsal mode now skips compact generation, held-out
 validation, and ThirdEye evaluation/calibration after checkpoint persistence.
-The remaining recovery gate is a same-commit mid-session signal interruption;
-completed-session checkpoint continuation is proven.
+That completed-session rehearsal was later followed by the successful
+same-commit mid-session interruption/restart gate recorded above.
 
 **2026-07-20 V4 data-publication update.** The interrupted append journal was
 reconciled without rescanning the verified 28.99 GB prefix. A Windows text-mode

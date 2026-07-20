@@ -38,8 +38,9 @@ a controlled comparison and can be removed or rolled back safely.
 - [x] Prove one full-context optimizer update on the local RTX 4050.
 - [x] Resume the corrected signed checkpoint into a separate artifact and prove
   optimizer/RNG/sampler continuity from step 1/cursor 32 to step 2/cursor 64.
-- [ ] Fault-inject one mid-session kill and resume under the same source commit;
-  completed-session restart is proven, but the signal-interruption path is not.
+- [x] Fault-inject a mid-session termination and resume under the same source
+  commit. The safe-boundary checkpoint discarded eight partial microbatches,
+  preserved cursor 32, and resumed to cursor 96 without mutating its source.
 - [ ] Train the dense V4 seed-1301 baseline and freeze its checkpoint lineage.
 - [ ] Measure throughput, memory, losses by source, perplexity, generation
   coherence, reasoning, retrieval, and verifier-grounded behavior.
