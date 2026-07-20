@@ -509,7 +509,7 @@ def _active_training_data_layout() -> str:
 def _assert_resume_data_profile_compatible(
     checkpoint_profile: object,
     active_profile: str,
-) -> None:
+) -> bool:
     """Prevent a checkpoint from silently continuing on another corpus profile."""
     saved = str(checkpoint_profile or "unknown").strip()
     active = active_profile.strip() or "unknown"
@@ -519,22 +519,22 @@ def _assert_resume_data_profile_compatible(
             f"Training with active profile={active}.",
             flush=True,
         )
-        return
+        return False
     if active in {"unknown", "unlabelled", "unlabeled"}:
         print(
             f"[Resume] Active data profile is not declared; checkpoint profile={saved}.",
             flush=True,
         )
-        return
+        return False
     if saved == active:
         print(f"[Resume] Data profile verified: {active}", flush=True)
-        return
+        return False
     if os.environ.get("ANRA_ALLOW_DATA_PROFILE_CHANGE", "0") == "1":
         print(
             f"[Resume] WARNING: data-profile change explicitly allowed: {saved} -> {active}.",
             flush=True,
         )
-        return
+        return True
     raise RuntimeError(
         "Refusing to resume with a different data profile: "
         f"checkpoint={saved}, active={active}. Restore the original prepared corpus, "
@@ -1467,7 +1467,7 @@ def train_anra_v2(
                     "Checkpoint failed exact core-tensor accounting; refusing to continue "
                     f"training: {load_report}"
                 )
-            _assert_resume_data_profile_compatible(
+            data_profile_changed = _assert_resume_data_profile_compatible(
                 resume_state.get("data_profile"),
                 os.environ.get("ANRA_DATA_PROFILE", "unknown"),
             )
@@ -1498,30 +1498,50 @@ def train_anra_v2(
                     resume_state.get("appended_row_optimizer_steps", 0)
                 )
             if window_consumption is not None:
-                raw_consumption_state = resume_state.get("raw_window_consumption", {})
-                if isinstance(raw_consumption_state, dict) and raw_consumption_state:
-                    window_consumption.load_state_dict(raw_consumption_state)
-                sampler_state = resume_state.get("data_sampler_state", {})
-                if not isinstance(sampler_state, dict) or not sampler_state:
-                    raise RuntimeError("Raw V4 resume is missing its sampler cursor")
-                data_sampler_position = validate_sampler_resume_contract(
-                    sampler_state,
-                    seed=seed,
-                    curriculum=curriculum,
-                    active_num_samples=int(raw_sample_budget or 0),
-                    algorithm=active_sampler_algorithm,
-                    dataset_size=(
-                        len(ds)
-                        if active_sampler_algorithm == PERMUTATION_SAMPLER_ALGORITHM
-                        else None
-                    ),
-                )
-                visits = window_consumption.unique_windows + window_consumption.repeated_windows
-                if visits != data_sampler_position:
-                    raise RuntimeError(
-                        "Raw V4 sampler cursor disagrees with window-consumption evidence: "
-                        f"cursor={data_sampler_position}, visits={visits}"
+                reset_sampler = (
+                    data_profile_changed
+                    and os.environ.get(
+                        "ANRA_RESET_DATA_SAMPLER_ON_PROFILE_CHANGE", "0"
                     )
+                    == "1"
+                )
+                if reset_sampler:
+                    data_sampler_position = 0
+                    print(
+                        "[Resume] Signed data-profile transition reset the sampler "
+                        "and window-consumption evidence for the new corpus.",
+                        flush=True,
+                    )
+                else:
+                    raw_consumption_state = resume_state.get(
+                        "raw_window_consumption", {}
+                    )
+                    if isinstance(raw_consumption_state, dict) and raw_consumption_state:
+                        window_consumption.load_state_dict(raw_consumption_state)
+                    sampler_state = resume_state.get("data_sampler_state", {})
+                    if not isinstance(sampler_state, dict) or not sampler_state:
+                        raise RuntimeError("Raw V4 resume is missing its sampler cursor")
+                    data_sampler_position = validate_sampler_resume_contract(
+                        sampler_state,
+                        seed=seed,
+                        curriculum=curriculum,
+                        active_num_samples=int(raw_sample_budget or 0),
+                        algorithm=active_sampler_algorithm,
+                        dataset_size=(
+                            len(ds)
+                            if active_sampler_algorithm == PERMUTATION_SAMPLER_ALGORITHM
+                            else None
+                        ),
+                    )
+                    visits = (
+                        window_consumption.unique_windows
+                        + window_consumption.repeated_windows
+                    )
+                    if visits != data_sampler_position:
+                        raise RuntimeError(
+                            "Raw V4 sampler cursor disagrees with window-consumption "
+                            f"evidence: cursor={data_sampler_position}, visits={visits}"
+                        )
                 loader = make_loader(sample_offset=data_sampler_position)
                 _assert_training_loader_dataset(loader, ds, eval_ds)
             start_step = int(resume_state["global_step"])

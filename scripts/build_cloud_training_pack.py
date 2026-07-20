@@ -209,6 +209,7 @@ def _write_split(
     block_size: int,
     seed: int,
     max_windows_per_shard: int,
+    excluded_source_shards: set[str] | None = None,
 ) -> dict[str, object]:
     source_manifest = _load_manifest(source_manifest_path)
     source_root = source_manifest_path.parent
@@ -220,6 +221,16 @@ def _write_split(
 
     for source_class, source_windows in windows_by_source.items():
         candidates = _select_source_shards(source_manifest, source_class)
+        excluded = excluded_source_shards or set()
+        candidates = [
+            candidate
+            for candidate in candidates
+            if str(candidate.get("path", "")) not in excluded
+        ]
+        if not candidates:
+            raise ValueError(
+                f"no unused {source_class} shards remain after overlap exclusion"
+            )
         chunk_count = math.ceil(source_windows / max_windows_per_shard)
         remaining = source_windows
         for chunk_index in range(chunk_count):
@@ -321,11 +332,27 @@ def build_cloud_pack(
     validation_tokens: int = 10_485_760,
     block_size: int = 2048,
     seed: int = 1301,
+    prior_pack_root: Path | None = None,
+    cumulative_phase_tokens: int | None = None,
 ) -> dict[str, object]:
     if output_root.exists():
         raise FileExistsError(f"cloud pack publication is immutable: {output_root}")
     train_dir = output_root / "train"
     validation_dir = output_root / "validation"
+    excluded_source_shards: set[str] = set()
+    prior_pack: dict[str, object] | None = None
+    if prior_pack_root is not None:
+        prior_pack = json.loads(
+            (prior_pack_root / "pack_manifest.json").read_text(encoding="utf-8")
+        )
+        prior_train = _load_manifest(
+            prior_pack_root / str(prior_pack["train_manifest"])
+        )
+        excluded_source_shards = {
+            str(item.get("source_shard_path", ""))
+            for item in prior_train["shards"]
+            if isinstance(item, dict) and str(item.get("source_shard_path", ""))
+        }
     train_manifest = _write_split(
         source_manifest_path=source_root / "manifest.json",
         output_dir=train_dir,
@@ -333,15 +360,21 @@ def build_cloud_pack(
         block_size=block_size,
         seed=seed,
         max_windows_per_shard=2048,
+        excluded_source_shards=excluded_source_shards,
     )
-    validation_manifest = _write_split(
-        source_manifest_path=source_root / "validation" / "manifest.json",
-        output_dir=validation_dir,
-        requested_tokens=validation_tokens,
-        block_size=block_size,
-        seed=seed + 1,
-        max_windows_per_shard=1024,
-    )
+    if prior_pack_root is None:
+        validation_manifest = _write_split(
+            source_manifest_path=source_root / "validation" / "manifest.json",
+            output_dir=validation_dir,
+            requested_tokens=validation_tokens,
+            block_size=block_size,
+            seed=seed + 1,
+            max_windows_per_shard=1024,
+        )
+    else:
+        prior_validation = prior_pack_root / str(prior_pack["validation_manifest"])
+        shutil.copytree(prior_validation.parent, validation_dir)
+        validation_manifest = _load_manifest(validation_dir / prior_validation.name)
     tokenizer = ROOT / "tokenizer" / "tokenizer_v4_32k.json"
     tokenizer_hash = _sha256(tokenizer)
     if tokenizer_hash != str(train_manifest["tokenizer_sha256"]):
@@ -366,12 +399,19 @@ def build_cloud_pack(
             )
     pack: dict[str, object] = {
         "schema_version": 1,
-        "name": "anra-v4-phase-a-170m-seed1301",
+        "name": (
+            "anra-v4-phase-a-170m-seed1301"
+            if prior_pack is None
+            else f"anra-v4-phase-a-additional-{training_tokens}-seed{seed}"
+        ),
         "model_profile": "anra-v4-180m",
         "builder_commit": _git_commit(),
         "seed": seed,
         "training_tokens_requested": training_tokens,
         "training_tokens_effective": train_manifest["usable_training_tokens"],
+        "cumulative_phase_tokens": int(
+            cumulative_phase_tokens or training_tokens
+        ),
         "validation_tokens": validation_manifest["usable_training_tokens"],
         "block_size": block_size,
         "sampling_policy": PERMUTATION_SAMPLER_ALGORITHM,
@@ -390,6 +430,22 @@ def build_cloud_pack(
             "hardware, and worker paths are truthful."
         ),
     }
+    if prior_pack is not None:
+        prior_paths = excluded_source_shards
+        current_paths = {
+            str(item.get("source_shard_path", ""))
+            for item in train_manifest["shards"]
+            if isinstance(item, dict)
+        }
+        overlap = sorted(prior_paths & current_paths)
+        if overlap:
+            raise RuntimeError(f"continuation pack overlaps prior source shards: {overlap}")
+        pack["continuation_of"] = str(prior_pack["name"])
+        pack["continuation_of_manifest_sha256"] = _sha256(
+            prior_pack_root / "pack_manifest.json"
+        )
+        pack["excluded_prior_source_shards"] = len(prior_paths)
+        pack["source_shard_overlap_count"] = 0
     signing_key = os.environ.get("ANRA_MANIFEST_SIGNING_KEY", "")
     if signing_key:
         pack["signature_algorithm"] = "hmac-sha256"
@@ -410,6 +466,8 @@ def main() -> None:
     parser.add_argument("--validation-tokens", type=int, default=10_485_760)
     parser.add_argument("--block-size", type=int, default=2048)
     parser.add_argument("--seed", type=int, default=1301)
+    parser.add_argument("--prior-pack-root", type=Path)
+    parser.add_argument("--cumulative-phase-tokens", type=int)
     args = parser.parse_args()
     report = build_cloud_pack(
         source_root=args.source_root,
@@ -418,6 +476,8 @@ def main() -> None:
         validation_tokens=args.validation_tokens,
         block_size=args.block_size,
         seed=args.seed,
+        prior_pack_root=args.prior_pack_root,
+        cumulative_phase_tokens=args.cumulative_phase_tokens,
     )
     print(json.dumps(report, indent=2, sort_keys=True))
 

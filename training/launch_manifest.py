@@ -46,6 +46,8 @@ REQUIRED_FIELDS = {
     "artifact_path",
     "shard_assignment",
     "checkpoint_read_only",
+    "allow_data_profile_change",
+    "reset_data_sampler",
     "signature",
 }
 
@@ -82,12 +84,16 @@ def build_launch_manifest(
     artifact_path: str = "",
     shard_assignment: list[int] | None = None,
     checkpoint_read_only: bool = True,
+    allow_data_profile_change: bool = False,
+    reset_data_sampler: bool = False,
 ) -> dict[str, object]:
     if len(seeds) != 1:
         raise ValueError("One launch manifest must represent exactly one training seed.")
     seed = int(seeds[0])
     if seed < 0 or seed > 2**32 - 1:
         raise ValueError("Launch seed must be in [0, 2**32-1].")
+    if reset_data_sampler and not allow_data_profile_change:
+        raise ValueError("Sampler reset requires an explicit data-profile change")
     dirty = _git(["status", "--porcelain"])
     bound_tokenizer = Path(tokenizer_path) if tokenizer_path else active_tokenizer_path()
     if not bound_tokenizer.is_absolute():
@@ -162,6 +168,8 @@ def build_launch_manifest(
         "artifact_path": artifact_path,
         "shard_assignment": list(shard_assignment or []),
         "checkpoint_read_only": bool(checkpoint_read_only),
+        "allow_data_profile_change": bool(allow_data_profile_change),
+        "reset_data_sampler": bool(reset_data_sampler),
     }
 
 
@@ -323,6 +331,10 @@ def load_and_validate_manifest(
         raise ValueError("A worker artifact path must not overwrite its source checkpoint")
     if not bool(payload["checkpoint_read_only"]):
         raise ValueError("Experiment-farm workers must treat source checkpoints as read-only")
+    if bool(payload["reset_data_sampler"]) and not bool(
+        payload["allow_data_profile_change"]
+    ):
+        raise ValueError("Launch sampler reset requires a signed data-profile change")
     return payload
 
 

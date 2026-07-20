@@ -42,6 +42,7 @@ def create_cloud_launch(
     tokenizer_metadata_hash = hashlib.sha256(tokenizer_metadata.read_bytes()).hexdigest()
     if tokenizer_metadata_hash != str(pack["tokenizer_metadata_sha256"]):
         raise ValueError("cloud pack tokenizer metadata hash mismatch")
+    is_continuation_pack = bool(pack.get("continuation_of"))
     manifest = build_launch_manifest(
         model_profile="anra-v4-180m",
         extension_profile="none",
@@ -63,7 +64,9 @@ def create_cloud_launch(
         },
         seeds=[int(pack["seed"])],
         checkpoint_source=checkpoint_source,
-        expected_tokens=int(pack["training_tokens_requested"]),
+        expected_tokens=int(
+            pack.get("cumulative_phase_tokens", pack["training_tokens_requested"])
+        ),
         runtime_estimate_hours=float(runtime_estimate_hours),
         owner_authorized=True,
         worker_id=worker_id,
@@ -71,6 +74,8 @@ def create_cloud_launch(
         artifact_path=artifact_path,
         shard_assignment=[0],
         checkpoint_read_only=True,
+        allow_data_profile_change=is_continuation_pack,
+        reset_data_sampler=is_continuation_pack,
     )
     return sign_manifest(manifest, output)
 

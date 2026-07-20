@@ -469,6 +469,14 @@ def main() -> None:
         args.accumulation = int(launch_manifest["accumulation"])
         args.seed = int(launch_manifest["seed"])
         os.environ["ANRA_DATA_PROFILE"] = launch_data_profile(launch_manifest)
+        if bool(launch_manifest["allow_data_profile_change"]):
+            os.environ["ANRA_ALLOW_DATA_PROFILE_CHANGE"] = "1"
+        else:
+            os.environ.pop("ANRA_ALLOW_DATA_PROFILE_CHANGE", None)
+        if bool(launch_manifest["reset_data_sampler"]):
+            os.environ["ANRA_RESET_DATA_SAMPLER_ON_PROFILE_CHANGE"] = "1"
+        else:
+            os.environ.pop("ANRA_RESET_DATA_SAMPLER_ON_PROFILE_CHANGE", None)
         checkpoint_source = str(launch_manifest["checkpoint_source"])
         artifact_path = str(launch_manifest.get("artifact_path", "")).strip()
         manifest_resume_from = checkpoint_resume_path(checkpoint_source)
