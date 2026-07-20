@@ -399,6 +399,9 @@ def main() -> None:
     ap.add_argument("--max_source_mb", type=int, default=64)
     ap.add_argument("--checkpoint_path", default="anra_v4_180m.pt")
     ap.add_argument("--batch_size", type=int, default=ANRA_V4_TRAINING.batch_size)
+    ap.add_argument(
+        "--accumulation", type=int, default=ANRA_V4_TRAINING.grad_accum_steps
+    )
     ap.add_argument("--block_size", type=int, default=ANRA_V4_MODEL.block_size)
     ap.add_argument(
         "--answer_loss_weight", type=float, default=ANRA_V4_TRAINING.answer_loss_weight
@@ -463,6 +466,7 @@ def main() -> None:
         args.model_size = str(launch_manifest["model_profile"])
         args.optimizer = str(launch_manifest["optimizer"])
         args.batch_size = int(launch_manifest["batch_size"])
+        args.accumulation = int(launch_manifest["accumulation"])
         args.seed = int(launch_manifest["seed"])
         os.environ["ANRA_DATA_PROFILE"] = launch_data_profile(launch_manifest)
         checkpoint_source = str(launch_manifest["checkpoint_source"])
@@ -588,6 +592,8 @@ def main() -> None:
         args.checkpoint_path,
         "--batch_size",
         str(args.batch_size),
+        "--accumulation",
+        str(args.accumulation),
         "--block_size",
         str(model_cfg.block_size),
         "--answer_loss_weight",

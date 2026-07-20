@@ -19,6 +19,8 @@ def create_cloud_launch(
     checkpoint_source: str,
     worker_id: str,
     runtime_estimate_hours: float,
+    batch_size: int,
+    accumulation: int,
 ) -> dict[str, object]:
     pack_root = pack_root.resolve()
     pack = json.loads((pack_root / "pack_manifest.json").read_text(encoding="utf-8"))
@@ -48,8 +50,8 @@ def create_cloud_launch(
         },
         stage="baseline_170m",
         optimizer="adamw",
-        batch_size=1,
-        accumulation=32,
+        batch_size=batch_size,
+        accumulation=accumulation,
         schedule={
             "kind": "cosine_with_warmup",
             "warmup_fraction": 0.02,
@@ -80,6 +82,8 @@ def main() -> None:
     parser.add_argument("--checkpoint-source", default="scratch")
     parser.add_argument("--worker-id", default="io-net-worker")
     parser.add_argument("--runtime-estimate-hours", type=float, default=6.0)
+    parser.add_argument("--batch-size", type=int, default=4)
+    parser.add_argument("--accumulation", type=int, default=8)
     args = parser.parse_args()
     signed = create_cloud_launch(
         pack_root=args.pack_root,
@@ -88,6 +92,8 @@ def main() -> None:
         checkpoint_source=args.checkpoint_source,
         worker_id=args.worker_id,
         runtime_estimate_hours=args.runtime_estimate_hours,
+        batch_size=args.batch_size,
+        accumulation=args.accumulation,
     )
     print(
         json.dumps(

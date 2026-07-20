@@ -838,6 +838,7 @@ def train_anra_v2(
     checkpoint_path: str = "anra_v4_180m.pt",
     resume_from: str | None = None,
     batch_size: int = ANRA_V4_TRAINING.batch_size,
+    accumulation: int = ANRA_V4_TRAINING.grad_accum_steps,
     block_size: int = ANRA_V4_MODEL.block_size,
     max_minutes: int = ANRA_V4_TRAINING.session_minutes,
     answer_loss_weight: float = ANRA_V4_TRAINING.answer_loss_weight,
@@ -873,6 +874,8 @@ def train_anra_v2(
     print_session_dashboard()
     if model_size != CANONICAL_MODEL_PROFILE:
         raise ValueError(f"model size must be {CANONICAL_MODEL_PROFILE}")
+    if accumulation < 1:
+        raise ValueError("gradient accumulation must be positive")
     if training_layout not in {
         V2ConversationDataset.PACKING_LAYOUT,
         RawCausalShardDataset.PACKING_LAYOUT,
@@ -909,7 +912,7 @@ def train_anra_v2(
     replay_ratio = replay_ratio if replay_ratio is not None else training_cfg.replay_ratio
     print(
         f"[Trainer] {model_size.upper()} SCRATCH TRAINING  "
-        f"batch={batch_size} grad_accum={training_cfg.grad_accum_steps}",
+        f"batch={batch_size} grad_accum={accumulation}",
         flush=True,
     )
     dataset_path = Path(data_path)
@@ -1071,7 +1074,7 @@ def train_anra_v2(
             if max_phase_tokens is not None
             else len(ds)
         )
-        optimizer_windows = batch_size * training_cfg.grad_accum_steps
+        optimizer_windows = batch_size * accumulation
         raw_sample_budget = (
             math.ceil(target_windows / optimizer_windows) * optimizer_windows
         )
@@ -1245,6 +1248,8 @@ def train_anra_v2(
         "gradient_clip_norm": training_cfg.max_grad_norm,
         "verified_process_objective": VERIFIED_PROCESS_OBJECTIVE,
         "verified_process_multiplier": training_cfg.verified_process_multiplier,
+        "micro_batch_size": batch_size,
+        "gradient_accumulation": accumulation,
         "sampler_algorithm": active_sampler_algorithm,
         "determinism_mode": DETERMINISM_MODE,
     }
@@ -1668,7 +1673,7 @@ def train_anra_v2(
         torch.cuda.get_device_properties(0).total_memory / 1e9 if torch.cuda.is_available() else 0.0
     )
     summary = model_summary(model)
-    eff_batch = batch_size * training_cfg.grad_accum_steps
+    eff_batch = batch_size * accumulation
     pcgrad_fast_path = pcgrad_enabled and batch_size == 1
 
     print("", flush=True)
@@ -1679,7 +1684,7 @@ def train_anra_v2(
     print(f"  Parameters   : {summary['parameters']:,}", flush=True)
     print(
         f"  Micro batch  : {batch_size}  |  Grad accum : "
-        f"{training_cfg.grad_accum_steps}  |  Eff batch : {eff_batch}",
+        f"{accumulation}  |  Eff batch : {eff_batch}",
         flush=True,
     )
     print(f"  Session time : {max_minutes} minutes", flush=True)
@@ -1784,7 +1789,7 @@ def train_anra_v2(
                     else torch.zeros((), device=batch_loss.device, dtype=batch_loss.dtype)
                 )
                 batch_loss = batch_loss + current_ewc_loss
-                loss = batch_loss / training_cfg.grad_accum_steps
+                loss = batch_loss / accumulation
 
             if not torch.isfinite(batch_loss):
                 cdr.capture_step_failure(
@@ -1840,12 +1845,12 @@ def train_anra_v2(
             # retain the explicit source-gradient calculation.
             if pcgrad_enabled and not pcgrad_fast_path:
                 owner_loss = (
-                    sample_losses[owner_positions].mean() / training_cfg.grad_accum_steps
+                    sample_losses[owner_positions].mean() / accumulation
                     if owner_positions
                     else None
                 )
                 other_loss = (
-                    sample_losses[other_positions].mean() / training_cfg.grad_accum_steps
+                    sample_losses[other_positions].mean() / accumulation
                     if other_positions
                     else None
                 )
@@ -1904,7 +1909,7 @@ def train_anra_v2(
                 elif entry[0] > hard_examples[0][0]:
                     heapq.heapreplace(hard_examples, entry)
 
-            if accum_micro_steps >= training_cfg.grad_accum_steps:
+            if accum_micro_steps >= accumulation:
                 if pcgrad_enabled:
                     pcgrad_reports.extend(pcgrad.materialize())
                 if growth_alignment is not None:
@@ -2233,7 +2238,7 @@ def train_anra_v2(
         pending_window_indices.clear()
         print(
             "  discarded_partial_accum="
-            f"{accum_micro_steps}/{training_cfg.grad_accum_steps}; "
+            f"{accum_micro_steps}/{accumulation}; "
             "checkpoint remains on the last complete optimizer boundary.",
             flush=True,
         )
@@ -2297,7 +2302,7 @@ def train_anra_v2(
         "best_loss": round(best_loss, 4),
         "last_avg_loss": round(last_avg_loss, 4),
         "effective_batch_size": eff_batch,
-        "grad_accum_steps": training_cfg.grad_accum_steps,
+        "grad_accum_steps": accumulation,
         "answer_loss_weight": answer_loss_weight,
         "model_size": model_size,
         "optimizer": optimizer_report,
@@ -2681,6 +2686,9 @@ def main() -> None:
     parser.add_argument("--checkpoint_path", default="anra_v4_180m.pt")
     parser.add_argument("--resume_from", default=None)
     parser.add_argument("--batch_size", type=int, default=ANRA_V4_TRAINING.batch_size)
+    parser.add_argument(
+        "--accumulation", type=int, default=ANRA_V4_TRAINING.grad_accum_steps
+    )
     parser.add_argument("--block_size", type=int, default=ANRA_V4_MODEL.block_size)
     parser.add_argument("--max_minutes", type=int, default=ANRA_V4_TRAINING.session_minutes)
     parser.add_argument(
@@ -2782,6 +2790,7 @@ def main() -> None:
         checkpoint_path=args.checkpoint_path,
         resume_from=args.resume_from,
         batch_size=args.batch_size,
+        accumulation=args.accumulation,
         block_size=args.block_size,
         max_minutes=args.max_minutes,
         answer_loss_weight=args.answer_loss_weight,
