@@ -48,6 +48,16 @@ def test_cloud_pack_is_compact_mixed_and_immutable(tmp_path, monkeypatch) -> Non
     tokenizer_dir.mkdir()
     tokenizer = tokenizer_dir / "tokenizer_v4_32k.json"
     tokenizer.write_text('{"schema_version":3}', encoding="utf-8")
+    tokenizer.with_suffix(tokenizer.suffix + ".meta.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 4,
+                "backend": "native_append_v4",
+                "vocab_size": 32_768,
+            }
+        ),
+        encoding="utf-8",
+    )
     tokenizer_hash = _sha(tokenizer)
     source = tmp_path / "source"
     _source_manifest(source, tokenizer_hash)
@@ -69,6 +79,10 @@ def test_cloud_pack_is_compact_mixed_and_immutable(tmp_path, monkeypatch) -> Non
     assert train["sampling_policy"] == PERMUTATION_SAMPLER_ALGORITHM
     assert train["total_training_windows"] == 64
     assert train["campaign_mix_verified"] is True
+    assert report["tokenizer_metadata_path"] == "tokenizer_v4_32k.json.meta.json"
+    assert _sha(output / report["tokenizer_metadata_path"]) == report[
+        "tokenizer_metadata_sha256"
+    ]
     assert sum(item["training_windows"] for item in train["shards"]) == 64
     assert all(_sha(output / item["path"]) == item["sha256"] for item in report["files"])
 

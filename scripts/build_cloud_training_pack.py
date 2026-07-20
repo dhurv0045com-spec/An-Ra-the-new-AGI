@@ -346,7 +346,13 @@ def build_cloud_pack(
     tokenizer_hash = _sha256(tokenizer)
     if tokenizer_hash != str(train_manifest["tokenizer_sha256"]):
         raise ValueError("active V4 tokenizer does not match the source token shards")
+    tokenizer_metadata = tokenizer.with_suffix(tokenizer.suffix + ".meta.json")
+    if not tokenizer_metadata.is_file():
+        raise FileNotFoundError(
+            f"V4 tokenizer metadata sidecar is required: {tokenizer_metadata}"
+        )
     shutil.copy2(tokenizer, output_root / tokenizer.name)
+    shutil.copy2(tokenizer_metadata, output_root / tokenizer_metadata.name)
 
     inventory = []
     for path in sorted(output_root.rglob("*")):
@@ -371,6 +377,8 @@ def build_cloud_pack(
         "sampling_policy": PERMUTATION_SAMPLER_ALGORITHM,
         "tokenizer_path": tokenizer.name,
         "tokenizer_sha256": tokenizer_hash,
+        "tokenizer_metadata_path": tokenizer_metadata.name,
+        "tokenizer_metadata_sha256": _sha256(tokenizer_metadata),
         "train_manifest": "train/manifest.json",
         "train_manifest_sha256": _sha256(train_dir / "manifest.json"),
         "validation_manifest": "validation/manifest.json",

@@ -33,11 +33,15 @@ def create_cloud_launch(
             f"worker={active_commit} pack={pack.get('builder_commit')}"
         )
     tokenizer = pack_root / str(pack["tokenizer_path"])
+    tokenizer_metadata = pack_root / str(pack["tokenizer_metadata_path"])
     train_manifest = pack_root / str(pack["train_manifest"])
     validation_manifest = pack_root / str(pack["validation_manifest"])
     tokenizer_hash = hashlib.sha256(tokenizer.read_bytes()).hexdigest()
     if tokenizer_hash != str(pack["tokenizer_sha256"]):
         raise ValueError("cloud pack tokenizer hash mismatch")
+    tokenizer_metadata_hash = hashlib.sha256(tokenizer_metadata.read_bytes()).hexdigest()
+    if tokenizer_metadata_hash != str(pack["tokenizer_metadata_sha256"]):
+        raise ValueError("cloud pack tokenizer metadata hash mismatch")
     manifest = build_launch_manifest(
         model_profile="anra-v4-180m",
         extension_profile="none",
