@@ -35,7 +35,9 @@ a controlled comparison and can be removed or rolled back safely.
 - [x] Recover and audit the corpus tail; approve the final data volume.
 - [x] Publish licensed, deduplicated, decontaminated, immutable V4 train and
   validation shards with exact hashes and source mix.
-- [ ] Complete full-context preflight and exact kill/restart recovery.
+- [x] Prove one full-context optimizer update on the local RTX 4050.
+- [ ] Repeat that bounded update under the corrected Phase-A source policy and
+  prove exact kill/restart recovery from its signed checkpoint.
 - [ ] Train the dense V4 seed-1301 baseline and freeze its checkpoint lineage.
 - [ ] Measure throughput, memory, losses by source, perplexity, generation
   coherence, reasoning, retrieval, and verifier-grounded behavior.

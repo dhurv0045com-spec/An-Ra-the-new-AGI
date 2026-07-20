@@ -1,5 +1,20 @@
 # Engineering Log
 
+## 2026-07-20 - TRAIN/FIX - Full-context rehearsal and raw-source replay firewall
+
+| Field | Value |
+|-------|-------|
+| **Date** | 2026-07-20 |
+| **Author** | Codex |
+| **Component** | V4 foundation trainer, deterministic sampler, campaign source policy |
+| **Type** | TRAINING + ARCHITECTURE + RELIABILITY |
+| **Summary** | Ran the first bounded context-2048 optimizer update on the real 181M V4 path. Window-consumption evidence exposed that the old fixed 2% identity share sampled three times from only two unique windows in the first update. Separated seven-source corpus admission from Phase-A sampling: raw foundation training now samples only the normalized four-source broad corpus, while instruction, verified DFC, and identity remain provenance-bound for structured continuation. Added a fail-closed replay-budget check that prevents any raw source from being scheduled for more than four unique-data epochs. |
+| **Evidence** | RTX 4050: 181,132,071 parameters; batch 1 x accumulation 32; context 2,048; 65,536 tokens; step loss 10.6735; 939 tok/s; about 3.66 GB observed VRAM. Saved schema-9 checkpoint: step 1, complete optimizer boundary, sampler position 32, seed 1301, no partial accumulation. Real corrected 1B-token Phase-A policy reports zero replay-budget violations. Focused tests: 19 passed; Ruff clean. |
+| **Risk** | The one-step loss is an execution signal, not a capability result. The rehearsal checkpoint is intentionally not resumable into the corrected manifest lineage. Post-session compact generation was stopped after checkpoint persistence because 672 autoregressive tokens were disproportionate to this smoke run. |
+| **Follow-up** | Produce a fresh signed one-update rehearsal under the corrected manifest, add a rehearsal mode that skips long post-training evaluation while retaining checkpoint validation, then prove one exact resume update. |
+
+---
+
 ## 2026-07-16 - ARCH/TRAIN - Verified and extensible intelligence foundation
 
 | Field | Value |

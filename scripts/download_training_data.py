@@ -39,19 +39,35 @@ DOWNLOAD_PROGRESS = DATA_MANIFEST_DIR / "download_progress.json"
 TOKEN_SHARD_PROGRESS = DATA_MANIFEST_DIR / "token_shard_progress.json"
 FOUNDATION_AUDIT_REPORT = DATA_MANIFEST_DIR.parent / "foundation_records_audit.json"
 FOUNDATION_RESUME_INDEX = DATA_MANIFEST_DIR.parent / "foundation_records_index.sqlite3"
-FOUNDATION_CAMPAIGN_MIX = {
-    "fineweb_edu": 0.55,
-    "permissive_code": 0.15,
-    "finemath": 0.12,
-    "science_technical": 0.08,
-    "verified_instruction": 0.05,
-    "verified_dfc": 0.03,
-    "identity_replay": 0.02,
-}
-NATIVE_FOUNDATION_WEIGHT = sum(
-    FOUNDATION_CAMPAIGN_MIX[key]
-    for key in ("fineweb_edu", "permissive_code", "finemath", "science_technical")
+REQUIRED_CAMPAIGN_SOURCE_CLASSES = frozenset(
+    {
+        "fineweb_edu",
+        "permissive_code",
+        "finemath",
+        "science_technical",
+        "verified_instruction",
+        "verified_dfc",
+        "identity_replay",
+    }
 )
+
+# Phase A is raw causal foundation training. Small verified, instruction, and
+# identity corpora remain provenance-bound in the immutable shards, but are
+# reserved for their structured continuation objectives. Giving a two-window
+# identity corpus a fixed 2% raw-token share would replay it millions of times
+# in a real campaign and teach memorization rather than identity continuity.
+# Preserve the original relative weights of the four broad pretraining sources
+# while normalizing their foundation-only mixture to one.
+FOUNDATION_CAMPAIGN_MIX = {
+    "fineweb_edu": 11 / 18,
+    "permissive_code": 1 / 6,
+    "finemath": 2 / 15,
+    "science_technical": 4 / 45,
+}
+# The acquisition profile still reserves ten percent of its byte budget for
+# separately verified supplemental material. This is intentionally distinct
+# from the Phase-A sampler, which normalizes only the broad native sources.
+NATIVE_FOUNDATION_WEIGHT = 0.90
 
 
 def campaign_source_class(source: str) -> str:
@@ -1805,7 +1821,7 @@ def publish_fineweb_token_shards(
         progress_callback=progress_callback("test"),
     )
 
-    category_tokens = dict.fromkeys(FOUNDATION_CAMPAIGN_MIX, 0)
+    category_tokens = dict.fromkeys(REQUIRED_CAMPAIGN_SOURCE_CLASSES, 0)
     unclassified_tokens = 0
     for source_class, token_count in train_manifest.get(
         "source_class_token_mix", {}
@@ -2012,7 +2028,7 @@ def augment_verified_v4_shards(
         for key, count in manifests["train"].get("source_class_token_mix", {}).items()
         if int(count) > 0
     }
-    missing_classes = set(FOUNDATION_CAMPAIGN_MIX) - existing_classes
+    missing_classes = set(REQUIRED_CAMPAIGN_SOURCE_CLASSES) - existing_classes
     repairable = {"verified_dfc", "identity_replay"}
     if not missing_classes or not missing_classes <= repairable:
         raise RuntimeError(
@@ -2066,12 +2082,12 @@ def augment_verified_v4_shards(
 
         category_tokens = {
             key: int(combined["train"]["source_class_token_mix"].get(key, 0))
-            for key in FOUNDATION_CAMPAIGN_MIX
+            for key in REQUIRED_CAMPAIGN_SOURCE_CLASSES
         }
         unclassified_tokens = sum(
             int(count)
             for key, count in combined["train"]["source_class_token_mix"].items()
-            if key not in FOUNDATION_CAMPAIGN_MIX
+            if key not in REQUIRED_CAMPAIGN_SOURCE_CLASSES
         )
         classified_total = sum(category_tokens.values())
         realized_mix = {
@@ -2375,7 +2391,7 @@ def main() -> int:
         failures.append(
             SourceDownloadFailure(
                 "campaign_mix",
-                "immutable shards do not satisfy the 55/15/12/8/5/3/2 token mix",
+                "immutable shards do not satisfy the registered Phase-A source mix",
             )
         )
     status = {

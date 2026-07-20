@@ -10,6 +10,48 @@ from torch.utils.data import Sampler
 
 CURRICULUMS = {"none", "code-before-prose", "math-density-ramp", "identity-mix-late"}
 SAMPLER_ALGORITHM = "counter_based_sha256_v1"
+MAX_FOUNDATION_SOURCE_EPOCHS = 4.0
+
+
+def source_replay_budget_violations(
+    bucket_counts: dict[str, int],
+    target_mass: dict[str, float],
+    *,
+    num_samples: int,
+    max_source_epochs: float = MAX_FOUNDATION_SOURCE_EPOCHS,
+) -> dict[str, dict[str, float | int]]:
+    """Return sources whose requested raw sampling would exceed safe replay.
+
+    Small supervised corpora may be valuable, but assigning them a fixed share
+    of a billion-token raw-causal phase silently turns a few unique examples
+    into millions of repeats. Structured continuation owns that upweighting;
+    foundation sampling is capped by unique-window capacity.
+    """
+    positive = {
+        str(name): float(weight)
+        for name, weight in target_mass.items()
+        if float(weight) > 0.0
+    }
+    total_mass = sum(positive.values())
+    if total_mass <= 0.0:
+        return {}
+    violations: dict[str, dict[str, float | int]] = {}
+    for name, weight in positive.items():
+        unique_windows = int(bucket_counts.get(name, 0))
+        expected_draws = int(math.ceil(int(num_samples) * weight / total_mass))
+        allowed_draws = int(math.floor(unique_windows * float(max_source_epochs)))
+        if unique_windows <= 0 or expected_draws > allowed_draws:
+            violations[name] = {
+                "unique_windows": unique_windows,
+                "expected_draws": expected_draws,
+                "allowed_draws": allowed_draws,
+                "expected_epochs": (
+                    float("inf")
+                    if unique_windows <= 0
+                    else expected_draws / unique_windows
+                ),
+            }
+    return violations
 
 
 def curriculum_multipliers(name: str, progress: float) -> dict[str, float]:

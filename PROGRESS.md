@@ -13,6 +13,26 @@ session, read this file, then continue from "Next Action".
 
 ## Current State (2026-07-20)
 
+**2026-07-20 local full-context rehearsal and source-policy correction.** The
+RTX 4050 completed one real V4 optimizer update at context 2,048: 181,132,071
+parameters, microbatch 1, accumulation 32, exactly 65,536 tokens, 939 tok/s,
+3.66 GB observed VRAM, and finite loss 10.6735. The 2.17 GB schema-9 checkpoint
+records step 1, a complete optimizer boundary, zero partial accumulation, the
+seed-1301 determinism contract, and the exact sampler cursor. The deliberately
+short run then exposed that the old 55/15/12/8/5/3/2 raw sampler selected three
+identity windows from a corpus containing only two, repeating one inside the
+first update. At campaign scale, fixed 2% identity and 3% DFC shares would
+replay tiny supervised sources thousands to millions of times. Phase A now
+samples only the four broad native corpora at their normalized relative mix;
+instruction, verified DFC, and identity remain immutable and audited but are
+reserved for structured continuation. A runtime replay-budget gate rejects any
+future raw source policy exceeding four passes over its unique windows. The
+corrected 1B-token Phase-A policy has zero replay-budget violations. The first
+checkpoint is rehearsal evidence only and is not eligible for resume after the
+manifest-policy correction. Next: create a fresh signed one-update checkpoint
+under the corrected policy and prove exact restart once, without running the
+expensive post-session generation suite.
+
 **2026-07-20 V4 data-publication update.** The interrupted append journal was
 reconciled without rescanning the verified 28.99 GB prefix. A Windows text-mode
 defect had written CRLF while recording LF byte lengths, producing exactly one
@@ -34,10 +54,9 @@ sampling contract now passes. Full manifest construction with SHA-256 checking
 loaded 1,148 train, 16 validation, and 16 test shards at context 2,048 in 30.4
 seconds, exposing 5,577,097 train windows and all seven train source classes.
 Stream B is complete. Focused verification: 55 passed; changed-file Ruff and
-diff checks are clean. No model training or cloud spending occurred. The only
-remaining pre-training gate is a full-context GPU rehearsal with exact
-kill/restart recovery; local CUDA visibility is currently blocked by Windows
-GPU permissions and must be restored or moved to the bounded cloud rehearsal.
+diff checks are clean. At that point no model training or cloud spending had
+occurred; the later local rehearsal above supplied the first full-context
+optimizer-step evidence.
 
 **2026-07-16 intelligence-foundation update.** V4 now has one canonical,
 reversible extension boundary rather than disconnected adapter mechanisms.

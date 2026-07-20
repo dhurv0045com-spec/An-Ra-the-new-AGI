@@ -49,6 +49,7 @@ from training.curriculum_sampler import (
     CURRICULUMS,
     SAMPLER_ALGORITHM,
     ScheduledCurriculumSampler,
+    source_replay_budget_violations,
 )
 from training.data_routing import build_data_route_report
 from training.eval_v2 import quick_eval_loss, run_compact_eval
@@ -855,6 +856,7 @@ def train_anra_v2(
     use_moe: bool = False,
     curriculum: str = "none",
     seed: int = CANONICAL_TRAINING_SEED,
+    post_session_eval: bool = True,
 ) -> dict[str, object]:
     for required_component in ("training_loop", "data_mix", "evaluation"):
         if not is_enabled(required_component):
@@ -1091,6 +1093,20 @@ def train_anra_v2(
             if not isinstance(target_mix, dict):
                 raise RuntimeError("raw campaign source-mix recipe must be an object")
             assert raw_sample_budget is not None
+            replay_violations = source_replay_budget_violations(
+                {
+                    name: sum(stop - start for start, stop in source_ranges)
+                    for name, source_ranges in ranges.items()
+                },
+                {str(key): float(value) for key, value in target_mix.items()},
+                num_samples=raw_sample_budget,
+            )
+            if replay_violations:
+                raise RuntimeError(
+                    "raw foundation source mix exceeds the unique-data replay budget; "
+                    "move small supervised sources to structured continuation instead: "
+                    f"{replay_violations}"
+                )
             sampler = ScheduledCurriculumSampler(
                 ranges,
                 curriculum=curriculum,
@@ -2305,7 +2321,18 @@ def train_anra_v2(
             prev_eval_summary = None
 
     try:
-        eval_summary = run_compact_eval(model, tokenizer, device=device, output=True, seed=0)
+        eval_summary = (
+            run_compact_eval(model, tokenizer, device=device, output=True, seed=0)
+            if post_session_eval
+            else {
+                "overall_score": 0.0,
+                "results": [],
+                "skipped": True,
+                "reason": "bounded_training_rehearsal",
+            }
+        )
+        if not post_session_eval:
+            print("[Eval] post-session compact generation skipped for rehearsal.", flush=True)
     except Exception as exc:
         # The frontier checkpoint has already been persisted above. Evaluation
         # must report its own failure without converting a successful training
@@ -2445,7 +2472,7 @@ def train_anra_v2(
     persist_snapshot(snapshot)
     metrics["metric_snapshot"] = snapshot.to_dict()
     write_json(v2_report_path("metrics"), metrics)
-    if isinstance(prev_eval_summary, dict):
+    if post_session_eval and isinstance(prev_eval_summary, dict):
         try:
             harness = EvalHarness()
             regression_report = harness.compare(
@@ -2486,19 +2513,22 @@ def train_anra_v2(
         except Exception as exc:
             print(f"[build_brain] regression check skipped: {exc}", flush=True)
 
-    try:
-        session_end_result = quick_eval_loss(
-            model,
-            eval_ds,
-            device=device,
-            max_examples=100,
-            batch_size=batch_size,
-            pad_id=tokenizer.pad_token_id,
-        )
-        session_end_loss = _quick_eval_loss_value(session_end_result)
-        print(f"  Session-end validation loss : {session_end_loss:.6f}", flush=True)
-    except Exception as exc:
-        print(f"[build_brain] quick eval at session_end failed: {exc}", flush=True)
+    if post_session_eval:
+        try:
+            session_end_result = quick_eval_loss(
+                model,
+                eval_ds,
+                device=device,
+                max_examples=100,
+                batch_size=batch_size,
+                pad_id=tokenizer.pad_token_id,
+            )
+            session_end_loss = _quick_eval_loss_value(session_end_result)
+            print(f"  Session-end validation loss : {session_end_loss:.6f}", flush=True)
+        except Exception as exc:
+            print(f"[build_brain] quick eval at session_end failed: {exc}", flush=True)
+    else:
+        print("[Eval] session-end validation skipped for rehearsal.", flush=True)
     # The frontier checkpoint has exactly one Drive destination: the shared
     # master that was restored at session start. Do not invoke legacy V2
     # artifact mirroring here; it creates duplicate multi-gigabyte brain files.
@@ -2596,6 +2626,12 @@ def main() -> None:
         default=0,
         help="Run startup quick-eval before training. Default 0 skips it for faster first loss.",
     )
+    parser.add_argument(
+        "--post-session-eval",
+        choices=["full", "none"],
+        default="full",
+        help="Use 'none' only for bounded execution/restart rehearsals.",
+    )
     parser.add_argument("--own_ratio", type=float, default=None)
     parser.add_argument("--identity_ratio", type=float, default=None)
     parser.add_argument("--teacher_ratio", type=float, default=None)
@@ -2657,6 +2693,7 @@ def main() -> None:
         use_moe=args.moe != "off",
         curriculum=args.curriculum,
         seed=args.seed,
+        post_session_eval=args.post_session_eval == "full",
     )
     print(result, flush=True)
 

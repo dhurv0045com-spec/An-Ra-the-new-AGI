@@ -7,6 +7,7 @@ import pytest
 from training.curriculum_sampler import (
     ScheduledCurriculumSampler,
     curriculum_multipliers,
+    source_replay_budget_violations,
 )
 
 
@@ -88,3 +89,32 @@ def test_curriculum_rejects_nonfinite_runtime_modifier() -> None:
     )
     with pytest.raises(RuntimeError, match="modifier must be finite"):
         list(sampler)
+
+
+def test_foundation_replay_budget_rejects_tiny_fixed_share() -> None:
+    violations = source_replay_budget_violations(
+        {"fineweb_edu": 5_000_000, "identity_replay": 2},
+        {"fineweb_edu": 0.98, "identity_replay": 0.02},
+        num_samples=500_000,
+    )
+    assert set(violations) == {"identity_replay"}
+    assert violations["identity_replay"]["expected_draws"] == 10_000
+    assert violations["identity_replay"]["allowed_draws"] == 8
+
+
+def test_foundation_replay_budget_accepts_broad_native_mix() -> None:
+    assert not source_replay_budget_violations(
+        {
+            "fineweb_edu": 3_000_000,
+            "permissive_code": 800_000,
+            "finemath": 700_000,
+            "science_technical": 500_000,
+        },
+        {
+            "fineweb_edu": 11 / 18,
+            "permissive_code": 1 / 6,
+            "finemath": 2 / 15,
+            "science_technical": 4 / 45,
+        },
+        num_samples=500_000,
+    )

@@ -77,6 +77,7 @@ def test_signed_pilot_inventory_is_bound_to_its_train_manifest(tmp_path) -> None
     assert inventory is not None
     assert inventory["licensed_tokens"] == 1234
     assert inventory["manifest"] == str(signed_train)
+    assert inventory["validation_manifest"] == str(signed_validation.resolve())
 
 
 def test_signed_pilot_inventory_fails_closed_on_empty_manifest(tmp_path) -> None:
@@ -86,8 +87,11 @@ def test_signed_pilot_inventory_fails_closed_on_empty_manifest(tmp_path) -> None
     with pytest.raises(RuntimeError, match="has no tokens"):
         resolve_campaign_inventory(
             {
-                "data_manifests": [str(signed_train)],
-                "data_manifest_roles": {str(signed_train): "train"},
+                "data_manifests": [str(signed_train), str(tmp_path / "validation.json")],
+                "data_manifest_roles": {
+                    str(signed_train): "train",
+                    str(tmp_path / "validation.json"): "validation",
+                },
             },
             "anra-v4-180m",
             tmp_path / "unused.json",

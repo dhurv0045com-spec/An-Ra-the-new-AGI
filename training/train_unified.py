@@ -177,8 +177,17 @@ def resolve_campaign_inventory(
     train_manifests = [
         str(entry) for entry in manifests if str(roles.get(str(entry), "")) == "train"
     ]
+    validation_manifests = [
+        str(entry)
+        for entry in manifests
+        if str(roles.get(str(entry), "")) == "validation"
+    ]
     if len(train_manifests) != 1:
         raise RuntimeError("Signed pilot launch manifest must bind exactly one train manifest")
+    if len(validation_manifests) != 1:
+        raise RuntimeError(
+            "Signed pilot launch manifest must bind exactly one validation manifest"
+        )
     signed_train_manifest = Path(train_manifests[0])
     if not signed_train_manifest.is_absolute():
         signed_train_manifest = (ROOT / signed_train_manifest).resolve()
@@ -196,6 +205,7 @@ def resolve_campaign_inventory(
         **inventory,
         "licensed_tokens": total_tokens,
         "manifest": str(signed_train_manifest),
+        "validation_manifest": str(Path(validation_manifests[0]).resolve()),
     }
 
 
@@ -398,6 +408,12 @@ def main() -> None:
     ap.add_argument("--ouroboros_minutes", type=int, default=10)
     ap.add_argument("--max_examples", type=int, default=None)
     ap.add_argument("--launch-manifest", default=None)
+    ap.add_argument(
+        "--post-session-eval",
+        choices=["full", "none"],
+        default="full",
+        help="Use 'none' only for bounded execution/restart rehearsals.",
+    )
     ap.add_argument("--seed", type=int, default=CANONICAL_TRAINING_SEED)
     ap.add_argument(
         "--training-objective",
@@ -558,6 +574,8 @@ def main() -> None:
         str(args.seed),
         "--training-objective",
         args.training_objective,
+        "--post-session-eval",
+        args.post_session_eval,
     ]
     if args.max_examples is not None:
         base_cmd.extend(["--max_examples", str(args.max_examples)])
