@@ -102,7 +102,8 @@ class ScientificSelfImprovementEngine:
             category=category,
             hypothesis=f"An isolated LoRA/DoRA candidate can reduce verified {category} failures.",
             falsification=(
-                "Reject when three-seed candidate delta is below -0.02 or protected gates regress."
+                "Reject when the matched candidate delta is below -0.02 or protected gates "
+                "regress; add one bounded replicate only for a close result."
             ),
             evidence_hashes=tuple(row.content_hash for row in evidence if row.category == category),
             base_checkpoint=base_checkpoint,

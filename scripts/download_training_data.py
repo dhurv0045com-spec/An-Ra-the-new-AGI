@@ -31,7 +31,12 @@ from anra.anra_paths import (
     get_identity_file,
 )
 from training.data_ledger import DataQuality
-from training.data_pipeline_v3 import SourceRecord, TokenShardPublisher
+from training.data_pipeline import (
+    CANONICAL_TOKENIZER_VERSION,
+    SourceRecord,
+    TokenShardPublisher,
+)
+from training.v2_config import CANONICAL_V4_VOCAB_SIZE
 
 TRAINING_DATA_DIR = Path("training_data")
 DOWNLOAD_STATUS = DATA_MANIFEST_DIR / "download_status.json"
@@ -1640,8 +1645,13 @@ def publish_fineweb_token_shards(
     if not bound_tokenizer_path.is_file():
         raise FileNotFoundError(f"Tokenizer artifact is missing: {bound_tokenizer_path}")
     tokenizer = SubwordTokenizer.load(bound_tokenizer_path)
+    if int(tokenizer.vocab_size) != CANONICAL_V4_VOCAB_SIZE:
+        raise ValueError(
+            "Only the canonical 32,768-token V4 tokenizer can publish new shards; "
+            f"loaded vocabulary has {tokenizer.vocab_size:,} entries"
+        )
     tokenizer_sha256 = hashlib.sha256(bound_tokenizer_path.read_bytes()).hexdigest()
-    tokenizer_version = f"{tokenizer_family}-{int(tokenizer.vocab_size)}"
+    tokenizer_version = CANONICAL_TOKENIZER_VERSION
     revision_dir = (
         DATA_MANIFEST_DIR / f"native_foundation_{tokenizer_family}" / profile
     )
@@ -2048,7 +2058,7 @@ def augment_verified_v4_shards(
             )
             supplemental = TokenShardPublisher(
                 staging / split,
-                tokenizer_version=f"v4-{int(tokenizer.vocab_size)}",
+                tokenizer_version=CANONICAL_TOKENIZER_VERSION,
                 tokenizer_sha256=tokenizer_sha256,
             ).publish(
                 records,

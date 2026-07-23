@@ -113,16 +113,16 @@ TECHNOLOGIES = (
     ),
     TechnologyContract(
         "T-17",
-        "Four-stage campaign",
-        "campaign orchestrator",
-        "training.stages:StagedTrainingCampaign.run_stage",
-        ("M-02", "M-04", "M-05"),
+        "V4 foundation milestones",
+        "foundation campaign orchestrator",
+        "training.stages:FoundationTrainingCampaign.run_milestone",
+        ("M-02", "M-04"),
     ),
     TechnologyContract(
         "T-18",
         "FineWeb-Edu offline shards",
         "data pipeline",
-        "training.data_pipeline_v3:TokenShardPublisher.publish",
+        "training.data_pipeline:TokenShardPublisher.publish",
         ("M-02",),
     ),
     TechnologyContract(
@@ -136,7 +136,7 @@ TECHNOLOGIES = (
         "T-20",
         "IBS",
         "evaluation",
-        "evaluation.ibs:IBSBenchmark.run_three_seed",
+        "evaluation.ibs:IBSBenchmark.run",
         ("M-01", "M-10", "M-12"),
     ),
     TechnologyContract(

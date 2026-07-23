@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from anra.anra_paths import OUTPUT_V2_DIR, ROOT
+from runtime.evidence_stream import evidence_snapshot
 
 PROJECT_ID = "anra"
 THIRDEYE_HOME = OUTPUT_V2_DIR / "thirdeye"
@@ -344,6 +345,7 @@ def _write_fallback_report(
         "features": features,
         "recommended_experiments": recommended,
         "activation_snapshot": snapshot,
+        "anra_evidence_stream": evidence_snapshot(),
         "fallback": {
             "reason": "ThirdEye SDK storage failed; local AN-RA fallback report was written.",
             "error_type": type(error).__name__,
@@ -421,11 +423,13 @@ def run_one_click(
     home: str | Path = THIRDEYE_HOME,
 ) -> dict[str, Any]:
     snapshot = activation_snapshot(model)
+    shared_evidence = evidence_snapshot()
     try:
         eye = register_project(home)
         record_activation_audit(eye, snapshot)
         result = eye.evaluate(PROJECT_ID, profile)
         result["activation_snapshot"] = snapshot
+        result["anra_evidence_stream"] = shared_evidence
         return result
     except sqlite3.OperationalError as exc:
         if "unixepoch" not in str(exc).lower():

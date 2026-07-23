@@ -3,13 +3,13 @@ from __future__ import annotations
 import torch
 
 from training.cdr import CorrectedFailure, CorrectedFailureCurriculum
-from training.data_pipeline_v3 import ShardedDataPipeline, SourceRecord, validate_dfc
+from training.data_pipeline import ShardedDataPipeline, SourceRecord, validate_dfc
 from training.data_ledger import DataQuality
 from training.data_routing import build_data_route_report, route_source_class
 from training.pcgrad import PCGradAccumulator, project_conflicting_gradient
 from training.stages import (
-    CampaignState,
-    TrainingStage,
+    FoundationCampaignState,
+    FoundationMilestone,
     build_validation_regression_gate,
 )
 from training.stages import training_progress_report
@@ -44,13 +44,13 @@ def test_data_objectives_cannot_silently_cross_routes() -> None:
 
 def test_training_progress_reports_remaining_t4_sessions() -> None:
     report = training_progress_report(
-        phase="rescue",
-        phase_tokens_seen=10_000_000,
+        milestone="foundation_200m",
+        tokens_seen=10_000_000,
         tokens_per_second=100.0,
         session_minutes=180,
     )
-    assert report["target_tokens"] == 110_000_000
-    assert report["sessions_remaining"] == 93
+    assert report["target_tokens"] == 200_000_000
+    assert report["sessions_remaining"] == 176
 
 
 def test_pcgrad_captures_normal_backward_gradient_for_single_source_batch() -> None:
@@ -78,8 +78,12 @@ def test_data_pipeline_is_hash_reproducible(tmp_path) -> None:
             "verified",
         ),
     ]
-    first = ShardedDataPipeline(tmp_path / "a", tokenizer_version="v3").preprocess(records)
-    second = ShardedDataPipeline(tmp_path / "b", tokenizer_version="v3").preprocess(records)
+    first = ShardedDataPipeline(
+        tmp_path / "a", tokenizer_version="v4-32768"
+    ).preprocess(records)
+    second = ShardedDataPipeline(
+        tmp_path / "b", tokenizer_version="v4-32768"
+    ).preprocess(records)
     assert first["shards"][0]["sha256"] == second["shards"][0]["sha256"]
 
 
@@ -108,18 +112,18 @@ def test_cdr_accepts_only_verified_corrections(tmp_path) -> None:
     assert len(curriculum.load()) == 1
 
 
-def test_campaign_stages_resume(tmp_path) -> None:
+def test_foundation_campaign_milestones_resume(tmp_path) -> None:
     path = tmp_path / "campaign.json"
-    state = CampaignState(path)
-    assert state.next_stage().stage == TrainingStage.FOUNDATION
+    state = FoundationCampaignState(path)
+    assert state.next_milestone().milestone == FoundationMilestone.TOKENS_200M
     state.update(
-        TrainingStage.FOUNDATION,
-        step=50_000,
+        FoundationMilestone.TOKENS_200M,
+        tokens_seen=200_000_000,
         status="complete",
         checkpoint="foundation.pt",
     )
-    resumed = CampaignState(path)
-    assert resumed.next_stage().stage == TrainingStage.OWNER_ADAPTATION
+    resumed = FoundationCampaignState(path)
+    assert resumed.next_milestone().milestone == FoundationMilestone.TOKENS_500M
 
 
 def test_validation_regression_gate_is_identity_bound_and_domain_stratified() -> None:

@@ -1,4 +1,4 @@
-"""Deterministic local-shard preprocessing for AN-RA V3."""
+"""Deterministic, license-aware preprocessing for the canonical V4 corpus."""
 
 from __future__ import annotations
 
@@ -13,6 +13,31 @@ import numpy as np
 from retrieval import CorpusDedupIndex
 
 from training.data_ledger import DataEntropyLedger, DataQuality
+from training.v2_config import (
+    CANONICAL_V4_VOCAB_SIZE,
+    TOKENIZER_SCHEMA_VERSION,
+)
+
+CANONICAL_TOKENIZER_VERSION = f"v4-{CANONICAL_V4_VOCAB_SIZE}"
+
+
+def _require_v4_tokenizer(
+    tokenizer_version: str,
+    *,
+    tokenizer_schema_version: int = TOKENIZER_SCHEMA_VERSION,
+) -> None:
+    """Reject legacy or ambiguous tokenizer identities at publication time."""
+
+    if str(tokenizer_version).strip().lower() != CANONICAL_TOKENIZER_VERSION:
+        raise ValueError(
+            "New data publications require tokenizer_version="
+            f"{CANONICAL_TOKENIZER_VERSION!r}; V3 and 16k lineages are retired"
+        )
+    if int(tokenizer_schema_version) != TOKENIZER_SCHEMA_VERSION:
+        raise ValueError(
+            "New data publications require tokenizer schema "
+            f"{TOKENIZER_SCHEMA_VERSION}, got {tokenizer_schema_version}"
+        )
 
 DFC_TAGS = (
     "[GOAL]",
@@ -73,8 +98,9 @@ class ShardedDataPipeline:
         dedup_index: CorpusDedupIndex | None = None,
         near_duplicate_check: bool = True,
     ) -> None:
+        _require_v4_tokenizer(tokenizer_version)
         self.output_dir = Path(output_dir)
-        self.tokenizer_version = tokenizer_version
+        self.tokenizer_version = CANONICAL_TOKENIZER_VERSION
         self.shard_size = int(shard_size)
         self.ledger = ledger or DataEntropyLedger()
         self.style_filter = style_filter or (lambda text: bool(text.strip()))
@@ -234,13 +260,17 @@ class TokenShardPublisher:
         output_dir: str | Path,
         *,
         tokenizer_version: str,
-        tokenizer_schema_version: int = 3,
+        tokenizer_schema_version: int = TOKENIZER_SCHEMA_VERSION,
         tokens_per_shard: int = 10_000_000,
         tokenizer_sha256: str = "unknown",
     ) -> None:
+        _require_v4_tokenizer(
+            tokenizer_version,
+            tokenizer_schema_version=tokenizer_schema_version,
+        )
         self.output_dir = Path(output_dir)
-        self.tokenizer_version = str(tokenizer_version)
-        self.tokenizer_schema_version = int(tokenizer_schema_version)
+        self.tokenizer_version = CANONICAL_TOKENIZER_VERSION
+        self.tokenizer_schema_version = TOKENIZER_SCHEMA_VERSION
         self.tokens_per_shard = int(tokens_per_shard)
         self.tokenizer_sha256 = str(tokenizer_sha256)
         if self.tokens_per_shard <= 0:
@@ -481,7 +511,7 @@ class TokenShardPublisher:
             buffer = []
 
         manifest = {
-            "schema_version": 3,
+            "schema_version": 4,
             "tokenizer_schema_version": self.tokenizer_schema_version,
             "tokenizer_version": self.tokenizer_version,
             "tokenizer_sha256": self.tokenizer_sha256,

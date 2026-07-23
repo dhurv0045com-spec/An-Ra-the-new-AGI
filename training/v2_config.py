@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 # Canonical An-Ra V4 training contract. Historical constants below exist only
-# for forensic readers; MODEL_SIZES exposes exactly one supported profile.
+# for forensic readers; MODEL_SIZES exposes exactly one canonical profile.
 from dataclasses import dataclass
 
 from training.reproducibility import CANONICAL_TRAINING_SEED
@@ -59,6 +59,8 @@ CANONICAL_V4_VOCAB_SIZE = TOKENIZER_V4_32K_VOCAB_SIZE
 V2_FRONTIER_V4_32K_PARAMETER_COUNT = 530_602_595
 CANONICAL_MODEL_PROFILE = "anra-v4-180m"
 ANRA_V4_MODEL_PARAMETER_COUNT = 181_132_071
+ANRA_V4_GROWTH_MODEL_PROFILE = "anra-v4-500m-growth"
+ANRA_V4_GROWTH_MODEL_PARAMETER_COUNT = 499_880_031
 CANONICAL_FOUNDATION_OPTIMIZER = "adamw"
 CANONICAL_FOUNDATION_SCHEDULE = "cosine_with_warmup_v1"
 
@@ -66,6 +68,8 @@ CANONICAL_FOUNDATION_SCHEDULE = "cosine_with_warmup_v1"
 def is_v4_vocab_size(vocab_size: int) -> bool:
     """True only for the canonical V4 vocabulary."""
     return int(vocab_size) == CANONICAL_V4_VOCAB_SIZE
+
+
 CANONICAL_SPECIAL_TOKEN_IDS = {
     **{token: index for index, token in enumerate(BASE_SPECIAL_TOKENS)},
     **{token: BASE_VOCAB_SIZE + index for index, token in enumerate(DFC_SPECIAL_TOKENS)},
@@ -184,6 +188,23 @@ class AnRaV4ModelConfig(V2ModelConfig):
 
 
 @dataclass(frozen=True)
+class AnRaV4Growth500MModelConfig(V2ModelConfig):
+    """Registered 500M V4 child; construction requires explicit growth opt-in."""
+
+    vocab_size: int = CANONICAL_V4_VOCAB_SIZE
+    n_embd: int = 1280
+    n_layer: int = 27
+    n_head: int = 20
+    n_kv_head: int = 2
+    d_ff: int = 3456
+    block_size: int = 2048
+    mod_layers: tuple = tuple(range(4, 27, 2))
+    base_seq_len: int = 2048
+    target_seq_len: int = 2048
+    use_hal: bool = False
+
+
+@dataclass(frozen=True)
 class V2TrainingConfig:
     batch_size: int = 32
     grad_accum_steps: int = 8
@@ -271,6 +292,18 @@ class AnRaV4TrainingConfig(V2Pilot150TrainingConfig):
     optimizer: str = CANONICAL_FOUNDATION_OPTIMIZER
 
 
+@dataclass(frozen=True)
+class AnRaV4Growth500MTrainingConfig(AnRaV4TrainingConfig):
+    """Post-growth stabilization defaults; optimizer state is always new."""
+
+    learning_rate: float = 5e-5
+    min_lr: float = 5e-6
+    warmup_steps: int = 1_000
+    batch_size: int = 1
+    grad_accum_steps: int = 64
+    gradient_checkpointing: bool = True
+
+
 V2_MODEL = V2ModelConfig()
 V2_FRONTIER = V2FrontierModelConfig()
 V2_PILOT_50M = V2Pilot50ModelConfig()
@@ -281,6 +314,8 @@ V2_PILOT_50M_TRAINING = V2Pilot50TrainingConfig()
 V2_PILOT_150M_TRAINING = V2Pilot150TrainingConfig()
 ANRA_V4_MODEL = AnRaV4ModelConfig()
 ANRA_V4_TRAINING = AnRaV4TrainingConfig()
+ANRA_V4_GROWTH_MODEL = AnRaV4Growth500MModelConfig()
+ANRA_V4_GROWTH_TRAINING = AnRaV4Growth500MTrainingConfig()
 # Backward-compatible aliases for older imports. On iterate500 these point to
 # the 500M-class frontier config, not a 1B model.
 V2_1B_FRONTIER = V2_FRONTIER
@@ -411,12 +446,61 @@ V2_REPORT_FILES = {
 }
 
 
+@dataclass(frozen=True)
+class ModelProfileRegistration:
+    name: str
+    status: str
+    expected_parameters: int
+    parent_profile: str | None = None
+    requires_growth_manifest: bool = False
+    scratch_training_allowed: bool = False
+
+
 MODEL_SIZES = {CANONICAL_MODEL_PROFILE: (ANRA_V4_MODEL, ANRA_V4_TRAINING)}
-MODEL_PROFILES = MODEL_SIZES
+EXPERIMENTAL_MODEL_PROFILES = {
+    ANRA_V4_GROWTH_MODEL_PROFILE: (ANRA_V4_GROWTH_MODEL, ANRA_V4_GROWTH_TRAINING)
+}
+MODEL_PROFILES = {**MODEL_SIZES, **EXPERIMENTAL_MODEL_PROFILES}
+MODEL_PROFILE_REGISTRY = {
+    CANONICAL_MODEL_PROFILE: ModelProfileRegistration(
+        name=CANONICAL_MODEL_PROFILE,
+        status="active",
+        expected_parameters=ANRA_V4_MODEL_PARAMETER_COUNT,
+        scratch_training_allowed=True,
+    ),
+    ANRA_V4_GROWTH_MODEL_PROFILE: ModelProfileRegistration(
+        name=ANRA_V4_GROWTH_MODEL_PROFILE,
+        status="pilot",
+        expected_parameters=ANRA_V4_GROWTH_MODEL_PARAMETER_COUNT,
+        parent_profile=CANONICAL_MODEL_PROFILE,
+        requires_growth_manifest=True,
+        scratch_training_allowed=False,
+    ),
+}
 
 
-def resolve_model_profile(name: str) -> tuple[V2ModelConfig, V2TrainingConfig]:
+def model_profile_registration(name: str) -> ModelProfileRegistration:
     key = str(name).strip().lower()
-    if key not in MODEL_SIZES:
-        raise ValueError(f"Unknown model profile {name!r}; expected one of {sorted(MODEL_SIZES)}")
-    return MODEL_SIZES[key]
+    if key not in MODEL_PROFILE_REGISTRY:
+        raise ValueError(
+            f"Unknown model profile {name!r}; expected one of {sorted(MODEL_PROFILE_REGISTRY)}"
+        )
+    return MODEL_PROFILE_REGISTRY[key]
+
+
+def resolve_model_profile(
+    name: str,
+    *,
+    allow_experimental: bool = False,
+) -> tuple[V2ModelConfig, V2TrainingConfig]:
+    key = str(name).strip().lower()
+    if key in MODEL_SIZES:
+        return MODEL_SIZES[key]
+    if key in EXPERIMENTAL_MODEL_PROFILES:
+        if not allow_experimental:
+            raise ValueError(
+                f"Model profile {name!r} is experimental and requires an explicit "
+                "validated growth-manifest path; canonical launch defaults cannot select it"
+            )
+        return EXPERIMENTAL_MODEL_PROFILES[key]
+    raise ValueError(f"Unknown model profile {name!r}; expected one of {sorted(MODEL_PROFILES)}")

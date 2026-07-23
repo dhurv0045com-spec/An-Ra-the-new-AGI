@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from anra.anra_paths import OUTPUT_V2_DIR
+from runtime.evidence_stream import evidence_snapshot
 from runtime.system_registry import build_system_manifest
 
 from engine.feature_flags import load_flags
@@ -78,6 +79,7 @@ def build_report() -> dict[str, Any]:
         "metric_bus_deltas": mbus_deltas,
         "components": component_summary,
         "performance": perf_summary,
+        "evidence_stream": evidence_snapshot(),
         "recent_failures": recent_failures,
         "training_readiness": manifest.get("training_readiness", {}),
         "artifacts": manifest.get("artifacts", {}),

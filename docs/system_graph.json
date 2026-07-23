@@ -1,14 +1,14 @@
 {
-  "generated_at": "2026-07-15T16:53:41Z",
+  "generated_at": "2026-07-23T16:11:35Z",
   "repo_root": "C:\\Users\\ankit\\Downloads\\An-Ra-the-new-AGI-1",
-  "python": "3.14.5",
-  "platform": "Windows-11-10.0.26200-SP0",
+  "python": "3.11.15",
+  "platform": "Windows-10-10.0.26200-SP0",
   "metrics": {
-    "source_files": 22232,
-    "python_files": 12635,
-    "markdown_files": 82,
-    "python_lines": 5716446,
-    "source_lines": 6024507
+    "source_files": 22254,
+    "python_files": 12666,
+    "markdown_files": 73,
+    "python_lines": 5727874,
+    "source_lines": 6032988
   },
   "components": [
     {
@@ -642,7 +642,7 @@
           "kind": "file"
         },
         {
-          "path": "training/data_pipeline_v3.py",
+          "path": "training/data_pipeline.py",
           "exists": true,
           "kind": "file"
         },
@@ -844,6 +844,542 @@
     "robotics": false,
     "multimodal": false
   },
+  "subsystems": {
+    "schema": "anra-subsystem-catalog/v1",
+    "valid": true,
+    "errors": [],
+    "records": [
+      {
+        "subsystem_id": "tokenizer_v4",
+        "name": "V4 tokenizer",
+        "lifecycle": "active",
+        "owner": "data",
+        "purpose": "The only tokenizer accepted by new training and inference lineages.",
+        "repository": "anra",
+        "paths": [
+          "tokenizer/tokenizer_v4_32k.json",
+          "tokenizer/tokenizer_adapter.py"
+        ],
+        "dependencies": [],
+        "parameter_delta": null,
+        "runtime_cost": "32,768-token vocabulary",
+        "claimed_benefit": "Stable train/inference token identity.",
+        "evidence_state": "verified",
+        "evidence": "Pinned artifact, metadata hash, fertility and round-trip gates.",
+        "evidence_required": "Artifact hash and round-trip contract remain valid.",
+        "rollback": "Restore the same signed V4 artifact; never fall back to V3.",
+        "promotion_history": [
+          "Promoted as the sole canonical tokenizer."
+        ],
+        "promotion_eligible": true
+      },
+      {
+        "subsystem_id": "licensed_corpus",
+        "name": "Licensed corpus pipeline",
+        "lifecycle": "active",
+        "owner": "data",
+        "purpose": "Builds immutable licensed, deduplicated and split training data.",
+        "repository": "anra",
+        "paths": [
+          "training/corpus_manifest.py",
+          "scripts/download_training_data.py"
+        ],
+        "dependencies": [
+          "tokenizer_v4"
+        ],
+        "parameter_delta": null,
+        "runtime_cost": "Offline acquisition and token packing.",
+        "claimed_benefit": "Reproducible source-pure pretraining data.",
+        "evidence_state": "verified",
+        "evidence": "Signed manifests exist for train, validation and test shards.",
+        "evidence_required": "Every consumed shard must match its signed hash and license record.",
+        "rollback": "Reject the changed manifest and reuse the prior immutable corpus release.",
+        "promotion_history": [],
+        "promotion_eligible": true
+      },
+      {
+        "subsystem_id": "dense_v4",
+        "name": "Dense V4 transformer",
+        "lifecycle": "active",
+        "owner": "model",
+        "purpose": "The canonical 181,132,071-parameter language-model foundation.",
+        "repository": "anra",
+        "paths": [
+          "anra_brain.py",
+          "anra/architecture.py",
+          "training/v2_config.py"
+        ],
+        "dependencies": [
+          "tokenizer_v4"
+        ],
+        "parameter_delta": 181132071,
+        "runtime_cost": "One dense 181M forward/backward path.",
+        "claimed_benefit": "Stable general-purpose language-model substrate.",
+        "evidence_state": "partial",
+        "evidence": "Architecture and bounded optimizer/resume paths passed; no useful trained V4 checkpoint exists yet.",
+        "evidence_required": "Coherent milestone checkpoint plus held-out behavioral evaluation.",
+        "rollback": "Restore the last protected dense checkpoint and its exact architecture contract.",
+        "promotion_history": [],
+        "promotion_eligible": false
+      },
+      {
+        "subsystem_id": "exact_resume",
+        "name": "Schema-9 exact resume",
+        "lifecycle": "active",
+        "owner": "training",
+        "purpose": "Restores model, optimizer, scheduler, scaler, RNG and sampler cursor.",
+        "repository": "anra",
+        "paths": [
+          "training/checkpoint.py",
+          "training/v2_runtime.py"
+        ],
+        "dependencies": [
+          "dense_v4",
+          "licensed_corpus"
+        ],
+        "parameter_delta": null,
+        "runtime_cost": "Checkpoint serialization and restore validation.",
+        "claimed_benefit": "Continuation without replaying or skipping accepted token windows.",
+        "evidence_state": "partial",
+        "evidence": "Local optimizer-boundary termination and resume drill passed.",
+        "evidence_required": "Cross-worker remote handoff must also pass before a cloud campaign.",
+        "rollback": "disable the subsystem and restore the signed parent checkpoint",
+        "promotion_history": [],
+        "promotion_eligible": false
+      },
+      {
+        "subsystem_id": "mtp",
+        "name": "Multi-token prediction",
+        "lifecycle": "pilot",
+        "owner": "model-training",
+        "purpose": "Adds +2/+3 future-token objectives without changing the tokenizer.",
+        "repository": "anra",
+        "paths": [
+          "anra_brain.py",
+          "scripts/build_brain.py"
+        ],
+        "dependencies": [
+          "dense_v4"
+        ],
+        "parameter_delta": 1607424,
+        "runtime_cost": "Two additional tied future-token projections and losses.",
+        "claimed_benefit": "Richer predictive representations and data efficiency.",
+        "evidence_state": "partial",
+        "evidence": "One bounded full-model GPU step succeeded; no matched capability win exists.",
+        "evidence_required": "Paired dense-versus-MTP continuation from the same checkpoint and windows.",
+        "rollback": "disable the subsystem and restore the signed parent checkpoint",
+        "promotion_history": [],
+        "promotion_eligible": false
+      },
+      {
+        "subsystem_id": "moe",
+        "name": "Sparse upcycled MoE",
+        "lifecycle": "disabled",
+        "owner": "model",
+        "purpose": "Routes tokens through replicated feed-forward experts.",
+        "repository": "anra",
+        "paths": [
+          "anra_brain.py"
+        ],
+        "dependencies": [
+          "dense_v4"
+        ],
+        "parameter_delta": 941488128,
+        "runtime_cost": "Current eight-expert form raises the 181M system to 1,122,620,199 parameters.",
+        "claimed_benefit": "Higher parameter capacity at sparse token compute.",
+        "evidence_state": "partial",
+        "evidence": "Routing code executes, but the current geometry is unsuitable for the T4 baseline.",
+        "evidence_required": "A redesigned sparse-upcycling pilot with stable load balance and useful-compute gain.",
+        "rollback": "disable the subsystem and restore the signed parent checkpoint",
+        "promotion_history": [],
+        "promotion_eligible": false
+      },
+      {
+        "subsystem_id": "mod",
+        "name": "Mixture of Depths routing",
+        "lifecycle": "disabled",
+        "owner": "model",
+        "purpose": "Selects bounded token computation across transformer layers.",
+        "repository": "anra",
+        "paths": [
+          "anra_brain.py"
+        ],
+        "dependencies": [
+          "dense_v4"
+        ],
+        "parameter_delta": null,
+        "runtime_cost": "Routing overhead with potential skipped token-layer work.",
+        "claimed_benefit": "Adaptive compute allocation.",
+        "evidence_state": "partial",
+        "evidence": "Gradient and routing unit paths execute; no trained capability gain is established.",
+        "evidence_required": "matched held-out capability comparison",
+        "rollback": "disable the subsystem and restore the signed parent checkpoint",
+        "promotion_history": [],
+        "promotion_eligible": false
+      },
+      {
+        "subsystem_id": "rim_esv",
+        "name": "RIM and ESV identity modulation",
+        "lifecycle": "disabled",
+        "owner": "identity",
+        "purpose": "Provides neutral-initialized residual identity modulation and state estimates.",
+        "repository": "anra",
+        "paths": [
+          "anra_brain.py",
+          "identity/esv.py"
+        ],
+        "dependencies": [
+          "dense_v4"
+        ],
+        "parameter_delta": 1032405,
+        "runtime_cost": "Small per-layer projections and state prediction.",
+        "claimed_benefit": "Persistent, inspectable identity-conditioned computation.",
+        "evidence_state": "partial",
+        "evidence": "Neutral initialization and execution are covered; intelligence value is unproven.",
+        "evidence_required": "matched held-out capability comparison",
+        "rollback": "disable the subsystem and restore the signed parent checkpoint",
+        "promotion_history": [],
+        "promotion_eligible": false
+      },
+      {
+        "subsystem_id": "dstp",
+        "name": "Dynamic temperature path",
+        "lifecycle": "disabled",
+        "owner": "model",
+        "purpose": "Applies bounded learned attention-temperature controls.",
+        "repository": "anra",
+        "paths": [
+          "anra_brain.py"
+        ],
+        "dependencies": [
+          "dense_v4"
+        ],
+        "parameter_delta": null,
+        "runtime_cost": "Scalar controls per transformer layer.",
+        "claimed_benefit": "Calibrated adaptive attention sharpness.",
+        "evidence_state": "partial",
+        "evidence": "The mechanism is wired and neutralized; no matched capability evidence exists.",
+        "evidence_required": "matched held-out capability comparison",
+        "rollback": "disable the subsystem and restore the signed parent checkpoint",
+        "promotion_history": [],
+        "promotion_eligible": false
+      },
+      {
+        "subsystem_id": "hal_external",
+        "name": "External HAL policy",
+        "lifecycle": "pilot",
+        "owner": "runtime-governance",
+        "purpose": "Applies bounded external state and reasoning-budget policy.",
+        "repository": "anra",
+        "paths": [
+          "identity/hal.py",
+          "runtime/hal_telemetry.py"
+        ],
+        "dependencies": [
+          "dense_v4"
+        ],
+        "parameter_delta": null,
+        "runtime_cost": "Small policy and telemetry overhead outside the transformer.",
+        "claimed_benefit": "Inspectable control without entangling base weights.",
+        "evidence_state": "partial",
+        "evidence": "External bounded policy executes; task-level benefit is not established.",
+        "evidence_required": "matched held-out capability comparison",
+        "rollback": "disable the subsystem and restore the signed parent checkpoint",
+        "promotion_history": [],
+        "promotion_eligible": false
+      },
+      {
+        "subsystem_id": "hal_transformer",
+        "name": "Transformer-integrated HAL",
+        "lifecycle": "disabled",
+        "owner": "model",
+        "purpose": "Modulates transformer attention from HAL state.",
+        "repository": "anra",
+        "paths": [
+          "anra_brain.py"
+        ],
+        "dependencies": [
+          "dense_v4",
+          "hal_external"
+        ],
+        "parameter_delta": null,
+        "runtime_cost": "Per-layer attention modulation.",
+        "claimed_benefit": "State-aware internal computation.",
+        "evidence_state": "missing",
+        "evidence": "Forced off in the canonical dense profile.",
+        "evidence_required": "matched held-out capability comparison",
+        "rollback": "disable the subsystem and restore the signed parent checkpoint",
+        "promotion_history": [],
+        "promotion_eligible": false
+      },
+      {
+        "subsystem_id": "csii_growth",
+        "name": "Cross-scale identity inheritance",
+        "lifecycle": "pilot",
+        "owner": "model-growth",
+        "purpose": "Transfers a trained smaller model into a larger compatible child.",
+        "repository": "anra",
+        "paths": [
+          "training/csii.py"
+        ],
+        "dependencies": [
+          "dense_v4",
+          "exact_resume"
+        ],
+        "parameter_delta": null,
+        "runtime_cost": "One-time tensor migration followed by alignment training.",
+        "claimed_benefit": "Reuse learned behavior when growing 181M to 500M.",
+        "evidence_state": "partial",
+        "evidence": "Tiny-model cosine parity exists; full hybrid-attention parity remains required.",
+        "evidence_required": "matched held-out capability comparison",
+        "rollback": "disable the subsystem and restore the signed parent checkpoint",
+        "promotion_history": [],
+        "promotion_eligible": false
+      },
+      {
+        "subsystem_id": "retrieval_memory",
+        "name": "Retrieval and long-term memory",
+        "lifecycle": "active",
+        "owner": "runtime-intelligence",
+        "purpose": "Adds provenance-grounded knowledge without modifying base weights.",
+        "repository": "anra",
+        "paths": [
+          "retrieval/hybrid.py",
+          "memory/memory_router.py"
+        ],
+        "dependencies": [
+          "dense_v4"
+        ],
+        "parameter_delta": null,
+        "runtime_cost": "Index lookup, reranking and context tokens.",
+        "claimed_benefit": "Current, attributable and persistent external knowledge.",
+        "evidence_state": "partial",
+        "evidence": "Retrieval and isolation tests exist; trained-model end-to-end quality remains blocked.",
+        "evidence_required": "matched held-out capability comparison",
+        "rollback": "disable the subsystem and restore the signed parent checkpoint",
+        "promotion_history": [],
+        "promotion_eligible": false
+      },
+      {
+        "subsystem_id": "self_correction",
+        "name": "Verifier-guided self-correction",
+        "lifecycle": "pilot",
+        "owner": "cognition",
+        "purpose": "Generates, verifies, revises or abstains under an explicit budget.",
+        "repository": "anra",
+        "paths": [
+          "cognition/self_correction.py",
+          "training/verified_process.py",
+          "training/verifier.py",
+          "inference/reasoning_budget.py"
+        ],
+        "dependencies": [
+          "dense_v4",
+          "retrieval_memory"
+        ],
+        "parameter_delta": null,
+        "runtime_cost": "Additional candidates, verifier calls and trace storage.",
+        "claimed_benefit": "Detect and repair verifiable mistakes.",
+        "evidence_state": "partial",
+        "evidence": "Contracts and local verifier paths exist; a trained model has not passed the loop gate.",
+        "evidence_required": "matched held-out capability comparison",
+        "rollback": "disable the subsystem and restore the signed parent checkpoint",
+        "promotion_history": [],
+        "promotion_eligible": false
+      },
+      {
+        "subsystem_id": "capability_adapters",
+        "name": "Reversible LoRA/DoRA capabilities",
+        "lifecycle": "pilot",
+        "owner": "continual-learning",
+        "purpose": "Adds hash-bound domain capabilities without overwriting base weights.",
+        "repository": "anra",
+        "paths": [
+          "anra/extensions.py",
+          "training/sparse_lora.py"
+        ],
+        "dependencies": [
+          "dense_v4"
+        ],
+        "parameter_delta": null,
+        "runtime_cost": "Adapter parameters and optional routing overhead.",
+        "claimed_benefit": "Rollback-safe capability acquisition.",
+        "evidence_state": "partial",
+        "evidence": "Binding and reversal paths exist; useful trained adapters remain to be produced.",
+        "evidence_required": "matched held-out capability comparison",
+        "rollback": "disable the subsystem and restore the signed parent checkpoint",
+        "promotion_history": [],
+        "promotion_eligible": false
+      },
+      {
+        "subsystem_id": "post_training",
+        "name": "SFT, STaR, RLVR and DPO",
+        "lifecycle": "pilot",
+        "owner": "post-training",
+        "purpose": "Turns a pretrained language model into a useful instruction and reasoning model.",
+        "repository": "anra",
+        "paths": [
+          "training/posttraining_contract.py",
+          "training/star.py",
+          "training/rlvr.py",
+          "training/dpo.py"
+        ],
+        "dependencies": [
+          "dense_v4"
+        ],
+        "parameter_delta": null,
+        "runtime_cost": "Separate signed fine-tuning stages.",
+        "claimed_benefit": "Instruction following and verifiable reasoning behavior.",
+        "evidence_state": "partial",
+        "evidence": "Algorithms and ablation gates exist; no accepted V4 post-trained checkpoint exists.",
+        "evidence_required": "matched held-out capability comparison",
+        "rollback": "disable the subsystem and restore the signed parent checkpoint",
+        "promotion_history": [],
+        "promotion_eligible": false
+      },
+      {
+        "subsystem_id": "agents_tools",
+        "name": "Agents and tools",
+        "lifecycle": "disabled",
+        "owner": "agency",
+        "purpose": "Plans and executes typed actions through bounded tools.",
+        "repository": "anra",
+        "paths": [
+          "agents/orchestrator.py",
+          "execution/sandbox.py"
+        ],
+        "dependencies": [
+          "self_correction",
+          "retrieval_memory"
+        ],
+        "parameter_delta": null,
+        "runtime_cost": "Planning, tool execution and verification latency.",
+        "claimed_benefit": "Reliable action beyond token generation.",
+        "evidence_state": "partial",
+        "evidence": "Local orchestration exists but canonical activation is operator-gated.",
+        "evidence_required": "matched held-out capability comparison",
+        "rollback": "disable the subsystem and restore the signed parent checkpoint",
+        "promotion_history": [],
+        "promotion_eligible": false
+      },
+      {
+        "subsystem_id": "moonshots",
+        "name": "Moonshot architecture laboratory",
+        "lifecycle": "pilot",
+        "owner": "research",
+        "purpose": "Runs isolated SSM, latent reasoning, world-model and formal-system pilots.",
+        "repository": "anra",
+        "paths": [
+          "training/moonshot_pilots.py",
+          "training/moonshot_execution.py"
+        ],
+        "dependencies": [
+          "dense_v4"
+        ],
+        "parameter_delta": null,
+        "runtime_cost": "Pilot-specific; never charged to canonical training by default.",
+        "claimed_benefit": "Discover architectures that outperform current subsystems.",
+        "evidence_state": "partial",
+        "evidence": "Smoke paths exist; only bounded pilot evidence may promote an individual moonshot.",
+        "evidence_required": "matched held-out capability comparison",
+        "rollback": "disable the subsystem and restore the signed parent checkpoint",
+        "promotion_history": [],
+        "promotion_eligible": false
+      },
+      {
+        "subsystem_id": "multimodal_world",
+        "name": "Multimodal, robotics and world models",
+        "lifecycle": "disabled",
+        "owner": "research",
+        "purpose": "Extends the language foundation to perception and environment interaction.",
+        "repository": "anra",
+        "paths": [
+          "multimodal/projector.py",
+          "robotics/world_model.py"
+        ],
+        "dependencies": [
+          "dense_v4",
+          "self_correction"
+        ],
+        "parameter_delta": null,
+        "runtime_cost": "New encoders, data and environment interaction.",
+        "claimed_benefit": "Grounded cross-modal prediction and action.",
+        "evidence_state": "partial",
+        "evidence": "Research modules execute locally; no trained multimodal lineage is accepted.",
+        "evidence_required": "matched held-out capability comparison",
+        "rollback": "disable the subsystem and restore the signed parent checkpoint",
+        "promotion_history": [],
+        "promotion_eligible": false
+      },
+      {
+        "subsystem_id": "unified_evidence",
+        "name": "ThirdEye and Matrix evidence stream",
+        "lifecycle": "active",
+        "owner": "observability",
+        "purpose": "Feeds run-level explanations and aggregate operational status from one evidence lineage.",
+        "repository": "anra",
+        "paths": [
+          "evaluation/thirdeye_adapter.py",
+          "app.py",
+          "engine/telemetry.py"
+        ],
+        "dependencies": [
+          "exact_resume"
+        ],
+        "parameter_delta": null,
+        "runtime_cost": "Structured event and summary storage.",
+        "claimed_benefit": "One auditable truth surface rather than competing monitoring systems.",
+        "evidence_state": "verified",
+        "evidence": "ThirdEye, Matrix, and the cluster export consume the same hash-chained anra-evidence-event/v1 contract.",
+        "evidence_required": "matched held-out capability comparison",
+        "rollback": "disable the subsystem and restore the signed parent checkpoint",
+        "promotion_history": [],
+        "promotion_eligible": true
+      },
+      {
+        "subsystem_id": "tokenizer_v3",
+        "name": "V3 tokenizer lineage",
+        "lifecycle": "retired",
+        "owner": "data",
+        "purpose": "Historical tokenizer lineage; forbidden for new runs.",
+        "repository": "anra",
+        "paths": [],
+        "dependencies": [],
+        "parameter_delta": null,
+        "runtime_cost": "None.",
+        "claimed_benefit": "None for the V4 mainline.",
+        "evidence_state": "not_applicable",
+        "evidence": "Superseded by the sole V4 tokenizer.",
+        "evidence_required": "No operational manifest may reference it.",
+        "rollback": "No runtime rollback; inspect Git history only.",
+        "promotion_history": [
+          "Retired after V4 promotion."
+        ],
+        "promotion_eligible": false
+      },
+      {
+        "subsystem_id": "cross_colab_sparse_averaging",
+        "name": "Cross-Colab sparse weight averaging",
+        "lifecycle": "retired",
+        "owner": "cluster",
+        "purpose": "Historical approximation that combined unrelated remote updates.",
+        "repository": "gpu-cluster",
+        "paths": [],
+        "dependencies": [],
+        "parameter_delta": null,
+        "runtime_cost": "None; execution must remain unavailable.",
+        "claimed_benefit": "Superseded by exact checkpoint-baton continuation.",
+        "evidence_state": "not_applicable",
+        "evidence": "Retired because it was not exact distributed training.",
+        "evidence_required": "No operational route or manifest may enable it.",
+        "rollback": "Use Git history for audit; do not reactivate.",
+        "promotion_history": [
+          "Retired in favor of one canonical checkpoint writer."
+        ],
+        "promotion_eligible": false
+      }
+    ]
+  },
   "artifacts": {
     "dataset": {
       "canonical": {
@@ -883,14 +1419,13 @@
     }
   },
   "training_readiness": {
-    "generated_at": 1784134421.2372408,
-    "score": 6,
+    "generated_at": 1784823095.4515662,
+    "score": 7,
     "out_of": 10,
     "ready_for_session": true,
     "ready_for_milestone": false,
     "blockers": [],
     "warnings": [
-      "device: CUDA unavailable; training will run on CPU",
       "checkpoint:brain: missing; training can create it, but resume/promotion cannot use it yet",
       "report:metrics: missing until a session/eval writes it",
       "report:eval_summary: missing until a session/eval writes it",
@@ -915,8 +1450,8 @@
       },
       {
         "name": "device",
-        "status": "warn",
-        "detail": "CUDA unavailable; training will run on CPU",
+        "status": "ok",
+        "detail": "NVIDIA GeForce RTX 4050 Laptop GPU",
         "required": false,
         "path": null
       },

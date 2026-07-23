@@ -555,21 +555,25 @@ def build_frontier_recovery_decision(
     }
 
 
-def run_private_mode_seed_evaluation(
+def run_private_mode_evaluation(
     generator: Callable[[str, str, int, str | None], object],
     *,
     tasks: list[dict[str, object]] | None = None,
+    seeds: tuple[int, ...] = (1301,),
     release_evidence: dict[str, object] | None = None,
     suite_metadata: dict[str, object] | None = None,
     human_reviews: dict[str, bool] | None = None,
     progress_callback: Callable[[dict[str, object]], None] | None = None,
 ) -> dict[str, object]:
-    """Run promotion evaluation over modes, seeds, and native ablations."""
+    """Run paired mode/ablation evaluation with optional explicit replicates."""
     suite = list(tasks or PRIVATE_EVAL_SUITE)
     if len(suite) < 500:
         raise ValueError("Private promotion evaluation requires at least 500 tasks")
+    if not 1 <= len(seeds) <= 3:
+        raise ValueError("Private evaluation accepts one to three declared seeds")
+    if len(set(seeds)) != len(seeds):
+        raise ValueError("Private evaluation seeds must be unique")
     modes = ("diagnostic", "native", "full_system")
-    seeds = (1301, 2303, 3307)
     reports: list[dict[str, object]] = []
     review_queue: list[dict[str, object]] = []
 
@@ -673,7 +677,7 @@ def run_private_mode_seed_evaluation(
             if progress_callback is not None:
                 progress_callback(
                     {
-                        "phase": "mode_seed",
+                        "phase": "mode_evaluation",
                         "completed_slices": len(reports),
                         "total_slices": len(modes) * len(seeds) + 5 * len(seeds),
                         "last_report": report,
@@ -722,7 +726,7 @@ def run_private_mode_seed_evaluation(
             "seed_contributions": seed_contributions,
             "mean_latency_cost_ms": sum(latency_costs) / len(latency_costs),
             "max_latency_cost_fraction": max(latency_fractions),
-            "positive_three_seed_contribution": all(value > 0.0 for value in seed_contributions),
+            "positive_paired_contribution": all(value > 0.0 for value in seed_contributions),
             "bounded_latency_cost": max(latency_fractions) <= 0.25,
             "isolated_trace_verified": all(isolated_traces),
         }
@@ -756,13 +760,13 @@ def run_private_mode_seed_evaluation(
             float(report["generation_failure_rate"]) for report in full_reports
         )
         < 0.01,
-        "at_least_1000_full_system_generations": len(suite) * len(seeds) >= 1_000,
+        "at_least_500_full_system_generations": len(suite) * len(seeds) >= 500,
         "long_context_coverage": min(
             int(report["minimum_long_context_prompt_tokens"]) for report in full_reports
         )
         >= 768,
         "positive_native_ablations": all(
-            bool(report["positive_three_seed_contribution"]) for report in ablations.values()
+            bool(report["positive_paired_contribution"]) for report in ablations.values()
         ),
         "bounded_native_latency": all(
             bool(report["bounded_latency_cost"]) for report in ablations.values()
@@ -779,7 +783,7 @@ def run_private_mode_seed_evaluation(
     release_gates = release_evidence_gates(release_evidence)
     promotion_gates = {**capability_gates, **release_gates}
     return {
-        "schema_version": 3,
+        "schema_version": 4,
         "task_count": len(suite),
         "suite_metadata": dict(suite_metadata or {}),
         "modes": list(modes),
@@ -859,6 +863,74 @@ GOLDEN_EVAL_THRESHOLDS = {
 }
 
 
+def stratified_validation_indices(dataset: object, max_examples: int) -> list[int]:
+    """Select deterministic validation rows with coverage for every source.
+
+    Raw shard manifests are source-pure and expose compact source ranges.  A
+    prefix-only validation sample could therefore measure only the first
+    source and make an aggregate loss look healthy while another source had
+    collapsed.  This sampler gives every declared source coverage, then fills
+    remaining slots in round-robin order using evenly spaced rows.
+    """
+
+    budget = min(max(0, int(max_examples)), len(dataset))
+    if budget == 0:
+        return []
+    ranges_fn = getattr(dataset, "source_window_ranges", None)
+    if not callable(ranges_fn):
+        return list(range(budget))
+    raw_ranges = ranges_fn()
+    if not isinstance(raw_ranges, dict) or not raw_ranges:
+        return list(range(budget))
+
+    candidates: dict[str, list[int]] = {}
+    for source, raw_source_ranges in sorted(raw_ranges.items()):
+        values: list[int] = []
+        for start, stop in raw_source_ranges:
+            start_i = max(0, int(start))
+            stop_i = min(len(dataset), int(stop))
+            if stop_i <= start_i:
+                continue
+            # Build at most ``budget`` evenly spread candidates per range;
+            # validation never needs to materialize every index in a huge shard.
+            count = min(budget, stop_i - start_i)
+            for offset in range(count):
+                relative = ((2 * offset + 1) * (stop_i - start_i)) // (2 * count)
+                values.append(min(stop_i - 1, start_i + relative))
+        if values:
+            candidates[str(source)] = list(dict.fromkeys(values))
+    if not candidates:
+        return list(range(budget))
+
+    selected: list[int] = []
+    cursor = dict.fromkeys(candidates, 0)
+    while len(selected) < budget:
+        progressed = False
+        for source in sorted(candidates):
+            position = cursor[source]
+            values = candidates[source]
+            if position >= len(values):
+                continue
+            value = values[position]
+            cursor[source] = position + 1
+            if value not in selected:
+                selected.append(value)
+                progressed = True
+                if len(selected) == budget:
+                    break
+        if not progressed:
+            break
+    if len(selected) < budget:
+        selected_set = set(selected)
+        for index in range(len(dataset)):
+            if len(selected) >= budget:
+                break
+            if index not in selected_set:
+                selected.append(index)
+                selected_set.add(index)
+    return selected[:budget]
+
+
 @instrument("evaluation")
 def quick_eval_loss(
     model: object,
@@ -881,11 +953,13 @@ def quick_eval_loss(
     scaffold_tokens = 0
     evaluated_examples = 0
     domain_totals: dict[str, dict[str, float]] = {}
+    validation_indices = stratified_validation_indices(dataset, max_examples)
     with torch.no_grad():
-        for start in range(0, min(len(dataset), max_examples), batch_size):
+        for start in range(0, len(validation_indices), batch_size):
+            batch_indices = validation_indices[start : start + batch_size]
             rows = [
-                dataset[i]
-                for i in range(start, min(start + batch_size, len(dataset), max_examples))
+                dataset[index]
+                for index in batch_indices
             ]
             if not rows:
                 break
@@ -919,7 +993,7 @@ def quick_eval_loss(
             scaffold_nll += float(per_token[scaffold].sum().item())
             scaffold_tokens += int(scaffold.sum().item())
             for offset, _row in enumerate(rows):
-                dataset_index = start + offset
+                dataset_index = batch_indices[offset]
                 domain = (
                     str(dataset.bucket_for_window(dataset_index))
                     if hasattr(dataset, "bucket_for_window")
@@ -981,6 +1055,11 @@ def quick_eval_loss(
         }
         for domain, values in sorted(domain_totals.items())
     }
+    finite_domain_losses = [
+        float(values["loss"])
+        for values in domain_losses.values()
+        if math.isfinite(float(values["loss"]))
+    ]
     return {
         "score": max(0.0, 1.0 - loss_value / 10.0),
         "loss": loss_value,
@@ -992,6 +1071,16 @@ def quick_eval_loss(
         "target_tokens": total_tokens,
         "n_examples": evaluated_examples,
         "domain_losses": domain_losses,
+        "macro_source_loss": (
+            sum(finite_domain_losses) / len(finite_domain_losses)
+            if finite_domain_losses
+            else None
+        ),
+        "worst_source_loss": max(finite_domain_losses) if finite_domain_losses else None,
+        "validation_sampling": "source_stratified_equal_coverage",
+        "validation_indices_sha256": hashlib.sha256(
+            json.dumps(validation_indices, separators=(",", ":")).encode("utf-8")
+        ).hexdigest(),
         "validation_identity": getattr(dataset, "validation_identity", None),
     }
 

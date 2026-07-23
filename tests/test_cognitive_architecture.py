@@ -247,12 +247,12 @@ def test_signed_launch_manifest_is_enforced(tmp_path: Path, monkeypatch):
     ).read_bytes()
     tokenizer_metadata.write_bytes(canonical_metadata)
     manifest = build_launch_manifest(
-        model_profile="frontier",
+        model_profile="anra-v4-180m",
         extension_profile="cognition-v1",
         tokenizer_hash=hashlib.sha256(tokenizer.read_bytes()).hexdigest(),
         tokenizer_path=str(tokenizer),
         data_manifests=[],
-        stage="smoke",
+        stage="canary",
         optimizer="adamw",
         batch_size=1,
         accumulation=1,
@@ -263,14 +263,16 @@ def test_signed_launch_manifest_is_enforced(tmp_path: Path, monkeypatch):
         },
         seeds=[1301],
         checkpoint_source="",
-        expected_tokens=0,
+        expected_tokens=1024,
         runtime_estimate_hours=1.0,
         owner_authorized=True,
+        artifact_path=str(tmp_path / "candidate.pt"),
     )
     path = tmp_path / "launch.json"
     sign_manifest(manifest, path, key=key)
     loaded = load_and_validate_manifest(path, key=key)
-    assert loaded["model_profile"] == "frontier"
+    assert loaded["model_profile"] == "anra-v4-180m"
+    assert loaded["contract_id"] == "anra-training-contract/v4"
     tokenizer_metadata.write_bytes(canonical_metadata + b"\n")
     with pytest.raises(ValueError, match="metadata hash"):
         load_and_validate_manifest(path, key=key)

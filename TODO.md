@@ -1,96 +1,73 @@
-# An-Ra — What We Do Next
+# An-Ra Execution Ledger
 
-Updated: 2026-07-20
+Updated: 2026-07-23
 
-This is the single short forward plan. `PROGRESS.md` records what happened,
-`ENGINEERING_LOG.md` preserves evidence, and `V4_ARCHITECTURE_GATE.md` defines
-the frozen model contract. This file says only where we go next.
+This is the one short forward ledger. Completed claims mean the code and focused
+contracts exist; they do not mean a useful model has already been trained.
 
-## Where we are now
+## Foundation now implemented
 
-- [x] Build the V4 foundation: one 181,132,071-parameter model, one 32,768-token
-  tokenizer, AdamW, deterministic seed 1301, phase-gated native systems, and
-  checkpoint schema 9 with exact optimizer/RNG/data-cursor resume.
-- [x] Correct fundamental defects including RoPE layout, residual initialization,
-  composed control bounds, configuration wiring, AMP false progress, and
-  session-restarting data sampling.
-- [x] Make MTP executable as a real +2/+3-token training objective and prove one
-  bounded full-model GPU step. MTP is implemented but not yet proven better.
-- [x] Add executable MoE and curriculum pilot paths without placing them in the
-  first baseline.
-- [x] Add verified-process supervision, reversible hash-bound LoRA/DoRA capability
-  extensions, and an inspectable adaptive reasoning-budget policy.
+- [x] One operational line: V4 tokenizer (32,768 vocabulary), dense
+  181,132,071-parameter model, AdamW, context 2,048, and routine seed 1301.
+- [x] Signed `anra-training-contract/v4` binds source commit, tokenizer, data,
+  model, seed, token window, parent checkpoint, destinations, and resource limits.
+- [x] Schema-9 full-resume checkpoints preserve model, optimizer, scheduler,
+  scaler, RNG, sampler cursor, step, tokens, and complete lineage.
+- [x] Concurrent durability uses immutable 128 MiB chunks, resumable verified
+  uploads, canonical pointers, protected replicas, and two-generation retention.
+- [x] Compact FP16 artifacts are model-only and cannot be accepted for training
+  resume.
+- [x] The cluster has one fenced canonical writer plus standby, evaluator,
+  data-builder, architecture-pilot, and archive roles. Public cross-VM gradient
+  averaging is retired; same-host DDP/FSDP remains a future gated mode.
+- [x] Deterministic 50M-170M token packs resume at signed global token boundaries
+  while resetting only the new pack's local permutation cursor.
+- [x] The 499,880,031-parameter growth child is registered with parent-hash
+  binding, attention-mode preservation, identity insertion, logits-parity proof,
+  fresh AdamW state, teacher alignment, and progressive unfreezing.
+- [x] MTP, MoD, RIM, ESV, DSTP, HAL, MoE, and moonshots are classified and cannot
+  silently enter the dense baseline. Promotion requires comparative evidence.
+- [x] SFT/RLVR/STaR/DPO data and audit contracts, self-correction orchestration,
+  reversible adapters, shared evidence, and rollback gates exist as pilots.
 
-## The direction
+## Next live execution
 
-We will build one strong trainable core, then add intelligence systems through
-explicit interfaces. A subsystem is not accepted because its file exists or a
-smoke test runs. It enters the model only when it improves a frozen baseline in
-a controlled comparison and can be removed or rolled back safely.
+- [ ] Freeze and push the exact An-Ra and GPU Cluster commits used by workers.
+- [ ] Configure owner-held manifest signing, the Google Drive active vault,
+  laptop archive, and optional OneDrive cold replica.
+- [ ] Run one 10-15 minute authorized T4 canary and verify the first protected
+  full-resume checkpoint before extending the campaign.
+- [ ] Kill the trainer once on purpose, hand the exact checkpoint and next token
+  window to a second authorized worker, and verify the restored SHA-256 locally.
+- [ ] Continue the same 181M lineage through 200M, 500M, 1B, and 3.6B cumulative
+  tokens, using lightweight health checks and milestone behavioral evaluation.
 
-## Execution order
+## After the first useful 181M checkpoint
 
-### 1. Finish the trainable foundation
+- [ ] Compare dense continuation with MTP under identical data, seed, optimizer,
+  and token budget. Test MoD, RIM, ESV, DSTP, and transformer-HAL independently.
+- [ ] Build and audit the actual SFT corpus, then wire a numerical SFT trainer.
+  RLVR/STaR and DPO remain unavailable for promotion until their evidence gates
+  and training runs are real.
+- [ ] Add retrieval, memory, correction, tools, and adapters in that order, with
+  permissions, budgets, verification, provenance, and rollback.
+- [ ] Grow the frozen 181M parent to 500M, prove real-checkpoint parity, provide a
+  32 GiB hot vault for its larger resumable states, and only then train the child.
+- [ ] Pilot sparse compute, hybrid attention/SSM, multimodality, world models,
+  robotics, and sandboxed self-development one question at a time.
 
-- [x] Recover and audit the corpus tail; approve the final data volume.
-- [x] Publish licensed, deduplicated, decontaminated, immutable V4 train and
-  validation shards with exact hashes and source mix.
-- [x] Prove one full-context optimizer update on the local RTX 4050.
-- [x] Resume the corrected signed checkpoint into a separate artifact and prove
-  optimizer/RNG/sampler continuity from step 1/cursor 32 to step 2/cursor 64.
-- [x] Fault-inject a mid-session termination and resume under the same source
-  commit. The safe-boundary checkpoint discarded eight partial microbatches,
-  preserved cursor 32, and resumed to cursor 96 without mutating its source.
-- [x] Publish a portable 170M-token Phase-A cloud pack with the V4 tokenizer,
-  a separate validation split, signed file inventory, exact source proportions,
-  and a zero-repeat deterministic permutation sampler.
-- [ ] Train the dense V4 seed-1301 baseline and freeze its checkpoint lineage.
-- [ ] Measure throughput, memory, losses by source, perplexity, generation
-  coherence, reasoning, retrieval, and verifier-grounded behavior.
+## Not completed yet
 
-### 2. Build and select intelligence subsystems
+- No new useful V4 language checkpoint has been trained by this implementation.
+- No live Colab worker handoff or remotely protected canary has been demonstrated.
+- No optional architecture subsystem has earned promotion into the baseline.
+- No actual post-training or 500M continuation run has occurred.
+- Same-host DDP/FSDP is deliberately blocked until the An-Ra runtime implements
+  and proves it; separate Colab sessions will never synchronize gradients.
 
-- [ ] Compare MTP with dense V4 at identical data, tokens, optimizer, seed, and
-  compute; promote it only if held-out capability improves.
-- [ ] Evaluate MoE, MoD/native routing, RIM, ESV, DSTP, and HAL independently;
-  remove inert mechanisms and keep only measurable positive contributors.
-- [ ] Connect adaptive reasoning budgets to real retrieval, decomposition,
-  candidate generation, correction, and verifier calls with strict limits.
-- [ ] Strengthen memory/retrieval, self-correction, agents/tools, and capability
-  adapters behind common provenance, authorization, evaluation, and rollback
-  contracts.
-- [ ] Pilot SSM/hybrid attention, latent reasoning, vision, world models, trained
-  retrieval, and self-development one at a time. Invent or adopt better
-  technology when it serves An-Ra’s purpose better than the current subsystem.
+## Final completion gate
 
-### 3. Post-train and prove the resulting model
-
-- [ ] Run SFT, RLVR, STaR, DPO, and self-distillation as isolated ablated stages.
-- [ ] Complete private capability, contamination, adversarial, calibration,
-  identity-continuity, and regression evaluation.
-- [ ] Prove cluster telemetry, preemption recovery, chaos behavior, a 24-hour
-  soak, canary deployment, and rollback before release.
-
-### 4. Rebuild documentation after implementation stabilizes
-
-- [ ] Recreate `docs/ARCHITECTURE.md` from the final real code paths, subsystem
-  states, inputs, outputs, checkpoints, and evidence—not from proposals.
-- [ ] Recreate `docs/DEVELOPER.md` with the final setup, commands, APIs,
-  configuration, testing, training, and extension contracts.
-- [ ] Recreate `docs/WALKTHROUGH.md` as the updated end-to-end story from data to
-  tokenizer, training, checkpoint, inference, memory, agents, proof, and release.
-- [ ] Reconcile `README.md`, `PROGRESS.md`, the V4 gate, and the architecture
-  explorer so every surface describes the same system.
-
-## Inputs only the owner can provide
-
-- [ ] Approve corpus/storage scope and provide GPU or Colab training time.
-- [ ] Hold the signing authority for real launches and promotions.
-- [ ] Decide product priorities when two valid capability directions compete.
-
-## Finished means
-
-The repository is ready only when clean immutable data produces a resumable,
-useful V4 checkpoint; every promoted subsystem wins measured comparisons; and
-the full model passes behavior, safety, observability, deployment, and rollback
-gates. Compilation and one-step canaries are necessary evidence, not completion.
+The system is complete only when protected checkpoints resume exactly, the
+181M model produces coherent behavior rather than merely low loss, every enabled
+subsystem wins a controlled comparison, the growth child preserves its parent,
+and release evidence includes evaluation, rollback, and audit history.

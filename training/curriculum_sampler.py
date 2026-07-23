@@ -199,7 +199,7 @@ class ScheduledCurriculumSampler(Sampler[int]):
 
     Base probability is the realized window share, so a multiplier of 1.0
     preserves the immutable corpus distribution. Sampling with replacement is
-    deliberate for matched-token factorial cells; window-consumption telemetry
+    deliberate for matched-token paired pilots; window-consumption telemetry
     separately reports repeat rate.
     """
 

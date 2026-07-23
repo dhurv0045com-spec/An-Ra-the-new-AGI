@@ -5,6 +5,7 @@ from __future__ import annotations
 # Direct script execution must bootstrap the repository before package imports.
 # ruff: noqa: E402
 import argparse
+import hashlib
 import importlib
 import json
 import os
@@ -25,6 +26,7 @@ from runtime.training_readiness import assess_training_readiness
 from training.data_ingestion import mount_google_drive_if_available, prepare_training_corpus
 from training.eval_v2 import run_compact_eval
 from training.v2_config import (
+    ANRA_V4_GROWTH_MODEL_PROFILE,
     ANRA_V4_MODEL,
     ANRA_V4_TRAINING,
     CANONICAL_FOUNDATION_OPTIMIZER,
@@ -47,6 +49,13 @@ from training.v2_runtime import (
 ensure_dirs()
 
 _CANONICAL_DATASET = DATASET
+CANONICAL_CAMPAIGNS = (
+    "v4-foundation",
+    "foundation_200m",
+    "foundation_500m",
+    "foundation_1b",
+    "foundation_3_6b",
+)
 
 
 def _valid_text_dataset(path: Path) -> bool:
@@ -158,6 +167,37 @@ def checkpoint_resume_path(checkpoint_source: object) -> str | None:
     if not value or value.lower() == "scratch":
         return None
     return value
+
+
+def assert_launch_checkout(manifest: dict[str, object]) -> None:
+    """Bind execution to the clean commit that signed the cloud launch."""
+
+    try:
+        active_commit = subprocess.check_output(
+            ["git", "rev-parse", "HEAD"],
+            cwd=ROOT,
+            text=True,
+            stderr=subprocess.DEVNULL,
+        ).strip()
+        dirty = subprocess.check_output(
+            ["git", "status", "--porcelain"],
+            cwd=ROOT,
+            text=True,
+            stderr=subprocess.DEVNULL,
+        )
+    except (OSError, subprocess.CalledProcessError) as exc:
+        raise RuntimeError("Cannot verify the signed launch checkout") from exc
+    if active_commit != str(manifest.get("git_commit", "")):
+        raise RuntimeError(
+            "Signed launch commit differs from the active checkout: "
+            f"manifest={manifest.get('git_commit')} active={active_commit}"
+        )
+    clean_hash = hashlib.sha256(b"").hexdigest()
+    if dirty or str(manifest.get("dirty_state_hash", "")) != clean_hash:
+        raise RuntimeError(
+            "Canonical cloud training requires both the signed launch and the "
+            "active checkout to be clean"
+        )
 
 
 def resolve_campaign_inventory(
@@ -408,7 +448,7 @@ def main() -> None:
     )
     ap.add_argument(
         "--optimizer",
-        choices=["auto", "adamw", "adam8bit", "adafactor", "muon", "scale", "galore", "qgalore"],
+        choices=[CANONICAL_FOUNDATION_OPTIMIZER],
         default=CANONICAL_FOUNDATION_OPTIMIZER,
     )
     ap.add_argument(
@@ -419,14 +459,18 @@ def main() -> None:
     )
     ap.add_argument(
         "--model-size",
-        choices=[CANONICAL_MODEL_PROFILE],
+        choices=[CANONICAL_MODEL_PROFILE, ANRA_V4_GROWTH_MODEL_PROFILE],
         default=CANONICAL_MODEL_PROFILE,
-        help="The sole active canonical V4 model profile.",
+        help="181M is canonical; 500M is accepted only through a signed growth launch.",
     )
     ap.add_argument(
         "--campaign",
-        choices=["frontier_full", "stage_a", "stage_b", "stage_c", "stage_d", "stage_e"],
+        choices=CANONICAL_CAMPAIGNS,
         default=None,
+        help=(
+            "Run the full dense V4 foundation lineage or one cumulative milestone. "
+            "Post-training and architecture pilots use separate signed lineages."
+        ),
     )
     ap.add_argument("--identity_minutes", type=int, default=12)
     ap.add_argument("--ouroboros_minutes", type=int, default=10)
@@ -458,16 +502,24 @@ def main() -> None:
     args = ap.parse_args()
     launch_manifest: dict[str, object] | None = None
     manifest_resume_from: str | None = None
+    manifest_growth_initialization: str | None = None
+    manifest_growth_manifest: str | None = None
+    manifest_growth_parent: str | None = None
     if args.launch_manifest:
         from training.launch_manifest import load_and_validate_manifest
 
         launch_manifest = load_and_validate_manifest(args.launch_manifest)
+        assert_launch_checkout(launch_manifest)
         os.environ["ANRA_TOKENIZER_PATH"] = str(launch_manifest["tokenizer_path"])
         args.model_size = str(launch_manifest["model_profile"])
         args.optimizer = str(launch_manifest["optimizer"])
         args.batch_size = int(launch_manifest["batch_size"])
         args.accumulation = int(launch_manifest["accumulation"])
         args.seed = int(launch_manifest["seed"])
+        signed_window = dict(launch_manifest["token_window"])
+        os.environ["ANRA_TOKEN_WINDOW_ID"] = str(signed_window["window_id"])
+        os.environ["ANRA_TOKEN_WINDOW_START"] = str(int(signed_window["start_token"]))
+        os.environ["ANRA_TOKEN_WINDOW_END"] = str(int(signed_window["end_token"]))
         os.environ["ANRA_DATA_PROFILE"] = launch_data_profile(launch_manifest)
         if bool(launch_manifest["allow_data_profile_change"]):
             os.environ["ANRA_ALLOW_DATA_PROFILE_CHANGE"] = "1"
@@ -478,25 +530,80 @@ def main() -> None:
         else:
             os.environ.pop("ANRA_RESET_DATA_SAMPLER_ON_PROFILE_CHANGE", None)
         checkpoint_source = str(launch_manifest["checkpoint_source"])
+        checkpoint_source_kind = str(launch_manifest["checkpoint_source_kind"])
         artifact_path = str(launch_manifest.get("artifact_path", "")).strip()
-        manifest_resume_from = checkpoint_resume_path(checkpoint_source)
+        if args.model_size == ANRA_V4_GROWTH_MODEL_PROFILE:
+            binding = launch_manifest.get("growth_manifest", {})
+            if not isinstance(binding, dict) or not binding:
+                raise RuntimeError("Signed 500M launch is missing its growth binding")
+            manifest_growth_manifest = str(binding["path"])
+            manifest_growth_parent = str(binding["parent_checkpoint_path"])
+            if checkpoint_source_kind == "growth_initialization":
+                manifest_growth_initialization = checkpoint_source
+            elif checkpoint_source_kind == "full_resume":
+                manifest_resume_from = checkpoint_resume_path(checkpoint_source)
+            else:
+                raise RuntimeError("Signed 500M launch has an invalid checkpoint source kind")
+        else:
+            manifest_resume_from = checkpoint_resume_path(checkpoint_source)
         if artifact_path:
             args.checkpoint_path = artifact_path
             report_root = Path(artifact_path)
             if not report_root.is_absolute():
                 report_root = (ROOT / report_root).resolve()
+            if (
+                checkpoint_source_kind in {"scratch", "growth_initialization"}
+                and report_root.exists()
+            ):
+                raise RuntimeError(
+                    "Signed scratch/growth output already exists; refusing to load or "
+                    f"overwrite a stale destination: {report_root}"
+                )
+            if checkpoint_source_kind == "full_resume":
+                source_path = Path(checkpoint_source)
+                if not source_path.is_absolute():
+                    source_path = (ROOT / source_path).resolve()
+                if source_path == report_root:
+                    raise RuntimeError(
+                        "Signed continuation source and destination must be different files"
+                    )
             os.environ["ANRA_RUN_REPORT_DIR"] = str(report_root.with_suffix(".reports"))
+        limits = dict(launch_manifest["resource_limits"])
+        os.environ["ANRA_CLUSTER_MODE"] = "1"
+        os.environ["ANRA_REQUIRE_DURABLE_ACK"] = "1"
+        os.environ["ANRA_DURABLE_CHECKPOINT_STEPS"] = str(
+            int(limits["checkpoint_steps"])
+        )
+        os.environ["ANRA_CHECKPOINT_EVERY_MIN"] = str(
+            int(limits["checkpoint_minutes"])
+        )
+        os.environ["ANRA_DURABILITY_HOT_LIMIT_BYTES"] = str(
+            int(limits["hot_storage_limit_bytes"])
+        )
+        usable_minutes = int(limits["session_budget_minutes"]) - int(
+            limits["drain_reserve_minutes"]
+        )
+        if usable_minutes <= 0:
+            raise RuntimeError("Signed launch has no training time before its drain reserve")
+        args.session_minutes = usable_minutes
+        if not (
+            os.environ.get("ANRA_DURABILITY_REPLICAS", "").strip()
+            or os.environ.get("ANRA_SHARED_CHECKPOINT_DIR", "").strip()
+        ):
+            raise RuntimeError(
+                "Signed cloud training requires a configured remote checkpoint replica"
+            )
         stage = str(launch_manifest["stage"])
-        if stage in {
-            "frontier_full",
-            "stage_a",
-            "stage_b",
-            "stage_c",
-            "stage_d",
-            "stage_e",
-        }:
+        if stage in CANONICAL_CAMPAIGNS:
             args.campaign = stage
-    model_cfg, training_cfg = resolve_model_profile(args.model_size)
+    if args.model_size == ANRA_V4_GROWTH_MODEL_PROFILE and launch_manifest is None:
+        raise RuntimeError(
+            "The 500M child can run only from a validated signed growth launch manifest"
+        )
+    model_cfg, training_cfg = resolve_model_profile(
+        args.model_size,
+        allow_experimental=args.model_size == ANRA_V4_GROWTH_MODEL_PROFILE,
+    )
     # The child phase trainer inherits this at interpreter startup, making
     # hash-based Python containers part of the signed seed contract.
     os.environ["PYTHONHASHSEED"] = str(args.seed)
@@ -634,7 +741,21 @@ def main() -> None:
         )
     if manifest_resume_from:
         base_cmd.extend(["--resume_from", manifest_resume_from])
-    if launch_manifest and args.model_size == CANONICAL_MODEL_PROFILE:
+    if manifest_growth_manifest and manifest_growth_parent:
+        base_cmd.extend(
+            [
+                "--growth-manifest",
+                manifest_growth_manifest,
+                "--growth-parent-checkpoint",
+                manifest_growth_parent,
+            ]
+        )
+    if manifest_growth_initialization:
+        base_cmd.extend(["--growth-initialization", manifest_growth_initialization])
+    if launch_manifest and args.model_size in {
+        CANONICAL_MODEL_PROFILE,
+        ANRA_V4_GROWTH_MODEL_PROFILE,
+    }:
         signed_data = [str(value) for value in launch_manifest["data_manifests"]]
         roles = {
             str(key): str(value)
@@ -659,8 +780,9 @@ def main() -> None:
                 validation_manifests[0],
             ]
         )
+        signed_window = dict(launch_manifest["token_window"])
         base_cmd.extend(
-            ["--max-phase-tokens", str(int(launch_manifest["expected_tokens"]))]
+            ["--max-phase-tokens", str(int(signed_window["end_token"]))]
         )
         pilot_axes = dict(launch_manifest.get("pilot_axes", {}))
         qk_norm = str(pilot_axes.get("qk_norm", "on"))
@@ -692,15 +814,16 @@ def main() -> None:
         base_cmd.extend(["--curriculum", curriculum])
 
     if args.campaign:
-        from math import exp
-
         from anra.anra_paths import (
             OUTPUT_V2_DIR,
             TOKEN_INVENTORY_MANIFEST,
-            TRAJECTORY_STORE,
         )
 
-        from training.stages import CampaignConfig, StagedTrainingCampaign
+        from training.stages import (
+            FOUNDATION_STAGES,
+            FoundationCampaignConfig,
+            FoundationTrainingCampaign,
+        )
 
         inventory = resolve_campaign_inventory(
             launch_manifest,
@@ -713,22 +836,16 @@ def main() -> None:
                 "Run scripts/download_training_data.py --bucket base --publish-token-shards."
             )
 
-        campaign = StagedTrainingCampaign(
-            CampaignConfig(
+        campaign = FoundationTrainingCampaign(
+            FoundationCampaignConfig(
                 model_size=args.model_size,
                 data_path=str(dataset),
                 output_dir=str(OUTPUT_V2_DIR / "campaigns"),
             )
         )
         names = (
-            [
-                "foundation",
-                "owner_adaptation",
-                "agency",
-                "verified_reasoning",
-                "verifier_replay",
-            ]
-            if args.campaign == "frontier_full"
+            [config.milestone.value for config in FOUNDATION_STAGES]
+            if args.campaign == "v4-foundation"
             else [args.campaign]
         )
         stage_validation_offsets: dict[str, int] = {}
@@ -739,7 +856,9 @@ def main() -> None:
             return [dict(row) for row in history if isinstance(row, dict)]
 
         def execute_stage(config: object) -> tuple[int, str]:
-            stage_validation_offsets[str(config.stage.value)] = len(validation_history())
+            stage_validation_offsets[str(config.milestone.value)] = len(
+                validation_history()
+            )
             command = list(base_cmd)
             command.extend(
                 [
@@ -749,17 +868,18 @@ def main() -> None:
                     config.continuation_phase,
                 ]
             )
-            if config.training_layout == "raw_causal_shards_v1":
-                manifest = str(inventory.get("manifest", ""))
-                if not manifest:
-                    raise RuntimeError("Token inventory does not name its immutable manifest")
-                command.extend(["--token-shard-manifest", manifest])
-                validation_manifest = str(inventory.get("validation_manifest", ""))
-                if not validation_manifest:
-                    raise RuntimeError("Token inventory does not name its validation manifest")
-                command.extend(["--validation-shard-manifest", validation_manifest])
-            else:
-                command.extend(["--own_ratio", str(config.owner_ratio)])
+            if launch_manifest is None:
+                command.extend(["--max-phase-tokens", str(config.token_target)])
+            if config.training_layout != "raw_causal_shards_v1":
+                raise RuntimeError("V4 foundation milestones require raw causal shards")
+            manifest = str(inventory.get("manifest", ""))
+            if not manifest:
+                raise RuntimeError("Token inventory does not name its immutable manifest")
+            command.extend(["--token-shard-manifest", manifest])
+            validation_manifest = str(inventory.get("validation_manifest", ""))
+            if not validation_manifest:
+                raise RuntimeError("Token inventory does not name its validation manifest")
+            command.extend(["--validation-shard-manifest", validation_manifest])
             previous_phase = os.environ.get("ANRA_CONTINUATION_PHASE")
             os.environ["ANRA_CONTINUATION_PHASE"] = config.continuation_phase
             try:
@@ -772,53 +892,70 @@ def main() -> None:
             return rc, str(canonical_v2_checkpoint("brain"))
 
         def load_stage_metrics(_config: object) -> dict[str, object]:
-            eval_report = _load_json(v2_report_path("ibs_latest")) or {}
             compact = _load_json(v2_report_path("eval_summary")) or {}
             train_metrics = _load_json(v2_report_path("metrics")) or {}
-            trajectory_count = 0
-            if TRAJECTORY_STORE.exists():
-                trajectory_count = sum(
-                    1
-                    for line in TRAJECTORY_STORE.read_text(encoding="utf-8").splitlines()
-                    if line.strip() and '"verified": true' in line.lower()
-                )
             loss = float(train_metrics.get("last_avg_loss", float("inf")))
             history = validation_history()
-            offset = stage_validation_offsets.get(str(_config.stage.value), len(history))
+            offset = stage_validation_offsets.get(
+                str(_config.milestone.value), len(history)
+            )
             new_validation = history[offset:]
-            validation_baseline = new_validation[0] if new_validation else {}
-            validation_candidate = new_validation[-1] if len(new_validation) >= 2 else {}
+            validation_baseline = history[offset - 1] if offset > 0 else {}
+            validation_candidate = new_validation[-1] if new_validation else {}
             tokenizer_identity = active_tokenizer_identity()
+            raw_window = train_metrics.get("raw_window_consumption", {})
+            raw_window = raw_window if isinstance(raw_window, dict) else {}
+            categories = compact.get("category_scores", {})
+            categories = categories if isinstance(categories, dict) else {}
+            repetition_failure = float(
+                compact.get("repetition_failure_rate", 1.0) or 1.0
+            )
+            behavior = {
+                "generation_noncollapse": {
+                    "measured": "repetition_failure_rate" in compact,
+                    "passed": repetition_failure <= 0.01,
+                    "repetition_failure_rate": repetition_failure,
+                },
+                "copy": {
+                    "context_qa": float(categories.get("context_qa", 0.0) or 0.0),
+                },
+                "uncertainty": {
+                    "calibration": float(categories.get("calibration", 0.0) or 0.0),
+                },
+                "reasoning": {
+                    "reasoning": float(categories.get("reasoning", 0.0) or 0.0),
+                    "logic": float(categories.get("logic", 0.0) or 0.0),
+                },
+                "math": {"score": float(categories.get("math", 0.0) or 0.0)},
+                "code": {"score": float(categories.get("code", 0.0) or 0.0)},
+                "context_use": {
+                    name: float(categories.get(name, 0.0) or 0.0)
+                    for name in ("context_qa", "memory", "long_context")
+                },
+            }
+            durability = train_metrics.get("checkpoint_durability", {})
+            durability = durability if isinstance(durability, dict) else {}
             return {
-                "perplexity": exp(min(loss, 20.0)),
                 "numerically_stable": bool(loss < float("inf")),
                 "training_tokens": int(train_metrics.get("phase_tokens_seen", 0)),
-                "tokenizer_schema_valid": bool(
-                    tokenizer_identity.get("available") is True
-                    and int(tokenizer_identity.get("schema_version", 0)) >= 3
+                "tokenizer_schema_version": int(
+                    tokenizer_identity.get("schema_version", 0)
                 ),
-                "civ_similarity": float(compact.get("civ_similarity", 0.0)),
-                "coherence_rate": float(compact.get("coherence_rate", 0.0)),
-                "format_compliance": float(
-                    (compact.get("category_scores", {}) or {}).get("format", 0.0)
-                ),
-                "validation_baseline": validation_baseline,
-                "validation_candidate": validation_candidate,
-                "ibs": eval_report,
-                "verified_trajectories": trajectory_count,
-                "star_verification_rate": float(
-                    (_load_json(v2_report_path("star_report")) or {}).get("verification_rate", 0.0)
-                ),
-                "truth_checking_coverage": float(
-                    (_load_json(v2_report_path("rlvr_report")) or {}).get(
-                        "truth_checking_coverage", 0.0
+                "durability_state": str(
+                    train_metrics.get(
+                        "durability_state",
+                        durability.get("state", ""),
                     )
                 ),
+                "raw_window_consumption": raw_window,
+                "validation_baseline": validation_baseline,
+                "validation_candidate": validation_candidate,
+                "behavior": behavior,
             }
 
-        for stage_name in names:
-            result = campaign.run_stage(
-                stage_name,
+        for milestone_name in names:
+            result = campaign.run_milestone(
+                milestone_name,
                 execute=execute_stage,
                 load_metrics=load_stage_metrics,
             )

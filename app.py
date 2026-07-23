@@ -78,6 +78,7 @@ from runtime.answer_contracts import (
     filter_untrusted_records,
 )
 from runtime.experience_ledger import get_default_ledger, record_experience
+from runtime.evidence_stream import evidence_snapshot, read_evidence
 from runtime.hal_telemetry import read_hal_state
 from runtime.ledger_projections import projection_for_trace
 from starlette.responses import Response
@@ -86,10 +87,10 @@ from training.eval_v2 import (
     build_context_growth_evidence,
     build_frontier_recovery_decision,
     ensure_private_eval_suite,
-    run_private_mode_seed_evaluation,
+    run_private_mode_evaluation,
     run_recovery_prompt_gate,
 )
-from training.v2_config import CANONICAL_MODEL_PROFILE
+from training.v2_config import CANONICAL_MODEL_PROFILE, CANONICAL_TRAINING_SEED
 from training.v2_runtime import active_tokenizer_path, load_or_build_v2_tokenizer
 
 ensure_dirs()
@@ -1310,21 +1311,34 @@ class ExperimentProposalRequest(BaseModel):
 
 
 class LaunchManifestRequest(BaseModel):
-    model_profile: str
-    extension_profile: str = "cognition-v1"
+    model_profile: str = CANONICAL_MODEL_PROFILE
+    extension_profile: str = "none"
     tokenizer_hash: str
     tokenizer_path: str | None = None
     data_manifests: list[str]
+    data_manifest_roles: dict[str, Literal["train", "validation", "test"]]
     stage: str
-    optimizer: str
+    optimizer: Literal["adamw"] = "adamw"
     batch_size: int = Field(..., gt=0)
     accumulation: int = Field(..., gt=0)
     schedule: dict[str, Any]
-    seeds: list[int]
+    seeds: list[int] = Field(default_factory=lambda: [CANONICAL_TRAINING_SEED], min_length=1, max_length=1)
     checkpoint_source: str
-    expected_tokens: int = Field(..., ge=0)
+    expected_tokens: int = Field(..., gt=0)
     runtime_estimate_hours: float | None = None
     owner_authorized: bool
+    worker_id: str = "coordinator"
+    worker_role: str = "canonical_trainer"
+    artifact_path: str
+    shard_assignment: list[int] = Field(default_factory=list)
+    checkpoint_read_only: bool = True
+    allow_data_profile_change: bool = False
+    reset_data_sampler: bool = False
+    token_window: dict[str, Any] | None = None
+    artifact_destinations: list[dict[str, Any]] | None = None
+    resource_limits: dict[str, Any] | None = None
+    growth_manifest: str | None = None
+    growth_parent_checkpoint: str | None = None
 
 
 JOBS: dict[str, dict[str, Any]] = {}
@@ -1869,11 +1883,11 @@ def _run_private_promotion_evaluation() -> dict[str, object]:
             "updated_at": time.time(),
             "phase": "starting",
             "completed_slices": 0,
-            "total_slices": 24,
+            "total_slices": 8,
             "suite_sha256": suite_metadata["suite_sha256"],
         },
     )
-    report = run_private_mode_seed_evaluation(
+    report = run_private_mode_evaluation(
         evaluator_generator,
         tasks=tasks,
         suite_metadata=suite_metadata,
@@ -1888,8 +1902,8 @@ def _run_private_promotion_evaluation() -> dict[str, object]:
             "schema_version": 1,
             "updated_at": time.time(),
             "phase": "complete",
-            "completed_slices": 24,
-            "total_slices": 24,
+            "completed_slices": 8,
+            "total_slices": 8,
             "suite_sha256": suite_metadata["suite_sha256"],
             "capability_allowed": report["capability_allowed"],
         },
@@ -2797,13 +2811,13 @@ async def training_launch_manifest(body: LaunchManifestRequest, request: Request
     _require_owner(request)
     from training.launch_manifest import build_launch_manifest, sign_manifest
 
-    manifest = build_launch_manifest(**body.model_dump())
     try:
+        manifest = build_launch_manifest(**body.model_dump())
         return sign_manifest(
             manifest,
             OUTPUT_V2_DIR / "launch_manifests" / f"{manifest['run_id']}.json",
         )
-    except PermissionError as exc:
+    except (FileNotFoundError, PermissionError, ValueError) as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
@@ -2907,7 +2921,23 @@ async def phase_health_route() -> dict[str, Any]:
         "capabilities": graph.get("capabilities", {}),
         "phase_snapshots": graph.get("phase_snapshots", []),
         "phase3_health": checks,
+        "evidence_stream": await run_in_threadpool(evidence_snapshot),
     }
+
+
+@app.get("/evidence/status")
+async def evidence_status_route() -> dict[str, Any]:
+    """Matrix/health view of the same evidence source consumed by ThirdEye."""
+
+    return await run_in_threadpool(evidence_snapshot)
+
+
+@app.get("/evidence/events")
+async def evidence_events_route(request: Request, limit: int = 100) -> dict[str, Any]:
+    # Evidence payloads may contain training paths or request metadata.  The
+    # aggregate status is public to the local UI; raw events are owner-only.
+    _require_owner(request)
+    return await run_in_threadpool(read_evidence, limit=max(1, min(int(limit), 500)))
 
 
 @app.get("/goals")

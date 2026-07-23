@@ -15,7 +15,7 @@ from training.continual import (
 )
 from training.anra_optimizer import build_append_only_row_learning_rate
 from training.data_ledger import DataQuality
-from training.data_pipeline_v3 import SourceRecord, TokenShardPublisher
+from training.data_pipeline import SourceRecord, TokenShardPublisher
 from training.v2_data_mix import (
     RawCausalShardDataset,
     TrainingExample,
@@ -49,7 +49,7 @@ def test_token_shards_are_uint16_hashed_and_immutable(tmp_path) -> None:
     output = tmp_path / "tokens"
     publisher = TokenShardPublisher(
         output,
-        tokenizer_version="v3-test",
+        tokenizer_version="v4-32768",
         tokens_per_shard=4,
     )
     manifest = publisher.publish(
@@ -93,7 +93,7 @@ def test_raw_causal_dataset_trains_every_next_token(tmp_path) -> None:
     output = tmp_path / "raw"
     publisher = TokenShardPublisher(
         output,
-        tokenizer_version="v3-test",
+        tokenizer_version="v4-32768",
         tokenizer_sha256="tokenizer-hash",
         tokens_per_shard=16,
     )
@@ -128,7 +128,7 @@ def test_token_shards_preserve_campaign_source_class_boundaries(tmp_path) -> Non
     output = tmp_path / "source-pure"
     manifest = TokenShardPublisher(
         output,
-        tokenizer_version="v3-test",
+        tokenizer_version="v4-32768",
         tokenizer_sha256="hash",
         tokens_per_shard=64,
     ).publish(
@@ -181,7 +181,7 @@ def test_short_identity_source_is_explicitly_replayed_to_trainable_windows(
     output = tmp_path / "identity-replay"
     manifest = TokenShardPublisher(
         output,
-        tokenizer_version="v3-test",
+        tokenizer_version="v4-32768",
         tokenizer_sha256="hash",
         tokens_per_shard=10_000,
     ).publish(
@@ -232,7 +232,7 @@ def test_raw_window_ids_are_stable_across_shard_rotation(tmp_path) -> None:
     output = tmp_path / "rotated"
     TokenShardPublisher(
         output,
-        tokenizer_version="test",
+        tokenizer_version="v4-32768",
         tokenizer_sha256="hash",
         tokens_per_shard=8,
     ).publish(
@@ -502,16 +502,17 @@ def test_continual_threshold_and_proposal_policy() -> None:
     assert not proposal_auto_application_allowed([False] * 5)
 
 
-def test_three_seed_ibs_writes_aggregate(tmp_path) -> None:
-    report = IBSBenchmark().run_three_seed(
+def test_explicit_ibs_replicate_writes_aggregate(tmp_path) -> None:
+    report = IBSBenchmark().run_replicates(
         lambda prompt, seed: f"{prompt}:{seed}",
         lambda task, response: (1.0, ""),
         label="unit",
+        seeds=(1301,),
         output_path=tmp_path / "ibs.json",
     )
-    assert report["seed_count"] == 3
+    assert report["run_count"] == 1
     assert report["overall"] == 1.0
-    assert json.loads((tmp_path / "ibs.json").read_text())["seed_count"] == 3
+    assert json.loads((tmp_path / "ibs.json").read_text())["run_count"] == 1
 
 
 def test_world_model_requires_full_activation_evidence() -> None:

@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import time
 from collections.abc import Iterable
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from pathlib import Path
+from typing import Any
 
 import torch
 from torch.nn import functional as F  # noqa: N812 - canonical PyTorch alias
@@ -17,15 +19,74 @@ from torch.nn import functional as F  # noqa: N812 - canonical PyTorch alias
 class GrowthReport:
     schema_version: int
     generated_at: float
+    source_profile: str
+    target_profile: str
     source_layers: int
     target_layers: int
     source_width: int
     target_width: int
     copied_tensors: int
     identity_layers: tuple[int, ...]
+    layer_mapping: tuple[tuple[int, int], ...]
+    attention_mode_mapping: tuple[tuple[int, int | None, str, int | None], ...]
+    source_architecture_sha256: str
+    target_architecture_sha256: str
+    source_checkpoint_sha256: str
+    optimizer_restart_required: bool = True
+    optimizer_state_inherited: bool = False
+    parity_semantics: str = "real_logits_same_token_ids_v1"
+    parity_token_ids_sha256: str = ""
     parity_cosine: float | None = None
     parity_max_error: float | None = None
-    source_checkpoint_sha256: str = ""
+    parity_mean_absolute_error: float | None = None
+    parity_minimum_cosine: float = 0.99
+    parity_passed: bool | None = None
+
+
+def _sha256_file(path: str | Path) -> str:
+    digest = hashlib.sha256()
+    with Path(path).open("rb") as handle:
+        for chunk in iter(lambda: handle.read(8 * 1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _attention_mode(block: Any) -> tuple[str, int | None]:
+    window = getattr(block.attn, "sliding_window", None)
+    return ("full", None) if window is None else ("sliding", int(window))
+
+
+def model_architecture_payload(model: Any) -> dict[str, object]:
+    """Describe effective structure, including per-layer attention behavior."""
+    blocks = list(model.blocks)
+    return {
+        "schema_version": 1,
+        "architecture_version": str(getattr(model, "architecture_version", "unknown")),
+        "vocab_size": int(model.vocab_size),
+        "d_model": int(model.n_embd),
+        "n_layers": int(model.n_layer),
+        "n_query_heads": int(model.n_head),
+        "n_kv_heads": int(model.n_kv_head),
+        "head_dim": int(model.n_embd) // int(model.n_head),
+        "d_ff": int(model.d_ff),
+        "context_length": int(model.block_size),
+        "rope_base": int(model.rope_base),
+        "use_qk_norm": bool(model.use_qk_norm),
+        "mod_layers": list(getattr(model, "mod_layers", ())),
+        "attention_modes": [
+            {"kind": kind, "window": window}
+            for kind, window in (_attention_mode(block) for block in blocks)
+        ],
+        "use_mtp": bool(getattr(model, "use_mtp", False)),
+        "use_moe": bool(getattr(model, "use_moe", False)),
+    }
+
+
+def model_architecture_sha256(model: Any) -> str:
+    material = json.dumps(
+        model_architecture_payload(model), sort_keys=True, separators=(",", ":")
+    ).encode("utf-8")
+    return hashlib.sha256(material).hexdigest()
 
 
 class GrowthAlignmentController:
@@ -114,13 +175,19 @@ class GrowthAlignmentController:
         *,
         step: int,
         target_logits: torch.Tensor | None = None,
+        max_tokens: int = 64,
     ) -> torch.Tensor:
         if step >= self.alignment_steps:
             return torch.zeros((), device=token_ids.device)
+        if max_tokens < 1:
+            raise ValueError("Growth alignment max_tokens must be positive")
+        aligned_tokens = token_ids[:, :max_tokens]
         with torch.no_grad():
-            source_logits, _ = self.source(token_ids)
+            source_logits, _ = self.source(aligned_tokens)
         if target_logits is None:
-            target_logits, _ = self.target(token_ids)
+            target_logits, _ = self.target(aligned_tokens)
+        else:
+            target_logits = target_logits[:, : aligned_tokens.shape[1]]
         weight = max(0.0, 1.0 - float(step) / max(1, self.alignment_steps))
         return weight * F.mse_loss(target_logits.float(), source_logits.float())
 
@@ -320,13 +387,79 @@ class CrossScaleIdentityInheritance:
         torch.nn.init.zeros_(block.mlp.down_proj.weight)
 
     @classmethod
+    def _preserve_attention_modes(
+        cls,
+        source: object,
+        target: object,
+        *,
+        layer_map: dict[int, int],
+        inserted: tuple[int, ...],
+    ) -> tuple[tuple[int, int | None, str, int | None], ...]:
+        """Copy effective attention mode rather than re-deriving it by child index."""
+        result: list[tuple[int, int | None, str, int | None]] = []
+        for target_layer, target_block in enumerate(target.blocks):
+            source_layer: int | None = None
+            if target_layer not in inserted:
+                source_layer = layer_map[target_layer]
+                kind, window = _attention_mode(source.blocks[source_layer])
+                target_block.attn.sliding_window = window if kind == "sliding" else None
+            kind, window = _attention_mode(target_block)
+            result.append((target_layer, source_layer, kind, window))
+        return tuple(result)
+
+    @staticmethod
+    def apply_attention_mode_mapping(
+        target: object,
+        report: GrowthReport | dict[str, object],
+    ) -> None:
+        """Restore the non-periodic attention layout recorded by a growth artifact."""
+        payload = asdict(report) if isinstance(report, GrowthReport) else dict(report)
+        raw_mapping = payload.get("attention_mode_mapping", ())
+        if not isinstance(raw_mapping, (list, tuple)) or len(raw_mapping) != target.n_layer:
+            raise ValueError("Growth manifest must bind one attention mode per target layer")
+        seen: set[int] = set()
+        for entry in raw_mapping:
+            if not isinstance(entry, (list, tuple)) or len(entry) != 4:
+                raise ValueError("Invalid growth attention-mode mapping entry")
+            target_layer = int(entry[0])
+            kind = str(entry[2])
+            window = entry[3]
+            if target_layer in seen or not 0 <= target_layer < target.n_layer:
+                raise ValueError("Growth attention mapping has duplicate or invalid layers")
+            if kind == "full":
+                if window is not None:
+                    raise ValueError("Full attention mapping cannot declare a window")
+                target.blocks[target_layer].attn.sliding_window = None
+            elif kind == "sliding":
+                if window is None or int(window) <= 0:
+                    raise ValueError("Sliding attention mapping requires a positive window")
+                target.blocks[target_layer].attn.sliding_window = int(window)
+            else:
+                raise ValueError(f"Unsupported attention mode in growth manifest: {kind}")
+            seen.add(target_layer)
+        expected = str(payload.get("target_architecture_sha256", ""))
+        actual = model_architecture_sha256(target)
+        if expected and expected != actual:
+            raise ValueError(
+                "Growth attention mapping does not reconstruct the bound target architecture: "
+                f"{actual} != {expected}"
+            )
+
+    @classmethod
     def grow(
         cls,
         source: object,
         target: object,
         *,
         source_checkpoint: str | Path | None = None,
+        source_profile: str = "",
+        target_profile: str = "",
     ) -> GrowthReport:
+        if target.n_layer < source.n_layer:
+            raise ValueError("Model growth cannot shrink transformer depth")
+        if target.vocab_size != source.vocab_size:
+            raise ValueError("Cross-scale growth requires one unchanged tokenizer vocabulary")
+        source_architecture_sha256 = model_architecture_sha256(source)
         source_state = source.state_dict()
         target_state = target.state_dict()
         layer_map, inserted = cls._layer_map(source.n_layer, target.n_layer)
@@ -415,6 +548,12 @@ class CrossScaleIdentityInheritance:
                     )
         for layer in inserted:
             cls._identity_initialize_block(target.blocks[layer])
+        attention_mode_mapping = cls._preserve_attention_modes(
+            source,
+            target,
+            layer_map=layer_map,
+            inserted=inserted,
+        )
         target.esv_module.predictor.load_state_dict(source.esv_module.predictor.state_dict())
         with torch.no_grad():
             if hasattr(source, "dstp_temperature_log") and hasattr(target, "dstp_temperature_log"):
@@ -437,16 +576,22 @@ class CrossScaleIdentityInheritance:
 
         digest = ""
         if source_checkpoint is not None and Path(source_checkpoint).exists():
-            digest = hashlib.sha256(Path(source_checkpoint).read_bytes()).hexdigest()
+            digest = _sha256_file(source_checkpoint)
         return GrowthReport(
-            schema_version=1,
+            schema_version=2,
             generated_at=time.time(),
+            source_profile=str(source_profile),
+            target_profile=str(target_profile),
             source_layers=source.n_layer,
             target_layers=target.n_layer,
             source_width=source.n_embd,
             target_width=target.n_embd,
             copied_tensors=copied,
             identity_layers=inserted,
+            layer_mapping=tuple(sorted(layer_map.items())),
+            attention_mode_mapping=attention_mode_mapping,
+            source_architecture_sha256=source_architecture_sha256,
+            target_architecture_sha256=model_architecture_sha256(target),
             source_checkpoint_sha256=digest,
         )
 
@@ -456,27 +601,181 @@ class CrossScaleIdentityInheritance:
         source: object,
         target: object,
         token_ids: torch.Tensor,
-    ) -> dict[str, float]:
+    ) -> dict[str, float | str]:
+        if token_ids.ndim != 2 or token_ids.numel() == 0:
+            raise ValueError("Parity verification requires non-empty [batch, sequence] token IDs")
+        if token_ids.dtype not in {
+            torch.int8,
+            torch.int16,
+            torch.int32,
+            torch.int64,
+            torch.uint8,
+        }:
+            raise TypeError("Parity token IDs must be an integer tensor")
+        if source.vocab_size != target.vocab_size:
+            raise ValueError("Real-logits parity requires identical source/target vocabularies")
         source.eval()
         target.eval()
         source_logits, _ = source(token_ids.to(next(source.parameters()).device))
         target_logits, _ = target(token_ids.to(next(target.parameters()).device))
         source_logits = source_logits.float().cpu()
         target_logits = target_logits.float().cpu()
+        if source_logits.shape != target_logits.shape:
+            raise ValueError(
+                "Real-logits parity requires identical source/target logit shapes; "
+                f"got {tuple(source_logits.shape)} and {tuple(target_logits.shape)}"
+            )
+        if not torch.isfinite(source_logits).all() or not torch.isfinite(target_logits).all():
+            raise ValueError("Real-logits parity cannot be computed from NaN/Inf logits")
         cosine = F.cosine_similarity(
             source_logits.reshape(-1, source_logits.shape[-1]),
             target_logits.reshape(-1, target_logits.shape[-1]),
             dim=-1,
         ).mean()
-        error = (source_logits - target_logits).abs().max()
-        return {"parity_cosine": float(cosine), "parity_max_error": float(error)}
+        absolute_error = (source_logits - target_logits).abs()
+        token_material = json.dumps(
+            token_ids.detach().cpu().to(torch.int64).tolist(), separators=(",", ":")
+        ).encode("utf-8")
+        return {
+            "parity_semantics": "real_logits_same_token_ids_v1",
+            "parity_token_ids_sha256": hashlib.sha256(token_material).hexdigest(),
+            "parity_cosine": float(cosine),
+            "parity_max_error": float(absolute_error.max()),
+            "parity_mean_absolute_error": float(absolute_error.mean()),
+        }
+
+    @staticmethod
+    def bind_parity(
+        report: GrowthReport,
+        parity: dict[str, float | str],
+        *,
+        minimum_cosine: float = 0.99,
+    ) -> GrowthReport:
+        cosine = float(parity.get("parity_cosine", float("nan")))
+        maximum_error = float(parity.get("parity_max_error", float("nan")))
+        mean_error = float(parity.get("parity_mean_absolute_error", float("nan")))
+        semantics = str(parity.get("parity_semantics", ""))
+        token_hash = str(parity.get("parity_token_ids_sha256", ""))
+        if semantics != "real_logits_same_token_ids_v1":
+            raise ValueError("Growth parity must compare real logits on identical token IDs")
+        if len(token_hash) != 64:
+            raise ValueError("Growth parity is missing its token-ID hash")
+        if not all(math.isfinite(value) for value in (cosine, maximum_error, mean_error)):
+            raise ValueError("Growth parity metrics must be finite")
+        threshold = float(minimum_cosine)
+        if not 0.0 < threshold <= 1.0:
+            raise ValueError("minimum_cosine must be in (0, 1]")
+        return replace(
+            report,
+            parity_semantics=semantics,
+            parity_token_ids_sha256=token_hash,
+            parity_cosine=cosine,
+            parity_max_error=maximum_error,
+            parity_mean_absolute_error=mean_error,
+            parity_minimum_cosine=threshold,
+            parity_passed=cosine >= threshold,
+        )
+
+    @staticmethod
+    def validate_growth_report(
+        report: GrowthReport | dict[str, object],
+        *,
+        require_passed_parity: bool = True,
+    ) -> dict[str, object]:
+        payload = asdict(report) if isinstance(report, GrowthReport) else dict(report)
+        if int(payload.get("schema_version", 0)) != 2:
+            raise ValueError("Unsupported growth-manifest schema version")
+        source_profile = str(payload.get("source_profile", "")).strip()
+        target_profile = str(payload.get("target_profile", "")).strip()
+        if not source_profile or not target_profile or source_profile == target_profile:
+            raise ValueError("Growth manifest requires distinct source and target profiles")
+        for field in (
+            "source_architecture_sha256",
+            "target_architecture_sha256",
+            "source_checkpoint_sha256",
+            "parity_token_ids_sha256",
+        ):
+            value = str(payload.get(field, ""))
+            if len(value) != 64 or any(char not in "0123456789abcdef" for char in value):
+                raise ValueError(f"Growth manifest has invalid {field}")
+        source_layers = int(payload.get("source_layers", 0))
+        target_layers = int(payload.get("target_layers", 0))
+        source_width = int(payload.get("source_width", 0))
+        target_width = int(payload.get("target_width", 0))
+        if source_layers <= 0 or target_layers < source_layers:
+            raise ValueError("Growth manifest has invalid depth expansion")
+        if source_width <= 0 or target_width < source_width:
+            raise ValueError("Growth manifest has invalid width expansion")
+        raw_layer_mapping = payload.get("layer_mapping", ())
+        raw_identity_layers = payload.get("identity_layers", ())
+        if not isinstance(raw_layer_mapping, (list, tuple)) or not isinstance(
+            raw_identity_layers, (list, tuple)
+        ):
+            raise ValueError("Growth manifest layer mapping must be an array")
+        layer_mapping = {int(entry[0]): int(entry[1]) for entry in raw_layer_mapping}
+        identities = {int(value) for value in raw_identity_layers}
+        if len(layer_mapping) != source_layers or len(identities) != target_layers - source_layers:
+            raise ValueError("Growth manifest does not account for every source/inserted layer")
+        if set(layer_mapping) & identities or set(layer_mapping) | identities != set(
+            range(target_layers)
+        ):
+            raise ValueError("Growth manifest target-layer accounting is incomplete")
+        if set(layer_mapping.values()) != set(range(source_layers)):
+            raise ValueError("Growth manifest source-layer mapping is incomplete")
+        raw_attention = payload.get("attention_mode_mapping", ())
+        if not isinstance(raw_attention, (list, tuple)) or len(raw_attention) != target_layers:
+            raise ValueError("Growth manifest must bind every target attention mode")
+        attention_targets: set[int] = set()
+        for entry in raw_attention:
+            if not isinstance(entry, (list, tuple)) or len(entry) != 4:
+                raise ValueError("Growth manifest has an invalid attention mapping entry")
+            target_layer = int(entry[0])
+            source_layer = None if entry[1] is None else int(entry[1])
+            if target_layer in attention_targets or target_layer not in range(target_layers):
+                raise ValueError("Growth manifest attention targets are invalid or duplicated")
+            expected_source = layer_mapping.get(target_layer)
+            if source_layer != expected_source:
+                raise ValueError("Growth attention mapping disagrees with the depth mapping")
+            kind = str(entry[2])
+            window = entry[3]
+            if (kind == "full" and window is not None) or (
+                kind == "sliding" and (window is None or int(window) <= 0)
+            ):
+                raise ValueError("Growth manifest has an invalid effective attention mode")
+            if kind not in {"full", "sliding"}:
+                raise ValueError("Growth manifest has an unsupported effective attention mode")
+            attention_targets.add(target_layer)
+        if payload.get("optimizer_restart_required") is not True:
+            raise ValueError("A growth child must restart its optimizer")
+        if payload.get("optimizer_state_inherited") is not False:
+            raise ValueError("A growth child must not inherit shape-incompatible optimizer state")
+        if str(payload.get("parity_semantics", "")) != "real_logits_same_token_ids_v1":
+            raise ValueError("Growth manifest is not bound to real-logits parity")
+        cosine = float(payload.get("parity_cosine", float("nan")))
+        maximum_error = float(payload.get("parity_max_error", float("nan")))
+        mean_error = float(payload.get("parity_mean_absolute_error", float("nan")))
+        threshold = float(payload.get("parity_minimum_cosine", float("nan")))
+        if not all(
+            math.isfinite(value) for value in (cosine, maximum_error, mean_error, threshold)
+        ):
+            raise ValueError("Growth manifest parity metrics must be finite")
+        if not 0.0 < threshold <= 1.0 or maximum_error < 0.0 or mean_error < 0.0:
+            raise ValueError("Growth manifest parity metrics are outside their valid ranges")
+        passed = cosine >= threshold
+        if payload.get("parity_passed") is not passed:
+            raise ValueError("Growth manifest parity decision disagrees with its metrics")
+        if require_passed_parity and not passed:
+            raise ValueError("Growth manifest did not pass its real-logits parity gate")
+        return payload
 
     @staticmethod
     def write_report(report: GrowthReport | dict[str, object], path: str | Path) -> Path:
         target = Path(path)
         target.parent.mkdir(parents=True, exist_ok=True)
         payload = asdict(report) if isinstance(report, GrowthReport) else dict(report)
-        target.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+        temporary = target.with_suffix(target.suffix + ".tmp")
+        temporary.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+        temporary.replace(target)
         return target
 
     @staticmethod

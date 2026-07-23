@@ -44,6 +44,10 @@ from training.anra_optimizer import (
     is_identity_parameter,
 )
 from training.cdr import CorrectedFailureCurriculum
+from training.checkpoint_durability import (
+    CheckpointDurabilitySession,
+    build_checkpoint_lineage,
+)
 from training.continual import assess_continual_readiness, ewc_penalty
 from training.curriculum_sampler import (
     CURRICULUMS,
@@ -56,6 +60,7 @@ from training.curriculum_sampler import (
 )
 from training.data_routing import build_data_route_report
 from training.eval_v2 import quick_eval_loss, run_compact_eval
+from training.growth_runtime import load_growth_teacher, load_growth_training_pair
 from training.mixed_precision import MixedPrecisionTrainer
 from training.pcgrad import PCGradAccumulator
 from training.reproducibility import (
@@ -71,6 +76,7 @@ from training.shared_checkpoint import (
     sync_checkpoint_to_origin,
 )
 from training.v2_config import (
+    ANRA_V4_GROWTH_MODEL_PROFILE,
     ANRA_V4_MODEL,
     ANRA_V4_TRAINING,
     CANONICAL_FOUNDATION_OPTIMIZER,
@@ -113,8 +119,12 @@ from scripts.session_dashboard import print_session_dashboard
 EARLY_STATUS_STEPS = {1, 2, 5, 10, 20, 50, 100}
 HARD_EXAMPLE_KEEP = 16
 CONTINUATION_PHASE_TOKEN_TARGETS = {
-    "A": 1_000_000_000,
-    "B": 1_000_000_000,
+    # Historical phase letters remain only as the on-disk checkpoint counter
+    # key.  The active dense V4 foundation is one cumulative lineage ending at
+    # 3.6B tokens; reporting a 1B ceiling here made later windows look complete.
+    "A": 3_600_000_000,
+    # B is reserved for bounded, paired architecture pilots.
+    "B": 20_000_000,
     "C": 200_000_000,
     "D": 100_000_000,
     "E": 10_000_000,
@@ -133,6 +143,8 @@ def build_causal_extension_trainer(
     optimizer_name: str = CANONICAL_FOUNDATION_OPTIMIZER,
 ) -> object:
     """Canonical build-brain integration point for extension-only causal training."""
+    if optimizer_name != CANONICAL_FOUNDATION_OPTIMIZER:
+        raise ValueError("Operational V4 causal-extension training requires AdamW")
     from cognition.cre import CognitiveCausalExtension
     from training.causal_trainer import CausalExtensionTrainer
 
@@ -412,6 +424,8 @@ def _build_checkpoint_payload(
     data_generator: torch.Generator | None = None,
     seed_contract: dict[str, object] | None = None,
     rng_states_override: dict[str, object] | None = None,
+    token_window: dict[str, object] | None = None,
+    growth_provenance: dict[str, object] | None = None,
 ) -> dict[str, object]:
     try:
         source_commit = subprocess.check_output(
@@ -426,8 +440,9 @@ def _build_checkpoint_payload(
     data_manifests, data_manifest_payloads = _collect_data_manifest_payloads(manifest_root)
     tokenizer_contract = _tokenizer_checkpoint_contract()
     native_model = getattr(model, "model", model)
-    return {
+    payload: dict[str, object] = {
         "checkpoint_schema_version": CHECKPOINT_SCHEMA_VERSION,
+        "checkpoint_artifact_class": "full_resume",
         "tokenizer_schema_version": int(tokenizer_contract["schema_version"]),
         "tokenizer_contract": tokenizer_contract,
         "migration_provenance": migration,
@@ -463,6 +478,8 @@ def _build_checkpoint_payload(
         "appended_row_optimizer_steps": int(appended_row_optimizer_steps),
         "raw_window_consumption": dict(raw_window_consumption or {}),
         "data_sampler_state": dict(data_sampler_state or {}),
+        "token_window": dict(token_window or {}),
+        "growth_provenance": dict(growth_provenance or {}),
         "model_config": model.model_config(),
         "training_recipe": dict(getattr(native_model, "training_recipe", {})),
         "seed_contract": dict(seed_contract or {}),
@@ -489,6 +506,8 @@ def _build_checkpoint_payload(
             )
         },
     }
+    payload["checkpoint_lineage"] = build_checkpoint_lineage(payload)
+    return payload
 
 
 def _active_training_data_layout() -> str:
@@ -624,17 +643,26 @@ def _resolve_checkpoint_path(checkpoint_path: str) -> Path:
 
 
 def _prepare_resume_target(checkpoint_path: Path, resume_from: str | None) -> None:
-    if checkpoint_path.exists():
-        return
     if resume_from:
         candidate = _resolve_checkpoint_path(resume_from)
-        if candidate.exists():
-            checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(candidate, checkpoint_path)
-            print(
-                f"[build_brain] restored checkpoint: {candidate} -> {checkpoint_path}", flush=True
-            )
-            return
+        if not candidate.is_file():
+            raise FileNotFoundError(f"Signed resume checkpoint is missing: {candidate}")
+        if candidate.resolve() == checkpoint_path.resolve():
+            raise RuntimeError("Resume source and mutable output checkpoint must differ")
+        checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
+        temporary = checkpoint_path.with_suffix(checkpoint_path.suffix + ".resume.tmp")
+        try:
+            shutil.copy2(candidate, temporary)
+            os.replace(temporary, checkpoint_path)
+        finally:
+            temporary.unlink(missing_ok=True)
+        print(
+            f"[build_brain] restored signed checkpoint: {candidate} -> {checkpoint_path}",
+            flush=True,
+        )
+        return
+    if checkpoint_path.exists():
+        return
     shared_name = Path(resume_from).name if resume_from else checkpoint_path.name
     restored = restore_shared_checkpoint(checkpoint_path, shared_name)
     if restored is not None:
@@ -687,6 +715,112 @@ def _weighted_loss(
         "scaffold_tokens": scaffold.sum(),
     }
     return sample_losses.mean(), sample_losses, breakdown
+
+
+def _resolve_token_window_contract(
+    window_id: str | None,
+    start_token: int | None,
+    end_token: int | None,
+) -> dict[str, object] | None:
+    """Resolve a launch-bound token window from CLI values or verified worker env."""
+    resolved_id = (
+        window_id
+        if window_id is not None
+        else os.environ.get("ANRA_TOKEN_WINDOW_ID", "").strip() or None
+    )
+    raw_start = (
+        start_token
+        if start_token is not None
+        else os.environ.get("ANRA_TOKEN_WINDOW_START", "").strip() or None
+    )
+    raw_end = (
+        end_token
+        if end_token is not None
+        else os.environ.get("ANRA_TOKEN_WINDOW_END", "").strip() or None
+    )
+    if resolved_id is None and raw_start is None and raw_end is None:
+        return None
+    if resolved_id is None or raw_start is None or raw_end is None:
+        raise ValueError("Token-window id, start, and end must be supplied together")
+    normalized_id = str(resolved_id).lower()
+    if len(normalized_id) != 64 or any(
+        character not in "0123456789abcdef" for character in normalized_id
+    ):
+        raise ValueError("Token-window id must be a SHA-256 hex digest")
+    start = int(raw_start)
+    end = int(raw_end)
+    if start < 0 or end <= start:
+        raise ValueError("Token window requires 0 <= start_token < end_token")
+    return {
+        "window_id": normalized_id,
+        "start_token": start,
+        "end_token": end,
+    }
+
+
+def _assert_token_window_start(
+    token_window: dict[str, object] | None,
+    *,
+    phase_tokens_seen: int,
+    scratch_run: bool,
+) -> None:
+    if token_window is None:
+        return
+    start = int(token_window["start_token"])
+    if scratch_run and start != 0:
+        raise RuntimeError(
+            f"A scratch launch requires token-window start 0; received {start:,}"
+        )
+    if phase_tokens_seen != start:
+        raise RuntimeError(
+            "Checkpoint/token-window boundary mismatch: "
+            f"checkpoint phase tokens={phase_tokens_seen:,}, signed start={start:,}"
+        )
+
+
+def _cap_batch_to_token_budget(
+    xb: torch.Tensor,
+    yb: torch.Tensor,
+    wb: torch.Tensor,
+    sample_idx: torch.Tensor,
+    answer_mask: torch.Tensor,
+    *,
+    remaining_tokens: int,
+    pad_id: int,
+) -> tuple[
+    torch.Tensor,
+    torch.Tensor,
+    torch.Tensor,
+    torch.Tensor,
+    torch.Tensor,
+    int,
+]:
+    """Cap the final microbatch so a signed token window is never exceeded."""
+    if remaining_tokens <= 0:
+        raise ValueError("remaining_tokens must be positive")
+    valid_per_sample = (yb != pad_id).sum(dim=1).tolist()
+    total_valid = int(sum(valid_per_sample))
+    if total_valid <= remaining_tokens:
+        return xb, yb, wb, sample_idx, answer_mask, total_valid
+
+    kept_samples = 0
+    running = 0
+    for count in valid_per_sample:
+        kept_samples += 1
+        running += int(count)
+        if running >= remaining_tokens:
+            break
+    xb = xb[:kept_samples]
+    yb = yb[:kept_samples].clone()
+    wb = wb[:kept_samples].clone()
+    sample_idx = sample_idx[:kept_samples]
+    answer_mask = answer_mask[:kept_samples].clone()
+    valid_positions = torch.nonzero(yb != pad_id, as_tuple=False)
+    for row, column in valid_positions[remaining_tokens:].tolist():
+        yb[row, column] = pad_id
+        wb[row, column] = 0
+        answer_mask[row, column] = False
+    return xb, yb, wb, sample_idx, answer_mask, remaining_tokens
 
 
 def _masked_logit_z_loss(
@@ -871,6 +1005,12 @@ def train_anra_v2(
     seed: int = CANONICAL_TRAINING_SEED,
     post_session_eval: bool = True,
     rehearsal_interrupt_after_microsteps: int | None = None,
+    token_window_id: str | None = None,
+    token_window_start: int | None = None,
+    token_window_end: int | None = None,
+    growth_initialization: str | None = None,
+    growth_manifest: str | None = None,
+    growth_parent_checkpoint: str | None = None,
 ) -> dict[str, object]:
     for required_component in ("training_loop", "data_mix", "evaluation"):
         if not is_enabled(required_component):
@@ -878,8 +1018,21 @@ def train_anra_v2(
                 f"Required component is disabled at its call site: {required_component}"
             )
     print_session_dashboard()
-    if model_size != CANONICAL_MODEL_PROFILE:
-        raise ValueError(f"model size must be {CANONICAL_MODEL_PROFILE}")
+    growth_run = model_size == ANRA_V4_GROWTH_MODEL_PROFILE
+    if model_size not in {CANONICAL_MODEL_PROFILE, ANRA_V4_GROWTH_MODEL_PROFILE}:
+        raise ValueError("model size is not registered in the operational V4 lineage")
+    if optimizer_name != CANONICAL_FOUNDATION_OPTIMIZER:
+        raise ValueError(
+            "Operational V4 foundation and growth training require AdamW; "
+            "optimizer alternatives belong in isolated pilot code, not the canonical trainer"
+        )
+    growth_paths = (growth_initialization, growth_manifest, growth_parent_checkpoint)
+    if growth_run and (not growth_manifest or not growth_parent_checkpoint):
+        raise ValueError("The 500M child requires its growth manifest and parent checkpoint")
+    if not growth_run and any(growth_paths):
+        raise ValueError("The 181M foundation cannot bind model-growth artifacts")
+    if growth_initialization and resume_from:
+        raise ValueError("Growth initialization and exact resume are mutually exclusive")
     if accumulation < 1:
         raise ValueError("gradient accumulation must be positive")
     if training_layout not in {
@@ -889,6 +1042,19 @@ def train_anra_v2(
         raise ValueError(f"unsupported training layout: {training_layout}")
     if curriculum not in CURRICULUMS:
         raise ValueError(f"unsupported curriculum: {curriculum}")
+    token_window = _resolve_token_window_contract(
+        token_window_id,
+        token_window_start,
+        token_window_end,
+    )
+    if token_window is not None:
+        signed_end = int(token_window["end_token"])
+        if max_phase_tokens is not None and int(max_phase_tokens) != signed_end:
+            raise ValueError(
+                "--max-phase-tokens must equal the signed token-window end: "
+                f"{max_phase_tokens:,} != {signed_end:,}"
+            )
+        max_phase_tokens = signed_end
     if curriculum != "none" and training_layout != RawCausalShardDataset.PACKING_LAYOUT:
         raise ValueError("pilot curricula require immutable raw causal shards")
     if rehearsal_interrupt_after_microsteps is not None:
@@ -901,9 +1067,13 @@ def train_anra_v2(
     seed_report = seed_everything(seed)
     seed = seed_report.seed
     os.environ["ANRA_TRAINING_DATA_LAYOUT"] = training_layout
-    model_cfg, training_cfg = resolve_model_profile(model_size)
+    model_cfg, training_cfg = resolve_model_profile(
+        model_size,
+        allow_experimental=growth_run,
+    )
     growth_teacher = None
     growth_alignment = None
+    growth_provenance: dict[str, object] | None = None
     if not torch.cuda.is_available() and os.environ.get("ANRA_ALLOW_CPU_PILOT", "0") != "1":
         raise RuntimeError(
             f"{model_size} training requires CUDA; set ANRA_ALLOW_CPU_PILOT=1 "
@@ -1229,6 +1399,7 @@ def train_anra_v2(
         attention_pattern=attention_pattern,
         use_mtp=use_mtp,
         use_moe=use_moe,
+        allow_experimental=growth_run,
     )
     actual_parameters = sum(parameter.numel() for parameter in model.parameters())
     if actual_parameters != model_parameter_contract:
@@ -1245,9 +1416,41 @@ def train_anra_v2(
         from ouroboros import OuroborosDecoder
 
         model = OuroborosDecoder(model, n_passes=3)
+    if growth_run:
+        if use_ouroboros or use_mtp or use_moe:
+            raise ValueError("Growth stabilization must use the dense registered child")
+        if growth_initialization:
+            growth_teacher, growth_alignment, growth_provenance = load_growth_training_pair(
+                model,
+                initialization_path=growth_initialization,
+                growth_manifest_path=str(growth_manifest),
+                parent_checkpoint_path=str(growth_parent_checkpoint),
+            )
+        else:
+            growth_teacher, growth_alignment, growth_provenance = load_growth_teacher(
+                model,
+                growth_manifest_path=str(growth_manifest),
+                parent_checkpoint_path=str(growth_parent_checkpoint),
+            )
     model = model.to(device)
     ensure_tied_lm_head(model)
     native_model = getattr(model, "model", model)
+    growth_recipe = (
+        {
+            key: growth_provenance[key]
+            for key in (
+                "schema",
+                "growth_manifest_sha256",
+                "parent_checkpoint_sha256",
+                "identity_layers",
+                "optimizer_restart_required",
+                "alignment_steps",
+                "new_only_steps",
+            )
+        }
+        if growth_provenance is not None
+        else None
+    )
     native_model.training_recipe = {
         "model_profile": model_size,
         "training_layout": training_layout,
@@ -1263,6 +1466,7 @@ def train_anra_v2(
         "gradient_accumulation": accumulation,
         "sampler_algorithm": active_sampler_algorithm,
         "determinism_mode": DETERMINISM_MODE,
+        "growth": growth_recipe,
     }
     continuation_report = _configure_continuation_phase(model, continuation_phase)
     intelligence_session = create_intelligence_session(model)
@@ -1326,11 +1530,30 @@ def train_anra_v2(
     ckpt_path = (
         requested_checkpoint if requested_checkpoint.is_absolute() else ROOT / requested_checkpoint
     )
+    if growth_initialization and ckpt_path.exists():
+        raise RuntimeError(
+            "Growth output already exists; use a new artifact path or an explicit "
+            "full-resume launch"
+        )
     _prepare_resume_target(ckpt_path, resume_from)
-    if os.environ.get("ANRA_REQUIRE_RESUME", "0") == "1" and not ckpt_path.exists():
+    if (
+        os.environ.get("ANRA_REQUIRE_RESUME", "0") == "1"
+        and not ckpt_path.exists()
+        and not growth_initialization
+    ):
         raise RuntimeError(
             "ANRA_REQUIRE_RESUME=1, but no checkpoint was restored. "
             "Refusing to start from scratch and overwrite the intended experiment."
+        )
+    scratch_run = not ckpt_path.exists()
+    durability = CheckpointDurabilitySession.from_environment(
+        OUTPUT_V2_DIR / "durability" / "outbox",
+        scratch_run=scratch_run,
+    )
+    if durability.required and token_window is None:
+        raise RuntimeError(
+            "Required cluster durability also requires a signed token window. "
+            "Set ANRA_TOKEN_WINDOW_ID/START/END or pass the matching CLI arguments."
         )
     resume_path = Path(resume_from) if resume_from else ckpt_path
     if not resume_path.is_absolute():
@@ -1343,8 +1566,15 @@ def train_anra_v2(
         if not manifest_path.is_absolute():
             manifest_path = ROOT / manifest_path
         lineage_manifest_paths.append(manifest_path)
+    lineage_source = (
+        Path(growth_initialization)
+        if growth_initialization
+        else ckpt_path
+        if ckpt_path.exists()
+        else resume_path
+    )
     _freeze_training_lineage(
-        checkpoint_path=ckpt_path if ckpt_path.exists() else resume_path,
+        checkpoint_path=lineage_source,
         tokenizer_path=active_tokenizer_path(),
         model_config=model.model_config(),
         data_manifests=lineage_manifest_paths,
@@ -1360,6 +1590,26 @@ def train_anra_v2(
     best_validation_loss = float("inf")
     best_answer_validation_loss = float("inf")
     validation_history: list[dict[str, object]] = []
+
+    def _publish_training_checkpoint(
+        payload: dict[str, object],
+        *,
+        final: bool = False,
+    ) -> None:
+        if durability.enabled:
+            ref = durability.publish_checkpoint(ckpt_path, payload, final=final)
+            if ref is not None:
+                status = json.loads(
+                    durability.outbox.status_path(ref.snapshot_id).read_text(
+                        encoding="utf-8"
+                    )
+                )
+                print(
+                    f"[Durability] snapshot={ref.snapshot_id} state={status.get('state')}",
+                    flush=True,
+                )
+            return
+        _sync_training_checkpoint_to_drive(ckpt_path)
 
     registration_ts = time.time()
     signal_state: dict[str, object] = {
@@ -1416,6 +1666,8 @@ def train_anra_v2(
             data_generator=data_generator,
             seed_contract=seed_report.to_dict(),
             rng_states_override=boundary_rng_states,
+            token_window=token_window,
+            growth_provenance=growth_provenance,
         )
         payload["interruption"] = {
             "signal": int(sig_num),
@@ -1427,7 +1679,7 @@ def train_anra_v2(
         }
         ok = _emergency_save_with_timeout(payload, ckpt_path)
         if ok:
-            _sync_training_checkpoint_to_drive(ckpt_path)
+            _publish_training_checkpoint(payload, final=True)
         signal_state["emergency_save_completed"] = ok
         print(f"[build_brain] deferred termination save status={ok}", flush=True)
         raise SystemExit(128 + sig_num)
@@ -1497,6 +1749,17 @@ def train_anra_v2(
                 resume_state.get("best_answer_validation_loss", float("inf"))
             )
             validation_history = list(resume_state.get("validation_history", []))
+            saved_growth_provenance = resume_state.get("growth_provenance", {})
+            if growth_run:
+                if not isinstance(saved_growth_provenance, dict) or not saved_growth_provenance:
+                    raise RuntimeError("Growth resume checkpoint is missing its growth provenance")
+                stable_saved = {
+                    key: saved_growth_provenance.get(key)
+                    for key in dict(growth_recipe or {})
+                }
+                if stable_saved != growth_recipe:
+                    raise RuntimeError("Growth resume lineage differs from the active manifest")
+                growth_provenance = dict(saved_growth_provenance)
             checkpoint_migration = dict(resume_state.get("migration", {}))
             if appended_row_lr is not None:
                 appended_row_lr.steps_completed = int(
@@ -1560,6 +1823,105 @@ def train_anra_v2(
     else:
         print("[Resume] No checkpoint found — starting from scratch", flush=True)
     # ─────────────────────────────────────────────────────────────────────────────
+
+    if growth_initialization and not load_path.exists():
+        if growth_provenance is None:
+            raise RuntimeError("Growth initialization is missing its verified provenance")
+        parent_progress = growth_provenance.get("parent_progress", {})
+        if not isinstance(parent_progress, dict):
+            raise RuntimeError("Growth initialization is missing its parent cursor")
+        data_profile_changed = _assert_resume_data_profile_compatible(
+            parent_progress.get("data_profile"),
+            os.environ.get("ANRA_DATA_PROFILE", "unknown"),
+        )
+        reset_growth_sampler = (
+            data_profile_changed
+            and os.environ.get("ANRA_RESET_DATA_SAMPLER_ON_PROFILE_CHANGE", "0") == "1"
+        )
+        if data_profile_changed and not reset_growth_sampler:
+            raise RuntimeError(
+                "A growth data-window transition must explicitly reset its pack-local sampler"
+            )
+        _assert_resume_data_layout_compatible(
+            parent_progress.get("training_data_layout"),
+            _active_training_data_layout(),
+            continuation_phase,
+        )
+        campaign_tokens_seen = int(parent_progress.get("tokens_seen", 0))
+        continuation_token_counts.update(
+            {
+                str(name): int(value)
+                for name, value in dict(
+                    parent_progress.get("continuation_token_counts", {})
+                ).items()
+            }
+        )
+        best_validation_loss = float(
+            parent_progress.get("best_validation_loss", float("inf"))
+        )
+        best_answer_validation_loss = float(
+            parent_progress.get("best_answer_validation_loss", float("inf"))
+        )
+        validation_history = list(parent_progress.get("validation_history", []))
+        if window_consumption is not None:
+            if reset_growth_sampler:
+                data_sampler_position = 0
+                print(
+                    "[Growth] Signed child window starts with a fresh pack-local "
+                    "cursor while preserving the parent's cumulative token boundary.",
+                    flush=True,
+                )
+            else:
+                raw_consumption = parent_progress.get("raw_window_consumption", {})
+                sampler_state = parent_progress.get("data_sampler_state", {})
+                if not isinstance(raw_consumption, dict) or not raw_consumption:
+                    raise RuntimeError("Growth parent is missing window-consumption evidence")
+                if not isinstance(sampler_state, dict) or not sampler_state:
+                    raise RuntimeError("Growth parent is missing its exact sampler cursor")
+                window_consumption.load_state_dict(raw_consumption)
+                data_sampler_position = validate_sampler_resume_contract(
+                    sampler_state,
+                    seed=seed,
+                    curriculum=curriculum,
+                    active_num_samples=int(raw_sample_budget or 0),
+                    algorithm=active_sampler_algorithm,
+                    dataset_size=(
+                        len(ds)
+                        if active_sampler_algorithm == PERMUTATION_SAMPLER_ALGORITHM
+                        else None
+                    ),
+                )
+                visits = (
+                    window_consumption.unique_windows + window_consumption.repeated_windows
+                )
+                if visits != data_sampler_position:
+                    raise RuntimeError(
+                        "Growth parent sampler cursor disagrees with consumption evidence"
+                    )
+            loader = make_loader(sample_offset=data_sampler_position)
+            _assert_training_loader_dataset(loader, ds, eval_ds)
+        print(
+            "[Growth] Fresh AdamW initialized; inherited model, corpus cursor, "
+            "and cumulative token lineage verified.",
+            flush=True,
+        )
+
+    phase_key = continuation_phase.upper()
+    _assert_token_window_start(
+        token_window,
+        phase_tokens_seen=continuation_token_counts.get(phase_key, 0),
+        scratch_run=scratch_run and not bool(growth_initialization),
+    )
+    if growth_alignment is not None:
+        growth_alignment.configure_trainable_parameters(start_step)
+    if token_window is not None:
+        print(
+            "[Token Window] "
+            f"id={token_window['window_id']} "
+            f"range=[{int(token_window['start_token']):,}, "
+            f"{int(token_window['end_token']):,})",
+            flush=True,
+        )
 
     boundary_rng_states = capture_rng_states(data_generator=data_generator)
     boundary_epoch = epoch
@@ -1675,6 +2037,11 @@ def train_anra_v2(
         1,
         int(os.environ.get("ANRA_DURABLE_CHECKPOINT_STEPS", "100")),
     )
+    if durability.enabled:
+        # A durable run checkpoints at whichever boundary arrives first.  The
+        # caps cannot be relaxed by a stale notebook environment.
+        checkpoint_every_seconds = min(checkpoint_every_seconds, 15 * 60)
+        durable_checkpoint_steps = min(durable_checkpoint_steps, 100)
     next_checkpoint_at = time.time() + checkpoint_every_seconds
     optimizer.zero_grad(set_to_none=True)
     rolling_loss = 0.0
@@ -1757,6 +2124,31 @@ def train_anra_v2(
             _assert_training_loader_dataset(loader, ds, eval_ds)
         epoch += 1
         for xb, yb, wb, sample_idx, answer_mask in loader:
+            signed_window_boundary = False
+            if token_window is not None:
+                remaining_window_tokens = int(token_window["end_token"]) - (
+                    continuation_token_counts.get(phase_key, 0)
+                    + pending_trained_tokens
+                )
+                if remaining_window_tokens <= 0:
+                    break
+                (
+                    xb,
+                    yb,
+                    wb,
+                    sample_idx,
+                    answer_mask,
+                    accepted_batch_tokens,
+                ) = _cap_batch_to_token_budget(
+                    xb,
+                    yb,
+                    wb,
+                    sample_idx,
+                    answer_mask,
+                    remaining_tokens=remaining_window_tokens,
+                    pad_id=tokenizer.pad_token_id,
+                )
+                signed_window_boundary = accepted_batch_tokens == remaining_window_tokens
             if intelligence_session is not None:
                 intelligence_session.begin_step(global_step)
             if first_batch_wall is None:
@@ -1790,7 +2182,7 @@ def train_anra_v2(
                 )
                 batch_loss = batch_loss + current_mtp_loss
                 if growth_alignment is not None:
-                    alignment_step = max(0, global_step - initial_step)
+                    alignment_step = max(0, global_step)
                     alignment_penalty = growth_alignment.alignment_loss(
                         xb,
                         step=alignment_step,
@@ -1940,11 +2332,16 @@ def train_anra_v2(
                 elif entry[0] > hard_examples[0][0]:
                     heapq.heapreplace(hard_examples, entry)
 
-            if accum_micro_steps >= accumulation:
+            if accum_micro_steps >= accumulation or signed_window_boundary:
                 if pcgrad_enabled:
                     pcgrad_reports.extend(pcgrad.materialize())
                 if growth_alignment is not None:
                     growth_alignment.mask_inactive_gradients()
+                if signed_window_boundary and accum_micro_steps < accumulation:
+                    correction = accumulation / accum_micro_steps
+                    for parameter in model.parameters():
+                        if parameter.grad is not None:
+                            parameter.grad.mul_(correction)
                 gradient_norm = mp.clip_gradients(
                     model, optimizer, training_cfg.max_grad_norm
                 )
@@ -2025,7 +2422,7 @@ def train_anra_v2(
                 pcgrad.clear()
                 global_step += 1
                 if growth_alignment is not None:
-                    growth_alignment.configure_trainable_parameters(global_step - initial_step)
+                    growth_alignment.configure_trainable_parameters(global_step)
                 session_step += 1
                 accum_micro_steps = 0
                 accumulated_step_loss = 0.0
@@ -2052,6 +2449,7 @@ def train_anra_v2(
                         "phase_tokens_seen": continuation_token_counts.get(
                             continuation_phase.upper(), 0
                         ),
+                        "token_window": dict(token_window or {}),
                         "checkpoint_path": str(ckpt_path),
                     },
                 )
@@ -2189,7 +2587,8 @@ def train_anra_v2(
                         model.train(was_training)
 
                 if (
-                    global_step % durable_checkpoint_steps == 0
+                    durability.requires_initial_boundary
+                    or global_step % durable_checkpoint_steps == 0
                     or time.time() >= next_checkpoint_at
                 ):
                     payload = _build_checkpoint_payload(
@@ -2222,9 +2621,11 @@ def train_anra_v2(
                         data_sampler_state=current_data_sampler_state(),
                         data_generator=data_generator,
                         seed_contract=seed_report.to_dict(),
+                        token_window=token_window,
+                        growth_provenance=growth_provenance,
                     )
                     atomic_save(payload, ckpt_path, drive_dir=None)
-                    _sync_training_checkpoint_to_drive(ckpt_path)
+                    _publish_training_checkpoint(payload)
                     if device.type == "cuda":
                         torch.cuda.empty_cache()
                     try:
@@ -2312,9 +2713,11 @@ def train_anra_v2(
         data_sampler_state=current_data_sampler_state(),
         data_generator=data_generator,
         seed_contract=seed_report.to_dict(),
+        token_window=token_window,
+        growth_provenance=growth_provenance,
     )
     atomic_save(payload, ckpt_path, drive_dir=None)
-    _sync_training_checkpoint_to_drive(ckpt_path)
+    _publish_training_checkpoint(payload, final=True)
     if device.type == "cuda":
         torch.cuda.empty_cache()
     try:
@@ -2357,6 +2760,7 @@ def train_anra_v2(
         "verified_process_weighted_tokens": verified_process_weighted_tokens,
         "campaign_tokens_seen": campaign_tokens_seen,
         "phase_tokens_seen": continuation_token_counts.get(continuation_phase.upper(), 0),
+        "token_window": dict(token_window or {}),
         "raw_window_consumption": (
             window_consumption.report(
                 phase_target_tokens=CONTINUATION_PHASE_TOKEN_TARGETS.get(continuation_phase.upper())
@@ -2639,6 +3043,7 @@ def train_anra_v2(
                             data_generator=data_generator,
                         )
                         print("[ABORT] Checkpoint restored. Stopping session.", flush=True)
+                    durability.close()
                     return {
                         "checkpoint_path": str(ckpt_path),
                         "global_step": global_step,
@@ -2671,7 +3076,10 @@ def train_anra_v2(
     # The frontier checkpoint has exactly one Drive destination: the shared
     # master that was restored at session start. Do not invoke legacy V2
     # artifact mirroring here; it creates duplicate multi-gigabyte brain files.
-    _sync_training_checkpoint_to_drive(ckpt_path)
+    if durability.enabled:
+        durability.close()
+    else:
+        _sync_training_checkpoint_to_drive(ckpt_path)
 
     elapsed_total = time.time() - start
     print("", flush=True)
@@ -2684,7 +3092,11 @@ def train_anra_v2(
     print(f"  Eval score         : {float(eval_summary.get('overall_score', 0.0)):.4f}", flush=True)
     print(f"  Time elapsed       : {elapsed_total / 60:.1f} minutes", flush=True)
     print(f"  Checkpoint saved   : {ckpt_path}", flush=True)
-    print("  Drive synced       : yes", flush=True)
+    print(
+        "  Durability         : "
+        + ("verified outbox" if durability.enabled else "legacy checkpoint mirror"),
+        flush=True,
+    )
     print("=" * 62, flush=True)
     print("", flush=True)
 
@@ -2708,6 +3120,7 @@ def train_anra_v2(
         "best_loss": best_loss,
         "eval_summary": eval_summary,
         "mix_report": mix_report.to_dict(),
+        "token_window": dict(token_window or {}),
     }
 
 
@@ -2724,9 +3137,12 @@ def main() -> None:
     parser.add_argument("--max_minutes", type=int, default=ANRA_V4_TRAINING.session_minutes)
     parser.add_argument(
         "--model-size",
-        choices=[CANONICAL_MODEL_PROFILE],
+        choices=[CANONICAL_MODEL_PROFILE, ANRA_V4_GROWTH_MODEL_PROFILE],
         default=CANONICAL_MODEL_PROFILE,
     )
+    parser.add_argument("--growth-initialization", default=None)
+    parser.add_argument("--growth-manifest", default=None)
+    parser.add_argument("--growth-parent-checkpoint", default=None)
     parser.add_argument(
         "--answer_loss_weight", type=float, default=ANRA_V4_TRAINING.answer_loss_weight
     )
@@ -2762,6 +3178,9 @@ def main() -> None:
         default=None,
         help="Stop at the first complete optimizer boundary reaching this phase token count.",
     )
+    parser.add_argument("--token-window-id", default=None)
+    parser.add_argument("--token-window-start", type=int, default=None)
+    parser.add_argument("--token-window-end", type=int, default=None)
     parser.add_argument(
         "--start_eval_examples",
         type=int,
@@ -2790,7 +3209,7 @@ def main() -> None:
     parser.add_argument("--replay_ratio", type=float, default=None)
     parser.add_argument(
         "--optimizer",
-        choices=["auto", "adamw", "adam8bit", "adafactor", "muon", "scale", "galore", "qgalore"],
+        choices=[CANONICAL_FOUNDATION_OPTIMIZER],
         default=CANONICAL_FOUNDATION_OPTIMIZER,
     )
     parser.add_argument(
@@ -2849,6 +3268,12 @@ def main() -> None:
         rehearsal_interrupt_after_microsteps=(
             args.rehearsal_interrupt_after_microsteps
         ),
+        token_window_id=args.token_window_id,
+        token_window_start=args.token_window_start,
+        token_window_end=args.token_window_end,
+        growth_initialization=args.growth_initialization,
+        growth_manifest=args.growth_manifest,
+        growth_parent_checkpoint=args.growth_parent_checkpoint,
     )
     print(result, flush=True)
 

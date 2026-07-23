@@ -46,6 +46,52 @@ def test_quick_eval_loss_separates_answer_scaffold_and_weighted_ce() -> None:
     assert report["domain_losses"]["unknown"]["target_tokens"] == 2
 
 
+def test_validation_sampling_covers_every_immutable_source() -> None:
+    class SourceDataset:
+        def __init__(self) -> None:
+            row = (
+                torch.tensor([1, 2, 3]),
+                torch.tensor([2, 3, 1]),
+                torch.ones(3),
+                0,
+                torch.zeros(3, dtype=torch.bool),
+            )
+            self.rows = [row for _ in range(12)]
+
+        def __len__(self):
+            return len(self.rows)
+
+        def __getitem__(self, index):
+            return self.rows[index]
+
+        def source_window_ranges(self):
+            return {"prose": ((0, 10),), "code": ((10, 12),)}
+
+        def bucket_for_window(self, index):
+            return "prose" if index < 10 else "code"
+
+    class UniformModel(torch.nn.Module):
+        def forward(self, inputs):
+            return torch.zeros((*inputs.shape, 4), device=inputs.device), None
+
+    dataset = SourceDataset()
+    indices = eval_v2.stratified_validation_indices(dataset, 4)
+    assert any(index < 10 for index in indices)
+    assert any(index >= 10 for index in indices)
+
+    report = eval_v2.quick_eval_loss(
+        UniformModel(),
+        dataset,
+        device=torch.device("cpu"),
+        max_examples=4,
+        batch_size=2,
+        pad_id=0,
+    )
+    assert set(report["domain_losses"]) == {"code", "prose"}
+    assert report["validation_sampling"] == "source_stratified_equal_coverage"
+    assert report["macro_source_loss"] == pytest.approx(report["worst_source_loss"])
+
+
 def _summary(overrides: dict | None = None) -> dict[str, object]:
     payload: dict[str, object] = {
         "generated_at": 1_717_171_717.0,
@@ -296,7 +342,7 @@ def test_coherence_uses_task_contract_for_intentionally_short_answers() -> None:
     )
 
 
-def test_private_promotion_requires_each_seed_trace_latency_and_blinded_review() -> None:
+def test_private_promotion_requires_paired_trace_latency_and_blinded_review() -> None:
     tasks = [
         {
             "id": f"heldout_{index:04d}",
@@ -330,7 +376,7 @@ def test_private_promotion_requires_each_seed_trace_latency_and_blinded_review()
             subsystem_trace=executed,
         )
 
-    report = eval_v2.run_private_mode_seed_evaluation(
+    report = eval_v2.run_private_mode_evaluation(
         generator,
         tasks=tasks,
         suite_metadata={
@@ -344,7 +390,7 @@ def test_private_promotion_requires_each_seed_trace_latency_and_blinded_review()
     assert report["capability_allowed"] is False
     assert report["capability_gates"]["blinded_human_review"] is False
     assert all(
-        item["positive_three_seed_contribution"]
+        item["positive_paired_contribution"]
         and item["bounded_latency_cost"]
         and item["isolated_trace_verified"]
         for item in report["ablations"].values()

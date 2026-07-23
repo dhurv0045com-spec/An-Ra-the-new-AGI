@@ -1,4 +1,9 @@
-"""Resumable, gate-driven four-stage AN-RA training campaigns."""
+"""Milestone orchestration for the canonical dense V4 foundation lineage.
+
+Post-training, architecture pilots, and model growth are separate signed
+lineages.  They are intentionally not disguised as continuation phases in the
+foundation campaign.
+"""
 
 from __future__ import annotations
 
@@ -6,90 +11,62 @@ import json
 import math
 from collections.abc import Callable, Mapping
 from dataclasses import asdict, dataclass
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 
-from training.v2_config import ANRA_V4_MODEL_PARAMETER_COUNT
+from training.foundation_campaign import (
+    ARCHITECTURE_PILOT_TOKENS,
+    FOUNDATION_MILESTONES,
+    MAX_WINDOW_TOKENS,
+    MIN_WINDOW_TOKENS,
+    evaluate_foundation_milestone,
+)
+from training.v2_config import (
+    ANRA_V4_MODEL_PARAMETER_COUNT,
+    CANONICAL_MODEL_PROFILE,
+    CANONICAL_TRAINING_SEED,
+    TOKENIZER_SCHEMA_VERSION,
+)
+
+FOUNDATION_STATE_CONTRACT = "anra-v4-foundation-state/v1"
 
 
-class TrainingStage(str, Enum):
-    FOUNDATION = "foundation"
-    OWNER_ADAPTATION = "owner_adaptation"
-    AGENCY = "agency"
-    VERIFIED_REASONING = "verified_reasoning"
-    VERIFIER_REPLAY = "verifier_replay"
+class FoundationMilestone(StrEnum):
+    TOKENS_200M = "foundation_200m"
+    TOKENS_500M = "foundation_500m"
+    TOKENS_1B = "foundation_1b"
+    TOKENS_3_6B = "foundation_3_6b"
+
+
+_MILESTONE_TARGETS = dict(zip(FoundationMilestone, FOUNDATION_MILESTONES, strict=True))
 
 
 @dataclass(frozen=True)
-class StageConfig:
-    stage: TrainingStage
-    objective: str
-    owner_ratio: float
-    max_steps: int
+class FoundationStageConfig:
+    milestone: FoundationMilestone
     token_target: int
-    verifier_required: bool = False
-    continuation_phase: str = "D"
-    training_layout: str = "bucket_packed_v1"
+    objective: str = "dense_v4_next_token"
+    continuation_phase: str = "A"
+    training_layout: str = "raw_causal_shards_v1"
 
 
-DEFAULT_STAGES = (
-    StageConfig(
-        TrainingStage.FOUNDATION,
-        "raw_next_token_frozen_native",
-        0.0,
-        50_000,
-        1_000_000_000,
-        continuation_phase="A",
-        training_layout="raw_causal_shards_v1",
-    ),
-    StageConfig(
-        TrainingStage.OWNER_ADAPTATION,
-        "raw_next_token_staged_native",
-        0.0,
-        50_000,
-        1_000_000_000,
-        continuation_phase="B",
-        training_layout="raw_causal_shards_v1",
-    ),
-    StageConfig(
-        TrainingStage.AGENCY,
-        "mixed_code_math_science_dfc",
-        0.05,
-        20_000,
-        200_000_000,
-        continuation_phase="C",
-        training_layout="raw_causal_shards_v1",
-    ),
-    StageConfig(
-        TrainingStage.VERIFIED_REASONING,
-        "conversation_instruction",
-        0.05,
-        20_000,
-        100_000_000,
-        continuation_phase="D",
-    ),
-    StageConfig(
-        TrainingStage.VERIFIER_REPLAY,
-        "verifier_replay_tools",
-        0.05,
-        10_000,
-        10_000_000,
-        True,
-        continuation_phase="E",
-    ),
+FOUNDATION_STAGES = tuple(
+    FoundationStageConfig(milestone, target)
+    for milestone, target in _MILESTONE_TARGETS.items()
 )
 
 
 @dataclass(frozen=True)
-class CampaignConfig:
+class FoundationCampaignConfig:
     model_size: str
     data_path: str
     output_dir: str
 
 
 @dataclass(frozen=True)
-class StageResult:
-    stage: str
+class MilestoneResult:
+    milestone: str
+    target_tokens: int
     passed_gate: bool
     gate_failures: tuple[str, ...]
     checkpoint_path: str | None
@@ -104,7 +81,8 @@ def build_validation_regression_gate(
     max_relative_regression: float = 0.02,
     require_answer: bool = False,
 ) -> dict[str, object]:
-    """Compare immutable, domain-stratified validation evidence fail-closed."""
+    """Compare immutable, source-stratified validation evidence fail closed."""
+
     failures: list[str] = []
     baseline_identity = str(baseline.get("validation_identity", ""))
     candidate_identity = str(candidate.get("validation_identity", ""))
@@ -170,11 +148,7 @@ def build_validation_regression_gate(
         if require_answer:
             compare(
                 f"domain.{domain}.answer_loss",
-                finite_loss(
-                    base_domain,
-                    "answer_loss",
-                    f"baseline {domain} answer loss",
-                ),
+                finite_loss(base_domain, "answer_loss", f"baseline {domain} answer loss"),
                 finite_loss(
                     candidate_domain,
                     "answer_loss",
@@ -192,68 +166,114 @@ def build_validation_regression_gate(
     }
 
 
-class CampaignState:
-    def __init__(self, path: str | Path, stages: tuple[StageConfig, ...] = DEFAULT_STAGES) -> None:
+class FoundationCampaignState:
+    """Atomic state for one V4 foundation lineage; legacy states are rejected."""
+
+    def __init__(
+        self,
+        path: str | Path,
+        stages: tuple[FoundationStageConfig, ...] = FOUNDATION_STAGES,
+    ) -> None:
         self.path = Path(path)
         self.stages = stages
-        self.state = {
-            config.stage.value: {"step": 0, "status": "pending", "checkpoint": None}
-            for config in stages
+        self.state: dict[str, object] = {
+            "contract_id": FOUNDATION_STATE_CONTRACT,
+            "model_profile": CANONICAL_MODEL_PROFILE,
+            "seed": CANONICAL_TRAINING_SEED,
+            "milestones": {
+                config.milestone.value: {
+                    "target_tokens": config.token_target,
+                    "tokens_seen": 0,
+                    "status": "pending",
+                    "checkpoint": None,
+                }
+                for config in stages
+            },
         }
         if self.path.exists():
-            self.state.update(json.loads(self.path.read_text(encoding="utf-8")))
+            payload = json.loads(self.path.read_text(encoding="utf-8"))
+            if payload.get("contract_id") != FOUNDATION_STATE_CONTRACT:
+                raise RuntimeError(
+                    "Legacy campaign state cannot resume the V4 foundation lineage; "
+                    "start with a new foundation state file"
+                )
+            if payload.get("model_profile") != CANONICAL_MODEL_PROFILE:
+                raise RuntimeError("Foundation campaign model profile changed")
+            if int(payload.get("seed", -1)) != CANONICAL_TRAINING_SEED:
+                raise RuntimeError("Foundation campaign seed changed")
+            self.state = payload
+
+    @property
+    def milestones(self) -> dict[str, dict[str, object]]:
+        value = self.state.get("milestones", {})
+        if not isinstance(value, dict):
+            raise RuntimeError("Foundation campaign milestones are malformed")
+        return value  # type: ignore[return-value]
 
     def update(
         self,
-        stage: TrainingStage,
+        milestone: FoundationMilestone,
         *,
-        step: int,
+        tokens_seen: int,
         status: str,
         checkpoint: str | None,
     ) -> None:
         if status not in {"pending", "running", "complete", "blocked"}:
-            raise ValueError(f"Invalid stage status: {status}")
-        self.state[stage.value] = {
-            "step": int(step),
+            raise ValueError(f"Invalid milestone status: {status}")
+        target = _MILESTONE_TARGETS[milestone]
+        self.milestones[milestone.value] = {
+            "target_tokens": target,
+            "tokens_seen": max(0, int(tokens_seen)),
             "status": status,
             "checkpoint": checkpoint,
         }
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        self.path.write_text(json.dumps(self.state, indent=2, sort_keys=True), encoding="utf-8")
+        temporary = self.path.with_suffix(self.path.suffix + ".tmp")
+        temporary.write_text(
+            json.dumps(self.state, indent=2, sort_keys=True),
+            encoding="utf-8",
+        )
+        temporary.replace(self.path)
 
-    def next_stage(self) -> StageConfig | None:
+    def next_milestone(self) -> FoundationStageConfig | None:
         for config in self.stages:
-            if self.state[config.stage.value]["status"] != "complete":
+            row = self.milestones.get(config.milestone.value, {})
+            if row.get("status") != "complete":
                 return config
         return None
 
     def manifest(self) -> dict[str, object]:
         return {
-            "stages": [asdict(config) for config in self.stages],
+            "contract_id": FOUNDATION_STATE_CONTRACT,
+            "model_profile": CANONICAL_MODEL_PROFILE,
+            "model_parameters": ANRA_V4_MODEL_PARAMETER_COUNT,
+            "tokenizer": "v4-32768",
+            "tokenizer_schema_version": TOKENIZER_SCHEMA_VERSION,
+            "seed": CANONICAL_TRAINING_SEED,
+            "milestones": [asdict(config) for config in self.stages],
+            "window_tokens": {"minimum": MIN_WINDOW_TOKENS, "maximum": MAX_WINDOW_TOKENS},
+            "architecture_pilot_tokens": ARCHITECTURE_PILOT_TOKENS,
+            "post_training_is_separate_lineage": True,
             "state": self.state,
-            "v4_reference_tokens": ANRA_V4_MODEL_PARAMETER_COUNT * 20,
-            "draft_proof_tokens": 32_000_000,
-            "frontier_rescue_tokens": 110_000_000,
-            "frontier_recovery_floor_tokens": 2_310_000_000,
-            "single_t4_role": "smoke_profile_adapter_pilot_inference",
         }
 
 
 def training_progress_report(
     *,
-    phase: str,
-    phase_tokens_seen: int,
+    milestone: str,
+    tokens_seen: int,
     tokens_per_second: float,
     session_minutes: int = 180,
 ) -> dict[str, object]:
-    targets = {
-        "DRAFT": 32_000_000,
-        "RESCUE": 110_000_000,
-        **{config.continuation_phase: config.token_target for config in DEFAULT_STAGES},
-    }
-    normalized = phase.strip().upper()
-    target = int(targets.get(normalized, 0))
-    seen = max(0, int(phase_tokens_seen))
+    """Estimate sessions to one named cumulative V4 foundation milestone."""
+
+    key = milestone.strip().lower().replace("-", "_")
+    targets = {item.value: _MILESTONE_TARGETS[item] for item in FoundationMilestone}
+    targets["foundation"] = FOUNDATION_MILESTONES[-1]
+    if key not in targets:
+        raise ValueError(f"Unknown V4 foundation milestone: {milestone!r}")
+    target = int(targets[key])
+    seen = max(0, int(tokens_seen))
     remaining = max(0, target - seen)
     throughput = max(0.0, float(tokens_per_second))
     session_tokens = int(throughput * max(1, session_minutes) * 60)
@@ -261,11 +281,11 @@ def training_progress_report(
         math.ceil(remaining / session_tokens) if remaining and session_tokens else None
     )
     return {
-        "schema_version": 1,
-        "phase": normalized,
+        "schema": "anra-v4-foundation-progress/v1",
+        "milestone": key,
         "tokens_seen": seen,
         "target_tokens": target,
-        "completion": min(1.0, seen / target) if target else 0.0,
+        "completion": min(1.0, seen / target),
         "tokens_per_second": throughput,
         "session_minutes": int(session_minutes),
         "tokens_per_session": session_tokens,
@@ -273,103 +293,101 @@ def training_progress_report(
     }
 
 
-class StagedTrainingCampaign:
-    def __init__(self, config: CampaignConfig) -> None:
+class FoundationTrainingCampaign:
+    def __init__(self, config: FoundationCampaignConfig) -> None:
+        if config.model_size != CANONICAL_MODEL_PROFILE:
+            raise ValueError(
+                "The dense foundation campaign accepts only "
+                f"{CANONICAL_MODEL_PROFILE!r}"
+            )
         self.config = config
         output = Path(config.output_dir)
-        self.state = CampaignState(output / f"campaign_{config.model_size}.json")
-        self.results_dir = output / "stage_results"
+        self.state = FoundationCampaignState(
+            output / f"v4_foundation_{config.model_size}.json"
+        )
+        self.results_dir = output / "foundation_milestones"
 
     @staticmethod
-    def _gate(config: StageConfig, metrics: dict[str, object]) -> tuple[str, ...]:
-        failures: list[str] = []
-        ibs = metrics.get("ibs", {})
-        dimensions = ibs.get("dimensions", {}) if isinstance(ibs, dict) else {}
-        training_tokens = int(metrics.get("training_tokens", 0))
-        if training_tokens < config.token_target:
-            failures.append(
-                f"training tokens {training_tokens:,} < stage target {config.token_target:,}"
-            )
-        if config.stage != TrainingStage.FOUNDATION:
-            baseline = metrics.get("validation_baseline", {})
-            candidate = metrics.get("validation_candidate", {})
-            baseline = baseline if isinstance(baseline, Mapping) else {}
-            candidate = candidate if isinstance(candidate, Mapping) else {}
-            validation_gate = build_validation_regression_gate(
-                baseline,
-                candidate,
-                require_answer=config.stage
-                in {TrainingStage.VERIFIED_REASONING, TrainingStage.VERIFIER_REPLAY},
-            )
-            failures.extend(str(value) for value in validation_gate["failures"])
-        if config.stage == TrainingStage.FOUNDATION:
-            perplexity = float(metrics.get("perplexity", float("inf")))
-            if perplexity >= 12.0:
-                failures.append(f"perplexity {perplexity:.3f} >= 12")
-            if not bool(metrics.get("numerically_stable", False)):
-                failures.append("numerical stability evidence missing")
-            if not bool(metrics.get("tokenizer_schema_valid", False)):
-                failures.append("tokenizer and checkpoint schema validation missing")
-        elif config.stage == TrainingStage.OWNER_ADAPTATION:
-            if not bool(metrics.get("subsystem_trace_complete", False)):
-                failures.append("isolated native subsystem trace is incomplete")
-        elif config.stage == TrainingStage.AGENCY:
-            pass
-        elif config.stage == TrainingStage.VERIFIED_REASONING:
-            if float(metrics.get("coherence_rate", 0.0)) < 0.90:
-                failures.append("chat coherence below 0.90")
-            if float(metrics.get("format_compliance", 0.0)) < 0.85:
-                failures.append("instruction format compliance below 0.85")
-        elif config.stage == TrainingStage.VERIFIER_REPLAY:
-            if float(dimensions.get("reasoning", 0.0)) < 0.70:
-                failures.append("IBS reasoning below 0.70")
-            if float(metrics.get("star_verification_rate", 0.0)) < 0.90:
-                failures.append("STaR verification rate below 0.90")
-            if float(metrics.get("truth_checking_coverage", 0.0)) <= 0.95:
-                failures.append("truth-checking coverage is not above 0.95")
+    def _gate(
+        config: FoundationStageConfig,
+        metrics: Mapping[str, object],
+    ) -> tuple[str, ...]:
+        validation = metrics.get("validation_candidate", {})
+        validation = validation if isinstance(validation, Mapping) else {}
+        raw_window = metrics.get("raw_window_consumption", {})
+        raw_window = raw_window if isinstance(raw_window, Mapping) else {}
+        behavior = metrics.get("behavior", {})
+        behavior = behavior if isinstance(behavior, Mapping) else {}
+        gate = evaluate_foundation_milestone(
+            {
+                "tokens_seen": int(metrics.get("training_tokens", 0)),
+                "durability_state": str(metrics.get("durability_state", "")),
+                "numerically_stable": bool(metrics.get("numerically_stable", False)),
+                "duplicate_windows": int(raw_window.get("repeated_windows", -1)),
+                "validation": validation,
+                "behavior": behavior,
+            },
+            target_tokens=config.token_target,
+        )
+        failures = [str(value) for value in gate["failures"]]
+        if int(metrics.get("tokenizer_schema_version", -1)) != TOKENIZER_SCHEMA_VERSION:
+            failures.append("canonical tokenizer schema 4 evidence is missing")
+        baseline = metrics.get("validation_baseline", {})
+        baseline = baseline if isinstance(baseline, Mapping) else {}
+        if baseline:
+            regression = build_validation_regression_gate(baseline, validation)
+            failures.extend(str(value) for value in regression["failures"])
         return tuple(failures)
 
-    def run_stage(
+    def run_milestone(
         self,
-        stage_name: str,
+        milestone_name: str,
         *,
-        execute: Callable[[StageConfig], tuple[int, str | None]],
-        load_metrics: Callable[[StageConfig], dict[str, object]],
-    ) -> StageResult:
-        aliases = {
-            "stage_a": TrainingStage.FOUNDATION,
-            "stage_b": TrainingStage.OWNER_ADAPTATION,
-            "stage_c": TrainingStage.AGENCY,
-            "stage_d": TrainingStage.VERIFIED_REASONING,
-            "stage_e": TrainingStage.VERIFIER_REPLAY,
-            "owner_sft": TrainingStage.OWNER_ADAPTATION,
-            "rlvr": TrainingStage.VERIFIER_REPLAY,
-        }
-        stage = aliases[stage_name] if stage_name in aliases else TrainingStage(stage_name)
-        config = next(item for item in self.state.stages if item.stage == stage)
-        self.state.update(stage, step=0, status="running", checkpoint=None)
+        execute: Callable[[FoundationStageConfig], tuple[int, str | None]],
+        load_metrics: Callable[[FoundationStageConfig], dict[str, object]],
+    ) -> MilestoneResult:
+        try:
+            milestone = FoundationMilestone(milestone_name)
+        except ValueError as exc:
+            raise ValueError(
+                f"Unknown foundation milestone {milestone_name!r}; legacy Stage A-E "
+                "aliases are retired"
+            ) from exc
+        config = next(item for item in self.state.stages if item.milestone == milestone)
+        self.state.update(
+            milestone,
+            tokens_seen=int(
+                self.state.milestones[milestone.value].get("tokens_seen", 0)
+            ),
+            status="running",
+            checkpoint=None,
+        )
         exit_code, checkpoint = execute(config)
         metrics = load_metrics(config)
         failures = list(self._gate(config, metrics))
         if exit_code != 0:
             failures.insert(0, f"training exited with code {exit_code}")
-        result = StageResult(
-            stage=stage.value,
+        result = MilestoneResult(
+            milestone=milestone.value,
+            target_tokens=config.token_target,
             passed_gate=not failures,
             gate_failures=tuple(failures),
             checkpoint_path=checkpoint,
-            metrics=metrics,
+            metrics=dict(metrics),
             exit_code=exit_code,
         )
         self.state.update(
-            stage,
-            step=config.max_steps,
+            milestone,
+            tokens_seen=int(metrics.get("training_tokens", 0)),
             status="complete" if result.passed_gate else "blocked",
             checkpoint=checkpoint,
         )
         self.results_dir.mkdir(parents=True, exist_ok=True)
-        (self.results_dir / f"{stage.value}.json").write_text(
+        target = self.results_dir / f"{milestone.value}.json"
+        temporary = target.with_suffix(target.suffix + ".tmp")
+        temporary.write_text(
             json.dumps(asdict(result), indent=2, sort_keys=True),
             encoding="utf-8",
         )
+        temporary.replace(target)
         return result

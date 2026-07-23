@@ -2,15 +2,21 @@ from __future__ import annotations
 
 import functools
 import inspect
-import json
 import time
 from collections.abc import Callable
+from contextlib import suppress
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
+from runtime.evidence_stream import (
+    DEFAULT_EVIDENCE_PATH,
+    append_evidence,
+    read_evidence,
+)
+
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-TELEMETRY_LOG = PROJECT_ROOT / "state" / "logs" / "telemetry.jsonl"
+TELEMETRY_LOG = DEFAULT_EVIDENCE_PATH
 
 
 @dataclass
@@ -45,34 +51,35 @@ class TelemetryBus:
         self._flush_one(rec)
 
     def _flush_one(self, rec: TelemetryRecord) -> None:
-        try:
-            with self._path.open("a", encoding="utf-8") as f:
-                f.write(json.dumps(rec.to_dict(), ensure_ascii=False) + "\n")
-        except Exception:
-            pass
+        with suppress(Exception):
+            append_evidence(
+                source="engine.telemetry",
+                kind="runtime.operation",
+                payload=rec.to_dict(),
+                path=self._path,
+            )
+
+    def _rows(self) -> list[dict[str, Any]]:
+        report = read_evidence(self._path)
+        return [
+            dict(event.get("payload", {}))
+            for event in report["events"]
+            if event.get("source") == "engine.telemetry"
+            and isinstance(event.get("payload"), dict)
+        ]
 
     def recent(self, n: int = 50) -> list[dict]:
         """Return last n records from the JSONL file."""
         if n <= 0 or not self._path.exists():
             return []
-        rows: list[dict] = []
-        for line in self._path.read_text(encoding="utf-8", errors="replace").splitlines()[-n:]:
-            try:
-                rows.append(json.loads(line))
-            except Exception:
-                continue
-        return rows
+        return self._rows()[-n:]
 
     def summary_by_module(self) -> dict[str, dict]:
         """Aggregate stats per module from the JSONL file."""
         if not self._path.exists():
             return {}
         grouped: dict[str, dict[str, Any]] = {}
-        for line in self._path.read_text(encoding="utf-8", errors="replace").splitlines():
-            try:
-                row = json.loads(line)
-            except Exception:
-                continue
+        for row in self._rows():
             module = str(row.get("module", "unknown"))
             bucket = grouped.setdefault(
                 module,

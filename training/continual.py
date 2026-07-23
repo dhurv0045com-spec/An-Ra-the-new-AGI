@@ -85,7 +85,7 @@ class ContinualLearningOrchestrator:
     """Own the isolated adapter candidate, evaluation, quarantine, and promotion lifecycle."""
 
     MIN_EXAMPLES = 100
-    SEEDS = (1301, 1302, 1303)
+    EVALUATION_SEEDS = (1301,)
 
     def __init__(
         self,
@@ -174,8 +174,8 @@ class ContinualLearningOrchestrator:
             source_commit="continual-learning-orchestrator",
         )
 
-        baseline_reports = [evaluate(None, seed) for seed in self.SEEDS]
-        candidate_reports = [evaluate(model, seed) for seed in self.SEEDS]
+        baseline_reports = [evaluate(None, seed) for seed in self.EVALUATION_SEEDS]
+        candidate_reports = [evaluate(model, seed) for seed in self.EVALUATION_SEEDS]
         from evaluation.promotion import (
             CapabilityPromotionGate,
             DeploymentPromotionGate,
@@ -209,7 +209,7 @@ class ContinualLearningOrchestrator:
             replay_fraction=replay_count / max(1, len(training_rows)),
             ewc_coefficient=self.ewc_coefficient,
             eval_report={
-                "seed_count": len(self.SEEDS),
+                "evaluation_run_count": len(self.EVALUATION_SEEDS),
                 "baseline": baseline_reports,
                 "candidate": candidate_reports,
                 "decision": asdict(decision),

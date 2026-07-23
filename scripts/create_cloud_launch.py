@@ -9,6 +9,10 @@ import subprocess
 from pathlib import Path
 
 from training.launch_manifest import build_launch_manifest, sign_manifest
+from training.v2_config import (
+    ANRA_V4_GROWTH_MODEL_PROFILE,
+    CANONICAL_MODEL_PROFILE,
+)
 
 
 def create_cloud_launch(
@@ -21,6 +25,10 @@ def create_cloud_launch(
     runtime_estimate_hours: float,
     batch_size: int,
     accumulation: int,
+    model_profile: str = CANONICAL_MODEL_PROFILE,
+    stage: str | None = None,
+    growth_manifest: str | None = None,
+    growth_parent_checkpoint: str | None = None,
 ) -> dict[str, object]:
     pack_root = pack_root.resolve()
     pack = json.loads((pack_root / "pack_manifest.json").read_text(encoding="utf-8"))
@@ -42,9 +50,21 @@ def create_cloud_launch(
     tokenizer_metadata_hash = hashlib.sha256(tokenizer_metadata.read_bytes()).hexdigest()
     if tokenizer_metadata_hash != str(pack["tokenizer_metadata_sha256"]):
         raise ValueError("cloud pack tokenizer metadata hash mismatch")
-    is_continuation_pack = bool(pack.get("continuation_of"))
+    window_tokens = int(pack["training_tokens_requested"])
+    cumulative_tokens = int(pack.get("cumulative_phase_tokens", window_tokens))
+    window_start = max(0, cumulative_tokens - window_tokens)
+    is_growth = model_profile == ANRA_V4_GROWTH_MODEL_PROFILE
+    is_continuation_window = checkpoint_source.strip().lower() != "scratch"
+    if is_growth and (not growth_manifest or not growth_parent_checkpoint):
+        raise ValueError(
+            "The 500M child launch requires --growth-manifest and "
+            "--growth-parent-checkpoint"
+        )
+    if not is_growth and (growth_manifest or growth_parent_checkpoint):
+        raise ValueError("The 181M foundation cannot bind growth artifacts")
+    launch_stage = stage or ("growth_alignment" if is_growth else "foundation")
     manifest = build_launch_manifest(
-        model_profile="anra-v4-180m",
+        model_profile=model_profile,
         extension_profile="none",
         tokenizer_hash=tokenizer_hash,
         tokenizer_path=str(tokenizer),
@@ -53,29 +73,54 @@ def create_cloud_launch(
             str(train_manifest): "train",
             str(validation_manifest): "validation",
         },
-        stage="baseline_170m",
+        stage=launch_stage,
         optimizer="adamw",
         batch_size=batch_size,
         accumulation=accumulation,
         schedule={
             "kind": "cosine_with_warmup",
             "warmup_fraction": 0.02,
-            "min_lr": 1e-5,
+            "min_lr": 5e-6 if is_growth else 1e-5,
         },
         seeds=[int(pack["seed"])],
         checkpoint_source=checkpoint_source,
-        expected_tokens=int(
-            pack.get("cumulative_phase_tokens", pack["training_tokens_requested"])
-        ),
+        expected_tokens=cumulative_tokens,
         runtime_estimate_hours=float(runtime_estimate_hours),
         owner_authorized=True,
         worker_id=worker_id,
-        worker_role="v4_dense_170m_baseline",
+        worker_role="canonical_trainer",
         artifact_path=artifact_path,
         shard_assignment=[0],
         checkpoint_read_only=True,
-        allow_data_profile_change=is_continuation_pack,
-        reset_data_sampler=is_continuation_pack,
+        # A later pack is a new signed token window in the same corpus
+        # lineage.  It must never silently reset the accepted sampler cursor.
+        # Each portable pack is a deterministic slice of the immutable corpus.
+        # A continuation therefore preserves the global token boundary while
+        # resetting only the pack-local permutation cursor.
+        allow_data_profile_change=is_continuation_window,
+        reset_data_sampler=is_continuation_window,
+        token_window={
+            "start_token": window_start,
+            "end_token": cumulative_tokens,
+            "pack_sha256": hashlib.sha256(
+                (pack_root / "pack_manifest.json").read_bytes()
+            ).hexdigest(),
+        },
+        artifact_destinations=[
+            {
+                "kind": "full_resume",
+                "uri": artifact_path,
+                "required": True,
+            }
+        ],
+        resource_limits={
+            "session_budget_minutes": max(60, int(runtime_estimate_hours * 60)),
+            "drain_reserve_minutes": 30,
+            "checkpoint_steps": 100,
+            "checkpoint_minutes": 15,
+        },
+        growth_manifest=growth_manifest,
+        growth_parent_checkpoint=growth_parent_checkpoint,
     )
     return sign_manifest(manifest, output)
 
@@ -93,6 +138,18 @@ def main() -> None:
     parser.add_argument("--runtime-estimate-hours", type=float, default=6.0)
     parser.add_argument("--batch-size", type=int, default=4)
     parser.add_argument("--accumulation", type=int, default=8)
+    parser.add_argument(
+        "--model-profile",
+        choices=(CANONICAL_MODEL_PROFILE, ANRA_V4_GROWTH_MODEL_PROFILE),
+        default=CANONICAL_MODEL_PROFILE,
+    )
+    parser.add_argument(
+        "--stage",
+        default=None,
+        help="Defaults to foundation for 181M and growth_alignment for 500M.",
+    )
+    parser.add_argument("--growth-manifest", default=None)
+    parser.add_argument("--growth-parent-checkpoint", default=None)
     args = parser.parse_args()
     signed = create_cloud_launch(
         pack_root=args.pack_root,
@@ -103,6 +160,10 @@ def main() -> None:
         runtime_estimate_hours=args.runtime_estimate_hours,
         batch_size=args.batch_size,
         accumulation=args.accumulation,
+        model_profile=args.model_profile,
+        stage=args.stage,
+        growth_manifest=args.growth_manifest,
+        growth_parent_checkpoint=args.growth_parent_checkpoint,
     )
     print(
         json.dumps(

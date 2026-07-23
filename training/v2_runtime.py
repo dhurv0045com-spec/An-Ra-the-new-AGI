@@ -35,6 +35,11 @@ from tokenizer.subword_tokenizer import SubwordTokenizer
 from tokenizer.tokenizer_adapter import TokenizerAdapter
 
 from training.anra_optimizer import restore_optimizer_state_for_resume
+from training.checkpoint_durability import (
+    FP16_INFERENCE,
+    ResumeArtifactError,
+    assert_resume_artifact_class,
+)
 from training.reproducibility import restore_rng_states
 from training.v2_config import (
     CANONICAL_VOCAB_SIZE,
@@ -880,8 +885,12 @@ def build_model_for_profile(
     attention_pattern: str | None = None,
     use_mtp: bool = False,
     use_moe: bool = False,
+    allow_experimental: bool = False,
 ) -> CausalTransformerV2:
-    config, _ = resolve_model_profile(profile)
+    config, _ = resolve_model_profile(
+        profile,
+        allow_experimental=allow_experimental,
+    )
     return build_model_from_config(
         config,
         hal_module=hal_module,
@@ -925,6 +934,7 @@ def load_checkpoint(
         "appended_row_optimizer_steps": 0,
         "raw_window_consumption": {},
         "data_sampler_state": {},
+        "token_window": {},
         "rng_restore": {},
         "tokenizer_identity": {"verified": False, "reason": "checkpoint_not_loaded"},
     }
@@ -942,7 +952,18 @@ def load_checkpoint(
         return state
 
     blob = safe_torch_load(ckpt, map_location=device)
-    assert_checkpoint_optimizer_boundary(blob, ckpt)
+    if resume_training:
+        try:
+            assert_resume_artifact_class(blob, ckpt)
+        except ResumeArtifactError as exc:
+            raise CheckpointCompatibilityError(str(exc)) from exc
+    artifact_class = (
+        str(blob.get("checkpoint_artifact_class", ""))
+        if isinstance(blob, dict)
+        else ""
+    )
+    if resume_training or artifact_class != FP16_INFERENCE:
+        assert_checkpoint_optimizer_boundary(blob, ckpt)
     if resume_training:
         if not isinstance(blob, dict):
             raise CheckpointCompatibilityError(
@@ -1097,6 +1118,7 @@ def load_checkpoint(
                 "verified_process_multiplier",
                 "sampler_algorithm",
                 "determinism_mode",
+                "growth",
             ):
                 if field in active_recipe and saved_recipe.get(field) != active_recipe.get(field):
                     raise CheckpointCompatibilityError(
@@ -1201,6 +1223,8 @@ def load_checkpoint(
         state["appended_row_optimizer_steps"] = int(blob.get("appended_row_optimizer_steps", 0))
         state["raw_window_consumption"] = dict(blob.get("raw_window_consumption", {}))
         state["data_sampler_state"] = dict(blob.get("data_sampler_state", {}))
+        state["token_window"] = dict(blob.get("token_window", {}))
+        state["growth_provenance"] = dict(blob.get("growth_provenance", {}))
         state["data_manifests"] = dict(
             blob.get("data_manifests", blob.get("dataset_manifest_hashes", {}))
         )

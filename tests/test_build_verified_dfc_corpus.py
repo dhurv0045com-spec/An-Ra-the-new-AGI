@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 
 from scripts.build_verified_dfc_corpus import build_verified_dfc_corpus
-from training.data_pipeline_v3 import validate_dfc
+from training.data_pipeline import validate_dfc
 
 
 def test_verified_dfc_builder_emits_only_unique_verified_rows(tmp_path: Path) -> None:

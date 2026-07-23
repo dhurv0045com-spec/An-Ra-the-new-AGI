@@ -312,7 +312,7 @@ def component_registry() -> list[SystemComponent]:
             paths=(
                 "evaluation/ibs.py",
                 "training/stages.py",
-                "training/data_pipeline_v3.py",
+                "training/data_pipeline.py",
                 "training/continual.py",
             ),
             import_name="training.stages",
@@ -507,6 +507,9 @@ def artifact_status() -> dict[str, object]:
 def build_system_manifest(root: Path = ROOT) -> dict[str, object]:
     components = [component_status(component) for component in component_registry()]
     metrics = source_metrics(root)
+    from runtime.subsystem_catalog import build_subsystem_catalog
+
+    subsystem_catalog = build_subsystem_catalog(root=root)
     try:
         from runtime.training_readiness import assess_training_readiness
 
@@ -529,6 +532,7 @@ def build_system_manifest(root: Path = ROOT) -> dict[str, object]:
         "metrics": metrics,
         "components": components,
         "capabilities": {c["name"]: bool(c["capability"]) for c in components},
+        "subsystems": subsystem_catalog,
         "artifacts": artifact_status(),
         "training_readiness": readiness,
     }

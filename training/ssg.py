@@ -23,7 +23,12 @@ from anra.anra_paths import (
     V2_BRAIN_CHECKPOINT,
 )
 
-from training.v2_config import ANRA_V4_MODEL_PARAMETER_COUNT, is_v4_vocab_size
+from training.csii import CrossScaleIdentityInheritance
+from training.v2_config import (
+    ANRA_V4_GROWTH_MODEL_PARAMETER_COUNT,
+    ANRA_V4_GROWTH_MODEL_PROFILE,
+    is_v4_vocab_size,
+)
 
 
 @dataclass(frozen=True)
@@ -50,7 +55,7 @@ class SovereignScalingGovernor:
     REQUIRED_CIV = 0.88
     SOVEREIGNTY_FLOOR = 0.85
     MAX_PEAK_GB = 13.0
-    MIN_CONTINUATION_TOKENS = 21_000_000_000
+    MIN_LINEAGE_TOKENS = 11_400_000_000
 
     @staticmethod
     def _load(path: Path) -> dict | None:
@@ -63,8 +68,8 @@ class SovereignScalingGovernor:
     def check(
         self,
         *,
-        target_profile: str = "frontier",
-        target_params: int = ANRA_V4_MODEL_PARAMETER_COUNT,
+        target_profile: str = ANRA_V4_GROWTH_MODEL_PROFILE,
+        target_params: int = ANRA_V4_GROWTH_MODEL_PARAMETER_COUNT,
         checkpoint_path: str | Path = V2_BRAIN_CHECKPOINT,
         ibs_path: str | Path = IBS_LATEST,
         civ_path: str | Path = CIV_LATEST,
@@ -107,12 +112,18 @@ class SovereignScalingGovernor:
             overall = float(ibs.get("overall", ibs.get("overall_score", 0.0)))
             owner = float(dimensions.get("owner_task", 0.0))
             identity = float(dimensions.get("identity", 0.0))
-            seed_count = int(ibs.get("seed_count", len(ibs.get("seed_reports", []))))
+            evaluation_count = int(
+                ibs.get(
+                    "run_count",
+                    len(ibs.get("replicate_reports", []))
+                    or int("overall" in ibs or "overall_score" in ibs),
+                )
+            )
             checks = {
                 "IBS overall": overall >= self.REQUIRED_OVERALL,
                 "owner task": owner >= self.REQUIRED_OWNER_TASK,
                 "IBS identity": identity >= self.REQUIRED_IDENTITY,
-                "three seeded IBS runs": seed_count >= 3,
+                "declared IBS evidence": 1 <= evaluation_count <= 3,
             }
             for label, ok in checks.items():
                 (passed if ok else blocked).append(label if ok else f"{label} requirement not met")
@@ -149,10 +160,13 @@ class SovereignScalingGovernor:
             growth = self._load(paths["growth_report"])
             if growth is None:
                 blocked.append(f"No model-growth parity report at {paths['growth_report']}")
-            elif float(growth.get("parity_cosine", 0.0)) < 0.99:
-                blocked.append("Model-growth parity cosine is below 0.99")
             else:
-                passed.append("model growth parity")
+                try:
+                    CrossScaleIdentityInheritance.validate_growth_report(growth)
+                except (TypeError, ValueError) as exc:
+                    blocked.append(f"Invalid model-growth manifest: {exc}")
+                else:
+                    passed.append("hash-bound model growth parity")
         else:
             passed.append("growth parity deferred until candidate construction")
 
@@ -161,9 +175,9 @@ class SovereignScalingGovernor:
             blocked.append(f"No licensed token inventory at {paths['token_manifest']}")
         else:
             tokens = int(inventory.get("licensed_tokens", inventory.get("total_tokens", 0)))
-            if tokens < self.MIN_CONTINUATION_TOKENS:
+            if tokens < self.MIN_LINEAGE_TOKENS:
                 blocked.append(
-                    f"Licensed token inventory {tokens:,} < {self.MIN_CONTINUATION_TOKENS:,}"
+                    f"Licensed token inventory {tokens:,} < {self.MIN_LINEAGE_TOKENS:,}"
                 )
             else:
                 passed.append("licensed token inventory")

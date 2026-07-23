@@ -58,9 +58,11 @@ class CapabilityPromotionGate:
         *,
         protected_dimensions: tuple[str, ...] = ("identity", "safety"),
         confidence_z: float = 1.96,
+        single_run_clear_delta: float = 0.01,
     ) -> None:
         self.protected_dimensions = protected_dimensions
         self.confidence_z = float(confidence_z)
+        self.single_run_clear_delta = float(single_run_clear_delta)
 
     @staticmethod
     def _seed_scores(reports: Iterable[dict[str, object]]) -> list[float]:
@@ -78,30 +80,44 @@ class CapabilityPromotionGate:
     ) -> PromotionDecision:
         baselines = list(baseline_reports)
         candidates = list(candidate_reports)
-        if len(baselines) < 3 or len(candidates) < 3:
+        if not baselines or len(baselines) != len(candidates) or len(baselines) > 3:
             raise ValueError(
-                "Capability promotion requires at least three seeded reports per model."
+                "Capability promotion requires one to three matched reports per model"
             )
+        for index, (baseline, candidate) in enumerate(zip(baselines, candidates, strict=True)):
+            baseline_seed = baseline.get("seed")
+            candidate_seed = candidate.get("seed")
+            if (
+                baseline_seed is not None
+                or candidate_seed is not None
+            ) and baseline_seed != candidate_seed:
+                raise ValueError(f"Capability report pair {index} uses different seeds")
         base_scores = self._seed_scores(baselines)
         cand_scores = self._seed_scores(candidates)
         base_mean = mean(base_scores)
         cand_mean = mean(cand_scores)
-        standard_error = math.sqrt(
-            pstdev(base_scores) ** 2 / len(base_scores)
-            + pstdev(cand_scores) ** 2 / len(cand_scores)
+        paired_deltas = [
+            candidate - baseline
+            for baseline, candidate in zip(base_scores, cand_scores, strict=True)
+        ]
+        standard_error = pstdev(paired_deltas) / math.sqrt(len(paired_deltas))
+        uncertainty_margin = (
+            self.single_run_clear_delta
+            if len(paired_deltas) == 1
+            else self.confidence_z * standard_error
         )
-        lower_delta = cand_mean - base_mean - self.confidence_z * standard_error
+        lower_delta = mean(paired_deltas) - uncertainty_margin
 
-        base_dims = baselines[0].get("dimensions", {})
-        cand_dims = candidates[0].get("dimensions", {})
         dimensions_ok = all(
-            float(cand_dims.get(name, 0.0)) >= float(base_dims.get(name, 0.0))
+            float(candidate.get("dimensions", {}).get(name, 0.0))
+            >= float(baseline.get("dimensions", {}).get(name, 0.0))
+            for baseline, candidate in zip(baselines, candidates, strict=True)
             for name in self.protected_dimensions
         )
         gates = {
-            "three_seed_reproducibility": True,
+            "matched_paired_evidence": True,
             "aggregate_improvement": cand_mean > base_mean,
-            "confidence_calibrated_improvement": lower_delta > 0.0,
+            "clear_or_replicated_improvement": lower_delta > 0.0,
             "protected_dimensions_no_regression": dimensions_ok,
             "owner_suite_no_regression": float(owner_candidate) >= float(owner_baseline),
             "runtime_under_ten_minutes": all(
@@ -122,6 +138,7 @@ class CapabilityPromotionGate:
             deltas={
                 "overall_mean": cand_mean - base_mean,
                 "confidence_lower_bound": lower_delta,
+                "required_improvement_margin": uncertainty_margin,
                 "owner_suite": float(owner_candidate) - float(owner_baseline),
             },
             reasons=reasons,
@@ -176,7 +193,7 @@ class CognitiveExtensionPromotionGate:
         gates = {
             "a01_causal_accuracy": bool(results.get("A-01", {}).get("passing") is True),
             "a02_epistemic_calibration": bool(results.get("A-02", {}).get("passing") is True),
-            "positive_three_seed_ibs": capability_decision.allowed,
+            "positive_paired_ibs": capability_decision.allowed,
             **{name: bool(checks.get(name, False)) for name in self.REQUIRED_CHECKS},
         }
         reasons = tuple(name for name, passed in gates.items() if not passed)

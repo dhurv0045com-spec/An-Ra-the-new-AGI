@@ -32,6 +32,7 @@ state/ghost_memory/
 state/hal_sessions/
 state/civ_sessions/
 state/experience_ledger/
+state/evidence/
 workspace/pytest_*/
 history/
 agent_workspace/

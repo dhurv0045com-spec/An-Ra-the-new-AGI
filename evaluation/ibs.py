@@ -85,7 +85,9 @@ def _default_tasks() -> list[IBSTask]:
                     prompt=prompt_template.format(n=index),
                     verifier=verifier,
                     seed=seed,
-                    contamination_source="human_crafted" if index % 2 == 0 else "synthetic_amplified",
+                    contamination_source=(
+                        "human_crafted" if index % 2 == 0 else "synthetic_amplified"
+                    ),
                 )
             )
             seed += 1
@@ -186,15 +188,21 @@ class IBSBenchmark:
             target.write_text(json.dumps(report, indent=2, sort_keys=True), encoding="utf-8")
         return report
 
-    def run_three_seed(
+    def run_replicates(
         self,
         generate: Callable[[str, int], str],
         score: Callable[[IBSTask, str], tuple[float, str]],
         *,
         label: str,
-        seeds: tuple[int, int, int] = (1301, 1302, 1303),
+        seeds: tuple[int, ...],
         output_path: str | Path = IBS_LATEST,
     ) -> dict[str, object]:
+        """Run one declared evaluation and optional bounded close-call replicates."""
+
+        if not 1 <= len(seeds) <= 3:
+            raise ValueError("IBS evaluation requires one to three explicitly declared seeds")
+        if len(set(seeds)) != len(seeds):
+            raise ValueError("IBS replicate seeds must be unique")
         reports: list[dict[str, object]] = []
         for run_seed in seeds:
             shifted = [
@@ -225,10 +233,10 @@ class IBSBenchmark:
         confidence_half_width = 1.96 * (variance / len(overall_values)) ** 0.5
         aggregate = {
             "schema_version": 1,
-            "suite": "IBS-50-three-seed",
+            "suite": "IBS-50-replicates",
             "label": label,
             "generated_at": time.time(),
-            "seed_count": len(reports),
+            "run_count": len(reports),
             "seeds": list(seeds),
             "overall": mean_overall,
             "overall_95ci": [
@@ -245,7 +253,7 @@ class IBSBenchmark:
             )
             / len(reports),
             "runtime_seconds": sum(float(report["runtime_seconds"]) for report in reports),
-            "seed_reports": reports,
+            "replicate_reports": reports,
         }
         target = Path(output_path)
         target.parent.mkdir(parents=True, exist_ok=True)
