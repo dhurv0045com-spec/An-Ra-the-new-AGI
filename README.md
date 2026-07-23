@@ -1,339 +1,429 @@
-# An-Ra: Native Intelligence, Made Inspectable
+# An-Ra
 
-> A 181M-parameter V4 research system for training, interrogating, and improving an
-> independently initialized language model without replacing its weight lineage.
+> An inspectable V4 language-model research system built around one reproducible
+> model lineage, durable training, evidence-gated capabilities, and reversible
+> growth.
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-3776AB)](pyproject.toml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-2EA44F)](LICENSE)
 [![Branch](https://img.shields.io/badge/branch-iterate500-00C2D7)](https://github.com/dhurv0045com-spec/An-Ra-the-new-AGI/tree/iterate500)
-[![Model](https://img.shields.io/badge/model-181%2C132%2C071_params-111827)](config/anra_frontier.yaml)
+[![Model](https://img.shields.io/badge/V4-181%2C132%2C071_params-111827)](training/v2_config.py)
+[![Tokenizer](https://img.shields.io/badge/tokenizer-V4_32K-7C3AED)](tokenizer/tokenizer_v4_32k.json)
 
-An-Ra is not a wrapper around an external pretrained model. The `iterate500`
-branch develops one native V4 checkpoint lineage, one canonical 32k tokenizer,
-and a set of experimental systems around it: MoD routing, RIM/ESV modulation,
-DSTP temperatures, HAL adaptation, memory, cognition, agents, verifiers, and
-ThirdEye evidence.
+An-Ra is an independently initialized language-model project. It is not a
+wrapper around a hosted pretrained model, and it does not claim that source
+files or low training loss prove intelligence.
 
-The central idea is simple: **a model is not ready because its loss is low or its
-UI loads. It is ready only when its checkpoint, tokenizer, behavior, subsystem
-contributions, and rollback path are all proven.**
+The project’s central rule is:
 
-## Start Here
+> A capability becomes part of An-Ra only when its model, data, checkpoint,
+> behavior, cost, evidence, and rollback path agree.
 
-| I want to... | Use this |
+The current goal is concrete: train one useful, interruption-safe
+181,132,071-parameter V4 model; post-train it for reliable behavior; then grow
+that trained lineage into one function-preserving 499,880,031-parameter child.
+
+## Current reality
+
+| Area | State |
 | --- | --- |
-| Train or inspect the V4 model in Colab | Open `notebooks/AN_RA_T4_TRAINING.ipynb`; the canonical run uses seed 1301 |
-| See what happens behind each response | Open the **Matrix** tab after Cell 10 starts the UI |
-| Validate a checkpoint from the terminal | `python scripts/check_frontier_checkpoint.py --checkpoint anra_v4_180m.pt` |
-| Run a deterministic smoke conversation | `python scripts/chat_frontier.py --checkpoint anra_v4_180m.pt --suite smoke` |
-| Continue training | Use the canonical Colab notebook and check [Progress](PROGRESS.md) first |
-| Understand the active model architecture | Read [V4 Architecture Gate](docs/engineering/V4_ARCHITECTURE_GATE.md) |
-| Review the frozen V4 model design | Read [V4 Architecture Gate](docs/engineering/V4_ARCHITECTURE_GATE.md) |
-| Picture the whole repository | Read [Architecture](docs/ARCHITECTURE.md) and [Walkthrough](docs/WALKTHROUGH.md) |
-| Develop or extend the code | Read [Developer Guide](docs/DEVELOPER.md) |
-| Train with authorized Colab workers | Read [Cluster Training Guide](docs/CLUSTER_TRAINING_GUIDE.md) |
-| Inspect or recover a checkpoint | Read [Checkpoint Forensics](docs/engineering/CHECKPOINT_FORENSICS.md) |
-| Review implementation history | Read [Engineering Log](docs/engineering/ENGINEERING_LOG.md) |
-| See what remains before a credible release | Read [TODO](TODO.md) |
+| V4 tokenizer and 181M architecture | Implemented and contract-tested |
+| Signed training launches | Implemented |
+| Exact optimizer/RNG/sampler resume | Implemented and locally tested |
+| Concurrent checkpoint durability | Implemented and locally tested |
+| Authorized checkpoint-baton cluster | Implemented and contract-tested |
+| 181M → 500M growth machinery | Implemented; real-parent parity still required |
+| MTP, self-correction, adapters, post-training contracts | Pilot |
+| MoE, MoD, transformer HAL, agents, moonshots | Disabled or isolated pilots |
+| New coherent V4 language checkpoint | **Not trained yet** |
+| Live cross-worker T4 handoff | **Not demonstrated yet** |
+| AGI | **Not claimed** |
 
-### The one-cell Colab path
+The next live gate is one 10–15 minute T4 canary, one forced worker handoff,
+and independent laptop verification of the protected checkpoint hash. The
+campaign proceeds to 200M tokens only after that gate passes.
 
-The notebook performs the complete seed-isolated V4 workflow:
-
-1. Mounts Drive.
-2. Clones or fast-forwards the `iterate500` branch.
-3. Installs the local package and runtime dependencies.
-4. Restores the canonical seed-1301 `anra_v4_180m.pt`, or starts fresh when explicitly allowed.
-5. Verifies checkpoint and tokenizer identity.
-6. Starts the FastAPI backend on the Colab proxy.
-7. Opens the An-Ra Developer UI with Dashboard and Matrix views.
-
-No cell searches for or resumes the rejected V3/500M checkpoint.
-
-## What You Can Inspect
-
-The developer interface is not only a chat surface. Every accepted request can
-produce a trace containing:
-
-- the exact formatted `H: ...\nANRA:` prompt;
-- token allocation across identity, current message, history, and memory;
-- checkpoint and tokenizer proof;
-- generation mode and validated sampling parameters;
-- prompt and output token counts;
-- stop reason, repetition detection, language-fragment detection, and quality state;
-- MoD, RIM, DSTP, ESV, and HAL execution telemetry;
-- session persistence decisions and retrieved memory;
-- release-gate and evaluation evidence.
-
-The Matrix also exposes four operator actions in the intended order:
-
-1. **Rollback drill** - proves the current artifact can be restored.
-2. **200-prompt gate** - compares deterministic diagnostic and native behavior.
-3. **Integration probe** - exercises model, native subsystems, memory, cognition,
-   verifier, agent, and safe tool routing.
-4. **Full promotion evaluation** - runs the private 500-task suite across three
-   seeds, three modes, and native-subsystem ablations.
-
-The full promotion evaluation is intentionally expensive. It runs in the backend
-and is not required for an ordinary chat session.
-
-## Model Contract
-
-| Property | Canonical V4 profile |
-| --- | ---: |
-| Model class | `CausalTransformerV2` / `anra-v4-180m` |
-| Total parameters | `181,132,071` |
-| Transformer parameters | `180,093,312` |
-| Vocabulary | `32,768` canonical V4 tokens |
-| Hidden size | `896` |
-| Layers | `18` |
-| Query heads | `14` |
-| KV heads | `2` |
-| Head dimension | `64` |
-| SwiGLU hidden size | `2,432` |
-| Context | `2,048` tokens |
-| Dropout | `0.0` |
-| Embedding / LM head | tied |
-| Checkpoint schema | `8` |
-| Tokenizer schema | `4` |
-| Default checkpoint | `anra_v4_180m.pt` |
-
-MoD-capable layers are `4, 6, 8, 10, 12, 14, 16`; native effects remain phase-gated.
-V4 preserves legacy token IDs `0-8208` and appends the remaining vocabulary rows.
-
-## System Shape
+## The system in one picture
 
 ```mermaid
 flowchart LR
-    U["Developer prompt"] --> API["FastAPI /chat"]
-    API --> MODE{"Runtime mode"}
-    MODE -->|diagnostic| P["Prompt assembly"]
-    MODE -->|native| P
-    MODE -->|full_system| O["Memory / agent / tool dispatch"]
-    O --> P
-    P --> T["Tokenizer identity + 1024-token budget"]
-    T --> M["181M V4 native transformer"]
-    M --> N["MoD + RIM + DSTP + ESV + HAL"]
-    N --> G["Guarded generation"]
-    G --> V["Quality and verifier checks"]
-    V -->|accepted| S["Commit session state and memory"]
-    V -->|rejected| X["Return trace, do not persist adaptive state"]
-    S --> R["Response + trace_id"]
-    X --> R
-    R --> MX["Developer Matrix"]
+    subgraph Learn
+        D["Licensed sources"] --> C["Clean, deduplicate, split"]
+        C --> T["V4 tokenizer and immutable token packs"]
+        T --> M["181M dense transformer training"]
+        M --> K["Protected full-resume checkpoint"]
+    end
+
+    subgraph Operate
+        Q["Request"] --> X["Session, retrieval and context"]
+        X --> I["V4 model inference"]
+        I --> V["Verify, revise or abstain"]
+        V --> R["Response, trace and memory decision"]
+    end
+
+    subgraph Prove
+        E["Evaluation and ablations"] --> P{"Promote?"}
+        P -->|yes| A["Signed release evidence"]
+        P -->|no| B["Revise, disable or rollback"]
+    end
+
+    K --> I
+    K --> E
+    R --> E
+    B --> Learn
 ```
 
-### Runtime modes
+**Learn** creates weights and checkpoints. **Operate** uses the model with
+external retrieval, memory, verification, and bounded tools. **Prove** decides
+whether a result deserves promotion. These are one connected system, not three
+independent products.
 
-| Mode | Purpose | Adaptive state |
+## Canonical V4 model
+
+| Property | `anra-v4-180m` |
+| --- | ---: |
+| Exact parameters | 181,132,071 |
+| Vocabulary | 32,768 |
+| Context length | 2,048 |
+| Layers | 18 |
+| Width | 896 |
+| Query heads / KV heads | 14 / 2 |
+| Head dimension | 64 |
+| Feed-forward width | 2,432 |
+| Embedding / output head | Tied |
+| Optimizer | AdamW |
+| Routine seed | 1301 |
+| Checkpoint schema | 9 |
+| Tokenizer schema | 4 |
+
+The dense transformer uses grouped-query attention, QK normalization, RoPE,
+stable residual initialization, and a declared hybrid full/sliding attention
+pattern. Optional architecture systems are hard-gated and do not silently
+change this baseline.
+
+The only registered larger model is `anra-v4-500m-growth`:
+
+| Property | Growth child |
+| --- | ---: |
+| Exact parameters | 499,880,031 |
+| Layers | 27 |
+| Width | 1,280 |
+| Query heads / KV heads | 20 / 2 |
+| Feed-forward width | 3,456 |
+
+The child cannot start from scratch. It requires a trained 181M parent, signed
+tensor mappings, preserved attention modes, identity-initialized inserted
+blocks, real logits-parity evidence, and a fresh AdamW optimizer.
+
+## What makes the training foundation different
+
+### One operational tokenizer
+
+V4 is the only tokenizer accepted by a new run. V3 may appear in migration
+history but cannot be selected operationally. Model embeddings, corpus packs,
+launch manifests, and checkpoints all bind the same V4 artifact and metadata
+hash.
+
+### One signed run contract
+
+Every canonical worker receives `anra-training-contract/v4`, binding:
+
+- exact source commit and clean checkout;
+- model profile and parameter contract;
+- tokenizer and data-manifest hashes;
+- AdamW recipe and seed 1301;
+- unique token-window boundaries;
+- immutable parent checkpoint;
+- artifact destinations and resource limits;
+- worker, role, and owner authorization.
+
+The worker rejects modified manifests, wrong commits, duplicate token windows,
+stale checkpoint parents, and source/destination collisions.
+
+### Exact resumability
+
+A schema-9 `full_resume` artifact preserves:
+
+- model, optimizer, scheduler, and scaler;
+- CPU and CUDA random states;
+- completed optimizer boundary;
+- sampler cursor and accumulation state;
+- global step and accepted token count;
+- architecture, tokenizer, data, recipe, seed, and commit lineage.
+
+`fp16_inference` is a smaller model-only artifact. It is structurally rejected
+for training resume.
+
+### Checkpoint durability during training
+
+The trainer saves every 100 optimizer steps or 15 minutes, whichever comes
+first. Checkpoints are divided into immutable 128 MiB content-addressed chunks
+and uploaded concurrently. Interrupted transfers resume from verified offsets.
+
+The state advances only through:
+
+```text
+local_saved → staged → canonical_verified → protected
+```
+
+The previous resumable generation survives until its replacement is protected.
+A filename in Drive is not enough; the manifest, chunk hashes, receipts, and
+typed canonical pointer establish truth.
+
+## The GPU cluster
+
+An-Ra owns model and checkpoint truth. The separate
+[GPU Cluster](https://github.com/dhurv0045com-spec/gpu-cluster-gmail) repository
+owns worker authentication, leases, scheduling, handoff, artifact transfer,
+operator controls, and audit.
+
+Recommended authorized Colab roles:
+
+| Worker | Responsibility |
+| --- | --- |
+| `canonical_trainer` | The only worker allowed to advance canonical weights |
+| `standby` | Preloads and safely takes over after a lease handoff |
+| `data_builder` | Prepares and verifies the next deterministic pack |
+| `evaluator` | Evaluates immutable checkpoints |
+| `architecture_pilot` | Runs one bounded comparison |
+| `archive_worker` | Mirrors and verifies artifacts |
+
+Separate Colab machines do not synchronize gradients. They perform different
+authorized jobs or pass the protected checkpoint baton. True DDP/FSDP is
+reserved for multiple GPUs on one low-latency host after runtime support is
+implemented and proven.
+
+Use only accounts and sessions for which the provider has granted compute.
+Login, account selection, Colab authorization, and the initial **Run all** are
+manual owner actions.
+
+Read the [plain-language cluster training guide](docs/CLUSTER_TRAINING_GUIDE.md)
+before starting a paid or limited session.
+
+## Intelligence systems: active, pilot, or off
+
+| System | Current lifecycle | Why it exists |
 | --- | --- | --- |
-| `diagnostic` | Deterministic model baseline with native adaptive effects neutralized | Not committed |
-| `native` | Model plus corrected MoD, RIM, DSTP, ESV, and HAL path | Committed only after accepted output |
-| `full_system` | Native mode plus memory, ghost context, cognition, agents, and safe tools | Request-scoped and evidence-traced |
+| Dense V4 | Active | Stable language foundation |
+| Exact resume and durability | Active | Reproducible interruption recovery |
+| Retrieval and memory | Active runtime | Updateable, attributable knowledge |
+| ThirdEye and Matrix evidence | Active | One shared evidence stream, two views |
+| MTP | Pilot | Test richer future-token prediction |
+| External HAL | Pilot | Inspectable bounded runtime policy |
+| Self-correction | Pilot | Verify, revise, or abstain under a budget |
+| LoRA/DoRA adapters | Pilot | Reversible skill acquisition |
+| SFT/RLVR/STaR/DPO | Pilot contracts | Post-training with explicit lineage |
+| MoD, RIM, ESV, DSTP | Disabled baseline | Require individual matched evidence |
+| Current MoE | Disabled | Present geometry is too large for the T4 baseline |
+| Agents and tools | Disabled | Await useful model and permission evidence |
+| Moonshots | Isolated pilots | Research without entering the critical path |
+| Multimodal/world/robotics | Disabled research | Later capability stages |
 
-Greedy, seed `0`, cache off is the recovery baseline. KV cache remains disabled
-until cached and uncached token parity is demonstrated.
+The executable lifecycle registry is
+[`runtime/subsystem_catalog.py`](runtime/subsystem_catalog.py). File presence
+does not imply runtime health or promotion.
 
-## Native Subsystems
+## Quick start
 
-| System | Role | Evidence expected |
-| --- | --- | --- |
-| **MoD** | Per-token, straight-through top-k feed-forward routing | selection ratio, gate entropy, update norm, balance and z-loss |
-| **RIM** | Injects bounded identity/emotional state into each layer | per-sample projection, residual magnitude, ablation delta |
-| **ESV** | Maintains valence/arousal/dominance state per session | normalized channels, verifier-backed updates, no batch leakage |
-| **DSTP** | Learns bounded attention temperatures by depth | temperature values, regularization, validation delta |
-| **HAL** | Adjusts bounded runtime state from verified evidence | coherence, repetition, task success, CIV evidence |
-| **Memory** | Retrieves and persists accepted session context | retrieved records, deduplication, session isolation |
-| **Cognition** | Planning, debate, epistemic tracking, and consolidation | health checks and integration execution |
-| **Agents/tools** | Explicit goal and safe tool dispatch in full-system mode | authorization, execution result, capability graph |
-| **ThirdEye** | Training and subsystem evidence collection | optimizer, activation, gradient, update, and feature reports |
-
-These systems are research components, not proof of general intelligence. Their
-value must be established by controlled ablations against the same checkpoint.
-
-## Local Setup
-
-Python 3.10+ is required. A CUDA device is strongly recommended for the frontier
-model; CPU setup is mainly for tests and structural verification.
-
-```bash
-git clone --branch iterate500 --single-branch \
-  https://github.com/dhurv0045com-spec/An-Ra-the-new-AGI.git
-cd An-Ra-the-new-AGI
-python -m venv .venv
-# Windows: .venv\Scripts\activate
-# Linux/macOS: source .venv/bin/activate
-python -m pip install --upgrade pip
-python -m pip install -e ".[dev]"
-```
-
-Place the trained checkpoint outside Git, then point the runtime at it:
-
-```bash
-export ANRA_MODEL_PROFILE=anra-v4-180m
-export ANRA_CHECKPOINT_PATH=/absolute/path/to/anra_v4_180m.pt
-python scripts/check_frontier_checkpoint.py --checkpoint "$ANRA_CHECKPOINT_PATH"
-python app.py --host 127.0.0.1 --port 8000
-```
-
-PowerShell:
+Python 3.10+ is required. CPU is sufficient for documentation, contracts, and
+most structural tests. Canonical training requires CUDA.
 
 ```powershell
-$env:ANRA_MODEL_PROFILE = "anra-v4-180m"
-$env:ANRA_CHECKPOINT_PATH = "C:\path\to\anra_v4_180m.pt"
-python scripts/check_frontier_checkpoint.py --checkpoint $env:ANRA_CHECKPOINT_PATH
-python app.py --host 127.0.0.1 --port 8000
+git clone --branch iterate500 --single-branch `
+  https://github.com/dhurv0045com-spec/An-Ra-the-new-AGI.git
+Set-Location An-Ra-the-new-AGI
+
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install --upgrade pip
+.\.venv\Scripts\python.exe -m pip install -e ".[dev]"
+```
+
+Check the runtime:
+
+```powershell
+.\.venv\Scripts\python.exe -c "import torch; print(torch.__version__, torch.cuda.is_available())"
+.\.venv\Scripts\python.exe -m training.train_unified --mode preflight
+```
+
+Preflight is deliberately fail-closed: it exits nonzero and prints actionable
+blockers when the machine, data authorization, or artifact state is not valid
+for canonical training. A local RTX 4050 can still run bounded engineering
+pilots, but the canonical 2,048-token profile requires at least 14 GiB VRAM.
+
+Start the local Developer UI:
+
+```powershell
+.\.venv\Scripts\python.exe -m uvicorn app:app `
+  --host 127.0.0.1 `
+  --port 8000
 ```
 
 Open `http://127.0.0.1:8000/developer`.
 
-### Terminal chat
-
-```bash
-python scripts/chat_frontier.py \
-  --checkpoint anra_v4_180m.pt \
-  --interactive \
-  --strategy greedy \
-  --max-tokens 128
-```
-
-### API example
-
-```bash
-curl -X POST http://127.0.0.1:8000/chat \
-  -H "Content-Type: application/json" \
-  -d '{
-    "session_id": "readme-demo",
-    "message": "Explain the result in three concise steps.",
-    "params": {
-      "strategy": "greedy",
-      "mode": "diagnostic",
-      "max_tokens": 128,
-      "seed": 0,
-      "use_kv_cache": false
-    }
-  }'
-```
-
-The response includes a `trace_id`. Inspect it at
-`GET /traces/{trace_id}`.
-
-## Training Without Replacing An-Ra
-
-Training is split by objective rather than formatting every document as fake
-dialogue:
-
-| Phase | Data and objective | Native systems |
-| --- | --- | --- |
-| A | 1B raw foundation tokens | present, frozen |
-| B | 1B raw tokens | staged unfreezing |
-| C | 200M code, math, science, and verified DFC tokens | active |
-| D | conversation and instruction training | active |
-| E | verifier replay, tools, and checkable rewards | active |
-
-The immutable corpus profiles are `smoke`, `15gb`, and `30gb`; `30gb` is the
-default campaign. The data builder records source revision, license, tokenizer
-hash, source-document split, quality distribution, token count, and SHA-256.
-
-```bash
-python scripts/colab_prepare_data.py --profile 30gb
-python scripts/build_brain.py \
-  --data_path training_data/anra_training.txt \
-  --checkpoint_path anra_v4_180m.pt \
-  --model-size anra-v4-180m \
-  --training-layout raw_causal_shards_v1 \
-  --token-shard-manifest output/v2/data_manifests/native_foundation_v3/30gb/manifest.json \
-  --validation-shard-manifest output/v2/data_manifests/native_foundation_v3/30gb/validation/manifest.json \
-  --continuation-phase A \
-  --batch_size 1 \
-  --optimizer adamw \
-  --max_minutes 180
-```
-
-Never run two Colabs against the same writable checkpoint. Workers may validate
-different immutable shards or run independent ablations, but each training job
-must own a unique artifact path.
-
-## Release Is a Gate, Not a Feeling
-
-A candidate is blocked unless it has all required evidence:
-
-- 100% checkpoint tensor accounting and tokenizer compatibility;
-- finite activations and deterministic replay;
-- cached/uncached parity and zero cross-session leakage;
-- at least 90% coherent private-set responses;
-- at least 85% instruction-format compliance;
-- fewer than 1% repetition/EOS failures over at least 1,000 generations;
-- positive controlled ablations for MoD, RIM, DSTP, ESV, and HAL;
-- no validation-loss regression greater than 2%;
-- verified corpus and configuration manifests;
-- full-system integration, rollback drill, and signed release bundle.
-
-Low training loss alone satisfies none of these gates.
-
-## Verification
-
-```bash
-python -m pytest tests/ -m "not gpu" \
-  --ignore=tests/test_drive_session_manager_integration.py \
-  --ignore=tests/test_v2_drive_artifacts.py -q --tb=short
-
-python -m ruff check \
-  training/ inference/ anra/ cognition/ intelligence/ \
-  evaluation/ data/ engine/ robotics/ multimodal/ runtime/
-
-python -m mypy anra/ --strict --ignore-missing-imports
-```
-
-The repository currently contains 70 Python test modules. GPU, real Drive,
-large-corpus, and real-checkpoint evidence still require the corresponding
-external environment.
-
-## Repository Map
+Useful read-only endpoints:
 
 ```text
-anra/          typed package, architecture contracts, serving adapters
-training/      model runtime, optimizer, stages, data mixing, evaluation
-inference/     context assembly, sampling, cache, full-system connector
-identity/      ESV, HAL, CIV, identity constraints and watchers
-memory/        canonical MemoryRouter, episodic and hybrid retrieval
-cognition/     planning, debate, consolidation, epistemic services
-agents/        orchestration, supervision, and specialist routing
-evaluation/    benchmarks, telemetry, promotion and rollback gates
-runtime/       registries, capability maps, feedback and operator state
-scripts/       canonical training, data, checkpoint, chat, and audit entrypoints
-notebooks/     T4 and TPU Colab workflows
-tests/         unit, contract, integration, and evidence-gate coverage
-docs/          authoritative architecture, engineering history, and infrastructure records
+GET /health
+GET /system-map
+GET /phase-health
+GET /training/preflight
+GET /evidence/status
+```
+
+Chat and generation require a checkpoint compatible with the active V4
+profile:
+
+```text
+POST /chat
+POST /generate
+GET  /traces/{trace_id}
+```
+
+## Preparing a real training campaign
+
+Do not begin by launching hours of training. Follow this order:
+
+1. Freeze and push the exact An-Ra and cluster commits.
+2. Verify immutable V4 tokenizer and data-pack hashes.
+3. Configure owner-held signing keys and the Drive hot vault.
+4. Generate a signed launch manifest.
+5. Run a 10–15 minute authorized T4 canary.
+6. Confirm the first `full_resume` is remotely verified.
+7. Force one worker handoff and verify continuity locally.
+8. Continue the same lineage through 200M, 500M, 1B, and approximately 3.6B
+   cumulative tokens.
+9. Run behavioral evaluation at milestones, not after every ordinary edit.
+
+Create a signed launch from a clean checkout:
+
+```powershell
+$env:ANRA_MANIFEST_SIGNING_KEY = "<owner-held secret>"
+
+.\.venv\Scripts\python.exe scripts\create_cloud_launch.py `
+  --pack-root "C:\path\to\pack" `
+  --output "output\v2\cluster_launch.json" `
+  --artifact-path "output/v2/checkpoints/anra-v4-180m.pt" `
+  --checkpoint-source scratch `
+  --worker-id trainer-1 `
+  --runtime-estimate-hours 3 `
+  --model-profile anra-v4-180m `
+  --stage canary
+```
+
+The signed JSON is immutable. Bind it to a reviewed cluster job; do not edit it
+after signing.
+
+## Evaluation philosophy
+
+Low loss alone does not establish language quality. Milestone evaluation
+examines:
+
+- validation loss stratified by source;
+- coherent and diverse generation;
+- repetition, EOS, and output-distribution collapse;
+- copying and memorization;
+- uncertainty and abstention;
+- short reasoning, mathematics, code, and context use;
+- retrieval grounding and session isolation;
+- activation, residual, gradient, and routing health;
+- exact checkpoint continuity and rollback.
+
+Architecture comparisons start from the same parent checkpoint and use the
+same seed, optimizer, data order, and token budget. A second or third seed is
+used only when the measured result is too close to decide—not for routine
+training and not as three permanent models.
+
+## Focused verification
+
+Run tests that answer the current engineering question:
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest -q `
+  tests/test_training_contract_v4.py `
+  tests/test_checkpoint_durability.py `
+  tests/test_cloud_launch_contract.py `
+  tests/test_model_growth_contract.py
+
+.\.venv\Scripts\python.exe -m ruff check `
+  training/launch_manifest.py `
+  training/checkpoint_durability.py `
+  training/train_unified.py
+```
+
+Broad CPU, GPU, Drive, corpus, and checkpoint suites belong at their relevant
+milestones. A smoke test proves execution; it does not prove intelligence.
+
+## Repository map
+
+```text
+anra/          model package, architecture contracts, serving adapters
+training/      data, optimizer, trainer, checkpoints, growth, post-training
+inference/     context, generation, cache, reasoning budgets, adapters
+retrieval/     provenance-grounded external knowledge
+memory/        session and long-term memory routing
+cognition/     planning, debate, verification, self-correction
+agents/        bounded orchestration and specialist routing
+execution/     sandbox and tool-execution boundaries
+evaluation/    behavioral evidence, promotion, rollback
+engine/        reports and telemetry
+runtime/       component registry, subsystem lifecycle, shared evidence
+scripts/       supported operational entrypoints
+notebooks/     Colab workflows
+tests/         contract, unit, integration, and evidence gates
+docs/          architecture, guides, forensics, plans, and history
 ```
 
 ## Documentation
 
-- [Progress](PROGRESS.md) - current repository state and next execution context.
-- [TODO](TODO.md) - concise authoritative forward plan.
-- [Architecture](docs/ARCHITECTURE.md) - connected Learn, Operate, and Prove system map.
-- [Walkthrough](docs/WALKTHROUGH.md) - end-to-end story from licensed text to trusted response.
-- [Developer Guide](docs/DEVELOPER.md) - setup, runtime, training, extension, and verification contracts.
-- [Improvement](docs/IMPROVEMENT.md) - evidence-driven subsystem and research decision framework.
-- [Cluster Training Guide](docs/CLUSTER_TRAINING_GUIDE.md) - plain-language authorized multi-Colab workflow.
-- [Checkpoint Forensics](docs/engineering/CHECKPOINT_FORENSICS.md) - artifact identity, pathology, and resume inspection.
-- [Training and Recovery Blueprint](docs/engineering/MODEL_RECOVERY_AND_TRAINING_BLUEPRINT.md) - staged campaign and recovery procedure.
-- [Engineering Log](docs/engineering/ENGINEERING_LOG.md) - append-only implementation record.
-- [V4 Architecture Gate](docs/engineering/V4_ARCHITECTURE_GATE.md) - frozen model contract, subsystem boundaries, and execution evidence.
+### Understand the whole system
 
-## Current Reality
+- [Architecture](docs/ARCHITECTURE.md) — Learn, Operate, and Prove connected.
+- [Walkthrough](docs/WALKTHROUGH.md) — the story from licensed text to a
+  trusted response.
+- [V4 Architecture Gate](docs/engineering/V4_ARCHITECTURE_GATE.md) — frozen
+  model geometry and subsystem boundaries.
 
-The code now makes malformed loading, hidden state leakage, unverifiable releases,
-and misleading success reporting harder. It does **not** prove that the current
-Drive checkpoint is coherent or AGI-level. That proof can only come from running
-the real checkpoint through the recovery, private evaluation, human review, and
-ablation gates, followed by continuation training when those gates identify
-undertraining.
+### Build and train
 
-That is the contract of this repository: preserve the experiment, expose the
-machinery, measure every claim, and promote only what survives the evidence.
+- [Developer Guide](docs/DEVELOPER.md) — setup, runtime, extension, and tests.
+- [Cluster Training Guide](docs/CLUSTER_TRAINING_GUIDE.md) — authorized
+  multi-Colab workflow in simple language.
+- [Training and Recovery Blueprint](docs/engineering/MODEL_RECOVERY_AND_TRAINING_BLUEPRINT.md)
+  — staged campaign, handoff, recovery, and growth.
+
+### Inspect and improve
+
+- [Checkpoint Forensics](docs/engineering/CHECKPOINT_FORENSICS.md) — artifact
+  identity, pathology, and resume analysis.
+- [Improvement Framework](docs/IMPROVEMENT.md) — how subsystems earn promotion.
+- [Engineering Log](docs/engineering/ENGINEERING_LOG.md) — historical
+  implementation evidence.
+- [Progress](PROGRESS.md) and [TODO](TODO.md) — present state and next work.
+
+## Truth and provenance
+
+When descriptions disagree, trust sources in this order:
+
+1. The signed launch and checkpoint manifests for the actual run.
+2. Executable contracts in `training/v2_config.py`,
+   `training/launch_manifest.py`, and `runtime/subsystem_catalog.py`.
+3. Generated [`docs/system_graph.json`](docs/system_graph.json).
+4. Current explanatory documentation.
+5. Historical engineering discussion.
+
+Regenerate the system graph after architecture truth changes:
+
+```powershell
+.\.venv\Scripts\python.exe -c "from runtime.system_registry import write_system_manifest; write_system_manifest()"
+```
+
+An-Ra’s purpose is not to hide uncertainty behind an ambitious label. Its
+purpose is to preserve the experiment, make the machinery inspectable, learn
+from controlled evidence, and retain the ability to recover or roll back when
+an idea fails.
 
 ## License
 
 MIT. See [LICENSE](LICENSE). Dataset sources retain their own licenses and must
-pass the corpus allowlist and provenance checks before entering a training shard.
+pass the repository’s provenance and license gates before entering a training
+pack.
