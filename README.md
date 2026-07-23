@@ -29,6 +29,10 @@ contributions, and rollback path are all proven.**
 | Continue training | Use the canonical Colab notebook and check [Progress](PROGRESS.md) first |
 | Understand the active model architecture | Read [V4 Architecture Gate](docs/engineering/V4_ARCHITECTURE_GATE.md) |
 | Review the frozen V4 model design | Read [V4 Architecture Gate](docs/engineering/V4_ARCHITECTURE_GATE.md) |
+| Picture the whole repository | Read [Architecture](docs/ARCHITECTURE.md) and [Walkthrough](docs/WALKTHROUGH.md) |
+| Develop or extend the code | Read [Developer Guide](docs/DEVELOPER.md) |
+| Train with authorized Colab workers | Read [Cluster Training Guide](docs/CLUSTER_TRAINING_GUIDE.md) |
+| Inspect or recover a checkpoint | Read [Checkpoint Forensics](docs/engineering/CHECKPOINT_FORENSICS.md) |
 | Review implementation history | Read [Engineering Log](docs/engineering/ENGINEERING_LOG.md) |
 | See what remains before a credible release | Read [TODO](TODO.md) |
 
@@ -307,6 +311,13 @@ docs/          authoritative architecture, engineering history, and infrastructu
 
 - [Progress](PROGRESS.md) - current repository state and next execution context.
 - [TODO](TODO.md) - concise authoritative forward plan.
+- [Architecture](docs/ARCHITECTURE.md) - connected Learn, Operate, and Prove system map.
+- [Walkthrough](docs/WALKTHROUGH.md) - end-to-end story from licensed text to trusted response.
+- [Developer Guide](docs/DEVELOPER.md) - setup, runtime, training, extension, and verification contracts.
+- [Improvement](docs/IMPROVEMENT.md) - evidence-driven subsystem and research decision framework.
+- [Cluster Training Guide](docs/CLUSTER_TRAINING_GUIDE.md) - plain-language authorized multi-Colab workflow.
+- [Checkpoint Forensics](docs/engineering/CHECKPOINT_FORENSICS.md) - artifact identity, pathology, and resume inspection.
+- [Training and Recovery Blueprint](docs/engineering/MODEL_RECOVERY_AND_TRAINING_BLUEPRINT.md) - staged campaign and recovery procedure.
 - [Engineering Log](docs/engineering/ENGINEERING_LOG.md) - append-only implementation record.
 - [V4 Architecture Gate](docs/engineering/V4_ARCHITECTURE_GATE.md) - frozen model contract, subsystem boundaries, and execution evidence.
 
