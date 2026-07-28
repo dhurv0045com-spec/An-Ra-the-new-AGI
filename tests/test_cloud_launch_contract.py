@@ -160,6 +160,83 @@ def test_cloud_launch_accepts_verified_pack_from_historical_builder(
     assert result["token_window"]["start_token"] == 10
 
 
+def test_historical_pack_binds_matching_canonical_v4_metadata(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    pack_root = tmp_path / "pack"
+    pack_root.mkdir()
+    tokenizer = pack_root / "tokenizer_v4_32k.json"
+    train = pack_root / "train.json"
+    validation = pack_root / "validation.json"
+    canonical_root = tmp_path / "repo"
+    canonical_tokenizer = canonical_root / "tokenizer" / "tokenizer_v4_32k.json"
+    canonical_tokenizer.parent.mkdir(parents=True)
+    tokenizer.write_bytes(b"same-v4-tokenizer")
+    canonical_tokenizer.write_bytes(tokenizer.read_bytes())
+    canonical_metadata = canonical_tokenizer.with_suffix(".json.meta.json")
+    canonical_metadata.write_text(
+        '{"schema_version":4,"vocab_size":32768}',
+        encoding="utf-8",
+    )
+    train.write_text("{}", encoding="utf-8")
+    validation.write_text("{}", encoding="utf-8")
+    parent = tmp_path / "parent.pt"
+    torch.save({"continuation_token_counts": {"A": 10}}, parent)
+    files = [
+        {
+            "path": path.name,
+            "bytes": path.stat().st_size,
+            "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+        }
+        for path in (tokenizer, train, validation)
+    ]
+    pack = {
+        "builder_commit": "historical-builder",
+        "files": files,
+        "tokenizer_path": tokenizer.name,
+        "train_manifest": train.name,
+        "validation_manifest": validation.name,
+        "tokenizer_sha256": hashlib.sha256(tokenizer.read_bytes()).hexdigest(),
+        "training_tokens_requested": 100,
+        "cumulative_phase_tokens": 100,
+        "seed": 1301,
+    }
+    (pack_root / "pack_manifest.json").write_text(json.dumps(pack), encoding="utf-8")
+
+    monkeypatch.setattr("scripts.create_cloud_launch.REPO_ROOT", canonical_root)
+    monkeypatch.setattr(
+        "scripts.create_cloud_launch.subprocess.check_output",
+        lambda *_args, **_kwargs: "training-commit\n",
+    )
+    monkeypatch.setattr(
+        "scripts.create_cloud_launch.build_launch_manifest",
+        lambda **kwargs: dict(kwargs),
+    )
+    monkeypatch.setattr(
+        "scripts.create_cloud_launch.sign_manifest",
+        lambda manifest, _output: manifest,
+    )
+
+    result = create_cloud_launch(
+        pack_root=pack_root,
+        output=tmp_path / "launch.json",
+        artifact_path=str(tmp_path / "child.pt"),
+        checkpoint_source=str(parent),
+        worker_id="worker-1",
+        runtime_estimate_hours=3.0,
+        batch_size=1,
+        accumulation=8,
+    )
+
+    compatibility_metadata = tokenizer.with_suffix(".json.meta.json")
+    assert compatibility_metadata.read_bytes() == canonical_metadata.read_bytes()
+    assert (
+        result["data_pack_provenance"]["tokenizer_metadata_source"]
+        == "canonical_v4_compatibility_sidecar"
+    )
+
+
 def test_signed_checkout_rejects_local_modifications(monkeypatch) -> None:
     clean_hash = hashlib.sha256(b"").hexdigest()
 

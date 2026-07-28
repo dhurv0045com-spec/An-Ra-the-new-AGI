@@ -7,6 +7,7 @@ import argparse
 import hashlib
 import hmac
 import json
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -54,6 +55,47 @@ def _verify_pack_files(pack_root: Path, pack: dict[str, object]) -> None:
         expected_hash = str(raw.get("sha256", "")).lower()
         if len(expected_hash) != 64 or not hmac.compare_digest(_sha256(target), expected_hash):
             raise ValueError(f"cloud pack member hash mismatch: {relative}")
+
+
+def _materialize_tokenizer_metadata(
+    pack_root: Path,
+    pack: dict[str, object],
+    tokenizer: Path,
+    tokenizer_hash: str,
+) -> tuple[Path, str, str]:
+    """Bind V4 metadata, including for immutable packs built before sidecars."""
+
+    declared_path = str(pack.get("tokenizer_metadata_path", "")).strip()
+    if declared_path:
+        metadata = pack_root / declared_path
+        metadata_hash = _sha256(metadata)
+        if not hmac.compare_digest(
+            metadata_hash,
+            str(pack.get("tokenizer_metadata_sha256", "")).lower(),
+        ):
+            raise ValueError("cloud pack tokenizer metadata hash mismatch")
+        return metadata, metadata_hash, "pack"
+
+    canonical_tokenizer = REPO_ROOT / "tokenizer" / "tokenizer_v4_32k.json"
+    canonical_metadata = canonical_tokenizer.with_suffix(
+        canonical_tokenizer.suffix + ".meta.json"
+    )
+    if not canonical_tokenizer.is_file() or not canonical_metadata.is_file():
+        raise FileNotFoundError(
+            "historical cloud pack requires the canonical V4 tokenizer metadata sidecar"
+        )
+    if not hmac.compare_digest(_sha256(canonical_tokenizer), tokenizer_hash):
+        raise ValueError(
+            "historical cloud pack tokenizer differs from the active V4 tokenizer"
+        )
+    metadata = tokenizer.with_suffix(tokenizer.suffix + ".meta.json")
+    if metadata.exists() and not hmac.compare_digest(
+        _sha256(metadata), _sha256(canonical_metadata)
+    ):
+        raise ValueError("historical cloud pack has conflicting tokenizer metadata")
+    if not metadata.exists():
+        shutil.copy2(canonical_metadata, metadata)
+    return metadata, _sha256(metadata), "canonical_v4_compatibility_sidecar"
 
 
 def _continuation_start_token(
@@ -120,15 +162,14 @@ def create_cloud_launch(
     if not pack_builder_commit:
         raise ValueError("cloud pack does not identify its builder commit")
     tokenizer = pack_root / str(pack["tokenizer_path"])
-    tokenizer_metadata = pack_root / str(pack["tokenizer_metadata_path"])
     train_manifest = pack_root / str(pack["train_manifest"])
     validation_manifest = pack_root / str(pack["validation_manifest"])
     tokenizer_hash = hashlib.sha256(tokenizer.read_bytes()).hexdigest()
     if tokenizer_hash != str(pack["tokenizer_sha256"]):
         raise ValueError("cloud pack tokenizer hash mismatch")
-    tokenizer_metadata_hash = hashlib.sha256(tokenizer_metadata.read_bytes()).hexdigest()
-    if tokenizer_metadata_hash != str(pack["tokenizer_metadata_sha256"]):
-        raise ValueError("cloud pack tokenizer metadata hash mismatch")
+    tokenizer_metadata, tokenizer_metadata_hash, tokenizer_metadata_source = (
+        _materialize_tokenizer_metadata(pack_root, pack, tokenizer, tokenizer_hash)
+    )
     window_tokens = int(pack["training_tokens_requested"])
     cumulative_tokens = int(pack.get("cumulative_phase_tokens", window_tokens))
     pack_window_start = max(0, cumulative_tokens - window_tokens)
@@ -215,6 +256,9 @@ def create_cloud_launch(
         "declared_window_start": pack_window_start,
         "resume_window_start": window_start,
         "window_end": cumulative_tokens,
+        "tokenizer_metadata_path": str(tokenizer_metadata),
+        "tokenizer_metadata_sha256": tokenizer_metadata_hash,
+        "tokenizer_metadata_source": tokenizer_metadata_source,
     }
     return sign_manifest(manifest, output)
 
