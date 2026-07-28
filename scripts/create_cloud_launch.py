@@ -85,9 +85,17 @@ def _materialize_tokenizer_metadata(
             "historical cloud pack requires the canonical V4 tokenizer metadata sidecar"
         )
     if not hmac.compare_digest(_sha256(canonical_tokenizer), tokenizer_hash):
-        raise ValueError(
-            "historical cloud pack tokenizer differs from the active V4 tokenizer"
-        )
+        try:
+            canonical_payload = json.loads(canonical_tokenizer.read_text(encoding="utf-8"))
+            packed_payload = json.loads(tokenizer.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise ValueError(
+                "historical cloud pack tokenizer cannot be compared to active V4"
+            ) from exc
+        if canonical_payload != packed_payload:
+            raise ValueError(
+                "historical cloud pack tokenizer differs from the active V4 tokenizer"
+            )
     metadata = tokenizer.with_suffix(tokenizer.suffix + ".meta.json")
     if metadata.exists() and not hmac.compare_digest(
         _sha256(metadata), _sha256(canonical_metadata)

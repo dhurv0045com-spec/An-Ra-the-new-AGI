@@ -172,8 +172,11 @@ def test_historical_pack_binds_matching_canonical_v4_metadata(
     canonical_root = tmp_path / "repo"
     canonical_tokenizer = canonical_root / "tokenizer" / "tokenizer_v4_32k.json"
     canonical_tokenizer.parent.mkdir(parents=True)
-    tokenizer.write_bytes(b"same-v4-tokenizer")
-    canonical_tokenizer.write_bytes(tokenizer.read_bytes())
+    tokenizer.write_text('{"vocab":["a","b"],"schema":4}', encoding="utf-8")
+    canonical_tokenizer.write_text(
+        '{\n  "schema": 4,\n  "vocab": ["a", "b"]\n}\n',
+        encoding="utf-8",
+    )
     canonical_metadata = canonical_tokenizer.with_suffix(".json.meta.json")
     canonical_metadata.write_text(
         '{"schema_version":4,"vocab_size":32768}',
