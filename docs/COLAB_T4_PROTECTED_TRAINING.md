@@ -40,16 +40,17 @@ The prepared baseline is 2,168,037,221 bytes. The compressed 170M-token pack is
 
 1. Open the notebook from the account that owns `My Drive/AnRa/cluster`.
 2. Choose **Runtime → Change runtime type → T4 GPU**.
-3. Open Colab's key icon and create two private secrets:
-   `ANRA_MANIFEST_SIGNING_KEY` and `ANRA_EVIDENCE_SIGNING_KEY`.
-4. Give both secrets long random values of at least 32 characters and grant the
-   notebook access to them.
-5. Keep `WORKER_ROLE = "canonical_trainer"` for the active trainer.
-6. Press **Run all**, then approve the Google Drive mount.
+3. Keep `WORKER_ROLE = "canonical_trainer"` for the active trainer.
+4. Press **Run all**, then approve the Google Drive mount.
+
+On its first run, the notebook creates long random signing keys in
+`My Drive/AnRa/private/training-signing-keys.json`. This folder is outside the
+shared cluster vault. The values are not displayed, committed, or placed in the
+notebook.
 
 The notebook refuses to train without a real T4, the Drive assets, both secrets,
-a clean Git checkout, valid file hashes, a compatible full-resume checkpoint,
-and a signed remaining-token window.
+a clean Git checkout, valid file hashes, owner-private signing keys, a
+compatible full-resume checkpoint, and a signed remaining-token window.
 
 ## Taking over after a disconnection
 
@@ -59,7 +60,8 @@ ended:
 1. Open the same notebook in an authorized account.
 2. Ensure the shared `AnRa/cluster` folder is available at the same My Drive
    path. If it was shared to the account, add a My Drive shortcut named `AnRa`.
-3. Use the same two signing-secret values.
+3. Copy `training-signing-keys.json` into that account's private `AnRa/private`
+   folder only when that account is explicitly authorized to take over.
 4. Change `WORKER_ID` to a unique name.
 5. Select a T4 and press **Run all**.
 
