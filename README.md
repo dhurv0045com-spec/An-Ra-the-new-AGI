@@ -34,6 +34,7 @@ that trained lineage into one function-preserving 499,880,031-parameter child.
 | Authorized checkpoint-baton cluster | Implemented and contract-tested |
 | 181M → 500M growth machinery | Implemented; real-parent parity still required |
 | MTP, self-correction, adapters, post-training contracts | Pilot |
+| TurboQuant-inspired KV-cache compression | Pilot; real 4-bit storage, not promoted |
 | MoE, MoD, transformer HAL, agents, moonshots | Disabled or isolated pilots |
 | New coherent V4 language checkpoint | **Not trained yet** |
 | Live cross-worker T4 handoff | **Not demonstrated yet** |
@@ -200,6 +201,10 @@ manual owner actions.
 Read the [plain-language cluster training guide](docs/CLUSTER_TRAINING_GUIDE.md)
 before starting a paid or limited session.
 
+For the prepared single-T4 continuation, use
+[the protected Colab trainer](notebooks/AN_RA_T4_PROTECTED_TRAINER.ipynb) with
+the [short operator guide](docs/COLAB_T4_PROTECTED_TRAINING.md).
+
 ## Intelligence systems: active, pilot, or off
 
 | System | Current lifecycle | Why it exists |
@@ -212,12 +217,39 @@ before starting a paid or limited session.
 | External HAL | Pilot | Inspectable bounded runtime policy |
 | Self-correction | Pilot | Verify, revise, or abstain under a budget |
 | LoRA/DoRA adapters | Pilot | Reversible skill acquisition |
+| TurboQuant KV cache | Pilot | Reduce persistent inference memory with measured distortion |
 | SFT/RLVR/STaR/DPO | Pilot contracts | Post-training with explicit lineage |
 | MoD, RIM, ESV, DSTP | Disabled baseline | Require individual matched evidence |
 | Current MoE | Disabled | Present geometry is too large for the T4 baseline |
 | Agents and tools | Disabled | Await useful model and permission evidence |
 | Moonshots | Isolated pilots | Research without entering the critical path |
 | Multimodal/world/robotics | Disabled research | Later capability stages |
+
+TurboQuant is an inference-efficiency pilot, not an intelligence claim. The
+implemented path applies a deterministic randomized Hadamard rotation, scalar
+quantization, true 4-bit nibble packing, FP16 norms, and physical-byte
+telemetry inside the model's real attention cache. It currently dequantizes
+before PyTorch SDPA, so it may save persistent KV memory without improving
+latency. It remains opt-in until a trained V4 checkpoint passes the dedicated
+quality, distortion, peak-VRAM, and throughput gate.
+
+To activate it for one running API process, first ask the runtime to select the
+lowest precision that preserves the checkpoint's bounded generation probe:
+
+```powershell
+Invoke-RestMethod -Method Post `
+  -Uri http://127.0.0.1:8000/diagnostics/cache-parity `
+  -ContentType application/json `
+  -Body '{"backend":"turboquant","turboquant_bits":"auto","max_tokens":8}'
+```
+
+Use the returned `selected_bits` in generation requests. Authorization is
+precision-specific and process-local: passing 8-bit never enables 4-bit, and a
+server restart requires a new check. On the local 181M rehearsal checkpoint,
+4-bit changed the greedy output and was rejected; automatic selection chose
+8-bit, which preserved the bounded output while reducing cache capacity by
+3.88x. That proves the serving mechanism—not language quality, because the
+rehearsal checkpoint has only three optimizer steps.
 
 The executable lifecycle registry is
 [`runtime/subsystem_catalog.py`](runtime/subsystem_catalog.py). File presence
@@ -253,12 +285,19 @@ pilots, but the canonical 2,048-token profile requires at least 14 GiB VRAM.
 Start the local Developer UI:
 
 ```powershell
-.\.venv\Scripts\python.exe -m uvicorn app:app `
-  --host 127.0.0.1 `
-  --port 8000
+.\scripts\start_local_chat.ps1
 ```
 
 Open `http://127.0.0.1:8000/developer`.
+
+The launcher selects the canonical V4 checkpoint when present, otherwise the
+latest compatible local rehearsal checkpoint. It verifies the CUDA
+environment, starts the server in the background, waits for model readiness,
+and opens the interface. Stop it with:
+
+```powershell
+.\scripts\stop_local_chat.ps1
+```
 
 Useful read-only endpoints:
 

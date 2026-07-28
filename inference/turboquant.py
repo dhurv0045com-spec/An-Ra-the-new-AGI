@@ -1,659 +1,449 @@
-"""
-================================================================================
-FILE: turboquant.py
-PROJECT: An-Ra AGI — Core Inference Optimization
-PURPOSE: TurboQuant KV-Cache Compression (6x Memory Reduction)
-================================================================================
+"""Device-resident, bit-packed TurboQuant KV-cache pilot.
 
-Implements the TurboQuant algorithm (Google Research, ICLR 2026):
-A training-free, model-agnostic vector quantization system that compresses
-the Key-Value cache during inference, enabling 6x longer context windows
-with near-zero accuracy loss.
+This is an evidence-gated inference pilot inspired by TurboQuant
+(arXiv:2504.19874), not a claim of reproducing the paper's fused QJL attention
+kernel.  It implements the part An-Ra can validate honestly today:
 
-TWO-STAGE PIPELINE:
+* deterministic randomized Walsh-Hadamard rotation;
+* online normal-approximation Lloyd-Max scalar quantization;
+* real 4-bit nibble packing (or 8-bit storage);
+* FP16 vector norms and bounded, device-resident cache buffers;
+* measured distortion, physical bytes, and compression ratio;
+* transparent dequantization before PyTorch SDPA.
 
-  Stage 1 — PolarQuant
-  ─────────────────────────────────────────────────────────────────────
-    Problem:  Raw KV vectors have non-uniform energy distribution.
-              Some dimensions carry more information than others,
-              making naive quantization lossy.
+The paper's inner-product-optimal path applies QJL to the residual inside the
+attention estimator.  The retired implementation incorrectly treated QJL sign
+bits as a vector-space correction and stored every "4-bit" code in a full byte.
+This pilot deliberately omits QJL until An-Ra has a fused query-aware kernel.
 
-    Solution: Apply a random orthogonal rotation (via Walsh-Hadamard
-              transform) to spread energy uniformly across all dims.
-              After rotation, optimal bucket quantization works with
-              mathematically predictable error bounds.
-
-    Key insight: Rotating doesn't change the dot product between Q
-                 and K (orthogonal transforms preserve inner products).
-                 So we can rotate K before storing in cache, and the
-                 attention scores remain identical.
-
-  Stage 2 — QJL (Quantized Johnson-Lindenstrauss)
-  ─────────────────────────────────────────────────────────────────────
-    Problem:  PolarQuant introduces small quantization errors that
-              accumulate over long sequences.
-
-    Solution: Apply random projections (Johnson-Lindenstrauss lemma)
-              and store only the SIGN of each projected dimension.
-              This single-bit correction eliminates systematic bias
-              in the attention score computation.
-
-    Key insight: The JL lemma guarantees that random projections
-                 preserve pairwise distances. Quantizing to signs
-                 (+1/-1) costs only 1 bit per dimension but captures
-                 enough directional information to correct errors.
-
-COMPRESSION RATIOS (float32 → compressed):
-  4-bit PolarQuant:  32/4  = 8x  (with QJL overhead → ~6x effective)
-  2-bit PolarQuant:  32/2  = 16x (with QJL overhead → ~10x effective)
-  8-bit PolarQuant:  32/8  = 4x  (with QJL overhead → ~3.5x effective)
-
-USAGE:
-    from turboquant import CompressedKVCache, TurboQuantConfig
-
-    config = TurboQuantConfig(bits=4)  # 6x compression
-    cache = CompressedKVCache(
-        batch_size=1, num_kv_heads=8,
-        max_seq_len=4096, d_head=64,
-        tq_config=config,
-    )
-
-    # Use exactly like KVCache — compression is transparent
-    k_full, v_full = cache.update(k_new, v_new)
-
-================================================================================
+Primary reference: https://arxiv.org/abs/2504.19874
 """
 
+from __future__ import annotations
+
+import math
 from dataclasses import dataclass
+from functools import lru_cache
+from typing import Literal
 
-import numpy as np
+import torch
 
-# ──────────────────────────────────────────────────────────────────────────────
-# CONFIGURATION
-# ──────────────────────────────────────────────────────────────────────────────
 
-@dataclass
+class TurboQuantError(RuntimeError):
+    """Raised when the compressed cache contract cannot be satisfied."""
+
+
+@dataclass(frozen=True, slots=True)
 class TurboQuantConfig:
-    """
-    TurboQuant configuration.
+    """Configuration for the reversible KV-cache pilot."""
 
-    Args:
-        bits:          Quantization bit depth (2, 4, or 8)
-        qjl_dim:       QJL projection dimensionality (None = auto: d_head // 2)
-        seed:          Random seed for reproducibility
-        enabled:       Master toggle
-    """
-    bits:     int  = 4
-    qjl_dim:  int | None = None
-    seed:     int  = 42
-    enabled:  bool = True
+    bits: Literal[4, 8] = 4
+    seed: int = 1301
+    scale_dtype: torch.dtype = torch.float16
+    minimum_compression_ratio: float = 3.0
+
+    def __post_init__(self) -> None:
+        if self.bits not in {4, 8}:
+            raise ValueError("TurboQuant pilot supports only packed 4-bit or 8-bit codes")
+        if self.seed < 0:
+            raise ValueError("TurboQuant seed must be non-negative")
+        if self.scale_dtype not in {torch.float16, torch.bfloat16, torch.float32}:
+            raise ValueError("TurboQuant scale dtype must be a floating-point storage dtype")
+        if self.minimum_compression_ratio <= 1.0:
+            raise ValueError("minimum_compression_ratio must exceed 1")
 
     @property
-    def n_buckets(self) -> int:
-        """Number of quantization buckets: 2^bits."""
+    def levels(self) -> int:
         return 1 << self.bits
 
-    @property
-    def compression_ratio(self) -> float:
-        """Theoretical compression ratio vs float32."""
-        # Main storage: bits per value + 1 bit QJL correction
-        effective_bits = self.bits + 1
-        return 32.0 / effective_bits
+
+def _is_power_of_two(value: int) -> bool:
+    return value > 0 and value & (value - 1) == 0
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-# STAGE 1: POLARQUANT — Rotation + Bucket Quantization
-# ──────────────────────────────────────────────────────────────────────────────
+def _fwht(tensor: torch.Tensor) -> torch.Tensor:
+    """Normalized fast Walsh-Hadamard transform over the final dimension."""
 
-class PolarQuant:
-    """
-    PolarQuant: Random orthogonal rotation followed by uniform bucket quantization.
-
-    The rotation spreads energy uniformly, making all dimensions equally
-    important. This allows simple uniform quantization to achieve near-optimal
-    distortion — no per-channel calibration needed.
-
-    Mathematical guarantee: For any vector x, after rotation R:
-        ‖R·x - Q(R·x)‖² ≤ ‖x‖² · C / 2^bits
-    where C is a small constant independent of d_head.
-
-    Args:
-        d_head:    Per-head dimension (must be power of 2 for fast Hadamard)
-        bits:      Quantization bits per value
-        seed:      Random seed
-    """
-
-    def __init__(self, d_head: int, bits: int = 4, seed: int = 42) -> None:
-        self.d_head = d_head
-        self.bits = bits
-        self.n_buckets = 1 << bits
-        self.rng = np.random.default_rng(seed)
-
-        # Generate the random rotation matrix
-        # For power-of-2 dims, use randomized Walsh-Hadamard (fast & orthogonal)
-        # For non-power-of-2, use random orthogonal matrix from QR decomposition
-        if d_head > 0 and (d_head & (d_head - 1)) == 0:
-            # Power of 2: use Walsh-Hadamard with random sign flips
-            self._rotation = self._make_hadamard_rotation(d_head, seed)
-        else:
-            # General case: random orthogonal via QR
-            self._rotation = self._make_random_orthogonal(d_head, seed)
-
-        self._rotation_T = self._rotation.T.copy()
-
-    @staticmethod
-    def _make_hadamard_rotation(n: int, seed: int) -> np.ndarray:
-        """
-        Construct a randomized Walsh-Hadamard rotation matrix.
-
-        Walsh-Hadamard is orthogonal, O(n log n) to apply, and with
-        random sign flips becomes a universally good rotation for
-        spreading energy uniformly.
-
-        H_1 = [1]
-        H_2n = [ H_n   H_n  ]  / sqrt(2)
-               [ H_n  -H_n  ]
-        """
-        # Build Hadamard matrix recursively
-        matrix = np.array([[1.0]], dtype=np.float32)
-        while matrix.shape[0] < n:
-            matrix = np.block([[matrix, matrix], [matrix, -matrix]]) / np.sqrt(2.0)
-
-        # Random sign flips on columns (makes it a random orthogonal rotation)
-        rng = np.random.default_rng(seed)
-        signs = rng.choice([-1.0, 1.0], size=n).astype(np.float32)
-        return matrix * signs[np.newaxis, :]
-
-    @staticmethod
-    def _make_random_orthogonal(n: int, seed: int) -> np.ndarray:
-        """Random orthogonal matrix via QR decomposition of random Gaussian."""
-        rng = np.random.default_rng(seed)
-        matrix = rng.standard_normal((n, n)).astype(np.float32)
-        orthogonal, triangular = np.linalg.qr(matrix)
-        # Ensure proper rotation (det = +1)
-        signs = np.sign(np.diag(triangular))
-        return orthogonal * signs[np.newaxis, :]
-
-    def quantize(self, x: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-        """
-        Quantize vectors using PolarQuant.
-
-        Steps:
-          1. Rotate: x_rot = x @ R  (spread energy uniformly)
-          2. Compute per-vector scale: s = max(|x_rot|) per vector
-          3. Normalize to [-1, 1]: x_norm = x_rot / s
-          4. Bucket quantize: codes = round((x_norm + 1) / 2 * (n_buckets - 1))
-          5. Store: (codes as uint8/uint16, scales, rotation is shared)
-
-        Args:
-            x: (..., d_head) float32 vectors
-
-        Returns:
-            codes:  (..., d_head) uint8 quantized codes
-            scales: (..., 1) float32 per-vector scales
-            x_rot:  (..., d_head) float32 rotated vectors (for QJL stage)
-        """
-        # 1. Rotate to spread energy
-        x_rot = x @ self._rotation  # (..., d_head)
-
-        # 2. Per-vector scale (max absolute value)
-        scales = np.abs(x_rot).max(axis=-1, keepdims=True)
-        scales = np.maximum(scales, 1e-10)  # avoid division by zero
-
-        # 3. Normalize to [-1, 1]
-        x_norm = x_rot / scales
-
-        # 4. Map [-1, 1] to [0, n_buckets-1] and round
-        codes = np.round((x_norm + 1.0) * 0.5 * (self.n_buckets - 1))
-        codes = np.clip(codes, 0, self.n_buckets - 1).astype(np.uint8)
-
-        return codes, scales, x_rot
-
-    def dequantize(self, codes: np.ndarray, scales: np.ndarray) -> np.ndarray:
-        """
-        Reconstruct approximate vectors from quantized codes.
-
-        Reverses: codes → normalized → scaled → inverse rotate
-
-        Args:
-            codes:  (..., d_head) uint8 quantized codes
-            scales: (..., 1) float32 per-vector scales
-
-        Returns:
-            x_approx: (..., d_head) float32 reconstructed vectors
-        """
-        # Codes → [-1, 1]
-        x_norm = codes.astype(np.float32) / (self.n_buckets - 1) * 2.0 - 1.0
-
-        # Scale back
-        x_rot_approx = x_norm * scales
-
-        # Inverse rotation (R is orthogonal, so R⁻¹ = Rᵀ)
-        return x_rot_approx @ self._rotation_T
+    width = int(tensor.shape[-1])
+    if not _is_power_of_two(width):
+        raise TurboQuantError(
+            f"Walsh-Hadamard rotation requires a power-of-two head dimension, got {width}"
+        )
+    output = tensor
+    block = 1
+    while block < width:
+        shaped = output.reshape(*output.shape[:-1], -1, block * 2)
+        left = shaped[..., :block]
+        right = shaped[..., block:]
+        output = torch.cat((left + right, left - right), dim=-1).reshape_as(output)
+        block *= 2
+    return output / math.sqrt(width)
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-# STAGE 2: QJL — Quantized Johnson-Lindenstrauss Error Correction
-# ──────────────────────────────────────────────────────────────────────────────
+@lru_cache(maxsize=2)
+def _normal_lloyd_max(levels: int, *, iterations: int = 80) -> tuple[torch.Tensor, torch.Tensor]:
+    """Build a deterministic scalar Lloyd-Max codebook for N(0, 1).
 
-class QJLCorrector:
-    """
-    QJL (Quantized Johnson-Lindenstrauss) error correction.
-
-    After PolarQuant, there's a small quantization residual:
-        error = x_rot - dequant(quant(x_rot))
-
-    QJL captures the direction of this error using random projections
-    reduced to sign bits. When computing attention scores, the QJL
-    correction eliminates systematic bias.
-
-    Johnson-Lindenstrauss lemma guarantees:
-      For random projection matrix P ∈ R^{d×m} with m = O(log(n)/ε²):
-        (1-ε)‖u-v‖² ≤ ‖Pu-Pv‖² ≤ (1+ε)‖u-v‖²
-
-    By storing only sign(P·error), we get 1-bit correction per projection
-    dimension — negligible memory overhead but significant accuracy recovery.
-
-    Args:
-        d_head:   Per-head dimension
-        qjl_dim:  Number of projection dimensions (more = better correction)
-        seed:     Random seed
+    Random rotation makes individual coordinates close to normal in high
+    dimensions.  The paper uses dimension-aware Beta codebooks; the normal
+    approximation is explicit pilot debt and is recorded in telemetry.
     """
 
-    def __init__(self, d_head: int, qjl_dim: int = 32, seed: int = 42) -> None:
-        self.d_head = d_head
-        self.qjl_dim = qjl_dim
+    dtype = torch.float64
+    normal = torch.distributions.Normal(
+        torch.tensor(0.0, dtype=dtype),
+        torch.tensor(1.0, dtype=dtype),
+    )
+    probabilities = (torch.arange(levels, dtype=dtype) + 0.5) / levels
+    centroids = normal.icdf(probabilities)
+    sqrt_two_pi = math.sqrt(2.0 * math.pi)
 
-        # Random Gaussian projection matrix
-        rng = np.random.default_rng(seed + 1000)  # offset seed from PolarQuant
-        # Scale by 1/sqrt(qjl_dim) for JL guarantee
-        self.P = (rng.standard_normal((d_head, qjl_dim)) / np.sqrt(qjl_dim)).astype(np.float32)
-        self.P_T = self.P.T.copy()
+    for _ in range(iterations):
+        boundaries = (centroids[:-1] + centroids[1:]) * 0.5
+        lower = torch.cat(
+            (torch.tensor([-torch.inf], dtype=dtype), boundaries),
+        )
+        upper = torch.cat(
+            (boundaries, torch.tensor([torch.inf], dtype=dtype)),
+        )
+        lower_cdf = normal.cdf(lower)
+        upper_cdf = normal.cdf(upper)
+        lower_pdf = torch.where(
+            torch.isfinite(lower),
+            torch.exp(-0.5 * lower.square()) / sqrt_two_pi,
+            torch.zeros_like(lower),
+        )
+        upper_pdf = torch.where(
+            torch.isfinite(upper),
+            torch.exp(-0.5 * upper.square()) / sqrt_two_pi,
+            torch.zeros_like(upper),
+        )
+        mass = (upper_cdf - lower_cdf).clamp_min(torch.finfo(dtype).eps)
+        updated = (lower_pdf - upper_pdf) / mass
+        if torch.max(torch.abs(updated - centroids)).item() < 1e-12:
+            centroids = updated
+            break
+        centroids = updated
 
-    def encode_correction(
-        self, x_original: np.ndarray, x_reconstructed: np.ndarray
-    ) -> np.ndarray:
-        """
-        Compute sign-bit error correction.
-
-        Args:
-            x_original:      (..., d_head) original rotated vectors
-            x_reconstructed: (..., d_head) dequantized approximation
-
-        Returns:
-            signs: (..., qjl_dim) packed as int8 (+1/-1)
-        """
-        residual = x_original - x_reconstructed  # (..., d_head)
-        projected = residual @ self.P             # (..., qjl_dim)
-        signs = np.sign(projected).astype(np.int8)
-        signs[signs == 0] = 1  # tie-break: treat zero as positive
-        return signs
-
-    def apply_correction(
-        self, x_reconstructed: np.ndarray, signs: np.ndarray,
-        error_scale: float = 0.5
-    ) -> np.ndarray:
-        """
-        Apply QJL correction to improve dequantized vectors.
-
-        The correction is: x_corrected = x_recon + scale * signs @ P^T
-
-        This pushes the reconstruction toward the correct direction
-        of the original residual.
-
-        Args:
-            x_reconstructed: (..., d_head) dequantized vectors
-            signs:           (..., qjl_dim) sign corrections
-            error_scale:     Correction magnitude (tuned per bit depth)
-
-        Returns:
-            x_corrected: (..., d_head) corrected vectors
-        """
-        correction = signs.astype(np.float32) @ self.P_T  # (..., d_head)
-        return x_reconstructed + error_scale * correction
+    boundaries = (centroids[:-1] + centroids[1:]) * 0.5
+    return centroids.float(), boundaries.float()
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-# COMPRESSED KV-CACHE — Drop-in replacement for KVCache
-# ──────────────────────────────────────────────────────────────────────────────
+def _pack_nibbles(codes: torch.Tensor) -> torch.Tensor:
+    if codes.dtype is not torch.uint8:
+        raise TypeError("4-bit packing requires uint8 code indices")
+    width = int(codes.shape[-1])
+    if width % 2:
+        codes = torch.nn.functional.pad(codes, (0, 1))
+    low = codes[..., 0::2]
+    high = codes[..., 1::2]
+    return low | (high << 4)
 
-class CompressedKVCache:
-    """
-    TurboQuant-compressed Key-Value cache for inference.
 
-    Drop-in replacement for KVCache in attention.py. Stores K/V vectors
-    in compressed form (PolarQuant codes + QJL sign bits) and decompresses
-    on-the-fly when attention needs the full vectors.
+def _unpack_nibbles(packed: torch.Tensor, width: int) -> torch.Tensor:
+    low = packed & 0x0F
+    high = (packed >> 4) & 0x0F
+    return torch.stack((low, high), dim=-1).flatten(-2)[..., :width]
 
-    Memory comparison (per token, per head, d_head=64):
-      Standard KVCache:  64 × 4 bytes = 256 bytes  (float32)
-      CompressedKVCache: 64 × 0.5 + 64 × 0.125 + 4 = ~40 bytes  (4-bit + QJL + scale)
-      Compression:       256 / 40 ≈ 6.4x
 
-    Args:
-        batch_size:    Inference batch size
-        num_kv_heads:  Number of KV heads
-        max_seq_len:   Maximum context window
-        d_head:        Per-head dimension
-        tq_config:     TurboQuant configuration
-    """
+class TorchTurboQuantCache:
+    """Compressed per-layer K/V cache used by An-Ra's actual attention path."""
+
+    algorithm = "turboquant-pilot/hadamard-lloyd-max-v1"
 
     def __init__(
         self,
-        batch_size:   int,
+        *,
         num_kv_heads: int,
-        max_seq_len:  int,
-        d_head:       int,
-        tq_config:    TurboQuantConfig | None = None,
+        max_seq_len: int,
+        d_head: int,
+        config: TurboQuantConfig | None = None,
     ) -> None:
-        self.max_seq_len = max_seq_len
-        self.num_kv_heads = num_kv_heads
-        self.d_head = d_head
+        if num_kv_heads <= 0 or max_seq_len <= 0 or d_head <= 0:
+            raise ValueError(
+                "KV heads, maximum sequence length, and head dimension must be positive"
+            )
+        if not _is_power_of_two(d_head):
+            raise ValueError("TurboQuant pilot requires a power-of-two head dimension")
+        self.num_kv_heads = int(num_kv_heads)
+        self.max_seq_len = int(max_seq_len)
+        self.d_head = int(d_head)
+        self.config = config or TurboQuantConfig()
         self.current_len = 0
+        self.total_tokens_seen = 0
+        self._batch_size: int | None = None
+        self._device: torch.device | None = None
+        self._k_codes: torch.Tensor | None = None
+        self._v_codes: torch.Tensor | None = None
+        self._k_norms: torch.Tensor | None = None
+        self._v_norms: torch.Tensor | None = None
+        self._codebook_cpu, self._boundaries_cpu = _normal_lloyd_max(
+            self.config.levels
+        )
+        generator = torch.Generator(device="cpu")
+        generator.manual_seed(self.config.seed)
+        signs = torch.randint(0, 2, (self.d_head,), generator=generator)
+        self._signs_cpu = signs.mul(2).sub(1).to(torch.float32)
+        self._last_relative_mse = 0.0
+        self._max_relative_mse = 0.0
+        self._updates = 0
+        self._source_dtype_bytes = 2
 
-        cfg = tq_config or TurboQuantConfig()
-        qjl_dim = cfg.qjl_dim or max(d_head // 2, 16)
+    @property
+    def position(self) -> int:
+        return self.total_tokens_seen
 
-        # Build quantizer and corrector (shared across all positions)
-        self.polar = PolarQuant(d_head, bits=cfg.bits, seed=cfg.seed)
-        self.qjl = QJLCorrector(d_head, qjl_dim=qjl_dim, seed=cfg.seed)
+    @property
+    def packed_width(self) -> int:
+        return (self.d_head + 1) // 2 if self.config.bits == 4 else self.d_head
 
-        # Error scale tuned per bit depth (smaller = safer correction)
-        self._error_scales = {2: 0.15, 4: 0.08, 8: 0.03}
-        self._error_scale = self._error_scales.get(cfg.bits, 0.08)
+    def _ensure_storage(self, tensor: torch.Tensor) -> None:
+        batch, heads, _tokens, width = tensor.shape
+        if heads != self.num_kv_heads or width != self.d_head:
+            raise TurboQuantError(
+                "KV tensor geometry does not match the compressed-cache contract"
+            )
+        if self._batch_size is not None:
+            if batch != self._batch_size or tensor.device != self._device:
+                raise TurboQuantError(
+                    "TurboQuant cache cannot change batch size or device without reset"
+                )
+            return
+        self._batch_size = int(batch)
+        self._device = tensor.device
+        code_shape = (
+            batch,
+            self.num_kv_heads,
+            self.max_seq_len,
+            self.packed_width,
+        )
+        norm_shape = (batch, self.num_kv_heads, self.max_seq_len, 1)
+        self._k_codes = torch.empty(code_shape, dtype=torch.uint8, device=tensor.device)
+        self._v_codes = torch.empty_like(self._k_codes)
+        self._k_norms = torch.empty(
+            norm_shape,
+            dtype=self.config.scale_dtype,
+            device=tensor.device,
+        )
+        self._v_norms = torch.empty_like(self._k_norms)
 
-        # ── Compressed storage buffers ──────────────────────────────────────
-        shape_full = (batch_size, num_kv_heads, max_seq_len, d_head)
-        shape_qjl  = (batch_size, num_kv_heads, max_seq_len, qjl_dim)
-        shape_sc   = (batch_size, num_kv_heads, max_seq_len, 1)
+    def _rotation_material(
+        self, tensor: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        signs = self._signs_cpu.to(device=tensor.device, dtype=torch.float32)
+        codebook = self._codebook_cpu.to(device=tensor.device)
+        boundaries = self._boundaries_cpu.to(device=tensor.device)
+        return signs, codebook, boundaries
 
-        # K storage (compressed)
-        self.k_codes  = np.zeros(shape_full, dtype=np.uint8)
-        self.k_scales = np.zeros(shape_sc,   dtype=np.float32)
-        self.k_signs  = np.zeros(shape_qjl,  dtype=np.int8)
+    def _quantize(self, tensor: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, float]:
+        signs, codebook, boundaries = self._rotation_material(tensor)
+        working = tensor.detach().to(torch.float32)
+        norms = torch.linalg.vector_norm(working, dim=-1, keepdim=True).clamp_min(1e-8)
+        rotated = _fwht(working * signs)
+        standardized = rotated * math.sqrt(self.d_head) / norms
+        codes = torch.bucketize(standardized, boundaries).to(torch.uint8)
+        packed = _pack_nibbles(codes) if self.config.bits == 4 else codes
 
-        # V storage (compressed)
-        self.v_codes  = np.zeros(shape_full, dtype=np.uint8)
-        self.v_scales = np.zeros(shape_sc,   dtype=np.float32)
-        self.v_signs  = np.zeros(shape_qjl,  dtype=np.int8)
+        stored_norms = norms.to(self.config.scale_dtype)
+        reconstructed_rotated = (
+            codebook[codes.long()]
+            * stored_norms.to(torch.float32)
+            / math.sqrt(self.d_head)
+        )
+        reconstructed = _fwht(reconstructed_rotated) * signs
+        error = (working - reconstructed).square().sum(dim=-1)
+        denominator = working.square().sum(dim=-1).clamp_min(1e-12)
+        relative_mse = float((error / denominator).mean().item())
+        return packed, stored_norms, relative_mse
 
-        self.config = cfg
+    def _dequantize(
+        self,
+        packed: torch.Tensor,
+        norms: torch.Tensor,
+        *,
+        dtype: torch.dtype,
+    ) -> torch.Tensor:
+        signs, codebook, _boundaries = self._rotation_material(norms)
+        codes = (
+            _unpack_nibbles(packed, self.d_head)
+            if self.config.bits == 4
+            else packed
+        )
+        rotated = (
+            codebook[codes.long()]
+            * norms.to(torch.float32)
+            / math.sqrt(self.d_head)
+        )
+        return (_fwht(rotated) * signs).to(dtype)
 
-    def _compress(self, x: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-        """Compress a tensor through the full TurboQuant pipeline."""
-        codes, scales, x_rot = self.polar.quantize(x)
+    @staticmethod
+    def _shift_left(tensor: torch.Tensor, *, used: int, amount: int) -> None:
+        remaining = max(0, used - amount)
+        if remaining:
+            tensor[:, :, :remaining].copy_(tensor[:, :, amount:used].clone())
 
-        # Dequantize to get reconstruction (back in original space)
-        x_recon = self.polar.dequantize(codes, scales)
-
-        # QJL encodes the error direction between original and reconstructed
-        signs = self.qjl.encode_correction(x, x_recon)
-
-        return codes, scales, signs
-
-    def _decompress(
-        self, codes: np.ndarray, scales: np.ndarray, signs: np.ndarray
-    ) -> np.ndarray:
-        """Decompress through inverse TurboQuant pipeline."""
-        x_approx = self.polar.dequantize(codes, scales)
-
-        # Apply QJL error correction
-        return self.qjl.apply_correction(x_approx, signs, self._error_scale)
+    def _make_room(self, new_tokens: int) -> None:
+        overflow = max(0, self.current_len + new_tokens - self.max_seq_len)
+        if overflow <= 0:
+            return
+        if overflow >= self.current_len:
+            self.current_len = 0
+            return
+        assert self._k_codes is not None
+        assert self._v_codes is not None
+        assert self._k_norms is not None
+        assert self._v_norms is not None
+        for tensor in (self._k_codes, self._v_codes, self._k_norms, self._v_norms):
+            self._shift_left(tensor, used=self.current_len, amount=overflow)
+        self.current_len -= overflow
 
     def update(
-        self, k_new: np.ndarray, v_new: np.ndarray
-    ) -> tuple[np.ndarray, np.ndarray]:
-        """
-        Compress and store new K/V, return full decompressed history.
-
-        API-compatible with KVCache.update().
-
-        Args:
-            k_new: (batch, num_kv_heads, new_len, d_head) new keys
-            v_new: (batch, num_kv_heads, new_len, d_head) new values
-
-        Returns:
-            k_full: (batch, num_kv_heads, total_len, d_head) all keys (decompressed)
-            v_full: (batch, num_kv_heads, total_len, d_head) all values (decompressed)
-        """
-        new_len = k_new.shape[2]
-        end = self.current_len + new_len
-        assert end <= self.max_seq_len, (
-            f"CompressedKVCache overflow: {end} > {self.max_seq_len}. "
-            f"Increase max_seq_len or reduce generation length."
-        )
-
-        # Compress new K
-        k_codes, k_scales, k_signs = self._compress(k_new)
-        self.k_codes[:, :, self.current_len:end, :]  = k_codes
-        self.k_scales[:, :, self.current_len:end, :] = k_scales
-        self.k_signs[:, :, self.current_len:end, :]  = k_signs
-
-        # Compress new V
-        v_codes, v_scales, v_signs = self._compress(v_new)
-        self.v_codes[:, :, self.current_len:end, :]  = v_codes
-        self.v_scales[:, :, self.current_len:end, :] = v_scales
-        self.v_signs[:, :, self.current_len:end, :]  = v_signs
-
+        self,
+        key: torch.Tensor,
+        value: torch.Tensor,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        if key.shape != value.shape or key.ndim != 4:
+            raise TurboQuantError("K and V must have identical [batch, heads, tokens, dim] shape")
+        self._ensure_storage(key)
+        tokens_seen = int(key.shape[2])
+        if key.shape[2] > self.max_seq_len:
+            key = key[:, :, -self.max_seq_len :, :]
+            value = value[:, :, -self.max_seq_len :, :]
+        new_tokens = int(key.shape[2])
+        self._make_room(new_tokens)
+        start = self.current_len
+        end = start + new_tokens
+        k_codes, k_norms, k_error = self._quantize(key)
+        v_codes, v_norms, v_error = self._quantize(value)
+        assert self._k_codes is not None
+        assert self._v_codes is not None
+        assert self._k_norms is not None
+        assert self._v_norms is not None
+        self._k_codes[:, :, start:end].copy_(k_codes)
+        self._v_codes[:, :, start:end].copy_(v_codes)
+        self._k_norms[:, :, start:end].copy_(k_norms)
+        self._v_norms[:, :, start:end].copy_(v_norms)
         self.current_len = end
-
-        # Decompress full history for attention computation
-        k_full = self._decompress(
-            self.k_codes[:, :, :end, :],
-            self.k_scales[:, :, :end, :],
-            self.k_signs[:, :, :end, :],
+        # RoPE position is absolute even when the bounded cache evicts history.
+        self.total_tokens_seen += tokens_seen
+        self._source_dtype_bytes = key.element_size()
+        self._last_relative_mse = (k_error + v_error) * 0.5
+        self._max_relative_mse = max(
+            self._max_relative_mse,
+            self._last_relative_mse,
         )
-        v_full = self._decompress(
-            self.v_codes[:, :, :end, :],
-            self.v_scales[:, :, :end, :],
-            self.v_signs[:, :, :end, :],
+        self._updates += 1
+        return (
+            self._dequantize(
+                self._k_codes[:, :, :end],
+                self._k_norms[:, :, :end],
+                dtype=key.dtype,
+            ),
+            self._dequantize(
+                self._v_codes[:, :, :end],
+                self._v_norms[:, :, :end],
+                dtype=value.dtype,
+            ),
         )
-
-        return k_full, v_full
 
     def reset(self) -> None:
-        """Clear the cache."""
         self.current_len = 0
-        self.k_codes[:]  = 0
-        self.k_scales[:] = 0
-        self.k_signs[:]  = 0
-        self.v_codes[:]  = 0
-        self.v_scales[:] = 0
-        self.v_signs[:]  = 0
+        self.total_tokens_seen = 0
+        self._last_relative_mse = 0.0
+        self._max_relative_mse = 0.0
+        self._updates = 0
 
-    def memory_bytes(self) -> dict:
-        """Report actual memory usage vs uncompressed baseline."""
+    def memory_report(self) -> dict[str, object]:
+        batch = int(self._batch_size or 0)
         tokens = self.current_len
-        if tokens == 0:
-            return {"compressed": 0, "uncompressed": 0, "ratio": 0}
-
-        batch_size = self.k_codes.shape[0]
-        head_count = self.num_kv_heads
-
-        # Compressed: codes(uint8) + scales(float32) + signs(int8) — for K and V
-        compressed = 2 * batch_size * head_count * tokens * (
-            self.d_head * 1 +      # codes: 1 byte each
-            1 * 4 +                 # scales: 4 bytes each
-            self.qjl.qjl_dim * 1   # signs: 1 byte each
+        bytes_per_stored_vector = self.packed_width + self.config.scale_dtype.itemsize
+        occupied_compressed = (
+            2 * batch * self.num_kv_heads * tokens * bytes_per_stored_vector
         )
-
-        # Uncompressed: float32 for K and V
-        uncompressed = 2 * batch_size * head_count * tokens * self.d_head * 4
-
+        occupied_uncompressed = (
+            2
+            * batch
+            * self.num_kv_heads
+            * tokens
+            * self.d_head
+            * self._source_dtype_bytes
+        )
+        allocated_compressed = (
+            2
+            * batch
+            * self.num_kv_heads
+            * self.max_seq_len
+            * bytes_per_stored_vector
+        )
+        equivalent_uncompressed_capacity = (
+            2
+            * batch
+            * self.num_kv_heads
+            * self.max_seq_len
+            * self.d_head
+            * self._source_dtype_bytes
+        )
+        ratio = (
+            equivalent_uncompressed_capacity / allocated_compressed
+            if allocated_compressed
+            else 0.0
+        )
         return {
-            "compressed_bytes": int(compressed),
-            "uncompressed_bytes": int(uncompressed),
-            "ratio": uncompressed / max(compressed, 1),
+            "algorithm": self.algorithm,
+            "paper_complete": False,
+            "qjl_fused": False,
+            "bits": self.config.bits,
             "tokens_cached": tokens,
-            "savings_pct": (1 - compressed / max(uncompressed, 1)) * 100,
+            "cache_capacity_tokens": self.max_seq_len,
+            "compressed_bytes": allocated_compressed,
+            "uncompressed_bytes": equivalent_uncompressed_capacity,
+            "occupied_compressed_bytes": occupied_compressed,
+            "occupied_uncompressed_bytes": occupied_uncompressed,
+            "compression_ratio": ratio,
+            "memory_saved_bytes": max(
+                0,
+                equivalent_uncompressed_capacity - allocated_compressed,
+            ),
+            "last_relative_mse": self._last_relative_mse,
+            "max_relative_mse": self._max_relative_mse,
+            "updates": self._updates,
         }
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-# FACTORY FUNCTION
-# ──────────────────────────────────────────────────────────────────────────────
-
-def make_kv_cache(
-    batch_size:   int,
-    num_kv_heads: int,
-    max_seq_len:  int,
-    d_head:       int,
-    compressed:   bool = False,
-    tq_config:    TurboQuantConfig | None = None,
-) -> object:
-    """
-    Factory: returns either standard KVCache or CompressedKVCache.
-
-    Both have the same .update(k, v) → (k_full, v_full) API.
-
-    Args:
-        compressed: If True, use TurboQuant compression
-        tq_config:  TurboQuant settings (only used if compressed=True)
-
-    Returns:
-        KVCache or CompressedKVCache instance
-    """
-    if compressed:
-        return CompressedKVCache(
-            batch_size, num_kv_heads, max_seq_len, d_head,
-            tq_config=tq_config,
-        )
-    # Import standard KVCache from attention.py
-    from attention import KVCache
-    return KVCache(batch_size, num_kv_heads, max_seq_len, d_head)
+# Compatibility name used by the component registry and older import surfaces.
+CompressedKVCache = TorchTurboQuantCache
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-# SELF-TEST
-# ──────────────────────────────────────────────────────────────────────────────
+def health_check() -> dict[str, object]:
+    """Run a real bit-packing and round-trip health probe."""
 
-def health_check() -> dict:
-    """TurboQuant KV-cache compression health check."""
     try:
-        cfg = TurboQuantConfig(bits=4)
-        cache = CompressedKVCache(
-            batch_size=1,
-            num_kv_heads=4,
-            max_seq_len=16,
-            d_head=32,
-            tq_config=cfg,
+        generator = torch.Generator(device="cpu")
+        generator.manual_seed(1301)
+        cache = TorchTurboQuantCache(
+            num_kv_heads=2,
+            max_seq_len=32,
+            d_head=64,
+            config=TurboQuantConfig(bits=4),
         )
-        k = np.random.randn(1, 4, 1, 32).astype(np.float32)
-        v = np.random.randn(1, 4, 1, 32).astype(np.float32)
-        k_out, v_out = cache.update(k, v)
+        key = torch.randn(1, 2, 16, 64, generator=generator, dtype=torch.float16)
+        value = torch.randn(1, 2, 16, 64, generator=generator, dtype=torch.float16)
+        output_key, output_value = cache.update(key, value)
+        report = cache.memory_report()
+        healthy = (
+            output_key.shape == key.shape
+            and output_value.shape == value.shape
+            and float(report["compression_ratio"]) >= 3.0
+            and float(report["last_relative_mse"]) < 0.08
+        )
         return {
-            "status": "ok",
+            "status": "ok" if healthy else "degraded",
             "module": "turboquant",
-            "bits": cfg.bits,
-            "compression": "6x",
-            "output_shapes": [list(k_out.shape), list(v_out.shape)],
+            **report,
         }
     except Exception as exc:
-        return {"status": "degraded", "module": "turboquant", "reason": str(exc)}
-
-
-if __name__ == "__main__":
-    print("=" * 68)
-    print("  turboquant.py — TurboQuant KV-Cache Compression — Self-Test")
-    print("=" * 68)
-
-    rng = np.random.default_rng(42)
-    B, H, S, D = 1, 4, 32, 64  # batch, kv_heads, seq, d_head
-
-    # ── PolarQuant roundtrip ──────────────────────────────────────────────
-    print("\n[1] PolarQuant — rotation + bucket quantization")
-    pq = PolarQuant(d_head=D, bits=4)
-    x = rng.standard_normal((B, H, S, D)).astype(np.float32)
-
-    codes, scales, x_rot = pq.quantize(x)
-    x_recon = pq.dequantize(codes, scales)
-
-    # Measure reconstruction error
-    mse = ((x - x_recon) ** 2).mean()
-    rel_error = np.sqrt(mse) / np.sqrt((x ** 2).mean())
-    print(f"  4-bit MSE:         {mse:.6f}")
-    print(f"  Relative error:    {rel_error:.4%}")
-    print(f"  Codes range:       [{codes.min()}, {codes.max()}] (expected [0, 15])")
-    assert codes.max() <= 15
-    assert codes.min() >= 0
-
-    # ── QJL correction ────────────────────────────────────────────────────
-    print("\n[2] QJL error correction")
-    qjl = QJLCorrector(d_head=D, qjl_dim=32)
-    signs = qjl.encode_correction(x, x_recon)
-    x_corrected = qjl.apply_correction(x_recon, signs, error_scale=0.08)
-
-    mse_before = ((x - x_recon) ** 2).mean()
-    mse_after  = ((x - x_corrected) ** 2).mean()
-    improvement = (1 - mse_after / mse_before) * 100
-    print(f"  MSE before QJL:    {mse_before:.6f}")
-    print(f"  MSE after QJL:     {mse_after:.6f}")
-    print(f"  Improvement:       {improvement:.1f}%")
-
-    # ── CompressedKVCache ─────────────────────────────────────────────────
-    print("\n[3] CompressedKVCache — full pipeline")
-    config = TurboQuantConfig(bits=4)
-    cache = CompressedKVCache(
-        batch_size=B, num_kv_heads=H,
-        max_seq_len=128, d_head=D,
-        tq_config=config,
-    )
-
-    # Simulate autoregressive generation
-    k1 = rng.standard_normal((B, H, 16, D)).astype(np.float32)
-    v1 = rng.standard_normal((B, H, 16, D)).astype(np.float32)
-    k_full, v_full = cache.update(k1, v1)
-    print(f"  After 16 tokens: k_full shape = {k_full.shape}")
-
-    k2 = rng.standard_normal((B, H, 1, D)).astype(np.float32)
-    v2 = rng.standard_normal((B, H, 1, D)).astype(np.float32)
-    k_full2, v_full2 = cache.update(k2, v2)
-    print(f"  After 17 tokens: k_full shape = {k_full2.shape}")
-    assert k_full2.shape == (B, H, 17, D)
-
-    # ── Attention score accuracy ──────────────────────────────────────────
-    print("\n[4] Attention score accuracy (compressed vs original)")
-    # Build ground truth K/V from the tokens we stored
-    k_truth = np.concatenate([k1, k2], axis=2)  # (B, H, 17, D)
-    v_truth = np.concatenate([v1, v2], axis=2)
-
-    # Random query
-    q = rng.standard_normal((B, H, 1, D)).astype(np.float32)
-
-    # Attention scores: Q @ K^T / sqrt(d)
-    scores_truth = (q @ k_truth.swapaxes(-2, -1)) / np.sqrt(D)
-    scores_compressed = (q @ k_full2.swapaxes(-2, -1)) / np.sqrt(D)
-
-    # Softmax
-    def _softmax(x: np.ndarray) -> np.ndarray:
-        x = x - x.max(axis=-1, keepdims=True)
-        e = np.exp(x)
-        return e / e.sum(axis=-1, keepdims=True)
-
-    attn_truth = _softmax(scores_truth)
-    attn_compressed = _softmax(scores_compressed)
-
-    attn_diff = np.abs(attn_truth - attn_compressed).max()
-    print(f"  Max attention weight diff: {attn_diff:.6f}")
-    print(f"  Mean attention weight diff: {np.abs(attn_truth - attn_compressed).mean():.8f}")
-
-    # ── Memory savings ────────────────────────────────────────────────────
-    print("\n[5] Memory savings")
-    mem = cache.memory_bytes()
-    print(f"  Compressed:   {mem['compressed_bytes']:,} bytes")
-    print(f"  Uncompressed: {mem['uncompressed_bytes']:,} bytes")
-    print(f"  Ratio:        {mem['ratio']:.1f}x compression")
-    print(f"  Savings:      {mem['savings_pct']:.1f}%")
-
-    # ── Multi-bit comparison ──────────────────────────────────────────────
-    print("\n[6] Compression ratios across bit depths")
-    for bits in [2, 4, 8]:
-        pq_test = PolarQuant(d_head=D, bits=bits)
-        codes_t, scales_t, _ = pq_test.quantize(x)
-        x_recon_t = pq_test.dequantize(codes_t, scales_t)
-        mse_t = ((x - x_recon_t) ** 2).mean()
-        cfg_t = TurboQuantConfig(bits=bits)
-        print(f"  {bits}-bit: MSE={mse_t:.6f}  theoretical_ratio={cfg_t.compression_ratio:.1f}x")
-
-    print("\n  [OK] All TurboQuant tests passed")
-    print("=" * 68)
+        return {
+            "status": "degraded",
+            "module": "turboquant",
+            "reason": f"{type(exc).__name__}: {exc}",
+        }

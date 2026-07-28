@@ -1,6 +1,6 @@
 # An-Ra Architecture
 
-Updated: 2026-07-23  
+Updated: 2026-07-24
 Purpose: explain what the repository is, how its parts connect, and which parts
 are real, experimental, disabled, or historical.
 
@@ -170,7 +170,8 @@ Important runtime paths:
 
 - `app.py`: FastAPI and Developer UI.
 - `generate.py`: generation and trace construction.
-- `inference/`: context, adapters, cache, sampling, and reasoning budgets.
+- `inference/`: context, adapters, exact/TurboQuant cache, sampling, and
+  reasoning budgets.
 - `retrieval/` and `memory/`: external knowledge and persistence.
 - `cognition/self_correction.py`: verifier-guided correction orchestration.
 - `agents/` and `execution/`: typed action planning and sandboxing.
@@ -210,11 +211,32 @@ Important proof paths:
 | Self-correction | Pilot | Contracts exist; trained-model gate remains |
 | SFT/RLVR/STaR/DPO | Pilot | Data/evidence contracts exist; real runs remain |
 | LoRA/DoRA adapters | Pilot | Reversible capability path |
+| TurboQuant KV cache | Pilot | Packed cache is real; trained-model serving evidence remains |
 | Agents and tools | Disabled | Await useful model and permission evidence |
 | Moonshots | Pilot laboratory | Never enter canonical training automatically |
 | Multimodal/world/robotics | Disabled research | Later capability stages |
 
 The executable version of this table is `runtime/subsystem_catalog.py`.
+
+### TurboQuant cache boundary
+
+The optional compressed cache is wired into `CausalSelfAttention`; it is not a
+side object or a training feature. Keys and values receive a deterministic
+randomized Walsh-Hadamard rotation, scalar quantization, real 4-bit packing,
+and FP16 norm storage. The cache records physical bytes and reconstruction
+error, then reconstructs tensors before SDPA.
+
+That is an honest subset of TurboQuant, not a full reproduction. An-Ra does not
+yet implement the paper's query-aware QJL residual estimator or a fused
+compressed-attention kernel. Consequently the pilot claims persistent-memory
+reduction only. The default remains the exact float cache, and the compressed
+backend fails closed until its separate parity gate passes.
+
+The gate supports automatic precision selection. It tries 4-bit first and
+falls back to 8-bit only when the lower precision changes behavior or violates
+the distribution, distortion, or compression contract. Successful
+authorization is scoped to the exact precision in the current server process.
+This prevents an 8-bit result from accidentally authorizing 4-bit serving.
 
 ## Cluster boundary
 

@@ -51,6 +51,10 @@ contracts exist; they do not mean a useful model has already been trained.
   and training runs are real.
 - [ ] Add retrieval, memory, correction, tools, and adapters in that order, with
   permissions, budgets, verification, provenance, and rollback.
+- [ ] Compare exact-float and TurboQuant KV caches on the same trained V4
+  checkpoint. Promote compression only if long-context capability,
+  output-distribution drift, peak VRAM, and tokens/second jointly pass; the
+  exact cache remains the rollback.
 - [ ] Grow the frozen 181M parent to 500M, prove real-checkpoint parity, provide a
   32 GiB hot vault for its larger resumable states, and only then train the child.
 - [ ] Pilot sparse compute, hybrid attention/SSM, multimodality, world models,

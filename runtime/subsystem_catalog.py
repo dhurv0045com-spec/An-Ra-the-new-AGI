@@ -257,6 +257,42 @@ def subsystem_records() -> tuple[SubsystemRecord, ...]:
             ),
         ),
         SubsystemRecord(
+            "turboquant_kv",
+            "TurboQuant KV-cache pilot",
+            "pilot",
+            "inference-efficiency",
+            (
+                "Compresses persistent inference keys and values with a "
+                "device-resident randomized rotation and bit-packed scalar quantizer."
+            ),
+            "anra",
+            (
+                "inference/turboquant.py",
+                "anra_brain.py",
+                "generate.py",
+            ),
+            dependencies=("dense_v4",),
+            parameter_delta=0,
+            runtime_cost=(
+                "Dequantizes the retained history before SDPA; no fused QJL "
+                "attention kernel exists yet, so latency may regress."
+            ),
+            claimed_benefit=(
+                "Approximately 3.76x persistent KV storage reduction versus "
+                "BF16 at 4 bits for 64-dimensional heads."
+            ),
+            evidence_state="partial",
+            evidence=(
+                "Real nibble packing, physical-byte accounting, distortion "
+                "telemetry, and a fail-closed generation gate are implemented."
+            ),
+            evidence_required=(
+                "A trained V4 checkpoint must pass long-context capability, "
+                "distribution-drift, peak-VRAM, and tokens/second gates."
+            ),
+            rollback="Select the exact float KV backend; model weights are unchanged.",
+        ),
+        SubsystemRecord(
             "retrieval_memory",
             "Retrieval and long-term memory",
             "active",

@@ -187,7 +187,9 @@ class MultiHeadAttentionV2(nn.Module):
             target_seq_len=target_seq_len,
         )
         self.dropout = dropout
-        self._kv_cache: dict[str, torch.Tensor | int] | None = None
+        # Either the exact tensor dictionary or the evidence-gated,
+        # device-resident TurboQuant pilot. Training always leaves this None.
+        self._kv_cache: object | None = None
         self._layer_idx: int = 0
         self.max_cache_len = int(target_seq_len)
         self.lba_bound = 0.8 * (65504.0 / self.head_dim) ** 0.5
@@ -201,7 +203,10 @@ class MultiHeadAttentionV2(nn.Module):
         v = self.v_proj(x).view(bsz, seq_len, self.n_kv_head, self.head_dim).transpose(1, 2)
         position_offset = 0
         if self._kv_cache is not None:
-            position_offset = int(self._kv_cache.get("position", 0))
+            if isinstance(self._kv_cache, dict):
+                position_offset = int(self._kv_cache.get("position", 0))
+            else:
+                position_offset = int(self._kv_cache.position)
         if self.use_qk_norm:
             # Parameter-free per-head QK-Norm keeps the checkpoint tensor
             # schema stable while preventing query/key norm drift. RoPE is an
@@ -222,20 +227,23 @@ class MultiHeadAttentionV2(nn.Module):
         k = bound * torch.tanh(k / bound)
 
         if self._kv_cache is not None:
-            cache_k = self._kv_cache.get("k")
-            cache_v = self._kv_cache.get("v")
-            if cache_k is not None and cache_v is not None:
-                k = torch.cat([cache_k, k], dim=2)
-                v = torch.cat([cache_v, v], dim=2)
-            cache_limit = self.max_cache_len
-            if self.sliding_window is not None:
-                cache_limit = min(cache_limit, self.sliding_window)
-            if k.size(2) > cache_limit:
-                k = k[:, :, -cache_limit:, :]
-                v = v[:, :, -cache_limit:, :]
-            self._kv_cache["k"] = k.detach()
-            self._kv_cache["v"] = v.detach()
-            self._kv_cache["position"] = position_offset + seq_len
+            if isinstance(self._kv_cache, dict):
+                cache_k = self._kv_cache.get("k")
+                cache_v = self._kv_cache.get("v")
+                if cache_k is not None and cache_v is not None:
+                    k = torch.cat([cache_k, k], dim=2)
+                    v = torch.cat([cache_v, v], dim=2)
+                cache_limit = self.max_cache_len
+                if self.sliding_window is not None:
+                    cache_limit = min(cache_limit, self.sliding_window)
+                if k.size(2) > cache_limit:
+                    k = k[:, :, -cache_limit:, :]
+                    v = v[:, :, -cache_limit:, :]
+                self._kv_cache["k"] = k.detach()
+                self._kv_cache["v"] = v.detach()
+                self._kv_cache["position"] = position_offset + seq_len
+            else:
+                k, v = self._kv_cache.update(k.detach(), v.detach())
 
         is_causal = not (self._kv_cache is not None and q.size(2) == 1)
         attention_mask = None
@@ -960,10 +968,40 @@ class CausalTransformerV2(nn.Module):
             ],
         }
 
-    def enable_kv_cache(self) -> None:
-        """Call before inference. Never call during training."""
+    def enable_kv_cache(
+        self,
+        *,
+        backend: str = "float",
+        turboquant_bits: int = 4,
+    ) -> None:
+        """Enable an exact or compressed inference cache.
+
+        The compressed backend is a reversible serving pilot. It never affects
+        training weights or checkpoint compatibility.
+        """
+        if backend not in {"float", "turboquant"}:
+            raise ValueError("KV cache backend must be 'float' or 'turboquant'")
+        if self.training:
+            raise RuntimeError("KV cache must not be enabled while the model is training")
+        compressed_cache = None
+        if backend == "turboquant":
+            from inference.turboquant import TorchTurboQuantCache, TurboQuantConfig
+
+            compressed_cache = (TorchTurboQuantCache, TurboQuantConfig(bits=turboquant_bits))
         for i, block in enumerate(self.blocks):
-            block.attn._kv_cache = {}
+            if compressed_cache is None:
+                block.attn._kv_cache = {}
+            else:
+                cache_type, config = compressed_cache
+                cache_limit = block.attn.max_cache_len
+                if block.attn.sliding_window is not None:
+                    cache_limit = min(cache_limit, block.attn.sliding_window)
+                block.attn._kv_cache = cache_type(
+                    num_kv_heads=block.attn.n_kv_head,
+                    max_seq_len=cache_limit,
+                    d_head=block.attn.head_dim,
+                    config=config,
+                )
             block.attn._layer_idx = i
 
     def disable_kv_cache(self) -> None:
@@ -974,7 +1012,43 @@ class CausalTransformerV2(nn.Module):
         """Call between independent generation calls."""
         for block in self.blocks:
             if block.attn._kv_cache is not None:
-                block.attn._kv_cache.clear()
+                if isinstance(block.attn._kv_cache, dict):
+                    block.attn._kv_cache.clear()
+                else:
+                    block.attn._kv_cache.reset()
+
+    def kv_cache_telemetry(self) -> dict[str, object]:
+        """Aggregate physical cache storage and distortion across layers."""
+
+        reports = []
+        for block in self.blocks:
+            cache = block.attn._kv_cache
+            if cache is not None and not isinstance(cache, dict):
+                reports.append(cache.memory_report())
+        if not reports:
+            return {
+                "backend": "float",
+                "compressed_bytes": 0,
+                "uncompressed_bytes": 0,
+                "memory_saved_bytes": 0,
+                "compression_ratio": 1.0,
+                "layers": 0,
+            }
+        compressed = sum(int(report["compressed_bytes"]) for report in reports)
+        uncompressed = sum(int(report["uncompressed_bytes"]) for report in reports)
+        return {
+            "backend": "turboquant",
+            "algorithm": reports[0]["algorithm"],
+            "paper_complete": False,
+            "qjl_fused": False,
+            "bits": reports[0]["bits"],
+            "compressed_bytes": compressed,
+            "uncompressed_bytes": uncompressed,
+            "memory_saved_bytes": max(0, uncompressed - compressed),
+            "compression_ratio": uncompressed / compressed if compressed else 0.0,
+            "max_relative_mse": max(float(report["max_relative_mse"]) for report in reports),
+            "layers": len(reports),
+        }
 
     def get_hidden_states(self, idx: torch.Tensor) -> list[torch.Tensor]:
         """Return the residual stream after each transformer block."""

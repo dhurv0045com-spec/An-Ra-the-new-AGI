@@ -1,14 +1,14 @@
 {
-  "generated_at": "2026-07-23T16:11:35Z",
+  "generated_at": "2026-07-24T08:38:31Z",
   "repo_root": "C:\\Users\\ankit\\Downloads\\An-Ra-the-new-AGI-1",
   "python": "3.11.15",
   "platform": "Windows-10-10.0.26200-SP0",
   "metrics": {
-    "source_files": 22254,
-    "python_files": 12666,
-    "markdown_files": 73,
-    "python_lines": 5727874,
-    "source_lines": 6032988
+    "source_files": 22262,
+    "python_files": 12667,
+    "markdown_files": 80,
+    "python_lines": 5728058,
+    "source_lines": 6035483
   },
   "components": [
     {
@@ -714,7 +714,7 @@
     {
       "name": "inference_efficiency",
       "layer": "serving",
-      "role": "Tiered/AWKC KV retention, prefix reuse, and speculative promotion metrics.",
+      "role": "Tiered KV retention, prefix reuse, speculative promotion, and the evidence-gated bit-packed TurboQuant cache pilot.",
       "paths": [
         {
           "path": "inference/kv_cache.py",
@@ -728,6 +728,11 @@
         },
         {
           "path": "inference/speculative.py",
+          "exists": true,
+          "kind": "file"
+        },
+        {
+          "path": "inference/turboquant.py",
           "exists": true,
           "kind": "file"
         }
@@ -1137,6 +1142,31 @@
         "promotion_eligible": false
       },
       {
+        "subsystem_id": "turboquant_kv",
+        "name": "TurboQuant KV-cache pilot",
+        "lifecycle": "pilot",
+        "owner": "inference-efficiency",
+        "purpose": "Compresses persistent inference keys and values with a device-resident randomized rotation and bit-packed scalar quantizer.",
+        "repository": "anra",
+        "paths": [
+          "inference/turboquant.py",
+          "anra_brain.py",
+          "generate.py"
+        ],
+        "dependencies": [
+          "dense_v4"
+        ],
+        "parameter_delta": 0,
+        "runtime_cost": "Dequantizes the retained history before SDPA; no fused QJL attention kernel exists yet, so latency may regress.",
+        "claimed_benefit": "Approximately 3.76x persistent KV storage reduction versus BF16 at 4 bits for 64-dimensional heads.",
+        "evidence_state": "partial",
+        "evidence": "Real nibble packing, physical-byte accounting, distortion telemetry, and a fail-closed generation gate are implemented.",
+        "evidence_required": "A trained V4 checkpoint must pass long-context capability, distribution-drift, peak-VRAM, and tokens/second gates.",
+        "rollback": "Select the exact float KV backend; model weights are unchanged.",
+        "promotion_history": [],
+        "promotion_eligible": false
+      },
+      {
         "subsystem_id": "retrieval_memory",
         "name": "Retrieval and long-term memory",
         "lifecycle": "active",
@@ -1419,13 +1449,14 @@
     }
   },
   "training_readiness": {
-    "generated_at": 1784823095.4515662,
-    "score": 7,
+    "generated_at": 1784882311.4899979,
+    "score": 6,
     "out_of": 10,
     "ready_for_session": true,
     "ready_for_milestone": false,
     "blockers": [],
     "warnings": [
+      "device: CUDA unavailable; training will run on CPU",
       "checkpoint:brain: missing; training can create it, but resume/promotion cannot use it yet",
       "report:metrics: missing until a session/eval writes it",
       "report:eval_summary: missing until a session/eval writes it",
@@ -1450,8 +1481,8 @@
       },
       {
         "name": "device",
-        "status": "ok",
-        "detail": "NVIDIA GeForce RTX 4050 Laptop GPU",
+        "status": "warn",
+        "detail": "CUDA unavailable; training will run on CPU",
         "required": false,
         "path": null
       },

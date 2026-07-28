@@ -180,7 +180,7 @@ class InferenceConfig:
     repetition_penalty: float = Field(default=1.1, ge=1.0)
     batch_size: int = Field(default=1, gt=0)
     turboquant: bool = False
-    turboquant_bits: Literal[2, 4, 8] = 4
+    turboquant_bits: Literal[4, 8] = 4
 
     @classmethod
     def from_mapping(cls, data: Mapping[str, object]) -> Self:

@@ -334,11 +334,15 @@ def component_registry() -> list[SystemComponent]:
         _component(
             name="inference_efficiency",
             layer="serving",
-            role="Tiered/AWKC KV retention, prefix reuse, and speculative promotion metrics.",
+            role=(
+                "Tiered KV retention, prefix reuse, speculative promotion, and "
+                "the evidence-gated bit-packed TurboQuant cache pilot."
+            ),
             paths=(
                 "inference/kv_cache.py",
                 "inference/prefix_cache.py",
                 "inference/speculative.py",
+                "inference/turboquant.py",
             ),
             import_name="inference.kv_cache",
         ),

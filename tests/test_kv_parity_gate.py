@@ -83,7 +83,8 @@ def test_parity_gate_verifies_and_unlocks_cached_generation(runtime) -> None:
         ),
         session_id="kv_unlocked_probe",
     )
-    assert trace.kv_cache_compressed is True
+    assert trace.kv_cache_compressed is False
+    assert trace.kv_cache_backend == "float"
     baseline = generate.generate_traced(
         "H: a different prompt entirely\nANRA:",
         generate.GenerationConfig(

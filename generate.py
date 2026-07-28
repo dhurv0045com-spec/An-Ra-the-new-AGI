@@ -76,6 +76,8 @@ class GenerationConfig:
     seed: int | None = 0
     use_think_tokens: bool = False
     use_kv_cache: bool = False
+    kv_cache_backend: str = "float"
+    turboquant_bits: int = 4
     mode: str = "diagnostic"
     allow_control_tokens: bool = False
     ablated_subsystem: str | None = None
@@ -101,6 +103,7 @@ class SubsystemTrace(TypedDict, total=False):
     adaptive_state_persisted: bool
     ablated_subsystem: str | None
     model: dict[str, object]
+    kv_cache: dict[str, object]
     esv: dict[str, float]
     hal: dict[str, float]
     symbolic_verifier: dict[str, object]
@@ -121,6 +124,7 @@ class GenerationTrace:
     stopped_by: str
     repeated_ngrams_detected: bool
     kv_cache_compressed: bool = False
+    kv_cache_backend: str = "none"
     # None means "not measured" (cache disabled); a float is a real measurement.
     # Reporting 0.0 unconditionally presented an unmeasured quantity as data.
     memory_saved_mb: float | None = None
@@ -145,6 +149,8 @@ _GENERATION_LOCK = threading.RLock()
 _RUNTIME_LOAD_LOCK = threading.RLock()
 _KV_CACHE_PARITY_VERIFIED = False
 _KV_CACHE_PARITY_IN_PROGRESS = False
+_TURBOQUANT_VERIFIED_BITS: set[int] = set()
+_TURBOQUANT_BITS_IN_PROGRESS: set[int] = set()
 
 
 def _reset_runtime_cache() -> None:
@@ -167,6 +173,19 @@ def _sha256_file(path: Path, chunk_size: int = 8 * 1024 * 1024) -> str:
 
 def _native_model(model: object) -> object:
     return getattr(model, "model", model)
+
+
+def _model_device(model: object) -> torch.device:
+    """Resolve the resident model device instead of assuming the global default."""
+
+    native_model = _native_model(model)
+    parameters = getattr(native_model, "parameters", None)
+    if callable(parameters):
+        try:
+            return next(parameters()).device
+        except StopIteration:
+            pass
+    return DEVICE
 
 
 def _seed_all(seed: int | None) -> None:
@@ -719,14 +738,32 @@ def generate_traced(
     cfg.max_tokens = max(1, int(cfg.max_tokens))
     cfg.top_p = max(1e-6, min(1.0, float(cfg.top_p)))
     cfg.top_k = max(1, int(cfg.top_k))
-    if cfg.use_kv_cache and not (_KV_CACHE_PARITY_VERIFIED or _KV_CACHE_PARITY_IN_PROGRESS):
-        raise RuntimeError(
-            "KV cache is disabled until /diagnostics/cache-parity proves exact token parity"
-        )
+    if cfg.kv_cache_backend not in {"float", "turboquant"}:
+        raise ValueError("kv_cache_backend must be 'float' or 'turboquant'")
+    if cfg.turboquant_bits not in {4, 8}:
+        raise ValueError("turboquant_bits must be 4 or 8")
+    if cfg.use_kv_cache:
+        if cfg.kv_cache_backend == "float" and not (
+            _KV_CACHE_PARITY_VERIFIED or _KV_CACHE_PARITY_IN_PROGRESS
+        ):
+            raise RuntimeError(
+                "KV cache is disabled until /diagnostics/cache-parity proves "
+                "exact float-cache parity"
+            )
+        if (
+            cfg.kv_cache_backend == "turboquant"
+            and cfg.turboquant_bits not in _TURBOQUANT_VERIFIED_BITS
+            and cfg.turboquant_bits not in _TURBOQUANT_BITS_IN_PROGRESS
+        ):
+            raise RuntimeError(
+                "TurboQuant cache is disabled until /diagnostics/cache-parity "
+                f"passes its {cfg.turboquant_bits}-bit behavior gate"
+            )
 
     with _GENERATION_LOCK:
         model, tokenizer, _ = _get_runtime()
         native_model = _native_model(model)
+        runtime_device = _model_device(model)
         load_report = _RUNTIME_LOAD_STATE.get("load_report", {})
         if (
             cfg.mode in {"native", "full_system"}
@@ -797,10 +834,14 @@ def generate_traced(
         kv_enabled = False
         generation_completed = False
         model_telemetry: dict[str, object] = {}
+        cache_telemetry: dict[str, object] = {}
         esv_committed = False
         hal_updated = False
         if cfg.use_kv_cache and hasattr(model, "enable_kv_cache"):
-            model.enable_kv_cache()
+            model.enable_kv_cache(
+                backend=cfg.kv_cache_backend,
+                turboquant_bits=cfg.turboquant_bits,
+            )
             model.clear_kv_cache()
             kv_enabled = True
         try:
@@ -812,7 +853,7 @@ def generate_traced(
                     token_window = [generated_ids[-1]]
                 else:
                     token_window = generated_ids[-model.block_size :]
-                x = torch.tensor([token_window], dtype=torch.long, device=DEVICE)
+                x = torch.tensor([token_window], dtype=torch.long, device=runtime_device)
                 logits, _ = model(x)
                 raw_probs = torch.softmax(logits[0, -1, :].float(), dim=-1)
                 probe = torch.zeros(16, dtype=torch.float32, device=raw_probs.device)
@@ -851,6 +892,8 @@ def generate_traced(
                     break
             if hasattr(native_model, "subsystem_telemetry"):
                 model_telemetry = native_model.subsystem_telemetry()
+            if kv_enabled and hasattr(native_model, "kv_cache_telemetry"):
+                cache_telemetry = native_model.kv_cache_telemetry()
             generation_completed = True
         finally:
             if kv_enabled:
@@ -991,6 +1034,8 @@ def generate_traced(
         }
         if model_telemetry:
             subsystem_trace["model"] = model_telemetry
+        if cache_telemetry:
+            subsystem_trace["kv_cache"] = cache_telemetry
         if esv_module is not None and hasattr(esv_module, "as_dict"):
             subsystem_trace["esv"] = esv_module.as_dict()
         if hal is not None and hasattr(hal, "state"):
@@ -1007,8 +1052,15 @@ def generate_traced(
             distribution_probe_curve=distribution_probe_curve,
             stopped_by=stopped_by,
             repeated_ngrams_detected=repeated,
-            kv_cache_compressed=kv_enabled,
-            memory_saved_mb=None,
+            kv_cache_compressed=bool(
+                kv_enabled and cfg.kv_cache_backend == "turboquant"
+            ),
+            kv_cache_backend=cfg.kv_cache_backend if kv_enabled else "none",
+            memory_saved_mb=(
+                float(cache_telemetry.get("memory_saved_bytes", 0)) / 1024**2
+                if kv_enabled and cfg.kv_cache_backend == "turboquant"
+                else None
+            ),
             prompt_tokens=prompt_token_count,
             mode=cfg.mode,
             quality_state=quality_state,
@@ -1085,6 +1137,138 @@ def verify_kv_cache_parity(
         "tokens_compared": len(baseline.output_token_ids),
         "uncached_tokens": baseline.output_token_ids,
         "cached_tokens": cached.output_token_ids,
+    }
+
+
+def verify_turboquant_cache(
+    prompt: str = "H: Verify compressed cache behavior for An-Ra.\nANRA:",
+    *,
+    max_tokens: int = 16,
+    bits: int | str = "auto",
+    max_distribution_delta: float = 0.025,
+    max_relative_mse: float = 0.08,
+    minimum_compression_ratio: float = 3.0,
+) -> dict[str, object]:
+    """Compare the compressed pilot with uncached inference and gate enablement.
+
+    Unlike the exact float cache, lossy compression cannot require bit-identical
+    probabilities. It must preserve greedy tokens on the probe, remain within a
+    declared distribution tolerance, meet a distortion ceiling, and prove
+    physical storage reduction.
+    """
+
+    if bits == "auto":
+        attempts = []
+        for candidate_bits in (4, 8):
+            report = verify_turboquant_cache(
+                prompt,
+                max_tokens=max_tokens,
+                bits=candidate_bits,
+                max_distribution_delta=max_distribution_delta,
+                max_relative_mse=max_relative_mse,
+                minimum_compression_ratio=minimum_compression_ratio,
+            )
+            attempts.append(report)
+            if report["verified"]:
+                return {
+                    **report,
+                    "requested_bits": "auto",
+                    "selected_bits": candidate_bits,
+                    "attempts": attempts,
+                }
+        return {
+            **attempts[-1],
+            "requested_bits": "auto",
+            "selected_bits": None,
+            "attempts": attempts,
+        }
+    if bits not in {4, 8}:
+        raise ValueError("TurboQuant verification supports 'auto', 4, or 8 bits")
+    selected_bits = int(bits)
+
+    baseline = generate_traced(
+        prompt,
+        GenerationConfig(
+            strategy="greedy",
+            max_tokens=max_tokens,
+            seed=0,
+            use_kv_cache=False,
+            mode="diagnostic",
+        ),
+        session_id="turboquant_parity_probe",
+    )
+    _TURBOQUANT_BITS_IN_PROGRESS.add(selected_bits)
+    try:
+        compressed = generate_traced(
+            prompt,
+            GenerationConfig(
+                strategy="greedy",
+                max_tokens=max_tokens,
+                seed=0,
+                use_kv_cache=True,
+                kv_cache_backend="turboquant",
+                turboquant_bits=selected_bits,
+                mode="diagnostic",
+            ),
+            session_id="turboquant_parity_probe",
+        )
+    finally:
+        _TURBOQUANT_BITS_IN_PROGRESS.discard(selected_bits)
+
+    def _maximum_delta(
+        first: list[list[float]],
+        second: list[list[float]],
+    ) -> float:
+        if len(first) != len(second):
+            return float("inf")
+        return max(
+            (
+                abs(a - b)
+                for first_step, second_step in zip(first, second, strict=True)
+                for a, b in zip(first_step, second_step, strict=True)
+            ),
+            default=0.0,
+        )
+
+    kv_report = compressed.subsystem_trace.get("kv_cache", {})
+    if not isinstance(kv_report, dict):
+        kv_report = {}
+    token_parity = baseline.output_token_ids == compressed.output_token_ids
+    distribution_delta = _maximum_delta(
+        baseline.distribution_probe_curve,
+        compressed.distribution_probe_curve,
+    )
+    relative_mse = float(kv_report.get("max_relative_mse", float("inf")))
+    compression_ratio = float(kv_report.get("compression_ratio", 0.0))
+    verified = bool(
+        token_parity
+        and distribution_delta <= max_distribution_delta
+        and relative_mse <= max_relative_mse
+        and compression_ratio >= minimum_compression_ratio
+    )
+    if verified:
+        _TURBOQUANT_VERIFIED_BITS.add(selected_bits)
+    else:
+        _TURBOQUANT_VERIFIED_BITS.discard(selected_bits)
+    return {
+        "verified": verified,
+        "backend": "turboquant",
+        "bits": selected_bits,
+        "selected_bits": selected_bits if verified else None,
+        "verified_bits": sorted(_TURBOQUANT_VERIFIED_BITS),
+        "paper_complete": False,
+        "qjl_fused": False,
+        "token_parity": token_parity,
+        "maximum_distribution_delta": distribution_delta,
+        "maximum_distribution_delta_allowed": max_distribution_delta,
+        "max_relative_mse": relative_mse,
+        "max_relative_mse_allowed": max_relative_mse,
+        "compression_ratio": compression_ratio,
+        "minimum_compression_ratio": minimum_compression_ratio,
+        "tokens_compared": len(baseline.output_token_ids),
+        "baseline_tokens": baseline.output_token_ids,
+        "compressed_tokens": compressed.output_token_ids,
+        "cache": kv_report,
     }
 
 
@@ -1182,6 +1366,7 @@ def generate_stream(prompt: str, cfg: GenerationConfig) -> Iterator[str]:
     with _GENERATION_LOCK:
         model, tokenizer, _ = _get_runtime()
         native_model = _native_model(model)
+        runtime_device = _model_device(model)
         runtime_mode_state = None
         if hasattr(native_model, "configure_runtime_mode"):
             runtime_mode_state = native_model.configure_runtime_mode(cfg.mode)
@@ -1199,7 +1384,9 @@ def generate_stream(prompt: str, cfg: GenerationConfig) -> Iterator[str]:
         try:
             for _ in range(max(0, cfg.max_tokens)):
                 x = torch.tensor(
-                    [generated_ids[-model.block_size :]], dtype=torch.long, device=DEVICE
+                    [generated_ids[-model.block_size :]],
+                    dtype=torch.long,
+                    device=runtime_device,
                 )
                 with torch.no_grad():
                     logits, _ = model(x)
@@ -1306,7 +1493,7 @@ def get_model_info() -> dict[str, object]:
         "n_layer": getattr(model, "n_layer", None),
         "n_head": getattr(model, "n_head", None),
         "n_kv_head": getattr(model, "n_kv_head", None),
-        "device": str(DEVICE),
+        "device": str(_model_device(model)),
         "block_size": model.block_size,
         "tokenizer_backend": getattr(tokenizer, "backend", "unknown"),
         "kv_cache_enabled": kv_enabled,

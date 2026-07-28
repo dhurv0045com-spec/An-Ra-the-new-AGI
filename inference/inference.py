@@ -55,7 +55,7 @@ class GenerationConfig:
     stop_tokens: list[str] = field(default_factory=list)
     stream: bool = False
     repetition_penalty: float = 1.0
-    use_turboquant: bool = True
+    use_turboquant: bool = False
 
 
 # ─────────────────────────────────────────────
@@ -156,7 +156,9 @@ class InferencePipeline:
         self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
         self.model.to(self.device)
         self.model.eval()
-        self.kv_cache = build_kv_cache(use_turboquant=True)
+        # This legacy wrapper does not connect an external cache to the model's
+        # attention layers. Keep the field inert instead of claiming compression.
+        self.kv_cache = build_kv_cache(use_turboquant=False)
 
     # ── single prompt ────────────────────────
 

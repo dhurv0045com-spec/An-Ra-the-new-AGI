@@ -24,6 +24,7 @@ node_modules/
 *.sqlite
 *.log
 state/*.log
+state/*.pid
 state/*.json
 state/*.jsonl
 state/reports/*.json

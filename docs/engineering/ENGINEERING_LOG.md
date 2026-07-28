@@ -15,6 +15,23 @@
 
 ---
 
+## 2026-07-24 - FEATURE - inference efficiency - TurboQuant KV-cache pilot rebuilt on the real attention path
+
+| Field | Value |
+|-------|-------|
+| **Date** | 2026-07-24 |
+| **Author** | Codex |
+| **Component** | inference/turboquant, anra_brain, generate, app, runtime registry |
+| **Type** | FEATURE + CORRECTION |
+| **Summary** | Replaced the disconnected NumPy cache with a device-resident PyTorch pilot used by `CausalSelfAttention`: deterministic Walsh-Hadamard rotation, Lloyd-Max scalar codes, true 4-bit nibble packing or 8-bit storage, FP16 norms, bounded buffers, reconstruction telemetry, physical-byte accounting, and a dedicated fail-closed generation gate. Corrected trace semantics so the ordinary float cache is no longer reported as compressed. Added automatic 4-to-8-bit fallback and precision-scoped authorization after a real checkpoint probe exposed that a global pass could incorrectly authorize an unproven precision. The implementation explicitly does not claim paper-complete QJL or fused-attention latency gains. |
+| **Files** | `inference/turboquant.py`, `anra_brain.py`, `generate.py`, `app.py`, `runtime/subsystem_catalog.py`, `runtime/system_registry.py`, focused tests and truth docs |
+| **Metrics** | 4-bit health probe: 4,352 physically allocated bytes versus 16,384 bytes for equivalent FP16 capacity (3.76x); relative reconstruction MSE approximately 0.009 |
+| **Verification** | Focused cache, integration, parity-gate, and transformer tests; real 181M three-step rehearsal checkpoint: 4-bit rejected after greedy divergence, 8-bit passed with token parity, 3.88x cache reduction, and 0.000292 maximum relative MSE; a subsequent compressed generation completed and reported 16.33 MiB saved capacity; Ruff on touched Python files |
+| **Risk** | Pilot is opt-in and currently reconstructs K/V before SDPA; throughput may regress until a fused query-aware kernel exists |
+| **Follow-up** | Compare exact and compressed cache on a trained V4 checkpoint for long-context capability, distribution drift, peak VRAM, and tokens/second before promotion |
+
+---
+
 ## 2026-07-20 - RELIABILITY - Exact same-commit interruption and recovery
 
 | Field | Value |

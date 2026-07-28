@@ -1,6 +1,6 @@
 # How An-Ra Improves
 
-Updated: 2026-07-23  
+Updated: 2026-07-24
 Purpose: define how the repository becomes more capable without turning into a
 pile of impressive names, hidden regressions, or incompatible model families.
 
@@ -94,6 +94,24 @@ Ask: does the 500M child preserve parent logits and behavior before continued
 training? Only after parity should additional parameters be credited for an
 improvement.
 
+### TurboQuant and inference efficiency
+
+Ask: can a trained V4 checkpoint retain useful long-context behavior while
+using materially less persistent KV-cache memory? The current pilot implements
+the repository-relevant core: randomized Hadamard rotation, scalar
+quantization, actual 4-bit packing, FP16 norms, bounded device buffers, and
+measured reconstruction error. It replaces the old disconnected NumPy cache
+that stored nominal 4-bit values in full bytes and treated QJL signs as a
+vector correction.
+
+This technology does not make the learned weights more intelligent. Its value
+is indirect: lower cache memory can permit longer contexts or larger serving
+batches on the same GPU. The current path reconstructs K/V before SDPA and
+therefore makes no speed claim. Promotion requires an exact-cache comparison
+on a trained V4 model covering behavior, output-distribution drift, peak VRAM,
+tokens per second, and long-context retrieval. The paper-complete QJL estimator
+and a fused attention kernel remain explicit research debt.
+
 ## Experiment design
 
 A useful architecture pilot declares:
@@ -154,6 +172,7 @@ The executable forward order is in `TODO.md`. The next decisive evidence is:
 4. matched dense-versus-MTP evidence;
 5. an audited SFT corpus and real post-training run;
 6. parent-parity proof for the 500M child.
+7. exact-cache versus TurboQuant serving evidence on the trained V4 model.
 
 ## What “better” does not mean
 

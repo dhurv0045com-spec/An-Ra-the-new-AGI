@@ -35,21 +35,25 @@ from inference.turboquant import CompressedKVCache, TurboQuantConfig
 
 
 def build_kv_cache(
-    use_turboquant: bool = True,
+    use_turboquant: bool = False,
     batch_size: int = 1,
     num_kv_heads: int = 4,
     max_seq_len: int = 1024,
     d_head: int = 64,
 ) -> CompressedKVCache | None:
-    """Create optional TurboQuant-backed KV cache."""
+    """Create an optional lazy TurboQuant cache.
+
+    ``batch_size`` remains in the compatibility surface; storage is allocated
+    from the first real tensor so the cache cannot silently assume a batch.
+    """
+    del batch_size
     if not use_turboquant:
         return None
     return CompressedKVCache(
-        batch_size=batch_size,
         num_kv_heads=num_kv_heads,
         max_seq_len=max_seq_len,
         d_head=d_head,
-        tq_config=TurboQuantConfig(bits=4),
+        config=TurboQuantConfig(bits=4),
     )
 
 

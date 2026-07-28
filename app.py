@@ -64,6 +64,7 @@ from generate import (
     restore_embedded_data_manifests,
     verify_kv_cache_parity,
     verify_session_state_isolation,
+    verify_turboquant_cache,
 )
 from goals.goal_queue import GoalQueue
 from inference.full_system_connector import build_capability_graph
@@ -77,8 +78,8 @@ from runtime.answer_contracts import (
     build_answer_contract,
     filter_untrusted_records,
 )
-from runtime.experience_ledger import get_default_ledger, record_experience
 from runtime.evidence_stream import evidence_snapshot, read_evidence
+from runtime.experience_ledger import get_default_ledger, record_experience
 from runtime.hal_telemetry import read_hal_state
 from runtime.ledger_projections import projection_for_trace
 from starlette.responses import Response
@@ -919,6 +920,13 @@ DEVELOPER_UI_HTML = """
               <option value="native">Native</option>
               <option value="full_system">Full system</option>
             </select>
+            <select id="response-tokens" class="secondary" aria-label="Maximum response tokens">
+              <option value="8">8 tokens</option>
+              <option value="16" selected>16 tokens</option>
+              <option value="32">32 tokens</option>
+              <option value="64">64 tokens</option>
+              <option value="128">128 tokens</option>
+            </select>
             <button id="send" type="submit">Send</button>
           </form>
         </div>
@@ -1127,7 +1135,13 @@ DEVELOPER_UI_HTML = """
           body: JSON.stringify({
             session_id: "colab_developer_ui",
             message,
-            params: { strategy: "greedy", mode: $("model-mode").value, max_tokens: 128, seed: 0, use_kv_cache: false },
+            params: {
+              strategy: "greedy",
+              mode: $("model-mode").value,
+              max_tokens: Number($("response-tokens").value),
+              seed: 0,
+              use_kv_cache: false
+            },
           }),
         });
         const data = await res.json();
@@ -1190,6 +1204,8 @@ class GenerationParams(BaseModel):
     seed: int | None = 0
     use_think_tokens: bool = False
     use_kv_cache: bool = False
+    kv_cache_backend: Literal["float", "turboquant"] = "float"
+    turboquant_bits: Literal[4, 8] = 4
     mode: Literal["diagnostic", "native", "full_system"] = "diagnostic"
     allow_control_tokens: bool = False
     ablated_subsystem: Literal["mod", "rim", "dstp", "esv", "hal"] | None = None
@@ -1218,6 +1234,8 @@ class CacheParityRequest(BaseModel):
         max_length=4096,
     )
     max_tokens: int = Field(16, ge=1, le=64)
+    backend: Literal["float", "turboquant"] = "float"
+    turboquant_bits: Literal["auto", 4, 8] = "auto"
 
 
 class ContextGrowthEvidenceRequest(BaseModel):
@@ -2154,11 +2172,19 @@ async def context_growth_evidence_route(body: ContextGrowthEvidenceRequest) -> d
 
 @app.post("/diagnostics/cache-parity")
 async def cache_parity_route(body: CacheParityRequest) -> dict[str, Any]:
-    report = await run_in_threadpool(
-        verify_kv_cache_parity,
-        body.prompt,
-        max_tokens=body.max_tokens,
-    )
+    if body.backend == "turboquant":
+        report = await run_in_threadpool(
+            verify_turboquant_cache,
+            body.prompt,
+            max_tokens=body.max_tokens,
+            bits=body.turboquant_bits,
+        )
+    else:
+        report = await run_in_threadpool(
+            verify_kv_cache_parity,
+            body.prompt,
+            max_tokens=body.max_tokens,
+        )
     if not report["verified"]:
         raise HTTPException(status_code=409, detail=report)
     return report

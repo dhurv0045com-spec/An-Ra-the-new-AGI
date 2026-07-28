@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import hmac
 import json
 import subprocess
 import sys
@@ -14,11 +15,82 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+from runtime.safe_load import safe_torch_load
 from training.launch_manifest import build_launch_manifest, sign_manifest
 from training.v2_config import (
     ANRA_V4_GROWTH_MODEL_PROFILE,
     CANONICAL_MODEL_PROFILE,
 )
+
+
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for block in iter(lambda: handle.read(8 * 1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def _verify_pack_files(pack_root: Path, pack: dict[str, object]) -> None:
+    """Verify every immutable pack member without requiring its builder checkout."""
+
+    files = pack.get("files")
+    if not isinstance(files, list) or not files:
+        raise ValueError("cloud pack must declare a non-empty immutable file inventory")
+    for raw in files:
+        if not isinstance(raw, dict):
+            raise ValueError("cloud pack file inventory entries must be objects")
+        relative = Path(str(raw.get("path", "")))
+        if not str(relative) or relative.is_absolute() or ".." in relative.parts:
+            raise ValueError(f"unsafe cloud pack member path: {relative}")
+        target = (pack_root / relative).resolve()
+        if pack_root not in target.parents:
+            raise ValueError(f"cloud pack member escapes its root: {relative}")
+        if not target.is_file():
+            raise FileNotFoundError(f"cloud pack member is missing: {relative}")
+        expected_size = int(raw.get("bytes", -1))
+        if target.stat().st_size != expected_size:
+            raise ValueError(f"cloud pack member size mismatch: {relative}")
+        expected_hash = str(raw.get("sha256", "")).lower()
+        if len(expected_hash) != 64 or not hmac.compare_digest(_sha256(target), expected_hash):
+            raise ValueError(f"cloud pack member hash mismatch: {relative}")
+
+
+def _continuation_start_token(
+    checkpoint_source: str,
+    *,
+    pack_window_start: int,
+    cumulative_tokens: int,
+    continuation_phase: str = "A",
+) -> int:
+    """Bind a continuation window to the exact phase boundary in its parent."""
+
+    source = str(checkpoint_source).strip()
+    if not source or source.lower() == "scratch":
+        return pack_window_start
+    checkpoint = Path(source)
+    if not checkpoint.is_absolute():
+        checkpoint = (REPO_ROOT / checkpoint).resolve()
+    if not checkpoint.is_file():
+        raise FileNotFoundError(f"continuation checkpoint is missing: {checkpoint}")
+    payload = safe_torch_load(checkpoint, map_location="cpu")
+    if not isinstance(payload, dict):
+        raise ValueError("continuation checkpoint must contain a mapping")
+    counts = payload.get("continuation_token_counts", {})
+    if not isinstance(counts, dict):
+        raise ValueError("continuation checkpoint has no phase-token accounting")
+    phase_tokens = int(counts.get(continuation_phase.upper(), 0))
+    if phase_tokens < pack_window_start:
+        raise ValueError(
+            "continuation checkpoint precedes this data pack: "
+            f"checkpoint={phase_tokens:,} pack_start={pack_window_start:,}"
+        )
+    if phase_tokens >= cumulative_tokens:
+        raise ValueError(
+            "continuation checkpoint has already consumed this data window: "
+            f"checkpoint={phase_tokens:,} pack_end={cumulative_tokens:,}"
+        )
+    return phase_tokens
 
 
 def create_cloud_launch(
@@ -38,14 +110,15 @@ def create_cloud_launch(
 ) -> dict[str, object]:
     pack_root = pack_root.resolve()
     pack = json.loads((pack_root / "pack_manifest.json").read_text(encoding="utf-8"))
+    if not isinstance(pack, dict):
+        raise ValueError("cloud pack manifest must contain an object")
+    _verify_pack_files(pack_root, pack)
     active_commit = subprocess.check_output(
         ["git", "rev-parse", "HEAD"], text=True
     ).strip()
-    if active_commit != str(pack.get("builder_commit", "")):
-        raise RuntimeError(
-            "cloud worker checkout does not match the pack builder commit: "
-            f"worker={active_commit} pack={pack.get('builder_commit')}"
-        )
+    pack_builder_commit = str(pack.get("builder_commit", "")).strip()
+    if not pack_builder_commit:
+        raise ValueError("cloud pack does not identify its builder commit")
     tokenizer = pack_root / str(pack["tokenizer_path"])
     tokenizer_metadata = pack_root / str(pack["tokenizer_metadata_path"])
     train_manifest = pack_root / str(pack["train_manifest"])
@@ -58,7 +131,12 @@ def create_cloud_launch(
         raise ValueError("cloud pack tokenizer metadata hash mismatch")
     window_tokens = int(pack["training_tokens_requested"])
     cumulative_tokens = int(pack.get("cumulative_phase_tokens", window_tokens))
-    window_start = max(0, cumulative_tokens - window_tokens)
+    pack_window_start = max(0, cumulative_tokens - window_tokens)
+    window_start = _continuation_start_token(
+        checkpoint_source,
+        pack_window_start=pack_window_start,
+        cumulative_tokens=cumulative_tokens,
+    )
     is_growth = model_profile == ANRA_V4_GROWTH_MODEL_PROFILE
     is_continuation_window = checkpoint_source.strip().lower() != "scratch"
     if is_growth and (not growth_manifest or not growth_parent_checkpoint):
@@ -128,6 +206,16 @@ def create_cloud_launch(
         growth_manifest=growth_manifest,
         growth_parent_checkpoint=growth_parent_checkpoint,
     )
+    manifest["data_pack_provenance"] = {
+        "builder_commit": pack_builder_commit,
+        "training_commit": active_commit,
+        "manifest_sha256": hashlib.sha256(
+            (pack_root / "pack_manifest.json").read_bytes()
+        ).hexdigest(),
+        "declared_window_start": pack_window_start,
+        "resume_window_start": window_start,
+        "window_end": cumulative_tokens,
+    }
     return sign_manifest(manifest, output)
 
 
