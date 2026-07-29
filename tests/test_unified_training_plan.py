@@ -9,6 +9,7 @@ from training.train_unified import (
     launch_data_profile,
     resolve_campaign_inventory,
     run_report_path,
+    signed_token_window_cli,
     stage_plan_for_mode,
 )
 from training.v2_runtime import v2_report_path
@@ -106,3 +107,22 @@ def test_signed_launch_data_profile_is_the_train_manifest_hash() -> None:
     }
 
     assert launch_data_profile(manifest) == "manifest-sha256:abc123"
+
+
+def test_signed_token_window_is_forwarded_to_child_trainer() -> None:
+    assert signed_token_window_cli(
+        {
+            "window_id": "window-196608",
+            "start_token": 196_608,
+            "end_token": 170_000_000,
+        }
+    ) == [
+        "--max-phase-tokens",
+        "170000000",
+        "--token-window-id",
+        "window-196608",
+        "--token-window-start",
+        "196608",
+        "--token-window-end",
+        "170000000",
+    ]

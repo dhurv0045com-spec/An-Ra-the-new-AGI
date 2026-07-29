@@ -268,6 +268,21 @@ def launch_data_profile(launch_manifest: dict[str, object]) -> str:
     return "manifest-sha256:" + hashes[train_manifest]
 
 
+def signed_token_window_cli(token_window: dict[str, object]) -> list[str]:
+    """Forward the validated launch window to the child trainer without loss."""
+
+    return [
+        "--max-phase-tokens",
+        str(int(token_window["end_token"])),
+        "--token-window-id",
+        str(token_window["window_id"]),
+        "--token-window-start",
+        str(int(token_window["start_token"])),
+        "--token-window-end",
+        str(int(token_window["end_token"])),
+    ]
+
+
 def _milestone_due(training_cfg: object | None = None) -> dict[str, object]:
     """Check if a milestone eval is due. Uses the active training config."""
     cfg = training_cfg if training_cfg is not None else ANRA_V4_TRAINING
@@ -781,9 +796,7 @@ def main() -> None:
             ]
         )
         signed_window = dict(launch_manifest["token_window"])
-        base_cmd.extend(
-            ["--max-phase-tokens", str(int(signed_window["end_token"]))]
-        )
+        base_cmd.extend(signed_token_window_cli(signed_window))
         pilot_axes = dict(launch_manifest.get("pilot_axes", {}))
         qk_norm = str(pilot_axes.get("qk_norm", "on"))
         attention_pattern = str(pilot_axes.get("attention", "hybrid"))
