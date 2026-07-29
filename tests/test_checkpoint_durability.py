@@ -19,6 +19,7 @@ from training.checkpoint_durability import (
     DurabilityCorruptionError,
     DurabilityState,
     FilesystemReplica,
+    MonolithicFilesystemReplica,
     PublicationError,
     ResumeArtifactError,
     SnapshotPublisher,
@@ -96,6 +97,90 @@ def test_full_resume_snapshot_round_trips_and_publishes_verified_pointer(
     assert pointer["checkpoint_sha256"] == manifest["source"]["sha256"]
     assert manifest["artifact_class"] == "full_resume"
     assert manifest["lineage"]["progress"]["global_step"] == 100
+
+
+def test_mounted_drive_single_file_replaces_only_after_verification(
+    tmp_path: Path,
+) -> None:
+    checkpoint = tmp_path / "checkpoint.pt"
+    first_payload = _checkpoint(checkpoint, 12_000)
+    outbox = CheckpointOutbox(tmp_path / "outbox", chunk_size_bytes=1024)
+    replica = MonolithicFilesystemReplica(
+        "drive-vault",
+        tmp_path / "drive" / "checkpoint-vault",
+        canonical=True,
+    )
+    publisher = SnapshotPublisher(outbox, [replica])
+    first = outbox.register_checkpoint(checkpoint, lineage=_lineage(100))
+    try:
+        publisher.submit(first)
+        publisher.wait_for(first, DurabilityState.PROTECTED, timeout_seconds=10)
+
+        first_files = list(replica.root.glob("*.pt"))
+        assert [path.name for path in first_files] == [
+            "anra-v4-step-000000000100-full-resume.pt"
+        ]
+        assert first_files[0].read_bytes() == first_payload
+        assert not list(replica.root.rglob("*.chunk"))
+        assert not (replica.root / "manifests").exists()
+        assert not (replica.root / "receipts").exists()
+
+        second_payload = bytes((index * 7) % 251 for index in range(14_000))
+        checkpoint.write_bytes(second_payload)
+        second = outbox.register_checkpoint(checkpoint, lineage=_lineage(200))
+        publisher.submit(second)
+        publisher.wait_for(second, DurabilityState.PROTECTED, timeout_seconds=10)
+    finally:
+        publisher.close(wait=True)
+
+    final_files = list(replica.root.glob("*.pt"))
+    assert [path.name for path in final_files] == [
+        "anra-v4-step-000000000200-full-resume.pt"
+    ]
+    assert final_files[0].read_bytes() == second_payload
+    assert not list(replica.root.glob("*.uploading"))
+
+
+def test_failed_single_file_replacement_preserves_previous_checkpoint(
+    tmp_path: Path,
+) -> None:
+    checkpoint = tmp_path / "checkpoint.pt"
+    first_payload = _checkpoint(checkpoint, 12_000)
+    outbox = CheckpointOutbox(tmp_path / "outbox", chunk_size_bytes=1024)
+    replica = MonolithicFilesystemReplica(
+        "drive-vault",
+        tmp_path / "drive" / "checkpoint-vault",
+        canonical=True,
+    )
+    publisher = SnapshotPublisher(outbox, [replica])
+    first = outbox.register_checkpoint(checkpoint, lineage=_lineage(100))
+    try:
+        publisher.submit(first)
+        publisher.wait_for(first, DurabilityState.PROTECTED, timeout_seconds=10)
+
+        checkpoint.write_bytes(b"replacement" * 2000)
+        second = outbox.register_checkpoint(checkpoint, lineage=_lineage(200))
+        second_manifest = outbox.load_manifest(second.snapshot_id)
+        corrupt_record = second_manifest["chunks"][0]
+        outbox.chunk_path(corrupt_record["sha256"]).write_bytes(
+            b"x" * corrupt_record["size_bytes"]
+        )
+        publisher.submit(second)
+        with pytest.raises(PublicationError):
+            publisher.wait_for(
+                second,
+                DurabilityState.PROTECTED,
+                timeout_seconds=10,
+            )
+    finally:
+        publisher.close(wait=False)
+
+    remaining = list(replica.root.glob("*.pt"))
+    assert [path.name for path in remaining] == [
+        "anra-v4-step-000000000100-full-resume.pt"
+    ]
+    assert remaining[0].read_bytes() == first_payload
+    assert not list(replica.root.glob("*.uploading"))
 
 
 def test_incomplete_future_pointer_cannot_block_recovery_checkpoint(
@@ -475,6 +560,62 @@ def test_required_session_acks_primary_then_protects_final_snapshot(
     assert status["state"] == "protected"
     assert (tmp_path / "drive" / "canonical.json").is_file()
     assert (tmp_path / "laptop" / "manifests" / f"{ref.snapshot_id}.json").is_file()
+
+
+def test_environment_selects_single_file_drive_replica(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setenv("ANRA_REQUIRE_DURABLE_ACK", "1")
+    monkeypatch.setenv(
+        "ANRA_DURABILITY_REPLICAS",
+        json.dumps(
+            [
+                {
+                    "name": "drive-vault",
+                    "path": str(tmp_path / "drive"),
+                    "kind": "mounted_drive_single_file",
+                    "canonical": True,
+                }
+            ]
+        ),
+    )
+    checkpoint = tmp_path / "checkpoint.pt"
+    _checkpoint(checkpoint, 4096)
+    payload = {
+        "checkpoint_schema_version": 9,
+        "checkpoint_artifact_class": "full_resume",
+        "source_commit": "abc123",
+        "global_step": 200,
+        "tokens_seen": 2048,
+        "model_config": {"n_layer": 2},
+        "tokenizer_contract": {"sha256": "tokenizer", "schema_version": 4},
+        "dataset_manifest_hashes": {"train": "data"},
+        "training_recipe": {"seed": 1301},
+        "seed_contract": {"seed": 1301},
+        "completed_optimizer_boundary": True,
+        "accum_micro_steps": 0,
+        "model": {},
+        "optimizer": {},
+        "scheduler": {},
+        "scaler": {},
+        "rng_states": {},
+    }
+    session = CheckpointDurabilitySession.from_environment(
+        tmp_path / "outbox",
+        scratch_run=False,
+    )
+    try:
+        ref = session.publish_checkpoint(checkpoint, payload)
+        assert ref is not None
+    finally:
+        session.close()
+
+    files = list((tmp_path / "drive").glob("*.pt"))
+    assert [path.name for path in files] == [
+        "anra-v4-step-000000000200-full-resume.pt"
+    ]
+    assert not (tmp_path / "drive" / "chunks").exists()
 
 
 def test_signed_resume_source_replaces_a_stale_destination(tmp_path: Path) -> None:

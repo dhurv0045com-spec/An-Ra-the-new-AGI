@@ -5,9 +5,11 @@ after the local atomic save: content-addressed chunks, an immutable manifest,
 verified replica receipts, and a canonical pointer that is never published
 before every referenced byte has been verified.
 
-Mounted Google Drive and ordinary filesystem replicas deliberately share the
-same backend.  The byte-level contract does not depend on a cloud SDK, which
-makes it usable from Colab, a laptop sync folder, or the cluster publisher.
+Ordinary filesystem replicas use content-addressed chunks.  Mounted Google
+Drive can instead use a monolithic replica: one portable checkpoint is rebuilt
+from the verified local outbox, atomically promoted, and the previous file is
+removed only after its replacement has been fully verified.  This keeps Drive
+human-manageable without weakening the local interruption-recovery contract.
 """
 
 from __future__ import annotations
@@ -1035,6 +1037,222 @@ class FilesystemReplica:
         return targets
 
 
+class MonolithicFilesystemReplica:
+    """Publish one portable checkpoint file to a mounted filesystem.
+
+    The local outbox remains chunked so registration, retries, and corruption
+    checks are deterministic.  The remote mounted Drive does not expose those
+    implementation objects.  It contains one complete ``.pt`` file per
+    artifact class at rest; a hidden ``.uploading`` file exists only while a
+    replacement is being written.
+    """
+
+    def __init__(
+        self,
+        name: str,
+        root: Path,
+        *,
+        kind: str = "mounted_drive_single_file",
+        canonical: bool = False,
+    ) -> None:
+        self.name = _validate_identifier(name.strip(), label="replica name")
+        self.root = Path(root)
+        self.kind = kind
+        self.canonical = bool(canonical)
+        self._active_paths: dict[ArtifactClass, Path] = {}
+
+    @staticmethod
+    def _suffix(artifact_class: ArtifactClass) -> str:
+        return artifact_class.value.replace("_", "-")
+
+    def _checkpoint_path(
+        self,
+        artifact_class: ArtifactClass,
+        global_step: int,
+    ) -> Path:
+        return self.root / (
+            f"anra-v4-step-{global_step:012d}-"
+            f"{self._suffix(artifact_class)}.pt"
+        )
+
+    def _checkpoint_glob(self, artifact_class: ArtifactClass) -> str:
+        return f"anra-v4-step-*-{self._suffix(artifact_class)}.pt"
+
+    def _existing_checkpoints(
+        self,
+        artifact_class: ArtifactClass,
+    ) -> list[tuple[int, Path]]:
+        suffix = f"-{self._suffix(artifact_class)}.pt"
+        prefix = "anra-v4-step-"
+        existing: list[tuple[int, Path]] = []
+        if not self.root.is_dir():
+            return existing
+        for path in self.root.glob(self._checkpoint_glob(artifact_class)):
+            name = path.name
+            step_text = name[len(prefix) : -len(suffix)]
+            if step_text.isdigit():
+                existing.append((int(step_text), path))
+        return sorted(existing)
+
+    def stage_chunk(self, local_chunk: Path, record: ChunkRecord) -> None:
+        """The verified local outbox is materialized once, not copied per chunk."""
+
+        if (
+            not local_chunk.is_file()
+            or local_chunk.stat().st_size != record.size_bytes
+        ):
+            raise DurabilityCorruptionError(
+                f"Local source chunk is not valid: {local_chunk}"
+            )
+
+    def publish_manifest(self, ref: SnapshotRef, manifest_bytes: bytes) -> Path:
+        manifest = json.loads(manifest_bytes)
+        artifact_class = ArtifactClass(str(manifest["artifact_class"]))
+        source = dict(manifest["source"])
+        expected_size = int(source["size_bytes"])
+        expected_sha256 = str(source["sha256"])
+        target = self._checkpoint_path(artifact_class, ref.global_step)
+        self.root.mkdir(parents=True, exist_ok=True)
+
+        existing = self._existing_checkpoints(artifact_class)
+        newer = [step for step, _path in existing if step > ref.global_step]
+        if newer:
+            raise PublicationError(
+                f"Refusing to rewind {self.name} from step "
+                f"{max(newer)} to {ref.global_step}"
+            )
+        if target.is_file():
+            if (
+                target.stat().st_size == expected_size
+                and sha256_file(target) == expected_sha256
+            ):
+                self._active_paths[artifact_class] = target
+                return target
+            raise PublicationError(
+                f"Conflicting checkpoint at step {ref.global_step} "
+                f"on replica {self.name}"
+            )
+
+        temporary = self.root / f".{target.name}.uploading"
+        temporary.unlink(missing_ok=True)
+        digest = hashlib.sha256()
+        written = 0
+        try:
+            with temporary.open("xb") as destination:
+                for raw in manifest.get("chunks", []):
+                    record = ChunkRecord.from_dict(dict(raw))
+                    chunk = (
+                        ref.outbox_root
+                        / "chunks"
+                        / record.sha256[:2]
+                        / f"{record.sha256}.chunk"
+                    )
+                    if (
+                        not chunk.is_file()
+                        or chunk.stat().st_size != record.size_bytes
+                    ):
+                        raise DurabilityCorruptionError(
+                            f"Cannot publish corrupt local chunk: {chunk}"
+                        )
+                    chunk_digest = hashlib.sha256()
+                    with chunk.open("rb") as source_handle:
+                        while block := source_handle.read(DEFAULT_COPY_BLOCK_BYTES):
+                            destination.write(block)
+                            digest.update(block)
+                            chunk_digest.update(block)
+                            written += len(block)
+                    if chunk_digest.hexdigest() != record.sha256:
+                        raise DurabilityCorruptionError(
+                            f"Cannot publish corrupt local chunk: {chunk}"
+                        )
+                destination.flush()
+                os.fsync(destination.fileno())
+            if written != expected_size or digest.hexdigest() != expected_sha256:
+                raise DurabilityCorruptionError(
+                    "Monolithic checkpoint does not match its source manifest"
+                )
+            os.replace(temporary, target)
+            if (
+                target.stat().st_size != expected_size
+                or sha256_file(target) != expected_sha256
+            ):
+                target.unlink(missing_ok=True)
+                raise DurabilityCorruptionError(
+                    f"Monolithic checkpoint verification failed: {target}"
+                )
+        finally:
+            temporary.unlink(missing_ok=True)
+
+        # Only after the new target is verified may older portable checkpoints
+        # be removed.  At steady state Drive exposes exactly one resume file.
+        for _step, old_path in existing:
+            if old_path != target:
+                old_path.unlink(missing_ok=True)
+        self._active_paths[artifact_class] = target
+        return target
+
+    def verify_snapshot(self, manifest: Mapping[str, object]) -> None:
+        artifact_class = ArtifactClass(str(manifest["artifact_class"]))
+        lineage = dict(manifest.get("lineage", {}))
+        global_step = int(
+            dict(lineage.get("progress", {})).get("global_step", 0) or 0
+        )
+        target = self._active_paths.get(
+            artifact_class,
+            self._checkpoint_path(artifact_class, global_step),
+        )
+        source = dict(manifest["source"])
+        if not target.is_file():
+            raise DurabilityCorruptionError(
+                f"Monolithic replica is missing checkpoint: {target}"
+            )
+        if target.stat().st_size != int(source["size_bytes"]):
+            raise DurabilityCorruptionError(
+                f"Monolithic replica has wrong checkpoint size: {target}"
+            )
+        if sha256_file(target) != str(source["sha256"]):
+            raise DurabilityCorruptionError(
+                f"Monolithic replica has wrong checkpoint digest: {target}"
+            )
+
+    def publish_pointer(self, pointer: Mapping[str, object]) -> Path:
+        artifact_class = ArtifactClass(str(pointer["artifact_class"]))
+        target = self._checkpoint_path(
+            artifact_class,
+            int(pointer.get("global_step", 0) or 0),
+        )
+        if not target.is_file():
+            raise DurabilityCorruptionError(
+                f"Cannot protect a missing monolithic checkpoint: {target}"
+            )
+        return target
+
+    def publish_receipt(
+        self,
+        snapshot_id: str,
+        receipt: Mapping[str, object],
+    ) -> Path:
+        artifact_class = ArtifactClass(str(receipt["artifact_class"]))
+        target = self._active_paths.get(artifact_class)
+        if target is None or not target.is_file():
+            raise DurabilityCorruptionError(
+                f"No verified monolithic checkpoint for receipt {snapshot_id}"
+            )
+        return target
+
+    def prune_snapshots(self, snapshot_ids: Iterable[str]) -> tuple[str, ...]:
+        for partial in self.root.glob(".anra-v4-step-*.pt.uploading"):
+            partial.unlink(missing_ok=True)
+        return tuple(
+            sorted(
+                {
+                    _validate_identifier(value, label="snapshot id")
+                    for value in snapshot_ids
+                }
+            )
+        )
+
+
 MountedDriveReplica = FilesystemReplica
 
 
@@ -1271,6 +1489,7 @@ class SnapshotPublisher:
             "replica": replica.name,
             "replica_kind": replica.kind,
             "canonical": replica.canonical,
+            "artifact_class": ref.artifact_class.value,
             "manifest_sha256": ref.manifest_sha256,
             "checkpoint_sha256": source["sha256"],
             "size_bytes": source["size_bytes"],
@@ -1392,21 +1611,47 @@ class SnapshotPublisher:
             self._worker.join(timeout=timeout_seconds)
 
 
-def _parse_replica_environment() -> list[FilesystemReplica]:
+def _build_replica(
+    name: str,
+    path: Path,
+    *,
+    kind: str,
+    canonical: bool,
+) -> ReplicaBackend:
+    if kind in {
+        "mounted_drive_single_file",
+        "monolithic_filesystem",
+        "single_file",
+    }:
+        return MonolithicFilesystemReplica(
+            name,
+            path,
+            kind=kind,
+            canonical=canonical,
+        )
+    return FilesystemReplica(
+        name,
+        path,
+        kind=kind,
+        canonical=canonical,
+    )
+
+
+def _parse_replica_environment() -> list[ReplicaBackend]:
     raw = os.environ.get("ANRA_DURABILITY_REPLICAS", "").strip()
     if not raw:
         shared_root = os.environ.get("ANRA_SHARED_CHECKPOINT_DIR", "").strip()
         if shared_root:
             return [
-                FilesystemReplica(
+                MonolithicFilesystemReplica(
                     "shared-drive",
                     Path(shared_root) / "durability-v1",
-                    kind="mounted_drive",
+                    kind="mounted_drive_single_file",
                     canonical=True,
                 )
             ]
         return []
-    replicas: list[FilesystemReplica] = []
+    replicas: list[ReplicaBackend] = []
     if raw.startswith("["):
         entries = json.loads(raw)
         if not isinstance(entries, list):
@@ -1415,7 +1660,7 @@ def _parse_replica_environment() -> list[FilesystemReplica]:
             if not isinstance(entry, dict):
                 raise ValueError("Each durability replica must be a JSON object")
             replicas.append(
-                FilesystemReplica(
+                _build_replica(
                     str(entry.get("name", f"replica-{index}")),
                     Path(str(entry["path"])),
                     kind=str(entry.get("kind", "filesystem")),
@@ -1429,9 +1674,10 @@ def _parse_replica_environment() -> list[FilesystemReplica]:
             else:
                 name, path = f"replica-{index}", entry
             replicas.append(
-                FilesystemReplica(
+                _build_replica(
                     name.strip(),
                     Path(path.strip()),
+                    kind="filesystem",
                     canonical=index == 0,
                 )
             )

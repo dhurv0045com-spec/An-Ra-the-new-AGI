@@ -71,6 +71,22 @@ def test_can_resolve_vault_before_shared_pack_api_fallback(tmp_path: Path) -> No
     assert assets.pack_parts == ()
 
 
+def test_resolves_single_portable_checkpoint_vault(tmp_path: Path) -> None:
+    my_drive = tmp_path / "MyDrive"
+    vault = my_drive / "AnRa" / "cluster" / "checkpoint-vault"
+    vault.mkdir(parents=True)
+    (vault / "anra-v4-step-000000000400-full-resume.pt").write_bytes(
+        b"portable-checkpoint"
+    )
+    for name in PACKS:
+        (my_drive / name).write_bytes(b"pack")
+
+    assets = resolve_colab_training_assets(tmp_path)
+
+    assert assets.vault_root == vault
+    assert assets.vault_step == 400
+
+
 def test_prefers_recovery_signing_identity_on_recovered_lineage(tmp_path: Path) -> None:
     my_drive = tmp_path / "MyDrive"
     _vault(my_drive / "checkpoint-vault", 3)

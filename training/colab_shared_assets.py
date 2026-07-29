@@ -114,6 +114,19 @@ def _named_candidates(name: str, roots: Iterable[Path]) -> list[Path]:
 def _vault_step(path: Path) -> int | None:
     if not path.is_dir():
         return None
+    portable_steps: list[int] = []
+    prefix = "anra-v4-step-"
+    suffix = "-full-resume.pt"
+    for checkpoint in path.glob(f"{prefix}*{suffix}"):
+        step_text = checkpoint.name[len(prefix) : -len(suffix)]
+        if checkpoint.is_file() and checkpoint.stat().st_size > 0 and step_text.isdigit():
+            portable_steps.append(int(step_text))
+    if portable_steps:
+        return max(portable_steps)
+
+    # Compatibility with the retired content-addressed Drive layout.  It is
+    # accepted only so the next run can resume once and publish the first
+    # portable single-file checkpoint.
     pointer_path = path / "canonical.json"
     manifests = path / "manifests"
     chunks = path / "chunks"
