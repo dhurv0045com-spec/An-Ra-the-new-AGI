@@ -403,4 +403,1458 @@ class ChunkRecord:
             index=int(payload["index"]),
             offset=int(payload["offset"]),
             size_bytes=int(payload["size_bytes"]),
-            sha256=_validate_sha256(str(payloa×¶ÖÚ$z{-®éÜj×6µ÷F–ÖV÷WE÷6V6öæG0¢6VÆbæ†÷E÷7F÷&vUöÆ–Ö—Eö'—FW2Ò–çB††÷E÷7F÷&vUöÆ–Ö—Eö'—FW2¢–b6VÆbæ†÷E÷7F÷&vUöÆ–Ö—Eö'—FW2ÃÒ ¢&—6RfÇVTW'&÷"‚&†÷E÷7F÷&vUöÆ–Ö—Eö'—FW2×W7B&R÷6—F—fR"¢6VÆbæ–æ—F–Åö6¶æ÷vÆVFvVBÒfÇ6P¢6VÆbæÆFW7C¢6æ6†÷E&VbÂæöæRÒæöæP ¢6Æ76ÖWF†ö@¢FVbg&öÕöVçf—&öæÖVçB€¢6Ç2À¢FVfVÇEö÷WF&÷ƒ¢F‚À¢¢À¢67&F6…÷'Vã¢&ööÂÀ¢’Óâ6†V6·ö–çDGW&&–Æ—G•6W76–öã ¢&WV—&VBÒGW&&–Æ—G•÷&WV—&VEög&öÕöVçf—&öæÖVçB‚¢Væ&ÆVBÒ&WV—&VB÷"÷G'WF‡•öVçf—&öæÖVçB‚$å$ôTä$ÄUôEU$$”Ä•E•ôõUD$õ‚"¢–b÷G'WF‡•öVçf—&öæÖVçB‚$å$õ$UT•$Uõ4”täTEôUd”DTä4R"’æBæ÷B÷2æVçf—&öâævWB€¢$å$ôUd”DTä4Uõ4”tä”äuô´U’"Â" ¢“ ¢&—6RV&Æ–6F–öäW'&÷"€¢$å$õ$UT•$Uõ4”täTEôUd”DTä4SÓ&WV—&W2å$ôUd”DTä4Uõ4”tä”äuô´U’ ¢¢&ö÷BÒF‚†÷2æVçf—&öâævWB‚$å$ôEU$$”Ä•E•ôõUD$õ‚"Â7G"†FVfVÇEö÷WF&÷‚’’¢÷WF&÷‚Ò6†V6·ö–çD÷WF&÷‚‡&ö÷B¢&WÆ–62Ò÷'6U÷&WÆ–6öVçf—&öæÖVçB‚’–bVæ&ÆVBVÇ6RµĞ¢–b&WV—&VBæBæ÷B&WÆ–63 ¢&—6RV&Æ–6F–öäW'&÷"€¢$GW&&ÆR&VÖ÷FR4²—2&WV—&VBÂ'WBå$ôEU$$”Ä•E•õ$UÄ”42†÷" ¢$å$õ4„$TEô4„T4µô”åEôD•"’FöW2æ÷BFVf–æR&WÆ–6â ¢¢Ö–å÷&÷FV7FVBÒ–çB€¢÷2æVçf—&öâævWB€¢$å$ôEU$$”Ä•E•ôÔ”åõ$õDT5DTEõ$UÄ”42"À¢7G"†Ö–âƒ"ÂÆVâ‡&WÆ–62’’’–b&WÆ–62VÇ6R#"À¢¢¢V&Æ—6†W"Ò€¢6æ6†÷EV&Æ—6†W"€¢÷WF&÷‚À¢&WÆ–62À¢Ö–å÷&÷FV7FVE÷&WÆ–63ÖÖ–å÷&÷FV7FVBÀ¢Ö…ö6÷•÷7G&V×3Ö–çB€¢÷2æVçf—&öâævWB€¢$å$ôEU$$”Ä•E•ô4õ•õ5E$TÕ2"À¢7G"„DTdTÅEôÔ…ô4õ•õ5E$TÕ2’À¢¢’À¢†÷E÷7F÷&vUöÆ–Ö—Eö'—FW3Ö–çB€¢÷2æVçf—&öâævWB€¢$å$ôEU$$”Ä•E•ô„õEôÄ”Ô•Eô%•DU2"À¢7G"„„õEõ5Dõ$tUôÄ”Ô•Eô%•DU2’À¢¢’À¢¢–b&WÆ–60¢VÇ6RæöæP¢¢&WGW&â6Ç2€¢÷WF&÷‚À¢V&Æ—6†W"À¢Væ&ÆVCÖVæ&ÆVBÀ¢&WV—&VC×&WV—&VBÀ¢67&F6…÷'Vã×67&F6…÷'VâÀ¢6µ÷F–ÖV÷WE÷6V6öæG3ÖfÆöB€¢÷2æVçf—&öâævWB‚$å$ôEU$$”Ä•E•ô4µõD”ÔTõUEõ4T4ôäE2"Â#ƒ"¢’À¢†÷E÷7F÷&vUöÆ–Ö—Eö'—FW3Ö–çB€¢÷2æVçf—&öâævWB€¢$å$ôEU$$”Ä•E•ô„õEôÄ”Ô•Eô%•DU2"À¢7G"„„õEõ5Dõ$tUôÄ”Ô•Eô%•DU2’À¢¢’À¢ ¢&÷W'G¢FVb&WV—&W5ö–æ—F–Åö&÷VæF'’‡6VÆb’Óâ&ööÃ ¢&WGW&â6VÆbç&WV—&VBæB6VÆbç67&F6…÷'VâæBæ÷B6VÆbæ–æ—F–Åö6¶æ÷vÆVFvV@ ¢FVbV&Æ—6…ö6†V6·ö–çB€¢6VÆbÀ¢6†V6·ö–çC¢F‚À¢–ÆöC¢Ö–æu·7G"Âö&¦V7EÒÀ¢¢À¢f–æÃ¢&ööÂÒfÇ6RÀ¢’Óâ6æ6†÷E&VbÂæöæS ¢–bæ÷B6VÆbæVæ&ÆVC ¢&WGW&âæöæP¢Æ–æVvRÒ–ÆöBævWB‚&6†V6·ö–çEöÆ–æVvR"¢–bæ÷B—6–ç7Fæ6R†Æ–æVvRÂÖ–ær“ ¢Æ–æVvRÒ'V–ÆEö6†V6·ö–çEöÆ–æVvR‡–ÆöB¢Æ–æVvUö–BÒ7G"†Æ–æVvRævWB‚&Æ–æVvUö–B"Â""’’ç7G&—‚¢–bæ÷BÆ–æVvUö–C ¢&—6RGW&&–Æ—G”W'&÷"‚$GW&&ÆR6†V6·ö–çB&WV—&W27F&ÆRÆ–æVvUö–B"¢2W†7FÇ’öæRWÆöBÖ’&R–âfÆ–v‡Bâ–bG&—fR—26Æ÷vW"F†âF†P¢2G&–æW"ÂF†RæW‡B6†V6·ö–çB&÷VæF'’Æ–W2&6·&W77W&R&F†W ¢2F†âf–ÆÆ–ærW†VÖW&ÂF—6²v—F‚âVæ&÷VæFVBVWVRà¢–b6VÆbçV&Æ—6†W"—2æ÷BæöæRæB6VÆbæÆFW7B—2æ÷BæöæS ¢6VÆbçV&Æ—6†W"çv—Eöf÷"€¢6VÆbæÆFW7BÀ¢GW&&–Æ—G•7FFRå$õDT5DTBÀ¢F–ÖV÷WE÷6V6öæG3×6VÆbæ6µ÷F–ÖV÷WE÷6V6öæG2À¢¢ÆâÒÆåö†÷E÷&WFVçF–öâ€¢6VÆbæ÷WF&÷‚À¢–åöfÆ–v‡Eö'—FW3ÕF‚†6†V6·ö–çB’ç7FB‚’ç7E÷6—¦RÀ¢†÷EöÆ–Ö—Eö'—FW3×6VÆbæ†÷E÷7F÷&vUöÆ–Ö—Eö'—FW2À¢Æ–æVvUö–CÖÆ–æVvUö–BÀ¢¢–bæ÷BÆâæf—G3 ¢&—6RV&Æ–6F–öäW'&÷"€¢$6†V6·ö–çB†÷B×7F÷&vR6öçG&7B6ææ÷Bf—BGvò&W7VÖR7FFW2Â ¢'Gvò6ö×7B7FFW2æBöæR–âÖfÆ–v‡B'F–f7C¢ ¢b&FVf–6—C×·ÆâæFVf–6—Eö'—FW7Ò'—FW2 ¢¢–bÆâæFVÆWFU÷6æ6†÷Eö–G3 ¢–b6VÆbçV&Æ—6†W"—2æ÷BæöæS ¢6VÆbçV&Æ—6†W"ç'VæU÷6æ6†÷G2‡ÆâæFVÆWFU÷6æ6†÷Eö–G2¢6VÆbæ÷WF&÷‚ç'VæR‡ÆâæFVÆWFU÷6æ6†÷Eö–G2¢&VbÒ6VÆbæ÷WF&÷‚ç&Vv—7FW%ö6†V6·ö–çB€¢6†V6·ö–çBÀ¢'F–f7Eö6Æ73Ô'F–f7D6Æ72äeTÄÅõ$U5TÔRÀ¢Æ–æVvSÖÆ–æVvRÀ¢¢6VÆbæÆFW7BÒ&V`¢–b6VÆbçV&Æ—6†W"—2æ÷BæöæS ¢6VÆbçV&Æ—6†W"ç7V&Ö—B‡&Vb¢v—Eöf÷%ö6²Ò6VÆbç&WV—&VBæB‡6VÆbç&WV—&W5ö–æ—F–Åö&÷VæF'’÷"f–æÂ¢–bv—Eöf÷%ö6³ ¢–b6VÆbçV&Æ—6†W"—2æöæS ¢&—6RV&Æ–6F–öäW'&÷"‚$&WV—&VBGW&&–Æ—G’4²†2æòV&Æ—6†W""¢F&vWBÒ€¢GW&&–Æ—G•7FFRå$õDT5DT@¢–bf–æÀ¢VÇ6RGW&&–Æ—G•7FFRä4äôä”4ÅõdU$”d”T@¢¢6VÆbçV&Æ—6†W"çv—Eöf÷"€¢&VbÀ¢F&vWBÀ¢F–ÖV÷WE÷6V6öæG3×6VÆbæ6µ÷F–ÖV÷WE÷6V6öæG2À¢¢6VÆbæ–æ—F–Åö6¶æ÷vÆVFvVBÒG'VP¢–bf–æÂæB6VÆbçV&Æ—6†W"—2æ÷BæöæS ¢6VÆbçV&Æ—6†W"çv—Eöf÷"€¢&VbÀ¢GW&&–Æ—G•7FFRå$õDT5DTBÀ¢F–ÖV÷WE÷6V6öæG3×6VÆbæ6µ÷F–ÖV÷WE÷6V6öæG2À¢¢f–æÅ÷ÆâÒÆåö†÷E÷&WFVçF–öâ€¢6VÆbæ÷WF&÷‚À¢†÷EöÆ–Ö—Eö'—FW3×6VÆbæ†÷E÷7F÷&vUöÆ–Ö—Eö'—FW2À¢Æ–æVvUö–CÖÆ–æVvUö–BÀ¢¢–bf–æÅ÷ÆâæFVÆWFU÷6æ6†÷Eö–G3 ¢6VÆbçV&Æ—6†W"ç'VæU÷6æ6†÷G2†f–æÅ÷ÆâæFVÆWFU÷6æ6†÷Eö–G2¢6VÆbæ÷WF&÷‚ç'VæR†f–æÅ÷ÆâæFVÆWFU÷6æ6†÷Eö–G2¢&WGW&â&V` ¢FVb6Æ÷6R‡6VÆb’ÓâæöæS ¢–b6VÆbçV&Æ—6†W"—2æöæS ¢&WGW&à¢–b6VÆbç&WV—&VBæB6VÆbæÆFW7B—2æ÷BæöæS ¢6VÆbçV&Æ—6†W"çv—Eöf÷"€¢6VÆbæÆFW7BÀ¢GW&&–Æ—G•7FFRå$õDT5DTBÀ¢F–ÖV÷WE÷6V6öæG3×6VÆbæ6µ÷F–ÖV÷WE÷6V6öæG2À¢¢6VÆbçV&Æ—6†W"æ6Æ÷6R‡v—CÕG'VRÂF–ÖV÷WE÷6V6öæG3×6VÆbæ6µ÷F–ÖV÷WE÷6V6öæG2  ¤FF6Æ72†g&÷¦VãÕG'VR¦6Æ72&WFVçF–öåÆã ¢¶VW÷6æ6†÷Eö–G3¢GWÆU·7G"ÂââåĞ¢FVÆWFU÷6æ6†÷Eö–G3¢GWÆU·7G"ÂââåĞ¢&WF–æVEöÆöv–6Åö'—FW3¢–ç@¢–åöfÆ–v‡Eö'—FW3¢–ç@¢†÷EöÆ–Ö—Eö'—FW3¢–ç@¢f—G3¢&ööÀ¢FVf–6—Eö'—FW3¢–ç@ ¢FVbFõöF–7B‡6VÆb’ÓâF–7E·7G"Âö&¦V7EÓ ¢&WGW&â°¢&¶VW÷6æ6†÷Eö–G2#¢Æ—7B‡6VÆbæ¶VW÷6æ6†÷Eö–G2’À¢&FVÆWFU÷6æ6†÷Eö–G2#¢Æ—7B‡6VÆbæFVÆWFU÷6æ6†÷Eö–G2’À¢'&WF–æVEöÆöv–6Åö'—FW2#¢6VÆbç&WF–æVEöÆöv–6Åö'—FW2À¢&–åöfÆ–v‡Eö'—FW2#¢6VÆbæ–åöfÆ–v‡Eö'—FW2À¢&†÷EöÆ–Ö—Eö'—FW2#¢6VÆbæ†÷EöÆ–Ö—Eö'—FW2À¢&f—G2#¢6VÆbæf—G2À¢&FVf–6—Eö'—FW2#¢6VÆbæFVf–6—Eö'—FW2À¢Ğ  ¦FVb6æ6†÷EöÆ–æVvUö–B†÷WF&÷ƒ¢6†V6·ö–çD÷WF&÷‚Â&Vc¢6æ6†÷E&Vb’Óâ7G# ¢Æ–æVvRÒF–7B†÷WF&÷‚æÆöEöÖæ–fW7B‡&Vbç6æ6†÷Eö–B’ævWB‚&Æ–æVvR"Â·Ò’¢W‡Æ–6—BÒ7G"†Æ–æVvRævWB‚&Æ–æVvUö–B"Â""’’ç7G&—‚¢–bW‡Æ–6—C ¢&WGW&âW‡Æ–6—@¢266†VÖ×c÷WF&÷†W27&VFVB&Vf÷&RÆ–æVvUö–Bv2ÖæFF÷'’&VÖ–à¢2w&÷W&ÆRf÷"âW‡Æ–6—BÖ–w&F–öâ÷&WFVçF–öâ72à¢&6†—FV7GW&RÒF–7B†Æ–æVvRævWB‚&&6†—FV7GW&R"Â·Ò’¢G&–æ–ærÒF–7B†Æ–æVvRævWB‚'G&–æ–ær"Â·Ò’¢6VVBÒF–7B‡G&–æ–ærævWB‚'6VVEö6öçG&7B"Â·Ò’’ævWB‚'6VVB"Â'Væ¶æ÷vâ"¢&WGW&âb&ÆVv7’÷¶&6†—FV7GW&RævWB‚w6†#SbrÂwVæ¶æ÷vâr—Ò÷6VVB×·6VVGÒ   ¦FVbÆåö†÷E÷&WFVçF–öâ€¢÷WF&÷ƒ¢6†V6·ö–çD÷WF&÷‚À¢¢À¢¶VWögVÆÃ¢–çBÒDTdTÅEô´TUôeTÄÂÀ¢¶VWö6ö×7C¢–çBÒDTdTÅEô´TUô4ôÕ5BÀ¢–åöfÆ–v‡Eö'—FW3¢–çBÒÀ¢†÷EöÆ–Ö—Eö'—FW3¢–çBÒ„õEõ5Dõ$tUôÄ”Ô•Eô%•DU2À¢Æ–æVvUö–C¢7G"ÂæöæRÒæöæRÀ¢’Óâ&WFVçF–öåÆã ¢ÆÅ÷&Vg2Ò÷WF&÷‚ç6æ6†÷G2‚¢&Vg2Ò€¢·&Vbf÷"&Vb–âÆÅ÷&Vg2–b6æ6†÷EöÆ–æVvUö–B†÷WF&÷‚Â&Vb’ÓÒÆ–æVvUö–EĞ¢–bÆ–æVvUö–B—2æ÷BæöæP¢VÇ6RÆÅ÷&Vg0¢¢'•ö6Æ73¢F–7E´'F–f7D6Æ72ÂÆ—7Eµ6æ6†÷E&VeÕÒÒ°¢'F–f7D6Æ72äeTÄÅõ$U5TÔS¢µÒÀ¢'F–f7D6Æ72äeeô”ädU$Tä4S¢µÒÀ¢Ğ¢f÷"&Vb–â&Vg3 ¢'•ö6Æ75·&Vbæ'F–f7Eö6Æ75ÒæVæB‡&Vb¢f÷"w&÷W–â'•ö6Æ72çfÇVW2‚“ ¢w&÷Wç6÷'B†¶W“ÖÆÖ&F&Vc¢‡&VbævÆö&Å÷7FWÂ&Vbç6æ6†÷Eö–B’Â&WfW'6SÕG'VR¢¶WBÒ€¢'•ö6Æ75´'F–f7D6Æ72äeTÄÅõ$U5TÔUÕ³¢Ö‚ƒÂ¶VWögVÆÂ•Ğ¢²'•ö6Æ75´'F–f7D6Æ72äeeô”ädU$Tä4UÕ³¢Ö‚ƒÂ¶VWö6ö×7B•Ğ¢¢¶VWö–G2Ò·&Vbç6æ6†÷Eö–Bf÷"&Vb–â¶WGĞ¢&WF–æVBÒ ¢f÷"&Vb–â¶WC ¢Öæ–fW7BÒ÷WF&÷‚æÆöEöÖæ–fW7B‡&Vbç6æ6†÷Eö–B¢&WF–æVB³Ò–çB†F–7B†Öæ–fW7E²'6÷W&6R%Ò•²'6—¦Uö'—FW2%Ò¢&WV—&VBÒ&WF–æVB²Ö‚ƒÂ–çB†–åöfÆ–v‡Eö'—FW2’¢&WGW&â&WFVçF–öåÆâ€¢¶VW÷6æ6†÷Eö–G3×GWÆR‡6÷'FVB†¶VWö–G2’’À¢FVÆWFU÷6æ6†÷Eö–G3×GWÆR€¢6÷'FVB‡&Vbç6æ6†÷Eö–Bf÷"&Vb–â&Vg2–b&Vbç6æ6†÷Eö–Bæ÷B–â¶VWö–G2¢’À¢&WF–æVEöÆöv–6Åö'—FW3×&WF–æVBÀ¢–åöfÆ–v‡Eö'—FW3ÖÖ‚ƒÂ–çB†–åöfÆ–v‡Eö'—FW2’’À¢†÷EöÆ–Ö—Eö'—FW3Ö–çB††÷EöÆ–Ö—Eö'—FW2’À¢f—G3×&WV—&VBÃÒ†÷EöÆ–Ö—Eö'—FW2À¢FVf–6—Eö'—FW3ÖÖ‚ƒÂ&WV—&VBÒ†÷EöÆ–Ö—Eö'—FW2’À¢  ¦FVb÷&WÆ–65ög&öÕö6Æ’€¢fÇVW3¢—FW&&ÆU·7G%ÒÀ¢G&—fU÷fÇVW3¢—FW&&ÆU·7G%ÒÀ¢’ÓâÆ—7E´f–ÆW7—7FVÕ&WÆ–6Ó ¢&WÆ–63¢Æ—7E´f–ÆW7—7FVÕ&WÆ–6ÒÒµĞ¢VçG&–W2Ò²‡fÇVRÂ&f–ÆW7—7FVÒ"’f÷"fÇVR–âfÇVW5Ğ¢VçG&–W2³Ò²‡fÇVRÂ&Ö÷VçFVEöG&—fR"’f÷"fÇVR–âG&—fU÷fÇVW5Ğ¢f÷"–æFW‚Â†VçG'’Â¶–æB’–âVçVÖW&FR†VçG&–W2“ ¢–b#Ò"æ÷B–âVçG'“ ¢&—6RfÇVTW'&÷"‚%&WÆ–6×W7B&RäÔSÕD‚"¢æÖRÂF‚ÒVçG'’ç7Æ—B‚#Ò"Â¢&WÆ–62æVæB€¢f–ÆW7—7FVÕ&WÆ–6€¢æÖRÀ¢F‚‡F‚’À¢¶–æCÖ¶–æBÀ¢6æöæ–6ÃÖ–æFW‚ÓÒÀ¢¢¢&WGW&â&WÆ–60  ¦FVbÖ–â†&wc¢6WVVæ6U·7G%ÒÂæöæRÒæöæR’Óâ–çC ¢'6W"Ò&w'6Rä&wVÖVçE'6W"†FW67&—F–öãÕõöFö5õò¢7V''6W'2Ò'6W"æFE÷7V''6W'2†FW7CÒ&6öÖÖæB"Â&WV—&VCÕG'VR ¢&Vv—7FW"Ò7V''6W'2æFE÷'6W"‚'&Vv—7FW""Â†VÇÒ'&Vv—7FW"â–Ö×WF&ÆR6†V6·ö–çB"¢&Vv—7FW"æFEö&wVÖVçB‚"ÒÖ÷WF&÷‚"Â&WV—&VCÕG'VRÂG—SÕF‚¢&Vv—7FW"æFEö&wVÖVçB‚"ÒÖ6†V6·ö–çB"Â&WV—&VCÕG'VRÂG—SÕF‚¢&Vv—7FW"æFEö&wVÖVçB€¢"ÒÖ'F–f7BÖ6Æ72"À¢6†ö–6W3Õ¶—FVÒçfÇVRf÷"—FVÒ–â'F–f7D6Æ75ÒÀ¢FVfVÇCÔ'F–f7D6Æ72äeTÄÅõ$U5TÔRçfÇVRÀ¢¢&Vv—7FW"æFEö&wVÖVçB‚"ÒÖÆ–æVvRÖ§6öâ"ÂG—SÕF‚ ¢V&Æ—6‚Ò7V''6W'2æFE÷'6W"‚'V&Æ—6‚"Â†VÇÒ'V&Æ—6‚öæR÷"ÆÂ6æ6†÷G2"¢V&Æ—6‚æFEö&wVÖVçB‚"ÒÖ÷WF&÷‚"Â&WV—&VCÕG'VRÂG—SÕF‚¢V&Æ—6‚æFEö&wVÖVçB‚"Ò×6æ6†÷BÖ–B"¢V&Æ—6‚æFEö&wVÖVçB‚"Ò×&WÆ–6"Â7F–öãÒ&VæB"ÂFVfVÇCÕµÒÂÖWFf#Ò$äÔSÕD‚"¢V&Æ—6‚æFEö&wVÖVçB€¢"ÒÖG&—fR×&WÆ–6"À¢7F–öãÒ&VæB"À¢FVfVÇCÕµÒÀ¢ÖWFf#Ò$äÔSÔÔõTåDTEõD‚"À¢¢V&Æ—6‚æFEö&wVÖVçB‚"ÒÖÖ–â×&÷FV7FVB×&WÆ–62"ÂG—SÖ–çBÂFVfVÇCÓ ¢ÖFW&–Æ—¦RÒ7V''6W'2æFE÷'6W"‚&ÖFW&–Æ—¦R"Â†VÇÒ'&V76VÖ&ÆR6æ6†÷B"¢ÖFW&–Æ—¦RæFEö&wVÖVçB‚"ÒÖ÷WF&÷‚"Â&WV—&VCÕG'VRÂG—SÕF‚¢ÖFW&–Æ—¦RæFEö&wVÖVçB‚"Ò×6æ6†÷BÖ–B"Â&WV—&VCÕG'VR¢ÖFW&–Æ—¦RæFEö&wVÖVçB‚"ÒÖ÷WGWB"Â&WV—&VCÕG'VRÂG—SÕF‚¢ÖFW&–Æ—¦RæFEö&wVÖVçB‚"ÒÖf÷"×&W7VÖR"Â7F–öãÒ'7F÷&U÷G'VR" ¢6ö×7BÒ7V''6W'2æFE÷'6W"€¢&6ö×7B"À¢†VÇÒ&7&VFRæB&Vv—7FW"âgbÖöFVÂÖöæÇ’'F–f7Bg&öÒgVÆÂ&W7VÖR"À¢¢6ö×7BæFEö&wVÖVçB‚"ÒÖ÷WF&÷‚"Â&WV—&VCÕG'VRÂG—SÕF‚¢6ö×7BæFEö&wVÖVçB‚"ÒÖ6†V6·ö–çB"Â&WV—&VCÕG'VRÂG—SÕF‚¢6ö×7BæFEö&wVÖVçB‚"ÒÖ÷WGWB"Â&WV—&VCÕG'VRÂG—SÕF‚¢6ö×7BæFEö&wVÖVçB‚"ÒÖ÷fW'w&—FR"Â7F–öãÒ'7F÷&U÷G'VR" ¢&WFVçF–öâÒ7V''6W'2æFE÷'6W"‚'&WFVçF–öâ"Â†VÇÒ'&–çBF†RæöâÖFW7G'V7F—fR†÷BÆâ"¢&WFVçF–öâæFEö&wVÖVçB‚"ÒÖ÷WF&÷‚"Â&WV—&VCÕG'VRÂG—SÕF‚¢&WFVçF–öâæFEö&wVÖVçB‚"ÒÖ–âÖfÆ–v‡BÖ'—FW2"ÂG—SÖ–çBÂFVfVÇCÓ ¢&w2Ò'6W"ç'6Uö&w2†&wb¢÷WF&÷‚Ò6†V6·ö–çD÷WF&÷‚†&w2æ÷WF&÷‚¢–b&w2æ6öÖÖæBÓÒ&6ö×7B# ¢&W÷'BÒ7&VFUögeö–æfW&Væ6Uö'F–f7B€¢&w2æ6†V6·ö–çBÀ¢&w2æ÷WGWBÀ¢÷fW'w&—FSÖ&w2æ÷fW'w&—FRÀ¢¢&VbÒ÷WF&÷‚ç&Vv—7FW%ö6†V6·ö–çB€¢&w2æ÷WGWBÀ¢'F–f7Eö6Æ73Ô'F–f7D6Æ72äeeô”ädU$Tä4RÀ¢Æ–æVvSÖF–7B‡&W÷'E²&Æ–æVvR%Ò’À¢¢&–çB€¢§6öâæGV×2€¢°¢¢§¶¶W“¢fÇVRf÷"¶W’ÂfÇVR–â&W÷'Bæ—FV×2‚’–b¶W’Ò&Æ–æVvR'ÒÀ¢'6æ6†÷Eö–B#¢&Vbç6æ6†÷Eö–BÀ¢ÒÀ¢–æFVçCÓ"À¢¢¢&WGW&â ¢–b&w2æ6öÖÖæBÓÒ'&Vv—7FW"# ¢–b&w2æÆ–æVvUö§6öã ¢Æ–æVvRÒ÷&VEö§6öâ†&w2æÆ–æVvUö§6öâ¢VÆ–b&w2æ'F–f7Eö6Æ72ÓÒ'F–f7D6Æ72äeTÄÅõ$U5TÔRçfÇVS ¢g&öÒ'VçF–ÖRç6fUöÆöB–×÷'B6fU÷F÷&6…öÆö@ ¢&Æö"Ò6fU÷F÷&6…öÆöB†&w2æ6†V6·ö–çBÂÖöÆö6F–öãÒ&7R"¢–bæ÷B—6–ç7Fæ6R†&Æö"ÂÖ–ær“ ¢&—6RGW&&–Æ—G”W'&÷"‚$gVÆÂ×&W7VÖR6†V6·ö–çB×W7B6öçF–âÖ–ær–ÆöB"¢Æ–æVvRÒ'V–ÆEö6†V6·ö–çEöÆ–æVvR†&Æö"¢VÇ6S ¢Æ–æVvRÒ·Ğ¢&VbÒ÷WF&÷‚ç&Vv—7FW%ö6†V6·ö–çB€¢&w2æ6†V6·ö–çBÀ¢'F–f7Eö6Æ73Ö&w2æ'F–f7Eö6Æ72À¢Æ–æVvSÖÆ–æVvRÀ¢¢&–çB†§6öâæGV×2‡²'6æ6†÷Eö–B#¢&Vbç6æ6†÷Eö–GÒÂ–æFVçCÓ"’¢&WGW&â ¢–b&w2æ6öÖÖæBÓÒ&ÖFW&–Æ—¦R# ¢&W7VÇBÒ÷WF&÷‚æÖFW&–Æ—¦R€¢&w2ç6æ6†÷Eö–BÀ¢&w2æ÷WGWBÀ¢f÷%÷&W7VÖSÖ&w2æf÷%÷&W7VÖRÀ¢¢&–çB‡&W7VÇB¢&WGW&â ¢–b&w2æ6öÖÖæBÓÒ'&WFVçF–öâ# ¢&–çB€¢§6öâæGV×2€¢Æåö†÷E÷&WFVçF–öâ€¢÷WF&÷‚À¢–åöfÆ–v‡Eö'—FW3Ö&w2æ–åöfÆ–v‡Eö'—FW2À¢’çFõöF–7B‚’À¢–æFVçCÓ"À¢¢¢&WGW&â ¢&WÆ–62Ò÷&WÆ–65ög&öÕö6Æ’†&w2ç&WÆ–6Â&w2æG&—fU÷&WÆ–6¢V&Æ—6†W"Ò6æ6†÷EV&Æ—6†W"€¢÷WF&÷‚À¢&WÆ–62À¢Ö–å÷&÷FV7FVE÷&WÆ–63Ö&w2æÖ–å÷&÷FV7FVE÷&WÆ–62À¢¢&Vg2Ò¶÷WF&÷‚æÆöE÷&Vb†&w2ç6æ6†÷Eö–B•Ò–b&w2ç6æ6†÷Eö–BVÇ6R÷WF&÷‚ç6æ6†÷G2‚¢G'“ ¢f÷"&Vb–â&Vg3 ¢V&Æ—6†W"ç7V&Ö—B‡&Vb¢f÷"&Vb–â&Vg3 ¢&W7VÇBÒV&Æ—6†W"çv—Eöf÷"‡&VbÂGW&&–Æ—G•7FFRä4äôä”4ÅõdU$”d”TB¢&–çB†§6öâæGV×2‡²'6æ6†÷Eö–B#¢&Vbç6æ6†÷Eö–BÂ'7FFR#¢&W7VÇBç7FFRçfÇVWÒ’¢f–æÆÇ“ ¢V&Æ—6†W"æ6Æ÷6R‡v—CÕG'VR¢&WGW&â   ¦–bõöæÖUõòÓÒ%õöÖ–åõò# ¢&—6R7—7FVÔW†—B†Ö–â‚’ 
+            sha256=_validate_sha256(str(payload["sha256"]), label="chunk"),
+        )
+        if record.index < 0 or record.offset < 0 or record.size_bytes <= 0:
+            raise DurabilityCorruptionError(f"Invalid chunk coordinates: {record}")
+        return record
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "index": self.index,
+            "offset": self.offset,
+            "size_bytes": self.size_bytes,
+            "sha256": self.sha256,
+        }
+
+
+@dataclass(frozen=True)
+class SnapshotRef:
+    outbox_root: Path
+    snapshot_id: str
+    manifest_path: Path
+    manifest_sha256: str
+    artifact_class: ArtifactClass
+    global_step: int
+
+    @property
+    def snapshot_dir(self) -> Path:
+        return self.outbox_root / "snapshots" / self.snapshot_id
+
+
+class CheckpointOutbox:
+    """Registers immutable checkpoint bytes in a local content-addressed outbox."""
+
+    def __init__(
+        self,
+        root: Path,
+        *,
+        chunk_size_bytes: int = DEFAULT_CHUNK_SIZE_BYTES,
+    ) -> None:
+        if chunk_size_bytes < 1:
+            raise ValueError("chunk_size_bytes must be positive")
+        self.root = Path(root)
+        self.chunk_size_bytes = int(chunk_size_bytes)
+
+    def chunk_path(self, sha256: str) -> Path:
+        return self.root / "chunks" / sha256[:2] / f"{sha256}.chunk"
+
+    def snapshot_dir(self, snapshot_id: str) -> Path:
+        return self.root / "snapshots" / _validate_identifier(
+            snapshot_id,
+            label="snapshot id",
+        )
+
+    def status_path(self, snapshot_id: str) -> Path:
+        return self.snapshot_dir(snapshot_id) / "status.json"
+
+    def register_checkpoint(
+        self,
+        checkpoint: Path,
+        *,
+        artifact_class: ArtifactClass | str = ArtifactClass.FULL_RESUME,
+        lineage: Mapping[str, object] | None = None,
+    ) -> SnapshotRef:
+        checkpoint = Path(checkpoint)
+        if not checkpoint.is_file():
+            raise FileNotFoundError(f"Checkpoint does not exist: {checkpoint}")
+        if checkpoint.stat().st_size <= 0:
+            raise DurabilityError(f"Checkpoint is empty: {checkpoint}")
+        artifact_class = ArtifactClass(artifact_class)
+        safe_lineage = dict(_json_safe(dict(lineage or {})))
+        if artifact_class is ArtifactClass.FULL_RESUME:
+            _validate_resume_lineage(safe_lineage)
+        starting_stat = checkpoint.stat()
+        whole_digest = hashlib.sha256()
+        chunks: list[ChunkRecord] = []
+        offset = 0
+        with checkpoint.open("rb") as source:
+            while payload := source.read(self.chunk_size_bytes):
+                digest = _sha256_bytes(payload)
+                whole_digest.update(payload)
+                record = ChunkRecord(
+                    index=len(chunks),
+                    offset=offset,
+                    size_bytes=len(payload),
+                    sha256=digest,
+                )
+                self._store_chunk(record, payload)
+                chunks.append(record)
+                offset += len(payload)
+        ending_stat = checkpoint.stat()
+        if (
+            starting_stat.st_size != ending_stat.st_size
+            or starting_stat.st_mtime_ns != ending_stat.st_mtime_ns
+        ):
+            raise DurabilityError(
+                f"Checkpoint changed while it was being registered: {checkpoint}"
+            )
+        checkpoint_sha256 = whole_digest.hexdigest()
+        global_step = int(
+            dict(safe_lineage.get("progress", {})).get("global_step", 0) or 0
+        )
+        prefix = "step" if artifact_class is ArtifactClass.FULL_RESUME else "fp16"
+        snapshot_id = f"{prefix}-{global_step:012d}-{checkpoint_sha256[:16]}"
+        snapshot_dir = self.snapshot_dir(snapshot_id)
+        manifest_path = snapshot_dir / "manifest.json"
+        if manifest_path.exists():
+            manifest = self.load_manifest(snapshot_id)
+            if (
+                str(manifest.get("artifact_class")) != artifact_class.value
+                or dict(manifest.get("source", {})).get("sha256") != checkpoint_sha256
+                or manifest.get("lineage") != safe_lineage
+            ):
+                raise DurabilityCorruptionError(
+                    f"Snapshot ID collision or immutable manifest mismatch: {snapshot_id}"
+                )
+            self._verify_local_chunks(manifest)
+            return self._snapshot_ref(manifest, manifest_path)
+
+        manifest: dict[str, object] = {
+            "schema_version": DURABILITY_SCHEMA_VERSION,
+            "snapshot_id": snapshot_id,
+            "created_at": _utc_timestamp(),
+            "artifact_class": artifact_class.value,
+            "resume_eligible": artifact_class is ArtifactClass.FULL_RESUME,
+            "initial_state": DurabilityState.LOCAL_SAVED.value,
+            "source": {
+                "filename": checkpoint.name,
+                "size_bytes": ending_stat.st_size,
+                "sha256": checkpoint_sha256,
+            },
+            "chunk_size_bytes": self.chunk_size_bytes,
+            "chunks": [record.to_dict() for record in chunks],
+            "lineage": safe_lineage,
+        }
+        manifest_bytes = _canonical_json(manifest) + b"\n"
+        status = {
+            "schema_version": DURABILITY_SCHEMA_VERSION,
+            "snapshot_id": snapshot_id,
+            "state": DurabilityState.LOCAL_SAVED.value,
+            "updated_at": _utc_timestamp(),
+            "replicas": {},
+            "errors": [],
+        }
+        snapshots_root = self.root / "snapshots"
+        snapshots_root.mkdir(parents=True, exist_ok=True)
+        staging = snapshots_root / (
+            f".{snapshot_id}.{os.getpid()}.{threading.get_ident()}.{time.time_ns()}.tmp"
+        )
+        staging.mkdir()
+        try:
+            _atomic_write_bytes(staging / "manifest.json", manifest_bytes)
+            _atomic_write_json(staging / "status.json", status)
+            try:
+                os.replace(staging, snapshot_dir)
+            except OSError as exc:
+                if not manifest_path.exists():
+                    raise
+                existing = self.load_manifest(snapshot_id)
+                if existing != manifest:
+                    raise DurabilityCorruptionError(
+                        f"Concurrent immutable manifest mismatch: {snapshot_id}"
+                    ) from exc
+        finally:
+            if staging.exists():
+                (staging / "manifest.json").unlink(missing_ok=True)
+                (staging / "status.json").unlink(missing_ok=True)
+                staging.rmdir()
+        ref = SnapshotRef(
+            outbox_root=self.root,
+            snapshot_id=snapshot_id,
+            manifest_path=manifest_path,
+            manifest_sha256=_sha256_bytes(manifest_bytes),
+            artifact_class=artifact_class,
+            global_step=global_step,
+        )
+        _emit_evidence(
+            "checkpoint.local_saved",
+            {
+                "snapshot_id": snapshot_id,
+                "state": DurabilityState.LOCAL_SAVED.value,
+                "artifact_class": artifact_class.value,
+                "global_step": global_step,
+                "size_bytes": ending_stat.st_size,
+            },
+            artifact_refs=[
+                {
+                    "kind": "checkpoint",
+                    "sha256": checkpoint_sha256,
+                    "manifest_sha256": ref.manifest_sha256,
+                }
+            ],
+        )
+        return ref
+
+    def _store_chunk(self, record: ChunkRecord, payload: bytes) -> None:
+        target = self.chunk_path(record.sha256)
+        if target.exists():
+            if target.stat().st_size != record.size_bytes or sha256_file(target) != record.sha256:
+                raise DurabilityCorruptionError(
+                    f"Local content-addressed chunk is corrupt: {target}"
+                )
+            return
+        _atomic_write_bytes(target, payload)
+        if target.stat().st_size != record.size_bytes or sha256_file(target) != record.sha256:
+            raise DurabilityCorruptionError(f"Could not verify local chunk: {target}")
+
+    def load_manifest(self, snapshot_id: str) -> dict[str, Any]:
+        manifest = _read_json(self.snapshot_dir(snapshot_id) / "manifest.json")
+        if manifest.get("snapshot_id") != snapshot_id:
+            raise DurabilityCorruptionError(
+                f"Snapshot directory and manifest ID disagree: {snapshot_id}"
+            )
+        if int(manifest.get("schema_version", 0)) != DURABILITY_SCHEMA_VERSION:
+            raise DurabilityError(f"Unsupported durability manifest: {snapshot_id}")
+        artifact_class = ArtifactClass(str(manifest.get("artifact_class", "")))
+        lineage = dict(manifest.get("lineage", {}))
+        if artifact_class is ArtifactClass.FULL_RESUME:
+            _validate_resume_lineage(lineage)
+        source = dict(manifest.get("source", {}))
+        source_size = int(source.get("size_bytes", -1))
+        _validate_sha256(str(source.get("sha256", "")), label="checkpoint")
+        expected_offset = 0
+        for expected_index, raw in enumerate(manifest.get("chunks", [])):
+            record = ChunkRecord.from_dict(dict(raw))
+            if record.index != expected_index or record.offset != expected_offset:
+                raise DurabilityCorruptionError(
+                    f"Non-contiguous chunk table in snapshot {snapshot_id}"
+                )
+            expected_offset += record.size_bytes
+        if source_size <= 0 or expected_offset != source_size:
+            raise DurabilityCorruptionError(
+                f"Chunk table size does not match snapshot {snapshot_id}"
+            )
+        return manifest
+
+    def load_ref(self, snapshot_id: str) -> SnapshotRef:
+        path = self.snapshot_dir(snapshot_id) / "manifest.json"
+        return self._snapshot_ref(self.load_manifest(snapshot_id), path)
+
+    def _snapshot_ref(
+        self,
+        manifest: Mapping[str, object],
+        manifest_path: Path,
+    ) -> SnapshotRef:
+        manifest_bytes = manifest_path.read_bytes()
+        lineage = dict(manifest.get("lineage", {}))
+        progress = dict(lineage.get("progress", {}))
+        return SnapshotRef(
+            outbox_root=self.root,
+            snapshot_id=str(manifest["snapshot_id"]),
+            manifest_path=manifest_path,
+            manifest_sha256=_sha256_bytes(manifest_bytes),
+            artifact_class=ArtifactClass(str(manifest["artifact_class"])),
+            global_step=int(progress.get("global_step", 0) or 0),
+        )
+
+    def _verify_local_chunks(self, manifest: Mapping[str, object]) -> None:
+        for raw in manifest.get("chunks", []):
+            record = ChunkRecord.from_dict(dict(raw))
+            path = self.chunk_path(record.sha256)
+            if not path.is_file() or path.stat().st_size != record.size_bytes:
+                raise DurabilityCorruptionError(f"Missing local chunk: {path}")
+            if sha256_file(path) != record.sha256:
+                raise DurabilityCorruptionError(f"Corrupt local chunk: {path}")
+
+    def materialize(
+        self,
+        snapshot_id: str,
+        output_path: Path,
+        *,
+        for_resume: bool = False,
+    ) -> Path:
+        manifest = self.load_manifest(snapshot_id)
+        artifact_class = ArtifactClass(str(manifest["artifact_class"]))
+        if for_resume and artifact_class is not ArtifactClass.FULL_RESUME:
+            raise ResumeArtifactError(
+                f"Snapshot {snapshot_id} is {artifact_class.value}; it cannot resume training."
+            )
+        output_path = Path(output_path)
+        temporary = output_path.with_suffix(output_path.suffix + ".materialize.tmp")
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        digest = hashlib.sha256()
+        try:
+            with temporary.open("wb") as target:
+                for raw in manifest.get("chunks", []):
+                    record = ChunkRecord.from_dict(dict(raw))
+                    chunk_path = self.chunk_path(record.sha256)
+                    if (
+                        not chunk_path.is_file()
+                        or chunk_path.stat().st_size != record.size_bytes
+                        or sha256_file(chunk_path) != record.sha256
+                    ):
+                        raise DurabilityCorruptionError(
+                            f"Cannot materialize corrupt chunk: {chunk_path}"
+                        )
+                    with chunk_path.open("rb") as source:
+                        while block := source.read(DEFAULT_COPY_BLOCK_BYTES):
+                            target.write(block)
+                            digest.update(block)
+                target.flush()
+                os.fsync(target.fileno())
+            source_meta = dict(manifest["source"])
+            if temporary.stat().st_size != int(source_meta["size_bytes"]):
+                raise DurabilityCorruptionError("Materialized checkpoint has the wrong size")
+            if digest.hexdigest() != str(source_meta["sha256"]):
+                raise DurabilityCorruptionError("Materialized checkpoint has the wrong digest")
+            os.replace(temporary, output_path)
+        finally:
+            temporary.unlink(missing_ok=True)
+        return output_path
+
+    def snapshots(self) -> list[SnapshotRef]:
+        snapshots_root = self.root / "snapshots"
+        if not snapshots_root.exists():
+            return []
+        refs: list[SnapshotRef] = []
+        for manifest in sorted(snapshots_root.glob("*/manifest.json")):
+            refs.append(self.load_ref(manifest.parent.name))
+        return refs
+
+    def prune(
+        self,
+        snapshot_ids: Iterable[str],
+        *,
+        allow_unpublished: bool = False,
+    ) -> tuple[str, ...]:
+        """Delete verified obsolete local snapshots and unreferenced CAS chunks.
+
+        The caller supplies a retention decision.  This method still fails
+        closed unless every target has reached a remote verified state. A
+        publisher may explicitly discard a failed, never-published snapshot
+        after cleaning remote orphan chunks.
+        """
+
+        targets = tuple(
+            sorted({_validate_identifier(value, label="snapshot id") for value in snapshot_ids})
+        )
+        if not targets:
+            return ()
+        for snapshot_id in targets:
+            status = _read_json(self.status_path(snapshot_id))
+            state = DurabilityState(str(status.get("state", "")))
+            if (
+                STATE_ORDER[state] < STATE_ORDER[DurabilityState.CANONICAL_VERIFIED]
+                and not allow_unpublished
+            ):
+                raise PublicationError(
+                    f"Refusing to prune unverified snapshot {snapshot_id}: {state.value}"
+                )
+        for snapshot_id in targets:
+            directory = self.snapshot_dir(snapshot_id).resolve()
+            snapshots_root = (self.root / "snapshots").resolve()
+            if snapshots_root not in directory.parents:
+                raise DurabilityError(f"Snapshot prune escaped the outbox: {directory}")
+            shutil.rmtree(directory)
+
+        referenced: set[str] = set()
+        for ref in self.snapshots():
+            manifest = self.load_manifest(ref.snapshot_id)
+            referenced.update(
+                ChunkRecord.from_dict(dict(raw)).sha256
+                for raw in manifest.get("chunks", [])
+            )
+        chunks_root = self.root / "chunks"
+        if chunks_root.exists():
+            for chunk in chunks_root.rglob("*.chunk"):
+                if chunk.stem not in referenced:
+                    chunk.unlink()
+            for directory in sorted(
+                (path for path in chunks_root.rglob("*") if path.is_dir()),
+                key=lambda path: len(path.parts),
+                reverse=True,
+            ):
+                with contextlib.suppress(OSError):
+                    directory.rmdir()
+        _emit_evidence(
+            "checkpoint.retention_pruned",
+            {"snapshot_ids": list(targets), "remaining": len(self.snapshots())},
+        )
+        return targets
+
+
+class ReplicaBackend(Protocol):
+    name: str
+    kind: str
+    canonical: bool
+
+    def stage_chunk(self, local_chunk: Path, record: ChunkRecord) -> None: ...
+
+    def publish_manifest(self, ref: SnapshotRef, manifest_bytes: bytes) -> Path: ...
+
+    def verify_snapshot(self, manifest: Mapping[str, object]) -> None: ...
+
+    def publish_pointer(self, pointer: Mapping[str, object]) -> Path: ...
+
+    def publish_receipt(self, snapshot_id: str, receipt: Mapping[str, object]) -> Path: ...
+
+    def prune_snapshots(self, snapshot_ids: Iterable[str]) -> tuple[str, ...]: ...
+
+
+class FilesystemReplica:
+    """Resumable replica for a local disk, sync folder, or mounted Drive."""
+
+    def __init__(
+        self,
+        name: str,
+        root: Path,
+        *,
+        kind: str = "filesystem",
+        canonical: bool = False,
+    ) -> None:
+        self.name = _validate_identifier(name.strip(), label="replica name")
+        self.root = Path(root)
+        self.kind = kind
+        self.canonical = bool(canonical)
+
+    def chunk_path(self, sha256: str) -> Path:
+        return self.root / "chunks" / sha256[:2] / f"{sha256}.chunk"
+
+    def partial_chunk_path(self, sha256: str) -> Path:
+        return self.chunk_path(sha256).with_suffix(".chunk.part")
+
+    def stage_chunk(self, local_chunk: Path, record: ChunkRecord) -> None:
+        target = self.chunk_path(record.sha256)
+        if target.exists():
+            self._verify_chunk(target, record)
+            return
+        target.parent.mkdir(parents=True, exist_ok=True)
+        partial = self.partial_chunk_path(record.sha256)
+        resume_offset = self._verified_prefix(local_chunk, partial, record.size_bytes)
+        mode = "ab" if resume_offset else "wb"
+        with local_chunk.open("rb") as source, partial.open(mode) as destination:
+            source.seek(resume_offset)
+            while block := source.read(DEFAULT_COPY_BLOCK_BYTES):
+                destination.write(block)
+            destination.flush()
+            os.fsync(destination.fileno())
+        self._verify_chunk(partial, record)
+        os.replace(partial, target)
+        self._verify_chunk(target, record)
+
+    @staticmethod
+    def _verified_prefix(source: Path, partial: Path, expected_size: int) -> int:
+        if not partial.exists():
+            return 0
+        partial_size = partial.stat().st_size
+        if partial_size > expected_size:
+            with partial.open("r+b") as handle:
+                handle.truncate(0)
+            return 0
+        matched = 0
+        with source.open("rb") as original, partial.open("rb") as candidate:
+            while matched < partial_size:
+                wanted = min(DEFAULT_COPY_BLOCK_BYTES, partial_size - matched)
+                left = original.read(wanted)
+                right = candidate.read(wanted)
+                if left != right:
+                    break
+                matched += len(left)
+        if matched != partial_size:
+            with partial.open("r+b") as handle:
+                handle.truncate(matched)
+        return matched
+
+    @staticmethod
+    def _verify_chunk(path: Path, record: ChunkRecord) -> None:
+        if path.stat().st_size != record.size_bytes:
+            raise DurabilityCorruptionError(
+                f"Replica chunk has wrong size: {path}"
+            )
+        if sha256_file(path) != record.sha256:
+            raise DurabilityCorruptionError(
+                f"Replica chunk has wrong digest: {path}"
+            )
+
+    def publish_manifest(self, ref: SnapshotRef, manifest_bytes: bytes) -> Path:
+        target = self.root / "manifests" / f"{ref.snapshot_id}.json"
+        _atomic_write_bytes(target, manifest_bytes)
+        if _sha256_bytes(target.read_bytes()) != ref.manifest_sha256:
+            raise DurabilityCorruptionError(f"Replica manifest verification failed: {target}")
+        return target
+
+    def verify_snapshot(self, manifest: Mapping[str, object]) -> None:
+        for raw in manifest.get("chunks", []):
+            record = ChunkRecord.from_dict(dict(raw))
+            target = self.chunk_path(record.sha256)
+            if not target.is_file():
+                raise DurabilityCorruptionError(f"Replica is missing chunk: {target}")
+            self._verify_chunk(target, record)
+
+    def _pointer_is_complete(
+        self,
+        pointer: Mapping[str, object],
+    ) -> tuple[bool, str]:
+        """Prove an existing pointer before allowing it to block recovery."""
+
+        try:
+            snapshot_id = _validate_identifier(
+                str(pointer["snapshot_id"]),
+                label="snapshot id",
+            )
+            manifest_path = self.root / "manifests" / f"{snapshot_id}.json"
+            if not manifest_path.is_file():
+                return False, f"missing manifest {manifest_path}"
+            manifest_bytes = manifest_path.read_bytes()
+            expected_manifest_hash = str(pointer.get("manifest_sha256", ""))
+            if (
+                not expected_manifest_hash
+                or _sha256_bytes(manifest_bytes) != expected_manifest_hash
+            ):
+                return False, "manifest digest does not match canonical pointer"
+            manifest = json.loads(manifest_bytes)
+            source = dict(manifest["source"])
+            if str(source.get("sha256", "")) != str(
+                pointer.get("checkpoint_sha256", "")
+            ):
+                return False, "checkpoint digest does not match canonical pointer"
+            self.verify_snapshot(manifest)
+        except (KeyError, TypeError, ValueError, OSError, json.JSONDecodeError) as exc:
+            return False, f"{type(exc).__name__}: {exc}"
+        except DurabilityError as exc:
+            return False, f"{type(exc).__name__}: {exc}"
+        return True, "verified"
+
+    def _record_invalid_pointer_recovery(
+        self,
+        current: Mapping[str, object],
+        replacement: Mapping[str, object],
+        reason: str,
+    ) -> None:
+        snapshot_id = str(current.get("snapshot_id", "unknown"))
+        safe_snapshot = "".join(
+            character if character.isalnum() or character in "._-" else "_"
+            for character in snapshot_id
+        )
+        target = self.root / "recovery" / f"invalid-canonical-{safe_snapshot}.json"
+        _atomic_write_json(
+            target,
+            {
+                "schema_version": 1,
+                "reason": reason,
+                "invalid_pointer": dict(current),
+                "replacement_snapshot_id": replacement.get("snapshot_id"),
+                "replacement_global_step": replacement.get("global_step"),
+            },
+        )
+
+    def publish_pointer(self, pointer: Mapping[str, object]) -> Path:
+        artifact_class = ArtifactClass(str(pointer.get("artifact_class", "")))
+        target = self.root / f"canonical-{artifact_class.value.replace('_', '-')}.json"
+        if target.exists():
+            current = _read_json(target)
+            current_step = int(current.get("global_step", 0) or 0)
+            next_step = int(pointer.get("global_step", 0) or 0)
+            if current_step > next_step:
+                complete, reason = self._pointer_is_complete(current)
+                if complete:
+                    raise PublicationError(
+                        f"Refusing to rewind {self.name} from step "
+                        f"{current_step} to {next_step}"
+                    )
+                self._record_invalid_pointer_recovery(current, pointer, reason)
+            if current_step == next_step and current.get("checkpoint_sha256") not in {
+                None,
+                pointer.get("checkpoint_sha256"),
+            }:
+                complete, reason = self._pointer_is_complete(current)
+                if complete:
+                    raise PublicationError(
+                        f"Conflicting checkpoint at step {next_step} "
+                        f"on replica {self.name}"
+                    )
+                self._record_invalid_pointer_recovery(current, pointer, reason)
+        _atomic_write_json(target, dict(pointer))
+        if _read_json(target).get("manifest_sha256") != pointer.get("manifest_sha256"):
+            raise DurabilityCorruptionError(f"Canonical pointer verification failed: {target}")
+        if artifact_class is ArtifactClass.FULL_RESUME:
+            compatibility = self.root / "canonical.json"
+            _atomic_write_json(compatibility, dict(pointer))
+            if _read_json(compatibility).get("manifest_sha256") != pointer.get(
+                "manifest_sha256"
+            ):
+                raise DurabilityCorruptionError(
+                    f"Canonical compatibility pointer verification failed: {compatibility}"
+                )
+        return target
+
+    def publish_receipt(
+        self,
+        snapshot_id: str,
+        receipt: Mapping[str, object],
+    ) -> Path:
+        target = self.root / "receipts" / snapshot_id / f"{self.name}.json"
+        _atomic_write_json(target, dict(receipt))
+        return target
+
+    def prune_snapshots(self, snapshot_ids: Iterable[str]) -> tuple[str, ...]:
+        """Prune only named obsolete manifests, then unreferenced CAS chunks."""
+
+        targets = tuple(
+            sorted({_validate_identifier(value, label="snapshot id") for value in snapshot_ids})
+        )
+        manifests_root = self.root / "manifests"
+        receipts_root = self.root / "receipts"
+        for snapshot_id in targets:
+            (manifests_root / f"{snapshot_id}.json").unlink(missing_ok=True)
+            receipt_dir = (receipts_root / snapshot_id).resolve()
+            if receipts_root.resolve() in receipt_dir.parents and receipt_dir.exists():
+                shutil.rmtree(receipt_dir)
+
+        referenced: set[str] = set()
+        if manifests_root.exists():
+            for path in manifests_root.glob("*.json"):
+                manifest = _read_json(path)
+                referenced.update(
+                    ChunkRecord.from_dict(dict(raw)).sha256
+                    for raw in manifest.get("chunks", [])
+                )
+        chunks_root = self.root / "chunks"
+        if chunks_root.exists():
+            for chunk in chunks_root.rglob("*.chunk"):
+                if chunk.stem not in referenced:
+                    chunk.unlink()
+            for directory in sorted(
+                (path for path in chunks_root.rglob("*") if path.is_dir()),
+                key=lambda path: len(path.parts),
+                reverse=True,
+            ):
+                with contextlib.suppress(OSError):
+                    directory.rmdir()
+        return targets
+
+
+MountedDriveReplica = FilesystemReplica
+
+
+@dataclass(frozen=True)
+class PublicationResult:
+    snapshot_id: str
+    state: DurabilityState
+    verified_replicas: tuple[str, ...]
+    errors: tuple[str, ...]
+
+
+_STATUS_LOCK = threading.RLock()
+
+
+class SnapshotPublisher:
+    """Publishes snapshots in a background thread while training continues."""
+
+    def __init__(
+        self,
+        outbox: CheckpointOutbox,
+        replicas: Sequence[ReplicaBackend],
+        *,
+        min_protected_replicas: int = 1,
+        max_copy_streams: int = DEFAULT_MAX_COPY_STREAMS,
+        hot_storage_limit_bytes: int = HOT_STORAGE_LIMIT_BYTES,
+    ) -> None:
+        if not replicas:
+            raise ValueError("at least one replica is required")
+        if not any(replica.canonical for replica in replicas):
+            raise ValueError("one replica must be marked canonical")
+        if min_protected_replicas < 1 or min_protected_replicas > len(replicas):
+            raise ValueError("min_protected_replicas is outside the replica count")
+        self.outbox = outbox
+        self.replicas = tuple(replicas)
+        self.min_protected_replicas = int(min_protected_replicas)
+        self.max_copy_streams = max(1, int(max_copy_streams))
+        self.hot_storage_limit_bytes = int(hot_storage_limit_bytes)
+        if self.hot_storage_limit_bytes <= 0:
+            raise ValueError("hot_storage_limit_bytes must be positive")
+        self._queue: queue.Queue[SnapshotRef | None] = queue.Queue()
+        self._results: dict[str, PublicationResult] = {}
+        self._submitted: set[str] = set()
+        self._condition = threading.Condition()
+        self._closed = False
+        self._worker = threading.Thread(
+            target=self._run,
+            name="anra-checkpoint-publisher",
+            daemon=True,
+        )
+        self._worker.start()
+
+    def submit(self, ref: SnapshotRef) -> None:
+        with self._condition:
+            if self._closed:
+                raise RuntimeError("checkpoint publisher is closed")
+            if ref.snapshot_id in self._submitted:
+                return
+            self._results.pop(ref.snapshot_id, None)
+            self._submitted.add(ref.snapshot_id)
+            self._queue.put(ref)
+
+    def prune_snapshots(self, snapshot_ids: Iterable[str]) -> tuple[str, ...]:
+        targets = tuple(sorted(set(snapshot_ids)))
+        # Calling replica pruning with no named snapshots is intentional: it
+        # garbage-collects chunks left behind by an interrupted upload before
+        # a manifest was published.
+        for replica in self.replicas:
+            replica.prune_snapshots(targets)
+        return targets
+
+    def _apply_hot_retention(self, ref: SnapshotRef) -> None:
+        """Prune immediately after protection instead of at the next save.
+
+        Waiting for the next checkpoint left three full optimizer states in a
+        Drive vault.  A failed fourth upload could then strand unreferenced
+        chunks and exhaust a 15 GiB account.  The protected snapshot is
+        already canonical here, so retaining the newest two and deleting the
+        rest is safe and keeps the remote vault bounded between saves.
+        """
+
+        lineage_id = snapshot_lineage_id(self.outbox, ref)
+        unpublished: list[str] = []
+        for candidate in self.outbox.snapshots():
+            if candidate.snapshot_id == ref.snapshot_id:
+                continue
+            if snapshot_lineage_id(self.outbox, candidate) != lineage_id:
+                continue
+            status = _read_json(self.outbox.status_path(candidate.snapshot_id))
+            state = DurabilityState(str(status["state"]))
+            if STATE_ORDER[state] < STATE_ORDER[DurabilityState.CANONICAL_VERIFIED]:
+                unpublished.append(candidate.snapshot_id)
+        if unpublished:
+            # Remote manifests were never published for these snapshots.
+            # First remove any unreferenced staged chunks, then discard their
+            # local retry state so it cannot displace a protected checkpoint
+            # in the newest-two retention calculation.
+            self.prune_snapshots(())
+            self.outbox.prune(unpublished, allow_unpublished=True)
+
+        plan = plan_hot_retention(
+            self.outbox,
+            hot_limit_bytes=self.hot_storage_limit_bytes,
+            lineage_id=lineage_id,
+        )
+        if not plan.fits:
+            raise PublicationError(
+                "Protected checkpoint exceeds the hot-storage contract: "
+                f"deficit={plan.deficit_bytes} bytes"
+            )
+        self.prune_snapshots(plan.delete_snapshot_ids)
+        if plan.delete_snapshot_ids:
+            self.outbox.prune(plan.delete_snapshot_ids)
+
+    def _run(self) -> None:
+        while True:
+            ref = self._queue.get()
+            try:
+                if ref is None:
+                    return
+                try:
+                    result = self.publish_snapshot(ref)
+                except Exception as exc:
+                    message = f"publisher: {type(exc).__name__}: {exc}"
+                    self._record_error(ref.snapshot_id, message)
+                    result = PublicationResult(
+                        snapshot_id=ref.snapshot_id,
+                        state=DurabilityState.LOCAL_SAVED,
+                        verified_replicas=(),
+                        errors=(message,),
+                    )
+                with self._condition:
+                    self._results[ref.snapshot_id] = result
+                    self._submitted.discard(ref.snapshot_id)
+                    self._condition.notify_all()
+            finally:
+                self._queue.task_done()
+
+    def publish_snapshot(self, ref: SnapshotRef) -> PublicationResult:
+        manifest = self.outbox.load_manifest(ref.snapshot_id)
+        manifest_bytes = ref.manifest_path.read_bytes()
+        chunks = [ChunkRecord.from_dict(dict(raw)) for raw in manifest.get("chunks", [])]
+        verified: list[str] = []
+        errors: list[str] = []
+        canonical_verified = False
+
+        ordered = sorted(self.replicas, key=lambda replica: not replica.canonical)
+        for replica in ordered:
+            try:
+                with ThreadPoolExecutor(max_workers=self.max_copy_streams) as executor:
+                    futures = [
+                        executor.submit(
+                            replica.stage_chunk,
+                            self.outbox.chunk_path(record.sha256),
+                            record,
+                        )
+                        for record in chunks
+                    ]
+                    for future in futures:
+                        future.result()
+                if replica.canonical:
+                    self._advance_status(
+                        ref.snapshot_id,
+                        DurabilityState.STAGED,
+                        replica=replica,
+                    )
+                replica.publish_manifest(ref, manifest_bytes)
+                replica.verify_snapshot(manifest)
+                receipt = self._build_receipt(ref, replica, manifest)
+                replica.publish_receipt(ref.snapshot_id, receipt)
+                self._write_local_receipt(ref.snapshot_id, replica.name, receipt)
+                verified.append(replica.name)
+                if replica.canonical:
+                    pointer = self._build_pointer(ref, manifest)
+                    replica.publish_pointer(pointer)
+                    canonical_verified = True
+                    self._advance_status(
+                        ref.snapshot_id,
+                        DurabilityState.CANONICAL_VERIFIED,
+                        replica=replica,
+                    )
+            except Exception as exc:
+                message = f"{replica.name}: {type(exc).__name__}: {exc}"
+                errors.append(message)
+                self._record_error(ref.snapshot_id, message)
+
+        state = DurabilityState.LOCAL_SAVED
+        if canonical_verified:
+            state = DurabilityState.CANONICAL_VERIFIED
+        if canonical_verified and len(verified) >= self.min_protected_replicas:
+            self._apply_hot_retention(ref)
+            state = DurabilityState.PROTECTED
+            self._advance_status(ref.snapshot_id, state)
+        else:
+            # A failed or partial publication has no manifest referencing its
+            # staged chunks.  Remove those orphans immediately so a retry
+            # cannot consume another full checkpoint's worth of Drive quota.
+            self.prune_snapshots(())
+        return PublicationResult(
+            snapshot_id=ref.snapshot_id,
+            state=state,
+            verified_replicas=tuple(verified),
+            errors=tuple(errors),
+        )
+
+    @staticmethod
+    def _build_pointer(
+        ref: SnapshotRef,
+        manifest: Mapping[str, object],
+    ) -> dict[str, object]:
+        source = dict(manifest["source"])
+        lineage = dict(manifest.get("lineage", {}))
+        return {
+            "schema_version": DURABILITY_SCHEMA_VERSION,
+            "snapshot_id": ref.snapshot_id,
+            "manifest_sha256": ref.manifest_sha256,
+            "artifact_class": ref.artifact_class.value,
+            "checkpoint_sha256": str(source["sha256"]),
+            "size_bytes": int(source["size_bytes"]),
+            "global_step": ref.global_step,
+            "architecture_sha256": dict(lineage.get("architecture", {})).get("sha256"),
+            "published_at": _utc_timestamp(),
+        }
+
+    @staticmethod
+    def _build_receipt(
+        ref: SnapshotRef,
+        replica: ReplicaBackend,
+        manifest: Mapping[str, object],
+    ) -> dict[str, object]:
+        source = dict(manifest["source"])
+        return {
+            "schema_version": DURABILITY_SCHEMA_VERSION,
+            "snapshot_id": ref.snapshot_id,
+            "replica": replica.name,
+            "replica_kind": replica.kind,
+            "canonical": replica.canonical,
+            "manifest_sha256": ref.manifest_sha256,
+            "checkpoint_sha256": source["sha256"],
+            "size_bytes": source["size_bytes"],
+            "verified_at": _utc_timestamp(),
+        }
+
+    def _write_local_receipt(
+        self,
+        snapshot_id: str,
+        replica_name: str,
+        receipt: Mapping[str, object],
+    ) -> None:
+        target = (
+            self.outbox.snapshot_dir(snapshot_id)
+            / "receipts"
+            / f"{replica_name}.json"
+        )
+        _atomic_write_json(target, dict(receipt))
+
+    def _advance_status(
+        self,
+        snapshot_id: str,
+        next_state: DurabilityState,
+        *,
+        replica: ReplicaBackend | None = None,
+    ) -> None:
+        with _STATUS_LOCK:
+            path = self.outbox.status_path(snapshot_id)
+            status = _read_json(path)
+            current = DurabilityState(str(status["state"]))
+            advanced = STATE_ORDER[next_state] > STATE_ORDER[current]
+            if advanced:
+                status["state"] = next_state.value
+            if replica is not None:
+                replicas = dict(status.get("replicas", {}))
+                replicas[replica.name] = {
+                    "kind": replica.kind,
+                    "canonical": replica.canonical,
+                    "state": next_state.value,
+                    "updated_at": _utc_timestamp(),
+                }
+                status["replicas"] = replicas
+            status["updated_at"] = _utc_timestamp()
+            _atomic_write_json(path, status)
+        if advanced:
+            _emit_evidence(
+                f"checkpoint.{next_state.value}",
+                {
+                    "snapshot_id": snapshot_id,
+                    "previous_state": current.value,
+                    "state": next_state.value,
+                    "replica": replica.name if replica is not None else None,
+                },
+            )
+
+    def _record_error(self, snapshot_id: str, message: str) -> None:
+        with _STATUS_LOCK:
+            path = self.outbox.status_path(snapshot_id)
+            status = _read_json(path)
+            errors = list(status.get("errors", []))
+            errors.append({"at": _utc_timestamp(), "message": message})
+            status["errors"] = errors[-50:]
+            status["updated_at"] = _utc_timestamp()
+            _atomic_write_json(path, status)
+        _emit_evidence(
+            "checkpoint.publication_failed",
+            {"snapshot_id": snapshot_id, "message": message},
+        )
+
+    def wait_for(
+        self,
+        ref: SnapshotRef,
+        target: DurabilityState = DurabilityState.CANONICAL_VERIFIED,
+        *,
+        timeout_seconds: float = 1800.0,
+    ) -> PublicationResult:
+        deadline = time.monotonic() + timeout_seconds
+        with self._condition:
+            while True:
+                status = _read_json(self.outbox.status_path(ref.snapshot_id))
+                state = DurabilityState(str(status["state"]))
+                if STATE_ORDER[state] >= STATE_ORDER[target]:
+                    result = self._results.get(ref.snapshot_id)
+                    return result or PublicationResult(
+                        snapshot_id=ref.snapshot_id,
+                        state=state,
+                        verified_replicas=tuple(dict(status.get("replicas", {}))),
+                        errors=(),
+                    )
+                result = self._results.get(ref.snapshot_id)
+                if result is not None:
+                    raise PublicationError(
+                        f"Snapshot {ref.snapshot_id} reached {result.state.value}, not "
+                        f"{target.value}: {'; '.join(result.errors) or 'no verified primary'}"
+                    )
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise TimeoutError(
+                        f"Timed out waiting for {ref.snapshot_id} to reach {target.value}"
+                    )
+                self._condition.wait(timeout=min(0.25, remaining))
+
+    def drain(self, *, timeout_seconds: float | None = None) -> None:
+        deadline = None if timeout_seconds is None else time.monotonic() + timeout_seconds
+        while self._queue.unfinished_tasks:
+            if deadline is not None and time.monotonic() >= deadline:
+                raise TimeoutError("Timed out draining checkpoint publisher")
+            time.sleep(0.05)
+
+    def close(self, *, wait: bool = True, timeout_seconds: float | None = None) -> None:
+        if wait:
+            self.drain(timeout_seconds=timeout_seconds)
+        with self._condition:
+            if self._closed:
+                return
+            self._closed = True
+            self._queue.put(None)
+        if wait:
+            self._worker.join(timeout=timeout_seconds)
+
+
+def _parse_replica_environment() -> list[FilesystemReplica]:
+    raw = os.environ.get("ANRA_DURABILITY_REPLICAS", "").strip()
+    if not raw:
+        shared_root = os.environ.get("ANRA_SHARED_CHECKPOINT_DIR", "").strip()
+        if shared_root:
+            return [
+                FilesystemReplica(
+                    "shared-drive",
+                    Path(shared_root) / "durability-v1",
+                    kind="mounted_drive",
+                    canonical=True,
+                )
+            ]
+        return []
+    replicas: list[FilesystemReplica] = []
+    if raw.startswith("["):
+        entries = json.loads(raw)
+        if not isinstance(entries, list):
+            raise ValueError("ANRA_DURABILITY_REPLICAS must contain a JSON list")
+        for index, entry in enumerate(entries):
+            if not isinstance(entry, dict):
+                raise ValueError("Each durability replica must be a JSON object")
+            replicas.append(
+                FilesystemReplica(
+                    str(entry.get("name", f"replica-{index}")),
+                    Path(str(entry["path"])),
+                    kind=str(entry.get("kind", "filesystem")),
+                    canonical=bool(entry.get("canonical", index == 0)),
+                )
+            )
+    else:
+        for index, entry in enumerate(item for item in raw.split(";") if item.strip()):
+            if "=" in entry:
+                name, path = entry.split("=", 1)
+            else:
+                name, path = f"replica-{index}", entry
+            replicas.append(
+                FilesystemReplica(
+                    name.strip(),
+                    Path(path.strip()),
+                    canonical=index == 0,
+                )
+            )
+    canonical_count = sum(replica.canonical for replica in replicas)
+    if canonical_count != 1:
+        raise ValueError("Exactly one durability replica must be canonical")
+    return replicas
+
+
+class CheckpointDurabilitySession:
+    """Training-facing facade for registration and background publication."""
+
+    def __init__(
+        self,
+        outbox: CheckpointOutbox,
+        publisher: SnapshotPublisher | None,
+        *,
+        enabled: bool,
+        required: bool,
+        scratch_run: bool,
+        ack_timeout_seconds: float,
+        hot_storage_limit_bytes: int = HOT_STORAGE_LIMIT_BYTES,
+    ) -> None:
+        self.outbox = outbox
+        self.publisher = publisher
+        self.enabled = enabled
+        self.required = required
+        self.scratch_run = scratch_run
+        self.ack_timeout_seconds = ack_timeout_seconds
+        self.hot_storage_limit_bytes = int(hot_storage_limit_bytes)
+        if self.hot_storage_limit_bytes <= 0:
+            raise ValueError("hot_storage_limit_bytes must be positive")
+        self.initial_acknowledged = False
+        self.latest: SnapshotRef | None = None
+
+    @classmethod
+    def from_environment(
+        cls,
+        default_outbox: Path,
+        *,
+        scratch_run: bool,
+    ) -> CheckpointDurabilitySession:
+        required = durability_required_from_environment()
+        enabled = required or _truthy_environment("ANRA_ENABLE_DURABILITY_OUTBOX")
+        if _truthy_environment("ANRA_REQUIRE_SIGNED_EVIDENCE") and not os.environ.get(
+            "ANRA_EVIDENCE_SIGNING_KEY", ""
+        ):
+            raise PublicationError(
+                "ANRA_REQUIRE_SIGNED_EVIDENCE=1 requires ANRA_EVIDENCE_SIGNING_KEY"
+            )
+        root = Path(os.environ.get("ANRA_DURABILITY_OUTBOX", str(default_outbox)))
+        outbox = CheckpointOutbox(root)
+        replicas = _parse_replica_environment() if enabled else []
+        if required and not replicas:
+            raise PublicationError(
+                "Durable remote ACK is required, but ANRA_DURABILITY_REPLICAS (or "
+                "ANRA_SHARED_CHECKPOINT_DIR) does not define a replica."
+            )
+        min_protected = int(
+            os.environ.get(
+                "ANRA_DURABILITY_MIN_PROTECTED_REPLICAS",
+                str(min(2, len(replicas))) if replicas else "1",
+            )
+        )
+        publisher = (
+            SnapshotPublisher(
+                outbox,
+                replicas,
+                min_protected_replicas=min_protected,
+                max_copy_streams=int(
+                    os.environ.get(
+                        "ANRA_DURABILITY_COPY_STREAMS",
+                        str(DEFAULT_MAX_COPY_STREAMS),
+                    )
+                ),
+                hot_storage_limit_bytes=int(
+                    os.environ.get(
+                        "ANRA_DURABILITY_HOT_LIMIT_BYTES",
+                        str(HOT_STORAGE_LIMIT_BYTES),
+                    )
+                ),
+            )
+            if replicas
+            else None
+        )
+        return cls(
+            outbox,
+            publisher,
+            enabled=enabled,
+            required=required,
+            scratch_run=scratch_run,
+            ack_timeout_seconds=float(
+                os.environ.get("ANRA_DURABILITY_ACK_TIMEOUT_SECONDS", "1800")
+            ),
+            hot_storage_limit_bytes=int(
+                os.environ.get(
+                    "ANRA_DURABILITY_HOT_LIMIT_BYTES",
+                    str(HOT_STORAGE_LIMIT_BYTES),
+                )
+            ),
+        )
+
+    @property
+    def requires_initial_boundary(self) -> bool:
+        return self.required and self.scratch_run and not self.initial_acknowledged
+
+    def publish_checkpoint(
+        self,
+        checkpoint: Path,
+        payload: Mapping[str, object],
+        *,
+        final: bool = False,
+    ) -> SnapshotRef | None:
+        if not self.enabled:
+            return None
+        lineage = payload.get("checkpoint_lineage")
+        if not isinstance(lineage, Mapping):
+            lineage = build_checkpoint_lineage(payload)
+        lineage_id = str(lineage.get("lineage_id", "")).strip()
+        if not lineage_id:
+            raise DurabilityError("A durable checkpoint requires a stable lineage_id")
+        # Exactly one upload may be in flight.  If Drive is slower than the
+        # trainer, the next checkpoint boundary applies backpressure rather
+        # than filling ephemeral disk with an unbounded queue.
+        if self.publisher is not None and self.latest is not None:
+            self.publisher.wait_for(
+                self.latest,
+                DurabilityState.PROTECTED,
+                timeout_seconds=self.ack_timeout_seconds,
+            )
+        plan = plan_hot_retention(
+            self.outbox,
+            in_flight_bytes=Path(checkpoint).stat().st_size,
+            hot_limit_bytes=self.hot_storage_limit_bytes,
+            lineage_id=lineage_id,
+        )
+        if not plan.fits:
+            raise PublicationError(
+                "Checkpoint hot-storage contract cannot fit two resume states, "
+                "two compact states and one in-flight artifact: "
+                f"deficit={plan.deficit_bytes} bytes"
+            )
+        if plan.delete_snapshot_ids:
+            if self.publisher is not None:
+                self.publisher.prune_snapshots(plan.delete_snapshot_ids)
+            self.outbox.prune(plan.delete_snapshot_ids)
+        ref = self.outbox.register_checkpoint(
+            checkpoint,
+            artifact_class=ArtifactClass.FULL_RESUME,
+            lineage=lineage,
+        )
+        self.latest = ref
+        if self.publisher is not None:
+            self.publisher.submit(ref)
+        wait_for_ack = self.required and (self.requires_initial_boundary or final)
+        if wait_for_ack:
+            if self.publisher is None:
+                raise PublicationError("A required durability ACK has no publisher")
+            target = (
+                DurabilityState.PROTECTED
+                if final
+                else DurabilityState.CANONICAL_VERIFIED
+            )
+            self.publisher.wait_for(
+                ref,
+                target,
+                timeout_seconds=self.ack_timeout_seconds,
+            )
+            self.initial_acknowledged = True
+        if final and self.publisher is not None:
+            self.publisher.wait_for(
+                ref,
+                DurabilityState.PROTECTED,
+                timeout_seconds=self.ack_timeout_seconds,
+            )
+            final_plan = plan_hot_retention(
+                self.outbox,
+                hot_limit_bytes=self.hot_storage_limit_bytes,
+                lineage_id=lineage_id,
+            )
+            if final_plan.delete_snapshot_ids:
+                self.publisher.prune_snapshots(final_plan.delete_snapshot_ids)
+                self.outbox.prune(final_plan.delete_snapshot_ids)
+        return ref
+
+    def close(self) -> None:
+        if self.publisher is None:
+            return
+        if self.required and self.latest is not None:
+            self.publisher.wait_for(
+                self.latest,
+                DurabilityState.PROTECTED,
+                timeout_seconds=self.ack_timeout_seconds,
+            )
+        self.publisher.close(wait=True, timeout_seconds=self.ack_timeout_seconds)
+
+
+@dataclass(frozen=True)
+class RetentionPlan:
+    keep_snapshot_ids: tuple[str, ...]
+    delete_snapshot_ids: tuple[str, ...]
+    retained_logical_bytes: int
+    in_flight_bytes: int
+    hot_limit_bytes: int
+    fits: bool
+    deficit_bytes: int
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "keep_snapshot_ids": list(self.keep_snapshot_ids),
+            "delete_snapshot_ids": list(self.delete_snapshot_ids),
+            "retained_logical_bytes": self.retained_logical_bytes,
+            "in_flight_bytes": self.in_flight_bytes,
+            "hot_limit_bytes": self.hot_limit_bytes,
+            "fits": self.fits,
+            "deficit_bytes": self.deficit_bytes,
+        }
+
+
+def snapshot_lineage_id(outbox: CheckpointOutbox, ref: SnapshotRef) -> str:
+    lineage = dict(outbox.load_manifest(ref.snapshot_id).get("lineage", {}))
+    explicit = str(lineage.get("lineage_id", "")).strip()
+    if explicit:
+        return explicit
+    # Schema-v1 outboxes created before lineage_id was mandatory remain
+    # groupable for an explicit migration/retention pass.
+    architecture = dict(lineage.get("architecture", {}))
+    training = dict(lineage.get("training", {}))
+    seed = dict(training.get("seed_contract", {})).get("seed", "unknown")
+    return f"legacy/{architecture.get('sha256', 'unknown')}/seed-{seed}"
+
+
+def plan_hot_retention(
+    outbox: CheckpointOutbox,
+    *,
+    keep_full: int = DEFAULT_KEEP_FULL,
+    keep_compact: int = DEFAULT_KEEP_COMPACT,
+    in_flight_bytes: int = 0,
+    hot_limit_bytes: int = HOT_STORAGE_LIMIT_BYTES,
+    lineage_id: str | None = None,
+) -> RetentionPlan:
+    all_refs = outbox.snapshots()
+    refs = (
+        [ref for ref in all_refs if snapshot_lineage_id(outbox, ref) == lineage_id]
+        if lineage_id is not None
+        else all_refs
+    )
+    by_class: dict[ArtifactClass, list[SnapshotRef]] = {
+        ArtifactClass.FULL_RESUME: [],
+        ArtifactClass.FP16_INFERENCE: [],
+    }
+    for ref in refs:
+        by_class[ref.artifact_class].append(ref)
+    for group in by_class.values():
+        group.sort(key=lambda ref: (ref.global_step, ref.snapshot_id), reverse=True)
+    kept = (
+        by_class[ArtifactClass.FULL_RESUME][: max(0, keep_full)]
+        + by_class[ArtifactClass.FP16_INFERENCE][: max(0, keep_compact)]
+    )
+    keep_ids = {ref.snapshot_id for ref in kept}
+    retained = 0
+    for ref in kept:
+        manifest = outbox.load_manifest(ref.snapshot_id)
+        retained += int(dict(manifest["source"])["size_bytes"])
+    required = retained + max(0, int(in_flight_bytes))
+    return RetentionPlan(
+        keep_snapshot_ids=tuple(sorted(keep_ids)),
+        delete_snapshot_ids=tuple(
+            sorted(ref.snapshot_id for ref in refs if ref.snapshot_id not in keep_ids)
+        ),
+        retained_logical_bytes=retained,
+        in_flight_bytes=max(0, int(in_flight_bytes)),
+        hot_limit_bytes=int(hot_limit_bytes),
+        fits=required <= hot_limit_bytes,
+        deficit_bytes=max(0, required - hot_limit_bytes),
+    )
+
+
+def _replicas_from_cli(
+    values: Iterable[str],
+    drive_values: Iterable[str],
+) -> list[FilesystemReplica]:
+    replicas: list[FilesystemReplica] = []
+    entries = [(value, "filesystem") for value in values]
+    entries += [(value, "mounted_drive") for value in drive_values]
+    for index, (entry, kind) in enumerate(entries):
+        if "=" not in entry:
+            raise ValueError("Replica must be NAME=PATH")
+        name, path = entry.split("=", 1)
+        replicas.append(
+            FilesystemReplica(
+                name,
+                Path(path),
+                kind=kind,
+                canonical=index == 0,
+            )
+        )
+    return replicas
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    register = subparsers.add_parser("register", help="register an immutable checkpoint")
+    register.add_argument("--outbox", required=True, type=Path)
+    register.add_argument("--checkpoint", required=True, type=Path)
+    register.add_argument(
+        "--artifact-class",
+        choices=[item.value for item in ArtifactClass],
+        default=ArtifactClass.FULL_RESUME.value,
+    )
+    register.add_argument("--lineage-json", type=Path)
+
+    publish = subparsers.add_parser("publish", help="publish one or all snapshots")
+    publish.add_argument("--outbox", required=True, type=Path)
+    publish.add_argument("--snapshot-id")
+    publish.add_argument("--replica", action="append", default=[], metavar="NAME=PATH")
+    publish.add_argument(
+        "--drive-replica",
+        action="append",
+        default=[],
+        metavar="NAME=MOUNTED_PATH",
+    )
+    publish.add_argument("--min-protected-replicas", type=int, default=1)
+
+    materialize = subparsers.add_parser("materialize", help="reassemble a snapshot")
+    materialize.add_argument("--outbox", required=True, type=Path)
+    materialize.add_argument("--snapshot-id", required=True)
+    materialize.add_argument("--output", required=True, type=Path)
+    materialize.add_argument("--for-resume", action="store_true")
+
+    compact = subparsers.add_parser(
+        "compact",
+        help="create and register an fp16 model-only artifact from full resume",
+    )
+    compact.add_argument("--outbox", required=True, type=Path)
+    compact.add_argument("--checkpoint", required=True, type=Path)
+    compact.add_argument("--output", required=True, type=Path)
+    compact.add_argument("--overwrite", action="store_true")
+
+    retention = subparsers.add_parser("retention", help="print the non-destructive hot plan")
+    retention.add_argument("--outbox", required=True, type=Path)
+    retention.add_argument("--in-flight-bytes", type=int, default=0)
+
+    args = parser.parse_args(argv)
+    outbox = CheckpointOutbox(args.outbox)
+    if args.command == "compact":
+        report = create_fp16_inference_artifact(
+            args.checkpoint,
+            args.output,
+            overwrite=args.overwrite,
+        )
+        ref = outbox.register_checkpoint(
+            args.output,
+            artifact_class=ArtifactClass.FP16_INFERENCE,
+            lineage=dict(report["lineage"]),
+        )
+        print(
+            json.dumps(
+                {
+                    **{key: value for key, value in report.items() if key != "lineage"},
+                    "snapshot_id": ref.snapshot_id,
+                },
+                indent=2,
+            )
+        )
+        return 0
+    if args.command == "register":
+        if args.lineage_json:
+            lineage = _read_json(args.lineage_json)
+        elif args.artifact_class == ArtifactClass.FULL_RESUME.value:
+            from runtime.safe_load import safe_torch_load
+
+            blob = safe_torch_load(args.checkpoint, map_location="cpu")
+            if not isinstance(blob, Mapping):
+                raise DurabilityError("Full-resume checkpoint must contain a mapping payload")
+            lineage = build_checkpoint_lineage(blob)
+        else:
+            lineage = {}
+        ref = outbox.register_checkpoint(
+            args.checkpoint,
+            artifact_class=args.artifact_class,
+            lineage=lineage,
+        )
+        print(json.dumps({"snapshot_id": ref.snapshot_id}, indent=2))
+        return 0
+    if args.command == "materialize":
+        result = outbox.materialize(
+            args.snapshot_id,
+            args.output,
+            for_resume=args.for_resume,
+        )
+        print(result)
+        return 0
+    if args.command == "retention":
+        print(
+            json.dumps(
+                plan_hot_retention(
+                    outbox,
+                    in_flight_bytes=args.in_flight_bytes,
+                ).to_dict(),
+                indent=2,
+            )
+        )
+        return 0
+    replicas = _replicas_from_cli(args.replica, args.drive_replica)
+    publisher = SnapshotPublisher(
+        outbox,
+        replicas,
+        min_protected_replicas=args.min_protected_replicas,
+    )
+    refs = [outbox.load_ref(args.snapshot_id)] if args.snapshot_id else outbox.snapshots()
+    try:
+        for ref in refs:
+            publisher.submit(ref)
+        for ref in refs:
+            result = publisher.wait_for(ref, DurabilityState.CANONICAL_VERIFIED)
+            print(json.dumps({"snapshot_id": ref.snapshot_id, "state": result.state.value}))
+    finally:
+        publisher.close(wait=True)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
