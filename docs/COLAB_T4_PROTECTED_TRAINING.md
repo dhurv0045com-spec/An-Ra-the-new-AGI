@@ -64,7 +64,9 @@ The notebook prefers the highest-step file matching
 `anra-v4-step-*-full-resume.pt`, copies it to local scratch, and verifies the
 copy's SHA-256 before training. The retired chunked-vault reader exists only as
 a migration path: it reconstructs the newest complete legacy checkpoint once,
-then the next save creates the single portable `.pt`.
+then the next save creates and verifies the single portable `.pt`. Only after
+that verification succeeds, the retired `chunks`, `manifests`, `receipts`, and
+canonical-pointer files are removed automatically.
 
 A rescued `anra-v4-emergency-step400.pt` plus its `.pt.json` receipt takes
 precedence when present.

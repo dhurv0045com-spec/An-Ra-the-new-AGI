@@ -110,6 +110,13 @@ def test_mounted_drive_single_file_replaces_only_after_verification(
         tmp_path / "drive" / "checkpoint-vault",
         canonical=True,
     )
+    (replica.root / "chunks" / "aa").mkdir(parents=True)
+    (replica.root / "chunks" / "aa" / "legacy.chunk").write_bytes(b"legacy")
+    (replica.root / "manifests").mkdir()
+    (replica.root / "manifests" / "legacy.json").write_text("{}")
+    (replica.root / "receipts").mkdir()
+    (replica.root / "canonical.json").write_text("{}")
+    (replica.root / "canonical-full-resume.json").write_text("{}")
     publisher = SnapshotPublisher(outbox, [replica])
     first = outbox.register_checkpoint(checkpoint, lineage=_lineage(100))
     try:
@@ -124,6 +131,8 @@ def test_mounted_drive_single_file_replaces_only_after_verification(
         assert not list(replica.root.rglob("*.chunk"))
         assert not (replica.root / "manifests").exists()
         assert not (replica.root / "receipts").exists()
+        assert not (replica.root / "canonical.json").exists()
+        assert not (replica.root / "canonical-full-resume.json").exists()
 
         second_payload = bytes((index * 7) % 251 for index in range(14_000))
         checkpoint.write_bytes(second_payload)

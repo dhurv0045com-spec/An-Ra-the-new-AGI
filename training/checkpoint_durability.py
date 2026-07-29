@@ -1094,6 +1094,18 @@ class MonolithicFilesystemReplica:
                 existing.append((int(step_text), path))
         return sorted(existing)
 
+    def _cleanup_legacy_layout(self) -> None:
+        """Remove the retired Drive CAS only after a portable file is safe."""
+
+        for name in ("chunks", "manifests", "receipts", "recovery"):
+            path = self.root / name
+            if path.is_dir():
+                shutil.rmtree(path)
+            elif path.exists():
+                path.unlink()
+        for name in ("canonical.json", "canonical-full-resume.json"):
+            (self.root / name).unlink(missing_ok=True)
+
     def stage_chunk(self, local_chunk: Path, record: ChunkRecord) -> None:
         """The verified local outbox is materialized once, not copied per chunk."""
 
@@ -1126,6 +1138,10 @@ class MonolithicFilesystemReplica:
                 target.stat().st_size == expected_size
                 and sha256_file(target) == expected_sha256
             ):
+                self._cleanup_legacy_layout()
+                for _step, old_path in existing:
+                    if old_path != target:
+                        old_path.unlink(missing_ok=True)
                 self._active_paths[artifact_class] = target
                 return target
             raise PublicationError(
@@ -1188,6 +1204,7 @@ class MonolithicFilesystemReplica:
         for _step, old_path in existing:
             if old_path != target:
                 old_path.unlink(missing_ok=True)
+        self._cleanup_legacy_layout()
         self._active_paths[artifact_class] = target
         return target
 
