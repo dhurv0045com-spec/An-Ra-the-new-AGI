@@ -48,6 +48,13 @@ trainers therefore write to the same `checkpoint-vault`; the owner sees every
 new canonical checkpoint immediately. Do not upload a compressed
 `checkpoint-vault` archive and do not make independent vault copies.
 
+If a data-pack part or the signing-key file is shared with the account but is
+not exposed by the mounted shortcut, the notebook requests Drive authorization,
+finds the exact shared file, downloads it to temporary Colab storage, and
+verifies its expected size and SHA-256 before using it. The checkpoint vault
+itself must remain a real writable shared folder; API fallback is never used to
+create a second vault.
+
 ## Before pressing Run all
 
 1. Open the notebook from the owner account or an authorized Editor account

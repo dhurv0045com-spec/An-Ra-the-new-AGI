@@ -56,3 +56,16 @@ def test_rejects_compressed_vault_file(tmp_path: Path) -> None:
 
     with pytest.raises(FileNotFoundError, match="compressed checkpoint-vault"):
         resolve_colab_training_assets(tmp_path)
+
+
+def test_can_resolve_vault_before_shared_pack_api_fallback(tmp_path: Path) -> None:
+    my_drive = tmp_path / "MyDrive"
+    vault = _vault(my_drive / "checkpoint-vault", 253)
+
+    assets = resolve_colab_training_assets(
+        tmp_path,
+        require_pack_parts=False,
+    )
+
+    assert assets.vault_root == vault
+    assert assets.pack_parts == ()

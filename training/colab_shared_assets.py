@@ -154,6 +154,7 @@ def resolve_colab_training_assets(
     *,
     pack_names: Iterable[str] = DEFAULT_PACK_PARTS,
     require_writable_vault: bool = True,
+    require_pack_parts: bool = True,
 ) -> ColabTrainingAssets:
     roots = mounted_training_roots(mount_root)
     vaults: list[tuple[int, Path]] = []
@@ -179,9 +180,13 @@ def resolve_colab_training_assets(
     for name in pack_names:
         matches = [path for path in _named_candidates(name, roots) if path.is_file()]
         if not matches:
+            if not require_pack_parts:
+                continue
             raise FileNotFoundError(
                 f"Missing training asset {name!r}. Put it beside the shared "
-                "checkpoint vault or in the mounted account's MyDrive root."
+                "checkpoint vault or in the mounted account's MyDrive root. "
+                "The Colab notebook can use its authenticated Drive API "
+                "fallback when the file is only visible in Shared with me."
             )
         pack_parts.append(matches[0])
 
