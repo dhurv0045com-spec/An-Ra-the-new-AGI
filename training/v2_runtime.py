@@ -914,6 +914,8 @@ def load_checkpoint(
     strict: bool = False,
     resume_training: bool = False,
     data_generator: torch.Generator | None = None,
+    sampler_reset_token: int | None = None,
+    continuation_phase: str = "A",
 ) -> dict[str, object]:
     state = {
         "loaded": False,
@@ -937,6 +939,7 @@ def load_checkpoint(
         "token_window": {},
         "rng_restore": {},
         "tokenizer_identity": {"verified": False, "reason": "checkpoint_not_loaded"},
+        "training_recipe_migrations": [],
     }
     ckpt = checkpoint_path
     if not ckpt.exists():
@@ -1121,6 +1124,28 @@ def load_checkpoint(
                 "growth",
             ):
                 if field in active_recipe and saved_recipe.get(field) != active_recipe.get(field):
+                    if field == "sampler_algorithm" and sampler_reset_token is not None:
+                        counts = blob.get("continuation_token_counts", {})
+                        saved_boundary = (
+                            int(counts.get(str(continuation_phase).upper(), -1))
+                            if isinstance(counts, dict)
+                            else -1
+                        )
+                        if saved_boundary != int(sampler_reset_token):
+                            raise CheckpointCompatibilityError(
+                                "Signed sampler migration boundary differs from checkpoint "
+                                f"progress: checkpoint={saved_boundary}, "
+                                f"signed={int(sampler_reset_token)}"
+                            )
+                        state["training_recipe_migrations"].append(
+                            {
+                                "field": field,
+                                "saved": saved_recipe.get(field),
+                                "active": active_recipe.get(field),
+                                "token_boundary": saved_boundary,
+                            }
+                        )
+                        continue
                     raise CheckpointCompatibilityError(
                         f"Checkpoint training recipe changed at {field}: "
                         f"saved={saved_recipe.get(field)!r}, active={active_recipe.get(field)!r}"

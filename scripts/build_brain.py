@@ -1711,6 +1711,16 @@ def train_anra_v2(
             strict=False,
             resume_training=True,
             data_generator=data_generator,
+            sampler_reset_token=(
+                token_window_start
+                if os.environ.get("ANRA_ALLOW_DATA_PROFILE_CHANGE", "0") == "1"
+                and os.environ.get(
+                    "ANRA_RESET_DATA_SAMPLER_ON_PROFILE_CHANGE", "0"
+                )
+                == "1"
+                else None
+            ),
+            continuation_phase=continuation_phase,
         )
         if resume_state["loaded"]:
             load_report = resume_state.get("load_report", {})

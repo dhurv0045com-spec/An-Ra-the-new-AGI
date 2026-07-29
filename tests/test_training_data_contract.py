@@ -135,6 +135,74 @@ def test_checkpoint_cannot_silently_add_mtp_or_moe(tmp_path: Path) -> None:
         )
 
 
+def test_signed_sampler_transition_requires_exact_checkpoint_token_boundary(
+    tmp_path: Path,
+) -> None:
+    source = _phase_model()
+    source.training_recipe = {
+        "sampler_algorithm": "counter_based_sha256_v1",
+    }
+    checkpoint = tmp_path / "sampler-transition.pt"
+    torch.save(
+        {
+            "checkpoint_schema_version": 7,
+            "completed_optimizer_boundary": True,
+            "accum_micro_steps": 0,
+            "model": source.state_dict(),
+            "model_config": source.model_config(),
+            "training_recipe": dict(source.training_recipe),
+            "continuation_token_counts": {"A": 196_608},
+        },
+        checkpoint,
+    )
+    target = _phase_model()
+    target.training_recipe = {
+        "sampler_algorithm": "global_affine_permutation_v1",
+    }
+
+    with pytest.raises(CheckpointCompatibilityError, match="sampler_algorithm"):
+        load_checkpoint(
+            target,
+            None,
+            None,
+            None,
+            checkpoint,
+            device=torch.device("cpu"),
+        )
+    with pytest.raises(CheckpointCompatibilityError, match="boundary"):
+        load_checkpoint(
+            target,
+            None,
+            None,
+            None,
+            checkpoint,
+            device=torch.device("cpu"),
+            sampler_reset_token=200_000,
+            continuation_phase="A",
+        )
+
+    state = load_checkpoint(
+        target,
+        None,
+        None,
+        None,
+        checkpoint,
+        device=torch.device("cpu"),
+        sampler_reset_token=196_608,
+        continuation_phase="A",
+    )
+
+    assert state["loaded"] is True
+    assert state["training_recipe_migrations"] == [
+        {
+            "field": "sampler_algorithm",
+            "saved": "counter_based_sha256_v1",
+            "active": "global_affine_permutation_v1",
+            "token_boundary": 196_608,
+        }
+    ]
+
+
 def test_weighted_training_loss_reports_explicit_answer_and_scaffold_tokens() -> None:
     logits = torch.zeros((1, 3, 4), dtype=torch.float32)
     logits[0, 1, 2] = 4.0
