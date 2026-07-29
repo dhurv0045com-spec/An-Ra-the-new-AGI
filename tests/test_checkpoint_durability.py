@@ -98,6 +98,76 @@ def test_full_resume_snapshot_round_trips_and_publishes_verified_pointer(
     assert manifest["lineage"]["progress"]["global_step"] == 100
 
 
+def test_incomplete_future_pointer_cannot_block_recovery_checkpoint(
+    tmp_path: Path,
+) -> None:
+    replica = FilesystemReplica("drive-vault", tmp_path / "drive", canonical=True)
+    replica.root.mkdir(parents=True)
+    invalid = {
+        "schema_version": 1,
+        "snapshot_id": "step-000000000253-incomplete",
+        "manifest_sha256": "missing",
+        "artifact_class": "full_resume",
+        "checkpoint_sha256": "missing",
+        "global_step": 253,
+    }
+    (replica.root / "canonical-full-resume.json").write_text(
+        json.dumps(invalid),
+        encoding="utf-8",
+    )
+    (replica.root / "canonical.json").write_text(
+        json.dumps(invalid),
+        encoding="utf-8",
+    )
+    recovered = {
+        **invalid,
+        "snapshot_id": "step-000000000200-recovered",
+        "manifest_sha256": "recovered-manifest",
+        "checkpoint_sha256": "recovered-checkpoint",
+        "global_step": 200,
+    }
+
+    replica.publish_pointer(recovered)
+
+    pointer = json.loads(
+        (replica.root / "canonical.json").read_text(encoding="utf-8")
+    )
+    assert pointer["global_step"] == 200
+    audit = replica.root / "recovery" / (
+        "invalid-canonical-step-000000000253-incomplete.json"
+    )
+    assert json.loads(audit.read_text(encoding="utf-8"))["reason"].startswith(
+        "missing manifest"
+    )
+
+
+def test_complete_future_pointer_still_blocks_rewind(tmp_path: Path) -> None:
+    checkpoint = tmp_path / "checkpoint.pt"
+    _checkpoint(checkpoint, 4096)
+    outbox = CheckpointOutbox(tmp_path / "outbox", chunk_size_bytes=1024)
+    ref = outbox.register_checkpoint(checkpoint, lineage=_lineage(253))
+    replica = FilesystemReplica("drive-vault", tmp_path / "drive", canonical=True)
+    publisher = SnapshotPublisher(outbox, [replica])
+    try:
+        publisher.submit(ref)
+        publisher.wait_for(ref, DurabilityState.PROTECTED, timeout_seconds=10)
+    finally:
+        publisher.close(wait=True)
+    current = json.loads(
+        (replica.root / "canonical.json").read_text(encoding="utf-8")
+    )
+    rewind = {
+        **current,
+        "snapshot_id": "step-000000000200-rewind",
+        "manifest_sha256": "rewind-manifest",
+        "checkpoint_sha256": "rewind-checkpoint",
+        "global_step": 200,
+    }
+
+    with pytest.raises(PublicationError, match="Refusing to rewind"):
+        replica.publish_pointer(rewind)
+
+
 def test_partial_replica_chunk_resumes_without_recopying_prefix(tmp_path: Path) -> None:
     checkpoint = tmp_path / "checkpoint.pt"
     _checkpoint(checkpoint, 8192)

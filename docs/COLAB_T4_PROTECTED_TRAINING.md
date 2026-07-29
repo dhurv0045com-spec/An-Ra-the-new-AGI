@@ -74,6 +74,13 @@ The notebook refuses to train without a real T4, the Drive assets, both secrets,
 a clean Git checkout, valid file hashes, owner-private signing keys, a
 compatible full-resume checkpoint, and a signed remaining-token window.
 
+An old canonical pointer naming an incomplete checkpoint cannot block a
+verified recovery publication. The notebook scans manifests by descending
+global step and resumes the newest candidate whose complete chunk set passes
+size and SHA-256 verification. The publisher preserves an audit record before
+replacing an invalid pointer. A rescued `anra-v4-emergency-step400.pt` and its
+`.pt.json` hash receipt take precedence when present.
+
 ## Taking over after a disconnection
 
 Do not start a replacement while the previous trainer still runs. Once it has
