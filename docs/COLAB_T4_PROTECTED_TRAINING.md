@@ -63,9 +63,12 @@ create a second vault.
 3. Keep `WORKER_ROLE = "canonical_trainer"` for the active trainer.
 4. Press **Run all**, then approve the Google Drive mount.
 
-The campaign uses one existing `training-signing-keys.json`. A takeover account
-must be granted access to that file explicitly. The notebook never prints the
-values and refuses to invent a different signing identity when resuming.
+The campaign normally uses the mounted `training-signing-keys.json`. A takeover
+account must be granted access to that file explicitly. Signing keys never use
+the cross-account Drive API fallback. If and only if every cloud checkpoint is
+incomplete and the notebook falls back to the verified step-3 local rehearsal,
+it creates one persistent `anra-v4-recovery-signing-keys.json` in the mounted
+Drive and reuses it on every later session. The values are never printed.
 
 The notebook refuses to train without a real T4, the Drive assets, both secrets,
 a clean Git checkout, valid file hashes, owner-private signing keys, a

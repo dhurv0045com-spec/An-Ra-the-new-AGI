@@ -20,6 +20,10 @@ DEFAULT_PACK_PARTS = (
     "v4_phase_a_170m_seed1301.tar.gz.part00",
     "v4_phase_a_170m_seed1301.tar.gz.part01",
 )
+DEFAULT_SIGNING_KEY_NAMES = (
+    "anra-v4-recovery-signing-keys.json",
+    "training-signing-keys.json",
+)
 
 
 @dataclass(frozen=True)
@@ -190,10 +194,14 @@ def resolve_colab_training_assets(
             )
         pack_parts.append(matches[0])
 
-    key_candidates = [
-        Path(mount_root) / "MyDrive" / "AnRa" / "private" / "training-signing-keys.json",
-        *_named_candidates("training-signing-keys.json", roots),
-    ]
+    key_candidates: list[Path] = []
+    for key_name in DEFAULT_SIGNING_KEY_NAMES:
+        key_candidates.extend(
+            [
+                Path(mount_root) / "MyDrive" / "AnRa" / "private" / key_name,
+                *_named_candidates(key_name, roots),
+            ]
+        )
     signing_key = next((path for path in key_candidates if path.is_file()), None)
     return ColabTrainingAssets(
         vault_root=vault_root,

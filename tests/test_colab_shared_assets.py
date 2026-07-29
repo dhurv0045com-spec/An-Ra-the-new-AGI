@@ -69,3 +69,18 @@ def test_can_resolve_vault_before_shared_pack_api_fallback(tmp_path: Path) -> No
 
     assert assets.vault_root == vault
     assert assets.pack_parts == ()
+
+
+def test_prefers_recovery_signing_identity_on_recovered_lineage(tmp_path: Path) -> None:
+    my_drive = tmp_path / "MyDrive"
+    _vault(my_drive / "checkpoint-vault", 3)
+    for name in PACKS:
+        (my_drive / name).write_bytes(b"pack")
+    legacy = my_drive / "training-signing-keys.json"
+    legacy.write_text("legacy", encoding="utf-8")
+    recovery = my_drive / "anra-v4-recovery-signing-keys.json"
+    recovery.write_text("recovery", encoding="utf-8")
+
+    assets = resolve_colab_training_assets(tmp_path)
+
+    assert assets.signing_key == recovery
