@@ -148,6 +148,44 @@ def test_corrupt_replica_chunk_blocks_manifest_and_canonical_pointer(tmp_path: P
     assert not (replica.root / "manifests" / f"{ref.snapshot_id}.json").exists()
 
 
+def test_failed_publication_removes_unmanifested_remote_chunks(tmp_path: Path) -> None:
+    class ManifestFailureReplica(FilesystemReplica):
+        def publish_manifest(self, ref, manifest_bytes):  # type: ignore[no-untyped-def]
+            raise OSError("simulated Drive quota failure")
+
+    checkpoint = tmp_path / "checkpoint.pt"
+    _checkpoint(checkpoint, 8192)
+    outbox = CheckpointOutbox(tmp_path / "outbox", chunk_size_bytes=1024)
+    ref = outbox.register_checkpoint(checkpoint, lineage=_lineage(10))
+    replica = ManifestFailureReplica("drive", tmp_path / "drive", canonical=True)
+    publisher = SnapshotPublisher(outbox, [replica])
+    try:
+        publisher.submit(ref)
+        with pytest.raises(PublicationError, match="quota failure"):
+            publisher.wait_for(ref, timeout_seconds=10)
+    finally:
+        publisher.close(wait=True)
+
+    assert not list((replica.root / "chunks").rglob("*.chunk"))
+    assert not list((replica.root / "manifests").glob("*.json"))
+
+    retry_checkpoint = tmp_path / "retry.pt"
+    _checkpoint(retry_checkpoint, 8193)
+    retry_ref = outbox.register_checkpoint(retry_checkpoint, lineage=_lineage(20))
+    retry = SnapshotPublisher(
+        outbox,
+        [FilesystemReplica("drive", replica.root, canonical=True)],
+    )
+    try:
+        retry.submit(retry_ref)
+        retry.wait_for(retry_ref, DurabilityState.PROTECTED, timeout_seconds=10)
+    finally:
+        retry.close(wait=True)
+
+    assert [item.snapshot_id for item in outbox.snapshots()] == [retry_ref.snapshot_id]
+    assert len(list((replica.root / "manifests").glob("*.json"))) == 1
+
+
 def test_compact_artifact_is_rejected_for_materialize_and_training_resume(
     tmp_path: Path,
 ) -> None:
@@ -429,7 +467,9 @@ def test_required_session_keeps_two_full_snapshots_and_one_inflight_slot(
             checkpoint = tmp_path / f"checkpoint-{step}.pt"
             _checkpoint(checkpoint, 2048 + step)
             payload["global_step"] = step
-            session.publish_checkpoint(checkpoint, payload, final=step == 3)
+            # Deliberately leave the third save non-final. Retention must run
+            # as soon as it is protected, not only on a later save or shutdown.
+            session.publish_checkpoint(checkpoint, payload, final=False)
     finally:
         session.close()
 

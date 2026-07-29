@@ -722,11 +722,18 @@ class CheckpointOutbox:
             refs.append(self.load_ref(manifest.parent.name))
         return refs
 
-    def prune(self, snapshot_ids: Iterable[str]) -> tuple[str, ...]:
+    def prune(
+        self,
+        snapshot_ids: Iterable[str],
+        *,
+        allow_unpublished: bool = False,
+    ) -> tuple[str, ...]:
         """Delete verified obsolete local snapshots and unreferenced CAS chunks.
 
         The caller supplies a retention decision.  This method still fails
-        closed unless every target has reached a remote verified state.
+        closed unless every target has reached a remote verified state. A
+        publisher may explicitly discard a failed, never-published snapshot
+        after cleaning remote orphan chunks.
         """
 
         targets = tuple(
@@ -737,7 +744,10 @@ class CheckpointOutbox:
         for snapshot_id in targets:
             status = _read_json(self.status_path(snapshot_id))
             state = DurabilityState(str(status.get("state", "")))
-            if STATE_ORDER[state] < STATE_ORDER[DurabilityState.CANONICAL_VERIFIED]:
+            if (
+                STATE_ORDER[state] < STATE_ORDER[DurabilityState.CANONICAL_VERIFIED]
+                and not allow_unpublished
+            ):
                 raise PublicationError(
                     f"Refusing to prune unverified snapshot {snapshot_id}: {state.value}"
                 )
@@ -984,6 +994,7 @@ class SnapshotPublisher:
         *,
         min_protected_replicas: int = 1,
         max_copy_streams: int = DEFAULT_MAX_COPY_STREAMS,
+        hot_storage_limit_bytes: int = HOT_STORAGE_LIMIT_BYTES,
     ) -> None:
         if not replicas:
             raise ValueError("at least one replica is required")
@@ -995,6 +1006,9 @@ class SnapshotPublisher:
         self.replicas = tuple(replicas)
         self.min_protected_replicas = int(min_protected_replicas)
         self.max_copy_streams = max(1, int(max_copy_streams))
+        self.hot_storage_limit_bytes = int(hot_storage_limit_bytes)
+        if self.hot_storage_limit_bytes <= 0:
+            raise ValueError("hot_storage_limit_bytes must be positive")
         self._queue: queue.Queue[SnapshotRef | None] = queue.Queue()
         self._results: dict[str, PublicationResult] = {}
         self._submitted: set[str] = set()
@@ -1019,11 +1033,55 @@ class SnapshotPublisher:
 
     def prune_snapshots(self, snapshot_ids: Iterable[str]) -> tuple[str, ...]:
         targets = tuple(sorted(set(snapshot_ids)))
-        if not targets:
-            return ()
+        # Calling replica pruning with no named snapshots is intentional: it
+        # garbage-collects chunks left behind by an interrupted upload before
+        # a manifest was published.
         for replica in self.replicas:
             replica.prune_snapshots(targets)
         return targets
+
+    def _apply_hot_retention(self, ref: SnapshotRef) -> None:
+        """Prune immediately after protection instead of at the next save.
+
+        Waiting for the next checkpoint left three full optimizer states in a
+        Drive vault.  A failed fourth upload could then strand unreferenced
+        chunks and exhaust a 15 GiB account.  The protected snapshot is
+        already canonical here, so retaining the newest two and deleting the
+        rest is safe and keeps the remote vault bounded between saves.
+        """
+
+        lineage_id = snapshot_lineage_id(self.outbox, ref)
+        unpublished: list[str] = []
+        for candidate in self.outbox.snapshots():
+            if candidate.snapshot_id == ref.snapshot_id:
+                continue
+            if snapshot_lineage_id(self.outbox, candidate) != lineage_id:
+                continue
+            status = _read_json(self.outbox.status_path(candidate.snapshot_id))
+            state = DurabilityState(str(status["state"]))
+            if STATE_ORDER[state] < STATE_ORDER[DurabilityState.CANONICAL_VERIFIED]:
+                unpublished.append(candidate.snapshot_id)
+        if unpublished:
+            # Remote manifests were never published for these snapshots.
+            # First remove any unreferenced staged chunks, then discard their
+            # local retry state so it cannot displace a protected checkpoint
+            # in the newest-two retention calculation.
+            self.prune_snapshots(())
+            self.outbox.prune(unpublished, allow_unpublished=True)
+
+        plan = plan_hot_retention(
+            self.outbox,
+            hot_limit_bytes=self.hot_storage_limit_bytes,
+            lineage_id=lineage_id,
+        )
+        if not plan.fits:
+            raise PublicationError(
+                "Protected checkpoint exceeds the hot-storage contract: "
+                f"deficit={plan.deficit_bytes} bytes"
+            )
+        self.prune_snapshots(plan.delete_snapshot_ids)
+        if plan.delete_snapshot_ids:
+            self.outbox.prune(plan.delete_snapshot_ids)
 
     def _run(self) -> None:
         while True:
@@ -1101,8 +1159,14 @@ class SnapshotPublisher:
         if canonical_verified:
             state = DurabilityState.CANONICAL_VERIFIED
         if canonical_verified and len(verified) >= self.min_protected_replicas:
+            self._apply_hot_retention(ref)
             state = DurabilityState.PROTECTED
             self._advance_status(ref.snapshot_id, state)
+        else:
+            # A failed or partial publication has no manifest referencing its
+            # staged chunks.  Remove those orphans immediately so a retry
+            # cannot consume another full checkpoint's worth of Drive quota.
+            self.prune_snapshots(())
         return PublicationResult(
             snapshot_id=ref.snapshot_id,
             state=state,
@@ -1376,6 +1440,12 @@ class CheckpointDurabilitySession:
                     os.environ.get(
                         "ANRA_DURABILITY_COPY_STREAMS",
                         str(DEFAULT_MAX_COPY_STREAMS),
+                    )
+                ),
+                hot_storage_limit_bytes=int(
+                    os.environ.get(
+                        "ANRA_DURABILITY_HOT_LIMIT_BYTES",
+                        str(HOT_STORAGE_LIMIT_BYTES),
                     )
                 ),
             )

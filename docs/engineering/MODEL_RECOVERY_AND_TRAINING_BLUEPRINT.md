@@ -166,7 +166,7 @@ an incorrectly inherited child.
 
 ## Checkpoint and storage policy
 
-Save every 100 optimizer steps or 15 minutes. Publish the first remotely
+Save every 200 optimizer steps or 60 minutes. Publish the first remotely
 verified checkpoint before a scratch campaign continues.
 
 Keep:

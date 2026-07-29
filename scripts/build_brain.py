@@ -2045,13 +2045,13 @@ def train_anra_v2(
     )
     durable_checkpoint_steps = max(
         1,
-        int(os.environ.get("ANRA_DURABLE_CHECKPOINT_STEPS", "100")),
+        int(os.environ.get("ANRA_DURABLE_CHECKPOINT_STEPS", "200")),
     )
     if durability.enabled:
         # A durable run checkpoints at whichever boundary arrives first.  The
         # caps cannot be relaxed by a stale notebook environment.
-        checkpoint_every_seconds = min(checkpoint_every_seconds, 15 * 60)
-        durable_checkpoint_steps = min(durable_checkpoint_steps, 100)
+        checkpoint_every_seconds = min(checkpoint_every_seconds, 60 * 60)
+        durable_checkpoint_steps = min(durable_checkpoint_steps, 200)
     next_checkpoint_at = time.time() + checkpoint_every_seconds
     optimizer.zero_grad(set_to_none=True)
     rolling_loss = 0.0

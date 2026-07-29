@@ -94,8 +94,8 @@ def test_v4_contract_binds_window_to_manifests_and_shards(tmp_path: Path) -> Non
 
 def test_v4_contract_caps_checkpoint_cadence(tmp_path: Path) -> None:
     values = _base(tmp_path)
-    values["resource_limits"] = {"checkpoint_steps": 101}
-    with pytest.raises(ValueError, match="at most 100"):
+    values["resource_limits"] = {"checkpoint_steps": 201}
+    with pytest.raises(ValueError, match="at most 200"):
         build_launch_manifest(**values)
 
 

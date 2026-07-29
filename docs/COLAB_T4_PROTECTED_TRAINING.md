@@ -2,14 +2,14 @@
 
 This is the operator guide for continuing the canonical An-Ra V4 model on a Google
 Colab T4. The notebook is
-`notebooks/AN_RA_T4_PROTECTED_TRAINER.ipynb`.
+`notebooks/AN_RA_T4_PROTECTED_TRAINER_V4.ipynb`.
 
 ## What this method does
 
 One T4 is the canonical trainer. It restores the latest verified full-resume
 checkpoint, trains on the remaining part of the deterministic 170M-token V4
-window, and protects new checkpoints in Google Drive every 100 optimizer steps
-or 15 minutes, whichever comes first. If Colab disconnects, another authorized
+window, and protects new checkpoints in Google Drive every 200 optimizer steps
+or 60 minutes, whichever comes first. If Colab disconnects, another authorized
 session can run the same notebook and continue from the latest protected
 optimizer boundary.
 
@@ -19,34 +19,46 @@ run two notebooks with `WORKER_ROLE = "canonical_trainer"` at the same time.
 
 ## One-time Drive layout
 
-The account used by the first trainer must contain:
+Keep one live folder and share it with every explicitly authorized trainer
+account using **Editor** access:
 
 ```text
 My Drive/
 └── AnRa/
-    └── cluster/
-        ├── resume-step3-837f7721-64m/
-        │   ├── manifest.json
-        │   └── 33 verified *.chunk files
-        ├── v4_phase_a_170m_seed1301.tar.gz.part00
-        ├── v4_phase_a_170m_seed1301.tar.gz.part01
-        └── checkpoint-vault/              # created during training
+    ├── cluster/
+    │   ├── checkpoint-vault/                 # real folder, never a ZIP
+    │   ├── v4_phase_a_170m_seed1301.tar.gz.part00
+    │   ├── v4_phase_a_170m_seed1301.tar.gz.part01
+    │   └── AN_RA_T4_PROTECTED_TRAINER_V4.ipynb
+    └── private/
+        └── training-signing-keys.json
 ```
 
-The prepared baseline is 2,168,037,221 bytes. The compressed 170M-token pack is
+The full resume state is about 2.17 GB. The compressed 170M-token pack is
 147,119,403 bytes. Keep at least 7 GiB free; 10–12 GiB free is preferable.
+The vault intentionally retains the newest two protected resume generations.
+After a replacement is protected, older manifests and unreferenced chunks are
+removed immediately. Failed partial uploads are garbage-collected instead of
+remaining in Drive.
+
+For a second Gmail account, open the shared folder in Drive and choose
+**Organize → Add shortcut to Drive**. The notebook searches canonical MyDrive
+paths, MyDrive root, shortcut targets, and Shared Drives. All authorized
+trainers therefore write to the same `checkpoint-vault`; the owner sees every
+new canonical checkpoint immediately. Do not upload a compressed
+`checkpoint-vault` archive and do not make independent vault copies.
 
 ## Before pressing Run all
 
-1. Open the notebook from the account that owns `My Drive/AnRa/cluster`.
+1. Open the notebook from the owner account or an authorized Editor account
+   with a My Drive shortcut to the shared training folder.
 2. Choose **Runtime → Change runtime type → T4 GPU**.
 3. Keep `WORKER_ROLE = "canonical_trainer"` for the active trainer.
 4. Press **Run all**, then approve the Google Drive mount.
 
-On its first run, the notebook creates long random signing keys in
-`My Drive/AnRa/private/training-signing-keys.json`. This folder is outside the
-shared cluster vault. The values are not displayed, committed, or placed in the
-notebook.
+The campaign uses one existing `training-signing-keys.json`. A takeover account
+must be granted access to that file explicitly. The notebook never prints the
+values and refuses to invent a different signing identity when resuming.
 
 The notebook refuses to train without a real T4, the Drive assets, both secrets,
 a clean Git checkout, valid file hashes, owner-private signing keys, a
@@ -58,10 +70,11 @@ Do not start a replacement while the previous trainer still runs. Once it has
 ended:
 
 1. Open the same notebook in an authorized account.
-2. Ensure the shared `AnRa/cluster` folder is available at the same My Drive
-   path. If it was shared to the account, add a My Drive shortcut named `AnRa`.
-3. Copy `training-signing-keys.json` into that account's private `AnRa/private`
-   folder only when that account is explicitly authorized to take over.
+2. Ensure the shared folder has Editor access and add its shortcut to My Drive.
+   The shortcut can have any name; the notebook resolves its target.
+3. Share `training-signing-keys.json` only with the authorized takeover account
+   and add a My Drive shortcut to it (or its `private` parent folder), so Colab
+   can see it through the mounted filesystem.
 4. Change `WORKER_ID` to a unique name.
 5. Select a T4 and press **Run all**.
 

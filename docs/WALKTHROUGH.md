@@ -72,7 +72,7 @@ window and advances optimizer steps. Other workers can prepare the next pack,
 evaluate an immutable checkpoint, test one architecture pilot, or archive
 artifacts.
 
-Every 100 optimizer steps or 15 minutes, whichever comes first, the trainer
+Every 200 optimizer steps or 60 minutes, whichever comes first, the trainer
 saves a completed-boundary checkpoint. The durability pipeline breaks it into
 hash-addressed chunks and uploads while training continues. It publishes a
 canonical pointer only when the checkpoint is verified remotely.

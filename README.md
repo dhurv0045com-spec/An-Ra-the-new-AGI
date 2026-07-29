@@ -157,7 +157,7 @@ for training resume.
 
 ### Checkpoint durability during training
 
-The trainer saves every 100 optimizer steps or 15 minutes, whichever comes
+The trainer saves every 200 optimizer steps or 60 minutes, whichever comes
 first. Checkpoints are divided into immutable 128 MiB content-addressed chunks
 and uploaded concurrently. Interrupted transfers resume from verified offsets.
 
@@ -202,7 +202,7 @@ Read the [plain-language cluster training guide](docs/CLUSTER_TRAINING_GUIDE.md)
 before starting a paid or limited session.
 
 For the prepared single-T4 continuation, use
-[the protected Colab trainer](notebooks/AN_RA_T4_PROTECTED_TRAINER.ipynb) with
+[the protected Colab trainer](notebooks/AN_RA_T4_PROTECTED_TRAINER_V4.ipynb) with
 the [short operator guide](docs/COLAB_T4_PROTECTED_TRAINING.md).
 
 ## Intelligence systems: active, pilot, or off

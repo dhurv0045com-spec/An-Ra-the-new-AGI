@@ -30,8 +30,8 @@ TRAINING_CONTRACT_ID = "anra-training-contract/v4"
 LAUNCH_MANIFEST_SCHEMA_VERSION = 4
 DEFAULT_HOT_STORAGE_LIMIT_BYTES = 12 * 1024**3
 GROWTH_HOT_STORAGE_LIMIT_BYTES = 32 * 1024**3
-DEFAULT_CHECKPOINT_STEPS = 100
-DEFAULT_CHECKPOINT_MINUTES = 15
+DEFAULT_CHECKPOINT_STEPS = 200
+DEFAULT_CHECKPOINT_MINUTES = 60
 OPERATIONAL_STAGE_LABELS = frozenset(
     {
         "canary",
@@ -226,9 +226,14 @@ def _validate_resource_limits(
     checkpoint_steps = int(limits.get("checkpoint_steps", 0))
     checkpoint_minutes = int(limits.get("checkpoint_minutes", 0))
     if checkpoint_steps <= 0 or checkpoint_steps > DEFAULT_CHECKPOINT_STEPS:
-        raise ValueError("Checkpoint cadence must be at most 100 optimizer steps")
+        raise ValueError(
+            f"Checkpoint cadence must be at most {DEFAULT_CHECKPOINT_STEPS} "
+            "optimizer steps"
+        )
     if checkpoint_minutes <= 0 or checkpoint_minutes > DEFAULT_CHECKPOINT_MINUTES:
-        raise ValueError("Checkpoint cadence must be at most 15 minutes")
+        raise ValueError(
+            f"Checkpoint cadence must be at most {DEFAULT_CHECKPOINT_MINUTES} minutes"
+        )
     session_budget = int(limits.get("session_budget_minutes", 0))
     drain_reserve = int(limits.get("drain_reserve_minutes", 0))
     if session_budget <= drain_reserve or drain_reserve < 15:

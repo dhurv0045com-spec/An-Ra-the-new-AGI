@@ -249,8 +249,8 @@ def create_cloud_launch(
         resource_limits={
             "session_budget_minutes": max(60, int(runtime_estimate_hours * 60)),
             "drain_reserve_minutes": 30,
-            "checkpoint_steps": 100,
-            "checkpoint_minutes": 15,
+            "checkpoint_steps": 200,
+            "checkpoint_minutes": 60,
         },
         growth_manifest=growth_manifest,
         growth_parent_checkpoint=growth_parent_checkpoint,
