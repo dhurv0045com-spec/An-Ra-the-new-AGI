@@ -1,11 +1,11 @@
-"""Resolve canonical Colab training assets across mounted Drive locations.
+"""Resolve the canonical Colab training home across mounted Drive locations.
 
 Google Colab mounts ``MyDrive`` and shared-drive/shortcut targets, but it does
-not expose the web UI's ``Shared with me`` list as an ordinary directory.  The
-operator shares one training folder with Editor access and adds a shortcut to
-the currently mounted account.  This resolver then finds the same vault from
-the owner's account, a secondary Gmail account, or a Shared Drive without
-hard-coding an account-specific path.
+not expose the web UI's ``Shared with me`` list as an ordinary directory. The
+operator shares one ``ANRA_T4_TRAINING_HOME`` folder with Editor access and
+adds a shortcut to the currently mounted account. Every asset needed to resume
+training lives directly in that folder, so a worker cannot silently combine a
+checkpoint, data pack, and signing identity from different Drive locations.
 """
 
 from __future__ import annotations
@@ -24,10 +24,12 @@ DEFAULT_SIGNING_KEY_NAMES = (
     "anra-v4-recovery-signing-keys.json",
     "training-signing-keys.json",
 )
+TRAINING_HOME_NAME = "ANRA_T4_TRAINING_HOME"
 
 
 @dataclass(frozen=True)
 class ColabTrainingAssets:
+    training_home: Path
     vault_root: Path
     pack_parts: tuple[Path, ...]
     signing_key: Path | None
@@ -111,6 +113,36 @@ def _named_candidates(name: str, roots: Iterable[Path]) -> list[Path]:
     return matches
 
 
+def _training_home_candidates(
+    mount_root: str | Path,
+    roots: Iterable[Path],
+) -> tuple[Path, ...]:
+    mount = Path(mount_root)
+    my_drive = mount / "MyDrive"
+    candidates: list[Path] = [
+        my_drive / TRAINING_HOME_NAME,
+        my_drive / "AnRa" / TRAINING_HOME_NAME,
+    ]
+    for root in roots:
+        if root.name == TRAINING_HOME_NAME:
+            candidates.append(root)
+        candidates.append(root / TRAINING_HOME_NAME)
+        normalised = root.as_posix().lower()
+        if "/.shortcut-targets-by-id/" in normalised:
+            # A shortcut target is mounted under its opaque Drive ID rather
+            # than under the shared folder's human-readable name.
+            candidates.append(root)
+
+    unique: list[Path] = []
+    seen: set[str] = set()
+    for candidate in candidates:
+        key = os.path.normcase(os.path.abspath(candidate))
+        if key not in seen:
+            seen.add(key)
+            unique.append(candidate)
+    return tuple(unique)
+
+
 def _vault_step(path: Path) -> int | None:
     if not path.is_dir():
         return None
@@ -157,11 +189,11 @@ def _require_writable_directory(path: Path) -> None:
         ) from exc
 
 
-def _vault_preference(path: Path) -> int:
+def _home_preference(path: Path) -> int:
     normalised = path.as_posix().lower()
     if "/.shortcut-targets-by-id/" in normalised or "/shareddrives/" in normalised:
         return 2
-    if normalised.endswith("/mydrive/anra/cluster/checkpoint-vault"):
+    if normalised.endswith(f"/mydrive/{TRAINING_HOME_NAME.lower()}"):
         return 1
     return 0
 
@@ -174,51 +206,44 @@ def resolve_colab_training_assets(
     require_pack_parts: bool = True,
 ) -> ColabTrainingAssets:
     roots = mounted_training_roots(mount_root)
-    vaults: list[tuple[int, Path]] = []
-    vault_candidates = [*roots, *_named_candidates("checkpoint-vault", roots)]
-    for candidate in vault_candidates:
+    homes: list[tuple[int, Path, tuple[Path, ...], Path | None]] = []
+    for candidate in _training_home_candidates(mount_root, roots):
         step = _vault_step(candidate)
-        if step is not None:
-            vaults.append((step, candidate))
-    if not vaults:
-        raise FileNotFoundError(
-            "No valid checkpoint-vault directory is visible in mounted Drive. "
-            "A compressed checkpoint-vault file is not sufficient. Share the "
-            "real folder with Editor access and add a shortcut to My Drive."
+        if step is None:
+            continue
+        parts = tuple(candidate / name for name in pack_names)
+        if require_pack_parts and not all(path.is_file() for path in parts):
+            continue
+        if not require_pack_parts:
+            parts = tuple(path for path in parts if path.is_file())
+        signing_key = next(
+            (
+                candidate / key_name
+                for key_name in DEFAULT_SIGNING_KEY_NAMES
+                if (candidate / key_name).is_file()
+            ),
+            None,
         )
-    vault_step, vault_root = max(
-        vaults,
-        key=lambda item: (item[0], _vault_preference(item[1]), str(item[1])),
+        homes.append((step, candidate, parts, signing_key))
+
+    if not homes:
+        raise FileNotFoundError(
+            f"No complete {TRAINING_HOME_NAME} folder is visible in mounted Drive. "
+            "The folder must directly contain one portable full-resume checkpoint, "
+            "both V4 data-pack parts, and the campaign signing key. Share that one "
+            "folder with Editor access and add its shortcut to My Drive."
+        )
+    vault_step, training_home, pack_parts, signing_key = max(
+        homes,
+        key=lambda item: (item[0], _home_preference(item[1]), str(item[1])),
     )
     if require_writable_vault:
-        _require_writable_directory(vault_root)
+        _require_writable_directory(training_home)
 
-    pack_parts: list[Path] = []
-    for name in pack_names:
-        matches = [path for path in _named_candidates(name, roots) if path.is_file()]
-        if not matches:
-            if not require_pack_parts:
-                continue
-            raise FileNotFoundError(
-                f"Missing training asset {name!r}. Put it beside the shared "
-                "checkpoint vault or in the mounted account's MyDrive root. "
-                "The Colab notebook can use its authenticated Drive API "
-                "fallback when the file is only visible in Shared with me."
-            )
-        pack_parts.append(matches[0])
-
-    key_candidates: list[Path] = []
-    for key_name in DEFAULT_SIGNING_KEY_NAMES:
-        key_candidates.extend(
-            [
-                Path(mount_root) / "MyDrive" / "AnRa" / "private" / key_name,
-                *_named_candidates(key_name, roots),
-            ]
-        )
-    signing_key = next((path for path in key_candidates if path.is_file()), None)
     return ColabTrainingAssets(
-        vault_root=vault_root,
-        pack_parts=tuple(pack_parts),
+        training_home=training_home,
+        vault_root=training_home,
+        pack_parts=pack_parts,
         signing_key=signing_key,
         vault_step=vault_step,
     )

@@ -16,26 +16,29 @@ Never run two notebooks with `WORKER_ROLE = "canonical_trainer"` simultaneously.
 
 ## Drive layout
 
-Share this live folder with each explicitly authorized trainer account using
+Share this one folder with every explicitly authorized trainer account using
 Editor access:
 
 ```text
 My Drive/
-└── AnRa/
-    ├── cluster/
-    │   ├── checkpoint-vault/
-    │   │   └── anra-v4-step-000000000400-full-resume.pt
-    │   ├── v4_phase_a_170m_seed1301.tar.gz.part00
-    │   ├── v4_phase_a_170m_seed1301.tar.gz.part01
-    │   └── AN_RA_T4_PROTECTED_TRAINER_V4.ipynb
-    └── private/
-        └── training-signing-keys.json
+└── ANRA_T4_TRAINING_HOME/
+    ├── anra-v4-step-000000000600-full-resume.pt
+    ├── v4_phase_a_170m_seed1301.tar.gz.part00
+    ├── v4_phase_a_170m_seed1301.tar.gz.part01
+    ├── AN_RA_T4_PROTECTED_TRAINER_V4.ipynb
+    ├── anra-v4-recovery-signing-keys.json
+    └── training-signing-keys.json
 ```
 
-The checkpoint is approximately 2.17 GB. Keep at least 5 GiB free because
-replacement briefly requires the current checkpoint and one hidden in-progress
-upload. At rest, `checkpoint-vault` contains exactly one portable full-resume
-`.pt` checkpoint.
+The two data-pack parts are the training data in this handoff: approximately
+140.3 MB compressed. The current full-resume checkpoint is approximately
+2.02 GB because it contains model, optimizer, scheduler, scaler, RNG, and
+sampler state. The complete folder is approximately 2.16 GB.
+
+Keep at least 4.5 GiB free during training because checkpoint replacement
+briefly requires the current checkpoint and one hidden in-progress upload. At
+rest, `ANRA_T4_TRAINING_HOME` contains exactly one portable full-resume `.pt`
+checkpoint.
 
 Colab's local scratch outbox remains content-addressed for validation and retry,
 but those internal chunks are never published into Drive. A replacement is
@@ -43,11 +46,12 @@ fully written, size-checked, SHA-256-checked, and atomically promoted before the
 previous `.pt` is removed. A failed upload is deleted while the previous
 complete checkpoint remains usable.
 
-For another Gmail account, open the shared folder and choose
-**Organize → Add shortcut to Drive**. The notebook searches My Drive, the
-canonical `AnRa/cluster` location, shortcut targets, and Shared Drives. Every
-authorized trainer therefore writes to the same checkpoint file visible to the
-owner. Do not create independent vault copies.
+For another Gmail account, share `ANRA_T4_TRAINING_HOME` with that account as
+an Editor. In the other account, open **Shared with me**, right-click the
+folder, and choose **Organize → Add shortcut to Drive**. Open the notebook
+inside that folder and press **Run all**. Every authorized trainer then reads
+and updates the same checkpoint visible to the owner. Do not copy the folder
+or its checkpoint into the second account.
 
 ## Before pressing Run all
 
@@ -60,16 +64,11 @@ The notebook refuses to train without a real T4, a clean checkout, compatible
 V4 checkpoint, verified data pack, owner-private signing keys, and signed token
 window.
 
-The notebook prefers the highest-step file matching
+The notebook accepts assets only when they are directly inside one mounted
+`ANRA_T4_TRAINING_HOME`. It selects the highest-step file matching
 `anra-v4-step-*-full-resume.pt`, copies it to local scratch, and verifies the
-copy's SHA-256 before training. The retired chunked-vault reader exists only as
-a migration path: it reconstructs the newest complete legacy checkpoint once,
-then the next save creates and verifies the single portable `.pt`. Only after
-that verification succeeds, the retired `chunks`, `manifests`, `receipts`, and
-canonical-pointer files are removed automatically.
-
-A rescued `anra-v4-emergency-step400.pt` plus its `.pt.json` receipt takes
-precedence when present.
+copy's SHA-256 before training. It no longer searches the entire Drive or falls
+back to an emergency, baseline, or chunked checkpoint from another location.
 
 ## Taking over after a disconnection
 
