@@ -7,9 +7,9 @@ before every referenced byte has been verified.
 
 Ordinary filesystem replicas use content-addressed chunks.  Mounted Google
 Drive can instead use a monolithic replica: one portable checkpoint is rebuilt
-from the verified local outbox, atomically promoted, and the previous file is
-removed only after its replacement has been fully verified.  This keeps Drive
-human-manageable without weakening the local interruption-recovery contract.
+from the verified local outbox and atomically replaces a stable remote filename.
+This avoids creating a new multi-gigabyte Drive object at every checkpoint
+boundary (and avoids filling Drive's Bin when retired names are removed).
 """
 
 from __future__ import annotations
@@ -1043,7 +1043,8 @@ class MonolithicFilesystemReplica:
     The local outbox remains chunked so registration, retries, and corruption
     checks are deterministic.  The remote mounted Drive does not expose those
     implementation objects.  It contains one complete ``.pt`` file per
-    artifact class at rest; a hidden ``.uploading`` file exists only while a
+    artifact class at rest, plus a tiny JSON record containing its verified
+    step and digest. A hidden ``.uploading`` file exists only while a
     replacement is being written.
     """
 
@@ -1068,12 +1069,12 @@ class MonolithicFilesystemReplica:
     def _checkpoint_path(
         self,
         artifact_class: ArtifactClass,
-        global_step: int,
+        _global_step: int,
     ) -> Path:
-        return self.root / (
-            f"anra-v4-step-{global_step:012d}-"
-            f"{self._suffix(artifact_class)}.pt"
-        )
+        return self.root / f"anra-v4-current-{self._suffix(artifact_class)}.pt"
+
+    def _metadata_path(self, artifact_class: ArtifactClass) -> Path:
+        return self.root / f"anra-v4-current-{self._suffix(artifact_class)}.json"
 
     def _checkpoint_glob(self, artifact_class: ArtifactClass) -> str:
         return f"anra-v4-step-*-{self._suffix(artifact_class)}.pt"
@@ -1093,6 +1094,49 @@ class MonolithicFilesystemReplica:
             if step_text.isdigit():
                 existing.append((int(step_text), path))
         return sorted(existing)
+
+    def _current_metadata(self, artifact_class: ArtifactClass) -> dict[str, object] | None:
+        path = self._metadata_path(artifact_class)
+        if not path.is_file():
+            return None
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return None
+        if not isinstance(payload, dict):
+            return None
+        try:
+            payload["global_step"] = int(payload["global_step"])
+        except (KeyError, TypeError, ValueError):
+            return None
+        return payload
+
+    def _publish_metadata(
+        self,
+        artifact_class: ArtifactClass,
+        ref: SnapshotRef,
+        *,
+        size_bytes: int,
+        sha256: str,
+    ) -> None:
+        target = self._metadata_path(artifact_class)
+        temporary = target.with_suffix(target.suffix + ".uploading")
+        payload = {
+            "schema_version": 1,
+            "artifact_class": artifact_class.value,
+            "global_step": ref.global_step,
+            "snapshot_id": ref.snapshot_id,
+            "size_bytes": size_bytes,
+            "sha256": sha256,
+        }
+        try:
+            temporary.write_text(
+                json.dumps(payload, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            os.replace(temporary, target)
+        finally:
+            temporary.unlink(missing_ok=True)
 
     def _cleanup_legacy_layout(self) -> None:
         """Remove the retired Drive CAS only after a portable file is safe."""
@@ -1128,6 +1172,9 @@ class MonolithicFilesystemReplica:
 
         existing = self._existing_checkpoints(artifact_class)
         newer = [step for step, _path in existing if step > ref.global_step]
+        current = self._current_metadata(artifact_class)
+        if current is not None and int(current["global_step"]) > ref.global_step:
+            newer.append(int(current["global_step"]))
         if newer:
             raise PublicationError(
                 f"Refusing to rewind {self.name} from step "
@@ -1138,16 +1185,22 @@ class MonolithicFilesystemReplica:
                 target.stat().st_size == expected_size
                 and sha256_file(target) == expected_sha256
             ):
+                self._publish_metadata(
+                    artifact_class,
+                    ref,
+                    size_bytes=expected_size,
+                    sha256=expected_sha256,
+                )
                 self._cleanup_legacy_layout()
                 for _step, old_path in existing:
-                    if old_path != target:
-                        old_path.unlink(missing_ok=True)
+                    old_path.unlink(missing_ok=True)
                 self._active_paths[artifact_class] = target
                 return target
-            raise PublicationError(
-                f"Conflicting checkpoint at step {ref.global_step} "
-                f"on replica {self.name}"
-            )
+            if current is not None and int(current["global_step"]) == ref.global_step:
+                raise PublicationError(
+                    f"Conflicting checkpoint at step {ref.global_step} "
+                    f"on replica {self.name}"
+                )
 
         temporary = self.root / f".{target.name}.uploading"
         temporary.unlink(missing_ok=True)
@@ -1196,14 +1249,19 @@ class MonolithicFilesystemReplica:
                 raise DurabilityCorruptionError(
                     f"Monolithic checkpoint verification failed: {target}"
                 )
+            self._publish_metadata(
+                artifact_class,
+                ref,
+                size_bytes=expected_size,
+                sha256=expected_sha256,
+            )
         finally:
             temporary.unlink(missing_ok=True)
 
         # Only after the new target is verified may older portable checkpoints
         # be removed.  At steady state Drive exposes exactly one resume file.
         for _step, old_path in existing:
-            if old_path != target:
-                old_path.unlink(missing_ok=True)
+            old_path.unlink(missing_ok=True)
         self._cleanup_legacy_layout()
         self._active_paths[artifact_class] = target
         return target
@@ -1258,7 +1316,7 @@ class MonolithicFilesystemReplica:
         return target
 
     def prune_snapshots(self, snapshot_ids: Iterable[str]) -> tuple[str, ...]:
-        for partial in self.root.glob(".anra-v4-step-*.pt.uploading"):
+        for partial in self.root.glob(".anra-v4-*.uploading"):
             partial.unlink(missing_ok=True)
         return tuple(
             sorted(

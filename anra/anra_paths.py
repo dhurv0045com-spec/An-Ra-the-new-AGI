@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -38,10 +39,34 @@ DRIVE_DIR = Path("/content/drive/MyDrive/AnRa")
 DRIVE_ROOT = DRIVE_DIR.parent
 DRIVE_CHECKPOINTS = DRIVE_DIR / "checkpoints"
 DRIVE_IDENTITY = DRIVE_DIR / "identity"
-DRIVE_LOGS = DRIVE_DIR / "logs"
+
+
+def _shared_training_home() -> Path | None:
+    raw = os.environ.get("ANRA_SHARED_CHECKPOINT_DIR", "").strip()
+    if not raw:
+        return None
+    return Path(raw).expanduser()
+
+
+_SHARED_TRAINING_HOME = _shared_training_home()
+
+
+def _drive_logs_dir() -> Path:
+    if _SHARED_TRAINING_HOME is not None:
+        return _SHARED_TRAINING_HOME / "logs"
+    return DRIVE_DIR / "logs"
+
+
+def _drive_sessions_dir() -> Path:
+    if _SHARED_TRAINING_HOME is not None:
+        return _SHARED_TRAINING_HOME / "sessions"
+    return DRIVE_DIR / "sessions"
+
+
+DRIVE_LOGS = _drive_logs_dir()
 DRIVE_HAL_STATE = DRIVE_LOGS / "hal_state.json"
 DRIVE_MEMORY = DRIVE_DIR / "memory_db"
-DRIVE_SESSIONS = DRIVE_DIR / "sessions"
+DRIVE_SESSIONS = _drive_sessions_dir()
 DRIVE_DATA_DIR = DRIVE_DIR / "data"
 DRIVE_CODE_DIR = DRIVE_DIR / "code"
 DRIVE_TEACHER_DIR = DRIVE_DIR / "teacher"

@@ -22,7 +22,8 @@ Editor access:
 ```text
 My Drive/
 └── ANRA_T4_TRAINING_HOME/
-    ├── anra-v4-step-000000000600-full-resume.pt
+    ├── anra-v4-current-full-resume.pt
+    ├── anra-v4-current-full-resume.json
     ├── v4_phase_a_170m_seed1301.tar.gz.part00
     ├── v4_phase_a_170m_seed1301.tar.gz.part01
     ├── AN_RA_T4_PROTECTED_TRAINER_V4.ipynb
@@ -38,7 +39,9 @@ sampler state. The complete folder is approximately 2.16 GB.
 Keep at least 4.5 GiB free during training because checkpoint replacement
 briefly requires the current checkpoint and one hidden in-progress upload. At
 rest, `ANRA_T4_TRAINING_HOME` contains exactly one portable full-resume `.pt`
-checkpoint.
+checkpoint and one tiny JSON record of its verified step and digest. The `.pt`
+filename stays stable across updates, so Drive keeps one checkpoint object
+instead of putting old multi-gigabyte checkpoint names into the Bin.
 
 Colab's local scratch outbox remains content-addressed for validation and retry,
 but those internal chunks are never published into Drive. A replacement is
@@ -65,10 +68,10 @@ V4 checkpoint, verified data pack, owner-private signing keys, and signed token
 window.
 
 The notebook accepts assets only when they are directly inside one mounted
-`ANRA_T4_TRAINING_HOME`. It selects the highest-step file matching
-`anra-v4-step-*-full-resume.pt`, copies it to local scratch, and verifies the
-copy's SHA-256 before training. It no longer searches the entire Drive or falls
-back to an emergency, baseline, or chunked checkpoint from another location.
+`ANRA_T4_TRAINING_HOME`. It uses the stable current checkpoint and its verified
+step record, copies it to local scratch, and verifies the copy's SHA-256 before
+training. It retains a one-time compatibility path for an older step-named
+checkpoint, but new runs never create step-named Drive checkpoint files.
 
 ## Taking over after a disconnection
 

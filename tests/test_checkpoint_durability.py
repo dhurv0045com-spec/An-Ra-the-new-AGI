@@ -125,7 +125,7 @@ def test_mounted_drive_single_file_replaces_only_after_verification(
 
         first_files = list(replica.root.glob("*.pt"))
         assert [path.name for path in first_files] == [
-            "anra-v4-step-000000000100-full-resume.pt"
+            "anra-v4-current-full-resume.pt"
         ]
         assert first_files[0].read_bytes() == first_payload
         assert not list(replica.root.rglob("*.chunk"))
@@ -144,9 +144,13 @@ def test_mounted_drive_single_file_replaces_only_after_verification(
 
     final_files = list(replica.root.glob("*.pt"))
     assert [path.name for path in final_files] == [
-        "anra-v4-step-000000000200-full-resume.pt"
+        "anra-v4-current-full-resume.pt"
     ]
     assert final_files[0].read_bytes() == second_payload
+    metadata = json.loads(
+        (replica.root / "anra-v4-current-full-resume.json").read_text(encoding="utf-8")
+    )
+    assert metadata["global_step"] == 200
     assert not list(replica.root.glob("*.uploading"))
 
 
@@ -186,7 +190,7 @@ def test_failed_single_file_replacement_preserves_previous_checkpoint(
 
     remaining = list(replica.root.glob("*.pt"))
     assert [path.name for path in remaining] == [
-        "anra-v4-step-000000000100-full-resume.pt"
+        "anra-v4-current-full-resume.pt"
     ]
     assert remaining[0].read_bytes() == first_payload
     assert not list(replica.root.glob("*.uploading"))
@@ -622,7 +626,7 @@ def test_environment_selects_single_file_drive_replica(
 
     files = list((tmp_path / "drive").glob("*.pt"))
     assert [path.name for path in files] == [
-        "anra-v4-step-000000000200-full-resume.pt"
+        "anra-v4-current-full-resume.pt"
     ]
     assert not (tmp_path / "drive" / "chunks").exists()
 

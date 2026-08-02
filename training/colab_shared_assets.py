@@ -25,6 +25,8 @@ DEFAULT_SIGNING_KEY_NAMES = (
     "training-signing-keys.json",
 )
 TRAINING_HOME_NAME = "ANRA_T4_TRAINING_HOME"
+CURRENT_FULL_RESUME_NAME = "anra-v4-current-full-resume.pt"
+CURRENT_FULL_RESUME_METADATA_NAME = "anra-v4-current-full-resume.json"
 
 
 @dataclass(frozen=True)
@@ -146,6 +148,18 @@ def _training_home_candidates(
 def _vault_step(path: Path) -> int | None:
     if not path.is_dir():
         return None
+    current = path / CURRENT_FULL_RESUME_NAME
+    current_metadata = path / CURRENT_FULL_RESUME_METADATA_NAME
+    if current.is_file() and current.stat().st_size > 0 and current_metadata.is_file():
+        try:
+            payload = json.loads(current_metadata.read_text(encoding="utf-8"))
+            step = int(payload["global_step"])
+            expected_size = int(payload["size_bytes"])
+            if step >= 0 and current.stat().st_size == expected_size:
+                return step
+        except (OSError, KeyError, TypeError, ValueError, json.JSONDecodeError):
+            pass
+
     portable_steps: list[int] = []
     prefix = "anra-v4-step-"
     suffix = "-full-resume.pt"

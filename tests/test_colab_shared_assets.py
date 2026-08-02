@@ -5,6 +5,8 @@ from pathlib import Path
 import pytest
 
 from training.colab_shared_assets import (
+    CURRENT_FULL_RESUME_METADATA_NAME,
+    CURRENT_FULL_RESUME_NAME,
     TRAINING_HOME_NAME,
     resolve_colab_training_assets,
 )
@@ -96,3 +98,21 @@ def test_prefers_recovery_signing_identity_on_recovered_lineage(tmp_path: Path) 
     assets = resolve_colab_training_assets(tmp_path)
 
     assert assets.signing_key == recovery
+
+
+def test_resolves_stable_current_checkpoint_with_verified_metadata(tmp_path: Path) -> None:
+    my_drive = tmp_path / "MyDrive"
+    home = _complete_home(my_drive / TRAINING_HOME_NAME, 100)
+    for legacy in home.glob("anra-v4-step-*-full-resume.pt"):
+        legacy.unlink()
+    current = home / CURRENT_FULL_RESUME_NAME
+    current.write_bytes(b"checkpoint-current")
+    (home / CURRENT_FULL_RESUME_METADATA_NAME).write_text(
+        '{"global_step": 1657, "size_bytes": 18}',
+        encoding="utf-8",
+    )
+
+    assets = resolve_colab_training_assets(tmp_path)
+
+    assert assets.training_home == home
+    assert assets.vault_step == 1657
