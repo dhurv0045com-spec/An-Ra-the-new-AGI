@@ -1251,6 +1251,44 @@ class MonolithicFilesystemReplica:
             return None
         return payload
 
+    @staticmethod
+    def _metadata_backs_checkpoint(
+        metadata: Mapping[str, object],
+        checkpoint: Path,
+    ) -> bool:
+        """Return whether a Drive pointer is proven by its actual file.
+
+        Drive can expose the replaced ``.pt`` and its small JSON pointer out of
+        order.  A larger step written only in JSON must never block a real
+        checkpoint from being published or cause the next session to repeat
+        training from an older payload.
+        """
+
+        if not checkpoint.is_file():
+            return False
+        try:
+            expected_size = int(metadata["size_bytes"])
+            expected_digest = str(metadata["sha256"])
+        except (KeyError, TypeError, ValueError):
+            return False
+        if expected_size <= 0 or len(expected_digest) != 64:
+            return False
+        if checkpoint.stat().st_size != expected_size:
+            return False
+        if sha256_file(checkpoint) != expected_digest:
+            return False
+        try:
+            payload = torch.load(checkpoint, map_location="cpu", weights_only=False)
+            payload_step = int(
+                payload.get("global_step", payload.get("step", -1))
+            ) if isinstance(payload, Mapping) else -1
+        except Exception:
+            # A corrupt or legacy payload cannot establish a newer canonical
+            # state. The replacement path below will only publish a fully
+            # verified new checkpoint.
+            return False
+        return payload_step == int(metadata.get("global_step", -1))
+
     def _publish_metadata(
         self,
         artifact_class: ArtifactClass,
@@ -1323,7 +1361,14 @@ class MonolithicFilesystemReplica:
         newer = [step for step, _path in existing if step > ref.global_step]
         current = self._current_metadata(artifact_class)
         if current is not None and int(current["global_step"]) > ref.global_step:
-            newer.append(int(current["global_step"]))
+            # A pointer cannot outrank an actual checkpoint until its size and
+            # digest prove that both files describe the same publication.
+            # This reconciles the exact Drive split-brain state that otherwise
+            # restarts Colab from an old payload forever.
+            if self._metadata_backs_checkpoint(current, target):
+                newer.append(int(current["global_step"]))
+            else:
+                current = None
         if newer:
             raise PublicationError(
                 f"Refusing to rewind {self.name} from step "

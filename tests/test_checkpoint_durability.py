@@ -208,6 +208,35 @@ def test_mounted_drive_fences_another_training_session(tmp_path: Path) -> None:
     assert not list(root.glob("*.session-lease.json"))
 
 
+def test_mounted_drive_reconciles_stale_future_pointer_from_actual_payload(
+    tmp_path: Path,
+) -> None:
+    """A JSON-only future step must not trap every resume at an older payload."""
+    checkpoint = tmp_path / "checkpoint.pt"
+    torch.save({"global_step": 7600}, checkpoint)
+    outbox = CheckpointOutbox(tmp_path / "outbox", chunk_size_bytes=1024)
+    replica = MonolithicFilesystemReplica("drive-vault", tmp_path / "drive")
+    first = outbox.register_checkpoint(checkpoint, lineage=_lineage(7600))
+    publisher = SnapshotPublisher(outbox, [replica])
+    try:
+        publisher.submit(first)
+        publisher.wait_for(first, DurabilityState.PROTECTED, timeout_seconds=10)
+    finally:
+        publisher.close(wait=True)
+
+    pointer_path = replica.root / "anra-v4-current-full-resume.json"
+    stale_pointer = json.loads(pointer_path.read_text(encoding="utf-8"))
+    stale_pointer["global_step"] = 7845
+    pointer_path.write_text(json.dumps(stale_pointer), encoding="utf-8")
+
+    torch.save({"global_step": 7799}, checkpoint)
+    replacement = outbox.register_checkpoint(checkpoint, lineage=_lineage(7799))
+    replica.publish_manifest(replacement, replacement.manifest_path.read_bytes())
+
+    recovered_pointer = json.loads(pointer_path.read_text(encoding="utf-8"))
+    assert recovered_pointer["global_step"] == 7799
+
+
 def test_failed_single_file_replacement_preserves_previous_checkpoint(
     tmp_path: Path,
 ) -> None:
