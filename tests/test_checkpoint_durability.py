@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import os
+import time
 from pathlib import Path
 
 import pytest
@@ -152,6 +154,58 @@ def test_mounted_drive_single_file_replaces_only_after_verification(
     )
     assert metadata["global_step"] == 200
     assert not list(replica.root.glob("*.uploading"))
+
+
+def test_mounted_drive_rejects_second_live_canonical_writer(tmp_path: Path) -> None:
+    checkpoint = tmp_path / "checkpoint.pt"
+    _checkpoint(checkpoint, 4_096)
+    outbox = CheckpointOutbox(tmp_path / "outbox", chunk_size_bytes=1024)
+    ref = outbox.register_checkpoint(checkpoint, lineage=_lineage(100))
+    replica = MonolithicFilesystemReplica("drive-vault", tmp_path / "drive")
+    replica.root.mkdir(parents=True)
+    lease = replica._writer_lease_path(ArtifactClass.FULL_RESUME)
+    lease.write_text('{"token": "another-writer"}\n', encoding="utf-8")
+
+    with pytest.raises(PublicationError, match="Another canonical writer"):
+        replica.publish_manifest(ref, ref.manifest_path.read_bytes())
+
+    assert not list(replica.root.glob("*.pt"))
+
+
+def test_mounted_drive_reclaims_expired_writer_lease(tmp_path: Path) -> None:
+    checkpoint = tmp_path / "checkpoint.pt"
+    expected = _checkpoint(checkpoint, 4_096)
+    outbox = CheckpointOutbox(tmp_path / "outbox", chunk_size_bytes=1024)
+    ref = outbox.register_checkpoint(checkpoint, lineage=_lineage(100))
+    replica = MonolithicFilesystemReplica("drive-vault", tmp_path / "drive")
+    replica.root.mkdir(parents=True)
+    lease = replica._writer_lease_path(ArtifactClass.FULL_RESUME)
+    lease.write_text('{"token": "abandoned"}\n', encoding="utf-8")
+    expired = time.time() - 4 * 60 * 60
+    os.utime(lease, (expired, expired))
+
+    replica.publish_manifest(ref, ref.manifest_path.read_bytes())
+
+    target = replica.root / "anra-v4-current-full-resume.pt"
+    assert target.read_bytes() == expected
+    assert not lease.exists()
+
+
+def test_mounted_drive_fences_another_training_session(tmp_path: Path) -> None:
+    root = tmp_path / "drive"
+    first = MonolithicFilesystemReplica("drive-vault", root, canonical=True)
+    second = MonolithicFilesystemReplica("drive-vault", root, canonical=True)
+
+    first.acquire_writer_session()
+    try:
+        with pytest.raises(PublicationError, match="Another canonical training session"):
+            second.acquire_writer_session()
+    finally:
+        first.release_writer_session()
+
+    second.acquire_writer_session()
+    second.release_writer_session()
+    assert not list(root.glob("*.session-lease.json"))
 
 
 def test_failed_single_file_replacement_preserves_previous_checkpoint(

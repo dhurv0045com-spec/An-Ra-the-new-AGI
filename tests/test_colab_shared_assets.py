@@ -143,7 +143,7 @@ def test_resolves_stable_current_checkpoint_with_verified_metadata(tmp_path: Pat
 
 
 def test_discovers_current_checkpoint_when_drive_metadata_is_stale(tmp_path: Path) -> None:
-    """The notebook, not discovery, performs the expensive content repair."""
+    """The trainer verifies bytes; its next writer-leased save refreshes metadata."""
     my_drive = tmp_path / "MyDrive"
     home = _complete_home(my_drive / TRAINING_HOME_NAME, 100)
     for legacy in home.glob("anra-v4-step-*-full-resume.pt"):
