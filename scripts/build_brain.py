@@ -46,6 +46,7 @@ from training.anra_optimizer import (
 from training.cdr import CorrectedFailureCurriculum
 from training.checkpoint_durability import (
     CheckpointDurabilitySession,
+    DurabilityState,
     build_checkpoint_lineage,
 )
 from training.continual import assess_continual_readiness, ewc_penalty
@@ -1595,10 +1596,21 @@ def train_anra_v2(
         payload: dict[str, object],
         *,
         final: bool = False,
+        require_protection: bool = False,
     ) -> None:
         if durability.enabled:
             ref = durability.publish_checkpoint(ckpt_path, payload, final=final)
             if ref is not None:
+                if require_protection:
+                    if durability.publisher is None:
+                        raise RuntimeError(
+                            "Recovery checkpoint requires an active durability publisher"
+                        )
+                    durability.publisher.wait_for(
+                        ref,
+                        DurabilityState.PROTECTED,
+                        timeout_seconds=durability.ack_timeout_seconds,
+                    )
                 status = json.loads(
                     durability.outbox.status_path(ref.snapshot_id).read_text(
                         encoding="utf-8"
@@ -2052,6 +2064,17 @@ def train_anra_v2(
         # caps cannot be relaxed by a stale notebook environment.
         checkpoint_every_seconds = min(checkpoint_every_seconds, 60 * 60)
         durable_checkpoint_steps = min(durable_checkpoint_steps, 200)
+    recovery_checkpoint_at = int(
+        os.environ.get("ANRA_RECOVERY_DURABLE_STEP", "0") or 0
+    )
+    if recovery_checkpoint_at <= initial_step:
+        recovery_checkpoint_at = 0
+    if recovery_checkpoint_at:
+        print(
+            "[Recovery] forcing a protected checkpoint at step "
+            f"{recovery_checkpoint_at} before ordinary continuation.",
+            flush=True,
+        )
     next_checkpoint_at = time.time() + checkpoint_every_seconds
     optimizer.zero_grad(set_to_none=True)
     rolling_loss = 0.0
@@ -2596,10 +2619,15 @@ def train_anra_v2(
                     finally:
                         model.train(was_training)
 
+                recovery_boundary = (
+                    recovery_checkpoint_at > 0
+                    and global_step >= recovery_checkpoint_at
+                )
                 if (
                     durability.requires_initial_boundary
                     or global_step % durable_checkpoint_steps == 0
                     or time.time() >= next_checkpoint_at
+                    or recovery_boundary
                 ):
                     payload = _build_checkpoint_payload(
                         model=model,
@@ -2635,7 +2663,12 @@ def train_anra_v2(
                         growth_provenance=growth_provenance,
                     )
                     atomic_save(payload, ckpt_path, drive_dir=None)
-                    _publish_training_checkpoint(payload)
+                    _publish_training_checkpoint(
+                        payload,
+                        require_protection=recovery_boundary,
+                    )
+                    if recovery_boundary:
+                        recovery_checkpoint_at = 0
                     if device.type == "cuda":
                         torch.cuda.empty_cache()
                     try:
