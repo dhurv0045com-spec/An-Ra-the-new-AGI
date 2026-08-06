@@ -14,8 +14,8 @@ boundary (and avoids filling Drive's Bin when retired names are removed).
 
 from __future__ import annotations
 
-import atexit
 import argparse
+import atexit
 import contextlib
 import datetime as dt
 import hashlib
@@ -1125,7 +1125,7 @@ class MonolithicFilesystemReplica:
                 raise PublicationError(
                     f"Another canonical training session owns {path.name}; "
                     "use verify_only or wait for that session to finish"
-                )
+                ) from None
             with contextlib.suppress(FileNotFoundError):
                 path.unlink()
             descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL)
@@ -1188,7 +1188,7 @@ class MonolithicFilesystemReplica:
                     raise PublicationError(
                         f"Another canonical writer holds {path.name}; "
                         "do not run two canonical_trainer notebooks at once"
-                    )
+                    ) from None
                 # The previous session has exceeded the maximum supported
                 # handoff interval.  Reclaim its abandoned lease and retry the
                 # atomic acquisition exactly once.
