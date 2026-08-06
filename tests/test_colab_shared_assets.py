@@ -140,3 +140,22 @@ def test_resolves_stable_current_checkpoint_with_verified_metadata(tmp_path: Pat
 
     assert assets.training_home == home
     assert assets.vault_step == 1657
+
+
+def test_discovers_current_checkpoint_when_drive_metadata_is_stale(tmp_path: Path) -> None:
+    """The notebook, not discovery, performs the expensive content repair."""
+    my_drive = tmp_path / "MyDrive"
+    home = _complete_home(my_drive / TRAINING_HOME_NAME, 100)
+    for legacy in home.glob("anra-v4-step-*-full-resume.pt"):
+        legacy.unlink()
+    current = home / CURRENT_FULL_RESUME_NAME
+    current.write_bytes(b"checkpoint-current-replaced")
+    (home / CURRENT_FULL_RESUME_METADATA_NAME).write_text(
+        '{"global_step": 1700, "size_bytes": 18, "sha256": "stale"}',
+        encoding="utf-8",
+    )
+
+    assets = resolve_colab_training_assets(tmp_path)
+
+    assert assets.training_home == home
+    assert assets.vault_step == 1700

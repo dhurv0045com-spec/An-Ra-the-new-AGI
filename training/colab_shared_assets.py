@@ -189,6 +189,14 @@ def _vault_step(path: Path) -> int | None:
             expected_size = int(payload["size_bytes"])
             if step >= 0 and current.stat().st_size == expected_size:
                 return step
+            if step >= 0:
+                # Google Drive's folder-shortcut FUSE can expose a completed
+                # replacement checkpoint before its tiny metadata file catches
+                # up.  The Colab notebook hashes and structurally loads this
+                # file before it repairs that stale record; refusing discovery
+                # here would make a recoverable metadata drift look like a
+                # missing shared folder.
+                return step
         except (OSError, KeyError, TypeError, ValueError, json.JSONDecodeError):
             pass
 
