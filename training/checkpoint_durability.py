@@ -14,6 +14,7 @@ boundary (and avoids filling Drive's Bin when retired names are removed).
 
 from __future__ import annotations
 
+import atexit
 import argparse
 import contextlib
 import datetime as dt
@@ -24,6 +25,7 @@ import queue
 import shutil
 import threading
 import time
+import uuid
 from collections.abc import Iterable, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
@@ -40,6 +42,8 @@ DEFAULT_MAX_COPY_STREAMS = 2
 HOT_STORAGE_LIMIT_BYTES = 12 * 1024**3
 DEFAULT_KEEP_FULL = 2
 DEFAULT_KEEP_COMPACT = 2
+MONOLITHIC_WRITER_LEASE_SECONDS = 3 * 60 * 60
+MONOLITHIC_SESSION_LEASE_SECONDS = 6 * 60 * 60
 
 FULL_RESUME = "full_resume"
 FP16_INFERENCE = "fp16_inference"
@@ -1076,6 +1080,142 @@ class MonolithicFilesystemReplica:
     def _metadata_path(self, artifact_class: ArtifactClass) -> Path:
         return self.root / f"anra-v4-current-{self._suffix(artifact_class)}.json"
 
+    def _writer_lease_path(self, artifact_class: ArtifactClass) -> Path:
+        """Return the single-writer lease next to the portable checkpoint.
+
+        Google Drive's mounted filesystem is shared by every authorized Colab
+        session.  Atomic replacement protects readers from a partial file, but
+        it does not stop two writers from interleaving a replacement and its
+        accompanying pointer.  The lease covers that whole pair.
+        """
+
+        checkpoint = self._checkpoint_path(artifact_class, 0)
+        return checkpoint.with_name(f".{checkpoint.name}.writer-lease.json")
+
+    def _session_lease_path(self, artifact_class: ArtifactClass) -> Path:
+        checkpoint = self._checkpoint_path(artifact_class, 0)
+        return checkpoint.with_name(f".{checkpoint.name}.session-lease.json")
+
+    def acquire_writer_session(self) -> None:
+        """Fence the canonical trainer for the lifetime of one session.
+
+        The checkpoint-level lease prevents byte/pointer interleaving. This
+        longer lease prevents a second Colab from training an older branch for
+        an hour and only discovering the rewind at its next checkpoint.
+        """
+
+        self.root.mkdir(parents=True, exist_ok=True)
+        path = self._session_lease_path(ArtifactClass.FULL_RESUME)
+        token = uuid.uuid4().hex
+        payload = {
+            "schema_version": 1,
+            "token": token,
+            "owner_pid": os.getpid(),
+            "created_at": _utc_timestamp(),
+            "created_epoch_seconds": time.time(),
+        }
+        try:
+            descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL)
+        except FileExistsError:
+            try:
+                age_seconds = max(0.0, time.time() - path.stat().st_mtime)
+            except OSError:
+                age_seconds = 0.0
+            if age_seconds < MONOLITHIC_SESSION_LEASE_SECONDS:
+                raise PublicationError(
+                    f"Another canonical training session owns {path.name}; "
+                    "use verify_only or wait for that session to finish"
+                )
+            with contextlib.suppress(FileNotFoundError):
+                path.unlink()
+            descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL)
+        with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+            handle.write(json.dumps(payload, sort_keys=True) + "\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        self._session_lease_token = token
+
+    def release_writer_session(self) -> None:
+        token = getattr(self, "_session_lease_token", None)
+        if not token:
+            return
+        path = self._session_lease_path(ArtifactClass.FULL_RESUME)
+        try:
+            current = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            current = None
+        if isinstance(current, dict) and current.get("token") == token:
+            with contextlib.suppress(FileNotFoundError):
+                path.unlink()
+        self._session_lease_token = None
+
+    @contextlib.contextmanager
+    def _writer_lease(
+        self,
+        artifact_class: ArtifactClass,
+        ref: SnapshotRef,
+    ) -> Iterable[None]:
+        """Acquire a cross-process lease before changing a Drive checkpoint.
+
+        ``O_EXCL`` works on the Colab-mounted Drive used by the supported
+        notebook.  A lease outliving three hours is treated as abandoned: a
+        stopped Colab must not permanently prevent a later handoff.  The token
+        check on release prevents an old, expired owner from deleting a newer
+        owner's lease.
+        """
+
+        self.root.mkdir(parents=True, exist_ok=True)
+        path = self._writer_lease_path(artifact_class)
+        token = uuid.uuid4().hex
+        payload = {
+            "schema_version": 1,
+            "token": token,
+            "snapshot_id": ref.snapshot_id,
+            "global_step": ref.global_step,
+            "created_at": _utc_timestamp(),
+            "created_epoch_seconds": time.time(),
+        }
+        acquired = False
+        for _attempt in range(2):
+            try:
+                descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL)
+            except FileExistsError:
+                try:
+                    age_seconds = max(0.0, time.time() - path.stat().st_mtime)
+                except OSError:
+                    continue
+                if age_seconds < MONOLITHIC_WRITER_LEASE_SECONDS:
+                    raise PublicationError(
+                        f"Another canonical writer holds {path.name}; "
+                        "do not run two canonical_trainer notebooks at once"
+                    )
+                # The previous session has exceeded the maximum supported
+                # handoff interval.  Reclaim its abandoned lease and retry the
+                # atomic acquisition exactly once.
+                with contextlib.suppress(FileNotFoundError):
+                    path.unlink()
+                continue
+            with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+                handle.write(json.dumps(payload, sort_keys=True) + "\n")
+                handle.flush()
+                os.fsync(handle.fileno())
+            acquired = True
+            break
+        if not acquired:
+            raise PublicationError(f"Unable to acquire canonical writer lease: {path}")
+
+        try:
+            yield
+        finally:
+            # Never remove a lease that was reclaimed by a newer writer.
+            try:
+                current = json.loads(path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                current = None
+            if isinstance(current, dict) and current.get("token") == token:
+                with contextlib.suppress(FileNotFoundError):
+                    path.unlink()
+
     def _checkpoint_glob(self, artifact_class: ArtifactClass) -> str:
         return f"anra-v4-step-*-{self._suffix(artifact_class)}.pt"
 
@@ -1163,6 +1303,15 @@ class MonolithicFilesystemReplica:
 
     def publish_manifest(self, ref: SnapshotRef, manifest_bytes: bytes) -> Path:
         manifest = json.loads(manifest_bytes)
+        artifact_class = ArtifactClass(str(manifest["artifact_class"]))
+        with self._writer_lease(artifact_class, ref):
+            return self._publish_manifest_locked(ref, manifest)
+
+    def _publish_manifest_locked(
+        self,
+        ref: SnapshotRef,
+        manifest: Mapping[str, object],
+    ) -> Path:
         artifact_class = ArtifactClass(str(manifest["artifact_class"]))
         source = dict(manifest["source"])
         expected_size = int(source["size_bytes"])
@@ -1372,12 +1521,31 @@ class SnapshotPublisher:
         self._submitted: set[str] = set()
         self._condition = threading.Condition()
         self._closed = False
+        self._session_lease_replicas: list[MonolithicFilesystemReplica] = []
+        try:
+            for replica in self.replicas:
+                if isinstance(replica, MonolithicFilesystemReplica) and replica.canonical:
+                    replica.acquire_writer_session()
+                    self._session_lease_replicas.append(replica)
+        except Exception:
+            for replica in self._session_lease_replicas:
+                replica.release_writer_session()
+            raise
         self._worker = threading.Thread(
             target=self._run,
             name="anra-checkpoint-publisher",
             daemon=True,
         )
+        # An uncaught training exception still must not strand the session
+        # fence until its expiry.  Normal close() is idempotent; this callback
+        # is the crash-path cleanup.
+        atexit.register(self._release_session_leases)
         self._worker.start()
+
+    def _release_session_leases(self) -> None:
+        for replica in self._session_lease_replicas:
+            replica.release_writer_session()
+        self._session_lease_replicas.clear()
 
     def submit(self, ref: SnapshotRef) -> None:
         with self._condition:
@@ -1446,6 +1614,7 @@ class SnapshotPublisher:
             ref = self._queue.get()
             try:
                 if ref is None:
+                    self._release_session_leases()
                     return
                 try:
                     result = self.publish_snapshot(ref)
@@ -1684,6 +1853,7 @@ class SnapshotPublisher:
             self._queue.put(None)
         if wait:
             self._worker.join(timeout=timeout_seconds)
+            self._release_session_leases()
 
 
 def _build_replica(
