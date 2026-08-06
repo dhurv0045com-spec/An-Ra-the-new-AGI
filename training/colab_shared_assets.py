@@ -68,16 +68,32 @@ def mounted_training_roots(
     """
 
     mount = Path(mount_root)
-    my_drive = mount / "MyDrive"
-    roots: list[Path] = [
-        my_drive / "AnRa" / "cluster",
-        my_drive / "AnRa",
-        my_drive,
-    ]
-    roots.extend(_bounded_directories(my_drive))
+    # Colab normally calls this ``MyDrive``, while some Drive mounts expose
+    # ``My Drive``.  More importantly, a folder shortcut is not required to
+    # preserve the source folder's name: the owner can rename it when adding
+    # it to My Drive.  Treat direct folders as discovery roots and validate
+    # their *contents* later, instead of relying on the shortcut label.
+    my_drives = (mount / "MyDrive", mount / "My Drive")
+    roots: list[Path] = []
+    for my_drive in my_drives:
+        roots.extend(
+            [
+                my_drive / "AnRa" / "cluster",
+                my_drive / "AnRa",
+                my_drive,
+            ]
+        )
+        roots.extend(_bounded_directories(my_drive))
 
-    shortcut_root = mount / ".shortcut-targets-by-id"
-    shortcut_targets = _bounded_directories(shortcut_root)
+    # Depending on the Drive FUSE version, shortcut targets may be exposed
+    # beside MyDrive or inside it.  Probe both layouts.  These opaque target
+    # directories deliberately bypass name matching below.
+    shortcut_targets: list[Path] = []
+    for shortcut_root in (
+        mount / ".shortcut-targets-by-id",
+        *(my_drive / ".shortcut-targets-by-id" for my_drive in my_drives),
+    ):
+        shortcut_targets.extend(_bounded_directories(shortcut_root))
     roots.extend(shortcut_targets)
     for target in shortcut_targets:
         roots.extend(
@@ -120,15 +136,23 @@ def _training_home_candidates(
     roots: Iterable[Path],
 ) -> tuple[Path, ...]:
     mount = Path(mount_root)
-    my_drive = mount / "MyDrive"
-    candidates: list[Path] = [
-        my_drive / TRAINING_HOME_NAME,
-        my_drive / "AnRa" / TRAINING_HOME_NAME,
-    ]
+    my_drives = (mount / "MyDrive", mount / "My Drive")
+    candidates: list[Path] = []
+    for my_drive in my_drives:
+        candidates.extend(
+            [
+                my_drive / TRAINING_HOME_NAME,
+                my_drive / "AnRa" / TRAINING_HOME_NAME,
+            ]
+        )
     for root in roots:
         if root.name == TRAINING_HOME_NAME:
             candidates.append(root)
         candidates.append(root / TRAINING_HOME_NAME)
+        # A direct My Drive folder can be a renamed Drive shortcut.  It is
+        # safe to try it because a candidate is only accepted after all
+        # required checkpoint, pack, and signing-key checks pass.
+        candidates.append(root)
         normalised = root.as_posix().lower()
         if "/.shortcut-targets-by-id/" in normalised:
             # A shortcut target is mounted under its opaque Drive ID rather
@@ -238,6 +262,12 @@ def resolve_colab_training_assets(
             ),
             None,
         )
+        # A canonical training session cannot safely create or publish a
+        # checkpoint without its signing identity.  Reject an otherwise
+        # plausible folder here so a wrong Drive shortcut produces one clear
+        # discovery error rather than failing much later in the notebook.
+        if require_pack_parts and signing_key is None:
+            continue
         homes.append((step, candidate, parts, signing_key))
 
     if not homes:

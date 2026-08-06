@@ -49,6 +49,30 @@ def test_resolves_complete_training_home_from_shortcut_target(tmp_path: Path) ->
     assert assets.signing_key == newest / "anra-v4-recovery-signing-keys.json"
 
 
+def test_resolves_renamed_direct_my_drive_shortcut(tmp_path: Path) -> None:
+    """Drive shortcuts may have an owner-chosen label instead of our name."""
+    my_drive = tmp_path / "MyDrive"
+    shortcut = _complete_home(my_drive / "Training checkpoint shortcut", 700)
+
+    assets = resolve_colab_training_assets(tmp_path)
+
+    assert assets.training_home == shortcut
+    assert assets.vault_step == 700
+
+
+def test_resolves_shortcut_targets_inside_mydrive_layout(tmp_path: Path) -> None:
+    my_drive = tmp_path / "MyDrive"
+    target = _complete_home(
+        my_drive / ".shortcut-targets-by-id" / "shared-folder-id",
+        800,
+    )
+
+    assets = resolve_colab_training_assets(tmp_path)
+
+    assert assets.training_home == target
+    assert assets.vault_step == 800
+
+
 def test_rejects_assets_scattered_outside_training_home(tmp_path: Path) -> None:
     my_drive = tmp_path / "MyDrive"
     my_drive.mkdir()
