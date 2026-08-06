@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import os
+import time
 from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
@@ -152,7 +153,14 @@ def _training_home_candidates(
         # A direct My Drive folder can be a renamed Drive shortcut.  It is
         # safe to try it because a candidate is only accepted after all
         # required checkpoint, pack, and signing-key checks pass.
-        candidates.append(root)
+        if root.name not in {
+            "MyDrive",
+            "My Drive",
+            "AnRa",
+            "cluster",
+            ".shortcut-targets-by-id",
+        }:
+            candidates.append(root)
         normalised = root.as_posix().lower()
         if "/.shortcut-targets-by-id/" in normalised:
             # A shortcut target is mounted under its opaque Drive ID rather
@@ -242,40 +250,56 @@ def resolve_colab_training_assets(
     pack_names: Iterable[str] = DEFAULT_PACK_PARTS,
     require_writable_vault: bool = True,
     require_pack_parts: bool = True,
+    discovery_timeout_seconds: float = 20.0,
 ) -> ColabTrainingAssets:
-    roots = mounted_training_roots(mount_root)
+    # Drive FUSE can mount before it has indexed newly added folder shortcuts.
+    # Refresh a bounded set of locations for a short period instead of making
+    # the operator restart Colab or repeatedly rerun a cell.
+    deadline = time.monotonic() + max(0.0, float(discovery_timeout_seconds))
     homes: list[tuple[int, Path, tuple[Path, ...], Path | None]] = []
-    for candidate in _training_home_candidates(mount_root, roots):
-        step = _vault_step(candidate)
-        if step is None:
-            continue
-        parts = tuple(candidate / name for name in pack_names)
-        if require_pack_parts and not all(path.is_file() for path in parts):
-            continue
-        if not require_pack_parts:
-            parts = tuple(path for path in parts if path.is_file())
-        signing_key = next(
-            (
-                candidate / key_name
-                for key_name in DEFAULT_SIGNING_KEY_NAMES
-                if (candidate / key_name).is_file()
-            ),
-            None,
-        )
-        # A canonical training session cannot safely create or publish a
-        # checkpoint without its signing identity.  Reject an otherwise
-        # plausible folder here so a wrong Drive shortcut produces one clear
-        # discovery error rather than failing much later in the notebook.
-        if require_pack_parts and signing_key is None:
-            continue
-        homes.append((step, candidate, parts, signing_key))
+    last_candidates: tuple[Path, ...] = ()
+    while True:
+        roots = mounted_training_roots(mount_root)
+        last_candidates = _training_home_candidates(mount_root, roots)
+        homes = []
+        for candidate in last_candidates:
+            step = _vault_step(candidate)
+            if step is None:
+                continue
+            parts = tuple(candidate / name for name in pack_names)
+            if require_pack_parts and not all(path.is_file() for path in parts):
+                continue
+            if not require_pack_parts:
+                parts = tuple(path for path in parts if path.is_file())
+            signing_key = next(
+                (
+                    candidate / key_name
+                    for key_name in DEFAULT_SIGNING_KEY_NAMES
+                    if (candidate / key_name).is_file()
+                ),
+                None,
+            )
+            # A canonical training session cannot safely create or publish a
+            # checkpoint without its signing identity.  Reject an otherwise
+            # plausible folder here so a wrong Drive shortcut produces one
+            # clear discovery error rather than failing later in the notebook.
+            if require_pack_parts and signing_key is None:
+                continue
+            homes.append((step, candidate, parts, signing_key))
+        if homes or time.monotonic() >= deadline:
+            break
+        time.sleep(min(2.0, max(0.0, deadline - time.monotonic())))
 
     if not homes:
+        visible = [str(path) for path in last_candidates if path.exists()][:12]
+        visible_text = ", ".join(visible) if visible else "none"
         raise FileNotFoundError(
             f"No complete {TRAINING_HOME_NAME} folder is visible in mounted Drive. "
             "The folder must directly contain one portable full-resume checkpoint, "
             "both V4 data-pack parts, and the campaign signing key. Share that one "
-            "folder with Editor access and add its shortcut to My Drive."
+            "folder with Editor access and add its shortcut to My Drive. "
+            f"After waiting {max(0.0, float(discovery_timeout_seconds)):.0f}s, "
+            f"visible candidate paths were: {visible_text}."
         )
     vault_step, training_home, pack_parts, signing_key = max(
         homes,

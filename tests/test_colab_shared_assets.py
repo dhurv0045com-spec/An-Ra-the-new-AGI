@@ -81,7 +81,7 @@ def test_rejects_assets_scattered_outside_training_home(tmp_path: Path) -> None:
         (my_drive / name).write_bytes(b"pack")
 
     with pytest.raises(FileNotFoundError, match=TRAINING_HOME_NAME):
-        resolve_colab_training_assets(tmp_path)
+        resolve_colab_training_assets(tmp_path, discovery_timeout_seconds=0)
 
 
 def test_can_inspect_training_home_without_pack_parts(tmp_path: Path) -> None:
