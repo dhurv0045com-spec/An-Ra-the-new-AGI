@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -16,6 +17,7 @@ PACKS = (
     "v4_phase_a_170m_seed1301.tar.gz.part00",
     "v4_phase_a_170m_seed1301.tar.gz.part01",
 )
+ROOT = Path(__file__).resolve().parents[1]
 
 
 def _complete_home(path: Path, step: int) -> Path:
@@ -159,3 +161,15 @@ def test_discovers_current_checkpoint_when_drive_metadata_is_stale(tmp_path: Pat
 
     assert assets.training_home == home
     assert assets.vault_step == 1700
+
+
+def test_protected_notebook_defaults_to_a_sequential_canonical_handoff() -> None:
+    notebook_path = ROOT / "notebooks" / "AN_RA_T4_PROTECTED_TRAINER_V4.ipynb"
+    notebook = json.loads(notebook_path.read_text(encoding="utf-8"))
+    source = "\n".join("".join(cell.get("source", [])) for cell in notebook["cells"])
+    final_cell = "".join(notebook["cells"][-1].get("source", []))
+
+    assert 'WORKER_ROLE = "canonical_trainer"' in source
+    assert "Verification complete" not in final_cell
+    assert "SystemExit" not in final_cell
+    assert "ANRA_DURABLE_CHECKPOINT_STEPS'] = '200'" in final_cell
