@@ -43,7 +43,11 @@ HOT_STORAGE_LIMIT_BYTES = 12 * 1024**3
 DEFAULT_KEEP_FULL = 2
 DEFAULT_KEEP_COMPACT = 2
 MONOLITHIC_WRITER_LEASE_SECONDS = 3 * 60 * 60
-MONOLITHIC_SESSION_LEASE_SECONDS = 6 * 60 * 60
+# A process-wide session lease fences concurrent canonical trainers.  It is
+# refreshed in the publisher, so a crashed/preempted Colab clears naturally
+# instead of blocking its replacement for the remainder of the day.
+MONOLITHIC_SESSION_LEASE_SECONDS = 15 * 60
+MONOLITHIC_SESSION_HEARTBEAT_SECONDS = 60
 
 FULL_RESUME = "full_resume"
 FP16_INFERENCE = "fp16_inference"
@@ -1149,6 +1153,39 @@ class MonolithicFilesystemReplica:
                 path.unlink()
         self._session_lease_token = None
 
+    def refresh_writer_session(self) -> None:
+        """Refresh this process's canonical-session lease.
+
+        The token check is essential: an old Colab must never revive a lease
+        that has expired and been claimed by a replacement worker.
+        """
+
+        token = getattr(self, "_session_lease_token", None)
+        if not token:
+            return
+        path = self._session_lease_path(ArtifactClass.FULL_RESUME)
+        try:
+            current = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            current = None
+        if not isinstance(current, dict) or current.get("token") != token:
+            self._session_lease_token = None
+            raise PublicationError(
+                "Canonical training session lease was lost; stop this worker "
+                "before it can publish an un-fenced checkpoint"
+            )
+        current["heartbeat_at"] = _utc_timestamp()
+        current["heartbeat_epoch_seconds"] = time.time()
+        temporary = path.with_suffix(path.suffix + ".refreshing")
+        try:
+            temporary.write_text(
+                json.dumps(current, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            os.replace(temporary, path)
+        finally:
+            temporary.unlink(missing_ok=True)
+
     @contextlib.contextmanager
     def _writer_lease(
         self,
@@ -1566,6 +1603,7 @@ class SnapshotPublisher:
         self._submitted: set[str] = set()
         self._condition = threading.Condition()
         self._closed = False
+        self._session_heartbeat_stop = threading.Event()
         self._session_lease_replicas: list[MonolithicFilesystemReplica] = []
         try:
             for replica in self.replicas:
@@ -1586,11 +1624,38 @@ class SnapshotPublisher:
         # is the crash-path cleanup.
         atexit.register(self._release_session_leases)
         self._worker.start()
+        self._session_heartbeat = threading.Thread(
+            target=self._heartbeat_session_leases,
+            name="anra-checkpoint-session-lease",
+            daemon=True,
+        )
+        self._session_heartbeat.start()
 
     def _release_session_leases(self) -> None:
+        self._session_heartbeat_stop.set()
         for replica in self._session_lease_replicas:
             replica.release_writer_session()
         self._session_lease_replicas.clear()
+
+    def _heartbeat_session_leases(self) -> None:
+        """Keep an active trainer fenced while allowing dead Colabs to expire."""
+
+        while not self._session_heartbeat_stop.wait(MONOLITHIC_SESSION_HEARTBEAT_SECONDS):
+            try:
+                for replica in tuple(self._session_lease_replicas):
+                    replica.refresh_writer_session()
+            except Exception as exc:
+                # Publication will fail closed at the next checkpoint.  Do not
+                # keep refreshing after a lost lease, because that could mask
+                # a takeover by a legitimate replacement worker.
+                self._session_heartbeat_stop.set()
+                for replica in self._session_lease_replicas:
+                    replica._session_lease_token = None
+                _emit_evidence(
+                    "checkpoint.session_lease_lost",
+                    {"error": f"{type(exc).__name__}: {exc}"},
+                )
+                return
 
     def submit(self, ref: SnapshotRef) -> None:
         with self._condition:
@@ -1680,6 +1745,10 @@ class SnapshotPublisher:
                 self._queue.task_done()
 
     def publish_snapshot(self, ref: SnapshotRef) -> PublicationResult:
+        if self._session_heartbeat_stop.is_set() and self._session_lease_replicas:
+            raise PublicationError(
+                "Canonical session lease is no longer active; refusing checkpoint publication"
+            )
         manifest = self.outbox.load_manifest(ref.snapshot_id)
         manifest_bytes = ref.manifest_path.read_bytes()
         chunks = [ChunkRecord.from_dict(dict(raw)) for raw in manifest.get("chunks", [])]

@@ -208,6 +208,23 @@ def test_mounted_drive_fences_another_training_session(tmp_path: Path) -> None:
     assert not list(root.glob("*.session-lease.json"))
 
 
+def test_active_training_session_heartbeat_prevents_expiry(tmp_path: Path) -> None:
+    root = tmp_path / "drive"
+    first = MonolithicFilesystemReplica("drive-vault", root, canonical=True)
+    second = MonolithicFilesystemReplica("drive-vault", root, canonical=True)
+
+    first.acquire_writer_session()
+    try:
+        lease = first._session_lease_path(ArtifactClass.FULL_RESUME)
+        expired = time.time() - 2 * 60 * 60
+        os.utime(lease, (expired, expired))
+        first.refresh_writer_session()
+        with pytest.raises(PublicationError, match="Another canonical training session"):
+            second.acquire_writer_session()
+    finally:
+        first.release_writer_session()
+
+
 def test_mounted_drive_reconciles_stale_future_pointer_from_actual_payload(
     tmp_path: Path,
 ) -> None:
@@ -215,7 +232,11 @@ def test_mounted_drive_reconciles_stale_future_pointer_from_actual_payload(
     checkpoint = tmp_path / "checkpoint.pt"
     torch.save({"global_step": 7600}, checkpoint)
     outbox = CheckpointOutbox(tmp_path / "outbox", chunk_size_bytes=1024)
-    replica = MonolithicFilesystemReplica("drive-vault", tmp_path / "drive")
+    replica = MonolithicFilesystemReplica(
+        "drive-vault",
+        tmp_path / "drive",
+        canonical=True,
+    )
     first = outbox.register_checkpoint(checkpoint, lineage=_lineage(7600))
     publisher = SnapshotPublisher(outbox, [replica])
     try:
