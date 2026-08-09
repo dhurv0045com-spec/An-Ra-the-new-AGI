@@ -98,9 +98,11 @@ ANRA_T4_TRAINING_HOME/
 The first Colab run creates the signed lineage after the parent checkpoint and
 SFT data are visible together. It binds their SHA-256 hashes; another account
 may read the same folder through a Drive shortcut, but must not copy or rename
-the canonical artifacts. Do **not** place `training-signing-keys.json` or any
-manifest key in that shared folder. Provide `ANRA_MANIFEST_SIGNING_KEY` through
-the Colab runtime secret/session prompt for an authorized worker only.
+the canonical artifacts. Put the owner-created
+`anra-sft-manifest-signing-key.json` in `sft-v4/`; the notebook loads its `key`
+field automatically. A Colab Secret named `ANRA_MANIFEST_SIGNING_KEY` remains
+available as a fallback. Anyone with Editor access can forge SFT evidence, so
+share this folder only with accounts you control.
 
 ## One-button GPU operation
 

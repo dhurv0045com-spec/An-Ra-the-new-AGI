@@ -36,13 +36,17 @@ trainer needs the signed train/validation split and its source receipt.
 
 ## What must *not* be in Drive
 
-- `training-signing-keys.json`, `ANRA_MANIFEST_SIGNING_KEY`, or any private key.
+- `training-signing-keys.json` or unrelated legacy private keys.
 - Duplicate checkpoint copies, `.partial` uploads, old V3/V2 artifacts, or
   chunk caches. They consume storage and can make account discovery ambiguous.
 - A second SFT folder. There is one canonical writer and one canonical folder.
 
-Put `ANRA_MANIFEST_SIGNING_KEY` in a Colab Secret (or enter it once with the
-runtime prompt). The notebook never writes that secret to Drive.
+For the trusted-account workflow, place the owner-created
+`anra-sft-manifest-signing-key.json` in the shared `sft-v4/` folder. The
+notebook loads its `key` field automatically. A Colab Secret named
+`ANRA_MANIFEST_SIGNING_KEY` remains supported as a fallback when the shared
+file is unavailable. Anyone who can edit this folder can forge SFT evidence,
+so share it only with accounts you control.
 
 ## Your only operator actions
 
