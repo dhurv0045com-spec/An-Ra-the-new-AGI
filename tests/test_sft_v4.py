@@ -202,6 +202,22 @@ def test_full_sft_needs_signed_approval_for_the_current_pilot_checkpoint(tmp_pat
         ),
         encoding="utf-8",
     )
+    (sft_root / "ready_to_sft.json").write_text(
+        json.dumps(
+            {
+                "schema": "anra-sft-readiness/v1",
+                "lineage_id": "sft-fixture",
+                "checkpoint_sha256": checkpoint_sha256,
+                "train_manifest_sha256": "c" * 64,
+                "validation_manifest_sha256": "d" * 64,
+                "global_step": 12,
+                "validation_improved": True,
+                "behavior_smoke_passed": True,
+                "full_sft_ready": True,
+            }
+        ),
+        encoding="utf-8",
+    )
     lineage = {
         "manifest_sha256": "a" * 64,
         "parent": {"base_checkpoint_sha256": "b" * 64},

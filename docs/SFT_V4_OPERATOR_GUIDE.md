@@ -118,6 +118,7 @@ ANRA_T4_TRAINING_HOME/sft-v4/
   anra-v4-current-full-resume.pt
   anra-v4-current-full-resume.json
   latest_sft_report.json
+  ready_to_sft.json
 ```
 
 The foundation `anra-v4-current-full-resume.pt` remains untouched. SFT saves
@@ -125,7 +126,8 @@ every 200 optimizer steps or 15 minutes, whichever occurs first. Full SFT is
 deliberately **not** enabled merely by changing a notebook variable. First
 inspect `latest_sft_report.json`: it records held-out assistant-token loss for
 both the frozen parent and the SFT child, plus their delta, and a deterministic
-eight-prompt `behavior_smoke` output review. The smoke review must pass before
+eight-prompt `behavior_smoke` output review, plus the hash-bound
+`ready_to_sft.json` gate. The smoke review and readiness gate must pass before
 full approval. Then run this explicit approval command from
 the same checked-out source and mounted Drive:
 

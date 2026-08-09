@@ -137,6 +137,23 @@ def _write_full_sft_approval(
             "SFT pilot lacks a passing behavior smoke report; review generated outputs "
             "before approving full SFT"
         )
+    readiness_path = sft_root / "ready_to_sft.json"
+    if not readiness_path.is_file():
+        raise FileNotFoundError(
+            "The final pilot has not produced ready_to_sft.json; rerun the pilot first"
+        )
+    readiness = _read_json(readiness_path)
+    expected_readiness = {
+        "lineage_id": str(lineage["lineage_id"]),
+        "checkpoint_sha256": sha256_file(checkpoint),
+        "train_manifest_sha256": str(dict(lineage["dataset"])["manifest_sha256"]),
+        "validation_manifest_sha256": str(dict(lineage["evaluation"])["manifest_sha256"]),
+    }
+    for field, expected in expected_readiness.items():
+        if readiness.get(field) != expected:
+            raise RuntimeError(f"SFT readiness {field} is not bound to the current pilot")
+    if readiness.get("full_sft_ready") is not True:
+        raise RuntimeError("The final SFT readiness gate did not pass")
     body: dict[str, object] = {
         "schema": SFT_FULL_APPROVAL_SCHEMA,
         "lineage_manifest_sha256": str(lineage["manifest_sha256"]),
@@ -1034,6 +1051,36 @@ def run_sft_v4(config: SFTRunConfig) -> dict[str, object]:
     }
     report_path = config.vault_root / "sft-v4" / "latest_sft_report.json"
     _atomic_write_json(report_path, result)
+    readiness = {
+        "schema": "anra-sft-readiness/v1",
+        "lineage_id": str(lineage["lineage_id"]),
+        "checkpoint_sha256": result["checkpoint_sha256"],
+        "train_manifest_sha256": result["train_manifest_sha256"],
+        "validation_manifest_sha256": result["validation_manifest_sha256"],
+        "global_step": result["global_step"],
+        "validation_improved": (
+            math.isfinite(float(result["parent_validation_loss"]))
+            and math.isfinite(float(result["best_validation_loss"]))
+            and float(result["best_validation_loss"])
+            < float(result["parent_validation_loss"])
+        ),
+        "behavior_smoke_passed": bool(
+            isinstance(behavior_smoke, Mapping) and behavior_smoke.get("passed") is True
+        ),
+        "full_sft_ready": bool(
+            isinstance(behavior_smoke, Mapping)
+            and behavior_smoke.get("passed") is True
+            and float(result["best_validation_loss"])
+            < float(result["parent_validation_loss"])
+        ),
+        "next_action": "approve_full" if (
+            isinstance(behavior_smoke, Mapping)
+            and behavior_smoke.get("passed") is True
+            and float(result["best_validation_loss"])
+            < float(result["parent_validation_loss"])
+        ) else "review_pilot_and_fix_before_full",
+    }
+    _atomic_write_json(config.vault_root / "sft-v4" / "ready_to_sft.json", readiness)
     return result
 
 
