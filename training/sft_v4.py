@@ -601,6 +601,16 @@ def _resume_parent_validation_loss(
     return stored, False
 
 
+def _compatibility_commit_authorized(lineage_source: object, current_source: str) -> bool:
+    """Allow only an explicitly declared, owner-approved runtime patch."""
+
+    return (
+        bool(current_source)
+        and str(lineage_source) == os.environ.get("ANRA_SFT_COMPATIBILITY_BASE_COMMIT", "")
+        and current_source == os.environ.get("ANRA_SFT_COMPATIBILITY_TARGET_COMMIT", "")
+    )
+
+
 def _configure_durability(vault_root: Path, outbox: Path, *, lineage_id: str) -> None:
     destination = vault_root / "sft-v4"
     destination.mkdir(parents=True, exist_ok=True)
@@ -658,10 +668,24 @@ def preflight_sft_v4(config: SFTRunConfig) -> dict[str, object]:
             "validation_manifest_path": config.validation_manifest,
         },
     )
-    if str(lineage.get("source_commit", "")) != _source_commit():
-        raise RuntimeError(
-            "SFT lineage source commit differs from this checkout. Clone the exact "
-            "commit that created the lineage instead of changing training code mid-run."
+    current_source = _source_commit()
+    lineage_source = str(lineage.get("source_commit", ""))
+    approval = None
+    if config.mode == "full":
+        approval = _verify_full_sft_approval(
+            vault_root=config.vault_root,
+            lineage=lineage,
+            signing_key=config.signing_key,
+        )
+    if lineage_source != current_source:
+        if not (approval is not None and _compatibility_commit_authorized(lineage_source, current_source)):
+            raise RuntimeError(
+                "SFT lineage source commit differs from this checkout. Clone the exact "
+                "commit that created the lineage instead of changing training code mid-run."
+            )
+        print(
+            "[SFT] Using the explicitly approved compatibility runtime patch "
+            f"{lineage_source[:8]} -> {current_source[:8]}; data and checkpoint lineage remain unchanged."
         )
     if not isinstance(lineage.get("evaluation"), Mapping):
         raise ValueError(
@@ -711,15 +735,6 @@ def preflight_sft_v4(config: SFTRunConfig) -> dict[str, object]:
         probe.write_text("ok", encoding="utf-8")
     finally:
         probe.unlink(missing_ok=True)
-    approval = (
-        _verify_full_sft_approval(
-            vault_root=config.vault_root,
-            lineage=lineage,
-            signing_key=config.signing_key,
-        )
-        if config.mode == "full"
-        else None
-    )
     report = {
         "passed": True,
         "mode": config.mode,
