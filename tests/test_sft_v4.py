@@ -192,9 +192,13 @@ def test_full_sft_needs_signed_approval_for_the_current_pilot_checkpoint(tmp_pat
                 "lineage_id": "sft-fixture",
                 "base_checkpoint_sha256": "b" * 64,
                 "train_manifest_sha256": "c" * 64,
-                "validation_manifest_sha256": "d" * 64,
-                "checkpoint_sha256": checkpoint_sha256,
-            }
+                    "validation_manifest_sha256": "d" * 64,
+                    "checkpoint_sha256": checkpoint_sha256,
+                    "behavior_smoke": {
+                        "schema": "anra-sft-behavior-smoke/v1",
+                        "passed": True,
+                    },
+                }
         ),
         encoding="utf-8",
     )

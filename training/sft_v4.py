@@ -131,6 +131,12 @@ def _write_full_sft_approval(
         math.isfinite(value) for value in measured_losses
     ):
         raise RuntimeError("SFT pilot has no valid parent-versus-child validation evidence")
+    behavior = report.get("behavior_smoke")
+    if not isinstance(behavior, Mapping) or behavior.get("passed") is not True:
+        raise RuntimeError(
+            "SFT pilot lacks a passing behavior smoke report; review generated outputs "
+            "before approving full SFT"
+        )
     body: dict[str, object] = {
         "schema": SFT_FULL_APPROVAL_SCHEMA,
         "lineage_manifest_sha256": str(lineage["manifest_sha256"]),
@@ -696,6 +702,73 @@ def _next_batch_indices(
     return result, epoch, cursor + len(result)
 
 
+_BEHAVIOR_SMOKE_PROMPTS: tuple[tuple[str, str], ...] = (
+    ("instruction_following", "Give two concise steps for organizing a small project."),
+    ("dialogue", "Respond warmly to a person who says they had a difficult day."),
+    ("code", "Write a Python function that returns the larger of two numbers."),
+    ("mathematics", "What is 17 plus 28? Show the arithmetic briefly."),
+    ("decomposition", "Break preparing a healthy breakfast into three steps."),
+    ("tool_contracts", "Show a minimal JSON object describing a successful tool result."),
+    ("uncertainty", "How should you answer when you do not have enough evidence?"),
+    ("correction", "Rewrite this sentence clearly: The results was not consistent."),
+)
+
+
+def _behavior_smoke_report(
+    model: torch.nn.Module,
+    tokenizer: object,
+    *,
+    device: torch.device,
+    max_new_tokens: int = 24,
+) -> dict[str, object]:
+    """Run a tiny deterministic generation gate before full-SFT approval."""
+
+    model.eval()
+    rows: list[dict[str, object]] = []
+    with torch.no_grad():
+        for category, prompt in _BEHAVIOR_SMOKE_PROMPTS:
+            prefix = tokenizer.encode(
+                f"H: {prompt}\nANRA:", add_special_tokens=False
+            )
+            ids = [int(tokenizer.bos_token_id), *prefix]
+            ids = ids[-2047:]
+            generated: list[int] = []
+            for _ in range(max_new_tokens):
+                input_ids = torch.tensor([ids], dtype=torch.long, device=device)
+                output = model(input_ids)
+                logits = output[0] if isinstance(output, tuple) else output
+                next_id = int(torch.argmax(logits[0, -1, :].float()).item())
+                if next_id == int(tokenizer.eos_token_id):
+                    break
+                generated.append(next_id)
+                ids.append(next_id)
+            text = str(tokenizer.decode(generated)).strip()
+            tokens = len(generated)
+            unique_tokens = len(set(generated))
+            rows.append(
+                {
+                    "category": category,
+                    "prompt": prompt,
+                    "output": text,
+                    "generated_tokens": tokens,
+                    "unique_tokens": unique_tokens,
+                    "nonempty": bool(text),
+                }
+            )
+    outputs = [str(row["output"]) for row in rows]
+    nonempty = all(bool(row["nonempty"]) for row in rows)
+    unique_outputs = len({" ".join(value.split()) for value in outputs})
+    passed = nonempty and unique_outputs >= max(2, len(rows) // 2)
+    return {
+        "schema": "anra-sft-behavior-smoke/v1",
+        "passed": passed,
+        "prompt_count": len(rows),
+        "unique_output_count": unique_outputs,
+        "max_new_tokens": max_new_tokens,
+        "rows": rows,
+    }
+
+
 def run_sft_v4(config: SFTRunConfig) -> dict[str, object]:
     """Run or resume an auditable SFT session, publishing only the SFT child."""
 
@@ -930,6 +1003,16 @@ def run_sft_v4(config: SFTRunConfig) -> dict[str, object]:
         best_validation_loss = validation_loss()
     save(final=True, train_loss=last_loss)
     durability.close()
+    try:
+        behavior_smoke = _behavior_smoke_report(model, tokenizer, device=device)
+    except Exception as exc:  # pragma: no cover - device-specific diagnostics
+        behavior_smoke = {
+            "schema": "anra-sft-behavior-smoke/v1",
+            "passed": False,
+            "prompt_count": 0,
+            "unique_output_count": 0,
+            "error": f"{type(exc).__name__}: {exc}",
+        }
     result = {
         **report,
         "resumed": resuming,
@@ -947,6 +1030,7 @@ def run_sft_v4(config: SFTRunConfig) -> dict[str, object]:
         "checkpoint": str(sft_remote_checkpoint),
         "checkpoint_sha256": sha256_file(sft_remote_checkpoint),
         "elapsed_minutes": round((time.monotonic() - started) / 60, 2),
+        "behavior_smoke": behavior_smoke,
     }
     report_path = config.vault_root / "sft-v4" / "latest_sft_report.json"
     _atomic_write_json(report_path, result)

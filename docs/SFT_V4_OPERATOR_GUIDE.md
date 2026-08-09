@@ -124,8 +124,9 @@ The foundation `anra-v4-current-full-resume.pt` remains untouched. SFT saves
 every 200 optimizer steps or 15 minutes, whichever occurs first. Full SFT is
 deliberately **not** enabled merely by changing a notebook variable. First
 inspect `latest_sft_report.json`: it records held-out assistant-token loss for
-both the frozen parent and the SFT child, plus their delta. Then run this
-explicit approval command from
+both the frozen parent and the SFT child, plus their delta, and a deterministic
+eight-prompt `behavior_smoke` output review. The smoke review must pass before
+full approval. Then run this explicit approval command from
 the same checked-out source and mounted Drive:
 
 ```powershell
@@ -135,7 +136,7 @@ python -m training.sft_v4 approve-full `
   --lineage-manifest <TRAINING_HOME>\sft-v4\anra-v4-sft-lineage.json `
   --base-checkpoint <TRAINING_HOME>\anra-v4-current-full-resume.pt `
   --vault-root <TRAINING_HOME> `
-  --owner-approval "I reviewed the pilot loss and sample outputs."
+  --owner-approval "I reviewed the pilot loss and behavior smoke outputs."
 ```
 
 That writes a signed approval bound to the exact protected pilot checkpoint.
