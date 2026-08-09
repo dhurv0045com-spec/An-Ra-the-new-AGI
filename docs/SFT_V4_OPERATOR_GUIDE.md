@@ -47,6 +47,21 @@ run:
 The downloader resumes incomplete files and rejects every source whose final
 digest differs from the registry. Its receipt becomes part of the data audit.
 
+For the first bounded pilot, the repository also contains an existing
+SmolTalk-derived instruction subset. Prepare a receipt-bound 8-category pilot
+from it without downloading a second copy:
+
+```powershell
+.\.venv-cuda\Scripts\python.exe `
+  scripts/prepare_sft_v4_pilot_from_reasoning.py `
+  --output-dir C:\data\anra-sft-v4
+```
+
+This emits an audit report with the source revision, labeling rules, sample
+prompts, hashes, and category counts. It is suitable for the first 15-minute
+pilot; replace or expand it with owner-reviewed sources before treating the
+result as a production SFT curriculum.
+
 Build immutable SFT artifacts locally:
 
 ```powershell

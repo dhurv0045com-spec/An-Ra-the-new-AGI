@@ -16,7 +16,10 @@ ANRA_T4_TRAINING_HOME/
     ├── sft-v4-train.manifest.json
     ├── sft-v4-validation.jsonl
     ├── sft-v4-validation.manifest.json
+    ├── sft-v4-test.jsonl
+    ├── sft-v4-test.manifest.json
     ├── sft-v4-source-receipts.json
+    ├── sft-v4-pilot-audit.json
     └── anra-v4-sft-lineage.json  # created by the first notebook run
 ```
 
@@ -25,10 +28,11 @@ The parent checkpoint must be the real V4 **full-resume** checkpoint, not an
 checkpoint. Its JSON sidecar must describe the same byte size and global step.
 Do not rename it after the notebook has created the lineage manifest.
 
-The two JSONL files and their manifests are produced by
-`scripts/build_sft_v4_dataset.py`. A raw `.txt`, a pretraining token pack, or a
-single conversational JSONL file is not a substitute: the trainer needs the
-signed train/validation split and its source receipt.
+The JSONL files and their manifests are produced by
+`scripts/build_sft_v4_dataset.py` (or the bounded pilot helper
+`scripts/prepare_sft_v4_pilot_from_reasoning.py`). A raw `.txt`, a pretraining
+token pack, or a single conversational JSONL file is not a substitute: the
+trainer needs the signed train/validation split and its source receipt.
 
 ## What must *not* be in Drive
 
