@@ -205,6 +205,11 @@ For the prepared single-T4 continuation, use
 [the protected Colab trainer](notebooks/AN_RA_T4_PROTECTED_TRAINER_V4.ipynb) with
 the [short operator guide](docs/COLAB_T4_PROTECTED_TRAINING.md).
 
+For the separate V4 instruction-following stage, use the
+[SFT operator guide](docs/SFT_V4_OPERATOR_GUIDE.md). It creates a signed child
+lineage and a distinct shared SFT checkpoint; it never overwrites the V4
+foundation checkpoint.
+
 ## Intelligence systems: active, pilot, or off
 
 | System | Current lifecycle | Why it exists |

@@ -46,9 +46,13 @@ contracts exist; they do not mean a useful model has already been trained.
 
 - [ ] Compare dense continuation with MTP under identical data, seed, optimizer,
   and token budget. Test MoD, RIM, ESV, DSTP, and transformer-HAL independently.
-- [ ] Build and audit the actual SFT corpus, then wire a numerical SFT trainer.
-  RLVR/STaR and DPO remain unavailable for promotion until their evidence gates
-  and training runs are real.
+- [x] Wire the V4 SFT preparation path: receipt-bound audited JSONL builder,
+  source-group-disjoint held-out validation, assistant-only numerical GPU
+  trainer, portable signed lineage, separate child checkpoint, parent-versus-
+  child validation evidence, and bounded T4 pilot notebook.
+- [ ] Download and audit the actual licensed SFT sources, build the accepted
+  corpus, and run the first 10-15 minute SFT pilot. RLVR/STaR and DPO remain
+  unavailable for promotion until their evidence gates and training runs are real.
 - [ ] Add retrieval, memory, correction, tools, and adapters in that order, with
   permissions, budgets, verification, provenance, and rollback.
 - [ ] Compare exact-float and TurboQuant KV caches on the same trained V4

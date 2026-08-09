@@ -40,6 +40,7 @@ def _sft_inputs(tmp_path: Path) -> tuple[Path, Path, Path]:
             {
                 "quality_gate_passed": True,
                 "licenses_audited": True,
+                "source_receipt_sha256": "a" * 64,
                 "split": "train",
                 "accepted_examples": len(REQUIRED_SFT_CATEGORIES),
                 "category_counts": dict.fromkeys(REQUIRED_SFT_CATEGORIES, 1),
@@ -92,6 +93,85 @@ def test_sft_lineage_is_signed_complete_and_immutable(tmp_path: Path) -> None:
     tokenizer.write_bytes(b"tampered")
     with pytest.raises(ValueError, match="changed"):
         verify_sft_lineage_manifest(output, signing_key="owner-secret")
+
+
+def test_sft_lineage_can_verify_hash_bound_artifacts_after_colab_relocation(tmp_path: Path) -> None:
+    dataset, checkpoint, tokenizer = _sft_inputs(tmp_path)
+    lineage = tmp_path / "lineage.json"
+    write_sft_lineage_manifest(
+        lineage,
+        lineage_id="sft-portable",
+        dataset_manifest_path=dataset,
+        base_checkpoint_path=checkpoint,
+        tokenizer_path=tokenizer,
+        source_commit="abc123",
+        signing_key="owner-secret",
+    )
+    relocated = tmp_path / "colab"
+    relocated.mkdir()
+    relocated_dataset = relocated / dataset.name
+    relocated_shard = relocated / "sft.jsonl"
+    relocated_checkpoint = relocated / checkpoint.name
+    relocated_tokenizer = relocated / tokenizer.name
+    relocated_dataset.write_bytes(dataset.read_bytes())
+    relocated_shard.write_bytes((tmp_path / "sft.jsonl").read_bytes())
+    relocated_checkpoint.write_bytes(checkpoint.read_bytes())
+    relocated_tokenizer.write_bytes(tokenizer.read_bytes())
+    verified = verify_sft_lineage_manifest(
+        lineage,
+        signing_key="owner-secret",
+        artifact_paths={
+            "dataset_manifest_path": relocated_dataset,
+            "base_checkpoint_path": relocated_checkpoint,
+            "tokenizer_path": relocated_tokenizer,
+        },
+    )
+    assert verified["lineage_id"] == "sft-portable"
+
+
+def test_sft_lineage_binds_a_separate_validation_split(tmp_path: Path) -> None:
+    dataset, checkpoint, tokenizer = _sft_inputs(tmp_path)
+    validation_shard = tmp_path / "validation.jsonl"
+    validation_shard.write_text('{"instruction":"held out"}\n', encoding="utf-8")
+    validation = tmp_path / "validation.json"
+    validation.write_text(
+        json.dumps(
+            {
+                "quality_gate_passed": True,
+                "licenses_audited": True,
+                "source_receipt_sha256": "a" * 64,
+                "split": "validation",
+                "accepted_examples": 1,
+                "category_counts": {"dialogue": 1},
+                "artifacts": [
+                    {
+                        "path": validation_shard.name,
+                        "sha256": _hash_bytes(validation_shard.read_bytes()),
+                        "size_bytes": validation_shard.stat().st_size,
+                    }
+                ],
+            },
+            sort_keys=True,
+        ),
+        encoding="utf-8",
+    )
+    lineage = tmp_path / "lineage-with-validation.json"
+    write_sft_lineage_manifest(
+        lineage,
+        lineage_id="sft-validation",
+        dataset_manifest_path=dataset,
+        validation_manifest_path=validation,
+        base_checkpoint_path=checkpoint,
+        tokenizer_path=tokenizer,
+        source_commit="abc123",
+        signing_key="owner-secret",
+    )
+    verified = verify_sft_lineage_manifest(lineage, signing_key="owner-secret")
+    assert verified["evaluation"]["split"] == "validation"
+
+    validation_shard.write_text('{"instruction":"changed"}\n', encoding="utf-8")
+    with pytest.raises(ValueError, match="artifact hash mismatch"):
+        verify_sft_lineage_manifest(lineage, signing_key="owner-secret")
 
 
 def test_sft_lineage_rejects_missing_capability_category(tmp_path: Path) -> None:

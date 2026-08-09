@@ -74,6 +74,19 @@ def _positive_counts(raw: object) -> dict[str, int]:
     return dict(sorted(counts.items()))
 
 
+def _nonnegative_counts(raw: object, *, name: str) -> dict[str, int]:
+    if not isinstance(raw, Mapping):
+        raise ValueError(f"{name} requires category_counts")
+    counts: dict[str, int] = {}
+    for category, value in raw.items():
+        if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+            raise ValueError(f"invalid {name} category count for {category!r}")
+        counts[str(category)] = value
+    if not counts or sum(counts.values()) <= 0:
+        raise ValueError(f"{name} has no accepted examples")
+    return dict(sorted(counts.items()))
+
+
 def _verified_dataset_artifacts(
     raw: object, *, manifest_dir: Path
 ) -> list[dict[str, object]]:
@@ -180,6 +193,7 @@ def write_sft_lineage_manifest(
     *,
     lineage_id: str,
     dataset_manifest_path: str | Path,
+    validation_manifest_path: str | Path | None = None,
     base_checkpoint_path: str | Path,
     tokenizer_path: str | Path,
     source_commit: str,
@@ -193,7 +207,10 @@ def write_sft_lineage_manifest(
     tokenizer = Path(tokenizer_path).resolve()
     if not lineage_id.strip() or not source_commit.strip():
         raise ValueError("SFT lineage_id and source_commit are required")
-    for required_path in (dataset_path, checkpoint_path, tokenizer):
+    required_paths = (dataset_path, checkpoint_path, tokenizer)
+    if validation_manifest_path is not None:
+        required_paths = (*required_paths, Path(validation_manifest_path).resolve())
+    for required_path in required_paths:
         if not required_path.is_file():
             raise FileNotFoundError(required_path)
     dataset = json.loads(dataset_path.read_text(encoding="utf-8"))
@@ -203,6 +220,11 @@ def write_sft_lineage_manifest(
         raise ValueError("SFT dataset quality gate has not passed")
     if dataset.get("licenses_audited") is not True:
         raise ValueError("SFT dataset licenses have not been audited")
+    if dataset.get("unregistered_local_pilot") is True:
+        raise PermissionError("unregistered local SFT pilots cannot create a canonical lineage")
+    receipt_hash = _validated_hash(
+        dataset.get("source_receipt_sha256"), "SFT source receipt hash"
+    )
     if dataset.get("split") != "train":
         raise ValueError("SFT lineage may only consume the immutable train split")
     categories = _positive_counts(dataset.get("category_counts"))
@@ -212,6 +234,46 @@ def write_sft_lineage_manifest(
     accepted_examples = sum(categories.values())
     if dataset.get("accepted_examples") != accepted_examples:
         raise ValueError("SFT accepted_examples does not equal the category total")
+    evaluation: dict[str, Any] | None = None
+    if validation_manifest_path is not None:
+        evaluation_path = Path(validation_manifest_path).resolve()
+        raw_evaluation = json.loads(evaluation_path.read_text(encoding="utf-8"))
+        if not isinstance(raw_evaluation, Mapping):
+            raise ValueError("SFT validation manifest must be a JSON object")
+        if raw_evaluation.get("quality_gate_passed") is not True:
+            raise ValueError("SFT validation quality gate has not passed")
+        if raw_evaluation.get("licenses_audited") is not True:
+            raise ValueError("SFT validation licenses have not been audited")
+        if raw_evaluation.get("unregistered_local_pilot") is True:
+            raise PermissionError(
+                "unregistered local SFT validation cannot enter a canonical lineage"
+            )
+        if raw_evaluation.get("split") != "validation":
+            raise ValueError("SFT evaluation binding must use immutable validation split")
+        evaluation_counts = _nonnegative_counts(
+            raw_evaluation.get("category_counts"), name="SFT validation manifest"
+        )
+        evaluation_artifacts = _verified_dataset_artifacts(
+            raw_evaluation.get("artifacts"), manifest_dir=evaluation_path.parent
+        )
+        evaluation_accepted = sum(evaluation_counts.values())
+        if raw_evaluation.get("accepted_examples") != evaluation_accepted:
+            raise ValueError("SFT validation accepted_examples does not equal category total")
+        evaluation = {
+            "manifest_path": str(evaluation_path),
+            "manifest_sha256": _sha256_file(evaluation_path),
+            "accepted_examples": evaluation_accepted,
+            "category_counts": evaluation_counts,
+            "artifacts": evaluation_artifacts,
+            "quality_gate_passed": True,
+            "licenses_audited": True,
+            "source_receipt_sha256": _validated_hash(
+                raw_evaluation.get("source_receipt_sha256"), "SFT validation source receipt hash"
+            ),
+            "split": "validation",
+        }
+        if evaluation["source_receipt_sha256"] != receipt_hash:
+            raise ValueError("SFT train and validation splits must use the same source receipt")
     body: dict[str, Any] = {
         "schema": SFT_LINEAGE_SCHEMA,
         "lineage_id": lineage_id.strip(),
@@ -234,8 +296,10 @@ def write_sft_lineage_manifest(
             "artifacts": artifacts,
             "quality_gate_passed": True,
             "licenses_audited": True,
+            "source_receipt_sha256": receipt_hash,
             "split": "train",
         },
+        "evaluation": evaluation,
         "source_commit": source_commit.strip(),
         "optimizer_restart_required": True,
     }
@@ -245,8 +309,19 @@ def write_sft_lineage_manifest(
 
 
 def verify_sft_lineage_manifest(
-    path: str | Path, *, signing_key: str
+    path: str | Path,
+    *,
+    signing_key: str,
+    artifact_paths: Mapping[str, str | Path] | None = None,
 ) -> dict[str, Any]:
+    """Verify a signed SFT lineage, optionally at a portable artifact location.
+
+    The signed manifest records the paths used when its owner created it.  A
+    Colab worker receives copies of those same, hash-bound artifacts at
+    different absolute paths, so it may supply the three explicit local paths
+    below.  Relocation never weakens the contract: the manifest signature and
+    every declared digest are still verified before training can start.
+    """
     payload = json.loads(Path(path).read_text(encoding="utf-8"))
     if not isinstance(payload, Mapping):
         raise ValueError("SFT lineage manifest must be a JSON object")
@@ -264,11 +339,31 @@ def verify_sft_lineage_manifest(
     if tokenizer.get("contract") != "v4-32768" or tokenizer.get("vocabulary_size") != 32_768:
         raise ValueError("SFT lineage is not bound to the operational V4 tokenizer")
     _positive_counts(dataset.get("category_counts"))
+    overrides = dict(artifact_paths or {})
+    allowed_overrides = {
+        "base_checkpoint_path",
+        "tokenizer_path",
+        "dataset_manifest_path",
+        "validation_manifest_path",
+    }
+    unknown = sorted(set(overrides) - allowed_overrides)
+    if unknown:
+        raise ValueError(f"unsupported SFT artifact path overrides: {unknown}")
     bindings = (
-        (parent.get("base_checkpoint_path"), parent.get("base_checkpoint_sha256")),
-        (tokenizer.get("path"), tokenizer.get("sha256")),
-        (dataset.get("manifest_path"), dataset.get("manifest_sha256")),
+        (
+            overrides.get("base_checkpoint_path", parent.get("base_checkpoint_path")),
+            parent.get("base_checkpoint_sha256"),
+        ),
+        (
+            overrides.get("tokenizer_path", tokenizer.get("path")),
+            tokenizer.get("sha256"),
+        ),
+        (
+            overrides.get("dataset_manifest_path", dataset.get("manifest_path")),
+            dataset.get("manifest_sha256"),
+        ),
     )
+    resolved_dataset_manifest = Path(str(bindings[2][0]))
     for raw_path, raw_hash in bindings:
         artifact = Path(str(raw_path))
         if not artifact.is_file():
@@ -277,8 +372,26 @@ def verify_sft_lineage_manifest(
         if not hmac.compare_digest(expected_hash, _sha256_file(artifact)):
             raise ValueError(f"bound post-training artifact changed: {artifact}")
     _verified_dataset_artifacts(
-        dataset.get("artifacts"), manifest_dir=Path(str(dataset["manifest_path"])).parent
+        dataset.get("artifacts"), manifest_dir=resolved_dataset_manifest.parent
     )
+    evaluation = body.get("evaluation")
+    if evaluation is not None:
+        if not isinstance(evaluation, Mapping) or evaluation.get("split") != "validation":
+            raise ValueError("SFT lineage evaluation binding is invalid")
+        validation_path = Path(
+            str(overrides.get("validation_manifest_path", evaluation.get("manifest_path", "")))
+        )
+        if not validation_path.is_file():
+            raise FileNotFoundError(validation_path)
+        expected_validation_hash = _validated_hash(
+            evaluation.get("manifest_sha256"), "validation manifest hash"
+        )
+        if not hmac.compare_digest(expected_validation_hash, _sha256_file(validation_path)):
+            raise ValueError(f"bound SFT validation manifest changed: {validation_path}")
+        _nonnegative_counts(evaluation.get("category_counts"), name="SFT validation binding")
+        _verified_dataset_artifacts(
+            evaluation.get("artifacts"), manifest_dir=validation_path.parent
+        )
     return dict(payload)
 
 
