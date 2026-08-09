@@ -209,6 +209,8 @@ For the separate V4 instruction-following stage, use the
 [SFT operator guide](docs/SFT_V4_OPERATOR_GUIDE.md). It creates a signed child
 lineage and a distinct shared SFT checkpoint; it never overwrites the V4
 foundation checkpoint.
+Use the [Drive readiness checklist](docs/SFT_DRIVE_READY_CHECKLIST.md) for the
+exact shared-folder contents and the one-time Colab actions.
 
 ## Intelligence systems: active, pilot, or off
 
