@@ -67,6 +67,7 @@ def test_sft_dataset_builds_immutable_disjoint_audited_artifacts(tmp_path: Path)
         result.manifests["validation"]
     )
     assert len(validation_examples) == validation_manifest["accepted_examples"]
+    assert set(validation_manifest["category_counts"]) == set(REQUIRED_SFT_CATEGORIES)
     assert not {
         example.split_group for example in train_examples
     } & {example.split_group for example in validation_examples}

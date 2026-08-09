@@ -616,6 +616,15 @@ def preflight_sft_v4(config: SFTRunConfig) -> dict[str, object]:
     )
     if not validation_examples:
         raise ValueError("SFT validation split is empty")
+    validation_categories = {row.category for row in validation_examples}
+    missing_validation = sorted(
+        set(REQUIRED_SFT_CATEGORIES) - validation_categories
+    )
+    if missing_validation:
+        raise ValueError(
+            "SFT validation split is missing required categories: "
+            + ", ".join(missing_validation)
+        )
     if {row.split_group for row in examples} & {
         row.split_group for row in validation_examples
     }:

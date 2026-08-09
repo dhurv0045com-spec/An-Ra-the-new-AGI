@@ -300,6 +300,51 @@ def build_sft_dataset_v4(
                 row for row in splits["train"] if row["split_group"] != chosen_group
             ]
             splits[name].extend(moved)
+
+    # Validation must exercise every capability category. Hash-bucketing can
+    # otherwise leave a category (notably code) entirely in training, making
+    # aggregate validation loss overstate coverage. Move complete source
+    # groups so conversation and source isolation remain intact.
+    validation_categories = {str(row["category"]) for row in splits["validation"]}
+    for category in REQUIRED_SFT_CATEGORIES:
+        if category in validation_categories:
+            continue
+        candidates = sorted(
+            {
+                str(row["split_group"])
+                for row in splits["train"]
+                if str(row["category"]) == category
+            }
+        )
+        moved_group: str | None = None
+        for group in candidates:
+            remaining = [
+                row
+                for row in splits["train"]
+                if str(row["category"]) == category
+                and str(row["split_group"]) != group
+            ]
+            if remaining:
+                moved_group = group
+                break
+        if moved_group is None:
+            raise ValueError(
+                f"SFT validation split is missing category {category!r}; "
+                "provide at least two source groups for every required category"
+            )
+        moved = [
+            row
+            for row in splits["train"]
+            if str(row["split_group"]) == moved_group
+        ]
+        splits["train"] = [
+            row
+            for row in splits["train"]
+            if str(row["split_group"]) != moved_group
+        ]
+        splits["validation"].extend(moved)
+        validation_categories.add(category)
+
     train_categories = Counter(str(row["category"]) for row in splits["train"])
     missing = [name for name in REQUIRED_SFT_CATEGORIES if train_categories[name] <= 0]
     if missing:

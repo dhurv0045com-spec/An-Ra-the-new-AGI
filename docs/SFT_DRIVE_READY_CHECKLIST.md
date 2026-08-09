@@ -51,8 +51,9 @@ so share it only with accounts you control.
 ## Your only operator actions
 
 1. Put the exact parent checkpoint and its sidecar in the folder above.
-2. Build and upload the audited SFT artifacts; ensure the train split contains
-   all eight categories and at least three independent `split_group` values.
+2. Build and upload the audited SFT artifacts; ensure both train and validation
+   splits contain all eight categories and at least three independent
+   `split_group` values.
 3. Share the folder with Editor access, add its shortcut to the account running
    Colab, and select **Runtime → Change runtime type → T4 GPU**.
 4. Open `notebooks/AN_RA_T4_SFT_V4.ipynb` and press **Run all**. The default is
