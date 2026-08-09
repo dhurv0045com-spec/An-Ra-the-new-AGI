@@ -14,6 +14,7 @@ import hmac
 import json
 import math
 import os
+import pickle
 import shutil
 import subprocess
 import time
@@ -199,13 +200,55 @@ def _verify_full_sft_approval(
         if payload.get(name) != value:
             raise PermissionError(f"full SFT approval does not match active {name}")
     checkpoint = vault_root / "sft-v4" / "anra-v4-current-full-resume.pt"
-    valid_checkpoint = checkpoint.is_file() and (
-        payload.get("pilot_checkpoint_sha256") == sha256_file(checkpoint)
-    )
-    if not valid_checkpoint:
+    if not checkpoint.is_file():
         raise PermissionError(
-            "full SFT approval is not bound to the current protected pilot checkpoint"
+            "full SFT approval is not bound to a protected pilot checkpoint"
         )
+
+    current_checkpoint_sha256 = sha256_file(checkpoint)
+    approved_checkpoint_sha256 = str(payload.get("pilot_checkpoint_sha256", ""))
+    if current_checkpoint_sha256 != approved_checkpoint_sha256:
+        # The first full run replaces the pilot with a newer child checkpoint.
+        # Approval is intentionally bound to the immutable pilot hash, so a
+        # later resume must prove that the current file is a descendant of the
+        # same signed SFT lineage instead of requiring the hash to remain equal
+        # to the pilot forever.
+        try:
+            _verify_resume_checkpoint_binding(checkpoint, lineage)
+            current_payload = torch.load(
+                checkpoint, map_location="cpu", weights_only=True
+            )
+        except (
+            OSError,
+            RuntimeError,
+            ValueError,
+            KeyError,
+            TypeError,
+            pickle.UnpicklingError,
+        ) as error:
+            raise PermissionError(
+                "full SFT approval is not bound to the current protected pilot "
+                "checkpoint or a valid descendant checkpoint"
+            ) from error
+        if not isinstance(current_payload, Mapping):
+            raise PermissionError(
+                "current full SFT checkpoint is not a valid lineage-bound mapping"
+            )
+        try:
+            current_step = int(
+                current_payload.get(
+                    "global_step", current_payload.get("step", -1)
+                )
+            )
+            approved_step = int(payload.get("pilot_global_step", -1))
+        except (TypeError, ValueError) as error:
+            raise PermissionError(
+                "full SFT approval has invalid pilot/checkpoint step metadata"
+            ) from error
+        if current_step < approved_step:
+            raise PermissionError(
+                "current SFT checkpoint predates the approved pilot checkpoint"
+            )
     return payload
 
 
@@ -633,6 +676,55 @@ def _configure_durability(vault_root: Path, outbox: Path, *, lineage_id: str) ->
     os.environ["ANRA_TRAINING_DATA_LAYOUT"] = "assistant_only_sft_v1"
 
 
+def _prune_sft_checkpoint_copies(vault_root: Path) -> tuple[str, ...]:
+    """Keep the SFT Drive vault to one portable full-resume checkpoint.
+
+    Older notebook revisions moved the 2+ GiB checkpoint into an ``archive``
+    directory whenever a lineage changed.  That preserved audit metadata but
+    silently multiplied Drive usage on every restart.  Lineage JSON/reports
+    remain useful evidence; old full-resume payloads do not belong in the hot
+    training vault because they can never be resumed by the active lineage.
+
+    The current root checkpoint is never touched.  Legacy step-named files in
+    the root are retained until a current checkpoint exists so a first-run
+    migration cannot destroy the only recoverable state.
+    """
+
+    sft_root = (vault_root / "sft-v4").resolve()
+    if not sft_root.is_dir():
+        return ()
+    current = (sft_root / "anra-v4-current-full-resume.pt").resolve()
+    removed: list[str] = []
+
+    def is_checkpoint_copy(path: Path) -> bool:
+        name = path.name
+        return (
+            name == "anra-v4-current-full-resume.pt"
+            or name.startswith("anra-v4-current-full-resume")
+            or (name.startswith("anra-v4-step-") and name.endswith("-full-resume.pt"))
+        )
+
+    for path in sft_root.rglob("*"):
+        if not path.is_file() or not is_checkpoint_copy(path):
+            continue
+        try:
+            resolved = path.resolve()
+        except OSError:
+            continue
+        if resolved == current:
+            continue
+        # Never remove a root legacy checkpoint before a canonical replacement
+        # exists; the notebook can still migrate it on a first run.
+        if resolved.parent == sft_root and not current.is_file():
+            continue
+        try:
+            resolved.unlink()
+        except OSError:
+            continue
+        removed.append(str(resolved))
+    return tuple(sorted(removed))
+
+
 @dataclass(frozen=True)
 class SFTRunConfig:
     dataset_manifest: Path
@@ -678,14 +770,18 @@ def preflight_sft_v4(config: SFTRunConfig) -> dict[str, object]:
             signing_key=config.signing_key,
         )
     if lineage_source != current_source:
-        if not (approval is not None and _compatibility_commit_authorized(lineage_source, current_source)):
+        if not (
+            approval is not None
+            and _compatibility_commit_authorized(lineage_source, current_source)
+        ):
             raise RuntimeError(
                 "SFT lineage source commit differs from this checkout. Clone the exact "
                 "commit that created the lineage instead of changing training code mid-run."
             )
         print(
             "[SFT] Using the explicitly approved compatibility runtime patch "
-            f"{lineage_source[:8]} -> {current_source[:8]}; data and checkpoint lineage remain unchanged."
+            f"{lineage_source[:8]} -> {current_source[:8]}; data and checkpoint "
+            "lineage remain unchanged."
         )
     if not isinstance(lineage.get("evaluation"), Mapping):
         raise ValueError(
@@ -730,6 +826,12 @@ def preflight_sft_v4(config: SFTRunConfig) -> dict[str, object]:
         )
     destination = config.vault_root / "sft-v4"
     destination.mkdir(parents=True, exist_ok=True)
+    pruned_checkpoint_copies = _prune_sft_checkpoint_copies(config.vault_root)
+    if pruned_checkpoint_copies:
+        print(
+            "[SFT] Removed obsolete archived checkpoint copies; canonical file kept: "
+            f"{destination / 'anra-v4-current-full-resume.pt'}"
+        )
     probe = destination / ".sft-v4-write-probe"
     try:
         probe.write_text("ok", encoding="utf-8")
@@ -748,6 +850,7 @@ def preflight_sft_v4(config: SFTRunConfig) -> dict[str, object]:
         "category_counts": dict(dataset_manifest["category_counts"]),
         "validation_category_counts": dict(validation_manifest["category_counts"]),
         "sft_vault": str(destination),
+        "pruned_checkpoint_copies": list(pruned_checkpoint_copies),
         "full_approval": approval,
         "next_action": "run SFT pilot" if config.mode == "pilot" else "run approved full SFT",
     }

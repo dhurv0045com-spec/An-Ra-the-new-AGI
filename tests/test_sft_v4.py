@@ -16,6 +16,7 @@ from training.sft_dataset_v4 import (
 )
 from training.sft_v4 import (
     SFTConversationDataset,
+    _prune_sft_checkpoint_copies,
     _verify_resume_checkpoint_binding,
     _verify_full_sft_approval,
     _write_full_sft_approval,
@@ -24,6 +25,27 @@ from training.sft_v4 import (
     load_sft_examples,
     load_sft_validation_examples,
 )
+
+
+def test_sft_checkpoint_pruning_keeps_one_canonical_payload(tmp_path: Path) -> None:
+    vault = tmp_path / "training-home"
+    sft_root = vault / "sft-v4"
+    current = sft_root / "anra-v4-current-full-resume.pt"
+    archived = sft_root / "archive" / "old-lineage" / "anra-v4-current-full-resume.pt"
+    legacy = sft_root / "anra-v4-step-000000000200-full-resume.pt"
+    current.parent.mkdir(parents=True)
+    current.write_bytes(b"current")
+    archived.parent.mkdir(parents=True)
+    archived.write_bytes(b"archived")
+    legacy.write_bytes(b"legacy")
+
+    removed = _prune_sft_checkpoint_copies(vault)
+
+    assert current.read_bytes() == b"current"
+    assert not archived.exists()
+    assert not legacy.exists()
+    assert str(archived.resolve()) in removed
+    assert str(legacy.resolve()) in removed
 
 
 def _records() -> list[dict[str, object]]:
@@ -239,6 +261,31 @@ def test_full_sft_needs_signed_approval_for_the_current_pilot_checkpoint(tmp_pat
         signing_key="test-signing-key",
     )
     assert verified["pilot_global_step"] == 12
+
+    # Once full SFT starts, the canonical file advances beyond the approved
+    # pilot hash.  The approval must remain valid for a lineage-bound child,
+    # while still rejecting a checkpoint from another lineage.
+    torch.save(
+        {
+            "global_step": 13,
+            "sft_checkpoint_schema": "anra-v4-sft-checkpoint/v1",
+            "sft": {
+                "stage": "sft",
+                "lineage_manifest_sha256": "a" * 64,
+                "base_checkpoint_sha256": "b" * 64,
+                "dataset_manifest_sha256": "c" * 64,
+                "validation_manifest_sha256": "d" * 64,
+                "assistant_only_loss": True,
+            },
+        },
+        checkpoint,
+    )
+    resumed = _verify_full_sft_approval(
+        vault_root=vault,
+        lineage=lineage,
+        signing_key="test-signing-key",
+    )
+    assert resumed["pilot_global_step"] == 12
 
     checkpoint.write_bytes(b"different checkpoint")
     with pytest.raises(PermissionError, match="current protected pilot checkpoint"):
