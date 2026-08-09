@@ -566,6 +566,41 @@ def _verify_resume_checkpoint_binding(path: Path, lineage: Mapping[str, object])
             raise ValueError(f"resume checkpoint {field} does not match signed SFT lineage")
 
 
+def _resume_parent_validation_loss(
+    loaded: Mapping[str, object],
+    *,
+    resuming: bool,
+    mode: str,
+    signed_approval: object,
+) -> tuple[float, bool]:
+    """Recover a legacy child baseline only from the verified full approval.
+
+    Early pilot workers wrote a valid lineage-bound child checkpoint without
+    persisting ``parent_validation_loss`` in the payload.  Full-mode preflight
+    already verifies that the signed approval is bound to the current pilot
+    checkpoint and lineage, so its signed baseline is the only safe migration
+    source.  Pilot mode still rejects the incomplete checkpoint.
+    """
+
+    if not resuming:
+        return math.inf, False
+    try:
+        stored = float(loaded.get("parent_validation_loss", math.inf))
+    except (TypeError, ValueError):
+        stored = math.inf
+    if math.isfinite(stored):
+        return stored, False
+    if mode != "full" or not isinstance(signed_approval, Mapping):
+        return stored, False
+    try:
+        approved = float(signed_approval.get("parent_validation_loss", math.inf))
+    except (TypeError, ValueError):
+        approved = math.inf
+    if math.isfinite(approved):
+        return approved, True
+    return stored, False
+
+
 def _configure_durability(vault_root: Path, outbox: Path, *, lineage_id: str) -> None:
     destination = vault_root / "sft-v4"
     destination.mkdir(parents=True, exist_ok=True)
@@ -790,6 +825,7 @@ def run_sft_v4(config: SFTRunConfig) -> dict[str, object]:
     """Run or resume an auditable SFT session, publishing only the SFT child."""
 
     report = preflight_sft_v4(config)
+    signed_approval = report.get("full_approval")
     device = torch.device(str(report["device"]))
     lineage = verify_sft_lineage_manifest(
         config.lineage_manifest,
@@ -881,9 +917,18 @@ def run_sft_v4(config: SFTRunConfig) -> dict[str, object]:
     best_validation_loss = (
         float(loaded.get("best_validation_loss", math.inf)) if resuming else math.inf
     )
-    parent_validation_loss = (
-        float(loaded.get("parent_validation_loss", math.inf)) if resuming else math.inf
+    parent_validation_loss, migrated_parent_baseline = _resume_parent_validation_loss(
+        loaded,
+        resuming=resuming,
+        mode=config.mode,
+        signed_approval=signed_approval,
     )
+    if migrated_parent_baseline:
+        print(
+            "[SFT] Migrated the legacy resume checkpoint's parent validation "
+            "baseline from the verified full-SFT approval. It will be persisted "
+            "in the next checkpoint."
+        )
     if resuming and not math.isfinite(parent_validation_loss):
         raise RuntimeError(
             "SFT resume checkpoint lacks the immutable parent validation baseline; "

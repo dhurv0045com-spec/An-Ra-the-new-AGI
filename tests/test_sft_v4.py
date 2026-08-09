@@ -19,6 +19,7 @@ from training.sft_v4 import (
     _verify_resume_checkpoint_binding,
     _verify_full_sft_approval,
     _write_full_sft_approval,
+    _resume_parent_validation_loss,
     assistant_only_loss,
     load_sft_examples,
     load_sft_validation_examples,
@@ -274,3 +275,33 @@ def test_sft_resume_checkpoint_must_match_the_signed_lineage(tmp_path: Path) -> 
     lineage["dataset"] = {"manifest_sha256": "e" * 64}
     with pytest.raises(ValueError, match="dataset_manifest_sha256"):
         _verify_resume_checkpoint_binding(checkpoint, lineage)
+
+
+def test_legacy_resume_baseline_migrates_only_from_verified_full_approval() -> None:
+    loaded = {"global_step": 12}
+    baseline, migrated = _resume_parent_validation_loss(
+        loaded,
+        resuming=True,
+        mode="full",
+        signed_approval={"parent_validation_loss": 1.5},
+    )
+    assert baseline == 1.5
+    assert migrated is True
+
+    baseline, migrated = _resume_parent_validation_loss(
+        loaded,
+        resuming=True,
+        mode="pilot",
+        signed_approval={"parent_validation_loss": 1.5},
+    )
+    assert baseline == float("inf")
+    assert migrated is False
+
+    baseline, migrated = _resume_parent_validation_loss(
+        {"parent_validation_loss": 1.25},
+        resuming=True,
+        mode="full",
+        signed_approval={"parent_validation_loss": 1.5},
+    )
+    assert baseline == 1.25
+    assert migrated is False
