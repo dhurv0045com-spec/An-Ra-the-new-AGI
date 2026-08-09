@@ -108,7 +108,7 @@ share this folder only with accounts you control.
 
 Open `notebooks/AN_RA_T4_SFT_V4.ipynb` from the shared folder, choose a T4,
 and press **Run all**. Its default is `RUN_MODE = "pilot"`: a bounded
-15-minute SFT run. It verifies CUDA, the V4 tokenizer, signed lineage, dataset
+15-minute SFT run. Full mode uses a 240-minute session budget. It verifies CUDA, the V4 tokenizer, signed lineage, dataset
 hashes, parent checkpoint, and Drive write access before any weight update.
 
 The pilot publishes only:
@@ -143,9 +143,9 @@ python -m training.sft_v4 approve-full `
 
 That writes a signed approval bound to the exact protected pilot checkpoint.
 Only then change `RUN_MODE` to `"full"` and press **Run all** again. The full
-session resumes the SFT optimizer, scheduler, RNG, and example cursor from the
-SFT checkpoint. Replacing the checkpoint invalidates the approval and requires
-another review.
+session runs for up to 240 minutes and resumes the SFT optimizer, scheduler,
+RNG, and example cursor from the SFT checkpoint. Replacing the checkpoint
+invalidates the approval and requires another review.
 
 Only one authorized account may run with `WORKER_ROLE = "canonical_trainer"`
 at a time. A second account takes over only after the first has stopped; it
