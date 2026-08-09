@@ -145,7 +145,16 @@ That writes a signed approval bound to the exact protected pilot checkpoint.
 Only then change `RUN_MODE` to `"full"` and press **Run all** again. The full
 session runs for up to 240 minutes and resumes the SFT optimizer, scheduler,
 RNG, and example cursor from the SFT checkpoint. Replacing the checkpoint
-invalidates the approval and requires another review.
+with a newer checkpoint is expected: approval stays bound to the immutable
+pilot, and the verifier accepts only a newer checkpoint carrying the same
+lineage, parent, dataset, validation, and assistant-only contract. A different
+lineage, older checkpoint, or corrupted payload requires another pilot review.
+
+The `sft-v4` Drive folder is a single-file hot vault. The canonical payload is
+`anra-v4-current-full-resume.pt`; protected saves atomically replace that path.
+Old step-named files and archived 2+ GiB payloads are pruned automatically while
+small lineage/report evidence is retained, so restarting Colab must not create
+another full checkpoint copy.
 
 Only one authorized account may run with `WORKER_ROLE = "canonical_trainer"`
 at a time. A second account takes over only after the first has stopped; it
