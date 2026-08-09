@@ -53,9 +53,9 @@ runtime prompt). The notebook never writes that secret to Drive.
    child validation loss and sample behavior should you create the signed full
    approval and run full mode.
 
-The notebook clones branch `iterate500` at commit `7a8d5c7` (the SFT pipeline
-implementation). If the commit shown by the notebook differs, stop and update
-the notebook/source before training.
+The notebook clones branch `iterate500` and pins commit
+`d20b9b066d7493d9abc71068ff260c9edd42bac4`. If the notebook cannot fetch or
+verify that commit, stop and update the source before training.
 
 ## Readiness check
 
