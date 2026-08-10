@@ -911,6 +911,7 @@ def load_checkpoint(
     checkpoint_path: Path,
     *,
     device: torch.device,
+    checkpoint_device: torch.device | str | None = None,
     strict: bool = False,
     resume_training: bool = False,
     data_generator: torch.Generator | None = None,
@@ -940,6 +941,10 @@ def load_checkpoint(
         "rng_restore": {},
         "tokenizer_identity": {"verified": False, "reason": "checkpoint_not_loaded"},
         "training_recipe_migrations": [],
+        # Optional SFT child lineage.  Kept in the returned load state so local
+        # serving can refuse a renamed foundation checkpoint without retaining
+        # the multi-gigabyte archive after weights have been loaded.
+        "sft": {},
     }
     ckpt = checkpoint_path
     if not ckpt.exists():
@@ -954,7 +959,12 @@ def load_checkpoint(
     if not ckpt.exists():
         return state
 
-    blob = safe_torch_load(ckpt, map_location=device)
+    # Full-resume checkpoints also contain optimizer, scheduler, and RNG state.
+    # Serving must never materialize those training-only tensors on the GPU just
+    # to load model weights.  Training callers retain the historical default
+    # (``device``); inference can explicitly load the archive on CPU and let
+    # ``load_state_dict`` copy only model parameters to the resident model.
+    blob = safe_torch_load(ckpt, map_location=checkpoint_device or device)
     if resume_training:
         try:
             assert_resume_artifact_class(blob, ckpt)
@@ -1256,6 +1266,8 @@ def load_checkpoint(
         state["data_manifest_payloads"] = dict(blob.get("data_manifest_payloads", {}))
         state["model_config"] = dict(blob.get("model_config", {}))
         state["source_commit"] = str(blob.get("source_commit", "unknown"))
+        sft_metadata = blob.get("sft", {})
+        state["sft"] = dict(sft_metadata) if isinstance(sft_metadata, dict) else {}
         restore_hal_state(model, blob.get("hal_state", {}))
     state["loaded"] = True
     state["migration"] = migration

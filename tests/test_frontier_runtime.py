@@ -109,6 +109,77 @@ def test_frontier_runtime_uses_frontier_builder(monkeypatch, tmp_path: Path) -> 
     generate._reset_runtime_cache()
 
 
+def test_frontier_runtime_loads_full_checkpoint_on_cpu_before_gpu_transfer(
+    monkeypatch, tmp_path: Path
+) -> None:
+    import generate
+
+    generate._reset_runtime_cache()
+    checkpoint = tmp_path / "anra_v4_180m.pt"
+    checkpoint.write_bytes(b"fake")
+    captured: dict[str, object] = {}
+    monkeypatch.setattr(generate, "ANRA_V4_CHECKPOINT", checkpoint)
+    monkeypatch.setattr(generate, "_requested_checkpoint_path", lambda: checkpoint)
+    monkeypatch.setattr(generate, "load_or_build_v2_tokenizer", lambda: _Tokenizer())
+    monkeypatch.setattr(generate, "build_model_for_profile", lambda *_args, **_kwargs: _FakeModel())
+
+    def load(*_args, **kwargs):
+        captured.update(kwargs)
+        return {"loaded": True, "global_step": 1}
+
+    monkeypatch.setattr(generate, "load_checkpoint", load)
+    monkeypatch.setattr(
+        generate,
+        "model_summary",
+        lambda _model: {
+            "parameters": generate.ANRA_V4_MODEL_PARAMETER_COUNT,
+            "trainable_parameters": generate.ANRA_V4_MODEL_PARAMETER_COUNT,
+        },
+    )
+
+    generate._load_runtime()
+
+    assert str(captured["checkpoint_device"]) == "cpu"
+    generate._reset_runtime_cache()
+
+
+def test_model_info_exposes_sft_lineage_metadata(monkeypatch, tmp_path: Path) -> None:
+    import generate
+
+    generate._reset_runtime_cache()
+    checkpoint = tmp_path / "anra_v4_180m.pt"
+    checkpoint.write_bytes(b"fake")
+    monkeypatch.setattr(generate, "ANRA_V4_CHECKPOINT", checkpoint)
+    monkeypatch.setattr(generate, "_requested_checkpoint_path", lambda: checkpoint)
+    monkeypatch.setattr(generate, "load_or_build_v2_tokenizer", lambda: _Tokenizer())
+    monkeypatch.setattr(generate, "build_model_for_profile", lambda *_args, **_kwargs: _FakeModel())
+    monkeypatch.setattr(
+        generate,
+        "load_checkpoint",
+        lambda *_args, **_kwargs: {
+            "loaded": True,
+            "global_step": 1,
+            "sft": {"stage": "sft", "lineage_manifest_sha256": "lineage"},
+        },
+    )
+    monkeypatch.setattr(
+        generate,
+        "model_summary",
+        lambda _model: {
+            "parameters": generate.ANRA_V4_MODEL_PARAMETER_COUNT,
+            "trainable_parameters": generate.ANRA_V4_MODEL_PARAMETER_COUNT,
+        },
+    )
+
+    info = generate.get_model_info()
+
+    assert info["checkpoint_state"]["sft"] == {
+        "stage": "sft",
+        "lineage_manifest_sha256": "lineage",
+    }
+    generate._reset_runtime_cache()
+
+
 def test_model_info_exposes_frontier_proof_fields(monkeypatch, tmp_path: Path) -> None:
     import generate
 

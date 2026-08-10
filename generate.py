@@ -9,6 +9,7 @@ import re
 import threading
 import time
 from collections.abc import Iterator
+from contextlib import suppress
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import TypedDict
@@ -163,6 +164,31 @@ def _reset_runtime_cache() -> None:
     _RUNTIME_LOAD_STATE = {}
 
 
+def unload_runtime() -> None:
+    """Release the resident V4 model and reclaim local GPU cache.
+
+    This is deliberately a serving lifecycle operation, not a checkpoint
+    mutation.  The source checkpoint remains untouched; a later request can
+    load the same verified artifact again.
+    """
+
+    global _MODEL, _TOKENIZER, _LOADED_CHECKPOINT, _RUNTIME_PROFILE, _RUNTIME_LOAD_STATE
+    with _GENERATION_LOCK, _RUNTIME_LOAD_LOCK:
+        _MODEL = None
+        _TOKENIZER = None
+        _LOADED_CHECKPOINT = None
+        _RUNTIME_PROFILE = "unknown"
+        _RUNTIME_LOAD_STATE = {}
+        _ESV_STORE.clear()
+        _HAL_STORE.clear()
+        _CIV_STORE.clear()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+            with suppress(RuntimeError):
+                # IPC collection is unavailable on some valid CUDA runtimes.
+                torch.cuda.ipc_collect()
+
+
 def _sha256_file(path: Path, chunk_size: int = 8 * 1024 * 1024) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as handle:
@@ -262,7 +288,16 @@ def _load_frontier_runtime() -> tuple[object, object, Path, str, dict[str, objec
         CANONICAL_MODEL_PROFILE, vocab_size=tokenizer.vocab_size
     )
     model = model.to(DEVICE)
-    state = load_checkpoint(model, None, None, None, checkpoint, device=DEVICE, strict=False)
+    state = load_checkpoint(
+        model,
+        None,
+        None,
+        None,
+        checkpoint,
+        device=DEVICE,
+        checkpoint_device=torch.device("cpu"),
+        strict=False,
+    )
     state["active_release"] = active_release
     if not state.get("loaded"):
         raise RuntimeError(f"Frontier checkpoint did not load: {checkpoint}")
@@ -1521,6 +1556,7 @@ def get_model_info() -> dict[str, object]:
             "validation_history": _RUNTIME_LOAD_STATE.get("validation_history", []),
             "data_manifests": _RUNTIME_LOAD_STATE.get("data_manifests", {}),
             "model_config": _RUNTIME_LOAD_STATE.get("model_config", {}),
+            "sft": _RUNTIME_LOAD_STATE.get("sft", {}),
             "source_commit": _RUNTIME_LOAD_STATE.get("source_commit", "unknown"),
             "appended_row_optimizer_steps": _RUNTIME_LOAD_STATE.get(
                 "appended_row_optimizer_steps", 0

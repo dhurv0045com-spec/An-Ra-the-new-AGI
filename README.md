@@ -306,6 +306,33 @@ and opens the interface. Stop it with:
 .\scripts\stop_local_chat.ps1
 ```
 
+### Talk to the finished V4-SFT checkpoint locally
+
+The SFT prototype is intentionally stricter than the general Developer UI: it
+will use **only** the current protected SFT artifact, not an old rehearsal,
+foundation, or checkpoint folder. First download or sync this one file from
+the shared Drive training home to the laptop:
+
+```text
+sft-v4/anra-v4-current-full-resume.pt
+```
+
+Then start the desktop-controlled local prototype:
+
+```powershell
+.\scripts\start_sft_prototype.ps1 `
+  -Checkpoint "C:\path\to\anra-v4-current-full-resume.pt"
+```
+
+It opens Chat, Evaluation, and Developer controls at
+`http://127.0.0.1:8010`. The launcher remembers only this local path; it does
+not copy, scan, upload, or load other checkpoints. The full-resume archive is
+read through CPU and only the model weights are moved to the GPU, so optimizer
+state does not consume VRAM. Closing the small **An-Ra V4 SFT Prototype**
+controller window stops the server and releases GPU memory immediately. If
+only the browser page is closed, its heartbeat unloads the model and asks the
+controller to stop within 45 seconds.
+
 Useful read-only endpoints:
 
 ```text
