@@ -1204,7 +1204,7 @@ class GenerationParams(BaseModel):
     seed: int | None = 0
     use_think_tokens: bool = False
     use_kv_cache: bool = False
-    kv_cache_backend: Literal["float", "turboquant"] = "float"
+    kv_cache_backend: Literal["float", "legacy-float", "turboquant"] = "float"
     turboquant_bits: Literal[4, 8] = 4
     mode: Literal["diagnostic", "native", "full_system"] = "diagnostic"
     allow_control_tokens: bool = False

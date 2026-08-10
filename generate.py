@@ -774,12 +774,14 @@ def generate_traced(
     cfg.max_tokens = max(1, int(cfg.max_tokens))
     cfg.top_p = max(1e-6, min(1.0, float(cfg.top_p)))
     cfg.top_k = max(1, int(cfg.top_k))
-    if cfg.kv_cache_backend not in {"float", "turboquant"}:
-        raise ValueError("kv_cache_backend must be 'float' or 'turboquant'")
+    if cfg.kv_cache_backend not in {"float", "legacy-float", "turboquant"}:
+        raise ValueError(
+            "kv_cache_backend must be 'float', 'legacy-float', or 'turboquant'"
+        )
     if cfg.turboquant_bits not in {4, 8}:
         raise ValueError("turboquant_bits must be 4 or 8")
     if cfg.use_kv_cache:
-        if cfg.kv_cache_backend == "float" and not (
+        if cfg.kv_cache_backend in {"float", "legacy-float"} and not (
             _KV_CACHE_PARITY_VERIFIED or _KV_CACHE_PARITY_IN_PROGRESS
         ):
             raise RuntimeError(

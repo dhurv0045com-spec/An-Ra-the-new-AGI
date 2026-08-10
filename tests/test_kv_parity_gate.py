@@ -95,6 +95,24 @@ def test_parity_gate_verifies_and_unlocks_cached_generation(runtime) -> None:
     assert trace.output_token_ids == baseline.output_token_ids
 
 
+def test_legacy_float_is_an_explicit_parity_gated_rollback(runtime) -> None:
+    generate.verify_kv_cache_parity(max_tokens=8)
+    trace = generate.generate_traced(
+        "H: rollback cache probe\nANRA:",
+        generate.GenerationConfig(
+            strategy="greedy",
+            max_tokens=8,
+            seed=0,
+            use_kv_cache=True,
+            kv_cache_backend="legacy-float",
+            mode="diagnostic",
+        ),
+        session_id="legacy_kv_rollback_probe",
+    )
+    assert trace.kv_cache_backend == "legacy-float"
+    assert trace.kv_cache_compressed is False
+
+
 def test_parity_gate_detects_a_genuinely_broken_cache(runtime) -> None:
     # The realistic cache fault is stale content leaking across requests, not
     # a uniform position shift (RoPE attention is relative, so shifting every
