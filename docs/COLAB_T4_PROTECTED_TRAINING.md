@@ -11,6 +11,13 @@ checkpoint every 200 optimizer steps or 60 minutes, whichever occurs first.
 After a disconnection, another authorized Colab session can run the same
 notebook and resume from the last protected optimizer boundary.
 
+The notebook reads Phase A token progress from the checkpoint and selects the
+immutable catalog window containing the next token. The original pack covers
+0-170M tokens; the continuation pack covers 170M-500M. Restarting inside either
+range resumes that range's saved sampler cursor, while crossing 170M selects the
+continuation automatically. The 181M number is the model's parameter count,
+not a token limit.
+
 Separate Colab machines do not synchronize gradients over the public internet.
 Never run two notebooks with `WORKER_ROLE = "canonical_trainer"` simultaneously.
 
@@ -31,10 +38,13 @@ My Drive/
     └── training-signing-keys.json
 ```
 
-The two data-pack parts are the training data in this handoff: approximately
-140.3 MB compressed. The current full-resume checkpoint is approximately
-2.02 GB because it contains model, optimizer, scheduler, scaler, RNG, and
-sampler state. The complete folder is approximately 2.16 GB.
+The two original data-pack parts contain the first 170M-token window. The
+276,647,985-byte `v4_phase_a_cont_170m_to_500m_seed1301.tar.gz` archive contains
+the unique 170M-500M window. Its SHA-256 is
+`330ac75a2dbe20a3bd6608adf1c7325fd4a8bf7e81be546ccd8e5f93877f4888`.
+Upload it once directly into `ANRA_T4_TRAINING_HOME`; do not extract it in
+Drive. The current full-resume checkpoint is approximately 2.02 GB because it
+contains model, optimizer, scheduler, scaler, RNG, and sampler state.
 
 Keep at least 4.5 GiB free during training because checkpoint replacement
 briefly requires the current checkpoint and one hidden in-progress upload. At

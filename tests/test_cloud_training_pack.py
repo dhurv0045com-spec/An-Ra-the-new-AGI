@@ -80,6 +80,8 @@ def test_cloud_pack_is_compact_mixed_and_immutable(tmp_path, monkeypatch) -> Non
     assert train["total_training_windows"] == 64
     assert train["campaign_mix_verified"] is True
     assert report["tokenizer_metadata_path"] == "tokenizer_v4_32k.json.meta.json"
+    assert report["data_window_start_token"] == 0
+    assert report["source_shard_lineage"]
     assert _sha(output / report["tokenizer_metadata_path"]) == report[
         "tokenizer_metadata_sha256"
     ]
@@ -92,3 +94,22 @@ def test_cloud_pack_is_compact_mixed_and_immutable(tmp_path, monkeypatch) -> Non
         pass
     else:
         raise AssertionError("immutable cloud pack was overwritten")
+
+
+def test_prior_lineage_field_is_used_for_all_ancestor_exclusions(tmp_path: Path) -> None:
+    prior = tmp_path / "prior"
+    prior.mkdir()
+    (prior / "train.json").write_text(
+        json.dumps({"shards": [{"source_shard_path": "immediate.npy"}]}),
+        encoding="utf-8",
+    )
+    pack = {
+        "train_manifest": "train.json",
+        "source_shard_lineage": ["first.npy", "second.npy", "immediate.npy"],
+    }
+
+    assert cloud_pack._prior_source_shard_lineage(prior, pack) == {
+        "first.npy",
+        "second.npy",
+        "immediate.npy",
+    }

@@ -174,4 +174,8 @@ def test_protected_notebook_defaults_to_a_sequential_canonical_handoff() -> None
     assert "SystemExit" not in final_cell
     assert "ANRA_DURABLE_CHECKPOINT_STEPS'] = '200'" in final_cell
     assert "latest_training_failure.log" in final_cell
+    assert "PACK_CATALOG" in source
+    assert "select_continuation_pack(phase_a_tokens_seen, PACK_CATALOG)" in source
+    assert "v4_phase_a_cont_170m_to_500m_seed1301.tar.gz" in source
+    assert "phase_A_tokens={phase_a_tokens_seen:,}" in source
     assert "TRAINER FAILURE — LAST 160 LINES" in final_cell

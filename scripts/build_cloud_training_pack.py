@@ -43,6 +43,43 @@ def _sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def _manifest_source_shards(manifest: dict[str, object]) -> set[str]:
+    """Return immutable source-shard identities represented by a split."""
+
+    shards = manifest.get("shards", [])
+    if not isinstance(shards, list):
+        raise ValueError("cloud-pack train manifest shards must be a list")
+    return {
+        str(item.get("source_shard_path", ""))
+        for item in shards
+        if isinstance(item, dict) and str(item.get("source_shard_path", ""))
+    }
+
+
+def _prior_source_shard_lineage(
+    prior_pack_root: Path,
+    prior_pack: dict[str, object],
+) -> set[str]:
+    """Recover every source shard consumed by the complete pack ancestry.
+
+    New manifests carry the accumulated identities directly. Historical packs
+    predate that field, so their own train split is the conservative migration
+    boundary. The next generated pack then publishes the complete lineage for
+    every later continuation.
+    """
+
+    declared = prior_pack.get("source_shard_lineage", [])
+    if isinstance(declared, list) and declared:
+        values = {str(value) for value in declared if str(value)}
+        if len(values) != len(declared):
+            raise ValueError("prior cloud-pack source lineage contains duplicates")
+        return values
+    prior_train = _load_manifest(
+        prior_pack_root / str(prior_pack["train_manifest"])
+    )
+    return _manifest_source_shards(prior_train)
+
+
 def sign_pack_manifest(path: Path, *, key: str | None = None) -> dict[str, object]:
     signing_key = key or os.environ.get("ANRA_MANIFEST_SIGNING_KEY", "")
     if not signing_key:
@@ -345,14 +382,10 @@ def build_cloud_pack(
         prior_pack = json.loads(
             (prior_pack_root / "pack_manifest.json").read_text(encoding="utf-8")
         )
-        prior_train = _load_manifest(
-            prior_pack_root / str(prior_pack["train_manifest"])
+        excluded_source_shards = _prior_source_shard_lineage(
+            prior_pack_root,
+            prior_pack,
         )
-        excluded_source_shards = {
-            str(item.get("source_shard_path", ""))
-            for item in prior_train["shards"]
-            if isinstance(item, dict) and str(item.get("source_shard_path", ""))
-        }
     train_manifest = _write_split(
         source_manifest_path=source_root / "manifest.json",
         output_dir=train_dir,
@@ -397,6 +430,23 @@ def build_cloud_pack(
                     "sha256": _sha256(path),
                 }
             )
+    cumulative_tokens = int(cumulative_phase_tokens or training_tokens)
+    prior_cumulative_tokens = 0
+    if prior_pack is not None:
+        prior_cumulative_tokens = int(
+            prior_pack.get(
+                "cumulative_phase_tokens",
+                prior_pack.get("training_tokens_requested", 0),
+            )
+        )
+        expected_cumulative = prior_cumulative_tokens + int(training_tokens)
+        if cumulative_tokens != expected_cumulative:
+            raise ValueError(
+                "continuation cumulative token boundary must equal parent boundary plus "
+                f"this window: {cumulative_tokens:,} != {expected_cumulative:,}"
+            )
+    current_source_shards = _manifest_source_shards(train_manifest)
+    source_shard_lineage = sorted(excluded_source_shards | current_source_shards)
     pack: dict[str, object] = {
         "schema_version": 1,
         "name": (
@@ -409,9 +459,8 @@ def build_cloud_pack(
         "seed": seed,
         "training_tokens_requested": training_tokens,
         "training_tokens_effective": train_manifest["usable_training_tokens"],
-        "cumulative_phase_tokens": int(
-            cumulative_phase_tokens or training_tokens
-        ),
+        "data_window_start_token": prior_cumulative_tokens,
+        "cumulative_phase_tokens": cumulative_tokens,
         "validation_tokens": validation_manifest["usable_training_tokens"],
         "block_size": block_size,
         "sampling_policy": PERMUTATION_SAMPLER_ALGORITHM,
@@ -425,6 +474,10 @@ def build_cloud_pack(
         "validation_manifest_sha256": _sha256(validation_dir / "manifest.json"),
         "files": inventory,
         "total_bytes": sum(int(item["bytes"]) for item in inventory),
+        "source_shard_lineage": source_shard_lineage,
+        "source_shard_lineage_sha256": hashlib.sha256(
+            json.dumps(source_shard_lineage, separators=(",", ":")).encode("utf-8")
+        ).hexdigest(),
         "launch_manifest_policy": (
             "Generate and sign on the cloud worker after checkout so commit, runtime, "
             "hardware, and worker paths are truthful."
@@ -432,11 +485,7 @@ def build_cloud_pack(
     }
     if prior_pack is not None:
         prior_paths = excluded_source_shards
-        current_paths = {
-            str(item.get("source_shard_path", ""))
-            for item in train_manifest["shards"]
-            if isinstance(item, dict)
-        }
+        current_paths = current_source_shards
         overlap = sorted(prior_paths & current_paths)
         if overlap:
             raise RuntimeError(f"continuation pack overlaps prior source shards: {overlap}")
