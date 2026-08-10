@@ -1257,8 +1257,17 @@ def train_anra_v2(
             else len(ds)
         )
         optimizer_windows = batch_size * accumulation
-        raw_sample_budget = (
+        padded_sample_budget = (
             math.ceil(target_windows / optimizer_windows) * optimizer_windows
+        )
+        # Compact permutation packs are immutable no-replay windows. Do not
+        # invent samples merely to fill the final accumulation boundary; the
+        # loop below commits the remaining unique microbatches as a corrected
+        # partial optimizer step.
+        raw_sample_budget = (
+            min(padded_sample_budget, len(ds))
+            if active_sampler_algorithm == PERMUTATION_SAMPLER_ALGORITHM
+            else padded_sample_budget
         )
     data_sampler_position = 0
 
@@ -1301,7 +1310,7 @@ def train_anra_v2(
                 assert raw_sample_budget is not None
                 if raw_sample_budget > len(ds):
                     raise RuntimeError(
-                        "compact permutation pack has fewer unique windows than its token budget: "
+                        "compact permutation sample budget exceeded its unique windows: "
                         f"windows={len(ds)} requested={raw_sample_budget}"
                     )
                 sampler = DeterministicPermutationSampler(
@@ -2365,12 +2374,24 @@ def train_anra_v2(
                 elif entry[0] > hard_examples[0][0]:
                     heapq.heapreplace(hard_examples, entry)
 
-            if accum_micro_steps >= accumulation or signed_window_boundary:
+            sampler_budget_boundary = (
+                raw_sample_budget is not None
+                and data_sampler_position + len(pending_window_indices)
+                >= raw_sample_budget
+            )
+            if (
+                accum_micro_steps >= accumulation
+                or signed_window_boundary
+                or sampler_budget_boundary
+            ):
                 if pcgrad_enabled:
                     pcgrad_reports.extend(pcgrad.materialize())
                 if growth_alignment is not None:
                     growth_alignment.mask_inactive_gradients()
-                if signed_window_boundary and accum_micro_steps < accumulation:
+                if (
+                    (signed_window_boundary or sampler_budget_boundary)
+                    and accum_micro_steps < accumulation
+                ):
                     correction = accumulation / accum_micro_steps
                     for parameter in model.parameters():
                         if parameter.grad is not None:

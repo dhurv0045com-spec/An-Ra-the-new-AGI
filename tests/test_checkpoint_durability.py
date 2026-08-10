@@ -619,6 +619,17 @@ def test_final_microbatch_is_capped_exactly_at_signed_token_end() -> None:
     assert int(capped_answer.sum()) == 10
 
 
+def test_compact_pack_commits_final_partial_accumulation_without_replay() -> None:
+    source = (
+        Path(__file__).resolve().parents[1] / "scripts" / "build_brain.py"
+    ).read_text(encoding="utf-8")
+
+    assert "min(padded_sample_budget, len(ds))" in source
+    assert "or sampler_budget_boundary" in source
+    assert "signed_window_boundary or sampler_budget_boundary" in source
+    assert "compact permutation pack has fewer unique windows" not in source
+
+
 def test_required_session_acks_primary_then_protects_final_snapshot(
     monkeypatch,
     tmp_path: Path,
