@@ -38,6 +38,10 @@ contracts exist; they do not mean a useful model has already been trained.
 - [x] Add the first same-host DDP correctness layer: explicit torchrun/NCCL
   topology, rank-strided absolute sampling, collective helpers, one global
   cursor, per-rank RNG capture, and a tiny rank-zero-checkpoint rehearsal.
+- [x] Integrate that contract into the canonical 181M raw-causal trainer:
+  DDP-only forward/backward wrapping, real `no_sync` accumulation, collective
+  health/stop decisions and counters, rank-zero fenced durability, exact
+  topology validation, and rank-local RNG resume state.
 
 ## Current evidence and next live execution
 
@@ -59,6 +63,12 @@ contracts exist; they do not mean a useful model has already been trained.
 - [ ] Continue the dense 181M foundation lineage from the protected step-10,400
   checkpoint through 500M, 1B, and 3.6B cumulative
   tokens, using lightweight health checks and milestone behavioral evaluation.
+- [ ] Implement and sign the explicit single-GPU-parent to DDP model-only
+  bootstrap contract for that checkpoint. Bind the parent hash, declare the
+  optimizer restart and fresh rank RNG states, and preserve or explicitly reset
+  the sampler boundary; never silently relabel it as an exact DDP resume.
+- [ ] Run the canonical two-GPU uninterrupted-versus-resumed proof with one
+  forced rank failure before considering a 40–50 GPU launch.
 
 ## After the first useful 181M checkpoint
 
@@ -73,8 +83,11 @@ contracts exist; they do not mean a useful model has already been trained.
 - [ ] After a capable foundation milestone, build a new SFT child with the same
   strict behavior gate. RLVR/STaR and DPO remain unavailable for promotion
   until their evidence gates and training runs are real.
-- [ ] Add retrieval, memory, correction, tools, and adapters in that order, with
-  permissions, budgets, verification, provenance, and rollback.
+- [ ] Partial: add retrieval, memory, correction, tools, and adapters in that order, with
+  permissions, budgets, verification, provenance, and rollback. The opt-in
+  V4-SFT verified-deliberation controller now provides bounded local-session
+  retrieval, correction, scoped verification, evidence persistence, and a hard
+  off switch. Durable retrieval, permissioned tools/agents, and adapters remain.
 - [ ] Compare exact-float and TurboQuant KV caches on the same trained V4
   checkpoint. Promote compression only if long-context capability,
   output-distribution drift, peak VRAM, and tokens/second jointly pass; the
@@ -90,10 +103,11 @@ contracts exist; they do not mean a useful model has already been trained.
 - No optional architecture subsystem has earned promotion into the baseline.
 - SFT was executed, but it is not accepted; no RLVR/STaR/DPO or 500M growth run
   has occurred.
-- Same-host DDP/FSDP is deliberately blocked until the An-Ra runtime implements
-  and proves canonical integration. The tiny DDP rehearsal exists, but its
-  two-GPU uninterrupted-versus-resumed proof has not yet run; separate Colab
-  sessions will never synchronize gradients.
+- Same-host DDP is implemented for the narrow canonical 181M
+  `raw_causal_shards_v1` path but remains deployment-blocked until the two-GPU
+  canonical uninterrupted-versus-resumed proof passes. Growth, structured
+  data, token trimming, PCGrad, and post-session evaluation fail closed in DDP.
+  FSDP is not implemented. Separate Colab sessions never synchronize gradients.
 
 ## Final completion gate
 
@@ -101,3 +115,14 @@ The system is complete only when protected checkpoints resume exactly, the
 181M model produces coherent behavior rather than merely low loss, every enabled
 subsystem wins a controlled comparison, the growth child preserves its parent,
 and release evidence includes evaluation, rollback, and audit history.
+
+## Runtime efficiency gate
+
+- [x] Replace the quadratic-allocation exact KV append path with the lossless,
+  preallocated `anra-exact-kv-cache/v1` profile. Keep `legacy-float` as the
+  explicit rollback backend and preserve exact logits in focused parity tests.
+- [ ] Benchmark the trained V4 checkpoint with exact-static versus legacy-float
+  at 128/512/1,024/2,048-token contexts on RTX 4050 and the target server GPU;
+  promotion evidence must include latency, tokens/second, VRAM, and parity.
+- [ ] Redesign MoD around actual gathered-token training compute before claiming
+  efficiency. Keep MTP and MoE behind named frozen-parent pilots.

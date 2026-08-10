@@ -246,12 +246,11 @@ have invalidated the next expensive run:
   fresh under the declared stabilization schedule.
 
 The review also confirmed that same-host 40–50 GPU training is **not yet an
-operational capability**. At audit time the distributed module only estimated
-a profile; the canonical trainer still does not consume a distributed sampler,
-reduce global metrics, fence rank-zero checkpoint publication, or save every
-rank's optimizer/RNG state. Until a two-GPU kill-and-resume proof passes,
-separate Colab/Kaggle workers remain sequential checkpoint-baton workers and a
-large cluster must not be launched.
+operational capability**. The narrow canonical raw-causal trainer now consumes
+a distributed sampler, reduces global metrics and decisions, fences rank-zero
+checkpoint publication, and saves every rank's RNG state. Until its real
+two-GPU kill-and-resume proof passes, separate Colab/Kaggle workers remain
+sequential checkpoint-baton workers and a large cluster must not be launched.
 
 The first distributed implementation layer now exists without weakening that
 gate. `training.distributed` defines an explicit torchrun/NCCL topology,
@@ -295,8 +294,30 @@ python -m scripts.compare_ddp_rehearsals `
 ```
 
 This is a correctness rehearsal, not permission to run the 181M model on a
-large cluster. Canonical trainer integration follows only after uninterrupted
-versus resumed rehearsal states compare exactly.
+large cluster. The same contract is now integrated into the narrow canonical
+181M `raw_causal_shards_v1` path: `scripts.build_brain --distributed-mode ddp`
+initializes NCCL under `torchrun`, keeps the core model as optimizer/checkpoint
+owner, uses DDP only for forward/backward, applies real `no_sync` accumulation,
+and advances one global rank-strided cursor. Tokens, loss, health, timeout,
+termination, and step decisions are collective. Only rank zero writes reports
+or publishes checkpoints, and publication failures are fenced to every rank.
+
+Canonical checkpoints bind exact world size, rank/local-rank mapping, batch and
+accumulation, global sampler state, and every rank's isolated CPU, CUDA, and
+DataLoader RNG state. Resume fails when topology changes. Structured data, 500M
+growth, PCGrad phases, token/phase trimming, startup evaluation, and post-session
+evaluation fail closed. FSDP remains deferred. A real two-GPU canonical
+uninterrupted-versus-resumed comparison is still required before deployment,
+and a 40–50 GPU launch remains blocked until that proof passes.
+
+The current trained 181M artifact is a single-GPU full-resume checkpoint. The
+DDP resume gate intentionally rejects relabelling it as a distributed artifact,
+and an explicit model-only bootstrap manifest (parent hash, optimizer restart,
+fresh per-rank RNG contract, and sampler-boundary decision) has not yet been
+implemented. Canonical DDP can therefore start a new lineage today, but it
+cannot claim exact continuation of the existing single-GPU optimizer lineage.
+That migration surface and its two-GPU proof are required before the first
+large-cluster continuation.
 
 The Drive `latest_training_failure.log` dated 00:57 is historical. It recorded
 a compact pack whose 161,133 unique windows were rounded to 161,136 for an

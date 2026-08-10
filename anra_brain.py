@@ -187,8 +187,7 @@ class MultiHeadAttentionV2(nn.Module):
             target_seq_len=target_seq_len,
         )
         self.dropout = dropout
-        # Either the exact tensor dictionary or the evidence-gated,
-        # device-resident TurboQuant pilot. Training always leaves this None.
+        # Exact or compressed serving state. Training always leaves this None.
         self._kv_cache: object | None = None
         self._layer_idx: int = 0
         self.max_cache_len = int(target_seq_len)
@@ -979,22 +978,33 @@ class CausalTransformerV2(nn.Module):
         The compressed backend is a reversible serving pilot. It never affects
         training weights or checkpoint compatibility.
         """
-        if backend not in {"float", "turboquant"}:
-            raise ValueError("KV cache backend must be 'float' or 'turboquant'")
+        if backend not in {"float", "legacy-float", "turboquant"}:
+            raise ValueError(
+                "KV cache backend must be 'float', 'legacy-float', or 'turboquant'"
+            )
         if self.training:
             raise RuntimeError("KV cache must not be enabled while the model is training")
-        compressed_cache = None
+        cache_factory = None
         if backend == "turboquant":
             from inference.turboquant import TorchTurboQuantCache, TurboQuantConfig
 
-            compressed_cache = (TorchTurboQuantCache, TurboQuantConfig(bits=turboquant_bits))
+            cache_factory = (TorchTurboQuantCache, TurboQuantConfig(bits=turboquant_bits))
+        elif backend == "float":
+            from inference.exact_kv_cache import ExactKVCacheConfig, ExactStaticKVCache
+
+            cache_factory = (ExactStaticKVCache, ExactKVCacheConfig())
         for i, block in enumerate(self.blocks):
-            if compressed_cache is None:
+            if cache_factory is None:
                 block.attn._kv_cache = {}
             else:
-                cache_type, config = compressed_cache
+                cache_type, config = cache_factory
                 cache_limit = block.attn.max_cache_len
-                if block.attn.sliding_window is not None:
+                # Exact storage keeps the full model context and lets the
+                # existing attention mask enforce sliding visibility. Capping
+                # exact storage to the window would force an overlapping
+                # clone-and-shift allocation on every token after a long
+                # prompt. The lossy pilot retains its smaller physical window.
+                if backend == "turboquant" and block.attn.sliding_window is not None:
                     cache_limit = min(cache_limit, block.attn.sliding_window)
                 block.attn._kv_cache = cache_type(
                     num_kv_heads=block.attn.n_kv_head,
@@ -1033,6 +1043,22 @@ class CausalTransformerV2(nn.Module):
                 "memory_saved_bytes": 0,
                 "compression_ratio": 1.0,
                 "layers": 0,
+            }
+        if reports[0].get("backend") == "exact-static":
+            return {
+                "backend": "exact-static",
+                "schema": reports[0]["schema"],
+                "profile": reports[0]["profile"],
+                "algorithm": reports[0]["algorithm"],
+                "lossless": True,
+                "reserved_bytes": sum(int(report["reserved_bytes"]) for report in reports),
+                "occupied_bytes": sum(int(report["occupied_bytes"]) for report in reports),
+                "allocation_count": sum(
+                    int(report["allocation_count"]) for report in reports
+                ),
+                "bytes_written": sum(int(report["bytes_written"]) for report in reports),
+                "bytes_shifted": sum(int(report["bytes_shifted"]) for report in reports),
+                "layers": len(reports),
             }
         compressed = sum(int(report["compressed_bytes"]) for report in reports)
         uncompressed = sum(int(report["uncompressed_bytes"]) for report in reports)

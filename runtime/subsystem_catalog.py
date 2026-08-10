@@ -318,17 +318,29 @@ def subsystem_records() -> tuple[SubsystemRecord, ...]:
             "anra",
             (
                 "cognition/self_correction.py",
+                "cognition/deliberation.py",
                 "training/verified_process.py",
                 "training/verifier.py",
                 "inference/reasoning_budget.py",
+                "runtime/sft_prototype.py",
             ),
             dependencies=("dense_v4", "retrieval_memory"),
             runtime_cost="Additional candidates, verifier calls and trace storage.",
             claimed_benefit="Detect and repair verifiable mistakes.",
             evidence_state="partial",
             evidence=(
-                "Contracts and local verifier paths exist; a trained model has "
-                "not passed the loop gate."
+                "The opt-in V4-SFT runtime now executes a bounded understand, retrieve, "
+                "plan, candidate, scoped-verify, revise-or-abstain sequence and persists "
+                "its gate to the shared experience ledger. Focused contract tests pass; "
+                "the trained checkpoint has not yet shown a matched capability gain."
+            ),
+            evidence_required=(
+                "Matched checkpoint-running evaluation must improve task success after "
+                "latency and extra generated tokens are charged."
+            ),
+            rollback=(
+                "Select direct reasoning mode or set ANRA_VERIFIED_DELIBERATION=0; "
+                "checkpoint weights are unchanged."
             ),
         ),
         SubsystemRecord(

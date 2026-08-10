@@ -4,6 +4,7 @@ import random
 from pathlib import Path
 
 import numpy as np
+import pytest
 import torch
 
 from training.curriculum_sampler import (
@@ -65,6 +66,40 @@ def test_complete_rng_snapshot_replays_all_foundation_generators() -> None:
         assert not report.cudnn_benchmark
     finally:
         restore_rng_states(previous)
+
+
+def test_rank_local_cuda_rng_snapshot_never_mutates_peer_devices(
+    monkeypatch,
+) -> None:
+    local_state = torch.tensor([1, 2, 3], dtype=torch.uint8)
+    restored: list[tuple[torch.Tensor, object]] = []
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: True)
+    monkeypatch.setattr(torch.cuda, "get_rng_state", lambda device: local_state.clone())
+    monkeypatch.setattr(
+        torch.cuda,
+        "get_rng_state_all",
+        lambda: pytest.fail("rank-local capture must not read peer devices"),
+    )
+    monkeypatch.setattr(
+        torch.cuda,
+        "set_rng_state",
+        lambda state, device=None: restored.append((state.clone(), device)),
+    )
+    monkeypatch.setattr(
+        torch.cuda,
+        "set_rng_state_all",
+        lambda states: pytest.fail("rank-local restore must not mutate peer devices"),
+    )
+
+    device = torch.device("cuda", 1)
+    snapshot = capture_rng_states(cuda_device=device)
+    assert snapshot["cuda_scope"] == "local_device"
+    assert len(snapshot["cuda"]) == 1
+
+    restore_rng_states(snapshot, cuda_device=device)
+    assert len(restored) == 1
+    torch.testing.assert_close(restored[0][0], local_state)
+    assert restored[0][1] == device
 
 
 def test_counter_sampler_resume_is_exact_suffix() -> None:
@@ -142,9 +177,7 @@ def test_schema9_training_resume_restores_optimizer_scheduler_scaler_and_rng(
             "determinism_mode": DETERMINISM_MODE,
         }
         optimizer = torch.optim.AdamW(model.parameters(), lr=1e-3)
-        scheduler = get_cosine_schedule_with_warmup(
-            optimizer, warmup_steps=1, total_steps=10
-        )
+        scheduler = get_cosine_schedule_with_warmup(optimizer, warmup_steps=1, total_steps=10)
         mixed_precision = MixedPrecisionTrainer(device=torch.device("cpu"))
 
         x = torch.randint(0, 64, (1, 8))

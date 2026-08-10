@@ -15,6 +15,7 @@ import subprocess
 import sys
 import threading
 import time
+from contextlib import nullcontext
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -36,6 +37,7 @@ from engine.feature_flags import is_enabled
 from evaluation.intelligence_telemetry import create_intelligence_session
 from runtime.hal_telemetry import publish_hal_state
 from runtime.safe_load import safe_torch_load
+from torch.nn.parallel import DistributedDataParallel
 from torch.utils.data import DataLoader, WeightedRandomSampler
 from training.anra_optimizer import (
     IDENTITY_PARAMETER_PATTERNS,
@@ -55,11 +57,25 @@ from training.curriculum_sampler import (
     PERMUTATION_SAMPLER_ALGORITHM,
     SAMPLER_ALGORITHM,
     DeterministicPermutationSampler,
+    RankStridedSampler,
     ScheduledCurriculumSampler,
     source_replay_budget_violations,
     validate_sampler_resume_contract,
 )
 from training.data_routing import build_data_route_report
+from training.distributed import (
+    DistributedContext,
+    all_gather_objects,
+    all_reduce_bool_and,
+    all_reduce_bool_or,
+    all_reduce_mean,
+    all_reduce_sum,
+    barrier_or_raise,
+    broadcast_primary_result,
+    destroy_distributed,
+    initialize_distributed,
+    validate_same_host_topology,
+)
 from training.eval_v2 import quick_eval_loss, run_compact_eval
 from training.growth_runtime import load_growth_teacher, load_growth_training_pair
 from training.mixed_precision import MixedPrecisionTrainer
@@ -68,6 +84,7 @@ from training.reproducibility import (
     DETERMINISM_MODE,
     capture_rng_states,
     make_data_generator,
+    restore_rng_states,
     seed_everything,
     seed_worker,
 )
@@ -134,6 +151,70 @@ CONTINUATION_PHASE_TOKEN_TARGETS = {
 
 EMERGENCY_SAVE_TIMEOUT_SECONDS = 20.0
 _SAVE_COMPONENT_ORDER = ("model", "optimizer", "scheduler", "scaler")
+
+
+def _canonical_distributed_contract(
+    context: DistributedContext,
+    *,
+    batch_size: int,
+    accumulation: int,
+) -> dict[str, object]:
+    """Return the immutable topology attached to canonical DDP checkpoints."""
+
+    return {
+        **context.contract(
+            micro_batch_size_per_rank=batch_size,
+            gradient_accumulation=accumulation,
+        ),
+        "trainer": "anra-v4-canonical-raw-causal/v1",
+        "checkpoint_owner": "rank_zero_only",
+        "rng_ownership": "every_rank",
+        "find_unused_parameters": True,
+    }
+
+
+def _validate_canonical_distributed_resume(
+    saved: object,
+    expected: dict[str, object],
+) -> None:
+    if not isinstance(saved, dict) or not saved:
+        raise RuntimeError(
+            "Canonical DDP exact resume requires a distributed checkpoint; "
+            "single-GPU checkpoints need an explicit migration lineage"
+        )
+    if saved != expected:
+        raise RuntimeError(
+            f"Canonical DDP topology changed across exact resume: saved={saved}, active={expected}"
+        )
+
+
+def _merge_rank_strided_batches(rank_batches: list[list[int]]) -> list[int]:
+    """Reconstruct canonical global-position order from rank-local batches."""
+
+    if not rank_batches:
+        return []
+    widths = {len(batch) for batch in rank_batches}
+    if len(widths) != 1:
+        raise RuntimeError("DDP ranks produced unequal local microbatches")
+    width = widths.pop()
+    merged = [
+        rank_batches[rank][offset] for offset in range(width) for rank in range(len(rank_batches))
+    ]
+    if len(merged) != len(set(merged)):
+        raise RuntimeError("DDP ranks consumed an overlapping raw-shard window")
+    return merged
+
+
+class _NonPrimaryDurabilityView:
+    """Read-only durability schedule mirrored from rank zero."""
+
+    def __init__(self, state: dict[str, object]) -> None:
+        self.enabled = bool(state["enabled"])
+        self.required = bool(state["required"])
+        self.requires_initial_boundary = bool(state["requires_initial_boundary"])
+
+    def close(self) -> None:
+        return None
 
 
 def build_causal_extension_trainer(
@@ -373,9 +454,7 @@ def _freeze_training_lineage(
 def _tokenizer_checkpoint_contract() -> dict[str, object]:
     identity = active_tokenizer_identity()
     if identity.get("available") is not True:
-        raise FileNotFoundError(
-            f"Canonical tokenizer is missing: {active_tokenizer_path()}"
-        )
+        raise FileNotFoundError(f"Canonical tokenizer is missing: {active_tokenizer_path()}")
     return {
         "schema_version": int(identity["schema_version"]),
         "sha256": str(identity["sha256"]),
@@ -427,6 +506,8 @@ def _build_checkpoint_payload(
     rng_states_override: dict[str, object] | None = None,
     token_window: dict[str, object] | None = None,
     growth_provenance: dict[str, object] | None = None,
+    distributed_contract: dict[str, object] | None = None,
+    distributed_rng_states: dict[str, object] | None = None,
 ) -> dict[str, object]:
     try:
         source_commit = subprocess.check_output(
@@ -481,6 +562,8 @@ def _build_checkpoint_payload(
         "data_sampler_state": dict(data_sampler_state or {}),
         "token_window": dict(token_window or {}),
         "growth_provenance": dict(growth_provenance or {}),
+        "distributed_contract": dict(distributed_contract or {}),
+        "distributed_rng_states": dict(distributed_rng_states or {}),
         "model_config": model.model_config(),
         "training_recipe": dict(getattr(native_model, "training_recipe", {})),
         "seed_contract": dict(seed_contract or {}),
@@ -769,9 +852,7 @@ def _assert_token_window_start(
         return
     start = int(token_window["start_token"])
     if scratch_run and start != 0:
-        raise RuntimeError(
-            f"A scratch launch requires token-window start 0; received {start:,}"
-        )
+        raise RuntimeError(f"A scratch launch requires token-window start 0; received {start:,}")
     if phase_tokens_seen != start:
         raise RuntimeError(
             "Checkpoint/token-window boundary mismatch: "
@@ -838,9 +919,7 @@ def _masked_logit_z_loss(
         return logits.sum() * 0.0
     valid = (targets != pad_id).to(dtype=torch.float32)
     log_partition = torch.logsumexp(logits.float(), dim=-1)
-    return float(weight) * (
-        (log_partition.square() * valid).sum() / valid.sum().clamp_min(1.0)
-    )
+    return float(weight) * ((log_partition.square() * valid).sum() / valid.sum().clamp_min(1.0))
 
 
 def _quick_eval_loss_value(result: float | dict[str, object]) -> float:
@@ -858,9 +937,7 @@ def _assert_training_loader_dataset(
             training_dataset is not validation_dataset and loader.dataset is validation_dataset
         )
         reason = (
-            "validation dataset selected"
-            if selected_validation
-            else "unknown dataset selected"
+            "validation dataset selected" if selected_validation else "unknown dataset selected"
         )
         raise RuntimeError(f"training loader boundary violation: {reason}")
 
@@ -973,7 +1050,7 @@ def _configure_continuation_phase(
     return report
 
 
-def train_anra_v2(
+def _train_anra_v2(
     *,
     data_path: str,
     checkpoint_path: str = "anra_v4_180m.pt",
@@ -1012,22 +1089,47 @@ def train_anra_v2(
     growth_initialization: str | None = None,
     growth_manifest: str | None = None,
     growth_parent_checkpoint: str | None = None,
+    distributed_context: DistributedContext,
 ) -> dict[str, object]:
     for required_component in ("training_loop", "data_mix", "evaluation"):
         if not is_enabled(required_component):
             raise RuntimeError(
                 f"Required component is disabled at its call site: {required_component}"
             )
-    print_session_dashboard()
+    ddp_enabled = distributed_context.enabled
+    is_primary = distributed_context.is_primary
+    if is_primary:
+        print_session_dashboard()
     growth_run = model_size == ANRA_V4_GROWTH_MODEL_PROFILE
+    if ddp_enabled:
+        unsupported: list[str] = []
+        if training_layout != RawCausalShardDataset.PACKING_LAYOUT:
+            unsupported.append("structured/conversation layout")
+        if growth_run or any((growth_initialization, growth_manifest, growth_parent_checkpoint)):
+            unsupported.append("growth")
+        if use_ouroboros:
+            unsupported.append("Ouroboros")
+        if any(
+            value is not None for value in (token_window_id, token_window_start, token_window_end)
+        ):
+            unsupported.append("token-window trimming")
+        if continuation_phase.upper() in {"D", "E"}:
+            unsupported.append("PCGrad continuation")
+        if max_phase_tokens is not None:
+            unsupported.append("phase-token trimming")
+        if start_eval_examples > 0:
+            unsupported.append("startup evaluation")
+        if post_session_eval:
+            unsupported.append("post-session evaluation")
+        if unsupported:
+            raise RuntimeError(
+                "Canonical DDP currently supports raw_causal_shards_v1 dense "
+                f"boundaries only; unsupported: {', '.join(unsupported)}"
+            )
     if model_size not in {CANONICAL_MODEL_PROFILE, ANRA_V4_GROWTH_MODEL_PROFILE}:
         raise ValueError("model size is not registered in the operational V4 lineage")
     if use_mtp or use_moe:
-        requested = [
-            name
-            for name, enabled in (("mtp", use_mtp), ("moe", use_moe))
-            if enabled
-        ]
+        requested = [name for name, enabled in (("mtp", use_mtp), ("moe", use_moe)) if enabled]
         raise ValueError(
             "Experimental architecture flags cannot mutate a registered V4 profile in place: "
             f"{requested}. Build a named experimental profile with an exact parameter contract "
@@ -1076,9 +1178,7 @@ def train_anra_v2(
         raise ValueError("pilot curricula require immutable raw causal shards")
     if rehearsal_interrupt_after_microsteps is not None:
         if post_session_eval:
-            raise ValueError(
-                "rehearsal interruption requires --post-session-eval none"
-            )
+            raise ValueError("rehearsal interruption requires --post-session-eval none")
         if rehearsal_interrupt_after_microsteps < 1:
             raise ValueError("rehearsal interruption microsteps must be positive")
     seed_report = seed_everything(seed)
@@ -1109,7 +1209,16 @@ def train_anra_v2(
         flush=True,
     )
     dataset_path = Path(data_path)
-    tokenizer = load_or_build_v2_tokenizer(dataset_path=dataset_path)
+    tokenizer = None
+    primary_error: str | None = None
+    if is_primary:
+        try:
+            tokenizer = load_or_build_v2_tokenizer(dataset_path=dataset_path)
+        except Exception as exc:
+            primary_error = f"{type(exc).__name__}: {exc}"
+    barrier_or_raise(distributed_context, primary_error=primary_error)
+    if tokenizer is None:
+        tokenizer = load_or_build_v2_tokenizer(dataset_path=dataset_path)
     tokenizer_identity = active_tokenizer_identity()
     if tokenizer_identity.get("available") is not True:
         raise RuntimeError("Active tokenizer identity could not be established")
@@ -1189,13 +1298,14 @@ def train_anra_v2(
         )
         if set(mix_report.active_weights) == set(training_mix_controller.weights):
             training_mix_controller.weights = dict(mix_report.active_weights)
-        training_examples, validation_examples, conversation_split = (
-            split_conversation_validation(examples)
+        training_examples, validation_examples, conversation_split = split_conversation_validation(
+            examples
         )
-        write_json(
-            OUTPUT_V2_DIR / "data_manifests" / "conversation_validation_split.json",
-            conversation_split,
-        )
+        if is_primary:
+            write_json(
+                OUTPUT_V2_DIR / "data_manifests" / "conversation_validation_split.json",
+                conversation_split,
+            )
         ds = V2ConversationDataset(
             training_examples,
             tokenizer,
@@ -1233,8 +1343,7 @@ def train_anra_v2(
                 {
                     str(shard.get("source_class", shard.get("source", "")))
                     for shard in manifest_payload.get("shards", [])
-                    if isinstance(shard, dict)
-                    and shard.get("source_class", shard.get("source"))
+                    if isinstance(shard, dict) and shard.get("source_class", shard.get("source"))
                 }
             )
     else:
@@ -1249,8 +1358,9 @@ def train_anra_v2(
             "tokenizer_sha256": hashlib.sha256(active_tokenizer_path().read_bytes()).hexdigest(),
         }
     )
-    write_json(v2_report_path("data_route_report.json"), data_route_report)
-    write_json(v2_report_path("mix_report"), mix_report.to_dict())
+    if is_primary:
+        write_json(v2_report_path("data_route_report.json"), data_route_report)
+        write_json(v2_report_path("mix_report"), mix_report.to_dict())
     if len(ds) == 0:
         raise RuntimeError(f"{training_layout} produced zero training windows.")
     window_consumption = (
@@ -1259,7 +1369,9 @@ def train_anra_v2(
         else None
     )
 
-    data_generator = make_data_generator(seed)
+    data_generator = make_data_generator(
+        seed + distributed_context.rank * 1_000_003 if ddp_enabled else seed
+    )
     raw_sample_budget: int | None = None
     if training_layout == RawCausalShardDataset.PACKING_LAYOUT:
         signed_profile_reset = (
@@ -1272,10 +1384,8 @@ def train_anra_v2(
             if max_phase_tokens is not None
             else len(ds)
         )
-        optimizer_windows = batch_size * accumulation
-        padded_sample_budget = (
-            math.ceil(target_windows / optimizer_windows) * optimizer_windows
-        )
+        optimizer_windows = batch_size * accumulation * distributed_context.world_size
+        padded_sample_budget = math.ceil(target_windows / optimizer_windows) * optimizer_windows
         # Compact permutation packs are immutable no-replay windows. Do not
         # invent samples merely to fill the final accumulation boundary; the
         # loop below commits the remaining unique microbatches as a corrected
@@ -1285,6 +1395,12 @@ def train_anra_v2(
             if active_sampler_algorithm == PERMUTATION_SAMPLER_ALGORITHM
             else padded_sample_budget
         )
+        if ddp_enabled and raw_sample_budget % optimizer_windows:
+            raise RuntimeError(
+                "Canonical DDP raw sample budget must end on a complete global "
+                f"optimizer boundary: samples={raw_sample_budget}, "
+                f"global_sequences_per_step={optimizer_windows}"
+            )
     data_sampler_position = 0
 
     def current_data_sampler_state() -> dict[str, object]:
@@ -1333,8 +1449,17 @@ def train_anra_v2(
                     len(ds),
                     num_samples=raw_sample_budget,
                     seed=data_mix_seed,
-                    start_position=sample_offset,
                 )
+                if ddp_enabled:
+                    sampler = RankStridedSampler(
+                        sampler,
+                        rank=distributed_context.rank,
+                        world_size=distributed_context.world_size,
+                        global_cursor=sample_offset,
+                        micro_batch_size_per_rank=batch_size,
+                    )
+                else:
+                    sampler.start_position = sample_offset
                 return DataLoader(ds, sampler=sampler, **loader_kwargs)
             ranges = ds.source_window_ranges()
             if curriculum != "none":
@@ -1372,11 +1497,19 @@ def train_anra_v2(
                 curriculum=curriculum,
                 num_samples=raw_sample_budget,
                 seed=data_mix_seed,
-                start_position=sample_offset,
+                start_position=0 if ddp_enabled else sample_offset,
                 target_mass={str(key): float(value) for key, value in target_mix.items()}
                 if target_mix
                 else None,
             )
+            if ddp_enabled:
+                sampler = RankStridedSampler(
+                    sampler,
+                    rank=distributed_context.rank,
+                    world_size=distributed_context.world_size,
+                    global_cursor=sample_offset,
+                    micro_batch_size_per_rank=batch_size,
+                )
             return DataLoader(ds, sampler=sampler, **loader_kwargs)
         if active_weights is None or training_layout == RawCausalShardDataset.PACKING_LAYOUT:
             return DataLoader(
@@ -1407,7 +1540,7 @@ def train_anra_v2(
     loader = make_loader()
     _assert_training_loader_dataset(loader, ds, eval_ds)
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = distributed_context.device
     if device.type == "cuda":
         # ``seed_everything`` establishes the reproducible-same-stack
         # contract. Do not silently undo it here: cuDNN benchmarking can
@@ -1495,7 +1628,9 @@ def train_anra_v2(
         "growth": growth_recipe,
     }
     continuation_report = _configure_continuation_phase(model, continuation_phase)
-    intelligence_session = create_intelligence_session(model)
+    intelligence_session = (
+        create_intelligence_session(model) if is_primary or not ddp_enabled else None
+    )
     if growth_teacher is not None:
         growth_teacher = growth_teacher.to(device)
     mp = MixedPrecisionTrainer(device=device)
@@ -1525,7 +1660,8 @@ def train_anra_v2(
     )
     if appended_row_lr is not None:
         optimizer_report["append_only_rows"] = appended_row_lr.report()
-    write_json(v2_report_path("optimizer_bakeoff"), optimizer_report)
+    if is_primary:
+        write_json(v2_report_path("optimizer_bakeoff"), optimizer_report)
     total_steps = int(getattr(training_cfg, "max_steps", 50_000))
     warmup_steps = max(1, int(total_steps * 0.02))
     scheduler = get_cosine_schedule_with_warmup(
@@ -1561,7 +1697,13 @@ def train_anra_v2(
             "Growth output already exists; use a new artifact path or an explicit "
             "full-resume launch"
         )
-    _prepare_resume_target(ckpt_path, resume_from)
+    primary_error: str | None = None
+    if is_primary:
+        try:
+            _prepare_resume_target(ckpt_path, resume_from)
+        except Exception as exc:
+            primary_error = f"{type(exc).__name__}: {exc}"
+    barrier_or_raise(distributed_context, primary_error=primary_error)
     if (
         os.environ.get("ANRA_REQUIRE_RESUME", "0") == "1"
         and not ckpt_path.exists()
@@ -1572,10 +1714,42 @@ def train_anra_v2(
             "Refusing to start from scratch and overwrite the intended experiment."
         )
     scratch_run = not ckpt_path.exists()
-    durability = CheckpointDurabilitySession.from_environment(
-        OUTPUT_V2_DIR / "durability" / "outbox",
-        scratch_run=scratch_run,
+    durability = None
+    durability_envelope: dict[str, object] | None = None
+    if is_primary:
+        try:
+            durability = CheckpointDurabilitySession.from_environment(
+                OUTPUT_V2_DIR / "durability" / "outbox",
+                scratch_run=scratch_run,
+            )
+            durability_envelope = {
+                "ok": True,
+                "state": {
+                    "enabled": durability.enabled,
+                    "required": durability.required,
+                    "requires_initial_boundary": durability.requires_initial_boundary,
+                },
+            }
+        except Exception as exc:
+            durability_envelope = {
+                "ok": False,
+                "error": f"{type(exc).__name__}: {exc}",
+            }
+    durability_envelope = broadcast_primary_result(
+        durability_envelope,
+        distributed_context,
     )
+    if not bool(durability_envelope.get("ok")):
+        raise RuntimeError(
+            "Canonical durability initialization failed: "
+            f"{durability_envelope.get('error')}"
+        )
+    durability_state = durability_envelope.get("state")
+    if not isinstance(durability_state, dict):
+        raise RuntimeError("Canonical durability initialization returned no state")
+    if not is_primary:
+        durability = _NonPrimaryDurabilityView(durability_state)
+    assert durability is not None
     if durability.required and token_window is None:
         raise RuntimeError(
             "Required cluster durability also requires a signed token window. "
@@ -1599,12 +1773,18 @@ def train_anra_v2(
         if ckpt_path.exists()
         else resume_path
     )
-    _freeze_training_lineage(
-        checkpoint_path=lineage_source,
-        tokenizer_path=active_tokenizer_path(),
-        model_config=model.model_config(),
-        data_manifests=lineage_manifest_paths,
-    )
+    primary_error = None
+    if is_primary:
+        try:
+            _freeze_training_lineage(
+                checkpoint_path=lineage_source,
+                tokenizer_path=active_tokenizer_path(),
+                model_config=model.model_config(),
+                data_manifests=lineage_manifest_paths,
+            )
+        except Exception as exc:
+            primary_error = f"{type(exc).__name__}: {exc}"
+    barrier_or_raise(distributed_context, primary_error=primary_error)
     ckpt: dict[str, object] = {}
     global_step = 0
     epoch = 0
@@ -1616,6 +1796,23 @@ def train_anra_v2(
     best_validation_loss = float("inf")
     best_answer_validation_loss = float("inf")
     validation_history: list[dict[str, object]] = []
+    distributed_contract = (
+        _canonical_distributed_contract(
+            distributed_context,
+            batch_size=batch_size,
+            accumulation=accumulation,
+        )
+        if ddp_enabled
+        else {}
+    )
+
+    def capture_distributed_rng_states() -> dict[str, object]:
+        local_state = capture_rng_states(
+            data_generator=data_generator,
+            cuda_device=(distributed_context.device if ddp_enabled else None),
+        )
+        gathered = all_gather_objects(local_state, distributed_context)
+        return {str(rank): state for rank, state in enumerate(gathered)}
 
     def _publish_training_checkpoint(
         payload: dict[str, object],
@@ -1623,6 +1820,8 @@ def train_anra_v2(
         final: bool = False,
         require_protection: bool = False,
     ) -> None:
+        if not is_primary:
+            return
         if durability.enabled:
             ref = durability.publish_checkpoint(ckpt_path, payload, final=final)
             if ref is not None:
@@ -1637,9 +1836,7 @@ def train_anra_v2(
                         timeout_seconds=durability.ack_timeout_seconds,
                     )
                 status = json.loads(
-                    durability.outbox.status_path(ref.snapshot_id).read_text(
-                        encoding="utf-8"
-                    )
+                    durability.outbox.status_path(ref.snapshot_id).read_text(encoding="utf-8")
                 )
                 print(
                     f"[Durability] snapshot={ref.snapshot_id} state={status.get('state')}",
@@ -1657,7 +1854,8 @@ def train_anra_v2(
         "emergency_save_completed": None,
     }
     termination_request: dict[str, int | None] = {"signal": None}
-    boundary_rng_states = capture_rng_states(data_generator=data_generator)
+    distributed_boundary_rng_states = capture_distributed_rng_states()
+    boundary_rng_states = distributed_boundary_rng_states[str(distributed_context.rank)]
     boundary_epoch = epoch
 
     def _handle_sigterm(sig_num: int, _frame: object) -> None:
@@ -1676,47 +1874,56 @@ def train_anra_v2(
         discarded_micro_steps: int,
     ) -> None:
         sessions_completed = int(ckpt.get("sessions_completed", 0) + 1)
-        payload = _build_checkpoint_payload(
-            model=model,
-            optimizer=optimizer,
-            scheduler=scheduler,
-            mp=mp,
-            global_step=global_step,
-            epoch=boundary_epoch,
-            best_loss=best_loss,
-            sessions_completed=sessions_completed,
-            mix_report=mix_report,
-            migration=checkpoint_migration,
-            tokens_seen=campaign_tokens_seen,
-            unique_token_ids_seen=known_token_ids,
-            continuation_token_counts=continuation_token_counts,
-            best_validation_loss=best_validation_loss,
-            best_answer_validation_loss=best_answer_validation_loss,
-            validation_history=validation_history,
-            appended_row_optimizer_steps=(
-                appended_row_lr.steps_completed if appended_row_lr is not None else 0
-            ),
-            raw_window_consumption=(
-                window_consumption.state_dict() if window_consumption is not None else None
-            ),
-            data_sampler_state=current_data_sampler_state(),
-            data_generator=data_generator,
-            seed_contract=seed_report.to_dict(),
-            rng_states_override=boundary_rng_states,
-            token_window=token_window,
-            growth_provenance=growth_provenance,
-        )
-        payload["interruption"] = {
-            "signal": int(sig_num),
-            "safe_optimizer_boundary": True,
-            "discarded_micro_steps": int(discarded_micro_steps),
-            "global_step": int(global_step),
-            "sampler_position": int(data_sampler_position),
-            "requested_at": _utc_iso(),
-        }
-        ok = _emergency_save_with_timeout(payload, ckpt_path)
-        if ok:
-            _publish_training_checkpoint(payload, final=True)
+        primary_error: str | None = None
+        ok = False
+        if is_primary:
+            try:
+                payload = _build_checkpoint_payload(
+                    model=model,
+                    optimizer=optimizer,
+                    scheduler=scheduler,
+                    mp=mp,
+                    global_step=global_step,
+                    epoch=boundary_epoch,
+                    best_loss=best_loss,
+                    sessions_completed=sessions_completed,
+                    mix_report=mix_report,
+                    migration=checkpoint_migration,
+                    tokens_seen=campaign_tokens_seen,
+                    unique_token_ids_seen=known_token_ids,
+                    continuation_token_counts=continuation_token_counts,
+                    best_validation_loss=best_validation_loss,
+                    best_answer_validation_loss=best_answer_validation_loss,
+                    validation_history=validation_history,
+                    appended_row_optimizer_steps=(
+                        appended_row_lr.steps_completed if appended_row_lr is not None else 0
+                    ),
+                    raw_window_consumption=(
+                        window_consumption.state_dict() if window_consumption is not None else None
+                    ),
+                    data_sampler_state=current_data_sampler_state(),
+                    data_generator=data_generator,
+                    seed_contract=seed_report.to_dict(),
+                    rng_states_override=boundary_rng_states,
+                    token_window=token_window,
+                    growth_provenance=growth_provenance,
+                    distributed_contract=distributed_contract,
+                    distributed_rng_states=distributed_boundary_rng_states,
+                )
+                payload["interruption"] = {
+                    "signal": int(sig_num),
+                    "safe_optimizer_boundary": True,
+                    "discarded_micro_steps": int(discarded_micro_steps),
+                    "global_step": int(global_step),
+                    "sampler_position": int(data_sampler_position),
+                    "requested_at": _utc_iso(),
+                }
+                ok = _emergency_save_with_timeout(payload, ckpt_path)
+                if ok:
+                    _publish_training_checkpoint(payload, final=True)
+            except Exception as exc:
+                primary_error = f"{type(exc).__name__}: {exc}"
+        barrier_or_raise(distributed_context, primary_error=primary_error)
         signal_state["emergency_save_completed"] = ok
         print(f"[build_brain] deferred termination save status={ok}", flush=True)
         raise SystemExit(128 + sig_num)
@@ -1733,32 +1940,62 @@ def train_anra_v2(
     start_step = 0
     best_loss = float("inf")
     session_start_loss = float("inf")
+    resume_rank_rng_state: dict[str, object] | None = None
 
     # ── AUTO-RESUME ──────────────────────────────────────────────────────────────
     load_path = ckpt_path if ckpt_path.exists() else resume_path
     if load_path.exists():
-        print(f"[Resume] Found checkpoint: {load_path}", flush=True)
-        resume_state = load_checkpoint(
-            model,
-            optimizer,
-            scheduler,
-            mp,
-            load_path,
-            device=device,
-            strict=False,
-            resume_training=True,
-            data_generator=data_generator,
-            sampler_reset_token=(
-                token_window_start
-                if os.environ.get("ANRA_ALLOW_DATA_PROFILE_CHANGE", "0") == "1"
-                and os.environ.get(
-                    "ANRA_RESET_DATA_SAMPLER_ON_PROFILE_CHANGE", "0"
+        if is_primary:
+            print(f"[Resume] Found checkpoint: {load_path}", flush=True)
+        resume_state: dict[str, object] = {}
+        resume_error: str | None = None
+        checkpoint_hash: str | None = None
+        try:
+            checkpoint_hash = _sha256_path(load_path)
+            resume_state = load_checkpoint(
+                model,
+                optimizer,
+                scheduler,
+                mp,
+                load_path,
+                device=device,
+                strict=False,
+                resume_training=True,
+                data_generator=data_generator,
+                restore_rng=not ddp_enabled,
+                sampler_reset_token=(
+                    token_window_start
+                    if os.environ.get("ANRA_ALLOW_DATA_PROFILE_CHANGE", "0") == "1"
+                    and os.environ.get("ANRA_RESET_DATA_SAMPLER_ON_PROFILE_CHANGE", "0") == "1"
+                    else None
+                ),
+                continuation_phase=continuation_phase,
+            )
+            if ddp_enabled:
+                _validate_canonical_distributed_resume(
+                    resume_state.get("distributed_contract"),
+                    distributed_contract,
                 )
-                == "1"
-                else None
-            ),
-            continuation_phase=continuation_phase,
+            elif resume_state.get("distributed_contract"):
+                raise RuntimeError(
+                    "A canonical DDP checkpoint cannot resume in single-GPU mode; "
+                    "use the exact saved torchrun topology or create an explicit "
+                    "model-only migration lineage"
+                )
+        except Exception as exc:
+            resume_error = f"rank {distributed_context.rank}: {type(exc).__name__}: {exc}"
+        resume_outcomes = all_gather_objects(
+            {"error": resume_error, "sha256": checkpoint_hash},
+            distributed_context,
         )
+        resume_errors = [row["error"] for row in resume_outcomes if row["error"]]
+        if resume_errors:
+            raise RuntimeError(
+                "Collective checkpoint resume failed: "
+                + " | ".join(str(error) for error in resume_errors)
+            )
+        if len({str(row["sha256"]) for row in resume_outcomes}) != 1:
+            raise RuntimeError("DDP ranks loaded different checkpoint bytes")
         if resume_state["loaded"]:
             load_report = resume_state.get("load_report", {})
             if (
@@ -1801,8 +2038,7 @@ def train_anra_v2(
                 if not isinstance(saved_growth_provenance, dict) or not saved_growth_provenance:
                     raise RuntimeError("Growth resume checkpoint is missing its growth provenance")
                 stable_saved = {
-                    key: saved_growth_provenance.get(key)
-                    for key in dict(growth_recipe or {})
+                    key: saved_growth_provenance.get(key) for key in dict(growth_recipe or {})
                 }
                 if stable_saved != growth_recipe:
                     raise RuntimeError("Growth resume lineage differs from the active manifest")
@@ -1815,10 +2051,7 @@ def train_anra_v2(
             if window_consumption is not None:
                 reset_sampler = (
                     data_profile_changed
-                    and os.environ.get(
-                        "ANRA_RESET_DATA_SAMPLER_ON_PROFILE_CHANGE", "0"
-                    )
-                    == "1"
+                    and os.environ.get("ANRA_RESET_DATA_SAMPLER_ON_PROFILE_CHANGE", "0") == "1"
                 )
                 if reset_sampler:
                     data_sampler_position = 0
@@ -1828,9 +2061,7 @@ def train_anra_v2(
                         flush=True,
                     )
                 else:
-                    raw_consumption_state = resume_state.get(
-                        "raw_window_consumption", {}
-                    )
+                    raw_consumption_state = resume_state.get("raw_window_consumption", {})
                     if isinstance(raw_consumption_state, dict) and raw_consumption_state:
                         window_consumption.load_state_dict(raw_consumption_state)
                     sampler_state = resume_state.get("data_sampler_state", {})
@@ -1848,10 +2079,7 @@ def train_anra_v2(
                             else None
                         ),
                     )
-                    visits = (
-                        window_consumption.unique_windows
-                        + window_consumption.repeated_windows
-                    )
+                    visits = window_consumption.unique_windows + window_consumption.repeated_windows
                     if visits != data_sampler_position:
                         raise RuntimeError(
                             "Raw V4 sampler cursor disagrees with window-consumption "
@@ -1859,6 +2087,12 @@ def train_anra_v2(
                         )
                 loader = make_loader(sample_offset=data_sampler_position)
                 _assert_training_loader_dataset(loader, ds, eval_ds)
+            if ddp_enabled:
+                rank_rng_states = resume_state.get("distributed_rng_states", {})
+                expected_ranks = {str(rank) for rank in range(distributed_context.world_size)}
+                if not isinstance(rank_rng_states, dict) or set(rank_rng_states) != expected_ranks:
+                    raise RuntimeError("Canonical DDP checkpoint lacks the exact per-rank RNG set")
+                resume_rank_rng_state = rank_rng_states[str(distributed_context.rank)]
             start_step = int(resume_state["global_step"])
             best_loss = float(resume_state["best_loss"])
             session_start_loss = best_loss
@@ -1903,9 +2137,7 @@ def train_anra_v2(
                 ).items()
             }
         )
-        best_validation_loss = float(
-            parent_progress.get("best_validation_loss", float("inf"))
-        )
+        best_validation_loss = float(parent_progress.get("best_validation_loss", float("inf")))
         best_answer_validation_loss = float(
             parent_progress.get("best_answer_validation_loss", float("inf"))
         )
@@ -1938,9 +2170,7 @@ def train_anra_v2(
                         else None
                     ),
                 )
-                visits = (
-                    window_consumption.unique_windows + window_consumption.repeated_windows
-                )
+                visits = window_consumption.unique_windows + window_consumption.repeated_windows
                 if visits != data_sampler_position:
                     raise RuntimeError(
                         "Growth parent sampler cursor disagrees with consumption evidence"
@@ -1970,10 +2200,7 @@ def train_anra_v2(
             flush=True,
         )
 
-    boundary_rng_states = capture_rng_states(data_generator=data_generator)
     boundary_epoch = epoch
-    if termination_request["signal"] is not None:
-        _save_interrupted_boundary(int(termination_request["signal"]), discarded_micro_steps=0)
 
     ewc_weight = max(0.0, float(os.environ.get("ANRA_EWC_WEIGHT", "0")))
     ewc_reference: dict[str, torch.Tensor] = {}
@@ -2056,23 +2283,54 @@ def train_anra_v2(
                     "best_answer_validation_loss": best_answer_validation_loss,
                 }
             )
-            write_json(
-                v2_report_path("validation_history"),
-                {
-                    "generated_at": time.time(),
-                    "layout": eval_ds.PACKING_LAYOUT,
-                    "history": validation_history,
-                },
-            )
+            if is_primary:
+                write_json(
+                    v2_report_path("validation_history"),
+                    {
+                        "generated_at": time.time(),
+                        "layout": eval_ds.PACKING_LAYOUT,
+                        "history": validation_history,
+                    },
+                )
         except Exception as exc:
             print(f"[build_brain] quick eval at session_start failed: {exc}", flush=True)
             session_start_loss = best_loss
     else:
         print("[build_brain] startup quick eval skipped so first loss appears sooner.", flush=True)
+    if ddp_enabled:
+        training_model: torch.nn.Module = DistributedDataParallel(
+            model,
+            device_ids=[distributed_context.local_rank],
+            output_device=distributed_context.local_rank,
+            broadcast_buffers=False,
+            # The checkpoint ABI retains dormant pilot/control tensors. Until
+            # promotion removes or activates them, the reducer must tolerate
+            # parameters that are intentionally absent from a dense forward.
+            find_unused_parameters=True,
+        )
+    else:
+        training_model = model
+    if resume_rank_rng_state is not None:
+        restore_rng_states(
+            resume_rank_rng_state,
+            data_generator=data_generator,
+            cuda_device=distributed_context.device,
+        )
+    elif ddp_enabled:
+        seed_everything(seed + (distributed_context.rank + 1) * 1_000_003)
+    distributed_boundary_rng_states = capture_distributed_rng_states()
+    boundary_rng_states = distributed_boundary_rng_states[str(distributed_context.rank)]
+    if termination_request["signal"] is not None:
+        _save_interrupted_boundary(int(termination_request["signal"]), discarded_micro_steps=0)
     global_step = start_step
     epoch = 0
 
-    start = time.time()
+    start = float(
+        broadcast_primary_result(
+            time.time() if is_primary else None,
+            distributed_context,
+        )
+    )
     end_at = start + max_minutes * 60
     initial_step = start_step
     session_step = 0
@@ -2089,9 +2347,7 @@ def train_anra_v2(
         # caps cannot be relaxed by a stale notebook environment.
         checkpoint_every_seconds = min(checkpoint_every_seconds, 60 * 60)
         durable_checkpoint_steps = min(durable_checkpoint_steps, 200)
-    recovery_checkpoint_at = int(
-        os.environ.get("ANRA_RECOVERY_DURABLE_STEP", "0") or 0
-    )
+    recovery_checkpoint_at = int(os.environ.get("ANRA_RECOVERY_DURABLE_STEP", "0") or 0)
     if recovery_checkpoint_at <= initial_step:
         recovery_checkpoint_at = 0
     if recovery_checkpoint_at:
@@ -2124,12 +2380,15 @@ def train_anra_v2(
     verified_process_weighted_tokens = 0
     total_target_tokens = 0.0
 
-    gpu_name = torch.cuda.get_device_name(0) if torch.cuda.is_available() else "CPU"
+    gpu_index = distributed_context.local_rank if ddp_enabled else 0
+    gpu_name = torch.cuda.get_device_name(gpu_index) if torch.cuda.is_available() else "CPU"
     gpu_mem = (
-        torch.cuda.get_device_properties(0).total_memory / 1e9 if torch.cuda.is_available() else 0.0
+        torch.cuda.get_device_properties(gpu_index).total_memory / 1e9
+        if torch.cuda.is_available()
+        else 0.0
     )
     summary = model_summary(model)
-    eff_batch = batch_size * accumulation
+    eff_batch = batch_size * accumulation * distributed_context.world_size
     pcgrad_fast_path = pcgrad_enabled and batch_size == 1
 
     print("", flush=True)
@@ -2171,10 +2430,13 @@ def train_anra_v2(
         flush=True,
     )
 
-    while time.time() < end_at and (
-        max_phase_tokens is None
-        or continuation_token_counts.get(continuation_phase.upper(), 0) < max_phase_tokens
-    ):
+    while True:
+        stop_outer = time.time() >= end_at or (
+            max_phase_tokens is not None
+            and continuation_token_counts.get(continuation_phase.upper(), 0) >= max_phase_tokens
+        )
+        if all_reduce_bool_or(stop_outer, distributed_context):
+            break
         if raw_sample_budget is not None:
             if data_sampler_position >= raw_sample_budget:
                 break
@@ -2185,8 +2447,7 @@ def train_anra_v2(
             signed_window_boundary = False
             if token_window is not None:
                 remaining_window_tokens = int(token_window["end_token"]) - (
-                    continuation_token_counts.get(phase_key, 0)
-                    + pending_trained_tokens
+                    continuation_token_counts.get(phase_key, 0) + pending_trained_tokens
                 )
                 if remaining_window_tokens <= 0:
                     break
@@ -2211,68 +2472,80 @@ def train_anra_v2(
                 intelligence_session.begin_step(global_step)
             if first_batch_wall is None:
                 first_batch_wall = time.time()
-            verified_process_weighted_tokens += int((wb > 1.0).sum().item())
+            local_verified_process_tokens = int((wb > 1.0).sum().item())
             xb = xb.to(device, non_blocking=True)
             yb = yb.to(device, non_blocking=True)
             wb = wb.to(device, non_blocking=True)
             answer_mask = answer_mask.to(device, non_blocking=True)
-            with mp.autocast():
-                logits, _ = model(xb)
-                batch_loss, sample_losses, loss_breakdown = _weighted_loss(
-                    logits,
-                    yb,
-                    wb,
-                    answer_mask,
-                    pad_id=tokenizer.pad_token_id,
-                )
-                current_logit_z_loss = _masked_logit_z_loss(
-                    logits,
-                    yb,
-                    pad_id=tokenizer.pad_token_id,
-                    weight=training_cfg.logit_z_loss_weight,
-                )
-                batch_loss = batch_loss + current_logit_z_loss
-                native_model = getattr(model, "model", model)
-                current_mtp_loss = (
-                    native_model.multi_token_prediction_loss(yb)
-                    if use_mtp and hasattr(native_model, "multi_token_prediction_loss")
-                    else torch.zeros((), device=batch_loss.device, dtype=batch_loss.dtype)
-                )
-                batch_loss = batch_loss + current_mtp_loss
-                if growth_alignment is not None:
-                    alignment_step = max(0, global_step)
-                    alignment_penalty = growth_alignment.alignment_loss(
-                        xb,
-                        step=alignment_step,
-                        target_logits=logits,
+            synchronize_gradients = accum_micro_steps + 1 >= accumulation
+            sync_context = (
+                training_model.no_sync()
+                if ddp_enabled and not synchronize_gradients
+                else nullcontext()
+            )
+            with sync_context:
+                with mp.autocast():
+                    logits, _ = training_model(xb)
+                    batch_loss, sample_losses, loss_breakdown = _weighted_loss(
+                        logits,
+                        yb,
+                        wb,
+                        answer_mask,
+                        pad_id=tokenizer.pad_token_id,
                     )
-                    batch_loss = batch_loss + alignment_penalty
-                if hasattr(ds, "verified_esv_targets") and hasattr(
-                    native_model,
-                    "_last_esv_prediction",
-                ):
-                    esv_targets, esv_mask = ds.verified_esv_targets(
-                        sample_idx.tolist(),
-                        device=logits.device,
-                        dtype=native_model._last_esv_prediction.dtype,
+                    current_logit_z_loss = _masked_logit_z_loss(
+                        logits,
+                        yb,
+                        pad_id=tokenizer.pad_token_id,
+                        weight=training_cfg.logit_z_loss_weight,
                     )
-                    if bool(esv_mask.any()):
-                        esv_prediction = native_model._last_esv_prediction
-                        batch_loss = batch_loss + 0.01 * torch.nn.functional.mse_loss(
-                            esv_prediction[esv_mask],
-                            esv_targets[esv_mask],
+                    batch_loss = batch_loss + current_logit_z_loss
+                    native_model = getattr(model, "model", model)
+                    current_mtp_loss = (
+                        native_model.multi_token_prediction_loss(yb)
+                        if use_mtp and hasattr(native_model, "multi_token_prediction_loss")
+                        else torch.zeros((), device=batch_loss.device, dtype=batch_loss.dtype)
+                    )
+                    batch_loss = batch_loss + current_mtp_loss
+                    if growth_alignment is not None:
+                        alignment_step = max(0, global_step)
+                        alignment_penalty = growth_alignment.alignment_loss(
+                            xb,
+                            step=alignment_step,
+                            target_logits=logits,
                         )
-                if hasattr(native_model, "native_regularization_loss"):
-                    batch_loss = batch_loss + native_model.native_regularization_loss()
-                current_ewc_loss = (
-                    ewc_penalty(native_model, ewc_reference, ewc_fisher, ewc_weight)
-                    if ewc_weight > 0.0
-                    else torch.zeros((), device=batch_loss.device, dtype=batch_loss.dtype)
+                        batch_loss = batch_loss + alignment_penalty
+                    if hasattr(ds, "verified_esv_targets") and hasattr(
+                        native_model,
+                        "_last_esv_prediction",
+                    ):
+                        esv_targets, esv_mask = ds.verified_esv_targets(
+                            sample_idx.tolist(),
+                            device=logits.device,
+                            dtype=native_model._last_esv_prediction.dtype,
+                        )
+                        if bool(esv_mask.any()):
+                            esv_prediction = native_model._last_esv_prediction
+                            batch_loss = batch_loss + 0.01 * torch.nn.functional.mse_loss(
+                                esv_prediction[esv_mask],
+                                esv_targets[esv_mask],
+                            )
+                    if hasattr(native_model, "native_regularization_loss"):
+                        batch_loss = batch_loss + native_model.native_regularization_loss()
+                    current_ewc_loss = (
+                        ewc_penalty(native_model, ewc_reference, ewc_fisher, ewc_weight)
+                        if ewc_weight > 0.0
+                        else torch.zeros((), device=batch_loss.device, dtype=batch_loss.dtype)
+                    )
+                    batch_loss = batch_loss + current_ewc_loss
+                    loss = batch_loss / accumulation
+                nonfinite_batch = all_reduce_bool_or(
+                    not bool(torch.isfinite(batch_loss).item()), distributed_context
                 )
-                batch_loss = batch_loss + current_ewc_loss
-                loss = batch_loss / accumulation
+                if ddp_enabled and not nonfinite_batch:
+                    mp.backward(loss)
 
-            if not torch.isfinite(batch_loss):
+            if nonfinite_batch:
                 cdr.capture_step_failure(
                     input_tokens=xb,
                     target_tokens=yb,
@@ -2297,6 +2570,11 @@ def train_anra_v2(
                 pending_window_indices.clear()
                 if device.type == "cuda":
                     torch.cuda.empty_cache()
+                if ddp_enabled:
+                    raise RuntimeError(
+                        "Canonical DDP observed a non-finite batch on at least one rank; "
+                        "resume from the last protected optimizer boundary"
+                    )
                 if ckpt_path.exists():
                     load_checkpoint(
                         model,
@@ -2342,23 +2620,21 @@ def train_anra_v2(
                         grad_scale=mp.scale,
                     )
 
-            mp.backward(loss)
+            if not ddp_enabled:
+                mp.backward(loss)
             if pcgrad_fast_path:
                 pcgrad.accumulate_existing_gradients(owner=owner_flags[0])
             microbatch_loss = float(batch_loss.item())
-            rolling_loss += microbatch_loss
-            rolling_count += 1
+            if not ddp_enabled:
+                rolling_loss += microbatch_loss
+                rolling_count += 1
             accumulated_step_loss += microbatch_loss
             accumulated_ewc_loss += float(current_ewc_loss.detach().item())
             accumulated_logit_z_loss += float(current_logit_z_loss.detach().item())
             accumulated_answer_nll += float(loss_breakdown["answer_nll_sum"].detach().item())
             accumulated_answer_tokens += int(loss_breakdown["answer_tokens"].detach().item())
-            accumulated_scaffold_nll += float(
-                loss_breakdown["scaffold_nll_sum"].detach().item()
-            )
-            accumulated_scaffold_tokens += int(
-                loss_breakdown["scaffold_tokens"].detach().item()
-            )
+            accumulated_scaffold_nll += float(loss_breakdown["scaffold_nll_sum"].detach().item())
+            accumulated_scaffold_tokens += int(loss_breakdown["scaffold_tokens"].detach().item())
             accum_micro_steps += 1
             session_micro_steps += 1
             if (
@@ -2371,13 +2647,60 @@ def train_anra_v2(
                     flush=True,
                 )
                 _handle_sigterm(signal.SIGTERM, None)
-            answer_weighted_tokens += float(answer_mask.sum().item())
-            total_target_tokens += float((yb != tokenizer.pad_token_id).sum().item())
+            if (
+                all_reduce_bool_or(
+                    termination_request["signal"] is not None,
+                    distributed_context,
+                )
+                and termination_request["signal"] is None
+            ):
+                termination_request["signal"] = int(signal.SIGTERM)
+            local_answer_weighted = float(answer_mask.sum().item())
+            local_target_tokens = int((yb != tokenizer.pad_token_id).sum().item())
+            if ddp_enabled:
+                count_vector = torch.tensor(
+                    [
+                        local_verified_process_tokens,
+                        local_answer_weighted,
+                        local_target_tokens,
+                    ],
+                    dtype=torch.float64,
+                    device=device,
+                )
+                global_counts = all_reduce_sum(count_vector, distributed_context)
+                verified_process_weighted_tokens += int(global_counts[0].item())
+                answer_weighted_tokens += float(global_counts[1].item())
+                total_target_tokens += float(global_counts[2].item())
+            else:
+                verified_process_weighted_tokens += local_verified_process_tokens
+                answer_weighted_tokens += local_answer_weighted
+                total_target_tokens += float(local_target_tokens)
             target_ids = yb[yb != tokenizer.pad_token_id]
-            pending_trained_tokens += int(target_ids.numel())
-            pending_token_ids.update(int(value) for value in target_ids.unique().tolist())
+            local_token_ids = [int(value) for value in target_ids.unique().tolist()]
+            if ddp_enabled:
+                pending_trained_tokens += int(
+                    all_reduce_sum(
+                        torch.tensor(target_ids.numel(), dtype=torch.int64, device=device),
+                        distributed_context,
+                    ).item()
+                )
+                gathered_token_ids = all_gather_objects(local_token_ids, distributed_context)
+                pending_token_ids.update(
+                    value for rank_values in gathered_token_ids for value in rank_values
+                )
+            else:
+                pending_trained_tokens += int(target_ids.numel())
+                pending_token_ids.update(local_token_ids)
             if window_consumption is not None:
-                pending_window_indices.extend(int(value) for value in sample_idx.tolist())
+                local_indices = [int(value) for value in sample_idx.tolist()]
+                if ddp_enabled:
+                    rank_batches = all_gather_objects(local_indices, distributed_context)
+                    global_indices = _merge_rank_strided_batches(rank_batches)
+                    if set(global_indices).intersection(pending_window_indices):
+                        raise RuntimeError("Canonical DDP replayed a pending raw-shard window")
+                    pending_window_indices.extend(global_indices)
+                else:
+                    pending_window_indices.extend(local_indices)
 
             for sample_loss, example_index in zip(
                 sample_losses.detach().cpu().tolist(),
@@ -2392,8 +2715,7 @@ def train_anra_v2(
 
             sampler_budget_boundary = (
                 raw_sample_budget is not None
-                and data_sampler_position + len(pending_window_indices)
-                >= raw_sample_budget
+                and data_sampler_position + len(pending_window_indices) >= raw_sample_budget
             )
             if (
                 accum_micro_steps >= accumulation
@@ -2405,38 +2727,93 @@ def train_anra_v2(
                 if growth_alignment is not None:
                     growth_alignment.mask_inactive_gradients()
                 if (
-                    (signed_window_boundary or sampler_budget_boundary)
-                    and accum_micro_steps < accumulation
-                ):
+                    signed_window_boundary or sampler_budget_boundary
+                ) and accum_micro_steps < accumulation:
                     correction = accumulation / accum_micro_steps
                     for parameter in model.parameters():
                         if parameter.grad is not None:
                             parameter.grad.mul_(correction)
-                gradient_norm = mp.clip_gradients(
-                    model, optimizer, training_cfg.max_grad_norm
-                )
+                gradient_norm = mp.clip_gradients(model, optimizer, training_cfg.max_grad_norm)
+                finite_gradients = math.isfinite(float(gradient_norm))
+                if not all_reduce_bool_and(finite_gradients, distributed_context):
+                    optimizer.zero_grad(set_to_none=True)
+                    accum_micro_steps = 0
+                    pending_trained_tokens = 0
+                    pending_token_ids.clear()
+                    pending_window_indices.clear()
+                    raise RuntimeError(
+                        "Canonical DDP observed non-finite gradients on at least one rank"
+                    )
                 # The optimizer step represents all accumulation microbatches,
                 # not merely the final one. The old final-microbatch value made
                 # HAL and adaptive LR react to random hard examples.
-                loss_float = accumulated_step_loss / accum_micro_steps
-                answer_loss_float = (
-                    accumulated_answer_nll / accumulated_answer_tokens
-                    if accumulated_answer_tokens
-                    else None
-                )
-                scaffold_loss_float = (
-                    accumulated_scaffold_nll / accumulated_scaffold_tokens
-                    if accumulated_scaffold_tokens
-                    else None
-                )
-                last_ewc_loss = accumulated_ewc_loss / accum_micro_steps
-                last_logit_z_loss = accumulated_logit_z_loss / accum_micro_steps
-                grad_float = float(gradient_norm)
+                if ddp_enabled:
+                    global_loss_sums = all_reduce_sum(
+                        torch.tensor(
+                            [
+                                accumulated_step_loss,
+                                accumulated_ewc_loss,
+                                accumulated_logit_z_loss,
+                                accumulated_answer_nll,
+                                accumulated_answer_tokens,
+                                accumulated_scaffold_nll,
+                                accumulated_scaffold_tokens,
+                            ],
+                            dtype=torch.float64,
+                            device=device,
+                        ),
+                        distributed_context,
+                    )
+                    loss_float = float(global_loss_sums[0].item()) / (
+                        accum_micro_steps * distributed_context.world_size
+                    )
+                    answer_loss_float = (
+                        float(global_loss_sums[3].item()) / int(global_loss_sums[4].item())
+                        if int(global_loss_sums[4].item())
+                        else None
+                    )
+                    scaffold_loss_float = (
+                        float(global_loss_sums[5].item()) / int(global_loss_sums[6].item())
+                        if int(global_loss_sums[6].item())
+                        else None
+                    )
+                    last_ewc_loss = float(global_loss_sums[1].item()) / (
+                        accum_micro_steps * distributed_context.world_size
+                    )
+                    last_logit_z_loss = float(global_loss_sums[2].item()) / (
+                        accum_micro_steps * distributed_context.world_size
+                    )
+                    grad_float = float(
+                        all_reduce_mean(
+                            torch.tensor(float(gradient_norm), device=device),
+                            distributed_context,
+                        ).item()
+                    )
+                else:
+                    loss_float = accumulated_step_loss / accum_micro_steps
+                    answer_loss_float = (
+                        accumulated_answer_nll / accumulated_answer_tokens
+                        if accumulated_answer_tokens
+                        else None
+                    )
+                    scaffold_loss_float = (
+                        accumulated_scaffold_nll / accumulated_scaffold_tokens
+                        if accumulated_scaffold_tokens
+                        else None
+                    )
+                    last_ewc_loss = accumulated_ewc_loss / accum_micro_steps
+                    last_logit_z_loss = accumulated_logit_z_loss / accum_micro_steps
+                    grad_float = float(gradient_norm)
                 appended_rows_before = (
                     appended_row_lr.capture() if appended_row_lr is not None else None
                 )
                 mp.step(optimizer)
                 step_succeeded = mp.update()
+                any_step_succeeded = all_reduce_bool_or(step_succeeded, distributed_context)
+                every_step_succeeded = all_reduce_bool_and(step_succeeded, distributed_context)
+                if any_step_succeeded != every_step_succeeded:
+                    raise RuntimeError("Mixed-precision optimizer step diverged across DDP ranks")
+                step_succeeded = every_step_succeeded
                 if not step_succeeded:
                     optimizer.zero_grad(set_to_none=True)
                     pcgrad.clear()
@@ -2467,7 +2844,7 @@ def train_anra_v2(
                         loss=loss_float,
                         learning_rate=float(optimizer.param_groups[0]["lr"]),
                         gradient_norm=grad_float,
-                        tokens=int((yb != tokenizer.pad_token_id).sum().item()),
+                        tokens=pending_trained_tokens,
                     )
                     hal = get_hal_module(model)
                     if hal is not None:
@@ -2502,33 +2879,38 @@ def train_anra_v2(
                 accumulated_answer_tokens = 0
                 accumulated_scaffold_nll = 0.0
                 accumulated_scaffold_tokens = 0
-                write_json(
-                    v2_report_path("training_progress_journal.json"),
-                    {
-                        "schema_version": 2,
-                        "updated_at": time.time(),
-                        "global_step": global_step,
-                        "completed_optimizer_boundary": True,
-                        "accumulation_step": 0,
-                        "tokens_seen": campaign_tokens_seen,
-                        "weighted_training_loss": loss_float,
-                        "answer_training_loss": answer_loss_float,
-                        "scaffold_training_loss": scaffold_loss_float,
-                        "logit_z_loss": last_logit_z_loss,
-                        "phase": continuation_phase.upper(),
-                        "phase_tokens_seen": continuation_token_counts.get(
-                            continuation_phase.upper(), 0
-                        ),
-                        "token_window": dict(token_window or {}),
-                        "checkpoint_path": str(ckpt_path),
-                    },
-                )
+                if ddp_enabled:
+                    rolling_loss += loss_float
+                    rolling_count += 1
+                if is_primary:
+                    write_json(
+                        v2_report_path("training_progress_journal.json"),
+                        {
+                            "schema_version": 2,
+                            "updated_at": time.time(),
+                            "global_step": global_step,
+                            "completed_optimizer_boundary": True,
+                            "accumulation_step": 0,
+                            "tokens_seen": campaign_tokens_seen,
+                            "weighted_training_loss": loss_float,
+                            "answer_training_loss": answer_loss_float,
+                            "scaffold_training_loss": scaffold_loss_float,
+                            "logit_z_loss": last_logit_z_loss,
+                            "phase": continuation_phase.upper(),
+                            "phase_tokens_seen": continuation_token_counts.get(
+                                continuation_phase.upper(), 0
+                            ),
+                            "token_window": dict(token_window or {}),
+                            "checkpoint_path": str(ckpt_path),
+                        },
+                    )
 
                 avg_loss = rolling_loss / max(1, rolling_count)
                 last_avg_loss = avg_loss
                 loss_ema = loss_float if loss_ema is None else 0.9 * loss_ema + 0.1 * loss_float
                 best_loss = min(best_loss, loss_ema) if math.isfinite(best_loss) else loss_ema
-                boundary_rng_states = capture_rng_states(data_generator=data_generator)
+                distributed_boundary_rng_states = capture_distributed_rng_states()
+                boundary_rng_states = distributed_boundary_rng_states[str(distributed_context.rank)]
                 boundary_epoch = epoch
                 if termination_request["signal"] is not None:
                     _save_interrupted_boundary(
@@ -2565,7 +2947,7 @@ def train_anra_v2(
                             step=global_step,
                             tokenizer=tokenizer,
                         )
-                if global_step % 1000 == 0:
+                if global_step % 1000 == 0 and not ddp_enabled:
                     flushed = cdr.flush_to_dataset(FAILURE_REPLAY_DATASET)
                     if flushed:
                         added = ds.reload_replay_bucket()
@@ -2638,82 +3020,104 @@ def train_anra_v2(
                                 "best_answer_validation_loss": best_answer_validation_loss,
                             }
                         )
-                        write_json(
-                            v2_report_path("validation_history"),
-                            {
-                                "generated_at": time.time(),
-                                "layout": eval_ds.PACKING_LAYOUT,
-                                "history": validation_history,
-                            },
-                        )
-                        print(
-                            f"  validation step={global_step} loss={validation_loss:.4f} "
-                            f"answer={answer_validation_loss} "
-                            f"best={best_validation_loss:.4f} "
-                            f"best_answer={best_answer_validation_loss}",
-                            flush=True,
-                        )
+                        if is_primary:
+                            write_json(
+                                v2_report_path("validation_history"),
+                                {
+                                    "generated_at": time.time(),
+                                    "layout": eval_ds.PACKING_LAYOUT,
+                                    "history": validation_history,
+                                },
+                            )
+                            print(
+                                f"  validation step={global_step} loss={validation_loss:.4f} "
+                                f"answer={answer_validation_loss} "
+                                f"best={best_validation_loss:.4f} "
+                                f"best_answer={best_answer_validation_loss}",
+                                flush=True,
+                            )
                     finally:
                         model.train(was_training)
 
                 recovery_boundary = (
-                    recovery_checkpoint_at > 0
-                    and global_step >= recovery_checkpoint_at
+                    recovery_checkpoint_at > 0 and global_step >= recovery_checkpoint_at
                 )
-                if (
-                    durability.requires_initial_boundary
-                    or global_step % durable_checkpoint_steps == 0
-                    or time.time() >= next_checkpoint_at
-                    or recovery_boundary
-                ):
-                    payload = _build_checkpoint_payload(
-                        model=model,
-                        optimizer=optimizer,
-                        scheduler=scheduler,
-                        mp=mp,
-                        global_step=global_step,
-                        epoch=epoch,
-                        best_loss=best_loss,
-                        sessions_completed=(
-                            int(ckpt.get("sessions_completed", 0)) if "ckpt" in locals() else 0
-                        ),
-                        mix_report=mix_report,
-                        migration=checkpoint_migration,
-                        tokens_seen=campaign_tokens_seen,
-                        unique_token_ids_seen=known_token_ids,
-                        continuation_token_counts=continuation_token_counts,
-                        best_validation_loss=best_validation_loss,
-                        best_answer_validation_loss=best_answer_validation_loss,
-                        validation_history=validation_history,
-                        appended_row_optimizer_steps=(
-                            appended_row_lr.steps_completed if appended_row_lr is not None else 0
-                        ),
-                        raw_window_consumption=(
-                            window_consumption.state_dict()
-                            if window_consumption is not None
-                            else None
-                        ),
-                        data_sampler_state=current_data_sampler_state(),
-                        data_generator=data_generator,
-                        seed_contract=seed_report.to_dict(),
-                        token_window=token_window,
-                        growth_provenance=growth_provenance,
+                checkpoint_due = bool(
+                    broadcast_primary_result(
+                        (
+                            durability.requires_initial_boundary
+                            or global_step % durable_checkpoint_steps == 0
+                            or time.time() >= next_checkpoint_at
+                            or recovery_boundary
+                        )
+                        if is_primary
+                        else None,
+                        distributed_context,
                     )
-                    atomic_save(payload, ckpt_path, drive_dir=None)
-                    _publish_training_checkpoint(
-                        payload,
-                        require_protection=recovery_boundary,
-                    )
+                )
+                if checkpoint_due:
+                    primary_error = None
+                    if is_primary:
+                        try:
+                            payload = _build_checkpoint_payload(
+                                model=model,
+                                optimizer=optimizer,
+                                scheduler=scheduler,
+                                mp=mp,
+                                global_step=global_step,
+                                epoch=epoch,
+                                best_loss=best_loss,
+                                sessions_completed=(
+                                    int(ckpt.get("sessions_completed", 0))
+                                    if "ckpt" in locals()
+                                    else 0
+                                ),
+                                mix_report=mix_report,
+                                migration=checkpoint_migration,
+                                tokens_seen=campaign_tokens_seen,
+                                unique_token_ids_seen=known_token_ids,
+                                continuation_token_counts=continuation_token_counts,
+                                best_validation_loss=best_validation_loss,
+                                best_answer_validation_loss=best_answer_validation_loss,
+                                validation_history=validation_history,
+                                appended_row_optimizer_steps=(
+                                    appended_row_lr.steps_completed
+                                    if appended_row_lr is not None
+                                    else 0
+                                ),
+                                raw_window_consumption=(
+                                    window_consumption.state_dict()
+                                    if window_consumption is not None
+                                    else None
+                                ),
+                                data_sampler_state=current_data_sampler_state(),
+                                data_generator=data_generator,
+                                seed_contract=seed_report.to_dict(),
+                                rng_states_override=boundary_rng_states,
+                                token_window=token_window,
+                                growth_provenance=growth_provenance,
+                                distributed_contract=distributed_contract,
+                                distributed_rng_states=distributed_boundary_rng_states,
+                            )
+                            atomic_save(payload, ckpt_path, drive_dir=None)
+                            _publish_training_checkpoint(
+                                payload,
+                                require_protection=recovery_boundary,
+                            )
+                        except Exception as exc:
+                            primary_error = f"{type(exc).__name__}: {exc}"
+                    barrier_or_raise(distributed_context, primary_error=primary_error)
                     if recovery_boundary:
                         recovery_checkpoint_at = 0
                     if device.type == "cuda":
                         torch.cuda.empty_cache()
-                    try:
-                        hal = get_hal_module(model)
-                        if hal is not None:
-                            publish_hal_state(hal, source="training")
-                    except Exception as exc:
-                        print(f"[HAL] checkpoint publish skipped: {exc}", flush=True)
+                    if is_primary:
+                        try:
+                            hal = get_hal_module(model)
+                            if hal is not None:
+                                publish_hal_state(hal, source="training")
+                        except Exception as exc:
+                            print(f"[HAL] checkpoint publish skipped: {exc}", flush=True)
                     next_checkpoint_at = time.time() + checkpoint_every_seconds
 
             if termination_request["signal"] is not None:
@@ -2729,12 +3133,11 @@ def train_anra_v2(
                     discarded_micro_steps=discarded_micro_steps,
                 )
 
-            if time.time() >= end_at:
+            if all_reduce_bool_or(time.time() >= end_at, distributed_context):
                 break
             if (
                 max_phase_tokens is not None
-                and continuation_token_counts.get(continuation_phase.upper(), 0)
-                >= max_phase_tokens
+                and continuation_token_counts.get(continuation_phase.upper(), 0) >= max_phase_tokens
             ):
                 print(
                     f"[Campaign] phase token cap reached: {max_phase_tokens:,}",
@@ -2765,47 +3168,98 @@ def train_anra_v2(
             flush=True,
         )
 
-    payload = _build_checkpoint_payload(
-        model=model,
-        optimizer=optimizer,
-        scheduler=scheduler,
-        mp=mp,
-        global_step=global_step,
-        epoch=epoch,
-        best_loss=best_loss,
-        sessions_completed=(
-            int(ckpt.get("sessions_completed", 0) + 1) if "ckpt" in locals() else 1
-        ),
-        mix_report=mix_report,
-        migration=checkpoint_migration,
-        tokens_seen=campaign_tokens_seen,
-        unique_token_ids_seen=known_token_ids,
-        continuation_token_counts=continuation_token_counts,
-        best_validation_loss=best_validation_loss,
-        best_answer_validation_loss=best_answer_validation_loss,
-        validation_history=validation_history,
-        appended_row_optimizer_steps=(
-            appended_row_lr.steps_completed if appended_row_lr is not None else 0
-        ),
-        raw_window_consumption=(
-            window_consumption.state_dict() if window_consumption is not None else None
-        ),
-        data_sampler_state=current_data_sampler_state(),
-        data_generator=data_generator,
-        seed_contract=seed_report.to_dict(),
-        token_window=token_window,
-        growth_provenance=growth_provenance,
-    )
-    atomic_save(payload, ckpt_path, drive_dir=None)
-    _publish_training_checkpoint(payload, final=True)
+    primary_error = None
+    if is_primary:
+        try:
+            payload = _build_checkpoint_payload(
+                model=model,
+                optimizer=optimizer,
+                scheduler=scheduler,
+                mp=mp,
+                global_step=global_step,
+                epoch=epoch,
+                best_loss=best_loss,
+                sessions_completed=(
+                    int(ckpt.get("sessions_completed", 0) + 1) if "ckpt" in locals() else 1
+                ),
+                mix_report=mix_report,
+                migration=checkpoint_migration,
+                tokens_seen=campaign_tokens_seen,
+                unique_token_ids_seen=known_token_ids,
+                continuation_token_counts=continuation_token_counts,
+                best_validation_loss=best_validation_loss,
+                best_answer_validation_loss=best_answer_validation_loss,
+                validation_history=validation_history,
+                appended_row_optimizer_steps=(
+                    appended_row_lr.steps_completed if appended_row_lr is not None else 0
+                ),
+                raw_window_consumption=(
+                    window_consumption.state_dict() if window_consumption is not None else None
+                ),
+                data_sampler_state=current_data_sampler_state(),
+                data_generator=data_generator,
+                seed_contract=seed_report.to_dict(),
+                rng_states_override=boundary_rng_states,
+                token_window=token_window,
+                growth_provenance=growth_provenance,
+                distributed_contract=distributed_contract,
+                distributed_rng_states=distributed_boundary_rng_states,
+            )
+            atomic_save(payload, ckpt_path, drive_dir=None)
+            _publish_training_checkpoint(payload, final=True)
+        except Exception as exc:
+            primary_error = f"{type(exc).__name__}: {exc}"
+    barrier_or_raise(distributed_context, primary_error=primary_error)
     if device.type == "cuda":
         torch.cuda.empty_cache()
-    try:
-        hal = get_hal_module(model)
-        if hal is not None:
-            publish_hal_state(hal, source="training")
-    except Exception as exc:
-        print(f"[HAL] final publish skipped: {exc}", flush=True)
+    if is_primary:
+        try:
+            hal = get_hal_module(model)
+            if hal is not None:
+                publish_hal_state(hal, source="training")
+        except Exception as exc:
+            print(f"[HAL] final publish skipped: {exc}", flush=True)
+
+    if ddp_enabled:
+        # Keep the first canonical DDP surface deliberately narrow: the model,
+        # optimizer and exact-resume checkpoint are collective, while legacy
+        # post-session reports/evaluators remain single-GPU-only.  A compact
+        # rank-zero summary is fenced so a write failure reaches every rank
+        # instead of leaving peers blocked in a later collective.
+        ddp_summary = {
+            "generated_at": time.time(),
+            "elapsed_minutes": round((time.time() - start) / 60.0, 2),
+            "global_step": global_step,
+            "epoch": epoch,
+            "best_loss": best_loss,
+            "last_avg_loss": last_avg_loss,
+            "campaign_tokens_seen": campaign_tokens_seen,
+            "phase_tokens_seen": continuation_token_counts.get(continuation_phase.upper(), 0),
+            "checkpoint_path": str(ckpt_path),
+            "distributed_contract": distributed_contract,
+            "data_sampler_state": current_data_sampler_state(),
+        }
+        primary_error = None
+        if is_primary:
+            try:
+                write_json(v2_report_path("ddp_session_metrics"), ddp_summary)
+                if durability.enabled:
+                    durability.close()
+            except Exception as exc:
+                primary_error = f"{type(exc).__name__}: {exc}"
+        barrier_or_raise(distributed_context, primary_error=primary_error)
+        return {
+            "checkpoint_path": str(ckpt_path),
+            "global_step": global_step,
+            "best_loss": best_loss,
+            "eval_summary": {
+                "skipped": True,
+                "reason": "canonical_ddp_checkpoint_only",
+            },
+            "mix_report": mix_report.to_dict(),
+            "token_window": {},
+            "distributed_contract": distributed_contract,
+        }
 
     metrics = {
         "generated_at": time.time(),
@@ -2907,6 +3361,7 @@ def train_anra_v2(
         "continual_learning": assess_continual_readiness(
             int(mix_report.replay_available) + int(cdr.report()["verified"])
         ),
+        "distributed_contract": distributed_contract,
     }
     write_json(v2_report_path("metrics"), metrics)
     cdr_report_path = v2_report_path("cdr_report.json")
@@ -3160,7 +3615,6 @@ def train_anra_v2(
         durability.close()
     else:
         _sync_training_checkpoint_to_drive(ckpt_path)
-
     elapsed_total = time.time() - start
     print("", flush=True)
     print("=" * 62, flush=True)
@@ -3204,15 +3658,34 @@ def train_anra_v2(
     }
 
 
+def train_anra_v2(
+    *,
+    distributed_mode: str = "off",
+    **kwargs: object,
+) -> dict[str, object]:
+    """Run the canonical trainer with owned distributed lifecycle cleanup."""
+
+    context = initialize_distributed(distributed_mode)
+    try:
+        validate_same_host_topology(context)
+        return _train_anra_v2(distributed_context=context, **kwargs)
+    finally:
+        destroy_distributed(context)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Canonical An-Ra base trainer")
     parser.add_argument("--data_path", required=True)
     parser.add_argument("--checkpoint_path", default="anra_v4_180m.pt")
     parser.add_argument("--resume_from", default=None)
-    parser.add_argument("--batch_size", type=int, default=ANRA_V4_TRAINING.batch_size)
     parser.add_argument(
-        "--accumulation", type=int, default=ANRA_V4_TRAINING.grad_accum_steps
+        "--distributed-mode",
+        choices=["off", "ddp"],
+        default="off",
+        help="Use ddp only under torchrun on one low-latency multi-GPU host.",
     )
+    parser.add_argument("--batch_size", type=int, default=ANRA_V4_TRAINING.batch_size)
+    parser.add_argument("--accumulation", type=int, default=ANRA_V4_TRAINING.grad_accum_steps)
     parser.add_argument("--block_size", type=int, default=ANRA_V4_MODEL.block_size)
     parser.add_argument("--max_minutes", type=int, default=ANRA_V4_TRAINING.session_minutes)
     parser.add_argument(
@@ -3239,14 +3712,10 @@ def main() -> None:
     parser.add_argument("--validation-shard-manifest", default=None)
     parser.add_argument("--qk-norm", choices=["on", "off"], default=None)
     parser.add_argument("--mtp", choices=["on", "off"], default="off")
-    parser.add_argument(
-        "--moe", choices=["off", "upcycle-8r1s-top2"], default="off"
-    )
+    parser.add_argument("--moe", choices=["off", "upcycle-8r1s-top2"], default="off")
     parser.add_argument("--curriculum", choices=sorted(CURRICULUMS), default="none")
     parser.add_argument("--seed", type=int, default=CANONICAL_TRAINING_SEED)
-    parser.add_argument(
-        "--attention-pattern", choices=["hybrid", "full-only"], default=None
-    )
+    parser.add_argument("--attention-pattern", choices=["hybrid", "full-only"], default=None)
     parser.add_argument(
         "--continuation-phase",
         choices=["A", "B", "C", "D", "E"],
@@ -3316,6 +3785,7 @@ def main() -> None:
         print(result, flush=True)
         return
     result = train_anra_v2(
+        distributed_mode=args.distributed_mode,
         data_path=args.data_path,
         checkpoint_path=args.checkpoint_path,
         resume_from=args.resume_from,
@@ -3345,9 +3815,7 @@ def main() -> None:
         curriculum=args.curriculum,
         seed=args.seed,
         post_session_eval=args.post_session_eval == "full",
-        rehearsal_interrupt_after_microsteps=(
-            args.rehearsal_interrupt_after_microsteps
-        ),
+        rehearsal_interrupt_after_microsteps=(args.rehearsal_interrupt_after_microsteps),
         token_window_id=args.token_window_id,
         token_window_start=args.token_window_start,
         token_window_end=args.token_window_end,

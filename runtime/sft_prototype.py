@@ -10,17 +10,30 @@ when its window is closed.
 
 from __future__ import annotations
 
+import ast
 import asyncio
+import json
 import os
+import re
 import threading
 import time
 import uuid
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from dataclasses import replace
 from typing import Any, Literal
 
 import torch
 from anra.sft_conversation import SFT_PROMPT_SCHEMA, render_chat_prompt
+from cognition.deliberation import (
+    CandidateEvidence,
+    DeliberationBudget,
+    DeliberationResult,
+    GenerationArtifact,
+    Understanding,
+    VerificationDecision,
+    VerifiedDeliberationController,
+)
 from evaluation.sft_behavior_gate import check_smoke_response
 from fastapi import FastAPI, HTTPException
 from fastapi.concurrency import run_in_threadpool
@@ -28,6 +41,7 @@ from fastapi.responses import HTMLResponse
 from generate import GenerationConfig, generate_traced, get_model_info, unload_runtime
 from pydantic import BaseModel, Field
 
+from runtime.experience_ledger import record_experience
 from runtime.local_checkpoint import LocalSFTCheckpoint, resolve_local_sft_checkpoint
 
 _HEARTBEAT_TIMEOUT_SECONDS = max(
@@ -72,10 +86,33 @@ class GenerationControls(BaseModel):
         )
 
 
+class DeliberationControls(BaseModel):
+    mode: Literal["direct", "verified"] = "direct"
+    deterministic: bool = True
+    candidates: int = Field(1, ge=1, le=3)
+    revisions: int = Field(1, ge=0, le=2)
+    retrieval_results: int = Field(3, ge=0, le=6)
+    verifier_calls: int = Field(2, ge=1, le=4)
+    max_total_tokens: int = Field(160, ge=16, le=480)
+    deadline_seconds: float = Field(45.0, ge=2.0, le=180.0)
+
+    def budget(self) -> DeliberationBudget:
+        return DeliberationBudget(
+            candidates=self.candidates,
+            revisions=self.revisions,
+            retrieval_results=self.retrieval_results,
+            verifier_calls=self.verifier_calls,
+            max_generated_tokens=self.max_total_tokens,
+            deadline_seconds=self.deadline_seconds,
+            require_verification=True,
+        )
+
+
 class ChatRequest(BaseModel):
     message: str = Field(..., min_length=1, max_length=12_000)
     session_id: str = Field("local", min_length=1, max_length=64)
     controls: GenerationControls = Field(default_factory=GenerationControls)
+    deliberation: DeliberationControls = Field(default_factory=DeliberationControls)
 
 
 class EvaluationRequest(BaseModel):
@@ -165,6 +202,43 @@ class PrototypeRuntime:
             history = list(self._sessions.get(session_id, ())[-(2 * _MAX_HISTORY_TURNS) :])
         return render_chat_prompt(history, message)
 
+    def retrieve_session(
+        self, session_id: str, query: str, limit: int
+    ) -> tuple[dict[str, object], ...]:
+        """Retrieve bounded, provenance-labelled context from this local session."""
+        if limit <= 0:
+            return ()
+        query_terms = set(re.findall(r"[a-z0-9]{3,}", query.lower()))
+        with self._lock:
+            history = list(self._sessions.get(session_id, ()))
+        ranked: list[tuple[float, int, dict[str, object]]] = []
+        for index, row in enumerate(history):
+            # Prior model answers are conversation context, not factual evidence.
+            # Only user-provided turns may ground a verified-deliberation answer.
+            if row.get("role") != "user":
+                continue
+            content = str(row.get("content", ""))
+            terms = set(re.findall(r"[a-z0-9]{3,}", content.lower()))
+            overlap = len(query_terms & terms) / max(1, len(query_terms))
+            if overlap <= 0:
+                continue
+            ranked.append(
+                (
+                    overlap,
+                    index,
+                    {
+                        "source": "local_session_memory",
+                        "record_id": f"{session_id}:{index}",
+                        "role": str(row.get("role", "unknown")),
+                        "trust": "user_provided_session_context",
+                        "content": content,
+                        "score": round(overlap, 4),
+                    },
+                )
+            )
+        ranked.sort(key=lambda item: (item[0], item[1]), reverse=True)
+        return tuple(item[2] for item in ranked[:limit])
+
     def add_turn(self, session_id: str, message: str, response: str) -> int:
         with self._lock:
             history = self._sessions.setdefault(session_id, [])
@@ -242,6 +316,213 @@ def _trace_summary(trace: object) -> dict[str, Any]:
     }
 
 
+def _extract_code(text: str) -> str:
+    fenced = re.search(r"```(?:python)?\s*(.*?)```", text, re.DOTALL | re.IGNORECASE)
+    return (fenced.group(1) if fenced else text).strip()
+
+
+def _verify_deliberation_artifact(
+    _prompt: str,
+    understanding: Understanding,
+    artifact: GenerationArtifact,
+    retrieval: tuple[dict[str, object], ...] | tuple[Any, ...],
+) -> VerificationDecision:
+    """Verify only observable properties and label their exact proof scope."""
+    trace = dict(artifact.evidence.get("trace", {}))
+    symbolic = artifact.evidence.get("symbolic")
+    if (
+        understanding.task_type == "arithmetic"
+        and isinstance(symbolic, dict)
+        and symbolic.get("score") is not None
+    ):
+        score = float(symbolic["score"])
+        return VerificationDecision(
+            passed=score >= 0.8,
+            score=score,
+            verifier="symbolic_output",
+            scope="exact symbolic answer",
+            feedback=str(symbolic.get("reason", "recompute the symbolic result")),
+            evidence=symbolic,
+        )
+
+    quality_ok = (
+        bool(artifact.text.strip())
+        and trace.get("quality_state") == "accepted"
+        and trace.get("repetition_detected") is False
+        and trace.get("fragment_detected") is False
+    )
+    if understanding.task_type == "json":
+        cleaned = re.sub(r"^```(?:json)?\s*|\s*```$", "", artifact.text.strip())
+        try:
+            parsed = json.loads(cleaned)
+            valid = isinstance(parsed, (dict, list)) and quality_ok
+        except (TypeError, json.JSONDecodeError):
+            valid = False
+        return VerificationDecision(
+            passed=valid,
+            score=1.0 if valid else 0.0,
+            verifier="json_structure",
+            scope="JSON syntax and top-level structure only",
+            feedback="return one valid JSON object or array with no surrounding prose",
+        )
+    if understanding.task_type == "code":
+        try:
+            ast.parse(_extract_code(artifact.text))
+            valid = quality_ok
+        except SyntaxError:
+            valid = False
+        return VerificationDecision(
+            passed=valid,
+            score=0.8 if valid else 0.0,
+            verifier="python_ast",
+            scope="Python syntax only; behavior was not executed",
+            feedback="return syntactically valid Python; behavior still requires tests",
+        )
+    if understanding.needs_retrieval:
+        source_terms: set[str] = set()
+        for row in retrieval:
+            source_terms.update(
+                re.findall(r"[a-z0-9]{4,}", str(row.get("content", "")).lower())
+            )
+        answer_terms = set(re.findall(r"[a-z0-9]{4,}", artifact.text.lower()))
+        overlap = len(source_terms & answer_terms) / max(1, len(answer_terms))
+        grounded = bool(retrieval) and overlap >= 0.08 and quality_ok
+        return VerificationDecision(
+            passed=grounded,
+            score=min(1.0, overlap * 4.0) if quality_ok else 0.0,
+            verifier="session_retrieval_overlap",
+            scope="overlap with retrieved local-session evidence; not factual truth",
+            feedback=(
+                "answer only from retrieved session evidence or explicitly state uncertainty"
+            ),
+            evidence={"retrieval_count": len(retrieval), "term_overlap": overlap},
+        )
+    return VerificationDecision(
+        passed=quality_ok,
+        score=0.8 if quality_ok else 0.0,
+        verifier="generation_integrity",
+        scope="non-empty, non-fragmented, non-repetitive output; not factual truth",
+        feedback="produce a coherent, direct response without repetition or fragments",
+        evidence=trace,
+    )
+
+
+def _run_verified_deliberation(
+    runtime: PrototypeRuntime,
+    body: ChatRequest,
+) -> DeliberationResult:
+    generated_so_far = 0
+    base_seed = body.controls.seed or 0
+
+    def retrieve(query: str, limit: int) -> tuple[dict[str, object], ...]:
+        return runtime.retrieve_session(body.session_id, query, limit)
+
+    def generate(
+        prompt: str,
+        _understanding: Understanding,
+        plan: str,
+        retrieval: tuple[dict[str, object], ...] | tuple[Any, ...],
+        ordinal: int,
+        previous: CandidateEvidence | None,
+    ) -> GenerationArtifact:
+        nonlocal generated_so_far
+        source_context = "\n".join(
+            f"- {row.get('content', '')}" for row in retrieval
+        )
+        instruction = f"{prompt}\nApproach: {plan}"
+        if source_context:
+            instruction += f"\nRetrieved session evidence:\n{source_context}"
+        if previous is not None:
+            feedback = previous.verification.feedback if previous.verification else "revise"
+            instruction += (
+                f"\nPrevious draft: {previous.text}\nVerifier feedback: {feedback}"
+                "\nReturn a corrected answer only."
+            )
+        generation_prompt = runtime.conversation_prompt(body.session_id, instruction)
+        remaining = max(1, body.deliberation.max_total_tokens - generated_so_far)
+        per_call = min(body.controls.max_tokens, remaining)
+        config = replace(
+            body.controls.generation_config(),
+            max_tokens=per_call,
+            strategy="greedy" if body.deliberation.deterministic else body.controls.strategy,
+            seed=base_seed + ordinal,
+            mode="full_system",
+            persist_adaptive_state=False,
+        )
+        raw = generate_traced(
+            generation_prompt,
+            config,
+            session_id=f"prototype-deliberation-{body.session_id}",
+        )
+        count = int(getattr(raw, "tokens_generated", 0))
+        generated_so_far += count
+        subsystem = getattr(raw, "subsystem_trace", {})
+        symbolic = subsystem.get("symbolic_verifier") if isinstance(subsystem, dict) else None
+        return GenerationArtifact(
+            text=str(raw.output),
+            token_count=count,
+            evidence={"trace": _trace_summary(raw), "symbolic": symbolic or {}},
+        )
+
+    def persist(result: DeliberationResult) -> bool:
+        selected = next(
+            (
+                item
+                for item in result.candidates
+                if item.candidate_id == result.selected_candidate_id
+            ),
+            None,
+        )
+        verdict = selected.verification if selected else None
+        _, persisted = record_experience(
+            trace_id=result.trace_id,
+            kind="verified_deliberation",
+            inputs={
+                "message": body.message,
+                "session_id": body.session_id,
+                "budget": body.deliberation.model_dump(),
+            },
+            output={"status": result.status, "answer": result.answer},
+            verifier_verdicts=(
+                [
+                    {
+                        "name": verdict.verifier,
+                        "score": verdict.score,
+                        "passed": verdict.passed,
+                        "scope": verdict.scope,
+                    }
+                ]
+                if verdict is not None
+                else []
+            ),
+            gate_record={"allowed": result.status == "accepted", "gate": "deliberation"},
+            tokens={"generated": result.generated_tokens},
+            latency={"seconds": result.elapsed_seconds},
+            source="runtime.sft_prototype",
+            metadata={
+                "schema": result.schema,
+                "checkpoint_sha256": runtime.status().get("checkpoint_sha256"),
+                "verification_scope": verdict.scope if verdict else None,
+                "deterministic": result.deterministic,
+            },
+        )
+        return persisted
+
+    enabled = os.environ.get("ANRA_VERIFIED_DELIBERATION", "1").strip() != "0"
+    controller = VerifiedDeliberationController(
+        generate=generate,
+        verify=_verify_deliberation_artifact,
+        retrieve=retrieve,
+        persist=persist,
+        enabled=enabled,
+    )
+    return controller.run(
+        body.message,
+        budget=body.deliberation.budget(),
+        deterministic=body.deliberation.deterministic,
+    )
+
+
 async def _idle_watch(runtime: PrototypeRuntime) -> None:
     while True:
         await asyncio.sleep(3)
@@ -309,6 +590,16 @@ def create_app() -> FastAPI:
     @app.post("/api/chat")
     async def chat(body: ChatRequest) -> dict[str, Any]:
         current = ready_runtime()
+        if body.deliberation.mode == "verified":
+            result = await run_in_threadpool(_run_verified_deliberation, current, body)
+            turn = current.add_turn(body.session_id, body.message, result.answer)
+            return {
+                "response": result.answer,
+                "turn": turn,
+                "trace": result.public_evidence(),
+                "prompt_format": SFT_PROMPT_SCHEMA,
+                "deliberation": result.public_evidence(),
+            }
         prompt = current.conversation_prompt(body.session_id, body.message)
         trace = await run_in_threadpool(
             generate_traced,
@@ -400,19 +691,20 @@ PROTOTYPE_HTML = r"""
   <header><h1>AN-RA V4 SFT PROTOTYPE</h1><span class="status" id="status">Starting local model…</span><button class="danger" id="stop">Stop app &amp; free GPU</button></header>
   <main>
     <div class="tabs"><button class="active" data-view="chat">Chat</button><button data-view="evaluation">Evaluation</button><button data-view="developer">Developer</button></div>
-    <section id="chat" class="view active"><div class="chat-layout"><div class="panel"><h2>Conversation</h2><div class="messages" id="messages"><div class="message assistant">The SFT checkpoint is loading to your GPU. This prototype keeps its conversation only in this local session.</div></div><form id="chat-form"><textarea id="prompt" placeholder="Talk to An-Ra…" disabled></textarea><button class="primary" id="send" disabled>Send</button></form></div><aside class="panel"><h2>Generation controls</h2><div class="controls"><label>Mode<select id="mode"><option value="diagnostic">Diagnostic</option><option value="native">Native</option></select></label><label>Strategy<select id="strategy"><option value="nucleus">Nucleus</option><option value="greedy">Greedy</option><option value="topk">Top-k</option></select></label><label>Max tokens<input id="max-tokens" type="number" min="1" max="160" value="64"></label><label>Temperature<input id="temperature" type="number" min="0.05" max="2" step="0.05" value="0.7"></label><label>Top-p<input id="top-p" type="number" min="0.05" max="1" step="0.01" value="0.92"></label><label>Seed<input id="seed" type="number" min="0" value="0"></label></div><div class="controls-wide"><button id="clear" type="button">Clear chat</button></div><h3 style="margin-top:18px">Last trace</h3><pre id="trace">No generation yet.</pre></aside></div></section>
+    <section id="chat" class="view active"><div class="chat-layout"><div class="panel"><h2>Conversation</h2><div class="messages" id="messages"><div class="message assistant">The SFT checkpoint is loading to your GPU. This prototype keeps its conversation only in this local session.</div></div><form id="chat-form"><textarea id="prompt" placeholder="Talk to An-Ra…" disabled></textarea><button class="primary" id="send" disabled>Send</button></form></div><aside class="panel"><h2>Generation controls</h2><div class="controls"><label>Model mode<select id="mode"><option value="diagnostic">Diagnostic</option><option value="native">Native</option></select></label><label>Reasoning<select id="reasoning"><option value="direct">Direct</option><option value="verified">Verified deliberation</option></select></label><label>Strategy<select id="strategy"><option value="nucleus">Nucleus</option><option value="greedy">Greedy</option><option value="topk">Top-k</option></select></label><label>Max tokens<input id="max-tokens" type="number" min="1" max="160" value="64"></label><label>Temperature<input id="temperature" type="number" min="0.05" max="2" step="0.05" value="0.7"></label><label>Top-p<input id="top-p" type="number" min="0.05" max="1" step="0.01" value="0.92"></label><label>Seed<input id="seed" type="number" min="0" value="0"></label></div><p class="notice">Verified deliberation is opt-in. It retrieves local session evidence, generates a bounded candidate, verifies only what can be checked, revises once, and abstains when its proof scope fails. It does not make the model's facts automatically true.</p><div class="controls-wide"><button id="clear" type="button">Clear chat</button></div><h3 style="margin-top:18px">Last trace</h3><pre id="trace">No generation yet.</pre></aside></div></section>
     <section id="evaluation" class="view"><div class="panel"><h2>SFT operational evaluation</h2><p class="notice">Runs the eight fixed SFT categories on the loaded checkpoint. Results show generation behavior, not proof of factual correctness.</p><div class="controls-wide"><button class="primary" id="run-eval">Run eight-prompt smoke</button><span class="status" id="eval-status"></span></div><div id="eval-results" style="margin-top:16px"></div></div></section>
     <section id="developer" class="view"><div class="developer-grid"><div class="panel"><h2>Runtime evidence</h2><div id="runtime"></div></div><div class="panel"><h2>Developer controls</h2><p class="notice">The launcher owns this server. Closing its desktop window stops the process; closing this browser page stops it after the heartbeat timeout.</p><div class="controls-wide"><button id="release" class="danger">Unload model from GPU</button><button id="refresh">Refresh status</button></div><h3 style="margin-top:18px">Raw status</h3><pre id="raw-status">{}</pre></div></div></section>
   </main>
   <script>
     const $ = id => document.getElementById(id); const sessionId = 'prototype-' + crypto.randomUUID(); let ready = false;
     const controls = () => ({ strategy:$('strategy').value, max_tokens:Number($('max-tokens').value), temperature:Number($('temperature').value), top_p:Number($('top-p').value), top_k:40, repetition_penalty:1.15, seed:$('seed').value === '' ? null : Number($('seed').value), mode:$('mode').value });
+    const deliberation = () => ({mode:$('reasoning').value, deterministic:true, candidates:1, revisions:1, retrieval_results:3, verifier_calls:2, max_total_tokens:160, deadline_seconds:45});
     async function api(path, options={}) { const r = await fetch(path, options); const body = await r.json(); if(!r.ok) throw new Error(body.detail ? JSON.stringify(body.detail) : JSON.stringify(body)); return body; }
     function append(role,text){ const e=document.createElement('div'); e.className='message '+role; e.textContent=text; $('messages').append(e); $('messages').scrollTop=$('messages').scrollHeight; }
     function bytes(v){ return typeof v==='number' ? (v/1024/1024/1024).toFixed(2)+' GB' : '–'; }
     async function refresh(){ try { const s=await api('/api/status'); ready=!!s.ready; $('status').textContent=ready ? `Ready · ${s.gpu.name} · ${bytes(s.gpu.allocated_bytes)} GPU` : `${s.stage}${s.error ? ' · '+s.error : ''}`; $('send').disabled=!ready; $('prompt').disabled=!ready; const m=s.model||{}; $('runtime').innerHTML=[['Checkpoint',s.checkpoint],['Checkpoint SHA-256',s.checkpoint_sha256],['Model parameters',m.parameters?.toLocaleString()],['Tokenizer vocabulary',m.vocabulary],['Context length',m.context],['Training step',m.training_step],['GPU',s.gpu.name],['GPU allocated',bytes(s.gpu.allocated_bytes)],['GPU free',bytes(s.gpu.free_bytes)],['Heartbeat timeout',s.idle_timeout_seconds+' seconds']].map(([k,v])=>`<div class="metric"><b>${k}</b><span>${v ?? '–'}</span></div>`).join(''); $('raw-status').textContent=JSON.stringify(s,null,2); if(s.shutdown_requested){ $('status').textContent='Stopping and freeing GPU…'; } } catch(e){ $('status').textContent='Status unavailable: '+e; } }
     async function beat(){ try { await api('/api/heartbeat',{method:'POST'}); } catch(_){} }
-    $('chat-form').addEventListener('submit',async e=>{e.preventDefault(); const message=$('prompt').value.trim(); if(!message||!ready)return; $('prompt').value=''; append('user',message); $('send').disabled=true; try { const r=await api('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message,session_id:sessionId,controls:controls()})}); append('assistant',r.response||'(empty response)'); $('trace').textContent=JSON.stringify(r.trace,null,2); } catch(err){ append('assistant','Generation error: '+err); } finally { await refresh(); }});
+    $('chat-form').addEventListener('submit',async e=>{e.preventDefault(); const message=$('prompt').value.trim(); if(!message||!ready)return; $('prompt').value=''; append('user',message); $('send').disabled=true; try { const r=await api('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message,session_id:sessionId,controls:controls(),deliberation:deliberation()})}); append('assistant',r.response||'(empty response)'); $('trace').textContent=JSON.stringify(r.trace,null,2); } catch(err){ append('assistant','Generation error: '+err); } finally { await refresh(); }});
     $('clear').onclick=async()=>{await api('/api/session/'+sessionId+'/clear',{method:'POST'}); $('messages').innerHTML=''; $('trace').textContent='Conversation cleared.';};
     $('run-eval').onclick=async()=>{const b=$('run-eval'); b.disabled=true; $('eval-status').textContent='Running on the local GPU…'; try { const r=await api('/api/evaluations/run',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({controls:{...controls(),max_tokens:Math.min(64,controls().max_tokens)}})}); $('eval-status').textContent=r.operational_pass?'Behavior gate passed':'Behavior gate failed — keep this checkpoint in research'; $('eval-results').innerHTML=`<table><thead><tr><th>Category</th><th>Gate</th><th>Response</th><th>Trace</th></tr></thead><tbody>${r.rows.map(x=>`<tr><td>${x.category}</td><td class="${x.behavior_pass?'good':'bad'}">${x.behavior_pass?'PASS':'FAIL'}<br><small>${escapeHtml(x.requirement)}</small></td><td>${escapeHtml(x.response)}</td><td><pre>${escapeHtml(JSON.stringify(x.trace,null,2))}</pre></td></tr>`).join('')}</tbody></table>`; }catch(err){$('eval-status').textContent='Evaluation error: '+err;}finally{b.disabled=false;await refresh();}};
     function escapeHtml(value){const e=document.createElement('div');e.textContent=value;return e.innerHTML;}

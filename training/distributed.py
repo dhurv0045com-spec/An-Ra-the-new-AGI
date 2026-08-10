@@ -8,6 +8,7 @@ only for GPUs joined by one low-latency NCCL host/network and launched through
 from __future__ import annotations
 
 import os
+import socket
 from dataclasses import dataclass
 from typing import TypeVar
 
@@ -52,6 +53,9 @@ class DistributedContext:
             "global_sequences_per_step": micro * accumulation * self.world_size,
             "sampler_partition": DDP_SAMPLER_PARTITION,
             "gradient_reduction": DDP_GRADIENT_REDUCTION,
+            "same_host": True,
+            "rank_to_local_rank": {str(rank): rank for rank in range(self.world_size)},
+            "visible_device_order": os.environ.get("CUDA_VISIBLE_DEVICES", "all_visible_devices"),
         }
 
 
@@ -97,6 +101,32 @@ def initialize_distributed(mode: str = "off") -> DistributedContext:
     dist.init_process_group(backend=context.backend, init_method="env://")
     dist.barrier()
     return context
+
+
+def validate_same_host_topology(context: DistributedContext) -> None:
+    """Reject multi-node or duplicate-device launches in the initial DDP mode."""
+
+    if not context.enabled:
+        return
+    local = {
+        "rank": context.rank,
+        "local_rank": context.local_rank,
+        "hostname": socket.gethostname(),
+        "visible_cuda_devices": torch.cuda.device_count(),
+    }
+    gathered: list[dict[str, object] | None] = [None] * context.world_size
+    dist.all_gather_object(gathered, local)
+    if any(row is None for row in gathered):
+        raise RuntimeError("DDP topology gather returned an incomplete rank set")
+    rows = [row for row in gathered if row is not None]
+    if len({str(row["hostname"]) for row in rows}) != 1:
+        raise RuntimeError("Canonical An-Ra DDP currently supports one physical host only")
+    if {int(row["rank"]) for row in rows} != set(range(context.world_size)):
+        raise RuntimeError("DDP topology does not contain every global rank exactly once")
+    if len({int(row["local_rank"]) for row in rows}) != context.world_size:
+        raise RuntimeError("same-host DDP ranks must own unique CUDA devices")
+    if any(int(row["rank"]) != int(row["local_rank"]) for row in rows):
+        raise RuntimeError("canonical same-host DDP requires the stable rank == local-rank mapping")
 
 
 def unwrap_model(model: torch.nn.Module) -> torch.nn.Module:
@@ -166,9 +196,7 @@ def barrier_or_raise(
         context,
     )
     if not bool(envelope.get("ok")):
-        raise RuntimeError(
-            f"distributed rank-zero operation failed: {envelope.get('error')}"
-        )
+        raise RuntimeError(f"distributed rank-zero operation failed: {envelope.get('error')}")
     if context.enabled:
         dist.barrier()
 

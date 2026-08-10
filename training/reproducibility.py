@@ -117,7 +117,9 @@ def _numpy_state_from_payload(payload: object) -> tuple[Any, ...]:
 
 
 def capture_rng_states(
-    *, data_generator: torch.Generator | None = None
+    *,
+    data_generator: torch.Generator | None = None,
+    cuda_device: torch.device | int | None = None,
 ) -> dict[str, object]:
     """Capture a weights-only-safe optimizer-boundary RNG snapshot."""
 
@@ -127,12 +129,15 @@ def capture_rng_states(
         "python": random.getstate(),
         "numpy": _numpy_state_to_payload(np.random.get_state()),
         "torch": torch.get_rng_state().cpu(),
-        "cuda": [state.cpu() for state in torch.cuda.get_rng_state_all()]
-        if torch.cuda.is_available()
-        else [],
-        "data_generator": data_generator.get_state().cpu()
-        if data_generator is not None
-        else None,
+        "cuda": (
+            [torch.cuda.get_rng_state(cuda_device).cpu()]
+            if torch.cuda.is_available() and cuda_device is not None
+            else [state.cpu() for state in torch.cuda.get_rng_state_all()]
+            if torch.cuda.is_available()
+            else []
+        ),
+        "cuda_scope": "local_device" if cuda_device is not None else "all_visible_devices",
+        "data_generator": data_generator.get_state().cpu() if data_generator is not None else None,
     }
 
 
@@ -140,6 +145,7 @@ def restore_rng_states(
     payload: object,
     *,
     data_generator: torch.Generator | None = None,
+    cuda_device: torch.device | int | None = None,
 ) -> dict[str, object]:
     """Restore a complete snapshot or fail instead of silently reseeding."""
 
@@ -165,7 +171,12 @@ def restore_rng_states(
     if torch.cuda.is_available():
         if not isinstance(cuda_states, list) or not cuda_states:
             raise ValueError("CUDA resume requires checkpointed CUDA RNG states")
-        torch.cuda.set_rng_state_all([state.cpu() for state in cuda_states])
+        if cuda_device is not None:
+            if str(payload.get("cuda_scope", "")) != "local_device" or len(cuda_states) != 1:
+                raise ValueError("rank-local CUDA resume requires one local-device RNG state")
+            torch.cuda.set_rng_state(cuda_states[0].cpu(), device=cuda_device)
+        else:
+            torch.cuda.set_rng_state_all([state.cpu() for state in cuda_states])
 
     generator_state = payload.get("data_generator")
     if data_generator is not None:

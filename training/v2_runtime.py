@@ -426,11 +426,7 @@ def active_tokenizer_identity() -> dict[str, object]:
     vocabulary = payload.get("token_to_id", {}) if isinstance(payload, dict) else {}
     tokenizer = SubwordTokenizer.load(path)
     meta_path = path.with_suffix(path.suffix + ".meta.json")
-    meta = (
-        json.loads(meta_path.read_text(encoding="utf-8"))
-        if meta_path.is_file()
-        else {}
-    )
+    meta = json.loads(meta_path.read_text(encoding="utf-8")) if meta_path.is_file() else {}
     return {
         "available": True,
         "path": str(path),
@@ -574,14 +570,17 @@ def migrate_checkpoint_state(
     legacy_layer_temperature = migrated.pop("layer_temperature_bias", None)
     if "layer_temperature_bias_log" in target_state:
         if legacy_layer_temperature is not None:
-            if not torch.isfinite(legacy_layer_temperature).all() or not (
-                legacy_layer_temperature > 0
-            ).all():
+            if (
+                not torch.isfinite(legacy_layer_temperature).all()
+                or not (legacy_layer_temperature > 0).all()
+            ):
                 raise ValueError(
                     "Legacy layer_temperature_bias must contain finite positive multipliers"
                 )
-            migrated["layer_temperature_bias_log"] = legacy_layer_temperature.float().log().to(
-                dtype=target_state["layer_temperature_bias_log"].dtype
+            migrated["layer_temperature_bias_log"] = (
+                legacy_layer_temperature.float()
+                .log()
+                .to(dtype=target_state["layer_temperature_bias_log"].dtype)
             )
             changes.append("layer_temperature_bias->layer_temperature_bias_log")
         elif "layer_temperature_bias_log" not in migrated:
@@ -915,6 +914,7 @@ def load_checkpoint(
     strict: bool = False,
     resume_training: bool = False,
     data_generator: torch.Generator | None = None,
+    restore_rng: bool = True,
     sampler_reset_token: int | None = None,
     continuation_phase: str = "A",
 ) -> dict[str, object]:
@@ -938,6 +938,8 @@ def load_checkpoint(
         "raw_window_consumption": {},
         "data_sampler_state": {},
         "token_window": {},
+        "distributed_contract": {},
+        "distributed_rng_states": {},
         "rng_restore": {},
         "tokenizer_identity": {"verified": False, "reason": "checkpoint_not_loaded"},
         "training_recipe_migrations": [],
@@ -971,9 +973,7 @@ def load_checkpoint(
         except ResumeArtifactError as exc:
             raise CheckpointCompatibilityError(str(exc)) from exc
     artifact_class = (
-        str(blob.get("checkpoint_artifact_class", ""))
-        if isinstance(blob, dict)
-        else ""
+        str(blob.get("checkpoint_artifact_class", "")) if isinstance(blob, dict) else ""
     )
     if resume_training or artifact_class != FP16_INFERENCE:
         assert_checkpoint_optimizer_boundary(blob, ckpt)
@@ -1068,12 +1068,8 @@ def load_checkpoint(
                 # silently imposing the new scratch-training architecture.
                 model.configure_attention(
                     use_qk_norm=bool(ckpt_config.get("use_qk_norm", False)),
-                    sliding_window=(
-                        int(ckpt_config.get("sliding_window", 0)) or None
-                    ),
-                    full_attention_every=int(
-                        ckpt_config.get("full_attention_every", 0)
-                    ),
+                    sliding_window=(int(ckpt_config.get("sliding_window", 0)) or None),
+                    full_attention_every=int(ckpt_config.get("full_attention_every", 0)),
                 )
             for feature in ("use_mtp", "use_moe"):
                 saved = bool(ckpt_config.get(feature, False))
@@ -1226,7 +1222,7 @@ def load_checkpoint(
                         f"Mixed-precision state cannot be resumed exactly from {ckpt}"
                     ) from exc
                 logger.warning("Mixed-precision scaler restore failed from %s: %s", ckpt, exc)
-        if resume_training:
+        if resume_training and restore_rng:
             try:
                 state["rng_restore"] = restore_rng_states(
                     blob.get("rng_states"),
@@ -1239,9 +1235,7 @@ def load_checkpoint(
         state["global_step"] = int(blob.get("global_step", blob.get("step", 0)))
         state["epoch"] = int(blob.get("epoch", 0))
         state["best_loss"] = float(blob.get("best_loss", float("inf")))
-        state["best_training_loss"] = float(
-            blob.get("best_training_loss", state["best_loss"])
-        )
+        state["best_training_loss"] = float(blob.get("best_training_loss", state["best_loss"]))
         semantics = blob.get("loss_semantics", {})
         state["loss_semantics"] = dict(semantics) if isinstance(semantics, dict) else {}
         state["sessions_completed"] = int(blob.get("sessions_completed", 0))
@@ -1259,6 +1253,8 @@ def load_checkpoint(
         state["raw_window_consumption"] = dict(blob.get("raw_window_consumption", {}))
         state["data_sampler_state"] = dict(blob.get("data_sampler_state", {}))
         state["token_window"] = dict(blob.get("token_window", {}))
+        state["distributed_contract"] = dict(blob.get("distributed_contract", {}))
+        state["distributed_rng_states"] = dict(blob.get("distributed_rng_states", {}))
         state["growth_provenance"] = dict(blob.get("growth_provenance", {}))
         state["data_manifests"] = dict(
             blob.get("data_manifests", blob.get("dataset_manifest_hashes", {}))
