@@ -98,8 +98,8 @@ def subsystem_records() -> tuple[SubsystemRecord, ...]:
             claimed_benefit="Stable general-purpose language-model substrate.",
             evidence_state="partial",
             evidence=(
-                "Architecture and bounded optimizer/resume paths passed; "
-                "no useful trained V4 checkpoint exists yet."
+                "A protected 181M V4 SFT child exact-loads all model tensors, but an "
+                "August 2026 local behavior probe failed basic math, factual, and code tasks."
             ),
             evidence_required="Coherent milestone checkpoint plus held-out behavioral evaluation.",
             rollback=(
@@ -365,8 +365,9 @@ def subsystem_records() -> tuple[SubsystemRecord, ...]:
             claimed_benefit="Instruction following and verifiable reasoning behavior.",
             evidence_state="partial",
             evidence=(
-                "Algorithms and ablation gates exist; no accepted V4 "
-                "post-trained checkpoint exists."
+                "A signed assistant-only V4 SFT child improved validation loss from "
+                "1.839 to 1.392, but it has not passed the fixed behavior gate and is "
+                "therefore a research checkpoint rather than an accepted capability release."
             ),
         ),
         SubsystemRecord(

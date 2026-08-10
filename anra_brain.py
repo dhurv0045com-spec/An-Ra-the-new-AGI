@@ -546,7 +546,7 @@ class BlockV2(nn.Module):
 
 @MODEL_REGISTRY.register(
     "causal_transformer_v4",
-    aliases=("causal_transformer_v2", "causal_transformer_v3"),
+    aliases=("causal_transformer_v2",),
 )
 class CausalTransformerV2(nn.Module):
     def __init__(
@@ -1438,7 +1438,4 @@ class CausalTransformerV2(nn.Module):
 
 CausalTransformer = CausalTransformerV2
 CausalTransformerV4 = CausalTransformerV2
-CausalTransformerV3 = CausalTransformerV2
-BlockV3 = BlockV2
-MultiHeadAttentionV3 = MultiHeadAttentionV2
 MetacognitiveRouter = MoDRouter

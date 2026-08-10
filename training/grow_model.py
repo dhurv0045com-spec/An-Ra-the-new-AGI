@@ -16,6 +16,7 @@ from pathlib import Path
 import torch
 
 from training.csii import CrossScaleIdentityInheritance
+from training.growth_contract import GROWTH_PARENT_POLICIES, build_growth_parent_lineage
 from training.v2_config import (
     ANRA_V4_GROWTH_MODEL_PROFILE,
     CANONICAL_MODEL_PROFILE,
@@ -27,6 +28,14 @@ DEFAULT_PARITY_PROMPTS = (
     "An-Ra checks that the inherited model produces the same logits.",
     "Reason carefully: if every verified checkpoint has a hash, what does the hash prove?",
     "def triangular(n):\n    return n * (n + 1) // 2",
+    "Calculate 37 * 19 and explain the arithmetic in one sentence.",
+    "Return a valid JSON object with status, evidence, and confidence fields.",
+    "When evidence is missing, explain why uncertainty is more honest than invention.",
+    "Rewrite this sentence clearly: The measurements was recorded incorrectly.",
+    "A long context must preserve the opening constraint while reasoning through several "
+    "intermediate facts. Constraint: answer with the word cobalt only after checking that "
+    "every stated premise is internally consistent. Premise one is consistent. Premise two "
+    "does not contradict premise one. Premise three asks for the original constraint.",
 )
 
 
@@ -64,11 +73,20 @@ def _assert_parent_config(payload: object, model: object) -> None:
         "full_attention_every",
         "use_mtp",
         "use_moe",
+        "use_mod",
+        "use_rim",
+        "use_dstp",
+        "use_esv_control",
+        "use_residual_depth",
+        "use_hal",
+        "approved_subsystems",
+        "initialization_scheme",
     )
     mismatches: dict[str, dict[str, object]] = {}
     for field in fields:
-        saved_value = tuple(saved.get(field, ())) if field == "mod_layers" else saved.get(field)
-        active_value = tuple(active.get(field, ())) if field == "mod_layers" else active.get(field)
+        tuple_fields = {"mod_layers", "approved_subsystems"}
+        saved_value = tuple(saved.get(field, ())) if field in tuple_fields else saved.get(field)
+        active_value = tuple(active.get(field, ())) if field in tuple_fields else active.get(field)
         if saved_value != active_value:
             mismatches[field] = {"checkpoint": saved_value, "registered": active_value}
     if mismatches:
@@ -88,14 +106,17 @@ def _load_prompts(path: str | None) -> tuple[str, ...]:
     return tuple(item.strip() for item in payload)
 
 
-def _parity_tokens(prompts: tuple[str, ...], *, max_length: int = 64) -> torch.Tensor:
+def _parity_tokens(
+    prompts: tuple[str, ...], *, max_length: int = 256
+) -> tuple[torch.Tensor, torch.Tensor]:
     tokenizer = load_or_build_v2_tokenizer()
     encoded = [tokenizer.encode(prompt, add_special_tokens=True)[:max_length] for prompt in prompts]
     if not encoded or any(not row for row in encoded):
         raise ValueError("Parity prompts produced an empty token sequence")
     width = max(len(row) for row in encoded)
     padded = [row + [tokenizer.pad_token_id] * (width - len(row)) for row in encoded]
-    return torch.tensor(padded, dtype=torch.long)
+    mask = [[True] * len(row) + [False] * (width - len(row)) for row in encoded]
+    return torch.tensor(padded, dtype=torch.long), torch.tensor(mask, dtype=torch.bool)
 
 
 def _atomic_torch_save(payload: dict[str, object], path: Path) -> None:
@@ -128,6 +149,7 @@ def grow_checkpoint(
     target_profile: str = ANRA_V4_GROWTH_MODEL_PROFILE,
     parity_prompts: tuple[str, ...] = DEFAULT_PARITY_PROMPTS,
     minimum_cosine: float = 0.99,
+    parent_stage_policy: str,
     device: str = "auto",
     overwrite: bool = False,
 ) -> dict[str, object]:
@@ -160,6 +182,11 @@ def grow_checkpoint(
     # execution through a weights_only=False compatibility fallback.
     payload = torch.load(source_path, map_location="cpu", weights_only=True)
     _assert_parent_config(payload, source)
+    parent_lineage = build_growth_parent_lineage(
+        payload,
+        checkpoint_sha256=_sha256_file(source_path),
+        parent_stage_policy=parent_stage_policy,
+    )
     state = _checkpoint_model_state(payload)
     parent_progress = {
         "tokens_seen": int(payload.get("tokens_seen", 0)),
@@ -192,7 +219,7 @@ def grow_checkpoint(
         source_profile=source_profile,
         target_profile=target_profile,
     )
-    parity_ids = _parity_tokens(parity_prompts)
+    parity_ids, parity_mask = _parity_tokens(parity_prompts)
     resolved_device = (
         torch.device("cuda" if torch.cuda.is_available() else "cpu")
         if device == "auto"
@@ -204,6 +231,7 @@ def grow_checkpoint(
         source,
         target,
         parity_ids.to(resolved_device),
+        valid_token_mask=parity_mask.to(resolved_device),
     )
     report = CrossScaleIdentityInheritance.bind_parity(
         report,
@@ -214,7 +242,8 @@ def grow_checkpoint(
     if report.parity_passed is not True:
         raise RuntimeError(
             "Growth child failed real-logits parity; no child artifact was published: "
-            f"cosine={report.parity_cosine:.8f}, required={report.parity_minimum_cosine:.8f}"
+            f"cosine={report.parity_cosine:.8f}, KL={report.parity_mean_kl:.8f}, "
+            f"top1={report.parity_top1_agreement:.4f}"
         )
     manifest = CrossScaleIdentityInheritance.validate_growth_report(report)
     target.to("cpu")
@@ -230,6 +259,7 @@ def grow_checkpoint(
         "model_config": target.model_config(),
         "growth_manifest": manifest,
         "parent_progress": parent_progress,
+        "parent_lineage": parent_lineage,
     }
     _atomic_torch_save(artifact, output_path)
     artifact_sha256 = _sha256_file(output_path)
@@ -275,6 +305,11 @@ def main() -> None:
     parser.add_argument("--target-profile", default=ANRA_V4_GROWTH_MODEL_PROFILE)
     parser.add_argument("--parity-prompts", default=None)
     parser.add_argument("--minimum-cosine", type=float, default=0.99)
+    parser.add_argument(
+        "--parent-stage-policy",
+        choices=sorted(GROWTH_PARENT_POLICIES),
+        required=True,
+    )
     parser.add_argument("--device", default="auto")
     parser.add_argument("--overwrite", action="store_true")
     args = parser.parse_args()
@@ -286,6 +321,7 @@ def main() -> None:
         target_profile=args.target_profile,
         parity_prompts=_load_prompts(args.parity_prompts),
         minimum_cosine=args.minimum_cosine,
+        parent_stage_policy=args.parent_stage_policy,
         device=args.device,
         overwrite=args.overwrite,
     )

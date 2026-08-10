@@ -25,6 +25,12 @@ from typing import Any
 
 import torch
 import torch.nn.functional as F  # noqa: N812 - canonical PyTorch alias
+from anra.sft_conversation import (
+    render_chat_prompt,
+    render_prompt_from_context,
+    split_training_conversation,
+)
+from evaluation.sft_behavior_gate import check_smoke_response
 from torch.utils.data import Dataset
 
 from training.anra_optimizer import build_optimizer
@@ -296,20 +302,7 @@ def _verify_source_receipt(path: Path, lineage: Mapping[str, object]) -> dict[st
 
 
 def _render_prompt(messages: Sequence[Mapping[str, object]]) -> tuple[str, str]:
-    if not messages or str(messages[-1].get("role", "")).lower() != "assistant":
-        raise ValueError("SFT record must end with an assistant message")
-    parts: list[str] = []
-    for index, message in enumerate(messages[:-1]):
-        role = str(message.get("role", "")).strip().lower()
-        content = str(message.get("content", "")).strip()
-        if role not in {"system", "user", "assistant"} or not content:
-            raise ValueError(f"invalid SFT context message at index {index}")
-        label = {"system": "SYSTEM", "user": "USER", "assistant": "ANRA"}[role]
-        parts.append(f"{label}: {content}")
-    answer = str(messages[-1].get("content", "")).strip()
-    if not parts or not answer:
-        raise ValueError("SFT record has empty context or final answer")
-    return "\n".join(parts), answer
+    return split_training_conversation(messages)
 
 
 @dataclass(frozen=True)
@@ -433,7 +426,9 @@ class SFTConversationDataset(Dataset[dict[str, torch.Tensor]]):
 
     def __getitem__(self, index: int) -> dict[str, torch.Tensor]:
         example = self.examples[index]
-        prefix = self.tokenizer.encode(f"H: {example.prompt}\nANRA:", add_special_tokens=False)
+        prefix = self.tokenizer.encode(
+            render_prompt_from_context(example.prompt), add_special_tokens=False
+        )
         answer = self.tokenizer.encode(f" {example.answer}", add_special_tokens=False)
         # Preserve the full answer/EOS whenever possible; trim only older prompt context.
         answer = answer[: max(1, self.block_size - 2)]
@@ -502,6 +497,8 @@ def _checkpoint_payload(
     epoch: int,
     microbatch_cursor: int,
     skipped_updates: int,
+    input_tokens_processed: int,
+    supervised_tokens_processed: int,
     best_validation_loss: float,
     parent_validation_loss: float,
     train_loss: float,
@@ -536,6 +533,9 @@ def _checkpoint_payload(
         "epoch": int(epoch),
         "sft_microbatch_cursor": int(microbatch_cursor),
         "sft_skipped_updates": int(skipped_updates),
+        "sft_input_tokens_processed": int(input_tokens_processed),
+        "sft_supervised_tokens_processed": int(supervised_tokens_processed),
+        "tokens_seen": int(input_tokens_processed),
         "best_loss": float(best_validation_loss),
         "best_training_loss": float(train_loss),
         "best_validation_loss": float(best_validation_loss),
@@ -872,6 +872,55 @@ def _next_batch_indices(
     return result, epoch, cursor + len(result)
 
 
+def _validate_sft_sampler_position(
+    *,
+    dataset_size: int,
+    global_step: int,
+    batch_size: int,
+    accumulation: int,
+    epoch: int,
+    cursor: int,
+) -> int:
+    """Prove that optimizer progress and the deterministic data cursor agree."""
+
+    if dataset_size <= 0 or not 0 <= cursor <= dataset_size or epoch < 0:
+        raise ValueError("invalid SFT sampler position")
+    observed_examples = epoch * dataset_size + cursor
+    expected_examples = global_step * batch_size * accumulation
+    if observed_examples != expected_examples:
+        raise ValueError(
+            "SFT checkpoint progress is inconsistent: "
+            f"step/recipe imply {expected_examples:,} examples but epoch/cursor "
+            f"record {observed_examples:,}"
+        )
+    return observed_examples
+
+
+def _recover_sft_token_counters(
+    dataset: SFTConversationDataset,
+    *,
+    seed: int,
+    epoch: int,
+    cursor: int,
+) -> tuple[int, int]:
+    """Recover exact legacy counters from a verified deterministic sampler position."""
+
+    lengths: list[tuple[int, int]] = []
+    for index in range(len(dataset)):
+        row = dataset[index]
+        lengths.append(
+            (int(row["input_ids"].numel()), int(row["weights"].sum().item()))
+        )
+    all_input = sum(item[0] for item in lengths)
+    all_supervised = sum(item[1] for item in lengths)
+    generator = torch.Generator().manual_seed(int(seed) + int(epoch))
+    ordering = torch.randperm(len(dataset), generator=generator).tolist()[:cursor]
+    return (
+        epoch * all_input + sum(lengths[index][0] for index in ordering),
+        epoch * all_supervised + sum(lengths[index][1] for index in ordering),
+    )
+
+
 _BEHAVIOR_SMOKE_PROMPTS: tuple[tuple[str, str], ...] = (
     ("instruction_following", "Give two concise steps for organizing a small project."),
     ("dialogue", "Respond warmly to a person who says they had a difficult day."),
@@ -897,9 +946,7 @@ def _behavior_smoke_report(
     rows: list[dict[str, object]] = []
     with torch.no_grad():
         for category, prompt in _BEHAVIOR_SMOKE_PROMPTS:
-            prefix = tokenizer.encode(
-                f"H: {prompt}\nANRA:", add_special_tokens=False
-            )
+            prefix = tokenizer.encode(render_chat_prompt([], prompt), add_special_tokens=False)
             ids = [int(tokenizer.bos_token_id), *prefix]
             ids = ids[-2047:]
             generated: list[int] = []
@@ -925,10 +972,11 @@ def _behavior_smoke_report(
                     "nonempty": bool(text),
                 }
             )
-    outputs = [str(row["output"]) for row in rows]
-    nonempty = all(bool(row["nonempty"]) for row in rows)
-    unique_outputs = len({" ".join(value.split()) for value in outputs})
-    passed = nonempty and unique_outputs >= max(2, len(rows) // 2)
+            behavior_pass, requirement = check_smoke_response(category, text)
+            rows[-1]["behavior_pass"] = behavior_pass
+            rows[-1]["requirement"] = requirement
+    unique_outputs = len({" ".join(str(row["output"]).split()) for row in rows})
+    passed = bool(rows) and all(bool(row["behavior_pass"]) for row in rows)
     return {
         "schema": "anra-sft-behavior-smoke/v1",
         "passed": passed,
@@ -1032,6 +1080,34 @@ def run_sft_v4(config: SFTRunConfig) -> dict[str, object]:
     epoch = int(loaded.get("epoch", 0)) if resuming else 0
     cursor = int(loaded.get("sft_microbatch_cursor", 0)) if resuming else 0
     skipped_updates = int(loaded.get("sft_skipped_updates", 0)) if resuming else 0
+    input_tokens_processed = int(loaded.get("sft_input_tokens_processed", 0)) if resuming else 0
+    supervised_tokens_processed = (
+        int(loaded.get("sft_supervised_tokens_processed", 0)) if resuming else 0
+    )
+    if resuming:
+        _validate_sft_sampler_position(
+            dataset_size=len(dataset),
+            global_step=global_step,
+            batch_size=config.batch_size,
+            accumulation=config.accumulation,
+            epoch=epoch,
+            cursor=cursor,
+        )
+        has_token_counters = {
+            "sft_input_tokens_processed",
+            "sft_supervised_tokens_processed",
+        }.issubset(loaded)
+        if not has_token_counters:
+            input_tokens_processed, supervised_tokens_processed = _recover_sft_token_counters(
+                dataset,
+                seed=config.seed,
+                epoch=epoch,
+                cursor=cursor,
+            )
+            print(
+                "[SFT] Recovered exact token counters from the verified legacy sampler cursor",
+                flush=True,
+            )
     best_validation_loss = (
         float(loaded.get("best_validation_loss", math.inf)) if resuming else math.inf
     )
@@ -1075,6 +1151,8 @@ def run_sft_v4(config: SFTRunConfig) -> dict[str, object]:
             epoch=epoch,
             microbatch_cursor=cursor,
             skipped_updates=skipped_updates,
+            input_tokens_processed=input_tokens_processed,
+            supervised_tokens_processed=supervised_tokens_processed,
             best_validation_loss=best_validation_loss,
             parent_validation_loss=parent_validation_loss,
             train_loss=train_loss,
@@ -1128,6 +1206,8 @@ def run_sft_v4(config: SFTRunConfig) -> dict[str, object]:
     while time.monotonic() < deadline and global_step < config.total_steps:
         optimizer.zero_grad(set_to_none=True)
         pending_epoch, pending_cursor = epoch, cursor
+        pending_input_tokens = 0
+        pending_supervised_tokens = 0
         for _ in range(config.accumulation):
             indices, pending_epoch, pending_cursor = _next_batch_indices(
                 len(dataset), config.batch_size, config.seed, pending_epoch, pending_cursor
@@ -1136,6 +1216,8 @@ def run_sft_v4(config: SFTRunConfig) -> dict[str, object]:
             ids = batch["input_ids"].to(device)
             targets = batch["targets"].to(device)
             weights = batch["weights"].to(device)
+            pending_input_tokens += int((batch["input_ids"] != dataset.pad_id).sum().item())
+            pending_supervised_tokens += int(batch["weights"].sum().item())
             with mp.autocast():
                 output = model(ids)
                 logits = output[0] if isinstance(output, tuple) else output
@@ -1155,6 +1237,8 @@ def run_sft_v4(config: SFTRunConfig) -> dict[str, object]:
         optimizer_advanced = mp.update()
         if optimizer_advanced:
             epoch, cursor = pending_epoch, pending_cursor
+            input_tokens_processed += pending_input_tokens
+            supervised_tokens_processed += pending_supervised_tokens
             scheduler.step()
             global_step += 1
         else:
@@ -1169,7 +1253,9 @@ def run_sft_v4(config: SFTRunConfig) -> dict[str, object]:
             best_validation_loss = min(best_validation_loss, validation)
             print(
                 f"[SFT] step={global_step} train_loss={last_loss:.4f} "
-                f"validation_loss={validation:.4f}",
+                f"validation_loss={validation:.4f} "
+                f"input_tokens={input_tokens_processed:,} "
+                f"supervised_tokens={supervised_tokens_processed:,}",
                 flush=True,
             )
         if (
@@ -1207,6 +1293,8 @@ def run_sft_v4(config: SFTRunConfig) -> dict[str, object]:
         "base_checkpoint_sha256": str(dict(lineage["parent"])["base_checkpoint_sha256"]),
         "lineage_id": str(lineage["lineage_id"]),
         "validation_examples": len(validation_examples),
+        "input_tokens_processed": input_tokens_processed,
+        "supervised_tokens_processed": supervised_tokens_processed,
         "checkpoint": str(sft_remote_checkpoint),
         "checkpoint_sha256": sha256_file(sft_remote_checkpoint),
         "elapsed_minutes": round((time.monotonic() - started) / 60, 2),

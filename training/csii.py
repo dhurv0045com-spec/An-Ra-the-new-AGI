@@ -34,12 +34,16 @@ class GrowthReport:
     source_checkpoint_sha256: str
     optimizer_restart_required: bool = True
     optimizer_state_inherited: bool = False
-    parity_semantics: str = "real_logits_same_token_ids_v1"
+    parity_semantics: str = "real_distribution_valid_tokens_v2"
     parity_token_ids_sha256: str = ""
     parity_cosine: float | None = None
     parity_max_error: float | None = None
     parity_mean_absolute_error: float | None = None
+    parity_mean_kl: float | None = None
+    parity_top1_agreement: float | None = None
     parity_minimum_cosine: float = 0.99
+    parity_maximum_mean_kl: float = 0.001
+    parity_minimum_top1_agreement: float = 0.99
     parity_passed: bool | None = None
 
 
@@ -79,6 +83,8 @@ def model_architecture_payload(model: Any) -> dict[str, object]:
         ],
         "use_mtp": bool(getattr(model, "use_mtp", False)),
         "use_moe": bool(getattr(model, "use_moe", False)),
+        "approved_subsystems": list(getattr(model, "approved_subsystems", ())),
+        "initialization_scheme": str(getattr(model, "initialization_scheme", "unknown")),
     }
 
 
@@ -119,8 +125,6 @@ class GrowthAlignmentController:
             self._active_names = {name for name, _ in self.target.named_parameters()}
             return {"trainable": sum(p.numel() for p in self.target.parameters()), "phase": 2}
         active_names: set[str] = set()
-        for parameter in self.target.parameters():
-            parameter.requires_grad_(True)
         for name, _parameter in self.target.named_parameters():
             inserted = any(
                 name.startswith(f"blocks.{layer}.") or name.startswith(f"rim_modules.{layer}.")
@@ -154,6 +158,8 @@ class GrowthAlignmentController:
                     ):
                         active_names.add(name)
                         break
+        for name, parameter in self.target.named_parameters():
+            parameter.requires_grad_(name in active_names)
         self._active_names = active_names
         return {
             "trainable": sum(
@@ -167,7 +173,9 @@ class GrowthAlignmentController:
     def mask_inactive_gradients(self) -> None:
         for name, parameter in self.target.named_parameters():
             if name not in self._active_names and parameter.grad is not None:
-                parameter.grad.zero_()
+                # AdamW updates a zero-gradient tensor through decoupled weight
+                # decay and existing moments. ``None`` is the only true skip.
+                parameter.grad = None
 
     def alignment_loss(
         self,
@@ -578,7 +586,7 @@ class CrossScaleIdentityInheritance:
         if source_checkpoint is not None and Path(source_checkpoint).exists():
             digest = _sha256_file(source_checkpoint)
         return GrowthReport(
-            schema_version=2,
+            schema_version=3,
             generated_at=time.time(),
             source_profile=str(source_profile),
             target_profile=str(target_profile),
@@ -601,6 +609,8 @@ class CrossScaleIdentityInheritance:
         source: object,
         target: object,
         token_ids: torch.Tensor,
+        *,
+        valid_token_mask: torch.Tensor | None = None,
     ) -> dict[str, float | str]:
         if token_ids.ndim != 2 or token_ids.numel() == 0:
             raise ValueError("Parity verification requires non-empty [batch, sequence] token IDs")
@@ -627,21 +637,44 @@ class CrossScaleIdentityInheritance:
             )
         if not torch.isfinite(source_logits).all() or not torch.isfinite(target_logits).all():
             raise ValueError("Real-logits parity cannot be computed from NaN/Inf logits")
+        if valid_token_mask is None:
+            mask = torch.ones(source_logits.shape[:-1], dtype=torch.bool)
+        else:
+            mask = valid_token_mask.detach().cpu().to(torch.bool)
+            if tuple(mask.shape) != tuple(source_logits.shape[:-1]):
+                raise ValueError("Parity mask must match the batch/sequence logit dimensions")
+        if not bool(mask.any()):
+            raise ValueError("Parity mask selects no real tokens")
+        source_valid = source_logits[mask]
+        target_valid = target_logits[mask]
         cosine = F.cosine_similarity(
-            source_logits.reshape(-1, source_logits.shape[-1]),
-            target_logits.reshape(-1, target_logits.shape[-1]),
+            source_valid,
+            target_valid,
             dim=-1,
         ).mean()
-        absolute_error = (source_logits - target_logits).abs()
+        absolute_error = (source_valid - target_valid).abs()
+        source_log_probs = F.log_softmax(source_valid, dim=-1)
+        target_log_probs = F.log_softmax(target_valid, dim=-1)
+        source_probs = source_log_probs.exp()
+        mean_kl = (source_probs * (source_log_probs - target_log_probs)).sum(dim=-1).mean()
+        top1_agreement = (
+            source_valid.argmax(dim=-1) == target_valid.argmax(dim=-1)
+        ).float().mean()
         token_material = json.dumps(
-            token_ids.detach().cpu().to(torch.int64).tolist(), separators=(",", ":")
+            {
+                "token_ids": token_ids.detach().cpu().to(torch.int64).tolist(),
+                "valid_token_mask": mask.tolist(),
+            },
+            separators=(",", ":"),
         ).encode("utf-8")
         return {
-            "parity_semantics": "real_logits_same_token_ids_v1",
+            "parity_semantics": "real_distribution_valid_tokens_v2",
             "parity_token_ids_sha256": hashlib.sha256(token_material).hexdigest(),
             "parity_cosine": float(cosine),
             "parity_max_error": float(absolute_error.max()),
             "parity_mean_absolute_error": float(absolute_error.mean()),
+            "parity_mean_kl": float(mean_kl),
+            "parity_top1_agreement": float(top1_agreement),
         }
 
     @staticmethod
@@ -650,21 +683,37 @@ class CrossScaleIdentityInheritance:
         parity: dict[str, float | str],
         *,
         minimum_cosine: float = 0.99,
+        maximum_mean_kl: float = 0.001,
+        minimum_top1_agreement: float = 0.99,
     ) -> GrowthReport:
         cosine = float(parity.get("parity_cosine", float("nan")))
         maximum_error = float(parity.get("parity_max_error", float("nan")))
         mean_error = float(parity.get("parity_mean_absolute_error", float("nan")))
+        mean_kl = float(parity.get("parity_mean_kl", float("nan")))
+        top1_agreement = float(parity.get("parity_top1_agreement", float("nan")))
         semantics = str(parity.get("parity_semantics", ""))
         token_hash = str(parity.get("parity_token_ids_sha256", ""))
-        if semantics != "real_logits_same_token_ids_v1":
-            raise ValueError("Growth parity must compare real logits on identical token IDs")
+        if semantics != "real_distribution_valid_tokens_v2":
+            raise ValueError("Growth parity must compare output distributions on real tokens")
         if len(token_hash) != 64:
             raise ValueError("Growth parity is missing its token-ID hash")
-        if not all(math.isfinite(value) for value in (cosine, maximum_error, mean_error)):
+        if not all(
+            math.isfinite(value)
+            for value in (cosine, maximum_error, mean_error, mean_kl, top1_agreement)
+        ):
             raise ValueError("Growth parity metrics must be finite")
         threshold = float(minimum_cosine)
+        kl_threshold = float(maximum_mean_kl)
+        top1_threshold = float(minimum_top1_agreement)
         if not 0.0 < threshold <= 1.0:
             raise ValueError("minimum_cosine must be in (0, 1]")
+        if kl_threshold < 0.0 or not 0.0 <= top1_threshold <= 1.0:
+            raise ValueError("Growth distribution thresholds are invalid")
+        passed = (
+            cosine >= threshold
+            and mean_kl <= kl_threshold
+            and top1_agreement >= top1_threshold
+        )
         return replace(
             report,
             parity_semantics=semantics,
@@ -672,8 +721,12 @@ class CrossScaleIdentityInheritance:
             parity_cosine=cosine,
             parity_max_error=maximum_error,
             parity_mean_absolute_error=mean_error,
+            parity_mean_kl=mean_kl,
+            parity_top1_agreement=top1_agreement,
             parity_minimum_cosine=threshold,
-            parity_passed=cosine >= threshold,
+            parity_maximum_mean_kl=kl_threshold,
+            parity_minimum_top1_agreement=top1_threshold,
+            parity_passed=passed,
         )
 
     @staticmethod
@@ -683,7 +736,7 @@ class CrossScaleIdentityInheritance:
         require_passed_parity: bool = True,
     ) -> dict[str, object]:
         payload = asdict(report) if isinstance(report, GrowthReport) else dict(report)
-        if int(payload.get("schema_version", 0)) != 2:
+        if int(payload.get("schema_version", 0)) != 3:
             raise ValueError("Unsupported growth-manifest schema version")
         source_profile = str(payload.get("source_profile", "")).strip()
         target_profile = str(payload.get("target_profile", "")).strip()
@@ -749,19 +802,47 @@ class CrossScaleIdentityInheritance:
             raise ValueError("A growth child must restart its optimizer")
         if payload.get("optimizer_state_inherited") is not False:
             raise ValueError("A growth child must not inherit shape-incompatible optimizer state")
-        if str(payload.get("parity_semantics", "")) != "real_logits_same_token_ids_v1":
-            raise ValueError("Growth manifest is not bound to real-logits parity")
+        if str(payload.get("parity_semantics", "")) != "real_distribution_valid_tokens_v2":
+            raise ValueError("Growth manifest is not bound to masked distribution parity")
         cosine = float(payload.get("parity_cosine", float("nan")))
         maximum_error = float(payload.get("parity_max_error", float("nan")))
         mean_error = float(payload.get("parity_mean_absolute_error", float("nan")))
+        mean_kl = float(payload.get("parity_mean_kl", float("nan")))
+        top1_agreement = float(payload.get("parity_top1_agreement", float("nan")))
         threshold = float(payload.get("parity_minimum_cosine", float("nan")))
+        kl_threshold = float(payload.get("parity_maximum_mean_kl", float("nan")))
+        top1_threshold = float(
+            payload.get("parity_minimum_top1_agreement", float("nan"))
+        )
         if not all(
-            math.isfinite(value) for value in (cosine, maximum_error, mean_error, threshold)
+            math.isfinite(value)
+            for value in (
+                cosine,
+                maximum_error,
+                mean_error,
+                mean_kl,
+                top1_agreement,
+                threshold,
+                kl_threshold,
+                top1_threshold,
+            )
         ):
             raise ValueError("Growth manifest parity metrics must be finite")
-        if not 0.0 < threshold <= 1.0 or maximum_error < 0.0 or mean_error < 0.0:
+        if (
+            not 0.0 < threshold <= 1.0
+            or maximum_error < 0.0
+            or mean_error < 0.0
+            or mean_kl < 0.0
+            or kl_threshold < 0.0
+            or not 0.0 <= top1_agreement <= 1.0
+            or not 0.0 <= top1_threshold <= 1.0
+        ):
             raise ValueError("Growth manifest parity metrics are outside their valid ranges")
-        passed = cosine >= threshold
+        passed = (
+            cosine >= threshold
+            and mean_kl <= kl_threshold
+            and top1_agreement >= top1_threshold
+        )
         if payload.get("parity_passed") is not passed:
             raise ValueError("Growth manifest parity decision disagrees with its metrics")
         if require_passed_parity and not passed:

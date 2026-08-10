@@ -1022,6 +1022,17 @@ def train_anra_v2(
     growth_run = model_size == ANRA_V4_GROWTH_MODEL_PROFILE
     if model_size not in {CANONICAL_MODEL_PROFILE, ANRA_V4_GROWTH_MODEL_PROFILE}:
         raise ValueError("model size is not registered in the operational V4 lineage")
+    if use_mtp or use_moe:
+        requested = [
+            name
+            for name, enabled in (("mtp", use_mtp), ("moe", use_moe))
+            if enabled
+        ]
+        raise ValueError(
+            "Experimental architecture flags cannot mutate a registered V4 profile in place: "
+            f"{requested}. Build a named experimental profile with an exact parameter contract "
+            "and a parent-derived initialization artifact before training it."
+        )
     if optimizer_name != CANONICAL_FOUNDATION_OPTIMIZER:
         raise ValueError(
             "Operational V4 foundation and growth training require AdamW; "
@@ -1034,6 +1045,11 @@ def train_anra_v2(
         raise ValueError("The 181M foundation cannot bind model-growth artifacts")
     if growth_initialization and resume_from:
         raise ValueError("Growth initialization and exact resume are mutually exclusive")
+    if growth_run and not resume_from and not growth_initialization:
+        raise ValueError(
+            "A fresh 500M run requires the parity-gated growth initialization; "
+            "a manifest and teacher alone cannot initialize child weights"
+        )
     if accumulation < 1:
         raise ValueError("gradient accumulation must be positive")
     if training_layout not in {

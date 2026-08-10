@@ -12,9 +12,24 @@ from anra_brain import (
     MultiHeadAttentionV2,
     RotaryEmbedding,
 )
-from training.v2_config import ANRA_V4_MODEL, ANRA_V4_TRAINING
+from training.v2_config import (
+    ANRA_V4_MODEL,
+    ANRA_V4_TRAINING,
+    model_parameter_breakdown,
+)
 from training.v2_runtime import CheckpointCompatibilityError, load_checkpoint
 from training.preflight import HardwareProfile, run_preflight
+
+
+def test_canonical_trainer_rejects_in_place_mtp_and_moe_mutation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from scripts.build_brain import train_anra_v2
+
+    monkeypatch.setattr("scripts.build_brain.print_session_dashboard", lambda: None)
+    for options in ({"use_mtp": True}, {"use_moe": True}):
+        with pytest.raises(ValueError, match="cannot mutate a registered V4 profile"):
+            train_anra_v2(data_path="unused.txt", **options)
 
 
 def test_rope_uses_one_phase_per_adjacent_coordinate_pair() -> None:
@@ -77,6 +92,17 @@ def test_t4_microbatch_preserves_large_effective_token_batch() -> None:
         * ANRA_V4_MODEL.block_size
         == 65_536
     )
+
+
+def test_v4_parameter_contract_separates_dense_and_dormant_pilot_tensors() -> None:
+    breakdown = model_parameter_breakdown(ANRA_V4_MODEL)
+    assert breakdown == {
+        "dense_parameters": 180_093_312,
+        "installed_native_pilot_parameters": 1_038_759,
+        "mtp_parameters": 0,
+        "moe_parameters": 0,
+        "total_parameters": 181_132_071,
+    }
 
 
 def test_preflight_rejects_gpu_below_v4_memory_floor(monkeypatch) -> None:

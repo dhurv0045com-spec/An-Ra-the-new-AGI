@@ -7,6 +7,7 @@ import pytest
 from training.curriculum_sampler import (
     PERMUTATION_SAMPLER_ALGORITHM,
     DeterministicPermutationSampler,
+    RankStridedSampler,
     ScheduledCurriculumSampler,
     curriculum_multipliers,
     source_replay_budget_violations,
@@ -195,3 +196,27 @@ def test_scheduled_curriculum_cannot_extend_its_resume_horizon() -> None:
             curriculum="math-density-ramp",
             active_num_samples=64,
         )
+
+
+def test_rank_strided_sampler_union_is_exact_canonical_suffix() -> None:
+    base = DeterministicPermutationSampler(64, num_samples=64, seed=1301)
+    expected = [base.index_at(position) for position in range(8, 64)]
+    ranks = [
+        list(RankStridedSampler(base, rank=rank, world_size=4, global_cursor=8))
+        for rank in range(4)
+    ]
+    reconstructed = [
+        ranks[position % 4][position // 4] for position in range(len(expected))
+    ]
+    assert reconstructed == expected
+    assert all(
+        set(ranks[left]).isdisjoint(ranks[right])
+        for left in range(4)
+        for right in range(left + 1, 4)
+    )
+
+
+def test_rank_strided_sampler_rejects_unequal_collective_horizon() -> None:
+    base = DeterministicPermutationSampler(10, num_samples=10, seed=1301)
+    with pytest.raises(ValueError, match="divide evenly"):
+        RankStridedSampler(base, rank=0, world_size=4, global_cursor=1)

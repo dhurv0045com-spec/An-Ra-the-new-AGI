@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import pytest
 import torch
 from torch import nn
 
@@ -10,7 +11,12 @@ from training.distillation import (
     DistillationSource,
     accept_distillation_example,
 )
-from training.distributed import estimate_campaign, recommended_profile
+from training.distributed import (
+    DDP_CONTRACT_SCHEMA,
+    distributed_context_from_environment,
+    estimate_campaign,
+    recommended_profile,
+)
 from training.qat import attach_qat
 from training.sadl import normalized_mix, owner_weight
 
@@ -40,6 +46,27 @@ def test_distributed_estimates_require_measured_throughput() -> None:
         hourly_cost=8,
     )
     assert estimate["hours"] > 0
+
+
+def test_ddp_contract_is_explicit_and_global(monkeypatch) -> None:
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: True)
+    monkeypatch.setattr(torch.cuda, "device_count", lambda: 2)
+    monkeypatch.setenv("RANK", "1")
+    monkeypatch.setenv("LOCAL_RANK", "1")
+    monkeypatch.setenv("WORLD_SIZE", "2")
+    context = distributed_context_from_environment("ddp")
+    contract = context.contract(micro_batch_size_per_rank=1, gradient_accumulation=8)
+    assert contract["schema"] == DDP_CONTRACT_SCHEMA
+    assert contract["global_sequences_per_step"] == 16
+    assert not context.is_primary
+
+
+def test_ddp_requires_complete_torchrun_environment(monkeypatch) -> None:
+    monkeypatch.delenv("RANK", raising=False)
+    monkeypatch.delenv("LOCAL_RANK", raising=False)
+    monkeypatch.delenv("WORLD_SIZE", raising=False)
+    with pytest.raises(RuntimeError, match="torchrun environment"):
+        distributed_context_from_environment("ddp")
 
 
 def test_distillation_checks_output_rights_separately() -> None:

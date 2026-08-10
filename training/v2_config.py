@@ -388,6 +388,61 @@ def model_parameter_count(
     return base + mtp + moe
 
 
+def model_parameter_breakdown(
+    config: V2ModelConfig,
+    vocab_size: int | None = None,
+    *,
+    mtp_depth: int = 0,
+    moe_routed_experts: int = 0,
+) -> dict[str, int]:
+    """Explain the exact installed parameter contract without implying activation.
+
+    Native pilot/control tensors are part of the frozen V4 checkpoint ABI even
+    while the dense foundation keeps them disabled and frozen.  Reporting them
+    separately prevents the total parameter count from being mistaken for the
+    amount of active sparse or cognitive machinery.
+    """
+
+    vocab = int(vocab_size or config.vocab_size)
+    width = int(config.n_embd)
+    layers = int(config.n_layer)
+    head_dim = width // int(config.n_head)
+    kv_width = int(config.n_kv_head) * head_dim
+    hidden = int(config.d_ff or ((int(8 / 3 * width) + 63) // 64) * 64)
+    per_block = (
+        2 * width
+        + width * width
+        + 2 * width * kv_width
+        + width * width
+        + 3 * width * hidden
+    )
+    dense = vocab * width + layers * per_block + width
+    router = len(config.mod_layers) * (width + 4)
+    esv = min(64, width) * 3 + 3
+    rim = layers * (width * min(64, width) + 1)
+    depth_controls = 3 * layers
+    installed_native_pilots = router + esv + rim + depth_controls
+    mtp = max(0, int(mtp_depth)) * (width + width * width)
+    routed = max(0, int(moe_routed_experts))
+    moe = layers * routed * (3 * width * hidden) + layers * width * routed
+    total = dense + installed_native_pilots + mtp + moe
+    expected = model_parameter_count(
+        config,
+        vocab,
+        mtp_depth=mtp_depth,
+        moe_routed_experts=moe_routed_experts,
+    )
+    if total != expected:
+        raise AssertionError(f"parameter breakdown drifted: {total:,} != {expected:,}")
+    return {
+        "dense_parameters": dense,
+        "installed_native_pilot_parameters": installed_native_pilots,
+        "mtp_parameters": mtp,
+        "moe_parameters": moe,
+        "total_parameters": total,
+    }
+
+
 IDENTITY_KEYWORDS = [
     "who are you",
     "what are you",

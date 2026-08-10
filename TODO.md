@@ -1,6 +1,6 @@
 # An-Ra Execution Ledger
 
-Updated: 2026-07-23
+Updated: 2026-08-11
 
 This is the one short forward ledger. Completed claims mean the code and focused
 contracts exist; they do not mean a useful model has already been trained.
@@ -23,23 +23,38 @@ contracts exist; they do not mean a useful model has already been trained.
 - [x] Deterministic 50M-170M token packs resume at signed global token boundaries
   while resetting only the new pack's local permutation cursor.
 - [x] The 499,880,031-parameter growth child is registered with parent-hash
-  binding, attention-mode preservation, identity insertion, logits-parity proof,
-  fresh AdamW state, teacher alignment, and progressive unfreezing.
+  binding, attention-mode preservation, identity insertion, padding-masked
+  cosine/KL/top-1 parity proof, complete parent-stage lineage, fresh AdamW state,
+  teacher alignment, and real AdamW-safe progressive unfreezing.
 - [x] MTP, MoD, RIM, ESV, DSTP, HAL, MoE, and moonshots are classified and cannot
   silently enter the dense baseline. Promotion requires comparative evidence.
 - [x] SFT/RLVR/STaR/DPO data and audit contracts, self-correction orchestration,
   reversible adapters, shared evidence, and rollback gates exist as pilots.
+- [x] Registered V4 profiles reject in-place MTP/MoE mutation; experimental
+  architectures require distinct names, exact counts, and parent-derived
+  initialization evidence.
+- [x] Parameter reports separate 180,093,312 dense parameters from 1,038,759
+  installed but unpromoted native pilot/control parameters.
 
-## Next live execution
+## Current evidence and next live execution
+
+- [x] Train and preserve a V4 foundation lineage to roughly 180M pretraining
+  tokens and produce a separate signed 5,000-step assistant-only SFT child.
+- [x] Load the SFT child exactly on the local RTX 4050 and verify its checkpoint,
+  tokenizer, tensor, and GPU contracts.
+- [x] Replace the former non-empty-output SFT approval with a task-specific
+  behavior gate shared by training and the local evaluation app.
+- [ ] Treat the current SFT child as research-only: it improved validation loss
+  but failed basic arithmetic, factual, code, and identity behavior on 2026-08-11.
 
 - [ ] Freeze and push the exact An-Ra and GPU Cluster commits used by workers.
 - [ ] Configure owner-held manifest signing, the Google Drive active vault,
   laptop archive, and optional OneDrive cold replica.
-- [ ] Run one 10-15 minute authorized T4 canary and verify the first protected
-  full-resume checkpoint before extending the campaign.
-- [ ] Kill the trainer once on purpose, hand the exact checkpoint and next token
-  window to a second authorized worker, and verify the restored SHA-256 locally.
-- [ ] Continue the same 181M lineage through 200M, 500M, 1B, and 3.6B cumulative
+- [x] Run protected T4 sessions and verify resumable full checkpoints in the
+  shared training home.
+- [x] Resume the exact checkpoint from another authorized notebook account.
+- [ ] Continue the dense 181M foundation lineage from the protected step-10,400
+  checkpoint through 500M, 1B, and 3.6B cumulative
   tokens, using lightweight health checks and milestone behavioral evaluation.
 
 ## After the first useful 181M checkpoint
@@ -50,9 +65,11 @@ contracts exist; they do not mean a useful model has already been trained.
   source-group-disjoint held-out validation, assistant-only numerical GPU
   trainer, portable signed lineage, separate child checkpoint, parent-versus-
   child validation evidence, and bounded T4 pilot notebook.
-- [ ] Download and audit the actual licensed SFT sources, build the accepted
-  corpus, and run the first 10-15 minute SFT pilot. RLVR/STaR and DPO remain
-  unavailable for promotion until their evidence gates and training runs are real.
+- [x] Build a signed, license-receipted SFT corpus and complete pilot and full
+  child training. The result remains unpromoted because behavior failed.
+- [ ] After a capable foundation milestone, build a new SFT child with the same
+  strict behavior gate. RLVR/STaR and DPO remain unavailable for promotion
+  until their evidence gates and training runs are real.
 - [ ] Add retrieval, memory, correction, tools, and adapters in that order, with
   permissions, budgets, verification, provenance, and rollback.
 - [ ] Compare exact-float and TurboQuant KV caches on the same trained V4
@@ -66,10 +83,10 @@ contracts exist; they do not mean a useful model has already been trained.
 
 ## Not completed yet
 
-- No new useful V4 language checkpoint has been trained by this implementation.
-- No live Colab worker handoff or remotely protected canary has been demonstrated.
+- No V4 checkpoint has yet passed the fixed useful-language behavior gate.
 - No optional architecture subsystem has earned promotion into the baseline.
-- No actual post-training or 500M continuation run has occurred.
+- SFT was executed, but it is not accepted; no RLVR/STaR/DPO or 500M growth run
+  has occurred.
 - Same-host DDP/FSDP is deliberately blocked until the An-Ra runtime implements
   and proves it; separate Colab sessions will never synchronize gradients.
 

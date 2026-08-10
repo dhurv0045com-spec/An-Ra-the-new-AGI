@@ -20,6 +20,8 @@ from contextlib import asynccontextmanager
 from typing import Any, Literal
 
 import torch
+from anra.sft_conversation import SFT_PROMPT_SCHEMA, render_chat_prompt
+from evaluation.sft_behavior_gate import check_smoke_response
 from fastapi import FastAPI, HTTPException
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import HTMLResponse
@@ -161,13 +163,7 @@ class PrototypeRuntime:
     def conversation_prompt(self, session_id: str, message: str) -> str:
         with self._lock:
             history = list(self._sessions.get(session_id, ())[-(2 * _MAX_HISTORY_TURNS) :])
-        parts: list[str] = []
-        for turn in history:
-            label = "USER" if turn["role"] == "user" else "ANRA"
-            parts.append(f"{label}: {turn['content']}")
-        parts.append(f"USER: {message.strip()}")
-        parts.append("ANRA:")
-        return "H: " + "\n".join(parts)
+        return render_chat_prompt(history, message)
 
     def add_turn(self, session_id: str, message: str, response: str) -> int:
         with self._lock:
@@ -201,6 +197,7 @@ class PrototypeRuntime:
                 "model": {
                     "profile": info.get("profile"),
                     "parameters": info.get("param_count"),
+                    "parameter_breakdown": info.get("parameter_breakdown"),
                     "vocabulary": info.get("vocab_size"),
                     "context": info.get("block_size"),
                     "training_step": dict(info.get("checkpoint_state", {})).get("global_step"),
@@ -325,7 +322,7 @@ def create_app() -> FastAPI:
             "response": response,
             "turn": turn,
             "trace": _trace_summary(trace),
-            "prompt_format": "H: USER: …\\nANRA:",
+            "prompt_format": SFT_PROMPT_SCHEMA,
         }
 
     @app.post("/api/evaluations/run")
@@ -341,7 +338,7 @@ def create_app() -> FastAPI:
                 continue
             trace = await run_in_threadpool(
                 generate_traced,
-                f"H: USER: {prompt}\\nANRA:",
+                render_chat_prompt([], prompt),
                 body.controls.generation_config(),
                 session_id=f"prototype-evaluation-{category}",
             )
@@ -353,14 +350,16 @@ def create_app() -> FastAPI:
                     "trace": _trace_summary(trace),
                 }
             )
+            passed, requirement = check_smoke_response(category, str(trace.output))
+            rows[-1]["behavior_pass"] = passed
+            rows[-1]["requirement"] = requirement
         report = {
             "run_id": str(uuid.uuid4()),
             "checkpoint_sha256": current.status().get("checkpoint_sha256"),
             "controls": body.controls.model_dump(),
             "rows": rows,
             "operational_pass": bool(rows)
-            and all(bool(row["response"].strip()) for row in rows)
-            and len({row["response"].strip() for row in rows}) >= max(2, len(rows) // 2),
+            and all(bool(row["behavior_pass"]) for row in rows),
             "note": (
                 "This is an operational smoke result, not a claim of correctness "
                 "or general intelligence."
@@ -415,7 +414,7 @@ PROTOTYPE_HTML = r"""
     async function beat(){ try { await api('/api/heartbeat',{method:'POST'}); } catch(_){} }
     $('chat-form').addEventListener('submit',async e=>{e.preventDefault(); const message=$('prompt').value.trim(); if(!message||!ready)return; $('prompt').value=''; append('user',message); $('send').disabled=true; try { const r=await api('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message,session_id:sessionId,controls:controls()})}); append('assistant',r.response||'(empty response)'); $('trace').textContent=JSON.stringify(r.trace,null,2); } catch(err){ append('assistant','Generation error: '+err); } finally { await refresh(); }});
     $('clear').onclick=async()=>{await api('/api/session/'+sessionId+'/clear',{method:'POST'}); $('messages').innerHTML=''; $('trace').textContent='Conversation cleared.';};
-    $('run-eval').onclick=async()=>{const b=$('run-eval'); b.disabled=true; $('eval-status').textContent='Running on the local GPU…'; try { const r=await api('/api/evaluations/run',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({controls:{...controls(),max_tokens:Math.min(64,controls().max_tokens)}})}); $('eval-status').textContent=r.operational_pass?'Operational smoke passed':'Operational smoke needs review'; $('eval-results').innerHTML=`<table><thead><tr><th>Category</th><th>Response</th><th>Trace</th></tr></thead><tbody>${r.rows.map(x=>`<tr><td>${x.category}</td><td>${escapeHtml(x.response)}</td><td><pre>${escapeHtml(JSON.stringify(x.trace,null,2))}</pre></td></tr>`).join('')}</tbody></table>`; }catch(err){$('eval-status').textContent='Evaluation error: '+err;}finally{b.disabled=false;await refresh();}};
+    $('run-eval').onclick=async()=>{const b=$('run-eval'); b.disabled=true; $('eval-status').textContent='Running on the local GPU…'; try { const r=await api('/api/evaluations/run',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({controls:{...controls(),max_tokens:Math.min(64,controls().max_tokens)}})}); $('eval-status').textContent=r.operational_pass?'Behavior gate passed':'Behavior gate failed — keep this checkpoint in research'; $('eval-results').innerHTML=`<table><thead><tr><th>Category</th><th>Gate</th><th>Response</th><th>Trace</th></tr></thead><tbody>${r.rows.map(x=>`<tr><td>${x.category}</td><td class="${x.behavior_pass?'good':'bad'}">${x.behavior_pass?'PASS':'FAIL'}<br><small>${escapeHtml(x.requirement)}</small></td><td>${escapeHtml(x.response)}</td><td><pre>${escapeHtml(JSON.stringify(x.trace,null,2))}</pre></td></tr>`).join('')}</tbody></table>`; }catch(err){$('eval-status').textContent='Evaluation error: '+err;}finally{b.disabled=false;await refresh();}};
     function escapeHtml(value){const e=document.createElement('div');e.textContent=value;return e.innerHTML;}
     $('release').onclick=async()=>{await api('/api/runtime/unload',{method:'POST'});await refresh();}; $('stop').onclick=async()=>{try{await api('/api/runtime/unload',{method:'POST'});}finally{$('status').textContent='Stopping app and freeing GPU…';}}; $('refresh').onclick=refresh;
     document.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>{document.querySelectorAll('[data-view]').forEach(x=>x.classList.toggle('active',x===b));document.querySelectorAll('.view').forEach(x=>x.classList.toggle('active',x.id===b.dataset.view));});

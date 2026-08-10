@@ -75,15 +75,18 @@ class DeterministicPermutationSampler(Sampler[int]):
         return multiplier, offset
 
     def __iter__(self) -> Iterator[int]:
-        cached_epoch = -1
-        multiplier = 1
-        offset = 0
         for position in range(self.start_position, self.num_samples):
-            epoch, local_position = divmod(position, self.dataset_size)
-            if epoch != cached_epoch:
-                multiplier, offset = self._parameters(epoch)
-                cached_epoch = epoch
-            yield (multiplier * local_position + offset) % self.dataset_size
+            yield self.index_at(position)
+
+    def index_at(self, global_position: int) -> int:
+        """Return the canonical sample at one absolute campaign position."""
+
+        position = int(global_position)
+        if not 0 <= position < self.num_samples:
+            raise IndexError("global sampler position is outside its sample budget")
+        epoch, local_position = divmod(position, self.dataset_size)
+        multiplier, offset = self._parameters(epoch)
+        return (multiplier * local_position + offset) % self.dataset_size
 
 
 def source_replay_budget_violations(
@@ -293,39 +296,89 @@ class ScheduledCurriculumSampler(Sampler[int]):
         offset = int.from_bytes(digest[8:16], "big")
         return unit, offset
 
+    def index_at(self, global_position: int) -> int:
+        """Return the canonical scheduled sample at an absolute position."""
+
+        position = int(global_position)
+        if not 0 <= position < self.num_samples:
+            raise IndexError("global sampler position is outside its sample budget")
+        unit, offset_key = self._counter_values(position)
+        progress = position / max(1, self.num_samples - 1)
+        modifiers = self.multiplier_fn(self.curriculum, progress)
+        weights: list[float] = []
+        for name in self.names:
+            modifier = float(modifiers.get(name, 1.0))
+            if not math.isfinite(modifier) or modifier < 0.0:
+                raise RuntimeError(
+                    "curriculum modifier must be finite and non-negative: "
+                    f"{name}={modifier}"
+                )
+            weights.append(self.base_mass[name] * modifier)
+        total = sum(weights)
+        if not math.isfinite(total) or total <= 0.0:
+            raise RuntimeError("curriculum schedule assigned zero mass to every source")
+        threshold = unit * total
+        cumulative = 0.0
+        selected = next(
+            name
+            for name, weight in reversed(tuple(zip(self.names, weights, strict=True)))
+            if weight > 0.0
+        )
+        for name, weight in zip(self.names, weights, strict=True):
+            cumulative += weight
+            if threshold < cumulative:
+                selected = name
+                break
+        offset = offset_key % self.bucket_counts[selected]
+        for start, stop in self.bucket_ranges[selected]:
+            width = stop - start
+            if offset < width:
+                return start + offset
+            offset -= width
+        raise AssertionError("scheduled sampler failed to resolve a declared bucket range")
+
     def __iter__(self) -> Iterator[int]:
         for position in range(self.start_position, self.num_samples):
-            unit, offset_key = self._counter_values(position)
-            progress = position / max(1, self.num_samples - 1)
-            modifiers = self.multiplier_fn(self.curriculum, progress)
-            weights: list[float] = []
-            for name in self.names:
-                modifier = float(modifiers.get(name, 1.0))
-                if not math.isfinite(modifier) or modifier < 0.0:
-                    raise RuntimeError(
-                        "curriculum modifier must be finite and non-negative: "
-                        f"{name}={modifier}"
-                    )
-                weights.append(self.base_mass[name] * modifier)
-            total = sum(weights)
-            if not math.isfinite(total) or total <= 0.0:
-                raise RuntimeError("curriculum schedule assigned zero mass to every source")
-            threshold = unit * total
-            cumulative = 0.0
-            selected = next(
-                name
-                for name, weight in reversed(tuple(zip(self.names, weights, strict=True)))
-                if weight > 0.0
+            yield self.index_at(position)
+
+
+class RankStridedSampler(Sampler[int]):
+    """Partition one absolute sampler sequence across equal DDP ranks.
+
+    This wrapper never invents padding samples.  The declared global suffix
+    must divide evenly across ranks so every worker executes identical numbers
+    of collectives and the union remains exactly the single-GPU sequence.
+    """
+
+    def __init__(
+        self,
+        base_sampler: DeterministicPermutationSampler | ScheduledCurriculumSampler,
+        *,
+        rank: int,
+        world_size: int,
+        global_cursor: int,
+    ) -> None:
+        self.base_sampler = base_sampler
+        self.rank = int(rank)
+        self.world_size = int(world_size)
+        self.global_cursor = int(global_cursor)
+        if self.world_size < 2:
+            raise ValueError("rank-strided sampling requires at least two ranks")
+        if not 0 <= self.rank < self.world_size:
+            raise ValueError("rank must be within world_size")
+        if not 0 <= self.global_cursor <= base_sampler.num_samples:
+            raise ValueError("global cursor is outside the base sample budget")
+        remaining = base_sampler.num_samples - self.global_cursor
+        if remaining % self.world_size:
+            raise ValueError(
+                "remaining global sample budget must divide evenly across DDP ranks"
             )
-            for name, weight in zip(self.names, weights, strict=True):
-                cumulative += weight
-                if threshold < cumulative:
-                    selected = name
-                    break
-            offset = offset_key % self.bucket_counts[selected]
-            for start, stop in self.bucket_ranges[selected]:
-                width = stop - start
-                if offset < width:
-                    yield start + offset
-                    break
-                offset -= width
+        self.local_samples = remaining // self.world_size
+
+    def __len__(self) -> int:
+        return self.local_samples
+
+    def __iter__(self) -> Iterator[int]:
+        for local_offset in range(self.local_samples):
+            position = self.global_cursor + self.rank + local_offset * self.world_size
+            yield self.base_sampler.index_at(position)

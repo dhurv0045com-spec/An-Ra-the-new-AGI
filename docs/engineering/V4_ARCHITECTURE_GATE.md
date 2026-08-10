@@ -1,7 +1,7 @@
 # An-Ra V4 Architecture Gate
 
-Status: architecture-frozen for the first seed-1301 training run  
-Date: 2026-07-16  
+Status: architecture-frozen for the current 181M lineage; capability not promoted
+Last audited: 2026-08-11
 Checkpoint contract: schema 9 / `anra_v4_rope_interleaved_v1`
 
 ## Verdict
@@ -174,3 +174,88 @@ tokenizer, data order, token budget, optimizer, evaluation, and seed address in
 a dense-versus-MTP comparison; replication is required only if the first
 comparison shows a meaningful gain. MoE, native routing, HAL, and moonshots do
 not enter that comparison simultaneously.
+
+## Trained-checkpoint audit — 2026-08-11
+
+The downloaded `anra-v4-current-full-resume.pt` is a structurally valid SFT
+child, not proof that the model is ready. It exact-loaded all 393 stored model
+tensors into the canonical 181,132,071-parameter V4 geometry. Its checkpoint
+declares schema 9, V4 tokenizer semantics, assistant-only SFT, step 5,000, no
+skipped mixed-precision updates, and no approved MTP, MoE, MoD, RIM, ESV, DSTP,
+HAL, or moonshot subsystem. The observed weakness therefore cannot honestly be
+blamed on a missing experimental subsystem.
+
+The SFT child reports validation improvement from `1.8391` to `1.3916` over
+6,845 training conversations, but a real RTX 4050 probe failed basic behavior:
+it did not compute `23 + 34`, produced false statements about the Sun, emitted
+an incorrect addition function, and gave incoherent identity text. Sampling
+changes did not repair these failures. This demonstrates the exact failure mode
+the repository must guard against: lower validation loss is not equivalent to
+useful language behavior.
+
+Two architectural corrections now follow from this evidence:
+
+1. Training, SFT smoke evaluation, and interactive chat share the versioned
+   `anra-v4-sft-prompt/v1` renderer. Prompt bytes can no longer drift between
+   the learning and serving paths.
+2. SFT promotion now requires task-specific behavior checks. Non-empty and
+   merely different outputs can no longer approve full SFT. The gate checks the
+   fixed suite for a correct arithmetic result, real addition code, valid JSON,
+   uncertainty, grammar correction, explicit steps, and appropriate dialogue.
+
+The checkpoint remains useful as a research artifact, but it is not a release
+candidate. The most likely limiting factor is that the 181M foundation saw only
+roughly one pretraining token per parameter before a comparatively long SFT
+stage. The correct next investment is continued dense V4 pretraining with new,
+audited tokens to the 500M-token milestone, then 1B and approximately 3.6B if
+the milestone curves remain healthy. Run the fixed behavior gate at each
+milestone and build a new SFT child only after the parent demonstrates basic
+language, factual, math, and code competence.
+
+Do not change the 181M tensor geometry in place: doing so would invalidate its
+optimizer and checkpoint lineage. Architecture inventions remain isolated
+pilots from a frozen parent. A future 40–50 GPU deployment may use DDP/FSDP only
+when those GPUs share a low-latency cluster; unrelated Colab or Kaggle sessions
+remain exact checkpoint-baton workers and must not average gradients.
+
+## Post-checkpoint architecture corrections — 2026-08-11
+
+The full implementation audit found and corrected several issues that could
+have invalidated the next expensive run:
+
+- The 181M total is now reported as **180,093,312 dense parameters** plus
+  **1,038,759 installed native pilot/control parameters**. The latter are part
+  of the existing checkpoint ABI but are not evidence that MoD, RIM, ESV, or
+  DSTP is active or useful.
+- `--mtp` and `--moe` can no longer mutate `anra-v4-180m` in place while keeping
+  its registered name. A candidate must have a distinct experimental profile,
+  exact parameter count, frozen-parent hash, initialization artifact, and
+  rollback evidence.
+- Progressive 500M unfreezing now uses real `requires_grad=False` boundaries
+  and clears inactive gradients to `None`. Zero gradients were insufficient:
+  AdamW weight decay and optimizer moments could still move allegedly frozen
+  inherited tensors.
+- Growth parity now ignores padding and gates the real next-token distribution
+  using cosine similarity, KL divergence, and top-1 agreement over a broader
+  prompt set. Cosine alone could approve a distribution-changing child.
+- A growth artifact now preserves the parent stage and complete lineage,
+  including SFT hashes when the explicit policy is `post-trained-parent`.
+  Growing an SFT child can no longer silently relabel it as generic pretraining.
+- A fresh 500M trainer cannot start from a teacher and manifest alone. It must
+  consume the parity-gated child initialization artifact; AdamW then starts
+  fresh under the declared stabilization schedule.
+
+The review also confirmed that same-host 40–50 GPU training is **not yet an
+operational capability**. The existing distributed module only estimates a
+profile; it does not initialize NCCL, shard the deterministic sampler, reduce
+metrics, fence rank-zero checkpoint publication, or save distributed optimizer
+state. Until a two-GPU kill-and-resume proof passes, separate Colab/Kaggle
+workers remain sequential checkpoint-baton workers and a large cluster must
+not be launched.
+
+The Drive `latest_training_failure.log` dated 00:57 is historical. It recorded
+a compact pack whose 161,133 unique windows were rounded to 161,136 for an
+eight-microbatch optimizer boundary. Commit `acb1244` makes the final partial
+optimizer update from only the remaining unique windows. The Drive canonical
+pointer was subsequently replaced at step 10,400, so the old log must not be
+interpreted as the state of the newer checkpoint.

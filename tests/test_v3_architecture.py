@@ -7,7 +7,7 @@ import pytest
 import yaml
 
 from anra.architecture import verify_canonical_counts
-from anra_brain import CausalTransformerV3
+from anra_brain import CausalTransformerV4
 from identity.esv import ESVModule
 from training.v2_config import (
     ANRA_V4_MODEL,
@@ -63,8 +63,8 @@ def test_esv_forward_is_pure_until_commit() -> None:
     torch.testing.assert_close(esv.state, predicted.mean(dim=0))
 
 
-def test_v3_attention_bound_and_sparse_router() -> None:
-    model = CausalTransformerV3(
+def test_v4_attention_bound_and_sparse_router() -> None:
+    model = CausalTransformerV4(
         vocab_size=64,
         n_embd=32,
         n_head=4,

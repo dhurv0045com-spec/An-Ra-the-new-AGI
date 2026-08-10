@@ -16,6 +16,7 @@ from training.csii import (
     GrowthAlignmentController,
     model_architecture_sha256,
 )
+from training.growth_contract import build_growth_parent_lineage
 from training.v2_config import (
     ANRA_V4_GROWTH_MODEL_PROFILE,
     CANONICAL_MODEL_PROFILE,
@@ -149,6 +150,20 @@ def load_growth_training_pair(
         raise ValueError("Growth initialization embeds a different growth manifest")
     _load_exact(target, _model_state(child_payload, label="growth initialization"), label="child")
 
+    embedded_parent_lineage = child_payload.get("parent_lineage")
+    if not isinstance(embedded_parent_lineage, dict):
+        raise ValueError("Growth initialization has no immutable parent_lineage")
+    parent_payload = _weights_only_load(parent_path)
+    expected_parent_lineage = build_growth_parent_lineage(
+        parent_payload,
+        checkpoint_sha256=parent_sha256,
+        parent_stage_policy=str(embedded_parent_lineage.get("parent_stage_policy", "")),
+    )
+    if json.dumps(embedded_parent_lineage, sort_keys=True) != json.dumps(
+        expected_parent_lineage, sort_keys=True
+    ):
+        raise ValueError("Growth initialization parent lineage differs from its parent checkpoint")
+
     source, controller, provenance = load_growth_teacher(
         target,
         growth_manifest_path=report_path,
@@ -159,6 +174,7 @@ def load_growth_training_pair(
     return source, controller, {
         **provenance,
         "initialization_sha256": initialization_sha256,
+        "parent_lineage": expected_parent_lineage,
     }
 
 

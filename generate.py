@@ -29,6 +29,7 @@ from training.v2_config import (
     ANRA_V4_MODEL,
     ANRA_V4_MODEL_PARAMETER_COUNT,
     CANONICAL_MODEL_PROFILE,
+    model_parameter_breakdown,
     model_parameter_count,
 )
 from training.v2_runtime import (
@@ -1506,6 +1507,7 @@ def __getattr__(name: str) -> object:
 def get_model_info() -> dict[str, object]:
     model, tokenizer, loaded_checkpoint = _get_runtime()
     summary = model_summary(model)
+    parameter_breakdown = model_parameter_breakdown(ANRA_V4_MODEL, tokenizer.vocab_size)
     kv_enabled = False
     blocks = getattr(model, "blocks", getattr(getattr(model, "model", None), "blocks", []))
     try:
@@ -1523,6 +1525,7 @@ def get_model_info() -> dict[str, object]:
         "tokenizer_sha256": tokenizer_sha256,
         "vocab_size": tokenizer.vocab_size,
         "param_count": summary["parameters"],
+        "parameter_breakdown": parameter_breakdown,
         "trainable_parameters": summary["trainable_parameters"],
         "d_model": getattr(model, "d_model", None),
         "n_layer": getattr(model, "n_layer", None),

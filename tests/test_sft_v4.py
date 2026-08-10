@@ -17,6 +17,7 @@ from training.sft_dataset_v4 import (
 from training.sft_v4 import (
     SFTConversationDataset,
     _prune_sft_checkpoint_copies,
+    _validate_sft_sampler_position,
     _verify_resume_checkpoint_binding,
     _verify_full_sft_approval,
     _write_full_sft_approval,
@@ -25,6 +26,29 @@ from training.sft_v4 import (
     load_sft_examples,
     load_sft_validation_examples,
 )
+
+
+def test_sft_sampler_position_is_bound_to_optimizer_progress() -> None:
+    assert (
+        _validate_sft_sampler_position(
+            dataset_size=100,
+            global_step=5,
+            batch_size=1,
+            accumulation=8,
+            epoch=0,
+            cursor=40,
+        )
+        == 40
+    )
+    with pytest.raises(ValueError, match="step/recipe imply 40 examples"):
+        _validate_sft_sampler_position(
+            dataset_size=100,
+            global_step=5,
+            batch_size=1,
+            accumulation=8,
+            epoch=0,
+            cursor=39,
+        )
 
 
 def test_sft_checkpoint_pruning_keeps_one_canonical_payload(tmp_path: Path) -> None:

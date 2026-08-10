@@ -16,9 +16,11 @@ from anra.architecture import (
 from anra_brain import CausalTransformerV2
 from training.csii import (
     CrossScaleIdentityInheritance,
+    GrowthAlignmentController,
     model_architecture_sha256,
 )
 from training.growth_runtime import load_growth_training_pair
+from training.growth_contract import build_growth_parent_lineage
 from training.v2_config import (
     ANRA_V4_GROWTH_MODEL,
     ANRA_V4_GROWTH_MODEL_PARAMETER_COUNT,
@@ -75,7 +77,7 @@ def test_growth_profile_requires_explicit_experimental_resolution() -> None:
 
 
 def _small_model(*, width: int, heads: int, kv_heads: int, layers: int) -> CausalTransformerV2:
-    return CausalTransformerV2(
+    model = CausalTransformerV2(
         vocab_size=64,
         n_embd=width,
         n_head=heads,
@@ -88,6 +90,8 @@ def _small_model(*, width: int, heads: int, kv_heads: int, layers: int) -> Causa
         sliding_window=4,
         full_attention_every=2,
     )
+    model.configure_subsystems((), approve=False)
+    return model
 
 
 def test_growth_preserves_interleaved_attention_and_binds_real_logits(
@@ -119,7 +123,7 @@ def test_growth_preserves_interleaved_attention_and_binds_real_logits(
 
     token_ids = torch.randint(0, 64, (1, 8))
     parity = CrossScaleIdentityInheritance.verify_parity(source, target, token_ids)
-    assert parity["parity_semantics"] == "real_logits_same_token_ids_v1"
+    assert parity["parity_semantics"] == "real_distribution_valid_tokens_v2"
     report = CrossScaleIdentityInheritance.bind_parity(
         report,
         parity,
@@ -128,6 +132,16 @@ def test_growth_preserves_interleaved_attention_and_binds_real_logits(
     payload = CrossScaleIdentityInheritance.validate_growth_report(report)
     assert payload["parity_passed"] is True
     assert float(payload["parity_cosine"]) > 0.999
+    assert float(payload["parity_mean_kl"]) < 0.001
+    assert float(payload["parity_top1_agreement"]) >= 0.99
+
+    deceptive = dict(parity)
+    deceptive["parity_cosine"] = 1.0
+    deceptive["parity_mean_kl"] = 0.5
+    rejected = CrossScaleIdentityInheritance.bind_parity(report, deceptive)
+    assert rejected.parity_passed is False
+    with pytest.raises(ValueError, match="did not pass"):
+        CrossScaleIdentityInheritance.validate_growth_report(rejected)
 
     report_path = CrossScaleIdentityInheritance.write_report(
         report,
@@ -150,6 +164,34 @@ def test_architecture_hash_includes_effective_layer_attention_modes() -> None:
     assert model_architecture_sha256(model) != before
 
 
+def test_progressive_growth_freeze_prevents_adamw_mutation() -> None:
+    source = _small_model(width=128, heads=16, kv_heads=4, layers=2)
+    target = _small_model(width=128, heads=16, kv_heads=4, layers=3)
+    optimizer = torch.optim.AdamW(target.parameters(), lr=1e-3, weight_decay=0.1)
+    controller = GrowthAlignmentController(
+        source,
+        target,
+        identity_layers=(2,),
+        new_only_steps=10,
+        alignment_steps=20,
+    )
+    controller.configure_trainable_parameters(0)
+    frozen = target.blocks[0].attn.q_proj.weight
+    active = target.blocks[2].attn.q_proj.weight
+    frozen_before = frozen.detach().clone()
+    active_before = active.detach().clone()
+
+    token_ids = torch.randint(0, 64, (1, 8))
+    logits, _ = target(token_ids)
+    logits.square().mean().backward()
+    controller.mask_inactive_gradients()
+    optimizer.step()
+
+    torch.testing.assert_close(frozen, frozen_before, rtol=0.0, atol=0.0)
+    assert not torch.equal(active, active_before)
+    assert frozen.grad is None
+
+
 def test_growth_runtime_loads_child_and_teacher_without_optimizer_inheritance(
     tmp_path,
     monkeypatch,
@@ -170,16 +212,18 @@ def test_growth_runtime_loads_child_and_teacher_without_optimizer_inheritance(
         "validation_history": [],
     }
     parent_path = tmp_path / "parent.pt"
-    torch.save(
-        {
-            "checkpoint_schema_version": CHECKPOINT_SCHEMA_VERSION,
-            "checkpoint_artifact_class": "full_resume",
-            "completed_optimizer_boundary": True,
-            "model": source.state_dict(),
-            **parent_progress,
-        },
-        parent_path,
-    )
+    parent_payload = {
+        "checkpoint_schema_version": CHECKPOINT_SCHEMA_VERSION,
+        "checkpoint_artifact_class": "full_resume",
+        "completed_optimizer_boundary": True,
+        "model": source.state_dict(),
+        "model_config": source.model_config(),
+        "checkpoint_lineage": {"lineage_id": "tiny-parent"},
+        "lineage_id": "tiny-parent",
+        "source_commit": "test",
+        **parent_progress,
+    }
+    torch.save(parent_payload, parent_path)
     target = _small_model(width=160, heads=20, kv_heads=5, layers=6)
     report = CrossScaleIdentityInheritance.grow(
         source,
@@ -199,6 +243,11 @@ def test_growth_runtime_loads_child_and_teacher_without_optimizer_inheritance(
         tmp_path / "growth.json",
     )
     initialization_path = tmp_path / "growth-init.pt"
+    parent_lineage = build_growth_parent_lineage(
+        parent_payload,
+        checkpoint_sha256=hashlib.sha256(parent_path.read_bytes()).hexdigest(),
+        parent_stage_policy="pretrained-parent",
+    )
     torch.save(
         {
             "artifact_class": "growth_initialization",
@@ -209,6 +258,7 @@ def test_growth_runtime_loads_child_and_teacher_without_optimizer_inheritance(
             "model": target.state_dict(),
             "growth_manifest": asdict(report),
             "parent_progress": parent_progress,
+            "parent_lineage": parent_lineage,
         },
         initialization_path,
     )
