@@ -63,7 +63,7 @@ contracts exist; they do not mean a useful model has already been trained.
 - [ ] Continue the dense 181M foundation lineage from the protected step-10,400
   checkpoint through 500M, 1B, and 3.6B cumulative
   tokens, using lightweight health checks and milestone behavioral evaluation.
-- [ ] Implement and sign the explicit single-GPU-parent to DDP model-only
+- [x] Implement and sign the explicit single-GPU-parent to DDP model-only
   bootstrap contract for that checkpoint. Bind the parent hash, declare the
   optimizer restart and fresh rank RNG states, and preserve or explicitly reset
   the sampler boundary; never silently relabel it as an exact DDP resume.

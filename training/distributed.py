@@ -18,6 +18,7 @@ import torch.distributed as dist
 DDP_CONTRACT_SCHEMA = "anra-ddp-contract/v1"
 DDP_SAMPLER_PARTITION = "rank_strided_global_position_v1"
 DDP_GRADIENT_REDUCTION = "ddp_mean_v1"
+CANONICAL_DDP_TRAINER = "anra-v4-canonical-raw-causal/v1"
 T = TypeVar("T")
 
 
@@ -55,8 +56,47 @@ class DistributedContext:
             "gradient_reduction": DDP_GRADIENT_REDUCTION,
             "same_host": True,
             "rank_to_local_rank": {str(rank): rank for rank in range(self.world_size)},
-            "visible_device_order": os.environ.get("CUDA_VISIBLE_DEVICES", "all_visible_devices"),
+            "visible_device_order": os.environ.get(
+                "CUDA_VISIBLE_DEVICES", ",".join(str(rank) for rank in range(self.world_size))
+            ),
         }
+
+
+def canonical_training_ddp_contract(
+    *,
+    backend: str,
+    world_size: int,
+    micro_batch_size_per_rank: int,
+    gradient_accumulation: int,
+    visible_device_order: str,
+) -> dict[str, object]:
+    """Build the signed logical topology used by owner and trainer contracts."""
+
+    world = int(world_size)
+    micro = int(micro_batch_size_per_rank)
+    accumulation = int(gradient_accumulation)
+    visible = [item.strip() for item in str(visible_device_order).split(",") if item.strip()]
+    if world < 2 or micro < 1 or accumulation < 1:
+        raise ValueError("canonical DDP topology and batch dimensions must be positive")
+    if len(visible) != world or len(set(visible)) != world:
+        raise ValueError("visible device order must name every DDP rank exactly once")
+    return {
+        "schema": DDP_CONTRACT_SCHEMA,
+        "backend": str(backend),
+        "world_size": world,
+        "micro_batch_size_per_rank": micro,
+        "gradient_accumulation": accumulation,
+        "global_sequences_per_step": micro * accumulation * world,
+        "sampler_partition": DDP_SAMPLER_PARTITION,
+        "gradient_reduction": DDP_GRADIENT_REDUCTION,
+        "same_host": True,
+        "rank_to_local_rank": {str(rank): rank for rank in range(world)},
+        "visible_device_order": ",".join(visible),
+        "trainer": CANONICAL_DDP_TRAINER,
+        "checkpoint_owner": "rank_zero_only",
+        "rng_ownership": "every_rank",
+        "find_unused_parameters": True,
+    }
 
 
 def distributed_context_from_environment(mode: str = "off") -> DistributedContext:

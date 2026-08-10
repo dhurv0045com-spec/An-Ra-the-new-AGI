@@ -221,13 +221,14 @@ def build_checkpoint_lineage(payload: Mapping[str, object]) -> dict[str, object]
     recipe = dict(training_recipe) if isinstance(training_recipe, Mapping) else {}
     seed_contract = payload.get("seed_contract", {})
     seed_payload = dict(seed_contract) if isinstance(seed_contract, Mapping) else {}
+    exact_lineage = str(payload.get("lineage_id_exact") or "").strip()
     explicit_lineage = str(
         payload.get("lineage_id")
         or os.environ.get("ANRA_CHECKPOINT_LINEAGE_ID", "")
         or os.environ.get("ANRA_CLUSTER_CAMPAIGN_ID", "")
     ).strip()
     model_profile = str(recipe.get("model_profile", "unknown"))
-    lineage_id = (
+    lineage_id = exact_lineage or (
         f"{explicit_lineage}/{model_profile}"
         if explicit_lineage
         else f"local/{architecture_sha256[:16]}/seed-{seed_payload.get('seed', 'unknown')}"

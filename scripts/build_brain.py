@@ -63,6 +63,17 @@ from training.curriculum_sampler import (
     validate_sampler_resume_contract,
 )
 from training.data_routing import build_data_route_report
+from training.ddp_bootstrap import (
+    current_source_commit,
+    load_and_verify_bootstrap_manifest,
+    load_parent_model_and_progress,
+)
+from training.ddp_bootstrap import (
+    file_bindings as ddp_bootstrap_file_bindings,
+)
+from training.ddp_bootstrap import (
+    validate_runtime_contract as validate_ddp_bootstrap_runtime,
+)
 from training.distributed import (
     DistributedContext,
     all_gather_objects,
@@ -72,6 +83,7 @@ from training.distributed import (
     all_reduce_sum,
     barrier_or_raise,
     broadcast_primary_result,
+    canonical_training_ddp_contract,
     destroy_distributed,
     initialize_distributed,
     validate_same_host_topology,
@@ -161,16 +173,17 @@ def _canonical_distributed_contract(
 ) -> dict[str, object]:
     """Return the immutable topology attached to canonical DDP checkpoints."""
 
-    return {
-        **context.contract(
-            micro_batch_size_per_rank=batch_size,
-            gradient_accumulation=accumulation,
-        ),
-        "trainer": "anra-v4-canonical-raw-causal/v1",
-        "checkpoint_owner": "rank_zero_only",
-        "rng_ownership": "every_rank",
-        "find_unused_parameters": True,
-    }
+    base = context.contract(
+        micro_batch_size_per_rank=batch_size,
+        gradient_accumulation=accumulation,
+    )
+    return canonical_training_ddp_contract(
+        backend=context.backend,
+        world_size=context.world_size,
+        micro_batch_size_per_rank=batch_size,
+        gradient_accumulation=accumulation,
+        visible_device_order=str(base["visible_device_order"]),
+    )
 
 
 def _validate_canonical_distributed_resume(
@@ -508,6 +521,8 @@ def _build_checkpoint_payload(
     growth_provenance: dict[str, object] | None = None,
     distributed_contract: dict[str, object] | None = None,
     distributed_rng_states: dict[str, object] | None = None,
+    lineage_id_exact: str | None = None,
+    ddp_bootstrap_provenance: dict[str, object] | None = None,
 ) -> dict[str, object]:
     try:
         source_commit = subprocess.check_output(
@@ -564,6 +579,8 @@ def _build_checkpoint_payload(
         "growth_provenance": dict(growth_provenance or {}),
         "distributed_contract": dict(distributed_contract or {}),
         "distributed_rng_states": dict(distributed_rng_states or {}),
+        "lineage_id_exact": lineage_id_exact,
+        "ddp_bootstrap_provenance": dict(ddp_bootstrap_provenance or {}),
         "model_config": model.model_config(),
         "training_recipe": dict(getattr(native_model, "training_recipe", {})),
         "seed_contract": dict(seed_contract or {}),
@@ -1089,6 +1106,8 @@ def _train_anra_v2(
     growth_initialization: str | None = None,
     growth_manifest: str | None = None,
     growth_parent_checkpoint: str | None = None,
+    ddp_bootstrap_manifest: str | None = None,
+    ddp_bootstrap_parent_checkpoint: str | None = None,
     distributed_context: DistributedContext,
 ) -> dict[str, object]:
     for required_component in ("training_loop", "data_mix", "evaluation"):
@@ -1098,6 +1117,13 @@ def _train_anra_v2(
             )
     ddp_enabled = distributed_context.enabled
     is_primary = distributed_context.is_primary
+    distributed_contract = (
+        _canonical_distributed_contract(
+            distributed_context, batch_size=batch_size, accumulation=accumulation
+        )
+        if ddp_enabled
+        else {}
+    )
     if is_primary:
         print_session_dashboard()
     growth_run = model_size == ANRA_V4_GROWTH_MODEL_PROFILE
@@ -1126,6 +1152,14 @@ def _train_anra_v2(
                 "Canonical DDP currently supports raw_causal_shards_v1 dense "
                 f"boundaries only; unsupported: {', '.join(unsupported)}"
             )
+    if ddp_bootstrap_manifest and not ddp_enabled:
+        raise ValueError("A DDP bootstrap manifest is valid only under canonical torchrun DDP")
+    if ddp_bootstrap_manifest and resume_from:
+        raise ValueError("DDP bootstrap and exact resume are mutually exclusive")
+    if ddp_bootstrap_parent_checkpoint and not ddp_bootstrap_manifest:
+        raise ValueError("A bootstrap parent override requires --ddp-bootstrap-manifest")
+    if ddp_bootstrap_manifest and growth_run:
+        raise ValueError("DDP bootstrap cannot be combined with model growth")
     if model_size not in {CANONICAL_MODEL_PROFILE, ANRA_V4_GROWTH_MODEL_PROFILE}:
         raise ValueError("model size is not registered in the operational V4 lineage")
     if use_mtp or use_moe:
@@ -1627,6 +1661,65 @@ def _train_anra_v2(
         "determinism_mode": DETERMINISM_MODE,
         "growth": growth_recipe,
     }
+    bootstrap_manifest_payload: dict[str, object] | None = None
+    bootstrap_result: dict[str, object] | None = None
+    bootstrap_lineage_id: str | None = None
+    bootstrap_checkpoint_provenance: dict[str, object] = {}
+    bootstrap_parent_path: Path | None = None
+    if ddp_bootstrap_manifest:
+        local_bootstrap_error: str | None = None
+        try:
+            bootstrap_manifest_payload = load_and_verify_bootstrap_manifest(
+                ddp_bootstrap_manifest
+            )
+            parent_contract = dict(bootstrap_manifest_payload.get("parent", {}))
+            bootstrap_parent_path = Path(
+                ddp_bootstrap_parent_checkpoint or str(parent_contract.get("path", ""))
+            )
+            if not bootstrap_parent_path.is_absolute():
+                bootstrap_parent_path = ROOT / bootstrap_parent_path
+            child_contract = dict(bootstrap_manifest_payload.get("child", {}))
+            bootstrap_lineage_id = str(child_contract.get("lineage_id", "")).strip()
+            active_data_bindings = ddp_bootstrap_file_bindings(
+                {"training": manifest_path, "validation": validation_manifest_path}
+            )
+            validate_ddp_bootstrap_runtime(
+                bootstrap_manifest_payload,
+                parent_checkpoint=bootstrap_parent_path,
+                child_checkpoint=checkpoint_path,
+                source_commit=current_source_commit(ROOT),
+                ddp_contract=distributed_contract,
+                model_config=model.model_config(),
+                tokenizer_contract=_tokenizer_checkpoint_contract(),
+                data_bindings=active_data_bindings,
+                seed=seed,
+            )
+        except Exception as exc:
+            local_bootstrap_error = (
+                f"rank {distributed_context.rank}: {type(exc).__name__}: {exc}"
+            )
+        bootstrap_checks = all_gather_objects(local_bootstrap_error, distributed_context)
+        bootstrap_errors = [error for error in bootstrap_checks if error]
+        if bootstrap_errors:
+            raise RuntimeError(
+                "Collective DDP bootstrap validation failed: "
+                + " | ".join(str(error) for error in bootstrap_errors)
+            )
+        assert bootstrap_manifest_payload is not None
+        assert bootstrap_parent_path is not None
+        primary_error = None
+        if is_primary:
+            try:
+                bootstrap_result = load_parent_model_and_progress(
+                    bootstrap_manifest_payload, bootstrap_parent_path, model
+                )
+            except Exception as exc:
+                primary_error = f"{type(exc).__name__}: {exc}"
+        barrier_or_raise(distributed_context, primary_error=primary_error)
+        bootstrap_result = broadcast_primary_result(bootstrap_result, distributed_context)
+        if not isinstance(bootstrap_result, dict):
+            raise RuntimeError("Rank zero did not broadcast validated DDP bootstrap metadata")
+        bootstrap_checkpoint_provenance = dict(bootstrap_result.get("provenance", {}))
     continuation_report = _configure_continuation_phase(model, continuation_phase)
     intelligence_session = (
         create_intelligence_session(model) if is_primary or not ddp_enabled else None
@@ -1698,16 +1791,19 @@ def _train_anra_v2(
             "full-resume launch"
         )
     primary_error: str | None = None
-    if is_primary:
+    if is_primary and not ddp_bootstrap_manifest:
         try:
             _prepare_resume_target(ckpt_path, resume_from)
         except Exception as exc:
             primary_error = f"{type(exc).__name__}: {exc}"
     barrier_or_raise(distributed_context, primary_error=primary_error)
+    if ddp_bootstrap_manifest and ckpt_path.exists():
+        raise RuntimeError("DDP bootstrap child destination appeared after validation")
     if (
         os.environ.get("ANRA_REQUIRE_RESUME", "0") == "1"
         and not ckpt_path.exists()
         and not growth_initialization
+        and not ddp_bootstrap_manifest
     ):
         raise RuntimeError(
             "ANRA_REQUIRE_RESUME=1, but no checkpoint was restored. "
@@ -1767,7 +1863,9 @@ def _train_anra_v2(
             manifest_path = ROOT / manifest_path
         lineage_manifest_paths.append(manifest_path)
     lineage_source = (
-        Path(growth_initialization)
+        bootstrap_parent_path
+        if bootstrap_parent_path is not None
+        else Path(growth_initialization)
         if growth_initialization
         else ckpt_path
         if ckpt_path.exists()
@@ -1796,16 +1894,6 @@ def _train_anra_v2(
     best_validation_loss = float("inf")
     best_answer_validation_loss = float("inf")
     validation_history: list[dict[str, object]] = []
-    distributed_contract = (
-        _canonical_distributed_contract(
-            distributed_context,
-            batch_size=batch_size,
-            accumulation=accumulation,
-        )
-        if ddp_enabled
-        else {}
-    )
-
     def capture_distributed_rng_states() -> dict[str, object]:
         local_state = capture_rng_states(
             data_generator=data_generator,
@@ -1909,6 +1997,8 @@ def _train_anra_v2(
                     growth_provenance=growth_provenance,
                     distributed_contract=distributed_contract,
                     distributed_rng_states=distributed_boundary_rng_states,
+                    lineage_id_exact=bootstrap_lineage_id,
+                    ddp_bootstrap_provenance=bootstrap_checkpoint_provenance,
                 )
                 payload["interruption"] = {
                     "signal": int(sig_num),
@@ -1942,9 +2032,82 @@ def _train_anra_v2(
     session_start_loss = float("inf")
     resume_rank_rng_state: dict[str, object] | None = None
 
+    if bootstrap_result is not None:
+        progress = dict(bootstrap_result.get("progress", {}))
+        provenance = dict(bootstrap_result.get("provenance", {}))
+        ckpt["sessions_completed"] = int(progress.get("sessions_completed", 0) or 0)
+        campaign_tokens_seen = int(progress.get("tokens_seen", 0) or 0)
+        known_token_ids.update(
+            int(value) for value in progress.get("unique_token_ids_seen", [])
+        )
+        continuation_token_counts.update(
+            {
+                str(name): int(value)
+                for name, value in dict(
+                    progress.get("continuation_token_counts", {})
+                ).items()
+            }
+        )
+        best_validation_loss = float(
+            progress.get("best_validation_loss", float("inf"))
+        )
+        best_answer_validation_loss = float(
+            progress.get("best_answer_validation_loss", float("inf"))
+        )
+        validation_history = list(progress.get("validation_history", []))
+        start_step = int(progress.get("global_step", 0) or 0)
+        global_step = start_step
+        best_loss = float(progress.get("best_loss", float("inf")))
+        session_start_loss = best_loss
+        checkpoint_migration = provenance
+        if window_consumption is None:
+            raise RuntimeError("DDP bootstrap requires raw window-consumption tracking")
+        sampler_policy = str(provenance.get("sampler_policy", ""))
+        if sampler_policy == "preserve_global_cursor_repartition_by_rank_v1":
+            raw_consumption = dict(progress.get("raw_window_consumption", {}))
+            sampler_state = dict(progress.get("data_sampler_state", {}))
+            if not raw_consumption or not sampler_state:
+                raise RuntimeError("DDP bootstrap parent lacks sampler continuity evidence")
+            window_consumption.load_state_dict(raw_consumption)
+            data_sampler_position = validate_sampler_resume_contract(
+                sampler_state,
+                seed=seed,
+                curriculum=curriculum,
+                active_num_samples=int(raw_sample_budget or 0),
+                algorithm=active_sampler_algorithm,
+                dataset_size=(
+                    len(ds)
+                    if active_sampler_algorithm == PERMUTATION_SAMPLER_ALGORITHM
+                    else None
+                ),
+            )
+            visits = window_consumption.unique_windows + window_consumption.repeated_windows
+            if visits != data_sampler_position:
+                raise RuntimeError(
+                    "DDP bootstrap sampler cursor disagrees with consumption evidence"
+                )
+            loader = make_loader(sample_offset=data_sampler_position)
+            _assert_training_loader_dataset(loader, ds, eval_ds)
+        elif sampler_policy == "reset_for_new_signed_data_window_v1":
+            data_sampler_position = 0
+            if is_primary:
+                print(
+                    "[DDP bootstrap] signed new data window starts at sampler position zero; "
+                    "cumulative lineage tokens remain preserved",
+                    flush=True,
+                )
+        else:
+            raise RuntimeError("DDP bootstrap result contains an unsupported sampler policy")
+        if is_primary:
+            print(
+                f"[DDP bootstrap] inherited model/progress at step={start_step}; "
+                "optimizer, scheduler, scaler, and rank RNG start fresh",
+                flush=True,
+            )
+
     # ── AUTO-RESUME ──────────────────────────────────────────────────────────────
     load_path = ckpt_path if ckpt_path.exists() else resume_path
-    if load_path.exists():
+    if load_path.exists() and bootstrap_result is None:
         if is_primary:
             print(f"[Resume] Found checkpoint: {load_path}", flush=True)
         resume_state: dict[str, object] = {}
@@ -2044,6 +2207,13 @@ def _train_anra_v2(
                     raise RuntimeError("Growth resume lineage differs from the active manifest")
                 growth_provenance = dict(saved_growth_provenance)
             checkpoint_migration = dict(resume_state.get("migration", {}))
+            saved_bootstrap = dict(resume_state.get("ddp_bootstrap_provenance", {}))
+            saved_lineage = dict(resume_state.get("checkpoint_lineage", {}))
+            if saved_bootstrap:
+                bootstrap_checkpoint_provenance = saved_bootstrap
+                bootstrap_lineage_id = str(saved_lineage.get("lineage_id", "")).strip()
+                if not bootstrap_lineage_id:
+                    raise RuntimeError("DDP bootstrap child resume lost its child lineage id")
             if appended_row_lr is not None:
                 appended_row_lr.steps_completed = int(
                     resume_state.get("appended_row_optimizer_steps", 0)
@@ -2101,7 +2271,7 @@ def _train_anra_v2(
             )
         else:
             print("[Resume] Checkpoint not loaded — starting from scratch", flush=True)
-    else:
+    elif bootstrap_result is None:
         print("[Resume] No checkpoint found — starting from scratch", flush=True)
     # ─────────────────────────────────────────────────────────────────────────────
 
@@ -3098,6 +3268,8 @@ def _train_anra_v2(
                                 growth_provenance=growth_provenance,
                                 distributed_contract=distributed_contract,
                                 distributed_rng_states=distributed_boundary_rng_states,
+                                lineage_id_exact=bootstrap_lineage_id,
+                                ddp_bootstrap_provenance=bootstrap_checkpoint_provenance,
                             )
                             atomic_save(payload, ckpt_path, drive_dir=None)
                             _publish_training_checkpoint(
@@ -3204,6 +3376,8 @@ def _train_anra_v2(
                 growth_provenance=growth_provenance,
                 distributed_contract=distributed_contract,
                 distributed_rng_states=distributed_boundary_rng_states,
+                lineage_id_exact=bootstrap_lineage_id,
+                ddp_bootstrap_provenance=bootstrap_checkpoint_provenance,
             )
             atomic_save(payload, ckpt_path, drive_dir=None)
             _publish_training_checkpoint(payload, final=True)
@@ -3679,6 +3853,16 @@ def main() -> None:
     parser.add_argument("--checkpoint_path", default="anra_v4_180m.pt")
     parser.add_argument("--resume_from", default=None)
     parser.add_argument(
+        "--ddp-bootstrap-manifest",
+        default=None,
+        help="Signed model-only single-GPU to canonical DDP child-lineage contract.",
+    )
+    parser.add_argument(
+        "--ddp-bootstrap-parent-checkpoint",
+        default=None,
+        help="Portable location override for the hash-bound bootstrap parent.",
+    )
+    parser.add_argument(
         "--distributed-mode",
         choices=["off", "ddp"],
         default="off",
@@ -3789,6 +3973,8 @@ def main() -> None:
         data_path=args.data_path,
         checkpoint_path=args.checkpoint_path,
         resume_from=args.resume_from,
+        ddp_bootstrap_manifest=args.ddp_bootstrap_manifest,
+        ddp_bootstrap_parent_checkpoint=args.ddp_bootstrap_parent_checkpoint,
         batch_size=args.batch_size,
         accumulation=args.accumulation,
         block_size=args.block_size,

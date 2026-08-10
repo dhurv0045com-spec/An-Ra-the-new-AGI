@@ -311,13 +311,62 @@ uninterrupted-versus-resumed comparison is still required before deployment,
 and a 40–50 GPU launch remains blocked until that proof passes.
 
 The current trained 181M artifact is a single-GPU full-resume checkpoint. The
-DDP resume gate intentionally rejects relabelling it as a distributed artifact,
-and an explicit model-only bootstrap manifest (parent hash, optimizer restart,
-fresh per-rank RNG contract, and sampler-boundary decision) has not yet been
-implemented. Canonical DDP can therefore start a new lineage today, but it
-cannot claim exact continuation of the existing single-GPU optimizer lineage.
-That migration surface and its two-GPU proof are required before the first
-large-cluster continuation.
+DDP exact-resume gate still rejects relabelling it as a distributed artifact.
+An explicit signed migration now provides the only supported bridge: it imports
+the parent's model tensors and audited global progress into a new child lineage,
+preserves the global sampler cursor and cumulative token counts, and explicitly
+restarts AdamW, the schedule, mixed-precision state, and rank-specific RNG.
+It never loads those incompatible parent states as a DDP resume.
+
+The owner creates the immutable contract before `torchrun` (the signing key is
+provided through `ANRA_MANIFEST_SIGNING_KEY`, never written into the file):
+
+```powershell
+python -m scripts.create_ddp_bootstrap `
+  --parent-checkpoint output/v2/anra-v4-step-10400.pt `
+  --child-checkpoint output/v2/anra-v4-ddp-child.pt `
+  --output-manifest output/v2/anra-v4-ddp-bootstrap.json `
+  --child-lineage-id anra-v4-step-10400-ddp-child `
+  --data-manifest training=output/v2/cloud_packs/train/manifest.json `
+  --data-manifest validation=output/v2/cloud_packs/validation/manifest.json `
+  --world-size 2 --batch-size 1 --accumulation 8 `
+  --visible-device-order 0,1 --seed 1301 `
+  --sampler-policy reset_for_new_signed_data_window_v1
+```
+
+The signed child path, data files, source commit, topology, batch contract, and
+seed must match the launch exactly. Rank zero performs the only tensor import;
+every rank independently verifies the signature, parent SHA-256, active model,
+tokenizer, data, source commit, and DDP contract before rank zero broadcasts the
+validated progress and DDP broadcasts weights:
+
+```powershell
+$env:CUDA_VISIBLE_DEVICES="0,1"
+torchrun --standalone --nproc-per-node=2 -m scripts.build_brain `
+  --distributed-mode ddp `
+  --ddp-bootstrap-manifest output/v2/anra-v4-ddp-bootstrap.json `
+  --checkpoint_path output/v2/anra-v4-ddp-child.pt `
+  --training-layout raw_causal_shards_v1 `
+  --token-shard-manifest output/v2/cloud_packs/train/manifest.json `
+  --validation-shard-manifest output/v2/cloud_packs/validation/manifest.json `
+  --data_path training_data/anra_training.txt `
+  --batch_size 1 --accumulation 8 --seed 1301 `
+  --post-session-eval none
+```
+
+Moving the parent file is allowed only through
+`--ddp-bootstrap-parent-checkpoint`; its bytes must retain the signed hash. The
+child destination must not exist. After the first child checkpoint, subsequent
+runs use ordinary exact DDP resume with the identical topology. A real two-GPU
+bootstrap, first protected child checkpoint, and kill/resume comparison remain
+live gates before any large-cluster continuation.
+
+Use `preserve_global_cursor_repartition_by_rank_v1` only when the DDP child
+continues the exact same immutable pack and sampler budget. Use
+`reset_for_new_signed_data_window_v1` when the signed child data bindings name a
+new continuation pack. That policy resets only the new pack's cursor and
+consumption evidence; inherited global steps, cumulative tokens, validation
+history, and continuation counts remain part of the child lineage.
 
 The Drive `latest_training_failure.log` dated 00:57 is historical. It recorded
 a compact pack whose 161,133 unique windows were rounded to 161,136 for an

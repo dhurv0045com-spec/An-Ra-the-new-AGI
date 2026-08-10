@@ -940,6 +940,8 @@ def load_checkpoint(
         "token_window": {},
         "distributed_contract": {},
         "distributed_rng_states": {},
+        "checkpoint_lineage": {},
+        "ddp_bootstrap_provenance": {},
         "rng_restore": {},
         "tokenizer_identity": {"verified": False, "reason": "checkpoint_not_loaded"},
         "training_recipe_migrations": [],
@@ -1255,6 +1257,10 @@ def load_checkpoint(
         state["token_window"] = dict(blob.get("token_window", {}))
         state["distributed_contract"] = dict(blob.get("distributed_contract", {}))
         state["distributed_rng_states"] = dict(blob.get("distributed_rng_states", {}))
+        state["checkpoint_lineage"] = dict(blob.get("checkpoint_lineage", {}))
+        state["ddp_bootstrap_provenance"] = dict(
+            blob.get("ddp_bootstrap_provenance", {})
+        )
         state["growth_provenance"] = dict(blob.get("growth_provenance", {}))
         state["data_manifests"] = dict(
             blob.get("data_manifests", blob.get("dataset_manifest_hashes", {}))
