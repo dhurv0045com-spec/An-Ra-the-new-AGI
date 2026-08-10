@@ -124,6 +124,13 @@ def all_reduce_bool_or(value: bool, context: DistributedContext) -> bool:
     return bool(flag.item())
 
 
+def all_reduce_bool_and(value: bool, context: DistributedContext) -> bool:
+    flag = torch.tensor(int(bool(value)), dtype=torch.int32, device=context.device)
+    if context.enabled:
+        dist.all_reduce(flag, op=dist.ReduceOp.MIN)
+    return bool(flag.item())
+
+
 def all_gather_objects(value: T, context: DistributedContext) -> list[T]:
     if not context.enabled:
         return [value]
@@ -142,6 +149,28 @@ def broadcast_primary_result(value: T, context: DistributedContext) -> T:
     if payload[0] is None:
         raise RuntimeError("rank zero broadcast no result")
     return payload[0]
+
+
+def barrier_or_raise(
+    context: DistributedContext,
+    *,
+    primary_error: str | None = None,
+) -> None:
+    """Broadcast a rank-zero filesystem result before the next collective."""
+
+    envelope = broadcast_primary_result(
+        {
+            "ok": primary_error is None,
+            "error": primary_error,
+        },
+        context,
+    )
+    if not bool(envelope.get("ok")):
+        raise RuntimeError(
+            f"distributed rank-zero operation failed: {envelope.get('error')}"
+        )
+    if context.enabled:
+        dist.barrier()
 
 
 def destroy_distributed(context: DistributedContext) -> None:

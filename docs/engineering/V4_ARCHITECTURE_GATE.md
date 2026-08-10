@@ -246,12 +246,57 @@ have invalidated the next expensive run:
   fresh under the declared stabilization schedule.
 
 The review also confirmed that same-host 40–50 GPU training is **not yet an
-operational capability**. The existing distributed module only estimates a
-profile; it does not initialize NCCL, shard the deterministic sampler, reduce
-metrics, fence rank-zero checkpoint publication, or save distributed optimizer
-state. Until a two-GPU kill-and-resume proof passes, separate Colab/Kaggle
-workers remain sequential checkpoint-baton workers and a large cluster must
-not be launched.
+operational capability**. At audit time the distributed module only estimated
+a profile; the canonical trainer still does not consume a distributed sampler,
+reduce global metrics, fence rank-zero checkpoint publication, or save every
+rank's optimizer/RNG state. Until a two-GPU kill-and-resume proof passes,
+separate Colab/Kaggle workers remain sequential checkpoint-baton workers and a
+large cluster must not be launched.
+
+The first distributed implementation layer now exists without weakening that
+gate. `training.distributed` defines an explicit torchrun/NCCL topology,
+collective helpers, rank-zero result fencing, and the versioned
+`anra-ddp-contract/v1`. The canonical counter/permutation samplers expose
+absolute-position lookup, and `RankStridedSampler` partitions one global suffix
+without overlap or padding. `scripts.run_ddp_rehearsal` exercises those pieces
+with a tiny dropout model, real `no_sync` gradient accumulation, one global
+cursor, isolated per-rank training RNG, and exactly one atomic rank-zero
+checkpoint at each completed optimizer boundary.
+
+On a real two-GPU host, first create the uninterrupted four-step reference:
+
+```powershell
+torchrun --standalone --nproc-per-node=2 -m scripts.run_ddp_rehearsal `
+  --checkpoint output/v2/ddp-uninterrupted.pt --steps 4 --accumulation 2
+```
+
+Then create a separate lineage that completes step one, injects a synchronized
+failure after the first microbatch of step two, and resumes from the protected
+step-one checkpoint. The failed command is expected to exit nonzero; no partial
+gradients or sampler movement may enter its checkpoint:
+
+```powershell
+torchrun --standalone --nproc-per-node=2 -m scripts.run_ddp_rehearsal `
+  --checkpoint output/v2/ddp-resumed.pt --steps 4 --accumulation 2 `
+  --fault-after-microsteps 3 --fault-rank 1
+
+torchrun --standalone --nproc-per-node=2 -m scripts.run_ddp_rehearsal `
+  --checkpoint output/v2/ddp-resumed.pt --resume --steps 4 --accumulation 2
+```
+
+Finally, the comparator recomputes each checkpoint fingerprint and requires an
+exact match across model, optimizer, cursor, canonical consumed-index history,
+topology/lineage contract, and every rank's Python, NumPy, CPU, and CUDA RNG:
+
+```powershell
+python -m scripts.compare_ddp_rehearsals `
+  --uninterrupted output/v2/ddp-uninterrupted.pt `
+  --resumed output/v2/ddp-resumed.pt
+```
+
+This is a correctness rehearsal, not permission to run the 181M model on a
+large cluster. Canonical trainer integration follows only after uninterrupted
+versus resumed rehearsal states compare exactly.
 
 The Drive `latest_training_failure.log` dated 00:57 is historical. It recorded
 a compact pack whose 161,133 unique windows were rounded to 161,136 for an

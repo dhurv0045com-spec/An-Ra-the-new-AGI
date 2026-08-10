@@ -219,4 +219,28 @@ def test_rank_strided_sampler_union_is_exact_canonical_suffix() -> None:
 def test_rank_strided_sampler_rejects_unequal_collective_horizon() -> None:
     base = DeterministicPermutationSampler(10, num_samples=10, seed=1301)
     with pytest.raises(ValueError, match="divide evenly"):
-        RankStridedSampler(base, rank=0, world_size=4, global_cursor=1)
+        RankStridedSampler(base, rank=0, world_size=4, global_cursor=4)
+
+
+def test_rank_strided_sampler_rejects_partial_per_rank_microbatch() -> None:
+    base = DeterministicPermutationSampler(12, num_samples=12, seed=1301)
+    with pytest.raises(ValueError, match="global microbatch"):
+        RankStridedSampler(
+            base,
+            rank=0,
+            world_size=2,
+            global_cursor=0,
+            micro_batch_size_per_rank=4,
+        )
+
+
+def test_rank_strided_sampler_rejects_cursor_inside_global_microbatch() -> None:
+    base = DeterministicPermutationSampler(14, num_samples=14, seed=1301)
+    with pytest.raises(ValueError, match="complete DDP global microbatch boundary"):
+        RankStridedSampler(
+            base,
+            rank=0,
+            world_size=2,
+            global_cursor=2,
+            micro_batch_size_per_rank=2,
+        )

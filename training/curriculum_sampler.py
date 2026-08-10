@@ -357,21 +357,31 @@ class RankStridedSampler(Sampler[int]):
         rank: int,
         world_size: int,
         global_cursor: int,
+        micro_batch_size_per_rank: int = 1,
     ) -> None:
         self.base_sampler = base_sampler
         self.rank = int(rank)
         self.world_size = int(world_size)
         self.global_cursor = int(global_cursor)
+        self.micro_batch_size_per_rank = int(micro_batch_size_per_rank)
         if self.world_size < 2:
             raise ValueError("rank-strided sampling requires at least two ranks")
         if not 0 <= self.rank < self.world_size:
             raise ValueError("rank must be within world_size")
         if not 0 <= self.global_cursor <= base_sampler.num_samples:
             raise ValueError("global cursor is outside the base sample budget")
-        remaining = base_sampler.num_samples - self.global_cursor
-        if remaining % self.world_size:
+        if self.micro_batch_size_per_rank < 1:
+            raise ValueError("micro batch size per rank must be positive")
+        global_micro_batch = self.world_size * self.micro_batch_size_per_rank
+        if self.global_cursor % global_micro_batch:
             raise ValueError(
-                "remaining global sample budget must divide evenly across DDP ranks"
+                "global cursor must identify a complete DDP global microbatch boundary"
+            )
+        remaining = base_sampler.num_samples - self.global_cursor
+        if remaining % global_micro_batch:
+            raise ValueError(
+                "remaining global sample budget must divide evenly across the DDP "
+                "global microbatch"
             )
         self.local_samples = remaining // self.world_size
 

@@ -35,6 +35,9 @@ contracts exist; they do not mean a useful model has already been trained.
   initialization evidence.
 - [x] Parameter reports separate 180,093,312 dense parameters from 1,038,759
   installed but unpromoted native pilot/control parameters.
+- [x] Add the first same-host DDP correctness layer: explicit torchrun/NCCL
+  topology, rank-strided absolute sampling, collective helpers, one global
+  cursor, per-rank RNG capture, and a tiny rank-zero-checkpoint rehearsal.
 
 ## Current evidence and next live execution
 
@@ -88,7 +91,9 @@ contracts exist; they do not mean a useful model has already been trained.
 - SFT was executed, but it is not accepted; no RLVR/STaR/DPO or 500M growth run
   has occurred.
 - Same-host DDP/FSDP is deliberately blocked until the An-Ra runtime implements
-  and proves it; separate Colab sessions will never synchronize gradients.
+  and proves canonical integration. The tiny DDP rehearsal exists, but its
+  two-GPU uninterrupted-versus-resumed proof has not yet run; separate Colab
+  sessions will never synchronize gradients.
 
 ## Final completion gate
 
