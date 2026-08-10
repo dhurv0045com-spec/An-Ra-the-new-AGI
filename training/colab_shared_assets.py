@@ -10,10 +10,14 @@ checkpoint, data pack, and signing identity from different Drive locations.
 
 from __future__ import annotations
 
+import errno
+import hashlib
+import hmac
 import json
 import os
+import shutil
 import time
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -29,6 +33,12 @@ TRAINING_HOME_NAME = "ANRA_T4_TRAINING_HOME"
 CURRENT_FULL_RESUME_NAME = "anra-v4-current-full-resume.pt"
 CURRENT_FULL_RESUME_METADATA_NAME = "anra-v4-current-full-resume.json"
 
+_RETRIABLE_DRIVE_ERRNOS = frozenset(
+    code
+    for name in ("EIO", "ENOTCONN", "ESTALE", "ETIMEDOUT")
+    if (code := getattr(errno, name, None)) is not None
+)
+
 
 @dataclass(frozen=True)
 class ColabTrainingAssets:
@@ -37,6 +47,81 @@ class ColabTrainingAssets:
     pack_parts: tuple[Path, ...]
     signing_key: Path | None
     vault_step: int
+
+
+def _sha256_file(path: Path, *, block_size: int = 8 * 1024 * 1024) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for block in iter(lambda: handle.read(block_size), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def stage_verified_checkpoint(
+    source: str | Path,
+    destination: str | Path,
+    *,
+    expected_size: int,
+    expected_sha256: str,
+    recover_source: Callable[[], str | Path] | None = None,
+    max_attempts: int = 3,
+    retry_delay_seconds: float = 2.0,
+) -> Path:
+    """Copy a Drive checkpoint to scratch and promote only verified bytes.
+
+    Colab's Drive FUSE endpoint can detach during a multi-gigabyte read.  A
+    caller may provide ``recover_source`` to remount Drive and rediscover the
+    same canonical object.  Only recognized transient transport errors retry;
+    an integrity mismatch or an ordinary filesystem failure remains fatal.
+
+    The returned path is the source used by the successful attempt.  This lets
+    a notebook refresh its training-home paths after a remount.
+    """
+
+    if max_attempts < 1:
+        raise ValueError("max_attempts must be at least 1")
+    if expected_size <= 0:
+        raise ValueError("expected_size must be positive")
+    if len(expected_sha256) != 64:
+        raise ValueError("expected_sha256 must be a SHA-256 hex digest")
+
+    current_source = Path(source)
+    destination = Path(destination)
+    temporary = destination.with_suffix(destination.suffix + ".tmp")
+    destination.parent.mkdir(parents=True, exist_ok=True)
+
+    for attempt in range(1, max_attempts + 1):
+        temporary.unlink(missing_ok=True)
+        try:
+            shutil.copyfile(current_source, temporary)
+            actual_size = temporary.stat().st_size
+            actual_sha256 = _sha256_file(temporary)
+            if actual_size != expected_size or not hmac.compare_digest(
+                actual_sha256, expected_sha256
+            ):
+                raise RuntimeError(
+                    "Staged checkpoint failed integrity verification: "
+                    f"expected {expected_size} bytes/{expected_sha256}, received "
+                    f"{actual_size} bytes/{actual_sha256}"
+                )
+            temporary.replace(destination)
+            return current_source
+        except OSError as exc:
+            temporary.unlink(missing_ok=True)
+            can_retry = (
+                exc.errno in _RETRIABLE_DRIVE_ERRNOS
+                and recover_source is not None
+                and attempt < max_attempts
+            )
+            if not can_retry:
+                raise
+            time.sleep(max(0.0, float(retry_delay_seconds)))
+            current_source = Path(recover_source())
+        except Exception:
+            temporary.unlink(missing_ok=True)
+            raise
+
+    raise AssertionError("unreachable checkpoint staging state")
 
 
 def _bounded_directories(parent: Path, *, limit: int = 256) -> list[Path]:

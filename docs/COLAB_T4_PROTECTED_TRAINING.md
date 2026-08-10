@@ -83,6 +83,13 @@ step record, copies it to local scratch, and verifies the copy's SHA-256 before
 training. It retains a one-time compatibility path for an older step-named
 checkpoint, but new runs never create step-named Drive checkpoint files.
 
+If Colab reports `OSError: [Errno 107] Transport endpoint is not connected`
+while staging the checkpoint, the notebook removes the partial scratch copy,
+remounts Drive, rediscovers the canonical training home, and retries up to two
+times. The scratch checkpoint is promoted only after its exact byte size and
+SHA-256 match the pre-disconnection source. Digest mismatches and ordinary
+filesystem failures do not retry and cannot replace a verified local copy.
+
 ## Taking over after a disconnection
 
 Do not start a replacement while the earlier trainer is still running.

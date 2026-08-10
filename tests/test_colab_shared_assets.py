@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import errno
+import hashlib
 import json
 from pathlib import Path
 
@@ -10,6 +12,7 @@ from training.colab_shared_assets import (
     CURRENT_FULL_RESUME_NAME,
     TRAINING_HOME_NAME,
     resolve_colab_training_assets,
+    stage_verified_checkpoint,
 )
 
 
@@ -163,6 +166,108 @@ def test_discovers_current_checkpoint_when_drive_metadata_is_stale(tmp_path: Pat
     assert assets.vault_step == 1700
 
 
+def test_checkpoint_staging_recovers_after_drive_transport_disconnect(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import training.colab_shared_assets as shared_assets
+
+    stale_source = tmp_path / "stale" / CURRENT_FULL_RESUME_NAME
+    refreshed_source = tmp_path / "remounted" / CURRENT_FULL_RESUME_NAME
+    refreshed_source.parent.mkdir()
+    payload = b"verified full resume"
+    refreshed_source.write_bytes(payload)
+    destination = tmp_path / "scratch" / "resume-source.pt"
+    real_copyfile = shared_assets.shutil.copyfile
+    copy_attempts = 0
+
+    def disconnect_once(source: Path, target: Path) -> None:
+        nonlocal copy_attempts
+        copy_attempts += 1
+        if copy_attempts == 1:
+            raise OSError(errno.ENOTCONN, "Transport endpoint is not connected")
+        real_copyfile(source, target)
+
+    recoveries = 0
+
+    def recover_source() -> Path:
+        nonlocal recoveries
+        recoveries += 1
+        return refreshed_source
+
+    monkeypatch.setattr(shared_assets.shutil, "copyfile", disconnect_once)
+
+    successful_source = stage_verified_checkpoint(
+        stale_source,
+        destination,
+        expected_size=len(payload),
+        expected_sha256=hashlib.sha256(payload).hexdigest(),
+        recover_source=recover_source,
+        retry_delay_seconds=0,
+    )
+
+    assert successful_source == refreshed_source
+    assert destination.read_bytes() == payload
+    assert recoveries == 1
+    assert copy_attempts == 2
+    assert not destination.with_suffix(".pt.tmp").exists()
+
+
+def test_checkpoint_staging_never_promotes_unverified_bytes(tmp_path: Path) -> None:
+    source = tmp_path / CURRENT_FULL_RESUME_NAME
+    source.write_bytes(b"changed checkpoint")
+    destination = tmp_path / "resume-source.pt"
+    destination.write_bytes(b"previous verified checkpoint")
+
+    with pytest.raises(RuntimeError, match="integrity verification"):
+        stage_verified_checkpoint(
+            source,
+            destination,
+            expected_size=source.stat().st_size,
+            expected_sha256=hashlib.sha256(b"expected checkpoint").hexdigest(),
+        )
+
+    assert destination.read_bytes() == b"previous verified checkpoint"
+    assert not destination.with_suffix(".pt.tmp").exists()
+
+
+def test_persistent_drive_disconnect_exhausts_retries_without_promotion(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import training.colab_shared_assets as shared_assets
+
+    source = tmp_path / CURRENT_FULL_RESUME_NAME
+    source.write_bytes(b"checkpoint")
+    destination = tmp_path / "resume-source.pt"
+    destination.write_bytes(b"previous verified checkpoint")
+    recoveries = 0
+
+    def disconnected_copy(source: Path, target: Path) -> None:
+        target.write_bytes(b"partial")
+        raise OSError(errno.ENOTCONN, "Transport endpoint is not connected")
+
+    def recover_source() -> Path:
+        nonlocal recoveries
+        recoveries += 1
+        return source
+
+    monkeypatch.setattr(shared_assets.shutil, "copyfile", disconnected_copy)
+
+    with pytest.raises(OSError, match="Transport endpoint"):
+        stage_verified_checkpoint(
+            source,
+            destination,
+            expected_size=source.stat().st_size,
+            expected_sha256=hashlib.sha256(source.read_bytes()).hexdigest(),
+            recover_source=recover_source,
+            max_attempts=3,
+            retry_delay_seconds=0,
+        )
+
+    assert recoveries == 2
+    assert destination.read_bytes() == b"previous verified checkpoint"
+    assert not destination.with_suffix(".pt.tmp").exists()
+
+
 def test_protected_notebook_defaults_to_a_sequential_canonical_handoff() -> None:
     notebook_path = ROOT / "notebooks" / "AN_RA_T4_PROTECTED_TRAINER_V4.ipynb"
     notebook = json.loads(notebook_path.read_text(encoding="utf-8"))
@@ -175,6 +280,9 @@ def test_protected_notebook_defaults_to_a_sequential_canonical_handoff() -> None
     assert "ANRA_DURABLE_CHECKPOINT_STEPS'] = '200'" in final_cell
     assert "latest_training_failure.log" in final_cell
     assert "PACK_CATALOG" in source
+    assert "stage_verified_checkpoint(" in source
+    assert "drive.flush_and_unmount()" in source
+    assert "shutil.copyfile(source_checkpoint, temporary)" not in source
     assert "select_continuation_pack(phase_a_tokens_seen, PACK_CATALOG)" in source
     assert "v4_phase_a_cont_170m_to_500m_seed1301.tar.gz" in source
     assert "phase_A_tokens={phase_a_tokens_seen:,}" in source
