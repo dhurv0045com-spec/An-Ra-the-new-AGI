@@ -63,7 +63,7 @@ so share it only with accounts you control.
    approval and run full mode.
 
 The notebook clones branch `iterate500` and pins reviewed commit
-`fa2e77b8db06e511f1ff436db39d624b72b02801`. It records an eight-prompt
+`dab8c9a104bb7c6f7c38e3f48e04ca22a320a281`. It records an eight-prompt
 behavior probe every 500 optimizer steps as well as validation loss, so a
 falling loss cannot hide a collapsed response pattern. If the notebook cannot
 fetch or verify that commit, stop and update the source before training.
