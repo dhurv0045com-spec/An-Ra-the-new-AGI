@@ -54,7 +54,7 @@ def test_tpu_trainer_disables_pytorch_checkpointing_for_xla() -> None:
 
 def test_readme_documents_canonical_v4_path() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
-    assert "notebooks/AN_RA_T4_TRAINING.ipynb" in readme
+    assert "notebooks/AN_RA_T4_PROTECTED_TRAINER_V4.ipynb" in readme
     assert "anra-v4-180m" in readme
     assert "anra_frontier_500m.pt" not in readme
 

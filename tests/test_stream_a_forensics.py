@@ -19,6 +19,7 @@ from scripts.run_checkpoint_forensics import (
     run_forensics,
 )
 from scripts.run_checkpoint_forensics import publish_forensics_report
+from training.v2_config import CHECKPOINT_SCHEMA_VERSION
 
 
 def test_resolve_checkpoint_prefers_explicit_then_env(monkeypatch, tmp_path: Path) -> None:
@@ -45,7 +46,7 @@ def test_freeze_report_is_frozen_even_while_checkpoint_is_blocked(tmp_path: Path
 
     config = report["config"]
     assert config["contract"]["parameter_count"] == 499_167_075
-    assert config["contract"]["checkpoint_schema_version"] == 8
+    assert config["contract"]["checkpoint_schema_version"] == CHECKPOINT_SCHEMA_VERSION
     assert len(config["contract_sha256"]) == 64
 
     manifests = report["corpus_manifests"]

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+from contextlib import contextmanager
+from typing import Iterator
 
 from anra.anra_paths import STATE_DIR
 
@@ -76,3 +78,16 @@ def enabled_components() -> list[str]:
 
 def disabled_components() -> list[str]:
     return [name for name, on in load_flags().items() if not on]
+
+
+@contextmanager
+def enable_feature(component_name: str | list[str]) -> Iterator[None]:
+    names = [component_name] if isinstance(component_name, str) else list(component_name)
+    previous = {name: load_flags().get(name, False) for name in names}
+    for name in names:
+        set_flag(name, True)
+    try:
+        yield
+    finally:
+        for name, was_on in previous.items():
+            set_flag(name, was_on)

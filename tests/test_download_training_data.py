@@ -7,6 +7,7 @@ import sqlite3
 from scripts import download_training_data as downloader
 from scripts.audit_foundation_records import audit_foundation_records
 from tokenizer.subword_tokenizer import SubwordTokenizer
+from training.v2_config import CANONICAL_V4_VOCAB_SIZE
 
 
 def test_native_foundation_uses_standard_streaming_dataset_contract(
@@ -314,14 +315,14 @@ def test_v4_shard_publication_binds_family_tokenizer_and_inventory(
         json.dumps(record) + "\n", encoding="utf-8"
     )
     tokenizer = SubwordTokenizer.train_from_texts(
-        [text], vocab_size=64, min_frequency=1, allow_fallback=True
+        [text], vocab_size=CANONICAL_V4_VOCAB_SIZE, min_frequency=1, allow_fallback=True
     )
     tokenizer_path = tokenizer.save(tmp_path / "tokenizer_v4.json")
 
     monkeypatch.setattr(downloader, "TRAINING_DATA_DIR", training_data)
     monkeypatch.setattr(downloader, "DATA_MANIFEST_DIR", manifests)
     monkeypatch.setattr(
-        downloader, "TOKEN_INVENTORY_MANIFEST", manifests / "global_inventory.json"
+        downloader, "TOKEN_INVENTORY_MANIFEST", manifests / "token_inventory.json"
     )
     monkeypatch.setattr(
         downloader, "TOKEN_SHARD_PROGRESS", manifests / "shard_progress.json"
@@ -348,7 +349,7 @@ def test_v4_shard_publication_binds_family_tokenizer_and_inventory(
     assert progress["status"] == "complete"
     assert progress["tokenizer_family"] == "v4"
     global_inventory = json.loads(
-        (manifests / "global_inventory.json").read_text(encoding="utf-8")
+        (manifests / "token_inventory.json").read_text(encoding="utf-8")
     )
     assert global_inventory["tokenizer_sha256"] == inventory["tokenizer_sha256"]
 
@@ -436,7 +437,7 @@ def test_verified_shard_repair_adds_only_missing_campaign_classes(
     monkeypatch.setattr(downloader, "TRAINING_DATA_DIR", training_data)
     monkeypatch.setattr(downloader, "DATA_MANIFEST_DIR", manifests)
     monkeypatch.setattr(
-        downloader, "TOKEN_INVENTORY_MANIFEST", manifests / "global_inventory.json"
+        downloader, "TOKEN_INVENTORY_MANIFEST", manifests / "token_inventory.json"
     )
     monkeypatch.setattr(downloader, "TOKEN_SHARD_PROGRESS", manifests / "progress.json")
     monkeypatch.setattr(downloader, "get_identity_file", lambda: identity)

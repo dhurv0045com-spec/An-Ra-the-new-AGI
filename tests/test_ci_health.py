@@ -89,6 +89,7 @@ def test_no_sys_path_in_any_non_deprecated_file():
         "scripts/build_campaign_slice.py",
         "scripts/evaluate_with_thirdeye.py",
         "scripts/show_thirdeye_summary.py",
+        "scripts/launch_sft_prototype.py",
     }
     for target in search_dirs:
         path = REPO / target

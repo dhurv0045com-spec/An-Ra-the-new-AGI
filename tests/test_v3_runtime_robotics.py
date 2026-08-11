@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import torch
 
+from engine.feature_flags import enable_feature
 from inference.kv_cache import TieredKVCache
 from inference.prefix_cache import PrefixCache
 from inference.speculative import SpeculativeBenchmark, accept_draft_prefix
@@ -33,31 +34,32 @@ def test_prefix_and_speculative_promotion_contracts() -> None:
 
 
 def test_robotics_workflow_and_world_model() -> None:
-    condition_state = {"ready": True, "done": True}
-    executor = WorkflowExecutor(
-        lambda goal: SkillResult(success=True),
-        lambda condition: condition_state.get(condition, False),
-    )
-    workflow = Workflow(
-        workflow_id="w1",
-        goal="test",
-        skills=[
-            SkillGoal(
-                "move",
-                {},
-                ("ready",),
-                ("done",),
-                1.0,
-            )
-        ],
-    )
-    result = executor.execute(workflow)
-    assert result.state == WorkflowState.COMPLETED
+    with enable_feature("agent_loop"):
+        condition_state = {"ready": True, "done": True}
+        executor = WorkflowExecutor(
+            lambda goal: SkillResult(success=True),
+            lambda condition: condition_state.get(condition, False),
+        )
+        workflow = Workflow(
+            workflow_id="w1",
+            goal="test",
+            skills=[
+                SkillGoal(
+                    "move",
+                    {},
+                    ("ready",),
+                    ("done",),
+                    1.0,
+                )
+            ],
+        )
+        result = executor.execute(workflow)
+        assert result.state == WorkflowState.COMPLETED
 
-    model = PredictiveWorldModel(state_dim=8, action_dim=4, hidden_dim=16)
-    prediction = model(torch.randn(2, 8), torch.randn(2, 4))
-    assert prediction["next_state"].shape == (2, 8)
-    assert (prediction["epistemic_uncertainty"] >= 0).all()
+        model = PredictiveWorldModel(state_dim=8, action_dim=4, hidden_dim=16)
+        prediction = model(torch.randn(2, 8), torch.randn(2, 4))
+        assert prediction["next_state"].shape == (2, 8)
+        assert (prediction["epistemic_uncertainty"] >= 0).all()
 
 
 def test_domain_randomization_is_seeded() -> None:

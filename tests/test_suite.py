@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import sys
 import threading
 import time
@@ -9,7 +10,27 @@ from collections.abc import Callable
 from pathlib import Path
 
 import pytest
-from anra.anra_paths import DRIVE_DIR, ROOT, get_dataset_file, get_optimization_config
+from anra.anra_paths import ANRA_V4_CHECKPOINT, DRIVE_DIR, ROOT, get_dataset_file, get_optimization_config
+
+
+def _checkpoint_exists() -> bool:
+    env_path = os.environ.get("ANRA_CHECKPOINT_PATH")
+    if env_path and Path(env_path).exists():
+        return True
+    if ANRA_V4_CHECKPOINT.exists():
+        return True
+    for path in [
+        ROOT / "anra_v4_180m.pt",
+        ROOT / "output" / "v2" / "checkpoints" / "anra_v4_180m.pt",
+        DRIVE_DIR / "v4" / "checkpoints" / "anra_v4_180m.pt",
+    ]:
+        if path.exists():
+            return True
+    return False
+
+
+if not _checkpoint_exists():
+    pytest.skip("Canonical V4 checkpoint (anra_v4_180m.pt) not found; skipping test_suite.py", allow_module_level=True)
 
 httpx = pytest.importorskip("httpx")
 uvicorn = pytest.importorskip("uvicorn")

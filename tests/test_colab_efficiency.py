@@ -39,7 +39,7 @@ def test_t4_notebook_uses_fast_bootstrap_and_persistent_data_cache() -> None:
     assert "DATA_PROFILE = '30gb'" in source
     assert "os.environ['ANRA_DATA_PROFILE'] = DATA_PROFILE" in source
     assert "ANRA_TRAINING_DATA_LAYOUT" in source
-    assert "ANRA_REQUIRE_SHARED_MASTER" in source
+    assert "ANRA_ALLOW_DATA_PROFILE_CHANGE" in source
     assert "scripts/download_training_data.py --profile $DATA_PROFILE" not in source
     assert "PIP_DISABLE_PIP_VERSION_CHECK" in source
     drive_pip_cache = "/content" + "/drive/MyDrive/AnRa/cache/pip"
