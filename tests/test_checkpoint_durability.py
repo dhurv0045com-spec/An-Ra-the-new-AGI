@@ -225,6 +225,34 @@ def test_active_training_session_heartbeat_prevents_expiry(tmp_path: Path) -> No
         first.release_writer_session()
 
 
+def test_nearly_expired_training_session_waits_then_reclaims(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root = tmp_path / "drive"
+    first = MonolithicFilesystemReplica("drive-vault", root, canonical=True)
+    second = MonolithicFilesystemReplica("drive-vault", root, canonical=True)
+    first.acquire_writer_session()
+    lease = first._session_lease_path(ArtifactClass.FULL_RESUME)
+    lease_seconds = 15 * 60
+    almost_expired = time.time() - lease_seconds + 1.0
+    os.utime(lease, (almost_expired, almost_expired))
+    waits: list[float] = []
+
+    def expire_during_wait(seconds: float) -> None:
+        waits.append(seconds)
+        expired = time.time() - lease_seconds - 1.0
+        os.utime(lease, (expired, expired))
+
+    monkeypatch.setattr("training.checkpoint_durability.time.sleep", expire_during_wait)
+    second.acquire_writer_session()
+    try:
+        assert waits and waits[0] <= 2.0
+    finally:
+        second.release_writer_session()
+        first.release_writer_session()
+
+
 def test_mounted_drive_reconciles_stale_future_pointer_from_actual_payload(
     tmp_path: Path,
 ) -> None:

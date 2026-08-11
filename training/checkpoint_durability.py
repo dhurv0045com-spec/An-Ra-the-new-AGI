@@ -48,6 +48,11 @@ MONOLITHIC_WRITER_LEASE_SECONDS = 3 * 60 * 60
 # instead of blocking its replacement for the remainder of the day.
 MONOLITHIC_SESSION_LEASE_SECONDS = 15 * 60
 MONOLITHIC_SESSION_HEARTBEAT_SECONDS = 60
+# A replacement worker may arrive seconds before a crashed Colab's session
+# lease expires.  Waiting a small bounded grace interval is cheaper and much
+# clearer than failing the entire notebook and asking the operator to rerun it.
+# A genuinely active worker refreshes every minute, so it remains fenced.
+MONOLITHIC_SESSION_ACQUIRE_GRACE_SECONDS = 90.0
 
 FULL_RESUME = "full_resume"
 FP16_INFERENCE = "fp16_inference"
@@ -1119,21 +1124,36 @@ class MonolithicFilesystemReplica:
             "created_at": _utc_timestamp(),
             "created_epoch_seconds": time.time(),
         }
-        try:
-            descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL)
-        except FileExistsError:
+        descriptor: int | None = None
+        for attempt in range(3):
             try:
-                age_seconds = max(0.0, time.time() - path.stat().st_mtime)
-            except OSError:
-                age_seconds = 0.0
-            if age_seconds < MONOLITHIC_SESSION_LEASE_SECONDS:
-                raise PublicationError(
-                    f"Another canonical training session owns {path.name}; "
-                    "use verify_only or wait for that session to finish"
-                ) from None
-            with contextlib.suppress(FileNotFoundError):
-                path.unlink()
-            descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL)
+                descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL)
+                break
+            except FileExistsError:
+                try:
+                    age_seconds = max(0.0, time.time() - path.stat().st_mtime)
+                except OSError:
+                    continue
+                remaining_seconds = MONOLITHIC_SESSION_LEASE_SECONDS - age_seconds
+                if remaining_seconds > 0.0:
+                    if (
+                        attempt == 0
+                        and remaining_seconds
+                        <= MONOLITHIC_SESSION_ACQUIRE_GRACE_SECONDS
+                    ):
+                        # Re-check after the exact remaining interval.  If the
+                        # original trainer is alive, its heartbeat refreshes
+                        # the lease and the next iteration fails closed.
+                        time.sleep(remaining_seconds + 0.25)
+                        continue
+                    raise PublicationError(
+                        f"Another canonical training session owns {path.name}; "
+                        "use verify_only or wait for that session to finish"
+                    ) from None
+                with contextlib.suppress(FileNotFoundError):
+                    path.unlink()
+        if descriptor is None:
+            raise PublicationError(f"Unable to acquire canonical writer lease: {path}")
         with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
             handle.write(json.dumps(payload, sort_keys=True) + "\n")
             handle.flush()
