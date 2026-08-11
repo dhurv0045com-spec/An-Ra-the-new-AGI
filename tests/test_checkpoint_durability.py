@@ -21,6 +21,7 @@ from training.checkpoint_durability import (
     DurabilityCorruptionError,
     DurabilityState,
     FilesystemReplica,
+    GoogleDriveApiReplica,
     MonolithicFilesystemReplica,
     PublicationError,
     ResumeArtifactError,
@@ -153,6 +154,71 @@ def test_mounted_drive_single_file_replaces_only_after_verification(
         (replica.root / "anra-v4-current-full-resume.json").read_text(encoding="utf-8")
     )
     assert metadata["global_step"] == 200
+    assert not list(replica.root.glob("*.uploading"))
+
+
+def test_google_drive_api_replica_updates_stable_objects_without_drive_staging(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    checkpoint = tmp_path / "checkpoint.pt"
+    outbox = CheckpointOutbox(tmp_path / "outbox", chunk_size_bytes=1024)
+    replica = GoogleDriveApiReplica(
+        "drive-vault",
+        tmp_path / "mounted-drive",
+        canonical=True,
+    )
+    checkpoint_updates: list[tuple[str, str]] = []
+    metadata_updates: list[tuple[str, str]] = []
+    version = 0
+
+    def update_checkpoint(source: Path, filename: str, **_kwargs: object) -> dict[str, object]:
+        nonlocal version
+        version += 1
+        checkpoint_updates.append((filename, source.name))
+        return {
+            "id": "stable-checkpoint-id",
+            "version": str(version),
+            "parents": ["training-home-id"],
+        }
+
+    def update_metadata(source: Path, filename: str, **_kwargs: object) -> dict[str, object]:
+        metadata_updates.append((filename, source.name))
+        return {
+            "id": "stable-metadata-id",
+            "version": str(len(metadata_updates)),
+            "parents": ["training-home-id"],
+        }
+
+    monkeypatch.setattr(
+        "training.shared_checkpoint.update_recorded_drive_file",
+        update_checkpoint,
+    )
+    monkeypatch.setattr(
+        "training.shared_checkpoint.update_drive_file_by_name",
+        update_metadata,
+    )
+
+    publisher = SnapshotPublisher(outbox, [replica])
+    try:
+        for step, size in ((100, 12_000), (200, 14_000)):
+            _checkpoint(checkpoint, size)
+            ref = outbox.register_checkpoint(checkpoint, lineage=_lineage(step))
+            publisher.submit(ref)
+            publisher.wait_for(ref, DurabilityState.PROTECTED, timeout_seconds=10)
+    finally:
+        publisher.close(wait=True)
+
+    assert checkpoint_updates == [
+        ("anra-v4-current-full-resume.pt", "anra-v4-current-full-resume.pt"),
+        ("anra-v4-current-full-resume.pt", "anra-v4-current-full-resume.pt"),
+    ]
+    assert metadata_updates == [
+        ("anra-v4-current-full-resume.json", "anra-v4-current-full-resume.json"),
+        ("anra-v4-current-full-resume.json", "anra-v4-current-full-resume.json"),
+    ]
+    assert not list(replica.root.glob("*.pt"))
+    assert not list(replica.root.glob("*.json"))
     assert not list(replica.root.glob("*.uploading"))
 
 

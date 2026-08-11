@@ -281,6 +281,10 @@ def test_protected_notebook_defaults_to_a_sequential_canonical_handoff() -> None
     assert "latest_training_failure.log" in final_cell
     assert "PACK_CATALOG" in source
     assert "stage_verified_checkpoint(" in source
+    assert "google_drive_api_single_file" in final_cell
+    assert "restore_shared_checkpoint(api_checkpoint" in source
+    assert "source_checkpoint.replace(current_checkpoint)" not in source
+    assert "mounted_drive_single_file" not in final_cell
     assert "drive.flush_and_unmount()" in source
     assert "shutil.copyfile(source_checkpoint, temporary)" not in source
     assert "select_continuation_pack(phase_a_tokens_seen, PACK_CATALOG)" in source

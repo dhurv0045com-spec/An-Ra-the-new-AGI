@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import contextlib
+import hashlib
 import json
 import os
 import shutil
@@ -242,7 +243,10 @@ def _resolve_api_target(service: object, file_meta: dict[str, Any]) -> dict[str,
     if not file_id:
         return None
     try:
-        fields = "id,name,mimeType,size,version,ownedByMe,capabilities(canEdit)"
+        fields = (
+            "id,name,mimeType,size,version,modifiedTime,md5Checksum,parents,appProperties,"
+            "ownedByMe,capabilities(canEdit)"
+        )
         response = (
             service.files()
             .get(
@@ -258,42 +262,167 @@ def _resolve_api_target(service: object, file_meta: dict[str, Any]) -> dict[str,
         return None
 
 
-def _upload_checkpoint_to_drive_api(checkpoint: Path, origin: dict[str, Any]) -> Path:
-    file_id = str(origin.get("file_id", ""))
-    if not file_id:
-        raise RuntimeError("Shared checkpoint origin has no Google Drive file id.")
+def _md5_file(path: Path, *, block_size: int = 8 * 1024 * 1024) -> str:
+    digest = hashlib.md5(usedforsecurity=False)
+    with Path(path).open("rb") as handle:
+        while block := handle.read(block_size):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def _matching_drive_files(service: object, filename: str) -> list[dict[str, Any]]:
+    escaped = _escape_drive_query(filename)
+    response = (
+        service.files()
+        .list(
+            q=f"name = '{escaped}' and trashed = false",
+            spaces="drive",
+            includeItemsFromAllDrives=True,
+            supportsAllDrives=True,
+            orderBy="modifiedTime desc",
+            pageSize=100,
+            fields=(
+                "files(id,name,size,version,modifiedTime,md5Checksum,parents,"
+                "capabilities(canEdit))"
+            ),
+        )
+        .execute()
+    )
+    return [dict(item) for item in response.get("files", [])]
+
+
+def _trash_same_parent_duplicates(
+    service: object,
+    *,
+    filename: str,
+    keep_file_id: str,
+    keep_modified_time: str,
+    parents: set[str],
+) -> int:
+    """Trash only superseded same-name objects beside the verified master."""
+
+    if not parents:
+        return 0
+    candidates = _matching_drive_files(service, filename)
+    newer_conflicts = [
+        item
+        for item in candidates
+        if str(item.get("id", "")) != keep_file_id
+        and parents.intersection({str(value) for value in item.get("parents", [])})
+        and str(item.get("modifiedTime", "")) > keep_modified_time
+    ]
+    if newer_conflicts:
+        raise RuntimeError(
+            f"A newer same-name Google Drive object appeared while publishing {filename!r}. "
+            "Refusing automatic cleanup; stop the other writer and retry."
+        )
+    removed = 0
+    for item in candidates:
+        file_id = str(item.get("id", ""))
+        item_parents = {str(value) for value in item.get("parents", [])}
+        if (
+            not file_id
+            or file_id == keep_file_id
+            or not parents.intersection(item_parents)
+            or not bool(dict(item.get("capabilities", {})).get("canEdit", False))
+        ):
+            continue
+        try:
+            service.files().update(
+                fileId=file_id,
+                body={"trashed": True},
+                supportsAllDrives=True,
+                fields="id,trashed",
+            ).execute()
+            removed += 1
+        except Exception as exc:
+            # The canonical object is already verified. Cleanup is deliberately
+            # best-effort so an old read-only duplicate cannot fail training.
+            print(
+                f"[Drive Shared] could not trash duplicate {filename} ({file_id}): {exc}",
+                flush=True,
+            )
+    return removed
+
+
+def update_drive_file_by_name(
+    source: Path,
+    filename: str,
+    *,
+    app_properties: dict[str, str] | None = None,
+    preferred_file_id: str | None = None,
+    expected_version: str | None = None,
+    parent_ids: set[str] | None = None,
+    cleanup_duplicates: bool = True,
+) -> dict[str, Any]:
+    """Update one stable Drive object and verify it before duplicate cleanup.
+
+    Google Drive permits several objects with the same display name. Mounted
+    filesystem rename therefore cannot implement replacement safely. This API
+    path updates an immutable file ID, verifies Drive's size and MD5 receipt,
+    and only then trashes older same-name objects in that exact parent folder.
+    """
+
+    source = Path(source)
+    if not source.is_file() or source.stat().st_size <= 0:
+        raise FileNotFoundError(f"Drive publication source is missing or empty: {source}")
     service = _drive_service(writable=True)
     if service is None:
-        raise RuntimeError("Google Drive write API is unavailable for the shared checkpoint.")
-    target = _resolve_api_target(service, {"id": file_id})
+        raise RuntimeError("Google Drive write API is unavailable.")
+
+    target: dict[str, Any] | None = None
+    if preferred_file_id:
+        target = _resolve_api_target(service, {"id": preferred_file_id})
     if target is None:
-        raise RuntimeError("The shared checkpoint file is no longer accessible.")
-    if not bool(dict(target.get("capabilities", {})).get("canEdit", False)):
-        raise PermissionError(
-            "The shared checkpoint is read-only for this Google account. "
-            "Share it with Editor permission before training."
+        matches = _matching_drive_files(service, filename)
+        if parent_ids:
+            matches = [
+                item
+                for item in matches
+                if parent_ids.intersection(
+                    {str(value) for value in item.get("parents", [])}
+                )
+            ]
+        editable = [
+            item
+            for item in matches
+            if bool(dict(item.get("capabilities", {})).get("canEdit", False))
+        ]
+        target = editable[0] if editable else None
+    if target is None:
+        raise RuntimeError(
+            f"No editable Google Drive object named {filename!r} exists. "
+            "Refusing to create a second checkpoint object."
         )
-    expected_version = str(origin.get("version", ""))
+
+    file_id = str(target.get("id", ""))
+    if not file_id:
+        raise RuntimeError(f"Google Drive target {filename!r} has no file id.")
+    if not bool(dict(target.get("capabilities", {})).get("canEdit", False)):
+        raise PermissionError(f"Google Drive target {filename!r} is read-only.")
     current_version = str(target.get("version", ""))
     if expected_version and current_version and expected_version != current_version:
         raise RuntimeError(
-            "The shared checkpoint changed after this session started. "
-            "Refusing to overwrite another training session's progress."
+            f"Google Drive target {filename!r} changed after this worker restored it. "
+            "Refusing a stale-writer overwrite."
         )
+
     try:
         from googleapiclient.http import MediaFileUpload  # type: ignore
 
         media = MediaFileUpload(
-            str(checkpoint),
+            str(source),
             mimetype="application/octet-stream",
             resumable=True,
             chunksize=16 * 1024 * 1024,
         )
+        body = {"appProperties": dict(app_properties or {})}
         request = service.files().update(
             fileId=file_id,
+            body=body,
             media_body=media,
             supportsAllDrives=True,
-            fields="id,name,size,version,modifiedTime",
+            fields="id,name,size,version,modifiedTime,md5Checksum,parents,appProperties",
         )
         response = None
         last_percent = -1
@@ -302,15 +431,78 @@ def _upload_checkpoint_to_drive_api(checkpoint: Path, origin: dict[str, Any]) ->
             if status is not None:
                 percent = int(status.progress() * 100)
                 if percent >= last_percent + 10:
-                    print(f"[Drive Shared] publishing shared checkpoint: {percent}%", flush=True)
+                    print(f"[Drive Shared] updating stable {filename}: {percent}%", flush=True)
                     last_percent = percent
         result = dict(response)
     except Exception as exc:
-        raise RuntimeError(f"Shared checkpoint upload failed: {exc}") from exc
-    _record_api_origin(checkpoint.name, result)
+        raise RuntimeError(f"Stable Google Drive update failed: {exc}") from exc
+
+    expected_size = source.stat().st_size
+    remote_size = int(result.get("size", -1))
+    remote_md5 = str(result.get("md5Checksum", ""))
+    local_md5 = _md5_file(source)
+    if remote_size != expected_size or not remote_md5 or remote_md5 != local_md5:
+        raise RuntimeError(
+            "Google Drive did not verify the uploaded checkpoint: "
+            f"local_size={expected_size} remote_size={remote_size} "
+            f"md5_match={remote_md5 == local_md5}"
+        )
+
+    result_parents = {str(value) for value in result.get("parents", [])}
+    removed = 0
+    if cleanup_duplicates:
+        removed = _trash_same_parent_duplicates(
+            service,
+            filename=filename,
+            keep_file_id=file_id,
+            keep_modified_time=str(result.get("modifiedTime", "")),
+            parents=result_parents,
+        )
+    result["duplicates_trashed"] = removed
+    _record_api_origin(filename, result)
     print(
-        f"[Drive Shared] shared master checkpoint updated: {result.get('name', checkpoint.name)}",
+        f"[Drive Shared] stable object verified: {filename} id={file_id}; "
+        f"duplicates_trashed={removed}",
         flush=True,
+    )
+    return result
+
+
+def update_recorded_drive_file(
+    source: Path,
+    filename: str,
+    *,
+    app_properties: dict[str, str] | None = None,
+    cleanup_duplicates: bool = True,
+) -> dict[str, Any]:
+    """Update the exact Drive object recorded during verified restore."""
+
+    origin = _read_origin(filename)
+    if not origin or origin.get("kind") != "drive_api":
+        raise RuntimeError(
+            f"No pinned Google Drive file id is recorded for {filename!r}. "
+            "Restore the canonical checkpoint through the Drive API first."
+        )
+    return update_drive_file_by_name(
+        source,
+        filename,
+        app_properties=app_properties,
+        preferred_file_id=str(origin.get("file_id", "")),
+        expected_version=str(origin.get("version", "")),
+        cleanup_duplicates=cleanup_duplicates,
+    )
+
+
+def _upload_checkpoint_to_drive_api(checkpoint: Path, origin: dict[str, Any]) -> Path:
+    file_id = str(origin.get("file_id", ""))
+    if not file_id:
+        raise RuntimeError("Shared checkpoint origin has no Google Drive file id.")
+    result = update_drive_file_by_name(
+        checkpoint,
+        checkpoint.name,
+        preferred_file_id=file_id,
+        expected_version=str(origin.get("version", "")),
+        cleanup_duplicates=True,
     )
     return Path(f"drive-api:{result['id']}")
 

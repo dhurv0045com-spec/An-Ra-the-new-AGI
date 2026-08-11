@@ -82,6 +82,36 @@ def test_drive_api_origin_uses_api_publisher(monkeypatch, tmp_path: Path) -> Non
     assert published == expected
 
 
+def test_recorded_drive_update_is_pinned_to_restored_id_and_version(
+    monkeypatch, tmp_path: Path
+) -> None:
+    _patch_drive(monkeypatch, tmp_path)
+    checkpoint = tmp_path / "anra-v4-current-full-resume.pt"
+    checkpoint.write_bytes(b"checkpoint")
+    shared._record_origin(
+        checkpoint.name,
+        {"kind": "drive_api", "file_id": "canonical-id", "version": "41"},
+    )
+    observed: dict[str, object] = {}
+
+    def stable_update(source: Path, filename: str, **kwargs: object) -> dict[str, object]:
+        observed.update({"source": source, "filename": filename, **kwargs})
+        return {"id": "canonical-id", "version": "42"}
+
+    monkeypatch.setattr(shared, "update_drive_file_by_name", stable_update)
+
+    result = shared.update_recorded_drive_file(
+        checkpoint,
+        checkpoint.name,
+        app_properties={"global_step": "200"},
+    )
+
+    assert result["id"] == "canonical-id"
+    assert observed["preferred_file_id"] == "canonical-id"
+    assert observed["expected_version"] == "41"
+    assert observed["cleanup_duplicates"] is True
+
+
 def test_required_shared_master_never_creates_private_drive_copy(monkeypatch, tmp_path: Path) -> None:
     _patch_drive(monkeypatch, tmp_path)
     checkpoint = tmp_path / "repo" / "anra_frontier_500m.pt"

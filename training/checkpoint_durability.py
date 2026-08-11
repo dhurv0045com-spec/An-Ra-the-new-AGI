@@ -5,11 +5,11 @@ after the local atomic save: content-addressed chunks, an immutable manifest,
 verified replica receipts, and a canonical pointer that is never published
 before every referenced byte has been verified.
 
-Ordinary filesystem replicas use content-addressed chunks.  Mounted Google
-Drive can instead use a monolithic replica: one portable checkpoint is rebuilt
-from the verified local outbox and atomically replaces a stable remote filename.
-This avoids creating a new multi-gigabyte Drive object at every checkpoint
-boundary (and avoids filling Drive's Bin when retired names are removed).
+Ordinary filesystem replicas use content-addressed chunks. A local monolithic
+replica may atomically replace one portable filename. Google Drive is object-ID
+storage, so its canonical backend instead stages locally and updates one pinned
+Drive file ID through the Drive API. Mounted-Drive rename is never treated as
+remote replacement because it can create duplicate multi-gigabyte objects.
 """
 
 from __future__ import annotations
@@ -1580,6 +1580,162 @@ class MonolithicFilesystemReplica:
         )
 
 
+class GoogleDriveApiReplica(MonolithicFilesystemReplica):
+    """Publish to one pinned Google Drive object ID, never through FUSE rename.
+
+    The mounted root is retained only for the existing operator-visible lease
+    and discovery files. Checkpoint staging stays in the local outbox. The
+    verified checkpoint is uploaded with Drive ``files.update`` against the
+    exact file ID recorded when this worker restored the canonical master.
+    """
+
+    def __init__(
+        self,
+        name: str,
+        root: Path,
+        *,
+        kind: str = "google_drive_api_single_file",
+        canonical: bool = False,
+    ) -> None:
+        super().__init__(name, root, kind=kind, canonical=canonical)
+        self._remote_proofs: dict[ArtifactClass, dict[str, object]] = {}
+
+    def _publish_manifest_locked(
+        self,
+        ref: SnapshotRef,
+        manifest: Mapping[str, object],
+    ) -> Path:
+        from training.shared_checkpoint import (
+            update_drive_file_by_name,
+            update_recorded_drive_file,
+        )
+
+        artifact_class = ArtifactClass(str(manifest["artifact_class"]))
+        source = dict(manifest["source"])
+        expected_size = int(source["size_bytes"])
+        expected_sha256 = str(source["sha256"])
+        target = self._checkpoint_path(artifact_class, ref.global_step)
+
+        # Materialize entirely on Colab's local disk. No multi-gigabyte
+        # `.uploading` object is ever created in Google Drive.
+        staging_dir = ref.snapshot_dir / "drive-api-staging"
+        staging_dir.mkdir(parents=True, exist_ok=True)
+        local_checkpoint = staging_dir / target.name
+        CheckpointOutbox(ref.outbox_root).materialize(
+            ref.snapshot_id,
+            local_checkpoint,
+            for_resume=artifact_class is ArtifactClass.FULL_RESUME,
+        )
+        try:
+            result = update_recorded_drive_file(
+                local_checkpoint,
+                target.name,
+                app_properties={
+                    "anra_schema": "anra-drive-checkpoint-v1",
+                    "artifact_class": artifact_class.value,
+                    "global_step": str(ref.global_step),
+                    "sha256": expected_sha256,
+                    "snapshot_id": ref.snapshot_id,
+                },
+                cleanup_duplicates=True,
+            )
+            metadata_path = staging_dir / self._metadata_path(artifact_class).name
+            metadata_payload = {
+                "schema_version": 1,
+                "artifact_class": artifact_class.value,
+                "global_step": ref.global_step,
+                "snapshot_id": ref.snapshot_id,
+                "size_bytes": expected_size,
+                "sha256": expected_sha256,
+                "drive_file_id": str(result.get("id", "")),
+                "drive_version": str(result.get("version", "")),
+            }
+            metadata_path.write_text(
+                json.dumps(metadata_payload, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            previous_proof = self._remote_proofs.get(artifact_class, {})
+            metadata_result = update_drive_file_by_name(
+                metadata_path,
+                metadata_path.name,
+                preferred_file_id=str(previous_proof.get("metadata_file_id", "")) or None,
+                expected_version=str(previous_proof.get("metadata_version", "")) or None,
+                parent_ids={str(value) for value in result.get("parents", [])},
+                cleanup_duplicates=True,
+            )
+        finally:
+            local_checkpoint.unlink(missing_ok=True)
+            (staging_dir / self._metadata_path(artifact_class).name).unlink(
+                missing_ok=True
+            )
+            with contextlib.suppress(OSError):
+                staging_dir.rmdir()
+
+        self._remote_proofs[artifact_class] = {
+            "size_bytes": expected_size,
+            "sha256": expected_sha256,
+            "global_step": ref.global_step,
+            "checkpoint_file_id": str(result.get("id", "")),
+            "checkpoint_version": str(result.get("version", "")),
+            "metadata_file_id": str(metadata_result.get("id", "")),
+            "metadata_version": str(metadata_result.get("version", "")),
+        }
+        self._active_paths[artifact_class] = target
+        return Path(f"drive-api-{result.get('id', 'unknown')}")
+
+    def verify_snapshot(self, manifest: Mapping[str, object]) -> None:
+        artifact_class = ArtifactClass(str(manifest["artifact_class"]))
+        proof = self._remote_proofs.get(artifact_class)
+        source = dict(manifest["source"])
+        lineage = dict(manifest.get("lineage", {}))
+        progress = dict(lineage.get("progress", {}))
+        expected_step = int(progress.get("global_step", 0) or 0)
+        if proof is None:
+            raise DurabilityCorruptionError("Drive API publication has no verified receipt")
+        if (
+            int(proof.get("size_bytes", -1)) != int(source["size_bytes"])
+            or str(proof.get("sha256", "")) != str(source["sha256"])
+            or int(proof.get("global_step", -1)) != expected_step
+            or not str(proof.get("checkpoint_file_id", ""))
+            or not str(proof.get("metadata_file_id", ""))
+        ):
+            raise DurabilityCorruptionError(
+                "Drive API receipt does not match the checkpoint manifest"
+            )
+
+    def publish_pointer(self, pointer: Mapping[str, object]) -> Path:
+        artifact_class = ArtifactClass(str(pointer["artifact_class"]))
+        proof = self._remote_proofs.get(artifact_class)
+        if proof is None:
+            raise DurabilityCorruptionError("Cannot protect an unverified Drive object")
+        return Path(f"drive-api-{proof['checkpoint_file_id']}")
+
+    def publish_receipt(
+        self,
+        snapshot_id: str,
+        receipt: Mapping[str, object],
+    ) -> Path:
+        artifact_class = ArtifactClass(str(receipt["artifact_class"]))
+        proof = self._remote_proofs.get(artifact_class)
+        if proof is None:
+            raise DurabilityCorruptionError(
+                f"No verified Drive API checkpoint for receipt {snapshot_id}"
+            )
+        return Path(f"drive-api-{proof['checkpoint_file_id']}")
+
+    def prune_snapshots(self, snapshot_ids: Iterable[str]) -> tuple[str, ...]:
+        # Drive holds exactly one stable object per artifact class; old object
+        # IDs are cleaned only after a newer upload receives a verified receipt.
+        return tuple(
+            sorted(
+                {
+                    _validate_identifier(value, label="snapshot id")
+                    for value in snapshot_ids
+                }
+            )
+        )
+
+
 MountedDriveReplica = FilesystemReplica
 
 
@@ -1952,12 +2108,13 @@ class SnapshotPublisher:
                 state = DurabilityState(str(status["state"]))
                 if STATE_ORDER[state] >= STATE_ORDER[target]:
                     result = self._results.get(ref.snapshot_id)
-                    return result or PublicationResult(
-                        snapshot_id=ref.snapshot_id,
-                        state=state,
-                        verified_replicas=tuple(dict(status.get("replicas", {}))),
-                        errors=(),
-                    )
+                    if result is not None:
+                        return result
+                    # The worker persists PROTECTED immediately before it
+                    # publishes the complete in-memory receipt and notifies
+                    # waiters. Do not return a partial status-derived result in
+                    # that narrow window; it can omit secondary replicas and
+                    # hide late publication errors.
                 result = self._results.get(ref.snapshot_id)
                 if result is not None:
                     raise PublicationError(
@@ -1998,6 +2155,13 @@ def _build_replica(
     kind: str,
     canonical: bool,
 ) -> ReplicaBackend:
+    if kind == "google_drive_api_single_file":
+        return GoogleDriveApiReplica(
+            name,
+            path,
+            kind=kind,
+            canonical=canonical,
+        )
     if kind in {
         "mounted_drive_single_file",
         "monolithic_filesystem",
