@@ -153,6 +153,19 @@ pilot, and the verifier accepts only a newer checkpoint carrying the same
 lineage, parent, dataset, validation, and assistant-only contract. A different
 lineage, older checkpoint, or corrupted payload requires another pilot review.
 
+### Optional frozen-parent anchor for a fresh lineage
+
+The notebook exposes `BASE_KL_WEIGHT`, `BASE_KL_INTERVAL`, and
+`BASE_KL_TEMPERATURE`. They default to `0.0`, so the existing SFT child can
+resume without changing its signed objective. For a **new signed SFT lineage**,
+the reviewed starting pilot setting is `BASE_KL_WEIGHT = 0.02` and interval `4`.
+On that interval the child is softly anchored to logits from the immutable V4
+foundation parent while it learns assistant-only answers. This can reduce
+forgetting from a small instruction corpus; it is not evidence of a capability
+gain until a short pilot and its behavioral report beat the unanchored parent.
+Changing these values during a resume is rejected. Set the weight back to
+`0.0` only when creating another fresh signed lineage.
+
 The `sft-v4` Drive folder is a single-file hot vault. The canonical payload is
 `anra-v4-current-full-resume.pt`; protected saves atomically replace that path.
 Old step-named files and archived 2+ GiB payloads are pruned automatically while

@@ -19,12 +19,15 @@ from training.sft_v4 import (
     _behavior_smoke_report,
     _behavior_smoke_verdict,
     _prune_sft_checkpoint_copies,
+    _sft_recipe,
     _validate_sft_sampler_position,
+    _validate_frozen_parent_kl_resume,
     _verify_resume_checkpoint_binding,
     _verify_full_sft_approval,
     _write_full_sft_approval,
     _resume_parent_validation_loss,
     assistant_only_loss,
+    frozen_parent_kl_loss,
     load_sft_examples,
     load_sft_validation_examples,
 )
@@ -221,6 +224,53 @@ def test_sft_supervision_masks_prompt_and_keeps_answer_and_eos() -> None:
     torch.testing.assert_close(
         baseline, assistant_only_loss(altered_prompt, targets, answer_weights)
     )
+
+
+def test_frozen_parent_kl_is_zero_for_matching_logits_and_trains_only_student() -> None:
+    student = torch.randn(1, 3, 7, requires_grad=True)
+    parent = student.detach().clone()
+    ids = torch.tensor([[2, 3, 0]])
+
+    identical = frozen_parent_kl_loss(
+        student, parent, ids, pad_token_id=0, temperature=1.0
+    )
+    assert float(identical.detach()) == pytest.approx(0.0, abs=1e-7)
+
+    changed_parent = parent.clone()
+    changed_parent[:, 0, 1] += 2.0
+    anchored = frozen_parent_kl_loss(
+        student, changed_parent, ids, pad_token_id=0, temperature=1.0
+    )
+    assert float(anchored.detach()) > 0.0
+    anchored.backward()
+    assert student.grad is not None
+    assert changed_parent.grad is None
+
+
+def test_frozen_parent_kl_resume_policy_is_explicit_and_reversible() -> None:
+    disabled = _sft_recipe(
+        seed=1301,
+        batch_size=1,
+        accumulation=8,
+        total_steps=5_000,
+        base_kl_weight=0.0,
+        base_kl_interval=4,
+        base_kl_temperature=1.0,
+    )
+    # Pre-anchor checkpoints can resume only with the explicit default-off path.
+    _validate_frozen_parent_kl_resume({"training_recipe": {}}, disabled)
+    anchored = _sft_recipe(
+        seed=1301,
+        batch_size=1,
+        accumulation=8,
+        total_steps=5_000,
+        base_kl_weight=0.02,
+        base_kl_interval=4,
+        base_kl_temperature=1.0,
+    )
+    with pytest.raises(RuntimeError, match="recipe changed"):
+        _validate_frozen_parent_kl_resume({"training_recipe": {}}, anchored)
+    _validate_frozen_parent_kl_resume({"training_recipe": anchored}, anchored)
 
 
 def test_behavior_probe_restores_training_mode() -> None:

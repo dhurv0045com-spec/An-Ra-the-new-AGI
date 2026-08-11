@@ -417,25 +417,32 @@ class MoDRouter(nn.Module):
                 context_stack * self.context_weights.to(dtype=x.dtype),
                 dim=-1,
             )
-        topk_vals, topk_idx = scores.topk(k, dim=-1)
+        _topk_vals, topk_idx = scores.topk(k, dim=-1)
         gate_probabilities = torch.sigmoid(scores + self.capacity_control)
-        hard_mask = torch.zeros_like(gate_probabilities)
-        hard_mask.scatter_(1, topk_idx, 1.0)
+        # Dispatch only the selected token rows through the FFN.  The former
+        # training path multiplied a dense ``ffn(x)`` by a top-k mask, so it
+        # paid for every token even though the MoD experiment claimed sparse
+        # compute.  Gather/scatter retains the same forward function while
+        # making selected-token compute explicit in both train and eval.
+        selected = x.gather(1, topk_idx.unsqueeze(-1).expand(-1, -1, d))
+        selected_out = ffn(selected)
+        selected_probabilities = gate_probabilities.gather(1, topk_idx)
         if self.training:
-            # Forward uses the exact hard top-k mask. Backward uses sigmoid gates
-            # so routing decisions receive a straight-through learning signal.
-            straight_through_mask = hard_mask + gate_probabilities - gate_probabilities.detach()
-            routed = (straight_through_mask * gate_probabilities).unsqueeze(-1) * ffn(x)
-        else:
-            selected = x.gather(1, topk_idx.unsqueeze(-1).expand(-1, -1, d))
-            selected_out = ffn(selected)
-            routing_weights = torch.sigmoid(topk_vals + self.capacity_control).unsqueeze(-1)
-            routed = torch.zeros_like(x)
-            routed.scatter_add_(
-                1,
-                topk_idx.unsqueeze(-1).expand(-1, -1, d),
-                routing_weights * selected_out,
+            # ``topk`` itself is discrete.  Preserve the historic probability-
+            # weighted forward value while adding the selected gate's
+            # straight-through routing signal.  The detached term is exactly
+            # zero forward, so train and eval execute the same selected FFNs.
+            routing_weights = selected_probabilities + selected_probabilities * (
+                selected_probabilities - selected_probabilities.detach()
             )
+        else:
+            routing_weights = selected_probabilities
+        routed = torch.zeros_like(x)
+        routed.scatter_add_(
+            1,
+            topk_idx.unsqueeze(-1).expand(-1, -1, d),
+            routing_weights.unsqueeze(-1) * selected_out,
+        )
         self._last_balance_loss = (gate_probabilities.mean() - capacity).pow(2)
         self._last_z_loss = torch.logaddexp(torch.zeros_like(scores), scores).pow(2).mean()
         if self.telemetry_enabled:
@@ -448,6 +455,12 @@ class MoDRouter(nn.Module):
                 self._telemetry_tensors = {
                     "capacity": torch.as_tensor(capacity, device=x.device),
                     "selected_fraction": torch.as_tensor(k / max(1, n), device=x.device),
+                    "ffn_selected_tokens": torch.as_tensor(
+                        x.shape[0] * k, device=x.device
+                    ),
+                    "ffn_skipped_tokens": torch.as_tensor(
+                        x.shape[0] * (n - k), device=x.device
+                    ),
                     "gate_mean": gate_probabilities.mean().detach(),
                     "gate_entropy": gate_entropy.detach(),
                     "gate_saturation_fraction": (

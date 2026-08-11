@@ -43,6 +43,7 @@ from pydantic import BaseModel, Field
 
 from runtime.experience_ledger import record_experience
 from runtime.local_checkpoint import LocalSFTCheckpoint, resolve_local_sft_checkpoint
+from runtime.tool_broker import BoundedToolBroker, ToolGrant, ToolInputError, ToolPolicyError
 
 _HEARTBEAT_TIMEOUT_SECONDS = max(
     15, int(os.environ.get("ANRA_PROTOTYPE_IDLE_SHUTDOWN_SECONDS", "45"))
@@ -197,6 +198,24 @@ class EvaluationRequest(BaseModel):
     categories: list[str] | None = Field(default=None, max_length=len(_SMOKE_PROMPTS))
 
 
+class ToolGrantRequest(BaseModel):
+    """Explicit owner request for one short-lived, session-bound local tool grant."""
+
+    session_id: str = Field("local", min_length=1, max_length=64)
+    allowed_tools: tuple[Literal["calculator"], ...] = ("calculator",)
+    max_calls: int = Field(1, ge=1, le=8)
+    ttl_seconds: float = Field(120.0, ge=1.0, le=600.0)
+
+
+class ToolExecuteRequest(BaseModel):
+    """Typed local tool call. A model cannot create a usable capability itself."""
+
+    capability_id: str = Field(..., min_length=16, max_length=256)
+    session_id: str = Field("local", min_length=1, max_length=64)
+    tool: Literal["calculator"]
+    expression: str = Field(..., min_length=1, max_length=256)
+
+
 class PrototypeRuntime:
     """Thread-safe owner for the one resident prototype model."""
 
@@ -212,6 +231,7 @@ class PrototypeRuntime:
         self._shutdown_requested = False
         self._sessions: dict[str, list[dict[str, str]]] = {}
         self._last_evaluation: dict[str, Any] | None = None
+        self._tools = BoundedToolBroker(ledger_source="runtime.sft_prototype.tool_broker")
 
     def load(self) -> None:
         with self._lock:
@@ -259,6 +279,7 @@ class PrototypeRuntime:
             self._stage = "unloaded"
             self._info = {}
             self._sessions.clear()
+            self._tools.clear()
             self._error = ""
             if reason in {"idle_page_closed", "operator_stop"}:
                 self._shutdown_requested = True
@@ -271,6 +292,38 @@ class PrototypeRuntime:
     def clear_session(self, session_id: str) -> None:
         with self._lock:
             self._sessions.pop(session_id, None)
+        self._tools.revoke_session(session_id)
+
+    def issue_tool_grant(
+        self,
+        *,
+        session_id: str,
+        allowed_tools: tuple[Literal["calculator"], ...],
+        max_calls: int,
+        ttl_seconds: float,
+    ) -> ToolGrant:
+        return self._tools.issue_grant(
+            session_id=session_id,
+            allowed_tools=allowed_tools,
+            max_calls=max_calls,
+            ttl_seconds=ttl_seconds,
+        )
+
+    def execute_tool(
+        self,
+        *,
+        capability_id: str,
+        session_id: str,
+        tool: Literal["calculator"],
+        expression: str,
+    ) -> tuple[dict[str, object], dict[str, object]]:
+        result, receipt = self._tools.execute(
+            capability_id=capability_id,
+            session_id=session_id,
+            tool=tool,
+            arguments={"expression": expression},
+        )
+        return result, receipt.public_view()
 
     def conversation_prompt(self, session_id: str, message: str) -> str:
         with self._lock:
@@ -353,6 +406,11 @@ class PrototypeRuntime:
                 },
                 "gpu": _gpu_snapshot(),
                 "sessions": len(self._sessions),
+                "tools": {
+                    "mode": "explicit_owner_capability_only",
+                    "registered": ["calculator"],
+                    "active_grants": self._tools.active_grant_count(),
+                },
                 "last_heartbeat_age_seconds": last_heartbeat_age,
                 "shutdown_requested": self._shutdown_requested,
                 "idle_timeout_seconds": _HEARTBEAT_TIMEOUT_SECONDS,
@@ -678,6 +736,40 @@ def create_app() -> FastAPI:
     async def unload() -> dict[str, Any]:
         await run_in_threadpool(runtime.unload, reason="operator_stop")
         return runtime.status()
+
+    @app.post("/api/tools/grants")
+    async def issue_tool_grant(body: ToolGrantRequest) -> dict[str, Any]:
+        """Issue a local capability; no model output can mint tool authority."""
+        current = ready_runtime()
+        try:
+            grant = current.issue_tool_grant(
+                session_id=body.session_id,
+                allowed_tools=body.allowed_tools,
+                max_calls=body.max_calls,
+                ttl_seconds=body.ttl_seconds,
+            )
+        except ToolInputError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+        return {"grant": grant.public_view(), "mode": "explicit_owner_capability_only"}
+
+    @app.post("/api/tools/execute")
+    async def execute_tool(body: ToolExecuteRequest) -> dict[str, Any]:
+        """Execute one audited typed local tool under a server-issued grant."""
+        current = ready_runtime()
+        try:
+            result, receipt = current.execute_tool(
+                capability_id=body.capability_id,
+                session_id=body.session_id,
+                tool=body.tool,
+                expression=body.expression,
+            )
+        except ToolPolicyError as error:
+            raise HTTPException(status_code=403, detail=str(error)) from error
+        return {
+            "result": result,
+            "receipt": receipt,
+            "provenance_scope": "exact local arithmetic only; not a model factual claim",
+        }
 
     @app.post("/api/chat")
     async def chat(body: ChatRequest) -> dict[str, Any]:

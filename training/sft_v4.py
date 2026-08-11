@@ -73,6 +73,15 @@ SFT_DEFAULT_LEARNING_RATE = 5e-5
 SFT_DEFAULT_TOTAL_STEPS = 5_000
 SFT_DEFAULT_CHECKPOINT_STEPS = 200
 SFT_DEFAULT_CHECKPOINT_MINUTES = 15
+# A frozen-parent KL anchor is deliberately opt-in.  It protects a *new* SFT
+# lineage from over-specialising to a small instruction corpus, but it must not
+# be introduced midway through an exact-resume child.  The 0.02 preset is kept
+# as a named recommendation for a reviewed future lineage rather than silently
+# mutating the already-trained SFT checkpoint.
+SFT_RECOMMENDED_BASE_KL_WEIGHT = 0.02
+SFT_DEFAULT_BASE_KL_WEIGHT = 0.0
+SFT_DEFAULT_BASE_KL_INTERVAL = 4
+SFT_DEFAULT_BASE_KL_TEMPERATURE = 1.0
 SFT_FULL_APPROVAL_SCHEMA = "anra-v4-sft-full-approval/v1"
 
 
@@ -472,8 +481,55 @@ def assistant_only_loss(
     return (per_token * weights).sum() / denominator
 
 
+def frozen_parent_kl_loss(
+    student_logits: torch.Tensor,
+    parent_logits: torch.Tensor,
+    input_ids: torch.Tensor,
+    *,
+    pad_token_id: int,
+    temperature: float,
+) -> torch.Tensor:
+    """Measure distribution drift from the immutable foundation parent.
+
+    This is an SFT stabilizer, not distillation from a stronger model.  The
+    teacher is exactly the signed V4 parent and never receives gradients.  We
+    evaluate every non-padding position so the child retains a broad language
+    prior while the assistant-only CE term still supplies the desired answer
+    behavior.  A zero weight is the explicit rollback path.
+    """
+
+    if student_logits.shape != parent_logits.shape:
+        raise ValueError("parent and student logits must have identical shapes")
+    if student_logits.ndim != 3 or input_ids.shape != student_logits.shape[:2]:
+        raise ValueError("invalid logits or input_ids shape for frozen-parent KL")
+    if not math.isfinite(float(temperature)) or float(temperature) <= 0.0:
+        raise ValueError("frozen-parent KL temperature must be finite and positive")
+    mask = input_ids.ne(int(pad_token_id))
+    if not bool(mask.any()):
+        raise ValueError("frozen-parent KL received an all-padding batch")
+    scaled_student = student_logits.float() / float(temperature)
+    scaled_parent = parent_logits.detach().float() / float(temperature)
+    per_token = F.kl_div(
+        F.log_softmax(scaled_student, dim=-1),
+        F.softmax(scaled_parent, dim=-1),
+        reduction="none",
+    ).sum(dim=-1)
+    return (
+        (per_token * mask.to(dtype=per_token.dtype)).sum()
+        / mask.sum().clamp_min(1).to(dtype=per_token.dtype)
+        * float(temperature) ** 2
+    )
+
+
 def _sft_recipe(
-    *, seed: int, batch_size: int, accumulation: int, total_steps: int
+    *,
+    seed: int,
+    batch_size: int,
+    accumulation: int,
+    total_steps: int,
+    base_kl_weight: float,
+    base_kl_interval: int,
+    base_kl_temperature: float,
 ) -> dict[str, object]:
     return {
         "stage": SFT_STAGE,
@@ -485,6 +541,13 @@ def _sft_recipe(
         "gradient_accumulation": int(accumulation),
         "total_steps": int(total_steps),
         "schedule": "cosine_with_warmup",
+        "frozen_parent_kl": {
+            "enabled": float(base_kl_weight) > 0.0,
+            "weight": float(base_kl_weight),
+            "interval": int(base_kl_interval),
+            "temperature": float(base_kl_temperature),
+            "teacher": "signed_foundation_parent_v1",
+        },
     }
 
 
@@ -509,6 +572,7 @@ def _checkpoint_payload(
     dataset_manifest: Mapping[str, object],
     data_generator: torch.Generator,
     behavior_history: Sequence[Mapping[str, object]] = (),
+    base_kl_stats: Mapping[str, object] | None = None,
 ) -> dict[str, object]:
     payload: dict[str, object] = {
         "checkpoint_schema_version": CHECKPOINT_SCHEMA_VERSION,
@@ -542,6 +606,9 @@ def _checkpoint_payload(
         # apparent validation improvement cannot erase a collapse signal from
         # an earlier worker session.
         "sft_behavior_history": [dict(row) for row in behavior_history],
+        # The recipe defines the anchor; these counters make its actual use
+        # auditable after an interrupted notebook handoff.
+        "sft_frozen_parent_kl": dict(base_kl_stats or {}),
         "tokens_seen": int(input_tokens_processed),
         "best_loss": float(best_validation_loss),
         "best_training_loss": float(train_loss),
@@ -651,6 +718,42 @@ def _resume_parent_validation_loss(
     return stored, False
 
 
+def _validate_frozen_parent_kl_resume(
+    loaded: Mapping[str, object], recipe: Mapping[str, object]
+) -> None:
+    """Keep an exact SFT child from changing its anchoring policy mid-lineage."""
+
+    expected = recipe.get("frozen_parent_kl", {})
+    expected = expected if isinstance(expected, Mapping) else {}
+    stored_recipe = loaded.get("training_recipe", {})
+    stored_recipe = stored_recipe if isinstance(stored_recipe, Mapping) else {}
+    stored = stored_recipe.get("frozen_parent_kl", {})
+    # Checkpoints from before this feature are compatible only with the
+    # explicit disabled setting.  Enabling it requires a fresh signed child so
+    # there is no ambiguity about which objective produced the weights.
+    if not isinstance(stored, Mapping):
+        raise RuntimeError("SFT resume checkpoint has malformed frozen-parent KL recipe")
+    stored_normalized = {
+        "enabled": bool(stored.get("enabled", False)),
+        "weight": float(stored.get("weight", 0.0)),
+        "interval": int(stored.get("interval", SFT_DEFAULT_BASE_KL_INTERVAL)),
+        "temperature": float(stored.get("temperature", SFT_DEFAULT_BASE_KL_TEMPERATURE)),
+        "teacher": str(stored.get("teacher", "signed_foundation_parent_v1")),
+    }
+    expected_normalized = {
+        "enabled": bool(expected.get("enabled", False)),
+        "weight": float(expected.get("weight", 0.0)),
+        "interval": int(expected.get("interval", SFT_DEFAULT_BASE_KL_INTERVAL)),
+        "temperature": float(expected.get("temperature", SFT_DEFAULT_BASE_KL_TEMPERATURE)),
+        "teacher": str(expected.get("teacher", "signed_foundation_parent_v1")),
+    }
+    if stored_normalized != expected_normalized:
+        raise RuntimeError(
+            "SFT frozen-parent KL recipe changed across resume; keep the saved "
+            "setting or start a fresh signed SFT lineage"
+        )
+
+
 def _compatibility_commit_authorized(lineage_source: object, current_source: str) -> bool:
     """Allow only an explicitly declared, owner-approved runtime patch."""
 
@@ -752,6 +855,9 @@ class SFTRunConfig:
     checkpoint_steps: int = SFT_DEFAULT_CHECKPOINT_STEPS
     checkpoint_minutes: int = SFT_DEFAULT_CHECKPOINT_MINUTES
     behavior_probe_steps: int = 500
+    base_kl_weight: float = SFT_DEFAULT_BASE_KL_WEIGHT
+    base_kl_interval: int = SFT_DEFAULT_BASE_KL_INTERVAL
+    base_kl_temperature: float = SFT_DEFAULT_BASE_KL_TEMPERATURE
     allow_cpu_pilot: bool = False
 
 
@@ -830,8 +936,16 @@ def preflight_sft_v4(config: SFTRunConfig) -> dict[str, object]:
         or config.accumulation < 1
         or config.max_minutes < 1
         or config.behavior_probe_steps < 1
+        or config.base_kl_interval < 1
     ):
         raise ValueError("SFT batch size, accumulation, and session minutes must be positive")
+    if (
+        not math.isfinite(float(config.base_kl_weight))
+        or float(config.base_kl_weight) < 0.0
+        or not math.isfinite(float(config.base_kl_temperature))
+        or float(config.base_kl_temperature) <= 0.0
+    ):
+        raise ValueError("SFT frozen-parent KL parameters are invalid")
     if config.max_examples is not None:
         raise ValueError(
             "--max-examples is not allowed for canonical SFT: use an audited, "
@@ -865,6 +979,13 @@ def preflight_sft_v4(config: SFTRunConfig) -> dict[str, object]:
         "sft_vault": str(destination),
         "pruned_checkpoint_copies": list(pruned_checkpoint_copies),
         "full_approval": approval,
+        "frozen_parent_kl": {
+            "enabled": float(config.base_kl_weight) > 0.0,
+            "weight": float(config.base_kl_weight),
+            "interval": int(config.base_kl_interval),
+            "temperature": float(config.base_kl_temperature),
+            "rollback": "set --base-kl-weight 0 for a fresh signed SFT lineage",
+        },
         "next_action": "run SFT pilot" if config.mode == "pilot" else "run approved full SFT",
     }
     write_json(destination / "ready_to_sft.json", report)
@@ -1102,6 +1223,9 @@ def run_sft_v4(config: SFTRunConfig) -> dict[str, object]:
         batch_size=config.batch_size,
         accumulation=config.accumulation,
         total_steps=config.total_steps,
+        base_kl_weight=config.base_kl_weight,
+        base_kl_interval=config.base_kl_interval,
+        base_kl_temperature=config.base_kl_temperature,
     )
     native_model = getattr(model, "model", model)
     sft_remote_checkpoint = config.vault_root / "sft-v4" / "anra-v4-current-full-resume.pt"
@@ -1148,7 +1272,41 @@ def run_sft_v4(config: SFTRunConfig) -> dict[str, object]:
         or not load_report.get("exact_core_load")
     ):
         raise RuntimeError("V4 SFT parent/resume checkpoint failed exact core loading")
+    if resuming:
+        _validate_frozen_parent_kl_resume(loaded, recipe)
     native_model.training_recipe = dict(recipe)
+    reference_model: torch.nn.Module | None = None
+    if float(config.base_kl_weight) > 0.0:
+        # This is an immutable *parent* reference, never the previous SFT
+        # child. It gives a new SFT lineage a reversible anti-forgetting term
+        # without contaminating the parent checkpoint or its optimizer state.
+        reference_model = build_model_for_profile(
+            CANONICAL_MODEL_PROFILE,
+            block_size=2048,
+            vocab_size=tokenizer.vocab_size,
+            use_mtp=False,
+            use_moe=False,
+        ).to(device)
+        ensure_tied_lm_head(reference_model)
+        reference_loaded = load_checkpoint(
+            reference_model,
+            None,
+            None,
+            None,
+            config.base_checkpoint,
+            device=device,
+            strict=True,
+            resume_training=False,
+        )
+        reference_report = reference_loaded.get("load_report", {})
+        if (
+            not reference_loaded.get("loaded")
+            or not isinstance(reference_report, Mapping)
+            or not reference_report.get("exact_core_load")
+        ):
+            raise RuntimeError("SFT frozen parent reference failed exact core loading")
+        reference_model.eval()
+        reference_model.requires_grad_(False)
     global_step = int(loaded.get("global_step", 0)) if resuming else 0
     epoch = int(loaded.get("epoch", 0)) if resuming else 0
     cursor = int(loaded.get("sft_microbatch_cursor", 0)) if resuming else 0
@@ -1221,6 +1379,18 @@ def run_sft_v4(config: SFTRunConfig) -> dict[str, object]:
     # Bound checkpoint growth while retaining a complete enough trajectory to
     # diagnose a late behavioral collapse across notebook handoffs.
     behavior_history = behavior_history[-24:]
+    raw_base_kl_stats = loaded.get("sft_frozen_parent_kl", {}) if resuming else {}
+    raw_base_kl_stats = raw_base_kl_stats if isinstance(raw_base_kl_stats, Mapping) else {}
+    base_kl_stats: dict[str, object] = {
+        "enabled": reference_model is not None,
+        "weight": float(config.base_kl_weight),
+        "interval": int(config.base_kl_interval),
+        "temperature": float(config.base_kl_temperature),
+        "teacher": "signed_foundation_parent_v1",
+        "applied_microbatches": int(raw_base_kl_stats.get("applied_microbatches", 0)),
+        "last_loss": float(raw_base_kl_stats.get("last_loss", 0.0)),
+        "mean_loss": float(raw_base_kl_stats.get("mean_loss", 0.0)),
+    }
 
     def save(*, final: bool, train_loss: float) -> None:
         payload = _checkpoint_payload(
@@ -1243,6 +1413,7 @@ def run_sft_v4(config: SFTRunConfig) -> dict[str, object]:
             dataset_manifest=dataset_manifest,
             data_generator=data_generator,
             behavior_history=behavior_history,
+            base_kl_stats=base_kl_stats,
         )
         atomic_save(payload, config.local_checkpoint, drive_dir=None)
         ref = durability.publish_checkpoint(config.local_checkpoint, payload, final=final)
@@ -1290,6 +1461,8 @@ def run_sft_v4(config: SFTRunConfig) -> dict[str, object]:
         pending_epoch, pending_cursor = epoch, cursor
         pending_input_tokens = 0
         pending_supervised_tokens = 0
+        pending_anchor_loss = 0.0
+        pending_anchor_count = 0
         for _ in range(config.accumulation):
             indices, pending_epoch, pending_cursor = _next_batch_indices(
                 len(dataset), config.batch_size, config.seed, pending_epoch, pending_cursor
@@ -1303,13 +1476,42 @@ def run_sft_v4(config: SFTRunConfig) -> dict[str, object]:
             with mp.autocast():
                 output = model(ids)
                 logits = output[0] if isinstance(output, tuple) else output
-                loss = assistant_only_loss(logits, targets, weights) / config.accumulation
+                task_loss = assistant_only_loss(logits, targets, weights)
+            anchor_loss: torch.Tensor | None = None
+            # Apply a bounded anchor periodically. It is scheduled by the
+            # committed optimizer step, so interruption/retry reuses the same
+            # decision and cannot silently change the objective at a boundary.
+            if (
+                reference_model is not None
+                and global_step % int(config.base_kl_interval) == 0
+            ):
+                with torch.no_grad():
+                    reference_output = reference_model(ids)
+                    reference_logits = (
+                        reference_output[0]
+                        if isinstance(reference_output, tuple)
+                        else reference_output
+                    )
+                anchor_loss = frozen_parent_kl_loss(
+                    logits,
+                    reference_logits,
+                    ids,
+                    pad_token_id=dataset.pad_id,
+                    temperature=config.base_kl_temperature,
+                )
+            loss = (
+                task_loss
+                + (float(config.base_kl_weight) * anchor_loss if anchor_loss is not None else 0.0)
+            ) / config.accumulation
             if not torch.isfinite(loss):
                 raise RuntimeError(
                     "SFT loss became non-finite; checkpoint remains at the last safe boundary"
                 )
             mp.backward(loss)
-            last_loss = float(loss.item() * config.accumulation)
+            last_loss = float(task_loss.item())
+            if anchor_loss is not None:
+                pending_anchor_loss += float(anchor_loss.detach().item())
+                pending_anchor_count += 1
         mp.clip_gradients(
             model,
             optimizer,
@@ -1323,6 +1525,15 @@ def run_sft_v4(config: SFTRunConfig) -> dict[str, object]:
             supervised_tokens_processed += pending_supervised_tokens
             scheduler.step()
             global_step += 1
+            if pending_anchor_count:
+                previous_count = int(base_kl_stats["applied_microbatches"])
+                previous_mean = float(base_kl_stats["mean_loss"])
+                next_count = previous_count + pending_anchor_count
+                base_kl_stats["applied_microbatches"] = next_count
+                base_kl_stats["last_loss"] = pending_anchor_loss / pending_anchor_count
+                base_kl_stats["mean_loss"] = (
+                    previous_mean * previous_count + pending_anchor_loss
+                ) / next_count
         else:
             skipped_updates += 1
             print(
@@ -1420,6 +1631,7 @@ def run_sft_v4(config: SFTRunConfig) -> dict[str, object]:
         "elapsed_minutes": round((time.monotonic() - started) / 60, 2),
         "behavior_smoke": behavior_smoke,
         "behavior_history": behavior_history,
+        "frozen_parent_kl": dict(base_kl_stats),
     }
     report_path = config.vault_root / "sft-v4" / "latest_sft_report.json"
     _atomic_write_json(report_path, result)
@@ -1481,6 +1693,9 @@ def _config_from_args(args: argparse.Namespace) -> SFTRunConfig:
         checkpoint_steps=args.checkpoint_steps,
         checkpoint_minutes=args.checkpoint_minutes,
         behavior_probe_steps=args.behavior_probe_steps,
+        base_kl_weight=args.base_kl_weight,
+        base_kl_interval=args.base_kl_interval,
+        base_kl_temperature=args.base_kl_temperature,
         allow_cpu_pilot=args.allow_cpu_pilot,
     )
 
@@ -1532,6 +1747,27 @@ def main() -> None:
             type=int,
             default=500,
             help="Run and persist the fixed strict SFT behavior probe at this optimizer interval.",
+        )
+        command.add_argument(
+            "--base-kl-weight",
+            type=float,
+            default=SFT_DEFAULT_BASE_KL_WEIGHT,
+            help=(
+                "Optional frozen-parent logit anchor. Enable only for a fresh signed "
+                "SFT lineage; 0 is the exact rollback setting."
+            ),
+        )
+        command.add_argument(
+            "--base-kl-interval",
+            type=int,
+            default=SFT_DEFAULT_BASE_KL_INTERVAL,
+            help="Apply frozen-parent KL every N optimizer steps when enabled.",
+        )
+        command.add_argument(
+            "--base-kl-temperature",
+            type=float,
+            default=SFT_DEFAULT_BASE_KL_TEMPERATURE,
+            help="Temperature for the frozen-parent KL anchor.",
         )
         command.add_argument("--allow-cpu-pilot", action="store_true")
     args = parser.parse_args()

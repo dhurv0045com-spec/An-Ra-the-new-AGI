@@ -97,6 +97,43 @@ def test_mod_router_uses_hard_forward_and_straight_through_backward() -> None:
     assert router.gate.weight.grad.abs().sum() > 0
 
 
+def test_mod_router_dispatches_only_selected_tokens_with_train_eval_parity() -> None:
+    """MoD must skip unselected FFN rows without changing its forward semantics."""
+
+    class CountingFFN(torch.nn.Module):
+        def __init__(self) -> None:
+            super().__init__()
+            self.rows_seen = 0
+
+        def forward(self, values: torch.Tensor) -> torch.Tensor:
+            self.rows_seen += int(values.shape[0] * values.shape[1])
+            return values * 3.0
+
+    router = MoDRouter(2, capacity=0.5)
+    with torch.no_grad():
+        router.gate.weight.copy_(torch.tensor([[1.0, 0.0]]))
+        router.capacity_control.zero_()
+    x = torch.tensor(
+        [[[4.0, 1.0], [3.0, 1.0], [-3.0, 1.0], [-4.0, 1.0]]],
+        requires_grad=True,
+    )
+    ffn = CountingFFN()
+
+    router.train()
+    train_out = router(x, ffn)
+    assert ffn.rows_seen == 2  # 50% capacity, not the old dense 4-row FFN.
+    train_out.square().mean().backward()
+    assert router.gate.weight.grad is not None
+    assert router.gate.weight.grad.abs().sum() > 0
+
+    ffn.rows_seen = 0
+    router.eval()
+    with torch.no_grad():
+        eval_out = router(x.detach(), ffn)
+    assert ffn.rows_seen == 2
+    torch.testing.assert_close(train_out.detach(), eval_out)
+
+
 def test_router_context_civ_changes_gate_strength() -> None:
     router = MoDRouter(2, capacity=1.0)
     router.eval()
