@@ -17,6 +17,7 @@ from training.sft_dataset_v4 import (
 from training.sft_v4 import (
     SFTConversationDataset,
     _behavior_smoke_report,
+    _behavior_smoke_verdict,
     _prune_sft_checkpoint_copies,
     _validate_sft_sampler_position,
     _verify_resume_checkpoint_binding,
@@ -243,6 +244,22 @@ def test_behavior_probe_restores_training_mode() -> None:
     assert model.training is True
 
 
+def test_behavior_smoke_rejects_one_generic_answer_for_every_prompt() -> None:
+    verdict = _behavior_smoke_verdict(
+        [
+            {
+                "output": "A generic keyword-stuffed response.",
+                "behavior_pass": True,
+            }
+            for _ in range(8)
+        ]
+    )
+    assert verdict["unique_output_count"] == 1
+    assert verdict["minimum_unique_outputs"] == 6
+    assert verdict["collapse_detected"] is True
+    assert verdict["passed"] is False
+
+
 def test_sft_text_normalisation_preserves_code_indentation_and_newlines() -> None:
     code = "\r\n  def add(a, b):\r\n      return a + b\r\n"
     assert _normalise_text(code, field="answer") == "def add(a, b):\n      return a + b"
@@ -269,6 +286,10 @@ def test_full_sft_needs_signed_approval_for_the_current_pilot_checkpoint(tmp_pat
                     "behavior_smoke": {
                         "schema": "anra-sft-behavior-smoke/v1",
                         "passed": True,
+                        "prompt_count": 8,
+                        "unique_output_count": 8,
+                        "minimum_unique_outputs": 6,
+                        "collapse_detected": False,
                     },
                 }
         ),

@@ -139,11 +139,12 @@ def _write_full_sft_approval(
     ):
         raise RuntimeError("SFT pilot has no valid parent-versus-child validation evidence")
     behavior = report.get("behavior_smoke")
-    if not isinstance(behavior, Mapping) or behavior.get("passed") is not True:
+    if not isinstance(behavior, Mapping):
         raise RuntimeError(
             "SFT pilot lacks a passing behavior smoke report; review generated outputs "
             "before approving full SFT"
         )
+    _require_noncollapsed_behavior_smoke(behavior)
     readiness_path = sft_root / "ready_to_sft.json"
     if not readiness_path.is_file():
         raise FileNotFoundError(
@@ -945,6 +946,67 @@ _BEHAVIOR_SMOKE_PROMPTS: tuple[tuple[str, str], ...] = (
 )
 
 
+def _behavior_smoke_verdict(rows: Sequence[Mapping[str, object]]) -> dict[str, object]:
+    """Summarize fixed-prompt behavior without mistaking a generic reply for ability.
+
+    A model that emits one long, keyword-stuffed answer for every prompt can pass
+    several isolated format checks.  The SFT promotion gate therefore requires
+    meaningful output diversity as well as a pass for each scoped prompt.  This
+    remains a smoke test, not a claim of broad capability or factual accuracy.
+    """
+
+    prompt_count = len(rows)
+    normalized_outputs = {
+        " ".join(str(row.get("output", "")).split())
+        for row in rows
+        if str(row.get("output", "")).strip()
+    }
+    unique_output_count = len(normalized_outputs)
+    # Eight fixed prompts currently require six distinct outputs.  Expressing
+    # this as a proportion keeps the invariant valid if the suite is extended.
+    minimum_unique_outputs = max(1, math.ceil(prompt_count * 0.75))
+    collapse_detected = unique_output_count < minimum_unique_outputs
+    category_checks_passed = bool(rows) and all(
+        bool(row.get("behavior_pass")) for row in rows
+    )
+    return {
+        "passed": category_checks_passed and not collapse_detected,
+        "prompt_count": prompt_count,
+        "unique_output_count": unique_output_count,
+        "minimum_unique_outputs": minimum_unique_outputs,
+        "collapse_detected": collapse_detected,
+    }
+
+
+def _require_noncollapsed_behavior_smoke(behavior: Mapping[str, object]) -> None:
+    """Reject legacy or malformed smoke evidence when approving full SFT."""
+
+    if behavior.get("passed") is not True:
+        raise RuntimeError(
+            "SFT pilot lacks a passing behavior smoke report; review generated outputs "
+            "before approving full SFT"
+        )
+    try:
+        prompt_count = int(behavior["prompt_count"])
+        unique_output_count = int(behavior["unique_output_count"])
+        minimum_unique_outputs = int(behavior["minimum_unique_outputs"])
+    except (KeyError, TypeError, ValueError) as error:
+        raise RuntimeError(
+            "SFT pilot behavior evidence predates the anti-collapse gate; rerun a "
+            "short pilot before approving full SFT"
+        ) from error
+    if (
+        prompt_count < 1
+        or minimum_unique_outputs != max(1, math.ceil(prompt_count * 0.75))
+        or unique_output_count < minimum_unique_outputs
+        or behavior.get("collapse_detected") is not False
+    ):
+        raise RuntimeError(
+            "SFT pilot behavior smoke indicates collapsed or incomplete outputs; "
+            "do not approve full SFT"
+        )
+
+
 def _behavior_smoke_report(
     model: torch.nn.Module,
     tokenizer: object,
@@ -988,16 +1050,12 @@ def _behavior_smoke_report(
             behavior_pass, requirement = check_smoke_response(category, text)
             rows[-1]["behavior_pass"] = behavior_pass
             rows[-1]["requirement"] = requirement
-    unique_outputs = len({" ".join(str(row["output"]).split()) for row in rows})
-    passed = bool(rows) and all(bool(row["behavior_pass"]) for row in rows)
     report = {
         "schema": "anra-sft-behavior-smoke/v1",
-        "passed": passed,
-        "prompt_count": len(rows),
-        "unique_output_count": unique_outputs,
         "max_new_tokens": max_new_tokens,
         "rows": rows,
     }
+    report.update(_behavior_smoke_verdict(rows))
     model.train(was_training)
     return report
 

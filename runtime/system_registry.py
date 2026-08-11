@@ -155,7 +155,7 @@ def component_registry() -> list[SystemComponent]:
             paths=(
                 "training/train_unified.py",
                 "scripts/build_brain.py",
-                "training/finetune_anra.py",
+                "training/sft_v4.py",
             ),
             import_name="training.train_unified",
         ),

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 
+import pytest
+
 from training.sparse_lora import (
     SparseLoRAEstimateConfig,
     estimate_sparse_lora_from_sequences,
@@ -68,3 +70,14 @@ def test_identity_finetune_writes_sparse_lora_report_before_training(tmp_path, m
     assert report_paths["sparse_lora_report"].exists()
     assert report["sparse_lora"]["training_enabled"] is False
     assert report["result"] == {"ok": True}
+
+
+def test_retired_identity_finetune_cli_cannot_start_training(monkeypatch, capsys) -> None:
+    """The historical helper remains importable, but not runnable as a trainer."""
+    from training import finetune_anra
+
+    monkeypatch.setattr("sys.argv", ["finetune_anra"])
+    with pytest.raises(SystemExit) as exc_info:
+        finetune_anra.main()
+    assert exc_info.value.code == 2
+    assert "retired_identity_finetune_entrypoint" in capsys.readouterr().out

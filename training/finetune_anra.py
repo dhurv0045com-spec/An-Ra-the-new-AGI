@@ -1,3 +1,14 @@
+"""Retired identity fine-tune implementation retained for forensic imports.
+
+This module used to expose a runnable ``python -m training.finetune_anra``
+path.  That path wrote an independent ``identity`` checkpoint through the
+pre-SFT training route, so it could silently fork a V4 model away from its
+signed base-checkpoint and SFT lineage.  The implementation remains importable
+for historical report inspection, but the command-line entrypoint is now
+fail-closed.  Canonical post-training is ``python -m training.sft_v4`` via the
+reviewed V4 SFT notebook/contract.
+"""
+
 from __future__ import annotations
 
 import argparse
@@ -62,27 +73,26 @@ def finetune_identity(
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Canonical identity fine-tune entrypoint")
-    parser.add_argument("--data_path", default=None)
-    parser.add_argument("--max_minutes", type=int, default=12)
-    parser.add_argument("--max_examples", type=int, default=8000)
-    parser.add_argument("--sparse_lora_mode", choices=["off", "logging"], default="logging")
+    parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "--optimizer", choices=["auto", "adamw", "muon", "scale", "galore"], default="auto"
+        "--show-migration",
+        action="store_true",
+        help="Print the supported V4 SFT migration target without training.",
     )
-    args = parser.parse_args()
-    print(
-        json.dumps(
-            finetune_identity(
-                data_path=args.data_path,
-                max_minutes=args.max_minutes,
-                max_examples=args.max_examples,
-                sparse_lora_mode=args.sparse_lora_mode,
-                optimizer_name=args.optimizer,
-            ),
-            indent=2,
-        )
-    )
+    args, unknown = parser.parse_known_args()
+    guidance = {
+        "status": "retired_identity_finetune_entrypoint",
+        "reason": (
+            "This old path can create an unreviewed identity child checkpoint "
+            "outside the signed V4 SFT lineage."
+        ),
+        "canonical_sft": "python -m training.sft_v4 --help",
+        "canonical_foundation": "python -m training.train_unified --help",
+        "received_legacy_arguments": unknown,
+    }
+    print(json.dumps(guidance, indent=2))
+    if not args.show_migration:
+        raise SystemExit(2)
 
 
 finetune_identity_current = finetune_identity

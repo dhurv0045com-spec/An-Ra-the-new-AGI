@@ -122,7 +122,10 @@ ANRA_T4_TRAINING_HOME/sft-v4/
 ```
 
 The foundation `anra-v4-current-full-resume.pt` remains untouched. SFT saves
-every 200 optimizer steps or 15 minutes, whichever occurs first. Full SFT is
+every 200 optimizer steps or 15 minutes, whichever occurs first. It also runs
+a small fixed eight-prompt behavior probe every 500 optimizer steps and writes
+the bounded history into the resumable SFT checkpoint and final report. This is
+evidence for review, not an automatic claim that the model is ready. Full SFT is
 deliberately **not** enabled merely by changing a notebook variable. First
 inspect `latest_sft_report.json`: it records held-out assistant-token loss for
 both the frozen parent and the SFT child, plus their delta, and a deterministic
