@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 import contextlib
 import hashlib
 import hmac
@@ -21,7 +23,7 @@ from generate import detect_repetition, language_fragment_detected
 from training.v2_runtime import append_jsonl, generate_text, v2_report_path, write_json
 
 try:
-    from symbolic_bridge import query_logic, query_math
+    from symbolic_bridge import query_logic, query_math  # type: ignore[import-not-found]
 except Exception:
     query_logic = query_math = None  # type: ignore[assignment]
 
@@ -112,6 +114,11 @@ def build_private_eval_suite(
         category = PRIVATE_EVAL_CATEGORIES[index % len(PRIVATE_EVAL_CATEGORIES)]
         material = _private_material(secret, index, category)
         nonce = f"anra-{material[:8].hex()}"
+        left: int = 0
+        right: int = 0
+        factor: int = 1
+        offset: int = 0
+        function_name: str = ""
         if category in {"context_qa", "memory", "long_context"}:
             if category == "long_context":
                 before = "stable context evidence " * 140
@@ -444,7 +451,7 @@ def run_recovery_prompt_gate(
         first["output_token_ids"] == second["output_token_ids"]
         for first, second in zip(candidate_outputs, replay_outputs, strict=True)
     )
-    candidate_coherence = float(candidate["coherence_rate"])
+    candidate_coherence = float(candidate["coherence_rate"])  # type: ignore[arg-type]
     gates = {
         "exactly_200_prompts": len(suite) == 200,
         "finite_activations": bool(candidate["finite_activations"]),
@@ -684,10 +691,10 @@ def run_private_mode_evaluation(
                     }
                 )
 
-    ablations: dict[str, dict[str, float | bool]] = {}
+    ablations: dict[str, dict[str, float | bool | list[float]]] = {}
     ablation_reports: list[dict[str, object]] = []
     full_baselines = {
-        int(report["seed"]): report
+        int(report["seed"]): report  # type: ignore[arg-type]
         for report in reports
         if report["mode"] == "full_system" and report["ablation"] is None
     }
@@ -700,12 +707,13 @@ def run_private_mode_evaluation(
             baseline = full_baselines[seed]
             ablated = run_slice("full_system", seed, subsystem)
             ablation_reports.append(ablated)
-            contribution = float(baseline["score"]) - float(ablated["score"])
-            latency_cost = float(baseline["mean_latency_ms"]) - float(
-                ablated["mean_latency_ms"]
+            contribution = float(baseline["score"]) - float(ablated["score"])  # type: ignore[arg-type]
+            latency_cost = float(baseline["mean_latency_ms"]) - float(  # type: ignore[arg-type]
+                ablated["mean_latency_ms"]  # type: ignore[arg-type]
             )
-            baseline_latency = max(1e-9, float(baseline["mean_latency_ms"]))
-            traced = set(ablated["traced_subsystems"])
+            baseline_latency = max(1e-9, float(baseline["mean_latency_ms"]))  # type: ignore[arg-type]
+            _traced_raw = ablated["traced_subsystems"]
+            traced = set(_traced_raw) if isinstance(_traced_raw, (list, tuple, set)) else set()  # type: ignore[arg-type]
             expected_traced = {"mod", "rim", "dstp", "esv", "hal"} - {subsystem}
             seed_contributions.append(contribution)
             latency_costs.append(latency_cost)
@@ -752,17 +760,17 @@ def run_private_mode_evaluation(
             and suite_metadata.get("origin") == "private_artifact"
             and int(suite_metadata.get("task_count", 0)) == len(suite)
         ),
-        "coherence": min(float(report["coherence_rate"]) for report in full_reports) >= 0.90,
+        "coherence": min(float(report["coherence_rate"]) for report in full_reports) >= 0.90,  # type: ignore[arg-type]
         "format_compliance": (
-            min(float(report["format_compliance"]) for report in full_reports) >= 0.85
+            min(float(report["format_compliance"]) for report in full_reports) >= 0.85  # type: ignore[arg-type]
         ),
         "repetition_and_eos": max(
-            float(report["generation_failure_rate"]) for report in full_reports
+            float(report["generation_failure_rate"]) for report in full_reports  # type: ignore[arg-type]
         )
         < 0.01,
         "at_least_500_full_system_generations": len(suite) * len(seeds) >= 500,
         "long_context_coverage": min(
-            int(report["minimum_long_context_prompt_tokens"]) for report in full_reports
+            int(report["minimum_long_context_prompt_tokens"]) for report in full_reports  # type: ignore[arg-type]
         )
         >= 768,
         "positive_native_ablations": all(
@@ -775,7 +783,7 @@ def run_private_mode_evaluation(
             bool(report["isolated_trace_verified"]) for report in ablations.values()
         ),
         "all_subsystems_traced": all(
-            set(report["traced_subsystems"]) == {"mod", "rim", "dstp", "esv", "hal"}
+            set(report["traced_subsystems"]) == {"mod", "rim", "dstp", "esv", "hal"}  # type: ignore[arg-type]
             for report in full_reports
         ),
         "blinded_human_review": bool(human_review["passed"]),
@@ -785,7 +793,7 @@ def run_private_mode_evaluation(
     return {
         "schema_version": 4,
         "task_count": len(suite),
-        "suite_metadata": dict(suite_metadata or {}),
+        "suite_metadata": dict(suite_metadata or {}),  # type: ignore[arg-type]
         "modes": list(modes),
         "seeds": list(seeds),
         "reports": reports,
@@ -793,7 +801,7 @@ def run_private_mode_evaluation(
         "ablations": ablations,
         "human_review": human_review,
         "human_review_queue": review_queue,
-        "release_evidence": dict(release_evidence or {}),
+        "release_evidence": dict(release_evidence or {}),  # type: ignore[arg-type]
         "capability_gates": capability_gates,
         "capability_allowed": all(capability_gates.values()),
         "promotion_gates": promotion_gates,
@@ -829,13 +837,11 @@ def apply_blinded_human_reviews(
         "coherence_rate": coherence_rate,
         "passed": len(completed) == len(expected) and coherence_rate >= 0.90,
     }
-    capability_gates = dict(report.get("capability_gates", {}))
+    _cap_gates_raw = report.get("capability_gates", {})
+    capability_gates = dict(_cap_gates_raw) if isinstance(_cap_gates_raw, dict) else {}  # type: ignore[arg-type]
     capability_gates["blinded_human_review"] = bool(human_review["passed"])
-    release_gates = release_evidence_gates(
-        report.get("release_evidence", {})
-        if isinstance(report.get("release_evidence", {}), dict)
-        else {}
-    )
+    _rel_ev = report.get("release_evidence", {})
+    release_gates = release_evidence_gates(_rel_ev if isinstance(_rel_ev, dict) else None)
     promotion_gates = {**capability_gates, **release_gates}
     updated = dict(report)
     updated.update(
@@ -873,7 +879,7 @@ def stratified_validation_indices(dataset: object, max_examples: int) -> list[in
     remaining slots in round-robin order using evenly spaced rows.
     """
 
-    budget = min(max(0, int(max_examples)), len(dataset))
+    budget = min(max(0, int(max_examples)), len(dataset))  # type: ignore[arg-type]
     if budget == 0:
         return []
     ranges_fn = getattr(dataset, "source_window_ranges", None)
@@ -888,7 +894,7 @@ def stratified_validation_indices(dataset: object, max_examples: int) -> list[in
         values: list[int] = []
         for start, stop in raw_source_ranges:
             start_i = max(0, int(start))
-            stop_i = min(len(dataset), int(stop))
+            stop_i = min(len(dataset), int(stop))  # type: ignore[arg-type]
             if stop_i <= start_i:
                 continue
             # Build at most ``budget`` evenly spread candidates per range;
@@ -922,7 +928,7 @@ def stratified_validation_indices(dataset: object, max_examples: int) -> list[in
             break
     if len(selected) < budget:
         selected_set = set(selected)
-        for index in range(len(dataset)):
+        for index in range(len(dataset)):  # type: ignore[arg-type]
             if len(selected) >= budget:
                 break
             if index not in selected_set:
@@ -933,8 +939,8 @@ def stratified_validation_indices(dataset: object, max_examples: int) -> list[in
 
 @instrument("evaluation")
 def quick_eval_loss(
-    model: object,
-    dataset: object,
+    model: Any,
+    dataset: Any,
     *,
     device: torch.device,
     max_examples: int = 100,
@@ -1276,9 +1282,9 @@ def write_golden_eval_baseline(
     source: str = "compact_eval",
     output_path: Path | None = None,
 ) -> dict[str, object]:
-    baseline = build_golden_eval_baseline(summary, source=source)
-    write_json(output_path or v2_report_path("golden_eval_baseline"), baseline)
-    return baseline
+    baseline = build_golden_eval_baseline(summary, source=source)  # type: ignore[arg-type]
+    write_json(output_path or v2_report_path("golden_eval_baseline"), baseline)  # type: ignore[arg-type]
+    return baseline  # type: ignore[return-value]
 
 
 @instrument("evaluation")
@@ -1289,8 +1295,8 @@ def _item_seed(base_seed: int, item_id: str) -> int:
 
 
 def run_compact_eval(
-    model: object,
-    tokenizer: object,
+    model: Any,
+    tokenizer: Any,
     *,
     device: torch.device,
     output: bool = True,
@@ -1311,7 +1317,7 @@ def run_compact_eval(
         response = generate_text(
             model,
             tokenizer,
-            item["prompt"],
+            str(item["prompt"]),
             device=device,
             max_new_tokens=96,
             temperature=0.8,
@@ -1325,7 +1331,7 @@ def run_compact_eval(
             score, expected = _verified_score(str(item["verifier"]), str(item["prompt"]), response)
             reason = f"verified against {item['verifier']} reference"
         else:
-            score = _keyword_score(response, list(item.get("keywords", [])))
+            score = _keyword_score(response, list(item.get("keywords", [])))  # type: ignore[arg-type]
             expected = ""
             reason = "keyword coverage"
         category_scores[str(item["category"])].append(score)
@@ -1370,7 +1376,7 @@ def run_compact_eval(
     # using the same detectors the generation path trusts, and record which
     # basis produced the number.
     if coherence_rows:
-        coherence_rate = sum(float(row["score"]) for row in coherence_rows) / len(coherence_rows)
+        coherence_rate = sum(float(row["score"]) for row in coherence_rows) / len(coherence_rows)  # type: ignore[arg-type]
         coherence_basis = "coherence_category_scores"
     else:
         surface_coherent = [
@@ -1380,12 +1386,12 @@ def run_compact_eval(
         coherence_basis = "surface_fragment_fallback"
     if repetition_rows:
         repetition_failure_rate = sum(
-            float(row["score"]) < 1.0 for row in repetition_rows
+            float(row["score"]) < 1.0 for row in repetition_rows  # type: ignore[arg-type]
         ) / len(repetition_rows)
         repetition_basis = "repetition_category_scores"
     else:
         repeated_flags = [
-            bool(detect_repetition(str(row["response"]))["repeated_ngrams_detected"])
+            bool(detect_repetition(str(row["response"]))["repeated_ngrams_detected"])  # type: ignore[index]
             for row in results
         ]
         repetition_failure_rate = sum(repeated_flags) / max(1, len(repeated_flags))
@@ -1398,7 +1404,7 @@ def run_compact_eval(
         "coherence_rate": round(coherence_rate, 4),
         "coherence_basis": coherence_basis,
         "format_compliance": round(
-            sum(float(row["score"]) for row in format_rows) / max(1, len(format_rows)),
+            sum(float(row["score"]) for row in format_rows) / max(1, len(format_rows)),  # type: ignore[arg-type]
             4,
         ),
         "repetition_failure_rate": round(repetition_failure_rate, 4),
