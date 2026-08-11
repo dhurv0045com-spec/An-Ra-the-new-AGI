@@ -507,6 +507,7 @@ def _checkpoint_payload(
     lineage: Mapping[str, object],
     dataset_manifest: Mapping[str, object],
     data_generator: torch.Generator,
+    behavior_history: Sequence[Mapping[str, object]] = (),
 ) -> dict[str, object]:
     payload: dict[str, object] = {
         "checkpoint_schema_version": CHECKPOINT_SCHEMA_VERSION,
@@ -535,6 +536,11 @@ def _checkpoint_payload(
         "sft_skipped_updates": int(skipped_updates),
         "sft_input_tokens_processed": int(input_tokens_processed),
         "sft_supervised_tokens_processed": int(supervised_tokens_processed),
+        # Loss is necessary but cannot establish useful language behavior. Keep
+        # the bounded fixed-prompt history on every resumable child so an
+        # apparent validation improvement cannot erase a collapse signal from
+        # an earlier worker session.
+        "sft_behavior_history": [dict(row) for row in behavior_history],
         "tokens_seen": int(input_tokens_processed),
         "best_loss": float(best_validation_loss),
         "best_training_loss": float(train_loss),
@@ -744,6 +750,7 @@ class SFTRunConfig:
     total_steps: int = SFT_DEFAULT_TOTAL_STEPS
     checkpoint_steps: int = SFT_DEFAULT_CHECKPOINT_STEPS
     checkpoint_minutes: int = SFT_DEFAULT_CHECKPOINT_MINUTES
+    behavior_probe_steps: int = 500
     allow_cpu_pilot: bool = False
 
 
@@ -817,7 +824,12 @@ def preflight_sft_v4(config: SFTRunConfig) -> dict[str, object]:
         raise ValueError("SFT pilot needs at least one example in each required category")
     if config.mode == "full" and len(examples) < 1_000:
         raise ValueError("Full SFT requires at least 1,000 audited examples")
-    if config.batch_size < 1 or config.accumulation < 1 or config.max_minutes < 1:
+    if (
+        config.batch_size < 1
+        or config.accumulation < 1
+        or config.max_minutes < 1
+        or config.behavior_probe_steps < 1
+    ):
         raise ValueError("SFT batch size, accumulation, and session minutes must be positive")
     if config.max_examples is not None:
         raise ValueError(
@@ -942,6 +954,7 @@ def _behavior_smoke_report(
 ) -> dict[str, object]:
     """Run a tiny deterministic generation gate before full-SFT approval."""
 
+    was_training = model.training
     model.eval()
     rows: list[dict[str, object]] = []
     with torch.no_grad():
@@ -977,7 +990,7 @@ def _behavior_smoke_report(
             rows[-1]["requirement"] = requirement
     unique_outputs = len({" ".join(str(row["output"]).split()) for row in rows})
     passed = bool(rows) and all(bool(row["behavior_pass"]) for row in rows)
-    return {
+    report = {
         "schema": "anra-sft-behavior-smoke/v1",
         "passed": passed,
         "prompt_count": len(rows),
@@ -985,6 +998,8 @@ def _behavior_smoke_report(
         "max_new_tokens": max_new_tokens,
         "rows": rows,
     }
+    model.train(was_training)
+    return report
 
 
 def run_sft_v4(config: SFTRunConfig) -> dict[str, object]:
@@ -1140,6 +1155,14 @@ def run_sft_v4(config: SFTRunConfig) -> dict[str, object]:
     started = time.monotonic()
     deadline = started + 60 * int(config.max_minutes)
     next_checkpoint = time.monotonic() + 60 * int(config.checkpoint_minutes)
+    behavior_history = (
+        [dict(row) for row in loaded.get("sft_behavior_history", [])]
+        if resuming
+        else []
+    )
+    # Bound checkpoint growth while retaining a complete enough trajectory to
+    # diagnose a late behavioral collapse across notebook handoffs.
+    behavior_history = behavior_history[-24:]
 
     def save(*, final: bool, train_loss: float) -> None:
         payload = _checkpoint_payload(
@@ -1161,6 +1184,7 @@ def run_sft_v4(config: SFTRunConfig) -> dict[str, object]:
             lineage=lineage,
             dataset_manifest=dataset_manifest,
             data_generator=data_generator,
+            behavior_history=behavior_history,
         )
         atomic_save(payload, config.local_checkpoint, drive_dir=None)
         ref = durability.publish_checkpoint(config.local_checkpoint, payload, final=final)
@@ -1258,6 +1282,30 @@ def run_sft_v4(config: SFTRunConfig) -> dict[str, object]:
                 f"supervised_tokens={supervised_tokens_processed:,}",
                 flush=True,
             )
+        # A falling assistant-token NLL can coexist with one generic response
+        # being emitted for unrelated prompts. Probe the same fixed, strict
+        # behavior suite during a run so that artifact selection has evidence
+        # beyond loss. This records evidence; it does not silently terminate a
+        # legitimate early-learning phase.
+        if optimizer_advanced and global_step % config.behavior_probe_steps == 0:
+            behavior_probe = _behavior_smoke_report(model, tokenizer, device=device)
+            behavior_history.append(
+                {
+                    "step": global_step,
+                    "input_tokens_processed": input_tokens_processed,
+                    "supervised_tokens_processed": supervised_tokens_processed,
+                    "validation_loss": best_validation_loss,
+                    "behavior": behavior_probe,
+                }
+            )
+            behavior_history = behavior_history[-24:]
+            print(
+                "[SFT] behavior_probe "
+                f"step={global_step} passed={behavior_probe['passed']} "
+                f"unique_outputs={behavior_probe['unique_output_count']}/"
+                f"{behavior_probe['prompt_count']}",
+                flush=True,
+            )
         if (
             durability.requires_initial_boundary
             or global_step % config.checkpoint_steps == 0
@@ -1267,8 +1315,6 @@ def run_sft_v4(config: SFTRunConfig) -> dict[str, object]:
             next_checkpoint = time.monotonic() + 60 * int(config.checkpoint_minutes)
     if math.isinf(best_validation_loss):
         best_validation_loss = validation_loss()
-    save(final=True, train_loss=last_loss)
-    durability.close()
     try:
         behavior_smoke = _behavior_smoke_report(model, tokenizer, device=device)
     except Exception as exc:  # pragma: no cover - device-specific diagnostics
@@ -1279,6 +1325,22 @@ def run_sft_v4(config: SFTRunConfig) -> dict[str, object]:
             "unique_output_count": 0,
             "error": f"{type(exc).__name__}: {exc}",
         }
+    if not behavior_history or int(behavior_history[-1].get("step", -1)) != global_step:
+        behavior_history.append(
+            {
+                "step": global_step,
+                "input_tokens_processed": input_tokens_processed,
+                "supervised_tokens_processed": supervised_tokens_processed,
+                "validation_loss": best_validation_loss,
+                "behavior": behavior_smoke,
+            }
+        )
+        behavior_history = behavior_history[-24:]
+    # The final durable state must include the final behavioral evidence, not
+    # only the pre-final loss. Otherwise a crash after the report write would
+    # let a later worker resume without the decisive acceptance signal.
+    save(final=True, train_loss=last_loss)
+    durability.close()
     result = {
         **report,
         "resumed": resuming,
@@ -1299,6 +1361,7 @@ def run_sft_v4(config: SFTRunConfig) -> dict[str, object]:
         "checkpoint_sha256": sha256_file(sft_remote_checkpoint),
         "elapsed_minutes": round((time.monotonic() - started) / 60, 2),
         "behavior_smoke": behavior_smoke,
+        "behavior_history": behavior_history,
     }
     report_path = config.vault_root / "sft-v4" / "latest_sft_report.json"
     _atomic_write_json(report_path, result)
@@ -1359,6 +1422,7 @@ def _config_from_args(args: argparse.Namespace) -> SFTRunConfig:
         total_steps=args.total_steps,
         checkpoint_steps=args.checkpoint_steps,
         checkpoint_minutes=args.checkpoint_minutes,
+        behavior_probe_steps=args.behavior_probe_steps,
         allow_cpu_pilot=args.allow_cpu_pilot,
     )
 
@@ -1404,6 +1468,12 @@ def main() -> None:
         command.add_argument("--checkpoint-steps", type=int, default=SFT_DEFAULT_CHECKPOINT_STEPS)
         command.add_argument(
             "--checkpoint-minutes", type=int, default=SFT_DEFAULT_CHECKPOINT_MINUTES
+        )
+        command.add_argument(
+            "--behavior-probe-steps",
+            type=int,
+            default=500,
+            help="Run and persist the fixed strict SFT behavior probe at this optimizer interval.",
         )
         command.add_argument("--allow-cpu-pilot", action="store_true")
     args = parser.parse_args()

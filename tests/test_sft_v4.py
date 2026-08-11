@@ -16,6 +16,7 @@ from training.sft_dataset_v4 import (
 )
 from training.sft_v4 import (
     SFTConversationDataset,
+    _behavior_smoke_report,
     _prune_sft_checkpoint_copies,
     _validate_sft_sampler_position,
     _verify_resume_checkpoint_binding,
@@ -190,6 +191,9 @@ class _Tokenizer:
         del add_special_tokens
         return [3 + (ord(character) % 19) for character in text]
 
+    def decode(self, ids: list[int]) -> str:
+        return " ".join(str(token) for token in ids)
+
 
 def test_sft_supervision_masks_prompt_and_keeps_answer_and_eos() -> None:
     dataset = SFTConversationDataset(
@@ -216,6 +220,27 @@ def test_sft_supervision_masks_prompt_and_keeps_answer_and_eos() -> None:
     torch.testing.assert_close(
         baseline, assistant_only_loss(altered_prompt, targets, answer_weights)
     )
+
+
+def test_behavior_probe_restores_training_mode() -> None:
+    from anra_brain import CausalTransformerV2
+
+    model = CausalTransformerV2(
+        vocab_size=64,
+        n_embd=32,
+        n_head=4,
+        n_kv_head=2,
+        n_layer=2,
+        block_size=128,
+    ).train()
+    report = _behavior_smoke_report(
+        model,
+        _Tokenizer(),
+        device=torch.device("cpu"),
+        max_new_tokens=2,
+    )
+    assert report["prompt_count"] == 8
+    assert model.training is True
 
 
 def test_sft_text_normalisation_preserves_code_indentation_and_newlines() -> None:
