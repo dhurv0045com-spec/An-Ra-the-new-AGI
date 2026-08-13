@@ -1655,11 +1655,25 @@ class GoogleDriveApiReplica(MonolithicFilesystemReplica):
                 encoding="utf-8",
             )
             previous_proof = self._remote_proofs.get(artifact_class, {})
+            metadata_app_properties = {
+                "anra_schema": "anra-drive-checkpoint-metadata-v1",
+                "artifact_class": artifact_class.value,
+                "global_step": str(ref.global_step),
+                "checkpoint_sha256": expected_sha256,
+                "snapshot_id": ref.snapshot_id,
+            }
             metadata_result = update_drive_file_by_name(
                 metadata_path,
                 metadata_path.name,
+                app_properties=metadata_app_properties,
                 preferred_file_id=str(previous_proof.get("metadata_file_id", "")) or None,
                 expected_version=str(previous_proof.get("metadata_version", "")) or None,
+                expected_app_properties={
+                    str(key): str(value)
+                    for key, value in dict(
+                        previous_proof.get("metadata_app_properties", {})
+                    ).items()
+                },
                 parent_ids={str(value) for value in result.get("parents", [])},
                 cleanup_duplicates=True,
             )
@@ -1679,6 +1693,7 @@ class GoogleDriveApiReplica(MonolithicFilesystemReplica):
             "checkpoint_version": str(result.get("version", "")),
             "metadata_file_id": str(metadata_result.get("id", "")),
             "metadata_version": str(metadata_result.get("version", "")),
+            "metadata_app_properties": metadata_app_properties,
         }
         self._active_paths[artifact_class] = target
         return Path(f"drive-api-{result.get('id', 'unknown')}")

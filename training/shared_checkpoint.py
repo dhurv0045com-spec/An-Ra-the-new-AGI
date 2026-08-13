@@ -199,8 +199,39 @@ def _record_api_origin(filename: str, file_meta: dict[str, Any]) -> None:
             "file_id": str(file_meta["id"]),
             "version": str(file_meta.get("version", "")),
             "name": str(file_meta.get("name", filename)),
+            "app_properties": {
+                str(key): str(value)
+                for key, value in dict(file_meta.get("appProperties", {})).items()
+            },
         },
     )
+
+
+def _matches_recorded_generation(
+    target: dict[str, Any],
+    expected_app_properties: dict[str, str] | None,
+) -> bool:
+    """Return true only when Drive still contains our last published generation.
+
+    Drive may settle a resumable upload under a newer object version than the
+    version returned by ``files.update``.  Version alone therefore produces a
+    false stale-writer alarm on the next checkpoint.  The signed snapshot
+    identity stored in appProperties distinguishes that benign settlement from
+    another worker's update without weakening the writer fence.
+    """
+
+    expected = {
+        str(key): str(value)
+        for key, value in dict(expected_app_properties or {}).items()
+        if str(key) and str(value)
+    }
+    if not expected:
+        return False
+    current = {
+        str(key): str(value)
+        for key, value in dict(target.get("appProperties", {})).items()
+    }
+    return all(current.get(key) == value for key, value in expected.items())
 
 
 def _copy_checkpoint_to_path(checkpoint: Path, target: Path) -> Path:
@@ -352,6 +383,7 @@ def update_drive_file_by_name(
     app_properties: dict[str, str] | None = None,
     preferred_file_id: str | None = None,
     expected_version: str | None = None,
+    expected_app_properties: dict[str, str] | None = None,
     parent_ids: set[str] | None = None,
     cleanup_duplicates: bool = True,
 ) -> dict[str, Any]:
@@ -401,10 +433,23 @@ def update_drive_file_by_name(
     if not bool(dict(target.get("capabilities", {})).get("canEdit", False)):
         raise PermissionError(f"Google Drive target {filename!r} is read-only.")
     current_version = str(target.get("version", ""))
-    if expected_version and current_version and expected_version != current_version:
+    version_changed = (
+        bool(expected_version)
+        and bool(current_version)
+        and expected_version != current_version
+    )
+    if version_changed and not _matches_recorded_generation(
+        target, expected_app_properties
+    ):
         raise RuntimeError(
             f"Google Drive target {filename!r} changed after this worker restored it. "
             "Refusing a stale-writer overwrite."
+        )
+    if version_changed:
+        print(
+            f"[Drive Shared] {filename} settled from version {expected_version} "
+            f"to {current_version}; snapshot identity is unchanged, continuing.",
+            flush=True,
         )
 
     try:
@@ -489,6 +534,10 @@ def update_recorded_drive_file(
         app_properties=app_properties,
         preferred_file_id=str(origin.get("file_id", "")),
         expected_version=str(origin.get("version", "")),
+        expected_app_properties={
+            str(key): str(value)
+            for key, value in dict(origin.get("app_properties", {})).items()
+        },
         cleanup_duplicates=cleanup_duplicates,
     )
 

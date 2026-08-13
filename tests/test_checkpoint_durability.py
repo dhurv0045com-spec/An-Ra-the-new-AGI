@@ -169,7 +169,7 @@ def test_google_drive_api_replica_updates_stable_objects_without_drive_staging(
         canonical=True,
     )
     checkpoint_updates: list[tuple[str, str]] = []
-    metadata_updates: list[tuple[str, str]] = []
+    metadata_updates: list[tuple[str, str, dict[str, object]]] = []
     version = 0
 
     def update_checkpoint(source: Path, filename: str, **_kwargs: object) -> dict[str, object]:
@@ -182,8 +182,8 @@ def test_google_drive_api_replica_updates_stable_objects_without_drive_staging(
             "parents": ["training-home-id"],
         }
 
-    def update_metadata(source: Path, filename: str, **_kwargs: object) -> dict[str, object]:
-        metadata_updates.append((filename, source.name))
+    def update_metadata(source: Path, filename: str, **kwargs: object) -> dict[str, object]:
+        metadata_updates.append((filename, source.name, kwargs))
         return {
             "id": "stable-metadata-id",
             "version": str(len(metadata_updates)),
@@ -213,10 +213,13 @@ def test_google_drive_api_replica_updates_stable_objects_without_drive_staging(
         ("anra-v4-current-full-resume.pt", "anra-v4-current-full-resume.pt"),
         ("anra-v4-current-full-resume.pt", "anra-v4-current-full-resume.pt"),
     ]
-    assert metadata_updates == [
+    assert [item[:2] for item in metadata_updates] == [
         ("anra-v4-current-full-resume.json", "anra-v4-current-full-resume.json"),
         ("anra-v4-current-full-resume.json", "anra-v4-current-full-resume.json"),
     ]
+    first_properties = metadata_updates[0][2]["app_properties"]
+    assert metadata_updates[1][2]["expected_app_properties"] == first_properties
+    assert metadata_updates[1][2]["expected_version"] == "1"
     assert not list(replica.root.glob("*.pt"))
     assert not list(replica.root.glob("*.json"))
     assert not list(replica.root.glob("*.uploading"))

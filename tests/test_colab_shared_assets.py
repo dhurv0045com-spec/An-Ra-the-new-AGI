@@ -278,6 +278,9 @@ def test_protected_notebook_defaults_to_a_sequential_canonical_handoff() -> None
     assert "Verification complete" not in final_cell
     assert "SystemExit" not in final_cell
     assert "ANRA_DURABLE_CHECKPOINT_STEPS'] = '200'" in final_cell
+    assert 'TRAINING_MINUTES = 150  # @param {type:"integer"}' in source
+    assert "SESSION_BUDGET_MINUTES = int(TRAINING_MINUTES) + DRAIN_RESERVE_MINUTES" in source
+    assert "'--session_minutes', str(TRAINING_MINUTES)" in final_cell
     assert "latest_training_failure.log" in final_cell
     assert "PACK_CATALOG" in source
     assert "stage_verified_checkpoint(" in source

@@ -90,7 +90,12 @@ def test_recorded_drive_update_is_pinned_to_restored_id_and_version(
     checkpoint.write_bytes(b"checkpoint")
     shared._record_origin(
         checkpoint.name,
-        {"kind": "drive_api", "file_id": "canonical-id", "version": "41"},
+        {
+            "kind": "drive_api",
+            "file_id": "canonical-id",
+            "version": "41",
+            "app_properties": {"snapshot_id": "snapshot-40"},
+        },
     )
     observed: dict[str, object] = {}
 
@@ -109,7 +114,28 @@ def test_recorded_drive_update_is_pinned_to_restored_id_and_version(
     assert result["id"] == "canonical-id"
     assert observed["preferred_file_id"] == "canonical-id"
     assert observed["expected_version"] == "41"
+    assert observed["expected_app_properties"] == {"snapshot_id": "snapshot-40"}
     assert observed["cleanup_duplicates"] is True
+
+
+def test_drive_generation_match_requires_the_same_nonempty_snapshot_identity() -> None:
+    target = {
+        "appProperties": {
+            "snapshot_id": "snapshot-200",
+            "sha256": "abc123",
+            "unrelated": "allowed",
+        }
+    }
+
+    assert shared._matches_recorded_generation(
+        target,
+        {"snapshot_id": "snapshot-200", "sha256": "abc123"},
+    )
+    assert not shared._matches_recorded_generation(
+        target,
+        {"snapshot_id": "another-writer", "sha256": "abc123"},
+    )
+    assert not shared._matches_recorded_generation(target, {})
 
 
 def test_required_shared_master_never_creates_private_drive_copy(monkeypatch, tmp_path: Path) -> None:
