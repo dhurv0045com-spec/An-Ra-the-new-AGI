@@ -51,6 +51,43 @@ def test_prototype_routes_are_available_without_loading_a_model() -> None:
     assert {"/", "/health", "/api/status", "/api/chat", "/api/evaluations/run"} <= routes
 
 
+def test_prototype_defaults_to_visible_proof_first_mode() -> None:
+    from runtime.sft_prototype import ChatRequest, PROTOTYPE_HTML
+
+    request = ChatRequest(message="What is 23 plus 34?")
+
+    assert request.assistance.mode == "proof_first"
+    assert request.assistance.allow_calculator is False
+    assert request.assistance.candidate_count == 2
+    assert 'id="assistance"' in PROTOTYPE_HTML
+    assert 'id="allow-calculator"' in PROTOTYPE_HTML
+    assert "Proof-first (recommended)" in PROTOTYPE_HTML
+    assert "assistance:assistance()" in PROTOTYPE_HTML
+    assert "$('assistance').onchange=syncModes" in PROTOTYPE_HTML
+
+
+def test_proof_first_calculator_uses_and_revokes_one_call_grant(monkeypatch) -> None:
+    import runtime.tool_broker as tool_broker
+    from runtime.sft_prototype import PrototypeRuntime
+
+    monkeypatch.setattr(
+        tool_broker,
+        "record_experience",
+        lambda **_kwargs: ("trace", True),
+    )
+    runtime = PrototypeRuntime()
+
+    value, receipt = runtime.calculate_for_chat(
+        session_id="customer-session",
+        expression="23 + 34",
+    )
+
+    assert value == 57
+    assert receipt["status"] == "completed"
+    assert receipt["calls_remaining"] == 0
+    assert runtime.status()["tools"]["active_grants"] == 0
+
+
 def test_prototype_unload_releases_runtime_without_touching_checkpoint(monkeypatch) -> None:
     import runtime.sft_prototype as prototype
 

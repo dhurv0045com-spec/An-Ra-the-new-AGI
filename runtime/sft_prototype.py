@@ -43,6 +43,7 @@ from pydantic import BaseModel, Field
 
 from runtime.experience_ledger import record_experience
 from runtime.local_checkpoint import LocalSFTCheckpoint, resolve_local_sft_checkpoint
+from runtime.response_orchestrator import ProofFirstResult, proof_first_response
 from runtime.tool_broker import BoundedToolBroker, ToolGrant, ToolInputError, ToolPolicyError
 
 _HEARTBEAT_TIMEOUT_SECONDS = max(
@@ -184,11 +185,20 @@ class DeliberationControls(BaseModel):
         )
 
 
+class AssistanceControls(BaseModel):
+    """Explicit customer choice between raw weights and proof-first routing."""
+
+    mode: Literal["proof_first", "model_only"] = "proof_first"
+    allow_calculator: bool = False
+    candidate_count: int = Field(2, ge=1, le=3)
+
+
 class ChatRequest(BaseModel):
     message: str = Field(..., min_length=1, max_length=12_000)
     session_id: str = Field("local", min_length=1, max_length=64)
     controls: GenerationControls = Field(default_factory=GenerationControls)
     deliberation: DeliberationControls = Field(default_factory=DeliberationControls)
+    assistance: AssistanceControls = Field(default_factory=AssistanceControls)
 
 
 class EvaluationRequest(BaseModel):
@@ -324,6 +334,35 @@ class PrototypeRuntime:
             arguments={"expression": expression},
         )
         return result, receipt.public_view()
+
+    def calculate_for_chat(
+        self,
+        *,
+        session_id: str,
+        expression: str,
+    ) -> tuple[object, dict[str, object]]:
+        """Execute one exact calculation under a request-scoped capability."""
+
+        tool_session = f"proof-first-{session_id}-{uuid.uuid4().hex[:12]}"
+        grant = self._tools.issue_grant(
+            session_id=tool_session,
+            allowed_tools=("calculator",),
+            max_calls=1,
+            ttl_seconds=30.0,
+            principal="local_prototype_proof_first_router",
+        )
+        try:
+            result, receipt = self._tools.execute(
+                capability_id=grant.capability_id,
+                session_id=tool_session,
+                tool="calculator",
+                arguments={"expression": expression},
+            )
+            if receipt.status != "completed" or not bool(result.get("exact", False)):
+                raise ToolInputError(str(result.get("error", "calculation was not verified")))
+            return result["value"], receipt.public_view()
+        finally:
+            self._tools.revoke_session(tool_session)
 
     def conversation_prompt(self, session_id: str, message: str) -> str:
         with self._lock:
@@ -673,6 +712,38 @@ def _run_verified_deliberation(
     )
 
 
+def _run_proof_first(
+    runtime: PrototypeRuntime,
+    body: ChatRequest,
+) -> ProofFirstResult:
+    """Run exact tools or bounded best-of-N without claiming hidden correctness."""
+
+    prompt = runtime.conversation_prompt(body.session_id, body.message)
+    base_seed = body.controls.seed if body.controls.seed is not None else 0
+
+    def generate_candidate(attempt: int) -> tuple[str, dict[str, object]]:
+        controls = body.controls.model_copy(update={"seed": base_seed + attempt})
+        trace = generate_traced(
+            prompt,
+            controls.generation_config(),
+            session_id=f"prototype-proof-first-{body.session_id}-{attempt}",
+        )
+        return str(trace.output), _trace_summary(trace)
+
+    def calculate(expression: str) -> tuple[object, dict[str, object]]:
+        return runtime.calculate_for_chat(
+            session_id=body.session_id,
+            expression=expression,
+        )
+
+    return proof_first_response(
+        body.message,
+        generate=generate_candidate,
+        calculate=calculate if body.assistance.allow_calculator else None,
+        candidate_count=body.assistance.candidate_count,
+    )
+
+
 async def _idle_watch(runtime: PrototypeRuntime) -> None:
     while True:
         await asyncio.sleep(3)
@@ -774,6 +845,21 @@ def create_app() -> FastAPI:
     @app.post("/api/chat")
     async def chat(body: ChatRequest) -> dict[str, Any]:
         current = ready_runtime()
+        if body.assistance.mode == "proof_first":
+            try:
+                result = await run_in_threadpool(_run_proof_first, current, body)
+            except ToolInputError as error:
+                raise HTTPException(status_code=422, detail=str(error)) from error
+            turn = current.add_turn(body.session_id, body.message, result.answer)
+            evidence = result.public_evidence()
+            return {
+                "response": result.answer,
+                "turn": turn,
+                "trace": evidence,
+                "prompt_format": SFT_PROMPT_SCHEMA,
+                "route": result.source,
+                "verification": result.confidence_scope,
+            }
         if body.deliberation.mode == "verified":
             result = await run_in_threadpool(_run_verified_deliberation, current, body)
             turn = current.add_turn(body.session_id, body.message, result.answer)
@@ -828,11 +914,34 @@ def create_app() -> FastAPI:
             passed, requirement = check_smoke_response(category, str(trace.output))
             rows[-1]["behavior_pass"] = passed
             rows[-1]["requirement"] = requirement
+        proof_session_id = f"prototype-evaluation-proof-{uuid.uuid4()}"
+        proof_value, proof_receipt = current.calculate_for_chat(
+            session_id=proof_session_id,
+            expression="17 + 28",
+        )
+        raw_math = next(
+            (row for row in rows if row["category"] == "mathematics"),
+            None,
+        )
+        route_comparison = {
+            "schema": "anra-customer-route-comparison/v1",
+            "raw_mathematics": raw_math,
+            "proof_first_mathematics": {
+                "prompt": "What is 17 plus 28? Show the arithmetic briefly.",
+                "response": f"17 + 28 = {proof_value}",
+                "behavior_pass": proof_value == 45
+                and proof_receipt.get("status") == "completed",
+                "route": "verified_tool",
+                "verification_scope": "exact bounded local arithmetic",
+                "tool_receipt": proof_receipt,
+            },
+        }
         report = {
             "run_id": str(uuid.uuid4()),
             "checkpoint_sha256": current.status().get("checkpoint_sha256"),
             "controls": body.controls.model_dump(),
             "rows": rows,
+            "customer_route_comparison": route_comparison,
             "operational_pass": bool(rows)
             and all(bool(row["behavior_pass"]) for row in rows),
             "note": (
@@ -868,14 +977,14 @@ PROTOTYPE_HTML = r"""
     .status { margin-left:auto; color:var(--accent); font:12px ui-monospace,Consolas,monospace; } button,select,input,textarea { font:inherit; } button { color:var(--text); background:var(--soft); border:1px solid var(--line); border-radius:7px; padding:8px 11px; cursor:pointer; } button:hover:not(:disabled) { border-color:var(--accent); } button.primary { background:var(--accent); color:#061019; font-weight:700; } button.danger { color:var(--bad); } button:disabled { opacity:.45; cursor:not-allowed; }
     main { max-width:1400px; margin:0 auto; padding:18px; } .tabs { display:flex; gap:8px; margin-bottom:14px; } .tabs button.active { border-color:var(--accent); color:var(--accent); } .view { display:none; } .view.active { display:block; }
     .chat-layout { display:grid; grid-template-columns:minmax(0,1fr) 330px; gap:16px; min-height:640px; } .panel { border:1px solid var(--line); background:var(--panel); border-radius:9px; padding:16px; } .messages { min-height:470px; max-height:62vh; overflow:auto; display:flex; flex-direction:column; gap:12px; padding:2px; } .message { max-width:88%; padding:10px 12px; white-space:pre-wrap; border-radius:8px; background:var(--soft); border:1px solid var(--line); } .message.user { align-self:flex-end; border-color:#2f7186; background:#102833; } .message.assistant { align-self:flex-start; }
-    form { display:grid; grid-template-columns:1fr auto; gap:10px; margin-top:14px; } textarea { resize:vertical; min-height:68px; color:var(--text); background:#0c1119; border:1px solid var(--line); border-radius:7px; padding:10px; } .controls { display:grid; grid-template-columns:1fr 1fr; gap:10px; } label { display:grid; gap:5px; color:var(--muted); font-size:12px; } input,select { width:100%; color:var(--text); background:#0c1119; border:1px solid var(--line); border-radius:6px; padding:7px; } .controls-wide { display:flex; gap:8px; margin-top:14px; flex-wrap:wrap; } pre { margin:0; overflow:auto; white-space:pre-wrap; word-break:break-word; color:#c9d7e9; font:12px/1.4 ui-monospace,Consolas,monospace; } .metric { padding:9px 0; border-bottom:1px solid var(--line); } .metric:last-child { border-bottom:0; } .metric b { display:block; color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:.06em; } .metric span { overflow-wrap:anywhere; } .notice { color:var(--muted); margin:0 0 12px; } table { width:100%; border-collapse:collapse; } th,td { padding:10px; vertical-align:top; text-align:left; border-bottom:1px solid var(--line); } th { color:var(--muted); font-size:11px; text-transform:uppercase; } .good { color:var(--good); } .bad { color:var(--bad); } .developer-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; } @media (max-width:850px){ header { flex-wrap:wrap; } .status { margin-left:0; width:100%; } .chat-layout,.developer-grid { grid-template-columns:1fr; } .messages { min-height:340px; } }
+    form { display:grid; grid-template-columns:1fr auto; gap:10px; margin-top:14px; } textarea { resize:vertical; min-height:68px; color:var(--text); background:#0c1119; border:1px solid var(--line); border-radius:7px; padding:10px; } .controls { display:grid; grid-template-columns:1fr 1fr; gap:10px; } label { display:grid; gap:5px; color:var(--muted); font-size:12px; } input,select { width:100%; color:var(--text); background:#0c1119; border:1px solid var(--line); border-radius:6px; padding:7px; } label.checkbox { display:flex; align-items:center; gap:8px; } label.checkbox input { width:auto; } .controls-wide { display:flex; gap:8px; margin-top:14px; flex-wrap:wrap; } pre { margin:0; overflow:auto; white-space:pre-wrap; word-break:break-word; color:#c9d7e9; font:12px/1.4 ui-monospace,Consolas,monospace; } .metric { padding:9px 0; border-bottom:1px solid var(--line); } .metric:last-child { border-bottom:0; } .metric b { display:block; color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:.06em; } .metric span { overflow-wrap:anywhere; } .notice { color:var(--muted); margin:0 0 12px; } .answer-badge { display:block; width:max-content; margin-bottom:7px; padding:2px 7px; border-radius:999px; color:var(--good); border:1px solid #315d43; background:#102319; font:10px ui-monospace,Consolas,monospace; text-transform:uppercase; letter-spacing:.06em; } table { width:100%; border-collapse:collapse; } th,td { padding:10px; vertical-align:top; text-align:left; border-bottom:1px solid var(--line); } th { color:var(--muted); font-size:11px; text-transform:uppercase; } .good { color:var(--good); } .bad { color:var(--bad); } .developer-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; } @media (max-width:850px){ header { flex-wrap:wrap; } .status { margin-left:0; width:100%; } .chat-layout,.developer-grid { grid-template-columns:1fr; } .messages { min-height:340px; } }
   </style>
 </head>
 <body>
   <header><h1>AN-RA V4 SFT PROTOTYPE</h1><span class="status" id="status">Starting local model…</span><button class="danger" id="stop">Stop app &amp; free GPU</button></header>
   <main>
     <div class="tabs"><button class="active" data-view="chat">Chat</button><button data-view="evaluation">Evaluation</button><button data-view="developer">Developer</button></div>
-    <section id="chat" class="view active"><div class="chat-layout"><div class="panel"><h2>Conversation</h2><div class="messages" id="messages"><div class="message assistant">The SFT checkpoint is loading to your GPU. This prototype keeps its conversation only in this local session.</div></div><form id="chat-form"><textarea id="prompt" placeholder="Talk to An-Ra…" disabled></textarea><button class="primary" id="send" disabled>Send</button></form></div><aside class="panel"><h2>Generation controls</h2><div class="controls"><label>Model mode<select id="mode"><option value="diagnostic">Diagnostic</option><option value="native">Native</option></select></label><label>Reasoning<select id="reasoning"><option value="direct">Direct</option><option value="verified">Verified deliberation</option></select></label><label>Strategy<select id="strategy"><option value="nucleus">Nucleus</option><option value="greedy">Greedy</option><option value="topk">Top-k</option></select></label><label>Max tokens<input id="max-tokens" type="number" min="1" max="160" value="64"></label><label>Temperature<input id="temperature" type="number" min="0.05" max="2" step="0.05" value="0.7"></label><label>Top-p<input id="top-p" type="number" min="0.05" max="1" step="0.01" value="0.92"></label><label>Seed<input id="seed" type="number" min="0" value="0"></label></div><p class="notice">Verified deliberation is opt-in. It retrieves local session evidence, generates a bounded candidate, verifies only what can be checked, revises once, and abstains when its proof scope fails. It does not make the model's facts automatically true.</p><div class="controls-wide"><button id="clear" type="button">Clear chat</button></div><h3 style="margin-top:18px">Last trace</h3><pre id="trace">No generation yet.</pre></aside></div></section>
+    <section id="chat" class="view active"><div class="chat-layout"><div class="panel"><h2>Conversation</h2><div class="messages" id="messages"><div class="message assistant">The SFT checkpoint is loading to your GPU. This prototype keeps its conversation only in this local session.</div></div><form id="chat-form"><textarea id="prompt" placeholder="Talk to An-Ra…" disabled></textarea><button class="primary" id="send" disabled>Send</button></form></div><aside class="panel"><h2>Generation controls</h2><div class="controls"><label>Answer mode<select id="assistance"><option value="proof_first">Proof-first (recommended)</option><option value="model_only">Raw model</option></select></label><label>Candidate budget<select id="candidate-count"><option value="2">2 candidates</option><option value="1">1 candidate</option><option value="3">3 candidates</option></select></label><label class="checkbox"><input id="allow-calculator" type="checkbox" checked>Allow exact calculator</label><label>Model mode<select id="mode"><option value="diagnostic">Diagnostic</option><option value="native">Native</option></select></label><label>Reasoning<select id="reasoning"><option value="direct">Direct</option><option value="verified">Verified deliberation</option></select></label><label>Strategy<select id="strategy"><option value="nucleus">Nucleus</option><option value="greedy">Greedy</option><option value="topk">Top-k</option></select></label><label>Max tokens<input id="max-tokens" type="number" min="1" max="160" value="64"></label><label>Temperature<input id="temperature" type="number" min="0.05" max="2" step="0.05" value="0.7"></label><label>Top-p<input id="top-p" type="number" min="0.05" max="1" step="0.01" value="0.92"></label><label>Seed<input id="seed" type="number" min="0" value="0"></label></div><p class="notice">Proof-first uses an exact calculator only when the visible permission is checked, and otherwise selects the best non-collapsed response within the candidate budget. It visibly abstains when none pass. Raw model preserves the checkpoint output; the Reasoning control applies only to Raw model mode.</p><div class="controls-wide"><button id="clear" type="button">Clear chat</button></div><h3 style="margin-top:18px">Last trace</h3><pre id="trace">No generation yet.</pre></aside></div></section>
     <section id="evaluation" class="view"><div class="panel"><h2>SFT operational evaluation</h2><p class="notice">Runs the eight fixed SFT categories on the loaded checkpoint. Results show generation behavior, not proof of factual correctness.</p><div class="controls-wide"><button class="primary" id="run-eval">Run eight-prompt smoke</button><span class="status" id="eval-status"></span></div><div id="eval-results" style="margin-top:16px"></div></div></section>
     <section id="developer" class="view"><div class="developer-grid"><div class="panel"><h2>Runtime evidence</h2><div id="runtime"></div></div><div class="panel"><h2>Developer controls</h2><p class="notice">The launcher owns this server. Closing its desktop window stops the process; closing this browser page stops it after the heartbeat timeout.</p><div class="controls-wide"><button id="release" class="danger">Unload model from GPU</button><button id="refresh">Refresh status</button></div><h3 style="margin-top:18px">Raw status</h3><pre id="raw-status">{}</pre></div></div></section>
   </main>
@@ -883,18 +992,20 @@ PROTOTYPE_HTML = r"""
     const $ = id => document.getElementById(id); const sessionId = 'prototype-' + crypto.randomUUID(); let ready = false;
     const controls = () => ({ strategy:$('strategy').value, max_tokens:Number($('max-tokens').value), temperature:Number($('temperature').value), top_p:Number($('top-p').value), top_k:40, repetition_penalty:1.15, seed:$('seed').value === '' ? null : Number($('seed').value), mode:$('mode').value });
     const deliberation = () => ({mode:$('reasoning').value, deterministic:true, candidates:1, revisions:1, retrieval_results:3, verifier_calls:2, max_total_tokens:160, deadline_seconds:45});
+    const assistance = () => ({mode:$('assistance').value, allow_calculator:$('allow-calculator').checked, candidate_count:Number($('candidate-count').value)});
+    function syncModes(){ const proof=$('assistance').value==='proof_first'; $('reasoning').disabled=proof; $('candidate-count').disabled=!proof; $('allow-calculator').disabled=!proof; }
     async function api(path, options={}) { const r = await fetch(path, options); const body = await r.json(); if(!r.ok) throw new Error(body.detail ? JSON.stringify(body.detail) : JSON.stringify(body)); return body; }
-    function append(role,text){ const e=document.createElement('div'); e.className='message '+role; e.textContent=text; $('messages').append(e); $('messages').scrollTop=$('messages').scrollHeight; }
+    function append(role,text,badge=''){ const e=document.createElement('div'); e.className='message '+role; if(badge){const b=document.createElement('span');b.className='answer-badge';b.textContent=badge;e.append(b);}const t=document.createElement('span');t.textContent=text;e.append(t);$('messages').append(e); $('messages').scrollTop=$('messages').scrollHeight; }
     function bytes(v){ return typeof v==='number' ? (v/1024/1024/1024).toFixed(2)+' GB' : '–'; }
     async function refresh(){ try { const s=await api('/api/status'); ready=!!s.ready; $('status').textContent=ready ? `Ready · ${s.gpu.name} · ${bytes(s.gpu.allocated_bytes)} GPU` : `${s.stage}${s.error ? ' · '+s.error : ''}`; $('send').disabled=!ready; $('prompt').disabled=!ready; const m=s.model||{}; $('runtime').innerHTML=[['Checkpoint',s.checkpoint],['Checkpoint SHA-256',s.checkpoint_sha256],['Model parameters',m.parameters?.toLocaleString()],['Tokenizer vocabulary',m.vocabulary],['Context length',m.context],['Training step',m.training_step],['GPU',s.gpu.name],['GPU allocated',bytes(s.gpu.allocated_bytes)],['GPU free',bytes(s.gpu.free_bytes)],['Heartbeat timeout',s.idle_timeout_seconds+' seconds']].map(([k,v])=>`<div class="metric"><b>${k}</b><span>${v ?? '–'}</span></div>`).join(''); $('raw-status').textContent=JSON.stringify(s,null,2); if(s.shutdown_requested){ $('status').textContent='Stopping and freeing GPU…'; } } catch(e){ $('status').textContent='Status unavailable: '+e; } }
     async function beat(){ try { await api('/api/heartbeat',{method:'POST'}); } catch(_){} }
-    $('chat-form').addEventListener('submit',async e=>{e.preventDefault(); const message=$('prompt').value.trim(); if(!message||!ready)return; $('prompt').value=''; append('user',message); $('send').disabled=true; try { const r=await api('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message,session_id:sessionId,controls:controls(),deliberation:deliberation()})}); append('assistant',r.response||'(empty response)'); $('trace').textContent=JSON.stringify(r.trace,null,2); } catch(err){ append('assistant','Generation error: '+err); } finally { await refresh(); }});
+    $('chat-form').addEventListener('submit',async e=>{e.preventDefault(); const message=$('prompt').value.trim(); if(!message||!ready)return; $('prompt').value=''; append('user',message); $('send').disabled=true; try { const r=await api('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message,session_id:sessionId,controls:controls(),deliberation:deliberation(),assistance:assistance()})}); const badge=r.route==='verified_tool'?'Exact tool':r.route==='selected_model'?'Best candidate':r.route==='abstained'?'Abstained':''; append('assistant',r.response||'(empty response)',badge); $('trace').textContent=JSON.stringify(r.trace,null,2); } catch(err){ append('assistant','Generation error: '+err); } finally { await refresh(); }});
     $('clear').onclick=async()=>{await api('/api/session/'+sessionId+'/clear',{method:'POST'}); $('messages').innerHTML=''; $('trace').textContent='Conversation cleared.';};
-    $('run-eval').onclick=async()=>{const b=$('run-eval'); b.disabled=true; $('eval-status').textContent='Running on the local GPU…'; try { const r=await api('/api/evaluations/run',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({controls:{...controls(),max_tokens:Math.min(64,controls().max_tokens)}})}); $('eval-status').textContent=r.operational_pass?'Behavior gate passed':'Behavior gate failed — keep this checkpoint in research'; $('eval-results').innerHTML=`<table><thead><tr><th>Category</th><th>Gate</th><th>Response</th><th>Trace</th></tr></thead><tbody>${r.rows.map(x=>`<tr><td>${x.category}</td><td class="${x.behavior_pass?'good':'bad'}">${x.behavior_pass?'PASS':'FAIL'}<br><small>${escapeHtml(x.requirement)}</small></td><td>${escapeHtml(x.response)}</td><td><pre>${escapeHtml(JSON.stringify(x.trace,null,2))}</pre></td></tr>`).join('')}</tbody></table>`; }catch(err){$('eval-status').textContent='Evaluation error: '+err;}finally{b.disabled=false;await refresh();}};
+    $('run-eval').onclick=async()=>{const b=$('run-eval'); b.disabled=true; $('eval-status').textContent='Running on the local GPU…'; try { const r=await api('/api/evaluations/run',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({controls:{...controls(),max_tokens:Math.min(64,controls().max_tokens)}})}); const proof=r.customer_route_comparison?.proof_first_mathematics; $('eval-status').textContent=(r.operational_pass?'Raw behavior gate passed':'Raw behavior gate failed — keep this checkpoint in research')+(proof?` · Proof-first arithmetic ${proof.behavior_pass?'PASS':'FAIL'}`:''); $('eval-results').innerHTML=`<table><thead><tr><th>Category</th><th>Gate</th><th>Response</th><th>Trace</th></tr></thead><tbody>${r.rows.map(x=>`<tr><td>${x.category}</td><td class="${x.behavior_pass?'good':'bad'}">${x.behavior_pass?'PASS':'FAIL'}<br><small>${escapeHtml(x.requirement)}</small></td><td>${escapeHtml(x.response)}</td><td><pre>${escapeHtml(JSON.stringify(x.trace,null,2))}</pre></td></tr>`).join('')}</tbody></table>${proof?`<h3>Customer route comparison</h3><pre>${escapeHtml(JSON.stringify(r.customer_route_comparison,null,2))}</pre>`:''}`; }catch(err){$('eval-status').textContent='Evaluation error: '+err;}finally{b.disabled=false;await refresh();}};
     function escapeHtml(value){const e=document.createElement('div');e.textContent=value;return e.innerHTML;}
     $('release').onclick=async()=>{await api('/api/runtime/unload',{method:'POST'});await refresh();}; $('stop').onclick=async()=>{try{await api('/api/runtime/unload',{method:'POST'});}finally{$('status').textContent='Stopping app and freeing GPU…';}}; $('refresh').onclick=refresh;
     document.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>{document.querySelectorAll('[data-view]').forEach(x=>x.classList.toggle('active',x===b));document.querySelectorAll('.view').forEach(x=>x.classList.toggle('active',x.id===b.dataset.view));});
-    beat(); refresh(); setInterval(beat,5000); setInterval(refresh,3000);
+    $('assistance').onchange=syncModes; syncModes(); beat(); refresh(); setInterval(beat,5000); setInterval(refresh,3000);
   </script>
 </body>
 </html>

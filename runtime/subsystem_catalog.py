@@ -390,6 +390,7 @@ def subsystem_records() -> tuple[SubsystemRecord, ...]:
             "Executes only explicit, typed, session-bound local tools under a short-lived budget.",
             "anra",
             (
+                "runtime/response_orchestrator.py",
                 "runtime/tool_broker.py",
                 "runtime/sft_prototype.py",
                 "agents/orchestrator.py",
@@ -398,22 +399,24 @@ def subsystem_records() -> tuple[SubsystemRecord, ...]:
             dependencies=("self_correction", "retrieval_memory"),
             runtime_cost="One explicit local tool call plus receipt and ledger write.",
             claimed_benefit=(
-                "Exact, auditable arithmetic when an operator explicitly grants it; "
-                "it does not grant autonomous tool use or factual authority."
+                "Exact, auditable arithmetic in explicit proof-first mode plus bounded "
+                "rejection of visibly collapsed model candidates; it does not grant "
+                "autonomous tool use or factual authority."
             ),
             evidence_state="partial",
             evidence=(
-                "The V4 prototype exposes a server-issued capability route for an AST-interpreted "
-                "calculator. Grants are session-bound, expire, carry a call budget, and emit "
-                "hash-based ledger receipts. Focused contract tests pass."
+                "The V4 prototype exposes proof-first and raw-model modes. Narrow arithmetic "
+                "bypasses generation through a one-use AST calculator grant; ordinary prompts "
+                "use at most three candidates and abstain when observable relevance/collapse "
+                "gates fail. Receipts and routing evidence are visible. Focused tests pass."
             ),
             evidence_required=(
                 "Matched end-to-end evaluation must show that tool-assisted answers improve on "
                 "the base model without a grant leak, unsupported tool expansion, or false claims."
             ),
             rollback=(
-                "Do not issue a capability, clear the session, or unload the prototype. "
-                "No model weights or host state are modified."
+                "Select Raw model, clear the session, or unload the prototype. No model weights "
+                "or host state are modified."
             ),
         ),
         SubsystemRecord(
