@@ -1,383 +1,72 @@
 #!/usr/bin/env python3
-"""
-anra.py — An-Ra AGI Unified Entry Point
-=========================================
+"""Canonical An-Ra V4 command-line entry point.
 
-The single command to interact with An-Ra.
-
-Usage:
-    python anra.py                         # Show system dashboard
-    python anra.py --start                 # Start continuous autonomous engine
-    python anra.py --chat                  # Interactive chat with memory
-    python anra.py --goal "..."            # Execute a goal via Agent Loop
-    python anra.py --status                # System status (all subsystems)
-    python anra.py --briefing              # Morning briefing + sovereignty report
-    python anra.py --test                  # Run full test suite
-    python anra.py --dashboard             # Live dashboard
-
-Phase 3 specific:
-    python anra.py --phase3-status         # Detailed Phase 3 subsystem status
-    python anra.py --symbolic "query"      # Direct math/logic/code query (45Q)
-    python anra.py --sovereignty-report    # Latest nightly self-improvement report
-    python anra.py --sovereignty-run       # Trigger improvement pipeline now
+The retired Phase-2 MasterSystem CLI used to start placeholder autonomy,
+duplicate memory, and self-improvement systems.  This entry point exposes only
+the supported API service and read-only readiness/status commands.
 """
 
-import sys
-import os
-import json
+from __future__ import annotations
+
 import argparse
-import subprocess
-from pathlib import Path
-from typing import Callable
-from anra.anra_paths import get_agent_workspace, ensure_dirs
-from anra.startup_checks import assert_flash_sdp_ready
-
-# ── Resolve all project paths ─────────────────────────────────────────────────
-PROJECT_ROOT = Path(__file__).resolve().parent
-ensure_dirs()
-os.environ.setdefault("AGENT_FILE_ROOT", str(get_agent_workspace()))
-PHASE2_45M   = PROJECT_ROOT / "phase2" / "master_system_45m"
-
-# ── Add Phase 3 paths to sys.path for direct imports ─────────────────────────
-for p3 in ["identity_45n", "ouroboros_45o", "ghost_memory_45p", "symbolic_bridge_45q", "sovereignty_45r"]:
-    p = PROJECT_ROOT / "phase3" / p3
-    if str(p) not in sys.path:
-        sys.path.extend([str(p)])
-
-# Set working directory to 45M so all relative state/ paths work
-# Add 45M to path so system.py imports work
-sys.path.extend([str(PHASE2_45M)])
-
-# ── Delegate to the master system ────────────────────────────────────────────
-from system import MasterSystem, build_parser, _run_chat, Dashboard, ControlAPI
+import json
+from collections.abc import Sequence
 
 
-def _safe_console(text: object) -> str:
-    """Encode text for the active console without crashing on Unicode."""
-    s = str(text)
-    encoding = getattr(sys.stdout, "encoding", None) or "utf-8"
-    try:
-        s.encode(encoding)
-        return s
-    except (UnicodeEncodeError, LookupError):
-        return s.encode(encoding, errors="replace").decode(encoding, errors="replace")
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(prog="anra", description="An-Ra V4 runtime")
+    subcommands = parser.add_subparsers(dest="command", required=True)
+
+    serve = subcommands.add_parser("serve", help="Start the canonical API and Developer UI")
+    serve.add_argument("--host", default="127.0.0.1")
+    serve.add_argument("--port", type=int, default=8000)
+
+    subcommands.add_parser("status", help="Print truthful component and artifact status")
+
+    preflight = subcommands.add_parser("preflight", help="Run the V4 training preflight")
+    preflight.add_argument("--runtime-class", default="t4_v4_session")
+    return parser
 
 
-def _phase3_status(system: MasterSystem):
-    """Print detailed Phase 3 subsystem status."""
-    print(f"\n{'='*60}")
-    print("  AN-RA PHASE 3 SUBSYSTEMS")
-    print(f"{'='*60}\n")
+def main(argv: Sequence[str] | None = None) -> int:
+    args = build_parser().parse_args(argv)
+    if args.command == "serve":
+        import uvicorn
 
-    modules = [
-        ("45N — Identity Injector", "identity_injector"),
-        ("45O — Ouroboros Reasoning", "ouroboros_numpy"),
-        ("45P — Ghost State Memory", "ghost_memory"),
-        ("45Q — Symbolic Logic Bridge", "symbolic_bridge"),
-        ("45R — Sovereignty Daemon", "sovereignty_bridge"),
-    ]
-    for name, mod_name in modules:
-        try:
-            mod = __import__(mod_name)
-            info = mod.health_check() if hasattr(mod, "health_check") else {"status": "degraded"}
-            status = info.get("status", "degraded")
-        except Exception:
-            status = "missing"
-        icon = "[OK]" if status == "ok" else "[WARN]" if status == "degraded" else "[X]"
-        print(f"  {icon} {name}")
+        uvicorn.run("app:app", host=args.host, port=args.port, reload=False)
+        return 0
+    if args.command == "status":
+        from runtime.system_registry import build_system_manifest
 
-    print(f"{'='*60}\n")
-
-
-def _symbolic_query(query: str):
-    """Run a direct 45Q symbolic query (math/logic/code)."""
-    print(f"\n[ Symbolic Bridge Query ]\nQ: {query}\n")
-    try:
-        sys.path.extend([str(PROJECT_ROOT / "phase3" / "symbolic_bridge_45q")])
-        from symbolic_bridge import query as sym_query
-        result = sym_query(query)
-        print(f"Mode:       {_safe_console(result.mode)}")
-        print(f"Verdict:    {_safe_console(result.verdict)}")
-        print(f"Confidence: {result.confidence:.0%}")
-        print(f"Answer:     {_safe_console(result.answer_text)}")
-        print("\nSteps:")
-        for step in result.steps[:5]:
-            print(f"  {_safe_console(step)}")
-        if result.warnings:
-            print("\nWarnings:")
-            for w in result.warnings:
-                print(f"  [!] {_safe_console(w)}")
-    except ImportError as e:
-        print(f"[ERROR] Symbolic bridge not available: {e}")
-        print("Install: pip install sympy scipy")
-    except Exception as e:
-        print(f"[ERROR] {e}")
-
-
-def _sovereignty_report(system: MasterSystem):
-    """Print the latest sovereignty nightly report."""
-    if not system.sovereignty:
-        print("[Sovereignty] Daemon not initialized.")
-        return
-    report = system.sovereignty.get_nightly_report()
-    bench = system.sovereignty.get_benchmark_summary()
-    print(f"\n{'='*60}")
-    print("  SOVEREIGNTY NIGHTLY REPORT (45R)")
-    print(f"{'='*60}\n")
-    if bench:
-        print(bench)
-        print()
-    print(report)
-
-
-def _sovereignty_trigger(system: MasterSystem):
-    """Trigger the sovereignty improvement pipeline right now."""
-    if not system.sovereignty:
-        print("[Sovereignty] Daemon not initialized.")
-        return
-    print("[Sovereignty] Triggering improvement pipeline...")
-    ok = system.sovereignty.trigger_pipeline()
-    if ok:
-        print("[Sovereignty] Pipeline triggered. Results will appear in the nightly report.")
-    else:
-        print("[Sovereignty] Could not trigger pipeline — daemon may not be running.")
-
-
-def _run_training(mode: str, session_minutes: int) -> int:
-    """Run unified training from the main entrypoint with live streamed logs."""
-    train_mode = "session" if mode in {"interactive", "session"} else "train"
-    cmd = [
-        sys.executable,
-        "-m",
-        "training.train_unified",
-        "--mode",
-        train_mode,
-        "--session_minutes",
-        str(session_minutes),
-    ]
-    print(f"[An-Ra] Starting training mode={train_mode} session_minutes={session_minutes}", flush=True)
-    proc = subprocess.Popen(
-        cmd,
-        cwd=str(PROJECT_ROOT),
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        text=True,
-        bufsize=1,
-        env={**os.environ, "PYTHONPATH": str(PROJECT_ROOT), "PYTHONUNBUFFERED": "1"},
-    )
-    assert proc.stdout is not None
-    for line in proc.stdout:
-        print(line, end="", flush=True)
-    proc.wait()
-    print(f"[An-Ra] Training exited with code {proc.returncode}", flush=True)
-    return int(proc.returncode or 0)
-
-
-def _run_report() -> None:
-    from engine.report import print_report, save_report
-
-    print_report()
-    path = save_report()
-    print(f"  Report saved -> {path}")
-
-
-def _run_supervisor_status(args, system) -> None:
-    from agents.supervisor import SupervisorAgent
-
-    sup = SupervisorAgent()
-    status = sup.status()
-    print("\nCOMPONENT STATUS")
-    print("=" * 60)
-    for name, info in sorted(status.items()):
-        flag = "✅" if info["enabled"] else "❌"
-        calls = info["metrics"].get("calls", 0)
-        sr = info["metrics"].get("success_rate", 0)
-        print(f"  {flag} {name:<28} calls={calls:>4}  sr={sr:.2f}  layer={info['layer']}")
-
-
-def _run_test(args, system: MasterSystem) -> None:
-    from test_45M import run_all_tests
-
-    run_all_tests(system)
-
-
-def _run_start(args, system: MasterSystem) -> None:
-    system.run_forever()
-
-
-def _run_stop(args, system: MasterSystem) -> None:
-    system.engine.db.set_state("engine_running", False)
-    if getattr(args, "immediate", False):
-        system.safety.kill_switch.activate("CLI --stop --immediate")
-    else:
-        print("Stop signal sent.")
-
-
-def _run_status(args, system: MasterSystem) -> None:
-    print(json.dumps(system.status(), indent=2, default=str))
-
-
-def _run_dashboard(args, system: MasterSystem) -> None:
-    db = Dashboard(system)
-    db.watch(interval=5)
-
-
-def _run_goal(args, system: MasterSystem) -> None:
-    print(f"\n  Executing goal: {args.goal}\n")
-    result = system.run_goal(args.goal)
-    print(f"\n{'═'*60}")
-    print(f"  Goal:     {args.goal}")
-    print(f"  Success:  {result.get('success')}")
-    print(f"  Duration: {result.get('duration', 0):.1f}s")
-    print(f"  Output:")
-    print(f"    {result.get('output', '')[:1000]}")
-    print(f"{'═'*60}\n")
-
-
-def _run_owner_model_inspect(args, system: MasterSystem) -> None:
-    profile = system.owner_modeler.inspect()
-    print(json.dumps(profile, indent=2, default=str))
-
-
-def _run_safety_audit(args, system: MasterSystem) -> None:
-    result = system.safety.run_safety_audit()
-    print(json.dumps(result, indent=2, default=str))
-
-
-def _run_api(args, system: MasterSystem) -> None:
-    api = ControlAPI(system.control)
-    api.serve_stdio()
-
-
-COMMANDS: dict[str, Callable] = {
-    "phase3_status": lambda args, system: _phase3_status(system),
-    "sovereignty_report": lambda args, system: _sovereignty_report(system),
-    "sovereignty_run": lambda args, system: _sovereignty_trigger(system),
-    "test": _run_test,
-    "chat": lambda args, system: _run_chat(system),
-    "start": _run_start,
-    "stop": _run_stop,
-    "briefing": lambda args, system: print(system.morning_briefing()),
-    "status": _run_status,
-    "dashboard": _run_dashboard,
-    "goal": _run_goal,
-    "owner_model_inspect": _run_owner_model_inspect,
-    "safety_audit": _run_safety_audit,
-    "api": _run_api,
-    "report": lambda args, system: _run_report(),
-    "supervisor_status": _run_supervisor_status,
-}
-
-SYSTEM_START_COMMANDS = {
-    "phase3_status",
-    "sovereignty_report",
-    "sovereignty_run",
-    "briefing",
-    "status",
-    "dashboard",
-    "goal",
-    "api",
-}
-SYSTEM_STOP_COMMANDS = {
-    "phase3_status",
-    "sovereignty_report",
-    "sovereignty_run",
-    "briefing",
-    "status",
-    "goal",
-}
-NO_SYSTEM_COMMANDS = {"report", "supervisor_status"}
-
-
-def _selected_command(args) -> str | None:
-    for name in COMMANDS:
-        if name == "owner_model_inspect":
-            if getattr(args, "owner_model", False) and getattr(args, "inspect", False):
-                return name
-            continue
-        value = getattr(args, name, False)
-        if value:
-            return name
-    return None
-
-
-def _build_system_if_needed(cmd_name: str) -> MasterSystem | None:
-    if cmd_name in NO_SYSTEM_COMMANDS:
-        return None
-    return MasterSystem()
-
-
-def main():
-    assert_flash_sdp_ready("anra.py")
-    # ── Extended parser ───────────────────────────────────────────────────────
-    parser = build_parser()
-    parser.add_argument("--phase3-status",   action="store_true",
-                        help="Show detailed Phase 3 subsystem status")
-    parser.add_argument("--symbolic",        type=str, default=None,
-                        help="Direct math/logic/code query via 45Q (e.g. 'solve x^2=9')")
-    parser.add_argument("--sovereignty-report", action="store_true",
-                        help="Show the latest nightly self-improvement report")
-    parser.add_argument("--sovereignty-run", action="store_true",
-                        help="Trigger the sovereignty improvement pipeline now")
-    parser.add_argument("--report", action="store_true",
-                        help="Print automated system health report")
-    parser.add_argument(
-        "--supervisor-status", action="store_true",
-        help="Show live component status from SupervisorAgent"
-    )
-    parser.add_argument("--train-session-minutes", type=int, default=30,
-                        help="Session minutes when --mode interactive/session/train is used without --start")
-
-    args = parser.parse_args()
-
-    if (
-        getattr(args, "mode", "autonomous") in {"interactive", "session", "train"}
-        and not getattr(args, "start", False)
-        and not any(
-            [
-                getattr(args, "chat", False),
-                getattr(args, "goal", None),
-                getattr(args, "status", False),
-                getattr(args, "briefing", False),
-                getattr(args, "dashboard", False),
-                getattr(args, "test", False),
-                args.phase3_status,
-                args.sovereignty_report,
-                args.sovereignty_run,
-                args.report,
-                args.supervisor_status,
-                bool(args.symbolic),
-                getattr(args, "owner_model", False),
-                getattr(args, "safety_audit", False),
-                getattr(args, "api", False),
-            ]
+        manifest = build_system_manifest()
+        print(
+            json.dumps(
+                {
+                    "schema_version": manifest["schema_version"],
+                    "capabilities": manifest["capabilities"],
+                    "artifacts": manifest["artifacts"],
+                    "training_readiness": manifest["training_readiness"],
+                },
+                indent=2,
+            )
         )
-    ):
-        raise SystemExit(_run_training(args.mode, args.train_session_minutes))
+        return 0
+    if args.command == "preflight":
+        from training.preflight import run_preflight
+        from training.v2_config import CANONICAL_MODEL_PROFILE
 
-    # ── Symbolic query — no system needed ────────────────────────────────────
-    if args.symbolic:
-        _symbolic_query(args.symbolic)
-        return
-
-    cmd_name = _selected_command(args)
-    if cmd_name is not None:
-        system = _build_system_if_needed(cmd_name)
-        if system is not None and cmd_name in SYSTEM_START_COMMANDS:
-            system.start()
-        try:
-            COMMANDS[cmd_name](args, system)
-        finally:
-            if system is not None and cmd_name in SYSTEM_STOP_COMMANDS:
-                system.stop()
-        return
-
-    # Default: show dashboard
-    system = MasterSystem()
-    system.start()
-    print(system.dashboard.render())
-    system.stop()
+        print(
+            json.dumps(
+                run_preflight(
+                    CANONICAL_MODEL_PROFILE,
+                    runtime_class=args.runtime_class,
+                ).to_dict(),
+                indent=2,
+            )
+        )
+        return 0
+    raise AssertionError(f"unhandled command: {args.command}")
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

@@ -6,11 +6,11 @@ import json
 import logging
 import shutil
 from collections import Counter
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
 from anra.anra_paths import ROOT, TRAINING_DATA_DIR
-
 
 ONLINE_MODE = importlib.util.find_spec("datasets") is not None
 RDKIT_MODE = importlib.util.find_spec("rdkit") is not None

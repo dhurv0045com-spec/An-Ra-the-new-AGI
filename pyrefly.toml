@@ -1,6 +1,5 @@
 project_excludes = [
   "**/*.ipynb",
-  "phase4/web/node_modules/**",
   "**/scratch/**",
   "**/__pycache__/**",
 ]
@@ -14,11 +13,9 @@ python_path = [
   "inference",
   "stubs",
   "core",
-  "phase2/master_system_45m",
   "phase2/agent_loop_45k",
   "phase3/identity_45n",
   "phase3/ouroboros_45o",
-  "phase3/ghost_memory_45p",
   "phase3/symbolic_bridge_45q",
   "phase3/sovereignty_45r",
   "training",

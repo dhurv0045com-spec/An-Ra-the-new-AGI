@@ -71,9 +71,7 @@ class BM25MemoryTier:
                 if term_frequency == 0 or document_frequency == 0:
                     continue
                 inverse_frequency = math.log(
-                    (document_count - document_frequency + 0.5)
-                    / (document_frequency + 0.5)
-                    + 1
+                    (document_count - document_frequency + 0.5) / (document_frequency + 0.5) + 1
                 )
                 denominator = term_frequency + self.K1 * (
                     1 - self.B + self.B * document_length / max(average_length, 1)
@@ -99,6 +97,16 @@ class BM25MemoryTier:
             return False
         self._evict(record_id)
         return True
+
+    def delete_canonical(self, canonical_id: str) -> bool:
+        matches = [
+            doc_id
+            for doc_id, doc in self._docs.items()
+            if str(doc.metadata.get("canonical_id", "")) == str(canonical_id)
+        ]
+        for doc_id in matches:
+            self._evict(doc_id)
+        return bool(matches)
 
     def health(self) -> HealthStatus:
         return HealthStatus(

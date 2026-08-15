@@ -1,11 +1,12 @@
 """Replay pipeline for verifier-approved self-improvement examples."""
+
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field
-from pathlib import Path
 import json
 import random
-from typing import Iterable
+from collections.abc import Iterable
+from dataclasses import asdict, dataclass, field
+from pathlib import Path
 
 
 @dataclass
@@ -95,7 +96,7 @@ class ReplayPipeline:
             count += 1
         return count
 
-    def add_rlvr_step(self, step, min_reward: float = 0.0) -> int:
+    def add_rlvr_step(self, step: object, min_reward: float = 0.0) -> int:
         count = 0
         task = getattr(step, "task", None)
         prompt = getattr(task, "prompt", "")
@@ -103,7 +104,7 @@ class ReplayPipeline:
         task_type = getattr(task, "task_type", "")
         advantages = list(getattr(step, "advantages", []))
         output_lengths = list(getattr(step, "output_lengths", []))
-        for i, (completion, reward) in enumerate(zip(step.completions, step.rewards)):
+        for i, (completion, reward) in enumerate(zip(step.completions, step.rewards, strict=True)):
             if float(reward) < min_reward:
                 continue
             self.add(
@@ -122,6 +123,43 @@ class ReplayPipeline:
                     "mean_reward": float(getattr(step, "mean_reward", 0.0)),
                     "source_detail": "rlvr_grpo_dapo",
                     "dapo_config": dict(getattr(step, "dapo_config", {}) or {}),
+                },
+            )
+            count += 1
+        return count
+
+    def add_falsification_ledger(self, ledger_or_path: object) -> int:
+        """Import verifier-rejected claims as bounded corrective replay."""
+        from identity.falsification_ledger import FalsificationLedger
+
+        ledger = (
+            ledger_or_path
+            if isinstance(ledger_or_path, FalsificationLedger)
+            else FalsificationLedger(Path(str(ledger_or_path)))
+        )
+        count = 0
+        for record in ledger.query(status="FALSIFIED"):
+            evidence = record.evidence[-1] if record.evidence else {}
+            correction = (
+                str(evidence.get("correction", "")).strip()
+                if isinstance(evidence, dict)
+                else ""
+            )
+            target = correction or (
+                "FALSIFIED. Do not repeat this claim. "
+                f"Failure condition: {record.would_be_false_if or 'verifier rejected it'}. "
+                f"Next verifier: {record.next_verifier or 'independent verification required'}."
+            )
+            self.add(
+                record.claim,
+                target,
+                source="falsification_ledger",
+                score=max(0.0, 1.0 - record.confidence),
+                weight=1.0,
+                metadata={
+                    "claim_id": record.claim_id,
+                    "status": record.status,
+                    "next_verifier": record.next_verifier,
                 },
             )
             count += 1
@@ -155,7 +193,7 @@ class ReplayPipeline:
         return out
 
     @classmethod
-    def load(cls, path: str | Path, max_size: int = 8192) -> "ReplayPipeline":
+    def load(cls, path: str | Path, max_size: int = 8192) -> ReplayPipeline:
         pipe = cls(max_size=max_size, path=path)
         p = Path(path)
         if not p.exists():
@@ -176,9 +214,9 @@ class ReplayPipeline:
 
     def finetune(
         self,
-        model,
-        tokenizer,
-        optimizer,
+        model: object,
+        tokenizer: object,
+        optimizer: object,
         *,
         n_steps: int = 50,
         batch_size: int = 1,
@@ -189,7 +227,7 @@ class ReplayPipeline:
             return []
 
         import torch
-        import torch.nn.functional as F
+        import torch.nn.functional as F  # noqa: N812 - canonical PyTorch alias
 
         model.train()
         device = next(model.parameters()).device

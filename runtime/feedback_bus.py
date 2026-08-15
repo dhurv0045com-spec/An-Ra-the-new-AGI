@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import json
 from pathlib import Path
 from typing import Any
@@ -7,15 +8,17 @@ from typing import Any
 from anra.anra_paths import EPG_PATH, FAILURE_REPLAY_DATASET, FALSIFICATION_LEDGER_PATH
 
 
-def _score(result: Any) -> float:
+def _score(result: object) -> float:
     if isinstance(result, (int, float)):
         return max(0.0, min(1.0, float(result)))
     if isinstance(result, dict):
         return max(0.0, min(1.0, float(result.get("score", result.get("confidence", 0.0)) or 0.0)))
-    return max(0.0, min(1.0, float(getattr(result, "score", getattr(result, "confidence", 0.0)) or 0.0)))
+    return max(
+        0.0, min(1.0, float(getattr(result, "score", getattr(result, "confidence", 0.0)) or 0.0))
+    )
 
 
-def _reason(result: Any) -> str:
+def _reason(result: object) -> str:
     if isinstance(result, dict):
         return str(result.get("reason", result.get("error", "")))
     return str(getattr(result, "reason", getattr(result, "stderr", "")) or "")
@@ -31,10 +34,10 @@ def record_verifier_feedback(
     *,
     prompt: str,
     response: str,
-    verifier_result: Any,
+    verifier_result: object,
     task_type: str = "open",
-    hal: Any = None,
-    memory_router: Any = None,
+    hal: object | None = None,
+    memory_router: object | None = None,
     epg_path: str | Path = EPG_PATH,
     ledger_path: str | Path = FALSIFICATION_LEDGER_PATH,
     replay_path: str | Path = FAILURE_REPLAY_DATASET,
@@ -43,13 +46,26 @@ def record_verifier_feedback(
     reason = _reason(verifier_result) or ("verifier failed" if score < 0.35 else "verifier passed")
     passed = score >= 0.35
     label = "VERIFIED" if score >= 0.75 else "FALSIFIED" if not passed else "INFERRED"
+    action_json = json.dumps(
+        {"task_type": task_type, "response": response},
+        sort_keys=True,
+    )
+    observation_json = json.dumps(
+        {"score": score, "passed": passed, "reason": reason},
+        sort_keys=True,
+    )
+    update_message = (
+        "Maintain verified behavior."
+        if passed
+        else "Rerun with a verifier-grounded correction before accepting the claim."
+    )
 
     replay_text = (
         f"<hyp>{prompt}</hyp>\n"
-        f"<act>{json.dumps({'task_type': task_type, 'response': response}, sort_keys=True)}</act>\n"
-        f"<obs>{json.dumps({'score': score, 'passed': passed, 'reason': reason}, sort_keys=True)}</obs>\n"
+        f"<act>{action_json}</act>\n"
+        f"<obs>{observation_json}</obs>\n"
         f"<err>{'' if passed else reason}</err>\n"
-        f"<upd>{'Rerun with a verifier-grounded correction before accepting the claim.' if not passed else 'Maintain verified behavior.'}</upd>\n"
+        f"<upd>{update_message}</upd>\n"
         f"<verify>{label}</verify>"
     )
 
@@ -63,7 +79,10 @@ def record_verifier_feedback(
             action={"response": response},
             observation={"score": score, "reason": reason, "passed": passed},
             correction={"text": replay_text, "label": label} if not passed else None,
-            memory={"dfc": replay_text, "template": "FAILURE_REPLAY" if not passed else "VERIFIER_TRACE"},
+            memory={
+                "dfc": replay_text,
+                "template": "FAILURE_REPLAY" if not passed else "VERIFIER_TRACE",
+            },
         )
     except Exception:
         nodes = {}
@@ -116,14 +135,17 @@ def record_verifier_feedback(
             except Exception:
                 pass
         if memory_router is not None:
-            try:
+            with contextlib.suppress(Exception):
                 memory_router.write(
                     replay_text,
                     metadata={"kind": "failure_replay", "salience": 1.0, "task_type": task_type},
                     tier="episodic",
                 )
-            except Exception:
-                pass
 
-    return {"score": score, "label": label, "passed": passed, "reason": reason, "nodes": list(nodes)}
-
+    return {
+        "score": score,
+        "label": label,
+        "passed": passed,
+        "reason": reason,
+        "nodes": list(nodes),
+    }

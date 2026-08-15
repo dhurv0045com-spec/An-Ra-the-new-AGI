@@ -1,26 +1,29 @@
 from __future__ import annotations
 
-import json
 import importlib.util
+import json
 import sys
 import time
+from collections.abc import Iterable
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Iterable
 
 import torch
-
 from anra.anra_paths import (
     DATASET_CANONICAL,
     OUTPUT_V2_DIR,
     ROOT,
     TEACHER_REASONING_V2_FILE,
-    V3_TOKENIZER_FILE,
-    get_teacher_files,
+    V4_TOKENIZER_FILE,
     get_identity_file,
+    get_teacher_files,
     get_v2_checkpoint,
 )
-from training.v2_config import EXPECTED_PAD_TOKEN_ID, EXPECTED_SPECIAL_TOKENS, EXPECTED_TOKENIZER_VOCAB_SIZE
+from training.v2_config import (
+    EXPECTED_PAD_TOKEN_ID,
+    EXPECTED_SPECIAL_TOKENS,
+    EXPECTED_TOKENIZER_VOCAB_SIZE,
+)
 
 
 @dataclass(frozen=True)
@@ -58,27 +61,46 @@ def _rel(path: Path) -> str:
 
 def _text_dataset_status(path: Path) -> ReadinessCheck:
     if not path.exists():
-        return ReadinessCheck("dataset", "blocker", "canonical training dataset is missing", path=_rel(path))
+        return ReadinessCheck(
+            "dataset", "blocker", "canonical training dataset is missing", path=_rel(path)
+        )
     if not path.is_file():
         return ReadinessCheck("dataset", "blocker", "dataset path is not a file", path=_rel(path))
     size = path.stat().st_size
     if size < 100_000:
-        return ReadinessCheck("dataset", "blocker", f"dataset is too small for V2 training ({size} bytes)", path=_rel(path))
+        return ReadinessCheck(
+            "dataset",
+            "blocker",
+            f"dataset is too small for V2 training ({size} bytes)",
+            path=_rel(path),
+        )
     sample = path.read_text(encoding="utf-8", errors="replace")[:4000]
     if "H:" not in sample or "ANRA:" not in sample:
-        return ReadinessCheck("dataset", "blocker", "dataset does not expose H:/ANRA: conversation turns", path=_rel(path))
+        return ReadinessCheck(
+            "dataset",
+            "blocker",
+            "dataset does not expose H:/ANRA: conversation turns",
+            path=_rel(path),
+        )
     return ReadinessCheck("dataset", "ok", f"{size} bytes with H:/ANRA: turns", path=_rel(path))
 
 
 def _tokenizer_status(path: Path) -> ReadinessCheck:
     if not path.exists():
-        return ReadinessCheck("tokenizer", "blocker", "tokenizer_v3.json is missing", path=_rel(path))
+        return ReadinessCheck(
+            "tokenizer", "blocker", "canonical tokenizer_v4_32k.json is missing", path=_rel(path)
+        )
     meta_path = path.with_suffix(path.suffix + ".meta.json")
     try:
         blob = json.loads(path.read_text(encoding="utf-8"))
         meta = json.loads(meta_path.read_text(encoding="utf-8")) if meta_path.exists() else {}
     except Exception as exc:
-        return ReadinessCheck("tokenizer", "blocker", f"tokenizer cannot be read: {type(exc).__name__}", path=_rel(path))
+        return ReadinessCheck(
+            "tokenizer",
+            "blocker",
+            f"tokenizer cannot be read: {type(exc).__name__}",
+            path=_rel(path),
+        )
 
     token_to_id = blob.get("token_to_id", {}) if isinstance(blob, dict) else {}
     vocab_size = int(meta.get("vocab_size", len(token_to_id)))
@@ -92,18 +114,36 @@ def _tokenizer_status(path: Path) -> ReadinessCheck:
             path=_rel(path),
         )
     if special_tokens and special_tokens != EXPECTED_SPECIAL_TOKENS:
-        return ReadinessCheck("tokenizer", "blocker", "special token contract does not match V2 config", path=_rel(path))
+        return ReadinessCheck(
+            "tokenizer",
+            "blocker",
+            "special token contract does not match V2 config",
+            path=_rel(path),
+        )
     if pad_id != EXPECTED_PAD_TOKEN_ID:
-        return ReadinessCheck("tokenizer", "blocker", f"pad token id={pad_id}, expected={EXPECTED_PAD_TOKEN_ID}", path=_rel(path))
+        return ReadinessCheck(
+            "tokenizer",
+            "blocker",
+            f"pad token id={pad_id}, expected={EXPECTED_PAD_TOKEN_ID}",
+            path=_rel(path),
+        )
     return ReadinessCheck("tokenizer", "ok", f"{vocab_size} tokens, pad={pad_id}", path=_rel(path))
 
 
 def _checkpoint_checks() -> list[ReadinessCheck]:
     checks: list[ReadinessCheck] = []
-    for name in ("brain", "identity", "ouroboros"):
+    for name in ("brain",):
         path = get_v2_checkpoint(name)
         if path.exists():
-            checks.append(ReadinessCheck(f"checkpoint:{name}", "ok", f"{path.stat().st_size} bytes", required=False, path=_rel(path)))
+            checks.append(
+                ReadinessCheck(
+                    f"checkpoint:{name}",
+                    "ok",
+                    f"{path.stat().st_size} bytes",
+                    required=False,
+                    path=_rel(path),
+                )
+            )
         else:
             checks.append(
                 ReadinessCheck(
@@ -127,9 +167,25 @@ def _report_checks() -> list[ReadinessCheck]:
     checks: list[ReadinessCheck] = []
     for name, path in reports.items():
         if path.exists():
-            checks.append(ReadinessCheck(f"report:{name}", "ok", f"{path.stat().st_size} bytes", required=False, path=_rel(path)))
+            checks.append(
+                ReadinessCheck(
+                    f"report:{name}",
+                    "ok",
+                    f"{path.stat().st_size} bytes",
+                    required=False,
+                    path=_rel(path),
+                )
+            )
         else:
-            checks.append(ReadinessCheck(f"report:{name}", "warn", "missing until a session/eval writes it", required=False, path=_rel(path)))
+            checks.append(
+                ReadinessCheck(
+                    f"report:{name}",
+                    "warn",
+                    "missing until a session/eval writes it",
+                    required=False,
+                    path=_rel(path),
+                )
+            )
     return checks
 
 
@@ -137,30 +193,35 @@ def _data_mix_checks() -> list[ReadinessCheck]:
     teacher_files = get_teacher_files()
     frontier = DATASET_CANONICAL.parent / "frontier_dfc.jsonl"
     replay = ROOT / "state" / "failure_replay.jsonl"
-    checks = [
+    return [
         ReadinessCheck(
             "data_mix:teacher",
             "ok" if teacher_files else "warn",
-            f"{len(teacher_files)} teacher file(s)" if teacher_files else f"no teacher JSONL found at {_rel(TEACHER_REASONING_V2_FILE)}",
+            f"{len(teacher_files)} teacher file(s)"
+            if teacher_files
+            else f"no teacher JSONL found at {_rel(TEACHER_REASONING_V2_FILE)}",
             required=False,
             path=_rel(teacher_files[0]) if teacher_files else _rel(TEACHER_REASONING_V2_FILE),
         ),
         ReadinessCheck(
             "data_mix:frontier_dfc",
             "ok" if frontier.exists() else "warn",
-            "frontier DFC examples available" if frontier.exists() else "frontier DFC examples missing",
+            "frontier DFC examples available"
+            if frontier.exists()
+            else "frontier DFC examples missing",
             required=False,
             path=_rel(frontier),
         ),
         ReadinessCheck(
             "data_mix:failure_replay",
             "ok" if replay.exists() else "warn",
-            "failure replay dataset available" if replay.exists() else "failure replay dataset not created yet",
+            "failure replay dataset available"
+            if replay.exists()
+            else "failure replay dataset not created yet",
             required=False,
             path=_rel(replay),
         ),
     ]
-    return checks
 
 
 def _alignment_dependency_checks() -> list[ReadinessCheck]:
@@ -171,14 +232,18 @@ def _alignment_dependency_checks() -> list[ReadinessCheck]:
     if psutil_available:
         psutil_detail = "psutil available for sovereignty resource monitoring"
     elif android_runtime:
-        psutil_detail = "psutil unsupported on Android; sovereignty will use fallback resource metrics"
+        psutil_detail = (
+            "psutil unsupported on Android; sovereignty will use fallback resource metrics"
+        )
     else:
         psutil_detail = "psutil missing; sovereignty resource monitoring is degraded"
     return [
         ReadinessCheck(
             "identity:file",
             "ok" if identity_file is not None else "warn",
-            "identity file available" if identity_file is not None else "identity injection has no source identity file",
+            "identity file available"
+            if identity_file is not None
+            else "identity injection has no source identity file",
             required=False,
             path=_rel(identity_file) if identity_file is not None else None,
         ),
@@ -194,11 +259,13 @@ def _alignment_dependency_checks() -> list[ReadinessCheck]:
 def _compute_checks(dataset_path: Path) -> list[ReadinessCheck]:
     checks = [
         _text_dataset_status(dataset_path),
-        _tokenizer_status(V3_TOKENIZER_FILE),
+        _tokenizer_status(V4_TOKENIZER_FILE),
         ReadinessCheck(
             "device",
             "ok" if torch.cuda.is_available() else "warn",
-            torch.cuda.get_device_name(0) if torch.cuda.is_available() else "CUDA unavailable; training will run on CPU",
+            torch.cuda.get_device_name(0)
+            if torch.cuda.is_available()
+            else "CUDA unavailable; training will run on CPU",
             required=False,
         ),
     ]
@@ -209,7 +276,9 @@ def _compute_checks(dataset_path: Path) -> list[ReadinessCheck]:
     return checks
 
 
-def assess_training_readiness(dataset_path: Path | None = None, extra_checks: Iterable[ReadinessCheck] = ()) -> TrainingReadiness:
+def assess_training_readiness(
+    dataset_path: Path | None = None, extra_checks: Iterable[ReadinessCheck] = ()
+) -> TrainingReadiness:
     checks = _compute_checks(dataset_path or DATASET_CANONICAL)
     checks.extend(extra_checks)
     blockers = [check.detail for check in checks if check.status == "blocker" and check.required]

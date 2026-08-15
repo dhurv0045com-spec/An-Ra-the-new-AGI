@@ -9,8 +9,9 @@ Falls back gracefully to float32 on CPU/MPS with no code changes.
 """
 
 import logging
+import time
+from collections.abc import Iterator
 from contextlib import contextmanager
-from typing import Optional
 
 import torch
 import torch.nn as nn
@@ -69,17 +70,17 @@ class MixedPrecisionTrainer:
 
     def __init__(
         self,
-        device: Optional[torch.device] = None,
-        enabled: Optional[bool] = None,
-        init_scale: float = 2.0 ** 16,
+        device: torch.device | None = None,
+        enabled: bool | None = None,
+        init_scale: float = 2.0**16,
         growth_interval: int = 2000,
-    ):
+    ) -> None:
         self.device = device or get_device()
         self.dtype = amp_dtype(self.device)
 
         # AMP speedup only on CUDA
         if enabled is None:
-            self.enabled = (self.device.type == "cuda")
+            self.enabled = self.device.type == "cuda"
         else:
             self.enabled = enabled
 
@@ -98,6 +99,8 @@ class MixedPrecisionTrainer:
                 growth_interval=growth_interval,
                 enabled=self._needs_scaler,
             )
+        self._scale_before_step = self.scale
+        self._last_step_succeeded = True
 
         if self.enabled:
             logger.info(
@@ -108,7 +111,7 @@ class MixedPrecisionTrainer:
             logger.info("Mixed precision: disabled (CPU/MPS - running float32)")
 
     @contextmanager
-    def autocast(self):
+    def autocast(self) -> Iterator[None]:
         """
         Context manager for forward pass in reduced precision.
         LayerNorm, softmax, loss automatically stay in float32.
@@ -120,20 +123,25 @@ class MixedPrecisionTrainer:
         ):
             yield
 
-    def backward(self, loss: torch.Tensor):
+    def backward(self, loss: torch.Tensor) -> None:
         """Scale loss (if float16) and run backward. Prevents gradient underflow."""
         if self._needs_scaler:
             self.scaler.scale(loss).backward()
         else:
             loss.backward()
 
-    def clip_gradients(self, model: nn.Module, max_norm: float = 1.0) -> float:
+    def clip_gradients(
+        self,
+        model: nn.Module,
+        optimizer: torch.optim.Optimizer,
+        max_norm: float = 1.0,
+    ) -> float:
         """
         Clip gradients by global norm. Unscales first if needed.
         Returns pre-clipping global grad norm for monitoring.
         """
         if self._needs_scaler:
-            self.scaler.unscale_(self._last_optimizer)
+            self.scaler.unscale_(optimizer)
         norm = torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm)
         return norm.item()
 
@@ -143,23 +151,31 @@ class MixedPrecisionTrainer:
         Returns True if step was taken.
         """
         self._last_optimizer = optimizer
+        self._scale_before_step = self.scale
         if self._needs_scaler:
             self.scaler.step(optimizer)
             return True
-        else:
-            optimizer.step()
-            return True
+        optimizer.step()
+        self._last_step_succeeded = True
+        return True
 
-    def update(self):
-        """Update scaler after each step. Adjusts scale based on overflow."""
+    def update(self) -> bool:
+        """Update the scaler and report whether the optimizer step executed."""
         if self._needs_scaler:
             self.scaler.update()
+            # GradScaler lowers its scale when it skipped an optimizer step
+            # because of non-finite gradients. Growth or equality means the
+            # step was safe and did execute.
+            self._last_step_succeeded = self.scale >= self._scale_before_step
+        else:
+            self._last_step_succeeded = True
+        return self._last_step_succeeded
 
-    def state_dict(self) -> dict:
+    def state_dict(self) -> dict[str, object]:
         """Serialize scaler state for checkpointing."""
         return self.scaler.state_dict()
 
-    def load_state_dict(self, state: dict):
+    def load_state_dict(self, state: dict[str, object]) -> None:
         """Restore scaler state from checkpoint."""
         self.scaler.load_state_dict(state)
 
@@ -168,7 +184,7 @@ class MixedPrecisionTrainer:
         """Current gradient scale factor (for logging)."""
         return self.scaler.get_scale() if self._needs_scaler else 1.0
 
-    def log_stats(self) -> dict:
+    def log_stats(self) -> dict[str, object]:
         """Return AMP stats for logging."""
         return {
             "amp_enabled": self.enabled,
@@ -182,9 +198,9 @@ def amp_step(
     model: nn.Module,
     optimizer: torch.optim.Optimizer,
     mp: "MixedPrecisionTrainer",
-    scheduler=None,
+    scheduler: object | None = None,
     max_grad_norm: float = 1.0,
-) -> dict:
+) -> dict[str, float]:
     """
     Complete backward -> unscale -> clip -> step -> update cycle.
 
@@ -201,25 +217,23 @@ def amp_step(
     """
     mp.backward(loss)
 
-    # Unscale before clipping so we clip actual gradients
-    if mp._needs_scaler:
-        mp.scaler.unscale_(optimizer)
-
-    grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), max_grad_norm).item()
+    grad_norm = mp.clip_gradients(model, optimizer, max_grad_norm)
     mp.step(optimizer)
-    mp.update()
+    step_succeeded = mp.update()
 
-    if scheduler is not None:
+    if scheduler is not None and step_succeeded:
         scheduler.step()
 
     optimizer.zero_grad(set_to_none=True)
 
-    return {"grad_norm": grad_norm, "grad_scale": mp.scale}
+    return {
+        "grad_norm": grad_norm,
+        "grad_scale": mp.scale,
+        "step_succeeded": float(step_succeeded),
+    }
 
 
 if __name__ == "__main__":
-    import time
-
     print("=" * 60)
     print("Step 26: Mixed Precision Training - self test")
     print("=" * 60)
@@ -227,7 +241,13 @@ if __name__ == "__main__":
     device = get_device()
 
     class MiniTransformer(nn.Module):
-        def __init__(self, vocab=256, d=128, heads=4, layers=2):
+        def __init__(
+            self,
+            vocab: int = 256,
+            d: int = 128,
+            heads: int = 4,
+            layers: int = 2,
+        ) -> None:
             super().__init__()
             self.embed = nn.Embedding(vocab, d)
             enc_layer = nn.TransformerEncoderLayer(
@@ -236,7 +256,7 @@ if __name__ == "__main__":
             self.encoder = nn.TransformerEncoder(enc_layer, num_layers=layers)
             self.head = nn.Linear(d, vocab)
 
-        def forward(self, x):
+        def forward(self, x: torch.Tensor) -> torch.Tensor:
             return self.head(self.encoder(self.embed(x)))
 
     model = MiniTransformer().to(device)
@@ -261,12 +281,14 @@ if __name__ == "__main__":
         losses.append(loss.item())
 
         if step % 10 == 0:
-            print(f"  Step {step:3d}: loss={loss.item():.4f}  "
-                  f"grad_norm={stats['grad_norm']:.4f}  "
-                  f"scale={stats['grad_scale']:.0f}")
+            print(
+                f"  Step {step:3d}: loss={loss.item():.4f}  "
+                f"grad_norm={stats['grad_norm']:.4f}  "
+                f"scale={stats['grad_scale']:.0f}"
+            )
 
     elapsed = time.perf_counter() - t0
-    print(f"\n30 steps in {elapsed:.2f}s ({30/elapsed:.1f} steps/sec)")
+    print(f"\n30 steps in {elapsed:.2f}s ({30 / elapsed:.1f} steps/sec)")
 
     # State dict round-trip
     sd = mp.state_dict()

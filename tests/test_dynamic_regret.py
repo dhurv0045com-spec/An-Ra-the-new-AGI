@@ -47,15 +47,11 @@ def test_regret_state_path_is_on_drive():
     )
 
 
-def test_build_brain_imports_REGRET_STATE():
-    """build_brain.py must import and use REGRET_STATE from anra_paths."""
+def test_foundation_trainer_does_not_overlay_dynamic_regret_on_cosine():
+    """The adaptive controller remains a pilot, not a second foundation LR schedule."""
     from anra.anra_paths import ROOT
 
     src = (ROOT / "scripts" / "build_brain.py").read_text(encoding="utf-8")
-    assert "REGRET_STATE" in src, (
-        "build_brain.py must import REGRET_STATE from anra_paths and use it for save/load"
-    )
-    assert "ROOT / \"state\" / \"regret_state" not in src and \
-           "ROOT/'state'/'regret_state" not in src, (
-        "build_brain.py must save to REGRET_STATE (Drive), not ROOT/state/regret_state.json"
-    )
+    assert "DynamicRegretScheduler" not in src
+    assert "regret_scheduler" not in src
+    assert '"adaptive_lr_overlay": False' in src

@@ -1,11 +1,9 @@
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 from anra.anra_paths import OUTPUT_V2_DIR, ROOT, V2_TOKENIZER_FILE, get_v2_checkpoint
 from runtime.system_registry import build_system_manifest
-
 
 
 def _v2_report_path(kind: str) -> Path:

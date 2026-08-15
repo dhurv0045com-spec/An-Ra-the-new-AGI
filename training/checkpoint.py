@@ -10,13 +10,11 @@ Resume from any checkpoint with a single call.
 import json
 import logging
 import shutil
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Optional, Any
 
 import torch
 import torch.nn as nn
-
 from runtime.safe_load import safe_torch_load
 
 logger = logging.getLogger(__name__)
@@ -28,6 +26,7 @@ class CheckpointMeta:
     Lightweight metadata stored alongside every checkpoint.
     Used for checkpoint selection without loading full state dicts.
     """
+
     epoch: int
     global_step: int
     train_loss: float
@@ -65,7 +64,7 @@ class CheckpointManager:
         checkpoint_dir: str = "./checkpoints",
         keep_last_n: int = 3,
         save_optimizer: bool = True,
-    ):
+    ) -> None:
         self.checkpoint_dir = Path(checkpoint_dir)
         self.checkpoint_dir.mkdir(parents=True, exist_ok=True)
         self.keep_last_n = keep_last_n
@@ -85,7 +84,7 @@ class CheckpointManager:
                 return json.load(f)
         return []
 
-    def _save_registry(self):
+    def _save_registry(self) -> None:
         with open(self._registry_path, "w") as f:
             json.dump(self._registry, f, indent=2)
 
@@ -95,13 +94,13 @@ class CheckpointManager:
             return float("inf")
         return min(r["val_loss"] for r in self._registry)
 
-    def latest_checkpoint(self) -> Optional[Path]:
+    def latest_checkpoint(self) -> Path | None:
         """Return path to the most recently saved checkpoint, or None."""
         if not self._registry:
             return None
         return Path(self._registry[-1]["path"])
 
-    def best_checkpoint(self) -> Optional[Path]:
+    def best_checkpoint(self) -> Path | None:
         """Return path to the checkpoint with the lowest val loss."""
         if not self._registry:
             return None
@@ -116,8 +115,8 @@ class CheckpointManager:
         self,
         model: nn.Module,
         optimizer: torch.optim.Optimizer,
-        scheduler: Any,
-        scaler: Optional[Any],
+        scheduler: object,
+        scaler: object | None,
         meta: CheckpointMeta,
     ) -> Path:
         """
@@ -152,7 +151,9 @@ class CheckpointManager:
         logger.info(f"Checkpoint saved: {ckpt_path} (val_loss={meta.val_loss:.4f})")
 
         # Update registry
-        self._registry.append({"path": str(ckpt_path), "val_loss": meta.val_loss, "epoch": meta.epoch})
+        self._registry.append(
+            {"path": str(ckpt_path), "val_loss": meta.val_loss, "epoch": meta.epoch}
+        )
         self._save_registry()
 
         # Always keep best checkpoint as a separate copy
@@ -166,7 +167,7 @@ class CheckpointManager:
 
         return ckpt_path
 
-    def _prune(self):
+    def _prune(self) -> None:
         """
         Remove checkpoints beyond keep_last_n, never removing best.pt.
         Best.pt is an independent copy and is never in the rolling window.
@@ -187,11 +188,11 @@ class CheckpointManager:
 
     def load(
         self,
-        path: Optional[str | Path],
+        path: str | Path | None,
         model: nn.Module,
-        optimizer: Optional[torch.optim.Optimizer] = None,
-        scheduler: Optional[Any] = None,
-        scaler: Optional[Any] = None,
+        optimizer: torch.optim.Optimizer | None = None,
+        scheduler: object | None = None,
+        scaler: object | None = None,
         device: str = "cpu",
         strict: bool = True,
     ) -> CheckpointMeta:
@@ -270,7 +271,9 @@ class CheckpointManager:
     def summary(self) -> str:
         lines = ["─" * 50, "Checkpoint Manager"]
         for r in self.list_checkpoints():
-            lines.append(f"  Epoch {r['epoch']:>4d}  val={r['val_loss']:.4f}  {Path(r['path']).name}")
+            lines.append(
+                f"  Epoch {r['epoch']:>4d}  val={r['val_loss']:.4f}  {Path(r['path']).name}"
+            )
         best = self.best_checkpoint()
         if best:
             lines.append(f"  Best: {best.name}  val={self.best_val_loss():.4f}")
@@ -291,11 +294,11 @@ if __name__ == "__main__":
 
     # Minimal model for testing
     class TinyModel(nn.Module):
-        def __init__(self):
+        def __init__(self) -> None:
             super().__init__()
             self.fc = nn.Linear(16, 16)
 
-        def forward(self, x):
+        def forward(self, x: torch.Tensor) -> torch.Tensor:
             return self.fc(x)
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -310,9 +313,12 @@ if __name__ == "__main__":
         for epoch, vl in enumerate(val_losses, 1):
             best = min(best, vl)
             meta = CheckpointMeta(
-                epoch=epoch, global_step=epoch * 100,
-                train_loss=vl - 0.1, val_loss=vl, best_val_loss=best,
-                model_config={"d_model": 64}
+                epoch=epoch,
+                global_step=epoch * 100,
+                train_loss=vl - 0.1,
+                val_loss=vl,
+                best_val_loss=best,
+                model_config={"d_model": 64},
             )
             manager.save(model, opt, sched, scaler=None, meta=meta)
 

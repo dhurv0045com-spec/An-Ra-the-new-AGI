@@ -1,42 +1,65 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import math
+import os
 import shutil
 import time
 from pathlib import Path
+from typing import TypedDict
 
 import torch
-
 from anra.anra_paths import (
+    ANRA_V4_CHECKPOINT,
     DRIVE_DIR,
     DRIVE_V2_CHECKPOINTS,
+    DRIVE_V2_DIR,
     OUTPUT_V2_DIR,
     ROOT,
+    TOKENIZER_MANIFEST,
     V2_BRAIN_CHECKPOINT,
     V2_IDENTITY_CHECKPOINT,
     V2_OUROBOROS_CHECKPOINT,
-    V3_TOKENIZER_FILE,
+    V4_TOKENIZER_FILE,
     ensure_dirs,
-    get_dataset_file,
     get_identity_file,
     get_teacher_files,
     get_v2_checkpoint,
 )
-from anra_brain import CausalTransformerV2
-from tokenizer.subword_tokenizer import SubwordTokenizer
-from tokenizer.tokenizer_adapter import TokenizerAdapter
-from training.v2_config import (
-    EXPECTED_PAD_TOKEN_ID,
-    EXPECTED_SPECIAL_TOKENS,
-    EXPECTED_TOKENIZER_VOCAB_SIZE,
-    V2_MODEL,
-    V2_REPORT_FILES,
-)
+from anra_brain import ANRA_V4_ARCHITECTURE_VERSION, CausalTransformerV2
 from runtime.drive_session_manager import DriveSessionManager
 from runtime.safe_load import safe_torch_load
+from tokenizer.subword_tokenizer import SubwordTokenizer
+from tokenizer.tokenizer_adapter import TokenizerAdapter
 
+from training.anra_optimizer import restore_optimizer_state_for_resume
+from training.checkpoint_durability import (
+    FP16_INFERENCE,
+    ResumeArtifactError,
+    assert_resume_artifact_class,
+)
+from training.reproducibility import restore_rng_states
+from training.v2_config import (
+    CANONICAL_VOCAB_SIZE,
+    CHECKPOINT_SCHEMA_VERSION,
+    EXPECTED_PAD_TOKEN_ID,
+    EXPECTED_SPECIAL_TOKEN_IDS,
+    EXPECTED_SPECIAL_TOKENS,
+    EXPECTED_TOKENIZER_VOCAB_SIZE,
+    TOKENIZER_SCHEMA_VERSION,
+    V2_FRONTIER,
+    V2_MODEL,
+    V2_REPORT_FILES,
+    frontier_parameter_count,
+    is_v4_vocab_size,
+    resolve_model_profile,
+)
+
+# Active runtime accepts exactly the canonical 32k V4 vocabulary. Legacy
+# checkpoint inspection has a separate explicit compatibility path.
+ALLOWED_CANONICAL_VOCAB_SIZES = (EXPECTED_TOKENIZER_VOCAB_SIZE,)
 
 ensure_dirs()
 logger = logging.getLogger(__name__)
@@ -44,13 +67,71 @@ logger = logging.getLogger(__name__)
 DRIVE_SESSION_MANAGER = DriveSessionManager(DRIVE_DIR)
 
 
+def active_tokenizer_path() -> Path:
+    """Return the canonical or launch-bound V4 tokenizer artifact.
+
+    Signed launch manifests set ``ANRA_TOKENIZER_PATH`` only after verifying the
+    artifact's bound hash.  Resolving it here makes portable cloud packs use the
+    exact tokenizer that produced their token shards.  The tokenizer contract is
+    still enforced by ``load_or_build_v2_tokenizer`` so this is not a legacy
+    tokenizer compatibility escape hatch.
+    """
+    configured = os.environ.get("ANRA_TOKENIZER_PATH", "").strip()
+    if not configured:
+        return V4_TOKENIZER_FILE
+    path = Path(configured).expanduser()
+    return path.resolve() if path.is_absolute() else (ROOT / path).resolve()
+
+
+class CheckpointCompatibilityError(RuntimeError):
+    """Raised when a checkpoint cannot satisfy the requested model contract."""
+
+
+def assert_checkpoint_optimizer_boundary(blob: object, checkpoint: Path) -> None:
+    """Reject modern checkpoints captured inside gradient accumulation."""
+    if not isinstance(blob, dict):
+        return
+    schema = int(blob.get("checkpoint_schema_version", 0) or 0)
+    if schema < 6:
+        return
+    complete = blob.get("completed_optimizer_boundary") is True
+    accumulation = int(blob.get("accum_micro_steps", -1) or 0)
+    if not complete or accumulation != 0:
+        raise CheckpointCompatibilityError(
+            f"Checkpoint {checkpoint} is not on a complete optimizer boundary: "
+            f"completed={complete}, accum_micro_steps={accumulation}"
+        )
+
+
+class CheckpointLoadReport(TypedDict, total=False):
+    loaded_keys: list[str]
+    loaded_key_count: int
+    target_key_count: int
+    missing_keys: list[str]
+    unexpected_keys: list[str]
+    mismatched_shapes: dict[str, object]
+    source_shape_changes: dict[str, object]
+    newly_initialized_keys: list[str]
+    core_missing_keys: list[str]
+    core_mismatched_keys: list[str]
+    subsystem_missing_keys: list[str]
+    subsystem_mismatched_keys: list[str]
+    migration: dict[str, object]
+    exact_core_load: bool
+    exact_native_load: bool
+    all_target_tensors_accounted: bool
+
+
 def canonical_v2_checkpoint(kind: str = "brain") -> Path:
+    if kind == "brain":
+        return ANRA_V4_CHECKPOINT
     mapping = {
-        "brain": V2_BRAIN_CHECKPOINT,
         "identity": V2_IDENTITY_CHECKPOINT,
         "ouroboros": V2_OUROBOROS_CHECKPOINT,
     }
-    return mapping.get(kind, V2_BRAIN_CHECKPOINT)
+    if kind not in mapping:
+        raise ValueError(f"Unsupported legacy checkpoint kind: {kind}")
+    return mapping[kind]
 
 
 def v2_output_file(name: str) -> Path:
@@ -60,10 +141,19 @@ def v2_output_file(name: str) -> Path:
 
 def v2_report_path(key: str) -> Path:
     filename = V2_REPORT_FILES.get(key, key)
+    isolated_root = os.environ.get("ANRA_RUN_REPORT_DIR", "").strip()
+    if isolated_root:
+        root = Path(isolated_root)
+        if not root.is_absolute():
+            root = (ROOT / root).resolve()
+        root.mkdir(parents=True, exist_ok=True)
+        return root / filename
     return v2_output_file(filename)
 
 
-def atomic_save(payload: dict, output_path: Path, *, drive_dir: Path | None = DRIVE_V2_CHECKPOINTS) -> None:
+def atomic_save(
+    payload: dict, output_path: Path, *, drive_dir: Path | None = DRIVE_V2_CHECKPOINTS
+) -> None:
     output_path.parent.mkdir(parents=True, exist_ok=True)
     tmp = output_path.with_suffix(output_path.suffix + ".tmp")
     torch.save(payload, tmp)
@@ -102,10 +192,16 @@ def _drive_artifact_path(name: str) -> Path:
         "brain": "anra_v2_brain.pt",
         "identity": "anra_v2_identity.pt",
         "ouroboros": "anra_v2_ouroboros.pt",
-        "tokenizer": "tokenizer_v3.json",
+        "tokenizer": "tokenizer_v4_32k.json",
         "eval_summary": "anra_v2_eval_summary.json",
     }
-    return DRIVE_DIR / drive_filenames.get(name, f"anra_v2_{name}.pt")
+    filename = drive_filenames.get(name, f"anra_v2_{name}.pt")
+    # Tokenizer and reports are immutable/small V2 artifacts. Checkpoints use
+    # the dedicated checkpoint directory. Each artifact has one canonical
+    # Drive path; legacy restore candidates remain supported below.
+    if name in {"brain", "identity", "ouroboros"}:
+        return DRIVE_V2_CHECKPOINTS / filename
+    return DRIVE_V2_DIR / filename
 
 
 def _local_artifact_path(name: str) -> Path:
@@ -113,7 +209,7 @@ def _local_artifact_path(name: str) -> Path:
         "brain": V2_BRAIN_CHECKPOINT,
         "identity": V2_IDENTITY_CHECKPOINT,
         "ouroboros": V2_OUROBOROS_CHECKPOINT,
-        "tokenizer": V3_TOKENIZER_FILE,
+        "tokenizer": V4_TOKENIZER_FILE,
         "eval_summary": v2_report_path("eval_summary"),
     }
     return local_map.get(name, ROOT / f"anra_v2_{name}.pt")
@@ -121,19 +217,10 @@ def _local_artifact_path(name: str) -> Path:
 
 def _drive_restore_candidates(name: str) -> list[Path]:
     canonical = _drive_artifact_path(name)
-    candidates = [
+    return [
         DRIVE_V2_CHECKPOINTS / canonical.name,
         canonical,
     ]
-    if name == "tokenizer":
-        # Older sessions may keep the canonical tokenizer in legacy checkpoint folders.
-        candidates.extend(
-            [
-                DRIVE_V2_CHECKPOINTS / "tokenizer_v3.json",
-                DRIVE_DIR / "tokenizer_v3.json",
-            ]
-        )
-    return candidates
 
 
 def restore_v2_artifact(name: str = "brain") -> bool:
@@ -172,22 +259,22 @@ def restore_v2_artifact(name: str = "brain") -> bool:
 
 def sync_to_drive(name: str = "brain") -> bool:
     """
-    Copy local checkpoint to Drive. Always overwrites same file.
-    Never creates new files. Returns True on success.
+    Sync one legacy artifact to its canonical Drive path.
+
+    This compatibility helper intentionally writes one file, not the old pair
+    of root and checkpoint-directory copies. Frontier training checkpoints use
+    the shared-master publisher instead.
     """
     local_path = _local_artifact_path(name)
     if not local_path.exists():
         print(f"[Drive] {name}: local file not found, skipping")
         return False
 
-    DRIVE_V2_CHECKPOINTS.mkdir(parents=True, exist_ok=True)
-    drive_root = _drive_artifact_path(name)
-    drive_target = DRIVE_V2_CHECKPOINTS / drive_root.name
+    drive_target = _drive_artifact_path(name)
 
     try:
-        drive_root.parent.mkdir(parents=True, exist_ok=True)
+        drive_target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(local_path, drive_target)
-        shutil.copy2(local_path, drive_root)
         step = _read_step(local_path) if local_path.suffix == ".pt" else 0
         size_kb = local_path.stat().st_size // 1024
         print(f"[Drive] {name}: saved (step={step}, {size_kb}KB)")
@@ -230,33 +317,15 @@ def load_or_build_v2_tokenizer(
     dataset_path: Path | None = None,
     vocab_size: int = EXPECTED_TOKENIZER_VOCAB_SIZE,
 ) -> SubwordTokenizer:
-    dataset_path = dataset_path or get_dataset_file()
-    local = V3_TOKENIZER_FILE
-    if local.exists():
-        tokenizer = SubwordTokenizer.load(local)
-        assert_tokenizer_contract(local, tokenizer)
-        return tokenizer
-    restored = restore_v2_artifact("tokenizer")
-    if restored and local.exists():
-        tokenizer = SubwordTokenizer.load(local)
-        assert_tokenizer_contract(local, tokenizer)
-        return tokenizer
-
-    texts = _collect_tokenizer_texts(dataset_path)
-    print(f"[build_brain] Building tokenizer_v3 from {dataset_path} ...", flush=True)
-    tokenizer = SubwordTokenizer.train_from_texts(texts, vocab_size=vocab_size)
-    tokenizer.save(local)
+    del dataset_path, vocab_size
+    local = active_tokenizer_path()
+    if not local.exists():
+        raise FileNotFoundError(
+            f"Canonical V4 tokenizer does not exist: {local}. "
+            "Legacy tokenizer restore/build fallback is disabled."
+        )
+    tokenizer = SubwordTokenizer.load(local)
     assert_tokenizer_contract(local, tokenizer)
-    try:
-        drive_tok = DRIVE_DIR / "v2" / local.name
-        drive_tok.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(local, drive_tok)
-    except Exception as exc:
-        logger.warning("Drive tokenizer mirror failed for %s: %s", local, exc)
-    print(
-        f"[build_brain] tokenizer_v3 built + mirrored to Drive. vocab_size={tokenizer.vocab_size}",
-        flush=True,
-    )
     return tokenizer
 
 
@@ -265,29 +334,119 @@ def assert_tokenizer_contract(path: Path, tokenizer: SubwordTokenizer) -> None:
     meta = json.loads(meta_path.read_text(encoding="utf-8")) if meta_path.exists() else {}
     vocab_size = int(meta.get("vocab_size", tokenizer.vocab_size))
     special_tokens = list(meta.get("special_tokens", tokenizer.special_tokens))
-    if vocab_size != EXPECTED_TOKENIZER_VOCAB_SIZE:
+    allowed_vocab_sizes = set(ALLOWED_CANONICAL_VOCAB_SIZES)
+    if vocab_size not in allowed_vocab_sizes:
         raise AssertionError(
-            f"Tokenizer contract mismatch: vocab_size={vocab_size}, expected={EXPECTED_TOKENIZER_VOCAB_SIZE} "
+            f"Tokenizer contract mismatch: vocab_size={vocab_size}, "
+            f"expected one of {sorted(allowed_vocab_sizes)} "
             f"(meta={meta_path})"
         )
+    schema_version = int(meta.get("schema_version", TOKENIZER_SCHEMA_VERSION))
+    if is_v4_vocab_size(vocab_size) and schema_version != 4:
+        raise AssertionError("An append-only V4 tokenizer must declare schema_version=4")
     if special_tokens != EXPECTED_SPECIAL_TOKENS:
         raise AssertionError(
-            f"Tokenizer contract mismatch: special_tokens={special_tokens}, expected={EXPECTED_SPECIAL_TOKENS} "
+            f"Tokenizer contract mismatch: special_tokens={special_tokens}, "
+            f"expected={EXPECTED_SPECIAL_TOKENS} "
             f"(meta={meta_path})"
         )
-    if tokenizer.vocab_size != EXPECTED_TOKENIZER_VOCAB_SIZE:
+    if tokenizer.vocab_size != vocab_size:
         raise AssertionError(
             f"Tokenizer contract mismatch: tokenizer.vocab_size={tokenizer.vocab_size}, "
-            f"expected={EXPECTED_TOKENIZER_VOCAB_SIZE} ({path})"
+            f"metadata={vocab_size} ({path})"
         )
     if tokenizer.pad_token_id != EXPECTED_PAD_TOKEN_ID:
         raise AssertionError(
             f"Tokenizer contract mismatch: pad_token_id={tokenizer.pad_token_id}, "
             f"expected={EXPECTED_PAD_TOKEN_ID} ({path})"
         )
+    token_to_id = getattr(tokenizer, "token_to_id", {})
+    missing = [
+        (expected_id, token)
+        for token, expected_id in EXPECTED_SPECIAL_TOKEN_IDS.items()
+        if token_to_id.get(token) != expected_id
+    ]
+    if missing:
+        raise AssertionError(f"Tokenizer special-token ID mismatch: {missing[:5]}")
+    digest = hashlib.sha256(path.read_bytes()).hexdigest()
+    probe_sha256 = _tokenizer_probe_fingerprint(tokenizer)
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    vocabulary = payload.get("token_to_id", {}) if isinstance(payload, dict) else {}
+    vocabulary_sha256 = hashlib.sha256(
+        json.dumps(vocabulary, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+    manifest = {
+        "schema_version": schema_version,
+        "vocab_size": tokenizer.vocab_size,
+        "pad_token_id": tokenizer.pad_token_id,
+        "special_tokens": list(EXPECTED_SPECIAL_TOKENS),
+        "special_token_ids": {token: int(token_to_id[token]) for token in EXPECTED_SPECIAL_TOKENS},
+        "tokenizer_path": str(path),
+        "tokenizer_sha256": digest,
+        "vocabulary_sha256": vocabulary_sha256,
+        "probe_count": 500,
+        "probe_sha256": probe_sha256,
+    }
+    TOKENIZER_MANIFEST.parent.mkdir(parents=True, exist_ok=True)
+    temporary = TOKENIZER_MANIFEST.with_suffix(".tmp")
+    temporary.write_text(
+        json.dumps(manifest, indent=2, sort_keys=True),
+        encoding="utf-8",
+    )
+    temporary.replace(TOKENIZER_MANIFEST)
 
 
-def assert_model_tokenizer_contract(model: CausalTransformerV2, tokenizer: SubwordTokenizer) -> None:
+def _tokenizer_probe_fingerprint(
+    tokenizer: SubwordTokenizer,
+    count: int = 500,
+) -> str:
+    """Fingerprint fixed encode/decode behavior, not JSON formatting."""
+    encoded_probes: list[list[int]] = []
+    for index in range(count):
+        text = (
+            f"H: An-Ra tokenizer probe {index:03d}: "
+            f"code_{index % 17} = ({index % 97} + {index % 31}); "
+            f"logic, math, science, memory.\nANRA: verified {index % 11}."
+        )
+        encoded = tokenizer.encode(text, add_special_tokens=False)
+        decoded = tokenizer.decode(encoded)
+        if tokenizer.encode(decoded, add_special_tokens=False) != encoded:
+            raise AssertionError(f"Tokenizer encode/decode probe {index} is not ID-stable")
+        encoded_probes.append([int(token_id) for token_id in encoded])
+    material = json.dumps(encoded_probes, separators=(",", ":")).encode("utf-8")
+    return hashlib.sha256(material).hexdigest()
+
+
+def active_tokenizer_identity() -> dict[str, object]:
+    path = active_tokenizer_path()
+    if not path.exists():
+        return {"available": False}
+    raw = path.read_bytes()
+    payload = json.loads(raw.decode("utf-8"))
+    vocabulary = payload.get("token_to_id", {}) if isinstance(payload, dict) else {}
+    tokenizer = SubwordTokenizer.load(path)
+    meta_path = path.with_suffix(path.suffix + ".meta.json")
+    meta = json.loads(meta_path.read_text(encoding="utf-8")) if meta_path.is_file() else {}
+    return {
+        "available": True,
+        "path": str(path),
+        "sha256": hashlib.sha256(raw).hexdigest(),
+        "schema_version": int(meta.get("schema_version", TOKENIZER_SCHEMA_VERSION)),
+        "vocab_size": int(tokenizer.vocab_size),
+        "special_token_ids": {
+            token: int(tokenizer.token_to_id[token]) for token in EXPECTED_SPECIAL_TOKENS
+        },
+        "vocabulary_sha256": hashlib.sha256(
+            json.dumps(vocabulary, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        ).hexdigest(),
+        "probe_count": 500,
+        "probe_sha256": _tokenizer_probe_fingerprint(tokenizer),
+    }
+
+
+def assert_model_tokenizer_contract(
+    model: CausalTransformerV2, tokenizer: SubwordTokenizer
+) -> None:
     """Ensure model embeddings and tokenizer IDs share the same training contract."""
     if tokenizer.vocab_size != model.vocab_size:
         raise AssertionError(
@@ -304,9 +463,10 @@ def assert_model_tokenizer_contract(model: CausalTransformerV2, tokenizer: Subwo
 def _checkpoint_vocab_size(model_state: dict[str, torch.Tensor]) -> int | None:
     for key, weight in model_state.items():
         if (
-            key.endswith("token_embedding_table.weight")
-            or key.endswith("lm_head.weight")
-        ) and isinstance(weight, torch.Tensor) and weight.ndim >= 2:
+            (key.endswith("token_embedding_table.weight") or key.endswith("lm_head.weight"))
+            and isinstance(weight, torch.Tensor)
+            and weight.ndim >= 2
+        ):
             return int(weight.shape[0])
     return None
 
@@ -315,7 +475,7 @@ def _adapt_state_vocab_rows(
     model_state: dict[str, torch.Tensor],
     target_state: dict[str, torch.Tensor],
 ) -> dict[str, torch.Tensor]:
-    """Copy old embedding rows into a larger tokenizer contract without breaking checkpoints."""
+    """Expand tokenizer tensors while preserving legacy rows bit-for-bit."""
     adapted = dict(model_state)
     for key, old_weight in model_state.items():
         target_weight = target_state.get(key)
@@ -326,15 +486,146 @@ def _adapt_state_vocab_rows(
             and target_weight.ndim == old_weight.ndim
             and old_weight.shape[1:] == target_weight.shape[1:]
             and old_weight.shape[0] < target_weight.shape[0]
-            and (
-                key.endswith("token_embedding_table.weight")
-                or key.endswith("lm_head.weight")
-            )
+            and (key.endswith("token_embedding_table.weight") or key.endswith("lm_head.weight"))
         ):
-            new_weight = target_weight.detach().clone()
-            new_weight[: old_weight.shape[0]] = old_weight.to(device=new_weight.device, dtype=new_weight.dtype)
+            new_weight = torch.empty_like(target_weight)
+            legacy = old_weight.to(device=new_weight.device, dtype=new_weight.dtype)
+            new_weight[: old_weight.shape[0]] = legacy
+            appended_count = target_weight.shape[0] - old_weight.shape[0]
+            scale = legacy.float().std().clamp_min(1e-8) * 0.01
+            rows = torch.arange(
+                1,
+                appended_count + 1,
+                device=new_weight.device,
+                dtype=torch.float32,
+            ).unsqueeze(1)
+            columns = torch.arange(
+                1,
+                legacy.shape[1] + 1,
+                device=new_weight.device,
+                dtype=torch.float32,
+            ).unsqueeze(0)
+            offsets = torch.sin(rows * columns * 0.017453292519943295)
+            offsets = offsets - offsets.mean(dim=1, keepdim=True)
+            offsets = offsets / offsets.norm(dim=1, keepdim=True).clamp_min(1e-8)
+            tokenizer_payload = json.loads(active_tokenizer_path().read_text(encoding="utf-8"))
+            tokenizer_meta_path = active_tokenizer_path().with_suffix(
+                active_tokenizer_path().suffix + ".meta.json"
+            )
+            tokenizer_meta = (
+                json.loads(tokenizer_meta_path.read_text(encoding="utf-8"))
+                if tokenizer_meta_path.is_file()
+                else {}
+            )
+            decompositions = tokenizer_meta.get("token_decompositions", {})
+            id_to_token = list(tokenizer_payload.get("id_to_token", []))
+            token_to_id = dict(tokenizer_payload.get("token_to_id", {}))
+            bases: list[torch.Tensor] = []
+            for row_index in range(old_weight.shape[0], target_weight.shape[0]):
+                token = id_to_token[row_index] if row_index < len(id_to_token) else ""
+                declared = decompositions.get(token, []) if isinstance(decompositions, dict) else []
+                constituent_ids = [
+                    int(value)
+                    for value in declared
+                    if isinstance(value, int) and 0 <= int(value) < old_weight.shape[0]
+                ]
+                position = 0
+                while not constituent_ids and position < len(token):
+                    matched_id = None
+                    matched_end = position
+                    for end in range(len(token), position, -1):
+                        candidate_id = token_to_id.get(token[position:end])
+                        if candidate_id is not None and int(candidate_id) < old_weight.shape[0]:
+                            matched_id = int(candidate_id)
+                            matched_end = end
+                            break
+                    if matched_id is None:
+                        position += 1
+                    else:
+                        constituent_ids.append(matched_id)
+                        position = matched_end
+                if not constituent_ids:
+                    constituent_ids = [min(1, legacy.shape[0] - 1)]
+                bases.append(legacy[constituent_ids].float().mean(dim=0))
+            base_rows = torch.stack(bases, dim=0)
+            appended = base_rows + offsets * scale
+            new_weight[old_weight.shape[0] :] = appended.to(dtype=new_weight.dtype)
             adapted[key] = new_weight
     return adapted
+
+
+def migrate_checkpoint_state(
+    model_state: dict[str, torch.Tensor],
+    target_state: dict[str, torch.Tensor],
+) -> tuple[dict[str, torch.Tensor], dict[str, object]]:
+    """Apply versioned, deterministic state migrations before loading."""
+    migrated = _adapt_state_vocab_rows(model_state, target_state)
+    changes: list[str] = []
+    if "dstp_logits" in migrated and "residual_depth_logits" in target_state:
+        migrated["residual_depth_logits"] = migrated.pop("dstp_logits")
+        changes.append("dstp_logits->residual_depth_logits")
+    if "dstp_temperature_log" not in migrated and "dstp_temperature_log" in target_state:
+        migrated["dstp_temperature_log"] = target_state["dstp_temperature_log"].detach().clone()
+        changes.append("initialize_dstp_temperature_log")
+    legacy_layer_temperature = migrated.pop("layer_temperature_bias", None)
+    if "layer_temperature_bias_log" in target_state:
+        if legacy_layer_temperature is not None:
+            if (
+                not torch.isfinite(legacy_layer_temperature).all()
+                or not (legacy_layer_temperature > 0).all()
+            ):
+                raise ValueError(
+                    "Legacy layer_temperature_bias must contain finite positive multipliers"
+                )
+            migrated["layer_temperature_bias_log"] = (
+                legacy_layer_temperature.float()
+                .log()
+                .to(dtype=target_state["layer_temperature_bias_log"].dtype)
+            )
+            changes.append("layer_temperature_bias->layer_temperature_bias_log")
+        elif "layer_temperature_bias_log" not in migrated:
+            migrated["layer_temperature_bias_log"] = (
+                target_state["layer_temperature_bias_log"].detach().clone()
+            )
+            changes.append("initialize_native:layer_temperature_bias_log")
+    neutral_native_prefixes = (
+        "esv_module.",
+        "rim_modules.",
+        "mod_routers.",
+    )
+    neutral_native_exact = {
+        "embedding_input_scale",
+        "residual_depth_logits",
+        "layer_temperature_bias_log",
+    }
+    for key in sorted(target_state):
+        if key in migrated:
+            continue
+        if key not in neutral_native_exact and not key.startswith(neutral_native_prefixes):
+            continue
+        value = target_state[key].detach().clone()
+        if key.endswith("mod_routers") or ".gate.weight" in key:
+            value.zero_()
+        migrated[key] = value
+        changes.append(f"initialize_native:{key}")
+    report = {
+        "schema_version": CHECKPOINT_SCHEMA_VERSION,
+        "tokenizer_schema_version": (
+            4
+            if is_v4_vocab_size(_checkpoint_vocab_size(target_state) or 0)
+            else TOKENIZER_SCHEMA_VERSION
+        ),
+        "changes": changes,
+        "source_vocab_size": _checkpoint_vocab_size(model_state),
+        "target_vocab_size": _checkpoint_vocab_size(target_state),
+        "vocabulary_initialization": "declared-decomposition-mean-plus-deterministic-sinusoid-v2",
+        "legacy_rows_preserved": True,
+    }
+    source_vocab = report["source_vocab_size"]
+    target_vocab = report["target_vocab_size"]
+    if isinstance(source_vocab, int) and isinstance(target_vocab, int):
+        report["appended_token_rows"] = max(0, target_vocab - source_vocab)
+    return migrated, report
 
 
 def _load_state_with_base_fallback(
@@ -342,130 +633,322 @@ def _load_state_with_base_fallback(
     model_state: dict[str, torch.Tensor],
     *,
     strict: bool,
-) -> None:
+) -> object:
     try:
-        model.load_state_dict(_adapt_state_vocab_rows(model_state, model.state_dict()), strict=strict)
-        return
+        return model.load_state_dict(model_state, strict=strict)
     except RuntimeError as exc:
         base = getattr(model, "model", None)
         if base is None:
             raise exc
-        base.load_state_dict(_adapt_state_vocab_rows(model_state, base.state_dict()), strict=strict)
+        base_migrated, _ = migrate_checkpoint_state(model_state, base.state_dict())
+        return base.load_state_dict(base_migrated, strict=strict)
 
 
-def build_v2_model(*, vocab_size: int, block_size: int = V2_MODEL.block_size) -> CausalTransformerV2:
-    if vocab_size not in {V2_MODEL.vocab_size, EXPECTED_TOKENIZER_VOCAB_SIZE}:
+def checkpoint_load_report(
+    source_state: dict[str, torch.Tensor],
+    target_state: dict[str, torch.Tensor],
+    migrated_state: dict[str, torch.Tensor],
+    incompatible: object,
+    migration: dict[str, object],
+) -> CheckpointLoadReport:
+    """Describe every tensor disposition instead of treating strict=False as proof."""
+    source_keys = set(source_state)
+    target_keys = set(target_state)
+    migrated_keys = set(migrated_state)
+    source_shape_changes = {
+        key: {
+            "checkpoint": list(source_state[key].shape),
+            "model": list(target_state[key].shape),
+        }
+        for key in sorted(source_keys & target_keys)
+        if isinstance(source_state[key], torch.Tensor)
+        and isinstance(target_state[key], torch.Tensor)
+        and source_state[key].shape != target_state[key].shape
+    }
+    mismatched_shapes = {
+        key: {
+            "migrated": list(migrated_state[key].shape),
+            "model": list(target_state[key].shape),
+        }
+        for key in sorted(migrated_keys & target_keys)
+        if isinstance(migrated_state[key], torch.Tensor)
+        and isinstance(target_state[key], torch.Tensor)
+        and migrated_state[key].shape != target_state[key].shape
+    }
+    runtime_missing = list(getattr(incompatible, "missing_keys", []))
+    runtime_unexpected = list(getattr(incompatible, "unexpected_keys", []))
+    missing = sorted((target_keys - migrated_keys) | set(runtime_missing))
+    unexpected = sorted((migrated_keys - target_keys) | set(runtime_unexpected))
+    initialized = sorted(target_keys - source_keys - set(missing))
+    loaded = sorted(
+        key
+        for key in target_keys & migrated_keys
+        if key not in mismatched_shapes and key not in missing
+    )
+    core_prefixes = (
+        "token_embedding_table",
+        "token_embedding",
+        "embedding_input_scale",
+        "lm_head",
+        "blocks.",
+        "norm_f",
+    )
+    subsystem_prefixes = (
+        "esv_module.",
+        "rim_modules.",
+        "mod_routers.",
+        "residual_depth_logits",
+        "dstp_temperature_log",
+        "layer_temperature_bias_log",
+    )
+    core_missing = [key for key in missing if key.startswith(core_prefixes)]
+    core_mismatched = [key for key in mismatched_shapes if key.startswith(core_prefixes)]
+    subsystem_missing = [key for key in missing if key.startswith(subsystem_prefixes)]
+    subsystem_mismatched = [key for key in mismatched_shapes if key.startswith(subsystem_prefixes)]
+    return {
+        "loaded_keys": loaded,
+        "loaded_key_count": len(loaded),
+        "target_key_count": len(target_keys),
+        "missing_keys": missing,
+        "unexpected_keys": unexpected,
+        "mismatched_shapes": mismatched_shapes,
+        "source_shape_changes": source_shape_changes,
+        "newly_initialized_keys": initialized,
+        "core_missing_keys": core_missing,
+        "core_mismatched_keys": core_mismatched,
+        "subsystem_missing_keys": subsystem_missing,
+        "subsystem_mismatched_keys": subsystem_mismatched,
+        "migration": migration,
+        "exact_core_load": not core_missing and not core_mismatched,
+        "exact_native_load": not subsystem_missing and not subsystem_mismatched,
+        "all_target_tensors_accounted": (not missing and not mismatched_shapes and not unexpected),
+    }
+
+
+def _load_hal(config: object) -> object | None:
+    if not getattr(config, "use_hal", False):
+        return None
+    try:
+        from anra.anra_paths import DRIVE_LOGS, HAL_STATE_FILE
+
+        from identity.hal import HALModule
+
+        drive_path = DRIVE_LOGS / "hal_state.json"
+        path = drive_path if drive_path.exists() else HAL_STATE_FILE
+        return HALModule.load(str(path)) if path.exists() else HALModule()
+    except Exception as exc:
+        logger.warning("HAL initialization failed: %s", exc)
+        return None
+
+
+def build_model_from_config(
+    config: object,
+    *,
+    hal_module: object | None = None,
+    block_size: int | None = None,
+    vocab_size: int | None = None,
+    use_qk_norm: bool | None = None,
+    attention_pattern: str | None = None,
+    use_mtp: bool = False,
+    use_moe: bool = False,
+) -> CausalTransformerV2:
+    effective_vocab_size = int(vocab_size or config.vocab_size)
+    if effective_vocab_size not in ALLOWED_CANONICAL_VOCAB_SIZES:
+        raise AssertionError(
+            "Canonical model vocab must preserve IDs 0-8208 and use one of "
+            f"{list(ALLOWED_CANONICAL_VOCAB_SIZES)} rows; got {effective_vocab_size}"
+        )
+    hal_module = _load_hal(config) if hal_module is None else hal_module
+    effective_block_size = int(block_size or config.block_size)
+    qk_norm = bool(config.use_qk_norm if use_qk_norm is None else use_qk_norm)
+    pattern = str(attention_pattern or "hybrid")
+    if pattern not in {"hybrid", "full-only"}:
+        raise ValueError("attention_pattern must be hybrid or full-only")
+    sliding_window = int(config.sliding_window) if pattern == "hybrid" else None
+    full_attention_every = int(config.full_attention_every) if pattern == "hybrid" else 0
+    model = CausalTransformerV2(
+        vocab_size=effective_vocab_size,
+        n_embd=config.n_embd,
+        n_head=config.n_head,
+        n_kv_head=config.n_kv_head,
+        n_layer=config.n_layer,
+        block_size=effective_block_size,
+        rms_norm_eps=config.rms_norm_eps,
+        dropout=config.dropout,
+        d_ff=config.d_ff,
+        rope_base=config.rope_base,
+        mod_layers=set(config.mod_layers),
+        base_seq_len=config.base_seq_len,
+        target_seq_len=max(int(config.target_seq_len), effective_block_size),
+        pad_token_id=config.pad_token_id,
+        use_layer_temperature_bias=True,
+        use_hal=config.use_hal,
+        hal_module=hal_module,
+        use_rim=True,
+        use_dstp=True,
+        use_qk_norm=qk_norm,
+        sliding_window=sliding_window,
+        full_attention_every=full_attention_every,
+        use_mtp=use_mtp,
+        use_moe=use_moe,
+    )
+    # A canonical construction is always the dense foundation. Experimental
+    # native modules are present only as explicit pilot slots and must be
+    # activated by a recorded continuation-phase recipe.
+    model.configure_subsystems((), approve=False)
+    if getattr(config, "gradient_checkpointing", config.n_layer >= 36):
+        model.gradient_checkpointing_enable()
+    model.disable_kv_cache()
+    return model
+
+
+def build_v2_model(
+    *, vocab_size: int, block_size: int = V2_MODEL.block_size
+) -> CausalTransformerV2:
+    if vocab_size not in ALLOWED_CANONICAL_VOCAB_SIZES:
         raise AssertionError(
             f"Model/tokenizer vocab mismatch at construction: vocab_size={vocab_size}, "
-            f"expected one of {{{V2_MODEL.vocab_size}, {EXPECTED_TOKENIZER_VOCAB_SIZE}}}"
+            f"expected one of {list(ALLOWED_CANONICAL_VOCAB_SIZES)}"
         )
-    return CausalTransformerV2(
-        vocab_size=vocab_size,
-        n_embd=V2_MODEL.n_embd,
-        n_head=V2_MODEL.n_head,
-        n_kv_head=V2_MODEL.n_kv_head,
-        n_layer=V2_MODEL.n_layer,
-        block_size=block_size,
-        rms_norm_eps=V2_MODEL.rms_norm_eps,
-        dropout=V2_MODEL.dropout,
-        mod_layers=set(V2_MODEL.mod_layers),
-        base_seq_len=V2_MODEL.base_seq_len,
-        target_seq_len=V2_MODEL.target_seq_len,
-        pad_token_id=V2_MODEL.pad_token_id,
-    )
+    return build_model_from_config(V2_MODEL, block_size=block_size, vocab_size=vocab_size)
 
 
-def build_frontier_model(
+def build_legacy_500m_model(
     *,
-    hal_module=None,
+    hal_module: object | None = None,
+    block_size: int | None = None,
+    vocab_size: int | None = None,
+    use_qk_norm: bool | None = None,
+    attention_pattern: str | None = None,
+    use_mtp: bool = False,
+    use_moe: bool = False,
 ) -> CausalTransformerV2:
     """
-    Build the 1B frontier model from V2_1B_FRONTIER config.
-    KV cache is disabled for training. HAL may be None.
+    Reconstruct the rejected 500M checkpoint architecture for forensics only.
     """
-    from training.v2_config import (
-        CANONICAL_VOCAB_SIZE,
-        EXPECTED_TOKENIZER_VOCAB_SIZE,
-        V2_1B_FRONTIER as cfg,
-    )
+    cfg = V2_FRONTIER
 
     if cfg.vocab_size not in {EXPECTED_TOKENIZER_VOCAB_SIZE, CANONICAL_VOCAB_SIZE}:
         raise AssertionError(
-            f"1B vocab mismatch: config={cfg.vocab_size} "
+            f"frontier vocab mismatch: config={cfg.vocab_size} "
             f"tokenizer={EXPECTED_TOKENIZER_VOCAB_SIZE}"
         )
 
-    if hal_module is None and cfg.use_hal:
-        try:
-            from anra.anra_paths import DRIVE_LOGS, HAL_STATE_FILE
-            from identity.hal import HALModule
-
-            _hal_drive_path = DRIVE_LOGS / "hal_state.json"
-            _hal_path = _hal_drive_path if _hal_drive_path.exists() else HAL_STATE_FILE
-            if _hal_path.exists():
-                hal_module = HALModule.load(str(_hal_path))
-                print(f"[build_frontier_model] HAL loaded from {_hal_path}")
-            else:
-                hal_module = HALModule()
-                print("[build_frontier_model] HAL initialized fresh")
-        except Exception as exc:
-            print(f"[build_frontier_model] HAL init failed: {exc}; continuing without HAL")
-            hal_module = None
-
-    model = CausalTransformerV2(
-        vocab_size=cfg.vocab_size,
-        n_embd=cfg.n_embd,
-        n_head=cfg.n_head,
-        n_kv_head=cfg.n_kv_head,
-        n_layer=cfg.n_layer,
-        block_size=cfg.block_size,
-        rms_norm_eps=cfg.rms_norm_eps,
-        dropout=cfg.dropout,
-        mod_layers=set(cfg.mod_layers),
-        base_seq_len=cfg.base_seq_len,
-        target_seq_len=cfg.target_seq_len,
-        pad_token_id=cfg.pad_token_id,
-        use_layer_temperature_bias=True,
-        use_hal=cfg.use_hal,
+    if block_size is not None and int(block_size) not in {1024, 1536, 2048}:
+        raise ValueError("Frontier context length must be 1024, 1536, or 2048")
+    model = build_model_from_config(
+        cfg,
         hal_module=hal_module,
+        block_size=block_size,
+        vocab_size=vocab_size,
+        use_qk_norm=use_qk_norm,
+        attention_pattern=attention_pattern,
+        use_mtp=use_mtp,
+        use_moe=use_moe,
     )
 
     if hasattr(model, "gradient_checkpointing_enable"):
         model.gradient_checkpointing_enable()
-        print("  [build_frontier_model] Gradient checkpointing: ENABLED")
+        print("  [build_legacy_500m_model] Gradient checkpointing: ENABLED")
     else:
-        setattr(model, "gradient_checkpointing", True)
-        print("  [build_frontier_model] Gradient checkpointing flag: ENABLED")
+        model.gradient_checkpointing = True
+        print("  [build_legacy_500m_model] Gradient checkpointing flag: ENABLED")
 
     if hasattr(model, "disable_kv_cache"):
         model.disable_kv_cache()
 
     total_params = sum(p.numel() for p in model.parameters())
-    print(f"[build_frontier_model] Built {total_params / 1e6:.0f}M param model")
+    print(f"[build_legacy_500m_model] Built {total_params / 1e6:.0f}M param model")
+    expected_params = frontier_parameter_count(model.vocab_size)
+    if total_params != expected_params:
+        print(
+            f"[build_legacy_500m_model] WARNING: expected {expected_params:,} "
+            f"params for this branch, got {total_params:,}"
+        )
     print(
         f"  n_embd={cfg.n_embd}  n_layer={cfg.n_layer}  "
         f"n_head={cfg.n_head}  n_kv_head={cfg.n_kv_head}"
     )
-    print(f"  block_size={cfg.block_size}  vocab={cfg.vocab_size}")
+    print(f"  block_size={model.block_size}  vocab={cfg.vocab_size}")
     print(f"  HAL: {'enabled' if cfg.use_hal else 'disabled'}")
     return model
+
+
+def build_model_for_profile(
+    profile: str,
+    *,
+    hal_module: object | None = None,
+    block_size: int | None = None,
+    vocab_size: int | None = None,
+    use_qk_norm: bool | None = None,
+    attention_pattern: str | None = None,
+    use_mtp: bool = False,
+    use_moe: bool = False,
+    allow_experimental: bool = False,
+) -> CausalTransformerV2:
+    config, _ = resolve_model_profile(
+        profile,
+        allow_experimental=allow_experimental,
+    )
+    return build_model_from_config(
+        config,
+        hal_module=hal_module,
+        block_size=block_size,
+        vocab_size=vocab_size,
+        use_qk_norm=use_qk_norm,
+        attention_pattern=attention_pattern,
+        use_mtp=use_mtp,
+        use_moe=use_moe,
+    )
 
 
 def load_checkpoint(
     model: CausalTransformerV2,
     optimizer: torch.optim.Optimizer | None,
-    scheduler,
-    mp_trainer,
+    scheduler: object | None,
+    mp_trainer: object | None,
     checkpoint_path: Path,
     *,
     device: torch.device,
+    checkpoint_device: torch.device | str | None = None,
     strict: bool = False,
-) -> dict[str, float | int | bool | str]:
+    resume_training: bool = False,
+    data_generator: torch.Generator | None = None,
+    restore_rng: bool = True,
+    sampler_reset_token: int | None = None,
+    continuation_phase: str = "A",
+) -> dict[str, object]:
     state = {
         "loaded": False,
         "global_step": 0,
         "epoch": 0,
         "best_loss": float("inf"),
+        "best_training_loss": float("inf"),
+        "loss_semantics": {},
+        "sessions_completed": 0,
+        "data_profile": "unknown",
+        "training_data_layout": "unknown",
+        "tokens_seen": 0,
+        "unique_token_ids_seen": [],
+        "continuation_token_counts": {},
+        "best_validation_loss": float("inf"),
+        "best_answer_validation_loss": float("inf"),
+        "validation_history": [],
+        "appended_row_optimizer_steps": 0,
+        "raw_window_consumption": {},
+        "data_sampler_state": {},
+        "token_window": {},
+        "distributed_contract": {},
+        "distributed_rng_states": {},
+        "checkpoint_lineage": {},
+        "ddp_bootstrap_provenance": {},
+        "rng_restore": {},
+        "tokenizer_identity": {"verified": False, "reason": "checkpoint_not_loaded"},
+        "training_recipe_migrations": [],
+        # Optional SFT child lineage.  Kept in the returned load state so local
+        # serving can refuse a renamed foundation checkpoint without retaining
+        # the multi-gigabyte archive after weights have been loaded.
+        "sft": {},
     }
     ckpt = checkpoint_path
     if not ckpt.exists():
@@ -480,8 +963,37 @@ def load_checkpoint(
     if not ckpt.exists():
         return state
 
-    blob = safe_torch_load(ckpt, map_location=device)
-    model_state = blob.get("model_state_dict", blob.get("model", blob)) if isinstance(blob, dict) else blob
+    # Full-resume checkpoints also contain optimizer, scheduler, and RNG state.
+    # Serving must never materialize those training-only tensors on the GPU just
+    # to load model weights.  Training callers retain the historical default
+    # (``device``); inference can explicitly load the archive on CPU and let
+    # ``load_state_dict`` copy only model parameters to the resident model.
+    blob = safe_torch_load(ckpt, map_location=checkpoint_device or device)
+    if resume_training:
+        try:
+            assert_resume_artifact_class(blob, ckpt)
+        except ResumeArtifactError as exc:
+            raise CheckpointCompatibilityError(str(exc)) from exc
+    artifact_class = (
+        str(blob.get("checkpoint_artifact_class", "")) if isinstance(blob, dict) else ""
+    )
+    if resume_training or artifact_class != FP16_INFERENCE:
+        assert_checkpoint_optimizer_boundary(blob, ckpt)
+    if resume_training:
+        if not isinstance(blob, dict):
+            raise CheckpointCompatibilityError(
+                "Training resume requires a structured canonical checkpoint"
+            )
+        schema = int(blob.get("checkpoint_schema_version", 0) or 0)
+        if schema != CHECKPOINT_SCHEMA_VERSION:
+            raise CheckpointCompatibilityError(
+                "Exact V4 training resume requires checkpoint schema "
+                f"{CHECKPOINT_SCHEMA_VERSION}; found {schema}. Load older checkpoints "
+                "for inspection only or begin a new scratch run."
+            )
+    model_state = (
+        blob.get("model_state_dict", blob.get("model", blob)) if isinstance(blob, dict) else blob
+    )
     if isinstance(model_state, dict):
         ckpt_vocab_size = _checkpoint_vocab_size(model_state)
         if ckpt_vocab_size is not None and ckpt_vocab_size > model.vocab_size:
@@ -492,40 +1004,303 @@ def load_checkpoint(
     if isinstance(blob, dict):
         ckpt_config = blob.get("model_config", {})
         if isinstance(ckpt_config, dict):
+            canonical_v4 = (
+                model.vocab_size == EXPECTED_TOKENIZER_VOCAB_SIZE
+                and model.n_embd == 896
+                and model.n_layer == 18
+            )
+            saved_architecture = str(ckpt_config.get("architecture_version", ""))
+            if canonical_v4 and saved_architecture != ANRA_V4_ARCHITECTURE_VERSION:
+                raise CheckpointCompatibilityError(
+                    "Canonical V4 checkpoint architecture mismatch: "
+                    f"saved={saved_architecture or 'missing'}, "
+                    f"required={ANRA_V4_ARCHITECTURE_VERSION}. Start V4 from scratch; "
+                    "do not resume a pre-V4 rotary layout."
+                )
+            if canonical_v4:
+                active_config = model.model_config()
+                immutable_fields = (
+                    "vocab_size",
+                    "pad_token_id",
+                    "n_embd",
+                    "n_head",
+                    "n_layer",
+                    "block_size",
+                    "n_kv_head",
+                    "d_ff",
+                    "rope_base",
+                    "rms_norm_eps",
+                    "dropout",
+                    "mod_layers",
+                    "base_seq_len",
+                    "target_seq_len",
+                    "use_qk_norm",
+                    "sliding_window",
+                    "full_attention_every",
+                    "use_mtp",
+                    "use_moe",
+                    "initialization_scheme",
+                )
+                mismatches: dict[str, dict[str, object]] = {}
+                for field in immutable_fields:
+                    saved_value = ckpt_config.get(field)
+                    active_value = active_config.get(field)
+                    if field == "mod_layers":
+                        saved_value = tuple(saved_value or ())
+                        active_value = tuple(active_value or ())
+                    if saved_value != active_value:
+                        mismatches[field] = {
+                            "checkpoint": saved_value,
+                            "active": active_value,
+                        }
+                if mismatches:
+                    raise CheckpointCompatibilityError(
+                        "Canonical V4 immutable architecture fields changed: "
+                        f"{mismatches}. Start a new named scratch architecture."
+                    )
             ckpt_pad = ckpt_config.get("pad_token_id")
             if ckpt_pad is not None and int(ckpt_pad) != model.pad_token_id:
                 raise AssertionError(
                     f"Checkpoint/model pad mismatch: checkpoint pad_token_id={ckpt_pad}, "
                     f"model.pad_token_id={model.pad_token_id} ({ckpt})"
                 )
+            if hasattr(model, "configure_attention"):
+                # Missing fields identify the pre-QK-Norm/full-attention
+                # lineage. Preserve those logits exactly on resume instead of
+                # silently imposing the new scratch-training architecture.
+                model.configure_attention(
+                    use_qk_norm=bool(ckpt_config.get("use_qk_norm", False)),
+                    sliding_window=(int(ckpt_config.get("sliding_window", 0)) or None),
+                    full_attention_every=int(ckpt_config.get("full_attention_every", 0)),
+                )
+            for feature in ("use_mtp", "use_moe"):
+                saved = bool(ckpt_config.get(feature, False))
+                active = bool(getattr(model, feature, False))
+                if saved != active:
+                    raise CheckpointCompatibilityError(
+                        f"Checkpoint {feature}={saved} does not match requested "
+                        f"architecture {feature}={active}; use a named scratch/upcycle "
+                        "experiment instead of partial tensor loading"
+                    )
+        saved_tokenizer = blob.get("tokenizer_contract", {})
+        active_tokenizer = active_tokenizer_identity()
+        tokenizer_identity = {
+            "verified": False,
+            "saved": saved_tokenizer,
+            "active": active_tokenizer,
+            "reason": "legacy_checkpoint_missing_tokenizer_fingerprint",
+        }
+        if isinstance(saved_tokenizer, dict):
+            comparisons = {
+                key: (saved_tokenizer.get(key), active_tokenizer.get(key))
+                for key in ("vocabulary_sha256", "probe_sha256")
+                if saved_tokenizer.get(key)
+            }
+            mismatches = {
+                key: {"checkpoint": values[0], "active": values[1]}
+                for key, values in comparisons.items()
+                if values[0] != values[1]
+            }
+            if mismatches:
+                raise CheckpointCompatibilityError(
+                    f"Checkpoint tokenizer IDs differ from the active tokenizer: {mismatches}"
+                )
+            if len(comparisons) == 2:
+                tokenizer_identity["verified"] = True
+                tokenizer_identity["reason"] = "vocabulary_and_500_probes_match"
+            tokenizer_identity["file_sha256_matches"] = (
+                saved_tokenizer.get("sha256") == active_tokenizer.get("sha256")
+                if saved_tokenizer.get("sha256")
+                else None
+            )
+        state["tokenizer_identity"] = tokenizer_identity
+        saved_recipe = blob.get("training_recipe", {})
+        active_recipe = getattr(model, "training_recipe", {})
+        if isinstance(saved_recipe, dict) and saved_recipe and isinstance(active_recipe, dict):
+            for field in (
+                "model_profile",
+                "training_layout",
+                "curriculum",
+                "optimizer",
+                "seed",
+                "schedule",
+                "gradient_clip_norm",
+                "verified_process_objective",
+                "verified_process_multiplier",
+                "sampler_algorithm",
+                "determinism_mode",
+                "growth",
+            ):
+                if field in active_recipe and saved_recipe.get(field) != active_recipe.get(field):
+                    if field == "sampler_algorithm" and sampler_reset_token is not None:
+                        counts = blob.get("continuation_token_counts", {})
+                        saved_boundary = (
+                            int(counts.get(str(continuation_phase).upper(), -1))
+                            if isinstance(counts, dict)
+                            else -1
+                        )
+                        if saved_boundary != int(sampler_reset_token):
+                            raise CheckpointCompatibilityError(
+                                "Signed sampler migration boundary differs from checkpoint "
+                                f"progress: checkpoint={saved_boundary}, "
+                                f"signed={int(sampler_reset_token)}"
+                            )
+                        state["training_recipe_migrations"].append(
+                            {
+                                "field": field,
+                                "saved": saved_recipe.get(field),
+                                "active": active_recipe.get(field),
+                                "token_boundary": saved_boundary,
+                            }
+                        )
+                        continue
+                    raise CheckpointCompatibilityError(
+                        f"Checkpoint training recipe changed at {field}: "
+                        f"saved={saved_recipe.get(field)!r}, active={active_recipe.get(field)!r}"
+                    )
     try:
-        _load_state_with_base_fallback(model, model_state, strict=strict)
-    except RuntimeError:
-        print("[v2_runtime] Architecture changed — starting fresh (old checkpoint incompatible)")
-        return state
+        target_state = model.state_dict()
+        migrated_state, migration = migrate_checkpoint_state(model_state, target_state)
+        incompatible = _load_state_with_base_fallback(model, migrated_state, strict=strict)
+        load_report = checkpoint_load_report(
+            model_state,
+            target_state,
+            migrated_state,
+            incompatible,
+            migration,
+        )
+    except RuntimeError as exc:
+        raise CheckpointCompatibilityError(
+            f"Checkpoint {ckpt} is incompatible with the requested model architecture."
+        ) from exc
     if isinstance(blob, dict):
         if optimizer is not None:
             try:
-                optimizer.load_state_dict(blob.get("optimizer_state_dict", blob.get("optimizer", {})))
+                optimizer_state = blob.get("optimizer_state_dict", blob.get("optimizer"))
+                if resume_training and not isinstance(optimizer_state, dict):
+                    raise TypeError("checkpoint is missing optimizer state")
+                repaired = restore_optimizer_state_for_resume(
+                    optimizer,
+                    optimizer_state,
+                )
+                if resume_training and "adafactor_fresh_moments" in repaired:
+                    raise RuntimeError(
+                        "Adafactor moments cannot be restored exactly by this installed stack"
+                    )
+                if repaired:
+                    logger.warning(
+                        "Using safe optimizer resume policy for %s: %s",
+                        ckpt,
+                        ", ".join(repaired),
+                    )
             except Exception as exc:
+                if resume_training:
+                    raise CheckpointCompatibilityError(
+                        f"Optimizer state cannot be resumed exactly from {ckpt}"
+                    ) from exc
                 logger.warning("Optimizer state restore failed from %s: %s", ckpt, exc)
         if scheduler is not None:
             try:
-                scheduler.load_state_dict(blob.get("scheduler_state_dict", blob.get("scheduler", {})))
+                scheduler_state = blob.get("scheduler_state_dict", blob.get("scheduler"))
+                if resume_training and not isinstance(scheduler_state, dict):
+                    raise TypeError("checkpoint is missing scheduler state")
+                scheduler.load_state_dict(scheduler_state or {})
             except Exception as exc:
+                if resume_training:
+                    raise CheckpointCompatibilityError(
+                        f"Scheduler state cannot be resumed exactly from {ckpt}"
+                    ) from exc
                 logger.warning("Scheduler state restore failed from %s: %s", ckpt, exc)
         if mp_trainer is not None:
             try:
                 scaler_state = blob.get("scaler_state_dict", blob.get("scaler"))
-                if scaler_state:
+                if resume_training and scaler_state is None:
+                    raise TypeError("checkpoint is missing mixed-precision state")
+                if scaler_state is not None:
                     mp_trainer.load_state_dict(scaler_state)
             except Exception as exc:
+                if resume_training:
+                    raise CheckpointCompatibilityError(
+                        f"Mixed-precision state cannot be resumed exactly from {ckpt}"
+                    ) from exc
                 logger.warning("Mixed-precision scaler restore failed from %s: %s", ckpt, exc)
+        if resume_training and restore_rng:
+            try:
+                state["rng_restore"] = restore_rng_states(
+                    blob.get("rng_states"),
+                    data_generator=data_generator,
+                )
+            except Exception as exc:
+                raise CheckpointCompatibilityError(
+                    f"RNG state cannot be resumed exactly from {ckpt}"
+                ) from exc
         state["global_step"] = int(blob.get("global_step", blob.get("step", 0)))
         state["epoch"] = int(blob.get("epoch", 0))
         state["best_loss"] = float(blob.get("best_loss", float("inf")))
+        state["best_training_loss"] = float(blob.get("best_training_loss", state["best_loss"]))
+        semantics = blob.get("loss_semantics", {})
+        state["loss_semantics"] = dict(semantics) if isinstance(semantics, dict) else {}
+        state["sessions_completed"] = int(blob.get("sessions_completed", 0))
+        state["data_profile"] = str(blob.get("data_profile", "unknown"))
+        state["training_data_layout"] = str(blob.get("training_data_layout", "unknown"))
+        state["tokens_seen"] = int(blob.get("tokens_seen", 0))
+        state["unique_token_ids_seen"] = list(blob.get("unique_token_ids_seen", []))
+        state["continuation_token_counts"] = dict(blob.get("continuation_token_counts", {}))
+        state["best_validation_loss"] = float(blob.get("best_validation_loss", float("inf")))
+        state["best_answer_validation_loss"] = float(
+            blob.get("best_answer_validation_loss", float("inf"))
+        )
+        state["validation_history"] = list(blob.get("validation_history", []))
+        state["appended_row_optimizer_steps"] = int(blob.get("appended_row_optimizer_steps", 0))
+        state["raw_window_consumption"] = dict(blob.get("raw_window_consumption", {}))
+        state["data_sampler_state"] = dict(blob.get("data_sampler_state", {}))
+        state["token_window"] = dict(blob.get("token_window", {}))
+        state["distributed_contract"] = dict(blob.get("distributed_contract", {}))
+        state["distributed_rng_states"] = dict(blob.get("distributed_rng_states", {}))
+        state["checkpoint_lineage"] = dict(blob.get("checkpoint_lineage", {}))
+        state["ddp_bootstrap_provenance"] = dict(
+            blob.get("ddp_bootstrap_provenance", {})
+        )
+        state["growth_provenance"] = dict(blob.get("growth_provenance", {}))
+        state["data_manifests"] = dict(
+            blob.get("data_manifests", blob.get("dataset_manifest_hashes", {}))
+        )
+        state["data_manifest_payloads"] = dict(blob.get("data_manifest_payloads", {}))
+        state["model_config"] = dict(blob.get("model_config", {}))
+        state["source_commit"] = str(blob.get("source_commit", "unknown"))
+        sft_metadata = blob.get("sft", {})
+        state["sft"] = dict(sft_metadata) if isinstance(sft_metadata, dict) else {}
+        restore_hal_state(model, blob.get("hal_state", {}))
     state["loaded"] = True
+    state["migration"] = migration
+    state["load_report"] = load_report
     return state
+
+
+@torch.no_grad()
+def tokenizer_special_ids(tokenizer: object) -> dict[str, int]:
+    """Return special token IDs for both tokenizer surfaces used by AN-RA."""
+    special_attr = getattr(tokenizer, "special_ids", None)
+    if callable(special_attr):
+        special = dict(special_attr())
+    elif isinstance(special_attr, dict):
+        special = dict(special_attr)
+    else:
+        special = {}
+
+    if "<bos>" not in special and hasattr(tokenizer, "bos_token_id"):
+        special["<bos>"] = int(tokenizer.bos_token_id)
+    if "<eos>" not in special and hasattr(tokenizer, "eos_token_id"):
+        special["<eos>"] = int(tokenizer.eos_token_id)
+    if "<pad>" not in special and hasattr(tokenizer, "pad_token_id"):
+        special["<pad>"] = int(tokenizer.pad_token_id)
+    if "<unk>" not in special and hasattr(tokenizer, "unk_token_id"):
+        special["<unk>"] = int(tokenizer.unk_token_id)
+
+    missing = [token for token in ("<bos>", "<eos>") if token not in special]
+    if missing:
+        raise TypeError(f"Tokenizer is missing required special token IDs: {missing}")
+    return special
 
 
 @torch.no_grad()
@@ -538,11 +1313,24 @@ def generate_text(
     max_new_tokens: int = 96,
     temperature: float = 0.9,
     top_k: int = 40,
+    greedy: bool = False,
+    seed: int | None = None,
 ) -> str:
+    """Generate a continuation.
+
+    ``greedy=True`` selects argmax decoding, the deterministic recovery
+    baseline. Otherwise sampling uses a local generator seeded by ``seed``
+    when provided, so evaluation evidence replays exactly without mutating
+    the global RNG state.
+    """
     model.eval()
-    special = tokenizer.special_ids()
+    special = tokenizer_special_ids(tokenizer)
     ids = [special["<bos>"]] + tokenizer.encode(prompt)
     x = torch.tensor([ids], dtype=torch.long, device=device)
+    generator: torch.Generator | None = None
+    if seed is not None and not greedy:
+        generator = torch.Generator(device=device)
+        generator.manual_seed(int(seed))
     for _ in range(max_new_tokens):
         x_cond = x[:, -model.block_size :]
         logits, _ = model(x_cond)
@@ -550,8 +1338,11 @@ def generate_text(
         if top_k > 0:
             values, _ = torch.topk(next_logits, min(top_k, next_logits.size(-1)))
             next_logits = next_logits.masked_fill(next_logits < values[:, [-1]], float("-inf"))
-        probs = torch.softmax(next_logits, dim=-1)
-        next_token = torch.multinomial(probs, num_samples=1)
+        if greedy:
+            next_token = torch.argmax(next_logits, dim=-1, keepdim=True)
+        else:
+            probs = torch.softmax(next_logits, dim=-1)
+            next_token = torch.multinomial(probs, num_samples=1, generator=generator)
         x = torch.cat([x, next_token], dim=1)
         if int(next_token.item()) == special["<eos>"]:
             break
@@ -563,8 +1354,100 @@ def generate_text(
 def model_summary(model: torch.nn.Module) -> dict[str, int]:
     return {
         "parameters": sum(param.numel() for param in model.parameters()),
-        "trainable_parameters": sum(param.numel() for param in model.parameters() if param.requires_grad),
+        "trainable_parameters": sum(
+            param.numel() for param in model.parameters() if param.requires_grad
+        ),
     }
+
+
+def ensure_tied_lm_head(model: torch.nn.Module) -> bool:
+    """
+    Re-assert AN-RA's tied embedding/LM-head contract after device moves.
+
+    Some accelerator backends can materialize the tied Parameter as a separate
+    object during ``model.to(device)``. The architecture still expects tied
+    embeddings, so training entrypoints call this after moving the model.
+    """
+    target = getattr(model, "model", model)
+    embedding = getattr(target, "token_embedding_table", None)
+    lm_head = getattr(target, "lm_head", None)
+    if embedding is None or lm_head is None:
+        return False
+    if getattr(lm_head, "weight", None) is not getattr(embedding, "weight", None):
+        lm_head.weight = embedding.weight
+    return getattr(lm_head, "weight", None) is getattr(embedding, "weight", None)
+
+
+def hal_state_dict(model: torch.nn.Module) -> dict[str, object]:
+    target = getattr(model, "model", model)
+    hal = getattr(target, "hal_module", None)
+    state = getattr(hal, "state", None)
+    if state is None:
+        return {}
+    if hasattr(state, "__dataclass_fields__"):
+        return {name: getattr(state, name) for name in state.__dataclass_fields__}
+    return dict(getattr(state, "__dict__", {}))
+
+
+def restore_hal_state(model: torch.nn.Module, payload: object) -> bool:
+    if not isinstance(payload, dict) or not payload:
+        return False
+    target = getattr(model, "model", model)
+    hal = getattr(target, "hal_module", None)
+    state = getattr(hal, "state", None)
+    if state is None:
+        return False
+    for key, value in payload.items():
+        if not hasattr(state, key):
+            continue
+        current = getattr(state, key)
+        try:
+            setattr(state, key, type(current)(value))
+        except Exception:
+            setattr(state, key, value)
+    return True
+
+
+def get_hal_module(model: torch.nn.Module) -> object | None:
+    target = getattr(model, "model", model)
+    return getattr(target, "hal_module", None)
+
+
+def update_hal_from_training(
+    model: torch.nn.Module,
+    *,
+    loss: float,
+    best_loss: float,
+    gradient_norm: float,
+    step: int,
+) -> dict[str, object]:
+    hal = get_hal_module(model)
+    if hal is None:
+        return {}
+    improved = float(loss) <= float(best_loss) if math.isfinite(float(best_loss)) else True
+    verifier_score = max(0.0, min(1.0, 1.0 / (1.0 + max(0.0, float(loss)))))
+    context = {
+        "training_step": int(step),
+        "loss_improved": bool(improved),
+        "near_capability_boundary": bool(float(loss) < 1.5),
+        "model_incoherence_self_detected": bool(not math.isfinite(float(loss))),
+        "high_gradient_norm": bool(
+            math.isfinite(float(gradient_norm)) and float(gradient_norm) > 1.0
+        ),
+    }
+    if hasattr(hal, "update"):
+        try:
+            hal.update(
+                verifier_result=verifier_score,
+                civ_score=None,
+                session_context=context,
+                decay_turns=1 if step % 10 == 0 else 0,
+            )
+        except TypeError:
+            hal.update(verifier_score, None, context)
+    elif hasattr(hal, "decay"):
+        hal.decay(1 if step % 10 == 0 else 0)
+    return hal_state_dict(model)
 
 
 def load_session_state() -> dict[str, object]:

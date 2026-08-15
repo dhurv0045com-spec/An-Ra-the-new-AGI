@@ -1,0 +1,14 @@
+# Canonical Colab T4 constraints. Regenerate hashes in the launch manifest after changes.
+torch==2.5.1
+aiosqlite==0.20.0
+cryptography==43.0.3
+datasets==3.2.0
+fastapi==0.115.6
+huggingface-hub==0.27.0
+numpy==1.26.4
+psutil==6.1.1
+pydantic==2.10.4
+PyYAML==6.0.2
+tokenizers==0.21.0
+tqdm==4.67.1
+uvicorn==0.34.0

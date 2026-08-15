@@ -1,13 +1,20 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from pathlib import Path
 import hashlib
 import json
 
-from anra.anra_paths import DRIVE_FAISS_INDEX, DRIVE_GHOST_DB
+# Legacy model/tokenizer adapters intentionally accept heterogeneous objects;
+# NumPy stays lazy so lightweight runtime imports do not load native backends.
+# ruff: noqa: ANN001, ANN202, E501, F821
+from dataclasses import dataclass
+from pathlib import Path
+
+from anra.anra_paths import DRIVE_FAISS_INDEX, DRIVE_MEMORY_JOURNAL
 from engine.metric_bus import instrument
 from engine.telemetry import trace
+from retrieval.adapters import BM25RetrieverAdapter, VectorRetrieverAdapter
+from retrieval.hybrid import HybridRetriever
+from retrieval.protocols import RetrievalQuery
 
 try:
     from identity.hal import HALModule
@@ -30,7 +37,7 @@ class MemoryWriteResult:
 class MemoryRouter:
     """Unified interface over memory tiers.
 
-    Tiers: episodic (faiss), ghost metadata, short-term cache, and graph placeholders.
+    Tiers: episodic (FAISS), durable journal, short-term cache, and graph placeholders.
     """
 
     def __init__(
@@ -51,12 +58,91 @@ class MemoryRouter:
         self.embedding_fn = embedding_fn
         self.short_term: list[dict] = []
         self.graph: dict[str, list[str]] = {}
-        self.ghost_db_path = Path(DRIVE_GHOST_DB)
+        self.journal_path = Path(DRIVE_MEMORY_JOURNAL)
         idx_path = Path(faiss_index_path) if faiss_index_path is not None else Path(DRIVE_FAISS_INDEX)
+        from anra.memory.bm25 import BM25MemoryTier
+
         from memory.faiss_store import FAISSEpisodicStore
 
         self.episodic = FAISSEpisodicStore(index_path=idx_path, dim=self.dim)
         self.episodic.load()
+        self.bm25 = BM25MemoryTier()
+        self.retrieval = HybridRetriever(
+            (
+                VectorRetrieverAdapter(self.episodic, self._semantic_embed),
+                BM25RetrieverAdapter(self.bm25),
+            )
+        )
+
+    @staticmethod
+    def _record_memory_event(
+        *,
+        kind: str,
+        trace_id: str | None,
+        inputs: dict[str, object],
+        output: object,
+        metadata: dict[str, object] | None = None,
+    ) -> None:
+        try:
+            from runtime.experience_ledger import record_experience
+
+            record_experience(
+                trace_id=trace_id,
+                kind=kind,
+                inputs=inputs,
+                output=output,
+                gate_record={"allowed": True, "gate": "memory_policy"},
+                source="memory.router",
+                metadata=metadata or {},
+            )
+        except Exception:
+            pass
+
+    def _finish_write(
+        self,
+        result: MemoryWriteResult,
+        *,
+        content: str,
+        requested_tier: str,
+        trace_id: str | None,
+        metadata: dict[str, object],
+    ) -> MemoryWriteResult:
+        self._record_memory_event(
+            kind="memory_write",
+            trace_id=trace_id,
+            inputs={
+                "content_hash": hashlib.sha256(content.encode()).hexdigest(),
+                "requested_tier": requested_tier,
+            },
+            output={"record_id": result.record_id, "tier": result.tier},
+            metadata={
+                "content_hash": hashlib.sha256(content.encode()).hexdigest(),
+                "session_id": metadata.get("session_id"),
+                "memory_type": metadata.get("type", metadata.get("kind")),
+            },
+        )
+        return result
+
+    def _finish_read(
+        self,
+        rows: list[dict],
+        *,
+        query: object,
+        tier: str,
+        trace_id: str | None,
+    ) -> list[dict]:
+        self._record_memory_event(
+            kind="memory_recall",
+            trace_id=trace_id,
+            inputs={"query": str(query), "tier": tier},
+            output={
+                "record_ids": [
+                    str(row.get("record_id", row.get("id", ""))) for row in rows
+                ],
+                "hit_count": len(rows),
+            },
+        )
+        return rows
 
     def _fit_dim(self, vector) -> np.ndarray:
         np = _numpy()
@@ -77,8 +163,6 @@ class MemoryRouter:
             return output
 
         try:
-            import torch
-
             if attention_mask is not None:
                 mask = attention_mask.to(hidden.device).unsqueeze(-1).float()
                 return (hidden * mask).sum(dim=1) / mask.sum(dim=1).clamp_min(1.0)
@@ -138,9 +222,26 @@ class MemoryRouter:
 
     @trace("memory_router", "write")
     @instrument("memory")
-    def write(self, content: str, *, metadata: dict | None = None, tier: str = "episodic") -> MemoryWriteResult:
+    def write(
+        self,
+        content: str,
+        *,
+        metadata: dict | None = None,
+        tier: str = "episodic",
+        trace_id: str | None = None,
+    ) -> MemoryWriteResult:
         metadata = metadata or {}
-        record_id = hashlib.sha1(f"{content}|{metadata}".encode("utf-8")).hexdigest()[:16]
+        trace_id = trace_id or str(metadata.get("trace_id") or "") or None
+        record_id = hashlib.sha1(f"{content}|{metadata}".encode()).hexdigest()[:16]
+
+        def finish(result: MemoryWriteResult) -> MemoryWriteResult:
+            return self._finish_write(
+                result,
+                content=content,
+                requested_tier=tier,
+                trace_id=trace_id,
+                metadata=metadata,
+            )
 
         # Threat patterns bypass all thresholds — always write
         is_threat = (metadata or {}).get("kind") == "threat_pattern"
@@ -158,8 +259,7 @@ class MemoryRouter:
                                             "content": content,
                                             "metadata": metadata})
                     self.short_term = self.short_term[-256:]
-                    return MemoryWriteResult(tier="short_term",
-                                            record_id=record_id)
+                    return finish(MemoryWriteResult(tier="short_term", record_id=record_id))
             elif self.esv is not None:
                 # fallback to original ESV logic unchanged
                 threshold_fn = getattr(self.esv, "memory_write_threshold", None)
@@ -175,59 +275,207 @@ class MemoryRouter:
                                                 "content": content,
                                                 "metadata": metadata})
                         self.short_term = self.short_term[-256:]
-                        return MemoryWriteResult(tier="short_term",
-                                                record_id=record_id)
+                        return finish(
+                            MemoryWriteResult(tier="short_term", record_id=record_id)
+                        )
 
         if tier == "short_term":
             self.short_term.append({"record_id": record_id, "content": content, "metadata": metadata})
             self.short_term = self.short_term[-256:]
-            return MemoryWriteResult(tier=tier, record_id=record_id)
+            return finish(MemoryWriteResult(tier=tier, record_id=record_id))
 
         if tier == "graph":
             src = str(metadata.get("src", "root"))
             dst = str(metadata.get("dst", content[:64]))
             self.graph.setdefault(src, []).append(dst)
-            return MemoryWriteResult(tier=tier, record_id=record_id)
+            return finish(MemoryWriteResult(tier=tier, record_id=record_id))
 
-        if tier == "ghost":
-            self.ghost_db_path.parent.mkdir(parents=True, exist_ok=True)
+        if tier == "journal":
+            self.journal_path.parent.mkdir(parents=True, exist_ok=True)
             row = {"record_id": record_id, "content": content, "metadata": metadata}
-            with self.ghost_db_path.open("a", encoding="utf-8") as f:
+            with self.journal_path.open("a", encoding="utf-8") as f:
                 f.write(json.dumps(row) + "\n")
-            return MemoryWriteResult(tier=tier, record_id=record_id)
+            return finish(MemoryWriteResult(tier=tier, record_id=record_id))
 
         vec = self._semantic_embed(content)
         payload = {"content": content, **metadata}
         self.episodic.add(record_id, vec, payload)
+        self.bm25.write(content, {**metadata, "canonical_id": record_id})
         self.episodic.save()
-        return MemoryWriteResult(tier="episodic", record_id=record_id)
+        return finish(MemoryWriteResult(tier="episodic", record_id=record_id))
 
     @trace("memory_router", "read")
     @instrument("memory")
-    def read(self, query: str | np.ndarray, n: int = 8, *, tier: str = "episodic") -> list[dict]:
+    def read(
+        self,
+        query: str | np.ndarray,
+        n: int = 8,
+        *,
+        tier: str = "episodic",
+        trace_id: str | None = None,
+    ) -> list[dict]:
+        def finish(rows: list[dict]) -> list[dict]:
+            return self._finish_read(rows, query=query, tier=tier, trace_id=trace_id)
+
         if tier == "short_term":
             q = str(query).lower()
             hits = [x for x in reversed(self.short_term) if q in x.get("content", "").lower()]
-            return hits[:n]
+            return finish(hits[:n])
 
         if tier == "graph":
             key = str(query)
-            return [{"src": key, "dst": dst} for dst in self.graph.get(key, [])[:n]]
+            return finish([{"src": key, "dst": dst} for dst in self.graph.get(key, [])[:n]])
 
-        if tier == "ghost":
-            if not self.ghost_db_path.exists():
-                return []
+        if tier == "journal":
+            if not self.journal_path.exists():
+                return finish([])
             q = str(query).lower()
             rows = []
-            for line in self.ghost_db_path.read_text(encoding="utf-8").splitlines():
+            for line in self.journal_path.read_text(encoding="utf-8").splitlines():
                 try:
                     row = json.loads(line)
                     if q in str(row.get("content", "")).lower():
                         rows.append(row)
                 except Exception:
                     continue
-            return rows[-n:]
+            return finish(rows[-n:])
+
+        if tier == "bm25":
+            return finish([
+                {
+                    "record_id": record.metadata.get("canonical_id", record.id),
+                    "score": float(record.score),
+                    "payload": {"content": record.text, **record.metadata},
+                    "retriever": "bm25",
+                }
+                for record in self.bm25.read(str(query), n=n)
+            ])
+
+        if tier == "hybrid":
+            np = _numpy()
+            vector = query if isinstance(query, np.ndarray) else None
+            text = "" if vector is not None else str(query)
+            hits = self.retrieval.search(
+                RetrievalQuery(text=text, vector=vector, limit=n, trace_id=trace_id)
+            )
+            return finish([
+                {
+                    "record_id": hit.id,
+                    "score": hit.score,
+                    "payload": {"content": hit.text, **hit.metadata},
+                    "retrievers": [item.retriever for item in hit.provenance],
+                    "provenance": [
+                        {
+                            "tier": item.retriever,
+                            "rank": item.rank,
+                            "raw_score": item.raw_score,
+                            "weight": item.weight,
+                            "source_id": hit.id,
+                        }
+                        for item in hit.provenance
+                    ],
+                }
+                for hit in hits
+            ])
 
         np = _numpy()
         qvec = query if isinstance(query, np.ndarray) else self._semantic_embed(str(query))
-        return self.episodic.search(qvec, k=n)
+        return finish(self.episodic.search(qvec, k=n))
+
+    @trace("memory_router", "forget")
+    @instrument("memory")
+    def forget(
+        self,
+        record_id: str,
+        *,
+        tier: str = "episodic",
+        trace_id: str | None = None,
+    ) -> bool:
+        deleted = False
+
+        if tier == "short_term":
+            original_len = len(self.short_term)
+            self.short_term = [
+                row for row in self.short_term if str(row.get("record_id", "")) != record_id
+            ]
+            deleted = len(self.short_term) != original_len
+        elif tier == "episodic":
+            deleted = self.episodic.delete(record_id)
+            deleted = self.bm25.delete_canonical(record_id) or deleted
+        elif tier == "journal":
+            if self.journal_path.exists():
+                kept: list[str] = []
+                for line in self.journal_path.read_text(encoding="utf-8").splitlines():
+                    try:
+                        row = json.loads(line)
+                    except Exception:
+                        kept.append(line)
+                        continue
+                    if str(row.get("record_id", "")) == record_id:
+                        deleted = True
+                    else:
+                        kept.append(line)
+                if deleted:
+                    self.journal_path.write_text(
+                        ("\n".join(kept) + "\n") if kept else "",
+                        encoding="utf-8",
+                    )
+        elif tier == "graph":
+            deleted = False
+
+        self._record_memory_event(
+            kind="memory_forget",
+            trace_id=trace_id,
+            inputs={"record_id": record_id, "tier": tier},
+            output={"deleted": deleted},
+        )
+        return deleted
+
+    @trace("memory_router", "edit")
+    @instrument("memory")
+    def edit(
+        self,
+        record_id: str,
+        content: str,
+        *,
+        metadata: dict | None = None,
+        tier: str = "episodic",
+        trace_id: str | None = None,
+    ) -> MemoryWriteResult | None:
+        metadata = metadata or {}
+        deleted = self.forget(record_id, tier=tier, trace_id=trace_id)
+        if not deleted:
+            self._record_memory_event(
+                kind="memory_edit",
+                trace_id=trace_id,
+                inputs={
+                    "record_id": record_id,
+                    "content_hash": hashlib.sha256(content.encode()).hexdigest(),
+                    "tier": tier,
+                },
+                output={"updated": False, "replacement_record_id": None},
+                metadata={
+                    "content_hash": hashlib.sha256(content.encode()).hexdigest(),
+                    "reason": "record_not_found",
+                },
+            )
+            return None
+
+        replacement = self.write(
+            content,
+            metadata={**metadata, "replaces_record_id": record_id},
+            tier=tier,
+            trace_id=trace_id,
+        )
+        self._record_memory_event(
+            kind="memory_edit",
+            trace_id=trace_id,
+            inputs={
+                "record_id": record_id,
+                "content_hash": hashlib.sha256(content.encode()).hexdigest(),
+                "tier": tier,
+            },
+            output={"updated": True, "replacement_record_id": replacement.record_id},
+            metadata={"content_hash": hashlib.sha256(content.encode()).hexdigest()},
+        )
+        return replacement

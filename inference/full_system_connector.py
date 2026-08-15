@@ -1,12 +1,13 @@
-from __future__ import annotations
-
 """Repository-wide connector and capability graph for An-Ra."""
 
+from __future__ import annotations
+
 import ast
+import importlib
 import json
-from dataclasses import dataclass, asdict
+import os
+from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Dict, Iterable, List, Tuple
 
 from engine.telemetry import trace
 from runtime.system_registry import build_system_manifest, write_system_manifest
@@ -18,8 +19,8 @@ class FileNode:
     size_bytes: int
     line_count: int
     has_python: bool
-    classes: List[str]
-    functions: List[str]
+    classes: list[str]
+    functions: list[str]
 
 
 @dataclass
@@ -29,7 +30,7 @@ class PhaseSnapshot:
     file_count: int
     python_files: int
     total_lines: int
-    notable_files: List[str]
+    notable_files: list[str]
 
 
 def _safe_read_text(path: Path) -> str:
@@ -39,10 +40,58 @@ def _safe_read_text(path: Path) -> str:
         return ""
 
 
-def _python_symbols(path: Path) -> Tuple[List[str], List[str]]:
+_EXCLUDED_TREE_PARTS = {
+    ".git",
+    ".mypy_cache",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".tox",
+    ".uv-cache",
+    ".venv",
+    "__pycache__",
+    "agent_workspace",
+    "build",
+    "dist",
+    "history",
+    "logs",
+    "models",
+    "node_modules",
+    "output",
+    "state",
+    "training_data",
+    "venv",
+    "workspace",
+}
+_SOURCE_SUFFIXES = {
+    ".css",
+    ".html",
+    ".js",
+    ".json",
+    ".jsx",
+    ".md",
+    ".py",
+    ".toml",
+    ".ts",
+    ".tsx",
+    ".yaml",
+    ".yml",
+}
+_MAX_SOURCE_BYTES = 2 * 1024 * 1024
+
+
+def _excluded_tree_part(name: str) -> bool:
+    normalized = name.lower()
+    return (
+        normalized in _EXCLUDED_TREE_PARTS
+        or normalized.startswith(".venv")
+        or normalized.startswith("venv-")
+    )
+
+
+def _python_symbols(path: Path, source: str | None = None) -> tuple[list[str], list[str]]:
     if path.suffix != ".py":
         return [], []
-    src = _safe_read_text(path)
+    src = _safe_read_text(path) if source is None else source
     if not src.strip():
         return [], []
     try:
@@ -54,33 +103,42 @@ def _python_symbols(path: Path) -> Tuple[List[str], List[str]]:
     return classes, funcs
 
 
-def walk_repository(repo_root: Path) -> List[FileNode]:
-    nodes: List[FileNode] = []
-    for path in sorted(repo_root.rglob("*")):
-        if not path.is_file():
-            continue
-        if any(part in {".git", ".pytest_cache", "__pycache__", "node_modules", "output", "state", "workspace"} for part in path.parts):
-            continue
-        if path.suffix in {".db", ".sqlite", ".sqlite3", ".faiss", ".index", ".npy", ".npz", ".pt", ".pth"}:
-            continue
-        if path.name in {"package-lock.json", "tokenizer_v3.json", "anra_training.txt"}:
-            continue
-        text = _safe_read_text(path)
-        classes, funcs = _python_symbols(path)
-        nodes.append(
-            FileNode(
-                path=str(path.relative_to(repo_root)),
-                size_bytes=path.stat().st_size,
-                line_count=text.count("\n") + (1 if text else 0),
-                has_python=path.suffix == ".py",
-                classes=classes[:25],
-                functions=funcs[:50],
-            )
+def walk_repository(repo_root: Path) -> list[FileNode]:
+    nodes: list[FileNode] = []
+    for directory, dirnames, filenames in os.walk(repo_root):
+        dirnames[:] = sorted(
+            name for name in dirnames if not _excluded_tree_part(name)
         )
+        root = Path(directory)
+        for filename in sorted(filenames):
+            path = root / filename
+            if path.suffix.lower() not in _SOURCE_SUFFIXES:
+                continue
+            try:
+                size_bytes = path.stat().st_size
+            except OSError:
+                continue
+            if size_bytes > _MAX_SOURCE_BYTES or path.name in {
+                "package-lock.json",
+                "tokenizer_v4_32k.json",
+            }:
+                continue
+            text = _safe_read_text(path)
+            classes, funcs = _python_symbols(path, text)
+            nodes.append(
+                FileNode(
+                    path=path.relative_to(repo_root).as_posix(),
+                    size_bytes=size_bytes,
+                    line_count=text.count("\n") + (1 if text else 0),
+                    has_python=path.suffix == ".py",
+                    classes=classes[:25],
+                    functions=funcs[:50],
+                )
+            )
     return nodes
 
 
-def phase_snapshots(repo_root: Path, nodes: List[FileNode]) -> List[PhaseSnapshot]:
+def phase_snapshots(_repo_root: Path, nodes: list[FileNode]) -> list[PhaseSnapshot]:
     phases = [
         ("phase1_core", "core"),
         ("phase2", "phase2"),
@@ -89,14 +147,34 @@ def phase_snapshots(repo_root: Path, nodes: List[FileNode]) -> List[PhaseSnapsho
         ("api", "."),
     ]
 
-    snapshots: List[PhaseSnapshot] = []
+    snapshots: list[PhaseSnapshot] = []
     for name, root in phases:
         prefix = "" if root == "." else root + "/"
         scoped = [n for n in nodes if root == "." or n.path.startswith(prefix)]
         if root == ".":
-            scoped = [n for n in nodes if n.path in {"anra.py", "app.py", "generate.py", "finetune_anra.py", "test_suite.py"}]
+            scoped = [
+                n
+                for n in nodes
+                if n.path
+                in {"anra.py", "app.py", "generate.py", "finetune_anra.py", "test_suite.py"}
+            ]
         py = [n for n in scoped if n.has_python]
-        notable = [n.path for n in scoped if any(k in n.path.lower() for k in ["turboquant", "ouroboros", "symbolic", "sovereignty", "system", "app.py", "generate.py"])]
+        notable = [
+            n.path
+            for n in scoped
+            if any(
+                k in n.path.lower()
+                for k in [
+                    "turboquant",
+                    "ouroboros",
+                    "symbolic",
+                    "sovereignty",
+                    "system",
+                    "app.py",
+                    "generate.py",
+                ]
+            )
+        ]
         snapshots.append(
             PhaseSnapshot(
                 name=name,
@@ -110,39 +188,94 @@ def phase_snapshots(repo_root: Path, nodes: List[FileNode]) -> List[PhaseSnapsho
     return snapshots
 
 
+# A runtime capability is claimed only when its module imports and, where the
+# module defines health_check(), reports healthy. A file whose name merely
+# contains the right substring proves nothing and previously made every one of
+# these flags unconditionally True.
+_RUNTIME_CAPABILITY_MODULES: dict[str, tuple[str, str | None]] = {
+    "turboquant": ("inference.turboquant", "CompressedKVCache"),
+    "ouroboros": ("phase3.ouroboros_45o.ouroboros_numpy", None),
+    "symbolic_bridge": ("phase3.symbolic_bridge_45q.symbolic_bridge", None),
+    "sovereignty": ("phase3.sovereignty_45r.sovereignty_bridge", None),
+    "identity_injector": ("phase3.identity_45n.identity_injector", None),
+}
+
+_RUNTIME_CAPABILITY_FLAGS: dict[str, str] = {
+    "turboquant": "inference_efficiency",
+    "ouroboros": "ouroboros",
+    "symbolic_bridge": "symbolic_bridge",
+    "sovereignty": "sovereignty",
+    "identity_injector": "identity",
+}
+
+
+def probe_module_capability(module_name: str, required_symbol: str | None = None) -> bool:
+    """True only if the module imports and demonstrates it works.
+
+    Modules exposing ``health_check()`` must report ``status: ok``; modules
+    without one must at least expose ``required_symbol`` when specified.
+    """
+    try:
+        module = importlib.import_module(module_name)
+    except Exception:
+        return False
+    health = getattr(module, "health_check", None)
+    if callable(health):
+        try:
+            res = health()
+            return isinstance(res, dict) and res.get("status") == "ok"
+        except Exception:
+            return False
+    if required_symbol is not None:
+        return hasattr(module, required_symbol)
+    return True
+
+
 @trace("connector", "build_capability_graph")
-def build_capability_graph(repo_root: Path) -> Dict[str, object]:
+def build_capability_graph(repo_root: Path) -> dict[str, object]:
     manifest = build_system_manifest(repo_root)
     nodes = walk_repository(repo_root)
     snapshots = phase_snapshots(repo_root, nodes)
 
-    capabilities = dict(manifest.get("capabilities", {}))
+    manifest_caps = manifest.get("capabilities", {})
+    capabilities = dict(manifest_caps) if isinstance(manifest_caps, dict) else {}
+    runtime_evidence = {
+        name: probe_module_capability(module_name, required_symbol)
+        for name, (module_name, required_symbol) in _RUNTIME_CAPABILITY_MODULES.items()
+    }
     capabilities.update(
         {
-            "turboquant": any("turboquant" in n.path.lower() for n in nodes),
-            "ouroboros": any("ouroboros" in n.path.lower() for n in nodes),
-            "symbolic_bridge": any("symbolic_bridge" in n.path.lower() for n in nodes),
-            "sovereignty": any("sovereignty" in n.path.lower() for n in nodes),
-            "web_ui": any(n.path.startswith("phase4/web/") for n in nodes),
+            name: bool(
+                runtime_evidence[name]
+                and capabilities.get(_RUNTIME_CAPABILITY_FLAGS[name], False)
+            )
+            for name in _RUNTIME_CAPABILITY_MODULES
+        }
+    )
+    capabilities.update(
+        {
+            # Static assets: presence is the honest semantic for these three.
+            "web_ui": any(n.path == "app.py" for n in nodes),
             "fastapi": any(n.path == "app.py" for n in nodes),
             "integration_tests": any(n.path.startswith("tests/") for n in nodes),
         }
     )
 
-    graph = {
+    return {
         **manifest,
         "repo_root": str(repo_root),
         "file_count": len(nodes),
         "python_file_count": sum(1 for n in nodes if n.has_python),
         "total_lines": sum(n.line_count for n in nodes),
         "capabilities": capabilities,
+        "runtime_evidence": runtime_evidence,
         "phase_snapshots": [asdict(s) for s in snapshots],
     }
-    return graph
 
 
-def save_graph(repo_root: Path, output: Path) -> Dict[str, object]:
-    graph = build_capability_graph(repo_root)
+def save_graph(repo_root: Path, output: Path) -> dict[str, object]:
+    from typing import cast
+    graph = cast(dict[str, object], build_capability_graph(repo_root))
     output.write_text(json.dumps(graph, indent=2, ensure_ascii=False), encoding="utf-8")
     return graph
 

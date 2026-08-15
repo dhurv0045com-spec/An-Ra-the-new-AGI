@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from anra.anra_paths import FAISS_INDEX_LOCAL, GHOST_DB_LOCAL, REQUIRED_DIRS, get_dataset_file
+from anra.anra_paths import FAISS_INDEX_LOCAL, REQUIRED_DIRS, get_dataset_file
 from execution.fs_agent import FSAgent
 from execution.sandbox import CodeSandbox
 from goals.goal_queue import GoalQueue
@@ -12,7 +12,6 @@ from self_modification.type_b import AgentCodeMutation
 
 def test_paths_include_canonical_dataset_and_local_memory_dirs() -> None:
     assert get_dataset_file().name == "anra_training.txt"
-    assert GHOST_DB_LOCAL.parent in REQUIRED_DIRS
     assert FAISS_INDEX_LOCAL.parent in REQUIRED_DIRS
 
 

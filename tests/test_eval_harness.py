@@ -1,5 +1,6 @@
 from engine import feature_flags
 from engine.eval_harness import EvalHarness, EvalResult
+from evaluation.elo_harness import EloHarness, calculate_expected_score
 
 
 def _tasks():
@@ -19,7 +20,7 @@ def test_run_baseline_disables_component(tmp_path, monkeypatch):
 
     assert result.mode == "baseline"
     assert seen == [False, False]
-    assert feature_flags.is_enabled("ouroboros") is True
+    assert feature_flags.is_enabled("ouroboros") is False
 
 
 def test_run_system_on_enables_component(tmp_path, monkeypatch):
@@ -44,13 +45,13 @@ def test_ablation_isolates_one_component(tmp_path, monkeypatch):
     harness = EvalHarness(output_dir=tmp_path / "eval")
 
     def runner(task):
-        return {"success": not feature_flags.is_enabled("ghost_memory")}
+        return {"success": not feature_flags.is_enabled("ouroboros")}
 
-    result = harness.run_ablation("ghost_memory", _tasks(), runner)
+    result = harness.run_ablation("ouroboros", _tasks(), runner)
 
     assert result.mode == "ablation"
     assert result.task_success_rate == 1.0
-    assert feature_flags.is_enabled("ghost_memory") is True
+    assert feature_flags.is_enabled("ouroboros") is False
 
 
 def test_compare_detects_regression():
@@ -87,3 +88,44 @@ def test_save_and_load_report(tmp_path):
     assert path.exists()
     assert loaded["component"] == "memory"
     assert loaded["verdict"] == "neutral"
+
+
+def test_elo_harness_blinded_match():
+    harness = EloHarness(initial_rating=1200)
+    
+    # Mock generators
+    def gen_a(prompt): return "response_a"
+    def gen_b(prompt): return "response_b"
+    
+    # Judge always prefers "response_a" (A is better)
+    def judge(prompt, r1, r2):
+        if r1 == "response_a":
+            return 1.0
+        return 0.0
+
+    score = harness.run_paired_comparison("ckpt_a", gen_a, "ckpt_b", gen_b, "prompt", judge)
+    
+    assert score == 1.0
+    
+    rating_a = harness.get_rating("ckpt_a")
+    rating_b = harness.get_rating("ckpt_b")
+    
+    assert rating_a.rating > 1200.0
+    assert rating_b.rating < 1200.0
+    assert rating_a.matches == 1
+    assert rating_b.matches == 1
+
+
+def test_elo_regression():
+    harness = EloHarness(initial_rating=1200)
+    
+    # A beats B twice
+    def gen_a(prompt): return "response_a"
+    def gen_b(prompt): return "response_b"
+    def judge(prompt, r1, r2): return 1.0 if r1 == "response_a" else 0.0
+    
+    harness.run_paired_comparison("baseline", gen_a, "candidate", gen_b, "prompt1", judge)
+    harness.run_paired_comparison("baseline", gen_a, "candidate", gen_b, "prompt2", judge)
+    
+    # Candidate should be considered regressed compared to baseline
+    assert harness.check_regression("candidate", "baseline") is True

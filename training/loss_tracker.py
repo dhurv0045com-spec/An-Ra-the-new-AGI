@@ -10,10 +10,12 @@ Designed to be injected into the trainer with zero coupling.
 import json
 import logging
 import math
+import random
+import tempfile
 from pathlib import Path
-from typing import Optional
 
 import matplotlib
+
 matplotlib.use("Agg")  # non-interactive backend — safe on headless servers
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
@@ -43,7 +45,7 @@ class LossTracker:
         log_dir: str = "./logs",
         smoothing: float = 0.95,
         overfit_ratio: float = 1.3,
-    ):
+    ) -> None:
         self.log_dir = Path(log_dir)
         self.log_dir.mkdir(parents=True, exist_ok=True)
         self.smoothing = smoothing
@@ -60,7 +62,7 @@ class LossTracker:
         self.train_epoch_losses: list[float] = []  # mean train loss per epoch
 
         # Internal EMA state
-        self._ema: Optional[float] = None
+        self._ema: float | None = None
 
         # Best validation loss seen
         self.best_val_loss: float = float("inf")
@@ -90,7 +92,7 @@ class LossTracker:
 
         return self._ema
 
-    def record_epoch(self, epoch: int, val_loss: float, train_loss: float):
+    def record_epoch(self, epoch: int, val_loss: float, train_loss: float) -> None:
         """
         Record end-of-epoch validation loss.
         Detects overfitting and tracks the best checkpoint epoch.
@@ -104,7 +106,7 @@ class LossTracker:
             logger.warning(
                 f"[Epoch {epoch}] Overfitting detected: "
                 f"val={val_loss:.4f} train={train_loss:.4f} "
-                f"ratio={val_loss/train_loss:.2f}x"
+                f"ratio={val_loss / train_loss:.2f}x"
             )
 
         # Track best val
@@ -120,7 +122,7 @@ class LossTracker:
     # Persistence
     # ------------------------------------------------------------------
 
-    def save(self):
+    def save(self) -> None:
         """Serialize full history to JSON — safe for resume."""
         history = {
             "train_steps": self.train_steps,
@@ -132,7 +134,7 @@ class LossTracker:
             "best_val_loss": self.best_val_loss,
             "best_val_epoch": self.best_val_epoch,
         }
-        with open(self._history_path, "w") as f:
+        with open(self._history_path, "w", encoding="utf-8") as f:
             json.dump(history, f, indent=2)
 
     def load(self) -> bool:
@@ -142,7 +144,7 @@ class LossTracker:
         """
         if not self._history_path.exists():
             return False
-        with open(self._history_path) as f:
+        with open(self._history_path, encoding="utf-8") as f:
             h = json.load(f)
         self.train_steps = h["train_steps"]
         self.train_losses = h["train_losses"]
@@ -155,15 +157,17 @@ class LossTracker:
         # Restore EMA state from last recorded smooth value
         if self.train_smooth:
             self._ema = self.train_smooth[-1]
-        logger.info(f"Loss history restored: {len(self.train_steps)} train steps, "
-                    f"{len(self.val_epochs)} val epochs")
+        logger.info(
+            f"Loss history restored: {len(self.train_steps)} train steps, "
+            f"{len(self.val_epochs)} val epochs"
+        )
         return True
 
     # ------------------------------------------------------------------
     # Visualization
     # ------------------------------------------------------------------
 
-    def plot(self, save_path: Optional[str] = None):
+    def plot(self, save_path: str | None = None) -> None:
         """
         Generate and save a two-panel loss curve figure:
         - Top: step-level train loss (raw + smoothed EMA)
@@ -184,12 +188,19 @@ class LossTracker:
         ax0 = axes[0]
         if self.train_steps:
             ax0.plot(
-                self.train_steps, self.train_losses,
-                color="#3a86ff", alpha=0.25, linewidth=0.8, label="Train loss (raw)"
+                self.train_steps,
+                self.train_losses,
+                color="#3a86ff",
+                alpha=0.25,
+                linewidth=0.8,
+                label="Train loss (raw)",
             )
             ax0.plot(
-                self.train_steps, self.train_smooth,
-                color="#3a86ff", linewidth=1.8, label="Train loss (EMA)"
+                self.train_steps,
+                self.train_smooth,
+                color="#3a86ff",
+                linewidth=1.8,
+                label="Train loss (EMA)",
             )
         ax0.set_xlabel("Step", color="#aaaaaa")
         ax0.set_ylabel("Loss", color="#aaaaaa")
@@ -200,23 +211,36 @@ class LossTracker:
         ax1 = axes[1]
         if self.val_epochs:
             ax1.plot(
-                self.val_epochs, self.train_epoch_losses,
-                color="#3a86ff", linewidth=2, marker="o", markersize=4, label="Train loss"
+                self.val_epochs,
+                self.train_epoch_losses,
+                color="#3a86ff",
+                linewidth=2,
+                marker="o",
+                markersize=4,
+                label="Train loss",
             )
             ax1.plot(
-                self.val_epochs, self.val_losses,
-                color="#ff6b6b", linewidth=2, marker="s", markersize=4, label="Val loss"
+                self.val_epochs,
+                self.val_losses,
+                color="#ff6b6b",
+                linewidth=2,
+                marker="s",
+                markersize=4,
+                label="Val loss",
             )
             # Mark best val epoch
             if self.best_val_epoch >= 0 and self.best_val_epoch in self.val_epochs:
                 bi = self.val_epochs.index(self.best_val_epoch)
                 ax1.axvline(
-                    self.best_val_epoch, color="#ffd166", linewidth=1,
-                    linestyle=":", alpha=0.8
+                    self.best_val_epoch, color="#ffd166", linewidth=1, linestyle=":", alpha=0.8
                 )
                 ax1.scatter(
-                    [self.best_val_epoch], [self.val_losses[bi]],
-                    color="#ffd166", zorder=5, s=80, label=f"Best val ({self.best_val_loss:.4f})"
+                    [self.best_val_epoch],
+                    [self.val_losses[bi]],
+                    color="#ffd166",
+                    zorder=5,
+                    s=80,
+                    label=f"Best val ({self.best_val_loss:.4f})",
                 )
         ax1.set_xlabel("Epoch", color="#aaaaaa")
         ax1.set_ylabel("Loss", color="#aaaaaa")
@@ -240,7 +264,9 @@ class LossTracker:
             lines.append(f"  Current train loss : {self.train_smooth[-1]:.4f} (EMA)")
         if self.val_losses:
             lines.append(f"  Last val loss      : {self.val_losses[-1]:.4f}")
-            lines.append(f"  Best val loss      : {self.best_val_loss:.4f} @ epoch {self.best_val_epoch}")
+            lines.append(
+                f"  Best val loss      : {self.best_val_loss:.4f} @ epoch {self.best_val_epoch}"
+            )
         lines.append("─" * 50)
         return "\n".join(lines)
 
@@ -254,8 +280,6 @@ class LossTracker:
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    import tempfile, random, math
-
     print("=" * 60)
     print("Step 23: Loss Tracker — self test")
     print("=" * 60)
@@ -278,7 +302,10 @@ if __name__ == "__main__":
             train_mean = sum(epoch_losses) / len(epoch_losses)
             val_loss = train_mean + random.uniform(0.05, 0.15)  # val slightly worse
             tracker.record_epoch(epoch, val_loss=val_loss, train_loss=train_mean)
-            print(f"  Epoch {epoch}: train={train_mean:.4f}  val={val_loss:.4f}  ppl={tracker.perplexity(val_loss):.1f}")
+            print(
+                f"  Epoch {epoch}: train={train_mean:.4f}  "
+                f"val={val_loss:.4f}  ppl={tracker.perplexity(val_loss):.1f}"
+            )
 
         print()
         print(tracker.summary())

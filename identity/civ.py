@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, asdict
-from pathlib import Path
 import json
+from dataclasses import asdict, dataclass
+from pathlib import Path
 from typing import Any
 
 from engine.metric_bus import instrument
@@ -58,7 +58,7 @@ class ConstitutionalIdentityVector:
         p.write_text(json.dumps(asdict(self.profile), indent=2), encoding="utf-8")
 
     @classmethod
-    def load(cls, path: str | Path) -> "ConstitutionalIdentityVector":
+    def load(cls, path: str | Path) -> ConstitutionalIdentityVector:
         data = json.loads(Path(path).read_text(encoding="utf-8"))
         return cls(CIVProfile(**data))
 
@@ -84,7 +84,9 @@ class CIVGuard:
     def _identity_prompts(self) -> list[str]:
         if not self.identity_path.exists():
             return ["H: Who are you?"]
-        prompts = [line.strip() for line in self.identity_path.read_text(encoding="utf-8").splitlines()]
+        prompts = [
+            line.strip() for line in self.identity_path.read_text(encoding="utf-8").splitlines()
+        ]
         return [line for line in prompts if line] or ["H: Who are you?"]
 
     def _prompt_vector(self, prompt: str):

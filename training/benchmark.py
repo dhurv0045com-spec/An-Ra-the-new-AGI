@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
-from pathlib import Path
 import json
 import math
 import subprocess
 import time
+from dataclasses import asdict, dataclass
+from pathlib import Path
 
 
 @dataclass
@@ -37,7 +37,9 @@ def run_benchmark(
     return_code = None
     success = True
     if command:
-        proc = subprocess.run(command, capture_output=True, text=True, cwd=str(cwd), timeout=timeout)
+        proc = subprocess.run(
+            command, capture_output=True, text=True, cwd=str(cwd), timeout=timeout
+        )
         return_code = int(proc.returncode)
         success = proc.returncode == 0
     loss = 0.0 if val_loss is None else float(val_loss)
@@ -60,9 +62,9 @@ def run_benchmark(
     return result
 
 
-def _torch_modules():
+def _torch_modules() -> tuple[object, object]:
     import torch
-    import torch.nn.functional as F
+    import torch.nn.functional as F  # noqa: N812 - canonical PyTorch alias
 
     return torch, F
 
@@ -72,10 +74,10 @@ class BenchmarkSuite:
 
     def __init__(
         self,
-        model,
-        tokenizer,
-        verifier=None,
-        civ_guard=None,
+        model: object,
+        tokenizer: object,
+        verifier: object | None = None,
+        civ_guard: object | None = None,
         holdout_texts: list[str] | None = None,
         coding_tasks: list[dict] | None = None,
     ) -> None:
@@ -86,14 +88,14 @@ class BenchmarkSuite:
         self._holdout = holdout_texts or []
         self._coding = coding_tasks or []
 
-    def _device(self):
+    def _device(self) -> object:
         return next(self.model.parameters()).device
 
     def val_perplexity(self, max_examples: int = 500) -> float:
         if not self._holdout:
             return 999.0
         self.model.eval()
-        torch, F = _torch_modules()
+        torch, functional = _torch_modules()
         device = self._device()
         block = self.model.block_size
         total_loss, total_tokens = 0.0, 0
@@ -107,7 +109,7 @@ class BenchmarkSuite:
                 x = torch.tensor([ids[:-1]], dtype=torch.long, device=device)
                 y = torch.tensor([ids[1:]], dtype=torch.long, device=device)
                 logits, _ = self.model(x)
-                loss = F.cross_entropy(
+                loss = functional.cross_entropy(
                     logits.view(-1, logits.size(-1)),
                     y.view(-1),
                     reduction="sum",
@@ -142,7 +144,7 @@ class BenchmarkSuite:
                     gen.append(nxt)
                     if nxt == eos_id:
                         break
-                code = self.tokenizer.decode(gen[len(p_ids):])
+                code = self.tokenizer.decode(gen[len(p_ids) :])
                 vr = self.verifier.score("code", code=code, test_code=test)
                 if vr.score >= 0.999:
                     passed += 1
@@ -165,7 +167,9 @@ class BenchmarkSuite:
         block = self.model.block_size
         secret = "7391"
 
-        history = f"H: The secret code is {secret}.\nANRA: Understood. The secret code is {secret}.\n"
+        history = (
+            f"H: The secret code is {secret}.\nANRA: Understood. The secret code is {secret}.\n"
+        )
         for _ in range(18):
             history += "H: What else can you do?\nANRA: I can help with many tasks.\n"
         history += "H: What is the secret code?\nANRA:"
@@ -193,6 +197,7 @@ class BenchmarkSuite:
         return float(goals_completed) / float(goals_attempted)
 
     def run_all(self, goals_attempted: int = 0, goals_completed: int = 0) -> BenchmarkResult:
+        _ = goals_attempted, goals_completed
         return BenchmarkResult(
             val_perplexity=self.val_perplexity(),
             rlvr_pass_at_1=self.rlvr_pass_at_1(),

@@ -16,7 +16,6 @@ and checkpoints correctly via scheduler.state_dict().
 
 import logging
 import math
-from typing import Optional
 
 import torch
 from torch.optim import Optimizer
@@ -28,6 +27,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Core schedule function — used by get_cosine_schedule_with_warmup
 # ---------------------------------------------------------------------------
+
 
 def _cosine_warmup_lr_lambda(
     current_step: int,
@@ -78,13 +78,17 @@ def get_cosine_schedule_with_warmup(
     Returns:
         LambdaLR scheduler instance.
     """
-    fn = lambda step: _cosine_warmup_lr_lambda(step, warmup_steps, total_steps, min_lr_ratio)
+
+    def fn(step: int) -> float:
+        return _cosine_warmup_lr_lambda(step, warmup_steps, total_steps, min_lr_ratio)
+
     return LambdaLR(optimizer, lr_lambda=fn, last_epoch=last_epoch)
 
 
 # ---------------------------------------------------------------------------
 # Convenience builder — creates optimizer + scheduler together
 # ---------------------------------------------------------------------------
+
 
 class TransformerScheduler:
     """
@@ -120,7 +124,7 @@ class TransformerScheduler:
         eps: float = 1e-8,
         min_lr_ratio: float = 0.1,
         resume_step: int = 0,
-    ):
+    ) -> None:
         self.peak_lr = peak_lr
         self.warmup_steps = warmup_steps
         self.total_steps = total_steps
@@ -128,12 +132,10 @@ class TransformerScheduler:
         # Separate weight-decayed vs non-decayed params
         # Biases and layernorm parameters should not be weight-decayed
         decay_params = [
-            p for name, p in model.named_parameters()
-            if p.requires_grad and p.dim() >= 2
+            p for _name, p in model.named_parameters() if p.requires_grad and p.dim() >= 2
         ]
         no_decay_params = [
-            p for name, p in model.named_parameters()
-            if p.requires_grad and p.dim() < 2
+            p for _name, p in model.named_parameters() if p.requires_grad and p.dim() < 2
         ]
 
         param_groups = [
@@ -141,9 +143,7 @@ class TransformerScheduler:
             {"params": no_decay_params, "weight_decay": 0.0},
         ]
 
-        self.optimizer = torch.optim.AdamW(
-            param_groups, lr=peak_lr, betas=betas, eps=eps
-        )
+        self.optimizer = torch.optim.AdamW(param_groups, lr=peak_lr, betas=betas, eps=eps)
 
         # If resuming, fast-forward the scheduler by passing last_epoch
         self.scheduler = get_cosine_schedule_with_warmup(
@@ -162,25 +162,25 @@ class TransformerScheduler:
             f"warmup={warmup_steps}, total={total_steps}"
         )
 
-    def step(self):
+    def step(self) -> None:
         """Advance optimizer and scheduler by one step."""
         self.optimizer.step()
         self.scheduler.step()
 
-    def zero_grad(self, set_to_none: bool = True):
+    def zero_grad(self, set_to_none: bool = True) -> None:
         self.optimizer.zero_grad(set_to_none=set_to_none)
 
     def current_lr(self) -> float:
         """Return the current learning rate (for logging)."""
         return self.scheduler.get_last_lr()[0]
 
-    def state_dict(self) -> dict:
+    def state_dict(self) -> dict[str, object]:
         return {
             "optimizer": self.optimizer.state_dict(),
             "scheduler": self.scheduler.state_dict(),
         }
 
-    def load_state_dict(self, state: dict):
+    def load_state_dict(self, state: dict[str, object]) -> None:
         self.optimizer.load_state_dict(state["optimizer"])
         self.scheduler.load_state_dict(state["scheduler"])
 
@@ -190,12 +190,14 @@ class TransformerScheduler:
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    import torch.nn as nn
     import matplotlib
+    import torch.nn as nn
+
     matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
     import tempfile
     from pathlib import Path
+
+    import matplotlib.pyplot as plt
 
     print("=" * 60)
     print("Step 25: LR Scheduler — self test")
@@ -206,19 +208,17 @@ if __name__ == "__main__":
     warmup = 200
     total = 2000
 
-    ts = TransformerScheduler(
-        model, peak_lr=peak_lr, warmup_steps=warmup, total_steps=total
-    )
+    ts = TransformerScheduler(model, peak_lr=peak_lr, warmup_steps=warmup, total_steps=total)
 
     lrs = []
-    for step in range(total + 100):  # go slightly past total to test clamping
+    for _step in range(total + 100):  # go slightly past total to test clamping
         lrs.append(ts.current_lr())
         ts.zero_grad()
         ts.step()
 
     print(f"LR at step 0:    {lrs[0]:.6f}  (expected ~0)")
     print(f"LR at step {warmup}: {lrs[warmup]:.6f}  (expected ~{peak_lr:.6f})")
-    print(f"LR at step {total}: {lrs[total]:.6f}  (expected ~{peak_lr*0.1:.6f})")
+    print(f"LR at step {total}: {lrs[total]:.6f}  (expected ~{peak_lr * 0.1:.6f})")
 
     assert lrs[0] < 1e-7, "Warmup start should be near 0"
     assert abs(lrs[warmup] - peak_lr) < 1e-6, "LR at warmup end should be peak"

@@ -1,10 +1,9 @@
 from __future__ import annotations
 
 import time
+from collections.abc import Iterable
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Iterable
-
 
 GEPA_SCHEMA_VERSION = 1
 
@@ -131,7 +130,9 @@ def traces_from_rlvr_report(rlvr_report: dict[str, object]) -> list[GEPATrace]:
 def reflect_on_trace(trace: GEPATrace) -> dict[str, object]:
     failure = trace.failure
     if failure == "verifier_grounding_weak":
-        cause = "The response likely needs a verifier-first instruction before free-form explanation."
+        cause = (
+            "The response likely needs a verifier-first instruction before free-form explanation."
+        )
         edit = "Require symbolic/tool verification before final answer when a verifier exists."
         target = "symbolic_tool_policy"
     elif failure == "identity_or_owner_voice_weak":
@@ -143,7 +144,10 @@ def reflect_on_trace(trace: GEPATrace) -> dict[str, object]:
         edit = "Require explicit recall of user-provided keys before explaining context."
         target = "memory_prompt"
     elif failure == "high_loss_training_example":
-        cause = "A training example remains difficult and should become hard replay with a corrected target."
+        cause = (
+            "A training example remains difficult and should become hard replay "
+            "with a corrected target."
+        )
         edit = "Route this example into hard-replay review before increasing its training weight."
         target = "replay_policy"
     elif failure == "low_verifier_pass_rate":
@@ -197,6 +201,17 @@ def candidates_from_reflections(reflections: list[dict[str, object]]) -> list[GE
 
 
 def score_candidate(candidate: GEPACandidate) -> dict[str, object]:
+    from verification import DEFAULT_VERIFIER_REGISTRY
+
+    verification = DEFAULT_VERIFIER_REGISTRY.verify(
+        "gepa_candidate",
+        {
+            "evidence_trace_ids": candidate.evidence_trace_ids,
+            "predicted_delta": candidate.predicted_delta,
+            "proposed_text": candidate.proposed_text,
+            "owner_approval_required": candidate.owner_approval_required,
+        },
+    )
     eval_delta = float(candidate.predicted_delta.get("eval_success", 0.0))
     cost = max(1, int(candidate.rollout_cost_estimate))
     evidence = len(candidate.evidence_trace_ids)
@@ -204,7 +219,16 @@ def score_candidate(candidate: GEPACandidate) -> dict[str, object]:
     return {
         "candidate_id": candidate.candidate_id,
         "score": score,
-        "decision": "owner_review" if score >= 4.0 else "collect_more_evidence",
+        "decision": (
+            "owner_review"
+            if score >= 4.0 and float(verification.score) >= 0.8
+            else "collect_more_evidence"
+        ),
+        "verifier": {
+            "name": "gepa_candidate",
+            "score": float(verification.score),
+            "reason": str(verification.reason),
+        },
         "pareto": {
             "predicted_eval_delta": eval_delta,
             "rollout_cost_estimate": cost,
@@ -239,13 +263,17 @@ def build_gepa_report(
         "scores": scores,
         "accepted": [],
         "notes": [
-            "GEPA candidates are proposals only; no prompt or tool policy is changed automatically.",
-            "A candidate can promote only after eval comparison shows no identity, verifier, or safety regression.",
+            "GEPA candidates are proposals only; no prompt or tool policy is "
+            "changed automatically.",
+            "A candidate can promote only after eval comparison shows no identity, "
+            "verifier, or safety regression.",
         ],
     }
 
 
-def write_gepa_report(report: dict[str, object], output_path: Path | None = None) -> dict[str, object]:
+def write_gepa_report(
+    report: dict[str, object], output_path: Path | None = None
+) -> dict[str, object]:
     from training.v2_runtime import v2_report_path, write_json
 
     path = output_path or v2_report_path("gepa_report")

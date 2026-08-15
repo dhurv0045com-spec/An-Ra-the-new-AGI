@@ -3,14 +3,19 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Protocol, runtime_checkable
-
-import torch
+from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
 MetricValue = int | float | str | bool
 MetricPayload = Mapping[str, MetricValue]
-TensorBatch = Mapping[str, torch.Tensor]
-KVCache = Sequence[tuple[torch.Tensor, torch.Tensor]]
+
+if TYPE_CHECKING:
+    import torch
+
+    TensorBatch = Mapping[str, torch.Tensor]
+    KVCache = Sequence[tuple[torch.Tensor, torch.Tensor]]
+else:
+    TensorBatch = Mapping[str, object]
+    KVCache = Sequence[tuple[object, object]]
 
 
 @dataclass(frozen=True, slots=True)
@@ -45,6 +50,18 @@ class HealthStatus:
     healthy: bool
     message: str
     details: Mapping[str, int | float | str | bool]
+
+
+@dataclass(frozen=True, slots=True)
+class RuntimeReadinessReport:
+    """Atomic serving readiness state exposed by status and operator surfaces."""
+
+    stage: str
+    ready: bool
+    progress: float
+    started_at: float
+    updated_at: float
+    error: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

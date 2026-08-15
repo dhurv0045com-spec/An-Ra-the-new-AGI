@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field
 import hashlib
 import json
 import time
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
-
 
 VALID_STATUSES = {"VERIFIED", "INFERRED", "ASSUMED", "UNKNOWN", "FALSIFIED"}
 
@@ -75,7 +74,11 @@ class FalsificationLedger:
             try:
                 self.memory_router.write(
                     json.dumps(asdict(record), sort_keys=True),
-                    metadata={"kind": "falsification_ledger", "claim_id": record.claim_id, "salience": record.confidence},
+                    metadata={
+                        "kind": "falsification_ledger",
+                        "claim_id": record.claim_id,
+                        "salience": record.confidence,
+                    },
                     tier="ghost",
                 )
             except Exception:
@@ -100,7 +103,9 @@ class FalsificationLedger:
         for record in self.records.values():
             items.append(
                 {
-                    "template": "HYPOTHESIS_CHAIN" if record.status != "FALSIFIED" else "FAILURE_REPLAY",
+                    "template": "HYPOTHESIS_CHAIN"
+                    if record.status != "FALSIFIED"
+                    else "FAILURE_REPLAY",
                     "claim": record.claim,
                     "verify": record.status,
                     "confidence": record.confidence,
@@ -111,7 +116,7 @@ class FalsificationLedger:
                         f"<hyp>{record.claim}</hyp>\n"
                         f"<verify>{record.status} confidence={record.confidence:.2f}</verify>\n"
                         f"<err>{record.would_be_false_if}</err>\n"
-                        f"<act>{{\"tool\":\"{record.next_verifier}\"}}</act>"
+                        f'<act>{{"tool":"{record.next_verifier}"}}</act>'
                     ),
                 }
             )
@@ -128,4 +133,3 @@ class FalsificationLedger:
             str(row.get("claim_id") or _claim_id(str(row.get("claim", "")))): ClaimRecord(**row)
             for row in data.get("records", [])
         }
-

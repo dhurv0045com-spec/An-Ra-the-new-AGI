@@ -2,15 +2,21 @@ from __future__ import annotations
 
 import functools
 import inspect
-import json
 import time
+from collections.abc import Callable
+from contextlib import suppress
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
-from anra.anra_paths import STATE_DIR
+from runtime.evidence_stream import (
+    DEFAULT_EVIDENCE_PATH,
+    append_evidence,
+    read_evidence,
+)
 
-TELEMETRY_LOG = STATE_DIR / "logs" / "telemetry.jsonl"
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+TELEMETRY_LOG = DEFAULT_EVIDENCE_PATH
 
 
 @dataclass
@@ -35,7 +41,7 @@ class TelemetryRecord:
 class TelemetryBus:
     """Write-once append bus. Thread-safe enough for single-process use."""
 
-    def __init__(self, path: Path = TELEMETRY_LOG):
+    def __init__(self, path: Path = TELEMETRY_LOG) -> None:
         self._path = path
         self._path.parent.mkdir(parents=True, exist_ok=True)
         self._buffer: list[TelemetryRecord] = []
@@ -45,34 +51,35 @@ class TelemetryBus:
         self._flush_one(rec)
 
     def _flush_one(self, rec: TelemetryRecord) -> None:
-        try:
-            with self._path.open("a", encoding="utf-8") as f:
-                f.write(json.dumps(rec.to_dict(), ensure_ascii=False) + "\n")
-        except Exception:
-            pass
+        with suppress(Exception):
+            append_evidence(
+                source="engine.telemetry",
+                kind="runtime.operation",
+                payload=rec.to_dict(),
+                path=self._path,
+            )
+
+    def _rows(self) -> list[dict[str, Any]]:
+        report = read_evidence(self._path)
+        return [
+            dict(event.get("payload", {}))
+            for event in report["events"]
+            if event.get("source") == "engine.telemetry"
+            and isinstance(event.get("payload"), dict)
+        ]
 
     def recent(self, n: int = 50) -> list[dict]:
         """Return last n records from the JSONL file."""
         if n <= 0 or not self._path.exists():
             return []
-        rows: list[dict] = []
-        for line in self._path.read_text(encoding="utf-8", errors="replace").splitlines()[-n:]:
-            try:
-                rows.append(json.loads(line))
-            except Exception:
-                continue
-        return rows
+        return self._rows()[-n:]
 
     def summary_by_module(self) -> dict[str, dict]:
         """Aggregate stats per module from the JSONL file."""
         if not self._path.exists():
             return {}
         grouped: dict[str, dict[str, Any]] = {}
-        for line in self._path.read_text(encoding="utf-8", errors="replace").splitlines():
-            try:
-                row = json.loads(line)
-            except Exception:
-                continue
+        for row in self._rows():
             module = str(row.get("module", "unknown"))
             bucket = grouped.setdefault(
                 module,
@@ -114,7 +121,7 @@ def get_telemetry_bus() -> TelemetryBus:
     return _bus
 
 
-def _result_metadata(result: Any) -> tuple[int | None, int | None, str | None, float | None]:
+def _result_metadata(result: object) -> tuple[int | None, int | None, str | None, float | None]:
     tokens = None
     out_size = None
     out_type = None
@@ -139,7 +146,7 @@ def _make_record(
     t0: float,
     success: bool,
     error: str | None,
-    result: Any,
+    result: object,
 ) -> TelemetryRecord:
     elapsed_ms = (time.perf_counter() - t0) * 1000
     tokens, out_size, out_type, confidence = _result_metadata(result)
@@ -158,14 +165,17 @@ def _make_record(
     )
 
 
-def trace(module: str, operation: str = "run"):
+def trace(
+    module: str,
+    operation: str = "run",
+) -> Callable[[Callable[..., object]], Callable[..., object]]:
     """Decorator. Wraps any function with automatic telemetry capture."""
 
     def decorator(fn: Callable) -> Callable:
         if inspect.iscoroutinefunction(fn):
 
             @functools.wraps(fn)
-            async def async_wrapper(*args, **kwargs):
+            async def async_wrapper(*args: object, **kwargs: object) -> object:
                 bus = get_telemetry_bus()
                 t0 = time.perf_counter()
                 start_ts = time.time()
@@ -174,7 +184,7 @@ def trace(module: str, operation: str = "run"):
                 result = None
                 try:
                     result = await fn(*args, **kwargs)
-                    return result
+                    return result  # noqa: RET504 - finally records this exact result
                 except Exception as exc:
                     success = False
                     error = f"{type(exc).__name__}: {exc}"
@@ -195,7 +205,7 @@ def trace(module: str, operation: str = "run"):
             return async_wrapper
 
         @functools.wraps(fn)
-        def wrapper(*args, **kwargs):
+        def wrapper(*args: object, **kwargs: object) -> object:
             bus = get_telemetry_bus()
             t0 = time.perf_counter()
             start_ts = time.time()
@@ -204,7 +214,7 @@ def trace(module: str, operation: str = "run"):
             result = None
             try:
                 result = fn(*args, **kwargs)
-                return result
+                return result  # noqa: RET504 - finally records this exact result
             except Exception as exc:
                 success = False
                 error = f"{type(exc).__name__}: {exc}"

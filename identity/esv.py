@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, asdict
-from pathlib import Path
 import json
 import math
+from dataclasses import asdict, dataclass
+from pathlib import Path
 
 try:
     import torch
@@ -34,7 +34,9 @@ class EmotionalStateVector:
         else:
             self.state.stress = min(1.0, self.state.stress + 0.12 * (1 + d))
             self.state.focus = max(0.0, self.state.focus - 0.05)
-        self.state.curiosity = min(1.0, max(0.0, self.state.curiosity + (0.02 if success else -0.01)))
+        self.state.curiosity = min(
+            1.0, max(0.0, self.state.curiosity + (0.02 if success else -0.01))
+        )
         return self.state
 
     def as_dict(self) -> dict:
@@ -47,6 +49,7 @@ class EmotionalStateVector:
 
 
 if nn is not None:
+
     class ESVModule(nn.Module):
         """Residual-stream emotional state vector predictor.
 
@@ -71,17 +74,43 @@ if nn is not None:
                     if m.bias is not None:
                         nn.init.zeros_(m.bias)
             self.register_buffer("state", torch.zeros(3))
+            self._last_temporal_loss = torch.zeros(())
 
-        def forward(self, h):
+        def extract_channel(self, h):
             if h.ndim != 3:
                 raise ValueError("ESVModule expects residual stream shape [batch, seq, d_model].")
             if h.shape[-1] < self.d_esv:
-                raise ValueError(f"residual stream has {h.shape[-1]} channels, expected at least {self.d_esv}.")
+                raise ValueError(
+                    f"residual stream has {h.shape[-1]} channels, expected at least {self.d_esv}."
+                )
             esv_channel = h[:, :, -self.d_esv :]
-            pooled = esv_channel.mean(dim=(0, 1))
-            state = self.predictor(pooled)
-            self.state.copy_(state.detach())
-            return state
+            return esv_channel.mean(dim=1)
+
+        def forward(self, h):
+            """Predict VAD state without mutating persistent runtime state."""
+            token_states = self.predictor(h[:, :, -self.d_esv :])
+            if token_states.shape[1] > 1:
+                self._last_temporal_loss = (
+                    (token_states[:, 1:] - token_states[:, :-1]).pow(2).mean()
+                )
+            else:
+                self._last_temporal_loss = token_states.sum() * 0.0
+            return token_states.mean(dim=1)
+
+        def temporal_consistency_loss(self):
+            """Return the latest unlabelled sequence-consistency regularizer."""
+            return self._last_temporal_loss
+
+        @torch.no_grad()
+        def commit_state(self, state) -> None:
+            """Commit a detached VAD state after a completed forward/generation step."""
+            if state.ndim == 2:
+                state = state.mean(dim=0)
+            if state.shape != self.state.shape:
+                raise ValueError(
+                    f"ESV state shape {tuple(state.shape)} does not match {tuple(self.state.shape)}."
+                )
+            self.state.copy_(state.detach().to(device=self.state.device, dtype=self.state.dtype))
 
         @property
         def valence(self) -> float:
@@ -108,7 +137,11 @@ if nn is not None:
         def attention_temperature_tensor(self, state=None, tau0: float = 1.0):
             """Return a differentiable attention temperature from arousal."""
             state = self.state if state is None else state
-            return float(tau0) * torch.exp(-0.5 * state[1]).clamp(0.25, 4.0)
+            arousal = state[..., 1]
+            temperature = float(tau0) * torch.exp(-0.5 * arousal).clamp(0.5, 2.0)
+            if state.ndim == 2:
+                return temperature[:, None, None, None]
+            return temperature
 
         def memory_write_threshold(self, base: float = 0.5) -> float:
             threshold = float(base) - 0.15 * self.valence + 0.15 * self.arousal
@@ -118,6 +151,7 @@ if nn is not None:
             att = 1.0 / (1.0 + math.exp(-self.dominance))
             return 1.0 - att, att
 else:
+
     class ESVModule:  # pragma: no cover - exercised only without torch installed.
         def __init__(self, *args, **kwargs) -> None:
             raise ImportError("ESVModule requires torch.")

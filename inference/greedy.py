@@ -14,15 +14,13 @@ and a tokenizer with encode() / decode().
 from __future__ import annotations
 
 import time
-from typing import List, Optional
 
 import torch
-import torch.nn.functional as F
-
 
 # ─────────────────────────────────────────────
 # Core greedy step
 # ─────────────────────────────────────────────
+
 
 def greedy_step(logits: torch.Tensor) -> int:
     """
@@ -41,11 +39,12 @@ def greedy_step(logits: torch.Tensor) -> int:
 # Full greedy decode loop
 # ─────────────────────────────────────────────
 
+
 def greedy_decode(
     model: torch.nn.Module,
     input_ids: torch.Tensor,
     max_new_tokens: int = 200,
-    eos_token_id: Optional[int] = None,
+    eos_token_id: int | None = None,
     device: str = "cpu",
 ) -> torch.Tensor:
     """
@@ -76,7 +75,7 @@ def greedy_decode(
             # Forward — accept (batch, seq, vocab) or (seq, vocab)
             out = model(ids)
             if isinstance(out, tuple):
-                out = out[0]                        # some models return (logits, cache, ...)
+                out = out[0]  # some models return (logits, cache, ...)
 
             logits = out[0, -1, :] if out.dim() == 3 else out[-1, :]
             next_id = greedy_step(logits)
@@ -94,6 +93,7 @@ def greedy_decode(
 # High-level convenience wrapper
 # ─────────────────────────────────────────────
 
+
 class GreedyDecoder:
     """
     Stateless greedy decoder. One object, reusable across prompts.
@@ -106,15 +106,15 @@ class GreedyDecoder:
     def __init__(
         self,
         model: torch.nn.Module,
-        tokenizer,
+        tokenizer: object,
         device: str = "cpu",
-        eos_token: Optional[str] = None,
-    ):
+        eos_token: str | None = None,
+    ) -> None:
         self.model = model
         self.tok = tokenizer
         self.device = device
         # Resolve eos token id once at construction time
-        self.eos_id: Optional[int] = None
+        self.eos_id: int | None = None
         if eos_token and hasattr(tokenizer, "encode"):
             ids = tokenizer.encode(eos_token)
             self.eos_id = ids[-1] if ids else None
@@ -131,9 +131,7 @@ class GreedyDecoder:
         """
         t0 = time.perf_counter()
 
-        input_ids = torch.tensor(
-            [self.tok.encode(prompt)], dtype=torch.long, device=self.device
-        )
+        input_ids = torch.tensor([self.tok.encode(prompt)], dtype=torch.long, device=self.device)
         prompt_len = input_ids.shape[1]
 
         output_ids = greedy_decode(
@@ -145,7 +143,7 @@ class GreedyDecoder:
         )
 
         # Decode only the new tokens
-        new_ids: List[int] = output_ids[0, prompt_len:].tolist()
+        new_ids: list[int] = output_ids[0, prompt_len:].tolist()
         elapsed = time.perf_counter() - t0
         tps = len(new_ids) / elapsed if elapsed > 0 else 0.0
 
@@ -163,29 +161,31 @@ if __name__ == "__main__":
 
     class _TinyLM(nn.Module):
         """Minimal LM for offline testing — random weights, fixed vocab 64."""
+
         VOCAB = 64
 
-        def __init__(self):
+        def __init__(self) -> None:
             super().__init__()
             self.emb = nn.Embedding(self.VOCAB, 32)
             self.rnn = nn.GRU(32, 64, batch_first=True)
             self.proj = nn.Linear(64, self.VOCAB)
 
-        def forward(self, x):
+        def forward(self, x: torch.Tensor) -> torch.Tensor:
             h = self.emb(x)
             h, _ = self.rnn(h)
-            return self.proj(h)   # (batch, seq, vocab)
+            return self.proj(h)  # (batch, seq, vocab)
 
     class _TinyTok:
         """Dead-simple byte-level tokenizer for the smoke-test."""
-        def encode(self, text: str) -> List[int]:
+
+        def encode(self, text: str) -> list[int]:
             return [b % 64 for b in text.encode()]
 
-        def decode(self, ids: List[int]) -> str:
+        def decode(self, ids: list[int]) -> str:
             return bytes([i + 32 for i in ids]).decode(errors="replace")
 
     model = _TinyLM()
-    tok   = _TinyTok()
+    tok = _TinyTok()
 
     decoder = GreedyDecoder(model, tok, device="cpu")
     out = decoder.generate("Hello", max_new_tokens=40)

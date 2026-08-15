@@ -2,12 +2,13 @@
 SupervisorAgent - top-level controller for the An-Ra agent system.
 
 Owner interface:
-    supervisor = SupervisorAgent(model_size="1b")
+    supervisor = SupervisorAgent(model_size="frontier")
     supervisor.start_session()
     # ... run training / inference / agent tasks ...
     summary = supervisor.end_session()
     supervisor.push_scorecard_to_drive(summary)
 """
+
 from __future__ import annotations
 
 import json
@@ -19,7 +20,8 @@ from engine.feature_flags import is_enabled, set_flag
 from engine.metric_bus import get_metric_bus, reset_metric_bus
 
 try:
-    from phase2.agent_loop_45K.agent import Agent as _AgentLoop
+    from phase2.agent_loop_45k.agent_main import Agent as _AgentLoop
+
     _AGENT_LOOP_AVAILABLE = True
 except ImportError:
     _AGENT_LOOP_AVAILABLE = False
@@ -46,12 +48,8 @@ class SessionSummary:
         return {
             "run_id": self.run_id,
             "model_size": self.model_size,
-            "started_at": time.strftime(
-                "%Y-%m-%dT%H:%M:%SZ", time.gmtime(self.started_at)
-            ),
-            "ended_at": time.strftime(
-                "%Y-%m-%dT%H:%M:%SZ", time.gmtime(self.ended_at)
-            ),
+            "started_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(self.started_at)),
+            "ended_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(self.ended_at)),
             "duration_minutes": round((self.ended_at - self.started_at) / 60, 2),
             "components_active": self.components_active,
             "components_flagged": self.components_flagged,
@@ -62,7 +60,7 @@ class SessionSummary:
 
 
 class SupervisorAgent:
-    def __init__(self, model_size: str = "25m") -> None:
+    def __init__(self, model_size: str = "frontier") -> None:
         self._model_size = model_size
         self._started_at: float | None = None
         self._bus = None
@@ -210,9 +208,7 @@ class SupervisorAgent:
                 flagged.append(f"{comp}:score_regression")
         return flagged
 
-    def _build_recommendations(
-        self, metrics: dict, deltas: dict, flagged: list[str]
-    ) -> list[str]:
+    def _build_recommendations(self, metrics: dict, deltas: dict, flagged: list[str]) -> list[str]:
         if not flagged:
             return ["All components within normal parameters. Continue training."]
         recs = []
@@ -238,10 +234,7 @@ class SupervisorAgent:
 
     def _print_summary(self, s: SessionSummary) -> None:
         print(f"\n{'=' * 60}")
-        print(
-            f"[Supervisor] SESSION COMPLETE  run_id={s.run_id}  "
-            f"model={s.model_size.upper()}"
-        )
+        print(f"[Supervisor] SESSION COMPLETE  run_id={s.run_id}  model={s.model_size.upper()}")
         print(f"  Duration   : {s.to_dict()['duration_minutes']} min")
         print(f"  Components : {len(s.components_active)} active")
         if s.components_flagged:
@@ -255,6 +248,7 @@ class SupervisorAgent:
         data = summary.to_dict()
         try:
             from anra.anra_paths import DRIVE_LOGS, HAL_STATE_FILE
+
             from identity.hal import HALModule
 
             _hal_path = DRIVE_LOGS / "hal_state.json"

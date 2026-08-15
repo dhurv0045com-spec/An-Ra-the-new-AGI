@@ -470,8 +470,19 @@ def cad_generate(instruction: str, **kwargs) -> ToolResult:
     report_body = report_tpl.format(
         title=template_key.replace("_", " ").title(),
         intent=f"Stylized {template_key} diagram for iteration and teaching.",
+        claim="Geometry represents a concept-level arrangement only.",
+        source_or_owner_input="Bundled AN-RA template",
+        method="Independent dimensional and engineering review required",
+        operating_envelope="Visualization and design discussion only",
+        failure_modes="Incorrect scale, dimensions, materials, loads, or interfaces",
+        review_role="Qualified domain engineer",
+        stop_condition="Any conflict with sourced dimensions or safety requirements",
         scad_path=str(scad_dst.relative_to(root)),
         stl_path=str(stl_dst.relative_to(root)),
+        template_version="2",
+        generator_version="cad_generate-v2",
+        input_hash=hashlib.sha256(scad_src.read_bytes()).hexdigest(),
+        generated_at=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
     )
     report_dst.write_text(report_body, encoding="utf-8")
 

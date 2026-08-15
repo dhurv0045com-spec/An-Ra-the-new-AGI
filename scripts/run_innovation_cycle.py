@@ -7,14 +7,14 @@ import time
 from pathlib import Path
 
 from anra.anra_paths import ROOT
-from innovation.gap_scanner import scan
 from innovation.action_queue import queue_actions
+from innovation.gap_scanner import scan
 from innovation.schema import CapabilityGap, Hypothesis
 from innovation.scoreboard import score_hypothesis, write_report
 
 
 def _hyp_id(gap: CapabilityGap) -> str:
-    return hashlib.sha1(f"{gap.gap_id}|{gap.description}".encode("utf-8")).hexdigest()[:12]
+    return hashlib.sha1(f"{gap.gap_id}|{gap.description}".encode()).hexdigest()[:12]
 
 
 def gap_to_hypothesis(gap: CapabilityGap) -> Hypothesis:

@@ -1,21 +1,23 @@
 from __future__ import annotations
 
-from dataclasses import asdict
 import json
 import time
+from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
 from anra.anra_paths import HAL_AUDIT_LOG, HAL_STATE_FILE
 
 
-def _state_payload(hal: Any, *, source: str = "runtime") -> dict[str, Any]:
+def _state_payload(hal: object, *, source: str = "runtime") -> dict[str, Any]:
     state = getattr(hal, "state", hal)
     hormones = state.hormones() if hasattr(state, "hormones") else {}
     counters = {
         "rolling_verifier_mean": float(getattr(state, "rolling_verifier_mean", 0.0)),
         "consecutive_failures": int(getattr(state, "consecutive_failures", 0)),
-        "consecutive_high_reward_outputs": int(getattr(state, "consecutive_high_reward_outputs", 0)),
+        "consecutive_high_reward_outputs": int(
+            getattr(state, "consecutive_high_reward_outputs", 0)
+        ),
         "cooperative_session_turn_count": int(getattr(state, "cooperative_session_turn_count", 0)),
     }
     return {
@@ -28,7 +30,9 @@ def _state_payload(hal: Any, *, source: str = "runtime") -> dict[str, Any]:
     }
 
 
-def publish_hal_state(hal: Any, *, source: str = "runtime", path: str | Path = HAL_STATE_FILE) -> dict[str, Any]:
+def publish_hal_state(
+    hal: object, *, source: str = "runtime", path: str | Path = HAL_STATE_FILE
+) -> dict[str, Any]:
     payload = _state_payload(hal, source=source)
     p = Path(path)
     p.parent.mkdir(parents=True, exist_ok=True)
@@ -66,12 +70,16 @@ def detect_hal_anomalies(payload: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def audit_hal_anomalies(
-    payload_or_hal: Any,
+    payload_or_hal: object,
     *,
     source: str = "runtime",
     path: str | Path = HAL_AUDIT_LOG,
 ) -> list[dict[str, Any]]:
-    payload = payload_or_hal if isinstance(payload_or_hal, dict) else _state_payload(payload_or_hal, source=source)
+    payload = (
+        payload_or_hal
+        if isinstance(payload_or_hal, dict)
+        else _state_payload(payload_or_hal, source=source)
+    )
     events = []
     for anomaly in detect_hal_anomalies(payload):
         event = {
@@ -97,4 +105,3 @@ def audit_hal_anomalies(
         except Exception:
             pass
     return events
-

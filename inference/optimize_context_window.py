@@ -1,97 +1,231 @@
 from __future__ import annotations
 
-from typing import Dict, List, Sequence, Tuple
+from dataclasses import asdict, dataclass
+from typing import Any
 
-try:
-    from training.v2_config import V2_MODEL
-    _MAX_CONTEXT = V2_MODEL.block_size
-except Exception:
-    _MAX_CONTEXT = 512
+from training.v2_config import ANRA_V4_MODEL
+
+
+@dataclass(frozen=True)
+class ContextBudgets:
+    identity: int = 64
+    message: int = 384
+    history: int = 224
+    memory: int = 223
+
+
+@dataclass(frozen=True)
+class PromptAssemblyTrace:
+    formatted_prompt: str
+    prompt_tokens: int
+    max_context_tokens: int
+    reserved_output_tokens: int
+    turns_included: int
+    memory_results_used: int
+    context_truncated: bool
+    memory_truncated: bool
+    token_allocation: dict[str, int]
+    mode: str
 
 
 class ContextWindowOptimizer:
-    MAX_CONTEXT = _MAX_CONTEXT
-    SESSION_BUDGET = 0.70
-    MEMORY_BUDGET = 0.25
-    MESSAGE_BUDGET = 0.05
+    """Build the exact frontier prompt using tokenizer-token budgets."""
+
+    MAX_CONTEXT = ANRA_V4_MODEL.block_size
+    DEFAULT_OUTPUT_TOKENS = 128
+
+    def __init__(self, tokenizer: object | None = None, max_context: int | None = None) -> None:
+        self.tokenizer = tokenizer
+        self.max_context = int(max_context or self.MAX_CONTEXT)
+        self.budgets = ContextBudgets()
+
+    def _encode(self, text: str) -> list[int] | list[str]:
+        if self.tokenizer is None:
+            return list(text)
+        return list(self.tokenizer.encode(text, add_special_tokens=False))
+
+    def _decode(self, tokens: list[int] | list[str]) -> str:
+        if self.tokenizer is None:
+            return "".join(str(token) for token in tokens)
+        return str(self.tokenizer.decode([int(token) for token in tokens]))
+
+    def _token_count(self, text: str) -> int:
+        return len(self._encode(text))
+
+    def _truncate(self, text: str, limit: int, *, keep_tail: bool = False) -> str:
+        tokens = self._encode(text)
+        if len(tokens) <= limit:
+            return text
+        if limit <= 0:
+            return ""
+        selected = tokens[-limit:] if keep_tail else tokens[:limit]
+        return self._decode(selected)
+
+    @staticmethod
+    def _normalize_turns(session_history: list[Any]) -> list[tuple[str, str]]:
+        turns: list[tuple[str, str]] = []
+        for item in session_history:
+            if isinstance(item, tuple) and len(item) == 2:
+                turns.append((str(item[0]), str(item[1])))
+            elif isinstance(item, dict):
+                if item.get("role") == "user":
+                    turns.append((str(item.get("content", "")), ""))
+                elif item.get("role") == "assistant" and turns:
+                    user, _ = turns[-1]
+                    turns[-1] = (user, str(item.get("content", "")))
+        return turns
+
+    @staticmethod
+    def _normalize_memory(memory_results: list[Any]) -> list[str]:
+        ranked: list[tuple[float, int, str]] = []
+        for index, result in enumerate(memory_results):
+            if isinstance(result, dict):
+                summary = str(result.get("summary", "")).strip()
+                content = str(result.get("content", "")).strip()
+                merged = summary if not content or content == summary else f"{summary}\n{content}"
+                if merged.strip():
+                    score = result.get("score", result.get("similarity", 0.0))
+                    try:
+                        rank = float(score)
+                    except (TypeError, ValueError):
+                        rank = 0.0
+                    ranked.append((rank, index, merged.strip()))
+            elif str(result).strip():
+                ranked.append((0.0, index, str(result).strip()))
+        ranked.sort(key=lambda item: (-item[0], item[1]))
+        return [memory for _score, _index, memory in ranked]
 
     def build_optimized_context(
         self,
-        session_history: list,
-        memory_results: list,
-        current_message: str
-    ) -> dict:
-        session_budget = int(self.MAX_CONTEXT * self.SESSION_BUDGET)
-        memory_budget = int(self.MAX_CONTEXT * self.MEMORY_BUDGET)
-        msg_budget = int(self.MAX_CONTEXT * self.MESSAGE_BUDGET)
+        session_history: list[Any],
+        memory_results: list[Any],
+        current_message: str,
+        *,
+        max_new_tokens: int = DEFAULT_OUTPUT_TOKENS,
+        identity_context: str = "",
+        mode: str = "full_system",
+    ) -> dict[str, Any]:
+        output_tokens = max(1, min(int(max_new_tokens), self.max_context - 2))
+        input_budget = self.max_context - output_tokens - 1  # reserve BOS
+        turns = self._normalize_turns(session_history)
+        memories = self._normalize_memory(memory_results) if mode == "full_system" else []
 
-        msg_str = current_message[:msg_budget]
+        identity = self._truncate(identity_context.strip(), self.budgets.identity)
+        prefix = f"{identity}\n" if identity else ""
+        marker_tokens = self._token_count("H: \nANRA:")
+        current_limit = max(1, input_budget - self._token_count(prefix) - marker_tokens)
+        current_tokens = self._encode(current_message.strip())
+        current = (
+            current_message.strip()
+            if len(current_tokens) <= current_limit
+            else self._decode(current_tokens[:current_limit])
+        )
+        suffix = f"H: {current}\nANRA:"
+        base_tokens = self._token_count(prefix + suffix)
 
-        normalized_turns: List[Tuple[str, str]] = []
-        for item in session_history:
-            if isinstance(item, tuple) and len(item) == 2:
-                normalized_turns.append((str(item[0]), str(item[1])))
-            elif isinstance(item, dict):
-                if item.get("role") == "user":
-                    normalized_turns.append((str(item.get("content", "")), ""))
-                elif item.get("role") == "assistant" and normalized_turns:
-                    last_user, _ = normalized_turns[-1]
-                    normalized_turns[-1] = (last_user, str(item.get("content", "")))
+        def select_history(budget: int) -> tuple[list[str], int]:
+            selected: list[str] = []
+            used = 0
+            for user, assistant in reversed(turns):
+                part = f"H: {user}\nANRA: {assistant}\n"
+                count = self._token_count(part)
+                if used + count > budget:
+                    # History is newest-first here. Once the next-newest turn
+                    # does not fit, do not replace it with less relevant older turns.
+                    break
+                selected.insert(0, part)
+                used += count
+            return selected, used
 
-        session_str = ""
-        turns_included = 0
-        for user_msg, anra_msg in reversed(normalized_turns):
-            turn = f"H: {user_msg}\nANRA: {anra_msg}\n"
-            if len(session_str) + len(turn) <= session_budget:
-                session_str = turn + session_str
-                turns_included += 1
-            else:
-                break
+        remaining = max(0, input_budget - base_tokens)
+        unused_primary = max(
+            0,
+            self.budgets.identity
+            + self.budgets.message
+            - self._token_count(prefix)
+            - min(len(current_tokens), self.budgets.message),
+        )
+        memory_reserve = min(self.budgets.memory, remaining) if memories else 0
+        initial_history_budget = min(
+            self.budgets.history + unused_primary,
+            max(0, remaining - memory_reserve),
+        )
+        history_parts, history_tokens = select_history(initial_history_budget)
 
-        normalized_memory: List[str] = []
-        for result in memory_results:
-            if isinstance(result, dict):
-                merged = f"{result.get('summary', '')} {result.get('content', '')}".strip()
-                normalized_memory.append(merged)
-            else:
-                normalized_memory.append(str(result))
+        memory_parts: list[str] = []
+        memory_tokens = 0
+        memory_used = 0
+        memory_budget = min(
+            self.budgets.memory,
+            max(0, input_budget - base_tokens - history_tokens),
+        )
+        if memories and memory_budget:
+            header = "[MEMORY CONTEXT]\n"
+            header_tokens = self._token_count(header)
+            if header_tokens < memory_budget:
+                memory_parts.append(header)
+                memory_tokens = header_tokens
+                for index, memory in enumerate(memories, start=1):
+                    label = f"{index}. "
+                    available = memory_budget - memory_tokens - self._token_count(label + "\n")
+                    if available <= 0:
+                        break
+                    fitted = self._truncate(memory, available)
+                    part = f"{label}{fitted}\n"
+                    count = self._token_count(part)
+                    if not fitted or memory_tokens + count > memory_budget:
+                        break
+                    memory_parts.append(part)
+                    memory_tokens += count
+                    memory_used += 1
 
-        memory_str = ""
-        for result in normalized_memory:
-            summary = result[:100].strip()
-            if len(memory_str) + len(summary) + 2 <= memory_budget:
-                memory_str += summary + "\n"
+        # Any unclaimed identity, message, or memory budget goes to newest history.
+        expanded_history_budget = max(
+            history_tokens,
+            input_budget - base_tokens - memory_tokens,
+        )
+        history_parts, history_tokens = select_history(expanded_history_budget)
 
-        full_context = ""
-        if memory_str:
-            full_context += f"[MEMORY CONTEXT]\n{memory_str}\n"
-        full_context += session_str
-        full_context += f"H: {msg_str}\nANRA:"
+        context = prefix + "".join(memory_parts) + "".join(history_parts) + suffix
+        prompt_tokens = self._token_count(context)
+        if prompt_tokens > input_budget:
+            # This is the final safety valve; keep the latest user text and generation marker.
+            allowed_message = max(1, input_budget - self._token_count("H: \nANRA:"))
+            current = self._truncate(current_message.strip(), allowed_message, keep_tail=True)
+            context = f"H: {current}\nANRA:"
+            prompt_tokens = self._token_count(context)
+            memory_parts = []
+            history_parts = []
+            memory_tokens = 0
+            history_tokens = 0
+            memory_used = 0
 
-        if len(full_context) > self.MAX_CONTEXT:
-            full_context = session_str + f"H: {msg_str}\nANRA:"
-            if len(full_context) > self.MAX_CONTEXT:
-                full_context = full_context[-self.MAX_CONTEXT:]
-
-        return {
-            "context": full_context,
-            "context_length": len(full_context),
-            "turns_included": turns_included,
-            "memory_results_used": len([r for r in normalized_memory if r[:100].strip() and r[:100].strip() in full_context]),
-            "context_truncated": turns_included < len(normalized_turns),
-            "memory_truncated": len(memory_str) < sum(len(r) for r in normalized_memory)
-        }
+        trace = PromptAssemblyTrace(
+            formatted_prompt=context,
+            prompt_tokens=prompt_tokens,
+            max_context_tokens=self.max_context,
+            reserved_output_tokens=output_tokens,
+            turns_included=len(history_parts),
+            memory_results_used=memory_used,
+            context_truncated=len(history_parts) < len(turns),
+            memory_truncated=bool(memories) and memory_used < len(memories),
+            token_allocation={
+                "identity": self._token_count(prefix),
+                "message": self._token_count(suffix),
+                "history": history_tokens,
+                "memory": memory_tokens,
+                "prompt": prompt_tokens,
+                "output_reserved": output_tokens,
+            },
+            mode=mode,
+        )
+        payload = asdict(trace)
+        payload["context"] = trace.formatted_prompt
+        payload["context_length"] = trace.prompt_tokens
+        return payload
 
 
 if __name__ == "__main__":
-    opt = ContextWindowOptimizer()
-    sample_history = [(f"user-{i}", f"assistant-response-{i}" * 4) for i in range(1, 8)]
-    sample_memory = ["Fact about An-Ra memory layer " * 6, "Identity grounding vector alignment " * 5]
-    result = opt.build_optimized_context(sample_history, sample_memory, "How do you reason about continuity?")
-    print("Context budget self-test")
-    print(f"  max={opt.MAX_CONTEXT}")
-    print(f"  len={result['context_length']}")
-    print(f"  turns_included={result['turns_included']}")
-    print(f"  memory_results_used={result['memory_results_used']}")
-    print(f"  context_truncated={result['context_truncated']}")
-    print(f"  memory_truncated={result['memory_truncated']}")
+    optimizer = ContextWindowOptimizer()
+    result = optimizer.build_optimized_context([], [], "How do you reason?", mode="diagnostic")
+    print(result)

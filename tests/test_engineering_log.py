@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from anra.anra_paths import ENGINEERING_LOG_FILE, MASTER_GOALS_FILE
+from anra.anra_paths import ENGINEERING_LOG_FILE, V4_ARCHITECTURE_GATE_FILE
 
 
 def test_engineering_log_exists():
@@ -11,11 +11,11 @@ def test_engineering_log_exists():
     assert "LOG_STANDARD" in text or "2026-" in text
 
 
-def test_master_goals_exists():
-    assert MASTER_GOALS_FILE.exists()
-    text = MASTER_GOALS_FILE.read_text(encoding="utf-8")
-    assert "P0-01" in text
-    assert "MASTER GOALS" in text.upper() or "Master Goals" in text
+def test_v4_architecture_gate_exists():
+    assert V4_ARCHITECTURE_GATE_FILE.exists()
+    text = V4_ARCHITECTURE_GATE_FILE.read_text(encoding="utf-8")
+    assert "An-Ra V4 Architecture Gate" in text
+    assert "Verification evidence" in text
 
 
 def test_log_script_dry_run():

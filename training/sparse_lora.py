@@ -3,10 +3,9 @@ from __future__ import annotations
 import math
 import re
 import time
+from collections.abc import Iterable, Sequence
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Iterable, Sequence
-
 
 SPARSE_LORA_SCHEMA_VERSION = 1
 
@@ -36,8 +35,12 @@ def _stable_text_token_ids(texts: Sequence[str]) -> list[list[int]]:
     return rows
 
 
-def _token_scores(sequence: Sequence[int], cfg: SparseLoRAEstimateConfig) -> list[tuple[int, float]]:
-    active = [(idx, int(token)) for idx, token in enumerate(sequence) if int(token) != cfg.pad_token_id]
+def _token_scores(
+    sequence: Sequence[int], cfg: SparseLoRAEstimateConfig
+) -> list[tuple[int, float]]:
+    active = [
+        (idx, int(token)) for idx, token in enumerate(sequence) if int(token) != cfg.pad_token_id
+    ]
     if not active:
         return []
 
@@ -157,7 +160,8 @@ def build_sparse_lora_report(
         "estimate": estimate,
         "notes": [
             "This report estimates context-token gradient work that could be skipped.",
-            "No token skipping is applied to training until a LoRA/QLoRA baseline comparison passes eval gates.",
+            "No token skipping is applied to training until a LoRA/QLoRA "
+            "baseline comparison passes eval gates.",
         ],
     }
 

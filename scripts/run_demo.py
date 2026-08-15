@@ -2,15 +2,13 @@ from __future__ import annotations
 
 import json
 import re
-from pathlib import Path
 from typing import Any
 
-from anra.anra_paths import ROOT, STATE_DIR, get_v2_checkpoint
-
-
+from anra.anra_paths import STATE_DIR, get_v2_checkpoint
 from identity.falsification_ledger import FalsificationLedger
-from identity.hal import HALModule
 from memory.experimental_proof_graph import ExperimentalProofGraph
+
+from identity.hal import HALModule
 
 try:
     from phase3.symbolic_bridge_45q.domain_verifiers import (

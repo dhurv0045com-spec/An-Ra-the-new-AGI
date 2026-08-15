@@ -22,30 +22,38 @@ File format:
 
 from __future__ import annotations
 
-import json
-import os
 import datetime
-from dataclasses import dataclass, asdict, field
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import torch
 import torch.nn as nn
-
-from archive.core_45eh_numpy_archived.turboquant import CompressedKVCache, TurboQuantConfig
 from runtime.safe_load import safe_torch_load
 
+from inference.turboquant import CompressedKVCache, TurboQuantConfig
 
-def build_kv_cache(use_turboquant: bool = True, batch_size: int = 1, num_kv_heads: int = 4, max_seq_len: int = 1024, d_head: int = 64):
-    """Create optional TurboQuant-backed KV cache."""
+
+def build_kv_cache(
+    use_turboquant: bool = False,
+    batch_size: int = 1,
+    num_kv_heads: int = 4,
+    max_seq_len: int = 1024,
+    d_head: int = 64,
+) -> CompressedKVCache | None:
+    """Create an optional lazy TurboQuant cache.
+
+    ``batch_size`` remains in the compatibility surface; storage is allocated
+    from the first real tensor so the cache cannot silently assume a batch.
+    """
+    del batch_size
     if not use_turboquant:
         return None
     return CompressedKVCache(
-        batch_size=batch_size,
         num_kv_heads=num_kv_heads,
         max_seq_len=max_seq_len,
         d_head=d_head,
-        tq_config=TurboQuantConfig(bits=4),
+        config=TurboQuantConfig(bits=4),
     )
 
 
@@ -56,12 +64,14 @@ FORMAT_VERSION = 1
 # Metadata schema
 # ─────────────────────────────────────────────
 
+
 @dataclass
 class CheckpointMetadata:
     """
     Versioned metadata attached to every saved checkpoint.
     Serialised as plain dict inside the .pt file.
     """
+
     # Architecture
     model_class: str = "unknown"
     d_model: int = 0
@@ -82,17 +92,16 @@ class CheckpointMetadata:
 
     # Provenance
     date_trained: str = field(
-        default_factory=lambda: datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None).isoformat()
+        default_factory=lambda: datetime.datetime.now(datetime.UTC).replace(tzinfo=None).isoformat()
     )
     notes: str = ""
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
     @staticmethod
-    def from_dict(d: Dict[str, Any]) -> "CheckpointMetadata":
-        valid = {k: v for k, v in d.items()
-                 if k in CheckpointMetadata.__dataclass_fields__}
+    def from_dict(d: dict[str, Any]) -> CheckpointMetadata:
+        valid = {k: v for k, v in d.items() if k in CheckpointMetadata.__dataclass_fields__}
         return CheckpointMetadata(**valid)
 
 
@@ -100,13 +109,14 @@ class CheckpointMetadata:
 # Save
 # ─────────────────────────────────────────────
 
+
 def save_checkpoint(
     model: nn.Module,
     path: str | Path,
-    metadata: Optional[CheckpointMetadata] = None,
-    tokenizer=None,
-    optimizer: Optional[torch.optim.Optimizer] = None,
-    config: Optional[Dict[str, Any]] = None,
+    metadata: CheckpointMetadata | None = None,
+    tokenizer: object | None = None,
+    optimizer: torch.optim.Optimizer | None = None,
+    config: dict[str, Any] | None = None,
     overwrite: bool = True,
 ) -> Path:
     """
@@ -127,7 +137,7 @@ def save_checkpoint(
     path = Path(path)
     if not overwrite and path.exists():
         stem, suffix = path.stem, path.suffix
-        ts = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None).strftime("%Y%m%d_%H%M%S")
+        ts = datetime.datetime.now(datetime.UTC).replace(tzinfo=None).strftime("%Y%m%d_%H%M%S")
         path = path.with_name(f"{stem}_{ts}{suffix}")
 
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -140,13 +150,13 @@ def save_checkpoint(
         elif hasattr(tokenizer, "vocab"):
             tok_dict = {"vocab": list(tokenizer.vocab)}
 
-    payload: Dict[str, Any] = {
+    payload: dict[str, Any] = {
         "format_version": FORMAT_VERSION,
-        "torch_version":  torch.__version__,
-        "model_state":    model.state_dict(),
-        "metadata":       (metadata or CheckpointMetadata()).to_dict(),
-        "config":         config or {},
-        "tokenizer":      tok_dict,
+        "torch_version": torch.__version__,
+        "model_state": model.state_dict(),
+        "metadata": (metadata or CheckpointMetadata()).to_dict(),
+        "config": config or {},
+        "tokenizer": tok_dict,
     }
     if optimizer is not None:
         payload["optimizer_state"] = optimizer.state_dict()
@@ -161,11 +171,12 @@ def save_checkpoint(
 # Load
 # ─────────────────────────────────────────────
 
+
 def load_checkpoint(
     model: nn.Module,
     path: str | Path,
-    device: Optional[str] = None,
-    optimizer: Optional[torch.optim.Optimizer] = None,
+    device: str | None = None,
+    optimizer: torch.optim.Optimizer | None = None,
     strict: bool = True,
 ) -> CheckpointMetadata:
     """
@@ -192,12 +203,9 @@ def load_checkpoint(
     # Forward-compat: warn on version mismatch but don't crash
     saved_ver = payload.get("format_version", 0)
     if saved_ver != FORMAT_VERSION:
-        print(f"[model_io] Warning: checkpoint format v{saved_ver}, "
-              f"current v{FORMAT_VERSION}")
+        print(f"[model_io] Warning: checkpoint format v{saved_ver}, current v{FORMAT_VERSION}")
 
-    missing, unexpected = model.load_state_dict(
-        payload["model_state"], strict=strict
-    )
+    missing, unexpected = model.load_state_dict(payload["model_state"], strict=strict)
     if missing:
         print(f"[model_io] Missing keys ({len(missing)}): {missing[:5]} ...")
     if unexpected:
@@ -210,14 +218,17 @@ def load_checkpoint(
     meta = CheckpointMetadata.from_dict(payload.get("metadata", {}))
     size_mb = path.stat().st_size / 1_048_576
     print(f"[model_io] Loaded ← {path}  ({size_mb:.1f} MB)")
-    print(f"           epoch={meta.epoch}  val_loss={meta.val_loss:.4f}  "
-          f"date={meta.date_trained[:10]}")
+    print(
+        f"           epoch={meta.epoch}  val_loss={meta.val_loss:.4f}  "
+        f"date={meta.date_trained[:10]}"
+    )
     return meta
 
 
 # ─────────────────────────────────────────────
 # ONNX export
 # ─────────────────────────────────────────────
+
 
 def export_onnx(
     model: nn.Module,
@@ -242,9 +253,9 @@ def export_onnx(
         Path of the written .onnx file.
     """
     try:
-        import onnx  # optional dependency
+        import onnx  # noqa: F401 - importing validates the optional dependency
     except ImportError:
-        raise ImportError("pip install onnx onnxruntime to use export_onnx()")
+        raise ImportError("pip install onnx onnxruntime to use export_onnx()") from None
 
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -252,8 +263,11 @@ def export_onnx(
 
     dummy_input = torch.randint(0, min(vocab_size, 64), (1, seq_len))
 
-    axes = {"input_ids": {0: "batch", 1: "seq_len"},
-            "logits":    {0: "batch", 1: "seq_len"}} if dynamic_axes else {}
+    axes = (
+        {"input_ids": {0: "batch", 1: "seq_len"}, "logits": {0: "batch", 1: "seq_len"}}
+        if dynamic_axes
+        else {}
+    )
 
     torch.onnx.export(
         model,
@@ -275,7 +289,8 @@ def export_onnx(
 # Checkpoint directory scanner
 # ─────────────────────────────────────────────
 
-def list_checkpoints(directory: str | Path) -> List[Dict[str, Any]]:
+
+def list_checkpoints(directory: str | Path) -> list[dict[str, Any]]:
     """
     Scan a directory for .pt checkpoint files, read their metadata,
     and return a list sorted by val_loss (ascending).
@@ -288,15 +303,17 @@ def list_checkpoints(directory: str | Path) -> List[Dict[str, Any]]:
         try:
             payload = safe_torch_load(ckpt, map_location="cpu")
             meta = payload.get("metadata", {})
-            rows.append({
-                "file":       ckpt.name,
-                "size_mb":    round(ckpt.stat().st_size / 1_048_576, 1),
-                "epoch":      meta.get("epoch", "?"),
-                "val_loss":   meta.get("val_loss", float("inf")),
-                "train_loss": meta.get("train_loss", float("inf")),
-                "date":       meta.get("date_trained", "")[:10],
-                "notes":      meta.get("notes", ""),
-            })
+            rows.append(
+                {
+                    "file": ckpt.name,
+                    "size_mb": round(ckpt.stat().st_size / 1_048_576, 1),
+                    "epoch": meta.get("epoch", "?"),
+                    "val_loss": meta.get("val_loss", float("inf")),
+                    "train_loss": meta.get("train_loss", float("inf")),
+                    "date": meta.get("date_trained", "")[:10],
+                    "notes": meta.get("notes", ""),
+                }
+            )
         except Exception as e:
             rows.append({"file": ckpt.name, "error": str(e)})
 
@@ -317,8 +334,10 @@ def print_checkpoint_table(directory: str | Path) -> None:
         if "error" in r:
             print(f"  {r['file']}  ERROR: {r['error']}")
         else:
-            print(f"{r['file']:<35} {r['size_mb']:>6.1f} "
-                  f"{str(r['epoch']):>6} {r['val_loss']:>9.4f} {r['date']:<12}")
+            print(
+                f"{r['file']:<35} {r['size_mb']:>6.1f} "
+                f"{str(r['epoch']):>6} {r['val_loss']:>9.4f} {r['date']:<12}"
+            )
 
 
 # ─────────────────────────────────────────────
@@ -327,17 +346,27 @@ def print_checkpoint_table(directory: str | Path) -> None:
 
 if __name__ == "__main__":
     import tempfile
+
     import torch.nn as nn
 
     class _TinyLM(nn.Module):
-        def __init__(self): super().__init__(); self.fc = nn.Linear(16, 64)
-        def forward(self, x): return self.fc(x.float())
+        def __init__(self) -> None:
+            super().__init__()
+            self.fc = nn.Linear(16, 64)
+
+        def forward(self, x: torch.Tensor) -> torch.Tensor:
+            return self.fc(x.float())
 
     model = _TinyLM()
-    meta  = CheckpointMetadata(
-        model_class="TinyLM", d_model=16, vocab_size=64,
-        epoch=5, train_loss=0.42, val_loss=0.55,
-        dataset="test_corpus", notes="smoke-test"
+    meta = CheckpointMetadata(
+        model_class="TinyLM",
+        d_model=16,
+        vocab_size=64,
+        epoch=5,
+        train_loss=0.42,
+        val_loss=0.55,
+        dataset="test_corpus",
+        notes="smoke-test",
     )
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -354,13 +383,18 @@ if __name__ == "__main__":
         assert loaded_meta.epoch == 5
         assert loaded_meta.dataset == "test_corpus"
         # Verify weights transferred exactly
-        for (n1, p1), (n2, p2) in zip(model.named_parameters(), model2.named_parameters()):
+        for (n1, p1), (_n2, p2) in zip(
+            model.named_parameters(),
+            model2.named_parameters(),
+            strict=True,
+        ):
             assert torch.allclose(p1, p2), f"Weight mismatch: {n1}"
         print("load_checkpoint ✓")
 
         # List
         rows = list_checkpoints(tmpdir)
-        assert len(rows) == 1 and rows[0]["epoch"] == 5
+        assert len(rows) == 1
+        assert rows[0]["epoch"] == 5
         print_checkpoint_table(tmpdir)
         print("list_checkpoints ✓")
 

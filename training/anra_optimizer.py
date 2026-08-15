@@ -1,15 +1,44 @@
 from __future__ import annotations
 
 import time
+from collections.abc import Iterable
 from dataclasses import asdict, dataclass
-from typing import Iterable
 
 import torch
 from torch.optim import AdamW
 
-
-OPTIMIZER_REPORT_SCHEMA_VERSION = 1
-OPTIMIZER_CANDIDATES = ("adamw", "muon", "scale", "galore")
+OPTIMIZER_REPORT_SCHEMA_VERSION = 3
+OPTIMIZER_CANDIDATES = (
+    "adamw",
+    "adam8bit",
+    "adafactor",
+    "muon",
+    "scale",
+    "galore",
+    "qgalore",
+)
+IDENTITY_PARAMETER_PATTERNS = (
+    "esv_module",
+    "hal_module",
+    "rim_modules",
+    "civ",
+    "dstp_temperature",
+    "residual_depth",
+    "layer_temperature_bias",
+    "token_embedding_table",
+    "token_embedding",
+    "lm_head",
+    "norm_f",
+)
+SUBSYSTEM_PARAMETER_PATTERNS = (
+    "esv_module",
+    "hal_module",
+    "rim_modules",
+    "mod_routers",
+    "dstp_temperature",
+    "residual_depth",
+    "layer_temperature_bias",
+)
 
 
 @dataclass(frozen=True)
@@ -19,85 +48,294 @@ class OptimizerConfig:
     weight_decay: float = 0.01
     betas: tuple[float, float] = (0.9, 0.95)
     eps: float = 1e-8
+    identity_lr_multiplier: float = 2.0
+    subsystem_lr_multiplier: float = 2.0
+    galore_rank: int = 64
+    galore_projection_gap: int = 200
 
 
-def _is_muon_param(name: str, p: torch.nn.Parameter) -> bool:
-    if p.dim() != 2:
-        return False
-    lname = name.lower()
-    if "embedding" in lname or "lm_head" in lname:
-        return False
-    return True
+class AppendOnlyRowLearningRate:
+    """Scale realized optimizer updates for append-only tokenizer rows."""
+
+    def __init__(
+        self,
+        parameter: torch.nn.Parameter,
+        *,
+        base_rows: int,
+        multiplier: float = 3.0,
+        max_steps: int = 2_000,
+        steps_completed: int = 0,
+    ) -> None:
+        self.parameter = parameter
+        self.base_rows = int(base_rows)
+        self.multiplier = float(multiplier)
+        self.max_steps = int(max_steps)
+        self.steps_completed = max(0, int(steps_completed))
+        if parameter.ndim != 2 or parameter.shape[0] <= self.base_rows:
+            raise ValueError("Append-only row learning requires an expanded embedding matrix")
+        if self.multiplier < 1.0 or self.max_steps < 0:
+            raise ValueError("Invalid append-only row learning schedule")
+
+    @property
+    def appended_rows(self) -> int:
+        return int(self.parameter.shape[0] - self.base_rows)
+
+    def capture(self) -> torch.Tensor | None:
+        if self.steps_completed >= self.max_steps:
+            return None
+        return self.parameter[self.base_rows :].detach().clone()
+
+    @torch.no_grad()
+    def apply(self, before: torch.Tensor | None) -> bool:
+        if before is None:
+            return False
+        current = self.parameter[self.base_rows :]
+        current.copy_(before + self.multiplier * (current - before))
+        self.steps_completed += 1
+        return True
+
+    def report(self) -> dict[str, object]:
+        return {
+            "base_rows": self.base_rows,
+            "appended_rows": self.appended_rows,
+            "learning_rate_multiplier": self.multiplier,
+            "max_optimizer_steps": self.max_steps,
+            "steps_completed": self.steps_completed,
+            "active": self.steps_completed < self.max_steps,
+        }
+
+
+def build_append_only_row_learning_rate(
+    model: torch.nn.Module,
+    *,
+    base_rows: int,
+    multiplier: float = 3.0,
+    max_steps: int = 2_000,
+    steps_completed: int = 0,
+) -> AppendOnlyRowLearningRate | None:
+    native_model = getattr(model, "model", model)
+    embedding = getattr(native_model, "token_embedding_table", None)
+    parameter = getattr(embedding, "weight", None)
+    if not isinstance(parameter, torch.nn.Parameter) or parameter.shape[0] <= base_rows:
+        return None
+    return AppendOnlyRowLearningRate(
+        parameter,
+        base_rows=base_rows,
+        multiplier=multiplier,
+        max_steps=max_steps,
+        steps_completed=steps_completed,
+    )
 
 
 def _trainable_named_parameters(model: torch.nn.Module) -> list[tuple[str, torch.nn.Parameter]]:
-    return [(name, p) for name, p in model.named_parameters() if p.requires_grad]
+    return [
+        (name, parameter) for name, parameter in model.named_parameters() if parameter.requires_grad
+    ]
 
 
 def _param_count(params: Iterable[torch.nn.Parameter]) -> int:
-    return int(sum(p.numel() for p in params))
+    return int(sum(parameter.numel() for parameter in params))
 
 
 def _adamw_state_bytes(param_count: int, *, bytes_per_state_value: int = 4) -> int:
     return int(param_count * 2 * bytes_per_state_value)
 
 
-def candidate_report(model: torch.nn.Module, *, config: OptimizerConfig | None = None) -> dict[str, object]:
-    cfg = config or OptimizerConfig()
-    named_params = _trainable_named_parameters(model)
-    trainable_params = _param_count(p for _, p in named_params)
-    muon_params = _param_count(p for name, p in named_params if _is_muon_param(name, p))
-    adamw_side_params = trainable_params - muon_params
+def is_identity_parameter(name: str, parameter: torch.nn.Parameter) -> bool:
+    return parameter.ndim < 2 or any(pattern in name for pattern in IDENTITY_PARAMETER_PATTERNS)
 
+
+def partition_parameters(
+    model: torch.nn.Module,
+) -> tuple[list[tuple[str, torch.nn.Parameter]], list[tuple[str, torch.nn.Parameter]]]:
+    identity: list[tuple[str, torch.nn.Parameter]] = []
+    matrix: list[tuple[str, torch.nn.Parameter]] = []
+    for name, parameter in _trainable_named_parameters(model):
+        (identity if is_identity_parameter(name, parameter) else matrix).append((name, parameter))
+    return identity, matrix
+
+
+def partition_learning_rates(
+    model: torch.nn.Module,
+) -> tuple[list[tuple[str, torch.nn.Parameter]], list[tuple[str, torch.nn.Parameter]]]:
+    base: list[tuple[str, torch.nn.Parameter]] = []
+    subsystem: list[tuple[str, torch.nn.Parameter]] = []
+    for name, parameter in _trainable_named_parameters(model):
+        target = (
+            subsystem if any(pattern in name for pattern in SUBSYSTEM_PARAMETER_PATTERNS) else base
+        )
+        target.append((name, parameter))
+    return base, subsystem
+
+
+def _is_muon_param(name: str, parameter: torch.nn.Parameter) -> bool:
+    return parameter.ndim == 2 and not is_identity_parameter(name, parameter)
+
+
+def candidate_report(
+    model: torch.nn.Module, *, config: OptimizerConfig | None = None
+) -> dict[str, object]:
+    cfg = config or OptimizerConfig()
+    named = _trainable_named_parameters(model)
+    identity_named, matrix_named = partition_parameters(model)
+    trainable = _param_count(parameter for _, parameter in named)
+    identity = _param_count(parameter for _, parameter in identity_named)
+    matrix = _param_count(parameter for _, parameter in matrix_named)
+    muon = _param_count(parameter for name, parameter in named if _is_muon_param(name, parameter))
     candidates = [
         {
             "name": "adamw",
             "status": "available",
             "implementation": "torch.optim.AdamW",
-            "trainable_params": trainable_params,
-            "optimizer_state_bytes_estimate": _adamw_state_bytes(trainable_params),
-            "notes": "Baseline optimizer; stable default for quality comparisons.",
+            "optimizer_state_bytes_estimate": _adamw_state_bytes(trainable),
+        },
+        {
+            "name": "adam8bit",
+            "status": "optional_dependency",
+            "implementation": "bitsandbytes.optim.AdamW8bit",
+            "optimizer_state_bytes_estimate": trainable * 2,
+        },
+        {
+            "name": "adafactor",
+            "status": "optional_dependency",
+            "implementation": "transformers.Adafactor",
+            "optimizer_state_bytes_estimate": 0,
         },
         {
             "name": "muon",
             "status": "optional_dependency",
-            "implementation": "muon.Muon if installed; AdamW fallback otherwise",
-            "muon_params": muon_params,
-            "adamw_side_params": adamw_side_params,
-            "optimizer_state_bytes_estimate": _adamw_state_bytes(adamw_side_params),
-            "notes": "Applies Muon only to 2D non-embedding parameters.",
+            "implementation": "muon.Muon",
+            "muon_params": muon,
+            "optimizer_state_bytes_estimate": _adamw_state_bytes(trainable - muon),
+        },
+        {
+            "name": "galore",
+            "status": "optional_dependency",
+            "implementation": "galore_torch.GaLoreAdamW8bit or GaLoreAdamW",
+            "optimizer_state_bytes_estimate": 0,
         },
         {
             "name": "scale",
             "status": "watchlist_unavailable",
-            "implementation": "SCALE optimizer package not vendored",
-            "trainable_params": trainable_params,
-            "optimizer_state_bytes_estimate": _adamw_state_bytes(trainable_params),
-            "notes": "Report-only candidate until a verified implementation is added.",
+            "implementation": "not installed",
+            "optimizer_state_bytes_estimate": _adamw_state_bytes(trainable),
         },
         {
-            "name": "galore",
+            "name": "qgalore",
             "status": "watchlist_unavailable",
-            "implementation": "GaLore optimizer package not vendored",
-            "trainable_params": trainable_params,
-            "optimizer_state_bytes_estimate": _adamw_state_bytes(trainable_params),
-            "notes": "Report-only candidate until a verified implementation is added.",
+            "implementation": "not installed",
+            "optimizer_state_bytes_estimate": _adamw_state_bytes(trainable),
         },
     ]
     return {
         "schema_version": OPTIMIZER_REPORT_SCHEMA_VERSION,
         "generated_at": time.time(),
-        "config": {
-            **asdict(cfg),
-            "betas": list(cfg.betas),
-        },
-        "trainable_params": trainable_params,
+        "config": {**asdict(cfg), "betas": list(cfg.betas)},
+        "trainable_params": trainable,
+        "identity_params": identity,
+        "matrix_params": matrix,
+        "identity_patterns": list(IDENTITY_PARAMETER_PATTERNS),
         "candidates": candidates,
     }
 
 
-def _build_adamw(params: Iterable[torch.nn.Parameter], cfg: OptimizerConfig) -> AdamW:
-    return AdamW(params, lr=cfg.lr, weight_decay=cfg.weight_decay, betas=cfg.betas, eps=cfg.eps)
+def _regular_groups(
+    base_params: list[torch.nn.Parameter],
+    subsystem_params: list[torch.nn.Parameter],
+    cfg: OptimizerConfig,
+) -> list[dict[str, object]]:
+    groups: list[dict[str, object]] = []
+    base_decay = [parameter for parameter in base_params if parameter.ndim >= 2]
+    base_no_decay = [parameter for parameter in base_params if parameter.ndim < 2]
+    if base_decay:
+        groups.append(
+            {"params": base_decay, "lr": cfg.lr, "weight_decay": cfg.weight_decay}
+        )
+    if base_no_decay:
+        groups.append({"params": base_no_decay, "lr": cfg.lr, "weight_decay": 0.0})
+    if subsystem_params:
+        groups.append(
+            {
+                "params": subsystem_params,
+                "lr": cfg.lr * cfg.subsystem_lr_multiplier,
+                "weight_decay": 0.0,
+            }
+        )
+    return groups
+
+
+def repair_optimizer_param_group_defaults(optimizer: torch.optim.Optimizer) -> tuple[str, ...]:
+    """Restore defaults omitted by checkpoints made with older optimizer versions."""
+    defaults = dict(getattr(optimizer, "defaults", {}))
+    repaired: set[str] = set()
+    for group in optimizer.param_groups:
+        for key, value in defaults.items():
+            if key not in group:
+                group[key] = value
+                repaired.add(key)
+    return tuple(sorted(repaired))
+
+
+def repair_optimizer_resume_state(optimizer: torch.optim.Optimizer) -> tuple[str, ...]:
+    """Repair optimizer metadata and discard only malformed Adafactor moments.
+
+    Older Transformers releases saved Adafactor state with different fields.
+    Loading those tensors into a newer release can succeed but fail at the first
+    optimizer step. Model weights and the global training step remain valid, so
+    reset only the incompatible optimizer moments in that case.
+    """
+    repaired = list(repair_optimizer_param_group_defaults(optimizer))
+    if optimizer.__class__.__name__ != "Adafactor":
+        return tuple(repaired)
+
+    invalid_state = False
+    for group in optimizer.param_groups:
+        for parameter in group.get("params", []):
+            state = optimizer.state.get(parameter, {})
+            if not state:
+                continue
+            try:
+                factored, use_first_moment = optimizer._get_options(group, parameter.shape)
+            except (AttributeError, KeyError, TypeError):
+                invalid_state = True
+                break
+            required = {"step"}
+            if factored:
+                required.update({"exp_avg_sq_row", "exp_avg_sq_col"})
+            else:
+                required.add("exp_avg_sq")
+            if use_first_moment:
+                required.add("exp_avg")
+            if not required.issubset(state):
+                invalid_state = True
+                break
+        if invalid_state:
+            break
+
+    if invalid_state:
+        optimizer.state.clear()
+        repaired.append("adafactor_moments_reset")
+    return tuple(repaired)
+
+
+def restore_optimizer_state_for_resume(
+    optimizer: torch.optim.Optimizer,
+    state_dict: object,
+) -> tuple[str, ...]:
+    """Restore compatible optimizer state without risking cross-version Adafactor failures.
+
+    Adafactor's serialized state and group defaults have changed across
+    Transformers releases. Its moments are an optimization aid, not model
+    knowledge, so a resumed AN-RA run deliberately starts fresh Adafactor
+    moments while preserving model weights, global step, and scheduler state.
+    """
+    if optimizer.__class__.__name__ == "Adafactor":
+        optimizer.state.clear()
+        return ("adafactor_fresh_moments",)
+    if not isinstance(state_dict, dict):
+        return ()
+    optimizer.load_state_dict(state_dict)
+    return repair_optimizer_resume_state(optimizer)
 
 
 def build_optimizer_with_report(
@@ -109,64 +347,154 @@ def build_optimizer_with_report(
 ) -> tuple[torch.optim.Optimizer, dict[str, object]]:
     requested = optimizer_name.strip().lower()
     if requested not in {"auto", *OPTIMIZER_CANDIDATES}:
-        raise ValueError(f"Unknown optimizer '{optimizer_name}'. Expected one of auto, {', '.join(OPTIMIZER_CANDIDATES)}")
-
+        raise ValueError(
+            f"Unknown optimizer {optimizer_name!r}. Expected auto or "
+            f"{', '.join(OPTIMIZER_CANDIDATES)}"
+        )
     cfg = OptimizerConfig(name=requested, lr=lr, weight_decay=weight_decay)
     report = candidate_report(model, config=cfg)
-    named_params = _trainable_named_parameters(model)
-    all_params = [p for _, p in named_params]
+    named = _trainable_named_parameters(model)
+    identity_named, matrix_named = partition_parameters(model)
+    identity_params = [parameter for _, parameter in identity_named]
+    matrix_params = [parameter for _, parameter in matrix_named]
+    base_named, subsystem_named = partition_learning_rates(model)
+    base_params = [parameter for _, parameter in base_named]
+    subsystem_params = [parameter for _, parameter in subsystem_named]
+    groups = _regular_groups(base_params, subsystem_params, cfg)
 
     selected = requested
     actual = requested
     status = "active"
     reason = ""
 
+    def adamw() -> torch.optim.Optimizer:
+        return AdamW(groups, lr=cfg.lr, betas=cfg.betas, eps=cfg.eps)
+
+    def adafactor() -> torch.optim.Optimizer:
+        from transformers import Adafactor  # type: ignore
+
+        return Adafactor(
+            groups,
+            lr=cfg.lr,
+            scale_parameter=False,
+            relative_step=False,
+            warmup_init=False,
+        )
+
     if requested == "adamw":
-        optimizer = _build_adamw(all_params, cfg)
+        optimizer = adamw()
+    elif requested == "adam8bit":
+        try:
+            from bitsandbytes.optim import AdamW8bit  # type: ignore
+
+            optimizer = AdamW8bit(groups, lr=cfg.lr, betas=cfg.betas, eps=cfg.eps)
+            reason = "bitsandbytes AdamW8bit active"
+        except Exception as exc:
+            optimizer = adamw()
+            actual, status = "adamw", "fallback"
+            reason = f"AdamW8bit unavailable ({exc}); using AdamW"
+    elif requested == "adafactor":
+        try:
+            optimizer = adafactor()
+            reason = "transformers Adafactor active"
+        except Exception as exc:
+            optimizer = adamw()
+            actual, status = "adamw", "fallback"
+            reason = f"Adafactor unavailable ({exc}); using AdamW"
     elif requested in {"auto", "muon"}:
-        muon_params = [p for name, p in named_params if _is_muon_param(name, p)]
-        adamw_params = [p for name, p in named_params if not _is_muon_param(name, p)]
+        muon_params = [parameter for name, parameter in named if _is_muon_param(name, parameter)]
+        side_ids = {id(parameter) for parameter in muon_params}
+        side_params = [parameter for _, parameter in named if id(parameter) not in side_ids]
         try:
             from muon import Muon  # type: ignore
 
-            groups = []
-            if muon_params:
-                groups.append({"params": muon_params, "use_muon": True})
-            if adamw_params:
-                groups.append({"params": adamw_params, "use_muon": False, "weight_decay": weight_decay})
-            optimizer = Muon(groups, lr=lr, adamw_betas=cfg.betas, adamw_eps=cfg.eps)
+            muon_groups = [
+                {"params": muon_params, "use_muon": True},
+                {"params": side_params, "use_muon": False, "weight_decay": 0.0},
+            ]
+            optimizer = Muon(muon_groups, lr=cfg.lr, adamw_betas=cfg.betas, adamw_eps=cfg.eps)
             actual = "muon"
             selected = "muon" if requested == "auto" else requested
-            reason = (
-                f"Muon active; muon_params={_param_count(muon_params):,}, "
-                f"adamw_side_params={_param_count(adamw_params):,}"
-            )
+            reason = f"Muon active; projected params={_param_count(muon_params):,}"
         except Exception as exc:
-            optimizer = _build_adamw(all_params, cfg)
-            actual = "adamw"
-            status = "fallback"
-            reason = f"Muon unavailable ({exc}); using AdamW fallback"
-    elif requested in {"scale", "galore"}:
-        optimizer = _build_adamw(all_params, cfg)
-        actual = "adamw"
-        status = "fallback"
-        reason = f"{requested.upper()} implementation is not installed; using AdamW fallback"
-    else:  # pragma: no cover - guarded above.
-        optimizer = _build_adamw(all_params, cfg)
+            muon_error = exc
+            try:
+                optimizer = adafactor()
+                actual, status = "adafactor", "fallback"
+                reason = f"Muon unavailable ({muon_error}); using memory-light Adafactor"
+            except Exception as adafactor_exc:
+                optimizer = adamw()
+                actual, status = "adamw", "fallback"
+                reason = (
+                    f"Muon unavailable ({muon_error}); Adafactor unavailable "
+                    f"({adafactor_exc}); using identity-aware AdamW"
+                )
+    elif requested == "galore":
+        try:
+            try:
+                from galore_torch import GaLoreAdamW8bit as GaLoreOptimizer  # type: ignore
 
-    selected_report = {
+                implementation = "GaLoreAdamW8bit"
+            except ImportError:
+                from galore_torch import GaLoreAdamW as GaLoreOptimizer  # type: ignore
+
+                implementation = "GaLoreAdamW"
+            galore_groups = [
+                {
+                    "params": matrix_params,
+                    "rank": cfg.galore_rank,
+                    "update_proj_gap": cfg.galore_projection_gap,
+                    "scale": 0.25,
+                    "proj_type": "std",
+                    "weight_decay": cfg.weight_decay,
+                },
+                {
+                    "params": identity_params,
+                    "rank": None,
+                    "lr": min(cfg.lr * cfg.identity_lr_multiplier, cfg.lr + 3e-4),
+                    "weight_decay": 0.0,
+                },
+            ]
+            optimizer = GaLoreOptimizer(galore_groups, lr=cfg.lr, betas=cfg.betas)
+            reason = f"{implementation} active with full-rank identity parameters"
+        except Exception as exc:
+            optimizer = adamw()
+            actual, status = "adamw", "fallback"
+            reason = f"GaLore unavailable ({exc}); using identity-aware AdamW"
+    else:
+        optimizer = adamw()
+        actual, status = "adamw", "fallback"
+        reason = f"{requested.upper()} is unavailable; using identity-aware AdamW"
+
+    report["selected"] = {
         "requested": requested,
         "selected": selected,
         "actual": actual,
         "status": status,
         "reason": reason or f"{actual} selected",
-        "lr": lr,
-        "weight_decay": weight_decay,
+        "lr": cfg.lr,
+        "identity_lr": cfg.lr * cfg.subsystem_lr_multiplier,
+        "subsystem_lr": cfg.lr * cfg.subsystem_lr_multiplier,
+        "weight_decay": cfg.weight_decay,
         "param_groups": len(optimizer.param_groups),
+        "identity_params": _param_count(identity_params),
+        "matrix_params": _param_count(matrix_params),
+        "base_lr_params": _param_count(base_params),
+        "subsystem_lr_params": _param_count(subsystem_params),
+        "weight_decay_params": _param_count(
+            parameter for parameter in base_params if parameter.ndim >= 2
+        ),
+        "no_weight_decay_params": _param_count(
+            parameter for parameter in base_params if parameter.ndim < 2
+        ),
+        "galore_rank": cfg.galore_rank if actual == "galore" else None,
     }
-    report["selected"] = selected_report
-    setattr(optimizer, "_anra_optimizer_report", report)
-    print(f"[anra_optimizer] requested={requested} actual={actual} status={status} {selected_report['reason']}")
+    optimizer._anra_optimizer_report = report
+    selected_report = report["selected"]
+    print(
+        f"[anra_optimizer] requested={requested} actual={actual} "
+        f"status={status} {selected_report['reason']}"
+    )
     return optimizer, report
 
 
@@ -175,8 +503,8 @@ def build_optimizer(
     lr: float = 3e-4,
     weight_decay: float = 0.01,
     optimizer_name: str = "auto",
-):
-    optimizer, _report = build_optimizer_with_report(
+) -> torch.optim.Optimizer:
+    optimizer, _ = build_optimizer_with_report(
         model,
         optimizer_name=optimizer_name,
         lr=lr,

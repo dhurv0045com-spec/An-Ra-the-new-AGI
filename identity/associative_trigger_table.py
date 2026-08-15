@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field
 import json
 import time
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -43,7 +43,9 @@ class ATTPreset:
 class AssociativeTriggerTable:
     """Lookup behavioral presets from hormone, domain, and task context."""
 
-    def __init__(self, presets: list[ATTPreset] | None = None, path: str | Path | None = None) -> None:
+    def __init__(
+        self, presets: list[ATTPreset] | None = None, path: str | Path | None = None
+    ) -> None:
         self.path = Path(path) if path is not None else None
         self.presets: list[ATTPreset] = presets or self._default_presets()
         if self.path is not None and self.path.exists():
@@ -85,8 +87,12 @@ class AssociativeTriggerTable:
             ),
         ]
 
-    def lookup(self, hormones: dict[str, float], domain: str = "", task_type: str = "") -> ATTPreset | None:
-        matches = [p for p in self.presets if p.matches(hormones, domain=domain, task_type=task_type)]
+    def lookup(
+        self, hormones: dict[str, float], domain: str = "", task_type: str = ""
+    ) -> ATTPreset | None:
+        matches = [
+            p for p in self.presets if p.matches(hormones, domain=domain, task_type=task_type)
+        ]
         if not matches:
             return None
         matches.sort(key=lambda p: (p.specificity(), p.confidence, p.evidence_count), reverse=True)
@@ -104,7 +110,9 @@ class AssociativeTriggerTable:
             if preset.preset_id == preset_id:
                 preset.evidence_count += 1
                 # AN: ATT should learn from local verifier feedback without becoming an opaque model.
-                preset.confidence = max(0.0, min(1.0, 0.9 * preset.confidence + 0.1 * float(reward)))
+                preset.confidence = max(
+                    0.0, min(1.0, 0.9 * preset.confidence + 0.1 * float(reward))
+                )
                 preset.updated_at = time.time()
                 break
         if self.path is not None:
@@ -125,8 +133,7 @@ class AssociativeTriggerTable:
         presets: list[ATTPreset] = []
         for row in data.get("presets", []):
             conditions = {
-                str(k): (v[0], v[1])
-                for k, v in dict(row.get("hormone_conditions", {})).items()
+                str(k): (v[0], v[1]) for k, v in dict(row.get("hormone_conditions", {})).items()
             }
             presets.append(
                 ATTPreset(
@@ -142,4 +149,3 @@ class AssociativeTriggerTable:
                 )
             )
         self.presets = presets
-

@@ -1,214 +1,220 @@
 # An-Ra Developer Guide
 
-## Quick Start
+Updated: 2026-07-23  
+Purpose: help an engineer safely run, inspect, change, and verify the current
+V4 repository without accidentally reviving an old training path.
 
-```bash
-# 1. Clone and install
-git clone https://github.com/your-org/An-Ra-the-new-AGI
-cd An-Ra-the-new-AGI
-pip install torch --index-url https://download.pytorch.org/whl/cpu
-pip install -e ".[dev]"
+## Start with the contract
 
-# 2. Verify
-python -m scripts.verify_structure
-python -m pytest tests/ -m "not gpu" -q
+The operational model is `anra-v4-180m`, V4 vocabulary 32,768, context 2,048,
+AdamW, and routine seed 1301. The 500M profile is a growth child, not a second
+scratch model. V3 tokenizer launches and arbitrary model sizes are rejected.
 
-# 3. Train (tiny config, 100 steps, CPU)
-python -m scripts.train --config config/tiny.yaml --max_steps 100 --device cpu
+Read in this order:
 
-# 4. Serve
-PYTHONPATH=. uvicorn app:app --reload --port 8000
-curl http://localhost:8000/health
+1. `docs/ARCHITECTURE.md`
+2. `docs/engineering/V4_ARCHITECTURE_GATE.md`
+3. `TODO.md`
+4. The code path you intend to change
+
+## Local setup
+
+From the repository root on Windows:
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install --upgrade pip
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
 ```
 
-> Training checkpoints → `output/checkpoints/`
-> Metrics → `output/metrics/`
-> Sessions → `state/sessions.db`
+This workspace also has `.venv-cuda` for the installed CUDA-compatible stack.
+Do not assume a CUDA environment is correct merely because `torch` imports:
 
-> Ship like a platform team: **thin changes, measured outcomes, owner boundaries intact.**
-
-For humans and coding agents. An-Ra is ~70k lines of intentional systems — read before you edit.
-
----
-
-## Spine (do not reimplement)
-
-| Need | Module |
-|------|--------|
-| Paths | `anra/anra_paths.py` |
-| Config | `anra/core/config.py` — `AnRaConfig.from_yaml()` |
-| Registry | `anra/core/registry.py` — `MODEL_REGISTRY`, `MEMORY_REGISTRY`, etc. |
-| Protocols | `anra/core/protocols.py` — interfaces for all major components |
-| Model | `anra_brain.py` → `anra/core/model.py` |
-| Serving | `app.py` → `anra/serving/` |
-| Inference | `generate.py` → `anra/inference/` |
-| Identity | `identity/` → `anra/identity/` |
-| Memory | `memory/` → `anra/memory/` |
-| Training | `training/` → `anra/training/` |
-| Flags | `engine/feature_flags.py` |
-| Telemetry | `engine/telemetry.py` |
-| Operator CLI | `runtime/operator_commands.py` |
-| Audit | `state/logs/operator_actions.jsonl` |
-
----
-
-## Contract per component
-
-Must answer:
-
-```text
-What does it do?
-Is it enabled?
-How fast / how often does it fail?
-What test proves it?
-What regression protects it?
-What owner boundary applies?
+```powershell
+.\.venv-cuda\Scripts\python.exe -c "import torch; print(torch.__version__, torch.cuda.is_available(), torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'no CUDA')"
 ```
 
----
+Never commit `.env`, provider credentials, Drive OAuth files, checkpoints,
+corpus shards, or generated evidence containing private data.
 
-## Operator pack (recent)
+## Run the application
 
-| Piece | Location |
-|-------|----------|
-| Workspace sandbox | `get_agent_workspace()` |
-| Slash commands | `runtime/operator_commands.py` + `_run_chat` in 45M |
-| `os_action` tool | open / reveal / URL |
-| `cad_generate` tool | `runtime/engineering_templates/` |
-| User doc | [`OPERATOR.md`](OPERATOR.md) |
-
-Adding tools: register in `register_all_tools()`, add dispatcher keywords, add test in `tests/test_operator_tools.py`, document in OPERATOR.md.
-
-**Do not** put `workspace/` or `training_data/` string literals in Python — use `anra_paths`.
-
----
-
-## Read before edit (by area)
-
-| Area | Files |
-|------|-------|
-| CLI | `scripts/anra.py` |
-| Operator | `runtime/operator_commands.py`, `OPERATOR.md` |
-| Agent | `phase2/agent_loop_45k/agent_main.py`, `builtin.py`, `planner.py` |
-| Master | `phase2/master_system_45m/system.py` |
-| Model | `anra_brain.py`, `training/v2_runtime.py` |
-| Train | `scripts/train.py` (local), `training/train_unified.py` (Colab/Drive) |
-| Verify | `phase3/symbolic_bridge_45q/` |
-| Govern | `phase3/sovereignty_45r/`, `self_modification/` |
-
----
-
-## AI agent workflow
-
-1. Read relevant source.  
-2. Thin adapter / decorator — no drive-by rewrites.  
-3. Do not change weights, prompts, identity text, or training mix unless asked.  
-4. Tests for new behavior.  
-5. `python -m pytest tests/ -q`  
-6. `python scripts/anra.py --report` if platform/operator touched.  
-7. Report commands + residual risk.
-
-**Good prompt:**
-
-```text
-Add tool X via register_all_tools. Tests. No model changes.
+```powershell
+.\.venv-cuda\Scripts\python.exe -m uvicorn app:app --host 127.0.0.1 --port 8000
 ```
 
-**Bad prompt:**
+Open `http://127.0.0.1:8000/developer`.
 
-```text
-Rewrite architecture for AGI.
+Useful read-only endpoints:
+
+- `GET /health`
+- `GET /system-map`
+- `GET /phase-health`
+- `GET /evidence/status`
+- `GET /training/preflight`
+
+Chat and generation endpoints require a compatible checkpoint and runtime:
+
+- `POST /chat`
+- `POST /generate`
+- `GET /traces/{trace_id}`
+
+## Understand a training launch
+
+There are three different concepts:
+
+1. **Model profile**: architecture and exact parameter contract.
+2. **Token window**: the deterministic corpus interval leased to a worker.
+3. **Seed**: a reproducibility input. Routine training uses seed 1301.
+
+A cloud launch should be created only from a clean, pushed commit and an
+immutable pack:
+
+```powershell
+$env:ANRA_MANIFEST_SIGNING_KEY = "<owner-held secret>"
+.\.venv-cuda\Scripts\python.exe scripts\create_cloud_launch.py `
+  --pack-root "C:\path\to\pack" `
+  --output "output\v2\cluster_launch.json" `
+  --artifact-path "output/v2/checkpoints/anra-v4-180m.pt" `
+  --checkpoint-source scratch `
+  --worker-id trainer-1 `
+  --runtime-estimate-hours 3
 ```
 
----
+The signed manifest is then bound to a cluster job. Do not hand-edit it after
+signing. A worker verifies its signature, commit, window, source checkpoint,
+destination, and resource limits before launching:
 
-## Rules (expanded)
-
-### Authorship mix
-
-65/15/10/5/5 — changing it needs drift evidence (CIV / eval).
-
-### Paths
-
-`anra/anra_paths.py` only. Literal ban enforced by `test_path_registry_literals.py`.
-
-### Flags over comment-out
-
-```python
-from engine.feature_flags import is_enabled, set_flag
+```powershell
+.\.venv-cuda\Scripts\python.exe -m training.train_unified `
+  --mode session `
+  --launch-manifest output\v2\cluster_launch.json
 ```
 
-### Telemetry
+Continuation uses the previous verified `full_resume` artifact as
+`--checkpoint-source` and a new non-overlapping pack. Scratch and continuation
+must never write over their source.
 
-One `@trace` per subsystem entrypoint — not every helper.
+## Local bounded execution
 
-### Eval before boasting
+Use local GPU runs only for a concrete engineering question: one optimizer
+step, save/load, numerical parity, or a short canary. They are not a substitute
+for the signed campaign.
 
-```text
-baseline → system_on → ablation → compare
+```powershell
+.\.venv-cuda\Scripts\python.exe -m training.train_unified `
+  --mode preflight `
+  --model-size anra-v4-180m
 ```
 
-### Daily vs milestone
+The trainer refuses CPU for canonical training unless an explicit pilot-only
+override is set. Do not use that override for performance estimates.
 
-| Mode | Command | Weight |
-|------|---------|--------|
-| Daily | `--mode session` | Light, reliable |
-| Milestone | `--mode train` | Identity, Ouroboros, sovereignty |
+## Checkpoint rules
 
-### Verification stack
+`full_resume` is the only training source. It includes optimizer, scheduler,
+scaler, RNG, sampler, step, tokens, and lineage. `fp16_inference` is smaller
+because it contains model tensors only.
 
-pytest · verifier · benchmark · symbolic · report diff · telemetry
+Never:
 
-### `engine/` imports
+- rename a compact artifact and treat it as resumable;
+- overwrite the checkpoint named as a signed parent;
+- delete the previous resume generation before the new one is protected;
+- accept a low loss as proof of coherent language;
+- close paid compute before the checkpoint hash is independently verified.
 
-No torch/faiss/transformers at import time in new `engine/` modules.
+Checkpoint protocol: `training/checkpoint_durability.py`.
 
-### Operator safety
+## Changing the architecture
 
-- `file_manager` / `cad_generate`: RESTRICTED  
-- `os_action`: DANGEROUS — paths under workspace or `ANRA_ALLOWED_OPEN_ROOTS`  
-- Never add silent remote shell without paired node design
+The canonical geometry lives in `training/v2_config.py`. Architecture changes
+must create an explicit experimental profile; they must not silently mutate
+`anra-v4-180m`.
 
----
+For a subsystem:
 
-## Commands
+1. Register its lifecycle and cost in `runtime/subsystem_catalog.py`.
+2. Default it off unless it is already active.
+3. Define the frozen parent, promotion question, metric, token budget, and
+   rollback.
+4. Compare it using the same parent checkpoint, data order, optimizer, and
+   seed.
+5. Promote only after capability, stability, and useful-compute gains.
 
-```bash
-make install          # pip install -e ".[dev]"
-make test             # full non-GPU suite
-make train-tiny       # 100-step CPU smoke train
-make lint             # ruff
-make typecheck        # mypy anra/
-python scripts/anra.py --report
-python scripts/anra.py --chat
-python -m pytest tests/ -q
+The model growth implementation is in `training/csii.py`,
+`training/grow_model.py`, and `training/growth_runtime.py`.
+
+## Adding post-training capability
+
+Use separate signed lineages:
+
+- SFT teaches instruction and dialogue behavior.
+- RLVR/STaR uses verifiable outcomes.
+- DPO requires audited preference pairs.
+- LoRA/DoRA adapters remain bound to one base checkpoint hash.
+
+Do not mix these records invisibly into pretraining. Contracts live in
+`training/posttraining_contract.py`; adapter promotion and rollback live in
+`inference/adapters.py`.
+
+## Focused verification
+
+Run the smallest suite that covers the changed contract:
+
+```powershell
+.\.venv-cuda\Scripts\python.exe -m pytest -q `
+  tests/test_training_contract_v4.py `
+  tests/test_checkpoint_durability.py `
+  tests/test_cloud_launch_contract.py `
+  tests/test_model_growth_contract.py
+
+.\.venv-cuda\Scripts\python.exe -m ruff check `
+  training/launch_manifest.py `
+  training/checkpoint_durability.py `
+  training/train_unified.py
 ```
 
----
+Run broad CPU suites before a release or after cross-cutting changes, not after
+every prose or isolated contract edit. GPU tests need an explicit numerical or
+performance question.
 
-## Definition of done
+## Repository map
 
-- [ ] Focused tests  
-- [ ] Full suite green or explained  
-- [ ] Report works if operator/platform changed  
-- [ ] OPERATOR.md updated if user-facing commands changed  
-- [ ] **Append [`docs/engineering/ENGINEERING_LOG.md`](engineering/ENGINEERING_LOG.md)** (use `scripts/log_engineering_change.py`)
-- [ ] Update [`docs/planning/MASTER_GOALS.md`](planning/MASTER_GOALS.md) status if a goal was completed
-- [ ] No path literals  
-- [ ] No silent identity/prompt drift  
-- [ ] Disable / trace / eval path exists  
+| Path | Responsibility |
+| --- | --- |
+| `anra/`, `anra_brain.py` | Model and architecture contracts |
+| `training/` | Data, optimizer, training, checkpoints, growth, post-training |
+| `inference/`, `generate.py` | Context, generation, cache, adapters |
+| `retrieval/`, `memory/` | External knowledge and persistence |
+| `cognition/` | Planning, verification, correction |
+| `agents/`, `execution/` | Permissioned tools and action |
+| `evaluation/`, `engine/` | Measurement, telemetry, promotion |
+| `runtime/` | Registries and shared evidence |
+| `scripts/` | Supported operational entrypoints |
+| `tests/` | Contracts and evidence gates |
 
----
+## Pull-request discipline
 
-## Review table
+- Preserve unrelated user changes.
+- Never include checkpoint or corpus binaries.
+- State which claim the test actually supports.
+- Distinguish code-complete, locally verified, live-cloud verified, and
+  capability-proven.
+- Update the subsystem catalog when lifecycle changes.
+- Regenerate `docs/system_graph.json` when architecture truth changes.
 
-| Q | A |
-|---|---|
-| Component? | registry name |
-| Toggle? | flag |
-| Traced? | telemetry |
-| Test? | file + cmd |
-| Regression? | harness |
-| Operator doc? | OPERATOR.md if needed |
+## Live truth sources
 
-Operate the repo weekly — admiration does not compound; loops do.
+- Current commit: `git rev-parse HEAD`
+- Dirty state: `git status --short`
+- Runtime CLI: `python -m training.train_unified --help`
+- Model profiles: `training/v2_config.py`
+- Launch validation: `training/launch_manifest.py`
+- System claims: `runtime/system_registry.py`,
+  `runtime/subsystem_catalog.py`
+- Generated state: `docs/system_graph.json`
+- Focused evidence: test outputs and `runtime/evidence_stream.py`
+
+If a command in this guide disagrees with `--help`, the executable help wins
+and this document must be corrected.

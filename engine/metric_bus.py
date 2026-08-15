@@ -5,9 +5,9 @@ import inspect
 import json
 import time
 import uuid
+from collections.abc import Callable
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any
 
 
 def _runs_dir() -> Path:
@@ -129,9 +129,7 @@ class MetricBus:
 
         prev = self._load_previous_run()
         if prev:
-            run_data["deltas"] = self._compute_deltas(
-                prev["components"], run_data["components"]
-            )
+            run_data["deltas"] = self._compute_deltas(prev["components"], run_data["components"])
         else:
             run_data["deltas"] = {}
         self._last_deltas = run_data["deltas"]
@@ -191,9 +189,7 @@ def reset_metric_bus() -> MetricBus:
     return _bus
 
 
-def _emit_from_result(
-    component: str, result: Any, elapsed_ms: float, success: bool
-) -> None:
+def _emit_from_result(component: str, result: object, elapsed_ms: float, success: bool) -> None:
     tokens, score, loss_delta, extra = 0, None, None, {}
     if isinstance(result, dict):
         tokens = int(result.get("tokens_used") or result.get("tokens") or 0)
@@ -212,25 +208,25 @@ def _emit_from_result(
     )
 
 
-def instrument(component: str):
+def instrument(
+    component: str,
+) -> Callable[[Callable[..., object]], Callable[..., object]]:
     """
     Decorator that automatically emits metrics to the MetricBus.
 
     Works on sync and async methods. Coexists with @trace.
     """
 
-    def decorator(fn):
+    def decorator(fn: Callable[..., object]) -> Callable[..., object]:
         is_async = inspect.iscoroutinefunction(fn)
         if is_async:
 
             @functools.wraps(fn)
-            async def async_wrapper(*args, **kwargs):
+            async def async_wrapper(*args: object, **kwargs: object) -> object:
                 t = time.perf_counter()
                 try:
                     r = await fn(*args, **kwargs)
-                    _emit_from_result(
-                        component, r, (time.perf_counter() - t) * 1000, True
-                    )
+                    _emit_from_result(component, r, (time.perf_counter() - t) * 1000, True)
                     return r
                 except Exception as exc:
                     get_metric_bus().emit(
@@ -244,13 +240,11 @@ def instrument(component: str):
             return async_wrapper
 
         @functools.wraps(fn)
-        def sync_wrapper(*args, **kwargs):
+        def sync_wrapper(*args: object, **kwargs: object) -> object:
             t = time.perf_counter()
             try:
                 r = fn(*args, **kwargs)
-                _emit_from_result(
-                    component, r, (time.perf_counter() - t) * 1000, True
-                )
+                _emit_from_result(component, r, (time.perf_counter() - t) * 1000, True)
                 return r
             except Exception as exc:
                 get_metric_bus().emit(

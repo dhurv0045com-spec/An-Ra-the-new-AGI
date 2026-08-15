@@ -1,4 +1,5 @@
 """Startup validation for runtime and training-contract invariants."""
+
 from __future__ import annotations
 
 import warnings
@@ -12,7 +13,7 @@ from training.v2_config import (
     EXPECTED_TOKENIZER_VOCAB_SIZE,
 )
 
-from anra.anra_paths import V3_TOKENIZER_FILE
+from anra.anra_paths import V4_TOKENIZER_FILE
 
 _REMEDIATION = (
     "Remediation: run on a CUDA-capable GPU build of PyTorch, install matching NVIDIA "
@@ -58,7 +59,7 @@ def assert_flash_sdp_ready(entrypoint: str) -> None:
 
 def assert_v2_training_contract(
     entrypoint: str,
-    tokenizer_path: Path = V3_TOKENIZER_FILE,
+    tokenizer_path: Path = V4_TOKENIZER_FILE,
 ) -> None:
     """Abort startup when tokenizer IDs cannot safely train or load V2 checkpoints."""
     path = tokenizer_path

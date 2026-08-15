@@ -29,11 +29,11 @@ SESSION_LOG = DEFAULT_LOG_DIR / "session.log"
 
 
 class SharedLogger(logging.Logger):
-    def trace(self, msg: str, *args: object, **kwargs: Any) -> None:
+    def trace(self, msg: str, *args: object, **kwargs: object) -> None:
         if self.isEnabledFor(TRACE_LEVEL_NUM):
             self.log(TRACE_LEVEL_NUM, msg, *args, **kwargs)
 
-    def audit(self, msg: str, *args: object, **kwargs: Any) -> None:
+    def audit(self, msg: str, *args: object, **kwargs: object) -> None:
         if self.isEnabledFor(AUDIT_LEVEL_NUM):
             self.log(AUDIT_LEVEL_NUM, msg, *args, **kwargs)
 

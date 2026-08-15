@@ -21,21 +21,21 @@ Relationship to other modules:
 import gzip
 import logging
 import logging.handlers
-import os
 import pathlib
 import queue
 import shutil
+import sys
 import threading
-import time
-from datetime import datetime, timedelta
-from typing import Optional
+from contextlib import suppress
+from datetime import date, datetime, timedelta
+
+from anra.shared_logger import emit_audit_event, get_shared_logger
 
 from phase3.sovereignty_45r.config import Config
-from anra.shared_logger import emit_audit_event, get_shared_logger
 
 # ── Module-level state ────────────────────────────────────────────────────────
 _log_queue: queue.Queue = queue.Queue(maxsize=10_000)
-_logger_thread: Optional[threading.Thread] = None
+_logger_thread: threading.Thread | None = None
 _stop_event: threading.Event = threading.Event()
 _setup_done: bool = False
 _setup_lock: threading.Lock = threading.Lock()  # Protects _setup_done flag
@@ -53,12 +53,8 @@ class _QueueHandler(logging.Handler):
 
     def emit(self, record: logging.LogRecord) -> None:
         """Put a formatted log record onto the queue without blocking."""
-        try:
+        with suppress(queue.Full):
             self._queue.put_nowait(record)
-        except queue.Full:
-            # Queue full means the logger thread is behind — drop the record
-            # rather than block a worker thread.
-            pass
 
 
 class _FileHandler(logging.FileHandler):
@@ -80,9 +76,9 @@ class _FileHandler(logging.FileHandler):
         path = self._path_for_date(self._current_date)
         super().__init__(str(path), mode="a", encoding="utf-8", delay=False)
 
-    def _path_for_date(self, date) -> pathlib.Path:
+    def _path_for_date(self, value: date) -> pathlib.Path:
         """Return the log file path for a given date."""
-        return self._log_dir / f"service_{date.strftime('%Y%m%d')}.log"
+        return self._log_dir / f"service_{value.strftime('%Y%m%d')}.log"
 
     def emit(self, record: logging.LogRecord) -> None:
         """Rotate if date has changed, then write the record."""
@@ -91,7 +87,7 @@ class _FileHandler(logging.FileHandler):
             self._rotate(today)
         super().emit(record)
 
-    def _rotate(self, new_date) -> None:
+    def _rotate(self, new_date: date) -> None:
         """
         Close the current log file, compress it to .gz, open a new file,
         and prune logs older than retention_days.
@@ -142,7 +138,10 @@ def _logger_thread_main(
         stop_event: Signal to shut down after draining the queue.
     """
     formatter = logging.Formatter(
-        fmt="[%(asctime)s.%(msecs)03d] [%(levelname)-8s] [%(threadName)-20s] [%(name)s.%(funcName)s] %(message)s",
+        fmt=(
+            "[%(asctime)s.%(msecs)03d] [%(levelname)-8s] "
+            "[%(threadName)-20s] [%(name)s.%(funcName)s] %(message)s"
+        ),
         datefmt="%Y-%m-%d %H:%M:%S",
     )
     file_handler = _FileHandler(log_dir, retention_days)
@@ -227,10 +226,42 @@ def get_logger(name: str) -> logging.Logger:
     return get_shared_logger(name)
 
 
-def audit_event(name: str, event_type: str, action: str, message: str = "", details: Optional[dict] = None) -> dict:
+def audit_event(
+    name: str,
+    event_type: str,
+    action: str,
+    message: str = "",
+    details: dict | None = None,
+) -> dict:
     """Emit append-only AUDIT_LOG events using required envelope fields."""
     logger = get_shared_logger(name)
-    return emit_audit_event(logger, event_type=event_type, component=name, action=action, message=message, details=details)
+    event = emit_audit_event(
+        logger,
+        event_type=event_type,
+        component=name,
+        action=action,
+        message=message,
+        details=details,
+    )
+    try:
+        from runtime.experience_ledger import record_experience
+
+        normalized = f"{event_type} {action}".lower()
+        denied = any(
+            term in normalized
+            for term in ("deny", "denied", "reject", "blocked", "violation")
+        )
+        record_experience(
+            kind="gate",
+            inputs={"component": name, "event_type": event_type, "action": action},
+            output={"message": message, "details": details or {}},
+            gate_record={"allowed": not denied, "gate": "sovereignty", "event_type": event_type},
+            source="sovereignty.audit",
+        )
+    except Exception:
+        # Sovereignty decisions remain authoritative even when capture fails.
+        pass
+    return event
 
 
 def get_recent_lines(log_dir: pathlib.Path, n: int = 100, level: str = "DEBUG") -> list:

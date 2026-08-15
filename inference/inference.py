@@ -16,23 +16,21 @@ Features:
 
 from __future__ import annotations
 
-import time
 import sys
+import time
+from collections.abc import Generator
 from dataclasses import dataclass, field
-from typing import Generator, Iterable, List, Optional, Union
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-
 from greedy import greedy_step
-from sampling import sample_token, sampling_decode
 from model_io import build_kv_cache
-
+from sampling import sample_token
 
 # ─────────────────────────────────────────────
 # Generation config — one dataclass controls all
 # ─────────────────────────────────────────────
+
 
 @dataclass
 class GenerationConfig:
@@ -48,24 +46,26 @@ class GenerationConfig:
     stream:           If True, print tokens as they are generated.
     repetition_penalty: > 1.0 penalises previously seen tokens.
     """
+
     strategy: str = "top_p"
     temperature: float = 0.8
     top_k: int = 50
     top_p: float = 0.95
     max_new_tokens: int = 200
-    stop_tokens: List[str] = field(default_factory=list)
+    stop_tokens: list[str] = field(default_factory=list)
     stream: bool = False
     repetition_penalty: float = 1.0
-    use_turboquant: bool = True
+    use_turboquant: bool = False
 
 
 # ─────────────────────────────────────────────
 # Repetition penalty
 # ─────────────────────────────────────────────
 
+
 def _apply_rep_penalty(
     logits: torch.Tensor,
-    prev_ids: List[int],
+    prev_ids: list[int],
     penalty: float,
 ) -> torch.Tensor:
     """
@@ -84,6 +84,7 @@ def _apply_rep_penalty(
 # Core single-sequence generator (streaming)
 # ─────────────────────────────────────────────
 
+
 def _generate_tokens(
     model: nn.Module,
     input_ids: torch.Tensor,
@@ -96,7 +97,7 @@ def _generate_tokens(
     """
     model.eval()
     ids = input_ids.to(device)
-    generated: List[int] = []
+    generated: list[int] = []
 
     with torch.no_grad():
         for _ in range(config.max_new_tokens):
@@ -116,8 +117,8 @@ def _generate_tokens(
             else:
                 # All non-greedy paths share the unified sampler
                 tk = config.top_k if config.strategy in ("top_k", "top_p") else 0
-                tp = config.top_p if config.strategy in ("top_p",)          else 1.0
-                t  = config.temperature if config.strategy != "greedy"      else 1.0
+                tp = config.top_p if config.strategy in ("top_p",) else 1.0
+                t = config.temperature if config.strategy != "greedy" else 1.0
                 next_id = sample_token(logits, temperature=t, top_k=tk, top_p=tp)
 
             generated.append(next_id)
@@ -128,6 +129,7 @@ def _generate_tokens(
 # ─────────────────────────────────────────────
 # Public inference pipeline
 # ─────────────────────────────────────────────
+
 
 class InferencePipeline:
     """
@@ -146,23 +148,25 @@ class InferencePipeline:
     def __init__(
         self,
         model: nn.Module,
-        tokenizer,
-        device: Optional[str] = None,
-    ):
-        self.model     = model
-        self.tok       = tokenizer
-        self.device    = device or ("cuda" if torch.cuda.is_available() else "cpu")
+        tokenizer: object,
+        device: str | None = None,
+    ) -> None:
+        self.model = model
+        self.tok = tokenizer
+        self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
         self.model.to(self.device)
         self.model.eval()
-        self.kv_cache = build_kv_cache(use_turboquant=True)
+        # This legacy wrapper does not connect an external cache to the model's
+        # attention layers. Keep the field inert instead of claiming compression.
+        self.kv_cache = build_kv_cache(use_turboquant=False)
 
     # ── single prompt ────────────────────────
 
     def generate(
         self,
         prompt: str,
-        config: Optional[GenerationConfig] = None,
-        **kwargs,
+        config: GenerationConfig | None = None,
+        **kwargs: object,
     ) -> str:
         """
         Encode prompt, decode to max_new_tokens, return text.
@@ -170,8 +174,9 @@ class InferencePipeline:
         Keyword args are forwarded to GenerationConfig so you can do:
             pipe.generate("Hi", temperature=0.9, top_p=0.95, max_new_tokens=100)
         """
-        cfg = config or GenerationConfig(**{k: v for k, v in kwargs.items()
-                                            if k in GenerationConfig.__dataclass_fields__})
+        cfg = config or GenerationConfig(
+            **{k: v for k, v in kwargs.items() if k in GenerationConfig.__dataclass_fields__}
+        )
 
         try:
             return self._run_generate(prompt, cfg)
@@ -184,12 +189,12 @@ class InferencePipeline:
     def _run_generate(self, prompt: str, cfg: GenerationConfig) -> str:
         encoded = self.tok.encode(prompt)
         if len(encoded) == 0:
-            encoded = [0]          # pad empty prompt with a single BOS/null token
+            encoded = [0]  # pad empty prompt with a single BOS/null token
         input_ids = torch.tensor([encoded], dtype=torch.long, device=self.device)
 
         t0 = time.perf_counter()
-        output_pieces: List[str] = []
-        full_generated: List[int] = []
+        output_pieces: list[str] = []
+        full_generated: list[int] = []
 
         for token_id in _generate_tokens(self.model, input_ids, cfg, self.device):
             full_generated.append(token_id)
@@ -210,7 +215,10 @@ class InferencePipeline:
         elapsed = time.perf_counter() - t0
         n_tok = len(full_generated)
         tps = n_tok / elapsed if elapsed > 0 else 0.0
-        print(f"[inference] {n_tok} tokens | {elapsed:.2f}s | {tps:.1f} tok/s | strategy={cfg.strategy}")
+        print(
+            f"[inference] {n_tok} tokens | {elapsed:.2f}s | {tps:.1f} tok/s | "
+            f"strategy={cfg.strategy}"
+        )
 
         return "".join(output_pieces)
 
@@ -219,8 +227,8 @@ class InferencePipeline:
     def stream(
         self,
         prompt: str,
-        config: Optional[GenerationConfig] = None,
-        **kwargs,
+        config: GenerationConfig | None = None,
+        **kwargs: object,
     ) -> Generator[str, None, None]:
         """
         Token-by-token generator; yields decoded string pieces.
@@ -228,14 +236,13 @@ class InferencePipeline:
         for piece in pipe.stream("Once"):
             print(piece, end="", flush=True)
         """
-        cfg = config or GenerationConfig(**{k: v for k, v in kwargs.items()
-                                            if k in GenerationConfig.__dataclass_fields__})
+        cfg = config or GenerationConfig(
+            **{k: v for k, v in kwargs.items() if k in GenerationConfig.__dataclass_fields__}
+        )
         cfg.stream = False  # prevent double-print inside _generate_tokens
 
-        input_ids = torch.tensor(
-            [self.tok.encode(prompt)], dtype=torch.long, device=self.device
-        )
-        collected: List[str] = []
+        input_ids = torch.tensor([self.tok.encode(prompt)], dtype=torch.long, device=self.device)
+        collected: list[str] = []
 
         for token_id in _generate_tokens(self.model, input_ids, cfg, self.device):
             piece = self.tok.decode([token_id])
@@ -248,10 +255,10 @@ class InferencePipeline:
 
     def batch_generate(
         self,
-        prompts: List[str],
-        config: Optional[GenerationConfig] = None,
-        **kwargs,
-    ) -> List[str]:
+        prompts: list[str],
+        config: GenerationConfig | None = None,
+        **kwargs: object,
+    ) -> list[str]:
         """
         Run inference on multiple prompts sequentially.
         Returns one output string per prompt.
@@ -260,13 +267,14 @@ class InferencePipeline:
         forward a (B, seq) tensor — left as a model-specific concern since
         padding token is tokenizer-dependent.
         """
-        cfg = config or GenerationConfig(**{k: v for k, v in kwargs.items()
-                                            if k in GenerationConfig.__dataclass_fields__})
+        cfg = config or GenerationConfig(
+            **{k: v for k, v in kwargs.items() if k in GenerationConfig.__dataclass_fields__}
+        )
         results = []
         t0 = time.perf_counter()
 
         for i, prompt in enumerate(prompts):
-            print(f"[inference] batch {i+1}/{len(prompts)}")
+            print(f"[inference] batch {i + 1}/{len(prompts)}")
             results.append(self._run_generate(prompt, cfg))
 
         total = time.perf_counter() - t0
@@ -280,23 +288,27 @@ class InferencePipeline:
 
 if __name__ == "__main__":
     import torch.nn as nn
-    from typing import List
 
     class _TinyLM(nn.Module):
         VOCAB = 64
-        def __init__(self):
+
+        def __init__(self) -> None:
             super().__init__()
-            self.emb  = nn.Embedding(self.VOCAB, 32)
-            self.rnn  = nn.GRU(32, 64, batch_first=True)
+            self.emb = nn.Embedding(self.VOCAB, 32)
+            self.rnn = nn.GRU(32, 64, batch_first=True)
             self.proj = nn.Linear(64, self.VOCAB)
-        def forward(self, x):
+
+        def forward(self, x: torch.Tensor) -> torch.Tensor:
             h = self.emb(x)
             h, _ = self.rnn(h)
             return self.proj(h)
 
     class _TinyTok:
-        def encode(self, t: str) -> List[int]:  return [b % 64 for b in t.encode()]
-        def decode(self, ids: List[int]) -> str: return bytes([i+32 for i in ids]).decode(errors="replace")
+        def encode(self, t: str) -> list[int]:
+            return [b % 64 for b in t.encode()]
+
+        def decode(self, ids: list[int]) -> str:
+            return bytes([i + 32 for i in ids]).decode(errors="replace")
 
     torch.manual_seed(0)
     pipe = InferencePipeline(_TinyLM(), _TinyTok(), device="cpu")

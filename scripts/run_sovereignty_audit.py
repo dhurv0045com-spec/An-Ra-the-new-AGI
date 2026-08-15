@@ -9,7 +9,6 @@ from pathlib import Path
 from anra.anra_paths import DRIVE_V2_CHECKPOINTS
 from training.v2_runtime import canonical_v2_checkpoint, v2_report_path, write_json
 
-
 logger = logging.getLogger(__name__)
 
 FIXED_CAPABILITY_PROMPTS = [

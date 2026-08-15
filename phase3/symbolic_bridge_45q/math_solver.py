@@ -767,6 +767,7 @@ def factorise_number(n: int) -> VerifiedResult:
 
         confidence = 1.0 if (verified and sympy_match) else 0.85
         verdict = Verdict.VERIFIED if confidence >= 0.95 else Verdict.UNCERTAIN
+        factorisation_latex = rho_result.factorisation_str.replace("×", r"\times")
 
         return VerifiedResult(
             mode=Mode.MATH,
@@ -774,7 +775,7 @@ def factorise_number(n: int) -> VerifiedResult:
             confidence=confidence,
             answer=rho_result.factors,
             answer_text=f"{n} = {rho_result.factorisation_str}",
-            answer_latex=f"{n} = {rho_result.factorisation_str.replace('×', '\\times')}",
+            answer_latex=f"{n} = {factorisation_latex}",
             raw_input=str(n),
             steps=steps,
             warnings=[] if (verified and sympy_match) else ["Factorisation mismatch between methods"],

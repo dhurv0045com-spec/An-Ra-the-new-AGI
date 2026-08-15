@@ -1,27 +1,33 @@
 from __future__ import annotations
 
 import json
+import random
 
 import pytest
 import torch
-from anra.anra_paths import DATASET, V3_TOKENIZER_FILE
+from anra.anra_paths import DATASET, V4_TOKENIZER_FILE
 from anra_brain import CausalTransformerV2
 from tokenizer.subword_tokenizer import SubwordTokenizer
-from training.v2_data_mix import IdentityStyleFilter, build_v2_training_examples
+from training.v2_data_mix import (
+    IdentityStyleFilter,
+    TrainingExample,
+    _sample_bucket,
+    build_v2_training_examples,
+)
 
 
 def test_vocab_size_contract():
-    from training.v2_config import CANONICAL_VOCAB_SIZE, EXPECTED_TOKENIZER_VOCAB_SIZE
+    from training.v2_config import EXPECTED_TOKENIZER_VOCAB_SIZE
 
-    tok_path = V3_TOKENIZER_FILE
+    tok_path = V4_TOKENIZER_FILE
     if tok_path.exists():
         with tok_path.open(encoding="utf-8") as fh:
             tok = json.load(fh)
         actual = len(tok.get("token_to_id", {}))
-        assert actual == CANONICAL_VOCAB_SIZE, (
-            f"tokenizer has {actual} tokens but CANONICAL_VOCAB_SIZE={CANONICAL_VOCAB_SIZE}"
+        assert actual == EXPECTED_TOKENIZER_VOCAB_SIZE, (
+            f"tokenizer has {actual} tokens but V4 expects {EXPECTED_TOKENIZER_VOCAB_SIZE}"
         )
-    assert CANONICAL_VOCAB_SIZE == EXPECTED_TOKENIZER_VOCAB_SIZE
+    assert EXPECTED_TOKENIZER_VOCAB_SIZE == 32_768
 
 
 def test_v2_model_forward_shape() -> None:
@@ -48,6 +54,17 @@ def test_v2_mix_keeps_own_data_dominant() -> None:
     assert (own + identity) / total >= 0.75
 
 
+def test_bucket_sampler_uses_all_examples_before_repeating() -> None:
+    examples = [
+        TrainingExample(bucket="own", prompt=f"p{i}", answer=f"a{i}", source="test")
+        for i in range(4)
+    ]
+    sampled = _sample_bucket(random.Random(7), examples, 6)
+
+    assert {item.prompt for item in sampled[:4]} == {item.prompt for item in examples}
+    assert len(sampled) == 6
+
+
 def test_dataset_file_resolves():
     from anra.anra_paths import get_dataset_file
     path = get_dataset_file()
@@ -68,3 +85,20 @@ def test_subword_tokenizer_roundtrip() -> None:
     ids = tok.encode("H: Hello\nANRA: I am An-Ra.", add_special_tokens=True)
     text = tok.decode(ids)
     assert "an-ra" in text.lower()
+
+
+def test_native_append_tokenizer_uses_exact_longest_prefixes() -> None:
+    tokens = ["<pad>", "<unk>", "<bos>", "<eos>", "a", "ab", "abc", "b", "c"]
+    payload = {
+        "id_to_token": tokens,
+        "token_to_id": {token: index for index, token in enumerate(tokens)},
+    }
+    tokenizer = SubwordTokenizer(
+        payload,
+        vocab_size=len(tokens),
+        special_tokens=tokens[:4],
+        model_type="append_only_v4",
+        backend="native_append_v4",
+    )
+
+    assert tokenizer.encode("abcab") == [6, 5]

@@ -34,6 +34,23 @@ def test_hal_decay_moves_toward_baseline():
     assert post < pre, f"cortisol did not decay: {pre} -> {post}"
 
 
+def test_hal_ignores_social_attachment_signals():
+    from identity.hal import HALModule
+
+    hal = HALModule()
+    before = hal.state.hormones()
+    delta = hal.appraise(
+        session_context={
+            "unexpected_praise": True,
+            "user_personal_disclosure": True,
+            "user_defends_model": True,
+            "consecutive_sessions_same_user": True,
+        }
+    )
+    assert delta == {}
+    assert hal.state.hormones() == before
+
+
 def test_hal_adrenaline_cortisol_cascade():
     from identity.hal import HALModule
 
@@ -52,7 +69,9 @@ def test_hal_civ_threat_fires_cortisol():
     hal = HALModule()
     pre_cortisol = hal.state.cortisol
     hal.apply_civ_score(0.40)
-    assert hal.state.cortisol > pre_cortisol, f"cortisol did not increase: {pre_cortisol} -> {hal.state.cortisol}"
+    assert hal.state.cortisol > pre_cortisol, (
+        f"cortisol did not increase: {pre_cortisol} -> {hal.state.cortisol}"
+    )
 
 
 def test_hal_high_cortisol_lowers_generation_temp():
@@ -71,7 +90,18 @@ def test_hal_ouroboros_weights_sum_to_one():
 
     hal = HALModule()
     for _ in range(50):
-        deltas = {k: random.uniform(-0.3, 0.3) for k in ["dopamine", "serotonin", "cortisol", "adrenaline", "oxytocin", "norepinephrine", "endorphin"]}
+        deltas = {
+            k: random.uniform(-0.3, 0.3)
+            for k in [
+                "dopamine",
+                "serotonin",
+                "cortisol",
+                "adrenaline",
+                "oxytocin",
+                "norepinephrine",
+                "endorphin",
+            ]
+        }
         hal.apply_delta(deltas)
         weights = hal.ouroboros_weights()
         total = sum(weights)
@@ -84,9 +114,16 @@ def test_hal_kl_coefficient_in_valid_range():
     hal = HALModule()
     for cortisol in [0.0, 0.2, 0.5, 0.9]:
         for endorphin in [0.0, 0.2, 0.5, 0.9]:
-            hal.apply_delta({"cortisol": cortisol - hal.state.cortisol, "endorphin": endorphin - hal.state.endorphin})
+            hal.apply_delta(
+                {
+                    "cortisol": cortisol - hal.state.cortisol,
+                    "endorphin": endorphin - hal.state.endorphin,
+                }
+            )
             kl = hal.kl_coefficient(base=0.04)
-            assert 0.01 <= kl <= 0.15, f"kl={kl} out of range for cortisol={cortisol} endorphin={endorphin}"
+            assert 0.01 <= kl <= 0.15, (
+                f"kl={kl} out of range for cortisol={cortisol} endorphin={endorphin}"
+            )
 
 
 def test_hal_memory_threshold_dopamine_effect():
@@ -111,7 +148,9 @@ def test_hal_serialize_deserialize_roundtrip():
     hal.save(path)
     hal2 = HALModule.load(path)
     for name, val in hal.state.hormones().items():
-        assert abs(hal2.state.hormones()[name] - val) < 1e-6, f"{name}: {val} != {hal2.state.hormones()[name]}"
+        assert abs(hal2.state.hormones()[name] - val) < 1e-6, (
+            f"{name}: {val} != {hal2.state.hormones()[name]}"
+        )
     Path(path).unlink(missing_ok=True)
 
 
@@ -154,7 +193,9 @@ def test_rlvr_consecutive_failures_starts_at_zero():
     from training.rlvr import RLVRTrainer
 
     src = inspect.getsource(RLVRTrainer.__init__)
-    assert "_consecutive_failures" in src, "_consecutive_failures counter not found in RLVRTrainer.__init__"
+    assert "_consecutive_failures" in src, (
+        "_consecutive_failures counter not found in RLVRTrainer.__init__"
+    )
 
 
 def test_memory_router_accepts_hal():
@@ -184,7 +225,9 @@ def test_qiskit_verifier_unavailable_graceful():
     result = verify_qiskit("OPENQASM 2.0; qreg q[2]; cx q[0],q[1];", topology="all_to_all")
     assert hasattr(result, "tier"), "VerificationResult missing 'tier'"
     if not qiskit_backed:
-        assert result.tier in ("unavailable", "inferred", "verified", "domain"), f"unexpected tier: {result.tier}"
+        assert result.tier in ("unavailable", "inferred", "verified", "domain"), (
+            f"unexpected tier: {result.tier}"
+        )
 
 
 def test_rdkit_verifier_unavailable_graceful():
@@ -197,9 +240,13 @@ def test_rdkit_verifier_unavailable_graceful():
 def test_constraint_json_verifier_always_works():
     from phase3.symbolic_bridge_45Q.domain_verifiers import verify_constraint_json
 
-    r = verify_constraint_json(constraints=[{"name": "mw", "op": "<=", "value": 200}], solution={"mw": 150})
+    r = verify_constraint_json(
+        constraints=[{"name": "mw", "op": "<=", "value": 200}], solution={"mw": 150}
+    )
     assert r.score >= 0.9, f"satisfied constraint scored {r.score}"
-    r2 = verify_constraint_json(constraints=[{"name": "mw", "op": "<=", "value": 200}], solution={"mw": 350})
+    r2 = verify_constraint_json(
+        constraints=[{"name": "mw", "op": "<=", "value": 200}], solution={"mw": 350}
+    )
     assert r2.score < 0.5, f"violated constraint scored {r2.score}"
 
 
@@ -245,7 +292,17 @@ def test_scoreboard_total_in_range():
     from innovation.schema import Hypothesis
     from innovation.scoreboard import score_hypothesis
 
-    hyp = Hypothesis("test01", "gap01", "Fix missing function in module X", "pytest passes", {"test_pass_rate": +0.05}, ["no checkpoint changes"], "run pytest after fix", "pytest tests/ -x -q", time.time())
+    hyp = Hypothesis(
+        "test01",
+        "gap01",
+        "Fix missing function in module X",
+        "pytest passes",
+        {"test_pass_rate": +0.05},
+        ["no checkpoint changes"],
+        "run pytest after fix",
+        "pytest tests/ -x -q",
+        time.time(),
+    )
     score = score_hypothesis(hyp)
     assert 0 <= score.total <= 100, f"score {score.total} out of [0, 100] range"
 
@@ -261,15 +318,80 @@ def test_promotion_decision_correct():
 def test_enable_kv_cache_method_exists():
     import anra_brain
 
-    assert hasattr(anra_brain.CausalTransformerV2, "enable_kv_cache"), "CausalTransformerV2 missing enable_kv_cache()"
-    assert hasattr(anra_brain.CausalTransformerV2, "disable_kv_cache"), "CausalTransformerV2 missing disable_kv_cache()"
-    assert hasattr(anra_brain.CausalTransformerV2, "clear_kv_cache"), "CausalTransformerV2 missing clear_kv_cache()"
+    assert hasattr(anra_brain.CausalTransformerV2, "enable_kv_cache"), (
+        "CausalTransformerV2 missing enable_kv_cache()"
+    )
+    assert hasattr(anra_brain.CausalTransformerV2, "disable_kv_cache"), (
+        "CausalTransformerV2 missing disable_kv_cache()"
+    )
+    assert hasattr(anra_brain.CausalTransformerV2, "clear_kv_cache"), (
+        "CausalTransformerV2 missing clear_kv_cache()"
+    )
+
+
+def test_rollback_drill_restores_checkpoint_and_signs_evidence(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    import anra.anra_paths as paths
+    from evaluation.promotion import run_rollback_drill, verify_release_manifest
+
+    monkeypatch.setattr(paths, "OUTPUT_V2_DIR", tmp_path / "output")
+    monkeypatch.setattr(paths, "ROLLBACK_DIR", tmp_path / "rollback")
+    monkeypatch.setattr(paths, "STATE_DIR", tmp_path / "state")
+    monkeypatch.setattr(paths, "OPERATOR_AUDIT_LOG", tmp_path / "audit.jsonl")
+    checkpoint = tmp_path / "checkpoint.pt"
+    checkpoint.write_bytes(b"native-anra-checkpoint")
+
+    report = run_rollback_drill(
+        checkpoint,
+        report_path=tmp_path / "rollback_drill.json",
+    )
+
+    assert report["passed"] is True
+    assert verify_release_manifest(report)
+    assert checkpoint.read_bytes() == b"native-anra-checkpoint"
+
+
+def test_release_bundle_signs_and_revalidates_every_artifact(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    import anra.anra_paths as paths
+    from evaluation.promotion import (
+        build_release_bundle_manifest,
+        verify_release_bundle_manifest,
+    )
+
+    monkeypatch.setattr(paths, "STATE_DIR", tmp_path / "state")
+    artifacts = {}
+    for name in ("checkpoint", "tokenizer", "corpus", "evaluation", "rollback"):
+        path = tmp_path / f"{name}.bin"
+        path.write_bytes(name.encode("ascii"))
+        artifacts[name] = path
+    report = build_release_bundle_manifest(
+        checkpoint_path=artifacts["checkpoint"],
+        tokenizer_path=artifacts["tokenizer"],
+        corpus_manifest_paths=[artifacts["corpus"]],
+        model_config={"vocab_size": 8209, "n_layer": 28},
+        source_commit="abc123",
+        evaluation_paths=[artifacts["evaluation"]],
+        rollback_path=artifacts["rollback"],
+        output_path=tmp_path / "release_bundle.json",
+    )
+
+    assert report["complete"] is True
+    assert verify_release_bundle_manifest(report)
+    artifacts["evaluation"].write_bytes(b"tampered")
+    assert not verify_release_bundle_manifest(report)
 
 
 def test_failure_replay_write_method_exists():
     from training.rlvr import RLVRTrainer
 
-    assert hasattr(RLVRTrainer, "_write_failure_replay"), "RLVRTrainer missing _write_failure_replay method"
+    assert hasattr(RLVRTrainer, "_write_failure_replay"), (
+        "RLVRTrainer missing _write_failure_replay method"
+    )
 
 
 def test_frontier_dfc_jsonl_if_exists():
@@ -289,4 +411,6 @@ def test_frontier_dfc_jsonl_if_exists():
                 continue
     total = sum(templates.values())
     sov = templates.get("sovereign_disagreement", 0)
-    assert sov / max(total, 1) <= 0.80, f"sovereign_disagreement is {sov/total:.0%} of dataset - too dominant"
+    assert sov / max(total, 1) <= 0.80, (
+        f"sovereign_disagreement is {sov / total:.0%} of dataset - too dominant"
+    )

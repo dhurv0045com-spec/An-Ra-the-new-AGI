@@ -29,13 +29,17 @@ print(f'VRAM: {torch.cuda.get_device_properties(0).total_memory/1e9:.0f} GB')
 # 4. Download data + train
 # Edit SESSION_MINUTES here:
 SESSION_MINUTES=${SESSION_MINUTES:-150}
-MODEL_SIZE=${MODEL_SIZE:-1b}
+MODEL_SIZE=${MODEL_SIZE:-frontier}
+CHECKPOINT_PATH=${CHECKPOINT_PATH:-anra_v4_180m.pt}
+DATA_PATH=${DATA_PATH:-training_data/anra_training.txt}
 
 echo "Starting training: $MODEL_SIZE, $SESSION_MINUTES minutes"
 
-python scripts/train_oneshot.py \
+python scripts/build_brain.py \
+    --data_path "$DATA_PATH" \
+    --checkpoint_path "$CHECKPOINT_PATH" \
     --model-size $MODEL_SIZE \
-    --session-minutes $SESSION_MINUTES \
+    --max_minutes $SESSION_MINUTES \
     2>&1 | tee /workspace/anra_training.log
 
 echo "Done. Log: /workspace/anra_training.log"

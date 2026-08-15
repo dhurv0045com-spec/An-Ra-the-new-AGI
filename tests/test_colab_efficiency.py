@@ -1,0 +1,100 @@
+from __future__ import annotations
+
+import json
+import os
+from pathlib import Path
+
+from scripts.colab_bootstrap import RUNTIME_REQUIREMENTS, configure_local_pip_cache
+from scripts.colab_prepare_data import CACHE_FILES, cache_is_valid, copy_cached_files, write_manifest
+
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def _write_cache_files(root: Path) -> None:
+    root.mkdir(parents=True, exist_ok=True)
+    for index, name in enumerate(CACHE_FILES):
+        (root / name).write_bytes(f"prepared-{index}".encode())
+
+
+def test_drive_data_cache_round_trip(tmp_path: Path) -> None:
+    drive = tmp_path / "drive"
+    local = tmp_path / "local"
+    _write_cache_files(drive)
+    write_manifest(drive, "t4-cached")
+
+    assert cache_is_valid(drive, "t4-cached")
+    copy_cached_files(drive, local)
+
+    assert cache_is_valid(local, "t4-cached")
+    for name in CACHE_FILES:
+        assert (local / name).read_bytes() == (drive / name).read_bytes()
+
+
+def test_t4_notebook_uses_fast_bootstrap_and_persistent_data_cache() -> None:
+    notebook = json.loads((ROOT / "notebooks" / "AN_RA_T4_TRAINING.ipynb").read_text(encoding="utf-8"))
+    source = "\n".join("".join(cell.get("source", [])) for cell in notebook["cells"])
+
+    assert "scripts/colab_prepare_data.py" in source
+    assert "DATA_PROFILE = '30gb'" in source
+    assert "os.environ['ANRA_DATA_PROFILE'] = DATA_PROFILE" in source
+    assert "ANRA_TRAINING_DATA_LAYOUT" in source
+    assert "ANRA_ALLOW_DATA_PROFILE_CHANGE" in source
+    assert "scripts/download_training_data.py --profile $DATA_PROFILE" not in source
+    assert "PIP_DISABLE_PIP_VERSION_CHECK" in source
+    drive_pip_cache = "/content" + "/drive/MyDrive/AnRa/cache/pip"
+    assert drive_pip_cache not in source
+    final_cell = "".join(notebook["cells"][-1].get("source", []))
+    assert "proof = subprocess.run" in final_cell
+    assert "proof.returncode != 0" in final_cell
+    assert "backend will now verify core tensors directly" in final_cell
+
+
+def test_colab_bootstrap_keeps_existing_cuda_torch() -> None:
+    source = (ROOT / "scripts" / "colab_bootstrap.py").read_text(encoding="utf-8")
+
+    assert '"--no-deps", "-e", str(repo)' in source
+    assert 'f"{repo}[evidence]"' not in source
+    assert "full preflight skipped" in source
+    assert "configure_local_pip_cache" in source
+    assert '"/content/.cache/pip"' in source
+    assert '"git", "-C", str(target), "pull", "--ff-only", "origin", "main"' in source
+    assert "if args.install_thirdeye:" in source
+    assert "if args.install or args.install_thirdeye:" not in source
+
+
+def test_colab_bootstrap_installs_backend_requirements_for_one_cell_ui() -> None:
+    required_modules = {
+        "aiosqlite",
+        "cryptography",
+        "fastapi",
+        "git",
+        "httpx",
+        "networkx",
+        "pydantic",
+        "uvicorn",
+    }
+
+    assert required_modules <= RUNTIME_REQUIREMENTS.keys()
+
+
+def test_colab_bootstrap_overrides_a_drive_pip_cache(monkeypatch, tmp_path: Path) -> None:
+    local_cache = tmp_path / "local-pip-cache"
+    monkeypatch.setenv("ANRA_PIP_CACHE", str(local_cache))
+    drive_pip_cache = "/content" + "/drive/MyDrive/AnRa/cache/pip"
+    monkeypatch.setenv("PIP_CACHE_DIR", drive_pip_cache)
+
+    configured = configure_local_pip_cache()
+
+    assert configured == local_cache
+    assert configured.is_dir()
+    assert os.environ["PIP_CACHE_DIR"] == str(local_cache)
+
+
+def test_frontier_trainer_has_no_legacy_brain_autosave() -> None:
+    source = (ROOT / "scripts" / "build_brain.py").read_text(encoding="utf-8")
+
+    assert 'sync_to_drive("brain")' not in source
+    assert "sync_v2_artifacts" not in source
+    assert "DRIVE_SESSION_MANAGER" not in source
+    assert "compact evaluation failed after checkpoint save" in source

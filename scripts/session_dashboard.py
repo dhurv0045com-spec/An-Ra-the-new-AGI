@@ -1,16 +1,17 @@
 from __future__ import annotations
 
+import json
 import platform
 import time
 from pathlib import Path
-import json
 
 try:
     import torch
 except ModuleNotFoundError:
     torch = None
 
-from anra.anra_paths import OUTPUT_V2_DIR, STATE_DIR, V3_TOKENIZER_FILE, get_dataset_file, get_v2_checkpoint
+from anra.anra_paths import OUTPUT_V2_DIR, STATE_DIR, get_dataset_file, get_v2_checkpoint
+from training.v2_runtime import active_tokenizer_path
 
 
 def _file_info(path: Path) -> dict[str, object]:
@@ -18,7 +19,9 @@ def _file_info(path: Path) -> dict[str, object]:
         "path": str(path),
         "exists": path.exists(),
         "size_bytes": path.stat().st_size if path.exists() else 0,
-        "modified_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(path.stat().st_mtime)) if path.exists() else None,
+        "modified_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(path.stat().st_mtime))
+        if path.exists()
+        else None,
     }
 
 
@@ -38,7 +41,7 @@ def build_session_report() -> dict[str, object]:
         "torch": torch.__version__ if torch is not None else "unavailable",
         "cuda_available": torch.cuda.is_available() if torch is not None else False,
         "dataset": _file_info(get_dataset_file()),
-        "tokenizer": _file_info(V3_TOKENIZER_FILE),
+        "tokenizer": _file_info(active_tokenizer_path()),
         "checkpoint": _file_info(get_v2_checkpoint("brain")),
         "state_dir": _file_info(STATE_DIR),
         "latest_metrics": metrics,
@@ -110,8 +113,7 @@ def print_anra_dashboard(
                     f"{counts.get('failed', 0)} failed"
                 )
                 in_progress = [
-                    item for item in goal_queue._items.values()
-                    if item.status == "in_progress"
+                    item for item in goal_queue._items.values() if item.status == "in_progress"
                 ]
                 if in_progress:
                     goal = in_progress[0]

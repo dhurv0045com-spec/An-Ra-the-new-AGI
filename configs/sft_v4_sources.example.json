@@ -1,0 +1,13 @@
+{
+  "schema": "anra-sft-source-registry/v1",
+  "sources": [
+    {
+      "source_id": "replace-with-reviewed-source",
+      "url": "https://example.invalid/reviewed-sft-source.jsonl",
+      "filename": "reviewed-sft-source.jsonl",
+      "sha256": "replace-with-the-64-character-sha256-of-the-exact-file",
+      "license": "replace-with-reviewed-license",
+      "category": "instruction_following"
+    }
+  ]
+}

@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 from agents.orchestrator import OrchestratorAgent
 from engine import telemetry
+from engine.feature_flags import enable_feature
 from engine.telemetry import TelemetryBus
 from goals.goal_queue import GoalQueue
 
@@ -43,31 +44,33 @@ def _make_queue(tmp_path: str):
 
 
 def test_orchestrator_dispatch_next_goal_completes_goal(tmp_path):
-    queue = GoalQueue(tmp_path / "goals.json")
-    queue.push("g1", "ship fix", priority=1)
-    agent = _Agent()
-    orchestrator = OrchestratorAgent(agent, agent, agent, agent, goal_queue=queue)
+    with enable_feature("agent_loop"):
+        queue = GoalQueue(tmp_path / "goals.json")
+        queue.push("g1", "ship fix", priority=1)
+        agent = _Agent()
+        orchestrator = OrchestratorAgent(agent, agent, agent, agent, goal_queue=queue)
 
-    result = asyncio.run(orchestrator.dispatch_next_goal())
+        result = asyncio.run(orchestrator.dispatch_next_goal())
 
-    assert result == {"ok": True, "text": "ship fix"}
-    assert queue._items["g1"].status == "done"
+        assert result == {"ok": True, "text": "ship fix"}
+        assert queue._items["g1"].status == "done"
 
 
 def test_orchestrator_marks_goal_failed_on_error(tmp_path):
-    queue = GoalQueue(tmp_path / "goals.json")
-    queue.push("g1", "ship fix", priority=1)
-    failing = _FailingAgent()
-    agent = _Agent()
-    orchestrator = OrchestratorAgent(failing, agent, agent, agent, goal_queue=queue)
+    with enable_feature("agent_loop"):
+        queue = GoalQueue(tmp_path / "goals.json")
+        queue.push("g1", "ship fix", priority=1)
+        failing = _FailingAgent()
+        agent = _Agent()
+        orchestrator = OrchestratorAgent(failing, agent, agent, agent, goal_queue=queue)
 
-    try:
-        asyncio.run(orchestrator.dispatch_next_goal())
-    except RuntimeError:
-        pass
+        try:
+            asyncio.run(orchestrator.dispatch_next_goal())
+        except RuntimeError:
+            pass
 
-    assert queue._items["g1"].status == "queued"
-    assert queue._items["g1"].last_error == "boom"
+        assert queue._items["g1"].status == "queued"
+        assert queue._items["g1"].last_error == "boom"
 
 
 def test_run_session_exists():
@@ -85,35 +88,38 @@ def test_run_session_no_queue():
 
 
 def test_run_session_completes_goals():
-    with tempfile.TemporaryDirectory() as td:
-        queue = _make_queue(td)
-        agent = _OkAgent()
-        orch = OrchestratorAgent(agent, agent, agent, agent, goal_queue=queue)
-        result = asyncio.run(orch.run_session(max_goals=2))
-        assert result["goals_attempted"] == 2
-        assert result["goals_completed"] == 2
-        assert result["goals_failed"] == 0
-        assert "queue_status" in result
+    with enable_feature("agent_loop"):
+        with tempfile.TemporaryDirectory() as td:
+            queue = _make_queue(td)
+            agent = _OkAgent()
+            orch = OrchestratorAgent(agent, agent, agent, agent, goal_queue=queue)
+            result = asyncio.run(orch.run_session(max_goals=2))
+            assert result["goals_attempted"] == 2
+            assert result["goals_completed"] == 2
+            assert result["goals_failed"] == 0
+            assert "queue_status" in result
 
 
 def test_run_session_handles_failures():
-    with tempfile.TemporaryDirectory() as td:
-        queue = _make_queue(td)
-        agent = _SoftFailAgent()
-        orch = OrchestratorAgent(agent, agent, agent, agent, goal_queue=queue)
-        result = asyncio.run(orch.run_session(max_goals=1))
-        assert result["goals_attempted"] == 1
-        assert result["goals_failed"] == 1 or result["goals_completed"] == 0
+    with enable_feature("agent_loop"):
+        with tempfile.TemporaryDirectory() as td:
+            queue = _make_queue(td)
+            agent = _SoftFailAgent()
+            orch = OrchestratorAgent(agent, agent, agent, agent, goal_queue=queue)
+            result = asyncio.run(orch.run_session(max_goals=1))
+            assert result["goals_attempted"] == 1
+            assert result["goals_failed"] == 1 or result["goals_completed"] == 0
 
 
 def test_run_session_generates_successor():
-    with tempfile.TemporaryDirectory() as td:
-        queue = _make_queue(td)
-        initial_count = len(queue._items)
-        agent = _OkAgent()
-        orch = OrchestratorAgent(agent, agent, agent, agent, goal_queue=queue)
-        asyncio.run(orch.run_session(max_goals=1))
-        assert len(queue._items) >= initial_count
+    with enable_feature("agent_loop"):
+        with tempfile.TemporaryDirectory() as td:
+            queue = _make_queue(td)
+            initial_count = len(queue._items)
+            agent = _OkAgent()
+            orch = OrchestratorAgent(agent, agent, agent, agent, goal_queue=queue)
+            asyncio.run(orch.run_session(max_goals=1))
+            assert len(queue._items) >= initial_count
 
 
 def test_goal_to_task_routing():
