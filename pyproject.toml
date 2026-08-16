@@ -15,6 +15,9 @@ anra-core = "anra_core.__main__:main"
 [tool.setuptools.packages.find]
 include = ["anra_core*"]
 
+[tool.setuptools.package-data]
+anra_core = ["assets/*.json"]
+
 [tool.ruff]
 target-version = "py310"
 line-length = 100

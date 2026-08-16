@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import re
 from pathlib import Path
 
@@ -44,6 +45,46 @@ class V4Tokenizer:
         meta = json.loads(path.with_suffix(path.suffix + ".meta.json").read_text(encoding="utf-8"))
         return cls(payload, meta)
 
+    def identity(self, *, probe_count: int = 500) -> dict[str, object]:
+        vocabulary_sha256 = hashlib.sha256(
+            json.dumps(self.token_to_id, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        ).hexdigest()
+        probes: list[list[int]] = []
+        for index in range(probe_count):
+            text = (
+                f"H: An-Ra tokenizer probe {index:03d}: "
+                f"code_{index % 17} = ({index % 97} + {index % 31}); "
+                f"logic, math, science, memory.\nANRA: verified {index % 11}."
+            )
+            encoded = self.encode(text)
+            if self.encode(self.decode(encoded)) != encoded:
+                raise ValueError(f"tokenizer probe {index} is not ID-stable")
+            probes.append(encoded)
+        probe_sha256 = hashlib.sha256(
+            json.dumps(probes, separators=(",", ":")).encode("utf-8")
+        ).hexdigest()
+        return {
+            "schema_version": 4,
+            "vocab_size": len(self.id_to_token),
+            "special_token_ids": {
+                token: self.token_to_id[token] for token in self.special_tokens
+            },
+            "vocabulary_sha256": vocabulary_sha256,
+            "probe_count": probe_count,
+            "probe_sha256": probe_sha256,
+        }
+
+    def assert_checkpoint_contract(self, contract: object) -> None:
+        if not isinstance(contract, dict) or not contract.get("available"):
+            raise ValueError("checkpoint does not contain a usable tokenizer contract")
+        identity = self.identity(probe_count=int(contract.get("probe_count", 500)))
+        for key in (
+            "schema_version", "vocab_size", "special_token_ids",
+            "vocabulary_sha256", "probe_count", "probe_sha256",
+        ):
+            if contract.get(key) != identity[key]:
+                raise ValueError(f"checkpoint/tokenizer identity mismatch: {key}")
+
     def _pieces(self, text: str) -> list[str]:
         result: list[str] = []
         for part in self._special_pattern.split(text):
@@ -79,6 +120,11 @@ class V4Tokenizer:
         return output
 
     def decode(self, ids: list[int]) -> str:
+        reverse_special = {
+            self.token_to_id[token]: token for token in self.special_tokens
+        }
+        if ids and all(int(token_id) in reverse_special for token_id in ids):
+            return "".join(reverse_special[int(token_id)] for token_id in ids)
         pieces: list[str] = []
         pending = bytearray()
         for token_id in ids:

@@ -3,10 +3,11 @@ from pathlib import Path
 import pytest
 
 from anra_core.config import CANONICAL_CONFIG
+from anra_core.brain import ThoughtPolicy
 from anra_core.tokenizer import V4Tokenizer
 
 
-TOKENIZER = Path(__file__).parents[1] / "tokenizer" / "tokenizer_v4_32k.json"
+TOKENIZER = Path(__file__).parents[1] / "anra_core" / "assets" / "tokenizer_v4_32k.json"
 
 
 def test_canonical_configuration() -> None:
@@ -15,6 +16,14 @@ def test_canonical_configuration() -> None:
     assert (config.vocab_size, config.d_model, config.n_layers) == (32_768, 896, 18)
     assert (config.n_heads, config.n_kv_heads, config.head_dim) == (14, 2, 64)
     assert config.block_size == 2_048
+
+
+def test_thought_policy_is_bounded() -> None:
+    assert ThoughtPolicy(mode="deliberate", candidates=4).candidates == 4
+    with pytest.raises(ValueError, match="between 1 and 4"):
+        ThoughtPolicy(mode="deliberate", candidates=5)
+    with pytest.raises(ValueError, match="exactly one"):
+        ThoughtPolicy(mode="direct", candidates=2)
 
 
 def test_tokenizer_contract_and_roundtrip() -> None:

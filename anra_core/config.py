@@ -20,9 +20,14 @@ class CoreConfig:
     rms_norm_eps: float = 1e-5
     dropout: float = 0.0
     rope_base: float = 10_000.0
+    base_seq_len: int = 2_048
+    target_seq_len: int = 2_048
     sliding_window: int = 1_024
     full_attention_every: int = 4
     qk_norm: bool = True
+    use_mtp: bool = False
+    use_moe: bool = False
+    initialization_scheme: str = "depth_scaled_residual_v1"
 
     @property
     def dense_parameter_count(self) -> int:

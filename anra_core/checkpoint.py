@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import re
 from typing import Any
 
 import torch
@@ -33,6 +34,34 @@ def _normalize_keys(state: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
     return state
 
 
+def _validate_serialized_aliases(state: dict[str, torch.Tensor]) -> set[str]:
+    """Prove historical module aliases carry the same dense tensors they name."""
+    aliases: dict[str, str] = {
+        "token_embedding.weight": "token_embedding_table.weight",
+        "lm_head.weight": "token_embedding_table.weight",
+    }
+    pattern = re.compile(r"^blocks\.(\d+)\._normed_mlp\.(0|1)(\..+)$")
+    for key in state:
+        match = pattern.fullmatch(key)
+        if not match:
+            continue
+        layer, member, suffix = match.groups()
+        target = (
+            f"blocks.{layer}.norm_2{suffix}"
+            if member == "0"
+            else f"blocks.{layer}.mlp{suffix}"
+        )
+        aliases[key] = target
+    accepted: set[str] = set()
+    for alias, target in aliases.items():
+        if alias not in state:
+            continue
+        if target not in state or not torch.equal(state[alias], state[target]):
+            raise ValueError(f"serialized weight alias drift: {alias} != {target}")
+        accepted.add(alias)
+    return accepted
+
+
 def _validate_config(payload: dict[str, Any], config: CoreConfig) -> None:
     saved = payload.get("model_config") or payload.get("config")
     if not isinstance(saved, dict):
@@ -40,6 +69,7 @@ def _validate_config(payload: dict[str, Any], config: CoreConfig) -> None:
     aliases = {
         "architecture_version": ("architecture_version",),
         "vocab_size": ("vocab_size",),
+        "pad_token_id": ("pad_token_id",),
         "d_model": ("d_model", "n_embd", "width"),
         "n_layers": ("n_layers", "n_layer", "layers"),
         "n_heads": ("n_heads", "n_head", "query_heads"),
@@ -47,6 +77,17 @@ def _validate_config(payload: dict[str, Any], config: CoreConfig) -> None:
         "head_dim": ("head_dim",),
         "d_ff": ("d_ff", "ffn_width"),
         "block_size": ("block_size", "context_length"),
+        "rms_norm_eps": ("rms_norm_eps",),
+        "dropout": ("dropout",),
+        "rope_base": ("rope_base",),
+        "base_seq_len": ("base_seq_len",),
+        "target_seq_len": ("target_seq_len",),
+        "qk_norm": ("use_qk_norm", "qk_norm"),
+        "sliding_window": ("sliding_window",),
+        "full_attention_every": ("full_attention_every",),
+        "use_mtp": ("use_mtp",),
+        "use_moe": ("use_moe",),
+        "initialization_scheme": ("initialization_scheme",),
     }
     for field, keys in aliases.items():
         present = next((saved[key] for key in keys if key in saved), None)
@@ -65,6 +106,7 @@ def load_core_checkpoint(
     payload = torch.load(path, map_location="cpu", weights_only=True)
     state, metadata = _unwrap(payload)
     state = _normalize_keys(state)
+    accepted_aliases = _validate_serialized_aliases(state)
     _validate_config(metadata, config)
 
     model = AnRaCore(config)
@@ -85,7 +127,7 @@ def load_core_checkpoint(
     unknown = sorted(
         key for key in state
         if key not in expected
-        and key != "token_embedding.weight"
+        and key not in accepted_aliases
         and not key.startswith(_IGNORED_PREFIXES)
     )
     if unknown:
