@@ -1,3 +1,0 @@
-# All dependencies are declared and pinned in pyproject.toml
-# Install with: pip install -e ".[dev]"
-# Do not add packages here. This file is intentionally empty.

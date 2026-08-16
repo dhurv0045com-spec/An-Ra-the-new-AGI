@@ -1,164 +1,20 @@
 [build-system]
-requires = ["setuptools>=80.9.0", "wheel>=0.45.1"]
+requires = ["setuptools>=69"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "anra"
-version = "0.3.0"
-description = "AN-RA sovereign AGI research platform"
-readme = "README.md"
+name = "anra-core"
+version = "1.0.0"
+description = "The inference-only dense core of An-Ra V4"
 requires-python = ">=3.10"
-license = { text = "MIT" }
-authors = [{ name = "AN-RA Research" }]
-dependencies = [
-  "aiosqlite>=0.19.0",
-  "cryptography>=42.0.0",
-  "fastapi>=0.110.0",
-  "gitpython>=3.1.40",
-  "httpx>=0.27.0",
-  "networkx>=3.2.0",
-  "numpy>=1.26.0",
-  "psutil>=5.9.0",
-  "pydantic>=2.5.0",
-  "PyYAML>=6.0.0",
-  "scipy>=1.12.0",
-  "sympy>=1.12.0",
-  "tokenizers>=0.19.0",
-  "torch>=2.2.0",
-  "tqdm>=4.66.0",
-  "uvicorn>=0.27.0",
-]
-
-[project.optional-dependencies]
-data = [
-  "datasets>=5.0.0",
-]
-ml = [
-  "accelerate>=1.0.0",
-  "faiss-cpu>=1.7.4",
-  "sentence-transformers>=2.6.0",
-  "transformers>=4.40.0",
-]
-evidence = [
-  "thirdeye-evidence @ git+https://github.com/dhurv0045com-spec/thirdeye.git@e691a79",
-]
-dev = [
-  "mypy>=1.8.0",
-  "pytest>=8.0.0",
-  "pytest-asyncio>=0.23.0",
-  "ruff>=0.3.0",
-  "types-PyYAML>=6.0.0",
-  "tomli>=2.0.0; python_version < '3.11'",
-]
-observability = [
-  "tensorboard>=2.14.0",
-  "wandb>=0.16.0",
-]
+dependencies = ["torch>=2.2"]
 
 [project.scripts]
-anra = "anra.__main__:main"
+anra-core = "anra_core.__main__:main"
 
 [tool.setuptools.packages.find]
-include = [
-  "anra*",
-  "cognition*",
-  "data*",
-  "engine*",
-  "evaluation*",
-  "runtime*",
-  "training*",
-  "retrieval*",
-  "verification*",
-]
-
-[tool.pytest.ini_options]
-minversion = "9.0"
-testpaths = ["tests"]
-addopts = "-ra"
-pythonpath = ["."]
-markers = [
-  "gpu: tests that require a CUDA-capable GPU",
-]
-filterwarnings = ["error::DeprecationWarning"]
-
-[tool.mypy]
-python_version = "3.11"
-strict = true
-plugins = ["pydantic.mypy"]
-warn_unreachable = true
-show_error_codes = true
-pretty = true
-packages = ["anra"]
-
-[[tool.mypy.overrides]]
-module = [
-  "anra_brain",
-  "app",
-  "generate",
-  "identity.*",
-  "memory.*",
-  "tokenizer.*",
-  "training.*",
-]
-follow_imports = "skip"
-
-[[tool.mypy.overrides]]
-module = [
-  "anra.identity.*",
-  "anra.memory.*",
-  "anra.serving.schemas",
-]
-disable_error_code = ["misc"]
+include = ["anra_core*"]
 
 [tool.ruff]
-target-version = "py311"
+target-version = "py310"
 line-length = 100
-src = ["anra", "tests"]
-
-[tool.ruff.lint]
-select = [
-  "A",
-  "ANN",
-  "ARG",
-  "B",
-  "C4",
-  "E",
-  "F",
-  "I",
-  "N",
-  "PT",
-  "RET",
-  "SIM",
-  "UP",
-  "W",
-]
-ignore = [
-  "A003",
-  "ANN401",
-]
-
-[tool.ruff.lint.per-file-ignores]
-"anra/anra_paths.py" = ["E501", "E702", "SIM108"]
-"tests/**/*.py" = [
-  "ANN001",
-  "ANN201",
-  "ANN202",
-  "ANN204",
-  "ANN002",
-  "ANN003",
-  "ARG001",
-  "ARG002",
-  "ARG005",
-  "B905",
-  "E402",
-  "E501",
-  "F401",
-  "F841",
-  "I001",
-  "N802",
-  "N806",
-  "PT018",
-  "S101",
-  "SIM103",
-  "SIM105",
-]
