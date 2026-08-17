@@ -1,0 +1,9 @@
+{"elapsed_ms": 3.67049999840674, "method": "GET", "path": "/cognition/studio", "request_id": "0b3476e0-1a3c-4611-97d6-86f3c60a5e17", "role": "owner", "status_code": 200, "timestamp": 1786830320.485004}
+{"elapsed_ms": 7.313099999009864, "method": "POST", "path": "/api/cognition/concept-graph", "request_id": "e6a11e22-96dd-45bb-b7f5-927dbaca3419", "role": "owner", "status_code": 200, "timestamp": 1786830320.5091834}
+{"elapsed_ms": 2.504600000975188, "method": "POST", "path": "/api/cognition/boundary-route", "request_id": "8beef448-7c56-442f-858b-d599321a2f82", "role": "owner", "status_code": 200, "timestamp": 1786830320.524474}
+{"elapsed_ms": 5.02039999992121, "method": "GET", "path": "/cognition/studio", "request_id": "cc2ced17-8bb3-4d4a-b402-cc5fa337bcd3", "role": "owner", "status_code": 200, "timestamp": 1786830353.901047}
+{"elapsed_ms": 2.2385000011126976, "method": "POST", "path": "/api/cognition/concept-graph", "request_id": "ca9e059c-0489-4f3d-b4ae-3cd5a5864db8", "role": "owner", "status_code": 200, "timestamp": 1786830353.917228}
+{"elapsed_ms": 2.1425000013550743, "method": "POST", "path": "/api/cognition/boundary-route", "request_id": "68bd7e7a-fca7-494c-8f9d-6296b1c719fb", "role": "owner", "status_code": 200, "timestamp": 1786830353.958155}
+{"elapsed_ms": 5.178399998840177, "method": "GET", "path": "/cognition/studio", "request_id": "1c2dc18f-5189-4956-ac6d-1c0ab8ef1733", "role": "owner", "status_code": 200, "timestamp": 1786832489.6194744}
+{"elapsed_ms": 7.3745999980019405, "method": "POST", "path": "/api/cognition/concept-graph", "request_id": "6abb2a09-7e7c-438b-a49a-9b4feb0128cf", "role": "owner", "status_code": 200, "timestamp": 1786832489.6419406}
+{"elapsed_ms": 3.481899999314919, "method": "POST", "path": "/api/cognition/boundary-route", "request_id": "f865940f-f045-4b92-bc35-56eb464878f5", "role": "owner", "status_code": 200, "timestamp": 1786832489.6573398}
