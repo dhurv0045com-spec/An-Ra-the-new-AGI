@@ -1,14 +1,22 @@
-"""Explicit, isolated execution state for incremental autoregressive decode."""
+"""Explicit, isolated execution state for incremental autoregressive decode.
+
+Supports multi-batch execution, rollback truncation, zero-copy cloning,
+safe byte serialization, and exact memory byte tracking.
+"""
 
 from __future__ import annotations
 
+import io
+import json
 import uuid
 from dataclasses import dataclass, field
 from typing import Any
 
 import torch
 
-from .errors import ContextOverflowError, StateReleasedError
+from .errors import ContextOverflowError, StateIncompatibleError, StateReleasedError
+
+STATE_MAGIC_HEADER = b"ANRA_STATE_v1\x00"
 
 
 @dataclass
@@ -23,6 +31,7 @@ class CoreState:
     architecture_version: str
     checkpoint_id: str
     execution_profile_id: str
+    batch_size: int = 1
     capacity: int = 2048
     current_length: int = 0
     state_id: str = field(default_factory=lambda: str(uuid.uuid4()))
@@ -66,11 +75,37 @@ class CoreState:
         self.assert_active()
         self.current_length += num_tokens
 
+    def truncate(self, target_length: int) -> None:
+        """Roll back KV cache history to a prefix target length."""
+        self.assert_active()
+        if target_length < 0 or target_length > self.current_length:
+            raise ValueError(
+                f"target_length ({target_length}) must be in [0, {self.current_length}]"
+            )
+        if target_length == 0:
+            self.reset()
+            return
+        for idx, item in enumerate(self._kv_cache):
+            if item is not None:
+                k, v = item
+                self._kv_cache[idx] = (k[:, :, :target_length, :], v[:, :, :target_length, :])
+        self.current_length = target_length
+
     def reset(self) -> None:
         """Reset state to position 0 and clear internal buffers."""
         self.assert_active()
         self._kv_cache = [None] * len(self._kv_cache)
         self.current_length = 0
+
+    def memory_bytes(self) -> int:
+        """Calculate the total allocated byte size of the internal KV cache tensors."""
+        self.assert_active()
+        total = 0
+        for item in self._kv_cache:
+            if item is not None:
+                k, v = item
+                total += k.element_size() * k.numel() + v.element_size() * v.numel()
+        return total
 
     def fork(self) -> CoreState:
         """Create an isolated, independent deep copy of this execution state."""
@@ -86,9 +121,77 @@ class CoreState:
             architecture_version=self.architecture_version,
             checkpoint_id=self.checkpoint_id,
             execution_profile_id=self.execution_profile_id,
+            batch_size=self.batch_size,
             capacity=self.capacity,
             current_length=self.current_length,
             _kv_cache=cloned_cache,
+        )
+
+    def serialize(self) -> bytes:
+        """Serialize state metadata and tensor buffers safely into a byte stream."""
+        self.assert_active()
+        meta = {
+            "state_id": self.state_id,
+            "architecture_version": self.architecture_version,
+            "checkpoint_id": self.checkpoint_id,
+            "execution_profile_id": self.execution_profile_id,
+            "batch_size": self.batch_size,
+            "capacity": self.capacity,
+            "current_length": self.current_length,
+            "layers": len(self._kv_cache),
+        }
+        meta_bytes = json.dumps(meta, sort_keys=True).encode("utf-8")
+        tensor_dict: dict[str, torch.Tensor] = {}
+        for idx, item in enumerate(self._kv_cache):
+            if item is not None:
+                k, v = item
+                tensor_dict[f"k_{idx}"] = k.cpu()
+                tensor_dict[f"v_{idx}"] = v.cpu()
+
+        buffer = io.BytesIO()
+        buffer.write(STATE_MAGIC_HEADER)
+        buffer.write(len(meta_bytes).to_bytes(4, byteorder="big"))
+        buffer.write(meta_bytes)
+        torch.save(tensor_dict, buffer)
+        return buffer.getvalue()
+
+    @classmethod
+    def deserialize(cls, data: bytes, *, device: str = "cpu") -> CoreState:
+        """Safely reconstruct CoreState from serialized bytes."""
+        if not data.startswith(STATE_MAGIC_HEADER):
+            raise StateIncompatibleError(
+                "Invalid state serialization magic header",
+                details={"header": data[:16]},
+            )
+        offset = len(STATE_MAGIC_HEADER)
+        meta_len = int.from_bytes(data[offset : offset + 4], byteorder="big")
+        offset += 4
+        meta_bytes = data[offset : offset + meta_len]
+        offset += meta_len
+        meta = json.loads(meta_bytes.decode("utf-8"))
+
+        tensor_stream = io.BytesIO(data[offset:])
+        tensor_dict = torch.load(tensor_stream, map_location=device, weights_only=True)
+
+        num_layers = int(meta.get("layers", 18))
+        reconstructed_cache: list[tuple[torch.Tensor, torch.Tensor] | None] = []
+        for idx in range(num_layers):
+            k_key, v_key = f"k_{idx}", f"v_{idx}"
+            if k_key in tensor_dict and v_key in tensor_dict:
+                reconstructed_cache.append((tensor_dict[k_key], tensor_dict[v_key]))
+            else:
+                reconstructed_cache.append(None)
+
+        return cls(
+            architecture_version=str(meta["architecture_version"]),
+            checkpoint_id=str(meta["checkpoint_id"]),
+            execution_profile_id=str(meta["execution_profile_id"]),
+            batch_size=int(meta.get("batch_size", 1)),
+            capacity=int(meta["capacity"]),
+            current_length=int(meta["current_length"]),
+            state_id=str(meta["state_id"]),
+            is_released=False,
+            _kv_cache=reconstructed_cache,
         )
 
     def release(self) -> None:
@@ -102,7 +205,9 @@ class CoreState:
             "architecture_version": self.architecture_version,
             "checkpoint_id": self.checkpoint_id,
             "execution_profile_id": self.execution_profile_id,
+            "batch_size": self.batch_size,
             "capacity": self.capacity,
             "current_length": self.current_length,
+            "allocated_memory_bytes": self.memory_bytes() if not self.is_released else 0,
             "is_released": self.is_released,
         }

@@ -1,11 +1,13 @@
-"""Core Executor: Device placement, precision, lifecycle, and execution execution profiles."""
+"""Core Executor: Device placement, precision, lifecycle, and execution profiles."""
 
 from __future__ import annotations
 
+import math
 from pathlib import Path
 from typing import Any, Literal
 
 import torch
+import torch.nn.functional as F
 
 from .checkpoint import load_core_checkpoint
 from .config import CANONICAL_CONFIG, CoreConfig
@@ -45,6 +47,7 @@ class CoreExecutor:
         device: str = "cpu",
         dtype: str = "float32",
         profile_category: Literal["exact", "optimized", "approximate"] = "exact",
+        enable_telemetry: bool = False,
     ) -> None:
         self.model = model
         self.tokenizer = tokenizer
@@ -59,6 +62,7 @@ class CoreExecutor:
         self.device = torch.device(device)
         self.dtype_str = dtype
         self.torch_dtype = getattr(torch, dtype, torch.float32)
+        self.enable_telemetry = enable_telemetry
 
         self.model.to(device=self.device, dtype=self.torch_dtype)
         # Ensure tied weights pointer is intact after device transfer
@@ -73,7 +77,15 @@ class CoreExecutor:
             sliding_window_enabled=True,
         )
         self.runtime_identity = RuntimeIdentity()
-        self.capabilities = CapabilitySet()
+        self.capabilities = CapabilitySet(
+            supports_full_forward=True,
+            supports_incremental_decode=True,
+            supports_state_fork=True,
+            supports_state_reset=True,
+            supports_state_serialization=True,
+            supports_quantization=False,
+            supports_multi_device_sharding=False,
+        )
 
     @classmethod
     def from_checkpoint(
@@ -84,6 +96,7 @@ class CoreExecutor:
         config: CoreConfig = CANONICAL_CONFIG,
         device: str = "cpu",
         dtype: str = "float32",
+        enable_telemetry: bool = False,
     ) -> CoreExecutor:
         model, metadata, ckpt_identity = load_core_checkpoint(checkpoint_path, config=config)
         tokenizer = None
@@ -98,6 +111,7 @@ class CoreExecutor:
             checkpoint_identity=ckpt_identity,
             device=device,
             dtype=dtype,
+            enable_telemetry=enable_telemetry,
         )
 
     def architecture_identity(self) -> ArchitectureIdentity:
@@ -131,12 +145,18 @@ class CoreExecutor:
             probe_sha256=str(ident["probe_sha256"]),
         )
 
-    def create_state(self, *, capacity: int | None = None) -> CoreState:
+    def create_state(
+        self,
+        *,
+        batch_size: int = 1,
+        capacity: int | None = None,
+    ) -> CoreState:
         cap = capacity if capacity is not None else self.model.config.block_size
         return CoreState(
             architecture_version=self.model.config.architecture_version,
             checkpoint_id=self.checkpoint_identity.checkpoint_sha256 or "unpinned-weights",
             execution_profile_id=self.execution_profile.profile_id,
+            batch_size=batch_size,
             capacity=cap,
             current_length=0,
             _kv_cache=[None] * self.model.config.n_layers,
@@ -149,6 +169,23 @@ class CoreExecutor:
                 f"State architecture {state.architecture_version} does not match model {self.model.config.architecture_version}",
                 details={"state_arch": state.architecture_version, "model_arch": self.model.config.architecture_version},
             )
+
+    def _compute_telemetry(self, logits: torch.Tensor) -> dict[str, float]:
+        with torch.no_grad():
+            last_logits = logits[:, -1, :].float()
+            probs = F.softmax(last_logits, dim=-1)
+            log_probs = F.log_softmax(last_logits, dim=-1)
+            entropy = -(probs * log_probs).sum(dim=-1).mean().item()
+            sorted_logits, _ = last_logits.sort(dim=-1, descending=True)
+            top1 = sorted_logits[:, 0].mean().item()
+            top2 = sorted_logits[:, 1].mean().item()
+            margin = top1 - top2
+            return {
+                "logit_entropy": float(entropy),
+                "peak_logit": float(top1),
+                "top2_margin": float(margin),
+                "min_logit": float(sorted_logits[:, -1].mean().item()),
+            }
 
     @torch.inference_mode()
     def forward(
@@ -164,14 +201,25 @@ class CoreExecutor:
         logits = self.model(ids, state=state)
         current_len = state.current_length if state is not None else ids.shape[1]
 
+        metadata: dict[str, Any] = {}
+        if self.enable_telemetry:
+            metadata["telemetry"] = self._compute_telemetry(logits)
+
         return PredictionResult(
             logits=logits,
             sequence_length=current_len,
             execution_profile_id=self.execution_profile.profile_id,
+            metadata=metadata,
         )
 
     @torch.inference_mode()
-    def prefill(self, token_ids: torch.Tensor, state: CoreState) -> PredictionResult:
+    def prefill(
+        self,
+        token_ids: torch.Tensor,
+        state: CoreState,
+        *,
+        chunk_size: int | None = None,
+    ) -> PredictionResult:
         """Process an initial prompt into the state cache and return the final logits."""
         self._validate_state_compatibility(state)
         if state.current_length > 0:
@@ -179,7 +227,18 @@ class CoreExecutor:
                 "Cannot prefill into a state that already contains tokens. Call reset() first.",
                 details={"current_length": state.current_length},
             )
-        return self.forward(token_ids, state=state)
+        ids = token_ids.to(device=self.device, dtype=torch.long)
+        total_len = ids.shape[1]
+
+        if chunk_size is None or chunk_size >= total_len:
+            return self.forward(ids, state=state)
+
+        # Process in sequential chunks
+        res = None
+        for start in range(0, total_len, chunk_size):
+            chunk = ids[:, start : start + chunk_size]
+            res = self.forward(chunk, state=state)
+        return res  # type: ignore[return-value]
 
     @torch.inference_mode()
     def forward_step(self, token_id: int | torch.Tensor, state: CoreState) -> PredictionResult:
@@ -188,7 +247,7 @@ class CoreExecutor:
         if isinstance(token_id, int):
             ids = torch.tensor([[token_id]], device=self.device, dtype=torch.long)
         elif isinstance(token_id, torch.Tensor):
-            ids = token_id if token_id.ndim == 2 else token_id.view(1, -1)
+            ids = token_id if token_id.ndim == 2 else token_id.view(-1, 1)
             ids = ids.to(device=self.device, dtype=torch.long)
         else:
             raise ValueError("token_id must be an int or a 1D/2D Tensor")
@@ -198,6 +257,10 @@ class CoreExecutor:
     def reset_state(self, state: CoreState) -> None:
         self._validate_state_compatibility(state)
         state.reset()
+
+    def rollback_state(self, state: CoreState, target_length: int) -> None:
+        self._validate_state_compatibility(state)
+        state.truncate(target_length)
 
     def fork_state(self, state: CoreState) -> CoreState:
         self._validate_state_compatibility(state)

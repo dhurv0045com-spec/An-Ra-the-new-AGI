@@ -112,8 +112,8 @@ class GroupedQueryAttention(nn.Module):
             attended = F.scaled_dot_product_attention(
                 q, k_attn, v_attn, attn_mask=None, dropout_p=0.0, is_causal=False, enable_gqa=True
             )
-        else:
-            # Full sequence or chunked prefill
+        elif kv_cache is None:
+            # Full uncached forward pass (L_q == L_k == length)
             mask = None
             is_causal = True
             if not self.full_attention and length > self.config.sliding_window:
@@ -125,6 +125,17 @@ class GroupedQueryAttention(nn.Module):
                 is_causal = False
             attended = F.scaled_dot_product_attention(
                 q, k, v, attn_mask=mask, dropout_p=0.0, is_causal=is_causal, enable_gqa=True
+            )
+        else:
+            # Chunked prefill with prior KV cache (L_q = length, L_k = total_len)
+            q_pos = torch.arange(start_pos, start_pos + length, device=x.device)[:, None]
+            k_pos = torch.arange(0, total_len, device=x.device)[None, :]
+            mask = q_pos >= k_pos
+            if not self.full_attention:
+                mask = mask & (k_pos > q_pos - self.config.sliding_window)
+            mask = mask[None, None, :, :]
+            attended = F.scaled_dot_product_attention(
+                q, k, v, attn_mask=mask, dropout_p=0.0, is_causal=False, enable_gqa=True
             )
 
         attended = attended.transpose(1, 2).contiguous().view(batch, length, -1)
