@@ -1,3 +1,9 @@
+"""Reference Connector deliberation wrapper providing bounded thought policy.
+
+This layer sits outside the Core Executor, owning sampling, candidate generation,
+repetition penalties, and scoring heuristics.
+"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -7,6 +13,7 @@ import torch
 import torch.nn.functional as F
 
 from .checkpoint import load_core_checkpoint
+from .executor import CoreExecutor
 from .generate import generate
 from .model import AnRaCore
 from .tokenizer import V4Tokenizer
@@ -14,7 +21,7 @@ from .tokenizer import V4Tokenizer
 
 @dataclass(frozen=True, slots=True)
 class ThoughtPolicy:
-    """Bounded inference policy; it never grants tools or mutates the brain."""
+    """Bounded inference policy; it never grants tools or mutates the core model."""
 
     mode: str = "direct"
     max_new_tokens: int = 64
@@ -50,20 +57,21 @@ class Thought:
 
 
 class Brain:
-    """The standalone intelligence boundary of An-Ra.
-
-    It owns learned weights, tokenization, working context and bounded internal
-    selection. It deliberately has no senses, affect, memory store, tools or actions.
-    """
+    """Reference Connector interface providing bounded thought generation over Core."""
 
     def __init__(
         self,
-        model: AnRaCore,
+        model_or_executor: AnRaCore | CoreExecutor,
         tokenizer: V4Tokenizer,
         *,
         checkpoint_step: int | None = None,
     ) -> None:
-        self.model = model.eval()
+        if isinstance(model_or_executor, CoreExecutor):
+            self.executor = model_or_executor
+            self.model = self.executor.model
+        else:
+            self.model = model_or_executor.eval()
+            self.executor = CoreExecutor(self.model, tokenizer=tokenizer)
         self.tokenizer = tokenizer
         self.checkpoint_step = checkpoint_step
 
@@ -74,31 +82,26 @@ class Brain:
         tokenizer_path: str | Path,
         *,
         device: str = "cpu",
-    ) -> "Brain":
+    ) -> Brain:
         if device == "cuda" and not torch.cuda.is_available():
             raise RuntimeError("CUDA was requested but is unavailable")
-        model, metadata = load_core_checkpoint(checkpoint)
-        model.to(device).eval()
-        model.lm_head.weight = model.token_embedding_table.weight
-        if model.lm_head.weight.data_ptr() != model.token_embedding_table.weight.data_ptr():
-            raise RuntimeError("embedding/head weight tie was lost during device transfer")
+        model, metadata, identity = load_core_checkpoint(checkpoint)
         tokenizer = V4Tokenizer.load(tokenizer_path)
         tokenizer.assert_checkpoint_contract(metadata.get("tokenizer_contract"))
-        step = metadata.get("global_step", metadata.get("step"))
-        return cls(model, tokenizer, checkpoint_step=int(step) if step is not None else None)
+        executor = CoreExecutor(
+            model,
+            tokenizer=tokenizer,
+            checkpoint_identity=identity,
+            device=device,
+        )
+        return cls(executor, tokenizer, checkpoint_step=identity.global_step)
 
     def describe(self) -> dict[str, object]:
-        config = self.model.config
         return {
-            "layer": "core",
-            "role": "standalone intelligence",
-            "architecture": config.architecture_version,
-            "parameters": sum(parameter.numel() for parameter in self.model.parameters()),
-            "vocabulary": config.vocab_size,
-            "context": config.block_size,
+            "layer": "connector_reference",
+            "core": self.executor.describe(),
+            "role": "bounded thought policy",
             "checkpoint_step": self.checkpoint_step,
-            "connector_features": False,
-            "outer_features": False,
         }
 
     @torch.inference_mode()
@@ -110,7 +113,7 @@ class Brain:
         combined = (prefix + response_ids)[-self.model.config.block_size :]
         prefix_length = max(1, len(combined) - len(response_ids))
         token_ids = torch.tensor(
-            [combined], dtype=torch.long, device=next(self.model.parameters()).device
+            [combined], dtype=torch.long, device=self.executor.device
         )
         logits = self.model(token_ids[:, :-1])
         targets = token_ids[:, 1:]
@@ -121,7 +124,7 @@ class Brain:
         normalized = [token for token in response.lower().split() if token]
         if len(normalized) >= 6 and len(set(normalized)) / len(normalized) < 0.45:
             likelihood -= 2.0
-        if response.strip().endswith(("�", "<unk>")):
+        if response.strip().endswith(("", "<unk>")):
             likelihood -= 1.0
         return likelihood
 
@@ -135,7 +138,7 @@ class Brain:
         candidates: list[tuple[float, str]] = []
         for index in range(count):
             text = generate(
-                self.model,
+                self.executor,
                 self.tokenizer,
                 prompt,
                 max_new_tokens=policy.max_new_tokens,

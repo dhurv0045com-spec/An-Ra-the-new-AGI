@@ -1,29 +1,50 @@
 from __future__ import annotations
 
-from pathlib import Path
+import hashlib
 import re
+from pathlib import Path
 from typing import Any
 
 import torch
 
 from .config import CANONICAL_CONFIG, CoreConfig
+from .contracts import CheckpointIdentity
+from .errors import CheckpointIncompatibleError
 from .model import AnRaCore
 
 _IGNORED_PREFIXES = (
-    "esv_module.", "rim_modules.", "mod_routers.", "residual_depth_logits",
-    "dstp_temperature_log", "layer_temperature_bias_log",
+    "esv_module.",
+    "rim_modules.",
+    "mod_routers.",
+    "residual_depth_logits",
+    "dstp_temperature_log",
+    "layer_temperature_bias_log",
 )
+
+
+def _file_sha256(path: Path) -> str:
+    hasher = hashlib.sha256()
+    with path.open("rb") as f:
+        while chunk := f.read(1024 * 1024):
+            hasher.update(chunk)
+    return hasher.hexdigest()
 
 
 def _unwrap(payload: Any) -> tuple[dict[str, torch.Tensor], dict[str, Any]]:
     if not isinstance(payload, dict):
-        raise ValueError("checkpoint payload is not a mapping")
+        raise CheckpointIncompatibleError(
+            "checkpoint payload is not a mapping",
+            details={"type": type(payload).__name__},
+        )
     for key in ("model_state_dict", "model"):
         if isinstance(payload.get(key), dict):
             return dict(payload[key]), payload
     if payload and all(isinstance(value, torch.Tensor) for value in payload.values()):
         return dict(payload), {}
-    raise ValueError("checkpoint has no model_state_dict, model, or raw tensor state")
+    raise CheckpointIncompatibleError(
+        "checkpoint has no model_state_dict, model, or raw tensor state",
+        details={"keys": list(payload.keys()) if isinstance(payload, dict) else []},
+    )
 
 
 def _normalize_keys(state: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
@@ -57,7 +78,10 @@ def _validate_serialized_aliases(state: dict[str, torch.Tensor]) -> set[str]:
         if alias not in state:
             continue
         if target not in state or not torch.equal(state[alias], state[target]):
-            raise ValueError(f"serialized weight alias drift: {alias} != {target}")
+            raise CheckpointIncompatibleError(
+                f"serialized weight alias drift: {alias} != {target}",
+                details={"alias": alias, "target": target},
+            )
         accepted.add(alias)
     return accepted
 
@@ -92,17 +116,22 @@ def _validate_config(payload: dict[str, Any], config: CoreConfig) -> None:
     for field, keys in aliases.items():
         present = next((saved[key] for key in keys if key in saved), None)
         if present is not None and present != getattr(config, field):
-            raise ValueError(f"checkpoint architecture drift: {field}={present!r}")
+            raise CheckpointIncompatibleError(
+                f"checkpoint architecture drift: {field}={present!r}",
+                details={"field": field, "expected": getattr(config, field), "got": present},
+            )
 
 
 def load_core_checkpoint(
     checkpoint: str | Path,
     *,
     config: CoreConfig = CANONICAL_CONFIG,
-) -> tuple[AnRaCore, dict[str, Any]]:
+) -> tuple[AnRaCore, dict[str, Any], CheckpointIdentity]:
     path = Path(checkpoint).expanduser().resolve()
     if not path.is_file():
         raise FileNotFoundError(path)
+
+    file_hash = _file_sha256(path)
     payload = torch.load(path, map_location="cpu", weights_only=True)
     state, metadata = _unwrap(payload)
     state = _normalize_keys(state)
@@ -113,15 +142,18 @@ def load_core_checkpoint(
     expected = model.state_dict()
     missing = sorted(key for key in expected if key not in state and key != "lm_head.weight")
     if missing:
-        raise ValueError(f"checkpoint is missing {len(missing)} dense tensors; first={missing[0]}")
+        raise CheckpointIncompatibleError(
+            f"checkpoint is missing {len(missing)} dense tensors; first={missing[0]}",
+            details={"missing_count": len(missing), "first_missing": missing[0], "missing": missing},
+        )
     selected: dict[str, torch.Tensor] = {}
     for key, expected_tensor in expected.items():
         source_key = "token_embedding_table.weight" if key == "lm_head.weight" else key
         tensor = state[source_key]
         if tuple(tensor.shape) != tuple(expected_tensor.shape):
-            raise ValueError(
-                f"tensor shape mismatch for {source_key}: {tuple(tensor.shape)} != "
-                f"{tuple(expected_tensor.shape)}"
+            raise CheckpointIncompatibleError(
+                f"tensor shape mismatch for {source_key}: {tuple(tensor.shape)} != {tuple(expected_tensor.shape)}",
+                details={"tensor": source_key, "expected_shape": tuple(expected_tensor.shape), "got_shape": tuple(tensor.shape)},
             )
         selected[key] = tensor
     unknown = sorted(
@@ -131,8 +163,26 @@ def load_core_checkpoint(
         and not key.startswith(_IGNORED_PREFIXES)
     )
     if unknown:
-        raise ValueError(f"unknown checkpoint tensor outside dense core: {unknown[0]}")
+        raise CheckpointIncompatibleError(
+            f"unknown checkpoint tensor outside dense core: {unknown[0]}",
+            details={"unknown_count": len(unknown), "unknown_tensors": unknown},
+        )
     model.load_state_dict(selected, strict=True)
     model.lm_head.weight = model.token_embedding_table.weight
     model.eval()
-    return model, metadata
+
+    step = metadata.get("global_step", metadata.get("step"))
+    stage = metadata.get("training_stage", metadata.get("stage"))
+    commit = metadata.get("source_commit", metadata.get("commit"))
+    has_valid_contract = bool(metadata.get("tokenizer_contract"))
+
+    identity = CheckpointIdentity(
+        checkpoint_sha256=file_hash,
+        source_path=str(path),
+        global_step=int(step) if step is not None else None,
+        training_stage=str(stage) if stage is not None else None,
+        source_commit=str(commit) if commit is not None else None,
+        tokenizer_contract_valid=has_valid_contract,
+    )
+
+    return model, metadata, identity
