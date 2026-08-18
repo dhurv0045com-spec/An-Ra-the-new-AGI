@@ -9,17 +9,12 @@ import torch
 
 from .config import CANONICAL_CONFIG, CoreConfig
 from .contracts import CheckpointIdentity
-from .errors import CheckpointIncompatibleError
+from .errors import CheckpointIncompatibleError, RepresentationIncompatibleError
 from .model import AnRaCore
+from .tokenizer import V4Tokenizer
 
-_IGNORED_PREFIXES = (
-    "esv_module.",
-    "rim_modules.",
-    "mod_routers.",
-    "residual_depth_logits",
-    "dstp_temperature_log",
-    "layer_temperature_bias_log",
-)
+_LEGACY_MOD_LAYERS = frozenset({4, 6, 8, 10, 12, 14, 16})
+_HASH_CHUNK_BYTES = 4 * 1024 * 1024
 
 
 def _file_sha256(path: Path) -> str:
@@ -28,6 +23,121 @@ def _file_sha256(path: Path) -> str:
         while chunk := f.read(1024 * 1024):
             hasher.update(chunk)
     return hasher.hexdigest()
+
+
+def _parameter_sha256(state: dict[str, torch.Tensor]) -> str:
+    """Hash the normalized dense tensor contract independently of its container file."""
+    hasher = hashlib.sha256()
+    for name in sorted(state):
+        tensor = state[name].detach().cpu()
+        if not tensor.is_contiguous():
+            tensor = tensor.contiguous()
+        header = f"{name}\0{tuple(tensor.shape)}\0{tensor.dtype}\0".encode()
+        hasher.update(header)
+        raw = tensor.view(torch.uint8).reshape(-1)
+        for start in range(0, raw.numel(), _HASH_CHUNK_BYTES):
+            chunk = raw[start : start + _HASH_CHUNK_BYTES]
+            hasher.update(chunk.numpy().tobytes())
+        hasher.update(b"\0")
+    return hasher.hexdigest()
+
+
+def _historical_dormant_shape(key: str, config: CoreConfig) -> tuple[int, ...] | None:
+    scalar_controls = {
+        "residual_depth_logits": (config.n_layers,),
+        "dstp_temperature_log": (config.n_layers,),
+        "layer_temperature_bias_log": (config.n_layers,),
+        "esv_module.predictor.0.weight": (3, min(64, config.d_model)),
+        "esv_module.predictor.0.bias": (3,),
+        "esv_module.state": (3,),
+    }
+    if key in scalar_controls:
+        return scalar_controls[key]
+
+    mod_match = re.fullmatch(r"mod_routers\.(\d+)\.(gate\.weight|capacity_control|context_weights)", key)
+    if mod_match:
+        layer, member = int(mod_match.group(1)), mod_match.group(2)
+        if layer not in _LEGACY_MOD_LAYERS or layer >= config.n_layers:
+            return None
+        return {
+            "gate.weight": (1, config.d_model),
+            "capacity_control": (),
+            "context_weights": (3,),
+        }[member]
+
+    rim_match = re.fullmatch(
+        r"rim_modules\.(\d+)\."
+        r"(raw_alpha|projection\.parametrizations\.weight\.original|"
+        r"projection\.parametrizations\.weight\.0\._u|"
+        r"projection\.parametrizations\.weight\.0\._v)",
+        key,
+    )
+    if rim_match:
+        layer, member = int(rim_match.group(1)), rim_match.group(2)
+        if layer >= config.n_layers:
+            return None
+        esv_width = min(64, config.d_model)
+        return {
+            "raw_alpha": (),
+            "projection.parametrizations.weight.original": (config.d_model, esv_width),
+            "projection.parametrizations.weight.0._u": (config.d_model,),
+            "projection.parametrizations.weight.0._v": (esv_width,),
+        }[member]
+    return None
+
+
+def _validate_historical_dormant_tensors(
+    state: dict[str, torch.Tensor], config: CoreConfig
+) -> set[str]:
+    """Accept only the exact dormant V4 pilot tensors known to the historical ABI."""
+    accepted: set[str] = set()
+    for key, tensor in state.items():
+        expected_shape = _historical_dormant_shape(key, config)
+        if expected_shape is None:
+            continue
+        if tuple(tensor.shape) != expected_shape:
+            raise CheckpointIncompatibleError(
+                f"historical dormant tensor shape mismatch for {key}",
+                details={
+                    "tensor": key,
+                    "expected_shape": expected_shape,
+                    "got_shape": tuple(tensor.shape),
+                },
+            )
+        accepted.add(key)
+    return accepted
+
+
+def _verify_tokenizer_contract(
+    metadata: dict[str, Any], *, legacy_unverified: bool
+) -> tuple[bool, bool]:
+    contract = metadata.get("tokenizer_contract")
+    present = contract is not None
+    if not present:
+        if legacy_unverified:
+            return False, False
+        raise RepresentationIncompatibleError(
+            "checkpoint is missing its tokenizer contract; use legacy_unverified=True only for explicit forensic loading"
+        )
+    V4Tokenizer.load_canonical().assert_checkpoint_contract(contract)
+    return True, True
+
+
+def _verify_artifact_contract(
+    metadata: dict[str, Any], *, legacy_unverified: bool
+) -> tuple[str | None, int | None]:
+    """Require explicit artifact type/version outside forensic compatibility mode."""
+    artifact_class = metadata.get("checkpoint_artifact_class")
+    schema_version = metadata.get("checkpoint_schema_version")
+    if artifact_class in {"full_resume", "model_only"} and isinstance(schema_version, int):
+        if schema_version > 0:
+            return str(artifact_class), schema_version
+    if legacy_unverified:
+        return None, None
+    raise CheckpointIncompatibleError(
+        "checkpoint is missing a supported artifact class/schema version",
+        details={"artifact_class": artifact_class, "schema_version": schema_version},
+    )
 
 
 def _unwrap(payload: Any) -> tuple[dict[str, torch.Tensor], dict[str, Any]]:
@@ -126,17 +236,22 @@ def load_core_checkpoint(
     checkpoint: str | Path,
     *,
     config: CoreConfig = CANONICAL_CONFIG,
+    legacy_unverified: bool = False,
 ) -> tuple[AnRaCore, dict[str, Any], CheckpointIdentity]:
     path = Path(checkpoint).expanduser().resolve()
     if not path.is_file():
         raise FileNotFoundError(path)
 
     file_hash = _file_sha256(path)
-    payload = torch.load(path, map_location="cpu", weights_only=True)
+    payload = torch.load(path, map_location="cpu", weights_only=True, mmap=True)
     state, metadata = _unwrap(payload)
     state = _normalize_keys(state)
     accepted_aliases = _validate_serialized_aliases(state)
+    dormant_tensors = _validate_historical_dormant_tensors(state, config)
     _validate_config(metadata, config)
+    artifact_class, artifact_schema_version = _verify_artifact_contract(
+        metadata, legacy_unverified=legacy_unverified
+    )
 
     model = AnRaCore(config)
     expected = model.state_dict()
@@ -160,13 +275,18 @@ def load_core_checkpoint(
         key for key in state
         if key not in expected
         and key not in accepted_aliases
-        and not key.startswith(_IGNORED_PREFIXES)
+        and key not in dormant_tensors
     )
     if unknown:
         raise CheckpointIncompatibleError(
             f"unknown checkpoint tensor outside dense core: {unknown[0]}",
             details={"unknown_count": len(unknown), "unknown_tensors": unknown},
         )
+    contract_present, contract_verified = _verify_tokenizer_contract(
+        metadata, legacy_unverified=legacy_unverified
+    )
+    parameter_hash = _parameter_sha256(selected)
+
     model.load_state_dict(selected, strict=True)
     model.lm_head.weight = model.token_embedding_table.weight
     model.eval()
@@ -174,15 +294,20 @@ def load_core_checkpoint(
     step = metadata.get("global_step", metadata.get("step"))
     stage = metadata.get("training_stage", metadata.get("stage"))
     commit = metadata.get("source_commit", metadata.get("commit"))
-    has_valid_contract = bool(metadata.get("tokenizer_contract"))
-
     identity = CheckpointIdentity(
         checkpoint_sha256=file_hash,
         source_path=str(path),
         global_step=int(step) if step is not None else None,
         training_stage=str(stage) if stage is not None else None,
         source_commit=str(commit) if commit is not None else None,
-        tokenizer_contract_valid=has_valid_contract,
+        tokenizer_contract_valid=contract_verified,
+        parameter_sha256=parameter_hash,
+        tokenizer_contract_present=contract_present,
+        tokenizer_contract_verified=contract_verified,
+        ignored_tensor_names=tuple(sorted(dormant_tensors)),
+        legacy_unverified=legacy_unverified and not contract_verified,
+        artifact_class=artifact_class,
+        artifact_schema_version=artifact_schema_version,
     )
 
     return model, metadata, identity

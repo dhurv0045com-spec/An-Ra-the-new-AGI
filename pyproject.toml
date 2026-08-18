@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "anra-core"
-version = "1.0.0"
-description = "The inference-only dense core of An-Ra V4"
+version = "0.5.0"
+description = "Exact, trainable dense neural Core and validated Executor for An-Ra V4"
 requires-python = ">=3.10"
 dependencies = ["torch>=2.2"]
 

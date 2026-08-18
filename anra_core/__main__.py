@@ -10,7 +10,7 @@ from .brain import Brain, ThoughtPolicy
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Run the inference-only An-Ra V4 dense core")
+    parser = argparse.ArgumentParser(description="Run the validated An-Ra V4 dense Core")
     parser.add_argument("--checkpoint", default=os.environ.get("ANRA_CHECKPOINT_PATH"))
     parser.add_argument(
         "--tokenizer",

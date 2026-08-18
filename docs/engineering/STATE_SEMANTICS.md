@@ -1,56 +1,28 @@
-# An-Ra Core vNext — State Semantics and Lifecycle Specification
+# Core State Semantics
 
-**Document Version:** `1.0.0`  
-**Classification:** Core Runtime Specification  
-**Target Path:** `docs/engineering/STATE_SEMANTICS.md`
+`CoreState` is executor-owned acceleration state. For V4 it contains
+preallocated key/value backing storage and a logical prefix length; it is not a
+conversation object or persistent memory.
 
----
+## Guarantees
 
-## 1. What is `CoreState`?
+- States have independent storage and can be interleaved.
+- A failed neural call does not commit logical tokens. Writes beyond the
+  committed prefix are scratch and are overwritten on retry.
+- Reset, rollback, fork, and release are explicit executor operations.
+- Logical occupied bytes and reserved backing bytes are distinct measurements.
+- V4 supports homogeneous batches only; all rows share a logical length.
 
-`CoreState` is an opaque hardware-backed execution acceleration artifact containing Key-Value (KV) cache activations for the 18-layer grouped-query attention decoder.
+## Invalidity
 
-### Invariant Principles
-1. **Derivability:** `CoreState` is 100% deterministically derivable from the input representation token prefix.
-2. **Isolation:** Every `CoreState` instance owns its internal tensor memory. Stepping, modifying, resetting, or releasing `State A` has strictly zero effect on `State B`.
-3. **Reentrancy:** The `CoreExecutor` is stateless and reentrant; multiple independent `CoreState` instances can be interleaved through a single model instance safely.
-4. **No Session/UI Pollution:** `CoreState` does not store usernames, chat roles, timestamp history, or UI markdown.
+State is invalid for a different executor, architecture, parameters,
+representation, execution profile, batch geometry, capacity, or lifecycle.
+The executor rejects it with typed failure information.
 
----
+## Scope limits
 
-## 2. State Lifecycle States
-
-```mermaid
-stateDiagram-v2
-    [*] --> Active: create_state(capacity)
-    Active --> Active: prefill(tokens)
-    Active --> Active: forward_step(token)
-    Active --> Active: fork() [new state instance]
-    Active --> Active: reset() [current_length = 0]
-    Active --> Released: release()
-    Released --> [*]
-    
-    Active --> Error: ContextOverflowError (exceeds capacity)
-    Released --> Error: StateReleasedError (used after release)
-```
-
----
-
-## 3. Attention Window Scheduling & Cache Semantics
-
-The 18 transformer layers follow a hybrid schedule:
-- **Full Attention Layers (Layers 3, 7, 11, 15 - 0-indexed):** Retain all KV cache history up to `capacity` (2048 tokens). Attend across all previous tokens.
-- **Sliding Window Layers (All other 14 layers):** Key-Value cache accumulates prefix tokens. During decode, attention is computed only over the most recent `sliding_window` (1024) tokens.
-
----
-
-## 4. Complexity and Latency Truth
-
-- **Uncached Autoregressive Generation:** Requires full forward recomputation of the entire sequence at every step, yielding $O(N^2)$ cumulative complexity.
-- **Stateful Incremental Decode:** Eliminates repeated prefix projection and layer recomputation.
-  - In sliding window layers, attention computation is bounded once the 1024-token window is saturated.
-  - In full attention layers, decode work scales with total context length.
-- **Measured CPU Latency (32 tokens):**
-  - Uncached: `5.161s` (`6.20 tok/s`)
-  - Stateful Cached: `1.820s` (`17.58 tok/s`)
-  - Speedup: **`2.84x`** reduction in execution time on CPU.
+State is process-local and not serializable or portable across profiles,
+hardware, implementations, or restarts. Full-attention V4 layers retain
+context-dependent decode cost. Sliding attention bounds neural visibility; it
+does not decide what conversation content to discard. Connector manages
+context; Core enforces capacity and reports overflow.

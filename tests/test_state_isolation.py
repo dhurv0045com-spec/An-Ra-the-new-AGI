@@ -19,8 +19,8 @@ def test_alternating_state_isolation() -> None:
     prompt_b = torch.randint(0, CANONICAL_CONFIG.vocab_size, (1, 10))
 
     # Prefill both states
-    res_a_prefill = executor.prefill(prompt_a, state=state_a)
-    res_b_prefill = executor.prefill(prompt_b, state=state_b)
+    executor.prefill(prompt_a, state=state_a)
+    executor.prefill(prompt_b, state=state_b)
 
     # Step on A
     step_a1 = torch.tensor([[42]])
@@ -30,7 +30,7 @@ def test_alternating_state_isolation() -> None:
     step_b1 = torch.tensor([[100]])
     step_b2 = torch.tensor([[101]])
     _ = executor.forward_step(step_b1, state=state_b)
-    res_b_step2 = executor.forward_step(step_b2, state=state_b)
+    executor.forward_step(step_b2, state=state_b)
 
     # Step on A again
     step_a2 = torch.tensor([[43]])

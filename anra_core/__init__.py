@@ -1,6 +1,10 @@
-"""An-Ra Core: Standalone V4 Neural Model and Core Executor."""
+"""Stable An-Ra Core surface: dense V4 neural model and validated executor.
 
-from .brain import Brain, Thought, ThoughtPolicy
+Sampling and thought policy remain available in ``anra_core.generate`` and
+``anra_core.brain`` as reference Connector utilities, but are intentionally not
+part of this stable Core namespace.
+"""
+
 from .checkpoint import load_core_checkpoint
 from .config import CANONICAL_CONFIG, CoreConfig
 from .contracts import (
@@ -25,16 +29,14 @@ from .errors import (
     UnsupportedProfileError,
 )
 from .executor import CoreExecutor
-from .generate import generate
 from .model import AnRaCore
 from .state import CoreState
 from .tokenizer import V4Tokenizer
 
-__version__ = "0.4.0-vnext"
+__version__ = "0.5.0"
 __all__ = [
     "AnRaCore",
     "ArchitectureIdentity",
-    "Brain",
     "CANONICAL_CONFIG",
     "CapabilitySet",
     "CheckpointIdentity",
@@ -52,12 +54,9 @@ __all__ = [
     "RuntimeIdentity",
     "StateIncompatibleError",
     "StateReleasedError",
-    "Thought",
-    "ThoughtPolicy",
     "UnexpectedExecutionFault",
     "UnsupportedCapabilityError",
     "UnsupportedProfileError",
     "V4Tokenizer",
-    "generate",
     "load_core_checkpoint",
 ]

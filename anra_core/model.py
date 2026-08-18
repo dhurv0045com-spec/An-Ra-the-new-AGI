@@ -8,7 +8,6 @@ and next-token logit computation.
 from __future__ import annotations
 
 import math
-from typing import TYPE_CHECKING
 
 import torch
 import torch.nn as nn
@@ -16,9 +15,6 @@ import torch.nn.functional as F
 
 from .config import CANONICAL_CONFIG, CoreConfig
 from .errors import ContextOverflowError
-
-if TYPE_CHECKING:
-    from .state import CoreState
 
 
 class RMSNorm(nn.Module):
@@ -72,9 +68,9 @@ class GroupedQueryAttention(nn.Module):
         self,
         x: torch.Tensor,
         *,
-        kv_cache: tuple[torch.Tensor, torch.Tensor] | None = None,
+        cache_buffer: tuple[torch.Tensor, torch.Tensor] | None = None,
         start_pos: int = 0,
-    ) -> tuple[torch.Tensor, tuple[torch.Tensor, torch.Tensor]]:
+    ) -> torch.Tensor:
         batch, length, _ = x.shape
         q = self.q_proj(x).view(batch, length, self.config.n_heads, self.config.head_dim).transpose(1, 2)
         k = self.k_proj(x).view(batch, length, self.config.n_kv_heads, self.config.head_dim).transpose(1, 2)
@@ -92,15 +88,24 @@ class GroupedQueryAttention(nn.Module):
         limit = 0.8 * math.sqrt(65_504.0 / self.config.head_dim)
         q, k = limit * torch.tanh(q / limit), limit * torch.tanh(k / limit)
 
-        if kv_cache is not None:
-            prev_k, prev_v = kv_cache
-            k = torch.cat([prev_k, k], dim=2)
-            v = torch.cat([prev_v, v], dim=2)
-
-        updated_kv = (k, v)
+        if cache_buffer is not None:
+            key_buffer, value_buffer = cache_buffer
+            end_pos = start_pos + length
+            if end_pos > key_buffer.shape[2] or end_pos > value_buffer.shape[2]:
+                raise ContextOverflowError(
+                    "incremental attention exceeds cache capacity",
+                    details={"end_pos": end_pos, "capacity": key_buffer.shape[2]},
+                )
+            # Writes occur outside the state's committed logical prefix. If a
+            # later layer fails, current_length is unchanged and retries safely
+            # overwrite these uncommitted slots.
+            key_buffer[:, :, start_pos:end_pos].copy_(k.detach())
+            value_buffer[:, :, start_pos:end_pos].copy_(v.detach())
+            k = key_buffer[:, :, :end_pos]
+            v = value_buffer[:, :, :end_pos]
         total_len = k.shape[2]
 
-        if length == 1:
+        if cache_buffer is not None and length == 1:
             # Incremental single-token decode
             if not self.full_attention and total_len > self.config.sliding_window:
                 k_attn = k[:, :, -self.config.sliding_window :, :]
@@ -112,7 +117,7 @@ class GroupedQueryAttention(nn.Module):
             attended = F.scaled_dot_product_attention(
                 q, k_attn, v_attn, attn_mask=None, dropout_p=0.0, is_causal=False, enable_gqa=True
             )
-        elif kv_cache is None:
+        elif cache_buffer is None:
             # Full uncached forward pass (L_q == L_k == length)
             mask = None
             is_causal = True
@@ -139,7 +144,7 @@ class GroupedQueryAttention(nn.Module):
             )
 
         attended = attended.transpose(1, 2).contiguous().view(batch, length, -1)
-        return self.out_proj(attended), updated_kv
+        return self.out_proj(attended)
 
 
 class SwiGLU(nn.Module):
@@ -167,13 +172,14 @@ class DenseBlock(nn.Module):
         self,
         x: torch.Tensor,
         *,
-        kv_cache: tuple[torch.Tensor, torch.Tensor] | None = None,
+        cache_buffer: tuple[torch.Tensor, torch.Tensor] | None = None,
         start_pos: int = 0,
-    ) -> tuple[torch.Tensor, tuple[torch.Tensor, torch.Tensor]]:
-        attn_out, updated_kv = self.attn(self.norm_1(x), kv_cache=kv_cache, start_pos=start_pos)
+    ) -> torch.Tensor:
+        attn_out = self.attn(
+            self.norm_1(x), cache_buffer=cache_buffer, start_pos=start_pos
+        )
         x = x + attn_out
-        x = x + self.mlp(self.norm_2(x))
-        return x, updated_kv
+        return x + self.mlp(self.norm_2(x))
 
 
 class AnRaCore(nn.Module):
@@ -194,38 +200,46 @@ class AnRaCore(nn.Module):
     def forward(
         self,
         token_ids: torch.Tensor,
-        state: CoreState | None = None,
     ) -> torch.Tensor:
-        """Full sequence or stateful incremental forward pass.
-
-        If state is None: executes standard full-sequence forward pass.
-        If state is provided: executes incremental decode step and updates state.
-        """
+        """Pure differentiable full-sequence V4 forward computation."""
         if token_ids.ndim != 2:
             raise ValueError("token_ids must have shape [batch, sequence]")
-
-        batch_size, seq_len = token_ids.shape
-
-        if state is None:
-            if seq_len > self.config.block_size:
-                raise ContextOverflowError(
-                    f"sequence exceeds {self.config.block_size} token context",
-                    details={"seq_len": seq_len, "block_size": self.config.block_size},
-                )
-            x = self.token_embedding_table(token_ids) * self.embedding_input_scale
-            for block in self.blocks:
-                x, _ = block(x, kv_cache=None, start_pos=0)
-            return self.lm_head(self.norm_f(x))
-
-        # Stateful incremental execution
-        state.check_capacity(seq_len)
-        start_pos = state.current_length
+        seq_len = token_ids.shape[1]
+        if seq_len <= 0:
+            raise ValueError("token_ids cannot contain an empty sequence")
+        if seq_len > self.config.block_size:
+            raise ContextOverflowError(
+                f"sequence exceeds {self.config.block_size} token context",
+                details={"seq_len": seq_len, "block_size": self.config.block_size},
+            )
         x = self.token_embedding_table(token_ids) * self.embedding_input_scale
+        for block in self.blocks:
+            x = block(x, cache_buffer=None, start_pos=0)
+        return self.lm_head(self.norm_f(x))
 
-        for idx, block in enumerate(self.blocks):
-            layer_kv = state.get_layer_kv(idx)
-            x, updated_kv = block(x, kv_cache=layer_kv, start_pos=start_pos)
-            state.set_layer_kv(idx, updated_kv)
+    def forward_incremental(
+        self,
+        token_ids: torch.Tensor,
+        *,
+        cache_buffers: list[tuple[torch.Tensor, torch.Tensor]],
+        start_pos: int,
+    ) -> torch.Tensor:
+        """Executor primitive for an exact incremental V4 forward.
 
-        state.advance(seq_len)
+        Cache storage belongs to the Executor. This method defines how V4 uses
+        that storage without importing, owning, or mutating a CoreState handle.
+        """
+        if token_ids.ndim != 2 or token_ids.shape[1] <= 0:
+            raise ValueError("token_ids must have non-empty shape [batch, sequence]")
+        if len(cache_buffers) != len(self.blocks):
+            raise ValueError("incremental cache layer count does not match the model")
+        end_pos = start_pos + token_ids.shape[1]
+        if start_pos < 0 or end_pos > self.config.block_size:
+            raise ContextOverflowError(
+                f"incremental sequence exceeds {self.config.block_size} token context",
+                details={"start_pos": start_pos, "end_pos": end_pos},
+            )
+        x = self.token_embedding_table(token_ids) * self.embedding_input_scale
+        for block, cache_buffer in zip(self.blocks, cache_buffers, strict=True):
+            x = block(x, cache_buffer=cache_buffer, start_pos=start_pos)
         return self.lm_head(self.norm_f(x))

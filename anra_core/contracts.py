@@ -7,9 +7,9 @@ from typing import Any, Literal
 
 import torch
 
-CORE_RUNTIME_VERSION = "0.4.0-vnext"
+CORE_RUNTIME_VERSION = "0.5.0"
 CORE_API_SCHEMA_VERSION = 1
-CORE_STATE_SCHEMA_VERSION = 1
+CORE_STATE_SCHEMA_VERSION = 2
 
 
 @dataclass(frozen=True, slots=True)
@@ -30,6 +30,7 @@ class ArchitectureIdentity:
     full_attention_every: int
     qk_norm: bool
     dense_parameter_count: int
+    architecture_sha256: str
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -45,6 +46,13 @@ class CheckpointIdentity:
     training_stage: str | None
     source_commit: str | None
     tokenizer_contract_valid: bool
+    parameter_sha256: str | None = None
+    tokenizer_contract_present: bool = False
+    tokenizer_contract_verified: bool = False
+    ignored_tensor_names: tuple[str, ...] = ()
+    legacy_unverified: bool = False
+    artifact_class: str | None = None
+    artifact_schema_version: int | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -90,6 +98,8 @@ class CapabilitySet:
     supports_state_serialization: bool = False
     supports_quantization: bool = False
     supports_multi_device_sharding: bool = False
+    supports_homogeneous_batching: bool = True
+    supports_ragged_batching: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

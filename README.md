@@ -1,63 +1,57 @@
-# An-Ra Core vNext
+# An-Ra Core
 
-An-Ra Core vNext is the standalone, high-performance neural foundation for the An-Ra system. It packages the exact 180,093,312-parameter dense V4 decoder transformer and introduces an explicit, hardware-accelerated `CoreExecutor` with isolated incremental `CoreState` management.
+An-Ra Core is the small, standalone foundation that executes the learned V4
+neural function. It is deliberately not a chat product, agent, memory system,
+tool framework, or training campaign manager.
 
-## Key Features
+## What is here
 
-- **Exact V4 Dense Neural Architecture:** 18 layers, $d_{\text{model}}=896$, SwiGLU $d_{\text{ff}}=2432$, 14/2-head Grouped Query Attention ($d_{\text{head}}=64$), QK RMSNorm, adjacent-pair RoPE, and hybrid full/sliding causal attention.
-- **Hardware-Accelerated Incremental State:** Eliminates repeated prefix projection during generation, achieving **2.84x faster token decode** on CPU.
-- **Strict Layer Isolation:** Neural Model and Core Executor are decoupled from session management, cognitive deliberation, tool calling, and user interfaces.
-- **Typed Error Taxonomy:** Structured machine-readable error hierarchy (`anra_core.errors.CoreError`).
-- **Complete Introspection:** Versioned `ArchitectureIdentity`, `CheckpointIdentity`, `RepresentationIdentity`, and `CapabilitySet`.
-- **Differentiable Autograd:** Cleanly exposed for external pretraining, SFT, and optimizer integration.
+- **Neural Program:** the dense V4 decoder: token IDs to next-token logits.
+- **Executor:** validated device/dtype execution and isolated incremental state.
+- **Checkpoint boundary:** CPU-first, `weights_only=True` loading; exact dense
+  tensor checks; a strict V4 tokenizer contract; separate file and parameter
+  identities.
+- **Training port:** ordinary differentiable PyTorch forward and parameters.
+  Objectives, optimizers, data policy, distributed execution, durability, and
+  promotion remain outside Core.
 
-## Installation
+The canonical dense program has 180,093,312 trainable parameters. Historical
+181,132,071-parameter artifacts also carry 1,038,759 dormant pilot tensors.
+Those tensors are inventory-validated for compatibility but are not executed by
+the dense Core.
+
+## Honest capability boundary
+
+Core returns raw V4 next-token logits. It knows nothing about users, chat UI,
+tools, retrieval, memory policy, agents, browsers, or storage. A Connector
+turns logits into sampled tokens and decides what to put in context. An Outer
+system owns streaming and actions. Training/Evaluation is the only authority
+that changes weights or promotes new versions.
+
+`CoreState` is an executor-owned, in-memory cache for a homogeneous batch. It
+is bound to its executor, architecture, weights, representation, and execution
+profile. It can be reset, forked, rolled back, and released. Portable state
+serialization is intentionally **not** advertised until it has a versioned,
+validated portability contract.
+
+## Use
 
 ```powershell
 python -m pip install -e .
-```
-
-Or install from wheel:
-```powershell
-pip install dist/anra_core-1.0.0-py3-none-any.whl
-```
-
-## Quickstart
-
-### 1. Using `CoreExecutor`
-
-```python
-import torch
-from anra_core import CoreExecutor, AnRaCore, CANONICAL_CONFIG, V4Tokenizer
-
-# Initialize or load model
-model = AnRaCore(CANONICAL_CONFIG).eval()
-tokenizer = V4Tokenizer.load("anra_core/assets/tokenizer_v4_32k.json")
-executor = CoreExecutor(model, tokenizer=tokenizer)
-
-# Create isolated execution state
-state = executor.create_state(capacity=2048)
-
-# Prefill prompt
-prompt_ids = torch.tensor([[tokenizer.bos_token_id, *tokenizer.encode("Hello world")]])
-res = executor.prefill(prompt_ids, state=state)
-
-# Step next token
-next_id = int(res.logits[:, -1, :].argmax(dim=-1).item())
-step_res = executor.forward_step(next_id, state=state)
-
-# Clean up
-executor.release_state(state)
-```
-
-### 2. Command Line Interface
-
-```powershell
 python -m anra_core --checkpoint "C:\path\anra-v4-current-full-resume.pt" --prompt "Hello"
 ```
 
-## Running Tests
+```python
+import torch
+from anra_core import CoreExecutor
 
-```powershell
-pytest -v
+executor = CoreExecutor.from_checkpoint("anra-v4-current-full-resume.pt")
+state = executor.create_state()
+result = executor.prefill(torch.tensor([[2, 100, 200]]), state=state)
+next_id = int(result.logits[:, -1].argmax(dim=-1).item())
+executor.release_state(state)
 ```
+
+Use the exact V4 tokenizer bound to the checkpoint; arbitrary tokenization
+breaks learned embedding semantics. Read the engineering documents before
+treating an execution change as a model-capability improvement.

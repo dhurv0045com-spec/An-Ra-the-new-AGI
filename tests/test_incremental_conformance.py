@@ -1,4 +1,3 @@
-import pytest
 import torch
 
 from anra_core.config import CANONICAL_CONFIG

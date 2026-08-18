@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import torch
 
+from .errors import ContextOverflowError
 from .executor import CoreExecutor
 from .model import AnRaCore
 from .tokenizer import V4Tokenizer
@@ -35,37 +36,44 @@ def generate(
 
     device = executor.device
     prompt_ids = tokenizer.encode(prompt)
-    prompt_ids = prompt_ids[-(executor.model.config.block_size - 1) :]
+    required = 1 + len(prompt_ids) + max_new_tokens
+    if required > executor.model.config.block_size:
+        raise ContextOverflowError(
+            "Prompt plus requested generation exceeds the Core context capacity",
+            details={
+                "prompt_tokens_with_bos": 1 + len(prompt_ids),
+                "max_new_tokens": max_new_tokens,
+                "capacity": executor.model.config.block_size,
+            },
+        )
     ids = torch.tensor([[tokenizer.bos_token_id, *prompt_ids]], dtype=torch.long, device=device)
 
     state = executor.create_state()
-    # 1. Prefill prompt into state
-    pred = executor.prefill(ids, state=state)
-    logits = pred.logits[:, -1, :]
-
-    generated: list[int] = []
-    generator = torch.Generator(device=device).manual_seed(seed)
-
-    for _ in range(max_new_tokens):
-        if temperature <= 0:
-            next_id = int(logits.argmax(dim=-1).item())
-        else:
-            probabilities = torch.softmax(logits / temperature, dim=-1)
-            sorted_probs, sorted_ids = probabilities.sort(descending=True)
-            cumulative = sorted_probs.cumsum(dim=-1)
-            remove = cumulative - sorted_probs > top_p
-            sorted_probs = sorted_probs.masked_fill(remove, 0)
-            sorted_probs /= sorted_probs.sum(dim=-1, keepdim=True)
-            choice = torch.multinomial(sorted_probs, 1, generator=generator)
-            next_id = int(sorted_ids.gather(-1, choice).item())
-
-        if next_id == tokenizer.eos_token_id:
-            break
-
-        generated.append(next_id)
-        # 2. Incremental single-token decode step
-        pred = executor.forward_step(next_id, state=state)
+    try:
+        pred = executor.prefill(ids, state=state)
         logits = pred.logits[:, -1, :]
+        generated: list[int] = []
+        generator = torch.Generator(device=device).manual_seed(seed)
 
-    executor.release_state(state)
-    return tokenizer.decode(generated)
+        for _ in range(max_new_tokens):
+            if temperature <= 0:
+                next_id = int(logits.argmax(dim=-1).item())
+            else:
+                probabilities = torch.softmax(logits / temperature, dim=-1)
+                sorted_probs, sorted_ids = probabilities.sort(descending=True)
+                cumulative = sorted_probs.cumsum(dim=-1)
+                remove = cumulative - sorted_probs > top_p
+                sorted_probs = sorted_probs.masked_fill(remove, 0)
+                sorted_probs /= sorted_probs.sum(dim=-1, keepdim=True)
+                choice = torch.multinomial(sorted_probs, 1, generator=generator)
+                next_id = int(sorted_ids.gather(-1, choice).item())
+
+            if next_id == tokenizer.eos_token_id:
+                break
+            generated.append(next_id)
+            pred = executor.forward_step(next_id, state=state)
+            logits = pred.logits[:, -1, :]
+        return tokenizer.decode(generated)
+    finally:
+        if not state.is_released:
+            executor.release_state(state)

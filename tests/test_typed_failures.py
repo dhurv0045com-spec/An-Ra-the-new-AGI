@@ -5,13 +5,10 @@ from anra_core.checkpoint import load_core_checkpoint
 from anra_core.config import CANONICAL_CONFIG
 from anra_core.errors import (
     CheckpointIncompatibleError,
-    ContextOverflowError,
     StateIncompatibleError,
-    StateReleasedError,
 )
 from anra_core.executor import CoreExecutor
 from anra_core.model import AnRaCore
-from anra_core.state import CoreState
 
 
 def test_corrupted_checkpoint_rejection(tmp_path) -> None:
@@ -34,11 +31,8 @@ def test_state_architecture_mismatch() -> None:
     model = AnRaCore(CANONICAL_CONFIG).eval()
     executor = CoreExecutor(model)
 
-    incompatible_state = CoreState(
-        architecture_version="anra_v99_incompatible",
-        checkpoint_id="dummy",
-        execution_profile_id="exact-cpu-float32",
-    )
+    other_executor = CoreExecutor(AnRaCore(CANONICAL_CONFIG).eval())
+    incompatible_state = other_executor.create_state()
 
     with pytest.raises(StateIncompatibleError):
         executor.forward_step(10, state=incompatible_state)

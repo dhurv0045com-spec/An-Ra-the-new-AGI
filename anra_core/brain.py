@@ -12,7 +12,7 @@ from pathlib import Path
 import torch
 import torch.nn.functional as F
 
-from .checkpoint import load_core_checkpoint
+from .errors import ContextOverflowError
 from .executor import CoreExecutor
 from .generate import generate
 from .model import AnRaCore
@@ -85,15 +85,15 @@ class Brain:
     ) -> Brain:
         if device == "cuda" and not torch.cuda.is_available():
             raise RuntimeError("CUDA was requested but is unavailable")
-        model, metadata, identity = load_core_checkpoint(checkpoint)
-        tokenizer = V4Tokenizer.load(tokenizer_path)
-        tokenizer.assert_checkpoint_contract(metadata.get("tokenizer_contract"))
-        executor = CoreExecutor(
-            model,
-            tokenizer=tokenizer,
-            checkpoint_identity=identity,
+        executor = CoreExecutor.from_checkpoint(
+            checkpoint,
+            tokenizer_path=tokenizer_path,
             device=device,
         )
+        tokenizer = executor.tokenizer
+        if tokenizer is None:  # Defensive: strict from_checkpoint always binds one.
+            raise RuntimeError("Core executor did not bind a tokenizer")
+        identity = executor.checkpoint_identity
         return cls(executor, tokenizer, checkpoint_step=identity.global_step)
 
     def describe(self) -> dict[str, object]:
@@ -110,7 +110,12 @@ class Brain:
         if not response_ids:
             return float("-inf")
         prefix = [self.tokenizer.bos_token_id, *prompt_ids]
-        combined = (prefix + response_ids)[-self.model.config.block_size :]
+        combined = prefix + response_ids
+        if len(combined) > self.model.config.block_size:
+            raise ContextOverflowError(
+                "Candidate scoring exceeds the Core context capacity",
+                details={"tokens": len(combined), "capacity": self.model.config.block_size},
+            )
         prefix_length = max(1, len(combined) - len(response_ids))
         token_ids = torch.tensor(
             [combined], dtype=torch.long, device=self.executor.device

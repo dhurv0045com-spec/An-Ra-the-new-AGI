@@ -1,12 +1,9 @@
-import pytest
 import torch
 
 from anra_core.config import CANONICAL_CONFIG
 from anra_core.contracts import (
     ArchitectureIdentity,
     CapabilitySet,
-    CheckpointIdentity,
-    ExecutionProfile,
     RepresentationIdentity,
     RuntimeIdentity,
 )
@@ -34,7 +31,8 @@ def test_executor_identities_and_contracts(tmp_path) -> None:
 
     runtime_ident = executor.runtime_identity
     assert isinstance(runtime_ident, RuntimeIdentity)
-    assert runtime_ident.runtime_version == "0.4.0-vnext"
+    assert runtime_ident.runtime_version == "0.5.0"
+    assert arch_ident.architecture_sha256 == CANONICAL_CONFIG.architecture_sha256
 
     caps = executor.capabilities
     assert isinstance(caps, CapabilitySet)

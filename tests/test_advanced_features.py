@@ -2,9 +2,9 @@ import pytest
 import torch
 
 from anra_core.config import CANONICAL_CONFIG
+from anra_core.errors import UnsupportedCapabilityError
 from anra_core.executor import CoreExecutor
 from anra_core.model import AnRaCore
-from anra_core.state import CoreState
 
 
 def test_batched_stateful_decode() -> None:
@@ -49,7 +49,7 @@ def test_chunked_prefill_equivalence() -> None:
     assert diff < 5e-4
 
 
-def test_state_serialization_roundtrip() -> None:
+def test_state_serialization_is_fail_closed_until_a_portable_schema_exists() -> None:
     torch.manual_seed(666)
     model = AnRaCore(CANONICAL_CONFIG).eval()
     executor = CoreExecutor(model)
@@ -58,23 +58,9 @@ def test_state_serialization_roundtrip() -> None:
     state = executor.create_state()
     _ = executor.prefill(prompt, state=state)
 
-    # Serialize to bytes
-    state_bytes = state.serialize()
-    assert isinstance(state_bytes, bytes)
-    assert len(state_bytes) > 0
-
-    # Deserialize into new state
-    restored_state = CoreState.deserialize(state_bytes)
-    assert restored_state.state_id == state.state_id
-    assert restored_state.current_length == state.current_length == 6
-    assert restored_state.architecture_version == state.architecture_version
-
-    # Step both states and verify identical output
-    next_tok = torch.tensor([[50]])
-    res_orig = executor.forward_step(next_tok, state=state)
-    res_restored = executor.forward_step(next_tok, state=restored_state)
-
-    assert torch.equal(res_orig.logits, res_restored.logits)
+    with pytest.raises(UnsupportedCapabilityError):
+        executor.serialize_state(state)
+    assert not executor.capabilities.supports_state_serialization
 
 
 def test_state_rollback_truncation() -> None:
@@ -139,4 +125,6 @@ def test_state_memory_bytes_calculation() -> None:
     # = 18 * 2 * 1 * 2 * 8 * 64 * 4 = 147,456 bytes
     expected_bytes = 18 * 2 * 1 * 2 * 8 * 64 * 4
     assert mem_bytes == expected_bytes
-    assert state.descriptor()["allocated_memory_bytes"] == expected_bytes
+    descriptor = state.descriptor()
+    assert descriptor["logical_memory_bytes"] == expected_bytes
+    assert descriptor["reserved_memory_bytes"] >= expected_bytes
