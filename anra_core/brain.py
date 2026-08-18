@@ -19,6 +19,17 @@ from .model import AnRaCore
 from .tokenizer import V4Tokenizer
 
 
+def _has_invalid_terminal(response: str) -> bool:
+    """Reject the only known malformed text sentinel, not every response.
+
+    The former ``endswith((\"\", \"<unk>\"))`` check always matched because every
+    string ends with the empty string.  This helper keeps the compatibility
+    heuristic narrow and independently testable.
+    """
+
+    return response.rstrip().endswith("<unk>")
+
+
 @dataclass(frozen=True, slots=True)
 class ThoughtPolicy:
     """Bounded inference policy; it never grants tools or mutates the core model."""
@@ -129,7 +140,7 @@ class Brain:
         normalized = [token for token in response.lower().split() if token]
         if len(normalized) >= 6 and len(set(normalized)) / len(normalized) < 0.45:
             likelihood -= 2.0
-        if response.strip().endswith(("", "<unk>")):
+        if _has_invalid_terminal(response):
             likelihood -= 1.0
         return likelihood
 

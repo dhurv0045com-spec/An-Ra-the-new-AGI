@@ -48,7 +48,9 @@ def generate(
         )
     ids = torch.tensor([[tokenizer.bos_token_id, *prompt_ids]], dtype=torch.long, device=device)
 
-    state = executor.create_state()
+    # The Executor owns storage; generation knows this bounded request's exact
+    # need.  Avoid reserving the full V4 context for a short one-shot reply.
+    state = executor.create_state(capacity=required)
     try:
         pred = executor.prefill(ids, state=state)
         logits = pred.logits[:, -1, :]
