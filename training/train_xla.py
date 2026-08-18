@@ -9,6 +9,7 @@ torch_xla lazily so local CPU tooling and tests do not require TPU packages.
 from __future__ import annotations
 
 import argparse
+from bisect import bisect_right
 import contextlib
 import json
 import math
@@ -21,6 +22,7 @@ from typing import Any, Iterator
 
 import torch
 import torch.nn.functional as F
+import numpy as np
 from torch.utils.data import DataLoader, Dataset
 
 from anra_core.checkpoint import load_core_checkpoint
@@ -46,6 +48,55 @@ class TokenBlockDataset(Dataset[tuple[torch.Tensor, torch.Tensor]]):
         start = index * self.block_size
         chunk = self.tokens[start : start + self.block_size + 1]
         return chunk[:-1], chunk[1:]
+
+
+class TokenShardDataset(Dataset[tuple[torch.Tensor, torch.Tensor]]):
+    """Read the immutable V4 ``train/*.npy`` token pack without concatenating it.
+
+    Each pack shard contains independent ``block_size`` windows plus one target
+    token.  Memory-mapped shards keep the TPU host from making eight full copies
+    of a 330M-token continuation pack when ``xmp.spawn`` starts workers.
+    """
+
+    def __init__(self, root: Path, block_size: int) -> None:
+        files = sorted(root.glob("*.npy"))
+        if not files:
+            raise FileNotFoundError(f"no token shards (*.npy) found in {root}")
+        self.block_size = int(block_size)
+        self._arrays: list[np.ndarray] = []
+        self._ends: list[int] = []
+        total = 0
+        for path in files:
+            array = np.load(path, mmap_mode="r", allow_pickle=False)
+            if array.ndim != 1 or not np.issubdtype(array.dtype, np.integer):
+                raise ValueError(f"token shard must be a 1-D integer array: {path}")
+            windows = (int(array.shape[0]) - 1) // self.block_size
+            if windows <= 0:
+                continue
+            self._arrays.append(array)
+            total += windows
+            self._ends.append(total)
+        if not self._arrays or total <= 0:
+            raise ValueError(f"token pack contains no complete training windows: {root}")
+        self._length = total
+
+    def __len__(self) -> int:
+        return self._length
+
+    def __getitem__(self, index: int) -> tuple[torch.Tensor, torch.Tensor]:
+        if index < 0 or index >= self._length:
+            raise IndexError(index)
+        shard = bisect_right(self._ends, index)
+        previous_end = 0 if shard == 0 else self._ends[shard - 1]
+        local_index = index - previous_end
+        start = local_index * self.block_size
+        # Copy the tiny window before converting to int64; the source is a
+        # read-only mmap and torch must never retain a writable alias to it.
+        values = np.asarray(
+            self._arrays[shard][start : start + self.block_size + 1], dtype=np.int64
+        ).copy()
+        tokens = torch.from_numpy(values)
+        return tokens[:-1], tokens[1:]
 
 
 def _require_xla() -> tuple[Any, Any, Any]:
@@ -79,6 +130,14 @@ def _read_text(path: Path) -> str:
 
 
 def _load_dataset(path: Path, tokenizer: V4Tokenizer, block_size: int) -> TokenBlockDataset:
+    if path.is_dir():
+        train_root = path / "train" if (path / "train").is_dir() else path
+        dataset = TokenShardDataset(train_root, block_size)
+        print(
+            f"[TPU data] token pack {train_root} -> {len(dataset):,} windows",
+            flush=True,
+        )
+        return dataset
     if not path.is_file():
         raise FileNotFoundError(f"dataset file does not exist: {path}")
     text = _read_text(path)
