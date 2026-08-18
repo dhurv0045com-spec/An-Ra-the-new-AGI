@@ -228,9 +228,13 @@ def _bf16_autocast(enabled: bool) -> Iterator[None]:
 
 def _worker(index: int, config: dict[str, object]) -> None:
     xm, pl, _ = _require_xla()
+    import torch_xla.runtime as xr
+
     device = xm.xla_device()
     rank = xm.get_ordinal()
-    world_size = xm.xrt_world_size()
+    # Modern PJRT/XLA exposes the worker topology through runtime.world_size;
+    # xrt_world_size was removed from current Kaggle torch_xla builds.
+    world_size = int(xr.world_size())
     if world_size < 2:
         raise RuntimeError(f"Expected a multi-core TPU runtime, got world_size={world_size}")
 
