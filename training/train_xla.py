@@ -449,6 +449,11 @@ def _worker(index: int, config: dict[str, object]) -> None:
 
 def run(args: argparse.Namespace) -> None:
     _, _, xmp = _require_xla()
+    # Kaggle may leave a legacy one-address override in the environment.
+    # PJRT interprets it as a one-worker topology and aborts when the full
+    # v5e-8 launch creates eight local workers. The TPU runtime supplies the
+    # correct local topology without this override.
+    os.environ.pop("TPU_PROCESS_ADDRESSES", None)
     os.environ.setdefault("PJRT_DEVICE", "TPU")
     if args.max_steps <= 0:
         raise ValueError("--max-steps must be positive")
