@@ -296,16 +296,16 @@ def _worker(index: int, config: dict[str, object]) -> None:
     # single-worker topology.
     rank = int(getattr(xr, "global_ordinal", lambda: 0)())
     # Modern PJRT/XLA exposes the child worker topology through
-    # runtime.world_size.  Before the launcher starts, the notebook process
-    # may report one process even though the complete slice has eight devices;
-    # run() resolves that pre-launch distinction and passes the slice count in
-    # _world_size_hint.
+    # runtime.world_size. The parent hint is only an expected value; never
+    # use it to mask a partial or misconfigured child launch.
     world_size_hint = config.get("_world_size_hint")
-    world_size = int(world_size_hint) if world_size_hint is not None else int(xr.world_size())
-    # The hint is the number of granted devices and is used for sampler,
-    # effective-token, and checkpoint accounting.  In launched children the
-    # PJRT world size is normally identical; the hint also keeps the contract
-    # correct during the brief pre-launch transition.
+    runtime_world_size = int(xr.world_size())
+    if world_size_hint is not None and runtime_world_size != int(world_size_hint):
+        raise RuntimeError(
+            f"TPU worker topology mismatch: expected {int(world_size_hint)} workers, "
+            f"runtime reported {runtime_world_size}; refusing partial launch"
+        )
+    world_size = runtime_world_size
     if world_size < 1:
         raise RuntimeError(f"Invalid TPU runtime world_size={world_size}")
 
@@ -448,13 +448,18 @@ def _worker(index: int, config: dict[str, object]) -> None:
 
 
 def run(args: argparse.Namespace) -> None:
-    _, _, xmp = _require_xla()
     # Kaggle may leave a legacy one-address override in the environment.
     # PJRT interprets it as a one-worker topology and aborts when the full
     # v5e-8 launch creates eight local workers. The TPU runtime supplies the
     # correct local topology without this override.
     os.environ.pop("TPU_PROCESS_ADDRESSES", None)
     os.environ.setdefault("PJRT_DEVICE", "TPU")
+    # Importing torch_xla is safe here, but querying PJRT topology in the
+    # notebook/parent process is not: Kaggle's PJRT runtime can leave a
+    # metric client alive and a second launch then aborts with
+    # runtime_metric_aggregator reporting_closure_ failures. Topology is
+    # validated inside the fresh worker processes below.
+    _, _, xmp = _require_xla()
     if args.max_steps <= 0:
         raise ValueError("--max-steps must be positive")
     if args.max_minutes < 0:
@@ -474,25 +479,12 @@ def run(args: argparse.Namespace) -> None:
     if args.save_interval <= 0 or args.log_interval <= 0:
         raise ValueError("--save-interval and --log-interval must be positive")
     config = vars(args).copy()
-    # Inspect the already-provisioned PJRT topology before choosing a launch
-    # mode.  Kaggle's notebook process can report process_world_size=1 before
-    # launch even when global_device_count=8.  The latter is the authoritative
-    # slice allocation; use it to decide whether to launch one or eight
-    # workers, while still refusing a genuinely partial allocation.
-    # The notebook preflight may already have initialized PJRT in its own
-    # process.  Prefer its verified global device count so this trainer parent
-    # does not initialize a second computation client before spawning workers.
-    preflight_count = os.environ.get("ANRA_TPU_PREFLIGHT_WORLD_SIZE")
-    if preflight_count is not None:
-        try:
-            parent_device_count = int(preflight_count)
-            parent_process_world_size = int(
-                os.environ.get("ANRA_TPU_PREFLIGHT_PROCESS_WORLD_SIZE", "1")
-            )
-        except ValueError as exc:
-            raise RuntimeError(
-                "Invalid ANRA_TPU_PREFLIGHT_WORLD_SIZE; rerun the TPU preflight cell."
-            ) from exc
+    # With a required full slice, do not initialize/query PJRT in the parent.
+    # The child worker is the only authoritative topology check. This keeps
+    # the parent a pure launcher and prevents double-initialization on Kaggle.
+    if args.require_world_size is not None:
+        parent_process_world_size = 0
+        parent_device_count = int(args.require_world_size)
     else:
         try:
             import torch_xla.runtime as xr
@@ -521,7 +513,7 @@ def run(args: argparse.Namespace) -> None:
             "refusing a partial-speed run."
         )
     config["_world_size_hint"] = parent_device_count
-    if parent_device_count == 1:
+    if parent_device_count == 1 and args.require_world_size is None:
         _worker(0, config)
         return
     # ``torch_xla.launch`` is the current PJRT entrypoint: it launches exactly
