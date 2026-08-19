@@ -1,5 +1,7 @@
 # X-factor week 1 — planted suite and oracle
 
+> **X-FACTOR:** failure-ablation over forked Core state. One-pager: [X_FACTOR_STATEMENT.md](X_FACTOR_STATEMENT.md).
+
 **Date:** 2026-08-20
 **Branch:** `core-vnext`
 **Code:** `anra_core/ablation.py`, `tests/test_failure_ablation.py`

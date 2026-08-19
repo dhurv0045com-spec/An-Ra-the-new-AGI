@@ -2,13 +2,20 @@
 
 Branch: `core-vnext`.
 
-These documents are the X-factor investigation. They override README marketing. Implementation on this branch is a 180M dense Core plus a Connector experimenter.
+## X-FACTOR
+
+**Failure-ablation over forked Core state.** On failure, hold one of `(knowledge, plan, decode, tools)` fixed and change another. The unique flip is the cause. Update exactly one store, or nothing. Do not ask the 180M model why it failed.
+
+Start here: **[X_FACTOR_STATEMENT.md](X_FACTOR_STATEMENT.md)**
+
+These documents override README marketing. This branch is a 180M dense Core plus a Connector experimenter.
 
 | Document | What it is |
 |---|---|
-| [X_FACTOR.md](X_FACTOR.md) | Full answer: diagnosis, mechanism, experiment, what to stop |
+| [X_FACTOR_STATEMENT.md](X_FACTOR_STATEMENT.md) | **The X-factor, one page** |
+| [X_FACTOR.md](X_FACTOR.md) | Full 12-section answer |
 | [X_FACTOR_CODEMAP.md](X_FACTOR_CODEMAP.md) | Code evidence: demonstrated / stub / absent |
-| [X_FACTOR_WEEK1.md](X_FACTOR_WEEK1.md) | Week-1 result: planted suite + oracle (loop is well-posed; Core not yet scored) |
+| [X_FACTOR_WEEK1.md](X_FACTOR_WEEK1.md) | Planted suite + oracle (loop well-posed; Core not scored) |
 
 Related engineering (not research claims):
 

@@ -1,5 +1,7 @@
 # X-factor evidence map
 
+**X-FACTOR:** Connector failure-ablation over forked Core state. See [X_FACTOR_STATEMENT.md](X_FACTOR_STATEMENT.md).
+
 Read from `core-vnext` source and `git show origin/iterate500:<path>`. Leftover `cognition/`, `agents/`, `state/` pycache on disk is **not** this branch.
 
 Status: **D** demonstrated · **P** plausible · **S** speculative · **A** absent · **Stub** types exist, no closed loop
@@ -30,15 +32,17 @@ Status: **D** demonstrated · **P** plausible · **S** speculative · **A** abse
 | Sample + score | **D** | `anra_core/brain.py` `Brain.think` |
 | “Self-likelihood” = exp(mean logprob) clipped | **D** (not P(success)) | `Brain.think` |
 | Deliberate = ≤4 candidates | **D** | `ThoughtPolicy` |
-| Failure classer | **A** | no such code |
-| Ablation battery | **A** | fork is tested, never used for K vs π |
+| Failure classer (rule table, fail closed) | **D** (oracle / harness) | `anra_core/ablation.py` `classify_from_arms` |
+| Ablation battery + planted suite | **D** (oracle 80/80) | `anra_core/ablation.py`; `tests/test_failure_ablation.py` |
+| Decode arm uses `fork_state` | **D** (code path) | `run_core_battery` |
+| V4 checkpoint scored on the suite | **A** | no `*.pt` in repo; week 2 |
 
 ## iterate500 overlay (not in this branch)
 
 | Capability asked | Status | What the code actually does |
 |---|---|---|
 | 1. Failure understanding | **Stub** | `engine/agent_loop.py`: on fail, `"reasoning"` if `causal_type != "unknown"` else `"execution"`. Epistemic tracker is a provenance-weighted confidence formula, not a cause. |
-| 2. Failure testing (hold π, change K) | **A** | No such experiment. `innovation/hypothesis.py` maps TODO/stub strings to pytest recipes. |
+| 2. Failure testing (hold π, change K) | **D** on `core-vnext` harness; **A** on iterate500 live loop | `anra_core/ablation.py`. iterate500 `innovation/hypothesis.py` still maps TODO/stub strings to pytest recipes. |
 | 3. Task structure | **Stub** | `intelligence/hgp.py` validates trees; decomposer is injected. `memory/experimental_proof_graph.py` is a JSON graph API. `cognition/cdse.py` is hardcoded seed signatures. phase2 planner is regex/heuristic steps. |
 | 4. Self-model P(success \| type, ctx, strategy, tools) | **Stub** | `intelligence/competence.py`: running mean accuracy/calibration/coverage **by domain string**. Policy thresholds → `direct/verify/retrieve_and_decompose/research_or_clarify`. Not a function of strategy/tools. Not called from Core. |
 | 5. Internal simulation | **Stub** | `robotics/world_model.py`: GRU on blake2-hashed JSON; gated at 1e5 transitions. **Real** simulation primitive is Core fork (**D**, unused). |
@@ -60,7 +64,7 @@ Status: **D** demonstrated · **P** plausible · **S** speculative · **A** abse
 | # | Answer |
 |---|---|
 | When it fails, can it determine why? | **No (D).** Two-class heuristic or a string field. |
-| Can it test the diagnosis? | **No (D).** |
+| Can it test the diagnosis? | **Harness yes (D).** iterate500 live loop: **No (D).** |
 | Structure formation vs retrieval? | **Types only (Stub).** Trees/graphs are containers. |
 | Self-model as P(success\|…)? | **No (D).** Logprob and domain averages. |
 | Predict action outcomes before execution? | **Not for language (D).** Fork could; GRU-hash should not. |

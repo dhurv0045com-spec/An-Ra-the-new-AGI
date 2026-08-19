@@ -20,15 +20,18 @@ The canonical dense program has 180,093,312 trainable parameters. Historical
 Those tensors are inventory-validated for compatibility but are not executed by
 the dense Core.
 
-## Research (X-factor)
+## X-FACTOR
 
-The highest-leverage next mechanism is a Connector **failure-ablation loop**
-over forked Core state, not more named AGI modules. Documents:
+Connector **failure-ablation loop**: fork Core state, hold plan fixed and
+change knowledge (and the reverse), classify the unique flip, update one
+store or nothing. The Core does not explain itself. The Connector measures.
 
-- `docs/research/X_FACTOR.md` — diagnosis, mechanism, experiment
+**Document:** [`docs/research/X_FACTOR_STATEMENT.md`](docs/research/X_FACTOR_STATEMENT.md)
+
+- `docs/research/X_FACTOR.md` — full argument
 - `docs/research/X_FACTOR_CODEMAP.md` — what the code actually does
-- `docs/research/X_FACTOR_WEEK1.md` — planted suite / oracle result
-- `docs/research/README.md` — index
+- `docs/research/X_FACTOR_WEEK1.md` — planted suite / oracle
+- `anra_core/ablation.py` — experimenter
 
 ```powershell
 python -m anra_core.ablation --oracle

@@ -12,7 +12,7 @@ preserving execution boundary currently undergoing real-checkpoint validation.
 | --- | --- | --- |
 | Neural Program | V4 learned parameters and deterministic mathematics from IDs to logits | UI, tools, sampling policy, optimizer policy |
 | Core Executor | device/dtype/profile, batching, incremental cache allocation, state validation | learned weights mutation or system policy |
-| Connector | representation assembly, context selection, decoding/sampling, verification, orchestration | arbitrary Core tensor/state mutation |
+| Connector | representation assembly, context selection, decoding/sampling, verification, orchestration. **X-factor:** failure-ablation over forked Core state (see `docs/research/X_FACTOR_STATEMENT.md`) | arbitrary Core tensor/state mutation |
 | Training/Evaluation | data, objective, updates, checkpoints, evaluation and promotion | inference-time system policy |
 
 The Core is not synonymous with all intelligence. It is the exact learned

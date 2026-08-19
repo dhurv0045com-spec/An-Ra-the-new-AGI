@@ -1,10 +1,16 @@
 # An-Ra X-factor
 
-**Branch:** `core-vnext` (`0125948`)
+> **X-FACTOR:** Connector-owned **failure-ablation loop**. Fork Core state. Hold plan fixed, change knowledge (and the reverse, plus decode and tools). Map the unique flip to a typed class. Update **one** store — or nothing.
+>
+> The Core does not explain itself. The Connector measures.
+>
+> One-pager: [X_FACTOR_STATEMENT.md](X_FACTOR_STATEMENT.md)
+
+**Branch:** `core-vnext`
 **Method:** implementation over README. Surrounding systems were read from `origin/iterate500`, not from leftover working-tree bytecode.
 **Claim labels:** **demonstrated** / **plausible** / **speculative**
 
-This document is the answer. `X_FACTOR_CODEMAP.md` is the evidence table.
+This document is the full answer. `X_FACTOR_CODEMAP.md` is the evidence table.
 
 ---
 
@@ -235,7 +241,7 @@ If both A and the X-factor fail, there is no Connector miracle at this size.
 
 ## 10. One-month plan (minimal)
 
-**Week 1.** Planted suite (80) + harness on `core-vnext` using `fork_state`. No training. No iterate500 imports. Ship `tests/test_failure_ablation.py` that fails until accuracy is reported (not until it passes 0.70 — report first).
+**Week 1. Done.** Planted suite (80) + harness on `core-vnext` using `fork_state`. Oracle accuracy 1.0, false knowledge-writes 0.0. That proves the *loop*, not V4. See `X_FACTOR_WEEK1.md`.
 
 **Week 2.** Run the battery on the current checkpoint. Publish confusion matrix. Trip/no-trip the SFT gate.
 
