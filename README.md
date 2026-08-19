@@ -20,6 +20,20 @@ The canonical dense program has 180,093,312 trainable parameters. Historical
 Those tensors are inventory-validated for compatibility but are not executed by
 the dense Core.
 
+## Research (X-factor)
+
+The highest-leverage next mechanism is a Connector **failure-ablation loop**
+over forked Core state, not more named AGI modules. Documents:
+
+- `docs/research/X_FACTOR.md` — diagnosis, mechanism, experiment
+- `docs/research/X_FACTOR_CODEMAP.md` — what the code actually does
+- `docs/research/X_FACTOR_WEEK1.md` — planted suite / oracle result
+- `docs/research/README.md` — index
+
+```powershell
+python -m anra_core.ablation --oracle
+```
+
 ## Honest capability boundary
 
 Core returns raw V4 next-token logits. It knows nothing about users, chat UI,
