@@ -64,6 +64,55 @@ class GroupedQueryAttention(nn.Module):
         self.v_proj = nn.Linear(config.d_model, config.n_kv_heads * config.head_dim, bias=False)
         self.out_proj = nn.Linear(config.n_heads * config.head_dim, config.d_model, bias=False)
         self.rope = RotaryEmbedding(config.head_dim, config.rope_base)
+        # Optional execution-only policy.  A tiled call preserves the V4
+        # attention mask and logits while avoiding a materialized [Q,K]
+        # workspace on accelerators whose SDPA backend is not fused.
+        self.memory_efficient_chunk_size: int | None = None
+
+    def enable_memory_efficient_attention(self, chunk_size: int | None) -> None:
+        if chunk_size is not None and int(chunk_size) <= 0:
+            raise ValueError("attention chunk size must be positive")
+        self.memory_efficient_chunk_size = None if chunk_size is None else int(chunk_size)
+
+    def _tiled_attention(
+        self,
+        q: torch.Tensor,
+        k: torch.Tensor,
+        v: torch.Tensor,
+        *,
+        start_pos: int,
+        full_attention: bool,
+    ) -> torch.Tensor:
+        """Compute exact masked attention in bounded query tiles.
+
+        This is an Executor-level memory policy, not a model change: every
+        query still sees exactly the same causal/sliding key positions as the
+        monolithic V4 call.  It is used on XLA when fused SDPA is unavailable.
+        """
+        tile = int(self.memory_efficient_chunk_size or q.shape[2])
+        total_len = k.shape[2]
+        key_positions = torch.arange(total_len, device=q.device)[None, :]
+        pieces: list[torch.Tensor] = []
+        for offset in range(0, q.shape[2], tile):
+            end = min(offset + tile, q.shape[2])
+            query_positions = torch.arange(
+                start_pos + offset, start_pos + end, device=q.device
+            )[:, None]
+            mask = key_positions <= query_positions
+            if not full_attention:
+                mask = mask & (key_positions > query_positions - self.config.sliding_window)
+            pieces.append(
+                F.scaled_dot_product_attention(
+                    q[:, :, offset:end, :],
+                    k,
+                    v,
+                    attn_mask=mask[None, None, :, :],
+                    dropout_p=0.0,
+                    is_causal=False,
+                    enable_gqa=True,
+                )
+            )
+        return torch.cat(pieces, dim=2)
 
     def forward(
         self,
@@ -106,7 +155,15 @@ class GroupedQueryAttention(nn.Module):
             v = value_buffer[:, :, :end_pos]
         total_len = k.shape[2]
 
-        if cache_buffer is not None and length == 1:
+        if self.memory_efficient_chunk_size is not None and length > 1:
+            attended = self._tiled_attention(
+                q,
+                k,
+                v,
+                start_pos=start_pos,
+                full_attention=self.full_attention,
+            )
+        elif cache_buffer is not None and length == 1:
             # Incremental single-token decode
             if not self.full_attention and total_len > self.config.sliding_window:
                 k_attn = k[:, :, -self.config.sliding_window :, :]
@@ -206,6 +263,11 @@ class AnRaCore(nn.Module):
     def enable_gradient_checkpointing(self, enabled: bool = True) -> None:
         """Enable block rematerialization for training without changing logits."""
         self.gradient_checkpointing = bool(enabled)
+
+    def enable_memory_efficient_attention(self, chunk_size: int | None = 128) -> None:
+        """Use bounded query tiles without changing V4 attention semantics."""
+        for block in self.blocks:
+            block.attn.enable_memory_efficient_attention(chunk_size)
 
     def forward(
         self,

@@ -300,6 +300,7 @@ def _worker(index: int, config: dict[str, object]) -> None:
     model = model.to(device)
     model.train()
     model.enable_gradient_checkpointing(True)
+    model.enable_memory_efficient_attention(int(config["attention_chunk_size"]))
     optimizer = torch.optim.AdamW(
         model.parameters(),
         lr=float(config["learning_rate"]),
@@ -433,6 +434,8 @@ def run(args: argparse.Namespace) -> None:
         raise ValueError(
             "--sequence-length must evenly divide the canonical 2048-token source window"
         )
+    if args.attention_chunk_size <= 0:
+        raise ValueError("--attention-chunk-size must be positive")
     if args.save_interval <= 0 or args.log_interval <= 0:
         raise ValueError("--save-interval and --log-interval must be positive")
     config = vars(args).copy()
@@ -461,6 +464,13 @@ def run(args: argparse.Namespace) -> None:
                 "using one existing worker",
                 flush=True,
             )
+    if args.require_world_size is not None and parent_world_size != args.require_world_size:
+        raise RuntimeError(
+            "TPU topology is not the requested full slice: "
+            f"required world_size={args.require_world_size}, got {parent_world_size}. "
+            "Restart Kaggle with Accelerator=TPU v5e-8 and wait for all workers; "
+            "refusing a partial-speed run."
+        )
     config["_world_size_hint"] = parent_world_size
     if parent_world_size == 1:
         _worker(0, config)
@@ -497,6 +507,17 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         type=int,
         default=CANONICAL_CONFIG.block_size,
         help="training window length; model context remains the canonical 2048 tokens",
+    )
+    parser.add_argument(
+        "--attention-chunk-size",
+        type=int,
+        default=128,
+        help="query tile for exact bounded-workspace attention on TPU/XLA",
+    )
+    parser.add_argument(
+        "--require-world-size",
+        type=int,
+        help="fail closed unless Kaggle grants exactly this TPU worker count",
     )
     parser.add_argument("--learning-rate", type=float, default=2e-4)
     parser.add_argument("--weight-decay", type=float, default=0.1)
