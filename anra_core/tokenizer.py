@@ -124,9 +124,17 @@ class V4Tokenizer:
         }
 
     def assert_checkpoint_contract(self, contract: object) -> None:
-        if not isinstance(contract, dict) or not contract.get("available"):
+        if not isinstance(contract, dict):
             raise RepresentationIncompatibleError(
                 "checkpoint does not contain a usable tokenizer contract"
+            )
+        # ``available`` was added as an explicit status marker after schema-9
+        # checkpoints were already being produced.  A missing marker is
+        # therefore backward-compatible when the complete identity fields
+        # below validate; an explicit false marker remains a hard failure.
+        if contract.get("available", True) is False:
+            raise RepresentationIncompatibleError(
+                "checkpoint explicitly marks its tokenizer contract unavailable"
             )
         try:
             probe_count = int(contract.get("probe_count", 500))
