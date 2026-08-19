@@ -226,7 +226,7 @@ class AnRaCore(nn.Module):
         for block in self.blocks:
             if self.training and self.gradient_checkpointing:
                 x = checkpoint(
-                    block, x, use_reentrant=False, preserve_rng_state=False
+                    block, x, use_reentrant=True, preserve_rng_state=False
                 )
             else:
                 x = block(x, cache_buffer=None, start_pos=0)
