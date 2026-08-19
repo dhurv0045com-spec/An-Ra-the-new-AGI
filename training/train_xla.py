@@ -355,11 +355,14 @@ def _worker(index: int, config: dict[str, object]) -> None:
         pin_memory=False,
         drop_last=True,
     )
-    # One XLA execution contains a complete accumulated update.  The previous
-    # default of one batch per execution materialized every microbatch and
-    # left most of gradient accumulation's TPU fusion benefit on the table.
+    # Keep one microbatch per XLA execution. ``batches_per_execution`` unrolls
+    # the loader loop into one HLO graph; with 2,048-token windows and gradient
+    # accumulation that graph multiplies activation/temporary HBM by the
+    # accumulation factor and exceeds a Kaggle TPU v5e-8 core's 15.75 GiB
+    # limit. The explicit Python accumulation loop below preserves optimizer
+    # semantics while letting XLA release each microbatch's activations.
     device_loader = pl.MpDeviceLoader(
-        loader, device, batches_per_execution=int(config["grad_accum_steps"])
+        loader, device, batches_per_execution=1
     )
     sampler_epoch = start_step
     sampler.set_epoch(sampler_epoch)

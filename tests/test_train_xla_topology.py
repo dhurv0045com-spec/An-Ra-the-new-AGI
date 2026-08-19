@@ -48,3 +48,9 @@ def test_tpu_stop_flag_uses_supported_sum_collective() -> None:
     source = (ROOT / "training" / "train_xla.py").read_text(encoding="utf-8")
     assert "xm.all_reduce(xm.REDUCE_SUM, stop)" in source
     assert "xm.all_reduce(xm.REDUCE_MAX, stop)" not in source
+
+
+def test_tpu_loader_does_not_unroll_gradient_accumulation_into_one_hlo_graph() -> None:
+    source = (ROOT / "training" / "train_xla.py").read_text(encoding="utf-8")
+    assert "batches_per_execution=1" in source
+    assert 'batches_per_execution=int(config["grad_accum_steps"])' not in source
