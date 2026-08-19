@@ -58,11 +58,20 @@ class TokenShardDataset(Dataset[tuple[torch.Tensor, torch.Tensor]]):
     of a 330M-token continuation pack when ``xmp.spawn`` starts workers.
     """
 
-    def __init__(self, root: Path, block_size: int) -> None:
+    def __init__(self, root: Path, block_size: int, *, source_block_size: int = 2_048) -> None:
         files = sorted(root.glob("*.npy"))
         if not files:
             raise FileNotFoundError(f"no token shards (*.npy) found in {root}")
         self.block_size = int(block_size)
+        self.source_block_size = int(source_block_size)
+        if self.block_size <= 0 or self.source_block_size <= 0:
+            raise ValueError("training and source block sizes must be positive")
+        if self.block_size > self.source_block_size or self.source_block_size % self.block_size:
+            raise ValueError(
+                "training sequence length must divide the canonical source window "
+                f"({self.source_block_size}); got {self.block_size}"
+            )
+        self._segments_per_source_window = self.source_block_size // self.block_size
         self._arrays: list[np.ndarray] = []
         self._ends: list[int] = []
         total = 0
@@ -70,11 +79,11 @@ class TokenShardDataset(Dataset[tuple[torch.Tensor, torch.Tensor]]):
             array = np.load(path, mmap_mode="r", allow_pickle=False)
             if array.ndim != 1 or not np.issubdtype(array.dtype, np.integer):
                 raise ValueError(f"token shard must be a 1-D integer array: {path}")
-            windows = (int(array.shape[0]) - 1) // self.block_size
+            windows = (int(array.shape[0]) - 1) // self.source_block_size
             if windows <= 0:
                 continue
             self._arrays.append(array)
-            total += windows
+            total += windows * self._segments_per_source_window
             self._ends.append(total)
         if not self._arrays or total <= 0:
             raise ValueError(f"token pack contains no complete training windows: {root}")
@@ -89,7 +98,11 @@ class TokenShardDataset(Dataset[tuple[torch.Tensor, torch.Tensor]]):
         shard = bisect_right(self._ends, index)
         previous_end = 0 if shard == 0 else self._ends[shard - 1]
         local_index = index - previous_end
-        start = local_index * self.block_size
+        source_window, segment = divmod(local_index, self._segments_per_source_window)
+        start = (
+            source_window * self.source_block_size
+            + segment * self.block_size
+        )
         # Copy the tiny window before converting to int64; the source is a
         # read-only mmap and torch must never retain a writable alias to it.
         values = np.asarray(
@@ -132,7 +145,11 @@ def _read_text(path: Path) -> str:
 def _load_dataset(path: Path, tokenizer: V4Tokenizer, block_size: int) -> TokenBlockDataset:
     if path.is_dir():
         train_root = path / "train" if (path / "train").is_dir() else path
-        dataset = TokenShardDataset(train_root, block_size)
+        dataset = TokenShardDataset(
+            train_root,
+            block_size,
+            source_block_size=CANONICAL_CONFIG.block_size,
+        )
         print(
             f"[TPU data] token pack {train_root} -> {len(dataset):,} windows",
             flush=True,
@@ -294,7 +311,8 @@ def _worker(index: int, config: dict[str, object]) -> None:
         _move_optimizer_state(optimizer, device)
     start_step = int(payload.get("global_step", 0)) if isinstance(payload, dict) else 0
 
-    dataset = _load_dataset(Path(str(config["dataset_path"])), tokenizer, CANONICAL_CONFIG.block_size)
+    sequence_length = int(config["sequence_length"])
+    dataset = _load_dataset(Path(str(config["dataset_path"])), tokenizer, sequence_length)
     sampler = torch.utils.data.distributed.DistributedSampler(
         dataset, num_replicas=world_size, rank=rank, shuffle=True, seed=seed, drop_last=True
     )
@@ -374,7 +392,7 @@ def _worker(index: int, config: dict[str, object]) -> None:
             mean_loss = float(loss_window.cpu()) / max(1, loss_window_steps)
             elapsed = max(1e-6, time.monotonic() - window_started)
             tokens = completed - start_step
-            tok_per_sec = tokens * grad_accum * int(config["batch_size"]) * world_size * CANONICAL_CONFIG.block_size / elapsed
+            tok_per_sec = tokens * grad_accum * int(config["batch_size"]) * world_size * sequence_length / elapsed
             print(
                 f"step={completed} loss={mean_loss:.4f} "
                 f"tok/s={tok_per_sec:.1f} elapsed={elapsed / 60:.1f}m",
@@ -407,6 +425,14 @@ def run(args: argparse.Namespace) -> None:
         raise ValueError("--max-minutes must be zero (step-only) or positive")
     if args.batch_size <= 0 or args.grad_accum_steps <= 0:
         raise ValueError("--batch-size and --grad-accum-steps must be positive")
+    if args.sequence_length <= 0 or args.sequence_length > CANONICAL_CONFIG.block_size:
+        raise ValueError(
+            f"--sequence-length must be in [1, {CANONICAL_CONFIG.block_size}]"
+        )
+    if CANONICAL_CONFIG.block_size % args.sequence_length:
+        raise ValueError(
+            "--sequence-length must evenly divide the canonical 2048-token source window"
+        )
     if args.save_interval <= 0 or args.log_interval <= 0:
         raise ValueError("--save-interval and --log-interval must be positive")
     config = vars(args).copy()
@@ -466,6 +492,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--max-minutes", type=float, default=0.0)
     parser.add_argument("--batch-size", type=int, default=1)
     parser.add_argument("--grad-accum-steps", type=int, default=8)
+    parser.add_argument(
+        "--sequence-length",
+        type=int,
+        default=CANONICAL_CONFIG.block_size,
+        help="training window length; model context remains the canonical 2048 tokens",
+    )
     parser.add_argument("--learning-rate", type=float, default=2e-4)
     parser.add_argument("--weight-decay", type=float, default=0.1)
     parser.add_argument("--save-interval", type=int, default=200)
