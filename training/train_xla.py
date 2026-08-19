@@ -474,21 +474,32 @@ def run(args: argparse.Namespace) -> None:
     # launch even when global_device_count=8.  The latter is the authoritative
     # slice allocation; use it to decide whether to launch one or eight
     # workers, while still refusing a genuinely partial allocation.
-    try:
-        import torch_xla.runtime as xr
+    # The notebook preflight may already have initialized PJRT in its own
+    # process.  Prefer its verified global device count so this trainer parent
+    # does not initialize a second computation client before spawning workers.
+    preflight_count = os.environ.get("ANRA_TPU_PREFLIGHT_WORLD_SIZE")
+    if preflight_count is not None:
+        try:
+            parent_device_count = int(preflight_count)
+            parent_process_world_size = int(
+                os.environ.get("ANRA_TPU_PREFLIGHT_PROCESS_WORLD_SIZE", "1")
+            )
+        except ValueError as exc:
+            raise RuntimeError(
+                "Invalid ANRA_TPU_PREFLIGHT_WORLD_SIZE; rerun the TPU preflight cell."
+            ) from exc
+    else:
+        try:
+            import torch_xla.runtime as xr
 
-        parent_process_world_size, parent_device_count = _runtime_topology(xr)
-    except Exception as exc:
+            parent_process_world_size, parent_device_count = _runtime_topology(xr)
+        except Exception as exc:
         # The notebook preflight may already have initialized PJRT.  Some
         # Kaggle images then refuse a second topology query with a transient
         # device-busy error even though the existing client is usable.  The
         # preflight's world-size=1 topology is the only safe fallback; record
         # it explicitly and keep the run single-process rather than spawning
         # a mismatched eight-worker slice.
-        if os.environ.get("ANRA_TPU_PREFLIGHT_WORLD_SIZE"):
-            parent_process_world_size = int(os.environ["ANRA_TPU_PREFLIGHT_WORLD_SIZE"])
-            parent_device_count = parent_process_world_size
-        else:
             parent_process_world_size = 1
             parent_device_count = 1
             print(
