@@ -232,7 +232,16 @@ def _bf16_autocast(enabled: bool) -> Iterator[None]:
 
 def _worker(index: int, config: dict[str, object]) -> None:
     xm, pl, _ = _require_xla()
+    import torch_xla
     import torch_xla.runtime as xr
+
+    # Some Kaggle torch_xla wheels expose the XLA package but do not register
+    # it as ``torch.xla``.  PyTorch's non-reentrant checkpoint helper needs
+    # that registration to identify the execution device; register the
+    # already-loaded runtime rather than falling back to CPU or disabling
+    # rematerialization.
+    if not hasattr(torch, "xla") and hasattr(torch, "_register_device_module"):
+        torch._register_device_module("xla", torch_xla)
 
     device = xm.xla_device()
     # ``xm.get_ordinal`` was removed from current Kaggle torch_xla; runtime
