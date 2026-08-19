@@ -454,12 +454,13 @@ def run(args: argparse.Namespace) -> None:
     # correct local topology without this override.
     os.environ.pop("TPU_PROCESS_ADDRESSES", None)
     os.environ.setdefault("PJRT_DEVICE", "TPU")
-    # Importing torch_xla is safe here, but querying PJRT topology in the
-    # notebook/parent process is not: Kaggle's PJRT runtime can leave a
-    # metric client alive and a second launch then aborts with
-    # runtime_metric_aggregator reporting_closure_ failures. Topology is
-    # validated inside the fresh worker processes below.
-    _, _, xmp = _require_xla()
+    # Keep the parent a pure launcher.  In particular, do not import
+    # ``torch_xla.core.xla_model`` or the parallel loader here: Kaggle's PJRT
+    # runtime can initialize its metrics client as a side effect of that
+    # import.  Importing the full worker stack in the parent and then calling
+    # ``torch_xla.launch`` creates a second PJRT client in the child process
+    # and aborts with ``runtime_metric_aggregator``/``reporting_closure``.
+    # Workers load the XLA worker stack after PJRT assigns their topology.
     if args.max_steps <= 0:
         raise ValueError("--max-steps must be positive")
     if args.max_minutes < 0:
@@ -479,43 +480,13 @@ def run(args: argparse.Namespace) -> None:
     if args.save_interval <= 0 or args.log_interval <= 0:
         raise ValueError("--save-interval and --log-interval must be positive")
     config = vars(args).copy()
-    # With a required full slice, do not initialize/query PJRT in the parent.
-    # The child worker is the only authoritative topology check. This keeps
-    # the parent a pure launcher and prevents double-initialization on Kaggle.
-    if args.require_world_size is not None:
-        parent_process_world_size = 0
-        parent_device_count = int(args.require_world_size)
-    else:
-        try:
-            import torch_xla.runtime as xr
-
-            parent_process_world_size, parent_device_count = _runtime_topology(xr)
-        except Exception as exc:
-        # The notebook preflight may already have initialized PJRT.  Some
-        # Kaggle images then refuse a second topology query with a transient
-        # device-busy error even though the existing client is usable.  The
-        # preflight's world-size=1 topology is the only safe fallback; record
-        # it explicitly and keep the run single-process rather than spawning
-        # a mismatched eight-worker slice.
-            parent_process_world_size = 1
-            parent_device_count = 1
-            print(
-                f"[TPU topology] PJRT query unavailable after preflight ({exc}); "
-                "using one existing worker",
-                flush=True,
-            )
-    if args.require_world_size is not None and parent_device_count != args.require_world_size:
-        raise RuntimeError(
-            "TPU topology is not the requested full slice: "
-            f"required devices={args.require_world_size}, got {parent_device_count} "
-            f"(pre-launch process_world_size={parent_process_world_size}). "
-            "Restart Kaggle with Accelerator=TPU v5e-8 and wait for the full slice; "
-            "refusing a partial-speed run."
-        )
-    config["_world_size_hint"] = parent_device_count
-    if parent_device_count == 1 and args.require_world_size is None:
-        _worker(0, config)
-        return
+    # The worker is the only authoritative topology observer.  The parent
+    # records the operator's requested slice (when provided); each worker
+    # compares it with xr.world_size() after launch.  This avoids both stale
+    # preflight values and a second PJRT initialization in the parent.
+    config["_world_size_hint"] = (
+        int(args.require_world_size) if args.require_world_size is not None else None
+    )
     # ``torch_xla.launch`` is the current PJRT entrypoint: it launches exactly
     # the TPU workers granted by Kaggle instead of assuming a fixed process
     # topology.  Keep the legacy launcher only for older Kaggle XLA images.
@@ -531,6 +502,11 @@ def run(args: argparse.Namespace) -> None:
         # fork would make each child attempt a second client initialization.
         launch(_worker, args=(config,), start_method="spawn")
     else:
+        # Older XLA images expose only xmp.spawn.  Import it lazily here so
+        # the parent still never imports xla_model/parallel_loader before the
+        # launcher has established the worker topology.
+        import torch_xla.distributed.xla_multiprocessing as xmp
+
         xmp.spawn(_worker, args=(config,), start_method="spawn")
 
 
