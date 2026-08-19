@@ -42,3 +42,9 @@ def test_parent_launcher_does_not_initialize_worker_xla_stack() -> None:
     assert "_require_xla()" not in parent_setup
     assert "import torch_xla.runtime" not in parent_setup
     assert "import torch_xla.core.xla_model" not in parent_setup
+
+
+def test_tpu_stop_flag_uses_supported_sum_collective() -> None:
+    source = (ROOT / "training" / "train_xla.py").read_text(encoding="utf-8")
+    assert "xm.all_reduce(xm.REDUCE_SUM, stop)" in source
+    assert "xm.all_reduce(xm.REDUCE_MAX, stop)" not in source

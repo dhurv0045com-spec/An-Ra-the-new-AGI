@@ -388,7 +388,11 @@ def _worker(index: int, config: dict[str, object]) -> None:
             stop = torch.tensor([1], device=device)
         else:
             stop = torch.tensor([0], device=device)
-        stop = xm.all_reduce(xm.REDUCE_MAX, stop)
+        # PJRT/XLA supports the sum collective for this scalar across Kaggle
+        # TPU workers.  The flag is boolean (0 or 1), so sum > 0 is exactly
+        # the same global stop decision as max > 0 without requiring the
+        # unsupported MaxComputation lowering.
+        stop = xm.all_reduce(xm.REDUCE_SUM, stop)
         if int(stop.item()):
             break
 
