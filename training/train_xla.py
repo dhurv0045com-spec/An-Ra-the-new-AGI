@@ -397,9 +397,12 @@ def run(args: argparse.Namespace) -> None:
     except ImportError:  # pragma: no cover - _require_xla already explains this
         launch = None
     if callable(launch):
-        launch(_worker, args=(config,))
+        # A Kaggle notebook may have imported torch_xla during preflight.
+        # Spawn fresh workers so the parent PJRT client is never inherited;
+        # fork would make each child attempt a second client initialization.
+        launch(_worker, args=(config,), start_method="spawn")
     else:
-        xmp.spawn(_worker, args=(config,), start_method="fork")
+        xmp.spawn(_worker, args=(config,), start_method="spawn")
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
