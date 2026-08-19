@@ -200,7 +200,8 @@ def _save_latest(
 ) -> None:
     """Write exactly one checkpoint object; never create numbered copies."""
     if not xm.is_master_ordinal():
-        xm.rendezvous("checkpoint-written")
+        if world_size > 1:
+            xm.rendezvous("checkpoint-written")
         return
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_name(f".{path.name}.{os.getpid()}.uploading")
@@ -210,7 +211,8 @@ def _save_latest(
     xm.save(payload, str(temporary), master_only=True)
     os.replace(temporary, path)
     print(f"[TPU checkpoint] step={step:,} path={path}", flush=True)
-    xm.rendezvous("checkpoint-written")
+    if world_size > 1:
+        xm.rendezvous("checkpoint-written")
 
 
 @contextlib.contextmanager
@@ -237,8 +239,15 @@ def _worker(index: int, config: dict[str, object]) -> None:
     # Modern PJRT/XLA exposes the worker topology through runtime.world_size;
     # xrt_world_size was removed from current Kaggle torch_xla builds.
     world_size = int(xr.world_size())
-    if world_size < 2:
-        raise RuntimeError(f"Expected a multi-core TPU runtime, got world_size={world_size}")
+    # Kaggle can expose a TPU device while the PJRT slice is provisioned as a
+    # single worker (for example while a v5e-8 session is still attaching).
+    # In that topology, spawning eight processes is invalid: PJRT reports one
+    # worker address and aborts every child.  Run one honest worker instead;
+    # the checkpoint records world_size=1 so this cannot be mistaken for an
+    # eight-core run.  Once Kaggle grants the full slice, world_size is 8 and
+    # the same code uses all workers.
+    if world_size < 1:
+        raise RuntimeError(f"Invalid TPU runtime world_size={world_size}")
 
     seed = int(config["seed"])
     random.seed(seed + rank)
@@ -340,7 +349,7 @@ def _worker(index: int, config: dict[str, object]) -> None:
             scaled.backward()
             loss_sum.add_(loss.detach())
         torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-        xm.optimizer_step(optimizer, barrier=True)
+        xm.optimizer_step(optimizer, barrier=world_size > 1)
         latest_loss = loss_sum / grad_accum
         loss_window.add_(latest_loss)
         loss_window_steps += 1
@@ -387,6 +396,20 @@ def run(args: argparse.Namespace) -> None:
     if args.save_interval <= 0 or args.log_interval <= 0:
         raise ValueError("--save-interval and --log-interval must be positive")
     config = vars(args).copy()
+    # Inspect the already-provisioned PJRT topology before choosing a launch
+    # mode.  A one-worker Kaggle TPU must not be handed to the eight-process
+    # launcher; doing so produces the misleading "expected 8 worker
+    # addresses, got 1" crash.  Direct execution reuses the existing client
+    # safely and remains resumable, while a real v5e-8 slice uses spawn below.
+    try:
+        import torch_xla.runtime as xr
+
+        parent_world_size = int(xr.world_size())
+    except Exception as exc:
+        raise RuntimeError("Unable to inspect the TPU PJRT topology") from exc
+    if parent_world_size == 1:
+        _worker(0, config)
+        return
     # ``torch_xla.launch`` is the current PJRT entrypoint: it launches exactly
     # the TPU workers granted by Kaggle instead of assuming a fixed process
     # topology.  Keep the legacy launcher only for older Kaggle XLA images.
