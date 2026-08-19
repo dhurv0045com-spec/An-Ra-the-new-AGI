@@ -235,7 +235,10 @@ def _worker(index: int, config: dict[str, object]) -> None:
     import torch_xla.runtime as xr
 
     device = xm.xla_device()
-    rank = xm.get_ordinal()
+    # ``xm.get_ordinal`` was removed from current Kaggle torch_xla; runtime
+    # owns the PJRT ordinal now.  Keep a zero-rank fallback for the supported
+    # single-worker topology.
+    rank = int(getattr(xr, "global_ordinal", lambda: 0)())
     # Modern PJRT/XLA exposes the worker topology through runtime.world_size;
     # xrt_world_size was removed from current Kaggle torch_xla builds.
     world_size_hint = config.get("_world_size_hint")
