@@ -238,7 +238,8 @@ def _worker(index: int, config: dict[str, object]) -> None:
     rank = xm.get_ordinal()
     # Modern PJRT/XLA exposes the worker topology through runtime.world_size;
     # xrt_world_size was removed from current Kaggle torch_xla builds.
-    world_size = int(xr.world_size())
+    world_size_hint = config.get("_world_size_hint")
+    world_size = int(world_size_hint) if world_size_hint is not None else int(xr.world_size())
     # Kaggle can expose a TPU device while the PJRT slice is provisioned as a
     # single worker (for example while a v5e-8 session is still attaching).
     # In that topology, spawning eight processes is invalid: PJRT reports one
@@ -406,7 +407,22 @@ def run(args: argparse.Namespace) -> None:
 
         parent_world_size = int(xr.world_size())
     except Exception as exc:
-        raise RuntimeError("Unable to inspect the TPU PJRT topology") from exc
+        # The notebook preflight may already have initialized PJRT.  Some
+        # Kaggle images then refuse a second topology query with a transient
+        # device-busy error even though the existing client is usable.  The
+        # preflight's world-size=1 topology is the only safe fallback; record
+        # it explicitly and keep the run single-process rather than spawning
+        # a mismatched eight-worker slice.
+        if os.environ.get("ANRA_TPU_PREFLIGHT_WORLD_SIZE"):
+            parent_world_size = int(os.environ["ANRA_TPU_PREFLIGHT_WORLD_SIZE"])
+        else:
+            parent_world_size = 1
+            print(
+                f"[TPU topology] PJRT query unavailable after preflight ({exc}); "
+                "using one existing worker",
+                flush=True,
+            )
+    config["_world_size_hint"] = parent_world_size
     if parent_world_size == 1:
         _worker(0, config)
         return
