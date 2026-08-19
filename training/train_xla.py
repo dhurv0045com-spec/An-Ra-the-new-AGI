@@ -273,6 +273,7 @@ def _worker(index: int, config: dict[str, object]) -> None:
 
     model = model.to(device)
     model.train()
+    model.enable_gradient_checkpointing(True)
     optimizer = torch.optim.AdamW(
         model.parameters(),
         lr=float(config["learning_rate"]),

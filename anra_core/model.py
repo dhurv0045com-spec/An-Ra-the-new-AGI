@@ -12,6 +12,7 @@ import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.utils.checkpoint import checkpoint
 
 from .config import CANONICAL_CONFIG, CoreConfig
 from .errors import ContextOverflowError
@@ -188,6 +189,11 @@ class AnRaCore(nn.Module):
     def __init__(self, config: CoreConfig = CANONICAL_CONFIG) -> None:
         super().__init__()
         self.config = config
+        # Training-only execution policy.  The mathematical V4 function is
+        # unchanged; when enabled, block activations are rematerialized during
+        # backward so long 2,048-token TPU windows do not retain every layer's
+        # attention workspace in HBM.
+        self.gradient_checkpointing = False
         self.token_embedding_table = nn.Embedding(config.vocab_size, config.d_model)
         self.register_buffer(
             "embedding_input_scale", torch.ones(config.d_model), persistent=True
@@ -196,6 +202,10 @@ class AnRaCore(nn.Module):
         self.norm_f = RMSNorm(config.d_model, config.rms_norm_eps)
         self.lm_head = nn.Linear(config.d_model, config.vocab_size, bias=False)
         self.lm_head.weight = self.token_embedding_table.weight
+
+    def enable_gradient_checkpointing(self, enabled: bool = True) -> None:
+        """Enable block rematerialization for training without changing logits."""
+        self.gradient_checkpointing = bool(enabled)
 
     def forward(
         self,
@@ -214,7 +224,12 @@ class AnRaCore(nn.Module):
             )
         x = self.token_embedding_table(token_ids) * self.embedding_input_scale
         for block in self.blocks:
-            x = block(x, cache_buffer=None, start_pos=0)
+            if self.training and self.gradient_checkpointing:
+                x = checkpoint(
+                    block, x, use_reentrant=False, preserve_rng_state=False
+                )
+            else:
+                x = block(x, cache_buffer=None, start_pos=0)
         return self.lm_head(self.norm_f(x))
 
     def forward_incremental(
