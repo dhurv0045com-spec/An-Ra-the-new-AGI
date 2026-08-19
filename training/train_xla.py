@@ -161,6 +161,7 @@ def _checkpoint_payload(
     step: int,
     metrics: dict[str, float],
     source_checkpoint: str | None,
+    world_size: int,
 ) -> dict[str, object]:
     raw_model = model.module if hasattr(model, "module") else model
     state = {name: value.detach().cpu() for name, value in raw_model.state_dict().items()}
@@ -180,7 +181,7 @@ def _checkpoint_payload(
         "execution": {
             "backend": "torch_xla",
             "precision": "bf16",
-            "world_size": int(os.environ.get("XRT_WORLD_SIZE", "0") or 0),
+            "world_size": int(world_size),
         },
     }
 
@@ -195,6 +196,7 @@ def _save_latest(
     step: int,
     metrics: dict[str, float],
     source_checkpoint: str | None,
+    world_size: int,
 ) -> None:
     """Write exactly one checkpoint object; never create numbered copies."""
     if not xm.is_master_ordinal():
@@ -203,7 +205,7 @@ def _save_latest(
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_name(f".{path.name}.{os.getpid()}.uploading")
     payload = _checkpoint_payload(
-        model, optimizer, config, tokenizer, step, metrics, source_checkpoint
+        model, optimizer, config, tokenizer, step, metrics, source_checkpoint, world_size
     )
     xm.save(payload, str(temporary), master_only=True)
     os.replace(temporary, path)
@@ -273,8 +275,22 @@ def _worker(index: int, config: dict[str, object]) -> None:
     sampler = torch.utils.data.distributed.DistributedSampler(
         dataset, num_replicas=world_size, rank=rank, shuffle=True, seed=seed, drop_last=True
     )
-    loader = DataLoader(dataset, batch_size=int(config["batch_size"]), sampler=sampler, num_workers=0, drop_last=True)
-    device_loader = pl.MpDeviceLoader(loader, device)
+    loader = DataLoader(
+        dataset,
+        batch_size=int(config["batch_size"]),
+        sampler=sampler,
+        num_workers=0,
+        pin_memory=False,
+        drop_last=True,
+    )
+    # One XLA execution contains a complete accumulated update.  The previous
+    # default of one batch per execution materialized every microbatch and
+    # left most of gradient accumulation's TPU fusion benefit on the table.
+    device_loader = pl.MpDeviceLoader(
+        loader, device, batches_per_execution=int(config["grad_accum_steps"])
+    )
+    sampler_epoch = start_step
+    sampler.set_epoch(sampler_epoch)
     iterator = iter(device_loader)
     max_steps = int(config["max_steps"])
     max_minutes = float(config["max_minutes"])
@@ -283,7 +299,9 @@ def _worker(index: int, config: dict[str, object]) -> None:
     save_interval = int(config["save_interval"])
     log_interval = int(config["log_interval"])
     output = Path(str(config["output_checkpoint"])).expanduser()
-    running_loss = 0.0
+    loss_window = torch.zeros((), device=device)
+    loss_window_steps = 0
+    latest_loss: torch.Tensor | None = None
     window_started = time.monotonic()
 
     if rank == 0:
@@ -302,13 +320,17 @@ def _worker(index: int, config: dict[str, object]) -> None:
         if int(stop.item()):
             break
 
-        sampler.set_epoch(step // max(1, len(loader)))
         optimizer.zero_grad(set_to_none=True)
-        loss_value = 0.0
+        # Keep loss accumulation on TPU.  Calling ``.cpu()`` for every
+        # microbatch synchronizes host and device and substantially reduces
+        # throughput on a v5e-8.
+        loss_sum = torch.zeros((), device=device)
         for _ in range(grad_accum):
             try:
                 x, y = next(iterator)
             except StopIteration:
+                sampler_epoch += 1
+                sampler.set_epoch(sampler_epoch)
                 iterator = iter(device_loader)
                 x, y = next(iterator)
             with _bf16_autocast(True):
@@ -316,33 +338,38 @@ def _worker(index: int, config: dict[str, object]) -> None:
                 loss = F.cross_entropy(logits.reshape(-1, CANONICAL_CONFIG.vocab_size), y.reshape(-1))
                 scaled = loss / grad_accum
             scaled.backward()
-            loss_value += float(loss.detach().cpu())
+            loss_sum.add_(loss.detach())
         torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
         xm.optimizer_step(optimizer, barrier=True)
-        xm.mark_step()
-        running_loss += loss_value / grad_accum
+        latest_loss = loss_sum / grad_accum
+        loss_window.add_(latest_loss)
+        loss_window_steps += 1
         completed = step + 1
 
         if rank == 0 and (completed % log_interval == 0 or completed == start_step + 1):
+            # This is the intentionally infrequent host sync for reporting.
+            mean_loss = float(loss_window.cpu()) / max(1, loss_window_steps)
             elapsed = max(1e-6, time.monotonic() - window_started)
             tokens = completed - start_step
             tok_per_sec = tokens * grad_accum * int(config["batch_size"]) * world_size * CANONICAL_CONFIG.block_size / elapsed
             print(
-                f"step={completed} loss={running_loss / max(1, log_interval):.4f} "
+                f"step={completed} loss={mean_loss:.4f} "
                 f"tok/s={tok_per_sec:.1f} elapsed={elapsed / 60:.1f}m",
                 flush=True,
             )
-            running_loss = 0.0
+            loss_window = torch.zeros((), device=device)
+            loss_window_steps = 0
 
         if completed % save_interval == 0:
             _save_latest(
                 xm, output, model, optimizer, CANONICAL_CONFIG, tokenizer, completed,
-                {"loss": loss_value / grad_accum}, source_checkpoint,
+                {"loss": float(latest_loss.cpu())}, source_checkpoint, world_size,
             )
 
     _save_latest(
         xm, output, model, optimizer, CANONICAL_CONFIG, tokenizer, completed if "completed" in locals() else start_step,
-        {"loss": running_loss}, source_checkpoint,
+        {"loss": float(latest_loss.cpu()) if latest_loss is not None else 0.0},
+        source_checkpoint, world_size,
     )
     if rank == 0:
         print("[TPU complete] one protected checkpoint is ready", flush=True)
@@ -351,8 +378,28 @@ def _worker(index: int, config: dict[str, object]) -> None:
 def run(args: argparse.Namespace) -> None:
     _, _, xmp = _require_xla()
     os.environ.setdefault("PJRT_DEVICE", "TPU")
+    if args.max_steps <= 0:
+        raise ValueError("--max-steps must be positive")
+    if args.max_minutes < 0:
+        raise ValueError("--max-minutes must be zero (step-only) or positive")
+    if args.batch_size <= 0 or args.grad_accum_steps <= 0:
+        raise ValueError("--batch-size and --grad-accum-steps must be positive")
+    if args.save_interval <= 0 or args.log_interval <= 0:
+        raise ValueError("--save-interval and --log-interval must be positive")
     config = vars(args).copy()
-    xmp.spawn(_worker, args=(config,), nprocs=8, start_method="fork")
+    # ``torch_xla.launch`` is the current PJRT entrypoint: it launches exactly
+    # the TPU workers granted by Kaggle instead of assuming a fixed process
+    # topology.  Keep the legacy launcher only for older Kaggle XLA images.
+    try:
+        import torch_xla
+
+        launch = getattr(torch_xla, "launch", None)
+    except ImportError:  # pragma: no cover - _require_xla already explains this
+        launch = None
+    if callable(launch):
+        launch(_worker, args=(config,))
+    else:
+        xmp.spawn(_worker, args=(config,), start_method="fork")
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
