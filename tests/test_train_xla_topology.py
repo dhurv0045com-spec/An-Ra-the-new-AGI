@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from training.train_xla import _runtime_topology
+from training.train_xla import _runtime_topology, _tokens_per_optimizer_step, parse_args
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -54,3 +54,21 @@ def test_tpu_loader_does_not_unroll_gradient_accumulation_into_one_hlo_graph() -
     source = (ROOT / "training" / "train_xla.py").read_text(encoding="utf-8")
     assert "batches_per_execution=1" in source
     assert 'batches_per_execution=int(config["grad_accum_steps"])' not in source
+
+
+def test_eight_core_default_matches_t4_effective_tokens_per_step() -> None:
+    args = parse_args(["--dataset-path", "data", "--output-checkpoint", "model.pt"])
+    assert args.grad_accum_steps == 1
+    assert _tokens_per_optimizer_step(
+        batch_size=args.batch_size,
+        grad_accum_steps=args.grad_accum_steps,
+        world_size=8,
+        sequence_length=args.sequence_length,
+    ) == 16_384
+
+
+def test_tpu_report_exposes_equal_work_metrics() -> None:
+    source = (ROOT / "training" / "train_xla.py").read_text(encoding="utf-8")
+    assert "global_tok/s=" in source
+    assert "sec/step=" in source
+    assert "tokens/step=" in source

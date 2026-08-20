@@ -9,26 +9,26 @@ torch_xla lazily so local CPU tooling and tests do not require TPU packages.
 from __future__ import annotations
 
 import argparse
-from bisect import bisect_right
 import contextlib
 import json
 import math
 import os
 import random
 import time
+from bisect import bisect_right
+from collections.abc import Iterator
 from dataclasses import asdict
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any
 
-import torch
-import torch.nn.functional as F
 import numpy as np
-from torch.utils.data import DataLoader, Dataset
-
+import torch
+import torch.nn.functional as functional
 from anra_core.checkpoint import load_core_checkpoint
 from anra_core.config import CANONICAL_CONFIG
 from anra_core.model import AnRaCore
 from anra_core.tokenizer import V4Tokenizer
+from torch.utils.data import DataLoader, Dataset
 
 
 class TokenBlockDataset(Dataset[tuple[torch.Tensor, torch.Tensor]]):
@@ -154,6 +154,25 @@ def _runtime_topology(runtime: Any) -> tuple[int, int]:
             f"device_count={device_count}"
         )
     return process_world_size, device_count
+
+
+def _tokens_per_optimizer_step(
+    *, batch_size: int, grad_accum_steps: int, world_size: int, sequence_length: int
+) -> int:
+    """Return global training tokens represented by one numbered step.
+
+    This is deliberately global: every TPU worker contributes ``batch_size``
+    sequences to every microbatch.  Keeping this calculation explicit prevents
+    the common error of retaining a single-GPU accumulation factor after
+    scaling out to eight TPU workers and then comparing unequal optimizer
+    steps.
+    """
+    values = (batch_size, grad_accum_steps, world_size, sequence_length)
+    if any(int(value) <= 0 for value in values):
+        raise ValueError(
+            "batch, accumulation, world size, and sequence length must be positive"
+        )
+    return math.prod(int(value) for value in values)
 
 
 def _read_text(path: Path) -> str:
@@ -313,7 +332,11 @@ def _worker(index: int, config: dict[str, object]) -> None:
     random.seed(seed + rank)
     torch.manual_seed(seed + rank)
     tokenizer = V4Tokenizer.load_canonical()
-    resume_path = Path(str(config["resume_from"])).expanduser() if config.get("resume_from") else None
+    resume_path = (
+        Path(str(config["resume_from"])).expanduser()
+        if config.get("resume_from")
+        else None
+    )
     source_checkpoint: str | None = str(resume_path) if resume_path else None
 
     if resume_path:
@@ -377,12 +400,21 @@ def _worker(index: int, config: dict[str, object]) -> None:
     loss_window = torch.zeros((), device=device)
     loss_window_steps = 0
     latest_loss: torch.Tensor | None = None
-    window_started = time.monotonic()
+    session_started = time.monotonic()
+    window_started = session_started
+    last_report_step = start_step
+    tokens_per_step = _tokens_per_optimizer_step(
+        batch_size=int(config["batch_size"]),
+        grad_accum_steps=grad_accum,
+        world_size=world_size,
+        sequence_length=sequence_length,
+    )
 
     if rank == 0:
         print(
             f"[TPU ready] cores={world_size} device={device} precision=bf16 "
-            f"resume_step={start_step:,} target_step={max_steps:,}",
+            f"resume_step={start_step:,} target_step={max_steps:,} "
+            f"tokens/step={tokens_per_step:,}",
             flush=True,
         )
 
@@ -414,7 +446,9 @@ def _worker(index: int, config: dict[str, object]) -> None:
                 x, y = next(iterator)
             with _bf16_autocast(True):
                 logits = model(x)
-                loss = F.cross_entropy(logits.reshape(-1, CANONICAL_CONFIG.vocab_size), y.reshape(-1))
+                loss = functional.cross_entropy(
+                    logits.reshape(-1, CANONICAL_CONFIG.vocab_size), y.reshape(-1)
+                )
                 scaled = loss / grad_accum
             scaled.backward()
             loss_sum.add_(loss.detach())
@@ -429,15 +463,20 @@ def _worker(index: int, config: dict[str, object]) -> None:
             # This is the intentionally infrequent host sync for reporting.
             mean_loss = float(loss_window.cpu()) / max(1, loss_window_steps)
             elapsed = max(1e-6, time.monotonic() - window_started)
-            tokens = completed - start_step
-            tok_per_sec = tokens * grad_accum * int(config["batch_size"]) * world_size * sequence_length / elapsed
+            report_steps = completed - last_report_step
+            tok_per_sec = report_steps * tokens_per_step / elapsed
+            seconds_per_step = elapsed / max(1, report_steps)
             print(
                 f"step={completed} loss={mean_loss:.4f} "
-                f"tok/s={tok_per_sec:.1f} elapsed={elapsed / 60:.1f}m",
+                f"global_tok/s={tok_per_sec:.1f} sec/step={seconds_per_step:.2f} "
+                f"tokens/step={tokens_per_step} elapsed_total="
+                f"{(time.monotonic() - session_started) / 60:.1f}m",
                 flush=True,
             )
             loss_window = torch.zeros((), device=device)
             loss_window_steps = 0
+            last_report_step = completed
+            window_started = time.monotonic()
 
         if completed % save_interval == 0:
             _save_latest(
@@ -446,7 +485,13 @@ def _worker(index: int, config: dict[str, object]) -> None:
             )
 
     _save_latest(
-        xm, output, model, optimizer, CANONICAL_CONFIG, tokenizer, completed if "completed" in locals() else start_step,
+        xm,
+        output,
+        model,
+        optimizer,
+        CANONICAL_CONFIG,
+        tokenizer,
+        completed if "completed" in locals() else start_step,
         {"loss": float(latest_loss.cpu()) if latest_loss is not None else 0.0},
         source_checkpoint, world_size,
     )
@@ -525,7 +570,15 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--max-steps", type=int, default=10_000)
     parser.add_argument("--max-minutes", type=float, default=0.0)
     parser.add_argument("--batch-size", type=int, default=1)
-    parser.add_argument("--grad-accum-steps", type=int, default=8)
+    parser.add_argument(
+        "--grad-accum-steps",
+        type=int,
+        default=1,
+        help=(
+            "microbatches per optimizer step on each TPU worker; 1 with eight "
+            "workers matches the canonical T4 effective batch of eight sequences"
+        ),
+    )
     parser.add_argument(
         "--sequence-length",
         type=int,
