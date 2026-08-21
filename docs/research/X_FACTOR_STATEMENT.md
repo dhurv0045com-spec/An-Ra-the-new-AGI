@@ -1,71 +1,57 @@
-# THE X-FACTOR
+# X-FACTOR: Cognitive Credit Assignment Through Controlled Interventions
 
-**An-Ra does not get more capable by adding RAG, tools, agents, CoT, RL, memory, or named cognition modules.**
+> **X-FACTOR:** Connector-owned cognitive credit assignment. On failure, hold
+> everything fixed, change one variable (knowledge, plan, decode policy, tool
+> adapter, context packing), rerun Core, and diagnose from which change
+> flipped the verifier. The diagnostician never sees the planted cause.
 
-Those already exist as types on `iterate500` and do not form a closed loop. The 180M V4 Core is a normal dense decoder. What it uniquely *has* is forkable incremental state.
+**Status: methodology validated; substrate currently too weak (see below).**
 
----
+## What replaced what
 
-## The X-factor (one sentence)
+The original prototype (`anra_core/ablation.py`, removed) contained a fatal
+methodological flaw: `arms_for()` branched on `item.planted_class`, so the
+intervention generator used the hidden answer while constructing the
+experiment that supposedly discovered it. Its 100% oracle score was label
+leakage, not evidence.
 
-**A Connector-owned failure-ablation loop:** on verifier failure, fork Core state, hold one factor fixed and change another (knowledge vs plan vs decode vs tools), map the flip pattern to a typed failure class, and update **exactly one** store — memory, plan, retrieval, decode policy, tool adapter, training queue, or **nothing**.
+The replacement lives in `connector/experiments/cognitive_credit/` and
+enforces separation structurally:
 
-The Core does not explain itself. The Connector measures.
+- `ObservedCase` — everything the diagnostician may see (task, corpus, plan
+  candidates, tools, initial attempt). No field derives from the cause.
+- `HiddenGroundTruth` — evaluator-only (planted family, gold solution,
+  gold knowledge, gold plan).
+- `build_interventions(case: ObservedCase)` — the type system admits no
+  hidden data. A focused test
+  (`tests/test_cognitive_credit.py::test_hidden_label_flip_cannot_change_interventions`)
+  proves permuting the hidden label cannot change the generated battery.
+- Interventions are realistic: knowledge arms retrieve from a provided corpus
+  (and may fail); plan arms come from the system's own candidate list; decode
+  arm changes real sampling policy; tool arm toggles a real adapter; context
+  arms repack the same information.
+- Diagnosis preserves uncertainty: `multiple_plausible`, `unresolved`, and
+  evidence-gated `model_limitation` (only when the full battery ran and
+  nothing flipped).
 
----
+## Files
 
-## Attempt
-
-```text
-Attempt = (K, π, δ, τ)
-  K  knowledge / context pack
-  π  plan
-  δ  decode policy
-  τ  tools / mocks
-```
-
-## Classes → one update
-
-| If this arm uniquely flips success | Class | Update |
-|---|---|---|
-| add / swap / retrieve fact | `missing_knowledge` / `wrong_knowledge` / `bad_retrieval` | write/correct memory, or fix retrieval — not both |
-| change plan, hold K | `bad_planning` | store the better plan template |
-| greedy vs sample, hold K,π | `weak_reasoning` | raise candidates / verify; do not write facts |
-| mock tool ok vs error | `tool_execution_failure` | fix tool adapter, not weights |
-| compact K vs long K | `context_limit` | compress the pack |
-| nothing flips | `model_limitation` | queue for training; **change nothing online** |
-| bad token IDs / overflow | `representation_failure` | stop; do not learn |
-
-Ties fail closed to `model_limitation`.
-
----
-
-## Where
-
-**Connector**, using Core `fork_state` / `rollback_state`. Not inside `AnRaCore.forward`. Not another `phase2` facade. Not a new neural gadget (HAL/ESV/MoD/RIM stay dormant).
-
-Code: `anra_core/ablation.py`
-
----
-
-## Why this is the X-factor
-
-A normal LLM + RAG + tools + agent loop **fails opaquely**. It cannot tell missing knowledge from a bad plan from a model limit, so it writes the wrong memory, replans the wrong node, or updates weights for the wrong reason.
-
-Forkable KV state lets An-Ra *test* the diagnosis. That is the only unusual primitive that is **demonstrated** in this repo.
-
----
-
-## Status
-
-| Claim | Label |
+| File | Role |
 |---|---|
-| Core is 180M IDs→logits with real fork/rollback | **demonstrated** |
-| iterate500 overlay is mostly unwired names | **demonstrated** |
-| Oracle ablation recovers 80/80 planted classes | **demonstrated** (loop is well-posed) |
-| V4 checkpoint can use this loop | **untested** (no checkpoint in repo) |
-| This beats scale/RAG/tools at 180M | **plausible**, falsifiable; if Core ignores `<k>`, the answer is ordinary SFT |
+| `case.py` | ObservedCase / HiddenGroundTruth / Attempt types |
+| `suite.py` | 20 cases, 4 families, fault injection separated from surface |
+| `interventions.py` | one-variable-at-a-time battery from observed data only |
+| `diagnose.py` | flip-pattern classifier with first-class uncertainty |
+| `runner.py` | battery execution, baselines A/B, repair success, metrics |
+| `run_real.py` | real-checkpoint entry point |
+| `capability_probe.py` | substrate preconditions (P1–P5) |
+| `tests/test_cognitive_credit.py` | no-leakage proof + oracle validation |
 
-Full argument: [X_FACTOR.md](X_FACTOR.md)
-Evidence: [X_FACTOR_CODEMAP.md](X_FACTOR_CODEMAP.md)
-Week-1 numbers: [X_FACTOR_WEEK1.md](X_FACTOR_WEEK1.md)
+## Results on the trained V4 (step 30400)
+
+All five substrate preconditions fail (0/5 each): the model cannot use
+in-context facts, follow stated plans, echo words, or report tool results —
+even when the gold content is placed directly in its context. Intervention
+diagnosis is therefore not yet runnable on this checkpoint; the experiment
+is validated end-to-end with oracle physics (20/20) and is ready to rerun
+once a checkpoint passes the capability probe.

@@ -368,8 +368,15 @@ class CoreExecutor:
         chunk_size: int | None,
     ) -> PredictionResult:
         state._check_capacity(int(ids.shape[1]))
-        state._ensure_buffers(device=self.device, dtype=self.torch_dtype)
-        caches = state._cache_buffers()
+        caches: list[tuple[torch.Tensor, torch.Tensor]]
+        try:
+            # Buffer allocation is part of the fault-translated boundary: an
+            # OOM during lazy state storage must surface as a typed Core
+            # resource error, not a raw torch.OutOfMemoryError.
+            state._ensure_buffers(device=self.device, dtype=self.torch_dtype)
+            caches = state._cache_buffers()
+        except Exception as exc:
+            raise self._translate_fault("state allocation", exc) from exc
         size = int(ids.shape[1]) if chunk_size is None else int(chunk_size)
         if size <= 0:
             raise StateIncompatibleError("chunk_size must be positive")
@@ -439,7 +446,17 @@ class CoreExecutor:
 
     def rollback_state(self, state: CoreState, target_length: int) -> None:
         self._validate_state_compatibility(state)
-        state._truncate(target_length)
+        try:
+            state._truncate(target_length)
+        except ValueError as exc:
+            raise StateIncompatibleError(
+                f"Invalid rollback target length: {exc}",
+                details={
+                    "state_id": state.state_id,
+                    "current_length": state.current_length,
+                    "target_length": target_length,
+                },
+            ) from exc
 
     def fork_state(self, state: CoreState) -> CoreState:
         self._validate_state_compatibility(state)

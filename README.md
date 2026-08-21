@@ -22,20 +22,20 @@ the dense Core.
 
 ## X-FACTOR
 
-Connector **failure-ablation loop**: fork Core state, hold plan fixed and
-change knowledge (and the reverse), classify the unique flip, update one
-store or nothing. The Core does not explain itself. The Connector measures.
+Connector **cognitive credit assignment**: on failure, generate one-variable
+interventions from *observed* information only, rerun the Core, and diagnose
+the cause from which intervention flipped the verifier. The hidden ground
+truth is structurally inaccessible to the diagnostician
+(`ObservedCase` vs `HiddenGroundTruth`).
 
-**Document:** [`docs/research/X_FACTOR_STATEMENT.md`](docs/research/X_FACTOR_STATEMENT.md)
+**Code:** `connector/experiments/cognitive_credit/`
+**Status:** methodology validated (oracle 20/20); trained V4 currently lacks
+the substrate capability to execute the interventions (see
+`connector/experiments/cognitive_credit/capability_probe.py`).
 
-- `docs/research/X_FACTOR.md` — full argument
-- `docs/research/X_FACTOR_CODEMAP.md` — what the code actually does
-- `docs/research/X_FACTOR_WEEK1.md` — planted suite / oracle
-- `anra_core/ablation.py` — experimenter
-
-```powershell
-python -m anra_core.ablation --oracle
-```
+> Note: an earlier prototype (`anra_core/ablation.py`) was removed — its
+> intervention generator read the planted failure label, invalidating its
+> results as evidence of diagnosis.
 
 ## Honest capability boundary
 

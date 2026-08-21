@@ -1,5 +1,10 @@
 # An-Ra X-factor
 
+> **STATUS UPDATE (this branch):** the prototype described here
+> (`anra_core/ablation.py`) has been removed — its arm generator read the
+> planted failure label (label leakage). See `X_FACTOR_STATEMENT.md` and
+> `connector/experiments/cognitive_credit/` for the leakage-free design.
+
 > **X-FACTOR:** Connector-owned **failure-ablation loop**. Fork Core state. Hold plan fixed, change knowledge (and the reverse, plus decode and tools). Map the unique flip to a typed class. Update **one** store — or nothing.
 >
 > The Core does not explain itself. The Connector measures.
