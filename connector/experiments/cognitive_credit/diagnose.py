@@ -1,10 +1,19 @@
 """Diagnosis from intervention outcomes, with first-class uncertainty.
 
 Evidence is represented as (intervention -> changed variable -> outcome) so a
-later learned self-model can consume the same records. The classifier maps
-flip patterns to labels but never forces an answer: ties, no-flips, and
-contradictions resolve to ``multiple_plausible`` / ``unresolved`` /
-``model_limitation`` only with positive evidence.
+later learned self-model can consume the same records.
+
+The classifier reports *what the experiment showed*, never more:
+
+- one flip                    -> ``intervention_helped`` + which variable;
+- several flips, same variable -> ``intervention_helped`` (one causal story);
+- several variables flipped    -> ``multiple_plausible``;
+- nothing helped               -> ``no_intervention_helped`` (a description of
+  THIS battery, NOT a claim about the substrate);
+- battery incomplete/unreliable-> ``unresolved``.
+
+``substrate_limitation`` is assigned only by explicit evaluator-side policy
+(``with_substrate_check``), never inferred from silence.
 """
 
 from __future__ import annotations
@@ -13,9 +22,8 @@ from dataclasses import dataclass
 
 from connector.experiments.cognitive_credit.case import DiagnosisLabel
 
-# Positive evidence required before blaming the substrate: every actionable
-# arm ran and none flipped the verifier while the baseline failed.
-MODEL_LIMITATION_LABEL: DiagnosisLabel = "model_limitation"
+OUTCOME_HELPED: DiagnosisLabel = "intervention_helped"
+OUTCOME_NONE: DiagnosisLabel = "no_intervention_helped"
 
 
 @dataclass(frozen=True, slots=True)
@@ -53,67 +61,57 @@ def classify_from_outcomes(
     *,
     expected_arm_names: frozenset[str] = frozenset(),
 ) -> Diagnosis:
-    """Map a completed battery to a diagnosis. Uncertainty-preserving.
-
-    - exactly one flip -> that family;
-    - multiple flips of different variables -> ``multiple_plausible``;
-    - no flip with a complete battery -> ``model_limitation`` (positive
-      evidence: nothing at the Connector layer helped);
-    - no flip with an incomplete battery -> ``unresolved`` (the experiment
-      itself may have been too weak);
-    - baseline already succeeded -> no failure to diagnose.
-    """
+    """Map a completed battery to an evidence-faithful outcome."""
     flips = tuple(arm for arm in outcomes if arm.success and not baseline_success)
     if baseline_success:
-        return Diagnosis(
-            label="unresolved",
-            selected_intervention=None,
-            changed_variable=None,
-            flips=(),
-            baseline_success=True,
-            all_arms_ran=True,
-        )
+        return Diagnosis("unresolved", None, None, (), True, True)
     if not flips:
-        complete = bool(expected_arm_names) and {o.intervention_name for o in outcomes} >= set(expected_arm_names)
-        label: DiagnosisLabel = MODEL_LIMITATION_LABEL if complete else "unresolved"
+        complete = (
+            bool(expected_arm_names)
+            and {o.intervention_name for o in outcomes} >= set(expected_arm_names)
+        )
         return Diagnosis(
-            label=label,
-            selected_intervention=None,
-            changed_variable=None,
-            flips=(),
-            baseline_success=False,
-            all_arms_ran=complete,
+            OUTCOME_NONE if complete else "unresolved",
+            None,
+            None,
+            (),
+            False,
+            complete,
         )
     variables = {arm.changed for arm in flips}
-    if len(flips) == 1:
+    if len(flips) == 1 or len(variables) == 1:
         winner = flips[0]
         return Diagnosis(
-            label=_label_for(winner.changed),
-            selected_intervention=winner.intervention_name,
-            changed_variable=winner.changed,
-            flips=(winner.intervention_name,),
-            baseline_success=False,
-            all_arms_ran=True,
-        )
-    if len(variables) == 1:
-        # Several arms of the same variable flipped: still one causal story.
-        winner = flips[0]
-        return Diagnosis(
-            label=_label_for(winner.changed),
-            selected_intervention=winner.intervention_name,
-            changed_variable=winner.changed,
-            flips=tuple(arm.intervention_name for arm in flips),
-            baseline_success=False,
-            all_arms_ran=True,
+            _label_for(winner.changed),
+            winner.intervention_name,
+            winner.changed,
+            tuple(arm.intervention_name for arm in flips),
+            False,
+            True,
         )
     return Diagnosis(
-        label="multiple_plausible",
-        selected_intervention=None,
-        changed_variable=None,
-        flips=tuple(arm.intervention_name for arm in flips),
-        baseline_success=False,
-        all_arms_ran=True,
+        "multiple_plausible",
+        None,
+        None,
+        tuple(arm.intervention_name for arm in flips),
+        False,
+        True,
     )
+
+
+def with_substrate_check(diagnosis: Diagnosis, *, capability_floor_passed: bool) -> Diagnosis:
+    """Evaluator-side policy: only upgrade to substrate limitation when the
+    measured capability floor passed AND no intervention helped. A failed floor
+    keeps the weaker, honest label."""
+    if diagnosis.label == OUTCOME_NONE and capability_floor_passed:
+        return dataclasses_replace(diagnosis, label="model_limitation")
+    return diagnosis
+
+
+def dataclasses_replace(diagnosis: Diagnosis, **changes):
+    import dataclasses
+
+    return dataclasses.replace(diagnosis, **changes)
 
 
 def _label_for(changed: str) -> DiagnosisLabel:
@@ -123,7 +121,7 @@ def _label_for(changed: str) -> DiagnosisLabel:
         "decode": "decode_search_sensitivity",
         "tool": "tool_failure",
         "context": "context_failure",
-    }.get(changed, "unknown")  # type: ignore[return-value]
+    }.get(changed, OUTCOME_HELPED)  # type: ignore[return-value]
 
 
 def record_of(case_id: str, baseline_success: bool, outcomes, diagnosis: Diagnosis) -> InterventionRecord:

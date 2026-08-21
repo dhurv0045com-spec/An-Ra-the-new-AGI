@@ -1,31 +1,29 @@
 """Experiment runner: interventions, baselines, repair, and honest metrics.
 
-The runner is the only component that holds both worlds, and it keeps them
-separated by construction:
+Ownership contract (fixed): completers return raw ``CompletionResult`` outputs
+only — they cannot manufacture success. The runner's verifier decides success
+for every completion (baseline, arms, repair) identically. The verifier is
+derived from the task's expected answer; hidden ground truth is used by the
+verifier but by nothing the diagnostician sees.
 
-- the diagnostician function receives ONLY ``ObservedCase``;
-- the evaluator closure receives ONLY ``(ObservedCase, HiddenGroundTruth)``;
-- scoring happens after all diagnosis decisions are frozen.
+Baselines:
+  A. self-report — ask the Core "why did you fail?" and map keywords;
+  B. outcome-only heuristic — surface features of the observed case only.
 
-Baselines (Rule 5):
-  A. self-report — ask the Core "why did you fail?" via a fixed prompt
-     template and map keywords in its answer to categories;
-  B. outcome-only heuristic — diagnose from the initial failure alone using
-     surface features of the observed case (no interventions).
-
-Metrics (Rule 6): diagnosis accuracy vs hidden truth, abstention rate,
-intervention cost (Core executions), flip usefulness, downstream repair
-success. Raw intervention/outcome records are preserved for later learning.
+Metrics: diagnosis accuracy vs hidden truth, abstention rate, intervention
+cost (real Core/tool executions), flip usefulness, downstream repair success.
+Raw intervention/outcome records are preserved for later learning.
 """
 
 from __future__ import annotations
 
-import json
+import re
 from dataclasses import asdict, dataclass
 from typing import Callable
 
 from connector.experiments.cognitive_credit.case import (
     Attempt,
+    CompletionResult,
     DiagnosisLabel,
     HiddenGroundTruth,
     ObservedCase,
@@ -37,38 +35,40 @@ from connector.experiments.cognitive_credit.diagnose import (
     classify_from_outcomes,
     record_of,
 )
-from connector.experiments.cognitive_credit.interventions import (
-    InterventionSpec,
-    build_interventions,
-)
+from connector.experiments.cognitive_credit.interventions import build_interventions
 from connector.experiments.cognitive_credit.suite import FAMILIES, build_case
 
-Completer = Callable[[Attempt], tuple[bool, str]]
+Completer = Callable[[Attempt], CompletionResult]
 Verifier = Callable[[str], bool]
 
 
 # --------------------------------------------------------------------------
-# Verifier construction. The verifier is derived from the TASK (public), not
-# from the planted cause; every diagnostician uses the same one.
+# Verification. Smallest reliable matcher: punctuation/format tolerant.
 # --------------------------------------------------------------------------
 
 
+def _normalize(text: str) -> str:
+    lowered = text.lower()
+    # Collapse every non-alphanumeric run to a single space so "42.", "(42)",
+    # and "42" all match; word-boundary padding prevents substring hits such
+    # as "oslo" inside "oslon" while still allowing "the capital is oslo".
+    return re.sub(r"[^0-9a-z]+", " ", lowered).strip()
+
+
+def contains_answer(text: str, gold: str) -> bool:
+    """True iff ``gold`` appears in ``text`` as a standalone normalized token."""
+    if not gold.strip():
+        return False
+    pattern = rf"(?<!\w){re.escape(_normalize(gold))}(?!\w)"
+    return re.search(pattern, _normalize(text)) is not None
+
+
 def make_verifier(case: ObservedCase, hidden: HiddenGroundTruth) -> Verifier:
-    needle = f" {hidden.gold_solution.strip().lower()} "
-    question = case.question.lower()
+    del case  # kept for signature symmetry / future task-derived criteria
 
     def verify(text: str) -> bool:
-        padded = f" {text.strip().lower()} "
-        if needle not in padded:
-            return False
-        # Guard against decoy answers sharing tokens with gold.
-        for doc in case.corpus:
-            lowered = doc.lower()
-            if needle in f" {lowered} ":
-                continue
-        return True
+        return contains_answer(text, hidden.gold_solution)
 
-    del question
     return verify
 
 
@@ -96,11 +96,13 @@ def self_report_diagnosis(
     case: ObservedCase,
     complete: Completer,
 ) -> DiagnosisLabel:
-    prompt = _SELF_REPORT_TEMPLATE.format(question=case.question)
-    _, text = complete(
-        Attempt(question=prompt, decode=case.initial_attempt.decode)
+    result = complete(
+        Attempt(
+            question=_SELF_REPORT_TEMPLATE.format(question=case.question),
+            decode=case.initial_attempt.decode,
+        )
     )
-    lowered = text.lower()
+    lowered = " ".join(result.texts).lower()
     for keywords, label in _KEYWORD_MAP:
         if any(keyword in lowered for keyword in keywords):
             return label
@@ -156,13 +158,16 @@ def run_case(
     verify = make_verifier(observed, hidden)
     executions = 0
 
-    def counted_complete(attempt: Attempt) -> tuple[bool, str]:
+    def counted_complete(attempt: Attempt) -> CompletionResult:
         nonlocal executions
-        executions += 1
-        return complete(attempt)
+        result = complete(attempt)
+        executions += max(1, result.n_executions)
+        return result
 
     # Baseline attempt.
-    baseline_success, baseline_text = counted_complete(observed.initial_attempt)
+    baseline = counted_complete(observed.initial_attempt)
+    baseline_text = baseline.texts[0] if baseline.texts else ""
+    baseline_success = verify(baseline_text)
     if baseline_success:
         # Controlled initial failure violated: report honestly, no diagnosis.
         return CaseResult(
@@ -181,11 +186,13 @@ def run_case(
 
     specs = build_interventions(observed)
     outcomes: list[ArmOutcome] = []
-    texts_by_name: dict[str, str] = {}
+    spec_by_name: dict[str, object] = {}
     for spec in specs:
-        success, text = counted_complete(spec.attempt)
-        outcomes.append(ArmOutcome(spec.name, spec.changed, success))
-        texts_by_name[spec.name] = text
+        arm_result = counted_complete(spec.attempt)
+        # Runner-side success over all returned candidates (best-of-N wins).
+        arm_success = any(verify(t) for t in arm_result.texts)
+        outcomes.append(ArmOutcome(spec.name, spec.changed, arm_success))
+        spec_by_name[spec.name] = spec
 
     expected_names = frozenset(spec.name for spec in specs)
     diagnosis = classify_from_outcomes(
@@ -197,19 +204,28 @@ def run_case(
     sr_label = self_report_diagnosis(observed, counted_complete)
     heur_label = heuristic_diagnosis(observed, baseline_success)
 
-    # Downstream repair: rerun the selected intervention's attempt once more
-    # (fresh execution) to confirm the fix reproduces.
+    # Downstream repair: fresh execution of the selected intervention to
+    # confirm the fix reproduces under a new seed offset.
     repair_success: bool | None = None
-    if diagnosis.selected_intervention is not None:
-        spec = next(s for s in specs if s.name == diagnosis.selected_intervention)
-        repair_success, _ = counted_complete(spec.attempt)
+    if diagnosis.selected_intervention is not None and diagnosis.changed_variable == "decode":
+        base_spec = spec_by_name[diagnosis.selected_intervention]
+        retry_attempt = Attempt(
+            question=base_spec.attempt.question,
+            knowledge=base_spec.attempt.knowledge,
+            plan=base_spec.attempt.plan,
+            context_blocks=base_spec.attempt.context_blocks,
+            tool=base_spec.attempt.tool,
+            decode=dataclasses_replace(base_spec.attempt.decode),
+        )
+        retry = counted_complete(retry_attempt)
+        repair_success = any(verify(t) for t in retry.texts)
+    elif diagnosis.selected_intervention is not None:
+        # Deterministic interventions: rerun once verbatim to confirm.
+        spec = spec_by_name[diagnosis.selected_intervention]
+        retry = counted_complete(spec.attempt)
+        repair_success = any(verify(t) for t in retry.texts)
 
-    record = record_of(
-        observed.case_id,
-        baseline_success,
-        outcomes,
-        diagnosis,
-    )
+    record = record_of(observed.case_id, baseline_success, outcomes, diagnosis)
     _PRESERVED_RECORDS.append(record)
 
     distinguishing = sum(1 for arm in outcomes if arm.success)
@@ -226,6 +242,13 @@ def run_case(
         n_interventions_run=len(outcomes),
         distinguishing_interventions=distinguishing,
     )
+
+
+def dataclasses_replace(decode):
+    """Fresh seed for a decode-policy retry without importing dataclasses here."""
+    import dataclasses
+
+    return dataclasses.replace(decode, seed=decode.seed + 17)
 
 
 _PRESERVED_RECORDS: list[InterventionRecord] = []
@@ -248,16 +271,12 @@ def run_experiment(complete: Completer) -> dict[str, object]:
         return hits / len(results) if results else 0.0
 
     abstention = sum(
-        1
-        for r in results
-        if r.intervention in {"multiple_plausible", "unresolved"}
+        1 for r in results if r.intervention in {"multiple_plausible", "unresolved"}
     ) / len(results)
     repairs = [r.repair_success for r in results if r.repair_success is not None]
     total_executions = sum(r.core_executions for r in results)
-    total_interventions = sum(r.n_interventions_run for r in results)
     useful = sum(1 for r in results if r.distinguishing_interventions > 0)
 
-    table = [asdict(r) for r in results]
     summary = {
         "n_cases": len(results),
         "accuracy_self_report": accuracy(lambda r: r.self_report),
@@ -268,7 +287,7 @@ def run_experiment(complete: Completer) -> dict[str, object]:
         "total_core_executions": total_executions,
         "avg_core_executions_per_case": total_executions / len(results) if results else 0.0,
         "intervention_usefulness_rate": useful / len(results) if results else 0.0,
-        "results": table,
+        "results": [asdict(r) for r in results],
     }
     return summary
 
@@ -292,10 +311,3 @@ def render_table(summary: dict[str, object]) -> str:
     )
     body = "".join("| {} | {} | {} | {} | {} | {} | {} |\n".format(*row) for row in rows)
     return header + body
-
-
-if __name__ == "__main__":  # pragma: no cover
-    import sys
-
-    print(json.dumps(run_experiment.__doc__ is not None))
-    sys.exit(0)

@@ -29,13 +29,15 @@ truth is structurally inaccessible to the diagnostician
 (`ObservedCase` vs `HiddenGroundTruth`).
 
 **Code:** `connector/experiments/cognitive_credit/`
-**Status:** methodology validated (oracle 20/20); trained V4 currently lacks
-the substrate capability to execute the interventions (see
-`connector/experiments/cognitive_credit/capability_probe.py`).
+**Status:** methodology validated with runner-graded oracle physics
+(20/20 families, 20/20 repairs; completers cannot manufacture success).
+Trained V4 fails all capability preconditions — see below.
 
 > Note: an earlier prototype (`anra_core/ablation.py`) was removed — its
 > intervention generator read the planted failure label, invalidating its
-> results as evidence of diagnosis.
+> results as evidence of diagnosis. A second wiring flaw was fixed after
+> that: completers used to return hard-coded success labels; success is now
+> decided exclusively by the runner's verifier.
 
 ## Honest capability boundary
 

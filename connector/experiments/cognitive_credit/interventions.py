@@ -4,20 +4,22 @@
 impossible to pass ``HiddenGroundTruth``. Every arm is derived from material
 the diagnostician actually has:
 
-- knowledge arms retrieve from ``case.corpus`` (may fail to find gold);
+- knowledge arms retrieve each corpus document into <k> (may fail to help);
 - plan arms come from ``case.plan_candidates`` (the system's own heuristics);
-- decode arm changes the real inference policy;
-- tool arm toggles a real adapter behavior;
-- context arms re-pack the same information (near vs distractor-packed).
+- decode arm changes the real inference policy; the completer is responsible
+  for executing every candidate the policy requests (honest best-of-N);
+- tool arm toggles a real adapter's availability — the runner invokes
+  ``ToolBehavior.run()`` and injects its actual output or error.
 
-The returned specs record *which variable changed* so outcomes can later be
-represented as intervention -> changed variables -> outcome, without hard-
-coding label semantics into the evidence.
+Three clean variables (knowledge, plan, decode, tool). A context-reposition
+arm was removed deliberately: in this suite every case with repositionable
+knowledge has empty baseline knowledge by construction, so the arm could
+never make a genuine single-variable change.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace as _dc_replace
 from typing import Literal
 
 from connector.experiments.cognitive_credit.case import (
@@ -31,7 +33,6 @@ ChangedVariable = Literal[
     "plan",
     "decode",
     "tool",
-    "context",
 ]
 
 
@@ -44,40 +45,8 @@ class InterventionSpec:
     attempt: Attempt
 
 
-def _repack_near(attempt: Attempt) -> Attempt:
-    """Move existing knowledge to the front of context, drop nothing else."""
-    blocks = (attempt.knowledge, *attempt.context_blocks) if attempt.knowledge else attempt.context_blocks
-    return Attempt(
-        question=attempt.question,
-        knowledge="",
-        plan=attempt.plan,
-        context_blocks=blocks,
-        tool=attempt.tool,
-        decode=attempt.decode,
-    )
-
-
-def _repack_distract(attempt: Attempt) -> Attempt:
-    """Bury existing knowledge under distractor blocks (same total content)."""
-    if not attempt.knowledge:
-        return attempt
-    filler = tuple(
-        f"background note {index}: general domain chatter without task facts"
-        for index in range(1, 7)
-    )
-    blocks = (*filler, attempt.knowledge, *attempt.context_blocks)
-    return Attempt(
-        question=attempt.question,
-        knowledge="",
-        plan=attempt.plan,
-        context_blocks=blocks,
-        tool=attempt.tool,
-        decode=attempt.decode,
-    )
-
-
 def build_interventions(case: ObservedCase) -> tuple[InterventionSpec, ...]:
-    """Generate the full one-variable-at-a-time battery from observed data only.
+    """Generate the one-variable-at-a-time battery from observed data only.
 
     Deterministic in the case. Contains no branch on any hidden label; there
     is no parameter through which one could enter.
@@ -92,21 +61,15 @@ def build_interventions(case: ObservedCase) -> tuple[InterventionSpec, ...]:
     )
     specs: list[InterventionSpec] = []
 
-    # Knowledge: retrieve from the provided corpus. The corpus may or may not
-    # contain the needed fact; retrieval can legitimately fail.
+    # Knowledge: place each corpus document in <k>. Retrieval can fail.
     for index, doc in enumerate(case.corpus):
+        if doc == base.knowledge:
+            continue
         specs.append(
             InterventionSpec(
                 name=f"retrieve_{index}",
                 changed="knowledge",
-                attempt=Attempt(
-                    question=base.question,
-                    knowledge=doc,
-                    plan=base.plan,
-                    context_blocks=base.context_blocks,
-                    tool=base.tool,
-                    decode=base.decode,
-                ),
+                attempt=_with(base, knowledge=doc),
             )
         )
 
@@ -118,66 +81,59 @@ def build_interventions(case: ObservedCase) -> tuple[InterventionSpec, ...]:
             InterventionSpec(
                 name=f"plan_alt_{index}",
                 changed="plan",
-                attempt=Attempt(
-                    question=base.question,
-                    knowledge=base.knowledge,
-                    plan=plan,
-                    context_blocks=base.context_blocks,
-                    tool=base.tool,
-                    decode=base.decode,
-                ),
+                attempt=_with(base, plan=plan),
             )
         )
 
-    # Decode/search sensitivity: same prompt, real sampling + best-of-N.
-    specs.append(
-        InterventionSpec(
-            name="decode_search_sensitivity",
-            changed="decode",
-            attempt=Attempt(
-                question=base.question,
-                knowledge=base.knowledge,
-                plan=base.plan,
-                context_blocks=base.context_blocks,
-                tool=base.tool,
-                decode=sampled,
-            ),
+    # Decode/search sensitivity: same prompt, real sampling policy with N
+    # candidates. The completer must execute all of them.
+    if base.decode.temperature == 0.0 or base.decode.candidates == 1:
+        specs.append(
+            InterventionSpec(
+                name="decode_search_sensitivity",
+                changed="decode",
+                attempt=_with(base, decode=sampled),
+            )
         )
-    )
 
-    # Tool: enable each available adapter (real behavior change).
+    # Tool: adopt each catalog adapter whose availability differs from the
+    # baseline. The runner executes the adapter and feeds the attempt its
+    # real output (or explicit failure). No arm if nothing would change.
     for tool in case.tools:
-        if base.tool is not None and tool.name == base.tool.name and tool.available == base.tool.available:
+        baseline_tool = base.tool
+        if (
+            baseline_tool is not None
+            and tool.name == baseline_tool.name
+            and tool.available == baseline_tool.available
+        ):
             continue
         specs.append(
             InterventionSpec(
-                name=f"tool_enable_{tool.name}",
+                name=f"tool_toggle_{tool.name}",
                 changed="tool",
-                attempt=Attempt(
-                    question=base.question,
-                    knowledge=base.knowledge,
-                    plan=base.plan,
-                    context_blocks=base.context_blocks,
-                    tool=tool,
-                    decode=base.decode,
-                ),
+                attempt=_with(base, tool=tool),
             )
         )
 
-    # Context packing: same information, different position/noise.
-    specs.append(
-        InterventionSpec(
-            name="context_repack_near",
-            changed="context",
-            attempt=_repack_near(base),
-        )
-    )
-    specs.append(
-        InterventionSpec(
-            name="context_repack_distract",
-            changed="context",
-            attempt=_repack_distract(base),
-        )
-    )
+    # Context: no arm in this suite. Repositioning requires non-empty baseline
+    # knowledge, which no case here has (empty knowledge IS the injected fault
+    # of the knowledge family). See module docstring.
 
     return tuple(specs)
+
+
+def _with(attempt: Attempt, **changes) -> Attempt:
+    return _dc_replace(attempt, **changes)
+
+
+def _repack_near(attempt: Attempt) -> Attempt:
+    """Move knowledge into context at the front; identical total content."""
+    blocks = (attempt.knowledge, *attempt.context_blocks)
+    return Attempt(
+        question=attempt.question,
+        knowledge="",
+        plan=attempt.plan,
+        context_blocks=blocks,
+        tool=attempt.tool,
+        decode=attempt.decode,
+    )

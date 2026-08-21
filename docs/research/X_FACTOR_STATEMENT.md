@@ -26,13 +26,18 @@ enforces separation structurally:
   hidden data. A focused test
   (`tests/test_cognitive_credit.py::test_hidden_label_flip_cannot_change_interventions`)
   proves permuting the hidden label cannot change the generated battery.
-- Interventions are realistic: knowledge arms retrieve from a provided corpus
+- Interventions are real: knowledge arms place each corpus document in <k>
   (and may fail); plan arms come from the system's own candidate list; decode
-  arm changes real sampling policy; tool arm toggles a real adapter; context
-  arms repack the same information.
-- Diagnosis preserves uncertainty: `multiple_plausible`, `unresolved`, and
-  evidence-gated `model_limitation` (only when the full battery ran and
-  nothing flipped).
+  arm requests a sampled best-of-4 policy that the completer must actually
+  execute; tool arms adopt an adapter whose availability differs from the
+  baseline, and the runner executes it and injects its real output or error.
+- Ownership: completers return raw `CompletionResult` outputs only. The
+  runner's verifier decides every success/failure identically; completers
+  cannot manufacture their own success labels.
+- Diagnosis reports what the battery showed: `intervention_helped` (+ which
+  variable), `multiple_plausible`, `no_intervention_helped`, `unresolved`.
+  `model_limitation` is assigned only by explicit evaluator-side policy after
+  a passed capability floor — never inferred from "nothing helped".
 
 ## Files
 
@@ -49,9 +54,12 @@ enforces separation structurally:
 
 ## Results on the trained V4 (step 30400)
 
-All five substrate preconditions fail (0/5 each): the model cannot use
-in-context facts, follow stated plans, echo words, or report tool results —
-even when the gold content is placed directly in its context. Intervention
-diagnosis is therefore not yet runnable on this checkpoint; the experiment
-is validated end-to-end with oracle physics (20/20) and is ready to rerun
-once a checkpoint passes the capability probe.
+The capability gate in `run_real.py` runs the probe first. All five substrate
+preconditions fail (0/5 each): the model cannot use in-context facts, follow
+stated plans, echo words, or report supplied tool results — even when the
+gold content is placed directly in its context. The runner therefore reports
+
+> **substrate below experimental floor**
+
+and skips the intervention experiment. It will run unchanged once a checkpoint
+passes the probe.

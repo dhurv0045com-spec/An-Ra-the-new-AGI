@@ -96,8 +96,10 @@ def run_probe(checkpoint: str, device: str) -> dict:
             p3 += 1
 
     for a, b in sums:
+        # Tool result is genuinely supplied, exactly as the runner injects it.
         prompt = SCAFFOLD.format(k="", plan="Read the calculator output and report it.",
-                                 q=f"The calculator returns {a + b}. What is {a} + {b}?")
+                                 q=f"Use the calculator to add {a} and {b}.")
+        prompt += f"\n<tool_output>{a + b}</tool_output>"
         if contains(_greedy(executor, tok, prompt), str(a + b)):
             p4 += 1
 

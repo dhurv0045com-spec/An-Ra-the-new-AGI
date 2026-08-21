@@ -107,13 +107,17 @@ def _decode_task(case_id: str, word: str) -> TaskMaterial:
 
 def _tool_task(case_id: str, a: int, b: int) -> TaskMaterial:
     question = f"Use the calculator to add {a} and {b}."
+
+    def calculator() -> str:
+        return str(a + b)
+
     return TaskMaterial(
         case_id=case_id,
         question=question,
         gold_solution=str(a + b),
         corpus=(),
         plan_candidates=("Read the calculator output and report it.",),
-        tools=(ToolBehavior("calculator", available=True),),
+        tools=(ToolBehavior("calculator", available=True, execute=calculator),),
         context_blocks=(),
     )
 
@@ -186,13 +190,17 @@ def build_case(family: str, index: int) -> tuple[ObservedCase, HiddenGroundTruth
         pairs = ((20, 22), (10, 7), (15, 15), (8, 9), (11, 14))
         a, b = pairs[index % len(pairs)]
         material = _tool_task(f"tf-{index:02d}", a, b)
-        # Injected fault: the calculator adapter starts disabled.
+        # Injected fault: the calculator adapter starts disabled, so the
+        # attempt sees an explicit adapter error instead of the real sum.
         initial = Attempt(
             question=material.question,
             knowledge="",
             plan=material.plan_candidates[0],
             context_blocks=(),
-            tool=ToolBehavior("calculator", available=False),
+            tool=ToolBehavior(
+                "calculator", available=False,
+                execute=material.tools[0].execute,
+            ),
             decode=DecodePolicy(max_new_tokens=12),
         )
         hidden = HiddenGroundTruth(

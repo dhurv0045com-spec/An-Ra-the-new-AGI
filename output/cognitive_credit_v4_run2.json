@@ -1,0 +1,17 @@
+{
+  "verdict": "substrate below experimental floor",
+  "failed_probes": [
+    "P1_knowledge_use",
+    "P2_plan_following",
+    "P4_tool_result_use"
+  ],
+  "probe": {
+    "P1_knowledge_use": "0/5",
+    "P2_plan_following": "0/5",
+    "P3_verbatim_echo": "0/5",
+    "P4_tool_result_use": "0/5",
+    "P5_sample_beats_greedy": "0/5",
+    "threshold": ">=4/5 per family required to run that family cleanly"
+  },
+  "note": "cognitive-credit experiment skipped; interventions would not be interpretable on this substrate"
+}

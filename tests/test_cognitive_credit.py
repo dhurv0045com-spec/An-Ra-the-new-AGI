@@ -12,6 +12,8 @@ import pytest
 
 from connector.experiments.cognitive_credit.case import (
     Attempt,
+    CompletionResult,
+    DecodePolicy,
     HiddenGroundTruth,
     ObservedCase,
     ToolBehavior,
@@ -22,7 +24,9 @@ from connector.experiments.cognitive_credit.diagnose import (
 )
 from connector.experiments.cognitive_credit.interventions import build_interventions
 from connector.experiments.cognitive_credit.runner import (
+    contains_answer,
     heuristic_diagnosis,
+    make_verifier,
     run_case,
     self_report_diagnosis,
 )
@@ -34,27 +38,27 @@ from connector.experiments.cognitive_credit.suite import FAMILIES, build_case
 # --------------------------------------------------------------------------
 
 
-def _observed_for(family: str, index: int) -> ObservedCase:
-    observed, _hidden = build_case(family, index)
-    return observed
-
-
 def test_hidden_label_flip_cannot_change_interventions() -> None:
-    """Permuting hidden truth across cases cannot alter the battery.
+    """Permuting hidden truth cannot alter the battery.
 
-    For each observed case, we rebuild the *same* observed object with every
-    possible hidden family attached (fresh, unmodified observed instances of
-    identical content) and assert the generated interventions are identical.
+    For each observed case we attach every possible hidden family and assert
+    the generated interventions depend only on the observed case. The observed
+    object passed to ``build_interventions`` is byte-identical each time; if
+    any hidden data leaked into generation, some permutation would have to
+    change the battery.
     """
     for family in FAMILIES:
         for index in range(5):
-            observed = _observed_for(family, index)
+            observed, _ = build_case(family, index)
             reference = None
             for other_family in FAMILIES:
-                # Same task surface, different claimed hidden cause.
-                twin_observed, _twin_hidden = build_case(other_family, index)
-                # Use the ORIGINAL observed case; only the hidden half varies.
-                specs = build_interventions(observed)
+                _, hidden_variant = build_case(other_family, index)
+                # Rebuild the identical observed surface explicitly so the
+                # only thing varying in this loop is the hidden half.
+                twin_observed, _ = build_case(family, index)
+                assert twin_observed == observed  # surface truly unchanged
+                assert hidden_variant.family == other_family  # label did vary
+                specs = build_interventions(twin_observed)
                 fingerprint = [
                     (spec.name, spec.changed, spec.attempt.render(), spec.attempt.decode)
                     for spec in specs
@@ -76,8 +80,7 @@ def test_build_interventions_signature_rejects_hidden() -> None:
 
     signature = inspect.signature(interventions.build_interventions)
     for parameter in signature.parameters.values():
-        annotation = parameter.annotation
-        assert "HiddenGroundTruth" not in str(annotation)
+        assert "HiddenGroundTruth" not in str(parameter.annotation)
 
 
 def test_observed_case_has_no_hidden_fields() -> None:
@@ -86,25 +89,43 @@ def test_observed_case_has_no_hidden_fields() -> None:
             observed, hidden = build_case(family, index)
             fields = {f.name for f in dataclasses.fields(ObservedCase)}
             assert not fields & {"family", "gold_solution", "gold_knowledge", "gold_plan"}
-            serialized = str(observed)
-            # The gold solution string itself must not ride along anywhere.
-            if hidden.gold_knowledge:
-                pass  # corpus docs are public material by construction
-            assert hidden.gold_plan == "" or hidden.gold_plan not in serialized or True
+            # A gold plan that is NOT among the public plan candidates must
+            # never ride along inside the observed surface.
+            if hidden.gold_plan and hidden.gold_plan not in observed.plan_candidates:
+                assert hidden.gold_plan not in str(observed)
 
 
-def test_diagnosis_is_uncertainty_preserving() -> None:
-    # No flips + complete battery -> model_limitation (positive evidence).
+# --------------------------------------------------------------------------
+# Verifier: robust matching, runner-owned success.
+# --------------------------------------------------------------------------
+
+
+def test_verifier_is_format_tolerant() -> None:
+    observed, hidden = build_case("missing_knowledge", 0)
+    verify = make_verifier(observed, hidden)
+    gold = hidden.gold_solution
+    assert verify(gold)                       # bare
+    assert verify(f"The answer is {gold}.")   # punctuation
+    assert verify(f"  {gold.upper()}  ")      # case/whitespace
+    assert verify(f"({gold})")                # brackets
+    assert not verify("I do not know.")
+    assert not verify("")
+
+
+# --------------------------------------------------------------------------
+# Diagnosis: evidence-faithful outcomes, uncertainty preserved.
+# --------------------------------------------------------------------------
+
+
+def test_no_intervention_helped_is_not_model_limitation() -> None:
     d = classify_from_outcomes(
         False,
         (ArmOutcome("retrieve_0", "knowledge", False),),
         expected_arm_names=frozenset({"retrieve_0"}),
     )
-    assert d.label == "model_limitation"
-    # No flips + incomplete battery -> unresolved (experiment may be too weak).
+    assert d.label == "no_intervention_helped"
     d2 = classify_from_outcomes(False, (ArmOutcome("retrieve_0", "knowledge", False),))
     assert d2.label == "unresolved"
-    # Two different variables flipped -> multiple_plausible, no forced pick.
     d3 = classify_from_outcomes(
         False,
         (
@@ -114,7 +135,6 @@ def test_diagnosis_is_uncertainty_preserving() -> None:
     )
     assert d3.label == "multiple_plausible"
     assert d3.selected_intervention is None
-    # Same variable flipping twice -> one causal story.
     d4 = classify_from_outcomes(
         False,
         (
@@ -126,74 +146,106 @@ def test_diagnosis_is_uncertainty_preserving() -> None:
 
 
 # --------------------------------------------------------------------------
-# Oracle physics: a scripted completer that succeeds iff the attempt contains
-# the causal fix for the planted family. This validates the software contract
-# end to end without any neural network.
+# Oracle physics: scripted completer returns OUTPUTS ONLY; the runner's
+# verifier decides success. The oracle cannot manufacture its own labels.
 # --------------------------------------------------------------------------
 
 
 class OracleCompleter:
-    """Scripted 'physics' for suite validation. Evaluator-side only."""
+    """Scripted 'physics': emits the text a perfect executor would produce."""
 
-    def __init__(self, observed: ObservedCase, hidden: HiddenGroundTruth) -> None:
-        self._observed = observed
+    def __init__(self, hidden: HiddenGroundTruth) -> None:
         self._hidden = hidden
 
-    def __call__(self, attempt: Attempt) -> tuple[bool, str]:
+    def __call__(self, attempt: Attempt) -> CompletionResult:
         family = self._hidden.family
         gold = self._hidden.gold_solution
+        fixed = False
         if family == "missing_knowledge":
-            ok = gold in attempt.knowledge
+            fixed = gold in attempt.knowledge
         elif family == "bad_planning":
-            ok = attempt.plan == self._hidden.gold_plan
+            fixed = attempt.plan == self._hidden.gold_plan
         elif family == "decode_search_sensitivity":
-            ok = attempt.decode.temperature > 0 and attempt.decode.candidates > 1
+            fixed = attempt.decode.temperature > 0 and attempt.decode.candidates > 1
         elif family == "tool_failure":
-            ok = attempt.tool is not None and attempt.tool.available
-        else:
-            ok = False
-        return ok, (gold if ok else "")
+            fixed = attempt.tool is not None and attempt.tool.available
+        return CompletionResult(
+            texts=(gold,) if fixed else ("no usable output",),
+            n_executions=max(1, attempt.decode.candidates),
+        )
 
 
 @pytest.mark.parametrize("family", FAMILIES)
 def test_oracle_recovers_each_family(family: str) -> None:
-    hits = 0
     repairs = 0
     for index in range(5):
         observed, hidden = build_case(family, index)
-        result = run_case(observed, hidden, OracleCompleter(observed, hidden))
+        result = run_case(observed, hidden, OracleCompleter(hidden))
         assert result.intervention == family, (result.case_id, result.intervention)
-        hits += 1
-        if result.repair_success:
-            repairs += 1
-    assert hits == 5
+        assert result.repair_success, result.case_id
+        repairs += 1
     assert repairs == 5
+
+
+def test_oracle_cannot_pass_when_physics_never_succeeds() -> None:
+    """If the scripted world never succeeds, the runner must report exactly
+    that — proving completions are graded by the verifier, not by the oracle."""
+    observed, hidden = build_case("missing_knowledge", 0)
+
+    class NeverWorks(OracleCompleter):
+        def __call__(self, attempt: Attempt) -> CompletionResult:
+            return CompletionResult(texts=("still no usable output",), n_executions=1)
+
+    result = run_case(observed, hidden, NeverWorks(hidden))
+    assert result.intervention == "no_intervention_helped"
+    assert result.repair_success is None
 
 
 def test_self_report_and_heuristic_run_without_hidden() -> None:
     observed, _hidden = build_case("missing_knowledge", 0)
 
-    def stub_complete(attempt: Attempt) -> tuple[bool, str]:
-        return False, "I think my plan was wrong."
+    def stub_complete(attempt: Attempt) -> CompletionResult:
+        return CompletionResult(texts=("I think my plan was wrong.",), n_executions=1)
 
     label = self_report_diagnosis(observed, stub_complete)
-    assert label in {
-        "missing_knowledge",
-        "bad_planning",
-        "decode_search_sensitivity",
-        "tool_failure",
-        "context_failure",
-        "unresolved",
-    }
+    assert label == "bad_planning"
     heur = heuristic_diagnosis(observed, baseline_success=False)
-    assert heur in {"missing_knowledge", "tool_failure", "context_failure", "bad_planning"}
+    assert heur == "missing_knowledge"
 
 
-def test_tool_arm_uses_real_adapter_not_status_text() -> None:
+# --------------------------------------------------------------------------
+# Interventions are real changes.
+# --------------------------------------------------------------------------
+
+
+def test_tool_arm_toggles_real_adapter() -> None:
     observed, _hidden = build_case("tool_failure", 0)
     specs = build_interventions(observed)
     tool_specs = [s for s in specs if s.changed == "tool"]
     assert tool_specs, "tool arm missing"
-    for spec in tool_specs:
-        assert "<tool>OK</tool>" not in spec.attempt.render()
-        assert spec.attempt.tool is not None
+    spec = tool_specs[0]
+    # Baseline adapter is disabled; the arm must enable it and execution must
+    # produce the real sum, not a status string.
+    assert spec.attempt.tool.available is True
+    assert observed.initial_attempt.tool.available is False
+    output = spec.attempt.tool.run()
+    assert output.isdigit()
+
+
+def test_decode_arm_requests_multiple_candidates() -> None:
+    observed, _hidden = build_case("decode_search_sensitivity", 0)
+    specs = build_interventions(observed)
+    decode_spec = next(s for s in specs if s.changed == "decode")
+    assert decode_spec.attempt.decode.candidates > 1
+    assert decode_spec.attempt.decode.temperature > 0
+
+
+def test_context_arm_is_absent_because_it_would_be_vacuous() -> None:
+    """No case here has repositionable baseline knowledge, so a context arm
+    would change nothing. Assert the battery stays honest instead."""
+    for family in FAMILIES:
+        for index in range(5):
+            observed, _hidden = build_case(family, index)
+            assert observed.initial_attempt.knowledge == "", (family, index)
+            specs = build_interventions(observed)
+            assert not [s for s in specs if s.changed == "context"]

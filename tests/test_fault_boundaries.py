@@ -33,6 +33,20 @@ def test_state_allocation_oom_translates_to_resource_exhaustion(monkeypatch) -> 
         executor.prefill(ids, state=state)
 
 
+def test_fork_state_oom_translates_to_resource_exhaustion(monkeypatch) -> None:
+    executor = _tiny_executor()
+    state = executor.create_state(capacity=8)
+    ids = torch.randint(0, CANONICAL_CONFIG.vocab_size, (1, 2))
+    executor.prefill(ids, state=state)
+
+    def boom(self) -> None:
+        raise torch.OutOfMemoryError("CUDA out of memory during fork copy")
+
+    monkeypatch.setattr(CoreState, "_fork", boom)
+    with pytest.raises(ResourceExhaustionError):
+        executor.fork_state(state)
+
+
 def test_invalid_rollback_target_is_typed() -> None:
     executor = _tiny_executor()
     state = executor.create_state(capacity=8)

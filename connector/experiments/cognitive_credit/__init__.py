@@ -17,6 +17,7 @@ fixed cannot change the generated intervention set.
 
 from connector.experiments.cognitive_credit.case import (
     Attempt,
+    CompletionResult,
     DecodePolicy,
     HiddenGroundTruth,
     ObservedCase,
@@ -33,6 +34,7 @@ from connector.experiments.cognitive_credit.interventions import (
 
 __all__ = [
     "Attempt",
+    "CompletionResult",
     "DecodePolicy",
     "Diagnosis",
     "HiddenGroundTruth",

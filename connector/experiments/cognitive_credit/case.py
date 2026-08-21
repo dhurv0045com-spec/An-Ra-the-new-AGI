@@ -10,7 +10,7 @@ deliberate, greppable bypass.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Literal
+from typing import Callable, Literal
 
 # Scaffolding labels for this experiment's four clean failure families.
 FailureFamily = Literal[
@@ -49,14 +49,46 @@ class DecodePolicy:
 
 @dataclass(frozen=True, slots=True)
 class ToolBehavior:
-    """A real controlled tool adapter behavior, not a status string.
+    """A real controlled tool adapter owned by the outer system.
 
-    ``available=False`` means the tool call fails at the adapter level; the
-    attempt then sees the adapter's error output, never a fabricated OK.
+    ``execute`` is the adapter: calling it performs the actual operation and
+    returns its real output (or raises). When ``available=False`` the attempt
+    sees an explicit adapter error instead of a result. The diagnostician may
+    toggle availability; it never fabricates outputs.
     """
 
     name: str
     available: bool = True
+    # Adapter identity is (name, availability); the callable is excluded from
+    # equality so structurally identical adapters compare equal.
+    execute: Callable[[], str] | None = field(default=None, compare=False)
+
+    def run(self) -> str:
+        """Actually execute the adapter. Raises on real failure."""
+        if not self.available:
+            raise ToolUnavailableError(self.name)
+        if self.execute is None:
+            raise ToolUnavailableError(f"{self.name} has no executable adapter")
+        return self.execute()
+
+
+class ToolUnavailableError(RuntimeError):
+    """Raised when a disabled adapter is invoked."""
+
+
+@dataclass(frozen=True, slots=True)
+class CompletionResult:
+    """What a completer returns: raw outputs, never success labels.
+
+    Success is decided exclusively by the runner's verifier. ``texts`` holds
+    one entry per executed candidate (best-of-N yields N entries);
+    ``n_executions`` counts actual Core/tool invocations for cost metrics;
+    ``error`` records a typed execution fault, if any.
+    """
+
+    texts: tuple[str, ...] = ()
+    n_executions: int = 0
+    error: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

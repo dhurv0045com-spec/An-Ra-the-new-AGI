@@ -460,7 +460,13 @@ class CoreExecutor:
 
     def fork_state(self, state: CoreState) -> CoreState:
         self._validate_state_compatibility(state)
-        return state._fork()
+        try:
+            return state._fork()
+        except torch.OutOfMemoryError as exc:
+            raise ResourceExhaustionError(
+                "Core state fork exhausted execution memory",
+                details={"device": str(self.device), "dtype": self.dtype_str},
+            ) from exc
 
     def release_state(self, state: CoreState) -> None:
         self._validate_state_compatibility(state)
