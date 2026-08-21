@@ -75,8 +75,15 @@ class CoreExecutor:
             raise UnsupportedProfileError(
                 f"Invalid device {device!r}", details={"device": device}
             ) from exc
-        if resolved_device.type == "cuda" and not torch.cuda.is_available():
-            raise UnsupportedProfileError("CUDA was requested but is unavailable")
+        if resolved_device.type == "cuda":
+            if not torch.cuda.is_available():
+                raise UnsupportedProfileError("CUDA was requested but is unavailable")
+            # Pin the index: torch.device("cuda") != torch.device("cuda:0"),
+            # and cache tensors report an indexed device. An index-less
+            # executor device would falsely read as "device drift" on every
+            # state-validating call after the first.
+            if resolved_device.index is None:
+                resolved_device = torch.device("cuda", torch.cuda.current_device())
         if resolved_device.type not in {"cpu", "cuda"}:
             raise UnsupportedProfileError(
                 f"Unsupported device type {resolved_device.type!r}",

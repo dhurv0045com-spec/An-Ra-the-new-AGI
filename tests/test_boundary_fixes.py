@@ -187,3 +187,31 @@ def test_anra_facade_exposes_run() -> None:
 
     assert callable(anra.run)
     assert anra.RunResult is not None
+
+
+def test_cuda_incremental_path_does_not_report_device_drift() -> None:
+    """torch.device('cuda') != torch.device('cuda:0'); the executor must pin
+    its device index or the first forward_step after prefill falsely raises
+    'state cache storage device drifted' (CUDA-only trap; CPU is index-less)."""
+    torch = pytest.importorskip("torch")
+    if not torch.cuda.is_available():
+        pytest.skip("CUDA unavailable")
+    from anra_core.config import CoreConfig
+    from anra_core.executor import CoreExecutor
+    from anra_core.model import AnRaCore
+
+    config = CoreConfig(
+        vocab_size=256, d_model=32, n_layers=2, n_heads=4, n_kv_heads=2,
+        head_dim=8, d_ff=64, block_size=64, base_seq_len=64, target_seq_len=64,
+        sliding_window=8, full_attention_every=2,
+    )
+    torch.manual_seed(7)
+    executor = CoreExecutor(AnRaCore(config).eval(), device="cuda")
+    assert executor.device == torch.device("cuda", torch.cuda.current_device())
+    state = executor.create_state()
+    token = torch.tensor([[3, 10, 20]], dtype=torch.long, device="cuda")
+    try:
+        executor.prefill(token, state=state)
+        executor.forward_step(torch.tensor([[7]], dtype=torch.long, device="cuda"), state=state)
+    finally:
+        executor.release_state(state)
