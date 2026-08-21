@@ -152,6 +152,13 @@ def test_signed_sampler_transition_requires_exact_checkpoint_token_boundary(
             "model_config": source.model_config(),
             "training_recipe": dict(source.training_recipe),
             "continuation_token_counts": {"A": 196_608},
+            "sft_microbatch_cursor": 8,
+            "sft_skipped_updates": 2,
+            "sft_input_tokens_processed": 1_024,
+            "sft_supervised_tokens_processed": 512,
+            "sft_behavior_history": [{"step": 1, "status": "accepted"}],
+            "sft_frozen_parent_kl": {"enabled": False, "optimizer_steps": 0},
+            "parent_validation_loss": 3.25,
         },
         checkpoint,
     )
@@ -192,6 +199,13 @@ def test_signed_sampler_transition_requires_exact_checkpoint_token_boundary(
         continuation_phase="A",
     )
     assert state["training_recipe"] == source.training_recipe
+    assert state["sft_microbatch_cursor"] == 8
+    assert state["sft_skipped_updates"] == 2
+    assert state["sft_input_tokens_processed"] == 1_024
+    assert state["sft_supervised_tokens_processed"] == 512
+    assert state["sft_behavior_history"] == [{"step": 1, "status": "accepted"}]
+    assert state["sft_frozen_parent_kl"] == {"enabled": False, "optimizer_steps": 0}
+    assert state["parent_validation_loss"] == 3.25
 
     assert state["loaded"] is True
     assert state["training_recipe_migrations"] == [
