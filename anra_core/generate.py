@@ -24,10 +24,24 @@ def generate(
     temperature: float = 0.0,
     top_p: float = 0.92,
     seed: int = 0,
+    repetition_penalty: float = 1.15,
+    no_repeat_ngram_size: int = 4,
 ) -> str:
-    """Generate next tokens from prompt using stateful incremental decoding."""
+    """Generate next tokens from prompt using stateful incremental decoding.
+
+    Degeneration controls (applied to greedy and sampled paths alike):
+      - ``repetition_penalty``: logits of already-generated tokens are divided
+        by the penalty (>1 discourages repeats; CTRL-style, count-free).
+      - ``no_repeat_ngram_size``: a token that would complete an n-gram already
+        present in the output is banned outright.
+    Both can be disabled (penalty 1.0 / ngram 0) for exact legacy behavior.
+    """
     if max_new_tokens < 1:
         raise ValueError("max_new_tokens must be positive")
+    if repetition_penalty < 1.0:
+        raise ValueError("repetition_penalty must be >= 1.0")
+    if no_repeat_ngram_size < 0:
+        raise ValueError("no_repeat_ngram_size must be >= 0")
 
     if isinstance(model_or_executor, CoreExecutor):
         executor = model_or_executor
@@ -62,11 +76,42 @@ def generate(
         generated: list[int] = []
         generator = torch.Generator(device=device).manual_seed(seed)
 
+        def _ban_repeated_ngram(raw: torch.Tensor) -> torch.Tensor:
+            """Set -inf on tokens that would complete a seen n-gram."""
+            if no_repeat_ngram_size <= 0 or len(generated) < no_repeat_ngram_size - 1:
+                return raw
+            prefix = tuple(generated[-(no_repeat_ngram_size - 1) :])
+            banned = set()
+            for i in range(len(generated) - no_repeat_ngram_size + 1):
+                if tuple(generated[i : i + no_repeat_ngram_size - 1]) == prefix:
+                    banned.add(generated[i + no_repeat_ngram_size - 1])
+            if banned:
+                raw = raw.clone()
+                for token_id in banned:
+                    raw[:, token_id] = float("-inf")
+            return raw
+
         for _ in range(max_new_tokens):
+            working = logits
+            if repetition_penalty > 1.0 and generated:
+                penalty_indices = torch.tensor(
+                    [generated], dtype=torch.long, device=device
+                )
+                working = working.clone()
+                # Positive logits divide; negative logits multiply (CTRL rule).
+                gathered = working.gather(1, penalty_indices)
+                penalized = torch.where(
+                    gathered > 0,
+                    gathered / repetition_penalty,
+                    gathered * repetition_penalty,
+                )
+                working.scatter_(1, penalty_indices, penalized)
+            working = _ban_repeated_ngram(working)
+
             if temperature <= 0:
-                next_id = int(logits.argmax(dim=-1).item())
+                next_id = int(working.argmax(dim=-1).item())
             else:
-                probabilities = torch.softmax(logits / temperature, dim=-1)
+                probabilities = torch.softmax(working / temperature, dim=-1)
                 sorted_probs, sorted_ids = probabilities.sort(descending=True)
                 cumulative = sorted_probs.cumsum(dim=-1)
                 remove = cumulative - sorted_probs > top_p

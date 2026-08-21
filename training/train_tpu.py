@@ -232,6 +232,8 @@ def run(args: argparse.Namespace) -> int:
     output = Path(args.output_checkpoint)
     window_tokens = 0
     last_probe_step = -1
+    best_loss: float | None = None
+    best_step = start_step
 
     if rank == 0:
         print(f"[TPU ready] cores={world_size} start={start_step:,} target={total_steps:,}",
@@ -274,13 +276,31 @@ def run(args: argparse.Namespace) -> int:
                 f"(pass {consumed // max(1, (pack.total_tokens if pack else dataset.total_tokens)) + 1})",
                 flush=True,
             )
+            # Degradation guard: never silently train past the best model.
+            if best_loss is None or mean_loss < best_loss:
+                if best_loss is not None:
+                    print(f"[best] new best loss {mean_loss:.4f} at step {step:,}", flush=True)
+                best_loss = mean_loss
+                best_step = step
+            elif mean_loss > best_loss * 1.10:
+                print(
+                    f"[WARN] loss {mean_loss:.4f} is >10% above best {best_loss:.4f} "
+                    f"(step {best_step:,}). If this persists, STOP: you are past "
+                    f"the useful point of this pack. Best checkpoint is preserved.",
+                    flush=True,
+                )
         if step % max(args.save_interval, 500) == 0 and rank == 0:
             probes = _milestone_probes(model)
             print(f"[probe] step={step:,} {probes}", flush=True)
 
     if rank == 0:
         _save_latest(xm, output, model, optimizer, tokenizer, step, source_checkpoint)
-        print(f"[done] checkpoint saved: {output}", flush=True)
+        if best_loss is not None:
+            print(
+                f"[done] final checkpoint saved: {output} | best loss {best_loss:.4f} "
+                f"at step {best_step:,}",
+                flush=True,
+            )
     return 0
 
 

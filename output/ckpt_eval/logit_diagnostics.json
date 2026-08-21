@@ -1,0 +1,110 @@
+{
+  "step20000": {
+    "checkpoint": "C:\\Users\\ankit\\Downloads\\anra-v4-current-full-resume.pt",
+    "global_step": 20000,
+    "rows": [
+      {
+        "prompt": "The capital of France is",
+        "top1": " ",
+        "top2": "\n",
+        "margin": 4.883,
+        "max_prob": 0.9875,
+        "entropy_nats": 0.088,
+        "entropy_bits": 0.127
+      },
+      {
+        "prompt": "Echo exactly this word: ember",
+        "top1": " ",
+        "top2": ",",
+        "margin": 1.224,
+        "max_prob": 0.2851,
+        "entropy_nats": 3.389,
+        "entropy_bits": 4.89
+      },
+      {
+        "prompt": "Hello! How are you today?",
+        "top1": " ",
+        "top2": "\n",
+        "margin": 0.015,
+        "max_prob": 0.3782,
+        "entropy_nats": 1.812,
+        "entropy_bits": 2.614
+      },
+      {
+        "prompt": "Once upon a time, there was a little gir",
+        "top1": " ",
+        "top2": ",",
+        "margin": 4.372,
+        "max_prob": 0.9759,
+        "entropy_nats": 0.153,
+        "entropy_bits": 0.221
+      },
+      {
+        "prompt": "def add_numbers(a, b):\n    return",
+        "top1": " ",
+        "top2": "_",
+        "margin": 4.185,
+        "max_prob": 0.9271,
+        "entropy_nats": 0.495,
+        "entropy_bits": 0.714
+      }
+    ],
+    "mean_margin": 2.936,
+    "mean_entropy_bits": 1.713,
+    "uniform_entropy_bits": 15.0
+  },
+  "step30400": {
+    "checkpoint": "C:\\Users\\ankit\\Downloads\\anra-v4-tpu-latest.pt",
+    "global_step": 30400,
+    "rows": [
+      {
+        "prompt": "The capital of France is",
+        "top1": " ",
+        "top2": "\n",
+        "margin": 8.257,
+        "max_prob": 0.9987,
+        "entropy_nats": 0.014,
+        "entropy_bits": 0.021
+      },
+      {
+        "prompt": "Echo exactly this word: ember",
+        "top1": "ton",
+        "top2": "row",
+        "margin": 0.283,
+        "max_prob": 0.0417,
+        "entropy_nats": 7.09,
+        "entropy_bits": 10.228
+      },
+      {
+        "prompt": "Hello! How are you today?",
+        "top1": " ",
+        "top2": "\n",
+        "margin": 0.262,
+        "max_prob": 0.273,
+        "entropy_nats": 2.44,
+        "entropy_bits": 3.52
+      },
+      {
+        "prompt": "Once upon a time, there was a little gir",
+        "top1": " ",
+        "top2": "\ufffd",
+        "margin": 4.719,
+        "max_prob": 0.9845,
+        "entropy_nats": 0.104,
+        "entropy_bits": 0.15
+      },
+      {
+        "prompt": "def add_numbers(a, b):\n    return",
+        "top1": "(",
+        "top2": " ",
+        "margin": 0.461,
+        "max_prob": 0.5508,
+        "entropy_nats": 1.163,
+        "entropy_bits": 1.678
+      }
+    ],
+    "mean_margin": 2.796,
+    "mean_entropy_bits": 3.119,
+    "uniform_entropy_bits": 15.0
+  }
+}

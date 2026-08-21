@@ -1,0 +1,236 @@
+{
+  "checkpoint": "C:\\Users\\ankit\\Downloads\\anra-v4-tpu-latest.pt",
+  "global_step": 30400,
+  "device": "cuda",
+  "vram_gib": 0.68,
+  "domains": {
+    "A_conversation": {
+      "cases": [
+        {
+          "name": "chat_greeting",
+          "prompt": "Hello! How are you today?",
+          "output": " ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj",
+          "gold": null,
+          "match": null,
+          "repetition": 0.923,
+          "degenerate": false
+        },
+        {
+          "name": "chat_identity",
+          "prompt": "Who are you? Tell me about yourself.",
+          "output": "\nWhat ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj",
+          "gold": null,
+          "match": null,
+          "repetition": 0.846,
+          "degenerate": false
+        },
+        {
+          "name": "chat_smalltalk",
+          "prompt": "What do you like to do on a rainy day?",
+          "output": "\nWhat ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj",
+          "gold": null,
+          "match": null,
+          "repetition": 0.846,
+          "degenerate": false
+        },
+        {
+          "name": "chat_help",
+          "prompt": "Can you help me understand what photosynthesis is?",
+          "output": "\nWhat ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj",
+          "gold": null,
+          "match": null,
+          "repetition": 0.846,
+          "degenerate": false
+        },
+        {
+          "name": "chat_persona",
+          "prompt": "H: What is your name?\nANRA:",
+          "output": " ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj",
+          "gold": null,
+          "match": null,
+          "repetition": 0.923,
+          "degenerate": false
+        }
+      ],
+      "exact_accuracy": null,
+      "mean_repetition": 0.877
+    },
+    "B_factual": {
+      "cases": [
+        {
+          "name": "fact_capital",
+          "prompt": "The capital of France is",
+          "output": " ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj",
+          "gold": "Paris",
+          "match": false,
+          "repetition": 0.923,
+          "degenerate": false
+        },
+        {
+          "name": "fact_capital_ctx",
+          "prompt": "<k>The capital of Japan is Tokyo.</k>\n<q>What is the capital of Japan?</q>\n<answer>",
+          "output": "</block_hash ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ",
+          "gold": "Tokyo",
+          "match": false,
+          "repetition": 0.769,
+          "degenerate": false
+        },
+        {
+          "name": "fact_number",
+          "prompt": "There are how many days in a week? Answer:",
+          "output": " ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj",
+          "gold": "seven",
+          "match": false,
+          "repetition": 0.923,
+          "degenerate": false
+        },
+        {
+          "name": "fact_color",
+          "prompt": "The sky during a clear day is",
+          "output": " ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj",
+          "gold": "blue",
+          "match": false,
+          "repetition": 0.923,
+          "degenerate": false
+        }
+      ],
+      "exact_accuracy": 0.0,
+      "mean_repetition": 0.885
+    },
+    "C_instruction": {
+      "cases": [
+        {
+          "name": "echo_ember",
+          "prompt": "Echo exactly this word: ember",
+          "output": "ton ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ",
+          "gold": "ember",
+          "match": false,
+          "repetition": 0.846,
+          "degenerate": false
+        },
+        {
+          "name": "echo_quartz",
+          "prompt": "Echo exactly this word: quartz",
+          "output": "! ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ",
+          "gold": "quartz",
+          "match": false,
+          "repetition": 0.917,
+          "degenerate": false
+        },
+        {
+          "name": "copy_ctx",
+          "prompt": "<k>the magic word is lantern</k>\n<q>What is the magic word?</q>\n<answer>",
+          "output": "Hello ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ",
+          "gold": "lantern",
+          "match": false,
+          "repetition": 0.846,
+          "degenerate": false
+        },
+        {
+          "name": "repeat_number",
+          "prompt": "Say exactly this number: forty-two",
+          "output": " ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj",
+          "gold": "forty",
+          "match": false,
+          "repetition": 0.923,
+          "degenerate": false
+        }
+      ],
+      "exact_accuracy": 0.0,
+      "mean_repetition": 0.883
+    },
+    "D_arithmetic": {
+      "cases": [
+        {
+          "name": "arith_add",
+          "prompt": "Compute 7 + 5.",
+          "output": " ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj",
+          "gold": "12",
+          "match": false,
+          "repetition": 0.923,
+          "degenerate": false
+        },
+        {
+          "name": "arith_mul",
+          "prompt": "Compute (3 + 4) x 2.",
+          "output": "0}$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$",
+          "gold": "14",
+          "match": false,
+          "repetition": 0.0,
+          "degenerate": true
+        },
+        {
+          "name": "arith_toolresult",
+          "prompt": "Use the calculator to add 20 and 22.\n<tool_output>42</tool_output>\nWhat is 20 + 22?",
+          "output": "\nWhat ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj",
+          "gold": "42",
+          "match": false,
+          "repetition": 0.846,
+          "degenerate": false
+        }
+      ],
+      "exact_accuracy": 0.0,
+      "mean_repetition": 0.59
+    },
+    "E_toolcall": {
+      "cases": [
+        {
+          "name": "tool_request_calc",
+          "prompt": "What is 458 times 12? If you need a calculator, reply with CALL calculator(458*12)",
+          "output": ". ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ",
+          "gold": "calculator",
+          "match": false,
+          "repetition": 0.917,
+          "degenerate": false
+        },
+        {
+          "name": "tool_request_search",
+          "prompt": "What happened in the news today? If you need search, reply with CALL search(news)",
+          "output": ". ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ",
+          "gold": "search",
+          "match": false,
+          "repetition": 0.917,
+          "degenerate": false
+        }
+      ],
+      "exact_accuracy": 0.0,
+      "mean_repetition": 0.917
+    },
+    "F_code": {
+      "cases": [
+        {
+          "name": "code_def",
+          "prompt": "def add_numbers(a, b):\n    return",
+          "output": "(block_hash ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj",
+          "gold": null,
+          "match": null,
+          "repetition": 0.786,
+          "degenerate": false
+        },
+        {
+          "name": "code_for",
+          "prompt": "for i in range(10):\n    print",
+          "output": "(block_hash ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj ditj",
+          "gold": null,
+          "match": null,
+          "repetition": 0.786,
+          "degenerate": false
+        }
+      ],
+      "exact_accuracy": null,
+      "mean_repetition": 0.786
+    }
+  },
+  "sampling_health": {
+    "prompt": "Once upon a time, there was a little girl who",
+    "samples": [
+      " Aricept Hotalinging, Turchin ?|| Bakongo>}{Qery# ?on \")",
+      " Morild, SYRIZA, Veith \"?\". Worden deepcopy, ?\" ppfn, 0.9, ",
+      " Resonances\ufffds Tajiki ContentDetailsces. unconfined_uererioliateogauate''",
+      " Bizquey mount_cd9660 :> pasenger ~/ ceramides, Oloirien Wrisberg REPHRASINGSed eli5 Maharashal"
+    ],
+    "mean_repetition": 0.0,
+    "distinct_samples": 4
+  },
+  "vram_free_after_release_gib": 4.91
+}

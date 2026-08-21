@@ -1,0 +1,170 @@
+{
+  "step20000": {
+    "checkpoint": "C:\\Users\\ankit\\Downloads\\anra-v4-current-full-resume.pt",
+    "global_step": 20000,
+    "exact_accuracy": 0.0,
+    "mean_repetition": 0.0,
+    "cases": [
+      {
+        "name": "fact_capital",
+        "output": " located in the city of Lancashire. The capital is ",
+        "match": false,
+        "repetition": 0.0
+      },
+      {
+        "name": "fact_capital_ctx",
+        "output": "<br>\n<br />\n</br>\n\n<p><strong>",
+        "match": false,
+        "repetition": 0.0
+      },
+      {
+        "name": "echo_ember",
+        "output": " is a word that is used to describe the world around us",
+        "match": false,
+        "repetition": 0.0
+      },
+      {
+        "name": "copy_ctx",
+        "output": "\n</q>\n<p><strong><a href=\"http://www.",
+        "match": false,
+        "repetition": 0.0
+      },
+      {
+        "name": "arith_add",
+        "output": " The first number is the number of times it appears in the",
+        "match": false,
+        "repetition": 0.0
+      },
+      {
+        "name": "arith_toolresult",
+        "output": "\n<tool_output>43</tool_output.\nWhat is 20 + 22?",
+        "match": false,
+        "repetition": 0.0
+      },
+      {
+        "name": "chat_greeting",
+        "output": " What is the difference between a string and a circle? What ",
+        "match": null,
+        "repetition": 0.0
+      },
+      {
+        "name": "story",
+        "output": " had been in the field of the city and a woman who",
+        "match": null,
+        "repetition": 0.0
+      }
+    ]
+  },
+  "step30400": {
+    "checkpoint": "C:\\Users\\ankit\\Downloads\\anra-v4-tpu-latest.pt",
+    "global_step": 30400,
+    "exact_accuracy": 0.0,
+    "mean_repetition": 0.0,
+    "cases": [
+      {
+        "name": "fact_capital",
+        "output": " France. France has Travertineessen, France's largest city, France",
+        "match": false,
+        "repetition": 0.0
+      },
+      {
+        "name": "fact_capital_ctx",
+        "output": "<k><span style=\"font-size:20px;\"><span><span[",
+        "match": false,
+        "repetition": 0.0
+      },
+      {
+        "name": "echo_ember",
+        "output": "ton! myeloperoxidaseETORY!\n- \u25ba\ufe0f\ufe0f\u4e0d",
+        "match": false,
+        "repetition": 0.0
+      },
+      {
+        "name": "copy_ctx",
+        "output": "Hello, thank you so much!</answer>\n<k>Thank you guys",
+        "match": false,
+        "repetition": 0.0
+      },
+      {
+        "name": "arith_add",
+        "output": " Determine defaultdicted rates annually.\n\nDetermine regression coefficient calculated using regression analysis",
+        "match": false,
+        "repetition": 0.0
+      },
+      {
+        "name": "arith_toolresult",
+        "output": "\n20 + 22 = 24.\n\nWhat Is 40 + 25?\n40",
+        "match": false,
+        "repetition": 0.0
+      },
+      {
+        "name": "chat_greeting",
+        "output": " Check yours!\n- What Does Being eurozone Mean?\n- Understanding binary_search",
+        "match": null,
+        "repetition": 0.0
+      },
+      {
+        "name": "story",
+        "output": " had Travertine popitem. She didn't know Aquarii, strontia, APNs,",
+        "match": null,
+        "repetition": 0.0
+      }
+    ]
+  },
+  "soup": {
+    "checkpoint": "C:\\Users\\ankit\\An-Ra-the-new-AGI\\output\\ckpt_eval\\soup_20k_30k.pt",
+    "global_step": 20000,
+    "exact_accuracy": 0.0,
+    "mean_repetition": 0.0,
+    "cases": [
+      {
+        "name": "fact_capital",
+        "output": " located in the city of Lancashire. The capital is ",
+        "match": false,
+        "repetition": 0.0
+      },
+      {
+        "name": "fact_capital_ctx",
+        "output": "<br>\n<br />\n</br>\n\n<p><strong>",
+        "match": false,
+        "repetition": 0.0
+      },
+      {
+        "name": "echo_ember",
+        "output": " is a word that is used to describe the world around us",
+        "match": false,
+        "repetition": 0.0
+      },
+      {
+        "name": "copy_ctx",
+        "output": "\n</q>\n<p><strong><a href=\"http://www.",
+        "match": false,
+        "repetition": 0.0
+      },
+      {
+        "name": "arith_add",
+        "output": " The first number is the number of times it appears in the",
+        "match": false,
+        "repetition": 0.0
+      },
+      {
+        "name": "arith_toolresult",
+        "output": "\n<tool_output>43</tool_output.\nWhat is 20 + 22?",
+        "match": false,
+        "repetition": 0.0
+      },
+      {
+        "name": "chat_greeting",
+        "output": " What is the difference between a string and a circle? What ",
+        "match": null,
+        "repetition": 0.0
+      },
+      {
+        "name": "story",
+        "output": " had been in the field of the city and a woman who",
+        "match": null,
+        "repetition": 0.0
+      }
+    ]
+  }
+}
