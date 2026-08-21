@@ -42,13 +42,67 @@ DiagnosisLabel = Literal[
 
 @dataclass(frozen=True, slots=True)
 class DecodePolicy:
-    """Actual inference policy passed to the Core."""
+    """Actual inference policy passed to the Core.
+
+    Every behavior-changing parameter is explicit — nothing important may live
+    as an invisible default in generate(). ``raw``/``assisted`` profiles are
+    distinguished in reports: raw (penalty=1.0, ngram=0) measures learned
+    model behavior; assisted measures practical usable behavior.
+    """
 
     temperature: float = 0.0
     top_p: float = 0.92
     candidates: int = 1
     seed: int = 0
     max_new_tokens: int = 24
+    repetition_penalty: float = 1.15
+    no_repeat_ngram_size: int = 4
+
+    @classmethod
+    def raw(cls, **overrides) -> "DecodePolicy":
+        """Unassisted profile: measures learned model behavior only."""
+        return cls(repetition_penalty=1.0, no_repeat_ngram_size=0, **overrides)
+
+    @property
+    def assisted(self) -> bool:
+        return self.repetition_penalty > 1.0 or self.no_repeat_ngram_size > 0
+
+
+@dataclass(frozen=True, slots=True)
+class PreparedExecution:
+    """The EXACT input Core will consume, resolved before execution.
+
+    Invariant: what the trace records must be semantics-equivalent to what
+    Core actually consumes. ``Attempt`` is abstract proposed cognition;
+    ``PreparedExecution`` is the concrete executable form with the real tool
+    output resolved and injected at the correct position (BEFORE the answer
+    marker), plus the full decode policy.
+    """
+
+    prompt: str
+    decode: DecodePolicy
+
+    @classmethod
+    def from_attempt(cls, attempt: Attempt, *, tool_error_text: str = "") -> "PreparedExecution":
+        parts: list[str] = []
+        if attempt.context_blocks:
+            parts.append("<context>\n" + "\n".join(attempt.context_blocks) + "\n</context>")
+        if attempt.knowledge:
+            parts.append(f"<k>{attempt.knowledge}</k>")
+        if attempt.plan:
+            parts.append(f"<plan>{attempt.plan}</plan>")
+        if attempt.tool is not None:
+            # Resolve the REAL adapter result now; it appears BEFORE <answer>
+            # so the model can actually condition on it.
+            try:
+                output = attempt.tool.run()
+                parts.append(f"<tool_output>{output}</tool_output>")
+            except Exception as exc:
+                parts.append(f"<tool_output>ERROR: {exc}</tool_output>")
+            del tool_error_text
+        parts.append(f"<q>{attempt.question}</q>")
+        parts.append("<answer>")
+        return cls(prompt="\n".join(parts), decode=attempt.decode)
 
 
 @dataclass(frozen=True, slots=True)

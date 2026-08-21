@@ -33,7 +33,7 @@ from .model import AnRaCore
 from .state import CoreState
 from .tokenizer import V4Tokenizer
 
-__version__ = "0.5.0"
+__version__ = "0.6.0"
 __all__ = [
     "AnRaCore",
     "ArchitectureIdentity",

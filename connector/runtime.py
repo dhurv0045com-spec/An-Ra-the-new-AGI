@@ -35,6 +35,7 @@ from connector.experiments.cognitive_credit.case import (
     CompletionResult,
     DecodePolicy,
     ObservedCase,
+    PreparedExecution,
     ToolBehavior,
 )
 from connector.experiments.cognitive_credit.diagnose import (
@@ -159,11 +160,14 @@ def run(
 
     def execute(role: str, attempt: Attempt) -> tuple[CompletionResult, str | None]:
         t0 = time.time()
+        # The trace must record EXACTLY what Core consumes. Resolve the tool
+        # output here (before execution) so Step.prompt is the real input.
+        prepared = PreparedExecution.from_attempt(attempt)
         result = complete(attempt)
         passing = next((t for t in result.texts if verifier(t)), None)
         steps.append(Step(
             role=role,
-            prompt=attempt.render(),
+            prompt=prepared.prompt,
             outputs=tuple(result.texts),
             verified=passing is not None,
             error=result.error,
@@ -223,11 +227,23 @@ def run(
     learning_candidate = None
     if repair_success and winner_text and winner_attempt is not None:
         # Verified corrective experience: exactly what a future protocol SFT
-        # should consume. Only ever produced from verifier-confirmed output.
+        # should consume. The stored prompt MUST be the exact model input —
+        # including the resolved tool output that made the repair succeed.
+        prepared_winner = PreparedExecution.from_attempt(winner_attempt)
         learning_candidate = {
             "task": task,
-            "prompt": winner_attempt.render(),
+            "prompt": prepared_winner.prompt,
             "verified_output": winner_text,
+            "decode_policy": {
+                "temperature": winner_attempt.decode.temperature,
+                "top_p": winner_attempt.decode.top_p,
+                "candidates": winner_attempt.decode.candidates,
+                "seed": winner_attempt.decode.seed,
+                "max_new_tokens": winner_attempt.decode.max_new_tokens,
+                "repetition_penalty": winner_attempt.decode.repetition_penalty,
+                "no_repeat_ngram_size": winner_attempt.decode.no_repeat_ngram_size,
+                "assisted": winner_attempt.decode.assisted,
+            },
         }
 
     return RunResult(

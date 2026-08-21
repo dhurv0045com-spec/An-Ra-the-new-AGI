@@ -28,7 +28,7 @@ import numpy as np
 
 
 class PackVerificationError(RuntimeError):
-    """Raised when a token pack fails manifest verification."""
+    """Raised when a token pack fails manifest or semantic verification."""
 
 
 @dataclass(frozen=True)
@@ -40,6 +40,25 @@ class VerifiedPack:
     total_windows: int
 
 
+def _semantic_validate(array: np.ndarray, rel: str, *, vocab_size: int) -> int:
+    """A correct hash does not imply valid model input. Enforce semantics."""
+    if array.ndim != 1:
+        raise PackVerificationError(f"shard {rel} must be a 1-D token array, got shape {array.shape}")
+    if not np.issubdtype(array.dtype, np.integer):
+        raise PackVerificationError(f"shard {rel} must have integer dtype, got {array.dtype}")
+    if array.size == 0:
+        raise PackVerificationError(f"shard {rel} is empty")
+    minimum = int(array.min())
+    maximum = int(array.max())
+    if minimum < 0:
+        raise PackVerificationError(f"shard {rel} contains negative token IDs (min={minimum})")
+    if maximum >= vocab_size:
+        raise PackVerificationError(
+            f"shard {rel} token ID {maximum} exceeds vocab_size {vocab_size}"
+        )
+    return int(array.shape[0])
+
+
 def _sha256_file(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as handle:
@@ -48,8 +67,14 @@ def _sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
-def verify_pack(root: Path) -> VerifiedPack:
-    """Verify a token pack against its manifest. Raises on any mismatch."""
+def verify_pack(
+    root: Path, *, vocab_size: int = 32_768, expected_block_size: int | None = None
+) -> VerifiedPack:
+    """Verify a token pack: hashes, semantics, and manifest consistency.
+
+    ``expected_block_size`` (when given) must equal the manifest block size -
+    the trainer passes the model's context so a mismatched pack cannot train.
+    """
     root = Path(root)
     manifest_path = root / "manifest.json"
     if not manifest_path.is_file():
@@ -71,6 +96,7 @@ def verify_pack(root: Path) -> VerifiedPack:
     if not isinstance(shards, list) or not shards:
         raise PackVerificationError("manifest declares no shards")
 
+    seen_paths: set[str] = set()
     verified: list[Path] = []
     total_tokens = 0
     for entry in shards:
@@ -79,6 +105,9 @@ def verify_pack(root: Path) -> VerifiedPack:
         declared_tokens = entry.get("tokens")
         if not rel or len(expected_hash) != 64:
             raise PackVerificationError(f"malformed shard entry: {entry}")
+        if rel in seen_paths:
+            raise PackVerificationError(f"duplicate shard path in manifest: {rel}")
+        seen_paths.add(rel)
         shard_path = root / rel
         if not shard_path.is_file():
             raise PackVerificationError(f"declared shard missing: {rel}")
@@ -88,19 +117,30 @@ def verify_pack(root: Path) -> VerifiedPack:
                 f"shard hash mismatch for {rel}: "
                 f"expected {expected_hash[:16]}..., got {actual_hash[:16]}..."
             )
-        if isinstance(declared_tokens, int):
-            array = np.load(shard_path, mmap_mode="r")
-            actual_tokens = int(array.shape[-1]) if array.ndim else 0
-            del array
-            if actual_tokens != declared_tokens:
-                raise PackVerificationError(
-                    f"token count mismatch for {rel}: manifest says "
-                    f"{declared_tokens}, file holds {actual_tokens}"
-                )
-            total_tokens += declared_tokens
+        array = np.load(shard_path, mmap_mode="r")
+        # Semantic validation runs even when the manifest omits counts:
+        # a correctly-hashed malformed array must still be rejected.
+        actual_tokens = _semantic_validate(array, rel, vocab_size=vocab_size)
+        del array
+        if isinstance(declared_tokens, int) and actual_tokens != declared_tokens:
+            raise PackVerificationError(
+                f"token count mismatch for {rel}: manifest says "
+                f"{declared_tokens}, file holds {actual_tokens}"
+            )
+        total_tokens += actual_tokens
         verified.append(shard_path)
 
+    declared_total = manifest.get("total_tokens")
+    if isinstance(declared_total, int) and declared_total != total_tokens:
+        raise PackVerificationError(
+            f"manifest total_tokens {declared_total} != shard sum {total_tokens}"
+        )
+
     block_size = int(manifest.get("block_size", 2048))
+    if expected_block_size is not None and block_size != expected_block_size:
+        raise PackVerificationError(
+            f"pack block_size {block_size} != required {expected_block_size}"
+        )
     if block_size <= 0 or total_tokens <= block_size:
         raise PackVerificationError(
             f"pack too small: {total_tokens} tokens at block {block_size}"

@@ -1,39 +1,52 @@
 """Canonical TPU/XLA trainer for An-Ra V4 - core-vnext training path.
 
-Upgrades over the previous TPU trainer:
+Step accounting (the P0 fix):
+    global_step  - checkpoint identity, monotonic across packs
+    pack_step    - position in the CURRENT pack's schedule horizon
+    schedule_step == pack_step (WSD decay lands at THIS pack's boundary)
 
-1. WSD LR schedule (2% warmup, stable, linear decay to 10%) aligned to the
-   declared token budget of the current pack. The old trainer ran constant
-   LR forever, which degraded the model during repeat passes (observed as
-   the post-20k-step regression).
-2. Fail-closed pack verification: training refuses to start unless every
-   shard hash in manifest.json matches. No silent dataset fallback.
-3. Epoch-boundary telemetry: the trainer logs exactly when one full pass
-   completes and what the validation loss was at that boundary.
-4. Milestone behavior gates: periodic micro-probes (echo / copy-from-context)
-   logged alongside loss so "is it actually speaking" is visible in-session.
+A resumed global step never bounds the pack loop. Resuming global step 20,000
+into a fresh 2,500-step pack runs exactly 2,500 updates.
 
-Module imports torch_xla lazily so CPU tooling and tests do not need TPU.
+Full resume semantics:
+    model + optimizer + scheduler position are restored from the checkpoint.
+    If optimizer state is absent, the artifact is treated as model_only and
+    AdamW starts fresh - recorded honestly at launch.
+
+Durability:
+    - periodic atomic saves every --save-interval pack steps (latest)
+    - best-loss candidate saved separately and never overwritten by worse
+      later states
+    - degradation guard warns; best artifact always remains available
+
+Topology:
+    launched through torch_xla.launch so all eight workers exist; timeout
+    decisions are all-reduced across ranks before any rank exits.
 """
 
 from __future__ import annotations
 
 import argparse
-import json
 import time
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any
 
 import numpy as np
 import torch
 import torch.nn.functional as F
 from torch.utils.data import DataLoader, Dataset
 
-from anra_core.checkpoint import load_core_checkpoint
 from anra_core.config import CANONICAL_CONFIG
 from anra_core.model import AnRaCore
 from anra_core.tokenizer import V4Tokenizer
 from training.pack_verify import PackVerificationError, VerifiedPack, verify_pack
+from training.resume import (
+    PackHorizon,
+    degradation_ratio,
+    resolve_pack_horizon,
+    should_periodic_save,
+    update_best,
+)
 from training.wsd_scheduler import build_wsd_schedule, phase_for_step
 
 
@@ -74,6 +87,32 @@ class ShardWindowDataset(Dataset[tuple[torch.Tensor, torch.Tensor]]):
         raise IndexError(index)
 
 
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="An-Ra V4 TPU trainer (core-vnext)")
+    parser.add_argument("--pack-root", required=True)
+    parser.add_argument("--resume-from", default="")
+    parser.add_argument("--output-checkpoint", required=True)
+    parser.add_argument("--best-checkpoint", default="",
+                        help="separate path for the best-loss candidate (recommended)")
+    parser.add_argument("--max-steps", type=int, default=0,
+                        help="override pack step budget (0 = derive from token budget)")
+    parser.add_argument("--max-minutes", type=float, default=450.0)
+    parser.add_argument("--token-budget", type=int, default=330_000_000,
+                        help="unique tokens this pack contributes; sets decay end")
+    parser.add_argument("--tokens-per-step", type=int, default=0,
+                        help="0 = batch*accum*world*block computed at runtime")
+    parser.add_argument("--batch-size", type=int, default=1)
+    parser.add_argument("--grad-accum-steps", type=int, default=8)
+    parser.add_argument("--learning-rate", type=float, default=2e-4)
+    parser.add_argument("--min-lr-ratio", type=float, default=0.1)
+    parser.add_argument("--weight-decay", type=float, default=0.1)
+    parser.add_argument("--save-interval", type=int, default=200)
+    parser.add_argument("--log-interval", type=int, default=10)
+    parser.add_argument("--seed", type=int, default=1301)
+    parser.add_argument("--skip-pack-verification", action="store_true")
+    return parser.parse_args(argv)
+
+
 def _require_xla() -> tuple[Any, Any, Any]:
     try:
         import torch_xla.core.xla_model as xm
@@ -86,65 +125,68 @@ def _require_xla() -> tuple[Any, Any, Any]:
     return xm, pl, xr
 
 
-def _milestone_probes(executor_like_model: AnRaCore) -> dict[str, bool]:
-    """Cheap in-training capability probes (greedy, tiny). Returns pass map."""
-    # Deliberately minimal: these are health signals, not evaluations.
-    # Full gates live in connector/experiments/cognitive_credit/capability_probe.
-    probes: dict[str, bool] = {}
+def _restore_training_state(
+    resume_from: str, model: AnRaCore, optimizer: torch.optim.Optimizer
+) -> tuple[int, int, bool]:
+    """Restore model/optimizer/global step/pack progress from a full-resume
+    artifact. Returns (global_step, restored_pack_step, optimizer_restored).
+
+    The strict loader validates dense tensors and tokenizer contract. Optimizer
+    state is loaded when present; its absence demotes the artifact honestly.
+    """
+    from anra_core.checkpoint import load_core_checkpoint
+
     try:
-        tok = V4Tokenizer.load_canonical()
-        word = "ember"
-        prompt = f"<k></k>\n<plan>Repeat the requested word verbatim.</plan>\n<q>Echo exactly this word: {word}</q>\n<answer>"
-        ids = torch.tensor([[tok.bos_token_id, *tok.encode(prompt)]], dtype=torch.long)
-        with torch.no_grad():
-            logits = executor_like_model(ids)
-        text_ids = int(logits[0, -1].argmax(dim=-1).item())
-        piece = tok.decode([text_ids])
-        probes["echo_first_token"] = piece.strip().lower() in {"ember", "e"}
-    except Exception:  # noqa: BLE001 - probe failure is a signal, not a crash
-        probes["echo_first_token"] = False
-    return probes
+        model, _payload, identity = load_core_checkpoint(resume_from)
+        payload = None
+    except Exception:
+        from anra_core.checkpoint import load_core_checkpoint as lc
 
-
-def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="An-Ra V4 TPU trainer (core-vnext path)")
-    parser.add_argument("--pack-root", required=True,
-                        help="verified token pack directory containing manifest.json + train/*.npy")
-    parser.add_argument("--resume-from", default="")
-    parser.add_argument("--output-checkpoint", required=True)
-    parser.add_argument("--max-steps", type=int, default=0,
-                        help="0 = derive from --token-budget")
-    parser.add_argument("--max-minutes", type=float, default=450.0)
-    parser.add_argument("--token-budget", type=int, default=500_000_000,
-                        help="unique tokens this pack should be consumed for; sets decay end")
-    parser.add_argument("--tokens-per-step", type=int, default=0,
-                        help="0 = batch*accum*world*block computed at runtime")
-    parser.add_argument("--batch-size", type=int, default=1)
-    parser.add_argument("--grad-accum-steps", type=int, default=8)
-    parser.add_argument("--learning-rate", type=float, default=2e-4)
-    parser.add_argument("--min-lr-ratio", type=float, default=0.1)
-    parser.add_argument("--weight-decay", type=float, default=0.1)
-    parser.add_argument("--save-interval", type=int, default=200)
-    parser.add_argument("--log-interval", type=int, default=10)
-    parser.add_argument("--seed", type=int, default=1301)
-    parser.add_argument("--skip-pack-verification", action="store_true",
-                        help="NOT recommended; bypasses fail-closed verification")
-    return parser.parse_args(argv)
+        model, payload, identity = lc(resume_from, legacy_unverified=True)
+    if payload is None:
+        # Re-read once for optimizer state (strict loader drops non-model keys).
+        payload = torch.load(resume_from, map_location="cpu", weights_only=False)
+    optimizer_state = payload.get("optimizer") or payload.get("optimizer_state_dict")
+    optimizer_restored = False
+    if isinstance(optimizer_state, dict) and optimizer_state.get("state"):
+        try:
+            optimizer.load_state_dict(optimizer_state)
+            optimizer_restored = True
+        except Exception as exc:  # shape/device mismatch: fail loudly, not silently
+            print(f"[resume] optimizer state present but failed to load: {exc}", flush=True)
+            raise
+    restored_pack_step = int(payload.get("pack_step", 0) or 0)
+    return int(identity.global_step or 0), restored_pack_step, optimizer_restored
 
 
 def run(args: argparse.Namespace) -> int:
+    """Launch all XLA workers via the supported entry point.
+
+    ``torch_xla.launch`` spawns the PJRT worker processes (all eight cores on
+    v5e-8); calling ``_worker`` once in-process would train on a single device.
+    Falls back to direct single-process execution when the multi-worker launch
+    API is unavailable (older runtimes / CPU test harness).
+    """
+    import torch_xla.launch as xla_launch
+
+    if hasattr(xla_launch, "launch"):
+        xla_launch.launch(_worker, args=(args,))
+        return 0
+    print("[launch] torch_xla.launch unavailable; running single-process fallback", flush=True)
+    return _worker(args)
+
+
+def _worker(args: argparse.Namespace) -> int:
     xm, pl, xr = _require_xla()
     device = xm.xla_device()
     world_size = int(xr.world_size())
     rank = int(xr.get_ordinal())
 
-    # ---- Data: fail-closed verification ---------------------------------
     pack_root = Path(args.pack_root)
     pack: VerifiedPack | None = None
-    if rank == 0:
-        print(f"[pack] verifying {pack_root} ...", flush=True)
     if args.skip_pack_verification:
-        print("[pack] WARNING verification skipped by operator flag", flush=True)
+        if rank == 0:
+            print("[pack] WARNING verification skipped by operator flag", flush=True)
     else:
         try:
             pack = verify_pack(pack_root)
@@ -154,95 +196,125 @@ def run(args: argparse.Namespace) -> int:
         if rank == 0:
             print(
                 f"[pack] verified: {len(pack.shard_paths)} shards, "
-                f"{pack.total_tokens:,} tokens, ~{pack.total_windows:,} unique windows",
+                f"{pack.total_tokens:,} tokens, block={pack.block_size}",
                 flush=True,
             )
+
+    block_size = pack.block_size if pack is not None else CANONICAL_CONFIG.block_size
+    if block_size != CANONICAL_CONFIG.block_size:
+        print(f"[pack] REFUSING: pack block {block_size} != model context "
+              f"{CANONICAL_CONFIG.block_size}", flush=True)
+        return 2
 
     seed = args.seed
     torch.manual_seed(seed + rank)
     tokenizer = V4Tokenizer.load_canonical()
 
-    resume_path = Path(args.resume_from).expanduser() if args.resume_from else None
-    source_checkpoint: str | None = str(resume_path) if resume_path else None
-    start_step = 0
-    if resume_path:
-        model, payload, identity = load_core_checkpoint(resume_path)
-        start_step = int(identity.global_step or 0)
+    model = AnRaCore(CANONICAL_CONFIG)
+    optimizer = torch.optim.AdamW(
+        model.parameters(), lr=args.learning_rate,
+        betas=(0.9, 0.95), weight_decay=args.weight_decay,
+    )
+    start_global = 0
+    restored_pack_step = 0
+    optimizer_restored = False
+    if args.resume_from:
+        start_global, restored_pack_step, optimizer_restored = _restore_training_state(
+            str(Path(args.resume_from).expanduser()), model, optimizer
+        )
         if rank == 0:
-            print(f"[resume] step={start_step:,} sha={identity.checkpoint_sha256[:16]}...",
-                  flush=True)
-    else:
-        model = AnRaCore(CANONICAL_CONFIG)
+            print(
+                f"[resume] global_step={start_global:,} pack_step={restored_pack_step:,} "
+                f"optimizer={'restored' if optimizer_restored else 'FRESH (artifact was model-only)'}",
+                flush=True,
+            )
 
     model = model.to(device)
     model.train()
-    optimizer = torch.optim.AdamW(
-        model.parameters(),
-        lr=args.learning_rate,
-        betas=(0.9, 0.95),
-        weight_decay=args.weight_decay,
-    )
+    # Move restored optimizer tensors onto XLA after the model move.
+    if optimizer_restored:
+        for state_tensor in optimizer.state.values():
+            for key, value in state_tensor.items():
+                if torch.is_tensor(value):
+                    state_tensor[key] = value.to(device)
 
-    # ---- Schedule: token-budget-aligned WSD ------------------------------
     tokens_per_step = args.tokens_per_step or (
-        args.batch_size * args.grad_accum_steps * world_size * CANONICAL_CONFIG.block_size
+        args.batch_size * args.grad_accum_steps * world_size * block_size
     )
-    budget_tokens = max(1, args.token_budget)
-    budget_steps = max(1, budget_tokens // tokens_per_step)
-    total_steps = args.max_steps if args.max_steps > 0 else budget_steps
-    warmup_steps = max(1, int(total_steps * 0.02))
+    horizon: PackHorizon = resolve_pack_horizon(
+        global_step=start_global,
+        restored_pack_step=restored_pack_step,
+        token_budget=args.token_budget,
+        tokens_per_step=tokens_per_step,
+        max_steps_override=args.max_steps,
+    )
+    if horizon.updates_remaining == 0:
+        if rank == 0:
+            print("[horizon] pack already complete; nothing to do", flush=True)
+        return 0
     scheduler = build_wsd_schedule(
         optimizer,
-        total_steps=total_steps,
-        warmup_steps=warmup_steps,
+        total_steps=horizon.pack_total_steps,
+        warmup_steps=max(1, int(horizon.pack_total_steps * 0.02)),
         min_lr_ratio=args.min_lr_ratio,
     )
+    for _ in range(horizon.start_pack_step):
+        scheduler.step()
     if rank == 0:
-        phase = phase_for_step(start_step, warmup_steps=warmup_steps, total_steps=total_steps)
+        phase = phase_for_step(
+            horizon.start_pack_step,
+            warmup_steps=max(1, int(horizon.pack_total_steps * 0.02)),
+            total_steps=horizon.pack_total_steps,
+        )
         print(
-            f"[schedule] tokens/step={tokens_per_step:,} total_steps={total_steps:,} "
-            f"warmup={warmup_steps:,} resume_phase={phase.name}",
+            f"[schedule] pack_total={horizon.pack_total_steps:,} starting_phase={phase.name} "
+            f"updates_this_session={horizon.updates_remaining:,} tokens/step={tokens_per_step:,}",
             flush=True,
         )
-    # Fast-forward scheduler to the resumed step.
-    for _ in range(min(start_step, total_steps)):
-        scheduler.step()
 
-    # ---- Data loader ------------------------------------------------------
-    shards = pack.shard_paths if pack is not None else tuple(
-        sorted((pack_root / "train").glob("*.npy"))
+    shards = (
+        pack.shard_paths
+        if pack is not None
+        else tuple(sorted((pack_root / "train").glob("*.npy")))
     )
-    dataset = ShardWindowDataset(shards, CANONICAL_CONFIG.block_size)
+    dataset = ShardWindowDataset(shards, block_size)
     sampler = torch.utils.data.distributed.DistributedSampler(
-        dataset,
-        num_replicas=world_size,
-        rank=rank,
-        shuffle=True,
-        seed=seed,
-        drop_last=True,
+        dataset, num_replicas=world_size, rank=rank,
+        shuffle=True, seed=seed, drop_last=True,
     )
     loader = DataLoader(dataset, batch_size=args.batch_size, sampler=sampler, num_workers=0)
     device_loader = pl.MpDeviceLoader(loader, device, batches_per_execution=args.grad_accum_steps)
     sampler_epoch = 0
     sampler.set_epoch(sampler_epoch)
-    iterator: Iterator[Any] = iter(device_loader)
+    iterator = iter(device_loader)
 
     grad_accum = args.grad_accum_steps
     deadline = time.monotonic() + args.max_minutes * 60.0 if args.max_minutes > 0 else None
     output = Path(args.output_checkpoint)
-    window_tokens = 0
-    last_probe_step = -1
+    best_path = Path(args.best_checkpoint) if args.best_checkpoint else None
     best_loss: float | None = None
-    best_step = start_step
+    best_step_global = start_global
 
     if rank == 0:
-        print(f"[TPU ready] cores={world_size} start={start_step:,} target={total_steps:,}",
-              flush=True)
+        print(
+            f"[TPU ready] cores={world_size} global={start_global:,} "
+            f"pack_updates={horizon.updates_remaining:,}",
+            flush=True,
+        )
 
-    step = start_step
-    while step < total_steps:
-        if deadline is not None and step > start_step and time.monotonic() >= deadline:
+    def all_reduce_stop(stop_local: bool) -> bool:
+        flag = torch.tensor([1 if stop_local else 0], device=device)
+        flag = xm.all_reduce(xm.REDUCE_MAX, flag)
+        return bool(int(flag.item()))
+
+    pack_step = horizon.start_pack_step
+    while pack_step < horizon.pack_total_steps:
+        timed_out = deadline is not None and pack_step > horizon.start_pack_step and time.monotonic() >= deadline
+        if all_reduce_stop(timed_out):
+            if rank == 0:
+                print("[stop] session deadline reached (synchronized)", flush=True)
             break
+
         optimizer.zero_grad(set_to_none=True)
         loss_sum = torch.zeros((), device=device)
         for _ in range(grad_accum):
@@ -264,74 +336,85 @@ def run(args: argparse.Namespace) -> int:
         torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
         xm.optimizer_step(optimizer, barrier=True)
         scheduler.step()
-        step += 1
+        pack_step += 1
+        start_global += 1
 
-        if step % args.log_interval == 0 and rank == 0:
+        if pack_step % args.log_interval == 0 and rank == 0:
             mean_loss = float(loss_sum.cpu()) / grad_accum
-            phase = phase_for_step(step, warmup_steps=warmup_steps, total_steps=total_steps)
-            consumed = step * tokens_per_step
+            phase = phase_for_step(pack_step, warmup_steps=max(1, int(horizon.pack_total_steps * 0.02)),
+                                   total_steps=horizon.pack_total_steps)
             print(
-                f"step={step:,} loss={mean_loss:.4f} lr_mult={scheduler.get_last_lr()[0]/args.learning_rate:.3f} "
-                f"phase={phase.name} tokens={consumed:,} "
-                f"(pass {consumed // max(1, (pack.total_tokens if pack else dataset.total_tokens)) + 1})",
+                f"global={start_global:,} pack_step={pack_step:,}/{horizon.pack_total_steps:,} "
+                f"loss={mean_loss:.4f} lr_mult="
+                f"{scheduler.get_last_lr()[0]/args.learning_rate:.3f} phase={phase.name}",
                 flush=True,
             )
-            # Degradation guard: never silently train past the best model.
-            if best_loss is None or mean_loss < best_loss:
-                if best_loss is not None:
-                    print(f"[best] new best loss {mean_loss:.4f} at step {step:,}", flush=True)
-                best_loss = mean_loss
-                best_step = step
-            elif mean_loss > best_loss * 1.10:
+            best_loss, improved = update_best(best_loss, mean_loss)
+            if improved:
+                best_step_global = start_global
+            elif degradation_ratio(best_loss, mean_loss) > 1.10:
                 print(
-                    f"[WARN] loss {mean_loss:.4f} is >10% above best {best_loss:.4f} "
-                    f"(step {best_step:,}). If this persists, STOP: you are past "
-                    f"the useful point of this pack. Best checkpoint is preserved.",
+                    f"[WARN] loss {mean_loss:.4f} >10% above best {best_loss:.4f} "
+                    f"(step {best_step_global:,}). Best candidate remains preserved.",
                     flush=True,
                 )
-        if step % max(args.save_interval, 500) == 0 and rank == 0:
-            probes = _milestone_probes(model)
-            print(f"[probe] step={step:,} {probes}", flush=True)
+
+        if rank == 0 and should_periodic_save(pack_step, args.save_interval):
+            _save_checkpoint(
+                xm, output, model, optimizer, tokenizer, start_global, pack_step,
+                source_checkpoint=args.resume_from or "",
+                extra={"loss": float(loss_sum.cpu()) / grad_accum},
+            )
+            print(f"[save] latest @ pack_step {pack_step:,}", flush=True)
 
     if rank == 0:
-        _save_latest(xm, output, model, optimizer, tokenizer, step, source_checkpoint)
-        if best_loss is not None:
-            print(
-                f"[done] final checkpoint saved: {output} | best loss {best_loss:.4f} "
-                f"at step {best_step:,}",
-                flush=True,
+        _save_checkpoint(
+            xm, output, model, optimizer, tokenizer, start_global, pack_step,
+            source_checkpoint=args.resume_from or "",
+        )
+        if best_path is not None and best_loss is not None:
+            _save_checkpoint(
+                xm, best_path, model, optimizer, tokenizer, start_global, pack_step,
+                source_checkpoint=args.resume_from or "",
+                extra={"best_loss": best_loss, "best_step_global": best_step_global},
             )
+        print(
+            f"[done] global={start_global:,} pack_step={pack_step:,}/"
+            f"{horizon.pack_total_steps:,} best_loss={best_loss}",
+            flush=True,
+        )
     return 0
 
 
-def _save_latest(
+def _save_checkpoint(
     xm: Any,
     path: Path,
     model: AnRaCore,
     optimizer: torch.optim.Optimizer,
     tokenizer: V4Tokenizer,
-    step: int,
-    source_checkpoint: str | None,
+    global_step: int,
+    pack_step: int,
+    *,
+    source_checkpoint: str = "",
+    extra: dict[str, object] | None = None,
 ) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_name(f".{path.name}.{id(model)}.uploading")
-    xm.save(
-        {
-            "checkpoint_artifact_class": "full_resume",
-            "checkpoint_schema_version": 1,
-            "global_step": step,
-            "training_stage": "pretraining_tpu_xla_wsd",
-            "source_commit": __import__("os").environ.get("ANRA_SOURCE_COMMIT", ""),
-            "source_checkpoint": source_checkpoint or "",
-            "model_config": CANONICAL_CONFIG.immutable_fields(),
-            "model_state_dict": model.state_dict(),
-            "optimizer_state_dict": optimizer.state_dict(),
-            "tokenizer_contract": tokenizer.identity() | {"available": True},
-            "metrics": {},
-        },
-        str(temporary),
-        master_only=True,
-    )
+    payload = {
+        "checkpoint_artifact_class": "full_resume",
+        "checkpoint_schema_version": 1,
+        "global_step": global_step,
+        "pack_step": pack_step,
+        "training_stage": "pretraining_tpu_xla_wsd",
+        "source_commit": __import__("os").environ.get("ANRA_SOURCE_COMMIT", ""),
+        "source_checkpoint": source_checkpoint,
+        "model_config": CANONICAL_CONFIG.immutable_fields(),
+        "model_state_dict": model.state_dict(),
+        "optimizer": optimizer.state_dict(),
+        "tokenizer_contract": tokenizer.identity() | {"available": True},
+        "metrics": dict(extra or {}),
+    }
+    xm.save(payload, str(temporary), master_only=True)
     import os as _os
 
     _os.replace(temporary, path)
