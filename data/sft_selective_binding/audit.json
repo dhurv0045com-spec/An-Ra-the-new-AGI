@@ -1,0 +1,20 @@
+{
+  "exact_prompt_overlap": 0,
+  "prompt_completion_overlap": 0,
+  "lexical_overlap_tokens": [
+    "Friday.",
+    "Lunch",
+    "Rain",
+    "The",
+    "by",
+    "code",
+    "expected",
+    "gate",
+    "noon.",
+    "north",
+    "open.",
+    "scheduled",
+    "stays",
+    "to"
+  ]
+}

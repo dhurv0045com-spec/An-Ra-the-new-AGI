@@ -1,0 +1,7 @@
+[load] checkpoints/anra-v4-20k-sft-context-binding.pt
+[load] step=20000 params=180,093,312
+[train] 1452 micro-steps (effective batch 8)
+  step 104/1452 loss=0.5184 (2.9 it/s)
+  step 200/1452 loss=0.1924 (3.5 it/s)
+  step 304/1452 loss=0.3311 (3.7 it/s)
+  step 400/1452 loss=0.1728 (3.9 it/s)

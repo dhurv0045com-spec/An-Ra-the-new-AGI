@@ -1,0 +1,100 @@
+{
+  "schema": "anra-evidence-manifest/v1",
+  "updated": "2026-08-22 03:5x",
+  "labels": {
+    "VALID": "trustworthy under its recorded conditions",
+    "SUPERSEDED": "correct when produced, replaced by a better measurement",
+    "INVALID": "methodologically broken; do not cite",
+    "INTERMEDIATE": "snapshot of an in-progress run, not a final capability claim"
+  },
+  "artifacts": [
+    {
+      "path": "output/ckpt_eval/step20000/report.json",
+      "label": "INVALID",
+      "reason": "decode loop re-ran model(next_token) with a 1-token context and no KV cache; outputs beyond token 1 are artifacts of the harness, not the model",
+      "checkpoint": "anra-v4-current-full-resume.pt (step 20000)"
+    },
+    {
+      "path": "output/ckpt_eval/step30400/report.json",
+      "label": "INVALID",
+      "reason": "same stateless-decode defect as above",
+      "checkpoint": "anra-v4-tpu-latest.pt (step 30400)"
+    },
+    {
+      "path": "output/gpu_chat_eval/report.json",
+      "label": "VALID",
+      "reason": "executor-validated prefill + KV-cached incremental decode; BOS-bound; RAW greedy",
+      "checkpoint": "step 20000 and step 30400, fp32 CUDA"
+    },
+    {
+      "path": "output/probe_tpu_latest.json",
+      "label": "VALID",
+      "reason": "nonce probe v2 (mine), CPU fp32 greedy; pre-SFT baseline",
+      "checkpoint": "anra-v4-tpu-latest.pt (step 30400)"
+    },
+    {
+      "path": "output/probe_step5000.json",
+      "label": "VALID",
+      "reason": "nonce probe v2, CPU fp32 greedy",
+      "checkpoint": "step 5000"
+    },
+    {
+      "path": "output/probe_full_resume.json",
+      "label": "SUPERSEDED",
+      "reason": "nonce probe v2 CPU run of step 20000; superseded by output/probe_v2_baseline20k.json (CUDA re-run, same items, receipt-embedded)",
+      "checkpoint": "anra-v4-current-full-resume.pt (step 20000)"
+    },
+    {
+      "path": "output/cognitive_credit_v4_run3_step20k.json",
+      "label": "VALID",
+      "reason": "full 20-case intervention battery on step-20k, honest abstentions; predates SFT children",
+      "checkpoint": "step 20000 (pre-SFT)"
+    },
+    {
+      "path": "output/probe_sft.json",
+      "label": "SUPERSEDED",
+      "reason": "SFT child evaluated with the concurrent rewritten probe (3-item families); superseded by probe_v2_sft.json (5-item, both protocols, receipt)",
+      "checkpoint": "anra-v4-20k-sft-context-binding.pt"
+    },
+    {
+      "path": "output/probe_v2_baseline20k.json",
+      "label": "VALID",
+      "reason": "nonce probe v2, 5 items/family, NL+tag, CUDA fp32, receipt with parameter sha c836262d…",
+      "checkpoint": "step 20000 parent"
+    },
+    {
+      "path": "output/probe_v2_sft.json",
+      "label": "VALID",
+      "reason": "same battery on the SFT child, receipt parameter sha c3329e55…",
+      "checkpoint": "anra-v4-20k-sft-context-binding.pt"
+    },
+    {
+      "path": "output/promotion_gate_verdict.json",
+      "label": "SUPERSEDED",
+      "reason": "unscoped PROMOTE verdict; superseded by scoped verdicts (PROMOTE_CONTEXT_BINDING) after OOD evidence",
+      "checkpoint": "anra-v4-20k-sft-context-binding.pt"
+    },
+    {
+      "path": "output/ood_parent20k.json",
+      "label": "VALID",
+      "reason": "frozen OOD battery sha ce1c99c5…, RAW+ASSISTED, receipt",
+      "checkpoint": "step 20000 parent"
+    },
+    {
+      "path": "output/ood_child_sft.json",
+      "label": "VALID",
+      "reason": "frozen OOD battery sha ce1c99c5…, RAW+ASSISTED, receipt",
+      "checkpoint": "anra-v4-20k-sft-context-binding.pt"
+    }
+  ],
+  "scoped_promotions": {
+    "PROMOTE_EXPERIMENTAL": "safe to experiment with; no capability claim",
+    "PROMOTE_CONTEXT_BINDING": "single-fact context-to-answer binding verified on untrained protocols (OOD suite E) without regressions",
+    "PROMOTE_CONNECTOR_READY": "requires P1>=4/5, P2>=4/5, P4>=4/5 on the probe battery (run_real gate); P2 currently 2/5 — NOT met",
+    "PROMOTE_ACTIVE_MODEL": "requires CONNECTOR_READY plus general regression battery parity"
+  },
+  "current_status": {
+    "active_model": "step-200k parent remains the general active model; no child has been promoted to CONNECTOR_READY or ACTIVE",
+    "context_binding_holder": "anra-v4-20k-sft-context-binding.pt (PROMOTE_CONTEXT_BINDING, pending regression battery breadth)"
+  }
+}

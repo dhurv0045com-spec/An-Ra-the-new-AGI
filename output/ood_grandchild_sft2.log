@@ -1,11 +1,11 @@
 {
   "experiment_schema": "anra-ood-battery/v1",
-  "timestamp": "2026-08-22 03:04:32",
-  "label": "child-sft",
-  "checkpoint_path": "checkpoints/anra-v4-20k-sft-context-binding.pt",
+  "timestamp": "2026-08-22 03:19:24",
+  "label": "grandchild-sft2",
+  "checkpoint_path": "checkpoints/anra-v4-20k-sft2-selective.pt",
   "global_step": 20000,
-  "parameter_sha256": "c3329e558e68acc3c02b5c323c1dacaeb61a96e0e0defbca1c69985c2b38d565",
-  "checkpoint_file_sha256": "52bb67bf2ca8f7e77ef11937dfac50ac1a36e15dab5473d95e2b527272b6154a",
+  "parameter_sha256": "7ebb91f9a161b8466406af43329ecf08719bcb8effafe676de1f7744a7a969dd",
+  "checkpoint_file_sha256": "1598eae35c57262c82b08d9fd06374d69b3d86ef77beff76328914b28172e397",
   "suite_sha256": "ce1c99c57eb022dfbcf0cf0d90e9d9b2c2cb9452b5df7a806468a1157169f43c",
   "profiles": {
     "RAW": {
@@ -24,21 +24,21 @@
   "results": {
     "RAW": {
       "A_selective_multi_fact": {
-        "pass": 0,
+        "pass": 5,
         "n": 11,
-        "acc": 0.0,
+        "acc": 0.455,
         "detail": {
           "A00": false,
-          "A01": false,
-          "A02": false,
+          "A01": true,
+          "A02": true,
           "A03": false,
           "A04": false,
           "A05": false,
           "A06": false,
-          "A07": false,
+          "A07": true,
           "A08": false,
-          "A09": false,
-          "A10-recency": false
+          "A09": true,
+          "A10-recency": true
         }
       },
       "B_novel_composition": {
@@ -76,57 +76,57 @@
         }
       },
       "D_perturbation_controls": {
-        "pass": 2,
+        "pass": 1,
         "n": 5,
-        "acc": 0.4,
+        "acc": 0.2,
         "detail": {
           "D00": false,
-          "D01": true,
+          "D01": false,
           "D02": true,
           "D03": false,
           "D04": false
         }
       },
       "E_protocol_transfer": {
-        "pass": 13,
+        "pass": 6,
         "n": 15,
-        "acc": 0.867,
+        "acc": 0.4,
         "detail": {
           "E0-prose": true,
           "E0-json": true,
-          "E0-table": true,
+          "E0-table": false,
           "E0-kv": true,
           "E0-dialogue": true,
           "E1-prose": false,
-          "E1-json": true,
-          "E1-table": true,
+          "E1-json": false,
+          "E1-table": false,
           "E1-kv": false,
-          "E1-dialogue": true,
+          "E1-dialogue": false,
           "E2-prose": true,
           "E2-json": true,
-          "E2-table": true,
-          "E2-kv": true,
-          "E2-dialogue": true
+          "E2-table": false,
+          "E2-kv": false,
+          "E2-dialogue": false
         }
       }
     },
     "ASSISTED": {
       "A_selective_multi_fact": {
-        "pass": 0,
+        "pass": 5,
         "n": 11,
-        "acc": 0.0,
+        "acc": 0.455,
         "detail": {
           "A00": false,
-          "A01": false,
-          "A02": false,
+          "A01": true,
+          "A02": true,
           "A03": false,
           "A04": false,
           "A05": false,
           "A06": false,
-          "A07": false,
+          "A07": true,
           "A08": false,
-          "A09": false,
-          "A10-recency": false
+          "A09": true,
+          "A10-recency": true
         }
       },
       "B_novel_composition": {
@@ -164,41 +164,41 @@
         }
       },
       "D_perturbation_controls": {
-        "pass": 2,
+        "pass": 1,
         "n": 5,
-        "acc": 0.4,
+        "acc": 0.2,
         "detail": {
           "D00": false,
-          "D01": true,
+          "D01": false,
           "D02": true,
           "D03": false,
           "D04": false
         }
       },
       "E_protocol_transfer": {
-        "pass": 13,
+        "pass": 5,
         "n": 15,
-        "acc": 0.867,
+        "acc": 0.333,
         "detail": {
           "E0-prose": true,
           "E0-json": true,
-          "E0-table": true,
+          "E0-table": false,
           "E0-kv": true,
-          "E0-dialogue": true,
+          "E0-dialogue": false,
           "E1-prose": false,
-          "E1-json": true,
-          "E1-table": true,
+          "E1-json": false,
+          "E1-table": false,
           "E1-kv": false,
-          "E1-dialogue": true,
+          "E1-dialogue": false,
           "E2-prose": true,
           "E2-json": true,
-          "E2-table": true,
-          "E2-kv": true,
-          "E2-dialogue": true
+          "E2-table": false,
+          "E2-kv": false,
+          "E2-dialogue": false
         }
       }
     }
   },
   "source_commit": "51a4f20f2e573191063a7fb5871fe17f857fbfaf",
-  "git_dirty": false
+  "git_dirty": true
 }

@@ -1,0 +1,37 @@
+{
+  "checkpoint": "C:\\Users\\ankit\\An-Ra-the-new-AGI\\checkpoints\\anra-v4-20k-sft2-selective.pt",
+  "global_step": 20000,
+  "wall_seconds": 29.2,
+  "P1_nonce_knowledge_use": {
+    "nl": "5/5",
+    "tag": "5/5"
+  },
+  "P2_plan_following_no_arithmetic": {
+    "nl": "0/5",
+    "tag": "3/5"
+  },
+  "P3_verbatim_copy": {
+    "nl": "3/5",
+    "tag": "4/5"
+  },
+  "P4_tool_result_use": {
+    "nl": "5/5",
+    "tag": "5/5"
+  },
+  "P5_decode_sensitivity": {
+    "greedy_pass": "4/5",
+    "best_of_4_rescue": "0/5",
+    "note": "rescue counts items where greedy failed and sampling succeeded"
+  },
+  "P6_protocol_sensitivity_nl_minus_tag": {
+    "P1": 0,
+    "P2": -3,
+    "P3": -1,
+    "P4": 0
+  },
+  "decode_stats": {
+    "generations": 65,
+    "core_errors": 0
+  },
+  "threshold": ">=4/5 in the experiment's tag protocol per family required"
+}

@@ -1,0 +1,52 @@
+{
+  "schema": "anra-scoped-verdict/v1",
+  "verdicts": [
+    {
+      "checkpoint": "anra-v4-20k-sft-context-binding.pt (child)",
+      "timestamp": "2026-08-22 03:20",
+      "scopes": {
+        "PROMOTE_EXPERIMENTAL": true,
+        "PROMOTE_CONTEXT_BINDING": true,
+        "PROMOTE_SELECTIVE_BINDING": false,
+        "PROMOTE_CONNECTOR_READY": false,
+        "PROMOTE_ACTIVE_MODEL": false
+      },
+      "measured": {
+        "OOD_A_selective": "0/11",
+        "OOD_E_protocol_transfer": "13/15",
+        "P1": {
+          "nl": "5/5",
+          "tag": "5/5"
+        },
+        "P3": {
+          "nl": "5/5",
+          "tag": "5/5"
+        }
+      }
+    },
+    {
+      "checkpoint": "anra-v4-20k-sft2-selective.pt (grandchild)",
+      "timestamp": "2026-08-22 03:20",
+      "scopes": {
+        "PROMOTE_EXPERIMENTAL": true,
+        "PROMOTE_CONTEXT_BINDING": false,
+        "PROMOTE_SELECTIVE_BINDING": false,
+        "PROMOTE_CONNECTOR_READY": false,
+        "PROMOTE_ACTIVE_MODEL": false
+      },
+      "measured": {
+        "OOD_A_selective": "5/11",
+        "OOD_E_protocol_transfer": "6/15",
+        "P1": {
+          "nl": "5/5",
+          "tag": "5/5"
+        },
+        "P3": {
+          "nl": "3/5",
+          "tag": "4/5"
+        }
+      },
+      "note": "REJECTED beyond EXPERIMENTAL: improved its target (A selective multi-fact 0/11 -> 5/11) but regressed protocol transfer (E 13/15 -> 6/15) and perturbation controls (D 2/5 -> 1/5). Cause hypothesis: selection curriculum was 100% prose-format, narrowing format generality; rehearsal mix insufficient."
+    }
+  ]
+}
