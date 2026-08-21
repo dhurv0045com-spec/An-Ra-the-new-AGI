@@ -1,0 +1,485 @@
+{
+  "freeze_seed": 20260822,
+  "frozen_at": "2026-08-22 02:58",
+  "items": [
+    {
+      "capability": "A_selective_multi_fact",
+      "cf_gold": "MVB-607",
+      "cf_prompt": "Object Junction has code LYG-886.\nObject Compass has code MVB-607.\nObject Drum has code RQN-101.\nReturn ONLY the code assigned to Compass.\nAnswer:",
+      "gold": "LMP-247",
+      "id": "A00",
+      "prompt": "Object Drum has code RQN-101.\nObject Junction has code LYG-886.\nObject Compass has code LMP-247.\nReturn ONLY the code assigned to Compass.\nAnswer:"
+    },
+    {
+      "capability": "A_selective_multi_fact",
+      "cf_gold": "XRQ-451",
+      "cf_prompt": "Object Piston has code WFM-759.\nObject Junction has code XRQ-451.\nObject Lamp has code KJS-937.\nWhich code is assigned to Junction? Reply with the code only.\nAnswer:",
+      "gold": "LYG-120",
+      "id": "A01",
+      "prompt": "Object Lamp has code KJS-937.\nObject Junction has code LYG-120.\nObject Piston has code WFM-759.\nWhich code is assigned to Junction? Reply with the code only.\nAnswer:"
+    },
+    {
+      "capability": "A_selective_multi_fact",
+      "cf_gold": "SGY-872",
+      "cf_prompt": "Object Furnace has code WFM-129.\nObject Junction has code SGY-872.\nObject Compass has code NKD-118.\nReturn ONLY the code assigned to Junction.\nAnswer:",
+      "gold": "VHT-434",
+      "id": "A02",
+      "prompt": "Object Furnace has code WFM-129.\nThe supervisor drinks tea, not coffee.\nObject Junction has code VHT-434.\nObject Compass has code NKD-118.\nReturn ONLY the code assigned to Junction.\nAnswer:"
+    },
+    {
+      "capability": "A_selective_multi_fact",
+      "cf_gold": "VHT-292",
+      "cf_prompt": "Object Furnace has code CNV-153.\nObject Piston has code RQN-437.\nObject Junction has code VHT-292.\nReturn ONLY the code assigned to Junction.\nAnswer:",
+      "gold": "CNV-190",
+      "id": "A03",
+      "prompt": "Object Piston has code RQN-437.\nObject Furnace has code CNV-153.\nObject Junction has code CNV-190.\nReturn ONLY the code assigned to Junction.\nAnswer:"
+    },
+    {
+      "capability": "A_selective_multi_fact",
+      "cf_gold": "XRQ-452",
+      "cf_prompt": "Object Furnace has code XRQ-452.\nObject Gadget has code RQN-945.\nObject Engine has code RQN-818.\nWhich code is assigned to Furnace? Reply with the code only.\nAnswer:",
+      "gold": "MVB-616",
+      "id": "A04",
+      "prompt": "Object Engine has code RQN-818.\nObject Gadget has code RQN-945.\nObject Furnace has code MVB-616.\nWhich code is assigned to Furnace? Reply with the code only.\nAnswer:"
+    },
+    {
+      "capability": "A_selective_multi_fact",
+      "cf_gold": "RQN-959",
+      "cf_prompt": "Object Kettle has code LMP-617.\nObject Furnace has code RQN-959.\nObject Quarry has code PDW-175.\nReturn ONLY the code assigned to Furnace.\nAnswer:",
+      "gold": "KJS-550",
+      "id": "A05",
+      "prompt": "The warehouse closes at 6 pm.\nObject Kettle has code LMP-617.\nObject Quarry has code PDW-175.\nObject Furnace has code KJS-550.\nReturn ONLY the code assigned to Furnace.\nAnswer:"
+    },
+    {
+      "capability": "A_selective_multi_fact",
+      "cf_gold": "SGY-703",
+      "cf_prompt": "Object Piston has code SGY-703.\nObject Lamp has code LMP-504.\nObject Hammer has code LYG-440.\nReturn ONLY the code assigned to Piston.\nAnswer:",
+      "gold": "PDW-831",
+      "id": "A06",
+      "prompt": "Object Hammer has code LYG-440.\nObject Lamp has code LMP-504.\nObject Piston has code PDW-831.\nReturn ONLY the code assigned to Piston.\nAnswer:"
+    },
+    {
+      "capability": "A_selective_multi_fact",
+      "cf_gold": "PDW-788",
+      "cf_prompt": "Object Engine has code SGY-235.\nObject Gadget has code WFM-739.\nObject Kettle has code PDW-788.\nWhich code is assigned to Kettle? Reply with the code only.\nAnswer:",
+      "gold": "WFM-889",
+      "id": "A07",
+      "prompt": "Object Engine has code SGY-235.\nObject Kettle has code WFM-889.\nObject Gadget has code WFM-739.\nWhich code is assigned to Kettle? Reply with the code only.\nAnswer:"
+    },
+    {
+      "capability": "A_selective_multi_fact",
+      "cf_gold": "LMP-842",
+      "cf_prompt": "Object Gadget has code LMP-970.\nObject Drum has code LMP-842.\nObject Kettle has code LMP-751.\nReturn ONLY the code assigned to Drum.\nAnswer:",
+      "gold": "KJS-687",
+      "id": "A08",
+      "prompt": "Object Kettle has code LMP-751.\nObject Gadget has code LMP-970.\nThe supervisor drinks tea, not coffee.\nObject Drum has code KJS-687.\nReturn ONLY the code assigned to Drum.\nAnswer:"
+    },
+    {
+      "capability": "A_selective_multi_fact",
+      "cf_gold": "XRQ-471",
+      "cf_prompt": "Object Gadget has code RQN-917.\nObject Hammer has code XRQ-471.\nObject Motor has code WFM-718.\nReturn ONLY the code assigned to Hammer.\nAnswer:",
+      "gold": "PDW-926",
+      "id": "A09",
+      "prompt": "Object Hammer has code PDW-926.\nObject Motor has code WFM-718.\nObject Gadget has code RQN-917.\nReturn ONLY the code assigned to Hammer.\nAnswer:"
+    },
+    {
+      "capability": "A_selective_multi_fact",
+      "cf_gold": null,
+      "cf_prompt": null,
+      "gold": "TBR-100",
+      "id": "A10-recency",
+      "prompt": "Object Lamp has code LYG-903.\nCorrection: the registry now lists Lamp with code TBR-100.\nReturn ONLY the current code for Lamp.\nAnswer:"
+    },
+    {
+      "capability": "B_novel_composition",
+      "cf_gold": null,
+      "cf_prompt": null,
+      "gold": "otter otter",
+      "id": "B00",
+      "prompt": "Sequence: granite otter heron\nInstruction: TAKE the second item, then DUPLICATE it.\nAnswer:"
+    },
+    {
+      "capability": "B_novel_composition",
+      "cf_gold": null,
+      "cf_prompt": null,
+      "gold": "birch granite basalt",
+      "id": "B01",
+      "prompt": "Sequence: basalt birch granite\nInstruction: MOVE the first item to the end.\nAnswer:"
+    },
+    {
+      "capability": "B_novel_composition",
+      "cf_gold": null,
+      "cf_prompt": null,
+      "gold": "heron silex",
+      "id": "B02",
+      "prompt": "Sequence: heron falcon silex\nInstruction: REMOVE the second item.\nAnswer:"
+    },
+    {
+      "capability": "B_novel_composition",
+      "cf_gold": null,
+      "cf_prompt": null,
+      "gold": "juniper Z cedar Y",
+      "id": "B03",
+      "prompt": "Sequence: juniper A cedar B\nInstruction: APPLY the mapping A->Z and B->Y, then output the sequence.\nAnswer:"
+    },
+    {
+      "capability": "B_novel_composition",
+      "cf_gold": null,
+      "cf_prompt": null,
+      "gold": "silex falcon maple",
+      "id": "B04",
+      "prompt": "Sequence: falcon silex\nInstruction: REVERSE the order, then append MAPLE.\nAnswer:"
+    },
+    {
+      "capability": "B_novel_composition",
+      "cf_gold": null,
+      "cf_prompt": null,
+      "gold": "basalt falcon otter",
+      "id": "B05",
+      "prompt": "Sequence: falcon basalt otter\nInstruction: MOVE the second item to the front.\nAnswer:"
+    },
+    {
+      "capability": "B_novel_composition",
+      "cf_gold": null,
+      "cf_prompt": null,
+      "gold": "falcon falcon",
+      "id": "B06",
+      "prompt": "Sequence: juniper falcon cedar\nInstruction: TAKE the second item, then DUPLICATE it.\nAnswer:"
+    },
+    {
+      "capability": "B_novel_composition",
+      "cf_gold": null,
+      "cf_prompt": null,
+      "gold": "heron birch falcon",
+      "id": "B07",
+      "prompt": "Sequence: falcon heron birch\nInstruction: MOVE the first item to the end.\nAnswer:"
+    },
+    {
+      "capability": "B_novel_composition",
+      "cf_gold": null,
+      "cf_prompt": null,
+      "gold": "granite silex",
+      "id": "B08",
+      "prompt": "Sequence: granite heron silex\nInstruction: REMOVE the second item.\nAnswer:"
+    },
+    {
+      "capability": "B_novel_composition",
+      "cf_gold": null,
+      "cf_prompt": null,
+      "gold": "otter Z juniper Y",
+      "id": "B09",
+      "prompt": "Sequence: otter A juniper B\nInstruction: APPLY the mapping A->Z and B->Y, then output the sequence.\nAnswer:"
+    },
+    {
+      "capability": "B_novel_composition",
+      "cf_gold": null,
+      "cf_prompt": null,
+      "gold": "silex falcon maple",
+      "id": "B10",
+      "prompt": "Sequence: falcon silex\nInstruction: REVERSE the order, then append MAPLE.\nAnswer:"
+    },
+    {
+      "capability": "B_novel_composition",
+      "cf_gold": null,
+      "cf_prompt": null,
+      "gold": "juniper cedar silex",
+      "id": "B11",
+      "prompt": "Sequence: cedar juniper silex\nInstruction: MOVE the second item to the front.\nAnswer:"
+    },
+    {
+      "capability": "C_causal_tool_result",
+      "cf_gold": "SGY-301",
+      "cf_prompt": "Tool response: SGY-301\nReturn the exact tool response.\nAnswer:",
+      "gold": "RQN-582",
+      "id": "C00",
+      "prompt": "Tool response: RQN-582\nReturn the exact tool response.\nAnswer:"
+    },
+    {
+      "capability": "C_causal_tool_result",
+      "cf_gold": "PDW-231",
+      "cf_prompt": "Tool response: PDW-231\nReturn the exact tool response.\nAnswer:",
+      "gold": "VHT-394",
+      "id": "C01",
+      "prompt": "Tool response: VHT-394\nReturn the exact tool response.\nAnswer:"
+    },
+    {
+      "capability": "C_causal_tool_result",
+      "cf_gold": "TBR-839",
+      "cf_prompt": "Tool response: TBR-839\nReturn the exact tool response.\nAnswer:",
+      "gold": "LMP-875",
+      "id": "C02",
+      "prompt": "Tool response: LMP-875\nReturn the exact tool response.\nAnswer:"
+    },
+    {
+      "capability": "C_causal_tool_result",
+      "cf_gold": "NKD-608",
+      "cf_prompt": "Tool response: NKD-608\nReturn the exact tool response.\nAnswer:",
+      "gold": "PDW-329",
+      "id": "C03",
+      "prompt": "Tool response: PDW-329\nReturn the exact tool response.\nAnswer:"
+    },
+    {
+      "capability": "C_causal_tool_result",
+      "cf_gold": "HZL-120",
+      "cf_prompt": "Tool response: HZL-120\nReturn the exact tool response.\nAnswer:",
+      "gold": "MVB-491",
+      "id": "C04",
+      "prompt": "Tool response: MVB-491\nReturn the exact tool response.\nAnswer:"
+    },
+    {
+      "capability": "C_causal_tool_result",
+      "cf_gold": "LYG-608",
+      "cf_prompt": "Tool response: LYG-608\nReturn the exact tool response.\nAnswer:",
+      "gold": "PDW-261",
+      "id": "C05",
+      "prompt": "Tool response: PDW-261\nReturn the exact tool response.\nAnswer:"
+    },
+    {
+      "capability": "C_causal_tool_result",
+      "cf_gold": "HZL-167",
+      "cf_prompt": "H: Report the tool response exactly.\nTOOL: HZL-167\nANRA:",
+      "gold": "MVB-503",
+      "id": "C06-chat",
+      "prompt": "H: Report the tool response exactly.\nTOOL: MVB-503\nANRA:"
+    },
+    {
+      "capability": "C_causal_tool_result",
+      "cf_gold": "GXT-154",
+      "cf_prompt": "H: Report the tool response exactly.\nTOOL: GXT-154\nANRA:",
+      "gold": "WFM-406",
+      "id": "C07-chat",
+      "prompt": "H: Report the tool response exactly.\nTOOL: WFM-406\nANRA:"
+    },
+    {
+      "capability": "D_perturbation_controls",
+      "conditions": {
+        "correct": {
+          "gold": "VHT-620",
+          "prompt": "Drum is registered with code VHT-620.\nReturn ONLY the code for Drum.\nAnswer:"
+        },
+        "irrelevant": {
+          "gold": "VHT-620",
+          "prompt": "Drum is registered with code VHT-620.\nThe warehouse closes at 6 pm.\nReturn ONLY the code for Drum.\nAnswer:"
+        },
+        "removed": {
+          "not_gold": "VHT-620",
+          "prompt": "Return ONLY the code for Drum.\nAnswer:"
+        },
+        "replaced": {
+          "gold": "GXT-951",
+          "prompt": "Drum is registered with code GXT-951.\nReturn ONLY the code for Drum.\nAnswer:"
+        }
+      },
+      "id": "D00"
+    },
+    {
+      "capability": "D_perturbation_controls",
+      "conditions": {
+        "correct": {
+          "gold": "VHT-746",
+          "prompt": "Kettle is registered with code VHT-746.\nReturn ONLY the code for Kettle.\nAnswer:"
+        },
+        "irrelevant": {
+          "gold": "VHT-746",
+          "prompt": "Kettle is registered with code VHT-746.\nA nearby river floods every spring.\nReturn ONLY the code for Kettle.\nAnswer:"
+        },
+        "removed": {
+          "not_gold": "VHT-746",
+          "prompt": "Return ONLY the code for Kettle.\nAnswer:"
+        },
+        "replaced": {
+          "gold": "PDW-641",
+          "prompt": "Kettle is registered with code PDW-641.\nReturn ONLY the code for Kettle.\nAnswer:"
+        }
+      },
+      "id": "D01"
+    },
+    {
+      "capability": "D_perturbation_controls",
+      "conditions": {
+        "correct": {
+          "gold": "PDW-681",
+          "prompt": "Motor is registered with code PDW-681.\nReturn ONLY the code for Motor.\nAnswer:"
+        },
+        "irrelevant": {
+          "gold": "PDW-681",
+          "prompt": "Motor is registered with code PDW-681.\nThe supervisor drinks tea, not coffee.\nReturn ONLY the code for Motor.\nAnswer:"
+        },
+        "removed": {
+          "not_gold": "PDW-681",
+          "prompt": "Return ONLY the code for Motor.\nAnswer:"
+        },
+        "replaced": {
+          "gold": "PDW-339",
+          "prompt": "Motor is registered with code PDW-339.\nReturn ONLY the code for Motor.\nAnswer:"
+        }
+      },
+      "id": "D02"
+    },
+    {
+      "capability": "D_perturbation_controls",
+      "conditions": {
+        "correct": {
+          "gold": "CNV-727",
+          "prompt": "Junction is registered with code CNV-727.\nReturn ONLY the code for Junction.\nAnswer:"
+        },
+        "irrelevant": {
+          "gold": "CNV-727",
+          "prompt": "Junction is registered with code CNV-727.\nThe supervisor drinks tea, not coffee.\nReturn ONLY the code for Junction.\nAnswer:"
+        },
+        "removed": {
+          "not_gold": "CNV-727",
+          "prompt": "Return ONLY the code for Junction.\nAnswer:"
+        },
+        "replaced": {
+          "gold": "NKD-524",
+          "prompt": "Junction is registered with code NKD-524.\nReturn ONLY the code for Junction.\nAnswer:"
+        }
+      },
+      "id": "D03"
+    },
+    {
+      "capability": "D_perturbation_controls",
+      "conditions": {
+        "correct": {
+          "gold": "KJS-709",
+          "prompt": "Kettle is registered with code KJS-709.\nReturn ONLY the code for Kettle.\nAnswer:"
+        },
+        "irrelevant": {
+          "gold": "KJS-709",
+          "prompt": "Kettle is registered with code KJS-709.\nThe supervisor drinks tea, not coffee.\nReturn ONLY the code for Kettle.\nAnswer:"
+        },
+        "removed": {
+          "not_gold": "KJS-709",
+          "prompt": "Return ONLY the code for Kettle.\nAnswer:"
+        },
+        "replaced": {
+          "gold": "NKD-833",
+          "prompt": "Kettle is registered with code NKD-833.\nReturn ONLY the code for Kettle.\nAnswer:"
+        }
+      },
+      "id": "D04"
+    },
+    {
+      "capability": "E_protocol_transfer",
+      "cf_gold": null,
+      "cf_prompt": null,
+      "gold": "LMP-948",
+      "id": "E0-prose",
+      "prompt": "The registry lists Nozzle under code LMP-948. State the code.\nAnswer:"
+    },
+    {
+      "capability": "E_protocol_transfer",
+      "cf_gold": null,
+      "cf_prompt": null,
+      "gold": "LMP-948",
+      "id": "E0-json",
+      "prompt": "{\"object\": \"Nozzle\", \"code\": \"LMP-948\"}\nWhat is the code?\nAnswer:"
+    },
+    {
+      "capability": "E_protocol_transfer",
+      "cf_gold": null,
+      "cf_prompt": null,
+      "gold": "LMP-948",
+      "id": "E0-table",
+      "prompt": "object | code\nNozzle | LMP-948\n\nCode for Nozzle?\nAnswer:"
+    },
+    {
+      "capability": "E_protocol_transfer",
+      "cf_gold": null,
+      "cf_prompt": null,
+      "gold": "LMP-948",
+      "id": "E0-kv",
+      "prompt": "Nozzle :: LMP-948\n\nReport the value.\nAnswer:"
+    },
+    {
+      "capability": "E_protocol_transfer",
+      "cf_gold": null,
+      "cf_prompt": null,
+      "gold": "LMP-948",
+      "id": "E0-dialogue",
+      "prompt": "H: I need the code for Nozzle.\nSYSTEM: Nozzle => LMP-948\nANRA:"
+    },
+    {
+      "capability": "E_protocol_transfer",
+      "cf_gold": null,
+      "cf_prompt": null,
+      "gold": "LMP-185",
+      "id": "E1-prose",
+      "prompt": "The registry lists Motor under code LMP-185. State the code.\nAnswer:"
+    },
+    {
+      "capability": "E_protocol_transfer",
+      "cf_gold": null,
+      "cf_prompt": null,
+      "gold": "LMP-185",
+      "id": "E1-json",
+      "prompt": "{\"object\": \"Motor\", \"code\": \"LMP-185\"}\nWhat is the code?\nAnswer:"
+    },
+    {
+      "capability": "E_protocol_transfer",
+      "cf_gold": null,
+      "cf_prompt": null,
+      "gold": "LMP-185",
+      "id": "E1-table",
+      "prompt": "object | code\nMotor | LMP-185\n\nCode for Motor?\nAnswer:"
+    },
+    {
+      "capability": "E_protocol_transfer",
+      "cf_gold": null,
+      "cf_prompt": null,
+      "gold": "LMP-185",
+      "id": "E1-kv",
+      "prompt": "Motor :: LMP-185\n\nReport the value.\nAnswer:"
+    },
+    {
+      "capability": "E_protocol_transfer",
+      "cf_gold": null,
+      "cf_prompt": null,
+      "gold": "LMP-185",
+      "id": "E1-dialogue",
+      "prompt": "H: I need the code for Motor.\nSYSTEM: Motor => LMP-185\nANRA:"
+    },
+    {
+      "capability": "E_protocol_transfer",
+      "cf_gold": null,
+      "cf_prompt": null,
+      "gold": "PDW-350",
+      "id": "E2-prose",
+      "prompt": "The registry lists Motor under code PDW-350. State the code.\nAnswer:"
+    },
+    {
+      "capability": "E_protocol_transfer",
+      "cf_gold": null,
+      "cf_prompt": null,
+      "gold": "PDW-350",
+      "id": "E2-json",
+      "prompt": "{\"object\": \"Motor\", \"code\": \"PDW-350\"}\nWhat is the code?\nAnswer:"
+    },
+    {
+      "capability": "E_protocol_transfer",
+      "cf_gold": null,
+      "cf_prompt": null,
+      "gold": "PDW-350",
+      "id": "E2-table",
+      "prompt": "object | code\nMotor | PDW-350\n\nCode for Motor?\nAnswer:"
+    },
+    {
+      "capability": "E_protocol_transfer",
+      "cf_gold": null,
+      "cf_prompt": null,
+      "gold": "PDW-350",
+      "id": "E2-kv",
+      "prompt": "Motor :: PDW-350\n\nReport the value.\nAnswer:"
+    },
+    {
+      "capability": "E_protocol_transfer",
+      "cf_gold": null,
+      "cf_prompt": null,
+      "gold": "PDW-350",
+      "id": "E2-dialogue",
+      "prompt": "H: I need the code for Motor.\nSYSTEM: Motor => PDW-350\nANRA:"
+    }
+  ],
+  "schema": "anra-ood-battery/v1"
+}

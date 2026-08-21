@@ -1,0 +1,204 @@
+{
+  "experiment_schema": "anra-ood-battery/v1",
+  "timestamp": "2026-08-22 03:01:53",
+  "label": "parent-20k",
+  "checkpoint_path": "C:/Users/ankit/Downloads/anra-v4-current-full-resume.pt",
+  "global_step": 20000,
+  "parameter_sha256": "c836262df01171cc6813a804c14315fc25b4c7efa7bce39e4f771b6b562a4e19",
+  "checkpoint_file_sha256": "8b39323abe855f5164bf21851bc2a3dece2157ae38389e59f727db47ab63dd4c",
+  "suite_sha256": "ce1c99c57eb022dfbcf0cf0d90e9d9b2c2cb9452b5df7a806468a1157169f43c",
+  "profiles": {
+    "RAW": {
+      "temperature": 0.0,
+      "repetition_penalty": 1.0,
+      "no_repeat_ngram_size": 0
+    },
+    "ASSISTED": {
+      "temperature": 0.0,
+      "repetition_penalty": 1.15,
+      "no_repeat_ngram_size": 4
+    }
+  },
+  "device": "cuda",
+  "precision": "float32",
+  "results": {
+    "RAW": {
+      "A_selective_multi_fact": {
+        "pass": 0,
+        "n": 11,
+        "acc": 0.0,
+        "detail": {
+          "A00": false,
+          "A01": false,
+          "A02": false,
+          "A03": false,
+          "A04": false,
+          "A05": false,
+          "A06": false,
+          "A07": false,
+          "A08": false,
+          "A09": false,
+          "A10-recency": false
+        }
+      },
+      "B_novel_composition": {
+        "pass": 0,
+        "n": 12,
+        "acc": 0.0,
+        "detail": {
+          "B00": false,
+          "B01": false,
+          "B02": false,
+          "B03": false,
+          "B04": false,
+          "B05": false,
+          "B06": false,
+          "B07": false,
+          "B08": false,
+          "B09": false,
+          "B10": false,
+          "B11": false
+        }
+      },
+      "C_causal_tool_result": {
+        "pass": 2,
+        "n": 8,
+        "acc": 0.25,
+        "detail": {
+          "C00": false,
+          "C01": true,
+          "C02": false,
+          "C03": false,
+          "C04": true,
+          "C05": false,
+          "C06-chat": false,
+          "C07-chat": false
+        }
+      },
+      "D_perturbation_controls": {
+        "pass": 0,
+        "n": 5,
+        "acc": 0.0,
+        "detail": {
+          "D00": false,
+          "D01": false,
+          "D02": false,
+          "D03": false,
+          "D04": false
+        }
+      },
+      "E_protocol_transfer": {
+        "pass": 4,
+        "n": 15,
+        "acc": 0.267,
+        "detail": {
+          "E0-prose": false,
+          "E0-json": false,
+          "E0-table": false,
+          "E0-kv": false,
+          "E0-dialogue": true,
+          "E1-prose": false,
+          "E1-json": false,
+          "E1-table": false,
+          "E1-kv": false,
+          "E1-dialogue": true,
+          "E2-prose": false,
+          "E2-json": true,
+          "E2-table": false,
+          "E2-kv": false,
+          "E2-dialogue": true
+        }
+      }
+    },
+    "ASSISTED": {
+      "A_selective_multi_fact": {
+        "pass": 0,
+        "n": 11,
+        "acc": 0.0,
+        "detail": {
+          "A00": false,
+          "A01": false,
+          "A02": false,
+          "A03": false,
+          "A04": false,
+          "A05": false,
+          "A06": false,
+          "A07": false,
+          "A08": false,
+          "A09": false,
+          "A10-recency": false
+        }
+      },
+      "B_novel_composition": {
+        "pass": 0,
+        "n": 12,
+        "acc": 0.0,
+        "detail": {
+          "B00": false,
+          "B01": false,
+          "B02": false,
+          "B03": false,
+          "B04": false,
+          "B05": false,
+          "B06": false,
+          "B07": false,
+          "B08": false,
+          "B09": false,
+          "B10": false,
+          "B11": false
+        }
+      },
+      "C_causal_tool_result": {
+        "pass": 2,
+        "n": 8,
+        "acc": 0.25,
+        "detail": {
+          "C00": false,
+          "C01": true,
+          "C02": false,
+          "C03": false,
+          "C04": true,
+          "C05": false,
+          "C06-chat": false,
+          "C07-chat": false
+        }
+      },
+      "D_perturbation_controls": {
+        "pass": 0,
+        "n": 5,
+        "acc": 0.0,
+        "detail": {
+          "D00": false,
+          "D01": false,
+          "D02": false,
+          "D03": false,
+          "D04": false
+        }
+      },
+      "E_protocol_transfer": {
+        "pass": 4,
+        "n": 15,
+        "acc": 0.267,
+        "detail": {
+          "E0-prose": false,
+          "E0-json": false,
+          "E0-table": false,
+          "E0-kv": false,
+          "E0-dialogue": true,
+          "E1-prose": false,
+          "E1-json": false,
+          "E1-table": false,
+          "E1-kv": false,
+          "E1-dialogue": true,
+          "E2-prose": false,
+          "E2-json": true,
+          "E2-table": false,
+          "E2-kv": false,
+          "E2-dialogue": true
+        }
+      }
+    }
+  },
+  "source_commit": "e9294bd739c613a9127c028f708bb3260e263493",
+  "git_dirty": true
+}
