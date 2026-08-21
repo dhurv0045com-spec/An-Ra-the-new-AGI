@@ -1,0 +1,248 @@
+{
+  "counterfactual_purity": "base.replace(gold, cf_gold) == cf, byte-exact",
+  "freeze_seed": 20260823,
+  "frozen_at": "2026-08-22 03:44",
+  "items": [
+    {
+      "capability": "SEL_selective_binding",
+      "cf_gold": "CKW-501",
+      "cf_prompt": "Pinnacle is filed under EYP-410.\nGazebo is filed under CKW-496.\nRotunda is filed under AQF-710.\nTundra is filed under INX-769.\nOutcrop is filed under CKW-501.\nReturn ONLY the code filed for Outcrop.\nAnswer:",
+      "gold": "FHR-107",
+      "id": "SEL00-paragraph",
+      "prompt": "Pinnacle is filed under EYP-410.\nGazebo is filed under CKW-496.\nRotunda is filed under AQF-710.\nTundra is filed under INX-769.\nOutcrop is filed under FHR-107.\nReturn ONLY the code filed for Outcrop.\nAnswer:"
+    },
+    {
+      "capability": "SEL_selective_binding",
+      "cf_gold": "BZJ-168",
+      "cf_prompt": "Pinnacle is filed under INX-529.\nCavern is filed under AQF-215.\nHarborwall is filed under BZJ-168.\nArchway is filed under BZJ-163.\nParapet is filed under BZJ-330.\nReturn ONLY the code filed for Harborwall.\nAnswer:",
+      "gold": "DMV-989",
+      "id": "SEL01-paragraph",
+      "prompt": "Pinnacle is filed under INX-529.\nCavern is filed under AQF-215.\nHarborwall is filed under DMV-989.\nArchway is filed under BZJ-163.\nParapet is filed under BZJ-330.\nReturn ONLY the code filed for Harborwall.\nAnswer:"
+    },
+    {
+      "capability": "SEL_selective_binding",
+      "cf_gold": "GLT-934",
+      "cf_prompt": "Fresco is filed under EYP-339.\nCobalt-vein is filed under GLT-934.\nReturn ONLY the code filed for Cobalt-vein.\nAnswer:",
+      "gold": "FHR-431",
+      "id": "SEL02-paragraph",
+      "prompt": "Fresco is filed under EYP-339.\nCobalt-vein is filed under FHR-431.\nReturn ONLY the code filed for Cobalt-vein.\nAnswer:"
+    },
+    {
+      "capability": "SEL_selective_binding",
+      "cf_gold": "INX-583",
+      "cf_prompt": "entry | code\nFresco | AQF-965\nThe ledger was rebound last year.\nSummit | INX-583\n\nWhich code belongs to Summit? Code only.\nAnswer:",
+      "gold": "INX-822",
+      "id": "SEL03-table",
+      "prompt": "entry | code\nFresco | AQF-965\nThe ledger was rebound last year.\nSummit | INX-822\n\nWhich code belongs to Summit? Code only.\nAnswer:"
+    },
+    {
+      "capability": "SEL_selective_binding",
+      "cf_gold": "BZJ-538",
+      "cf_prompt": "entry | code\nGazebo | DMV-105\nEstuary | AQF-764\nCobalt-vein | BZJ-538\n\nWhich code belongs to Cobalt-vein? Code only.\nAnswer:",
+      "gold": "FHR-376",
+      "id": "SEL04-table",
+      "prompt": "entry | code\nGazebo | DMV-105\nEstuary | AQF-764\nCobalt-vein | FHR-376\n\nWhich code belongs to Cobalt-vein? Code only.\nAnswer:"
+    },
+    {
+      "capability": "SEL_selective_binding",
+      "cf_gold": "CKW-481",
+      "cf_prompt": "{\"Archway\": \"EYP-893\", \"Estuary\": \"INX-287\", \"Gazebo\": \"CKW-481\"}\nState the code value for Gazebo.\nAnswer:",
+      "gold": "FHR-517",
+      "id": "SEL05-json",
+      "prompt": "{\"Archway\": \"EYP-893\", \"Estuary\": \"INX-287\", \"Gazebo\": \"FHR-517\"}\nState the code value for Gazebo.\nAnswer:"
+    },
+    {
+      "capability": "SEL_selective_binding",
+      "cf_gold": "GLT-310",
+      "cf_prompt": "{\"Cavern\": \"GLT-310\", \"Trellis\": \"INX-556\", \"Gazebo\": \"INX-181\"}\nState the code value for Cavern.\nAnswer:",
+      "gold": "DMV-102",
+      "id": "SEL06-json",
+      "prompt": "{\"Cavern\": \"DMV-102\", \"Trellis\": \"INX-556\", \"Gazebo\": \"INX-181\"}\nState the code value for Cavern.\nAnswer:"
+    },
+    {
+      "capability": "SEL_selective_binding",
+      "cf_gold": "DMV-344",
+      "cf_prompt": "H: I need one code.\nSYSTEM:\n* Summit is filed under DMV-344.\n* Rotunda is filed under BZJ-268.\n* Harborwall is filed under GLT-299.\n* The inspector visits each spring.\nH: Tell me the code for Summit, nothing else.\nANRA:",
+      "gold": "EYP-984",
+      "id": "SEL07-dialogue",
+      "prompt": "H: I need one code.\nSYSTEM:\n* Summit is filed under EYP-984.\n* Rotunda is filed under BZJ-268.\n* Harborwall is filed under GLT-299.\n* The inspector visits each spring.\nH: Tell me the code for Summit, nothing else.\nANRA:"
+    },
+    {
+      "capability": "SEL_selective_binding",
+      "cf_gold": "DMV-121",
+      "cf_prompt": "H: I need one code.\nSYSTEM:\n* Summit is filed under BZJ-587.\n* Gazebo is filed under DMV-121.\n* Harborwall is filed under EYP-630.\nH: Tell me the code for Gazebo, nothing else.\nANRA:",
+      "gold": "FHR-144",
+      "id": "SEL08-dialogue",
+      "prompt": "H: I need one code.\nSYSTEM:\n* Summit is filed under BZJ-587.\n* Gazebo is filed under FHR-144.\n* Harborwall is filed under EYP-630.\nH: Tell me the code for Gazebo, nothing else.\nANRA:"
+    },
+    {
+      "capability": "SEL_selective_binding",
+      "cf_gold": "AQF-725",
+      "cf_prompt": "Gazebo :: AQF-305\nTrellis :: DMV-760\nSummit :: GLT-258\nOutcrop :: GLT-630\nRotunda :: AQF-725\n\nReport the value for Rotunda.\nAnswer:",
+      "gold": "INX-957",
+      "id": "SEL09-kv",
+      "prompt": "Gazebo :: AQF-305\nTrellis :: DMV-760\nSummit :: GLT-258\nOutcrop :: GLT-630\nRotunda :: INX-957\n\nReport the value for Rotunda.\nAnswer:"
+    },
+    {
+      "capability": "SEL_selective_binding",
+      "cf_gold": "INX-986",
+      "cf_prompt": "Estuary :: GLT-396\nArchway :: FHR-322\nCobalt-vein :: INX-986\nCavern :: CKW-630\nMirage :: INX-248\n\nReport the value for Cobalt-vein.\nAnswer:",
+      "gold": "INX-477",
+      "id": "SEL10-kv",
+      "prompt": "Estuary :: GLT-396\nArchway :: FHR-322\nCobalt-vein :: INX-477\nCavern :: CKW-630\nMirage :: INX-248\n\nReport the value for Cobalt-vein.\nAnswer:"
+    },
+    {
+      "capability": "SEL_selective_binding",
+      "cf_gold": "FHR-349",
+      "cf_prompt": "RECORDS:\n- [Mirage] => FHR-349\n- The inspector visits each spring.\n- [Pinnacle] => GLT-785\nQUERY: Give the code of Mirage.\nANSWER:",
+      "gold": "DMV-176",
+      "id": "SEL11-mixed",
+      "prompt": "RECORDS:\n- [Mirage] => DMV-176\n- The inspector visits each spring.\n- [Pinnacle] => GLT-785\nQUERY: Give the code of Mirage.\nANSWER:"
+    },
+    {
+      "capability": "RET_single_fact",
+      "cf_gold": "BZJ-528",
+      "cf_prompt": "The code for Harborwall is BZJ-528. State the code.\nAnswer:",
+      "gold": "INX-891",
+      "id": "RET1-00",
+      "prompt": "The code for Harborwall is INX-891. State the code.\nAnswer:"
+    },
+    {
+      "capability": "RET_single_fact",
+      "cf_gold": null,
+      "cf_prompt": null,
+      "gold": "DMV-137",
+      "id": "RET1-01",
+      "prompt": "<k>Rotunda => DMV-137</k>\n<q>Report the code.</q>\n<answer>"
+    },
+    {
+      "capability": "RET_single_fact",
+      "cf_gold": "EYP-962",
+      "cf_prompt": "H: what is Cavern's code?\nSYSTEM: Cavern = EYP-962\nANRA:",
+      "gold": "AQF-790",
+      "id": "RET1-02",
+      "prompt": "H: what is Cavern's code?\nSYSTEM: Cavern = AQF-790\nANRA:"
+    },
+    {
+      "capability": "RET_single_fact",
+      "cf_gold": null,
+      "cf_prompt": null,
+      "gold": "CKW-526",
+      "id": "RET1-03",
+      "prompt": "The code for Summit is CKW-526. State the code.\nAnswer:"
+    },
+    {
+      "capability": "RET_single_fact",
+      "cf_gold": "GLT-506",
+      "cf_prompt": "<k>Mirage => GLT-506</k>\n<q>Report the code.</q>\n<answer>",
+      "gold": "AQF-434",
+      "id": "RET1-04",
+      "prompt": "<k>Mirage => AQF-434</k>\n<q>Report the code.</q>\n<answer>"
+    },
+    {
+      "capability": "RET_single_fact",
+      "cf_gold": null,
+      "cf_prompt": null,
+      "gold": "BZJ-215",
+      "id": "RET1-05",
+      "prompt": "H: what is Cobalt-vein's code?\nSYSTEM: Cobalt-vein = BZJ-215\nANRA:"
+    },
+    {
+      "capability": "RET_copy",
+      "cf_gold": null,
+      "cf_prompt": null,
+      "gold": "obscure",
+      "id": "RETC-00",
+      "prompt": "Reference word: obscure\nRepeat the requested word verbatim.\nAnswer:"
+    },
+    {
+      "capability": "RET_copy",
+      "cf_gold": null,
+      "cf_prompt": null,
+      "gold": "tundra2",
+      "id": "RETC-01",
+      "prompt": "Reference word: tundra2\nRepeat the requested word verbatim.\nAnswer:"
+    },
+    {
+      "capability": "RET_copy",
+      "cf_gold": null,
+      "cf_prompt": null,
+      "gold": "windlass",
+      "id": "RETC-02",
+      "prompt": "Reference word: windlass\nRepeat the requested word verbatim.\nAnswer:"
+    },
+    {
+      "capability": "RET_copy",
+      "cf_gold": null,
+      "cf_prompt": null,
+      "gold": "caltrop",
+      "id": "RETC-03",
+      "prompt": "Reference word: caltrop\nRepeat the requested word verbatim.\nAnswer:"
+    },
+    {
+      "capability": "RET_tool_result",
+      "cf_gold": "GLT-991",
+      "cf_prompt": "Tool response: GLT-991\nReturn the exact tool response.\nAnswer:",
+      "gold": "EYP-900",
+      "id": "RETT-00",
+      "prompt": "Tool response: EYP-900\nReturn the exact tool response.\nAnswer:"
+    },
+    {
+      "capability": "RET_tool_result",
+      "cf_gold": "BZJ-494",
+      "cf_prompt": "Tool response: BZJ-494\nReturn the exact tool response.\nAnswer:",
+      "gold": "FHR-118",
+      "id": "RETT-01",
+      "prompt": "Tool response: FHR-118\nReturn the exact tool response.\nAnswer:"
+    },
+    {
+      "capability": "RET_tool_result",
+      "cf_gold": "BZJ-651",
+      "cf_prompt": "Tool response: BZJ-651\nReturn the exact tool response.\nAnswer:",
+      "gold": "GLT-913",
+      "id": "RETT-02",
+      "prompt": "Tool response: GLT-913\nReturn the exact tool response.\nAnswer:"
+    },
+    {
+      "capability": "RET_tool_result",
+      "cf_gold": "FHR-457",
+      "cf_prompt": "Tool response: FHR-457\nReturn the exact tool response.\nAnswer:",
+      "gold": "AQF-153",
+      "id": "RETT-03",
+      "prompt": "Tool response: AQF-153\nReturn the exact tool response.\nAnswer:"
+    },
+    {
+      "capability": "GEN_unseen_formats",
+      "cf_gold": null,
+      "cf_prompt": null,
+      "gold": "CKW-244",
+      "id": "GEN-yaml",
+      "prompt": "entry:\n  name: Outcrop\n  code: CKW-244\n\nThe code?\nAnswer:"
+    },
+    {
+      "capability": "GEN_unseen_formats",
+      "cf_gold": null,
+      "cf_prompt": null,
+      "gold": "CKW-729",
+      "id": "GEN-csv",
+      "prompt": "name,code\nCobalt-vein,CKW-729\n\nOutput the code.\nAnswer:"
+    },
+    {
+      "capability": "GEN_unseen_formats",
+      "cf_gold": null,
+      "cf_prompt": null,
+      "gold": "BZJ-504",
+      "id": "GEN-bold",
+      "prompt": "**Cobalt-vein** \u2014 code **BZJ-504**.\nReply with the code only.\nAnswer:"
+    },
+    {
+      "capability": "GEN_unseen_formats",
+      "cf_gold": null,
+      "cf_prompt": null,
+      "gold": "FHR-935",
+      "id": "GEN-paren",
+      "prompt": "( Rotunda / FHR-935 )\nWhat is listed?\nAnswer:"
+    }
+  ],
+  "schema": "anra-ood2-battery/v1"
+}

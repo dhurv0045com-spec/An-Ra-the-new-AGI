@@ -10,10 +10,12 @@ Structural split (no random slicing): train and held-out use DISJOINT object
 and code-prefix vocabularies, and an automated audit rejects any exact
 prompt/prompt+completion overlap while reporting lexical overlap.
 
-Mix: ~70% selection items (2-4 facts, varied target position, paraphrases,
-irrelevant lines, corrections, counterfactual twins that teach dependence),
-~30% rehearsal items from the original context-binding generator so the
-child's existing P1/P3/P4 behavior is not forgotten.
+Mix (EXACT, audited in output/EVIDENCE_MANIFEST.json — counts win over any
+comment): 622 selection items (85.7%) + 104 rehearsal items (14.3%). This is
+NOT the ~30% rehearsal the original design intended; the 14.3% actual mix is
+a leading hypothesis for the grandchild's protocol-transfer regression.
+Selection items: 2-4 facts, varied target position, paraphrases, irrelevant
+lines, corrections, counterfactual twins that teach dependence.
 """
 
 from __future__ import annotations

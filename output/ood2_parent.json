@@ -1,0 +1,521 @@
+{
+  "experiment_schema": "anra-ood2-battery/v1",
+  "timestamp": "2026-08-22 03:46:14",
+  "label": "parent",
+  "checkpoint_path": "C:/Users/ankit/Downloads/anra-v4-current-full-resume.pt",
+  "global_step": 20000,
+  "parameter_sha256": "c836262df01171cc6813a804c14315fc25b4c7efa7bce39e4f771b6b562a4e19",
+  "suite_sha256": "28d22c1f63b5a46705868e29865ad9fcef428f329541fb5dc54244b3962cbeed",
+  "profiles": {
+    "RAW": {
+      "temperature": 0.0,
+      "repetition_penalty": 1.0,
+      "no_repeat_ngram_size": 0
+    },
+    "ASSISTED": {
+      "temperature": 0.0,
+      "repetition_penalty": 1.15,
+      "no_repeat_ngram_size": 4
+    }
+  },
+  "device": "cuda",
+  "precision": "float32",
+  "capability_vector_RAW": {
+    "SEL_selective_binding": {
+      "pass": 0,
+      "n": 12,
+      "acc": 0.0
+    },
+    "RET_single_fact": {
+      "pass": 3,
+      "n": 6,
+      "acc": 0.5
+    },
+    "RET_copy": {
+      "pass": 0,
+      "n": 4,
+      "acc": 0.0
+    },
+    "RET_tool_result": {
+      "pass": 0,
+      "n": 4,
+      "acc": 0.0
+    },
+    "GEN_unseen_formats": {
+      "pass": 1,
+      "n": 4,
+      "acc": 0.25
+    }
+  },
+  "capability_vector_ASSISTED": {
+    "SEL_selective_binding": {
+      "pass": 0,
+      "n": 12,
+      "acc": 0.0
+    },
+    "RET_single_fact": {
+      "pass": 3,
+      "n": 6,
+      "acc": 0.5
+    },
+    "RET_copy": {
+      "pass": 0,
+      "n": 4,
+      "acc": 0.0
+    },
+    "RET_tool_result": {
+      "pass": 0,
+      "n": 4,
+      "acc": 0.0
+    },
+    "GEN_unseen_formats": {
+      "pass": 1,
+      "n": 4,
+      "acc": 0.25
+    }
+  },
+  "raw_outputs": {
+    "RAW": {
+      "SEL00-paragraph": {
+        "id": "SEL00-paragraph",
+        "gold": "FHR-107",
+        "output": " No evidence is available for the case of",
+        "passed": false,
+        "cf_output": " No evidence is available for the case of",
+        "cf_passed": false
+      },
+      "SEL01-paragraph": {
+        "id": "SEL01-paragraph",
+        "gold": "DMV-989",
+        "output": " A court order is filed under BZJ",
+        "passed": false,
+        "cf_output": " A court order is filed under BZJ",
+        "cf_passed": false
+      },
+      "SEL02-paragraph": {
+        "id": "SEL02-paragraph",
+        "gold": "FHR-431",
+        "output": " The code filed for Cobalt-vein is",
+        "passed": false,
+        "cf_output": " Cobalt-vein is filed under GLT",
+        "cf_passed": false
+      },
+      "SEL03-table": {
+        "id": "SEL03-table",
+        "gold": "INX-822",
+        "output": " The code is not in the database.\n",
+        "passed": false,
+        "cf_output": " The code is not valid and is not",
+        "cf_passed": false
+      },
+      "SEL04-table": {
+        "id": "SEL04-table",
+        "gold": "FHR-376",
+        "output": " The code is not a complete code and",
+        "passed": false,
+        "cf_output": " Cobalt-vein is a special case of",
+        "cf_passed": false
+      },
+      "SEL05-json": {
+        "id": "SEL05-json",
+        "gold": "FHR-517",
+        "output": " \"The code value for the state of ",
+        "passed": false,
+        "cf_output": " \"The code value for the state of ",
+        "cf_passed": false
+      },
+      "SEL06-json": {
+        "id": "SEL06-json",
+        "gold": "DMV-102",
+        "output": " \"I have no idea how to do ",
+        "passed": false,
+        "cf_output": " \"I have no idea how to do ",
+        "cf_passed": false
+      },
+      "SEL07-dialogue": {
+        "id": "SEL07-dialogue",
+        "gold": "EYP-984",
+        "output": "\n* The code for the meeting is written",
+        "passed": false,
+        "cf_output": "\n* The code for the meeting is written",
+        "cf_passed": false
+      },
+      "SEL08-dialogue": {
+        "id": "SEL08-dialogue",
+        "gold": "FHR-144",
+        "output": "\n* I have no idea how to do",
+        "passed": false,
+        "cf_output": "\n* I have no idea how to do",
+        "cf_passed": false
+      },
+      "SEL09-kv": {
+        "id": "SEL09-kv",
+        "gold": "INX-957",
+        "output": " The value of the value of the value",
+        "passed": false,
+        "cf_output": " The value of the value of the value",
+        "cf_passed": false
+      },
+      "SEL10-kv": {
+        "id": "SEL10-kv",
+        "gold": "INX-477",
+        "output": " Cobalt-vein is the value of the",
+        "passed": false,
+        "cf_output": " Cobalt-vein is the value of the",
+        "cf_passed": false
+      },
+      "SEL11-mixed": {
+        "id": "SEL11-mixed",
+        "gold": "DMV-176",
+        "output": " The code of Mirage is written in ",
+        "passed": false,
+        "cf_output": " The code of Mirage is written in ",
+        "cf_passed": false
+      },
+      "RET1-00": {
+        "id": "RET1-00",
+        "gold": "INX-891",
+        "output": " The code for the Baywall is INX",
+        "passed": false,
+        "cf_output": " The code for the Bay is BZJ",
+        "cf_passed": false
+      },
+      "RET1-01": {
+        "id": "RET1-01",
+        "gold": "DMV-137",
+        "output": "\n</q>\n<p>\n<p>\n<p",
+        "passed": false
+      },
+      "RET1-02": {
+        "id": "RET1-02",
+        "gold": "AQF-790",
+        "output": " AQF-790\n```\n\n### ",
+        "passed": true,
+        "cf_output": " EYP-962\nEYP-962: ",
+        "cf_passed": true
+      },
+      "RET1-03": {
+        "id": "RET1-03",
+        "gold": "CKW-526",
+        "output": " The code for the CKW-526 ",
+        "passed": true
+      },
+      "RET1-04": {
+        "id": "RET1-04",
+        "gold": "AQF-434",
+        "output": "\n</figure>\n\n<!-- <!-- ",
+        "passed": false,
+        "cf_output": "\n</figure>\n\n<!-- <!-- ",
+        "cf_passed": false
+      },
+      "RET1-05": {
+        "id": "RET1-05",
+        "gold": "BZJ-215",
+        "output": " Cobalt-vein = BZJ-215\nCo",
+        "passed": true
+      },
+      "RETC-00": {
+        "id": "RETC-00",
+        "gold": "obscure",
+        "output": " The answer is \"I have no idea ",
+        "passed": false
+      },
+      "RETC-01": {
+        "id": "RETC-01",
+        "gold": "tundra2",
+        "output": " The word is not a word or a",
+        "passed": false
+      },
+      "RETC-02": {
+        "id": "RETC-02",
+        "gold": "windlass",
+        "output": " The word is a word that is used",
+        "passed": false
+      },
+      "RETC-03": {
+        "id": "RETC-03",
+        "gold": "caltrop",
+        "output": " The word is not a word or a",
+        "passed": false
+      },
+      "RETT-00": {
+        "id": "RETT-00",
+        "gold": "EYP-900",
+        "output": " The tool response is not a simple one",
+        "passed": false,
+        "cf_output": " GLT-991 is a simple tool ",
+        "cf_passed": true
+      },
+      "RETT-01": {
+        "id": "RETT-01",
+        "gold": "FHR-118",
+        "output": " FHR-118 is a tool that can ",
+        "passed": true,
+        "cf_output": " The tool response is not a good tool",
+        "cf_passed": false
+      },
+      "RETT-02": {
+        "id": "RETT-02",
+        "gold": "GLT-913",
+        "output": " GLT-913 is a simple tool ",
+        "passed": true,
+        "cf_output": " The tool response is not a good tool",
+        "cf_passed": false
+      },
+      "RETT-03": {
+        "id": "RETT-03",
+        "gold": "AQF-153",
+        "output": " A similar question is asked in the following",
+        "passed": false,
+        "cf_output": " FHR-457\nReturn the exact tool response",
+        "cf_passed": true
+      },
+      "GEN-yaml": {
+        "id": "GEN-yaml",
+        "gold": "CKW-244",
+        "output": " The code is CKW-244 and ",
+        "passed": true
+      },
+      "GEN-csv": {
+        "id": "GEN-csv",
+        "gold": "CKW-729",
+        "output": " Cobalt-vein is a simple code that",
+        "passed": false
+      },
+      "GEN-bold": {
+        "id": "GEN-bold",
+        "gold": "BZJ-504",
+        "output": " The code is **not** a *",
+        "passed": false
+      },
+      "GEN-paren": {
+        "id": "GEN-paren",
+        "gold": "FHR-935",
+        "output": " The following information is provided for the following",
+        "passed": false
+      }
+    },
+    "ASSISTED": {
+      "SEL00-paragraph": {
+        "id": "SEL00-paragraph",
+        "gold": "FHR-107",
+        "output": " No evidence is available for the case of",
+        "passed": false,
+        "cf_output": " No evidence is available for the case of",
+        "cf_passed": false
+      },
+      "SEL01-paragraph": {
+        "id": "SEL01-paragraph",
+        "gold": "DMV-989",
+        "output": " A court order is filed under BZJ",
+        "passed": false,
+        "cf_output": " A court order is filed under BZJ",
+        "cf_passed": false
+      },
+      "SEL02-paragraph": {
+        "id": "SEL02-paragraph",
+        "gold": "FHR-431",
+        "output": " The code filed for Cobalt-vein is",
+        "passed": false,
+        "cf_output": " Cobalt-vein is filed under GLT",
+        "cf_passed": false
+      },
+      "SEL03-table": {
+        "id": "SEL03-table",
+        "gold": "INX-822",
+        "output": " The code is not in the database.\n",
+        "passed": false,
+        "cf_output": " The code is not valid and does not",
+        "cf_passed": false
+      },
+      "SEL04-table": {
+        "id": "SEL04-table",
+        "gold": "FHR-376",
+        "output": " The code is not a complete code and",
+        "passed": false,
+        "cf_output": " Cobalt-vein is a special case of",
+        "cf_passed": false
+      },
+      "SEL05-json": {
+        "id": "SEL05-json",
+        "gold": "FHR-517",
+        "output": " \"The code value for the state of ",
+        "passed": false,
+        "cf_output": " \"The code value for the state of ",
+        "cf_passed": false
+      },
+      "SEL06-json": {
+        "id": "SEL06-json",
+        "gold": "DMV-102",
+        "output": " \"I have no idea how to do ",
+        "passed": false,
+        "cf_output": " \"I have no idea how to do ",
+        "cf_passed": false
+      },
+      "SEL07-dialogue": {
+        "id": "SEL07-dialogue",
+        "gold": "EYP-984",
+        "output": "\n* The code for the meeting is written",
+        "passed": false,
+        "cf_output": "\n* The code for the meeting is written",
+        "cf_passed": false
+      },
+      "SEL08-dialogue": {
+        "id": "SEL08-dialogue",
+        "gold": "FHR-144",
+        "output": "\n* I have no idea how to do",
+        "passed": false,
+        "cf_output": "\n* I have no idea how to do",
+        "cf_passed": false
+      },
+      "SEL09-kv": {
+        "id": "SEL09-kv",
+        "gold": "INX-957",
+        "output": " The value of the value is the same",
+        "passed": false,
+        "cf_output": " The value of the value is the same",
+        "cf_passed": false
+      },
+      "SEL10-kv": {
+        "id": "SEL10-kv",
+        "gold": "INX-477",
+        "output": " Cobalt-vein is the value of the",
+        "passed": false,
+        "cf_output": " Cobalt-vein is the value of the",
+        "cf_passed": false
+      },
+      "SEL11-mixed": {
+        "id": "SEL11-mixed",
+        "gold": "DMV-176",
+        "output": " The code of Mirage is written in ",
+        "passed": false,
+        "cf_output": " The code of Mirage is written in ",
+        "cf_passed": false
+      },
+      "RET1-00": {
+        "id": "RET1-00",
+        "gold": "INX-891",
+        "output": " The code for the Baywall is INX",
+        "passed": false,
+        "cf_output": " The code for the Baywall is BZ",
+        "cf_passed": false
+      },
+      "RET1-01": {
+        "id": "RET1-01",
+        "gold": "DMV-137",
+        "output": "\n</q>\n\n## How to use the",
+        "passed": false
+      },
+      "RET1-02": {
+        "id": "RET1-02",
+        "gold": "AQF-790",
+        "output": " AQF-790\n```\n\n### ",
+        "passed": true,
+        "cf_output": " EYP-962\n```\n\n### ",
+        "cf_passed": true
+      },
+      "RET1-03": {
+        "id": "RET1-03",
+        "gold": "CKW-526",
+        "output": " The code for the CKW-526 ",
+        "passed": true
+      },
+      "RET1-04": {
+        "id": "RET1-04",
+        "gold": "AQF-434",
+        "output": "\n</figure>\n\n## How to use the",
+        "passed": false,
+        "cf_output": "\n</figure>\n\n## How to use the",
+        "cf_passed": false
+      },
+      "RET1-05": {
+        "id": "RET1-05",
+        "gold": "BZJ-215",
+        "output": " Cobalt-vein = BZJ-215\nCo",
+        "passed": true
+      },
+      "RETC-00": {
+        "id": "RETC-00",
+        "gold": "obscure",
+        "output": " The answer is \"I have no idea ",
+        "passed": false
+      },
+      "RETC-01": {
+        "id": "RETC-01",
+        "gold": "tundra2",
+        "output": " The word is not a word or a",
+        "passed": false
+      },
+      "RETC-02": {
+        "id": "RETC-02",
+        "gold": "windlass",
+        "output": " The word is a word that has been",
+        "passed": false
+      },
+      "RETC-03": {
+        "id": "RETC-03",
+        "gold": "caltrop",
+        "output": " The word is not a word or a",
+        "passed": false
+      },
+      "RETT-00": {
+        "id": "RETT-00",
+        "gold": "EYP-900",
+        "output": " The tool response is not a simple one",
+        "passed": false,
+        "cf_output": " GLT-991 is a simple tool ",
+        "cf_passed": true
+      },
+      "RETT-01": {
+        "id": "RETT-01",
+        "gold": "FHR-118",
+        "output": " FHR-118 is a tool that can ",
+        "passed": true,
+        "cf_output": " The tool response is not a good idea",
+        "cf_passed": false
+      },
+      "RETT-02": {
+        "id": "RETT-02",
+        "gold": "GLT-913",
+        "output": " GLT-913 is a simple tool ",
+        "passed": true,
+        "cf_output": " The tool response is not a good idea",
+        "cf_passed": false
+      },
+      "RETT-03": {
+        "id": "RETT-03",
+        "gold": "AQF-153",
+        "output": " A similar question is asked in the following",
+        "passed": false,
+        "cf_output": " FHR-457\nReturn the exact tool response",
+        "cf_passed": true
+      },
+      "GEN-yaml": {
+        "id": "GEN-yaml",
+        "gold": "CKW-244",
+        "output": " The code is CKW-244 and ",
+        "passed": true
+      },
+      "GEN-csv": {
+        "id": "GEN-csv",
+        "gold": "CKW-729",
+        "output": " Cobalt-vein is a simple code that",
+        "passed": false
+      },
+      "GEN-bold": {
+        "id": "GEN-bold",
+        "gold": "BZJ-504",
+        "output": " The code is **not** a good",
+        "passed": false
+      },
+      "GEN-paren": {
+        "id": "GEN-paren",
+        "gold": "FHR-935",
+        "output": " The following information is provided for the student",
+        "passed": false
+      }
+    }
+  },
+  "source_commit": "f80c12cf1d4c6d49f30ad4cc34041a51bca86496",
+  "git_dirty": true
+}

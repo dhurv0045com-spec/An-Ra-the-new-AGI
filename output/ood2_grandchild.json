@@ -1,0 +1,521 @@
+{
+  "experiment_schema": "anra-ood2-battery/v1",
+  "timestamp": "2026-08-22 03:49:13",
+  "label": "grandchild",
+  "checkpoint_path": "checkpoints/anra-v4-20k-sft2-selective.pt",
+  "global_step": 20000,
+  "parameter_sha256": "7ebb91f9a161b8466406af43329ecf08719bcb8effafe676de1f7744a7a969dd",
+  "suite_sha256": "28d22c1f63b5a46705868e29865ad9fcef428f329541fb5dc54244b3962cbeed",
+  "profiles": {
+    "RAW": {
+      "temperature": 0.0,
+      "repetition_penalty": 1.0,
+      "no_repeat_ngram_size": 0
+    },
+    "ASSISTED": {
+      "temperature": 0.0,
+      "repetition_penalty": 1.15,
+      "no_repeat_ngram_size": 4
+    }
+  },
+  "device": "cuda",
+  "precision": "float32",
+  "capability_vector_RAW": {
+    "SEL_selective_binding": {
+      "pass": 4,
+      "n": 12,
+      "acc": 0.333
+    },
+    "RET_single_fact": {
+      "pass": 3,
+      "n": 6,
+      "acc": 0.5
+    },
+    "RET_copy": {
+      "pass": 2,
+      "n": 4,
+      "acc": 0.5
+    },
+    "RET_tool_result": {
+      "pass": 2,
+      "n": 4,
+      "acc": 0.5
+    },
+    "GEN_unseen_formats": {
+      "pass": 3,
+      "n": 4,
+      "acc": 0.75
+    }
+  },
+  "capability_vector_ASSISTED": {
+    "SEL_selective_binding": {
+      "pass": 4,
+      "n": 12,
+      "acc": 0.333
+    },
+    "RET_single_fact": {
+      "pass": 3,
+      "n": 6,
+      "acc": 0.5
+    },
+    "RET_copy": {
+      "pass": 2,
+      "n": 4,
+      "acc": 0.5
+    },
+    "RET_tool_result": {
+      "pass": 2,
+      "n": 4,
+      "acc": 0.5
+    },
+    "GEN_unseen_formats": {
+      "pass": 3,
+      "n": 4,
+      "acc": 0.75
+    }
+  },
+  "raw_outputs": {
+    "RAW": {
+      "SEL00-paragraph": {
+        "id": "SEL00-paragraph",
+        "gold": "FHR-107",
+        "output": " FHR-107.",
+        "passed": true,
+        "cf_output": " filed under CKW-501.",
+        "cf_passed": true
+      },
+      "SEL01-paragraph": {
+        "id": "SEL01-paragraph",
+        "gold": "DMV-989",
+        "output": " filed under BZJ-163.",
+        "passed": false,
+        "cf_output": " J-163.",
+        "cf_passed": false
+      },
+      "SEL02-paragraph": {
+        "id": "SEL02-paragraph",
+        "gold": "FHR-431",
+        "output": " NTP-339.",
+        "passed": false,
+        "cf_output": " and GLT-934.",
+        "cf_passed": true
+      },
+      "SEL03-table": {
+        "id": "SEL03-table",
+        "gold": "INX-822",
+        "output": " only.",
+        "passed": false,
+        "cf_output": " only.",
+        "cf_passed": false
+      },
+      "SEL04-table": {
+        "id": "SEL04-table",
+        "gold": "FHR-376",
+        "output": " N.",
+        "passed": false,
+        "cf_output": " N.",
+        "cf_passed": false
+      },
+      "SEL05-json": {
+        "id": "SEL05-json",
+        "gold": "FHR-517",
+        "output": " \"FHR-517\".",
+        "passed": true,
+        "cf_output": " \"CKW-481\".",
+        "cf_passed": true
+      },
+      "SEL06-json": {
+        "id": "SEL06-json",
+        "gold": "DMV-102",
+        "output": " \"INX-182\".",
+        "passed": false,
+        "cf_output": " \"GLT-and GLT-and GL",
+        "cf_passed": false
+      },
+      "SEL07-dialogue": {
+        "id": "SEL07-dialogue",
+        "gold": "EYP-984",
+        "output": " GLT-299.",
+        "passed": false,
+        "cf_output": " GLT-299.",
+        "cf_passed": false
+      },
+      "SEL08-dialogue": {
+        "id": "SEL08-dialogue",
+        "gold": "FHR-144",
+        "output": " FHR-144.",
+        "passed": true,
+        "cf_output": " Under DMV-121.",
+        "cf_passed": true
+      },
+      "SEL09-kv": {
+        "id": "SEL09-kv",
+        "gold": "INX-957",
+        "output": " GLT-508.",
+        "passed": false,
+        "cf_output": " GLT-508.",
+        "cf_passed": false
+      },
+      "SEL10-kv": {
+        "id": "SEL10-kv",
+        "gold": "INX-477",
+        "output": " INX-477.",
+        "passed": true,
+        "cf_output": " INX-986.",
+        "cf_passed": true
+      },
+      "SEL11-mixed": {
+        "id": "SEL11-mixed",
+        "gold": "DMV-176",
+        "output": " GLT-785.",
+        "passed": false,
+        "cf_output": " FHR-505.",
+        "cf_passed": false
+      },
+      "RET1-00": {
+        "id": "RET1-00",
+        "gold": "INX-891",
+        "output": " INX-891. State the code.",
+        "passed": true,
+        "cf_output": " KZJ-528. State the code.",
+        "cf_passed": false
+      },
+      "RET1-01": {
+        "id": "RET1-01",
+        "gold": "DMV-137",
+        "output": " the code.",
+        "passed": false
+      },
+      "RET1-02": {
+        "id": "RET1-02",
+        "gold": "AQF-790",
+        "output": " AQF-790.",
+        "passed": true,
+        "cf_output": " EYP-962.",
+        "cf_passed": true
+      },
+      "RET1-03": {
+        "id": "RET1-03",
+        "gold": "CKW-526",
+        "output": " CKW-526. State the code.",
+        "passed": true
+      },
+      "RET1-04": {
+        "id": "RET1-04",
+        "gold": "AQF-434",
+        "output": " AQF-436.",
+        "passed": false,
+        "cf_output": " GLT-506.",
+        "cf_passed": true
+      },
+      "RET1-05": {
+        "id": "RET1-05",
+        "gold": "BZJ-215",
+        "output": " Cobalt-vein = BZJ-215.",
+        "passed": true
+      },
+      "RETC-00": {
+        "id": "RETC-00",
+        "gold": "obscure",
+        "output": " the same word as the same word as",
+        "passed": false
+      },
+      "RETC-01": {
+        "id": "RETC-01",
+        "gold": "tundra2",
+        "output": " \ubc00            ",
+        "passed": false
+      },
+      "RETC-02": {
+        "id": "RETC-02",
+        "gold": "windlass",
+        "output": " windlass.",
+        "passed": true
+      },
+      "RETC-03": {
+        "id": "RETC-03",
+        "gold": "caltrop",
+        "output": " caltrop.",
+        "passed": true
+      },
+      "RETT-00": {
+        "id": "RETT-00",
+        "gold": "EYP-900",
+        "output": " EYP-900.",
+        "passed": true,
+        "cf_output": " GLT-991.",
+        "cf_passed": true
+      },
+      "RETT-01": {
+        "id": "RETT-01",
+        "gold": "FHR-118",
+        "output": " FHR-118.",
+        "passed": true,
+        "cf_output": " BZJ-494.",
+        "cf_passed": true
+      },
+      "RETT-02": {
+        "id": "RETT-02",
+        "gold": "GLT-913",
+        "output": " GLT-913.",
+        "passed": true,
+        "cf_output": " KZJ-651.",
+        "cf_passed": false
+      },
+      "RETT-03": {
+        "id": "RETT-03",
+        "gold": "AQF-153",
+        "output": " AF-153.",
+        "passed": false,
+        "cf_output": " FHR-457.457.457.457.",
+        "cf_passed": true
+      },
+      "GEN-yaml": {
+        "id": "GEN-yaml",
+        "gold": "CKW-244",
+        "output": " CKW-244.244.244.244",
+        "passed": true
+      },
+      "GEN-csv": {
+        "id": "GEN-csv",
+        "gold": "CKW-729",
+        "output": " CKW-729.",
+        "passed": true
+      },
+      "GEN-bold": {
+        "id": "GEN-bold",
+        "gold": "BZJ-504",
+        "output": " **J-504**.",
+        "passed": false
+      },
+      "GEN-paren": {
+        "id": "GEN-paren",
+        "gold": "FHR-935",
+        "output": " FHR-935 FHR-935 FHR-",
+        "passed": true
+      }
+    },
+    "ASSISTED": {
+      "SEL00-paragraph": {
+        "id": "SEL00-paragraph",
+        "gold": "FHR-107",
+        "output": " FHR-107.",
+        "passed": true,
+        "cf_output": " filed under CKW-501.",
+        "cf_passed": true
+      },
+      "SEL01-paragraph": {
+        "id": "SEL01-paragraph",
+        "gold": "DMV-989",
+        "output": " filed under BZJ-163.",
+        "passed": false,
+        "cf_output": " J-163.",
+        "cf_passed": false
+      },
+      "SEL02-paragraph": {
+        "id": "SEL02-paragraph",
+        "gold": "FHR-431",
+        "output": " NTP-339.",
+        "passed": false,
+        "cf_output": " and GLT-934.",
+        "cf_passed": true
+      },
+      "SEL03-table": {
+        "id": "SEL03-table",
+        "gold": "INX-822",
+        "output": " only.",
+        "passed": false,
+        "cf_output": " only.",
+        "cf_passed": false
+      },
+      "SEL04-table": {
+        "id": "SEL04-table",
+        "gold": "FHR-376",
+        "output": " N.",
+        "passed": false,
+        "cf_output": " N.",
+        "cf_passed": false
+      },
+      "SEL05-json": {
+        "id": "SEL05-json",
+        "gold": "FHR-517",
+        "output": " \"FHR-517\".",
+        "passed": true,
+        "cf_output": " \"CKW-481\".",
+        "cf_passed": true
+      },
+      "SEL06-json": {
+        "id": "SEL06-json",
+        "gold": "DMV-102",
+        "output": " \"INX-182\".",
+        "passed": false,
+        "cf_output": " \"GLT-and GLT\".",
+        "cf_passed": false
+      },
+      "SEL07-dialogue": {
+        "id": "SEL07-dialogue",
+        "gold": "EYP-984",
+        "output": " GLT-299.",
+        "passed": false,
+        "cf_output": " GLT-299.",
+        "cf_passed": false
+      },
+      "SEL08-dialogue": {
+        "id": "SEL08-dialogue",
+        "gold": "FHR-144",
+        "output": " FHR-144.",
+        "passed": true,
+        "cf_output": " Under DMV-121.",
+        "cf_passed": true
+      },
+      "SEL09-kv": {
+        "id": "SEL09-kv",
+        "gold": "INX-957",
+        "output": " GLT-508.",
+        "passed": false,
+        "cf_output": " GLT-508.",
+        "cf_passed": false
+      },
+      "SEL10-kv": {
+        "id": "SEL10-kv",
+        "gold": "INX-477",
+        "output": " INX-477.",
+        "passed": true,
+        "cf_output": " INX-986.",
+        "cf_passed": true
+      },
+      "SEL11-mixed": {
+        "id": "SEL11-mixed",
+        "gold": "DMV-176",
+        "output": " GLT-785.",
+        "passed": false,
+        "cf_output": " FHR-505.",
+        "cf_passed": false
+      },
+      "RET1-00": {
+        "id": "RET1-00",
+        "gold": "INX-891",
+        "output": " INX-891. State the code.",
+        "passed": true,
+        "cf_output": " KZJ-528. State the code.",
+        "cf_passed": false
+      },
+      "RET1-01": {
+        "id": "RET1-01",
+        "gold": "DMV-137",
+        "output": " the code.",
+        "passed": false
+      },
+      "RET1-02": {
+        "id": "RET1-02",
+        "gold": "AQF-790",
+        "output": " AQF-790.",
+        "passed": true,
+        "cf_output": " EYP-962.",
+        "cf_passed": true
+      },
+      "RET1-03": {
+        "id": "RET1-03",
+        "gold": "CKW-526",
+        "output": " CKW-526. State the code.",
+        "passed": true
+      },
+      "RET1-04": {
+        "id": "RET1-04",
+        "gold": "AQF-434",
+        "output": " AQF-436.",
+        "passed": false,
+        "cf_output": " GLT-506.",
+        "cf_passed": true
+      },
+      "RET1-05": {
+        "id": "RET1-05",
+        "gold": "BZJ-215",
+        "output": " Cobalt-vein = BZJ-215.",
+        "passed": true
+      },
+      "RETC-00": {
+        "id": "RETC-00",
+        "gold": "obscure",
+        "output": " the same word as the original one.",
+        "passed": false
+      },
+      "RETC-01": {
+        "id": "RETC-01",
+        "gold": "tundra2",
+        "output": " \ubc00    .",
+        "passed": false
+      },
+      "RETC-02": {
+        "id": "RETC-02",
+        "gold": "windlass",
+        "output": " windlass.",
+        "passed": true
+      },
+      "RETC-03": {
+        "id": "RETC-03",
+        "gold": "caltrop",
+        "output": " caltrop.",
+        "passed": true
+      },
+      "RETT-00": {
+        "id": "RETT-00",
+        "gold": "EYP-900",
+        "output": " EYP-900.",
+        "passed": true,
+        "cf_output": " GLT-991.",
+        "cf_passed": true
+      },
+      "RETT-01": {
+        "id": "RETT-01",
+        "gold": "FHR-118",
+        "output": " FHR-118.",
+        "passed": true,
+        "cf_output": " BZJ-494.",
+        "cf_passed": true
+      },
+      "RETT-02": {
+        "id": "RETT-02",
+        "gold": "GLT-913",
+        "output": " GLT-913.",
+        "passed": true,
+        "cf_output": " KZJ-651.",
+        "cf_passed": false
+      },
+      "RETT-03": {
+        "id": "RETT-03",
+        "gold": "AQF-153",
+        "output": " AF-153.",
+        "passed": false,
+        "cf_output": " FHR-457.457.467.469.",
+        "cf_passed": true
+      },
+      "GEN-yaml": {
+        "id": "GEN-yaml",
+        "gold": "CKW-244",
+        "output": " CKW-244.244.124.122",
+        "passed": true
+      },
+      "GEN-csv": {
+        "id": "GEN-csv",
+        "gold": "CKW-729",
+        "output": " CKW-729.",
+        "passed": true
+      },
+      "GEN-bold": {
+        "id": "GEN-bold",
+        "gold": "BZJ-504",
+        "output": " **J-504**.",
+        "passed": false
+      },
+      "GEN-paren": {
+        "id": "GEN-paren",
+        "gold": "FHR-935",
+        "output": " FHR-935 is a new study that",
+        "passed": true
+      }
+    }
+  },
+  "source_commit": "f80c12cf1d4c6d49f30ad4cc34041a51bca86496",
+  "git_dirty": true
+}

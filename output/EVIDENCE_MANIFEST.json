@@ -1,6 +1,6 @@
 {
   "schema": "anra-evidence-manifest/v1",
-  "updated": "2026-08-22 03:5x",
+  "updated": "2026-08-22 04:0x",
   "labels": {
     "VALID": "trustworthy under its recorded conditions",
     "SUPERSEDED": "correct when produced, replaced by a better measurement",
@@ -59,13 +59,13 @@
     {
       "path": "output/probe_v2_baseline20k.json",
       "label": "VALID",
-      "reason": "nonce probe v2, 5 items/family, NL+tag, CUDA fp32, receipt with parameter sha c836262d…",
+      "reason": "nonce probe v2, 5 items/family, NL+tag, CUDA fp32, receipt with parameter sha c836262d\u2026",
       "checkpoint": "step 20000 parent"
     },
     {
       "path": "output/probe_v2_sft.json",
       "label": "VALID",
-      "reason": "same battery on the SFT child, receipt parameter sha c3329e55…",
+      "reason": "same battery on the SFT child, receipt parameter sha c3329e55\u2026",
       "checkpoint": "anra-v4-20k-sft-context-binding.pt"
     },
     {
@@ -77,24 +77,80 @@
     {
       "path": "output/ood_parent20k.json",
       "label": "VALID",
-      "reason": "frozen OOD battery sha ce1c99c5…, RAW+ASSISTED, receipt",
+      "reason": "frozen OOD battery sha ce1c99c5\u2026, RAW+ASSISTED, receipt",
       "checkpoint": "step 20000 parent"
     },
     {
       "path": "output/ood_child_sft.json",
-      "label": "VALID",
-      "reason": "frozen OOD battery sha ce1c99c5…, RAW+ASSISTED, receipt",
+      "label": "DEVELOPMENT_ONLY",
+      "reason": "frozen OOD battery sha ce1c99c5\u2026, RAW+ASSISTED, receipt | Downgraded: OOD-1 informed the selective-binding curriculum for the grandchild; A-family CFs audited impure (10/10 reshuffled order)",
       "checkpoint": "anra-v4-20k-sft-context-binding.pt"
+    },
+    {
+      "path": "output/ood_grandchild_sft2.json",
+      "label": "DEVELOPMENT_ONLY",
+      "reason": "OOD-1 results influenced the grandchild's curriculum design; A-family CFs impure",
+      "checkpoint": "anra-v4-20k-sft2-selective.pt"
+    },
+    {
+      "path": "output/ood2_parent.json",
+      "label": "VALID",
+      "reason": "sealed OOD-2 sha 28d22c1f, pure byte-exact counterfactuals, RAW+ASSISTED, receipts",
+      "checkpoint": "step 20000 parent"
+    },
+    {
+      "path": "output/ood2_child.json",
+      "label": "VALID",
+      "reason": "sealed OOD-2; child never trained on selective-binding curriculum",
+      "checkpoint": "anra-v4-20k-sft-context-binding.pt"
+    },
+    {
+      "path": "output/ood2_grandchild.json",
+      "label": "VALID",
+      "reason": "sealed OOD-2: frozen AFTER the grandchild existed, BEFORE this evaluation; grandchild curriculum was informed by OOD-1 only, never OOD-2",
+      "checkpoint": "anra-v4-20k-sft2-selective.pt"
     }
   ],
   "scoped_promotions": {
     "PROMOTE_EXPERIMENTAL": "safe to experiment with; no capability claim",
     "PROMOTE_CONTEXT_BINDING": "single-fact context-to-answer binding verified on untrained protocols (OOD suite E) without regressions",
-    "PROMOTE_CONNECTOR_READY": "requires P1>=4/5, P2>=4/5, P4>=4/5 on the probe battery (run_real gate); P2 currently 2/5 — NOT met",
+    "PROMOTE_CONNECTOR_READY": "requires P1>=4/5, P2>=4/5, P4>=4/5 on the probe battery (run_real gate); P2 currently 2/5 \u2014 NOT met",
     "PROMOTE_ACTIVE_MODEL": "requires CONNECTOR_READY plus general regression battery parity"
   },
   "current_status": {
     "active_model": "step-200k parent remains the general active model; no child has been promoted to CONNECTOR_READY or ACTIVE",
     "context_binding_holder": "anra-v4-20k-sft-context-binding.pt (PROMOTE_CONTEXT_BINDING, pending regression battery breadth)"
+  },
+  "ood1_cf_audit": "A-family: 10/10 counterfactuals impure (fact order reshuffled); C-family: 8/8 pure",
+  "sft2_data_ratios_exact": {
+    "target_selection": 622,
+    "rehearsal": 104,
+    "percent_target": "85.7%",
+    "percent_rehearsal": "14.3%",
+    "note": "docstring claimed ~30% rehearsal; counts win"
+  },
+  "child_checkpoint_file_sha256": "52bb67bf2ca8f7e77ef11937dfac50ac1a36e15dab5473d95e2b527272b6154a",
+  "ood2_sealed_verdict_RAW": {
+    "SEL_selective": {
+      "parent": "0/12",
+      "child": "1/12",
+      "grandchild": "4/12"
+    },
+    "RET_single_fact": {
+      "parent": "3/6",
+      "child": "5/6",
+      "grandchild": "3/6"
+    },
+    "RET_tool_result": {
+      "parent": "0/4",
+      "child": "4/4",
+      "grandchild": "2/4"
+    },
+    "GEN_unseen_formats": {
+      "parent": "1/4",
+      "child": "4/4",
+      "grandchild": "3/4"
+    },
+    "conclusion": "selective binding partially transferred AND narrowing is real (H7 evaluator-noise rejected on sealed suite)"
   }
 }
