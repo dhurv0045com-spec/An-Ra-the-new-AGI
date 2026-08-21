@@ -58,6 +58,9 @@ class V4Tokenizer:
         self.pad_token_id, self.unk_token_id = 0, 1
         self.bos_token_id, self.eos_token_id = 2, 3
         self._specials = frozenset(self.special_tokens)
+        # Identity is a pure function of the immutable vocabulary; cache it so
+        # per-call state validation does not re-run 500 probe encodes.
+        self._identity_cache: dict[int, dict[str, object]] = {}
         ordered = sorted(self.special_tokens, key=len, reverse=True)
         self._special_pattern = re.compile("(" + "|".join(map(re.escape, ordered)) + ")")
         self._trie: dict[object, object] = {}
@@ -92,6 +95,9 @@ class V4Tokenizer:
         return cls.load(Path(__file__).parent / "assets" / "tokenizer_v4_32k.json")
 
     def identity(self, *, probe_count: int = 500) -> dict[str, object]:
+        cached = self._identity_cache.get(probe_count)
+        if cached is not None:
+            return dict(cached)
         vocabulary_sha256 = hashlib.sha256(
             json.dumps(self.token_to_id, sort_keys=True, separators=(",", ":")).encode("utf-8")
         ).hexdigest()
@@ -112,7 +118,7 @@ class V4Tokenizer:
         probe_sha256 = hashlib.sha256(
             json.dumps(probes, separators=(",", ":")).encode("utf-8")
         ).hexdigest()
-        return {
+        identity = {
             "schema_version": 4,
             "vocab_size": len(self.id_to_token),
             "special_token_ids": {
@@ -122,6 +128,8 @@ class V4Tokenizer:
             "probe_count": probe_count,
             "probe_sha256": probe_sha256,
         }
+        self._identity_cache[probe_count] = identity
+        return dict(identity)
 
     def assert_checkpoint_contract(self, contract: object) -> None:
         if not isinstance(contract, dict) or not contract.get("available"):

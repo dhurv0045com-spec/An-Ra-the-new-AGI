@@ -31,6 +31,11 @@ def generate(
 
     if isinstance(model_or_executor, CoreExecutor):
         executor = model_or_executor
+        if executor.tokenizer is not None and executor.tokenizer is not tokenizer:
+            raise ValueError(
+                "generate() tokenizer must be the executor's bound tokenizer; "
+                "a foreign tokenizer breaks the representation contract"
+            )
     else:
         executor = CoreExecutor(model_or_executor, tokenizer=tokenizer)
 
@@ -73,8 +78,11 @@ def generate(
             if next_id == tokenizer.eos_token_id:
                 break
             generated.append(next_id)
-            pred = executor.forward_step(next_id, state=state)
-            logits = pred.logits[:, -1, :]
+            if len(generated) < max_new_tokens:
+                # Only advance the cache when another token will be sampled;
+                # the final token's forward pass would be discarded work.
+                pred = executor.forward_step(next_id, state=state)
+                logits = pred.logits[:, -1, :]
         return tokenizer.decode(generated)
     finally:
         if not state.is_released:

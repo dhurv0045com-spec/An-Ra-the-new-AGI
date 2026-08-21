@@ -23,7 +23,9 @@ FailureFamily = Literal[
     "unknown",
 ]
 
-# Diagnosis vocabulary: uncertainty is first-class (Rule 3).
+# Diagnosis vocabulary: uncertainty is first-class (Rule 3). The two
+# ``*_intervention_helped`` labels describe measured battery outcomes and are
+# distinct from any causal-family attribution.
 DiagnosisLabel = Literal[
     "missing_knowledge",
     "bad_planning",
@@ -32,6 +34,8 @@ DiagnosisLabel = Literal[
     "context_failure",
     "model_limitation",
     "multiple_plausible",
+    "no_intervention_helped",
+    "intervention_helped",
     "unresolved",
 ]
 
