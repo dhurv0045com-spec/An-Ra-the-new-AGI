@@ -995,6 +995,10 @@ def load_checkpoint(
         "ddp_bootstrap_provenance": {},
         "rng_restore": {},
         "tokenizer_identity": {"verified": False, "reason": "checkpoint_not_loaded"},
+        # Resume callers must be able to validate objective-specific fields
+        # that are intentionally outside the generic recipe compatibility
+        # list (for example SFT's frozen-parent KL contract).
+        "training_recipe": {},
         "training_recipe_migrations": [],
         # Optional SFT child lineage.  Kept in the returned load state so local
         # serving can refuse a renamed foundation checkpoint without retaining
@@ -1167,6 +1171,7 @@ def load_checkpoint(
             )
         state["tokenizer_identity"] = tokenizer_identity
         saved_recipe = blob.get("training_recipe", {})
+        state["training_recipe"] = dict(saved_recipe) if isinstance(saved_recipe, dict) else {}
         active_recipe = getattr(model, "training_recipe", {})
         if isinstance(saved_recipe, dict) and saved_recipe and isinstance(active_recipe, dict):
             for field in (

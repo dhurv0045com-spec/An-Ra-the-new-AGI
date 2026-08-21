@@ -191,6 +191,7 @@ def test_signed_sampler_transition_requires_exact_checkpoint_token_boundary(
         sampler_reset_token=196_608,
         continuation_phase="A",
     )
+    assert state["training_recipe"] == source.training_recipe
 
     assert state["loaded"] is True
     assert state["training_recipe_migrations"] == [
