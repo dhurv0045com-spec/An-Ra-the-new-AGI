@@ -93,15 +93,21 @@ def main() -> int:
     print(f"loaded in {time.time() - t0:.1f}s", flush=True)
 
     # Capability gate: primitives first. If the substrate cannot use supplied
-    # knowledge, follow plans, copy values, or use tool results, the cognitive
-    # experiment cannot be interpreted — report the floor and stop.
+    # knowledge, follow plans, copy values, or use tool results — in the
+    # experiment's own tag protocol — the cognitive experiment cannot be
+    # interpreted: report the floor and stop.
     print("running capability probe...", flush=True)
-    probe = run_probe(args.checkpoint, args.device)
+    probe = run_probe(executor=executor)
 
-    def passes(score: str) -> bool:
-        return int(score.split("/")[0]) >= 4
+    def passes(score: object) -> bool:
+        tag = score["tag"] if isinstance(score, dict) else score
+        return int(str(tag).split("/")[0]) >= 4
 
-    required = ("P1_knowledge_use", "P2_plan_following", "P4_tool_result_use")
+    required = (
+        "P1_nonce_knowledge_use",
+        "P2_plan_following_no_arithmetic",
+        "P4_tool_result_use",
+    )
     failed = [name for name in required if not passes(probe[name])]
     if failed and not args.skip_gate:
         payload = {

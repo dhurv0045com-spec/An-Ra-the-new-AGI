@@ -16,14 +16,18 @@ Failure families and their injected fault:
 2. ``bad_planning``       — the initial plan is a known-bad heuristic; better
    decompositions exist among the system's own plan candidates.
 3. ``decode_search_sensitivity`` — greedy decode fails but the correct token
-   sequence is reachable under sampling/best-of-N (measured, not assumed:
-   cases where sampling also fails are dropped at construction time).
+   sequence is reachable under sampling/best-of-N. Validity is *measured at
+   run time*, not at construction: a case only supports this diagnosis if the
+   runner observes the baseline fail AND the decode arm flip. Cases where
+   sampling also fails are reported by the runner as non-distinguishing; they
+   are not silently dropped.
 4. ``tool_failure``       — the task needs an exact computation; the needed
    tool adapter starts disabled; enabling it provides the real result.
 """
 
 from __future__ import annotations
 
+import hashlib
 from dataclasses import dataclass
 
 from connector.experiments.cognitive_credit.case import (
@@ -212,8 +216,9 @@ def build_case(family: str, index: int) -> tuple[ObservedCase, HiddenGroundTruth
         raise ValueError(f"unknown family {family!r}")
 
     observed = ObservedCase(
-        # Sequential neutral id: carries no family information.
-        case_id=f"case-{(index % 5) * 4 + FAMILIES.index(family) + 1:02d}",
+        # Content-derived id: a hash of the public question text only. Any id
+        # derived from (family, index) would encode the planted label.
+        case_id="case-" + hashlib.sha256(material.question.encode("utf-8")).hexdigest()[:8],
         question=material.question,
         success_criterion="answer matches the task's expected output",
         initial_attempt=initial,

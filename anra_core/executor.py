@@ -168,7 +168,20 @@ class CoreExecutor:
                 "Checkpoint has no tokenizer contract; strict execution cannot bind representation"
             )
         if contract is not None:
-            tokenizer.assert_checkpoint_contract(contract)
+            try:
+                tokenizer.assert_checkpoint_contract(contract)
+            except RepresentationIncompatibleError:
+                if not allow_legacy_unverified:
+                    raise
+                # Legacy artifacts may carry old-format contracts. Bind only
+                # if the substantive identity (vocabulary + probe hashes)
+                # matches the canonical tokenizer; otherwise refuse.
+                substance = tokenizer.identity()
+                if not (
+                    contract.get("vocabulary_sha256") == substance["vocabulary_sha256"]
+                    and contract.get("probe_sha256") == substance["probe_sha256"]
+                ):
+                    raise
         return cls(
             model,
             tokenizer=tokenizer,

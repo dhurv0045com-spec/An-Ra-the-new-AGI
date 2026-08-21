@@ -31,7 +31,14 @@ truth is structurally inaccessible to the diagnostician
 **Code:** `connector/experiments/cognitive_credit/`
 **Status:** methodology validated with runner-graded oracle physics
 (20/20 families, 20/20 repairs; completers cannot manufacture success).
-Trained V4 fails all capability preconditions — see below.
+Measured on real checkpoints with nonce-fact probes (P1-P6,
+`capability_probe.py` v2): in-context information use, plan following, and
+tool-result use are 0/5 in *both* natural-language and tag protocols at every
+training step. Verbatim copying works only in natural language and only at
+mid-training (3/5 at step 5k, 4/5 at step 20k, 0/5 at step 30.4k) — the tag
+protocol suppresses it, and continued pretraining past ~20k destroyed it.
+The bottleneck is substrate-level context-to-answer binding, not protocol
+unfamiliarity alone.
 
 > Note: an earlier prototype (`anra_core/ablation.py`) was removed — its
 > intervention generator read the planted failure label, invalidating its
@@ -52,6 +59,33 @@ is bound to its executor, architecture, weights, representation, and execution
 profile. It can be reset, forked, rolled back, and released. Portable state
 serialization is intentionally **not** advertised until it has a versioned,
 validated portability contract.
+
+## Reference runtime (the one executable path)
+
+```python
+import anra  # façade over connector/runtime.py
+
+result = anra.run(
+    "What is the capital of Portugal?",
+    checkpoint=r"C:\path\anra-v4-tpu-latest.pt",
+    expected="Lisbon",
+    knowledge=("The capital of Portugal is Lisbon.",),
+)
+print(result.status)   # success | repaired | failed | error
+print(result.answer, result.diagnosis, result.changed_variable)
+print(result.to_json())  # full structured execution record
+```
+
+Loop: task → attempt → Core → verify → on failure, one-variable interventions
+(knowledge / plan / decode / tool) → diagnosis from measured flips → repair
+retry → verified learning candidate (evidence for future protocol SFT).
+Verification is the only source of success; completers return raw outputs.
+
+```powershell
+python -m connector.runtime --checkpoint <pt> --task "..." --expected "..."
+python -m connector.experiments.cognitive_credit.capability_probe --checkpoint <pt>
+python -m connector.experiments.cognitive_credit.run_real --checkpoint <pt>
+```
 
 ## Use
 

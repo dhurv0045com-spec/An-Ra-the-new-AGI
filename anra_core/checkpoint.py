@@ -119,7 +119,15 @@ def _verify_tokenizer_contract(
         raise RepresentationIncompatibleError(
             "checkpoint is missing its tokenizer contract; use legacy_unverified=True only for explicit forensic loading"
         )
-    V4Tokenizer.load_canonical().assert_checkpoint_contract(contract)
+    try:
+        V4Tokenizer.load_canonical().assert_checkpoint_contract(contract)
+    except RepresentationIncompatibleError:
+        # Old contract formats (e.g. no "available" flag) can fail format
+        # checks while the vocabulary is in fact identical. Legacy forensic
+        # mode proceeds unverified; strict mode still fails closed.
+        if legacy_unverified:
+            return True, False
+        raise
     return True, True
 
 

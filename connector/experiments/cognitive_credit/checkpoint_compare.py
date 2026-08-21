@@ -33,11 +33,14 @@ def probe(path: str) -> None:
         state = payload.get("model", payload.get("model_state_dict", payload))
         model = AnRaCore(CANONICAL_CONFIG)
         model.load_state_dict(state)
-        step = int(payload.get("global_step", payload.get("step", -1)) or -1)
+        raw_step = payload.get("global_step", payload.get("step", -1))
+        step = int(raw_step) if raw_step is not None else -1
         executor = CoreExecutor(model, tokenizer=V4Tokenizer.load_canonical())
         print(f"forensic load OK; global_step: {step:,}", flush=True)
     tok = executor.tokenizer
     step = executor.checkpoint_identity.global_step
+    if step is None:
+        step = -1
     print(f"global_step: {step:,}", flush=True)
     for name, prompt in PROBES:
         try:

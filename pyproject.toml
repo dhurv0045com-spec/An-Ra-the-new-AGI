@@ -7,7 +7,7 @@ name = "anra-core"
 version = "0.5.0"
 description = "Exact, trainable dense neural Core and validated Executor for An-Ra V4"
 requires-python = ">=3.10"
-dependencies = ["torch>=2.2"]
+dependencies = ["torch>=2.5"]
 
 [project.scripts]
 anra-core = "anra_core.__main__:main"

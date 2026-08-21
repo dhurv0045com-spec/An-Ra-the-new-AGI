@@ -121,7 +121,7 @@ def _label_for(changed: str) -> DiagnosisLabel:
         "decode": "decode_search_sensitivity",
         "tool": "tool_failure",
         "context": "context_failure",
-    }.get(changed, OUTCOME_HELPED)  # type: ignore[return-value]
+    }.get(changed, OUTCOME_HELPED)
 
 
 def record_of(case_id: str, baseline_success: bool, outcomes, diagnosis: Diagnosis) -> InterventionRecord:

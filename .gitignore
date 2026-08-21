@@ -13,3 +13,7 @@ state/logs/
 .codex-wheel/
 .codex-install/
 .codex-test-tmp*/
+state/
+phase2/
+output/metrics/
+output/v2/

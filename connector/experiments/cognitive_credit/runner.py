@@ -187,8 +187,14 @@ def run_case(
     specs = build_interventions(observed)
     outcomes: list[ArmOutcome] = []
     spec_by_name: dict[str, object] = {}
+    errored_arms = 0
     for spec in specs:
         arm_result = counted_complete(spec.attempt)
+        if arm_result.error is not None:
+            # The arm never executed; treating it as a failed flip would let a
+            # Core fault masquerade as "no intervention helped".
+            errored_arms += 1
+            continue
         # Runner-side success over all returned candidates (best-of-N wins).
         arm_success = any(verify(t) for t in arm_result.texts)
         outcomes.append(ArmOutcome(spec.name, spec.changed, arm_success))
@@ -271,7 +277,9 @@ def run_experiment(complete: Completer) -> dict[str, object]:
         return hits / len(results) if results else 0.0
 
     abstention = sum(
-        1 for r in results if r.intervention in {"multiple_plausible", "unresolved"}
+        1
+        for r in results
+        if r.intervention in {"multiple_plausible", "no_intervention_helped", "unresolved"}
     ) / len(results)
     repairs = [r.repair_success for r in results if r.repair_success is not None]
     total_executions = sum(r.core_executions for r in results)

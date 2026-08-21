@@ -1,0 +1,37 @@
+{
+  "checkpoint": "C:\\Users\\ankit\\Downloads\\anra-v4-current-full-resume.pt",
+  "global_step": 20000,
+  "wall_seconds": 105.1,
+  "P1_nonce_knowledge_use": {
+    "nl": "0/5",
+    "tag": "0/5"
+  },
+  "P2_plan_following_no_arithmetic": {
+    "nl": "0/5",
+    "tag": "0/5"
+  },
+  "P3_verbatim_copy": {
+    "nl": "4/5",
+    "tag": "0/5"
+  },
+  "P4_tool_result_use": {
+    "nl": "0/5",
+    "tag": "0/5"
+  },
+  "P5_decode_sensitivity": {
+    "greedy_pass": "0/5",
+    "best_of_4_rescue": "2/5",
+    "note": "rescue counts items where greedy failed and sampling succeeded"
+  },
+  "P6_protocol_sensitivity_nl_minus_tag": {
+    "P1": 0,
+    "P2": 0,
+    "P3": 4,
+    "P4": 0
+  },
+  "decode_stats": {
+    "generations": 65,
+    "core_errors": 0
+  },
+  "threshold": ">=4/5 in the experiment's tag protocol per family required"
+}
