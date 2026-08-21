@@ -1000,6 +1000,11 @@ def load_checkpoint(
         # list (for example SFT's frozen-parent KL contract).
         "training_recipe": {},
         "training_recipe_migrations": [],
+        # Objective-specific SFT progress must survive the generic checkpoint
+        # loader. Defaulting a persisted cursor to zero makes a valid child
+        # look corrupt as soon as global_step is non-zero.
+        "sft_microbatch_cursor": 0,
+        "sft_skipped_updates": 0,
         # Optional SFT child lineage.  Kept in the returned load state so local
         # serving can refuse a renamed foundation checkpoint without retaining
         # the multi-gigabyte archive after weights have been loaded.
@@ -1329,6 +1334,26 @@ def load_checkpoint(
         state["data_manifest_payloads"] = dict(blob.get("data_manifest_payloads", {}))
         state["model_config"] = dict(blob.get("model_config", {}))
         state["source_commit"] = str(blob.get("source_commit", "unknown"))
+        state["sft_microbatch_cursor"] = int(blob.get("sft_microbatch_cursor", 0))
+        state["sft_skipped_updates"] = int(blob.get("sft_skipped_updates", 0))
+        if "sft_input_tokens_processed" in blob:
+            state["sft_input_tokens_processed"] = int(blob["sft_input_tokens_processed"])
+        if "sft_supervised_tokens_processed" in blob:
+            state["sft_supervised_tokens_processed"] = int(
+                blob["sft_supervised_tokens_processed"]
+            )
+        if "sft_behavior_history" in blob:
+            behavior_history = blob["sft_behavior_history"]
+            state["sft_behavior_history"] = (
+                list(behavior_history) if isinstance(behavior_history, list) else []
+            )
+        if "sft_frozen_parent_kl" in blob:
+            frozen_parent_kl = blob["sft_frozen_parent_kl"]
+            state["sft_frozen_parent_kl"] = (
+                dict(frozen_parent_kl) if isinstance(frozen_parent_kl, dict) else {}
+            )
+        if "parent_validation_loss" in blob:
+            state["parent_validation_loss"] = float(blob["parent_validation_loss"])
         sft_metadata = blob.get("sft", {})
         state["sft"] = dict(sft_metadata) if isinstance(sft_metadata, dict) else {}
         restore_hal_state(model, blob.get("hal_state", {}))
