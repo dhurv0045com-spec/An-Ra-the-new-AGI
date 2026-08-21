@@ -1,0 +1,29 @@
+[load] C:/Users/ankit/Downloads/anra-v4-current-full-resume.pt
+[load] step=20000 params=180,093,312
+[train] 1880 micro-steps (effective batch 8)
+  step 104/1880 loss=0.2634 (7.2 it/s)
+  step 200/1880 loss=0.1037 (7.5 it/s)
+  step 304/1880 loss=0.1302 (6.8 it/s)
+  step 400/1880 loss=0.1082 (6.3 it/s)
+  [eval @ 472] heldout_acc=0.867 P1_knowledge:nl=0.91 P1_knowledge:tag=0.83 P2_plan:nl=0.50 P2_plan:tag=0.71 P3_echo:nl=1.00 P3_echo:tag=1.00 P4_tool:nl=1.00 P4_tool:tag=1.00
+  [save] best=0.867 -> checkpoints/anra-v4-20k-sft-context-binding.pt
+  step 504/1880 loss=0.0538 (4.4 it/s)
+  step 600/1880 loss=0.0051 (4.4 it/s)
+  step 704/1880 loss=0.0027 (4.4 it/s)
+  step 800/1880 loss=0.0347 (4.3 it/s)
+  step 904/1880 loss=0.0886 (4.2 it/s)
+  [eval @ 944] heldout_acc=0.883 P1_knowledge:nl=0.82 P1_knowledge:tag=1.00 P2_plan:nl=0.62 P2_plan:tag=0.71 P3_echo:nl=1.00 P3_echo:tag=1.00 P4_tool:nl=1.00 P4_tool:tag=1.00
+  [save] best=0.883 -> checkpoints/anra-v4-20k-sft-context-binding.pt
+  step 1000/1880 loss=0.0171 (3.6 it/s)
+  step 1104/1880 loss=0.0715 (3.7 it/s)
+  step 1200/1880 loss=0.0018 (3.7 it/s)
+  step 1304/1880 loss=0.0016 (3.8 it/s)
+  step 1400/1880 loss=0.0177 (3.8 it/s)
+  [eval @ 1416] heldout_acc=0.867 P1_knowledge:nl=0.82 P1_knowledge:tag=1.00 P2_plan:nl=0.62 P2_plan:tag=0.71 P3_echo:nl=1.00 P3_echo:tag=1.00 P4_tool:nl=1.00 P4_tool:tag=0.86
+  step 1504/1880 loss=0.0006 (3.5 it/s)
+  step 1600/1880 loss=0.0005 (3.5 it/s)
+  step 1704/1880 loss=0.0014 (3.6 it/s)
+  step 1800/1880 loss=0.0002 (3.6 it/s)
+  [eval @ 1880] heldout_acc=0.850 P1_knowledge:nl=0.82 P1_knowledge:tag=1.00 P2_plan:nl=0.62 P2_plan:tag=0.71 P3_echo:nl=1.00 P3_echo:tag=1.00 P4_tool:nl=0.91 P4_tool:tag=0.86
+[done] best heldout acc=0.883 wall=549s history={"P1_knowledge:nl": {"acc": 0.8181818181818182, "n": 11}, "P1_knowledge:tag": {"acc": 1.0, "n": 6}, "P2_plan:nl": {"acc": 0.625, "n": 8}, "P2_plan:tag": {"acc": 0.7142857142857143, "n": 7}, "P3_echo:nl": {"acc": 1.0, "n": 9}, "P3_echo:tag": {"acc": 1.0, "n": 1}, "P4_tool:nl": {"acc": 0.9090909090909091, "n": 11}, "P4_tool:tag": {"acc": 0.8571428571428571, "n": 7}}
+[free] reserved=1676 MiB

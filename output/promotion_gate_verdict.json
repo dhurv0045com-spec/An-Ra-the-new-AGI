@@ -1,0 +1,68 @@
+{
+  "verdict": "PROMOTE",
+  "candidate": "checkpoints/anra-v4-20k-sft-context-binding.pt",
+  "rules": {
+    "R1_p1_both_protocols_ge_4": true,
+    "R2_no_regression_gt_1": true,
+    "R3_p3_nl_ge_4": true
+  },
+  "regressions": [],
+  "comparison": [
+    {
+      "family": "P1_nonce_knowledge_use",
+      "protocol": "nl",
+      "baseline": "0/5",
+      "candidate": "5/5",
+      "delta": 5
+    },
+    {
+      "family": "P1_nonce_knowledge_use",
+      "protocol": "tag",
+      "baseline": "0/5",
+      "candidate": "5/5",
+      "delta": 5
+    },
+    {
+      "family": "P2_plan_following_no_arithmetic",
+      "protocol": "nl",
+      "baseline": "0/5",
+      "candidate": "2/5",
+      "delta": 2
+    },
+    {
+      "family": "P2_plan_following_no_arithmetic",
+      "protocol": "tag",
+      "baseline": "0/5",
+      "candidate": "2/5",
+      "delta": 2
+    },
+    {
+      "family": "P3_verbatim_copy",
+      "protocol": "nl",
+      "baseline": "4/5",
+      "candidate": "5/5",
+      "delta": 1
+    },
+    {
+      "family": "P3_verbatim_copy",
+      "protocol": "tag",
+      "baseline": "0/5",
+      "candidate": "5/5",
+      "delta": 5
+    },
+    {
+      "family": "P4_tool_result_use",
+      "protocol": "nl",
+      "baseline": "0/5",
+      "candidate": "5/5",
+      "delta": 5
+    },
+    {
+      "family": "P4_tool_result_use",
+      "protocol": "tag",
+      "baseline": "0/5",
+      "candidate": "5/5",
+      "delta": 5
+    }
+  ]
+}
