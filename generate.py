@@ -1539,6 +1539,10 @@ def get_model_info() -> dict[str, object]:
         "kv_cache_enabled": kv_enabled,
         "checkpoint_state": {
             "global_step": _RUNTIME_LOAD_STATE.get("global_step", 0),
+            "checkpoint_artifact_class": _RUNTIME_LOAD_STATE.get(
+                "checkpoint_artifact_class", "unknown"
+            ),
+            "training_stage": _RUNTIME_LOAD_STATE.get("training_stage", "unknown"),
             "best_loss": _RUNTIME_LOAD_STATE.get("best_loss", float("inf")),
             "best_training_loss": _RUNTIME_LOAD_STATE.get(
                 "best_training_loss",

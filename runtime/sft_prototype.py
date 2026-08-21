@@ -263,14 +263,21 @@ class PrototypeRuntime:
                 )
             checkpoint_state = dict(info.get("checkpoint_state", {}))
             sft_metadata = checkpoint_state.get("sft", {})
-            if (
-                checkpoint_state.get("data_profile") != "sft-v4"
-                or checkpoint_state.get("training_data_layout") != "assistant_only_sft_v1"
-                or not isinstance(sft_metadata, dict)
-                or sft_metadata.get("stage") != "sft"
-            ):
+            is_sft = (
+                checkpoint_state.get("data_profile") == "sft-v4"
+                and checkpoint_state.get("training_data_layout") == "assistant_only_sft_v1"
+                and isinstance(sft_metadata, dict)
+                and sft_metadata.get("stage") == "sft"
+            )
+            is_canonical_pretraining = (
+                checkpoint_state.get("checkpoint_artifact_class") == "full_resume"
+                and checkpoint_state.get("training_stage") == "pretraining_tpu_xla"
+                and int(checkpoint_state.get("global_step", -1)) >= 0
+            )
+            if not is_sft and not is_canonical_pretraining:
                 raise RuntimeError(
-                    "the selected file is not a signed V4 assistant-only SFT checkpoint"
+                    "the selected file is neither a protected V4 SFT checkpoint nor a "
+                    "canonical TPU full-resume checkpoint"
                 )
             if str(info.get("device", "")).lower().startswith("cuda") is False:
                 raise RuntimeError("CUDA is unavailable; the local SFT prototype requires your GPU")

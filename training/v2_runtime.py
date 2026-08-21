@@ -5,6 +5,7 @@ import json
 import logging
 import math
 import os
+import re
 import shutil
 import time
 from pathlib import Path
@@ -561,6 +562,22 @@ def migrate_checkpoint_state(
     """Apply versioned, deterministic state migrations before loading."""
     migrated = _adapt_state_vocab_rows(model_state, target_state)
     changes: list[str] = []
+    # Dense Core/TPU checkpoints store each shared module once. The historical
+    # runtime state_dict also exposes registered aliases for those same tensors.
+    # Populate aliases by reference so strict core accounting remains exact.
+    alias_sources: dict[str, str] = {
+        "token_embedding.weight": "token_embedding_table.weight",
+    }
+    for target_key in target_state:
+        match = re.fullmatch(r"blocks\.(\d+)\._normed_mlp\.(0|1)\.(.+)", target_key)
+        if match:
+            layer, component, suffix = match.groups()
+            canonical = "norm_2" if component == "0" else "mlp"
+            alias_sources[target_key] = f"blocks.{layer}.{canonical}.{suffix}"
+    for alias, source in alias_sources.items():
+        if alias not in migrated and alias in target_state and source in migrated:
+            migrated[alias] = migrated[source]
+            changes.append(f"canonical_alias:{source}->{alias}")
     if "dstp_logits" in migrated and "residual_depth_logits" in target_state:
         migrated["residual_depth_logits"] = migrated.pop("dstp_logits")
         changes.append("dstp_logits->residual_depth_logits")
@@ -902,6 +919,40 @@ def build_model_for_profile(
     )
 
 
+_CORE_V4_CONFIG_ALIASES = {
+    "n_embd": "d_model",
+    "n_head": "n_heads",
+    "n_layer": "n_layers",
+    "n_kv_head": "n_kv_heads",
+    "use_qk_norm": "qk_norm",
+}
+
+
+def _normalize_v4_checkpoint_config(
+    saved_config: dict[str, object], active_config: dict[str, object]
+) -> dict[str, object]:
+    """Normalize the canonical dense-Core artifact schema without relaxing V4 checks."""
+    normalized = dict(saved_config)
+    uses_core_schema = any(alias in saved_config for alias in _CORE_V4_CONFIG_ALIASES.values())
+    for runtime_name, core_name in _CORE_V4_CONFIG_ALIASES.items():
+        runtime_value = normalized.get(runtime_name)
+        core_value = normalized.get(core_name)
+        if runtime_name in normalized and core_name in normalized and runtime_value != core_value:
+            raise CheckpointCompatibilityError(
+                f"Canonical V4 checkpoint has contradictory {runtime_name}/{core_name} values: "
+                f"{runtime_value!r} != {core_value!r}"
+            )
+        if runtime_name not in normalized and core_name in normalized:
+            normalized[runtime_name] = core_value
+
+    # Dense Core/TPU artifacts intentionally omit dormant native-pilot placement.
+    # Exact dense-tensor validation below remains mandatory; this only reconciles
+    # the two names for the same disabled execution architecture.
+    if uses_core_schema and "mod_layers" not in normalized:
+        normalized["mod_layers"] = active_config.get("mod_layers", ())
+    return normalized
+
+
 def load_checkpoint(
     model: CausalTransformerV2,
     optimizer: torch.optim.Optimizer | None,
@@ -1019,6 +1070,7 @@ def load_checkpoint(
                 )
             if canonical_v4:
                 active_config = model.model_config()
+                ckpt_config = _normalize_v4_checkpoint_config(ckpt_config, active_config)
                 immutable_fields = (
                     "vocab_size",
                     "pad_token_id",
@@ -1235,6 +1287,10 @@ def load_checkpoint(
                     f"RNG state cannot be resumed exactly from {ckpt}"
                 ) from exc
         state["global_step"] = int(blob.get("global_step", blob.get("step", 0)))
+        state["checkpoint_artifact_class"] = str(
+            blob.get("checkpoint_artifact_class", blob.get("artifact_class", "unknown"))
+        )
+        state["training_stage"] = str(blob.get("training_stage", blob.get("stage", "unknown")))
         state["epoch"] = int(blob.get("epoch", 0))
         state["best_loss"] = float(blob.get("best_loss", float("inf")))
         state["best_training_loss"] = float(blob.get("best_training_loss", state["best_loss"]))
