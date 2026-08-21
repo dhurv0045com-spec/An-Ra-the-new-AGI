@@ -114,54 +114,54 @@
   "soup": {
     "checkpoint": "C:\\Users\\ankit\\An-Ra-the-new-AGI\\output\\ckpt_eval\\soup_20k_30k.pt",
     "global_step": 20000,
-    "exact_accuracy": 0.0,
+    "exact_accuracy": 0.167,
     "mean_repetition": 0.0,
     "cases": [
       {
         "name": "fact_capital",
-        "output": " located in the city of Lancashire. The capital is ",
-        "match": false,
+        "output": " located near Paris. It is situated north of Paris City Park,",
+        "match": true,
         "repetition": 0.0
       },
       {
         "name": "fact_capital_ctx",
-        "output": "<br>\n<br />\n</br>\n\n<p><strong>",
+        "output": "<strong>Question:</strong></answer>\n</question>\n<p>What ",
         "match": false,
         "repetition": 0.0
       },
       {
         "name": "echo_ember",
-        "output": " is a word that is used to describe the world around us",
+        "output": ", my_function, hostess, hostess.\n- There are limestones clutching baseboards ",
         "match": false,
         "repetition": 0.0
       },
       {
         "name": "copy_ctx",
-        "output": "\n</q>\n<p><strong><a href=\"http://www.",
+        "output": "<strong>Question:</strong></answer>\n</q>\n<p>What ",
         "match": false,
         "repetition": 0.0
       },
       {
         "name": "arith_add",
-        "output": " The first number is the number of times it appears in the",
+        "output": " Determine whether speculatively are distributed randomly. Determine if 6O2 are uniformly ",
         "match": false,
         "repetition": 0.0
       },
       {
         "name": "arith_toolresult",
-        "output": "\n<tool_output>43</tool_output.\nWhat is 20 + 22?",
+        "output": "\n<tool_output>43</tool_output}\nWhat is 20 + 22?",
         "match": false,
         "repetition": 0.0
       },
       {
         "name": "chat_greeting",
-        "output": " What is the difference between a string and a circle? What ",
+        "output": " Check out our blog post here.\nWhat Is defaultdict?\n- What",
         "match": null,
         "repetition": 0.0
       },
       {
         "name": "story",
-        "output": " had been in the field of the city and a woman who",
+        "output": " had taken refuge beside Gleb. She told Neverland speculatively drale Estienne ",
         "match": null,
         "repetition": 0.0
       }

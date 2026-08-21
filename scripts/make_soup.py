@@ -58,17 +58,60 @@ def main(parent_a: str, parent_b: str, out_path: str) -> None:
     for key in only_a:
         soup[key] = state_a[key].clone()
 
+    # Tied-weight alias repair: the model ties lm_head to the embedding table,
+    # and the historical 181M ABI aliases `_normed_mlp` tensors onto their
+    # `norm_2`/`mlp` targets. Independent averaging can make each alias drift
+    # by one ULP, which the strict loader correctly rejects ("serialized weight
+    # alias drift"). The canonical tensor wins; every registered alias must be
+    # its exact copy.
+    canonical_re = __import__("re").compile(r"^blocks\.(\d+)\._normed_mlp\.(0|1)(\..+)$")
+    repaired_aliases = 0
+
+    def _repair_alias(alias: str, canonical_key: str) -> None:
+        nonlocal repaired_aliases
+        if alias in soup and canonical_key in soup and not torch.equal(soup[alias], soup[canonical_key]):
+            soup[alias] = soup[canonical_key].clone()
+            repaired_aliases += 1
+
+    for alias, canonical in {
+        "lm_head.weight": "token_embedding_table.weight",
+        "token_embedding.weight": "token_embedding_table.weight",
+    }.items():
+        _repair_alias(alias, canonical)
+    for key in list(soup.keys()):
+        match = canonical_re.fullmatch(key)
+        if not match:
+            continue
+        layer, member, suffix = match.groups()
+        target = f"blocks.{layer}.norm_2{suffix}" if member == "0" else f"blocks.{layer}.mlp{suffix}"
+        _repair_alias(key, target)
+    if repaired_aliases:
+        print(f"[soup] repaired {repaired_aliases} tied-weight alias drift(s)", flush=True)
+
     base = dict(payload_a)
+    # THE FIX (P0): the averaged weights must actually be installed into the
+    # serialized payload. The previous version built `soup` and saved `base`
+    # without it, producing a byte-identical copy of parent A.
+    key = "model_state_dict" if "model_state_dict" in payload_a else "model"
+    if key not in payload_a:
+        raise SystemExit(f"cannot find model tensor key in parent A payload: {sorted(payload_a)[:10]}")
+    base[key] = soup
+    # A soup is NOT resumable training state: averaging parameters while
+    # keeping one parent's optimizer moments is invalid. Demote honestly.
+    base["checkpoint_artifact_class"] = "model_only"
+    base["checkpoint_schema_version"] = 1
+    base.pop("optimizer", None)
+    base.pop("scheduler", None)
+    base.pop("optimizer_state_dict", None)
     base["global_step"] = int(payload_a.get("global_step", 0))
+    base["pack_step"] = 0
     base["training_stage"] = f"checkpoint_soup(a={Path(parent_a).name}, b={Path(parent_b).name})"
     base["metrics"] = {
         "soup": True,
         "parents": [str(parent_a), str(parent_b)],
         "averaged_tensors": averaged,
-        "note": "equal-weight average of same-lineage checkpoints",
+        "note": "equal-weight average of same-lineage checkpoints; model_only, not resumable",
     }
-    base.pop("optimizer", None)
-    base.pop("scheduler", None)
 
     out = Path(out_path)
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -79,10 +122,31 @@ def main(parent_a: str, parent_b: str, out_path: str) -> None:
     import hashlib
 
     digest = hashlib.sha256(out.read_bytes()).hexdigest()
+
+    # Self-verification: the saved artifact's tensors must differ from BOTH
+    # parents (parameter-level), else the soup silently failed again.
+    saved = torch.load(out, map_location="cpu", weights_only=False)
+    saved_state = saved.get(key)
+    identical_a = sum(
+        1 for k in soup if k in saved_state and torch.equal(saved_state[k], state_a[k])
+    )
+    identical_b = sum(
+        1
+        for k in soup
+        if k in saved_state and k in state_b and torch.equal(saved_state[k], state_b[k])
+    )
     print(
-        f"[soup] wrote {out}\n[soup] averaged {averaged} tensors\n[soup] sha256 {digest[:16]}...",
+        f"[soup] wrote {out}\n[soup] averaged {averaged} tensors\n"
+        f"[soup] sha256 {digest[:16]}...\n[soup] verification vs parent A: "
+        f"{identical_a}/{len(soup)} identical\n[soup] verification vs parent B: "
+        f"{identical_b}/{len(soup)} identical",
         flush=True,
     )
+    if identical_a == len(soup) or identical_b == len(soup):
+        raise SystemExit(
+            "SOUP FAILED SELF-CHECK: artifact matches a single parent exactly; "
+            "averaging did not take effect."
+        )
 
 
 if __name__ == "__main__":
