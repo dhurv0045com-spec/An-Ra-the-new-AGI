@@ -1,0 +1,53 @@
+{
+  "schema": "anra-query-influence/v1",
+  "label": "anchor",
+  "checkpoint": "C:/Users/ankit/An-Ra-the-new-AGI/checkpoints/anra-v4-20k-sft-context-binding.pt",
+  "global_step": 20000,
+  "parameter_sha256": "c3329e558e68acc3c02b5c323c1dacaeb61a96e0e0defbca1c69985c2b38d565",
+  "query_influence_matrix": {
+    "mean_diagonal_margin": -4.105,
+    "median_diagonal_margin": -3.01,
+    "correct_rank1_fraction": "10/30",
+    "mean_correct_rank": 2.0,
+    "corresponding_gain_on_swap": "33/60",
+    "mean_js_divergence_across_queries": 0.0003,
+    "greedy_corresponding_accuracy": "5/30",
+    "n_groups": 10
+  },
+  "entity_vs_ordinal_vs_pointer": {
+    "entity": "2/8",
+    "ordinal": "2/8",
+    "pointer": "2/8"
+  },
+  "recency_interventions": {
+    "query_near_answer": {
+      "rescued": "0/12",
+      "n_failing": 12
+    },
+    "fact_near_answer": {
+      "rescued": "0/12",
+      "n_failing": 12
+    },
+    "relevance_pointer": {
+      "rescued": "0/12",
+      "n_failing": 12
+    },
+    "distractor_removal": {
+      "rescued": "1/12",
+      "n_failing": 12
+    },
+    "query_duplication": {
+      "rescued": "0/12",
+      "n_failing": 12
+    }
+  },
+  "protected_retention_bank_dev": {
+    "single_fact": "12/20",
+    "tool_result": "10/20",
+    "copy": "20/20",
+    "protocol_transfer": "9/20"
+  },
+  "n_failing_items": 12,
+  "timestamp": "2026-08-23 01:51:42",
+  "source_commit": "4b6f261bc43895d7a65e218ee093f940505a1bdd"
+}

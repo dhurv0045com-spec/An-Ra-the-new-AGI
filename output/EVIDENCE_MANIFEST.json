@@ -1,6 +1,6 @@
 {
   "schema": "anra-evidence-manifest/v1",
-  "updated": "2026-08-23 00:56",
+  "updated": "2026-08-23 01:59",
   "labels": {
     "VALID": "trustworthy under its recorded conditions",
     "SUPERSEDED": "correct when produced, replaced by a better measurement",
@@ -170,6 +170,30 @@
       "label": "VALID",
       "reason": "query-focus child; predictions PR2-PR4 failed -> checkpoint REJECTED",
       "checkpoint": "anra-v4-20k-sft4-queryfocus.pt"
+    },
+    {
+      "path": "output/qim_anchor.json",
+      "label": "VALID",
+      "reason": "query influence matrix + interventions + retention",
+      "checkpoint": "anchor"
+    },
+    {
+      "path": "output/qim_accumulate.json",
+      "label": "VALID",
+      "reason": "same instruments",
+      "checkpoint": "anra-v4-20k-sft3-accumulate.pt"
+    },
+    {
+      "path": "output/qim_sft4.json",
+      "label": "VALID",
+      "reason": "same instruments on the rejected specialist",
+      "checkpoint": "anra-v4-20k-sft4-queryfocus.pt"
+    },
+    {
+      "path": "output/probe_result.json",
+      "label": "VALID",
+      "reason": "linear probe, underpowered (n=6) but directional",
+      "checkpoint": "anra-v4-20k-sft3-accumulate.pt"
     }
   ],
   "scoped_promotions": {
@@ -227,5 +251,15 @@
     "proposal": "tp-query-focus-001 (DIAGNOSTIC support, predictions pre-registered)",
     "verdict": "REJECTED (SPECIALIST at best): PR1 PASS (P0 0->6/10 on unseen vocab), PR2 FAIL (swap 2->4/18), PR3 FAIL (exact paired 1->2/12), PR4 FAIL (any-fact extraction 7->2/10 \u2014 narrow-training regression recurred)",
     "diagnosis_confirmed": "query-conditioned binding is the bottleneck; surface query recognition is trainable at this scale, query-keyed value retrieval is not established by ~50-update SFT"
+  },
+  "query_influence_verdict": {
+    "qim_sha_inputs": "output/qim_{anchor,accumulate,sft4}.json",
+    "finding": "diagonal margin -3.4..-4.1 nats; correct rank = chance (10/30, mean 2.0); JS divergence across queries ~0.0005 => the query essentially does not move the candidate-value distribution",
+    "ordinal_pointer": "ordinal and explicit-pointer queries fail identically to entity queries => NOT an entity-matching problem",
+    "recency_interventions": "query-near-answer 0/12, fact-near-answer 0-1/12, pointer 0-2/12, query duplication 0/12 => recency hypothesis WEAKENED (proximity does not rescue under competition); distractor removal best (5/12)",
+    "probe": "3-way target-index linear probe on answer-marker residual: 0.0 (control 0.33) => target-conditioned representation does not form (underpowered n=6 but consistent)",
+    "classification": "CASE F: deeper conditional representation primitive missing",
+    "h_match_status_correction": "H-match = currently unsupported by the existing hint, but NOT cleanly discriminated (ordinal/pointer failing equally is the stronger evidence against entity-specific matching failure)",
+    "verified_intervention_experiences": "NONE (best single-variable rescue 2/12 \u2014 not a reliable flip)"
   }
 }

@@ -1,0 +1,47 @@
+{
+  "label": "accumulate",
+  "query_influence_matrix": {
+    "mean_diagonal_margin": -3.913,
+    "median_diagonal_margin": -4.411,
+    "correct_rank1_fraction": "10/30",
+    "mean_correct_rank": 2.0,
+    "corresponding_gain_on_swap": "35/60",
+    "mean_js_divergence_across_queries": 0.0009,
+    "greedy_corresponding_accuracy": "7/30",
+    "n_groups": 10
+  },
+  "entity_vs_ordinal_vs_pointer": {
+    "entity": "4/8",
+    "ordinal": "5/8",
+    "pointer": "5/8"
+  },
+  "recency_interventions": {
+    "query_near_answer": {
+      "rescued": "0/12",
+      "n_failing": 12
+    },
+    "fact_near_answer": {
+      "rescued": "0/12",
+      "n_failing": 12
+    },
+    "relevance_pointer": {
+      "rescued": "2/12",
+      "n_failing": 12
+    },
+    "distractor_removal": {
+      "rescued": "5/12",
+      "n_failing": 12
+    },
+    "query_duplication": {
+      "rescued": "0/12",
+      "n_failing": 12
+    }
+  },
+  "protected_retention_bank_dev": {
+    "single_fact": "14/20",
+    "tool_result": "10/20",
+    "copy": "20/20",
+    "protocol_transfer": "12/20"
+  }
+}
+wrote output/qim_accumulate.json

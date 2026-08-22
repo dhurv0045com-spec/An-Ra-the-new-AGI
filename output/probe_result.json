@@ -1,0 +1,10 @@
+{
+  "model": "accumulate",
+  "probe": "3-way target-index from answer-marker residual (norm_f output)",
+  "train_groups": 8,
+  "test_groups": 2,
+  "n_test": 6,
+  "query_probe_accuracy": 0.0,
+  "chance": 0.333,
+  "no_query_control_accuracy": 0.333
+}

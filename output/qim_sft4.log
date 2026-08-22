@@ -1,0 +1,47 @@
+{
+  "label": "sft4",
+  "query_influence_matrix": {
+    "mean_diagonal_margin": -3.445,
+    "median_diagonal_margin": -3.749,
+    "correct_rank1_fraction": "10/30",
+    "mean_correct_rank": 2.0,
+    "corresponding_gain_on_swap": "41/60",
+    "mean_js_divergence_across_queries": 0.0006,
+    "greedy_corresponding_accuracy": "5/30",
+    "n_groups": 10
+  },
+  "entity_vs_ordinal_vs_pointer": {
+    "entity": "3/8",
+    "ordinal": "3/8",
+    "pointer": "3/8"
+  },
+  "recency_interventions": {
+    "query_near_answer": {
+      "rescued": "0/12",
+      "n_failing": 12
+    },
+    "fact_near_answer": {
+      "rescued": "1/12",
+      "n_failing": 12
+    },
+    "relevance_pointer": {
+      "rescued": "1/12",
+      "n_failing": 12
+    },
+    "distractor_removal": {
+      "rescued": "1/12",
+      "n_failing": 12
+    },
+    "query_duplication": {
+      "rescued": "0/12",
+      "n_failing": 12
+    }
+  },
+  "protected_retention_bank_dev": {
+    "single_fact": "15/20",
+    "tool_result": "10/20",
+    "copy": "20/20",
+    "protocol_transfer": "10/20"
+  }
+}
+wrote output/qim_sft4.json

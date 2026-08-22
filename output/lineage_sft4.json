@@ -4,10 +4,27 @@
   "support_type": "DIAGNOSTIC",
   "verdict": "REJECTED \u2014 PR4 regression (extraction 7->2/10); kept as SPECIALIST artifact",
   "predictions": {
-    "PR1": "PASS",
-    "PR2": "FAIL",
-    "PR3": "FAIL",
-    "PR4": "FAIL"
+    "PR1_P0_query_recognition": "PASS",
+    "PR2_query_swap_output_changed": "FAIL",
+    "PR3_exact_condition_paired": "FAIL",
+    "PR4_any_fact_extraction": "FAIL",
+    "PR5_protected_retention": "PASS"
   },
-  "timestamp": "2026-08-23 00:56:12"
+  "timestamp": "2026-08-23 00:56:12",
+  "PR5_evidence": {
+    "parent (accumulate)": {
+      "single_fact": "14/20",
+      "tool_result": "10/20",
+      "copy": "20/20",
+      "protocol_transfer": "12/20"
+    },
+    "child (sft4)": {
+      "single_fact": "15/20",
+      "tool_result": "10/20",
+      "copy": "20/20",
+      "protocol_transfer": "10/20"
+    },
+    "rule": "every protected family >= parent - 0.10",
+    "verdict": "single 15/20>=14/20-2, tool 10=10, copy 20=20, protocol 10/20 >= 12/20-2 (boundary)"
+  }
 }
