@@ -5,7 +5,8 @@
     "VALID": "trustworthy under its recorded conditions",
     "SUPERSEDED": "correct when produced, replaced by a better measurement",
     "INVALID": "methodologically broken; do not cite",
-    "INTERMEDIATE": "snapshot of an in-progress run, not a final capability claim"
+    "INTERMEDIATE": "snapshot of an in-progress run, not a final capability claim",
+    "DEVELOPMENT_ONLY": "evaluation whose results influenced later training; not blinded validation"
   },
   "artifacts": [
     {
@@ -118,7 +119,7 @@
     "PROMOTE_ACTIVE_MODEL": "requires CONNECTOR_READY plus general regression battery parity"
   },
   "current_status": {
-    "active_model": "step-200k parent remains the general active model; no child has been promoted to CONNECTOR_READY or ACTIVE",
+    "active_model": "step-20k parent remains the general active model; no child has been promoted to CONNECTOR_READY or ACTIVE",
     "context_binding_holder": "anra-v4-20k-sft-context-binding.pt (PROMOTE_CONTEXT_BINDING, pending regression battery breadth)"
   },
   "ood1_cf_audit": "A-family: 10/10 counterfactuals impure (fact order reshuffled); C-family: 8/8 pure",

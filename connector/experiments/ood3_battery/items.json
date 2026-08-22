@@ -1,0 +1,593 @@
+{
+  "answer_parsing": "strict single-code extraction for code tasks",
+  "counterfactual_purity": "byte-exact single-substring replacement",
+  "freeze_seed": 20260824,
+  "frozen_at": "2026-08-22 20:00",
+  "items": [
+    {
+      "all_codes": [
+        "QZM-507",
+        "RVT-563"
+      ],
+      "capability": "SEL_selective_binding",
+      "cf_gold": "YGB-129",
+      "cf_prompt": "Quicksand holds code YGB-129.\nGrotto holds code RVT-563.\nReturn ONLY the code for Quicksand.\nAnswer:",
+      "format": "paragraph",
+      "gold": "QZM-507",
+      "id": "SEL00-paragraph",
+      "n_facts": 2,
+      "prompt": "Quicksand holds code QZM-507.\nGrotto holds code RVT-563.\nReturn ONLY the code for Quicksand.\nAnswer:",
+      "target_position": 0,
+      "target_position_class": "first"
+    },
+    {
+      "all_codes": [
+        "TBK-162",
+        "WDP-576",
+        "YGB-578"
+      ],
+      "capability": "SEL_selective_binding",
+      "cf_gold": "SXL-667",
+      "cf_prompt": "Grotto holds code TBK-162.\nHayloft holds code SXL-667.\nInlet holds code YGB-578.\nReturn ONLY the code for Hayloft.\nAnswer:",
+      "format": "paragraph",
+      "gold": "WDP-576",
+      "id": "SEL01-paragraph",
+      "n_facts": 3,
+      "prompt": "Grotto holds code TBK-162.\nHayloft holds code WDP-576.\nInlet holds code YGB-578.\nReturn ONLY the code for Hayloft.\nAnswer:",
+      "target_position": 1,
+      "target_position_class": "middle"
+    },
+    {
+      "all_codes": [
+        "RVT-496",
+        "RVT-915",
+        "YGB-302",
+        "TBK-823"
+      ],
+      "capability": "SEL_selective_binding",
+      "cf_gold": "WDP-944",
+      "cf_prompt": "Jetty holds code RVT-496.\nHayloft holds code RVT-915.\nEscarpment2 holds code WDP-944.\nMoraine holds code TBK-823.\nReturn ONLY the code for Escarpment2.\nAnswer:",
+      "format": "paragraph",
+      "gold": "YGB-302",
+      "id": "SEL02-paragraph",
+      "n_facts": 4,
+      "prompt": "Jetty holds code RVT-496.\nHayloft holds code RVT-915.\nEscarpment2 holds code YGB-302.\nMoraine holds code TBK-823.\nReturn ONLY the code for Escarpment2.\nAnswer:",
+      "target_position": 2,
+      "target_position_class": "middle"
+    },
+    {
+      "all_codes": [
+        "XFJ-510",
+        "XFJ-741"
+      ],
+      "capability": "SEL_selective_binding",
+      "cf_gold": "UCN-606",
+      "cf_prompt": "item | code\nRampart | XFJ-510\nPalisade | UCN-606\n\nCode of Palisade, nothing else:\nAnswer:",
+      "format": "table",
+      "gold": "XFJ-741",
+      "id": "SEL03-table",
+      "n_facts": 2,
+      "prompt": "item | code\nRampart | XFJ-510\nPalisade | XFJ-741\n\nCode of Palisade, nothing else:\nAnswer:",
+      "target_position": 1,
+      "target_position_class": "last"
+    },
+    {
+      "all_codes": [
+        "SXL-848",
+        "SXL-720",
+        "QZM-911"
+      ],
+      "capability": "SEL_selective_binding",
+      "cf_gold": "UCN-184",
+      "cf_prompt": "item | code\nHayloft | SXL-848\nThe ferry runs twice a day.\nRampart | UCN-184\nJetty | QZM-911\n\nCode of Rampart, nothing else:\nAnswer:",
+      "format": "table",
+      "gold": "SXL-720",
+      "id": "SEL04-table",
+      "n_facts": 3,
+      "prompt": "item | code\nHayloft | SXL-848\nThe ferry runs twice a day.\nRampart | SXL-720\nJetty | QZM-911\n\nCode of Rampart, nothing else:\nAnswer:",
+      "target_position": 1,
+      "target_position_class": "middle"
+    },
+    {
+      "all_codes": [
+        "YGB-479",
+        "UCN-745",
+        "RVT-742",
+        "UCN-166"
+      ],
+      "capability": "SEL_selective_binding",
+      "cf_gold": "RVT-239",
+      "cf_prompt": "item | code\nDrumlin | YGB-479\nNightjar | UCN-745\nFlume | RVT-239\nMoraine | UCN-166\n\nCode of Flume, nothing else:\nAnswer:",
+      "format": "table",
+      "gold": "RVT-742",
+      "id": "SEL05-table",
+      "n_facts": 4,
+      "prompt": "item | code\nDrumlin | YGB-479\nNightjar | UCN-745\nFlume | RVT-742\nMoraine | UCN-166\n\nCode of Flume, nothing else:\nAnswer:",
+      "target_position": 2,
+      "target_position_class": "middle"
+    },
+    {
+      "all_codes": [
+        "YGB-548",
+        "YGB-254"
+      ],
+      "capability": "SEL_selective_binding",
+      "cf_gold": "XFJ-332",
+      "cf_prompt": "{\"Keystone\": \"XFJ-332\", \"Escarpment2\": \"YGB-254\"}\nGive the code value of Keystone.\nAnswer:",
+      "format": "json",
+      "gold": "YGB-548",
+      "id": "SEL06-json",
+      "n_facts": 2,
+      "prompt": "{\"Keystone\": \"YGB-548\", \"Escarpment2\": \"YGB-254\"}\nGive the code value of Keystone.\nAnswer:",
+      "target_position": 0,
+      "target_position_class": "first"
+    },
+    {
+      "all_codes": [
+        "TBK-496",
+        "SXL-865",
+        "TBK-352"
+      ],
+      "capability": "SEL_selective_binding",
+      "cf_gold": "TBK-540",
+      "cf_prompt": "{\"Causeway\": \"TBK-496\", \"Escarpment2\": \"TBK-540\", \"Keystone\": \"TBK-352\"}\nGive the code value of Escarpment2.\nAnswer:",
+      "format": "json",
+      "gold": "SXL-865",
+      "id": "SEL07-json",
+      "n_facts": 3,
+      "prompt": "{\"Causeway\": \"TBK-496\", \"Escarpment2\": \"SXL-865\", \"Keystone\": \"TBK-352\"}\nGive the code value of Escarpment2.\nAnswer:",
+      "target_position": 1,
+      "target_position_class": "middle"
+    },
+    {
+      "all_codes": [
+        "QZM-107",
+        "UCN-147",
+        "YGB-833",
+        "RVT-128"
+      ],
+      "capability": "SEL_selective_binding",
+      "cf_gold": "RVT-317",
+      "cf_prompt": "{\"Inlet\": \"RVT-317\", \"Drumlin\": \"UCN-147\", \"Quicksand\": \"YGB-833\", \"Jetty\": \"RVT-128\"}\nGive the code value of Inlet.\nAnswer:",
+      "format": "json",
+      "gold": "QZM-107",
+      "id": "SEL08-json",
+      "n_facts": 4,
+      "prompt": "{\"Inlet\": \"QZM-107\", \"Drumlin\": \"UCN-147\", \"Quicksand\": \"YGB-833\", \"Jetty\": \"RVT-128\"}\nGive the code value of Inlet.\nAnswer:",
+      "target_position": 0,
+      "target_position_class": "first"
+    },
+    {
+      "all_codes": [
+        "QZM-154",
+        "RVT-260"
+      ],
+      "capability": "SEL_selective_binding",
+      "cf_gold": "SXL-772",
+      "cf_prompt": "H: one code needed.\nLOG:\n- The committee meets on Thursdays.\n- Nightjar holds code QZM-154.\n- Hayloft holds code SXL-772.\nH: The code for Hayloft, please \u2014 just the code.\nANRA:",
+      "format": "dialogue",
+      "gold": "RVT-260",
+      "id": "SEL09-dialogue",
+      "n_facts": 2,
+      "prompt": "H: one code needed.\nLOG:\n- The committee meets on Thursdays.\n- Nightjar holds code QZM-154.\n- Hayloft holds code RVT-260.\nH: The code for Hayloft, please \u2014 just the code.\nANRA:",
+      "target_position": 1,
+      "target_position_class": "last"
+    },
+    {
+      "all_codes": [
+        "XFJ-751",
+        "WDP-772",
+        "XFJ-149"
+      ],
+      "capability": "SEL_selective_binding",
+      "cf_gold": "TBK-588",
+      "cf_prompt": "H: one code needed.\nLOG:\n- Causeway holds code XFJ-751.\n- Inlet holds code TBK-588.\n- Hayloft holds code XFJ-149.\nH: The code for Inlet, please \u2014 just the code.\nANRA:",
+      "format": "dialogue",
+      "gold": "WDP-772",
+      "id": "SEL10-dialogue",
+      "n_facts": 3,
+      "prompt": "H: one code needed.\nLOG:\n- Causeway holds code XFJ-751.\n- Inlet holds code WDP-772.\n- Hayloft holds code XFJ-149.\nH: The code for Inlet, please \u2014 just the code.\nANRA:",
+      "target_position": 1,
+      "target_position_class": "middle"
+    },
+    {
+      "all_codes": [
+        "QZM-165",
+        "RVT-102",
+        "SXL-839",
+        "RVT-252"
+      ],
+      "capability": "SEL_selective_binding",
+      "cf_gold": "QZM-345",
+      "cf_prompt": "H: one code needed.\nLOG:\n- Grotto holds code QZM-165.\n- Lintel2 holds code RVT-102.\n- Inlet holds code SXL-839.\n- Palisade holds code QZM-345.\nH: The code for Palisade, please \u2014 just the code.\nANRA:",
+      "format": "dialogue",
+      "gold": "RVT-252",
+      "id": "SEL11-dialogue",
+      "n_facts": 4,
+      "prompt": "H: one code needed.\nLOG:\n- Grotto holds code QZM-165.\n- Lintel2 holds code RVT-102.\n- Inlet holds code SXL-839.\n- Palisade holds code RVT-252.\nH: The code for Palisade, please \u2014 just the code.\nANRA:",
+      "target_position": 3,
+      "target_position_class": "last"
+    },
+    {
+      "all_codes": [
+        "XFJ-930",
+        "QZM-840"
+      ],
+      "capability": "SEL_selective_binding",
+      "cf_gold": "SXL-665",
+      "cf_prompt": "Grotto :: SXL-665\nRampart :: QZM-840\n\nValue for Grotto:\nAnswer:",
+      "format": "kv",
+      "gold": "XFJ-930",
+      "id": "SEL12-kv",
+      "n_facts": 2,
+      "prompt": "Grotto :: XFJ-930\nRampart :: QZM-840\n\nValue for Grotto:\nAnswer:",
+      "target_position": 0,
+      "target_position_class": "first"
+    },
+    {
+      "all_codes": [
+        "QZM-135",
+        "TBK-110",
+        "SXL-450"
+      ],
+      "capability": "SEL_selective_binding",
+      "cf_gold": "UCN-573",
+      "cf_prompt": "Quicksand :: QZM-135\nCauseway :: UCN-573\nBellfry :: SXL-450\n\nValue for Causeway:\nAnswer:",
+      "format": "kv",
+      "gold": "TBK-110",
+      "id": "SEL13-kv",
+      "n_facts": 3,
+      "prompt": "Quicksand :: QZM-135\nCauseway :: TBK-110\nBellfry :: SXL-450\n\nValue for Causeway:\nAnswer:",
+      "target_position": 1,
+      "target_position_class": "middle"
+    },
+    {
+      "all_codes": [
+        "UCN-594",
+        "RVT-783",
+        "UCN-893",
+        "QZM-622"
+      ],
+      "capability": "SEL_selective_binding",
+      "cf_gold": "QZM-896",
+      "cf_prompt": "Drumlin :: UCN-594\nGrotto :: RVT-783\nPalisade :: QZM-896\nThe ferry runs twice a day.\nMoraine :: QZM-622\n\nValue for Palisade:\nAnswer:",
+      "format": "kv",
+      "gold": "UCN-893",
+      "id": "SEL14-kv",
+      "n_facts": 4,
+      "prompt": "Drumlin :: UCN-594\nGrotto :: RVT-783\nPalisade :: UCN-893\nThe ferry runs twice a day.\nMoraine :: QZM-622\n\nValue for Palisade:\nAnswer:",
+      "target_position": 2,
+      "target_position_class": "middle"
+    },
+    {
+      "all_codes": [
+        "XFJ-143",
+        "TBK-422"
+      ],
+      "capability": "SEL_selective_binding",
+      "cf_gold": "YGB-559",
+      "cf_prompt": "REGISTRY\n* Moraine -> XFJ-143\n* Bellfry -> YGB-559\nQ: Code of Bellfry?\nA:",
+      "format": "mixed",
+      "gold": "TBK-422",
+      "id": "SEL15-mixed",
+      "n_facts": 2,
+      "prompt": "REGISTRY\n* Moraine -> XFJ-143\n* Bellfry -> TBK-422\nQ: Code of Bellfry?\nA:",
+      "target_position": 1,
+      "target_position_class": "last"
+    },
+    {
+      "all_codes": [
+        "WDP-538",
+        "RVT-390",
+        "XFJ-569"
+      ],
+      "capability": "SEL_selective_binding",
+      "cf_gold": "TBK-639",
+      "cf_prompt": "REGISTRY\n* Bellfry -> WDP-538\n* Quicksand -> TBK-639\n* Nightjar -> XFJ-569\nQ: Code of Quicksand?\nA:",
+      "format": "mixed",
+      "gold": "RVT-390",
+      "id": "SEL16-mixed",
+      "n_facts": 3,
+      "prompt": "REGISTRY\n* Bellfry -> WDP-538\n* Quicksand -> RVT-390\n* Nightjar -> XFJ-569\nQ: Code of Quicksand?\nA:",
+      "target_position": 1,
+      "target_position_class": "middle"
+    },
+    {
+      "all_codes": [
+        "YGB-140",
+        "SXL-846",
+        "UCN-740",
+        "SXL-663"
+      ],
+      "capability": "SEL_selective_binding",
+      "cf_gold": "TBK-931",
+      "cf_prompt": "REGISTRY\n* Nightjar -> YGB-140\n* Moraine -> SXL-846\n* Hayloft -> TBK-931\n* Keystone -> SXL-663\nQ: Code of Hayloft?\nA:",
+      "format": "mixed",
+      "gold": "UCN-740",
+      "id": "SEL17-mixed",
+      "n_facts": 4,
+      "prompt": "REGISTRY\n* Nightjar -> YGB-140\n* Moraine -> SXL-846\n* Hayloft -> UCN-740\n* Keystone -> SXL-663\nQ: Code of Hayloft?\nA:",
+      "target_position": 2,
+      "target_position_class": "middle"
+    },
+    {
+      "all_codes": [
+        "YGB-737",
+        "XFJ-953",
+        "TBK-907",
+        "UCN-252",
+        "UCN-920"
+      ],
+      "capability": "SEL_selective_binding",
+      "cf_gold": "WDP-168",
+      "cf_prompt": "Jetty holds code YGB-737.\nCauseway holds code XFJ-953.\nGrotto holds code TBK-907.\nMoraine holds code UCN-252.\nQuicksand holds code WDP-168.\nReturn ONLY the code for Quicksand.\nAnswer:",
+      "format": "paragraph",
+      "gold": "UCN-920",
+      "id": "SEL18-paragraph",
+      "n_facts": 5,
+      "prompt": "Jetty holds code YGB-737.\nCauseway holds code XFJ-953.\nGrotto holds code TBK-907.\nMoraine holds code UCN-252.\nQuicksand holds code UCN-920.\nReturn ONLY the code for Quicksand.\nAnswer:",
+      "target_position": 4,
+      "target_position_class": "last"
+    },
+    {
+      "all_codes": [
+        "XFJ-341",
+        "XFJ-321",
+        "SXL-120",
+        "UCN-566",
+        "WDP-349"
+      ],
+      "capability": "SEL_selective_binding",
+      "cf_gold": "TBK-237",
+      "cf_prompt": "item | code\nMoraine | XFJ-341\nEscarpment2 | XFJ-321\nKeystone | SXL-120\nCauseway | TBK-237\nGrotto | WDP-349\nSpare parts are stored downstairs.\n\nCode of Causeway, nothing else:\nAnswer:",
+      "format": "table",
+      "gold": "UCN-566",
+      "id": "SEL19-table",
+      "n_facts": 5,
+      "prompt": "item | code\nMoraine | XFJ-341\nEscarpment2 | XFJ-321\nKeystone | SXL-120\nCauseway | UCN-566\nGrotto | WDP-349\nSpare parts are stored downstairs.\n\nCode of Causeway, nothing else:\nAnswer:",
+      "target_position": 3,
+      "target_position_class": "middle"
+    },
+    {
+      "all_codes": [
+        "XFJ-354",
+        "YGB-125",
+        "UCN-371",
+        "SXL-149",
+        "WDP-687"
+      ],
+      "capability": "SEL_selective_binding",
+      "cf_gold": "TBK-557",
+      "cf_prompt": "Jetty :: XFJ-354\nHayloft :: YGB-125\nEscarpment2 :: TBK-557\nQuicksand :: SXL-149\nKeystone :: WDP-687\n\nValue for Escarpment2:\nAnswer:",
+      "format": "kv",
+      "gold": "UCN-371",
+      "id": "SEL20-kv",
+      "n_facts": 5,
+      "prompt": "Jetty :: XFJ-354\nHayloft :: YGB-125\nEscarpment2 :: UCN-371\nQuicksand :: SXL-149\nKeystone :: WDP-687\n\nValue for Escarpment2:\nAnswer:",
+      "target_position": 2,
+      "target_position_class": "middle"
+    },
+    {
+      "all_codes": [
+        "UCN-134",
+        "YGB-261",
+        "TBK-950",
+        "UCN-360",
+        "XFJ-950"
+      ],
+      "capability": "SEL_selective_binding",
+      "cf_gold": "QZM-126",
+      "cf_prompt": "{\"Palisade\": \"QZM-126\", \"Flume\": \"YGB-261\", \"Lintel2\": \"TBK-950\", \"Hayloft\": \"UCN-360\", \"Grotto\": \"XFJ-950\"}\nGive the code value of Palisade.\nAnswer:",
+      "format": "json",
+      "gold": "UCN-134",
+      "id": "SEL21-json",
+      "n_facts": 5,
+      "prompt": "{\"Palisade\": \"UCN-134\", \"Flume\": \"YGB-261\", \"Lintel2\": \"TBK-950\", \"Hayloft\": \"UCN-360\", \"Grotto\": \"XFJ-950\"}\nGive the code value of Palisade.\nAnswer:",
+      "target_position": 0,
+      "target_position_class": "first"
+    },
+    {
+      "all_codes": [
+        "WDP-617",
+        "RVT-415",
+        "RVT-513",
+        "SXL-699",
+        "UCN-148"
+      ],
+      "capability": "SEL_selective_binding",
+      "cf_gold": "UCN-190",
+      "cf_prompt": "H: one code needed.\nLOG:\n- Flume holds code UCN-190.\n- Hayloft holds code RVT-415.\n- Keystone holds code RVT-513.\n- Nightjar holds code SXL-699.\n- Inlet holds code UCN-148.\nH: The code for Flume, please \u2014 just the code.\nANRA:",
+      "format": "dialogue",
+      "gold": "WDP-617",
+      "id": "SEL22-dialogue",
+      "n_facts": 5,
+      "prompt": "H: one code needed.\nLOG:\n- Flume holds code WDP-617.\n- Hayloft holds code RVT-415.\n- Keystone holds code RVT-513.\n- Nightjar holds code SXL-699.\n- Inlet holds code UCN-148.\nH: The code for Flume, please \u2014 just the code.\nANRA:",
+      "target_position": 0,
+      "target_position_class": "first"
+    },
+    {
+      "all_codes": [
+        "UCN-275",
+        "YGB-262",
+        "RVT-270",
+        "TBK-887",
+        "QZM-731"
+      ],
+      "capability": "SEL_selective_binding",
+      "cf_gold": "YGB-996",
+      "cf_prompt": "REGISTRY\n* Bellfry -> UCN-275\n* Causeway -> YGB-262\n* Inlet -> RVT-270\n* Grotto -> YGB-996\n* Lintel2 -> QZM-731\nQ: Code of Grotto?\nA:",
+      "format": "mixed",
+      "gold": "TBK-887",
+      "id": "SEL23-mixed",
+      "n_facts": 5,
+      "prompt": "REGISTRY\n* Bellfry -> UCN-275\n* Causeway -> YGB-262\n* Inlet -> RVT-270\n* Grotto -> TBK-887\n* Lintel2 -> QZM-731\nQ: Code of Grotto?\nA:",
+      "target_position": 3,
+      "target_position_class": "middle"
+    },
+    {
+      "all_codes": [
+        "UCN-873",
+        "SXL-159",
+        "XFJ-275",
+        "UCN-390",
+        "UCN-325"
+      ],
+      "capability": "SEL_selective_binding",
+      "cf_gold": "WDP-756",
+      "cf_prompt": "Bellfry holds code UCN-873.\nThe ferry runs twice a day.\nQuicksand holds code SXL-159.\nCauseway holds code XFJ-275.\nKeystone holds code WDP-756.\nLintel2 holds code UCN-325.\nReturn ONLY the code for Keystone.\nAnswer:",
+      "format": "paragraph",
+      "gold": "UCN-390",
+      "id": "SEL24-paragraph",
+      "n_facts": 5,
+      "prompt": "Bellfry holds code UCN-873.\nThe ferry runs twice a day.\nQuicksand holds code SXL-159.\nCauseway holds code XFJ-275.\nKeystone holds code UCN-390.\nLintel2 holds code UCN-325.\nReturn ONLY the code for Keystone.\nAnswer:",
+      "target_position": 3,
+      "target_position_class": "middle"
+    },
+    {
+      "all_codes": [
+        "TBK-428",
+        "RVT-765",
+        "UCN-921",
+        "RVT-216",
+        "XFJ-855"
+      ],
+      "capability": "SEL_selective_binding",
+      "cf_gold": "RVT-601",
+      "cf_prompt": "item | code\nGrotto | TBK-428\nFlume | RVT-765\nBellfry | RVT-601\nInlet | RVT-216\nCauseway | XFJ-855\n\nCode of Bellfry, nothing else:\nAnswer:",
+      "format": "table",
+      "gold": "UCN-921",
+      "id": "SEL25-table",
+      "n_facts": 5,
+      "prompt": "item | code\nGrotto | TBK-428\nFlume | RVT-765\nBellfry | UCN-921\nInlet | RVT-216\nCauseway | XFJ-855\n\nCode of Bellfry, nothing else:\nAnswer:",
+      "target_position": 2,
+      "target_position_class": "middle"
+    },
+    {
+      "capability": "RET_single_fact",
+      "cf_gold": "WDP-208",
+      "cf_prompt": "The code for Escarpment2 is WDP-208. State the code.\nAnswer:",
+      "gold": "RVT-604",
+      "id": "RET1-00",
+      "prompt": "The code for Escarpment2 is RVT-604. State the code.\nAnswer:",
+      "strict": true
+    },
+    {
+      "capability": "RET_single_fact",
+      "cf_gold": null,
+      "cf_prompt": null,
+      "gold": "TBK-803",
+      "id": "RET1-01",
+      "prompt": "<k>Bellfry => TBK-803</k>\n<q>Report the code.</q>\n<answer>",
+      "strict": true
+    },
+    {
+      "capability": "RET_single_fact",
+      "cf_gold": "QZM-892",
+      "cf_prompt": "H: code for Palisade?\nLOG: Palisade = QZM-892\nANRA:",
+      "gold": "QZM-733",
+      "id": "RET1-02",
+      "prompt": "H: code for Palisade?\nLOG: Palisade = QZM-733\nANRA:",
+      "strict": true
+    },
+    {
+      "capability": "RET_single_fact",
+      "cf_gold": null,
+      "cf_prompt": null,
+      "gold": "XFJ-764",
+      "id": "RET1-03",
+      "prompt": "The code for Lintel2 is XFJ-764. State the code.\nAnswer:",
+      "strict": true
+    },
+    {
+      "capability": "RET_single_fact",
+      "cf_gold": "QZM-416",
+      "cf_prompt": "<k>Drumlin => QZM-416</k>\n<q>Report the code.</q>\n<answer>",
+      "gold": "QZM-180",
+      "id": "RET1-04",
+      "prompt": "<k>Drumlin => QZM-180</k>\n<q>Report the code.</q>\n<answer>",
+      "strict": true
+    },
+    {
+      "capability": "RET_single_fact",
+      "cf_gold": null,
+      "cf_prompt": null,
+      "gold": "UCN-518",
+      "id": "RET1-05",
+      "prompt": "H: code for Lintel2?\nLOG: Lintel2 = UCN-518\nANRA:",
+      "strict": true
+    },
+    {
+      "capability": "RET_copy",
+      "cf_gold": null,
+      "cf_prompt": null,
+      "gold": "lanyard",
+      "id": "RETC-00",
+      "prompt": "Reference word: lanyard\nRepeat the word verbatim.\nAnswer:",
+      "strict": false
+    },
+    {
+      "capability": "RET_copy",
+      "cf_gold": null,
+      "cf_prompt": null,
+      "gold": "plumbline",
+      "id": "RETC-01",
+      "prompt": "Reference word: plumbline\nRepeat the word verbatim.\nAnswer:",
+      "strict": false
+    },
+    {
+      "capability": "RET_copy",
+      "cf_gold": null,
+      "cf_prompt": null,
+      "gold": "grindstone",
+      "id": "RETC-02",
+      "prompt": "Reference word: grindstone\nRepeat the word verbatim.\nAnswer:",
+      "strict": false
+    },
+    {
+      "capability": "RET_copy",
+      "cf_gold": null,
+      "cf_prompt": null,
+      "gold": "casement",
+      "id": "RETC-03",
+      "prompt": "Reference word: casement\nRepeat the word verbatim.\nAnswer:",
+      "strict": false
+    },
+    {
+      "capability": "RET_tool_result",
+      "cf_gold": "SXL-312",
+      "cf_prompt": "Tool response: SXL-312\nReturn the exact response.\nAnswer:",
+      "gold": "TBK-871",
+      "id": "RETT-00",
+      "prompt": "Tool response: TBK-871\nReturn the exact response.\nAnswer:",
+      "strict": true
+    },
+    {
+      "capability": "RET_tool_result",
+      "cf_gold": "WDP-261",
+      "cf_prompt": "Tool response: WDP-261\nReturn the exact response.\nAnswer:",
+      "gold": "QZM-291",
+      "id": "RETT-01",
+      "prompt": "Tool response: QZM-291\nReturn the exact response.\nAnswer:",
+      "strict": true
+    },
+    {
+      "capability": "RET_tool_result",
+      "cf_gold": "YGB-972",
+      "cf_prompt": "Tool response: YGB-972\nReturn the exact response.\nAnswer:",
+      "gold": "XFJ-720",
+      "id": "RETT-02",
+      "prompt": "Tool response: XFJ-720\nReturn the exact response.\nAnswer:",
+      "strict": true
+    },
+    {
+      "capability": "RET_tool_result",
+      "cf_gold": "XFJ-271",
+      "cf_prompt": "Tool response: XFJ-271\nReturn the exact response.\nAnswer:",
+      "gold": "QZM-345",
+      "id": "RETT-03",
+      "prompt": "Tool response: QZM-345\nReturn the exact response.\nAnswer:",
+      "strict": true
+    }
+  ],
+  "schema": "anra-ood3-battery/v1"
+}
