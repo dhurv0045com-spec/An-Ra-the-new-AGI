@@ -88,10 +88,15 @@ def verify_pack(
     except (OSError, json.JSONDecodeError) as exc:
         raise PackVerificationError(f"unreadable manifest: {exc}") from exc
 
-    if manifest.get("schema") != "anra-token-pack/v1":
+    legacy_schema = manifest.get("schema") == "anra-token-pack/v1"
+    campaign_schema = (
+        manifest.get("schema_version") == 3
+        and manifest.get("pack_schema_version") == 1
+    )
+    if not (legacy_schema or campaign_schema):
         raise PackVerificationError(
-            f"unsupported pack schema {manifest.get('schema')!r}; "
-            "expected 'anra-token-pack/v1'"
+            "unsupported pack schema; expected anra-token-pack/v1 or "
+            "campaign schema_version=3, pack_schema_version=1"
         )
     shards = manifest.get("shards")
     if not isinstance(shards, list) or not shards:
@@ -102,7 +107,7 @@ def verify_pack(
     verified_token_counts: list[int] = []
     total_tokens = 0
     for entry in shards:
-        rel = str(entry.get("file", ""))
+        rel = str(entry.get("file") or entry.get("path") or "")
         expected_hash = str(entry.get("sha256", ""))
         declared_tokens = entry.get("tokens")
         if not rel or len(expected_hash) != 64:

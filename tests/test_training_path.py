@@ -110,6 +110,20 @@ def test_verified_pack_passes(pack_dir: Path) -> None:
     assert len(pack.shard_paths) == 2
 
 
+def test_campaign_v3_pack_manifest_passes(pack_dir: Path) -> None:
+    manifest_path = pack_dir / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest.pop("schema")
+    manifest["schema_version"] = 3
+    manifest["pack_schema_version"] = 1
+    for shard in manifest["shards"]:
+        shard["path"] = shard.pop("file")
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    pack = verify_pack(pack_dir)
+    assert pack.total_tokens == 10_000
+    assert pack.total_windows == 2 * ((5_000 - 1) // 256)
+
+
 def test_manifest_cannot_escape_pack_root(pack_dir: Path) -> None:
     manifest_path = pack_dir / "manifest.json"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
