@@ -241,7 +241,12 @@ def evaluate_checkpoint(label: str, path: str, *, legacy: bool, device: str = "c
                    "base_passed": base_ok}
             if item.get("cf_prompt"):
                 cf_out = _gen(ex, tok, item["cf_prompt"], profile)
-                cf_ok = _score(item, cf_out)
+                # Score the twin against the TWIN's gold. (An earlier version
+                # compared cf_out to the base gold — a scorer defect that
+                # produced false negatives; fixed and recomputed 2026-08-22.)
+                cf_ok = (_strict_code_match(cf_out, item["cf_gold"])
+                         if item.get("strict", True)
+                         else _match_word(cf_out, item["cf_gold"]))
                 rec.update({"cf_output": cf_out, "cf_passed": cf_ok,
                             "paired": base_ok and cf_ok,
                             "output_changed": out != cf_out})

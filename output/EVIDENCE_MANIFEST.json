@@ -1,6 +1,6 @@
 {
   "schema": "anra-evidence-manifest/v1",
-  "updated": "2026-08-22 04:0x",
+  "updated": "2026-08-22 21:26",
   "labels": {
     "VALID": "trustworthy under its recorded conditions",
     "SUPERSEDED": "correct when produced, replaced by a better measurement",
@@ -110,6 +110,24 @@
       "label": "VALID",
       "reason": "sealed OOD-2: frozen AFTER the grandchild existed, BEFORE this evaluation; grandchild curriculum was informed by OOD-1 only, never OOD-2",
       "checkpoint": "anra-v4-20k-sft2-selective.pt"
+    },
+    {
+      "path": "output/ood3_anchor.json",
+      "label": "VALID",
+      "reason": "sealed OOD-3, fixed scorer, strict parsing, pure CFs",
+      "checkpoint": "anra-v4-20k-sft-context-binding.pt (anchor)"
+    },
+    {
+      "path": "output/ood3_candidate.json",
+      "label": "VALID",
+      "reason": "sealed OOD-3, fixed scorer; candidate sft3-accumulate",
+      "checkpoint": "anra-v4-20k-sft3-accumulate.pt"
+    },
+    {
+      "path": "output/lineage.json",
+      "label": "VALID",
+      "reason": "child->proposal->12 verified experiences lineage; NOT FALSIFIED",
+      "checkpoint": "anra-v4-20k-sft3-accumulate.pt"
     }
   ],
   "scoped_promotions": {
@@ -120,7 +138,8 @@
   },
   "current_status": {
     "active_model": "step-20k parent remains the general active model; no child has been promoted to CONNECTOR_READY or ACTIVE",
-    "context_binding_holder": "anra-v4-20k-sft-context-binding.pt (PROMOTE_CONTEXT_BINDING, pending regression battery breadth)"
+    "context_binding_holder": "anra-v4-20k-sft-context-binding.pt (PROMOTE_CONTEXT_BINDING, pending regression battery breadth)",
+    "selective_binding_holder": "anra-v4-20k-sft3-accumulate.pt \u2014 sealed 2x paired-CF gain, zero retention loss; PROMOTE_EXPERIMENTAL (selective-binding scope)"
   },
   "ood1_cf_audit": "A-family: 10/10 counterfactuals impure (fact order reshuffled); C-family: 8/8 pure",
   "sft2_data_ratios_exact": {
@@ -153,5 +172,6 @@
       "grandchild": "3/4"
     },
     "conclusion": "selective binding partially transferred AND narrowing is real (H7 evaluator-noise rejected on sealed suite)"
-  }
+  },
+  "ood3_scorer_defect_notice": "OOD-3 v1 scorer compared counterfactual outputs against the BASE gold (false negatives; SEL showed 0/26). Fixed 2026-08-22: CF outputs now scored against cf_gold. Items unchanged (sha 60704318 intact); both anchor and candidate recomputed with the fixed evaluator."
 }

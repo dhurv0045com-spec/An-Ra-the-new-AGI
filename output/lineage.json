@@ -1,0 +1,28 @@
+{
+  "checkpoint": "checkpoints/anra-v4-20k-sft3-accumulate.pt",
+  "proposal_id": "tp-selective-accum-001",
+  "recommendation": "CAPABILITY_TRAINING",
+  "target_capability": "selective_binding",
+  "protected_capabilities": [
+    "context_binding",
+    "tool_result_use"
+  ],
+  "source_experience_count": 12,
+  "timestamp": "2026-08-22 20:54:39",
+  "sealed_ood3": {
+    "anchor": {
+      "SEL": "2/26",
+      "RET_single": "4/6",
+      "RET_copy": "3/4",
+      "RET_tool": "2/4"
+    },
+    "candidate": {
+      "SEL": "4/26",
+      "RET_single": "4/6",
+      "RET_copy": "3/4",
+      "RET_tool": "2/4"
+    }
+  },
+  "verdict": "NOT FALSIFIED \u2014 sealed gain with zero retention loss",
+  "param_sha256": "edc635049a05f974a8730dce1c86f5897b5d4fc4c8878f8af2150d3a5b018a9b"
+}

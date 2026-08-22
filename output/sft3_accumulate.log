@@ -1,0 +1,12 @@
+[data] exact composition: {"copy": 30, "single_fact": 45, "selective": 90, "selective_cf": 30, "tool_result": 30, "protocol_transfer": 24, "symbolic_ops": 30}
+[load] anchor C:/Users/ankit/An-Ra-the-new-AGI/checkpoints/anra-v4-20k-sft-context-binding.pt
+[dev-baseline] target=0.000 retention=0.633 detail={"selective": 0.0, "selective_cf": 0.0, "copy": 0.5, "single_fact": 0.5833333333333334, "tool_result": 0.7, "protocol_transfer": 0.75, "symbolic_ops": 0.1}
+  [eval @120] target=0.133 retention=0.810 eligible=True
+  [save] eligible best score=0.944 -> checkpoints/anra-v4-20k-sft3-accumulate.pt
+  [eval @240] target=0.133 retention=0.929 eligible=True
+  [save] eligible best score=1.062 -> checkpoints/anra-v4-20k-sft3-accumulate.pt
+  [eval @360] target=0.133 retention=0.873 eligible=True
+  [eval @414] target=0.267 retention=0.904 eligible=True
+  [save] eligible best score=1.171 -> checkpoints/anra-v4-20k-sft3-accumulate.pt
+[done] best={'step': 414, 'target': 0.267, 'retention': 0.904, 'param_sha256': 'edc635049a05f974a8730dce1c86f5897b5d4fc4c8878f8af2150d3a5b018a9b'} wall=275.9s
+[free] reserved=1552 MiB

@@ -25,6 +25,7 @@ Run:
 from __future__ import annotations
 
 import argparse
+from dataclasses import asdict
 import gc
 import hashlib
 import json
@@ -45,6 +46,9 @@ from training.sft_context_binding import encode_item, greedy_decode
 CODE_RE = re.compile(r"\b[A-Z]{3}-\d{3}\b")
 TARGET_FAMS = {"selective", "selective_cf"}
 RETENTION_FAMS = {"single_fact", "tool_result", "copy", "protocol_transfer", "symbolic_ops"}
+# Floors protect only what the CapabilityContract promotes. symbolic_composition
+# is BELOW_FLOOR by contract — monitored, never a blocker.
+PROTECTED_FAMS = {"single_fact", "tool_result", "copy", "protocol_transfer"}
 
 
 def _strict(out: str, gold: str) -> bool:
@@ -63,14 +67,38 @@ def _param_sha(model) -> str:
     return h.hexdigest()
 
 
+def _cf_twin(item: dict) -> dict | None:
+    """Deterministic counterfactual twin: same prompt, the answer value
+    replaced by a fresh code (byte-exact single replacement)."""
+    gold = item["answer"]
+    if not CODE_RE.fullmatch(gold) or item["prompt"].count(gold) != 1:
+        return None
+    new = "ZQX-" + str(700 + (hash(gold) % 200))
+    return {"prompt": item["prompt"].replace(gold, new), "answer": new}
+
+
 def _dev_eval(model, tok, dev_items) -> dict[str, float]:
-    """Per-capability greedy accuracy on dev items (strict parsing)."""
+    """Per-capability greedy accuracy on dev items (strict parsing).
+
+    The selective score is CAUSAL: an item passes only if the base answer is
+    right AND its counterfactual twin (value swapped, bytes otherwise
+    identical) flips to the new value. Positional heuristics cannot pass it —
+    this is the anti-self-deception metric born from the label-shift lesson:
+    training loss is not behavior.
+    """
     model.eval()
     scores: dict[str, list[int]] = {}
     with torch.no_grad():
         for it in dev_items:
-            out = greedy_decode(model, tok, it["prompt"], max_new_tokens=10)
-            scores.setdefault(it["family"], []).append(1 if _strict(out, it["answer"]) else 0)
+            fam = it["family"]
+            ok = _strict(greedy_decode(model, tok, it["prompt"], max_new_tokens=10),
+                         it["answer"])
+            twin = _cf_twin(it)
+            if fam.startswith("selective") and twin is not None:
+                ok = ok and _strict(
+                    greedy_decode(model, tok, twin["prompt"], max_new_tokens=10),
+                    twin["answer"])
+            scores.setdefault(fam, []).append(1 if ok else 0)
     model.train()
     return {f: sum(v) / len(v) for f, v in scores.items()}
 
@@ -102,28 +130,33 @@ def main() -> None:
     target = [i for i in items if i["family"] in TARGET_FAMS]
     retention = [i for i in items if i["family"] in RETENTION_FAMS]
     rng = random.Random(args.seed)
-    dev = rng.sample(target, 24) + rng.sample(retention, 24)
-    train_target = [i for i in target if i not in dev]
-    train_ret = [i for i in retention if i not in dev]
+    # Group-safe stratified dev split: every family represented, no family
+    # emptied by sampling. 30% per family, min 4, max 12 items.
+    dev: list[dict] = []
+    for fam_pool in (target, retention):
+        by_fam: dict[str, list[dict]] = {}
+        for it in fam_pool:
+            by_fam.setdefault(it["family"], []).append(it)
+        for fam, pool in by_fam.items():
+            rng.shuffle(pool)
+            dev.extend(pool[:min(12, max(4, len(pool) // 3))])
+    dev_ids = {id(x) for x in dev}
+    train_target = [i for i in target if id(i) not in dev_ids]
+    train_ret = [i for i in retention if id(i) not in dev_ids]
 
     print(f"[load] anchor {args.anchor}", flush=True)
     model, _, identity = load_core_checkpoint(args.anchor, legacy_unverified=True)
     model = model.to(device).train()
     tok = V4Tokenizer.load_canonical()
 
-    # Verifier-filtered anchor set: retention prompts where the anchor is
-    # demonstrably correct (greedy matches gold) — distill success only.
-    anchor_prompts = []
+    # Anchor KL is fail-closed: a true teacher forward requires a frozen
+    # second model copy which this harness intentionally does not load yet
+    # (gradient evidence says replay first). Refuse rather than fake it.
     if args.beta > 0:
-        model.eval()
-        with torch.no_grad():
-            for it in train_ret:
-                if _strict(greedy_decode(model, tok, it["prompt"], max_new_tokens=10), it["answer"]):
-                    anchor_prompts.append(it)
-        model.train()
-        print(f"[anchor] verified-correct anchor prompts: {len(anchor_prompts)}/{len(train_ret)}", flush=True)
-        anchor_encoded = [encode_item(tok, it) for it in anchor_prompts]
-
+        raise NotImplementedError(
+            "anchor KL (beta>0) requires a frozen teacher forward; not "
+            "implemented — run replay-only (beta=0), which the gradient-"
+            "conflict evidence (cos=+0.17) recommends first")
     opt = torch.optim.AdamW(model.parameters(), lr=args.lr, betas=(0.9, 0.95), weight_decay=0.0)
     enc_t = [encode_item(tok, it) for it in train_target]
     enc_r = [encode_item(tok, it) for it in train_ret]
@@ -132,7 +165,7 @@ def main() -> None:
     steps_total = int(len(mixed) * args.epochs)
     baseline_dev = _dev_eval(model, tok, dev)
     baseline_target = (baseline_dev.get("selective", 0) + baseline_dev.get("selective_cf", 0)) / 2
-    baseline_ret = sum(baseline_dev.get(f, 0) for f in RETENTION_FAMS) / len(RETENTION_FAMS)
+    baseline_ret = sum(baseline_dev.get(f, 0) for f in PROTECTED_FAMS) / len(PROTECTED_FAMS)
     print(f"[dev-baseline] target={baseline_target:.3f} retention={baseline_ret:.3f} "
           f"detail={json.dumps(baseline_dev)}", flush=True)
 
@@ -152,24 +185,22 @@ def main() -> None:
                 labels.view(-1).to(device), ignore_index=-100)
             (loss / args.accum).backward()
             step += 1
-        if args.beta > 0 and anchor_encoded:
-            (a_ids, a_labels) = anchor_encoded[(step // args.accum) % len(anchor_encoded)]
-            with torch.no_grad():
-                anchor_logits = model(a_ids.to(device))  # same weights: placeholder
-            # NOTE: true anchor KL requires a frozen teacher forward; when
-            # beta>0 the runner loads a second copy (see docs) — kept off by
-            # default per diagnostics (cos>0: replay suffices first).
-            del anchor_logits
         torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
         opt.step()
 
         if step % args.eval_every < args.accum or step >= steps_total:
             dev_scores = _dev_eval(model, tok, dev)
             tgt = (dev_scores.get("selective", 0) + dev_scores.get("selective_cf", 0)) / 2
-            ret = sum(dev_scores.get(f, 0) for f in RETENTION_FAMS) / len(RETENTION_FAMS)
-            eligible = (tgt > baseline_target) and (ret >= args.retention_floor)
+            ret = sum(dev_scores.get(f, 0) for f in PROTECTED_FAMS) / len(PROTECTED_FAMS)
+            # Per-capability floors over PROTECTED families only (contract
+            # scope); one collapsed protected capability cannot hide behind
+            # the average, and unprotected growth axes never block.
+            fam_floors = {f: dev_scores.get(f, 0) >= 0.6 for f in PROTECTED_FAMS}
+            eligible = ((tgt > baseline_target) and (ret >= args.retention_floor)
+                        and all(fam_floors.values()))
             row = {"step": step, "updates": step // args.accum,
                    "target_acc": round(tgt, 3), "retention_acc": round(ret, 3),
+                   "per_family_floors": fam_floors,
                    "eligible": eligible, "dev": {k: round(v, 3) for k, v in dev_scores.items()}}
             trajectory.append(row)
             print(f"  [eval @{step}] target={tgt:.3f} retention={ret:.3f} "
@@ -192,7 +223,7 @@ def main() -> None:
                     "training_stage": "accumulation_selective_balanced",
                     "source_commit": commit,
                     "source_checkpoint": str(args.anchor),
-                    "model_config": CANONICAL_CONFIG.__dict__,
+                    "model_config": asdict(CANONICAL_CONFIG),
                     "model_state_dict": state,
                     "tokenizer_contract": {"available": True, **tok.identity()},
                     "metrics": {"dev_target": tgt, "dev_retention": ret,

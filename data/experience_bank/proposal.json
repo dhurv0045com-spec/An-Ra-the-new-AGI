@@ -1,0 +1,42 @@
+{
+  "competing_hypotheses": [
+    "H2: capability exists but format hides it (rejected: GEN 4/4 at child)",
+    "H3: selection works but token fidelity fails (E last-digit errors)",
+    "H5: selection objective pushes into narrow basin (embedding drift 2x)"
+  ],
+  "falsification_condition": "sealed OOD-3: SEL fails to beat 4/12-equivalent OR any protected capability drops below floor",
+  "hypothesis": "grandchild gained SEL 0->4/12 but regressed retention; gradient cos=+0.17 says under-sampled rehearsal (14.3%) and prose-only narrowing, not conflict => balanced multi-format replay retains",
+  "min_training_change": {
+    "epochs": 2,
+    "lr": 3e-05,
+    "objective": "masked LM, balanced replay",
+    "trainable_scope": "all"
+  },
+  "proposal_id": "tp-selective-accum-001",
+  "protected_by_contract": "52bb67bf2ca8f7e7",
+  "protected_capabilities": [
+    "context_binding",
+    "tool_result_use"
+  ],
+  "recommendation": "CAPABILITY_TRAINING",
+  "replay_mix": {
+    "retention": 0.569,
+    "target": 0.431
+  },
+  "source_experience_ids": [
+    "ve-sel04-table",
+    "ve-sel05-json",
+    "ve-sel06-json",
+    "ve-ret1-00",
+    "ve-ret1-01",
+    "ve-retc-02",
+    "ve-retc-03",
+    "ve-rett-00",
+    "ve-rett-03",
+    "ve-gen-csv",
+    "ve-gen-bold",
+    "ve-gen-paren"
+  ],
+  "target_capability": "selective_binding",
+  "timestamp": "2026-08-22 20:54:39"
+}
