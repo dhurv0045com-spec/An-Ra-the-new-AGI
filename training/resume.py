@@ -152,6 +152,7 @@ def prepare_training_state(
     expected_resume_step: int,
     resume_mode: str = "new_pack_parent",
     current_pack_manifest_sha256: str | None = None,
+    allow_legacy_checkpoint: bool = False,
 ) -> PreparedTrainingState:
     """CPU-testable pre-XLA orchestration: construct → attach → restore.
 
@@ -177,6 +178,7 @@ def prepare_training_state(
         restored = restore_training_state(
             str(parent_checkpoint), model, optimizer, mode=resume_mode,
             current_pack_manifest_sha256=current_pack_manifest_sha256,
+            allow_legacy_checkpoint=allow_legacy_checkpoint,
         )
         # P0-4: explicit minimum-step check on REAL restored metadata.
         if restored.global_step < expected_resume_step:
@@ -257,11 +259,15 @@ class RestoredTrainingState:
     lr_schedule: dict | None
 
 
-def _load_payload(resume_from: str) -> tuple[dict[str, "torch.Tensor"], dict]:
+def _load_payload(
+    resume_from: str, *, allow_legacy_checkpoint: bool = False
+) -> tuple[dict[str, "torch.Tensor"], dict]:
     """Load once through the strict, weights-only checkpoint boundary."""
     from anra_core.checkpoint import load_core_checkpoint
 
-    loaded_model, payload, identity = load_core_checkpoint(resume_from)
+    loaded_model, payload, identity = load_core_checkpoint(
+        resume_from, legacy_unverified=allow_legacy_checkpoint
+    )
     if identity.artifact_class != "full_resume":
         raise RuntimeError("resume checkpoint must be a full_resume artifact")
     schema = int(identity.artifact_schema_version or 0)
@@ -281,6 +287,7 @@ def restore_training_state(
     *,
     mode: str = RESUME_SAME_PACK,
     current_pack_manifest_sha256: str | None = None,
+    allow_legacy_checkpoint: bool = False,
 ) -> RestoredTrainingState:
     """Restore checkpoint INTO the caller's model and prove it took effect.
 
@@ -293,7 +300,9 @@ def restore_training_state(
     """
     import torch
 
-    state, payload = _load_payload(resume_from)
+    state, payload = _load_payload(
+        resume_from, allow_legacy_checkpoint=allow_legacy_checkpoint
+    )
 
     # Install into the CALLER's model and prove installation per tensor.
     model.load_state_dict(state, strict=True)

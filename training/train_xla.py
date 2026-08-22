@@ -175,6 +175,7 @@ def preflight(
     vocab_size: int,
     expected_resume_step: int = 0,
     start_new_pack: bool = False,
+    allow_legacy_resume: bool = False,
 ) -> dict[str, Any]:
     """Fail-closed validation on CPU before any TPU worker spawns.
 
@@ -214,6 +215,7 @@ def preflight(
             str(checkpoint_path), probe_model, probe_optimizer,
             mode="new_pack_parent" if start_new_pack else "same_pack",
             current_pack_manifest_sha256=pack.manifest_sha256,
+            allow_legacy_checkpoint=allow_legacy_resume,
         )
         if restored.global_step < expected_resume_step:
             raise RuntimeError(
@@ -519,6 +521,7 @@ def _worker(index: int, config: dict[str, object]) -> None:
             "new_pack_parent" if bool(config.get("start_new_pack")) else "same_pack"
         ),
         current_pack_manifest_sha256=str(config["pack_manifest_sha256"]),
+        allow_legacy_checkpoint=bool(config.get("allow_legacy_resume")),
     )
     model = prepared.model
     optimizer = prepared.optimizer
@@ -881,6 +884,7 @@ def run(args: argparse.Namespace) -> None:
         vocab_size=CANONICAL_CONFIG.vocab_size,
         expected_resume_step=args.expected_resume_step,
         start_new_pack=args.start_new_pack,
+        allow_legacy_resume=args.allow_legacy_resume,
     )
     if identity_block["parent_checkpoint_schema"] in {1, 9} and not args.allow_legacy_resume:
         raise ValueError(

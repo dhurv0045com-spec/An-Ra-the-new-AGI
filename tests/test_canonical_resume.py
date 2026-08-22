@@ -45,7 +45,9 @@ def _build_pack(tmp_path, total_tokens: int = 8_192, block_size: int = None):
     return pack
 
 
-def _build_parent(tmp_path, updates: int = 3, lr: float = 1e-3):
+def _build_parent(
+    tmp_path, updates: int = 3, lr: float = 1e-3, *, legacy_contract: bool = False
+):
     """A parent checkpoint whose optimizer holds REAL Adam moments."""
     model = AnRaCore(CANONICAL_CONFIG)
     optimizer = torch.optim.AdamW(model.parameters(), lr=lr, betas=(0.9, 0.95))
@@ -63,7 +65,11 @@ def _build_parent(tmp_path, updates: int = 3, lr: float = 1e-3):
         "global_step": 20_000,
         "model_state_dict": model.state_dict(),
         "optimizer_state_dict": optimizer.state_dict(),
-        "tokenizer_contract": {"available": True, **tok.identity(probe_count=500)},
+        "tokenizer_contract": (
+            tok.identity(probe_count=500)
+            if legacy_contract
+            else {"available": True, **tok.identity(probe_count=500)}
+        ),
         "metrics": {},
     }
     path = tmp_path / "parent_step20k.pt"
@@ -286,3 +292,26 @@ def test_preflight_accepts_valid_pack_and_parent(tmp_path) -> None:
     assert block["parent_global_step"] == 20_000
     assert block["pack_manifest_sha256"]
     assert block["pack_windows"] > 0
+
+
+def test_preflight_honors_explicit_legacy_checkpoint_authorization(tmp_path) -> None:
+    from anra_core.errors import RepresentationIncompatibleError
+    from training.train_xla import preflight
+
+    pack = _build_pack(tmp_path)
+    parent, _model, _optimizer = _build_parent(tmp_path, legacy_contract=True)
+    kwargs = {
+        "dataset_path": pack,
+        "checkpoint_path": parent,
+        "block_size": CANONICAL_CONFIG.block_size,
+        "vocab_size": CANONICAL_CONFIG.vocab_size,
+        "expected_resume_step": 20_000,
+        "start_new_pack": True,
+    }
+    with pytest.raises(RepresentationIncompatibleError):
+        preflight(**kwargs)
+
+    identity = preflight(**kwargs, allow_legacy_resume=True)
+    assert identity["parent_global_step"] == 20_000
+    assert identity["parent_checkpoint_schema"] == 1
+    assert identity["parent_optimizer_restored"] is True

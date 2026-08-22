@@ -20,7 +20,9 @@ from anra_core.model import AnRaCore
 from anra_core.tokenizer import V4Tokenizer
 
 
-def _build_parent(tmp_path, updates: int = 2, schema_version: int = 1):
+def _build_parent(
+    tmp_path, updates: int = 2, schema_version: int = 1, *, legacy_contract: bool = False
+):
     model = AnRaCore(CANONICAL_CONFIG)
     optimizer = torch.optim.AdamW(model.parameters(), lr=1e-3, betas=(0.9, 0.95))
     for _ in range(updates):
@@ -35,7 +37,11 @@ def _build_parent(tmp_path, updates: int = 2, schema_version: int = 1):
         "global_step": 20_000,
         "model_state_dict": model.state_dict(),
         "optimizer_state_dict": optimizer.state_dict(),
-        "tokenizer_contract": {"available": True, **tok.identity(probe_count=500)},
+        "tokenizer_contract": (
+            tok.identity(probe_count=500)
+            if legacy_contract
+            else {"available": True, **tok.identity(probe_count=500)}
+        ),
     }
     path = tmp_path / "parent.pt"
     torch.save(payload, path)
@@ -78,6 +84,30 @@ def test_prepare_training_state_restores_model_and_moments(tmp_path) -> None:
     assert prepared.source_checkpoint == str(parent_path)
     assert prepared.resume_mode == "new_pack_parent"
     assert prepared.checkpoint_schema_version == 9
+
+
+def test_legacy_contract_requires_and_honors_explicit_authorization(tmp_path) -> None:
+    from anra_core.errors import RepresentationIncompatibleError
+    from training.resume import prepare_training_state
+
+    parent_path, _model, _opt = _build_parent(
+        tmp_path, schema_version=9, legacy_contract=True
+    )
+    kwargs = {
+        "parent_checkpoint": str(parent_path),
+        "model_config": CANONICAL_CONFIG,
+        "learning_rate": 1e-3,
+        "weight_decay": 0.1,
+        "expected_resume_step": 20_000,
+        "resume_mode": "new_pack_parent",
+    }
+    with pytest.raises(RepresentationIncompatibleError):
+        prepare_training_state(**kwargs)
+
+    prepared = prepare_training_state(**kwargs, allow_legacy_checkpoint=True)
+    assert prepared.global_step == 20_000
+    assert prepared.checkpoint_schema_version == 9
+    assert prepared.optimizer_restored
 
 
 def test_prepare_training_state_enforces_expected_resume_step(tmp_path) -> None:
