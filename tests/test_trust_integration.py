@@ -8,9 +8,6 @@ These test the executable path, not helpers:
 - family gates prevent blocked families from executing
 """
 
-import json
-
-import numpy as np
 import pytest
 import torch
 
@@ -20,12 +17,21 @@ from training.resume import resolve_pack_horizon
 def _make_checkpoint(tmp_path, name: str, marker_delta: float = 0.0):
     from anra_core.config import CANONICAL_CONFIG
     from anra_core.model import AnRaCore
+    from anra_core.tokenizer import V4Tokenizer
 
     model = AnRaCore(CANONICAL_CONFIG)
     state = model.state_dict()
     if marker_delta:
         probe = "blocks.0.norm_1.weight"
         state[probe] = state[probe] + marker_delta
+    optimizer = torch.optim.AdamW(model.parameters(), lr=1e-3)
+    first_parameter = next(model.parameters())
+    optimizer.state[first_parameter] = {
+        "step": torch.tensor(1.0),
+        "exp_avg": torch.zeros_like(first_parameter),
+        "exp_avg_sq": torch.zeros_like(first_parameter),
+    }
+    tokenizer = V4Tokenizer.load_canonical()
     payload = {
         "checkpoint_artifact_class": "full_resume",
         "checkpoint_schema_version": 1,
@@ -33,6 +39,11 @@ def _make_checkpoint(tmp_path, name: str, marker_delta: float = 0.0):
         "pack_step": 1_000,
         "pack_manifest_sha256": "a" * 64,
         "model_state_dict": state,
+        "optimizer_state_dict": optimizer.state_dict(),
+        "tokenizer_contract": {
+            "available": True,
+            **tokenizer.identity(probe_count=500),
+        },
         "metrics": {},
     }
     path = tmp_path / name
@@ -46,7 +57,6 @@ def test_resume_installs_checkpoint_weights_into_caller_model(tmp_path) -> None:
     from anra_core.config import CANONICAL_CONFIG
     from anra_core.model import AnRaCore
     from training.resume import RESUME_SAME_PACK as SAME_PACK
-    from training.resume import RESUME_NEW_PACK_PARENT as NEW_PACK_PARENT
     from training.resume import restore_training_state as _restore_training_state
 
     ckpt_path, ckpt_state = _make_checkpoint(tmp_path, "parent.pt", marker_delta=0.5)
@@ -77,7 +87,6 @@ def test_same_pack_resume_refuses_different_pack_identity(tmp_path) -> None:
     from anra_core.config import CANONICAL_CONFIG
     from anra_core.model import AnRaCore
     from training.resume import RESUME_SAME_PACK as SAME_PACK
-    from training.resume import RESUME_NEW_PACK_PARENT as NEW_PACK_PARENT
     from training.resume import restore_training_state as _restore_training_state
 
     ckpt_path, _state = _make_checkpoint(tmp_path, "p.pt")
@@ -95,7 +104,6 @@ def test_same_pack_resume_refuses_unverifiable_pack_step(tmp_path) -> None:
     from anra_core.config import CANONICAL_CONFIG
     from anra_core.model import AnRaCore
     from training.resume import RESUME_SAME_PACK as SAME_PACK
-    from training.resume import RESUME_NEW_PACK_PARENT as NEW_PACK_PARENT
     from training.resume import restore_training_state as _restore_training_state
 
     ckpt_path, _ = _make_checkpoint(tmp_path, "p.pt")
@@ -112,7 +120,6 @@ def test_same_pack_resume_refuses_unverifiable_pack_step(tmp_path) -> None:
 def test_new_pack_parent_resets_pack_step(tmp_path) -> None:
     from anra_core.config import CANONICAL_CONFIG
     from anra_core.model import AnRaCore
-    from training.resume import RESUME_SAME_PACK as SAME_PACK
     from training.resume import RESUME_NEW_PACK_PARENT as NEW_PACK_PARENT
     from training.resume import restore_training_state as _restore_training_state
 

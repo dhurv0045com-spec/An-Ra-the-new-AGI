@@ -4,7 +4,7 @@ Covers:
 - prepare_training_state (the canonical pre-XLA lifecycle)
 - real recovery/candidate checkpoint writers from train_xla
 - pack_max_steps semantics (global vs pack steps can never collide)
-- receipt schedule identity matches the actual CosineSchedule
+- receipt schedule identity matches the actual pack-bound WSD schedule
 - non-finite guards exist for loss/grad_norm/lr
 - notebook Run-All symbol resolution
 """
@@ -12,7 +12,6 @@ Covers:
 import hashlib
 import json
 
-import numpy as np
 import pytest
 import torch
 
@@ -167,6 +166,24 @@ def test_recovery_payload_via_checkpoint_payload_function(tmp_path) -> None:
     assert isinstance(payload["optimizer_state_dict"], dict) and payload["optimizer_state_dict"]
     assert payload["trainer_state"]["schema"] == "anra-training-state/v2"
 
+    from training.wsd_scheduler import PackWsdSchedule
+
+    wsd_payload = _checkpoint_payload(
+        model, optimizer,
+        model_config=CANONICAL_CONFIG,
+        training_config=training_config,
+        tokenizer=tok, step=100, metrics={"loss": 1.9},
+        source_checkpoint="parent.pt", world_size=8,
+        training_state={
+            **trainer_state,
+            "pack_step": 10,
+            "pack_manifest_sha256": "d" * 64,
+        },
+        schedule=PackWsdSchedule(base_lr=2e-4, total_steps=100),
+    )
+    assert wsd_payload["checkpoint_schema_version"] == 3
+    assert wsd_payload["lr_schedule"]["name"] == "wsd_pack_v1"
+
     # Round trip: saved tensors hash to the recorded canonical SHA.
     path = tmp_path / "rec.pt"
     torch.save(payload, path)
@@ -207,7 +224,7 @@ def test_pack_max_steps_semantics_with_global_20k_parent() -> None:
 # --------------------------------------------------------------------------
 
 
-def test_receipt_schedule_identity_is_the_actual_cosine_schedule(tmp_path) -> None:
+def test_receipt_schedule_identity_is_pack_bound_wsd(tmp_path) -> None:
     from training.train_xla import write_run_receipt
 
     identity_block = {"pack_manifest_sha256": "a" * 64, "parent_global_step": 20_000}
@@ -218,20 +235,9 @@ def test_receipt_schedule_identity_is_the_actual_cosine_schedule(tmp_path) -> No
     )
     receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
     assert isinstance(receipt["schedule"], dict), "schedule must be structured, not prose"
-    assert receipt["schedule"]["name"] == "cosine_continuation_v1"
+    assert receipt["schedule"]["name"] == "wsd_pack_v1"
     params = receipt["schedule"]["parameters"]
-    assert params["base_lr"] == 2e-4 and params["decay_steps"] == 1_000_000
-
-    # Cross-check against the actual scheduler implementation.
-    from training.state import CosineSchedule
-
-    schedule = CosineSchedule(
-        base_lr=params["base_lr"],
-        min_lr=params["base_lr"] * params["min_lr_ratio"],
-        origin_step=params["origin_step"],
-        decay_steps=params["decay_steps"],
-    )
-    assert schedule.to_dict()["name"] == receipt["schedule"]["name"]
+    assert params["base_lr"] == 2e-4 and params["min_lr_ratio"] == 0.1
 
 
 # --------------------------------------------------------------------------

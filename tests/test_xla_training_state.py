@@ -145,6 +145,7 @@ def test_global_gradient_clipping_and_lineage_defaults() -> None:
 
     args = parse_args(["--dataset-path", "data", "--output-checkpoint", "out.pt"])
     assert args.expected_resume_step == 20_000
-    assert args.grad_accum_steps == 1
+    assert args.grad_accum_steps == 8
+    assert args.max_steps == 0
     assert args.require_world_size == 8
     assert args.gradient_checkpointing is True

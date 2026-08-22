@@ -135,15 +135,19 @@ def validate_full_resume(payload: dict[str, Any], *, minimum_step: int) -> int:
     if not isinstance(payload.get("optimizer_state_dict"), dict):
         raise ValueError("resume checkpoint is missing optimizer_state_dict")
     schema_version = payload.get("checkpoint_schema_version")
-    if schema_version not in {1, 2}:
+    if schema_version not in {1, 2, 3}:
         raise ValueError(f"unsupported full-resume schema version: {schema_version!r}")
-    if schema_version == 2:
+    if schema_version in {2, 3}:
         trainer_state = payload.get("trainer_state")
         schedule = payload.get("lr_schedule")
         if not isinstance(trainer_state, dict) or trainer_state.get("schema") != "anra-training-state/v2":
             raise ValueError("schema-v2 checkpoint is missing valid trainer_state")
-        if not isinstance(schedule, dict) or schedule.get("name") != "cosine_continuation_v1":
-            raise ValueError("schema-v2 checkpoint is missing its cosine LR schedule")
+        schedule_names = {2: "cosine_continuation_v1", 3: "wsd_pack_v1"}
+        if not isinstance(schedule, dict) or schedule.get("name") != schedule_names[schema_version]:
+            raise ValueError(
+                f"schema-v{schema_version} checkpoint is missing its "
+                f"{schedule_names[schema_version]} LR schedule"
+            )
     step = payload.get("global_step")
     if not isinstance(step, int) or step < minimum_step:
         raise ValueError(
@@ -172,11 +176,17 @@ def build_training_state(
     attention_chunk_size: int,
     gradient_checkpointing: bool,
     gradient_clip_norm: float,
+    pack_step: int = 0,
     precision: str = "bf16",
+    pack_manifest_sha256: str | None = None,
+    pack_total_steps: int | None = None,
 ) -> dict[str, object]:
     return {
         "schema": "anra-training-state/v2",
         "global_step": int(step),
+        "pack_step": int(pack_step),
+        "pack_total_steps": int(pack_total_steps) if pack_total_steps is not None else None,
+        "pack_manifest_sha256": pack_manifest_sha256,
         "optimizer_updates": int(optimizer_updates),
         "data": asdict(position),
         "dataset_sha256": dataset_sha256,
@@ -213,6 +223,11 @@ def validate_training_state(
     if saved.get("schema") != "anra-training-state/v2":
         raise ValueError(f"unsupported trainer_state schema: {saved.get('schema')!r}")
     fields = (
+        "global_step",
+        "pack_step",
+        "pack_total_steps",
+        "optimizer_updates",
+        "pack_manifest_sha256",
         "dataset_sha256",
         "dataset_windows",
         "batch_size_per_core",

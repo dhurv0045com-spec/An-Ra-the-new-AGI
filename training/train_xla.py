@@ -12,6 +12,7 @@ import argparse
 from bisect import bisect_right
 import contextlib
 import json
+import math
 import os
 import random
 import time
@@ -24,7 +25,6 @@ import torch.nn.functional as F
 import numpy as np
 from torch.utils.data import DataLoader, Dataset
 
-from anra_core.checkpoint import load_core_checkpoint
 from anra_core.config import CANONICAL_CONFIG
 from anra_core.model import AnRaCore
 from anra_core.tokenizer import V4Tokenizer
@@ -37,6 +37,7 @@ from training.state import (
     tokens_per_optimizer_step,
     validate_training_state,
 )
+from training.wsd_scheduler import PackWsdSchedule
 
 
 class TokenBlockDataset(Dataset[tuple[torch.Tensor, torch.Tensor]]):
@@ -172,6 +173,8 @@ def preflight(
     checkpoint_path: Path | None,
     block_size: int,
     vocab_size: int,
+    expected_resume_step: int = 0,
+    start_new_pack: bool = False,
 ) -> dict[str, Any]:
     """Fail-closed validation on CPU before any TPU worker spawns.
 
@@ -209,8 +212,14 @@ def preflight(
         probe_optimizer = torch.optim.AdamW(probe_model.parameters(), lr=1e-4)
         restored = restore_training_state(
             str(checkpoint_path), probe_model, probe_optimizer,
-            mode="new_pack_parent",
+            mode="new_pack_parent" if start_new_pack else "same_pack",
+            current_pack_manifest_sha256=pack.manifest_sha256,
         )
+        if restored.global_step < expected_resume_step:
+            raise RuntimeError(
+                f"parent global_step {restored.global_step:,} is below expected "
+                f"{expected_resume_step:,}"
+            )
         identity_block.update(
             {
                 "parent_checkpoint": str(checkpoint_path),
@@ -218,6 +227,7 @@ def preflight(
                 "parent_parameter_sha256": restored.checkpoint_parameter_sha256,
                 "parent_optimizer_restored": restored.optimizer_restored,
                 "parent_mode": restored.mode,
+                "parent_checkpoint_schema": restored.checkpoint_schema_version,
             }
         )
         del probe_model, probe_optimizer
@@ -239,7 +249,6 @@ def write_run_receipt(
 ) -> Path:
     """One receipt that makes the run reconstructable. Written pre-training;
     post-training fields are appended by the trainer on completion."""
-    import hashlib
     import subprocess
 
     def _git(*args: str) -> str:
@@ -268,15 +277,14 @@ def write_run_receipt(
             config.get("batch_size", 1) * config.get("grad_accum_steps", 1)
             * world_size * CANONICAL_CONFIG.block_size
         ),
-        # Schedule identity must match what the trainer ACTUALLY runs
-        # (CosineSchedule from training.state), never a prose aspirational name.
         "schedule": {
-            "name": "cosine_continuation_v1",
+            "name": "wsd_pack_v1",
             "parameters": {
                 "base_lr": config.get("learning_rate"),
                 "min_lr_ratio": config.get("min_lr_ratio"),
-                "decay_steps": config.get("lr_decay_steps"),
-                "origin_step": identity_block.get("parent_global_step", 0),
+                "warmup_fraction": config.get("warmup_fraction"),
+                "decay_fraction": config.get("decay_fraction"),
+                "total_steps": config.get("_pack_total_steps"),
             },
         },
     }
@@ -314,15 +322,10 @@ def _clip_global_grad_norm(parameters: Iterator[torch.nn.Parameter], max_norm: f
 
 
 def payload_for_schedule(prepared) -> dict[str, Any]:
-    """Schedule-relevant metadata for CosineSchedule.from_checkpoint.
-
-    A new-pack continuation intentionally starts a FRESH continuation
-    schedule; the parent's decay position does not carry over. This is the
-    documented boundary semantics - not lost information.
-    """
+    """Expose only validated schedule state carried by the prepared resume."""
     return {
-        "lr_schedule": None,
-        "trainer_state": None,
+        "lr_schedule": prepared.lr_schedule,
+        "trainer_state": prepared.trainer_state,
     }
 
 
@@ -351,7 +354,12 @@ def _checkpoint_payload(
 
     return {
         "checkpoint_artifact_class": artifact_class,
-        "checkpoint_schema_version": 2,
+        "checkpoint_schema_version": (
+            3
+            if schedule is not None
+            and schedule.to_dict().get("name") == "wsd_pack_v1"
+            else 2
+        ),
         "global_step": int(step),
         "pack_manifest_sha256": training_config.get("pack_manifest_sha256"),
         "training_stage": "pretraining_tpu_xla",
@@ -393,7 +401,7 @@ def _save_latest(
     source_checkpoint: str | None,
     world_size: int,
     training_state: dict[str, object],
-    schedule: CosineSchedule,
+    schedule: CosineSchedule | PackWsdSchedule,
 ) -> None:
     """Write exactly one checkpoint object; never create numbered copies."""
     if not xm.is_master_ordinal():
@@ -503,7 +511,10 @@ def _worker(index: int, config: dict[str, object]) -> None:
         learning_rate=float(config["learning_rate"]),
         weight_decay=float(config["weight_decay"]),
         expected_resume_step=int(config.get("expected_resume_step", 0)),
-        resume_mode="new_pack_parent",
+        resume_mode=(
+            "new_pack_parent" if bool(config.get("start_new_pack")) else "same_pack"
+        ),
+        current_pack_manifest_sha256=str(config["pack_manifest_sha256"]),
     )
     model = prepared.model
     optimizer = prepared.optimizer
@@ -528,13 +539,26 @@ def _worker(index: int, config: dict[str, object]) -> None:
     _move_optimizer_state(optimizer, device)
 
     checkpoint_lr = float(optimizer.param_groups[0]["lr"])
-    schedule = CosineSchedule.from_checkpoint(
-        payload_for_schedule(prepared),
-        start_step=start_step,
-        checkpoint_lr=checkpoint_lr,
-        decay_steps=int(config["lr_decay_steps"]),
-        min_lr_ratio=float(config["min_lr_ratio"]),
-    )
+    pack_total_steps = int(config["_pack_total_steps"])
+    saved_schedule = payload_for_schedule(prepared).get("lr_schedule")
+    if prepared.checkpoint_schema_version == 3 and not config.get("start_new_pack"):
+        schedule = PackWsdSchedule.from_dict(saved_schedule or {})
+        if schedule.total_steps != pack_total_steps:
+            raise ValueError("saved WSD horizon disagrees with the verified pack horizon")
+    elif prepared.checkpoint_schema_version == 2 and not config.get("start_new_pack"):
+        schedule = CosineSchedule.from_checkpoint(
+            payload_for_schedule(prepared), start_step=start_step,
+            checkpoint_lr=checkpoint_lr, decay_steps=int(config["lr_decay_steps"]),
+            min_lr_ratio=float(config["min_lr_ratio"]),
+        )
+    else:
+        schedule = PackWsdSchedule(
+            base_lr=float(config["learning_rate"]),
+            total_steps=pack_total_steps,
+            warmup_steps=int(pack_total_steps * float(config["warmup_fraction"])),
+            min_lr_ratio=float(config["min_lr_ratio"]),
+            decay_fraction=float(config["decay_fraction"]),
+        )
 
     sequence_length = int(config["sequence_length"])
     dataset = _load_dataset(Path(str(config["dataset_path"])), tokenizer, sequence_length)
@@ -547,8 +571,8 @@ def _worker(index: int, config: dict[str, object]) -> None:
         raise RuntimeError("dataset is too small for one distributed training batch")
     # A new-pack continuation from a legacy parent has NO historical cursor;
     # that boundary is established honestly here and persisted exactly onward.
-    saved_training_state = {} if not resume_path or prepared.checkpoint_schema_version < 2 else {}
-    saved_data = {}
+    saved_training_state = prepared.trainer_state or {}
+    saved_data = saved_training_state.get("data", {})
     if saved_data:
         position = DataPosition(
             epoch=int(saved_data["epoch"]),
@@ -562,18 +586,18 @@ def _worker(index: int, config: dict[str, object]) -> None:
             raise ValueError(
                 f"checkpoint data cursor is inconsistent: {position} != {canonical_position}"
             )
-    elif resume_path:
-        # V1 checkpoints used epoch=global_step and batch zero on every resume.
-        # Reproduce that boundary once, then persist an exact v2 cursor.
-        position = DataPosition(
-            epoch=start_step,
-            batch_in_epoch=0,
-            microbatches_consumed=start_step * batches_per_epoch,
-        )
     else:
         position = DataPosition(epoch=0, batch_in_epoch=0, microbatches_consumed=0)
+    pack_step = prepared.pack_step
+    expected_microbatches = pack_step * int(config["grad_accum_steps"])
+    if position.microbatches_consumed != expected_microbatches:
+        raise ValueError(
+            "checkpoint pack step disagrees with its sampler cursor: "
+            f"{pack_step} updates vs {position.microbatches_consumed} microbatches"
+        )
     current_training_state = build_training_state(
         step=start_step,
+        pack_step=pack_step,
         optimizer_updates=optimizer_updates,
         position=position,
         dataset_sha256=str(config["_dataset_sha256"]),
@@ -586,8 +610,10 @@ def _worker(index: int, config: dict[str, object]) -> None:
         attention_chunk_size=int(config["attention_chunk_size"]),
         gradient_checkpointing=bool(config["gradient_checkpointing"]),
         gradient_clip_norm=float(config["gradient_clip_norm"]),
+        pack_manifest_sha256=str(config["pack_manifest_sha256"]),
+        pack_total_steps=pack_total_steps,
     )
-    if resume_path:
+    if resume_path and not config.get("start_new_pack"):
         validate_training_state(
             saved_training_state,
             current_training_state,
@@ -609,11 +635,9 @@ def _worker(index: int, config: dict[str, object]) -> None:
     # One execution per microbatch bounds HBM for 2,048-token activations.
     device_loader = pl.MpDeviceLoader(loader, device, batches_per_execution=1)
     iterator = iter(device_loader)
-    max_steps = int(config["max_steps"])
-    if max_steps <= start_step:
-        raise ValueError(
-            f"--max-steps is an absolute target and must exceed resume step {start_step:,}"
-        )
+    max_steps = pack_total_steps
+    if pack_step >= max_steps:
+        raise ValueError("verified pack is already complete; attach a new pack explicitly")
     max_minutes = float(config["max_minutes"])
     deadline = time.monotonic() + max_minutes * 60.0 if max_minutes > 0 else None
     grad_accum = int(config["grad_accum_steps"])
@@ -637,21 +661,25 @@ def _worker(index: int, config: dict[str, object]) -> None:
     if rank == 0:
         print(
             f"[TPU ready] cores={world_size} device={device} precision=bf16 "
-            f"resume_step={start_step:,} target_step={max_steps:,} "
+            f"resume_step={start_step:,} pack={pack_step:,}/{max_steps:,} "
             f"optimizer_updates={optimizer_updates:,} tokens/step={tokens_per_step:,} "
             f"lr={checkpoint_lr:.3e}",
             flush=True,
         )
 
-    for step in range(start_step, max_steps):
-        control_boundary = step == start_step or step % log_interval == 0
+    initial_pack_step = pack_step
+    for pack_update in range(initial_pack_step, max_steps):
+        step = start_step + (pack_update - initial_pack_step)
+        control_boundary = pack_update == initial_pack_step or pack_update % log_interval == 0
         if deadline is not None and control_boundary:
             local_stop = int(step > start_step and time.monotonic() >= deadline)
             stop = xm.all_reduce(xm.REDUCE_SUM, torch.tensor([local_stop], device=device))
             if int(stop.cpu().item()) > 0:
                 break
 
-        effective_lr = schedule.lr_at(step)
+        effective_lr = schedule.lr_at(
+            pack_update if isinstance(schedule, PackWsdSchedule) else step
+        )
         for group in optimizer.param_groups:
             group["lr"] = effective_lr
         optimizer.zero_grad(set_to_none=True)
@@ -688,19 +716,6 @@ def _worker(index: int, config: dict[str, object]) -> None:
         xm.mark_step()
         optimizer_updates += 1
         latest_loss = loss_sum / grad_accum
-        # NaN/Inf guard (fail closed): never checkpoint a corrupted run.
-        # Extends to gradient norm AND learning rate before any save.
-        if not bool(torch.isfinite(latest_loss).all()):
-            raise RuntimeError(
-                f"NON-FINITE LOSS at step {step + 1}: {float(latest_loss.cpu())}. "
-                "Refusing to save; last healthy recovery checkpoint is preserved."
-            )
-        if not bool(torch.isfinite(latest_grad_norm).all()):
-            raise RuntimeError(
-                f"NON-FINITE GRADIENT NORM at step {step + 1}: "
-                f"{float(latest_grad_norm.cpu())}. Refusing to save; last healthy "
-                "recovery checkpoint is preserved."
-            )
         if not math.isfinite(effective_lr) or effective_lr <= 0:
             raise RuntimeError(
                 f"INVALID LEARNING RATE at step {step + 1}: {effective_lr!r}. "
@@ -709,17 +724,30 @@ def _worker(index: int, config: dict[str, object]) -> None:
         loss_window.add_(latest_loss)
         loss_window_steps += 1
         completed = step + 1
+        pack_completed = pack_update + 1
 
-        report = completed % log_interval == 0 or completed == start_step + 1
+        report = pack_completed % log_interval == 0 or pack_completed == initial_pack_step + 1
         if report:
             global_loss = xm.all_reduce(xm.REDUCE_SUM, loss_window) / world_size
+            finite_loss = bool(torch.isfinite(global_loss).all().cpu().item())
+            finite_grad = bool(torch.isfinite(latest_grad_norm).all().cpu().item())
+            if not finite_loss:
+                raise RuntimeError(
+                    f"NON-FINITE LOSS at step {completed}. Refusing to save; "
+                    "last healthy recovery checkpoint is preserved."
+                )
+            if not finite_grad:
+                raise RuntimeError(
+                    f"NON-FINITE GRADIENT NORM at step {completed}. Refusing to "
+                    "save; last healthy recovery checkpoint is preserved."
+                )
         if rank == 0 and report:
             mean_loss = float(global_loss.cpu()) / max(1, loss_window_steps)
             elapsed = max(1e-6, time.monotonic() - window_started)
             report_steps = completed - last_report_step
             tok_per_sec = report_steps * tokens_per_step / elapsed
             print(
-                f"step={completed} loss={mean_loss:.4f} "
+                f"step={completed} pack={pack_completed}/{max_steps} loss={mean_loss:.4f} "
                 f"lr={effective_lr:.3e} grad_norm={float(latest_grad_norm.cpu()):.3f} "
                 f"global_tok/s={tok_per_sec:.1f} elapsed_total="
                 f"{(time.monotonic() - session_started) / 60:.1f}m",
@@ -731,15 +759,18 @@ def _worker(index: int, config: dict[str, object]) -> None:
             last_report_step = completed
             window_started = time.monotonic()
 
-        if completed % save_interval == 0:
+        if pack_completed % save_interval == 0:
             training_state = build_training_state(
-                step=completed, optimizer_updates=optimizer_updates, position=position,
+                step=completed, pack_step=pack_completed,
+                optimizer_updates=optimizer_updates, position=position,
                 dataset_sha256=str(config["_dataset_sha256"]), dataset_windows=len(dataset),
                 batch_size=batch_size, grad_accum_steps=grad_accum, world_size=world_size,
                 sequence_length=sequence_length, seed=seed,
                 attention_chunk_size=int(config["attention_chunk_size"]),
                 gradient_checkpointing=bool(config["gradient_checkpointing"]),
                 gradient_clip_norm=float(config["gradient_clip_norm"]),
+                pack_manifest_sha256=str(config["pack_manifest_sha256"]),
+                pack_total_steps=max_steps,
             )
             _save_latest(
                 xm, output, model, optimizer, CANONICAL_CONFIG, tokenizer, completed,
@@ -751,7 +782,7 @@ def _worker(index: int, config: dict[str, object]) -> None:
         # Sparse immutable candidates (never overwritten): research lineage.
         # All ranks reach this boundary together; only rank 0 writes.
         candidate_interval = int(config.get("candidate_interval") or 0)
-        if candidate_interval > 0 and completed % candidate_interval == 0:
+        if candidate_interval > 0 and pack_completed % candidate_interval == 0:
             if rank == 0:
                 save_candidate(
                     output, model, optimizer, config, tokenizer, completed,
@@ -762,20 +793,27 @@ def _worker(index: int, config: dict[str, object]) -> None:
             xm.rendezvous(f"candidate-{completed}")
 
     final_step = completed if "completed" in locals() else start_step
-    if final_step % save_interval != 0 or not output.is_file():
+    final_pack_step = pack_completed if "pack_completed" in locals() else initial_pack_step
+    if final_pack_step % save_interval != 0 or not output.is_file():
         training_state = build_training_state(
-            step=final_step, optimizer_updates=optimizer_updates, position=position,
+            step=final_step, pack_step=final_pack_step,
+            optimizer_updates=optimizer_updates, position=position,
             dataset_sha256=str(config["_dataset_sha256"]), dataset_windows=len(dataset),
             batch_size=batch_size, grad_accum_steps=grad_accum, world_size=world_size,
             sequence_length=sequence_length, seed=seed,
             attention_chunk_size=int(config["attention_chunk_size"]),
             gradient_checkpointing=bool(config["gradient_checkpointing"]),
             gradient_clip_norm=float(config["gradient_clip_norm"]),
+            pack_manifest_sha256=str(config["pack_manifest_sha256"]),
+            pack_total_steps=max_steps,
         )
         _save_latest(
             xm, output, model, optimizer, CANONICAL_CONFIG, tokenizer, final_step,
             {"loss": float(latest_loss.cpu()) if latest_loss is not None else 0.0,
-             "learning_rate": schedule.lr_at(final_step)},
+             "learning_rate": schedule.lr_at(
+                 min(final_pack_step, max_steps - 1)
+                 if isinstance(schedule, PackWsdSchedule) else final_step
+             )},
             source_checkpoint, world_size, training_state, schedule,
         )
     if rank == 0:
@@ -785,8 +823,8 @@ def _worker(index: int, config: dict[str, object]) -> None:
 def run(args: argparse.Namespace) -> None:
     os.environ.pop("TPU_PROCESS_ADDRESSES", None)
     os.environ.setdefault("PJRT_DEVICE", "TPU")
-    if args.max_steps <= 0:
-        raise ValueError("--max-steps must be positive")
+    if args.max_steps < 0:
+        raise ValueError("--max-steps must be zero (full pack) or positive")
     if args.max_minutes < 0:
         raise ValueError("--max-minutes must be zero (step-only) or positive")
     if args.batch_size <= 0 or args.grad_accum_steps <= 0:
@@ -803,6 +841,8 @@ def run(args: argparse.Namespace) -> None:
         raise ValueError("--gradient-clip-norm must be positive")
     if args.lr_decay_steps <= 0 or not 0 <= args.min_lr_ratio <= 1:
         raise ValueError("invalid cosine learning-rate schedule")
+    if not 0 <= args.warmup_fraction < 1 or not 0 < args.decay_fraction <= 1:
+        raise ValueError("invalid WSD warmup/decay fractions")
     if args.save_interval <= 0 or args.log_interval <= 0:
         raise ValueError("--save-interval and --log-interval must be positive")
 
@@ -820,15 +860,32 @@ def run(args: argparse.Namespace) -> None:
         checkpoint_path=checkpoint_path,
         block_size=CANONICAL_CONFIG.block_size,
         vocab_size=CANONICAL_CONFIG.vocab_size,
+        expected_resume_step=args.expected_resume_step,
+        start_new_pack=args.start_new_pack,
     )
+    if identity_block["parent_checkpoint_schema"] == 1 and not args.allow_legacy_resume:
+        raise ValueError(
+            "schema-v1 step-20k migration requires --allow-legacy-resume once"
+        )
 
     config = vars(args).copy()
     config["pack_manifest_sha256"] = identity_block["pack_manifest_sha256"]
     config["_dataset_sha256"] = dataset_fingerprint(Path(args.dataset_path))
+    available_pack_steps = identity_block["pack_windows"] // (
+        args.batch_size * args.grad_accum_steps * args.require_world_size
+    )
+    if available_pack_steps <= 0:
+        raise ValueError("verified pack cannot form one complete distributed optimizer step")
+    if args.max_steps > available_pack_steps:
+        raise ValueError(
+            f"--max-steps={args.max_steps:,} exceeds the pack's "
+            f"{available_pack_steps:,} unique-data updates"
+        )
+    config["_pack_total_steps"] = args.max_steps or available_pack_steps
     receipt = write_run_receipt(
-        output_dir := Path(args.output_checkpoint).expanduser().parent,
+        Path(args.output_checkpoint).expanduser().parent,
         identity_block=identity_block, config=config,
-        world_size=int(os.environ.get("EXPECTED_TPU_WORKERS", "8")),
+        world_size=args.require_world_size,
     )
     print(f"[preflight OK] receipt: {receipt}", flush=True)
 
@@ -859,14 +916,15 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--allow-legacy-resume",
         action="store_true",
-        help="establish a v2 data/scheduler boundary from a schema-v1 full-resume checkpoint",
+        help="establish a schema-v3 pack/WSD boundary from a schema-v1 full-resume checkpoint",
     )
-    parser.add_argument("--candidate-interval", type=int, default=1000,
+    parser.add_argument("--candidate-interval", type=int, default=0,
                         help="sparse immutable candidate checkpoints (0 disables)")
-    parser.add_argument("--max-steps", type=int, default=10_000)
+    parser.add_argument("--max-steps", type=int, default=0,
+                        help="pack-local update cap; 0 consumes every complete unique window once")
     parser.add_argument("--max-minutes", type=float, default=0.0)
     parser.add_argument("--batch-size", type=int, default=1)
-    parser.add_argument("--grad-accum-steps", type=int, default=1)
+    parser.add_argument("--grad-accum-steps", type=int, default=8)
     parser.add_argument("--sequence-length", type=int, default=CANONICAL_CONFIG.block_size)
     parser.add_argument("--attention-chunk-size", type=int, default=128)
     parser.add_argument("--gradient-clip-norm", type=float, default=1.0)
@@ -878,6 +936,10 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--weight-decay", type=float, default=0.1)
     parser.add_argument("--lr-decay-steps", type=int, default=1_000_000)
     parser.add_argument("--min-lr-ratio", type=float, default=0.1)
+    parser.add_argument("--warmup-fraction", type=float, default=0.0)
+    parser.add_argument("--decay-fraction", type=float, default=0.1)
+    parser.add_argument("--start-new-pack", action="store_true",
+                        help="reset pack-local state for an explicitly different pack")
     parser.add_argument("--save-interval", type=int, default=200)
     parser.add_argument("--log-interval", type=int, default=10)
     parser.add_argument("--seed", type=int, default=1301)

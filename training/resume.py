@@ -14,6 +14,10 @@ semantics:
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import torch
 
 
 @dataclass(frozen=True)
@@ -125,7 +129,9 @@ class PreparedTrainingState:
     checkpoint_parameter_sha256: str
     optimizer_restored: bool
     checkpoint_schema_version: int
-    lr_schedule: object | None = None  # CosineSchedule when resumable
+    pack_step: int = 0
+    trainer_state: dict | None = None
+    lr_schedule: dict | None = None
 
     def require_step_at_least(self, expected_resume_step: int) -> None:
         """P0-4: explicit minimum-step check on REAL restored metadata.
@@ -145,6 +151,7 @@ def prepare_training_state(
     weight_decay: float,
     expected_resume_step: int,
     resume_mode: str = "new_pack_parent",
+    current_pack_manifest_sha256: str | None = None,
 ) -> PreparedTrainingState:
     """CPU-testable pre-XLA orchestration: construct → attach → restore.
 
@@ -169,6 +176,7 @@ def prepare_training_state(
     if parent_checkpoint:
         restored = restore_training_state(
             str(parent_checkpoint), model, optimizer, mode=resume_mode,
+            current_pack_manifest_sha256=current_pack_manifest_sha256,
         )
         # P0-4: explicit minimum-step check on REAL restored metadata.
         if restored.global_step < expected_resume_step:
@@ -192,9 +200,14 @@ def prepare_training_state(
             source_checkpoint=str(parent_checkpoint),
             checkpoint_parameter_sha256=restored.checkpoint_parameter_sha256,
             optimizer_restored=restored.optimizer_restored,
-            # The legacy parent is schema-v1 by definition; the restore
-            # establishes the v2 continuation boundary downstream.
-            checkpoint_schema_version=1,
+            checkpoint_schema_version=restored.checkpoint_schema_version,
+            pack_step=restored.pack_step,
+            trainer_state=(
+                restored.trainer_state if restored.mode == RESUME_SAME_PACK else None
+            ),
+            lr_schedule=(
+                restored.lr_schedule if restored.mode == RESUME_SAME_PACK else None
+            ),
         )
 
     return PreparedTrainingState(
@@ -206,7 +219,7 @@ def prepare_training_state(
         source_checkpoint=None,
         checkpoint_parameter_sha256=canonical_parameter_sha256(model.state_dict()),
         optimizer_restored=False,
-        checkpoint_schema_version=2,
+        checkpoint_schema_version=3,
     )
 
 
@@ -239,28 +252,25 @@ class RestoredTrainingState:
     optimizer_restored: bool
     mode: str
     checkpoint_parameter_sha256: str
+    checkpoint_schema_version: int
+    trainer_state: dict | None
+    lr_schedule: dict | None
 
 
 def _load_payload(resume_from: str) -> tuple[dict[str, "torch.Tensor"], dict]:
-    """Load raw state + payload. Strict-first; legacy fallback ONLY for the
-    specific known condition (missing tokenizer contract on older writers).
-    Corruption, architecture mismatch, and loader bugs surface."""
-    import torch
-
+    """Load once through the strict, weights-only checkpoint boundary."""
     from anra_core.checkpoint import load_core_checkpoint
-    from anra_core.errors import RepresentationIncompatibleError
 
-    try:
-        _model, _payload, _identity = load_core_checkpoint(resume_from)
-    except RepresentationIncompatibleError as exc:
-        if "tokenizer contract" not in str(exc):
-            raise  # corruption/mismatch/bug: never disguise as legacy
-        print(f"[resume] strict load refused ({exc}); explicit legacy fallback "
-              "for older-writer contract absence", flush=True)
-    payload = torch.load(resume_from, map_location="cpu", weights_only=False)
-    state = payload.get("model_state_dict") or payload.get("model")
-    if not isinstance(state, dict):
-        raise RuntimeError(f"checkpoint has no model tensors: {resume_from}")
+    loaded_model, payload, identity = load_core_checkpoint(resume_from)
+    if identity.artifact_class != "full_resume":
+        raise RuntimeError("resume checkpoint must be a full_resume artifact")
+    schema = int(identity.artifact_schema_version or 0)
+    if schema not in {1, 2, 3}:
+        raise RuntimeError(f"unsupported full-resume schema: {schema}")
+    optimizer_state = payload.get("optimizer_state_dict") or payload.get("optimizer")
+    if not isinstance(optimizer_state, dict) or not optimizer_state.get("state"):
+        raise RuntimeError("resume checkpoint has no populated optimizer state")
+    state = loaded_model.state_dict()
     return state, payload
 
 
@@ -279,10 +289,8 @@ def restore_training_state(
                  pack_manifest_sha256 matches the attached pack; mismatch or
                  unverifiable progress fails closed.
       new_pack_parent: pack_step forced to 0; checkpoint pack identity is
-                 irrelevant (LEGACY FULL-RESUME -> schema-v2 boundary).
+                 irrelevant (legacy full-resume -> schema-v3 boundary).
     """
-    import hashlib
-
     import torch
 
     state, payload = _load_payload(resume_from)
@@ -309,9 +317,22 @@ def restore_training_state(
             print(f"[resume] optimizer state present but failed to load: {exc}", flush=True)
             raise
 
-    checkpoint_pack_sha = payload.get("pack_manifest_sha256")
+    schema_version = int(payload.get("checkpoint_schema_version", 0))
+    trainer_state = payload.get("trainer_state")
+    if schema_version >= 2 and not isinstance(trainer_state, dict):
+        raise RuntimeError("resumable checkpoint is missing trainer_state")
+    saved_pack_step_value = (trainer_state or {}).get("pack_step", payload.get("pack_step"))
+    if saved_pack_step_value is None and schema_version == 2:
+        saved_schedule = payload.get("lr_schedule") or {}
+        saved_pack_step_value = int(payload.get("global_step", 0)) - int(
+            saved_schedule.get("origin_step", payload.get("global_step", 0))
+        )
+    saved_pack_step = int(saved_pack_step_value or 0)
+    checkpoint_pack_sha = payload.get("pack_manifest_sha256") or (
+        trainer_state or {}
+    ).get("pack_manifest_sha256")
     if mode == RESUME_SAME_PACK:
-        restored_pack_step = int(payload.get("pack_step", 0) or 0)
+        restored_pack_step = saved_pack_step
         if restored_pack_step > 0 and not checkpoint_pack_sha:
             raise RuntimeError(
                 "SAME_PACK resume refused: checkpoint carries pack_step without "
@@ -330,16 +351,18 @@ def restore_training_state(
     else:  # NEW_PACK_PARENT
         restored_pack_step = 0
 
-    param_digest = hashlib.sha256()
-    for key in sorted(state):
-        param_digest.update(key.encode())
-        param_digest.update(state[key].numpy().tobytes())
-
     return RestoredTrainingState(
         global_step=int(payload.get("global_step", 0) or 0),
         pack_step=restored_pack_step,
         pack_manifest_sha256=checkpoint_pack_sha,
         optimizer_restored=optimizer_restored,
         mode=mode,
-        checkpoint_parameter_sha256=param_digest.hexdigest(),
+        checkpoint_parameter_sha256=canonical_parameter_sha256(state),
+        checkpoint_schema_version=schema_version,
+        trainer_state=trainer_state if isinstance(trainer_state, dict) else None,
+        lr_schedule=(
+            payload.get("lr_schedule")
+            if isinstance(payload.get("lr_schedule"), dict)
+            else None
+        ),
     )
