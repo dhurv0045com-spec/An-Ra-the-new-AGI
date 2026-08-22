@@ -11,7 +11,8 @@ exactly one pass over unique data - not mid-repeat.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
+from typing import Any
 
 from torch.optim import Optimizer
 from torch.optim.lr_scheduler import LambdaLR
@@ -33,14 +34,18 @@ def wsd_multiplier(
     decay_fraction: float = 0.1,
 ) -> float:
     """LR multiplier for step ``step`` in [0, total_steps)."""
-    if total_steps <= warmup_steps:
-        raise ValueError("total_steps must be greater than warmup_steps")
+    if total_steps <= 0 or warmup_steps < 0 or total_steps <= warmup_steps:
+        raise ValueError("total_steps must be positive and greater than warmup_steps")
+    if not 0.0 <= min_lr_ratio <= 1.0:
+        raise ValueError("min_lr_ratio must be in [0, 1]")
+    if not 0.0 < decay_fraction <= 1.0:
+        raise ValueError("decay_fraction must be in (0, 1]")
     decay_start = max(warmup_steps, int(total_steps * (1.0 - decay_fraction)))
     if step < warmup_steps:
         return float(step) / max(1, warmup_steps)
     if step < decay_start:
         return 1.0
-    progress = min(1.0, (step - decay_start) / max(1, total_steps - decay_start))
+    progress = min(1.0, (step - decay_start) / max(1, total_steps - 1 - decay_start))
     return max(min_lr_ratio, 1.0 - progress * (1.0 - min_lr_ratio))
 
 
@@ -60,6 +65,53 @@ def steps_for_tokens(tokens: int, *, tokens_per_step: int) -> int:
     if tokens_per_step <= 0:
         raise ValueError("tokens_per_step must be positive")
     return max(1, tokens // tokens_per_step)
+
+
+@dataclass(frozen=True, slots=True)
+class PackWsdSchedule:
+    """Serializable WSD schedule whose position is the checkpointed pack step."""
+
+    base_lr: float
+    total_steps: int
+    warmup_steps: int = 0
+    min_lr_ratio: float = 0.1
+    decay_fraction: float = 0.1
+
+    def __post_init__(self) -> None:
+        if self.base_lr <= 0:
+            raise ValueError("base_lr must be positive")
+        # Reuse the canonical validator.
+        wsd_multiplier(
+            0,
+            warmup_steps=self.warmup_steps,
+            total_steps=self.total_steps,
+            min_lr_ratio=self.min_lr_ratio,
+            decay_fraction=self.decay_fraction,
+        )
+
+    def lr_at(self, pack_step: int) -> float:
+        return self.base_lr * wsd_multiplier(
+            pack_step,
+            warmup_steps=self.warmup_steps,
+            total_steps=self.total_steps,
+            min_lr_ratio=self.min_lr_ratio,
+            decay_fraction=self.decay_fraction,
+        )
+
+    def to_dict(self) -> dict[str, object]:
+        return {"name": "wsd_pack_v1", **asdict(self)}
+
+    @classmethod
+    def from_dict(cls, payload: dict[str, Any]) -> "PackWsdSchedule":
+        if payload.get("name") != "wsd_pack_v1":
+            raise ValueError(f"unsupported pack schedule: {payload.get('name')!r}")
+        return cls(
+            base_lr=float(payload["base_lr"]),
+            total_steps=int(payload["total_steps"]),
+            warmup_steps=int(payload["warmup_steps"]),
+            min_lr_ratio=float(payload["min_lr_ratio"]),
+            decay_fraction=float(payload["decay_fraction"]),
+        )
 
 
 def build_wsd_schedule(

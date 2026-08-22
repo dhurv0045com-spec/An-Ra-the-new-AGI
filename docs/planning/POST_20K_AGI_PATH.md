@@ -131,8 +131,8 @@ Out of scope until G-C: self-modification, autonomous experimentation.
 1. Attach: step-checkpoint dataset + current token-pack dataset.
 2. Run `core_vnext_tpu_training.ipynb` top-to-bottom.
 3. Cell 3 verifies pack hashes fail-closed — a mismatch stops everything.
-4. Train up to 450 min; checkpoint atomically replaces one output file.
-5. Before ending: run the probe cell; record metrics in the session log.
+4. Train up to 430 min; checkpoint atomically replaces one output file.
+5. Optionally run the CPU probe; the output checkpoint is verified regardless.
 6. Upload checkpoint to Drive vault; keep two-generation retention.
 
 ## Non-negotiables (learned from iterate500's errors)
@@ -144,3 +144,5 @@ Out of scope until G-C: self-modification, autonomous experimentation.
 4. Loss numbers alone promote nothing; only gates do.
 5. Never SFT below the capability floor; never pretrain past an exhausted
    pack at full LR.
+6. Schema v1 is accepted only as an explicit step-20k migration. Resume an
+   interrupted pack only from schema v3 with the same manifest and recipe.

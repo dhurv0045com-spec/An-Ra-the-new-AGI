@@ -99,6 +99,7 @@ def verify_pack(
 
     seen_paths: set[str] = set()
     verified: list[Path] = []
+    verified_token_counts: list[int] = []
     total_tokens = 0
     for entry in shards:
         rel = str(entry.get("file", ""))
@@ -109,7 +110,10 @@ def verify_pack(
         if rel in seen_paths:
             raise PackVerificationError(f"duplicate shard path in manifest: {rel}")
         seen_paths.add(rel)
-        shard_path = root / rel
+        shard_path = (root / rel).resolve()
+        resolved_root = root.resolve()
+        if resolved_root not in shard_path.parents:
+            raise PackVerificationError(f"shard path escapes pack root: {rel}")
         if not shard_path.is_file():
             raise PackVerificationError(f"declared shard missing: {rel}")
         actual_hash = _sha256_file(shard_path)
@@ -130,6 +134,7 @@ def verify_pack(
             )
         total_tokens += actual_tokens
         verified.append(shard_path)
+        verified_token_counts.append(actual_tokens)
 
     declared_total = manifest.get("total_tokens")
     if isinstance(declared_total, int) and declared_total != total_tokens:
@@ -146,14 +151,14 @@ def verify_pack(
         raise PackVerificationError(
             f"pack too small: {total_tokens} tokens at block {block_size}"
         )
-    manifest_sha = _sha256_file(manifest_path)
+    total_windows = sum((tokens - 1) // block_size for tokens in verified_token_counts)
     return VerifiedPack(
         root=root,
         block_size=block_size,
         total_tokens=total_tokens,
         shard_paths=tuple(verified),
-        total_windows=total_tokens // (block_size + 1),
-        manifest_sha256=manifest_sha,
+        total_windows=total_windows,
+        manifest_sha256=_sha256_file(manifest_path),
     )
 
 

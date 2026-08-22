@@ -42,7 +42,11 @@ def resolve_pack_horizon(
     if tokens_per_step <= 0:
         raise ValueError("tokens_per_step must be positive")
     budget_steps = max(1, token_budget // tokens_per_step)
-    pack_total = max_steps_override if max_steps_override > 0 else budget_steps
+    pack_total = (
+        min(budget_steps, max_steps_override)
+        if max_steps_override > 0
+        else budget_steps
+    )
     start_pack = max(0, int(restored_pack_step))
     remaining = max(0, pack_total - start_pack)
     return PackHorizon(

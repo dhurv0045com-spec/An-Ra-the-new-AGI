@@ -10,7 +10,7 @@ import numpy as np
 import pytest
 import torch
 
-from training.pack_verify import PackVerificationError, build_manifest, verify_pack
+from training.pack_verify import PackVerificationError, verify_pack
 from training.resume import (
     degradation_ratio,
     resolve_pack_horizon,
@@ -74,6 +74,15 @@ def test_max_steps_override_bounds_the_pack() -> None:
         max_steps_override=100,
     )
     assert horizon.pack_total_steps == 100
+
+    oversized = resolve_pack_horizon(
+        global_step=0,
+        restored_pack_step=0,
+        token_budget=1_000,
+        tokens_per_step=100,
+        max_steps_override=100,
+    )
+    assert oversized.pack_total_steps == 10
 
 
 def test_periodic_save_boundaries() -> None:

@@ -10,6 +10,7 @@ import torch
 
 from training.pack_verify import PackVerificationError, build_manifest, verify_pack
 from training.wsd_scheduler import (
+    PackWsdSchedule,
     build_wsd_schedule,
     phase_for_step,
     steps_for_tokens,
@@ -59,6 +60,20 @@ def test_schedule_integrates_with_optimizer() -> None:
     assert lrs[99] < lrs[50]  # decay engaged
 
 
+def test_pack_schedule_round_trips_and_reaches_exact_floor() -> None:
+    schedule = PackWsdSchedule(
+        base_lr=2e-4,
+        total_steps=100,
+        warmup_steps=0,
+        min_lr_ratio=0.1,
+        decay_fraction=0.1,
+    )
+    restored = PackWsdSchedule.from_dict(schedule.to_dict())
+    assert restored == schedule
+    assert restored.lr_at(0) == pytest.approx(2e-4)
+    assert restored.lr_at(99) == pytest.approx(2e-5)
+
+
 # --------------------------------------------------------------------------
 # Pack verification: fail-closed
 # --------------------------------------------------------------------------
@@ -88,7 +103,20 @@ def pack_dir(tmp_path: Path) -> Path:
 def test_verified_pack_passes(pack_dir: Path) -> None:
     pack = verify_pack(pack_dir)
     assert pack.total_tokens == 10_000
+    assert pack.total_windows == 2 * ((5_000 - 1) // 256)
+    assert pack.manifest_sha256 == hashlib.sha256(
+        (pack_dir / "manifest.json").read_bytes()
+    ).hexdigest()
     assert len(pack.shard_paths) == 2
+
+
+def test_manifest_cannot_escape_pack_root(pack_dir: Path) -> None:
+    manifest_path = pack_dir / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["shards"][0]["file"] = "../outside.npy"
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    with pytest.raises(PackVerificationError, match="escapes pack root"):
+        verify_pack(pack_dir)
 
 
 def test_missing_manifest_fails_closed(tmp_path: Path) -> None:

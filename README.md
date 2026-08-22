@@ -108,3 +108,16 @@ executor.release_state(state)
 Use the exact V4 tokenizer bound to the checkpoint; arbitrary tokenization
 breaks learned embedding semantics. Read the engineering documents before
 treating an execution change as a model-capability improvement.
+
+## Canonical TPU continuation
+
+The supported post-20k path is `core_vnext_tpu_training.ipynb`, which invokes
+`python -m training.train_tpu`. It accepts one verified token pack and a
+populated `full_resume` checkpoint. A schema-v1 step-20k checkpoint is an
+explicit one-time migration boundary; every checkpoint it writes is schema v3
+and includes AdamW moments, pack-local WSD position, verified manifest identity,
+sampler cursor, topology, and execution policy for strict continuation.
+
+`kaggle_anra_v4_tpu_training.ipynb` and `training.train_xla` are retained only
+as the legacy text-stream/cosine path. Do not mix their checkpoints into an
+active pack-aware lineage.
