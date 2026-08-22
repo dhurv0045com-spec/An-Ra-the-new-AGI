@@ -4,6 +4,11 @@ An-Ra Core is the small, standalone foundation that executes the learned V4
 neural function. It is deliberately not a chat product, agent, memory system,
 tool framework, or training campaign manager.
 
+> **Read [`PURPOSE.md`](PURPOSE.md) first.** It states — from measured
+> evidence, with receipts — what this repository is ultimately trying to
+> achieve (causal capability accumulation), what is explicitly NOT the goal,
+> the non-negotiable rules, and the current open question.
+
 ## What is here
 
 - **Neural Program:** the dense V4 decoder: token IDs to next-token logits.
