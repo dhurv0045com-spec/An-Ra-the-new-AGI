@@ -319,3 +319,8 @@ def load_core_checkpoint(
     )
 
     return model, metadata, identity
+
+
+# Canonical parameter identity: one implementation for trainer, loader,
+# evaluator, lineage, and promotion. Tied weights hash once per stored name.
+parameter_sha256 = _parameter_sha256

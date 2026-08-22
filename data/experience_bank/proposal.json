@@ -5,7 +5,7 @@
     "H5: selection objective pushes into narrow basin (embedding drift 2x)"
   ],
   "falsification_condition": "sealed OOD-3: SEL fails to beat 4/12-equivalent OR any protected capability drops below floor",
-  "hypothesis": "grandchild gained SEL 0->4/12 but regressed retention; gradient cos=+0.17 says under-sampled rehearsal (14.3%) and prose-only narrowing, not conflict => balanced multi-format replay retains",
+  "hypothesis": "grandchild gained SEL 0->4/12 but regressed retention; gradient cos=+0.17 says under-sampled rehearsal (14.3%) and prose-only narrowing, not conflict => balanced multi-format replay retains | support is OBSERVATIONAL (parent->child behavioral diff); no causal variable claim",
   "min_training_change": {
     "epochs": 2,
     "lr": 3e-05,
@@ -23,7 +23,7 @@
     "retention": 0.569,
     "target": 0.431
   },
-  "source_experience_ids": [
+  "source_observation_ids": [
     "ve-sel04-table",
     "ve-sel05-json",
     "ve-sel06-json",
@@ -37,6 +37,7 @@
     "ve-gen-bold",
     "ve-gen-paren"
   ],
+  "support_type": "OBSERVATIONAL",
   "target_capability": "selective_binding",
   "timestamp": "2026-08-22 20:54:39"
 }

@@ -43,7 +43,29 @@ class ObservedFailure:
 
 
 @dataclass(frozen=True, slots=True)
+class BehavioralImprovementObservation:
+    """Parent fails, trained child succeeds. OBSERVATIONAL evidence only:
+    useful for capability discovery, training-history analysis, and hypothesis
+    generation — it does NOT establish which cognitive variable caused the
+    repair (the intervention was 'weights changed through training', not a
+    controlled single-variable change). Must never be labeled with a causal
+    changed_variable."""
+
+    observation_id: str
+    task: ObservedFailure
+    parent_checkpoint_sha256: str
+    child_checkpoint_sha256: str
+    child_output: str
+    observed_capability: str        # descriptive, not causal
+    source_commit: str | None
+    timestamp: str
+
+
+@dataclass(frozen=True, slots=True)
 class VerifiedExperience:
+    """A VerifiedInterventionExperience: same parent, same task, same decode,
+    one controlled variable changed, baseline fails, intervention succeeds,
+    verifier confirms. ONLY these support cognitive-credit causal claims."""
     experience_id: str
     task: ObservedFailure
     parent_checkpoint_sha256: str

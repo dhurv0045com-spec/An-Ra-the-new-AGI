@@ -1,39 +1,39 @@
 {
   "total": 279,
   "per_family_counts": {
-    "copy": 30,
-    "single_fact": 45,
     "selective": 90,
     "selective_cf": 30,
+    "single_fact": 45,
+    "copy": 30,
     "tool_result": 30,
     "protocol_transfer": 24,
     "symbolic_ops": 30
   },
   "per_capability_counts": {
-    "copy": 30,
-    "single_fact_binding": 45,
     "selective_binding": 120,
+    "single_fact_binding": 45,
+    "copy": 30,
     "tool_result_use": 30,
     "protocol_transfer": 24,
     "symbolic_composition": 30
   },
   "per_format_counts": {
-    "nl": 90,
-    "tag": 15,
-    "json": 19,
     "prose": 34,
-    "chat": 30,
+    "table": 19,
+    "json": 19,
     "dialogue": 34,
     "kv": 19,
-    "table": 19,
-    "records": 19
+    "records": 19,
+    "nl": 90,
+    "tag": 15,
+    "chat": 30
   },
   "target_position_histogram": {
+    "0": 39,
     "1": 38,
     "2": 25,
-    "0": 39,
-    "4": 5,
-    "3": 13
+    "3": 13,
+    "4": 5
   },
   "fact_count_histogram": {
     "2": 31,
@@ -56,10 +56,10 @@
     "14": 1
   },
   "percentages": {
-    "copy": "10.8%",
-    "single_fact": "16.1%",
     "selective": "32.3%",
     "selective_cf": "10.8%",
+    "single_fact": "16.1%",
+    "copy": "10.8%",
     "tool_result": "10.8%",
     "protocol_transfer": "8.6%",
     "symbolic_ops": "10.8%"

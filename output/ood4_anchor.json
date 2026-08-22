@@ -1,0 +1,1052 @@
+{
+  "experiment_schema": "anra-ood4-battery/v1",
+  "timestamp": "2026-08-22 22:11:53",
+  "label": "anchor",
+  "checkpoint_path": "C:/Users/ankit/An-Ra-the-new-AGI/checkpoints/anra-v4-20k-sft-context-binding.pt",
+  "global_step": 20000,
+  "parameter_sha256": "c3329e558e68acc3c02b5c323c1dacaeb61a96e0e0defbca1c69985c2b38d565",
+  "suite_sha256": "5b82daba2e860f41149fb3d641888171729e55f993eed371b63bfb3b5998cdfa",
+  "profiles": {
+    "RAW": {
+      "temperature": 0.0,
+      "repetition_penalty": 1.0,
+      "no_repeat_ngram_size": 0
+    },
+    "ASSISTED": {
+      "temperature": 0.0,
+      "repetition_penalty": 1.15,
+      "no_repeat_ngram_size": 4
+    }
+  },
+  "device": "cuda",
+  "precision": "float32",
+  "capability_vector_RAW": {
+    "SEL_selective_binding": {
+      "pass": 0,
+      "n": 26
+    },
+    "RET_single_fact": {
+      "pass": 4,
+      "n": 6
+    },
+    "RET_copy": {
+      "pass": 3,
+      "n": 4
+    },
+    "RET_tool_result": {
+      "pass": 1,
+      "n": 4
+    }
+  },
+  "capability_vector_ASSISTED": {
+    "SEL_selective_binding": {
+      "pass": 0,
+      "n": 26
+    },
+    "RET_single_fact": {
+      "pass": 4,
+      "n": 6
+    },
+    "RET_copy": {
+      "pass": 3,
+      "n": 4
+    },
+    "RET_tool_result": {
+      "pass": 1,
+      "n": 4
+    }
+  },
+  "conditionals_RAW": {
+    "by_fact_count": {
+      "2": "0/6",
+      "3": "0/6",
+      "4": "0/6",
+      "5": "0/8"
+    },
+    "by_target_position": {
+      "first": "0/5",
+      "last": "0/4",
+      "middle": "0/17"
+    },
+    "by_format": {
+      "dialogue": "0/4",
+      "json": "0/4",
+      "kv": "0/4",
+      "mixed": "0/4",
+      "plain": "0/5",
+      "table": "0/5"
+    },
+    "position_baselines": {
+      "first_fact_heuristic": "5/26",
+      "last_fact_heuristic": "4/26",
+      "random": "8.1 expected"
+    },
+    "causal_dependence": {
+      "base_correct": 5,
+      "cf_correct": 3,
+      "paired": 0,
+      "output_changed_on_cf": 15,
+      "n": 26
+    }
+  },
+  "raw_outputs": {
+    "RAW": {
+      "SEL00-plain": {
+        "id": "SEL00-plain",
+        "gold": "QHN-565",
+        "output": " QHN-565.",
+        "base_passed": true,
+        "cf_output": " NDR-551.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": true,
+        "position_baselines": {
+          "first": true,
+          "last": false
+        }
+      },
+      "SEL01-plain": {
+        "id": "SEL01-plain",
+        "gold": "RJW-613",
+        "output": " Ness is the only one with",
+        "base_passed": false,
+        "cf_output": " Ness is the only one with",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": false,
+        "position_baselines": {
+          "first": false,
+          "last": false
+        }
+      },
+      "SEL02-plain": {
+        "id": "SEL02-plain",
+        "gold": "PGL-900",
+        "output": " MKP-301.",
+        "base_passed": false,
+        "cf_output": " NDR-566.",
+        "cf_passed": true,
+        "paired": false,
+        "output_changed": true,
+        "position_baselines": {
+          "first": false,
+          "last": false
+        }
+      },
+      "SEL03-table": {
+        "id": "SEL03-table",
+        "gold": "SKZ-649",
+        "output": " Ness Ness Ness.",
+        "base_passed": false,
+        "cf_output": " Ness Ness Ness.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": false,
+        "position_baselines": {
+          "first": false,
+          "last": true
+        }
+      },
+      "SEL04-table": {
+        "id": "SEL04-table",
+        "gold": "RJW-347",
+        "output": " Holt is a member of the ",
+        "base_passed": false,
+        "cf_output": " Holt is a member of the ",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": false,
+        "position_baselines": {
+          "first": false,
+          "last": false
+        }
+      },
+      "SEL05-table": {
+        "id": "SEL05-table",
+        "gold": "SKZ-623",
+        "output": " MKP-439.",
+        "base_passed": false,
+        "cf_output": " MKP-439.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": false,
+        "position_baselines": {
+          "first": false,
+          "last": false
+        }
+      },
+      "SEL06-json": {
+        "id": "SEL06-json",
+        "gold": "QHN-632",
+        "output": " QHN-632.",
+        "base_passed": true,
+        "cf_output": " \"\"",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": true,
+        "position_baselines": {
+          "first": true,
+          "last": false
+        }
+      },
+      "SEL07-json": {
+        "id": "SEL07-json",
+        "gold": "MKP-819",
+        "output": " MKP-819.",
+        "base_passed": true,
+        "cf_output": " NDR-341.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": true,
+        "position_baselines": {
+          "first": false,
+          "last": false
+        }
+      },
+      "SEL08-json": {
+        "id": "SEL08-json",
+        "gold": "MKP-227",
+        "output": " MKP-227.",
+        "base_passed": true,
+        "cf_output": " Plen holds code TVB-364.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": true,
+        "position_baselines": {
+          "first": true,
+          "last": false
+        }
+      },
+      "SEL09-dialogue": {
+        "id": "SEL09-dialogue",
+        "gold": "TVB-687",
+        "output": " I have a copy of the code",
+        "base_passed": false,
+        "cf_output": " I have a code for the st",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": true,
+        "position_baselines": {
+          "first": false,
+          "last": true
+        }
+      },
+      "SEL10-dialogue": {
+        "id": "SEL10-dialogue",
+        "gold": "OFS-176",
+        "output": " Amble tag.",
+        "base_passed": false,
+        "cf_output": " Give me Amble tag.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": true,
+        "position_baselines": {
+          "first": false,
+          "last": false
+        }
+      },
+      "SEL11-dialogue": {
+        "id": "SEL11-dialogue",
+        "gold": "SKZ-953",
+        "output": " Give me Eyot tag.",
+        "base_passed": false,
+        "cf_output": " Give me Eyot tag.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": false,
+        "position_baselines": {
+          "first": false,
+          "last": true
+        }
+      },
+      "SEL12-kv": {
+        "id": "SEL12-kv",
+        "gold": "RJW-252",
+        "output": " Firn Firn Ness.",
+        "base_passed": false,
+        "cf_output": " Firn Firn Ness.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": false,
+        "position_baselines": {
+          "first": true,
+          "last": false
+        }
+      },
+      "SEL13-kv": {
+        "id": "SEL13-kv",
+        "gold": "TVB-185",
+        "output": " MKP-514.",
+        "base_passed": false,
+        "cf_output": " MKP-514.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": false,
+        "position_baselines": {
+          "first": false,
+          "last": false
+        }
+      },
+      "SEL14-kv": {
+        "id": "SEL14-kv",
+        "gold": "MKP-199",
+        "output": " MKP-172.",
+        "base_passed": false,
+        "cf_output": " Ness is Ness.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": true,
+        "position_baselines": {
+          "first": false,
+          "last": false
+        }
+      },
+      "SEL15-mixed": {
+        "id": "SEL15-mixed",
+        "gold": "RJW-853",
+        "output": " Eyot holds code PGL-838",
+        "base_passed": false,
+        "cf_output": " Eyot holds code PGL-727",
+        "cf_passed": true,
+        "paired": false,
+        "output_changed": true,
+        "position_baselines": {
+          "first": false,
+          "last": true
+        }
+      },
+      "SEL16-mixed": {
+        "id": "SEL16-mixed",
+        "gold": "OFS-838",
+        "output": " Which tag belongs to the Eyot",
+        "base_passed": false,
+        "cf_output": " QHN-460.",
+        "cf_passed": true,
+        "paired": false,
+        "output_changed": true,
+        "position_baselines": {
+          "first": false,
+          "last": false
+        }
+      },
+      "SEL17-mixed": {
+        "id": "SEL17-mixed",
+        "gold": "PGL-925",
+        "output": " Lea holds code NDR-341.",
+        "base_passed": false,
+        "cf_output": " Lea holds code NDR-135.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": true,
+        "position_baselines": {
+          "first": false,
+          "last": false
+        }
+      },
+      "SEL18-plain": {
+        "id": "SEL18-plain",
+        "gold": "OFS-925",
+        "output": " WE EAR BELOW PAL-",
+        "base_passed": false,
+        "cf_output": " WELL BELOW to be ",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": true,
+        "position_baselines": {
+          "first": false,
+          "last": false
+        }
+      },
+      "SEL19-table": {
+        "id": "SEL19-table",
+        "gold": "RJW-435",
+        "output": " MKP-105.",
+        "base_passed": false,
+        "cf_output": " MKP-105.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": false,
+        "position_baselines": {
+          "first": false,
+          "last": false
+        }
+      },
+      "SEL20-kv": {
+        "id": "SEL20-kv",
+        "gold": "QHN-130",
+        "output": " NDR-135.",
+        "base_passed": false,
+        "cf_output": " NDR-135.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": false,
+        "position_baselines": {
+          "first": false,
+          "last": false
+        }
+      },
+      "SEL21-json": {
+        "id": "SEL21-json",
+        "gold": "NDR-501",
+        "output": " NDR-501.",
+        "base_passed": true,
+        "cf_output": " Plen is the tag for Coo",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": true,
+        "position_baselines": {
+          "first": false,
+          "last": false
+        }
+      },
+      "SEL22-dialogue": {
+        "id": "SEL22-dialogue",
+        "gold": "OFS-865",
+        "output": " I am a member of the community",
+        "base_passed": false,
+        "cf_output": " Give me Lea tag.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": true,
+        "position_baselines": {
+          "first": false,
+          "last": false
+        }
+      },
+      "SEL23-mixed": {
+        "id": "SEL23-mixed",
+        "gold": "MKP-781",
+        "output": " Which tag belongs to Shaw?",
+        "base_passed": false,
+        "cf_output": " Which tag belongs to Shaw?",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": false,
+        "position_baselines": {
+          "first": false,
+          "last": false
+        }
+      },
+      "SEL24-plain": {
+        "id": "SEL24-plain",
+        "gold": "RJW-437",
+        "output": " NDR-450.",
+        "base_passed": false,
+        "cf_output": " NDR-450.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": false,
+        "position_baselines": {
+          "first": false,
+          "last": false
+        }
+      },
+      "SEL25-table": {
+        "id": "SEL25-table",
+        "gold": "QHN-712",
+        "output": " QHN-462.",
+        "base_passed": false,
+        "cf_output": " Ness is Ness.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": true,
+        "position_baselines": {
+          "first": true,
+          "last": false
+        }
+      },
+      "RET1-00": {
+        "id": "RET1-00",
+        "gold": "TVB-562",
+        "output": " TVB-562.",
+        "base_passed": true,
+        "cf_output": " RJW-536.",
+        "cf_passed": true,
+        "paired": true,
+        "output_changed": true
+      },
+      "RET1-01": {
+        "id": "RET1-01",
+        "gold": "TVB-210",
+        "output": " Ness Ness => TVB",
+        "base_passed": false
+      },
+      "RET1-02": {
+        "id": "RET1-02",
+        "gold": "TVB-744",
+        "output": " Firn = TVB-744.",
+        "base_passed": true,
+        "cf_output": " Firn = TVB-423.",
+        "cf_passed": true,
+        "paired": true,
+        "output_changed": true
+      },
+      "RET1-03": {
+        "id": "RET1-03",
+        "gold": "SKZ-913",
+        "output": " SKZ-913.",
+        "base_passed": true
+      },
+      "RET1-04": {
+        "id": "RET1-04",
+        "gold": "QHN-937",
+        "output": " QHN-937.",
+        "base_passed": true,
+        "cf_output": " NDR-771.",
+        "cf_passed": true,
+        "paired": true,
+        "output_changed": true
+      },
+      "RET1-05": {
+        "id": "RET1-05",
+        "gold": "PGL-675",
+        "output": " LOG: LOG: LOG",
+        "base_passed": false
+      },
+      "RETC-00": {
+        "id": "RETC-00",
+        "gold": "lanyard",
+        "output": " lanyard.",
+        "base_passed": true
+      },
+      "RETC-01": {
+        "id": "RETC-01",
+        "gold": "plumbline",
+        "output": " juniperline.",
+        "base_passed": false
+      },
+      "RETC-02": {
+        "id": "RETC-02",
+        "gold": "grindstone",
+        "output": " grindstone.",
+        "base_passed": true
+      },
+      "RETC-03": {
+        "id": "RETC-03",
+        "gold": "casement",
+        "output": " casement.",
+        "base_passed": true
+      },
+      "RETT-00": {
+        "id": "RETT-00",
+        "gold": "QHN-447",
+        "output": " QHN-136.",
+        "base_passed": false,
+        "cf_output": " WE-36.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": true
+      },
+      "RETT-01": {
+        "id": "RETT-01",
+        "gold": "SKZ-438",
+        "output": " ZZ-438.",
+        "base_passed": false,
+        "cf_output": " ZZ-264.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": true
+      },
+      "RETT-02": {
+        "id": "RETT-02",
+        "gold": "NDR-803",
+        "output": " NDR-803.",
+        "base_passed": true,
+        "cf_output": " MKP-450.",
+        "cf_passed": true,
+        "paired": true,
+        "output_changed": true
+      },
+      "RETT-03": {
+        "id": "RETT-03",
+        "gold": "PGL-103",
+        "output": " PGL-103.",
+        "base_passed": true,
+        "cf_output": " INS-425.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": true
+      }
+    },
+    "ASSISTED": {
+      "SEL00-plain": {
+        "id": "SEL00-plain",
+        "gold": "QHN-565",
+        "output": " QHN-565.",
+        "base_passed": true,
+        "cf_output": " NDR-551.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": true,
+        "position_baselines": {
+          "first": true,
+          "last": false
+        }
+      },
+      "SEL01-plain": {
+        "id": "SEL01-plain",
+        "gold": "RJW-613",
+        "output": " Ness is the only one with",
+        "base_passed": false,
+        "cf_output": " Ness is the only one with",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": false,
+        "position_baselines": {
+          "first": false,
+          "last": false
+        }
+      },
+      "SEL02-plain": {
+        "id": "SEL02-plain",
+        "gold": "PGL-900",
+        "output": " MKP-301.",
+        "base_passed": false,
+        "cf_output": " NDR-566.",
+        "cf_passed": true,
+        "paired": false,
+        "output_changed": true,
+        "position_baselines": {
+          "first": false,
+          "last": false
+        }
+      },
+      "SEL03-table": {
+        "id": "SEL03-table",
+        "gold": "SKZ-649",
+        "output": " Ness Plen.",
+        "base_passed": false,
+        "cf_output": " Ness Plen.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": false,
+        "position_baselines": {
+          "first": false,
+          "last": true
+        }
+      },
+      "SEL04-table": {
+        "id": "SEL04-table",
+        "gold": "RJW-347",
+        "output": " Holt is a member of the ",
+        "base_passed": false,
+        "cf_output": " Holt is a member of the ",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": false,
+        "position_baselines": {
+          "first": false,
+          "last": false
+        }
+      },
+      "SEL05-table": {
+        "id": "SEL05-table",
+        "gold": "SKZ-623",
+        "output": " MKP-439.",
+        "base_passed": false,
+        "cf_output": " MKP-439.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": false,
+        "position_baselines": {
+          "first": false,
+          "last": false
+        }
+      },
+      "SEL06-json": {
+        "id": "SEL06-json",
+        "gold": "QHN-632",
+        "output": " QHN-632.",
+        "base_passed": true,
+        "cf_output": " \"We have a lot of code ",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": true,
+        "position_baselines": {
+          "first": true,
+          "last": false
+        }
+      },
+      "SEL07-json": {
+        "id": "SEL07-json",
+        "gold": "MKP-819",
+        "output": " MKP-819.",
+        "base_passed": true,
+        "cf_output": " NDR-341.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": true,
+        "position_baselines": {
+          "first": false,
+          "last": false
+        }
+      },
+      "SEL08-json": {
+        "id": "SEL08-json",
+        "gold": "MKP-227",
+        "output": " MKP-227.",
+        "base_passed": true,
+        "cf_output": " Plen holds code TVB-364.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": true,
+        "position_baselines": {
+          "first": true,
+          "last": false
+        }
+      },
+      "SEL09-dialogue": {
+        "id": "SEL09-dialogue",
+        "gold": "TVB-687",
+        "output": " I have a copy of the code",
+        "base_passed": false,
+        "cf_output": " I have a code for the st",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": true,
+        "position_baselines": {
+          "first": false,
+          "last": true
+        }
+      },
+      "SEL10-dialogue": {
+        "id": "SEL10-dialogue",
+        "gold": "OFS-176",
+        "output": " Amble tag.",
+        "base_passed": false,
+        "cf_output": " Give me Amble tag.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": true,
+        "position_baselines": {
+          "first": false,
+          "last": false
+        }
+      },
+      "SEL11-dialogue": {
+        "id": "SEL11-dialogue",
+        "gold": "SKZ-953",
+        "output": " Give me Eyot tag.",
+        "base_passed": false,
+        "cf_output": " Give me Eyot tag.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": false,
+        "position_baselines": {
+          "first": false,
+          "last": true
+        }
+      },
+      "SEL12-kv": {
+        "id": "SEL12-kv",
+        "gold": "RJW-252",
+        "output": " Firn holds code televisionB-57.",
+        "base_passed": false,
+        "cf_output": " Firn holds code TVB-57.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": true,
+        "position_baselines": {
+          "first": true,
+          "last": false
+        }
+      },
+      "SEL13-kv": {
+        "id": "SEL13-kv",
+        "gold": "TVB-185",
+        "output": " MKP-514.",
+        "base_passed": false,
+        "cf_output": " MKP-514.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": false,
+        "position_baselines": {
+          "first": false,
+          "last": false
+        }
+      },
+      "SEL14-kv": {
+        "id": "SEL14-kv",
+        "gold": "MKP-199",
+        "output": " MKP-172.",
+        "base_passed": false,
+        "cf_output": " Ness is Nesser.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": true,
+        "position_baselines": {
+          "first": false,
+          "last": false
+        }
+      },
+      "SEL15-mixed": {
+        "id": "SEL15-mixed",
+        "gold": "RJW-853",
+        "output": " Eyot holds code PGL-838",
+        "base_passed": false,
+        "cf_output": " Eyot holds code PGL-727",
+        "cf_passed": true,
+        "paired": false,
+        "output_changed": true,
+        "position_baselines": {
+          "first": false,
+          "last": true
+        }
+      },
+      "SEL16-mixed": {
+        "id": "SEL16-mixed",
+        "gold": "OFS-838",
+        "output": " Which tag belongs to the Eyot",
+        "base_passed": false,
+        "cf_output": " QHN-460.",
+        "cf_passed": true,
+        "paired": false,
+        "output_changed": true,
+        "position_baselines": {
+          "first": false,
+          "last": false
+        }
+      },
+      "SEL17-mixed": {
+        "id": "SEL17-mixed",
+        "gold": "PGL-925",
+        "output": " Lea holds code NDR-341.",
+        "base_passed": false,
+        "cf_output": " Lea holds code NDR-135.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": true,
+        "position_baselines": {
+          "first": false,
+          "last": false
+        }
+      },
+      "SEL18-plain": {
+        "id": "SEL18-plain",
+        "gold": "OFS-925",
+        "output": " WER EAR BELOW.",
+        "base_passed": false,
+        "cf_output": " WELL BELOW to be ",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": true,
+        "position_baselines": {
+          "first": false,
+          "last": false
+        }
+      },
+      "SEL19-table": {
+        "id": "SEL19-table",
+        "gold": "RJW-435",
+        "output": " MKP-105.",
+        "base_passed": false,
+        "cf_output": " MKP-105.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": false,
+        "position_baselines": {
+          "first": false,
+          "last": false
+        }
+      },
+      "SEL20-kv": {
+        "id": "SEL20-kv",
+        "gold": "QHN-130",
+        "output": " NDR-135.",
+        "base_passed": false,
+        "cf_output": " NDR-135.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": false,
+        "position_baselines": {
+          "first": false,
+          "last": false
+        }
+      },
+      "SEL21-json": {
+        "id": "SEL21-json",
+        "gold": "NDR-501",
+        "output": " NDR-501.",
+        "base_passed": true,
+        "cf_output": " Plen is the tag for Coo",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": true,
+        "position_baselines": {
+          "first": false,
+          "last": false
+        }
+      },
+      "SEL22-dialogue": {
+        "id": "SEL22-dialogue",
+        "gold": "OFS-865",
+        "output": " I am a member of the community",
+        "base_passed": false,
+        "cf_output": " Give me Lea tag.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": true,
+        "position_baselines": {
+          "first": false,
+          "last": false
+        }
+      },
+      "SEL23-mixed": {
+        "id": "SEL23-mixed",
+        "gold": "MKP-781",
+        "output": " Which tag belongs to Shaw?",
+        "base_passed": false,
+        "cf_output": " Which tag belongs to Shaw?",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": false,
+        "position_baselines": {
+          "first": false,
+          "last": false
+        }
+      },
+      "SEL24-plain": {
+        "id": "SEL24-plain",
+        "gold": "RJW-437",
+        "output": " NDR-450.",
+        "base_passed": false,
+        "cf_output": " NDR-450.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": false,
+        "position_baselines": {
+          "first": false,
+          "last": false
+        }
+      },
+      "SEL25-table": {
+        "id": "SEL25-table",
+        "gold": "QHN-712",
+        "output": " QHN-462.",
+        "base_passed": false,
+        "cf_output": " Ness is the tag of Ho",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": true,
+        "position_baselines": {
+          "first": true,
+          "last": false
+        }
+      },
+      "RET1-00": {
+        "id": "RET1-00",
+        "gold": "TVB-562",
+        "output": " TVB-562.",
+        "base_passed": true,
+        "cf_output": " RJW-536.",
+        "cf_passed": true,
+        "paired": true,
+        "output_changed": true
+      },
+      "RET1-01": {
+        "id": "RET1-01",
+        "gold": "TVB-210",
+        "output": " Ness the code.",
+        "base_passed": false
+      },
+      "RET1-02": {
+        "id": "RET1-02",
+        "gold": "TVB-744",
+        "output": " Firn = TVB-744.",
+        "base_passed": true,
+        "cf_output": " Firn = TVB-423.",
+        "cf_passed": true,
+        "paired": true,
+        "output_changed": true
+      },
+      "RET1-03": {
+        "id": "RET1-03",
+        "gold": "SKZ-913",
+        "output": " SKZ-913.",
+        "base_passed": true
+      },
+      "RET1-04": {
+        "id": "RET1-04",
+        "gold": "QHN-937",
+        "output": " QHN-937.",
+        "base_passed": true,
+        "cf_output": " NDR-771.",
+        "cf_passed": true,
+        "paired": true,
+        "output_changed": true
+      },
+      "RET1-05": {
+        "id": "RET1-05",
+        "gold": "PGL-675",
+        "output": " LOG: Ruse = PGL-",
+        "base_passed": false
+      },
+      "RETC-00": {
+        "id": "RETC-00",
+        "gold": "lanyard",
+        "output": " lanyard.",
+        "base_passed": true
+      },
+      "RETC-01": {
+        "id": "RETC-01",
+        "gold": "plumbline",
+        "output": " juniperline.",
+        "base_passed": false
+      },
+      "RETC-02": {
+        "id": "RETC-02",
+        "gold": "grindstone",
+        "output": " grindstone.",
+        "base_passed": true
+      },
+      "RETC-03": {
+        "id": "RETC-03",
+        "gold": "casement",
+        "output": " casement.",
+        "base_passed": true
+      },
+      "RETT-00": {
+        "id": "RETT-00",
+        "gold": "QHN-447",
+        "output": " QHN-136.",
+        "base_passed": false,
+        "cf_output": " WE-36.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": true
+      },
+      "RETT-01": {
+        "id": "RETT-01",
+        "gold": "SKZ-438",
+        "output": " ZZ-438.",
+        "base_passed": false,
+        "cf_output": " ZZ-264.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": true
+      },
+      "RETT-02": {
+        "id": "RETT-02",
+        "gold": "NDR-803",
+        "output": " NDR-803.",
+        "base_passed": true,
+        "cf_output": " MKP-450.",
+        "cf_passed": true,
+        "paired": true,
+        "output_changed": true
+      },
+      "RETT-03": {
+        "id": "RETT-03",
+        "gold": "PGL-103",
+        "output": " PGL-103.",
+        "base_passed": true,
+        "cf_output": " INS-425.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": true
+      }
+    }
+  },
+  "source_commit": "d9193a8e3b11eea96bdd360eafd8397d31cae351",
+  "git_dirty": true
+}

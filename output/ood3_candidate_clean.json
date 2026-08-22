@@ -1,0 +1,1052 @@
+{
+  "experiment_schema": "anra-ood3-battery/v1",
+  "timestamp": "2026-08-22 22:09:59",
+  "label": "accumulate-clean",
+  "checkpoint_path": "checkpoints/anra-v4-20k-sft3-accumulate.pt",
+  "global_step": 20000,
+  "parameter_sha256": "c3bc615eb3ffc8628f82088c433507baa142a0fecf91e4f6e64f9b17729e0625",
+  "suite_sha256": "607043183da9246ffa61941df984fb558d3cf5ee5a6fa7e74ab9d175c894d20e",
+  "profiles": {
+    "RAW": {
+      "temperature": 0.0,
+      "repetition_penalty": 1.0,
+      "no_repeat_ngram_size": 0
+    },
+    "ASSISTED": {
+      "temperature": 0.0,
+      "repetition_penalty": 1.15,
+      "no_repeat_ngram_size": 4
+    }
+  },
+  "device": "cuda",
+  "precision": "float32",
+  "capability_vector_RAW": {
+    "SEL_selective_binding": {
+      "pass": 4,
+      "n": 26
+    },
+    "RET_single_fact": {
+      "pass": 4,
+      "n": 6
+    },
+    "RET_copy": {
+      "pass": 3,
+      "n": 4
+    },
+    "RET_tool_result": {
+      "pass": 2,
+      "n": 4
+    }
+  },
+  "capability_vector_ASSISTED": {
+    "SEL_selective_binding": {
+      "pass": 4,
+      "n": 26
+    },
+    "RET_single_fact": {
+      "pass": 4,
+      "n": 6
+    },
+    "RET_copy": {
+      "pass": 3,
+      "n": 4
+    },
+    "RET_tool_result": {
+      "pass": 2,
+      "n": 4
+    }
+  },
+  "conditionals_RAW": {
+    "by_fact_count": {
+      "2": "2/6",
+      "3": "2/6",
+      "4": "0/6",
+      "5": "0/8"
+    },
+    "by_target_position": {
+      "first": "2/6",
+      "last": "0/5",
+      "middle": "2/15"
+    },
+    "by_format": {
+      "dialogue": "1/4",
+      "json": "1/4",
+      "kv": "1/4",
+      "mixed": "0/4",
+      "paragraph": "1/5",
+      "table": "0/5"
+    },
+    "position_baselines": {
+      "first_fact_heuristic": "6/26",
+      "last_fact_heuristic": "5/26",
+      "random": "8.1 expected"
+    },
+    "causal_dependence": {
+      "base_correct": 7,
+      "cf_correct": 7,
+      "paired": 4,
+      "output_changed_on_cf": 15,
+      "n": 26
+    }
+  },
+  "raw_outputs": {
+    "RAW": {
+      "SEL00-paragraph": {
+        "id": "SEL00-paragraph",
+        "gold": "QZM-507",
+        "output": " QZM-507.",
+        "base_passed": true,
+        "cf_output": " YGB-129.",
+        "cf_passed": true,
+        "paired": true,
+        "output_changed": true,
+        "position_baselines": {
+          "first": true,
+          "last": false
+        }
+      },
+      "SEL01-paragraph": {
+        "id": "SEL01-paragraph",
+        "gold": "WDP-576",
+        "output": " WDP-609.",
+        "base_passed": false,
+        "cf_output": " SXL-667.",
+        "cf_passed": true,
+        "paired": false,
+        "output_changed": true,
+        "position_baselines": {
+          "first": false,
+          "last": false
+        }
+      },
+      "SEL02-paragraph": {
+        "id": "SEL02-paragraph",
+        "gold": "YGB-302",
+        "output": " RVT-933.",
+        "base_passed": false,
+        "cf_output": " RVT-944.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": true,
+        "position_baselines": {
+          "first": false,
+          "last": false
+        }
+      },
+      "SEL03-table": {
+        "id": "SEL03-table",
+        "gold": "XFJ-741",
+        "output": " XFJ-510.",
+        "base_passed": false,
+        "cf_output": " XFJ-510.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": false,
+        "position_baselines": {
+          "first": false,
+          "last": true
+        }
+      },
+      "SEL04-table": {
+        "id": "SEL04-table",
+        "gold": "SXL-720",
+        "output": " SXL-720.",
+        "base_passed": true,
+        "cf_output": " SXL-848.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": true,
+        "position_baselines": {
+          "first": false,
+          "last": false
+        }
+      },
+      "SEL05-table": {
+        "id": "SEL05-table",
+        "gold": "RVT-742",
+        "output": " YGB-479.",
+        "base_passed": false,
+        "cf_output": " YGB-479.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": false,
+        "position_baselines": {
+          "first": false,
+          "last": false
+        }
+      },
+      "SEL06-json": {
+        "id": "SEL06-json",
+        "gold": "YGB-548",
+        "output": " YGB-261.",
+        "base_passed": false,
+        "cf_output": " YGB-254.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": true,
+        "position_baselines": {
+          "first": true,
+          "last": false
+        }
+      },
+      "SEL07-json": {
+        "id": "SEL07-json",
+        "gold": "SXL-865",
+        "output": " SXL-865.",
+        "base_passed": true,
+        "cf_output": " TBK-540.",
+        "cf_passed": true,
+        "paired": true,
+        "output_changed": true,
+        "position_baselines": {
+          "first": false,
+          "last": false
+        }
+      },
+      "SEL08-json": {
+        "id": "SEL08-json",
+        "gold": "QZM-107",
+        "output": " QZM-107.",
+        "base_passed": true,
+        "cf_output": " YGB-833.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": true,
+        "position_baselines": {
+          "first": true,
+          "last": false
+        }
+      },
+      "SEL09-dialogue": {
+        "id": "SEL09-dialogue",
+        "gold": "RVT-260",
+        "output": " QZM-154.",
+        "base_passed": false,
+        "cf_output": " QZM-154.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": false,
+        "position_baselines": {
+          "first": false,
+          "last": true
+        }
+      },
+      "SEL10-dialogue": {
+        "id": "SEL10-dialogue",
+        "gold": "WDP-772",
+        "output": " WDP-772.",
+        "base_passed": true,
+        "cf_output": " TBK-588.",
+        "cf_passed": true,
+        "paired": true,
+        "output_changed": true,
+        "position_baselines": {
+          "first": false,
+          "last": false
+        }
+      },
+      "SEL11-dialogue": {
+        "id": "SEL11-dialogue",
+        "gold": "RVT-252",
+        "output": " SXL-839.",
+        "base_passed": false,
+        "cf_output": " QZM-165.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": true,
+        "position_baselines": {
+          "first": false,
+          "last": true
+        }
+      },
+      "SEL12-kv": {
+        "id": "SEL12-kv",
+        "gold": "XFJ-930",
+        "output": " XFJ-930.",
+        "base_passed": true,
+        "cf_output": " SXL-665.",
+        "cf_passed": true,
+        "paired": true,
+        "output_changed": true,
+        "position_baselines": {
+          "first": true,
+          "last": false
+        }
+      },
+      "SEL13-kv": {
+        "id": "SEL13-kv",
+        "gold": "TBK-110",
+        "output": " QZM-135.",
+        "base_passed": false,
+        "cf_output": " QZM-135.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": false,
+        "position_baselines": {
+          "first": false,
+          "last": false
+        }
+      },
+      "SEL14-kv": {
+        "id": "SEL14-kv",
+        "gold": "UCN-893",
+        "output": " QZM-622.",
+        "base_passed": false,
+        "cf_output": " QZM-624.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": true,
+        "position_baselines": {
+          "first": false,
+          "last": false
+        }
+      },
+      "SEL15-mixed": {
+        "id": "SEL15-mixed",
+        "gold": "TBK-422",
+        "output": " TBK-424.",
+        "base_passed": false,
+        "cf_output": " XFJ-143.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": true,
+        "position_baselines": {
+          "first": false,
+          "last": true
+        }
+      },
+      "SEL16-mixed": {
+        "id": "SEL16-mixed",
+        "gold": "RVT-390",
+        "output": " WDP-538.",
+        "base_passed": false,
+        "cf_output": " WDP-538.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": false,
+        "position_baselines": {
+          "first": false,
+          "last": false
+        }
+      },
+      "SEL17-mixed": {
+        "id": "SEL17-mixed",
+        "gold": "UCN-740",
+        "output": " SXL-663.",
+        "base_passed": false,
+        "cf_output": " SXL-663.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": false,
+        "position_baselines": {
+          "first": false,
+          "last": false
+        }
+      },
+      "SEL18-paragraph": {
+        "id": "SEL18-paragraph",
+        "gold": "UCN-920",
+        "output": " TBK-907.",
+        "base_passed": false,
+        "cf_output": " WDP-168.",
+        "cf_passed": true,
+        "paired": false,
+        "output_changed": true,
+        "position_baselines": {
+          "first": false,
+          "last": true
+        }
+      },
+      "SEL19-table": {
+        "id": "SEL19-table",
+        "gold": "UCN-566",
+        "output": " WDP-349.",
+        "base_passed": false,
+        "cf_output": " WDP-349.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": false,
+        "position_baselines": {
+          "first": false,
+          "last": false
+        }
+      },
+      "SEL20-kv": {
+        "id": "SEL20-kv",
+        "gold": "UCN-371",
+        "output": " WDP-687.",
+        "base_passed": false,
+        "cf_output": " WDP-687.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": false,
+        "position_baselines": {
+          "first": false,
+          "last": false
+        }
+      },
+      "SEL21-json": {
+        "id": "SEL21-json",
+        "gold": "UCN-134",
+        "output": " Hayloft.",
+        "base_passed": false,
+        "cf_output": " Hayloft.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": false,
+        "position_baselines": {
+          "first": true,
+          "last": false
+        }
+      },
+      "SEL22-dialogue": {
+        "id": "SEL22-dialogue",
+        "gold": "WDP-617",
+        "output": " WDP-617.",
+        "base_passed": true,
+        "cf_output": " SXL-699.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": true,
+        "position_baselines": {
+          "first": true,
+          "last": false
+        }
+      },
+      "SEL23-mixed": {
+        "id": "SEL23-mixed",
+        "gold": "TBK-887",
+        "output": " QZM-731.",
+        "base_passed": false,
+        "cf_output": " QZM-731.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": false,
+        "position_baselines": {
+          "first": false,
+          "last": false
+        }
+      },
+      "SEL24-paragraph": {
+        "id": "SEL24-paragraph",
+        "gold": "UCN-390",
+        "output": " SXL-159.",
+        "base_passed": false,
+        "cf_output": " WDP-756.",
+        "cf_passed": true,
+        "paired": false,
+        "output_changed": true,
+        "position_baselines": {
+          "first": false,
+          "last": false
+        }
+      },
+      "SEL25-table": {
+        "id": "SEL25-table",
+        "gold": "UCN-921",
+        "output": " TBK-428.",
+        "base_passed": false,
+        "cf_output": " TBK-428.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": false,
+        "position_baselines": {
+          "first": false,
+          "last": false
+        }
+      },
+      "RET1-00": {
+        "id": "RET1-00",
+        "gold": "RVT-604",
+        "output": " RVT-604.",
+        "base_passed": true,
+        "cf_output": " WDP-208.",
+        "cf_passed": true,
+        "paired": true,
+        "output_changed": true
+      },
+      "RET1-01": {
+        "id": "RET1-01",
+        "gold": "TBK-803",
+        "output": " TBK-803.",
+        "base_passed": true
+      },
+      "RET1-02": {
+        "id": "RET1-02",
+        "gold": "QZM-733",
+        "output": " QZM-733.",
+        "base_passed": true,
+        "cf_output": " QZM-892.",
+        "cf_passed": true,
+        "paired": true,
+        "output_changed": true
+      },
+      "RET1-03": {
+        "id": "RET1-03",
+        "gold": "XFJ-764",
+        "output": " XFJ-764.",
+        "base_passed": true
+      },
+      "RET1-04": {
+        "id": "RET1-04",
+        "gold": "QZM-180",
+        "output": " QZM-180.",
+        "base_passed": true,
+        "cf_output": " QZM-414.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": true
+      },
+      "RET1-05": {
+        "id": "RET1-05",
+        "gold": "UCN-518",
+        "output": " BIG BIG BIG B",
+        "base_passed": false
+      },
+      "RETC-00": {
+        "id": "RETC-00",
+        "gold": "lanyard",
+        "output": " lanyard.",
+        "base_passed": true
+      },
+      "RETC-01": {
+        "id": "RETC-01",
+        "gold": "plumbline",
+        "output": " ledgerline.",
+        "base_passed": false
+      },
+      "RETC-02": {
+        "id": "RETC-02",
+        "gold": "grindstone",
+        "output": " grindstone.",
+        "base_passed": true
+      },
+      "RETC-03": {
+        "id": "RETC-03",
+        "gold": "casement",
+        "output": " casement.",
+        "base_passed": true
+      },
+      "RETT-00": {
+        "id": "RETT-00",
+        "gold": "TBK-871",
+        "output": " TBK-871.",
+        "base_passed": true,
+        "cf_output": " SXL-305.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": true
+      },
+      "RETT-01": {
+        "id": "RETT-01",
+        "gold": "QZM-291",
+        "output": " QZM-291.",
+        "base_passed": true,
+        "cf_output": " WDP-261.",
+        "cf_passed": true,
+        "paired": true,
+        "output_changed": true
+      },
+      "RETT-02": {
+        "id": "RETT-02",
+        "gold": "XFJ-720",
+        "output": " XFJ-720.",
+        "base_passed": true,
+        "cf_output": " YGB-972.",
+        "cf_passed": true,
+        "paired": true,
+        "output_changed": true
+      },
+      "RETT-03": {
+        "id": "RETT-03",
+        "gold": "QZM-345",
+        "output": " QZM-340.",
+        "base_passed": false,
+        "cf_output": " XFJ-274.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": true
+      }
+    },
+    "ASSISTED": {
+      "SEL00-paragraph": {
+        "id": "SEL00-paragraph",
+        "gold": "QZM-507",
+        "output": " QZM-507.",
+        "base_passed": true,
+        "cf_output": " YGB-129.",
+        "cf_passed": true,
+        "paired": true,
+        "output_changed": true,
+        "position_baselines": {
+          "first": true,
+          "last": false
+        }
+      },
+      "SEL01-paragraph": {
+        "id": "SEL01-paragraph",
+        "gold": "WDP-576",
+        "output": " WDP-609.",
+        "base_passed": false,
+        "cf_output": " SXL-667.",
+        "cf_passed": true,
+        "paired": false,
+        "output_changed": true,
+        "position_baselines": {
+          "first": false,
+          "last": false
+        }
+      },
+      "SEL02-paragraph": {
+        "id": "SEL02-paragraph",
+        "gold": "YGB-302",
+        "output": " RVT-933.",
+        "base_passed": false,
+        "cf_output": " RVT-944.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": true,
+        "position_baselines": {
+          "first": false,
+          "last": false
+        }
+      },
+      "SEL03-table": {
+        "id": "SEL03-table",
+        "gold": "XFJ-741",
+        "output": " XFJ-510.",
+        "base_passed": false,
+        "cf_output": " XFJ-510.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": false,
+        "position_baselines": {
+          "first": false,
+          "last": true
+        }
+      },
+      "SEL04-table": {
+        "id": "SEL04-table",
+        "gold": "SXL-720",
+        "output": " SXL-720.",
+        "base_passed": true,
+        "cf_output": " SXL-848.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": true,
+        "position_baselines": {
+          "first": false,
+          "last": false
+        }
+      },
+      "SEL05-table": {
+        "id": "SEL05-table",
+        "gold": "RVT-742",
+        "output": " YGB-479.",
+        "base_passed": false,
+        "cf_output": " YGB-479.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": false,
+        "position_baselines": {
+          "first": false,
+          "last": false
+        }
+      },
+      "SEL06-json": {
+        "id": "SEL06-json",
+        "gold": "YGB-548",
+        "output": " YGB-261.",
+        "base_passed": false,
+        "cf_output": " YGB-254.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": true,
+        "position_baselines": {
+          "first": true,
+          "last": false
+        }
+      },
+      "SEL07-json": {
+        "id": "SEL07-json",
+        "gold": "SXL-865",
+        "output": " SXL-865.",
+        "base_passed": true,
+        "cf_output": " TBK-540.",
+        "cf_passed": true,
+        "paired": true,
+        "output_changed": true,
+        "position_baselines": {
+          "first": false,
+          "last": false
+        }
+      },
+      "SEL08-json": {
+        "id": "SEL08-json",
+        "gold": "QZM-107",
+        "output": " QZM-107.",
+        "base_passed": true,
+        "cf_output": " YGB-833.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": true,
+        "position_baselines": {
+          "first": true,
+          "last": false
+        }
+      },
+      "SEL09-dialogue": {
+        "id": "SEL09-dialogue",
+        "gold": "RVT-260",
+        "output": " QZM-154.",
+        "base_passed": false,
+        "cf_output": " QZM-154.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": false,
+        "position_baselines": {
+          "first": false,
+          "last": true
+        }
+      },
+      "SEL10-dialogue": {
+        "id": "SEL10-dialogue",
+        "gold": "WDP-772",
+        "output": " WDP-772.",
+        "base_passed": true,
+        "cf_output": " TBK-588.",
+        "cf_passed": true,
+        "paired": true,
+        "output_changed": true,
+        "position_baselines": {
+          "first": false,
+          "last": false
+        }
+      },
+      "SEL11-dialogue": {
+        "id": "SEL11-dialogue",
+        "gold": "RVT-252",
+        "output": " SXL-839.",
+        "base_passed": false,
+        "cf_output": " QZM-165.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": true,
+        "position_baselines": {
+          "first": false,
+          "last": true
+        }
+      },
+      "SEL12-kv": {
+        "id": "SEL12-kv",
+        "gold": "XFJ-930",
+        "output": " XFJ-930.",
+        "base_passed": true,
+        "cf_output": " SXL-665.",
+        "cf_passed": true,
+        "paired": true,
+        "output_changed": true,
+        "position_baselines": {
+          "first": true,
+          "last": false
+        }
+      },
+      "SEL13-kv": {
+        "id": "SEL13-kv",
+        "gold": "TBK-110",
+        "output": " QZM-135.",
+        "base_passed": false,
+        "cf_output": " QZM-135.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": false,
+        "position_baselines": {
+          "first": false,
+          "last": false
+        }
+      },
+      "SEL14-kv": {
+        "id": "SEL14-kv",
+        "gold": "UCN-893",
+        "output": " QZM-622.",
+        "base_passed": false,
+        "cf_output": " QZM-624.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": true,
+        "position_baselines": {
+          "first": false,
+          "last": false
+        }
+      },
+      "SEL15-mixed": {
+        "id": "SEL15-mixed",
+        "gold": "TBK-422",
+        "output": " TBK-424.",
+        "base_passed": false,
+        "cf_output": " XFJ-143.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": true,
+        "position_baselines": {
+          "first": false,
+          "last": true
+        }
+      },
+      "SEL16-mixed": {
+        "id": "SEL16-mixed",
+        "gold": "RVT-390",
+        "output": " WDP-538.",
+        "base_passed": false,
+        "cf_output": " WDP-538.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": false,
+        "position_baselines": {
+          "first": false,
+          "last": false
+        }
+      },
+      "SEL17-mixed": {
+        "id": "SEL17-mixed",
+        "gold": "UCN-740",
+        "output": " SXL-663.",
+        "base_passed": false,
+        "cf_output": " SXL-663.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": false,
+        "position_baselines": {
+          "first": false,
+          "last": false
+        }
+      },
+      "SEL18-paragraph": {
+        "id": "SEL18-paragraph",
+        "gold": "UCN-920",
+        "output": " TBK-907.",
+        "base_passed": false,
+        "cf_output": " WDP-168.",
+        "cf_passed": true,
+        "paired": false,
+        "output_changed": true,
+        "position_baselines": {
+          "first": false,
+          "last": true
+        }
+      },
+      "SEL19-table": {
+        "id": "SEL19-table",
+        "gold": "UCN-566",
+        "output": " WDP-349.",
+        "base_passed": false,
+        "cf_output": " WDP-349.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": false,
+        "position_baselines": {
+          "first": false,
+          "last": false
+        }
+      },
+      "SEL20-kv": {
+        "id": "SEL20-kv",
+        "gold": "UCN-371",
+        "output": " WDP-687.",
+        "base_passed": false,
+        "cf_output": " WDP-687.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": false,
+        "position_baselines": {
+          "first": false,
+          "last": false
+        }
+      },
+      "SEL21-json": {
+        "id": "SEL21-json",
+        "gold": "UCN-134",
+        "output": " Hayloft.",
+        "base_passed": false,
+        "cf_output": " Hayloft.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": false,
+        "position_baselines": {
+          "first": true,
+          "last": false
+        }
+      },
+      "SEL22-dialogue": {
+        "id": "SEL22-dialogue",
+        "gold": "WDP-617",
+        "output": " WDP-617.",
+        "base_passed": true,
+        "cf_output": " SXL-699.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": true,
+        "position_baselines": {
+          "first": true,
+          "last": false
+        }
+      },
+      "SEL23-mixed": {
+        "id": "SEL23-mixed",
+        "gold": "TBK-887",
+        "output": " QZM-731.",
+        "base_passed": false,
+        "cf_output": " QZM-731.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": false,
+        "position_baselines": {
+          "first": false,
+          "last": false
+        }
+      },
+      "SEL24-paragraph": {
+        "id": "SEL24-paragraph",
+        "gold": "UCN-390",
+        "output": " SXL-159.",
+        "base_passed": false,
+        "cf_output": " WDP-756.",
+        "cf_passed": true,
+        "paired": false,
+        "output_changed": true,
+        "position_baselines": {
+          "first": false,
+          "last": false
+        }
+      },
+      "SEL25-table": {
+        "id": "SEL25-table",
+        "gold": "UCN-921",
+        "output": " TBK-428.",
+        "base_passed": false,
+        "cf_output": " TBK-428.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": false,
+        "position_baselines": {
+          "first": false,
+          "last": false
+        }
+      },
+      "RET1-00": {
+        "id": "RET1-00",
+        "gold": "RVT-604",
+        "output": " RVT-604.",
+        "base_passed": true,
+        "cf_output": " WDP-208.",
+        "cf_passed": true,
+        "paired": true,
+        "output_changed": true
+      },
+      "RET1-01": {
+        "id": "RET1-01",
+        "gold": "TBK-803",
+        "output": " TBK-803.",
+        "base_passed": true
+      },
+      "RET1-02": {
+        "id": "RET1-02",
+        "gold": "QZM-733",
+        "output": " QZM-733.",
+        "base_passed": true,
+        "cf_output": " QZM-892.",
+        "cf_passed": true,
+        "paired": true,
+        "output_changed": true
+      },
+      "RET1-03": {
+        "id": "RET1-03",
+        "gold": "XFJ-764",
+        "output": " XFJ-764.",
+        "base_passed": true
+      },
+      "RET1-04": {
+        "id": "RET1-04",
+        "gold": "QZM-180",
+        "output": " QZM-180.",
+        "base_passed": true,
+        "cf_output": " QZM-414.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": true
+      },
+      "RET1-05": {
+        "id": "RET1-05",
+        "gold": "UCN-518",
+        "output": " BIG BIED.",
+        "base_passed": false
+      },
+      "RETC-00": {
+        "id": "RETC-00",
+        "gold": "lanyard",
+        "output": " lanyard.",
+        "base_passed": true
+      },
+      "RETC-01": {
+        "id": "RETC-01",
+        "gold": "plumbline",
+        "output": " ledgerline.",
+        "base_passed": false
+      },
+      "RETC-02": {
+        "id": "RETC-02",
+        "gold": "grindstone",
+        "output": " grindstone.",
+        "base_passed": true
+      },
+      "RETC-03": {
+        "id": "RETC-03",
+        "gold": "casement",
+        "output": " casement.",
+        "base_passed": true
+      },
+      "RETT-00": {
+        "id": "RETT-00",
+        "gold": "TBK-871",
+        "output": " TBK-871.",
+        "base_passed": true,
+        "cf_output": " SXL-305.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": true
+      },
+      "RETT-01": {
+        "id": "RETT-01",
+        "gold": "QZM-291",
+        "output": " QZM-291.",
+        "base_passed": true,
+        "cf_output": " WDP-261.",
+        "cf_passed": true,
+        "paired": true,
+        "output_changed": true
+      },
+      "RETT-02": {
+        "id": "RETT-02",
+        "gold": "XFJ-720",
+        "output": " XFJ-720.",
+        "base_passed": true,
+        "cf_output": " YGB-972.",
+        "cf_passed": true,
+        "paired": true,
+        "output_changed": true
+      },
+      "RETT-03": {
+        "id": "RETT-03",
+        "gold": "QZM-345",
+        "output": " QZM-340.",
+        "base_passed": false,
+        "cf_output": " XFJ-274.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": true
+      }
+    }
+  },
+  "source_commit": "d9193a8e3b11eea96bdd360eafd8397d31cae351",
+  "git_dirty": true
+}

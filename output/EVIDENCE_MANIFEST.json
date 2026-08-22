@@ -1,6 +1,6 @@
 {
   "schema": "anra-evidence-manifest/v1",
-  "updated": "2026-08-22 21:26",
+  "updated": "2026-08-22 22:13",
   "labels": {
     "VALID": "trustworthy under its recorded conditions",
     "SUPERSEDED": "correct when produced, replaced by a better measurement",
@@ -128,6 +128,30 @@
       "label": "VALID",
       "reason": "child->proposal->12 verified experiences lineage; NOT FALSIFIED",
       "checkpoint": "anra-v4-20k-sft3-accumulate.pt"
+    },
+    {
+      "path": "output/ood3_anchor_clean.json",
+      "label": "VALID",
+      "reason": "clean-state reproduction; evaluator byte-identical to d9193a8 (git diff empty)",
+      "checkpoint": "anchor"
+    },
+    {
+      "path": "output/ood3_candidate_clean.json",
+      "label": "VALID",
+      "reason": "clean-state reproduction of 2/26->4/26 with identical retention",
+      "checkpoint": "anra-v4-20k-sft3-accumulate.pt"
+    },
+    {
+      "path": "output/ood4_anchor.json",
+      "label": "VALID",
+      "reason": "independent replication suite, single evaluation",
+      "checkpoint": "anchor"
+    },
+    {
+      "path": "output/ood4_candidate.json",
+      "label": "VALID",
+      "reason": "independent replication suite, single evaluation; selective NOT replicated, retention replicated",
+      "checkpoint": "anra-v4-20k-sft3-accumulate.pt"
     }
   ],
   "scoped_promotions": {
@@ -173,5 +197,12 @@
     },
     "conclusion": "selective binding partially transferred AND narrowing is real (H7 evaluator-noise rejected on sealed suite)"
   },
-  "ood3_scorer_defect_notice": "OOD-3 v1 scorer compared counterfactual outputs against the BASE gold (false negatives; SEL showed 0/26). Fixed 2026-08-22: CF outputs now scored against cf_gold. Items unchanged (sha 60704318 intact); both anchor and candidate recomputed with the fixed evaluator."
+  "ood3_scorer_defect_notice": "OOD-3 v1 scorer compared counterfactual outputs against the BASE gold (false negatives; SEL showed 0/26). Fixed 2026-08-22: CF outputs now scored against cf_gold. Items unchanged (sha 60704318 intact); both anchor and candidate recomputed with the fixed evaluator.",
+  "ood4_replication_verdict": {
+    "suite_sha": "5b82daba2e860f41",
+    "independence": "constructed from capability spec via vocab/wording/layout transformation; candidate outputs never inspected before freeze",
+    "selective_binding": "NOT REPLICATED: paired-CF 0/26 anchor AND candidate (OOD-3's 2->4/26 was surface-specific: shared format familiarity with the dev bank)",
+    "retention": "REPLICATED: candidate >= anchor on every axis (single 5/6 vs 4/6, tool 3/4 vs 1/4, copy equal)",
+    "decision": "stop optimizing selective binding; probe the next primitive before any training"
+  }
 }

@@ -1,0 +1,1052 @@
+{
+  "experiment_schema": "anra-ood4-battery/v1",
+  "timestamp": "2026-08-22 22:13:23",
+  "label": "accumulate",
+  "checkpoint_path": "checkpoints/anra-v4-20k-sft3-accumulate.pt",
+  "global_step": 20000,
+  "parameter_sha256": "c3bc615eb3ffc8628f82088c433507baa142a0fecf91e4f6e64f9b17729e0625",
+  "suite_sha256": "5b82daba2e860f41149fb3d641888171729e55f993eed371b63bfb3b5998cdfa",
+  "profiles": {
+    "RAW": {
+      "temperature": 0.0,
+      "repetition_penalty": 1.0,
+      "no_repeat_ngram_size": 0
+    },
+    "ASSISTED": {
+      "temperature": 0.0,
+      "repetition_penalty": 1.15,
+      "no_repeat_ngram_size": 4
+    }
+  },
+  "device": "cuda",
+  "precision": "float32",
+  "capability_vector_RAW": {
+    "SEL_selective_binding": {
+      "pass": 0,
+      "n": 26
+    },
+    "RET_single_fact": {
+      "pass": 5,
+      "n": 6
+    },
+    "RET_copy": {
+      "pass": 3,
+      "n": 4
+    },
+    "RET_tool_result": {
+      "pass": 3,
+      "n": 4
+    }
+  },
+  "capability_vector_ASSISTED": {
+    "SEL_selective_binding": {
+      "pass": 0,
+      "n": 26
+    },
+    "RET_single_fact": {
+      "pass": 5,
+      "n": 6
+    },
+    "RET_copy": {
+      "pass": 3,
+      "n": 4
+    },
+    "RET_tool_result": {
+      "pass": 3,
+      "n": 4
+    }
+  },
+  "conditionals_RAW": {
+    "by_fact_count": {
+      "2": "0/6",
+      "3": "0/6",
+      "4": "0/6",
+      "5": "0/8"
+    },
+    "by_target_position": {
+      "first": "0/5",
+      "last": "0/4",
+      "middle": "0/17"
+    },
+    "by_format": {
+      "dialogue": "0/4",
+      "json": "0/4",
+      "kv": "0/4",
+      "mixed": "0/4",
+      "plain": "0/5",
+      "table": "0/5"
+    },
+    "position_baselines": {
+      "first_fact_heuristic": "5/26",
+      "last_fact_heuristic": "4/26",
+      "random": "8.1 expected"
+    },
+    "causal_dependence": {
+      "base_correct": 3,
+      "cf_correct": 6,
+      "paired": 0,
+      "output_changed_on_cf": 18,
+      "n": 26
+    }
+  },
+  "raw_outputs": {
+    "RAW": {
+      "SEL00-plain": {
+        "id": "SEL00-plain",
+        "gold": "QHN-565",
+        "output": " QHN-565.",
+        "base_passed": true,
+        "cf_output": " NDR-551.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": true,
+        "position_baselines": {
+          "first": true,
+          "last": false
+        }
+      },
+      "SEL01-plain": {
+        "id": "SEL01-plain",
+        "gold": "RJW-613",
+        "output": " GQW-613.",
+        "base_passed": false,
+        "cf_output": " GQW-948.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": true,
+        "position_baselines": {
+          "first": false,
+          "last": false
+        }
+      },
+      "SEL02-plain": {
+        "id": "SEL02-plain",
+        "gold": "PGL-900",
+        "output": " AVZ-150.",
+        "base_passed": false,
+        "cf_output": " NDR-566.",
+        "cf_passed": true,
+        "paired": false,
+        "output_changed": true,
+        "position_baselines": {
+          "first": false,
+          "last": false
+        }
+      },
+      "SEL03-table": {
+        "id": "SEL03-table",
+        "gold": "SKZ-649",
+        "output": " NDR-406.",
+        "base_passed": false,
+        "cf_output": " NDR-406.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": false,
+        "position_baselines": {
+          "first": false,
+          "last": true
+        }
+      },
+      "SEL04-table": {
+        "id": "SEL04-table",
+        "gold": "RJW-347",
+        "output": " BW-864.",
+        "base_passed": false,
+        "cf_output": " AVW-864.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": true,
+        "position_baselines": {
+          "first": false,
+          "last": false
+        }
+      },
+      "SEL05-table": {
+        "id": "SEL05-table",
+        "gold": "SKZ-623",
+        "output": " MKP-439.",
+        "base_passed": false,
+        "cf_output": " MKP-439.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": false,
+        "position_baselines": {
+          "first": false,
+          "last": false
+        }
+      },
+      "SEL06-json": {
+        "id": "SEL06-json",
+        "gold": "QHN-632",
+        "output": " QHN-632.",
+        "base_passed": true,
+        "cf_output": " GQW-567.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": true,
+        "position_baselines": {
+          "first": true,
+          "last": false
+        }
+      },
+      "SEL07-json": {
+        "id": "SEL07-json",
+        "gold": "MKP-819",
+        "output": " HKP-819.",
+        "base_passed": false,
+        "cf_output": " NDR-211.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": true,
+        "position_baselines": {
+          "first": false,
+          "last": false
+        }
+      },
+      "SEL08-json": {
+        "id": "SEL08-json",
+        "gold": "MKP-227",
+        "output": " HKP-227.",
+        "base_passed": false,
+        "cf_output": " GQW-680.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": true,
+        "position_baselines": {
+          "first": true,
+          "last": false
+        }
+      },
+      "SEL09-dialogue": {
+        "id": "SEL09-dialogue",
+        "gold": "TVB-687",
+        "output": " BODY BODY BOD",
+        "base_passed": false,
+        "cf_output": " NDR-72.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": true,
+        "position_baselines": {
+          "first": false,
+          "last": true
+        }
+      },
+      "SEL10-dialogue": {
+        "id": "SEL10-dialogue",
+        "gold": "OFS-176",
+        "output": " NDR-430.",
+        "base_passed": false,
+        "cf_output": " NDR-430.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": false,
+        "position_baselines": {
+          "first": false,
+          "last": false
+        }
+      },
+      "SEL11-dialogue": {
+        "id": "SEL11-dialogue",
+        "gold": "SKZ-953",
+        "output": " Eyot tag.",
+        "base_passed": false,
+        "cf_output": " Eyot tag.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": false,
+        "position_baselines": {
+          "first": false,
+          "last": true
+        }
+      },
+      "SEL12-kv": {
+        "id": "SEL12-kv",
+        "gold": "RJW-252",
+        "output": " GQW-252.",
+        "base_passed": false,
+        "cf_output": " AVB-57.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": true,
+        "position_baselines": {
+          "first": true,
+          "last": false
+        }
+      },
+      "SEL13-kv": {
+        "id": "SEL13-kv",
+        "gold": "TVB-185",
+        "output": " DHN-414.",
+        "base_passed": false,
+        "cf_output": " MKP-832.",
+        "cf_passed": true,
+        "paired": false,
+        "output_changed": true,
+        "position_baselines": {
+          "first": false,
+          "last": false
+        }
+      },
+      "SEL14-kv": {
+        "id": "SEL14-kv",
+        "gold": "MKP-199",
+        "output": " MKP-487.",
+        "base_passed": false,
+        "cf_output": " NDR-681.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": true,
+        "position_baselines": {
+          "first": false,
+          "last": false
+        }
+      },
+      "SEL15-mixed": {
+        "id": "SEL15-mixed",
+        "gold": "RJW-853",
+        "output": " Eyot holds code Eyot.",
+        "base_passed": false,
+        "cf_output": " Eyot holds code PGL-727",
+        "cf_passed": true,
+        "paired": false,
+        "output_changed": true,
+        "position_baselines": {
+          "first": false,
+          "last": true
+        }
+      },
+      "SEL16-mixed": {
+        "id": "SEL16-mixed",
+        "gold": "OFS-838",
+        "output": " Eyot holds code AVW-497",
+        "base_passed": false,
+        "cf_output": " QHN-460.",
+        "cf_passed": true,
+        "paired": false,
+        "output_changed": true,
+        "position_baselines": {
+          "first": false,
+          "last": false
+        }
+      },
+      "SEL17-mixed": {
+        "id": "SEL17-mixed",
+        "gold": "PGL-925",
+        "output": " NDR-349.",
+        "base_passed": false,
+        "cf_output": " NDR-639.",
+        "cf_passed": true,
+        "paired": false,
+        "output_changed": true,
+        "position_baselines": {
+          "first": false,
+          "last": false
+        }
+      },
+      "SEL18-plain": {
+        "id": "SEL18-plain",
+        "gold": "OFS-925",
+        "output": " AVW-474.",
+        "base_passed": false,
+        "cf_output": " AVW-474.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": false,
+        "position_baselines": {
+          "first": false,
+          "last": false
+        }
+      },
+      "SEL19-table": {
+        "id": "SEL19-table",
+        "gold": "RJW-435",
+        "output": " Eyot.",
+        "base_passed": false,
+        "cf_output": " NDR-943.",
+        "cf_passed": true,
+        "paired": false,
+        "output_changed": true,
+        "position_baselines": {
+          "first": false,
+          "last": false
+        }
+      },
+      "SEL20-kv": {
+        "id": "SEL20-kv",
+        "gold": "QHN-130",
+        "output": " HZ-382.",
+        "base_passed": false,
+        "cf_output": " HZ-382.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": false,
+        "position_baselines": {
+          "first": false,
+          "last": false
+        }
+      },
+      "SEL21-json": {
+        "id": "SEL21-json",
+        "gold": "NDR-501",
+        "output": " AVW-166.",
+        "base_passed": false,
+        "cf_output": " GQW-961.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": true,
+        "position_baselines": {
+          "first": false,
+          "last": false
+        }
+      },
+      "SEL22-dialogue": {
+        "id": "SEL22-dialogue",
+        "gold": "OFS-865",
+        "output": " QHN-424.",
+        "base_passed": false,
+        "cf_output": " QHN-424.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": false,
+        "position_baselines": {
+          "first": false,
+          "last": false
+        }
+      },
+      "SEL23-mixed": {
+        "id": "SEL23-mixed",
+        "gold": "MKP-781",
+        "output": " NDR-713.",
+        "base_passed": false,
+        "cf_output": " NDR-713.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": false,
+        "position_baselines": {
+          "first": false,
+          "last": false
+        }
+      },
+      "SEL24-plain": {
+        "id": "SEL24-plain",
+        "gold": "RJW-437",
+        "output": " DHN-822.",
+        "base_passed": false,
+        "cf_output": " NDR-450.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": true,
+        "position_baselines": {
+          "first": false,
+          "last": false
+        }
+      },
+      "SEL25-table": {
+        "id": "SEL25-table",
+        "gold": "QHN-712",
+        "output": " QHN-712.",
+        "base_passed": true,
+        "cf_output": " QHN-462.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": true,
+        "position_baselines": {
+          "first": true,
+          "last": false
+        }
+      },
+      "RET1-00": {
+        "id": "RET1-00",
+        "gold": "TVB-562",
+        "output": " TVB-562.",
+        "base_passed": true,
+        "cf_output": " GQW-536.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": true
+      },
+      "RET1-01": {
+        "id": "RET1-01",
+        "gold": "TVB-210",
+        "output": " TVB-210.",
+        "base_passed": true
+      },
+      "RET1-02": {
+        "id": "RET1-02",
+        "gold": "TVB-744",
+        "output": " TVB-744.",
+        "base_passed": true,
+        "cf_output": " TVB-423.",
+        "cf_passed": true,
+        "paired": true,
+        "output_changed": true
+      },
+      "RET1-03": {
+        "id": "RET1-03",
+        "gold": "SKZ-913",
+        "output": " SKZ-913.",
+        "base_passed": true
+      },
+      "RET1-04": {
+        "id": "RET1-04",
+        "gold": "QHN-937",
+        "output": " QHN-937.",
+        "base_passed": true,
+        "cf_output": " NDR-771.",
+        "cf_passed": true,
+        "paired": true,
+        "output_changed": true
+      },
+      "RET1-05": {
+        "id": "RET1-05",
+        "gold": "PGL-675",
+        "output": " PGL-675.",
+        "base_passed": true
+      },
+      "RETC-00": {
+        "id": "RETC-00",
+        "gold": "lanyard",
+        "output": " lanyard.",
+        "base_passed": true
+      },
+      "RETC-01": {
+        "id": "RETC-01",
+        "gold": "plumbline",
+        "output": " ledgerline.",
+        "base_passed": false
+      },
+      "RETC-02": {
+        "id": "RETC-02",
+        "gold": "grindstone",
+        "output": " grindstone.",
+        "base_passed": true
+      },
+      "RETC-03": {
+        "id": "RETC-03",
+        "gold": "casement",
+        "output": " casement.",
+        "base_passed": true
+      },
+      "RETT-00": {
+        "id": "RETT-00",
+        "gold": "QHN-447",
+        "output": " QHN-424.",
+        "base_passed": false,
+        "cf_output": " GQW-36.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": true
+      },
+      "RETT-01": {
+        "id": "RETT-01",
+        "gold": "SKZ-438",
+        "output": " SKZ-438.",
+        "base_passed": true,
+        "cf_output": " SKZ-276.",
+        "cf_passed": true,
+        "paired": true,
+        "output_changed": true
+      },
+      "RETT-02": {
+        "id": "RETT-02",
+        "gold": "NDR-803",
+        "output": " NDR-803.",
+        "base_passed": true,
+        "cf_output": " MKP-450.",
+        "cf_passed": true,
+        "paired": true,
+        "output_changed": true
+      },
+      "RETT-03": {
+        "id": "RETT-03",
+        "gold": "PGL-103",
+        "output": " PGL-103.",
+        "base_passed": true,
+        "cf_output": " OFS-425.",
+        "cf_passed": true,
+        "paired": true,
+        "output_changed": true
+      }
+    },
+    "ASSISTED": {
+      "SEL00-plain": {
+        "id": "SEL00-plain",
+        "gold": "QHN-565",
+        "output": " QHN-565.",
+        "base_passed": true,
+        "cf_output": " NDR-551.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": true,
+        "position_baselines": {
+          "first": true,
+          "last": false
+        }
+      },
+      "SEL01-plain": {
+        "id": "SEL01-plain",
+        "gold": "RJW-613",
+        "output": " GQW-613.",
+        "base_passed": false,
+        "cf_output": " GQW-948.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": true,
+        "position_baselines": {
+          "first": false,
+          "last": false
+        }
+      },
+      "SEL02-plain": {
+        "id": "SEL02-plain",
+        "gold": "PGL-900",
+        "output": " AVZ-150.",
+        "base_passed": false,
+        "cf_output": " NDR-566.",
+        "cf_passed": true,
+        "paired": false,
+        "output_changed": true,
+        "position_baselines": {
+          "first": false,
+          "last": false
+        }
+      },
+      "SEL03-table": {
+        "id": "SEL03-table",
+        "gold": "SKZ-649",
+        "output": " NDR-406.",
+        "base_passed": false,
+        "cf_output": " NDR-406.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": false,
+        "position_baselines": {
+          "first": false,
+          "last": true
+        }
+      },
+      "SEL04-table": {
+        "id": "SEL04-table",
+        "gold": "RJW-347",
+        "output": " BW-864.",
+        "base_passed": false,
+        "cf_output": " AVW-864.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": true,
+        "position_baselines": {
+          "first": false,
+          "last": false
+        }
+      },
+      "SEL05-table": {
+        "id": "SEL05-table",
+        "gold": "SKZ-623",
+        "output": " MKP-439.",
+        "base_passed": false,
+        "cf_output": " MKP-439.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": false,
+        "position_baselines": {
+          "first": false,
+          "last": false
+        }
+      },
+      "SEL06-json": {
+        "id": "SEL06-json",
+        "gold": "QHN-632",
+        "output": " QHN-632.",
+        "base_passed": true,
+        "cf_output": " GQW-567.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": true,
+        "position_baselines": {
+          "first": true,
+          "last": false
+        }
+      },
+      "SEL07-json": {
+        "id": "SEL07-json",
+        "gold": "MKP-819",
+        "output": " HKP-819.",
+        "base_passed": false,
+        "cf_output": " NDR-211.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": true,
+        "position_baselines": {
+          "first": false,
+          "last": false
+        }
+      },
+      "SEL08-json": {
+        "id": "SEL08-json",
+        "gold": "MKP-227",
+        "output": " HKP-227.",
+        "base_passed": false,
+        "cf_output": " GQW-680.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": true,
+        "position_baselines": {
+          "first": true,
+          "last": false
+        }
+      },
+      "SEL09-dialogue": {
+        "id": "SEL09-dialogue",
+        "gold": "TVB-687",
+        "output": " BODY.",
+        "base_passed": false,
+        "cf_output": " NDR-72.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": true,
+        "position_baselines": {
+          "first": false,
+          "last": true
+        }
+      },
+      "SEL10-dialogue": {
+        "id": "SEL10-dialogue",
+        "gold": "OFS-176",
+        "output": " NDR-430.",
+        "base_passed": false,
+        "cf_output": " NDR-430.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": false,
+        "position_baselines": {
+          "first": false,
+          "last": false
+        }
+      },
+      "SEL11-dialogue": {
+        "id": "SEL11-dialogue",
+        "gold": "SKZ-953",
+        "output": " Eyot tag.",
+        "base_passed": false,
+        "cf_output": " Eyot tag.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": false,
+        "position_baselines": {
+          "first": false,
+          "last": true
+        }
+      },
+      "SEL12-kv": {
+        "id": "SEL12-kv",
+        "gold": "RJW-252",
+        "output": " GQW-252.",
+        "base_passed": false,
+        "cf_output": " AVB-57.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": true,
+        "position_baselines": {
+          "first": true,
+          "last": false
+        }
+      },
+      "SEL13-kv": {
+        "id": "SEL13-kv",
+        "gold": "TVB-185",
+        "output": " DHN-414.",
+        "base_passed": false,
+        "cf_output": " MKP-832.",
+        "cf_passed": true,
+        "paired": false,
+        "output_changed": true,
+        "position_baselines": {
+          "first": false,
+          "last": false
+        }
+      },
+      "SEL14-kv": {
+        "id": "SEL14-kv",
+        "gold": "MKP-199",
+        "output": " MKP-487.",
+        "base_passed": false,
+        "cf_output": " NDR-681.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": true,
+        "position_baselines": {
+          "first": false,
+          "last": false
+        }
+      },
+      "SEL15-mixed": {
+        "id": "SEL15-mixed",
+        "gold": "RJW-853",
+        "output": " Eyot holds code QW-853",
+        "base_passed": false,
+        "cf_output": " Eyot holds code PGL-727",
+        "cf_passed": true,
+        "paired": false,
+        "output_changed": true,
+        "position_baselines": {
+          "first": false,
+          "last": true
+        }
+      },
+      "SEL16-mixed": {
+        "id": "SEL16-mixed",
+        "gold": "OFS-838",
+        "output": " Eyot holds code AVW-497",
+        "base_passed": false,
+        "cf_output": " QHN-460.",
+        "cf_passed": true,
+        "paired": false,
+        "output_changed": true,
+        "position_baselines": {
+          "first": false,
+          "last": false
+        }
+      },
+      "SEL17-mixed": {
+        "id": "SEL17-mixed",
+        "gold": "PGL-925",
+        "output": " NDR-349.",
+        "base_passed": false,
+        "cf_output": " NDR-639.",
+        "cf_passed": true,
+        "paired": false,
+        "output_changed": true,
+        "position_baselines": {
+          "first": false,
+          "last": false
+        }
+      },
+      "SEL18-plain": {
+        "id": "SEL18-plain",
+        "gold": "OFS-925",
+        "output": " AVW-474.",
+        "base_passed": false,
+        "cf_output": " AVW-474.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": false,
+        "position_baselines": {
+          "first": false,
+          "last": false
+        }
+      },
+      "SEL19-table": {
+        "id": "SEL19-table",
+        "gold": "RJW-435",
+        "output": " Eyot.",
+        "base_passed": false,
+        "cf_output": " NDR-943.",
+        "cf_passed": true,
+        "paired": false,
+        "output_changed": true,
+        "position_baselines": {
+          "first": false,
+          "last": false
+        }
+      },
+      "SEL20-kv": {
+        "id": "SEL20-kv",
+        "gold": "QHN-130",
+        "output": " HZ-382.",
+        "base_passed": false,
+        "cf_output": " HZ-382.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": false,
+        "position_baselines": {
+          "first": false,
+          "last": false
+        }
+      },
+      "SEL21-json": {
+        "id": "SEL21-json",
+        "gold": "NDR-501",
+        "output": " AVW-166.",
+        "base_passed": false,
+        "cf_output": " GQW-961.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": true,
+        "position_baselines": {
+          "first": false,
+          "last": false
+        }
+      },
+      "SEL22-dialogue": {
+        "id": "SEL22-dialogue",
+        "gold": "OFS-865",
+        "output": " QHN-424.",
+        "base_passed": false,
+        "cf_output": " QHN-424.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": false,
+        "position_baselines": {
+          "first": false,
+          "last": false
+        }
+      },
+      "SEL23-mixed": {
+        "id": "SEL23-mixed",
+        "gold": "MKP-781",
+        "output": " NDR-713.",
+        "base_passed": false,
+        "cf_output": " NDR-713.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": false,
+        "position_baselines": {
+          "first": false,
+          "last": false
+        }
+      },
+      "SEL24-plain": {
+        "id": "SEL24-plain",
+        "gold": "RJW-437",
+        "output": " DHN-822.",
+        "base_passed": false,
+        "cf_output": " NDR-450.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": true,
+        "position_baselines": {
+          "first": false,
+          "last": false
+        }
+      },
+      "SEL25-table": {
+        "id": "SEL25-table",
+        "gold": "QHN-712",
+        "output": " QHN-712.",
+        "base_passed": true,
+        "cf_output": " QHN-462.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": true,
+        "position_baselines": {
+          "first": true,
+          "last": false
+        }
+      },
+      "RET1-00": {
+        "id": "RET1-00",
+        "gold": "TVB-562",
+        "output": " TVB-562.",
+        "base_passed": true,
+        "cf_output": " GQW-536.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": true
+      },
+      "RET1-01": {
+        "id": "RET1-01",
+        "gold": "TVB-210",
+        "output": " TVB-210.",
+        "base_passed": true
+      },
+      "RET1-02": {
+        "id": "RET1-02",
+        "gold": "TVB-744",
+        "output": " TVB-744.",
+        "base_passed": true,
+        "cf_output": " TVB-423.",
+        "cf_passed": true,
+        "paired": true,
+        "output_changed": true
+      },
+      "RET1-03": {
+        "id": "RET1-03",
+        "gold": "SKZ-913",
+        "output": " SKZ-913.",
+        "base_passed": true
+      },
+      "RET1-04": {
+        "id": "RET1-04",
+        "gold": "QHN-937",
+        "output": " QHN-937.",
+        "base_passed": true,
+        "cf_output": " NDR-771.",
+        "cf_passed": true,
+        "paired": true,
+        "output_changed": true
+      },
+      "RET1-05": {
+        "id": "RET1-05",
+        "gold": "PGL-675",
+        "output": " PGL-675.",
+        "base_passed": true
+      },
+      "RETC-00": {
+        "id": "RETC-00",
+        "gold": "lanyard",
+        "output": " lanyard.",
+        "base_passed": true
+      },
+      "RETC-01": {
+        "id": "RETC-01",
+        "gold": "plumbline",
+        "output": " ledgerline.",
+        "base_passed": false
+      },
+      "RETC-02": {
+        "id": "RETC-02",
+        "gold": "grindstone",
+        "output": " grindstone.",
+        "base_passed": true
+      },
+      "RETC-03": {
+        "id": "RETC-03",
+        "gold": "casement",
+        "output": " casement.",
+        "base_passed": true
+      },
+      "RETT-00": {
+        "id": "RETT-00",
+        "gold": "QHN-447",
+        "output": " QHN-424.",
+        "base_passed": false,
+        "cf_output": " GQW-36.",
+        "cf_passed": false,
+        "paired": false,
+        "output_changed": true
+      },
+      "RETT-01": {
+        "id": "RETT-01",
+        "gold": "SKZ-438",
+        "output": " SKZ-438.",
+        "base_passed": true,
+        "cf_output": " SKZ-276.",
+        "cf_passed": true,
+        "paired": true,
+        "output_changed": true
+      },
+      "RETT-02": {
+        "id": "RETT-02",
+        "gold": "NDR-803",
+        "output": " NDR-803.",
+        "base_passed": true,
+        "cf_output": " MKP-450.",
+        "cf_passed": true,
+        "paired": true,
+        "output_changed": true
+      },
+      "RETT-03": {
+        "id": "RETT-03",
+        "gold": "PGL-103",
+        "output": " PGL-103.",
+        "base_passed": true,
+        "cf_output": " OFS-425.",
+        "cf_passed": true,
+        "paired": true,
+        "output_changed": true
+      }
+    }
+  },
+  "source_commit": "d9193a8e3b11eea96bdd360eafd8397d31cae351",
+  "git_dirty": true
+}

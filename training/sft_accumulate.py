@@ -49,6 +49,7 @@ RETENTION_FAMS = {"single_fact", "tool_result", "copy", "protocol_transfer", "sy
 # Floors protect only what the CapabilityContract promotes. symbolic_composition
 # is BELOW_FLOOR by contract — monitored, never a blocker.
 PROTECTED_FAMS = {"single_fact", "tool_result", "copy", "protocol_transfer"}
+PARENT_REGRESSION_TOLERANCE = 0.10
 
 
 def _strict(out: str, gold: str) -> bool:
@@ -192,15 +193,18 @@ def main() -> None:
             dev_scores = _dev_eval(model, tok, dev)
             tgt = (dev_scores.get("selective", 0) + dev_scores.get("selective_cf", 0)) / 2
             ret = sum(dev_scores.get(f, 0) for f in PROTECTED_FAMS) / len(PROTECTED_FAMS)
-            # Per-capability floors over PROTECTED families only (contract
-            # scope); one collapsed protected capability cannot hide behind
-            # the average, and unprotected growth axes never block.
-            fam_floors = {f: dev_scores.get(f, 0) >= 0.6 for f in PROTECTED_FAMS}
+            # Parent-RELATIVE floors: protect what the parent actually knows.
+            # A capability at 0.9 may not silently fall to a global 0.6 floor;
+            # it may only regress by PARENT_REGRESSION_TOLERANCE from ITS OWN
+            # measured baseline.
+            fam_floors = {f: dev_scores.get(f, 0) >=
+                          baseline_dev.get(f, 0.0) - PARENT_REGRESSION_TOLERANCE
+                          for f in PROTECTED_FAMS}
             eligible = ((tgt > baseline_target) and (ret >= args.retention_floor)
                         and all(fam_floors.values()))
             row = {"step": step, "updates": step // args.accum,
                    "target_acc": round(tgt, 3), "retention_acc": round(ret, 3),
-                   "per_family_floors": fam_floors,
+                   "per_family_floors_vs_parent": fam_floors,
                    "eligible": eligible, "dev": {k: round(v, 3) for k, v in dev_scores.items()}}
             trajectory.append(row)
             print(f"  [eval @{step}] target={tgt:.3f} retention={ret:.3f} "
@@ -215,6 +219,10 @@ def main() -> None:
                         ["git", "rev-parse", "--short", "HEAD"], text=True).strip()
                 except Exception:
                     commit = None
+                # Canonical parameter identity (same implementation the
+                # loader/evaluator use) — asserted against the saved file.
+                from anra_core.checkpoint import parameter_sha256
+                saved_sha = parameter_sha256(state)
                 Path(args.out).parent.mkdir(parents=True, exist_ok=True)
                 torch.save({
                     "checkpoint_artifact_class": "model_only",
@@ -228,9 +236,10 @@ def main() -> None:
                     "tokenizer_contract": {"available": True, **tok.identity()},
                     "metrics": {"dev_target": tgt, "dev_retention": ret,
                                 "eligible": True, "bank_composition": comp},
+                    "parameter_sha256": saved_sha,
                 }, args.out)
                 best = {"step": step, "target": round(tgt, 3), "retention": round(ret, 3),
-                        "param_sha256": _param_sha(model)}
+                        "param_sha256": saved_sha}
                 print(f"  [save] eligible best score={score:.3f} -> {args.out}", flush=True)
 
     receipt = {"schema": "anra-accumulate/v1",

@@ -1,0 +1,593 @@
+{
+  "answer_parsing": "strict single-code extraction for code tasks",
+  "counterfactual_purity": "byte-exact single-substring replacement",
+  "freeze_seed": 20260831,
+  "frozen_at": "2026-08-22 22:10",
+  "items": [
+    {
+      "all_codes": [
+        "QHN-565",
+        "NDR-551"
+      ],
+      "capability": "SEL_selective_binding",
+      "cf_gold": "SKZ-959",
+      "cf_prompt": "Gill holds code SKZ-959.\nDell holds code NDR-551.\nReply with the tag of Gill alone.\nAnswer:",
+      "format": "plain",
+      "gold": "QHN-565",
+      "id": "SEL00-plain",
+      "n_facts": 2,
+      "prompt": "Gill holds code QHN-565.\nDell holds code NDR-551.\nReply with the tag of Gill alone.\nAnswer:",
+      "target_position": 0,
+      "target_position_class": "first"
+    },
+    {
+      "all_codes": [
+        "RJW-948",
+        "RJW-613",
+        "PGL-878"
+      ],
+      "capability": "SEL_selective_binding",
+      "cf_gold": "SKZ-368",
+      "cf_prompt": "Coombe holds code RJW-948.\nRuse holds code SKZ-368.\nNess holds code PGL-878.\nReply with the tag of Ruse alone.\nAnswer:",
+      "format": "plain",
+      "gold": "RJW-613",
+      "id": "SEL01-plain",
+      "n_facts": 3,
+      "prompt": "Coombe holds code RJW-948.\nRuse holds code RJW-613.\nNess holds code PGL-878.\nReply with the tag of Ruse alone.\nAnswer:",
+      "target_position": 1,
+      "target_position_class": "middle"
+    },
+    {
+      "all_codes": [
+        "SKZ-150",
+        "OFS-199",
+        "PGL-900",
+        "MKP-301"
+      ],
+      "capability": "SEL_selective_binding",
+      "cf_gold": "NDR-566",
+      "cf_prompt": "Eyot holds code SKZ-150.\nShaw holds code OFS-199.\nMere holds code NDR-566.\nKarst holds code MKP-301.\nReply with the tag of Mere alone.\nAnswer:",
+      "format": "plain",
+      "gold": "PGL-900",
+      "id": "SEL02-plain",
+      "n_facts": 4,
+      "prompt": "Eyot holds code SKZ-150.\nShaw holds code OFS-199.\nMere holds code PGL-900.\nKarst holds code MKP-301.\nReply with the tag of Mere alone.\nAnswer:",
+      "target_position": 2,
+      "target_position_class": "middle"
+    },
+    {
+      "all_codes": [
+        "NDR-406",
+        "SKZ-649"
+      ],
+      "capability": "SEL_selective_binding",
+      "cf_gold": "RJW-555",
+      "cf_prompt": "item | code\nNess holds code NDR-406.\nPlen holds code RJW-555.\n\nThe tag of Plen:\nAnswer:",
+      "format": "table",
+      "gold": "SKZ-649",
+      "id": "SEL03-table",
+      "n_facts": 2,
+      "prompt": "item | code\nNess holds code NDR-406.\nPlen holds code SKZ-649.\n\nThe tag of Plen:\nAnswer:",
+      "target_position": 1,
+      "target_position_class": "last"
+    },
+    {
+      "all_codes": [
+        "RJW-864",
+        "RJW-347",
+        "TVB-885"
+      ],
+      "capability": "SEL_selective_binding",
+      "cf_gold": "OFS-380",
+      "cf_prompt": "item | code\nGill holds code RJW-864.\nHolt holds code OFS-380.\nThe ledger was archived in March.\nShaw holds code TVB-885.\n\nThe tag of Holt:\nAnswer:",
+      "format": "table",
+      "gold": "RJW-347",
+      "id": "SEL04-table",
+      "n_facts": 3,
+      "prompt": "item | code\nGill holds code RJW-864.\nHolt holds code RJW-347.\nThe ledger was archived in March.\nShaw holds code TVB-885.\n\nThe tag of Holt:\nAnswer:",
+      "target_position": 1,
+      "target_position_class": "middle"
+    },
+    {
+      "all_codes": [
+        "MKP-439",
+        "SKZ-623",
+        "OFS-625",
+        "NDR-772"
+      ],
+      "capability": "SEL_selective_binding",
+      "cf_gold": "OFS-563",
+      "cf_prompt": "item | code\nMere holds code MKP-439.\nRuse holds code OFS-563.\nFirn holds code OFS-625.\nBight holds code NDR-772.\n\nThe tag of Ruse:\nAnswer:",
+      "format": "table",
+      "gold": "SKZ-623",
+      "id": "SEL05-table",
+      "n_facts": 4,
+      "prompt": "item | code\nMere holds code MKP-439.\nRuse holds code SKZ-623.\nFirn holds code OFS-625.\nBight holds code NDR-772.\n\nThe tag of Ruse:\nAnswer:",
+      "target_position": 1,
+      "target_position_class": "middle"
+    },
+    {
+      "all_codes": [
+        "QHN-632",
+        "SKZ-285"
+      ],
+      "capability": "SEL_selective_binding",
+      "cf_gold": "RJW-567",
+      "cf_prompt": "{\"Bight holds code RJW-567.\", \"Karst holds code SKZ-285.\"}\nOutput the tag for Bight.\nAnswer:",
+      "format": "json",
+      "gold": "QHN-632",
+      "id": "SEL06-json",
+      "n_facts": 2,
+      "prompt": "{\"Bight holds code QHN-632.\", \"Karst holds code SKZ-285.\"}\nOutput the tag for Bight.\nAnswer:",
+      "target_position": 0,
+      "target_position_class": "first"
+    },
+    {
+      "all_codes": [
+        "SKZ-764",
+        "MKP-819",
+        "OFS-815"
+      ],
+      "capability": "SEL_selective_binding",
+      "cf_gold": "NDR-630",
+      "cf_prompt": "{\"Coombe holds code SKZ-764.\", \"Firn holds code NDR-630.\", \"Bight holds code OFS-815.\"}\nOutput the tag for Firn.\nAnswer:",
+      "format": "json",
+      "gold": "MKP-819",
+      "id": "SEL07-json",
+      "n_facts": 3,
+      "prompt": "{\"Coombe holds code SKZ-764.\", \"Firn holds code MKP-819.\", \"Bight holds code OFS-815.\"}\nOutput the tag for Firn.\nAnswer:",
+      "target_position": 1,
+      "target_position_class": "middle"
+    },
+    {
+      "all_codes": [
+        "MKP-227",
+        "PGL-930",
+        "TVB-527",
+        "TVB-364"
+      ],
+      "capability": "SEL_selective_binding",
+      "cf_gold": "RJW-680",
+      "cf_prompt": "{\"Amble holds code RJW-680.\", \"Plen holds code PGL-930.\", \"Gill holds code TVB-527.\", \"Shaw holds code TVB-364.\"}\nOutput the tag for Amble.\nAnswer:",
+      "format": "json",
+      "gold": "MKP-227",
+      "id": "SEL08-json",
+      "n_facts": 4,
+      "prompt": "{\"Amble holds code MKP-227.\", \"Plen holds code PGL-930.\", \"Gill holds code TVB-527.\", \"Shaw holds code TVB-364.\"}\nOutput the tag for Amble.\nAnswer:",
+      "target_position": 0,
+      "target_position_class": "first"
+    },
+    {
+      "all_codes": [
+        "PGL-219",
+        "TVB-687"
+      ],
+      "capability": "SEL_selective_binding",
+      "cf_gold": "NDR-714",
+      "cf_prompt": "H: one code needed.\nLOG:\n- Coombe holds code PGL-219.\n- Holt holds code NDR-714.\n- The stairwell was repainted.\nH: Give me Holt tag.\nANRA:",
+      "format": "dialogue",
+      "gold": "TVB-687",
+      "id": "SEL09-dialogue",
+      "n_facts": 2,
+      "prompt": "H: one code needed.\nLOG:\n- Coombe holds code PGL-219.\n- Holt holds code TVB-687.\n- The stairwell was repainted.\nH: Give me Holt tag.\nANRA:",
+      "target_position": 1,
+      "target_position_class": "last"
+    },
+    {
+      "all_codes": [
+        "NDR-430",
+        "OFS-176",
+        "PGL-688"
+      ],
+      "capability": "SEL_selective_binding",
+      "cf_gold": "TVB-766",
+      "cf_prompt": "H: one code needed.\nLOG:\n- Gill holds code NDR-430.\n- Amble holds code TVB-766.\n- Firn holds code PGL-688.\nH: Give me Amble tag.\nANRA:",
+      "format": "dialogue",
+      "gold": "OFS-176",
+      "id": "SEL10-dialogue",
+      "n_facts": 3,
+      "prompt": "H: one code needed.\nLOG:\n- Gill holds code NDR-430.\n- Amble holds code OFS-176.\n- Firn holds code PGL-688.\nH: Give me Amble tag.\nANRA:",
+      "target_position": 1,
+      "target_position_class": "middle"
+    },
+    {
+      "all_codes": [
+        "RJW-394",
+        "TVB-555",
+        "TVB-776",
+        "SKZ-953"
+      ],
+      "capability": "SEL_selective_binding",
+      "cf_gold": "PGL-391",
+      "cf_prompt": "H: one code needed.\nLOG:\n- Plen holds code RJW-394.\n- Shaw holds code TVB-555.\n- Lea holds code TVB-776.\n- Eyot holds code PGL-391.\nH: Give me Eyot tag.\nANRA:",
+      "format": "dialogue",
+      "gold": "SKZ-953",
+      "id": "SEL11-dialogue",
+      "n_facts": 4,
+      "prompt": "H: one code needed.\nLOG:\n- Plen holds code RJW-394.\n- Shaw holds code TVB-555.\n- Lea holds code TVB-776.\n- Eyot holds code SKZ-953.\nH: Give me Eyot tag.\nANRA:",
+      "target_position": 3,
+      "target_position_class": "last"
+    },
+    {
+      "all_codes": [
+        "RJW-252",
+        "TVB-586"
+      ],
+      "capability": "SEL_selective_binding",
+      "cf_gold": "SKZ-189",
+      "cf_prompt": "Ness holds code SKZ-189.\nFirn holds code TVB-586.\n\nTag for Ness:\nAnswer:",
+      "format": "kv",
+      "gold": "RJW-252",
+      "id": "SEL12-kv",
+      "n_facts": 2,
+      "prompt": "Ness holds code RJW-252.\nFirn holds code TVB-586.\n\nTag for Ness:\nAnswer:",
+      "target_position": 0,
+      "target_position_class": "first"
+    },
+    {
+      "all_codes": [
+        "MKP-586",
+        "TVB-185",
+        "QHN-413"
+      ],
+      "capability": "SEL_selective_binding",
+      "cf_gold": "MKP-832",
+      "cf_prompt": "Amble holds code MKP-586.\nHolt holds code MKP-832.\nEyot holds code QHN-413.\n\nTag for Holt:\nAnswer:",
+      "format": "kv",
+      "gold": "TVB-185",
+      "id": "SEL13-kv",
+      "n_facts": 3,
+      "prompt": "Amble holds code MKP-586.\nHolt holds code TVB-185.\nEyot holds code QHN-413.\n\nTag for Holt:\nAnswer:",
+      "target_position": 1,
+      "target_position_class": "middle"
+    },
+    {
+      "all_codes": [
+        "QHN-623",
+        "MKP-199",
+        "NDR-681",
+        "MKP-487"
+      ],
+      "capability": "SEL_selective_binding",
+      "cf_gold": "NDR-728",
+      "cf_prompt": "Karst holds code QHN-623.\nLea holds code NDR-728.\nCoombe holds code NDR-681.\nTwo windows face the courtyard.\nNess holds code MKP-487.\n\nTag for Lea:\nAnswer:",
+      "format": "kv",
+      "gold": "MKP-199",
+      "id": "SEL14-kv",
+      "n_facts": 4,
+      "prompt": "Karst holds code QHN-623.\nLea holds code MKP-199.\nCoombe holds code NDR-681.\nTwo windows face the courtyard.\nNess holds code MKP-487.\n\nTag for Lea:\nAnswer:",
+      "target_position": 1,
+      "target_position_class": "middle"
+    },
+    {
+      "all_codes": [
+        "PGL-838",
+        "RJW-853"
+      ],
+      "capability": "SEL_selective_binding",
+      "cf_gold": "PGL-727",
+      "cf_prompt": "REGISTRY\n* Eyot holds code PGL-838.\n* Gill holds code PGL-727.\nQ: Which tag belongs to Gill?\nA:",
+      "format": "mixed",
+      "gold": "RJW-853",
+      "id": "SEL15-mixed",
+      "n_facts": 2,
+      "prompt": "REGISTRY\n* Eyot holds code PGL-838.\n* Gill holds code RJW-853.\nQ: Which tag belongs to Gill?\nA:",
+      "target_position": 1,
+      "target_position_class": "last"
+    },
+    {
+      "all_codes": [
+        "RJW-573",
+        "OFS-838",
+        "SKZ-497"
+      ],
+      "capability": "SEL_selective_binding",
+      "cf_gold": "QHN-460",
+      "cf_prompt": "REGISTRY\n* Shaw holds code RJW-573.\n* Karst holds code QHN-460.\n* Eyot holds code SKZ-497.\nQ: Which tag belongs to Karst?\nA:",
+      "format": "mixed",
+      "gold": "OFS-838",
+      "id": "SEL16-mixed",
+      "n_facts": 3,
+      "prompt": "REGISTRY\n* Shaw holds code RJW-573.\n* Karst holds code OFS-838.\n* Eyot holds code SKZ-497.\nQ: Which tag belongs to Karst?\nA:",
+      "target_position": 1,
+      "target_position_class": "middle"
+    },
+    {
+      "all_codes": [
+        "RJW-227",
+        "PGL-925",
+        "NDR-349",
+        "TVB-536"
+      ],
+      "capability": "SEL_selective_binding",
+      "cf_gold": "NDR-639",
+      "cf_prompt": "REGISTRY\n* Coombe holds code RJW-227.\n* Lea holds code NDR-639.\n* Inge holds code NDR-349.\n* Dell holds code TVB-536.\nQ: Which tag belongs to Lea?\nA:",
+      "format": "mixed",
+      "gold": "PGL-925",
+      "id": "SEL17-mixed",
+      "n_facts": 4,
+      "prompt": "REGISTRY\n* Coombe holds code RJW-227.\n* Lea holds code PGL-925.\n* Inge holds code NDR-349.\n* Dell holds code TVB-536.\nQ: Which tag belongs to Lea?\nA:",
+      "target_position": 1,
+      "target_position_class": "middle"
+    },
+    {
+      "all_codes": [
+        "PGL-325",
+        "RJW-474",
+        "OFS-925",
+        "SKZ-876",
+        "SKZ-217"
+      ],
+      "capability": "SEL_selective_binding",
+      "cf_gold": "SKZ-964",
+      "cf_prompt": "Eyot holds code PGL-325.\nShaw holds code RJW-474.\nDell holds code SKZ-964.\nRuse holds code SKZ-876.\nHolt holds code SKZ-217.\nReply with the tag of Dell alone.\nAnswer:",
+      "format": "plain",
+      "gold": "OFS-925",
+      "id": "SEL18-plain",
+      "n_facts": 5,
+      "prompt": "Eyot holds code PGL-325.\nShaw holds code RJW-474.\nDell holds code OFS-925.\nRuse holds code SKZ-876.\nHolt holds code SKZ-217.\nReply with the tag of Dell alone.\nAnswer:",
+      "target_position": 2,
+      "target_position_class": "middle"
+    },
+    {
+      "all_codes": [
+        "PGL-105",
+        "MKP-105",
+        "SKZ-950",
+        "RJW-435",
+        "PGL-801"
+      ],
+      "capability": "SEL_selective_binding",
+      "cf_gold": "NDR-943",
+      "cf_prompt": "item | code\nThe stairwell was repainted.\nBight holds code PGL-105.\nInge holds code MKP-105.\nLea holds code SKZ-950.\nEyot holds code NDR-943.\nShaw holds code PGL-801.\n\nThe tag of Eyot:\nAnswer:",
+      "format": "table",
+      "gold": "RJW-435",
+      "id": "SEL19-table",
+      "n_facts": 5,
+      "prompt": "item | code\nThe stairwell was repainted.\nBight holds code PGL-105.\nInge holds code MKP-105.\nLea holds code SKZ-950.\nEyot holds code RJW-435.\nShaw holds code PGL-801.\n\nThe tag of Eyot:\nAnswer:",
+      "target_position": 3,
+      "target_position_class": "middle"
+    },
+    {
+      "all_codes": [
+        "SKZ-382",
+        "OFS-923",
+        "NDR-135",
+        "QHN-130",
+        "OFS-236"
+      ],
+      "capability": "SEL_selective_binding",
+      "cf_gold": "QHN-483",
+      "cf_prompt": "Dell holds code SKZ-382.\nHolt holds code OFS-923.\nCoombe holds code NDR-135.\nFirn holds code QHN-483.\nShaw holds code OFS-236.\n\nTag for Firn:\nAnswer:",
+      "format": "kv",
+      "gold": "QHN-130",
+      "id": "SEL20-kv",
+      "n_facts": 5,
+      "prompt": "Dell holds code SKZ-382.\nHolt holds code OFS-923.\nCoombe holds code NDR-135.\nFirn holds code QHN-130.\nShaw holds code OFS-236.\n\nTag for Firn:\nAnswer:",
+      "target_position": 3,
+      "target_position_class": "middle"
+    },
+    {
+      "all_codes": [
+        "SKZ-561",
+        "RJW-166",
+        "TVB-334",
+        "NDR-501",
+        "OFS-377"
+      ],
+      "capability": "SEL_selective_binding",
+      "cf_gold": "RJW-848",
+      "cf_prompt": "{\"Holt holds code SKZ-561.\", \"Plen holds code RJW-166.\", \"Amble holds code TVB-334.\", \"Coombe holds code RJW-848.\", \"Gill holds code OFS-377.\"}\nOutput the tag for Coombe.\nAnswer:",
+      "format": "json",
+      "gold": "NDR-501",
+      "id": "SEL21-json",
+      "n_facts": 5,
+      "prompt": "{\"Holt holds code SKZ-561.\", \"Plen holds code RJW-166.\", \"Amble holds code TVB-334.\", \"Coombe holds code NDR-501.\", \"Gill holds code OFS-377.\"}\nOutput the tag for Coombe.\nAnswer:",
+      "target_position": 3,
+      "target_position_class": "middle"
+    },
+    {
+      "all_codes": [
+        "PGL-407",
+        "SKZ-601",
+        "OFS-865",
+        "MKP-413",
+        "QHN-830"
+      ],
+      "capability": "SEL_selective_binding",
+      "cf_gold": "PGL-833",
+      "cf_prompt": "H: one code needed.\nLOG:\n- Eyot holds code PGL-407.\n- Amble holds code SKZ-601.\n- Lea holds code PGL-833.\n- Ruse holds code MKP-413.\n- Gill holds code QHN-830.\nH: Give me Lea tag.\nANRA:",
+      "format": "dialogue",
+      "gold": "OFS-865",
+      "id": "SEL22-dialogue",
+      "n_facts": 5,
+      "prompt": "H: one code needed.\nLOG:\n- Eyot holds code PGL-407.\n- Amble holds code SKZ-601.\n- Lea holds code OFS-865.\n- Ruse holds code MKP-413.\n- Gill holds code QHN-830.\nH: Give me Lea tag.\nANRA:",
+      "target_position": 2,
+      "target_position_class": "middle"
+    },
+    {
+      "all_codes": [
+        "TVB-767",
+        "NDR-713",
+        "MKP-781",
+        "NDR-267",
+        "SKZ-275"
+      ],
+      "capability": "SEL_selective_binding",
+      "cf_gold": "SKZ-587",
+      "cf_prompt": "REGISTRY\n* Gill holds code TVB-767.\n* Lea holds code NDR-713.\n* Shaw holds code SKZ-587.\n* Bight holds code NDR-267.\n* Coombe holds code SKZ-275.\nQ: Which tag belongs to Shaw?\nA:",
+      "format": "mixed",
+      "gold": "MKP-781",
+      "id": "SEL23-mixed",
+      "n_facts": 5,
+      "prompt": "REGISTRY\n* Gill holds code TVB-767.\n* Lea holds code NDR-713.\n* Shaw holds code MKP-781.\n* Bight holds code NDR-267.\n* Coombe holds code SKZ-275.\nQ: Which tag belongs to Shaw?\nA:",
+      "target_position": 2,
+      "target_position_class": "middle"
+    },
+    {
+      "all_codes": [
+        "NDR-450",
+        "MKP-313",
+        "QHN-822",
+        "RJW-437",
+        "OFS-842"
+      ],
+      "capability": "SEL_selective_binding",
+      "cf_gold": "MKP-474",
+      "cf_prompt": "The stairwell was repainted.\nHolt holds code NDR-450.\nAmble holds code MKP-313.\nRuse holds code QHN-822.\nCoombe holds code MKP-474.\nLea holds code OFS-842.\nReply with the tag of Coombe alone.\nAnswer:",
+      "format": "plain",
+      "gold": "RJW-437",
+      "id": "SEL24-plain",
+      "n_facts": 5,
+      "prompt": "The stairwell was repainted.\nHolt holds code NDR-450.\nAmble holds code MKP-313.\nRuse holds code QHN-822.\nCoombe holds code RJW-437.\nLea holds code OFS-842.\nReply with the tag of Coombe alone.\nAnswer:",
+      "target_position": 3,
+      "target_position_class": "middle"
+    },
+    {
+      "all_codes": [
+        "QHN-712",
+        "PGL-312",
+        "QHN-462",
+        "TVB-957",
+        "TVB-967"
+      ],
+      "capability": "SEL_selective_binding",
+      "cf_gold": "SKZ-878",
+      "cf_prompt": "item | code\nHolt holds code SKZ-878.\nInge holds code PGL-312.\nGill holds code QHN-462.\nDell holds code TVB-957.\nNess holds code TVB-967.\n\nThe tag of Holt:\nAnswer:",
+      "format": "table",
+      "gold": "QHN-712",
+      "id": "SEL25-table",
+      "n_facts": 5,
+      "prompt": "item | code\nHolt holds code QHN-712.\nInge holds code PGL-312.\nGill holds code QHN-462.\nDell holds code TVB-957.\nNess holds code TVB-967.\n\nThe tag of Holt:\nAnswer:",
+      "target_position": 0,
+      "target_position_class": "first"
+    },
+    {
+      "capability": "RET_single_fact",
+      "cf_gold": "RJW-536",
+      "cf_prompt": "The code for Firn is RJW-536. State the code.\nAnswer:",
+      "gold": "TVB-562",
+      "id": "RET1-00",
+      "prompt": "The code for Firn is TVB-562. State the code.\nAnswer:",
+      "strict": true
+    },
+    {
+      "capability": "RET_single_fact",
+      "cf_gold": null,
+      "cf_prompt": null,
+      "gold": "TVB-210",
+      "id": "RET1-01",
+      "prompt": "<k>Ness => TVB-210</k>\n<q>Report the code.</q>\n<answer>",
+      "strict": true
+    },
+    {
+      "capability": "RET_single_fact",
+      "cf_gold": "TVB-423",
+      "cf_prompt": "H: code for Firn?\nLOG: Firn = TVB-423\nANRA:",
+      "gold": "TVB-744",
+      "id": "RET1-02",
+      "prompt": "H: code for Firn?\nLOG: Firn = TVB-744\nANRA:",
+      "strict": true
+    },
+    {
+      "capability": "RET_single_fact",
+      "cf_gold": null,
+      "cf_prompt": null,
+      "gold": "SKZ-913",
+      "id": "RET1-03",
+      "prompt": "The code for Lea is SKZ-913. State the code.\nAnswer:",
+      "strict": true
+    },
+    {
+      "capability": "RET_single_fact",
+      "cf_gold": "NDR-771",
+      "cf_prompt": "<k>Gill => NDR-771</k>\n<q>Report the code.</q>\n<answer>",
+      "gold": "QHN-937",
+      "id": "RET1-04",
+      "prompt": "<k>Gill => QHN-937</k>\n<q>Report the code.</q>\n<answer>",
+      "strict": true
+    },
+    {
+      "capability": "RET_single_fact",
+      "cf_gold": null,
+      "cf_prompt": null,
+      "gold": "PGL-675",
+      "id": "RET1-05",
+      "prompt": "H: code for Ruse?\nLOG: Ruse = PGL-675\nANRA:",
+      "strict": true
+    },
+    {
+      "capability": "RET_copy",
+      "cf_gold": null,
+      "cf_prompt": null,
+      "gold": "lanyard",
+      "id": "RETC-00",
+      "prompt": "Reference word: lanyard\nRepeat the word verbatim.\nAnswer:",
+      "strict": false
+    },
+    {
+      "capability": "RET_copy",
+      "cf_gold": null,
+      "cf_prompt": null,
+      "gold": "plumbline",
+      "id": "RETC-01",
+      "prompt": "Reference word: plumbline\nRepeat the word verbatim.\nAnswer:",
+      "strict": false
+    },
+    {
+      "capability": "RET_copy",
+      "cf_gold": null,
+      "cf_prompt": null,
+      "gold": "grindstone",
+      "id": "RETC-02",
+      "prompt": "Reference word: grindstone\nRepeat the word verbatim.\nAnswer:",
+      "strict": false
+    },
+    {
+      "capability": "RET_copy",
+      "cf_gold": null,
+      "cf_prompt": null,
+      "gold": "casement",
+      "id": "RETC-03",
+      "prompt": "Reference word: casement\nRepeat the word verbatim.\nAnswer:",
+      "strict": false
+    },
+    {
+      "capability": "RET_tool_result",
+      "cf_gold": "RJW-363",
+      "cf_prompt": "Tool response: RJW-363\nReturn the exact response.\nAnswer:",
+      "gold": "QHN-447",
+      "id": "RETT-00",
+      "prompt": "Tool response: QHN-447\nReturn the exact response.\nAnswer:",
+      "strict": true
+    },
+    {
+      "capability": "RET_tool_result",
+      "cf_gold": "SKZ-276",
+      "cf_prompt": "Tool response: SKZ-276\nReturn the exact response.\nAnswer:",
+      "gold": "SKZ-438",
+      "id": "RETT-01",
+      "prompt": "Tool response: SKZ-438\nReturn the exact response.\nAnswer:",
+      "strict": true
+    },
+    {
+      "capability": "RET_tool_result",
+      "cf_gold": "MKP-450",
+      "cf_prompt": "Tool response: MKP-450\nReturn the exact response.\nAnswer:",
+      "gold": "NDR-803",
+      "id": "RETT-02",
+      "prompt": "Tool response: NDR-803\nReturn the exact response.\nAnswer:",
+      "strict": true
+    },
+    {
+      "capability": "RET_tool_result",
+      "cf_gold": "OFS-425",
+      "cf_prompt": "Tool response: OFS-425\nReturn the exact response.\nAnswer:",
+      "gold": "PGL-103",
+      "id": "RETT-03",
+      "prompt": "Tool response: PGL-103\nReturn the exact response.\nAnswer:",
+      "strict": true
+    }
+  ],
+  "schema": "anra-ood4-battery/v1"
+}

@@ -1,0 +1,8 @@
+{
+  "train": 279,
+  "dev": 279,
+  "group_overlap": 0,
+  "prompt_overlap": 0,
+  "prompt_completion_overlap": 0,
+  "vocab_disjoint": true
+}

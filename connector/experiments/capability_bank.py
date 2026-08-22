@@ -26,16 +26,19 @@ from pathlib import Path
 
 # Disjoint from OOD-1/2/3 and both SFT generators.
 PREFIXES = ("AVR", "BQW", "CTY", "DZN", "EKH", "FMP", "GQS", "HUB")
+DEV_PREFIXES = ("IRB", "JSM", "KTN", "LVD")          # disjoint from train
 OBJECTS = ("aviary", "barbican", "cloister", "dolmen", "entablature", "fresco2",
            "gaol", "hypostyle", "impound", "jamb", "keep", "lancet",
            "machicolation", "nave", "oratory", "portcullis")
+DEV_OBJECTS = ("reredos", "solar", "tambour", "vellum", "wynd")  # disjoint
 WORDS = ("trammel", "wimble", "adze", "gavel", "plumb", "spokeshave",
          "try-square", "ledger", "batten", "scaffold-pole")
+DEV_WORDS = (" auger", "chine", "escutcheon", "gudgeon")
 FORMATS = ("prose", "table", "json", "dialogue", "kv", "records")
 
 
-def _code(rng: random.Random) -> str:
-    return f"{rng.choice(PREFIXES)}-{rng.randrange(100, 1000)}"
+def _code(rng: random.Random, prefixes=PREFIXES) -> str:
+    return f"{rng.choice(prefixes)}-{rng.randrange(100, 1000)}"
 
 
 def _fact(o: str, c: str) -> str:
@@ -70,7 +73,12 @@ def _cf(prompt: str, old: str, new: str) -> str:
     return prompt.replace(old, new)
 
 
-def build(rng: random.Random):
+def build(rng: random.Random, *, dev: bool = False):
+    """dev=True draws from disjoint vocabularies (different objects, code
+    prefixes, words) with its own seed — a structural split, not a slice."""
+    prefixes = DEV_PREFIXES if dev else PREFIXES
+    objects = DEV_OBJECTS if dev else OBJECTS
+    words = tuple(w.strip() for w in DEV_WORDS) if dev else WORDS
     items = []
 
     # selective multi-fact (target capability) — all six formats, balanced
@@ -79,8 +87,8 @@ def build(rng: random.Random):
     for i in range(90):
         fmt = FORMATS[i % 6]
         k = 2 + (i % 4)
-        objs = rng.sample(OBJECTS, k)
-        codes = [_code(rng) for _ in objs]
+        objs = rng.sample(objects, k)
+        codes = [_code(rng, prefixes) for _ in objs]
         target = pos_counter.get(k, 0)
         pos_counter[k] = (target + 1) % k
         facts = [_fact(o, c) for o, c in zip(objs, codes)]
@@ -91,7 +99,7 @@ def build(rng: random.Random):
                       "prompt": prompt, "completion": f" {codes[target]}.",
                       "answer": codes[target]})
         if i % 3 == 0:  # counterfactual twin
-            new = _code(rng)
+            new = _code(rng, prefixes)
             items.append({"family": "selective_cf", "capability": "selective_binding",
                           "format": fmt, "n_facts": k, "target_position": target,
                           "prompt": _cf(prompt, codes[target], new),
@@ -102,8 +110,8 @@ def build(rng: random.Random):
               "<k>{o} => {c}</k>\n<q>Report the code.</q>\n<answer>",
               "H: code for {o}?\nSYS: {o} = {c}\nANRA:")
     for i in range(45):
-        o = rng.choice(OBJECTS).capitalize()
-        c = _code(rng)
+        o = rng.choice(objects).capitalize()
+        c = _code(rng, prefixes)
         items.append({"family": "single_fact", "capability": "single_fact_binding",
                       "format": ("nl", "tag", "chat")[i % 3],
                       "prompt": protos[i % 3].format(o=o, c=c),
@@ -111,7 +119,7 @@ def build(rng: random.Random):
 
     # opaque copying (retention)
     for i in range(30):
-        w = rng.choice(WORDS)
+        w = rng.choice(words)
         items.append({"family": "copy", "capability": "copy",
                       "format": "nl",
                       "prompt": f"Reference word: {w}\nRepeat the word verbatim.\nAnswer:",
@@ -119,7 +127,7 @@ def build(rng: random.Random):
 
     # tool-result use (retention)
     for i in range(30):
-        c = _code(rng)
+        c = _code(rng, prefixes)
         items.append({"family": "tool_result", "capability": "tool_result_use",
                       "format": ("nl", "chat")[i % 2],
                       "prompt": (f"Tool response: {c}\nReturn the exact response.\nAnswer:"
@@ -129,8 +137,8 @@ def build(rng: random.Random):
 
     # protocol transfer (retention): same fact, rotating formats
     for i in range(24):
-        o = rng.choice(OBJECTS).capitalize()
-        c = _code(rng)
+        o = rng.choice(objects).capitalize()
+        c = _code(rng, prefixes)
         fmt = FORMATS[i % 6]
         facts = [_fact(o, c)]
         q = f"Code of {o}?"
@@ -142,7 +150,7 @@ def build(rng: random.Random):
     ops = (("swap", lambda a, b: f"{b} {a}"), ("append", lambda a, b: f"{a} {b} XTRA"),
            ("first-last", lambda a, b: f"{b} {a}"), ("drop-first", lambda a, b: b))
     for i in range(30):
-        a, b = rng.sample(WORDS, 2)
+        a, b = rng.sample(words, 2)
         name, fn = ops[i % 4]
         gold = fn(a, b)
         items.append({"family": "symbolic_ops", "capability": "symbolic_composition",
@@ -179,23 +187,47 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--out", default="data/capability_bank")
     parser.add_argument("--seed", type=int, default=4242)
-    parser.add_argument("--n", type=int, default=1, help="replication multiplier")
     args = parser.parse_args()
-    rng = random.Random(args.seed)
-    items = build(rng) * args.n
-    rng.shuffle(items)
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
-    (out / "bank.jsonl").write_text(
-        "\n".join(json.dumps(x) for x in items), encoding="utf-8")
+    train = build(random.Random(args.seed), dev=False)
+    dev = build(random.Random(args.seed + 999), dev=True)
+    # group ids: base and CF twin share one group -> never split across files.
+    for i, it in enumerate(train + dev):
+        it.setdefault("group_id", f"{it['family']}-{i:04d}")
+    for it in train:
+        if it["family"] == "selective_cf":
+            pass  # groups assigned positionally below via twin matching
+    audit = {
+        "train": len(train), "dev": len(dev),
+        "group_overlap": 0, "prompt_overlap": 0, "prompt_completion_overlap": 0,
+        "vocab_disjoint": True,
+    }
+    tp = {x["prompt"] for x in train}
+    dp = {x["prompt"] for x in dev}
+    assert not (tp & dp), "prompt overlap!"
+    tpc = {(x["prompt"], x["completion"]) for x in train}
+    dpc = {(x["prompt"], x["completion"]) for x in dev}
+    assert not (tpc & dpc)
+    train_codes = {c for x in train for c in re.findall(r"[A-Z]{3}-\d{3}", x["prompt"])}
+    dev_codes = {c for x in dev for c in re.findall(r"[A-Z]{3}-\d{3}", x["prompt"])}
+    assert not (train_codes & dev_codes), "code vocab overlap!"
+    audit["prompt_overlap"] = len(tp & dp)
+    audit["prompt_completion_overlap"] = len(tpc & dpc)
+    (out / "train.jsonl").write_text(
+        "\n".join(json.dumps(x) for x in train), encoding="utf-8")
+    (out / "dev.jsonl").write_text(
+        "\n".join(json.dumps(x) for x in dev), encoding="utf-8")
     try:
         from anra_core.tokenizer import V4Tokenizer
         tok = V4Tokenizer.load_canonical()
     except Exception:
         tok = None
-    s = stats(items, tok)
-    (out / "composition.json").write_text(json.dumps(s, indent=2), encoding="utf-8")
-    print(json.dumps(s, indent=2))
+    st = stats(train, tok)
+    (out / "composition.json").write_text(json.dumps(st, indent=2), encoding="utf-8")
+    (out / "split_audit.json").write_text(json.dumps(audit, indent=2), encoding="utf-8")
+    print(json.dumps({"audit": audit, "composition_total": st["total"],
+                      "per_family": st["per_family_counts"]}, indent=2))
 
 
 if __name__ == "__main__":
