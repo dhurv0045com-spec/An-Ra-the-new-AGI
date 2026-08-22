@@ -76,6 +76,143 @@ def degradation_ratio(best_loss: float, current_loss: float) -> float:
 
 
 # --------------------------------------------------------------------------
+# Canonical parameter hashing - ONE function used by loader, trainer, receipt,
+# candidate writer, and evaluation. Tied embeddings handled once, here.
+# --------------------------------------------------------------------------
+
+
+def canonical_parameter_sha256(state: dict[str, "torch.Tensor"]) -> str:
+    """Hash the normalized dense contract. Aliases (lm_head) excluded so the
+    hash is identical before and after a save/reload round trip."""
+    import hashlib
+
+    import torch
+
+    hasher = hashlib.sha256()
+    for name in sorted(state):
+        if name == "lm_head.weight":  # tied alias of token_embedding_table
+            continue
+        tensor = state[name].detach().cpu()
+        if not tensor.is_contiguous():
+            tensor = tensor.contiguous()
+        header = f"{name}\0{tuple(tensor.shape)}\0{tensor.dtype}\0".encode()
+        hasher.update(header)
+        raw = tensor.view(torch.uint8).reshape(-1)
+        for start in range(0, raw.numel(), 4 * 1024 * 1024):
+            hasher.update(raw[start : start + 4 * 1024 * 1024].numpy().tobytes())
+        hasher.update(b"\0")
+    return hasher.hexdigest()
+
+
+@dataclass(slots=True)
+class PreparedTrainingState:
+    """Everything a worker needs after resume - explicit, no loose payload.
+
+    One model. One optimizer. One restore. The worker consumes this struct;
+    it never re-reads raw checkpoint payloads or re-restores state.
+    """
+
+    model: object  # AnRaCore
+    optimizer: object
+    global_step: int
+    optimizer_updates: int
+    resume_mode: str  # "new_pack_parent" | "same_pack" | "fresh"
+    source_checkpoint: str | None
+    checkpoint_parameter_sha256: str
+    optimizer_restored: bool
+    checkpoint_schema_version: int
+    lr_schedule: object | None = None  # CosineSchedule when resumable
+
+    def require_step_at_least(self, expected_resume_step: int) -> None:
+        """P0-4: explicit minimum-step check on REAL restored metadata.
+        No synthetic checkpoint dicts passed to validators."""
+        if self.global_step < expected_resume_step:
+            raise RuntimeError(
+                f"parent global_step {self.global_step:,} is below the expected "
+                f"resume step {expected_resume_step:,} - wrong parent artifact?"
+            )
+
+
+def prepare_training_state(
+    *,
+    parent_checkpoint: str | None,
+    model_config,  # CoreConfig
+    learning_rate: float,
+    weight_decay: float,
+    expected_resume_step: int,
+    resume_mode: str = "new_pack_parent",
+) -> PreparedTrainingState:
+    """CPU-testable pre-XLA orchestration: construct → attach → restore.
+
+    Lifecycle (the P0 fix):
+      1. construct model (deterministic seed responsibility of caller)
+      2. construct optimizer ATTACHED to that model
+      3. restore checkpoint INTO both via restore_training_state (once)
+      4. validate restored metadata explicitly
+    The worker then moves model+optimizer to XLA and trains. No competing
+    temporary state, no second restore path, no discarded payload.
+    """
+    import torch
+
+    from anra_core.model import AnRaCore
+
+    model = AnRaCore(model_config)
+    optimizer = torch.optim.AdamW(
+        model.parameters(), lr=learning_rate,
+        betas=(0.9, 0.95), weight_decay=weight_decay,
+    )
+
+    if parent_checkpoint:
+        restored = restore_training_state(
+            str(parent_checkpoint), model, optimizer, mode=resume_mode,
+        )
+        # P0-4: explicit minimum-step check on REAL restored metadata.
+        if restored.global_step < expected_resume_step:
+            raise RuntimeError(
+                f"parent global_step {restored.global_step:,} is below the expected "
+                f"resume step {expected_resume_step:,} - wrong parent artifact?"
+            )
+        # Optimizer update count from the RESTORED moments (authoritative).
+        counts = [
+            int(state["step"].detach().cpu().item())
+            if isinstance(state.get("step"), torch.Tensor)
+            else int(state.get("step", 0))
+            for state in restored_optimizer_snapshot(optimizer).values()
+        ] or [0]
+        return PreparedTrainingState(
+            model=model,
+            optimizer=optimizer,
+            global_step=restored.global_step,
+            optimizer_updates=max(counts),
+            resume_mode=restored.mode,
+            source_checkpoint=str(parent_checkpoint),
+            checkpoint_parameter_sha256=restored.checkpoint_parameter_sha256,
+            optimizer_restored=restored.optimizer_restored,
+            # The legacy parent is schema-v1 by definition; the restore
+            # establishes the v2 continuation boundary downstream.
+            checkpoint_schema_version=1,
+        )
+
+    return PreparedTrainingState(
+        model=model,
+        optimizer=optimizer,
+        global_step=0,
+        optimizer_updates=0,
+        resume_mode="fresh",
+        source_checkpoint=None,
+        checkpoint_parameter_sha256=canonical_parameter_sha256(model.state_dict()),
+        optimizer_restored=False,
+        checkpoint_schema_version=2,
+    )
+
+
+def restored_optimizer_snapshot(optimizer) -> dict:
+    """The optimizer's CURRENT state dict (post-restore). Used to read the
+    authoritative moment counts without touching raw checkpoint payloads."""
+    return optimizer.state_dict()["state"]
+
+
+# --------------------------------------------------------------------------
 # Checkpoint restore into the CALLER's model (the P0 fix).
 #
 # History: a trainer resume helper called load_core_checkpoint(), which builds

@@ -35,7 +35,6 @@ from training.state import (
     build_training_state,
     dataset_fingerprint,
     tokens_per_optimizer_step,
-    validate_full_resume,
     validate_training_state,
 )
 
@@ -269,7 +268,17 @@ def write_run_receipt(
             config.get("batch_size", 1) * config.get("grad_accum_steps", 1)
             * world_size * CANONICAL_CONFIG.block_size
         ),
-        "schedule": "wsd_2pct_warmup_stable_linear_decay_to_10pct",
+        # Schedule identity must match what the trainer ACTUALLY runs
+        # (CosineSchedule from training.state), never a prose aspirational name.
+        "schedule": {
+            "name": "cosine_continuation_v1",
+            "parameters": {
+                "base_lr": config.get("learning_rate"),
+                "min_lr_ratio": config.get("min_lr_ratio"),
+                "decay_steps": config.get("lr_decay_steps"),
+                "origin_step": identity_block.get("parent_global_step", 0),
+            },
+        },
     }
     path = run_dir / "receipt.json"
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -304,10 +313,25 @@ def _clip_global_grad_norm(parameters: Iterator[torch.nn.Parameter], max_norm: f
     return total_norm
 
 
+def payload_for_schedule(prepared) -> dict[str, Any]:
+    """Schedule-relevant metadata for CosineSchedule.from_checkpoint.
+
+    A new-pack continuation intentionally starts a FRESH continuation
+    schedule; the parent's decay position does not carry over. This is the
+    documented boundary semantics - not lost information.
+    """
+    return {
+        "lr_schedule": None,
+        "trainer_state": None,
+    }
+
+
 def _checkpoint_payload(
     model: torch.nn.Module,
     optimizer: torch.optim.Optimizer,
-    config: Any,
+    *,
+    model_config,  # CoreConfig dataclass
+    training_config: dict[str, Any],  # runtime dict
     tokenizer: V4Tokenizer,
     step: int,
     metrics: dict[str, float],
@@ -315,25 +339,30 @@ def _checkpoint_payload(
     world_size: int,
     training_state: dict[str, object] | None = None,
     schedule=None,
-    *,
     artifact_class: str = "full_resume",
 ) -> dict[str, object]:
+    """Checkpoint creation with UNAMBIGUOUS config types (P0-5):
+    model_config is the CoreConfig dataclass; training_config is the runtime
+    dict. They are never the same variable."""
     raw_model = model.module if hasattr(model, "module") else model
     state = {name: value.detach().cpu() for name, value in raw_model.state_dict().items()}
     state["lm_head.weight"] = state["token_embedding_table.weight"]
+    from training.resume import canonical_parameter_sha256
+
     return {
         "checkpoint_artifact_class": artifact_class,
         "checkpoint_schema_version": 2,
         "global_step": int(step),
-        "pack_manifest_sha256": config.get("pack_manifest_sha256"),
+        "pack_manifest_sha256": training_config.get("pack_manifest_sha256"),
         "training_stage": "pretraining_tpu_xla",
         "source_commit": os.environ.get("ANRA_SOURCE_COMMIT", "unknown"),
         "source_checkpoint": source_checkpoint,
-        "model_config": asdict(config),
+        "model_config": asdict(model_config),
+        "parameter_sha256": canonical_parameter_sha256(state),
         "model_state_dict": state,
         "optimizer_state_dict": optimizer.state_dict(),
         "trainer_state": training_state,
-        "lr_schedule": schedule.to_dict(),
+        "lr_schedule": schedule.to_dict() if schedule is not None else None,
         "torch_rng_state": torch.get_rng_state(),
         "tokenizer_contract": {"available": True, **tokenizer.identity(probe_count=500)},
         "metrics": metrics,
@@ -373,13 +402,51 @@ def _save_latest(
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_name(f".{path.name}.{os.getpid()}.uploading")
     payload = _checkpoint_payload(
-        model, optimizer, config, tokenizer, step, metrics, source_checkpoint, world_size,
-        training_state, schedule,
+        model, optimizer,
+        model_config=CANONICAL_CONFIG,
+        training_config=config,
+        tokenizer=tokenizer, step=step, metrics=metrics,
+        source_checkpoint=source_checkpoint, world_size=world_size,
+        training_state=training_state, schedule=schedule,
     )
     xm.save(payload, str(temporary), master_only=True)
     os.replace(temporary, path)
     print(f"[TPU checkpoint] step={step:,} path={path}", flush=True)
     xm.rendezvous("checkpoint-written")
+
+
+def save_candidate(
+    output: Path,
+    model: torch.nn.Module,
+    optimizer: torch.optim.Optimizer,
+    training_config: dict[str, Any],
+    tokenizer: V4Tokenizer,
+    step: int,
+    metrics: dict[str, float],
+    source_checkpoint: str | None,
+    world_size: int,
+) -> Path:
+    """Sparse immutable candidate (CPU-callable for tests): model_only.
+
+    Returns the written path. Refuses to overwrite an existing candidate -
+    intermediate useful states must never disappear or mutate.
+    """
+    candidate_path = output.parent / "candidates" / f"anra-v4-step-{step:05d}.pt"
+    if candidate_path.exists():
+        print(f"[candidate] step={step:,} already exists - preserved", flush=True)
+        return candidate_path
+    raw_model = model.module if hasattr(model, "module") else model
+    payload = _checkpoint_payload(
+        raw_model, optimizer,
+        model_config=CANONICAL_CONFIG,
+        training_config=training_config,
+        tokenizer=tokenizer, step=step, metrics=metrics,
+        source_checkpoint=source_checkpoint, world_size=world_size,
+        artifact_class="candidate_model_only",
+    )
+    payload.pop("optimizer_state_dict", None)  # small lineage files
+    _atomic_save(payload, candidate_path)
+    return candidate_path
 
 
 @contextlib.contextmanager
@@ -425,33 +492,30 @@ def _worker(index: int, config: dict[str, object]) -> None:
     resume_path = Path(str(config["resume_from"])).expanduser() if config.get("resume_from") else None
     source_checkpoint: str | None = str(resume_path) if resume_path else None
 
-    if resume_path:
-        # Canonical restore: install the checkpoint INTO this worker's model
-        # and verify per tensor (P0 fix). The parent becomes a schema-v2
-        # continuation boundary - honestly, without pretending a historical
-        # data cursor exists. Their guards are kept: full-resume validation,
-        # minimum step, and world-size drift refusal.
-        from training.resume import restore_training_state
+    # CANONICAL PREPARATION PATH (P0-7): one model, one optimizer, one restore.
+    # CPU-testable; _worker consumes the returned struct and never re-restores
+    # or re-reads raw payloads.
+    from training.resume import prepare_training_state
 
-        restored = restore_training_state(
-            str(resume_path), model, optimizer, mode="new_pack_parent",
+    prepared = prepare_training_state(
+        parent_checkpoint=str(resume_path) if resume_path else None,
+        model_config=CANONICAL_CONFIG,
+        learning_rate=float(config["learning_rate"]),
+        weight_decay=float(config["weight_decay"]),
+        expected_resume_step=int(config.get("expected_resume_step", 0)),
+        resume_mode="new_pack_parent",
+    )
+    model = prepared.model
+    optimizer = prepared.optimizer
+    start_step = prepared.global_step
+    optimizer_updates = prepared.optimizer_updates
+    if rank == 0:
+        print(
+            f"[TPU prepare] mode={prepared.resume_mode} step={start_step:,} "
+            f"optimizer_updates={optimizer_updates:,} "
+            f"parameter_sha256={prepared.checkpoint_parameter_sha256[:16]}",
+            flush=True,
         )
-        start_step = validate_full_resume(
-            {"global_step": restored.global_step},
-            minimum_step=int(config["expected_resume_step"]),
-        )
-        payload = {}
-        if rank == 0:
-            print(
-                f"[TPU resume] mode={restored.mode} step={start_step:,} "
-                f"parameter_sha256={restored.checkpoint_parameter_sha256[:16]} "
-                f"optimizer={'restored' if restored.optimizer_restored else 'FRESH'} "
-                f"-> schema-v2 continuation boundary established",
-                flush=True,
-            )
-    else:
-        model, payload = AnRaCore(CANONICAL_CONFIG), {}
-        start_step = 0
 
     random.seed(seed + rank + start_step)
     torch.manual_seed(seed + rank + start_step)
@@ -460,24 +524,12 @@ def _worker(index: int, config: dict[str, object]) -> None:
     model.train()
     model.enable_gradient_checkpointing(bool(config["gradient_checkpointing"]))
     model.enable_memory_efficient_attention(int(config["attention_chunk_size"]))
-    optimizer = torch.optim.AdamW(
-        model.parameters(),
-        lr=float(config["learning_rate"]),
-        betas=(0.9, 0.95),
-        weight_decay=float(config["weight_decay"]),
-    )
-    if resume_path:
-        optimizer.load_state_dict(payload["optimizer_state_dict"])
-        _move_optimizer_state(optimizer, device)
-    saved_optimizer_updates = payload.get("trainer_state", {}).get("optimizer_updates")
-    optimizer_updates = (
-        int(saved_optimizer_updates)
-        if saved_optimizer_updates is not None
-        else _optimizer_update_count(payload.get("optimizer_state_dict", {}))
-    )
+    # Optimizer state moves to XLA exactly once (restore already populated it).
+    _move_optimizer_state(optimizer, device)
+
     checkpoint_lr = float(optimizer.param_groups[0]["lr"])
     schedule = CosineSchedule.from_checkpoint(
-        payload,
+        payload_for_schedule(prepared),
         start_step=start_step,
         checkpoint_lr=checkpoint_lr,
         decay_steps=int(config["lr_decay_steps"]),
@@ -493,8 +545,10 @@ def _worker(index: int, config: dict[str, object]) -> None:
     batches_per_epoch = sampler.num_samples // batch_size
     if batches_per_epoch <= 0:
         raise RuntimeError("dataset is too small for one distributed training batch")
-    saved_training_state = payload.get("trainer_state", {}) if resume_path else {}
-    saved_data = saved_training_state.get("data", {}) if saved_training_state else {}
+    # A new-pack continuation from a legacy parent has NO historical cursor;
+    # that boundary is established honestly here and persisted exactly onward.
+    saved_training_state = {} if not resume_path or prepared.checkpoint_schema_version < 2 else {}
+    saved_data = {}
     if saved_data:
         position = DataPosition(
             epoch=int(saved_data["epoch"]),
@@ -539,7 +593,7 @@ def _worker(index: int, config: dict[str, object]) -> None:
             current_training_state,
             allow_legacy=(
                 bool(config["allow_legacy_resume"])
-                and payload.get("checkpoint_schema_version") == 1
+                and prepared.checkpoint_schema_version == 1
             ),
         )
     sampler.set_epoch(position.epoch)
@@ -635,9 +689,21 @@ def _worker(index: int, config: dict[str, object]) -> None:
         optimizer_updates += 1
         latest_loss = loss_sum / grad_accum
         # NaN/Inf guard (fail closed): never checkpoint a corrupted run.
+        # Extends to gradient norm AND learning rate before any save.
         if not bool(torch.isfinite(latest_loss).all()):
             raise RuntimeError(
                 f"NON-FINITE LOSS at step {step + 1}: {float(latest_loss.cpu())}. "
+                "Refusing to save; last healthy recovery checkpoint is preserved."
+            )
+        if not bool(torch.isfinite(latest_grad_norm).all()):
+            raise RuntimeError(
+                f"NON-FINITE GRADIENT NORM at step {step + 1}: "
+                f"{float(latest_grad_norm.cpu())}. Refusing to save; last healthy "
+                "recovery checkpoint is preserved."
+            )
+        if not math.isfinite(effective_lr) or effective_lr <= 0:
+            raise RuntimeError(
+                f"INVALID LEARNING RATE at step {step + 1}: {effective_lr!r}. "
                 "Refusing to save; last healthy recovery checkpoint is preserved."
             )
         loss_window.add_(latest_loss)
@@ -683,21 +749,17 @@ def _worker(index: int, config: dict[str, object]) -> None:
             )
 
         # Sparse immutable candidates (never overwritten): research lineage.
+        # All ranks reach this boundary together; only rank 0 writes.
         candidate_interval = int(config.get("candidate_interval") or 0)
-        if rank == 0 and candidate_interval > 0 and completed % candidate_interval == 0:
-            raw_model = model.module if hasattr(model, "module") else model
-            candidate_payload = _checkpoint_payload(
-                raw_model, optimizer, config, tokenizer, completed,
-                {"loss": float(latest_loss.cpu())}, source_checkpoint, world_size,
-                artifact_class="candidate_model_only",
-            )
-            candidate_payload.pop("optimizer_state_dict", None)  # small lineage files
-            candidate_path = (
-                output.parent / "candidates" / f"anra-v4-step-{completed:05d}.pt"
-            )
-            if not candidate_path.exists():
-                _atomic_save(candidate_payload, candidate_path)
-                print(f"[candidate] step={completed:,} -> {candidate_path}", flush=True)
+        if candidate_interval > 0 and completed % candidate_interval == 0:
+            if rank == 0:
+                save_candidate(
+                    output, model, optimizer, config, tokenizer, completed,
+                    {"loss": float(latest_loss.cpu())}, source_checkpoint, world_size,
+                )
+            # Rendezvous so no rank enters the next collective while rank 0
+            # is still serializing (PJRT graph-sync safety).
+            xm.rendezvous(f"candidate-{completed}")
 
     final_step = completed if "completed" in locals() else start_step
     if final_step % save_interval != 0 or not output.is_file():
