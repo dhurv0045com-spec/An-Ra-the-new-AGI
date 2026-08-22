@@ -20,7 +20,7 @@ from anra_core.model import AnRaCore
 from anra_core.tokenizer import V4Tokenizer
 
 
-def _build_parent(tmp_path, updates: int = 2):
+def _build_parent(tmp_path, updates: int = 2, schema_version: int = 1):
     model = AnRaCore(CANONICAL_CONFIG)
     optimizer = torch.optim.AdamW(model.parameters(), lr=1e-3, betas=(0.9, 0.95))
     for _ in range(updates):
@@ -31,7 +31,7 @@ def _build_parent(tmp_path, updates: int = 2):
     tok = V4Tokenizer.load_canonical()
     payload = {
         "checkpoint_artifact_class": "full_resume",
-        "checkpoint_schema_version": 1,
+        "checkpoint_schema_version": schema_version,
         "global_step": 20_000,
         "model_state_dict": model.state_dict(),
         "optimizer_state_dict": optimizer.state_dict(),
@@ -50,7 +50,7 @@ def _build_parent(tmp_path, updates: int = 2):
 def test_prepare_training_state_restores_model_and_moments(tmp_path) -> None:
     from training.resume import prepare_training_state
 
-    parent_path, parent_model, parent_opt = _build_parent(tmp_path)
+    parent_path, parent_model, parent_opt = _build_parent(tmp_path, schema_version=9)
 
     prepared = prepare_training_state(
         parent_checkpoint=str(parent_path),
@@ -77,6 +77,7 @@ def test_prepare_training_state_restores_model_and_moments(tmp_path) -> None:
     assert prepared.optimizer_updates >= 1
     assert prepared.source_checkpoint == str(parent_path)
     assert prepared.resume_mode == "new_pack_parent"
+    assert prepared.checkpoint_schema_version == 9
 
 
 def test_prepare_training_state_enforces_expected_resume_step(tmp_path) -> None:

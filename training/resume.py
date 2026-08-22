@@ -265,7 +265,7 @@ def _load_payload(resume_from: str) -> tuple[dict[str, "torch.Tensor"], dict]:
     if identity.artifact_class != "full_resume":
         raise RuntimeError("resume checkpoint must be a full_resume artifact")
     schema = int(identity.artifact_schema_version or 0)
-    if schema not in {1, 2, 3}:
+    if schema not in {1, 2, 3, 9}:
         raise RuntimeError(f"unsupported full-resume schema: {schema}")
     optimizer_state = payload.get("optimizer_state_dict") or payload.get("optimizer")
     if not isinstance(optimizer_state, dict) or not optimizer_state.get("state"):
@@ -319,7 +319,7 @@ def restore_training_state(
 
     schema_version = int(payload.get("checkpoint_schema_version", 0))
     trainer_state = payload.get("trainer_state")
-    if schema_version >= 2 and not isinstance(trainer_state, dict):
+    if schema_version in {2, 3} and not isinstance(trainer_state, dict):
         raise RuntimeError("resumable checkpoint is missing trainer_state")
     saved_pack_step_value = (trainer_state or {}).get("pack_step", payload.get("pack_step"))
     if saved_pack_step_value is None and schema_version == 2:

@@ -882,9 +882,9 @@ def run(args: argparse.Namespace) -> None:
         expected_resume_step=args.expected_resume_step,
         start_new_pack=args.start_new_pack,
     )
-    if identity_block["parent_checkpoint_schema"] == 1 and not args.allow_legacy_resume:
+    if identity_block["parent_checkpoint_schema"] in {1, 9} and not args.allow_legacy_resume:
         raise ValueError(
-            "schema-v1 step-20k migration requires --allow-legacy-resume once"
+            "legacy step-20k migration requires --allow-legacy-resume once"
         )
 
     config = vars(args).copy()
@@ -935,7 +935,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--allow-legacy-resume",
         action="store_true",
-        help="establish a schema-v3 pack/WSD boundary from a schema-v1 full-resume checkpoint",
+        help="establish a schema-v3 pack/WSD boundary from a legacy full-resume checkpoint",
     )
     parser.add_argument("--candidate-interval", type=int, default=1000,
                         help="sparse immutable candidate checkpoints (0 disables)")
