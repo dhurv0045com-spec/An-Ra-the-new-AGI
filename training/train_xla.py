@@ -817,8 +817,6 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--lr-decay-steps", type=int, default=1_000_000)
     parser.add_argument("--min-lr-ratio", type=float, default=0.1)
     parser.add_argument("--save-interval", type=int, default=200)
-    parser.add_argument("--candidate-interval", type=int, default=1000,
-                        help="sparse immutable candidate checkpoints (0 disables)")
     parser.add_argument("--log-interval", type=int, default=10)
     parser.add_argument("--seed", type=int, default=1301)
     return parser.parse_args(argv)
