@@ -1,0 +1,59 @@
+{
+  "label": "accumulate",
+  "query_influence_matrix": {
+    "raw_mean_diagonal_margin": -3.913,
+    "mean_query_lift": 0.0141,
+    "median_query_lift": 0.0398,
+    "query_lift_positive_rate": "18/30",
+    "query_lift_permutation_p": 0.412,
+    "query_lift_effect_size": 0.049,
+    "correct_rank1_fraction": "10/30",
+    "mean_correct_rank": 2.0,
+    "mean_js_across_queries": 0.00094,
+    "fraction_groups_positive_query_effect": "6/10",
+    "greedy_corresponding_accuracy": "7/30",
+    "n_groups": 10
+  },
+  "entity_vs_ordinal_vs_pointer_corrected": {
+    "entity": "3/8",
+    "ordinal": "3/8",
+    "pointer": "3/8"
+  },
+  "interventions_corrected": {
+    "query_relocation": {
+      "rescued": "1/12",
+      "n_failing": 12
+    },
+    "fact_relocation": {
+      "rescued": "0/12",
+      "n_failing": 12
+    },
+    "mark_only": {
+      "rescued": "1/12",
+      "n_failing": 12
+    },
+    "repeat_only": {
+      "rescued": "2/12",
+      "n_failing": 12
+    },
+    "mark_and_repeat": {
+      "rescued": "2/12",
+      "n_failing": 12
+    },
+    "single_fact_control": {
+      "rescued": "5/12",
+      "n_failing": 12
+    },
+    "query_duplication": {
+      "rescued": "0/12",
+      "n_failing": 12
+    }
+  },
+  "protected_retention_bank_dev": {
+    "single_fact": "14/20",
+    "tool_result": "10/20",
+    "copy": "20/20",
+    "protocol_transfer": "12/20"
+  }
+}
+wrote output/qim2_accumulate.json

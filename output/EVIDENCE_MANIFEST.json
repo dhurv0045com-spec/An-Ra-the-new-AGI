@@ -1,6 +1,6 @@
 {
   "schema": "anra-evidence-manifest/v1",
-  "updated": "2026-08-23 01:59",
+  "updated": "2026-08-23 02:41",
   "labels": {
     "VALID": "trustworthy under its recorded conditions",
     "SUPERSEDED": "correct when produced, replaced by a better measurement",
@@ -125,8 +125,8 @@
     },
     {
       "path": "output/lineage.json",
-      "label": "VALID",
-      "reason": "child->proposal->12 verified experiences lineage; NOT FALSIFIED",
+      "label": "SUPERSEDED",
+      "reason": "lineage description predates the evidence-taxonomy split; corrected record: 12 BehavioralImprovementObservations (OBSERVATIONAL, no causal changed-variable claim); VerifiedInterventionExperience count = 0",
       "checkpoint": "anra-v4-20k-sft3-accumulate.pt"
     },
     {
@@ -194,6 +194,24 @@
       "label": "VALID",
       "reason": "linear probe, underpowered (n=6) but directional",
       "checkpoint": "anra-v4-20k-sft3-accumulate.pt"
+    },
+    {
+      "path": "output/qim2_anchor.json",
+      "label": "VALID",
+      "reason": "corrected v2 diagnostic (ordinal indexing fixed, pure relocations, mark/repeat split, lift+permutation)",
+      "checkpoint": "anchor"
+    },
+    {
+      "path": "output/qim2_accumulate.json",
+      "label": "VALID",
+      "reason": "corrected v2 diagnostic",
+      "checkpoint": "anra-v4-20k-sft3-accumulate.pt"
+    },
+    {
+      "path": "output/qim2_sft4.json",
+      "label": "VALID",
+      "reason": "corrected v2 diagnostic on the rejected specialist",
+      "checkpoint": "anra-v4-20k-sft4-queryfocus.pt"
     }
   ],
   "scoped_promotions": {
@@ -253,13 +271,18 @@
     "diagnosis_confirmed": "query-conditioned binding is the bottleneck; surface query recognition is trainable at this scale, query-keyed value retrieval is not established by ~50-update SFT"
   },
   "query_influence_verdict": {
-    "qim_sha_inputs": "output/qim_{anchor,accumulate,sft4}.json",
-    "finding": "diagonal margin -3.4..-4.1 nats; correct rank = chance (10/30, mean 2.0); JS divergence across queries ~0.0005 => the query essentially does not move the candidate-value distribution",
-    "ordinal_pointer": "ordinal and explicit-pointer queries fail identically to entity queries => NOT an entity-matching problem",
-    "recency_interventions": "query-near-answer 0/12, fact-near-answer 0-1/12, pointer 0-2/12, query duplication 0/12 => recency hypothesis WEAKENED (proximity does not rescue under competition); distractor removal best (5/12)",
-    "probe": "3-way target-index linear probe on answer-marker residual: 0.0 (control 0.33) => target-conditioned representation does not form (underpowered n=6 but consistent)",
-    "classification": "CASE F: deeper conditional representation primitive missing",
-    "h_match_status_correction": "H-match = currently unsupported by the existing hint, but NOT cleanly discriminated (ordinal/pointer failing equally is the stronger evidence against entity-specific matching failure)",
-    "verified_intervention_experiences": "NONE (best single-variable rescue 2/12 \u2014 not a reliable flip)"
-  }
+    "diagnostic_version": "anra-query-influence/v2 (fixture da3ba8d589fe61fb, identical across models)",
+    "corrected_finding": "candidate-normalized query lift mean +0.014..+0.073 nats, positive 18-19/30, permutation p 0.17-0.41 => statistically indistinguishable from zero; rank-1 exactly chance on all three models",
+    "corrected_eqoxp": "entity == ordinal == pointer (2-3/8) after fixing the ordinal display-order bug => failure is reference-form independent",
+    "corrected_interventions": "pure query relocation 0-1/12, fact relocation 0-1/12, mark-only 0-1/12, repeat-only 1-2/12, query duplication 0/12",
+    "single_fact_control": "accumulate 5/12 vs anchor 1/12, sft4 1/12 \u2014 partial competition-free access on the accumulation child only",
+    "classification": "CASE F on behavioral grounds (all corrected controls fail; lift ~ zero); representation leg EXPLORATORY_ONLY (probe n=6, excluded); secondary CASE-G signature (single-fact > multi-fact) on accumulate only",
+    "verified_intervention_experiences": 0
+  },
+  "evidence_taxonomy": {
+    "BehavioralImprovementObservation": 12,
+    "VerifiedInterventionExperience": 0,
+    "note": "no causal single-variable runtime repair has yet qualified"
+  },
+  "probe_status": "EXPLORATORY_ONLY \u2014 n=6, excluded from mechanism classification"
 }

@@ -1,27 +1,23 @@
-"""Query Influence Matrix: where does the query stop controlling the answer?
+"""Query Influence Matrix v2: corrected controls, clean mechanism evidence.
 
-Instruments (DEV-only; no training consumes them):
+v2 fixes over v1 (each invalidated a previous conclusion):
+  - ORDINAL INDEXING: displayed facts are structured records in display
+    order; ordinal/pointer targets index the DISPLAYED fact, and entity /
+    ordinal / pointer provably designate the same gold.
+  - RELOCATION PURITY: prompts are built from components (facts block,
+    query, single Answer marker); relocation variants permute components
+    only — exactly one "Answer:" in every prompt, same line multiset.
+  - MARK vs REPEAT separated: MARK_ONLY annotates the fact in place;
+    REPEAT_ONLY duplicates the fact near the answer; MARK_AND_REPEAT is
+    reported but never treated as single-variable.
+  - CANDIDATE-NORMALIZED QUERY LIFT: lift_i = logP(value_i|own query) -
+    mean_j!=i logP(value_i|query_j) — the query's effect on ITS value,
+    cleansed of candidate priors. With a paired permutation p-value.
+  - Stable JS (max-shift normalization; no exp underflow).
+  - Fixture hash: identical items across models, asserted in receipts.
 
-  1. QIM       — controlled fact blocks (A/B/C → codes); only the query
-                changes; for every (query, candidate) pair we score the
-                FULL-SEQUENCE conditional log-probability of the complete
-                answer string " CODE.". Reports diagonal margin, correct
-                rank, rank-1 fraction, corresponding-gain on swaps, JS
-                divergence across query-conditioned candidate distributions,
-                greedy accuracy.
-  2. EQ/OQ/XP  — same block, same answer type: ENTITY query vs ORDINAL
-                ("fact 2") vs EXPLICIT POINTER ("Fact 2 is relevant…").
-  3. RECENCY   — single-variable interventions on failing items: query moved
-                near Answer, target fact moved near Answer, neutral relevance
-                pointer, distractor removal, query duplication. Verifier
-                flips under exactly-one-moved-variable conditions can become
-                VerifiedInterventionExperience entries (the first real ones).
-  4. RETENTION — protected-family strict accuracy on the bank dev split
-                (retrospective PR5 evidence for SFT4).
-
-Run per checkpoint:
-  py -3 -m connector.experiments.query_influence --checkpoint <pt> \
-      --label <name> --legacy --out output/qim_<name>.json
+Probe status: the earlier residual probe is EXPLORATORY_ONLY (n=6) and is
+not part of any classification.
 """
 
 from __future__ import annotations
@@ -44,6 +40,7 @@ PREFIXES = ("HGR", "JPL", "KSN", "MBT", "NWD")
 ENTITIES = ("tarn", "crease", "hollow", "spindle", "gable", "wicket",
             "louver", "quoinx", "crib", "drift")
 N_GROUPS = 10
+DIAGNOSTIC_VERSION = "anra-query-influence/v2"
 
 
 def _code(rng: random.Random) -> str:
@@ -51,42 +48,43 @@ def _code(rng: random.Random) -> str:
 
 
 def build_groups() -> list[dict]:
+    """Structured fact records in DISPLAY order; ordinal/pointer index this
+    order; the gold is always the designated record's code."""
     rng = random.Random(SEED)
     groups = []
-    for g in range(N_GROUPS):
+    for _ in range(N_GROUPS):
         ents = rng.sample(ENTITIES, 3)
         codes = [_code(rng) for _ in ents]
-        lines = [f"{e.capitalize()} bears tag {c}." for e, c in zip(ents, codes)]
-        rng.shuffle(lines)
-        groups.append({"entities": ents, "codes": codes, "lines": lines,
-                       "target_line": lines[[l for l in lines]
-                                            .index(f"{ents[i].capitalize()} bears tag {codes[i]}.")]
-                       if False else None})
-        # store per-target its line for the fact-move intervention
-        groups[-1]["line_of"] = {e: f"{e.capitalize()} bears tag {c}."
-                                 for e, c in zip(ents, codes)}
+        records = [{"entity": e, "code": c, "line": f"{e.capitalize()} bears tag {c}."}
+                   for e, c in zip(ents, codes)]
+        rng.shuffle(records)  # display order is the ONLY order that matters
+        groups.append({"displayed_facts": records})
     return groups
 
 
-def _prompt_block(group: dict, query_line: str) -> str:
-    return "\n".join(group["lines"]) + f"\n{query_line}\nAnswer:"
+def fixture_hash() -> str:
+    text = json.dumps(build_groups(), sort_keys=True)
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
+
+
+def _query(record: dict) -> str:
+    return f"Return the tag of {record['entity'].capitalize()}."
+
+
+def _prompt(facts_block: str, query: str) -> str:
+    return f"{facts_block}\n{query}\nAnswer:"
 
 
 @torch.no_grad()
 def _completion_logprob(model, tok, prompt: str, completion: str) -> float:
-    """Full-sequence conditional logP(completion | prompt): teacher-forced,
-    summed over completion tokens (codes are multi-token, so first-token
-    scoring would be wrong)."""
     p_ids = tok.encode(prompt)
     c_ids = tok.encode(completion)
     ids = torch.tensor([[tok.bos_token_id, *p_ids, *c_ids]], dtype=torch.long,
                        device=next(model.parameters()).device)
-    logits = model(ids)[0]  # [seq, vocab]
+    logits = model(ids)[0]
     logprobs = torch.log_softmax(logits.float(), dim=-1)
-    total = 0.0
-    for pos in range(1 + len(p_ids), ids.shape[1]):
-        total += float(logprobs[pos - 1, ids[0, pos]].item())
-    return total
+    return sum(float(logprobs[pos - 1, ids[0, pos]].item())
+               for pos in range(1 + len(p_ids), ids.shape[1]))
 
 
 @torch.no_grad()
@@ -109,19 +107,42 @@ def _strict(out: str, gold: str) -> bool:
     return len(c) == 1 and c[0] == gold
 
 
-def _rank(value: float, others: list[float]) -> int:
-    return 1 + sum(1 for o in others if o > value)
-
-
-def _js(p: list[float], q: list[float]) -> float:
+def _stable_js(logp: list[float], logq: list[float]) -> float:
     def norm(v):
-        s = sum(v)
-        return [x / s for x in v]
-    p, q = norm(p), norm(q)
+        m = max(v)
+        w = [math.exp(x - m) for x in v]
+        s = sum(w)
+        return [x / s for x in w]
+    p, q = norm(logp), norm(logq)
     m = [(a + b) / 2 for a, b in zip(p, q)]
+
     def kl(a, b):
         return sum(x * math.log(x / y) for x, y in zip(a, b) if x > 0 and y > 0)
     return 0.5 * (kl(p, m) + kl(q, m))
+
+
+def _permutation_p(values: list[float]) -> float:
+    """Paired permutation test for mean(values) > 0 (sign flips, exact for
+    small n via full enumeration when n <= 12, else 2000 random flips)."""
+    n = len(values)
+    obs = sum(values)
+    rng = random.Random(7)
+
+    def flips():
+        if n <= 12:
+            import itertools
+            for signs in itertools.product((1, -1), repeat=n):
+                yield signs
+        else:
+            for _ in range(2000):
+                yield tuple(rng.choice((1, -1)) for _ in range(n))
+
+    count = total = 0
+    for signs in flips():
+        total += 1
+        if sum(s * v for s, v in zip(signs, values)) >= obs:
+            count += 1
+    return count / total
 
 
 def run_model(label: str, checkpoint: str, *, legacy: bool, device="cuda") -> dict:
@@ -132,115 +153,139 @@ def run_model(label: str, checkpoint: str, *, legacy: bool, device="cuda") -> di
     tok = V4Tokenizer.load_canonical()
     groups = build_groups()
 
-    # ---------- 1. Query Influence Matrix
-    margins, ranks, gains, js_all, greedy_ok = [], [], [], [], []
+    # ---------- 1. QIM + candidate-normalized query lift
+    margins, ranks, greedy_ok, js_all = [], [], [], []
+    lifts: list[float] = []
+    per_group_adv: list[float] = []
     for g in groups:
+        facts = [r["line"] for r in g["displayed_facts"]]
+        block = "\n".join(facts)
         L = {}
         for qi in range(3):
-            q = f"Return the tag of {g['entities'][qi].capitalize()}."
-            prompt = _prompt_block(g, q)
-            L[qi] = [_completion_logprob(model, tok, prompt, f" {c}.")
-                     for c in g["codes"]]
+            prompt = _prompt(block, _query(g["displayed_facts"][qi]))
+            L[qi] = [_completion_logprob(model, tok, prompt, f" {r['code']}.")
+                     for r in g["displayed_facts"]]
         for qi in range(3):
             margins.append(L[qi][qi] - max(L[qi][j] for j in range(3) if j != qi))
-            ranks.append(_rank(L[qi][qi], L[qi]))
+            ranks.append(1 + sum(1 for j in range(3) if L[qi][j] > L[qi][qi]))
             greedy_ok.append(_strict(_greedy(model, tok,
-                                             _prompt_block(g, f"Return the tag of {g['entities'][qi].capitalize()}.")),
-                                     g["codes"][qi]))
+                                             _prompt(block, _query(g["displayed_facts"][qi]))),
+                                     g["displayed_facts"][qi]["code"]))
+        for i in range(3):
+            others = [L[j][i] for j in range(3) if j != i]
+            lifts.append(L[i][i] - sum(others) / len(others))
+        adv = sum(L[i][i] - sum(L[j][i] for j in range(3) if j != i) / 2
+                  for i in range(3)) / 3
+        per_group_adv.append(adv)
         for a in range(3):
-            for b in range(3):
-                if a != b:
-                    gains.append(L[b][b] > L[a][b])  # correct cand gains under its query
-                    pa = [math.exp(x) for x in L[a]]
-                    pb = [math.exp(x) for x in L[b]]
-                    js_all.append(_js(pa, pb))
+            for b in range(a + 1, 3):
+                js_all.append(_stable_js(L[a], L[b]))
     qim = {
-        "mean_diagonal_margin": round(sum(margins) / len(margins), 3),
-        "median_diagonal_margin": round(sorted(margins)[len(margins)//2], 3),
+        "raw_mean_diagonal_margin": round(sum(margins) / len(margins), 3),
+        "mean_query_lift": round(sum(lifts) / len(lifts), 4),
+        "median_query_lift": round(sorted(lifts)[len(lifts) // 2], 4),
+        "query_lift_positive_rate": f"{sum(1 for x in lifts if x > 0)}/{len(lifts)}",
+        "query_lift_permutation_p": round(_permutation_p(lifts), 4),
+        "query_lift_effect_size": round(
+            (sum(lifts) / len(lifts)) /
+            (max(math.sqrt(sum((x - sum(lifts) / len(lifts)) ** 2 for x in lifts) / len(lifts)), 1e-9)), 3),
         "correct_rank1_fraction": f"{sum(1 for r in ranks if r == 1)}/{len(ranks)}",
         "mean_correct_rank": round(sum(ranks) / len(ranks), 2),
-        "corresponding_gain_on_swap": f"{sum(1 for x in gains if x)}/{len(gains)}",
-        "mean_js_divergence_across_queries": round(sum(js_all) / len(js_all), 4),
+        "mean_js_across_queries": round(sum(js_all) / len(js_all), 5),
+        "fraction_groups_positive_query_effect": f"{sum(1 for a in per_group_adv if a > 0)}/{len(per_group_adv)}",
         "greedy_corresponding_accuracy": f"{sum(greedy_ok)}/{len(greedy_ok)}",
         "n_groups": len(groups),
     }
 
-    # ---------- 2. entity vs ordinal vs explicit pointer
+    # ---------- 2. corrected entity vs ordinal vs pointer (same target)
     rng = random.Random(SEED + 1)
-    cond_acc = {"entity": [], "ordinal": [], "pointer": []}
+    cond = {"entity": [], "ordinal": [], "pointer": []}
     for g in groups[:8]:
-        target = rng.randrange(3)
-        ent = g["entities"][target].capitalize()
+        t = rng.randrange(3)
+        rec = g["displayed_facts"][t]
+        block = "\n".join(r["line"] for r in g["displayed_facts"])
         variants = {
-            "entity": f"Return the tag of {ent}.",
-            "ordinal": f"Return the tag from fact {target + 1}.",
-            "pointer": f"Fact {target + 1} is the relevant fact. Return its tag.",
+            "entity": _query(rec),
+            "ordinal": f"Return the tag from fact {t + 1}.",
+            "pointer": f"Fact {t + 1} is relevant. Return its tag.",
         }
         for name, q in variants.items():
-            prompt = _prompt_block(g, q)
-            cond_acc[name].append(_strict(_greedy(model, tok, prompt), g["codes"][target]))
-    eqoq = {k: f"{sum(1 for x in v if x)}/{len(v)}" for k, v in cond_acc.items()}
+            cond[name].append(_strict(_greedy(model, tok, _prompt(block, q)), rec["code"]))
+    eqoq = {k: f"{sum(1 for x in v if x)}/{len(v)}" for k, v in cond.items()}
 
-    # ---------- 3. recency interventions on failing items
+    # ---------- 3. corrected interventions on failing items
     failing = []
     for g in groups:
-        for qi in range(3):
-            q = f"Return the tag of {g['entities'][qi].capitalize()}."
-            base_prompt = _prompt_block(g, q)
-            out = _greedy(model, tok, base_prompt)
-            if not _strict(out, g["codes"][qi]):
-                failing.append({"group": g, "qi": qi, "q": q, "base_out": out,
-                                "gold": g["codes"][qi]})
+        block = "\n".join(r["line"] for r in g["displayed_facts"])
+        for qi, rec in enumerate(g["displayed_facts"]):
+            q = _query(rec)
+            out = _greedy(model, tok, _prompt(block, q))
+            if not _strict(out, rec["code"]):
+                failing.append({"g": g, "qi": qi, "q": q, "gold": rec["code"],
+                                "block": block})
     failing = failing[:12]
-    rescues = {k: [] for k in ("query_near_answer", "fact_near_answer",
-                               "relevance_pointer", "distractor_removal",
-                               "query_duplication")}
+    rescues: dict[str, list[bool]] = {k: [] for k in
+                                      ("query_relocation", "fact_relocation",
+                                       "mark_only", "repeat_only",
+                                       "mark_and_repeat", "single_fact_control",
+                                       "query_duplication")}
     for f in failing:
-        g, qi, q, gold = f["group"], f["qi"], f["q"], f["gold"]
-        lines = list(g["lines"])
-        target_line = g["line_of"][g["entities"][qi]]
+        g, rec = f["g"], f["g"]["displayed_facts"][f["qi"]]
+        facts = [r["line"] for r in g["displayed_facts"]]
+        q, gold = f["q"], f["gold"]
+        others = [l for l in facts if l != rec["line"]]
         variants = {
-            "query_near_answer": "\n".join(lines) + f"\nAnswer:\n{q}\nAnswer:",
-            "fact_near_answer": "\n".join(l for l in lines if l != target_line)
-                                + f"\n{q}\n{target_line}\nAnswer:",
-            "relevance_pointer": "\n".join(lines)
-                                 + f"\n[RELEVANT FACT]\n{target_line}\n{q}\nAnswer:",
-            "distractor_removal": target_line + f"\n{q}\nAnswer:",
-            "query_duplication": "\n".join(lines) + f"\n{q}\n{q}\nAnswer:",
+            # BASE layout is facts+query+Answer; relocation = query moved to
+            # the FRONT (far from the answer). One Answer marker everywhere;
+            # identical line multisets.
+            "query_relocation": f"{q}\n" + "\n".join(facts) + "\nAnswer:",
+            # fact relocation: target fact moved to the position immediately
+            # before the query/answer; same multiset, one marker.
+            "fact_relocation": "\n".join(others) + f"\n{q}\n{rec['line']}\nAnswer:",
+            # MARK_ONLY: annotation in place, no duplication.
+            "mark_only": "\n".join(
+                f"[RELEVANT] {l}" if l == rec["line"] else l for l in facts)
+                + f"\n{q}\nAnswer:",
+            # REPEAT_ONLY: duplication near the answer, no annotation.
+            "repeat_only": "\n".join(facts) + f"\n{q}\n{rec['line']}\nAnswer:",
+            "mark_and_repeat": "\n".join(
+                f"[RELEVANT] {l}" if l == rec["line"] else l for l in facts)
+                + f"\n{q}\n[RELEVANT] {rec['line']}\nAnswer:",
+            "single_fact_control": f"{rec['line']}\n{q}\nAnswer:",
+            "query_duplication": "\n".join(facts) + f"\n{q}\n{q}\nAnswer:",
         }
         for name, prompt in variants.items():
             rescues[name].append(_strict(_greedy(model, tok, prompt), gold))
     interventions = {k: {"rescued": f"{sum(1 for x in v if x)}/{len(v)}",
                          "n_failing": len(v)} for k, v in rescues.items()}
 
-    # ---------- 4. PR5 retrospective: protected retention on bank dev
+    # ---------- 4. protected retention on the bank dev split
     bank_dev = [json.loads(l) for l in
                 Path("data/capability_bank/dev.jsonl").read_text(encoding="utf-8").splitlines()
                 if l.strip()]
     prot = {}
     for fam in ("single_fact", "tool_result", "copy", "protocol_transfer"):
         rows = [b for b in bank_dev if b["family"] == fam][:20]
-        if not rows:
-            continue
         hits = 0
         for b in rows:
             out = _greedy(model, tok, b["prompt"], max_new_tokens=10)
             gold = b.get("gold") or b.get("answer", "")
             cands = CODE_RE.findall(out)
-            ok = (len(cands) == 1 and cands[0] == gold) if CODE_RE.fullmatch(gold or "") \
-                else bool(re.search(rf"(?<!\w){re.escape(gold.lower())}(?!\w)",
-                                    re.sub(r"[^0-9a-z ]", " ", out.lower())))
+            ok = ((len(cands) == 1 and cands[0] == gold)
+                  if CODE_RE.fullmatch(gold or "") else
+                  bool(re.search(rf"(?<!\w){re.escape(gold.lower())}(?!\w)",
+                                 re.sub(r"[^0-9a-z ]", " ", out.lower()))))
             hits += bool(ok)
         prot[fam] = f"{hits}/{len(rows)}"
 
     report = {
-        "schema": "anra-query-influence/v1", "label": label,
-        "checkpoint": checkpoint,
+        "schema": DIAGNOSTIC_VERSION, "label": label, "checkpoint": checkpoint,
         "global_step": identity.global_step,
         "parameter_sha256": getattr(identity, "parameter_sha256", None),
+        "fixture_sha256": fixture_hash(),
         "query_influence_matrix": qim,
-        "entity_vs_ordinal_vs_pointer": eqoq,
-        "recency_interventions": interventions,
+        "entity_vs_ordinal_vs_pointer_corrected": eqoq,
+        "interventions_corrected": interventions,
         "protected_retention_bank_dev": prot,
         "n_failing_items": len(failing),
         "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
@@ -250,7 +295,6 @@ def run_model(label: str, checkpoint: str, *, legacy: bool, device="cuda") -> di
             ["git", "rev-parse", "HEAD"], text=True).strip()
     except Exception:
         pass
-
     del model
     import gc
     gc.collect(); torch.cuda.empty_cache(); torch.cuda.synchronize()
@@ -270,7 +314,8 @@ def main() -> int:
                        legacy=args.legacy, device=args.device)
     print(json.dumps({k: report[k] for k in
                       ("label", "query_influence_matrix",
-                       "entity_vs_ordinal_vs_pointer", "recency_interventions",
+                       "entity_vs_ordinal_vs_pointer_corrected",
+                       "interventions_corrected",
                        "protected_retention_bank_dev")}, indent=2))
     if args.out:
         Path(args.out).write_text(json.dumps(report, indent=2), encoding="utf-8")

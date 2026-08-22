@@ -1,0 +1,66 @@
+{
+  "schema": "anra-query-influence/v2",
+  "label": "anchor",
+  "checkpoint": "C:/Users/ankit/An-Ra-the-new-AGI/checkpoints/anra-v4-20k-sft-context-binding.pt",
+  "global_step": 20000,
+  "parameter_sha256": "c3329e558e68acc3c02b5c323c1dacaeb61a96e0e0defbca1c69985c2b38d565",
+  "fixture_sha256": "da3ba8d589fe61fb",
+  "query_influence_matrix": {
+    "raw_mean_diagonal_margin": -4.105,
+    "mean_query_lift": 0.0637,
+    "median_query_lift": 0.0877,
+    "query_lift_positive_rate": "18/30",
+    "query_lift_permutation_p": 0.299,
+    "query_lift_effect_size": 0.106,
+    "correct_rank1_fraction": "10/30",
+    "mean_correct_rank": 2.0,
+    "mean_js_across_queries": 0.00026,
+    "fraction_groups_positive_query_effect": "7/10",
+    "greedy_corresponding_accuracy": "5/30",
+    "n_groups": 10
+  },
+  "entity_vs_ordinal_vs_pointer_corrected": {
+    "entity": "2/8",
+    "ordinal": "2/8",
+    "pointer": "2/8"
+  },
+  "interventions_corrected": {
+    "query_relocation": {
+      "rescued": "0/12",
+      "n_failing": 12
+    },
+    "fact_relocation": {
+      "rescued": "0/12",
+      "n_failing": 12
+    },
+    "mark_only": {
+      "rescued": "0/12",
+      "n_failing": 12
+    },
+    "repeat_only": {
+      "rescued": "0/12",
+      "n_failing": 12
+    },
+    "mark_and_repeat": {
+      "rescued": "0/12",
+      "n_failing": 12
+    },
+    "single_fact_control": {
+      "rescued": "1/12",
+      "n_failing": 12
+    },
+    "query_duplication": {
+      "rescued": "0/12",
+      "n_failing": 12
+    }
+  },
+  "protected_retention_bank_dev": {
+    "single_fact": "12/20",
+    "tool_result": "10/20",
+    "copy": "20/20",
+    "protocol_transfer": "9/20"
+  },
+  "n_failing_items": 12,
+  "timestamp": "2026-08-23 02:34:55",
+  "source_commit": "eab52cc46baad58db2a574826f3dc1b855362cc2"
+}

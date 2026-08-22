@@ -1,0 +1,38 @@
+{
+  "proposal_id": "tp-grouped-queryswap-001",
+  "status": "DESIGNED_NOT_RUN",
+  "support_type": "DIAGNOSTIC",
+  "observed_bottleneck": "query->value conditional control absent under competition (lift p=0.17-0.41; entity==ordinal==pointer; all single-variable prompt interventions fail; single-fact control 5/12 best)",
+  "hypothesis": "query-conditioned selection can form from GROUPED query-swap training: identical fact block, queries A/B/C each mapping to a different opaque code \u2014 the full group is the training unit, so gradient pressure exists ONLY on the query->value mapping (everything else is constant)",
+  "design": {
+    "unit": "fact-block group of 3 query->code pairs",
+    "output_type": "opaque codes only (NO entity-name auxiliary objective)",
+    "vary": [
+      "target position",
+      "fact count 2-5",
+      "format",
+      "query location",
+      "distractor similarity"
+    ],
+    "mix": "40-50% target groups + 50-60% balanced protected replay",
+    "trajectory_evals_at_updates": [
+      5,
+      10,
+      20,
+      30,
+      40,
+      50
+    ],
+    "vocab": "bank TRAIN pools only (never OOD-4, never diagnostic vocab)"
+  },
+  "pre_registered_predictions": {
+    "PR1_query_lift_mean": ">= +0.5 nats (from ~0)",
+    "PR2_query_lift_permutation_p": "< 0.05",
+    "PR3_rank1_fraction": ">= 15/30 (chance 10/30)",
+    "PR4_single_fact_and_protected_families": "within parent-0.10",
+    "PR5_greedy_corresponding": ">= 10/30"
+  },
+  "falsification_condition": "lift remains indistinguishable from zero after grouped training => conditional representation does not form from this objective at 180M; STOP SFT-line interventions and reassess substrate",
+  "parent": "checkpoints/anra-v4-20k-sft3-accumulate.pt",
+  "timestamp": "2026-08-23 02:41:49"
+}
