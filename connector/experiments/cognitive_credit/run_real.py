@@ -46,9 +46,19 @@ def make_core_completer(executor, tokenizer):
     stats = {"generations": 0, "core_errors": 0, "tool_calls": 0, "tool_failures": 0}
 
     def complete(attempt: Attempt) -> CompletionResult:
-        prepared = PreparedExecution.from_attempt(attempt)
-        prompt = prepared.prompt
-        policy = prepared.decode
+        # PREPARE ONCE (P0 invariant): the caller (runtime trace) has already
+        # resolved tool output via PreparedExecution.from_attempt and recorded
+        # that exact prompt. Re-preparing here would execute non-idempotent
+        # tools a second time (clock/DB/API -> VALUE-2 problem) and let the
+        # trace diverge from what Core consumes. The Attempt carries its
+        # already-resolved prompt in `_prepared_prompt` when produced through
+        # the runtime; fall back to local preparation only for direct calls.
+        prepared_prompt = getattr(attempt, "_prepared_prompt", None)
+        if prepared_prompt is not None:
+            prompt = prepared_prompt
+        else:
+            prompt = PreparedExecution.from_attempt(attempt).prompt
+        policy = attempt.decode
         n = max(1, policy.candidates) if policy.temperature > 0 else 1
         texts: list[str] = []
         for index in range(n):
@@ -122,7 +132,7 @@ def main() -> int:
 
     complete, stats = make_core_completer(executor, tokenizer)
     t1 = time.time()
-    summary = run_experiment(complete)
+    summary = run_experiment(complete, runnable_families=runnable)
     wall = time.time() - t1
 
     payload = {

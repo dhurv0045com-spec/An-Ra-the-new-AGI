@@ -265,39 +265,53 @@ def preserved_records() -> list[InterventionRecord]:
     return list(_PRESERVED_RECORDS)
 
 
-def run_experiment(complete: Completer) -> dict[str, object]:
+def run_experiment(complete: Completer, *, runnable_families=None) -> dict[str, object]:
+    """Run the case battery. ``runnable_families`` gates execution (M11):
+
+    families not in the set are NOT executed (zero Core executions) and are
+    reported as NOT_EVALUATED - they never contaminate accuracy, abstention,
+    repair rate, or cost. None = all families run.
+    """
     results: list[CaseResult] = []
+    skipped_families: set[str] = set()
     for family in FAMILIES:
+        if runnable_families is not None and family not in runnable_families:
+            skipped_families.add(family)
+            continue
         for index in range(5):
             observed, hidden = build_case(family, index)
             results.append(run_case(observed, hidden, complete))
 
+    evaluated = len(results)
+
     def accuracy(selector: Callable[[CaseResult], DiagnosisLabel]) -> float:
         hits = sum(1 for r in results if selector(r) == r.true_family)
-        return hits / len(results) if results else 0.0
+        return hits / evaluated if evaluated else 0.0
 
-    abstention = sum(
-        1
-        for r in results
-        if r.intervention in {"multiple_plausible", "no_intervention_helped", "unresolved"}
-    ) / len(results)
+    abstention = (
+        sum(1 for r in results if r.intervention in {"multiple_plausible", "unresolved"})
+        / evaluated
+        if evaluated
+        else 0.0
+    )
     repairs = [r.repair_success for r in results if r.repair_success is not None]
     total_executions = sum(r.core_executions for r in results)
     useful = sum(1 for r in results if r.distinguishing_interventions > 0)
 
-    summary = {
-        "n_cases": len(results),
+    return {
+        "n_cases": evaluated,
+        "runnable_families": sorted(set(FAMILIES) - skipped_families),
+        "not_evaluated_families": sorted(skipped_families),
         "accuracy_self_report": accuracy(lambda r: r.self_report),
         "accuracy_heuristic": accuracy(lambda r: r.heuristic),
         "accuracy_intervention": accuracy(lambda r: r.intervention),
         "abstention_rate": abstention,
         "repair_success_rate": (sum(1 for x in repairs if x) / len(repairs)) if repairs else 0.0,
         "total_core_executions": total_executions,
-        "avg_core_executions_per_case": total_executions / len(results) if results else 0.0,
-        "intervention_usefulness_rate": useful / len(results) if results else 0.0,
+        "avg_core_executions_per_case": total_executions / evaluated if evaluated else 0.0,
+        "intervention_usefulness_rate": useful / evaluated if evaluated else 0.0,
         "results": [asdict(r) for r in results],
     }
-    return summary
 
 
 def render_table(summary: dict[str, object]) -> str:

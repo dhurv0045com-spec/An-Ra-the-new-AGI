@@ -70,13 +70,17 @@ class DecodePolicy:
 
 @dataclass(frozen=True, slots=True)
 class PreparedExecution:
-    """The EXACT input Core will consume, resolved before execution.
+    """The EXACT input Core will consume, resolved exactly once.
 
     Invariant: what the trace records must be semantics-equivalent to what
     Core actually consumes. ``Attempt`` is abstract proposed cognition;
     ``PreparedExecution`` is the concrete executable form with the real tool
     output resolved and injected at the correct position (BEFORE the answer
     marker), plus the full decode policy.
+
+    Prepare-once: ``from_attempt`` caches the resolved prompt on the attempt
+    (``_prepared_prompt``). Completers must consume the cached prompt —
+    re-preparing would invoke non-idempotent tools a second time.
     """
 
     prompt: str
@@ -84,6 +88,9 @@ class PreparedExecution:
 
     @classmethod
     def from_attempt(cls, attempt: Attempt, *, tool_error_text: str = "") -> "PreparedExecution":
+        cached = getattr(attempt, "_prepared_prompt", None)
+        if cached is not None:
+            return cls(prompt=cached, decode=attempt.decode)
         parts: list[str] = []
         if attempt.context_blocks:
             parts.append("<context>\n" + "\n".join(attempt.context_blocks) + "\n</context>")
@@ -102,6 +109,8 @@ class PreparedExecution:
             del tool_error_text
         parts.append(f"<q>{attempt.question}</q>")
         parts.append("<answer>")
+        # Cache on the attempt: one execution attempt -> one tool invocation.
+        object.__setattr__(attempt, "_prepared_prompt", "\n".join(parts))
         return cls(prompt="\n".join(parts), decode=attempt.decode)
 
 
@@ -155,6 +164,10 @@ class Attempt:
 
     This is the unit of intervention. Changing exactly one field relative to
     the baseline attempt changes exactly one causal variable.
+
+    ``_prepared_prompt`` caches the resolved PreparedExecution prompt so a
+    non-idempotent tool executes exactly once per attempt (prepare-once
+    invariant). It is set by ``PreparedExecution.from_attempt``.
     """
 
     question: str
@@ -163,6 +176,7 @@ class Attempt:
     context_blocks: tuple[str, ...] = ()
     tool: ToolBehavior | None = None
     decode: DecodePolicy = field(default_factory=DecodePolicy)
+    _prepared_prompt: str | None = field(default=None, repr=False, compare=False)
 
     def render(self) -> str:
         parts: list[str] = []

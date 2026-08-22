@@ -33,10 +33,17 @@ REQUIRED_FIELDS = (
 @dataclass(slots=True)
 class EvidenceIdentity:
     experiment_schema: str = EXPERIMENT_SCHEMA
-    source_commit: str = ""
+    # Checkpoint provenance: where the MODEL came from.
+    checkpoint_source_commit: str = ""
     checkpoint_file_sha256: str = ""
     checkpoint_parameter_sha256: str = ""
     global_step: int = -1
+    # Evaluator provenance: where the MEASUREMENT code came from. A checkpoint
+    # from commit A can be measured by an evaluator from commit B - record both.
+    evaluation_source_commit: str = ""
+    evaluation_dirty: bool = False
+    evaluation_diff_sha256: str = ""
+    evaluator_file_sha256: str = ""
     tokenizer_identity: str = ""
     architecture_identity: str = ""
     execution_profile: str = ""
@@ -52,11 +59,23 @@ class EvidenceIdentity:
 
     def validate(self) -> None:
         data = asdict(self)
-        missing = [name for name in REQUIRED_FIELDS if not data.get(name)]
+        missing = [
+            name for name in
+            ("experiment_schema", "checkpoint_source_commit", "checkpoint_file_sha256",
+             "checkpoint_parameter_sha256", "global_step", "tokenizer_identity",
+             "architecture_identity", "execution_profile", "decode_policy",
+             "evaluator_version", "timestamp_utc", "evaluation_source_commit")
+            if not data.get(name)
+        ]
         if missing:
             raise ValueError(
                 f"evidence identity incomplete; missing {missing}. "
                 "A result without identity is not promotion evidence."
+            )
+        if self.evaluation_dirty and not self.evaluation_diff_sha256:
+            raise ValueError(
+                "dirty evaluation without evaluation_diff_sha256 is not "
+                "reproducible - record the diff hash or commit a clean tree"
             )
 
     def to_dict(self) -> dict[str, object]:
@@ -64,6 +83,8 @@ class EvidenceIdentity:
 
     @classmethod
     def from_checkpoint(cls, checkpoint_path: str, *, decode_policy: dict[str, object], **overrides) -> "EvidenceIdentity":
+        import subprocess
+
         from anra_core.checkpoint import load_core_checkpoint
 
         try:
@@ -76,16 +97,38 @@ class EvidenceIdentity:
         with open(checkpoint_path, "rb") as handle:
             for chunk in iter(lambda: handle.read(4 * 1024 * 1024), b""):
                 digest.update(chunk)
+
+        # Evaluator provenance: current git state of the measuring repo.
+        try:
+            eval_commit = subprocess.run(
+                ["git", "rev-parse", "HEAD"], capture_output=True, text=True, check=True,
+                cwd=str(Path(__file__).resolve().parents[1]),
+            ).stdout.strip()
+            dirty = bool(subprocess.run(
+                ["git", "status", "--porcelain"], capture_output=True, text=True,
+                cwd=str(Path(__file__).resolve().parents[1]),
+            ).stdout.strip())
+            diff_sha = ""
+            if dirty:
+                diff = subprocess.run(
+                    ["git", "diff", "HEAD"], capture_output=True, text=True,
+                    cwd=str(Path(__file__).resolve().parents[1]),
+                ).stdout
+                diff_sha = hashlib.sha256(diff.encode()).hexdigest()
+        except Exception:
+            eval_commit, dirty, diff_sha = "", True, ""
+
         record = cls(
-            source_commit=identity.source_commit or "",
+            checkpoint_source_commit=identity.source_commit or "",
             checkpoint_file_sha256=digest.hexdigest(),
             checkpoint_parameter_sha256=identity.parameter_sha256 or "",
             global_step=int(identity.global_step or -1),
-            tokenizer_identity=(
-                f"v4_32k:{identity.representation_id or 'unverified'}"
-            ),
+            evaluation_source_commit=eval_commit,
+            evaluation_dirty=dirty,
+            evaluation_diff_sha256=diff_sha,
+            tokenizer_identity=f"v4_32k:{identity.representation_id or 'unverified'}",
             architecture_identity=identity.architecture_id,
-            execution_profile="cpu_exact_float32" ,
+            execution_profile="cpu_exact_float32",
             decode_policy=dict(decode_policy),
             **overrides,
         )

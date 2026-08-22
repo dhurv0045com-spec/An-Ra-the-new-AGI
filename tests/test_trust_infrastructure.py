@@ -223,6 +223,7 @@ def test_learning_candidate_contains_exact_tool_input() -> None:
 
     class RecordingOracle:
         def __call__(self, attempt: Attempt) -> CompletionResult:
+            # Consume the SAME prepared prompt the runtime trace records.
             prepared = PreparedExecution.from_attempt(attempt)
             captured_prompts.append(prepared.prompt)
             ok = attempt.tool is not None and attempt.tool.available
@@ -231,8 +232,8 @@ def test_learning_candidate_contains_exact_tool_input() -> None:
     result = run_case(observed, hidden, RecordingOracle())
     assert result.intervention == "tool_failure"
     assert result.repair_success is True
-    # Every recorded prompt that involved the enabled tool contains the real
-    # adapter output - the trace equals the computation.
+    # The repair execution consumed a prompt containing the real adapter
+    # output - the trace equals the computation.
     repair_prompt = captured_prompts[-1]
     assert "<tool_output>42</tool_output>" in repair_prompt
     assert repair_prompt.index("<tool_output>42</tool_output>") < repair_prompt.index("<answer>")

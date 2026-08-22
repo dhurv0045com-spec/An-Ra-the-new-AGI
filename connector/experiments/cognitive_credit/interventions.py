@@ -123,7 +123,10 @@ def build_interventions(case: ObservedCase) -> tuple[InterventionSpec, ...]:
 
 
 def _with(attempt: Attempt, **changes) -> Attempt:
-    return _dc_replace(attempt, **changes)
+    """Derived attempt. The prepare-once cache is deliberately dropped:
+    a changed attempt is a NEW execution whose tool (if any) must be resolved
+    fresh - never inherit the parent's cached prompt."""
+    return _dc_replace(attempt, _prepared_prompt=None, **changes)
 
 
 def _repack_near(attempt: Attempt) -> Attempt:

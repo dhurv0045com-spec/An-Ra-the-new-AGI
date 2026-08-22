@@ -214,7 +214,13 @@ def run(
         import dataclasses as _dc
 
         retry_attempt = (
-            _dc.replace(spec.attempt, decode=_dc.replace(spec.attempt.decode, seed=spec.attempt.decode.seed + 17))
+            # A changed decode seed is a NEW execution: drop the prepare-once
+            # cache so the tool (if any) resolves fresh for this attempt.
+            _dc.replace(
+                spec.attempt,
+                decode=_dc.replace(spec.attempt.decode, seed=spec.attempt.decode.seed + 17),
+                _prepared_prompt=None,
+            )
             if diagnosis.changed_variable == "decode"
             else spec.attempt
         )

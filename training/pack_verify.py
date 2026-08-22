@@ -38,6 +38,7 @@ class VerifiedPack:
     total_tokens: int
     shard_paths: tuple[Path, ...]
     total_windows: int
+    manifest_sha256: str  # resume identity: binds pack_step to THIS data
 
 
 def _semantic_validate(array: np.ndarray, rel: str, *, vocab_size: int) -> int:
@@ -145,12 +146,14 @@ def verify_pack(
         raise PackVerificationError(
             f"pack too small: {total_tokens} tokens at block {block_size}"
         )
+    manifest_sha = _sha256_file(manifest_path)
     return VerifiedPack(
         root=root,
         block_size=block_size,
         total_tokens=total_tokens,
         shard_paths=tuple(verified),
         total_windows=total_tokens // (block_size + 1),
+        manifest_sha256=manifest_sha,
     )
 
 

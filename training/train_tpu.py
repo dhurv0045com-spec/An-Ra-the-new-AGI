@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import argparse
 import time
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -91,6 +92,14 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="An-Ra V4 TPU trainer (core-vnext)")
     parser.add_argument("--pack-root", required=True)
     parser.add_argument("--resume-from", default="")
+    parser.add_argument("--resume-mode", default="auto",
+                        choices=("auto", "same_pack", "new_pack_parent"),
+                        help="resume semantics: auto infers from pack identity; "
+                             "same_pack requires identical pack manifest sha256; "
+                             "new_pack_parent resets pack_step and schedule")
+    parser.add_argument("--resume-pack-sha", default="",
+                        help="expected pack_manifest_sha256 of the checkpoint "
+                             "(same_pack resume verification)")
     parser.add_argument("--output-checkpoint", required=True)
     parser.add_argument("--best-checkpoint", default="",
                         help="separate path for the best-loss candidate (recommended)")
@@ -125,38 +134,136 @@ def _require_xla() -> tuple[Any, Any, Any]:
     return xm, pl, xr
 
 
-def _restore_training_state(
-    resume_from: str, model: AnRaCore, optimizer: torch.optim.Optimizer
-) -> tuple[int, int, bool]:
-    """Restore model/optimizer/global step/pack progress from a full-resume
-    artifact. Returns (global_step, restored_pack_step, optimizer_restored).
+class ResumeMode(str):
+    """Explicit resume semantics. Never inferred accidentally.
 
-    The strict loader validates dense tensors and tokenizer contract. Optimizer
-    state is loaded when present; its absence demotes the artifact honestly.
+    SAME_PACK       - continue an interrupted session; requires identical
+                      pack manifest sha256; restores optimizer + pack_step.
+    NEW_PACK_PARENT - use checkpoint model as parent for a fresh pack;
+                      pack_step/schedule reset to 0; optimizer decision is
+                      explicit (continue or reset), never accidental.
     """
+
+    SAME_PACK = "same_pack"
+    NEW_PACK_PARENT = "new_pack_parent"
+
+
+@dataclass(slots=True)
+class RestoredTrainingState:
+    """What a resume actually restored — recorded, never implied."""
+
+    global_step: int
+    pack_step: int
+    pack_manifest_sha256: str | None
+    optimizer_restored: bool
+    mode: str
+    checkpoint_parameter_sha256: str
+
+
+def _load_payload(resume_from: str) -> tuple[dict[str, torch.Tensor], dict]:
+    """Load raw state + payload. Strict-first; legacy fallback ONLY for the
+    specific known condition (missing/unavailable tokenizer contract on older
+    writers). Corruption, architecture mismatch, and loader bugs surface."""
     from anra_core.checkpoint import load_core_checkpoint
+    from anra_core.errors import RepresentationIncompatibleError
 
     try:
-        model, _payload, identity = load_core_checkpoint(resume_from)
-        payload = None
-    except Exception:
-        from anra_core.checkpoint import load_core_checkpoint as lc
+        _model, _payload, _identity = load_core_checkpoint(resume_from)
+    except RepresentationIncompatibleError as exc:
+        if "tokenizer contract" not in str(exc):
+            raise  # corruption/mismatch/bug: never disguise as legacy
+        print(f"[resume] strict load refused ({exc}); explicit legacy fallback "
+              "for older-writer contract absence", flush=True)
+    payload = torch.load(resume_from, map_location="cpu", weights_only=False)
+    state = payload.get("model_state_dict") or payload.get("model")
+    if not isinstance(state, dict):
+        raise RuntimeError(f"checkpoint has no model tensors: {resume_from}")
+    return state, payload
 
-        model, payload, identity = lc(resume_from, legacy_unverified=True)
-    if payload is None:
-        # Re-read once for optimizer state (strict loader drops non-model keys).
-        payload = torch.load(resume_from, map_location="cpu", weights_only=False)
+
+def _restore_training_state(
+    resume_from: str,
+    model: AnRaCore,
+    optimizer: torch.optim.Optimizer,
+    *,
+    mode: str = ResumeMode.SAME_PACK,
+    current_pack_manifest_sha256: str | None = None,
+) -> RestoredTrainingState:
+    """Restore checkpoint INTO the caller's model (P0 fix).
+
+    The previous implementation called ``load_core_checkpoint`` which builds a
+    NEW model internally and returned only metadata - silently discarding the
+    loaded weights while logs looked healthy. This version loads the state
+    dict and installs it into ``model`` via load_state_dict, then verifies
+    installation by exact tensor comparison on every tensor.
+
+    Mode semantics:
+      SAME_PACK: pack_step restored only if pack identity matches; mismatch
+                 fails closed.
+      NEW_PACK_PARENT: pack_step forced to 0; pack identity of checkpoint is
+                 irrelevant; optimizer restoration is the caller's explicit
+                 choice via allow_optimizer_continue.
+    """
+    state, payload = _load_payload(resume_from)
+
+    # Install into the CALLER's model and prove it took effect.
+    missing, unexpected = model.load_state_dict(state, strict=True)
+    installed = 0
+    for key, tensor in state.items():
+        target = dict(model.state_dict())[key]
+        if torch.is_floating_point(tensor):
+            if not torch.equal(target, tensor):
+                raise RuntimeError(f"resume verification failed: {key} did not install")
+            installed += 1
+    if installed == 0:
+        raise RuntimeError("resume verification failed: no float tensors compared")
+
     optimizer_state = payload.get("optimizer") or payload.get("optimizer_state_dict")
     optimizer_restored = False
     if isinstance(optimizer_state, dict) and optimizer_state.get("state"):
         try:
             optimizer.load_state_dict(optimizer_state)
             optimizer_restored = True
-        except Exception as exc:  # shape/device mismatch: fail loudly, not silently
+        except Exception as exc:
             print(f"[resume] optimizer state present but failed to load: {exc}", flush=True)
             raise
-    restored_pack_step = int(payload.get("pack_step", 0) or 0)
-    return int(identity.global_step or 0), restored_pack_step, optimizer_restored
+
+    checkpoint_pack_sha = payload.get("pack_manifest_sha256")
+    if mode == ResumeMode.SAME_PACK:
+        restored_pack_step = int(payload.get("pack_step", 0) or 0)
+        if restored_pack_step > 0 and not checkpoint_pack_sha:
+            raise RuntimeError(
+                "SAME_PACK resume refused: checkpoint carries pack_step without "
+                "pack_manifest_sha256 - pack identity cannot be verified (fail closed)"
+            )
+        if (
+            current_pack_manifest_sha256
+            and checkpoint_pack_sha
+            and current_pack_manifest_sha256 != checkpoint_pack_sha
+        ):
+            raise RuntimeError(
+                "SAME_PACK resume refused: checkpoint was trained on a different "
+                f"pack ({checkpoint_pack_sha[:16]}... != "
+                f"{current_pack_manifest_sha256[:16]}...). Use NEW_PACK_PARENT."
+            )
+    else:  # NEW_PACK_PARENT
+        restored_pack_step = 0
+
+    import hashlib
+
+    param_digest = hashlib.sha256()
+    for key in sorted(state):
+        param_digest.update(key.encode())
+        param_digest.update(state[key].numpy().tobytes())
+
+    return RestoredTrainingState(
+        global_step=int(payload.get("global_step", 0) or 0),
+        pack_step=restored_pack_step,
+        pack_manifest_sha256=checkpoint_pack_sha,
+        optimizer_restored=optimizer_restored,
+        mode=mode,
+        checkpoint_parameter_sha256=param_digest.hexdigest(),
+    )
 
 
 def run(args: argparse.Namespace) -> int:
@@ -219,13 +326,35 @@ def _worker(args: argparse.Namespace) -> int:
     restored_pack_step = 0
     optimizer_restored = False
     if args.resume_from:
-        start_global, restored_pack_step, optimizer_restored = _restore_training_state(
-            str(Path(args.resume_from).expanduser()), model, optimizer
+        # Resume mode: explicit. Same pack continues; a different pack (or a
+        # fresh start) is NEW_PACK_PARENT and resets pack-relative progress.
+        pack_sha = pack.pack_manifest_sha256 if pack else None
+        if args.resume_mode == "auto":
+            mode = (
+                ResumeMode.SAME_PACK
+                if (pack_sha and args.resume_pack_sha in (None, "", pack_sha))
+                else ResumeMode.NEW_PACK_PARENT
+            )
+        else:
+            mode = ResumeMode(args.resume_mode)
+        restored = _restore_training_state(
+            str(Path(args.resume_from).expanduser()), model, optimizer,
+            mode=mode,
+            current_pack_manifest_sha256=(
+                args.resume_pack_sha or None
+                if args.resume_pack_sha
+                else pack_sha
+            ),
         )
+        start_global = restored.global_step
+        restored_pack_step = restored.pack_step
+        optimizer_restored = restored.optimizer_restored
         if rank == 0:
             print(
-                f"[resume] global_step={start_global:,} pack_step={restored_pack_step:,} "
-                f"optimizer={'restored' if optimizer_restored else 'FRESH (artifact was model-only)'}",
+                f"[resume] mode={restored.mode} global_step={start_global:,} "
+                f"pack_step={restored_pack_step:,} "
+                f"optimizer={'restored' if optimizer_restored else 'FRESH (explicit)'} "
+                f"param_sha={restored.checkpoint_parameter_sha256[:16]}",
                 flush=True,
             )
 
@@ -352,10 +481,21 @@ def _worker(args: argparse.Namespace) -> int:
             best_loss, improved = update_best(best_loss, mean_loss)
             if improved:
                 best_step_global = start_global
+                # BEST MEANS BEST: snapshot the exact state at measurement
+                # time. The previous implementation saved the FINAL model as
+                # "best" - a lie whenever training degraded after the best step.
+                if rank == 0 and best_path is not None:
+                    _save_checkpoint(
+                        xm, best_path, model, optimizer, tokenizer,
+                        start_global, pack_step,
+                        source_checkpoint=args.resume_from or "",
+                        extra={"best_loss": best_loss, "best_step_global": best_step_global},
+                    )
+                    print(f"[best] new best {best_loss:.4f} @ global {start_global:,} - snapshot saved", flush=True)
             elif degradation_ratio(best_loss, mean_loss) > 1.10:
                 print(
                     f"[WARN] loss {mean_loss:.4f} >10% above best {best_loss:.4f} "
-                    f"(step {best_step_global:,}). Best candidate remains preserved.",
+                    f"(step {best_step_global:,}). Best snapshot remains preserved.",
                     flush=True,
                 )
 
@@ -363,6 +503,7 @@ def _worker(args: argparse.Namespace) -> int:
             _save_checkpoint(
                 xm, output, model, optimizer, tokenizer, start_global, pack_step,
                 source_checkpoint=args.resume_from or "",
+                pack_manifest_sha256=pack.pack_manifest_sha256 if pack else None,
                 extra={"loss": float(loss_sum.cpu()) / grad_accum},
             )
             print(f"[save] latest @ pack_step {pack_step:,}", flush=True)
@@ -371,13 +512,8 @@ def _worker(args: argparse.Namespace) -> int:
         _save_checkpoint(
             xm, output, model, optimizer, tokenizer, start_global, pack_step,
             source_checkpoint=args.resume_from or "",
+            pack_manifest_sha256=pack.pack_manifest_sha256 if pack else None,
         )
-        if best_path is not None and best_loss is not None:
-            _save_checkpoint(
-                xm, best_path, model, optimizer, tokenizer, start_global, pack_step,
-                source_checkpoint=args.resume_from or "",
-                extra={"best_loss": best_loss, "best_step_global": best_step_global},
-            )
         print(
             f"[done] global={start_global:,} pack_step={pack_step:,}/"
             f"{horizon.pack_total_steps:,} best_loss={best_loss}",
@@ -396,6 +532,7 @@ def _save_checkpoint(
     pack_step: int,
     *,
     source_checkpoint: str = "",
+    pack_manifest_sha256: str | None = None,
     extra: dict[str, object] | None = None,
 ) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -405,6 +542,8 @@ def _save_checkpoint(
         "checkpoint_schema_version": 1,
         "global_step": global_step,
         "pack_step": pack_step,
+        # Pack identity: pack_step is meaningless without the data it counts.
+        "pack_manifest_sha256": pack_manifest_sha256,
         "training_stage": "pretraining_tpu_xla_wsd",
         "source_commit": __import__("os").environ.get("ANRA_SOURCE_COMMIT", ""),
         "source_checkpoint": source_checkpoint,

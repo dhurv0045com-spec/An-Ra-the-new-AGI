@@ -98,21 +98,22 @@ def run_probe(checkpoint: str, device: str, *, profile: str = "raw") -> dict:
         if contains(_greedy(executor, tok, prompt, raw=raw), value):
             p1 += 1
 
-    plans = (("add", 3, 4), ("double", 6,), ("halve", 14))
+    # P2: plan following WITHOUT arithmetic — symbolic transformations so the
+    # probe isolates plan execution, not computation ability. The plan states
+    # a non-obvious transformation; only a model that executes the stated
+    # steps can produce the target string.
     p2 = 0
-    for kind, a, *rest in (
-        ("sum-then-double", 2, 5),
-        ("sum-then-double", 4, 3),
-        ("sum-then-double", 7, 1),
+    for source, plan_text, expected in (
+        ("alpha", "First reverse it, then append '-X'.", "ahpla-X"),
+        ("beta", "Take the first letter, then repeat it three times.", "bbb"),
+        ("gamma", "Swap every 'a' for 'o', then prefix 'Z-'.", "Z-gommo"),
     ):
-        a, b = a, rest[0]
-        total = a + b
         prompt = SCAFFOLD.format(
-            k="",
-            plan=f"First add {a} and {b}, then double the result.",
-            q=f"What is ({a} + {b}) x 2?",
+            k=f"The code word is {source}.",
+            plan=plan_text,
+            q=f"Apply the plan to the code word and write the result.",
         )
-        if contains(_greedy(executor, tok, prompt, raw=raw), str(total * 2)):
+        if contains(_greedy(executor, tok, prompt, raw=raw), expected):
             p2 += 1
 
     words = ("ember", "quartz", "linen")
