@@ -12,6 +12,7 @@ import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.utils.checkpoint import checkpoint as torch_checkpoint
 
 from .config import CANONICAL_CONFIG, CoreConfig
 from .errors import ContextOverflowError
@@ -63,6 +64,45 @@ class GroupedQueryAttention(nn.Module):
         self.v_proj = nn.Linear(config.d_model, config.n_kv_heads * config.head_dim, bias=False)
         self.out_proj = nn.Linear(config.n_heads * config.head_dim, config.d_model, bias=False)
         self.rope = RotaryEmbedding(config.head_dim, config.rope_base)
+        self.memory_efficient_chunk_size: int | None = None
+
+    def enable_memory_efficient_attention(self, chunk_size: int | None) -> None:
+        if chunk_size is not None and int(chunk_size) <= 0:
+            raise ValueError("attention chunk size must be positive")
+        self.memory_efficient_chunk_size = None if chunk_size is None else int(chunk_size)
+
+    def _tiled_attention(
+        self,
+        q: torch.Tensor,
+        k: torch.Tensor,
+        v: torch.Tensor,
+        *,
+        start_pos: int,
+    ) -> torch.Tensor:
+        """Apply the exact V4 attention mask in bounded query tiles."""
+        tile = int(self.memory_efficient_chunk_size or q.shape[2])
+        key_positions = torch.arange(k.shape[2], device=q.device)[None, :]
+        pieces: list[torch.Tensor] = []
+        for offset in range(0, q.shape[2], tile):
+            end = min(offset + tile, q.shape[2])
+            query_positions = torch.arange(
+                start_pos + offset, start_pos + end, device=q.device
+            )[:, None]
+            mask = key_positions <= query_positions
+            if not self.full_attention:
+                mask = mask & (key_positions > query_positions - self.config.sliding_window)
+            pieces.append(
+                F.scaled_dot_product_attention(
+                    q[:, :, offset:end, :],
+                    k,
+                    v,
+                    attn_mask=mask[None, None, :, :],
+                    dropout_p=0.0,
+                    is_causal=False,
+                    enable_gqa=True,
+                )
+            )
+        return torch.cat(pieces, dim=2)
 
     def forward(
         self,
@@ -105,7 +145,9 @@ class GroupedQueryAttention(nn.Module):
             v = value_buffer[:, :, :end_pos]
         total_len = k.shape[2]
 
-        if cache_buffer is not None and length == 1:
+        if self.memory_efficient_chunk_size is not None and length > 1:
+            attended = self._tiled_attention(q, k, v, start_pos=start_pos)
+        elif cache_buffer is not None and length == 1:
             # Incremental single-token decode
             if not self.full_attention and total_len > self.config.sliding_window:
                 k_attn = k[:, :, -self.config.sliding_window :, :]
@@ -188,6 +230,7 @@ class AnRaCore(nn.Module):
     def __init__(self, config: CoreConfig = CANONICAL_CONFIG) -> None:
         super().__init__()
         self.config = config
+        self.gradient_checkpointing = False
         self.token_embedding_table = nn.Embedding(config.vocab_size, config.d_model)
         self.register_buffer(
             "embedding_input_scale", torch.ones(config.d_model), persistent=True
@@ -196,6 +239,15 @@ class AnRaCore(nn.Module):
         self.norm_f = RMSNorm(config.d_model, config.rms_norm_eps)
         self.lm_head = nn.Linear(config.d_model, config.vocab_size, bias=False)
         self.lm_head.weight = self.token_embedding_table.weight
+
+    def enable_gradient_checkpointing(self, enabled: bool = True) -> None:
+        """Rematerialize block activations during training without changing weights."""
+        self.gradient_checkpointing = bool(enabled)
+
+    def enable_memory_efficient_attention(self, chunk_size: int | None = 128) -> None:
+        """Bound attention workspace without changing the model state dictionary."""
+        for block in self.blocks:
+            block.attn.enable_memory_efficient_attention(chunk_size)
 
     def forward(
         self,
@@ -214,7 +266,21 @@ class AnRaCore(nn.Module):
             )
         x = self.token_embedding_table(token_ids) * self.embedding_input_scale
         for block in self.blocks:
-            x = block(x, cache_buffer=None, start_pos=0)
+            if self.training and self.gradient_checkpointing:
+                if x.device.type == "xla":
+                    # XLA needs an optimization barrier around recomputation and
+                    # currently supports only the reentrant implementation.
+                    from torch_xla.utils.checkpoint import checkpoint as xla_checkpoint
+
+                    x = xla_checkpoint(
+                        block, x, use_reentrant=True, preserve_rng_state=False
+                    )
+                else:
+                    x = torch_checkpoint(
+                        block, x, use_reentrant=False, preserve_rng_state=False
+                    )
+            else:
+                x = block(x, cache_buffer=None, start_pos=0)
         return self.lm_head(self.norm_f(x))
 
     def forward_incremental(
