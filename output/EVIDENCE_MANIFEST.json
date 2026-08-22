@@ -1,6 +1,6 @@
 {
   "schema": "anra-evidence-manifest/v1",
-  "updated": "2026-08-23 02:41",
+  "updated": "2026-08-23 03:10",
   "labels": {
     "VALID": "trustworthy under its recorded conditions",
     "SUPERSEDED": "correct when produced, replaced by a better measurement",
@@ -284,5 +284,17 @@
     "VerifiedInterventionExperience": 0,
     "note": "no causal single-variable runtime repair has yet qualified"
   },
-  "probe_status": "EXPLORATORY_ONLY \u2014 n=6, excluded from mechanism classification"
+  "probe_status": "EXPLORATORY_ONLY \u2014 n=6, excluded from mechanism classification",
+  "grouped_queryswap_result": {
+    "proposal": "tp-grouped-queryswap-001 (pre-registered)",
+    "checkpoint": "checkpoints/anra-v4-20k-sft5-queryswap.pt",
+    "predictions": {
+      "PR1_lift_ge_0.5": "PASS (+0.669)",
+      "PR2_p_lt_0.05": "PASS (0.018)",
+      "PR3_rank1_ge_15/30": "FAIL (12/30)",
+      "PR4_retention": "PASS (within parent-0.10)",
+      "PR5_greedy_ge_10/30": "FAIL (3/30)"
+    },
+    "verdict": "NOT PROMOTED. First proof that query->value conditioning is LEARNABLE at 180M (lift p=0.018, was indistinguishable from zero) \u2014 but weak and vocabulary-bound (diagnostic-vocab EQOQ still 1-2/8). Falsification condition NOT triggered: the objective works; scale/breadth is the gap."
+  }
 }

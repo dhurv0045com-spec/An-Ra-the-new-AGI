@@ -1,0 +1,15 @@
+[load] checkpoints/anra-v4-20k-sft3-accumulate.pt
+[load] step=20000 params=180,093,312
+[train] 646 micro-steps (effective batch 8)
+  step 104/646 loss=0.3888 (3.9 it/s)
+  step 200/646 loss=0.5157 (3.9 it/s)
+  step 304/646 loss=0.1858 (4.0 it/s)
+  step 400/646 loss=0.1346 (3.9 it/s)
+  [eval @ 472] heldout_acc=0.575 copy:nl=1.00 protocol_transfer:kv=1.00 queryswap_group:prose=0.29 queryswap_group:table=0.33 single_fact:nl=1.00 single_fact:tag=1.00 symbolic_ops:nl=0.60 tool_result:chat=1.00 tool_result:nl=1.00
+  [save] best=0.575 -> checkpoints/anra-v4-20k-sft5-queryswap.pt
+  step 504/646 loss=0.0749 (3.0 it/s)
+  step 600/646 loss=0.2849 (3.0 it/s)
+  [eval @ 646] heldout_acc=0.650 copy:nl=1.00 protocol_transfer:kv=0.00 queryswap_group:prose=0.43 queryswap_group:table=0.60 single_fact:nl=1.00 single_fact:tag=1.00 symbolic_ops:nl=0.40 tool_result:chat=1.00 tool_result:nl=1.00
+  [save] best=0.650 -> checkpoints/anra-v4-20k-sft5-queryswap.pt
+[done] best heldout acc=0.650 wall=245s history={"copy:nl": {"acc": 1.0, "n": 6}, "protocol_transfer:kv": {"acc": 0.0, "n": 1}, "queryswap_group:prose": {"acc": 0.42857142857142855, "n": 7}, "queryswap_group:table": {"acc": 0.6, "n": 15}, "single_fact:nl": {"acc": 1.0, "n": 2}, "single_fact:tag": {"acc": 1.0, "n": 2}, "symbolic_ops:nl": {"acc": 0.4, "n": 5}, "tool_result:chat": {"acc": 1.0, "n": 1}, "tool_result:nl": {"acc": 1.0, "n": 1}}
+[free] reserved=1624 MiB
