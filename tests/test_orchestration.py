@@ -110,6 +110,51 @@ def test_legacy_contract_requires_and_honors_explicit_authorization(tmp_path) ->
     assert prepared.optimizer_restored
 
 
+def test_restore_rebuilds_step20k_decay_parameter_groups(tmp_path) -> None:
+    from training.resume import prepare_training_state
+
+    model = AnRaCore(CANONICAL_CONFIG)
+    decay = [parameter for parameter in model.parameters() if parameter.ndim >= 2]
+    no_decay = [parameter for parameter in model.parameters() if parameter.ndim < 2]
+    optimizer = torch.optim.AdamW(
+        [
+            {"params": decay, "weight_decay": 0.1},
+            {"params": no_decay, "weight_decay": 0.0},
+        ],
+        lr=1e-3,
+        betas=(0.9, 0.95),
+    )
+    optimizer.zero_grad(set_to_none=True)
+    (-model(torch.randint(0, CANONICAL_CONFIG.vocab_size, (1, 32))).sum()).backward()
+    optimizer.step()
+    tokenizer = V4Tokenizer.load_canonical()
+    parent = tmp_path / "two_group_parent.pt"
+    torch.save(
+        {
+            "checkpoint_artifact_class": "full_resume",
+            "checkpoint_schema_version": 9,
+            "global_step": 20_000,
+            "model_state_dict": model.state_dict(),
+            "optimizer_state_dict": optimizer.state_dict(),
+            "tokenizer_contract": tokenizer.identity(probe_count=500),
+        },
+        parent,
+    )
+
+    prepared = prepare_training_state(
+        parent_checkpoint=str(parent),
+        model_config=CANONICAL_CONFIG,
+        learning_rate=2e-4,
+        weight_decay=0.1,
+        expected_resume_step=20_000,
+        resume_mode="new_pack_parent",
+        allow_legacy_checkpoint=True,
+    )
+    assert [len(group["params"]) for group in prepared.optimizer.param_groups] == [127, 37]
+    assert [group["weight_decay"] for group in prepared.optimizer.param_groups] == [0.1, 0.0]
+    assert sum(len(state) > 0 for state in prepared.optimizer.state.values()) == 164
+
+
 def test_prepare_training_state_enforces_expected_resume_step(tmp_path) -> None:
     from training.resume import prepare_training_state
 

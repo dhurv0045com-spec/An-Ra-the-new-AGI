@@ -320,6 +320,28 @@ def restore_training_state(
     optimizer_restored = False
     if isinstance(optimizer_state, dict) and optimizer_state.get("state"):
         try:
+            saved_groups = optimizer_state.get("param_groups") or []
+            live_lengths = [len(group["params"]) for group in optimizer.param_groups]
+            saved_lengths = [len(group.get("params", [])) for group in saved_groups]
+            if live_lengths != saved_lengths:
+                trainable = [parameter for parameter in model.parameters() if parameter.requires_grad]
+                decay = [parameter for parameter in trainable if parameter.ndim >= 2]
+                no_decay = [parameter for parameter in trainable if parameter.ndim < 2]
+                if saved_lengths == [len(trainable)]:
+                    rebuilt_groups = [trainable]
+                elif saved_lengths == [len(decay), len(no_decay)]:
+                    rebuilt_groups = [decay, no_decay]
+                else:
+                    raise RuntimeError(
+                        "optimizer parameter-group layout is incompatible: "
+                        f"checkpoint={saved_lengths}, model="
+                        f"single={[len(trainable)]}, decay_split="
+                        f"{[len(decay), len(no_decay)]}"
+                    )
+                optimizer.state.clear()
+                optimizer.param_groups.clear()
+                for parameters in rebuilt_groups:
+                    optimizer.add_param_group({"params": parameters})
             optimizer.load_state_dict(optimizer_state)
             optimizer_restored = True
         except Exception as exc:
