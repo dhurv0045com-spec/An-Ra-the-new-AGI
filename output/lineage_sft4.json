@@ -1,0 +1,13 @@
+{
+  "checkpoint": "checkpoints/anra-v4-20k-sft4-queryfocus.pt",
+  "proposal_id": "tp-query-focus-001",
+  "support_type": "DIAGNOSTIC",
+  "verdict": "REJECTED \u2014 PR4 regression (extraction 7->2/10); kept as SPECIALIST artifact",
+  "predictions": {
+    "PR1": "PASS",
+    "PR2": "FAIL",
+    "PR3": "FAIL",
+    "PR4": "FAIL"
+  },
+  "timestamp": "2026-08-23 00:56:12"
+}

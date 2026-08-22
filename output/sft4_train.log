@@ -1,0 +1,11 @@
+[load] checkpoints/anra-v4-20k-sft3-accumulate.pt
+[load] step=20000 params=180,093,312
+[train] 450 micro-steps (effective batch 8)
+  step 104/450 loss=0.3450 (2.9 it/s)
+  step 200/450 loss=0.1872 (3.1 it/s)
+  step 304/450 loss=0.0860 (3.1 it/s)
+  step 400/450 loss=0.1156 (3.2 it/s)
+  [eval @ 450] heldout_acc=0.733 copy:nl=1.00 query_recognition:nl=1.00 query_targeted:dialogue=0.60 query_targeted:kv=0.40 query_targeted:prose=1.00 query_targeted:table=0.50 single_fact:chat=1.00 single_fact:tag=1.00
+  [save] best=0.733 -> checkpoints/anra-v4-20k-sft4-queryfocus.pt
+[done] best heldout acc=0.733 wall=162s history={"copy:nl": {"acc": 1.0, "n": 3}, "query_recognition:nl": {"acc": 1.0, "n": 7}, "query_targeted:dialogue": {"acc": 0.6, "n": 5}, "query_targeted:kv": {"acc": 0.4, "n": 5}, "query_targeted:prose": {"acc": 1.0, "n": 1}, "query_targeted:table": {"acc": 0.5, "n": 6}, "single_fact:chat": {"acc": 1.0, "n": 2}, "single_fact:tag": {"acc": 1.0, "n": 1}}
+[free] reserved=1642 MiB

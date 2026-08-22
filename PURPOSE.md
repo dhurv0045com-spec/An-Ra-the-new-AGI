@@ -84,13 +84,15 @@ Facts, with evidence:
   in conflict (cos = +0.17) — the cause was starvation + format narrowing;
   the damage concentrated in the embedding/head (2× block drift)
   (`output/grad_conflict.json`).
-- **Balanced replay fixes retention, replicably**: the accumulation child is
-  ≥ its anchor on every axis of two independent sealed suites
-  (`output/ood3_*.json`, `output/ood4_*.json`).
-- **Selective binding did NOT survive independent replication** (paired-CF
-  0/26 on both models on OOD-4): the substrate currently learns selection
-  *formats*, not a format-independent selection *operation*. This negative
-  result is preserved, not hidden.
+- **Balanced replay preserves capability, replicably — but robust selective
+  binding has NOT been demonstrated**: the accumulation child is ≥ its anchor
+  on every axis of two independent sealed suites (retention accumulation:
+  supported). Selective binding itself did not survive independent
+  replication (paired-CF 0/26 on both models on OOD-4) — the substrate
+  currently learns selection *formats*, not a format-independent selection
+  *operation*. Keep the two claims strictly separate: retention transfer is
+  real; target-capability transfer is not yet. This negative result is
+  preserved, not hidden.
 - **Training past step 20k was harmful** (capability peaked at 20k,
   collapsed by 30.4k; diversity 1.00 → 0.57). Step-20k lineage is the base.
 - Three evaluator/trainer bugs were caught only by behavioral or

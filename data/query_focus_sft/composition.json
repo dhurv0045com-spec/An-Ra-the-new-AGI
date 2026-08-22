@@ -1,0 +1,24 @@
+{
+  "total": 225,
+  "per_family": {
+    "query_targeted": 123,
+    "tool_result": 13,
+    "query_recognition": 53,
+    "protocol_transfer": 9,
+    "single_fact": 17,
+    "copy": 10
+  },
+  "percentages": {
+    "query_targeted": "54.7%",
+    "tool_result": "5.8%",
+    "query_recognition": "23.6%",
+    "protocol_transfer": "4.0%",
+    "single_fact": "7.6%",
+    "copy": "4.4%"
+  },
+  "query_slot_histogram": {
+    "0": 59,
+    "2": 58,
+    "1": 59
+  }
+}

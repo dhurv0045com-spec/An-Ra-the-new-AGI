@@ -1,6 +1,6 @@
 {
   "schema": "anra-evidence-manifest/v1",
-  "updated": "2026-08-22 22:13",
+  "updated": "2026-08-23 00:56",
   "labels": {
     "VALID": "trustworthy under its recorded conditions",
     "SUPERSEDED": "correct when produced, replaced by a better measurement",
@@ -152,6 +152,24 @@
       "label": "VALID",
       "reason": "independent replication suite, single evaluation; selective NOT replicated, retention replicated",
       "checkpoint": "anra-v4-20k-sft3-accumulate.pt"
+    },
+    {
+      "path": "output/emd_anchor.json",
+      "label": "VALID",
+      "reason": "entity-matching diagnostic, DEV-only, receipts",
+      "checkpoint": "anchor"
+    },
+    {
+      "path": "output/emd_accumulate.json",
+      "label": "VALID",
+      "reason": "same diagnostic; child delta = extraction robustness, not selection",
+      "checkpoint": "anra-v4-20k-sft3-accumulate.pt"
+    },
+    {
+      "path": "output/emd_sft4.json",
+      "label": "VALID",
+      "reason": "query-focus child; predictions PR2-PR4 failed -> checkpoint REJECTED",
+      "checkpoint": "anra-v4-20k-sft4-queryfocus.pt"
     }
   ],
   "scoped_promotions": {
@@ -204,5 +222,10 @@
     "selective_binding": "NOT REPLICATED: paired-CF 0/26 anchor AND candidate (OOD-3's 2->4/26 was surface-specific: shared format familiarity with the dev bank)",
     "retention": "REPLICATED: candidate >= anchor on every axis (single 5/6 vs 4/6, tool 3/4 vs 1/4, copy equal)",
     "decision": "stop optimizing selective binding; probe the next primitive before any training"
+  },
+  "query_focus_experiment": {
+    "proposal": "tp-query-focus-001 (DIAGNOSTIC support, predictions pre-registered)",
+    "verdict": "REJECTED (SPECIALIST at best): PR1 PASS (P0 0->6/10 on unseen vocab), PR2 FAIL (swap 2->4/18), PR3 FAIL (exact paired 1->2/12), PR4 FAIL (any-fact extraction 7->2/10 \u2014 narrow-training regression recurred)",
+    "diagnosis_confirmed": "query-conditioned binding is the bottleneck; surface query recognition is trainable at this scale, query-keyed value retrieval is not established by ~50-update SFT"
   }
 }

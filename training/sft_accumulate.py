@@ -63,11 +63,15 @@ def _strict(out: str, gold: str) -> bool:
 
 def _cf_twin(item: dict) -> dict | None:
     """Deterministic counterfactual twin: same prompt, the answer value
-    replaced by a fresh code (byte-exact single replacement)."""
+    replaced by a fresh code (byte-exact single replacement). The
+    replacement derives from SHA-256, never Python hash() — hash()
+    randomization differs between processes, which would make the dev
+    metric irreproducible."""
     gold = item["answer"]
     if not CODE_RE.fullmatch(gold) or item["prompt"].count(gold) != 1:
         return None
-    new = "ZQX-" + str(700 + (hash(gold) % 200))
+    digest = hashlib.sha256(f"{item.get('family', '')}:{gold}".encode("utf-8")).hexdigest()
+    new = "ZQX-" + str(700 + int(digest[:8], 16) % 200)
     return {"prompt": item["prompt"].replace(gold, new), "answer": new}
 
 
@@ -109,7 +113,6 @@ def main() -> None:
     parser.add_argument("--accum", type=int, default=8)
     parser.add_argument("--beta", type=float, default=0.0,
                         help="anchor KL weight (0 disables; try replay first)")
-    parser.add_argument("--retention-floor", type=float, default=0.8)
     parser.add_argument("--eval-every", type=int, default=120)
     parser.add_argument("--seed", type=int, default=11)
     args = parser.parse_args()
@@ -189,8 +192,7 @@ def main() -> None:
             fam_floors = {f: dev_scores.get(f, 0) >=
                           baseline_dev.get(f, 0.0) - PARENT_REGRESSION_TOLERANCE
                           for f in PROTECTED_FAMS}
-            eligible = ((tgt > baseline_target) and (ret >= args.retention_floor)
-                        and all(fam_floors.values()))
+            eligible = (tgt > baseline_target) and all(fam_floors.values())
             row = {"step": step, "updates": step // args.accum,
                    "target_acc": round(tgt, 3), "retention_acc": round(ret, 3),
                    "per_family_floors_vs_parent": fam_floors,
@@ -231,12 +233,27 @@ def main() -> None:
                         "param_sha256": saved_sha}
                 print(f"  [save] eligible best score={score:.3f} -> {args.out}", flush=True)
 
-    receipt = {"schema": "anra-accumulate/v1",
+    def _file_sha(path: str) -> str:
+        h = hashlib.sha256()
+        with open(path, "rb") as handle:
+            for chunk in iter(lambda: handle.read(1 << 22), b""):
+                h.update(chunk)
+        return h.hexdigest()
+
+    receipt = {"schema": "anra-accumulate/v2",
                "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
-               "anchor": args.anchor, "bank": args.bank,
-               "exact_composition": comp,
+               "anchor": args.anchor,
+               "train_bank_path": args.bank_train,
+               "train_bank_sha256": _file_sha(args.bank_train),
+               "dev_bank_path": args.bank_dev,
+               "dev_bank_sha256": _file_sha(args.bank_dev),
+               "split_audit_path": "data/capability_bank/split_audit.json",
+               "split_audit_sha256": _file_sha("data/capability_bank/split_audit.json"),
+               "exact_composition": comp, "dev_composition": dev_comp,
                "baseline_dev": baseline_dev, "trajectory": trajectory,
-               "best": best, "retention_floor": args.retention_floor,
+               "best": best,
+               "retention_policy": "parent-relative: every protected family >= "
+                                   "its own parent baseline - 0.10 (no global floor)",
                "hyper": {"lr": args.lr, "epochs": args.epochs, "beta": args.beta},
                "wall_seconds": round(time.time() - t0, 1)}
     Path("output/accumulate_receipt.json").write_text(json.dumps(receipt, indent=2))

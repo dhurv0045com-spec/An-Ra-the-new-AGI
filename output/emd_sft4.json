@@ -1,0 +1,416 @@
+{
+  "schema": "anra-entity-matching-diagnostic/v1",
+  "label": "sft4-queryfocus",
+  "checkpoint": "checkpoints/anra-v4-20k-sft4-queryfocus.pt",
+  "global_step": 20000,
+  "parameter_sha256": "6ca15e385f21bc1019a69fefe72ef108a1473acf75b3360a06d8b66db3a161d9",
+  "timestamp": "2026-08-23 00:54:11",
+  "source_commit": "a410dc01e7b8dadb395ee8254f3c20dec37f7b53",
+  "primitives": {
+    "P0_query_entity_recognition": "6/10",
+    "P2_any_fact_extraction": "2/10",
+    "P3_P4_P5_targeted": {
+      "alias": {
+        "base": "1/8",
+        "cf": "0/8",
+        "paired": "0/8",
+        "by_n_facts": {
+          "2": "0/2",
+          "3": "0/2",
+          "4": "0/2",
+          "5": "0/2"
+        },
+        "by_position": {
+          "first": "0/4",
+          "middle": "0/2",
+          "last": "0/2"
+        }
+      },
+      "case": {
+        "base": "1/4",
+        "cf": "1/4",
+        "paired": "1/4",
+        "by_n_facts": {
+          "2": "1/1",
+          "3": "0/1",
+          "4": "0/1",
+          "5": "0/1"
+        },
+        "by_position": {
+          "first": "1/4",
+          "middle": "0/0",
+          "last": "0/0"
+        }
+      },
+      "case_upper": {
+        "base": "1/4",
+        "cf": "0/4",
+        "paired": "0/4",
+        "by_n_facts": {
+          "2": "0/1",
+          "3": "0/1",
+          "4": "0/1",
+          "5": "0/1"
+        },
+        "by_position": {
+          "first": "0/4",
+          "middle": "0/0",
+          "last": "0/0"
+        }
+      },
+      "distract": {
+        "base": "0/8",
+        "cf": "1/8",
+        "paired": "0/8",
+        "by_n_facts": {
+          "2": "0/2",
+          "3": "0/2",
+          "4": "0/2",
+          "5": "0/2"
+        },
+        "by_position": {
+          "first": "0/4",
+          "middle": "0/3",
+          "last": "0/1"
+        }
+      },
+      "exact": {
+        "base": "3/12",
+        "cf": "3/12",
+        "paired": "2/12",
+        "by_n_facts": {
+          "2": "2/3",
+          "3": "0/3",
+          "4": "0/3",
+          "5": "0/3"
+        },
+        "by_position": {
+          "first": "2/5",
+          "middle": "0/5",
+          "last": "0/2"
+        }
+      }
+    }
+  },
+  "decomposition_counts": {
+    "PAIRED_CORRECT": 3,
+    "WRONG_FACT_VALUE": 9,
+    "NON_FACT_VALUE": 16,
+    "INVALID_OUTPUT": 5,
+    "TARGET_VALUE_BASE_ONLY": 3
+  },
+  "query_dependence": {
+    "sets": 6,
+    "per_query_correct": "0/18",
+    "output_changed_on_swap": "4/18",
+    "both_swapped_queries_correct": "0/18"
+  },
+  "interventions_on_failures": {
+    "entity_match_hint": {
+      "rescued": "1/10",
+      "n_failures_tested": 10
+    },
+    "value_supplied": {
+      "rescued": "6/10",
+      "n_failures_tested": 10
+    },
+    "format_normalized": {
+      "rescued": "1/10",
+      "n_failures_tested": 10
+    },
+    "decode_search": {
+      "rescued": "1/10",
+      "n_failures_tested": 10
+    }
+  },
+  "raw_outputs": {
+    "T-exact-00": {
+      "base": " BVF-843.",
+      "cf": " QVK-716.",
+      "cls": "PAIRED_CORRECT",
+      "gold": "BVF-843",
+      "cf_gold": "QVK-716",
+      "target_entity": "hydrarg"
+    },
+    "T-exact-01": {
+      "base": " ZTS-441.",
+      "cf": " ZTS-441.",
+      "cls": "WRONG_FACT_VALUE",
+      "gold": "XDN-959",
+      "cf_gold": "QVK-879",
+      "target_entity": "aurum"
+    },
+    "T-exact-02": {
+      "base": " FMN-200.",
+      "cf": " FMN-200.",
+      "cls": "NON_FACT_VALUE",
+      "gold": "ZTS-472",
+      "cf_gold": "QVK-613",
+      "target_entity": "argent"
+    },
+    "T-exact-03": {
+      "base": " ZTS-819.",
+      "cf": " WKC-177.",
+      "cls": "WRONG_FACT_VALUE",
+      "gold": "ZTS-727",
+      "cf_gold": "QVK-679",
+      "target_entity": "hydrarg"
+    },
+    "T-exact-04": {
+      "base": " BVF-495.",
+      "cf": " BVF-495.",
+      "cls": "WRONG_FACT_VALUE",
+      "gold": "ZTS-452",
+      "cf_gold": "QVK-559",
+      "target_entity": "cupra"
+    },
+    "T-exact-05": {
+      "base": " GQN-208.",
+      "cf": " FMN-208.",
+      "cls": "NON_FACT_VALUE",
+      "gold": "WKC-390",
+      "cf_gold": "QVK-590",
+      "target_entity": "niccolum"
+    },
+    "T-exact-06": {
+      "base": " ZTS-503.",
+      "cf": " ZTS-503.",
+      "cls": "WRONG_FACT_VALUE",
+      "gold": "YRM-861",
+      "cf_gold": "QVK-268",
+      "target_entity": "hydrarg"
+    },
+    "T-exact-07": {
+      "base": " FMFMFMFMFMFMFMFMFMFMFM",
+      "cf": " FMD-999.",
+      "cls": "INVALID_OUTPUT",
+      "gold": "YRM-624",
+      "cf_gold": "QVK-891",
+      "target_entity": "zincum"
+    },
+    "T-exact-08": {
+      "base": " YRM-731.",
+      "cf": " QVK-890.",
+      "cls": "PAIRED_CORRECT",
+      "gold": "YRM-731",
+      "cf_gold": "QVK-890",
+      "target_entity": "argent"
+    },
+    "T-exact-09": {
+      "base": " WKC-633.",
+      "cf": " QVK-424.",
+      "cls": "WRONG_FACT_VALUE",
+      "gold": "YRM-494",
+      "cf_gold": "QVK-424",
+      "target_entity": "hydrarg"
+    },
+    "T-exact-10": {
+      "base": " ZTS-511.",
+      "cf": " ZTS-366.",
+      "cls": "TARGET_VALUE_BASE_ONLY",
+      "gold": "ZTS-511",
+      "cf_gold": "QVK-210",
+      "target_entity": "zincum"
+    },
+    "T-exact-11": {
+      "base": " FMWKC-597.",
+      "cf": " YRM-597.",
+      "cls": "INVALID_OUTPUT",
+      "gold": "CGJ-934",
+      "cf_gold": "QVK-806",
+      "target_entity": "plumbum"
+    },
+    "T-case-00": {
+      "base": " BVF-914.",
+      "cf": " QVK-248.",
+      "cls": "PAIRED_CORRECT",
+      "gold": "BVF-914",
+      "cf_gold": "QVK-248",
+      "target_entity": "aurum"
+    },
+    "T-case-01": {
+      "base": " FMN-549.",
+      "cf": " FMN-549.",
+      "cls": "NON_FACT_VALUE",
+      "gold": "CGJ-375",
+      "cf_gold": "QVK-246",
+      "target_entity": "niccolum"
+    },
+    "T-case-02": {
+      "base": " FMN-652.",
+      "cf": " ZTS-934.",
+      "cls": "NON_FACT_VALUE",
+      "gold": "CGJ-867",
+      "cf_gold": "QVK-526",
+      "target_entity": "hydrarg"
+    },
+    "T-case-03": {
+      "base": " FMN-357.",
+      "cf": " FMN-357.",
+      "cls": "NON_FACT_VALUE",
+      "gold": "XDN-362",
+      "cf_gold": "QVK-557",
+      "target_entity": "ferrum"
+    },
+    "T-case_upper-00": {
+      "base": " WKC-330.",
+      "cf": " FMN-829.",
+      "cls": "TARGET_VALUE_BASE_ONLY",
+      "gold": "WKC-330",
+      "cf_gold": "QVK-362",
+      "target_entity": "argent"
+    },
+    "T-case_upper-01": {
+      "base": " FMN-495.",
+      "cf": " FMFMFMFMFMFMFMFMFMFMFM",
+      "cls": "NON_FACT_VALUE",
+      "gold": "XDN-495",
+      "cf_gold": "QVK-726",
+      "target_entity": "zincum"
+    },
+    "T-case_upper-02": {
+      "base": " ZTS-880.",
+      "cf": " ZTS-880.",
+      "cls": "WRONG_FACT_VALUE",
+      "gold": "WKC-117",
+      "cf_gold": "QVK-812",
+      "target_entity": "aurum"
+    },
+    "T-case_upper-03": {
+      "base": " BVF-663.",
+      "cf": " BVF-663.",
+      "cls": "WRONG_FACT_VALUE",
+      "gold": "YRM-973",
+      "cf_gold": "QVK-844",
+      "target_entity": "aurum"
+    },
+    "T-alias-00": {
+      "base": " GQN-274.",
+      "cf": " FMJ-722.",
+      "cls": "NON_FACT_VALUE",
+      "gold": "XDN-265",
+      "cf_gold": "QVK-781",
+      "target_entity": "cupra"
+    },
+    "T-alias-01": {
+      "base": " GQN-marker.",
+      "cf": " FMN-955.",
+      "cls": "INVALID_OUTPUT",
+      "gold": "WKC-402",
+      "cf_gold": "QVK-542",
+      "target_entity": "cupra"
+    },
+    "T-alias-02": {
+      "base": " FMA.",
+      "cf": " FMKC-858.",
+      "cls": "INVALID_OUTPUT",
+      "gold": "WKC-943",
+      "cf_gold": "QVK-632",
+      "target_entity": "ferrum"
+    },
+    "T-alias-03": {
+      "base": " GQN-872.",
+      "cf": " FMN-362.",
+      "cls": "NON_FACT_VALUE",
+      "gold": "XDN-872",
+      "cf_gold": "QVK-706",
+      "target_entity": "cupra"
+    },
+    "T-alias-04": {
+      "base": " ZTS-193.",
+      "cf": " WKC-904.",
+      "cls": "TARGET_VALUE_BASE_ONLY",
+      "gold": "ZTS-193",
+      "cf_gold": "QVK-628",
+      "target_entity": "ferrum"
+    },
+    "T-alias-05": {
+      "base": " FMB-105.",
+      "cf": " FMKC-266.",
+      "cls": "NON_FACT_VALUE",
+      "gold": "BVF-105",
+      "cf_gold": "QVK-641",
+      "target_entity": "cupra"
+    },
+    "T-alias-06": {
+      "base": " ZTS-217.",
+      "cf": " ZTS-217.",
+      "cls": "WRONG_FACT_VALUE",
+      "gold": "WKC-283",
+      "cf_gold": "QVK-478",
+      "target_entity": "aurum"
+    },
+    "T-alias-07": {
+      "base": " FMN-248.",
+      "cf": " FMN-248.",
+      "cls": "NON_FACT_VALUE",
+      "gold": "ZTS-211",
+      "cf_gold": "QVK-862",
+      "target_entity": "aurum"
+    },
+    "T-distract-00": {
+      "base": " BVF-610.",
+      "cf": " QVK-698.",
+      "cls": "NON_FACT_VALUE",
+      "gold": "BVF-420",
+      "cf_gold": "QVK-698",
+      "target_entity": "aurum"
+    },
+    "T-distract-01": {
+      "base": " FMJ-940.",
+      "cf": " FMJ-940.",
+      "cls": "NON_FACT_VALUE",
+      "gold": "WKC-117",
+      "cf_gold": "QVK-243",
+      "target_entity": "aurum"
+    },
+    "T-distract-02": {
+      "base": " BVF-141.",
+      "cf": " BVF-141.",
+      "cls": "WRONG_FACT_VALUE",
+      "gold": "BVF-901",
+      "cf_gold": "QVK-629",
+      "target_entity": "cupra"
+    },
+    "T-distract-03": {
+      "base": " BVF-599.",
+      "cf": " BVF-599.",
+      "cls": "NON_FACT_VALUE",
+      "gold": "ZTS-357",
+      "cf_gold": "QVK-300",
+      "target_entity": "cupra"
+    },
+    "T-distract-04": {
+      "base": " GQN-725.",
+      "cf": " GQN-449.",
+      "cls": "NON_FACT_VALUE",
+      "gold": "XDN-735",
+      "cf_gold": "QVK-616",
+      "target_entity": "aurum2"
+    },
+    "T-distract-05": {
+      "base": " GQN-875.",
+      "cf": " FMN-875.",
+      "cls": "NON_FACT_VALUE",
+      "gold": "CGJ-558",
+      "cf_gold": "QVK-308",
+      "target_entity": "aurum2"
+    },
+    "T-distract-06": {
+      "base": " FMN-861.",
+      "cf": " ZTS-719.",
+      "cls": "NON_FACT_VALUE",
+      "gold": "XDN-861",
+      "cf_gold": "QVK-633",
+      "target_entity": "ferrum2"
+    },
+    "T-distract-07": {
+      "base": " FMTS-360.",
+      "cf": " FMTS-360.",
+      "cls": "INVALID_OUTPUT",
+      "gold": "ZTS-730",
+      "cf_gold": "QVK-462",
+      "target_entity": "ferrum2"
+    }
+  }
+}

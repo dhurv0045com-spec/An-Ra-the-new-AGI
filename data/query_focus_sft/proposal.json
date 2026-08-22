@@ -1,0 +1,35 @@
+{
+  "proposal_id": "tp-query-focus-001",
+  "support_type": "DIAGNOSTIC",
+  "observed_bottleneck": "query-conditioned binding absent: P0 0/10, query-swap change 0-2/18, WRONG_FACT_VALUE 18/36, entity-match hint rescues 0-1/10",
+  "competing_hypotheses_tested": {
+    "matching-failure (H-match)": "rejected: explicit entity-match hint does not rescue (0-1/10)",
+    "value-extraction-failure": "rejected: any-fact extraction 5-7/10; value-supply rescues 6-7/10",
+    "format-failure": "rejected: format normalization rescues 0-1/10",
+    "decode-failure": "rejected: search rescues only 3/10",
+    "query-conditioning-absent (H-query)": "SUPPORTED: swap-invariance + P0 failure + recency profile"
+  },
+  "target_primitive": "query_conditioned_binding (query->entity->value, position-independent)",
+  "protected_capabilities": [
+    "single_fact_binding",
+    "tool_result_use",
+    "copy",
+    "protocol_transfer"
+  ],
+  "minimal_training_change": {
+    "lr": 5e-05,
+    "epochs": 2.0,
+    "objective": "masked LM, query-position-rotated curriculum + 39% rehearsal",
+    "data": "data/query_focus_sft (composition.json exact)"
+  },
+  "pre_registered_predictions": {
+    "PR1_P0_query_recognition": "0/10 -> >=5/10",
+    "PR2_query_swap_output_changed": "0-2/18 -> >=8/18",
+    "PR3_exact_condition_paired": "~2/12 -> >=6/12",
+    "PR4_any_fact_extraction": "no regression (>=5/10)",
+    "PR5_protected_retention": "within parent-0.10 on dev bank families"
+  },
+  "falsification_condition": "PR1 AND PR2 both fail => query-conditioning not trainable via this objective at 180M; reconsider before any further SFT",
+  "parent": "checkpoints/anra-v4-20k-sft3-accumulate.pt",
+  "timestamp": "2026-08-23 00:47:07"
+}
