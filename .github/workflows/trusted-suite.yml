@@ -32,6 +32,9 @@ jobs:
       - name: Canonical resume (model/optimizer/cursor/candidates)
         run: python -m pytest tests/test_canonical_resume.py -q
 
+      - name: Canonical TPU orchestration and real writers
+        run: python -m pytest tests/test_orchestration.py -q
+
       - name: Trust integration (restore-into-caller, prepare-once tools, gates)
         run: python -m pytest tests/test_trust_integration.py tests/test_trust_infrastructure.py -q
 

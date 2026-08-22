@@ -433,8 +433,11 @@ def save_candidate(
     metrics: dict[str, float],
     source_checkpoint: str | None,
     world_size: int,
+    *,
+    training_state: dict[str, object],
+    schedule: CosineSchedule | PackWsdSchedule,
 ) -> Path:
-    """Sparse immutable candidate (CPU-callable for tests): model_only.
+    """Write an immutable, fully resumable sparse recovery candidate.
 
     Returns the written path. Refuses to overwrite an existing candidate -
     intermediate useful states must never disappear or mutate.
@@ -450,9 +453,10 @@ def save_candidate(
         training_config=training_config,
         tokenizer=tokenizer, step=step, metrics=metrics,
         source_checkpoint=source_checkpoint, world_size=world_size,
-        artifact_class="candidate_model_only",
+        training_state=training_state,
+        schedule=schedule,
+        artifact_class="full_resume",
     )
-    payload.pop("optimizer_state_dict", None)  # small lineage files
     _atomic_save(payload, candidate_path)
     return candidate_path
 
@@ -773,7 +777,7 @@ def _worker(index: int, config: dict[str, object]) -> None:
                 pack_total_steps=max_steps,
             )
             _save_latest(
-                xm, output, model, optimizer, CANONICAL_CONFIG, tokenizer, completed,
+                xm, output, model, optimizer, config, tokenizer, completed,
                 {"loss": float(latest_loss.cpu()), "learning_rate": effective_lr,
                  "gradient_norm": float(latest_grad_norm.cpu())},
                 source_checkpoint, world_size, training_state, schedule,
@@ -783,10 +787,25 @@ def _worker(index: int, config: dict[str, object]) -> None:
         # All ranks reach this boundary together; only rank 0 writes.
         candidate_interval = int(config.get("candidate_interval") or 0)
         if candidate_interval > 0 and pack_completed % candidate_interval == 0:
+            candidate_training_state = build_training_state(
+                step=completed, pack_step=pack_completed,
+                optimizer_updates=optimizer_updates, position=position,
+                dataset_sha256=str(config["_dataset_sha256"]),
+                dataset_windows=len(dataset), batch_size=batch_size,
+                grad_accum_steps=grad_accum, world_size=world_size,
+                sequence_length=sequence_length, seed=seed,
+                attention_chunk_size=int(config["attention_chunk_size"]),
+                gradient_checkpointing=bool(config["gradient_checkpointing"]),
+                gradient_clip_norm=float(config["gradient_clip_norm"]),
+                pack_manifest_sha256=str(config["pack_manifest_sha256"]),
+                pack_total_steps=max_steps,
+            )
             if rank == 0:
                 save_candidate(
                     output, model, optimizer, config, tokenizer, completed,
                     {"loss": float(latest_loss.cpu())}, source_checkpoint, world_size,
+                    training_state=candidate_training_state,
+                    schedule=schedule,
                 )
             # Rendezvous so no rank enters the next collective while rank 0
             # is still serializing (PJRT graph-sync safety).
@@ -808,7 +827,7 @@ def _worker(index: int, config: dict[str, object]) -> None:
             pack_total_steps=max_steps,
         )
         _save_latest(
-            xm, output, model, optimizer, CANONICAL_CONFIG, tokenizer, final_step,
+            xm, output, model, optimizer, config, tokenizer, final_step,
             {"loss": float(latest_loss.cpu()) if latest_loss is not None else 0.0,
              "learning_rate": schedule.lr_at(
                  min(final_pack_step, max_steps - 1)
@@ -918,7 +937,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         action="store_true",
         help="establish a schema-v3 pack/WSD boundary from a schema-v1 full-resume checkpoint",
     )
-    parser.add_argument("--candidate-interval", type=int, default=0,
+    parser.add_argument("--candidate-interval", type=int, default=1000,
                         help="sparse immutable candidate checkpoints (0 disables)")
     parser.add_argument("--max-steps", type=int, default=0,
                         help="pack-local update cap; 0 consumes every complete unique window once")

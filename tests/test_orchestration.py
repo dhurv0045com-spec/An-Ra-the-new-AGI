@@ -112,19 +112,35 @@ def test_prepare_training_state_fresh_has_zero_metadata(tmp_path) -> None:
 
 def test_real_candidate_writer_roundtrip_and_immutability(tmp_path) -> None:
     from training.train_xla import save_candidate
+    from training.wsd_scheduler import PackWsdSchedule
 
     tok = V4Tokenizer.load_canonical()
     output = tmp_path / "latest.pt"
     model = AnRaCore(CANONICAL_CONFIG)
     optimizer = torch.optim.AdamW(model.parameters(), lr=1e-3)
     training_config = {"pack_manifest_sha256": "c" * 64}
+    first_parameter = next(model.parameters())
+    optimizer.state[first_parameter] = {
+        "step": torch.tensor(1.0),
+        "exp_avg": torch.zeros_like(first_parameter),
+        "exp_avg_sq": torch.zeros_like(first_parameter),
+    }
+    training_state = {
+        "schema": "anra-training-state/v2",
+        "global_step": 5,
+        "pack_step": 5,
+        "pack_manifest_sha256": "c" * 64,
+    }
+    schedule = PackWsdSchedule(base_lr=2e-4, total_steps=100)
 
     p5 = save_candidate(output, model, optimizer, training_config, tok, 5,
-                        {"loss": 2.0}, str(tmp_path / "parent.pt"), world_size=8)
+                        {"loss": 2.0}, str(tmp_path / "parent.pt"), world_size=8,
+                        training_state=training_state, schedule=schedule)
     assert p5.exists()
     payload5 = torch.load(p5, weights_only=False)
-    assert payload5["checkpoint_artifact_class"] == "candidate_model_only"
-    assert "optimizer_state_dict" not in payload5, "candidate must be model-only"
+    assert payload5["checkpoint_artifact_class"] == "full_resume"
+    assert payload5["optimizer_state_dict"]["state"], "candidate must be resumable"
+    assert payload5["checkpoint_schema_version"] == 3
     assert payload5["global_step"] == 5
     assert payload5["parameter_sha256"]  # canonical hash recorded
 
@@ -132,7 +148,9 @@ def test_real_candidate_writer_roundtrip_and_immutability(tmp_path) -> None:
 
     # Later candidate at step 10 must NOT overwrite step 5.
     p10 = save_candidate(output, model, optimizer, training_config, tok, 10,
-                         {"loss": 1.5}, None, world_size=8)
+                         {"loss": 1.5}, None, world_size=8,
+                         training_state={**training_state, "global_step": 10, "pack_step": 10},
+                         schedule=schedule)
     assert p5.exists() and p10.name.endswith("00010.pt")
     assert hashlib.sha256(p5.read_bytes()).hexdigest() == digest5
 
@@ -191,6 +209,51 @@ def test_recovery_payload_via_checkpoint_payload_function(tmp_path) -> None:
     assert reloaded["parameter_sha256"] == canonical_parameter_sha256(
         reloaded["model_state_dict"]
     ), "parameter SHA must survive save/reload unchanged"
+
+
+def test_real_save_latest_uses_runtime_training_config(tmp_path) -> None:
+    from training.train_xla import _save_latest
+    from training.wsd_scheduler import PackWsdSchedule
+
+    class FakeXm:
+        rendezvous_calls: list[str] = []
+
+        @staticmethod
+        def is_master_ordinal() -> bool:
+            return True
+
+        @staticmethod
+        def save(payload, path, master_only=True) -> None:
+            assert master_only is True
+            torch.save(payload, path)
+
+        @classmethod
+        def rendezvous(cls, tag: str) -> None:
+            cls.rendezvous_calls.append(tag)
+
+    model = AnRaCore(CANONICAL_CONFIG)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=1e-3)
+    tokenizer = V4Tokenizer.load_canonical()
+    runtime_config = {"pack_manifest_sha256": "e" * 64}
+    trainer_state = {
+        "schema": "anra-training-state/v2",
+        "global_step": 20_010,
+        "pack_step": 10,
+        "pack_manifest_sha256": "e" * 64,
+    }
+    output = tmp_path / "latest.pt"
+
+    _save_latest(
+        FakeXm, output, model, optimizer, runtime_config, tokenizer, 20_010,
+        {"loss": 1.5}, "parent.pt", 8, trainer_state,
+        PackWsdSchedule(base_lr=2e-4, total_steps=100),
+    )
+
+    payload = torch.load(output, weights_only=True)
+    assert payload["pack_manifest_sha256"] == "e" * 64
+    assert payload["trainer_state"] == trainer_state
+    assert payload["checkpoint_schema_version"] == 3
+    assert FakeXm.rendezvous_calls == ["checkpoint-written"]
 
 
 # --------------------------------------------------------------------------
