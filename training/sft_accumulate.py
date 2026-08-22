@@ -61,13 +61,6 @@ def _strict(out: str, gold: str) -> bool:
     return re.search(rf"(?<!\w){re.escape(g)}(?!\w)", n) is not None
 
 
-def _param_sha(model) -> str:
-    h = hashlib.sha256()
-    for p in model.parameters():
-        h.update(p.detach().cpu().numpy().tobytes())
-    return h.hexdigest()
-
-
 def _cf_twin(item: dict) -> dict | None:
     """Deterministic counterfactual twin: same prompt, the answer value
     replaced by a fresh code (byte-exact single replacement)."""
@@ -108,7 +101,8 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--anchor", required=True,
                         help="anchor checkpoint (context-binding child)")
-    parser.add_argument("--bank", default="data/capability_bank/bank.jsonl")
+    parser.add_argument("--bank-train", default="data/capability_bank/train.jsonl")
+    parser.add_argument("--bank-dev", default="data/capability_bank/dev.jsonl")
     parser.add_argument("--out", default="checkpoints/anra-v4-20k-sft3-accumulate.pt")
     parser.add_argument("--epochs", type=float, default=2.0)
     parser.add_argument("--lr", type=float, default=3e-5)
@@ -125,25 +119,20 @@ def main() -> None:
     random.seed(args.seed)
     device = "cuda"
 
-    items = [json.loads(l) for l in Path(args.bank).read_text(encoding="utf-8").splitlines()]
-    comp = dict(Counter(i["family"] for i in items))
-    print("[data] exact composition:", json.dumps(comp), flush=True)
-    target = [i for i in items if i["family"] in TARGET_FAMS]
-    retention = [i for i in items if i["family"] in RETENTION_FAMS]
-    rng = random.Random(args.seed)
-    # Group-safe stratified dev split: every family represented, no family
-    # emptied by sampling. 30% per family, min 4, max 12 items.
-    dev: list[dict] = []
-    for fam_pool in (target, retention):
-        by_fam: dict[str, list[dict]] = {}
-        for it in fam_pool:
-            by_fam.setdefault(it["family"], []).append(it)
-        for fam, pool in by_fam.items():
-            rng.shuffle(pool)
-            dev.extend(pool[:min(12, max(4, len(pool) // 3))])
-    dev_ids = {id(x) for x in dev}
-    train_target = [i for i in target if id(i) not in dev_ids]
-    train_ret = [i for i in retention if id(i) not in dev_ids]
+    # Structural split from the bank generator: train and dev come from
+    # DISJOINT vocabularies and seeds (split_audit.json guarantees zero
+    # group/prompt/pair overlap). The harness performs no slicing of its own.
+    train_items = [json.loads(l) for l in
+                   Path(args.bank_train).read_text(encoding="utf-8").splitlines() if l.strip()]
+    dev = [json.loads(l) for l in
+           Path(args.bank_dev).read_text(encoding="utf-8").splitlines() if l.strip()]
+    comp = dict(Counter(i["family"] for i in train_items))
+    dev_comp = dict(Counter(i["family"] for i in dev))
+    print(f"[data] train composition: {json.dumps(comp)}", flush=True)
+    print(f"[data] dev composition (disjoint vocab): {json.dumps(dev_comp)}", flush=True)
+    train_target = [i for i in train_items if i["family"] in TARGET_FAMS]
+    train_ret = [i for i in train_items if i["family"] in RETENTION_FAMS]
+    target = train_target  # dev comes from the file split below
 
     print(f"[load] anchor {args.anchor}", flush=True)
     model, _, identity = load_core_checkpoint(args.anchor, legacy_unverified=True)
@@ -173,7 +162,7 @@ def main() -> None:
     trajectory, best, best_score = [], None, -1.0
     step = 0
     t0 = time.time()
-    rng.shuffle(mixed)
+    random.Random(args.seed).shuffle(mixed)
     while step < steps_total:
         opt.zero_grad(set_to_none=True)
         for _ in range(args.accum):

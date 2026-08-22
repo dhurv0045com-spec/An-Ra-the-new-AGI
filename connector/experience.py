@@ -133,8 +133,9 @@ class ExperienceBank:
         return experience.experience_id
 
     def all(self) -> list[dict]:
-        return [json.loads(l) for l in
-                self.path.read_text(encoding="utf-8").splitlines() if l.strip()]
+        return [json.loads(line) for line in
+                self.path.read_text(encoding="utf-8").splitlines()
+                if line.strip() and not line.lstrip().startswith("#")]
 
     def fixed_by(self, variable: str) -> list[dict]:
         return [e for e in self.all() if e["changed_variable"] == variable]
@@ -156,17 +157,29 @@ class CapabilityContract:
 @dataclass(frozen=True, slots=True)
 class TrainingProposal:
     proposal_id: str
-    source_experience_ids: tuple[str, ...]
-    recommendation: str              # CAPABILITY_TRAINING | NO_TRAINING | ...
-    target_capability: str
-    protected_capabilities: tuple[str, ...]
-    hypothesis: str
-    competing_hypotheses: tuple[str, ...]
-    replay_mix: dict[str, float]     # family -> fraction (exact)
-    min_training_change: dict[str, object]  # lr, updates, objective
-    falsification_condition: str
-    protected_by_contract: str       # contract checkpoint sha
-    timestamp: str
+    source_experience_ids: tuple[str, ...] = ()   # causal experiences only
+    source_observation_ids: tuple[str, ...] = ()  # observational support
+    recommendation: str = ""              # CAPABILITY_TRAINING | NO_TRAINING | ...
+    target_capability: str = ""
+    protected_capabilities: tuple[str, ...] = ()
+    hypothesis: str = ""
+    competing_hypotheses: tuple[str, ...] = ()
+    replay_mix: dict[str, float] = field(default_factory=dict)
+    min_training_change: dict[str, object] = field(default_factory=dict)
+    falsification_condition: str = ""
+    protected_by_contract: str = ""
+    support_type: str = "OBSERVATIONAL"   # OBSERVATIONAL | INTERVENTIONAL | DIAGNOSTIC | BLINDED_TRANSFER
+    timestamp: str = ""
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "TrainingProposal":
+        """Alias-tolerant loader (JSON may predate the taxonomy split)."""
+        known = cls.__dataclass_fields__
+        kwargs = {k: v for k, v in data.items() if k in known}
+        for name, f in known.items():
+            if name in kwargs and f.type == "tuple[str, ...]" and isinstance(kwargs[name], list):
+                kwargs[name] = tuple(kwargs[name])
+        return cls(**kwargs)
 
     def to_json(self) -> str:
         return json.dumps(asdict(self), sort_keys=True)
@@ -221,15 +234,20 @@ def propose_from_experiences(
 
 def link_child(checkpoint_path: str, proposal: TrainingProposal,
                receipt_path: str = "output/lineage.json") -> dict:
-    """Training receipt → proposal → experiences: why does this model exist?"""
+    """Training receipt → proposal → evidence: why does this model exist?
+    Tolerant of the observational/evidence field rename so re-loaded
+    proposal JSON keeps working."""
+    source_ids = getattr(proposal, "source_experience_ids", None) \
+        or getattr(proposal, "source_observation_ids", [])
     lineage = {
         "checkpoint": checkpoint_path,
-        "proposal_id": proposal.proposal_id,
-        "recommendation": proposal.recommendation,
-        "target_capability": proposal.target_capability,
-        "protected_capabilities": list(proposal.protected_capabilities),
-        "source_experience_count": len(proposal.source_experience_ids),
-        "timestamp": proposal.timestamp,
+        "proposal_id": getattr(proposal, "proposal_id", "unknown"),
+        "recommendation": getattr(proposal, "recommendation", None),
+        "target_capability": getattr(proposal, "target_capability", None),
+        "protected_capabilities": list(getattr(proposal, "protected_capabilities", ())),
+        "source_evidence_count": len(source_ids),
+        "support_type": getattr(proposal, "support_type", "OBSERVATIONAL"),
+        "timestamp": getattr(proposal, "timestamp", None),
     }
     Path(receipt_path).write_text(json.dumps(lineage, indent=2), encoding="utf-8")
     return lineage

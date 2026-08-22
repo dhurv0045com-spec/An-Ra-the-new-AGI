@@ -119,12 +119,13 @@ def run_gradient_conflict(checkpoint: str, bank: str, device: str,
 
 
 def run_layerwise_drift(pairs: list[tuple[str, str]], device: str = "cpu") -> dict:
-    """||dW||/||W|| per module group for each (from, to) checkpoint pair."""
+    """||dW||/||W|| per module group for each (from, to) checkpoint pair.
+    lm_head.weight is skipped: it is tied to the embedding and would
+    double-count the same tensor in the head/norm group."""
     out = {}
     cached = {}
     for src, dst in pairs:
         if src not in cached:
-            _, sd, _ = None, None, None
             payload = torch.load(src, map_location="cpu", weights_only=True, mmap=True)
             cached[src] = payload.get("model_state_dict", payload.get("model", payload))
         if dst not in cached:
@@ -133,6 +134,8 @@ def run_layerwise_drift(pairs: list[tuple[str, str]], device: str = "cpu") -> di
         a, b = cached[src], cached[dst]
         groups = defaultdict(lambda: [0.0, 0.0])
         for n in a:
+            if n == "lm_head.weight":
+                continue  # tied to token_embedding_table.weight
             if n not in b or not torch.is_floating_point(a[n]):
                 continue
             d = (b[n].float() - a[n].float()).norm().item()
@@ -150,7 +153,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--checkpoint",
                         default="checkpoints/anra-v4-20k-sft-context-binding.pt")
-    parser.add_argument("--bank", default="data/capability_bank/bank.jsonl")
+    parser.add_argument("--bank", default="data/capability_bank/train.jsonl")
     parser.add_argument("--drift", action="store_true")
     args = parser.parse_args()
     report = {"schema": "anra-grad-conflict/v1",

@@ -33,7 +33,7 @@ OBJECTS = ("aviary", "barbican", "cloister", "dolmen", "entablature", "fresco2",
 DEV_OBJECTS = ("reredos", "solar", "tambour", "vellum", "wynd")  # disjoint
 WORDS = ("trammel", "wimble", "adze", "gavel", "plumb", "spokeshave",
          "try-square", "ledger", "batten", "scaffold-pole")
-DEV_WORDS = (" auger", "chine", "escutcheon", "gudgeon")
+DEV_WORDS = ("auger", "chine", "escutcheon", "gudgeon")
 FORMATS = ("prose", "table", "json", "dialogue", "kv", "records")
 
 
@@ -78,7 +78,7 @@ def build(rng: random.Random, *, dev: bool = False):
     prefixes, words) with its own seed — a structural split, not a slice."""
     prefixes = DEV_PREFIXES if dev else PREFIXES
     objects = DEV_OBJECTS if dev else OBJECTS
-    words = tuple(w.strip() for w in DEV_WORDS) if dev else WORDS
+    words = DEV_WORDS if dev else WORDS
     items = []
 
     # selective multi-fact (target capability) — all six formats, balanced

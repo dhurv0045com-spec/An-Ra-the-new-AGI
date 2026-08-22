@@ -110,8 +110,35 @@ def test_lineage_links_child_to_proposal(tmp_path: Path, monkeypatch) -> None:
     lineage = link_child("checkpoints/child.pt", proposal, str(out))
     data = json.loads(out.read_text(encoding="utf-8"))
     assert data["proposal_id"] == proposal.proposal_id
-    assert data["source_experience_count"] == 3
+    assert data["source_evidence_count"] == 3
+    assert data["support_type"] == "OBSERVATIONAL"
     assert lineage["checkpoint"] == "checkpoints/child.pt"
+
+
+def test_bank_loader_skips_comment_lines(tmp_path: Path) -> None:
+    """The migrated experiences file carries explanatory comment lines;
+    the loader must tolerate them, not crash."""
+    path = tmp_path / "experiences.jsonl"
+    path.write_text(
+        "# VerifiedInterventionExperience entries only.\n"
+        "# Historical SFT wins live in observations.jsonl.\n"
+        + _experience("knowledge", "k9").to_json() + "\n",
+        encoding="utf-8")
+    bank = ExperienceBank(path)
+    assert len(bank.all()) == 1
+    assert bank.all()[0]["changed_variable"] == "knowledge"
+
+
+def test_proposal_from_dict_tolerates_field_rename(tmp_path: Path) -> None:
+    """Proposal JSON persisted before the taxonomy split must still load."""
+    from connector.experience import TrainingProposal
+    legacy = {"proposal_id": "tp-x", "source_observation_ids": ["obs-1", "obs-2"],
+              "recommendation": "CAPABILITY_TRAINING", "target_capability": "selective_binding",
+              "unknown_future_field": 123}
+    p = TrainingProposal.from_dict(legacy)
+    assert p.proposal_id == "tp-x"
+    assert p.source_observation_ids == ("obs-1", "obs-2")
+    assert p.source_experience_ids == ()
 
 
 def test_experience_from_runtime_rejects_unverified() -> None:

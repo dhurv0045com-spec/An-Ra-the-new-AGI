@@ -279,7 +279,7 @@ def evaluate_checkpoint(label: str, path: str, *, legacy: bool, device: str = "c
         "by_format": cond(lambda i: i["format"]),
         "position_baselines": {"first_fact_heuristic": f"{first_base}/{len(sel)}",
                                "last_fact_heuristic": f"{last_base}/{len(sel)}",
-                               "random": f"{sum(i['n_facts'] for i in sel) and round(sum(1/i['n_facts'] for i in sel), 2)} expected"},
+                               "random_expected": round(sum(1 / i["n_facts"] for i in sel), 2)},
         "causal_dependence": {
             "base_correct": sum(1 for i in sel if raw_out[i["id"]]["base_passed"]),
             "cf_correct": sum(1 for i in sel if raw_out[i["id"]].get("cf_passed")),
