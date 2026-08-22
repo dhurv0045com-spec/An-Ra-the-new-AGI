@@ -1,0 +1,45 @@
+name: trusted-suite
+
+on:
+  push:
+    branches: [core-vnext]
+  pull_request:
+    branches: [core-vnext]
+
+jobs:
+  cpu-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install CPU torch + project deps
+        run: |
+          pip install --upgrade pip
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install numpy pytest
+
+      # The critical invariants. If any of these break, compute or evidence
+      # is at risk - they gate the branch.
+      - name: Core + checkpoint contract
+        run: python -m pytest tests/test_core.py tests/test_neural_conformance.py -q
+
+      - name: Canonical resume (model/optimizer/cursor/candidates)
+        run: python -m pytest tests/test_canonical_resume.py -q
+
+      - name: Trust integration (restore-into-caller, prepare-once tools, gates)
+        run: python -m pytest tests/test_trust_integration.py tests/test_trust_infrastructure.py -q
+
+      - name: Pack verification semantics
+        run: python -m pytest tests/test_training_path.py -q
+
+      - name: Cognitive-credit harness mechanics
+        run: python -m pytest tests/test_cognitive_credit.py -q
+
+      - name: Packaging facade (anra.run)
+        run: python -m pytest tests/test_trust_infrastructure.py::test_anra_facade_exposes_run -q

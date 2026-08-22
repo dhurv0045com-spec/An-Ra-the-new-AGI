@@ -43,7 +43,7 @@ step 20000).
 Phase R is short by design: WSD decay to completion over ≤1 repeat pass to
 settle weights, then stop.
 
-**Config:** `train_tpu.py --resume-from <step20000> --token-budget 330_000_000`
+**Config:** `train_xla.py --resume-from <exact step20k path>` (canonical; train_tpu.py is deprecated)
 — the scheduler decays LR 2e-4 → 2e-5 across the budget, ending cleanly at the
 pack boundary instead of grinding through repeats at full LR.
 

@@ -73,3 +73,132 @@ def degradation_ratio(best_loss: float, current_loss: float) -> float:
     if best_loss <= 0:
         raise ValueError("best_loss must be positive")
     return current_loss / best_loss
+
+
+# --------------------------------------------------------------------------
+# Checkpoint restore into the CALLER's model (the P0 fix).
+#
+# History: a trainer resume helper called load_core_checkpoint(), which builds
+# its own model internally, and returned only metadata - silently discarding
+# the loaded weights while logs looked healthy. The canonical restore lives
+# here so both the trainer and the integration tests exercise one path.
+# --------------------------------------------------------------------------
+
+RESUME_SAME_PACK = "same_pack"
+RESUME_NEW_PACK_PARENT = "new_pack_parent"
+
+
+@dataclass(slots=True)
+class RestoredTrainingState:
+    """What a resume actually restored - recorded, never implied."""
+
+    global_step: int
+    pack_step: int
+    pack_manifest_sha256: str | None
+    optimizer_restored: bool
+    mode: str
+    checkpoint_parameter_sha256: str
+
+
+def _load_payload(resume_from: str) -> tuple[dict[str, "torch.Tensor"], dict]:
+    """Load raw state + payload. Strict-first; legacy fallback ONLY for the
+    specific known condition (missing tokenizer contract on older writers).
+    Corruption, architecture mismatch, and loader bugs surface."""
+    import torch
+
+    from anra_core.checkpoint import load_core_checkpoint
+    from anra_core.errors import RepresentationIncompatibleError
+
+    try:
+        _model, _payload, _identity = load_core_checkpoint(resume_from)
+    except RepresentationIncompatibleError as exc:
+        if "tokenizer contract" not in str(exc):
+            raise  # corruption/mismatch/bug: never disguise as legacy
+        print(f"[resume] strict load refused ({exc}); explicit legacy fallback "
+              "for older-writer contract absence", flush=True)
+    payload = torch.load(resume_from, map_location="cpu", weights_only=False)
+    state = payload.get("model_state_dict") or payload.get("model")
+    if not isinstance(state, dict):
+        raise RuntimeError(f"checkpoint has no model tensors: {resume_from}")
+    return state, payload
+
+
+def restore_training_state(
+    resume_from: str,
+    model,  # AnRaCore (typed loosely to keep this module import-light)
+    optimizer,
+    *,
+    mode: str = RESUME_SAME_PACK,
+    current_pack_manifest_sha256: str | None = None,
+) -> RestoredTrainingState:
+    """Restore checkpoint INTO the caller's model and prove it took effect.
+
+    Mode semantics:
+      same_pack: pack_step restored only when the checkpoint's
+                 pack_manifest_sha256 matches the attached pack; mismatch or
+                 unverifiable progress fails closed.
+      new_pack_parent: pack_step forced to 0; checkpoint pack identity is
+                 irrelevant (LEGACY FULL-RESUME -> schema-v2 boundary).
+    """
+    import hashlib
+
+    import torch
+
+    state, payload = _load_payload(resume_from)
+
+    # Install into the CALLER's model and prove installation per tensor.
+    model.load_state_dict(state, strict=True)
+    installed = 0
+    live = model.state_dict()
+    for key, tensor in state.items():
+        if torch.is_floating_point(tensor):
+            if not torch.equal(live[key], tensor):
+                raise RuntimeError(f"resume verification failed: {key} did not install")
+            installed += 1
+    if installed == 0:
+        raise RuntimeError("resume verification failed: no float tensors compared")
+
+    optimizer_state = payload.get("optimizer") or payload.get("optimizer_state_dict")
+    optimizer_restored = False
+    if isinstance(optimizer_state, dict) and optimizer_state.get("state"):
+        try:
+            optimizer.load_state_dict(optimizer_state)
+            optimizer_restored = True
+        except Exception as exc:
+            print(f"[resume] optimizer state present but failed to load: {exc}", flush=True)
+            raise
+
+    checkpoint_pack_sha = payload.get("pack_manifest_sha256")
+    if mode == RESUME_SAME_PACK:
+        restored_pack_step = int(payload.get("pack_step", 0) or 0)
+        if restored_pack_step > 0 and not checkpoint_pack_sha:
+            raise RuntimeError(
+                "SAME_PACK resume refused: checkpoint carries pack_step without "
+                "pack_manifest_sha256 - identity cannot be verified (fail closed)"
+            )
+        if (
+            current_pack_manifest_sha256
+            and checkpoint_pack_sha
+            and current_pack_manifest_sha256 != checkpoint_pack_sha
+        ):
+            raise RuntimeError(
+                "SAME_PACK resume refused: checkpoint was trained on a different "
+                f"pack ({str(checkpoint_pack_sha)[:16]}... != "
+                f"{str(current_pack_manifest_sha256)[:16]}...). Use NEW_PACK_PARENT."
+            )
+    else:  # NEW_PACK_PARENT
+        restored_pack_step = 0
+
+    param_digest = hashlib.sha256()
+    for key in sorted(state):
+        param_digest.update(key.encode())
+        param_digest.update(state[key].numpy().tobytes())
+
+    return RestoredTrainingState(
+        global_step=int(payload.get("global_step", 0) or 0),
+        pack_step=restored_pack_step,
+        pack_manifest_sha256=checkpoint_pack_sha,
+        optimizer_restored=optimizer_restored,
+        mode=mode,
+        checkpoint_parameter_sha256=param_digest.hexdigest(),
+    )

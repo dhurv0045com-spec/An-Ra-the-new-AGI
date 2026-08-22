@@ -153,6 +153,121 @@ def _move_optimizer_state(optimizer: torch.optim.Optimizer, device: torch.device
                 state[key] = value.to(device)
 
 
+# --------------------------------------------------------------------------
+# CPU preflight: verify pack semantics + explicit checkpoint BEFORE workers.
+# --------------------------------------------------------------------------
+
+
+def preflight(
+    *,
+    dataset_path: Path,
+    checkpoint_path: Path | None,
+    block_size: int,
+    vocab_size: int,
+) -> dict[str, Any]:
+    """Fail-closed validation on CPU before any TPU worker spawns.
+
+    Returns the run identity block used in the receipt. Raises on:
+    - pack that is missing/malformed/semantically invalid
+    - resume requested without an exact checkpoint path (never guess)
+    - checkpoint that cannot be verified
+    """
+    from training.pack_verify import PackVerificationError, verify_pack
+
+    train_root = dataset_path / "train" if (dataset_path / "train").is_dir() else dataset_path
+    try:
+        pack = verify_pack(
+            train_root.parent if (dataset_path / "train").is_dir() else dataset_path,
+            vocab_size=vocab_size,
+            expected_block_size=block_size,
+        )
+    except PackVerificationError as exc:
+        raise RuntimeError(f"REFUSING TO TRAIN - pack verification failed: {exc}") from exc
+
+    identity_block: dict[str, Any] = {
+        "pack_manifest_sha256": pack.manifest_sha256,
+        "pack_total_tokens": pack.total_tokens,
+        "pack_windows": pack.total_windows,
+        "pack_shards": len(pack.shard_paths),
+        "block_size": block_size,
+    }
+
+    if checkpoint_path is not None:
+        from training.resume import restore_training_state
+
+        # Verify the checkpoint loads through the CANONICAL restore path on a
+        # throwaway model - the exact path the workers will use.
+        probe_model = AnRaCore(CANONICAL_CONFIG)
+        probe_optimizer = torch.optim.AdamW(probe_model.parameters(), lr=1e-4)
+        restored = restore_training_state(
+            str(checkpoint_path), probe_model, probe_optimizer,
+            mode="new_pack_parent",
+        )
+        identity_block.update(
+            {
+                "parent_checkpoint": str(checkpoint_path),
+                "parent_global_step": restored.global_step,
+                "parent_parameter_sha256": restored.checkpoint_parameter_sha256,
+                "parent_optimizer_restored": restored.optimizer_restored,
+                "parent_mode": restored.mode,
+            }
+        )
+        del probe_model, probe_optimizer
+    else:
+        raise RuntimeError(
+            "REFUSING TO TRAIN: no checkpoint selected. Set ANRA_TPU_CHECKPOINT "
+            "or pass --resume-from with the EXACT parent path (never auto-pick "
+            "by highest step: step-30.4k measured worse than step-20k)."
+        )
+    return identity_block
+
+
+def write_run_receipt(
+    run_dir: Path,
+    *,
+    identity_block: dict[str, Any],
+    config: dict[str, Any],
+    world_size: int,
+) -> Path:
+    """One receipt that makes the run reconstructable. Written pre-training;
+    post-training fields are appended by the trainer on completion."""
+    import hashlib
+    import subprocess
+
+    def _git(*args: str) -> str:
+        try:
+            return subprocess.run(
+                ["git", *args], capture_output=True, text=True, check=True
+            ).stdout.strip()
+        except Exception:
+            return ""
+
+    receipt = {
+        "run_id": time.strftime("%Y%m%d-%H%M%S"),
+        "schema": "anra-run-receipt/v1",
+        "source_commit": _git("rev-parse", "HEAD"),
+        "git_dirty": bool(_git("status", "--porcelain")),
+        **identity_block,
+        "world_size": world_size,
+        "precision": "bf16",
+        **{k: config.get(k) for k in (
+            "batch_size", "grad_accum_steps", "learning_rate",
+            "weight_decay", "seed", "max_steps", "max_minutes",
+            "save_interval", "candidate_interval",
+        )},
+        "sequence_length": CANONICAL_CONFIG.block_size,
+        "tokens_per_optimizer_step": (
+            config.get("batch_size", 1) * config.get("grad_accum_steps", 1)
+            * world_size * CANONICAL_CONFIG.block_size
+        ),
+        "schedule": "wsd_2pct_warmup_stable_linear_decay_to_10pct",
+    }
+    path = run_dir / "receipt.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(receipt, indent=2), encoding="utf-8")
+    return path
+
+
 def _checkpoint_payload(
     model: torch.nn.Module,
     optimizer: torch.optim.Optimizer,
@@ -162,14 +277,17 @@ def _checkpoint_payload(
     metrics: dict[str, float],
     source_checkpoint: str | None,
     world_size: int,
+    *,
+    artifact_class: str = "full_resume",
 ) -> dict[str, object]:
     raw_model = model.module if hasattr(model, "module") else model
     state = {name: value.detach().cpu() for name, value in raw_model.state_dict().items()}
     state["lm_head.weight"] = state["token_embedding_table.weight"]
     return {
-        "checkpoint_artifact_class": "full_resume",
+        "checkpoint_artifact_class": artifact_class,
         "checkpoint_schema_version": 1,
         "global_step": int(step),
+        "pack_manifest_sha256": config.get("pack_manifest_sha256"),
         "training_stage": "pretraining_tpu_xla",
         "source_commit": os.environ.get("ANRA_SOURCE_COMMIT", "unknown"),
         "source_checkpoint": source_checkpoint,
@@ -184,6 +302,13 @@ def _checkpoint_payload(
             "world_size": int(world_size),
         },
     }
+
+
+def _atomic_save(payload: dict[str, object], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_name(f".{path.name}.{os.getpid()}.uploading")
+    torch.save(payload, str(temporary))
+    os.replace(temporary, path)
 
 
 def _save_latest(
@@ -248,15 +373,28 @@ def _worker(index: int, config: dict[str, object]) -> None:
     source_checkpoint: str | None = str(resume_path) if resume_path else None
 
     if resume_path:
-        model, payload, identity = load_core_checkpoint(resume_path)
+        # Canonical restore: install checkpoint INTO this worker's model and
+        # verify per tensor (P0 fix). The legacy step-20k artifact becomes a
+        # schema-v2 continuation boundary here - honestly, without pretending
+        # a historical data cursor exists.
+        from training.resume import restore_training_state
+
+        restored = restore_training_state(
+            str(resume_path), model, optimizer, mode="new_pack_parent",
+        )
+        start_step = restored.global_step
+        payload = {"pack_manifest_sha256": None}
         if rank == 0:
             print(
-                f"[TPU resume] step={identity.global_step or 0:,} "
-                f"parameter_sha256={identity.parameter_sha256}",
+                f"[TPU resume] mode={restored.mode} step={start_step:,} "
+                f"parameter_sha256={restored.checkpoint_parameter_sha256[:16]} "
+                f"optimizer={'restored' if restored.optimizer_restored else 'FRESH'} "
+                f"-> schema-v2 continuation boundary established",
                 flush=True,
             )
     else:
         model, payload = AnRaCore(CANONICAL_CONFIG), {}
+        start_step = 0
 
     model = model.to(device)
     model.train()
@@ -342,6 +480,12 @@ def _worker(index: int, config: dict[str, object]) -> None:
         torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
         xm.optimizer_step(optimizer, barrier=True)
         latest_loss = loss_sum / grad_accum
+        # NaN/Inf guard (fail closed): never checkpoint a corrupted run.
+        if not bool(torch.isfinite(latest_loss).all()):
+            raise RuntimeError(
+                f"NON-FINITE LOSS at step {step + 1}: {float(latest_loss.cpu())}. "
+                "Refusing to save; last healthy recovery checkpoint is preserved."
+            )
         loss_window.add_(latest_loss)
         loss_window_steps += 1
         completed = step + 1
@@ -366,6 +510,23 @@ def _worker(index: int, config: dict[str, object]) -> None:
                 {"loss": float(latest_loss.cpu())}, source_checkpoint, world_size,
             )
 
+        # Sparse immutable candidates (never overwritten): research lineage.
+        candidate_interval = int(config.get("candidate_interval") or 0)
+        if rank == 0 and candidate_interval > 0 and completed % candidate_interval == 0:
+            raw_model = model.module if hasattr(model, "module") else model
+            candidate_payload = _checkpoint_payload(
+                raw_model, optimizer, config, tokenizer, completed,
+                {"loss": float(latest_loss.cpu())}, source_checkpoint, world_size,
+                artifact_class="candidate_model_only",
+            )
+            candidate_payload.pop("optimizer_state_dict", None)  # small lineage files
+            candidate_path = (
+                output.parent / "candidates" / f"anra-v4-step-{completed:05d}.pt"
+            )
+            if not candidate_path.exists():
+                _atomic_save(candidate_payload, candidate_path)
+                print(f"[candidate] step={completed:,} -> {candidate_path}", flush=True)
+
     _save_latest(
         xm, output, model, optimizer, CANONICAL_CONFIG, tokenizer, completed if "completed" in locals() else start_step,
         {"loss": float(latest_loss.cpu()) if latest_loss is not None else 0.0},
@@ -386,7 +547,32 @@ def run(args: argparse.Namespace) -> None:
         raise ValueError("--batch-size and --grad-accum-steps must be positive")
     if args.save_interval <= 0 or args.log_interval <= 0:
         raise ValueError("--save-interval and --log-interval must be positive")
+
+    dataset_path = Path(args.dataset_path).expanduser()
+    resume_from = (
+        os.environ.get("ANRA_TPU_CHECKPOINT") or args.resume_from
+        if (os.environ.get("ANRA_TPU_CHECKPOINT") or args.resume_from)
+        else None
+    )
+    checkpoint_path = Path(resume_from).expanduser() if resume_from else None
+
+    # CPU preflight BEFORE spawning workers: pack semantics + exact parent.
+    identity_block = preflight(
+        dataset_path=dataset_path,
+        checkpoint_path=checkpoint_path,
+        block_size=CANONICAL_CONFIG.block_size,
+        vocab_size=CANONICAL_CONFIG.vocab_size,
+    )
+
     config = vars(args).copy()
+    config["pack_manifest_sha256"] = identity_block["pack_manifest_sha256"]
+    receipt = write_run_receipt(
+        output_dir := Path(args.output_checkpoint).expanduser().parent,
+        identity_block=identity_block, config=config,
+        world_size=int(os.environ.get("EXPECTED_TPU_WORKERS", "8")),
+    )
+    print(f"[preflight OK] receipt: {receipt}", flush=True)
+
     # ``torch_xla.launch`` is the current PJRT entrypoint: it launches exactly
     # the TPU workers granted by Kaggle instead of assuming a fixed process
     # topology.  Keep the legacy launcher only for older Kaggle XLA images.
@@ -406,7 +592,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="An-Ra V4 TPU v5e-8 trainer")
     parser.add_argument("--dataset-path", required=True)
     parser.add_argument("--output-checkpoint", required=True)
-    parser.add_argument("--resume-from")
+    parser.add_argument("--resume-from",
+                        help="EXACT parent checkpoint path (never auto-selected)")
     parser.add_argument("--max-steps", type=int, default=10_000)
     parser.add_argument("--max-minutes", type=float, default=0.0)
     parser.add_argument("--batch-size", type=int, default=1)
@@ -414,6 +601,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--learning-rate", type=float, default=2e-4)
     parser.add_argument("--weight-decay", type=float, default=0.1)
     parser.add_argument("--save-interval", type=int, default=200)
+    parser.add_argument("--candidate-interval", type=int, default=1000,
+                        help="sparse immutable candidate checkpoints (0 disables)")
     parser.add_argument("--log-interval", type=int, default=10)
     parser.add_argument("--seed", type=int, default=1301)
     return parser.parse_args(argv)

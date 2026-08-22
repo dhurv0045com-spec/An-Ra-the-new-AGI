@@ -127,13 +127,21 @@ def test_build_manifest_round_trips(pack_dir: Path) -> None:
 
 
 def test_shard_dataset_windows_align(tmp_path: Path) -> None:
-    from training.train_tpu import ShardWindowDataset
+    from training.train_xla import TokenShardDataset
 
     tokens = np.arange(1_000, dtype=np.int16)
     array_path = tmp_path / "shard.npy"
     np.save(array_path, tokens)
-    dataset = ShardWindowDataset((array_path,), block_size=64)
+    dataset = TokenShardDataset(tmp_path, block_size=64)
     x, y = dataset[0]
     assert x.shape == (64,) and y.shape == (64,)
     assert int(x[0]) == 0 and int(y[0]) == 1
     assert int(x[-1]) == 63 and int(y[-1]) == 64
+
+
+def test_deprecated_train_tpu_refuses_use() -> None:
+    """The old trainer must be a hard failure, not a second production path."""
+    import importlib
+
+    with pytest.raises(RuntimeError, match="training.train_xla"):
+        importlib.import_module("training.train_tpu").anything

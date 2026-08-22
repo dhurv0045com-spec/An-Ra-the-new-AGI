@@ -45,7 +45,9 @@ def test_resume_installs_checkpoint_weights_into_caller_model(tmp_path) -> None:
     checkpoint parameters after resume, before any optimizer step."""
     from anra_core.config import CANONICAL_CONFIG
     from anra_core.model import AnRaCore
-    from training.train_tpu import ResumeMode, _restore_training_state
+    from training.resume import RESUME_SAME_PACK as SAME_PACK
+    from training.resume import RESUME_NEW_PACK_PARENT as NEW_PACK_PARENT
+    from training.resume import restore_training_state as _restore_training_state
 
     ckpt_path, ckpt_state = _make_checkpoint(tmp_path, "parent.pt", marker_delta=0.5)
     probe = "blocks.0.norm_1.weight"
@@ -57,7 +59,7 @@ def test_resume_installs_checkpoint_weights_into_caller_model(tmp_path) -> None:
     optimizer = torch.optim.AdamW(trainer_model.parameters(), lr=1e-3)
     restored = _restore_training_state(
         str(ckpt_path), trainer_model, optimizer,
-        mode=ResumeMode.SAME_PACK, current_pack_manifest_sha256="a" * 64,
+        mode=SAME_PACK, current_pack_manifest_sha256="a" * 64,
     )
 
     # The invariant: immediately before the first optimizer step, the trainer's
@@ -74,7 +76,9 @@ def test_resume_installs_checkpoint_weights_into_caller_model(tmp_path) -> None:
 def test_same_pack_resume_refuses_different_pack_identity(tmp_path) -> None:
     from anra_core.config import CANONICAL_CONFIG
     from anra_core.model import AnRaCore
-    from training.train_tpu import ResumeMode, _restore_training_state
+    from training.resume import RESUME_SAME_PACK as SAME_PACK
+    from training.resume import RESUME_NEW_PACK_PARENT as NEW_PACK_PARENT
+    from training.resume import restore_training_state as _restore_training_state
 
     ckpt_path, _state = _make_checkpoint(tmp_path, "p.pt")
     model = AnRaCore(CANONICAL_CONFIG)
@@ -82,7 +86,7 @@ def test_same_pack_resume_refuses_different_pack_identity(tmp_path) -> None:
     with pytest.raises(RuntimeError, match="different pack"):
         _restore_training_state(
             str(ckpt_path), model, optimizer,
-            mode=ResumeMode.SAME_PACK, current_pack_manifest_sha256="b" * 64,
+            mode=SAME_PACK, current_pack_manifest_sha256="b" * 64,
         )
 
 
@@ -90,7 +94,9 @@ def test_same_pack_resume_refuses_unverifiable_pack_step(tmp_path) -> None:
     """pack_step without pack identity is meaningless - fail closed."""
     from anra_core.config import CANONICAL_CONFIG
     from anra_core.model import AnRaCore
-    from training.train_tpu import ResumeMode, _restore_training_state
+    from training.resume import RESUME_SAME_PACK as SAME_PACK
+    from training.resume import RESUME_NEW_PACK_PARENT as NEW_PACK_PARENT
+    from training.resume import restore_training_state as _restore_training_state
 
     ckpt_path, _ = _make_checkpoint(tmp_path, "p.pt")
     payload = torch.load(ckpt_path, weights_only=False)
@@ -100,19 +106,21 @@ def test_same_pack_resume_refuses_unverifiable_pack_step(tmp_path) -> None:
     model = AnRaCore(CANONICAL_CONFIG)
     optimizer = torch.optim.AdamW(model.parameters(), lr=1e-3)
     with pytest.raises(RuntimeError, match="cannot be verified"):
-        _restore_training_state(str(ckpt_path), model, optimizer, mode=ResumeMode.SAME_PACK)
+        _restore_training_state(str(ckpt_path), model, optimizer, mode=SAME_PACK)
 
 
 def test_new_pack_parent_resets_pack_step(tmp_path) -> None:
     from anra_core.config import CANONICAL_CONFIG
     from anra_core.model import AnRaCore
-    from training.train_tpu import ResumeMode, _restore_training_state
+    from training.resume import RESUME_SAME_PACK as SAME_PACK
+    from training.resume import RESUME_NEW_PACK_PARENT as NEW_PACK_PARENT
+    from training.resume import restore_training_state as _restore_training_state
 
     ckpt_path, state = _make_checkpoint(tmp_path, "p.pt")
     model = AnRaCore(CANONICAL_CONFIG)
     optimizer = torch.optim.AdamW(model.parameters(), lr=1e-3)
     restored = _restore_training_state(
-        str(ckpt_path), model, optimizer, mode=ResumeMode.NEW_PACK_PARENT,
+        str(ckpt_path), model, optimizer, mode=NEW_PACK_PARENT,
     )
     assert restored.pack_step == 0, "new pack must start at schedule position 0"
     # Model weights still restored (it IS the parent).
