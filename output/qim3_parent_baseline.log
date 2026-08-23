@@ -1,0 +1,28 @@
+{
+  "label": "accumulate-parent",
+  "fixture_sha256": "27713accb3aa6825de23cf09540497943a0e56ca3ac177ba94f0f164f740a614",
+  "vocab_disjointness": {
+    "overlaps": {
+      "grouped_queryswap_train": [],
+      "grouped_queryswap_heldout": [],
+      "capability_bank_train": [],
+      "capability_bank_dev": [],
+      "qim_v2": []
+    },
+    "disjoint": true
+  },
+  "group_level": {
+    "n_groups": 40,
+    "mean_group_lift": 0.0192,
+    "median_group_lift": -0.0085,
+    "groups_positive": "19/40",
+    "sign_flip_p_mean_gt_0": 0.2655
+  },
+  "candidate_diagnostic_only": {
+    "mean_candidate_lift": 0.0155,
+    "correct_rank1_fraction": "40/119",
+    "mean_correct_rank": 2.08,
+    "greedy_corresponding_accuracy": "36/119"
+  }
+}
+wrote output/qim3_parent_baseline.json

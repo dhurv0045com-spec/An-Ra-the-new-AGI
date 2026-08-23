@@ -1,0 +1,20 @@
+[load] parent checkpoints/anra-v4-20k-sft3-accumulate.pt
+[load] step=20000 params=180,093,312
+[baseline @update0] heldout=0.317 extraction=3/12 families={'single_fact': 0.7, 'tool_result': 0.5, 'copy': 1.0, 'protocol_transfer': 0.6}
+  [eval @upd 0] heldout=0.317 lift=+0.014 ext=3/12 fams={"single_fact": 0.7, "tool_result": 0.5, "copy": 1.0, "protocol_transfer": 0.6}
+  [eval @upd 5] heldout=0.300 lift=+0.035 ext=0/12 fams={"single_fact": 0.7, "tool_result": 0.55, "copy": 1.0, "protocol_transfer": 0.6}
+  [eval @upd 10] heldout=0.300 lift=+0.030 ext=0/12 fams={"single_fact": 0.7, "tool_result": 0.6, "copy": 1.0, "protocol_transfer": 0.6}
+  [eval @upd 20] heldout=0.350 lift=+0.042 ext=0/12 fams={"single_fact": 0.7, "tool_result": 0.6, "copy": 1.0, "protocol_transfer": 0.6}
+  [eval @upd 30] heldout=0.283 lift=+0.054 ext=1/12 fams={"single_fact": 0.7, "tool_result": 0.65, "copy": 1.0, "protocol_transfer": 0.6}
+  [eval @upd 40] heldout=0.417 lift=+0.077 ext=1/12 fams={"single_fact": 0.7, "tool_result": 0.6, "copy": 1.0, "protocol_transfer": 0.6}
+  [save] gated-eligible candidate score=1.258 -> checkpoints/anra-v4-20k-sft6-queryswap-replication.pt
+  [eval @upd 50] heldout=0.533 lift=+0.123 ext=2/12 fams={"single_fact": 0.7, "tool_result": 0.65, "copy": 1.0, "protocol_transfer": 0.55}
+  [save] gated-eligible candidate score=1.458 -> checkpoints/anra-v4-20k-sft6-queryswap-replication.pt
+  [eval @upd 60] heldout=0.733 lift=+0.504 ext=5/12 fams={"single_fact": 0.7, "tool_result": 0.65, "copy": 1.0, "protocol_transfer": 0.55}
+  [save] gated-eligible candidate score=1.492 -> checkpoints/anra-v4-20k-sft6-queryswap-replication.pt
+  [eval @upd 70] heldout=0.767 lift=+0.658 ext=3/12 fams={"single_fact": 0.75, "tool_result": 0.6, "copy": 1.0, "protocol_transfer": 0.55}
+  [save] gated-eligible candidate score=1.529 -> checkpoints/anra-v4-20k-sft6-queryswap-replication.pt
+  [save] fallback candidate @u80 sha=36c87e5be671
+  [eval @upd 80] heldout=0.817 lift=+1.155 ext=2/12 fams={"single_fact": 0.7, "tool_result": 0.6, "copy": 1.0, "protocol_transfer": 0.55}
+[done] best={'update': 80, 'param_sha256': '36c87e5be671ff37951b4b433e21ec14bb5e59f6f0770d7f81e50e99ead9e001', 'dev_heldout_acc': 0.8167, 'extraction': '2/12', 'qim2_mean_group_lift': 1.1554} wall=1910.1s -> output/replication_receipt.json
+[free] reserved=1502 MiB

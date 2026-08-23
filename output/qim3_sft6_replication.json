@@ -1,0 +1,92 @@
+{
+  "schema": "anra-query-influence/v3-replication",
+  "role": "DEVELOPMENT_REPLICATION_ONLY",
+  "label": "sft6-queryswap-replication",
+  "checkpoint": "checkpoints/anra-v4-20k-sft6-queryswap-replication.pt",
+  "global_step": 20000,
+  "parameter_sha256": "36c87e5be671ff37951b4b433e21ec14bb5e59f6f0770d7f81e50e99ead9e001",
+  "fixture_sha256": "27713accb3aa6825de23cf09540497943a0e56ca3ac177ba94f0f164f740a614",
+  "vocab_disjointness": {
+    "overlaps": {
+      "grouped_queryswap_train": [],
+      "grouped_queryswap_heldout": [],
+      "capability_bank_train": [],
+      "capability_bank_dev": [],
+      "qim_v2": []
+    },
+    "disjoint": true
+  },
+  "primary_unit": "fact_group",
+  "per_group_query_lift": [
+    1.196,
+    4.8218,
+    1.0624,
+    6.7886,
+    0.1504,
+    3.8215,
+    -0.268,
+    0.4016,
+    0.2508,
+    3.4983,
+    0.1814,
+    5.1268,
+    -1.0769,
+    5.2139,
+    0.8163,
+    3.5764,
+    0.2287,
+    3.0965,
+    0.2232,
+    4.9084,
+    0.3633,
+    5.75,
+    -0.4695,
+    4.3145,
+    0.6789,
+    4.2274,
+    0.2236,
+    6.8484,
+    0.2804,
+    4.8006,
+    0.371,
+    5.4525,
+    -0.1495,
+    7.4671,
+    0.7003,
+    4.905,
+    0.545,
+    3.9128,
+    0.8174,
+    5.1499
+  ],
+  "group_level": {
+    "n_groups": 40,
+    "mean_group_lift": 2.5052,
+    "median_group_lift": 1.196,
+    "groups_positive": "36/40",
+    "sign_flip_p_mean_gt_0": 0.0
+  },
+  "candidate_diagnostic_only": {
+    "mean_candidate_lift": 2.4313,
+    "correct_rank1_fraction": "63/119",
+    "mean_correct_rank": 1.72,
+    "greedy_corresponding_accuracy": "24/119"
+  },
+  "timestamp": "2026-08-23 21:59:18",
+  "source_commit": "6e1f4f8ccd2064fec7b53ed46afb1bca37f5c714",
+  "paired_vs_parent": {
+    "parent_label": "accumulate-parent",
+    "parent_parameter_sha256": "c3bc615eb3ffc8628f82088c433507baa142a0fecf91e4f6e64f9b17729e0625",
+    "parent_mean_group_lift": 0.0192,
+    "child_mean_group_lift": 2.5052,
+    "mean_paired_delta": 2.486,
+    "median_paired_delta": 1.2977,
+    "positive_delta_groups": "35/40",
+    "paired_sign_flip_p": 0.0,
+    "bootstrap95CI_mean_delta": [
+      1.7479,
+      3.258
+    ],
+    "effect_size_dz": 1.011
+  }
+}

@@ -1,0 +1,30 @@
+name: deterministic-contracts
+
+on:
+  push:
+    branches: [core-exp]
+  pull_request:
+    branches: [core-exp]
+
+jobs:
+  cpu-contract-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # torch CPU wheel is the only heavyweight dependency; everything else
+      # is stdlib. The contract tests use tiny random models (d_model=32).
+      - name: Install torch (CPU)
+        run: pip install torch --index-url https://download.pytorch.org/whl/cpu
+
+      - name: Run deterministic contract tests
+        run: |
+          python -m pytest tests/test_query_influence.py \
+                            tests/test_grouped_queryswap_contracts.py \
+                            tests/test_cognitive_credit.py \
+                            -q

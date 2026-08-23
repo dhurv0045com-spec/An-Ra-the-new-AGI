@@ -1,0 +1,33 @@
+candidate_label: GATED_DEVELOPMENT_BEST
+optimizer_update: 80
+param_sha256: 36c87e5be671ff37951b4b433e21ec14bb5e59f6f0770d7f81e50e99ead9e001
+{
+  "group_level": {
+    "n_groups": 40,
+    "mean_group_lift": 2.5052,
+    "median_group_lift": 1.196,
+    "groups_positive": "36/40",
+    "sign_flip_p_mean_gt_0": 0.0
+  },
+  "candidate_diagnostic_only": {
+    "mean_candidate_lift": 2.4313,
+    "correct_rank1_fraction": "63/119",
+    "mean_correct_rank": 1.72,
+    "greedy_corresponding_accuracy": "24/119"
+  },
+  "paired_vs_parent": {
+    "parent_label": "accumulate-parent",
+    "parent_parameter_sha256": "c3bc615eb3ffc8628f82088c433507baa142a0fecf91e4f6e64f9b17729e0625",
+    "parent_mean_group_lift": 0.0192,
+    "child_mean_group_lift": 2.5052,
+    "mean_paired_delta": 2.486,
+    "median_paired_delta": 1.2977,
+    "positive_delta_groups": "35/40",
+    "paired_sign_flip_p": 0.0,
+    "bootstrap95CI_mean_delta": [
+      1.7479,
+      3.258
+    ],
+    "effect_size_dz": 1.011
+  }
+}

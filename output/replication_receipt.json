@@ -1,0 +1,388 @@
+{
+  "schema": "anra-grouped-queryswap-replication/v1",
+  "proposal_id": "tp-grouped-queryswap-replication-002",
+  "timestamp": "2026-08-23 21:56:10",
+  "parent_checkpoint": "checkpoints/anra-v4-20k-sft3-accumulate.pt",
+  "parent_parameter_sha256": "c3bc615eb3ffc8628f82088c433507baa142a0fecf91e4f6e64f9b17729e0625",
+  "data_dir": "data/grouped_queryswap",
+  "train_sha256": "81aa67b521bb1eb4130699ba3e20ddad1a8e5cc0feed5865152e9bf6828395a2",
+  "heldout_sha256": "3debddf1ffd9ef68f47c9c479913d1685ed4661ff6beceebec1747030580c035",
+  "split_audit": {
+    "n_train_groups": 49,
+    "n_heldout_groups": 21,
+    "group_overlap": 0,
+    "prompt_overlap": 0,
+    "full_fact_block_overlap": 0,
+    "train_data_sha256": "e168f925858bb6dbcd6cbaf48821b5b04137667cfbbbc8921ed7ab9db639135f",
+    "heldout_data_sha256": "d5144e42af695c31cc6fc5ff2e0dc914c63e5ab413882a46422cd810a0b17429",
+    "split_manifest_sha256": "694400a7cbf6d34fdf514e2c417f80575d9c8c0226797c9c7842ef4fc35a1d66"
+  },
+  "objective": {
+    "unit": "queryswap GROUP (mean member loss per micro-unit)",
+    "alpha_group_loss": 0.58,
+    "replay_weight": 0.42,
+    "note": "alpha is the UNIT-level gradient weight (Bernoulli mix over micro-slots); row percentages are descriptive only"
+  },
+  "units_per_epoch": {
+    "target_groups": 49,
+    "replay_rows_balanced": 120,
+    "replay_dropped_for_balance": 0
+  },
+  "realized_mix": {
+    "group_units": 367,
+    "replay_units": 273,
+    "group_unit_share": 0.5734
+  },
+  "hyper": {
+    "lr": 3e-05,
+    "accum": 8,
+    "optimizer_updates": 80,
+    "seed": 1701
+  },
+  "baseline": {
+    "heldout_acc": 0.3167,
+    "extraction": "3/12",
+    "protected_families": {
+      "single_fact": 0.7,
+      "tool_result": 0.5,
+      "copy": 1.0,
+      "protocol_transfer": 0.6
+    },
+    "qim_v2_mean_group_lift": 0.0141
+  },
+  "trajectory": [
+    {
+      "optimizer_update": 0,
+      "dev_heldout_acc": 0.3167,
+      "dev_detail": {
+        "queryswap_group:prose": {
+          "acc": 0.36,
+          "n": 25
+        },
+        "queryswap_group:table": {
+          "acc": 0.2857142857142857,
+          "n": 35
+        }
+      },
+      "qim_v2_mean_group_lift": 0.0141,
+      "context_value_extraction": "3/12",
+      "protected_families": {
+        "single_fact": 0.7,
+        "tool_result": 0.5,
+        "copy": 1.0,
+        "protocol_transfer": 0.6
+      },
+      "floors_vs_parent": {
+        "single_fact": true,
+        "tool_result": true,
+        "copy": true,
+        "protocol_transfer": true
+      },
+      "extraction_floor_ok": true,
+      "eligible": false,
+      "saved_param_sha256": null,
+      "fallback_param_sha256": null
+    },
+    {
+      "optimizer_update": 5,
+      "dev_heldout_acc": 0.3,
+      "dev_detail": {
+        "queryswap_group:prose": {
+          "acc": 0.24,
+          "n": 25
+        },
+        "queryswap_group:table": {
+          "acc": 0.34285714285714286,
+          "n": 35
+        }
+      },
+      "qim_v2_mean_group_lift": 0.0345,
+      "context_value_extraction": "0/12",
+      "protected_families": {
+        "single_fact": 0.7,
+        "tool_result": 0.55,
+        "copy": 1.0,
+        "protocol_transfer": 0.6
+      },
+      "floors_vs_parent": {
+        "single_fact": true,
+        "tool_result": true,
+        "copy": true,
+        "protocol_transfer": true
+      },
+      "extraction_floor_ok": false,
+      "eligible": false,
+      "saved_param_sha256": null,
+      "fallback_param_sha256": null
+    },
+    {
+      "optimizer_update": 10,
+      "dev_heldout_acc": 0.3,
+      "dev_detail": {
+        "queryswap_group:prose": {
+          "acc": 0.28,
+          "n": 25
+        },
+        "queryswap_group:table": {
+          "acc": 0.3142857142857143,
+          "n": 35
+        }
+      },
+      "qim_v2_mean_group_lift": 0.0302,
+      "context_value_extraction": "0/12",
+      "protected_families": {
+        "single_fact": 0.7,
+        "tool_result": 0.6,
+        "copy": 1.0,
+        "protocol_transfer": 0.6
+      },
+      "floors_vs_parent": {
+        "single_fact": true,
+        "tool_result": true,
+        "copy": true,
+        "protocol_transfer": true
+      },
+      "extraction_floor_ok": false,
+      "eligible": false,
+      "saved_param_sha256": null,
+      "fallback_param_sha256": null
+    },
+    {
+      "optimizer_update": 20,
+      "dev_heldout_acc": 0.35,
+      "dev_detail": {
+        "queryswap_group:prose": {
+          "acc": 0.36,
+          "n": 25
+        },
+        "queryswap_group:table": {
+          "acc": 0.34285714285714286,
+          "n": 35
+        }
+      },
+      "qim_v2_mean_group_lift": 0.0422,
+      "context_value_extraction": "0/12",
+      "protected_families": {
+        "single_fact": 0.7,
+        "tool_result": 0.6,
+        "copy": 1.0,
+        "protocol_transfer": 0.6
+      },
+      "floors_vs_parent": {
+        "single_fact": true,
+        "tool_result": true,
+        "copy": true,
+        "protocol_transfer": true
+      },
+      "extraction_floor_ok": false,
+      "eligible": false,
+      "saved_param_sha256": null,
+      "fallback_param_sha256": null
+    },
+    {
+      "optimizer_update": 30,
+      "dev_heldout_acc": 0.2833,
+      "dev_detail": {
+        "queryswap_group:prose": {
+          "acc": 0.24,
+          "n": 25
+        },
+        "queryswap_group:table": {
+          "acc": 0.3142857142857143,
+          "n": 35
+        }
+      },
+      "qim_v2_mean_group_lift": 0.0539,
+      "context_value_extraction": "1/12",
+      "protected_families": {
+        "single_fact": 0.7,
+        "tool_result": 0.65,
+        "copy": 1.0,
+        "protocol_transfer": 0.6
+      },
+      "floors_vs_parent": {
+        "single_fact": true,
+        "tool_result": true,
+        "copy": true,
+        "protocol_transfer": true
+      },
+      "extraction_floor_ok": false,
+      "eligible": false,
+      "saved_param_sha256": null,
+      "fallback_param_sha256": null
+    },
+    {
+      "optimizer_update": 40,
+      "dev_heldout_acc": 0.4167,
+      "dev_detail": {
+        "queryswap_group:prose": {
+          "acc": 0.28,
+          "n": 25
+        },
+        "queryswap_group:table": {
+          "acc": 0.5142857142857142,
+          "n": 35
+        }
+      },
+      "qim_v2_mean_group_lift": 0.0775,
+      "context_value_extraction": "1/12",
+      "protected_families": {
+        "single_fact": 0.7,
+        "tool_result": 0.6,
+        "copy": 1.0,
+        "protocol_transfer": 0.6
+      },
+      "floors_vs_parent": {
+        "single_fact": true,
+        "tool_result": true,
+        "copy": true,
+        "protocol_transfer": true
+      },
+      "extraction_floor_ok": false,
+      "eligible": false,
+      "saved_param_sha256": null,
+      "fallback_param_sha256": null
+    },
+    {
+      "optimizer_update": 50,
+      "dev_heldout_acc": 0.5333,
+      "dev_detail": {
+        "queryswap_group:prose": {
+          "acc": 0.4,
+          "n": 25
+        },
+        "queryswap_group:table": {
+          "acc": 0.6285714285714286,
+          "n": 35
+        }
+      },
+      "qim_v2_mean_group_lift": 0.1231,
+      "context_value_extraction": "2/12",
+      "protected_families": {
+        "single_fact": 0.7,
+        "tool_result": 0.65,
+        "copy": 1.0,
+        "protocol_transfer": 0.55
+      },
+      "floors_vs_parent": {
+        "single_fact": true,
+        "tool_result": true,
+        "copy": true,
+        "protocol_transfer": true
+      },
+      "extraction_floor_ok": true,
+      "eligible": true,
+      "saved_param_sha256": "315eb2e74490adc94a11a49305e450d6007ef7239618a415d5050cbb10a5b191",
+      "fallback_param_sha256": null
+    },
+    {
+      "optimizer_update": 60,
+      "dev_heldout_acc": 0.7333,
+      "dev_detail": {
+        "queryswap_group:prose": {
+          "acc": 0.6,
+          "n": 25
+        },
+        "queryswap_group:table": {
+          "acc": 0.8285714285714286,
+          "n": 35
+        }
+      },
+      "qim_v2_mean_group_lift": 0.5044,
+      "context_value_extraction": "5/12",
+      "protected_families": {
+        "single_fact": 0.7,
+        "tool_result": 0.65,
+        "copy": 1.0,
+        "protocol_transfer": 0.55
+      },
+      "floors_vs_parent": {
+        "single_fact": true,
+        "tool_result": true,
+        "copy": true,
+        "protocol_transfer": true
+      },
+      "extraction_floor_ok": true,
+      "eligible": true,
+      "saved_param_sha256": "e100f5a08d284bdefc1413b98c16fbe06e866f79dcca17ca618ee42b890905d1",
+      "fallback_param_sha256": null
+    },
+    {
+      "optimizer_update": 70,
+      "dev_heldout_acc": 0.7667,
+      "dev_detail": {
+        "queryswap_group:prose": {
+          "acc": 0.72,
+          "n": 25
+        },
+        "queryswap_group:table": {
+          "acc": 0.8,
+          "n": 35
+        }
+      },
+      "qim_v2_mean_group_lift": 0.658,
+      "context_value_extraction": "3/12",
+      "protected_families": {
+        "single_fact": 0.75,
+        "tool_result": 0.6,
+        "copy": 1.0,
+        "protocol_transfer": 0.55
+      },
+      "floors_vs_parent": {
+        "single_fact": true,
+        "tool_result": true,
+        "copy": true,
+        "protocol_transfer": true
+      },
+      "extraction_floor_ok": true,
+      "eligible": true,
+      "saved_param_sha256": "44a532b7f577f175292fba4ab3c0c8327e2e6bc754af906753556ded0eae4a6f",
+      "fallback_param_sha256": null
+    },
+    {
+      "optimizer_update": 80,
+      "dev_heldout_acc": 0.8167,
+      "dev_detail": {
+        "queryswap_group:prose": {
+          "acc": 0.8,
+          "n": 25
+        },
+        "queryswap_group:table": {
+          "acc": 0.8285714285714286,
+          "n": 35
+        }
+      },
+      "qim_v2_mean_group_lift": 1.1554,
+      "context_value_extraction": "2/12",
+      "protected_families": {
+        "single_fact": 0.7,
+        "tool_result": 0.6,
+        "copy": 1.0,
+        "protocol_transfer": 0.55
+      },
+      "floors_vs_parent": {
+        "single_fact": true,
+        "tool_result": true,
+        "copy": true,
+        "protocol_transfer": true
+      },
+      "extraction_floor_ok": true,
+      "eligible": true,
+      "saved_param_sha256": "36c87e5be671ff37951b4b433e21ec14bb5e59f6f0770d7f81e50e99ead9e001",
+      "fallback_param_sha256": "36c87e5be671ff37951b4b433e21ec14bb5e59f6f0770d7f81e50e99ead9e001"
+    }
+  ],
+  "best": {
+    "update": 80,
+    "param_sha256": "36c87e5be671ff37951b4b433e21ec14bb5e59f6f0770d7f81e50e99ead9e001",
+    "dev_heldout_acc": 0.8167,
+    "extraction": "2/12",
+    "qim2_mean_group_lift": 1.1554
+  },
+  "fallback_candidate": {
+    "path": null,
+    "note": "used ONLY if no gated-eligible candidate exists; labeled FALLBACK_LAST_POINT inside the checkpoint"
+  },
+  "selection_policy": "DEVELOPMENT ONLY: dev group-heldout acc > update0 AND protected-family floors AND extraction floor; QIM-v3 was never consulted before final freeze",
+  "wall_seconds": 1910.1
+}

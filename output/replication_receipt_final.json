@@ -1,0 +1,130 @@
+{
+  "schema": "anra-replication-final/v1",
+  "proposal_id": "tp-grouped-queryswap-replication-002",
+  "proposal_sha256_at_execution": "26f04aaa4609c3a8bb201752560c2953afc003f5af91acdc022e1b17e3fd9191",
+  "preregistration_commit": "6e1f4f8ccd2064fec7b53ed46afb1bca37f5c714",
+  "timestamp": "2026-08-23 22:05:00",
+
+  "parent": {
+    "path": "checkpoints/anra-v4-20k-sft3-accumulate.pt",
+    "parameter_sha256": "c3bc615eb3ffc8628f82088c433507baa142a0fecf91e4f6e64f9b17729e0625",
+    "note": "SAME parent as contaminated SFT5 (P12 satisfied)"
+  },
+  "child": {
+    "path": "checkpoints/anra-v4-20k-sft6-queryswap-replication.pt",
+    "parameter_sha256": "36c87e5be671ff37951b4b433e21ec14bb5e59f6f0770d7f81e50e99ead9e001",
+    "candidate_label_in_checkpoint": "GATED_DEVELOPMENT_BEST",
+    "optimizer_update": 80,
+    "fallback_used": false,
+    "selection": "development-only: group-heldout acc > update0 AND per-family floors AND extraction floor"
+  },
+  "data": {
+    "train_file_sha256": "81aa67b521bb1eb4130699ba3e20ddad1a8e5cc0feed5865152e9bf6828395a2",
+    "heldout_file_sha256": "3debddf1ffd9ef68f47c9c479913d1685ed4661ff6beceebec1747030580c035",
+    "split_audit_summary": {
+      "n_train_groups": 49,
+      "n_heldout_groups": 21,
+      "group_overlap": 0,
+      "prompt_overlap": 0,
+      "full_fact_block_overlap": 0
+    },
+    "alpha_group_loss_registered": 0.58,
+    "realized_mix": {"group_units": 367, "replay_units": 273, "group_unit_share": 0.5734},
+    "hyper": {"lr": 3e-05, "accum": 8, "optimizer_updates": 80, "seed": 1701}
+  },
+  "fixtures": {
+    "qim_v2_development_fixture_sha256": "da3ba8d589fe61fb",
+    "qim_v3_replication_fixture_sha256": "27713accb3aa6825de23cf09540497943a0e56ca3ac177ba94f0f164f740a614",
+    "qim_v3_child_fixture_matches_parent": true,
+    "qim_v3_vocab_disjoint_from_all_training_and_dev_vocab": true
+  },
+
+  "qim_v3_parent_baseline": {
+    "mean_group_lift": 0.0192,
+    "sign_flip_p_mean_gt_0": 0.2655,
+    "groups_positive": "19/40",
+    "rank1": "40/119",
+    "greedy_corresponding": "36/119",
+    "report": "output/qim3_parent_baseline.json"
+  },
+  "qim_v3_child_single_shot": {
+    "mean_group_lift": 2.5052,
+    "groups_positive": "36/40",
+    "rank1": "63/119",
+    "greedy_corresponding": "24/119",
+    "paired_vs_parent": {
+      "mean_paired_delta": 2.486,
+      "median_paired_delta": 1.2977,
+      "positive_delta_groups": "35/40",
+      "paired_sign_flip_p": 0.0,
+      "bootstrap95CI_mean_delta": [1.7479, 3.258],
+      "effect_size_dz": 1.011
+    },
+    "report": "output/qim3_sft6_replication.json",
+    "note": "EXACTLY ONE evaluation of the frozen child on QIM-v3 (P22 step 11); no retraining or re-evaluation on v3 is permitted afterward"
+  },
+  "qim_v2_development_child": {
+    "mean_candidate_lift_DIAGNOSTIC_ONLY": 1.1554,
+    "permutation_p_DIAGNOSTIC_ONLY": 0.0,
+    "rank1": "10/30",
+    "greedy_corresponding": "9/30",
+    "entity_ordinal_pointer": {"entity": "5/8", "ordinal": "4/8", "pointer": "4/8"},
+    "protected_retention_bank_dev": {"single_fact": "14/20", "tool_result": "12/20", "copy": "20/20", "protocol_transfer": "11/20"},
+    "report": "output/qim2_sft6.json"
+  },
+  "dev_trajectory_optimizer_updates": [
+    {"update": 0,  "heldout": 0.317, "qim_v2_lift": 0.014,  "extraction": "3/12", "eligible": false},
+    {"update": 5,  "heldout": 0.300, "qim_v2_lift": 0.035,  "extraction": "0/12", "eligible": false},
+    {"update": 10, "heldout": 0.300, "qim_v2_lift": 0.030,  "extraction": "0/12", "eligible": false},
+    {"update": 20, "heldout": 0.350, "qim_v2_lift": 0.042,  "extraction": "0/12", "eligible": false},
+    {"update": 30, "heldout": 0.283, "qim_v2_lift": 0.054,  "extraction": "1/12", "eligible": false},
+    {"update": 40, "heldout": 0.417, "qim_v2_lift": 0.077,  "extraction": "1/12", "eligible": false},
+    {"update": 50, "heldout": 0.533, "qim_v2_lift": 0.123,  "extraction": "2/12", "eligible": true},
+    {"update": 60, "heldout": 0.733, "qim_v2_lift": 0.504,  "extraction": "5/12", "eligible": true},
+    {"update": 70, "heldout": 0.767, "qim_v2_lift": 0.658,  "extraction": "3/12", "eligible": true},
+    {"update": 80, "heldout": 0.817, "qim_v2_lift": 1.155,  "extraction": "2/12", "eligible": true}
+  ],
+  "trajectory_note_P6": "the tp-grouped-queryswap-001 grid (5..50) was NOT EXECUTED in that run; THIS run executed updates 0/5/10/20/30/40/50 plus optional continuation 60/70/80, all at optimizer-update count",
+
+  "extraction_gate_PR6": {
+    "parent": "3/12 (0.250)",
+    "child_at_selected_update": "2/12 (0.167)",
+    "registered_tolerance": 0.085,
+    "floor": 0.165,
+    "verdict": "PASS AT BOUNDARY — single-item margin; fragile, flagged not hidden"
+  },
+  "protected_retention_PR7": {
+    "rule": "every protected family >= own parent baseline - 0.10 (trainer dev measurement)",
+    "parent_baselines": {"single_fact": 0.70, "tool_result": 0.50, "copy": 1.00, "protocol_transfer": 0.60},
+    "child_at_update80": {"single_fact": 0.70, "tool_result": 0.60, "copy": 1.00, "protocol_transfer": 0.55},
+    "floors_all_ok": true,
+    "bank_dev_crosscheck_parent_vs_child": {
+      "single_fact": "14/20 -> 14/20", "tool_result": "10/20 -> 12/20",
+      "copy": "20/20 -> 20/20", "protocol_transfer": "12/20 -> 11/20"},
+    "symbolic_monitor_P8": "monitored only, never gated; replay balanced across families by cap"
+  },
+
+  "preregistered_predictions": {
+    "PR1_dev_lift_delta": "PASS (+1.141 nats on QIM-v2 dev: +0.014 -> +1.155; registered minimum +0.4)",
+    "PR2_group_level_significance_v3": "PASS (paired sign-flip p=0.0000 < 0.05 over 40 independent groups on fresh disjoint vocabulary)",
+    "PR3_effect_size_v3": "PASS (+2.486 mean paired delta >= +0.4; bootstrap95CI [1.7479, 3.258]; d_z=1.011; 35/40 groups positive)",
+    "PR4_rank_movement": "PASS (rank-1 40/119 -> 63/119 on QIM-v3; margin +23 >= registered 2/40 minimum)",
+    "PR5_greedy_directional": "FAIL (greedy corresponding accuracy 36/119 -> 24/119 on QIM-v3 — regressed despite small dev gain 7/30 -> 9/30)",
+    "PR6_extraction_floor": "PASS AT BOUNDARY (0.167 >= floor 0.165 by a single item)",
+    "PR7_protected_retention": "PASS (all four families within parent-0.10; tool_result improved)"
+  },
+  "no_post_hoc_threshold_edits": "thresholds in data/proposal_grouped_queryswap_replication.json are byte-identical to the preregistration commit 6e1f4f8 (proposal sha above matches the file as committed)",
+
+  "result_class": "B",
+  "result_class_note": "Latent query-conditioning REPLICATES decisively with independent-group inference on fresh vocabulary, and rank-1 movement exceeds RESULT B's 'remains near chance' description (partial-C signature on the ranking axis). PR5 greedy failed on the preregistered replication suite, so RESULT C is NOT earned. Classified B with recorded rank movement.",
+  "scientific_conclusion": "Counterfactual query-swap training from the same parent installed a large, vocabulary-independent query-conditioned preference over candidate context values (paired group-level delta +2.486 nats on a fixture that never touched training, selection, or development), establishing that the original SFT5 signal reflected a real learning effect rather than split leakage or candidate-level pseudo-replication. The preference moves probability mass (rank-1 34%->53%) but does not yet control autoregressive generation under competition (greedy regressed); generic extraction survived exactly at its registered tolerance boundary.",
+  "phrasing_guard_P16_P17": "Claimed: training caused the requested target to exert greater influence over candidate-value probabilities, across vocabulary. NOT claimed: 'vocabulary-bound' (disproven by v3), representation formation as fact (interpretation only; residual probe remains EXPLORATORY_ONLY).",
+
+  "verified_intervention_experiences_earned": 0,
+  "behavioral_improvement_observation_note": "Adds one development-class observation; does NOT qualify as VerifiedInterventionExperience. Counts remain 12 / 0.",
+
+  "child_verdict": "PROMOTE_EXPERIMENTAL",
+  "next_research_question": "What prevents an already-present query-conditioned value preference from dominating competing candidate priors at greedy decode time (margin/calibration vs context interference vs format breadth)?",
+  "next_training_decision": "DO_NOT_TRAIN_YET",
+  "next_training_decision_rationale": "Per P24 a candidate-margin/ranking objective is now scientifically justified, but it requires its own preregistration BEFORE training; additionally the extraction gate passed by one item, so headroom must be widened/re-measured before further optimization pressure."
+}

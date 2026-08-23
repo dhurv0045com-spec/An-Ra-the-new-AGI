@@ -310,13 +310,16 @@
   "clean_replication": {
     "proposal_id": "tp-grouped-queryswap-replication-002",
     "proposal_path": "data/proposal_grouped_queryswap_replication.json",
+    "status": "COMPLETE",
+    "final_receipt": "output/replication_receipt_final.json",
+    "result_class": "B",
+    "headline": "paired group-level query-lift delta +2.486 nats on frozen QIM-v3 (fresh disjoint vocab, 40 independent groups), sign-flip p=0.0000, CI [1.75, 3.26]; rank-1 40/119 -> 63/119; greedy regressed 36/119 -> 24/119 (PR5 FAIL); extraction passed at boundary; retention held",
     "generator_v2_fixes": [
       "group-atomic split (train/heldout disjoint by group_id, prompt AND full fact block) — data/grouped_queryswap/split_audit.json",
       "honest group definition: k facts per group, k in {2,3,4} deliberate; no 'three-query' claim",
       "true group-unit optimization objective (alpha-weighted vs balanced replay)",
       "preregistered trajectory at optimizer updates 0/5/10/20/30/40/50(+60/80)",
       "QIM-v3 frozen replication fixture (40 fresh groups, disjoint vocab), single-shot use after child freeze"
-    ],
-    "status": "IN_PROGRESS"
+    ]
   }
 }
