@@ -452,14 +452,53 @@ def test_xla_bounds_gradient_accumulation_graph_per_microbatch() -> None:
     assert backward < boundary < optimizer_step
 
 
-def test_xla_uses_traceable_ddp_collective_once_per_accumulated_update() -> None:
+def test_xla_uses_bounded_traceable_gradient_buckets() -> None:
     from pathlib import Path
+
+    from training.train_xla import _bucketed_traceable_all_reduce
+
+    class FakeDist:
+        class ReduceOp:
+            SUM = "sum"
+
+        def __init__(self) -> None:
+            self.bucket_sizes: list[int] = []
+
+        def all_reduce(self, tensor, *, op) -> None:
+            assert op == self.ReduceOp.SUM
+            self.bucket_sizes.append(tensor.numel())
+            tensor.mul_(4)
+
+    class FakeXm:
+        def __init__(self) -> None:
+            self.steps = 0
+
+        def mark_step(self) -> None:
+            self.steps += 1
+
+    parameters = [torch.nn.Parameter(torch.zeros(3)) for _ in range(3)]
+    expected = []
+    for index, parameter in enumerate(parameters, start=1):
+        parameter.grad = torch.full_like(parameter, float(index))
+        expected.append(parameter.grad.clone())
+
+    fake_dist = FakeDist()
+    fake_xm = FakeXm()
+    _bucketed_traceable_all_reduce(
+        iter(parameters), dist=fake_dist, xm=fake_xm, world_size=4,
+        bucket_cap_mb=24 / (1024 * 1024),
+    )
+
+    assert fake_dist.bucket_sizes == [6, 3]
+    assert fake_xm.steps == 2
+    for parameter, original in zip(parameters, expected):
+        assert torch.equal(parameter.grad, original)
 
     source = (Path(__file__).parents[1] / "training" / "train_xla.py").read_text()
     worker = source[source.index("def _worker("):source.index("def run(")]
     assert 'dist.init_process_group("xla", init_method="xla://")' in worker
-    assert "model = DDP(model, gradient_as_bucket_view=True)" in worker
-    assert "else model.no_sync()" in worker
+    assert "_bucketed_traceable_all_reduce(" in worker
+    assert "DDP(" not in worker
     assert "xm.reduce_gradients(" not in worker
     assert "xm.all_reduce(" not in worker
 
