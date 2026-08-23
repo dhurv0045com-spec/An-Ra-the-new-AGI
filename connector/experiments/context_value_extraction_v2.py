@@ -130,6 +130,35 @@ def vocabulary_disjointness() -> dict:
     }
 
 
+def evaluate(model, tok, device: str | None = None) -> dict:
+    """Greedy decode each item; pass iff exactly one code appears and it is
+    one of the supplied values. Mirrors v1's behavioral definition."""
+    import sys as _sys
+    from training.sft_context_binding import greedy_decode
+    items = build_items()
+    hits = []
+    for it in items:
+        out = greedy_decode(model, tok, it["prompt"], max_new_tokens=10)
+        cands = CODE_RE.findall(out)
+        hits.append(bool(len(cands) == 1 and cands[0] in it["valid_codes"]))
+    n_pass = sum(1 for h in hits if h)
+    return {
+        "schema": "anra-context-value-extraction/v2",
+        "role": "DEVELOPMENT_ONLY_FUTURE_USE",
+        "fixture_sha256": fixture_hash(),
+        "n_items": len(items),
+        "passed": f"{n_pass}/{len(items)}",
+        "fraction": round(n_pass / len(items), 4),
+        "per_item": [bool(x) for x in hits],
+    }
+
+
+def extraction_floor_v2_ok(parent_fraction: float, child_fraction: float,
+                           tolerance: float = 0.10) -> bool:
+    """Parent-relative floor for the 24-item fixture (tolerance ~2.4 items)."""
+    return child_fraction >= parent_fraction - tolerance
+
+
 if __name__ == "__main__":
     items = build_items()
     print(json.dumps({
