@@ -1,0 +1,1 @@
+{"n_groups": 40, "mean_group_lift": 2.0583, "median_group_lift": 1.0189, "groups_positive": "40/40", "sign_flip_p_mean_gt_0": 5e-05} {"mean_candidate_lift": 2.0574, "correct_rank1_fraction": "66/119", "mean_correct_rank": 1.72, "greedy_corresponding_accuracy": "57/119"}

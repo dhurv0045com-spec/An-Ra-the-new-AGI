@@ -227,6 +227,22 @@
     "query_conditioning_holder": "anra-v4-20k-sft6-queryswap-replication.pt (PROMOTE_EXPERIMENTAL) — first learned query-conditioned preference: clean QIM-v3 replication delta +2.486 nats, rank-1 40->63/119, corrected greedy 36->44/119 (RESULT C-). See output/replication_receipt_final.json"
   },
   "ood1_cf_audit": "A-family: 10/10 counterfactuals impure (fact order reshuffled); C-family: 8/8 pure",
+  "margin_experiment_003": {
+    "proposal_id": "tp-margin-queryswap-003",
+    "status": "COMPLETE — primary prediction FAILED (recorded per falsification rule)",
+    "final_receipt": "output/margin_receipt_final.json",
+    "parent": "anra-v4-20k-sft6-queryswap-replication.pt (SFT6)",
+    "child": "anra-v4-20k-sft7-margin.pt (update 20, GATED_DEVELOPMENT_BEST)",
+    "qim_v4_fixture_sha256": "5effd87acdd5d865462334d0455bd3f07082b3f0c2061b80a5c45b276bc9ddd4",
+    "primary_result": {
+      "PR1_selection_rank": "FAIL (66->64/119; needed >= +8) => the selection-miss regime is NOT a fixable margin deficit at gamma=2.0/w=0.5/60upd",
+      "PR3_greedy_directional": "PASS (+5/119, 57->62)",
+      "lift": "+0.133 paired nats preserved (28/40 groups positive)",
+      "floors": "all held incl. CVE-v2 first live use (16/24 >= 0.608)"
+    },
+    "reading": "margin did not create selection ability but tightened decode-time commitment: free greedy improved with rank flat. Greedy gain requires replication before any claim.",
+    "next_training_decision": "DO_NOT_TRAIN_YET"
+  },
   "sft2_data_ratios_exact": {
     "target_selection": 622,
     "rehearsal": 104,

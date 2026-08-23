@@ -1,0 +1,19 @@
+[load] parent checkpoints/anra-v4-20k-sft6-queryswap-replication.pt
+[load] step=20000 params=180,093,312
+[baseline @upd0] heldout=0.817 cve2=17/24 fams={'single_fact': 0.7, 'tool_result': 0.6, 'copy': 1.0, 'protocol_transfer': 0.55}
+  [eval @upd 5] heldout=0.817 cve2=16/24 fams={"single_fact": 0.7, "tool_result": 0.6, "copy": 1.0, "protocol_transfer": 0.55}
+  upd 10/60 ce=0.024 hinge=0.119
+  [save] gated candidate score=1.562
+  [eval @upd 10] heldout=0.850 cve2=16/24 fams={"single_fact": 0.7, "tool_result": 0.6, "copy": 1.0, "protocol_transfer": 0.55}
+  upd 20/60 ce=0.004 hinge=0.000
+  [save] gated candidate score=1.592
+  [eval @upd 20] heldout=0.867 cve2=16/24 fams={"single_fact": 0.7, "tool_result": 0.65, "copy": 1.0, "protocol_transfer": 0.55}
+  upd 30/60 ce=0.004 hinge=0.000
+  [eval @upd 30] heldout=0.850 cve2=17/24 fams={"single_fact": 0.7, "tool_result": 0.65, "copy": 1.0, "protocol_transfer": 0.55}
+  upd 40/60 ce=0.003 hinge=0.000
+  [eval @upd 40] heldout=0.850 cve2=16/24 fams={"single_fact": 0.7, "tool_result": 0.65, "copy": 1.0, "protocol_transfer": 0.55}
+  upd 50/60 ce=0.001 hinge=0.000
+  [eval @upd 50] heldout=0.817 cve2=17/24 fams={"single_fact": 0.7, "tool_result": 0.6, "copy": 1.0, "protocol_transfer": 0.55}
+  upd 60/60 ce=0.003 hinge=0.000
+  [eval @upd 60] heldout=0.833 cve2=17/24 fams={"single_fact": 0.7, "tool_result": 0.6, "copy": 1.0, "protocol_transfer": 0.55}
+[done] best={'update': 20, 'param_sha256': 'c01cbbeea470e0c9faa47a31a6c3cc80a3b353343f1fc36c722e945402f8ae53', 'dev_heldout_acc': 0.8667, 'extraction_cve2': '16/24'} -> output/margin_receipt.json

@@ -1,0 +1,243 @@
+{
+  "schema": "anra-margin-queryswap/v1",
+  "proposal_id": "tp-margin-queryswap-003",
+  "timestamp": "2026-08-24 03:32:12",
+  "parent_checkpoint": "checkpoints/anra-v4-20k-sft6-queryswap-replication.pt",
+  "parent_parameter_sha256": "36c87e5be671ff37951b4b433e21ec14bb5e59f6f0770d7f81e50e99ead9e001",
+  "objective": {
+    "form": "CE + margin_weight * mean clamp(gamma - (lp_gold - lp_comp), 0)",
+    "margin_gamma": 2.0,
+    "margin_weight": 0.5,
+    "alpha_group_loss": 0.58
+  },
+  "realized_mix": {
+    "group_units": 269,
+    "replay_units": 211,
+    "group_unit_share": 0.5604
+  },
+  "hyper": {
+    "lr": 1e-05,
+    "accum": 8,
+    "optimizer_updates": 60,
+    "seed": 2801
+  },
+  "loss_trace_tail": [
+    {
+      "update": 51,
+      "ce": 0.003,
+      "hinge": 0.0
+    },
+    {
+      "update": 52,
+      "ce": 0.0184,
+      "hinge": 0.0727
+    },
+    {
+      "update": 53,
+      "ce": 0.0025,
+      "hinge": 0.0
+    },
+    {
+      "update": 54,
+      "ce": 0.0019,
+      "hinge": 0.0
+    },
+    {
+      "update": 55,
+      "ce": 0.0048,
+      "hinge": 0.0
+    },
+    {
+      "update": 56,
+      "ce": 0.0031,
+      "hinge": 0.0
+    },
+    {
+      "update": 57,
+      "ce": 0.0018,
+      "hinge": 0.0
+    },
+    {
+      "update": 58,
+      "ce": 0.0065,
+      "hinge": 0.0249
+    },
+    {
+      "update": 59,
+      "ce": 0.0014,
+      "hinge": 0.0
+    },
+    {
+      "update": 60,
+      "ce": 0.0027,
+      "hinge": 0.0
+    }
+  ],
+  "baseline": {
+    "heldout_acc": 0.8167,
+    "cve2_extraction": "17/24",
+    "protected_families": {
+      "single_fact": 0.7,
+      "tool_result": 0.6,
+      "copy": 1.0,
+      "protocol_transfer": 0.55
+    }
+  },
+  "trajectory": [
+    {
+      "optimizer_update": 5,
+      "dev_heldout_acc": 0.8167,
+      "context_value_extraction_v2": "16/24",
+      "protected_families": {
+        "single_fact": 0.7,
+        "tool_result": 0.6,
+        "copy": 1.0,
+        "protocol_transfer": 0.55
+      },
+      "floors_vs_parent": {
+        "single_fact": true,
+        "tool_result": true,
+        "copy": true,
+        "protocol_transfer": true
+      },
+      "extraction_floor_ok": true,
+      "eligible": false,
+      "saved_param_sha256": null,
+      "fallback_param_sha256": null
+    },
+    {
+      "optimizer_update": 10,
+      "dev_heldout_acc": 0.85,
+      "context_value_extraction_v2": "16/24",
+      "protected_families": {
+        "single_fact": 0.7,
+        "tool_result": 0.6,
+        "copy": 1.0,
+        "protocol_transfer": 0.55
+      },
+      "floors_vs_parent": {
+        "single_fact": true,
+        "tool_result": true,
+        "copy": true,
+        "protocol_transfer": true
+      },
+      "extraction_floor_ok": true,
+      "eligible": true,
+      "saved_param_sha256": "42308cc7cffee8dc2d20e9d7dbd2ed75ddd5a0093a9c867d948d54b89f3a318e",
+      "fallback_param_sha256": null
+    },
+    {
+      "optimizer_update": 20,
+      "dev_heldout_acc": 0.8667,
+      "context_value_extraction_v2": "16/24",
+      "protected_families": {
+        "single_fact": 0.7,
+        "tool_result": 0.65,
+        "copy": 1.0,
+        "protocol_transfer": 0.55
+      },
+      "floors_vs_parent": {
+        "single_fact": true,
+        "tool_result": true,
+        "copy": true,
+        "protocol_transfer": true
+      },
+      "extraction_floor_ok": true,
+      "eligible": true,
+      "saved_param_sha256": "c01cbbeea470e0c9faa47a31a6c3cc80a3b353343f1fc36c722e945402f8ae53",
+      "fallback_param_sha256": null
+    },
+    {
+      "optimizer_update": 30,
+      "dev_heldout_acc": 0.85,
+      "context_value_extraction_v2": "17/24",
+      "protected_families": {
+        "single_fact": 0.7,
+        "tool_result": 0.65,
+        "copy": 1.0,
+        "protocol_transfer": 0.55
+      },
+      "floors_vs_parent": {
+        "single_fact": true,
+        "tool_result": true,
+        "copy": true,
+        "protocol_transfer": true
+      },
+      "extraction_floor_ok": true,
+      "eligible": true,
+      "saved_param_sha256": null,
+      "fallback_param_sha256": null
+    },
+    {
+      "optimizer_update": 40,
+      "dev_heldout_acc": 0.85,
+      "context_value_extraction_v2": "16/24",
+      "protected_families": {
+        "single_fact": 0.7,
+        "tool_result": 0.65,
+        "copy": 1.0,
+        "protocol_transfer": 0.55
+      },
+      "floors_vs_parent": {
+        "single_fact": true,
+        "tool_result": true,
+        "copy": true,
+        "protocol_transfer": true
+      },
+      "extraction_floor_ok": true,
+      "eligible": true,
+      "saved_param_sha256": null,
+      "fallback_param_sha256": null
+    },
+    {
+      "optimizer_update": 50,
+      "dev_heldout_acc": 0.8167,
+      "context_value_extraction_v2": "17/24",
+      "protected_families": {
+        "single_fact": 0.7,
+        "tool_result": 0.6,
+        "copy": 1.0,
+        "protocol_transfer": 0.55
+      },
+      "floors_vs_parent": {
+        "single_fact": true,
+        "tool_result": true,
+        "copy": true,
+        "protocol_transfer": true
+      },
+      "extraction_floor_ok": true,
+      "eligible": false,
+      "saved_param_sha256": null,
+      "fallback_param_sha256": null
+    },
+    {
+      "optimizer_update": 60,
+      "dev_heldout_acc": 0.8333,
+      "context_value_extraction_v2": "17/24",
+      "protected_families": {
+        "single_fact": 0.7,
+        "tool_result": 0.6,
+        "copy": 1.0,
+        "protocol_transfer": 0.55
+      },
+      "floors_vs_parent": {
+        "single_fact": true,
+        "tool_result": true,
+        "copy": true,
+        "protocol_transfer": true
+      },
+      "extraction_floor_ok": true,
+      "eligible": true,
+      "saved_param_sha256": null,
+      "fallback_param_sha256": "6d2b6a622370d2e7bf01d2ce5df4b582c6744031c05e0dd0955bc98b7e624dc8"
+    }
+  ],
+  "best": {
+    "update": 20,
+    "param_sha256": "c01cbbeea470e0c9faa47a31a6c3cc80a3b353343f1fc36c722e945402f8ae53",
+    "dev_heldout_acc": 0.8667,
+    "extraction_cve2": "16/24"
+  },
+  "selection_policy": "DEVELOPMENT ONLY; QIM-v4 never consulted pre-freeze",
+  "wall_seconds": 1454.8
+}
