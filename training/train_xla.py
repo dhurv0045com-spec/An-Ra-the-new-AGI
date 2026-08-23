@@ -709,6 +709,12 @@ def _worker(index: int, config: dict[str, object]) -> None:
                 loss = F.cross_entropy(logits.reshape(-1, CANONICAL_CONFIG.vocab_size), y.reshape(-1))
                 scaled = loss / grad_accum
             scaled.backward()
+            # Execute one reusable forward/backward graph per microbatch.
+            # Without this boundary XLA captures all grad-accum microbatches
+            # into one enormous first-step graph, making v5e compilation look
+            # hung before the first optimizer update. Gradients remain live on
+            # device and continue accumulating across mark_step boundaries.
+            xm.mark_step()
             loss_sum.add_(loss.detach())
             position = DataPosition.from_microbatches(
                 position.microbatches_consumed + 1, batches_per_epoch

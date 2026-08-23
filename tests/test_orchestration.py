@@ -440,3 +440,13 @@ def test_notebook_run_all_symbols_resolve_in_order() -> None:
             f"notebook uses symbols before definition: {undefined}"
         )
         defined |= assigned_here
+
+
+def test_xla_bounds_gradient_accumulation_graph_per_microbatch() -> None:
+    from pathlib import Path
+
+    source = (Path(__file__).parents[1] / "training" / "train_xla.py").read_text()
+    backward = source.index("scaled.backward()")
+    reduce_gradients = source.index("xm.reduce_gradients(optimizer)", backward)
+    boundary = source.index("xm.mark_step()", backward, reduce_gradients)
+    assert backward < boundary < reduce_gradients
