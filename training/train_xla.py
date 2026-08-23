@@ -678,10 +678,15 @@ def _worker(index: int, config: dict[str, object]) -> None:
     for pack_update in range(initial_pack_step, max_steps):
         step = start_step + (pack_update - initial_pack_step)
         control_boundary = pack_update == initial_pack_step or pack_update % log_interval == 0
-        if deadline is not None and control_boundary:
+        if deadline is not None and control_boundary and step > start_step:
             local_stop = int(step > start_step and time.monotonic() >= deadline)
-            stop = xm.all_reduce(xm.REDUCE_SUM, torch.tensor([local_stop], device=device))
-            if int(stop.cpu().item()) > 0:
+            # Keep control-plane synchronization off the XLA tensor graph.
+            # A tensor all_reduce here can crash PJRT before the first model
+            # graph is compiled (observed as a null-pointer SIGSEGV on v5e).
+            stop = xm.mesh_reduce(
+                f"anra_deadline_{pack_update}", local_stop, sum
+            )
+            if int(stop) > 0:
                 break
 
         effective_lr = schedule.lr_at(

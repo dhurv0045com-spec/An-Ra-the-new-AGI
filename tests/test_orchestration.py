@@ -450,3 +450,13 @@ def test_xla_bounds_gradient_accumulation_graph_per_microbatch() -> None:
     reduce_gradients = source.index("xm.reduce_gradients(optimizer)", backward)
     boundary = source.index("xm.mark_step()", backward, reduce_gradients)
     assert backward < boundary < reduce_gradients
+
+
+def test_xla_deadline_control_avoids_precompile_tensor_collective() -> None:
+    from pathlib import Path
+
+    source = (Path(__file__).parents[1] / "training" / "train_xla.py").read_text()
+    assert "control_boundary and step > start_step" in source
+    assert 'f"anra_deadline_{pack_update}"' in source
+    deadline_block = source[source.index("if deadline is not None"):source.index("effective_lr =")]
+    assert "xm.all_reduce" not in deadline_block
