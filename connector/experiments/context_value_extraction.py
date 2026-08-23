@@ -30,7 +30,14 @@ SEED = 20260905
 EXTRACTION_TOLERANCE = 0.085
 N_ITEMS = 12
 
-# Fresh vocab (disjoint from bank, QIM-v2/v3, grouped-queryswap train+heldout).
+# Vocabulary note (P9, corrected): the OPAQUE CODE PREFIXES (MRC/QDX) are
+# disjoint from the bank, QIM-v2/v3, and grouped-queryswap data. The ENTITY
+# vocabulary is NOT guaranteed fully disjoint — e.g. "jamb" also appears in
+# grouped-queryswap rows. This module is a DEVELOPMENT retention metric;
+# entity overlap does not affect its validity as a gate, but the earlier
+# comment claiming full disjointness was inaccurate. Any future fixture
+# version must build a fully disjoint entity list WITHOUT retroactively
+# changing what the SFT6 gate measured.
 _PREFIXES = ("MRC", "QDX")
 _ENTITIES = ("bezel", "ferrule", "gudgeon", "hasp", "jamb", "lintel",
              "muntin", "newel", "ogee", "quoins", "spandrel", "voussoir")

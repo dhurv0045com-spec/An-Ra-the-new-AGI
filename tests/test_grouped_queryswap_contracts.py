@@ -55,8 +55,15 @@ def test_committed_split_audit_proves_disjointness_and_hashes() -> None:
         import hashlib
         return hashlib.sha256(blob.encode("utf-8")).hexdigest()
 
-    assert audit["train_data_sha256"] == sha(train)
-    assert audit["heldout_data_sha256"] == sha(held)
+    # P8: canonical-rows hash and file-bytes hash are distinct semantics
+    # and both must be present; canonical matches parsed sorted-key rows.
+    assert audit["train_canonical_rows_sha256"] == sha(train)
+    assert audit["heldout_canonical_rows_sha256"] == sha(held)
+    assert "train_file_bytes_sha256" in audit
+    assert "heldout_file_bytes_sha256" in audit
+    assert audit["train_canonical_rows_sha256"] != \
+        audit["train_file_bytes_sha256"], \
+        "canonical and file-bytes hashes coincide; semantics collapsed"
     expected_train_groups = {
         x["group_id"] for x in train if x["family"] == "queryswap_group"}
     assert set(audit["group_split_manifest"]["train_group_ids"]) == \

@@ -46,8 +46,8 @@
   },
   "unit_mix_note": "alpha=0.58 gradient weight on the group objective vs replay (P13); row percentages are reported but are NOT the experimental mix",
   "heldout_role_note": "target-group rows measure generalization; any bank-train replay rows placed here would be monitors only \u2014 this generator places NONE",
-  "train_data_sha256": "e168f925858bb6dbcd6cbaf48821b5b04137667cfbbbc8921ed7ab9db639135f",
-  "heldout_data_sha256": "d5144e42af695c31cc6fc5ff2e0dc914c63e5ab413882a46422cd810a0b17429",
+  "train_canonical_rows_sha256": "e168f925858bb6dbcd6cbaf48821b5b04137667cfbbbc8921ed7ab9db639135f",
+  "heldout_canonical_rows_sha256": "d5144e42af695c31cc6fc5ff2e0dc914c63e5ab413882a46422cd810a0b17429",
   "group_split_manifest": {
     "train_group_ids": [
       "gqs-001",
@@ -124,5 +124,8 @@
       "gqs-060"
     ]
   },
-  "split_manifest_sha256": "694400a7cbf6d34fdf514e2c417f80575d9c8c0226797c9c7842ef4fc35a1d66"
+  "split_manifest_sha256": "694400a7cbf6d34fdf514e2c417f80575d9c8c0226797c9c7842ef4fc35a1d66",
+  "train_file_bytes_sha256": "81aa67b521bb1eb4130699ba3e20ddad1a8e5cc0feed5865152e9bf6828395a2",
+  "hash_semantics_note": "canonical_rows_* = parsed rows, sorted keys; file_bytes_* = literal working-copy bytes (this checkout materializes CRLF via core.autocrlf=true; committed blobs are LF); row CONTENT verified identical across all three",
+  "heldout_file_bytes_sha256": "3debddf1ffd9ef68f47c9c479913d1685ed4661ff6beceebec1747030580c035"
 }

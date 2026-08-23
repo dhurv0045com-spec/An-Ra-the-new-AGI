@@ -188,8 +188,11 @@ def build(seed: int = SEED):
         "heldout_role_note": ("target-group rows measure generalization; any "
                               "bank-train replay rows placed here would be "
                               "monitors only — this generator places NONE"),
-        "train_data_sha256": _sha(train),
-        "heldout_data_sha256": _sha(held),
+        # P8 hash semantics: canonical_rows_* hashes the PARSED rows
+        # (sorted keys, joined); file_bytes_* is the literal SHA256 of the
+        # written .jsonl bytes. Both are recorded; they differ by design.
+        "train_canonical_rows_sha256": _sha(train),
+        "heldout_canonical_rows_sha256": _sha(held),
         "group_split_manifest": {
             "train_group_ids": sorted(tg),
             "heldout_group_ids": sorted(hg),
@@ -206,10 +209,46 @@ def build(seed: int = SEED):
 def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--out", default="data/grouped_queryswap")
+    p.add_argument("--audit-only", action="store_true",
+                   help="rewrite ONLY split_audit.json (P8 hash fields) and "
+                        "verify the existing .jsonl files are byte-identical "
+                        "to what this seed regenerates; data is never touched")
     a = p.parse_args()
     train, held, audit = build()
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
+    if a.audit_only:
+        # P8: refresh audit with explicit hash semantics WITHOUT touching
+        # the committed data. Fail loudly if regeneration would differ.
+        import hashlib
+        for name, rows in (("train", train), ("heldout", held)):
+            path = out / f"{name}.jsonl"
+            # This checkout uses core.autocrlf=true, so working-copy bytes
+            # are CRLF while the committed blob and deterministic
+            # regeneration are LF. Identity is therefore asserted on
+            # NEWLINE-NORMALIZED bytes; the as-on-disk CRLF hash is also
+            # recorded so execution-time receipts stay interpretable.
+            # The committed blob is the join WITHOUT a trailing newline
+            # (91974 bytes = "\n".join only). Keep byte-exact.
+            regenerated = "\n".join(json.dumps(x) for x in rows).encode("utf-8")
+            actual = path.read_bytes()
+            normalized = actual.replace(b"\r\n", b"\n")
+            if hashlib.sha256(regenerated).hexdigest() != \
+                    hashlib.sha256(normalized).hexdigest():
+                raise SystemExit(
+                    f"ABORT: {path} differs from deterministic regeneration "
+                    "(beyond newline normalization); audit NOT rewritten")
+            audit[f"{name}_file_bytes_sha256"] = \
+                hashlib.sha256(actual).hexdigest()
+            audit["hash_semantics_note"] = (
+                "canonical_rows_* = parsed rows, sorted keys; "
+                "file_bytes_* = literal working-copy bytes (this checkout "
+                "materializes CRLF via core.autocrlf=true; committed blobs "
+                "are LF); row CONTENT verified identical across all three")
+        (out / "split_audit.json").write_text(json.dumps(audit, indent=2),
+                                              encoding="utf-8")
+        print("audit refreshed (data untouched); file_bytes hashes recorded")
+        return
     (out / "train.jsonl").write_text(
         "\n".join(json.dumps(x) for x in train), encoding="utf-8")
     (out / "heldout.jsonl").write_text(

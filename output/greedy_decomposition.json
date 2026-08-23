@@ -1,0 +1,24 @@
+{
+  "schema": "anra-greedy-decomposition/v1",
+  "role": "DIAGNOSTIC_ONLY — no training decision without its own preregistration",
+  "fixture_sha256": "27713accb3aa6825de23cf09540497943a0e56ca3ac177ba94f0f164f740a614",
+  "checkpoint": "checkpoints/anra-v4-20k-sft6-queryswap-replication.pt",
+  "parameter_sha256": "36c87e5be671ff37951b4b433e21ec14bb5e59f6f0770d7f81e50e99ead9e001",
+  "n_targets": 119,
+  "free_greedy_accuracy": "44/119 (0.370)",
+  "full_candidate_rank1_accuracy": "63/119 (0.529)",
+  "generation_realization_gap": "19 items (16.0%): candidate-ranked-correct but free greedy wrong",
+  "among_full_candidate_correct": {
+    "n": 63,
+    "free_greedy_also_correct": 44,
+    "realization_failure_rate": "19/63 (30.2%)"
+  },
+  "first_token_observation": {
+    "note": "greedy decode begins with a space token in ALL 75 failing cases; the model's completion contract is ' CODE.' so first-token analysis must be read at the code-prefix level after the leading space",
+    "failing_first_token_modal": "' ' (75/75 failures)",
+    "interpretation_guard": "first-token failure is NOT indicated; the boundary is INSIDE multi-token code realization or strict single-code formatting, not at emitting the first character"
+  },
+  "conclusion": "Selection vs realization are now separated: the child picks the correct candidate value for 63/119 targets under full-sequence scoring, but realizes only 44 of those choices through free autoregressive decoding. The generation_realization_gap is 19/119 overall and 19/63 among correctly-selecting targets. No first-token bottleneck: every failure still emits the expected leading-space token, so competition occurs at the digit/prefix tokens of the code or in final strict formatting.",
+  "per_item_rows": "output/greedy_decomposition_rows.json",
+  "timestamp": "2026-08-23 23:05:00"
+}

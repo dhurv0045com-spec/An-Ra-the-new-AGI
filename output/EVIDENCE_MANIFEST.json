@@ -312,8 +312,28 @@
     "proposal_path": "data/proposal_grouped_queryswap_replication.json",
     "status": "COMPLETE",
     "final_receipt": "output/replication_receipt_final.json",
-    "result_class": "B",
-    "headline": "paired group-level query-lift delta +2.486 nats on frozen QIM-v3 (fresh disjoint vocab, 40 independent groups), sign-flip p=0.0000, CI [1.75, 3.26]; rank-1 40/119 -> 63/119; greedy regressed 36/119 -> 24/119 (PR5 FAIL); extraction passed at boundary; retention held",
+    "result_class": "C- (BEHAVIORAL MOVEMENT CONFIRMED; revised from B after corrective rescore)",
+    "original_qim_v3": {
+      "greedy_metric_status": "INVALIDATED",
+      "reason": "stale query prompt bug: greedy targets scored under the LAST member's query",
+      "note": "likelihood/rank metrics remain valid (bit-identical on corrective rescore); original greedy numbers 36/119 -> 24/119 preserved in output/qim3_parent_baseline.json and output/qim3_sft6_replication.json",
+      "pr5_as_recorded_then": "FAIL (INVALIDATED_BY_EVALUATOR_BUG)"
+    },
+    "corrective_rescore": {
+      "evaluation_class": "CORRECTIVE_RESCORING_AFTER_EVALUATOR_BUG",
+      "parent_report": "output/qim3_parent_corrective_rescore.json",
+      "child_report": "output/qim3_sft6_corrective_rescore.json",
+      "parent_greedy": "36/119",
+      "child_greedy": "44/119",
+      "pr5": "PASS",
+      "no_retraining_performed": true,
+      "parent_parameter_sha256": "c3bc615eb3ffc8628f82088c433507baa142a0fecf91e4f6e64f9b17729e0625",
+      "child_parameter_sha256": "36c87e5be671ff37951b4b433e21ec14bb5e59f6f0770d7f81e50e99ead9e001",
+      "fixture_sha256_unchanged": "27713accb3aa6825de23cf09540497943a0e56ca3ac177ba94f0f164f740a614",
+      "valid_metric_stability": "per-group lifts, mean group lift, rank-1, mean rank: bit-identical old vs new"
+    },
+    "generation_decomposition": "output/greedy_decomposition.json — realization gap 19/119; selection vs free-decode boundary measured",
+    "headline": "paired group-level query-lift delta +2.486 nats on frozen QIM-v3 (fresh disjoint vocab, 40 independent groups), plus-one p<1e-4, CI [1.75, 3.26], dz=1.01; rank-1 40/119 -> 63/119; corrected greedy ALSO improves 36/119 -> 44/119 (PR5 PASS after repair); realization gap 19 targets where correct candidate choice fails to decode; extraction passed at boundary; retention held",
     "generator_v2_fixes": [
       "group-atomic split (train/heldout disjoint by group_id, prompt AND full fact block) — data/grouped_queryswap/split_audit.json",
       "honest group definition: k facts per group, k in {2,3,4} deliberate; no 'three-query' claim",

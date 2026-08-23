@@ -1,0 +1,1073 @@
+[
+ {
+  "gi": 0,
+  "qi": 0,
+  "rank": 1,
+  "strict": true,
+  "out": "TQH-313.",
+  "first_tok": " ",
+  "gold_first3": "TQH"
+ },
+ {
+  "gi": 0,
+  "qi": 1,
+  "rank": 1,
+  "strict": false,
+  "out": "TQH-313.",
+  "first_tok": " ",
+  "gold_first3": "VZB"
+ },
+ {
+  "gi": 1,
+  "qi": 0,
+  "rank": 1,
+  "strict": false,
+  "out": "CTG-681.",
+  "first_tok": " ",
+  "gold_first3": "PVG"
+ },
+ {
+  "gi": 1,
+  "qi": 1,
+  "rank": 1,
+  "strict": false,
+  "out": "LXM-274.",
+  "first_tok": " ",
+  "gold_first3": "LXM"
+ },
+ {
+  "gi": 1,
+  "qi": 2,
+  "rank": 2,
+  "strict": false,
+  "out": "PVG-681.",
+  "first_tok": " ",
+  "gold_first3": "PVG"
+ },
+ {
+  "gi": 2,
+  "qi": 0,
+  "rank": 3,
+  "strict": false,
+  "out": "CTB-106.",
+  "first_tok": " ",
+  "gold_first3": "LXM"
+ },
+ {
+  "gi": 2,
+  "qi": 1,
+  "rank": 2,
+  "strict": false,
+  "out": "TQH-484.",
+  "first_tok": " ",
+  "gold_first3": "VZB"
+ },
+ {
+  "gi": 2,
+  "qi": 2,
+  "rank": 1,
+  "strict": true,
+  "out": "TQH-484.",
+  "first_tok": " ",
+  "gold_first3": "TQH"
+ },
+ {
+  "gi": 2,
+  "qi": 3,
+  "rank": 3,
+  "strict": false,
+  "out": "AVB-106.",
+  "first_tok": " ",
+  "gold_first3": "FRC"
+ },
+ {
+  "gi": 3,
+  "qi": 0,
+  "rank": 1,
+  "strict": true,
+  "out": "LXM-444.",
+  "first_tok": " ",
+  "gold_first3": "LXM"
+ },
+ {
+  "gi": 3,
+  "qi": 1,
+  "rank": 1,
+  "strict": true,
+  "out": "VZB-203.",
+  "first_tok": " ",
+  "gold_first3": "VZB"
+ },
+ {
+  "gi": 4,
+  "qi": 0,
+  "rank": 2,
+  "strict": false,
+  "out": "CTG-549.",
+  "first_tok": " ",
+  "gold_first3": "PVG"
+ },
+ {
+  "gi": 4,
+  "qi": 1,
+  "rank": 1,
+  "strict": false,
+  "out": "CTG-549.",
+  "first_tok": " ",
+  "gold_first3": "VZB"
+ },
+ {
+  "gi": 4,
+  "qi": 2,
+  "rank": 3,
+  "strict": false,
+  "out": "CTG-549.",
+  "first_tok": " ",
+  "gold_first3": "PVG"
+ },
+ {
+  "gi": 5,
+  "qi": 0,
+  "rank": 1,
+  "strict": true,
+  "out": "VZB-215.",
+  "first_tok": " ",
+  "gold_first3": "VZB"
+ },
+ {
+  "gi": 5,
+  "qi": 1,
+  "rank": 1,
+  "strict": true,
+  "out": "FRC-649.",
+  "first_tok": " ",
+  "gold_first3": "FRC"
+ },
+ {
+  "gi": 5,
+  "qi": 2,
+  "rank": 1,
+  "strict": true,
+  "out": "PVG-640.",
+  "first_tok": " ",
+  "gold_first3": "PVG"
+ },
+ {
+  "gi": 5,
+  "qi": 3,
+  "rank": 4,
+  "strict": false,
+  "out": "PVG-640.",
+  "first_tok": " ",
+  "gold_first3": "PVG"
+ },
+ {
+  "gi": 6,
+  "qi": 0,
+  "rank": 2,
+  "strict": false,
+  "out": "FRC-931.",
+  "first_tok": " ",
+  "gold_first3": "FRC"
+ },
+ {
+  "gi": 6,
+  "qi": 1,
+  "rank": 1,
+  "strict": true,
+  "out": "FRC-931.",
+  "first_tok": " ",
+  "gold_first3": "FRC"
+ },
+ {
+  "gi": 7,
+  "qi": 0,
+  "rank": 2,
+  "strict": false,
+  "out": "LXM-984.",
+  "first_tok": " ",
+  "gold_first3": "LXM"
+ },
+ {
+  "gi": 7,
+  "qi": 1,
+  "rank": 3,
+  "strict": false,
+  "out": "LXM-984.",
+  "first_tok": " ",
+  "gold_first3": "LXM"
+ },
+ {
+  "gi": 7,
+  "qi": 2,
+  "rank": 1,
+  "strict": false,
+  "out": "LXM-984.",
+  "first_tok": " ",
+  "gold_first3": "LXM"
+ },
+ {
+  "gi": 8,
+  "qi": 0,
+  "rank": 4,
+  "strict": false,
+  "out": "CTG-942.",
+  "first_tok": " ",
+  "gold_first3": "PVG"
+ },
+ {
+  "gi": 8,
+  "qi": 1,
+  "rank": 2,
+  "strict": false,
+  "out": "CTG-942.",
+  "first_tok": " ",
+  "gold_first3": "VZB"
+ },
+ {
+  "gi": 8,
+  "qi": 2,
+  "rank": 1,
+  "strict": false,
+  "out": "CTG-942.",
+  "first_tok": " ",
+  "gold_first3": "TQH"
+ },
+ {
+  "gi": 8,
+  "qi": 3,
+  "rank": 3,
+  "strict": false,
+  "out": "CTG-942.",
+  "first_tok": " ",
+  "gold_first3": "LXM"
+ },
+ {
+  "gi": 9,
+  "qi": 0,
+  "rank": 1,
+  "strict": true,
+  "out": "VZB-803.",
+  "first_tok": " ",
+  "gold_first3": "VZB"
+ },
+ {
+  "gi": 9,
+  "qi": 1,
+  "rank": 1,
+  "strict": true,
+  "out": "PVG-148.",
+  "first_tok": " ",
+  "gold_first3": "PVG"
+ },
+ {
+  "gi": 10,
+  "qi": 0,
+  "rank": 3,
+  "strict": false,
+  "out": "FRC-213.",
+  "first_tok": " ",
+  "gold_first3": "FRC"
+ },
+ {
+  "gi": 10,
+  "qi": 1,
+  "rank": 1,
+  "strict": false,
+  "out": "FRC-213.",
+  "first_tok": " ",
+  "gold_first3": "FRC"
+ },
+ {
+  "gi": 10,
+  "qi": 2,
+  "rank": 1,
+  "strict": false,
+  "out": "FRC-213.",
+  "first_tok": " ",
+  "gold_first3": "PVG"
+ },
+ {
+  "gi": 11,
+  "qi": 0,
+  "rank": 1,
+  "strict": true,
+  "out": "TQH-819.",
+  "first_tok": " ",
+  "gold_first3": "TQH"
+ },
+ {
+  "gi": 11,
+  "qi": 1,
+  "rank": 2,
+  "strict": false,
+  "out": "TQH-819.",
+  "first_tok": " ",
+  "gold_first3": "TQH"
+ },
+ {
+  "gi": 11,
+  "qi": 2,
+  "rank": 1,
+  "strict": true,
+  "out": "LXM-996.",
+  "first_tok": " ",
+  "gold_first3": "LXM"
+ },
+ {
+  "gi": 11,
+  "qi": 3,
+  "rank": 1,
+  "strict": true,
+  "out": "FRC-701.",
+  "first_tok": " ",
+  "gold_first3": "FRC"
+ },
+ {
+  "gi": 12,
+  "qi": 0,
+  "rank": 1,
+  "strict": true,
+  "out": "FRC-270.",
+  "first_tok": " ",
+  "gold_first3": "FRC"
+ },
+ {
+  "gi": 12,
+  "qi": 1,
+  "rank": 2,
+  "strict": false,
+  "out": "FRC-270.",
+  "first_tok": " ",
+  "gold_first3": "PVG"
+ },
+ {
+  "gi": 13,
+  "qi": 0,
+  "rank": 2,
+  "strict": false,
+  "out": "VZB-937.",
+  "first_tok": " ",
+  "gold_first3": "VZB"
+ },
+ {
+  "gi": 13,
+  "qi": 1,
+  "rank": 1,
+  "strict": true,
+  "out": "VZB-937.",
+  "first_tok": " ",
+  "gold_first3": "VZB"
+ },
+ {
+  "gi": 13,
+  "qi": 2,
+  "rank": 1,
+  "strict": true,
+  "out": "FRC-814.",
+  "first_tok": " ",
+  "gold_first3": "FRC"
+ },
+ {
+  "gi": 14,
+  "qi": 0,
+  "rank": 4,
+  "strict": false,
+  "out": "CTG-696.",
+  "first_tok": " ",
+  "gold_first3": "LXM"
+ },
+ {
+  "gi": 14,
+  "qi": 1,
+  "rank": 3,
+  "strict": false,
+  "out": "CTG-696.",
+  "first_tok": " ",
+  "gold_first3": "PVG"
+ },
+ {
+  "gi": 14,
+  "qi": 2,
+  "rank": 1,
+  "strict": false,
+  "out": "CTG-696.",
+  "first_tok": " ",
+  "gold_first3": "VZB"
+ },
+ {
+  "gi": 14,
+  "qi": 3,
+  "rank": 1,
+  "strict": true,
+  "out": "LXM-661.",
+  "first_tok": " ",
+  "gold_first3": "LXM"
+ },
+ {
+  "gi": 15,
+  "qi": 0,
+  "rank": 2,
+  "strict": false,
+  "out": "LXM-661.",
+  "first_tok": " ",
+  "gold_first3": "PVG"
+ },
+ {
+  "gi": 15,
+  "qi": 1,
+  "rank": 1,
+  "strict": true,
+  "out": "LXM-661.",
+  "first_tok": " ",
+  "gold_first3": "LXM"
+ },
+ {
+  "gi": 16,
+  "qi": 0,
+  "rank": 2,
+  "strict": false,
+  "out": "LXM-693.",
+  "first_tok": " ",
+  "gold_first3": "LXM"
+ },
+ {
+  "gi": 16,
+  "qi": 1,
+  "rank": 3,
+  "strict": false,
+  "out": "LXM-693.",
+  "first_tok": " ",
+  "gold_first3": "LXM"
+ },
+ {
+  "gi": 16,
+  "qi": 2,
+  "rank": 1,
+  "strict": true,
+  "out": "LXM-693.",
+  "first_tok": " ",
+  "gold_first3": "LXM"
+ },
+ {
+  "gi": 17,
+  "qi": 0,
+  "rank": 2,
+  "strict": false,
+  "out": "TQH-871.",
+  "first_tok": " ",
+  "gold_first3": "TQH"
+ },
+ {
+  "gi": 17,
+  "qi": 1,
+  "rank": 1,
+  "strict": true,
+  "out": "TQH-871.",
+  "first_tok": " ",
+  "gold_first3": "TQH"
+ },
+ {
+  "gi": 17,
+  "qi": 2,
+  "rank": 1,
+  "strict": true,
+  "out": "VZB-619.",
+  "first_tok": " ",
+  "gold_first3": "VZB"
+ },
+ {
+  "gi": 17,
+  "qi": 3,
+  "rank": 2,
+  "strict": false,
+  "out": "CTB-619.",
+  "first_tok": " ",
+  "gold_first3": "PVG"
+ },
+ {
+  "gi": 18,
+  "qi": 0,
+  "rank": 1,
+  "strict": true,
+  "out": "TQH-896.",
+  "first_tok": " ",
+  "gold_first3": "TQH"
+ },
+ {
+  "gi": 18,
+  "qi": 1,
+  "rank": 2,
+  "strict": false,
+  "out": "TQH-896.",
+  "first_tok": " ",
+  "gold_first3": "TQH"
+ },
+ {
+  "gi": 19,
+  "qi": 0,
+  "rank": 2,
+  "strict": false,
+  "out": "LXM-442.",
+  "first_tok": " ",
+  "gold_first3": "LXM"
+ },
+ {
+  "gi": 19,
+  "qi": 1,
+  "rank": 1,
+  "strict": true,
+  "out": "TQH-700.",
+  "first_tok": " ",
+  "gold_first3": "TQH"
+ },
+ {
+  "gi": 19,
+  "qi": 2,
+  "rank": 2,
+  "strict": false,
+  "out": "CTG-787.",
+  "first_tok": " ",
+  "gold_first3": "PVG"
+ },
+ {
+  "gi": 20,
+  "qi": 0,
+  "rank": 2,
+  "strict": false,
+  "out": "CTG-928.",
+  "first_tok": " ",
+  "gold_first3": "PVG"
+ },
+ {
+  "gi": 20,
+  "qi": 1,
+  "rank": 1,
+  "strict": false,
+  "out": "TQH-397.",
+  "first_tok": " ",
+  "gold_first3": "FRC"
+ },
+ {
+  "gi": 20,
+  "qi": 2,
+  "rank": 4,
+  "strict": false,
+  "out": "TQH-397.",
+  "first_tok": " ",
+  "gold_first3": "TQH"
+ },
+ {
+  "gi": 20,
+  "qi": 3,
+  "rank": 2,
+  "strict": false,
+  "out": "TQH-397.",
+  "first_tok": " ",
+  "gold_first3": "TQH"
+ },
+ {
+  "gi": 21,
+  "qi": 0,
+  "rank": 1,
+  "strict": true,
+  "out": "TQH-278.",
+  "first_tok": " ",
+  "gold_first3": "TQH"
+ },
+ {
+  "gi": 21,
+  "qi": 1,
+  "rank": 1,
+  "strict": false,
+  "out": "CTG-132.",
+  "first_tok": " ",
+  "gold_first3": "PVG"
+ },
+ {
+  "gi": 22,
+  "qi": 0,
+  "rank": 3,
+  "strict": false,
+  "out": "AVB-610.",
+  "first_tok": " ",
+  "gold_first3": "VZB"
+ },
+ {
+  "gi": 22,
+  "qi": 1,
+  "rank": 3,
+  "strict": false,
+  "out": "AVB-610.",
+  "first_tok": " ",
+  "gold_first3": "FRC"
+ },
+ {
+  "gi": 22,
+  "qi": 2,
+  "rank": 1,
+  "strict": false,
+  "out": "AVB-700.",
+  "first_tok": " ",
+  "gold_first3": "TQH"
+ },
+ {
+  "gi": 23,
+  "qi": 0,
+  "rank": 2,
+  "strict": false,
+  "out": "TQH-684.",
+  "first_tok": " ",
+  "gold_first3": "TQH"
+ },
+ {
+  "gi": 23,
+  "qi": 1,
+  "rank": 1,
+  "strict": true,
+  "out": "TQH-684.",
+  "first_tok": " ",
+  "gold_first3": "TQH"
+ },
+ {
+  "gi": 23,
+  "qi": 2,
+  "rank": 1,
+  "strict": true,
+  "out": "VZB-395.",
+  "first_tok": " ",
+  "gold_first3": "VZB"
+ },
+ {
+  "gi": 23,
+  "qi": 3,
+  "rank": 1,
+  "strict": true,
+  "out": "FRC-927.",
+  "first_tok": " ",
+  "gold_first3": "FRC"
+ },
+ {
+  "gi": 24,
+  "qi": 0,
+  "rank": 1,
+  "strict": false,
+  "out": "CTG-873.",
+  "first_tok": " ",
+  "gold_first3": "PVG"
+ },
+ {
+  "gi": 24,
+  "qi": 1,
+  "rank": 2,
+  "strict": false,
+  "out": "CTG-873.",
+  "first_tok": " ",
+  "gold_first3": "PVG"
+ },
+ {
+  "gi": 25,
+  "qi": 0,
+  "rank": 1,
+  "strict": true,
+  "out": "FRC-415.",
+  "first_tok": " ",
+  "gold_first3": "FRC"
+ },
+ {
+  "gi": 25,
+  "qi": 1,
+  "rank": 2,
+  "strict": false,
+  "out": "FRC-415.",
+  "first_tok": " ",
+  "gold_first3": "PVG"
+ },
+ {
+  "gi": 25,
+  "qi": 2,
+  "rank": 1,
+  "strict": true,
+  "out": "LXM-552.",
+  "first_tok": " ",
+  "gold_first3": "LXM"
+ },
+ {
+  "gi": 26,
+  "qi": 0,
+  "rank": 1,
+  "strict": false,
+  "out": "CTG-667.",
+  "first_tok": " ",
+  "gold_first3": "VZB"
+ },
+ {
+  "gi": 26,
+  "qi": 1,
+  "rank": 2,
+  "strict": false,
+  "out": "VZB-961.",
+  "first_tok": " ",
+  "gold_first3": "PVG"
+ },
+ {
+  "gi": 26,
+  "qi": 2,
+  "rank": 2,
+  "strict": false,
+  "out": "VZB-961.",
+  "first_tok": " ",
+  "gold_first3": "LXM"
+ },
+ {
+  "gi": 26,
+  "qi": 3,
+  "rank": 4,
+  "strict": false,
+  "out": "VZB-961.",
+  "first_tok": " ",
+  "gold_first3": "PVG"
+ },
+ {
+  "gi": 27,
+  "qi": 0,
+  "rank": 1,
+  "strict": true,
+  "out": "FRC-958.",
+  "first_tok": " ",
+  "gold_first3": "FRC"
+ },
+ {
+  "gi": 27,
+  "qi": 1,
+  "rank": 1,
+  "strict": true,
+  "out": "VZB-616.",
+  "first_tok": " ",
+  "gold_first3": "VZB"
+ },
+ {
+  "gi": 28,
+  "qi": 0,
+  "rank": 2,
+  "strict": false,
+  "out": "FRC-903.",
+  "first_tok": " ",
+  "gold_first3": "PVG"
+ },
+ {
+  "gi": 28,
+  "qi": 1,
+  "rank": 1,
+  "strict": true,
+  "out": "FRC-903.",
+  "first_tok": " ",
+  "gold_first3": "FRC"
+ },
+ {
+  "gi": 28,
+  "qi": 2,
+  "rank": 3,
+  "strict": false,
+  "out": "FRC-903.",
+  "first_tok": " ",
+  "gold_first3": "PVG"
+ },
+ {
+  "gi": 29,
+  "qi": 0,
+  "rank": 1,
+  "strict": true,
+  "out": "VZB-880.",
+  "first_tok": " ",
+  "gold_first3": "VZB"
+ },
+ {
+  "gi": 29,
+  "qi": 1,
+  "rank": 1,
+  "strict": true,
+  "out": "FRC-285.",
+  "first_tok": " ",
+  "gold_first3": "FRC"
+ },
+ {
+  "gi": 29,
+  "qi": 2,
+  "rank": 2,
+  "strict": false,
+  "out": "TQH-677.",
+  "first_tok": " ",
+  "gold_first3": "TQH"
+ },
+ {
+  "gi": 29,
+  "qi": 3,
+  "rank": 1,
+  "strict": true,
+  "out": "TQH-677.",
+  "first_tok": " ",
+  "gold_first3": "TQH"
+ },
+ {
+  "gi": 30,
+  "qi": 0,
+  "rank": 1,
+  "strict": true,
+  "out": "LXM-598.",
+  "first_tok": " ",
+  "gold_first3": "LXM"
+ },
+ {
+  "gi": 30,
+  "qi": 1,
+  "rank": 2,
+  "strict": false,
+  "out": "LXM-598.",
+  "first_tok": " ",
+  "gold_first3": "LXM"
+ },
+ {
+  "gi": 31,
+  "qi": 0,
+  "rank": 2,
+  "strict": false,
+  "out": "FRC-486.",
+  "first_tok": " ",
+  "gold_first3": "PVG"
+ },
+ {
+  "gi": 31,
+  "qi": 1,
+  "rank": 1,
+  "strict": true,
+  "out": "FRC-486.",
+  "first_tok": " ",
+  "gold_first3": "FRC"
+ },
+ {
+  "gi": 31,
+  "qi": 2,
+  "rank": 2,
+  "strict": false,
+  "out": "LXM-237.",
+  "first_tok": " ",
+  "gold_first3": "LXM"
+ },
+ {
+  "gi": 32,
+  "qi": 0,
+  "rank": 2,
+  "strict": false,
+  "out": "VZB-536.",
+  "first_tok": " ",
+  "gold_first3": "FRC"
+ },
+ {
+  "gi": 32,
+  "qi": 1,
+  "rank": 2,
+  "strict": false,
+  "out": "FRC-708.",
+  "first_tok": " ",
+  "gold_first3": "VZB"
+ },
+ {
+  "gi": 32,
+  "qi": 2,
+  "rank": 4,
+  "strict": false,
+  "out": "FRC-708.",
+  "first_tok": " ",
+  "gold_first3": "VZB"
+ },
+ {
+  "gi": 32,
+  "qi": 3,
+  "rank": 3,
+  "strict": false,
+  "out": "FRC-708.",
+  "first_tok": " ",
+  "gold_first3": "PVG"
+ },
+ {
+  "gi": 33,
+  "qi": 0,
+  "rank": 1,
+  "strict": true,
+  "out": "FRC-797.",
+  "first_tok": " ",
+  "gold_first3": "FRC"
+ },
+ {
+  "gi": 33,
+  "qi": 1,
+  "rank": 1,
+  "strict": false,
+  "out": "TQH-430.",
+  "first_tok": " ",
+  "gold_first3": "TQH"
+ },
+ {
+  "gi": 34,
+  "qi": 0,
+  "rank": 3,
+  "strict": false,
+  "out": "TQH-502.",
+  "first_tok": " ",
+  "gold_first3": "LXM"
+ },
+ {
+  "gi": 34,
+  "qi": 1,
+  "rank": 1,
+  "strict": false,
+  "out": "TQH-502.",
+  "first_tok": " ",
+  "gold_first3": "TQH"
+ },
+ {
+  "gi": 34,
+  "qi": 2,
+  "rank": 2,
+  "strict": false,
+  "out": "TQH-502.",
+  "first_tok": " ",
+  "gold_first3": "TQH"
+ },
+ {
+  "gi": 35,
+  "qi": 0,
+  "rank": 1,
+  "strict": true,
+  "out": "LXM-151.",
+  "first_tok": " ",
+  "gold_first3": "LXM"
+ },
+ {
+  "gi": 35,
+  "qi": 1,
+  "rank": 1,
+  "strict": false,
+  "out": "CTG-529.",
+  "first_tok": " ",
+  "gold_first3": "PVG"
+ },
+ {
+  "gi": 35,
+  "qi": 2,
+  "rank": 4,
+  "strict": false,
+  "out": "CTG-529.",
+  "first_tok": " ",
+  "gold_first3": "PVG"
+ },
+ {
+  "gi": 35,
+  "qi": 3,
+  "rank": 1,
+  "strict": true,
+  "out": "TQH-541.",
+  "first_tok": " ",
+  "gold_first3": "TQH"
+ },
+ {
+  "gi": 36,
+  "qi": 0,
+  "rank": 1,
+  "strict": true,
+  "out": "TQH-777.",
+  "first_tok": " ",
+  "gold_first3": "TQH"
+ },
+ {
+  "gi": 36,
+  "qi": 1,
+  "rank": 2,
+  "strict": false,
+  "out": "CTQH-777.",
+  "first_tok": " ",
+  "gold_first3": "FRC"
+ },
+ {
+  "gi": 37,
+  "qi": 0,
+  "rank": 1,
+  "strict": false,
+  "out": "CTG-601.",
+  "first_tok": " ",
+  "gold_first3": "PVG"
+ },
+ {
+  "gi": 37,
+  "qi": 1,
+  "rank": 1,
+  "strict": true,
+  "out": "TQH-870.",
+  "first_tok": " ",
+  "gold_first3": "TQH"
+ },
+ {
+  "gi": 37,
+  "qi": 2,
+  "rank": 3,
+  "strict": false,
+  "out": "PVG-601.",
+  "first_tok": " ",
+  "gold_first3": "PVG"
+ },
+ {
+  "gi": 38,
+  "qi": 0,
+  "rank": 1,
+  "strict": false,
+  "out": "CTG-820.",
+  "first_tok": " ",
+  "gold_first3": "TQH"
+ },
+ {
+  "gi": 38,
+  "qi": 1,
+  "rank": 2,
+  "strict": false,
+  "out": "CTG-820.",
+  "first_tok": " ",
+  "gold_first3": "PVG"
+ },
+ {
+  "gi": 38,
+  "qi": 2,
+  "rank": 2,
+  "strict": false,
+  "out": "CTG-820.",
+  "first_tok": " ",
+  "gold_first3": "LXM"
+ },
+ {
+  "gi": 38,
+  "qi": 3,
+  "rank": 4,
+  "strict": false,
+  "out": "CTG-820.",
+  "first_tok": " ",
+  "gold_first3": "PVG"
+ },
+ {
+  "gi": 39,
+  "qi": 0,
+  "rank": 1,
+  "strict": true,
+  "out": "VZB-907.",
+  "first_tok": " ",
+  "gold_first3": "VZB"
+ },
+ {
+  "gi": 39,
+  "qi": 1,
+  "rank": 1,
+  "strict": true,
+  "out": "LXM-234.",
+  "first_tok": " ",
+  "gold_first3": "LXM"
+ }
+]

@@ -126,5 +126,36 @@
   "child_verdict": "PROMOTE_EXPERIMENTAL",
   "next_research_question": "What prevents an already-present query-conditioned value preference from dominating competing candidate priors at greedy decode time (margin/calibration vs context interference vs format breadth)?",
   "next_training_decision": "DO_NOT_TRAIN_YET",
-  "next_training_decision_rationale": "Per P24 a candidate-margin/ranking objective is now scientifically justified, but it requires its own preregistration BEFORE training; additionally the extraction gate passed by one item, so headroom must be widened/re-measured before further optimization pressure."
+  "next_training_decision_rationale": "Per P24 a candidate-margin/ranking objective is now scientifically justified, but it requires its own preregistration BEFORE training; additionally the extraction gate passed by one item, so headroom must be widened/re-measured before further optimization pressure.",
+
+  "preregistered_predictions_PR5_repaired": {
+    "original_recorded_verdict": "FAIL",
+    "evidence_status": "INVALIDATED_BY_EVALUATOR_BUG",
+    "reason": "stale query prompt reused during greedy scoring: every target in a group was greedy-decoded under the LAST member's query (query_influence_v3.py pre-fix line 236); likelihood/lift/rank computations were NOT affected",
+    "corrective_action": "evaluator fixed (build_query_prompt per-target helper); SAME frozen parent and SAME frozen SFT6 rescored on the UNCHANGED fixture 27713accb3aa6825de23cf09540497943a0e56ca3ac177ba94f0f164f740a614",
+    "corrected_parent_greedy": "36/119",
+    "corrected_child_greedy": "44/119",
+    "corrected_verdict": "PASS",
+    "evidence": "output/qim3_sft6_corrective_rescore.json + output/qim3_parent_corrective_rescore.json",
+    "no_retraining_performed": true,
+    "parent_parameter_sha256": "c3bc615eb3ffc8628f82088c433507baa142a0fecf91e4f6e64f9b17729e0625",
+    "child_parameter_sha256": "36c87e5be671ff37951b4b433e21ec14bb5e59f6f0770d7f81e50e99ead9e001"
+  },
+  "trajectory_metric_status": {
+    "historical_field": "qim_v2_mean_group_lift",
+    "actual_formula": "same_query_candidate_margin",
+    "true_query_lift_intermediate_updates": "NOT_MEASURED",
+    "note": "intermediate trajectory checkpoints were not saved, so true query lift cannot be reconstructed for updates 5..70 without inventing values; post-freeze QIM-v2 (+1.155 child vs +0.014 parent) and QIM-v3 measurements are valid and carry PR1"
+  },
+  "result_class_revised_after_correction": "C- / BEHAVIORAL MOVEMENT CONFIRMED",
+  "result_class_revision_note": "PR5 corrected FAIL -> PASS: free greedy improved 30.3% -> 37.0%. Lift improves strongly (dz=1.01), rank-1 improves strongly (40->63/119), retention holds, extraction at boundary. Greedy improvement is real but modest and remains far below candidate-level accuracy, so this is RESULT C-minus, not full C.",
+  "generation_decomposition": {
+    "report": "output/greedy_decomposition.json",
+    "free_greedy_accuracy": "44/119 (0.370)",
+    "candidate_constrained_accuracy_full_sequence": "63/119 (0.529)",
+    "generation_realization_gap": "19/119 (16.0%); 19/63 = 30.2% of correct selections fail to realize",
+    "first_token_bottleneck": "NO - all failures emit the expected leading space; competition is inside code-token realization/strict formatting",
+    "role": "DIAGNOSTIC_ONLY; informs the NEXT preregistration's target, does not retroactively change any gate"
+  },
+  "monte_carlo_p_reporting_note": "original reports stated p=0.0000 from a finite MC sample; plus-one estimator now used everywhere; corrected minimum reportable p is 1/20001 ~= 5e-05. This is reporting hygiene, not a material weakening."
 }

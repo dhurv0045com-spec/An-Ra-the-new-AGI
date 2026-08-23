@@ -256,8 +256,12 @@ def main() -> None:
 
     def record(update_idx, held_acc, held_rep, ext, fams_dev):
         nonlocal best, best_score
-        # P6: live QIM-v2 group-lift at every trajectory point (development
-        # instrument; cheap: 10 groups x 3 queries x 3 candidate scorings).
+        # P5 metric-identity fix: this is the SAME-QUERY CANDIDATE MARGIN —
+        # logP(correct value | own query_i) - mean logP(OTHER candidates |
+        # SAME query_i) — NOT candidate-normalized query lift
+        # (logP(v_i|q_i) - mean_{j!=i} logP(v_i|q_j)). The historical field
+        # name overstated it; renamed honestly. True query lift is measured
+        # post-freeze by query_influence_v3/qim2 evaluators.
         from connector.experiments.query_influence import build_groups, _prompt, _query
         qim_groups = build_groups()
         model.eval()
@@ -275,7 +279,7 @@ def main() -> None:
                     lifts.append(Lq[qi] - sum(others) / len(others))
                 per_group_lift.append(sum(lifts) / len(lifts))
         model.train()
-        mean_group_lift = sum(per_group_lift) / len(per_group_lift)
+        mean_group_margin = sum(per_group_lift) / len(per_group_lift)
         floors = {f: fams_dev.get(f, 0.0) >= baseline_dev.get(f, 0.0) - PARENT_REGRESSION_TOLERANCE
                   for f in PROTECTED_FAMS}
         ext_ok = extraction_floor_ok(base_ext["fraction"], ext["fraction"])
@@ -289,12 +293,12 @@ def main() -> None:
                 model, identity, tok, args, f"u{update_idx}",
                 {"dev_heldout_acc": round(held_acc, 4),
                  "extraction": ext["passed"], "families": fams_dev,
-                 "qim2_mean_group_lift": round(mean_group_lift, 4),
+                 "qim_v2_same_query_candidate_margin": round(mean_group_margin, 4),
                  "optimizer_update": update_idx})
             best = {"update": update_idx, "param_sha256": param_note,
                     "dev_heldout_acc": round(held_acc, 4),
                     "extraction": ext["passed"],
-                    "qim2_mean_group_lift": round(mean_group_lift, 4)}
+                    "qim_v2_same_query_candidate_margin": round(mean_group_margin, 4)}
             print(f"  [save] gated-eligible candidate score={score:.3f} "
                   f"-> {args.out}", flush=True)
         # Labeled FALLBACK candidate: refreshed unconditionally at the LAST
@@ -315,7 +319,10 @@ def main() -> None:
             "optimizer_update": update_idx,
             "dev_heldout_acc": round(held_acc, 4),
             "dev_detail": held_rep,
-            "qim_v2_mean_group_lift": round(mean_group_lift, 4),
+            # P5: honest metric name. This is the same-query candidate
+            # margin, NOT candidate-normalized query lift.
+            # trajectory_query_lift: NOT_MEASURED at intermediate updates.
+            "qim_v2_same_query_candidate_margin": round(mean_group_margin, 4),
             "context_value_extraction": ext["passed"],
             "protected_families": fams_dev,
             "floors_vs_parent": floors,
@@ -325,7 +332,7 @@ def main() -> None:
             "fallback_param_sha256": fallback_note,
         })
         print(f"  [eval @upd {update_idx}] heldout={held_acc:.3f} "
-              f"lift={mean_group_lift:+.3f} ext={ext['passed']} "
+              f"margin={mean_group_margin:+.3f} ext={ext['passed']} "
               f"fams={json.dumps(fams_dev)}", flush=True)
 
     record(0, base_held_acc, base_report, base_ext, baseline_dev)
@@ -372,12 +379,14 @@ def main() -> None:
         "parent_checkpoint": args.parent,
         "parent_parameter_sha256": parent_param_sha,
         "data_dir": args.data,
-        "train_sha256": file_sha(f"{args.data}/train.jsonl"),
-        "heldout_sha256": file_sha(f"{args.data}/heldout.jsonl"),
+        # P8 hash semantics: file_bytes_* = literal bytes as read at
+        # training time; canonical_rows_* = parsed rows (sorted keys).
+        "train_file_bytes_sha256": file_sha(f"{args.data}/train.jsonl"),
+        "heldout_file_bytes_sha256": file_sha(f"{args.data}/heldout.jsonl"),
         "split_audit": {k: audit[k] for k in (
             "n_train_groups", "n_heldout_groups", "group_overlap",
             "prompt_overlap", "full_fact_block_overlap",
-            "train_data_sha256", "heldout_data_sha256",
+            "train_canonical_rows_sha256", "heldout_canonical_rows_sha256",
             "split_manifest_sha256")},
         "objective": {
             "unit": "queryswap GROUP (mean member loss per micro-unit)",
@@ -398,8 +407,9 @@ def main() -> None:
         "baseline": {"heldout_acc": round(base_held_acc, 4),
                      "extraction": base_ext["passed"],
                      "protected_families": baseline_dev,
-                     "qim_v2_mean_group_lift":
-                         trajectory[0]["qim_v2_mean_group_lift"]},
+                     "qim_v2_same_query_candidate_margin":
+                         trajectory[0]["qim_v2_same_query_candidate_margin"],
+                     "trajectory_query_lift": "NOT_MEASURED"},
         "trajectory": trajectory,
         "best": best,
         "fallback_candidate": {

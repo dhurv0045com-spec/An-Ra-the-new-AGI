@@ -153,9 +153,12 @@ def _prompt(block: str, query: str) -> str:
 def sign_flip_p(values: list[float]) -> float:
     """Paired one-sided sign-flip permutation p for mean > 0.
 
-    Exact enumeration when n <= 20 (2^20 = 1,048,576); else seeded random
-    flips. The INPUTS must already be independent units (per-group deltas),
-    never correlated candidate rows.
+    Exact enumeration when n <= 20 (2^20 = 1,048,576): plain tail count.
+    Else seeded Monte Carlo with the standard plus-one estimator
+        p = (count + 1) / (draws + 1)
+    so a finite sample can never report a literal zero (P7). With 20000
+    draws the minimum reportable p is ~5e-05. The INPUTS must already be
+    independent units (per-group deltas), never correlated rows.
     """
     n = len(values)
     obs = sum(values)
@@ -168,13 +171,13 @@ def sign_flip_p(values: list[float]) -> float:
             total += 1
             if sum(s * v for s, v in zip(signs, values)) >= obs:
                 count += 1
-    else:
-        for _ in range(PERM_DRAWS):
-            total += 1
-            signs = [rng.choice((1, -1)) for _ in range(n)]
-            if sum(s * v for s, v in zip(signs, values)) >= obs:
-                count += 1
-    return count / total
+        return count / total
+    for _ in range(PERM_DRAWS):
+        total += 1
+        signs = [rng.choice((1, -1)) for _ in range(n)]
+        if sum(s * v for s, v in zip(signs, values)) >= obs:
+            count += 1
+    return (count + 1) / (total + 1)
 
 
 def bootstrap_ci(values: list[float], draws: int = 10000) -> tuple[float, float]:
@@ -198,9 +201,28 @@ def dz(values: list[float]) -> float:
 
 # ---------------- evaluation ------------------------------------------------
 
+def build_query_prompt(group: dict, target_index: int) -> str:
+    """Pure helper (P6/P1): the prompt for evaluating TARGET `target_index`
+    of one group — the group's fact block plus THAT target's own query.
+
+    Every target-specific measurement (candidate logprobs, rank, greedy)
+    must construct its prompt through this function so no measurement can
+    silently inherit another query via loop-carried state.
+    """
+    recs = group["displayed_facts"]
+    if group.get("format") == "table":
+        block = ("item | tag\n"
+                 + "\n".join(f"{r['entity'].capitalize()} | {r['code']}"
+                             for r in recs))
+    else:
+        block = "\n".join(r["line"] for r in recs)
+    return _prompt(block, _query(recs[target_index]))
+
+
 def run_model(label: str, checkpoint: str, *,
               parent_report: dict | None = None,
-              device: str = "cuda") -> dict:
+              device: str = "cuda",
+              evaluation_class: str | None = None) -> dict:
     """Evaluate one checkpoint. Pass parent_report (produced by an earlier
     call with include_per_group=True) to get the PRIMARY paired deltas."""
     from anra_core.checkpoint import load_core_checkpoint
@@ -216,36 +238,43 @@ def run_model(label: str, checkpoint: str, *,
     greedy_ok: list[bool] = []
     for g in groups:
         recs = g["displayed_facts"]
-        if g["format"] == "table":
-            block = ("item | tag\n"
-                     + "\n".join(f"{r['entity'].capitalize()} | {r['code']}"
-                                 for r in recs))
-        else:
-            block = "\n".join(r["line"] for r in recs)
+        # P6: every target's measurements are computed together, each from
+        # its OWN explicitly built prompt (no loop-carried prompt state).
         L = []
+        group_lifts: list[float] = []
+        prompts = [build_query_prompt(g, qi) for qi in range(len(recs))]
         for qi in range(len(recs)):
-            prompt = _prompt(block, _query(recs[qi]))
-            L.append([_completion_logprob(model, tok, prompt, f" {r['code']}.")
-                      for r in recs])
-        lifts = []
+            L.append([_completion_logprob(model, tok, prompts[qi],
+                                          f" {r['code']}.") for r in recs])
         for qi in range(len(recs)):
             others = [L[j][qi] for j in range(len(recs)) if j != qi]
-            lifts.append(L[qi][qi] - sum(others) / len(others))
+            group_lifts.append(L[qi][qi] - sum(others) / len(others))
             ranks.append(1 + sum(1 for j in range(len(recs))
                                  if L[qi][j] > L[qi][qi]))
-            greedy_ok.append(_strict(_greedy(model, tok, prompt), recs[qi]["code"]))
-        cand_lifts.extend(lifts)
-        group_means.append(sum(lifts) / len(lifts))
+            # P0 FIX: greedy target qi is scored under ITS OWN query
+            # (prompts[qi]), never a stale/last-query prompt.
+            greedy_ok.append(
+                _strict(_greedy(model, tok, prompts[qi]), recs[qi]["code"]))
+        cand_lifts.extend(group_lifts)
+        group_means.append(sum(group_lifts) / len(group_lifts))
 
     report = {
         "schema": DIAGNOSTIC_VERSION,
         "role": "DEVELOPMENT_REPLICATION_ONLY",
+        # P2: corrective rescoring of an already-consumed fixture labels
+        # itself; original (pre-fix) artifacts carry no such marker.
+        "evaluation_class": evaluation_class or "ORIGINAL_EVALUATION",
         "label": label, "checkpoint": checkpoint,
         "global_step": identity.global_step,
         "parameter_sha256": getattr(identity, "parameter_sha256", None),
         "fixture_sha256": fixture_hash(),
         "vocab_disjointness": vocabulary_disjointness(),
         "primary_unit": "fact_group",
+        "evaluator_version": "v3.1-corrective-greedy",
+        "evaluator_note": ("corrective rescore: greedy targets now scored "
+                           "under their OWN query prompt (stale-prompt bug "
+                           "fixed); likelihood/lift/rank computation unchanged; "
+                           "MC sign-flip p uses plus-one estimator (never 0)"),
         "per_group_query_lift": [round(x, 4) for x in group_means],
         "group_level": {
             "n_groups": len(group_means),
@@ -285,6 +314,7 @@ def run_model(label: str, checkpoint: str, *,
             "median_paired_delta": round(sorted(deltas)[len(deltas) // 2], 4),
             "positive_delta_groups": f"{sum(1 for d in deltas if d > 0)}/{len(deltas)}",
             "paired_sign_flip_p": round(sign_flip_p(deltas), 5),
+            "p_estimator": "plus-one MC: (count+1)/(draws+1); never literal 0",
             "bootstrap95CI_mean_delta": [round(lo, 4), round(hi, 4)],
             "effect_size_dz": round(dz(deltas), 3),
         }
