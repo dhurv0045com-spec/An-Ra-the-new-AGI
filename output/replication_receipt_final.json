@@ -155,6 +155,13 @@
     "candidate_constrained_accuracy_full_sequence": "63/119 (0.529)",
     "generation_realization_gap": "19/119 (16.0%); 19/63 = 30.2% of correct selections fail to realize",
     "first_token_bottleneck": "NO - all failures emit the expected leading space; competition is inside code-token realization/strict formatting",
+    "failure_taxonomy_n75": {
+      "selection_failures_gold_not_rank1": 56,
+      "realization_failures_gold_ranked1_but_wrong_emit": 19,
+      "novel_codes_composed_on_the_fly_never_in_train": 25,
+      "emitted_keeps_gold_prefix_digits_differ": 26,
+      "emitted_different_prefix_entirely": 48
+    },
     "role": "DIAGNOSTIC_ONLY; informs the NEXT preregistration's target, does not retroactively change any gate"
   },
   "monte_carlo_p_reporting_note": "original reports stated p=0.0000 from a finite MC sample; plus-one estimator now used everywhere; corrected minimum reportable p is 1/20001 ~= 5e-05. This is reporting hygiene, not a material weakening."

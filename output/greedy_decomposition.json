@@ -1,5 +1,5 @@
 {
-  "schema": "anra-greedy-decomposition/v1",
+  "schema": "anra-greedy-decomposition/v1.1",
   "role": "DIAGNOSTIC_ONLY — no training decision without its own preregistration",
   "fixture_sha256": "27713accb3aa6825de23cf09540497943a0e56ca3ac177ba94f0f164f740a614",
   "checkpoint": "checkpoints/anra-v4-20k-sft6-queryswap-replication.pt",
@@ -7,18 +7,32 @@
   "n_targets": 119,
   "free_greedy_accuracy": "44/119 (0.370)",
   "full_candidate_rank1_accuracy": "63/119 (0.529)",
-  "generation_realization_gap": "19 items (16.0%): candidate-ranked-correct but free greedy wrong",
-  "among_full_candidate_correct": {
-    "n": 63,
-    "free_greedy_also_correct": 44,
-    "realization_failure_rate": "19/63 (30.2%)"
+  "generation_realization_gap": "19 targets where gold ranked #1 under full-sequence scoring yet free greedy emitted something else",
+
+  "failure_taxonomy_n75": {
+    "selection_errors_emitted_another_members_code": 28,
+    "novel_codes_never_in_group": 46,
+    "malformed_output": 1,
+    "novel_codes_appearing_verbatim_in_train_data": 0,
+    "note": "novel codes are composed on the fly, not memorized: zero of 25 distinct novel codes appear anywhere in the training data"
   },
-  "first_token_observation": {
-    "note": "greedy decode begins with a space token in ALL 75 failing cases; the model's completion contract is ' CODE.' so first-token analysis must be read at the code-prefix level after the leading space",
-    "failing_first_token_modal": "' ' (75/75 failures)",
-    "interpretation_guard": "first-token failure is NOT indicated; the boundary is INSIDE multi-token code realization or strict single-code formatting, not at emitting the first character"
+
+  "token_level_anatomy_n74_parsed": {
+    "emitted_keeps_gold_3letter_prefix_digits_differ": 26,
+    "emitted_has_entirely_different_prefix": 48,
+    "interpretation": "the dominant failure is at or before the 3-letter prefix token of the code; when the prefix IS right, the digits still get corrupted more often than not"
   },
-  "conclusion": "Selection vs realization are now separated: the child picks the correct candidate value for 63/119 targets under full-sequence scoring, but realizes only 44 of those choices through free autoregressive decoding. The generation_realization_gap is 19/119 overall and 19/63 among correctly-selecting targets. No first-token bottleneck: every failure still emits the expected leading-space token, so competition occurs at the digit/prefix tokens of the code or in final strict formatting.",
+
+  "gold_candidate_rank_among_all_75_failures": {
+    "rank1_pure_realization_failure": 19,
+    "rank2": 34,
+    "rank3": 14,
+    "rank4": 8,
+    "conclusion": "75 failures = 19 pure realization failures + 56 selection failures. The PRIMARY bottleneck remains SELECTION (75%), with a secondary realization deficit (25%)"
+  },
+
+  "refined_conclusion": "Three distinct regimes now measured on the same frozen child: (1) SELECTED AND REALIZED: 44/119 (37%). (2) SELECTION FAILURE: 56/119 (47%) - gold not ranked #1 and greedy also wrong. (3) REALIZATION FAILURE: 19/119 (16%) - correct value ranked #1 but free decode emitted a different, well-formed, on-the-fly-composed code (never memorized). The realization failures are NOT first-token failures: the leading-space token is always emitted correctly. The competition lives at the code-prefix token (3-letter group) and digit tokens.",
+  "implication_for_next_experiment": "A margin objective targeting candidate ranking would address regime (2). Regime (3) needs decode-time competition pressure instead - e.g. training-time exposure to the 'commit to the selected code' step, or an output format that shortens the realized sequence. Both require their own preregistration; neither is justified to start without measuring which regime a proposed objective actually claims to fix.",
   "per_item_rows": "output/greedy_decomposition_rows.json",
   "timestamp": "2026-08-23 23:05:00"
 }
