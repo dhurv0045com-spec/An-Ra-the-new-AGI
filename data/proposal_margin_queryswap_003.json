@@ -1,0 +1,61 @@
+{
+  "proposal_id": "tp-margin-queryswap-003",
+  "status": "PREREGISTERED",
+  "timestamp": "2026-08-24 00:30:00",
+  "support_type": "INTERVENTION",
+  "role": "REGIME-TARGETED EXPERIMENT: fixes the SELECTION regime measured on SFT6 (56/75 failures where gold was not candidate-ranked #1). Parent = frozen SFT6 child. NOT an OOD suite; QIM-v4 is its replication instrument.",
+  "hypothesis": "Adding a same-fact-block competitor margin to the group CE objective converts SFT6's selection misses (gold not ranked #1) into correct selections, without degrading realization, extraction, or protected capabilities.",
+  "parent": {
+    "checkpoint": "checkpoints/anra-v4-20k-sft6-queryswap-replication.pt",
+    "parameter_sha256": "36c87e5be671ff37951b4b433e21ec14bb5e59f6f0770d7f81e50e99ead9e001",
+    "note": "SFT6 is the parent because ITS measured selection misses are the target; this is the first second-generation intervention and lineage records it as such."
+  },
+  "design": {
+    "objective": "L_unit = mean_m CE_m + margin_weight * mean_m [ sum_c clamp(gamma - (lp(g_m) - lp(c)), 0) / |C_m| ] where lp are DIFFERENTIABLE full-sequence completion logprobs and C_m = other codes in m's own fact block",
+    "margin_gamma_nats": 2.0,
+    "margin_weight": 0.5,
+    "alpha_group_loss": 0.58,
+    "optimizer_updates": 60,
+    "lr": 1e-5,
+    "data": "data/grouped_queryswap train split (unchanged files, hashes below)",
+    "trajectory_updates_optimizer_count": [5, 10, 20, 30, 40, 50, 60]
+  },
+  "protection_floors_preregistered": {
+    "context_value_extraction_v2": {
+      "fixture_sha256": "dded16eb92f3800bf6e01176eff61207398788cbc97ef32bb6c0efc7bb7e30ea",
+      "parent_baseline_fraction": 0.7083,
+      "floor": "child >= parent - 0.10 (= 0.6083)",
+      "note": "CVE-v2 was built AFTER SFT6 per P10; it becomes a LIVE gate for the first time here, with baselines recorded before this proposal was written"
+    },
+    "protected_capability_families": "single_fact / tool_result / copy / protocol_transfer each >= own parent baseline - 0.10 (parent = SFT6)"
+  },
+  "replication_instrument": {
+    "fixture": "connector/experiments/query_influence_v4.py",
+    "fixture_sha256": "5effd87acdd5d865462334d0455bd3f07082b3f0c2061b80a5c45b276bc9ddd4",
+    "n_groups": 40,
+    "vocab_disjointness": "programmatically verified at build time (prefix_hits=[], entity_hits=[])",
+    "usage": "parent baseline BEFORE training; selected child evaluated ONCE after freeze; never used for selection"
+  },
+  "pre_registered_predictions": {
+    "PR1_selection_rank_v4": "On QIM-v4, child correct-rank-1 fraction > parent by >= +8 candidates of 119 (~+7%) — direct test that selection misses convert",
+    "PR2_lift_preserved_v4": "Child mean group lift >= parent mean group lift - 0.3 nats (the margin must not buy rank by destroying lift)",
+    "PR3_greedy_v4": "Child greedy corresponding accuracy > parent greedy accuracy on QIM-v4 (directional)",
+    "PR4_realization_not_harmed": "Constrained-decode realization check on QIM-v4 failures: child free-greedy success among candidate-rank-1 items does not fall below parent's 44/63 rate minus 5 items",
+    "PR5_extraction_floor_cve2": "CVE-v2 child fraction >= parent(SFT6) baseline - 0.10",
+    "PR6_protected_retention": "every protected family >= own SFT6 baseline - 0.10",
+    "PR7_group_heldout_no_regression": "group-heldout accuracy >= SFT6 update-80 level (0.8167) - 0.05"
+  },
+  "falsification_rules": {
+    "SUCCESS_FULL": "PR1+PR3 pass and floors hold => margin objective converts selection misses behaviorally; next step is fresh-suite behavioral replication",
+    "PARTIAL_RANK_ONLY": "PR1 passes but PR3 fails => latent selection improved, decode still dominated; decode-commitment pressure becomes the justified next lever",
+    "FAILURE": "PR1 fails or any floor breaks => reject the margin hypothesis for this regime; do not iterate gamma/weight without a new preregistration"
+  },
+  "evaluation_discipline": [
+    "freeze QIM-v4 fixture hash (this commit)",
+    "parent (SFT6) QIM-v4 baseline BEFORE training",
+    "train with trajectory evals; select on DEVELOPMENT metrics only",
+    "freeze selected child; evaluate ONCE on QIM-v4 paired vs parent",
+    "no retraining or re-selection based on QIM-v4 numbers"
+  ],
+  "verified_intervention_experiences_note": "training experiment; earns no VIE credit regardless of outcome"
+}
