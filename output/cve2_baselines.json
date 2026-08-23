@@ -1,0 +1,17 @@
+{
+  "schema": "anra-context-value-extraction/v2-baselines",
+  "role": "DEVELOPMENT_ONLY_FUTURE_USE \u2014 establishes fresh baselines for FUTURE proposals; never retroactively applied to SFT6 gates",
+  "fixture_sha256": "dded16eb92f3800bf6e01176eff61207398788cbc97ef32bb6c0efc7bb7e30ea",
+  "n_items": 24,
+  "parent": {
+    "parameter_sha256": "c3bc615eb3ffc8628f82088c433507baa142a0fecf91e4f6e64f9b17729e0625",
+    "passed": "19/24",
+    "fraction": 0.7917
+  },
+  "sft6": {
+    "parameter_sha256": "36c87e5be671ff37951b4b433e21ec14bb5e59f6f0770d7f81e50e99ead9e001",
+    "passed": "17/24",
+    "fraction": 0.7083
+  },
+  "per_item_parent": null
+}

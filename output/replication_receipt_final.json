@@ -164,5 +164,15 @@
     },
     "role": "DIAGNOSTIC_ONLY; informs the NEXT preregistration's target, does not retroactively change any gate"
   },
+  "extraction_v2_future_baseline_P10": {
+    "fixture": "connector/experiments/context_value_extraction_v2.py",
+    "fixture_sha256": "dded16eb92f3800bf6e01176eff61207398788cbc97ef32bb6c0efc7bb7e30ea",
+    "n_items": 24,
+    "role": "DEVELOPMENT_ONLY_FUTURE_USE — never retroactively applied to SFT6 gates",
+    "parent_baseline": "19/24 (0.7917)",
+    "sft6_baseline": "17/24 (0.7083)",
+    "note": "on a properly-powered, fully-disjoint fixture the extraction regression is visible but modest (parent -0.083); SFT6 did NOT destroy generic extraction — v1's 12-item boundary pass under-sampled a real ~1-2 item effect",
+    "baselines_report": "output/cve2_baselines.json"
+  },
   "monte_carlo_p_reporting_note": "original reports stated p=0.0000 from a finite MC sample; plus-one estimator now used everywhere; corrected minimum reportable p is 1/20001 ~= 5e-05. This is reporting hygiene, not a material weakening."
 }
