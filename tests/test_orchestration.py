@@ -447,9 +447,21 @@ def test_xla_bounds_gradient_accumulation_graph_per_microbatch() -> None:
 
     source = (Path(__file__).parents[1] / "training" / "train_xla.py").read_text()
     backward = source.index("scaled.backward()")
-    reduce_gradients = source.index("xm.reduce_gradients(optimizer)", backward)
-    boundary = source.index("xm.mark_step()", backward, reduce_gradients)
-    assert backward < boundary < reduce_gradients
+    optimizer_step = source.index("optimizer.step()", backward)
+    boundary = source.index("xm.mark_step()", backward, optimizer_step)
+    assert backward < boundary < optimizer_step
+
+
+def test_xla_uses_traceable_ddp_collective_once_per_accumulated_update() -> None:
+    from pathlib import Path
+
+    source = (Path(__file__).parents[1] / "training" / "train_xla.py").read_text()
+    worker = source[source.index("def _worker("):source.index("def run(")]
+    assert 'dist.init_process_group("xla", init_method="xla://")' in worker
+    assert "model = DDP(model, gradient_as_bucket_view=True)" in worker
+    assert "else model.no_sync()" in worker
+    assert "xm.reduce_gradients(" not in worker
+    assert "xm.all_reduce(" not in worker
 
 
 def test_xla_deadline_control_avoids_precompile_tensor_collective() -> None:

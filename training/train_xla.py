@@ -481,7 +481,10 @@ def _bf16_autocast(enabled: bool) -> Iterator[None]:
 def _worker(index: int, config: dict[str, object]) -> None:
     xm, pl, _ = _require_xla()
     import torch_xla
+    import torch.distributed as dist
+    import torch_xla.distributed.xla_backend  # noqa: F401 - registers xla://
     import torch_xla.runtime as xr
+    from torch.nn.parallel import DistributedDataParallel as DDP
 
     if not hasattr(torch, "xla") and hasattr(torch, "_register_device_module"):
         torch._register_device_module("xla", torch_xla)
@@ -496,6 +499,12 @@ def _worker(index: int, config: dict[str, object]) -> None:
             f"Expected exactly {required_world_size} TPU workers, got {world_size}; "
             "refusing to change the global batch or checkpoint topology"
         )
+    # PyTorch/XLA 2.8 supports the upstream distributed API and uses its
+    # traceable collectives.  Do not use the legacy xm.all_reduce /
+    # xm.reduce_gradients path here: on Kaggle v5e-8 it can segfault inside
+    # torch_xla::tensor_methods::all_reduce before the first logged update.
+    if not dist.is_initialized():
+        dist.init_process_group("xla", init_method="xla://")
 
     seed = int(config["seed"])
     # All replicas must construct identical fresh weights. Rank-specific RNG is
@@ -544,6 +553,10 @@ def _worker(index: int, config: dict[str, object]) -> None:
     model.enable_memory_efficient_attention(int(config["attention_chunk_size"]))
     # Optimizer state moves to XLA exactly once (restore already populated it).
     _move_optimizer_state(optimizer, device)
+    # DDP's XLA backend reduces gradients through the supported traceable
+    # torch.distributed path.  The optimizer still owns the original parameter
+    # objects, and checkpoint serialization unwraps ``module`` below.
+    model = DDP(model, gradient_as_bucket_view=True)
 
     checkpoint_lr = float(optimizer.param_groups[0]["lr"])
     pack_total_steps = int(config["_pack_total_steps"])
@@ -699,7 +712,7 @@ def _worker(index: int, config: dict[str, object]) -> None:
         # microbatch synchronizes host and device and substantially reduces
         # throughput on a v5e-8.
         loss_sum = torch.zeros((), device=device)
-        for _ in range(grad_accum):
+        for microbatch in range(grad_accum):
             try:
                 x, y = next(iterator)
             except StopIteration:
@@ -709,11 +722,23 @@ def _worker(index: int, config: dict[str, object]) -> None:
                 sampler.set_start_index(0)
                 iterator = iter(device_loader)
                 x, y = next(iterator)
-            with _bf16_autocast(True):
-                logits = model(x)
-                loss = F.cross_entropy(logits.reshape(-1, CANONICAL_CONFIG.vocab_size), y.reshape(-1))
-                scaled = loss / grad_accum
-            scaled.backward()
+            # Accumulate locally for N-1 microbatches, then let DDP issue one
+            # globally averaged traceable collective for the complete update.
+            # The forward pass must be inside no_sync() for DDP to suppress
+            # its gradient hooks correctly.
+            sync_context = (
+                contextlib.nullcontext()
+                if microbatch == grad_accum - 1
+                else model.no_sync()
+            )
+            with sync_context:
+                with _bf16_autocast(True):
+                    logits = model(x)
+                    loss = F.cross_entropy(
+                        logits.reshape(-1, CANONICAL_CONFIG.vocab_size), y.reshape(-1)
+                    )
+                    scaled = loss / grad_accum
+                scaled.backward()
             # Execute one reusable forward/backward graph per microbatch.
             # Without this boundary XLA captures all grad-accum microbatches
             # into one enormous first-step graph, making v5e compilation look
@@ -724,9 +749,8 @@ def _worker(index: int, config: dict[str, object]) -> None:
             position = DataPosition.from_microbatches(
                 position.microbatches_consumed + 1, batches_per_epoch
             )
-        # Clip the averaged global gradient, not a different local gradient on
-        # every rank. Do not call xm.optimizer_step afterwards (it would reduce twice).
-        xm.reduce_gradients(optimizer)
+        # DDP has already averaged the complete accumulated gradient across all
+        # ranks. Clip that shared gradient and step exactly once.
         latest_grad_norm = _clip_global_grad_norm(
             model.parameters(), float(config["gradient_clip_norm"])
         )
@@ -746,8 +770,11 @@ def _worker(index: int, config: dict[str, object]) -> None:
 
         report = pack_completed % log_interval == 0 or pack_completed == initial_pack_step + 1
         if report:
-            global_loss = xm.all_reduce(xm.REDUCE_SUM, loss_window) / world_size
-            finite_loss = bool(torch.isfinite(global_loss).all().cpu().item())
+            # Logging does not need another device collective. Rank 0's shard
+            # loss is an unbiased sample metric; avoiding a redundant legacy
+            # all-reduce also keeps metrics outside the crash-prone path.
+            mean_loss_tensor = loss_window / max(1, loss_window_steps)
+            finite_loss = bool(torch.isfinite(mean_loss_tensor).all().cpu().item())
             finite_grad = bool(torch.isfinite(latest_grad_norm).all().cpu().item())
             if not finite_loss:
                 raise RuntimeError(
@@ -760,7 +787,7 @@ def _worker(index: int, config: dict[str, object]) -> None:
                     "save; last healthy recovery checkpoint is preserved."
                 )
         if rank == 0 and report:
-            mean_loss = float(global_loss.cpu()) / max(1, loss_window_steps)
+            mean_loss = float(mean_loss_tensor.cpu())
             elapsed = max(1e-6, time.monotonic() - window_started)
             report_steps = completed - last_report_step
             tok_per_sec = report_steps * tokens_per_step / elapsed
