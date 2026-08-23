@@ -73,27 +73,60 @@ def fixture_hash() -> str:
 
 
 def vocabulary_disjointness() -> dict:
-    """Programmatic proof: prefixes AND entities touch nothing consumed."""
+    """TRUE entity+prefix disjointness proof (not just a claim): every
+    v2 entity and prefix is checked against ALL consumed corpora (.jsonl
+    data files AND sealed OOD item files) and against the entity/prefix
+    constants of every prior generator."""
     consumed_prefixes = set()
-    for p in ("data/grouped_queryswap/train.jsonl",
-              "data/grouped_queryswap/heldout.jsonl",
-              "data/capability_bank/train.jsonl",
-              "data/capability_bank/dev.jsonl"):
-        blob = Path(p).read_text(encoding="utf-8")
-        consumed_prefixes |= set(re.findall(r"\b([A-Z]{3})-\d{3}\b", blob))
-    # every other generator's prefix constants
+    corpus_blob = ""
+    consumed_paths = [
+        "data/grouped_queryswap/train.jsonl",
+        "data/grouped_queryswap/heldout.jsonl",
+        "data/capability_bank/train.jsonl",
+        "data/capability_bank/dev.jsonl",
+        "connector/experiments/ood_battery/items.json",
+        "connector/experiments/ood2_battery/items.json",
+        "connector/experiments/ood3_battery/items.json",
+        "connector/experiments/ood4_battery/items.json",
+    ]
+    for p in consumed_paths:
+        f = Path(p)
+        if f.exists():
+            text = f.read_text(encoding="utf-8")
+            corpus_blob += text
+            consumed_prefixes |= set(re.findall(r"\b([A-Z]{3})-\d{3}\b", text))
     import connector.experiments.query_influence as qi
     import connector.experiments.entity_matching_diagnostic as emd
-    from connector.experiments.capability_bank import PREFIXES as CB_P, \
-        DEV_PREFIXES as CB_DP
+    from connector.experiments.capability_bank import (
+        PREFIXES as CB_P, DEV_PREFIXES as CB_DP,
+        OBJECTS, DEV_OBJECTS, WORDS, DEV_WORDS)
     consumed_prefixes |= set(qi.PREFIXES) | set(emd.PREFIXES) | set(CB_P) | set(CB_DP)
     overlaps_p = sorted(set(PREFIXES_V2) & consumed_prefixes)
+    # prefix collisions in actual corpus text (belt and braces)
+    text_prefix_hits = [p for p in PREFIXES_V2
+                        if re.search(rf"\b{p}-\d{{3}}\b", corpus_blob)]
+    # TRUE entity check: against constants of every prior generator, plus
+    # literal occurrence in any consumed corpus text
+    prior_entities = (set(OBJECTS) | set(DEV_OBJECTS) | set(WORDS) |
+                      set(DEV_WORDS) | set(qi.ENTITIES) | set(emd.ENTITIES) |
+                      {"bezel", "ferrule", "gudgeon", "hasp", "jamb",
+                       "lintel", "muntin", "newel", "ogee", "quoins",
+                       "spandrel", "voussoir"})
+    entity_constant_overlaps = sorted(set(ENTITIES_V2) & prior_entities)
+    entity_corpus_hits = sorted(
+        e for e in ENTITIES_V2
+        if e in corpus_blob or e.capitalize() in corpus_blob)
     return {
-        "prefix_overlaps": overlaps_p,
-        "disjoint": not overlaps_p,
-        "note": "entity-level overlap with grouped-queryswap data was the v1 "
-                "defect ('jamb'); this fixture uses an entirely fresh entity "
-                "set and asserts no entity appears in any consumed .jsonl",
+        "prefix_constant_overlaps": overlaps_p,
+        "prefix_corpus_hits": text_prefix_hits,
+        "entity_constant_overlaps": entity_constant_overlaps,
+        "entity_corpus_hits": entity_corpus_hits,
+        "disjoint": not (overlaps_p or text_prefix_hits or
+                         entity_constant_overlaps or entity_corpus_hits),
+        "checked_files": [p for p in consumed_paths if Path(p).exists()],
+        "note": ("v1's defect was claiming disjointness without checking: "
+                 "'jamb' appeared in grouped-queryswap rows. v2 verifies "
+                 "entities AND prefixes against constants AND corpora."),
     }
 
 

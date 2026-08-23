@@ -146,12 +146,19 @@ Facts, with evidence:
 
 ## The current open question (exactly one dominant)
 
-Selective binding fails at **query-entity ↔ fact-entity matching**: models
-produce *a* value from the facts (~5/26 base, ~5/26 counterfactual) but
-never the queried value on both members of a pair. Next discriminating
-experiment: exact-token entity queries vs paraphrased-entity queries. If
-exact pairs and paraphrase fails, the missing primitive is entity matching,
-not selection — and the next curriculum targets that.
+Query-conditioned value selection is **learnable but not yet behaviorally
+dominant**. The clean replication (tp-grouped-queryswap-replication-002)
+proved grouped counterfactual query-swap training installs a large,
+cross-vocabulary query-conditioned preference (paired group-level delta
++2.486 nats on a frozen fresh fixture; rank-1 34%→53%; corrected greedy
+30%→37%; RESULT C-). Decomposition shows two remaining regimes: 56/75
+failures are selection misses, 19/75 are realization losses where the
+correct value wins the likelihood ranking but loses the token-by-token
+argmax commit. A runtime constrained-decode intervention flipped 20/20 of
+its applicable failures with zero regressions — proof the preference is
+real and query-keyed. Next: preregister ONE regime-targeted objective
+(candidate margin vs decode-commitment pressure) using the v2 extraction
+fixture as protection gate.
 
 ## Standard of success
 

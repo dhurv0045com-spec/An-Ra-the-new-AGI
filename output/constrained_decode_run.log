@@ -1,0 +1,57 @@
+group 0: running free=1 constr=1
+group 1: running free=1 constr=3
+group 2: running free=2 constr=5
+group 3: running free=4 constr=7
+group 4: running free=4 constr=8
+group 5: running free=7 constr=11
+group 6: running free=8 constr=12
+group 7: running free=8 constr=13
+group 8: running free=8 constr=14
+group 9: running free=10 constr=16
+group 10: running free=10 constr=17
+group 11: running free=13 constr=20
+group 12: running free=14 constr=21
+group 13: running free=16 constr=23
+group 14: running free=17 constr=24
+group 15: running free=18 constr=25
+group 16: running free=19 constr=26
+group 17: running free=21 constr=28
+group 18: running free=22 constr=29
+group 19: running free=23 constr=32
+group 20: running free=23 constr=33
+group 21: running free=24 constr=35
+group 22: running free=24 constr=36
+group 23: running free=27 constr=39
+group 24: running free=27 constr=40
+group 25: running free=29 constr=42
+group 26: running free=29 constr=43
+group 27: running free=31 constr=45
+group 28: running free=32 constr=46
+group 29: running free=35 constr=49
+group 30: running free=36 constr=50
+group 31: running free=37 constr=52
+group 32: running free=37 constr=52
+group 33: running free=38 constr=54
+group 34: running free=38 constr=55
+group 35: running free=40 constr=58
+group 36: running free=41 constr=59
+group 37: running free=42 constr=61
+group 38: running free=42 constr=62
+group 39: running free=44 constr=64
+{
+  "schema": "anra-constrained-decode-intervention/v1.1",
+  "intervention_class": "RUNTIME_SINGLE_VARIABLE_OBSERVED_ONLY",
+  "variable_changed": "next-token choice restricted to the group's own candidate-code continuations",
+  "checkpoint": "checkpoints/anra-v4-20k-sft6-queryswap-replication.pt",
+  "parameter_sha256": "36c87e5be671ff37951b4b433e21ec14bb5e59f6f0770d7f81e50e99ead9e001",
+  "fixture_sha256": "27713accb3aa6825de23cf09540497943a0e56ca3ac177ba94f0f164f740a614",
+  "n_targets": 119,
+  "free_greedy_accuracy": "44/119",
+  "constrained_accuracy": "64/119",
+  "candidate_rank1_reference": "63/119",
+  "flips_fail_to_pass": 20,
+  "flips_pass_to_fail": 0,
+  "net_gain": 20,
+  "interpretation_guard": "a flip counts as cognitive-credit EVIDENCE only if it is a clean single-variable runtime flip judged against the causal bank's contract; this report records observations, not a VerifiedInterventionExperience claim",
+  "wall_seconds": 195.8
+}

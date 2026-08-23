@@ -29,5 +29,8 @@ jobs:
         run: |
           python -m pytest tests/test_query_influence.py \
                             tests/test_grouped_queryswap_contracts.py \
+                            tests/test_qim_v3_corrective.py \
+                            tests/test_evidence_chain_invariants.py \
+                            tests/test_repro_and_intervention.py \
                             tests/test_cognitive_credit.py \
                             -q

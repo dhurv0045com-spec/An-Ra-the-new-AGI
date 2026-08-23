@@ -223,7 +223,8 @@
   "current_status": {
     "active_model": "step-20k parent remains the general active model; no child has been promoted to CONNECTOR_READY or ACTIVE",
     "context_binding_holder": "anra-v4-20k-sft-context-binding.pt (PROMOTE_CONTEXT_BINDING, pending regression battery breadth)",
-    "selective_binding_holder": "anra-v4-20k-sft3-accumulate.pt \u2014 sealed 2x paired-CF gain, zero retention loss; PROMOTE_EXPERIMENTAL (selective-binding scope)"
+    "selective_binding_holder": "anra-v4-20k-sft3-accumulate.pt — sealed 2x paired-CF gain, zero retention loss; PROMOTE_EXPERIMENTAL (selective-binding scope)",
+    "query_conditioning_holder": "anra-v4-20k-sft6-queryswap-replication.pt (PROMOTE_EXPERIMENTAL) — first learned query-conditioned preference: clean QIM-v3 replication delta +2.486 nats, rank-1 40->63/119, corrected greedy 36->44/119 (RESULT C-). See output/replication_receipt_final.json"
   },
   "ood1_cf_audit": "A-family: 10/10 counterfactuals impure (fact order reshuffled); C-family: 8/8 pure",
   "sft2_data_ratios_exact": {

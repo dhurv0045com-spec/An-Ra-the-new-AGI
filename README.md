@@ -59,6 +59,16 @@ turns logits into sampled tokens and decides what to put in context. An Outer
 system owns streaming and actions. Training/Evaluation is the only authority
 that changes weights or promotes new versions.
 
+**Current learned-capability status (receipted):** the step-20k parent plus
+targeted SFT children hold PROMOTE_EXPERIMENTAL capabilities for context
+binding, selective binding, and — as of the clean replication
+(`tp-grouped-queryswap-replication-002`, RESULT C-) — a genuine
+query-conditioned value preference: +2.486 nats paired group-level lift on a
+frozen disjoint fixture, rank-1 40→63/119, corrected greedy 36→44/119,
+retention intact. The open gap is decode-time realization of that preference
+(see `output/greedy_decomposition.json` and
+`scripts/constrained_decode_intervention.py`).
+
 `CoreState` is an executor-owned, in-memory cache for a homogeneous batch. It
 is bound to its executor, architecture, weights, representation, and execution
 profile. It can be reset, forked, rolled back, and released. Portable state
