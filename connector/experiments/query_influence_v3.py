@@ -161,6 +161,8 @@ def sign_flip_p(values: list[float]) -> float:
     independent units (per-group deltas), never correlated rows.
     """
     n = len(values)
+    if not values:
+        raise ValueError("sign_flip_p requires at least one paired value")
     obs = sum(values)
     rng = random.Random(PERM_SEED)
     total = 0

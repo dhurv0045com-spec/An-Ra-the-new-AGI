@@ -10,11 +10,15 @@
   "generation_realization_gap": "19 targets where gold ranked #1 under full-sequence scoring yet free greedy emitted something else",
 
   "failure_taxonomy_n75": {
-    "selection_errors_emitted_another_members_code": 28,
-    "novel_codes_never_in_group": 46,
-    "malformed_output": 1,
-    "novel_codes_appearing_verbatim_in_train_data": 0,
-    "note": "novel codes are composed on the fly, not memorized: zero of 25 distinct novel codes appear anywhere in the training data"
+    "selection_failures_gold_not_rank1": 56,
+    "realization_failures_gold_ranked1_but_wrong_emit": 19,
+    "emitted_code_taxonomy": {
+      "selection_errors_emitted_another_members_code": 28,
+      "novel_codes_never_in_group": 46,
+      "malformed_output": 1,
+      "novel_codes_appearing_verbatim_in_train_data": 0
+    },
+    "note": "primary split is by gold's candidate rank (56 selection vs 19 realization); secondary taxonomy classifies WHAT was emitted; novel codes are composed on the fly, not memorized: zero of 25 distinct novel codes appear anywhere in the training data"
   },
 
   "token_level_anatomy_n74_parsed": {
