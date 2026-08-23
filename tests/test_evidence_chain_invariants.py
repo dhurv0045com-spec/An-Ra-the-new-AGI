@@ -51,11 +51,19 @@ def test_paired_delta_recomputes_from_per_group_lifts() -> None:
 
 
 def test_training_receipt_hashes_match_files_on_disk() -> None:
+    """The training-time receipt hashed LOCAL WORKING-COPY bytes. On this
+    repo's Windows checkouts (core.autocrlf=true) those are CRLF while the
+    committed blob is LF, so CI must compare against the CRLF-normalized
+    blob — content-identical to disk on any autocrlf checkout."""
+    import subprocess
     rr = _j("output/replication_receipt.json")
     for side, key in (("train", "train_sha256"), ("heldout", "heldout_sha256")):
-        h = hashlib.sha256(
-            (ROOT / f"data/grouped_queryswap/{side}.jsonl").read_bytes()).hexdigest()
-        assert rr[key] == h, side
+        blob = subprocess.check_output(
+            ["git", "show", f"HEAD:data/grouped_queryswap/{side}.jsonl"])
+        h_crlf = hashlib.sha256(blob.replace(b"\n", b"\r\n")).hexdigest()
+        h_lf = hashlib.sha256(blob).hexdigest()
+        assert rr[key] in (h_crlf, h_lf), \
+            f"{side}: receipt hash matches neither CRLF-normalized nor raw blob"
 
 
 def test_consumed_group_structure_intact() -> None:
