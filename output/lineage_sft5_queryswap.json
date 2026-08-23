@@ -1,0 +1,56 @@
+{
+  "schema": "anra-lineage/v1",
+  "checkpoint": "checkpoints/anra-v4-20k-sft5-queryswap.pt",
+  "proposal_id": "tp-grouped-queryswap-001",
+  "proposal_status_field": "DESIGNED_NOT_RUN (left immutable to preserve preregistration history; see P10 note below)",
+  "status_note_P10": "The experiment WAS executed. The proposal file is left untouched as preregistration history; THIS execution record + the manifest carry the true status.",
+  "execution_status": "EXECUTED",
+  "evidence_class_P19": [
+    "experimental child",
+    "development diagnostic (QIM-v2 measurement itself remains a valid measurement on this checkpoint)"
+  ],
+  "checkpoint_status": "DEVELOPMENT_ONLY / REPLICATION_REQUIRED — never promoted; never cited as clean replication evidence",
+  "parent": {
+    "path": "checkpoints/anra-v4-20k-sft3-accumulate.pt",
+    "parameter_sha256": "c3bc615eb3ffc8628f82088c433507baa142a0fecf91e4f6e64f9b17729e0625"
+  },
+  "child_parameter_sha256_qim_report": "b33670b49214b7a9a2620137e4bf84d21781a8168da43859509dc352bff80710",
+  "training_data": {
+    "train_rows_committed": 323,
+    "heldout_rows_committed": 40,
+    "generator_commit": "e547564684e6e12707b0dcb1d611754a90482e86"
+  },
+  "hyperparameters_as_logged": {
+    "micro_steps_total": 646,
+    "effective_batch": 8,
+    "approx_optimizer_updates": 81,
+    "lr": "3e-5 (inherited harness default)",
+    "objective": "row-level masked LM loss (NOT group loss)",
+    "target_replay_row_mix": "~57.9% queryswap rows / ~42.1% replay rows (row counts, not gradient weight)"
+  },
+  "headline_result_not_erased": {
+    "qim_v2_mean_query_lift": 0.6691,
+    "qim_v2_candidate_permutation_p": 0.018,
+    "qim_v2_rank1": "12/30",
+    "qim_v2_greedy": "3/30",
+    "protected_retention": "approximately intact vs parent"
+  },
+  "why_not_clean_P9": {
+    "group_split_leakage": "generator shuffled ROWS then sliced heldout; 17 of 70 groups appear on BOTH sides (gqs-001,003,006,007,011,022,025,028,029,030,035,036,037,040,043,049,066) => heldout accuracy and checkpoint selection contaminated",
+    "statistical_unit": "primary p-value fed 30 candidate lifts from only 10 correlated fact groups => pseudo-replication; the independent unit is the fact group",
+    "trajectory": "preregistered eval grid 5/10/20/30/40/50 NOT EXECUTED; only ~59 and ~81 optimizer updates evaluated",
+    "optimization_unit_claim": "rows were trained individually, so 'the GROUP is the training unit' was documentation, not mechanics (P2); result proves at most exposure-level induction",
+    "other": "no split_audit.json existed for this data family; proposal status field contradicted executed reality until the execution record was added"
+  },
+  "distinction_P9": "VALID: the QIM-v2 measurement protocol and its numbers on this checkpoint. COMPROMISED: checkpoint-selection experiment that produced the checkpoint (leaky heldout). The cross-vocabulary lift signal is INTERESTING but requires clean replication before any mechanism claim.",
+  "predictions_resolution_at_the_time": {
+    "PR1_lift_ge_0.5": "PASS (+0.669, candidate level)",
+    "PR2_p_lt_0.05": "PASS (0.018, candidate level — later judged pseudo-replicated)",
+    "PR3_rank1_ge_15_of_30": "FAIL (12/30)",
+    "PR4_retention_within_parent_minus_0.10": "PASS",
+    "PR5_greedy_ge_10_of_30": "FAIL (3/30)"
+  },
+  "superseded_by": "tp-grouped-queryswap-replication-002 (clean replication)",
+  "verified_intervention_experiences_earned_by_this_artifact": 0,
+  "timestamp": "2026-08-23 03:45:00"
+}

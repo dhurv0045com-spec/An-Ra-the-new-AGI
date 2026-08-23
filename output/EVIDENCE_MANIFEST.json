@@ -284,17 +284,39 @@
     "VerifiedInterventionExperience": 0,
     "note": "no causal single-variable runtime repair has yet qualified"
   },
-  "probe_status": "EXPLORATORY_ONLY \u2014 n=6, excluded from mechanism classification",
+  "probe_status": "EXPLORATORY_ONLY — n=6, excluded from mechanism classification",
   "grouped_queryswap_result": {
-    "proposal": "tp-grouped-queryswap-001 (pre-registered)",
+    "status": "DEVELOPMENT_ONLY / REPLICATION_REQUIRED",
+    "evidence_class": ["experimental child", "development diagnostic"],
+    "proposal": "tp-grouped-queryswap-001 (pre-registered; proposal file left immutable)",
+    "execution_record": "output/lineage_sft5_queryswap.json (EXECUTED; defects recorded)",
     "checkpoint": "checkpoints/anra-v4-20k-sft5-queryswap.pt",
-    "predictions": {
+    "what_is_valid": "the QIM-v2 measurement itself: fixture/scoring valid, numbers real on this checkpoint (lift +0.669 candidate-level, cross-vocabulary vs training vocab)",
+    "what_is_compromised": {
+      "checkpoint_selection": "group split leakage: row-level shuffle put 17/70 groups in BOTH train and heldout => heldout acc + selection contaminated",
+      "significance": "candidate-level p=0.018 used correlated rows from 10 groups (pseudo-replication); group is the independent unit",
+      "trajectory": "preregistered 5/10/20/30/40/50 eval grid NOT EXECUTED (~59 and ~81 only)",
+      "unit_claim": "'GROUP as training unit' was not true mechanically: rows were optimized individually"
+    },
+    "predictions_as_reported_then": {
       "PR1_lift_ge_0.5": "PASS (+0.669)",
-      "PR2_p_lt_0.05": "PASS (0.018)",
+      "PR2_p_lt_0.05": "PASS (0.018 — later judged pseudo-replicated)",
       "PR3_rank1_ge_15/30": "FAIL (12/30)",
       "PR4_retention": "PASS (within parent-0.10)",
       "PR5_greedy_ge_10/30": "FAIL (3/30)"
     },
-    "verdict": "NOT PROMOTED. First proof that query->value conditioning is LEARNABLE at 180M (lift p=0.018, was indistinguishable from zero) \u2014 but weak and vocabulary-bound (diagnostic-vocab EQOQ still 1-2/8). Falsification condition NOT triggered: the objective works; scale/breadth is the gap."
+    "verdict": "NOT PROMOTED, NOT a clean result. Promising query-lift signal worth replicating cleanly; breadth/behavior gap unchanged."
+  },
+  "clean_replication": {
+    "proposal_id": "tp-grouped-queryswap-replication-002",
+    "proposal_path": "data/proposal_grouped_queryswap_replication.json",
+    "generator_v2_fixes": [
+      "group-atomic split (train/heldout disjoint by group_id, prompt AND full fact block) — data/grouped_queryswap/split_audit.json",
+      "honest group definition: k facts per group, k in {2,3,4} deliberate; no 'three-query' claim",
+      "true group-unit optimization objective (alpha-weighted vs balanced replay)",
+      "preregistered trajectory at optimizer updates 0/5/10/20/30/40/50(+60/80)",
+      "QIM-v3 frozen replication fixture (40 fresh groups, disjoint vocab), single-shot use after child freeze"
+    ],
+    "status": "IN_PROGRESS"
   }
 }

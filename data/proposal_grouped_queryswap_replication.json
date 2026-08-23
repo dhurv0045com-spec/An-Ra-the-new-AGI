@@ -1,0 +1,74 @@
+{
+  "proposal_id": "tp-grouped-queryswap-replication-002",
+  "status": "PREREGISTERED",
+  "timestamp": "2026-08-23 03:40:00",
+  "supersedes": "tp-grouped-queryswap-001 (status there remains DESIGNED_NOT_RUN; its execution is recorded in output/lineage_sft5_queryswap.json as DEVELOPMENT_ONLY with recorded defects)",
+  "support_type": "DIAGNOSTIC",
+  "role": "CLEAN_REPLICATION: same parent, fixed split, group-unit objective, preregistered trajectory, frozen independent replication fixture. NOT a new capability suite; OOD-5 remains forbidden until this resolves.",
+  "hypothesis": "Query-swap counterfactual training increases query-conditioned preference for the correct context value on disjoint vocabulary and independent fact groups, while preserving context extraction and protected capabilities.",
+  "parent": {
+    "checkpoint": "checkpoints/anra-v4-20k-sft3-accumulate.pt",
+    "note": "SAME parent as SFT5 (P12). Never continue from sft5-queryswap.",
+    "parameter_sha256_recorded_at": "execution time, receipt + QIM reports"
+  },
+  "design": {
+    "unit": "queryswap GROUP = one fact block of k facts (k in {2,3,4} deliberate), one query variant per fact; all members share the identical fact block and differ only in query and correct value",
+    "optimization": "TRUE GROUP LOSS: one micro-unit consumes the entire group; L_unit = mean over members' masked completion losses (P2 OPTION A)",
+    "mix_P13": "L = alpha * L_group + (1-alpha) * L_replay, alpha = 0.58 at unit level; replay rows balanced across protected families (P14); row percentages reported but are NOT the mix",
+    "output_contract_P15": "opaque codes ONLY; no query->entity auxiliary objective",
+    "split_P0_P1": "groups partitioned BEFORE flattening; train_group_ids INTERSECT heldout_group_ids = EMPTY; audit committed to data/grouped_queryswap/split_audit.json with hashes",
+    "trajectory_P6": {
+      "eval_updates_optimizer_count": [0, 5, 10, 20, 30, 40, 50],
+      "optional_continuation": [60, 80],
+      "dev_metrics_at_each_point": [
+        "QIM-v2 mean query lift (development only)",
+        "QIM-v2 paired parent delta where computed",
+        "correct rank-1 fraction",
+        "mean correct rank",
+        "greedy corresponding accuracy",
+        "exact paired binding (dev bank)",
+        "generic any-fact extraction (context_value_extraction)",
+        "protected capability vector"
+      ],
+      "prior_trajectory_status": "the tp-grouped-queryswap-001 trajectory (~5..50) was NOT EXECUTED; only ~59 and ~81 were evaluated. Recorded honestly; this run executes the registered grid."
+    }
+  },
+  "data_mix_replay_P14": {
+    "families": ["single_fact", "tool_result", "copy", "protocol_transfer", "symbolic_ops"],
+    "balanced_by_capping_to_smallest_family_pool_per_epoch": true,
+    "symbolic_role": "MONITORED only — not a protection gate unless CapabilityContract promotes it"
+  },
+  "pre_registered_predictions": {
+    "PR1_dev_lift_delta": "On QIM-v2 development: child mean group lift > parent mean group lift by >= +0.4 nats (justified by the observed developmental +0.669 candidate-level effect; not trivially easy)",
+    "PR2_group_level_significance_v3": "On FROZEN QIM-v3 replication ONLY, evaluated ONCE on the selected child AFTER freezing: paired child-parent per-group delta sign-flip p < 0.05 over independent groups",
+    "PR3_effect_size_v3": "mean child-parent query-lift delta on QIM-v3 >= +0.4 nats",
+    "PR4_rank_movement": "child rank-1 fraction > parent rank-1 fraction on QIM-v3 by >= 2/40 candidates (directional behavioral movement beyond chance)",
+    "PR5_greedy_directional": "child greedy corresponding-value accuracy > parent greedy accuracy on QIM-v3 (directional, no magnitude required)",
+    "PR6_extraction_floor": "context_value_extraction: child fraction >= parent fraction - 0.085 (one item of twelve)",
+    "PR7_protected_retention": "every protected family (single_fact, tool_result, copy, protocol_transfer) >= own parent baseline - 0.10"
+  },
+  "falsification_rules_P23": {
+    "RESULT_A_NO_REPLICATION": "group-level lift delta disappears or PR2 fails badly => original SFT5 signal was NOT established; DO NOT scale this objective",
+    "RESULT_B_LATENT_ONLY": "lift replicates (PR2/PR3 pass) but rank/greedy do not move (PR4/PR5 fail) => latent conditional preference formed; behavioral control remains insufficient; next question: what prevents the preference from dominating competing values",
+    "RESULT_C_FULL": "lift + rank + greedy improve while retention holds => strongest result; replicate behavior on a fresh frozen suite before any scaling",
+    "RESULT_D_SPECIALIST": "conditioning improves but extraction or retention breaks floors => REJECT the child; narrow specialist again"
+  },
+  "evaluation_discipline": {
+    "P22_order": [
+      "freeze group split (committed)",
+      "freeze QIM-v3 fixture hash (committed)",
+      "record hashes",
+      "load exact accumulation parent; evaluate parent on QIM-v2 AND QIM-v3 baselines",
+      "train replication child from parent with trajectory evals",
+      "select candidate using DEVELOPMENT metrics only",
+      "freeze selected child (hash)",
+      "evaluate selected child EXACTLY ONCE on QIM-v3 with parent pairing",
+      "evaluate protected retention + extraction",
+      "record full lineage",
+      "NO retraining because of QIM-v3 results"
+    ],
+    "qim_v2_role_P5": "DEVELOPMENT data: trajectory inspection allowed",
+    "qim_v3_role_P4": "FINAL INDEPENDENT REPLICATION CHECK: never used for selection, never used to modify or retrain the child"
+  },
+  "verified_intervention_experiences_note_P18": "this training experiment does NOT earn VerifiedInterventionExperience credit; count must remain 0"
+}
