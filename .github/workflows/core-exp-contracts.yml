@@ -17,12 +17,12 @@ jobs:
         with:
           python-version: "3.12"
 
-      # torch CPU wheel is the only heavyweight dependency; pytest is needed
-      # for the runner. Contract tests use tiny random models (d_model=32).
-      - name: Install torch (CPU) + pytest
+      # torch comes from the CPU wheel index; pytest comes from PyPI.
+      # Separate installs: the torch index does not host pytest.
+      - name: Install torch (CPU), then pytest
         run: |
           python -m pip install --upgrade pip
-          pip install torch pytest --index-url https://download.pytorch.org/whl/cpu
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
           pip install pytest
 
       - name: Run deterministic contract tests
