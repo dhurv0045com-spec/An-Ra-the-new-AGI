@@ -170,6 +170,15 @@ def _optimizer_parameter_ids(optimizer: torch.optim.Optimizer) -> list[int]:
     ]
 
 
+def _retie_model_weights_after_device_transfer(model: torch.nn.Module) -> None:
+    """Restore canonical parameter aliases that ``Module.to('xla')`` can break."""
+    if not hasattr(model, "token_embedding_table") or not hasattr(model, "lm_head"):
+        raise RuntimeError("canonical model is missing its tied embedding/output modules")
+    model.lm_head.weight = model.token_embedding_table.weight
+    if model.lm_head.weight is not model.token_embedding_table.weight:
+        raise RuntimeError("failed to restore tied embedding/output parameters on XLA")
+
+
 def _assert_optimizer_covers_model(
     model: torch.nn.Module, optimizer: torch.optim.Optimizer
 ) -> None:
@@ -672,6 +681,7 @@ def _worker(index: int, config: dict[str, object]) -> None:
     torch.manual_seed(seed + rank + start_step)
 
     model = model.to(device)
+    _retie_model_weights_after_device_transfer(model)
     # XLA device transfer can replace Parameter objects. Rebind from the
     # restored state so the optimizer owns the exact live XLA parameters.
     optimizer = _rebind_optimizer_to_model(optimizer, model)

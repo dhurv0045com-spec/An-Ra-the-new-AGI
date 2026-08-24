@@ -546,11 +546,46 @@ def test_xla_rebinds_optimizer_to_replaced_model_parameters() -> None:
     assert max(int(state["step"]) for state in rebound.state.values()) == saved_updates + 1
 
 
+def test_xla_reties_embedding_before_optimizer_rebind() -> None:
+    from anra_core.config import CANONICAL_CONFIG
+    from anra_core.model import AnRaCore
+    from training.train_xla import (
+        _assert_optimizer_covers_model,
+        _rebind_optimizer_to_model,
+        _retie_model_weights_after_device_transfer,
+    )
+
+    model = AnRaCore(CANONICAL_CONFIG)
+    decay = [parameter for parameter in model.parameters() if parameter.ndim >= 2]
+    no_decay = [parameter for parameter in model.parameters() if parameter.ndim < 2]
+    optimizer = torch.optim.AdamW(
+        [
+            {"params": decay, "weight_decay": 0.1},
+            {"params": no_decay, "weight_decay": 0.0},
+        ],
+        lr=2e-4,
+    )
+    assert [len(group["params"]) for group in optimizer.param_groups] == [127, 37]
+
+    # Reproduce the alias break observed on Kaggle XLA: the output head becomes
+    # a distinct Parameter even though it carries the same tensor values.
+    model.lm_head.weight = torch.nn.Parameter(model.lm_head.weight.detach().clone())
+    assert len([parameter for parameter in model.parameters() if parameter.requires_grad]) == 165
+
+    _retie_model_weights_after_device_transfer(model)
+    assert model.lm_head.weight is model.token_embedding_table.weight
+    assert len([parameter for parameter in model.parameters() if parameter.requires_grad]) == 164
+    rebound = _rebind_optimizer_to_model(optimizer, model)
+    _assert_optimizer_covers_model(model, rebound)
+    assert [len(group["params"]) for group in rebound.param_groups] == [127, 37]
+
+
 def test_xla_first_update_must_advance_real_optimizer_state() -> None:
     from pathlib import Path
 
     source = (Path(__file__).parents[1] / "training" / "train_xla.py").read_text()
     worker = source[source.index("def _worker("):source.index("def run(")]
+    assert "_retie_model_weights_after_device_transfer(model)" in worker
     assert "optimizer = _rebind_optimizer_to_model(optimizer, model)" in worker
     assert "_assert_optimizer_covers_model(model, optimizer)" in worker
     assert "observed_updates != expected_updates" in worker
