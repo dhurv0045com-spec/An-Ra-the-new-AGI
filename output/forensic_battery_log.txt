@@ -1,0 +1,103 @@
+
+########## parent20k: C:\Users\ankit\Downloads\anra-v4-current-full-resume.pt
+  strict load refused (RepresentationIncompatibleError); explicit legacy load
+  [continuation] 'The river flowed through the valley and ' -> ' build a bridge that would be used to build a bridge that'
+  [continuation] 'Scientists announced that the telescope ' -> ' the X-ray and X-ray telescopes in the past. The '
+  [continuation] 'In the kitchen she arranged the ingredie' -> ' to be the same as the recipe for the recipe. She '
+  [conversation] '<q>Hello, how are you?</q>\n<answer>' -> '\n</div>\n\n<div class="text-align"><a href='
+  [conversation] '<q>What can you help with?</q>\n<answer>' -> '\n</div>\n\n<div class="text-align: center;">\n  '
+  [conversation] '<q>Explain what a river is.</q>\n<answer>' -> '\n</div>\n\n<div class="text-align: center;"><'
+  [conversation] '<q>Tell me about yourself.</q>\n<answer>' -> '\n</div>\n\n<p>\n<p>\n<p>\n<p>\n<'
+  [factual] '<q>What is the capital of France?</q>\n<a' -> '\n</div>\n\n<div class="text">\n<div class='
+  [factual] '<q>What is the largest planet?</q>\n<answ' -> '\n</div>\n<p>\n<p>\n<p>\n<p>\n<'
+  [factual] '<q>At what temperature does water freeze' -> '\n</answer>\n\n<p><strong><strong><strong><strong><strong>'
+  [factual] '<q>What gas do plants absorb?</q>\n<answe' -> '\n</answer>\n<p>\n<p>\n<p>\n<p>\n<p'
+  [factual] '<q>What is the capital of Japan?</q>\n<an' -> '</answer>\n</solution>\n</solution>\n</solution>\n</solution>'
+  [factual] '<q>How many continents are there?</q>\n<a' -> '\n</div>\n\n<div class="text">\n  <div class='
+  [arithmetic] '<k></k><plan>Compute.</plan><q>What is 2' -> '</div>\n</div>\n</div>\n<p><strong>'
+  [arithmetic] '<k></k><plan>Compute.</plan><q>What is 7' -> '</answer>\n</div>\n<p><strong><strong><strong><'
+  [arithmetic] '<k></k><plan>Compute.</plan><q>What is 1' -> '</div>\n</div>\n</div>\n<p><strong>'
+  [arithmetic] '<k></k><plan>Compute.</plan><q>What is 1' -> '</div>\n</div>\n</div>\n<p><strong>'
+  [arithmetic] '<k></k><plan>Compute.</plan><q>What is 2' -> '</div>\n</div>\n</div>\n<p><strong>'
+  [arithmetic] '<k></k><plan>Compute.</plan><q>What is 1' -> '</question>\n</div>\n<div class="text"><div'
+  [copy] '<k></k><q>Echo exactly this word: ember<' -> '\n<p>\n<p>\n<p>\n<p>\n<p>\n<p>'
+  [copy] '<k></k><q>Echo exactly this word: VXQ-48' -> '\n<p>\n<p>\n<p>\n<p>\n<p>\n<p>'
+  [copy] '<k></k><q>Echo exactly this word: quixot' -> '\n<p>\n<p>\n<p>\n<p>\n<p>\n<p>'
+  [copy] '<k></k><q>Echo exactly this word: K7P2M<' -> '\n<p>\n<p>\n<p>\n<p>\n<p>\n<p>'
+  [context_binding] '<k>The talren code is VXQ-482.</k><q>Wha' -> '\n</q>\n<p>\n<p>\n<p>\n<p>\n<p'
+  [context_binding] '<k>The morvan festival happens in Juveth' -> '</answer>\n</solution>\n</solution>\n</solution>\n</solution>'
+  [context_binding] '<k>Zephra stores 7. Caldra stores 4.</k>' -> '\n</question>\n</question>\n</question>\n</question>\n</question'
+  [selective_binding] '<k>Aster code XQH-312. Beacon code QLM-4' -> '\n</div>\n\n<div class="code-css">\n  <di'
+  [selective_binding] '<k>Aster code XQH-312. Beacon code QLM-4' -> '\n</div>\n\n<div class="code">\n  <div class='
+  [selective_binding] '<k>Aster code XQH-312. Beacon code QLM-4' -> '\n</answer>\n</question>\n</question>\n</question>\n</question'
+  [query_swap] '<k>Aster code XQH-312. Beacon code QLM-4' -> '\n</div>\n\n<div class="code">\n  <div class='
+  [query_swap] '<k>Aster code XQH-312. Beacon code QLM-4' -> '\n</div>\n\n<p>\n<p>\n<p>\n<p>\n<'
+  [composition] '<k>Zephra stores 7. Caldra stores 4.</k>' -> '\n</q>\n<p>\n<p>\n<p>\n<p>\n<p'
+  [instruction] '<q>Answer with one word: what color is s' -> '\n</div>\n\n<div class="text-align"><a href='
+  [instruction] '<q>Return only the number: 3 + 4</q>\n<an' -> '\n<p>\n<p>\n<p>\n<p>\n<p>\n<p>'
+  [instruction] '<q>List exactly three items: primary col' -> '\n</answer>\n<p>\n<p>\n<p>\n<p>\n<p'
+  [uncertainty] '<k>The glorbik radius is undefined in th' -> '\n</q>\n<p>\n<p>\n<p>\n<p>\n<p'
+  [degeneration] 'the meaning of the meaning of the' -> ' word is not clear. The meaning of the word is not '
+  [degeneration] 'France is the capital of France France F' -> ' and France France and France France and France France and F'
+  [distractor] '<k>Aster code XQH-312. The sky is blue. ' -> '\n</answer>\n</quote>\n</quote>\n</quote>\n</quote'
+
+########## new500m: C:\Users\ankit\Downloads\anra-v4-tpu-latest to 500m token.pt
+  [continuation] 'The river flowed through the valley and ' -> ' build a bridge that would be used to build a bridge that'
+  [continuation] 'Scientists announced that the telescope ' -> ' the X-ray and X-ray telescopes in the past. The '
+  [continuation] 'In the kitchen she arranged the ingredie' -> ' to be the same as the recipe for the recipe. She '
+  [conversation] '<q>Hello, how are you?</q>\n<answer>' -> '\n</div>\n\n<div class="text-align"><a href='
+  [conversation] '<q>What can you help with?</q>\n<answer>' -> '\n</div>\n\n<div class="text-align: center;">\n  '
+  [conversation] '<q>Explain what a river is.</q>\n<answer>' -> '\n</div>\n\n<div class="text-align: center;"><'
+  [conversation] '<q>Tell me about yourself.</q>\n<answer>' -> '\n</div>\n\n<p>\n<p>\n<p>\n<p>\n<'
+  [factual] '<q>What is the capital of France?</q>\n<a' -> '\n</div>\n\n<div class="text">\n<div class='
+  [factual] '<q>What is the largest planet?</q>\n<answ' -> '\n</div>\n<p>\n<p>\n<p>\n<p>\n<'
+  [factual] '<q>At what temperature does water freeze' -> '\n</answer>\n\n<p><strong><strong><strong><strong><strong>'
+  [factual] '<q>What gas do plants absorb?</q>\n<answe' -> '\n</answer>\n<p>\n<p>\n<p>\n<p>\n<p'
+  [factual] '<q>What is the capital of Japan?</q>\n<an' -> '</answer>\n</solution>\n</solution>\n</solution>\n</solution>'
+  [factual] '<q>How many continents are there?</q>\n<a' -> '\n</div>\n\n<div class="text">\n  <div class='
+  [arithmetic] '<k></k><plan>Compute.</plan><q>What is 2' -> '</div>\n</div>\n</div>\n<p><strong>'
+  [arithmetic] '<k></k><plan>Compute.</plan><q>What is 7' -> '</answer>\n</div>\n<p><strong><strong><strong><'
+  [arithmetic] '<k></k><plan>Compute.</plan><q>What is 1' -> '</div>\n</div>\n</div>\n<p><strong>'
+  [arithmetic] '<k></k><plan>Compute.</plan><q>What is 1' -> '</div>\n</div>\n</div>\n<p><strong>'
+  [arithmetic] '<k></k><plan>Compute.</plan><q>What is 2' -> '</div>\n</div>\n</div>\n<p><strong>'
+  [arithmetic] '<k></k><plan>Compute.</plan><q>What is 1' -> '</question>\n</div>\n<div class="text"><div'
+  [copy] '<k></k><q>Echo exactly this word: ember<' -> '\n<p>\n<p>\n<p>\n<p>\n<p>\n<p>'
+  [copy] '<k></k><q>Echo exactly this word: VXQ-48' -> '\n<p>\n<p>\n<p>\n<p>\n<p>\n<p>'
+  [copy] '<k></k><q>Echo exactly this word: quixot' -> '\n<p>\n<p>\n<p>\n<p>\n<p>\n<p>'
+  [copy] '<k></k><q>Echo exactly this word: K7P2M<' -> '\n<p>\n<p>\n<p>\n<p>\n<p>\n<p>'
+  [context_binding] '<k>The talren code is VXQ-482.</k><q>Wha' -> '\n</q>\n<p>\n<p>\n<p>\n<p>\n<p'
+  [context_binding] '<k>The morvan festival happens in Juveth' -> '</answer>\n</solution>\n</solution>\n</solution>\n</solution>'
+  [context_binding] '<k>Zephra stores 7. Caldra stores 4.</k>' -> '\n</question>\n</question>\n</question>\n</question>\n</question'
+  [selective_binding] '<k>Aster code XQH-312. Beacon code QLM-4' -> '\n</div>\n\n<div class="code-css">\n  <di'
+  [selective_binding] '<k>Aster code XQH-312. Beacon code QLM-4' -> '\n</div>\n\n<div class="code">\n  <div class='
+  [selective_binding] '<k>Aster code XQH-312. Beacon code QLM-4' -> '\n</answer>\n</question>\n</question>\n</question>\n</question'
+  [query_swap] '<k>Aster code XQH-312. Beacon code QLM-4' -> '\n</div>\n\n<div class="code">\n  <div class='
+  [query_swap] '<k>Aster code XQH-312. Beacon code QLM-4' -> '\n</div>\n\n<p>\n<p>\n<p>\n<p>\n<'
+  [composition] '<k>Zephra stores 7. Caldra stores 4.</k>' -> '\n</q>\n<p>\n<p>\n<p>\n<p>\n<p'
+  [instruction] '<q>Answer with one word: what color is s' -> '\n</div>\n\n<div class="text-align"><a href='
+  [instruction] '<q>Return only the number: 3 + 4</q>\n<an' -> '\n<p>\n<p>\n<p>\n<p>\n<p>\n<p>'
+  [instruction] '<q>List exactly three items: primary col' -> '\n</answer>\n<p>\n<p>\n<p>\n<p>\n<p'
+  [uncertainty] '<k>The glorbik radius is undefined in th' -> '\n</q>\n<p>\n<p>\n<p>\n<p>\n<p'
+  [degeneration] 'the meaning of the meaning of the' -> ' word is not clear. The meaning of the word is not '
+  [degeneration] 'France is the capital of France France F' -> ' and France France and France France and France France and F'
+  [distractor] '<k>Aster code XQH-312. The sky is blue. ' -> '\n</answer>\n</quote>\n</quote>\n</quote>\n</quote'
+
+=== SCORECARD ===
+{
+ "parent20k": {
+  "factual_acc": 0.0,
+  "arith_acc": 0.0,
+  "copy_exact": 0.0,
+  "code_emission": 0.0,
+  "mean_repetition": 0.412,
+  "distinct_outputs": 0.6153846153846154
+ },
+ "new500m": {
+  "factual_acc": 0.0,
+  "arith_acc": 0.0,
+  "copy_exact": 0.0,
+  "code_emission": 0.0,
+  "mean_repetition": 0.412,
+  "distinct_outputs": 0.6153846153846154
+ }
+}
