@@ -1,0 +1,98 @@
+group 0: done
+group 1: done
+group 2: done
+group 3: done
+group 4: done
+group 5: done
+group 6: done
+group 7: done
+group 8: done
+group 9: done
+group 10: done
+group 11: done
+group 12: done
+group 13: done
+group 14: done
+group 15: done
+group 16: done
+group 17: done
+group 18: done
+group 19: done
+group 20: done
+group 21: done
+group 22: done
+group 23: done
+group 24: done
+group 25: done
+group 26: done
+group 27: done
+group 28: done
+group 29: done
+group 30: done
+group 31: done
+group 32: done
+group 33: done
+group 34: done
+group 35: done
+group 36: done
+group 37: done
+group 38: done
+group 39: done
+group 40: done
+group 41: done
+group 42: done
+group 43: done
+group 44: done
+group 45: done
+group 46: done
+group 47: done
+group 48: done
+group 49: done
+{
+  "FREE": {
+    "n": "35/149",
+    "rate": 0.2349
+  },
+  "RAW": {
+    "n": "70/149",
+    "rate": 0.4698
+  },
+  "CONSTRAINED": {
+    "n": "73/149",
+    "rate": 0.4899
+  },
+  "NORMALIZED": {
+    "n": "106/149",
+    "rate": 0.7114
+  },
+  "NORM_EXACT": {
+    "n": "106/149",
+    "rate": 0.7114
+  }
+}
+{
+  "schema": "anra-clean-reproduction/v1",
+  "label": "CORRECTIVE_REPRODUCTION_FROM_CLEAN_COMMIT",
+  "source_commit": "28ed5b68d1b774e3602d1505fa5ec4703e3628fb",
+  "dirty": false,
+  "dirty_note": "only untracked output/ artifacts present during run",
+  "checkpoint_sha256": "36c87e5be671ff37951b4b433e21ec14bb5e59f6f0770d7f81e50e99ead9e001",
+  "fixture_sha256": "62b9401c2083d42e1cf11e5a4e61f3d709c2762ed878058a42e8d5e0a4c49293",
+  "raw_agree": "149/149",
+  "norm_agree": "149/149",
+  "arms_original": {
+    "FREE": "35/149",
+    "RAW": "70/149",
+    "CONSTRAINED": "73/149",
+    "NORMALIZED": "106/149",
+    "NORM_EXACT": "106/149"
+  },
+  "arms_reproduction": {
+    "FREE": "35/149",
+    "RAW": "70/149",
+    "CONSTRAINED": "73/149",
+    "NORMALIZED": "106/149",
+    "NORM_EXACT": "106/149"
+  },
+  "closes": true
+}

@@ -1,0 +1,29 @@
+{
+  "schema": "anra-observed-policy/v1",
+  "feature_names": [
+    "n_candidates",
+    "format_prose",
+    "raw_top2_margin",
+    "norm_top2_margin",
+    "raw_spread_std",
+    "norm_spread_std",
+    "raw_norm_same_pick",
+    "free_in_candidates",
+    "free_matches_raw_pick",
+    "free_matches_norm_pick"
+  ],
+  "weights": [
+    0.09997058659791946,
+    -0.8790660500526428,
+    -0.025141553953289986,
+    1.29231858253479,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0
+  ],
+  "bias": 0.25390973687171936,
+  "threshold": 0.5
+}

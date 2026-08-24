@@ -1,0 +1,3 @@
+training cases: 268 (v4 119 + v5 149)
+weights: [0.1, -0.8791, -0.0251, 1.2923, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0] bias: 0.2539 loss: 0.4039
+policy frozen to output/observed_policy_v2.json

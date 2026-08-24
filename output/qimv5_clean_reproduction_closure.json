@@ -1,0 +1,26 @@
+{
+  "schema": "anra-clean-reproduction/v1",
+  "label": "CORRECTIVE_REPRODUCTION_FROM_CLEAN_COMMIT",
+  "source_commit": "28ed5b68d1b774e3602d1505fa5ec4703e3628fb",
+  "dirty": false,
+  "dirty_note": "only untracked output/ artifacts present during run",
+  "checkpoint_sha256": "36c87e5be671ff37951b4b433e21ec14bb5e59f6f0770d7f81e50e99ead9e001",
+  "fixture_sha256": "62b9401c2083d42e1cf11e5a4e61f3d709c2762ed878058a42e8d5e0a4c49293",
+  "raw_agree": "149/149",
+  "norm_agree": "149/149",
+  "arms_original": {
+    "FREE": "35/149",
+    "RAW": "70/149",
+    "CONSTRAINED": "73/149",
+    "NORMALIZED": "106/149",
+    "NORM_EXACT": "106/149"
+  },
+  "arms_reproduction": {
+    "FREE": "35/149",
+    "RAW": "70/149",
+    "CONSTRAINED": "73/149",
+    "NORMALIZED": "106/149",
+    "NORM_EXACT": "106/149"
+  },
+  "closes": true
+}
