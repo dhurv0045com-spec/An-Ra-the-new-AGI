@@ -69,10 +69,12 @@ class ObservedArmState:
         return (sum((x - m) ** 2 for x in self.norm_scores)
                 / len(self.norm_scores)) ** 0.5
 
+    FORMAT_CODES = {"prose": 0.0, "table": 1.0, "list": 2.0}
+
     def feature_vector(self) -> list[float]:
         return [
             float(self.n_candidates),
-            float(hash(self.format_name) % 3),      # stable category code
+            self.FORMAT_CODES.get(self.format_name, 3.0),
             self.raw_top2_margin,
             self.norm_top2_margin,
             self.raw_spread_std,
