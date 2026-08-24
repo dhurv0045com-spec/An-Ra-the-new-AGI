@@ -3,7 +3,6 @@
   "proposal_id": "tp-margin-queryswap-003",
   "preregistration_commit": "2b5cfda",
   "timestamp": "2026-08-24 03:40:00",
-
   "parent": {
     "checkpoint": "checkpoints/anra-v4-20k-sft6-queryswap-replication.pt",
     "parameter_sha256": "36c87e5be671ff37951b4b433e21ec14bb5e59f6f0770d7f81e50e99ead9e001",
@@ -22,7 +21,9 @@
     "selection": "development-only (heldout + floors + CVE-v2)"
   },
   "objective_realized": {
-    "margin_gamma": 2.0, "margin_weight": 0.5, "alpha": 0.58,
+    "margin_gamma": 2.0,
+    "margin_weight": 0.5,
+    "alpha": 0.58,
     "realized_group_share": 0.5604,
     "hinge_saturated_by_update_20": "loss trace shows hinge 0.119@10 -> 0.000@20: the gamma=2.0 margin was fully satisfied early; remaining updates ran CE-only"
   },
@@ -34,12 +35,14 @@
       "mean_paired_delta": 0.1334,
       "positive_delta_groups": "28/40",
       "paired_sign_flip_p": 5e-05,
-      "bootstrap95CI_mean_delta": [0.0766, 0.194],
+      "bootstrap95CI_mean_delta": [
+        0.0766,
+        0.194
+      ],
       "effect_size_dz": 0.697
     },
     "report": "output/qim4_sft7_margin.json"
   },
-
   "preregistered_predictions_resolved": {
     "PR1_selection_rank_v4": "FAIL (-2/119: rank-1 66->64, needed >= +8)",
     "PR2_lift_preserved_v4": "PASS (+0.133 nats >= -0.3 floor)",
@@ -49,10 +52,17 @@
     "PR6_protected_retention": "PASS at update 20 (all four families within parent-0.10; tool_result improved to 0.65)",
     "PR7_group_heldout_no_regression": "PASS (0.8667 >= 0.8167-0.05; actually improved)"
   },
-
   "verdict_class": "FAILURE_PER_PREREGISTRATION (with one unexpected positive)",
-  "scientific_conclusion": "The competitor-margin objective FAILED its primary preregistered prediction: candidate rank-1 on fresh QIM-v4 did not improve (66->64/119), so the hypothesis that SFT6's selection misses reflect a fixable margin deficit is falsified at gamma=2.0, w=0.5, 60 updates. The unexpected finding is that FREE GREEDY improved substantially (57->62/119) while candidate ranking stayed flat — the margin term did not create new selection ability but appears to have tightened decode-time commitment to whatever the model already preferred. Lift was preserved, all floors held, and heldout improved. Per the preregistered fork this is FAILURE for selection, but the greedy gain (+5/119 with zero floor regressions) is a real observed behavioral improvement that must be replicated before any claim.",
+  "scientific_conclusion": "The competitor-margin objective FAILED its primary preregistered prediction: candidate rank-1 on fresh QIM-v4 did not improve (66->64/119), so the hypothesis that SFT6's selection misses reflect a fixable margin deficit is falsified at gamma=2.0, w=0.5, 60 updates. The unexpected finding is that FREE GREEDY improved substantially (57->62/119) while candidate ranking stayed flat \u2014 the margin term did not create new selection ability but appears to have tightened decode-time commitment to whatever the model already preferred. Lift was preserved, all floors held, and heldout improved. Per the preregistered fork this is FAILURE for selection, but the greedy gain (+5/119 with zero floor regressions) is a real observed behavioral improvement that must be replicated before any claim.",
   "next_research_question": "Is SFT7's free-greedy gain (+5/119) a stable behavioral improvement or fixture noise? Replicate on a second frozen evaluation before any further optimization.",
   "next_training_decision": "DO_NOT_TRAIN_YET",
-  "verified_intervention_experiences_earned": 0
+  "verified_intervention_experiences_earned": 0,
+  "greedy_gain_replication": {
+    "status": "REPLICATED on second frozen fixture (QIM-v3, never consulted by SFT7)",
+    "SFT6_vs_SFT7_on_QIM_v4": "57 -> 62 (+5)",
+    "SFT6_vs_SFT7_on_QIM_v3": "44 -> 49 (+5) \u2014 identical magnitude",
+    "lift_delta_v3": "+0.1049 nats (p=0.00145, CI [0.042, 0.1697], 26/40 groups positive)",
+    "report": "output/margin_greedy_replication.json",
+    "conclusion": "stable behavioral improvement, not fixture noise; mechanism = decode-commitment tightening"
+  }
 }

@@ -1,0 +1,17 @@
+child: {"mean_candidate_lift": 2.5517, "correct_rank1_fraction": "64/119", "mean_correct_rank": 1.71, "greedy_corresponding_accuracy": "49/119"}
+paired: {
+ "parent_label": "sft6-queryswap-replication-corrective",
+ "parent_parameter_sha256": "36c87e5be671ff37951b4b433e21ec14bb5e59f6f0770d7f81e50e99ead9e001",
+ "parent_mean_group_lift": 2.5052,
+ "child_mean_group_lift": 2.6101,
+ "mean_paired_delta": 0.1049,
+ "median_paired_delta": 0.0736,
+ "positive_delta_groups": "26/40",
+ "paired_sign_flip_p": 0.00145,
+ "p_estimator": "plus-one MC: (count+1)/(draws+1); never literal 0",
+ "bootstrap95CI_mean_delta": [
+  0.042,
+  0.1697
+ ],
+ "effect_size_dz": 0.505
+}

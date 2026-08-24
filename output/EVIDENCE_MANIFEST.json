@@ -223,13 +223,13 @@
   "current_status": {
     "active_model": "step-20k parent remains the general active model; no child has been promoted to CONNECTOR_READY or ACTIVE",
     "context_binding_holder": "anra-v4-20k-sft-context-binding.pt (PROMOTE_CONTEXT_BINDING, pending regression battery breadth)",
-    "selective_binding_holder": "anra-v4-20k-sft3-accumulate.pt — sealed 2x paired-CF gain, zero retention loss; PROMOTE_EXPERIMENTAL (selective-binding scope)",
-    "query_conditioning_holder": "anra-v4-20k-sft6-queryswap-replication.pt (PROMOTE_EXPERIMENTAL) — first learned query-conditioned preference: clean QIM-v3 replication delta +2.486 nats, rank-1 40->63/119, corrected greedy 36->44/119 (RESULT C-). See output/replication_receipt_final.json"
+    "selective_binding_holder": "anra-v4-20k-sft3-accumulate.pt \u2014 sealed 2x paired-CF gain, zero retention loss; PROMOTE_EXPERIMENTAL (selective-binding scope)",
+    "query_conditioning_holder": "anra-v4-20k-sft6-queryswap-replication.pt (PROMOTE_EXPERIMENTAL) \u2014 first learned query-conditioned preference: clean QIM-v3 replication delta +2.486 nats, rank-1 40->63/119, corrected greedy 36->44/119 (RESULT C-). See output/replication_receipt_final.json"
   },
   "ood1_cf_audit": "A-family: 10/10 counterfactuals impure (fact order reshuffled); C-family: 8/8 pure",
   "margin_experiment_003": {
     "proposal_id": "tp-margin-queryswap-003",
-    "status": "COMPLETE — primary prediction FAILED (recorded per falsification rule)",
+    "status": "COMPLETE \u2014 primary prediction FAILED (recorded per falsification rule)",
     "final_receipt": "output/margin_receipt_final.json",
     "parent": "anra-v4-20k-sft6-queryswap-replication.pt (SFT6)",
     "child": "anra-v4-20k-sft7-margin.pt (update 20, GATED_DEVELOPMENT_BEST)",
@@ -241,7 +241,14 @@
       "floors": "all held incl. CVE-v2 first live use (16/24 >= 0.608)"
     },
     "reading": "margin did not create selection ability but tightened decode-time commitment: free greedy improved with rank flat. Greedy gain requires replication before any claim.",
-    "next_training_decision": "DO_NOT_TRAIN_YET"
+    "next_training_decision": "DO_NOT_TRAIN_YET",
+    "greedy_gain_replication": {
+      "status": "REPLICATED on QIM-v3 (second frozen fixture, never consulted by SFT7)",
+      "result": "SFT6 44 -> SFT7 49/119 (+5), identical magnitude to QIM-v4's +5",
+      "lift_delta_v3": "+0.1049 nats (p=0.00145)",
+      "report": "output/margin_greedy_replication.json",
+      "conclusion": "stable behavioral improvement; mechanism = decode-commitment tightening, not selection"
+    }
   },
   "sft2_data_ratios_exact": {
     "target_selection": 622,
@@ -301,10 +308,13 @@
     "VerifiedInterventionExperience": 0,
     "note": "no causal single-variable runtime repair has yet qualified"
   },
-  "probe_status": "EXPLORATORY_ONLY — n=6, excluded from mechanism classification",
+  "probe_status": "EXPLORATORY_ONLY \u2014 n=6, excluded from mechanism classification",
   "grouped_queryswap_result": {
     "status": "DEVELOPMENT_ONLY / REPLICATION_REQUIRED",
-    "evidence_class": ["experimental child", "development diagnostic"],
+    "evidence_class": [
+      "experimental child",
+      "development diagnostic"
+    ],
     "proposal": "tp-grouped-queryswap-001 (pre-registered; proposal file left immutable)",
     "execution_record": "output/lineage_sft5_queryswap.json (EXECUTED; defects recorded)",
     "checkpoint": "checkpoints/anra-v4-20k-sft5-queryswap.pt",
@@ -317,7 +327,7 @@
     },
     "predictions_as_reported_then": {
       "PR1_lift_ge_0.5": "PASS (+0.669)",
-      "PR2_p_lt_0.05": "PASS (0.018 — later judged pseudo-replicated)",
+      "PR2_p_lt_0.05": "PASS (0.018 \u2014 later judged pseudo-replicated)",
       "PR3_rank1_ge_15/30": "FAIL (12/30)",
       "PR4_retention": "PASS (within parent-0.10)",
       "PR5_greedy_ge_10/30": "FAIL (3/30)"
@@ -349,10 +359,10 @@
       "fixture_sha256_unchanged": "27713accb3aa6825de23cf09540497943a0e56ca3ac177ba94f0f164f740a614",
       "valid_metric_stability": "per-group lifts, mean group lift, rank-1, mean rank: bit-identical old vs new"
     },
-    "generation_decomposition": "output/greedy_decomposition.json — realization gap 19/119; selection vs free-decode boundary measured",
+    "generation_decomposition": "output/greedy_decomposition.json \u2014 realization gap 19/119; selection vs free-decode boundary measured",
     "headline": "paired group-level query-lift delta +2.486 nats on frozen QIM-v3 (fresh disjoint vocab, 40 independent groups), plus-one p<1e-4, CI [1.75, 3.26], dz=1.01; rank-1 40/119 -> 63/119; corrected greedy ALSO improves 36/119 -> 44/119 (PR5 PASS after repair); realization gap 19 targets where correct candidate choice fails to decode; extraction passed at boundary; retention held",
     "generator_v2_fixes": [
-      "group-atomic split (train/heldout disjoint by group_id, prompt AND full fact block) — data/grouped_queryswap/split_audit.json",
+      "group-atomic split (train/heldout disjoint by group_id, prompt AND full fact block) \u2014 data/grouped_queryswap/split_audit.json",
       "honest group definition: k facts per group, k in {2,3,4} deliberate; no 'three-query' claim",
       "true group-unit optimization objective (alpha-weighted vs balanced replay)",
       "preregistered trajectory at optimizer updates 0/5/10/20/30/40/50(+60/80)",

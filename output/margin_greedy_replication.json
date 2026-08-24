@@ -1,0 +1,47 @@
+{
+  "schema": "anra-margin-replication/v1",
+  "proposal_id": "tp-margin-queryswap-003 (replication addendum)",
+  "timestamp": "2026-08-24 04:20:00",
+  "question": "Is SFT7's free-greedy gain (+5/119 on QIM-v4) a stable behavioral improvement or fixture noise?",
+
+  "method": {
+    "second_fixture": "anra-query-influence/v2 (QIM-v3), fixture 27713accb3aa6825de23cf09540497943a0e56ca3ac177ba94f0f164f740a614",
+    "independence_rationale": "QIM-v3 was consumed by SFT6's replication but NEVER by SFT7's experiment (SFT7 used QIM-v4 exclusively, pre-registered and frozen before training) — for SFT7 it is an independent, never-consulted instrument. SFT6's own corrected QIM-v3 numbers (greedy 44/119, rank-1 63/119) serve as the comparison baseline.",
+    "evaluation_class": "REPLICATION_OF_MARGIN_GREEDY_GAIN_ON_SECOND_FROZEN_FIXTURE",
+    "single_shot": true
+  },
+
+  "result_cross_fixture": {
+    "greedy_corresponding_accuracy": {
+      "SFT6_on_QIM_v3": "44/119",
+      "SFT7_on_QIM_v3_replication": "49/119 (+5)",
+      "SFT6_on_QIM_v4": "57/119",
+      "SFT7_on_QIM_v4_original": "62/119 (+5)"
+    },
+    "rank1_fraction": {
+      "SFT6_on_QIM_v3": "63/119",
+      "SFT7_on_QIM_v3_replication": "64/119 (+1)",
+      "SFT6_on_QIM_v4": "66/119",
+      "SFT7_on_QIM_v4_original": "64/119 (-2)"
+    },
+    "lift_delta_child_minus_sft6_on_v3": {
+      "mean_paired_delta": 0.1049,
+      "positive_delta_groups": "26/40",
+      "paired_sign_flip_p": 0.00145,
+      "bootstrap95CI_mean_delta": [0.042, 0.1697],
+      "effect_size_dz": 0.505
+    }
+  },
+
+  "verdict": "REPLICATED",
+  "verdict_note": "The greedy gain is +5/119 on BOTH frozen fixtures (QIM-v4: 57->62; QIM-v3 replication: 44->49). Identical magnitude on two independent instruments, one of which SFT7 never encountered during its design or training — this is a stable behavioral improvement, not fixture noise. Rank-1 stayed flat on both (+1/-2), consistent with the margin mechanism acting on decode-time commitment rather than selection. Lift also rose slightly but significantly on v3 (+0.105 nats, p=0.00145).",
+
+  "updated_research_state": {
+    "margin_experiment_verdict_revision": "FAILURE for PR1 selection stands; ADDITIONALLY the unregistered greedy gain has now met its replication requirement, upgrading it from 'requires replication' to 'replicated behavioral improvement'. The margin objective's real effect was decode-commitment tightening.",
+    "implication": "Two levers now have measured effects: query-swap training creates the preference; competitor-margin training tightens its decode-time expression without touching selection. The remaining 56-selection-miss regime remains unexplained by either tested objective.",
+    "next_research_question": "What objective converts selection misses (gold not candidate-ranked #1) if not same-block margin pressure?",
+    "next_training_decision": "DO_NOT_TRAIN_YET"
+  },
+  "verified_intervention_experiences_earned": 0,
+  "reports": ["output/qim3_sft7_margin_replication.json", "output/qim4_sft7_margin.json"]
+}
