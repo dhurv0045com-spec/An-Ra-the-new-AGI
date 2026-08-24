@@ -33,5 +33,6 @@ jobs:
                             tests/test_evidence_chain_invariants.py \
                             tests/test_repro_and_intervention.py \
                             tests/test_margin_experiment.py \
-                            tests/test_self_model_leakage.py \n                            tests/test_cognitive_credit.py \
+                            tests/test_self_model_leakage.py \
+                            tests/test_cognitive_credit.py \
                             -q
