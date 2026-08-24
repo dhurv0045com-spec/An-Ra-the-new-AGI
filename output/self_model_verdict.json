@@ -1,0 +1,35 @@
+{
+  "schema": "anra-self-model-verdict/v2",
+  "fixture_sha256": "9f5bd1d3270882bf5a17dbd559e581d2638ca22321877f1ff8ba2a486c9757bd",
+  "checkpoint_sha256": "36c87e5be671ff37951b4b433e21ec14bb5e59f6f0770d7f81e50e99ead9e001",
+  "n_targets": 210,
+  "decision_protocol": "adaptive policy decides BEFORE verifier outcome, from ObservedFailureFeatures only; evaluator scores after",
+
+  "baselines_final": {
+    "ALWAYS_FREE": "60/210 (0.286)",
+    "ALWAYS_RAW": "80/210 (0.381)",
+    "ALWAYS_CONSTRAINED": "86/210 (0.410)",
+    "ALWAYS_NORMALIZED": "115/210 (0.548), 23 pass->fail vs raw",
+    "HAND_RULE_observed_margin": "99/210 (0.471)",
+    "ADAPTIVE_observed_policy": "106/210 (0.505), 21 pass->fail",
+    "ORACLE_evaluator_only": "138/210 (0.657)"
+  },
+
+  "verdict": {
+    "learned_beats_always_normalize": false,
+    "learned_beats_best_simple_rule": false,
+    "learned_regressions_fewer_than_always_normalize": true,
+    "fraction_of_oracle_improvement_over_raw_recovered": 0.448,
+    "LEARNED_CAUSAL_SELF_MODEL_DEMONSTRATED": false
+  },
+
+  "interpretation": "On fresh QIM-v6 the observed-only adaptive policy (106/210) beats always-raw (+26) but loses to always-normalize (115). The learned policy reduced regressions only marginally (21 vs 23). Per the mission's criterion ('does the learned policy outperform the best simple observable rule on unseen cases?') the answer is NO: a learned causal self-model is NOT demonstrated on this fixture class.",
+  "why_the_task_was_too_easy_for_learning": "QIM-v6's failure population is dominated by one mechanism with a uniformly strong fix: normalization wins on average everywhere (71% vs 47% on dev). When one intervention dominates broadly, the optimal policy is constant and there is nothing for a learner to discover beyond that constant. Prediction matters only when repair choice is context-dependent — i.e. mixed failure populations where normalization sometimes helps and sometimes hurts.",
+
+  "honest_conclusion": "Discovery validated: candidate-prior bias is real and normalization exposes the signal (reproduced exactly from clean commit). Self-understanding NOT yet achieved: no evidence An-Ra can predict per-case repair success better than applying the repair universally. The bottleneck for the next milestone is not model quality but task diversity: need environments where interventions genuinely trade off.",
+
+  "next_research_question": "Build a mixed-failure development environment (selection AND realization AND non-candidate tasks interleaved) where no single intervention dominates, then re-test whether the observed-only policy can beat both constants.",
+  "training_decision": "DO_NOT_TRAIN",
+  "verified_intervention_experiences": 0,
+  "report": "output/qimv6_self_model_transfer.json"
+}

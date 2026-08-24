@@ -371,5 +371,17 @@
       "preregistered trajectory at optimizer updates 0/5/10/20/30/40/50(+60/80)",
       "QIM-v3 frozen replication fixture (40 fresh groups, disjoint vocab), single-shot use after child freeze"
     ]
+  },
+  "self_model_status": {
+    "normalization_mechanism": "SUPPORTED (QIM-v5 preregistered + clean-commit reproduction closes 149/149 on RAW and NORMALIZED)",
+    "old_self_model": "INVALID \u2014 ground-truth leakage (raw_correct/raw_gold_rank required the answer key); artifact marked in place",
+    "real_learned_self_model": "NOT YET DEMONSTRATED \u2014 observed-only policy transfers to QIM-v6 (106/210 vs always-raw 80) but does not beat always-normalize (115); regressions 21 vs 23",
+    "robust_selective_binding": "NOT ESTABLISHED",
+    "training_decision": "DO_NOT_TRAIN",
+    "reports": [
+      "output/self_model_verdict.json",
+      "output/qimv6_self_model_transfer.json",
+      "output/qimv5_clean_reproduction_closure.json"
+    ]
   }
 }

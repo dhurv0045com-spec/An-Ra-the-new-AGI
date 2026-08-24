@@ -166,13 +166,17 @@ selection hypothesis: same-block competitor margin did NOT convert
 selection misses (rank-1 66→64/119 on fresh QIM-v4). Its replicated side
 effect: greedy +5/119 on both fixtures — decode-commitment tightening.
 
-**Dominant open question:** why does the correct query-conditioned signal
-exist (strong candidate-normalized lift) yet raw candidate priors still
-win in roughly half of multi-fact cases? Concretely testable without
-training: does subtracting each candidate's counterfactual-query baseline
-(counterfactual query normalization) convert selection misses? The
-runtime intervention arms and preregistration live in
-`scripts/causal_selection_experiment.py` with fixture QIM-v5.
+[RESOLVED 2026-08-24, tp-causal-selection-004 on QIM-v5: normalization
+converts selection failures — RAW 70/149 -> NORMALIZED 106/149; reproduced
+exactly from clean commit. NORMALIZATION MECHANISM: SUPPORTED.]
+
+**Dominant open question:** can An-Ra predict, from observable state alone,
+when counterfactual normalization will repair rather than regress a
+failure? First observed-only policy (QIM-v6 transfer): adaptive 106/210
+vs always-normalize 115/210 — the learned policy does NOT yet beat the
+best constant rule on this fixture class. REAL LEARNED SELF-MODEL: NOT YET
+DEMONSTRATED. ROBUST SELECTIVE BINDING: NOT ESTABLISHED. TRAINING DECISION:
+DO NOT TRAIN.
 
 ## Standard of success
 
