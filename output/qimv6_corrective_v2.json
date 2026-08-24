@@ -1,0 +1,6105 @@
+{
+  "schema": "anra-self-model-experiment/v2",
+  "runner": "scripts/run_self_model_experiment.py",
+  "provenance": {
+    "source_commit": "ae755cfd03e555dd29717f09947ee28ecc097cfd",
+    "dirty": false,
+    "checkpoint_path": "checkpoints/anra-v4-20k-sft6-queryswap-replication.pt",
+    "checkpoint_sha256": "36c87e5be671ff37951b4b433e21ec14bb5e59f6f0770d7f81e50e99ead9e001",
+    "fixture_module": "connector.experiments.query_influence_v6",
+    "fixture_sha256": "9f5bd1d3270882bf5a17dbd559e581d2638ca22321877f1ff8ba2a486c9757bd",
+    "tokenizer": {
+      "schema_version": 4,
+      "vocab_size": 32768,
+      "special_token_ids": {
+        "<pad>": 0,
+        "<unk>": 1,
+        "<bos>": 2,
+        "<eos>": 3,
+        "<sep>": 4,
+        "<code>": 5,
+        "</code>": 6,
+        "<think>": 7,
+        "</think>": 8,
+        "<goal>": 9,
+        "<ESV:v>": 10,
+        "<ESV:a>": 11,
+        "<ESV:d>": 12,
+        "<state>": 8192,
+        "</state>": 8193,
+        "</goal>": 8194,
+        "<cons>": 8195,
+        "</cons>": 8196,
+        "<hyp>": 8197,
+        "</hyp>": 8198,
+        "<act>": 8199,
+        "</act>": 8200,
+        "<obs>": 8201,
+        "</obs>": 8202,
+        "<verify>": 8203,
+        "</verify>": 8204,
+        "<upd>": 8205,
+        "</upd>": 8206,
+        "<err>": 8207,
+        "</err>": 8208
+      },
+      "vocabulary_sha256": "63a4b33ea0e727d45fdecbff98c3b716c706c5612d686ca73eb3f348b02825f5",
+      "probe_count": 500,
+      "probe_sha256": "bbec71e7ee65ca721f20abe378a7d10d39708d207fc1b22e5e7f9b36daba6539"
+    },
+    "device": "cpu",
+    "dtype": "torch.float32",
+    "decode_config": {
+      "greedy": true,
+      "max_new_tokens": 10
+    },
+    "seed_policy_threshold": 0.5,
+    "weights_modified": false
+  },
+  "n_targets": 210,
+  "baselines": {
+    "ALWAYS_FREE": 60,
+    "ALWAYS_RAW": 80,
+    "ALWAYS_CONSTRAINED": 86,
+    "ALWAYS_NORMALIZED": 115,
+    "HAND_RULE_observed_margins": 99,
+    "ADAPTIVE_observed_policy": 120,
+    "ORACLE_evaluator_only": 138
+  },
+  "adaptive_regressions_vs_raw": 9,
+  "always_normalized_regressions_vs_raw": 23,
+  "fraction_oracle_improvement_over_raw_recovered_by_adaptive": 0.69,
+  "per_item_rows": [
+    {
+      "n_candidates": 2,
+      "format_name": "prose",
+      "raw_pick_code": "VXW-563",
+      "norm_pick_code": "BQP-454",
+      "free_out_code": "BQP-844",
+      "constrained_pick_code": "BQP-454",
+      "raw_scores": [
+        -5.986108418428785,
+        -4.36208419135437
+      ],
+      "norm_scores": [
+        0.10789861538319201,
+        -0.6720408265828155
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.8055,
+      "gold_code": "BQP-454",
+      "raw_ok": false,
+      "normalized_ok": true,
+      "constrained_ok": true,
+      "free_ok": false,
+      "raw_rank_of_gold": 2,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 2,
+      "format_name": "prose",
+      "raw_pick_code": "VXW-563",
+      "norm_pick_code": "VXW-563",
+      "free_out_code": "BQP-844",
+      "constrained_pick_code": "BQP-454",
+      "raw_scores": [
+        -6.094007033811977,
+        -3.6900433647715545
+      ],
+      "norm_scores": [
+        -0.10789861538319201,
+        0.6720408265828155
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.8024,
+      "gold_code": "VXW-563",
+      "raw_ok": true,
+      "normalized_ok": true,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 1,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 3,
+      "format_name": "table",
+      "raw_pick_code": "BQP-936",
+      "norm_pick_code": "BQP-936",
+      "free_out_code": "BQP-936",
+      "constrained_pick_code": "BQP-936",
+      "raw_scores": [
+        -0.005198135414502758,
+        -9.297592206843547,
+        -12.107239943637978
+      ],
+      "norm_scores": [
+        4.157329557962385,
+        -5.9255323733523255,
+        -5.756027564511896
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 1.0,
+      "gold_code": "BQP-936",
+      "raw_ok": true,
+      "normalized_ok": true,
+      "constrained_ok": true,
+      "free_ok": true,
+      "raw_rank_of_gold": 1,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 3,
+      "format_name": "table",
+      "raw_pick_code": "VXW-840",
+      "norm_pick_code": "VXW-840",
+      "free_out_code": "VXW-840",
+      "constrained_pick_code": "VXW-840",
+      "raw_scores": [
+        -3.3986790618369014,
+        -0.0975757212327153,
+        -8.25989114469121
+      ],
+      "norm_scores": [
+        -0.9328918316712134,
+        7.874492355063921,
+        0.014995633908256423
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.9999,
+      "gold_code": "VXW-840",
+      "raw_ok": true,
+      "normalized_ok": true,
+      "constrained_ok": true,
+      "free_ok": true,
+      "raw_rank_of_gold": 1,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 3,
+      "format_name": "table",
+      "raw_pick_code": "YZK-623",
+      "norm_pick_code": "YZK-623",
+      "free_out_code": "YZK-622",
+      "constrained_pick_code": "YZK-623",
+      "raw_scores": [
+        -4.926376324916873,
+        -6.646543945749727,
+        -4.442533613560954
+      ],
+      "norm_scores": [
+        -3.224437726291171,
+        -1.948959981711596,
+        5.74103193060364
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.9999,
+      "gold_code": "YZK-623",
+      "raw_ok": true,
+      "normalized_ok": true,
+      "constrained_ok": true,
+      "free_ok": false,
+      "raw_rank_of_gold": 1,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 4,
+      "format_name": "list",
+      "raw_pick_code": "BQP-589",
+      "norm_pick_code": "YZK-810",
+      "free_out_code": "BQP-589",
+      "constrained_pick_code": "BQP-589",
+      "raw_scores": [
+        -3.4083545932589914,
+        -8.387484089103964,
+        -1.1449550507750246,
+        -11.587143885870319
+      ],
+      "norm_scores": [
+        -0.030583525462134276,
+        -0.021229088083297043,
+        0.11874659686266864,
+        0.20295797163271345
+      ],
+      "decision": "KEEP_RAW",
+      "p_normalize": 0.2588,
+      "gold_code": "VXW-487",
+      "raw_ok": false,
+      "normalized_ok": false,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 2,
+      "adj_rank_of_gold": 4
+    },
+    {
+      "n_candidates": 4,
+      "format_name": "list",
+      "raw_pick_code": "BQP-589",
+      "norm_pick_code": "BQP-589",
+      "free_out_code": "BQP-589",
+      "constrained_pick_code": "BQP-589",
+      "raw_scores": [
+        -4.509032955425937,
+        -8.268116283175914,
+        -1.0959701822175703,
+        -12.013652397934493
+      ],
+      "norm_scores": [
+        -1.4981546750180619,
+        0.1379279864874352,
+        0.1840597549392744,
+        -0.36572004445285167
+      ],
+      "decision": "KEEP_RAW",
+      "p_normalize": 0.2441,
+      "gold_code": "DMH-325",
+      "raw_ok": false,
+      "normalized_ok": false,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 3,
+      "adj_rank_of_gold": 2
+    },
+    {
+      "n_candidates": 4,
+      "format_name": "list",
+      "raw_pick_code": "BQP-589",
+      "norm_pick_code": "VXW-487",
+      "free_out_code": "BQP-589",
+      "constrained_pick_code": "BQP-589",
+      "raw_scores": [
+        -3.0048166120031965,
+        -8.75283816609226,
+        -1.2077558248020068,
+        -11.728236725826719
+      ],
+      "norm_scores": [
+        0.507467116212259,
+        -0.5083678574010264,
+        0.03501223149335897,
+        0.014834185024179547
+      ],
+      "decision": "KEEP_RAW",
+      "p_normalize": 0.3684,
+      "gold_code": "BQP-589",
+      "raw_ok": true,
+      "normalized_ok": false,
+      "constrained_ok": true,
+      "free_ok": true,
+      "raw_rank_of_gold": 1,
+      "adj_rank_of_gold": 2
+    },
+    {
+      "n_candidates": 4,
+      "format_name": "list",
+      "raw_pick_code": "BQP-589",
+      "norm_pick_code": "VXW-487",
+      "free_out_code": "BQP-589",
+      "constrained_pick_code": "BQP-589",
+      "raw_scores": [
+        -2.619463635961438,
+        -8.077810553793825,
+        -1.4873789358935028,
+        -11.628416448747885
+      ],
+      "norm_scores": [
+        1.0212710842679371,
+        0.39166895899688825,
+        -0.33781858329530223,
+        0.14792788779595867
+      ],
+      "decision": "KEEP_RAW",
+      "p_normalize": 0.4209,
+      "gold_code": "YZK-810",
+      "raw_ok": false,
+      "normalized_ok": false,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 4,
+      "adj_rank_of_gold": 3
+    },
+    {
+      "n_candidates": 5,
+      "format_name": "prose",
+      "raw_pick_code": "RTN-251",
+      "norm_pick_code": "RTN-251",
+      "free_out_code": "DTN-251",
+      "constrained_pick_code": "DMH-892",
+      "raw_scores": [
+        -4.583972711538081,
+        -6.548155850836338,
+        -2.3946982416418905,
+        -9.300067868000042,
+        -8.661734073142725
+      ],
+      "norm_scores": [
+        1.0029837324427717,
+        -0.4021150398712052,
+        1.0117570059173886,
+        0.11346259710444428,
+        0.03689060288888868
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.6704,
+      "gold_code": "YZK-554",
+      "raw_ok": false,
+      "normalized_ok": false,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 2,
+      "adj_rank_of_gold": 2
+    },
+    {
+      "n_candidates": 5,
+      "format_name": "prose",
+      "raw_pick_code": "RTN-251",
+      "norm_pick_code": "DMH-892",
+      "free_out_code": "CTH-892",
+      "constrained_pick_code": "DMH-892",
+      "raw_scores": [
+        -5.639904623025359,
+        -6.323391346688368,
+        -3.9969749867705104,
+        -10.84996549675816,
+        -10.176087454352455
+      ],
+      "norm_scores": [
+        -0.31693115691632556,
+        -0.12115940968624273,
+        -0.9910889254933863,
+        -1.8239094388432022,
+        -1.8560511236232742
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.7242,
+      "gold_code": "DMH-892",
+      "raw_ok": false,
+      "normalized_ok": true,
+      "constrained_ok": true,
+      "free_ok": false,
+      "raw_rank_of_gold": 3,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 5,
+      "format_name": "prose",
+      "raw_pick_code": "RTN-251",
+      "norm_pick_code": "DMH-178",
+      "free_out_code": null,
+      "constrained_pick_code": "DMH-892",
+      "raw_scores": [
+        -6.509565171649228,
+        -5.2282602432951535,
+        -3.497090263015707,
+        -8.314570284432193,
+        -7.7157586613411695
+      ],
+      "norm_scores": [
+        -1.4040068426961625,
+        1.2477544695552751,
+        -0.36623302079988207,
+        1.3453345765642553,
+        1.2193598676408328
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.6977,
+      "gold_code": "RTN-251",
+      "raw_ok": true,
+      "normalized_ok": false,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 1,
+      "adj_rank_of_gold": 4
+    },
+    {
+      "n_candidates": 5,
+      "format_name": "prose",
+      "raw_pick_code": "RTN-251",
+      "norm_pick_code": "DMH-178",
+      "free_out_code": null,
+      "constrained_pick_code": "DMH-892",
+      "raw_scores": [
+        -5.585018623942233,
+        -5.74005431801379,
+        -3.181633880631125,
+        -8.287820195002496,
+        -7.81245479584868
+      ],
+      "norm_scores": [
+        -0.24832365806241796,
+        0.6080118761569793,
+        0.028087457180845377,
+        1.3787721883513768,
+        1.0984896995064446
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.7418,
+      "gold_code": "DMH-178",
+      "raw_ok": false,
+      "normalized_ok": true,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 5,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 5,
+      "format_name": "prose",
+      "raw_pick_code": "RTN-251",
+      "norm_pick_code": "YZK-554",
+      "free_out_code": "DTN-251",
+      "constrained_pick_code": "DMH-892",
+      "raw_scores": [
+        -4.613337357306591,
+        -7.292457335863219,
+        -2.950121859819774,
+        -10.201765884225097,
+        -9.09019779258415
+      ],
+      "norm_scores": [
+        0.9662779252321343,
+        -1.3324918961548065,
+        0.31747748319503444,
+        -1.0136599231768741,
+        -0.4986890464128919
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.825,
+      "gold_code": "DMH-792",
+      "raw_ok": false,
+      "normalized_ok": false,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 4,
+      "adj_rank_of_gold": 3
+    },
+    {
+      "n_candidates": 2,
+      "format_name": "table",
+      "raw_pick_code": "VXW-187",
+      "norm_pick_code": "VXW-187",
+      "free_out_code": "VXW-187",
+      "constrained_pick_code": "VXW-187",
+      "raw_scores": [
+        -0.2732136762897426,
+        -3.950267251890182
+      ],
+      "norm_scores": [
+        0.5329763998706767,
+        -2.0375762176954595
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.9429,
+      "gold_code": "VXW-187",
+      "raw_ok": true,
+      "normalized_ok": true,
+      "constrained_ok": true,
+      "free_ok": true,
+      "raw_rank_of_gold": 1,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 2,
+      "format_name": "table",
+      "raw_pick_code": "VXW-187",
+      "norm_pick_code": "VXW-798",
+      "free_out_code": "VXW-187",
+      "constrained_pick_code": "VXW-187",
+      "raw_scores": [
+        -0.8061900761604193,
+        -1.9126910341947223
+      ],
+      "norm_scores": [
+        -0.5329763998706767,
+        2.0375762176954595
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.9463,
+      "gold_code": "VXW-798",
+      "raw_ok": false,
+      "normalized_ok": true,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 2,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 3,
+      "format_name": "list",
+      "raw_pick_code": "YZK-545",
+      "norm_pick_code": "RTN-611",
+      "free_out_code": "YZK-545",
+      "constrained_pick_code": "YZK-545",
+      "raw_scores": [
+        -2.611355689688935,
+        -5.674850288149173,
+        -9.093340602539683
+      ],
+      "norm_scores": [
+        0.37249488415091037,
+        0.7959666666001795,
+        -0.31589467817593686
+      ],
+      "decision": "KEEP_RAW",
+      "p_normalize": 0.3243,
+      "gold_code": "YZK-545",
+      "raw_ok": true,
+      "normalized_ok": false,
+      "constrained_ok": true,
+      "free_ok": true,
+      "raw_rank_of_gold": 1,
+      "adj_rank_of_gold": 2
+    },
+    {
+      "n_candidates": 3,
+      "format_name": "list",
+      "raw_pick_code": "YZK-545",
+      "norm_pick_code": "YZK-545",
+      "free_out_code": "YZK-545",
+      "constrained_pick_code": "YZK-545",
+      "raw_scores": [
+        -1.8740402901148627,
+        -7.659843712515794,
+        -8.425398399291225
+      ],
+      "norm_scores": [
+        1.4784679835120187,
+        -2.1815234699497523,
+        0.6860186266967503
+      ],
+      "decision": "KEEP_RAW",
+      "p_normalize": 0.4193,
+      "gold_code": "RTN-611",
+      "raw_ok": false,
+      "normalized_ok": false,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 2,
+      "adj_rank_of_gold": 3
+    },
+    {
+      "n_candidates": 3,
+      "format_name": "list",
+      "raw_pick_code": "YZK-545",
+      "norm_pick_code": "RTN-611",
+      "free_out_code": null,
+      "constrained_pick_code": "YZK-545",
+      "raw_scores": [
+        -4.093660857564828,
+        -5.281790196982911,
+        -9.129493449436268
+      ],
+      "norm_scores": [
+        -1.850962867662929,
+        1.3855568033495729,
+        -0.37012394852081343
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.7378,
+      "gold_code": "RTN-593",
+      "raw_ok": false,
+      "normalized_ok": false,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 3,
+      "adj_rank_of_gold": 2
+    },
+    {
+      "n_candidates": 4,
+      "format_name": "prose",
+      "raw_pick_code": "BQP-826",
+      "norm_pick_code": "RTN-410",
+      "free_out_code": "BQP-826",
+      "constrained_pick_code": "BQP-826",
+      "raw_scores": [
+        -7.524226624498624,
+        -8.172046994550328,
+        -3.398730649641948,
+        -0.5391609975813481
+      ],
+      "norm_scores": [
+        0.8295775094150795,
+        -0.37988301516209777,
+        0.5176746718861978,
+        0.07467077079369722
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.7281,
+      "gold_code": "RTN-410",
+      "raw_ok": false,
+      "normalized_ok": true,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 3,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 4,
+      "format_name": "prose",
+      "raw_pick_code": "BQP-826",
+      "norm_pick_code": "DMH-308",
+      "free_out_code": "BQP-826",
+      "constrained_pick_code": "BQP-826",
+      "raw_scores": [
+        -8.371382783619993,
+        -7.01250524950774,
+        -3.4373129586620053,
+        -0.8255349950868549
+      ],
+      "norm_scores": [
+        -0.2999640360800786,
+        1.1661726448946865,
+        0.46623159319278784,
+        -0.3071612258803119
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.8165,
+      "gold_code": "DMH-308",
+      "raw_ok": false,
+      "normalized_ok": true,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 3,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 4,
+      "format_name": "prose",
+      "raw_pick_code": "BQP-826",
+      "norm_pick_code": "RTN-899",
+      "free_out_code": "BQP-826",
+      "constrained_pick_code": "BQP-826",
+      "raw_scores": [
+        -8.341634310680092,
+        -8.49348829371229,
+        -3.739790783794888,
+        -0.5733114304748597
+      ],
+      "norm_scores": [
+        -0.26029940549354613,
+        -0.8084714140447131,
+        0.06292782634894456,
+        0.029136860269015075
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.6497,
+      "gold_code": "RTN-899",
+      "raw_ok": false,
+      "normalized_ok": true,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 2,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 4,
+      "format_name": "prose",
+      "raw_pick_code": "BQP-826",
+      "norm_pick_code": "BQP-826",
+      "free_out_code": "BQP-826",
+      "constrained_pick_code": "BQP-826",
+      "raw_scores": [
+        -8.348395307441024,
+        -7.870498394944661,
+        -4.572112222127544,
+        -0.44264887956342136
+      ],
+      "norm_scores": [
+        -0.26931406784145473,
+        0.022181784312124364,
+        -1.0468340914279302,
+        0.20335359481759951
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.6866,
+      "gold_code": "BQP-826",
+      "raw_ok": true,
+      "normalized_ok": true,
+      "constrained_ok": true,
+      "free_ok": true,
+      "raw_rank_of_gold": 1,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 5,
+      "format_name": "table",
+      "raw_pick_code": "VXW-907",
+      "norm_pick_code": "VXW-907",
+      "free_out_code": "VXW-907",
+      "constrained_pick_code": "VXW-907",
+      "raw_scores": [
+        -0.05357253992042388,
+        -6.73615276696728,
+        -7.310762993169192,
+        -16.670237027246912,
+        -9.770260109504306
+      ],
+      "norm_scores": [
+        5.421132966825098,
+        -3.377052615333014,
+        -1.204388491327336,
+        -1.3689974544022334,
+        -4.992484734213576
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.9997,
+      "gold_code": "VXW-907",
+      "raw_ok": true,
+      "normalized_ok": true,
+      "constrained_ok": true,
+      "free_ok": true,
+      "raw_rank_of_gold": 1,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 5,
+      "format_name": "table",
+      "raw_pick_code": "YZK-961",
+      "norm_pick_code": "YZK-597",
+      "free_out_code": "YZK-961",
+      "constrained_pick_code": "YZK-961",
+      "raw_scores": [
+        -7.479148319456726,
+        -0.549337606804329,
+        -9.389911128993845,
+        -18.76328763784113,
+        -1.7805177445407026
+      ],
+      "norm_scores": [
+        -3.8608367575952798,
+        4.3564663348706745,
+        -3.803323661108152,
+        -3.9853107176450067,
+        4.994693221990929
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.6612,
+      "gold_code": "YZK-961",
+      "raw_ok": true,
+      "normalized_ok": false,
+      "constrained_ok": true,
+      "free_ok": true,
+      "raw_rank_of_gold": 1,
+      "adj_rank_of_gold": 2
+    },
+    {
+      "n_candidates": 5,
+      "format_name": "table",
+      "raw_pick_code": "RTN-966",
+      "norm_pick_code": "RTN-966",
+      "free_out_code": "RTN-966",
+      "constrained_pick_code": "RTN-966",
+      "raw_scores": [
+        -4.001131494653237,
+        -6.786805541145441,
+        -0.19352806120514288,
+        -16.860305355916353,
+        -10.065080121210485
+      ],
+      "norm_scores": [
+        0.4866842734090824,
+        -3.440368583055715,
+        7.692155173627725,
+        -1.6065828652390337,
+        -5.3610097488463
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.9999,
+      "gold_code": "RTN-966",
+      "raw_ok": true,
+      "normalized_ok": true,
+      "constrained_ok": true,
+      "free_ok": true,
+      "raw_rank_of_gold": 1,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 5,
+      "format_name": "table",
+      "raw_pick_code": "VXW-907",
+      "norm_pick_code": "DMH-409",
+      "free_out_code": "DTN-966",
+      "constrained_pick_code": "DMH-409",
+      "raw_scores": [
+        -3.114586438434344,
+        -5.382983515399246,
+        -5.34941557159982,
+        -7.202436532705178,
+        -5.854111825781729
+      ],
+      "norm_scores": [
+        1.594865593682698,
+        -1.6855910508729721,
+        1.2472957856343783,
+        10.465753163774934,
+        -0.09729937956035428
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 1.0,
+      "gold_code": "DMH-409",
+      "raw_ok": false,
+      "normalized_ok": true,
+      "constrained_ok": true,
+      "free_ok": false,
+      "raw_rank_of_gold": 5,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 5,
+      "format_name": "table",
+      "raw_pick_code": "YZK-961",
+      "norm_pick_code": "YZK-597",
+      "free_out_code": "YZK-961",
+      "constrained_pick_code": "YZK-961",
+      "raw_scores": [
+        -7.303955774437782,
+        -0.7172739431880473,
+        -9.492643245568615,
+        -18.378928764916054,
+        -1.411391809630004
+      ],
+      "norm_scores": [
+        -3.641846076321599,
+        4.146545914391027,
+        -3.9317388068266155,
+        -3.5048621264886606,
+        5.456100640629302
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.8249,
+      "gold_code": "YZK-597",
+      "raw_ok": false,
+      "normalized_ok": true,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 2,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 2,
+      "format_name": "list",
+      "raw_pick_code": "RTN-318",
+      "norm_pick_code": "RTN-318",
+      "free_out_code": "RTN-318",
+      "constrained_pick_code": "RTN-318",
+      "raw_scores": [
+        -4.97241614799168,
+        -3.364366432704628
+      ],
+      "norm_scores": [
+        -0.6250372503927792,
+        1.7702676335247816
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.8521,
+      "gold_code": "RTN-633",
+      "raw_ok": false,
+      "normalized_ok": false,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 2,
+      "adj_rank_of_gold": 2
+    },
+    {
+      "n_candidates": 2,
+      "format_name": "list",
+      "raw_pick_code": "RTN-633",
+      "norm_pick_code": "RTN-633",
+      "free_out_code": null,
+      "constrained_pick_code": "RTN-633",
+      "raw_scores": [
+        -4.347378897598901,
+        -5.13463406622941
+      ],
+      "norm_scores": [
+        0.6250372503927792,
+        -1.7702676335247816
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.8546,
+      "gold_code": "RTN-318",
+      "raw_ok": false,
+      "normalized_ok": false,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 2,
+      "adj_rank_of_gold": 2
+    },
+    {
+      "n_candidates": 3,
+      "format_name": "prose",
+      "raw_pick_code": "BQP-963",
+      "norm_pick_code": "BQP-963",
+      "free_out_code": "BQP-963",
+      "constrained_pick_code": "BQP-963",
+      "raw_scores": [
+        -0.49150890880309817,
+        -5.408708160835886,
+        -2.9924798226093117
+      ],
+      "norm_scores": [
+        0.045000399675359404,
+        -1.5196818605863882,
+        -1.2346034904994667
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.8952,
+      "gold_code": "BQP-963",
+      "raw_ok": true,
+      "normalized_ok": true,
+      "constrained_ok": true,
+      "free_ok": true,
+      "raw_rank_of_gold": 1,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 3,
+      "format_name": "prose",
+      "raw_pick_code": "BQP-963",
+      "norm_pick_code": "RTN-902",
+      "free_out_code": "BQP-963",
+      "constrained_pick_code": "BQP-963",
+      "raw_scores": [
+        -0.5372573675592776,
+        -3.9494572137809882,
+        -1.757105658247383
+      ],
+      "norm_scores": [
+        -0.02362228845890968,
+        0.6691945599959581,
+        0.6184577560434263
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.6431,
+      "gold_code": "RTN-902",
+      "raw_ok": false,
+      "normalized_ok": true,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 3,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 3,
+      "format_name": "prose",
+      "raw_pick_code": "BQP-963",
+      "norm_pick_code": "RTN-902",
+      "free_out_code": "BQP-963",
+      "constrained_pick_code": "BQP-963",
+      "raw_scores": [
+        -0.5357612493976376,
+        -3.828595386718007,
+        -1.758647005972307
+      ],
+      "norm_scores": [
+        -0.021378111216449724,
+        0.8504873005904301,
+        0.6161457344560404
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.6955,
+      "gold_code": "YZK-283",
+      "raw_ok": false,
+      "normalized_ok": false,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 2,
+      "adj_rank_of_gold": 2
+    },
+    {
+      "n_candidates": 4,
+      "format_name": "table",
+      "raw_pick_code": "DMH-429",
+      "norm_pick_code": "DMH-429",
+      "free_out_code": "DMH-430",
+      "constrained_pick_code": "DMH-429",
+      "raw_scores": [
+        -2.7314033748061775,
+        -10.590582502969482,
+        -7.320126558835909,
+        -7.694005703924631
+      ],
+      "norm_scores": [
+        12.468800796100671,
+        -5.106277485690953,
+        -5.7969822684268975,
+        -6.090974485622913
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 1.0,
+      "gold_code": "DMH-429",
+      "raw_ok": true,
+      "normalized_ok": true,
+      "constrained_ok": true,
+      "free_ok": false,
+      "raw_rank_of_gold": 1,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 4,
+      "format_name": "table",
+      "raw_pick_code": "RTN-762",
+      "norm_pick_code": "RTN-847",
+      "free_out_code": "RTN-762",
+      "constrained_pick_code": "RTN-762",
+      "raw_scores": [
+        -15.433898088635033,
+        -5.282154025087948,
+        -1.6369580860773567,
+        -1.6809098850862938
+      ],
+      "norm_scores": [
+        -4.467858822337803,
+        1.9716271514844266,
+        1.7805756952511729,
+        1.926486606161537
+      ],
+      "decision": "KEEP_RAW",
+      "p_normalize": 0.4581,
+      "gold_code": "RTN-847",
+      "raw_ok": false,
+      "normalized_ok": true,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 3,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 4,
+      "format_name": "table",
+      "raw_pick_code": "RTN-762",
+      "norm_pick_code": "RTN-786",
+      "free_out_code": "RTN-762",
+      "constrained_pick_code": "RTN-762",
+      "raw_scores": [
+        -15.20096552105315,
+        -5.59588655353582,
+        -1.4600972103507956,
+        -1.5711161445942707
+      ],
+      "norm_scores": [
+        -4.157282065561958,
+        1.5533171135539305,
+        2.016390196219921,
+        2.072878260150901
+      ],
+      "decision": "KEEP_RAW",
+      "p_normalize": 0.4613,
+      "gold_code": "RTN-762",
+      "raw_ok": true,
+      "normalized_ok": false,
+      "constrained_ok": true,
+      "free_ok": true,
+      "raw_rank_of_gold": 1,
+      "adj_rank_of_gold": 2
+    },
+    {
+      "n_candidates": 4,
+      "format_name": "table",
+      "raw_pick_code": "RTN-762",
+      "norm_pick_code": "RTN-786",
+      "free_out_code": "RTN-762",
+      "constrained_pick_code": "RTN-762",
+      "raw_scores": [
+        -14.965748903032363,
+        -5.574874473211821,
+        -1.4723775747988839,
+        -1.5570676252245903
+      ],
+      "norm_scores": [
+        -3.8436599082009106,
+        1.5813332206525956,
+        2.0000163769558035,
+        2.091609619310475
+      ],
+      "decision": "KEEP_RAW",
+      "p_normalize": 0.4728,
+      "gold_code": "RTN-786",
+      "raw_ok": false,
+      "normalized_ok": true,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 2,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 5,
+      "format_name": "list",
+      "raw_pick_code": "YZK-768",
+      "norm_pick_code": "YZK-768",
+      "free_out_code": "BQP-187",
+      "constrained_pick_code": "BQP-185",
+      "raw_scores": [
+        -4.774004512622923,
+        -4.251664828096182,
+        -8.871546748583569,
+        -7.953901208320531,
+        -5.592336113064448
+      ],
+      "norm_scores": [
+        0.5578919993604359,
+        2.3060860107239023,
+        1.754796888790679,
+        0.6146834497144482,
+        0.8065818270647469
+      ],
+      "decision": "KEEP_RAW",
+      "p_normalize": 0.4243,
+      "gold_code": "BQP-185",
+      "raw_ok": false,
+      "normalized_ok": false,
+      "constrained_ok": true,
+      "free_ok": false,
+      "raw_rank_of_gold": 2,
+      "adj_rank_of_gold": 5
+    },
+    {
+      "n_candidates": 5,
+      "format_name": "list",
+      "raw_pick_code": "BQP-185",
+      "norm_pick_code": "BQP-185",
+      "free_out_code": "BQP-187",
+      "constrained_pick_code": "BQP-185",
+      "raw_scores": [
+        -5.571388624874089,
+        -6.806959017592817,
+        -10.693088544188868,
+        -9.183628781413063,
+        -6.64157348865956
+      ],
+      "norm_scores": [
+        -0.43883814095352136,
+        -0.8880317261468917,
+        -0.5221303557159445,
+        -0.9224760166512169,
+        -0.5049648924291432
+      ],
+      "decision": "KEEP_RAW",
+      "p_normalize": 0.2797,
+      "gold_code": "YZK-768",
+      "raw_ok": false,
+      "normalized_ok": false,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 3,
+      "adj_rank_of_gold": 4
+    },
+    {
+      "n_candidates": 5,
+      "format_name": "list",
+      "raw_pick_code": "BQP-185",
+      "norm_pick_code": "YZK-768",
+      "free_out_code": "BQP-187",
+      "constrained_pick_code": "BQP-185",
+      "raw_scores": [
+        -5.211522343823162,
+        -5.502483815776941,
+        -10.471376870416861,
+        -8.398632488147996,
+        -5.851844062730379
+      ],
+      "norm_scores": [
+        0.010994710360137105,
+        0.7425622761229533,
+        -0.24499076350093674,
+        0.05876934993011673,
+        0.48219688998233323
+      ],
+      "decision": "KEEP_RAW",
+      "p_normalize": 0.3373,
+      "gold_code": "YZK-860",
+      "raw_ok": false,
+      "normalized_ok": false,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 5,
+      "adj_rank_of_gold": 5
+    },
+    {
+      "n_candidates": 5,
+      "format_name": "list",
+      "raw_pick_code": "BQP-185",
+      "norm_pick_code": "VXW-860",
+      "free_out_code": "BQP-187",
+      "constrained_pick_code": "BQP-185",
+      "raw_scores": [
+        -5.164967210460418,
+        -7.299683400327922,
+        -10.816899088924401,
+        -7.744635031558573,
+        -6.210999288712628
+      ],
+      "norm_scores": [
+        0.06918862706356776,
+        -1.5039372045657728,
+        -0.6768935366353617,
+        0.876266170666895,
+        0.03325285750452167
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.5031,
+      "gold_code": "VXW-860",
+      "raw_ok": false,
+      "normalized_ok": true,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 4,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 5,
+      "format_name": "list",
+      "raw_pick_code": "BQP-185",
+      "norm_pick_code": "BQP-185",
+      "free_out_code": "BQP-187",
+      "constrained_pick_code": "BQP-185",
+      "raw_scores": [
+        -5.379707868775768,
+        -6.621877121582656,
+        -10.524010045966861,
+        -8.947442331020284,
+        -6.891254920414212
+      ],
+      "norm_scores": [
+        -0.19923719583061938,
+        -0.656679356134191,
+        -0.3107822329384362,
+        -0.6272429536602431,
+        -0.8170666821224586
+      ],
+      "decision": "KEEP_RAW",
+      "p_normalize": 0.2908,
+      "gold_code": "VXW-438",
+      "raw_ok": false,
+      "normalized_ok": false,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 3,
+      "adj_rank_of_gold": 5
+    },
+    {
+      "n_candidates": 2,
+      "format_name": "prose",
+      "raw_pick_code": "RTN-817",
+      "norm_pick_code": "DMH-891",
+      "free_out_code": "RTN-817",
+      "constrained_pick_code": "RTN-817",
+      "raw_scores": [
+        -6.999214717821815,
+        -0.520886753760351
+      ],
+      "norm_scores": [
+        0.5731619612215582,
+        -0.20914273194102861
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.7862,
+      "gold_code": "DMH-891",
+      "raw_ok": false,
+      "normalized_ok": true,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 2,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 2,
+      "format_name": "prose",
+      "raw_pick_code": "RTN-817",
+      "norm_pick_code": "RTN-817",
+      "free_out_code": "RTN-817",
+      "constrained_pick_code": "RTN-817",
+      "raw_scores": [
+        -7.572376679043373,
+        -0.31174402181932237
+      ],
+      "norm_scores": [
+        -0.5731619612215582,
+        0.20914273194102861
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.7828,
+      "gold_code": "RTN-817",
+      "raw_ok": true,
+      "normalized_ok": true,
+      "constrained_ok": true,
+      "free_ok": true,
+      "raw_rank_of_gold": 1,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 3,
+      "format_name": "table",
+      "raw_pick_code": "VXW-801",
+      "norm_pick_code": "VXW-801",
+      "free_out_code": "VXW-801",
+      "constrained_pick_code": "VXW-801",
+      "raw_scores": [
+        -1.379876878563664,
+        -13.501184089764138,
+        -8.9057424817438
+      ],
+      "norm_scores": [
+        7.454096169581135,
+        -9.943265902285475,
+        2.340086227169195
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.9977,
+      "gold_code": "VXW-801",
+      "raw_ok": true,
+      "normalized_ok": true,
+      "constrained_ok": true,
+      "free_ok": true,
+      "raw_rank_of_gold": 1,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 3,
+      "format_name": "table",
+      "raw_pick_code": "DMH-167",
+      "norm_pick_code": "DMH-167",
+      "free_out_code": "DMH-172",
+      "constrained_pick_code": "DMH-167",
+      "raw_scores": [
+        -11.65013408721643,
+        -2.258049494522311,
+        -14.190114663429995
+      ],
+      "norm_scores": [
+        -7.951289643398013,
+        6.921435990577265,
+        -5.586472045360097
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 1.0,
+      "gold_code": "DMH-167",
+      "raw_ok": true,
+      "normalized_ok": true,
+      "constrained_ok": true,
+      "free_ok": false,
+      "raw_rank_of_gold": 1,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 3,
+      "format_name": "table",
+      "raw_pick_code": "DMH-167",
+      "norm_pick_code": "VXW-607",
+      "free_out_code": "VXW-610",
+      "constrained_pick_code": "VXW-607",
+      "raw_scores": [
+        -6.017812009073168,
+        -4.857786880435015,
+        -8.301542754395996
+      ],
+      "norm_scores": [
+        0.4971934738168784,
+        3.0218299117082097,
+        3.2463858181909018
+      ],
+      "decision": "KEEP_RAW",
+      "p_normalize": 0.484,
+      "gold_code": "VXW-607",
+      "raw_ok": false,
+      "normalized_ok": true,
+      "constrained_ok": true,
+      "free_ok": false,
+      "raw_rank_of_gold": 3,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 4,
+      "format_name": "list",
+      "raw_pick_code": "YZK-990",
+      "norm_pick_code": "DMH-620",
+      "free_out_code": "YZK-990",
+      "constrained_pick_code": "YZK-990",
+      "raw_scores": [
+        -6.842815398562379,
+        -11.009251029790903,
+        -4.04989276503693,
+        -7.714691409990337
+      ],
+      "norm_scores": [
+        -0.4893926902544381,
+        0.5087009548387869,
+        -0.1936237324947192,
+        -0.7722892497507319
+      ],
+      "decision": "KEEP_RAW",
+      "p_normalize": 0.4337,
+      "gold_code": "YZK-471",
+      "raw_ok": false,
+      "normalized_ok": false,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 2,
+      "adj_rank_of_gold": 3
+    },
+    {
+      "n_candidates": 4,
+      "format_name": "list",
+      "raw_pick_code": "YZK-990",
+      "norm_pick_code": "YZK-990",
+      "free_out_code": "YZK-990",
+      "constrained_pick_code": "YZK-990",
+      "raw_scores": [
+        -6.205783035180502,
+        -11.51860072423733,
+        -3.3253608827762946,
+        -6.777777756225987
+      ],
+      "norm_scores": [
+        0.35998379425473104,
+        -0.17043197108978347,
+        0.772418777186128,
+        0.4769289552684013
+      ],
+      "decision": "KEEP_RAW",
+      "p_normalize": 0.3111,
+      "gold_code": "DMH-620",
+      "raw_ok": false,
+      "normalized_ok": false,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 4,
+      "adj_rank_of_gold": 4
+    },
+    {
+      "n_candidates": 4,
+      "format_name": "list",
+      "raw_pick_code": "YZK-990",
+      "norm_pick_code": "RTN-549",
+      "free_out_code": "YZK-990",
+      "constrained_pick_code": "YZK-990",
+      "raw_scores": [
+        -7.199387811850102,
+        -11.605089233738909,
+        -4.0207078011862905,
+        -6.6954606318449805
+      ],
+      "norm_scores": [
+        -0.9648225746380676,
+        -0.28574998375855465,
+        -0.15471044736053363,
+        0.5866851211097428
+      ],
+      "decision": "KEEP_RAW",
+      "p_normalize": 0.4468,
+      "gold_code": "YZK-990",
+      "raw_ok": true,
+      "normalized_ok": false,
+      "constrained_ok": true,
+      "free_ok": true,
+      "raw_rank_of_gold": 1,
+      "adj_rank_of_gold": 2
+    },
+    {
+      "n_candidates": 4,
+      "format_name": "list",
+      "raw_pick_code": "YZK-990",
+      "norm_pick_code": "YZK-471",
+      "free_out_code": "CTH-610",
+      "constrained_pick_code": "YZK-990",
+      "raw_scores": [
+        -5.655097277893219,
+        -11.43016599591283,
+        -4.222738413664047,
+        -7.353968092647847
+      ],
+      "norm_scores": [
+        1.0942314706377756,
+        -0.052518999990448734,
+        -0.4240845973308751,
+        -0.2913248266274122
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.5846,
+      "gold_code": "RTN-549",
+      "raw_ok": false,
+      "normalized_ok": false,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 3,
+      "adj_rank_of_gold": 3
+    },
+    {
+      "n_candidates": 5,
+      "format_name": "prose",
+      "raw_pick_code": "YZK-278",
+      "norm_pick_code": "DMH-168",
+      "free_out_code": "BQP-940",
+      "constrained_pick_code": "BQP-940",
+      "raw_scores": [
+        -10.716011044716652,
+        -7.050569532033478,
+        -2.9356789671328443,
+        -8.832534524875882,
+        -3.578695769652768
+      ],
+      "norm_scores": [
+        1.6651078747177053,
+        0.8795958147716192,
+        1.2688769631240575,
+        -0.8667778380404343,
+        -1.455472110284063
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.7772,
+      "gold_code": "DMH-168",
+      "raw_ok": false,
+      "normalized_ok": true,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 5,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 5,
+      "format_name": "prose",
+      "raw_pick_code": "BQP-940",
+      "norm_pick_code": "DMH-332",
+      "free_out_code": "BQP-940",
+      "constrained_pick_code": "BQP-940",
+      "raw_scores": [
+        -12.29464976005329,
+        -7.654266338231537,
+        -4.305177098929562,
+        -8.10840305982856,
+        -3.4158663904199784
+      ],
+      "norm_scores": [
+        -0.30819051945309184,
+        0.12497480702404573,
+        -0.44299570162183954,
+        0.03838649326871746,
+        -1.2519353862430762
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.6992,
+      "gold_code": "DMH-332",
+      "raw_ok": false,
+      "normalized_ok": true,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 3,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 5,
+      "format_name": "prose",
+      "raw_pick_code": "BQP-940",
+      "norm_pick_code": "BQP-940",
+      "free_out_code": "BQP-940",
+      "constrained_pick_code": "BQP-940",
+      "raw_scores": [
+        -13.138690173838768,
+        -8.353791237883343,
+        -3.8185932310607313,
+        -7.906580756109179,
+        -1.7544219096198503
+      ],
+      "norm_scores": [
+        -1.36324103668494,
+        -0.7494313175407115,
+        0.16523413321419866,
+        0.290664372917945,
+        0.8248702147570839
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.8009,
+      "gold_code": "YZK-278",
+      "raw_ok": false,
+      "normalized_ok": false,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 2,
+      "adj_rank_of_gold": 3
+    },
+    {
+      "n_candidates": 5,
+      "format_name": "prose",
+      "raw_pick_code": "BQP-940",
+      "norm_pick_code": "BQP-416",
+      "free_out_code": "BQP-940",
+      "constrained_pick_code": "BQP-940",
+      "raw_scores": [
+        -11.795756592424368,
+        -7.917171373059318,
+        -3.7612443932430324,
+        -7.7358917432302405,
+        -2.0374027818015747
+      ],
+      "norm_scores": [
+        0.3154259400830597,
+        -0.20365648651068113,
+        0.23692018048632235,
+        0.5040256390166178,
+        0.4711441245299284
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.6798,
+      "gold_code": "BQP-416",
+      "raw_ok": false,
+      "normalized_ok": true,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 3,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 5,
+      "format_name": "prose",
+      "raw_pick_code": "BQP-940",
+      "norm_pick_code": "BQP-940",
+      "free_out_code": "BQP-940",
+      "constrained_pick_code": "BQP-940",
+      "raw_scores": [
+        -12.295379151421002,
+        -7.795432438046191,
+        -4.9332089977942815,
+        -8.112151188173812,
+        -1.2852035556334158
+      ],
+      "norm_scores": [
+        -0.3091022586627332,
+        -0.051482817744272324,
+        -1.228035575202739,
+        0.03370133283715404,
+        1.411393157240127
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.92,
+      "gold_code": "BQP-940",
+      "raw_ok": true,
+      "normalized_ok": true,
+      "constrained_ok": true,
+      "free_ok": true,
+      "raw_rank_of_gold": 1,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 2,
+      "format_name": "table",
+      "raw_pick_code": "VXW-924",
+      "norm_pick_code": "VXW-924",
+      "free_out_code": "VXW-924",
+      "constrained_pick_code": "VXW-924",
+      "raw_scores": [
+        -0.027794924373665708,
+        -5.511022707167285
+      ],
+      "norm_scores": [
+        5.333057070953146,
+        -5.196571726573893
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 1.0,
+      "gold_code": "VXW-924",
+      "raw_ok": true,
+      "normalized_ok": true,
+      "constrained_ok": true,
+      "free_ok": true,
+      "raw_rank_of_gold": 1,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 2,
+      "format_name": "table",
+      "raw_pick_code": "YZK-780",
+      "norm_pick_code": "YZK-780",
+      "free_out_code": "YZK-780",
+      "constrained_pick_code": "YZK-780",
+      "raw_scores": [
+        -5.3608519953268114,
+        -0.31445098059339216
+      ],
+      "norm_scores": [
+        -5.333057070953146,
+        5.196571726573893
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 1.0,
+      "gold_code": "YZK-780",
+      "raw_ok": true,
+      "normalized_ok": true,
+      "constrained_ok": true,
+      "free_ok": true,
+      "raw_rank_of_gold": 1,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 3,
+      "format_name": "list",
+      "raw_pick_code": "DMH-484",
+      "norm_pick_code": "DMH-823",
+      "free_out_code": "CTH-823",
+      "constrained_pick_code": "DMH-484",
+      "raw_scores": [
+        -7.479722477848554,
+        -7.794398332862329,
+        -14.538381546395613
+      ],
+      "norm_scores": [
+        0.854938829049388,
+        1.3440743359178668,
+        -1.5225659535726663
+      ],
+      "decision": "KEEP_RAW",
+      "p_normalize": 0.3589,
+      "gold_code": "DMH-484",
+      "raw_ok": true,
+      "normalized_ok": false,
+      "constrained_ok": true,
+      "free_ok": false,
+      "raw_rank_of_gold": 1,
+      "adj_rank_of_gold": 2
+    },
+    {
+      "n_candidates": 3,
+      "format_name": "list",
+      "raw_pick_code": "DMH-484",
+      "norm_pick_code": "YZK-345",
+      "free_out_code": "CTH-823",
+      "constrained_pick_code": "YZK-345",
+      "raw_scores": [
+        -7.84037136119332,
+        -9.60624484780601,
+        -12.615931622514836
+      ],
+      "norm_scores": [
+        0.31396550403223955,
+        -1.3736954364976555,
+        1.3611089322484986
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.5261,
+      "gold_code": "DMH-823",
+      "raw_ok": false,
+      "normalized_ok": false,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 2,
+      "adj_rank_of_gold": 3
+    },
+    {
+      "n_candidates": 3,
+      "format_name": "list",
+      "raw_pick_code": "DMH-823",
+      "norm_pick_code": "YZK-345",
+      "free_out_code": "CTH-823",
+      "constrained_pick_code": "DMH-484",
+      "raw_scores": [
+        -8.828951252602565,
+        -8.670700489754381,
+        -13.415699563131056
+      ],
+      "norm_scores": [
+        -1.1689043330816276,
+        0.029621100579788617,
+        0.16145702132416773
+      ],
+      "decision": "KEEP_RAW",
+      "p_normalize": 0.2616,
+      "gold_code": "YZK-345",
+      "raw_ok": false,
+      "normalized_ok": true,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 3,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 4,
+      "format_name": "prose",
+      "raw_pick_code": "BQP-857",
+      "norm_pick_code": "DMH-453",
+      "free_out_code": "BQP-857",
+      "constrained_pick_code": "BQP-857",
+      "raw_scores": [
+        -6.802657528915006,
+        -3.7400367652116984,
+        -1.6642480134796642,
+        -0.9388340835557756
+      ],
+      "norm_scores": [
+        1.3904619193169,
+        -0.25726994532063463,
+        -0.061978319628299916,
+        0.13467920930209698
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.9054,
+      "gold_code": "DMH-453",
+      "raw_ok": false,
+      "normalized_ok": true,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 4,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 4,
+      "format_name": "prose",
+      "raw_pick_code": "RTN-562",
+      "norm_pick_code": "RTN-565",
+      "free_out_code": "RTN-562",
+      "constrained_pick_code": "RTN-562",
+      "raw_scores": [
+        -9.005989535324261,
+        -2.4244218640415056,
+        -1.5346395238666446,
+        -1.7102152981969994
+      ],
+      "norm_scores": [
+        -1.547314089228773,
+        1.4968832562396224,
+        0.11083299985572626,
+        -0.8938290768862013
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.9199,
+      "gold_code": "RTN-565",
+      "raw_ok": false,
+      "normalized_ok": true,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 3,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 4,
+      "format_name": "prose",
+      "raw_pick_code": "BQP-857",
+      "norm_pick_code": "RTN-562",
+      "free_out_code": "RTN-562",
+      "constrained_pick_code": "RTN-562",
+      "raw_scores": [
+        -7.957503446135888,
+        -3.5128870707758324,
+        -1.0688111651888903,
+        -1.050836568176237
+      ],
+      "norm_scores": [
+        -0.14933263697760868,
+        0.04559631392718666,
+        0.7319374780927319,
+        -0.014657436858518169
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.8235,
+      "gold_code": "RTN-562",
+      "raw_ok": false,
+      "normalized_ok": true,
+      "constrained_ok": true,
+      "free_ok": true,
+      "raw_rank_of_gold": 2,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 4,
+      "format_name": "prose",
+      "raw_pick_code": "BQP-857",
+      "norm_pick_code": "BQP-857",
+      "free_out_code": "BQP-857",
+      "constrained_pick_code": "BQP-857",
+      "raw_scores": [
+        -7.615865363235571,
+        -4.510991524855854,
+        -2.203358392498558,
+        -0.4594880122003815
+      ],
+      "norm_scores": [
+        0.3061848068894806,
+        -1.2852096248461748,
+        -0.780792158320158,
+        0.7738073044426226
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.7711,
+      "gold_code": "BQP-857",
+      "raw_ok": true,
+      "normalized_ok": true,
+      "constrained_ok": true,
+      "free_ok": true,
+      "raw_rank_of_gold": 1,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 5,
+      "format_name": "table",
+      "raw_pick_code": "DMH-682",
+      "norm_pick_code": "DMH-372",
+      "free_out_code": "DMH-682",
+      "constrained_pick_code": "DMH-682",
+      "raw_scores": [
+        -6.3574988304008,
+        -0.40566130564366176,
+        -10.37079722377348,
+        -8.157019315029174,
+        -8.231906472243281
+      ],
+      "norm_scores": [
+        3.7188944294161956,
+        3.424660710394619,
+        3.071179523349656,
+        -3.0976892175376634,
+        -1.741226883451418
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.5263,
+      "gold_code": "DMH-372",
+      "raw_ok": false,
+      "normalized_ok": true,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 2,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 5,
+      "format_name": "table",
+      "raw_pick_code": "DMH-682",
+      "norm_pick_code": "DMH-682",
+      "free_out_code": "DMH-682",
+      "constrained_pick_code": "DMH-682",
+      "raw_scores": [
+        -7.450144681552047,
+        -0.4923368068957643,
+        -10.240596738582099,
+        -7.355183600324381,
+        -6.7701723549180315
+      ],
+      "norm_scores": [
+        2.3530871154771376,
+        3.3163163338294908,
+        3.233930129838882,
+        -2.0953945741566713,
+        0.08594076320514432
+      ],
+      "decision": "KEEP_RAW",
+      "p_normalize": 0.4559,
+      "gold_code": "DMH-682",
+      "raw_ok": true,
+      "normalized_ok": true,
+      "constrained_ok": true,
+      "free_ok": true,
+      "raw_rank_of_gold": 1,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 5,
+      "format_name": "table",
+      "raw_pick_code": "DMH-682",
+      "norm_pick_code": "DMH-500",
+      "free_out_code": "DMH-682",
+      "constrained_pick_code": "DMH-682",
+      "raw_scores": [
+        -7.375391505078369,
+        -0.4206275618944346,
+        -9.415412216303594,
+        -7.426478238452546,
+        -7.511189503038622
+      ],
+      "norm_scores": [
+        2.4465285860692347,
+        3.405952890081153,
+        4.265410782687013,
+        -2.184512871816878,
+        -0.8403306719455941
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.6922,
+      "gold_code": "DMH-500",
+      "raw_ok": false,
+      "normalized_ok": true,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 5,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 5,
+      "format_name": "table",
+      "raw_pick_code": "RTN-341",
+      "norm_pick_code": "RTN-341",
+      "free_out_code": "RTN-341",
+      "constrained_pick_code": "RTN-341",
+      "raw_scores": [
+        -17.54268742003478,
+        -12.892162286589155,
+        -22.67022856438416,
+        -0.39515488820688915,
+        -8.656061104851688
+      ],
+      "norm_scores": [
+        -10.26259130762628,
+        -12.183465515787248,
+        -12.303109652413696,
+        6.604641315990193,
+        -2.2714201742119258
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 1.0,
+      "gold_code": "RTN-341",
+      "raw_ok": true,
+      "normalized_ok": true,
+      "constrained_ok": true,
+      "free_ok": true,
+      "raw_rank_of_gold": 1,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 5,
+      "format_name": "table",
+      "raw_pick_code": "DMH-682",
+      "norm_pick_code": "YZK-676",
+      "free_out_code": "DMH-682",
+      "constrained_pick_code": "DMH-682",
+      "raw_scores": [
+        -7.937349432602787,
+        -1.516161408773769,
+        -11.441669469222688,
+        -5.060503662982228,
+        -3.025295392359112
+      ],
+      "norm_scores": [
+        1.7440811766637125,
+        2.036535581481985,
+        1.7325892165381447,
+        0.7729553475210196,
+        4.7670369664037935
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.9666,
+      "gold_code": "YZK-676",
+      "raw_ok": false,
+      "normalized_ok": true,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 2,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 2,
+      "format_name": "list",
+      "raw_pick_code": "VXW-532",
+      "norm_pick_code": "VXW-532",
+      "free_out_code": null,
+      "constrained_pick_code": "VXW-532",
+      "raw_scores": [
+        -7.857381198635267,
+        -1.8389483221035334
+      ],
+      "norm_scores": [
+        4.613908507290034,
+        5.628897864120518
+      ],
+      "decision": "KEEP_RAW",
+      "p_normalize": 0.4641,
+      "gold_code": "VXW-993",
+      "raw_ok": false,
+      "normalized_ok": false,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 2,
+      "adj_rank_of_gold": 2
+    },
+    {
+      "n_candidates": 2,
+      "format_name": "list",
+      "raw_pick_code": "VXW-532",
+      "norm_pick_code": "VXW-993",
+      "free_out_code": null,
+      "constrained_pick_code": "VXW-532",
+      "raw_scores": [
+        -12.471289705925301,
+        -7.467846186224051
+      ],
+      "norm_scores": [
+        -4.613908507290034,
+        -5.628897864120518
+      ],
+      "decision": "KEEP_RAW",
+      "p_normalize": 0.4704,
+      "gold_code": "VXW-532",
+      "raw_ok": true,
+      "normalized_ok": false,
+      "constrained_ok": true,
+      "free_ok": false,
+      "raw_rank_of_gold": 1,
+      "adj_rank_of_gold": 2
+    },
+    {
+      "n_candidates": 3,
+      "format_name": "prose",
+      "raw_pick_code": "BQP-285",
+      "norm_pick_code": "BQP-285",
+      "free_out_code": "BQP-285",
+      "constrained_pick_code": "BQP-285",
+      "raw_scores": [
+        -4.643485902783141,
+        -5.969470554431609,
+        -0.7316820539635955
+      ],
+      "norm_scores": [
+        -0.26844899185744,
+        -0.4755530986603844,
+        -0.26715274468188
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.6123,
+      "gold_code": "VXW-171",
+      "raw_ok": false,
+      "normalized_ok": false,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 2,
+      "adj_rank_of_gold": 2
+    },
+    {
+      "n_candidates": 3,
+      "format_name": "prose",
+      "raw_pick_code": "BQP-285",
+      "norm_pick_code": "RTN-593",
+      "free_out_code": "BQP-285",
+      "constrained_pick_code": "BQP-285",
+      "raw_scores": [
+        -4.127215518350567,
+        -5.161737751081091,
+        -0.676066272699245
+      ],
+      "norm_scores": [
+        0.50595658479142,
+        0.7360461063653929,
+        -0.18372907278535422
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.6823,
+      "gold_code": "RTN-593",
+      "raw_ok": false,
+      "normalized_ok": true,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 3,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 3,
+      "format_name": "prose",
+      "raw_pick_code": "BQP-285",
+      "norm_pick_code": "BQP-285",
+      "free_out_code": "BQP-285",
+      "constrained_pick_code": "BQP-285",
+      "raw_scores": [
+        -4.622858303500834,
+        -5.826097160461359,
+        -0.25299234586418606
+      ],
+      "norm_scores": [
+        -0.23750759293398005,
+        -0.2604930077050085,
+        0.4508818174672342
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.7914,
+      "gold_code": "BQP-285",
+      "raw_ok": true,
+      "normalized_ok": true,
+      "constrained_ok": true,
+      "free_ok": true,
+      "raw_rank_of_gold": 1,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 4,
+      "format_name": "table",
+      "raw_pick_code": "RTN-218",
+      "norm_pick_code": "RTN-568",
+      "free_out_code": "RTN-217",
+      "constrained_pick_code": "RTN-218",
+      "raw_scores": [
+        -3.968217262012331,
+        -8.880034267825977,
+        -5.548219264423096,
+        -3.5628357030545885
+      ],
+      "norm_scores": [
+        0.07321663267551504,
+        -2.064223390848686,
+        0.23354708532860968,
+        0.15013011358920858
+      ],
+      "decision": "KEEP_RAW",
+      "p_normalize": 0.4681,
+      "gold_code": "RTN-190",
+      "raw_ok": false,
+      "normalized_ok": false,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 2,
+      "adj_rank_of_gold": 3
+    },
+    {
+      "n_candidates": 4,
+      "format_name": "table",
+      "raw_pick_code": "VXW-973",
+      "norm_pick_code": "VXW-973",
+      "free_out_code": "RTN-217",
+      "constrained_pick_code": "RTN-218",
+      "raw_scores": [
+        -3.772929814993404,
+        -1.8661019823230163,
+        -6.444990863543353,
+        -3.5893825613165973
+      ],
+      "norm_scores": [
+        0.33359989536741796,
+        7.2876863231552615,
+        -0.9621483801650657,
+        0.11473430257319706
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.9998,
+      "gold_code": "VXW-973",
+      "raw_ok": true,
+      "normalized_ok": true,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 1,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 4,
+      "format_name": "table",
+      "raw_pick_code": "RTN-218",
+      "norm_pick_code": "RTN-568",
+      "free_out_code": "RTN-217",
+      "constrained_pick_code": "RTN-218",
+      "raw_scores": [
+        -4.580003173181467,
+        -10.495774312836147,
+        -4.506421384783607,
+        -4.253347794099682
+      ],
+      "norm_scores": [
+        -0.7424979155499991,
+        -4.218543450862247,
+        1.6226109248479288,
+        -0.7705526744709155
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.944,
+      "gold_code": "RTN-568",
+      "raw_ok": false,
+      "normalized_ok": true,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 2,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 4,
+      "format_name": "table",
+      "raw_pick_code": "RTN-218",
+      "norm_pick_code": "RTN-218",
+      "free_out_code": "RTN-217",
+      "constrained_pick_code": "RTN-218",
+      "raw_scores": [
+        -3.7713686958886683,
+        -8.085556335772708,
+        -6.393886800928158,
+        -3.2961670945151127
+      ],
+      "norm_scores": [
+        0.33568138750706566,
+        -1.004919481444328,
+        -0.8940096300114719,
+        0.5056882583085098
+      ],
+      "decision": "KEEP_RAW",
+      "p_normalize": 0.4956,
+      "gold_code": "RTN-218",
+      "raw_ok": true,
+      "normalized_ok": true,
+      "constrained_ok": true,
+      "free_ok": false,
+      "raw_rank_of_gold": 1,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 5,
+      "format_name": "list",
+      "raw_pick_code": "VXW-577",
+      "norm_pick_code": "VXW-229",
+      "free_out_code": null,
+      "constrained_pick_code": "VXW-577",
+      "raw_scores": [
+        -2.8452560218211147,
+        -9.26731363734143,
+        -6.305894413562783,
+        -8.157794173377624,
+        -14.484585698031879
+      ],
+      "norm_scores": [
+        -0.5574027516854585,
+        -1.0376236522211002,
+        0.024701218804239033,
+        -0.9517283624522861,
+        -1.5006814553275944
+      ],
+      "decision": "KEEP_RAW",
+      "p_normalize": 0.416,
+      "gold_code": "VXW-577",
+      "raw_ok": true,
+      "normalized_ok": false,
+      "constrained_ok": true,
+      "free_ok": false,
+      "raw_rank_of_gold": 1,
+      "adj_rank_of_gold": 2
+    },
+    {
+      "n_candidates": 5,
+      "format_name": "list",
+      "raw_pick_code": "VXW-577",
+      "norm_pick_code": "VXW-577",
+      "free_out_code": null,
+      "constrained_pick_code": "VXW-577",
+      "raw_scores": [
+        -2.907570973076872,
+        -9.933659519863795,
+        -7.238722881122158,
+        -8.903005105947159,
+        -14.760764879503768
+      ],
+      "norm_scores": [
+        -0.6352964407551553,
+        -1.8705560053740555,
+        -1.1413343656449797,
+        -1.8832420281642044,
+        -1.8459054321674557
+      ],
+      "decision": "KEEP_RAW",
+      "p_normalize": 0.3872,
+      "gold_code": "YZK-853",
+      "raw_ok": false,
+      "normalized_ok": false,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 4,
+      "adj_rank_of_gold": 4
+    },
+    {
+      "n_candidates": 5,
+      "format_name": "list",
+      "raw_pick_code": "VXW-577",
+      "norm_pick_code": "YZK-807",
+      "free_out_code": "VXW-577",
+      "constrained_pick_code": "VXW-577",
+      "raw_scores": [
+        -2.574900858460751,
+        -5.897487413101771,
+        -6.253227378656447,
+        -4.644851319688314,
+        -10.687687845864275
+      ],
+      "norm_scores": [
+        -0.21945879748500374,
+        3.174659128078474,
+        0.090535012437158,
+        3.4394502046593516,
+        3.24544085988191
+      ],
+      "decision": "KEEP_RAW",
+      "p_normalize": 0.3088,
+      "gold_code": "VXW-229",
+      "raw_ok": false,
+      "normalized_ok": false,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 4,
+      "adj_rank_of_gold": 4
+    },
+    {
+      "n_candidates": 5,
+      "format_name": "list",
+      "raw_pick_code": "VXW-577",
+      "norm_pick_code": "VXW-577",
+      "free_out_code": "VXW-577",
+      "constrained_pick_code": "VXW-577",
+      "raw_scores": [
+        -1.480821342618583,
+        -8.41342602142322,
+        -5.442199518383859,
+        -7.289799183101422,
+        -12.945420357940748
+      ],
+      "norm_scores": [
+        1.1481405973177061,
+        0.029735867676663474,
+        1.1043198377778936,
+        0.13326537539296623,
+        0.4232752197863192
+      ],
+      "decision": "KEEP_RAW",
+      "p_normalize": 0.2597,
+      "gold_code": "YZK-807",
+      "raw_ok": false,
+      "normalized_ok": false,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 3,
+      "adj_rank_of_gold": 4
+    },
+    {
+      "n_candidates": 5,
+      "format_name": "list",
+      "raw_pick_code": "VXW-577",
+      "norm_pick_code": "VXW-577",
+      "free_out_code": null,
+      "constrained_pick_code": "VXW-577",
+      "raw_scores": [
+        -2.1881199063864187,
+        -8.674186986092536,
+        -6.3882327513056225,
+        -7.986607634964457,
+        -13.541743887508346
+      ],
+      "norm_scores": [
+        0.26401739260791146,
+        -0.2962153381599819,
+        -0.07822170337431089,
+        -0.7377451894358273,
+        -0.32212919217317904
+      ],
+      "decision": "KEEP_RAW",
+      "p_normalize": 0.339,
+      "gold_code": "YZK-314",
+      "raw_ok": false,
+      "normalized_ok": false,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 5,
+      "adj_rank_of_gold": 4
+    },
+    {
+      "n_candidates": 2,
+      "format_name": "prose",
+      "raw_pick_code": "YZK-192",
+      "norm_pick_code": "DMH-301",
+      "free_out_code": "YZK-192",
+      "constrained_pick_code": "YZK-192",
+      "raw_scores": [
+        -7.803457122865439,
+        -3.282812373847264
+      ],
+      "norm_scores": [
+        -1.0374312171406928,
+        -1.1906512616114924
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.6314,
+      "gold_code": "DMH-301",
+      "raw_ok": false,
+      "normalized_ok": true,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 2,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 2,
+      "format_name": "prose",
+      "raw_pick_code": "YZK-192",
+      "norm_pick_code": "YZK-192",
+      "free_out_code": "YZK-192",
+      "constrained_pick_code": "YZK-192",
+      "raw_scores": [
+        -6.766025905724746,
+        -2.0921611122357717
+      ],
+      "norm_scores": [
+        1.0374312171406928,
+        1.1906512616114924
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.6305,
+      "gold_code": "YZK-192",
+      "raw_ok": true,
+      "normalized_ok": true,
+      "constrained_ok": true,
+      "free_ok": true,
+      "raw_rank_of_gold": 1,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 3,
+      "format_name": "table",
+      "raw_pick_code": "DMH-998",
+      "norm_pick_code": "DMH-998",
+      "free_out_code": "DMH-998",
+      "constrained_pick_code": "DMH-998",
+      "raw_scores": [
+        -1.264729155898749,
+        -4.137775062425135,
+        -3.5970819504473184
+      ],
+      "norm_scores": [
+        7.299099580784059,
+        0.6374731448231614,
+        -2.652482698497124
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.9997,
+      "gold_code": "DMH-998",
+      "raw_ok": true,
+      "normalized_ok": true,
+      "constrained_ok": true,
+      "free_ok": true,
+      "raw_rank_of_gold": 1,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 3,
+      "format_name": "table",
+      "raw_pick_code": "VXW-831",
+      "norm_pick_code": "VXW-831",
+      "free_out_code": "VXW-831",
+      "constrained_pick_code": "VXW-831",
+      "raw_scores": [
+        -5.779945304328066,
+        -0.613389870053652,
+        -1.8729709064919007
+      ],
+      "norm_scores": [
+        0.526275358140083,
+        5.924050933380386,
+        -0.0663161325639976
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.9987,
+      "gold_code": "VXW-831",
+      "raw_ok": true,
+      "normalized_ok": true,
+      "constrained_ok": true,
+      "free_ok": true,
+      "raw_rank_of_gold": 1,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 3,
+      "format_name": "table",
+      "raw_pick_code": "BQP-816",
+      "norm_pick_code": "BQP-816",
+      "free_out_code": "BQP-816",
+      "constrained_pick_code": "BQP-816",
+      "raw_scores": [
+        -11.34771216903755,
+        -8.93710654444294,
+        -0.01622759740848778
+      ],
+      "norm_scores": [
+        -7.825374938924142,
+        -6.561524078203547,
+        2.7187988310611217
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 1.0,
+      "gold_code": "BQP-816",
+      "raw_ok": true,
+      "normalized_ok": true,
+      "constrained_ok": true,
+      "free_ok": true,
+      "raw_rank_of_gold": 1,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 4,
+      "format_name": "list",
+      "raw_pick_code": "BQP-378",
+      "norm_pick_code": "YZK-983",
+      "free_out_code": null,
+      "constrained_pick_code": "YZK-983",
+      "raw_scores": [
+        -2.565859135302162,
+        -2.4421757400523347,
+        -12.00332057840933,
+        -7.687574482475611
+      ],
+      "norm_scores": [
+        1.1430776220944003,
+        0.9080008445926069,
+        -1.1203794069503292,
+        -0.1659499177148973
+      ],
+      "decision": "KEEP_RAW",
+      "p_normalize": 0.3092,
+      "gold_code": "YZK-983",
+      "raw_ok": false,
+      "normalized_ok": true,
+      "constrained_ok": true,
+      "free_ok": false,
+      "raw_rank_of_gold": 2,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 4,
+      "format_name": "list",
+      "raw_pick_code": "BQP-378",
+      "norm_pick_code": "DMH-228",
+      "free_out_code": "FMK-983",
+      "constrained_pick_code": "YZK-983",
+      "raw_scores": [
+        -4.316467302387537,
+        -4.1096899707918055,
+        -9.497305112410686,
+        -7.566859003301943
+      ],
+      "norm_scores": [
+        -1.1910666006860993,
+        -1.3153514630600207,
+        2.220974547714528,
+        -0.004995945483339703
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.8541,
+      "gold_code": "BQP-378",
+      "raw_ok": true,
+      "normalized_ok": false,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 1,
+      "adj_rank_of_gold": 4
+    },
+    {
+      "n_candidates": 4,
+      "format_name": "list",
+      "raw_pick_code": "BQP-378",
+      "norm_pick_code": "BQP-378",
+      "free_out_code": "CTH-213",
+      "constrained_pick_code": "BQP-378",
+      "raw_scores": [
+        -3.6140572418844386,
+        -2.714812718615576,
+        -11.855756592201942,
+        -7.285511055430106
+      ],
+      "norm_scores": [
+        -0.25451985334863503,
+        0.5444848731749516,
+        -0.923627425340479,
+        0.3701346516791091
+      ],
+      "decision": "KEEP_RAW",
+      "p_normalize": 0.2887,
+      "gold_code": "DMH-228",
+      "raw_ok": false,
+      "normalized_ok": false,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 4,
+      "adj_rank_of_gold": 4
+    },
+    {
+      "n_candidates": 4,
+      "format_name": "list",
+      "raw_pick_code": "YZK-983",
+      "norm_pick_code": "YZK-983",
+      "free_out_code": "YZK-983",
+      "constrained_pick_code": "YZK-983",
+      "raw_scores": [
+        -3.1962857279177115,
+        -3.226027064527443,
+        -11.295761809764372,
+        -7.712503635550092
+      ],
+      "norm_scores": [
+        0.3025088319403344,
+        -0.13713425470753782,
+        -0.1769677154237197,
+        -0.19918878848087207
+      ],
+      "decision": "KEEP_RAW",
+      "p_normalize": 0.3689,
+      "gold_code": "VXW-636",
+      "raw_ok": false,
+      "normalized_ok": false,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 3,
+      "adj_rank_of_gold": 4
+    },
+    {
+      "n_candidates": 5,
+      "format_name": "prose",
+      "raw_pick_code": "BQP-473",
+      "norm_pick_code": "BQP-473",
+      "free_out_code": "BQP-473",
+      "constrained_pick_code": "BQP-473",
+      "raw_scores": [
+        -0.46855936885458505,
+        -9.93012226056453,
+        -1.5884865711586826,
+        -13.36251714287937,
+        -12.203073117536405
+      ],
+      "norm_scores": [
+        0.8039094206573054,
+        -2.5412546859229224,
+        -0.709847783682676,
+        -3.256420716883895,
+        -3.315468268845052
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.9359,
+      "gold_code": "BQP-473",
+      "raw_ok": true,
+      "normalized_ok": true,
+      "constrained_ok": true,
+      "free_ok": true,
+      "raw_rank_of_gold": 1,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 5,
+      "format_name": "prose",
+      "raw_pick_code": "BQP-465",
+      "norm_pick_code": "DMH-998",
+      "free_out_code": "BQP-465",
+      "constrained_pick_code": "BQP-465",
+      "raw_scores": [
+        -1.4918080331053716,
+        -5.805236988648176,
+        -0.8345185927310013,
+        -9.210218581220033,
+        -7.840602385012971
+      ],
+      "norm_scores": [
+        -0.47515140965617775,
+        2.6148519039725215,
+        0.23261218935192574,
+        1.9339524851902752,
+        2.1376201468092404
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.7948,
+      "gold_code": "DMH-998",
+      "raw_ok": false,
+      "normalized_ok": true,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 3,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 5,
+      "format_name": "prose",
+      "raw_pick_code": "BQP-473",
+      "norm_pick_code": "BQP-473",
+      "free_out_code": "BQP-473",
+      "constrained_pick_code": "BQP-473",
+      "raw_scores": [
+        -0.7684767514497253,
+        -10.11894730856875,
+        -0.9330294484011574,
+        -13.091681882775447,
+        -12.460348468681332
+      ],
+      "norm_scores": [
+        0.42901269241338014,
+        -2.777285995928196,
+        0.10947361976423053,
+        -2.917876641753992,
+        -3.63706245777621
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.7618,
+      "gold_code": "BQP-465",
+      "raw_ok": false,
+      "normalized_ok": false,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 2,
+      "adj_rank_of_gold": 2
+    },
+    {
+      "n_candidates": 5,
+      "format_name": "prose",
+      "raw_pick_code": "BQP-465",
+      "norm_pick_code": "DMH-841",
+      "free_out_code": "BQP-465",
+      "constrained_pick_code": "BQP-465",
+      "raw_scores": [
+        -1.6371646237648747,
+        -6.096372537334901,
+        -0.9279843511876606,
+        -8.280703751746842,
+        -7.369992244277455
+      ],
+      "norm_scores": [
+        -0.6568471479805567,
+        2.250932468114115,
+        0.1157799912811015,
+        3.0958460220317647,
+        2.725882822728636
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.771,
+      "gold_code": "DMH-841",
+      "raw_ok": false,
+      "normalized_ok": true,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 5,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 5,
+      "format_name": "prose",
+      "raw_pick_code": "BQP-465",
+      "norm_pick_code": "DMH-284",
+      "free_out_code": "BQP-465",
+      "constrained_pick_code": "BQP-465",
+      "raw_scores": [
+        -1.1924257497275903,
+        -7.534913464014608,
+        -0.8190227575842073,
+        -9.841781488239576,
+        -7.879476296793655
+      ],
+      "norm_scores": [
+        -0.10092355543395115,
+        0.45275630976448156,
+        0.2519819832854182,
+        1.1444988514158467,
+        2.089027757083386
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.8771,
+      "gold_code": "DMH-284",
+      "raw_ok": false,
+      "normalized_ok": true,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 4,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 2,
+      "format_name": "table",
+      "raw_pick_code": "RTN-521",
+      "norm_pick_code": "RTN-521",
+      "free_out_code": "RTN-521",
+      "constrained_pick_code": "RTN-521",
+      "raw_scores": [
+        -0.05889423694316065,
+        -8.245823540266429
+      ],
+      "norm_scores": [
+        10.670967820649821,
+        -8.241137240158423
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 1.0,
+      "gold_code": "RTN-521",
+      "raw_ok": true,
+      "normalized_ok": true,
+      "constrained_ok": true,
+      "free_ok": true,
+      "raw_rank_of_gold": 1,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 2,
+      "format_name": "table",
+      "raw_pick_code": "YZK-132",
+      "norm_pick_code": "YZK-132",
+      "free_out_code": "YZK-132",
+      "constrained_pick_code": "YZK-132",
+      "raw_scores": [
+        -10.729862057592982,
+        -0.0046863001080055255
+      ],
+      "norm_scores": [
+        -10.670967820649821,
+        8.241137240158423
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 1.0,
+      "gold_code": "YZK-132",
+      "raw_ok": true,
+      "normalized_ok": true,
+      "constrained_ok": true,
+      "free_ok": true,
+      "raw_rank_of_gold": 1,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 3,
+      "format_name": "list",
+      "raw_pick_code": "BQP-287",
+      "norm_pick_code": "VXW-797",
+      "free_out_code": "BQP-287",
+      "constrained_pick_code": "BQP-287",
+      "raw_scores": [
+        -5.516178596737518,
+        -1.2534208067245345,
+        -3.01626848388878
+      ],
+      "norm_scores": [
+        0.38215964347637055,
+        0.9200707639329266,
+        1.3065728805422623
+      ],
+      "decision": "KEEP_RAW",
+      "p_normalize": 0.321,
+      "gold_code": "VXW-494",
+      "raw_ok": false,
+      "normalized_ok": false,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 3,
+      "adj_rank_of_gold": 3
+    },
+    {
+      "n_candidates": 3,
+      "format_name": "list",
+      "raw_pick_code": "BQP-287",
+      "norm_pick_code": "VXW-494",
+      "free_out_code": "BQP-287",
+      "constrained_pick_code": "BQP-287",
+      "raw_scores": [
+        -4.139958630379624,
+        -1.2585456979923038,
+        -2.805589554429389
+      ],
+      "norm_scores": [
+        2.4464895930132116,
+        0.9123834270312727,
+        1.6225912747313487
+      ],
+      "decision": "KEEP_RAW",
+      "p_normalize": 0.4555,
+      "gold_code": "BQP-287",
+      "raw_ok": true,
+      "normalized_ok": false,
+      "constrained_ok": true,
+      "free_ok": true,
+      "raw_rank_of_gold": 1,
+      "adj_rank_of_gold": 3
+    },
+    {
+      "n_candidates": 3,
+      "format_name": "list",
+      "raw_pick_code": "BQP-287",
+      "norm_pick_code": "BQP-287",
+      "free_out_code": null,
+      "constrained_pick_code": "BQP-287",
+      "raw_scores": [
+        -7.656717850048153,
+        -3.0884374433226185,
+        -5.840093174432695
+      ],
+      "norm_scores": [
+        -2.828649236489582,
+        -1.8324541909641994,
+        -2.929164155273611
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.5035,
+      "gold_code": "VXW-797",
+      "raw_ok": false,
+      "normalized_ok": false,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 2,
+      "adj_rank_of_gold": 3
+    },
+    {
+      "n_candidates": 4,
+      "format_name": "prose",
+      "raw_pick_code": "BQP-145",
+      "norm_pick_code": "DMH-122",
+      "free_out_code": "BQP-145",
+      "constrained_pick_code": "BQP-145",
+      "raw_scores": [
+        -6.638370420967476,
+        -3.9393466972233,
+        -4.461345217758208,
+        -1.1082918464526301
+      ],
+      "norm_scores": [
+        0.43306599891790665,
+        0.2751840057165582,
+        -0.21628288493290437,
+        -0.7290318342802493
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.6871,
+      "gold_code": "DMH-122",
+      "raw_ok": false,
+      "normalized_ok": true,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 4,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 4,
+      "format_name": "prose",
+      "raw_pick_code": "BQP-145",
+      "norm_pick_code": "BQP-145",
+      "free_out_code": "BQP-145",
+      "constrained_pick_code": "BQP-145",
+      "raw_scores": [
+        -6.834653760670335,
+        -4.75070714769754,
+        -4.189463535611139,
+        -0.3933334104312962
+      ],
+      "norm_scores": [
+        0.17135487931409443,
+        -0.8066299282490945,
+        0.1462260245965199,
+        0.2242460804148626
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.6517,
+      "gold_code": "YZK-437",
+      "raw_ok": false,
+      "normalized_ok": false,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 3,
+      "adj_rank_of_gold": 4
+    },
+    {
+      "n_candidates": 4,
+      "format_name": "prose",
+      "raw_pick_code": "BQP-145",
+      "norm_pick_code": "YZK-437",
+      "free_out_code": "BQP-145",
+      "constrained_pick_code": "BQP-145",
+      "raw_scores": [
+        -7.52454296765427,
+        -3.769062687048063,
+        -4.115500262574642,
+        -0.36945625524276693
+      ],
+      "norm_scores": [
+        -0.7484973966644857,
+        0.5022293526168751,
+        0.24484372197851645,
+        0.2560822873329016
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.7082,
+      "gold_code": "VXW-215",
+      "raw_ok": false,
+      "normalized_ok": false,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 3,
+      "adj_rank_of_gold": 3
+    },
+    {
+      "n_candidates": 4,
+      "format_name": "prose",
+      "raw_pick_code": "BQP-145",
+      "norm_pick_code": "BQP-145",
+      "free_out_code": "BQP-145",
+      "constrained_pick_code": "BQP-145",
+      "raw_scores": [
+        -6.855112531331542,
+        -4.123822274073973,
+        -4.430223200290129,
+        -0.3749903708430793
+      ],
+      "norm_scores": [
+        0.1440765184324846,
+        0.02921656991566124,
+        -0.17478686164213286,
+        0.2487034665324851
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.667,
+      "gold_code": "BQP-145",
+      "raw_ok": true,
+      "normalized_ok": true,
+      "constrained_ok": true,
+      "free_ok": true,
+      "raw_rank_of_gold": 1,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 5,
+      "format_name": "table",
+      "raw_pick_code": "DMH-163",
+      "norm_pick_code": "DMH-163",
+      "free_out_code": "FMH-163",
+      "constrained_pick_code": "DMH-163",
+      "raw_scores": [
+        -2.4512421386607457,
+        -6.765792297093867,
+        -5.042069277420524,
+        -4.7137313995663135,
+        -13.5948778748716
+      ],
+      "norm_scores": [
+        6.156275053333502,
+        -0.34031654771752073,
+        -2.813165545145239,
+        -0.8783538507759658,
+        -3.295732419082924
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.9997,
+      "gold_code": "DMH-163",
+      "raw_ok": true,
+      "normalized_ok": true,
+      "constrained_ok": true,
+      "free_ok": false,
+      "raw_rank_of_gold": 1,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 5,
+      "format_name": "table",
+      "raw_pick_code": "RTN-560",
+      "norm_pick_code": "VXW-254",
+      "free_out_code": "VXW-266",
+      "constrained_pick_code": "VXW-254",
+      "raw_scores": [
+        -6.214172629857785,
+        -3.936157831805758,
+        -4.085113616918534,
+        -3.450940036367683,
+        -12.411985333663324
+      ],
+      "norm_scores": [
+        1.4526119393372028,
+        3.1967265338926154,
+        -1.6169709695177517,
+        0.700135353222322,
+        -1.8171167425725798
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.8925,
+      "gold_code": "VXW-254",
+      "raw_ok": false,
+      "normalized_ok": true,
+      "constrained_ok": true,
+      "free_ok": false,
+      "raw_rank_of_gold": 2,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 5,
+      "format_name": "table",
+      "raw_pick_code": "YZK-612",
+      "norm_pick_code": "YZK-612",
+      "free_out_code": "YZK-612",
+      "constrained_pick_code": "YZK-612",
+      "raw_scores": [
+        -7.818896178627256,
+        -6.003977785745519,
+        -0.7088362470458378,
+        -3.152854163949087,
+        -9.879619470484613
+      ],
+      "norm_scores": [
+        -0.5532924966246355,
+        0.6119515914679141,
+        2.6033757428231183,
+        1.0727426937455675,
+        1.3483405864008091
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.8077,
+      "gold_code": "YZK-612",
+      "raw_ok": true,
+      "normalized_ok": true,
+      "constrained_ok": true,
+      "free_ok": true,
+      "raw_rank_of_gold": 1,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 5,
+      "format_name": "table",
+      "raw_pick_code": "RTN-560",
+      "norm_pick_code": "RTN-560",
+      "free_out_code": "RTN-560",
+      "constrained_pick_code": "RTN-560",
+      "raw_scores": [
+        -7.710441459890717,
+        -5.94642230246609,
+        -2.777162793718162,
+        -0.7034391973174934,
+        -11.000951425536186
+      ],
+      "norm_scores": [
+        -0.41772409820396206,
+        0.6838959455672011,
+        0.017967559482713114,
+        4.134511402035059,
+        -0.05332435741365771
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.9864,
+      "gold_code": "RTN-560",
+      "raw_ok": true,
+      "normalized_ok": true,
+      "constrained_ok": true,
+      "free_ok": true,
+      "raw_rank_of_gold": 1,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 5,
+      "format_name": "table",
+      "raw_pick_code": "YZK-612",
+      "norm_pick_code": "YZK-454",
+      "free_out_code": "YZK-612",
+      "constrained_pick_code": "YZK-612",
+      "raw_scores": [
+        -12.686558499601233,
+        -9.815345077488018,
+        -1.3445022714186052,
+        -8.034276797527127,
+        -7.904025593470578
+      ],
+      "norm_scores": [
+        -6.637870397842107,
+        -4.15225752321021,
+        1.808793212357159,
+        -5.029035598226983,
+        3.8178329326683524
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.9094,
+      "gold_code": "YZK-454",
+      "raw_ok": false,
+      "normalized_ok": true,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 2,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 2,
+      "format_name": "list",
+      "raw_pick_code": "BQP-496",
+      "norm_pick_code": "VXW-588",
+      "free_out_code": "BQP-496",
+      "constrained_pick_code": "BQP-496",
+      "raw_scores": [
+        -0.9968448977247135,
+        -7.926803505031785
+      ],
+      "norm_scores": [
+        -0.46495731096820236,
+        0.29671743170365517
+      ],
+      "decision": "KEEP_RAW",
+      "p_normalize": 0.3789,
+      "gold_code": "BQP-496",
+      "raw_ok": true,
+      "normalized_ok": false,
+      "constrained_ok": true,
+      "free_ok": true,
+      "raw_rank_of_gold": 1,
+      "adj_rank_of_gold": 2
+    },
+    {
+      "n_candidates": 2,
+      "format_name": "list",
+      "raw_pick_code": "BQP-496",
+      "norm_pick_code": "BQP-496",
+      "free_out_code": "BQP-496",
+      "constrained_pick_code": "BQP-496",
+      "raw_scores": [
+        -0.5318875867565112,
+        -8.22352093673544
+      ],
+      "norm_scores": [
+        0.46495731096820236,
+        -0.29671743170365517
+      ],
+      "decision": "KEEP_RAW",
+      "p_normalize": 0.3744,
+      "gold_code": "VXW-588",
+      "raw_ok": false,
+      "normalized_ok": false,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 2,
+      "adj_rank_of_gold": 2
+    },
+    {
+      "n_candidates": 3,
+      "format_name": "prose",
+      "raw_pick_code": "RTN-821",
+      "norm_pick_code": "RTN-821",
+      "free_out_code": "RTN-821",
+      "constrained_pick_code": "RTN-821",
+      "raw_scores": [
+        -1.4470420367069892,
+        -4.637817606926546,
+        -2.9356849540927215
+      ],
+      "norm_scores": [
+        0.6970785359890215,
+        0.22210796554918488,
+        -0.1695296673087796
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.7559,
+      "gold_code": "RTN-821",
+      "raw_ok": true,
+      "normalized_ok": true,
+      "constrained_ok": true,
+      "free_ok": true,
+      "raw_rank_of_gold": 1,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 3,
+      "format_name": "prose",
+      "raw_pick_code": "RTN-821",
+      "norm_pick_code": "VXW-392",
+      "free_out_code": "RTN-821",
+      "constrained_pick_code": "RTN-821",
+      "raw_scores": [
+        -2.2280591318540246,
+        -4.924850949033498,
+        -2.452887315552289
+      ],
+      "norm_scores": [
+        -0.4744471067315317,
+        -0.20844204761124274,
+        0.5546667905018694
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.8226,
+      "gold_code": "RTN-204",
+      "raw_ok": false,
+      "normalized_ok": false,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 3,
+      "adj_rank_of_gold": 2
+    },
+    {
+      "n_candidates": 3,
+      "format_name": "prose",
+      "raw_pick_code": "RTN-821",
+      "norm_pick_code": "RTN-204",
+      "free_out_code": "RTN-821",
+      "constrained_pick_code": "RTN-821",
+      "raw_scores": [
+        -2.0601820135379967,
+        -4.7950001959179644,
+        -3.079423258015595
+      ],
+      "norm_scores": [
+        -0.2226314292574898,
+        -0.01366591793794214,
+        -0.3851371231930898
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.6896,
+      "gold_code": "VXW-392",
+      "raw_ok": false,
+      "normalized_ok": false,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 2,
+      "adj_rank_of_gold": 3
+    },
+    {
+      "n_candidates": 4,
+      "format_name": "table",
+      "raw_pick_code": "YZK-901",
+      "norm_pick_code": "YZK-262",
+      "free_out_code": "YZK-901",
+      "constrained_pick_code": "YZK-901",
+      "raw_scores": [
+        -5.799767993594287,
+        -9.080379890303448,
+        -0.5262884760450106,
+        -13.15820700076074
+      ],
+      "norm_scores": [
+        3.883797782219821,
+        -5.745683615357848,
+        2.9208137818289592,
+        -5.051165130782465
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.7082,
+      "gold_code": "YZK-262",
+      "raw_ok": false,
+      "normalized_ok": true,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 2,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 4,
+      "format_name": "table",
+      "raw_pick_code": "VXW-546",
+      "norm_pick_code": "VXW-546",
+      "free_out_code": "VXW-546",
+      "constrained_pick_code": "VXW-546",
+      "raw_scores": [
+        -12.791222436080716,
+        -0.09098572715811315,
+        -8.281720071670861,
+        -7.260797956918395
+      ],
+      "norm_scores": [
+        -5.438141474428751,
+        6.240175268835931,
+        -7.419761679005508,
+        2.812046927673995
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.9824,
+      "gold_code": "VXW-546",
+      "raw_ok": true,
+      "normalized_ok": true,
+      "constrained_ok": true,
+      "free_ok": true,
+      "raw_rank_of_gold": 1,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 4,
+      "format_name": "table",
+      "raw_pick_code": "YZK-901",
+      "norm_pick_code": "YZK-901",
+      "free_out_code": "YZK-901",
+      "constrained_pick_code": "YZK-901",
+      "raw_scores": [
+        -7.2848444729388575,
+        -9.294630325392063,
+        -0.27491360104613705,
+        -12.722431145732116
+      ],
+      "norm_scores": [
+        1.9036958097603929,
+        -6.031350862142668,
+        3.255980281827457,
+        -4.470130657410968
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.7935,
+      "gold_code": "YZK-901",
+      "raw_ok": true,
+      "normalized_ok": true,
+      "constrained_ok": true,
+      "free_ok": true,
+      "raw_rank_of_gold": 1,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 4,
+      "format_name": "table",
+      "raw_pick_code": "VXW-546",
+      "norm_pick_code": "VXW-145",
+      "free_out_code": "VXW-546",
+      "constrained_pick_code": "VXW-546",
+      "raw_scores": [
+        -8.974630418422748,
+        -0.6184727722866228,
+        -1.7846731009049108,
+        -4.337896507284313
+      ],
+      "norm_scores": [
+        -0.34935211755146156,
+        5.536859208664585,
+        1.2429676153490923,
+        6.709248860519438
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.7791,
+      "gold_code": "VXW-145",
+      "raw_ok": false,
+      "normalized_ok": true,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 3,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 5,
+      "format_name": "list",
+      "raw_pick_code": "BQP-331",
+      "norm_pick_code": "DMH-137",
+      "free_out_code": null,
+      "constrained_pick_code": "BQP-331",
+      "raw_scores": [
+        -7.130202296369589,
+        -10.096452175286686,
+        -11.642266257284064,
+        -10.674152674848301,
+        -11.96866040286477
+      ],
+      "norm_scores": [
+        -1.581763823274514,
+        -1.2078005468251831,
+        -1.0391765920689977,
+        -0.5343474981859799,
+        -1.2964263903090796
+      ],
+      "decision": "KEEP_RAW",
+      "p_normalize": 0.395,
+      "gold_code": "BQP-331",
+      "raw_ok": true,
+      "normalized_ok": false,
+      "constrained_ok": true,
+      "free_ok": false,
+      "raw_rank_of_gold": 1,
+      "adj_rank_of_gold": 5
+    },
+    {
+      "n_candidates": 5,
+      "format_name": "list",
+      "raw_pick_code": "BQP-331",
+      "norm_pick_code": "BQP-331",
+      "free_out_code": "BQP-770",
+      "constrained_pick_code": "BQP-331",
+      "raw_scores": [
+        -5.282709051450638,
+        -8.717763238852058,
+        -10.31980500629652,
+        -10.289709333450446,
+        -11.066768629480066
+      ],
+      "norm_scores": [
+        0.7276027328741748,
+        0.5155606237181019,
+        0.6138999716654325,
+        -0.053793321438661224,
+        -0.16906167357819868
+      ],
+      "decision": "KEEP_RAW",
+      "p_normalize": 0.2801,
+      "gold_code": "RTN-535",
+      "raw_ok": false,
+      "normalized_ok": false,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 2,
+      "adj_rank_of_gold": 3
+    },
+    {
+      "n_candidates": 5,
+      "format_name": "list",
+      "raw_pick_code": "BQP-331",
+      "norm_pick_code": "BQP-331",
+      "free_out_code": "BQP-770",
+      "constrained_pick_code": "BQP-331",
+      "raw_scores": [
+        -5.125903307656245,
+        -8.926511832834876,
+        -10.86073547185697,
+        -9.8269761907668,
+        -10.994958271012365
+      ],
+      "norm_scores": [
+        0.9236099126171666,
+        0.2546248812395788,
+        -0.0622631102851301,
+        0.5246231069158966,
+        -0.07929872549357242
+      ],
+      "decision": "KEEP_RAW",
+      "p_normalize": 0.3579,
+      "gold_code": "YZK-231",
+      "raw_ok": false,
+      "normalized_ok": false,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 4,
+      "adj_rank_of_gold": 4
+    },
+    {
+      "n_candidates": 5,
+      "format_name": "list",
+      "raw_pick_code": "BQP-331",
+      "norm_pick_code": "RTN-387",
+      "free_out_code": "BQP-770",
+      "constrained_pick_code": "BQP-331",
+      "raw_scores": [
+        -5.752044531556294,
+        -8.149894700087316,
+        -10.186357817925455,
+        -10.017837209888967,
+        -9.57291130991507
+      ],
+      "norm_scores": [
+        0.1409333827421051,
+        1.2253962971740293,
+        0.7807089571292636,
+        0.286046833013188,
+        1.6982599758780452
+      ],
+      "decision": "KEEP_RAW",
+      "p_normalize": 0.3885,
+      "gold_code": "DMH-137",
+      "raw_ok": false,
+      "normalized_ok": false,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 4,
+      "adj_rank_of_gold": 4
+    },
+    {
+      "n_candidates": 5,
+      "format_name": "list",
+      "raw_pick_code": "BQP-331",
+      "norm_pick_code": "RTN-387",
+      "free_out_code": null,
+      "constrained_pick_code": "BQP-331",
+      "raw_scores": [
+        -6.033097001717124,
+        -9.76043674207176,
+        -11.04546036478132,
+        -10.424697972543072,
+        -11.054297839815263
+      ],
+      "norm_scores": [
+        -0.21038220495893256,
+        -0.7877812553065269,
+        -0.2931692264405683,
+        -0.2225291203044435,
+        -0.15347318649719455
+      ],
+      "decision": "KEEP_RAW",
+      "p_normalize": 0.2641,
+      "gold_code": "RTN-387",
+      "raw_ok": false,
+      "normalized_ok": true,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 5,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 2,
+      "format_name": "prose",
+      "raw_pick_code": "YZK-733",
+      "norm_pick_code": "YZK-733",
+      "free_out_code": "YZK-733",
+      "constrained_pick_code": "YZK-733",
+      "raw_scores": [
+        -1.0799988805374596,
+        -1.9231082281694398
+      ],
+      "norm_scores": [
+        0.7334083409023151,
+        -0.19207845182427263
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.836,
+      "gold_code": "YZK-733",
+      "raw_ok": true,
+      "normalized_ok": true,
+      "constrained_ok": true,
+      "free_ok": true,
+      "raw_rank_of_gold": 1,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 2,
+      "format_name": "prose",
+      "raw_pick_code": "YZK-863",
+      "norm_pick_code": "YZK-863",
+      "free_out_code": "YZK-873",
+      "constrained_pick_code": "YZK-863",
+      "raw_scores": [
+        -1.8134072214397747,
+        -1.7310297763451672
+      ],
+      "norm_scores": [
+        -0.7334083409023151,
+        0.19207845182427263
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.8386,
+      "gold_code": "YZK-863",
+      "raw_ok": true,
+      "normalized_ok": true,
+      "constrained_ok": true,
+      "free_ok": false,
+      "raw_rank_of_gold": 1,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 3,
+      "format_name": "table",
+      "raw_pick_code": "VXW-491",
+      "norm_pick_code": "VXW-491",
+      "free_out_code": "VXW-491",
+      "constrained_pick_code": "VXW-491",
+      "raw_scores": [
+        -0.03491016102998401,
+        -10.293112231848681,
+        -16.30215973273971
+      ],
+      "norm_scores": [
+        3.73678669891342,
+        -9.553870401291988,
+        -8.317142792003779
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 1.0,
+      "gold_code": "VXW-491",
+      "raw_ok": true,
+      "normalized_ok": true,
+      "constrained_ok": true,
+      "free_ok": true,
+      "raw_rank_of_gold": 1,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 3,
+      "format_name": "table",
+      "raw_pick_code": "DMH-617",
+      "norm_pick_code": "DMH-617",
+      "free_out_code": "DMH-617",
+      "constrained_pick_code": "DMH-617",
+      "raw_scores": [
+        -5.168630429445329,
+        -0.5436145322955781,
+        -9.796201450341869
+      ],
+      "norm_scores": [
+        -3.963793703709598,
+        5.070376148037667,
+        1.441794631592984
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.9859,
+      "gold_code": "DMH-617",
+      "raw_ok": true,
+      "normalized_ok": true,
+      "constrained_ok": true,
+      "free_ok": true,
+      "raw_rank_of_gold": 1,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 3,
+      "format_name": "table",
+      "raw_pick_code": "DMH-617",
+      "norm_pick_code": "DMH-684",
+      "free_out_code": "DMH-617",
+      "constrained_pick_code": "DMH-617",
+      "raw_scores": [
+        -2.3747632904414786,
+        -0.9348691288178088,
+        -6.173832431129995
+      ],
+      "norm_scores": [
+        0.22700700479617808,
+        4.483494253254321,
+        6.875348160410795
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.9388,
+      "gold_code": "DMH-684",
+      "raw_ok": false,
+      "normalized_ok": true,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 3,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 4,
+      "format_name": "list",
+      "raw_pick_code": "VXW-634",
+      "norm_pick_code": "RTN-672",
+      "free_out_code": null,
+      "constrained_pick_code": "VXW-634",
+      "raw_scores": [
+        -2.2618867250348558,
+        -6.519243190596171,
+        -11.897901393160282,
+        -2.8045068907158566
+      ],
+      "norm_scores": [
+        0.8895652062013446,
+        1.1953903201895928,
+        -0.42886012299701726,
+        0.7941704023305647
+      ],
+      "decision": "KEEP_RAW",
+      "p_normalize": 0.3268,
+      "gold_code": "VXW-634",
+      "raw_ok": true,
+      "normalized_ok": false,
+      "constrained_ok": true,
+      "free_ok": false,
+      "raw_rank_of_gold": 1,
+      "adj_rank_of_gold": 2
+    },
+    {
+      "n_candidates": 4,
+      "format_name": "list",
+      "raw_pick_code": "VXW-634",
+      "norm_pick_code": "RTN-409",
+      "free_out_code": "VXW-583",
+      "constrained_pick_code": "VXW-583",
+      "raw_scores": [
+        -2.3538501885996084,
+        -7.578170093554945,
+        -10.85605956947984,
+        -2.7075716761682997
+      ],
+      "norm_scores": [
+        0.7669472547816745,
+        -0.21651221708877255,
+        0.9602623085769064,
+        0.9234173550606406
+      ],
+      "decision": "KEEP_RAW",
+      "p_normalize": 0.2562,
+      "gold_code": "RTN-672",
+      "raw_ok": false,
+      "normalized_ok": false,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 3,
+      "adj_rank_of_gold": 4
+    },
+    {
+      "n_candidates": 4,
+      "format_name": "list",
+      "raw_pick_code": "VXW-634",
+      "norm_pick_code": "RTN-672",
+      "free_out_code": null,
+      "constrained_pick_code": "VXW-583",
+      "raw_scores": [
+        -3.220786287147348,
+        -7.1959602847236965,
+        -11.907774191047793,
+        -3.332713082072587
+      ],
+      "norm_scores": [
+        -0.3889675432819786,
+        0.2931008613528929,
+        -0.4420238535136978,
+        0.0898954805215908
+      ],
+      "decision": "KEEP_RAW",
+      "p_normalize": 0.3006,
+      "gold_code": "RTN-409",
+      "raw_ok": false,
+      "normalized_ok": false,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 4,
+      "adj_rank_of_gold": 4
+    },
+    {
+      "n_candidates": 4,
+      "format_name": "list",
+      "raw_pick_code": "VXW-634",
+      "norm_pick_code": "RTN-409",
+      "free_out_code": null,
+      "constrained_pick_code": "VXW-634",
+      "raw_scores": [
+        -3.8797193179616443,
+        -8.369770154078651,
+        -11.643290049962161,
+        -4.755747120898377
+      ],
+      "norm_scores": [
+        -1.26754491770104,
+        -1.2719789644537132,
+        -0.08937833206618961,
+        -1.807483237912796
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.5978,
+      "gold_code": "VXW-583",
+      "raw_ok": false,
+      "normalized_ok": false,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 2,
+      "adj_rank_of_gold": 4
+    },
+    {
+      "n_candidates": 5,
+      "format_name": "prose",
+      "raw_pick_code": "BQP-726",
+      "norm_pick_code": "DMH-311",
+      "free_out_code": "BQP-726",
+      "constrained_pick_code": "BQP-726",
+      "raw_scores": [
+        -1.5878489829915452,
+        -4.3613121902053535,
+        -9.95011915145551,
+        -7.447798860594048,
+        -8.136922015492019
+      ],
+      "norm_scores": [
+        0.1380601670704209,
+        -0.3235757469719829,
+        -0.18612792383191845,
+        0.2860913278127555,
+        -0.24035116326558637
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.7059,
+      "gold_code": "BQP-726",
+      "raw_ok": true,
+      "normalized_ok": false,
+      "constrained_ok": true,
+      "free_ok": true,
+      "raw_rank_of_gold": 1,
+      "adj_rank_of_gold": 2
+    },
+    {
+      "n_candidates": 5,
+      "format_name": "prose",
+      "raw_pick_code": "BQP-726",
+      "norm_pick_code": "RTN-395",
+      "free_out_code": "BQP-726",
+      "constrained_pick_code": "BQP-726",
+      "raw_scores": [
+        -1.6854597074748199,
+        -3.4464685838229343,
+        -9.427588423417546,
+        -7.706999942112816,
+        -7.54974778538417
+      ],
+      "norm_scores": [
+        0.016046761466327553,
+        0.8199787610060412,
+        0.46703548621553637,
+        -0.03791002408570421,
+        0.49361662436922416
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.7561,
+      "gold_code": "RTN-395",
+      "raw_ok": false,
+      "normalized_ok": true,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 2,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 5,
+      "format_name": "prose",
+      "raw_pick_code": "BQP-726",
+      "norm_pick_code": "VXW-714",
+      "free_out_code": "BQP-726",
+      "constrained_pick_code": "BQP-726",
+      "raw_scores": [
+        -1.6477350562117863,
+        -3.9026464184116776,
+        -9.536100618845012,
+        -7.722235476516289,
+        -7.651559107267531
+      ],
+      "norm_scores": [
+        0.06320257554511954,
+        0.24975646777011207,
+        0.3313952419312045,
+        -0.05695444209004563,
+        0.3663524720150235
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.6775,
+      "gold_code": "VXW-416",
+      "raw_ok": false,
+      "normalized_ok": false,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 5,
+      "adj_rank_of_gold": 2
+    },
+    {
+      "n_candidates": 5,
+      "format_name": "prose",
+      "raw_pick_code": "BQP-726",
+      "norm_pick_code": "DMH-311",
+      "free_out_code": "BQP-726",
+      "constrained_pick_code": "BQP-726",
+      "raw_scores": [
+        -1.9827042103793246,
+        -4.469554432016594,
+        -10.066414342880307,
+        -7.8353833407963975,
+        -8.233942375965853
+      ],
+      "norm_scores": [
+        -0.3555088671643034,
+        -0.458878549236033,
+        -0.3314969131129146,
+        -0.19838927244018123,
+        -0.3616266138578794
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.7033,
+      "gold_code": "DMH-311",
+      "raw_ok": false,
+      "normalized_ok": true,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 3,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 5,
+      "format_name": "prose",
+      "raw_pick_code": "BQP-726",
+      "norm_pick_code": "BQP-726",
+      "free_out_code": "BQP-726",
+      "constrained_pick_code": "BQP-726",
+      "raw_scores": [
+        -1.5877376261819336,
+        -4.332276338682277,
+        -10.025861525351502,
+        -7.670941994201712,
+        -8.151034140288175
+      ],
+      "norm_scores": [
+        0.1381993630824354,
+        -0.28728093256813736,
+        -0.2808058912019078,
+        0.0071624108031755895,
+        -0.2579913192607819
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.7014,
+      "gold_code": "VXW-714",
+      "raw_ok": false,
+      "normalized_ok": false,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 4,
+      "adj_rank_of_gold": 3
+    },
+    {
+      "n_candidates": 2,
+      "format_name": "table",
+      "raw_pick_code": "YZK-231",
+      "norm_pick_code": "YZK-753",
+      "free_out_code": "YZK-231",
+      "constrained_pick_code": "YZK-231",
+      "raw_scores": [
+        -8.659246307306603,
+        -0.3137131651274103
+      ],
+      "norm_scores": [
+        1.590781559370953,
+        -0.1782466267941345
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.839,
+      "gold_code": "YZK-753",
+      "raw_ok": false,
+      "normalized_ok": true,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 2,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 2,
+      "format_name": "table",
+      "raw_pick_code": "YZK-231",
+      "norm_pick_code": "YZK-231",
+      "free_out_code": "YZK-231",
+      "constrained_pick_code": "YZK-231",
+      "raw_scores": [
+        -10.250027866677556,
+        -0.13546653833327582
+      ],
+      "norm_scores": [
+        -1.590781559370953,
+        0.1782466267941345
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.8329,
+      "gold_code": "YZK-231",
+      "raw_ok": true,
+      "normalized_ok": true,
+      "constrained_ok": true,
+      "free_ok": true,
+      "raw_rank_of_gold": 1,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 3,
+      "format_name": "list",
+      "raw_pick_code": "BQP-973",
+      "norm_pick_code": "BQP-973",
+      "free_out_code": null,
+      "constrained_pick_code": "BQP-973",
+      "raw_scores": [
+        -4.287844498548111,
+        -10.766427627033408,
+        -3.8941563631751706
+      ],
+      "norm_scores": [
+        -1.3623422802020286,
+        -0.1345285028210128,
+        0.02535368744702282
+      ],
+      "decision": "KEEP_RAW",
+      "p_normalize": 0.2675,
+      "gold_code": "BQP-477",
+      "raw_ok": false,
+      "normalized_ok": false,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 2,
+      "adj_rank_of_gold": 3
+    },
+    {
+      "n_candidates": 3,
+      "format_name": "list",
+      "raw_pick_code": "BQP-973",
+      "norm_pick_code": "BQP-973",
+      "free_out_code": "BQP-973",
+      "constrained_pick_code": "BQP-973",
+      "raw_scores": [
+        -3.57231322259031,
+        -10.20536348902715,
+        -2.906409275754413
+      ],
+      "norm_scores": [
+        -0.2890453662653272,
+        0.7070677041883755,
+        1.506974318578159
+      ],
+      "decision": "KEEP_RAW",
+      "p_normalize": 0.4533,
+      "gold_code": "DMH-375",
+      "raw_ok": false,
+      "normalized_ok": false,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 3,
+      "adj_rank_of_gold": 2
+    },
+    {
+      "n_candidates": 3,
+      "format_name": "list",
+      "raw_pick_code": "BQP-477",
+      "norm_pick_code": "BQP-477",
+      "free_out_code": "BQP-477",
+      "constrained_pick_code": "BQP-477",
+      "raw_scores": [
+        -2.2786912141018547,
+        -11.058434759397642,
+        -4.932610825489974
+      ],
+      "norm_scores": [
+        1.6513876464673558,
+        -0.5725392013673627,
+        -1.5323280060251818
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.8324,
+      "gold_code": "BQP-973",
+      "raw_ok": false,
+      "normalized_ok": false,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 2,
+      "adj_rank_of_gold": 3
+    },
+    {
+      "n_candidates": 4,
+      "format_name": "prose",
+      "raw_pick_code": "BQP-168",
+      "norm_pick_code": "RTN-278",
+      "free_out_code": "BQP-168",
+      "constrained_pick_code": "BQP-168",
+      "raw_scores": [
+        -4.189644557596694,
+        -8.233027239994044,
+        -1.9348739938432118,
+        -2.186043368847095
+      ],
+      "norm_scores": [
+        0.3261306000113109,
+        -0.8003967105081147,
+        0.23851924353493814,
+        -0.4055127735809947
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.6815,
+      "gold_code": "RTN-278",
+      "raw_ok": false,
+      "normalized_ok": true,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 3,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 4,
+      "format_name": "prose",
+      "raw_pick_code": "YZK-493",
+      "norm_pick_code": "DMH-498",
+      "free_out_code": "BQP-168",
+      "constrained_pick_code": "BQP-168",
+      "raw_scores": [
+        -4.540125966470441,
+        -6.933201711659422,
+        -2.4092560243225307,
+        -1.930924937090822
+      ],
+      "norm_scores": [
+        -0.14117794515368587,
+        0.9327039939380484,
+        -0.3939901304374871,
+        -0.06535486457263073
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.8734,
+      "gold_code": "DMH-498",
+      "raw_ok": false,
+      "normalized_ok": true,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 4,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 4,
+      "format_name": "prose",
+      "raw_pick_code": "YZK-493",
+      "norm_pick_code": "BQP-168",
+      "free_out_code": "BQP-168",
+      "constrained_pick_code": "BQP-168",
+      "raw_scores": [
+        -4.845846555161188,
+        -7.8532465544303705,
+        -1.880361705724681,
+        -1.8283930612124095
+      ],
+      "norm_scores": [
+        -0.548805396741348,
+        -0.2940224630898838,
+        0.31120229435964575,
+        0.07135430326525238
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.7236,
+      "gold_code": "BQP-168",
+      "raw_ok": false,
+      "normalized_ok": true,
+      "constrained_ok": true,
+      "free_ok": true,
+      "raw_rank_of_gold": 2,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 4,
+      "format_name": "prose",
+      "raw_pick_code": "YZK-493",
+      "norm_pick_code": "YZK-493",
+      "free_out_code": "BQP-168",
+      "constrained_pick_code": "BQP-168",
+      "raw_scores": [
+        -4.161352951192384,
+        -7.511443322367995,
+        -2.230561982087238,
+        -1.582273787495069
+      ],
+      "norm_scores": [
+        0.36385274188372296,
+        0.16171517965995008,
+        -0.1557314074570968,
+        0.39951333488837304
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.6645,
+      "gold_code": "YZK-493",
+      "raw_ok": true,
+      "normalized_ok": true,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 1,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 5,
+      "format_name": "table",
+      "raw_pick_code": "BQP-618",
+      "norm_pick_code": "BQP-695",
+      "free_out_code": "BQP-618",
+      "constrained_pick_code": "BQP-618",
+      "raw_scores": [
+        -7.928856361751059,
+        -12.994230704864094,
+        -3.3762645222659557,
+        -0.7390141251735258,
+        -8.305941037735465
+      ],
+      "norm_scores": [
+        0.24681088866446999,
+        -2.920550849799838,
+        0.46393326516800926,
+        0.15720328097478387,
+        -2.074603569388273
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.5222,
+      "gold_code": "BQP-741",
+      "raw_ok": false,
+      "normalized_ok": false,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 3,
+      "adj_rank_of_gold": 2
+    },
+    {
+      "n_candidates": 5,
+      "format_name": "table",
+      "raw_pick_code": "BQP-618",
+      "norm_pick_code": "DMH-321",
+      "free_out_code": "BQP-618",
+      "constrained_pick_code": "BQP-618",
+      "raw_scores": [
+        -8.63989099403625,
+        -3.921656218752105,
+        -4.017493088078481,
+        -1.3898601693399542,
+        -3.9208770811928844
+      ],
+      "norm_scores": [
+        -0.6419824016920188,
+        8.420167257840149,
+        -0.3376024420976478,
+        -0.6563542742332515,
+        3.406726376289953
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.9981,
+      "gold_code": "DMH-321",
+      "raw_ok": false,
+      "normalized_ok": true,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 3,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 5,
+      "format_name": "table",
+      "raw_pick_code": "BQP-618",
+      "norm_pick_code": "BQP-695",
+      "free_out_code": "BQP-618",
+      "constrained_pick_code": "BQP-618",
+      "raw_scores": [
+        -8.265012140045883,
+        -12.73798784094106,
+        -3.2159851478156725,
+        -0.618241251979498,
+        -8.10703991867922
+      ],
+      "norm_scores": [
+        -0.1733838342040599,
+        -2.6002472698960446,
+        0.6642824832308634,
+        0.3081693724673187,
+        -1.8259771705679668
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.567,
+      "gold_code": "BQP-695",
+      "raw_ok": false,
+      "normalized_ok": true,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 2,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 5,
+      "format_name": "table",
+      "raw_pick_code": "BQP-618",
+      "norm_pick_code": "BQP-741",
+      "free_out_code": "BQP-618",
+      "constrained_pick_code": "BQP-618",
+      "raw_scores": [
+        -7.839821765784109,
+        -15.03558496066762,
+        -4.658735429827175,
+        -0.5884068735058463,
+        -10.096586804291292
+      ],
+      "norm_scores": [
+        0.35810413362315785,
+        -5.472243669554246,
+        -1.1391553692835146,
+        0.34546234555938327,
+        -4.312910777583056
+      ],
+      "decision": "KEEP_RAW",
+      "p_normalize": 0.4474,
+      "gold_code": "BQP-618",
+      "raw_ok": true,
+      "normalized_ok": false,
+      "constrained_ok": true,
+      "free_ok": true,
+      "raw_rank_of_gold": 1,
+      "adj_rank_of_gold": 2
+    },
+    {
+      "n_candidates": 5,
+      "format_name": "table",
+      "raw_pick_code": "BQP-618",
+      "norm_pick_code": "VXW-610",
+      "free_out_code": "BQP-618",
+      "constrained_pick_code": "BQP-618",
+      "raw_scores": [
+        -7.957944101795874,
+        -8.59949039989624,
+        -3.4685774840145314,
+        -0.9883613297679403,
+        -2.800846069225372
+      ],
+      "norm_scores": [
+        0.21045121360845087,
+        2.5728745314099797,
+        0.34854206298228974,
+        -0.15448072476823427,
+        4.806765141249343
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.938,
+      "gold_code": "VXW-610",
+      "raw_ok": false,
+      "normalized_ok": true,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 2,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 2,
+      "format_name": "list",
+      "raw_pick_code": "BQP-211",
+      "norm_pick_code": "BQP-211",
+      "free_out_code": "BQP-211",
+      "constrained_pick_code": "BQP-211",
+      "raw_scores": [
+        -0.4569890438983748,
+        -8.787515165873629
+      ],
+      "norm_scores": [
+        0.4972130780929547,
+        0.27415820808528224
+      ],
+      "decision": "KEEP_RAW",
+      "p_normalize": 0.227,
+      "gold_code": "BQP-211",
+      "raw_ok": true,
+      "normalized_ok": true,
+      "constrained_ok": true,
+      "free_ok": true,
+      "raw_rank_of_gold": 1,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 2,
+      "format_name": "list",
+      "raw_pick_code": "BQP-211",
+      "norm_pick_code": "VXW-283",
+      "free_out_code": "BQP-211",
+      "constrained_pick_code": "BQP-211",
+      "raw_scores": [
+        -0.9542021219913295,
+        -9.06167337395891
+      ],
+      "norm_scores": [
+        -0.4972130780929547,
+        -0.27415820808528224
+      ],
+      "decision": "KEEP_RAW",
+      "p_normalize": 0.228,
+      "gold_code": "VXW-283",
+      "raw_ok": false,
+      "normalized_ok": true,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 2,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 3,
+      "format_name": "prose",
+      "raw_pick_code": "YZK-321",
+      "norm_pick_code": "YZK-321",
+      "free_out_code": "YZK-321",
+      "constrained_pick_code": "YZK-321",
+      "raw_scores": [
+        -1.1749352798124164,
+        -3.151546130207862,
+        -5.3430312138625595
+      ],
+      "norm_scores": [
+        0.9608085298650622,
+        -0.6684115677016962,
+        -1.4189135032229387
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.9315,
+      "gold_code": "YZK-321",
+      "raw_ok": true,
+      "normalized_ok": true,
+      "constrained_ok": true,
+      "free_ok": true,
+      "raw_rank_of_gold": 1,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 3,
+      "format_name": "prose",
+      "raw_pick_code": "VXW-380",
+      "norm_pick_code": "RTN-993",
+      "free_out_code": null,
+      "constrained_pick_code": "VXW-380",
+      "raw_scores": [
+        -2.8392407845149137,
+        -2.617538610124029,
+        -3.983070742109703
+      ],
+      "norm_scores": [
+        -1.5356497271886838,
+        0.132599712424053,
+        0.6210272044063458
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.7648,
+      "gold_code": "VXW-380",
+      "raw_ok": true,
+      "normalized_ok": false,
+      "constrained_ok": true,
+      "free_ok": false,
+      "raw_rank_of_gold": 1,
+      "adj_rank_of_gold": 2
+    },
+    {
+      "n_candidates": 3,
+      "format_name": "prose",
+      "raw_pick_code": "YZK-321",
+      "norm_pick_code": "RTN-993",
+      "free_out_code": "YZK-321",
+      "constrained_pick_code": "YZK-321",
+      "raw_scores": [
+        -1.4322468348400434,
+        -2.3487305148883024,
+        -3.8651646791695384
+      ],
+      "norm_scores": [
+        0.5748411973236216,
+        0.5358118552776432,
+        0.7978862988165929
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.694,
+      "gold_code": "RTN-993",
+      "raw_ok": false,
+      "normalized_ok": true,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 3,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 4,
+      "format_name": "table",
+      "raw_pick_code": "RTN-439",
+      "norm_pick_code": "RTN-439",
+      "free_out_code": "RTN-439",
+      "constrained_pick_code": "RTN-439",
+      "raw_scores": [
+        -0.37225797325663734,
+        -8.889976992051743,
+        -3.0894845270449878,
+        -4.980886038836616
+      ],
+      "norm_scores": [
+        5.492649789453329,
+        -2.932582854842015,
+        0.9839446093271063,
+        0.8200246641693711
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.9961,
+      "gold_code": "RTN-439",
+      "raw_ok": true,
+      "normalized_ok": true,
+      "constrained_ok": true,
+      "free_ok": true,
+      "raw_rank_of_gold": 1,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 4,
+      "format_name": "table",
+      "raw_pick_code": "DMH-624",
+      "norm_pick_code": "DMH-624",
+      "free_out_code": "DMH-624",
+      "constrained_pick_code": "DMH-624",
+      "raw_scores": [
+        -7.695726045832998,
+        -0.3083519046904257,
+        -9.31559441204081,
+        -10.289242523485882
+      ],
+      "norm_scores": [
+        -4.271974307315153,
+        8.509583928306407,
+        -7.317535237333989,
+        -6.25778398202965
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 1.0,
+      "gold_code": "DMH-624",
+      "raw_ok": true,
+      "normalized_ok": true,
+      "constrained_ok": true,
+      "free_ok": true,
+      "raw_rank_of_gold": 1,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 4,
+      "format_name": "table",
+      "raw_pick_code": "YZK-215",
+      "norm_pick_code": "YZK-215",
+      "free_out_code": "YZK-215",
+      "constrained_pick_code": "YZK-215",
+      "raw_scores": [
+        -4.665840258530807,
+        -8.072562626268336,
+        -1.4058178650448099,
+        -3.6908292804073426
+      ],
+      "norm_scores": [
+        -0.2321265909122303,
+        -1.8426970337974735,
+        3.22883349199401,
+        2.5401003420750685
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.6473,
+      "gold_code": "YZK-215",
+      "raw_ok": true,
+      "normalized_ok": true,
+      "constrained_ok": true,
+      "free_ok": true,
+      "raw_rank_of_gold": 1,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 4,
+      "format_name": "table",
+      "raw_pick_code": "YZK-215",
+      "norm_pick_code": "YZK-215",
+      "free_out_code": "YZK-215",
+      "constrained_pick_code": "YZK-215",
+      "raw_scores": [
+        -5.233156983766094,
+        -9.49126788067042,
+        -1.498875132030662,
+        -3.4226603051247366
+      ],
+      "norm_scores": [
+        -0.9885488912259461,
+        -3.7343040396669194,
+        3.104757136012874,
+        2.89765897578521
+      ],
+      "decision": "KEEP_RAW",
+      "p_normalize": 0.4985,
+      "gold_code": "YZK-366",
+      "raw_ok": false,
+      "normalized_ok": false,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 2,
+      "adj_rank_of_gold": 2
+    },
+    {
+      "n_candidates": 5,
+      "format_name": "list",
+      "raw_pick_code": "DMH-669",
+      "norm_pick_code": "DMH-330",
+      "free_out_code": "AVH-669",
+      "constrained_pick_code": "BQP-419",
+      "raw_scores": [
+        -11.697414580692566,
+        -7.682657003908389,
+        -6.330964471580955,
+        -9.913218522688112,
+        -9.317243517853058
+      ],
+      "norm_scores": [
+        2.419122110609351,
+        2.0543540935259443,
+        1.8229950433387785,
+        -1.6770138931015026,
+        0.40537833440157556
+      ],
+      "decision": "KEEP_RAW",
+      "p_normalize": 0.3619,
+      "gold_code": "DMH-330",
+      "raw_ok": false,
+      "normalized_ok": true,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 5,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 5,
+      "format_name": "list",
+      "raw_pick_code": "DMH-669",
+      "norm_pick_code": "BQP-419",
+      "free_out_code": "BQP-397",
+      "constrained_pick_code": "BQP-419",
+      "raw_scores": [
+        -12.624497522654565,
+        -9.128657117817056,
+        -7.511967255613854,
+        -8.109939983329241,
+        -8.471781534088223
+      ],
+      "norm_scores": [
+        1.2602684331568526,
+        0.24685395114011044,
+        0.3467415632976554,
+        0.5770842810970862,
+        1.4622058141076195
+      ],
+      "decision": "KEEP_RAW",
+      "p_normalize": 0.319,
+      "gold_code": "VXW-502",
+      "raw_ok": false,
+      "normalized_ok": false,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 4,
+      "adj_rank_of_gold": 5
+    },
+    {
+      "n_candidates": 5,
+      "format_name": "list",
+      "raw_pick_code": "VXW-371",
+      "norm_pick_code": "VXW-371",
+      "free_out_code": null,
+      "constrained_pick_code": "BQP-419",
+      "raw_scores": [
+        -14.703476857112037,
+        -10.272192202735823,
+        -8.119067699890365,
+        -7.659520938230344,
+        -9.61327090305167
+      ],
+      "norm_scores": [
+        -1.3384557349149873,
+        -1.1825649050083484,
+        -0.41213399204798407,
+        1.1401080874707077,
+        0.03534410290330925
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.6015,
+      "gold_code": "DMH-669",
+      "raw_ok": false,
+      "normalized_ok": false,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 2,
+      "adj_rank_of_gold": 3
+    },
+    {
+      "n_candidates": 5,
+      "format_name": "list",
+      "raw_pick_code": "DMH-669",
+      "norm_pick_code": "DMH-330",
+      "free_out_code": "BQP-397",
+      "constrained_pick_code": "BQP-419",
+      "raw_scores": [
+        -12.304636673343339,
+        -8.682618520990218,
+        -6.8884334632712125,
+        -7.4766185076550755,
+        -8.814437186705618
+      ],
+      "norm_scores": [
+        1.6600944947958851,
+        0.8044021971736584,
+        1.1261588037259571,
+        1.368736125689793,
+        1.0338862483358753
+      ],
+      "decision": "KEEP_RAW",
+      "p_normalize": 0.3447,
+      "gold_code": "VXW-371",
+      "raw_ok": false,
+      "normalized_ok": false,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 2,
+      "adj_rank_of_gold": 2
+    },
+    {
+      "n_candidates": 5,
+      "format_name": "list",
+      "raw_pick_code": "VXW-371",
+      "norm_pick_code": "VXW-371",
+      "free_out_code": null,
+      "constrained_pick_code": "BQP-419",
+      "raw_scores": [
+        -16.833535712097728,
+        -10.864576548194236,
+        -10.096369640903504,
+        -9.698739089131777,
+        -11.990997785173022
+      ],
+      "norm_scores": [
+        -4.001029303647101,
+        -1.9230453368313647,
+        -2.883761418314407,
+        -1.4089146011560842,
+        -2.9368144997483796
+      ],
+      "decision": "KEEP_RAW",
+      "p_normalize": 0.4134,
+      "gold_code": "BQP-419",
+      "raw_ok": false,
+      "normalized_ok": false,
+      "constrained_ok": true,
+      "free_ok": false,
+      "raw_rank_of_gold": 4,
+      "adj_rank_of_gold": 4
+    },
+    {
+      "n_candidates": 2,
+      "format_name": "prose",
+      "raw_pick_code": "BQP-574",
+      "norm_pick_code": "YZK-186",
+      "free_out_code": "BQP-574",
+      "constrained_pick_code": "BQP-574",
+      "raw_scores": [
+        -2.6802610406666645,
+        -0.39659067984030116
+      ],
+      "norm_scores": [
+        0.7267542298759508,
+        -0.06287705215981987
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.8049,
+      "gold_code": "YZK-186",
+      "raw_ok": false,
+      "normalized_ok": true,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 2,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 2,
+      "format_name": "prose",
+      "raw_pick_code": "BQP-574",
+      "norm_pick_code": "BQP-574",
+      "free_out_code": "BQP-574",
+      "constrained_pick_code": "BQP-574",
+      "raw_scores": [
+        -3.4070152705426153,
+        -0.3337136276804813
+      ],
+      "norm_scores": [
+        -0.7267542298759508,
+        0.06287705215981987
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.8017,
+      "gold_code": "BQP-574",
+      "raw_ok": true,
+      "normalized_ok": true,
+      "constrained_ok": true,
+      "free_ok": true,
+      "raw_rank_of_gold": 1,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 3,
+      "format_name": "table",
+      "raw_pick_code": "BQP-942",
+      "norm_pick_code": "RTN-392",
+      "free_out_code": "RTN-482",
+      "constrained_pick_code": "RTN-168",
+      "raw_scores": [
+        -6.475171958289138,
+        -3.3286658192846517,
+        -2.6916402038359593
+      ],
+      "norm_scores": [
+        2.7207216980186786,
+        2.6128566504758055,
+        -0.06348035170276489
+      ],
+      "decision": "KEEP_RAW",
+      "p_normalize": 0.4497,
+      "gold_code": "RTN-392",
+      "raw_ok": false,
+      "normalized_ok": true,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 3,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 3,
+      "format_name": "table",
+      "raw_pick_code": "RTN-168",
+      "norm_pick_code": "RTN-168",
+      "free_out_code": "RTN-482",
+      "constrained_pick_code": "RTN-168",
+      "raw_scores": [
+        -6.9195777288332465,
+        -3.2281557858586893,
+        -5.246506971996496
+      ],
+      "norm_scores": [
+        2.0541130422025162,
+        2.763621700614749,
+        -3.89578050394357
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.632,
+      "gold_code": "RTN-168",
+      "raw_ok": true,
+      "normalized_ok": true,
+      "constrained_ok": true,
+      "free_ok": false,
+      "raw_rank_of_gold": 1,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 3,
+      "format_name": "table",
+      "raw_pick_code": "BQP-942",
+      "norm_pick_code": "BQP-942",
+      "free_out_code": "BQP-942",
+      "constrained_pick_code": "BQP-942",
+      "raw_scores": [
+        -11.472209583782387,
+        -8.654889153662225,
+        -0.009812732269892877
+      ],
+      "norm_scores": [
+        -4.774834740221195,
+        -5.3764783510905545,
+        3.9592608556463347
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 1.0,
+      "gold_code": "BQP-942",
+      "raw_ok": true,
+      "normalized_ok": true,
+      "constrained_ok": true,
+      "free_ok": true,
+      "raw_rank_of_gold": 1,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 4,
+      "format_name": "list",
+      "raw_pick_code": "BQP-272",
+      "norm_pick_code": "VXW-650",
+      "free_out_code": "BQP-266",
+      "constrained_pick_code": "BQP-272",
+      "raw_scores": [
+        -7.277475566358589,
+        -7.99424050908965,
+        -9.268049791126032,
+        -14.117348845151355
+      ],
+      "norm_scores": [
+        0.17474934378772833,
+        -0.08821229258380026,
+        -0.41721911572252246,
+        0.26463356130928695
+      ],
+      "decision": "KEEP_RAW",
+      "p_normalize": 0.2677,
+      "gold_code": "BQP-272",
+      "raw_ok": true,
+      "normalized_ok": false,
+      "constrained_ok": true,
+      "free_ok": false,
+      "raw_rank_of_gold": 1,
+      "adj_rank_of_gold": 2
+    },
+    {
+      "n_candidates": 4,
+      "format_name": "list",
+      "raw_pick_code": "BQP-272",
+      "norm_pick_code": "VXW-499",
+      "free_out_code": "BQP-266",
+      "constrained_pick_code": "BQP-272",
+      "raw_scores": [
+        -7.52154133617023,
+        -8.920272579412995,
+        -8.258435733830993,
+        -15.420470241046132
+      ],
+      "norm_scores": [
+        -0.1506716826277925,
+        -1.3229217196815926,
+        0.9289329606708634,
+        -1.472861633217084
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.5677,
+      "gold_code": "RTN-217",
+      "raw_ok": false,
+      "normalized_ok": false,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 3,
+      "adj_rank_of_gold": 3
+    },
+    {
+      "n_candidates": 4,
+      "format_name": "list",
+      "raw_pick_code": "RTN-217",
+      "norm_pick_code": "RTN-217",
+      "free_out_code": "BQP-266",
+      "constrained_pick_code": "BQP-272",
+      "raw_scores": [
+        -7.338836803121467,
+        -7.268473596035619,
+        -9.143407149109407,
+        -13.760989705057
+      ],
+      "norm_scores": [
+        0.09293436143722555,
+        0.8794769248215744,
+        -0.251028926367022,
+        0.7397790814350937
+      ],
+      "decision": "KEEP_RAW",
+      "p_normalize": 0.2838,
+      "gold_code": "VXW-499",
+      "raw_ok": false,
+      "normalized_ok": false,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 3,
+      "adj_rank_of_gold": 4
+    },
+    {
+      "n_candidates": 4,
+      "format_name": "list",
+      "raw_pick_code": "BQP-272",
+      "norm_pick_code": "RTN-217",
+      "free_out_code": "BQP-266",
+      "constrained_pick_code": "BQP-272",
+      "raw_scores": [
+        -7.4962965911472565,
+        -7.529338474068936,
+        -9.15064914327013,
+        -13.964487273278792
+      ],
+      "norm_scores": [
+        -0.11701202259716137,
+        0.5316570874438185,
+        -0.2606849185813189,
+        0.4684489904727034
+      ],
+      "decision": "KEEP_RAW",
+      "p_normalize": 0.2643,
+      "gold_code": "VXW-650",
+      "raw_ok": false,
+      "normalized_ok": false,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 4,
+      "adj_rank_of_gold": 2
+    },
+    {
+      "n_candidates": 5,
+      "format_name": "prose",
+      "raw_pick_code": "YZK-227",
+      "norm_pick_code": "RTN-795",
+      "free_out_code": null,
+      "constrained_pick_code": "DMH-502",
+      "raw_scores": [
+        -2.7736564698661823,
+        -6.63097428182482,
+        -4.8127979227010655,
+        -2.726277864874646,
+        -7.554312336631483
+      ],
+      "norm_scores": [
+        1.38209074876886,
+        -0.11225595600717497,
+        -0.4500250258502092,
+        0.6143754328049909,
+        -0.062370891610044055
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.8513,
+      "gold_code": "RTN-795",
+      "raw_ok": false,
+      "normalized_ok": true,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 2,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 5,
+      "format_name": "prose",
+      "raw_pick_code": "YZK-227",
+      "norm_pick_code": "DMH-548",
+      "free_out_code": null,
+      "constrained_pick_code": "DMH-502",
+      "raw_scores": [
+        -4.755918731627389,
+        -5.555708641581077,
+        -3.7040882761157263,
+        -3.2857826041963563,
+        -6.4877715052844
+      ],
+      "norm_scores": [
+        -1.0957370784326486,
+        1.231826094297503,
+        0.9358620323814648,
+        -0.08500549134714674,
+        1.2708051475738102
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.6886,
+      "gold_code": "DMH-502",
+      "raw_ok": false,
+      "normalized_ok": false,
+      "constrained_ok": true,
+      "free_ok": false,
+      "raw_rank_of_gold": 4,
+      "adj_rank_of_gold": 2
+    },
+    {
+      "n_candidates": 5,
+      "format_name": "prose",
+      "raw_pick_code": "RTN-145",
+      "norm_pick_code": "RTN-145",
+      "free_out_code": "CTH-548",
+      "constrained_pick_code": "DMH-502",
+      "raw_scores": [
+        -4.653313805130892,
+        -6.072517510619946,
+        -3.5909603622221766,
+        -3.8820037844961917,
+        -6.87068283148983
+      ],
+      "norm_scores": [
+        -0.9674809203120276,
+        0.5858150079989173,
+        1.077271924748402,
+        -0.830281966721941,
+        0.7921659898170219
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.753,
+      "gold_code": "RTN-145",
+      "raw_ok": true,
+      "normalized_ok": true,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 1,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 5,
+      "format_name": "prose",
+      "raw_pick_code": "RTN-795",
+      "norm_pick_code": "RTN-795",
+      "free_out_code": "CTH-548",
+      "constrained_pick_code": "DMH-502",
+      "raw_scores": [
+        -3.016085703689896,
+        -8.37740611047775,
+        -6.424190094970982,
+        -3.017213320996234,
+        -9.674526799561136
+      ],
+      "norm_scores": [
+        1.079054206489218,
+        -2.295295741823338,
+        -2.4642652411876043,
+        0.25070611265300613,
+        -2.71263897027211
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.8611,
+      "gold_code": "YZK-227",
+      "raw_ok": false,
+      "normalized_ok": false,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 2,
+      "adj_rank_of_gold": 2
+    },
+    {
+      "n_candidates": 5,
+      "format_name": "prose",
+      "raw_pick_code": "YZK-227",
+      "norm_pick_code": "RTN-145",
+      "free_out_code": "CTH-548",
+      "constrained_pick_code": "DMH-502",
+      "raw_scores": [
+        -4.197670634091992,
+        -6.069241040591805,
+        -3.731852854094541,
+        -3.1776134810297663,
+        -6.93478464375039
+      ],
+      "norm_scores": [
+        -0.3979269565134018,
+        0.5899105955340929,
+        0.9011563099079467,
+        0.05020591261109075,
+        0.7120387244913218
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.7279,
+      "gold_code": "DMH-548",
+      "raw_ok": false,
+      "normalized_ok": false,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 5,
+      "adj_rank_of_gold": 2
+    },
+    {
+      "n_candidates": 2,
+      "format_name": "table",
+      "raw_pick_code": "VXW-993",
+      "norm_pick_code": "VXW-312",
+      "free_out_code": "VXW-993",
+      "constrained_pick_code": "VXW-993",
+      "raw_scores": [
+        -1.053652971793781,
+        -7.085911559748638
+      ],
+      "norm_scores": [
+        -0.2566775998893718,
+        0.27503721345055965
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.5275,
+      "gold_code": "VXW-993",
+      "raw_ok": true,
+      "normalized_ok": false,
+      "constrained_ok": true,
+      "free_ok": true,
+      "raw_rank_of_gold": 1,
+      "adj_rank_of_gold": 2
+    },
+    {
+      "n_candidates": 2,
+      "format_name": "table",
+      "raw_pick_code": "VXW-993",
+      "norm_pick_code": "VXW-993",
+      "free_out_code": "VXW-993",
+      "constrained_pick_code": "VXW-993",
+      "raw_scores": [
+        -0.7969753719044093,
+        -7.360948773199198
+      ],
+      "norm_scores": [
+        0.2566775998893718,
+        -0.27503721345055965
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.5242,
+      "gold_code": "VXW-312",
+      "raw_ok": false,
+      "normalized_ok": false,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 2,
+      "adj_rank_of_gold": 2
+    },
+    {
+      "n_candidates": 3,
+      "format_name": "list",
+      "raw_pick_code": "RTN-712",
+      "norm_pick_code": "YZK-770",
+      "free_out_code": "RTN-712",
+      "constrained_pick_code": "RTN-712",
+      "raw_scores": [
+        -2.8424035242351238,
+        -6.657825095026055,
+        -5.708328672422795
+      ],
+      "norm_scores": [
+        0.08463542942081403,
+        1.418490685218785,
+        -0.3226761773821636
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.61,
+      "gold_code": "RTN-712",
+      "raw_ok": true,
+      "normalized_ok": false,
+      "constrained_ok": true,
+      "free_ok": true,
+      "raw_rank_of_gold": 1,
+      "adj_rank_of_gold": 2
+    },
+    {
+      "n_candidates": 3,
+      "format_name": "list",
+      "raw_pick_code": "RTN-712",
+      "norm_pick_code": "YZK-664",
+      "free_out_code": "RTN-712",
+      "constrained_pick_code": "RTN-712",
+      "raw_scores": [
+        -2.129212644023937,
+        -6.67375481587078,
+        -4.431723645990132
+      ],
+      "norm_scores": [
+        1.154421749737594,
+        1.3945961039516988,
+        1.5922313622668298
+      ],
+      "decision": "KEEP_RAW",
+      "p_normalize": 0.2676,
+      "gold_code": "YZK-770",
+      "raw_ok": false,
+      "normalized_ok": false,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 3,
+      "adj_rank_of_gold": 2
+    },
+    {
+      "n_candidates": 3,
+      "format_name": "list",
+      "raw_pick_code": "RTN-712",
+      "norm_pick_code": "RTN-712",
+      "free_out_code": null,
+      "constrained_pick_code": "RTN-712",
+      "raw_scores": [
+        -3.7248652632879384,
+        -9.478876744618901,
+        -6.33958134409113
+      ],
+      "norm_scores": [
+        -1.239057179158408,
+        -2.813086789170484,
+        -1.2695551848846662
+      ],
+      "decision": "KEEP_RAW",
+      "p_normalize": 0.2261,
+      "gold_code": "YZK-664",
+      "raw_ok": false,
+      "normalized_ok": false,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 2,
+      "adj_rank_of_gold": 2
+    },
+    {
+      "n_candidates": 4,
+      "format_name": "prose",
+      "raw_pick_code": "BQP-450",
+      "norm_pick_code": "VXW-285",
+      "free_out_code": "BQP-450",
+      "constrained_pick_code": "BQP-450",
+      "raw_scores": [
+        -7.206316901865648,
+        -7.54144932136478,
+        -2.4483665149437,
+        -1.4261344658807502
+      ],
+      "norm_scores": [
+        0.3053025316385174,
+        0.43546894412975234,
+        -0.10141787922172307,
+        0.01718974683596275
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.6892,
+      "gold_code": "VXW-417",
+      "raw_ok": false,
+      "normalized_ok": false,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 3,
+      "adj_rank_of_gold": 2
+    },
+    {
+      "n_candidates": 4,
+      "format_name": "prose",
+      "raw_pick_code": "BQP-450",
+      "norm_pick_code": "VXW-285",
+      "free_out_code": "BQP-450",
+      "constrained_pick_code": "BQP-450",
+      "raw_scores": [
+        -7.288427225757914,
+        -7.520843334339588,
+        -2.138670507902134,
+        -1.4772720654200384
+      ],
+      "norm_scores": [
+        0.1958220997821627,
+        0.462943593496675,
+        0.31151013016703155,
+        -0.050993719216421596
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.697,
+      "gold_code": "VXW-285",
+      "raw_ok": false,
+      "normalized_ok": true,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 4,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 4,
+      "format_name": "prose",
+      "raw_pick_code": "BQP-450",
+      "norm_pick_code": "VXW-417",
+      "free_out_code": "BQP-450",
+      "constrained_pick_code": "BQP-450",
+      "raw_scores": [
+        -6.978266148937109,
+        -7.528208345271196,
+        -2.0474144013969635,
+        -1.4876307906524744
+      ],
+      "norm_scores": [
+        0.6093702022099023,
+        0.4531235789211978,
+        0.43318493884059217,
+        -0.06480535285966948
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.6988,
+      "gold_code": "VXW-617",
+      "raw_ok": false,
+      "normalized_ok": false,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 2,
+      "adj_rank_of_gold": 3
+    },
+    {
+      "n_candidates": 4,
+      "format_name": "prose",
+      "raw_pick_code": "BQP-450",
+      "norm_pick_code": "BQP-450",
+      "free_out_code": "BQP-450",
+      "constrained_pick_code": "BQP-450",
+      "raw_scores": [
+        -8.268164925817473,
+        -8.881703116872814,
+        -2.8547609978668333,
+        -1.3650697820776259
+      ],
+      "norm_scores": [
+        -1.1104948336305824,
+        -1.3515361165476252,
+        -0.6432771897859006,
+        0.09860932524012855
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.8285,
+      "gold_code": "BQP-450",
+      "raw_ok": true,
+      "normalized_ok": true,
+      "constrained_ok": true,
+      "free_ok": true,
+      "raw_rank_of_gold": 1,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 5,
+      "format_name": "table",
+      "raw_pick_code": "RTN-108",
+      "norm_pick_code": "YZK-479",
+      "free_out_code": "YZK-787",
+      "constrained_pick_code": "YZK-787",
+      "raw_scores": [
+        -1.8699451104621403,
+        -5.988605990285578,
+        -5.147265922030783,
+        -1.7594644988057553,
+        -3.3924877334338817
+      ],
+      "norm_scores": [
+        3.841107236273274,
+        2.3980083385167745,
+        4.741896767752223,
+        3.208337238799686,
+        -0.78390790009189
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.7381,
+      "gold_code": "YZK-787",
+      "raw_ok": false,
+      "normalized_ok": false,
+      "constrained_ok": true,
+      "free_ok": true,
+      "raw_rank_of_gold": 2,
+      "adj_rank_of_gold": 2
+    },
+    {
+      "n_candidates": 5,
+      "format_name": "table",
+      "raw_pick_code": "RTN-108",
+      "norm_pick_code": "RTN-860",
+      "free_out_code": "RTN-108",
+      "constrained_pick_code": "RTN-108",
+      "raw_scores": [
+        -5.309806107743498,
+        -4.132000145586062,
+        -9.480386270162853,
+        -1.3206017098964367,
+        -1.558003923069009
+      ],
+      "norm_scores": [
+        -0.4587190103284229,
+        4.718765644391169,
+        -0.6745036674128642,
+        3.7569157249363343,
+        1.5091968628642007
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.7525,
+      "gold_code": "RTN-860",
+      "raw_ok": false,
+      "normalized_ok": true,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 3,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 5,
+      "format_name": "table",
+      "raw_pick_code": "YZK-787",
+      "norm_pick_code": "YZK-479",
+      "free_out_code": "YZK-787",
+      "constrained_pick_code": "YZK-787",
+      "raw_scores": [
+        -1.4902656328304147,
+        -11.058563580936607,
+        -4.716923231459077,
+        -7.331792735098134,
+        -5.7403815009292884
+      ],
+      "norm_scores": [
+        4.315706583312931,
+        -3.9394386497970117,
+        5.279825130966856,
+        -3.757073056565787,
+        -3.7187751094611485
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.7388,
+      "gold_code": "YZK-479",
+      "raw_ok": false,
+      "normalized_ok": true,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 2,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 5,
+      "format_name": "table",
+      "raw_pick_code": "RTN-108",
+      "norm_pick_code": "RTN-108",
+      "free_out_code": "RTN-108",
+      "constrained_pick_code": "RTN-108",
+      "raw_scores": [
+        -6.030305132298963,
+        -5.12137480200181,
+        -9.134311945381342,
+        -0.5457216443392099,
+        -3.123861530967588
+      ],
+      "norm_scores": [
+        -1.3593427910227547,
+        3.482047323871484,
+        -0.24191076143597456,
+        4.725515806882868,
+        -0.44812514700902284
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.8048,
+      "gold_code": "RTN-108",
+      "raw_ok": true,
+      "normalized_ok": true,
+      "constrained_ok": true,
+      "free_ok": true,
+      "raw_rank_of_gold": 1,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 5,
+      "format_name": "table",
+      "raw_pick_code": "BQP-960",
+      "norm_pick_code": "BQP-960",
+      "free_out_code": "BQP-960",
+      "constrained_pick_code": "BQP-960",
+      "raw_scores": [
+        -10.013832514068781,
+        -13.23451878668493,
+        -16.225029312128754,
+        -10.673090861087985,
+        -0.012072378402081085
+      ],
+      "norm_scores": [
+        -6.338752018235027,
+        -6.659382656982416,
+        -9.10530746987024,
+        -7.933695714053101,
+        3.4416112936978607
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 1.0,
+      "gold_code": "BQP-960",
+      "raw_ok": true,
+      "normalized_ok": true,
+      "constrained_ok": true,
+      "free_ok": true,
+      "raw_rank_of_gold": 1,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 2,
+      "format_name": "list",
+      "raw_pick_code": "YZK-287",
+      "norm_pick_code": "YZK-287",
+      "free_out_code": null,
+      "constrained_pick_code": "YZK-287",
+      "raw_scores": [
+        -12.418170475579245,
+        -2.4416971085047408
+      ],
+      "norm_scores": [
+        0.8000183264502994,
+        2.247505916353475
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.5782,
+      "gold_code": "YZK-431",
+      "raw_ok": false,
+      "normalized_ok": false,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 2,
+      "adj_rank_of_gold": 2
+    },
+    {
+      "n_candidates": 2,
+      "format_name": "list",
+      "raw_pick_code": "YZK-287",
+      "norm_pick_code": "YZK-431",
+      "free_out_code": null,
+      "constrained_pick_code": "YZK-287",
+      "raw_scores": [
+        -13.218188802029545,
+        -4.689203024858216
+      ],
+      "norm_scores": [
+        -0.8000183264502994,
+        -2.247505916353475
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.5871,
+      "gold_code": "YZK-287",
+      "raw_ok": true,
+      "normalized_ok": false,
+      "constrained_ok": true,
+      "free_ok": false,
+      "raw_rank_of_gold": 1,
+      "adj_rank_of_gold": 2
+    },
+    {
+      "n_candidates": 3,
+      "format_name": "prose",
+      "raw_pick_code": "RTN-488",
+      "norm_pick_code": "VXW-590",
+      "free_out_code": "RTN-488",
+      "constrained_pick_code": "RTN-488",
+      "raw_scores": [
+        -7.517979490963626,
+        -1.8200954474814353,
+        -2.40786617151025
+      ],
+      "norm_scores": [
+        -0.10991837398159987,
+        -0.31396975437019137,
+        0.3118624216376702
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.7473,
+      "gold_code": "DMH-726",
+      "raw_ok": false,
+      "normalized_ok": false,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 3,
+      "adj_rank_of_gold": 2
+    },
+    {
+      "n_candidates": 3,
+      "format_name": "prose",
+      "raw_pick_code": "RTN-488",
+      "norm_pick_code": "DMH-726",
+      "free_out_code": "RTN-488",
+      "constrained_pick_code": "RTN-488",
+      "raw_scores": [
+        -6.796281641183668,
+        -1.5447410791857692,
+        -2.8545755870218272
+      ],
+      "norm_scores": [
+        0.9726284006883361,
+        0.09906179807330773,
+        -0.3582017016296959
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.8389,
+      "gold_code": "RTN-488",
+      "raw_ok": true,
+      "normalized_ok": false,
+      "constrained_ok": true,
+      "free_ok": true,
+      "raw_rank_of_gold": 1,
+      "adj_rank_of_gold": 2
+    },
+    {
+      "n_candidates": 3,
+      "format_name": "prose",
+      "raw_pick_code": "RTN-488",
+      "norm_pick_code": "RTN-488",
+      "free_out_code": "RTN-488",
+      "constrained_pick_code": "RTN-488",
+      "raw_scores": [
+        -8.019840592780383,
+        -1.4675103070367186,
+        -2.584881599274013
+      ],
+      "norm_scores": [
+        -0.8627100267067362,
+        0.21490795629688364,
+        0.046339279992025695
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.6778,
+      "gold_code": "VXW-590",
+      "raw_ok": false,
+      "normalized_ok": false,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 2,
+      "adj_rank_of_gold": 2
+    },
+    {
+      "n_candidates": 4,
+      "format_name": "table",
+      "raw_pick_code": "BQP-288",
+      "norm_pick_code": "BQP-288",
+      "free_out_code": "BQP-284",
+      "constrained_pick_code": "BQP-288",
+      "raw_scores": [
+        -3.27616919576667,
+        -4.882770572203299,
+        -8.62250076719647,
+        -5.271315866938494
+      ],
+      "norm_scores": [
+        1.3973490454015973,
+        -0.810548416156962,
+        -1.8950599327035889,
+        0.6706020308805973
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.6623,
+      "gold_code": "BQP-288",
+      "raw_ok": true,
+      "normalized_ok": true,
+      "constrained_ok": true,
+      "free_ok": false,
+      "raw_rank_of_gold": 1,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 4,
+      "format_name": "table",
+      "raw_pick_code": "VXW-320",
+      "norm_pick_code": "VXW-320",
+      "free_out_code": "VXW-320",
+      "constrained_pick_code": "VXW-320",
+      "raw_scores": [
+        -4.724811531136083,
+        -1.4835647785985202,
+        -8.201845316871186,
+        -6.630232222376662
+      ],
+      "norm_scores": [
+        -0.5341740684242877,
+        3.721725975316076,
+        -1.334185998936543,
+        -1.141286443036961
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.9945,
+      "gold_code": "VXW-320",
+      "raw_ok": true,
+      "normalized_ok": true,
+      "constrained_ok": true,
+      "free_ok": true,
+      "raw_rank_of_gold": 1,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 4,
+      "format_name": "table",
+      "raw_pick_code": "DMH-246",
+      "norm_pick_code": "DMH-246",
+      "free_out_code": "DQP-284",
+      "constrained_pick_code": "DMH-246",
+      "raw_scores": [
+        -5.769728276731257,
+        -3.51504158258831,
+        -1.8077500891940872,
+        -7.009677249499873
+      ],
+      "norm_scores": [
+        -1.9273963958845193,
+        1.0130902366630226,
+        7.1912743046329215,
+        -1.6472131458679087
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.9996,
+      "gold_code": "DMH-246",
+      "raw_ok": true,
+      "normalized_ok": true,
+      "constrained_ok": true,
+      "free_ok": false,
+      "raw_rank_of_gold": 1,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 4,
+      "format_name": "table",
+      "raw_pick_code": "BQP-288",
+      "norm_pick_code": "BQP-244",
+      "free_out_code": "BQP-284",
+      "constrained_pick_code": "BQP-288",
+      "raw_scores": [
+        -3.526014915637461,
+        -7.21806010695218,
+        -10.172727097413372,
+        -4.185844221580737
+      ],
+      "norm_scores": [
+        1.0642214189072092,
+        -3.924267795822137,
+        -3.9620283729927905,
+        2.1178975580242723
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.754,
+      "gold_code": "BQP-244",
+      "raw_ok": false,
+      "normalized_ok": true,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 2,
+      "adj_rank_of_gold": 1
+    },
+    {
+      "n_candidates": 5,
+      "format_name": "list",
+      "raw_pick_code": "BQP-481",
+      "norm_pick_code": "YZK-534",
+      "free_out_code": "BQP-481",
+      "constrained_pick_code": "BQP-481",
+      "raw_scores": [
+        -1.8346818922841521,
+        -7.083642204966964,
+        -12.161092905886107,
+        -10.155369413876542,
+        -15.111369809170355
+      ],
+      "norm_scores": [
+        -0.10568247811374931,
+        0.27197352622988546,
+        0.8478223345127844,
+        -1.0267676339926766,
+        -0.7851017978455275
+      ],
+      "decision": "KEEP_RAW",
+      "p_normalize": 0.4032,
+      "gold_code": "BQP-481",
+      "raw_ok": true,
+      "normalized_ok": false,
+      "constrained_ok": true,
+      "free_ok": true,
+      "raw_rank_of_gold": 1,
+      "adj_rank_of_gold": 3
+    },
+    {
+      "n_candidates": 5,
+      "format_name": "list",
+      "raw_pick_code": "BQP-481",
+      "norm_pick_code": "RTN-724",
+      "free_out_code": "BQP-481",
+      "constrained_pick_code": "BQP-481",
+      "raw_scores": [
+        -2.4052942768548746,
+        -7.871860110411944,
+        -13.201446129205578,
+        -9.328276406835357,
+        -14.644750983490667
+      ],
+      "norm_scores": [
+        -0.8189479588271524,
+        -0.7132988555763404,
+        -0.4526191946365543,
+        0.007098624808804743,
+        -0.20182826574591672
+      ],
+      "decision": "KEEP_RAW",
+      "p_normalize": 0.2949,
+      "gold_code": "RTN-128",
+      "raw_ok": false,
+      "normalized_ok": false,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 2,
+      "adj_rank_of_gold": 4
+    },
+    {
+      "n_candidates": 5,
+      "format_name": "list",
+      "raw_pick_code": "BQP-481",
+      "norm_pick_code": "RTN-724",
+      "free_out_code": "BQP-481",
+      "constrained_pick_code": "BQP-481",
+      "raw_scores": [
+        -2.0289604904573935,
+        -7.671390171792154,
+        -13.575517100620345,
+        -8.725319700944965,
+        -14.893157811591664
+      ],
+      "norm_scores": [
+        -0.348530725830301,
+        -0.46271143230160305,
+        -0.920207908905013,
+        0.760794507171795,
+        -0.5123368008721627
+      ],
+      "decision": "NORMALIZE",
+      "p_normalize": 0.5714,
+      "gold_code": "YZK-534",
+      "raw_ok": false,
+      "normalized_ok": false,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 4,
+      "adj_rank_of_gold": 5
+    },
+    {
+      "n_candidates": 5,
+      "format_name": "list",
+      "raw_pick_code": "BQP-481",
+      "norm_pick_code": "RTN-542",
+      "free_out_code": "BQP-481",
+      "constrained_pick_code": "BQP-481",
+      "raw_scores": [
+        -1.361776483520316,
+        -6.4711932165009785,
+        -12.680149810526927,
+        -8.806178160470154,
+        -13.372513272734068
+      ],
+      "norm_scores": [
+        0.4854492828410457,
+        1.037534761812367,
+        0.19900120371175944,
+        0.6597214327653091,
+        1.388468872699832
+      ],
+      "decision": "KEEP_RAW",
+      "p_normalize": 0.3364,
+      "gold_code": "RTN-724",
+      "raw_ok": false,
+      "normalized_ok": false,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 3,
+      "adj_rank_of_gold": 3
+    },
+    {
+      "n_candidates": 5,
+      "format_name": "list",
+      "raw_pick_code": "BQP-481",
+      "norm_pick_code": "BQP-481",
+      "free_out_code": "BQP-481",
+      "constrained_pick_code": "BQP-481",
+      "raw_scores": [
+        -1.119966405849027,
+        -7.408019426082319,
+        -12.578547921242716,
+        -9.654632851284987,
+        -14.394649977482914
+      ],
+      "norm_scores": [
+        0.787711879930157,
+        -0.1334980001643089,
+        0.32600356531702346,
+        -0.4008469307532323,
+        0.11079799176377492
+      ],
+      "decision": "KEEP_RAW",
+      "p_normalize": 0.3622,
+      "gold_code": "RTN-542",
+      "raw_ok": false,
+      "normalized_ok": false,
+      "constrained_ok": false,
+      "free_ok": false,
+      "raw_rank_of_gold": 5,
+      "adj_rank_of_gold": 3
+    }
+  ],
+  "wall_seconds": 1203.5
+}

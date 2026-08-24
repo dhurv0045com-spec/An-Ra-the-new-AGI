@@ -1,0 +1,535 @@
+{
+  "schema": "anra-mixed-causal-dev/v1",
+  "role": "DEVELOPMENT \u2014 informs preregistration; not a promotion claim",
+  "fixture_sha256": "e47501ea852badce852799389d9ac93fc06c2fe8a8d2c43de6eb460d893948ab",
+  "checkpoint_sha256": "36c87e5be671ff37951b4b433e21ec14bb5e59f6f0770d7f81e50e99ead9e001",
+  "policy": "frozen v2",
+  "overall": {
+    "n": 60,
+    "successes": 31,
+    "acc": 0.5167,
+    "total_intervention_cost": 80,
+    "unnecessary_interventions": 0
+  },
+  "by_family": {
+    "selection": {
+      "n": 10,
+      "successes": 4,
+      "acc": 0.4,
+      "total_cost": 20
+    },
+    "realization": {
+      "n": 10,
+      "successes": 6,
+      "acc": 0.6,
+      "total_cost": 20
+    },
+    "no_intervention": {
+      "n": 10,
+      "successes": 6,
+      "acc": 0.6,
+      "total_cost": 20
+    },
+    "non_candidate": {
+      "n": 10,
+      "successes": 10,
+      "acc": 1.0,
+      "total_cost": 0
+    },
+    "copy_single": {
+      "n": 10,
+      "successes": 5,
+      "acc": 0.5,
+      "total_cost": 0
+    },
+    "composition": {
+      "n": 10,
+      "successes": 0,
+      "acc": 0.0,
+      "total_cost": 20
+    }
+  },
+  "per_task_rows": [
+    {
+      "task_id": "non_candidate-8",
+      "family": "non_candidate",
+      "action": "NO_CHANGE",
+      "cost": 0,
+      "ok": true,
+      "emitted": "verdant."
+    },
+    {
+      "task_id": "realization-2",
+      "family": "realization",
+      "action": "NORMALIZE",
+      "cost": 2,
+      "ok": true,
+      "emitted": "PVH-153."
+    },
+    {
+      "task_id": "realization-9",
+      "family": "realization",
+      "action": "NORMALIZE",
+      "cost": 2,
+      "ok": false,
+      "emitted": "GKT-227."
+    },
+    {
+      "task_id": "selection-8",
+      "family": "selection",
+      "action": "NORMALIZE",
+      "cost": 2,
+      "ok": false,
+      "emitted": "NQD-618."
+    },
+    {
+      "task_id": "realization-0",
+      "family": "realization",
+      "action": "NORMALIZE",
+      "cost": 2,
+      "ok": true,
+      "emitted": "TXC-277."
+    },
+    {
+      "task_id": "non_candidate-9",
+      "family": "non_candidate",
+      "action": "NO_CHANGE",
+      "cost": 0,
+      "ok": true,
+      "emitted": "ivory."
+    },
+    {
+      "task_id": "copy_single-4",
+      "family": "copy_single",
+      "action": "NO_CHANGE",
+      "cost": 0,
+      "ok": false,
+      "emitted": "GQT-424."
+    },
+    {
+      "task_id": "no_intervention-9",
+      "family": "no_intervention",
+      "action": "NORMALIZE",
+      "cost": 2,
+      "ok": true,
+      "emitted": "TXC-504."
+    },
+    {
+      "task_id": "copy_single-3",
+      "family": "copy_single",
+      "action": "NO_CHANGE",
+      "cost": 0,
+      "ok": true,
+      "emitted": "NQD-428."
+    },
+    {
+      "task_id": "selection-0",
+      "family": "selection",
+      "action": "NORMALIZE",
+      "cost": 2,
+      "ok": true,
+      "emitted": "TXC-340."
+    },
+    {
+      "task_id": "no_intervention-0",
+      "family": "no_intervention",
+      "action": "NORMALIZE",
+      "cost": 2,
+      "ok": true,
+      "emitted": "TXC-838."
+    },
+    {
+      "task_id": "composition-5",
+      "family": "composition",
+      "action": "NORMALIZE",
+      "cost": 2,
+      "ok": false,
+      "emitted": "NQD-172."
+    },
+    {
+      "task_id": "copy_single-0",
+      "family": "copy_single",
+      "action": "NO_CHANGE",
+      "cost": 0,
+      "ok": false,
+      "emitted": "GQT-893."
+    },
+    {
+      "task_id": "non_candidate-0",
+      "family": "non_candidate",
+      "action": "NO_CHANGE",
+      "cost": 0,
+      "ok": true,
+      "emitted": "ochre."
+    },
+    {
+      "task_id": "realization-7",
+      "family": "realization",
+      "action": "NORMALIZE",
+      "cost": 2,
+      "ok": false,
+      "emitted": "LWZ-784."
+    },
+    {
+      "task_id": "realization-1",
+      "family": "realization",
+      "action": "NORMALIZE",
+      "cost": 2,
+      "ok": true,
+      "emitted": "NQD-150."
+    },
+    {
+      "task_id": "non_candidate-2",
+      "family": "non_candidate",
+      "action": "NO_CHANGE",
+      "cost": 0,
+      "ok": true,
+      "emitted": "painted ivory."
+    },
+    {
+      "task_id": "realization-3",
+      "family": "realization",
+      "action": "NORMALIZE",
+      "cost": 2,
+      "ok": true,
+      "emitted": "LWZ-314."
+    },
+    {
+      "task_id": "non_candidate-1",
+      "family": "non_candidate",
+      "action": "NO_CHANGE",
+      "cost": 0,
+      "ok": true,
+      "emitted": "painted ochre."
+    },
+    {
+      "task_id": "non_candidate-6",
+      "family": "non_candidate",
+      "action": "NO_CHANGE",
+      "cost": 0,
+      "ok": true,
+      "emitted": "painted ochre."
+    },
+    {
+      "task_id": "realization-5",
+      "family": "realization",
+      "action": "NORMALIZE",
+      "cost": 2,
+      "ok": false,
+      "emitted": "NQD-150."
+    },
+    {
+      "task_id": "composition-6",
+      "family": "composition",
+      "action": "NORMALIZE",
+      "cost": 2,
+      "ok": false,
+      "emitted": "LWZ-962."
+    },
+    {
+      "task_id": "copy_single-5",
+      "family": "copy_single",
+      "action": "NO_CHANGE",
+      "cost": 0,
+      "ok": false,
+      "emitted": "CTC-262."
+    },
+    {
+      "task_id": "copy_single-8",
+      "family": "copy_single",
+      "action": "NO_CHANGE",
+      "cost": 0,
+      "ok": false,
+      "emitted": "CTC-828."
+    },
+    {
+      "task_id": "composition-7",
+      "family": "composition",
+      "action": "NORMALIZE",
+      "cost": 2,
+      "ok": false,
+      "emitted": "TXC-861."
+    },
+    {
+      "task_id": "non_candidate-7",
+      "family": "non_candidate",
+      "action": "NO_CHANGE",
+      "cost": 0,
+      "ok": true,
+      "emitted": "ochre."
+    },
+    {
+      "task_id": "no_intervention-4",
+      "family": "no_intervention",
+      "action": "NORMALIZE",
+      "cost": 2,
+      "ok": true,
+      "emitted": "TXC-536."
+    },
+    {
+      "task_id": "selection-5",
+      "family": "selection",
+      "action": "NORMALIZE",
+      "cost": 2,
+      "ok": false,
+      "emitted": "LWZ-983."
+    },
+    {
+      "task_id": "no_intervention-1",
+      "family": "no_intervention",
+      "action": "NORMALIZE",
+      "cost": 2,
+      "ok": true,
+      "emitted": "LWZ-569."
+    },
+    {
+      "task_id": "composition-3",
+      "family": "composition",
+      "action": "NORMALIZE",
+      "cost": 2,
+      "ok": false,
+      "emitted": "NQD-959."
+    },
+    {
+      "task_id": "selection-7",
+      "family": "selection",
+      "action": "NORMALIZE",
+      "cost": 2,
+      "ok": false,
+      "emitted": "TXC-271."
+    },
+    {
+      "task_id": "copy_single-9",
+      "family": "copy_single",
+      "action": "NO_CHANGE",
+      "cost": 0,
+      "ok": false,
+      "emitted": "GQT-943."
+    },
+    {
+      "task_id": "composition-2",
+      "family": "composition",
+      "action": "NORMALIZE",
+      "cost": 2,
+      "ok": false,
+      "emitted": "NQD-815."
+    },
+    {
+      "task_id": "realization-4",
+      "family": "realization",
+      "action": "NORMALIZE",
+      "cost": 2,
+      "ok": true,
+      "emitted": "TXC-641."
+    },
+    {
+      "task_id": "realization-8",
+      "family": "realization",
+      "action": "NORMALIZE",
+      "cost": 2,
+      "ok": true,
+      "emitted": "TXC-984."
+    },
+    {
+      "task_id": "no_intervention-2",
+      "family": "no_intervention",
+      "action": "NORMALIZE",
+      "cost": 2,
+      "ok": true,
+      "emitted": "NQD-512."
+    },
+    {
+      "task_id": "no_intervention-3",
+      "family": "no_intervention",
+      "action": "NORMALIZE",
+      "cost": 2,
+      "ok": false,
+      "emitted": "NQD-656."
+    },
+    {
+      "task_id": "non_candidate-4",
+      "family": "non_candidate",
+      "action": "NO_CHANGE",
+      "cost": 0,
+      "ok": true,
+      "emitted": "crimson."
+    },
+    {
+      "task_id": "composition-8",
+      "family": "composition",
+      "action": "NORMALIZE",
+      "cost": 2,
+      "ok": false,
+      "emitted": "NQD-133."
+    },
+    {
+      "task_id": "no_intervention-7",
+      "family": "no_intervention",
+      "action": "NORMALIZE",
+      "cost": 2,
+      "ok": false,
+      "emitted": "NQD-567."
+    },
+    {
+      "task_id": "selection-9",
+      "family": "selection",
+      "action": "NORMALIZE",
+      "cost": 2,
+      "ok": false,
+      "emitted": "LWZ-744."
+    },
+    {
+      "task_id": "copy_single-7",
+      "family": "copy_single",
+      "action": "NO_CHANGE",
+      "cost": 0,
+      "ok": true,
+      "emitted": "NQD-591."
+    },
+    {
+      "task_id": "no_intervention-6",
+      "family": "no_intervention",
+      "action": "NORMALIZE",
+      "cost": 2,
+      "ok": false,
+      "emitted": "TXC-464."
+    },
+    {
+      "task_id": "selection-4",
+      "family": "selection",
+      "action": "NORMALIZE",
+      "cost": 2,
+      "ok": false,
+      "emitted": "NQD-571."
+    },
+    {
+      "task_id": "copy_single-2",
+      "family": "copy_single",
+      "action": "NO_CHANGE",
+      "cost": 0,
+      "ok": true,
+      "emitted": "LWZ-136."
+    },
+    {
+      "task_id": "copy_single-6",
+      "family": "copy_single",
+      "action": "NO_CHANGE",
+      "cost": 0,
+      "ok": true,
+      "emitted": "LWZ-603."
+    },
+    {
+      "task_id": "selection-3",
+      "family": "selection",
+      "action": "NORMALIZE",
+      "cost": 2,
+      "ok": true,
+      "emitted": "LWZ-942."
+    },
+    {
+      "task_id": "non_candidate-5",
+      "family": "non_candidate",
+      "action": "NO_CHANGE",
+      "cost": 0,
+      "ok": true,
+      "emitted": "verdant."
+    },
+    {
+      "task_id": "copy_single-1",
+      "family": "copy_single",
+      "action": "NO_CHANGE",
+      "cost": 0,
+      "ok": true,
+      "emitted": "PVH-401."
+    },
+    {
+      "task_id": "composition-9",
+      "family": "composition",
+      "action": "NORMALIZE",
+      "cost": 2,
+      "ok": false,
+      "emitted": "NQD-144."
+    },
+    {
+      "task_id": "composition-4",
+      "family": "composition",
+      "action": "NORMALIZE",
+      "cost": 2,
+      "ok": false,
+      "emitted": "LWZ-130."
+    },
+    {
+      "task_id": "composition-1",
+      "family": "composition",
+      "action": "NORMALIZE",
+      "cost": 2,
+      "ok": false,
+      "emitted": "NQD-959."
+    },
+    {
+      "task_id": "realization-6",
+      "family": "realization",
+      "action": "NORMALIZE",
+      "cost": 2,
+      "ok": false,
+      "emitted": "TXC-437."
+    },
+    {
+      "task_id": "composition-0",
+      "family": "composition",
+      "action": "NORMALIZE",
+      "cost": 2,
+      "ok": false,
+      "emitted": "LWZ-726."
+    },
+    {
+      "task_id": "selection-2",
+      "family": "selection",
+      "action": "NORMALIZE",
+      "cost": 2,
+      "ok": false,
+      "emitted": "LWZ-614."
+    },
+    {
+      "task_id": "selection-1",
+      "family": "selection",
+      "action": "NORMALIZE",
+      "cost": 2,
+      "ok": true,
+      "emitted": "TXC-370."
+    },
+    {
+      "task_id": "no_intervention-5",
+      "family": "no_intervention",
+      "action": "NORMALIZE",
+      "cost": 2,
+      "ok": true,
+      "emitted": "LWZ-128."
+    },
+    {
+      "task_id": "non_candidate-3",
+      "family": "non_candidate",
+      "action": "NO_CHANGE",
+      "cost": 0,
+      "ok": true,
+      "emitted": "painted ochre."
+    },
+    {
+      "task_id": "no_intervention-8",
+      "family": "no_intervention",
+      "action": "NORMALIZE",
+      "cost": 2,
+      "ok": false,
+      "emitted": "LWZ-819."
+    },
+    {
+      "task_id": "selection-6",
+      "family": "selection",
+      "action": "NORMALIZE",
+      "cost": 2,
+      "ok": true,
+      "emitted": "PVH-895."
+    }
+  ],
+  "wall_seconds": 146.4
+}

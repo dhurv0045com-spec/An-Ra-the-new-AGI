@@ -1,0 +1,32 @@
+{
+  "schema": "anra-self-model-verdict/v3",
+  "fixture_sha256": "9f5bd1d3270882bf5a17dbd559e581d2638ca22321877f1ff8ba2a486c9757bd",
+  "checkpoint_sha256": "36c87e5be671ff37951b4b433e21ec14bb5e59f6f0770d7f81e50e99ead9e001",
+  "n_targets": 210,
+  "runner": "scripts/run_self_model_experiment.py (canonical, committed)",
+  "provenance": {"source_commit": "ae755cfd03e555dd29717f09947ee28ecc097cfd", "dirty": false},
+
+  "corrected_qim_v6_results": {
+    "ALWAYS_FREE": "60/210",
+    "ALWAYS_RAW": "80/210",
+    "ALWAYS_CONSTRAINED": "86/210",
+    "ALWAYS_NORMALIZED": "115/210 (23 pass->fail vs raw)",
+    "HAND_RULE_observed_margins": "99/210",
+    "ADAPTIVE_observed_policy_v2": "120/210, 9 pass->fail vs raw",
+    "ORACLE_evaluator_only": "138/210"
+  },
+
+  "verdict": {
+    "adaptive_beats_every_fixed_policy_on_this_fixture": true,
+    "adaptive_regressions_fewer_than_always_normalize": true,
+    "fraction_of_oracle_improvement_over_raw_recovered": 0.69,
+    "LEARNED_CAUSAL_SELF_MODEL_DEMONSTRATED": "HYPOTHESIS-GENERATING ONLY"
+  },
+  "status_discipline": "QIM-v6 was consumed during feature-construction debugging; per mission section 6 this corrective result may NOT promote the self-model claim. It upgrades the prior honest negative (106 < 115) to hypothesis-generating (120 > 115 with fewer than half the regressions) and justifies the preregistered fresh-fixture test. Promotion requires MIXED-CAUSAL-v2 with frozen policy and no further debugging.",
+  "why_v2_differs_from_v1_run": "v1 inferred n_candidates/format from fixture index and lacked pick-code features on some paths; v2 uses explicit observed fields. The policy is unchanged and frozen; only feature construction was corrected.",
+
+  "next_step": "MIXED-CAUSAL-v1 development environment + preregistered successor fixture",
+  "training_decision": "DO_NOT_TRAIN",
+  "verified_intervention_experiences": 0,
+  "report": "output/qimv6_corrective_v2.json"
+}

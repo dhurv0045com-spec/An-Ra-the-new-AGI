@@ -1,0 +1,28 @@
+{
+  "schema": "anra-mixed-causal-calibration/v1",
+  "fixture_sha256": "e47501ea852badce852799389d9ac93fc06c2fe8a8d2c43de6eb460d893948ab",
+  "role": "DEVELOPMENT CALIBRATION \u2014 no promotion claims",
+  "adaptive_v2_result": {
+    "successes": 31,
+    "n": 60,
+    "acc": 0.517,
+    "total_cost": 80,
+    "unnecessary": 0
+  },
+  "family_findings": {
+    "selection": "normalization chosen everywhere; 4/10 \u2014 policy over-applies",
+    "realization": "6/10 under normalize; constrained untested by this policy",
+    "no_intervention": "policy still normalizes (cost 20) \u2014 6/10 held",
+    "non_candidate": "10/10 at zero cost \u2014 NO_CHANGE correctly forced",
+    "copy_single": "5/10 \u2014 REAL model weakness: K/Q letter confusion on repetition",
+    "composition": "0/10 \u2014 structural trap: single-pick actions cannot emit two codes"
+  },
+  "key_insight": "The environment succeeds at its purpose: the v2 policy (tuned on pure-selection QIM data) misallocates interventions badly here. A learned gate has genuine room to beat constants \u2014 but only after training on mixed-family outcome data, which is exactly what this calibration run now provides as historical InterventionOutcome records.",
+  "next_preregistration_requirements": [
+    "train policy v3 on mixed-family outcomes from THIS dev fixture",
+    "freeze v3 weights + threshold BEFORE the successor fixture is generated",
+    "generate MIXED-CAUSAL-v2 fresh seed/vocab",
+    "preregister PRIMARY: adaptive beats every constant on net verifier gain minus 0.25*unnecessary",
+    "report stratified per-family results + abstention + cost"
+  ]
+}
