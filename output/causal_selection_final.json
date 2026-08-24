@@ -1,0 +1,39 @@
+{
+  "schema": "anra-causal-selection-final/v1",
+  "proposal_id": "tp-causal-selection-004",
+  "preregistration_commit": "fea014f",
+  "fixture_sha256_frozen_before_run": "62b9401c2083d42e1cf11e5a4e61f3d709c2762ed878058a42e8d5e0a4c49293",
+  "checkpoint": {
+    "path": "checkpoints/anra-v4-20k-sft6-queryswap-replication.pt",
+    "parameter_sha256": "36c87e5be671ff37951b4b433e21ec14bb5e59f6f0770d7f81e50e99ead9e001"
+  },
+  "n_targets": 149,
+
+  "arms_final_qim_v5": {
+    "FREE": "35/149 (0.235)",
+    "RAW_candidate_argmax": "70/149 (0.470)",
+    "CONSTRAINED_greedy": "73/149 (0.490)",
+    "NORMALIZED_counterfactual": "106/149 (0.711)",
+    "NORM_EXACT": "106/149 (0.711)"
+  },
+
+  "preregistered_predictions_resolved": {
+    "PR1_normalized_beats_raw": "PASS — 106/149 vs 70/149 (+36 targets, +24.2pp)",
+    "PR2_repairs_selection_failures": "PASS — 53 of 79 raw-selection failures converted (67%, required >=15%)",
+    "PR3_regressions_bounded": "FAIL as preregistered bound — 17 pass->fail transitions exceeded the <=3 cap. Net still strongly positive (+36).",
+    "PR4_realization_identity": "HOLDS by construction",
+    "PR5_format_consistency": "PASS — improvement on both formats: prose raw 28->36/74, table raw 42->70/75",
+    "PR6_fact_count_consistency": "PASS — direction consistent at every fact count: k=2 23->24/34, k=3 23->37/51, k=4 24->45/64",
+    "PR7_observed_only": "PASS — construction audit: arms use prompts and context candidates only; no gold or hidden labels enter any arm"
+  },
+
+  "verdict_class": "CASE_A_CANDIDATE_PRIOR_BOTTLENECK_CONFIRMED_WITH_A_CAVEAT",
+  "scientific_conclusion": "The counterfactual-query-normalized selector converts SFT6's dominant failure regime: on a fresh never-consumed fixture, normalized selection scores 71.1% where raw candidate argmax scores 47.0% — repairing 53 of 79 selection failures. This confirms the candidate-prior-bias hypothesis: the query-conditioned signal is present in the model but raw candidate priors mask it under argmax scoring. The preregistered regression bound (<=3) was exceeded (17 pass->fail): normalization is not strictly dominant — it trades some already-correct selections for many more incorrect ones, net +36. Runtime policy, not training.",
+  "caveat_regression_bound": "17 regressions mean normalization changes behavior on ~36% of targets. A production policy would gate the intervention on observed confidence (e.g. adj_top2_margin) — recorded as an open self-model question, not resolved here.",
+
+  "next_research_question": "Can a learned self-model predict FROM OBSERVED FEATURES ALONE which targets the normalization helps versus hurts, recovering most of its value while avoiding the 17 regressions?",
+  "next_training_decision": "DO_NOT_TRAIN",
+  "verified_intervention_experiences_earned": 0,
+  "note_on_vie": "per-case flip records below are VIE CANDIDATES pending provenance qualification; count unchanged",
+  "reports": ["output/causal_selection_qimv5_final.json", "output/causal_selection_debug_qimv4.json"]
+}

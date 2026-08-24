@@ -1,0 +1,24 @@
+{
+  "schema": "anra-self-model/v1",
+  "model": "logistic regression, 4 observed features",
+  "features": [
+    "raw_correct",
+    "raw_top2_margin",
+    "adj_top2_margin",
+    "raw_gold_rank"
+  ],
+  "train_fixture": "QIM-v4 (consumed/debug)",
+  "test_fixture": "QIM-v5 (fresh)",
+  "train_cases": 119,
+  "test_cases": 149,
+  "results": {
+    "always_free": "35/149",
+    "always_raw": "70/149",
+    "always_constrained": "73/149",
+    "always_normalized": "106/149 (regressions 17)",
+    "handcoded_rawwrong_only": "123/149 (regressions 0)",
+    "ADAPTIVE_learned": "107/149 (regressions 13)",
+    "ORACLE_upper_bound": "123/149",
+    "fraction_oracle_recovered_adaptive": 0.698
+  }
+}

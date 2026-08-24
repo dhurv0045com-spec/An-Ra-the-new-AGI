@@ -1,0 +1,105 @@
+group 0: done
+group 1: done
+group 2: done
+group 3: done
+group 4: done
+group 5: done
+group 6: done
+group 7: done
+group 8: done
+group 9: done
+group 10: done
+group 11: done
+group 12: done
+group 13: done
+group 14: done
+group 15: done
+group 16: done
+group 17: done
+group 18: done
+group 19: done
+group 20: done
+group 21: done
+group 22: done
+group 23: done
+group 24: done
+group 25: done
+group 26: done
+group 27: done
+group 28: done
+group 29: done
+group 30: done
+group 31: done
+group 32: done
+group 33: done
+group 34: done
+group 35: done
+group 36: done
+group 37: done
+group 38: done
+group 39: done
+group 40: done
+group 41: done
+group 42: done
+group 43: done
+group 44: done
+group 45: done
+group 46: done
+group 47: done
+group 48: done
+group 49: done
+{
+  "FREE": {
+    "n": "35/149",
+    "rate": 0.2349
+  },
+  "RAW": {
+    "n": "70/149",
+    "rate": 0.4698
+  },
+  "CONSTRAINED": {
+    "n": "73/149",
+    "rate": 0.4899
+  },
+  "NORMALIZED": {
+    "n": "106/149",
+    "rate": 0.7114
+  },
+  "NORM_EXACT": {
+    "n": "106/149",
+    "rate": 0.7114
+  }
+}
+{
+  "arms": {
+    "FREE": {
+      "n": "35/149",
+      "rate": 0.2349
+    },
+    "RAW": {
+      "n": "70/149",
+      "rate": 0.4698
+    },
+    "CONSTRAINED": {
+      "n": "73/149",
+      "rate": 0.4899
+    },
+    "NORMALIZED": {
+      "n": "106/149",
+      "rate": 0.7114
+    },
+    "NORM_EXACT": {
+      "n": "106/149",
+      "rate": 0.7114
+    }
+  },
+  "resolutions": {
+    "PR1_normalized_beats_raw": "PASS (106/149 vs 70/149)",
+    "PR2_repairs_selection_failures": "PASS (53 of 79 raw failures converted; required >=15%)",
+    "PR3_regressions_bounded": "FAIL (17 pass->fail)",
+    "PR4_realization_gap_quantified": "IDENTITY holds by construction (NORM_EXACT emits exactly the NORMALIZED selection)",
+    "PR5_format_consistency": "{\"prose\": {\"raw\": 28, \"norm\": 36, \"n\": 74}, \"table\": {\"raw\": 42, \"norm\": 70, \"n\": 75}}",
+    "PR6_fact_count_consistency": "computed in analysis",
+    "PR7_observed_only": "PASS (construction audit: arms use prompts/candidates only)"
+  }
+}

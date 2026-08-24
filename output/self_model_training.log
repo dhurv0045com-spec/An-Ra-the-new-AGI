@@ -1,0 +1,12 @@
+trained on 119 cases; final train loss 0.2718
+weights: [-0.9998519420623779, 0.18283316493034363, 2.901522636413574, -0.3360609710216522] bias: 0.47254008054733276
+{
+  "always_free": "35/149",
+  "always_raw": "70/149",
+  "always_constrained": "73/149",
+  "always_normalized": "106/149 (regressions 17)",
+  "handcoded_rawwrong_only": "123/149 (regressions 0)",
+  "ADAPTIVE_learned": "107/149 (regressions 13)",
+  "ORACLE_upper_bound": "123/149",
+  "fraction_oracle_recovered_adaptive": 0.698
+}

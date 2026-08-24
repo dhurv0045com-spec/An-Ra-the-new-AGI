@@ -1,0 +1,20 @@
+{
+  "proposal_id": "tp-causal-selection-004",
+  "status": "PREREGISTERED (fixture + arms frozen at commit fea014f; debug completed on consumed QIM-v4)",
+  "timestamp": "2026-08-24 05:10:00",
+  "debug_run_summary_on_consumed_qim_v4": {
+    "note": "implementation debug only — no capability claim from this fixture",
+    "harness_bugs_found_and_fixed_pre_final_evaluation": [
+      "_constr_ok strip comparison compared stripped output against ' CODE.' with a leading space — always false; fixed to compare against 'CODE.'",
+      "CONSTRAINED_out was not recorded in per-item rows; added"
+    ],
+    "corrected_debug_numbers_qim_v4_sft6": {
+      "FREE": "57/119",
+      "RAW": "66/119",
+      "CONSTRAINED": "69/119 (recomputed)",
+      "NORMALIZED": "99/119",
+      "NORM_EXACT": "99/119"
+    },
+    "early_signal_strong_but_not_a_claim": "on consumed QIM-v4 the normalized selector reaches 99/119 vs raw 66/119 — the candidate-prior hypothesis looks strongly supported on development data. The claim rests on the preregistered QIM-v5 run."
+  }
+}

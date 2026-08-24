@@ -149,6 +149,7 @@ def run_arms(module, model, tok, code_re, checkpoint_sha: str,
                 "FREE_ok": ok_free(), "FREE_out": out_free.strip()[:24],
                 "RAW_ok": recs[arm_raw_pick]["code"] == gold,
                 "CONSTRAINED_ok": _constr_ok(out_constr, gold),
+                "CONSTRAINED_out": out_constr.strip(),
                 "NORMALIZED_ok": recs[arm_norm_pick]["code"] == gold,
                 "NORM_EXACT_ok": recs[arm_norm_pick]["code"] == gold,
                 "NORM_EXACT_out": out_exact.strip(),
@@ -191,4 +192,4 @@ def run_arms(module, model, tok, code_re, checkpoint_sha: str,
 
 
 def _constr_ok(out_constr: str, gold: str) -> bool:
-    return out_constr.strip() == f" {gold}."
+    return out_constr.strip() == f"{gold}."
