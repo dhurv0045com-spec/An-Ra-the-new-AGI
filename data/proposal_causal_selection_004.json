@@ -1,0 +1,55 @@
+{
+  "proposal_id": "tp-causal-selection-004",
+  "status": "PREREGISTERED",
+  "timestamp": "2026-08-24 05:10:00",
+  "support_type": "RUNTIME_CAUSAL_INTERVENTION",
+  "role": "OBSERVED-ONLY runtime experiment. No training. No weight changes. Tests whether SFT6's residual selection failures are caused by candidate-specific priors removable by counterfactual query normalization.",
+  "hypothesis": "SFT6's residual selection failures are partly caused by candidate-specific prior bias. Subtracting each candidate's counterfactual-query baseline will increase corresponding-value selection without changing model weights.",
+  "parent_model": {
+    "checkpoint": "checkpoints/anra-v4-20k-sft6-queryswap-replication.pt",
+    "parameter_sha256": "36c87e5be671ff37951b4b433e21ec14bb5e59f6f0770d7f81e50e99ead9e001",
+    "note": "SFT6 stays the causal reference (strongest established query-conditioned signal + existing decomposition). SFT7 may be a secondary comparison later."
+  },
+  "arms": [
+    "FREE: free greedy decode",
+    "RAW: full-sequence candidate argmax under the ACTUAL query",
+    "CONSTRAINED: greedy restricted to candidate-code continuations",
+    "NORMALIZED: argmax of ADJ_i = logP(v_i|actual_query) - mean_{j!=i} logP(v_i|q_j) over counterfactual queries q_j",
+    "NORM_EXACT: NORMALIZED selection + emit the selected observed candidate exactly"
+  ],
+  "observed_only_contract": [
+    "candidate set extracted exclusively from supplied context",
+    "gold answer never enters arm construction",
+    "hidden labels never enter intervention selection",
+    "model weights unchanged",
+    "prompts byte-identical across arms where applicable",
+    "fixture unchanged",
+    "verifier alone decides pass/fail"
+  ],
+  "fixture": {
+    "module": "connector/experiments/query_influence_v5.py",
+    "fixture_sha256_frozen": "62b9401c2083d42e1cf11e5a4e61f3d709c2762ed878058a42e8d5e0a4c49293",
+    "n_groups": 50,
+    "fact_counts": {"2": 17, "3": 17, "4": 16},
+    "formats": ["prose", "table"],
+    "vocab_disjointness_verified_at_build": true,
+    "debug_allowed_on": ["QIM-v3", "QIM-v4"],
+    "final_evaluation_fixture": "QIM-v5 ONLY"
+  },
+  "pre_registered_predictions": {
+    "PR1_normalized_beats_raw": "NORMALIZED selection accuracy > RAW candidate argmax accuracy on QIM-v5 (paired, per-target)",
+    "PR2_repairs_selection_failures": "NORMALIZED converts >= 15% of targets where RAW picked a wrong candidate into correct selections",
+    "PR3_regressions_bounded": "pass->fail transitions under NORMALIZED vs RAW <= 3 targets",
+    "PR4_realization_gap_quantified": "NORM_EXACT minus NORMALIZED equals exactly the count of normalized-correct-but-free-realization-failure items (identity must hold)",
+    "PR5_format_consistency": "improvement appears on both prose and table formats (same direction)",
+    "PR6_fact_count_consistency": "effect direction consistent across k=2/3/4 fact counts",
+    "PR7_observed_only": "arm construction uses no gold and no hidden labels; verified by construction audit in the runner"
+  },
+  "falsification": "If NORMALIZED does not beat RAW on QIM-v5, the candidate-prior-bias hypothesis for SFT6's residual selection failures is WEAKENED/REJECTED; do not modify the rule post hoc.",
+  "decision_tree": {
+    "CASE_A_normalization_works": "candidate-prior/calibration bottleneck confirmed => promote runtime intervention experimentally; DO NOT TRAIN",
+    "CASE_B_normalization_fails": "selection computation still missing => self-model learns when constrained decode applies; investigate selection without training",
+    "note": "training remains a last resort requiring runtime-intervention failure on a coherent residual + specific missing-computation hypothesis"
+  },
+  "verified_intervention_experiences_note": "any VIE candidates produced require provenance-complete records (commit, dirty flag, checkpoint SHA, tokenizer identity, device/dtype/decode config) before qualification; count stays 0 until formally judged"
+}
