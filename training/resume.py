@@ -105,7 +105,10 @@ def canonical_parameter_sha256(state: dict[str, "torch.Tensor"]) -> str:
             tensor = tensor.contiguous()
         header = f"{name}\0{tuple(tensor.shape)}\0{tensor.dtype}\0".encode()
         hasher.update(header)
-        raw = tensor.view(torch.uint8).reshape(-1)
+        if tensor.dim() == 0:
+            raw = tensor.reshape(1).view(torch.uint8)
+        else:
+            raw = tensor.view(torch.uint8).reshape(-1)
         for start in range(0, raw.numel(), 4 * 1024 * 1024):
             hasher.update(raw[start : start + 4 * 1024 * 1024].numpy().tobytes())
         hasher.update(b"\0")

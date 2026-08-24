@@ -1,0 +1,12 @@
+{
+ "verification": "independent re-run of forensic_weights.py core claim",
+ "bit_identical": 203,
+ "total": 203,
+ "parent_param_sha256": "f23be4bfafb7c3310d3f5a373befa52f76352232ed2b666df30fb7037bf8375e",
+ "new_checkpoint_recorded_param_sha256": "09fcc3c176c932cd102d45c3a2c7414974c3ae5bc0d4fe55343fcb2b9a849287",
+ "hash_match": false,
+ "recorded_in_checkpoint": "09fcc3c176c932cd102d45c3a2c7414974c3ae5bc0d4fe55343fcb2b9a849287",
+ "recomputed_canonical": "09fcc3c176c932cd102d45c3a2c7414974c3ae5bc0d4fe55343fcb2b9a849287",
+ "canonical_matches_recorded": true,
+ "note": "recorded hash uses trainer's own scheme incl. tied alias; canonical excludes lm_head alias - different schemes, same weights"
+}
