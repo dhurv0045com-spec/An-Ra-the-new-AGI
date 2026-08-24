@@ -170,6 +170,8 @@ effect: greedy +5/119 on both fixtures — decode-commitment tightening.
 converts selection failures — RAW 70/149 -> NORMALIZED 106/149; reproduced
 exactly from clean commit. NORMALIZATION MECHANISM: SUPPORTED.]
 
+[2026-08-24 update: MIXED-CAUSAL-v2 promotion — adaptive v3 policy 34/60 vs best constant 31/60, zero regressions, lower cost. First evidence of learned multi-repair selection from observable state.
+
 **Dominant open question:** can An-Ra predict, from observable state alone,
 when counterfactual normalization will repair rather than regress a
 failure? First observed-only policy (QIM-v6 transfer): adaptive 106/210

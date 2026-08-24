@@ -1,0 +1,3361 @@
+{
+  "schema": "anra-mixed-causal-v2-promotion/v1",
+  "fixture_sha256": "ed3b1ca2996f6dd4d3977b935d40a0ab33459c2a33c80c2584bf6539a58b008e",
+  "checkpoint_sha256": "36c87e5be671ff37951b4b433e21ec14bb5e59f6f0770d7f81e50e99ead9e001",
+  "policy_frozen_at_commit": "3123625",
+  "n_tasks": 60,
+  "baselines": {
+    "ALWAYS_NO_CHANGE": "23/60 (reg 0, cost 0)",
+    "ALWAYS_CONSTRAINED_WHEN_APPLICABLE": "31/60 (reg 0, cost 40)",
+    "ALWAYS_NORMALIZED_WHEN_APPLICABLE": "30/60 (reg 3, cost 60)",
+    "HAND_RULE_observed_margins": "23/60 (reg 0, cost 0)",
+    "RANDOM_APPLICABLE": "19/60 (reg 7, cost 24)",
+    "ADAPTIVE_v3": "34/60 (reg 0, cost 30)",
+    "ORACLE_evaluator_only": "38/60"
+  },
+  "adaptive_successes": 34,
+  "adaptive_regressions": 0,
+  "adaptive_cost": 30,
+  "per_task_rows": [
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED",
+          "NORM_EXACT",
+          "ABSTAIN"
+        ]
+      },
+      "features": [
+        3.0,
+        1.0,
+        0,
+        0.1802299914379546,
+        0.550006144897452,
+        3.5522153523504065,
+        0.5272436307758528,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        1.0
+      ],
+      "adaptive_action": "NORMALIZED",
+      "adaptive_utilities": {
+        "NO_CHANGE": 0.001,
+        "CONSTRAINED": -0.0075,
+        "NORMALIZED": 0.4639,
+        "NORM_EXACT": 0.2139,
+        "ABSTAIN": 0.0
+      },
+      "actions": {
+        "NO_CHANGE": {
+          "output": "QXL-430.",
+          "pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "QXL-403",
+          "pass": false,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "QXL-484.",
+          "pass": true,
+          "cost": 2
+        },
+        "NORM_EXACT": {
+          "output": "QXL-484.",
+          "pass": true,
+          "cost": 3
+        },
+        "ABSTAIN": {
+          "output": "",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "QXL-484",
+      "family_analysis": "selection"
+    },
+    {
+      "observed": {
+        "n_candidates": 0,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "ABSTAIN"
+        ]
+      },
+      "features": [
+        0.0,
+        1.0,
+        0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "adaptive_utilities": {
+        "NO_CHANGE": 0.8902,
+        "ABSTAIN": 0.0
+      },
+      "actions": {
+        "NO_CHANGE": {
+          "output": "painted sage.",
+          "pass": true,
+          "cost": 0
+        },
+        "ABSTAIN": {
+          "output": "",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "sage",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED",
+          "NORM_EXACT",
+          "ABSTAIN"
+        ]
+      },
+      "features": [
+        3.0,
+        1.0,
+        0,
+        2.1459058183936577,
+        0.06820617382527416,
+        1.9419228911477553,
+        0.040916840099728374,
+        0.0,
+        1.0,
+        0.0,
+        1.0,
+        1.0
+      ],
+      "adaptive_action": "CONSTRAINED",
+      "adaptive_utilities": {
+        "NO_CHANGE": 0.078,
+        "CONSTRAINED": 0.6362,
+        "NORMALIZED": 0.1617,
+        "NORM_EXACT": -0.0883,
+        "ABSTAIN": 0.0
+      },
+      "actions": {
+        "NO_CHANGE": {
+          "output": "JRC-694.",
+          "pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "JRC-694",
+          "pass": false,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "JRC-304.",
+          "pass": true,
+          "cost": 2
+        },
+        "NORM_EXACT": {
+          "output": "JRC-304.",
+          "pass": true,
+          "cost": 3
+        },
+        "ABSTAIN": {
+          "output": "",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "JRC-304",
+      "family_analysis": "realization"
+    },
+    {
+      "observed": {
+        "n_candidates": 2,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED",
+          "NORM_EXACT",
+          "ABSTAIN"
+        ]
+      },
+      "features": [
+        2.0,
+        1.0,
+        0,
+        5.641684524758148,
+        3.0742220614897633,
+        2.820842262379074,
+        1.5371110307448816,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "adaptive_utilities": {
+        "NO_CHANGE": 0.9999,
+        "CONSTRAINED": 0.75,
+        "NORMALIZED": 0.4993,
+        "NORM_EXACT": 0.2493,
+        "ABSTAIN": 0.0
+      },
+      "actions": {
+        "NO_CHANGE": {
+          "output": "TFB-152.",
+          "pass": true,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "TFB-152",
+          "pass": true,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "TFB-152.",
+          "pass": true,
+          "cost": 2
+        },
+        "NORM_EXACT": {
+          "output": "TFB-152.",
+          "pass": true,
+          "cost": 3
+        },
+        "ABSTAIN": {
+          "output": "",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "TFB-152",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "observed": {
+        "n_candidates": 1,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "ABSTAIN"
+        ]
+      },
+      "features": [
+        1.0,
+        1.0,
+        0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "CONSTRAINED",
+      "adaptive_utilities": {
+        "NO_CHANGE": 0.2048,
+        "CONSTRAINED": 0.7378,
+        "ABSTAIN": 0.0
+      },
+      "actions": {
+        "NO_CHANGE": {
+          "output": "QXL-786.",
+          "pass": true,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "QXL-786",
+          "pass": true,
+          "cost": 1
+        },
+        "ABSTAIN": {
+          "output": "",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "QXL-786",
+      "family_analysis": "copy_single"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 2,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "ABSTAIN"
+        ]
+      },
+      "features": [
+        3.0,
+        2.0,
+        0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "adaptive_utilities": {
+        "NO_CHANGE": 0.0004,
+        "ABSTAIN": 0.0
+      },
+      "actions": {
+        "NO_CHANGE": {
+          "output": "QXL-887.",
+          "pass": false,
+          "cost": 0
+        },
+        "ABSTAIN": {
+          "output": "",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "QXL-877 QXL-772",
+      "family_analysis": "composition"
+    },
+    {
+      "observed": {
+        "n_candidates": 2,
+        "output_arity": 1,
+        "format_name": "table",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED",
+          "NORM_EXACT",
+          "ABSTAIN"
+        ]
+      },
+      "features": [
+        2.0,
+        1.0,
+        1,
+        5.10263421018135,
+        9.701118451581351,
+        2.551317105090675,
+        4.8505592257906756,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "adaptive_utilities": {
+        "NO_CHANGE": 0.9999,
+        "CONSTRAINED": 0.7498,
+        "NORMALIZED": 0.5,
+        "NORM_EXACT": 0.25,
+        "ABSTAIN": 0.0
+      },
+      "actions": {
+        "NO_CHANGE": {
+          "output": "QXL-764.",
+          "pass": true,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "QXL-764",
+          "pass": true,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "QXL-764.",
+          "pass": true,
+          "cost": 2
+        },
+        "NORM_EXACT": {
+          "output": "QXL-764.",
+          "pass": true,
+          "cost": 3
+        },
+        "ABSTAIN": {
+          "output": "",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "QXL-764",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "observed": {
+        "n_candidates": 2,
+        "output_arity": 1,
+        "format_name": "table",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED",
+          "NORM_EXACT",
+          "ABSTAIN"
+        ]
+      },
+      "features": [
+        2.0,
+        1.0,
+        1,
+        0.10787460435312823,
+        7.473328373507684,
+        0.05393730217656412,
+        3.736664186753842,
+        0.0,
+        1.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "adaptive_utilities": {
+        "NO_CHANGE": 0.6676,
+        "CONSTRAINED": -0.1839,
+        "NORMALIZED": 0.5,
+        "NORM_EXACT": 0.25,
+        "ABSTAIN": 0.0
+      },
+      "actions": {
+        "NO_CHANGE": {
+          "output": "QXL-776.",
+          "pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "QXL-776",
+          "pass": false,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "TFB-594.",
+          "pass": true,
+          "cost": 2
+        },
+        "NORM_EXACT": {
+          "output": "TFB-594.",
+          "pass": true,
+          "cost": 3
+        },
+        "ABSTAIN": {
+          "output": "",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "TFB-594",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "observed": {
+        "n_candidates": 1,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "ABSTAIN"
+        ]
+      },
+      "features": [
+        1.0,
+        1.0,
+        0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "CONSTRAINED",
+      "adaptive_utilities": {
+        "NO_CHANGE": 0.2048,
+        "CONSTRAINED": 0.7378,
+        "ABSTAIN": 0.0
+      },
+      "actions": {
+        "NO_CHANGE": {
+          "output": "QXL-237.",
+          "pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "QXL-236",
+          "pass": true,
+          "cost": 1
+        },
+        "ABSTAIN": {
+          "output": "",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "QXL-236",
+      "family_analysis": "copy_single"
+    },
+    {
+      "observed": {
+        "n_candidates": 0,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "ABSTAIN"
+        ]
+      },
+      "features": [
+        0.0,
+        1.0,
+        0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "adaptive_utilities": {
+        "NO_CHANGE": 0.8902,
+        "ABSTAIN": 0.0
+      },
+      "actions": {
+        "NO_CHANGE": {
+          "output": "painted sage.",
+          "pass": true,
+          "cost": 0
+        },
+        "ABSTAIN": {
+          "output": "",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "sage",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "observed": {
+        "n_candidates": 1,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "ABSTAIN"
+        ]
+      },
+      "features": [
+        1.0,
+        1.0,
+        0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "CONSTRAINED",
+      "adaptive_utilities": {
+        "NO_CHANGE": 0.2048,
+        "CONSTRAINED": 0.7378,
+        "ABSTAIN": 0.0
+      },
+      "actions": {
+        "NO_CHANGE": {
+          "output": "WKD-253.",
+          "pass": true,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "WKD-253",
+          "pass": true,
+          "cost": 1
+        },
+        "ABSTAIN": {
+          "output": "",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "WKD-253",
+      "family_analysis": "copy_single"
+    },
+    {
+      "observed": {
+        "n_candidates": 1,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "ABSTAIN"
+        ]
+      },
+      "features": [
+        1.0,
+        1.0,
+        0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "CONSTRAINED",
+      "adaptive_utilities": {
+        "NO_CHANGE": 0.2048,
+        "CONSTRAINED": 0.7378,
+        "ABSTAIN": 0.0
+      },
+      "actions": {
+        "NO_CHANGE": {
+          "output": "MGQ-178.",
+          "pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "MZV-178",
+          "pass": true,
+          "cost": 1
+        },
+        "ABSTAIN": {
+          "output": "",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "MZV-178",
+      "family_analysis": "copy_single"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "table",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED",
+          "NORM_EXACT",
+          "ABSTAIN"
+        ]
+      },
+      "features": [
+        3.0,
+        1.0,
+        1,
+        4.207331228946714,
+        7.882743533322355,
+        2.3514695457680523,
+        4.053167079049364,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        0.0
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "adaptive_utilities": {
+        "NO_CHANGE": 0.9819,
+        "CONSTRAINED": 0.7499,
+        "NORMALIZED": 0.5,
+        "NORM_EXACT": 0.25,
+        "ABSTAIN": 0.0
+      },
+      "actions": {
+        "NO_CHANGE": {
+          "output": "QXL-395.",
+          "pass": true,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "QXL-395",
+          "pass": true,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "QXL-395.",
+          "pass": true,
+          "cost": 2
+        },
+        "NORM_EXACT": {
+          "output": "QXL-395.",
+          "pass": true,
+          "cost": 3
+        },
+        "ABSTAIN": {
+          "output": "",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "QXL-395",
+      "family_analysis": "realization"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 2,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "ABSTAIN"
+        ]
+      },
+      "features": [
+        3.0,
+        2.0,
+        0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "adaptive_utilities": {
+        "NO_CHANGE": 0.0004,
+        "ABSTAIN": 0.0
+      },
+      "actions": {
+        "NO_CHANGE": {
+          "output": "WKD-442.",
+          "pass": false,
+          "cost": 0
+        },
+        "ABSTAIN": {
+          "output": "",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "WKD-223 MZV-348",
+      "family_analysis": "composition"
+    },
+    {
+      "observed": {
+        "n_candidates": 2,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED",
+          "NORM_EXACT",
+          "ABSTAIN"
+        ]
+      },
+      "features": [
+        2.0,
+        1.0,
+        0,
+        9.246789799937687,
+        2.389400820042283,
+        4.623394899968844,
+        1.1947004100211416,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        0.0
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "adaptive_utilities": {
+        "NO_CHANGE": 0.9941,
+        "CONSTRAINED": 0.7404,
+        "NORMALIZED": 0.4979,
+        "NORM_EXACT": 0.2479,
+        "ABSTAIN": 0.0
+      },
+      "actions": {
+        "NO_CHANGE": {
+          "output": "QXL-285.",
+          "pass": true,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "QXL-285",
+          "pass": true,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "QXL-285.",
+          "pass": true,
+          "cost": 2
+        },
+        "NORM_EXACT": {
+          "output": "QXL-285.",
+          "pass": true,
+          "cost": 3
+        },
+        "ABSTAIN": {
+          "output": "",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "QXL-285",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "observed": {
+        "n_candidates": 2,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED",
+          "NORM_EXACT",
+          "ABSTAIN"
+        ]
+      },
+      "features": [
+        2.0,
+        1.0,
+        0,
+        0.5236224622312875,
+        1.0498388492214872,
+        0.26181123111564375,
+        0.5249194246107436,
+        0.0,
+        1.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "adaptive_utilities": {
+        "NO_CHANGE": 0.5754,
+        "CONSTRAINED": 0.3113,
+        "NORMALIZED": 0.145,
+        "NORM_EXACT": -0.105,
+        "ABSTAIN": 0.0
+      },
+      "actions": {
+        "NO_CHANGE": {
+          "output": "QXL-433.",
+          "pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "QXL-433",
+          "pass": false,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "QXL-492.",
+          "pass": true,
+          "cost": 2
+        },
+        "NORM_EXACT": {
+          "output": "QXL-492.",
+          "pass": true,
+          "cost": 3
+        },
+        "ABSTAIN": {
+          "output": "",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "QXL-492",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 2,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "ABSTAIN"
+        ]
+      },
+      "features": [
+        3.0,
+        2.0,
+        0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "adaptive_utilities": {
+        "NO_CHANGE": 0.0004,
+        "ABSTAIN": 0.0
+      },
+      "actions": {
+        "NO_CHANGE": {
+          "output": "TFB-149.",
+          "pass": false,
+          "cost": 0
+        },
+        "ABSTAIN": {
+          "output": "",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "JRC-228 TFB-149",
+      "family_analysis": "composition"
+    },
+    {
+      "observed": {
+        "n_candidates": 0,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "ABSTAIN"
+        ]
+      },
+      "features": [
+        0.0,
+        1.0,
+        0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "adaptive_utilities": {
+        "NO_CHANGE": 0.8902,
+        "ABSTAIN": 0.0
+      },
+      "actions": {
+        "NO_CHANGE": {
+          "output": "CT.",
+          "pass": false,
+          "cost": 0
+        },
+        "ABSTAIN": {
+          "output": "",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "sage",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 2,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "ABSTAIN"
+        ]
+      },
+      "features": [
+        3.0,
+        2.0,
+        0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "adaptive_utilities": {
+        "NO_CHANGE": 0.0004,
+        "ABSTAIN": 0.0
+      },
+      "actions": {
+        "NO_CHANGE": {
+          "output": "TFB-924.",
+          "pass": false,
+          "cost": 0
+        },
+        "ABSTAIN": {
+          "output": "",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "MZV-442 TFB-924",
+      "family_analysis": "composition"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED",
+          "NORM_EXACT",
+          "ABSTAIN"
+        ]
+      },
+      "features": [
+        3.0,
+        1.0,
+        0,
+        4.415204291064583,
+        0.7032305216525856,
+        3.8180726237014935,
+        0.8053287845170319,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        0.0
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "adaptive_utilities": {
+        "NO_CHANGE": 0.9766,
+        "CONSTRAINED": 0.75,
+        "NORMALIZED": 0.4998,
+        "NORM_EXACT": 0.2498,
+        "ABSTAIN": 0.0
+      },
+      "actions": {
+        "NO_CHANGE": {
+          "output": "QXL-165.",
+          "pass": true,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "QXL-165",
+          "pass": true,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "QXL-165.",
+          "pass": true,
+          "cost": 2
+        },
+        "NORM_EXACT": {
+          "output": "QXL-165.",
+          "pass": true,
+          "cost": 3
+        },
+        "ABSTAIN": {
+          "output": "",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "QXL-165",
+      "family_analysis": "selection"
+    },
+    {
+      "observed": {
+        "n_candidates": 2,
+        "output_arity": 1,
+        "format_name": "table",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED",
+          "NORM_EXACT",
+          "ABSTAIN"
+        ]
+      },
+      "features": [
+        2.0,
+        1.0,
+        1,
+        10.133833825593229,
+        15.466600127394031,
+        5.066916912796614,
+        7.7333000636970155,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "adaptive_utilities": {
+        "NO_CHANGE": 0.9999,
+        "CONSTRAINED": 0.7359,
+        "NORMALIZED": 0.5,
+        "NORM_EXACT": 0.25,
+        "ABSTAIN": 0.0
+      },
+      "actions": {
+        "NO_CHANGE": {
+          "output": "JRC-127.",
+          "pass": true,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "JRC-127",
+          "pass": true,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "JRC-127.",
+          "pass": true,
+          "cost": 2
+        },
+        "NORM_EXACT": {
+          "output": "JRC-127.",
+          "pass": true,
+          "cost": 3
+        },
+        "ABSTAIN": {
+          "output": "",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "JRC-127",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 2,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "ABSTAIN"
+        ]
+      },
+      "features": [
+        3.0,
+        2.0,
+        0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "adaptive_utilities": {
+        "NO_CHANGE": 0.0004,
+        "ABSTAIN": 0.0
+      },
+      "actions": {
+        "NO_CHANGE": {
+          "output": "TFB-502.",
+          "pass": false,
+          "cost": 0
+        },
+        "ABSTAIN": {
+          "output": "",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "TFB-502 JRC-787",
+      "family_analysis": "composition"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "table",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED",
+          "NORM_EXACT",
+          "ABSTAIN"
+        ]
+      },
+      "features": [
+        3.0,
+        1.0,
+        1,
+        3.1405919398384867,
+        0.09289921642994159,
+        5.789203208918672,
+        2.476758331638911,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "adaptive_utilities": {
+        "NO_CHANGE": 0.9828,
+        "CONSTRAINED": 0.75,
+        "NORMALIZED": 0.5,
+        "NORM_EXACT": 0.25,
+        "ABSTAIN": 0.0
+      },
+      "actions": {
+        "NO_CHANGE": {
+          "output": "TFB-646.",
+          "pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "TFB-646",
+          "pass": false,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "TFB-646.",
+          "pass": false,
+          "cost": 2
+        },
+        "NORM_EXACT": {
+          "output": "TFB-646.",
+          "pass": false,
+          "cost": 3
+        },
+        "ABSTAIN": {
+          "output": "",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "TFB-667",
+      "family_analysis": "realization"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "table",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED",
+          "NORM_EXACT",
+          "ABSTAIN"
+        ]
+      },
+      "features": [
+        3.0,
+        1.0,
+        1,
+        2.4706698167019567,
+        5.703214969041255,
+        1.2813089027876055,
+        3.783630520288169,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        0.0
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "adaptive_utilities": {
+        "NO_CHANGE": 0.9817,
+        "CONSTRAINED": 0.75,
+        "NORMALIZED": 0.5,
+        "NORM_EXACT": 0.25,
+        "ABSTAIN": 0.0
+      },
+      "actions": {
+        "NO_CHANGE": {
+          "output": "WKD-411.",
+          "pass": true,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "WKD-411",
+          "pass": true,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "WKD-411.",
+          "pass": true,
+          "cost": 2
+        },
+        "NORM_EXACT": {
+          "output": "WKD-411.",
+          "pass": true,
+          "cost": 3
+        },
+        "ABSTAIN": {
+          "output": "",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "WKD-411",
+      "family_analysis": "selection"
+    },
+    {
+      "observed": {
+        "n_candidates": 1,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "ABSTAIN"
+        ]
+      },
+      "features": [
+        1.0,
+        1.0,
+        0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "CONSTRAINED",
+      "adaptive_utilities": {
+        "NO_CHANGE": 0.2048,
+        "CONSTRAINED": 0.7378,
+        "ABSTAIN": 0.0
+      },
+      "actions": {
+        "NO_CHANGE": {
+          "output": "MGQ-510.",
+          "pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "MZV-580",
+          "pass": true,
+          "cost": 1
+        },
+        "ABSTAIN": {
+          "output": "",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "MZV-580",
+      "family_analysis": "copy_single"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED",
+          "NORM_EXACT",
+          "ABSTAIN"
+        ]
+      },
+      "features": [
+        3.0,
+        1.0,
+        0,
+        0.6160173559155737,
+        0.1689231550644763,
+        4.721052141754215,
+        0.9197293537588145,
+        0.0,
+        1.0,
+        0.0,
+        1.0,
+        1.0
+      ],
+      "adaptive_action": "CONSTRAINED",
+      "adaptive_utilities": {
+        "NO_CHANGE": 0.3399,
+        "CONSTRAINED": 0.6576,
+        "NORMALIZED": 0.4406,
+        "NORM_EXACT": 0.1906,
+        "ABSTAIN": 0.0
+      },
+      "actions": {
+        "NO_CHANGE": {
+          "output": "JRC-193.",
+          "pass": true,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "JRC-193",
+          "pass": true,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "MZV-197.",
+          "pass": false,
+          "cost": 2
+        },
+        "NORM_EXACT": {
+          "output": "MZV-197.",
+          "pass": false,
+          "cost": 3
+        },
+        "ABSTAIN": {
+          "output": "",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "JRC-193",
+      "family_analysis": "selection"
+    },
+    {
+      "observed": {
+        "n_candidates": 0,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "ABSTAIN"
+        ]
+      },
+      "features": [
+        0.0,
+        1.0,
+        0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "adaptive_utilities": {
+        "NO_CHANGE": 0.8902,
+        "ABSTAIN": 0.0
+      },
+      "actions": {
+        "NO_CHANGE": {
+          "output": "empenage.",
+          "pass": false,
+          "cost": 0
+        },
+        "ABSTAIN": {
+          "output": "",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "sage",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "observed": {
+        "n_candidates": 0,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "ABSTAIN"
+        ]
+      },
+      "features": [
+        0.0,
+        1.0,
+        0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "adaptive_utilities": {
+        "NO_CHANGE": 0.8902,
+        "ABSTAIN": 0.0
+      },
+      "actions": {
+        "NO_CHANGE": {
+          "output": "painted sage.",
+          "pass": true,
+          "cost": 0
+        },
+        "ABSTAIN": {
+          "output": "",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "sage",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED",
+          "NORM_EXACT",
+          "ABSTAIN"
+        ]
+      },
+      "features": [
+        3.0,
+        1.0,
+        0,
+        0.6940475122837597,
+        0.3667975722205483,
+        1.2608505434569812,
+        0.8627112689901714,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "adaptive_utilities": {
+        "NO_CHANGE": 0.9991,
+        "CONSTRAINED": 0.75,
+        "NORMALIZED": 0.4998,
+        "NORM_EXACT": 0.2498,
+        "ABSTAIN": 0.0
+      },
+      "actions": {
+        "NO_CHANGE": {
+          "output": "WKD-919.",
+          "pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "WKD-919",
+          "pass": false,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "WKD-919.",
+          "pass": false,
+          "cost": 2
+        },
+        "NORM_EXACT": {
+          "output": "WKD-919.",
+          "pass": false,
+          "cost": 3
+        },
+        "ABSTAIN": {
+          "output": "",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "TFB-820",
+      "family_analysis": "realization"
+    },
+    {
+      "observed": {
+        "n_candidates": 1,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "ABSTAIN"
+        ]
+      },
+      "features": [
+        1.0,
+        1.0,
+        0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "CONSTRAINED",
+      "adaptive_utilities": {
+        "NO_CHANGE": 0.2048,
+        "CONSTRAINED": 0.7378,
+        "ABSTAIN": 0.0
+      },
+      "actions": {
+        "NO_CHANGE": {
+          "output": "WKD-748.",
+          "pass": true,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "WKD-748",
+          "pass": true,
+          "cost": 1
+        },
+        "ABSTAIN": {
+          "output": "",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "WKD-748",
+      "family_analysis": "copy_single"
+    },
+    {
+      "observed": {
+        "n_candidates": 1,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "ABSTAIN"
+        ]
+      },
+      "features": [
+        1.0,
+        1.0,
+        0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "CONSTRAINED",
+      "adaptive_utilities": {
+        "NO_CHANGE": 0.2048,
+        "CONSTRAINED": 0.7378,
+        "ABSTAIN": 0.0
+      },
+      "actions": {
+        "NO_CHANGE": {
+          "output": "WKD-884.",
+          "pass": true,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "WKD-884",
+          "pass": true,
+          "cost": 1
+        },
+        "ABSTAIN": {
+          "output": "",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "WKD-884",
+      "family_analysis": "copy_single"
+    },
+    {
+      "observed": {
+        "n_candidates": 1,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "ABSTAIN"
+        ]
+      },
+      "features": [
+        1.0,
+        1.0,
+        0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "CONSTRAINED",
+      "adaptive_utilities": {
+        "NO_CHANGE": 0.2048,
+        "CONSTRAINED": 0.7378,
+        "ABSTAIN": 0.0
+      },
+      "actions": {
+        "NO_CHANGE": {
+          "output": "JRC-868.",
+          "pass": true,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "JRC-868",
+          "pass": true,
+          "cost": 1
+        },
+        "ABSTAIN": {
+          "output": "",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "JRC-868",
+      "family_analysis": "copy_single"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "table",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED",
+          "NORM_EXACT",
+          "ABSTAIN"
+        ]
+      },
+      "features": [
+        3.0,
+        1.0,
+        1,
+        4.3252964561379486,
+        3.229329410572973,
+        5.529811894698639,
+        2.1441317657264145,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        0.0
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "adaptive_utilities": {
+        "NO_CHANGE": 0.925,
+        "CONSTRAINED": 0.7474,
+        "NORMALIZED": 0.5,
+        "NORM_EXACT": 0.25,
+        "ABSTAIN": 0.0
+      },
+      "actions": {
+        "NO_CHANGE": {
+          "output": "WKD-356.",
+          "pass": true,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "WKD-356",
+          "pass": true,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "WKD-356.",
+          "pass": true,
+          "cost": 2
+        },
+        "NORM_EXACT": {
+          "output": "WKD-356.",
+          "pass": true,
+          "cost": 3
+        },
+        "ABSTAIN": {
+          "output": "",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "WKD-356",
+      "family_analysis": "realization"
+    },
+    {
+      "observed": {
+        "n_candidates": 0,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "ABSTAIN"
+        ]
+      },
+      "features": [
+        0.0,
+        1.0,
+        0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "adaptive_utilities": {
+        "NO_CHANGE": 0.8902,
+        "ABSTAIN": 0.0
+      },
+      "actions": {
+        "NO_CHANGE": {
+          "output": "empenage.",
+          "pass": false,
+          "cost": 0
+        },
+        "ABSTAIN": {
+          "output": "",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "sage",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "observed": {
+        "n_candidates": 2,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED",
+          "NORM_EXACT",
+          "ABSTAIN"
+        ]
+      },
+      "features": [
+        2.0,
+        1.0,
+        0,
+        0.4903375354351738,
+        1.4895308844461397,
+        0.2451687677175869,
+        0.7447654422230698,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "adaptive_utilities": {
+        "NO_CHANGE": 1.0,
+        "CONSTRAINED": 0.75,
+        "NORMALIZED": 0.4951,
+        "NORM_EXACT": 0.2451,
+        "ABSTAIN": 0.0
+      },
+      "actions": {
+        "NO_CHANGE": {
+          "output": "JRC-614.",
+          "pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "JRC-614",
+          "pass": false,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "JRC-614.",
+          "pass": false,
+          "cost": 2
+        },
+        "NORM_EXACT": {
+          "output": "JRC-614.",
+          "pass": false,
+          "cost": 3
+        },
+        "ABSTAIN": {
+          "output": "",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "QXL-101",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "table",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED",
+          "NORM_EXACT",
+          "ABSTAIN"
+        ]
+      },
+      "features": [
+        3.0,
+        1.0,
+        1,
+        0.7644226584961871,
+        4.032549397382354,
+        4.3613796900680635,
+        2.114501274943158,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "adaptive_action": "NORMALIZED",
+      "adaptive_utilities": {
+        "NO_CHANGE": 0.0,
+        "CONSTRAINED": -0.2499,
+        "NORMALIZED": 0.5,
+        "NORM_EXACT": 0.25,
+        "ABSTAIN": 0.0
+      },
+      "actions": {
+        "NO_CHANGE": {
+          "output": "QXL-397.",
+          "pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "QXL-408",
+          "pass": true,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "QXL-408.",
+          "pass": true,
+          "cost": 2
+        },
+        "NORM_EXACT": {
+          "output": "QXL-408.",
+          "pass": true,
+          "cost": 3
+        },
+        "ABSTAIN": {
+          "output": "",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "QXL-408",
+      "family_analysis": "selection"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "table",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED",
+          "NORM_EXACT",
+          "ABSTAIN"
+        ]
+      },
+      "features": [
+        3.0,
+        1.0,
+        1,
+        2.2561110734632166,
+        0.5989053064590735,
+        1.6064285857305334,
+        2.056750696100089,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "adaptive_action": "NORMALIZED",
+      "adaptive_utilities": {
+        "NO_CHANGE": 0.0,
+        "CONSTRAINED": -0.2262,
+        "NORMALIZED": 0.5,
+        "NORM_EXACT": 0.25,
+        "ABSTAIN": 0.0
+      },
+      "actions": {
+        "NO_CHANGE": {
+          "output": "TFB-248.",
+          "pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "TFB-247",
+          "pass": false,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "TFB-247.",
+          "pass": false,
+          "cost": 2
+        },
+        "NORM_EXACT": {
+          "output": "TFB-247.",
+          "pass": false,
+          "cost": 3
+        },
+        "ABSTAIN": {
+          "output": "",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "QXL-394",
+      "family_analysis": "selection"
+    },
+    {
+      "observed": {
+        "n_candidates": 2,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED",
+          "NORM_EXACT",
+          "ABSTAIN"
+        ]
+      },
+      "features": [
+        2.0,
+        1.0,
+        0,
+        4.264659909264083,
+        0.7517959223878279,
+        2.1323299546320413,
+        0.37589796119391394,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        1.0
+      ],
+      "adaptive_action": "NORMALIZED",
+      "adaptive_utilities": {
+        "NO_CHANGE": 0.002,
+        "CONSTRAINED": -0.2453,
+        "NORMALIZED": 0.0185,
+        "NORM_EXACT": -0.2315,
+        "ABSTAIN": 0.0
+      },
+      "actions": {
+        "NO_CHANGE": {
+          "output": "CTCTCTCTCTCTCTCTCTCTCT",
+          "pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "QXL-345",
+          "pass": true,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "MZV-672.",
+          "pass": false,
+          "cost": 2
+        },
+        "NORM_EXACT": {
+          "output": "MZV-672.",
+          "pass": false,
+          "cost": 3
+        },
+        "ABSTAIN": {
+          "output": "",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "QXL-345",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "observed": {
+        "n_candidates": 0,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "ABSTAIN"
+        ]
+      },
+      "features": [
+        0.0,
+        1.0,
+        0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "adaptive_utilities": {
+        "NO_CHANGE": 0.8902,
+        "ABSTAIN": 0.0
+      },
+      "actions": {
+        "NO_CHANGE": {
+          "output": "painted sage.",
+          "pass": true,
+          "cost": 0
+        },
+        "ABSTAIN": {
+          "output": "",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "sage",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "observed": {
+        "n_candidates": 2,
+        "output_arity": 1,
+        "format_name": "table",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED",
+          "NORM_EXACT",
+          "ABSTAIN"
+        ]
+      },
+      "features": [
+        2.0,
+        1.0,
+        1,
+        1.3831539154625716,
+        8.220918966432691,
+        0.6915769577312858,
+        4.110459483216346,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "adaptive_utilities": {
+        "NO_CHANGE": 1.0,
+        "CONSTRAINED": 0.75,
+        "NORMALIZED": 0.5,
+        "NORM_EXACT": 0.25,
+        "ABSTAIN": 0.0
+      },
+      "actions": {
+        "NO_CHANGE": {
+          "output": "WKD-610.",
+          "pass": true,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "WKD-610",
+          "pass": true,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "WKD-610.",
+          "pass": true,
+          "cost": 2
+        },
+        "NORM_EXACT": {
+          "output": "WKD-610.",
+          "pass": true,
+          "cost": 3
+        },
+        "ABSTAIN": {
+          "output": "",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "WKD-610",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "table",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED",
+          "NORM_EXACT",
+          "ABSTAIN"
+        ]
+      },
+      "features": [
+        3.0,
+        1.0,
+        1,
+        4.531674766662036,
+        5.49190271164116,
+        2.5811627830126898,
+        2.8975579346343214,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "adaptive_utilities": {
+        "NO_CHANGE": 0.9887,
+        "CONSTRAINED": 0.75,
+        "NORMALIZED": 0.5,
+        "NORM_EXACT": 0.25,
+        "ABSTAIN": 0.0
+      },
+      "actions": {
+        "NO_CHANGE": {
+          "output": "JRC-877.",
+          "pass": true,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "JRC-877",
+          "pass": true,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "JRC-877.",
+          "pass": true,
+          "cost": 2
+        },
+        "NORM_EXACT": {
+          "output": "JRC-877.",
+          "pass": true,
+          "cost": 3
+        },
+        "ABSTAIN": {
+          "output": "",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "JRC-877",
+      "family_analysis": "selection"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED",
+          "NORM_EXACT",
+          "ABSTAIN"
+        ]
+      },
+      "features": [
+        3.0,
+        1.0,
+        0,
+        1.3280284568427305,
+        0.21773176874921774,
+        4.438239735828534,
+        0.10795484715354443,
+        0.0,
+        1.0,
+        0.0,
+        1.0,
+        1.0
+      ],
+      "adaptive_action": "CONSTRAINED",
+      "adaptive_utilities": {
+        "NO_CHANGE": 0.2052,
+        "CONSTRAINED": 0.2273,
+        "NORMALIZED": -0.04,
+        "NORM_EXACT": -0.29,
+        "ABSTAIN": 0.0
+      },
+      "actions": {
+        "NO_CHANGE": {
+          "output": "TFB-692.",
+          "pass": true,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "TFB-692",
+          "pass": true,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "MZV-227.",
+          "pass": false,
+          "cost": 2
+        },
+        "NORM_EXACT": {
+          "output": "MZV-227.",
+          "pass": false,
+          "cost": 3
+        },
+        "ABSTAIN": {
+          "output": "",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "TFB-692",
+      "family_analysis": "realization"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED",
+          "NORM_EXACT",
+          "ABSTAIN"
+        ]
+      },
+      "features": [
+        3.0,
+        1.0,
+        0,
+        0.6649951000053989,
+        0.35898101642669644,
+        0.5633215939571421,
+        0.17246210754792843,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "adaptive_action": "CONSTRAINED",
+      "adaptive_utilities": {
+        "NO_CHANGE": 0.0004,
+        "CONSTRAINED": 0.7472,
+        "NORMALIZED": 0.3297,
+        "NORM_EXACT": 0.0797,
+        "ABSTAIN": 0.0
+      },
+      "actions": {
+        "NO_CHANGE": {
+          "output": "CTJ-671.",
+          "pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "JRC-671",
+          "pass": true,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "JRC-671.",
+          "pass": true,
+          "cost": 2
+        },
+        "NORM_EXACT": {
+          "output": "JRC-671.",
+          "pass": true,
+          "cost": 3
+        },
+        "ABSTAIN": {
+          "output": "",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "JRC-671",
+      "family_analysis": "realization"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 2,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "ABSTAIN"
+        ]
+      },
+      "features": [
+        3.0,
+        2.0,
+        0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "adaptive_utilities": {
+        "NO_CHANGE": 0.0004,
+        "ABSTAIN": 0.0
+      },
+      "actions": {
+        "NO_CHANGE": {
+          "output": "MGQ-815.",
+          "pass": false,
+          "cost": 0
+        },
+        "ABSTAIN": {
+          "output": "",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "MZV-499 JRC-321",
+      "family_analysis": "composition"
+    },
+    {
+      "observed": {
+        "n_candidates": 0,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "ABSTAIN"
+        ]
+      },
+      "features": [
+        0.0,
+        1.0,
+        0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "adaptive_utilities": {
+        "NO_CHANGE": 0.8902,
+        "ABSTAIN": 0.0
+      },
+      "actions": {
+        "NO_CHANGE": {
+          "output": "empenage.",
+          "pass": false,
+          "cost": 0
+        },
+        "ABSTAIN": {
+          "output": "",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "sage",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "observed": {
+        "n_candidates": 1,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "ABSTAIN"
+        ]
+      },
+      "features": [
+        1.0,
+        1.0,
+        0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "CONSTRAINED",
+      "adaptive_utilities": {
+        "NO_CHANGE": 0.2048,
+        "CONSTRAINED": 0.7378,
+        "ABSTAIN": 0.0
+      },
+      "actions": {
+        "NO_CHANGE": {
+          "output": "MGQ-248.",
+          "pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "MZV-241",
+          "pass": true,
+          "cost": 1
+        },
+        "ABSTAIN": {
+          "output": "",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "MZV-241",
+      "family_analysis": "copy_single"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "table",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED",
+          "NORM_EXACT",
+          "ABSTAIN"
+        ]
+      },
+      "features": [
+        3.0,
+        1.0,
+        1,
+        3.3455584340326823,
+        6.920041849107292,
+        2.068410894458887,
+        4.064587085424683,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.5
+      ],
+      "adaptive_action": "NORMALIZED",
+      "adaptive_utilities": {
+        "NO_CHANGE": 0.0001,
+        "CONSTRAINED": -0.2446,
+        "NORMALIZED": 0.5,
+        "NORM_EXACT": 0.25,
+        "ABSTAIN": 0.0
+      },
+      "actions": {
+        "NO_CHANGE": {
+          "output": "MGQ-702.",
+          "pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "MZV-702",
+          "pass": true,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "MZV-702.",
+          "pass": true,
+          "cost": 2
+        },
+        "NORM_EXACT": {
+          "output": "MZV-702.",
+          "pass": true,
+          "cost": 3
+        },
+        "ABSTAIN": {
+          "output": "",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "MZV-702",
+      "family_analysis": "selection"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 2,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "ABSTAIN"
+        ]
+      },
+      "features": [
+        3.0,
+        2.0,
+        0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "adaptive_utilities": {
+        "NO_CHANGE": 0.0004,
+        "ABSTAIN": 0.0
+      },
+      "actions": {
+        "NO_CHANGE": {
+          "output": "WKD-687.",
+          "pass": false,
+          "cost": 0
+        },
+        "ABSTAIN": {
+          "output": "",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "WKD-755 JRC-577",
+      "family_analysis": "composition"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED",
+          "NORM_EXACT",
+          "ABSTAIN"
+        ]
+      },
+      "features": [
+        3.0,
+        1.0,
+        0,
+        1.8328809280196765,
+        0.4985623238274002,
+        1.4248066525292662,
+        0.33834207180586695,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.5
+      ],
+      "adaptive_action": "NORMALIZED",
+      "adaptive_utilities": {
+        "NO_CHANGE": 0.0001,
+        "CONSTRAINED": -0.0747,
+        "NORMALIZED": 0.4809,
+        "NORM_EXACT": 0.2309,
+        "ABSTAIN": 0.0
+      },
+      "actions": {
+        "NO_CHANGE": {
+          "output": "TFB-373.",
+          "pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "TFB-336",
+          "pass": false,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "JRC-872.",
+          "pass": true,
+          "cost": 2
+        },
+        "NORM_EXACT": {
+          "output": "JRC-872.",
+          "pass": true,
+          "cost": 3
+        },
+        "ABSTAIN": {
+          "output": "",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "JRC-872",
+      "family_analysis": "selection"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED",
+          "NORM_EXACT",
+          "ABSTAIN"
+        ]
+      },
+      "features": [
+        3.0,
+        1.0,
+        0,
+        0.7369792458084703,
+        0.299242854322074,
+        1.5690260540388163,
+        0.3710297949058124,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        1.0
+      ],
+      "adaptive_action": "NORMALIZED",
+      "adaptive_utilities": {
+        "NO_CHANGE": 0.0004,
+        "CONSTRAINED": 0.3706,
+        "NORMALIZED": 0.4725,
+        "NORM_EXACT": 0.2225,
+        "ABSTAIN": 0.0
+      },
+      "actions": {
+        "NO_CHANGE": {
+          "output": "TFB-350.",
+          "pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "TFB-332",
+          "pass": false,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "TFB-756.",
+          "pass": true,
+          "cost": 2
+        },
+        "NORM_EXACT": {
+          "output": "TFB-756.",
+          "pass": true,
+          "cost": 3
+        },
+        "ABSTAIN": {
+          "output": "",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "TFB-756",
+      "family_analysis": "selection"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED",
+          "NORM_EXACT",
+          "ABSTAIN"
+        ]
+      },
+      "features": [
+        3.0,
+        1.0,
+        0,
+        2.2605380494896963,
+        0.14362265019553888,
+        1.8286274682617103,
+        0.1136418492518324,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "adaptive_utilities": {
+        "NO_CHANGE": 0.9974,
+        "CONSTRAINED": 0.75,
+        "NORMALIZED": 0.4968,
+        "NORM_EXACT": 0.2468,
+        "ABSTAIN": 0.0
+      },
+      "actions": {
+        "NO_CHANGE": {
+          "output": "TFB-484.",
+          "pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "TFB-484",
+          "pass": false,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "TFB-484.",
+          "pass": false,
+          "cost": 2
+        },
+        "NORM_EXACT": {
+          "output": "TFB-484.",
+          "pass": false,
+          "cost": 3
+        },
+        "ABSTAIN": {
+          "output": "",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "JRC-583",
+      "family_analysis": "realization"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 2,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "ABSTAIN"
+        ]
+      },
+      "features": [
+        3.0,
+        2.0,
+        0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "adaptive_utilities": {
+        "NO_CHANGE": 0.0004,
+        "ABSTAIN": 0.0
+      },
+      "actions": {
+        "NO_CHANGE": {
+          "output": "CT WKD-833.",
+          "pass": false,
+          "cost": 0
+        },
+        "ABSTAIN": {
+          "output": "",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "WKD-833 MZV-843",
+      "family_analysis": "composition"
+    },
+    {
+      "observed": {
+        "n_candidates": 2,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED",
+          "NORM_EXACT",
+          "ABSTAIN"
+        ]
+      },
+      "features": [
+        2.0,
+        1.0,
+        0,
+        6.734222909812161,
+        0.1543233755410256,
+        3.3671114549060803,
+        0.0771616877705128,
+        0.0,
+        1.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "adaptive_utilities": {
+        "NO_CHANGE": 0.0396,
+        "CONSTRAINED": -0.2493,
+        "NORMALIZED": -0.3969,
+        "NORM_EXACT": -0.6469,
+        "ABSTAIN": 0.0
+      },
+      "actions": {
+        "NO_CHANGE": {
+          "output": "JRC-848.",
+          "pass": true,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "JRC-848",
+          "pass": true,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "MZV-318.",
+          "pass": false,
+          "cost": 2
+        },
+        "NORM_EXACT": {
+          "output": "MZV-318.",
+          "pass": false,
+          "cost": 3
+        },
+        "ABSTAIN": {
+          "output": "",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "JRC-848",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "observed": {
+        "n_candidates": 1,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "ABSTAIN"
+        ]
+      },
+      "features": [
+        1.0,
+        1.0,
+        0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "CONSTRAINED",
+      "adaptive_utilities": {
+        "NO_CHANGE": 0.2048,
+        "CONSTRAINED": 0.7378,
+        "ABSTAIN": 0.0
+      },
+      "actions": {
+        "NO_CHANGE": {
+          "output": "QXL-934.",
+          "pass": true,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "QXL-934",
+          "pass": true,
+          "cost": 1
+        },
+        "ABSTAIN": {
+          "output": "",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "QXL-934",
+      "family_analysis": "copy_single"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 2,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "ABSTAIN"
+        ]
+      },
+      "features": [
+        3.0,
+        2.0,
+        0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "adaptive_utilities": {
+        "NO_CHANGE": 0.0004,
+        "ABSTAIN": 0.0
+      },
+      "actions": {
+        "NO_CHANGE": {
+          "output": "TFB-529.",
+          "pass": false,
+          "cost": 0
+        },
+        "ABSTAIN": {
+          "output": "",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "WKD-408 MZV-879",
+      "family_analysis": "composition"
+    },
+    {
+      "observed": {
+        "n_candidates": 0,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "ABSTAIN"
+        ]
+      },
+      "features": [
+        0.0,
+        1.0,
+        0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "adaptive_utilities": {
+        "NO_CHANGE": 0.8902,
+        "ABSTAIN": 0.0
+      },
+      "actions": {
+        "NO_CHANGE": {
+          "output": "painted.",
+          "pass": false,
+          "cost": 0
+        },
+        "ABSTAIN": {
+          "output": "",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "umber",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED",
+          "NORM_EXACT",
+          "ABSTAIN"
+        ]
+      },
+      "features": [
+        3.0,
+        1.0,
+        0,
+        3.3244486755720573,
+        0.615225824135905,
+        2.274221874166116,
+        0.37273049349794984,
+        0.0,
+        1.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "adaptive_action": "NORMALIZED",
+      "adaptive_utilities": {
+        "NO_CHANGE": 0.0101,
+        "CONSTRAINED": -0.0085,
+        "NORMALIZED": 0.4318,
+        "NORM_EXACT": 0.1818,
+        "ABSTAIN": 0.0
+      },
+      "actions": {
+        "NO_CHANGE": {
+          "output": "JRC-344.",
+          "pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "JRC-344",
+          "pass": false,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "WKD-359.",
+          "pass": true,
+          "cost": 2
+        },
+        "NORM_EXACT": {
+          "output": "WKD-359.",
+          "pass": true,
+          "cost": 3
+        },
+        "ABSTAIN": {
+          "output": "",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "WKD-359",
+      "family_analysis": "realization"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 2,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "ABSTAIN"
+        ]
+      },
+      "features": [
+        3.0,
+        2.0,
+        0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "adaptive_utilities": {
+        "NO_CHANGE": 0.0004,
+        "ABSTAIN": 0.0
+      },
+      "actions": {
+        "NO_CHANGE": {
+          "output": "CT QXL-300.",
+          "pass": false,
+          "cost": 0
+        },
+        "ABSTAIN": {
+          "output": "",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "QXL-300 MZV-124",
+      "family_analysis": "composition"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "table",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED",
+          "NORM_EXACT",
+          "ABSTAIN"
+        ]
+      },
+      "features": [
+        3.0,
+        1.0,
+        1,
+        5.741625445793034,
+        0.40463238731535967,
+        2.953954817637634,
+        2.8407161883281797,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        0.5
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "adaptive_utilities": {
+        "NO_CHANGE": 0.7635,
+        "CONSTRAINED": 0.75,
+        "NORMALIZED": 0.5,
+        "NORM_EXACT": 0.25,
+        "ABSTAIN": 0.0
+      },
+      "actions": {
+        "NO_CHANGE": {
+          "output": "QXL-667.",
+          "pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "QXL-667",
+          "pass": false,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "QXL-667.",
+          "pass": false,
+          "cost": 2
+        },
+        "NORM_EXACT": {
+          "output": "QXL-667.",
+          "pass": false,
+          "cost": 3
+        },
+        "ABSTAIN": {
+          "output": "",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "QXL-174",
+      "family_analysis": "realization"
+    },
+    {
+      "observed": {
+        "n_candidates": 0,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "ABSTAIN"
+        ]
+      },
+      "features": [
+        0.0,
+        1.0,
+        0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "adaptive_utilities": {
+        "NO_CHANGE": 0.8902,
+        "ABSTAIN": 0.0
+      },
+      "actions": {
+        "NO_CHANGE": {
+          "output": "paintris.",
+          "pass": false,
+          "cost": 0
+        },
+        "ABSTAIN": {
+          "output": "",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "russet",
+      "family_analysis": "non_candidate"
+    }
+  ]
+}

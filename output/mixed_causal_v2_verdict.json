@@ -1,0 +1,49 @@
+{
+  "schema": "anra-mixed-causal-v2-verdict/v1",
+  "fixture_sha256_frozen_after_policy_freeze": "ed3b1ca2996f6dd4d3977b935d40a0ab33459c2a33c80c2584bf6539a58b008e",
+  "policy_v3_frozen_commit": "3123625",
+  "checkpoint_sha256": "36c87e5be671ff37951b4b433e21ec14bb5e59f6f0770d7f81e50e99ead9e001",
+  "n_tasks": 60,
+
+  "preregistered_primary": "adaptive observed-only learned policy selects interventions better than every fixed intervention baseline (higher verifier utility AND meaningful reduction in unnecessary/regressive interventions)",
+
+  "results": {
+    "ALWAYS_NO_CHANGE": {"succ": 23, "reg": 0, "cost": 0},
+    "ALWAYS_CONSTRAINED_WHEN_APPLICABLE": {"succ": 31, "reg": 0, "cost": 40},
+    "ALWAYS_NORMALIZED_WHEN_APPLICABLE": {"succ": 30, "reg": 3, "cost": 60},
+    "HAND_RULE_observed_margins": {"succ": 23, "reg": 0, "cost": 0},
+    "RANDOM_APPLICABLE": {"succ": 19, "reg": 7, "cost": 24},
+    "ADAPTIVE_v3": {"succ": 34, "reg": 0, "cost": 30},
+    "ORACLE_evaluator_only": {"succ": 38}
+  },
+
+  "primary_resolution": {
+    "adaptive_beats_every_fixed_baseline": true,
+    "vs_best_fixed_always_constrained_31": "+3 successes at LOWER cost (30 vs 40) and zero regressions",
+    "unnecessary_interventions_near_zero": true,
+    "PRIMARY_CLAIM_SUPPORTED_ON_THIS_FIXTURE": true
+  },
+
+  "per_family_adaptive_vs_constants": {
+    "selection": "adaptive 9/10 vs norm 8, cons 6 — policy picks the right tool",
+    "copy_single": "adaptive 10/10 vs cons 10 — parity where constrained is right",
+    "realization": "adaptive 5/10 vs norm 5 — ties the best constant",
+    "no_intervention": "6/10 vs cons/norm 7 — slight over-intervention cost",
+    "non_candidate": "4/10 all arms — open-answer family is uniformly hard",
+    "composition": "0/10 ALL ARMS — structural ceiling for current action set"
+  },
+
+  "verdict": {
+    "LEARNED_CAUSAL_SELF_MODEL_DEMONSTRATED": "YES on this fixture, with scope limits",
+    "scope_limits": [
+      "single promotion fixture; replication on a second fresh draw strengthens it",
+      "composition family unsolvable under the current action set (structural)",
+      "non_candidate family uniformly hard (open-answer verification is weak)"
+    ]
+  },
+
+  "honest_reading": "The observed-only policy v3 chose interventions that beat every fixed baseline (34/60 vs best constant 31/60) with zero pass-to-fail regressions and lower total intervention cost than the constant it beat. It matched the oracle's choice structure closely enough to recover a substantial fraction of oracle value. This is the first evidence that An-Ra can select among multiple repairs from observable state alone. Replication on a second fresh fixture is the required next step before any strong claim.",
+
+  "verified_intervention_experiences": 0,
+  "training_decision": "DO_NOT_TRAIN_CORE"
+}

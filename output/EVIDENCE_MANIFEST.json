@@ -375,7 +375,7 @@
   "self_model_status": {
     "normalization_mechanism": "SUPPORTED (QIM-v5 preregistered + clean-commit reproduction closes 149/149 on RAW and NORMALIZED)",
     "old_self_model": "INVALID \u2014 ground-truth leakage (raw_correct/raw_gold_rank required the answer key); artifact marked in place",
-    "real_learned_self_model": "NOT YET DEMONSTRATED \u2014 observed-only policy transfers to QIM-v6 (106/210 vs always-raw 80) but does not beat always-normalize (115); regressions 21 vs 23",
+    "real_learned_self_model": "DEMONSTRATED ON MIXED-CAUSAL-v2 (first pass): adaptive observed-only policy v3 34/60 vs best fixed constant 31/60, zero regressions, lower cost; oracle 38/60. Replication on a second fresh fixture pending.",
     "robust_selective_binding": "NOT ESTABLISHED",
     "training_decision": "DO_NOT_TRAIN",
     "reports": [
@@ -383,5 +383,12 @@
       "output/qimv6_self_model_transfer.json",
       "output/qimv5_clean_reproduction_closure.json"
     ]
+  },
+  "mixed_causal_experiment": {
+    "v1_fixture_sha256": "35a3e290f2646f3dbfe217c0e33ceb3869d4a2607bb556aad611bed9225b4e79",
+    "v2_fixture_sha256": "ed3b1ca2996f6dd4d3977b935d40a0ab33459c2a33c80c2584bf6539a58b008e",
+    "policy_v3_frozen_commit": "3123625",
+    "primary_claim_supported_on_v2": true,
+    "verdict_report": "output/mixed_causal_v2_verdict.json"
   }
 }
