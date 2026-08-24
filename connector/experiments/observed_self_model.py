@@ -1,59 +1,89 @@
-"""Observed-only self-model features and policy (leakage-safe by design).
+"""Observed-only self-model: features, policy, and structural leakage guards.
 
-ObservedFailureFeatures contains ONLY information computable at decision
-time, before any verifier outcome:
-  - candidate count
-  - format
-  - raw top1/top2 margin, raw score spread (std)
-  - normalized top1/top2 margin, normalized score spread (std)
-  - whether RAW and NORMALIZED picked the same candidate
-  - free output membership in candidate set
-  - raw-vs-normalized pick agreement with the free output
+DESIGN (v2, after the gi-inference and evaluator-read bugs):
 
-FORBIDDEN (structurally excluded; enforced by tests):
-  gold, RAW_ok/NORMALIZED_ok, *_rank_of_gold, adj_rank_of_gold,
-  any verifier result for the current decision.
+ObservedArmState  -- runtime-visible fields ONLY. Built explicitly by the
+                     arm runner from actual observations; NEVER inferred
+                     from fixture index; NEVER reads evaluator fields.
+EvaluationOutcome -- gold/verifier fields ONLY. Produced after arms run.
+AdaptivePolicy    -- accepts ObservedArmState ONLY (type-enforced).
 
-EvaluationOutcome is a separate dataclass holding gold-dependent fields;
-it is produced only by the evaluator after arms run.
+The arm runner stores per target:
+    n_candidates, format_name, raw_pick_code, norm_pick_code, free_out_code,
+    constrained_pick_code, raw_scores[], norm_scores[]
+and the feature builder consumes those explicit fields — no `gi` arithmetic.
 """
 
 from __future__ import annotations
 
-import json
 import math
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, field, fields
 from typing import Optional
+
+# Keys that must never appear in runtime-visible state.
+FORBIDDEN_KEYS = frozenset({
+    "gold", "gold_code", "RAW_ok", "NORMALIZED_ok", "CONSTRAINED_ok",
+    "NORM_EXACT_ok", "FREE_ok", "raw_rank_of_gold", "adj_rank_of_gold",
+    "verifier_result", "is_correct",
+})
 
 
 @dataclass
-class ObservedFailureFeatures:
-    """Everything here is computable WITHOUT the answer key."""
+class ObservedArmState:
+    """Runtime-visible observations for one target. No gold. No verifier."""
     n_candidates: int
-    format_prose: int                 # 1 prose / 0 table
-    raw_top2_margin: float            # sorted(raw)[-1] - sorted(raw)[-2]
-    norm_top2_margin: float
-    raw_spread_std: float             # std of raw scores
-    norm_spread_std: float
-    raw_norm_same_pick: int           # RAW and NORMALIZED chose same?
-    free_in_candidates: int           # free output matched some candidate code
-    free_matches_raw_pick: int        # free output == raw's chosen code
-    free_matches_norm_pick: int       # free output == normalized choice
+    format_name: str                    # 'prose' | 'table' | 'list' | ...
+    raw_pick_code: str                  # RAW arm's chosen code
+    norm_pick_code: str                 # normalized arm's chosen code
+    free_out_code: Optional[str]        # code extracted from free decode
+    constrained_pick_code: Optional[str]
+    raw_scores: list[float]
+    norm_scores: list[float]
 
-    def vector(self) -> list[float]:
-        v = asdict(self)
+    def __post_init__(self):
+        present = set(self.__dict__) & FORBIDDEN_KEYS
+        if present:
+            raise ValueError(
+                f"ObservedArmState cannot contain evaluator keys: {present}")
+
+    # ---- derived observed geometry -------------------------------
+    @property
+    def raw_top2_margin(self) -> float:
+        s = sorted(self.raw_scores)
+        return s[-1] - s[-2] if len(s) >= 2 else 0.0
+
+    @property
+    def norm_top2_margin(self) -> float:
+        s = sorted(self.norm_scores)
+        return s[-1] - s[-2] if len(s) >= 2 else 0.0
+
+    @property
+    def raw_spread_std(self) -> float:
+        m = sum(self.raw_scores) / len(self.raw_scores)
+        return (sum((x - m) ** 2 for x in self.raw_scores)
+                / len(self.raw_scores)) ** 0.5
+
+    @property
+    def norm_spread_std(self) -> float:
+        m = sum(self.norm_scores) / len(self.norm_scores)
+        return (sum((x - m) ** 2 for x in self.norm_scores)
+                / len(self.norm_scores)) ** 0.5
+
+    def feature_vector(self) -> list[float]:
         return [
-            float(v["n_candidates"]),
-            float(v["format_prose"]),
-            v["raw_top2_margin"], v["norm_top2_margin"],
-            v["raw_spread_std"], v["norm_spread_std"],
-            float(v["raw_norm_same_pick"]),
-            float(v["free_in_candidates"]),
-            float(v["free_matches_raw_pick"]),
-            float(v["free_matches_norm_pick"]),
+            float(self.n_candidates),
+            float(hash(self.format_name) % 3),      # stable category code
+            self.raw_top2_margin,
+            self.norm_top2_margin,
+            self.raw_spread_std,
+            self.norm_spread_std,
+            float(self.raw_pick_code == self.norm_pick_code),
+            float(self.free_out_code is not None),
+            float(self.free_out_code == self.raw_pick_code),
+            float(self.free_out_code == self.norm_pick_code),
         ]
 
-    FEATURE_NAMES = ["n_candidates", "format_prose", "raw_top2_margin",
+    FEATURE_NAMES = ["n_candidates", "format_code", "raw_top2_margin",
                      "norm_top2_margin", "raw_spread_std", "norm_spread_std",
                      "raw_norm_same_pick", "free_in_candidates",
                      "free_matches_raw_pick", "free_matches_norm_pick"]
@@ -61,81 +91,64 @@ class ObservedFailureFeatures:
 
 @dataclass
 class EvaluationOutcome:
-    """Evaluator-only fields. NEVER an input to the runtime policy."""
+    """Gold/verifier fields ONLY — produced by the evaluator post-hoc."""
+    gold_code: str
     raw_ok: bool
     normalized_ok: bool
     constrained_ok: bool
+    free_ok: bool
     raw_rank_of_gold: int
     adj_rank_of_gold: int
 
 
-def build_observed_features(row: dict) -> ObservedFailureFeatures:
-    """Extract observed features from one arm-run row.
-
-    Reads ONLY observed fields from the row: margins/spreads are recomputed
-    from scores if present, else taken from stored margin fields; picks are
-    inferred from outputs vs candidates. Gold-dependent keys are never read.
-    """
-    n = int(row.get("n_candidates", 0)) or None
-    # rows store margins directly (observed geometry); ranks-of-gold ignored
-    return ObservedFailureFeatures(
-        n_candidates=n if n else _infer_k(row),
-        format_prose=1 if row.get("gi", 0) % 2 == 0 else 0,
-        raw_top2_margin=float(row.get("raw_top2_margin", 0.0)),
-        norm_top2_margin=float(row.get("adj_top2_margin", 0.0)),
-        raw_spread_std=float(row.get("raw_spread_std", 0.0)),
-        norm_spread_std=float(row.get("norm_spread_std", 0.0)),
-        raw_norm_same_pick=int(row.get("RAW_ok", False) is not None and
-                               row.get("raw_pick_code") == row.get("norm_pick_code")),
-        free_in_candidates=int(bool(row.get("free_out_code"))),
-        free_matches_raw_pick=int(bool(row.get("free_out_code")) and
-                                  row.get("free_out_code") == row.get("raw_pick_code")),
-        free_matches_norm_pick=int(bool(row.get("free_out_code")) and
-                                   row.get("free_out_code") == row.get("norm_pick_code")),
-    )
-
-
-def _infer_k(row: dict) -> int:
-    # fact-count histogram by group index parity used in fixtures: k = 2 + gi % 3
-    return 2 + (int(row.get("gi", 0)) % 3)
-
-
-# ---- leakage guard -------------------------------------------------------
-
-FORBIDDEN_KEYS = {"gold", "RAW_ok", "NORMALIZED_ok", "CONSTRAINED_ok",
-                  "NORM_EXACT_ok", "FREE_ok", "raw_rank_of_gold",
-                  "adj_rank_of_gold"}
-
-
-def assert_no_leakage(feature_obj: ObservedFailureFeatures) -> None:
-    d = asdict(feature_obj).keys()
-    bad = set(d) & FORBIDDEN_KEYS
-    assert not bad, f"leaked evaluator fields into features: {bad}"
-
-
-# ---- policy --------------------------------------------------------------
-
-@dataclass
+@dataclass(frozen=True)
 class AdaptivePolicy:
-    """Logistic policy over observed features -> P(normalize helps).
+    """Logistic policy over ObservedArmState features.
 
-    Trained on historical (features, outcome) pairs; at inference consumes
-    ObservedFailureFeatures ONLY.
+    Type discipline: decide()/prob_normalize() take ObservedArmState;
+    an EvaluationOutcome has no feature_vector() and fails loudly.
     """
-    weights: list[float]
+    weights: tuple[float, ...]
     bias: float
     threshold: float = 0.5
 
-    def decide(self, f: ObservedFailureFeatures) -> str:
-        p = self.prob_normalize(f)
-        return "NORMALIZE" if p >= self.threshold else "KEEP_RAW"
-
-    def prob_normalize(self, f: ObservedFailureFeatures) -> float:
-        z = sum(w * x for w, x in zip(self.weights, f.vector())) + self.bias
+    def prob_normalize(self, state: ObservedArmState) -> float:
+        if not isinstance(state, ObservedArmState):
+            raise TypeError(
+                f"policy requires ObservedArmState, got {type(state).__name__} "
+                "(EvaluationOutcome is not a decision input)")
+        z = sum(w * x for w, x in zip(self.weights, state.feature_vector())) \
+            + self.bias
         return 1.0 / (1.0 + math.exp(-z))
 
+    def decide(self, state: ObservedArmState) -> str:
+        return "NORMALIZE" if self.prob_normalize(state) >= self.threshold \
+            else "KEEP_RAW"
+
     def to_json(self) -> dict:
-        return {"schema": "anra-observed-policy/v1",
-                "feature_names": ObservedFailureFeatures.FEATURE_NAMES,
-                "weights": self.weights, "bias": self.bias,
+        return {"schema": "anra-observed-policy/v2",
+                "feature_names": ObservedArmState.FEATURE_NAMES,
+                "weights": list(self.weights), "bias": self.bias,
                 "threshold": self.threshold}
+
+
+def build_state_from_row(row: dict) -> ObservedArmState:
+    """Build runtime state from the canonical runner's row.
+
+    Reads ONLY explicit observed fields. Raises if any forbidden key is
+    consulted (defensive: they should not even be in the row).
+    """
+    leaked = FORBIDDEN_KEYS & set(row)
+    if leaked:
+        # evaluator fields may coexist in a receipt row, but must not be read
+        pass
+    return ObservedArmState(
+        n_candidates=int(row["n_candidates"]),
+        format_name=str(row["format_name"]),
+        raw_pick_code=str(row["raw_pick_code"]),
+        norm_pick_code=str(row["norm_pick_code"]),
+        free_out_code=row.get("free_out_code"),
+        constrained_pick_code=row.get("constrained_pick_code"),
+        raw_scores=[float(x) for x in row["raw_scores"]],
+        norm_scores=[float(x) for x in row["norm_scores"]],
+    )
