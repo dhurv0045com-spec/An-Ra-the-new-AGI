@@ -47,7 +47,7 @@
     "PR1_selection_rank_v4": "FAIL (-2/119: rank-1 66->64, needed >= +8)",
     "PR2_lift_preserved_v4": "PASS (+0.133 nats >= -0.3 floor)",
     "PR3_greedy_v4": "PASS (+5/119: greedy 57->62, directional requirement met)",
-    "PR4_realization_not_harmed": "NOT_MEASURED (rank-1 count fell, making the rate comparison ill-defined; recorded honestly rather than forced)",
+    "PR4_realization_not_harmed": "PASS \u2014 resolved by corrective per-item evaluation on QIM-v3: SFT6 realization rate conditional on candidate-rank-1 = 44/63 = 0.6984; SFT7 = 48/64 = 0.7500 (+5.2pp, +1 net item). Realization did not worsen; per-item rows: output/sft7_qimv3_peritem.json (SFT6 rows: output/greedy_decomposition_rows.json)",
     "PR5_extraction_floor_cve2": "PASS (16/24 = 0.667 >= 0.7083-0.10)",
     "PR6_protected_retention": "PASS at update 20 (all four families within parent-0.10; tool_result improved to 0.65)",
     "PR7_group_heldout_no_regression": "PASS (0.8667 >= 0.8167-0.05; actually improved)"

@@ -224,7 +224,9 @@
     "active_model": "step-20k parent remains the general active model; no child has been promoted to CONNECTOR_READY or ACTIVE",
     "context_binding_holder": "anra-v4-20k-sft-context-binding.pt (PROMOTE_CONTEXT_BINDING, pending regression battery breadth)",
     "selective_binding_holder": "anra-v4-20k-sft3-accumulate.pt \u2014 sealed 2x paired-CF gain, zero retention loss; PROMOTE_EXPERIMENTAL (selective-binding scope)",
-    "query_conditioning_holder": "anra-v4-20k-sft6-queryswap-replication.pt (PROMOTE_EXPERIMENTAL) \u2014 first learned query-conditioned preference: clean QIM-v3 replication delta +2.486 nats, rank-1 40->63/119, corrected greedy 36->44/119 (RESULT C-). See output/replication_receipt_final.json"
+    "query_conditioning_holder": "anra-v4-20k-sft6-queryswap-replication.pt (PROMOTE_EXPERIMENTAL) \u2014 first learned query-conditioned preference: clean QIM-v3 replication delta +2.486 nats, rank-1 40->63/119, corrected greedy 36->44/119 (RESULT C-). See output/replication_receipt_final.json",
+    "robust_selective_binding": "NOT ESTABLISHED (OOD-4 replication failed; earlier gains were surface-specific)",
+    "causal_runtime_repair": "constrained-decode candidate evidence exists (20 fail->pass, 0 pass->fail on QIM-v3; regime-accurate: 15/19 realization + 5 lower-rank repairs); VIE qualification pending provenance-complete rerun"
   },
   "ood1_cf_audit": "A-family: 10/10 counterfactuals impure (fact order reshuffled); C-family: 8/8 pure",
   "margin_experiment_003": {
@@ -243,11 +245,12 @@
     "reading": "margin did not create selection ability but tightened decode-time commitment: free greedy improved with rank flat. Greedy gain requires replication before any claim.",
     "next_training_decision": "DO_NOT_TRAIN_YET",
     "greedy_gain_replication": {
-      "status": "REPLICATED on QIM-v3 (second frozen fixture, never consulted by SFT7)",
+      "status": "CORROBORATED on reused-development fixture QIM-v3 (+5/119, identical magnitude to QIM-v4's +5). NOT a fully independent blinded replication: the SFT7 hypothesis emerged from the same SFT6/QIM-v3 research program, even though QIM-v3 was not imported into the SFT7 trainer nor used for its checkpoint selection.",
       "result": "SFT6 44 -> SFT7 49/119 (+5), identical magnitude to QIM-v4's +5",
       "lift_delta_v3": "+0.1049 nats (p=0.00145)",
       "report": "output/margin_greedy_replication.json",
-      "conclusion": "stable behavioral improvement; mechanism = decode-commitment tightening, not selection"
+      "conclusion": "stable behavioral improvement; mechanism = decode-commitment tightening, not selection",
+      "evidence_class": "corroborating_reused_development_evidence"
     }
   },
   "sft2_data_ratios_exact": {
