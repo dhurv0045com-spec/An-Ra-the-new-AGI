@@ -503,6 +503,59 @@ def test_xla_uses_bounded_traceable_gradient_buckets() -> None:
     assert "xm.all_reduce(" not in worker
 
 
+def test_xla_rebinds_optimizer_to_replaced_model_parameters() -> None:
+    from training.train_xla import (
+        _assert_optimizer_covers_model,
+        _rebind_optimizer_to_model,
+    )
+
+    original = torch.nn.Sequential(torch.nn.Linear(4, 3), torch.nn.LayerNorm(3))
+    decay = [parameter for parameter in original.parameters() if parameter.ndim >= 2]
+    no_decay = [parameter for parameter in original.parameters() if parameter.ndim < 2]
+    optimizer = torch.optim.AdamW(
+        [
+            {"params": decay, "weight_decay": 0.1},
+            {"params": no_decay, "weight_decay": 0.0},
+        ],
+        lr=2e-4,
+        betas=(0.9, 0.95),
+    )
+    original(torch.ones(2, 4)).square().mean().backward()
+    optimizer.step()
+    saved_updates = max(int(state["step"]) for state in optimizer.state.values())
+
+    # Simulate XLA's Parameter-replacing transfer with a distinct live model.
+    transferred = torch.nn.Sequential(torch.nn.Linear(4, 3), torch.nn.LayerNorm(3))
+    transferred.load_state_dict(original.state_dict())
+    with pytest.raises(RuntimeError, match="identity mismatch"):
+        _assert_optimizer_covers_model(transferred, optimizer)
+
+    rebound = _rebind_optimizer_to_model(optimizer, transferred)
+    _assert_optimizer_covers_model(transferred, rebound)
+    assert max(int(state["step"]) for state in rebound.state.values()) == saved_updates
+    assert [group["weight_decay"] for group in rebound.param_groups] == [0.1, 0.0]
+
+    before = {name: value.detach().clone() for name, value in transferred.named_parameters()}
+    rebound.zero_grad(set_to_none=True)
+    transferred(torch.full((2, 4), 2.0)).square().mean().backward()
+    rebound.step()
+    assert any(
+        not torch.equal(before[name], value)
+        for name, value in transferred.named_parameters()
+    )
+    assert max(int(state["step"]) for state in rebound.state.values()) == saved_updates + 1
+
+
+def test_xla_first_update_must_advance_real_optimizer_state() -> None:
+    from pathlib import Path
+
+    source = (Path(__file__).parents[1] / "training" / "train_xla.py").read_text()
+    worker = source[source.index("def _worker("):source.index("def run(")]
+    assert "optimizer = _rebind_optimizer_to_model(optimizer, model)" in worker
+    assert "_assert_optimizer_covers_model(model, optimizer)" in worker
+    assert "observed_updates != expected_updates" in worker
+
+
 def test_xla_deadline_control_avoids_precompile_tensor_collective() -> None:
     from pathlib import Path
 

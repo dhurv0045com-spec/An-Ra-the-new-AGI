@@ -162,6 +162,72 @@ def _move_optimizer_state(optimizer: torch.optim.Optimizer, device: torch.device
                 state[key] = value.to(device)
 
 
+def _optimizer_parameter_ids(optimizer: torch.optim.Optimizer) -> list[int]:
+    return [
+        id(parameter)
+        for group in optimizer.param_groups
+        for parameter in group["params"]
+    ]
+
+
+def _assert_optimizer_covers_model(
+    model: torch.nn.Module, optimizer: torch.optim.Optimizer
+) -> None:
+    """Fail if the optimizer owns stale parameters after an XLA transfer.
+
+    ``Module.to('xla')`` may replace ``Parameter`` objects. An optimizer made
+    on CPU before that transfer can therefore retain the old CPU objects: the
+    live XLA model receives gradients while ``optimizer.step()`` silently sees
+    no gradients and updates nothing. Step/loss logging still looks healthy in
+    that failure mode, so object identity is a required training invariant.
+    """
+    live = [parameter for parameter in model.parameters() if parameter.requires_grad]
+    optimizer_ids = _optimizer_parameter_ids(optimizer)
+    live_ids = [id(parameter) for parameter in live]
+    if len(optimizer_ids) != len(set(optimizer_ids)):
+        raise RuntimeError("optimizer contains duplicate parameter references")
+    if set(optimizer_ids) != set(live_ids):
+        raise RuntimeError(
+            "optimizer/model parameter identity mismatch after device transfer; "
+            "refusing a silent no-op training run"
+        )
+
+
+def _rebind_optimizer_to_model(
+    optimizer: torch.optim.Optimizer, model: torch.nn.Module
+) -> torch.optim.Optimizer:
+    """Rebuild an optimizer on the model's current Parameter objects.
+
+    The serialized state is reloaded after rebinding, preserving moments,
+    update counters, parameter-group options, and exact-resume semantics.
+    """
+    state_dict = optimizer.state_dict()
+    saved_lengths = [len(group.get("params", [])) for group in state_dict["param_groups"]]
+    trainable = [parameter for parameter in model.parameters() if parameter.requires_grad]
+    decay = [parameter for parameter in trainable if parameter.ndim >= 2]
+    no_decay = [parameter for parameter in trainable if parameter.ndim < 2]
+    if saved_lengths == [len(trainable)]:
+        parameter_groups: list[list[torch.nn.Parameter]] = [trainable]
+    elif saved_lengths == [len(decay), len(no_decay)]:
+        parameter_groups = [decay, no_decay]
+    else:
+        raise RuntimeError(
+            "cannot rebind optimizer parameter groups to the transferred model: "
+            f"checkpoint={saved_lengths}, model_single={[len(trainable)]}, "
+            f"model_decay_split={[len(decay), len(no_decay)]}"
+        )
+    # Only the required constructor option is supplied for cross-version
+    # compatibility (PyTorch optimizer defaults gained new keys over time).
+    # load_state_dict below restores every authoritative group option.
+    rebound = type(optimizer)(
+        [{"params": parameters} for parameters in parameter_groups],
+        lr=float(optimizer.defaults["lr"]),
+    )
+    rebound.load_state_dict(state_dict)
+    _assert_optimizer_covers_model(model, rebound)
+    return rebound
+
+
 # --------------------------------------------------------------------------
 # CPU preflight: verify pack semantics + explicit checkpoint BEFORE workers.
 # --------------------------------------------------------------------------
@@ -606,11 +672,15 @@ def _worker(index: int, config: dict[str, object]) -> None:
     torch.manual_seed(seed + rank + start_step)
 
     model = model.to(device)
+    # XLA device transfer can replace Parameter objects. Rebind from the
+    # restored state so the optimizer owns the exact live XLA parameters.
+    optimizer = _rebind_optimizer_to_model(optimizer, model)
     model.train()
     model.enable_gradient_checkpointing(bool(config["gradient_checkpointing"]))
     model.enable_memory_efficient_attention(int(config["attention_chunk_size"]))
     # Optimizer state moves to XLA exactly once (restore already populated it).
     _move_optimizer_state(optimizer, device)
+    _assert_optimizer_covers_model(model, optimizer)
 
     checkpoint_lr = float(optimizer.param_groups[0]["lr"])
     pack_total_steps = int(config["_pack_total_steps"])
@@ -803,6 +873,15 @@ def _worker(index: int, config: dict[str, object]) -> None:
         )
         optimizer.step()
         xm.mark_step()
+        if pack_update == initial_pack_step:
+            observed_updates = _optimizer_update_count(optimizer.state_dict())
+            expected_updates = optimizer_updates + 1
+            if observed_updates != expected_updates:
+                raise RuntimeError(
+                    "optimizer did not advance on the first XLA update: "
+                    f"expected state step {expected_updates:,}, got "
+                    f"{observed_updates:,}; refusing a silent no-op run"
+                )
         optimizer_updates += 1
         latest_loss = loss_sum / grad_accum
         if not math.isfinite(effective_lr) or effective_lr <= 0:
