@@ -1,24 +1,40 @@
 {
-  "schema": "anra-self-model/v1",
-  "model": "logistic regression, 4 observed features",
-  "features": [
-    "raw_correct",
-    "raw_top2_margin",
-    "adj_top2_margin",
-    "raw_gold_rank"
-  ],
-  "train_fixture": "QIM-v4 (consumed/debug)",
-  "test_fixture": "QIM-v5 (fresh)",
-  "train_cases": 119,
-  "test_cases": 149,
-  "results": {
-    "always_free": "35/149",
-    "always_raw": "70/149",
-    "always_constrained": "73/149",
-    "always_normalized": "106/149 (regressions 17)",
-    "handcoded_rawwrong_only": "123/149 (regressions 0)",
-    "ADAPTIVE_learned": "107/149 (regressions 13)",
-    "ORACLE_upper_bound": "123/149",
-    "fraction_oracle_recovered_adaptive": 0.698
+  "self_model_v1_invalidated": {
+    "status": "INVALID \u2014 TARGET/GROUND-TRUTH LEAKAGE",
+    "invalidation_reason": "Features 'raw_correct' (= RAW_ok) and 'raw_gold_rank' require knowing which candidate is GOLD before the intervention decision. They are evaluator/ground-truth features, not observable state. ADAPTIVE_learned=107/149 and handcoded_rawwrong_only=123/149 are therefore oracle-contaminated, not observed-only evidence.",
+    "invalidated_fields": [
+      "raw_correct",
+      "raw_gold_rank"
+    ],
+    "invalidated_results": [
+      "ADAPTIVE_learned",
+      "handcoded_rawwrong_only",
+      "fraction_oracle_recovered_adaptive"
+    ],
+    "normalization_experiment_status": "NOT invalidated \u2014 gold was used only by the evaluator to score already-selected arms"
+  },
+  "original_contaminated_result_kept_for_history": {
+    "schema": "anra-self-model/v1",
+    "model": "logistic regression, 4 observed features",
+    "features": [
+      "raw_correct",
+      "raw_top2_margin",
+      "adj_top2_margin",
+      "raw_gold_rank"
+    ],
+    "train_fixture": "QIM-v4 (consumed/debug)",
+    "test_fixture": "QIM-v5 (fresh)",
+    "train_cases": 119,
+    "test_cases": 149,
+    "results": {
+      "always_free": "35/149",
+      "always_raw": "70/149",
+      "always_constrained": "73/149",
+      "always_normalized": "106/149 (regressions 17)",
+      "handcoded_rawwrong_only": "123/149 (regressions 0)",
+      "ADAPTIVE_learned": "107/149 (regressions 13)",
+      "ORACLE_upper_bound": "123/149",
+      "fraction_oracle_recovered_adaptive": 0.698
+    }
   }
 }

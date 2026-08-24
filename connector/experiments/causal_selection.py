@@ -143,9 +143,12 @@ def run_arms(module, model, tok, code_re, checkpoint_sha: str,
                 "gi": gi, "qi": qi, "gold": gold,
                 "raw_rank_of_gold": 1 + sum(1 for j in range(len(recs))
                                             if raw[qi][j] > raw[qi][qi]),
+                # EVALUATOR-ONLY: rank of the actual gold candidate under
+                # normalized scores. Never enters runtime/self-model
+                # features (enforced by tests/test_self_model_leakage.py).
                 "adj_rank_of_gold": 1 + sum(
                     1 for j in range(len(recs))
-                    if j != arm_norm_pick and adj_scores[j] > adj_scores[arm_norm_pick]),
+                    if j != qi and adj_scores[j] > adj_scores[qi]),
                 "FREE_ok": ok_free(), "FREE_out": out_free.strip()[:24],
                 "RAW_ok": recs[arm_raw_pick]["code"] == gold,
                 "CONSTRAINED_ok": _constr_ok(out_constr, gold),
