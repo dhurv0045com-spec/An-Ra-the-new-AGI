@@ -1,0 +1,2810 @@
+{
+  "schema": "anra-mixed-causal-matrix/v2",
+  "role": "DEVELOPMENT \u2014 causal learning data; family labels are analysis-only and must never enter policy inputs",
+  "fixture_sha256": "35a3e290f2646f3dbfe217c0e33ceb3869d4a2607bb556aad611bed9225b4e79",
+  "checkpoint_sha256": "36c87e5be671ff37951b4b433e21ec14bb5e59f6f0770d7f81e50e99ead9e001",
+  "n_tasks": 60,
+  "per_task_rows": [
+    {
+      "observed": {
+        "task_id": "copy_single-4",
+        "n_candidates": 1,
+        "output_arity": 1,
+        "format_name": "prose",
+        "query_target_index": null,
+        "n_alt_query_targets": 0,
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "ABSTAIN"
+        ]
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": "GQT-211",
+      "raw_scores": null,
+      "norm_scores": null,
+      "actions": {
+        "NO_CHANGE": {
+          "output": "GQT-211.",
+          "verifier_pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "GKT-211",
+          "verifier_pass": true,
+          "cost": 1
+        },
+        "ABSTAIN": {
+          "output": "",
+          "verifier_pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "GKT-211",
+      "family_analysis": "copy_single"
+    },
+    {
+      "observed": {
+        "task_id": "realization-0",
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "prose",
+        "query_target_index": 0,
+        "n_alt_query_targets": 2,
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED",
+          "NORM_EXACT",
+          "ABSTAIN"
+        ]
+      },
+      "raw_pick_code": "TXC-616",
+      "norm_pick_code": "TXC-616",
+      "free_out_code": "CTH-738",
+      "raw_scores": [
+        -4.395944397103449,
+        -7.699272558824305,
+        -12.751874390713056
+      ],
+      "norm_scores": [
+        2.541441418314207,
+        1.1477739549791295,
+        -0.6017789971228922
+      ],
+      "actions": {
+        "NO_CHANGE": {
+          "output": "CTH-738.",
+          "verifier_pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "TXC-616",
+          "verifier_pass": true,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "TXC-616.",
+          "verifier_pass": true,
+          "cost": 2
+        },
+        "NORM_EXACT": {
+          "output": "TXC-616.",
+          "verifier_pass": true,
+          "cost": 3
+        },
+        "ABSTAIN": {
+          "output": "",
+          "verifier_pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "TXC-616",
+      "family_analysis": "realization"
+    },
+    {
+      "observed": {
+        "task_id": "composition-5",
+        "n_candidates": 3,
+        "output_arity": 2,
+        "format_name": "prose",
+        "query_target_index": null,
+        "n_alt_query_targets": 0,
+        "applicable_actions": [
+          "NO_CHANGE",
+          "ABSTAIN"
+        ]
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": null,
+      "raw_scores": null,
+      "norm_scores": null,
+      "actions": {
+        "NO_CHANGE": {
+          "output": "CTCTCTCTCTCTCTCTCTCTCT",
+          "verifier_pass": false,
+          "cost": 0
+        },
+        "ABSTAIN": {
+          "output": "",
+          "verifier_pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "LWZ-472 GKT-392",
+      "family_analysis": "composition"
+    },
+    {
+      "observed": {
+        "task_id": "selection-6",
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "table",
+        "query_target_index": 2,
+        "n_alt_query_targets": 2,
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED",
+          "NORM_EXACT",
+          "ABSTAIN"
+        ]
+      },
+      "raw_pick_code": "NQD-973",
+      "norm_pick_code": "PVH-801",
+      "free_out_code": "NQD-973",
+      "raw_scores": [
+        -0.5590890502835464,
+        -5.7636664666688375,
+        -6.695032561250628
+      ],
+      "norm_scores": [
+        0.7027634596852295,
+        -1.0713035920307448,
+        5.1242976611447375
+      ],
+      "actions": {
+        "NO_CHANGE": {
+          "output": "NQD-973.",
+          "verifier_pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "NQD-973",
+          "verifier_pass": false,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "PVH-801.",
+          "verifier_pass": true,
+          "cost": 2
+        },
+        "NORM_EXACT": {
+          "output": "PVH-801.",
+          "verifier_pass": true,
+          "cost": 3
+        },
+        "ABSTAIN": {
+          "output": "",
+          "verifier_pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "PVH-801",
+      "family_analysis": "selection"
+    },
+    {
+      "observed": {
+        "task_id": "non_candidate-4",
+        "n_candidates": 0,
+        "output_arity": 1,
+        "format_name": "prose",
+        "query_target_index": null,
+        "n_alt_query_targets": 0,
+        "applicable_actions": [
+          "NO_CHANGE",
+          "ABSTAIN"
+        ]
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": null,
+      "raw_scores": null,
+      "norm_scores": null,
+      "actions": {
+        "NO_CHANGE": {
+          "output": "verdant.",
+          "verifier_pass": true,
+          "cost": 0
+        },
+        "ABSTAIN": {
+          "output": "",
+          "verifier_pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "verdant",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "observed": {
+        "task_id": "no_intervention-0",
+        "n_candidates": 2,
+        "output_arity": 1,
+        "format_name": "prose",
+        "query_target_index": 1,
+        "n_alt_query_targets": 1,
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED",
+          "NORM_EXACT",
+          "ABSTAIN"
+        ]
+      },
+      "raw_pick_code": "NQD-510",
+      "norm_pick_code": "TXC-524",
+      "free_out_code": "NQD-510",
+      "raw_scores": [
+        -2.3217953723515166,
+        -7.786477648334767
+      ],
+      "norm_scores": [
+        -0.2036222601236659,
+        1.1358605254554277
+      ],
+      "actions": {
+        "NO_CHANGE": {
+          "output": "NQD-510.",
+          "verifier_pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "NQD-510",
+          "verifier_pass": false,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "TXC-524.",
+          "verifier_pass": true,
+          "cost": 2
+        },
+        "NORM_EXACT": {
+          "output": "TXC-524.",
+          "verifier_pass": true,
+          "cost": 3
+        },
+        "ABSTAIN": {
+          "output": "",
+          "verifier_pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "TXC-524",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "observed": {
+        "task_id": "copy_single-3",
+        "n_candidates": 1,
+        "output_arity": 1,
+        "format_name": "prose",
+        "query_target_index": null,
+        "n_alt_query_targets": 0,
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "ABSTAIN"
+        ]
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": "NQD-921",
+      "raw_scores": null,
+      "norm_scores": null,
+      "actions": {
+        "NO_CHANGE": {
+          "output": "NQD-921.",
+          "verifier_pass": true,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "NQD-921",
+          "verifier_pass": true,
+          "cost": 1
+        },
+        "ABSTAIN": {
+          "output": "",
+          "verifier_pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "NQD-921",
+      "family_analysis": "copy_single"
+    },
+    {
+      "observed": {
+        "task_id": "realization-6",
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "prose",
+        "query_target_index": 2,
+        "n_alt_query_targets": 2,
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED",
+          "NORM_EXACT",
+          "ABSTAIN"
+        ]
+      },
+      "raw_pick_code": "NQD-399",
+      "norm_pick_code": "TXC-372",
+      "free_out_code": "CTD-392",
+      "raw_scores": [
+        -1.5876994541276872,
+        -4.957090945404161,
+        -7.118986483463232
+      ],
+      "norm_scores": [
+        -0.0719451557715729,
+        -0.04065602408945779,
+        0.5392758597345164
+      ],
+      "actions": {
+        "NO_CHANGE": {
+          "output": "CTD-392.",
+          "verifier_pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "NQD-399",
+          "verifier_pass": false,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "TXC-372.",
+          "verifier_pass": true,
+          "cost": 2
+        },
+        "NORM_EXACT": {
+          "output": "TXC-372.",
+          "verifier_pass": true,
+          "cost": 3
+        },
+        "ABSTAIN": {
+          "output": "",
+          "verifier_pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "TXC-372",
+      "family_analysis": "realization"
+    },
+    {
+      "observed": {
+        "task_id": "non_candidate-5",
+        "n_candidates": 0,
+        "output_arity": 1,
+        "format_name": "prose",
+        "query_target_index": null,
+        "n_alt_query_targets": 0,
+        "applicable_actions": [
+          "NO_CHANGE",
+          "ABSTAIN"
+        ]
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": null,
+      "raw_scores": null,
+      "norm_scores": null,
+      "actions": {
+        "NO_CHANGE": {
+          "output": "ochre.",
+          "verifier_pass": true,
+          "cost": 0
+        },
+        "ABSTAIN": {
+          "output": "",
+          "verifier_pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "ochre",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "observed": {
+        "task_id": "non_candidate-6",
+        "n_candidates": 0,
+        "output_arity": 1,
+        "format_name": "prose",
+        "query_target_index": null,
+        "n_alt_query_targets": 0,
+        "applicable_actions": [
+          "NO_CHANGE",
+          "ABSTAIN"
+        ]
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": null,
+      "raw_scores": null,
+      "norm_scores": null,
+      "actions": {
+        "NO_CHANGE": {
+          "output": "crimson.",
+          "verifier_pass": true,
+          "cost": 0
+        },
+        "ABSTAIN": {
+          "output": "",
+          "verifier_pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "crimson",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "observed": {
+        "task_id": "selection-7",
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "table",
+        "query_target_index": 1,
+        "n_alt_query_targets": 2,
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED",
+          "NORM_EXACT",
+          "ABSTAIN"
+        ]
+      },
+      "raw_pick_code": "LWZ-584",
+      "norm_pick_code": "LWZ-584",
+      "free_out_code": "LWZ-448",
+      "raw_scores": [
+        -11.292732866821098,
+        -5.526326525076001,
+        -6.66752363723208
+      ],
+      "norm_scores": [
+        -3.2758090246911706,
+        0.11821211596361536,
+        -0.3784258733285242
+      ],
+      "actions": {
+        "NO_CHANGE": {
+          "output": "LWZ-448.",
+          "verifier_pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "LWZ-584",
+          "verifier_pass": true,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "LWZ-584.",
+          "verifier_pass": true,
+          "cost": 2
+        },
+        "NORM_EXACT": {
+          "output": "LWZ-584.",
+          "verifier_pass": true,
+          "cost": 3
+        },
+        "ABSTAIN": {
+          "output": "",
+          "verifier_pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "LWZ-584",
+      "family_analysis": "selection"
+    },
+    {
+      "observed": {
+        "task_id": "no_intervention-1",
+        "n_candidates": 2,
+        "output_arity": 1,
+        "format_name": "prose",
+        "query_target_index": 1,
+        "n_alt_query_targets": 1,
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED",
+          "NORM_EXACT",
+          "ABSTAIN"
+        ]
+      },
+      "raw_pick_code": "NQD-946",
+      "norm_pick_code": "NQD-946",
+      "free_out_code": "NQD-946",
+      "raw_scores": [
+        -11.710102273475059,
+        -1.187895383301111
+      ],
+      "norm_scores": [
+        -0.3409176019304141,
+        0.5734544834040207
+      ],
+      "actions": {
+        "NO_CHANGE": {
+          "output": "NQD-946.",
+          "verifier_pass": true,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "NQD-946",
+          "verifier_pass": true,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "NQD-946.",
+          "verifier_pass": true,
+          "cost": 2
+        },
+        "NORM_EXACT": {
+          "output": "NQD-946.",
+          "verifier_pass": true,
+          "cost": 3
+        },
+        "ABSTAIN": {
+          "output": "",
+          "verifier_pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "NQD-946",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "observed": {
+        "task_id": "realization-5",
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "prose",
+        "query_target_index": 2,
+        "n_alt_query_targets": 2,
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED",
+          "NORM_EXACT",
+          "ABSTAIN"
+        ]
+      },
+      "raw_pick_code": "NQD-656",
+      "norm_pick_code": "NQD-656",
+      "free_out_code": "NQD-656",
+      "raw_scores": [
+        -14.207635830143772,
+        -8.117415978294957,
+        -1.1299595651053096
+      ],
+      "norm_scores": [
+        -0.21829167978103214,
+        -0.5402884710165381,
+        0.35061632684028154
+      ],
+      "actions": {
+        "NO_CHANGE": {
+          "output": "NQD-656.",
+          "verifier_pass": true,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "NQD-656",
+          "verifier_pass": true,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "NQD-656.",
+          "verifier_pass": true,
+          "cost": 2
+        },
+        "NORM_EXACT": {
+          "output": "NQD-656.",
+          "verifier_pass": true,
+          "cost": 3
+        },
+        "ABSTAIN": {
+          "output": "",
+          "verifier_pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "NQD-656",
+      "family_analysis": "realization"
+    },
+    {
+      "observed": {
+        "task_id": "non_candidate-1",
+        "n_candidates": 0,
+        "output_arity": 1,
+        "format_name": "prose",
+        "query_target_index": null,
+        "n_alt_query_targets": 0,
+        "applicable_actions": [
+          "NO_CHANGE",
+          "ABSTAIN"
+        ]
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": null,
+      "raw_scores": null,
+      "norm_scores": null,
+      "actions": {
+        "NO_CHANGE": {
+          "output": "verdant.",
+          "verifier_pass": true,
+          "cost": 0
+        },
+        "ABSTAIN": {
+          "output": "",
+          "verifier_pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "verdant",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "observed": {
+        "task_id": "selection-5",
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "prose",
+        "query_target_index": 2,
+        "n_alt_query_targets": 2,
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED",
+          "NORM_EXACT",
+          "ABSTAIN"
+        ]
+      },
+      "raw_pick_code": "TXC-981",
+      "norm_pick_code": "TXC-981",
+      "free_out_code": "CTC-981",
+      "raw_scores": [
+        -11.934476540849573,
+        -11.94049391520457,
+        -4.6219414165425405
+      ],
+      "norm_scores": [
+        1.921425045660726,
+        -0.02332145389118523,
+        2.0692961201239086
+      ],
+      "actions": {
+        "NO_CHANGE": {
+          "output": "CTC-981.",
+          "verifier_pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "TXC-981",
+          "verifier_pass": true,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "TXC-981.",
+          "verifier_pass": true,
+          "cost": 2
+        },
+        "NORM_EXACT": {
+          "output": "TXC-981.",
+          "verifier_pass": true,
+          "cost": 3
+        },
+        "ABSTAIN": {
+          "output": "",
+          "verifier_pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "TXC-981",
+      "family_analysis": "selection"
+    },
+    {
+      "observed": {
+        "task_id": "composition-7",
+        "n_candidates": 3,
+        "output_arity": 2,
+        "format_name": "prose",
+        "query_target_index": null,
+        "n_alt_query_targets": 0,
+        "applicable_actions": [
+          "NO_CHANGE",
+          "ABSTAIN"
+        ]
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": "NQD-657",
+      "raw_scores": null,
+      "norm_scores": null,
+      "actions": {
+        "NO_CHANGE": {
+          "output": "NQD-657.",
+          "verifier_pass": false,
+          "cost": 0
+        },
+        "ABSTAIN": {
+          "output": "",
+          "verifier_pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "GKT-976 NQD-657",
+      "family_analysis": "composition"
+    },
+    {
+      "observed": {
+        "task_id": "copy_single-6",
+        "n_candidates": 1,
+        "output_arity": 1,
+        "format_name": "prose",
+        "query_target_index": null,
+        "n_alt_query_targets": 0,
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "ABSTAIN"
+        ]
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": "GQT-776",
+      "raw_scores": null,
+      "norm_scores": null,
+      "actions": {
+        "NO_CHANGE": {
+          "output": "GQT-776.",
+          "verifier_pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "GKT-776",
+          "verifier_pass": true,
+          "cost": 1
+        },
+        "ABSTAIN": {
+          "output": "",
+          "verifier_pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "GKT-776",
+      "family_analysis": "copy_single"
+    },
+    {
+      "observed": {
+        "task_id": "copy_single-2",
+        "n_candidates": 1,
+        "output_arity": 1,
+        "format_name": "prose",
+        "query_target_index": null,
+        "n_alt_query_targets": 0,
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "ABSTAIN"
+        ]
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": "GQT-144",
+      "raw_scores": null,
+      "norm_scores": null,
+      "actions": {
+        "NO_CHANGE": {
+          "output": "GQT-144.",
+          "verifier_pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "GKT-144",
+          "verifier_pass": true,
+          "cost": 1
+        },
+        "ABSTAIN": {
+          "output": "",
+          "verifier_pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "GKT-144",
+      "family_analysis": "copy_single"
+    },
+    {
+      "observed": {
+        "task_id": "non_candidate-9",
+        "n_candidates": 0,
+        "output_arity": 1,
+        "format_name": "prose",
+        "query_target_index": null,
+        "n_alt_query_targets": 0,
+        "applicable_actions": [
+          "NO_CHANGE",
+          "ABSTAIN"
+        ]
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": null,
+      "raw_scores": null,
+      "norm_scores": null,
+      "actions": {
+        "NO_CHANGE": {
+          "output": "painted.",
+          "verifier_pass": false,
+          "cost": 0
+        },
+        "ABSTAIN": {
+          "output": "",
+          "verifier_pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "cobalt",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "observed": {
+        "task_id": "composition-3",
+        "n_candidates": 3,
+        "output_arity": 2,
+        "format_name": "prose",
+        "query_target_index": null,
+        "n_alt_query_targets": 0,
+        "applicable_actions": [
+          "NO_CHANGE",
+          "ABSTAIN"
+        ]
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": "NQD-843",
+      "raw_scores": null,
+      "norm_scores": null,
+      "actions": {
+        "NO_CHANGE": {
+          "output": "NQD-843.",
+          "verifier_pass": false,
+          "cost": 0
+        },
+        "ABSTAIN": {
+          "output": "",
+          "verifier_pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "NQD-269 NQD-843",
+      "family_analysis": "composition"
+    },
+    {
+      "observed": {
+        "task_id": "selection-2",
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "table",
+        "query_target_index": 0,
+        "n_alt_query_targets": 2,
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED",
+          "NORM_EXACT",
+          "ABSTAIN"
+        ]
+      },
+      "raw_pick_code": "NQD-875",
+      "norm_pick_code": "LWZ-614",
+      "free_out_code": "NQD-875",
+      "raw_scores": [
+        -1.393568162668089,
+        -0.7455048695501318,
+        -4.85695548048534
+      ],
+      "norm_scores": [
+        2.866621696355651,
+        -0.37437870407347873,
+        0.4663578407571549
+      ],
+      "actions": {
+        "NO_CHANGE": {
+          "output": "NQD-875.",
+          "verifier_pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "NQD-875",
+          "verifier_pass": false,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "LWZ-614.",
+          "verifier_pass": true,
+          "cost": 2
+        },
+        "NORM_EXACT": {
+          "output": "LWZ-614.",
+          "verifier_pass": true,
+          "cost": 3
+        },
+        "ABSTAIN": {
+          "output": "",
+          "verifier_pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "LWZ-614",
+      "family_analysis": "selection"
+    },
+    {
+      "observed": {
+        "task_id": "realization-2",
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "prose",
+        "query_target_index": 0,
+        "n_alt_query_targets": 2,
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED",
+          "NORM_EXACT",
+          "ABSTAIN"
+        ]
+      },
+      "raw_pick_code": "LWZ-526",
+      "norm_pick_code": "LWZ-526",
+      "free_out_code": null,
+      "raw_scores": [
+        -3.410799182156552,
+        -8.331100711953695,
+        -12.987573186059308
+      ],
+      "norm_scores": [
+        0.8778268401438254,
+        -0.7322225591078677,
+        0.2632749896865789
+      ],
+      "actions": {
+        "NO_CHANGE": {
+          "output": "CTCTCTCTCTCTCTCTCTCTCT",
+          "verifier_pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "LWZ-526",
+          "verifier_pass": true,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "LWZ-526.",
+          "verifier_pass": true,
+          "cost": 2
+        },
+        "NORM_EXACT": {
+          "output": "LWZ-526.",
+          "verifier_pass": true,
+          "cost": 3
+        },
+        "ABSTAIN": {
+          "output": "",
+          "verifier_pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "LWZ-526",
+      "family_analysis": "realization"
+    },
+    {
+      "observed": {
+        "task_id": "composition-6",
+        "n_candidates": 3,
+        "output_arity": 2,
+        "format_name": "prose",
+        "query_target_index": null,
+        "n_alt_query_targets": 0,
+        "applicable_actions": [
+          "NO_CHANGE",
+          "ABSTAIN"
+        ]
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": "CTC-498",
+      "raw_scores": null,
+      "norm_scores": null,
+      "actions": {
+        "NO_CHANGE": {
+          "output": "CTC-498.",
+          "verifier_pass": false,
+          "cost": 0
+        },
+        "ABSTAIN": {
+          "output": "",
+          "verifier_pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "TXC-894 TXC-498",
+      "family_analysis": "composition"
+    },
+    {
+      "observed": {
+        "task_id": "selection-9",
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "prose",
+        "query_target_index": 0,
+        "n_alt_query_targets": 2,
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED",
+          "NORM_EXACT",
+          "ABSTAIN"
+        ]
+      },
+      "raw_pick_code": "PVH-153",
+      "norm_pick_code": "PVH-153",
+      "free_out_code": "CTH-833",
+      "raw_scores": [
+        -7.2501267119187105,
+        -11.336004645629146,
+        -7.515982597407856
+      ],
+      "norm_scores": [
+        1.8958191881974926,
+        0.09132112717452401,
+        0.1316979482980969
+      ],
+      "actions": {
+        "NO_CHANGE": {
+          "output": "CTH-833.",
+          "verifier_pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "PVH-153",
+          "verifier_pass": true,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "PVH-153.",
+          "verifier_pass": true,
+          "cost": 2
+        },
+        "NORM_EXACT": {
+          "output": "PVH-153.",
+          "verifier_pass": true,
+          "cost": 3
+        },
+        "ABSTAIN": {
+          "output": "",
+          "verifier_pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "PVH-153",
+      "family_analysis": "selection"
+    },
+    {
+      "observed": {
+        "task_id": "no_intervention-6",
+        "n_candidates": 2,
+        "output_arity": 1,
+        "format_name": "table",
+        "query_target_index": 0,
+        "n_alt_query_targets": 1,
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED",
+          "NORM_EXACT",
+          "ABSTAIN"
+        ]
+      },
+      "raw_pick_code": "LWZ-188",
+      "norm_pick_code": "GKT-716",
+      "free_out_code": "LWZ-187",
+      "raw_scores": [
+        -8.128212548246665,
+        -3.3621177042805357
+      ],
+      "norm_scores": [
+        3.6292841399608733,
+        -1.1221958854148397
+      ],
+      "actions": {
+        "NO_CHANGE": {
+          "output": "LWZ-187.",
+          "verifier_pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "LWZ-188",
+          "verifier_pass": false,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "GKT-716.",
+          "verifier_pass": true,
+          "cost": 2
+        },
+        "NORM_EXACT": {
+          "output": "GKT-716.",
+          "verifier_pass": true,
+          "cost": 3
+        },
+        "ABSTAIN": {
+          "output": "",
+          "verifier_pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "GKT-716",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "observed": {
+        "task_id": "no_intervention-4",
+        "n_candidates": 2,
+        "output_arity": 1,
+        "format_name": "table",
+        "query_target_index": 1,
+        "n_alt_query_targets": 1,
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED",
+          "NORM_EXACT",
+          "ABSTAIN"
+        ]
+      },
+      "raw_pick_code": "LWZ-894",
+      "norm_pick_code": "LWZ-894",
+      "free_out_code": "LWZ-894",
+      "raw_scores": [
+        -5.387862990419308,
+        -0.3529218137191492
+      ],
+      "norm_scores": [
+        -2.8391843216904817,
+        2.140060972171341
+      ],
+      "actions": {
+        "NO_CHANGE": {
+          "output": "LWZ-894.",
+          "verifier_pass": true,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "LWZ-894",
+          "verifier_pass": true,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "LWZ-894.",
+          "verifier_pass": true,
+          "cost": 2
+        },
+        "NORM_EXACT": {
+          "output": "LWZ-894.",
+          "verifier_pass": true,
+          "cost": 3
+        },
+        "ABSTAIN": {
+          "output": "",
+          "verifier_pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "LWZ-894",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "observed": {
+        "task_id": "composition-9",
+        "n_candidates": 3,
+        "output_arity": 2,
+        "format_name": "prose",
+        "query_target_index": null,
+        "n_alt_query_targets": 0,
+        "applicable_actions": [
+          "NO_CHANGE",
+          "ABSTAIN"
+        ]
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": "CTH-960",
+      "raw_scores": null,
+      "norm_scores": null,
+      "actions": {
+        "NO_CHANGE": {
+          "output": "CTH-960.",
+          "verifier_pass": false,
+          "cost": 0
+        },
+        "ABSTAIN": {
+          "output": "",
+          "verifier_pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "GKT-418 PVH-960",
+      "family_analysis": "composition"
+    },
+    {
+      "observed": {
+        "task_id": "selection-4",
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "table",
+        "query_target_index": 2,
+        "n_alt_query_targets": 2,
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED",
+          "NORM_EXACT",
+          "ABSTAIN"
+        ]
+      },
+      "raw_pick_code": "NQD-238",
+      "norm_pick_code": "PVH-945",
+      "free_out_code": "NQD-231",
+      "raw_scores": [
+        -11.041092612300417,
+        -3.454739298441382,
+        -5.528297252356424
+      ],
+      "norm_scores": [
+        0.505144886717062,
+        0.15983148723262275,
+        1.8838445045994376
+      ],
+      "actions": {
+        "NO_CHANGE": {
+          "output": "NQD-231.",
+          "verifier_pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "NQD-238",
+          "verifier_pass": false,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "PVH-945.",
+          "verifier_pass": true,
+          "cost": 2
+        },
+        "NORM_EXACT": {
+          "output": "PVH-945.",
+          "verifier_pass": true,
+          "cost": 3
+        },
+        "ABSTAIN": {
+          "output": "",
+          "verifier_pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "PVH-945",
+      "family_analysis": "selection"
+    },
+    {
+      "observed": {
+        "task_id": "selection-1",
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "prose",
+        "query_target_index": 1,
+        "n_alt_query_targets": 2,
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED",
+          "NORM_EXACT",
+          "ABSTAIN"
+        ]
+      },
+      "raw_pick_code": "LWZ-727",
+      "norm_pick_code": "LWZ-727",
+      "free_out_code": "CTT-451",
+      "raw_scores": [
+        -19.33647787569498,
+        -11.67718322238943,
+        -3.152911054174183
+      ],
+      "norm_scores": [
+        0.30828830350310454,
+        0.14923616107535054,
+        0.6451770341636802
+      ],
+      "actions": {
+        "NO_CHANGE": {
+          "output": "CTT-451.",
+          "verifier_pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "LWZ-727",
+          "verifier_pass": false,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "LWZ-727.",
+          "verifier_pass": false,
+          "cost": 2
+        },
+        "NORM_EXACT": {
+          "output": "LWZ-727.",
+          "verifier_pass": false,
+          "cost": 3
+        },
+        "ABSTAIN": {
+          "output": "",
+          "verifier_pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "GKT-451",
+      "family_analysis": "selection"
+    },
+    {
+      "observed": {
+        "task_id": "no_intervention-7",
+        "n_candidates": 2,
+        "output_arity": 1,
+        "format_name": "table",
+        "query_target_index": 0,
+        "n_alt_query_targets": 1,
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED",
+          "NORM_EXACT",
+          "ABSTAIN"
+        ]
+      },
+      "raw_pick_code": "NQD-678",
+      "norm_pick_code": "GKT-488",
+      "free_out_code": "NQD-678",
+      "raw_scores": [
+        -8.428681871987465,
+        -1.49610661438237
+      ],
+      "norm_scores": [
+        2.3547229098285243,
+        -0.6158376243511157
+      ],
+      "actions": {
+        "NO_CHANGE": {
+          "output": "NQD-678.",
+          "verifier_pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "NQD-678",
+          "verifier_pass": false,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "GKT-488.",
+          "verifier_pass": true,
+          "cost": 2
+        },
+        "NORM_EXACT": {
+          "output": "GKT-488.",
+          "verifier_pass": true,
+          "cost": 3
+        },
+        "ABSTAIN": {
+          "output": "",
+          "verifier_pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "GKT-488",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "observed": {
+        "task_id": "copy_single-0",
+        "n_candidates": 1,
+        "output_arity": 1,
+        "format_name": "prose",
+        "query_target_index": null,
+        "n_alt_query_targets": 0,
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "ABSTAIN"
+        ]
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": "GQT-548",
+      "raw_scores": null,
+      "norm_scores": null,
+      "actions": {
+        "NO_CHANGE": {
+          "output": "GQT-548.",
+          "verifier_pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "GKT-548",
+          "verifier_pass": true,
+          "cost": 1
+        },
+        "ABSTAIN": {
+          "output": "",
+          "verifier_pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "GKT-548",
+      "family_analysis": "copy_single"
+    },
+    {
+      "observed": {
+        "task_id": "no_intervention-5",
+        "n_candidates": 2,
+        "output_arity": 1,
+        "format_name": "prose",
+        "query_target_index": 1,
+        "n_alt_query_targets": 1,
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED",
+          "NORM_EXACT",
+          "ABSTAIN"
+        ]
+      },
+      "raw_pick_code": "NQD-427",
+      "norm_pick_code": "NQD-427",
+      "free_out_code": "NQD-424",
+      "raw_scores": [
+        -3.333412003373269,
+        -11.441180406942294
+      ],
+      "norm_scores": [
+        0.5179954988579993,
+        -0.13505898269431782
+      ],
+      "actions": {
+        "NO_CHANGE": {
+          "output": "NQD-424.",
+          "verifier_pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "NQD-427",
+          "verifier_pass": false,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "NQD-427.",
+          "verifier_pass": false,
+          "cost": 2
+        },
+        "NORM_EXACT": {
+          "output": "NQD-427.",
+          "verifier_pass": false,
+          "cost": 3
+        },
+        "ABSTAIN": {
+          "output": "",
+          "verifier_pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "GKT-692",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "observed": {
+        "task_id": "no_intervention-3",
+        "n_candidates": 2,
+        "output_arity": 1,
+        "format_name": "prose",
+        "query_target_index": 0,
+        "n_alt_query_targets": 1,
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED",
+          "NORM_EXACT",
+          "ABSTAIN"
+        ]
+      },
+      "raw_pick_code": "LWZ-726",
+      "norm_pick_code": "LWZ-726",
+      "free_out_code": "CTH-736",
+      "raw_scores": [
+        -9.183969272162358,
+        -4.072796514090442
+      ],
+      "norm_scores": [
+        -1.4617851520815748,
+        -1.0646672226521332
+      ],
+      "actions": {
+        "NO_CHANGE": {
+          "output": "CTH-736.",
+          "verifier_pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "LWZ-726",
+          "verifier_pass": false,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "LWZ-726.",
+          "verifier_pass": false,
+          "cost": 2
+        },
+        "NORM_EXACT": {
+          "output": "LWZ-726.",
+          "verifier_pass": false,
+          "cost": 3
+        },
+        "ABSTAIN": {
+          "output": "",
+          "verifier_pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "PVH-736",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "observed": {
+        "task_id": "selection-0",
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "table",
+        "query_target_index": 1,
+        "n_alt_query_targets": 2,
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED",
+          "NORM_EXACT",
+          "ABSTAIN"
+        ]
+      },
+      "raw_pick_code": "TXC-858",
+      "norm_pick_code": "TXC-858",
+      "free_out_code": "GQT-542",
+      "raw_scores": [
+        -9.78869725484401,
+        -4.104655548275332,
+        -5.536382656224305
+      ],
+      "norm_scores": [
+        -1.3308881227458187,
+        3.5209423678779785,
+        1.1798018391154983
+      ],
+      "actions": {
+        "NO_CHANGE": {
+          "output": "GQT-542.",
+          "verifier_pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "TXC-858",
+          "verifier_pass": true,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "TXC-858.",
+          "verifier_pass": true,
+          "cost": 2
+        },
+        "NORM_EXACT": {
+          "output": "TXC-858.",
+          "verifier_pass": true,
+          "cost": 3
+        },
+        "ABSTAIN": {
+          "output": "",
+          "verifier_pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "TXC-858",
+      "family_analysis": "selection"
+    },
+    {
+      "observed": {
+        "task_id": "selection-8",
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "table",
+        "query_target_index": 0,
+        "n_alt_query_targets": 2,
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED",
+          "NORM_EXACT",
+          "ABSTAIN"
+        ]
+      },
+      "raw_pick_code": "TXC-277",
+      "norm_pick_code": "TXC-277",
+      "free_out_code": "TXC-277",
+      "raw_scores": [
+        -1.1178038621383166,
+        -5.156384392810651,
+        -3.3190403682510805
+      ],
+      "norm_scores": [
+        1.6760690785395127,
+        0.6066075007347536,
+        -1.7726992763446106
+      ],
+      "actions": {
+        "NO_CHANGE": {
+          "output": "TXC-277.",
+          "verifier_pass": true,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "TXC-277",
+          "verifier_pass": true,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "TXC-277.",
+          "verifier_pass": true,
+          "cost": 2
+        },
+        "NORM_EXACT": {
+          "output": "TXC-277.",
+          "verifier_pass": true,
+          "cost": 3
+        },
+        "ABSTAIN": {
+          "output": "",
+          "verifier_pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "TXC-277",
+      "family_analysis": "selection"
+    },
+    {
+      "observed": {
+        "task_id": "copy_single-5",
+        "n_candidates": 1,
+        "output_arity": 1,
+        "format_name": "prose",
+        "query_target_index": null,
+        "n_alt_query_targets": 0,
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "ABSTAIN"
+        ]
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": "CTC-151",
+      "raw_scores": null,
+      "norm_scores": null,
+      "actions": {
+        "NO_CHANGE": {
+          "output": "CTC-151.",
+          "verifier_pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "TXC-151",
+          "verifier_pass": true,
+          "cost": 1
+        },
+        "ABSTAIN": {
+          "output": "",
+          "verifier_pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "TXC-151",
+      "family_analysis": "copy_single"
+    },
+    {
+      "observed": {
+        "task_id": "non_candidate-7",
+        "n_candidates": 0,
+        "output_arity": 1,
+        "format_name": "prose",
+        "query_target_index": null,
+        "n_alt_query_targets": 0,
+        "applicable_actions": [
+          "NO_CHANGE",
+          "ABSTAIN"
+        ]
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": null,
+      "raw_scores": null,
+      "norm_scores": null,
+      "actions": {
+        "NO_CHANGE": {
+          "output": "cobalt.",
+          "verifier_pass": true,
+          "cost": 0
+        },
+        "ABSTAIN": {
+          "output": "",
+          "verifier_pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "cobalt",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "observed": {
+        "task_id": "selection-3",
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "table",
+        "query_target_index": 1,
+        "n_alt_query_targets": 2,
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED",
+          "NORM_EXACT",
+          "ABSTAIN"
+        ]
+      },
+      "raw_pick_code": "GKT-903",
+      "norm_pick_code": "GKT-178",
+      "free_out_code": "GQT-903",
+      "raw_scores": [
+        -7.232282491735532,
+        -9.547875364529318,
+        -6.159942113547004
+      ],
+      "norm_scores": [
+        -3.2648342115712694,
+        2.2065771293100624,
+        0.7054628570886052
+      ],
+      "actions": {
+        "NO_CHANGE": {
+          "output": "GQT-903.",
+          "verifier_pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "GKT-903",
+          "verifier_pass": false,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "GKT-178.",
+          "verifier_pass": true,
+          "cost": 2
+        },
+        "NORM_EXACT": {
+          "output": "GKT-178.",
+          "verifier_pass": true,
+          "cost": 3
+        },
+        "ABSTAIN": {
+          "output": "",
+          "verifier_pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "GKT-178",
+      "family_analysis": "selection"
+    },
+    {
+      "observed": {
+        "task_id": "realization-9",
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "table",
+        "query_target_index": 2,
+        "n_alt_query_targets": 2,
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED",
+          "NORM_EXACT",
+          "ABSTAIN"
+        ]
+      },
+      "raw_pick_code": "NQD-231",
+      "norm_pick_code": "NQD-231",
+      "free_out_code": "NQD-231",
+      "raw_scores": [
+        -9.394126713330479,
+        -12.654451308026182,
+        -0.49537599650102493
+      ],
+      "norm_scores": [
+        -3.689837351013921,
+        -3.490813053047532,
+        7.861689073074558
+      ],
+      "actions": {
+        "NO_CHANGE": {
+          "output": "NQD-231.",
+          "verifier_pass": true,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "NQD-231",
+          "verifier_pass": true,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "NQD-231.",
+          "verifier_pass": true,
+          "cost": 2
+        },
+        "NORM_EXACT": {
+          "output": "NQD-231.",
+          "verifier_pass": true,
+          "cost": 3
+        },
+        "ABSTAIN": {
+          "output": "",
+          "verifier_pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "NQD-231",
+      "family_analysis": "realization"
+    },
+    {
+      "observed": {
+        "task_id": "non_candidate-8",
+        "n_candidates": 0,
+        "output_arity": 1,
+        "format_name": "prose",
+        "query_target_index": null,
+        "n_alt_query_targets": 0,
+        "applicable_actions": [
+          "NO_CHANGE",
+          "ABSTAIN"
+        ]
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": null,
+      "raw_scores": null,
+      "norm_scores": null,
+      "actions": {
+        "NO_CHANGE": {
+          "output": "verdant.",
+          "verifier_pass": true,
+          "cost": 0
+        },
+        "ABSTAIN": {
+          "output": "",
+          "verifier_pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "verdant",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "observed": {
+        "task_id": "non_candidate-3",
+        "n_candidates": 0,
+        "output_arity": 1,
+        "format_name": "prose",
+        "query_target_index": null,
+        "n_alt_query_targets": 0,
+        "applicable_actions": [
+          "NO_CHANGE",
+          "ABSTAIN"
+        ]
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": null,
+      "raw_scores": null,
+      "norm_scores": null,
+      "actions": {
+        "NO_CHANGE": {
+          "output": "crimson.",
+          "verifier_pass": true,
+          "cost": 0
+        },
+        "ABSTAIN": {
+          "output": "",
+          "verifier_pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "crimson",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "observed": {
+        "task_id": "copy_single-9",
+        "n_candidates": 1,
+        "output_arity": 1,
+        "format_name": "prose",
+        "query_target_index": null,
+        "n_alt_query_targets": 0,
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "ABSTAIN"
+        ]
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": "PVH-560",
+      "raw_scores": null,
+      "norm_scores": null,
+      "actions": {
+        "NO_CHANGE": {
+          "output": "PVH-560.",
+          "verifier_pass": true,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "PVH-560",
+          "verifier_pass": true,
+          "cost": 1
+        },
+        "ABSTAIN": {
+          "output": "",
+          "verifier_pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "PVH-560",
+      "family_analysis": "copy_single"
+    },
+    {
+      "observed": {
+        "task_id": "realization-7",
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "prose",
+        "query_target_index": 2,
+        "n_alt_query_targets": 2,
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED",
+          "NORM_EXACT",
+          "ABSTAIN"
+        ]
+      },
+      "raw_pick_code": "NQD-567",
+      "norm_pick_code": "NQD-567",
+      "free_out_code": "CTH-933",
+      "raw_scores": [
+        -7.931318709648622,
+        -7.47957051634512,
+        -1.713410616179317
+      ],
+      "norm_scores": [
+        -1.0623010615436215,
+        -1.1768581370979518,
+        -0.27949569358315784
+      ],
+      "actions": {
+        "NO_CHANGE": {
+          "output": "CTH-933.",
+          "verifier_pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "NQD-567",
+          "verifier_pass": true,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "NQD-567.",
+          "verifier_pass": true,
+          "cost": 2
+        },
+        "NORM_EXACT": {
+          "output": "NQD-567.",
+          "verifier_pass": true,
+          "cost": 3
+        },
+        "ABSTAIN": {
+          "output": "",
+          "verifier_pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "NQD-567",
+      "family_analysis": "realization"
+    },
+    {
+      "observed": {
+        "task_id": "composition-4",
+        "n_candidates": 3,
+        "output_arity": 2,
+        "format_name": "prose",
+        "query_target_index": null,
+        "n_alt_query_targets": 0,
+        "applicable_actions": [
+          "NO_CHANGE",
+          "ABSTAIN"
+        ]
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": "CTT-142",
+      "raw_scores": null,
+      "norm_scores": null,
+      "actions": {
+        "NO_CHANGE": {
+          "output": "CTT-142.",
+          "verifier_pass": false,
+          "cost": 0
+        },
+        "ABSTAIN": {
+          "output": "",
+          "verifier_pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "NQD-688 GKT-473",
+      "family_analysis": "composition"
+    },
+    {
+      "observed": {
+        "task_id": "no_intervention-8",
+        "n_candidates": 2,
+        "output_arity": 1,
+        "format_name": "prose",
+        "query_target_index": 0,
+        "n_alt_query_targets": 1,
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED",
+          "NORM_EXACT",
+          "ABSTAIN"
+        ]
+      },
+      "raw_pick_code": "PVH-570",
+      "norm_pick_code": "PVH-570",
+      "free_out_code": "CTH-570",
+      "raw_scores": [
+        -6.85193857237482,
+        -8.428584948720527
+      ],
+      "norm_scores": [
+        0.6636677698297717,
+        -1.903708013049254
+      ],
+      "actions": {
+        "NO_CHANGE": {
+          "output": "CTH-570.",
+          "verifier_pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "PVH-570",
+          "verifier_pass": true,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "PVH-570.",
+          "verifier_pass": true,
+          "cost": 2
+        },
+        "NORM_EXACT": {
+          "output": "PVH-570.",
+          "verifier_pass": true,
+          "cost": 3
+        },
+        "ABSTAIN": {
+          "output": "",
+          "verifier_pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "PVH-570",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "observed": {
+        "task_id": "composition-2",
+        "n_candidates": 3,
+        "output_arity": 2,
+        "format_name": "prose",
+        "query_target_index": null,
+        "n_alt_query_targets": 0,
+        "applicable_actions": [
+          "NO_CHANGE",
+          "ABSTAIN"
+        ]
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": "CTH-715",
+      "raw_scores": null,
+      "norm_scores": null,
+      "actions": {
+        "NO_CHANGE": {
+          "output": "CTH-715.",
+          "verifier_pass": false,
+          "cost": 0
+        },
+        "ABSTAIN": {
+          "output": "",
+          "verifier_pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "PVH-763 TXC-472",
+      "family_analysis": "composition"
+    },
+    {
+      "observed": {
+        "task_id": "copy_single-1",
+        "n_candidates": 1,
+        "output_arity": 1,
+        "format_name": "prose",
+        "query_target_index": null,
+        "n_alt_query_targets": 0,
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "ABSTAIN"
+        ]
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": "CTC-501",
+      "raw_scores": null,
+      "norm_scores": null,
+      "actions": {
+        "NO_CHANGE": {
+          "output": "CTC-501.",
+          "verifier_pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "TXC-501",
+          "verifier_pass": true,
+          "cost": 1
+        },
+        "ABSTAIN": {
+          "output": "",
+          "verifier_pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "TXC-501",
+      "family_analysis": "copy_single"
+    },
+    {
+      "observed": {
+        "task_id": "realization-4",
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "table",
+        "query_target_index": 1,
+        "n_alt_query_targets": 2,
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED",
+          "NORM_EXACT",
+          "ABSTAIN"
+        ]
+      },
+      "raw_pick_code": "PVH-890",
+      "norm_pick_code": "PVH-282",
+      "free_out_code": "PVH-890",
+      "raw_scores": [
+        -4.078405856958852,
+        -8.281307196379203,
+        -12.84901733411607
+      ],
+      "norm_scores": [
+        0.4915190334486397,
+        3.5331163026039576,
+        -1.2085359647189762
+      ],
+      "actions": {
+        "NO_CHANGE": {
+          "output": "PVH-890.",
+          "verifier_pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "PVH-890",
+          "verifier_pass": false,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "PVH-282.",
+          "verifier_pass": true,
+          "cost": 2
+        },
+        "NORM_EXACT": {
+          "output": "PVH-282.",
+          "verifier_pass": true,
+          "cost": 3
+        },
+        "ABSTAIN": {
+          "output": "",
+          "verifier_pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "PVH-282",
+      "family_analysis": "realization"
+    },
+    {
+      "observed": {
+        "task_id": "realization-1",
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "prose",
+        "query_target_index": 2,
+        "n_alt_query_targets": 2,
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED",
+          "NORM_EXACT",
+          "ABSTAIN"
+        ]
+      },
+      "raw_pick_code": "LWZ-769",
+      "norm_pick_code": "TXC-437",
+      "free_out_code": null,
+      "raw_scores": [
+        -12.90246472869876,
+        -7.516305660312355,
+        -7.62701600852597
+      ],
+      "norm_scores": [
+        -0.47107526283798506,
+        0.21341187207508483,
+        0.61549036841825
+      ],
+      "actions": {
+        "NO_CHANGE": {
+          "output": "CTCTCTCTCTCTCTCTCTCTCT",
+          "verifier_pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "LWZ-769",
+          "verifier_pass": false,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "TXC-437.",
+          "verifier_pass": true,
+          "cost": 2
+        },
+        "NORM_EXACT": {
+          "output": "TXC-437.",
+          "verifier_pass": true,
+          "cost": 3
+        },
+        "ABSTAIN": {
+          "output": "",
+          "verifier_pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "TXC-437",
+      "family_analysis": "realization"
+    },
+    {
+      "observed": {
+        "task_id": "composition-1",
+        "n_candidates": 3,
+        "output_arity": 2,
+        "format_name": "prose",
+        "query_target_index": null,
+        "n_alt_query_targets": 0,
+        "applicable_actions": [
+          "NO_CHANGE",
+          "ABSTAIN"
+        ]
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": null,
+      "raw_scores": null,
+      "norm_scores": null,
+      "actions": {
+        "NO_CHANGE": {
+          "output": "CTCTCTCTCTCTCTCTCTCTCT",
+          "verifier_pass": false,
+          "cost": 0
+        },
+        "ABSTAIN": {
+          "output": "",
+          "verifier_pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "LWZ-965 TXC-576",
+      "family_analysis": "composition"
+    },
+    {
+      "observed": {
+        "task_id": "no_intervention-2",
+        "n_candidates": 2,
+        "output_arity": 1,
+        "format_name": "prose",
+        "query_target_index": 1,
+        "n_alt_query_targets": 1,
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED",
+          "NORM_EXACT",
+          "ABSTAIN"
+        ]
+      },
+      "raw_pick_code": "NQD-591",
+      "norm_pick_code": "LWZ-603",
+      "free_out_code": "NQD-591",
+      "raw_scores": [
+        -2.8588206151143822,
+        -1.0483258816311718
+      ],
+      "norm_scores": [
+        0.462950167058807,
+        -0.8825023209965366
+      ],
+      "actions": {
+        "NO_CHANGE": {
+          "output": "NQD-591.",
+          "verifier_pass": true,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "NQD-591",
+          "verifier_pass": true,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "LWZ-603.",
+          "verifier_pass": false,
+          "cost": 2
+        },
+        "NORM_EXACT": {
+          "output": "LWZ-603.",
+          "verifier_pass": false,
+          "cost": 3
+        },
+        "ABSTAIN": {
+          "output": "",
+          "verifier_pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "NQD-591",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "observed": {
+        "task_id": "non_candidate-2",
+        "n_candidates": 0,
+        "output_arity": 1,
+        "format_name": "prose",
+        "query_target_index": null,
+        "n_alt_query_targets": 0,
+        "applicable_actions": [
+          "NO_CHANGE",
+          "ABSTAIN"
+        ]
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": null,
+      "raw_scores": null,
+      "norm_scores": null,
+      "actions": {
+        "NO_CHANGE": {
+          "output": "cobalt.",
+          "verifier_pass": true,
+          "cost": 0
+        },
+        "ABSTAIN": {
+          "output": "",
+          "verifier_pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "cobalt",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "observed": {
+        "task_id": "composition-8",
+        "n_candidates": 3,
+        "output_arity": 2,
+        "format_name": "prose",
+        "query_target_index": null,
+        "n_alt_query_targets": 0,
+        "applicable_actions": [
+          "NO_CHANGE",
+          "ABSTAIN"
+        ]
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": "CTT-982",
+      "raw_scores": null,
+      "norm_scores": null,
+      "actions": {
+        "NO_CHANGE": {
+          "output": "CTT-982.",
+          "verifier_pass": false,
+          "cost": 0
+        },
+        "ABSTAIN": {
+          "output": "",
+          "verifier_pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "GKT-982 GKT-753",
+      "family_analysis": "composition"
+    },
+    {
+      "observed": {
+        "task_id": "composition-0",
+        "n_candidates": 3,
+        "output_arity": 2,
+        "format_name": "prose",
+        "query_target_index": null,
+        "n_alt_query_targets": 0,
+        "applicable_actions": [
+          "NO_CHANGE",
+          "ABSTAIN"
+        ]
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": "NQD-945",
+      "raw_scores": null,
+      "norm_scores": null,
+      "actions": {
+        "NO_CHANGE": {
+          "output": "NQD-945.",
+          "verifier_pass": false,
+          "cost": 0
+        },
+        "ABSTAIN": {
+          "output": "",
+          "verifier_pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "NQD-458 NQD-332",
+      "family_analysis": "composition"
+    },
+    {
+      "observed": {
+        "task_id": "copy_single-8",
+        "n_candidates": 1,
+        "output_arity": 1,
+        "format_name": "prose",
+        "query_target_index": null,
+        "n_alt_query_targets": 0,
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "ABSTAIN"
+        ]
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": "CTC-244",
+      "raw_scores": null,
+      "norm_scores": null,
+      "actions": {
+        "NO_CHANGE": {
+          "output": "CTC-244.",
+          "verifier_pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "TXC-244",
+          "verifier_pass": true,
+          "cost": 1
+        },
+        "ABSTAIN": {
+          "output": "",
+          "verifier_pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "TXC-244",
+      "family_analysis": "copy_single"
+    },
+    {
+      "observed": {
+        "task_id": "realization-8",
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "table",
+        "query_target_index": 2,
+        "n_alt_query_targets": 2,
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED",
+          "NORM_EXACT",
+          "ABSTAIN"
+        ]
+      },
+      "raw_pick_code": "TXC-504",
+      "norm_pick_code": "GKT-300",
+      "free_out_code": "GQT-610",
+      "raw_scores": [
+        -12.6968750691085,
+        -7.395182126401778,
+        -11.837561089960218
+      ],
+      "norm_scores": [
+        2.769322339709106,
+        -3.159916739568871,
+        2.790229088817796
+      ],
+      "actions": {
+        "NO_CHANGE": {
+          "output": "GQT-610.",
+          "verifier_pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "GKT-606",
+          "verifier_pass": false,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "GKT-300.",
+          "verifier_pass": true,
+          "cost": 2
+        },
+        "NORM_EXACT": {
+          "output": "GKT-300.",
+          "verifier_pass": true,
+          "cost": 3
+        },
+        "ABSTAIN": {
+          "output": "",
+          "verifier_pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "GKT-300",
+      "family_analysis": "realization"
+    },
+    {
+      "observed": {
+        "task_id": "no_intervention-9",
+        "n_candidates": 2,
+        "output_arity": 1,
+        "format_name": "prose",
+        "query_target_index": 0,
+        "n_alt_query_targets": 1,
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED",
+          "NORM_EXACT",
+          "ABSTAIN"
+        ]
+      },
+      "raw_pick_code": "LWZ-602",
+      "norm_pick_code": "LWZ-602",
+      "free_out_code": null,
+      "raw_scores": [
+        -7.767996258408857,
+        -3.3585448700960114
+      ],
+      "norm_scores": [
+        -1.3030363789594048,
+        0.3596904791538691
+      ],
+      "actions": {
+        "NO_CHANGE": {
+          "output": "CTCTCTCTCTCTCTCTCTCTCT",
+          "verifier_pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "LWZ-602",
+          "verifier_pass": false,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "LWZ-602.",
+          "verifier_pass": false,
+          "cost": 2
+        },
+        "NORM_EXACT": {
+          "output": "LWZ-602.",
+          "verifier_pass": false,
+          "cost": 3
+        },
+        "ABSTAIN": {
+          "output": "",
+          "verifier_pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "TXC-411",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "observed": {
+        "task_id": "non_candidate-0",
+        "n_candidates": 0,
+        "output_arity": 1,
+        "format_name": "prose",
+        "query_target_index": null,
+        "n_alt_query_targets": 0,
+        "applicable_actions": [
+          "NO_CHANGE",
+          "ABSTAIN"
+        ]
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": null,
+      "raw_scores": null,
+      "norm_scores": null,
+      "actions": {
+        "NO_CHANGE": {
+          "output": "verdant.",
+          "verifier_pass": true,
+          "cost": 0
+        },
+        "ABSTAIN": {
+          "output": "",
+          "verifier_pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "verdant",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "observed": {
+        "task_id": "copy_single-7",
+        "n_candidates": 1,
+        "output_arity": 1,
+        "format_name": "prose",
+        "query_target_index": null,
+        "n_alt_query_targets": 0,
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "ABSTAIN"
+        ]
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": "GQT-530",
+      "raw_scores": null,
+      "norm_scores": null,
+      "actions": {
+        "NO_CHANGE": {
+          "output": "GQT-530.",
+          "verifier_pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "GKT-530",
+          "verifier_pass": true,
+          "cost": 1
+        },
+        "ABSTAIN": {
+          "output": "",
+          "verifier_pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "GKT-530",
+      "family_analysis": "copy_single"
+    },
+    {
+      "observed": {
+        "task_id": "realization-3",
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "table",
+        "query_target_index": 1,
+        "n_alt_query_targets": 2,
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED",
+          "NORM_EXACT",
+          "ABSTAIN"
+        ]
+      },
+      "raw_pick_code": "GKT-856",
+      "norm_pick_code": "GKT-856",
+      "free_out_code": "GQT-444",
+      "raw_scores": [
+        -7.830931704334944,
+        -6.97016765855733,
+        -9.28840102567483
+      ],
+      "norm_scores": [
+        0.9158950377805013,
+        2.2540842799335223,
+        -2.568808777963568
+      ],
+      "actions": {
+        "NO_CHANGE": {
+          "output": "GQT-444.",
+          "verifier_pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "GKT-856",
+          "verifier_pass": true,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "GKT-856.",
+          "verifier_pass": true,
+          "cost": 2
+        },
+        "NORM_EXACT": {
+          "output": "GKT-856.",
+          "verifier_pass": true,
+          "cost": 3
+        },
+        "ABSTAIN": {
+          "output": "",
+          "verifier_pass": false,
+          "cost": 0
+        }
+      },
+      "gold_code": "GKT-856",
+      "family_analysis": "realization"
+    }
+  ],
+  "wall_seconds": 256.7
+}

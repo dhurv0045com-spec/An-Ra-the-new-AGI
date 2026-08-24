@@ -531,5 +531,15 @@
       "emitted": "PVH-895."
     }
   ],
-  "wall_seconds": 146.4
+  "wall_seconds": 146.4,
+  "invalidation": {
+    "status": "INVALID_FOR_CAUSAL_POLICY_TRAINING",
+    "reason": "NORMALIZATION ARM MISIMPLEMENTED",
+    "detail": "run_mixed_causal_dev.py computed adj_i = raw_i - mean(raw_j for j != i), which is rank-preserving: argmax(adj) == argmax(raw) always (up to ties). This is NOT counterfactual-query normalization; the 'NORMALIZE' action was identical to RAW.",
+    "invalidated_artifacts": [
+      "output/mixed_causal_calibration.json",
+      "output/mixed_causal_dev_results.json"
+    ],
+    "preserved": true
+  }
 }
