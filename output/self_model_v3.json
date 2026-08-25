@@ -1,5 +1,13 @@
 {
-  "schema": "anra-self-model-v3/v1",
+  "schema": "anra-self-model-v3/v2",
+  "canonical_trainer": "scripts/train_self_model_v3.py",
+  "training_matrix": "output/mixed_causal_matrix_v2.json",
+  "matrix_sha256": "96851277dd9b2d5dc9c9ffb744544f4348013cbb8134ef6bc2387a61103162b1",
+  "seed": 31,
+  "epochs": 400,
+  "optimizer": "Adam(lr=0.05)",
+  "solver": "logistic regression per action, BCE loss",
+  "regularization": "none",
   "feature_names": [
     "n_candidates",
     "output_arity",
@@ -9,90 +17,90 @@
     "raw_spread_std",
     "norm_spread_std",
     "raw_norm_same_pick",
-    "free_matches_raw",
-    "free_matches_norm",
+    "free_matches_raw_pick",
+    "free_matches_norm_pick",
     "normalization_applicable",
-    "query_sensitivity"
+    "max_query_lift_gap"
   ],
   "actions": [
     "NO_CHANGE",
     "CONSTRAINED",
-    "NORMALIZED",
-    "NORM_EXACT"
+    "NORMALIZED"
   ],
+  "costs": {
+    "NO_CHANGE": 0,
+    "CONSTRAINED": 1,
+    "NORMALIZED": 2
+  },
+  "lambda": 0.25,
+  "thresholds": {
+    "NO_CHANGE": 0.5,
+    "CONSTRAINED": 0.5,
+    "NORMALIZED": 0.5
+  },
+  "utility_rule": "argmax_a P(success|state,a) - lambda*cost(a); ties broken by lower cost",
+  "total_training_examples": 130,
   "models": {
     "NO_CHANGE": {
       "weights": [
-        -3.4494004249572754,
-        0.42355820536613464,
-        -2.877532482147217,
-        -0.6042922735214233,
-        0.34523868560791016,
-        0.22123204171657562,
-        0.2641623020172119,
-        1.884290099143982,
-        6.264279842376709,
-        6.603590488433838,
-        -1.3969206809997559,
-        1.7512869834899902
+        -3.393218,
+        0.401091,
+        -2.43446,
+        -0.797056,
+        0.178861,
+        0.143599,
+        0.161648,
+        2.56858,
+        6.804015,
+        6.384026,
+        -0.177568,
+        0.178861
       ],
-      "bias": 1.669000506401062
+      "bias": 1.666244,
+      "train_examples": 60,
+      "train_positives": 17,
+      "final_train_loss": 0.150796
     },
     "CONSTRAINED": {
       "weights": [
-        2.5073587894439697,
-        0.9435868263244629,
-        -4.992289066314697,
-        -0.6422747373580933,
-        -1.085748553276062,
-        -1.0758339166641235,
-        2.67179536819458,
-        7.23902702331543,
-        3.49794602394104,
-        7.1155314445495605,
-        -9.797903060913086,
-        2.375716209411621
+        3.428449,
+        0.456121,
+        -5.835374,
+        -0.568546,
+        -0.650818,
+        -1.264997,
+        2.937634,
+        7.477593,
+        5.727092,
+        5.754547,
+        -10.484214,
+        -0.650818
       ],
-      "bias": 0.9435864686965942
+      "bias": 0.456121,
+      "train_examples": 40,
+      "train_positives": 25,
+      "final_train_loss": 0.072493
     },
     "NORMALIZED": {
       "weights": [
-        3.330242395401001,
-        -2.1043927669525146,
-        2.6421353816986084,
-        0.026368893682956696,
-        -0.07683713734149933,
-        -0.4208315312862396,
-        3.7651007175445557,
-        -2.496082067489624,
-        -1.5493102073669434,
-        7.2562713623046875,
-        -2.1043927669525146,
-        -0.8457245826721191
+        3.143215,
+        -2.094616,
+        2.572892,
+        0.148129,
+        -0.016756,
+        -0.496593,
+        3.680118,
+        -2.866049,
+        -1.924309,
+        7.448456,
+        -2.094616,
+        -0.016756
       ],
-      "bias": -2.1043922901153564
-    },
-    "NORM_EXACT": {
-      "weights": [
-        3.330242395401001,
-        -2.1043927669525146,
-        2.6421353816986084,
-        0.026368893682956696,
-        -0.07683713734149933,
-        -0.4208315312862396,
-        3.7651007175445557,
-        -2.496082067489624,
-        -1.5493102073669434,
-        7.2562713623046875,
-        -2.1043927669525146,
-        -0.8457245826721191
-      ],
-      "bias": -2.1043922901153564
+      "bias": -2.094615,
+      "train_examples": 30,
+      "train_positives": 25,
+      "final_train_loss": 0.117331
     }
   },
-  "utility_rule": {
-    "form": "argmax_a P(success|state,a) - lambda*cost[a]",
-    "lambda": 0.25,
-    "abstain": "chosen iff ABSTAIN is applicable and all other utilities < NO_CHANGE utility"
-  }
+  "parameter_sha256": "e807abdb9ca8af6b481283f420dd34ad802fb68ab0f9ea7404ad08330400ca94"
 }
