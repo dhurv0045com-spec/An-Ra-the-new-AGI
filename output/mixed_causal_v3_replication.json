@@ -1,0 +1,8390 @@
+{
+  "schema": "anra-mixed-causal-v3-replication/v1",
+  "fixture_sha256": "25eb97a7f5dedf36a7c6bb7c55261db264a3edf5067edd7b111f8ff5f42b9d06",
+  "checkpoint_sha256": "36c87e5be671ff37951b4b433e21ec14bb5e59f6f0770d7f81e50e99ead9e001",
+  "policy_sha256": "e807abdb9ca8af6b481283f420dd34ad802fb68ab0f9ea7404ad08330400ca94",
+  "n_tasks": 180,
+  "policies": {
+    "ALWAYS_NO_CHANGE": {
+      "succ": 63,
+      "reg": 0,
+      "cost": 0
+    },
+    "ALWAYS_CONSTRAINED": {
+      "succ": 97,
+      "reg": 0,
+      "cost": 120
+    },
+    "ALWAYS_NORMALIZED": {
+      "succ": 96,
+      "reg": 5,
+      "cost": 180
+    },
+    "ADAPTIVE_v31": {
+      "succ": 99,
+      "reg": 1,
+      "cost": 117
+    },
+    "SIMPLE_A_norm_margin_gt_raw": {
+      "succ": 78,
+      "reg": 0,
+      "cost": 64
+    },
+    "SIMPLE_B_disagree_highconf": {
+      "succ": 77,
+      "reg": 2,
+      "cost": 46
+    },
+    "SIMPLE_C_free_vs_raw_disagree": {
+      "succ": 96,
+      "reg": 0,
+      "cost": 67
+    },
+    "SIMPLE_D_weak_raw_margin": {
+      "succ": 80,
+      "reg": 0,
+      "cost": 52
+    }
+  },
+  "oracle_successes": 123,
+  "paired_adaptive_vs_others": {
+    "ALWAYS_NO_CHANGE": {
+      "mean_diff": 0.2,
+      "ci95": [
+        0.1389,
+        0.2611
+      ],
+      "p_two_sided_normal_approx": 0.0
+    },
+    "ALWAYS_CONSTRAINED": {
+      "mean_diff": 0.0111,
+      "ci95": [
+        -0.0389,
+        0.0611
+      ],
+      "p_two_sided_normal_approx": 0.65544
+    },
+    "ALWAYS_NORMALIZED": {
+      "mean_diff": 0.0167,
+      "ci95": [
+        -0.0444,
+        0.0778
+      ],
+      "p_two_sided_normal_approx": 0.60224
+    },
+    "SIMPLE_A_norm_margin_gt_raw": {
+      "mean_diff": 0.1167,
+      "ci95": [
+        0.0667,
+        0.1722
+      ],
+      "p_two_sided_normal_approx": 2e-05
+    },
+    "SIMPLE_B_disagree_highconf": {
+      "mean_diff": 0.1222,
+      "ci95": [
+        0.0556,
+        0.1889
+      ],
+      "p_two_sided_normal_approx": 0.00047
+    },
+    "SIMPLE_C_free_vs_raw_disagree": {
+      "mean_diff": 0.0167,
+      "ci95": [
+        -0.0333,
+        0.0667
+      ],
+      "p_two_sided_normal_approx": 0.51336
+    },
+    "SIMPLE_D_weak_raw_margin": {
+      "mean_diff": 0.1056,
+      "ci95": [
+        0.0556,
+        0.1611
+      ],
+      "p_two_sided_normal_approx": 8e-05
+    }
+  },
+  "per_task_rows": [
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 2,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE"
+        ]
+      },
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "CTT-622.",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": "CTT-622",
+      "raw_top2": 0.0,
+      "norm_top2": 0.0,
+      "gold_code": "RZQ-710 LMT-622",
+      "family_analysis": "composition"
+    },
+    {
+      "observed": {
+        "n_candidates": 2,
+        "output_arity": 1,
+        "format_name": "table",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED"
+        ]
+      },
+      "features": [
+        2.0,
+        1.0,
+        1.0,
+        16.597398916141174,
+        9.030877605307978,
+        8.298699458070587,
+        4.515438802653989,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        9.030877605307978
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "HXP-380.",
+          "pass": true,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "HXP-380",
+          "pass": true,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "HXP-380.",
+          "pass": true,
+          "cost": 2
+        }
+      },
+      "raw_pick_code": "HXP-380",
+      "norm_pick_code": "HXP-380",
+      "free_out_code": "HXP-380",
+      "raw_top2": 16.597398916141174,
+      "norm_top2": 9.030877605307978,
+      "gold_code": "HXP-380",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED"
+        ]
+      },
+      "features": [
+        3.0,
+        1.0,
+        0.0,
+        5.792665488032071,
+        0.030342979391207336,
+        3.2536198827855394,
+        0.4967576618181826,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.030342979391207336
+      ],
+      "adaptive_action": "NORMALIZED",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "CTK-993.",
+          "pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "VNC-999",
+          "pass": true,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "BFK-993.",
+          "pass": false,
+          "cost": 2
+        }
+      },
+      "raw_pick_code": "VNC-999",
+      "norm_pick_code": "BFK-993",
+      "free_out_code": "CTK-993",
+      "raw_top2": 5.792665488032071,
+      "norm_top2": 0.030342979391207336,
+      "gold_code": "VNC-999",
+      "family_analysis": "realization"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 2,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE"
+        ]
+      },
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "CTK-840.",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": "CTK-840",
+      "raw_top2": 0.0,
+      "norm_top2": 0.0,
+      "gold_code": "BFK-840 VNC-959",
+      "family_analysis": "composition"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED"
+        ]
+      },
+      "features": [
+        3.0,
+        1.0,
+        0.0,
+        3.032968655901641,
+        0.11501204131855047,
+        3.187255199319737,
+        0.28667009637358953,
+        0.0,
+        1.0,
+        0.0,
+        1.0,
+        0.11501204131855047
+      ],
+      "adaptive_action": "CONSTRAINED",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "HXP-112.",
+          "pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "HXP-112",
+          "pass": false,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "VNC-476.",
+          "pass": true,
+          "cost": 2
+        }
+      },
+      "raw_pick_code": "HXP-112",
+      "norm_pick_code": "VNC-476",
+      "free_out_code": "HXP-112",
+      "raw_top2": 3.032968655901641,
+      "norm_top2": 0.11501204131855047,
+      "gold_code": "VNC-476",
+      "family_analysis": "selection"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 2,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE"
+        ]
+      },
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "CTK-240.",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": "CTK-240",
+      "raw_top2": 0.0,
+      "norm_top2": 0.0,
+      "gold_code": "BFK-707 LMT-237",
+      "family_analysis": "composition"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "table",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED"
+        ]
+      },
+      "features": [
+        3.0,
+        1.0,
+        1.0,
+        3.6710954135487555,
+        7.197187761716123,
+        2.849641058223861,
+        3.4604288833470034,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        7.197187761716123
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "HXP-684.",
+          "pass": true,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "HXP-684",
+          "pass": true,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "HXP-684.",
+          "pass": true,
+          "cost": 2
+        }
+      },
+      "raw_pick_code": "HXP-684",
+      "norm_pick_code": "HXP-684",
+      "free_out_code": "HXP-684",
+      "raw_top2": 3.6710954135487555,
+      "norm_top2": 7.197187761716123,
+      "gold_code": "HXP-684",
+      "family_analysis": "realization"
+    },
+    {
+      "observed": {
+        "n_candidates": 0,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE"
+        ]
+      },
+      "features": [
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "painted slate.",
+          "pass": true,
+          "cost": 0
+        }
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": null,
+      "raw_top2": 0.0,
+      "norm_top2": 0.0,
+      "gold_code": "slate",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "table",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED"
+        ]
+      },
+      "features": [
+        3.0,
+        1.0,
+        1.0,
+        3.6797824271397985,
+        0.1522487727806947,
+        1.7618101235080834,
+        0.32105766470206415,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        0.1522487727806947
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "HXP-618.",
+          "pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "HXP-618",
+          "pass": false,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "HXP-618.",
+          "pass": false,
+          "cost": 2
+        }
+      },
+      "raw_pick_code": "HXP-618",
+      "norm_pick_code": "HXP-618",
+      "free_out_code": "HXP-618",
+      "raw_top2": 3.6797824271397985,
+      "norm_top2": 0.1522487727806947,
+      "gold_code": "VNC-801",
+      "family_analysis": "selection"
+    },
+    {
+      "observed": {
+        "n_candidates": 0,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE"
+        ]
+      },
+      "features": [
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "bracket-boss.",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": null,
+      "raw_top2": 0.0,
+      "norm_top2": 0.0,
+      "gold_code": "teal",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED"
+        ]
+      },
+      "features": [
+        3.0,
+        1.0,
+        0.0,
+        0.9731307419679069,
+        0.11725128355874403,
+        0.5021223874824151,
+        0.3474589131350698,
+        0.0,
+        1.0,
+        0.0,
+        1.0,
+        0.11725128355874403
+      ],
+      "adaptive_action": "CONSTRAINED",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "RZQ-613.",
+          "pass": true,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "RZQ-613",
+          "pass": true,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "LMT-249.",
+          "pass": false,
+          "cost": 2
+        }
+      },
+      "raw_pick_code": "RZQ-613",
+      "norm_pick_code": "LMT-249",
+      "free_out_code": "RZQ-613",
+      "raw_top2": 0.9731307419679069,
+      "norm_top2": 0.11725128355874403,
+      "gold_code": "RZQ-613",
+      "family_analysis": "realization"
+    },
+    {
+      "observed": {
+        "n_candidates": 1,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED"
+        ]
+      },
+      "features": [
+        1.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "CONSTRAINED",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "VNC-305.",
+          "pass": true,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "VNC-305",
+          "pass": true,
+          "cost": 1
+        }
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": "VNC-305",
+      "raw_top2": 0.0,
+      "norm_top2": 0.0,
+      "gold_code": "VNC-305",
+      "family_analysis": "copy_single"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "table",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED"
+        ]
+      },
+      "features": [
+        3.0,
+        1.0,
+        1.0,
+        2.1799545947324077,
+        7.573955366111022,
+        1.4809583038624337,
+        3.7499081171832134,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        7.573955366111022
+      ],
+      "adaptive_action": "NORMALIZED",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "VNC-726.",
+          "pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "VNC-735",
+          "pass": true,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "VNC-735.",
+          "pass": true,
+          "cost": 2
+        }
+      },
+      "raw_pick_code": "RZQ-489",
+      "norm_pick_code": "VNC-735",
+      "free_out_code": "VNC-726",
+      "raw_top2": 2.1799545947324077,
+      "norm_top2": 7.573955366111022,
+      "gold_code": "VNC-735",
+      "family_analysis": "realization"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 2,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE"
+        ]
+      },
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "HXP-373.",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": "HXP-373",
+      "raw_top2": 0.0,
+      "norm_top2": 0.0,
+      "gold_code": "VNC-217 HXP-336",
+      "family_analysis": "composition"
+    },
+    {
+      "observed": {
+        "n_candidates": 2,
+        "output_arity": 1,
+        "format_name": "table",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED"
+        ]
+      },
+      "features": [
+        2.0,
+        1.0,
+        1.0,
+        4.689353704537098,
+        6.55678450735104,
+        2.344676852268549,
+        3.27839225367552,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        6.55678450735104
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "HXP-147.",
+          "pass": true,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "HXP-147",
+          "pass": true,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "HXP-147.",
+          "pass": true,
+          "cost": 2
+        }
+      },
+      "raw_pick_code": "HXP-147",
+      "norm_pick_code": "HXP-147",
+      "free_out_code": "HXP-147",
+      "raw_top2": 4.689353704537098,
+      "norm_top2": 6.55678450735104,
+      "gold_code": "HXP-147",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "observed": {
+        "n_candidates": 0,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE"
+        ]
+      },
+      "features": [
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "painted teal.",
+          "pass": true,
+          "cost": 0
+        }
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": null,
+      "raw_top2": 0.0,
+      "norm_top2": 0.0,
+      "gold_code": "teal",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 2,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE"
+        ]
+      },
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "HXP-768.",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": "HXP-768",
+      "raw_top2": 0.0,
+      "norm_top2": 0.0,
+      "gold_code": "HXP-768 VNC-532",
+      "family_analysis": "composition"
+    },
+    {
+      "observed": {
+        "n_candidates": 2,
+        "output_arity": 1,
+        "format_name": "table",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED"
+        ]
+      },
+      "features": [
+        2.0,
+        1.0,
+        1.0,
+        2.0600558475871367,
+        6.3856348978970345,
+        1.0300279237935683,
+        3.1928174489485173,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        6.3856348978970345
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "VNC-595.",
+          "pass": true,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "VNC-595",
+          "pass": true,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "VNC-595.",
+          "pass": true,
+          "cost": 2
+        }
+      },
+      "raw_pick_code": "VNC-595",
+      "norm_pick_code": "VNC-595",
+      "free_out_code": "VNC-595",
+      "raw_top2": 2.0600558475871367,
+      "norm_top2": 6.3856348978970345,
+      "gold_code": "VNC-595",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "observed": {
+        "n_candidates": 2,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED"
+        ]
+      },
+      "features": [
+        2.0,
+        1.0,
+        0.0,
+        6.358314400838935,
+        0.9494795836872072,
+        3.1791572004194677,
+        0.4747397918436036,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.9494795836872072
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "CTK-130.",
+          "pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "VNC-128",
+          "pass": false,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "VNC-128.",
+          "pass": false,
+          "cost": 2
+        }
+      },
+      "raw_pick_code": "VNC-128",
+      "norm_pick_code": "VNC-128",
+      "free_out_code": "CTK-130",
+      "raw_top2": 6.358314400838935,
+      "norm_top2": 0.9494795836872072,
+      "gold_code": "BFK-130",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED"
+        ]
+      },
+      "features": [
+        3.0,
+        1.0,
+        0.0,
+        3.4978604457592155,
+        0.13532936881438218,
+        3.4316299079355717,
+        0.19435145543759694,
+        0.0,
+        1.0,
+        0.0,
+        1.0,
+        0.13532936881438218
+      ],
+      "adaptive_action": "CONSTRAINED",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "HXP-554.",
+          "pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "HXP-554",
+          "pass": false,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "LMT-555.",
+          "pass": true,
+          "cost": 2
+        }
+      },
+      "raw_pick_code": "HXP-554",
+      "norm_pick_code": "LMT-555",
+      "free_out_code": "HXP-554",
+      "raw_top2": 3.4978604457592155,
+      "norm_top2": 0.13532936881438218,
+      "gold_code": "LMT-555",
+      "family_analysis": "realization"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "table",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED"
+        ]
+      },
+      "features": [
+        3.0,
+        1.0,
+        1.0,
+        1.6967682202812284,
+        0.21826990556292003,
+        4.812845668868963,
+        3.782742691159011,
+        0.0,
+        1.0,
+        0.0,
+        1.0,
+        0.21826990556292003
+      ],
+      "adaptive_action": "CONSTRAINED",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "VNC-869.",
+          "pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "VNC-869",
+          "pass": false,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "VNC-505.",
+          "pass": true,
+          "cost": 2
+        }
+      },
+      "raw_pick_code": "VNC-869",
+      "norm_pick_code": "VNC-505",
+      "free_out_code": "VNC-869",
+      "raw_top2": 1.6967682202812284,
+      "norm_top2": 0.21826990556292003,
+      "gold_code": "VNC-505",
+      "family_analysis": "selection"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED"
+        ]
+      },
+      "features": [
+        3.0,
+        1.0,
+        0.0,
+        2.165942405579699,
+        0.7839749177455815,
+        1.1180723440493654,
+        0.38521676275220545,
+        0.0,
+        1.0,
+        0.0,
+        1.0,
+        0.7839749177455815
+      ],
+      "adaptive_action": "CONSTRAINED",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "HXP-320.",
+          "pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "HXP-320",
+          "pass": false,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "VNC-499.",
+          "pass": true,
+          "cost": 2
+        }
+      },
+      "raw_pick_code": "HXP-320",
+      "norm_pick_code": "VNC-499",
+      "free_out_code": "HXP-320",
+      "raw_top2": 2.165942405579699,
+      "norm_top2": 0.7839749177455815,
+      "gold_code": "VNC-499",
+      "family_analysis": "selection"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 2,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE"
+        ]
+      },
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "CTT-442.",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": "CTT-442",
+      "raw_top2": 0.0,
+      "norm_top2": 0.0,
+      "gold_code": "LMT-953 LMT-445",
+      "family_analysis": "composition"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "table",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED"
+        ]
+      },
+      "features": [
+        3.0,
+        1.0,
+        1.0,
+        1.5882058312618028,
+        2.972017477769441,
+        0.9589410588649704,
+        2.1388577348355784,
+        0.0,
+        1.0,
+        0.0,
+        1.0,
+        2.972017477769441
+      ],
+      "adaptive_action": "NORMALIZED",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "VNC-551.",
+          "pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "VNC-551",
+          "pass": false,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "LMT-481.",
+          "pass": true,
+          "cost": 2
+        }
+      },
+      "raw_pick_code": "VNC-551",
+      "norm_pick_code": "LMT-481",
+      "free_out_code": "VNC-551",
+      "raw_top2": 1.5882058312618028,
+      "norm_top2": 2.972017477769441,
+      "gold_code": "LMT-481",
+      "family_analysis": "realization"
+    },
+    {
+      "observed": {
+        "n_candidates": 2,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED"
+        ]
+      },
+      "features": [
+        2.0,
+        1.0,
+        0.0,
+        2.4728303624669934,
+        0.6231382932328415,
+        1.2364151812334967,
+        0.31156914661642077,
+        0.0,
+        1.0,
+        0.0,
+        1.0,
+        0.6231382932328415
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "RZQ-662.",
+          "pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "RZQ-662",
+          "pass": false,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "RZQ-176.",
+          "pass": true,
+          "cost": 2
+        }
+      },
+      "raw_pick_code": "RZQ-662",
+      "norm_pick_code": "RZQ-176",
+      "free_out_code": "RZQ-662",
+      "raw_top2": 2.4728303624669934,
+      "norm_top2": 0.6231382932328415,
+      "gold_code": "RZQ-176",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "observed": {
+        "n_candidates": 0,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE"
+        ]
+      },
+      "features": [
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "painted slate.",
+          "pass": true,
+          "cost": 0
+        }
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": null,
+      "raw_top2": 0.0,
+      "norm_top2": 0.0,
+      "gold_code": "slate",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "table",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED"
+        ]
+      },
+      "features": [
+        3.0,
+        1.0,
+        1.0,
+        11.154150378028135,
+        13.20132255197882,
+        6.0727687829381205,
+        6.366472955651324,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        13.20132255197882
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "VNC-873.",
+          "pass": true,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "VNC-873",
+          "pass": true,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "VNC-873.",
+          "pass": true,
+          "cost": 2
+        }
+      },
+      "raw_pick_code": "VNC-873",
+      "norm_pick_code": "VNC-873",
+      "free_out_code": "VNC-873",
+      "raw_top2": 11.154150378028135,
+      "norm_top2": 13.20132255197882,
+      "gold_code": "VNC-873",
+      "family_analysis": "selection"
+    },
+    {
+      "observed": {
+        "n_candidates": 2,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED"
+        ]
+      },
+      "features": [
+        2.0,
+        1.0,
+        0.0,
+        5.263788291284072,
+        0.3085639240562159,
+        2.631894145642036,
+        0.15428196202810796,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.3085639240562159
+      ],
+      "adaptive_action": "NORMALIZED",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "CTK-114.",
+          "pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "BFK-114",
+          "pass": true,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "BFK-114.",
+          "pass": true,
+          "cost": 2
+        }
+      },
+      "raw_pick_code": "VNC-587",
+      "norm_pick_code": "BFK-114",
+      "free_out_code": "CTK-114",
+      "raw_top2": 5.263788291284072,
+      "norm_top2": 0.3085639240562159,
+      "gold_code": "BFK-114",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "observed": {
+        "n_candidates": 0,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE"
+        ]
+      },
+      "features": [
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "scaffold.",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": null,
+      "raw_top2": 0.0,
+      "norm_top2": 0.0,
+      "gold_code": "slate",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "observed": {
+        "n_candidates": 1,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED"
+        ]
+      },
+      "features": [
+        1.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "CONSTRAINED",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "CTK-157.",
+          "pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "BFK-157",
+          "pass": true,
+          "cost": 1
+        }
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": "CTK-157",
+      "raw_top2": 0.0,
+      "norm_top2": 0.0,
+      "gold_code": "BFK-157",
+      "family_analysis": "copy_single"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "table",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED"
+        ]
+      },
+      "features": [
+        3.0,
+        1.0,
+        1.0,
+        0.3045580965554109,
+        0.674765906886023,
+        3.7732576408451144,
+        2.402965116866749,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.674765906886023
+      ],
+      "adaptive_action": "CONSTRAINED",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "HXP-266.",
+          "pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "HXP-257",
+          "pass": true,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "HXP-257.",
+          "pass": true,
+          "cost": 2
+        }
+      },
+      "raw_pick_code": "HXP-257",
+      "norm_pick_code": "HXP-257",
+      "free_out_code": "HXP-266",
+      "raw_top2": 0.3045580965554109,
+      "norm_top2": 0.674765906886023,
+      "gold_code": "HXP-257",
+      "family_analysis": "realization"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 2,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE"
+        ]
+      },
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "HXP-882.",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": "HXP-882",
+      "raw_top2": 0.0,
+      "norm_top2": 0.0,
+      "gold_code": "HXP-334 HXP-882",
+      "family_analysis": "composition"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED"
+        ]
+      },
+      "features": [
+        3.0,
+        1.0,
+        0.0,
+        0.545765349012072,
+        0.45687323279707925,
+        2.1772547194181664,
+        0.28852706264258454,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.45687323279707925
+      ],
+      "adaptive_action": "NORMALIZED",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "CTK-522.",
+          "pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "HXP-141",
+          "pass": false,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "BFK-522.",
+          "pass": true,
+          "cost": 2
+        }
+      },
+      "raw_pick_code": "HXP-141",
+      "norm_pick_code": "BFK-522",
+      "free_out_code": "CTK-522",
+      "raw_top2": 0.545765349012072,
+      "norm_top2": 0.45687323279707925,
+      "gold_code": "BFK-522",
+      "family_analysis": "realization"
+    },
+    {
+      "observed": {
+        "n_candidates": 0,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE"
+        ]
+      },
+      "features": [
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "painted GQ.",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": null,
+      "raw_top2": 0.0,
+      "norm_top2": 0.0,
+      "gold_code": "sepia",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "observed": {
+        "n_candidates": 1,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED"
+        ]
+      },
+      "features": [
+        1.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "CONSTRAINED",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "RZQ-318.",
+          "pass": true,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "RZQ-318",
+          "pass": true,
+          "cost": 1
+        }
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": "RZQ-318",
+      "raw_top2": 0.0,
+      "norm_top2": 0.0,
+      "gold_code": "RZQ-318",
+      "family_analysis": "copy_single"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "table",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED"
+        ]
+      },
+      "features": [
+        3.0,
+        1.0,
+        1.0,
+        0.580924825881084,
+        0.6370008704761858,
+        0.8501645240480181,
+        1.9744326598009754,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.6370008704761858
+      ],
+      "adaptive_action": "CONSTRAINED",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "AVK-712.",
+          "pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "BFK-712",
+          "pass": true,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "BFK-712.",
+          "pass": true,
+          "cost": 2
+        }
+      },
+      "raw_pick_code": "BFK-712",
+      "norm_pick_code": "BFK-712",
+      "free_out_code": "AVK-712",
+      "raw_top2": 0.580924825881084,
+      "norm_top2": 0.6370008704761858,
+      "gold_code": "BFK-712",
+      "family_analysis": "realization"
+    },
+    {
+      "observed": {
+        "n_candidates": 2,
+        "output_arity": 1,
+        "format_name": "table",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED"
+        ]
+      },
+      "features": [
+        2.0,
+        1.0,
+        1.0,
+        8.591037151145429,
+        9.360377849330689,
+        4.295518575572714,
+        4.6801889246653445,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        9.360377849330689
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "HXP-632.",
+          "pass": true,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "HXP-632",
+          "pass": true,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "HXP-632.",
+          "pass": true,
+          "cost": 2
+        }
+      },
+      "raw_pick_code": "HXP-632",
+      "norm_pick_code": "HXP-632",
+      "free_out_code": "HXP-632",
+      "raw_top2": 8.591037151145429,
+      "norm_top2": 9.360377849330689,
+      "gold_code": "HXP-632",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 2,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE"
+        ]
+      },
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "CTT-418.",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": "CTT-418",
+      "raw_top2": 0.0,
+      "norm_top2": 0.0,
+      "gold_code": "VNC-763 LMT-418",
+      "family_analysis": "composition"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 2,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE"
+        ]
+      },
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "CTT-493.",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": "CTT-493",
+      "raw_top2": 0.0,
+      "norm_top2": 0.0,
+      "gold_code": "LMT-493 BFK-747",
+      "family_analysis": "composition"
+    },
+    {
+      "observed": {
+        "n_candidates": 0,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE"
+        ]
+      },
+      "features": [
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "scaffold.",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": null,
+      "raw_top2": 0.0,
+      "norm_top2": 0.0,
+      "gold_code": "sepia",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 2,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE"
+        ]
+      },
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "CTT-122.",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": "CTT-122",
+      "raw_top2": 0.0,
+      "norm_top2": 0.0,
+      "gold_code": "VNC-266 BFK-982",
+      "family_analysis": "composition"
+    },
+    {
+      "observed": {
+        "n_candidates": 0,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE"
+        ]
+      },
+      "features": [
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "maroon.",
+          "pass": true,
+          "cost": 0
+        }
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": null,
+      "raw_top2": 0.0,
+      "norm_top2": 0.0,
+      "gold_code": "maroon",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "table",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED"
+        ]
+      },
+      "features": [
+        3.0,
+        1.0,
+        1.0,
+        0.15466059584286995,
+        1.6986204579443438,
+        1.1661214931219226,
+        3.0245184514573897,
+        0.0,
+        1.0,
+        0.0,
+        1.0,
+        1.6986204579443438
+      ],
+      "adaptive_action": "CONSTRAINED",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "BFK-122.",
+          "pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "BFK-122",
+          "pass": false,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "BFK-625.",
+          "pass": true,
+          "cost": 2
+        }
+      },
+      "raw_pick_code": "BFK-122",
+      "norm_pick_code": "BFK-625",
+      "free_out_code": "BFK-122",
+      "raw_top2": 0.15466059584286995,
+      "norm_top2": 1.6986204579443438,
+      "gold_code": "BFK-625",
+      "family_analysis": "selection"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 2,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE"
+        ]
+      },
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "HXP-869.",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": "HXP-869",
+      "raw_top2": 0.0,
+      "norm_top2": 0.0,
+      "gold_code": "RZQ-947 VNC-740",
+      "family_analysis": "composition"
+    },
+    {
+      "observed": {
+        "n_candidates": 1,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED"
+        ]
+      },
+      "features": [
+        1.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "CONSTRAINED",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "VNC-414.",
+          "pass": true,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "VNC-414",
+          "pass": true,
+          "cost": 1
+        }
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": "VNC-414",
+      "raw_top2": 0.0,
+      "norm_top2": 0.0,
+      "gold_code": "VNC-414",
+      "family_analysis": "copy_single"
+    },
+    {
+      "observed": {
+        "n_candidates": 0,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE"
+        ]
+      },
+      "features": [
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "teal.",
+          "pass": true,
+          "cost": 0
+        }
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": null,
+      "raw_top2": 0.0,
+      "norm_top2": 0.0,
+      "gold_code": "teal",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "table",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED"
+        ]
+      },
+      "features": [
+        3.0,
+        1.0,
+        1.0,
+        2.4349015540055916,
+        0.11149212132295361,
+        3.0057266067702195,
+        1.8169497269557604,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.11149212132295361
+      ],
+      "adaptive_action": "NORMALIZED",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "BFK-410.",
+          "pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "BFK-410",
+          "pass": false,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "BFK-312.",
+          "pass": true,
+          "cost": 2
+        }
+      },
+      "raw_pick_code": "LMT-217",
+      "norm_pick_code": "BFK-312",
+      "free_out_code": "BFK-410",
+      "raw_top2": 2.4349015540055916,
+      "norm_top2": 0.11149212132295361,
+      "gold_code": "BFK-312",
+      "family_analysis": "realization"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 2,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE"
+        ]
+      },
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "CTT-274.",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": "CTT-274",
+      "raw_top2": 0.0,
+      "norm_top2": 0.0,
+      "gold_code": "LMT-274 BFK-793",
+      "family_analysis": "composition"
+    },
+    {
+      "observed": {
+        "n_candidates": 2,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED"
+        ]
+      },
+      "features": [
+        2.0,
+        1.0,
+        0.0,
+        6.114221029291002,
+        0.9234287241506536,
+        3.057110514645501,
+        0.4617143620753268,
+        0.0,
+        1.0,
+        0.0,
+        1.0,
+        0.9234287241506536
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "HXP-522.",
+          "pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "HXP-522",
+          "pass": false,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "RZQ-241.",
+          "pass": true,
+          "cost": 2
+        }
+      },
+      "raw_pick_code": "HXP-522",
+      "norm_pick_code": "RZQ-241",
+      "free_out_code": "HXP-522",
+      "raw_top2": 6.114221029291002,
+      "norm_top2": 0.9234287241506536,
+      "gold_code": "RZQ-241",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "observed": {
+        "n_candidates": 2,
+        "output_arity": 1,
+        "format_name": "table",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED"
+        ]
+      },
+      "features": [
+        2.0,
+        1.0,
+        1.0,
+        6.725728161952702,
+        10.967604056518212,
+        3.362864080976351,
+        5.483802028259106,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        10.967604056518212
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "LMT-564.",
+          "pass": true,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "LMT-564",
+          "pass": true,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "LMT-564.",
+          "pass": true,
+          "cost": 2
+        }
+      },
+      "raw_pick_code": "LMT-564",
+      "norm_pick_code": "LMT-564",
+      "free_out_code": "LMT-564",
+      "raw_top2": 6.725728161952702,
+      "norm_top2": 10.967604056518212,
+      "gold_code": "LMT-564",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "observed": {
+        "n_candidates": 0,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE"
+        ]
+      },
+      "features": [
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "maroon.",
+          "pass": true,
+          "cost": 0
+        }
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": null,
+      "raw_top2": 0.0,
+      "norm_top2": 0.0,
+      "gold_code": "maroon",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED"
+        ]
+      },
+      "features": [
+        3.0,
+        1.0,
+        0.0,
+        0.19585911765898345,
+        0.882811734659299,
+        3.35458561748526,
+        0.7542914195416862,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        0.882811734659299
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "VNC-778.",
+          "pass": true,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "VNC-778",
+          "pass": true,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "VNC-778.",
+          "pass": true,
+          "cost": 2
+        }
+      },
+      "raw_pick_code": "VNC-778",
+      "norm_pick_code": "VNC-778",
+      "free_out_code": "VNC-778",
+      "raw_top2": 0.19585911765898345,
+      "norm_top2": 0.882811734659299,
+      "gold_code": "VNC-778",
+      "family_analysis": "selection"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 2,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE"
+        ]
+      },
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "HXP-918.",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": "HXP-918",
+      "raw_top2": 0.0,
+      "norm_top2": 0.0,
+      "gold_code": "LMT-366 HXP-918",
+      "family_analysis": "composition"
+    },
+    {
+      "observed": {
+        "n_candidates": 0,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE"
+        ]
+      },
+      "features": [
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "painted.",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": null,
+      "raw_top2": 0.0,
+      "norm_top2": 0.0,
+      "gold_code": "teal",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED"
+        ]
+      },
+      "features": [
+        3.0,
+        1.0,
+        0.0,
+        7.022492231482829,
+        0.6661260160453821,
+        4.346975940162592,
+        0.41985745698001653,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.6661260160453821
+      ],
+      "adaptive_action": "NORMALIZED",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "CTK-267.",
+          "pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "VNC-242",
+          "pass": true,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "VNC-242.",
+          "pass": true,
+          "cost": 2
+        }
+      },
+      "raw_pick_code": "VNC-242",
+      "norm_pick_code": "VNC-242",
+      "free_out_code": "CTK-267",
+      "raw_top2": 7.022492231482829,
+      "norm_top2": 0.6661260160453821,
+      "gold_code": "VNC-242",
+      "family_analysis": "realization"
+    },
+    {
+      "observed": {
+        "n_candidates": 2,
+        "output_arity": 1,
+        "format_name": "table",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED"
+        ]
+      },
+      "features": [
+        2.0,
+        1.0,
+        1.0,
+        2.3595818183507618,
+        4.415831956643615,
+        1.1797909091753809,
+        2.2079159783218074,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        4.415831956643615
+      ],
+      "adaptive_action": "NORMALIZED",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "LMT-397.",
+          "pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "LMT-644",
+          "pass": false,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "BFK-425.",
+          "pass": true,
+          "cost": 2
+        }
+      },
+      "raw_pick_code": "BFK-425",
+      "norm_pick_code": "BFK-425",
+      "free_out_code": "LMT-397",
+      "raw_top2": 2.3595818183507618,
+      "norm_top2": 4.415831956643615,
+      "gold_code": "BFK-425",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "observed": {
+        "n_candidates": 1,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED"
+        ]
+      },
+      "features": [
+        1.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "CONSTRAINED",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "CTK-903.",
+          "pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "BFK-903",
+          "pass": true,
+          "cost": 1
+        }
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": "CTK-903",
+      "raw_top2": 0.0,
+      "norm_top2": 0.0,
+      "gold_code": "BFK-903",
+      "family_analysis": "copy_single"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "table",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED"
+        ]
+      },
+      "features": [
+        3.0,
+        1.0,
+        1.0,
+        2.104810154909501,
+        2.4356125389708723,
+        1.6043715189524108,
+        1.2788449308221672,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        2.4356125389708723
+      ],
+      "adaptive_action": "NORMALIZED",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "LMT-417.",
+          "pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "LMT-412",
+          "pass": false,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "RZQ-163.",
+          "pass": true,
+          "cost": 2
+        }
+      },
+      "raw_pick_code": "LMT-412",
+      "norm_pick_code": "RZQ-163",
+      "free_out_code": "LMT-417",
+      "raw_top2": 2.104810154909501,
+      "norm_top2": 2.4356125389708723,
+      "gold_code": "RZQ-163",
+      "family_analysis": "selection"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED"
+        ]
+      },
+      "features": [
+        3.0,
+        1.0,
+        0.0,
+        0.035362213384360075,
+        0.60743077094412,
+        0.08993784295901652,
+        0.5659166897361889,
+        0.0,
+        0.0,
+        1.0,
+        1.0,
+        0.60743077094412
+      ],
+      "adaptive_action": "CONSTRAINED",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "HXP-308.",
+          "pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "HXP-308",
+          "pass": false,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "HXP-308.",
+          "pass": false,
+          "cost": 2
+        }
+      },
+      "raw_pick_code": "VNC-948",
+      "norm_pick_code": "HXP-308",
+      "free_out_code": "HXP-308",
+      "raw_top2": 0.035362213384360075,
+      "norm_top2": 0.60743077094412,
+      "gold_code": "RZQ-892",
+      "family_analysis": "realization"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "table",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED"
+        ]
+      },
+      "features": [
+        3.0,
+        1.0,
+        1.0,
+        1.7280208906449843,
+        4.939673301689254,
+        1.2001172256307606,
+        2.5129261538748238,
+        0.0,
+        1.0,
+        0.0,
+        1.0,
+        4.939673301689254
+      ],
+      "adaptive_action": "NORMALIZED",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "HXP-839.",
+          "pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "HXP-839",
+          "pass": false,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "BFK-256.",
+          "pass": true,
+          "cost": 2
+        }
+      },
+      "raw_pick_code": "HXP-839",
+      "norm_pick_code": "BFK-256",
+      "free_out_code": "HXP-839",
+      "raw_top2": 1.7280208906449843,
+      "norm_top2": 4.939673301689254,
+      "gold_code": "BFK-256",
+      "family_analysis": "realization"
+    },
+    {
+      "observed": {
+        "n_candidates": 2,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED"
+        ]
+      },
+      "features": [
+        2.0,
+        1.0,
+        0.0,
+        3.7210701253425214,
+        0.21267278858067584,
+        1.8605350626712607,
+        0.10633639429033792,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.21267278858067584
+      ],
+      "adaptive_action": "CONSTRAINED",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "HXP-430.",
+          "pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "HXP-447",
+          "pass": true,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "VNC-991.",
+          "pass": false,
+          "cost": 2
+        }
+      },
+      "raw_pick_code": "VNC-991",
+      "norm_pick_code": "VNC-991",
+      "free_out_code": "HXP-430",
+      "raw_top2": 3.7210701253425214,
+      "norm_top2": 0.21267278858067584,
+      "gold_code": "HXP-447",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 2,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE"
+        ]
+      },
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "HXP-304.",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": "HXP-304",
+      "raw_top2": 0.0,
+      "norm_top2": 0.0,
+      "gold_code": "LMT-402 VNC-727",
+      "family_analysis": "composition"
+    },
+    {
+      "observed": {
+        "n_candidates": 1,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED"
+        ]
+      },
+      "features": [
+        1.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "CONSTRAINED",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "HXP-120.",
+          "pass": true,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "HXP-120",
+          "pass": true,
+          "cost": 1
+        }
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": "HXP-120",
+      "raw_top2": 0.0,
+      "norm_top2": 0.0,
+      "gold_code": "HXP-120",
+      "family_analysis": "copy_single"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 2,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE"
+        ]
+      },
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "HXP-983.",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": "HXP-983",
+      "raw_top2": 0.0,
+      "norm_top2": 0.0,
+      "gold_code": "BFK-828 HXP-983",
+      "family_analysis": "composition"
+    },
+    {
+      "observed": {
+        "n_candidates": 0,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE"
+        ]
+      },
+      "features": [
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "scaffold.",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": null,
+      "raw_top2": 0.0,
+      "norm_top2": 0.0,
+      "gold_code": "slate",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "observed": {
+        "n_candidates": 0,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE"
+        ]
+      },
+      "features": [
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "painted slate.",
+          "pass": true,
+          "cost": 0
+        }
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": null,
+      "raw_top2": 0.0,
+      "norm_top2": 0.0,
+      "gold_code": "slate",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "observed": {
+        "n_candidates": 1,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED"
+        ]
+      },
+      "features": [
+        1.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "CONSTRAINED",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "CTK-976.",
+          "pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "BFK-769",
+          "pass": true,
+          "cost": 1
+        }
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": "CTK-976",
+      "raw_top2": 0.0,
+      "norm_top2": 0.0,
+      "gold_code": "BFK-769",
+      "family_analysis": "copy_single"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED"
+        ]
+      },
+      "features": [
+        3.0,
+        1.0,
+        0.0,
+        3.6486897585218685,
+        0.5648630849536858,
+        2.8415510967723088,
+        0.46943766805834036,
+        0.0,
+        1.0,
+        0.0,
+        1.0,
+        0.5648630849536858
+      ],
+      "adaptive_action": "CONSTRAINED",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "HXP-672.",
+          "pass": true,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "HXP-672",
+          "pass": true,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "HXP-905.",
+          "pass": false,
+          "cost": 2
+        }
+      },
+      "raw_pick_code": "HXP-672",
+      "norm_pick_code": "HXP-905",
+      "free_out_code": "HXP-672",
+      "raw_top2": 3.6486897585218685,
+      "norm_top2": 0.5648630849536858,
+      "gold_code": "HXP-672",
+      "family_analysis": "realization"
+    },
+    {
+      "observed": {
+        "n_candidates": 0,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE"
+        ]
+      },
+      "features": [
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "maroon.",
+          "pass": true,
+          "cost": 0
+        }
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": null,
+      "raw_top2": 0.0,
+      "norm_top2": 0.0,
+      "gold_code": "maroon",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "observed": {
+        "n_candidates": 2,
+        "output_arity": 1,
+        "format_name": "table",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED"
+        ]
+      },
+      "features": [
+        2.0,
+        1.0,
+        1.0,
+        1.8375872464530403,
+        0.1621818342464394,
+        0.9187936232265201,
+        0.0810909171232197,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        0.1621818342464394
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "HXP-115.",
+          "pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "HXP-115",
+          "pass": false,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "HXP-115.",
+          "pass": false,
+          "cost": 2
+        }
+      },
+      "raw_pick_code": "HXP-115",
+      "norm_pick_code": "HXP-115",
+      "free_out_code": "HXP-115",
+      "raw_top2": 1.8375872464530403,
+      "norm_top2": 0.1621818342464394,
+      "gold_code": "HXP-509",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "observed": {
+        "n_candidates": 0,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE"
+        ]
+      },
+      "features": [
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "scaffold.",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": null,
+      "raw_top2": 0.0,
+      "norm_top2": 0.0,
+      "gold_code": "teal",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "observed": {
+        "n_candidates": 1,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED"
+        ]
+      },
+      "features": [
+        1.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "CONSTRAINED",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "HXP-988.",
+          "pass": true,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "HXP-988",
+          "pass": true,
+          "cost": 1
+        }
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": "HXP-988",
+      "raw_top2": 0.0,
+      "norm_top2": 0.0,
+      "gold_code": "HXP-988",
+      "family_analysis": "copy_single"
+    },
+    {
+      "observed": {
+        "n_candidates": 0,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE"
+        ]
+      },
+      "features": [
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "bracket-boss.",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": null,
+      "raw_top2": 0.0,
+      "norm_top2": 0.0,
+      "gold_code": "teal",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "observed": {
+        "n_candidates": 2,
+        "output_arity": 1,
+        "format_name": "table",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED"
+        ]
+      },
+      "features": [
+        2.0,
+        1.0,
+        1.0,
+        12.90321016732014,
+        6.918130191264936,
+        6.45160508366007,
+        3.459065095632468,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        6.918130191264936
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "HXP-551.",
+          "pass": true,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "HXP-551",
+          "pass": true,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "HXP-551.",
+          "pass": true,
+          "cost": 2
+        }
+      },
+      "raw_pick_code": "HXP-551",
+      "norm_pick_code": "HXP-551",
+      "free_out_code": "HXP-551",
+      "raw_top2": 12.90321016732014,
+      "norm_top2": 6.918130191264936,
+      "gold_code": "HXP-551",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED"
+        ]
+      },
+      "features": [
+        3.0,
+        1.0,
+        0.0,
+        1.1876804839157558,
+        0.7525160305740428,
+        1.3723187604629676,
+        0.5983124170335214,
+        0.0,
+        1.0,
+        0.0,
+        1.0,
+        0.7525160305740428
+      ],
+      "adaptive_action": "CONSTRAINED",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "HXP-574.",
+          "pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "HXP-574",
+          "pass": false,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "LMT-574.",
+          "pass": true,
+          "cost": 2
+        }
+      },
+      "raw_pick_code": "HXP-574",
+      "norm_pick_code": "LMT-574",
+      "free_out_code": "HXP-574",
+      "raw_top2": 1.1876804839157558,
+      "norm_top2": 0.7525160305740428,
+      "gold_code": "LMT-574",
+      "family_analysis": "realization"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 2,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE"
+        ]
+      },
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "HXP-879.",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": "HXP-879",
+      "raw_top2": 0.0,
+      "norm_top2": 0.0,
+      "gold_code": "HXP-879 RZQ-393",
+      "family_analysis": "composition"
+    },
+    {
+      "observed": {
+        "n_candidates": 1,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED"
+        ]
+      },
+      "features": [
+        1.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "CONSTRAINED",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "CTK-231.",
+          "pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "BFK-238",
+          "pass": true,
+          "cost": 1
+        }
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": "CTK-231",
+      "raw_top2": 0.0,
+      "norm_top2": 0.0,
+      "gold_code": "BFK-238",
+      "family_analysis": "copy_single"
+    },
+    {
+      "observed": {
+        "n_candidates": 0,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE"
+        ]
+      },
+      "features": [
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "painted slate.",
+          "pass": true,
+          "cost": 0
+        }
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": null,
+      "raw_top2": 0.0,
+      "norm_top2": 0.0,
+      "gold_code": "slate",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED"
+        ]
+      },
+      "features": [
+        3.0,
+        1.0,
+        0.0,
+        4.380346000023565,
+        0.4878337386999192,
+        3.555436364461294,
+        1.4908750016188388,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.4878337386999192
+      ],
+      "adaptive_action": "NORMALIZED",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "CTK-401.",
+          "pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "VNC-829",
+          "pass": false,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "BFK-401.",
+          "pass": true,
+          "cost": 2
+        }
+      },
+      "raw_pick_code": "VNC-829",
+      "norm_pick_code": "BFK-401",
+      "free_out_code": "CTK-401",
+      "raw_top2": 4.380346000023565,
+      "norm_top2": 0.4878337386999192,
+      "gold_code": "BFK-401",
+      "family_analysis": "selection"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "table",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED"
+        ]
+      },
+      "features": [
+        3.0,
+        1.0,
+        1.0,
+        9.73093336034799,
+        9.661777650584554,
+        4.625040077569511,
+        4.675551135789395,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        9.661777650584554
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "VNC-691.",
+          "pass": true,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "VNC-691",
+          "pass": true,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "VNC-691.",
+          "pass": true,
+          "cost": 2
+        }
+      },
+      "raw_pick_code": "VNC-691",
+      "norm_pick_code": "VNC-691",
+      "free_out_code": "VNC-691",
+      "raw_top2": 9.73093336034799,
+      "norm_top2": 9.661777650584554,
+      "gold_code": "VNC-691",
+      "family_analysis": "selection"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 2,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE"
+        ]
+      },
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "RZQ-779.",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": "RZQ-779",
+      "raw_top2": 0.0,
+      "norm_top2": 0.0,
+      "gold_code": "LMT-833 RZQ-779",
+      "family_analysis": "composition"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 2,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE"
+        ]
+      },
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "HXP-198.",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": "HXP-198",
+      "raw_top2": 0.0,
+      "norm_top2": 0.0,
+      "gold_code": "RZQ-942 RZQ-821",
+      "family_analysis": "composition"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "table",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED"
+        ]
+      },
+      "features": [
+        3.0,
+        1.0,
+        1.0,
+        4.843853521539131,
+        1.2278822281659814,
+        2.902748728292453,
+        0.6742692180763273,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.2278822281659814
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "VNC-132.",
+          "pass": true,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "VNC-132",
+          "pass": true,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "VNC-132.",
+          "pass": true,
+          "cost": 2
+        }
+      },
+      "raw_pick_code": "VNC-132",
+      "norm_pick_code": "VNC-132",
+      "free_out_code": "VNC-132",
+      "raw_top2": 4.843853521539131,
+      "norm_top2": 1.2278822281659814,
+      "gold_code": "VNC-132",
+      "family_analysis": "selection"
+    },
+    {
+      "observed": {
+        "n_candidates": 0,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE"
+        ]
+      },
+      "features": [
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "bracket-boss.",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": null,
+      "raw_top2": 0.0,
+      "norm_top2": 0.0,
+      "gold_code": "teal",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "observed": {
+        "n_candidates": 0,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE"
+        ]
+      },
+      "features": [
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "painted.",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": null,
+      "raw_top2": 0.0,
+      "norm_top2": 0.0,
+      "gold_code": "teal",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 2,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE"
+        ]
+      },
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "Bracket-boss.",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": null,
+      "raw_top2": 0.0,
+      "norm_top2": 0.0,
+      "gold_code": "RZQ-510 LMT-653",
+      "family_analysis": "composition"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "table",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED"
+        ]
+      },
+      "features": [
+        3.0,
+        1.0,
+        1.0,
+        8.365308098464084,
+        5.707886684903315,
+        6.1476770331539665,
+        2.9339580241198115,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        5.707886684903315
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "RZQ-775.",
+          "pass": true,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "RZQ-775",
+          "pass": true,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "RZQ-775.",
+          "pass": true,
+          "cost": 2
+        }
+      },
+      "raw_pick_code": "RZQ-775",
+      "norm_pick_code": "RZQ-775",
+      "free_out_code": "RZQ-775",
+      "raw_top2": 8.365308098464084,
+      "norm_top2": 5.707886684903315,
+      "gold_code": "RZQ-775",
+      "family_analysis": "selection"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 2,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE"
+        ]
+      },
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "VNC-546.",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": "VNC-546",
+      "raw_top2": 0.0,
+      "norm_top2": 0.0,
+      "gold_code": "VNC-852 VNC-546",
+      "family_analysis": "composition"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED"
+        ]
+      },
+      "features": [
+        3.0,
+        1.0,
+        0.0,
+        1.1333483499256545,
+        0.2974879847442935,
+        2.271976250404773,
+        0.28595539902668204,
+        0.0,
+        1.0,
+        0.0,
+        1.0,
+        0.2974879847442935
+      ],
+      "adaptive_action": "CONSTRAINED",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "HXP-844.",
+          "pass": true,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "HXP-844",
+          "pass": true,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "VNC-949.",
+          "pass": false,
+          "cost": 2
+        }
+      },
+      "raw_pick_code": "HXP-844",
+      "norm_pick_code": "VNC-949",
+      "free_out_code": "HXP-844",
+      "raw_top2": 1.1333483499256545,
+      "norm_top2": 0.2974879847442935,
+      "gold_code": "HXP-844",
+      "family_analysis": "selection"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "table",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED"
+        ]
+      },
+      "features": [
+        3.0,
+        1.0,
+        1.0,
+        2.6012620964684174,
+        4.525037695853825,
+        2.9830364263845053,
+        2.3779493839446015,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        4.525037695853825
+      ],
+      "adaptive_action": "NORMALIZED",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "RZQ-442.",
+          "pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "RZQ-436",
+          "pass": true,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "RZQ-436.",
+          "pass": true,
+          "cost": 2
+        }
+      },
+      "raw_pick_code": "RZQ-436",
+      "norm_pick_code": "RZQ-436",
+      "free_out_code": "RZQ-442",
+      "raw_top2": 2.6012620964684174,
+      "norm_top2": 4.525037695853825,
+      "gold_code": "RZQ-436",
+      "family_analysis": "realization"
+    },
+    {
+      "observed": {
+        "n_candidates": 2,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED"
+        ]
+      },
+      "features": [
+        2.0,
+        1.0,
+        0.0,
+        7.828543343299316,
+        1.4641645291812893,
+        3.914271671649658,
+        0.7320822645906446,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        1.4641645291812893
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "CTK-694.",
+          "pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "VNC-163",
+          "pass": false,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "VNC-163.",
+          "pass": false,
+          "cost": 2
+        }
+      },
+      "raw_pick_code": "VNC-163",
+      "norm_pick_code": "VNC-163",
+      "free_out_code": "CTK-694",
+      "raw_top2": 7.828543343299316,
+      "norm_top2": 1.4641645291812893,
+      "gold_code": "BFK-694",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED"
+        ]
+      },
+      "features": [
+        3.0,
+        1.0,
+        0.0,
+        2.0486432616908132,
+        0.6657592253859548,
+        2.124628062091429,
+        0.3292684192252395,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.6657592253859548
+      ],
+      "adaptive_action": "NORMALIZED",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "CTT-61.",
+          "pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "RZQ-988",
+          "pass": false,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "VNC-102.",
+          "pass": false,
+          "cost": 2
+        }
+      },
+      "raw_pick_code": "RZQ-988",
+      "norm_pick_code": "VNC-102",
+      "free_out_code": null,
+      "raw_top2": 2.0486432616908132,
+      "norm_top2": 0.6657592253859548,
+      "gold_code": "LMT-621",
+      "family_analysis": "realization"
+    },
+    {
+      "observed": {
+        "n_candidates": 1,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED"
+        ]
+      },
+      "features": [
+        1.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "CONSTRAINED",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "RZQ-945.",
+          "pass": true,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "RZQ-945",
+          "pass": true,
+          "cost": 1
+        }
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": "RZQ-945",
+      "raw_top2": 0.0,
+      "norm_top2": 0.0,
+      "gold_code": "RZQ-945",
+      "family_analysis": "copy_single"
+    },
+    {
+      "observed": {
+        "n_candidates": 0,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE"
+        ]
+      },
+      "features": [
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "scaffold.",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": null,
+      "raw_top2": 0.0,
+      "norm_top2": 0.0,
+      "gold_code": "sepia",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "observed": {
+        "n_candidates": 0,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE"
+        ]
+      },
+      "features": [
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "painted slate.",
+          "pass": true,
+          "cost": 0
+        }
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": null,
+      "raw_top2": 0.0,
+      "norm_top2": 0.0,
+      "gold_code": "slate",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "table",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED"
+        ]
+      },
+      "features": [
+        3.0,
+        1.0,
+        1.0,
+        1.704830121665509,
+        5.199432904195419,
+        3.0611939521700644,
+        2.6067056611304125,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        5.199432904195419
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "RZQ-730.",
+          "pass": true,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "RZQ-730",
+          "pass": true,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "RZQ-730.",
+          "pass": true,
+          "cost": 2
+        }
+      },
+      "raw_pick_code": "RZQ-730",
+      "norm_pick_code": "RZQ-730",
+      "free_out_code": "RZQ-730",
+      "raw_top2": 1.704830121665509,
+      "norm_top2": 5.199432904195419,
+      "gold_code": "RZQ-730",
+      "family_analysis": "selection"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "table",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED"
+        ]
+      },
+      "features": [
+        3.0,
+        1.0,
+        1.0,
+        2.5473503245739266,
+        0.8267489414574811,
+        2.408740183652328,
+        2.7659731894271538,
+        0.0,
+        1.0,
+        0.0,
+        1.0,
+        0.8267489414574811
+      ],
+      "adaptive_action": "CONSTRAINED",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "VNC-511.",
+          "pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "VNC-511",
+          "pass": false,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "VNC-813.",
+          "pass": true,
+          "cost": 2
+        }
+      },
+      "raw_pick_code": "VNC-511",
+      "norm_pick_code": "VNC-813",
+      "free_out_code": "VNC-511",
+      "raw_top2": 2.5473503245739266,
+      "norm_top2": 0.8267489414574811,
+      "gold_code": "VNC-813",
+      "family_analysis": "realization"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "table",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED"
+        ]
+      },
+      "features": [
+        3.0,
+        1.0,
+        1.0,
+        4.646088655015774,
+        0.15023888656287454,
+        3.254745738848468,
+        3.2486095238853894,
+        0.0,
+        1.0,
+        0.0,
+        1.0,
+        0.15023888656287454
+      ],
+      "adaptive_action": "CONSTRAINED",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "BFK-591.",
+          "pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "BFK-591",
+          "pass": false,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "BFK-708.",
+          "pass": true,
+          "cost": 2
+        }
+      },
+      "raw_pick_code": "BFK-591",
+      "norm_pick_code": "BFK-708",
+      "free_out_code": "BFK-591",
+      "raw_top2": 4.646088655015774,
+      "norm_top2": 0.15023888656287454,
+      "gold_code": "BFK-708",
+      "family_analysis": "realization"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 2,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE"
+        ]
+      },
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "CTT-493.",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": "CTT-493",
+      "raw_top2": 0.0,
+      "norm_top2": 0.0,
+      "gold_code": "LMT-493 VNC-423",
+      "family_analysis": "composition"
+    },
+    {
+      "observed": {
+        "n_candidates": 2,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED"
+        ]
+      },
+      "features": [
+        2.0,
+        1.0,
+        0.0,
+        5.469295819573745,
+        0.7170538977916294,
+        2.7346479097868723,
+        0.3585269488958147,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        0.7170538977916294
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "HXP-561.",
+          "pass": true,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "HXP-561",
+          "pass": true,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "HXP-561.",
+          "pass": true,
+          "cost": 2
+        }
+      },
+      "raw_pick_code": "HXP-561",
+      "norm_pick_code": "HXP-561",
+      "free_out_code": "HXP-561",
+      "raw_top2": 5.469295819573745,
+      "norm_top2": 0.7170538977916294,
+      "gold_code": "HXP-561",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "table",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED"
+        ]
+      },
+      "features": [
+        3.0,
+        1.0,
+        1.0,
+        7.614041177577747,
+        6.622636371240333,
+        4.857081701908962,
+        3.599170459423913,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        6.622636371240333
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "HXP-916.",
+          "pass": true,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "HXP-916",
+          "pass": true,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "HXP-916.",
+          "pass": true,
+          "cost": 2
+        }
+      },
+      "raw_pick_code": "HXP-916",
+      "norm_pick_code": "HXP-916",
+      "free_out_code": "HXP-916",
+      "raw_top2": 7.614041177577747,
+      "norm_top2": 6.622636371240333,
+      "gold_code": "HXP-916",
+      "family_analysis": "realization"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "table",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED"
+        ]
+      },
+      "features": [
+        3.0,
+        1.0,
+        1.0,
+        7.943444402520072,
+        8.050994350140172,
+        4.116618185927883,
+        3.9653368907768307,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        8.050994350140172
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "HXP-677.",
+          "pass": true,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "HXP-677",
+          "pass": true,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "HXP-677.",
+          "pass": true,
+          "cost": 2
+        }
+      },
+      "raw_pick_code": "HXP-677",
+      "norm_pick_code": "HXP-677",
+      "free_out_code": "HXP-677",
+      "raw_top2": 7.943444402520072,
+      "norm_top2": 8.050994350140172,
+      "gold_code": "HXP-677",
+      "family_analysis": "selection"
+    },
+    {
+      "observed": {
+        "n_candidates": 1,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED"
+        ]
+      },
+      "features": [
+        1.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "CONSTRAINED",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "HXP-101.",
+          "pass": true,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "HXP-101",
+          "pass": true,
+          "cost": 1
+        }
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": "HXP-101",
+      "raw_top2": 0.0,
+      "norm_top2": 0.0,
+      "gold_code": "HXP-101",
+      "family_analysis": "copy_single"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "table",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED"
+        ]
+      },
+      "features": [
+        3.0,
+        1.0,
+        1.0,
+        4.734769780174247,
+        0.6936311972458498,
+        4.835662673319123,
+        1.8996854280047428,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        0.6936311972458498
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "HXP-338.",
+          "pass": true,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "HXP-338",
+          "pass": true,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "HXP-338.",
+          "pass": true,
+          "cost": 2
+        }
+      },
+      "raw_pick_code": "HXP-338",
+      "norm_pick_code": "HXP-338",
+      "free_out_code": "HXP-338",
+      "raw_top2": 4.734769780174247,
+      "norm_top2": 0.6936311972458498,
+      "gold_code": "HXP-338",
+      "family_analysis": "selection"
+    },
+    {
+      "observed": {
+        "n_candidates": 1,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED"
+        ]
+      },
+      "features": [
+        1.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "CONSTRAINED",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "CTK-380.",
+          "pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "BFK-380",
+          "pass": true,
+          "cost": 1
+        }
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": "CTK-380",
+      "raw_top2": 0.0,
+      "norm_top2": 0.0,
+      "gold_code": "BFK-380",
+      "family_analysis": "copy_single"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED"
+        ]
+      },
+      "features": [
+        3.0,
+        1.0,
+        0.0,
+        0.7046453281327558,
+        0.5160508229828338,
+        1.865271984698333,
+        0.2439107258135933,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.5160508229828338
+      ],
+      "adaptive_action": "NORMALIZED",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "CTT-843.",
+          "pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "LMT-843",
+          "pass": true,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "LMT-234.",
+          "pass": false,
+          "cost": 2
+        }
+      },
+      "raw_pick_code": "LMT-843",
+      "norm_pick_code": "LMT-234",
+      "free_out_code": "CTT-843",
+      "raw_top2": 0.7046453281327558,
+      "norm_top2": 0.5160508229828338,
+      "gold_code": "LMT-843",
+      "family_analysis": "selection"
+    },
+    {
+      "observed": {
+        "n_candidates": 2,
+        "output_arity": 1,
+        "format_name": "table",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED"
+        ]
+      },
+      "features": [
+        2.0,
+        1.0,
+        1.0,
+        4.34695959981218,
+        8.731871367934218,
+        2.17347979990609,
+        4.365935683967109,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        8.731871367934218
+      ],
+      "adaptive_action": "NORMALIZED",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "RZQ-414.",
+          "pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "RZQ-416",
+          "pass": true,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "RZQ-416.",
+          "pass": true,
+          "cost": 2
+        }
+      },
+      "raw_pick_code": "HXP-901",
+      "norm_pick_code": "RZQ-416",
+      "free_out_code": "RZQ-414",
+      "raw_top2": 4.34695959981218,
+      "norm_top2": 8.731871367934218,
+      "gold_code": "RZQ-416",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED"
+        ]
+      },
+      "features": [
+        3.0,
+        1.0,
+        0.0,
+        2.1544210587198904,
+        1.3559464152049259,
+        2.598290074726534,
+        0.9387355683489949,
+        0.0,
+        1.0,
+        0.0,
+        1.0,
+        1.3559464152049259
+      ],
+      "adaptive_action": "CONSTRAINED",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "HXP-992.",
+          "pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "HXP-992",
+          "pass": false,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "BFK-800.",
+          "pass": true,
+          "cost": 2
+        }
+      },
+      "raw_pick_code": "HXP-992",
+      "norm_pick_code": "BFK-800",
+      "free_out_code": "HXP-992",
+      "raw_top2": 2.1544210587198904,
+      "norm_top2": 1.3559464152049259,
+      "gold_code": "BFK-800",
+      "family_analysis": "realization"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED"
+        ]
+      },
+      "features": [
+        3.0,
+        1.0,
+        0.0,
+        1.1158602018804231,
+        0.3156848251264819,
+        0.9887020295981149,
+        0.6603644690743148,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.3156848251264819
+      ],
+      "adaptive_action": "NORMALIZED",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "HXP-237.",
+          "pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "HXP-241",
+          "pass": false,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "HXP-241.",
+          "pass": false,
+          "cost": 2
+        }
+      },
+      "raw_pick_code": "RZQ-329",
+      "norm_pick_code": "HXP-241",
+      "free_out_code": "HXP-237",
+      "raw_top2": 1.1158602018804231,
+      "norm_top2": 0.3156848251264819,
+      "gold_code": "RZQ-329",
+      "family_analysis": "selection"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 2,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE"
+        ]
+      },
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "CTK-593.",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": "CTK-593",
+      "raw_top2": 0.0,
+      "norm_top2": 0.0,
+      "gold_code": "LMT-193 BFK-606",
+      "family_analysis": "composition"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED"
+        ]
+      },
+      "features": [
+        3.0,
+        1.0,
+        0.0,
+        1.4801130533342075,
+        0.9653186722807732,
+        0.7012399468474623,
+        0.4991318918676544,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.9653186722807732
+      ],
+      "adaptive_action": "NORMALIZED",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "CTT-610.",
+          "pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "LMT-410",
+          "pass": false,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "BFK-281.",
+          "pass": true,
+          "cost": 2
+        }
+      },
+      "raw_pick_code": "LMT-410",
+      "norm_pick_code": "BFK-281",
+      "free_out_code": "CTT-610",
+      "raw_top2": 1.4801130533342075,
+      "norm_top2": 0.9653186722807732,
+      "gold_code": "BFK-281",
+      "family_analysis": "realization"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "table",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED"
+        ]
+      },
+      "features": [
+        3.0,
+        1.0,
+        1.0,
+        0.8521138924334082,
+        0.25908042853916413,
+        2.3155503058479012,
+        1.5652640693827526,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.25908042853916413
+      ],
+      "adaptive_action": "NORMALIZED",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "RZQ-610.",
+          "pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "RZQ-602",
+          "pass": true,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "RZQ-630.",
+          "pass": false,
+          "cost": 2
+        }
+      },
+      "raw_pick_code": "RZQ-602",
+      "norm_pick_code": "RZQ-630",
+      "free_out_code": "RZQ-610",
+      "raw_top2": 0.8521138924334082,
+      "norm_top2": 0.25908042853916413,
+      "gold_code": "RZQ-602",
+      "family_analysis": "selection"
+    },
+    {
+      "observed": {
+        "n_candidates": 2,
+        "output_arity": 1,
+        "format_name": "table",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED"
+        ]
+      },
+      "features": [
+        2.0,
+        1.0,
+        1.0,
+        0.12137141166022047,
+        0.0781858317568549,
+        0.06068570583011024,
+        0.03909291587842745,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0781858317568549
+      ],
+      "adaptive_action": "NORMALIZED",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "BFK-442.",
+          "pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "BFK-270",
+          "pass": true,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "BFK-792.",
+          "pass": false,
+          "cost": 2
+        }
+      },
+      "raw_pick_code": "BFK-270",
+      "norm_pick_code": "BFK-792",
+      "free_out_code": "BFK-442",
+      "raw_top2": 0.12137141166022047,
+      "norm_top2": 0.0781858317568549,
+      "gold_code": "BFK-270",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "observed": {
+        "n_candidates": 1,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED"
+        ]
+      },
+      "features": [
+        1.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "CONSTRAINED",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "VNC-944.",
+          "pass": true,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "VNC-944",
+          "pass": true,
+          "cost": 1
+        }
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": "VNC-944",
+      "raw_top2": 0.0,
+      "norm_top2": 0.0,
+      "gold_code": "VNC-944",
+      "family_analysis": "copy_single"
+    },
+    {
+      "observed": {
+        "n_candidates": 2,
+        "output_arity": 1,
+        "format_name": "table",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED"
+        ]
+      },
+      "features": [
+        2.0,
+        1.0,
+        1.0,
+        7.8822846542570915,
+        8.813945387382773,
+        3.9411423271285457,
+        4.406972693691387,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        8.813945387382773
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "HXP-198.",
+          "pass": true,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "HXP-198",
+          "pass": true,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "HXP-198.",
+          "pass": true,
+          "cost": 2
+        }
+      },
+      "raw_pick_code": "HXP-198",
+      "norm_pick_code": "HXP-198",
+      "free_out_code": "HXP-198",
+      "raw_top2": 7.8822846542570915,
+      "norm_top2": 8.813945387382773,
+      "gold_code": "HXP-198",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "observed": {
+        "n_candidates": 1,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED"
+        ]
+      },
+      "features": [
+        1.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "CONSTRAINED",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "LMT-320.",
+          "pass": true,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "LMT-320",
+          "pass": true,
+          "cost": 1
+        }
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": "LMT-320",
+      "raw_top2": 0.0,
+      "norm_top2": 0.0,
+      "gold_code": "LMT-320",
+      "family_analysis": "copy_single"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 2,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE"
+        ]
+      },
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "CTT-727.",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": "CTT-727",
+      "raw_top2": 0.0,
+      "norm_top2": 0.0,
+      "gold_code": "VNC-606 RZQ-123",
+      "family_analysis": "composition"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 2,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE"
+        ]
+      },
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "VNC-266.",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": "VNC-266",
+      "raw_top2": 0.0,
+      "norm_top2": 0.0,
+      "gold_code": "VNC-267 VNC-385",
+      "family_analysis": "composition"
+    },
+    {
+      "observed": {
+        "n_candidates": 1,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED"
+        ]
+      },
+      "features": [
+        1.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "CONSTRAINED",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "HXP-934.",
+          "pass": true,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "HXP-934",
+          "pass": true,
+          "cost": 1
+        }
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": "HXP-934",
+      "raw_top2": 0.0,
+      "norm_top2": 0.0,
+      "gold_code": "HXP-934",
+      "family_analysis": "copy_single"
+    },
+    {
+      "observed": {
+        "n_candidates": 1,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED"
+        ]
+      },
+      "features": [
+        1.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "CONSTRAINED",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "CTK-793.",
+          "pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "BFK-793",
+          "pass": true,
+          "cost": 1
+        }
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": "CTK-793",
+      "raw_top2": 0.0,
+      "norm_top2": 0.0,
+      "gold_code": "BFK-793",
+      "family_analysis": "copy_single"
+    },
+    {
+      "observed": {
+        "n_candidates": 0,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE"
+        ]
+      },
+      "features": [
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "painted GQ.",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": null,
+      "raw_top2": 0.0,
+      "norm_top2": 0.0,
+      "gold_code": "sepia",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "observed": {
+        "n_candidates": 1,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED"
+        ]
+      },
+      "features": [
+        1.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "CONSTRAINED",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "LMT-59.",
+          "pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "LMT-306",
+          "pass": true,
+          "cost": 1
+        }
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": null,
+      "raw_top2": 0.0,
+      "norm_top2": 0.0,
+      "gold_code": "LMT-306",
+      "family_analysis": "copy_single"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 2,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE"
+        ]
+      },
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "HXP-372.",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": "HXP-372",
+      "raw_top2": 0.0,
+      "norm_top2": 0.0,
+      "gold_code": "RZQ-107 BFK-543",
+      "family_analysis": "composition"
+    },
+    {
+      "observed": {
+        "n_candidates": 0,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE"
+        ]
+      },
+      "features": [
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "scaffold.",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": null,
+      "raw_top2": 0.0,
+      "norm_top2": 0.0,
+      "gold_code": "teal",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 2,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE"
+        ]
+      },
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "HXP-378.",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": "HXP-378",
+      "raw_top2": 0.0,
+      "norm_top2": 0.0,
+      "gold_code": "LMT-240 HXP-378",
+      "family_analysis": "composition"
+    },
+    {
+      "observed": {
+        "n_candidates": 1,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED"
+        ]
+      },
+      "features": [
+        1.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "CONSTRAINED",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "CTK-514.",
+          "pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "BFK-514",
+          "pass": true,
+          "cost": 1
+        }
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": "CTK-514",
+      "raw_top2": 0.0,
+      "norm_top2": 0.0,
+      "gold_code": "BFK-514",
+      "family_analysis": "copy_single"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED"
+        ]
+      },
+      "features": [
+        3.0,
+        1.0,
+        0.0,
+        2.5923384075722424,
+        0.21374768775967823,
+        2.1550119206026115,
+        0.25165550554033583,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.21374768775967823
+      ],
+      "adaptive_action": "NORMALIZED",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "CTK-931.",
+          "pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "BFK-963",
+          "pass": true,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "BFK-482.",
+          "pass": false,
+          "cost": 2
+        }
+      },
+      "raw_pick_code": "BFK-931",
+      "norm_pick_code": "BFK-482",
+      "free_out_code": "CTK-931",
+      "raw_top2": 2.5923384075722424,
+      "norm_top2": 0.21374768775967823,
+      "gold_code": "BFK-963",
+      "family_analysis": "realization"
+    },
+    {
+      "observed": {
+        "n_candidates": 0,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE"
+        ]
+      },
+      "features": [
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "teal.",
+          "pass": true,
+          "cost": 0
+        }
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": null,
+      "raw_top2": 0.0,
+      "norm_top2": 0.0,
+      "gold_code": "teal",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED"
+        ]
+      },
+      "features": [
+        3.0,
+        1.0,
+        0.0,
+        3.4902556743727473,
+        0.6100533286416976,
+        1.6916498139930163,
+        0.6850164367761561,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        0.6100533286416976
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "HXP-721.",
+          "pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "HXP-721",
+          "pass": false,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "HXP-721.",
+          "pass": false,
+          "cost": 2
+        }
+      },
+      "raw_pick_code": "HXP-721",
+      "norm_pick_code": "HXP-721",
+      "free_out_code": "HXP-721",
+      "raw_top2": 3.4902556743727473,
+      "norm_top2": 0.6100533286416976,
+      "gold_code": "HXP-996",
+      "family_analysis": "selection"
+    },
+    {
+      "observed": {
+        "n_candidates": 2,
+        "output_arity": 1,
+        "format_name": "table",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED"
+        ]
+      },
+      "features": [
+        2.0,
+        1.0,
+        1.0,
+        7.58079568876974,
+        10.406690130394054,
+        3.79039784438487,
+        5.203345065197027,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        10.406690130394054
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "LMT-651.",
+          "pass": true,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "LMT-651",
+          "pass": true,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "LMT-651.",
+          "pass": true,
+          "cost": 2
+        }
+      },
+      "raw_pick_code": "LMT-651",
+      "norm_pick_code": "LMT-651",
+      "free_out_code": "LMT-651",
+      "raw_top2": 7.58079568876974,
+      "norm_top2": 10.406690130394054,
+      "gold_code": "LMT-651",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "observed": {
+        "n_candidates": 1,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED"
+        ]
+      },
+      "features": [
+        1.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "CONSTRAINED",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "CTK-511.",
+          "pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "BFK-511",
+          "pass": true,
+          "cost": 1
+        }
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": "CTK-511",
+      "raw_top2": 0.0,
+      "norm_top2": 0.0,
+      "gold_code": "BFK-511",
+      "family_analysis": "copy_single"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED"
+        ]
+      },
+      "features": [
+        3.0,
+        1.0,
+        0.0,
+        10.28441598642894,
+        0.02703267668493936,
+        5.71449956448077,
+        0.10563117298689988,
+        0.0,
+        1.0,
+        0.0,
+        1.0,
+        0.02703267668493936
+      ],
+      "adaptive_action": "NORMALIZED",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "HXP-904.",
+          "pass": true,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "HXP-904",
+          "pass": true,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "BFK-805.",
+          "pass": false,
+          "cost": 2
+        }
+      },
+      "raw_pick_code": "HXP-904",
+      "norm_pick_code": "BFK-805",
+      "free_out_code": "HXP-904",
+      "raw_top2": 10.28441598642894,
+      "norm_top2": 0.02703267668493936,
+      "gold_code": "HXP-904",
+      "family_analysis": "selection"
+    },
+    {
+      "observed": {
+        "n_candidates": 1,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED"
+        ]
+      },
+      "features": [
+        1.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "CONSTRAINED",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "LMT-171.",
+          "pass": true,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "LMT-171",
+          "pass": true,
+          "cost": 1
+        }
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": "LMT-171",
+      "raw_top2": 0.0,
+      "norm_top2": 0.0,
+      "gold_code": "LMT-171",
+      "family_analysis": "copy_single"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED"
+        ]
+      },
+      "features": [
+        3.0,
+        1.0,
+        0.0,
+        4.228908706718357,
+        0.4810826979146441,
+        2.9895504148941368,
+        0.4295076746684349,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.4810826979146441
+      ],
+      "adaptive_action": "NORMALIZED",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "CTK-875.",
+          "pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "RZQ-126",
+          "pass": false,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "LMT-325.",
+          "pass": true,
+          "cost": 2
+        }
+      },
+      "raw_pick_code": "RZQ-126",
+      "norm_pick_code": "LMT-325",
+      "free_out_code": "CTK-875",
+      "raw_top2": 4.228908706718357,
+      "norm_top2": 0.4810826979146441,
+      "gold_code": "LMT-325",
+      "family_analysis": "realization"
+    },
+    {
+      "observed": {
+        "n_candidates": 2,
+        "output_arity": 1,
+        "format_name": "table",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED"
+        ]
+      },
+      "features": [
+        2.0,
+        1.0,
+        1.0,
+        7.238846676150388,
+        14.070396791198618,
+        3.619423338075194,
+        7.035198395599309,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        14.070396791198618
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "LMT-152.",
+          "pass": true,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "LMT-152",
+          "pass": true,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "LMT-152.",
+          "pass": true,
+          "cost": 2
+        }
+      },
+      "raw_pick_code": "LMT-152",
+      "norm_pick_code": "LMT-152",
+      "free_out_code": "LMT-152",
+      "raw_top2": 7.238846676150388,
+      "norm_top2": 14.070396791198618,
+      "gold_code": "LMT-152",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 2,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE"
+        ]
+      },
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "CTT-966.",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": "CTT-966",
+      "raw_top2": 0.0,
+      "norm_top2": 0.0,
+      "gold_code": "LMT-396 LMT-966",
+      "family_analysis": "composition"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED"
+        ]
+      },
+      "features": [
+        3.0,
+        1.0,
+        0.0,
+        0.018096511748808553,
+        0.34735879353229393,
+        2.0943526341770484,
+        0.3879882888418361,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.34735879353229393
+      ],
+      "adaptive_action": "NORMALIZED",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "CTT-820.",
+          "pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "RZQ-308",
+          "pass": true,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "LMT-820.",
+          "pass": false,
+          "cost": 2
+        }
+      },
+      "raw_pick_code": "RZQ-308",
+      "norm_pick_code": "LMT-820",
+      "free_out_code": "CTT-820",
+      "raw_top2": 0.018096511748808553,
+      "norm_top2": 0.34735879353229393,
+      "gold_code": "RZQ-308",
+      "family_analysis": "selection"
+    },
+    {
+      "observed": {
+        "n_candidates": 1,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED"
+        ]
+      },
+      "features": [
+        1.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "CONSTRAINED",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "HXP-442.",
+          "pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "HXP-432",
+          "pass": true,
+          "cost": 1
+        }
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": "HXP-442",
+      "raw_top2": 0.0,
+      "norm_top2": 0.0,
+      "gold_code": "HXP-432",
+      "family_analysis": "copy_single"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED"
+        ]
+      },
+      "features": [
+        3.0,
+        1.0,
+        0.0,
+        4.710912391070451,
+        1.766499530891906,
+        2.2379574053976232,
+        0.9281799310656533,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.766499530891906
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "HXP-212.",
+          "pass": true,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "HXP-212",
+          "pass": true,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "HXP-212.",
+          "pass": true,
+          "cost": 2
+        }
+      },
+      "raw_pick_code": "HXP-212",
+      "norm_pick_code": "HXP-212",
+      "free_out_code": "HXP-212",
+      "raw_top2": 4.710912391070451,
+      "norm_top2": 1.766499530891906,
+      "gold_code": "HXP-212",
+      "family_analysis": "selection"
+    },
+    {
+      "observed": {
+        "n_candidates": 1,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED"
+        ]
+      },
+      "features": [
+        1.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "CONSTRAINED",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "VNC-795.",
+          "pass": true,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "VNC-795",
+          "pass": true,
+          "cost": 1
+        }
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": "VNC-795",
+      "raw_top2": 0.0,
+      "norm_top2": 0.0,
+      "gold_code": "VNC-795",
+      "family_analysis": "copy_single"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED"
+        ]
+      },
+      "features": [
+        3.0,
+        1.0,
+        0.0,
+        3.079619094507507,
+        1.07941367420608,
+        2.5205755956972458,
+        0.8287718335070833,
+        0.0,
+        1.0,
+        0.0,
+        1.0,
+        1.07941367420608
+      ],
+      "adaptive_action": "CONSTRAINED",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "HXP-849.",
+          "pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "HXP-849",
+          "pass": false,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "VNC-971.",
+          "pass": true,
+          "cost": 2
+        }
+      },
+      "raw_pick_code": "HXP-849",
+      "norm_pick_code": "VNC-971",
+      "free_out_code": "HXP-849",
+      "raw_top2": 3.079619094507507,
+      "norm_top2": 1.07941367420608,
+      "gold_code": "VNC-971",
+      "family_analysis": "selection"
+    },
+    {
+      "observed": {
+        "n_candidates": 0,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE"
+        ]
+      },
+      "features": [
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "painted slate.",
+          "pass": true,
+          "cost": 0
+        }
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": null,
+      "raw_top2": 0.0,
+      "norm_top2": 0.0,
+      "gold_code": "slate",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "observed": {
+        "n_candidates": 1,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED"
+        ]
+      },
+      "features": [
+        1.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "CONSTRAINED",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "LMT-492.",
+          "pass": true,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "LMT-492",
+          "pass": true,
+          "cost": 1
+        }
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": "LMT-492",
+      "raw_top2": 0.0,
+      "norm_top2": 0.0,
+      "gold_code": "LMT-492",
+      "family_analysis": "copy_single"
+    },
+    {
+      "observed": {
+        "n_candidates": 2,
+        "output_arity": 1,
+        "format_name": "table",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED"
+        ]
+      },
+      "features": [
+        2.0,
+        1.0,
+        1.0,
+        1.312073336855974,
+        2.162111291254405,
+        0.656036668427987,
+        1.0810556456272025,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        2.162111291254405
+      ],
+      "adaptive_action": "NORMALIZED",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "VNC-350.",
+          "pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "VNC-330",
+          "pass": true,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "VNC-330.",
+          "pass": true,
+          "cost": 2
+        }
+      },
+      "raw_pick_code": "VNC-330",
+      "norm_pick_code": "VNC-330",
+      "free_out_code": "VNC-350",
+      "raw_top2": 1.312073336855974,
+      "norm_top2": 2.162111291254405,
+      "gold_code": "VNC-330",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "observed": {
+        "n_candidates": 0,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE"
+        ]
+      },
+      "features": [
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "CT.",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": null,
+      "raw_top2": 0.0,
+      "norm_top2": 0.0,
+      "gold_code": "sepia",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "table",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED"
+        ]
+      },
+      "features": [
+        3.0,
+        1.0,
+        1.0,
+        3.054354534324375,
+        0.6417842658120207,
+        2.417926525852796,
+        3.192059113223052,
+        0.0,
+        1.0,
+        0.0,
+        1.0,
+        0.6417842658120207
+      ],
+      "adaptive_action": "CONSTRAINED",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "RZQ-292.",
+          "pass": true,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "RZQ-292",
+          "pass": true,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "RZQ-280.",
+          "pass": false,
+          "cost": 2
+        }
+      },
+      "raw_pick_code": "RZQ-292",
+      "norm_pick_code": "RZQ-280",
+      "free_out_code": "RZQ-292",
+      "raw_top2": 3.054354534324375,
+      "norm_top2": 0.6417842658120207,
+      "gold_code": "RZQ-292",
+      "family_analysis": "selection"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 2,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE"
+        ]
+      },
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "HXP-149.",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": "HXP-149",
+      "raw_top2": 0.0,
+      "norm_top2": 0.0,
+      "gold_code": "HXP-149 RZQ-685",
+      "family_analysis": "composition"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "table",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED"
+        ]
+      },
+      "features": [
+        3.0,
+        1.0,
+        1.0,
+        1.213619330932488,
+        6.960322618720056,
+        1.9729048000235074,
+        3.800680264492706,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        6.960322618720056
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "LMT-718.",
+          "pass": true,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "LMT-718",
+          "pass": true,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "LMT-718.",
+          "pass": true,
+          "cost": 2
+        }
+      },
+      "raw_pick_code": "LMT-718",
+      "norm_pick_code": "LMT-718",
+      "free_out_code": "LMT-718",
+      "raw_top2": 1.213619330932488,
+      "norm_top2": 6.960322618720056,
+      "gold_code": "LMT-718",
+      "family_analysis": "realization"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 2,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE"
+        ]
+      },
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "HXP-591.",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": "HXP-591",
+      "raw_top2": 0.0,
+      "norm_top2": 0.0,
+      "gold_code": "HXP-591 LMT-236",
+      "family_analysis": "composition"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "table",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED"
+        ]
+      },
+      "features": [
+        3.0,
+        1.0,
+        1.0,
+        0.02396280401671902,
+        0.9378911533567589,
+        1.1097614637245903,
+        1.7145003824508265,
+        0.0,
+        0.0,
+        1.0,
+        1.0,
+        0.9378911533567589
+      ],
+      "adaptive_action": "CONSTRAINED",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "RZQ-162.",
+          "pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "RZQ-162",
+          "pass": false,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "RZQ-162.",
+          "pass": false,
+          "cost": 2
+        }
+      },
+      "raw_pick_code": "LMT-140",
+      "norm_pick_code": "RZQ-162",
+      "free_out_code": "RZQ-162",
+      "raw_top2": 0.02396280401671902,
+      "norm_top2": 0.9378911533567589,
+      "gold_code": "RZQ-383",
+      "family_analysis": "selection"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED"
+        ]
+      },
+      "features": [
+        3.0,
+        1.0,
+        0.0,
+        1.2998832273879088,
+        0.10820784173665743,
+        3.4447087810166384,
+        0.14360781990298443,
+        0.0,
+        1.0,
+        0.0,
+        1.0,
+        0.10820784173665743
+      ],
+      "adaptive_action": "CONSTRAINED",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "HXP-361.",
+          "pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "HXP-361",
+          "pass": false,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "RZQ-793.",
+          "pass": true,
+          "cost": 2
+        }
+      },
+      "raw_pick_code": "HXP-361",
+      "norm_pick_code": "RZQ-793",
+      "free_out_code": "HXP-361",
+      "raw_top2": 1.2998832273879088,
+      "norm_top2": 0.10820784173665743,
+      "gold_code": "RZQ-793",
+      "family_analysis": "realization"
+    },
+    {
+      "observed": {
+        "n_candidates": 2,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED"
+        ]
+      },
+      "features": [
+        2.0,
+        1.0,
+        0.0,
+        3.040152668450901,
+        0.9825898408598732,
+        1.5200763342254504,
+        0.4912949204299366,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.9825898408598732
+      ],
+      "adaptive_action": "CONSTRAINED",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "HXP-187.",
+          "pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "HXP-185",
+          "pass": true,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "HXP-185.",
+          "pass": true,
+          "cost": 2
+        }
+      },
+      "raw_pick_code": "HXP-185",
+      "norm_pick_code": "HXP-185",
+      "free_out_code": "HXP-187",
+      "raw_top2": 3.040152668450901,
+      "norm_top2": 0.9825898408598732,
+      "gold_code": "HXP-185",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "observed": {
+        "n_candidates": 2,
+        "output_arity": 1,
+        "format_name": "table",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED"
+        ]
+      },
+      "features": [
+        2.0,
+        1.0,
+        1.0,
+        2.9860890851923614,
+        0.3082041881061741,
+        1.4930445425961807,
+        0.15410209405308706,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        0.3082041881061741
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "VNC-526.",
+          "pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "VNC-526",
+          "pass": false,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "VNC-526.",
+          "pass": false,
+          "cost": 2
+        }
+      },
+      "raw_pick_code": "VNC-526",
+      "norm_pick_code": "VNC-526",
+      "free_out_code": "VNC-526",
+      "raw_top2": 2.9860890851923614,
+      "norm_top2": 0.3082041881061741,
+      "gold_code": "VNC-801",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "observed": {
+        "n_candidates": 2,
+        "output_arity": 1,
+        "format_name": "table",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED"
+        ]
+      },
+      "features": [
+        2.0,
+        1.0,
+        1.0,
+        1.8888980674200866,
+        5.136561511455966,
+        0.9444490337100433,
+        2.568280755727983,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        5.136561511455966
+      ],
+      "adaptive_action": "NORMALIZED",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "LMT-511.",
+          "pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "LMT-520",
+          "pass": true,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "LMT-520.",
+          "pass": true,
+          "cost": 2
+        }
+      },
+      "raw_pick_code": "LMT-520",
+      "norm_pick_code": "LMT-520",
+      "free_out_code": "LMT-511",
+      "raw_top2": 1.8888980674200866,
+      "norm_top2": 5.136561511455966,
+      "gold_code": "LMT-520",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED"
+        ]
+      },
+      "features": [
+        3.0,
+        1.0,
+        0.0,
+        0.6548800303371536,
+        1.0395912831518217,
+        2.9905776980112635,
+        1.8237667284012336,
+        0.0,
+        1.0,
+        0.0,
+        1.0,
+        1.0395912831518217
+      ],
+      "adaptive_action": "CONSTRAINED",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "LMT-618.",
+          "pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "LMT-618",
+          "pass": false,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "LMT-302.",
+          "pass": true,
+          "cost": 2
+        }
+      },
+      "raw_pick_code": "LMT-618",
+      "norm_pick_code": "LMT-302",
+      "free_out_code": "LMT-618",
+      "raw_top2": 0.6548800303371536,
+      "norm_top2": 1.0395912831518217,
+      "gold_code": "LMT-302",
+      "family_analysis": "realization"
+    },
+    {
+      "observed": {
+        "n_candidates": 0,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE"
+        ]
+      },
+      "features": [
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "scaffold.",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": null,
+      "raw_top2": 0.0,
+      "norm_top2": 0.0,
+      "gold_code": "slate",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "observed": {
+        "n_candidates": 1,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED"
+        ]
+      },
+      "features": [
+        1.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "CONSTRAINED",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "CTK-365.",
+          "pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "BFK-363",
+          "pass": true,
+          "cost": 1
+        }
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": "CTK-365",
+      "raw_top2": 0.0,
+      "norm_top2": 0.0,
+      "gold_code": "BFK-363",
+      "family_analysis": "copy_single"
+    },
+    {
+      "observed": {
+        "n_candidates": 2,
+        "output_arity": 1,
+        "format_name": "table",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED"
+        ]
+      },
+      "features": [
+        2.0,
+        1.0,
+        1.0,
+        5.960928329455783,
+        5.248681170196505,
+        2.9804641647278913,
+        2.6243405850982526,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        5.248681170196505
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "RZQ-571.",
+          "pass": true,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "RZQ-571",
+          "pass": true,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "RZQ-571.",
+          "pass": true,
+          "cost": 2
+        }
+      },
+      "raw_pick_code": "RZQ-571",
+      "norm_pick_code": "RZQ-571",
+      "free_out_code": "RZQ-571",
+      "raw_top2": 5.960928329455783,
+      "norm_top2": 5.248681170196505,
+      "gold_code": "RZQ-571",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "observed": {
+        "n_candidates": 1,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED"
+        ]
+      },
+      "features": [
+        1.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "CONSTRAINED",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "RZQ-283.",
+          "pass": true,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "RZQ-283",
+          "pass": true,
+          "cost": 1
+        }
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": "RZQ-283",
+      "raw_top2": 0.0,
+      "norm_top2": 0.0,
+      "gold_code": "RZQ-283",
+      "family_analysis": "copy_single"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "table",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED"
+        ]
+      },
+      "features": [
+        3.0,
+        1.0,
+        1.0,
+        4.753621778396337,
+        5.3884389596264555,
+        3.006569757213262,
+        2.6185640637129612,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        5.3884389596264555
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "RZQ-699.",
+          "pass": true,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "RZQ-699",
+          "pass": true,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "RZQ-699.",
+          "pass": true,
+          "cost": 2
+        }
+      },
+      "raw_pick_code": "RZQ-699",
+      "norm_pick_code": "RZQ-699",
+      "free_out_code": "RZQ-699",
+      "raw_top2": 4.753621778396337,
+      "norm_top2": 5.3884389596264555,
+      "gold_code": "RZQ-699",
+      "family_analysis": "realization"
+    },
+    {
+      "observed": {
+        "n_candidates": 0,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE"
+        ]
+      },
+      "features": [
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "painted maroon.",
+          "pass": true,
+          "cost": 0
+        }
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": null,
+      "raw_top2": 0.0,
+      "norm_top2": 0.0,
+      "gold_code": "maroon",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "observed": {
+        "n_candidates": 1,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED"
+        ]
+      },
+      "features": [
+        1.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "CONSTRAINED",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "CTK-649.",
+          "pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "BFK-649",
+          "pass": true,
+          "cost": 1
+        }
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": "CTK-649",
+      "raw_top2": 0.0,
+      "norm_top2": 0.0,
+      "gold_code": "BFK-649",
+      "family_analysis": "copy_single"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED"
+        ]
+      },
+      "features": [
+        3.0,
+        1.0,
+        0.0,
+        1.7128197386300599,
+        0.5337683718425978,
+        0.8121019928695715,
+        0.29502493429064947,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.5337683718425978
+      ],
+      "adaptive_action": "NORMALIZED",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "CTK-999.",
+          "pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "BFK-999",
+          "pass": false,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "BFK-323.",
+          "pass": false,
+          "cost": 2
+        }
+      },
+      "raw_pick_code": "BFK-922",
+      "norm_pick_code": "BFK-323",
+      "free_out_code": "CTK-999",
+      "raw_top2": 1.7128197386300599,
+      "norm_top2": 0.5337683718425978,
+      "gold_code": "BFK-922",
+      "family_analysis": "realization"
+    },
+    {
+      "observed": {
+        "n_candidates": 0,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE"
+        ]
+      },
+      "features": [
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "painted GQ.",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": null,
+      "raw_top2": 0.0,
+      "norm_top2": 0.0,
+      "gold_code": "sepia",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "observed": {
+        "n_candidates": 2,
+        "output_arity": 1,
+        "format_name": "table",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED"
+        ]
+      },
+      "features": [
+        2.0,
+        1.0,
+        1.0,
+        4.417141381993133,
+        8.575793276846525,
+        2.2085706909965666,
+        4.287896638423263,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        8.575793276846525
+      ],
+      "adaptive_action": "NORMALIZED",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "HXP-512.",
+          "pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "HXP-520",
+          "pass": true,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "HXP-520.",
+          "pass": true,
+          "cost": 2
+        }
+      },
+      "raw_pick_code": "HXP-520",
+      "norm_pick_code": "HXP-520",
+      "free_out_code": "HXP-512",
+      "raw_top2": 4.417141381993133,
+      "norm_top2": 8.575793276846525,
+      "gold_code": "HXP-520",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "observed": {
+        "n_candidates": 1,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED"
+        ]
+      },
+      "features": [
+        1.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "CONSTRAINED",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "HXP-711.",
+          "pass": true,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "HXP-711",
+          "pass": true,
+          "cost": 1
+        }
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": "HXP-711",
+      "raw_top2": 0.0,
+      "norm_top2": 0.0,
+      "gold_code": "HXP-711",
+      "family_analysis": "copy_single"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "table",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED"
+        ]
+      },
+      "features": [
+        3.0,
+        1.0,
+        1.0,
+        6.123680403499748,
+        0.0020698377484222874,
+        4.190321633909345,
+        3.514392887795552,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0020698377484222874
+      ],
+      "adaptive_action": "NORMALIZED",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "RZQ-882.",
+          "pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "RZQ-872",
+          "pass": true,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "RZQ-314.",
+          "pass": false,
+          "cost": 2
+        }
+      },
+      "raw_pick_code": "RZQ-872",
+      "norm_pick_code": "RZQ-314",
+      "free_out_code": "RZQ-882",
+      "raw_top2": 6.123680403499748,
+      "norm_top2": 0.0020698377484222874,
+      "gold_code": "RZQ-872",
+      "family_analysis": "realization"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED"
+        ]
+      },
+      "features": [
+        3.0,
+        1.0,
+        0.0,
+        4.970218640934036,
+        0.10677038349649592,
+        2.82679471015436,
+        0.06946470758044712,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.10677038349649592
+      ],
+      "adaptive_action": "NORMALIZED",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "CTK-952.",
+          "pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "RZQ-614",
+          "pass": true,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "BFK-952.",
+          "pass": false,
+          "cost": 2
+        }
+      },
+      "raw_pick_code": "RZQ-614",
+      "norm_pick_code": "BFK-952",
+      "free_out_code": "CTK-952",
+      "raw_top2": 4.970218640934036,
+      "norm_top2": 0.10677038349649592,
+      "gold_code": "RZQ-614",
+      "family_analysis": "selection"
+    },
+    {
+      "observed": {
+        "n_candidates": 1,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED"
+        ]
+      },
+      "features": [
+        1.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "CONSTRAINED",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "RZQ-478.",
+          "pass": true,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "RZQ-478",
+          "pass": true,
+          "cost": 1
+        }
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": "RZQ-478",
+      "raw_top2": 0.0,
+      "norm_top2": 0.0,
+      "gold_code": "RZQ-478",
+      "family_analysis": "copy_single"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED"
+        ]
+      },
+      "features": [
+        3.0,
+        1.0,
+        0.0,
+        2.6691887485703774,
+        0.42091188341419183,
+        3.682225823693855,
+        0.49656186662161583,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.42091188341419183
+      ],
+      "adaptive_action": "CONSTRAINED",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "HXP-145.",
+          "pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "HXP-302",
+          "pass": true,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "RZQ-685.",
+          "pass": false,
+          "cost": 2
+        }
+      },
+      "raw_pick_code": "RZQ-685",
+      "norm_pick_code": "RZQ-685",
+      "free_out_code": "HXP-145",
+      "raw_top2": 2.6691887485703774,
+      "norm_top2": 0.42091188341419183,
+      "gold_code": "HXP-302",
+      "family_analysis": "selection"
+    },
+    {
+      "observed": {
+        "n_candidates": 2,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED"
+        ]
+      },
+      "features": [
+        2.0,
+        1.0,
+        0.0,
+        4.085000047254653,
+        0.034790793351930915,
+        2.0425000236273263,
+        0.017395396675965458,
+        0.0,
+        1.0,
+        0.0,
+        1.0,
+        0.034790793351930915
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "RZQ-111.",
+          "pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "RZQ-111",
+          "pass": false,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "LMT-259.",
+          "pass": true,
+          "cost": 2
+        }
+      },
+      "raw_pick_code": "RZQ-111",
+      "norm_pick_code": "LMT-259",
+      "free_out_code": "RZQ-111",
+      "raw_top2": 4.085000047254653,
+      "norm_top2": 0.034790793351930915,
+      "gold_code": "LMT-259",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "observed": {
+        "n_candidates": 2,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED"
+        ]
+      },
+      "features": [
+        2.0,
+        1.0,
+        0.0,
+        7.616878734979764,
+        0.9519982782403531,
+        3.808439367489882,
+        0.47599913912017655,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.9519982782403531
+      ],
+      "adaptive_action": "NORMALIZED",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "CTT-540.",
+          "pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "LMT-540",
+          "pass": false,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "LMT-251.",
+          "pass": true,
+          "cost": 2
+        }
+      },
+      "raw_pick_code": "LMT-540",
+      "norm_pick_code": "LMT-251",
+      "free_out_code": "CTT-540",
+      "raw_top2": 7.616878734979764,
+      "norm_top2": 0.9519982782403531,
+      "gold_code": "LMT-251",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "observed": {
+        "n_candidates": 1,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED"
+        ]
+      },
+      "features": [
+        1.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "CONSTRAINED",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "VNC-139.",
+          "pass": true,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "VNC-139",
+          "pass": true,
+          "cost": 1
+        }
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": "VNC-139",
+      "raw_top2": 0.0,
+      "norm_top2": 0.0,
+      "gold_code": "VNC-139",
+      "family_analysis": "copy_single"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "table",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED"
+        ]
+      },
+      "features": [
+        3.0,
+        1.0,
+        1.0,
+        8.305846753300102,
+        5.619455004076599,
+        4.576479426363644,
+        5.567752532013601,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        5.619455004076599
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "LMT-581.",
+          "pass": true,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "LMT-581",
+          "pass": true,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "LMT-581.",
+          "pass": true,
+          "cost": 2
+        }
+      },
+      "raw_pick_code": "LMT-581",
+      "norm_pick_code": "LMT-581",
+      "free_out_code": "LMT-581",
+      "raw_top2": 8.305846753300102,
+      "norm_top2": 5.619455004076599,
+      "gold_code": "LMT-581",
+      "family_analysis": "selection"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED"
+        ]
+      },
+      "features": [
+        3.0,
+        1.0,
+        0.0,
+        1.8892588018679817,
+        1.227465253256014,
+        2.299895135590314,
+        0.9125008088810338,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.227465253256014
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "VNC-245.",
+          "pass": true,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "VNC-245",
+          "pass": true,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "VNC-245.",
+          "pass": true,
+          "cost": 2
+        }
+      },
+      "raw_pick_code": "VNC-245",
+      "norm_pick_code": "VNC-245",
+      "free_out_code": "VNC-245",
+      "raw_top2": 1.8892588018679817,
+      "norm_top2": 1.227465253256014,
+      "gold_code": "VNC-245",
+      "family_analysis": "selection"
+    },
+    {
+      "observed": {
+        "n_candidates": 2,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED"
+        ]
+      },
+      "features": [
+        2.0,
+        1.0,
+        0.0,
+        3.4891173828309547,
+        0.23639524818099744,
+        1.7445586914154774,
+        0.11819762409049872,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.23639524818099744
+      ],
+      "adaptive_action": "NORMALIZED",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "HXP-828.",
+          "pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "HXP-772",
+          "pass": false,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "BFK-807.",
+          "pass": true,
+          "cost": 2
+        }
+      },
+      "raw_pick_code": "HXP-772",
+      "norm_pick_code": "BFK-807",
+      "free_out_code": "HXP-828",
+      "raw_top2": 3.4891173828309547,
+      "norm_top2": 0.23639524818099744,
+      "gold_code": "BFK-807",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "observed": {
+        "n_candidates": 0,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE"
+        ]
+      },
+      "features": [
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "maroon.",
+          "pass": true,
+          "cost": 0
+        }
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": null,
+      "raw_top2": 0.0,
+      "norm_top2": 0.0,
+      "gold_code": "maroon",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "observed": {
+        "n_candidates": 2,
+        "output_arity": 1,
+        "format_name": "table",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED",
+          "NORMALIZED"
+        ]
+      },
+      "features": [
+        2.0,
+        1.0,
+        1.0,
+        6.423532622591665,
+        10.107850570768278,
+        3.2117663112958326,
+        5.053925285384139,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        10.107850570768278
+      ],
+      "adaptive_action": "NORMALIZED",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "RZQ-248.",
+          "pass": false,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "RZQ-247",
+          "pass": true,
+          "cost": 1
+        },
+        "NORMALIZED": {
+          "output": "RZQ-247.",
+          "pass": true,
+          "cost": 2
+        }
+      },
+      "raw_pick_code": "RZQ-247",
+      "norm_pick_code": "RZQ-247",
+      "free_out_code": "RZQ-248",
+      "raw_top2": 6.423532622591665,
+      "norm_top2": 10.107850570768278,
+      "gold_code": "RZQ-247",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "observed": {
+        "n_candidates": 3,
+        "output_arity": 2,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE"
+        ]
+      },
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "NO_CHANGE",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "HXP-846.",
+          "pass": false,
+          "cost": 0
+        }
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": "HXP-846",
+      "raw_top2": 0.0,
+      "norm_top2": 0.0,
+      "gold_code": "HXP-846 BFK-705",
+      "family_analysis": "composition"
+    },
+    {
+      "observed": {
+        "n_candidates": 1,
+        "output_arity": 1,
+        "format_name": "prose",
+        "applicable_actions": [
+          "NO_CHANGE",
+          "CONSTRAINED"
+        ]
+      },
+      "features": [
+        1.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "adaptive_action": "CONSTRAINED",
+      "actions": {
+        "NO_CHANGE": {
+          "output": "VNC-627.",
+          "pass": true,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "output": "VNC-627",
+          "pass": true,
+          "cost": 1
+        }
+      },
+      "raw_pick_code": null,
+      "norm_pick_code": null,
+      "free_out_code": "VNC-627",
+      "raw_top2": 0.0,
+      "norm_top2": 0.0,
+      "gold_code": "VNC-627",
+      "family_analysis": "copy_single"
+    }
+  ]
+}

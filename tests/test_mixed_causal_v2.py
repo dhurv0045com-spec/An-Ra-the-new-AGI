@@ -96,7 +96,7 @@ def test_policy_v3_frozen_and_never_sees_gold() -> None:
     forbidden = {"gold", "family", "RAW_ok", "NORMALIZED_ok",
                  "raw_rank_of_gold", "adj_rank_of_gold"}
     assert not (set(p["feature_names"]) & forbidden)
-    assert p["utility_rule"]["lambda"] == 0.25
+    assert p["lambda"] == 0.25
 
 
 def test_oracle_is_evaluator_only() -> None:

@@ -1,0 +1,59 @@
+{
+  "schema": "anra-mixed-causal-v3-verdict/v1",
+  "fixture_sha256_frozen_after_policy_freeze": "25eb97a7f5dedf36a7c6bb7c55261db264a3edf5067edd7b111f8ff5f42b9d06",
+  "policy_v31_frozen_commit": "f033d9f",
+  "policy_sha256": "e807abdb9ca8af6b481283f420dd34ad802fb68ab0f9ea7404ad08330400ca94",
+  "checkpoint_sha256": "36c87e5be671ff37951b4b433e21ec14bb5e59f6f0770d7f81e50e99ead9e001",
+  "n_tasks": 180,
+
+  "results_all_policies": {
+    "ALWAYS_NO_CHANGE": {"succ": 63, "reg": 0, "cost": 0},
+    "ALWAYS_CONSTRAINED": {"succ": 97, "reg": 0, "cost": 120},
+    "ALWAYS_NORMALIZED": {"succ": 96, "reg": 5, "cost": 180},
+    "SIMPLE_A_norm_margin_gt_raw": {"succ": 78, "reg": 0, "cost": 64},
+    "SIMPLE_B_disagree_highconf": {"succ": 77, "reg": 2, "cost": 46},
+    "SIMPLE_C_free_vs_raw_disagree": {"succ": 96, "reg": 0, "cost": 67},
+    "SIMPLE_D_weak_raw_margin": {"succ": 80, "reg": 0, "cost": 52},
+    "ADAPTIVE_v31": {"succ": 99, "reg": 1, "cost": 117},
+    "ORACLE_evaluator_only": {"succ": 123}
+  },
+
+  "paired_adaptive_vs_others": {
+    "vs ALWAYS_CONSTRAINED (best fixed)": {"delta": "+0.011", "ci95": "[-0.039, +0.061]", "p": 0.66},
+    "vs ALWAYS_NORMALIZED": {"delta": "+0.017", "ci95": "[-0.044, +0.078]", "p": 0.60},
+    "vs SIMPLE_C (best simple)": {"delta": "+0.017", "ci95": "[-0.033, +0.067]", "p": 0.51},
+    "vs SIMPLE_A": {"delta": "+0.117", "ci95": "[+0.067, +0.172]", "p": 2e-05},
+    "vs NO_CHANGE": {"delta": "+0.200", "ci95": "[+0.139, +0.261]", "p": "<1e-6"}
+  },
+
+  "per_family_adaptive_vs_best_constant": {
+    "selection": "16/30 vs 26/30 — adaptive UNDERPERFORMS always-normalize here",
+    "realization": "17/30 vs 27/30 — adaptive UNDERPERFORMS always-constrained",
+    "no_intervention": "22/30 vs 26/30 (always-constrained) — over-intervention cost",
+    "copy_single": "30/30 parity with constrained",
+    "non_candidate": "14/30 all arms tie (open-answer uniformly hard)",
+    "composition": "0/30 ALL arms — structural ceiling"
+  },
+
+  "primary_resolution": {
+    "adaptive_beats_every_fixed_baseline_on_utility": true,
+    "adaptive_beats_best_simple_rule_significantly": false,
+    "advantage_vs_best_fixed_or_best_simple_statistically_significant": false,
+    "PRIMARY_CLAIM_NOT_REPLICATED": true
+  },
+
+  "verdict": {
+    "LEARNED_INTERVENTION_SELECTION_REPLICATED": false,
+    "honest_reading": "On fresh MIXED-CAUSAL-v3 the frozen v3.1 policy scored highest overall (99/180 vs best constant 97), with one regression and lower cost than the constants it edged. But the +2-success margin over ALWAYS_CONSTRAINED is not statistically distinguishable from zero (CI spans zero), and it does NOT significantly beat the best simple rule either. Per-family analysis is worse than the aggregate: on selection and realization tasks - where interventions matter most - the policy UNDERPERFORMED the corresponding constants by wide margins. Its aggregate lead comes mostly from copy_single parity and reduced intervention waste on no_intervention tasks.",
+    "scope_limits": [
+      "composition unsolvable under current action set (structural)",
+      "non_candidate open-answer verification weak (all arms tie)",
+      "single fixture; second fresh draw would strengthen any future claim"
+    ]
+  },
+
+  "verdict_class": "NOT_REPLICATED_AGAINST_STRONG_BASELINES",
+  "next_research_question": "Why does the policy underperform its own per-action predictors' implied choices on selection/realization families — is the utility rule's cost term mis-calibrated, or do the per-action success models fail to transfer across fixtures?",
+  "training_decision": "DO_NOT_TRAIN_CORE",
+  "verified_intervention_experiences": 0
+}
