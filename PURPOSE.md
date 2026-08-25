@@ -172,6 +172,8 @@ exactly from clean commit. NORMALIZATION MECHANISM: SUPPORTED.]
 
 [2026-08-24 update: MIXED-CAUSAL-v2 promotion — adaptive v3 policy 34/60 vs best constant 31/60, zero regressions, lower cost. First evidence of learned multi-repair selection from observable state.
 
+[2026-08-25 update: TWO clean promotion attempts failed the strict criterion — adaptive policy cannot yet beat constants/simple rules on fresh mixed fixtures. The persistent failure is over-intervention on tasks NO_CHANGE already solves: observed features don't separate 'model already knows' from 'model needs help'.
+
 **Dominant open question:** can An-Ra predict, from observable state alone,
 when counterfactual normalization will repair rather than regress a
 failure? First observed-only policy (QIM-v6 transfer): adaptive 106/210

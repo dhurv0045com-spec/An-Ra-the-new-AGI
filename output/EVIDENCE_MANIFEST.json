@@ -375,13 +375,27 @@
   "self_model_status": {
     "normalization_mechanism": "SUPPORTED (QIM-v5 preregistered + clean-commit reproduction closes 149/149 on RAW and NORMALIZED)",
     "old_self_model": "INVALID \u2014 ground-truth leakage (raw_correct/raw_gold_rank required the answer key); artifact marked in place",
-    "real_learned_self_model": "DEMONSTRATED ON MIXED-CAUSAL-v2 (first pass): adaptive observed-only policy v3 34/60 vs best fixed constant 31/60, zero regressions, lower cost; oracle 38/60. Replication on a second fresh fixture pending.",
+    "real_learned_self_model": "NOT DEMONSTRATED \u2014 two clean promotion attempts failed the strict criterion: MC-v3 (adaptive 99 vs best constant 97, CI spans zero) and MC-v4 (adaptive 105 vs always-normalize 116, p=0.02 against). Systematic over-intervention on no_intervention tasks persists across both. Normalization mechanism itself remains CONFIRMED.",
     "robust_selective_binding": "NOT ESTABLISHED",
     "training_decision": "DO_NOT_TRAIN",
     "reports": [
       "output/self_model_verdict.json",
       "output/qimv6_self_model_transfer.json",
       "output/qimv5_clean_reproduction_closure.json"
+    ],
+    "promotion_attempts": [
+      {
+        "fixture": "MIXED-CAUSAL-v3 (25eb97a7)",
+        "adaptive": 99,
+        "best_fixed": 97,
+        "significant": false
+      },
+      {
+        "fixture": "MIXED-CAUSAL-v4 (a46ab2fb)",
+        "adaptive": 105,
+        "best_fixed": 116,
+        "significant_vs_norm": false
+      }
     ]
   },
   "mixed_causal_experiment": {

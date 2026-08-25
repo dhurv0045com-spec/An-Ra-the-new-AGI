@@ -35,5 +35,6 @@ jobs:
                             tests/test_margin_experiment.py \
                             tests/test_self_model_leakage.py \
                             tests/test_mixed_v3_replication.py \
+                            tests/test_mixed_v4_replication.py \
                             tests/test_cognitive_credit.py \
                             -q

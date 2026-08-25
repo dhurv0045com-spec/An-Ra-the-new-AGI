@@ -1,0 +1,64 @@
+{
+  "schema": "anra-mixed-causal-v4-verdict/v1",
+  "fixture_sha256_frozen_after_policy_freeze": "a46ab2fbf774afb80523df4a0c6d9bcaf7948573b5524df832216384c4fef8e2",
+  "policy_v4_frozen_commit": "1861e0f",
+  "policy_sha256": "937ded8c6d1bb6dd",
+  "checkpoint_sha256": "36c87e5be671ff37951b4b433e21ec14bb5e59f6f0770d7f81e50e99ead9e001",
+  "n_tasks": 180,
+
+  "results_all_policies": {
+    "ALWAYS_NO_CHANGE": {"succ": 86, "reg": 0, "cost": 0},
+    "ALWAYS_CONSTRAINED": {"succ": 93, "reg": 1, "cost": 120},
+    "ALWAYS_NORMALIZED": {"succ": 116, "reg": 6, "cost": 180},
+    "SIMPLE_A_norm_margin_gt_raw": {"succ": 101, "reg": 2, "cost": 68},
+    "SIMPLE_B_disagree_highconf": {"succ": 103, "reg": 2, "cost": 44},
+    "SIMPLE_C_free_vs_raw_disagree": {"succ": 91, "reg": 1, "cost": 50},
+    "SIMPLE_D_weak_raw_margin": {"succ": 97, "reg": 2, "cost": 78},
+    "ADAPTIVE_v4": {"succ": 105, "reg": 4, "cost": 92},
+    "ORACLE_evaluator_only": {"succ": 126}
+  },
+
+  "paired_adaptive_vs_others_significant": {
+    "vs ALWAYS_NO_CHANGE": "+10.6pp, CI [+5.6,+16.1], p=0.00015 — SIGNIFICANT",
+    "vs ALWAYS_CONSTRAINED": "+6.7pp, CI [+2.2,+11.7], p=0.006 — SIGNIFICANT",
+    "vs ALWAYS_NORMALIZED": "-6.1pp, CI [-11.1,-1.1], p=0.02 — adaptive LOSES to always-normalize, significantly"
+  },
+  "paired_adaptive_vs_simple_rules_not_significant": {
+    "vs SIMPLE_A": "+2.2pp, p=0.35 (CI spans zero)",
+    "vs SIMPLE_B": "+1.1pp, p=0.59 (CI spans zero)",
+    "vs SIMPLE_C": "+7.8pp, CI [+3.3,+12.8], p=0.001 — significant win over this rule",
+    "vs SIMPLE_D": "+4.4pp, p=0.12 (CI spans zero)"
+  },
+
+  "per_family_adaptive_vs_best_constant": {
+    "selection": "20/30 vs 26/30 (normalize) — underperforms",
+    "realization": "19/30 vs 24/30 — underperforms",
+    "no_intervention": "18/30 vs 28/30 (normalize) — worst gap; over-intervention",
+    "copy_single": "30/30 parity with constrained",
+    "non_candidate": "18/30 tie",
+    "composition": "0/30 structural ceiling all arms"
+  },
+
+  "primary_resolution": {
+    "adaptive_beats_every_fixed_baseline": false,
+    "adaptive_beats_every_simple_rule": false,
+    "best_policy_overall_is_ALWAYS_NORMALIZED_116": true,
+    "adaptive_beats_all_constants_and_most_rules_but_not_ALWAYS_NORMALIZED_or_SIMPLE_B": true,
+    "PRIMARY_CLAIM_NOT_SUPPORTED": true
+  },
+
+  "verdict": {
+    "LEARNED_INTERVENTION_SELECTION_REPLICATED": false,
+    "honest_reading": "On fresh MIXED-CAUSAL-v4 the standardized v4 policy (105/180) significantly beat three constants (NO_CHANGE, CONSTRAINED) and one simple rule (SIMPLE_C), but LOST significantly to always-normalize (116/180) and did not significantly beat SIMPLE_A/SIMPLE_B/SIMPLE_D. The best policy on this fixture remains a constant. Per-family analysis confirms systematic over-intervention on no_intervention and selection tasks. The v3 result's aggregate lead does not replicate against properly-powered baselines.",
+    "scope_limits": [
+      "composition unsolvable under current action set (structural)",
+      "non_candidate verification weak (all arms tie)",
+      "two fixtures consumed for policy development/training; v4 is the first clean promotion test and it failed the strict criterion"
+    ]
+  },
+
+  "verdict_class": "NOT_REPLICATED_STRICT_CRITERION_FAILED",
+  "next_research_question": "Is the persistent failure concentrated in no_intervention-family misclassification (intervening where NO_CHANGE wins), suggesting the observed feature set cannot distinguish 'model already knows' from 'model needs help'?",
+  "training_decision": "DO_NOT_TRAIN_CORE",
+  "verified_intervention_experiences": 0
+}
