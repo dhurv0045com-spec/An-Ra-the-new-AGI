@@ -1,0 +1,12 @@
+{
+  "schema": "anra-vie-audit/v1",
+  "source_receipt": "mixed_causal_v7_replication.json",
+  "fixture_sha256": "56be1755c03aee0e53ef672ad4354ee36ee9354a0138debf7714d9324af73ee9",
+  "checkpoint_sha256": "36c87e5be671ff37951b4b433e21ec14bb5e59f6f0770d7f81e50e99ead9e001",
+  "source_commit": "306be11",
+  "rows_audited": 480,
+  "contract_qualifying_flips": 0,
+  "by_intervention_class": {},
+  "blocking_gap": "v7 promotion runner stored verifier booleans but not before/after OUTPUT STRINGS; the VerifiedExperience contract requires retained outputs. A retention-enabled rerun is required before any entry enters the bank.",
+  "verdict_vie_count_after_audit": 0
+}
