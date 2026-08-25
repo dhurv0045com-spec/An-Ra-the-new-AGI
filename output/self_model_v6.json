@@ -1,0 +1,135 @@
+{
+  "schema": "anra-self-model-v6/v1",
+  "canonical_trainer": "scripts/train_self_model_v3.py",
+  "feature_names": [
+    "n_candidates",
+    "output_arity",
+    "format_code",
+    "raw_top2_margin",
+    "norm_top2_margin",
+    "raw_spread_std",
+    "norm_spread_std",
+    "raw_norm_same_pick",
+    "free_matches_raw_pick",
+    "free_matches_norm_pick",
+    "normalization_applicable",
+    "max_query_lift_gap",
+    "norm_margin_dominance"
+  ],
+  "actions": [
+    "NO_CHANGE",
+    "CONSTRAINED",
+    "NORMALIZED"
+  ],
+  "costs": {
+    "NO_CHANGE": 0,
+    "CONSTRAINED": 1,
+    "NORMALIZED": 2
+  },
+  "lambda": 0.0,
+  "tie_break": "lower cost; then NO_CHANGE",
+  "lambda_selection": "LOFO over dev fixtures: lambda=0 maximized held-out success (0.639); cost term hurt transfer",
+  "seed": 61,
+  "epochs": 600,
+  "optimizer": "Adam(lr=0.05)",
+  "standardization": {
+    "means": [
+      2.230769,
+      1.076923,
+      0.357692,
+      2.774476,
+      1.81351,
+      1.9098,
+      1.199807,
+      0.357692,
+      0.363462,
+      0.213462,
+      0.692308,
+      1.81351,
+      -0.960966
+    ],
+    "stds": [
+      0.973009,
+      0.266469,
+      0.479321,
+      3.133065,
+      3.00282,
+      1.758574,
+      1.572882,
+      0.479321,
+      0.480996,
+      0.409751,
+      0.461538,
+      3.00282,
+      2.789948
+    ]
+  },
+  "training_sources": [
+    "mixed_causal_matrix_v2.json",
+    "mixed_causal_v3_replication.json"
+  ],
+  "design_note": "adds norm_margin_dominance feature; lambda=0 per LOFO",
+  "models": {
+    "NO_CHANGE": {
+      "weights": [
+        -0.15374,
+        -1.993625,
+        -1.329473,
+        0.397926,
+        0.285545,
+        0.279255,
+        1.379546,
+        -0.251285,
+        2.871421,
+        1.686499,
+        -3.829628,
+        0.285545,
+        -0.053222
+      ],
+      "bias": -2.504858,
+      "train_examples": 240,
+      "train_acc": 0.8167
+    },
+    "CONSTRAINED": {
+      "weights": [
+        0.776577,
+        -2.025921,
+        -0.456885,
+        0.069668,
+        0.218622,
+        0.171944,
+        0.669707,
+        1.002453,
+        -0.244955,
+        0.256811,
+        -4.450724,
+        0.218622,
+        0.197156
+      ],
+      "bias": 2.025922,
+      "train_examples": 160,
+      "train_acc": 0.85
+    },
+    "NORMALIZED": {
+      "weights": [
+        0.183973,
+        -1.200163,
+        -0.049343,
+        1.456544,
+        1.692487,
+        0.88338,
+        0.615288,
+        -0.009704,
+        0.482353,
+        -0.31209,
+        1.200163,
+        1.692487,
+        1.771437
+      ],
+      "bias": 1.200165,
+      "train_examples": 120,
+      "train_acc": 0.8083
+    }
+  },
+  "parameter_sha256": "1dba9c9de5c1de030dc39fbb00f96ee2378391221ad963ee431ebc202af2e764"
+}
