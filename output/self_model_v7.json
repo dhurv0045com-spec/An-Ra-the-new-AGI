@@ -1,0 +1,136 @@
+{
+  "schema": "anra-self-model-v7/v1",
+  "canonical_trainer": "scripts/train_self_model_v3.py",
+  "feature_names": [
+    "n_candidates",
+    "output_arity",
+    "format_code",
+    "raw_top2_margin",
+    "norm_top2_margin",
+    "raw_spread_std",
+    "norm_spread_std",
+    "raw_norm_same_pick",
+    "free_matches_raw_pick",
+    "free_matches_norm_pick",
+    "normalization_applicable",
+    "max_query_lift_gap",
+    "norm_margin_dominance"
+  ],
+  "actions": [
+    "NO_CHANGE",
+    "CONSTRAINED",
+    "NORMALIZED"
+  ],
+  "costs": {
+    "NO_CHANGE": 0,
+    "CONSTRAINED": 1,
+    "NORMALIZED": 2
+  },
+  "lambda": 0.0,
+  "tie_break": "lower cost; then NO_CHANGE",
+  "lambda_selection": "lambda=0 carried from v6 LOFO; v7's power gain comes from pooling all consumed dev fixtures",
+  "seed": 71,
+  "epochs": 600,
+  "optimizer": "Adam(lr=0.05)",
+  "standardization": {
+    "means": [
+      2.315265,
+      1.080997,
+      0.375701,
+      2.458535,
+      1.97104,
+      1.783911,
+      1.222938,
+      0.390654,
+      0.435514,
+      0.257944,
+      0.728972,
+      1.97104,
+      -0.487495
+    ],
+    "stds": [
+      0.917967,
+      0.27283,
+      0.484303,
+      2.758305,
+      3.002854,
+      1.632732,
+      1.559315,
+      0.487897,
+      0.495824,
+      0.437503,
+      0.444491,
+      3.002854,
+      2.814317
+    ]
+  },
+  "training_sources": [
+    "mixed_causal_matrix_v2.json",
+    "mixed_causal_v3_replication.json",
+    "harvest_v7_pool.json (mc4+mc5+mc6 full-arm re-run)"
+  ],
+  "design_note": "largest honest dev pool: every consumed fixture re-harvested with all applicable arms",
+  "models": {
+    "NO_CHANGE": {
+      "weights": [
+        0.020521,
+        -2.474343,
+        -0.368933,
+        0.194512,
+        0.078898,
+        -0.214498,
+        1.018026,
+        -0.693871,
+        1.329364,
+        2.025066,
+        -2.897238,
+        0.078898,
+        -0.191167
+      ],
+      "bias": -1.559143,
+      "train_examples": 722,
+      "train_acc": 0.8947
+    },
+    "CONSTRAINED": {
+      "weights": [
+        0.129595,
+        -1.629012,
+        -0.313383,
+        0.308787,
+        0.00523,
+        -0.195439,
+        1.057827,
+        0.204479,
+        -0.558885,
+        1.073049,
+        -3.683592,
+        0.00523,
+        -0.056595
+      ],
+      "bias": 1.629015,
+      "train_examples": 493,
+      "train_acc": 0.7972
+    },
+    "NORMALIZED": {
+      "weights": [
+        -0.196108,
+        -1.418084,
+        -0.197494,
+        1.275907,
+        1.367101,
+        0.315876,
+        0.414939,
+        -0.098454,
+        0.181018,
+        -0.090176,
+        1.418085,
+        1.367101,
+        1.439597
+      ],
+      "bias": 1.418086,
+      "train_examples": 390,
+      "train_acc": 0.8026
+    }
+  },
+  "parameter_sha256": "ae9ad72b9ba56f218e6d3c1b5bdc0cd7c3785b3f7e17c5c1ebc27020701bcffe"
+}
