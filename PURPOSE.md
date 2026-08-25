@@ -174,6 +174,8 @@ exactly from clean commit. NORMALIZATION MECHANISM: SUPPORTED.]
 
 [2026-08-25 update: TWO clean promotion attempts failed the strict criterion — adaptive policy cannot yet beat constants/simple rules on fresh mixed fixtures. The persistent failure is over-intervention on tasks NO_CHANGE already solves: observed features don't separate 'model already knows' from 'model needs help'.
 
+[2026-08-25 RESULT: MC-v7 STRICT PASS — frozen observed-only policy v7 beat EVERY fixed intervention and every preregistered simple rule on a fresh 480-task mixed fixture (+7.5pp vs best constant, p<1e-6). LEARNED INTERVENTION SELECTION REPLICATED. Open frontier: checkpoint transfer, second confirming draw, VIE qualification.
+
 **Dominant open question:** can An-Ra predict, from observable state alone,
 when counterfactual normalization will repair rather than regress a
 failure? First observed-only policy (QIM-v6 transfer): adaptive 106/210

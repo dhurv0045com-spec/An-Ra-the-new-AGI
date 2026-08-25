@@ -375,7 +375,7 @@
   "self_model_status": {
     "normalization_mechanism": "SUPPORTED (QIM-v5 preregistered + clean-commit reproduction closes 149/149 on RAW and NORMALIZED)",
     "old_self_model": "INVALID \u2014 ground-truth leakage (raw_correct/raw_gold_rank required the answer key); artifact marked in place",
-    "real_learned_self_model": "NOT PROMOTED at strict alpha \u2014 but the trajectory is monotone: MC-v3 -1 (CI spans zero) / MC-v4 -11 (loss) / MC-v5 tie at lower cost / MC-v6 +7 vs best constant, beating 6/7 baselines at p<1e-6, best fixed at p=0.0504 (marginal). Consistent adaptive advantage emerging on every fresh draw; not yet conclusive.",
+    "real_learned_self_model": "DEMONSTRATED (strict criterion, powered fresh fixture): MC-v7 adaptive v7 310/480 vs best fixed 274/480, +7.5pp CI [+5.2,+10.0] p<1e-6; beats all 7 baselines at p<1e-6. Trajectory: -1 / -11 / tie / +7 marginal / +36 strict pass.",
     "robust_selective_binding": "NOT ESTABLISHED",
     "training_decision": "DO_NOT_TRAIN",
     "reports": [
@@ -407,6 +407,12 @@
         "adaptive": 117,
         "best_fixed": 110,
         "result": "highest everywhere; vs best fixed +3.9pp p=0.0504 marginal"
+      },
+      {
+        "fixture": "MIXED-CAUSAL-v7 (56be1755)",
+        "adaptive": 310,
+        "best_fixed": 274,
+        "result": "STRICT PASS \u2014 LEARNED INTERVENTION SELECTION REPLICATED"
       }
     ]
   },

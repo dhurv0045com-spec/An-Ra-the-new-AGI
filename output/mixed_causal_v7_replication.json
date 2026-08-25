@@ -1,0 +1,2063 @@
+{
+  "schema": "anra-mixed-causal-v5-replication/v1",
+  "fixture_sha256": "56be1755c03aee0e53ef672ad4354ee36ee9354a0138debf7714d9324af73ee9",
+  "checkpoint_sha256": "36c87e5be671ff37951b4b433e21ec14bb5e59f6f0770d7f81e50e99ead9e001",
+  "policy_sha256": "ae9ad72b9ba56f218e6d3c1b5bdc0cd7c3785b3f7e17c5c1ebc27020701bcffe",
+  "policy_frozen_commit": "f3b55cf",
+  "n_tasks": 480,
+  "policies": {
+    "ALWAYS_NO_CHANGE": {
+      "succ": 176,
+      "reg": 0,
+      "cost": 0
+    },
+    "ALWAYS_CONSTRAINED": {
+      "succ": 256,
+      "reg": 1,
+      "cost": 320
+    },
+    "ALWAYS_NORMALIZED": {
+      "succ": 274,
+      "reg": 12,
+      "cost": 480
+    },
+    "ADAPTIVE_v7": {
+      "succ": 310,
+      "reg": 12,
+      "cost": 487
+    },
+    "SIMPLE_A_norm_margin_gt_raw": {
+      "succ": 217,
+      "reg": 0,
+      "cost": 144
+    },
+    "SIMPLE_B_disagree_highconf": {
+      "succ": 225,
+      "reg": 2,
+      "cost": 114
+    },
+    "SIMPLE_C_free_vs_raw_disagree": {
+      "succ": 256,
+      "reg": 1,
+      "cost": 180
+    },
+    "SIMPLE_D_weak_raw_margin": {
+      "succ": 235,
+      "reg": 1,
+      "cost": 154
+    }
+  },
+  "oracle_successes": 333,
+  "paired_adaptive_vs_others": {
+    "ALWAYS_NO_CHANGE": {
+      "mean_diff": 0.2792,
+      "ci95": [
+        0.2354,
+        0.325
+      ],
+      "p_two_sided_normal_approx": 0.0
+    },
+    "ALWAYS_CONSTRAINED": {
+      "mean_diff": 0.1125,
+      "ci95": [
+        0.075,
+        0.15
+      ],
+      "p_two_sided_normal_approx": 0.0
+    },
+    "ALWAYS_NORMALIZED": {
+      "mean_diff": 0.075,
+      "ci95": [
+        0.0521,
+        0.1
+      ],
+      "p_two_sided_normal_approx": 0.0
+    },
+    "SIMPLE_A_norm_margin_gt_raw": {
+      "mean_diff": 0.1938,
+      "ci95": [
+        0.1542,
+        0.2354
+      ],
+      "p_two_sided_normal_approx": 0.0
+    },
+    "SIMPLE_B_disagree_highconf": {
+      "mean_diff": 0.1771,
+      "ci95": [
+        0.1375,
+        0.2146
+      ],
+      "p_two_sided_normal_approx": 0.0
+    },
+    "SIMPLE_C_free_vs_raw_disagree": {
+      "mean_diff": 0.1125,
+      "ci95": [
+        0.075,
+        0.1521
+      ],
+      "p_two_sided_normal_approx": 0.0
+    },
+    "SIMPLE_D_weak_raw_margin": {
+      "mean_diff": 0.1562,
+      "ci95": [
+        0.1187,
+        0.1938
+      ],
+      "p_two_sided_normal_approx": 0.0
+    }
+  },
+  "per_family": {
+    "realization": {
+      "adaptive": 58,
+      "best_const": 67,
+      "n": 80
+    },
+    "non_candidate": {
+      "adaptive": 53,
+      "best_const": 53,
+      "n": 80
+    },
+    "selection": {
+      "adaptive": 59,
+      "best_const": 67,
+      "n": 80
+    },
+    "no_intervention": {
+      "adaptive": 60,
+      "best_const": 66,
+      "n": 80
+    },
+    "copy_single": {
+      "adaptive": 80,
+      "best_const": 80,
+      "n": 80
+    },
+    "composition": {
+      "adaptive": 0,
+      "best_const": 0,
+      "n": 80
+    }
+  },
+  "per_task_rows": [
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "realization"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "realization"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "selection"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "selection"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "realization"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "selection"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "adaptive_action": "CONSTRAINED",
+      "family_analysis": "copy_single"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "selection"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "composition"
+    },
+    {
+      "adaptive_action": "CONSTRAINED",
+      "family_analysis": "copy_single"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "composition"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "composition"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "selection"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "selection"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "realization"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "composition"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "realization"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "selection"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "selection"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "selection"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "selection"
+    },
+    {
+      "adaptive_action": "CONSTRAINED",
+      "family_analysis": "copy_single"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "selection"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "realization"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "selection"
+    },
+    {
+      "adaptive_action": "CONSTRAINED",
+      "family_analysis": "copy_single"
+    },
+    {
+      "adaptive_action": "CONSTRAINED",
+      "family_analysis": "copy_single"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "composition"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "adaptive_action": "CONSTRAINED",
+      "family_analysis": "copy_single"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "realization"
+    },
+    {
+      "adaptive_action": "CONSTRAINED",
+      "family_analysis": "copy_single"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "composition"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "selection"
+    },
+    {
+      "adaptive_action": "CONSTRAINED",
+      "family_analysis": "copy_single"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "composition"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "composition"
+    },
+    {
+      "adaptive_action": "CONSTRAINED",
+      "family_analysis": "copy_single"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "composition"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "selection"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "composition"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "selection"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "composition"
+    },
+    {
+      "adaptive_action": "CONSTRAINED",
+      "family_analysis": "copy_single"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "selection"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "realization"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "selection"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "adaptive_action": "CONSTRAINED",
+      "family_analysis": "copy_single"
+    },
+    {
+      "adaptive_action": "CONSTRAINED",
+      "family_analysis": "copy_single"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "realization"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "composition"
+    },
+    {
+      "adaptive_action": "CONSTRAINED",
+      "family_analysis": "copy_single"
+    },
+    {
+      "adaptive_action": "CONSTRAINED",
+      "family_analysis": "copy_single"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "composition"
+    },
+    {
+      "adaptive_action": "CONSTRAINED",
+      "family_analysis": "copy_single"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "realization"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "adaptive_action": "CONSTRAINED",
+      "family_analysis": "copy_single"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "adaptive_action": "CONSTRAINED",
+      "family_analysis": "copy_single"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "realization"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "selection"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "realization"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "composition"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "selection"
+    },
+    {
+      "adaptive_action": "CONSTRAINED",
+      "family_analysis": "copy_single"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "adaptive_action": "CONSTRAINED",
+      "family_analysis": "copy_single"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "selection"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "realization"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "realization"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "composition"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "selection"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "composition"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "realization"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "composition"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "selection"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "selection"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "composition"
+    },
+    {
+      "adaptive_action": "CONSTRAINED",
+      "family_analysis": "copy_single"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "composition"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "adaptive_action": "CONSTRAINED",
+      "family_analysis": "copy_single"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "realization"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "composition"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "composition"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "selection"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "realization"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "composition"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "composition"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "composition"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "realization"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "selection"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "selection"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "realization"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "selection"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "composition"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "selection"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "realization"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "composition"
+    },
+    {
+      "adaptive_action": "CONSTRAINED",
+      "family_analysis": "copy_single"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "realization"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "realization"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "realization"
+    },
+    {
+      "adaptive_action": "CONSTRAINED",
+      "family_analysis": "copy_single"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "selection"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "adaptive_action": "CONSTRAINED",
+      "family_analysis": "copy_single"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "selection"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "realization"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "composition"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "adaptive_action": "CONSTRAINED",
+      "family_analysis": "copy_single"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "selection"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "composition"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "realization"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "composition"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "realization"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "realization"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "selection"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "composition"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "composition"
+    },
+    {
+      "adaptive_action": "CONSTRAINED",
+      "family_analysis": "copy_single"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "realization"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "selection"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "realization"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "realization"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "realization"
+    },
+    {
+      "adaptive_action": "CONSTRAINED",
+      "family_analysis": "copy_single"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "realization"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "composition"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "realization"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "composition"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "selection"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "selection"
+    },
+    {
+      "adaptive_action": "CONSTRAINED",
+      "family_analysis": "copy_single"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "selection"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "realization"
+    },
+    {
+      "adaptive_action": "CONSTRAINED",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "selection"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "realization"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "selection"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "selection"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "realization"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "composition"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "adaptive_action": "CONSTRAINED",
+      "family_analysis": "copy_single"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "adaptive_action": "CONSTRAINED",
+      "family_analysis": "copy_single"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "composition"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "selection"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "composition"
+    },
+    {
+      "adaptive_action": "CONSTRAINED",
+      "family_analysis": "copy_single"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "composition"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "selection"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "adaptive_action": "CONSTRAINED",
+      "family_analysis": "copy_single"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "composition"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "selection"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "realization"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "realization"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "selection"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "composition"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "realization"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "composition"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "selection"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "selection"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "adaptive_action": "CONSTRAINED",
+      "family_analysis": "copy_single"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "composition"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "composition"
+    },
+    {
+      "adaptive_action": "CONSTRAINED",
+      "family_analysis": "copy_single"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "selection"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "adaptive_action": "CONSTRAINED",
+      "family_analysis": "copy_single"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "composition"
+    },
+    {
+      "adaptive_action": "CONSTRAINED",
+      "family_analysis": "copy_single"
+    },
+    {
+      "adaptive_action": "CONSTRAINED",
+      "family_analysis": "copy_single"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "composition"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "selection"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "composition"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "realization"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "realization"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "realization"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "composition"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "adaptive_action": "CONSTRAINED",
+      "family_analysis": "copy_single"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "composition"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "adaptive_action": "CONSTRAINED",
+      "family_analysis": "copy_single"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "composition"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "realization"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "composition"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "selection"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "selection"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "selection"
+    },
+    {
+      "adaptive_action": "CONSTRAINED",
+      "family_analysis": "copy_single"
+    },
+    {
+      "adaptive_action": "CONSTRAINED",
+      "family_analysis": "copy_single"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "realization"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "realization"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "adaptive_action": "CONSTRAINED",
+      "family_analysis": "copy_single"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "realization"
+    },
+    {
+      "adaptive_action": "CONSTRAINED",
+      "family_analysis": "realization"
+    },
+    {
+      "adaptive_action": "CONSTRAINED",
+      "family_analysis": "copy_single"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "composition"
+    },
+    {
+      "adaptive_action": "CONSTRAINED",
+      "family_analysis": "copy_single"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "adaptive_action": "CONSTRAINED",
+      "family_analysis": "copy_single"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "adaptive_action": "CONSTRAINED",
+      "family_analysis": "copy_single"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "composition"
+    },
+    {
+      "adaptive_action": "CONSTRAINED",
+      "family_analysis": "realization"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "composition"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "selection"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "realization"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "composition"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "adaptive_action": "CONSTRAINED",
+      "family_analysis": "copy_single"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "adaptive_action": "CONSTRAINED",
+      "family_analysis": "copy_single"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "composition"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "selection"
+    },
+    {
+      "adaptive_action": "CONSTRAINED",
+      "family_analysis": "realization"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "selection"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "selection"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "selection"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "selection"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "realization"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "realization"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "realization"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "composition"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "realization"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "selection"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "selection"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "selection"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "selection"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "composition"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "composition"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "composition"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "realization"
+    },
+    {
+      "adaptive_action": "CONSTRAINED",
+      "family_analysis": "copy_single"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "selection"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "composition"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "realization"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "selection"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "adaptive_action": "CONSTRAINED",
+      "family_analysis": "copy_single"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "composition"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "realization"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "adaptive_action": "CONSTRAINED",
+      "family_analysis": "copy_single"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "composition"
+    },
+    {
+      "adaptive_action": "CONSTRAINED",
+      "family_analysis": "copy_single"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "realization"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "realization"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "realization"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "selection"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "realization"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "selection"
+    },
+    {
+      "adaptive_action": "CONSTRAINED",
+      "family_analysis": "copy_single"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "composition"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "adaptive_action": "CONSTRAINED",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "adaptive_action": "CONSTRAINED",
+      "family_analysis": "copy_single"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "adaptive_action": "CONSTRAINED",
+      "family_analysis": "copy_single"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "realization"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "selection"
+    },
+    {
+      "adaptive_action": "CONSTRAINED",
+      "family_analysis": "copy_single"
+    },
+    {
+      "adaptive_action": "CONSTRAINED",
+      "family_analysis": "copy_single"
+    },
+    {
+      "adaptive_action": "CONSTRAINED",
+      "family_analysis": "copy_single"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "composition"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "composition"
+    },
+    {
+      "adaptive_action": "CONSTRAINED",
+      "family_analysis": "copy_single"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "realization"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "realization"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "realization"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "realization"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "selection"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "composition"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "adaptive_action": "CONSTRAINED",
+      "family_analysis": "copy_single"
+    },
+    {
+      "adaptive_action": "CONSTRAINED",
+      "family_analysis": "copy_single"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "selection"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "selection"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "selection"
+    },
+    {
+      "adaptive_action": "CONSTRAINED",
+      "family_analysis": "copy_single"
+    },
+    {
+      "adaptive_action": "CONSTRAINED",
+      "family_analysis": "copy_single"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "realization"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "realization"
+    },
+    {
+      "adaptive_action": "CONSTRAINED",
+      "family_analysis": "copy_single"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "adaptive_action": "CONSTRAINED",
+      "family_analysis": "copy_single"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "adaptive_action": "CONSTRAINED",
+      "family_analysis": "copy_single"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "selection"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "selection"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "selection"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "realization"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "composition"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "composition"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "selection"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "composition"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "composition"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "realization"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "adaptive_action": "CONSTRAINED",
+      "family_analysis": "copy_single"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "selection"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "selection"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "composition"
+    },
+    {
+      "adaptive_action": "CONSTRAINED",
+      "family_analysis": "copy_single"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "composition"
+    },
+    {
+      "adaptive_action": "CONSTRAINED",
+      "family_analysis": "copy_single"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "selection"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "realization"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "realization"
+    },
+    {
+      "adaptive_action": "CONSTRAINED",
+      "family_analysis": "copy_single"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "composition"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "composition"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "realization"
+    },
+    {
+      "adaptive_action": "CONSTRAINED",
+      "family_analysis": "copy_single"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "realization"
+    },
+    {
+      "adaptive_action": "CONSTRAINED",
+      "family_analysis": "copy_single"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "realization"
+    },
+    {
+      "adaptive_action": "CONSTRAINED",
+      "family_analysis": "copy_single"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "composition"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "adaptive_action": "CONSTRAINED",
+      "family_analysis": "copy_single"
+    },
+    {
+      "adaptive_action": "CONSTRAINED",
+      "family_analysis": "copy_single"
+    },
+    {
+      "adaptive_action": "CONSTRAINED",
+      "family_analysis": "copy_single"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "realization"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "realization"
+    },
+    {
+      "adaptive_action": "CONSTRAINED",
+      "family_analysis": "copy_single"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "composition"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "realization"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "selection"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "composition"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "composition"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "selection"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "realization"
+    },
+    {
+      "adaptive_action": "CONSTRAINED",
+      "family_analysis": "copy_single"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "composition"
+    },
+    {
+      "adaptive_action": "CONSTRAINED",
+      "family_analysis": "copy_single"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "non_candidate"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "selection"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "selection"
+    },
+    {
+      "adaptive_action": "CONSTRAINED",
+      "family_analysis": "copy_single"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "composition"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "no_intervention"
+    },
+    {
+      "adaptive_action": "NORMALIZED",
+      "family_analysis": "realization"
+    },
+    {
+      "adaptive_action": "NO_CHANGE",
+      "family_analysis": "composition"
+    }
+  ]
+}
