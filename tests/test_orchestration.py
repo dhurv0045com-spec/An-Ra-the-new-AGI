@@ -442,6 +442,24 @@ def test_notebook_run_all_symbols_resolve_in_order() -> None:
         defined |= assigned_here
 
 
+def test_notebook_verifies_and_keeps_final_checkpoint_alive() -> None:
+    from pathlib import Path
+
+    notebook = json.loads(
+        (Path(__file__).parents[1] / "core_vnext_tpu_training.ipynb").read_text(
+            encoding="utf-8"
+        )
+    )
+    source = "\n".join(
+        "".join(cell.get("source", [])) for cell in notebook["cells"]
+    )
+    assert "verify_checkpoint_for_download.py" in source
+    assert "download-manifest.json" in source
+    assert "subprocess.run(verify_command, cwd=REPO, check=True)" in source
+    assert "[checkpoint keepalive]" in source
+    assert "time.sleep(60)" in source
+
+
 def test_xla_bounds_gradient_accumulation_graph_per_microbatch() -> None:
     from pathlib import Path
 
