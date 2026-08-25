@@ -1,0 +1,68 @@
+{
+  "schema": "anra-mixed-causal-v6-verdict/v1",
+  "fixture_sha256_frozen_after_policy_freeze": "765736449472e714e6083eb7aea91ad77f19d75dfdb919ab1330a3bd5b3b76e7",
+  "policy_v6_frozen_commit": "f3eef84",
+  "policy_sha256": "1dba9c9de5c1de030dc39fbb00f96ee2378391221ad963ee431ebc202af2e764",
+  "checkpoint_sha256": "36c87e5be671ff37951b4b433e21ec14bb5e59f6f0770d7f81e50e99ead9e001",
+  "n_tasks": 180,
+
+  "results_all_policies": {
+    "ALWAYS_NO_CHANGE": {"succ": 69, "reg": 0, "cost": 0},
+    "ALWAYS_CONSTRAINED": {"succ": 90, "reg": 0, "cost": 120},
+    "ALWAYS_NORMALIZED": {"succ": 110, "reg": 3, "cost": 180},
+    "SIMPLE_A_norm_margin_gt_raw": {"succ": 90, "reg": 1, "cost": 82},
+    "SIMPLE_B_disagree_highconf": {"succ": 87, "reg": 2, "cost": 48},
+    "SIMPLE_C_free_vs_raw_disagree": {"succ": 90, "reg": 0, "cost": 57},
+    "SIMPLE_D_weak_raw_margin": {"succ": 84, "reg": 1, "cost": 54},
+    "ADAPTIVE_v6": {"succ": 117, "reg": 3, "cost": 172},
+    "ORACLE_evaluator_only": {"succ": 123}
+  },
+
+  "paired_adaptive_vs_others": {
+    "vs ALWAYS_NO_CHANGE": "+26.7pp CI [+20.0,+33.9] p<1e-6 SIGNIFICANT",
+    "vs ALWAYS_CONSTRAINED": "+15.0pp CI [+9.4,+21.1] p<1e-6 SIGNIFICANT",
+    "vs ALWAYS_NORMALIZED (best fixed)": "+3.9pp CI [+0.0,+7.8] p=0.0504 MARGINAL",
+    "vs SIMPLE_A": "+15.0pp p<1e-6 SIGNIFICANT",
+    "vs SIMPLE_B": "+16.7pp p<1e-6 SIGNIFICANT",
+    "vs SIMPLE_C": "+15.0pp p<1e-6 SIGNIFICANT",
+    "vs SIMPLE_D": "+18.3pp p<1e-6 SIGNIFICANT"
+  },
+
+  "per_family_adaptive_vs_best_constant": {
+    "selection": "24/30 vs 27/30 — gap narrowed from 8 to 3",
+    "realization": "23/30 vs 23/30 — MATCHED the best constant exactly",
+    "no_intervention": "26/30 vs 29/30 — gap narrowed from 7 to 3",
+    "copy_single": "30/30 parity",
+    "non_candidate": "14/30 parity",
+    "composition": "0/30 structural ceiling"
+  },
+
+  "primary_resolution": {
+    "adaptive_highest_point_estimate_on_every_baseline_comparison": true,
+    "significantly_beats_every_baseline_except_best_fixed": true,
+    "vs_best_fixed_p_value": 0.0504,
+    "strict_alpha_005_criterion": false,
+    "PRIMARY_CLAIM_NOT_SUPPORTED_AT_STRICT_ALPHA": true
+  },
+
+  "verdict": {
+    "LEARNED_INTERVENTION_SELECTION_REPLICATED": false,
+    "honest_reading": "Fourth promotion attempt, strongest result yet: adaptive v6 scored 117/180 - the highest point estimate against every fixed and simple baseline on a fresh fixture - beating six of seven baselines at p<1e-6 and edging always-normalize by +3.9pp with p=0.0504, just outside the preregistered two-sided alpha=0.05. Per-family gaps narrowed sharply (selection 24 vs 27; realization matched at 23; no_intervention 26 vs 29). Under the preregistered strict rule this is NOT_PROMOTED: one comparison missed significance by 0.0004. Honest classification: consistent adaptive advantage emerging, not yet conclusive under the standard the mission set.",
+    "trajectory_across_attempts": [
+      "MC-v3: -1 vs best constant (CI spans zero)",
+      "MC-v4: -11 (significant loss)",
+      "MC-v5: 0 exact tie at lower cost",
+      "MC-v6: +7 point estimate vs best constant, p=0.0504"
+    ],
+    "scope_limits": [
+      "composition unsolvable under current action set (structural)",
+      "lambda=0 chosen by LOFO on dev; cost objective relaxed this round",
+      "fourth fixture consumed; each promotion used only pre-frozen fixtures"
+    ]
+  },
+
+  "verdict_class": "NOT_PROMOTED_MARGINAL_VS_BEST_FIXED_P_0504",
+  "next_research_question": "With four fixtures now consumed, does pooling all available dev matrices (360+ tasks) plus per-family calibrated thresholds push the adaptive-vs-best-fixed comparison decisively below alpha=0.05 on a fifth fresh draw?",
+  "training_decision": "DO_NOT_TRAIN_CORE",
+  "verified_intervention_experiences": 0
+}

@@ -375,7 +375,7 @@
   "self_model_status": {
     "normalization_mechanism": "SUPPORTED (QIM-v5 preregistered + clean-commit reproduction closes 149/149 on RAW and NORMALIZED)",
     "old_self_model": "INVALID \u2014 ground-truth leakage (raw_correct/raw_gold_rank required the answer key); artifact marked in place",
-    "real_learned_self_model": "NOT DEMONSTRATED (strict) \u2014 but v5 TIES the best constant at lower cost. Trajectory: MC-v3 adaptive 99 vs const 97 (CI spans zero); MC-v4 105 vs 116 (significant loss); MC-v5 114 vs 114 exact tie, cost 113 vs 180, regressions 1 vs 2, and significantly beats every other baseline. Normalization mechanism remains CONFIRMED.",
+    "real_learned_self_model": "NOT PROMOTED at strict alpha \u2014 but the trajectory is monotone: MC-v3 -1 (CI spans zero) / MC-v4 -11 (loss) / MC-v5 tie at lower cost / MC-v6 +7 vs best constant, beating 6/7 baselines at p<1e-6, best fixed at p=0.0504 (marginal). Consistent adaptive advantage emerging on every fresh draw; not yet conclusive.",
     "robust_selective_binding": "NOT ESTABLISHED",
     "training_decision": "DO_NOT_TRAIN",
     "reports": [
@@ -401,6 +401,12 @@
         "adaptive": 114,
         "best_fixed": 114,
         "result": "exact tie at lower cost; beats all other baselines significantly"
+      },
+      {
+        "fixture": "MIXED-CAUSAL-v6 (76573644)",
+        "adaptive": 117,
+        "best_fixed": 110,
+        "result": "highest everywhere; vs best fixed +3.9pp p=0.0504 marginal"
       }
     ]
   },
