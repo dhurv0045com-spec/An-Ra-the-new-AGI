@@ -1,0 +1,126 @@
+{
+  "schema": "anra-self-model-v4/v1",
+  "canonical_trainer": "scripts/train_self_model_v3.py",
+  "feature_names": [
+    "n_candidates",
+    "output_arity",
+    "format_code",
+    "raw_top2_margin",
+    "norm_top2_margin",
+    "raw_spread_std",
+    "norm_spread_std",
+    "raw_norm_same_pick",
+    "free_matches_raw_pick",
+    "free_matches_norm_pick",
+    "normalization_applicable",
+    "max_query_lift_gap"
+  ],
+  "actions": [
+    "NO_CHANGE",
+    "CONSTRAINED",
+    "NORMALIZED"
+  ],
+  "costs": {
+    "NO_CHANGE": 0,
+    "CONSTRAINED": 1,
+    "NORMALIZED": 2
+  },
+  "lambda": 0.25,
+  "seed": 41,
+  "epochs": 600,
+  "optimizer": "Adam(lr=0.05)",
+  "standardization": {
+    "means": [
+      2.230769,
+      1.076923,
+      0.357692,
+      2.774476,
+      1.81351,
+      1.9098,
+      1.199807,
+      0.357692,
+      0.363462,
+      0.213462,
+      0.692308,
+      1.81351
+    ],
+    "stds": [
+      0.973009,
+      0.266469,
+      0.479321,
+      3.133065,
+      3.00282,
+      1.758574,
+      1.572882,
+      0.479321,
+      0.480996,
+      0.409751,
+      0.461538,
+      3.00282
+    ]
+  },
+  "training_sources": [
+    "mixed_causal_matrix_v2.json",
+    "mixed_causal_v3_replication.json"
+  ],
+  "models": {
+    "NO_CHANGE": {
+      "weights": [
+        -0.155157,
+        -1.992632,
+        -1.326784,
+        0.452627,
+        0.25805,
+        0.283139,
+        1.373507,
+        -0.253649,
+        2.848911,
+        1.687004,
+        -3.805545,
+        0.25805
+      ],
+      "bias": -2.491121,
+      "train_examples": 240,
+      "train_acc": 0.8167
+    },
+    "CONSTRAINED": {
+      "weights": [
+        0.776553,
+        -2.025971,
+        -0.456886,
+        -0.151732,
+        0.324717,
+        0.17194,
+        0.669713,
+        1.002447,
+        -0.244957,
+        0.256815,
+        -4.450791,
+        0.324717
+      ],
+      "bias": 2.025971,
+      "train_examples": 160,
+      "train_acc": 0.85
+    },
+    "NORMALIZED": {
+      "weights": [
+        0.183766,
+        -1.199624,
+        -0.049594,
+        -0.532823,
+        2.644202,
+        0.88324,
+        0.615797,
+        -0.009519,
+        0.482354,
+        -0.31204,
+        1.199624,
+        2.644202
+      ],
+      "bias": 1.199625,
+      "train_examples": 120,
+      "train_acc": 0.8083
+    }
+  },
+  "parameter_sha256": "937ded8c6d1bb6ddb50f7160c04e7c42b5c60e104d6f92a1dd9b0dbc7d47a4c6"
+}

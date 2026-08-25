@@ -1,0 +1,8 @@
+{
+  "tasks": 240,
+  "outcomes": 520,
+  "sources": [
+    "mixed_causal_matrix_v2.json (MC-v1)",
+    "mixed_causal_v3_replication.json (MC-v3)"
+  ]
+}
