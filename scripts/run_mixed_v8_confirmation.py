@@ -281,7 +281,8 @@ def main() -> None:
         "paired_adaptive_vs_others": pairs,
         "per_family": {k: dict(v) for k, v in byfam.items()},
         "per_task_rows": [{"adaptive_action": r["adaptive_action"],
-                           "family_analysis": r["family_analysis"]}
+                           "family_analysis": r["family_analysis"],
+                           "actions": r["actions"]}
                           for r in rows],
     }
     (ROOT / "output/mixed_causal_v8_confirmation.json").write_text(

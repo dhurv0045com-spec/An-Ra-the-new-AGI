@@ -1,0 +1,12 @@
+{
+  "schema": "anra-vie-qualification/v2",
+  "source_receipt": "mixed_causal_v8_confirmation.json",
+  "fixture_sha256": "f5664e13ddd37f2024c7960d79dcead6ad1f5c16adffa089af858fd33c2ca8fa",
+  "added_this_run": 166,
+  "skipped_duplicates": 0,
+  "by_intervention_class": {
+    "selection": 121,
+    "decode": 45
+  },
+  "bank_total_after": 166
+}

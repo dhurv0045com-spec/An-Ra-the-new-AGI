@@ -38,5 +38,6 @@ jobs:
                             tests/test_mixed_v4_replication.py \
                             tests/test_mixed_v6_replication.py \
                             tests/test_mixed_v7_promotion.py \
+                            tests/test_vie_qualification.py \
                             tests/test_cognitive_credit.py \
                             -q

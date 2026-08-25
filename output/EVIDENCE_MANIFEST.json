@@ -375,7 +375,7 @@
   "self_model_status": {
     "normalization_mechanism": "SUPPORTED (QIM-v5 preregistered + clean-commit reproduction closes 149/149 on RAW and NORMALIZED)",
     "old_self_model": "INVALID \u2014 ground-truth leakage (raw_correct/raw_gold_rank required the answer key); artifact marked in place",
-    "real_learned_self_model": "DEMONSTRATED (strict criterion, powered fresh fixture): MC-v7 adaptive v7 310/480 vs best fixed 274/480, +7.5pp CI [+5.2,+10.0] p<1e-6; beats all 7 baselines at p<1e-6. Trajectory: -1 / -11 / tie / +7 marginal / +36 strict pass.",
+    "real_learned_self_model": "DEMONSTRATED AND CONFIRMED: MC-v7 strict pass (310/480 vs 274, p<1e-6) REPLICATED on second fresh draw MC-v8 (291/480 vs 248, +9.0pp CI [+6.5,+11.5] p<1e-6). Policy v7 unchanged between draws.",
     "robust_selective_binding": "NOT ESTABLISHED",
     "training_decision": "DO_NOT_TRAIN",
     "reports": [
@@ -413,6 +413,12 @@
         "adaptive": 310,
         "best_fixed": 274,
         "result": "STRICT PASS \u2014 LEARNED INTERVENTION SELECTION REPLICATED"
+      },
+      {
+        "fixture": "MIXED-CAUSAL-v8 confirmation (f5664e13)",
+        "adaptive": 291,
+        "best_fixed": 248,
+        "result": "REPLICATION CONFIRMED p<1e-6"
       }
     ]
   },
@@ -422,5 +428,15 @@
     "policy_v3_frozen_commit": "3123625",
     "primary_claim_supported_on_v2": true,
     "verdict_report": "output/mixed_causal_v2_verdict.json"
+  },
+  "verified_intervention_experiences": {
+    "count": 166,
+    "source": "MC-v8 retention-enabled confirmation run",
+    "by_class": {
+      "selection": 121,
+      "decode": 45
+    },
+    "contract": "connector/experience.py VerifiedExperience \u2014 baseline fail, intervention pass, single variable changed, outputs retained",
+    "receipt": "output/vie_qualification_mc8.json"
   }
 }
