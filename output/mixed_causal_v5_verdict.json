@@ -1,0 +1,65 @@
+{
+  "schema": "anra-mixed-causal-v5-verdict/v1",
+  "fixture_sha256_frozen_after_policy_freeze": "be51c9949ea8b9bd173d2b8acbe668d65f936280f3d21147f38978c530080ee2",
+  "policy_v5_frozen_commit": "438b2ca",
+  "policy_sha256": "fe0a081fd939dce58d639454ddc05b233fc0ecaa230201422125817e5f96cd4e",
+  "checkpoint_sha256": "36c87e5be671ff37951b4b433e21ec14bb5e59f6f0770d7f81e50e99ead9e001",
+  "n_tasks": 180,
+
+  "results_all_policies": {
+    "ALWAYS_NO_CHANGE": {"succ": 63, "reg": 0, "cost": 0},
+    "ALWAYS_CONSTRAINED": {"succ": 104, "reg": 0, "cost": 120},
+    "ALWAYS_NORMALIZED": {"succ": 114, "reg": 2, "cost": 180},
+    "SIMPLE_A_norm_margin_gt_raw": {"succ": 86, "reg": 0, "cost": 70},
+    "SIMPLE_B_disagree_highconf": {"succ": 88, "reg": 0, "cost": 58},
+    "SIMPLE_C_free_vs_raw_disagree": {"succ": 104, "reg": 0, "cost": 82},
+    "SIMPLE_D_weak_raw_margin": {"succ": 85, "reg": 0, "cost": 48},
+    "ADAPTIVE_v5": {"succ": 114, "reg": 1, "cost": 113},
+    "ORACLE_evaluator_only": {"succ": 135}
+  },
+
+  "paired_adaptive_vs_others": {
+    "vs ALWAYS_NO_CHANGE": "+28.3pp CI [+21.7,+35.6] p<1e-6 SIGNIFICANT",
+    "vs ALWAYS_CONSTRAINED": "+5.6pp CI [+1.1,+10.0] p=0.011 SIGNIFICANT",
+    "vs ALWAYS_NORMALIZED (best fixed)": "+0.0pp CI [-6.7,+6.7] p=1.0 TIE",
+    "vs SIMPLE_C (best simple)": "+5.6pp CI [+1.1,+10.0] p=0.011 SIGNIFICANT",
+    "vs SIMPLE_A/B/D": "+14-16pp all SIGNIFICANT"
+  },
+
+  "per_family_adaptive_vs_best_constant": {
+    "selection": "19/30 vs 27/30 (normalize) — underperforms",
+    "realization": "19/30 vs 25/30 — underperforms",
+    "no_intervention": "19/30 vs 26/30 — still over-intervenes but improved from v4's 18/30",
+    "copy_single": "30/30 parity",
+    "non_candidate": "27/30 parity (improved from 18/30)",
+    "composition": "0/30 structural ceiling"
+  },
+
+  "primary_resolution": {
+    "adaptive_ties_best_fixed_ALWAYS_NORMALIZED": true,
+    "adaptive_significantly_beats_all_other_constants_and_all_simple_rules": true,
+    "adaptive_has_lower_cost_than_always_normalized_113_vs_180_and_fewer_regressions_1_vs_2": true,
+    "adaptive_beats_every_baseline_strictly": false,
+    "PRIMARY_CLAIM_NOT_SUPPORTED": true
+  },
+
+  "verdict": {
+    "LEARNED_INTERVENTION_SELECTION_REPLICATED": false,
+    "honest_reading": "Third promotion attempt. On fresh MIXED-CAUSAL-v5 the v5 policy (114/180) exactly tied always-normalize (114) with LOWER cost (113 vs 180), fewer regressions (1 vs 2), and significantly beat every other baseline including the best simple rule (+5.6pp, p=0.011). But the strict preregistered criterion requires beating EVERY fixed policy, and a tie is not a win. Per-family gaps on selection/realization/no_intervention persist though smaller than v4. Verdict: the learned policy now MATCHES the best constant at lower cost - genuine progress from v4's significant loss - but 'matches a constant' is not 'learned intervention selection'.",
+    "trajectory_across_attempts": [
+      "MC-v3: adaptive 99, best const 97 — highest overall but CI spans zero",
+      "MC-v4: adaptive 105, best const 116 — significantly LOSES to normalize",
+      "MC-v5: adaptive 114, best const 114 — exact tie at lower cost"
+    ],
+    "scope_limits": [
+      "composition unsolvable under current action set (structural)",
+      "non_candidate verification weak but improved this round",
+      "three fixtures consumed for development+evaluation; each promotion used only fixtures frozen before its own run"
+    ]
+  },
+
+  "verdict_class": "NOT_PROMOTED_TIES_BEST_CONSTANT_AT_LOWER_COST",
+  "next_research_question": "Can adding observable features that distinguish selection-like from realization-like disagreement (per-candidate normalized lift dispersion, free-output token-level confidence) close the remaining per-family gap so adaptive strictly beats constants?",
+  "training_decision": "DO_NOT_TRAIN_CORE",
+  "verified_intervention_experiences": 0
+}
