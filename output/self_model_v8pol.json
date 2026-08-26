@@ -1,0 +1,159 @@
+{
+  "schema": "anra-self-model-v8/v1",
+  "canonical_trainer": "scripts/train_self_model_v3.py",
+  "feature_names": [
+    "n_candidates",
+    "output_arity",
+    "format_code",
+    "raw_top2_margin",
+    "norm_top2_margin",
+    "raw_spread_std",
+    "norm_spread_std",
+    "raw_norm_same_pick",
+    "free_matches_raw_pick",
+    "free_matches_norm_pick",
+    "normalization_applicable",
+    "max_query_lift_gap",
+    "norm_margin_dominance"
+  ],
+  "actions": [
+    "NO_CHANGE",
+    "CONSTRAINED",
+    "NORMALIZED",
+    "EXACT_PAIR"
+  ],
+  "costs": {
+    "NO_CHANGE": 0,
+    "CONSTRAINED": 1,
+    "NORMALIZED": 2,
+    "EXACT_PAIR": 3
+  },
+  "lambda": 0.0,
+  "tie_break": "lower cost; then NO_CHANGE",
+  "lambda_selection": "lambda=0 carried from v6 LOFO lineage",
+  "seed": 83,
+  "epochs": 600,
+  "optimizer": "Adam(lr=0.05)",
+  "standardization": {
+    "means": [
+      2.377337,
+      1.164306,
+      0.341643,
+      2.617316,
+      2.174013,
+      2.007759,
+      1.49764,
+      0.445892,
+      0.396034,
+      0.234561,
+      0.753541,
+      2.174013,
+      -0.443303
+    ],
+    "stds": [
+      0.897176,
+      0.370553,
+      0.474261,
+      2.848294,
+      3.091006,
+      1.777346,
+      1.788903,
+      0.497064,
+      0.489072,
+      0.423724,
+      0.430949,
+      3.091006,
+      2.687374
+    ]
+  },
+  "training_sources": [
+    "mixed_causal_matrix_v2.json",
+    "mixed_causal_v3_replication.json",
+    "harvest_v7_pool.json",
+    "exact_pair_harvest_v8.json"
+  ],
+  "design_note": "adds EXACT_PAIR action to close the composition ceiling; trained on all consumed dev fixtures + pair harvest",
+  "models": {
+    "NO_CHANGE": {
+      "weights": [
+        -0.000315,
+        -3.00178,
+        -0.361602,
+        0.235539,
+        0.055197,
+        -0.224976,
+        1.172469,
+        -0.695527,
+        1.300231,
+        1.952145,
+        -2.777592,
+        0.055197,
+        -0.142361
+      ],
+      "bias": -2.404653,
+      "train_examples": 802,
+      "train_acc": 0.9052
+    },
+    "CONSTRAINED": {
+      "weights": [
+        0.127111,
+        -1.484199,
+        -0.306573,
+        0.285162,
+        0.02403,
+        -0.212948,
+        1.212689,
+        0.208254,
+        -0.551183,
+        1.03927,
+        -3.598017,
+        0.02403,
+        -0.086053
+      ],
+      "bias": 1.4842,
+      "train_examples": 493,
+      "train_acc": 0.7972
+    },
+    "NORMALIZED": {
+      "weights": [
+        -0.191666,
+        -1.52876,
+        -0.193398,
+        1.338872,
+        1.395656,
+        0.343854,
+        0.476032,
+        -0.100304,
+        0.178552,
+        -0.087336,
+        1.528761,
+        1.395656,
+        1.394795
+      ],
+      "bias": 1.52876,
+      "train_examples": 390,
+      "train_acc": 0.8026
+    },
+    "EXACT_PAIR": {
+      "weights": [
+        -0.112596,
+        -0.112598,
+        0.112597,
+        -0.055978,
+        -0.065944,
+        -0.058854,
+        -0.068064,
+        -0.1126,
+        0.112602,
+        0.112597,
+        -0.112595,
+        -0.065944,
+        -0.112594
+      ],
+      "bias": -0.112598,
+      "train_examples": 80,
+      "train_acc": 0.7625
+    }
+  },
+  "parameter_sha256": "9977685431a34f6bbdbf947e4fc77b60c83aa49b70f094d89acd60c270d2c125"
+}

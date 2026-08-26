@@ -1,0 +1,1769 @@
+{
+  "schema": "anra-exact-pair-harvest/v1",
+  "checkpoint_sha256": "36c87e5be671ff37951b4b433e21ec14bb5e59f6f0770d7f81e50e99ead9e001",
+  "source_fixture": "mixed_causal_v9 (consumed; dev use sanctioned)",
+  "n_rows": 80,
+  "exact_pair_successes": 19,
+  "rows": [
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        4.03710962488185,
+        4.03710962488185,
+        4.011175225636561,
+        4.011175225636561,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        4.03710962488185
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false
+      },
+      "retained_pair_output": "VBH-547 MWL-709.",
+      "family_analysis_only": "composition"
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        4.667596312039677,
+        4.667596312039677,
+        5.979371435810886,
+        5.979371435810886,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        4.667596312039677
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false
+      },
+      "retained_pair_output": "SZR-590 VBH-177.",
+      "family_analysis_only": "composition"
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        6.2382303585036425,
+        6.2382303585036425,
+        3.936213763986692,
+        3.936213763986692,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        6.2382303585036425
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false
+      },
+      "retained_pair_output": "VBH-250 DJP-180.",
+      "family_analysis_only": "composition"
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        4.833331780682784,
+        4.833331780682784,
+        5.042555444412231,
+        5.042555444412231,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        4.833331780682784
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": true
+      },
+      "retained_pair_output": "KQF-801 KQF-250.",
+      "family_analysis_only": "composition"
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        0.3405257747544965,
+        0.3405257747544965,
+        5.0499008855557,
+        5.0499008855557,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.3405257747544965
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false
+      },
+      "retained_pair_output": "SZR-536 SZR-103.",
+      "family_analysis_only": "composition"
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        3.076395350646635,
+        3.076395350646635,
+        3.458102992616742,
+        3.458102992616742,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        3.076395350646635
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false
+      },
+      "retained_pair_output": "KQF-883 KQF-290.",
+      "family_analysis_only": "composition"
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        1.1789155538494924,
+        1.1789155538494924,
+        2.982460401351146,
+        2.982460401351146,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        1.1789155538494924
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false
+      },
+      "retained_pair_output": "SZR-147 KQF-524.",
+      "family_analysis_only": "composition"
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        2.9419694289581457,
+        2.9419694289581457,
+        3.551763492805162,
+        3.551763492805162,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        2.9419694289581457
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false
+      },
+      "retained_pair_output": "VBH-365 KQF-306.",
+      "family_analysis_only": "composition"
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        5.292561210397253,
+        5.292561210397253,
+        2.5268161569818943,
+        2.5268161569818943,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        5.292561210397253
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false
+      },
+      "retained_pair_output": "KQF-351 VBH-644.",
+      "family_analysis_only": "composition"
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        3.091258330783603,
+        3.091258330783603,
+        1.8244107179539824,
+        1.8244107179539824,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        3.091258330783603
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false
+      },
+      "retained_pair_output": "VBH-506 KQF-731.",
+      "family_analysis_only": "composition"
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        3.6062319506127096,
+        3.6062319506127096,
+        2.4672792099270335,
+        2.4672792099270335,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        3.6062319506127096
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false
+      },
+      "retained_pair_output": "SZR-459 MWL-494.",
+      "family_analysis_only": "composition"
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        9.936547303626867,
+        9.936547303626867,
+        5.145696562070379,
+        5.145696562070379,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        9.936547303626867
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false
+      },
+      "retained_pair_output": "VBH-398 DJP-666.",
+      "family_analysis_only": "composition"
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        2.681895868277934,
+        2.681895868277934,
+        3.4046716127041674,
+        3.4046716127041674,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        2.681895868277934
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": true
+      },
+      "retained_pair_output": "VBH-639 VBH-916.",
+      "family_analysis_only": "composition"
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        3.2135052382764115,
+        3.2135052382764115,
+        2.4297962969840263,
+        2.4297962969840263,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        3.2135052382764115
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false
+      },
+      "retained_pair_output": "SZR-350 KQF-429.",
+      "family_analysis_only": "composition"
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        3.9937766744114924,
+        3.9937766744114924,
+        2.611354799204002,
+        2.611354799204002,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        3.9937766744114924
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": true
+      },
+      "retained_pair_output": "VBH-790 VBH-118.",
+      "family_analysis_only": "composition"
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        3.523874989768956,
+        3.523874989768956,
+        3.6054671867655115,
+        3.6054671867655115,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        3.523874989768956
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": true
+      },
+      "retained_pair_output": "SZR-505 VBH-745.",
+      "family_analysis_only": "composition"
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        7.228546534553971,
+        7.228546534553971,
+        4.011291727009302,
+        4.011291727009302,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        7.228546534553971
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false
+      },
+      "retained_pair_output": "KQF-481 MWL-746.",
+      "family_analysis_only": "composition"
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        9.822655725959521,
+        9.822655725959521,
+        5.496125220775092,
+        5.496125220775092,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        9.822655725959521
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": true
+      },
+      "retained_pair_output": "KQF-977 GXT-397.",
+      "family_analysis_only": "composition"
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        5.510591507401841,
+        5.510591507401841,
+        3.3791288382437332,
+        3.3791288382437332,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        5.510591507401841
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false
+      },
+      "retained_pair_output": "MWL-186 GXT-554.",
+      "family_analysis_only": "composition"
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        5.5733933318097115,
+        5.5733933318097115,
+        4.3902693267529855,
+        4.3902693267529855,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        5.5733933318097115
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false
+      },
+      "retained_pair_output": "VBH-130 MWL-756.",
+      "family_analysis_only": "composition"
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        7.1338269284151465,
+        7.1338269284151465,
+        5.0259434193669215,
+        5.0259434193669215,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        7.1338269284151465
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false
+      },
+      "retained_pair_output": "SZR-737 MWL-531.",
+      "family_analysis_only": "composition"
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        0.5124754079151899,
+        0.5124754079151899,
+        1.1287121837425298,
+        1.1287121837425298,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.5124754079151899
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false
+      },
+      "retained_pair_output": "KQF-163 SZR-203.",
+      "family_analysis_only": "composition"
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        4.999981284163368,
+        4.999981284163368,
+        3.1919264842918715,
+        3.1919264842918715,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        4.999981284163368
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": true
+      },
+      "retained_pair_output": "MWL-132 MWL-319.",
+      "family_analysis_only": "composition"
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        9.044502581826237,
+        9.044502581826237,
+        4.383385159601821,
+        4.383385159601821,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        9.044502581826237
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false
+      },
+      "retained_pair_output": "VBH-764 DJP-533.",
+      "family_analysis_only": "composition"
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        9.182556499285965,
+        9.182556499285965,
+        6.479939135095336,
+        6.479939135095336,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        9.182556499285965
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": true
+      },
+      "retained_pair_output": "SZR-262 DJP-642.",
+      "family_analysis_only": "composition"
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        2.4212986813945463,
+        2.4212986813945463,
+        3.3642779633117676,
+        3.3642779633117676,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        2.4212986813945463
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false
+      },
+      "retained_pair_output": "SZR-658 VBH-382.",
+      "family_analysis_only": "composition"
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        7.804558076180911,
+        7.804558076180911,
+        5.036739970027877,
+        5.036739970027877,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        7.804558076180911
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false
+      },
+      "retained_pair_output": "KQF-147 MWL-202.",
+      "family_analysis_only": "composition"
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        3.3267303398151853,
+        3.3267303398151853,
+        5.320064775838267,
+        5.320064775838267,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        3.3267303398151853
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false
+      },
+      "retained_pair_output": "SZR-574 VBH-583.",
+      "family_analysis_only": "composition"
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        2.2068797340598394,
+        2.2068797340598394,
+        1.7500107527788056,
+        1.7500107527788056,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        2.2068797340598394
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": true
+      },
+      "retained_pair_output": "SZR-160 SZR-297.",
+      "family_analysis_only": "composition"
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        0.17580413382347615,
+        0.17580413382347615,
+        1.0961075377825422,
+        1.0961075377825422,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.17580413382347615
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false
+      },
+      "retained_pair_output": "KQF-553 VBH-978.",
+      "family_analysis_only": "composition"
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        7.026739888111479,
+        7.026739888111479,
+        4.0538201231072994,
+        4.0538201231072994,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        7.026739888111479
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false
+      },
+      "retained_pair_output": "VBH-523 MWL-976.",
+      "family_analysis_only": "composition"
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        1.6047290361057094,
+        1.6047290361057094,
+        5.104852632898561,
+        5.104852632898561,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        1.6047290361057094
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false
+      },
+      "retained_pair_output": "KQF-563 VBH-726.",
+      "family_analysis_only": "composition"
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        1.3613366929657786,
+        1.3613366929657786,
+        0.7751107342316932,
+        0.7751107342316932,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        1.3613366929657786
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false
+      },
+      "retained_pair_output": "SZR-456 KQF-600.",
+      "family_analysis_only": "composition"
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        2.172781382647372,
+        2.172781382647372,
+        6.432160509910235,
+        6.432160509910235,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        2.172781382647372
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false
+      },
+      "retained_pair_output": "SZR-207 SZR-667.",
+      "family_analysis_only": "composition"
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        3.77471953413351,
+        3.77471953413351,
+        5.417291744333359,
+        5.417291744333359,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        3.77471953413351
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false
+      },
+      "retained_pair_output": "KQF-176 SZR-915.",
+      "family_analysis_only": "composition"
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        1.7944531388357063,
+        1.7944531388357063,
+        2.812496300328488,
+        2.812496300328488,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        1.7944531388357063
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false
+      },
+      "retained_pair_output": "KQF-672 SZR-429.",
+      "family_analysis_only": "composition"
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        0.5487846432515653,
+        0.5487846432515653,
+        1.8508742318901998,
+        1.8508742318901998,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.5487846432515653
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false
+      },
+      "retained_pair_output": "MWL-594 MWL-227.",
+      "family_analysis_only": "composition"
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        1.7374416164384456,
+        1.7374416164384456,
+        5.701051575126719,
+        5.701051575126719,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        1.7374416164384456
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false
+      },
+      "retained_pair_output": "SZR-486 VBH-686.",
+      "family_analysis_only": "composition"
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        0.9028460575118515,
+        0.9028460575118515,
+        4.664869217536231,
+        4.664869217536231,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.9028460575118515
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": true
+      },
+      "retained_pair_output": "SZR-727 KQF-896.",
+      "family_analysis_only": "composition"
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        3.3688276466382376,
+        3.3688276466382376,
+        3.0238849844744204,
+        3.0238849844744204,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        3.3688276466382376
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": true
+      },
+      "retained_pair_output": "SZR-587 VBH-293.",
+      "family_analysis_only": "composition"
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        1.571614321578636,
+        1.571614321578636,
+        7.950207872557132,
+        7.950207872557132,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        1.571614321578636
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false
+      },
+      "retained_pair_output": "KQF-521 VBH-558.",
+      "family_analysis_only": "composition"
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        1.4168580526893493,
+        1.4168580526893493,
+        4.7014973803733655,
+        4.7014973803733655,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        1.4168580526893493
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false
+      },
+      "retained_pair_output": "SZR-546 VBH-528.",
+      "family_analysis_only": "composition"
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        5.975213942030678,
+        5.975213942030678,
+        5.139507879723274,
+        5.139507879723274,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        5.975213942030678
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false
+      },
+      "retained_pair_output": "VBH-987 MWL-801.",
+      "family_analysis_only": "composition"
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        6.000744844823203,
+        6.000744844823203,
+        3.9934613811963935,
+        3.9934613811963935,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        6.000744844823203
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false
+      },
+      "retained_pair_output": "KQF-577 KQF-607.",
+      "family_analysis_only": "composition"
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        9.33103233437214,
+        9.33103233437214,
+        4.47233453272851,
+        4.47233453272851,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        9.33103233437214
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false
+      },
+      "retained_pair_output": "SZR-338 DJP-960.",
+      "family_analysis_only": "composition"
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        1.7992093303710135,
+        1.7992093303710135,
+        4.866345350649375,
+        4.866345350649375,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        1.7992093303710135
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false
+      },
+      "retained_pair_output": "KQF-141 VBH-820.",
+      "family_analysis_only": "composition"
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        4.902986303321086,
+        4.902986303321086,
+        5.097831183868861,
+        5.097831183868861,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        4.902986303321086
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false
+      },
+      "retained_pair_output": "SZR-132 VBH-281.",
+      "family_analysis_only": "composition"
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        9.857332018378656,
+        9.857332018378656,
+        6.5588540227077665,
+        6.5588540227077665,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        9.857332018378656
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false
+      },
+      "retained_pair_output": "SZR-824 MWL-341.",
+      "family_analysis_only": "composition"
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        8.78263371515277,
+        8.78263371515277,
+        4.823560231053405,
+        4.823560231053405,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        8.78263371515277
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false
+      },
+      "retained_pair_output": "SZR-184 MWL-391.",
+      "family_analysis_only": "composition"
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        1.936123006445996,
+        1.936123006445996,
+        3.3487503450868448,
+        3.3487503450868448,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        1.936123006445996
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false
+      },
+      "retained_pair_output": "VBH-770 VBH-297.",
+      "family_analysis_only": "composition"
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        7.084316177555593,
+        7.084316177555593,
+        4.583902272704085,
+        4.583902272704085,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        7.084316177555593
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false
+      },
+      "retained_pair_output": "VBH-718 VBH-822.",
+      "family_analysis_only": "composition"
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        8.519710396883966,
+        8.519710396883966,
+        5.746620395753122,
+        5.746620395753122,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        8.519710396883966
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false
+      },
+      "retained_pair_output": "VBH-627 GXT-323.",
+      "family_analysis_only": "composition"
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        2.4442897747576353,
+        2.4442897747576353,
+        4.377654216610944,
+        4.377654216610944,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        2.4442897747576353
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false
+      },
+      "retained_pair_output": "VBH-710 MWL-434.",
+      "family_analysis_only": "composition"
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        1.3163672777482134,
+        1.3163672777482134,
+        1.0562468163852845,
+        1.0562468163852845,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        1.3163672777482134
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false
+      },
+      "retained_pair_output": "SZR-583 KQF-628.",
+      "family_analysis_only": "composition"
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        3.0378878308520143,
+        3.0378878308520143,
+        4.016577765479651,
+        4.016577765479651,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        3.0378878308520143
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false
+      },
+      "retained_pair_output": "MWL-813 DJP-775.",
+      "family_analysis_only": "composition"
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        0.1573372722205022,
+        0.1573372722205022,
+        5.48349855342406,
+        5.48349855342406,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.1573372722205022
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false
+      },
+      "retained_pair_output": "SZR-380 KQF-368.",
+      "family_analysis_only": "composition"
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        9.882216749962026,
+        9.882216749962026,
+        6.044218816262509,
+        6.044218816262509,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        9.882216749962026
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false
+      },
+      "retained_pair_output": "SZR-641 MWL-340.",
+      "family_analysis_only": "composition"
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        7.498669425589469,
+        7.498669425589469,
+        3.699442890216807,
+        3.699442890216807,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        7.498669425589469
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false
+      },
+      "retained_pair_output": "SZR-175 MWL-300.",
+      "family_analysis_only": "composition"
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        1.7145862563338596,
+        1.7145862563338596,
+        3.388119664319177,
+        3.388119664319177,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        1.7145862563338596
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": true
+      },
+      "retained_pair_output": "SZR-527 VBH-627.",
+      "family_analysis_only": "composition"
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        1.7278812017320888,
+        1.7278812017320888,
+        7.598886308512468,
+        7.598886308512468,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        1.7278812017320888
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false
+      },
+      "retained_pair_output": "SZR-178 VBH-549.",
+      "family_analysis_only": "composition"
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        0.25171119632886985,
+        0.25171119632886985,
+        6.508677732145966,
+        6.508677732145966,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.25171119632886985
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": true
+      },
+      "retained_pair_output": "KQF-511 SZR-718.",
+      "family_analysis_only": "composition"
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        1.4308912897463415,
+        1.4308912897463415,
+        2.0886556514962376,
+        2.0886556514962376,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        1.4308912897463415
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": true
+      },
+      "retained_pair_output": "KQF-242 VBH-283.",
+      "family_analysis_only": "composition"
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        1.1193315805976454,
+        1.1193315805976454,
+        4.632465463574975,
+        4.632465463574975,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        1.1193315805976454
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false
+      },
+      "retained_pair_output": "SZR-672 KQF-678.",
+      "family_analysis_only": "composition"
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        1.4954636125426077,
+        1.4954636125426077,
+        4.32544421657628,
+        4.32544421657628,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        1.4954636125426077
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": true
+      },
+      "retained_pair_output": "VBH-371 KQF-268.",
+      "family_analysis_only": "composition"
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        0.041209095186786726,
+        0.041209095186786726,
+        0.886127633784229,
+        0.886127633784229,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.041209095186786726
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": true
+      },
+      "retained_pair_output": "MWL-725 DJP-539.",
+      "family_analysis_only": "composition"
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        10.790561547653851,
+        10.790561547653851,
+        5.729605984721283,
+        5.729605984721283,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        10.790561547653851
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false
+      },
+      "retained_pair_output": "KQF-890 MWL-260.",
+      "family_analysis_only": "composition"
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        6.873037234012372,
+        6.873037234012372,
+        4.817834133806046,
+        4.817834133806046,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        6.873037234012372
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": true
+      },
+      "retained_pair_output": "VBH-740 GXT-543.",
+      "family_analysis_only": "composition"
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        9.740386207073243,
+        9.740386207073243,
+        7.265275760412764,
+        7.265275760412764,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        9.740386207073243
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false
+      },
+      "retained_pair_output": "VBH-180 GXT-681.",
+      "family_analysis_only": "composition"
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        7.456621328011352,
+        7.456621328011352,
+        5.446254462707311,
+        5.446254462707311,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        7.456621328011352
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": true
+      },
+      "retained_pair_output": "VBH-813 DJP-809.",
+      "family_analysis_only": "composition"
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        1.9846283880178817,
+        1.9846283880178817,
+        2.891888314391038,
+        2.891888314391038,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        1.9846283880178817
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false
+      },
+      "retained_pair_output": "SZR-187 VBH-591.",
+      "family_analysis_only": "composition"
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        1.215228876528272,
+        1.215228876528272,
+        4.935510153089804,
+        4.935510153089804,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        1.215228876528272
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false
+      },
+      "retained_pair_output": "SZR-655 VBH-203.",
+      "family_analysis_only": "composition"
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        7.379969097378307,
+        7.379969097378307,
+        4.343376119421679,
+        4.343376119421679,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        7.379969097378307
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false
+      },
+      "retained_pair_output": "KQF-532 MWL-932.",
+      "family_analysis_only": "composition"
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        0.0429507467415533,
+        0.0429507467415533,
+        3.780048412867206,
+        3.780048412867206,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0429507467415533
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false
+      },
+      "retained_pair_output": "VBH-882 VBH-621.",
+      "family_analysis_only": "composition"
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        0.6416606851689721,
+        0.6416606851689721,
+        5.328099984902393,
+        5.328099984902393,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.6416606851689721
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false
+      },
+      "retained_pair_output": "SZR-705 VBH-335.",
+      "family_analysis_only": "composition"
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        1.9136197538791748,
+        1.9136197538791748,
+        4.324886169530292,
+        4.324886169530292,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        1.9136197538791748
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": true
+      },
+      "retained_pair_output": "VBH-635 KQF-308.",
+      "family_analysis_only": "composition"
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        1.33901982047837,
+        1.33901982047837,
+        1.116972253166331,
+        1.116972253166331,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        1.33901982047837
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false
+      },
+      "retained_pair_output": "KQF-482 VBH-724.",
+      "family_analysis_only": "composition"
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        2.3816870776281576,
+        2.3816870776281576,
+        5.288050869721276,
+        5.288050869721276,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        2.3816870776281576
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": true
+      },
+      "retained_pair_output": "MWL-513 GXT-888.",
+      "family_analysis_only": "composition"
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        1.7504476183003135,
+        1.7504476183003135,
+        5.78946510743274,
+        5.78946510743274,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        1.7504476183003135
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false
+      },
+      "retained_pair_output": "KQF-392 SZR-693.",
+      "family_analysis_only": "composition"
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        10.914215453429279,
+        10.914215453429279,
+        5.394623611810739,
+        5.394623611810739,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        10.914215453429279
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false
+      },
+      "retained_pair_output": "SZR-570 DJP-697.",
+      "family_analysis_only": "composition"
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        11.19740503842695,
+        11.19740503842695,
+        6.500998032070743,
+        6.500998032070743,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        11.19740503842695
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false
+      },
+      "retained_pair_output": "SZR-909 MWL-104.",
+      "family_analysis_only": "composition"
+    }
+  ]
+}
