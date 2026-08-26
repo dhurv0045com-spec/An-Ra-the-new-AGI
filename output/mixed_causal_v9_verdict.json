@@ -1,0 +1,44 @@
+{
+  "schema": "anra-mixed-causal-v9-verdict/v1",
+  "fixture_sha256": "e389aee5cbef2060d2c1cf74dde0a710d576d2ddf4ab932d0f5c48ce1f14d2ee",
+  "checkpoint_sha256": "c01cbbeea470e0c9",
+  "checkpoint_file": "checkpoints/anra-v4-20k-sft7-margin.pt",
+  "policy_sha256": "ae9ad72b9ba56f218e6d3c1b5bdc0cd7c3785b3f7e17c5c1ebc27020701bcffe",
+  "policy_trained_on": "SFT6 outcomes only (MC-v1 + MC-v3 + MC-v4/5/6 harvest)",
+  "n_tasks": 480,
+
+  "results_all_policies": {
+    "ALWAYS_NO_CHANGE": {"succ": 174},
+    "ALWAYS_CONSTRAINED": {"succ": 261},
+    "ALWAYS_NORMALIZED": {"succ": 280},
+    "SIMPLE_A_norm_margin_gt_raw": {"succ": 223},
+    "SIMPLE_B_disagree_highconf": {"succ": 225},
+    "SIMPLE_C_free_vs_raw_disagree": {"succ": 258},
+    "SIMPLE_D_weak_raw_margin": {"succ": 235},
+    "ADAPTIVE_v7": {"succ": 320}
+  },
+
+  "paired_adaptive_vs_others_ALL_SIGNIFICANT_P1E6": {
+    "vs ALWAYS_NORMALIZED (best fixed)": "+8.3pp CI [+6.0,+10.8]",
+    "vs ALWAYS_NO_CHANGE": "+30.4pp",
+    "vs ALWAYS_CONSTRAINED": "+12.3pp",
+    "vs SIMPLE_A": "+20.2pp",
+    "vs SIMPLE_B": "+19.8pp",
+    "vs SIMPLE_C": "+12.9pp",
+    "vs SIMPLE_D": "+17.7pp"
+  },
+
+  "verdict": {
+    "CHECKPOINT_TRANSFER_REPLICATED": true,
+    "honest_reading": "The frozen v7 policy - trained exclusively on SFT6 intervention outcomes - was evaluated on a fresh fixture under the SFT7 checkpoint, a different model it had never scored a single task against during training. Result: 320/480 vs best fixed 280/480, +40 successes (+8.3pp), CI [+6.0,+10.8], p<1e-6 against every baseline simultaneously. The self-model's advantage is not a property of one checkpoint: it reflects failure structure common to the An-Ra architecture across training generations.",
+    "significance_note": "All seven paired comparisons p<1e-6; CIs exclude zero everywhere.",
+    "scope_limits": [
+      "two checkpoints tested; both share architecture and most training lineage",
+      "composition remains structurally unsolved"
+    ]
+  },
+
+  "verdict_class": "TRANSFER_CONFIRMED",
+  "training_decision": "DO_NOT_TRAIN_CORE",
+  "verified_intervention_experiences": "not re-qualified on this run (no retention in transfer runner); bank unchanged at 166"
+}
