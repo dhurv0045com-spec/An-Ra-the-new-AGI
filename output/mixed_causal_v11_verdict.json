@@ -1,0 +1,59 @@
+{
+  "schema": "anra-mixed-causal-v11-verdict/v1",
+  "fixture_sha256_frozen_after_policy_freeze": "da07b9a6054e11469859ac9f20391a93f56e54b3000758341ec5d05f17433a3c",
+  "policy_v9_frozen_commit": "76f4e8c",
+  "policy_sha256": "64fbd0de811f3c6f81fb410d482b5894d3241179ea4210a954a19ebe8a08f56a",
+  "checkpoint_sha256": "36c87e5be671ff37951b4b433e21ec14bb5e59f6f0770d7f81e50e99ead9e001",
+  "n_tasks": 480,
+
+  "results_all_policies": {
+    "ALWAYS_NO_CHANGE": {"succ": 212, "reg": 0, "cost": 0},
+    "ALWAYS_CONSTRAINED": {"succ": 262, "reg": 0, "cost": 320},
+    "ALWAYS_NORMALIZED": {"succ": 300, "reg": 16, "cost": 480},
+    "SIMPLE_A_norm_margin_gt_raw": {"succ": 244, "reg": 4, "cost": 128},
+    "SIMPLE_B_disagree_highconf": {"succ": 258, "reg": 6, "cost": 118},
+    "SIMPLE_C_free_vs_raw_disagree": {"succ": 262, "reg": 0, "cost": 148},
+    "SIMPLE_D_weak_raw_margin": {"succ": 258, "reg": 7, "cost": 196},
+    "ADAPTIVE_v9pol": {"succ": 329, "reg": 16, "cost": 619},
+    "ORACLE_evaluator_only": {"succ": 351}
+  },
+
+  "paired_adaptive_vs_others_ALL_SIGNIFICANT_P1E6": {
+    "vs ALWAYS_NORMALIZED (best fixed)": "+6.0pp CI [+4.0,+8.3]",
+    "vs ALWAYS_NO_CHANGE": "+24.4pp",
+    "vs ALWAYS_CONSTRAINED": "+14.0pp",
+    "vs SIMPLE_A": "+17.7pp",
+    "vs SIMPLE_B": "+14.8pp",
+    "vs SIMPLE_C": "+14.0pp",
+    "vs SIMPLE_D": "+14.8pp"
+  },
+
+  "per_family_adaptive_vs_best_constant": {
+    "selection": "58/80 vs 65/80",
+    "realization": "53/80 vs 62/80",
+    "no_intervention": "67/80 vs 72/80",
+    "copy_single": "80/80 parity",
+    "non_candidate": "64/80 parity (much better draw than v10)",
+    "composition": "7/80 vs 0/80 — ceiling still broken; SLOT_PAIR chosen on tasks where WHOLE_SEQ fails"
+  },
+
+  "primary_resolution": {
+    "adaptive_highest_point_estimate_everywhere": true,
+    "significantly_beats_every_baseline_p_1e_6": true,
+    "strict_criterion_met_third_consecutive_time": true
+  },
+
+  "verdict": {
+    "honest_reading": "Second consecutive strict pass for the expanded-repertoire policy (v9 adds SLOT_PAIR as a fifth action). Adaptive 329/480 vs best fixed 300/480: +29 successes (+6.0pp), CI [+4.0,+8.3], p<1e-6 against every baseline. Composition remains broken open (7/80 vs 0 for all constants); the policy uses both pair strategies. Third consecutive strict promotion (MC-v10, MC-v11 under the expanded set; MC-v7 before it) — the result is now routine, which is itself the milestone.",
+    "scope_limits": [
+      "pair-emission success rate within composition remains modest",
+      "per-family gaps persist (selection/realization/no_intervention)",
+      "transfer of the v9 policy to SFT7 untested"
+    ]
+  },
+
+  "verdict_class": "PROMOTED_STRICT_PASS_REPEATED",
+  "next_research_question": "Does the 5-action v9 policy transfer across checkpoints like its 3-action predecessor did?",
+  "training_decision": "DO_NOT_TRAIN_CORE",
+  "verified_intervention_experiences": 166
+}

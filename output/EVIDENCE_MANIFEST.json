@@ -431,6 +431,12 @@
         "adaptive": 297,
         "best_fixed": 251,
         "result": "STRICT PASS + composition ceiling broken (12/80 vs 0 for all fixed policies)"
+      },
+      {
+        "fixture": "MIXED-CAUSAL-v11 (da07b9a6, 5-action v9 policy)",
+        "adaptive": 329,
+        "best_fixed": 300,
+        "result": "STRICT PASS \u2014 third consecutive; composition stays open (7/80 vs 0)"
       }
     ],
     "checkpoint_transfer": "CONFIRMED: frozen v7 policy (trained only on SFT6 outcomes) beats every baseline under SFT7 on fresh MC-v9 fixture: 320/480 vs best fixed 280/480, +8.3pp CI [+6.0,+10.8] p<1e-6 on all seven paired comparisons. The self-model encodes architecture-level failure structure, not checkpoint-specific quirks.",
