@@ -1,0 +1,181 @@
+{
+  "schema": "anra-self-model-v9/v1",
+  "canonical_trainer": "scripts/train_self_model_v3.py",
+  "feature_names": [
+    "n_candidates",
+    "output_arity",
+    "format_code",
+    "raw_top2_margin",
+    "norm_top2_margin",
+    "raw_spread_std",
+    "norm_spread_std",
+    "raw_norm_same_pick",
+    "free_matches_raw_pick",
+    "free_matches_norm_pick",
+    "normalization_applicable",
+    "max_query_lift_gap",
+    "norm_margin_dominance"
+  ],
+  "actions": [
+    "NO_CHANGE",
+    "CONSTRAINED",
+    "NORMALIZED",
+    "EXACT_PAIR",
+    "SLOT_PAIR"
+  ],
+  "costs": {
+    "NO_CHANGE": 0,
+    "CONSTRAINED": 1,
+    "NORMALIZED": 2,
+    "EXACT_PAIR": 3,
+    "SLOT_PAIR": 3
+  },
+  "lambda": 0.0,
+  "tie_break": "lower cost; then NO_CHANGE",
+  "seed": 97,
+  "epochs": 600,
+  "optimizer": "Adam(lr=0.05)",
+  "standardization": {
+    "means": [
+      2.45187,
+      1.264339,
+      0.300748,
+      2.715045,
+      1.913782,
+      2.204258,
+      1.318371,
+      0.512219,
+      0.348628,
+      0.206484,
+      0.783042,
+      1.913782,
+      -0.801262
+    ],
+    "stds": [
+      0.865696,
+      0.440981,
+      0.458583,
+      2.931616,
+      2.984742,
+      1.856202,
+      1.747413,
+      0.499851,
+      0.476536,
+      0.404782,
+      0.412174,
+      2.984742,
+      2.946572
+    ]
+  },
+  "training_sources": [
+    "mixed_causal_matrix_v2.json",
+    "mixed_causal_v3_replication.json",
+    "harvest_v7_pool.json",
+    "exact_pair_harvest_v8.json",
+    "slot_pair_harvest_v9.json"
+  ],
+  "design_note": "adds SLOT_PAIR (per-slot scoring) as 5th action; union coverage of pair strategies = 26% vs 22% whole-seq alone",
+  "models": {
+    "NO_CHANGE": {
+      "weights": [
+        -0.02926,
+        -3.240635,
+        -0.350012,
+        0.306324,
+        0.007492,
+        -0.215803,
+        1.146424,
+        -0.646966,
+        1.226517,
+        1.824474,
+        -2.590693,
+        0.007492,
+        -0.075883
+      ],
+      "bias": -3.585999,
+      "train_examples": 882,
+      "train_acc": 0.915
+    },
+    "CONSTRAINED": {
+      "weights": [
+        0.122918,
+        -1.144272,
+        -0.296626,
+        0.3365,
+        0.001389,
+        -0.222575,
+        1.185061,
+        0.209413,
+        -0.53698,
+        0.992854,
+        -3.46528,
+        0.001389,
+        -0.051315
+      ],
+      "bias": 1.144271,
+      "train_examples": 493,
+      "train_acc": 0.7972
+    },
+    "NORMALIZED": {
+      "weights": [
+        -0.184941,
+        -1.257042,
+        -0.187005,
+        1.305125,
+        1.384792,
+        0.35911,
+        0.464992,
+        -0.100867,
+        0.173976,
+        -0.083431,
+        1.257042,
+        1.384792,
+        1.456038
+      ],
+      "bias": 1.257042,
+      "train_examples": 390,
+      "train_acc": 0.8026
+    },
+    "EXACT_PAIR": {
+      "weights": [
+        -0.183931,
+        -0.183934,
+        0.183934,
+        -0.139077,
+        -0.01087,
+        0.115742,
+        -0.055051,
+        -0.183933,
+        0.183934,
+        0.183933,
+        -0.183938,
+        -0.01087,
+        0.160408
+      ],
+      "bias": -0.183934,
+      "train_examples": 160,
+      "train_acc": 0.775
+    },
+    "SLOT_PAIR": {
+      "weights": [
+        -0.168346,
+        -0.168347,
+        0.168344,
+        -0.102879,
+        0.168344,
+        0.28628,
+        0.168344,
+        -0.168346,
+        0.168345,
+        0.168345,
+        -0.168346,
+        0.168344,
+        0.151828
+      ],
+      "bias": -0.168346,
+      "train_examples": 80,
+      "train_acc": 0.8
+    }
+  },
+  "parameter_sha256": "64fbd0de811f3c6f81fb410d482b5894d3241179ea4210a954a19ebe8a08f56a"
+}

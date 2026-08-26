@@ -1,0 +1,1770 @@
+{
+  "schema": "anra-slot-pair-harvest/v1",
+  "checkpoint_sha256": "36c87e5be671ff37951b4b433e21ec14bb5e59f6f0770d7f81e50e99ead9e001",
+  "source_fixture": "mixed_causal_v10 (consumed; dev use sanctioned)",
+  "n_rows": 80,
+  "whole_seq_successes": 17,
+  "slot_pair_successes": 16,
+  "rows": [
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        7.3887410040260875,
+        0.0,
+        3.7408386720244646,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": true,
+        "SLOT_PAIR": true
+      },
+      "retained_pair_output": "LWA-126 UFG-236."
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        3.211606720167765,
+        0.0,
+        2.128913292592714,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": true,
+        "SLOT_PAIR": true
+      },
+      "retained_pair_output": "HQD-794 JYN-667."
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        0.20938157983073324,
+        0.0,
+        1.810366245224669,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false,
+        "SLOT_PAIR": false
+      },
+      "retained_pair_output": "HQD-286 HQD-103."
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        0.9472741314202722,
+        0.0,
+        4.899606037060746,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false,
+        "SLOT_PAIR": false
+      },
+      "retained_pair_output": "TRC-874 JYN-501."
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        2.068472516035399,
+        0.0,
+        4.734753565449065,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false,
+        "SLOT_PAIR": false
+      },
+      "retained_pair_output": "JYN-877 JYN-678."
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        4.980462202083345,
+        0.0,
+        5.743202537361275,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false,
+        "SLOT_PAIR": false
+      },
+      "retained_pair_output": "HQD-154 LWA-978."
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        3.8918663207950885,
+        0.0,
+        1.9019310657563904,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": true,
+        "SLOT_PAIR": true
+      },
+      "retained_pair_output": "HQD-859 LWA-277."
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        3.419934047258721,
+        0.0,
+        3.5726500598674655,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false,
+        "SLOT_PAIR": false
+      },
+      "retained_pair_output": "JYN-182 LWA-452."
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        5.337317484059895,
+        0.0,
+        3.863092591361909,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false,
+        "SLOT_PAIR": false
+      },
+      "retained_pair_output": "LWA-157 TRC-810."
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        5.000695163998898,
+        0.0,
+        2.5794334500539287,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": true,
+        "SLOT_PAIR": true
+      },
+      "retained_pair_output": "TRC-531 UFG-479."
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        15.296073154496753,
+        0.0,
+        8.770546791293153,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false,
+        "SLOT_PAIR": false
+      },
+      "retained_pair_output": "HQD-751 EZK-628."
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        1.9793503964883712,
+        0.0,
+        4.385726410106844,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false,
+        "SLOT_PAIR": false
+      },
+      "retained_pair_output": "TRC-199 UFG-854."
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        2.8488491767093365,
+        0.0,
+        9.325275650484047,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": true,
+        "SLOT_PAIR": true
+      },
+      "retained_pair_output": "HQD-507 HQD-848."
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        0.829943366686166,
+        0.0,
+        1.9271882877337634,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false,
+        "SLOT_PAIR": false
+      },
+      "retained_pair_output": "LWA-287 TRC-583."
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        3.7965805740568612,
+        0.0,
+        5.090477690995907,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false,
+        "SLOT_PAIR": false
+      },
+      "retained_pair_output": "TRC-497 UFG-554."
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        1.5329775910859098,
+        0.0,
+        2.4279198185260906,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": true,
+        "SLOT_PAIR": true
+      },
+      "retained_pair_output": "JYN-733 LWA-948."
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        4.792974341596164,
+        0.0,
+        2.3945604432782237,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": true,
+        "SLOT_PAIR": false
+      },
+      "retained_pair_output": "JYN-773 JYN-412."
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        3.899002450603348,
+        0.0,
+        5.858384334142163,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false,
+        "SLOT_PAIR": false
+      },
+      "retained_pair_output": "HQD-324 TRC-625."
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        2.2910309959188453,
+        0.0,
+        3.4551342195338517,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false,
+        "SLOT_PAIR": false
+      },
+      "retained_pair_output": "TRC-977 TRC-602."
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        0.9647022881367775,
+        0.0,
+        4.031112085333938,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false,
+        "SLOT_PAIR": false
+      },
+      "retained_pair_output": "TRC-744 LWA-324."
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        11.813654139827122,
+        0.0,
+        5.598489001488194,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false,
+        "SLOT_PAIR": true
+      },
+      "retained_pair_output": "JYN-439 UFG-421."
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        0.5933865516617516,
+        0.0,
+        5.54783988471399,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false,
+        "SLOT_PAIR": false
+      },
+      "retained_pair_output": "JYN-703 TRC-152."
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        4.9290795428478305,
+        0.0,
+        3.3164528443780488,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false,
+        "SLOT_PAIR": false
+      },
+      "retained_pair_output": "LWA-693 UFG-788."
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        4.51189884402811,
+        0.0,
+        2.229673094332953,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false,
+        "SLOT_PAIR": false
+      },
+      "retained_pair_output": "EZK-121 UFG-975."
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        0.5722678804995667,
+        0.0,
+        4.550536567185544,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false,
+        "SLOT_PAIR": false
+      },
+      "retained_pair_output": "LWA-338 LWA-183."
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        0.28654113651828084,
+        0.0,
+        0.16982607584393972,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false,
+        "SLOT_PAIR": false
+      },
+      "retained_pair_output": "TRC-229 JYN-736."
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        4.979810633150919,
+        0.0,
+        3.817725504760868,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false,
+        "SLOT_PAIR": false
+      },
+      "retained_pair_output": "LWA-838 UFG-833."
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        4.561136734908359,
+        0.0,
+        4.629088052873694,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false,
+        "SLOT_PAIR": false
+      },
+      "retained_pair_output": "LWA-648 LWA-904."
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        1.2464597810576379,
+        0.0,
+        0.9598815019699933,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false,
+        "SLOT_PAIR": false
+      },
+      "retained_pair_output": "EZK-712 EZK-756."
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        3.1157610084708267,
+        0.0,
+        2.065547458160606,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false,
+        "SLOT_PAIR": false
+      },
+      "retained_pair_output": "HQD-672 TRC-956."
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        1.1981041451658712,
+        0.0,
+        4.992037265263916,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": true,
+        "SLOT_PAIR": false
+      },
+      "retained_pair_output": "TRC-498 JYN-723."
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        6.236596354448011,
+        0.0,
+        6.820915581126926,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false,
+        "SLOT_PAIR": false
+      },
+      "retained_pair_output": "HQD-137 LWA-881."
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        4.757632512759756,
+        0.0,
+        3.352143795992467,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": true,
+        "SLOT_PAIR": true
+      },
+      "retained_pair_output": "HQD-632 TRC-375."
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        7.4806184658446,
+        0.0,
+        5.258109852789755,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false,
+        "SLOT_PAIR": false
+      },
+      "retained_pair_output": "JYN-200 UFG-518."
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        0.31228270564770355,
+        0.0,
+        4.477376100558412,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false,
+        "SLOT_PAIR": false
+      },
+      "retained_pair_output": "TRC-176 JYN-999."
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        10.24640973237183,
+        0.0,
+        4.996484602170437,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false,
+        "SLOT_PAIR": false
+      },
+      "retained_pair_output": "HQD-939 UFG-945."
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        0.40293234245473286,
+        0.0,
+        2.0444001365231395,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false,
+        "SLOT_PAIR": false
+      },
+      "retained_pair_output": "LWA-684 LWA-868."
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        1.372611489362498,
+        0.0,
+        2.762505658740486,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false,
+        "SLOT_PAIR": false
+      },
+      "retained_pair_output": "HQD-705 JYN-202."
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        3.3325539342531556,
+        0.0,
+        1.9782911829749894,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false,
+        "SLOT_PAIR": false
+      },
+      "retained_pair_output": "LWA-307 UFG-500."
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        0.24917146963707637,
+        0.0,
+        3.1483976357568957,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false,
+        "SLOT_PAIR": false
+      },
+      "retained_pair_output": "LWA-457 JYN-676."
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        10.319359611982236,
+        0.0,
+        5.398142943716031,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false,
+        "SLOT_PAIR": false
+      },
+      "retained_pair_output": "HQD-485 LWA-202."
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        3.1482993870154132,
+        0.0,
+        3.703048030823819,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false,
+        "SLOT_PAIR": false
+      },
+      "retained_pair_output": "HQD-907 JYN-151."
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        0.46013223038698925,
+        0.0,
+        4.536566988694286,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": true,
+        "SLOT_PAIR": false
+      },
+      "retained_pair_output": "TRC-614 JYN-695."
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        2.0608910849559834,
+        0.0,
+        2.977606747281186,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false,
+        "SLOT_PAIR": false
+      },
+      "retained_pair_output": "HQD-905 JYN-879."
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        1.6262519099414021,
+        0.0,
+        1.3879362905148038,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false,
+        "SLOT_PAIR": false
+      },
+      "retained_pair_output": "HQD-904 TRC-505."
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        1.273467547589462,
+        0.0,
+        3.1502558548275976,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false,
+        "SLOT_PAIR": false
+      },
+      "retained_pair_output": "LWA-256 TRC-860."
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        8.3898561417991,
+        0.0,
+        5.0778631511160714,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false,
+        "SLOT_PAIR": false
+      },
+      "retained_pair_output": "LWA-107 UFG-254."
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        8.497844306926709,
+        0.0,
+        4.797769434853723,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false,
+        "SLOT_PAIR": false
+      },
+      "retained_pair_output": "JYN-136 UFG-311."
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        0.8262294011583435,
+        0.0,
+        0.8473391840020561,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false,
+        "SLOT_PAIR": false
+      },
+      "retained_pair_output": "LWA-285 TRC-548."
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        0.2868805382440769,
+        0.0,
+        1.2215490182913196,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false,
+        "SLOT_PAIR": false
+      },
+      "retained_pair_output": "LWA-690 JYN-680."
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        2.4733220862717644,
+        0.0,
+        5.66173596236849,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false,
+        "SLOT_PAIR": false
+      },
+      "retained_pair_output": "HQD-524 JYN-495."
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        0.17403018964250805,
+        0.0,
+        3.120513423992673,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": true,
+        "SLOT_PAIR": false
+      },
+      "retained_pair_output": "LWA-702 JYN-577."
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        4.052214026412912,
+        0.0,
+        3.3103736332323725,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false,
+        "SLOT_PAIR": false
+      },
+      "retained_pair_output": "HQD-742 JYN-311."
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        1.0975258397947982,
+        0.0,
+        4.637110335592693,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false,
+        "SLOT_PAIR": true
+      },
+      "retained_pair_output": "TRC-881 JYN-286."
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        0.8209635033090308,
+        0.0,
+        3.607502775961527,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false,
+        "SLOT_PAIR": false
+      },
+      "retained_pair_output": "HQD-230 HQD-282."
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        1.200811623417394,
+        0.0,
+        0.6057344999136787,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false,
+        "SLOT_PAIR": false
+      },
+      "retained_pair_output": "TRC-153 JYN-330."
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        1.3753526677460286,
+        0.0,
+        1.9903848773151114,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": true,
+        "SLOT_PAIR": true
+      },
+      "retained_pair_output": "TRC-513 LWA-936."
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        2.9071640170022874,
+        0.0,
+        5.6424967868591756,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": true,
+        "SLOT_PAIR": true
+      },
+      "retained_pair_output": "HQD-575 JYN-501."
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        1.2235516310938692,
+        0.0,
+        3.805062361211038,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false,
+        "SLOT_PAIR": false
+      },
+      "retained_pair_output": "JYN-789 JYN-520."
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        0.46932906370057026,
+        0.0,
+        0.3901538541578034,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false,
+        "SLOT_PAIR": false
+      },
+      "retained_pair_output": "TRC-155 LWA-794."
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        1.7432669885129144,
+        0.0,
+        1.4919193811426485,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false,
+        "SLOT_PAIR": false
+      },
+      "retained_pair_output": "TRC-229 LWA-636."
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        11.348243827726037,
+        0.0,
+        5.741762036900062,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false,
+        "SLOT_PAIR": false
+      },
+      "retained_pair_output": "HQD-121 UFG-892."
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        4.692370109507465,
+        0.0,
+        4.173685910336476,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false,
+        "SLOT_PAIR": false
+      },
+      "retained_pair_output": "TRC-783 TRC-568."
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        8.40869798435142,
+        0.0,
+        4.37222497881158,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false,
+        "SLOT_PAIR": false
+      },
+      "retained_pair_output": "TRC-410 UFG-404."
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        0.2329906793511327,
+        0.0,
+        1.1920081818536739,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false,
+        "SLOT_PAIR": true
+      },
+      "retained_pair_output": "TRC-879 JYN-575."
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        1.313454142469709,
+        0.0,
+        1.6953152002040262,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false,
+        "SLOT_PAIR": false
+      },
+      "retained_pair_output": "TRC-694 JYN-256."
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        1.0247835855188896,
+        0.0,
+        5.783167707093853,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": true,
+        "SLOT_PAIR": true
+      },
+      "retained_pair_output": "LWA-956 LWA-209."
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        0.11254882567754976,
+        0.0,
+        0.9114793552369437,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false,
+        "SLOT_PAIR": false
+      },
+      "retained_pair_output": "HQD-932 TRC-909."
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        0.178983892920769,
+        0.0,
+        4.435805200912822,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": true,
+        "SLOT_PAIR": true
+      },
+      "retained_pair_output": "TRC-612 LWA-289."
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        1.9263874118014428,
+        0.0,
+        3.8514213332743226,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false,
+        "SLOT_PAIR": false
+      },
+      "retained_pair_output": "TRC-392 LWA-960."
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        0.21200783796211908,
+        0.0,
+        4.643043422136236,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false,
+        "SLOT_PAIR": true
+      },
+      "retained_pair_output": "LWA-350 JYN-443."
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        1.206604299627088,
+        0.0,
+        2.0882225238959933,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": true,
+        "SLOT_PAIR": true
+      },
+      "retained_pair_output": "HQD-263 LWA-437."
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        14.402092202947188,
+        0.0,
+        6.92289473507241,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false,
+        "SLOT_PAIR": false
+      },
+      "retained_pair_output": "HQD-583 UFG-272."
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        5.0264670668748295,
+        0.0,
+        3.688851354326003,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false,
+        "SLOT_PAIR": false
+      },
+      "retained_pair_output": "HQD-106 LWA-816."
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        7.753346710619098,
+        0.0,
+        3.9126103177452,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": true,
+        "SLOT_PAIR": false
+      },
+      "retained_pair_output": "HQD-289 UFG-540."
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        2.607412159647083,
+        0.0,
+        3.109428619938427,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false,
+        "SLOT_PAIR": false
+      },
+      "retained_pair_output": "HQD-820 TRC-940."
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        1.4620370916309184,
+        0.0,
+        3.2079933761732797,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false,
+        "SLOT_PAIR": false
+      },
+      "retained_pair_output": "JYN-993 LWA-852."
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        4.6896263907410685,
+        0.0,
+        4.08620752959129,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false,
+        "SLOT_PAIR": false
+      },
+      "retained_pair_output": "LWA-909 TRC-236."
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        0.2967226312503044,
+        0.0,
+        2.1199033308321846,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false,
+        "SLOT_PAIR": false
+      },
+      "retained_pair_output": "JYN-869 TRC-475."
+    },
+    {
+      "features": [
+        3.0,
+        2.0,
+        0.0,
+        6.492943245731112,
+        0.0,
+        3.293531792718182,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "actions_pass": {
+        "NO_CHANGE": false,
+        "EXACT_PAIR": false,
+        "SLOT_PAIR": false
+      },
+      "retained_pair_output": "HQD-221 UFG-405."
+    }
+  ]
+}
