@@ -31,6 +31,7 @@ jobs:
                             tests/test_grouped_queryswap_contracts.py \
                             tests/test_qim_v3_corrective.py \
                             tests/test_evidence_chain_invariants.py \
+                            tests/test_debug_sweep_invariants.py \
                             tests/test_repro_and_intervention.py \
                             tests/test_margin_experiment.py \
                             tests/test_self_model_leakage.py \
