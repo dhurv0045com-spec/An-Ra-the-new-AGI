@@ -425,9 +425,16 @@
         "adaptive": 320,
         "best_fixed": 280,
         "result": "TRANSFER CONFIRMED p<1e-6 all baselines"
+      },
+      {
+        "fixture": "MIXED-CAUSAL-v10 (9124f20f, 4-action v8 policy)",
+        "adaptive": 297,
+        "best_fixed": 251,
+        "result": "STRICT PASS + composition ceiling broken (12/80 vs 0 for all fixed policies)"
       }
     ],
-    "checkpoint_transfer": "CONFIRMED: frozen v7 policy (trained only on SFT6 outcomes) beats every baseline under SFT7 on fresh MC-v9 fixture: 320/480 vs best fixed 280/480, +8.3pp CI [+6.0,+10.8] p<1e-6 on all seven paired comparisons. The self-model encodes architecture-level failure structure, not checkpoint-specific quirks."
+    "checkpoint_transfer": "CONFIRMED: frozen v7 policy (trained only on SFT6 outcomes) beats every baseline under SFT7 on fresh MC-v9 fixture: 320/480 vs best fixed 280/480, +8.3pp CI [+6.0,+10.8] p<1e-6 on all seven paired comparisons. The self-model encodes architecture-level failure structure, not checkpoint-specific quirks.",
+    "action_set_evolution": "v3-v7: NO_CHANGE/CONSTRAINED/NORMALIZED; v8+: +EXACT_PAIR (multi-emission) \u2014 first self-model action that did not exist at arc start; breaks the composition ceiling."
   },
   "mixed_causal_experiment": {
     "v1_fixture_sha256": "35a3e290f2646f3dbfe217c0e33ceb3869d4a2607bb556aad611bed9225b4e79",

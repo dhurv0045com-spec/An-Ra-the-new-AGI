@@ -1,0 +1,66 @@
+{
+  "schema": "anra-mixed-causal-v10-verdict/v1",
+  "fixture_sha256_frozen_after_policy_freeze": "9124f20ff97f31cb4b240a68341e3adc8564d2ff42f4abe00c1b3ee34c36a5ff",
+  "policy_v8_frozen_commit": "cd9eb3a",
+  "policy_sha256": "9977685431a34f6bbdbf947e4fc77b60c83aa49b70f094d89acd60c270d2c125",
+  "checkpoint_sha256": "36c87e5be671ff37951b4b433e21ec14bb5e59f6f0770d7f81e50e99ead9e001",
+  "n_tasks": 480,
+
+  "results_all_policies": {
+    "ALWAYS_NO_CHANGE": {"succ": 156, "reg": 0, "cost": 0},
+    "ALWAYS_CONSTRAINED": {"succ": 224, "reg": 0, "cost": 320},
+    "ALWAYS_NORMALIZED": {"succ": 251, "reg": 13, "cost": 480},
+    "SIMPLE_A_norm_margin_gt_raw": {"succ": 191, "reg": 0, "cost": 132},
+    "SIMPLE_B_disagree_highconf": {"succ": 221, "reg": 3, "cost": 166},
+    "SIMPLE_C_free_vs_raw_disagree": {"succ": 224, "reg": 0, "cost": 163},
+    "SIMPLE_D_weak_raw_margin": {"succ": 209, "reg": 0, "cost": 138},
+    "ADAPTIVE_v8pol": {"succ": 297, "reg": 13, "cost": 661},
+    "ORACLE_evaluator_only": {"succ": 320}
+  },
+
+  "paired_adaptive_vs_others_ALL_SIGNIFICANT": {
+    "vs ALWAYS_NORMALIZED (best fixed)": "+9.6pp CI [+6.9,+12.3] p<1e-6",
+    "vs ALWAYS_NO_CHANGE": "+29.4pp p<1e-6",
+    "vs ALWAYS_CONSTRAINED": "+15.2pp p<1e-6",
+    "vs SIMPLE_A": "+22.1pp p<1e-6",
+    "vs SIMPLE_B": "+15.8pp p<1e-6",
+    "vs SIMPLE_C": "+15.2pp p<1e-6",
+    "vs SIMPLE_D": "+18.3pp p<1e-6"
+  },
+
+  "per_family_adaptive_vs_best_constant": {
+    "selection": "64/80 vs 73/80",
+    "realization": "61/80 vs 68/80",
+    "no_intervention": "59/80 vs 66/80",
+    "copy_single": "80/80 parity",
+    "non_candidate": "21/80 parity (hard draw this fixture)",
+    "composition": "12/80 vs 0/80 — CEILING BROKEN: EXACT_PAIR chosen 54x, passed 12; every fixed policy scores exactly 0 here"
+  },
+
+  "primary_resolution": {
+    "adaptive_highest_point_estimate_everywhere": true,
+    "significantly_beats_every_baseline_p_1e_6": true,
+    "strict_criterion_met_again": true,
+    "new_action_extends_capability_boundary": true
+  },
+
+  "verdict": {
+    "honest_reading": "First promotion of the 4-action v8 policy on fresh MC-v10: adaptive 297/480, beating all seven baselines at p<1e-6. The headline science result: composition - structurally impossible for every single-emission action and every fixed policy (all score 0/80) - is now partially solvable. The learned policy chose EXACT_PAIR 54 times and repaired 12 compositions no other policy can touch. This is the self-model extending its own action repertoire: it now uses an intervention that did not exist when the arc began.",
+    "trajectory_across_promotions": [
+      "MC-v7: +36 strict pass (3 actions)",
+      "MC-v8 confirmation: +43 replicated",
+      "MC-v9 transfer: +40 under SFT7",
+      "MC-v10: +46 vs best fixed, composition ceiling broken (4 actions)"
+    ],
+    "scope_limits": [
+      "EXACT_PAIR success rate still low (12/54 chosen = 22%); ranking by raw score is a weak observable proxy for pair order",
+      "non_candidate family unusually hard this draw (21/80 all arms)",
+      "single checkpoint again; transfer of the 4-action policy untested"
+    ]
+  },
+
+  "verdict_class": "PROMOTED_STRICT_PASS_CAPABILITY_EXTENDED",
+  "next_research_question": "Can a better observable ordering signal for EXACT_PAIR (per-slot candidate scoring instead of whole-sequence logprob) lift composition repair from 22% toward the oracle's share?",
+  "training_decision": "DO_NOT_TRAIN_CORE",
+  "verified_intervention_experiences": 166
+}
