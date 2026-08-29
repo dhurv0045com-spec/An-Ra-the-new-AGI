@@ -4,7 +4,7 @@ ESOES is a clean-sheet research branch for designing the next An-Ra neural Core.
 
 Start with [`docs/esoes/README.md`](docs/esoes/README.md).
 
-Current state: **Ground Blueprint v0.1 complete; implementation and major training are forbidden until the decisive experiment program resolves its gates.**
+Current state: **Ground Blueprint v0.2; inherited VNext implementation is removed, E0 development infrastructure is executable, and production implementation/main training remain forbidden until the experiment gates pass.**
 
 Previous-system evidence remains available at its original immutable branch/commit paths, especially:
 

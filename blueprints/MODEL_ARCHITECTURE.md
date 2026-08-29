@@ -1,4 +1,4 @@
-# Ground Blueprint v0.1 — Model Architecture
+# Ground Blueprint v0.2 — Model Architecture
 
 This is an engineering specification, not implementation. Bracketed states are governed by `docs/esoes/DECISIONS.md`.
 

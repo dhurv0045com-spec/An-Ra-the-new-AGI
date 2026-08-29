@@ -1,6 +1,6 @@
 # ESOES High-Impact Open Questions
 
-Ground Blueprint v0.1 intentionally limits the open set. A question belongs here only if its answer can materially change architecture, data, training, evaluation, or system boundaries.
+Ground Blueprint v0.2 intentionally limits the open set. A question belongs here only if its answer can materially change architecture, data, training, evaluation, or system boundaries.
 
 ## Representation and tokenizer
 
@@ -123,6 +123,8 @@ Ground Blueprint v0.1 intentionally limits the open set. A question belongs here
 **WHAT EVIDENCE EXISTS:** An-Ra loss/behavior divergence and consumed-fixture failures.
 **CHEAPEST DECISIVE TEST:** E0 calibration with known trivial, heuristic, oracle, and deliberately broken systems; preregister thresholds before training.
 **DECISION DEADLINE:** before E1.
+
+**V0.2 UPDATE:** deterministic controls now expose an important distinction: lexical retrieval legitimately solves easy addressable-retrieval families but not matched multi-hop transformation. Independent surface solvers and a 20-seed property sweep now pass. Full E0 exit still requires position/output balancing, power/confidence calibration, natural-source custody, and an externally held sealed commitment.
 
 ## Core/Connector boundary
 

@@ -42,4 +42,14 @@ Evidence basis: repository receipts summarized in `EVIDENCE_AND_CONTEXT.md` plus
 
 ### Current status
 
-The research direction is decided, but the numerical training spec is **not frozen**. The next permitted action is E0 benchmark/generator certification. Major V5 training remains unauthorized.
+The research direction is decided, but the numerical training spec is **not frozen**. E0 development certification has begun; full sealed certification is the next gate. Major V5 training remains unauthorized.
+
+## 2026-08-29 — Ground Blueprint v0.2 evidence phase
+
+- Reclassified EXP v10/v11 pair/composition promotions as contaminated by stale candidate applicability, incomplete controls, and reproduction gaps; retained v7/v8/v9 only for three-action repair-success routing.
+- Rejected the 166 historical VIE count as a qualified causal bank.
+- Physically removed inherited V4/VNext model, trainer, notebooks, outputs, tests, and launch infrastructure from ESOES while retaining immutable branch references.
+- Implemented the E0 development package and deterministic certificate. Its pass certifies infrastructure invariants only; a real sealed suite and full shortcut red-team remain prerequisites for E1.
+- Kept the 195M dense family provisional. No architecture number was upgraded from hypothesis to fact.
+
+Major V5 training and production-stack implementation remain unauthorized.

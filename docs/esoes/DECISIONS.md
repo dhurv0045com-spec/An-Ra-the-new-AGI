@@ -1,7 +1,7 @@
 # ESOES Decision Register
 
-Ground Blueprint: v0.1
-Iteration: 4/4 closed
+Ground Blueprint: v0.2
+Iteration: evidence-building after 4/4 design attacks
 Date: 2026-08-29
 Commit: recorded by the commit containing this file
 
@@ -183,3 +183,33 @@ All must be true:
 - abort and checkpoint promotion thresholds are preregistered.
 
 Until then: **READY TO FREEZE = NO**.
+
+## D-017 — EXP evidence boundary correction
+
+**DECISION:** use v7/v8/v9 only as evidence for three-action repair-success routing; exclude v10/v11 pair/composition promotion claims and the 166-VIE bank from V5 justification.
+**STATUS:** [FROZEN]
+**WHY:** v10/v11 pair applicability reads stale `candidates`; baselines and trainer reproduction are incomplete; old VIE qualification is not one-variable causal evidence.
+**EVIDENCE:** direct source and receipt audit of `core-exp@51124de`.
+**ALTERNATIVES CONSIDERED:** accept headline receipts; repair history before moving forward.
+**WHAT WOULD CHANGE OUR MIND:** a prospective, fixed, preregistered rerun with complete fixed-action controls and reproducible training source.
+**ITERATION:** Ground Blueprint v0.2.
+
+## D-018 — E0 development contract
+
+**DECISION:** make causal cases, evaluator-only truth, model views, counterfactual-pair assertions, split namespaces, and measurement separation executable before model comparisons.
+**STATUS:** [FROZEN] contract; development implementation passed; sealed promotion [OPEN]
+**WHY:** every architecture/data conclusion is invalid if the benchmark leaks or conflates representation, selection, and realization.
+**EVIDENCE:** `artifacts/e0/development_certificate.json` plus 14 regression/property tests, an independent surface solver, and explicit chance/position/power calibration.
+**ALTERNATIVES CONSIDERED:** static JSON fixtures; reuse training templates; create sealed fixtures in Git.
+**WHAT WOULD CHANGE OUR MIND:** a stronger causal representation may extend the schema, but may not weaken hidden-truth isolation or one-variable assertions.
+**ITERATION:** Ground Blueprint v0.2.
+
+## D-019 — Pair-action composition is not a native objective candidate
+
+**DECISION:** retain query-swap contrast as the sole auxiliary-objective hypothesis. Teach composition through executable structured examples under CE first; test sparse traces only if E3 exposes a transfer gap.
+**STATUS:** [PROVISIONAL / EXPERIMENT REQUIRED: E3]
+**WHY:** the only An-Ra pair-action composition evidence is contaminated, while query-conditioned preference and realization separation have cleaner receipts.
+**EVIDENCE:** corrected EXP audit, SFT6 replication, and public controlled composition evidence.
+**ALTERNATIVES CONSIDERED:** pair-slot loss, multiple routing heads, direct imitation of Connector actions.
+**WHAT WOULD CHANGE OUR MIND:** a clean prospective pair-action replication or E3 showing CE/query-swap cannot learn matched multi-hop transformations.
+**ITERATION:** Ground Blueprint v0.2.

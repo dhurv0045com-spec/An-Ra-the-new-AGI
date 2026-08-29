@@ -1,0 +1,307 @@
+{
+  "baselines": {
+    "bag_of_words": {
+      "accuracy": 0.6051136363636364,
+      "by_family": {
+        "counterfactual_premise": 0.5,
+        "entity_value_binding": 1.0,
+        "exact_contextual_copy": 1.0,
+        "matched_direct_retrieval": 1.0,
+        "missing_information": 0.0,
+        "natural_binding_analogue": 0.625,
+        "natural_composition_analogue": 0.0,
+        "natural_state_analogue": 0.0,
+        "nonce_identifier_retrieval": 1.0,
+        "relation_1_hop": 1.0,
+        "relation_2_hop": 0.0,
+        "relation_3_hop": 0.0,
+        "rule_induction": 0.25,
+        "state_overwrite": 0.21875
+      },
+      "correct": 213,
+      "total": 352
+    },
+    "broken_state_tracker": {
+      "accuracy": 0.28125,
+      "by_family": {
+        "counterfactual_premise": 0.375,
+        "entity_value_binding": 0.1625,
+        "exact_contextual_copy": 1.0,
+        "matched_direct_retrieval": 0.4375,
+        "missing_information": 0.25,
+        "natural_binding_analogue": 0.375,
+        "natural_composition_analogue": 0.25,
+        "natural_state_analogue": 0.0,
+        "nonce_identifier_retrieval": 0.1875,
+        "relation_1_hop": 0.5,
+        "relation_2_hop": 0.25,
+        "relation_3_hop": 0.25,
+        "rule_induction": 0.25,
+        "state_overwrite": 0.0
+      },
+      "correct": 99,
+      "total": 352
+    },
+    "deterministic_random": {
+      "accuracy": 0.3522727272727273,
+      "by_family": {
+        "counterfactual_premise": 0.40625,
+        "entity_value_binding": 0.25,
+        "exact_contextual_copy": 1.0,
+        "matched_direct_retrieval": 0.4166666666666667,
+        "missing_information": 0.625,
+        "natural_binding_analogue": 0.3125,
+        "natural_composition_analogue": 0.125,
+        "natural_state_analogue": 0.4375,
+        "nonce_identifier_retrieval": 0.0625,
+        "relation_1_hop": 0.6875,
+        "relation_2_hop": 0.375,
+        "relation_3_hop": 0.1875,
+        "rule_induction": 0.375,
+        "state_overwrite": 0.125
+      },
+      "correct": 124,
+      "total": 352
+    },
+    "direct_retrieval_control": {
+      "accuracy": 0.6420454545454546,
+      "by_family": {
+        "counterfactual_premise": 0.375,
+        "entity_value_binding": 1.0,
+        "exact_contextual_copy": 1.0,
+        "matched_direct_retrieval": 1.0,
+        "missing_information": 0.25,
+        "natural_binding_analogue": 1.0,
+        "natural_composition_analogue": 0.25,
+        "natural_state_analogue": 0.25,
+        "nonce_identifier_retrieval": 1.0,
+        "relation_1_hop": 0.5,
+        "relation_2_hop": 0.25,
+        "relation_3_hop": 0.25,
+        "rule_induction": 0.25,
+        "state_overwrite": 0.1875
+      },
+      "correct": 226,
+      "total": 352
+    },
+    "first_candidate": {
+      "accuracy": 0.3096590909090909,
+      "by_family": {
+        "counterfactual_premise": 0.375,
+        "entity_value_binding": 0.1625,
+        "exact_contextual_copy": 1.0,
+        "matched_direct_retrieval": 0.4375,
+        "missing_information": 0.25,
+        "natural_binding_analogue": 0.375,
+        "natural_composition_analogue": 0.25,
+        "natural_state_analogue": 0.25,
+        "nonce_identifier_retrieval": 0.1875,
+        "relation_1_hop": 0.5,
+        "relation_2_hop": 0.25,
+        "relation_3_hop": 0.25,
+        "rule_induction": 0.25,
+        "state_overwrite": 0.1875
+      },
+      "correct": 109,
+      "total": 352
+    },
+    "full_truth_oracle": {
+      "accuracy": 1.0,
+      "by_family": {
+        "counterfactual_premise": 1.0,
+        "entity_value_binding": 1.0,
+        "exact_contextual_copy": 1.0,
+        "matched_direct_retrieval": 1.0,
+        "missing_information": 1.0,
+        "natural_binding_analogue": 1.0,
+        "natural_composition_analogue": 1.0,
+        "natural_state_analogue": 1.0,
+        "nonce_identifier_retrieval": 1.0,
+        "relation_1_hop": 1.0,
+        "relation_2_hop": 1.0,
+        "relation_3_hop": 1.0,
+        "rule_induction": 1.0,
+        "state_overwrite": 1.0
+      },
+      "correct": 352,
+      "total": 352
+    },
+    "last_candidate": {
+      "accuracy": 0.36079545454545453,
+      "by_family": {
+        "counterfactual_premise": 0.3125,
+        "entity_value_binding": 0.2,
+        "exact_contextual_copy": 1.0,
+        "matched_direct_retrieval": 0.25,
+        "missing_information": 0.75,
+        "natural_binding_analogue": 0.4375,
+        "natural_composition_analogue": 0.5,
+        "natural_state_analogue": 0.375,
+        "nonce_identifier_retrieval": 0.3125,
+        "relation_1_hop": 0.5,
+        "relation_2_hop": 0.375,
+        "relation_3_hop": 0.25,
+        "rule_induction": 0.375,
+        "state_overwrite": 0.34375
+      },
+      "correct": 127,
+      "total": 352
+    },
+    "latest_fact": {
+      "accuracy": 0.29829545454545453,
+      "by_family": {
+        "counterfactual_premise": 0.375,
+        "entity_value_binding": 0.275,
+        "exact_contextual_copy": 1.0,
+        "matched_direct_retrieval": 0.0,
+        "missing_information": 0.0,
+        "natural_binding_analogue": 0.0,
+        "natural_composition_analogue": 0.0,
+        "natural_state_analogue": 1.0,
+        "nonce_identifier_retrieval": 0.1875,
+        "relation_1_hop": 0.0,
+        "relation_2_hop": 0.0,
+        "relation_3_hop": 0.0,
+        "rule_induction": 0.25,
+        "state_overwrite": 1.0
+      },
+      "correct": 105,
+      "total": 352
+    },
+    "lexical_overlap": {
+      "accuracy": 0.5681818181818182,
+      "by_family": {
+        "counterfactual_premise": 0.375,
+        "entity_value_binding": 1.0,
+        "exact_contextual_copy": 1.0,
+        "matched_direct_retrieval": 1.0,
+        "missing_information": 0.0,
+        "natural_binding_analogue": 0.5,
+        "natural_composition_analogue": 0.0,
+        "natural_state_analogue": 0.0,
+        "nonce_identifier_retrieval": 1.0,
+        "relation_1_hop": 1.0,
+        "relation_2_hop": 0.0,
+        "relation_3_hop": 0.0,
+        "rule_induction": 0.25,
+        "state_overwrite": 0.0
+      },
+      "correct": 200,
+      "total": 352
+    },
+    "nearest_position": {
+      "accuracy": 0.29829545454545453,
+      "by_family": {
+        "counterfactual_premise": 0.375,
+        "entity_value_binding": 0.275,
+        "exact_contextual_copy": 1.0,
+        "matched_direct_retrieval": 0.0,
+        "missing_information": 0.0,
+        "natural_binding_analogue": 0.0,
+        "natural_composition_analogue": 0.0,
+        "natural_state_analogue": 1.0,
+        "nonce_identifier_retrieval": 0.1875,
+        "relation_1_hop": 0.0,
+        "relation_2_hop": 0.0,
+        "relation_3_hop": 0.0,
+        "rule_induction": 0.25,
+        "state_overwrite": 1.0
+      },
+      "correct": 105,
+      "total": 352
+    }
+  },
+  "checks": {
+    "broken_state_tracker_fails_state": true,
+    "counterfactual_pairs_mechanical": true,
+    "direct_retrieval_does_not_solve_composition": true,
+    "full_oracle_exact": true,
+    "hidden_truth_excluded_from_model_view": true,
+    "independent_surface_solver_agreement": true,
+    "no_dominant_answer_position": true,
+    "random_baseline_below_50pct": true,
+    "random_control_matches_calculated_chance": true,
+    "split_namespaces_disjoint": true,
+    "suite_contracts": true,
+    "training_eval_templates_disjoint": true
+  },
+  "limitations": [
+    "No model has been evaluated by this certificate.",
+    "Heuristic baselines are leak detectors, not claims of benchmark difficulty.",
+    "The real sealed seed and fixture must be created under independent custody."
+  ],
+  "schema": "esoes-e0-development-certificate/v1",
+  "scope": "development infrastructure only; not a V5 model result",
+  "sealed_policy": {
+    "fixture_in_repository": false,
+    "required_before_promotion": "external seed custody plus committed SHA-256 commitment",
+    "seed_in_repository": false,
+    "sentinel_hash": "955168a27cbb81ef5ac2e06286d27aebffde2390165f6952f4d932130760be75"
+  },
+  "statistical_calibration": {
+    "answer_position_histogram_multi_candidate": {
+      "0": 93,
+      "1": 96,
+      "2": 71,
+      "3": 51,
+      "4": 7,
+      "5": 8,
+      "6": 4,
+      "7": 2,
+      "8": 2,
+      "9": 2
+    },
+    "approx_n_per_arm_to_detect_chance_plus_10pp_at_80pct_power": {
+      "four_candidate": 329,
+      "two_candidate": 388
+    },
+    "deterministic_random_wilson_95": [
+      0.30421061636412705,
+      0.4035243947706918
+    ],
+    "maximum_answer_position_share": 0.2857142857142857,
+    "method_note": "Two-sided normal approximation for planning; final gates use paired/bootstrap or exact methods preregistered per metric.",
+    "uniform_candidate_chance": 0.32433712121212077
+  },
+  "status": "PASS",
+  "suite": {
+    "cases": 352,
+    "family_histogram": {
+      "counterfactual_premise": 32,
+      "entity_value_binding": 80,
+      "exact_contextual_copy": 16,
+      "matched_direct_retrieval": 48,
+      "missing_information": 16,
+      "natural_binding_analogue": 16,
+      "natural_composition_analogue": 16,
+      "natural_state_analogue": 16,
+      "nonce_identifier_retrieval": 16,
+      "relation_1_hop": 16,
+      "relation_2_hop": 16,
+      "relation_3_hop": 16,
+      "rule_induction": 16,
+      "state_overwrite": 32
+    },
+    "generator_version": "e0-eval/0.2.0",
+    "groups_per_family": 16,
+    "pair_histogram": {
+      "irrelevant_fact_swap": 16,
+      "order_permutation": 16,
+      "query_swap": 16,
+      "relevant_fact_swap": 32,
+      "state_swap": 16
+    },
+    "pairs": 96,
+    "seed": 271828,
+    "sha256": "d821d975c3ae3d1245c7b58de08a88b66750d9a44b5200b233970b5c374ac297",
+    "split": "development"
+  },
+  "training_generator": {
+    "examples_checked": 128,
+    "template_ids": [
+      "train.causal.registry",
+      "train.causal.revision",
+      "train.causal.transfer"
+    ]
+  }
+}

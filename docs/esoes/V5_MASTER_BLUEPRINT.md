@@ -1,13 +1,13 @@
 # An-Ra V5 Master Blueprint
 
-Status: **GROUND BLUEPRINT v0.1 — FOUR DESIGN ITERATIONS COMPLETE**
+Status: **GROUND BLUEPRINT v0.2 — EVIDENCE CORRECTED, E0 DEVELOPMENT CONTRACT EXECUTABLE**
 Date: 2026-08-29
 Branch: `esoes`
 Training authorization: **NO**
 
 This document is the canonical V5 research blueprint. It is intellectually independent of VNext implementation. The evidence base is `EVIDENCE_BASE.md`, the four-round attack record is `ITERATIONS.md`, and change control is `DECISIONS.md`. A value marked **[EXPERIMENT REQUIRED]** is not permission to encode it silently into a trainer.
 
-Ground Blueprint v0.1 freezes the scientific boundaries and experiment order, not the exact training recipe:
+Ground Blueprint v0.2 freezes the scientific boundaries and experiment order, not the exact training recipe:
 
 | Area | State |
 |---|---|
@@ -83,10 +83,12 @@ Conclusion: contrast should manipulate the causal query while holding facts fixe
 
 ### EXP / Connector
 
-- Early policies and contaminated pair actions failed, but later observed-only policies on `core-exp@51124de` achieved three consecutive strict fresh-fixture promotions, transferred across SFT checkpoint generations, and opened a small number of composition cases. The latest v11 receipt reports 329/480 adaptive versus 300/480 best fixed; composition remains only 7/80.
+- The frozen v7 three-action observed-only policy cleanly beat tested fixed policies, replicated on a second fresh fixture, and transferred from SFT6 to SFT7. This is evidence for repair-success routing from observable score geometry.
+- Expanded v10/v11 pair actions are contaminated: stale previous-loop `candidates` state controls pair applicability; fixed pair baselines are incomplete; `best_const` is not a true fixed-family baseline; and some trainer artifacts are not reproducible from committed source. Their composition and later-promotion headlines are excluded from V5 design evidence.
+- The 166 historical VIE count is invalid as a qualified causal bank because cases violate the one-variable contract and the harvest used outcome-conditioned deletion.
 - External repair can diagnose a failure without proving the Core learned the missing computation.
 
-Conclusion: the Connector should remain an experimenter and runtime controller, while success authority remains in an independent evaluator. Replicated local primitives—not the routing policy itself—become Core-training candidates. **EVIDENCE-BACKED**
+Conclusion: the Connector should remain an experimenter and runtime controller, while success authority remains in an independent evaluator. Query-conditioned discrimination and faithful realization remain candidate native primitives; pair-action composition does not. **EVIDENCE-BACKED**
 
 ## 5. Provisional V5 architecture
 
@@ -318,9 +320,13 @@ The original 100+ questions collapse into six decisions. Optimize information ga
 
 ### E0 — Benchmark and generator certification (no TPU required)
 
-Build the nine-family measurement cube, chance baselines, direct-retrieval controls, leakage tests, split hashes, and confidence intervals. Validate that changing only the query changes the gold answer. Freeze Tier 2 before model comparison.
+**Development status in v0.2:** an executable evaluation-only generator now emits 352 deterministic cases and 96 mechanically checked causal pairs at the certification setting. It covers copy, nonce retrieval, 2/4/8-way binding, query/relevant/irrelevant/order swaps, state overwrite, one/two/three-hop relations, matched direct retrieval, missing information, counterfactual premises, rule induction, and synthetic/natural analogues. Training generators use a separate template namespace. Candidate order is randomized, hidden truth is excluded from model views, and development/sealed/fresh graph/template/domain namespaces are mechanically disjoint. Representation, selection, query-lift, and realization metrics are separate APIs.
 
-Abort if shortcuts, duplicate graphs, token-label leakage, or scorer ambiguity remain.
+The committed development receipt is `artifacts/e0/development_certificate.json`, suite SHA-256 `d821d975c3ae3d1245c7b58de08a88b66750d9a44b5200b233970b5c374ac297` (regenerate before freeze if generator code changes). It reports random/first/last/lexical/position/bag-of-words, broken-state, direct-retrieval, and full-oracle controls. An independent surface parser/solver agrees on every case, including a 20-seed property sweep. Uniform-candidate chance, Wilson intervals, answer-position distribution, and approximate sample-size planning are explicit. **This certifies infrastructure invariants, not benchmark difficulty and not model cognition.**
+
+**Still required for E0 exit:** explicit context-position/output-format balancing, preregistered paired/exact confidence procedures for every promotion metric, a source-disjoint natural set, and a real T2 seed/fixture held externally with only its commitment hash in Git. Until then E0 is **DEVELOPMENT PASS / PROMOTION NOT FROZEN** and E1 model comparisons remain unauthorized.
+
+Abort if shortcuts, duplicate graphs, token-label leakage, scorer ambiguity, or custody leakage remain.
 
 ### E1 — Tokenizer tournament
 
@@ -445,9 +451,9 @@ Core cannot grade itself and Connector intervention output cannot be its own suc
 
 ## 19. Exact sequence from today
 
-1. Review this blueprint and record objections or reopenings in `DECISIONS.md`; do not freeze numbers by silence.
-2. Implement and red-team E0 generators/evaluators without training.
-3. Freeze Tier 2 fixtures, split rules, metrics, chance controls, and contamination hashes.
+1. Treat the v10/v11 EXP expansion as contaminated; do not derive a V5 composition objective from it.
+2. Finish E0 shortcut balancing, power calibration, and natural-source custody checks.
+3. Freeze Tier 2 fixtures under external custody, with split rules, metrics, chance controls, and only commitment hashes in Git.
 4. Produce the auditable candidate corpus and tokenizer training sample.
 5. Execute E1 and E2 at P35 with matched budgets and preregistered stopping.
 6. Execute E3; replicate finalists before reading sealed Tier 2.
@@ -471,7 +477,7 @@ Core cannot grade itself and Connector intervention output cannot be its own suc
 **ESTIMATED COMPUTE:** 1.5–2.5 EFLOP pre-freeze; 4.68 EFLOP idealized and roughly 5.2–5.9 EFLOP practical for V5-A.
 **CONFIDENCE:** 0.72 in the program direction; 0.45 in the exact provisional shape and mixture.
 **READY TO FREEZE:** **NO**.
-**NEXT ACTION:** Certify E0 and freeze the benchmark/generator contract before spending TPU time.
+**NEXT ACTION:** Complete E0 red-team/custody certification, then run E1 tokenizer static audits; spend no TPU time on model comparisons before E0 exits.
 
 ## 21. Research basis
 

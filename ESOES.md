@@ -1,6 +1,6 @@
 # ESOES — Historical Initialization Memo
 
-> **NON-CANONICAL:** ESOES has completed four design iterations. Start at [`docs/esoes/README.md`](docs/esoes/README.md); the six documents listed there and `blueprints/` define Ground Blueprint v0.1. This file is retained as branch history.
+> **NON-CANONICAL:** ESOES has completed four design iterations and an E0 development phase. Start at [`docs/esoes/README.md`](docs/esoes/README.md); the canonical documents, `blueprints/`, and executable E0 receipt define Ground Blueprint v0.2. This file is retained as branch history.
 
 This branch is a design/research branch for the next An-Ra Core generation. It starts from the current `core-vnext` evidence but does **not** assume that the existing V4 architecture, tokenizer, parameter count, data recipe, or training path should survive unchanged.
 

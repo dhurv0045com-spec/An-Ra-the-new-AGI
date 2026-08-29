@@ -1,6 +1,6 @@
 # ESOES Evidence Base
 
-Version: 0.1
+Version: 0.2
 Updated: 2026-08-29
 
 This is the distilled evidence ESOES may use. Prior implementations are referenced by immutable branch/commit paths; they are not V5 dependencies.
@@ -72,14 +72,17 @@ Reference: `core-exp@51124de:PURPOSE.md` and its cited QIM-v5/QIM-v6 artifacts.
 
 ### Observed-state intervention routing
 
-Reference: `core-exp@51124de`, especially commits `306be11`, `d19850a`, `0163500`, `76f4e8c`, and `51124de`; receipts remain on that branch.
+Reference: `core-exp@51124de`, especially the v7/v8/v9 receipts and the v10/v11 runners inspected at that immutable commit.
 
-- **PROVEN / STRONG EVIDENCE:** the frozen v7 observed-only policy beat fixed and preregistered simple-rule baselines on a fresh 480-task mixed fixture and transferred across SFT checkpoint generations.
-- **PROVEN / STRONG EVIDENCE:** the v8/v9 extensions passed two further fresh promotion draws. At v11, adaptive achieved 329/480 versus 300/480 for the best fixed policy, +6.0 percentage points with reported CI [+4.0,+8.3].
-- **PROVEN / STRONG EVIDENCE:** the v9 five-action policy opened some pair-composition cases (7/80 versus 0 for fixed policies) while remaining far from robust composition.
-- **LIKELY:** observable score geometry contains reusable information about which intervention will help.
-- **INVALIDATED / CONTAMINATED:** earlier policies that did not beat constants, pair-action contaminated claims, and any label-leaking diagnostician are not evidence of a self-model.
-- **UNKNOWN:** how much of the policy is general cognitive-state diagnosis versus fixture-family structure. V5 must preserve structure-only baselines and cross-domain transfer.
+- **PROVEN:** the frozen v7 observed-only three-action policy (`NO_CHANGE`, `CONSTRAINED`, `NORMALIZED`) scored 310/480 against 274/480 for the best tested fixed policy on a fresh mixed-causal fixture: +7.5 percentage points, reported 95% CI [+5.2,+10.0], `p<1e-6`.
+- **REPLICATED:** the same frozen policy scored 291/480 against 248/480 on a second fresh fixture: +9.0 points, reported 95% CI [+6.5,+11.5].
+- **TRANSFERRED:** on the nearby SFT7 checkpoint it scored 320/480 against 280/480: +8.3 points, reported 95% CI [+6.0,+10.8].
+- **PROMISING:** observable score geometry contains reusable information about which of those three interventions will repair an output.
+- **CONTAMINATED:** v10/v11 consult `len(candidates)` before assigning the current task's `candidates = task["candidates"]`. Pair-action availability therefore depends on stale previous-loop state. Their `EXACT_PAIR`/`SLOT_PAIR`, pair-composition, and claimed later promotion results are not hard evidence.
+- **CONTAMINATED:** those expanded runs omit complete fixed pair-action baselines, and their per-family `best_const` is a per-case old-action oracle rather than one fixed family policy. Exact trainers for some frozen policy artifacts are also absent from committed source.
+- **INVALID:** the historical bank of 166 claimed VIEs does not meet the stated one-variable intervention contract; outcome-conditioned deletion in the development harvest further invalidates use as a qualified causal bank.
+- **PROVEN, narrowly:** lambda-zero policies demonstrate repair-success routing. They do not establish minimum-cost intervention selection, self-modeling, or native Core composition.
+- **UNKNOWN:** how much of v7's policy is general cognitive-state diagnosis versus fixture-family structure. V5 must preserve structure-only baselines and cross-domain transfer.
 
 ### Combined internal conclusion
 
@@ -133,7 +136,7 @@ Therefore vocabulary size, byte fallback, number segmentation, context/answer co
 
 V5 must evaluate position, length, distractors, surface form, symbols, topology, and difficulty separately and jointly. **PROVEN / STRONG EVIDENCE**
 
-## Evidence constraints carried into Ground Blueprint v0.1
+## Evidence constraints carried into Ground Blueprint v0.2
 
 1. Loss is necessary but never sufficient.
 2. Final checkpoint is never automatically promoted.
@@ -145,3 +148,4 @@ V5 must evaluate position, length, distractors, surface form, symbols, topology,
 8. Composition must beat matched direct-retrieval controls.
 9. A Connector result is not native Core capability.
 10. Major scale follows replicated proxy and mid-scale evidence, not ambition.
+11. No pair/composition objective may be justified from EXP v10/v11 until the stale-candidate bug, baselines, and reproduction gaps are corrected prospectively.

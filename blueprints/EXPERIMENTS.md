@@ -1,4 +1,4 @@
-# Ground Blueprint v0.1 — Decisive Experiment Program
+# Ground Blueprint v0.2 — Decisive Experiment Program
 
 Order is frozen: **E0 → E1/E2 → E3 → E4 → E5 → freeze review**. No production trainer or V5-A main run precedes these gates.
 
@@ -17,7 +17,7 @@ E1 and E2 may share baseline runs after E0, but scientific comparisons retain is
 
 ## E0 — Benchmark and generator certification
 
-This is the next action. It is specified here but not implemented in the design phase.
+Development infrastructure is implemented in `e0_cognition/` and has a deterministic development certificate. It has **not** frozen or consumed a real sealed suite.
 
 ### Purpose
 
@@ -90,6 +90,8 @@ Sizes may increase if E0 power analysis shows wide intervals. They may not shrin
 ### E0 exit gate
 
 E0 passes only when every family has an unambiguous scorer, chance/control behavior, no discovered shortcut, a frozen T2 hash, and a documented fresh-generation route. Failure keeps E1–E5 unauthorized.
+
+Current result: **DEVELOPMENT INFRASTRUCTURE PASS; FULL E0 EXIT NOT YET PASSED.** The current 352-case/96-pair receipt proves generator determinism, causal-pair contracts, split namespace isolation, model-view secrecy, template separation, expected oracle/broken-control signatures, independent surface-solver agreement over a 20-seed property sweep, answer-position balance, and initial chance/power calibration. Context-position/output-format balancing, natural-source custody, metric-specific paired/exact procedures, and the externally held T2 commitment remain.
 
 ## E1 — Tokenizer tournament
 

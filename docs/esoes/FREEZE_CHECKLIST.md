@@ -2,17 +2,17 @@
 
 The V5 training path is **not frozen** until every item below has an explicit answer, evidence link/receipt, or deliberate rejection.
 
-STEP 2 state: **research synthesis complete; experiments and executable receipts incomplete.** The provisional values live only in `V5_MASTER_BLUEPRINT.md`. Checked items below are research decisions, not authorization to train.
+Ground Blueprint v0.2 state: **E0 development infrastructure passes; sealed promotion certification remains incomplete.** Checked items below are research decisions or development invariants, not authorization to train.
 
 Required critical path: **E0 benchmark certification → E1 tokenizer → E2 architecture → E3 data/objective → E4 minimal curriculum/optimization → E5 102M replication → E6 freeze review.**
 
 ## Cognition contract
 
 - [x] exact cognition primitives defined
-- [ ] development benchmark implemented
+- [x] development benchmark implemented
 - [ ] sealed promotion benchmark frozen
 - [x] OOD axes defined
-- [x] representation vs selection vs realization metrics separated
+- [x] representation vs selection vs realization metrics separated in executable APIs
 - [ ] shortcut/leakage review passed
 
 ## Tokenizer
@@ -37,7 +37,7 @@ Required critical path: **E0 benchmark certification → E1 tokenizer → E2 arc
 
 - [ ] natural-data domains and source manifests frozen
 - [ ] cognitive families frozen at generator-version level
-- [ ] train/dev/test seeds separated
+- [x] training/development/sealed/fresh namespaces and explicit seeds separated
 - [ ] mixture ratios justified experimentally
 - [ ] curriculum schedule/competence gates frozen
 - [ ] deduplication and contamination checks passed
@@ -103,6 +103,11 @@ Required critical path: **E0 benchmark certification → E1 tokenizer → E2 arc
 - [x] behavioral, not chronological, checkpoint promotion established
 - [x] six-experiment information-gain program defined
 - [x] compute estimate and abort logic documented
+- [x] EXP v10/v11 pair/composition claims reclassified as contaminated
+- [x] old 166-VIE bank rejected as qualified causal evidence
+- [x] inherited VNext implementation physically removed from ESOES
+- [x] E0 deterministic development receipt, independent solver, 20-seed property sweep, and initial chance/power audit created
+- [ ] context/output balancing, metric-specific confidence preregistration, natural-source custody, and real sealed commitment complete
 
 ## Freeze artifact
 

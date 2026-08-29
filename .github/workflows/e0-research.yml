@@ -1,0 +1,24 @@
+name: E0 research contracts
+
+on:
+  push:
+    branches: [esoes]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  certify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Run E0 regression tests
+        run: python -m unittest discover -s tests -v
+      - name: Reproduce development certificate
+        run: python -m e0_cognition.certify --output /tmp/development_certificate.json --groups-per-family 16
+      - name: Verify committed receipt is reproducible
+        run: cmp artifacts/e0/development_certificate.json /tmp/development_certificate.json

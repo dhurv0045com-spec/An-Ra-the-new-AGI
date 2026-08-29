@@ -1,4 +1,4 @@
-# Ground Blueprint v0.1 — Software and Training System
+# Ground Blueprint v0.2 — Software and Training System
 
 This specifies the clean implementation boundary to build later. It deliberately does not copy the VNext directory layout or checkpoint schema.
 
