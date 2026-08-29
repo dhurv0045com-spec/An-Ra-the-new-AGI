@@ -253,3 +253,13 @@ Until then: **READY TO FREEZE = NO**.
 **ALTERNATIVES CONSIDERED:** one best-of-N score; constrained output as the headline result.
 **WHAT WOULD CHANGE OUR MIND:** a causal report showing assistance is irrelevant under all required raw-output tests.
 **ITERATION:** Ground Blueprint v0.4.
+
+## D-024 — Residual-output initialization scaling
+
+**DECISION:** initialize embeddings and ordinary matrix weights from `normal(0,0.02)`, but scale attention-output and FFN-down projection standard deviations by `1/sqrt(2L)`; retain this as the implementation default unless target-device or learning evidence contradicts it.
+**STATUS:** [EVIDENCE-BACKED LOCAL MECHANISM / EXPERIMENT REQUIRED: TARGET TPU AND E4]
+**WHY:** paired exact-stack CPU/CUDA probes show much lower depth-dependent residual growth and better block-gradient balance across all three P35 depth/width shapes.
+**EVIDENCE:** `artifacts/e2/local_cuda_signal_propagation.json` (five seeds) and `artifacts/e2/local_cpu_signal_propagation.json` (three seeds); all exact-count, finite, nonzero-gradient, and hook-count checks pass. No optimizer update was performed.
+**ALTERNATIVES CONSIDERED:** unscaled `normal(0,0.02)` everywhere; choosing initialization by convention alone; using the canary to select model shape.
+**WHAT WOULD CHANGE OUR MIND:** failure to reproduce on the target TPU/XLA constructor, materially worse bounded-update stability or cognition, or a matched alternative with lower residual growth and stronger learning evidence.
+**ITERATION:** Ground Blueprint v0.4.

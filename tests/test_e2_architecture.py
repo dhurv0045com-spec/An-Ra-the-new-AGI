@@ -12,9 +12,66 @@ from e2_architecture.block_benchmark import BenchmarkConfig, shape_arms
 from e2_architecture.block_aggregate import aggregate_receipts as aggregate_block_receipts
 from e2_architecture.device_benchmark import AttentionCase, _percentile, default_cases
 from e2_architecture.plan import build_plan
+from e2_architecture.signal_benchmark import SignalConfig, classify
 
 
 class E2ArchitectureTests(unittest.TestCase):
+    def test_signal_config_requires_replication(self) -> None:
+        SignalConfig("cuda", 256, 1, (1, 2, 3)).assert_valid()
+        with self.assertRaises(ValueError):
+            SignalConfig("cuda", 256, 1, (1, 2)).assert_valid()
+        with self.assertRaises(ValueError):
+            SignalConfig("cuda", 256, 1, (1, 1, 2)).assert_valid()
+
+    def test_signal_classification_requires_growth_and_gradient_sanity(self) -> None:
+        rows = []
+        for arm in ("deep-narrow", "middle", "wide-shallow"):
+            for policy, growth, spread in (
+                ("normal-0.02", 4.0, 5.0),
+                ("scaled-residual-0.02", 1.2, 6.0),
+            ):
+                rows.append(
+                    {
+                        "arm": arm,
+                        "policy": policy,
+                        "final_to_embedding_rms_ratio": {"median": growth},
+                        "block_gradient_max_min_ratio": {"median": spread},
+                    }
+                )
+        result = classify(rows)
+        self.assertEqual(result["verdict"], "SUPPORTED_LOCAL_SIGNAL_PROPAGATION")
+        rows[-1]["block_gradient_max_min_ratio"]["median"] = 100.0
+        self.assertEqual(classify(rows)["verdict"], "MIXED_LOCAL_SIGNAL_PROPAGATION")
+
+    def test_local_signal_receipts_are_current_and_correct(self) -> None:
+        repository = Path(__file__).parents[1]
+        implementation_sha256 = hashlib.sha256(
+            (repository / "e2_architecture/signal_benchmark.py").read_bytes()
+        ).hexdigest()
+        model_implementation_sha256 = hashlib.sha256(
+            (repository / "e2_architecture/block_benchmark.py").read_bytes()
+        ).hexdigest()
+        expected_seed_counts = {"cuda": 5, "cpu": 3}
+        for device in ("cuda", "cpu"):
+            receipt = json.loads(
+                (repository / f"artifacts/e2/local_{device}_signal_propagation.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            self.assertEqual(receipt["status"], "PASS")
+            self.assertEqual(
+                receipt["classification"]["verdict"],
+                "SUPPORTED_LOCAL_SIGNAL_PROPAGATION",
+            )
+            self.assertEqual(receipt["implementation_sha256"], implementation_sha256)
+            self.assertEqual(
+                receipt["model_implementation_sha256"], model_implementation_sha256
+            )
+            self.assertEqual(len(receipt["config"]["seeds"]), expected_seed_counts[device])
+            self.assertEqual(len(receipt["rows"]), 6 * expected_seed_counts[device])
+            for row in receipt["rows"]:
+                self.assertTrue(all(row["checks"].values()))
+
     def test_full_stack_cases_are_exact_static_shape_arms(self) -> None:
         arms = shape_arms()
         self.assertEqual(tuple(arm.name for arm in arms), ("deep-narrow", "middle", "wide-shallow"))

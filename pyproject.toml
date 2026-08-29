@@ -21,6 +21,7 @@ esoes-e2-device = "e2_architecture.device_benchmark:main"
 esoes-e2-device-aggregate = "e2_architecture.aggregate:main"
 esoes-e2-block = "e2_architecture.block_benchmark:main"
 esoes-e2-block-aggregate = "e2_architecture.block_aggregate:main"
+esoes-e2-signal = "e2_architecture.signal_benchmark:main"
 esoes-e3-plan = "e3_data_objective.plan:main"
 esoes-boundaries = "v5_contracts.import_boundaries:main"
 

@@ -48,7 +48,7 @@ The architecture contains no explicit task labels, symbolic slots, state registe
 | embeddings/head | tied | [PROVISIONAL] |
 | linear bias | none | [PROVISIONAL] |
 | dropout | zero | [PROVISIONAL] |
-| initialization | normal 0.02; residual outputs scaled near `1/sqrt(2L)` | [PROVISIONAL] |
+| initialization | normal 0.02; attention-output and FFN-down weights scaled by `1/sqrt(2L)` | [LOCAL SIGNAL EVIDENCE; TARGET CANARY REQUIRED] |
 | compute precision | BF16 with FP32 reductions/optimizer | [PROVISIONAL] |
 
 ## Parameter receipt
@@ -82,6 +82,10 @@ The future executable constructor must independently reproduce this count. If E1
 | Later | unselected | open | only measured capacity/data evidence |
 
 P35 results cannot prove an emergent capability. M102 must reproduce the winning direction before V5-A.
+
+### Initialization canary
+
+An exact-stack, paired-draw probe compared unscaled `normal(0, 0.02)` with scaling only the attention-output and FFN-down matrices by `1/sqrt(2L)`. Five randomized CUDA seeds at sequence 256 and three CPU seeds at sequence 64 used every P35 block, cross-entropy, and one backward pass without an optimizer update. On CUDA, scaled/unscaled final-RMS-growth ratios were 0.122 / 0.156 / 0.230 for deep/middle/wide, while gradient-spread ratios were 0.604 / 0.650 / 0.731. CPU reproduced the direction at 0.125 / 0.160 / 0.240 and 0.647 / 0.776 / 0.820. All parameter, hook, finite, and nonzero-gradient checks passed. This supports the scaled policy as the implementation default; it does not select depth, LR, optimizer, or cognition quality. Because even the scaled stacks amplify residual RMS by 3.5–5.4× on CUDA, the target TPU/XLA constructor must repeat the canary and E4 must test real-update stability before freeze.
 
 ## Rejected from V5-A baseline
 

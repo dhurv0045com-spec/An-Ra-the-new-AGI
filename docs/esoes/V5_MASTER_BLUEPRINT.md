@@ -113,7 +113,7 @@ Conclusion: the Connector should remain an experimenter and runtime controller, 
 | QK norm | enabled candidate with affine Q/K scales | EXPERIMENT REQUIRED | Stability evidence exists; discrimination effect is unknown |
 | Embedding/output | tied | STRONG INFERENCE | Parameter efficient; no An-Ra evidence to untie |
 | Bias/dropout | bias-free, dropout 0 | STRONG INFERENCE | Conventional at this scale and data volume |
-| Initialization | normal std 0.02; residual output projections scaled by about `1/sqrt(2L)` | STRONG INFERENCE | Reduces depth-dependent residual growth |
+| Initialization | normal std 0.02; attention-output and FFN-down projections scaled by `1/sqrt(2L)` | EVIDENCE-BACKED locally / EXPERIMENT REQUIRED on target | Paired CPU/CUDA exact-stack canaries reduce residual growth and gradient imbalance; learning effect remains unmeasured |
 | Precision | BF16 compute, FP32 reductions and optimizer state | EVIDENCE-BACKED | Appropriate TPU stability path |
 
 Parameter calculation under the current An-Ra block conventions:
@@ -345,6 +345,8 @@ At ~35M parameters compare parameter-matched deep/narrow, middle, and wide/shall
 The purpose is to decide depth, attention topology, and QK/GQA—not to crown a benchmark winner from one seed. A replicated local CUDA kernel probe already discovered that this exact PyTorch/Windows build routes native GQA through the math backend: it is 5.20× MHA latency and 13.86× peak allocation, while explicit repeated K/V is 1.09× latency and 1.45× memory. Native 4k is 3.59× native-2k latency and 3.80× memory. This is **EVIDENCE-BACKED for implementation selection on the measured stack**, not evidence against GQA or 4k on TPU; the target framework must run the same backend canary before E2.
 
 A second replicated canary constructs each exact ~35M shape end to end and performs forward/backward without an optimizer update. Randomized case order prevents context length from being confounded with GPU warm-up. Across three RTX seeds, wide/shallow is 3.17× deep at sequence 512 and 1.91× at 4k; its 4k peak allocation is 2.57 GB versus 3.54 GB deep. A bounded CPU run preserves the ordering. **EVIDENCE-BACKED local execution prior:** fewer/wider blocks are substantially cheaper on these eager runtimes. **EXPERIMENT REQUIRED:** whether additional depth earns this cost in fresh-OOD cognition per measured FLOP. Do not replace the provisional V5 shape from throughput alone.
+
+A third canary isolates the initialization policy with paired random draws. Across five CUDA seeds, scaling attention-output and FFN-down initialization by `1/sqrt(2L)` reduces final-block/embedding RMS growth from 28.81× to 3.52× (deep), 27.12× to 4.22× (middle), and 23.43× to 5.38× (wide). Median block-gradient max/min spread also falls from 5.79/5.20/3.78 to 3.49/3.38/2.76. Three CPU seeds reproduce the direction. **EVIDENCE-BACKED on the tested constructors:** use scaled residual-output initialization as the default. **EXPERIMENT REQUIRED:** target-TPU reproduction and evidence from bounded real updates; this probe neither trains nor measures cognition.
 
 ### E3 — Data/objective screen
 

@@ -32,3 +32,9 @@ affine QK norm, MHA, SwiGLU, cross-entropy, and backward, then verifies exact
 parameter counts and finite gradients. It deliberately performs no optimizer
 update. Use small matched sequences on local CPU/CUDA; repeat the same receipt
 on the target TPU stack before architecture selection.
+
+`e2_architecture.signal_benchmark` compares the provisional normal(0.02)
+initialization with the same paired draws plus `1/sqrt(2L)` residual-output
+scaling. It records per-layer activation RMS and block-gradient RMS across
+multiple seeds after one forward/backward. It performs no optimizer update and
+can only support an initialization canary, not predict learned cognition.
