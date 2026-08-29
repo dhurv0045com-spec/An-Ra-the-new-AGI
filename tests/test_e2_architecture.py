@@ -51,12 +51,14 @@ class E2ArchitectureTests(unittest.TestCase):
         model_implementation_sha256 = hashlib.sha256(
             (repository / "e2_architecture/block_benchmark.py").read_bytes()
         ).hexdigest()
-        expected_seed_counts = {"cuda": 5, "cpu": 3}
-        for device in ("cuda", "cpu"):
+        expected_receipts = (
+            ("local_cuda_signal_propagation.json", "cuda", 5, 256),
+            ("local_cuda_signal_propagation_4k.json", "cuda", 3, 4096),
+            ("local_cpu_signal_propagation.json", "cpu", 3, 64),
+        )
+        for filename, device, expected_seed_count, sequence_length in expected_receipts:
             receipt = json.loads(
-                (repository / f"artifacts/e2/local_{device}_signal_propagation.json").read_text(
-                    encoding="utf-8"
-                )
+                (repository / "artifacts/e2" / filename).read_text(encoding="utf-8")
             )
             self.assertEqual(receipt["status"], "PASS")
             self.assertEqual(
@@ -67,8 +69,10 @@ class E2ArchitectureTests(unittest.TestCase):
             self.assertEqual(
                 receipt["model_implementation_sha256"], model_implementation_sha256
             )
-            self.assertEqual(len(receipt["config"]["seeds"]), expected_seed_counts[device])
-            self.assertEqual(len(receipt["rows"]), 6 * expected_seed_counts[device])
+            self.assertEqual(receipt["config"]["device"], device)
+            self.assertEqual(receipt["config"]["sequence_length"], sequence_length)
+            self.assertEqual(len(receipt["config"]["seeds"]), expected_seed_count)
+            self.assertEqual(len(receipt["rows"]), 6 * expected_seed_count)
             for row in receipt["rows"]:
                 self.assertTrue(all(row["checks"].values()))
 
