@@ -10,3 +10,19 @@ No tokenizer winner exists yet. The harness makes the experiment executable with
 32,768 entries). It requires one external corpus manifest and enforces identical
 raw-byte and measured-FLOP budgets; until those artifacts exist its status is
 `BLOCKED_EXTERNAL_CORPUS`, not a tokenizer recommendation.
+
+For bounded local development, `e1_tokenizer.local_tournament` independently
+trains all three byte-level BPE arms from the same hash-bound text records. It
+uses a content-hash holdout so duplicate lines cannot cross train/evaluation,
+audits every candidate, repeats the 24k build for byte-level determinism, and
+reports held-out tokens/byte by source domain. Example:
+
+```text
+python -m e1_tokenizer.local_tournament \
+  --source LABEL::DOMAIN::PATH \
+  --output-directory artifacts/e1/local_tournament
+```
+
+This command needs the optional `tokenizers` package. Its result is explicitly
+`DEVELOPMENT_STATIC_PASS`, never an E1 promotion: local sources do not replace
+representative external custody or matched P35 byte-normalized loss/cognition.

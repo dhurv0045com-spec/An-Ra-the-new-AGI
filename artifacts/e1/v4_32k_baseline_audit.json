@@ -1,0 +1,49 @@
+{
+  "artifact_sha256": "1a0140661c9d16c830f8dd8292699946e92db0be6f7aec92fb272d13cc1c745b",
+  "candidate": "v4-native-32k-baseline",
+  "checks": {
+    "all_probes_present_once": true,
+    "identity_roundtrip": true,
+    "token_ids_in_range": true,
+    "zero_unknowns": true
+  },
+  "failures": {
+    "range": [],
+    "roundtrip": [],
+    "unknown": []
+  },
+  "limitations": [
+    "Committed probes are canaries, not the serious external E1 corpus.",
+    "Static compression/identity results do not select a tokenizer without matched model training."
+  ],
+  "metrics": {
+    "per_probe": {
+      "answer-01": {"tokens": 20, "tokens_per_byte": 0.5128205128205128, "utf8_bytes": 39},
+      "code-01": {"tokens": 23, "tokens_per_byte": 0.5227272727272727, "utf8_bytes": 44},
+      "code-02": {"tokens": 11, "tokens_per_byte": 0.4074074074074074, "utf8_bytes": 27},
+      "formal-01": {"tokens": 30, "tokens_per_byte": 1.0, "utf8_bytes": 30},
+      "legal-01": {"tokens": 28, "tokens_per_byte": 0.417910447761194, "utf8_bytes": 67},
+      "natural-01": {"tokens": 16, "tokens_per_byte": 0.37209302325581395, "utf8_bytes": 43},
+      "nonce-01": {"tokens": 21, "tokens_per_byte": 0.7, "utf8_bytes": 30},
+      "nonce-02": {"tokens": 13, "tokens_per_byte": 0.7647058823529411, "utf8_bytes": 17},
+      "number-01": {"tokens": 25, "tokens_per_byte": 0.6410256410256411, "utf8_bytes": 39},
+      "spacing-01": {"tokens": 12, "tokens_per_byte": 0.5454545454545454, "utf8_bytes": 22},
+      "unicode-01": {"tokens": 78, "tokens_per_byte": 1.0, "utf8_bytes": 78},
+      "unicode-02": {"tokens": 36, "tokens_per_byte": 0.9, "utf8_bytes": 40}
+    },
+    "tokens_per_byte": 0.657563025210084,
+    "tokens_per_byte_by_domain": {
+      "code": 0.4946236559139785,
+      "cognition": 0.627906976744186,
+      "formal": 1.0,
+      "legal": 0.417910447761194,
+      "math": 0.6410256410256411,
+      "natural": 0.8074534161490683
+    },
+    "total_tokens": 313,
+    "total_utf8_bytes": 476
+  },
+  "schema": "esoes-e1-static-audit/v1",
+  "status": "PASS",
+  "vocabulary_size": 32768
+}

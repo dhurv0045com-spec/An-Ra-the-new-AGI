@@ -1,0 +1,130 @@
+{
+  "cases": [
+    {
+      "forward_backward_median_ms_across_runs": 4.051007866859436,
+      "forward_backward_median_ms_range": [
+        3.981824040412903,
+        4.253183841705322
+      ],
+      "forward_backward_peak_allocated_bytes": 31654912,
+      "forward_median_ms_across_runs": 1.2767199873924255,
+      "forward_median_ms_range": [
+        1.1426720023155212,
+        1.306496024131775
+      ],
+      "name": "mha-qk-2k"
+    },
+    {
+      "forward_backward_median_ms_across_runs": 21.07697582244873,
+      "forward_backward_median_ms_range": [
+        20.64025592803955,
+        21.084575653076172
+      ],
+      "forward_backward_peak_allocated_bytes": 438666240,
+      "forward_median_ms_across_runs": 11.61620807647705,
+      "forward_median_ms_range": [
+        11.586672306060791,
+        11.649199962615967
+      ],
+      "name": "gqa-qk-2k"
+    },
+    {
+      "forward_backward_median_ms_across_runs": 4.400559902191162,
+      "forward_backward_median_ms_range": [
+        4.151808023452759,
+        4.706223964691162
+      ],
+      "forward_backward_peak_allocated_bytes": 46023680,
+      "forward_median_ms_across_runs": 1.1862559914588928,
+      "forward_median_ms_range": [
+        1.1691679954528809,
+        1.40939199924469
+      ],
+      "name": "gqa-repeat-kv-qk-2k"
+    },
+    {
+      "forward_backward_median_ms_across_runs": 19.35206413269043,
+      "forward_backward_median_ms_range": [
+        19.296256065368652,
+        19.438079833984375
+      ],
+      "forward_backward_peak_allocated_bytes": 433325056,
+      "forward_median_ms_across_runs": 10.842992305755615,
+      "forward_median_ms_range": [
+        10.7391676902771,
+        10.853760242462158
+      ],
+      "name": "gqa-no-qk-2k"
+    },
+    {
+      "forward_backward_median_ms_across_runs": 75.63412857055664,
+      "forward_backward_median_ms_range": [
+        75.45343780517578,
+        75.84204864501953
+      ],
+      "forward_backward_peak_allocated_bytes": 1665467392,
+      "forward_median_ms_across_runs": 41.206830978393555,
+      "forward_median_ms_range": [
+        40.84249496459961,
+        41.49772834777832
+      ],
+      "name": "gqa-qk-4k"
+    }
+  ],
+  "comparisons": {
+    "native_gqa_4k_vs_2k_training_latency_ratio": 3.588471572378045,
+    "native_gqa_4k_vs_2k_training_memory_ratio": 3.7966618812516777,
+    "native_gqa_vs_mha_training_latency_ratio": 5.202896788938788,
+    "native_gqa_vs_mha_training_memory_ratio": 13.857762106557113,
+    "native_qk_norm_training_latency_ratio": 1.0891332148307888,
+    "repeat_kv_gqa_vs_mha_training_latency_ratio": 1.0862876713203518,
+    "repeat_kv_gqa_vs_mha_training_memory_ratio": 1.453919063177304
+  },
+  "cuda_runtime": "12.8",
+  "device_name": "NVIDIA GeForce RTX 4050 Laptop GPU",
+  "gqa_equivalence_maximum_absolute_error": 0.0078125,
+  "implementation_sha256": "9ca8821128213733ea44fdee54d9a5a4fe7a791b37459316c9e8d5d1dfc7d71f",
+  "interpretation": "On this exact Windows/PyTorch/CUDA stack, native GQA is confined to the math backend. Repeated-K/V GQA recovers a faster fused path at higher activation memory. This is an implementation selection result, not evidence against GQA on TPU.",
+  "limitations": [
+    "The probe excludes projections, FFN, optimizer, collectives, and input pipeline.",
+    "Kernel speed and memory do not establish cognition quality.",
+    "Laptop GPU results are not TPU throughput evidence."
+  ],
+  "native_gqa_backend_support": {
+    "efficient": {
+      "error": "RuntimeError: No available kernel. Aborting execution.",
+      "supported": false
+    },
+    "flash": {
+      "error": "RuntimeError: No available kernel. Aborting execution.",
+      "supported": false
+    },
+    "math": {
+      "finite": true,
+      "supported": true
+    }
+  },
+  "schema": "esoes-e2-device-benchmark-aggregate/v1",
+  "scope": "isolated causal SDPA plus optional RMS QK normalization; not a full model",
+  "seeds": [
+    31001,
+    31002,
+    31003
+  ],
+  "source_receipts": [
+    {
+      "path": "local_cuda_attention.json",
+      "sha256": "76a6a170a7e83abe0551d9f491179a55f4445ddb3b4f34b0b6a4d985ca6d4335"
+    },
+    {
+      "path": "local_cuda_attention_seed31002.json",
+      "sha256": "289b8282571a9239f0ef2bfc32db3606538c0b5d1a9442e6d696eca9be3c5590"
+    },
+    {
+      "path": "local_cuda_attention_seed31003.json",
+      "sha256": "d16dd43a6822928a9337afb65a8c76e76615cc115f559f66dc9eeb48c330ccee"
+    }
+  ],
+  "status": "PASS_REPLICATED",
+  "torch_version": "2.11.0+cu128"
+}

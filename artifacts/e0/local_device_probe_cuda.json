@@ -1,0 +1,40 @@
+{
+  "e0_cpu": {
+    "baseline_seconds": 0.037012499989941716,
+    "cases": 368,
+    "cases_per_second": 2640.3701127730164,
+    "generation_seconds": 0.10236189991701394,
+    "pairs": 112,
+    "total_seconds": 0.13937439990695566
+  },
+  "logical_processors": 16,
+  "platform": "Windows-10-10.0.26200-SP0",
+  "processor": "AMD64 Family 25 Model 68 Stepping 1, AuthenticAMD",
+  "python": "3.11.15 (main, Jun 23 2026, 15:20:37) [MSC v.1944 64 bit (AMD64)]",
+  "python_executable": "C:\\Users\\ankit\\Downloads\\An-Ra-the-new-AGI-1\\.venv-cuda\\Scripts\\python.exe",
+  "schema": "esoes-local-device-probe/v1",
+  "torch": {
+    "available": true,
+    "cuda_available": true,
+    "cuda_runtime": "12.8",
+    "devices": {
+      "cpu": {
+        "gflop_per_second": 210.84868671242273,
+        "repeats": 50,
+        "seconds": 4.073980599991046,
+        "size": 2048,
+        "warmup": 10
+      },
+      "cuda": {
+        "device_name": "NVIDIA GeForce RTX 4050 Laptop GPU",
+        "gflop_per_second": 4847.16068777838,
+        "peak_memory_bytes": 58851328,
+        "repeats": 50,
+        "seconds": 0.17721580003853887,
+        "size": 2048,
+        "warmup": 10
+      }
+    },
+    "version": "2.11.0+cu128"
+  }
+}

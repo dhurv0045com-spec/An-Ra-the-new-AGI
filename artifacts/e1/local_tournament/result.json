@@ -1,0 +1,139 @@
+{
+  "canary_pareto_front": [
+    "local-byte-bpe-16384",
+    "local-byte-bpe-24576",
+    "local-byte-bpe-32768"
+  ],
+  "candidate_rows": [
+    {
+      "artifact": "tokenizer-16384.json.gz",
+      "artifact_bytes": 175911,
+      "artifact_sha256": "0a83fb9280ef5309f3351a5ec0dd9889940da374b3e17d02a687c1c307e1fd1b",
+      "audit_receipt_sha256": "f64594dc45100257e3aaebbcbbb6674591fbeb979b5576078ac949a12013ce5f",
+      "compressed_artifact_reload_pass": true,
+      "encoding_receipt_sha256": "30e27b32cacd8dc2bd8ae4849d96ae22cd896692f975b6bc2d2211b102194bf7",
+      "evaluation": {
+        "encoding_megabytes_per_second": 0.7659710610101272,
+        "encoding_seconds": 1.3812232000054792,
+        "identity_roundtrip_failures": 0,
+        "line_tokens": {
+          "maximum": 713,
+          "median": 11,
+          "p95": 59
+        },
+        "literal_unknown_token_occurrences": 1,
+        "records": 14757,
+        "tokens_per_byte": 0.23826415886167657,
+        "tokens_per_byte_by_domain": {
+          "legacy-mixed": 0.23826415886167657
+        },
+        "total_tokens": 252078,
+        "total_utf8_bytes": 1057977,
+        "unexpected_unknown_token_occurrences": 0,
+        "unknown_token_occurrences": 1
+      },
+      "identity_audit_status": "PASS",
+      "name": "local-byte-bpe-16384",
+      "training_seconds": 1.976900800014846,
+      "vocabulary_size": 16384
+    },
+    {
+      "artifact": "tokenizer-24576.json.gz",
+      "artifact_bytes": 273174,
+      "artifact_sha256": "97e12db63b343312e5e4abc37df9ef4b01fcb1faba792a6420a4c1b15d0a7fbc",
+      "audit_receipt_sha256": "54431db131941148bb3e2f2ebe4f3eb8f8f5bc587c5314bf201ab71fd3093cfa",
+      "compressed_artifact_reload_pass": true,
+      "encoding_receipt_sha256": "7eca16987e373b732227caebfd86f359df08c0f35213eb15fd59c6ba588f1af3",
+      "evaluation": {
+        "encoding_megabytes_per_second": 0.7625984471026188,
+        "encoding_seconds": 1.3873316999524832,
+        "identity_roundtrip_failures": 0,
+        "line_tokens": {
+          "maximum": 680,
+          "median": 10,
+          "p95": 58
+        },
+        "literal_unknown_token_occurrences": 1,
+        "records": 14757,
+        "tokens_per_byte": 0.23216667281046752,
+        "tokens_per_byte_by_domain": {
+          "legacy-mixed": 0.23216667281046752
+        },
+        "total_tokens": 245627,
+        "total_utf8_bytes": 1057977,
+        "unexpected_unknown_token_occurrences": 0,
+        "unknown_token_occurrences": 1
+      },
+      "identity_audit_status": "PASS",
+      "name": "local-byte-bpe-24576",
+      "training_seconds": 2.3514677999773994,
+      "vocabulary_size": 24576
+    },
+    {
+      "artifact": "tokenizer-32768.json.gz",
+      "artifact_bytes": 373762,
+      "artifact_sha256": "56be8e1cab4a1b0cede97f5bd5e6af8f2f68175f846362a7c0fcdbd5f048ba7f",
+      "audit_receipt_sha256": "b21763264aa58ce87e2e23cc97d7c33d21f03aada66dc190926a789a8fd84b88",
+      "compressed_artifact_reload_pass": true,
+      "encoding_receipt_sha256": "711590c27cf4ec6638b5923b929ae42958759ff28d04fa46d173b1c803970766",
+      "evaluation": {
+        "encoding_megabytes_per_second": 0.7716979109258583,
+        "encoding_seconds": 1.3709729999536648,
+        "identity_roundtrip_failures": 0,
+        "line_tokens": {
+          "maximum": 667,
+          "median": 10,
+          "p95": 57
+        },
+        "literal_unknown_token_occurrences": 1,
+        "records": 14757,
+        "tokens_per_byte": 0.23021767013838676,
+        "tokens_per_byte_by_domain": {
+          "legacy-mixed": 0.23021767013838676
+        },
+        "total_tokens": 243565,
+        "total_utf8_bytes": 1057977,
+        "unexpected_unknown_token_occurrences": 0,
+        "unknown_token_occurrences": 1
+      },
+      "identity_audit_status": "PASS",
+      "name": "local-byte-bpe-32768",
+      "training_seconds": 2.388676199945621,
+      "vocabulary_size": 32768
+    }
+  ],
+  "corpus_manifest": "corpus_manifest.json",
+  "corpus_manifest_sha256": "6b91d30282bfb2e7ba63ce6e43ecb09422a30189978eadb7a100720b1bb71d7e",
+  "determinism": {
+    "artifact_sha256": "97e12db63b343312e5e4abc37df9ef4b01fcb1faba792a6420a4c1b15d0a7fbc",
+    "byte_identical": true,
+    "replica_sha256": "97e12db63b343312e5e4abc37df9ef4b01fcb1faba792a6420a4c1b15d0a7fbc",
+    "replica_training_seconds": 2.205780199961737,
+    "vocabulary_size": 24576
+  },
+  "implementation_sha256": "e23edb6d58b566b03d84969f1f63e014b2a6f59e09b25c16780153b62a736580",
+  "limitations": [
+    "Local dialogue, synthetic, code, and documentation sources are not representative pretraining data.",
+    "Static tokenization does not measure byte-normalized model loss or cognition.",
+    "Candidate training uses equal raw text, not equal downstream model FLOPs.",
+    "This receipt cannot authorize E2 or replace external E1 custody."
+  ],
+  "result_sha256": "21bbd071af450d8348c117ac4aeb3f3ace06ff2c9573230bb453df41a1776494",
+  "schema": "esoes-e1-local-development-tournament/v1",
+  "scope": "independently trained tokenizers on local development sources; not external E1",
+  "status": "DEVELOPMENT_STATIC_PASS",
+  "tokenizers_version": "0.23.1",
+  "trainer": {
+    "byte_fallback": true,
+    "min_frequency": 1,
+    "model": "BPE",
+    "normalizer": null,
+    "pre_tokenizer": "ByteLevel(add_prefix_space=False,use_regex=True)",
+    "special_tokens": [
+      "<pad>",
+      "<unk>",
+      "<bos>",
+      "<eos>"
+    ]
+  }
+}

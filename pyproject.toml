@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "anra-esoes-research"
-version = "0.4.0"
-description = "Executable ESOES cognition, tokenizer, and V5 infrastructure contracts"
+version = "0.6.0"
+description = "Executable ESOES cognition, tokenizer, architecture, data/objective, and V5 contracts"
 requires-python = ">=3.10"
 dependencies = []
 
@@ -15,7 +15,12 @@ esoes-v5-contracts = "v5_contracts.certify:main"
 esoes-e0-seal = "e0_cognition.sealed:main"
 esoes-e1-audit = "e1_tokenizer.audit:main"
 esoes-e1-plan = "e1_tokenizer.tournament:main"
+esoes-e1-local = "e1_tokenizer.local_tournament:main"
+esoes-e2-plan = "e2_architecture.plan:main"
+esoes-e2-device = "e2_architecture.device_benchmark:main"
+esoes-e2-device-aggregate = "e2_architecture.aggregate:main"
+esoes-e3-plan = "e3_data_objective.plan:main"
 esoes-boundaries = "v5_contracts.import_boundaries:main"
 
 [tool.setuptools.packages.find]
-include = ["e0_cognition*", "v5_contracts*", "e1_tokenizer*"]
+include = ["e0_cognition*", "v5_contracts*", "e1_tokenizer*", "e2_architecture*", "e3_data_objective*"]

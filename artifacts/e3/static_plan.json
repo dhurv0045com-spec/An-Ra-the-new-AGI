@@ -1,0 +1,122 @@
+{
+  "comparison_policy": {
+    "fixed": [
+      "tokenizer",
+      "model",
+      "optimizer",
+      "schedule",
+      "source order",
+      "raw bytes",
+      "tokens",
+      "evaluation fixtures"
+    ],
+    "phase_a_changes_only": "verified cognition fraction",
+    "phase_b_changes_only": "query-swap auxiliary lambda"
+  },
+  "dependencies": {
+    "corpus_manifest_sha256": null,
+    "e2_winner_sha256": null,
+    "generator_sha256": null,
+    "model_constructor_sha256": null,
+    "tokenizer_sha256": null
+  },
+  "evaluation_boundaries": [
+    50000000,
+    100000000,
+    200000000
+  ],
+  "experiment_id": "E3-P35-data-objective-screen-v1",
+  "limitations": [
+    "This artifact freezes experiment logic; it is not a training result.",
+    "Phase B cannot be chosen before Phase A evidence exists.",
+    "The trace arm remains disabled unless a hashed transfer failure triggers it."
+  ],
+  "phase_a_mixture_arms": [
+    {
+      "cognition_fraction": 0.05,
+      "mixture": {
+        "code_math_formal": 0.2235294117647059,
+        "natural": 0.7264705882352941,
+        "verified_cognition": 0.05
+      },
+      "name": "cognition-05-ce",
+      "objective": "causal-next-token-ce",
+      "token_allocation": {
+        "code_math_formal": 44705882,
+        "natural": 145294118,
+        "verified_cognition": 10000000
+      }
+    },
+    {
+      "cognition_fraction": 0.15,
+      "mixture": {
+        "code_math_formal": 0.2,
+        "natural": 0.65,
+        "verified_cognition": 0.15
+      },
+      "name": "cognition-15-ce",
+      "objective": "causal-next-token-ce",
+      "token_allocation": {
+        "code_math_formal": 40000000,
+        "natural": 130000000,
+        "verified_cognition": 30000000
+      }
+    },
+    {
+      "cognition_fraction": 0.3,
+      "mixture": {
+        "code_math_formal": 0.16470588235294117,
+        "natural": 0.5352941176470588,
+        "verified_cognition": 0.3
+      },
+      "name": "cognition-30-ce",
+      "objective": "causal-next-token-ce",
+      "token_allocation": {
+        "code_math_formal": 32941176,
+        "natural": 107058824,
+        "verified_cognition": 60000000
+      }
+    }
+  ],
+  "phase_b": {
+    "objective_arms": [
+      {
+        "name": "ce-control",
+        "query_swap_lambda": 0.0,
+        "scope": "mechanically-verified-query-swap-pairs-only"
+      },
+      {
+        "name": "query-swap-0.05",
+        "query_swap_lambda": 0.05,
+        "scope": "mechanically-verified-query-swap-pairs-only"
+      },
+      {
+        "name": "query-swap-0.15",
+        "query_swap_lambda": 0.15,
+        "scope": "mechanically-verified-query-swap-pairs-only"
+      }
+    ],
+    "selected_mixture": null,
+    "selected_neighbor": null
+  },
+  "plan_sha256": "8541e59eac8a45a466a6765e276bd98fdc3d8311391fcf8e22291767f3c7c90e",
+  "promotion_gates": {
+    "assisted_only_gain_rejected": true,
+    "candidate_free_improvement_required": true,
+    "maximum_substrate_loss_regression_fraction": 0.03,
+    "natural_analogue_transfer_required": true,
+    "primary": "worst-family fresh-OOD cognition per measured training FLOP",
+    "raw_core_improvement_required": true,
+    "synthetic_only_gain_rejected": true
+  },
+  "raw_byte_budget": null,
+  "schema": "esoes-e3-plan/v1",
+  "screen_tokens": 200000000,
+  "status": "BLOCKED_UPSTREAM_INPUTS",
+  "trace_arm": {
+    "enabled": false,
+    "maximum_trace_exposure_fraction": 0.25,
+    "required_evaluation": "trace-free",
+    "trigger_receipt_sha256": null
+  }
+}

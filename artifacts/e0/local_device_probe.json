@@ -1,0 +1,20 @@
+{
+  "e0_cpu": {
+    "baseline_seconds": 0.015312499948777258,
+    "cases": 368,
+    "cases_per_second": 6567.406033983618,
+    "generation_seconds": 0.04072180006187409,
+    "pairs": 112,
+    "total_seconds": 0.05603430001065135
+  },
+  "logical_processors": 16,
+  "platform": "Windows-10-10.0.26200-SP0",
+  "processor": "AMD64 Family 25 Model 68 Stepping 1, AuthenticAMD",
+  "python": "3.11.15 (main, Jun 23 2026, 15:20:37) [MSC v.1944 64 bit (AMD64)]",
+  "python_executable": "C:\\Users\\ankit\\AppData\\Local\\hermes\\hermes-agent\\venv\\Scripts\\python.exe",
+  "schema": "esoes-local-device-probe/v1",
+  "torch": {
+    "available": false,
+    "reason": "torch unavailable: No module named 'torch'"
+  }
+}

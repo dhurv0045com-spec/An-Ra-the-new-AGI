@@ -1,0 +1,79 @@
+{
+  "schema": "esoes-e1-prefix-truncation-proxy/v1",
+  "status": "INFORMATIONAL_ONLY",
+  "source_artifact_sha256": "1a0140661c9d16c830f8dd8292699946e92db0be6f7aec92fb272d13cc1c745b",
+  "method": "truncate the ordered V4 32k vocabulary while preserving its existing greedy encoding and byte fallback",
+  "checks": {
+    "byte_fallback_survives_16k": true,
+    "canary_roundtrip_exact_all_arms": true,
+    "canary_unexpected_unknowns_all_arms": 0,
+    "repository_proxy_unexpected_unknowns_all_arms": 0
+  },
+  "canaries": {
+    "utf8_bytes": 476,
+    "rows": [
+      {
+        "vocabulary_size": 16384,
+        "tokens": 322,
+        "tokens_per_byte": 0.6764705882352942,
+        "inflation_vs_32k_pct": 2.8753993610223574,
+        "embedding_parameters_at_width_896": 14680064,
+        "embedding_saving_vs_32k": 14680064
+      },
+      {
+        "vocabulary_size": 24576,
+        "tokens": 319,
+        "tokens_per_byte": 0.6701680672268907,
+        "inflation_vs_32k_pct": 1.9169329073482346,
+        "embedding_parameters_at_width_896": 22020096,
+        "embedding_saving_vs_32k": 7340032
+      },
+      {
+        "vocabulary_size": 32768,
+        "tokens": 313,
+        "tokens_per_byte": 0.657563025210084,
+        "inflation_vs_32k_pct": 0.0,
+        "embedding_parameters_at_width_896": 29360128,
+        "embedding_saving_vs_32k": 0
+      }
+    ]
+  },
+  "repository_proxy": {
+    "files": 71,
+    "utf8_bytes": 536826,
+    "literal_unknown_token_occurrences": 2,
+    "unexpected_unknowns": 0,
+    "rows": [
+      {
+        "vocabulary_size": 16384,
+        "tokens": 210873,
+        "tokens_per_byte": 0.39281443149176826,
+        "inflation_vs_32k_pct": 4.698376446055308,
+        "embedding_parameters_at_width_896": 14680064,
+        "embedding_saving_vs_32k": 14680064
+      },
+      {
+        "vocabulary_size": 24576,
+        "tokens": 204545,
+        "tokens_per_byte": 0.3810266268772377,
+        "inflation_vs_32k_pct": 1.5565264882577923,
+        "embedding_parameters_at_width_896": 22020096,
+        "embedding_saving_vs_32k": 7340032
+      },
+      {
+        "vocabulary_size": 32768,
+        "tokens": 201410,
+        "tokens_per_byte": 0.3751867457984524,
+        "inflation_vs_32k_pct": 0.0,
+        "embedding_parameters_at_width_896": 29360128,
+        "embedding_saving_vs_32k": 0
+      }
+    ]
+  },
+  "interpretation": "The 24k planning center is not rejected: prefix truncation costs 1.56% tokens on the local proxy while saving 7.34M embedding parameters. This does not replace independently trained candidates or matched P35 evaluation.",
+  "limitations": [
+    "Prefix truncations are ablations of one ordered vocabulary, not independently trained tokenizer candidates.",
+    "The repository proxy is code/documentation, not the external E1 corpus and not representative natural-language data.",
+    "No model loss, cognition, throughput, or target-accelerator result is measured."
+  ]
+}

@@ -1,0 +1,383 @@
+{
+  "arms": [
+    {
+      "attention_fraction_of_forward_proxy": 0.5333333333333333,
+      "factors": {
+        "shape": "deep"
+      },
+      "forward_flops_per_full_sequence_proxy": 241591910400,
+      "group": "shape",
+      "idealized_6nd_flops_at_screen_tokens": 42504576000000000,
+      "kv_cache_bf16_bytes_per_full_sequence": 62914560,
+      "model": {
+        "context_length": 2048,
+        "dropout": 0.0,
+        "family": "dense-decoder-transformer",
+        "ffn_width": 768,
+        "head_dimension": 64,
+        "kv_heads": 5,
+        "layers": 24,
+        "linear_bias": false,
+        "norm_epsilon": 1e-05,
+        "qk_norm": true,
+        "qk_norm_affine": true,
+        "query_heads": 5,
+        "rope_base": 10000.0,
+        "schema": "anra-v5-p35-model-spec/v1",
+        "tied_embeddings": true,
+        "vocabulary_size": 24576,
+        "width": 320
+      },
+      "model_sha256": "3132babf94ddd2fef21c6e4b57dac556e91de0f405b392bbe339854b907e5dbc",
+      "name": "deep-narrow",
+      "parameter_distance_from_35m_pct": 1.2013714285714183,
+      "parameters": {
+        "all_blocks": 27555840,
+        "attention_per_layer": 409600,
+        "block_norms_per_layer": 640,
+        "block_total": 1148160,
+        "embedding": 7864320,
+        "ffn_per_layer": 737280,
+        "final_norm": 320,
+        "qk_norms_per_layer": 640,
+        "total": 35420480
+      }
+    },
+    {
+      "attention_fraction_of_forward_proxy": 0.49230769230769234,
+      "factors": {
+        "shape": "middle"
+      },
+      "forward_flops_per_full_sequence_proxy": 209379655680,
+      "group": "shape",
+      "idealized_6nd_flops_at_screen_tokens": 42497280000000000,
+      "kv_cache_bf16_bytes_per_full_sequence": 50331648,
+      "model": {
+        "context_length": 2048,
+        "dropout": 0.0,
+        "family": "dense-decoder-transformer",
+        "ffn_width": 896,
+        "head_dimension": 64,
+        "kv_heads": 6,
+        "layers": 16,
+        "linear_bias": false,
+        "norm_epsilon": 1e-05,
+        "qk_norm": true,
+        "qk_norm_affine": true,
+        "query_heads": 6,
+        "rope_base": 10000.0,
+        "schema": "anra-v5-p35-model-spec/v1",
+        "tied_embeddings": true,
+        "vocabulary_size": 24576,
+        "width": 384
+      },
+      "model_sha256": "6fd07f45a4e19d3eb98476a31047cc841bea39ccabd8efc7bc6d71473086b04f",
+      "name": "middle",
+      "parameter_distance_from_35m_pct": 1.1840000000000073,
+      "parameters": {
+        "all_blocks": 25976832,
+        "attention_per_layer": 589824,
+        "block_norms_per_layer": 768,
+        "block_total": 1623552,
+        "embedding": 9437184,
+        "ffn_per_layer": 1032192,
+        "final_norm": 384,
+        "qk_norms_per_layer": 768,
+        "total": 35414400
+      }
+    },
+    {
+      "attention_fraction_of_forward_proxy": 0.4266666666666667,
+      "factors": {
+        "shape": "wide"
+      },
+      "forward_flops_per_full_sequence_proxy": 161061273600,
+      "group": "shape",
+      "idealized_6nd_flops_at_screen_tokens": 42173030400000000,
+      "kv_cache_bf16_bytes_per_full_sequence": 33554432,
+      "model": {
+        "context_length": 2048,
+        "dropout": 0.0,
+        "family": "dense-decoder-transformer",
+        "ffn_width": 1152,
+        "head_dimension": 64,
+        "kv_heads": 8,
+        "layers": 8,
+        "linear_bias": false,
+        "norm_epsilon": 1e-05,
+        "qk_norm": true,
+        "qk_norm_affine": true,
+        "query_heads": 8,
+        "rope_base": 10000.0,
+        "schema": "anra-v5-p35-model-spec/v1",
+        "tied_embeddings": true,
+        "vocabulary_size": 24576,
+        "width": 512
+      },
+      "model_sha256": "7728338a0b5d3cb72f56f448db0bf895faafd87ac38bb6b9f35e7074f6f3e8b2",
+      "name": "wide-shallow",
+      "parameter_distance_from_35m_pct": 0.41197714285714504,
+      "parameters": {
+        "all_blocks": 22560768,
+        "attention_per_layer": 1048576,
+        "block_norms_per_layer": 1024,
+        "block_total": 2820096,
+        "embedding": 12582912,
+        "ffn_per_layer": 1769472,
+        "final_norm": 512,
+        "qk_norms_per_layer": 1024,
+        "total": 35144192
+      }
+    },
+    {
+      "attention_fraction_of_forward_proxy": 0.49230769230769234,
+      "factors": {
+        "attention": "MHA",
+        "qk_norm": "on"
+      },
+      "forward_flops_per_full_sequence_proxy": 209379655680,
+      "group": "attention",
+      "idealized_6nd_flops_at_screen_tokens": 42497280000000000,
+      "kv_cache_bf16_bytes_per_full_sequence": 50331648,
+      "model": {
+        "context_length": 2048,
+        "dropout": 0.0,
+        "family": "dense-decoder-transformer",
+        "ffn_width": 896,
+        "head_dimension": 64,
+        "kv_heads": 6,
+        "layers": 16,
+        "linear_bias": false,
+        "norm_epsilon": 1e-05,
+        "qk_norm": true,
+        "qk_norm_affine": true,
+        "query_heads": 6,
+        "rope_base": 10000.0,
+        "schema": "anra-v5-p35-model-spec/v1",
+        "tied_embeddings": true,
+        "vocabulary_size": 24576,
+        "width": 384
+      },
+      "model_sha256": "6fd07f45a4e19d3eb98476a31047cc841bea39ccabd8efc7bc6d71473086b04f",
+      "name": "mha-qk",
+      "parameter_distance_from_35m_pct": 1.1840000000000073,
+      "parameters": {
+        "all_blocks": 25976832,
+        "attention_per_layer": 589824,
+        "block_norms_per_layer": 768,
+        "block_total": 1623552,
+        "embedding": 9437184,
+        "ffn_per_layer": 1032192,
+        "final_norm": 384,
+        "qk_norms_per_layer": 768,
+        "total": 35414400
+      }
+    },
+    {
+      "attention_fraction_of_forward_proxy": 0.5245901639344263,
+      "factors": {
+        "attention": "GQA-3:1",
+        "qk_norm": "on"
+      },
+      "forward_flops_per_full_sequence_proxy": 196494753792,
+      "group": "attention",
+      "idealized_6nd_flops_at_screen_tokens": 38717491200000000,
+      "kv_cache_bf16_bytes_per_full_sequence": 16777216,
+      "model": {
+        "context_length": 2048,
+        "dropout": 0.0,
+        "family": "dense-decoder-transformer",
+        "ffn_width": 896,
+        "head_dimension": 64,
+        "kv_heads": 2,
+        "layers": 16,
+        "linear_bias": false,
+        "norm_epsilon": 1e-05,
+        "qk_norm": true,
+        "qk_norm_affine": true,
+        "query_heads": 6,
+        "rope_base": 10000.0,
+        "schema": "anra-v5-p35-model-spec/v1",
+        "tied_embeddings": true,
+        "vocabulary_size": 24576,
+        "width": 384
+      },
+      "model_sha256": "fe6f3e7ee952b81210b935caf6f7f694fd0f68fbc1a1758e2860e1fbfea75178",
+      "name": "gqa-qk",
+      "parameter_distance_from_35m_pct": -7.815497142857142,
+      "parameters": {
+        "all_blocks": 22827008,
+        "attention_per_layer": 393216,
+        "block_norms_per_layer": 768,
+        "block_total": 1426688,
+        "embedding": 9437184,
+        "ffn_per_layer": 1032192,
+        "final_norm": 384,
+        "qk_norms_per_layer": 512,
+        "total": 32264576
+      }
+    },
+    {
+      "attention_fraction_of_forward_proxy": 0.5245901639344263,
+      "factors": {
+        "attention": "GQA-3:1",
+        "qk_norm": "off"
+      },
+      "forward_flops_per_full_sequence_proxy": 196494753792,
+      "group": "attention",
+      "idealized_6nd_flops_at_screen_tokens": 38707660800000000,
+      "kv_cache_bf16_bytes_per_full_sequence": 16777216,
+      "model": {
+        "context_length": 2048,
+        "dropout": 0.0,
+        "family": "dense-decoder-transformer",
+        "ffn_width": 896,
+        "head_dimension": 64,
+        "kv_heads": 2,
+        "layers": 16,
+        "linear_bias": false,
+        "norm_epsilon": 1e-05,
+        "qk_norm": false,
+        "qk_norm_affine": false,
+        "query_heads": 6,
+        "rope_base": 10000.0,
+        "schema": "anra-v5-p35-model-spec/v1",
+        "tied_embeddings": true,
+        "vocabulary_size": 24576,
+        "width": 384
+      },
+      "model_sha256": "591d4cc82c69886675bec5cdbc9df2bd9181e9f41fe81aeeb81e3b67a3a67ea8",
+      "name": "gqa-no-qk",
+      "parameter_distance_from_35m_pct": -7.83890285714286,
+      "parameters": {
+        "all_blocks": 22818816,
+        "attention_per_layer": 393216,
+        "block_norms_per_layer": 768,
+        "block_total": 1426176,
+        "embedding": 9437184,
+        "ffn_per_layer": 1032192,
+        "final_norm": 384,
+        "qk_norms_per_layer": 0,
+        "total": 32256384
+      }
+    },
+    {
+      "attention_fraction_of_forward_proxy": 0.5245901639344263,
+      "factors": {
+        "context": "2k-full"
+      },
+      "forward_flops_per_full_sequence_proxy": 196494753792,
+      "group": "context",
+      "idealized_6nd_flops_at_screen_tokens": 38717491200000000,
+      "kv_cache_bf16_bytes_per_full_sequence": 16777216,
+      "model": {
+        "context_length": 2048,
+        "dropout": 0.0,
+        "family": "dense-decoder-transformer",
+        "ffn_width": 896,
+        "head_dimension": 64,
+        "kv_heads": 2,
+        "layers": 16,
+        "linear_bias": false,
+        "norm_epsilon": 1e-05,
+        "qk_norm": true,
+        "qk_norm_affine": true,
+        "query_heads": 6,
+        "rope_base": 10000.0,
+        "schema": "anra-v5-p35-model-spec/v1",
+        "tied_embeddings": true,
+        "vocabulary_size": 24576,
+        "width": 384
+      },
+      "model_sha256": "fe6f3e7ee952b81210b935caf6f7f694fd0f68fbc1a1758e2860e1fbfea75178",
+      "name": "full-2k",
+      "parameter_distance_from_35m_pct": -7.815497142857142,
+      "parameters": {
+        "all_blocks": 22827008,
+        "attention_per_layer": 393216,
+        "block_norms_per_layer": 768,
+        "block_total": 1426688,
+        "embedding": 9437184,
+        "ffn_per_layer": 1032192,
+        "final_norm": 384,
+        "qk_norms_per_layer": 512,
+        "total": 32264576
+      }
+    },
+    {
+      "attention_fraction_of_forward_proxy": 0.6881720430107527,
+      "factors": {
+        "context": "4k-mixed-full"
+      },
+      "forward_flops_per_full_sequence_proxy": 599147937792,
+      "group": "context",
+      "idealized_6nd_flops_at_screen_tokens": 38717491200000000,
+      "kv_cache_bf16_bytes_per_full_sequence": 33554432,
+      "model": {
+        "context_length": 4096,
+        "dropout": 0.0,
+        "family": "dense-decoder-transformer",
+        "ffn_width": 896,
+        "head_dimension": 64,
+        "kv_heads": 2,
+        "layers": 16,
+        "linear_bias": false,
+        "norm_epsilon": 1e-05,
+        "qk_norm": true,
+        "qk_norm_affine": true,
+        "query_heads": 6,
+        "rope_base": 10000.0,
+        "schema": "anra-v5-p35-model-spec/v1",
+        "tied_embeddings": true,
+        "vocabulary_size": 24576,
+        "width": 384
+      },
+      "model_sha256": "af3c690bf53ae9c5847413b0245a6e2724faafc9515111cd45264e6ef06dcbc1",
+      "name": "mixed-full-4k",
+      "parameter_distance_from_35m_pct": -7.815497142857142,
+      "parameters": {
+        "all_blocks": 22827008,
+        "attention_per_layer": 393216,
+        "block_norms_per_layer": 768,
+        "block_total": 1426688,
+        "embedding": 9437184,
+        "ffn_per_layer": 1032192,
+        "final_norm": 384,
+        "qk_norms_per_layer": 512,
+        "total": 32264576
+      }
+    }
+  ],
+  "comparison_policy": {
+    "attention": "same token stream and dimensions; interpolate outcomes by measured FLOPs",
+    "context": "same raw-byte source order; report measured FLOPs and adversarial-position curves",
+    "promotion": "worst-family fresh-OOD cognition per measured FLOP with substrate and throughput gates",
+    "shape": "same token stream; parameter spread <=1%; MHA/QK/2k fixed"
+  },
+  "corpus_manifest_sha256": null,
+  "evaluation_boundaries": [
+    50000000,
+    100000000,
+    200000000
+  ],
+  "experiment_id": "E2-P35-architecture-screen-v1",
+  "finalist_seeds": [
+    3101,
+    3102,
+    3103
+  ],
+  "limitations": [
+    "Static arithmetic is not target-accelerator throughput.",
+    "No model has been constructed or trained by this plan.",
+    "The plan remains blocked until E1/corpus and constructor hashes exist."
+  ],
+  "model_constructor_sha256": null,
+  "plan_sha256": "4a4191513253a5e47109e827a074cba345bc0decd6e4ffa5a6c8f623d44cfb3e",
+  "schema": "esoes-e2-static-plan/v1",
+  "screen_tokens": 200000000,
+  "screening_seeds": [
+    3101
+  ],
+  "status": "BLOCKED_E1_INPUTS",
+  "tokenizer_sha256": null
+}

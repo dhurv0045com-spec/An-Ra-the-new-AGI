@@ -1,0 +1,97 @@
+{
+  "artifact_sha256": "56be8e1cab4a1b0cede97f5bd5e6af8f2f68175f846362a7c0fcdbd5f048ba7f",
+  "candidate": "local-byte-bpe-32768",
+  "checks": {
+    "all_probes_present_once": true,
+    "identity_roundtrip": true,
+    "token_ids_in_range": true,
+    "zero_unknowns": true
+  },
+  "failures": {
+    "range": [],
+    "roundtrip": [],
+    "unknown": []
+  },
+  "limitations": [
+    "Committed probes are canaries, not the serious external E1 corpus.",
+    "Static compression/identity results do not select a tokenizer without matched model training."
+  ],
+  "metrics": {
+    "per_probe": {
+      "answer-01": {
+        "tokens": 17,
+        "tokens_per_byte": 0.4358974358974359,
+        "utf8_bytes": 39
+      },
+      "code-01": {
+        "tokens": 16,
+        "tokens_per_byte": 0.36363636363636365,
+        "utf8_bytes": 44
+      },
+      "code-02": {
+        "tokens": 7,
+        "tokens_per_byte": 0.25925925925925924,
+        "utf8_bytes": 27
+      },
+      "formal-01": {
+        "tokens": 23,
+        "tokens_per_byte": 0.7666666666666667,
+        "utf8_bytes": 30
+      },
+      "legal-01": {
+        "tokens": 23,
+        "tokens_per_byte": 0.34328358208955223,
+        "utf8_bytes": 67
+      },
+      "natural-01": {
+        "tokens": 11,
+        "tokens_per_byte": 0.2558139534883721,
+        "utf8_bytes": 43
+      },
+      "nonce-01": {
+        "tokens": 18,
+        "tokens_per_byte": 0.6,
+        "utf8_bytes": 30
+      },
+      "nonce-02": {
+        "tokens": 13,
+        "tokens_per_byte": 0.7647058823529411,
+        "utf8_bytes": 17
+      },
+      "number-01": {
+        "tokens": 19,
+        "tokens_per_byte": 0.48717948717948717,
+        "utf8_bytes": 39
+      },
+      "spacing-01": {
+        "tokens": 11,
+        "tokens_per_byte": 0.5,
+        "utf8_bytes": 22
+      },
+      "unicode-01": {
+        "tokens": 78,
+        "tokens_per_byte": 1.0,
+        "utf8_bytes": 78
+      },
+      "unicode-02": {
+        "tokens": 32,
+        "tokens_per_byte": 0.8,
+        "utf8_bytes": 40
+      }
+    },
+    "tokens_per_byte": 0.5630252100840336,
+    "tokens_per_byte_by_domain": {
+      "code": 0.3655913978494624,
+      "cognition": 0.5581395348837209,
+      "formal": 0.7666666666666667,
+      "legal": 0.34328358208955223,
+      "math": 0.48717948717948717,
+      "natural": 0.7515527950310559
+    },
+    "total_tokens": 268,
+    "total_utf8_bytes": 476
+  },
+  "schema": "esoes-e1-static-audit/v1",
+  "status": "PASS",
+  "vocabulary_size": 32768
+}

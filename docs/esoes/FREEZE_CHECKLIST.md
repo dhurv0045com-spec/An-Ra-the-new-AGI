@@ -111,7 +111,9 @@ Required critical path: **E0 benchmark certification → E1 tokenizer → E2 arc
 - [x] semantic-time state queries, split-held-out rule structures, pooled heuristic gates, context/difficulty/output axes, and metric-specific confidence procedures implemented
 - [ ] natural-source custody and real sealed commitment complete
 - [x] E1 artifact-bound static audit, Pareto harness, and matched-budget tournament plan implemented
+- [x] local-development 16k/24k/32k candidates independently trained, audited, and 24k determinism replicated
 - [ ] real 16k/24k/32k tokenizer candidates audited
+- [x] local CUDA attention-path canary replicated; target TPU/XLA GQA path remains open
 - [x] 250M model/run/lineage contracts and implementation blueprint created
 
 ## Freeze artifact

@@ -99,7 +99,7 @@ Candidates: 16,384 / 24,576 / 32,768 identity-preserving byte fallback. Evaluate
 
 Select a Pareto winner, not a weighted-score winner hidden by an arbitrary aggregate.
 
-Current result: the artifact-bound E1 static audit, Pareto harness, and matched-budget tournament plan exist in `e1_tokenizer/`. No real tokenizer candidate has been audited or selected. The next executable input is three externally generated candidate artifacts plus complete encoding receipts against the committed canaries and a hash-bound external corpus.
+Current result: the artifact-bound E1 static audit, Pareto harness, and matched-budget tournament plan exist in `e1_tokenizer/`. A local development tournament now independently trained exact 16k/24k/32k byte-BPE artifacts on 8,561,653 training bytes and evaluated 1,057,977 hash-held-out bytes across 14,757 records. All compressed artifacts reload, all arms have exact round trip and zero unexpected unknowns, and a repeated 24k build is byte-identical. Held-out tokens/byte are 0.23826 / 0.23217 / 0.23022, so 24k costs only +0.85% tokens versus 32k while saving 7.34M embeddings at width 896; 16k costs +3.50%. This is stronger than prefix truncation but remains `DEVELOPMENT_STATIC_PASS`: the fixed legacy/local corpus is not representative, and no model loss or cognition was measured. The next promotion input remains a hash-bound external corpus and matched P35 runs.
 
 ## E2 — Architecture attack
 
@@ -107,11 +107,15 @@ At ~35M compare deep/narrow, middle, and wide/shallow iso-parameter shapes. Use 
 
 Primary outcome: worst-family fresh-OOD cognition per measured training FLOP, with substrate loss and throughput constraints.
 
+Current executable result: `e2_architecture.plan` fixes 200M-token screening boundaries at 50M/100M/200M and three-seed finalist replication. Shape arms are 24×320/FFN768 (35.420M), 16×384/FFN896 (35.414M), and 8×512/FFN1152 (35.144M), under 0.8% parameter spread with MHA/QK/2k held constant. Separate fractional arms isolate MHA versus 3:1 GQA, QK norm, and 2k versus 4k context. Static receipts expose parameter, idealized 6ND, full-sequence forward, and KV-cache proxies. A three-seed RTX 4050 bf16 SDPA microbenchmark found a backend-specific trap: native 3:1 GQA supports only the math backend on this PyTorch/Windows build and is 5.20× MHA training-kernel latency with 13.86× peak allocated memory. Explicit repeat-K/V restores the faster path but is 1.09× MHA latency and 1.45× memory. Native 4k versus 2k is 3.59× latency and 3.80× memory; QK normalization adds 1.09× latency. GQA semantics agree with repeated K/V to max absolute error 0.0078125. This constrains implementation selection on this stack, not GQA quality or TPU behavior. Plan status remains `BLOCKED_E1_INPUTS`; no P35 run is authorized.
+
 ## E3 — Data and objective
 
 Compare 5/15/30% verified cognition mixtures under CE. Add query-swap contrast at the best mixture and one neighbor, λ 0.05/0.15. Include one bounded intermediate-trace arm only if composition remains the decisive gap. Match tokens and raw bytes; replicate finalists on new generators and natural analogues.
 
 Reject any auxiliary that improves candidate scores but not candidate-free output, causes >3% substrate-loss regression, or fails fresh transfer.
+
+Current executable result: `e3_data_objective.plan` fixes a 200M-token Phase A with exact 5/15/30% cognition allocations while preserving the 65:20 natural/code ratio in all remaining tokens. Phase B cannot instantiate until Phase A identifies a winner and adjacent mixture; its only arms are CE and query-swap λ 0.05/0.15 on mechanically verified pairs. The trace arm is disabled unless a hashed composition-transfer failure triggers at most 25% exposure, followed by trace-free evaluation. Natural transfer, candidate-free/raw-Core improvement, and ≤3% substrate-loss regression are conjunctive gates. Status remains `BLOCKED_UPSTREAM_INPUTS`; no run is authorized.
 
 ## E4 — Learning dynamics
 

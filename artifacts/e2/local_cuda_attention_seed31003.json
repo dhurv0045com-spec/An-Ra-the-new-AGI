@@ -1,0 +1,163 @@
+{
+  "bf16_supported": true,
+  "cases": [
+    {
+      "context_length": 2048,
+      "dtype": "bfloat16",
+      "forward": {
+        "median_ms": 1.1426720023155212,
+        "minimum_ms": 1.0247360467910767,
+        "p95_ms": 2.5862081050872803,
+        "tokens_per_second_at_batch_one": 1792290.347404954
+      },
+      "forward_backward": {
+        "median_ms": 4.051007866859436,
+        "minimum_ms": 3.254271984100342,
+        "p95_ms": 5.535871982574463,
+        "tokens_per_second_at_batch_one": 505553.2023905256
+      },
+      "forward_backward_peak_allocated_bytes": 31654912,
+      "forward_peak_allocated_bytes": 12582912,
+      "head_dimension": 64,
+      "implementation": "native",
+      "kv_heads": 6,
+      "name": "mha-qk-2k",
+      "qk_norm": true,
+      "query_heads": 6
+    },
+    {
+      "context_length": 2048,
+      "dtype": "bfloat16",
+      "forward": {
+        "median_ms": 11.586672306060791,
+        "minimum_ms": 11.131296157836914,
+        "p95_ms": 12.932640075683594,
+        "tokens_per_second_at_batch_one": 176754.80464988435
+      },
+      "forward_backward": {
+        "median_ms": 20.64025592803955,
+        "minimum_ms": 20.110336303710938,
+        "p95_ms": 22.72870445251465,
+        "tokens_per_second_at_batch_one": 99223.57586747824
+      },
+      "forward_backward_peak_allocated_bytes": 438666240,
+      "forward_peak_allocated_bytes": 271200768,
+      "head_dimension": 64,
+      "implementation": "native",
+      "kv_heads": 2,
+      "name": "gqa-qk-2k",
+      "qk_norm": true,
+      "query_heads": 6
+    },
+    {
+      "context_length": 2048,
+      "dtype": "bfloat16",
+      "forward": {
+        "median_ms": 1.1691679954528809,
+        "minimum_ms": 1.0127040147781372,
+        "p95_ms": 2.6770238876342773,
+        "tokens_per_second_at_batch_one": 1751672.99136229
+      },
+      "forward_backward": {
+        "median_ms": 4.151808023452759,
+        "minimum_ms": 2.9790399074554443,
+        "p95_ms": 5.932000160217285,
+        "tokens_per_second_at_batch_one": 493279.0698489056
+      },
+      "forward_backward_peak_allocated_bytes": 46023680,
+      "forward_peak_allocated_bytes": 25952256,
+      "head_dimension": 64,
+      "implementation": "repeat-kv",
+      "kv_heads": 2,
+      "name": "gqa-repeat-kv-qk-2k",
+      "qk_norm": true,
+      "query_heads": 6
+    },
+    {
+      "context_length": 2048,
+      "dtype": "bfloat16",
+      "forward": {
+        "median_ms": 10.7391676902771,
+        "minimum_ms": 10.52560043334961,
+        "p95_ms": 11.449119567871094,
+        "tokens_per_second_at_batch_one": 190703.7918640747
+      },
+      "forward_backward": {
+        "median_ms": 19.296256065368652,
+        "minimum_ms": 18.964479446411133,
+        "p95_ms": 20.826112747192383,
+        "tokens_per_second_at_batch_one": 106134.57828617767
+      },
+      "forward_backward_peak_allocated_bytes": 433325056,
+      "forward_peak_allocated_bytes": 277623296,
+      "head_dimension": 64,
+      "implementation": "native",
+      "kv_heads": 2,
+      "name": "gqa-no-qk-2k",
+      "qk_norm": false,
+      "query_heads": 6
+    },
+    {
+      "context_length": 4096,
+      "dtype": "bfloat16",
+      "forward": {
+        "median_ms": 40.84249496459961,
+        "minimum_ms": 40.530113220214844,
+        "p95_ms": 42.48252868652344,
+        "tokens_per_second_at_batch_one": 100287.70288275053
+      },
+      "forward_backward": {
+        "median_ms": 75.63412857055664,
+        "minimum_ms": 74.52467346191406,
+        "p95_ms": 77.3570556640625,
+        "tokens_per_second_at_batch_one": 54155.44645535215
+      },
+      "forward_backward_peak_allocated_bytes": 1665467392,
+      "forward_peak_allocated_bytes": 1029333504,
+      "head_dimension": 64,
+      "implementation": "native",
+      "kv_heads": 2,
+      "name": "gqa-qk-4k",
+      "qk_norm": true,
+      "query_heads": 6
+    }
+  ],
+  "cuda_runtime": "12.8",
+  "device_name": "NVIDIA GeForce RTX 4050 Laptop GPU",
+  "device_total_memory_bytes": 6438780928,
+  "gqa_equivalence": {
+    "finite": true,
+    "maximum_absolute_error": 0.0078125,
+    "mean_absolute_error": 0.00021623284555971622,
+    "pass": true,
+    "tolerance": 0.02
+  },
+  "implementation_sha256": "9ca8821128213733ea44fdee54d9a5a4fe7a791b37459316c9e8d5d1dfc7d71f",
+  "limitations": [
+    "The probe excludes projections, FFN, optimizer, collectives, and input pipeline.",
+    "Kernel speed and memory do not establish cognition quality.",
+    "Laptop GPU results are not TPU throughput evidence."
+  ],
+  "native_gqa_backend_support": {
+    "efficient": {
+      "error": "RuntimeError: No available kernel. Aborting execution.",
+      "supported": false
+    },
+    "flash": {
+      "error": "RuntimeError: No available kernel. Aborting execution.",
+      "supported": false
+    },
+    "math": {
+      "finite": true,
+      "supported": true
+    }
+  },
+  "platform": "Windows-10-10.0.26200-SP0",
+  "repeats": 30,
+  "schema": "esoes-e2-device-benchmark/v1",
+  "scope": "isolated causal SDPA plus optional RMS QK normalization; not a full model",
+  "seed": 31003,
+  "status": "PASS",
+  "torch_version": "2.11.0+cu128",
+  "warmup": 8
+}

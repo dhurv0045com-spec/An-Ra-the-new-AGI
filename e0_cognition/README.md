@@ -20,7 +20,12 @@ Run:
 ```text
 python -m unittest discover -s tests -v
 python -m e0_cognition.certify --output artifacts/e0/development_certificate.json
+python -m e0_cognition.device_benchmark --output artifacts/e0/local_device_probe.json
 ```
+
+`device_benchmark` measures the E0 harness on CPU and, when PyTorch with CUDA
+is installed, runs a small matched CPU/CUDA matrix smoke test. It is bounded
+for laptop hardware and is not a model-quality or training-throughput claim.
 
 ## What is not certified
 

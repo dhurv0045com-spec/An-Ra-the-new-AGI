@@ -199,7 +199,7 @@ Until then: **READY TO FREEZE = NO**.
 **DECISION:** make causal cases, evaluator-only truth, model views, counterfactual-pair assertions, split namespaces, and measurement separation executable before model comparisons.
 **STATUS:** [FROZEN] contract; development implementation passed; sealed promotion [OPEN]
 **WHY:** every architecture/data conclusion is invalid if the benchmark leaks or conflates representation, selection, and realization.
-**EVIDENCE:** `artifacts/e0/development_certificate.json` plus 38 E0/E1/V5 regression/property tests, an independent surface solver, semantic-time state cases, split-held-out rule structures, pooled shortcut red-team gates, raw/assisted result contracts, and explicit chance/position/difficulty/power calibration.
+**EVIDENCE:** `artifacts/e0/development_certificate.json` plus 41 E0/E1/V5 regression/property tests, an independent surface solver, semantic-time state cases, split-held-out rule structures, pooled shortcut red-team gates, raw/assisted result contracts, and explicit chance/position/difficulty/power calibration.
 **ALTERNATIVES CONSIDERED:** static JSON fixtures; reuse training templates; create sealed fixtures in Git.
 **WHAT WOULD CHANGE OUR MIND:** a stronger causal representation may extend the schema, but may not weaken hidden-truth isolation or one-variable assertions.
 **ITERATION:** Ground Blueprint v0.4.
@@ -239,7 +239,7 @@ Until then: **READY TO FREEZE = NO**.
 **DECISION:** state tracking must randomize serialization independently of semantic time and include intermediate, rollback, precedence, and interleaved-variable queries; rule induction must use multiple latent operand structures held out by split. Positional, bag-of-words, and fixed-rule baselines are certification gates, not optional diagnostics.
 **STATUS:** [FROZEN] benchmark boundary; sealed fixture and natural-source custody remain open
 **WHY:** the prior state generator made `latest_fact` and `nearest_position` perfect, and its single reverse-pair rule admitted a permanent-rule shortcut. Those are evaluator defects, not model evidence.
-**EVIDENCE:** `benchmark.md`, E0 generator v0.3, pooled eight-seed shortcut receipt, and 38 passing tests.
+**EVIDENCE:** `benchmark.md`, E0 generator v0.3, pooled eight-seed shortcut receipt, and 41 passing tests.
 **ALTERNATIVES CONSIDERED:** more examples with the same templates; a larger aggregate score; post-hoc heuristic inspection.
 **WHAT WOULD CHANGE OUR MIND:** an independently reproduced causal benchmark showing a stronger information-isolating design.
 **ITERATION:** Ground Blueprint v0.4.

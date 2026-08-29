@@ -336,13 +336,13 @@ Abort if shortcuts, duplicate graphs, token-label leakage, scorer ambiguity, or 
 
 Compare 16k, 24k, and 32k on static corpus metrics and matched P35 training (100–200M tokens per serious arm). Match raw bytes and approximate FLOPs, not token count alone. Winner must be Pareto-competitive on byte-normalized substrate loss, sequence inflation, nonce copy, identifiers, code/math, and cognition.
 
-The artifact-bound static audit, Pareto harness, and matched-budget tournament plan are implemented in `e1_tokenizer/`. No real tokenizer artifact or winner exists yet; external candidate artifacts and their complete encoding receipts are the next inputs. `e1_tokenizer.tournament` fails closed until one external corpus manifest and equal raw-byte/FLOP budgets are bound.
+The artifact-bound static audit, Pareto harness, and matched-budget tournament plan are implemented in `e1_tokenizer/`. A reproducible local development run independently trained exact 16k/24k/32k byte-BPE artifacts on 8.56 MB and evaluated 1.06 MB of content-hash-held-out records: compressed artifacts reload, all round trips are exact, unexpected unknowns are zero, and a repeated 24k build is byte-identical. Tokens/byte are 0.23826/0.23217/0.23022, placing 24k only 0.85% behind 32k for 7.34M fewer embeddings at width 896. This retains 24k as the planning center but does not select it: the fixed legacy/local corpus is not representative and no matched model loss or cognition exists. `e1_tokenizer.tournament` still fails closed until an external corpus manifest and equal raw-byte/FLOP budgets are bound.
 
 ### E2 — Architecture screen
 
 At ~35M parameters compare parameter-matched deep/narrow, middle, and wide/shallow shapes; screen 4-KV GQA versus MHA and QK norm on/off using a fractional design. Single-seed successive halving may eliminate clearly weak arms; top two shapes receive three seeds.
 
-The purpose is to decide depth, attention topology, and QK/GQA—not to crown a benchmark winner from one seed.
+The purpose is to decide depth, attention topology, and QK/GQA—not to crown a benchmark winner from one seed. A replicated local CUDA kernel probe already discovered that this exact PyTorch/Windows build routes native GQA through the math backend: it is 5.20× MHA latency and 13.86× peak allocation, while explicit repeated K/V is 1.09× latency and 1.45× memory. Native 4k is 3.59× native-2k latency and 3.80× memory. This is **EVIDENCE-BACKED for implementation selection on the measured stack**, not evidence against GQA or 4k on TPU; the target framework must run the same backend canary before E2.
 
 ### E3 — Data/objective screen
 
