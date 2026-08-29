@@ -100,7 +100,9 @@ State cases must satisfy all of the following:
 
 The baseline battery includes `latest_fact`, `nearest_position`, and a deliberately
 broken state tracker. Certification fails if either positional baseline exceeds
-chance plus 10 percentage points on the pooled state families.
+its exact permutation-calibrated null plus 10 percentage points on the pooled
+state families. Uniform-candidate chance is still reported, but is not the null
+for a heuristic whose output is mechanically tied to serialization position.
 
 ### 4.2 Rule induction: infer structure, do not memorize reverse pairs
 

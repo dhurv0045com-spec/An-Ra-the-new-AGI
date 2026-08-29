@@ -852,34 +852,39 @@
     "sentinel_hash": "955168a27cbb81ef5ac2e06286d27aebffde2390165f6952f4d932130760be75"
   },
   "shortcut_audit": {
-    "policy": "every named heuristic must remain within chance + 10 percentage points",
+    "policy": "every named heuristic must remain within its calibrated null + 10 percentage points",
     "rule_induction_heuristics": {
       "bag_of_words": {
         "accuracy": 0.0625,
+        "calibrated_chance": 0.0625,
         "cases": 256,
         "chance": 0.0625,
         "seeds": 8
       },
       "fixed_identity_rule": {
         "accuracy": 0.0,
+        "calibrated_chance": 0.0625,
         "cases": 256,
         "chance": 0.0625,
         "seeds": 8
       },
       "fixed_repeat_left_rule": {
         "accuracy": 0.125,
+        "calibrated_chance": 0.0625,
         "cases": 256,
         "chance": 0.0625,
         "seeds": 8
       },
       "fixed_repeat_right_rule": {
         "accuracy": 0.125,
+        "calibrated_chance": 0.0625,
         "cases": 256,
         "chance": 0.0625,
         "seeds": 8
       },
       "fixed_reverse_rule": {
         "accuracy": 0.125,
+        "calibrated_chance": 0.0625,
         "cases": 256,
         "chance": 0.0625,
         "seeds": 8
@@ -893,18 +898,20 @@
     "state_position_heuristics": {
       "latest_fact": {
         "accuracy": 0.1953125,
+        "calibrated_chance": 0.21354166666666777,
         "cases": 384,
         "chance": 0.13888888888888865,
         "seeds": 8
       },
       "nearest_position": {
         "accuracy": 0.1953125,
+        "calibrated_chance": 0.21354166666666777,
         "cases": 384,
         "chance": 0.13888888888888865,
         "seeds": 8
       }
     },
-    "state_shortcut_ceiling": 0.23888888888888865
+    "state_shortcut_ceiling": 0.3135416666666678
   },
   "statistical_calibration": {
     "answer_position_histogram_multi_candidate": {

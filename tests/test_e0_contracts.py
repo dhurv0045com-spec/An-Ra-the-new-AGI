@@ -166,6 +166,14 @@ class E0ContractTests(unittest.TestCase):
         self.assertIn("not a V5 model result", certificate["scope"])
         self.assertFalse(certificate["sealed_policy"]["seed_in_repository"])
 
+    def test_position_shortcut_gate_uses_permutation_calibrated_null(self) -> None:
+        certificate = build_development_certificate(seed=88, groups_per_family=16)
+        self.assertEqual(certificate["status"], "PASS")
+        audit = certificate["shortcut_audit"]["state_position_heuristics"]
+        for result in audit.values():
+            self.assertGreater(result["calibrated_chance"], result["chance"])
+            self.assertLessEqual(result["accuracy"], result["calibrated_chance"] + 0.10)
+
     def test_statistical_calibration_is_explicit(self) -> None:
         chance = uniform_candidate_chance(self.dev)
         self.assertGreater(chance, 0.0)
