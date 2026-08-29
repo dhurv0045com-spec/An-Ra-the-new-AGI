@@ -1,0 +1,128 @@
+{
+  "block_size": 2048,
+  "campaign_mix_realized": {
+    "finemath": 0.1333984375,
+    "fineweb_edu": 0.6111328125,
+    "permissive_code": 0.1666015625,
+    "science_technical": 0.0888671875
+  },
+  "campaign_mix_target": {
+    "finemath": 0.13333333333333333,
+    "fineweb_edu": 0.6111111111111112,
+    "permissive_code": 0.16666666666666666,
+    "science_technical": 0.08888888888888889
+  },
+  "campaign_mix_verified": true,
+  "pack_schema_version": 1,
+  "requested_training_tokens": 10485760,
+  "sampling_policy": "global_affine_permutation_v1",
+  "schema_version": 3,
+  "seed": 1302,
+  "shards": [
+    {
+      "dtype": "uint16",
+      "partial": false,
+      "path": "fineweb_edu-000.npy",
+      "sha256": "fc6423f6326dc0fe2b94bff91e791143ce30a13b395c6b67c90b62890dbf27ab",
+      "source_class": "fineweb_edu",
+      "source_manifest_sha256": "02964e7fc4e4696b034ae8ee04e233d8f6561938e3451d40fa3c3d79763dd665",
+      "source_shard_path": "tokens-00001.npy",
+      "source_shard_sha256": "0d50bc7a838ad03515e4b248216782c2561179345c06d35e2f8b7ac3e990008b",
+      "source_window_start": 3356,
+      "tokens": 2097153,
+      "training_windows": 1024
+    },
+    {
+      "dtype": "uint16",
+      "partial": false,
+      "path": "fineweb_edu-001.npy",
+      "sha256": "c5c263ef821e58cd2b8831504a61b6c3c1e3ba9d89df8eb6fa02bc7680cec4f1",
+      "source_class": "fineweb_edu",
+      "source_manifest_sha256": "02964e7fc4e4696b034ae8ee04e233d8f6561938e3451d40fa3c3d79763dd665",
+      "source_shard_path": "tokens-00003.npy",
+      "source_shard_sha256": "f54d896021834b620f60281081f951721001f3bb4bcbfba06950a267e93d4974",
+      "source_window_start": 678,
+      "tokens": 2097153,
+      "training_windows": 1024
+    },
+    {
+      "dtype": "uint16",
+      "partial": false,
+      "path": "fineweb_edu-002.npy",
+      "sha256": "c4a1c3584709ee79280edbe057b2afbe30c9a45671cd5f7ac9d7bdd16b828416",
+      "source_class": "fineweb_edu",
+      "source_manifest_sha256": "02964e7fc4e4696b034ae8ee04e233d8f6561938e3451d40fa3c3d79763dd665",
+      "source_shard_path": "tokens-00005.npy",
+      "source_shard_sha256": "c976e9fe79fb1852a1cee40ea5910e29e0d88acc6a5f22b1425e25c06bb7840a",
+      "source_window_start": 3536,
+      "tokens": 2097153,
+      "training_windows": 1024
+    },
+    {
+      "dtype": "uint16",
+      "partial": true,
+      "path": "fineweb_edu-003.npy",
+      "sha256": "2aa127118f4f1ab7bb8f6e170d3d2dfa207ce1c701c21826e12ce922d5d74423",
+      "source_class": "fineweb_edu",
+      "source_manifest_sha256": "02964e7fc4e4696b034ae8ee04e233d8f6561938e3451d40fa3c3d79763dd665",
+      "source_shard_path": "tokens-00013.npy",
+      "source_shard_sha256": "4dacdf49a6aded25313d635e2563a25531fe0f441a1880d2277113da6e2af162",
+      "source_window_start": 3241,
+      "tokens": 116737,
+      "training_windows": 57
+    },
+    {
+      "dtype": "uint16",
+      "partial": true,
+      "path": "permissive_code-000.npy",
+      "sha256": "839bbb17d78c53b31690fdb430a1f508c977406babefe196b5940dfdd2cf6bbb",
+      "source_class": "permissive_code",
+      "source_manifest_sha256": "02964e7fc4e4696b034ae8ee04e233d8f6561938e3451d40fa3c3d79763dd665",
+      "source_shard_path": "tokens-00010.npy",
+      "source_shard_sha256": "6fcb3f765bf988ca6fcc85c099d4baca1c963271c6a45a12f63e193524287367",
+      "source_window_start": 2478,
+      "tokens": 1746945,
+      "training_windows": 853
+    },
+    {
+      "dtype": "uint16",
+      "partial": true,
+      "path": "finemath-000.npy",
+      "sha256": "b90276f606dd70630e9ae90aed5f15b2add5fd61efd108a2cfaa78701bb356cb",
+      "source_class": "finemath",
+      "source_manifest_sha256": "02964e7fc4e4696b034ae8ee04e233d8f6561938e3451d40fa3c3d79763dd665",
+      "source_shard_path": "tokens-00008.npy",
+      "source_shard_sha256": "829784a5db025cfbca37ff8496a75ca561b64ece09fa3003a79d99d60a9508d7",
+      "source_window_start": 1975,
+      "tokens": 1398785,
+      "training_windows": 683
+    },
+    {
+      "dtype": "uint16",
+      "partial": true,
+      "path": "science_technical-000.npy",
+      "sha256": "5e33765663931d6aa236546639cf5d28aeed4ad7e6936d40d6d84893c9a18105",
+      "source_class": "science_technical",
+      "source_manifest_sha256": "02964e7fc4e4696b034ae8ee04e233d8f6561938e3451d40fa3c3d79763dd665",
+      "source_shard_path": "tokens-00012.npy",
+      "source_shard_sha256": "fd7b67ec5c85b0b58f638ce6e3186f2b62446b3de6f4a1ee7b7b326c548c0869",
+      "source_window_start": 346,
+      "tokens": 931841,
+      "training_windows": 455
+    }
+  ],
+  "source_class_token_mix": {
+    "finemath": 1398784,
+    "fineweb_edu": 6408192,
+    "permissive_code": 1746944,
+    "science_technical": 931840
+  },
+  "source_manifest": "C:\\Users\\ankit\\Downloads\\An-Ra-the-new-AGI-1\\output\\v2\\data_manifests\\native_foundation_v4\\30gb\\validation\\manifest.json",
+  "source_manifest_sha256": "02964e7fc4e4696b034ae8ee04e233d8f6561938e3451d40fa3c3d79763dd665",
+  "tokenizer_schema_version": 3,
+  "tokenizer_sha256": "1a0140661c9d16c830f8dd8292699946e92db0be6f7aec92fb272d13cc1c745b",
+  "tokenizer_version": "v4-32768",
+  "total_tokens": 10485767,
+  "total_training_windows": 5120,
+  "usable_training_tokens": 10485760
+}

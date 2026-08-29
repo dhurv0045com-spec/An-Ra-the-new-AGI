@@ -1,0 +1,182 @@
+{
+  "schema": "anra-policy-transfer-matrix/v1",
+  "matrix": {
+    "final_step22517_cf": {
+      "checkpoint": "C:\\Users\\ankit\\Downloads\\anra-v4-step-22517.pt",
+      "step": 22517,
+      "fixed": {
+        "NO_CHANGE": {
+          "successes": 0,
+          "total": 48,
+          "regressions": 0,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "successes": 12,
+          "total": 48,
+          "regressions": 0,
+          "cost": 48
+        },
+        "NORMALIZED": {
+          "successes": 10,
+          "total": 48,
+          "regressions": 0,
+          "cost": 96
+        }
+      },
+      "ADAPTIVE_v7_frozen": {
+        "successes": 11,
+        "total": 48,
+        "regressions": 0,
+        "cost": 78,
+        "action_counts": {
+          "NORMALIZED": 30,
+          "CONSTRAINED": 18
+        }
+      },
+      "policy_parameter_sha256": "ae9ad72b9ba56f218e6d3c1b5bdc0cd7c3785b3f7e17c5c1ebc27020701bcffe"
+    },
+    "intermediate_step21800_cf": {
+      "checkpoint": "C:\\Users\\ankit\\Downloads\\anra-v4-tpu-latest (2).pt",
+      "step": 21800,
+      "fixed": {
+        "NO_CHANGE": {
+          "successes": 0,
+          "total": 48,
+          "regressions": 0,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "successes": 11,
+          "total": 48,
+          "regressions": 0,
+          "cost": 48
+        },
+        "NORMALIZED": {
+          "successes": 12,
+          "total": 48,
+          "regressions": 0,
+          "cost": 96
+        }
+      },
+      "ADAPTIVE_v7_frozen": {
+        "successes": 12,
+        "total": 48,
+        "regressions": 0,
+        "cost": 73,
+        "action_counts": {
+          "CONSTRAINED": 23,
+          "NORMALIZED": 25
+        }
+      },
+      "policy_parameter_sha256": "ae9ad72b9ba56f218e6d3c1b5bdc0cd7c3785b3f7e17c5c1ebc27020701bcffe"
+    },
+    "parent_step20000_cf": {
+      "checkpoint": "C:\\Users\\ankit\\Downloads\\anra-v4-current-full-resume.pt",
+      "step": 20000,
+      "fixed": {
+        "NO_CHANGE": {
+          "successes": 0,
+          "total": 48,
+          "regressions": 0,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "successes": 12,
+          "total": 48,
+          "regressions": 0,
+          "cost": 48
+        },
+        "NORMALIZED": {
+          "successes": 12,
+          "total": 48,
+          "regressions": 0,
+          "cost": 96
+        }
+      },
+      "ADAPTIVE_v7_frozen": {
+        "successes": 13,
+        "total": 48,
+        "regressions": 0,
+        "cost": 75,
+        "action_counts": {
+          "CONSTRAINED": 21,
+          "NORMALIZED": 27
+        }
+      },
+      "policy_parameter_sha256": "ae9ad72b9ba56f218e6d3c1b5bdc0cd7c3785b3f7e17c5c1ebc27020701bcffe"
+    },
+    "sft6_cf": {
+      "checkpoint": "C:\\Users\\ankit\\An-Ra-xexp\\checkpoints\\anra-v4-20k-sft6-queryswap-replication.pt",
+      "step": 20000,
+      "fixed": {
+        "NO_CHANGE": {
+          "successes": 3,
+          "total": 48,
+          "regressions": 0,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "successes": 13,
+          "total": 48,
+          "regressions": 1,
+          "cost": 48
+        },
+        "NORMALIZED": {
+          "successes": 9,
+          "total": 48,
+          "regressions": 2,
+          "cost": 96
+        }
+      },
+      "ADAPTIVE_v7_frozen": {
+        "successes": 9,
+        "total": 48,
+        "regressions": 2,
+        "cost": 76,
+        "action_counts": {
+          "NORMALIZED": 31,
+          "CONSTRAINED": 14,
+          "NO_CHANGE": 3
+        }
+      },
+      "policy_parameter_sha256": "ae9ad72b9ba56f218e6d3c1b5bdc0cd7c3785b3f7e17c5c1ebc27020701bcffe"
+    },
+    "sft7_cf": {
+      "checkpoint": "C:\\Users\\ankit\\An-Ra-xexp\\checkpoints\\anra-v4-20k-sft7-margin.pt",
+      "step": 20000,
+      "fixed": {
+        "NO_CHANGE": {
+          "successes": 2,
+          "total": 48,
+          "regressions": 0,
+          "cost": 0
+        },
+        "CONSTRAINED": {
+          "successes": 13,
+          "total": 48,
+          "regressions": 0,
+          "cost": 48
+        },
+        "NORMALIZED": {
+          "successes": 9,
+          "total": 48,
+          "regressions": 1,
+          "cost": 96
+        }
+      },
+      "ADAPTIVE_v7_frozen": {
+        "successes": 9,
+        "total": 48,
+        "regressions": 1,
+        "cost": 77,
+        "action_counts": {
+          "NORMALIZED": 31,
+          "CONSTRAINED": 15,
+          "NO_CHANGE": 2
+        }
+      },
+      "policy_parameter_sha256": "ae9ad72b9ba56f218e6d3c1b5bdc0cd7c3785b3f7e17c5c1ebc27020701bcffe"
+    }
+  }
+}

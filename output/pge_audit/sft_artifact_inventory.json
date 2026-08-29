@@ -1,0 +1,41 @@
+{
+  "schema": "anra-sft-artifact-inventory/v1",
+  "searched_on": "2026-08-28",
+  "search_root": "C:\\Users\\ankit",
+  "patterns": [
+    "SFT6",
+    "SFT7",
+    "sft_6",
+    "sft_7",
+    "*.pt",
+    "*.pth",
+    "*.bin",
+    "*.safetensors"
+  ],
+  "sft6_checkpoint_files": [
+    {
+      "path": "C:\\Users\\ankit\\An-Ra-xexp\\checkpoints\\anra-v4-20k-sft6-queryswap-replication.pt",
+      "file_sha256": "be614ef84d60d7a444af28685dc71875e963cb6a39f424055a1accc6caf8b6c1",
+      "parameter_sha256": "36c87e5be671ff37951b4b433e21ec14bb5e59f6f0770d7f81e50e99ead9e001"
+    }
+  ],
+  "sft7_checkpoint_files": [
+    {
+      "path": "C:\\Users\\ankit\\An-Ra-xexp\\checkpoints\\anra-v4-20k-sft7-margin.pt",
+      "file_sha256": "045408c80441e98affec8240f5a2c337a68dfb577beda8f5ee21aa497b389802",
+      "parameter_sha256": "c01cbbeea470e0c9faa47a31a6c3cc80a3b353343f1fc36c722e945402f8ae53"
+    }
+  ],
+  "intervention_policy_artifacts": [
+    {
+      "path": "C:\\Users\\ankit\\An-Ra-xexp\\output\\self_model_v7.json",
+      "parameter_sha256": "ae9ad72b9ba56f218e6d3c1b5bdc0cd7c3785b3f7e17c5c1ebc27020701bcffe"
+    }
+  ],
+  "historical_report_only": {
+    "path": "C:\\Users\\ankit\\Downloads\\money money\\marketing\\output\\margin_greedy_replication.json",
+    "same_probe_comparison_valid": false,
+    "reason": "Historical aggregate QIM metrics are retained as context; the direct same-probe matrix below uses the actual SFT6/SFT7 weights."
+  },
+  "conclusion": "Direct same-probe SFT6/SFT7 and frozen-policy evaluation completed."
+}

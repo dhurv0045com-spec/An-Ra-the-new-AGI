@@ -1,0 +1,13 @@
+{
+  "verified": true,
+  "checkpoint": "C:\\Users\\ankit\\Downloads\\anra-v4-step-22517.pt",
+  "size_bytes": 2161474648,
+  "file_sha256": "2ea76d47ed89fd50d6118e280a3a0cfc80eb9b45f6fd8041d1cd331dd655272d",
+  "checkpoint_schema_version": 3,
+  "artifact_class": "full_resume",
+  "global_step": 22517,
+  "optimizer_step": 22517,
+  "parameter_sha256": "de1ca6b813897b5ddd6a66fc68e1a690c3cd307cd48d1fc2913a5ff2544b452a",
+  "parent_parameter_sha256": "cd5605568d817a8e0898ac772db5598f010fe5d04198c67f83f4a521f9cf51b1",
+  "tokenizer_loader_succeeded": true
+}

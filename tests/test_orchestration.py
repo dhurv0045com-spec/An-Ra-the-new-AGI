@@ -442,22 +442,22 @@ def test_notebook_run_all_symbols_resolve_in_order() -> None:
         defined |= assigned_here
 
 
-def test_notebook_verifies_and_keeps_final_checkpoint_alive() -> None:
+def test_notebook_routes_to_hardened_persistence_launcher() -> None:
     from pathlib import Path
 
-    notebook = json.loads(
-        (Path(__file__).parents[1] / "core_vnext_tpu_training.ipynb").read_text(
-            encoding="utf-8"
-        )
-    )
+    root = Path(__file__).parents[1]
+    notebook = json.loads((root / "core_vnext_tpu_training.ipynb").read_text(encoding="utf-8"))
     source = "\n".join(
         "".join(cell.get("source", [])) for cell in notebook["cells"]
     )
-    assert "verify_checkpoint_for_download.py" in source
-    assert "download-manifest.json" in source
-    assert "subprocess.run(verify_command, cwd=REPO, check=True)" in source
-    assert "[checkpoint keepalive]" in source
-    assert "time.sleep(60)" in source
+    launcher = (root / "training" / "kaggle_core_vnext.py").read_text()
+    assert "training.kaggle_core_vnext" in source
+    assert '"candidate_interval": 0' in launcher
+    assert "trained_identity.parameter_sha256 != parent_identity.parameter_sha256" in launcher
+    assert 'max(optimizer_steps) == payload["global_step"]' in launcher
+    assert "kagglehub.dataset_upload" in launcher
+    assert "kagglehub.dataset_download" in launcher
+    assert '"REMOTE_PERSISTENCE_GATE": "PASSED"' in launcher
 
 
 def test_xla_bounds_gradient_accumulation_graph_per_microbatch() -> None:

@@ -1,0 +1,35 @@
+{
+  "schema": "anra-token-provenance-ledger/v1",
+  "status": "campaign_provenance_integrity_failed",
+  "parent": {
+    "global_step": 20000,
+    "tokens_seen_recorded": 327827071,
+    "tokens_per_step_contract": null,
+    "token_window_start": 324550271,
+    "token_window_end": 500000000,
+    "max_phase_tokens_recipe": 500000000
+  },
+  "continuation": {
+    "start_global_step": 20000,
+    "final_global_step": 22517,
+    "optimizer_steps": 2517,
+    "tokens_per_optimizer_step": 131072,
+    "certified_tokens_by_checkpoint_step_math": 329908224,
+    "pack_manifest_training_tokens_effective": 330000384,
+    "pack_manifest_training_tokens_requested": 330000000,
+    "pack_manifest_data_window_start": 170000000,
+    "pack_manifest_cumulative_phase_tokens": 500000000,
+    "pack_manifest_train_manifest_sha256": "87cf95bef97ba76cc8af40939f3a8fba09be8df24cbf674975f3d7ffa89bc5ab"
+  },
+  "derived_totals": {
+    "parent_record_plus_certified_continuation": 657735295,
+    "campaign_label_total": 500000000,
+    "lifetime_total_certifiable": false
+  },
+  "invariants": {
+    "continuation_step_math_consistent": true,
+    "parent_and_pack_campaign_metadata_consistent": false,
+    "reason": "The parent already records 327,827,071 tokens and a 324,550,271→500,000,000 window, while the pack is labeled 170M→500M and adds ~330M tokens."
+  },
+  "interpretation": "The only defensible claim is 329,908,224 certified continuation tokens. A 657,735,295 total is a derived additive estimate if the parent counter is cumulative; 500,000,000 is the signed campaign label. Neither is a certified lifetime total, and 2.7B is unsupported."
+}
