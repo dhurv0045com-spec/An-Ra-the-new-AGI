@@ -1,0 +1,301 @@
+{
+  "config": {
+    "batch_size": 1,
+    "device": "cuda",
+    "repeats": 3,
+    "sequence_lengths": [
+      512,
+      1024,
+      2048,
+      4096
+    ],
+    "warmup": 2
+  },
+  "context_scaling": {
+    "deep-narrow": {
+      "long_vs_short_length_ratio": 8.0,
+      "peak_memory_ratio": 6.699606082016241,
+      "training_latency_ratio": 0.939762338212923
+    },
+    "middle": {
+      "long_vs_short_length_ratio": 8.0,
+      "peak_memory_ratio": 6.638698448273246,
+      "training_latency_ratio": 1.0895528341315512
+    },
+    "wide-shallow": {
+      "long_vs_short_length_ratio": 8.0,
+      "peak_memory_ratio": 6.35419468398992,
+      "training_latency_ratio": 1.558605864747226
+    }
+  },
+  "cuda_runtime": "12.8",
+  "device_name": "NVIDIA GeForce RTX 4050 Laptop GPU",
+  "implementation_sha256": "0fbeb10680074e41982ea2d7f214c352a6e50f17f68f8f54fd75ee73ca9fa8b7",
+  "interpretation": "This exact eager RTX stack strongly favors fewer wider blocks for execution. The result is a throughput/memory prior only; E2 cognition per measured FLOP must decide whether the deeper shapes earn their cost.",
+  "limitations": [
+    "Synthetic random tokens measure execution, not learning or cognition.",
+    "No optimizer step, data pipeline, checkpoint, compiler, or distributed collective is included.",
+    "The eager laptop result is not TPU/XLA throughput evidence.",
+    "Batch one does not select the final global or microbatch size."
+  ],
+  "rows": [
+    {
+      "arm": "deep-narrow",
+      "forward_backward_median_ms_across_runs": 367.1173095703125,
+      "forward_backward_median_ms_range": [
+        358.3170471191406,
+        376.25140380859375
+      ],
+      "forward_backward_peak_allocated_bytes": 529003520,
+      "forward_median_ms_across_runs": 105.97785949707031,
+      "forward_median_ms_range": [
+        103.1045150756836,
+        108.29106903076172
+      ],
+      "parameters": 35420480,
+      "sequence_length": 512,
+      "tokens_per_second": 1394.64957563364
+    },
+    {
+      "arm": "deep-narrow",
+      "forward_backward_median_ms_across_runs": 355.8348693847656,
+      "forward_backward_median_ms_range": [
+        346.09356689453125,
+        362.45196533203125
+      ],
+      "forward_backward_peak_allocated_bytes": 967204864,
+      "forward_median_ms_across_runs": 104.97945404052734,
+      "forward_median_ms_range": [
+        101.83372497558594,
+        112.06246185302734
+      ],
+      "parameters": 35420480,
+      "sequence_length": 1024,
+      "tokens_per_second": 2877.7393338951974
+    },
+    {
+      "arm": "deep-narrow",
+      "forward_backward_median_ms_across_runs": 352.6910705566406,
+      "forward_backward_median_ms_range": [
+        351.3364562988281,
+        358.1714782714844
+      ],
+      "forward_backward_peak_allocated_bytes": 1826174976,
+      "forward_median_ms_across_runs": 105.45254516601562,
+      "forward_median_ms_range": [
+        100.59980773925781,
+        106.88204956054688
+      ],
+      "parameters": 35420480,
+      "sequence_length": 2048,
+      "tokens_per_second": 5806.781546149466
+    },
+    {
+      "arm": "deep-narrow",
+      "forward_backward_median_ms_across_runs": 345.0030212402344,
+      "forward_backward_median_ms_range": [
+        343.82745361328125,
+        349.8832092285156
+      ],
+      "forward_backward_peak_allocated_bytes": 3544115200,
+      "forward_median_ms_across_runs": 100.73088073730469,
+      "forward_median_ms_range": [
+        100.02006530761719,
+        104.3301773071289
+      ],
+      "parameters": 35420480,
+      "sequence_length": 4096,
+      "tokens_per_second": 11872.359799272168
+    },
+    {
+      "arm": "middle",
+      "forward_backward_median_ms_across_runs": 237.56492614746094,
+      "forward_backward_median_ms_range": [
+        235.49644470214844,
+        241.12127685546875
+      ],
+      "forward_backward_peak_allocated_bytes": 472429568,
+      "forward_median_ms_across_runs": 69.3565444946289,
+      "forward_median_ms_range": [
+        69.0882568359375,
+        72.77772521972656
+      ],
+      "parameters": 35414400,
+      "sequence_length": 512,
+      "tokens_per_second": 2155.2002995685993
+    },
+    {
+      "arm": "middle",
+      "forward_backward_median_ms_across_runs": 239.7665252685547,
+      "forward_backward_median_ms_range": [
+        237.9272918701172,
+        251.15750122070312
+      ],
+      "forward_backward_peak_allocated_bytes": 854351872,
+      "forward_median_ms_across_runs": 75.87926483154297,
+      "forward_median_ms_range": [
+        70.62630462646484,
+        77.81068420410156
+      ],
+      "parameters": 35414400,
+      "sequence_length": 1024,
+      "tokens_per_second": 4270.821370302009
+    },
+    {
+      "arm": "middle",
+      "forward_backward_median_ms_across_runs": 238.5017852783203,
+      "forward_backward_median_ms_range": [
+        234.32089233398438,
+        243.21856689453125
+      ],
+      "forward_backward_peak_allocated_bytes": 1617016832,
+      "forward_median_ms_across_runs": 71.36460876464844,
+      "forward_median_ms_range": [
+        68.73693084716797,
+        132.43597412109375
+      ],
+      "parameters": 35414400,
+      "sequence_length": 2048,
+      "tokens_per_second": 8586.937819396533
+    },
+    {
+      "arm": "middle",
+      "forward_backward_median_ms_across_runs": 258.83953857421875,
+      "forward_backward_median_ms_range": [
+        256.43212890625,
+        261.07391357421875
+      ],
+      "forward_backward_peak_allocated_bytes": 3136317440,
+      "forward_median_ms_across_runs": 71.8581771850586,
+      "forward_median_ms_range": [
+        70.21158599853516,
+        86.7031021118164
+      ],
+      "parameters": 35414400,
+      "sequence_length": 4096,
+      "tokens_per_second": 15824.475744943144
+    },
+    {
+      "arm": "wide-shallow",
+      "forward_backward_median_ms_across_runs": 115.70381164550781,
+      "forward_backward_median_ms_range": [
+        114.84774780273438,
+        121.38495635986328
+      ],
+      "forward_backward_peak_allocated_bytes": 404321280,
+      "forward_median_ms_across_runs": 35.806209564208984,
+      "forward_median_ms_range": [
+        34.88652801513672,
+        37.989376068115234
+      ],
+      "parameters": 35144192,
+      "sequence_length": 512,
+      "tokens_per_second": 4425.091902492033
+    },
+    {
+      "arm": "wide-shallow",
+      "forward_backward_median_ms_across_runs": 132.92031860351562,
+      "forward_backward_median_ms_range": [
+        121.31635284423828,
+        159.2553253173828
+      ],
+      "forward_backward_peak_allocated_bytes": 717381632,
+      "forward_median_ms_across_runs": 38.99187088012695,
+      "forward_median_ms_range": [
+        35.095550537109375,
+        71.55404663085938
+      ],
+      "parameters": 35144192,
+      "sequence_length": 1024,
+      "tokens_per_second": 7703.8635684771525
+    },
+    {
+      "arm": "wide-shallow",
+      "forward_backward_median_ms_across_runs": 120.43043518066406,
+      "forward_backward_median_ms_range": [
+        117.34835052490234,
+        121.76780700683594
+      ],
+      "forward_backward_peak_allocated_bytes": 1334589440,
+      "forward_median_ms_across_runs": 36.32640075683594,
+      "forward_median_ms_range": [
+        34.99929428100586,
+        42.8328971862793
+      ],
+      "parameters": 35144192,
+      "sequence_length": 2048,
+      "tokens_per_second": 17005.66801845137
+    },
+    {
+      "arm": "wide-shallow",
+      "forward_backward_median_ms_across_runs": 180.33663940429688,
+      "forward_backward_median_ms_range": [
+        179.65875244140625,
+        183.00927734375
+      ],
+      "forward_backward_peak_allocated_bytes": 2569136128,
+      "forward_median_ms_across_runs": 42.2400016784668,
+      "forward_median_ms_range": [
+        41.91948699951172,
+        61.7154541015625
+      ],
+      "parameters": 35144192,
+      "sequence_length": 4096,
+      "tokens_per_second": 22713.07712914165
+    }
+  ],
+  "schema": "esoes-e2-full-stack-aggregate/v1",
+  "scope": "exact P35 shape stacks; forward/backward only; no optimizer update",
+  "seeds": [
+    32001,
+    32002,
+    32003
+  ],
+  "shape_comparisons": {
+    "1024": {
+      "deep_vs_middle_latency_ratio": 1.484089027799884,
+      "deep_vs_wide_latency_ratio": 2.6770539908663302,
+      "deep_vs_wide_memory_ratio": 1.348243139852234,
+      "middle_vs_wide_latency_ratio": 1.8038365224187258,
+      "middle_vs_wide_memory_ratio": 1.1909307875894988
+    },
+    "2048": {
+      "deep_vs_middle_latency_ratio": 1.4787774864874357,
+      "deep_vs_wide_latency_ratio": 2.928587528788301,
+      "deep_vs_wide_memory_ratio": 1.3683421442327612,
+      "middle_vs_wide_latency_ratio": 1.9804112218022891,
+      "middle_vs_wide_memory_ratio": 1.2116211799188221
+    },
+    "4096": {
+      "deep_vs_middle_latency_ratio": 1.3328837747920395,
+      "deep_vs_wide_latency_ratio": 1.9131055251993012,
+      "deep_vs_wide_memory_ratio": 1.3794968516358819,
+      "middle_vs_wide_latency_ratio": 1.4353130868426918,
+      "middle_vs_wide_memory_ratio": 1.2207673255685112
+    },
+    "512": {
+      "deep_vs_middle_latency_ratio": 1.5453346397710073,
+      "deep_vs_wide_latency_ratio": 3.1729059254770524,
+      "deep_vs_wide_memory_ratio": 1.3083741721434994,
+      "middle_vs_wide_latency_ratio": 2.0532160761938423,
+      "middle_vs_wide_memory_ratio": 1.1684509111170207
+    }
+  },
+  "source_receipts": [
+    {
+      "path": "local_cuda_full_stack_seed32001.json",
+      "sha256": "45e046177d57bc88b6ac3e1e8efdaea532c142fe2857768661cf389b31d18213"
+    },
+    {
+      "path": "local_cuda_full_stack_seed32002.json",
+      "sha256": "577024cddde817901d170ccc995669cafb3f8879109105afa583b79ba51164be"
+    },
+    {
+      "path": "local_cuda_full_stack_seed32003.json",
+      "sha256": "48123db0609331981c48a01c200eae0b0f0cc56874f7fcf071596762609793f8"
+    }
+  ],
+  "static_plan_sha256": "45c8472c728d29a0c0c3c79cfa98a9ca2a2dccd06c1f37a02da7a180baa6516a",
+  "status": "PASS_REPLICATED",
+  "torch_version": "2.11.0+cu128"
+}

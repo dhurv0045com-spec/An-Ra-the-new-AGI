@@ -25,3 +25,10 @@ It reports isolated causal-SDPA latency and memory for the registered
 MHA/GQA/QK/context cases, compares native and repeated-K/V GQA implementations,
 and checks native GQA against explicitly repeated K/V heads. It remains a kernel
 microbenchmark, not full-model or cognition evidence.
+
+`e2_architecture.block_benchmark` goes one level deeper without training: it
+constructs each exact P35 shape stack, including tied embeddings/logits, RoPE,
+affine QK norm, MHA, SwiGLU, cross-entropy, and backward, then verifies exact
+parameter counts and finite gradients. It deliberately performs no optimizer
+update. Use small matched sequences on local CPU/CUDA; repeat the same receipt
+on the target TPU stack before architecture selection.

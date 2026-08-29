@@ -1,0 +1,442 @@
+{
+  "config": {
+    "batch_size": 1,
+    "device": "cuda",
+    "repeats": 3,
+    "seed": 32002,
+    "sequence_lengths": [
+      512,
+      1024,
+      2048,
+      4096
+    ],
+    "warmup": 2
+  },
+  "cuda_runtime": "12.8",
+  "device_name": "NVIDIA GeForce RTX 4050 Laptop GPU",
+  "execution_order": [
+    "middle:2048",
+    "deep-narrow:512",
+    "wide-shallow:2048",
+    "wide-shallow:1024",
+    "deep-narrow:4096",
+    "deep-narrow:1024",
+    "wide-shallow:4096",
+    "middle:512",
+    "middle:1024",
+    "middle:4096",
+    "deep-narrow:2048",
+    "wide-shallow:512"
+  ],
+  "implementation_sha256": "0fbeb10680074e41982ea2d7f214c352a6e50f17f68f8f54fd75ee73ca9fa8b7",
+  "limitations": [
+    "Synthetic random tokens measure execution, not learning or cognition.",
+    "No optimizer step, data pipeline, checkpoint, compiler, or distributed collective is included.",
+    "The eager laptop result is not TPU/XLA throughput evidence.",
+    "Batch one does not select the final global or microbatch size."
+  ],
+  "platform": "Windows-10-10.0.26200-SP0",
+  "rows": [
+    {
+      "arm": "deep-narrow",
+      "batch_size": 1,
+      "correctness": {
+        "all_gradients_finite": true,
+        "finite_loss": true,
+        "parameter_count_exact": true,
+        "parameter_tensors_with_gradient": 266
+      },
+      "dtype": "bfloat16",
+      "ffn_width": 768,
+      "forward": {
+        "median_ms": 108.29106903076172,
+        "minimum_ms": 104.92518615722656,
+        "p95_ms": 110.6503677368164,
+        "tokens_per_second": 4727.998389733863
+      },
+      "forward_backward": {
+        "median_ms": 358.3170471191406,
+        "minimum_ms": 354.6951599121094,
+        "p95_ms": 360.43463134765625,
+        "tokens_per_second": 1428.9021527623822
+      },
+      "forward_backward_peak_allocated_bytes": 529003520,
+      "forward_peak_allocated_bytes": 127050752,
+      "layers": 24,
+      "model_sha256": "3132babf94ddd2fef21c6e4b57dac556e91de0f405b392bbe339854b907e5dbc",
+      "parameters": 35420480,
+      "query_heads": 5,
+      "sequence_length": 512,
+      "tokens": 512,
+      "width": 320
+    },
+    {
+      "arm": "deep-narrow",
+      "batch_size": 1,
+      "correctness": {
+        "all_gradients_finite": true,
+        "finite_loss": true,
+        "parameter_count_exact": true,
+        "parameter_tensors_with_gradient": 266
+      },
+      "dtype": "bfloat16",
+      "ffn_width": 768,
+      "forward": {
+        "median_ms": 101.83372497558594,
+        "minimum_ms": 100.00383758544922,
+        "p95_ms": 105.79449462890625,
+        "tokens_per_second": 10055.607808174535
+      },
+      "forward_backward": {
+        "median_ms": 346.09356689453125,
+        "minimum_ms": 342.5433654785156,
+        "p95_ms": 347.79034423828125,
+        "tokens_per_second": 2958.7374570069787
+      },
+      "forward_backward_peak_allocated_bytes": 967204864,
+      "forward_peak_allocated_bytes": 152552448,
+      "layers": 24,
+      "model_sha256": "3132babf94ddd2fef21c6e4b57dac556e91de0f405b392bbe339854b907e5dbc",
+      "parameters": 35420480,
+      "query_heads": 5,
+      "sequence_length": 1024,
+      "tokens": 1024,
+      "width": 320
+    },
+    {
+      "arm": "deep-narrow",
+      "batch_size": 1,
+      "correctness": {
+        "all_gradients_finite": true,
+        "finite_loss": true,
+        "parameter_count_exact": true,
+        "parameter_tensors_with_gradient": 266
+      },
+      "dtype": "bfloat16",
+      "ffn_width": 768,
+      "forward": {
+        "median_ms": 105.45254516601562,
+        "minimum_ms": 104.31385803222656,
+        "p95_ms": 107.98796844482422,
+        "tokens_per_second": 19421.058038720646
+      },
+      "forward_backward": {
+        "median_ms": 358.1714782714844,
+        "minimum_ms": 357.57159423828125,
+        "p95_ms": 359.47119140625,
+        "tokens_per_second": 5717.931561394933
+      },
+      "forward_backward_peak_allocated_bytes": 1826174976,
+      "forward_peak_allocated_bytes": 203555840,
+      "layers": 24,
+      "model_sha256": "3132babf94ddd2fef21c6e4b57dac556e91de0f405b392bbe339854b907e5dbc",
+      "parameters": 35420480,
+      "query_heads": 5,
+      "sequence_length": 2048,
+      "tokens": 2048,
+      "width": 320
+    },
+    {
+      "arm": "deep-narrow",
+      "batch_size": 1,
+      "correctness": {
+        "all_gradients_finite": true,
+        "finite_loss": true,
+        "parameter_count_exact": true,
+        "parameter_tensors_with_gradient": 266
+      },
+      "dtype": "bfloat16",
+      "ffn_width": 768,
+      "forward": {
+        "median_ms": 104.3301773071289,
+        "minimum_ms": 102.48499298095703,
+        "p95_ms": 109.55980682373047,
+        "tokens_per_second": 39259.97353519421
+      },
+      "forward_backward": {
+        "median_ms": 345.0030212402344,
+        "minimum_ms": 336.8467102050781,
+        "p95_ms": 348.55755615234375,
+        "tokens_per_second": 11872.359799272168
+      },
+      "forward_backward_peak_allocated_bytes": 3544115200,
+      "forward_peak_allocated_bytes": 305562624,
+      "layers": 24,
+      "model_sha256": "3132babf94ddd2fef21c6e4b57dac556e91de0f405b392bbe339854b907e5dbc",
+      "parameters": 35420480,
+      "query_heads": 5,
+      "sequence_length": 4096,
+      "tokens": 4096,
+      "width": 320
+    },
+    {
+      "arm": "middle",
+      "batch_size": 1,
+      "correctness": {
+        "all_gradients_finite": true,
+        "finite_loss": true,
+        "parameter_count_exact": true,
+        "parameter_tensors_with_gradient": 178
+      },
+      "dtype": "bfloat16",
+      "ffn_width": 896,
+      "forward": {
+        "median_ms": 72.77772521972656,
+        "minimum_ms": 65.88416290283203,
+        "p95_ms": 74.54105377197266,
+        "tokens_per_second": 7035.1195843810365
+      },
+      "forward_backward": {
+        "median_ms": 235.49644470214844,
+        "minimum_ms": 232.88934326171875,
+        "p95_ms": 240.7659454345703,
+        "tokens_per_second": 2174.1304869700607
+      },
+      "forward_backward_peak_allocated_bytes": 472429568,
+      "forward_peak_allocated_bytes": 121840640,
+      "layers": 16,
+      "model_sha256": "6fd07f45a4e19d3eb98476a31047cc841bea39ccabd8efc7bc6d71473086b04f",
+      "parameters": 35414400,
+      "query_heads": 6,
+      "sequence_length": 512,
+      "tokens": 512,
+      "width": 384
+    },
+    {
+      "arm": "middle",
+      "batch_size": 1,
+      "correctness": {
+        "all_gradients_finite": true,
+        "finite_loss": true,
+        "parameter_count_exact": true,
+        "parameter_tensors_with_gradient": 178
+      },
+      "dtype": "bfloat16",
+      "ffn_width": 896,
+      "forward": {
+        "median_ms": 77.81068420410156,
+        "minimum_ms": 70.6344985961914,
+        "p95_ms": 78.30425262451172,
+        "tokens_per_second": 13160.146456417137
+      },
+      "forward_backward": {
+        "median_ms": 239.7665252685547,
+        "minimum_ms": 234.8984375,
+        "p95_ms": 267.59271240234375,
+        "tokens_per_second": 4270.821370302009
+      },
+      "forward_backward_peak_allocated_bytes": 853434368,
+      "forward_peak_allocated_bytes": 147407872,
+      "layers": 16,
+      "model_sha256": "6fd07f45a4e19d3eb98476a31047cc841bea39ccabd8efc7bc6d71473086b04f",
+      "parameters": 35414400,
+      "query_heads": 6,
+      "sequence_length": 1024,
+      "tokens": 1024,
+      "width": 384
+    },
+    {
+      "arm": "middle",
+      "batch_size": 1,
+      "correctness": {
+        "all_gradients_finite": true,
+        "finite_loss": true,
+        "parameter_count_exact": true,
+        "parameter_tensors_with_gradient": 178
+      },
+      "dtype": "bfloat16",
+      "ffn_width": 896,
+      "forward": {
+        "median_ms": 71.36460876464844,
+        "minimum_ms": 61.927425384521484,
+        "p95_ms": 73.00505828857422,
+        "tokens_per_second": 28697.698137098294
+      },
+      "forward_backward": {
+        "median_ms": 238.5017852783203,
+        "minimum_ms": 231.46701049804688,
+        "p95_ms": 240.9318389892578,
+        "tokens_per_second": 8586.937819396533
+      },
+      "forward_backward_peak_allocated_bytes": 1615575040,
+      "forward_peak_allocated_bytes": 198542336,
+      "layers": 16,
+      "model_sha256": "6fd07f45a4e19d3eb98476a31047cc841bea39ccabd8efc7bc6d71473086b04f",
+      "parameters": 35414400,
+      "query_heads": 6,
+      "sequence_length": 2048,
+      "tokens": 2048,
+      "width": 384
+    },
+    {
+      "arm": "middle",
+      "batch_size": 1,
+      "correctness": {
+        "all_gradients_finite": true,
+        "finite_loss": true,
+        "parameter_count_exact": true,
+        "parameter_tensors_with_gradient": 178
+      },
+      "dtype": "bfloat16",
+      "ffn_width": 896,
+      "forward": {
+        "median_ms": 86.7031021118164,
+        "minimum_ms": 65.64147186279297,
+        "p95_ms": 92.85734558105469,
+        "tokens_per_second": 47241.6776359121
+      },
+      "forward_backward": {
+        "median_ms": 258.83953857421875,
+        "minimum_ms": 258.63055419921875,
+        "p95_ms": 264.6077575683594,
+        "tokens_per_second": 15824.475744943144
+      },
+      "forward_backward_peak_allocated_bytes": 3135399936,
+      "forward_peak_allocated_bytes": 300811264,
+      "layers": 16,
+      "model_sha256": "6fd07f45a4e19d3eb98476a31047cc841bea39ccabd8efc7bc6d71473086b04f",
+      "parameters": 35414400,
+      "query_heads": 6,
+      "sequence_length": 4096,
+      "tokens": 4096,
+      "width": 384
+    },
+    {
+      "arm": "wide-shallow",
+      "batch_size": 1,
+      "correctness": {
+        "all_gradients_finite": true,
+        "finite_loss": true,
+        "parameter_count_exact": true,
+        "parameter_tensors_with_gradient": 90
+      },
+      "dtype": "bfloat16",
+      "ffn_width": 1152,
+      "forward": {
+        "median_ms": 35.806209564208984,
+        "minimum_ms": 34.73612976074219,
+        "p95_ms": 39.06969451904297,
+        "tokens_per_second": 14299.195760496881
+      },
+      "forward_backward": {
+        "median_ms": 115.70381164550781,
+        "minimum_ms": 112.31846618652344,
+        "p95_ms": 122.14681243896484,
+        "tokens_per_second": 4425.091902492033
+      },
+      "forward_backward_peak_allocated_bytes": 403141632,
+      "forward_peak_allocated_bytes": 118531072,
+      "layers": 8,
+      "model_sha256": "7728338a0b5d3cb72f56f448db0bf895faafd87ac38bb6b9f35e7074f6f3e8b2",
+      "parameters": 35144192,
+      "query_heads": 8,
+      "sequence_length": 512,
+      "tokens": 512,
+      "width": 512
+    },
+    {
+      "arm": "wide-shallow",
+      "batch_size": 1,
+      "correctness": {
+        "all_gradients_finite": true,
+        "finite_loss": true,
+        "parameter_count_exact": true,
+        "parameter_tensors_with_gradient": 90
+      },
+      "dtype": "bfloat16",
+      "ffn_width": 1152,
+      "forward": {
+        "median_ms": 38.99187088012695,
+        "minimum_ms": 37.584896087646484,
+        "p95_ms": 47.16105651855469,
+        "tokens_per_second": 26261.884256543934
+      },
+      "forward_backward": {
+        "median_ms": 132.92031860351562,
+        "minimum_ms": 116.59788513183594,
+        "p95_ms": 139.14215087890625,
+        "tokens_per_second": 7703.8635684771525
+      },
+      "forward_backward_peak_allocated_bytes": 717381632,
+      "forward_peak_allocated_bytes": 144229376,
+      "layers": 8,
+      "model_sha256": "7728338a0b5d3cb72f56f448db0bf895faafd87ac38bb6b9f35e7074f6f3e8b2",
+      "parameters": 35144192,
+      "query_heads": 8,
+      "sequence_length": 1024,
+      "tokens": 1024,
+      "width": 512
+    },
+    {
+      "arm": "wide-shallow",
+      "batch_size": 1,
+      "correctness": {
+        "all_gradients_finite": true,
+        "finite_loss": true,
+        "parameter_count_exact": true,
+        "parameter_tensors_with_gradient": 90
+      },
+      "dtype": "bfloat16",
+      "ffn_width": 1152,
+      "forward": {
+        "median_ms": 34.99929428100586,
+        "minimum_ms": 34.65625762939453,
+        "p95_ms": 36.12268829345703,
+        "tokens_per_second": 58515.465585014696
+      },
+      "forward_backward": {
+        "median_ms": 121.76780700683594,
+        "minimum_ms": 116.08678436279297,
+        "p95_ms": 123.03257751464844,
+        "tokens_per_second": 16818.89532497721
+      },
+      "forward_backward_peak_allocated_bytes": 1334589440,
+      "forward_peak_allocated_bytes": 195625984,
+      "layers": 8,
+      "model_sha256": "7728338a0b5d3cb72f56f448db0bf895faafd87ac38bb6b9f35e7074f6f3e8b2",
+      "parameters": 35144192,
+      "query_heads": 8,
+      "sequence_length": 2048,
+      "tokens": 2048,
+      "width": 512
+    },
+    {
+      "arm": "wide-shallow",
+      "batch_size": 1,
+      "correctness": {
+        "all_gradients_finite": true,
+        "finite_loss": true,
+        "parameter_count_exact": true,
+        "parameter_tensors_with_gradient": 90
+      },
+      "dtype": "bfloat16",
+      "ffn_width": 1152,
+      "forward": {
+        "median_ms": 61.7154541015625,
+        "minimum_ms": 43.28550338745117,
+        "p95_ms": 72.24012756347656,
+        "tokens_per_second": 66369.11385695044
+      },
+      "forward_backward": {
+        "median_ms": 179.65875244140625,
+        "minimum_ms": 177.59744262695312,
+        "p95_ms": 187.0346221923828,
+        "tokens_per_second": 22798.77792948532
+      },
+      "forward_backward_peak_allocated_bytes": 2567956480,
+      "forward_peak_allocated_bytes": 298419200,
+      "layers": 8,
+      "model_sha256": "7728338a0b5d3cb72f56f448db0bf895faafd87ac38bb6b9f35e7074f6f3e8b2",
+      "parameters": 35144192,
+      "query_heads": 8,
+      "sequence_length": 4096,
+      "tokens": 4096,
+      "width": 512
+    }
+  ],
+  "schema": "esoes-e2-full-stack-benchmark/v1",
+  "scope": "exact P35 shape stacks; forward/backward only; no optimizer update",
+  "static_plan_sha256": "45c8472c728d29a0c0c3c79cfa98a9ca2a2dccd06c1f37a02da7a180baa6516a",
+  "status": "PASS",
+  "torch_version": "2.11.0+cu128"
+}

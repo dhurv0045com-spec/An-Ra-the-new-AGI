@@ -114,6 +114,7 @@ Required critical path: **E0 benchmark certification → E1 tokenizer → E2 arc
 - [x] local-development 16k/24k/32k candidates independently trained, audited, and 24k determinism replicated
 - [ ] real 16k/24k/32k tokenizer candidates audited
 - [x] local CUDA attention-path canary replicated; target TPU/XLA GQA path remains open
+- [x] exact P35 full-stack CPU/CUDA execution canary replicated with randomized case order
 - [x] 250M model/run/lineage contracts and implementation blueprint created
 
 ## Freeze artifact

@@ -1,0 +1,133 @@
+{
+  "config": {
+    "batch_size": 1,
+    "device": "cpu",
+    "repeats": 1,
+    "seed": 32001,
+    "sequence_lengths": [
+      64
+    ],
+    "warmup": 0
+  },
+  "cuda_runtime": "12.8",
+  "device_name": "AMD64 Family 25 Model 68 Stepping 1, AuthenticAMD",
+  "execution_order": [
+    "wide-shallow:64",
+    "middle:64",
+    "deep-narrow:64"
+  ],
+  "implementation_sha256": "0fbeb10680074e41982ea2d7f214c352a6e50f17f68f8f54fd75ee73ca9fa8b7",
+  "limitations": [
+    "Synthetic random tokens measure execution, not learning or cognition.",
+    "No optimizer step, data pipeline, checkpoint, compiler, or distributed collective is included.",
+    "The eager laptop result is not TPU/XLA throughput evidence.",
+    "Batch one does not select the final global or microbatch size."
+  ],
+  "platform": "Windows-10-10.0.26200-SP0",
+  "rows": [
+    {
+      "arm": "deep-narrow",
+      "batch_size": 1,
+      "correctness": {
+        "all_gradients_finite": true,
+        "finite_loss": true,
+        "parameter_count_exact": true,
+        "parameter_tensors_with_gradient": 266
+      },
+      "dtype": "float32",
+      "ffn_width": 768,
+      "forward": {
+        "median_ms": 152.45190006680787,
+        "minimum_ms": 152.45190006680787,
+        "p95_ms": 152.45190006680787,
+        "tokens_per_second": 419.804541445228
+      },
+      "forward_backward": {
+        "median_ms": 423.3249000972137,
+        "minimum_ms": 423.3249000972137,
+        "p95_ms": 423.3249000972137,
+        "tokens_per_second": 151.18411410550817
+      },
+      "forward_backward_peak_allocated_bytes": null,
+      "forward_peak_allocated_bytes": null,
+      "layers": 24,
+      "model_sha256": "3132babf94ddd2fef21c6e4b57dac556e91de0f405b392bbe339854b907e5dbc",
+      "parameters": 35420480,
+      "query_heads": 5,
+      "sequence_length": 64,
+      "tokens": 64,
+      "width": 320
+    },
+    {
+      "arm": "middle",
+      "batch_size": 1,
+      "correctness": {
+        "all_gradients_finite": true,
+        "finite_loss": true,
+        "parameter_count_exact": true,
+        "parameter_tensors_with_gradient": 178
+      },
+      "dtype": "float32",
+      "ffn_width": 896,
+      "forward": {
+        "median_ms": 100.07030004635453,
+        "minimum_ms": 100.07030004635453,
+        "p95_ms": 100.07030004635453,
+        "tokens_per_second": 639.5503957753093
+      },
+      "forward_backward": {
+        "median_ms": 384.740800014697,
+        "minimum_ms": 384.740800014697,
+        "p95_ms": 384.740800014697,
+        "tokens_per_second": 166.34575796888507
+      },
+      "forward_backward_peak_allocated_bytes": null,
+      "forward_peak_allocated_bytes": null,
+      "layers": 16,
+      "model_sha256": "6fd07f45a4e19d3eb98476a31047cc841bea39ccabd8efc7bc6d71473086b04f",
+      "parameters": 35414400,
+      "query_heads": 6,
+      "sequence_length": 64,
+      "tokens": 64,
+      "width": 384
+    },
+    {
+      "arm": "wide-shallow",
+      "batch_size": 1,
+      "correctness": {
+        "all_gradients_finite": true,
+        "finite_loss": true,
+        "parameter_count_exact": true,
+        "parameter_tensors_with_gradient": 90
+      },
+      "dtype": "float32",
+      "ffn_width": 1152,
+      "forward": {
+        "median_ms": 81.91080007236451,
+        "minimum_ms": 81.91080007236451,
+        "p95_ms": 81.91080007236451,
+        "tokens_per_second": 781.3377472013321
+      },
+      "forward_backward": {
+        "median_ms": 308.3141000242904,
+        "minimum_ms": 308.3141000242904,
+        "p95_ms": 308.3141000242904,
+        "tokens_per_second": 207.58051608719092
+      },
+      "forward_backward_peak_allocated_bytes": null,
+      "forward_peak_allocated_bytes": null,
+      "layers": 8,
+      "model_sha256": "7728338a0b5d3cb72f56f448db0bf895faafd87ac38bb6b9f35e7074f6f3e8b2",
+      "parameters": 35144192,
+      "query_heads": 8,
+      "sequence_length": 64,
+      "tokens": 64,
+      "width": 512
+    }
+  ],
+  "schema": "esoes-e2-full-stack-benchmark/v1",
+  "scope": "exact P35 shape stacks; forward/backward only; no optimizer update",
+  "static_plan_sha256": "45c8472c728d29a0c0c3c79cfa98a9ca2a2dccd06c1f37a02da7a180baa6516a",
+  "status": "PASS",
+  "torch_version": "2.11.0+cu128"
+}

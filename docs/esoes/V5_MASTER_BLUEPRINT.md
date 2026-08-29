@@ -344,6 +344,8 @@ At ~35M parameters compare parameter-matched deep/narrow, middle, and wide/shall
 
 The purpose is to decide depth, attention topology, and QK/GQA—not to crown a benchmark winner from one seed. A replicated local CUDA kernel probe already discovered that this exact PyTorch/Windows build routes native GQA through the math backend: it is 5.20× MHA latency and 13.86× peak allocation, while explicit repeated K/V is 1.09× latency and 1.45× memory. Native 4k is 3.59× native-2k latency and 3.80× memory. This is **EVIDENCE-BACKED for implementation selection on the measured stack**, not evidence against GQA or 4k on TPU; the target framework must run the same backend canary before E2.
 
+A second replicated canary constructs each exact ~35M shape end to end and performs forward/backward without an optimizer update. Randomized case order prevents context length from being confounded with GPU warm-up. Across three RTX seeds, wide/shallow is 3.17× deep at sequence 512 and 1.91× at 4k; its 4k peak allocation is 2.57 GB versus 3.54 GB deep. A bounded CPU run preserves the ordering. **EVIDENCE-BACKED local execution prior:** fewer/wider blocks are substantially cheaper on these eager runtimes. **EXPERIMENT REQUIRED:** whether additional depth earns this cost in fresh-OOD cognition per measured FLOP. Do not replace the provisional V5 shape from throughput alone.
+
 ### E3 — Data/objective screen
 
 At the winning P35 architecture compare 5%, 15%, and 30% cognition mixtures under LM-only. Add query-swap contrast to the best mixture and one neighboring mixture. Compare with matched token and raw-byte budgets. Replicate finalists across three seeds and fresh generators.

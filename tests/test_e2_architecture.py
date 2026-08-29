@@ -1,17 +1,112 @@
 from __future__ import annotations
 
 import dataclasses
+import hashlib
 import json
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from e2_architecture.aggregate import aggregate_receipts
+from e2_architecture.block_benchmark import BenchmarkConfig, shape_arms
+from e2_architecture.block_aggregate import aggregate_receipts as aggregate_block_receipts
 from e2_architecture.device_benchmark import AttentionCase, _percentile, default_cases
 from e2_architecture.plan import build_plan
 
 
 class E2ArchitectureTests(unittest.TestCase):
+    def test_full_stack_cases_are_exact_static_shape_arms(self) -> None:
+        arms = shape_arms()
+        self.assertEqual(tuple(arm.name for arm in arms), ("deep-narrow", "middle", "wide-shallow"))
+        self.assertEqual(
+            [arm.model.parameter_receipt().total for arm in arms],
+            [35_420_480, 35_414_400, 35_144_192],
+        )
+
+    def test_full_stack_benchmark_config_fails_closed(self) -> None:
+        BenchmarkConfig("cuda", (512, 1024), 1, 2, 5, 1).assert_valid()
+        with self.assertRaises(ValueError):
+            BenchmarkConfig("cuda", (512, 512), 1, 2, 5, 1).assert_valid()
+        with self.assertRaises(ValueError):
+            BenchmarkConfig("tpu", (512,), 1, 2, 5, 1).assert_valid()
+
+    def test_full_stack_aggregate_checks_replication_identity(self) -> None:
+        rows = []
+        for arm, parameters, latency, memory in (
+            ("deep-narrow", 35_420_480, 400.0, 500),
+            ("middle", 35_414_400, 270.0, 450),
+            ("wide-shallow", 35_144_192, 140.0, 390),
+        ):
+            for sequence_length in (512, 1024):
+                scale = sequence_length / 512
+                rows.append(
+                    {
+                        "arm": arm,
+                        "sequence_length": sequence_length,
+                        "parameters": parameters,
+                        "correctness": {
+                            "parameter_count_exact": True,
+                            "finite_loss": True,
+                            "all_gradients_finite": True,
+                        },
+                        "forward": {"median_ms": latency * scale / 3},
+                        "forward_backward": {"median_ms": latency * scale},
+                        "forward_backward_peak_allocated_bytes": int(memory * scale),
+                    }
+                )
+        with TemporaryDirectory() as directory:
+            paths = []
+            for seed in (1, 2, 3):
+                receipt = {
+                    "schema": "esoes-e2-full-stack-benchmark/v1",
+                    "status": "PASS",
+                    "scope": "fixture",
+                    "implementation_sha256": "a" * 64,
+                    "static_plan_sha256": "b" * 64,
+                    "torch_version": "fixture",
+                    "cuda_runtime": "fixture",
+                    "device_name": "fixture",
+                    "config": {
+                        "device": "cuda",
+                        "sequence_lengths": [512, 1024],
+                        "batch_size": 1,
+                        "warmup": 1,
+                        "repeats": 3,
+                        "seed": seed,
+                    },
+                    "rows": rows,
+                    "limitations": [],
+                }
+                path = Path(directory) / f"{seed}.json"
+                path.write_text(json.dumps(receipt), encoding="utf-8")
+                paths.append(path)
+            result = aggregate_block_receipts(paths)
+            self.assertEqual(result["status"], "PASS_REPLICATED")
+            self.assertAlmostEqual(
+                result["shape_comparisons"]["512"]["deep_vs_wide_latency_ratio"],
+                400 / 140,
+            )
+            with self.assertRaises(ValueError):
+                aggregate_block_receipts(paths[:2])
+
+    def test_local_full_stack_receipts_match_aggregate_hashes(self) -> None:
+        root = Path(__file__).parents[1] / "artifacts/e2"
+        aggregate = json.loads(
+            (root / "local_cuda_full_stack_aggregate.json").read_text(encoding="utf-8")
+        )
+        self.assertEqual(aggregate["status"], "PASS_REPLICATED")
+        self.assertEqual(aggregate["seeds"], [32001, 32002, 32003])
+        for source in aggregate["source_receipts"]:
+            path = root / source["path"]
+            self.assertEqual(hashlib.sha256(path.read_bytes()).hexdigest(), source["sha256"])
+            receipt = json.loads(path.read_text(encoding="utf-8"))
+            self.assertEqual(receipt["implementation_sha256"], aggregate["implementation_sha256"])
+            self.assertEqual(receipt["status"], "PASS")
+            for row in receipt["rows"]:
+                self.assertTrue(row["correctness"]["parameter_count_exact"])
+                self.assertTrue(row["correctness"]["finite_loss"])
+                self.assertTrue(row["correctness"]["all_gradients_finite"])
+
     def test_device_aggregate_requires_distinct_matched_receipts(self) -> None:
         cases = [
             {
