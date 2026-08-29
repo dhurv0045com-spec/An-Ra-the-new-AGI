@@ -263,3 +263,13 @@ Until then: **READY TO FREEZE = NO**.
 **ALTERNATIVES CONSIDERED:** unscaled `normal(0,0.02)` everywhere; choosing initialization by convention alone; using the canary to select model shape.
 **WHAT WOULD CHANGE OUR MIND:** failure to reproduce on the target TPU/XLA constructor, materially worse bounded-update stability or cognition, or a matched alternative with lower residual growth and stronger learning evidence.
 **ITERATION:** Ground Blueprint v0.4.
+
+## D-025 — QK normalization as scale control, not a cognition result
+
+**DECISION:** keep affine per-head QK normalization enabled in the provisional candidate and initialize its scales to one; retain an otherwise matched no-QK arm in E2 learned-quality evaluation.
+**STATUS:** [EVIDENCE-BACKED LOCAL MECHANISM / EXPERIMENT REQUIRED: E2 LEARNING AND TARGET TPU]
+**WHY:** paired CPU/CUDA perturbations prove QK norm makes attention logits and distributions insensitive to large Q/K projection-norm changes, while the unnormalized `std=0.02` control begins almost uniform and becomes sharply concentrated under scale growth.
+**EVIDENCE:** `artifacts/e2/local_cuda_qk_norm.json` (five seeds, through 4k) and `artifacts/e2/local_cpu_qk_norm.json` (three seeds); every finite, probability-normalization, causal-query, and nonzero-gradient check passes. No optimizer update was performed.
+**ALTERNATIVES CONSIDERED:** remove QK norm by convention; promote it directly from kernel/stability evidence; omit the no-QK learning control.
+**WHAT WOULD CHANGE OUR MIND:** matched E2 evidence that QK norm harms fresh-OOD cognition or substrate retention, unstable learned affine scales, or target TPU/XLA numerical disagreement. Parameter-gradient magnitude remains scale-dependent and must be handled by the optimizer recipe.
+**ITERATION:** Ground Blueprint v0.4.

@@ -38,3 +38,11 @@ initialization with the same paired draws plus `1/sqrt(2L)` residual-output
 scaling. It records per-layer activation RMS and block-gradient RMS across
 multiple seeds after one forward/backward. It performs no optimizer update and
 can only support an initialization canary, not predict learned cognition.
+
+`e2_architecture.qk_norm_benchmark` isolates what QK normalization controls. It
+uses paired projection draws at 0.25×/1×/4× scale, sampled causal queries, RoPE,
+and a proxy backward to measure attention-logit scale, normalized entropy,
+concentration, and gradient finiteness across contexts. Its gate asks whether
+QK norm removes attention-distribution sensitivity to Q/K weight scale while
+the unnormalized control exposes the perturbation. It performs no optimizer
+update and cannot establish that selective attention improves cognition.

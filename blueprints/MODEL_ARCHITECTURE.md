@@ -44,7 +44,7 @@ The architecture contains no explicit task labels, symbolic slots, state registe
 | context | 4,096 native | [EXPERIMENT REQUIRED: E2] |
 | position | RoPE, base 10,000; no extrapolation claim | [PROVISIONAL] |
 | norm | pre-RMSNorm, epsilon 1e-5 | [PROVISIONAL] |
-| QK norm | on candidate, affine Q/K scales | [EXPERIMENT REQUIRED: E2] |
+| QK norm | on candidate, affine Q/K scales initialized to 1 | [LOCAL SCALE-CONTROL EVIDENCE; LEARNING EXPERIMENT REQUIRED] |
 | embeddings/head | tied | [PROVISIONAL] |
 | linear bias | none | [PROVISIONAL] |
 | dropout | zero | [PROVISIONAL] |
@@ -86,6 +86,10 @@ P35 results cannot prove an emergent capability. M102 must reproduce the winning
 ### Initialization canary
 
 An exact-stack, paired-draw probe compared unscaled `normal(0, 0.02)` with scaling only the attention-output and FFN-down matrices by `1/sqrt(2L)`. Five randomized CUDA seeds at sequence 256 and three CPU seeds at sequence 64 used every P35 block, cross-entropy, and one backward pass without an optimizer update. On short-context CUDA, scaled/unscaled final-RMS-growth ratios were 0.122 / 0.156 / 0.230 for deep/middle/wide, while gradient-spread ratios were 0.604 / 0.650 / 0.731. CPU reproduced the direction at 0.125 / 0.160 / 0.240 and 0.647 / 0.776 / 0.820. A separate three-seed CUDA replication at the intended 4,096-token context strengthens the result: growth ratios are 0.115 / 0.144 / 0.217 and gradient-spread ratios are 0.542 / 0.510 / 0.654. All parameter, hook, finite, and nonzero-gradient checks passed. This supports the scaled policy as the implementation default; it does not select depth, LR, optimizer, or cognition quality. The target TPU/XLA constructor must still repeat the canary and E4 must test real-update stability before freeze.
+
+### QK-normalization canary
+
+A paired MHA probe holds normalized hidden states, projection draws, values, targets, RoPE, and causal query positions fixed while multiplying Q/K projection weights by 0.25×, 1×, or 4×. Five CUDA seeds cover 512/2,048/4,096 context and three CPU seeds cover 128/512. At 4k, QK norm holds attention-logit RMS within a 1.000045 max/min ratio and normalized entropy within 0.000004 across the scale stress; without QK norm, logit RMS changes exactly 256× and normalized entropy spans 0.365. At the base scale, QK norm produces logit RMS 0.998 and effective attended fraction 0.616, versus 0.155 and 0.988 without it. This proves that the implementation controls attention-distribution sensitivity to Q/K norm drift and avoids an almost-uniform initialization on this probe. It does not prove that selectivity improves learning or cognition. Parameter-gradient RMS changes inversely with projection scale even under QK norm, so optimizer dynamics are not scale-invariant; E2 must retain the learned-quality ablation and target TPU/XLA canary.
 
 ## Rejected from V5-A baseline
 

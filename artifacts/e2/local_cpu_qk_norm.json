@@ -1,0 +1,2465 @@
+{
+  "aggregate": [
+    {
+      "attention_logit_max_abs": {
+        "median": 3.450558662414551,
+        "range": [
+          3.3841965198516846,
+          3.6479172706604004
+        ]
+      },
+      "attention_logit_rms": {
+        "median": 0.996120810508728,
+        "range": [
+          0.9854512810707092,
+          1.0045909881591797
+        ]
+      },
+      "context_length": 128,
+      "effective_attended_fraction_mean": {
+        "median": 0.626401120175918,
+        "range": [
+          0.6139132355650266,
+          0.6424131939808527
+        ]
+      },
+      "key_weight_gradient_rms": {
+        "median": 0.0054493248462677,
+        "range": [
+          0.0053986976854503155,
+          0.005451534874737263
+        ]
+      },
+      "maximum_probability_mean": {
+        "median": 0.09869640848288934,
+        "range": [
+          0.09377697917322318,
+          0.10774816588188212
+        ]
+      },
+      "normalized_entropy_mean": {
+        "median": 0.8881104265650114,
+        "range": [
+          0.8824094086885452,
+          0.8935906365513802
+        ]
+      },
+      "policy": "qk-norm",
+      "post_policy_key_rms": {
+        "median": 0.9999462962150574,
+        "range": [
+          0.9999462366104126,
+          0.9999463558197021
+        ]
+      },
+      "post_policy_query_rms": {
+        "median": 0.9999460577964783,
+        "range": [
+          0.9999460577964783,
+          0.9999465942382812
+        ]
+      },
+      "pre_norm_key_rms": {
+        "median": 0.09802394360303879,
+        "range": [
+          0.0980214774608612,
+          0.09808145463466644
+        ]
+      },
+      "pre_norm_query_rms": {
+        "median": 0.09775544703006744,
+        "range": [
+          0.09766702353954315,
+          0.09820900112390518
+        ]
+      },
+      "projection_scale": 0.25,
+      "proxy_loss": {
+        "median": 1.0582956075668335,
+        "range": [
+          1.0143131017684937,
+          1.1010470390319824
+        ]
+      },
+      "query_weight_gradient_rms": {
+        "median": 0.005517683457583189,
+        "range": [
+          0.005324996076524258,
+          0.0057066380977630615
+        ]
+      },
+      "seeds": [
+        34001,
+        34002,
+        34003
+      ],
+      "top_ten_probability_mass_mean": {
+        "median": 0.4724978518982728,
+        "range": [
+          0.456932886193196,
+          0.474529051532348
+        ]
+      }
+    },
+    {
+      "attention_logit_max_abs": {
+        "median": 3.450880527496338,
+        "range": [
+          3.384579658508301,
+          3.648317813873291
+        ]
+      },
+      "attention_logit_rms": {
+        "median": 0.9962244033813477,
+        "range": [
+          0.9855472445487976,
+          1.0046911239624023
+        ]
+      },
+      "context_length": 128,
+      "effective_attended_fraction_mean": {
+        "median": 0.6263444585104784,
+        "range": [
+          0.6138569166262945,
+          0.6423634141683578
+        ]
+      },
+      "key_weight_gradient_rms": {
+        "median": 0.0013625755673274398,
+        "range": [
+          0.0013499325141310692,
+          0.0013631759211421013
+        ]
+      },
+      "maximum_probability_mean": {
+        "median": 0.09871161294480164,
+        "range": [
+          0.09378913541634877,
+          0.10776410376032193
+        ]
+      },
+      "normalized_entropy_mean": {
+        "median": 0.888088196516037,
+        "range": [
+          0.8823869427045187,
+          0.8935717170437177
+        ]
+      },
+      "policy": "qk-norm",
+      "post_policy_key_rms": {
+        "median": 0.9999966621398926,
+        "range": [
+          0.9999966621398926,
+          0.9999966621398926
+        ]
+      },
+      "post_policy_query_rms": {
+        "median": 0.9999966621398926,
+        "range": [
+          0.9999966025352478,
+          0.9999966621398926
+        ]
+      },
+      "pre_norm_key_rms": {
+        "median": 0.39209577441215515,
+        "range": [
+          0.3920859098434448,
+          0.39232581853866577
+        ]
+      },
+      "pre_norm_query_rms": {
+        "median": 0.3910217881202698,
+        "range": [
+          0.3906680941581726,
+          0.3928360044956207
+        ]
+      },
+      "projection_scale": 1.0,
+      "proxy_loss": {
+        "median": 1.058298945426941,
+        "range": [
+          1.0143181085586548,
+          1.1010526418685913
+        ]
+      },
+      "query_weight_gradient_rms": {
+        "median": 0.0013796690618619323,
+        "range": [
+          0.0013315093237906694,
+          0.0014269633684307337
+        ]
+      },
+      "seeds": [
+        34001,
+        34002,
+        34003
+      ],
+      "top_ten_probability_mass_mean": {
+        "median": 0.47253525629639626,
+        "range": [
+          0.45696491996447247,
+          0.47456521168351173
+        ]
+      }
+    },
+    {
+      "attention_logit_max_abs": {
+        "median": 3.4509003162384033,
+        "range": [
+          3.384603977203369,
+          3.648343086242676
+        ]
+      },
+      "attention_logit_rms": {
+        "median": 0.9962309002876282,
+        "range": [
+          0.9855532050132751,
+          1.0046974420547485
+        ]
+      },
+      "context_length": 128,
+      "effective_attended_fraction_mean": {
+        "median": 0.6263408934076627,
+        "range": [
+          0.6138534173369408,
+          0.642360324660937
+        ]
+      },
+      "key_weight_gradient_rms": {
+        "median": 0.0003406477044336498,
+        "range": [
+          0.0003374871448613703,
+          0.00034079852048307657
+        ]
+      },
+      "maximum_probability_mean": {
+        "median": 0.09871256817132235,
+        "range": [
+          0.09378989242638151,
+          0.10776509375621875
+        ]
+      },
+      "normalized_entropy_mean": {
+        "median": 0.8880867933233579,
+        "range": [
+          0.8823855395118395,
+          0.8935705448190371
+        ]
+      },
+      "policy": "qk-norm",
+      "post_policy_key_rms": {
+        "median": 0.9999998211860657,
+        "range": [
+          0.9999998211860657,
+          0.9999998807907104
+        ]
+      },
+      "post_policy_query_rms": {
+        "median": 0.9999998211860657,
+        "range": [
+          0.9999997615814209,
+          0.9999998807907104
+        ]
+      },
+      "pre_norm_key_rms": {
+        "median": 1.5683830976486206,
+        "range": [
+          1.5683436393737793,
+          1.569303274154663
+        ]
+      },
+      "pre_norm_query_rms": {
+        "median": 1.564087152481079,
+        "range": [
+          1.5626723766326904,
+          1.571344017982483
+        ]
+      },
+      "projection_scale": 4.0,
+      "proxy_loss": {
+        "median": 1.05829918384552,
+        "range": [
+          1.0143183469772339,
+          1.1010528802871704
+        ]
+      },
+      "query_weight_gradient_rms": {
+        "median": 0.0003449211362749338,
+        "range": [
+          0.00033288137638010085,
+          0.0003567456151358783
+        ]
+      },
+      "seeds": [
+        34001,
+        34002,
+        34003
+      ],
+      "top_ten_probability_mass_mean": {
+        "median": 0.4725375982622306,
+        "range": [
+          0.45696693658828735,
+          0.4745674791435401
+        ]
+      }
+    },
+    {
+      "attention_logit_max_abs": {
+        "median": 0.0332636758685112,
+        "range": [
+          0.03126947209239006,
+          0.03484845161437988
+        ]
+      },
+      "attention_logit_rms": {
+        "median": 0.009692360647022724,
+        "range": [
+          0.009260215796530247,
+          0.009717229753732681
+        ]
+      },
+      "context_length": 128,
+      "effective_attended_fraction_mean": {
+        "median": 0.9999538933237394,
+        "range": [
+          0.9999535928169886,
+          0.999957320590814
+        ]
+      },
+      "key_weight_gradient_rms": {
+        "median": 3.199385173502378e-05,
+        "range": [
+          3.147082315990701e-05,
+          3.305825521238148e-05
+        ]
+      },
+      "maximum_probability_mean": {
+        "median": 0.01633399018707375,
+        "range": [
+          0.016313140164129436,
+          0.016342884317661326
+        ]
+      },
+      "normalized_entropy_mean": {
+        "median": 0.9999890724817911,
+        "range": [
+          0.9999889905254046,
+          0.9999898249904314
+        ]
+      },
+      "policy": "no-qk-norm",
+      "post_policy_key_rms": {
+        "median": 0.09802394360303879,
+        "range": [
+          0.0980214774608612,
+          0.09808145463466644
+        ]
+      },
+      "post_policy_query_rms": {
+        "median": 0.09775544703006744,
+        "range": [
+          0.09766702353954315,
+          0.09820899367332458
+        ]
+      },
+      "pre_norm_key_rms": {
+        "median": 0.09802394360303879,
+        "range": [
+          0.0980214774608612,
+          0.09808145463466644
+        ]
+      },
+      "pre_norm_query_rms": {
+        "median": 0.09775544703006744,
+        "range": [
+          0.09766702353954315,
+          0.09820900112390518
+        ]
+      },
+      "projection_scale": 0.25,
+      "proxy_loss": {
+        "median": 1.0494333505630493,
+        "range": [
+          0.9985933899879456,
+          1.0785268545150757
+        ]
+      },
+      "query_weight_gradient_rms": {
+        "median": 3.284112244728021e-05,
+        "range": [
+          3.1923620554152876e-05,
+          3.437038685660809e-05
+        ]
+      },
+      "seeds": [
+        34001,
+        34002,
+        34003
+      ],
+      "top_ten_probability_mass_mean": {
+        "median": 0.16196615900844336,
+        "range": [
+          0.1619357205927372,
+          0.1619821603720387
+        ]
+      }
+    },
+    {
+      "attention_logit_max_abs": {
+        "median": 0.5322188138961792,
+        "range": [
+          0.500311553478241,
+          0.5575752258300781
+        ]
+      },
+      "attention_logit_rms": {
+        "median": 0.1550777703523636,
+        "range": [
+          0.14816345274448395,
+          0.1554756760597229
+        ]
+      },
+      "context_length": 128,
+      "effective_attended_fraction_mean": {
+        "median": 0.9882295231024424,
+        "range": [
+          0.9881382112701734,
+          0.9890958915154139
+        ]
+      },
+      "key_weight_gradient_rms": {
+        "median": 0.0001305492187384516,
+        "range": [
+          0.00012819583935197443,
+          0.00013506667164620012
+        ]
+      },
+      "maximum_probability_mean": {
+        "median": 0.022493224358186126,
+        "range": [
+          0.02206316962838173,
+          0.022705116930107277
+        ]
+      },
+      "normalized_entropy_mean": {
+        "median": 0.9971952413519224,
+        "range": [
+          0.9971719980239868,
+          0.9973907098174095
+        ]
+      },
+      "policy": "no-qk-norm",
+      "post_policy_key_rms": {
+        "median": 0.39209577441215515,
+        "range": [
+          0.3920859098434448,
+          0.39232581853866577
+        ]
+      },
+      "post_policy_query_rms": {
+        "median": 0.3910217881202698,
+        "range": [
+          0.3906680941581726,
+          0.39283597469329834
+        ]
+      },
+      "pre_norm_key_rms": {
+        "median": 0.39209577441215515,
+        "range": [
+          0.3920859098434448,
+          0.39232581853866577
+        ]
+      },
+      "pre_norm_query_rms": {
+        "median": 0.3910217881202698,
+        "range": [
+          0.3906680941581726,
+          0.3928360044956207
+        ]
+      },
+      "projection_scale": 1.0,
+      "proxy_loss": {
+        "median": 1.0482593774795532,
+        "range": [
+          0.9984961152076721,
+          1.0793651342391968
+        ]
+      },
+      "query_weight_gradient_rms": {
+        "median": 0.0001340704911854118,
+        "range": [
+          0.00013007399684283882,
+          0.000139949144795537
+        ]
+      },
+      "seeds": [
+        34001,
+        34002,
+        34003
+      ],
+      "top_ten_probability_mass_mean": {
+        "median": 0.19703490907947221,
+        "range": [
+          0.19628280525406203,
+          0.1971709898983439
+        ]
+      }
+    },
+    {
+      "attention_logit_max_abs": {
+        "median": 8.515501022338867,
+        "range": [
+          8.004984855651855,
+          8.92120361328125
+        ]
+      },
+      "attention_logit_rms": {
+        "median": 2.4812443256378174,
+        "range": [
+          2.370615243911743,
+          2.4876108169555664
+        ]
+      },
+      "context_length": 128,
+      "effective_attended_fraction_mean": {
+        "median": 0.16084997914731503,
+        "range": [
+          0.15367692383006215,
+          0.17500426635767022
+        ]
+      },
+      "key_weight_gradient_rms": {
+        "median": 0.002951759612187743,
+        "range": [
+          0.002455855719745159,
+          0.0031829867511987686
+        ]
+      },
+      "maximum_probability_mean": {
+        "median": 0.37265949541081983,
+        "range": [
+          0.3573236434410016,
+          0.37545674790938693
+        ]
+      },
+      "normalized_entropy_mean": {
+        "median": 0.5461019619057575,
+        "range": [
+          0.5258628738423189,
+          0.5601050090044737
+        ]
+      },
+      "policy": "no-qk-norm",
+      "post_policy_key_rms": {
+        "median": 1.5683830976486206,
+        "range": [
+          1.5683436393737793,
+          1.569303274154663
+        ]
+      },
+      "post_policy_query_rms": {
+        "median": 1.564087152481079,
+        "range": [
+          1.5626723766326904,
+          1.5713438987731934
+        ]
+      },
+      "pre_norm_key_rms": {
+        "median": 1.5683830976486206,
+        "range": [
+          1.5683436393737793,
+          1.569303274154663
+        ]
+      },
+      "pre_norm_query_rms": {
+        "median": 1.564087152481079,
+        "range": [
+          1.5626723766326904,
+          1.571344017982483
+        ]
+      },
+      "projection_scale": 4.0,
+      "proxy_loss": {
+        "median": 1.220413088798523,
+        "range": [
+          1.1740412712097168,
+          1.2716107368469238
+        ]
+      },
+      "query_weight_gradient_rms": {
+        "median": 0.0029651247896254063,
+        "range": [
+          0.00242005567997694,
+          0.0032847539987415075
+        ]
+      },
+      "seeds": [
+        34001,
+        34002,
+        34003
+      ],
+      "top_ten_probability_mass_mean": {
+        "median": 0.848021554450194,
+        "range": [
+          0.8476189424594244,
+          0.855761264761289
+        ]
+      }
+    },
+    {
+      "attention_logit_max_abs": {
+        "median": 3.8759946823120117,
+        "range": [
+          3.8394408226013184,
+          3.9111180305480957
+        ]
+      },
+      "attention_logit_rms": {
+        "median": 0.9984758496284485,
+        "range": [
+          0.993668258190155,
+          1.0186537504196167
+        ]
+      },
+      "context_length": 512,
+      "effective_attended_fraction_mean": {
+        "median": 0.612793522576491,
+        "range": [
+          0.606851153075695,
+          0.6255984405676523
+        ]
+      },
+      "key_weight_gradient_rms": {
+        "median": 0.002607300179079175,
+        "range": [
+          0.002538067288696766,
+          0.002747232560068369
+        ]
+      },
+      "maximum_probability_mean": {
+        "median": 0.04011658990445236,
+        "range": [
+          0.03937697922810912,
+          0.04224833815048138
+        ]
+      },
+      "normalized_entropy_mean": {
+        "median": 0.9120283623536428,
+        "range": [
+          0.9100712363918623,
+          0.9159831553697586
+        ]
+      },
+      "policy": "qk-norm",
+      "post_policy_key_rms": {
+        "median": 0.9999464750289917,
+        "range": [
+          0.9999462366104126,
+          0.9999464750289917
+        ]
+      },
+      "post_policy_query_rms": {
+        "median": 0.9999464750289917,
+        "range": [
+          0.9999462366104126,
+          0.9999464750289917
+        ]
+      },
+      "pre_norm_key_rms": {
+        "median": 0.09818518906831741,
+        "range": [
+          0.09802567213773727,
+          0.0981869027018547
+        ]
+      },
+      "pre_norm_query_rms": {
+        "median": 0.09812963753938675,
+        "range": [
+          0.09804622828960419,
+          0.09815579652786255
+        ]
+      },
+      "projection_scale": 0.25,
+      "proxy_loss": {
+        "median": 0.9848000407218933,
+        "range": [
+          0.9476134777069092,
+          0.9880614280700684
+        ]
+      },
+      "query_weight_gradient_rms": {
+        "median": 0.002562982263043523,
+        "range": [
+          0.0025001540780067444,
+          0.0026957662776112556
+        ]
+      },
+      "seeds": [
+        34001,
+        34002,
+        34003
+      ],
+      "top_ten_probability_mass_mean": {
+        "median": 0.21085728891193867,
+        "range": [
+          0.20545410426954427,
+          0.21670180931687355
+        ]
+      }
+    },
+    {
+      "attention_logit_max_abs": {
+        "median": 3.876377582550049,
+        "range": [
+          3.8398356437683105,
+          3.911497116088867
+        ]
+      },
+      "attention_logit_rms": {
+        "median": 0.9985748529434204,
+        "range": [
+          0.993769645690918,
+          1.0187571048736572
+        ]
+      },
+      "context_length": 512,
+      "effective_attended_fraction_mean": {
+        "median": 0.6127360612154007,
+        "range": [
+          0.6067933191855749,
+          0.6255412101745605
+        ]
+      },
+      "key_weight_gradient_rms": {
+        "median": 0.000651954673230648,
+        "range": [
+          0.0006346391164697707,
+          0.0006869391654618084
+        ]
+      },
+      "maximum_probability_mean": {
+        "median": 0.040123793839787446,
+        "range": [
+          0.03938435817447802,
+          0.04225602326914668
+        ]
+      },
+      "normalized_entropy_mean": {
+        "median": 0.9120113626122475,
+        "range": [
+          0.9100539510448774,
+          0.91596669703722
+        ]
+      },
+      "policy": "qk-norm",
+      "post_policy_key_rms": {
+        "median": 0.9999966621398926,
+        "range": [
+          0.9999966621398926,
+          0.9999966621398926
+        ]
+      },
+      "post_policy_query_rms": {
+        "median": 0.9999966621398926,
+        "range": [
+          0.9999966621398926,
+          0.9999966621398926
+        ]
+      },
+      "pre_norm_key_rms": {
+        "median": 0.39274075627326965,
+        "range": [
+          0.3921026885509491,
+          0.3927476108074188
+        ]
+      },
+      "pre_norm_query_rms": {
+        "median": 0.392518550157547,
+        "range": [
+          0.39218491315841675,
+          0.3926231861114502
+        ]
+      },
+      "projection_scale": 1.0,
+      "proxy_loss": {
+        "median": 0.9848029613494873,
+        "range": [
+          0.9476155638694763,
+          0.9880625605583191
+        ]
+      },
+      "query_weight_gradient_rms": {
+        "median": 0.0006408742628991604,
+        "range": [
+          0.0006251560989767313,
+          0.0006740670651197433
+        ]
+      },
+      "seeds": [
+        34001,
+        34002,
+        34003
+      ],
+      "top_ten_probability_mass_mean": {
+        "median": 0.21088349788139263,
+        "range": [
+          0.20548005122691393,
+          0.21672886547942957
+        ]
+      }
+    },
+    {
+      "attention_logit_max_abs": {
+        "median": 3.876400947570801,
+        "range": [
+          3.839860677719116,
+          3.911520481109619
+        ]
+      },
+      "attention_logit_rms": {
+        "median": 0.9985811114311218,
+        "range": [
+          0.9937759041786194,
+          1.018763542175293
+        ]
+      },
+      "context_length": 512,
+      "effective_attended_fraction_mean": {
+        "median": 0.6127325495084127,
+        "range": [
+          0.6067896684010824,
+          0.6255375991264979
+        ]
+      },
+      "key_weight_gradient_rms": {
+        "median": 0.00016299069102387875,
+        "range": [
+          0.00015866168541833758,
+          0.0001717368431854993
+        ]
+      },
+      "maximum_probability_mean": {
+        "median": 0.0401242485580345,
+        "range": [
+          0.039384821352238454,
+          0.04225650437486669
+        ]
+      },
+      "normalized_entropy_mean": {
+        "median": 0.9120103294650713,
+        "range": [
+          0.9100528731942177,
+          0.915965661406517
+        ]
+      },
+      "policy": "qk-norm",
+      "post_policy_key_rms": {
+        "median": 0.9999998211860657,
+        "range": [
+          0.9999997615814209,
+          0.9999998211860657
+        ]
+      },
+      "post_policy_query_rms": {
+        "median": 0.9999998211860657,
+        "range": [
+          0.9999997615814209,
+          0.9999998211860657
+        ]
+      },
+      "pre_norm_key_rms": {
+        "median": 1.5709630250930786,
+        "range": [
+          1.5684107542037964,
+          1.5709904432296753
+        ]
+      },
+      "pre_norm_query_rms": {
+        "median": 1.570074200630188,
+        "range": [
+          1.568739652633667,
+          1.5704927444458008
+        ]
+      },
+      "projection_scale": 4.0,
+      "proxy_loss": {
+        "median": 0.9848031997680664,
+        "range": [
+          0.9476158022880554,
+          0.9880625605583191
+        ]
+      },
+      "query_weight_gradient_rms": {
+        "median": 0.00016022058844100684,
+        "range": [
+          0.0001562908582855016,
+          0.0001685187453404069
+        ]
+      },
+      "seeds": [
+        34001,
+        34002,
+        34003
+      ],
+      "top_ten_probability_mass_mean": {
+        "median": 0.2108851537729303,
+        "range": [
+          0.20548166458805403,
+          0.2167305542776982
+        ]
+      }
+    },
+    {
+      "attention_logit_max_abs": {
+        "median": 0.042781002819538116,
+        "range": [
+          0.042333003133535385,
+          0.046060506254434586
+        ]
+      },
+      "attention_logit_rms": {
+        "median": 0.00969511829316616,
+        "range": [
+          0.009395495057106018,
+          0.009711634367704391
+        ]
+      },
+      "context_length": 512,
+      "effective_attended_fraction_mean": {
+        "median": 0.9999534462889036,
+        "range": [
+          0.9999516854683558,
+          0.9999556566278139
+        ]
+      },
+      "key_weight_gradient_rms": {
+        "median": 1.5966379578458145e-05,
+        "range": [
+          1.5649438864784315e-05,
+          1.6384123227908276e-05
+        ]
+      },
+      "maximum_probability_mean": {
+        "median": 0.004162095555026705,
+        "range": [
+          0.004156415738786261,
+          0.004162849237521489
+        ]
+      },
+      "normalized_entropy_mean": {
+        "median": 0.999991717437903,
+        "range": [
+          0.9999913225571314,
+          0.9999920825163523
+        ]
+      },
+      "policy": "no-qk-norm",
+      "post_policy_key_rms": {
+        "median": 0.09818518906831741,
+        "range": [
+          0.09802567958831787,
+          0.09818689525127411
+        ]
+      },
+      "post_policy_query_rms": {
+        "median": 0.09812963753938675,
+        "range": [
+          0.09804622828960419,
+          0.09815578907728195
+        ]
+      },
+      "pre_norm_key_rms": {
+        "median": 0.09818518906831741,
+        "range": [
+          0.09802567213773727,
+          0.0981869027018547
+        ]
+      },
+      "pre_norm_query_rms": {
+        "median": 0.09812963753938675,
+        "range": [
+          0.09804622828960419,
+          0.09815579652786255
+        ]
+      },
+      "projection_scale": 0.25,
+      "proxy_loss": {
+        "median": 0.9697769284248352,
+        "range": [
+          0.9430835843086243,
+          0.9892511367797852
+        ]
+      },
+      "query_weight_gradient_rms": {
+        "median": 1.568885454616975e-05,
+        "range": [
+          1.5614523363183253e-05,
+          1.624484320927877e-05
+        ]
+      },
+      "seeds": [
+        34001,
+        34002,
+        34003
+      ],
+      "top_ten_probability_mass_mean": {
+        "median": 0.04131202151377996,
+        "range": [
+          0.04128809071456393,
+          0.04134360436970989
+        ]
+      }
+    },
+    {
+      "attention_logit_max_abs": {
+        "median": 0.6844960451126099,
+        "range": [
+          0.6773280501365662,
+          0.7369681000709534
+        ]
+      },
+      "attention_logit_rms": {
+        "median": 0.15512189269065857,
+        "range": [
+          0.1503279209136963,
+          0.15538614988327026
+        ]
+      },
+      "context_length": 512,
+      "effective_attended_fraction_mean": {
+        "median": 0.98813596367836,
+        "range": [
+          0.9877451459566752,
+          0.9887610500057539
+        ]
+      },
+      "key_weight_gradient_rms": {
+        "median": 6.408964691217989e-05,
+        "range": [
+          6.309043965302408e-05,
+          6.655152537859976e-05
+        ]
+      },
+      "maximum_probability_mean": {
+        "median": 0.0062115977246624725,
+        "range": [
+          0.00608504318127719,
+          0.00622064321457098
+        ]
+      },
+      "normalized_entropy_mean": {
+        "median": 0.9978732218345007,
+        "range": [
+          0.997782309850057,
+          0.9979794745643934
+        ]
+      },
+      "policy": "no-qk-norm",
+      "post_policy_key_rms": {
+        "median": 0.39274075627326965,
+        "range": [
+          0.3921027183532715,
+          0.39274758100509644
+        ]
+      },
+      "post_policy_query_rms": {
+        "median": 0.392518550157547,
+        "range": [
+          0.39218491315841675,
+          0.3926231563091278
+        ]
+      },
+      "pre_norm_key_rms": {
+        "median": 0.39274075627326965,
+        "range": [
+          0.3921026885509491,
+          0.3927476108074188
+        ]
+      },
+      "pre_norm_query_rms": {
+        "median": 0.392518550157547,
+        "range": [
+          0.39218491315841675,
+          0.3926231861114502
+        ]
+      },
+      "projection_scale": 1.0,
+      "proxy_loss": {
+        "median": 0.9706449508666992,
+        "range": [
+          0.9424479007720947,
+          0.9885093569755554
+        ]
+      },
+      "query_weight_gradient_rms": {
+        "median": 6.295622733887285e-05,
+        "range": [
+          6.263166142161936e-05,
+          6.644170935032889e-05
+        ]
+      },
+      "seeds": [
+        34001,
+        34002,
+        34003
+      ],
+      "top_ten_probability_mass_mean": {
+        "median": 0.055173153057694435,
+        "range": [
+          0.054658828070387244,
+          0.055768382269889116
+        ]
+      }
+    },
+    {
+      "attention_logit_max_abs": {
+        "median": 10.951936721801758,
+        "range": [
+          10.837248802185059,
+          11.791489601135254
+        ]
+      },
+      "attention_logit_rms": {
+        "median": 2.481950283050537,
+        "range": [
+          2.4052467346191406,
+          2.486178398132324
+        ]
+      },
+      "context_length": 512,
+      "effective_attended_fraction_mean": {
+        "median": 0.10343316678578655,
+        "range": [
+          0.09937799000181258,
+          0.12703389616217464
+        ]
+      },
+      "key_weight_gradient_rms": {
+        "median": 0.0022677809465676546,
+        "range": [
+          0.002164127305150032,
+          0.002367420122027397
+        ]
+      },
+      "maximum_probability_mean": {
+        "median": 0.25549018879731494,
+        "range": [
+          0.24799151563396057,
+          0.2772403561199705
+        ]
+      },
+      "normalized_entropy_mean": {
+        "median": 0.5766518463691076,
+        "range": [
+          0.5600049793720245,
+          0.5987749472260475
+        ]
+      },
+      "policy": "no-qk-norm",
+      "post_policy_key_rms": {
+        "median": 1.5709630250930786,
+        "range": [
+          1.568410873413086,
+          1.5709903240203857
+        ]
+      },
+      "post_policy_query_rms": {
+        "median": 1.570074200630188,
+        "range": [
+          1.568739652633667,
+          1.5704926252365112
+        ]
+      },
+      "pre_norm_key_rms": {
+        "median": 1.5709630250930786,
+        "range": [
+          1.5684107542037964,
+          1.5709904432296753
+        ]
+      },
+      "pre_norm_query_rms": {
+        "median": 1.570074200630188,
+        "range": [
+          1.568739652633667,
+          1.5704927444458008
+        ]
+      },
+      "projection_scale": 4.0,
+      "proxy_loss": {
+        "median": 1.0930509567260742,
+        "range": [
+          1.0718446969985962,
+          1.1147358417510986
+        ]
+      },
+      "query_weight_gradient_rms": {
+        "median": 0.0022263412829488516,
+        "range": [
+          0.002065675798803568,
+          0.0023186185862869024
+        ]
+      },
+      "seeds": [
+        34001,
+        34002,
+        34003
+      ],
+      "top_ten_probability_mass_mean": {
+        "median": 0.6744905163844427,
+        "range": [
+          0.6336457853515943,
+          0.6838468487064043
+        ]
+      }
+    }
+  ],
+  "classification": {
+    "by_context": {
+      "128": {
+        "no_qk_norm_logit_rms_max_min_ratio": 256.0,
+        "no_qk_norm_normalized_entropy_span": 0.4538871105760336,
+        "qk_norm_logit_rms_max_min_ratio": 1.0001105185011083,
+        "qk_norm_normalized_entropy_span": 2.3633241653442383e-05,
+        "supports_scale_control": true
+      },
+      "512": {
+        "no_qk_norm_logit_rms_max_min_ratio": 256.0,
+        "no_qk_norm_normalized_entropy_span": 0.42333987106879545,
+        "qk_norm_logit_rms_max_min_ratio": 1.000105422482389,
+        "qk_norm_normalized_entropy_span": 1.803288857149532e-05,
+        "supports_scale_control": true
+      }
+    },
+    "verdict": "SUPPORTED_QK_SCALE_CONTROL"
+  },
+  "config": {
+    "context_lengths": [
+      128,
+      512
+    ],
+    "device": "cpu",
+    "head_dimension": 64,
+    "projection_scales": [
+      0.25,
+      1.0,
+      4.0
+    ],
+    "query_fractions": [
+      0.25,
+      0.5,
+      0.75,
+      1.0
+    ],
+    "query_heads": 6,
+    "seeds": [
+      34001,
+      34002,
+      34003
+    ],
+    "width": 384
+  },
+  "cuda_runtime": "12.8",
+  "device_name": "AMD64 Family 25 Model 68 Stepping 1, AuthenticAMD",
+  "implementation_sha256": "0056c3d2ca5ad207e58a05ad26b872c4ae8ea4c2d5188a606449e474cf7f3db3",
+  "limitations": [
+    "Random hidden states and a proxy backward do not measure learned attention or cognition.",
+    "The probe isolates MHA Q/K scale; it does not decide GQA, affine-scale learning, or topology.",
+    "Parameter-gradient magnitude is not scale-invariant even when normalized attention is.",
+    "The local result must be reproduced on the target TPU/XLA constructor."
+  ],
+  "platform": "Windows-10-10.0.26200-SP0",
+  "rows": [
+    {
+      "attention_logit_max_abs": 3.6479172706604004,
+      "attention_logit_rms": 0.996120810508728,
+      "checks": {
+        "causal_query_count_exact": true,
+        "finite": true,
+        "nonzero_gradients": true,
+        "probabilities_sum_to_one": true
+      },
+      "context_length": 128,
+      "dtype": "float32",
+      "effective_attended_fraction_mean": 0.626401120175918,
+      "key_weight_gradient_rms": 0.0054493248462677,
+      "maximum_probability_mean": 0.09869640848288934,
+      "normalized_entropy_mean": 0.8881104265650114,
+      "policy": "qk-norm",
+      "post_policy_key_rms": 0.9999463558197021,
+      "post_policy_query_rms": 0.9999460577964783,
+      "pre_norm_key_rms": 0.0980214774608612,
+      "pre_norm_query_rms": 0.09766702353954315,
+      "probability_sum_max_error": 2.384185791015625e-07,
+      "projection_scale": 0.25,
+      "proxy_loss": 1.0143131017684937,
+      "query_indices": [
+        32,
+        64,
+        95,
+        127
+      ],
+      "query_weight_gradient_rms": 0.005517683457583189,
+      "seed": 34001,
+      "top_ten_probability_mass_mean": 0.4724978518982728
+    },
+    {
+      "attention_logit_max_abs": 3.3841965198516846,
+      "attention_logit_rms": 1.0045909881591797,
+      "checks": {
+        "causal_query_count_exact": true,
+        "finite": true,
+        "nonzero_gradients": true,
+        "probabilities_sum_to_one": true
+      },
+      "context_length": 128,
+      "dtype": "float32",
+      "effective_attended_fraction_mean": 0.6139132355650266,
+      "key_weight_gradient_rms": 0.005451534874737263,
+      "maximum_probability_mean": 0.10774816588188212,
+      "normalized_entropy_mean": 0.8824094086885452,
+      "policy": "qk-norm",
+      "post_policy_key_rms": 0.9999462962150574,
+      "post_policy_query_rms": 0.9999460577964783,
+      "pre_norm_key_rms": 0.09808145463466644,
+      "pre_norm_query_rms": 0.09775544703006744,
+      "probability_sum_max_error": 1.7881393432617188e-07,
+      "projection_scale": 0.25,
+      "proxy_loss": 1.1010470390319824,
+      "query_indices": [
+        32,
+        64,
+        95,
+        127
+      ],
+      "query_weight_gradient_rms": 0.0057066380977630615,
+      "seed": 34002,
+      "top_ten_probability_mass_mean": 0.474529051532348
+    },
+    {
+      "attention_logit_max_abs": 3.450558662414551,
+      "attention_logit_rms": 0.9854512810707092,
+      "checks": {
+        "causal_query_count_exact": true,
+        "finite": true,
+        "nonzero_gradients": true,
+        "probabilities_sum_to_one": true
+      },
+      "context_length": 128,
+      "dtype": "float32",
+      "effective_attended_fraction_mean": 0.6424131939808527,
+      "key_weight_gradient_rms": 0.0053986976854503155,
+      "maximum_probability_mean": 0.09377697917322318,
+      "normalized_entropy_mean": 0.8935906365513802,
+      "policy": "qk-norm",
+      "post_policy_key_rms": 0.9999462366104126,
+      "post_policy_query_rms": 0.9999465942382812,
+      "pre_norm_key_rms": 0.09802394360303879,
+      "pre_norm_query_rms": 0.09820900112390518,
+      "probability_sum_max_error": 2.384185791015625e-07,
+      "projection_scale": 0.25,
+      "proxy_loss": 1.0582956075668335,
+      "query_indices": [
+        32,
+        64,
+        95,
+        127
+      ],
+      "query_weight_gradient_rms": 0.005324996076524258,
+      "seed": 34003,
+      "top_ten_probability_mass_mean": 0.456932886193196
+    },
+    {
+      "attention_logit_max_abs": 3.648317813873291,
+      "attention_logit_rms": 0.9962244033813477,
+      "checks": {
+        "causal_query_count_exact": true,
+        "finite": true,
+        "nonzero_gradients": true,
+        "probabilities_sum_to_one": true
+      },
+      "context_length": 128,
+      "dtype": "float32",
+      "effective_attended_fraction_mean": 0.6263444585104784,
+      "key_weight_gradient_rms": 0.0013625755673274398,
+      "maximum_probability_mean": 0.09871161294480164,
+      "normalized_entropy_mean": 0.888088196516037,
+      "policy": "qk-norm",
+      "post_policy_key_rms": 0.9999966621398926,
+      "post_policy_query_rms": 0.9999966025352478,
+      "pre_norm_key_rms": 0.3920859098434448,
+      "pre_norm_query_rms": 0.3906680941581726,
+      "probability_sum_max_error": 1.1920928955078125e-07,
+      "projection_scale": 1.0,
+      "proxy_loss": 1.0143181085586548,
+      "query_indices": [
+        32,
+        64,
+        95,
+        127
+      ],
+      "query_weight_gradient_rms": 0.0013796690618619323,
+      "seed": 34001,
+      "top_ten_probability_mass_mean": 0.47253525629639626
+    },
+    {
+      "attention_logit_max_abs": 3.384579658508301,
+      "attention_logit_rms": 1.0046911239624023,
+      "checks": {
+        "causal_query_count_exact": true,
+        "finite": true,
+        "nonzero_gradients": true,
+        "probabilities_sum_to_one": true
+      },
+      "context_length": 128,
+      "dtype": "float32",
+      "effective_attended_fraction_mean": 0.6138569166262945,
+      "key_weight_gradient_rms": 0.0013631759211421013,
+      "maximum_probability_mean": 0.10776410376032193,
+      "normalized_entropy_mean": 0.8823869427045187,
+      "policy": "qk-norm",
+      "post_policy_key_rms": 0.9999966621398926,
+      "post_policy_query_rms": 0.9999966621398926,
+      "pre_norm_key_rms": 0.39232581853866577,
+      "pre_norm_query_rms": 0.3910217881202698,
+      "probability_sum_max_error": 1.7881393432617188e-07,
+      "projection_scale": 1.0,
+      "proxy_loss": 1.1010526418685913,
+      "query_indices": [
+        32,
+        64,
+        95,
+        127
+      ],
+      "query_weight_gradient_rms": 0.0014269633684307337,
+      "seed": 34002,
+      "top_ten_probability_mass_mean": 0.47456521168351173
+    },
+    {
+      "attention_logit_max_abs": 3.450880527496338,
+      "attention_logit_rms": 0.9855472445487976,
+      "checks": {
+        "causal_query_count_exact": true,
+        "finite": true,
+        "nonzero_gradients": true,
+        "probabilities_sum_to_one": true
+      },
+      "context_length": 128,
+      "dtype": "float32",
+      "effective_attended_fraction_mean": 0.6423634141683578,
+      "key_weight_gradient_rms": 0.0013499325141310692,
+      "maximum_probability_mean": 0.09378913541634877,
+      "normalized_entropy_mean": 0.8935717170437177,
+      "policy": "qk-norm",
+      "post_policy_key_rms": 0.9999966621398926,
+      "post_policy_query_rms": 0.9999966621398926,
+      "pre_norm_key_rms": 0.39209577441215515,
+      "pre_norm_query_rms": 0.3928360044956207,
+      "probability_sum_max_error": 1.1920928955078125e-07,
+      "projection_scale": 1.0,
+      "proxy_loss": 1.058298945426941,
+      "query_indices": [
+        32,
+        64,
+        95,
+        127
+      ],
+      "query_weight_gradient_rms": 0.0013315093237906694,
+      "seed": 34003,
+      "top_ten_probability_mass_mean": 0.45696491996447247
+    },
+    {
+      "attention_logit_max_abs": 3.648343086242676,
+      "attention_logit_rms": 0.9962309002876282,
+      "checks": {
+        "causal_query_count_exact": true,
+        "finite": true,
+        "nonzero_gradients": true,
+        "probabilities_sum_to_one": true
+      },
+      "context_length": 128,
+      "dtype": "float32",
+      "effective_attended_fraction_mean": 0.6263408934076627,
+      "key_weight_gradient_rms": 0.0003406477044336498,
+      "maximum_probability_mean": 0.09871256817132235,
+      "normalized_entropy_mean": 0.8880867933233579,
+      "policy": "qk-norm",
+      "post_policy_key_rms": 0.9999998211860657,
+      "post_policy_query_rms": 0.9999997615814209,
+      "pre_norm_key_rms": 1.5683436393737793,
+      "pre_norm_query_rms": 1.5626723766326904,
+      "probability_sum_max_error": 1.7881393432617188e-07,
+      "projection_scale": 4.0,
+      "proxy_loss": 1.0143183469772339,
+      "query_indices": [
+        32,
+        64,
+        95,
+        127
+      ],
+      "query_weight_gradient_rms": 0.0003449211362749338,
+      "seed": 34001,
+      "top_ten_probability_mass_mean": 0.4725375982622306
+    },
+    {
+      "attention_logit_max_abs": 3.384603977203369,
+      "attention_logit_rms": 1.0046974420547485,
+      "checks": {
+        "causal_query_count_exact": true,
+        "finite": true,
+        "nonzero_gradients": true,
+        "probabilities_sum_to_one": true
+      },
+      "context_length": 128,
+      "dtype": "float32",
+      "effective_attended_fraction_mean": 0.6138534173369408,
+      "key_weight_gradient_rms": 0.00034079852048307657,
+      "maximum_probability_mean": 0.10776509375621875,
+      "normalized_entropy_mean": 0.8823855395118395,
+      "policy": "qk-norm",
+      "post_policy_key_rms": 0.9999998211860657,
+      "post_policy_query_rms": 0.9999998211860657,
+      "pre_norm_key_rms": 1.569303274154663,
+      "pre_norm_query_rms": 1.564087152481079,
+      "probability_sum_max_error": 1.1920928955078125e-07,
+      "projection_scale": 4.0,
+      "proxy_loss": 1.1010528802871704,
+      "query_indices": [
+        32,
+        64,
+        95,
+        127
+      ],
+      "query_weight_gradient_rms": 0.0003567456151358783,
+      "seed": 34002,
+      "top_ten_probability_mass_mean": 0.4745674791435401
+    },
+    {
+      "attention_logit_max_abs": 3.4509003162384033,
+      "attention_logit_rms": 0.9855532050132751,
+      "checks": {
+        "causal_query_count_exact": true,
+        "finite": true,
+        "nonzero_gradients": true,
+        "probabilities_sum_to_one": true
+      },
+      "context_length": 128,
+      "dtype": "float32",
+      "effective_attended_fraction_mean": 0.642360324660937,
+      "key_weight_gradient_rms": 0.0003374871448613703,
+      "maximum_probability_mean": 0.09378989242638151,
+      "normalized_entropy_mean": 0.8935705448190371,
+      "policy": "qk-norm",
+      "post_policy_key_rms": 0.9999998807907104,
+      "post_policy_query_rms": 0.9999998807907104,
+      "pre_norm_key_rms": 1.5683830976486206,
+      "pre_norm_query_rms": 1.571344017982483,
+      "probability_sum_max_error": 1.1920928955078125e-07,
+      "projection_scale": 4.0,
+      "proxy_loss": 1.05829918384552,
+      "query_indices": [
+        32,
+        64,
+        95,
+        127
+      ],
+      "query_weight_gradient_rms": 0.00033288137638010085,
+      "seed": 34003,
+      "top_ten_probability_mass_mean": 0.45696693658828735
+    },
+    {
+      "attention_logit_max_abs": 0.03126947209239006,
+      "attention_logit_rms": 0.009260215796530247,
+      "checks": {
+        "causal_query_count_exact": true,
+        "finite": true,
+        "nonzero_gradients": true,
+        "probabilities_sum_to_one": true
+      },
+      "context_length": 128,
+      "dtype": "float32",
+      "effective_attended_fraction_mean": 0.999957320590814,
+      "key_weight_gradient_rms": 3.305825521238148e-05,
+      "maximum_probability_mean": 0.016313140164129436,
+      "normalized_entropy_mean": 0.9999898249904314,
+      "policy": "no-qk-norm",
+      "post_policy_key_rms": 0.0980214774608612,
+      "post_policy_query_rms": 0.09766702353954315,
+      "pre_norm_key_rms": 0.0980214774608612,
+      "pre_norm_query_rms": 0.09766702353954315,
+      "probability_sum_max_error": 1.1920928955078125e-07,
+      "projection_scale": 0.25,
+      "proxy_loss": 0.9985933899879456,
+      "query_indices": [
+        32,
+        64,
+        95,
+        127
+      ],
+      "query_weight_gradient_rms": 3.437038685660809e-05,
+      "seed": 34001,
+      "top_ten_probability_mass_mean": 0.1619357205927372
+    },
+    {
+      "attention_logit_max_abs": 0.0332636758685112,
+      "attention_logit_rms": 0.009692360647022724,
+      "checks": {
+        "causal_query_count_exact": true,
+        "finite": true,
+        "nonzero_gradients": true,
+        "probabilities_sum_to_one": true
+      },
+      "context_length": 128,
+      "dtype": "float32",
+      "effective_attended_fraction_mean": 0.9999535928169886,
+      "key_weight_gradient_rms": 3.147082315990701e-05,
+      "maximum_probability_mean": 0.016342884317661326,
+      "normalized_entropy_mean": 0.9999889905254046,
+      "policy": "no-qk-norm",
+      "post_policy_key_rms": 0.09808145463466644,
+      "post_policy_query_rms": 0.09775544703006744,
+      "pre_norm_key_rms": 0.09808145463466644,
+      "pre_norm_query_rms": 0.09775544703006744,
+      "probability_sum_max_error": 1.1920928955078125e-07,
+      "projection_scale": 0.25,
+      "proxy_loss": 1.0785268545150757,
+      "query_indices": [
+        32,
+        64,
+        95,
+        127
+      ],
+      "query_weight_gradient_rms": 3.284112244728021e-05,
+      "seed": 34002,
+      "top_ten_probability_mass_mean": 0.16196615900844336
+    },
+    {
+      "attention_logit_max_abs": 0.03484845161437988,
+      "attention_logit_rms": 0.009717229753732681,
+      "checks": {
+        "causal_query_count_exact": true,
+        "finite": true,
+        "nonzero_gradients": true,
+        "probabilities_sum_to_one": true
+      },
+      "context_length": 128,
+      "dtype": "float32",
+      "effective_attended_fraction_mean": 0.9999538933237394,
+      "key_weight_gradient_rms": 3.199385173502378e-05,
+      "maximum_probability_mean": 0.01633399018707375,
+      "normalized_entropy_mean": 0.9999890724817911,
+      "policy": "no-qk-norm",
+      "post_policy_key_rms": 0.09802394360303879,
+      "post_policy_query_rms": 0.09820899367332458,
+      "pre_norm_key_rms": 0.09802394360303879,
+      "pre_norm_query_rms": 0.09820900112390518,
+      "probability_sum_max_error": 1.1920928955078125e-07,
+      "projection_scale": 0.25,
+      "proxy_loss": 1.0494333505630493,
+      "query_indices": [
+        32,
+        64,
+        95,
+        127
+      ],
+      "query_weight_gradient_rms": 3.1923620554152876e-05,
+      "seed": 34003,
+      "top_ten_probability_mass_mean": 0.1619821603720387
+    },
+    {
+      "attention_logit_max_abs": 0.500311553478241,
+      "attention_logit_rms": 0.14816345274448395,
+      "checks": {
+        "causal_query_count_exact": true,
+        "finite": true,
+        "nonzero_gradients": true,
+        "probabilities_sum_to_one": true
+      },
+      "context_length": 128,
+      "dtype": "float32",
+      "effective_attended_fraction_mean": 0.9890958915154139,
+      "key_weight_gradient_rms": 0.00013506667164620012,
+      "maximum_probability_mean": 0.02206316962838173,
+      "normalized_entropy_mean": 0.9973907098174095,
+      "policy": "no-qk-norm",
+      "post_policy_key_rms": 0.3920859098434448,
+      "post_policy_query_rms": 0.3906680941581726,
+      "pre_norm_key_rms": 0.3920859098434448,
+      "pre_norm_query_rms": 0.3906680941581726,
+      "probability_sum_max_error": 1.1920928955078125e-07,
+      "projection_scale": 1.0,
+      "proxy_loss": 0.9984961152076721,
+      "query_indices": [
+        32,
+        64,
+        95,
+        127
+      ],
+      "query_weight_gradient_rms": 0.000139949144795537,
+      "seed": 34001,
+      "top_ten_probability_mass_mean": 0.19628280525406203
+    },
+    {
+      "attention_logit_max_abs": 0.5322188138961792,
+      "attention_logit_rms": 0.1550777703523636,
+      "checks": {
+        "causal_query_count_exact": true,
+        "finite": true,
+        "nonzero_gradients": true,
+        "probabilities_sum_to_one": true
+      },
+      "context_length": 128,
+      "dtype": "float32",
+      "effective_attended_fraction_mean": 0.9881382112701734,
+      "key_weight_gradient_rms": 0.00012819583935197443,
+      "maximum_probability_mean": 0.022705116930107277,
+      "normalized_entropy_mean": 0.9971719980239868,
+      "policy": "no-qk-norm",
+      "post_policy_key_rms": 0.39232581853866577,
+      "post_policy_query_rms": 0.3910217881202698,
+      "pre_norm_key_rms": 0.39232581853866577,
+      "pre_norm_query_rms": 0.3910217881202698,
+      "probability_sum_max_error": 1.1920928955078125e-07,
+      "projection_scale": 1.0,
+      "proxy_loss": 1.0793651342391968,
+      "query_indices": [
+        32,
+        64,
+        95,
+        127
+      ],
+      "query_weight_gradient_rms": 0.0001340704911854118,
+      "seed": 34002,
+      "top_ten_probability_mass_mean": 0.19703490907947221
+    },
+    {
+      "attention_logit_max_abs": 0.5575752258300781,
+      "attention_logit_rms": 0.1554756760597229,
+      "checks": {
+        "causal_query_count_exact": true,
+        "finite": true,
+        "nonzero_gradients": true,
+        "probabilities_sum_to_one": true
+      },
+      "context_length": 128,
+      "dtype": "float32",
+      "effective_attended_fraction_mean": 0.9882295231024424,
+      "key_weight_gradient_rms": 0.0001305492187384516,
+      "maximum_probability_mean": 0.022493224358186126,
+      "normalized_entropy_mean": 0.9971952413519224,
+      "policy": "no-qk-norm",
+      "post_policy_key_rms": 0.39209577441215515,
+      "post_policy_query_rms": 0.39283597469329834,
+      "pre_norm_key_rms": 0.39209577441215515,
+      "pre_norm_query_rms": 0.3928360044956207,
+      "probability_sum_max_error": 1.1920928955078125e-07,
+      "projection_scale": 1.0,
+      "proxy_loss": 1.0482593774795532,
+      "query_indices": [
+        32,
+        64,
+        95,
+        127
+      ],
+      "query_weight_gradient_rms": 0.00013007399684283882,
+      "seed": 34003,
+      "top_ten_probability_mass_mean": 0.1971709898983439
+    },
+    {
+      "attention_logit_max_abs": 8.004984855651855,
+      "attention_logit_rms": 2.370615243911743,
+      "checks": {
+        "causal_query_count_exact": true,
+        "finite": true,
+        "nonzero_gradients": true,
+        "probabilities_sum_to_one": true
+      },
+      "context_length": 128,
+      "dtype": "float32",
+      "effective_attended_fraction_mean": 0.17500426635767022,
+      "key_weight_gradient_rms": 0.002951759612187743,
+      "maximum_probability_mean": 0.3573236434410016,
+      "normalized_entropy_mean": 0.5601050090044737,
+      "policy": "no-qk-norm",
+      "post_policy_key_rms": 1.5683436393737793,
+      "post_policy_query_rms": 1.5626723766326904,
+      "pre_norm_key_rms": 1.5683436393737793,
+      "pre_norm_query_rms": 1.5626723766326904,
+      "probability_sum_max_error": 1.1920928955078125e-07,
+      "projection_scale": 4.0,
+      "proxy_loss": 1.1740412712097168,
+      "query_indices": [
+        32,
+        64,
+        95,
+        127
+      ],
+      "query_weight_gradient_rms": 0.0029651247896254063,
+      "seed": 34001,
+      "top_ten_probability_mass_mean": 0.848021554450194
+    },
+    {
+      "attention_logit_max_abs": 8.515501022338867,
+      "attention_logit_rms": 2.4812443256378174,
+      "checks": {
+        "causal_query_count_exact": true,
+        "finite": true,
+        "nonzero_gradients": true,
+        "probabilities_sum_to_one": true
+      },
+      "context_length": 128,
+      "dtype": "float32",
+      "effective_attended_fraction_mean": 0.15367692383006215,
+      "key_weight_gradient_rms": 0.002455855719745159,
+      "maximum_probability_mean": 0.37265949541081983,
+      "normalized_entropy_mean": 0.5258628738423189,
+      "policy": "no-qk-norm",
+      "post_policy_key_rms": 1.569303274154663,
+      "post_policy_query_rms": 1.564087152481079,
+      "pre_norm_key_rms": 1.569303274154663,
+      "pre_norm_query_rms": 1.564087152481079,
+      "probability_sum_max_error": 2.980232238769531e-07,
+      "projection_scale": 4.0,
+      "proxy_loss": 1.2716107368469238,
+      "query_indices": [
+        32,
+        64,
+        95,
+        127
+      ],
+      "query_weight_gradient_rms": 0.00242005567997694,
+      "seed": 34002,
+      "top_ten_probability_mass_mean": 0.855761264761289
+    },
+    {
+      "attention_logit_max_abs": 8.92120361328125,
+      "attention_logit_rms": 2.4876108169555664,
+      "checks": {
+        "causal_query_count_exact": true,
+        "finite": true,
+        "nonzero_gradients": true,
+        "probabilities_sum_to_one": true
+      },
+      "context_length": 128,
+      "dtype": "float32",
+      "effective_attended_fraction_mean": 0.16084997914731503,
+      "key_weight_gradient_rms": 0.0031829867511987686,
+      "maximum_probability_mean": 0.37545674790938693,
+      "normalized_entropy_mean": 0.5461019619057575,
+      "policy": "no-qk-norm",
+      "post_policy_key_rms": 1.5683830976486206,
+      "post_policy_query_rms": 1.5713438987731934,
+      "pre_norm_key_rms": 1.5683830976486206,
+      "pre_norm_query_rms": 1.571344017982483,
+      "probability_sum_max_error": 1.7881393432617188e-07,
+      "projection_scale": 4.0,
+      "proxy_loss": 1.220413088798523,
+      "query_indices": [
+        32,
+        64,
+        95,
+        127
+      ],
+      "query_weight_gradient_rms": 0.0032847539987415075,
+      "seed": 34003,
+      "top_ten_probability_mass_mean": 0.8476189424594244
+    },
+    {
+      "attention_logit_max_abs": 3.8394408226013184,
+      "attention_logit_rms": 0.9984758496284485,
+      "checks": {
+        "causal_query_count_exact": true,
+        "finite": true,
+        "nonzero_gradients": true,
+        "probabilities_sum_to_one": true
+      },
+      "context_length": 512,
+      "dtype": "float32",
+      "effective_attended_fraction_mean": 0.612793522576491,
+      "key_weight_gradient_rms": 0.002607300179079175,
+      "maximum_probability_mean": 0.04224833815048138,
+      "normalized_entropy_mean": 0.9120283623536428,
+      "policy": "qk-norm",
+      "post_policy_key_rms": 0.9999462366104126,
+      "post_policy_query_rms": 0.9999464750289917,
+      "pre_norm_key_rms": 0.09802567213773727,
+      "pre_norm_query_rms": 0.09812963753938675,
+      "probability_sum_max_error": 2.384185791015625e-07,
+      "projection_scale": 0.25,
+      "proxy_loss": 0.9476134777069092,
+      "query_indices": [
+        128,
+        256,
+        383,
+        511
+      ],
+      "query_weight_gradient_rms": 0.002562982263043523,
+      "seed": 34001,
+      "top_ten_probability_mass_mean": 0.21085728891193867
+    },
+    {
+      "attention_logit_max_abs": 3.9111180305480957,
+      "attention_logit_rms": 1.0186537504196167,
+      "checks": {
+        "causal_query_count_exact": true,
+        "finite": true,
+        "nonzero_gradients": true,
+        "probabilities_sum_to_one": true
+      },
+      "context_length": 512,
+      "dtype": "float32",
+      "effective_attended_fraction_mean": 0.606851153075695,
+      "key_weight_gradient_rms": 0.002747232560068369,
+      "maximum_probability_mean": 0.04011658990445236,
+      "normalized_entropy_mean": 0.9100712363918623,
+      "policy": "qk-norm",
+      "post_policy_key_rms": 0.9999464750289917,
+      "post_policy_query_rms": 0.9999464750289917,
+      "pre_norm_key_rms": 0.0981869027018547,
+      "pre_norm_query_rms": 0.09815579652786255,
+      "probability_sum_max_error": 2.384185791015625e-07,
+      "projection_scale": 0.25,
+      "proxy_loss": 0.9848000407218933,
+      "query_indices": [
+        128,
+        256,
+        383,
+        511
+      ],
+      "query_weight_gradient_rms": 0.0026957662776112556,
+      "seed": 34002,
+      "top_ten_probability_mass_mean": 0.21670180931687355
+    },
+    {
+      "attention_logit_max_abs": 3.8759946823120117,
+      "attention_logit_rms": 0.993668258190155,
+      "checks": {
+        "causal_query_count_exact": true,
+        "finite": true,
+        "nonzero_gradients": true,
+        "probabilities_sum_to_one": true
+      },
+      "context_length": 512,
+      "dtype": "float32",
+      "effective_attended_fraction_mean": 0.6255984405676523,
+      "key_weight_gradient_rms": 0.002538067288696766,
+      "maximum_probability_mean": 0.03937697922810912,
+      "normalized_entropy_mean": 0.9159831553697586,
+      "policy": "qk-norm",
+      "post_policy_key_rms": 0.9999464750289917,
+      "post_policy_query_rms": 0.9999462366104126,
+      "pre_norm_key_rms": 0.09818518906831741,
+      "pre_norm_query_rms": 0.09804622828960419,
+      "probability_sum_max_error": 2.384185791015625e-07,
+      "projection_scale": 0.25,
+      "proxy_loss": 0.9880614280700684,
+      "query_indices": [
+        128,
+        256,
+        383,
+        511
+      ],
+      "query_weight_gradient_rms": 0.0025001540780067444,
+      "seed": 34003,
+      "top_ten_probability_mass_mean": 0.20545410426954427
+    },
+    {
+      "attention_logit_max_abs": 3.8398356437683105,
+      "attention_logit_rms": 0.9985748529434204,
+      "checks": {
+        "causal_query_count_exact": true,
+        "finite": true,
+        "nonzero_gradients": true,
+        "probabilities_sum_to_one": true
+      },
+      "context_length": 512,
+      "dtype": "float32",
+      "effective_attended_fraction_mean": 0.6127360612154007,
+      "key_weight_gradient_rms": 0.000651954673230648,
+      "maximum_probability_mean": 0.04225602326914668,
+      "normalized_entropy_mean": 0.9120113626122475,
+      "policy": "qk-norm",
+      "post_policy_key_rms": 0.9999966621398926,
+      "post_policy_query_rms": 0.9999966621398926,
+      "pre_norm_key_rms": 0.3921026885509491,
+      "pre_norm_query_rms": 0.392518550157547,
+      "probability_sum_max_error": 1.7881393432617188e-07,
+      "projection_scale": 1.0,
+      "proxy_loss": 0.9476155638694763,
+      "query_indices": [
+        128,
+        256,
+        383,
+        511
+      ],
+      "query_weight_gradient_rms": 0.0006408742628991604,
+      "seed": 34001,
+      "top_ten_probability_mass_mean": 0.21088349788139263
+    },
+    {
+      "attention_logit_max_abs": 3.911497116088867,
+      "attention_logit_rms": 1.0187571048736572,
+      "checks": {
+        "causal_query_count_exact": true,
+        "finite": true,
+        "nonzero_gradients": true,
+        "probabilities_sum_to_one": true
+      },
+      "context_length": 512,
+      "dtype": "float32",
+      "effective_attended_fraction_mean": 0.6067933191855749,
+      "key_weight_gradient_rms": 0.0006869391654618084,
+      "maximum_probability_mean": 0.040123793839787446,
+      "normalized_entropy_mean": 0.9100539510448774,
+      "policy": "qk-norm",
+      "post_policy_key_rms": 0.9999966621398926,
+      "post_policy_query_rms": 0.9999966621398926,
+      "pre_norm_key_rms": 0.3927476108074188,
+      "pre_norm_query_rms": 0.3926231861114502,
+      "probability_sum_max_error": 1.1920928955078125e-07,
+      "projection_scale": 1.0,
+      "proxy_loss": 0.9848029613494873,
+      "query_indices": [
+        128,
+        256,
+        383,
+        511
+      ],
+      "query_weight_gradient_rms": 0.0006740670651197433,
+      "seed": 34002,
+      "top_ten_probability_mass_mean": 0.21672886547942957
+    },
+    {
+      "attention_logit_max_abs": 3.876377582550049,
+      "attention_logit_rms": 0.993769645690918,
+      "checks": {
+        "causal_query_count_exact": true,
+        "finite": true,
+        "nonzero_gradients": true,
+        "probabilities_sum_to_one": true
+      },
+      "context_length": 512,
+      "dtype": "float32",
+      "effective_attended_fraction_mean": 0.6255412101745605,
+      "key_weight_gradient_rms": 0.0006346391164697707,
+      "maximum_probability_mean": 0.03938435817447802,
+      "normalized_entropy_mean": 0.91596669703722,
+      "policy": "qk-norm",
+      "post_policy_key_rms": 0.9999966621398926,
+      "post_policy_query_rms": 0.9999966621398926,
+      "pre_norm_key_rms": 0.39274075627326965,
+      "pre_norm_query_rms": 0.39218491315841675,
+      "probability_sum_max_error": 2.384185791015625e-07,
+      "projection_scale": 1.0,
+      "proxy_loss": 0.9880625605583191,
+      "query_indices": [
+        128,
+        256,
+        383,
+        511
+      ],
+      "query_weight_gradient_rms": 0.0006251560989767313,
+      "seed": 34003,
+      "top_ten_probability_mass_mean": 0.20548005122691393
+    },
+    {
+      "attention_logit_max_abs": 3.839860677719116,
+      "attention_logit_rms": 0.9985811114311218,
+      "checks": {
+        "causal_query_count_exact": true,
+        "finite": true,
+        "nonzero_gradients": true,
+        "probabilities_sum_to_one": true
+      },
+      "context_length": 512,
+      "dtype": "float32",
+      "effective_attended_fraction_mean": 0.6127325495084127,
+      "key_weight_gradient_rms": 0.00016299069102387875,
+      "maximum_probability_mean": 0.04225650437486669,
+      "normalized_entropy_mean": 0.9120103294650713,
+      "policy": "qk-norm",
+      "post_policy_key_rms": 0.9999997615814209,
+      "post_policy_query_rms": 0.9999997615814209,
+      "pre_norm_key_rms": 1.5684107542037964,
+      "pre_norm_query_rms": 1.570074200630188,
+      "probability_sum_max_error": 1.1920928955078125e-07,
+      "projection_scale": 4.0,
+      "proxy_loss": 0.9476158022880554,
+      "query_indices": [
+        128,
+        256,
+        383,
+        511
+      ],
+      "query_weight_gradient_rms": 0.00016022058844100684,
+      "seed": 34001,
+      "top_ten_probability_mass_mean": 0.2108851537729303
+    },
+    {
+      "attention_logit_max_abs": 3.911520481109619,
+      "attention_logit_rms": 1.018763542175293,
+      "checks": {
+        "causal_query_count_exact": true,
+        "finite": true,
+        "nonzero_gradients": true,
+        "probabilities_sum_to_one": true
+      },
+      "context_length": 512,
+      "dtype": "float32",
+      "effective_attended_fraction_mean": 0.6067896684010824,
+      "key_weight_gradient_rms": 0.0001717368431854993,
+      "maximum_probability_mean": 0.0401242485580345,
+      "normalized_entropy_mean": 0.9100528731942177,
+      "policy": "qk-norm",
+      "post_policy_key_rms": 0.9999998211860657,
+      "post_policy_query_rms": 0.9999998211860657,
+      "pre_norm_key_rms": 1.5709904432296753,
+      "pre_norm_query_rms": 1.5704927444458008,
+      "probability_sum_max_error": 1.7881393432617188e-07,
+      "projection_scale": 4.0,
+      "proxy_loss": 0.9848031997680664,
+      "query_indices": [
+        128,
+        256,
+        383,
+        511
+      ],
+      "query_weight_gradient_rms": 0.0001685187453404069,
+      "seed": 34002,
+      "top_ten_probability_mass_mean": 0.2167305542776982
+    },
+    {
+      "attention_logit_max_abs": 3.876400947570801,
+      "attention_logit_rms": 0.9937759041786194,
+      "checks": {
+        "causal_query_count_exact": true,
+        "finite": true,
+        "nonzero_gradients": true,
+        "probabilities_sum_to_one": true
+      },
+      "context_length": 512,
+      "dtype": "float32",
+      "effective_attended_fraction_mean": 0.6255375991264979,
+      "key_weight_gradient_rms": 0.00015866168541833758,
+      "maximum_probability_mean": 0.039384821352238454,
+      "normalized_entropy_mean": 0.915965661406517,
+      "policy": "qk-norm",
+      "post_policy_key_rms": 0.9999998211860657,
+      "post_policy_query_rms": 0.9999998211860657,
+      "pre_norm_key_rms": 1.5709630250930786,
+      "pre_norm_query_rms": 1.568739652633667,
+      "probability_sum_max_error": 1.1920928955078125e-07,
+      "projection_scale": 4.0,
+      "proxy_loss": 0.9880625605583191,
+      "query_indices": [
+        128,
+        256,
+        383,
+        511
+      ],
+      "query_weight_gradient_rms": 0.0001562908582855016,
+      "seed": 34003,
+      "top_ten_probability_mass_mean": 0.20548166458805403
+    },
+    {
+      "attention_logit_max_abs": 0.046060506254434586,
+      "attention_logit_rms": 0.009711634367704391,
+      "checks": {
+        "causal_query_count_exact": true,
+        "finite": true,
+        "nonzero_gradients": true,
+        "probabilities_sum_to_one": true
+      },
+      "context_length": 512,
+      "dtype": "float32",
+      "effective_attended_fraction_mean": 0.9999534462889036,
+      "key_weight_gradient_rms": 1.5649438864784315e-05,
+      "maximum_probability_mean": 0.004162095555026705,
+      "normalized_entropy_mean": 0.999991717437903,
+      "policy": "no-qk-norm",
+      "post_policy_key_rms": 0.09802567958831787,
+      "post_policy_query_rms": 0.09812963753938675,
+      "pre_norm_key_rms": 0.09802567213773727,
+      "pre_norm_query_rms": 0.09812963753938675,
+      "probability_sum_max_error": 1.1920928955078125e-07,
+      "projection_scale": 0.25,
+      "proxy_loss": 0.9430835843086243,
+      "query_indices": [
+        128,
+        256,
+        383,
+        511
+      ],
+      "query_weight_gradient_rms": 1.5614523363183253e-05,
+      "seed": 34001,
+      "top_ten_probability_mass_mean": 0.04131202151377996
+    },
+    {
+      "attention_logit_max_abs": 0.042781002819538116,
+      "attention_logit_rms": 0.00969511829316616,
+      "checks": {
+        "causal_query_count_exact": true,
+        "finite": true,
+        "nonzero_gradients": true,
+        "probabilities_sum_to_one": true
+      },
+      "context_length": 512,
+      "dtype": "float32",
+      "effective_attended_fraction_mean": 0.9999516854683558,
+      "key_weight_gradient_rms": 1.6384123227908276e-05,
+      "maximum_probability_mean": 0.004162849237521489,
+      "normalized_entropy_mean": 0.9999913225571314,
+      "policy": "no-qk-norm",
+      "post_policy_key_rms": 0.09818689525127411,
+      "post_policy_query_rms": 0.09815578907728195,
+      "pre_norm_key_rms": 0.0981869027018547,
+      "pre_norm_query_rms": 0.09815579652786255,
+      "probability_sum_max_error": 2.384185791015625e-07,
+      "projection_scale": 0.25,
+      "proxy_loss": 0.9697769284248352,
+      "query_indices": [
+        128,
+        256,
+        383,
+        511
+      ],
+      "query_weight_gradient_rms": 1.624484320927877e-05,
+      "seed": 34002,
+      "top_ten_probability_mass_mean": 0.04134360436970989
+    },
+    {
+      "attention_logit_max_abs": 0.042333003133535385,
+      "attention_logit_rms": 0.009395495057106018,
+      "checks": {
+        "causal_query_count_exact": true,
+        "finite": true,
+        "nonzero_gradients": true,
+        "probabilities_sum_to_one": true
+      },
+      "context_length": 512,
+      "dtype": "float32",
+      "effective_attended_fraction_mean": 0.9999556566278139,
+      "key_weight_gradient_rms": 1.5966379578458145e-05,
+      "maximum_probability_mean": 0.004156415738786261,
+      "normalized_entropy_mean": 0.9999920825163523,
+      "policy": "no-qk-norm",
+      "post_policy_key_rms": 0.09818518906831741,
+      "post_policy_query_rms": 0.09804622828960419,
+      "pre_norm_key_rms": 0.09818518906831741,
+      "pre_norm_query_rms": 0.09804622828960419,
+      "probability_sum_max_error": 1.1920928955078125e-07,
+      "projection_scale": 0.25,
+      "proxy_loss": 0.9892511367797852,
+      "query_indices": [
+        128,
+        256,
+        383,
+        511
+      ],
+      "query_weight_gradient_rms": 1.568885454616975e-05,
+      "seed": 34003,
+      "top_ten_probability_mass_mean": 0.04128809071456393
+    },
+    {
+      "attention_logit_max_abs": 0.7369681000709534,
+      "attention_logit_rms": 0.15538614988327026,
+      "checks": {
+        "causal_query_count_exact": true,
+        "finite": true,
+        "nonzero_gradients": true,
+        "probabilities_sum_to_one": true
+      },
+      "context_length": 512,
+      "dtype": "float32",
+      "effective_attended_fraction_mean": 0.98813596367836,
+      "key_weight_gradient_rms": 6.309043965302408e-05,
+      "maximum_probability_mean": 0.0062115977246624725,
+      "normalized_entropy_mean": 0.9978732218345007,
+      "policy": "no-qk-norm",
+      "post_policy_key_rms": 0.3921027183532715,
+      "post_policy_query_rms": 0.392518550157547,
+      "pre_norm_key_rms": 0.3921026885509491,
+      "pre_norm_query_rms": 0.392518550157547,
+      "probability_sum_max_error": 2.384185791015625e-07,
+      "projection_scale": 1.0,
+      "proxy_loss": 0.9424479007720947,
+      "query_indices": [
+        128,
+        256,
+        383,
+        511
+      ],
+      "query_weight_gradient_rms": 6.263166142161936e-05,
+      "seed": 34001,
+      "top_ten_probability_mass_mean": 0.055173153057694435
+    },
+    {
+      "attention_logit_max_abs": 0.6844960451126099,
+      "attention_logit_rms": 0.15512189269065857,
+      "checks": {
+        "causal_query_count_exact": true,
+        "finite": true,
+        "nonzero_gradients": true,
+        "probabilities_sum_to_one": true
+      },
+      "context_length": 512,
+      "dtype": "float32",
+      "effective_attended_fraction_mean": 0.9877451459566752,
+      "key_weight_gradient_rms": 6.655152537859976e-05,
+      "maximum_probability_mean": 0.00622064321457098,
+      "normalized_entropy_mean": 0.997782309850057,
+      "policy": "no-qk-norm",
+      "post_policy_key_rms": 0.39274758100509644,
+      "post_policy_query_rms": 0.3926231563091278,
+      "pre_norm_key_rms": 0.3927476108074188,
+      "pre_norm_query_rms": 0.3926231861114502,
+      "probability_sum_max_error": 1.1920928955078125e-07,
+      "projection_scale": 1.0,
+      "proxy_loss": 0.9706449508666992,
+      "query_indices": [
+        128,
+        256,
+        383,
+        511
+      ],
+      "query_weight_gradient_rms": 6.644170935032889e-05,
+      "seed": 34002,
+      "top_ten_probability_mass_mean": 0.055768382269889116
+    },
+    {
+      "attention_logit_max_abs": 0.6773280501365662,
+      "attention_logit_rms": 0.1503279209136963,
+      "checks": {
+        "causal_query_count_exact": true,
+        "finite": true,
+        "nonzero_gradients": true,
+        "probabilities_sum_to_one": true
+      },
+      "context_length": 512,
+      "dtype": "float32",
+      "effective_attended_fraction_mean": 0.9887610500057539,
+      "key_weight_gradient_rms": 6.408964691217989e-05,
+      "maximum_probability_mean": 0.00608504318127719,
+      "normalized_entropy_mean": 0.9979794745643934,
+      "policy": "no-qk-norm",
+      "post_policy_key_rms": 0.39274075627326965,
+      "post_policy_query_rms": 0.39218491315841675,
+      "pre_norm_key_rms": 0.39274075627326965,
+      "pre_norm_query_rms": 0.39218491315841675,
+      "probability_sum_max_error": 2.384185791015625e-07,
+      "projection_scale": 1.0,
+      "proxy_loss": 0.9885093569755554,
+      "query_indices": [
+        128,
+        256,
+        383,
+        511
+      ],
+      "query_weight_gradient_rms": 6.295622733887285e-05,
+      "seed": 34003,
+      "top_ten_probability_mass_mean": 0.054658828070387244
+    },
+    {
+      "attention_logit_max_abs": 11.791489601135254,
+      "attention_logit_rms": 2.486178398132324,
+      "checks": {
+        "causal_query_count_exact": true,
+        "finite": true,
+        "nonzero_gradients": true,
+        "probabilities_sum_to_one": true
+      },
+      "context_length": 512,
+      "dtype": "float32",
+      "effective_attended_fraction_mean": 0.09937799000181258,
+      "key_weight_gradient_rms": 0.002367420122027397,
+      "maximum_probability_mean": 0.2772403561199705,
+      "normalized_entropy_mean": 0.5600049793720245,
+      "policy": "no-qk-norm",
+      "post_policy_key_rms": 1.568410873413086,
+      "post_policy_query_rms": 1.570074200630188,
+      "pre_norm_key_rms": 1.5684107542037964,
+      "pre_norm_query_rms": 1.570074200630188,
+      "probability_sum_max_error": 2.384185791015625e-07,
+      "projection_scale": 4.0,
+      "proxy_loss": 1.0718446969985962,
+      "query_indices": [
+        128,
+        256,
+        383,
+        511
+      ],
+      "query_weight_gradient_rms": 0.0023186185862869024,
+      "seed": 34001,
+      "top_ten_probability_mass_mean": 0.6838468487064043
+    },
+    {
+      "attention_logit_max_abs": 10.951936721801758,
+      "attention_logit_rms": 2.481950283050537,
+      "checks": {
+        "causal_query_count_exact": true,
+        "finite": true,
+        "nonzero_gradients": true,
+        "probabilities_sum_to_one": true
+      },
+      "context_length": 512,
+      "dtype": "float32",
+      "effective_attended_fraction_mean": 0.10343316678578655,
+      "key_weight_gradient_rms": 0.0022677809465676546,
+      "maximum_probability_mean": 0.25549018879731494,
+      "normalized_entropy_mean": 0.5766518463691076,
+      "policy": "no-qk-norm",
+      "post_policy_key_rms": 1.5709903240203857,
+      "post_policy_query_rms": 1.5704926252365112,
+      "pre_norm_key_rms": 1.5709904432296753,
+      "pre_norm_query_rms": 1.5704927444458008,
+      "probability_sum_max_error": 1.7881393432617188e-07,
+      "projection_scale": 4.0,
+      "proxy_loss": 1.1147358417510986,
+      "query_indices": [
+        128,
+        256,
+        383,
+        511
+      ],
+      "query_weight_gradient_rms": 0.0022263412829488516,
+      "seed": 34002,
+      "top_ten_probability_mass_mean": 0.6744905163844427
+    },
+    {
+      "attention_logit_max_abs": 10.837248802185059,
+      "attention_logit_rms": 2.4052467346191406,
+      "checks": {
+        "causal_query_count_exact": true,
+        "finite": true,
+        "nonzero_gradients": true,
+        "probabilities_sum_to_one": true
+      },
+      "context_length": 512,
+      "dtype": "float32",
+      "effective_attended_fraction_mean": 0.12703389616217464,
+      "key_weight_gradient_rms": 0.002164127305150032,
+      "maximum_probability_mean": 0.24799151563396057,
+      "normalized_entropy_mean": 0.5987749472260475,
+      "policy": "no-qk-norm",
+      "post_policy_key_rms": 1.5709630250930786,
+      "post_policy_query_rms": 1.568739652633667,
+      "pre_norm_key_rms": 1.5709630250930786,
+      "pre_norm_query_rms": 1.568739652633667,
+      "probability_sum_max_error": 2.384185791015625e-07,
+      "projection_scale": 4.0,
+      "proxy_loss": 1.0930509567260742,
+      "query_indices": [
+        128,
+        256,
+        383,
+        511
+      ],
+      "query_weight_gradient_rms": 0.002065675798803568,
+      "seed": 34003,
+      "top_ten_probability_mass_mean": 0.6336457853515943
+    }
+  ],
+  "schema": "esoes-e2-qk-norm-probe/v1",
+  "scope": "paired isolated MHA QK scale/entropy/backward probe; no optimizer update",
+  "status": "PASS",
+  "torch_version": "2.11.0+cu128"
+}
