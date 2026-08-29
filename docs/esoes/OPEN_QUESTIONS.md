@@ -2,6 +2,37 @@
 
 These are questions the project should answer experimentally before freezing the next major Core training path. They are intentionally open-ended. A good result may reject the current intuition.
 
+## STEP 2 disposition
+
+The original list below remains as the audit trail, but it must not trigger 104 independent experiments. `V5_MASTER_BLUEPRINT.md` collapses it into six decisive experimental questions:
+
+| Priority | Decisive question | Current answer | Resolver |
+|---:|---|---|---|
+| 1 | Is the cognition benchmark causally valid and shortcut-free? | OPEN; no model result is meaningful before certification | E0 |
+| 2 | Which tokenizer maximizes cognition per raw byte/FLOP? | 24,576 byte-fallback is provisional | E1: 16k/24k/32k |
+| 3 | Does more depth/full attention/less KV compression improve OOD cognition at fixed budget? | 28×768, full attention, 4 KV, QK norm is provisional | E2 |
+| 4 | Are structured contrasts sufficient under LM loss, or does query-swap contrast add transfer? | LM remains base; query-swap is the sole auxiliary candidate | E3 |
+| 5 | What cognition share/order and optimizer regime preserves the substrate? | 15%, uniform mixing, WSD, 262k tokens/update are provisional | E3–E4 |
+| 6 | Does the winning effect survive scale and fresh natural domains? | OPEN / UNKNOWN | E5 at ~102M |
+
+### Questions answered enough to stop debating
+
+- **Direct 300M–3B launch:** rejected. Evidence is insufficient; run the 195M path only after proxy and mid-scale gates.
+- **Final checkpoint equals best:** rejected by V4 evidence.
+- **Many novel modules in the first V5 baseline:** rejected because they destroy causal attribution.
+- **Same-query margin objective:** rejected by SFT7 evidence.
+- **Runtime intervention equals native cognition:** rejected; assisted and raw capability remain separate.
+- **Connector replacement:** rejected. The Connector keeps tools, durable memory, long-horizon control, verification, risk, and credit assignment.
+
+### Questions deliberately left open
+
+- Whether query-swap contrast transfers from verified synthetic examples to natural reasoning.
+- Whether 195M has enough capacity for robust three-hop composition.
+- Whether byte-level architectures eventually beat subword V5-A at equal compute.
+- Whether 300M provides more value than additional clean tokens after V5-A.
+
+Do not reopen a resolved direction without new evidence. Do not close an experiment-gated value by implementing it first.
+
 ---
 
 ## A. What exactly should the Core know how to do?

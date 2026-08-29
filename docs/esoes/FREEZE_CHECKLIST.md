@@ -2,13 +2,17 @@
 
 The V5 training path is **not frozen** until every item below has an explicit answer, evidence link/receipt, or deliberate rejection.
 
+STEP 2 state: **research synthesis complete; experiments and executable receipts incomplete.** The provisional values live only in `V5_MASTER_BLUEPRINT.md`. Checked items below are research decisions, not authorization to train.
+
+Required critical path: **E0 benchmark certification → E1 tokenizer → E2 architecture → E3 data/objective → E4 minimal curriculum/optimization → E5 102M replication → E6 freeze review.**
+
 ## Cognition contract
 
-- [ ] exact cognition primitives defined
+- [x] exact cognition primitives defined
 - [ ] development benchmark implemented
 - [ ] sealed promotion benchmark frozen
-- [ ] OOD axes defined
-- [ ] representation vs realization metrics separated
+- [x] OOD axes defined
+- [x] representation vs selection vs realization metrics separated
 - [ ] shortcut/leakage review passed
 
 ## Tokenizer
@@ -26,7 +30,7 @@ The V5 training path is **not frozen** until every item below has an explicit an
 - [ ] context-length decision justified
 - [ ] Q/KV head choice justified
 - [ ] FFN allocation justified
-- [ ] no unnecessary experimental modules in baseline
+- [x] no unnecessary experimental modules in baseline
 - [ ] exact parameter count verified from executable model
 
 ## Data
@@ -83,9 +87,22 @@ The V5 training path is **not frozen** until every item below has an explicit an
 - [ ] negative results retained
 - [ ] baselines strong enough
 - [ ] no future fixture used for tuning
-- [ ] raw and assisted capabilities reported separately
-- [ ] no external intervention described as native Core capability
-- [ ] no AGI claim implied by narrow benchmark success
+- [x] raw and assisted capabilities required to be reported separately
+- [x] external intervention explicitly excluded from native Core claims
+- [x] AGI claims excluded from narrow benchmark success
+
+## STEP 2 research decisions recorded
+
+- [x] V4's certified-token limitation recorded; unsupported lifetime-token claims rejected
+- [x] direct 300M–3B launch rejected pending scale-transfer evidence
+- [x] dense conventional V5-A baseline selected provisionally
+- [x] query-swap contrast selected as the sole auxiliary-objective candidate
+- [x] same-query margin rejected
+- [x] synthetic-data provenance and verification contract defined
+- [x] Connector-versus-Core boundary defined
+- [x] behavioral, not chronological, checkpoint promotion established
+- [x] six-experiment information-gain program defined
+- [x] compute estimate and abort logic documented
 
 ## Freeze artifact
 

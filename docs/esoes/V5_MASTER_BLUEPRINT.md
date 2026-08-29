@@ -1,0 +1,459 @@
+# An-Ra V5 Master Blueprint
+
+Status: **STEP 2 RESEARCH SYNTHESIS — PROVISIONAL, NOT FROZEN**  
+Date: 2026-08-29  
+Branch: `esoes`  
+Training authorization: **NO**
+
+This document is the canonical V5 research blueprint. It supersedes the numerical recommendations in `V5_COGNITION_FIRST_BLUEPRINT.md`; that file remains historical working material. A value marked **EXPERIMENT REQUIRED** is not permission to encode it silently into the trainer.
+
+## 1. Executive decision
+
+V5 should not be a collection of speculative cognitive modules and should not jump directly to 300M–3B parameters. The most defensible next foundation is a conventional, inspectable, dense decoder near V4's scale, with more sequential depth, full attention, 4k native context, a tested tokenizer, roughly 4B auditable tokens, and one narrow candidate auxiliary objective: query-swap contrast. The scientific novelty should live primarily in the data, causal controls, measurements, and promotion rules.
+
+Why this is the best bet:
+
+- V4's certified continuation covered only 329,908,224 tokens; its lifetime total is not certifiable. That is insufficient evidence that 180M parameters were exhausted.
+- V4 improved LM loss while binding, contextual selection, copying, and composition remained weak. Lower loss is therefore not the program's success criterion.
+- SFT6 showed that query-conditioned data could expose a selection signal, while SFT7's same-query margin hypothesis failed and the final continuation checkpoint regressed behaviorally. Objective shape and checkpoint selection matter.
+- Public scaling work supports spending substantially more trustworthy tokens on a well-sized dense model before buying parameters. Data quality and mixtures can be screened at smaller scale with useful rank correlation.
+- The proposed query-swap objective directly targets the causal variable V4 failed to use: changing the query while holding the fact context fixed.
+
+## 2. Epistemic labels
+
+Every major choice uses one label:
+
+1. **EVIDENCE-BACKED** — supported by direct An-Ra evidence and/or replicated public primary sources.
+2. **STRONG INFERENCE** — follows from evidence and constraints, but has not been tested in the exact An-Ra setting.
+3. **EXPERIMENT REQUIRED** — plausible alternatives remain and a bounded experiment can decide.
+4. **OPEN / UNKNOWN** — evidence is presently inadequate and the uncertainty is not cheaply removable.
+
+These labels apply to the decision, not to every implementation detail beneath it.
+
+## 3. Design philosophy
+
+### 3.1 Optimize useful cognition per total program compute
+
+The target is not the lowest held-out next-token loss. The target is a Core that uses context to represent alternatives, selects the answer implied by the current query and state, realizes that selection reliably, and transfers these operations beyond training vocabulary and templates. **EVIDENCE-BACKED**
+
+### 3.2 Keep the Core conventional enough to falsify the data hypothesis
+
+Novel recurrence, memory modules, MoE routing, state-space blocks, latent-thought machinery, and multiple auxiliary losses would make a failure uninterpretable. The first V5 baseline must isolate whether better data and causal supervision can teach the missing computations. **STRONG INFERENCE**
+
+### 3.3 Separate representation, selection, and realization
+
+A model may contain the correct value among candidate likelihoods, fail to select it under the query, or select it internally and fail to emit it. Aggregate exact match hides these different failure modes. All V5 evaluations and any auxiliary objective must preserve this separation. **EVIDENCE-BACKED**
+
+### 3.4 Treat every synthetic example as an experiment
+
+Synthetic data is valuable when the answer, latent dependency graph, counterfactual, and difficulty are mechanically verifiable. It is dangerous when it is merely model-generated prose recursively imitating other model outputs. Generator version, seed, causal structure, and split membership are part of the datum. **EVIDENCE-BACKED**
+
+### 3.5 Promote checkpoints behaviorally, not chronologically
+
+The final checkpoint is not automatically the best checkpoint. Loss, cognition families, OOD transfer, integrity, and fresh replication jointly determine promotion. **EVIDENCE-BACKED**
+
+## 4. Lessons from previous An-Ra generations
+
+### V4 / continuation
+
+- V4 is approximately 180.1M parameters: 18 layers, width 896, 14 query heads, 2 KV heads, FFN 2432, vocabulary 32,768, context 2,048, tied embeddings, RoPE, RMSNorm, QK norm, and hybrid local/full attention.
+- The only certified continuation amount is 329,908,224 tokens. Claims of a 2.7B lifetime total are unsupported by the preserved ledger.
+- Parent step 20,000 to final step 22,517 improved recorded LM loss from 2.1884 to 1.9710, yet the preserved PGE audit found copying, context use, binding, and composition near chance or zero.
+- Step 21,800 behaved better than the final checkpoint. A final-equals-best policy is invalid.
+
+Conclusion: V4 does not prove that a 180M dense model is too small. It proves that ordinary loss and final-step selection are insufficient. **EVIDENCE-BACKED**
+
+### SFT6 / SFT7
+
+- SFT6 improved some copy and context cases, but its selection result remained weak (13/48 in the preserved evaluation).
+- SFT7's preregistered same-query margin intervention did not improve the intended selection mechanism.
+- Counterfactual normalization worked on its native query-intervention matrix but failed to transfer cleanly to the fresh PGE battery.
+
+Conclusion: contrast must manipulate the causal query while holding facts fixed. Reweighting candidates under the same query is not an adequate proxy for query-conditioned binding. **EVIDENCE-BACKED**
+
+### EXP / Connector
+
+- A small policy transferred in a native three-action setting, but pair-action contamination and broader transfer failures prevent a universal claim.
+- External repair can diagnose a failure without proving the Core learned the missing computation.
+
+Conclusion: the Connector should remain an experimenter, verifier, and runtime controller. Successful interventions become Core-training candidates only after causal replication. **EVIDENCE-BACKED**
+
+## 5. Provisional V5 architecture
+
+### 5.1 V5-A candidate
+
+| Component | Provisional value | Status | Rationale |
+|---|---:|---|---|
+| Decoder | dense causal Transformer | EVIDENCE-BACKED | Strong baselines and easiest causal attribution |
+| Parameters | 195,078,912 | EXPERIMENT REQUIRED | Near V4 scale; enough depth without an unjustified scale jump |
+| Vocabulary | 24,576 | EXPERIMENT REQUIRED | Candidate tradeoff between embeddings, sequence inflation, code, and nonce copying |
+| Width | 768 | EXPERIMENT REQUIRED | Frees parameter budget for depth |
+| Layers | 28 | EXPERIMENT REQUIRED | More sequential computation than V4; depth benefit must be measured |
+| Q heads | 12 × 64 | STRONG INFERENCE | Standard head dimension and clean divisibility |
+| KV heads | 4 | EXPERIMENT REQUIRED | Less compression than V4's 2 KV heads; compare with MHA |
+| FFN | 2,048 SwiGLU | STRONG INFERENCE | Stable modern dense block; roughly 8/3 width |
+| Context | 4,096 native | EXPERIMENT REQUIRED | Doubles V4 while retaining feasible full attention |
+| Attention | full causal in every layer | EXPERIMENT REQUIRED | Avoids locality as a confound in binding/state tests |
+| Position | RoPE, base 10,000, no extrapolation claim | EVIDENCE-BACKED | Mature relative-position method; evaluate only native length |
+| Norm | pre-RMSNorm, epsilon 1e-5 | EVIDENCE-BACKED | Stable and computationally simple |
+| QK norm | enabled candidate | EXPERIMENT REQUIRED | Stability evidence exists; discrimination effect is unknown |
+| Embedding/output | tied | STRONG INFERENCE | Parameter efficient; no An-Ra evidence to untie |
+| Bias/dropout | bias-free, dropout 0 | STRONG INFERENCE | Conventional at this scale and data volume |
+| Initialization | normal std 0.02; residual output projections scaled by about `1/sqrt(2L)` | STRONG INFERENCE | Reduces depth-dependent residual growth |
+| Precision | BF16 compute, FP32 reductions and optimizer state | EVIDENCE-BACKED | Appropriate TPU stability path |
+
+Parameter calculation under the current An-Ra block conventions:
+
+```text
+embedding = 24,576 × 768 = 18,874,368
+per layer = attention 1,572,864 + SwiGLU 4,718,592 + norms 1,536 = 6,292,992
+28 layers = 176,203,776; final RMSNorm = 768
+total tied dense parameters = 195,078,912
+```
+
+The executable model constructor is authoritative; the freeze gate requires its exact count and a layer-by-layer receipt. **EXPERIMENT REQUIRED**
+
+### 5.2 Explicit rejections for V5-A
+
+Do not add MoE, recurrent memory, SSM blocks, latent-thought heads, learned routers, multi-token prediction, untied output heads, or dormant cognition modules to the baseline. They may become later ablations only after V5-A establishes a strong conventional control. **STRONG INFERENCE**
+
+### 5.3 Scaling ladder
+
+| Stage | Candidate shape | Approx. parameters | Purpose |
+|---|---|---:|---|
+| P35 | 16×384, 6Q/2KV, FFN 1024, vocab 24,576 | 34.6M | High-throughput rank ordering |
+| M102 | 20×640, 10Q/2KV, FFN 1728, vocab 24,576 | 101.8M | Replication and scale-transfer gate |
+| V5-A | 28×768, 12Q/4KV, FFN 2048, vocab 24,576 | 195.1M | First major run after freeze |
+| V5-B | approximately 300M | OPEN / UNKNOWN | Only after V5-A passes and ≥6B clean tokens exist |
+| 1B / 3B | unspecified | OPEN / UNKNOWN | Not justified by current evidence |
+
+## 6. Tokenizer specification
+
+### Provisional candidate
+
+- Byte-fallback BPE or Unigram with exactly 24,576 entries.
+- Identity-preserving preprocessing: no destructive Unicode normalization, case folding, accent stripping, whitespace collapse, or digit rewriting.
+- All bytes representable; unknown-token rate must be zero.
+- A minimal reserved set for BOS/EOS/PAD plus structural boundaries. No task-family, difficulty, answer-index, or latent-graph tokens.
+- Train on the actual frozen data mixture, with source-balanced sampling so dominant web text does not erase code, mathematics, identifiers, and multilingual bytes.
+- Serialize the tokenizer, trainer configuration, corpus sample manifest, normalization rules, special-token map, and SHA-256.
+
+Status: **EXPERIMENT REQUIRED**. Token compression alone is not the objective. The tournament must measure raw-byte-normalized loss, tokens per byte by domain, exact nonce copying, identifier fragmentation, equation/code handling, and downstream cognition at matched raw bytes and FLOPs.
+
+Required tournament: 16,384 versus 24,576 versus 32,768. A byte-level/BLT arm is research-only unless it wins a separate architecture-cost study; it changes too many variables for V5-A. **STRONG INFERENCE**
+
+## 7. Data strategy
+
+### 7.1 Main-run target
+
+Target **4.0B unique, auditable training tokens** for V5-A, approximately 20.50 tokens per parameter. This is a reference budget, not a universal law. It must be counted with the frozen tokenizer after filtering and deduplication. **STRONG INFERENCE**
+
+Provisional composition:
+
+| Family | Share | Tokens | Status |
+|---|---:|---:|---|
+| High-quality natural substrate | 65% | 2.60B | EXPERIMENT REQUIRED |
+| Code, math, formal and structured natural data | 20% | 0.80B | EXPERIMENT REQUIRED |
+| Mechanically verified cognition data | 15% | 0.60B | EXPERIMENT REQUIRED |
+
+The actual cognition share will be selected by a 5% / 15% / 30% proxy experiment. Generic web volume is not a substitute for provenance or quality.
+
+### 7.2 Quality contract
+
+Every source must have an origin, acquisition date, license/terms category, filtering version, deduplication receipt, tokenizer hash, and exact post-filter token count. The freeze requires:
+
+- licensed, public-domain, or otherwise legitimately usable sources only;
+- document- and span-level deduplication within and across families;
+- benchmark contamination search before tokenization and again after canonicalization;
+- explicit removal of secrets, private data, malware instructions, template spam, and low-information repetition;
+- held-out natural domains and sources, not merely held-out random rows;
+- exact mixture sampler and seed captured in checkpoints.
+
+Model-based filtering may help rank quality, but filters must be audited for stylistic monoculture and must not silently turn the corpus into another model's distribution. **EVIDENCE-BACKED**
+
+### 7.3 Synthetic cognition contract
+
+Preferred generators are programs, simulators, solvers, databases, or formal transforms with executable truth. LLM-generated paraphrases are quarantined, traceable, mechanically semantics-checked, and capped at 5% of total tokens unless a later experiment justifies more.
+
+Each example stores a hidden evaluator record containing its dependency graph, correct answer, plausible distractors, counterfactual queries, intervention set, difficulty, generator version, and seed. Those fields are never leaked as input shortcuts.
+
+Splits must be disjoint across:
+
+- generator seeds and template families;
+- entity/token alphabets;
+- graph topologies and relation compositions;
+- cardinality and hop count;
+- context position and distractor density;
+- surface style, domain, and answer format.
+
+Recursive synthetic imitation without access to original human distributions is prohibited because it can amplify errors and erase low-probability structure. **EVIDENCE-BACKED**
+
+## 8. Cognition curriculum
+
+V5 should learn a small set of transferable operations rather than task names:
+
+1. exact copy and localized retrieval;
+2. query-conditioned entity/value binding;
+3. mutable state and overwrite precedence;
+4. retrieval under distractors and adversarial position;
+5. relational composition at one, two, then three hops;
+6. counterfactual query and state sensitivity;
+7. rule induction and application on novel symbols;
+8. missing-information recognition;
+9. realization of a correctly selected value in natural and constrained forms.
+
+Curriculum is **EXPERIMENT REQUIRED** because broad language-model curriculum evidence is mixed. Compare uniform interleaving with one staged schedule: establish copy/binding/state, add composition, then raise cardinality and distractors while preserving at least 30% replay of earlier families. Advancement is determined by preregistered competence gates, not subjective inspection. If staging does not improve worst-family fresh-OOD performance at equal tokens, use uniform mixing.
+
+Natural transfer examples must accompany each synthetic family. A synthetic-only gain is not sufficient for promotion.
+
+## 9. Training objective
+
+### 9.1 Base objective
+
+Standard causal next-token likelihood remains the universal objective. **EVIDENCE-BACKED**
+
+### 9.2 Query-swap auxiliary objective
+
+The only auxiliary objective allowed into the decisive experiment is query-swap contrast. For fixed fact context `F`, correct query `q`, counterfactual query `q'`, gold value `v*`, and plausible wrong values `v-`:
+
+```text
+lift(v, q) = log P(v | F, q) - mean_q' log P(v | F, q')
+L_query = log(1 + sum_v- exp(m + lift(v-,q) - lift(v*,q)))
+L_total = L_LM + lambda * L_query
+```
+
+The counterfactual changes the causal question while facts remain fixed. Candidate lengths must be normalized, candidates must be position-balanced, and wrong candidates must be plausible values from the same context. Apply this only to mechanically verified cognition examples, not arbitrary natural text.
+
+Candidate sweep: `lambda ∈ {0, 0.05, 0.15}`; a broader `{0, 0.1, 0.3}` sweep is allowed only if the first range is underpowered. The objective is admitted only if it improves fresh query-swap selection and natural transfer without more than a 3% substrate-loss regression. **EXPERIMENT REQUIRED**
+
+Do not add the failed SFT7 same-query margin objective. Do not create a separate realization head: train realization with ordinary answer-span likelihood and evaluate it conditionally on correct selection. **EVIDENCE-BACKED**
+
+## 10. Optimization and schedule
+
+| Item | Provisional choice | Status |
+|---|---:|---|
+| Optimizer | AdamW | EVIDENCE-BACKED |
+| Betas | 0.9, 0.95 | STRONG INFERENCE |
+| Epsilon | 1e-8 | STRONG INFERENCE |
+| Weight decay | 0.1 on weight matrices; none on norm/bias | STRONG INFERENCE |
+| Peak LR | 3e-4 | EXPERIMENT REQUIRED |
+| LR candidates | 2e-4, 3e-4, 4e-4 | EXPERIMENT REQUIRED |
+| Global tokens/update | 262,144 | EXPERIMENT REQUIRED |
+| Batch candidates | 131,072 / 262,144 / 524,288 | EXPERIMENT REQUIRED |
+| Schedule | WSD: 1% warmup, 89% stable, 10% decay to 0.1× peak | EXPERIMENT REQUIRED |
+| Gradient clip | global norm 1.0 | EVIDENCE-BACKED |
+| Precision | BF16; FP32 reductions and optimizer | EVIDENCE-BACKED |
+
+Do not rewarm LR merely because a data pack or notebook session changes. A continuation resumes the global schedule and optimizer state. Batch changes require an explicit migration experiment and receipt.
+
+Every canary verifies that a real optimizer update occurred: parameter SHA changes, optimizer maximum step increments exactly, moments change, nonzero finite gradients exist, data cursor advances, and all live parameters belong to the optimizer.
+
+## 11. Checkpoint and evaluation system
+
+### Checkpoints
+
+- Mutable full-resume recovery checkpoint every 10M tokens; retain at least two and copy durably off worker.
+- Immutable full-resume milestone every 100M tokens, every 50M over the final 500M, and at every data/curriculum boundary.
+- Every checkpoint contains model, optimizer, scaler if any, sampler/cursor, RNG states, global step, exact cumulative tokens from zero, tokens by family/source, config, tokenizer/data/source commit hashes, parent hash, and parameter hash.
+- Resume equivalence test: uninterrupted `N+K` updates must match `N → save → resume → K` within a defined BF16 tolerance.
+
+Status: **EVIDENCE-BACKED** for full-resume integrity and immutable milestones; cadence is **STRONG INFERENCE** pending storage/latency measurement.
+
+### Evaluation cadence
+
+- Tier 0 canaries every 25M tokens: 32 cases per family, integrity and gross regression detection.
+- Tier 1 every 100M tokens, asynchronous: 512 cases per family plus substrate/code/math loss.
+- Tier 2 sealed promotion suite: 1,024 cases per family, used only at preregistered boundaries.
+- Tier 3 fresh replication: newly generated fixtures and held-out natural domains before promotion.
+
+Training must not wait on routine behavioral evaluation. A separate evaluator consumes immutable checkpoints.
+
+## 12. Cognition benchmark and promotion gates
+
+### 12.1 Measurement cube
+
+Every family is measured at three levels:
+
+- **Representation:** gold candidate NLL/rank and query-conditioned lift relative to matched counterfactual queries.
+- **Selection:** raw argmax accuracy, calibrated margin, query-flip correctness, and abstention where information is absent.
+- **Realization:** free generation exact/semantic correctness, also reported conditional on the gold candidate already being selected.
+
+This prevents a generation failure from being mislabeled as a representation failure, or an assisted candidate score from being claimed as native free-generation ability. **EVIDENCE-BACKED**
+
+### 12.2 Anti-memorization / OOD design
+
+Report independent and joint shifts in symbols, lexical aliases, templates, domains, answer formats, context positions, distractor density, graph topology, cardinality, hop count, and sequence length. Compare composition against direct-retrieval controls with identical vocabulary and surface statistics. Use adversarial irrelevant facts and query swaps. Keep sealed fixtures unavailable to training/data filtering agents.
+
+### 12.3 Provisional promotion gates
+
+Exact thresholds will be calibrated in E0, but the intended gates are:
+
+- integrity and contamination checks pass with no exception;
+- lower 95% confidence bound for fresh-OOD selection is at least chance + 10 percentage points;
+- query swaps move selection in the correct direction on at least 80% of cases;
+- state/overwrite OOD accuracy at least 70%;
+- two-hop composition OOD at least 60% and materially above matched retrieval control; three-hop shows positive scaling rather than collapse;
+- realization conditional on correct selection at least 80%;
+- natural substrate loss no worse than 3% versus matched LM-only control and code/math loss no worse than 5%;
+- no cognition family regresses by more than 5 percentage points;
+- decisive gains reproduce across two seeds at ~102M and once on a fresh fixture/domain.
+
+Use worst-family gates, not a compensating average. Report unassisted and assisted scores separately. **STRONG INFERENCE**, thresholds **EXPERIMENT REQUIRED**.
+
+## 13. Decisive experiments before freeze
+
+The original 100+ questions collapse into six decisions. Optimize information gain per accelerator-hour using matched tokens/FLOPs, paired fixtures, early pruning only at preregistered checkpoints, and replication of finalists.
+
+### E0 — Benchmark and generator certification (no TPU required)
+
+Build the nine-family measurement cube, chance baselines, direct-retrieval controls, leakage tests, split hashes, and confidence intervals. Validate that changing only the query changes the gold answer. Freeze Tier 2 before model comparison.
+
+Abort if shortcuts, duplicate graphs, token-label leakage, or scorer ambiguity remain.
+
+### E1 — Tokenizer tournament
+
+Compare 16k, 24k, and 32k on static corpus metrics and matched P35 training (100–200M tokens per serious arm). Match raw bytes and approximate FLOPs, not token count alone. Winner must be Pareto-competitive on byte-normalized substrate loss, sequence inflation, nonce copy, identifiers, code/math, and cognition.
+
+### E2 — Architecture screen
+
+At ~35M parameters compare parameter-matched deep/narrow, middle, and wide/shallow shapes; screen 4-KV GQA versus MHA and QK norm on/off using a fractional design. Single-seed successive halving may eliminate clearly weak arms; top two shapes receive three seeds.
+
+The purpose is to decide depth, attention topology, and QK/GQA—not to crown a benchmark winner from one seed.
+
+### E3 — Data/objective screen
+
+At the winning P35 architecture compare 5%, 15%, and 30% cognition mixtures under LM-only. Add query-swap contrast to the best mixture and one neighboring mixture. Compare with matched token and raw-byte budgets. Replicate finalists across three seeds and fresh generators.
+
+This resolves whether gains come from structured contrasts in the data or the explicit objective.
+
+### E4 — Curriculum and optimization
+
+Compare uniform interleaving against one competence-staged curriculum with replay. Only after recipe selection, test LR `2e-4/3e-4/4e-4`, effective batch `131k/262k/524k`, and WSD versus the simplest competitive schedule if curves disagree. Do not run a combinatorial sweep.
+
+### E5 — Mid-scale replication
+
+Train the ~102M recipe and a strong LM-only control for 600M–1B tokens, two seeds for the winning recipe. Require sealed and fresh-OOD gains, natural transfer, stable training, and checkpoint-resume equivalence. If the effect does not survive scale, do not launch V5-A.
+
+### E6 — Freeze review
+
+Resolve all checklist items; build executable parameter/compute/data receipts; freeze `V5_TRAINING_SPEC_v1.0.md`; run target-TPU canaries and remote checkpoint restore. Only then authorize the 195M/4B run.
+
+## 14. Compute and token estimates
+
+For the provisional 195,078,912-parameter model and 4.0B tokens, the common dense-transformer estimate `6ND` is:
+
+```text
+6 × 195,078,912 × 4,000,000,000 = 4.6819e18 FLOPs ≈ 4.68 EFLOP
+```
+
+Allow roughly 10–25% additional practical cost for attention, evaluation, checkpointing, padding, and pipeline inefficiency: about **5.2–5.9 EFLOP** for the main run. Pure compute time is approximately 26.0 / 13.0 / 6.5 hours at sustained 50 / 100 / 200 TFLOP/s; realistic wall time is provisionally **10–35 hours** after input and checkpoint overhead. These are device-neutral estimates, not a Kaggle promise. **STRONG INFERENCE**
+
+The pre-freeze program should be capped near **1.5–2.5 EFLOP**, with most weak P35 arms stopped early. This is cheap relative to an uninterpretable main run. **STRONG INFERENCE**
+
+Storage must be measured from an actual schema-3 full-resume checkpoint. Budget immutable milestones separately from two rotating recovery checkpoints.
+
+## 15. Failure and abort criteria
+
+Abort or pause an arm when any of the following occurs:
+
+- non-finite loss/gradients, optimizer/live-parameter mismatch, token ledger inconsistency, or failed resume equivalence;
+- source/license/contamination/hash violation—results from that data are invalid;
+- query objective fails to beat LM-only on fresh query-swap selection with its preregistered confidence interval, or harms substrate loss by more than 3%;
+- synthetic gains fail on fresh generators and held-out natural analogues;
+- two consecutive Tier 1 evaluations show a >5-point cognition decline while LM loss improves; preserve and compare the earlier checkpoint;
+- no replicated cognition gain at ~102M; do not scale to 195M;
+- target-hardware throughput, durable checkpoint upload, and restore canaries do not pass;
+- benchmark artifacts or direct-retrieval shortcuts explain the apparent composition gain.
+
+An inconclusive result is not a license to average arms or select the prettiest curve. Increase power only when the decision value exceeds the compute cost.
+
+## 16. Scaling roadmap
+
+1. Certify benchmark and data-generators.
+2. Run P35 tokenizer, shape, mixture, objective, and minimal optimization screens.
+3. Replicate finalists, discard unreplicated mechanisms, and publish negative results.
+4. Train M102 control and winning recipe; require transfer and resume integrity.
+5. Freeze V5-A exact spec, manifests, seeds, gates, and commands.
+6. Train one 195M/4B main run with immutable behavioral checkpoints; do not call the final checkpoint best automatically.
+7. Conduct sealed and fresh post-training evaluation, mechanistic probes, contamination audit, and independent rerun of decisive claims.
+8. Consider ~300M only if V5-A is data-limited or capacity-limited by controlled evidence, at least 6B clean tokens are ready, and scaling predicts a useful gain per compute.
+9. Consider 1B/3B only after the recipe transfers twice and the data/provenance program can support it.
+
+## 17. Core versus Connector
+
+### Train natively into Core
+
+- contextual retrieval and exact copying;
+- query-conditioned binding;
+- local working-state update and overwrite precedence;
+- short relational composition;
+- counterfactual sensitivity;
+- internal candidate discrimination;
+- reliable realization;
+- evidence-sensitive missing-information behavior.
+
+These are repeated, local computations required across domains. **STRONG INFERENCE**
+
+### Keep in Connector/runtime
+
+- tool execution and API schemas;
+- retrieval orchestration and durable external memory;
+- long-horizon search, branching, budgeting, and planning;
+- verification, causal ablation, and credit assignment;
+- adaptive routing, permissions, safety/risk policy, and recovery;
+- counterfactual normalization as a diagnostic or fallback until native transfer is demonstrated.
+
+These change with tools, environment, risk, or horizon and are easier to audit externally. **STRONG INFERENCE**
+
+Do not train transient tool syntax or one deployment's routing policy into the foundation unless it demonstrates broad, stable transfer.
+
+## 18. Unresolved decisions
+
+| Decision | Current state | Resolver |
+|---|---|---|
+| 16k vs 24k vs 32k vocabulary | EXPERIMENT REQUIRED | E1 |
+| 28×768 versus another depth/width shape | EXPERIMENT REQUIRED | E2 |
+| 4-KV GQA versus MHA | EXPERIMENT REQUIRED | E2 |
+| QK norm effect on discrimination | EXPERIMENT REQUIRED | E2 |
+| Full attention benefit at 4k | EXPERIMENT REQUIRED | E2 plus long-context suite |
+| 5/15/30% cognition share | EXPERIMENT REQUIRED | E3 |
+| LM-only versus query-swap auxiliary | EXPERIMENT REQUIRED | E3 |
+| Uniform versus staged curriculum | EXPERIMENT REQUIRED | E4 |
+| Exact LR/batch/WSD schedule | EXPERIMENT REQUIRED | E4 |
+| Whether 195M can robustly learn 3-hop composition | OPEN / UNKNOWN | E5/V5-A evidence |
+| Whether synthetic causal gains transfer broadly to natural reasoning | OPEN / UNKNOWN | E3/E5 fresh natural domains |
+| Whether 300M materially outperforms better data at equal compute | OPEN / UNKNOWN | post-V5 scaling study |
+
+## 19. Exact sequence from today
+
+1. Review this blueprint and record objections in `DECISION_LOG.md`; do not freeze numbers by silence.
+2. Implement and red-team E0 generators/evaluators without training.
+3. Freeze Tier 2 fixtures, split rules, metrics, chance controls, and contamination hashes.
+4. Produce the auditable candidate corpus and tokenizer training sample.
+5. Execute E1 and E2 at P35 with matched budgets and preregistered stopping.
+6. Execute E3; replicate finalists before reading sealed Tier 2.
+7. Execute E4 only for remaining decisions; avoid a broad hyperparameter search.
+8. Execute E5 at M102 with a strong LM-only control and exact-resume tests.
+9. Hold a freeze review; resolve the checklist and issue `V5_TRAINING_SPEC_v1.0.md` with executable receipts.
+10. Run target-TPU one-step, multi-step, save/resume, upload/download, and evaluator canaries.
+11. Authorize and launch V5-A only if every gate passes.
+12. Evaluate intermediate and final checkpoints; promote the evidence-backed checkpoint, not necessarily the last one.
+
+## 20. Verdict
+
+**V5 CORE WE SHOULD PROBABLY BUILD:** A ~195M dense 28-layer × 768-width causal Transformer, 12 Q / 4 KV heads, SwiGLU 2048, full 4k attention, RoPE, pre-RMSNorm, tied byte-fallback tokenizer embeddings, trained on 4B audited tokens.  
+**WHY:** V4 is not proven capacity-limited; it is under-evidenced, under-tokened, and behaviorally mis-selected. A clean dense model makes the data/objective hypothesis falsifiable.  
+**BIGGEST CHANGE FROM V4:** More depth and native full 4k context at nearly the same scale, selected by proxy experiments rather than intuition.  
+**BIGGEST DATA CHANGE:** A provenance-complete 4B-token corpus with a tested ~15% mechanically verified causal cognition component.  
+**BIGGEST TRAINING CHANGE:** Query-swap contrast as the sole candidate auxiliary objective, plus immutable behavioral checkpoint promotion.  
+**BIGGEST COGNITION CHANGE:** Train and measure representation, selection, and realization separately under causal counterfactual and OOD splits.  
+**MOST IMPORTANT UNKNOWN:** Whether query-swap gains survive fresh generators, natural domains, and scale without harming the language substrate.  
+**EXPERIMENTS BEFORE FREEZE:** E0 benchmark certification; E1 tokenizer; E2 architecture; E3 data/objective; E4 minimal curriculum/optimizer; E5 102M replication.  
+**ESTIMATED COMPUTE:** 1.5–2.5 EFLOP pre-freeze; 4.68 EFLOP idealized and roughly 5.2–5.9 EFLOP practical for V5-A.  
+**CONFIDENCE:** 0.72 in the program direction; 0.45 in the exact provisional shape and mixture.  
+**READY TO FREEZE:** **NO**.  
+**NEXT ACTION:** Certify E0 and freeze the benchmark/generator contract before spending TPU time.
+
+## 21. Research basis
+
+The claim-to-source matrix and public primary-source bibliography are in [`report-source.md`](report-source.md). The central external anchors include Chinchilla compute-optimal scaling, DataComp-LM data filtering and small-to-large rank correlation, GQA, RoPE, RMSNorm, GLU/SwiGLU, OLMo/OLMo 2 training transparency, MiniCPM's WSD schedule, Skill-It/DoReMi mixture and curriculum work, Lost in the Middle/RULER context evaluation, Phi-1 synthetic quality evidence, and model-collapse evidence. Repository-specific conclusions come from `EVIDENCE_AND_CONTEXT.md`, the canonical PGE audit, the token provenance ledger, SFT6/SFT7 records, and EXP policy-transfer results.
