@@ -51,6 +51,16 @@ class E0ContractTests(unittest.TestCase):
         self.assertNotIn("answer", view)
         self.assertNotIn("hidden", view)
         self.assertNotIn("candidates", view)
+        self.assertNotIn("surface_axes", view)
+
+    def test_context_position_and_output_axes_are_covered(self) -> None:
+        axes = self.dev.surface_axis_histograms()
+        self.assertTrue(
+            {"front", "middle", "back", "distributed", "answer-absent"}.issubset(
+                axes["relevant_position"]
+            )
+        )
+        self.assertGreaterEqual(len(axes["answer_format"]), 5)
 
     def test_split_vocabularies_are_disjoint(self) -> None:
         sealed = build_evaluation_suite(Split.SEALED, seed=202, groups_per_family=2)

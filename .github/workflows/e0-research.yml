@@ -1,4 +1,4 @@
-name: E0 research contracts
+name: ESOES research contracts
 
 on:
   push:
@@ -18,7 +18,13 @@ jobs:
           python-version: "3.11"
       - name: Run E0 regression tests
         run: python -m unittest discover -s tests -v
+      - name: Enforce package boundaries
+        run: python -m v5_contracts.import_boundaries
       - name: Reproduce development certificate
         run: python -m e0_cognition.certify --output /tmp/development_certificate.json --groups-per-family 16
       - name: Verify committed receipt is reproducible
         run: cmp artifacts/e0/development_certificate.json /tmp/development_certificate.json
+      - name: Reproduce 250M implementation contract
+        run: python -m v5_contracts.certify --output /tmp/implementation_contract.json
+      - name: Verify committed implementation receipt
+        run: cmp artifacts/v5/implementation_contract.json /tmp/implementation_contract.json

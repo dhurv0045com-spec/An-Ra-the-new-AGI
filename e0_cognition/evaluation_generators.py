@@ -71,6 +71,45 @@ def _candidate_order(rng: random.Random, values: tuple[str, ...]) -> tuple[str, 
     return tuple(ordered)
 
 
+def _answer_format(answer: str, profile: SplitProfile) -> str:
+    if answer == "<MISSING>":
+        return "abstention"
+    if answer in {"YES", "NO"}:
+        return "boolean"
+    if "|" in answer:
+        return "composite"
+    if answer.startswith(profile.prefix):
+        return "nonce-code"
+    if answer.startswith(profile.prefix.lower() + "-"):
+        return "nonce-entity"
+    return "literal"
+
+
+def _surface_axes(
+    *, facts: tuple[str, ...], relevant: tuple[int, ...], answer: str, profile: SplitProfile
+) -> tuple[tuple[str, str], ...]:
+    if not relevant:
+        position = "answer-absent"
+    elif len(relevant) > 1:
+        position = "distributed"
+    elif relevant[0] == 0:
+        position = "front"
+    elif relevant[0] == len(facts) - 1:
+        position = "back"
+    else:
+        position = "middle"
+    length = "short" if len(facts) <= 2 else "medium" if len(facts) <= 4 else "long"
+    return tuple(
+        sorted(
+            {
+                "answer_format": _answer_format(answer, profile),
+                "context_fact_count": length,
+                "relevant_position": position,
+            }.items()
+        )
+    )
+
+
 def _provenance(profile: SplitProfile, seed: int, family: str) -> tuple[tuple[str, str], ...]:
     return tuple(
         sorted(
@@ -115,6 +154,9 @@ def _case(
         answer=answer,
         candidates=candidates,
         difficulty=difficulty,
+        surface_axes=_surface_axes(
+            facts=facts, relevant=relevant, answer=answer, profile=profile
+        ),
         provenance=_provenance(profile, seed, family),
         hidden=HiddenTruth(relevant, distractors, graph, trace),
     )
@@ -205,6 +247,12 @@ def _binding_bundle(
         base,
         case_id=f"{profile.prefix}-binding-{index}-permuted",
         facts=permuted_facts,
+        surface_axes=_surface_axes(
+            facts=permuted_facts,
+            relevant=(new_target,),
+            answer=base.answer,
+            profile=profile,
+        ),
         hidden=HiddenTruth(
             (new_target,),
             tuple(i for i in range(cardinality) if i != new_target),
@@ -328,15 +376,19 @@ def _relation_case(
     graph = edges + (GraphEdge(distractor_source, profile.relations[-1], distractor_target),)
     if direct_control:
         facts = [f"The direct result for {nodes[0]} is {nodes[-1]}.", facts[-1]]
-        relevant = (0,)
+        original_relevant = {0}
         trace = (f"retrieve:{nodes[-1]}",)
         family = "matched_direct_retrieval"
         template = f"direct-{hops}"
     else:
-        relevant = tuple(range(hops))
+        original_relevant = set(range(hops))
         trace = tuple(f"follow:{edge.relation}->{edge.target}" for edge in edges)
         family = f"relation_{hops}_hop"
         template = f"relation-{hops}"
+    order = list(range(len(facts)))
+    rng.shuffle(order)
+    facts = [facts[i] for i in order]
+    relevant = tuple(i for i, original in enumerate(order) if original in original_relevant)
     query = (
         f"Starting at {nodes[0]}, follow in order: "
         + " then ".join(relations)
@@ -467,20 +519,23 @@ def _rule_case(profile: SplitProfile, rng: random.Random, seed: int, index: int)
 def _natural_cases(profile: SplitProfile, rng: random.Random, seed: int, index: int) -> list[CausalCase]:
     sample = _entity(profile, rng, index)
     values = [_code(profile, rng) for _ in range(4)]
+    binding_facts = [
+        f"The assay summary assigns specimen {sample}-A the accession {values[0]}, while specimen {sample}-B carries {values[1]}.",
+        f"A calibration control uses accession {values[2]} and is not a specimen result.",
+    ]
+    binding_order = [0, 1]
+    rng.shuffle(binding_order)
     binding = _case(
         case_id=f"{profile.prefix}-natural-binding-{index}",
         family="natural_binding_analogue",
         profile=profile,
         seed=seed,
-        facts=(
-            f"The assay summary assigns specimen {sample}-A the accession {values[0]}, while specimen {sample}-B carries {values[1]}.",
-            f"A calibration control uses accession {values[2]} and is not a specimen result.",
-        ),
+        facts=tuple(binding_facts[i] for i in binding_order),
         query=f"Which accession belongs to specimen {sample}-B?",
         answer=values[1],
         candidates=_candidate_order(rng, tuple(values[:3])),
-        relevant=(0,),
-        distractors=(1,),
+        relevant=(binding_order.index(0),),
+        distractors=(binding_order.index(1),),
         graph=(GraphEdge(f"{sample}-B", f"{profile.prefix.lower()}-accession", values[1]),),
         trace=(f"address:{sample}-B", f"select:{values[1]}"),
         template="natural-assay",
@@ -511,22 +566,25 @@ def _natural_cases(profile: SplitProfile, rng: random.Random, seed: int, index: 
         domain=profile.domains[2],
         difficulty=_difficulty(cardinality=3, hops=1, distractors=2),
     )
+    composition_facts = [
+        f"Module {sample}-input writes buffer {values[0]}.",
+        f"Buffer {values[0]} feeds converter {values[1]}.",
+        f"Converter {values[1]} emits channel {values[2]}.",
+        f"An unrelated monitor watches channel {values[3]}.",
+    ]
+    composition_order = list(range(4))
+    rng.shuffle(composition_order)
     composition = _case(
         case_id=f"{profile.prefix}-natural-composition-{index}",
         family="natural_composition_analogue",
         profile=profile,
         seed=seed,
-        facts=(
-            f"Module {sample}-input writes buffer {values[0]}.",
-            f"Buffer {values[0]} feeds converter {values[1]}.",
-            f"Converter {values[1]} emits channel {values[2]}.",
-            f"An unrelated monitor watches channel {values[3]}.",
-        ),
+        facts=tuple(composition_facts[i] for i in composition_order),
         query=f"Which channel ultimately receives data from module {sample}-input?",
         answer=values[2],
         candidates=_candidate_order(rng, (values[0], values[1], values[2], values[3])),
-        relevant=(0, 1, 2),
-        distractors=(3,),
+        relevant=tuple(i for i, original in enumerate(composition_order) if original in {0, 1, 2}),
+        distractors=(composition_order.index(3),),
         graph=(
             GraphEdge(f"{sample}-input", f"{profile.prefix.lower()}-writes", values[0]),
             GraphEdge(values[0], f"{profile.prefix.lower()}-feeds", values[1]),

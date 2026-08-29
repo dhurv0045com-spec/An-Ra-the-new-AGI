@@ -54,6 +54,7 @@ class CausalCase:
     answer: str
     candidates: tuple[str, ...]
     difficulty: tuple[tuple[str, int], ...]
+    surface_axes: tuple[tuple[str, str], ...]
     provenance: tuple[tuple[str, str], ...]
     hidden: HiddenTruth
 
@@ -187,6 +188,13 @@ class EvaluationSuite:
 
     def family_histogram(self) -> dict[str, int]:
         return dict(sorted(Counter(case.family for case in self.cases).items()))
+
+    def surface_axis_histograms(self) -> dict[str, dict[str, int]]:
+        histograms: dict[str, Counter[str]] = {}
+        for case in self.cases:
+            for axis, value in case.surface_axes:
+                histograms.setdefault(axis, Counter())[value] += 1
+        return {axis: dict(sorted(values.items())) for axis, values in sorted(histograms.items())}
 
 
 def assert_split_disjoint(suites: Iterable[EvaluationSuite]) -> None:

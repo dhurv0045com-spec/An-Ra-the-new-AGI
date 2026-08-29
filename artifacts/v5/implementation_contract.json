@@ -1,0 +1,90 @@
+{
+  "checks": {
+    "gqa_groups_integral": true,
+    "head_dimensions_exact": true,
+    "main_training_authorized": false,
+    "target_within_half_percent": true,
+    "token_budget_near_twenty_per_parameter": true
+  },
+  "contract_schemas": {
+    "checkpoint": "anra-v5-checkpoint/v1",
+    "model": "anra-v5-model-spec/v1",
+    "promotion": "anra-v5-promotion/v1",
+    "run": "anra-v5-run-spec/v1",
+    "source_data_pack": "anra-v5-*-manifest/v1"
+  },
+  "model": {
+    "context_length": 4096,
+    "dropout": 0.0,
+    "family": "dense-decoder-transformer",
+    "ffn_width": 2368,
+    "head_dimension": 64,
+    "kv_heads": 7,
+    "layers": 26,
+    "linear_bias": false,
+    "norm_epsilon": 1e-05,
+    "qk_norm": true,
+    "qk_norm_affine": true,
+    "query_heads": 14,
+    "rope_base": 10000.0,
+    "schema": "anra-v5-model-spec/v1",
+    "tied_embeddings": true,
+    "vocabulary_size": 24576,
+    "width": 896
+  },
+  "model_sha256": "d6c143e50d222def03cd46fb1b140248a58b3b06f56ac084b7bbf91ded43f2df",
+  "parameters": {
+    "all_blocks": 228195968,
+    "attention_per_layer": 2408448,
+    "block_norms_per_layer": 1792,
+    "block_total": 8776768,
+    "embedding": 22020096,
+    "ffn_per_layer": 6365184,
+    "final_norm": 896,
+    "qk_norms_per_layer": 1344,
+    "total": 250216960
+  },
+  "run": {
+    "checkpoint_storage_planning_bytes": {
+      "adam_moments": 2001735680,
+      "bf16_parameters": 500433920,
+      "fp32_master_parameters": 1000867840,
+      "full_resume_with_bf16_gradients": 4003471360,
+      "full_resume_without_gradients": 3503037440
+    },
+    "data_tokens": {
+      "code_math_formal": 1000000000,
+      "natural": 3250000000,
+      "verified_cognition": 750000000
+    },
+    "idealized_6nd_flops": 7506508800000000000,
+    "model_sha256": "d6c143e50d222def03cd46fb1b140248a58b3b06f56ac084b7bbf91ded43f2df",
+    "optimizer_updates_floor": 38146,
+    "parameters": 250216960,
+    "run_spec": {
+      "beta1": 0.9,
+      "beta2": 0.95,
+      "gradient_clip": 1.0,
+      "mixture": {
+        "code_math_formal": 0.2,
+        "natural": 0.65,
+        "verified_cognition": 0.15
+      },
+      "optimizer": "AdamW",
+      "peak_learning_rate": 0.0003,
+      "precision": "bf16-compute/fp32-reduction-and-state",
+      "schedule_family": "warmup-stable-decay",
+      "schema": "anra-v5-run-spec/v1",
+      "token_budget": 5000000000,
+      "tokens_per_update": 131072,
+      "weight_decay": 0.1
+    },
+    "schema": "anra-v5-run-spec/v1",
+    "token_budget": 5000000000,
+    "tokens_per_parameter": 19.98265824986444,
+    "tokens_per_update": 131072
+  },
+  "schema": "anra-v5-implementation-contract-certificate/v1",
+  "scope": "configuration and infrastructure contracts; no model or trainer instantiated",
+  "status": "PASS"
+}

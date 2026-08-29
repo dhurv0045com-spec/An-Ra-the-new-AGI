@@ -1,6 +1,6 @@
-# Ground Blueprint v0.2 — Software and Training System
+# Ground Blueprint v0.3 — Software and Training System
 
-This specifies the clean implementation boundary to build later. It deliberately does not copy the VNext directory layout or checkpoint schema.
+This specifies the clean implementation boundary and deliberately does not copy the VNext directory layout or checkpoint schema. [`IMPLEMENTATION_BLUEPRINT.md`](IMPLEMENTATION_BLUEPRINT.md) is authoritative for exact packages, interfaces, commands, artifacts, CI gates, and milestone acceptance.
 
 ## End-to-end system
 
@@ -25,42 +25,44 @@ flowchart LR
     eval --> evidence[Signed evidence + lineage registry]
 ```
 
-## Planned repository topology
+## Repository topology
+
+The framework-independent `v5_contracts/`, executable `e0_cognition/`, and `e1_tokenizer/` research harness now exist. Production packages below remain gate-controlled.
 
 ```text
 esoes/
-  contracts/
+  v5_contracts/
     model_spec.py             exact frozen configuration schema
     data_spec.py              sources, mixture, split, tokenizer identities
     evidence.py               immutable receipt and result schemas
-  data/
+  v5_data/
     ingest/                   source adapters; raw content stays outside Git
     filtering/                deterministic quality/license/safety stages
     dedup/                    exact + near-duplicate and contamination checks
     generators/               executable causal cognition families
     curriculum/               static mixture and staged/replay plans
     packing/                  deterministic token packs and cursors
-  tokenizer/
+  v5_tokenizer/
     train.py                  reproducible candidates
     audit.py                  bytes, numbers, identifiers, consistency, hashes
-  model/
+  v5_model/
     config.py
     embedding.py
     attention.py
     block.py
     core.py
     initialize.py
-  objectives/
+  v5_objectives/
     causal_lm.py
     query_swap.py             admitted only if E3 wins
-  training/
+  v5_training/
     optimizer.py
     schedule.py
     distributed.py
     state.py                  RNG, cursor, topology, exact tokens
     checkpoint.py             one canonical writer
     runner.py
-  evaluation/
+  v5_evaluation/
     generators/               evaluation-only, separately versioned
     representation.py
     addressing.py
@@ -79,7 +81,7 @@ esoes/
   artifacts/                 manifests and compact receipts, never checkpoints
 ```
 
-Names are provisional until implementation authorization. Boundaries are more important than spelling.
+The existing research packages are implemented; the `v5_*` production packages are design targets, not empty scaffolding. Boundaries are enforced before their implementation is authorized.
 
 ## Non-negotiable contracts
 

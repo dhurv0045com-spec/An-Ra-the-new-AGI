@@ -1,25 +1,27 @@
 # An-Ra V5 Master Blueprint
 
-Status: **GROUND BLUEPRINT v0.2 — EVIDENCE CORRECTED, E0 DEVELOPMENT CONTRACT EXECUTABLE**
+Status: **GROUND BLUEPRINT v0.3 — 250M IMPLEMENTATION CONTRACT EXECUTABLE**
 Date: 2026-08-29
 Branch: `esoes`
 Training authorization: **NO**
 
 This document is the canonical V5 research blueprint. It is intellectually independent of VNext implementation. The evidence base is `EVIDENCE_BASE.md`, the four-round attack record is `ITERATIONS.md`, and change control is `DECISIONS.md`. A value marked **[EXPERIMENT REQUIRED]** is not permission to encode it silently into a trainer.
 
-Ground Blueprint v0.2 freezes the scientific boundaries and experiment order, not the exact training recipe:
+[`../../blueprints/IMPLEMENTATION_BLUEPRINT.md`](../../blueprints/IMPLEMENTATION_BLUEPRINT.md) is the canonical code/infrastructure companion. Executable arithmetic and artifact schemas live in `v5_contracts/`; E0 and E1 research interfaces live in `e0_cognition/` and `e1_tokenizer/`. None of these packages is a production trainer.
+
+Ground Blueprint v0.3 freezes the scientific boundaries and experiment order, not the exact training recipe:
 
 | Area | State |
 |---|---|
 | Cognition contract, layer ownership, evidence/provenance rules | **[FROZEN]** |
 | Dense Transformer baseline and no architecture soup | **[FROZEN]** |
-| 195M/4B center, AdamW/BF16 family, checkpoint cadence | **[PROVISIONAL]** |
+| 250.22M/5B center, AdamW/BF16 family, checkpoint cadence | **[PROVISIONAL]** |
 | Shape, tokenizer, attention details, data fraction, auxiliary loss, curriculum, LR/batch | **[EXPERIMENT REQUIRED]** |
-| Recurrence/memory/MoE/BLT, >4k context, >300M scale | **[OPEN — DEFERRED]** |
+| Recurrence/memory/MoE/BLT, >4k context, >400M scale | **[OPEN — DEFERRED]** |
 
 ## 1. Executive decision
 
-V5 should not be a collection of speculative cognitive modules and should not jump directly to 300M–3B parameters. The most defensible next foundation is a conventional, inspectable, dense decoder near V4's scale, with more sequential depth, full attention, 4k native context, a tested tokenizer, roughly 4B auditable tokens, and one narrow candidate auxiliary objective: query-swap contrast. The scientific novelty should live primarily in the data, causal controls, measurements, and promotion rules.
+V5 should not be a collection of speculative cognitive modules or jump to billion-scale training. The current implementation center is a conventional, inspectable 250.22M dense decoder with 26 layers, full 4k attention, a tested tokenizer, roughly 5B auditable tokens, and one narrow candidate auxiliary objective: query-swap contrast. The 250M target is a user-directed provisional envelope, not evidence that 195M was capacity-limited; E2/E5 still decide whether the extra capacity earns its compute.
 
 Why this is the best bet:
 
@@ -97,18 +99,18 @@ Conclusion: the Connector should remain an experimenter and runtime controller, 
 | Component | Provisional value | Status | Rationale |
 |---|---:|---|---|
 | Decoder | dense causal Transformer | EVIDENCE-BACKED | Strong baselines and easiest causal attribution |
-| Parameters | 195,078,912 | EXPERIMENT REQUIRED | Near V4 scale; enough depth without an unjustified scale jump |
+| Parameters | 250,216,960 | EXPERIMENT REQUIRED | Exact executable receipt inside the requested 250M envelope |
 | Vocabulary | 24,576 | EXPERIMENT REQUIRED | Candidate tradeoff between embeddings, sequence inflation, code, and nonce copying |
-| Width | 768 | EXPERIMENT REQUIRED | Frees parameter budget for depth |
-| Layers | 28 | EXPERIMENT REQUIRED | More sequential computation than V4; depth benefit must be measured |
-| Q heads | 12 × 64 | STRONG INFERENCE | Standard head dimension and clean divisibility |
-| KV heads | 4 | EXPERIMENT REQUIRED | Less compression than V4's 2 KV heads; compare with MHA |
-| FFN | 2,048 SwiGLU | STRONG INFERENCE | Stable modern dense block; roughly 8/3 width |
+| Width | 896 | EXPERIMENT REQUIRED | Retains V4 width while adding depth and capacity |
+| Layers | 26 | EXPERIMENT REQUIRED | Eight more sequential blocks than V4; depth benefit must be measured |
+| Q heads | 14 × 64 | STRONG INFERENCE | Exact width coverage and standard head dimension |
+| KV heads | 7 | EXPERIMENT REQUIRED | Two Q heads per KV head; much less compression than V4's 2 KV heads |
+| FFN | 2,368 SwiGLU | STRONG INFERENCE | Lands the complete architecture at 250.22M with a conventional ratio |
 | Context | 4,096 native | EXPERIMENT REQUIRED | Doubles V4 while retaining feasible full attention |
 | Attention | full causal in every layer | EXPERIMENT REQUIRED | Avoids locality as a confound in binding/state tests |
 | Position | RoPE, base 10,000, no extrapolation claim | EVIDENCE-BACKED | Mature relative-position method; evaluate only native length |
 | Norm | pre-RMSNorm, epsilon 1e-5 | EVIDENCE-BACKED | Stable and computationally simple |
-| QK norm | enabled candidate | EXPERIMENT REQUIRED | Stability evidence exists; discrimination effect is unknown |
+| QK norm | enabled candidate with affine Q/K scales | EXPERIMENT REQUIRED | Stability evidence exists; discrimination effect is unknown |
 | Embedding/output | tied | STRONG INFERENCE | Parameter efficient; no An-Ra evidence to untie |
 | Bias/dropout | bias-free, dropout 0 | STRONG INFERENCE | Conventional at this scale and data volume |
 | Initialization | normal std 0.02; residual output projections scaled by about `1/sqrt(2L)` | STRONG INFERENCE | Reduces depth-dependent residual growth |
@@ -117,13 +119,15 @@ Conclusion: the Connector should remain an experimenter and runtime controller, 
 Parameter calculation under the current An-Ra block conventions:
 
 ```text
-embedding = 24,576 × 768 = 18,874,368
-per layer = attention 1,572,864 + SwiGLU 4,718,592 + norms 1,536 = 6,292,992
-28 layers = 176,203,776; final RMSNorm = 768
-total tied dense parameters = 195,078,912
+embedding = 24,576 × 896 = 22,020,096
+per layer = attention 2,408,448 + SwiGLU 6,365,184 + block norms 1,792 + QK norm scales 1,344 = 8,776,768
+26 layers = 228,195,968; final RMSNorm = 896
+total tied dense parameters = 250,216,960
 ```
 
 The executable model constructor is authoritative; the freeze gate requires its exact count and a layer-by-layer receipt. **EXPERIMENT REQUIRED**
+
+The framework-independent configuration/run receipt is executable now at `artifacts/v5/implementation_contract.json`, model-spec SHA-256 `d6c143e50d222def03cd46fb1b140248a58b3b06f56ac084b7bbf91ded43f2df`. It certifies arithmetic and schema invariants only; it does not instantiate a neural model or authorize training.
 
 ### 5.2 Explicit rejections for V5-A
 
@@ -135,8 +139,8 @@ Do not add MoE, recurrent memory, SSM blocks, latent-thought heads, learned rout
 |---|---|---:|---|
 | P35 | 16×384, 6Q/2KV, FFN 1024, vocab 24,576 | 34.6M | High-throughput rank ordering |
 | M102 | 20×640, 10Q/2KV, FFN 1728, vocab 24,576 | 101.8M | Replication and scale-transfer gate |
-| V5-A | 28×768, 12Q/4KV, FFN 2048, vocab 24,576 | 195.1M | First major run after freeze |
-| V5-B | approximately 300M | OPEN / UNKNOWN | Only after V5-A passes and ≥6B clean tokens exist |
+| V5-A | 26×896, 14Q/7KV, FFN 2368, vocab 24,576 | 250.22M | First major run after freeze |
+| V5-B | approximately 400M | OPEN / UNKNOWN | Only after V5-A passes and ≥8B clean tokens exist |
 | 1B / 3B | unspecified | OPEN / UNKNOWN | Not justified by current evidence |
 
 ## 6. Tokenizer specification
@@ -158,15 +162,15 @@ Required tournament: 16,384 versus 24,576 versus 32,768. A byte-level/BLT arm is
 
 ### 7.1 Main-run target
 
-Target **4.0B unique, auditable training tokens** for V5-A, approximately 20.50 tokens per parameter. This is a reference budget, not a universal law. It must be counted with the frozen tokenizer after filtering and deduplication. **STRONG INFERENCE**
+Target **5.0B unique, auditable training tokens** for V5-A, approximately 19.99 tokens per parameter. This is a reference budget, not a universal law. It must be counted with the frozen tokenizer after filtering and deduplication. **STRONG INFERENCE**
 
 Provisional composition:
 
 | Family | Share | Tokens | Status |
 |---|---:|---:|---|
-| High-quality natural substrate | 65% | 2.60B | EXPERIMENT REQUIRED |
-| Code, math, formal and structured natural data | 20% | 0.80B | EXPERIMENT REQUIRED |
-| Mechanically verified cognition data | 15% | 0.60B | EXPERIMENT REQUIRED |
+| High-quality natural substrate | 65% | 3.25B | EXPERIMENT REQUIRED |
+| Code, math, formal and structured natural data | 20% | 1.00B | EXPERIMENT REQUIRED |
+| Mechanically verified cognition data | 15% | 0.75B | EXPERIMENT REQUIRED |
 
 The actual cognition share will be selected by a 5% / 15% / 30% proxy experiment. Generic web volume is not a substitute for provenance or quality.
 
@@ -258,7 +262,7 @@ Do not use the SFT7 same-query margin as the primary selection objective: it did
 | Gradient clip | global norm 1.0 | EVIDENCE-BACKED |
 | Precision | BF16; FP32 reductions and optimizer | EVIDENCE-BACKED |
 
-At 4B tokens, the center batch yields about 30,518 optimizer updates; 262,144 yields about 15,259. The smaller center is preferred until E4 shows that the larger batch's throughput compensates for lower update resolution. Do not rewarm LR merely because a data pack or session changes. A continuation resumes the global schedule and optimizer state. Batch changes require an explicit migration experiment and receipt.
+At 5B tokens, the center batch yields about 38,147 optimizer updates; 262,144 yields about 19,073. The smaller center is preferred until E4 shows that the larger batch's throughput compensates for lower update resolution. Do not rewarm LR merely because a data pack or session changes. A continuation resumes the global schedule and optimizer state. Batch changes require an explicit migration experiment and receipt.
 
 Every canary verifies that a real optimizer update occurred: parameter SHA changes, optimizer maximum step increments exactly, moments change, nonzero finite gradients exist, data cursor advances, and all live parameters belong to the optimizer.
 
@@ -320,17 +324,19 @@ The original 100+ questions collapse into six decisions. Optimize information ga
 
 ### E0 — Benchmark and generator certification (no TPU required)
 
-**Development status in v0.2:** an executable evaluation-only generator now emits 352 deterministic cases and 96 mechanically checked causal pairs at the certification setting. It covers copy, nonce retrieval, 2/4/8-way binding, query/relevant/irrelevant/order swaps, state overwrite, one/two/three-hop relations, matched direct retrieval, missing information, counterfactual premises, rule induction, and synthetic/natural analogues. Training generators use a separate template namespace. Candidate order is randomized, hidden truth is excluded from model views, and development/sealed/fresh graph/template/domain namespaces are mechanically disjoint. Representation, selection, query-lift, and realization metrics are separate APIs.
+**Development status in v0.3:** an executable evaluation-only generator emits 352 deterministic cases and 96 mechanically checked causal pairs at the certification setting. It covers copy, nonce retrieval, 2/4/8-way binding, query/relevant/irrelevant/order swaps, state overwrite, one/two/three-hop relations, matched direct retrieval, missing information, counterfactual premises, rule induction, and synthetic/natural analogues. Training generators use a separate template namespace. Candidate order, context position, and answer formats are explicit audited axes; hidden truth is excluded from model views; development/sealed/fresh graph/template/domain namespaces are mechanically disjoint. Representation, selection, query-lift, and realization metrics are separate APIs.
 
-The committed development receipt is `artifacts/e0/development_certificate.json`, suite SHA-256 `d821d975c3ae3d1245c7b58de08a88b66750d9a44b5200b233970b5c374ac297` (regenerate before freeze if generator code changes). It reports random/first/last/lexical/position/bag-of-words, broken-state, direct-retrieval, and full-oracle controls. An independent surface parser/solver agrees on every case, including a 20-seed property sweep. Uniform-candidate chance, Wilson intervals, answer-position distribution, and approximate sample-size planning are explicit. **This certifies infrastructure invariants, not benchmark difficulty and not model cognition.**
+The committed development receipt is `artifacts/e0/development_certificate.json`, suite SHA-256 `b3d82dee117d3fbf00e3a572fb89ac5c28a576470bf599805f6dada0ee43e14f` (regenerate before freeze if generator code changes). It reports random/first/last/lexical/position/bag-of-words, broken-state, direct-retrieval, and full-oracle controls. An independent surface parser/solver agrees on every case, including a 20-seed property sweep. Uniform-candidate chance, Wilson intervals, answer-position distribution, and approximate sample-size planning are explicit. **This certifies infrastructure invariants, not benchmark difficulty and not model cognition.**
 
-**Still required for E0 exit:** explicit context-position/output-format balancing, preregistered paired/exact confidence procedures for every promotion metric, a source-disjoint natural set, and a real T2 seed/fixture held externally with only its commitment hash in Git. Until then E0 is **DEVELOPMENT PASS / PROMOTION NOT FROZEN** and E1 model comparisons remain unauthorized.
+**Still required for E0 exit:** a source-disjoint natural set and a real T2 seed/fixture held externally with only its commitment hash in Git. Paired exact binary comparisons, 10,000-resample paired bootstrap score deltas, Wilson intervals, worst-family gates, and sealed-consumption semantics are now machine-preregistered. Until external custody closes, E0 is **DEVELOPMENT PASS / PROMOTION NOT FROZEN** and E1 model training remains unauthorized.
 
 Abort if shortcuts, duplicate graphs, token-label leakage, scorer ambiguity, or custody leakage remain.
 
 ### E1 — Tokenizer tournament
 
 Compare 16k, 24k, and 32k on static corpus metrics and matched P35 training (100–200M tokens per serious arm). Match raw bytes and approximate FLOPs, not token count alone. Winner must be Pareto-competitive on byte-normalized substrate loss, sequence inflation, nonce copy, identifiers, code/math, and cognition.
+
+The artifact-bound static audit and Pareto harness are implemented. No real tokenizer artifact or winner exists yet; external candidate artifacts and their complete encoding receipts are the next inputs.
 
 ### E2 — Architecture screen
 
@@ -354,17 +360,17 @@ Train the ~102M recipe and a strong LM-only control for 600M–1B tokens, two se
 
 ### E6 — Freeze review
 
-Resolve all checklist items; build executable parameter/compute/data receipts; freeze `V5_TRAINING_SPEC_v1.0.md`; run target-TPU canaries and remote checkpoint restore. Only then authorize the 195M/4B run.
+Resolve all checklist items; build executable parameter/compute/data receipts; freeze `V5_TRAINING_SPEC_v1.0.md`; run target-TPU canaries and remote checkpoint restore. Only then authorize the 250M/5B run.
 
 ## 14. Compute and token estimates
 
-For the provisional 195,078,912-parameter model and 4.0B tokens, the common dense-transformer estimate `6ND` is:
+For the provisional 250,216,960-parameter model and 5.0B tokens, the common dense-transformer estimate `6ND` is:
 
 ```text
-6 × 195,078,912 × 4,000,000,000 = 4.6819e18 FLOPs ≈ 4.68 EFLOP
+6 × 250,216,960 × 5,000,000,000 = 7.50651e18 FLOPs ≈ 7.51 EFLOP
 ```
 
-Allow roughly 10–25% additional practical cost for attention, evaluation, checkpointing, padding, and pipeline inefficiency: about **5.2–5.9 EFLOP** for the main run. Pure compute time is approximately 26.0 / 13.0 / 6.5 hours at sustained 50 / 100 / 200 TFLOP/s; realistic wall time is provisionally **10–35 hours** after input and checkpoint overhead. These are device-neutral estimates, not a Kaggle promise. **STRONG INFERENCE**
+Allow roughly 10–25% additional practical cost for attention, evaluation, checkpointing, padding, and pipeline inefficiency: about **8.3–9.4 EFLOP** for the main run. Pure compute time is approximately 41.7 / 20.8 / 10.4 hours at sustained 50 / 100 / 200 TFLOP/s; realistic wall time is provisionally **14–55 hours** after input and checkpoint overhead. These are device-neutral estimates, not a Kaggle promise. **STRONG INFERENCE**
 
 The pre-freeze program should be capped near **1.5–2.5 EFLOP**, with most weak P35 arms stopped early. This is cheap relative to an uninterpretable main run. **STRONG INFERENCE**
 
@@ -379,7 +385,7 @@ Abort or pause an arm when any of the following occurs:
 - query objective fails to beat LM-only on fresh query-swap selection with its preregistered confidence interval, or harms substrate loss by more than 3%;
 - synthetic gains fail on fresh generators and held-out natural analogues;
 - two consecutive Tier 1 evaluations show a >5-point cognition decline while LM loss improves; preserve and compare the earlier checkpoint;
-- no replicated cognition gain at ~102M; do not scale to 195M;
+- no replicated cognition gain at ~102M; do not scale to 250M;
 - target-hardware throughput, durable checkpoint upload, and restore canaries do not pass;
 - benchmark artifacts or direct-retrieval shortcuts explain the apparent composition gain.
 
@@ -392,9 +398,9 @@ An inconclusive result is not a license to average arms or select the prettiest 
 3. Replicate finalists, discard unreplicated mechanisms, and publish negative results.
 4. Train M102 control and winning recipe; require transfer and resume integrity.
 5. Freeze V5-A exact spec, manifests, seeds, gates, and commands.
-6. Train one 195M/4B main run with immutable behavioral checkpoints; do not call the final checkpoint best automatically.
+6. Train one 250M/5B main run with immutable behavioral checkpoints; do not call the final checkpoint best automatically.
 7. Conduct sealed and fresh post-training evaluation, mechanistic probes, contamination audit, and independent rerun of decisive claims.
-8. Consider ~300M only if V5-A is data-limited or capacity-limited by controlled evidence, at least 6B clean tokens are ready, and scaling predicts a useful gain per compute.
+8. Consider ~400M only if V5-A is capacity-limited by controlled evidence, at least 8B clean tokens are ready, and scaling predicts a useful gain per compute.
 9. Consider 1B/3B only after the recipe transfers twice and the data/provenance program can support it.
 
 ## 17. Core versus Connector
@@ -437,7 +443,7 @@ Core cannot grade itself and Connector intervention output cannot be its own suc
 | Decision | Current state | Resolver |
 |---|---|---|
 | 16k vs 24k vs 32k vocabulary | EXPERIMENT REQUIRED | E1 |
-| 28×768 versus another depth/width shape | EXPERIMENT REQUIRED | E2 |
+| 26×896 versus another ~250M depth/width shape | EXPERIMENT REQUIRED | E2 |
 | 4-KV GQA versus MHA | EXPERIMENT REQUIRED | E2 |
 | QK norm effect on discrimination | EXPERIMENT REQUIRED | E2 |
 | Full attention benefit at 4k | EXPERIMENT REQUIRED | E2 plus long-context suite |
@@ -445,9 +451,9 @@ Core cannot grade itself and Connector intervention output cannot be its own suc
 | LM-only versus query-swap auxiliary | EXPERIMENT REQUIRED | E3 |
 | Uniform versus staged curriculum | EXPERIMENT REQUIRED | E4 |
 | Exact LR/batch/WSD schedule | EXPERIMENT REQUIRED | E4 |
-| Whether 195M can robustly learn 3-hop composition | OPEN / UNKNOWN | E5/V5-A evidence |
+| Whether 250M can robustly learn 3-hop composition | OPEN / UNKNOWN | E5/V5-A evidence |
 | Whether synthetic causal gains transfer broadly to natural reasoning | OPEN / UNKNOWN | E3/E5 fresh natural domains |
-| Whether 300M materially outperforms better data at equal compute | OPEN / UNKNOWN | post-V5 scaling study |
+| Whether ~400M materially outperforms better data at equal compute | OPEN / UNKNOWN | post-V5 scaling study |
 
 ## 19. Exact sequence from today
 
@@ -466,18 +472,18 @@ Core cannot grade itself and Connector intervention output cannot be its own suc
 
 ## 20. Verdict
 
-**V5 CORE WE SHOULD PROBABLY BUILD:** A ~195M dense 28-layer × 768-width causal Transformer, 12 Q / 4 KV heads, SwiGLU 2048, full 4k attention, RoPE, pre-RMSNorm, tied byte-fallback tokenizer embeddings, trained on 4B audited tokens.
+**V5 CORE WE SHOULD PROBABLY BUILD:** A 250.22M dense 26-layer × 896-width causal Transformer, 14 Q / 7 KV heads, SwiGLU 2368, full 4k attention, affine QK norm, RoPE, pre-RMSNorm, tied byte-fallback tokenizer embeddings, trained on 5B audited tokens.
 **WHY:** V4 is not proven capacity-limited; it is under-evidenced, under-tokened, and behaviorally mis-selected. A clean dense model makes the data/objective hypothesis falsifiable.
 **BIGGEST CHANGE FROM V4:** A clean-sheet foundation with more depth and native full 4k context at nearly the same scale, selected by causal proxy experiments rather than inherited code or intuition.
-**BIGGEST DATA CHANGE:** A provenance-complete 4B-token corpus with a tested ~15% mechanically verified causal cognition component.
+**BIGGEST DATA CHANGE:** A provenance-complete 5B-token corpus with a tested ~15% mechanically verified causal cognition component.
 **BIGGEST TRAINING CHANGE:** Query-swap contrast as the sole candidate auxiliary objective, plus immutable behavioral checkpoint promotion.
 **BIGGEST COGNITION CHANGE:** Train and measure representation, selection, and realization separately under causal counterfactual and OOD splits.
 **MOST IMPORTANT UNKNOWN:** Whether query-swap gains survive fresh generators, natural domains, and scale without harming the language substrate.
 **EXPERIMENTS BEFORE FREEZE:** E0 benchmark certification; E1 tokenizer; E2 architecture; E3 data/objective; E4 minimal curriculum/optimizer; E5 102M replication.
-**ESTIMATED COMPUTE:** 1.5–2.5 EFLOP pre-freeze; 4.68 EFLOP idealized and roughly 5.2–5.9 EFLOP practical for V5-A.
+**ESTIMATED COMPUTE:** 1.5–2.5 EFLOP pre-freeze; 7.51 EFLOP idealized and roughly 8.3–9.4 EFLOP practical for V5-A.
 **CONFIDENCE:** 0.72 in the program direction; 0.45 in the exact provisional shape and mixture.
 **READY TO FREEZE:** **NO**.
-**NEXT ACTION:** Complete E0 red-team/custody certification, then run E1 tokenizer static audits; spend no TPU time on model comparisons before E0 exits.
+**NEXT ACTION:** Obtain external E0 custody and real 16k/24k/32k tokenizer artifacts; run the implemented E1 static audits, then authorize only bounded P35 comparisons after E0 exits.
 
 ## 21. Research basis
 

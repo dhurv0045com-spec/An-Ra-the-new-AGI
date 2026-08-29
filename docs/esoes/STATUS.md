@@ -2,7 +2,7 @@
 
 Updated: 2026-08-29
 
-Branch phase: **GROUND BLUEPRINT v0.2 — E0 DEVELOPMENT CERTIFIED, SEALED GATE OPEN**
+Branch phase: **GROUND BLUEPRINT v0.3 — 250M CODE/INFRASTRUCTURE CONTRACT EXECUTABLE**
 
 Canonical research blueprint: [`V5_MASTER_BLUEPRINT.md`](V5_MASTER_BLUEPRINT.md)
 
@@ -12,12 +12,14 @@ Large V5 training authorized: **NO**
 
 Frozen V5 spec exists: **NO**
 
-Provisional V5-A: **195.08M dense, 28×768, 4k full attention, 24,576 byte-fallback vocabulary, 4.0B audited tokens.** Exact architecture, tokenizer, data fraction, objective, LR, batch, and schedule remain experiment-gated.
+Provisional V5-A: **250.22M dense, 26×896, 14Q/7KV, FFN 2368, affine QK norm, 4k full attention, 24,576 byte-fallback vocabulary, 5.0B audited tokens.** Exact shape, tokenizer, data fraction, objective, LR, batch, and schedule remain experiment-gated.
 
 Current evidence says the program should improve data quality, token sufficiency, causal query supervision, and behavioral checkpoint selection before scaling parameters.
 
-Executed this phase: VNext implementation artifacts were removed; EXP v10/v11 and the old VIE bank were reclassified; an executable E0 development suite, separate training generator, metrics, controls, independent surface solver, chance/power calibration, certificate, and 14 regression/property tests were added.
+Executed through this phase: VNext contamination is removed; EXP evidence is corrected; E0 now covers candidate/context positions, answer formats, independent solvers, and machine-preregistered statistics; sealed custody fails closed; E1 has an artifact-bound static audit/Pareto harness; and exact 250M model/run/lineage contracts are executable.
 
-Next action: **finish the E0 exit gate.** Add context-position/output-format balancing, preregister paired/exact metric procedures, and source-disjoint natural fixtures; then create Tier 2 under external seed custody and commit only its hash. Do not spend TPU time on model comparisons first.
+Verification: **29 CPU tests pass**, both committed receipts reproduce, and package import boundaries pass.
+
+Next action: **external inputs are required.** An independent custodian must create T2 outside Git, and real 16k/24k/32k tokenizer artifacts plus hash-bound corpus receipts must be supplied. Then run E1 static audits and bounded P35 comparisons. Do not start the 250M main run.
 
 Required sequence: E0 → P35 tokenizer/architecture/data screens → M102 replication → freeze review → target-TPU canaries → V5-A main run.

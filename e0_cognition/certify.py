@@ -12,6 +12,7 @@ from .baselines import evaluate_all_baselines
 from .contracts import PairKind, Split, assert_split_disjoint
 from .evaluation_generators import build_evaluation_suite
 from .reference_solvers import assert_reference_solver_agreement
+from .preregistration import PROTOCOL, protocol_sha256
 from .statistics import (
     approximate_two_proportion_n_per_arm,
     uniform_candidate_chance,
@@ -41,6 +42,7 @@ def build_development_certificate(*, seed: int, groups_per_family: int) -> dict[
         case.candidates.index(case.answer) for case in dev.cases if len(case.candidates) > 1
     )
     maximum_answer_position_share = max(answer_positions.values()) / sum(answer_positions.values())
+    surface_axes = dev.surface_axis_histograms()
     checks = {
         "suite_contracts": True,
         "counterfactual_pairs_mechanical": len(dev.pairs) > 0,
@@ -61,6 +63,10 @@ def build_development_certificate(*, seed: int, groups_per_family: int) -> dict[
         ),
         "random_control_matches_calculated_chance": abs(random_result["accuracy"] - chance) < 0.08,
         "no_dominant_answer_position": maximum_answer_position_share < 0.40,
+        "context_position_axes_covered": {
+            "front", "middle", "back", "distributed", "answer-absent"
+        }.issubset(surface_axes["relevant_position"]),
+        "output_format_axes_covered": len(surface_axes["answer_format"]) >= 5,
     }
     status = "PASS" if all(checks.values()) else "FAIL"
     return {
@@ -77,6 +83,7 @@ def build_development_certificate(*, seed: int, groups_per_family: int) -> dict[
             "sha256": dev.sha256(),
             "family_histogram": dev.family_histogram(),
             "pair_histogram": pair_histogram,
+            "surface_axis_histograms": surface_axes,
         },
         "checks": checks,
         "baselines": baselines,
@@ -90,6 +97,10 @@ def build_development_certificate(*, seed: int, groups_per_family: int) -> dict[
                 "four_candidate": approximate_two_proportion_n_per_arm(0.25, 0.35),
             },
             "method_note": "Two-sided normal approximation for planning; final gates use paired/bootstrap or exact methods preregistered per metric.",
+        },
+        "statistical_protocol": {
+            "sha256": protocol_sha256(),
+            "protocol": PROTOCOL,
         },
         "training_generator": {
             "examples_checked": len(training),

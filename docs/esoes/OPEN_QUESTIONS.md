@@ -1,6 +1,6 @@
 # ESOES High-Impact Open Questions
 
-Ground Blueprint v0.2 intentionally limits the open set. A question belongs here only if its answer can materially change architecture, data, training, evaluation, or system boundaries.
+Ground Blueprint v0.3 intentionally limits the open set. A question belongs here only if its answer can materially change architecture, data, training, evaluation, or system boundaries.
 
 ## Representation and tokenizer
 
@@ -22,10 +22,10 @@ Ground Blueprint v0.2 intentionally limits the open set. A question belongs here
 
 ## Architecture
 
-### Q3 — Is 28×768 better than wider/shallower shapes at equal parameters and training FLOPs?
+### Q3 — Is 26×896 better than other ~250M shapes at equal parameters and training FLOPs?
 
 **WHY IT MATTERS:** composition may need sequential depth, while representation may need width.
-**CURRENT BEST HYPOTHESIS:** moderately deep 28×768 is better than V4-like 18×896, but extreme depth is not.
+**CURRENT BEST HYPOTHESIS:** 26×896 balances sequential depth with stable width; 14Q/7KV avoids severe KV compression.
 **WHAT EVIDENCE EXISTS:** directional depth benefit in controlled composition; no An-Ra iso-budget result.
 **CHEAPEST DECISIVE TEST:** E2 P35 deep/mid/wide tournament, replicate top two.
 **DECISION DEADLINE:** before M102.
@@ -92,7 +92,7 @@ Ground Blueprint v0.2 intentionally limits the open set. A question belongs here
 
 ### Q11 — Which batch/LR pair gives enough updates without sacrificing throughput?
 
-**WHY IT MATTERS:** 262k tokens/update produces only ~15.3k updates over 4B tokens; 131k doubles update count.
+**WHY IT MATTERS:** 262k tokens/update produces only ~19.1k updates over 5B tokens; 131k doubles update count.
 **CURRENT BEST HYPOTHESIS:** 131k tokens/update with peak LR near 3e-4.
 **WHAT EVIDENCE EXISTS:** conventional optimizer reports; no V5 gradient-noise measurement.
 **CHEAPEST DECISIVE TEST:** E4 short LR-range test at 131k/262k, then extend only the stable Pareto arms.
@@ -106,11 +106,11 @@ Ground Blueprint v0.2 intentionally limits the open set. A question belongs here
 **CURRENT BEST HYPOTHESIS:** data/tokenizer ranking transfers; absolute composition ability may not.
 **WHAT EVIDENCE EXISTS:** DataComp-LM proxy correlations; no An-Ra scale transfer.
 **CHEAPEST DECISIVE TEST:** E5 matched M102 recipe and CE/general-data control, two winner seeds.
-**DECISION DEADLINE:** before any 195M implementation freeze.
+**DECISION DEADLINE:** before any 250M implementation freeze.
 
-### Q13 — Is ~195M capacity-limited after 4B high-quality tokens?
+### Q13 — Is ~250M capacity-limited after 5B high-quality tokens?
 
-**WHY IT MATTERS:** this is the only valid reason to reopen 300M+.
+**WHY IT MATTERS:** this is the only valid reason to reopen ~400M+.
 **CURRENT BEST HYPOTHESIS:** two-hop improves; robust natural three-hop may remain capacity- or computation-limited.
 **WHAT EVIDENCE EXISTS:** V4 is too confounded; public composition work shows OOD limits.
 **CHEAPEST DECISIVE TEST:** scaling curves across P35/M102/V5-A on matched primitive families and loss.
@@ -124,7 +124,7 @@ Ground Blueprint v0.2 intentionally limits the open set. A question belongs here
 **CHEAPEST DECISIVE TEST:** E0 calibration with known trivial, heuristic, oracle, and deliberately broken systems; preregister thresholds before training.
 **DECISION DEADLINE:** before E1.
 
-**V0.2 UPDATE:** deterministic controls now expose an important distinction: lexical retrieval legitimately solves easy addressable-retrieval families but not matched multi-hop transformation. Independent surface solvers and a 20-seed property sweep now pass. Full E0 exit still requires position/output balancing, power/confidence calibration, natural-source custody, and an externally held sealed commitment.
+**V0.3 UPDATE:** deterministic controls expose an important distinction: lexical retrieval legitimately solves easy addressable-retrieval families but not matched multi-hop transformation. Independent surface solvers, a 20-seed property sweep, position/output axes, and paired confidence procedures now pass. Full E0 exit still requires natural-source custody and an externally held sealed commitment.
 
 ## Core/Connector boundary
 
@@ -142,4 +142,4 @@ Ground Blueprint v0.2 intentionally limits the open set. A question belongs here
 - MoE: reopen only when dense data/compute scaling is established.
 - Byte-latent architecture: independent later program, not a tokenizer arm.
 - Native context beyond 4k: reopen only when tasks and data require it.
-- 300M/1B/3B: reopen only from measured scaling and adequate clean-token inventory.
+- 400M/1B/3B: reopen only from measured scaling and adequate clean-token inventory.

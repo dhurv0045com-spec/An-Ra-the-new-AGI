@@ -53,3 +53,15 @@ The research direction is decided, but the numerical training spec is **not froz
 - Kept the 195M dense family provisional. No architecture number was upgraded from hypothesis to fact.
 
 Major V5 training and production-stack implementation remain unauthorized.
+
+## 2026-08-29 — Ground Blueprint v0.3 code/infrastructure phase
+
+- Reopened the provisional scale center to the requested 250M envelope and derived a coherent 26×896, 14Q/7KV, FFN-2368 configuration with exactly 250,216,960 parameters including affine QK-norm scales.
+- Increased the center token budget to 5B to preserve approximately 20 tokens/parameter; recalculated data allocation, optimizer-update count, FLOPs, storage, and wall-time planning.
+- Added framework-independent model/run/checkpoint/promotion contracts and a reproducible implementation receipt.
+- Completed E0 context-position/output-format axes and machine-preregistered paired statistical procedures.
+- Added a sealed commitment tool that refuses fixtures inside Git and emits no seed/cases/answers.
+- Added the E1 artifact-bound identity/compression audit and Pareto harness. No tokenizer winner is claimed without real artifacts and matched training.
+- Created `blueprints/IMPLEMENTATION_BLUEPRINT.md` as the authoritative package/interface/command/checkpoint/CI/milestone design.
+
+The 250M production model and trainer are not implemented or authorized; the current code is contract and research infrastructure.

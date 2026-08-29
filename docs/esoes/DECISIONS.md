@@ -1,6 +1,6 @@
 # ESOES Decision Register
 
-Ground Blueprint: v0.2
+Ground Blueprint: v0.3
 Iteration: evidence-building after 4/4 design attacks
 Date: 2026-08-29
 Commit: recorded by the commit containing this file
@@ -49,19 +49,19 @@ A later agent may not silently change a decision. It must add a reopening entry 
 
 ## D-005 — Main scale center
 
-**DECISION:** center the first serious candidate at approximately 195M parameters and 4B tokens; do not launch 300M–3B.
+**DECISION:** center the first serious candidate at 250.22M parameters and 5B tokens; do not launch a billion-scale run.
 **STATUS:** [PROVISIONAL]
-**WHY:** 195M matches the presently credible data budget; V4 did not establish a capacity ceiling.
+**WHY:** the user selected a 250M implementation envelope; 5B preserves roughly 20 tokens/parameter. This remains provisional because V4 did not establish a capacity requirement.
 **EVIDENCE:** PGE provenance plus Chinchilla/DataComp-LM.
-**ALTERNATIVES CONSIDERED:** 100M, 300M, 600M, 1B, 3B.
+**ALTERNATIVES CONSIDERED:** 195M, 300M, 600M, 1B, 3B.
 **WHAT WOULD CHANGE OUR MIND:** M102 capacity curves, corpus audit, or a compute/data budget change.
 **ITERATION:** 2/4.
 
 ## D-006 — V5-A shape
 
-**DECISION:** use 28 layers × width 768, 12 Q heads, 4 KV heads, head dimension 64, and SwiGLU FFN 2048 as the center candidate.
+**DECISION:** use 26 layers × width 896, 14 Q heads, 7 KV heads, head dimension 64, and SwiGLU FFN 2368 as the center candidate.
 **STATUS:** [EXPERIMENT REQUIRED: E2]
-**WHY:** reallocates V4-scale parameters toward sequential depth while easing 2-KV compression.
+**WHY:** yields an executable 250,216,960-parameter receipt including affine QK-norm scales, adds eight layers over V4, and reduces GQA compression to two Q heads per KV head.
 **EVIDENCE:** directional depth evidence only.
 **ALTERNATIVES CONSIDERED:** deep/narrow and wide/shallow iso-parameter controls, MHA, 2-KV GQA.
 **WHAT WOULD CHANGE OUR MIND:** E2 worst-family OOD and throughput results.
@@ -131,7 +131,7 @@ A later agent may not silently change a decision. It must add a reopening entry 
 
 **DECISION:** AdamW 0.9/0.95, weight decay 0.1 on matrices, BF16/FP32 state, clip 1.0, WSD; center at 131,072 tokens/update and LR 3e-4.
 **STATUS:** family [PROVISIONAL]; exact batch/LR/schedule [EXPERIMENT REQUIRED: E4]
-**WHY:** stable baseline; 131k gives ~30.5k updates over 4B tokens versus ~15.3k at 262k.
+**WHY:** stable baseline; 131k gives ~38.1k updates over 5B tokens versus ~19.1k at 262k.
 **EVIDENCE:** open training reports and optimization arithmetic, not An-Ra-specific proof.
 **ALTERNATIVES CONSIDERED:** 262k/524k batch, cosine, 2e-4/4e-4.
 **WHAT WOULD CHANGE OUR MIND:** E4 stability, throughput, gradient-noise, and cognition curves.
@@ -163,7 +163,7 @@ A later agent may not silently change a decision. It must add a reopening entry 
 **STATUS:** [FROZEN]
 **WHY:** benchmark validity must precede model comparison; scale-transfer must precede the expensive run.
 **EVIDENCE:** repeated evaluator/infrastructure failures and proxy-transfer research.
-**ALTERNATIVES CONSIDERED:** build trainer first; broad factorial sweep; train 195M and inspect afterward.
+**ALTERNATIVES CONSIDERED:** build trainer first; broad factorial sweep; train 250M and inspect afterward.
 **WHAT WOULD CHANGE OUR MIND:** a blocker that makes an experiment uninformative; record and reorder explicitly.
 **ITERATION:** 4.
 
@@ -199,7 +199,7 @@ Until then: **READY TO FREEZE = NO**.
 **DECISION:** make causal cases, evaluator-only truth, model views, counterfactual-pair assertions, split namespaces, and measurement separation executable before model comparisons.
 **STATUS:** [FROZEN] contract; development implementation passed; sealed promotion [OPEN]
 **WHY:** every architecture/data conclusion is invalid if the benchmark leaks or conflates representation, selection, and realization.
-**EVIDENCE:** `artifacts/e0/development_certificate.json` plus 14 regression/property tests, an independent surface solver, and explicit chance/position/power calibration.
+**EVIDENCE:** `artifacts/e0/development_certificate.json` plus 15 E0 regression/property tests, an independent surface solver, and explicit chance/position/power calibration.
 **ALTERNATIVES CONSIDERED:** static JSON fixtures; reuse training templates; create sealed fixtures in Git.
 **WHAT WOULD CHANGE OUR MIND:** a stronger causal representation may extend the schema, but may not weaken hidden-truth isolation or one-variable assertions.
 **ITERATION:** Ground Blueprint v0.2.
@@ -213,3 +213,23 @@ Until then: **READY TO FREEZE = NO**.
 **ALTERNATIVES CONSIDERED:** pair-slot loss, multiple routing heads, direct imitation of Connector actions.
 **WHAT WOULD CHANGE OUR MIND:** a clean prospective pair-action replication or E3 showing CE/query-swap cannot learn matched multi-hop transformations.
 **ITERATION:** Ground Blueprint v0.2.
+
+## D-020 — Implementation center reopened to 250M
+
+**DECISION:** replace the 195.08M/4B center with an exact 250.22M/5B executable contract while retaining E2/E5 authority over whether that scale should be trained.
+**STATUS:** [PROVISIONAL / USER-DIRECTED / EXPERIMENT REQUIRED]
+**WHY:** the requested 250M target must propagate coherently through dimensions, tokens, FLOPs, memory, and infrastructure rather than remain a rounded label.
+**EVIDENCE:** pure parameter receipt in `v5_contracts/model_spec.py`; 5B restores 19.99 tokens/parameter. There is no evidence yet that 250M beats 195M on cognition per compute.
+**ALTERNATIVES CONSIDERED:** merely round the old model to 250M; widen to 1024 and reduce depth; retain 195M.
+**WHAT WOULD CHANGE OUR MIND:** E2/E5 shows a different ~250M shape or the 195M-scale family dominates at matched compute/data.
+**ITERATION:** Ground Blueprint v0.3.
+
+## D-021 — Code-first infrastructure contract
+
+**DECISION:** make model/run/lineage schemas, E0 statistics/custody, E1 artifact audits, CLI contracts, dependency rules, and milestone acceptance executable before production modules.
+**STATUS:** [FROZEN] boundary; implementation milestones remain gate-controlled
+**WHY:** a directory sketch does not prevent fake updates, identity drift, evaluator leakage, or non-resumable cloud runs.
+**EVIDENCE:** `blueprints/IMPLEMENTATION_BLUEPRINT.md`, `v5_contracts/`, `e0_cognition/`, `e1_tokenizer/`, and their tests/certificates.
+**ALTERNATIVES CONSIDERED:** implement a trainer immediately; create empty packages; reuse VNext modules.
+**WHAT WOULD CHANGE OUR MIND:** stronger contracts may extend the schema but cannot remove fail-closed identity, causal isolation, or durable exact-resume requirements.
+**ITERATION:** Ground Blueprint v0.3.

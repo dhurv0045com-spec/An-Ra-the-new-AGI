@@ -2,7 +2,7 @@
 
 The V5 training path is **not frozen** until every item below has an explicit answer, evidence link/receipt, or deliberate rejection.
 
-Ground Blueprint v0.2 state: **E0 development infrastructure passes; sealed promotion certification remains incomplete.** Checked items below are research decisions or development invariants, not authorization to train.
+Ground Blueprint v0.3 state: **250M implementation contracts and E0/E1 research harnesses pass; sealed promotion certification remains incomplete.** Checked items below are research decisions or development invariants, not authorization to train.
 
 Required critical path: **E0 benchmark certification → E1 tokenizer → E2 architecture → E3 data/objective → E4 minimal curriculum/optimization → E5 102M replication → E6 freeze review.**
 
@@ -32,6 +32,7 @@ Required critical path: **E0 benchmark certification → E1 tokenizer → E2 arc
 - [ ] FFN allocation justified
 - [x] no unnecessary experimental modules in baseline
 - [ ] exact parameter count verified from executable model
+- [x] pure configuration parameter receipt equals 250,216,960 including affine QK norm
 
 ## Data
 
@@ -78,9 +79,9 @@ Required critical path: **E0 benchmark certification → E1 tokenizer → E2 arc
 
 - [ ] tiny-model experiments support the chosen direction
 - [ ] mid-scale replication supports it
-- [ ] expected compute/time/storage estimated
+- [x] expected compute/time/storage estimated for the 250M/5B center
 - [ ] abort criteria defined
-- [ ] evidence threshold for ~300M run met
+- [ ] evidence threshold for a post-V5 ~400M run met
 
 ## Scientific claims
 
@@ -94,7 +95,7 @@ Required critical path: **E0 benchmark certification → E1 tokenizer → E2 arc
 ## STEP 2 research decisions recorded
 
 - [x] V4's certified-token limitation recorded; unsupported lifetime-token claims rejected
-- [x] direct 300M–3B launch rejected pending scale-transfer evidence
+- [x] direct billion-scale launch rejected pending scale-transfer evidence
 - [x] dense conventional V5-A baseline selected provisionally
 - [x] query-swap contrast selected as the sole auxiliary-objective candidate
 - [x] same-query margin rejected
@@ -107,7 +108,11 @@ Required critical path: **E0 benchmark certification → E1 tokenizer → E2 arc
 - [x] old 166-VIE bank rejected as qualified causal evidence
 - [x] inherited VNext implementation physically removed from ESOES
 - [x] E0 deterministic development receipt, independent solver, 20-seed property sweep, and initial chance/power audit created
-- [ ] context/output balancing, metric-specific confidence preregistration, natural-source custody, and real sealed commitment complete
+- [x] context/output axes and metric-specific confidence procedures implemented
+- [ ] natural-source custody and real sealed commitment complete
+- [x] E1 artifact-bound static audit and Pareto harness implemented
+- [ ] real 16k/24k/32k tokenizer candidates audited
+- [x] 250M model/run/lineage contracts and implementation blueprint created
 
 ## Freeze artifact
 

@@ -1,108 +1,108 @@
 {
   "baselines": {
     "bag_of_words": {
-      "accuracy": 0.6051136363636364,
+      "accuracy": 0.6363636363636364,
       "by_family": {
         "counterfactual_premise": 0.5,
         "entity_value_binding": 1.0,
         "exact_contextual_copy": 1.0,
         "matched_direct_retrieval": 1.0,
         "missing_information": 0.0,
-        "natural_binding_analogue": 0.625,
+        "natural_binding_analogue": 0.3125,
         "natural_composition_analogue": 0.0,
         "natural_state_analogue": 0.0,
         "nonce_identifier_retrieval": 1.0,
         "relation_1_hop": 1.0,
         "relation_2_hop": 0.0,
         "relation_3_hop": 0.0,
-        "rule_induction": 0.25,
-        "state_overwrite": 0.21875
+        "rule_induction": 0.8125,
+        "state_overwrite": 0.4375
       },
-      "correct": 213,
+      "correct": 224,
       "total": 352
     },
     "broken_state_tracker": {
-      "accuracy": 0.28125,
-      "by_family": {
-        "counterfactual_premise": 0.375,
-        "entity_value_binding": 0.1625,
-        "exact_contextual_copy": 1.0,
-        "matched_direct_retrieval": 0.4375,
-        "missing_information": 0.25,
-        "natural_binding_analogue": 0.375,
-        "natural_composition_analogue": 0.25,
-        "natural_state_analogue": 0.0,
-        "nonce_identifier_retrieval": 0.1875,
-        "relation_1_hop": 0.5,
-        "relation_2_hop": 0.25,
-        "relation_3_hop": 0.25,
-        "rule_induction": 0.25,
-        "state_overwrite": 0.0
-      },
-      "correct": 99,
-      "total": 352
-    },
-    "deterministic_random": {
-      "accuracy": 0.3522727272727273,
+      "accuracy": 0.29261363636363635,
       "by_family": {
         "counterfactual_premise": 0.40625,
-        "entity_value_binding": 0.25,
+        "entity_value_binding": 0.125,
         "exact_contextual_copy": 1.0,
-        "matched_direct_retrieval": 0.4166666666666667,
-        "missing_information": 0.625,
-        "natural_binding_analogue": 0.3125,
-        "natural_composition_analogue": 0.125,
-        "natural_state_analogue": 0.4375,
-        "nonce_identifier_retrieval": 0.0625,
+        "matched_direct_retrieval": 0.2708333333333333,
+        "missing_information": 0.3125,
+        "natural_binding_analogue": 0.5625,
+        "natural_composition_analogue": 0.25,
+        "natural_state_analogue": 0.0,
+        "nonce_identifier_retrieval": 0.5625,
         "relation_1_hop": 0.6875,
         "relation_2_hop": 0.375,
         "relation_3_hop": 0.1875,
-        "rule_induction": 0.375,
-        "state_overwrite": 0.125
+        "rule_induction": 0.25,
+        "state_overwrite": 0.0
       },
-      "correct": 124,
+      "correct": 103,
+      "total": 352
+    },
+    "deterministic_random": {
+      "accuracy": 0.3210227272727273,
+      "by_family": {
+        "counterfactual_premise": 0.28125,
+        "entity_value_binding": 0.1125,
+        "exact_contextual_copy": 1.0,
+        "matched_direct_retrieval": 0.3958333333333333,
+        "missing_information": 0.8125,
+        "natural_binding_analogue": 0.25,
+        "natural_composition_analogue": 0.375,
+        "natural_state_analogue": 0.375,
+        "nonce_identifier_retrieval": 0.3125,
+        "relation_1_hop": 0.375,
+        "relation_2_hop": 0.375,
+        "relation_3_hop": 0.125,
+        "rule_induction": 0.25,
+        "state_overwrite": 0.25
+      },
+      "correct": 113,
       "total": 352
     },
     "direct_retrieval_control": {
-      "accuracy": 0.6420454545454546,
+      "accuracy": 0.6676136363636364,
       "by_family": {
-        "counterfactual_premise": 0.375,
+        "counterfactual_premise": 0.40625,
         "entity_value_binding": 1.0,
         "exact_contextual_copy": 1.0,
         "matched_direct_retrieval": 1.0,
-        "missing_information": 0.25,
+        "missing_information": 0.3125,
         "natural_binding_analogue": 1.0,
         "natural_composition_analogue": 0.25,
-        "natural_state_analogue": 0.25,
+        "natural_state_analogue": 0.3125,
         "nonce_identifier_retrieval": 1.0,
-        "relation_1_hop": 0.5,
-        "relation_2_hop": 0.25,
-        "relation_3_hop": 0.25,
+        "relation_1_hop": 0.6875,
+        "relation_2_hop": 0.375,
+        "relation_3_hop": 0.1875,
         "rule_induction": 0.25,
-        "state_overwrite": 0.1875
+        "state_overwrite": 0.25
       },
-      "correct": 226,
+      "correct": 235,
       "total": 352
     },
     "first_candidate": {
-      "accuracy": 0.3096590909090909,
+      "accuracy": 0.32954545454545453,
       "by_family": {
-        "counterfactual_premise": 0.375,
-        "entity_value_binding": 0.1625,
+        "counterfactual_premise": 0.40625,
+        "entity_value_binding": 0.125,
         "exact_contextual_copy": 1.0,
-        "matched_direct_retrieval": 0.4375,
-        "missing_information": 0.25,
-        "natural_binding_analogue": 0.375,
+        "matched_direct_retrieval": 0.2708333333333333,
+        "missing_information": 0.3125,
+        "natural_binding_analogue": 0.5625,
         "natural_composition_analogue": 0.25,
-        "natural_state_analogue": 0.25,
-        "nonce_identifier_retrieval": 0.1875,
-        "relation_1_hop": 0.5,
-        "relation_2_hop": 0.25,
-        "relation_3_hop": 0.25,
+        "natural_state_analogue": 0.3125,
+        "nonce_identifier_retrieval": 0.5625,
+        "relation_1_hop": 0.6875,
+        "relation_2_hop": 0.375,
+        "relation_3_hop": 0.1875,
         "rule_induction": 0.25,
-        "state_overwrite": 0.1875
+        "state_overwrite": 0.25
       },
-      "correct": 109,
+      "correct": 116,
       "total": 352
     },
     "full_truth_oracle": {
@@ -127,56 +127,56 @@
       "total": 352
     },
     "last_candidate": {
-      "accuracy": 0.36079545454545453,
+      "accuracy": 0.3522727272727273,
       "by_family": {
-        "counterfactual_premise": 0.3125,
-        "entity_value_binding": 0.2,
+        "counterfactual_premise": 0.375,
+        "entity_value_binding": 0.3,
         "exact_contextual_copy": 1.0,
-        "matched_direct_retrieval": 0.25,
-        "missing_information": 0.75,
-        "natural_binding_analogue": 0.4375,
-        "natural_composition_analogue": 0.5,
-        "natural_state_analogue": 0.375,
-        "nonce_identifier_retrieval": 0.3125,
-        "relation_1_hop": 0.5,
+        "matched_direct_retrieval": 0.4166666666666667,
+        "missing_information": 0.6875,
+        "natural_binding_analogue": 0.125,
+        "natural_composition_analogue": 0.375,
+        "natural_state_analogue": 0.125,
+        "nonce_identifier_retrieval": 0.125,
+        "relation_1_hop": 0.3125,
         "relation_2_hop": 0.375,
-        "relation_3_hop": 0.25,
-        "rule_induction": 0.375,
-        "state_overwrite": 0.34375
+        "relation_3_hop": 0.3125,
+        "rule_induction": 0.1875,
+        "state_overwrite": 0.3125
       },
-      "correct": 127,
+      "correct": 124,
       "total": 352
     },
     "latest_fact": {
-      "accuracy": 0.29829545454545453,
+      "accuracy": 0.45454545454545453,
       "by_family": {
-        "counterfactual_premise": 0.375,
-        "entity_value_binding": 0.275,
+        "counterfactual_premise": 0.40625,
+        "entity_value_binding": 0.325,
         "exact_contextual_copy": 1.0,
-        "matched_direct_retrieval": 0.0,
+        "matched_direct_retrieval": 0.5416666666666666,
         "missing_information": 0.0,
-        "natural_binding_analogue": 0.0,
-        "natural_composition_analogue": 0.0,
+        "natural_binding_analogue": 0.1875,
+        "natural_composition_analogue": 0.125,
         "natural_state_analogue": 1.0,
-        "nonce_identifier_retrieval": 0.1875,
-        "relation_1_hop": 0.0,
-        "relation_2_hop": 0.0,
-        "relation_3_hop": 0.0,
+        "nonce_identifier_retrieval": 0.4375,
+        "relation_1_hop": 0.6875,
+        "relation_2_hop": 0.125,
+        "relation_3_hop": 0.125,
         "rule_induction": 0.25,
         "state_overwrite": 1.0
       },
-      "correct": 105,
+      "correct": 160,
       "total": 352
     },
     "lexical_overlap": {
-      "accuracy": 0.5681818181818182,
+      "accuracy": 0.5596590909090909,
       "by_family": {
-        "counterfactual_premise": 0.375,
+        "counterfactual_premise": 0.40625,
         "entity_value_binding": 1.0,
         "exact_contextual_copy": 1.0,
         "matched_direct_retrieval": 1.0,
         "missing_information": 0.0,
-        "natural_binding_analogue": 0.5,
+        "natural_binding_analogue": 0.25,
         "natural_composition_analogue": 0.0,
         "natural_state_analogue": 0.0,
         "nonce_identifier_retrieval": 1.0,
@@ -186,39 +186,41 @@
         "rule_induction": 0.25,
         "state_overwrite": 0.0
       },
-      "correct": 200,
+      "correct": 197,
       "total": 352
     },
     "nearest_position": {
-      "accuracy": 0.29829545454545453,
+      "accuracy": 0.4744318181818182,
       "by_family": {
-        "counterfactual_premise": 0.375,
-        "entity_value_binding": 0.275,
+        "counterfactual_premise": 0.40625,
+        "entity_value_binding": 0.325,
         "exact_contextual_copy": 1.0,
-        "matched_direct_retrieval": 0.0,
+        "matched_direct_retrieval": 0.5416666666666666,
         "missing_information": 0.0,
-        "natural_binding_analogue": 0.0,
-        "natural_composition_analogue": 0.0,
+        "natural_binding_analogue": 0.3125,
+        "natural_composition_analogue": 0.25,
         "natural_state_analogue": 1.0,
-        "nonce_identifier_retrieval": 0.1875,
-        "relation_1_hop": 0.0,
-        "relation_2_hop": 0.0,
-        "relation_3_hop": 0.0,
+        "nonce_identifier_retrieval": 0.4375,
+        "relation_1_hop": 0.6875,
+        "relation_2_hop": 0.25,
+        "relation_3_hop": 0.1875,
         "rule_induction": 0.25,
         "state_overwrite": 1.0
       },
-      "correct": 105,
+      "correct": 167,
       "total": 352
     }
   },
   "checks": {
     "broken_state_tracker_fails_state": true,
+    "context_position_axes_covered": true,
     "counterfactual_pairs_mechanical": true,
     "direct_retrieval_does_not_solve_composition": true,
     "full_oracle_exact": true,
     "hidden_truth_excluded_from_model_view": true,
     "independent_surface_solver_agreement": true,
     "no_dominant_answer_position": true,
+    "output_format_axes_covered": true,
     "random_baseline_below_50pct": true,
     "random_control_matches_calculated_chance": true,
     "split_namespaces_disjoint": true,
@@ -240,28 +242,59 @@
   },
   "statistical_calibration": {
     "answer_position_histogram_multi_candidate": {
-      "0": 93,
-      "1": 96,
-      "2": 71,
-      "3": 51,
-      "4": 7,
-      "5": 8,
-      "6": 4,
+      "0": 100,
+      "1": 91,
+      "2": 62,
+      "3": 47,
+      "4": 14,
+      "5": 10,
+      "6": 1,
       "7": 2,
-      "8": 2,
-      "9": 2
+      "8": 3,
+      "9": 6
     },
     "approx_n_per_arm_to_detect_chance_plus_10pp_at_80pct_power": {
       "four_candidate": 329,
       "two_candidate": 388
     },
     "deterministic_random_wilson_95": [
-      0.30421061636412705,
-      0.4035243947706918
+      0.27440817955743885,
+      0.37150154547128394
     ],
-    "maximum_answer_position_share": 0.2857142857142857,
+    "maximum_answer_position_share": 0.2976190476190476,
     "method_note": "Two-sided normal approximation for planning; final gates use paired/bootstrap or exact methods preregistered per metric.",
     "uniform_candidate_chance": 0.32433712121212077
+  },
+  "statistical_protocol": {
+    "protocol": {
+      "binary_accuracy": {
+        "alpha": 0.05,
+        "paired_comparison": "exact-two-sided-sign-test-on-discordant-pairs",
+        "single_system_interval": "wilson-95-two-sided"
+      },
+      "conditional_realization": {
+        "denominator": "cases-with-correct-unassisted-selection",
+        "interval": "wilson-95-two-sided",
+        "minimum_eligible_cases": 100
+      },
+      "continuous_score_delta": {
+        "comparison": "paired-percentile-bootstrap",
+        "confidence": 0.95,
+        "resamples": 10000,
+        "seed_source": "evaluation-receipt-preregistered-seed"
+      },
+      "family_policy": {
+        "exploratory_multiple_tests": "holm-bonferroni",
+        "promotion": "conjunctive-worst-family-gates-no-averaging"
+      },
+      "query_flip": {
+        "gate": "lower-bound-versus-preregistered-threshold",
+        "interval": "wilson-95-two-sided"
+      },
+      "schema": "esoes-e0-statistical-protocol/v1",
+      "sealed_consumption": "any outcome-guided decision consumes the sealed fixture"
+    },
+    "sha256": "048412b55e00080ace55d4054050e5b44d2fca5c1b96d90d4497d18b1b219c31"
   },
   "status": "PASS",
   "suite": {
@@ -293,8 +326,29 @@
     },
     "pairs": 96,
     "seed": 271828,
-    "sha256": "d821d975c3ae3d1245c7b58de08a88b66750d9a44b5200b233970b5c374ac297",
-    "split": "development"
+    "sha256": "b3d82dee117d3fbf00e3a572fb89ac5c28a576470bf599805f6dada0ee43e14f",
+    "split": "development",
+    "surface_axis_histograms": {
+      "answer_format": {
+        "abstention": 16,
+        "boolean": 32,
+        "composite": 16,
+        "nonce-code": 192,
+        "nonce-entity": 96
+      },
+      "context_fact_count": {
+        "long": 25,
+        "medium": 137,
+        "short": 190
+      },
+      "relevant_position": {
+        "answer-absent": 16,
+        "back": 124,
+        "distributed": 96,
+        "front": 88,
+        "middle": 28
+      }
+    }
   },
   "training_generator": {
     "examples_checked": 128,

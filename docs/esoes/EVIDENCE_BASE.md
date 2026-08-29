@@ -1,6 +1,6 @@
 # ESOES Evidence Base
 
-Version: 0.2
+Version: 0.3
 Updated: 2026-08-29
 
 This is the distilled evidence ESOES may use. Prior implementations are referenced by immutable branch/commit paths; they are not V5 dependencies.
@@ -136,7 +136,7 @@ Therefore vocabulary size, byte fallback, number segmentation, context/answer co
 
 V5 must evaluate position, length, distractors, surface form, symbols, topology, and difficulty separately and jointly. **PROVEN / STRONG EVIDENCE**
 
-## Evidence constraints carried into Ground Blueprint v0.2
+## Evidence constraints carried into Ground Blueprint v0.3
 
 1. Loss is necessary but never sufficient.
 2. Final checkpoint is never automatically promoted.
@@ -149,3 +149,4 @@ V5 must evaluate position, length, distractors, surface form, symbols, topology,
 9. A Connector result is not native Core capability.
 10. Major scale follows replicated proxy and mid-scale evidence, not ambition.
 11. No pair/composition objective may be justified from EXP v10/v11 until the stale-candidate bug, baselines, and reproduction gaps are corrected prospectively.
+12. The 250M center is a user-directed implementation envelope with an exact receipt, not evidence that 195M was capacity-limited; E2/E5 retain authority over scale efficiency.

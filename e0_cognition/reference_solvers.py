@@ -37,7 +37,8 @@ def solve_case(case: CausalCase) -> str:
         return _match(r" became (.+)\.$", case.facts[-1]).group(1)
 
     if family == "matched_direct_retrieval":
-        return _match(r"direct result for .+ is (.+)\.$", case.facts[0]).group(1)
+        direct = next(fact for fact in case.facts if fact.startswith("The direct result for "))
+        return _match(r"direct result for .+ is (.+)\.$", direct).group(1)
 
     if family.startswith("relation_"):
         query = _match(
@@ -69,19 +70,25 @@ def solve_case(case: CausalCase) -> str:
         return f"{pair.group(2)}|{pair.group(1)}"
 
     if family == "natural_binding_analogue":
-        return _match(r"-B carries ([^.]+)\.", case.facts[0]).group(1)
+        assay = next(fact for fact in case.facts if fact.startswith("The assay summary "))
+        return _match(r"-B carries ([^.]+)\.", assay).group(1)
 
     if family == "natural_state_analogue":
         return _match(r"set it to (.+)\.$", case.facts[-1]).group(1)
 
     if family == "natural_composition_analogue":
-        start = _match(r"Module (.+) writes buffer (.+)\.$", case.facts[0])
+        start_fact = next(fact for fact in case.facts if fact.startswith("Module "))
+        start = _match(r"Module (.+) writes buffer (.+)\.$", start_fact)
         buffer_name = start.group(2)
+        buffer_fact = next(fact for fact in case.facts if fact.startswith(f"Buffer {buffer_name} "))
         converter = _match(
-            rf"Buffer {re.escape(buffer_name)} feeds converter (.+)\.$", case.facts[1]
+            rf"Buffer {re.escape(buffer_name)} feeds converter (.+)\.$", buffer_fact
         ).group(1)
+        converter_fact = next(
+            fact for fact in case.facts if fact.startswith(f"Converter {converter} ")
+        )
         return _match(
-            rf"Converter {re.escape(converter)} emits channel (.+)\.$", case.facts[2]
+            rf"Converter {re.escape(converter)} emits channel (.+)\.$", converter_fact
         ).group(1)
 
     raise ValueError(f"no reference solver for family {family!r}")
