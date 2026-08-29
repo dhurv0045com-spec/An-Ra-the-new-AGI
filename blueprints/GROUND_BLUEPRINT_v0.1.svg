@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1080" viewBox="0 0 1800 1080">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#07111f"/><stop offset="1" stop-color="#101d34"/>
+    </linearGradient>
+    <linearGradient id="core" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#7c3aed"/><stop offset="1" stop-color="#2563eb"/>
+    </linearGradient>
+    <filter id="shadow"><feDropShadow dx="0" dy="8" stdDeviation="10" flood-opacity=".35"/></filter>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L9,3 z" fill="#6ee7f9"/>
+    </marker>
+    <style>
+      .title{font:700 38px 'Segoe UI',Arial,sans-serif;fill:#f8fafc}.sub{font:400 18px 'Segoe UI',Arial,sans-serif;fill:#94a3b8}
+      .h{font:700 20px 'Segoe UI',Arial,sans-serif;fill:#f8fafc}.t{font:400 15px 'Segoe UI',Arial,sans-serif;fill:#dbeafe}
+      .tiny{font:400 13px 'Segoe UI',Arial,sans-serif;fill:#cbd5e1}.tag{font:700 13px 'Segoe UI',Arial,sans-serif;fill:#07111f}
+      .box{rx:18;stroke:#334155;stroke-width:2;filter:url(#shadow)}.line{stroke:#6ee7f9;stroke-width:4;fill:none;marker-end:url(#arrow)}
+    </style>
+  </defs>
+  <rect width="1800" height="1080" fill="url(#bg)"/>
+  <text x="70" y="68" class="title">AN-RA V5 — GROUND BLUEPRINT v0.1</text>
+  <text x="70" y="100" class="sub">Clean-sheet cognition-first foundation • four design iterations complete • production training not authorized</text>
+
+  <rect x="70" y="135" width="1060" height="500" rx="24" fill="#0b1729" stroke="#263750" stroke-width="2"/>
+  <text x="100" y="175" class="h">TRAINING AND EVIDENCE LOOP</text>
+
+  <g>
+    <rect class="box" x="100" y="215" width="170" height="100" fill="#123047"/><text x="185" y="248" text-anchor="middle" class="h">RAW DATA</text><text x="185" y="275" text-anchor="middle" class="tiny">authorized sources</text><text x="185" y="296" text-anchor="middle" class="tiny">+ executable generators</text>
+    <path class="line" d="M270 265 H320"/>
+    <rect class="box" x="325" y="215" width="180" height="100" fill="#123047"/><text x="415" y="248" text-anchor="middle" class="h">QUALITY</text><text x="415" y="275" text-anchor="middle" class="tiny">license • filter • dedup</text><text x="415" y="296" text-anchor="middle" class="tiny">contamination scan</text>
+    <path class="line" d="M505 265 H555"/>
+    <rect class="box" x="560" y="215" width="185" height="100" fill="#123047"/><text x="652" y="248" text-anchor="middle" class="h">TOKENIZER</text><text x="652" y="275" text-anchor="middle" class="tiny">16k / 24k / 32k</text><text x="652" y="296" text-anchor="middle" class="tiny">byte fallback tournament</text>
+    <path class="line" d="M745 265 H795"/>
+    <rect class="box" x="800" y="215" width="195" height="100" fill="#123047"/><text x="897" y="248" text-anchor="middle" class="h">CURRICULUM</text><text x="897" y="275" text-anchor="middle" class="tiny">natural + formal + causal</text><text x="897" y="296" text-anchor="middle" class="tiny">mix • replay • length</text>
+  </g>
+
+  <path class="line" d="M897 315 V365"/>
+  <rect class="box" x="790" y="370" width="215" height="110" fill="#18304f"/><text x="897" y="405" text-anchor="middle" class="h">TRAINER</text><text x="897" y="432" text-anchor="middle" class="tiny">CE + query-swap candidate</text><text x="897" y="453" text-anchor="middle" class="tiny">AdamW • BF16 • WSD</text>
+  <path class="line" d="M790 425 H735"/>
+  <rect class="box" x="515" y="370" width="215" height="110" fill="url(#core)"/><text x="622" y="405" text-anchor="middle" class="h">V5 CORE</text><text x="622" y="432" text-anchor="middle" class="t">~195M • 28×768 • 4k</text><text x="622" y="454" text-anchor="middle" class="tiny">dense full-attention candidate</text>
+  <path class="line" d="M515 425 H460"/>
+  <rect class="box" x="250" y="370" width="205" height="110" fill="#18304f"/><text x="352" y="405" text-anchor="middle" class="h">CHECKPOINT</text><text x="352" y="432" text-anchor="middle" class="tiny">exact resume • hashes</text><text x="352" y="453" text-anchor="middle" class="tiny">immutable milestones</text>
+  <path class="line" d="M352 480 V530 H500"/>
+  <rect class="box" x="505" y="510" width="240" height="90" fill="#143b3c"/><text x="625" y="540" text-anchor="middle" class="h">COGNITION EVAL</text><text x="625" y="566" text-anchor="middle" class="tiny">represent • address • transform</text><text x="625" y="586" text-anchor="middle" class="tiny">choose • realize</text>
+  <path class="line" d="M745 555 H795"/>
+  <rect class="box" x="800" y="510" width="195" height="90" fill="#3b2430"/><text x="897" y="544" text-anchor="middle" class="h">PROMOTION</text><text x="897" y="571" text-anchor="middle" class="tiny">pass • reject • preserve</text>
+
+  <rect x="1160" y="135" width="570" height="500" rx="24" fill="#0b1729" stroke="#263750" stroke-width="2"/>
+  <text x="1190" y="175" class="h">INSIDE THE DENSE CORE</text>
+  <rect class="box" x="1220" y="210" width="450" height="58" fill="#123047"/><text x="1445" y="246" text-anchor="middle" class="h">token IDs → tied embedding (768)</text>
+  <path class="line" d="M1445 268 V300"/>
+  <rect class="box" x="1220" y="305" width="450" height="58" fill="#123047"/><text x="1445" y="341" text-anchor="middle" class="h">RoPE positions • native 4,096</text>
+  <path class="line" d="M1445 363 V395"/>
+  <rect class="box" x="1200" y="400" width="490" height="130" fill="url(#core)"/><text x="1445" y="434" text-anchor="middle" class="h">28 × PROCESSING BLOCK</text><text x="1445" y="465" text-anchor="middle" class="t">RMSNorm → 12Q / 4KV GQA → full causal attention</text><text x="1445" y="491" text-anchor="middle" class="t">residual → RMSNorm → SwiGLU 2,048 → residual</text><text x="1445" y="514" text-anchor="middle" class="tiny">QK norm remains experiment-gated</text>
+  <path class="line" d="M1445 530 V562"/>
+  <rect class="box" x="1220" y="567" width="450" height="48" fill="#123047"/><text x="1445" y="598" text-anchor="middle" class="h">final RMSNorm → tied vocabulary logits</text>
+
+  <rect x="70" y="675" width="1660" height="330" rx="24" fill="#0b1729" stroke="#263750" stroke-width="2"/>
+  <text x="100" y="717" class="h">AUTHORITY BOUNDARIES AND FREEZE GATES</text>
+  <g>
+    <rect class="box" x="105" y="750" width="350" height="165" fill="#15213a"/><text x="280" y="788" text-anchor="middle" class="h">CORE</text><text x="280" y="817" text-anchor="middle" class="t">local learned operations</text><text x="280" y="846" text-anchor="middle" class="tiny">binding • state • short composition</text><text x="280" y="868" text-anchor="middle" class="tiny">selection • faithful realization</text><rect x="210" y="886" width="140" height="24" rx="12" fill="#67e8f9"/><text x="280" y="903" text-anchor="middle" class="tag">NO TOOLS / POLICY</text>
+    <rect class="box" x="505" y="750" width="350" height="165" fill="#15213a"/><text x="680" y="788" text-anchor="middle" class="h">CONNECTOR / RUNTIME</text><text x="680" y="817" text-anchor="middle" class="t">retrieval • memory • search</text><text x="680" y="846" text-anchor="middle" class="tiny">interventions • tools • routing</text><text x="680" y="868" text-anchor="middle" class="tiny">auditable external control</text><rect x="593" y="886" width="174" height="24" rx="12" fill="#fde68a"/><text x="680" y="903" text-anchor="middle" class="tag">NO GROUND TRUTH</text>
+    <rect class="box" x="905" y="750" width="350" height="165" fill="#15213a"/><text x="1080" y="788" text-anchor="middle" class="h">EVALUATOR / OUTER</text><text x="1080" y="817" text-anchor="middle" class="t">success • promotion • authority</text><text x="1080" y="846" text-anchor="middle" class="tiny">sealed custody • permissions • risk</text><text x="1080" y="868" text-anchor="middle" class="tiny">independent from generator/trainer</text><rect x="992" y="886" width="176" height="24" rx="12" fill="#fca5a5"/><text x="1080" y="903" text-anchor="middle" class="tag">NO SELF-GRADING</text>
+    <rect class="box" x="1305" y="750" width="350" height="165" fill="#19352c"/><text x="1480" y="788" text-anchor="middle" class="h">PRE-IMPLEMENTATION GATES</text><text x="1480" y="817" text-anchor="middle" class="t">E0 → E1/E2 → E3 → E4 → E5</text><text x="1480" y="846" text-anchor="middle" class="tiny">benchmark • tokenizer • architecture</text><text x="1480" y="868" text-anchor="middle" class="tiny">data/objective • dynamics • scale</text><rect x="1395" y="886" width="170" height="24" rx="12" fill="#86efac"/><text x="1480" y="903" text-anchor="middle" class="tag">THEN FREEZE v1.0</text>
+  </g>
+  <text x="70" y="1040" class="sub">Status: architecture center is provisional • scientific boundaries and experiment order are frozen • no production trainer or main V5 run exists</text>
+</svg>

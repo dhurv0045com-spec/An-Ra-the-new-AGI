@@ -1,233 +1,143 @@
-# ESOES Open Questions
+# ESOES High-Impact Open Questions
 
-These are questions the project should answer experimentally before freezing the next major Core training path. They are intentionally open-ended. A good result may reject the current intuition.
+Ground Blueprint v0.1 intentionally limits the open set. A question belongs here only if its answer can materially change architecture, data, training, evaluation, or system boundaries.
 
-## STEP 2 disposition
+## Representation and tokenizer
 
-The original list below remains as the audit trail, but it must not trigger 104 independent experiments. `V5_MASTER_BLUEPRINT.md` collapses it into six decisive experimental questions:
+### Q1 — Which vocabulary gives the best cognition per raw byte and FLOP?
 
-| Priority | Decisive question | Current answer | Resolver |
-|---:|---|---|---|
-| 1 | Is the cognition benchmark causally valid and shortcut-free? | OPEN; no model result is meaningful before certification | E0 |
-| 2 | Which tokenizer maximizes cognition per raw byte/FLOP? | 24,576 byte-fallback is provisional | E1: 16k/24k/32k |
-| 3 | Does more depth/full attention/less KV compression improve OOD cognition at fixed budget? | 28×768, full attention, 4 KV, QK norm is provisional | E2 |
-| 4 | Are structured contrasts sufficient under LM loss, or does query-swap contrast add transfer? | LM remains base; query-swap is the sole auxiliary candidate | E3 |
-| 5 | What cognition share/order and optimizer regime preserves the substrate? | 15%, uniform mixing, WSD, 262k tokens/update are provisional | E3–E4 |
-| 6 | Does the winning effect survive scale and fresh natural domains? | OPEN / UNKNOWN | E5 at ~102M |
+**WHY IT MATTERS:** 16k saves embeddings and may preserve atomic symbols; 32k shortens sequences; either can damage numbers, identifiers, and exact copying.
+**CURRENT BEST HYPOTHESIS:** 24,576-entry byte-fallback subword model is the Pareto center.
+**WHAT EVIDENCE EXISTS:** compression alone is not predictive; numerical and context/answer tokenization create measurable inductive biases.
+**CHEAPEST DECISIVE TEST:** E1 static corpus audit plus matched P35 16k/24k/32k runs normalized by raw bytes and FLOPs.
+**DECISION DEADLINE:** before any architecture finalist exceeds 200M training tokens.
 
-### Questions answered enough to stop debating
+### Q2 — Should V5 enforce special numerical atomization?
 
-- **Direct 300M–3B launch:** rejected. Evidence is insufficient; run the 195M path only after proxy and mid-scale gates.
-- **Final checkpoint equals best:** rejected by V4 evidence.
-- **Many novel modules in the first V5 baseline:** rejected because they destroy causal attribution.
-- **Same-query margin objective:** rejected by SFT7 evidence.
-- **Runtime intervention equals native cognition:** rejected; assisted and raw capability remain separate.
-- **Connector replacement:** rejected. The Connector keeps tools, durable memory, long-horizon control, verification, risk, and credit assignment.
+**WHY IT MATTERS:** number segmentation can dominate arithmetic behavior, but special tokens may reduce generality or inflate vocabulary.
+**CURRENT BEST HYPOTHESIS:** preserve digits and separators without a novel numeric embedding in V5-A.
+**WHAT EVIDENCE EXISTS:** public work shows direction and granularity effects; no An-Ra tokenizer experiment exists.
+**CHEAPEST DECISIVE TEST:** E1 arithmetic, counting, copy, and unseen-length transfer under candidate tokenizers.
+**DECISION DEADLINE:** tokenizer freeze.
 
-### Questions deliberately left open
+## Architecture
 
-- Whether query-swap contrast transfers from verified synthetic examples to natural reasoning.
-- Whether 195M has enough capacity for robust three-hop composition.
-- Whether byte-level architectures eventually beat subword V5-A at equal compute.
-- Whether 300M provides more value than additional clean tokens after V5-A.
+### Q3 — Is 28×768 better than wider/shallower shapes at equal parameters and training FLOPs?
 
-Do not reopen a resolved direction without new evidence. Do not close an experiment-gated value by implementing it first.
+**WHY IT MATTERS:** composition may need sequential depth, while representation may need width.
+**CURRENT BEST HYPOTHESIS:** moderately deep 28×768 is better than V4-like 18×896, but extreme depth is not.
+**WHAT EVIDENCE EXISTS:** directional depth benefit in controlled composition; no An-Ra iso-budget result.
+**CHEAPEST DECISIVE TEST:** E2 P35 deep/mid/wide tournament, replicate top two.
+**DECISION DEADLINE:** before M102.
 
----
+### Q4 — Does 4-KV GQA or QK norm damage query-conditioned discrimination?
 
-## A. What exactly should the Core know how to do?
+**WHY IT MATTERS:** throughput/stability gains may compress the score geometry V5 needs.
+**CURRENT BEST HYPOTHESIS:** 4-KV GQA with QK norm is adequate; V4's 2 KV heads should not be inherited.
+**WHAT EVIDENCE EXISTS:** general GQA and stability evidence, but no nonce-binding evidence.
+**CHEAPEST DECISIVE TEST:** E2 factorial comparison against MHA and no-QK variants on identical data.
+**DECISION DEADLINE:** architecture freeze.
 
-1. Which cognitive primitives are truly foundational versus skills that can safely remain in the Connector?
-2. Is robust query-conditioned binding the first bottleneck, or is the deeper bottleneck contextual representation itself?
-3. How much composition should a ~100M, ~300M, and ~1B model realistically be expected to learn from foundation training?
-4. Should “missing information” detection be treated as a foundation capability or post-training behavior?
-5. Which capabilities need to be native because external repair is too expensive, brittle, or distribution-sensitive?
-6. What evidence would convince us that a Core has internalized an intervention rather than merely memorized the training format?
+### Q5 — Is native 4k full attention worth its training cost?
 
----
+**WHY IT MATTERS:** it removes locality confounds but may buy fewer high-quality tokens per TPU-hour.
+**CURRENT BEST HYPOTHESIS:** yes with mixed sequence lengths; not every sequence should be 4k.
+**WHAT EVIDENCE EXISTS:** V4 hybrid failures are confounded; public work shows nominal context is not usable context.
+**CHEAPEST DECISIVE TEST:** E2 matched-FLOP 2k/full versus 4k/mixed-length, evaluated at adversarial positions.
+**DECISION DEADLINE:** architecture and pack-format freeze.
 
-## B. Architecture
+## Cognition and data
 
-7. At fixed parameters/FLOPs, does deeper/narrower actually improve multi-step composition over wider/shallower?
-8. Does V4's 18-layer/896-width shape leave too little sequential computational depth?
-9. Is 4k context enough for the first V5, or does longer context change the nature of the cognition experiments?
-10. Does full attention materially outperform hybrid/sliding attention on binding and state tracking at equal compute?
-11. How many KV heads are needed before GQA compression starts harming fine-grained contextual binding?
-12. Does QK norm help or hurt sharp query-dependent candidate discrimination?
-13. Is tied embedding/output still the right choice for a cognition-focused small model?
-14. Would a modest recurrent/state mechanism improve state tracking enough to justify extra complexity?
-15. Are explicit memory/state modules useful before the base decoder can solve controlled context tasks, or would they mask a weak Core?
-16. At what scale, if any, does MoE become scientifically useful rather than just operationally complex?
+### Q6 — What share of verified cognition data improves primitives without narrowing the substrate?
 
----
+**WHY IT MATTERS:** too little provides no causal pressure; too much creates a synthetic specialist.
+**CURRENT BEST HYPOTHESIS:** 15% by tokens.
+**WHAT EVIDENCE EXISTS:** targeted An-Ra SFT works but can starve formats; natural transfer remains limited.
+**CHEAPEST DECISIVE TEST:** E3 5/15/30% at matched tokens, including natural analogues and substrate loss.
+**DECISION DEADLINE:** before M102.
 
-## C. Tokenizer / representation
+### Q7 — Do intermediate traces teach composition or merely a serialization format?
 
-17. Does 16k/24k vocab improve compositional handling of novel identifiers compared with 32k?
-18. At what point does smaller vocab create too much sequence-length inflation and reduce effective context?
-19. Does tokenizer choice materially affect exact copying of nonce strings?
-20. Should code/math symbols receive special treatment, or should a simpler general tokenizer be preferred?
-21. Could byte-level or byte-fallback behavior improve robustness enough to justify cost?
-22. Does the tokenizer accidentally create lexical shortcuts in synthetic cognitive tasks?
+**WHY IT MATTERS:** traces can add recurrent compute but can leak solution structure and hurt direct realization.
+**CURRENT BEST HYPOTHESIS:** sparse, mechanically verified state traces help two/three-hop transfer when mixed with direct answers.
+**WHAT EVIDENCE EXISTS:** controlled public synthetic evidence supports intermediate outputs; An-Ra has no transfer result.
+**CHEAPEST DECISIVE TEST:** one E3 sub-arm comparing direct-only with 25% trace exposure, tested trace-free.
+**DECISION DEADLINE:** data freeze.
 
----
+### Q8 — Does the cognitive recipe transfer to natural domains?
 
-## D. Data mixture
+**WHY IT MATTERS:** synthetic-only success does not satisfy the program.
+**CURRENT BEST HYPOTHESIS:** binding/state gains transfer more readily than multi-hop composition.
+**WHAT EVIDENCE EXISTS:** SFT6 cross-vocabulary lift; weak broader transfer; public counterfactual fragility.
+**CHEAPEST DECISIVE TEST:** fresh natural-document analogues whose sources, style, and entities are absent from generator development.
+**DECISION DEADLINE:** E3 promotion and again E5.
 
-23. What fraction of foundation tokens should be cognition-targeted before ordinary language/world modeling degrades?
-24. Is 20–35% cognitive curriculum too high, too low, or only appropriate at small scale?
-25. Should cognitive examples be uniformly mixed or scheduled in phases?
-26. Does mixing synthetic cognition throughout training work better than concentrated curriculum bursts?
-27. How much high-quality code/math/science data is needed for structural reasoning benefits?
-28. Which natural-data domains contribute most to transfer onto binding/composition?
-29. Can we measure the marginal cognitive value of each data family per token/FLOP?
-30. How aggressively should repeated structures be deduplicated when repetition itself may help teach an algorithm?
-31. How do we prevent synthetic tasks from dominating style/distribution while still shaping internal computation?
+## Objective and optimization
 
----
+### Q9 — Is structured CE sufficient, or does query-swap contrast add causal transfer?
 
-## E. Curriculum
+**WHY IT MATTERS:** the auxiliary may directly teach query addressing or merely game candidate likelihoods.
+**CURRENT BEST HYPOTHESIS:** small query-swap weight improves selection; CE remains dominant.
+**WHAT EVIDENCE EXISTS:** SFT6 query lift; SFT7 margin failed its intended selection hypothesis; no foundation-scale ablation.
+**CHEAPEST DECISIVE TEST:** E3 CE-only versus identical data with λ 0.05/0.15, including candidate-free generation.
+**DECISION DEADLINE:** before M102.
 
-32. Should curriculum difficulty advance based on token count or competence thresholds?
-33. Does learning one-binding → four-binding → eight-binding produce genuine cardinality scaling?
-34. Is composition learned better after strong binding/state tracking, or should composition appear from the beginning?
-35. Does explicit gradual difficulty help or merely overfit a progression pattern?
-36. How should curriculum mix hard failures versus examples near the model's current competence frontier?
-37. Can the Connector automatically identify the next useful curriculum difficulty without leaking evaluation answers?
+### Q10 — Uniform interleaving or competence-staged curriculum?
 
----
+**WHY IT MATTERS:** prerequisites may accelerate learning; stages may induce forgetting or recognizable progression shortcuts.
+**CURRENT BEST HYPOTHESIS:** uniform is the default; staging wins only if it improves worst-family OOD with fixed replay.
+**WHAT EVIDENCE EXISTS:** mixed public curriculum results and An-Ra starvation/forgetting.
+**CHEAPEST DECISIVE TEST:** E4 one uniform and one staged/replay arm.
+**DECISION DEADLINE:** before M102.
 
-## F. Objectives
+### Q11 — Which batch/LR pair gives enough updates without sacrificing throughput?
 
-38. How much can standard autoregressive LM training learn if the data contains strong controlled contrasts?
-39. Is the SFT6 query-conditioned improvement primarily due to the objective or the data structure?
-40. Does an explicit contrastive/margin loss create better OOD binding than LM-only training?
-41. Can an auxiliary objective improve internal selection while damaging free realization?
-42. Should selection and realization receive separate objectives?
-43. Can counterfactual query normalization be converted into a training objective that causes RAW scores to become intrinsically normalized?
-44. What would count as evidence that the Core has internalized the normalization computation?
+**WHY IT MATTERS:** 262k tokens/update produces only ~15.3k updates over 4B tokens; 131k doubles update count.
+**CURRENT BEST HYPOTHESIS:** 131k tokens/update with peak LR near 3e-4.
+**WHAT EVIDENCE EXISTS:** conventional optimizer reports; no V5 gradient-noise measurement.
+**CHEAPEST DECISIVE TEST:** E4 short LR-range test at 131k/262k, then extend only the stable Pareto arms.
+**DECISION DEADLINE:** M102 recipe freeze.
 
----
+## Scale and evaluation
 
-## G. Optimization
+### Q12 — Does the winning P35 recipe survive at ~102M?
 
-45. What learning-rate schedule best preserves cognitive capability during long continuation training?
-46. Did the final V4 continuation's behavioral regression reflect LR schedule, data phase, random variance, or measurement noise?
-47. Is WSD preferable to cosine for cognition-rich mixtures?
-48. How sensitive are cognitive metrics to batch size / gradient noise scale?
-49. Does weight decay influence exact memory/binding differently from broad LM loss?
-50. Should some curriculum phases use lower LR to avoid erasing earlier cognitive circuits?
-51. Would replay/interleaving prevent the retention-versus-specialization tradeoffs seen in earlier SFT?
-52. What optimizer-state/provenance invariants should be checked every N updates rather than only at startup/checkpoint time?
+**WHY IT MATTERS:** small-model rankings may fail at a capability threshold.
+**CURRENT BEST HYPOTHESIS:** data/tokenizer ranking transfers; absolute composition ability may not.
+**WHAT EVIDENCE EXISTS:** DataComp-LM proxy correlations; no An-Ra scale transfer.
+**CHEAPEST DECISIVE TEST:** E5 matched M102 recipe and CE/general-data control, two winner seeds.
+**DECISION DEADLINE:** before any 195M implementation freeze.
 
----
+### Q13 — Is ~195M capacity-limited after 4B high-quality tokens?
 
-## H. Scale
+**WHY IT MATTERS:** this is the only valid reason to reopen 300M+.
+**CURRENT BEST HYPOTHESIS:** two-hop improves; robust natural three-hop may remain capacity- or computation-limited.
+**WHAT EVIDENCE EXISTS:** V4 is too confounded; public composition work shows OOD limits.
+**CHEAPEST DECISIVE TEST:** scaling curves across P35/M102/V5-A on matched primitive families and loss.
+**DECISION DEADLINE:** after V5-A evaluation, not before.
 
-53. What is the minimum model size at which 2-hop composition becomes learnable on genuinely OOD forms?
-54. Do cognition-rich data gains observed at 50M survive at 150M and 300M?
-55. Is there a qualitative capability threshold with depth/parameter scale, or mostly smooth improvement?
-56. Should V5 target ~300M, or would a better-trained 180M Core be more informative first?
-57. At what point does scaling parameters beat spending the same compute on better curriculum/data?
-58. When would a 1B or 3B run become justified by evidence rather than ambition?
+### Q14 — Which benchmark thresholds predict useful downstream cognition?
 
----
+**WHY IT MATTERS:** arbitrary gates can reject good recipes or bless toy specialists.
+**CURRENT BEST HYPOTHESIS:** worst-family confidence bounds plus fresh natural transfer are more predictive than aggregates.
+**WHAT EVIDENCE EXISTS:** An-Ra loss/behavior divergence and consumed-fixture failures.
+**CHEAPEST DECISIVE TEST:** E0 calibration with known trivial, heuristic, oracle, and deliberately broken systems; preregister thresholds before training.
+**DECISION DEADLINE:** before E1.
 
-## I. Evaluation
+## Core/Connector boundary
 
-59. What is the smallest benchmark battery that reliably predicts later cognitive quality?
-60. How many cases are needed before selecting an intermediate checkpoint over a final checkpoint?
-61. How do we test copy/context representation without conflating it with instruction following?
-62. How should candidate-scoring tasks be designed so that chance, candidate priors, and lexical artifacts are controlled?
-63. How can we make composition tests impossible to solve by direct lexical retrieval?
-64. How do we build OOD splits across entities, templates, topology, and difficulty simultaneously?
-65. What metrics should define a cognition aggregate without hiding catastrophic weakness in one family?
-66. Should promotion use a minimum/worst-family threshold rather than only an average?
-67. How often should fresh fixtures be generated versus preserving sealed fixed benchmarks for longitudinal curves?
-68. What behavioral tests must run automatically on every immutable checkpoint?
+### Q15 — Which EXP repairs should become native training signals?
 
----
+**WHY IT MATTERS:** permanent runtime repair can mask weak Core, but over-internalization bakes deployment policy into weights.
+**CURRENT BEST HYPOTHESIS:** query-conditioned discrimination and faithful realization belong in Core; intervention selection and verification remain Connector/evaluator responsibilities.
+**WHAT EVIDENCE EXISTS:** normalization, constrained decode, and replicated observed-policy routing.
+**CHEAPEST DECISIVE TEST:** after E3/E5, measure whether raw repair frequency falls on fresh domains while assisted oracle advantage remains reportable.
+**DECISION DEADLINE:** post-E5 freeze review.
 
-## J. Internal state / mechanistic diagnostics
+## Deferred—not active search
 
-69. Can query-conditioned candidate preference be localized to particular layers or attention pathways?
-70. Does SFT6 create a new signal or amplify a weak signal already present in the parent?
-71. At what depth does the correct entity/value binding become linearly or probabilistically separable?
-72. Can layerwise logit-lens/probe measurements predict which training examples will improve binding?
-73. Is the realization failure caused by later-layer drift, token prior competition, or decoding dynamics?
-74. Does counterfactual normalization approximate a computation that could be learned inside attention/MLP circuits?
-75. Can the model's own observable score geometry predict which cognitive mechanism is failing without structural task labels?
-
----
-
-## K. Self-model / cognitive credit assignment
-
-76. Can a policy predict repair choice when external task structure is held identical and only internal score state differs?
-77. How much of the current routing success is a structural router versus genuine model-state diagnosis?
-78. Can a structure-only baseline match the learned policy?
-79. Which internal-state features add predictive value beyond candidate count, output arity, and format?
-80. Can intervention outcome data be collected without evaluator leakage or outcome-conditioned sampling?
-81. Can a clean one-variable VIE bank be built mechanically?
-82. How should diagnostic confidence be calibrated rather than assigned after one successful flip?
-83. Can a cost-sensitive policy choose the cheapest effective intervention without sacrificing too much success?
-84. When should the system choose NO_CHANGE?
-85. When is training actually justified instead of a runtime repair?
-
----
-
-## L. Internalization from Connector to Core
-
-86. How many verified intervention examples are required before converting a repair into training curriculum?
-87. What is the correct way to turn RAW→NORMALIZED repairs into training examples without teaching fixture-specific shortcuts?
-88. After internalization training, should success be measured by higher raw accuracy, lower intervention frequency, stronger margins, or all three?
-89. How do we detect when training has merely learned to imitate the external repair's output rather than its computation?
-90. Can several discovered repairs be internalized without catastrophic interference?
-91. Should the Connector maintain interventions indefinitely as diagnostic probes even after the Core improves?
-
----
-
-## M. Checkpoints and training infrastructure
-
-92. What immutable checkpoint cadence provides enough temporal resolution to catch behavioral peaks without excessive storage?
-93. Can milestone checkpoints be safely persisted from XLA with full optimizer state?
-94. Should behavioral canaries run during TPU training or asynchronously after checkpoint upload?
-95. How should cumulative token accounting work across packs so lifetime totals are impossible to misinterpret?
-96. What evidence must a checkpoint contain before it can be called a valid parent?
-97. How should “best checkpoint” be selected when LM loss and cognition disagree?
-98. Should the final model be an ensemble of evidence (best substrate vs best cognition) only for research, or must one checkpoint always win?
-
----
-
-## N. What could falsify the whole V5 direction?
-
-99. What if cognition-targeted pretraining improves synthetic benchmarks but not natural reasoning?
-100. What if standard generic pretraining catches up once model scale increases?
-101. What if the apparent SFT advantage is mostly instruction-format specialization?
-102. What if binding/composition are better implemented in the Connector than internalized in a small Core?
-103. What if architecture changes matter far less than data quality?
-104. What if the best foundation is simply a very strong conventional LM plus minimal external cognition?
-
-These possibilities must remain admissible.
-
----
-
-# Highest-priority questions to answer first
-
-Before freezing V5 v1.0, answer these first:
-
-1. **What exact cognition benchmark defines success?**
-2. **Can cognition-rich LM data produce OOD binding/state/composition without special objectives?**
-3. **Does depth improve cognition at fixed model/compute budget?**
-4. **Which vocabulary size gives the best cognition/compute tradeoff?**
-5. **What cognition-data fraction improves primitives without damaging general substrate?**
-6. **Does SFT6's selection signal come primarily from data contrasts or its objective?**
-7. **Can the same external task structure have different optimal interventions based only on model-state evidence?**
-8. **What checkpoint promotion rule prevents another “lower loss, worse behavior” mistake?**
-9. **What is the smallest scale at which the winning recipe survives?**
-10. **What evidence is strong enough to justify the first expensive ~300M V5 run?**
-
----
-
-# Question to return to
-
-> **If the Connector were removed tomorrow, what computations would we wish the Core had already learned — and what exact training experiences would cause those computations to emerge?**
+- Recurrent/SSM/Titans memory architecture: reopen only for a measured dense long-context bottleneck.
+- MoE: reopen only when dense data/compute scaling is established.
+- Byte-latent architecture: independent later program, not a tokenizer arm.
+- Native context beyond 4k: reopen only when tasks and data require it.
+- 300M/1B/3B: reopen only from measured scaling and adequate clean-token inventory.
