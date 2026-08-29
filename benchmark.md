@@ -39,6 +39,9 @@ receipt:
    fixed-rule, template, tokenization, and answer-format shortcuts.
 3. **Null calculation:** compute the per-case uniform-candidate chance
    \(p_0 = |C|^{-1}\), then the suite-weighted \(\bar p_0 = n^{-1}\sum_i p_{0,i}\).
+   For a heuristic whose output is mechanically tied to serialization (such as
+   `latest_fact` or `nearest_position`), also compute an exact permutation null
+   by averaging that heuristic over all fact-order permutations.
 4. **Permutation simulation:** generate independent seeds and measure every
    adversary before looking at model results.
 5. **Power check:** for a binary gate, use paired exact sign tests; for a score
@@ -51,12 +54,13 @@ receipt:
 The primary shortcut rule is:
 
 \[
-\max_h(\mathrm{Acc}(h)-\bar p_0) \le 0.10,
+\max_h(\mathrm{Acc}(h)-\bar p_{0,h}) \le 0.10,
 \]
 
-where \(h\) ranges over every named heuristic in the family. The development
-certificate pools eight independent seeds before applying this bound; a single
-seed is never sufficient evidence that a shortcut is absent.
+where \(h\) ranges over every named heuristic in the family and \(\bar p_{0,h}\)
+is its declared null (uniform-candidate or exact permutation-calibrated). The
+development certificate pools eight independent seeds before applying this
+bound; a single seed is never sufficient evidence that a shortcut is absent.
 
 ## 3. Case schema and information firewall
 
