@@ -136,7 +136,7 @@ Therefore vocabulary size, byte fallback, number segmentation, context/answer co
 
 V5 must evaluate position, length, distractors, surface form, symbols, topology, and difficulty separately and jointly. **PROVEN / STRONG EVIDENCE**
 
-## Evidence constraints carried into Ground Blueprint v0.3
+## Evidence constraints carried into Ground Blueprint v0.4
 
 1. Loss is necessary but never sufficient.
 2. Final checkpoint is never automatically promoted.

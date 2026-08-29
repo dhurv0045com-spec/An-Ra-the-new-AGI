@@ -2,7 +2,7 @@
 
 The V5 training path is **not frozen** until every item below has an explicit answer, evidence link/receipt, or deliberate rejection.
 
-Ground Blueprint v0.3 state: **250M implementation contracts and E0/E1 research harnesses pass; sealed promotion certification remains incomplete.** Checked items below are research decisions or development invariants, not authorization to train.
+Ground Blueprint v0.4 state: **250M implementation contracts and shortcut-resistant E0/E1 research harnesses pass; sealed promotion certification remains incomplete.** Checked items below are research decisions or development invariants, not authorization to train.
 
 Required critical path: **E0 benchmark certification → E1 tokenizer → E2 architecture → E3 data/objective → E4 minimal curriculum/optimization → E5 102M replication → E6 freeze review.**
 
@@ -13,7 +13,7 @@ Required critical path: **E0 benchmark certification → E1 tokenizer → E2 arc
 - [ ] sealed promotion benchmark frozen
 - [x] OOD axes defined
 - [x] representation vs selection vs realization metrics separated in executable APIs
-- [ ] shortcut/leakage review passed
+- [x] local shortcut/leakage red-team passed; external sealed/natural review remains open
 
 ## Tokenizer
 
@@ -108,9 +108,9 @@ Required critical path: **E0 benchmark certification → E1 tokenizer → E2 arc
 - [x] old 166-VIE bank rejected as qualified causal evidence
 - [x] inherited VNext implementation physically removed from ESOES
 - [x] E0 deterministic development receipt, independent solver, 20-seed property sweep, and initial chance/power audit created
-- [x] context/output axes and metric-specific confidence procedures implemented
+- [x] semantic-time state queries, split-held-out rule structures, pooled heuristic gates, context/difficulty/output axes, and metric-specific confidence procedures implemented
 - [ ] natural-source custody and real sealed commitment complete
-- [x] E1 artifact-bound static audit and Pareto harness implemented
+- [x] E1 artifact-bound static audit, Pareto harness, and matched-budget tournament plan implemented
 - [ ] real 16k/24k/32k tokenizer candidates audited
 - [x] 250M model/run/lineage contracts and implementation blueprint created
 

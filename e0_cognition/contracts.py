@@ -24,6 +24,14 @@ class PairKind(str, Enum):
     STATE_SWAP = "state_swap"
 
 
+SENSITIVITY_PAIR_KINDS = frozenset(
+    {PairKind.QUERY_SWAP, PairKind.RELEVANT_FACT_SWAP, PairKind.STATE_SWAP}
+)
+INVARIANCE_PAIR_KINDS = frozenset(
+    {PairKind.IRRELEVANT_FACT_SWAP, PairKind.ORDER_PERMUTATION}
+)
+
+
 @dataclass(frozen=True, slots=True)
 class GraphEdge:
     source: str
@@ -91,6 +99,14 @@ class CausalPair:
     kind: PairKind
     base: CausalCase
     changed: CausalCase
+
+    @property
+    def expected_effect(self) -> str:
+        if self.kind in SENSITIVITY_PAIR_KINDS:
+            return "sensitivity"
+        if self.kind in INVARIANCE_PAIR_KINDS:
+            return "invariance"
+        raise AssertionError(f"unclassified pair kind: {self.kind}")
 
     def assert_contract(self) -> None:
         """Verify the serialized pair changed exactly the intended variable."""
@@ -196,6 +212,16 @@ class EvaluationSuite:
                 histograms.setdefault(axis, Counter())[value] += 1
         return {axis: dict(sorted(values.items())) for axis, values in sorted(histograms.items())}
 
+    def difficulty_axis_histograms(self) -> dict[str, dict[int, int]]:
+        histograms: dict[str, Counter[int]] = {}
+        for case in self.cases:
+            for axis, value in case.difficulty:
+                histograms.setdefault(axis, Counter())[value] += 1
+        return {axis: dict(sorted(values.items())) for axis, values in sorted(histograms.items())}
+
+    def pair_effect_histogram(self) -> dict[str, int]:
+        return dict(sorted(Counter(pair.expected_effect for pair in self.pairs).items()))
+
 
 def assert_split_disjoint(suites: Iterable[EvaluationSuite]) -> None:
     """Enforce disjoint symbols, relations, templates, domains and case hashes."""
@@ -211,6 +237,12 @@ def assert_split_disjoint(suites: Iterable[EvaluationSuite]) -> None:
             for edge in case.hidden.graph
             for token in (edge.source, edge.relation, edge.target)
         }
+        left_rule_structures = {
+            value
+            for case in left.cases
+            for axis, value in case.surface_axes
+            if axis == "rule_structure"
+        }
         for right in suites[i + 1 :]:
             if left.split == right.split:
                 raise AssertionError("disjointness check expects different splits")
@@ -224,6 +256,13 @@ def assert_split_disjoint(suites: Iterable[EvaluationSuite]) -> None:
                     for case in right.cases
                     for edge in case.hidden.graph
                     for token in (edge.source, edge.relation, edge.target)
+                },
+                "rule structure": left_rule_structures
+                & {
+                    value
+                    for case in right.cases
+                    for axis, value in case.surface_axes
+                    if axis == "rule_structure"
                 },
             }
             collisions = {name: values for name, values in checks.items() if values}

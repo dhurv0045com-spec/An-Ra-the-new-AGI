@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import copy
+import dataclasses
 import hashlib
 import unittest
 
 from e1_tokenizer.audit import audit_receipt
 from e1_tokenizer.compare import pareto_front
 from e1_tokenizer.probes import PROBES
+from e1_tokenizer.tournament import CANDIDATE_VOCABULARIES, build_plan, probe_manifest_sha256
 
 
 def candidate_receipt(name: str, vocabulary_size: int, artifact_sha256: str) -> dict[str, object]:
@@ -58,6 +60,22 @@ class E1TokenizerTests(unittest.TestCase):
         dominated["candidate"] = "dominated"
         dominated["vocabulary_size"] = 32_768
         self.assertEqual(pareto_front([small, efficient, dominated]), ["efficient", "small"])
+
+    def test_tournament_is_exactly_matched_and_pending_external_inputs(self) -> None:
+        plan = build_plan(raw_byte_budget=1234, training_flops_budget=5678)
+        plan.assert_valid()
+        self.assertEqual(plan.candidate_vocabulary_sizes, CANDIDATE_VOCABULARIES)
+        self.assertEqual(plan.status(), "BLOCKED_EXTERNAL_CORPUS")
+        self.assertEqual(len(probe_manifest_sha256()), 64)
+
+    def test_tournament_rejects_unmatched_arm_budget(self) -> None:
+        plan = build_plan()
+        bad = dataclasses.replace(
+            plan,
+            arms=(dataclasses.replace(plan.arms[0], matched_raw_bytes=1), *plan.arms[1:]),
+        )
+        with self.assertRaises(ValueError):
+            bad.assert_valid()
 
 
 if __name__ == "__main__":

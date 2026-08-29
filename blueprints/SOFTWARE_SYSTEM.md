@@ -1,4 +1,4 @@
-# Ground Blueprint v0.3 — Software and Training System
+# Ground Blueprint v0.4 — Software and Training System
 
 This specifies the clean implementation boundary and deliberately does not copy the VNext directory layout or checkpoint schema. [`IMPLEMENTATION_BLUEPRINT.md`](IMPLEMENTATION_BLUEPRINT.md) is authoritative for exact packages, interfaces, commands, artifacts, CI gates, and milestone acceptance.
 

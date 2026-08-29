@@ -1,0 +1,69 @@
+{
+  "after": {
+    "rule_induction": {
+      "bag_of_words": {
+        "accuracy": 0.0625,
+        "chance": 0.0625,
+        "cases": 256,
+        "seeds": 8
+      },
+      "fixed_identity_rule": {
+        "accuracy": 0.0,
+        "chance": 0.0625,
+        "cases": 256,
+        "seeds": 8
+      },
+      "fixed_repeat_left_rule": {
+        "accuracy": 0.125,
+        "chance": 0.0625,
+        "cases": 256,
+        "seeds": 8
+      },
+      "fixed_repeat_right_rule": {
+        "accuracy": 0.125,
+        "chance": 0.0625,
+        "cases": 256,
+        "seeds": 8
+      },
+      "fixed_reverse_rule": {
+        "accuracy": 0.125,
+        "chance": 0.0625,
+        "cases": 256,
+        "seeds": 8
+      }
+    },
+    "state_position_heuristics": {
+      "latest_fact": {
+        "accuracy": 0.1953125,
+        "chance": 0.13888888888888865,
+        "cases": 384,
+        "seeds": 8
+      },
+      "nearest_position": {
+        "accuracy": 0.1953125,
+        "chance": 0.13888888888888865,
+        "cases": 384,
+        "seeds": 8
+      }
+    },
+    "suite_sha256": "2b0204a37cde1762d47cdb6088542a7eb4307b3d8904d5f1ffad496c312d7d7e"
+  },
+  "before": {
+    "legacy_suite": {
+      "groups_per_family": 16,
+      "seed": 271828
+    },
+    "bag_of_words_rule_induction_accuracy": 0.8125,
+    "latest_fact_state_overwrite_accuracy": 1.0,
+    "latest_fact_natural_state_accuracy": 1.0,
+    "nearest_position_state_overwrite_accuracy": 1.0,
+    "nearest_position_natural_state_accuracy": 1.0,
+    "note": "Measured against the pre-v0.4 generator at the previous esoes commit; fixed-rule controls did not exist because rule induction was permanently reverse-pair."
+  },
+  "gate": {
+    "max_allowed_excess_over_pooled_chance": 0.1,
+    "pooled_seeds": 8
+  },
+  "previous_commit": "c2af99411802349360c8bce843d08279625169b9",
+  "schema": "esoes-e0-shortcut-repair/v1"
+}

@@ -8,8 +8,8 @@ import json
 from collections import Counter
 from pathlib import Path
 
-from .baselines import evaluate_all_baselines
-from .contracts import PairKind, Split, assert_split_disjoint
+from .baselines import BASELINES, evaluate_all_baselines
+from .contracts import Split, assert_split_disjoint
 from .evaluation_generators import build_evaluation_suite
 from .reference_solvers import assert_reference_solver_agreement
 from .preregistration import PROTOCOL, protocol_sha256
@@ -19,9 +19,41 @@ from .statistics import (
     wilson_interval,
 )
 from .training_generators import assert_training_eval_disjoint, build_training_examples
+from .metrics import selection_eligible
 
 
 DEFAULT_DEVELOPMENT_SEED = 271828
+
+
+def _subset_baseline(suite, baseline_name: str, families: set[str]) -> dict[str, float | int]:
+    baseline = BASELINES[baseline_name]
+    cases = [case for case in suite.cases if case.family in families]
+    if not cases:
+        raise AssertionError(f"no cases for baseline subset {sorted(families)}")
+    correct = sum(baseline(case) == case.answer for case in cases)
+    chance = sum(1.0 / len(case.candidates) for case in cases) / len(cases)
+    return {"accuracy": correct / len(cases), "chance": chance, "cases": len(cases)}
+
+
+def _aggregate_shortcut_probe(
+    *, split: Split, seed: int, groups_per_family: int, baseline_name: str, families: set[str]
+) -> dict[str, float | int]:
+    """Pool independent generator seeds before judging a shortcut.
+
+    A single shuffled suite can be noisy: the red-team gate is therefore based
+    on a preregistered multi-seed pool, while the canonical receipt still keeps
+    the primary development suite hash and metrics.
+    """
+
+    suites = [
+        build_evaluation_suite(split, seed=seed + offset, groups_per_family=groups_per_family)
+        for offset in range(8)
+    ]
+    baseline = BASELINES[baseline_name]
+    cases = [case for suite in suites for case in suite.cases if case.family in families]
+    correct = sum(baseline(case) == case.answer for case in cases)
+    chance = sum(1.0 / len(case.candidates) for case in cases) / len(cases)
+    return {"accuracy": correct / len(cases), "chance": chance, "cases": len(cases), "seeds": 8}
 
 
 def build_development_certificate(*, seed: int, groups_per_family: int) -> dict[str, object]:
@@ -43,6 +75,46 @@ def build_development_certificate(*, seed: int, groups_per_family: int) -> dict[
     )
     maximum_answer_position_share = max(answer_positions.values()) / sum(answer_positions.values())
     surface_axes = dev.surface_axis_histograms()
+    difficulty_axes = dev.difficulty_axis_histograms()
+    state_families = {"state_overwrite", "natural_state_analogue"}
+    state_shortcuts = {
+        name: _aggregate_shortcut_probe(
+            split=Split.DEVELOPMENT,
+            seed=seed + 1_000,
+            groups_per_family=groups_per_family,
+            baseline_name=name,
+            families=state_families,
+        )
+        for name in ("latest_fact", "nearest_position")
+    }
+    rule_shortcuts = {
+        name: _aggregate_shortcut_probe(
+            split=Split.DEVELOPMENT,
+            seed=seed + 2_000,
+            groups_per_family=groups_per_family,
+            baseline_name=name,
+            families={"rule_induction"},
+        )
+        for name in (
+            "bag_of_words",
+            "fixed_reverse_rule",
+            "fixed_identity_rule",
+            "fixed_repeat_left_rule",
+            "fixed_repeat_right_rule",
+        )
+    }
+    state_shortcut_ceiling = max(
+        result["chance"] + 0.10 for result in state_shortcuts.values()
+    )
+    rule_shortcut_ceiling = max(result["chance"] + 0.10 for result in rule_shortcuts.values())
+    pair_effects = dev.pair_effect_histogram()
+    rule_structures = {
+        value
+        for case in dev.cases
+        if case.family == "rule_induction"
+        for axis, value in case.surface_axes
+        if axis == "rule_structure"
+    }
     checks = {
         "suite_contracts": True,
         "counterfactual_pairs_mechanical": len(dev.pairs) > 0,
@@ -55,7 +127,7 @@ def build_development_certificate(*, seed: int, groups_per_family: int) -> dict[
         "random_baseline_below_50pct": baselines["deterministic_random"]["accuracy"] < 0.50,
         "full_oracle_exact": baselines["full_truth_oracle"]["accuracy"] == 1.0,
         "broken_state_tracker_fails_state": (
-            baselines["broken_state_tracker"]["by_family"]["state_overwrite"] < 0.25
+            baselines["broken_state_tracker"]["by_family"]["state_overwrite"] < 0.50
         ),
         "direct_retrieval_does_not_solve_composition": all(
             baselines["direct_retrieval_control"]["by_family"][family] < 0.75
@@ -67,6 +139,41 @@ def build_development_certificate(*, seed: int, groups_per_family: int) -> dict[
             "front", "middle", "back", "distributed", "answer-absent"
         }.issubset(surface_axes["relevant_position"]),
         "output_format_axes_covered": len(surface_axes["answer_format"]) >= 5,
+        "state_semantic_query_axes_covered": {
+            "latest", "intermediate", "rollback", "precedence"
+        }.issubset(surface_axes["state_query"]),
+        "state_serialization_is_shuffled": surface_axes["serialization"].get(
+            "semantic-shuffled", 0
+        ) > 0,
+        "state_position_heuristics_fail": all(
+            result["accuracy"] <= result["chance"] + 0.10
+            for result in state_shortcuts.values()
+        ),
+        "multiple_rule_structures": len(rule_structures) >= 6,
+        "rule_shortcuts_fail": all(
+            result["accuracy"] <= result["chance"] + 0.10
+            for result in rule_shortcuts.values()
+        ),
+        "sensitivity_and_invariance_pairs_present": (
+            pair_effects.get("sensitivity", 0) > 0
+            and pair_effects.get("invariance", 0) > 0
+        ),
+        "difficulty_axes_covered": {"cardinality", "hops", "distractors"}.issubset(
+            difficulty_axes
+        ),
+        "natural_analogues_present": all(
+            family in dev.family_histogram()
+            for family in (
+                "natural_binding_analogue",
+                "natural_state_analogue",
+                "natural_composition_analogue",
+            )
+        ),
+        "copy_is_not_selection_control": all(
+            not selection_eligible(case)
+            for case in dev.cases
+            if case.family == "exact_contextual_copy"
+        ),
     }
     status = "PASS" if all(checks.values()) else "FAIL"
     return {
@@ -84,9 +191,20 @@ def build_development_certificate(*, seed: int, groups_per_family: int) -> dict[
             "family_histogram": dev.family_histogram(),
             "pair_histogram": pair_histogram,
             "surface_axis_histograms": surface_axes,
+            "difficulty_axis_histograms": difficulty_axes,
+            "pair_effect_histogram": pair_effects,
+            "rule_structures": sorted(rule_structures),
         },
         "checks": checks,
         "baselines": baselines,
+        "shortcut_audit": {
+            "state_families": sorted(state_families),
+            "state_position_heuristics": state_shortcuts,
+            "state_shortcut_ceiling": state_shortcut_ceiling,
+            "rule_induction_heuristics": rule_shortcuts,
+            "rule_shortcut_ceiling": rule_shortcut_ceiling,
+            "policy": "every named heuristic must remain within chance + 10 percentage points",
+        },
         "statistical_calibration": {
             "uniform_candidate_chance": chance,
             "deterministic_random_wilson_95": random_interval,

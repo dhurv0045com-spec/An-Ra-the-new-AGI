@@ -1,0 +1,40 @@
+{
+  "arms": [
+    {
+      "artifact_sha256": null,
+      "audit_receipt_sha256": null,
+      "matched_raw_bytes": 10000000,
+      "matched_training_flops": 1,
+      "name": "bpe-byte-fallback-16384",
+      "vocabulary_size": 16384
+    },
+    {
+      "artifact_sha256": null,
+      "audit_receipt_sha256": null,
+      "matched_raw_bytes": 10000000,
+      "matched_training_flops": 1,
+      "name": "bpe-byte-fallback-24576",
+      "vocabulary_size": 24576
+    },
+    {
+      "artifact_sha256": null,
+      "audit_receipt_sha256": null,
+      "matched_raw_bytes": 10000000,
+      "matched_training_flops": 1,
+      "name": "bpe-byte-fallback-32768",
+      "vocabulary_size": 32768
+    }
+  ],
+  "candidate_vocabulary_sizes": [
+    16384,
+    24576,
+    32768
+  ],
+  "corpus_manifest_sha256": null,
+  "experiment_id": "E1-tokenizer-tournament-v1",
+  "probe_manifest_sha256": "298e185d3a89448d99c8757382fe9a3e4986226ad9b29693b1c7f04295b71d5e",
+  "raw_byte_budget": 10000000,
+  "schema": "esoes-e1-tokenizer-tournament/v1",
+  "status": "BLOCKED_EXTERNAL_CORPUS",
+  "training_flops_budget": 1
+}

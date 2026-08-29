@@ -1,112 +1,566 @@
 {
   "baselines": {
     "bag_of_words": {
-      "accuracy": 0.6363636363636364,
+      "accuracy": 0.6494565217391305,
+      "by_difficulty": {
+        "cardinality": {
+          "1": 0.5,
+          "16": 0.03125,
+          "2": 0.873015873015873,
+          "3": 0.21875,
+          "4": 0.5616438356164384,
+          "5": 0.8125,
+          "8": 1.0
+        },
+        "demonstrations": {
+          "2": 0.08333333333333333,
+          "3": 0.0,
+          "4": 0.0
+        },
+        "distractors": {
+          "0": 0.6666666666666666,
+          "1": 0.5804597701149425,
+          "15": 0.03125,
+          "3": 0.9259259259259259,
+          "4": 0.8571428571428571,
+          "7": 1.0
+        },
+        "hops": {
+          "0": 0.8263888888888888,
+          "1": 0.7767857142857143,
+          "2": 0.4444444444444444,
+          "3": 0.23529411764705882,
+          "4": 0.125
+        },
+        "state_events": {
+          "5": 0.8125
+        },
+        "variables": {
+          "2": 0.8125
+        }
+      },
       "by_family": {
         "counterfactual_premise": 0.5,
         "entity_value_binding": 1.0,
         "exact_contextual_copy": 1.0,
         "matched_direct_retrieval": 1.0,
         "missing_information": 0.0,
-        "natural_binding_analogue": 0.3125,
+        "natural_binding_analogue": 0.4375,
         "natural_composition_analogue": 0.0,
-        "natural_state_analogue": 0.0,
+        "natural_state_analogue": 0.875,
         "nonce_identifier_retrieval": 1.0,
         "relation_1_hop": 1.0,
         "relation_2_hop": 0.0,
         "relation_3_hop": 0.0,
-        "rule_induction": 0.8125,
-        "state_overwrite": 0.4375
+        "rule_induction": 0.03125,
+        "state_overwrite": 0.78125
       },
-      "correct": 224,
-      "total": 352
+      "correct": 239,
+      "total": 368
     },
     "broken_state_tracker": {
-      "accuracy": 0.29261363636363635,
+      "accuracy": 0.3233695652173913,
+      "by_difficulty": {
+        "cardinality": {
+          "1": 0.75,
+          "16": 0.03125,
+          "2": 0.3888888888888889,
+          "3": 0.375,
+          "4": 0.2876712328767123,
+          "5": 0.20833333333333334,
+          "8": 0.08
+        },
+        "demonstrations": {
+          "2": 0.0,
+          "3": 0.0,
+          "4": 0.1
+        },
+        "distractors": {
+          "0": 0.6041666666666666,
+          "1": 0.3793103448275862,
+          "15": 0.03125,
+          "3": 0.3148148148148148,
+          "4": 0.11428571428571428,
+          "7": 0.08
+        },
+        "hops": {
+          "0": 0.3333333333333333,
+          "1": 0.375,
+          "2": 0.3333333333333333,
+          "3": 0.25,
+          "4": 0.0
+        },
+        "state_events": {
+          "5": 0.20833333333333334
+        },
+        "variables": {
+          "2": 0.20833333333333334
+        }
+      },
       "by_family": {
         "counterfactual_premise": 0.40625,
-        "entity_value_binding": 0.125,
+        "entity_value_binding": 0.2,
         "exact_contextual_copy": 1.0,
-        "matched_direct_retrieval": 0.2708333333333333,
-        "missing_information": 0.3125,
-        "natural_binding_analogue": 0.5625,
-        "natural_composition_analogue": 0.25,
-        "natural_state_analogue": 0.0,
-        "nonce_identifier_retrieval": 0.5625,
-        "relation_1_hop": 0.6875,
-        "relation_2_hop": 0.375,
-        "relation_3_hop": 0.1875,
-        "rule_induction": 0.25,
-        "state_overwrite": 0.0
-      },
-      "correct": 103,
-      "total": 352
-    },
-    "deterministic_random": {
-      "accuracy": 0.3210227272727273,
-      "by_family": {
-        "counterfactual_premise": 0.28125,
-        "entity_value_binding": 0.1125,
-        "exact_contextual_copy": 1.0,
-        "matched_direct_retrieval": 0.3958333333333333,
-        "missing_information": 0.8125,
-        "natural_binding_analogue": 0.25,
-        "natural_composition_analogue": 0.375,
-        "natural_state_analogue": 0.375,
-        "nonce_identifier_retrieval": 0.3125,
-        "relation_1_hop": 0.375,
+        "matched_direct_retrieval": 0.4375,
+        "missing_information": 0.5,
+        "natural_binding_analogue": 0.375,
+        "natural_composition_analogue": 0.5,
+        "natural_state_analogue": 0.125,
+        "nonce_identifier_retrieval": 0.125,
+        "relation_1_hop": 0.625,
         "relation_2_hop": 0.375,
         "relation_3_hop": 0.125,
-        "rule_induction": 0.25,
+        "rule_induction": 0.03125,
         "state_overwrite": 0.25
       },
-      "correct": 113,
-      "total": 352
+      "correct": 119,
+      "total": 368
+    },
+    "deterministic_random": {
+      "accuracy": 0.26358695652173914,
+      "by_difficulty": {
+        "cardinality": {
+          "1": 0.8125,
+          "16": 0.03125,
+          "2": 0.3492063492063492,
+          "3": 0.15625,
+          "4": 0.1643835616438356,
+          "5": 0.14583333333333334,
+          "8": 0.08
+        },
+        "demonstrations": {
+          "2": 0.0,
+          "3": 0.0,
+          "4": 0.1
+        },
+        "distractors": {
+          "0": 0.5416666666666666,
+          "1": 0.3160919540229885,
+          "15": 0.03125,
+          "3": 0.12962962962962962,
+          "4": 0.17142857142857143,
+          "7": 0.08
+        },
+        "hops": {
+          "0": 0.2916666666666667,
+          "1": 0.32142857142857145,
+          "2": 0.2222222222222222,
+          "3": 0.16176470588235295,
+          "4": 0.0
+        },
+        "state_events": {
+          "5": 0.14583333333333334
+        },
+        "variables": {
+          "2": 0.14583333333333334
+        }
+      },
+      "by_family": {
+        "counterfactual_premise": 0.3125,
+        "entity_value_binding": 0.1375,
+        "exact_contextual_copy": 1.0,
+        "matched_direct_retrieval": 0.4166666666666667,
+        "missing_information": 0.625,
+        "natural_binding_analogue": 0.1875,
+        "natural_composition_analogue": 0.25,
+        "natural_state_analogue": 0.125,
+        "nonce_identifier_retrieval": 0.125,
+        "relation_1_hop": 0.5625,
+        "relation_2_hop": 0.125,
+        "relation_3_hop": 0.125,
+        "rule_induction": 0.03125,
+        "state_overwrite": 0.15625
+      },
+      "correct": 97,
+      "total": 368
     },
     "direct_retrieval_control": {
-      "accuracy": 0.6676136363636364,
+      "accuracy": 0.6385869565217391,
+      "by_difficulty": {
+        "cardinality": {
+          "1": 0.75,
+          "16": 0.03125,
+          "2": 0.8015873015873016,
+          "3": 0.6875,
+          "4": 0.6986301369863014,
+          "5": 0.22916666666666666,
+          "8": 1.0
+        },
+        "demonstrations": {
+          "2": 0.0,
+          "3": 0.0,
+          "4": 0.1
+        },
+        "distractors": {
+          "0": 0.6041666666666666,
+          "1": 0.735632183908046,
+          "15": 0.03125,
+          "3": 0.8518518518518519,
+          "4": 0.17142857142857143,
+          "7": 1.0
+        },
+        "hops": {
+          "0": 0.9444444444444444,
+          "1": 0.44642857142857145,
+          "2": 0.6388888888888888,
+          "3": 0.38235294117647056,
+          "4": 0.0
+        },
+        "state_events": {
+          "5": 0.22916666666666666
+        },
+        "variables": {
+          "2": 0.22916666666666666
+        }
+      },
       "by_family": {
         "counterfactual_premise": 0.40625,
         "entity_value_binding": 1.0,
         "exact_contextual_copy": 1.0,
         "matched_direct_retrieval": 1.0,
-        "missing_information": 0.3125,
+        "missing_information": 0.5,
         "natural_binding_analogue": 1.0,
-        "natural_composition_analogue": 0.25,
-        "natural_state_analogue": 0.3125,
+        "natural_composition_analogue": 0.5,
+        "natural_state_analogue": 0.25,
         "nonce_identifier_retrieval": 1.0,
-        "relation_1_hop": 0.6875,
+        "relation_1_hop": 0.625,
         "relation_2_hop": 0.375,
-        "relation_3_hop": 0.1875,
-        "rule_induction": 0.25,
-        "state_overwrite": 0.25
+        "relation_3_hop": 0.125,
+        "rule_induction": 0.03125,
+        "state_overwrite": 0.21875
       },
       "correct": 235,
-      "total": 352
+      "total": 368
     },
     "first_candidate": {
-      "accuracy": 0.32954545454545453,
+      "accuracy": 0.32608695652173914,
+      "by_difficulty": {
+        "cardinality": {
+          "1": 0.75,
+          "16": 0.03125,
+          "2": 0.3888888888888889,
+          "3": 0.375,
+          "4": 0.2876712328767123,
+          "5": 0.22916666666666666,
+          "8": 0.08
+        },
+        "demonstrations": {
+          "2": 0.0,
+          "3": 0.0,
+          "4": 0.1
+        },
+        "distractors": {
+          "0": 0.6041666666666666,
+          "1": 0.3793103448275862,
+          "15": 0.03125,
+          "3": 0.2962962962962963,
+          "4": 0.17142857142857143,
+          "7": 0.08
+        },
+        "hops": {
+          "0": 0.3333333333333333,
+          "1": 0.38392857142857145,
+          "2": 0.3333333333333333,
+          "3": 0.25,
+          "4": 0.0
+        },
+        "state_events": {
+          "5": 0.22916666666666666
+        },
+        "variables": {
+          "2": 0.22916666666666666
+        }
+      },
       "by_family": {
         "counterfactual_premise": 0.40625,
-        "entity_value_binding": 0.125,
+        "entity_value_binding": 0.2,
         "exact_contextual_copy": 1.0,
-        "matched_direct_retrieval": 0.2708333333333333,
-        "missing_information": 0.3125,
-        "natural_binding_analogue": 0.5625,
-        "natural_composition_analogue": 0.25,
-        "natural_state_analogue": 0.3125,
-        "nonce_identifier_retrieval": 0.5625,
-        "relation_1_hop": 0.6875,
+        "matched_direct_retrieval": 0.4375,
+        "missing_information": 0.5,
+        "natural_binding_analogue": 0.375,
+        "natural_composition_analogue": 0.5,
+        "natural_state_analogue": 0.25,
+        "nonce_identifier_retrieval": 0.125,
+        "relation_1_hop": 0.625,
         "relation_2_hop": 0.375,
-        "relation_3_hop": 0.1875,
-        "rule_induction": 0.25,
-        "state_overwrite": 0.25
+        "relation_3_hop": 0.125,
+        "rule_induction": 0.03125,
+        "state_overwrite": 0.21875
       },
-      "correct": 116,
-      "total": 352
+      "correct": 120,
+      "total": 368
+    },
+    "fixed_identity_rule": {
+      "accuracy": 0.3233695652173913,
+      "by_difficulty": {
+        "cardinality": {
+          "1": 0.75,
+          "16": 0.0,
+          "2": 0.3888888888888889,
+          "3": 0.375,
+          "4": 0.2876712328767123,
+          "5": 0.22916666666666666,
+          "8": 0.08
+        },
+        "demonstrations": {
+          "2": 0.0,
+          "3": 0.0,
+          "4": 0.0
+        },
+        "distractors": {
+          "0": 0.6041666666666666,
+          "1": 0.3793103448275862,
+          "15": 0.0,
+          "3": 0.2962962962962963,
+          "4": 0.17142857142857143,
+          "7": 0.08
+        },
+        "hops": {
+          "0": 0.3333333333333333,
+          "1": 0.38392857142857145,
+          "2": 0.3055555555555556,
+          "3": 0.25,
+          "4": 0.0
+        },
+        "state_events": {
+          "5": 0.22916666666666666
+        },
+        "variables": {
+          "2": 0.22916666666666666
+        }
+      },
+      "by_family": {
+        "counterfactual_premise": 0.40625,
+        "entity_value_binding": 0.2,
+        "exact_contextual_copy": 1.0,
+        "matched_direct_retrieval": 0.4375,
+        "missing_information": 0.5,
+        "natural_binding_analogue": 0.375,
+        "natural_composition_analogue": 0.5,
+        "natural_state_analogue": 0.25,
+        "nonce_identifier_retrieval": 0.125,
+        "relation_1_hop": 0.625,
+        "relation_2_hop": 0.375,
+        "relation_3_hop": 0.125,
+        "rule_induction": 0.0,
+        "state_overwrite": 0.21875
+      },
+      "correct": 119,
+      "total": 368
+    },
+    "fixed_repeat_left_rule": {
+      "accuracy": 0.3342391304347826,
+      "by_difficulty": {
+        "cardinality": {
+          "1": 0.75,
+          "16": 0.125,
+          "2": 0.3888888888888889,
+          "3": 0.375,
+          "4": 0.2876712328767123,
+          "5": 0.22916666666666666,
+          "8": 0.08
+        },
+        "demonstrations": {
+          "2": 0.16666666666666666,
+          "3": 0.2,
+          "4": 0.0
+        },
+        "distractors": {
+          "0": 0.6041666666666666,
+          "1": 0.3793103448275862,
+          "15": 0.125,
+          "3": 0.2962962962962963,
+          "4": 0.17142857142857143,
+          "7": 0.08
+        },
+        "hops": {
+          "0": 0.3333333333333333,
+          "1": 0.38392857142857145,
+          "2": 0.3055555555555556,
+          "3": 0.3088235294117647,
+          "4": 0.0
+        },
+        "state_events": {
+          "5": 0.22916666666666666
+        },
+        "variables": {
+          "2": 0.22916666666666666
+        }
+      },
+      "by_family": {
+        "counterfactual_premise": 0.40625,
+        "entity_value_binding": 0.2,
+        "exact_contextual_copy": 1.0,
+        "matched_direct_retrieval": 0.4375,
+        "missing_information": 0.5,
+        "natural_binding_analogue": 0.375,
+        "natural_composition_analogue": 0.5,
+        "natural_state_analogue": 0.25,
+        "nonce_identifier_retrieval": 0.125,
+        "relation_1_hop": 0.625,
+        "relation_2_hop": 0.375,
+        "relation_3_hop": 0.125,
+        "rule_induction": 0.125,
+        "state_overwrite": 0.21875
+      },
+      "correct": 123,
+      "total": 368
+    },
+    "fixed_repeat_right_rule": {
+      "accuracy": 0.3342391304347826,
+      "by_difficulty": {
+        "cardinality": {
+          "1": 0.75,
+          "16": 0.125,
+          "2": 0.3888888888888889,
+          "3": 0.375,
+          "4": 0.2876712328767123,
+          "5": 0.22916666666666666,
+          "8": 0.08
+        },
+        "demonstrations": {
+          "2": 0.0,
+          "3": 0.2,
+          "4": 0.2
+        },
+        "distractors": {
+          "0": 0.6041666666666666,
+          "1": 0.3793103448275862,
+          "15": 0.125,
+          "3": 0.2962962962962963,
+          "4": 0.17142857142857143,
+          "7": 0.08
+        },
+        "hops": {
+          "0": 0.3333333333333333,
+          "1": 0.38392857142857145,
+          "2": 0.3055555555555556,
+          "3": 0.3088235294117647,
+          "4": 0.0
+        },
+        "state_events": {
+          "5": 0.22916666666666666
+        },
+        "variables": {
+          "2": 0.22916666666666666
+        }
+      },
+      "by_family": {
+        "counterfactual_premise": 0.40625,
+        "entity_value_binding": 0.2,
+        "exact_contextual_copy": 1.0,
+        "matched_direct_retrieval": 0.4375,
+        "missing_information": 0.5,
+        "natural_binding_analogue": 0.375,
+        "natural_composition_analogue": 0.5,
+        "natural_state_analogue": 0.25,
+        "nonce_identifier_retrieval": 0.125,
+        "relation_1_hop": 0.625,
+        "relation_2_hop": 0.375,
+        "relation_3_hop": 0.125,
+        "rule_induction": 0.125,
+        "state_overwrite": 0.21875
+      },
+      "correct": 123,
+      "total": 368
+    },
+    "fixed_reverse_rule": {
+      "accuracy": 0.3342391304347826,
+      "by_difficulty": {
+        "cardinality": {
+          "1": 0.75,
+          "16": 0.125,
+          "2": 0.3888888888888889,
+          "3": 0.375,
+          "4": 0.2876712328767123,
+          "5": 0.22916666666666666,
+          "8": 0.08
+        },
+        "demonstrations": {
+          "2": 0.16666666666666666,
+          "3": 0.0,
+          "4": 0.2
+        },
+        "distractors": {
+          "0": 0.6041666666666666,
+          "1": 0.3793103448275862,
+          "15": 0.125,
+          "3": 0.2962962962962963,
+          "4": 0.17142857142857143,
+          "7": 0.08
+        },
+        "hops": {
+          "0": 0.3333333333333333,
+          "1": 0.38392857142857145,
+          "2": 0.4166666666666667,
+          "3": 0.25,
+          "4": 0.0
+        },
+        "state_events": {
+          "5": 0.22916666666666666
+        },
+        "variables": {
+          "2": 0.22916666666666666
+        }
+      },
+      "by_family": {
+        "counterfactual_premise": 0.40625,
+        "entity_value_binding": 0.2,
+        "exact_contextual_copy": 1.0,
+        "matched_direct_retrieval": 0.4375,
+        "missing_information": 0.5,
+        "natural_binding_analogue": 0.375,
+        "natural_composition_analogue": 0.5,
+        "natural_state_analogue": 0.25,
+        "nonce_identifier_retrieval": 0.125,
+        "relation_1_hop": 0.625,
+        "relation_2_hop": 0.375,
+        "relation_3_hop": 0.125,
+        "rule_induction": 0.125,
+        "state_overwrite": 0.21875
+      },
+      "correct": 123,
+      "total": 368
     },
     "full_truth_oracle": {
       "accuracy": 1.0,
+      "by_difficulty": {
+        "cardinality": {
+          "1": 1.0,
+          "16": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0,
+          "5": 1.0,
+          "8": 1.0
+        },
+        "demonstrations": {
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "distractors": {
+          "0": 1.0,
+          "1": 1.0,
+          "15": 1.0,
+          "3": 1.0,
+          "4": 1.0,
+          "7": 1.0
+        },
+        "hops": {
+          "0": 1.0,
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "state_events": {
+          "5": 1.0
+        },
+        "variables": {
+          "2": 1.0
+        }
+      },
       "by_family": {
         "counterfactual_premise": 1.0,
         "entity_value_binding": 1.0,
@@ -123,107 +577,264 @@
         "rule_induction": 1.0,
         "state_overwrite": 1.0
       },
-      "correct": 352,
-      "total": 352
+      "correct": 368,
+      "total": 368
     },
     "last_candidate": {
-      "accuracy": 0.3522727272727273,
-      "by_family": {
-        "counterfactual_premise": 0.375,
-        "entity_value_binding": 0.3,
-        "exact_contextual_copy": 1.0,
-        "matched_direct_retrieval": 0.4166666666666667,
-        "missing_information": 0.6875,
-        "natural_binding_analogue": 0.125,
-        "natural_composition_analogue": 0.375,
-        "natural_state_analogue": 0.125,
-        "nonce_identifier_retrieval": 0.125,
-        "relation_1_hop": 0.3125,
-        "relation_2_hop": 0.375,
-        "relation_3_hop": 0.3125,
-        "rule_induction": 0.1875,
-        "state_overwrite": 0.3125
+      "accuracy": 0.3070652173913043,
+      "by_difficulty": {
+        "cardinality": {
+          "1": 0.75,
+          "16": 0.03125,
+          "2": 0.3492063492063492,
+          "3": 0.40625,
+          "4": 0.2465753424657534,
+          "5": 0.125,
+          "8": 0.28
+        },
+        "demonstrations": {
+          "2": 0.0,
+          "3": 0.1,
+          "4": 0.0
+        },
+        "distractors": {
+          "0": 0.5416666666666666,
+          "1": 0.3620689655172414,
+          "15": 0.03125,
+          "3": 0.2037037037037037,
+          "4": 0.14285714285714285,
+          "7": 0.28
+        },
+        "hops": {
+          "0": 0.3888888888888889,
+          "1": 0.25892857142857145,
+          "2": 0.4166666666666667,
+          "3": 0.19117647058823528,
+          "4": 0.0
+        },
+        "state_events": {
+          "5": 0.125
+        },
+        "variables": {
+          "2": 0.125
+        }
       },
-      "correct": 124,
-      "total": 352
+      "by_family": {
+        "counterfactual_premise": 0.3125,
+        "entity_value_binding": 0.2875,
+        "exact_contextual_copy": 1.0,
+        "matched_direct_retrieval": 0.375,
+        "missing_information": 0.5,
+        "natural_binding_analogue": 0.3125,
+        "natural_composition_analogue": 0.125,
+        "natural_state_analogue": 0.1875,
+        "nonce_identifier_retrieval": 0.25,
+        "relation_1_hop": 0.375,
+        "relation_2_hop": 0.5,
+        "relation_3_hop": 0.375,
+        "rule_induction": 0.03125,
+        "state_overwrite": 0.09375
+      },
+      "correct": 113,
+      "total": 368
     },
     "latest_fact": {
-      "accuracy": 0.45454545454545453,
+      "accuracy": 0.32065217391304346,
+      "by_difficulty": {
+        "cardinality": {
+          "1": 0.5,
+          "16": 0.03125,
+          "2": 0.4523809523809524,
+          "3": 0.28125,
+          "4": 0.2602739726027397,
+          "5": 0.2916666666666667,
+          "8": 0.08
+        },
+        "demonstrations": {
+          "2": 0.0,
+          "3": 0.0,
+          "4": 0.1
+        },
+        "distractors": {
+          "0": 0.6041666666666666,
+          "1": 0.3333333333333333,
+          "15": 0.03125,
+          "3": 0.2962962962962963,
+          "4": 0.34285714285714286,
+          "7": 0.08
+        },
+        "hops": {
+          "0": 0.3680555555555556,
+          "1": 0.375,
+          "2": 0.2777777777777778,
+          "3": 0.19117647058823528,
+          "4": 0.0
+        },
+        "state_events": {
+          "5": 0.2916666666666667
+        },
+        "variables": {
+          "2": 0.2916666666666667
+        }
+      },
       "by_family": {
         "counterfactual_premise": 0.40625,
         "entity_value_binding": 0.325,
         "exact_contextual_copy": 1.0,
-        "matched_direct_retrieval": 0.5416666666666666,
+        "matched_direct_retrieval": 0.4166666666666667,
         "missing_information": 0.0,
-        "natural_binding_analogue": 0.1875,
-        "natural_composition_analogue": 0.125,
-        "natural_state_analogue": 1.0,
-        "nonce_identifier_retrieval": 0.4375,
-        "relation_1_hop": 0.6875,
-        "relation_2_hop": 0.125,
+        "natural_binding_analogue": 0.3125,
+        "natural_composition_analogue": 0.1875,
+        "natural_state_analogue": 0.25,
+        "nonce_identifier_retrieval": 0.375,
+        "relation_1_hop": 0.5,
+        "relation_2_hop": 0.25,
         "relation_3_hop": 0.125,
-        "rule_induction": 0.25,
-        "state_overwrite": 1.0
+        "rule_induction": 0.03125,
+        "state_overwrite": 0.3125
       },
-      "correct": 160,
-      "total": 352
+      "correct": 118,
+      "total": 368
     },
     "lexical_overlap": {
-      "accuracy": 0.5596590909090909,
+      "accuracy": 0.6277173913043478,
+      "by_difficulty": {
+        "cardinality": {
+          "1": 0.5,
+          "16": 0.03125,
+          "2": 0.8492063492063492,
+          "3": 0.1875,
+          "4": 0.5616438356164384,
+          "5": 0.7291666666666666,
+          "8": 1.0
+        },
+        "demonstrations": {
+          "2": 0.0,
+          "3": 0.0,
+          "4": 0.1
+        },
+        "distractors": {
+          "0": 0.6041666666666666,
+          "1": 0.5747126436781609,
+          "15": 0.03125,
+          "3": 0.8703703703703703,
+          "4": 0.8285714285714286,
+          "7": 1.0
+        },
+        "hops": {
+          "0": 0.8194444444444444,
+          "1": 0.7142857142857143,
+          "2": 0.4722222222222222,
+          "3": 0.23529411764705882,
+          "4": 0.0
+        },
+        "state_events": {
+          "5": 0.7291666666666666
+        },
+        "variables": {
+          "2": 0.7291666666666666
+        }
+      },
       "by_family": {
         "counterfactual_premise": 0.40625,
         "entity_value_binding": 1.0,
         "exact_contextual_copy": 1.0,
         "matched_direct_retrieval": 1.0,
         "missing_information": 0.0,
-        "natural_binding_analogue": 0.25,
+        "natural_binding_analogue": 0.375,
         "natural_composition_analogue": 0.0,
-        "natural_state_analogue": 0.0,
+        "natural_state_analogue": 0.875,
         "nonce_identifier_retrieval": 1.0,
         "relation_1_hop": 1.0,
         "relation_2_hop": 0.0,
         "relation_3_hop": 0.0,
-        "rule_induction": 0.25,
-        "state_overwrite": 0.0
+        "rule_induction": 0.03125,
+        "state_overwrite": 0.65625
       },
-      "correct": 197,
-      "total": 352
+      "correct": 231,
+      "total": 368
     },
     "nearest_position": {
-      "accuracy": 0.4744318181818182,
+      "accuracy": 0.3423913043478261,
+      "by_difficulty": {
+        "cardinality": {
+          "1": 0.5,
+          "16": 0.03125,
+          "2": 0.4523809523809524,
+          "3": 0.4375,
+          "4": 0.3013698630136986,
+          "5": 0.2916666666666667,
+          "8": 0.08
+        },
+        "demonstrations": {
+          "2": 0.0,
+          "3": 0.0,
+          "4": 0.1
+        },
+        "distractors": {
+          "0": 0.6041666666666666,
+          "1": 0.3793103448275862,
+          "15": 0.03125,
+          "3": 0.2962962962962963,
+          "4": 0.34285714285714286,
+          "7": 0.08
+        },
+        "hops": {
+          "0": 0.3888888888888889,
+          "1": 0.375,
+          "2": 0.3333333333333333,
+          "3": 0.23529411764705882,
+          "4": 0.0
+        },
+        "state_events": {
+          "5": 0.2916666666666667
+        },
+        "variables": {
+          "2": 0.2916666666666667
+        }
+      },
       "by_family": {
         "counterfactual_premise": 0.40625,
         "entity_value_binding": 0.325,
         "exact_contextual_copy": 1.0,
-        "matched_direct_retrieval": 0.5416666666666666,
+        "matched_direct_retrieval": 0.4166666666666667,
         "missing_information": 0.0,
-        "natural_binding_analogue": 0.3125,
-        "natural_composition_analogue": 0.25,
-        "natural_state_analogue": 1.0,
-        "nonce_identifier_retrieval": 0.4375,
-        "relation_1_hop": 0.6875,
-        "relation_2_hop": 0.25,
-        "relation_3_hop": 0.1875,
-        "rule_induction": 0.25,
-        "state_overwrite": 1.0
+        "natural_binding_analogue": 0.5,
+        "natural_composition_analogue": 0.375,
+        "natural_state_analogue": 0.25,
+        "nonce_identifier_retrieval": 0.375,
+        "relation_1_hop": 0.5,
+        "relation_2_hop": 0.375,
+        "relation_3_hop": 0.125,
+        "rule_induction": 0.03125,
+        "state_overwrite": 0.3125
       },
-      "correct": 167,
-      "total": 352
+      "correct": 126,
+      "total": 368
     }
   },
   "checks": {
     "broken_state_tracker_fails_state": true,
     "context_position_axes_covered": true,
+    "copy_is_not_selection_control": true,
     "counterfactual_pairs_mechanical": true,
+    "difficulty_axes_covered": true,
     "direct_retrieval_does_not_solve_composition": true,
     "full_oracle_exact": true,
     "hidden_truth_excluded_from_model_view": true,
     "independent_surface_solver_agreement": true,
+    "multiple_rule_structures": true,
+    "natural_analogues_present": true,
     "no_dominant_answer_position": true,
     "output_format_axes_covered": true,
     "random_baseline_below_50pct": true,
     "random_control_matches_calculated_chance": true,
+    "rule_shortcuts_fail": true,
+    "sensitivity_and_invariance_pairs_present": true,
     "split_namespaces_disjoint": true,
+    "state_position_heuristics_fail": true,
+    "state_semantic_query_axes_covered": true,
+    "state_serialization_is_shuffled": true,
     "suite_contracts": true,
     "training_eval_templates_disjoint": true
   },
@@ -240,30 +851,90 @@
     "seed_in_repository": false,
     "sentinel_hash": "955168a27cbb81ef5ac2e06286d27aebffde2390165f6952f4d932130760be75"
   },
+  "shortcut_audit": {
+    "policy": "every named heuristic must remain within chance + 10 percentage points",
+    "rule_induction_heuristics": {
+      "bag_of_words": {
+        "accuracy": 0.0625,
+        "cases": 256,
+        "chance": 0.0625,
+        "seeds": 8
+      },
+      "fixed_identity_rule": {
+        "accuracy": 0.0,
+        "cases": 256,
+        "chance": 0.0625,
+        "seeds": 8
+      },
+      "fixed_repeat_left_rule": {
+        "accuracy": 0.125,
+        "cases": 256,
+        "chance": 0.0625,
+        "seeds": 8
+      },
+      "fixed_repeat_right_rule": {
+        "accuracy": 0.125,
+        "cases": 256,
+        "chance": 0.0625,
+        "seeds": 8
+      },
+      "fixed_reverse_rule": {
+        "accuracy": 0.125,
+        "cases": 256,
+        "chance": 0.0625,
+        "seeds": 8
+      }
+    },
+    "rule_shortcut_ceiling": 0.1625,
+    "state_families": [
+      "natural_state_analogue",
+      "state_overwrite"
+    ],
+    "state_position_heuristics": {
+      "latest_fact": {
+        "accuracy": 0.1953125,
+        "cases": 384,
+        "chance": 0.13888888888888865,
+        "seeds": 8
+      },
+      "nearest_position": {
+        "accuracy": 0.1953125,
+        "cases": 384,
+        "chance": 0.13888888888888865,
+        "seeds": 8
+      }
+    },
+    "state_shortcut_ceiling": 0.23888888888888865
+  },
   "statistical_calibration": {
     "answer_position_histogram_multi_candidate": {
-      "0": 100,
-      "1": 91,
-      "2": 62,
-      "3": 47,
+      "0": 104,
+      "1": 73,
+      "2": 66,
+      "3": 35,
       "4": 14,
-      "5": 10,
-      "6": 1,
-      "7": 2,
-      "8": 3,
-      "9": 6
+      "5": 18,
+      "6": 9,
+      "7": 7,
+      "8": 5,
+      "9": 10,
+      "10": 3,
+      "12": 2,
+      "13": 2,
+      "14": 3,
+      "15": 1
     },
     "approx_n_per_arm_to_detect_chance_plus_10pp_at_80pct_power": {
       "four_candidate": 329,
       "two_candidate": 388
     },
     "deterministic_random_wilson_95": [
-      0.27440817955743885,
-      0.37150154547128394
+      0.22118195979819177,
+      0.31087667467509705
     ],
-    "maximum_answer_position_share": 0.2976190476190476,
+    "maximum_answer_position_share": 0.29545454545454547,
     "method_note": "Two-sided normal approximation for planning; final gates use paired/bootstrap or exact methods preregistered per metric.",
-    "uniform_candidate_chance": 0.32433712121212077
+    "uniform_candidate_chance": 0.2866847826086954
   },
   "statistical_protocol": {
     "protocol": {
@@ -298,7 +969,44 @@
   },
   "status": "PASS",
   "suite": {
-    "cases": 352,
+    "cases": 368,
+    "difficulty_axis_histograms": {
+      "cardinality": {
+        "1": 32,
+        "2": 126,
+        "3": 32,
+        "4": 73,
+        "5": 48,
+        "8": 25,
+        "16": 32
+      },
+      "demonstrations": {
+        "2": 12,
+        "3": 10,
+        "4": 10
+      },
+      "distractors": {
+        "0": 48,
+        "1": 174,
+        "3": 54,
+        "4": 35,
+        "7": 25,
+        "15": 32
+      },
+      "hops": {
+        "0": 144,
+        "1": 112,
+        "2": 36,
+        "3": 68,
+        "4": 8
+      },
+      "state_events": {
+        "5": 48
+      },
+      "variables": {
+        "2": 48
+      }
+    },
     "family_histogram": {
       "counterfactual_premise": 32,
       "entity_value_binding": 80,
@@ -312,41 +1020,87 @@
       "relation_1_hop": 16,
       "relation_2_hop": 16,
       "relation_3_hop": 16,
-      "rule_induction": 16,
+      "rule_induction": 32,
       "state_overwrite": 32
     },
-    "generator_version": "e0-eval/0.2.0",
+    "generator_version": "e0-eval/0.3.0",
     "groups_per_family": 16,
+    "pair_effect_histogram": {
+      "invariance": 32,
+      "sensitivity": 80
+    },
     "pair_histogram": {
       "irrelevant_fact_swap": 16,
       "order_permutation": 16,
-      "query_swap": 16,
+      "query_swap": 32,
       "relevant_fact_swap": 32,
       "state_swap": 16
     },
-    "pairs": 96,
+    "pairs": 112,
+    "rule_structures": [
+      "0,0,0,1",
+      "0,0,1",
+      "0,1,0",
+      "0,1,1",
+      "1,0",
+      "1,0,1",
+      "1,1,0",
+      "1,1,1,0"
+    ],
     "seed": 271828,
-    "sha256": "b3d82dee117d3fbf00e3a572fb89ac5c28a576470bf599805f6dada0ee43e14f",
+    "sha256": "2b0204a37cde1762d47cdb6088542a7eb4307b3d8904d5f1ffad496c312d7d7e",
     "split": "development",
     "surface_axis_histograms": {
+      "analogue": {
+        "naturalistic": 16
+      },
       "answer_format": {
         "abstention": 16,
         "boolean": 32,
-        "composite": 16,
+        "composite": 32,
         "nonce-code": 192,
         "nonce-entity": 96
       },
       "context_fact_count": {
-        "long": 25,
-        "medium": 137,
-        "short": 190
+        "long": 73,
+        "medium": 109,
+        "short": 186
       },
       "relevant_position": {
         "answer-absent": 16,
-        "back": 124,
-        "distributed": 96,
-        "front": 88,
-        "middle": 28
+        "back": 81,
+        "distributed": 125,
+        "front": 84,
+        "middle": 62
+      },
+      "rule_arity": {
+        "2": 4,
+        "3": 20,
+        "4": 8
+      },
+      "rule_structure": {
+        "0,0,0,1": 4,
+        "0,0,1": 4,
+        "0,1,0": 4,
+        "0,1,1": 4,
+        "1,0": 4,
+        "1,0,1": 4,
+        "1,1,0": 4,
+        "1,1,1,0": 4
+      },
+      "serialization": {
+        "demonstration-order-randomized": 32,
+        "naturalized-semantic-shuffled": 16,
+        "semantic-shuffled": 32
+      },
+      "state_query": {
+        "intermediate": 13,
+        "latest": 14,
+        "precedence": 8,
+        "rollback": 13
+      },
+      "variable_interleaving": {
+        "two-variable": 48
       }
     }
   },

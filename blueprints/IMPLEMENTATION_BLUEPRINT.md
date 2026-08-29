@@ -1,9 +1,9 @@
 # An-Ra V5 Code and Infrastructure Blueprint
 
-Status: **Ground Blueprint v0.3 implementation contract**
+Status: **Ground Blueprint v0.4 implementation contract**
 Scope: design and executable contracts; no production trainer or main run authorization
 
-This is the canonical bridge from research decisions to code. `V5_MASTER_BLUEPRINT.md` owns the scientific question; this file owns module boundaries, interfaces, commands, artifacts, failure behavior, and the order in which implementation becomes trustworthy.
+This is the canonical bridge from research decisions to code. `V5_MASTER_BLUEPRINT.md` owns the scientific question; `benchmark.md` owns the E0 measurement contract; this file owns module boundaries, interfaces, commands, artifacts, failure behavior, and the order in which implementation becomes trustworthy.
 
 ## 1. Build target
 
@@ -57,7 +57,7 @@ Existing now:
 ```text
 v5_contracts/                 framework-independent model/run/lineage schemas
 e0_cognition/                 development evaluation and training-generator research
-e1_tokenizer/                 artifact-bound tokenizer static audit
+e1_tokenizer/                 artifact-bound tokenizer audit and matched-budget tournament plan
 artifacts/e0/                 reproducible compact E0 receipt
 artifacts/v5/                 reproducible 250M implementation receipt
 tests/                        contract/property tests only
@@ -252,6 +252,7 @@ python -m unittest discover -s tests -v
 python -m e0_cognition.certify --output artifacts/e0/development_certificate.json
 python -m v5_contracts.certify --output artifacts/v5/implementation_contract.json
 python -m e1_tokenizer.audit --receipt <candidate.json> --artifact <tokenizer> --output <audit.json>
+python -m e1_tokenizer.tournament --output artifacts/e1/tournament_plan.json
 python -m e0_cognition.sealed --fixture <external-suite.json> --custody-id <id> --output artifacts/e0/sealed_commitment.json
 ```
 

@@ -1,8 +1,8 @@
 # ESOES Decision Register
 
-Ground Blueprint: v0.3
+Ground Blueprint: v0.4
 Iteration: evidence-building after 4/4 design attacks
-Date: 2026-08-29
+Date: 2026-08-30
 Commit: recorded by the commit containing this file
 
 A later agent may not silently change a decision. It must add a reopening entry stating new evidence and the affected blueprint version.
@@ -199,10 +199,10 @@ Until then: **READY TO FREEZE = NO**.
 **DECISION:** make causal cases, evaluator-only truth, model views, counterfactual-pair assertions, split namespaces, and measurement separation executable before model comparisons.
 **STATUS:** [FROZEN] contract; development implementation passed; sealed promotion [OPEN]
 **WHY:** every architecture/data conclusion is invalid if the benchmark leaks or conflates representation, selection, and realization.
-**EVIDENCE:** `artifacts/e0/development_certificate.json` plus 15 E0 regression/property tests, an independent surface solver, and explicit chance/position/power calibration.
+**EVIDENCE:** `artifacts/e0/development_certificate.json` plus 38 E0/E1/V5 regression/property tests, an independent surface solver, semantic-time state cases, split-held-out rule structures, pooled shortcut red-team gates, raw/assisted result contracts, and explicit chance/position/difficulty/power calibration.
 **ALTERNATIVES CONSIDERED:** static JSON fixtures; reuse training templates; create sealed fixtures in Git.
 **WHAT WOULD CHANGE OUR MIND:** a stronger causal representation may extend the schema, but may not weaken hidden-truth isolation or one-variable assertions.
-**ITERATION:** Ground Blueprint v0.2.
+**ITERATION:** Ground Blueprint v0.4.
 
 ## D-019 — Pair-action composition is not a native objective candidate
 
@@ -222,7 +222,7 @@ Until then: **READY TO FREEZE = NO**.
 **EVIDENCE:** pure parameter receipt in `v5_contracts/model_spec.py`; 5B restores 19.99 tokens/parameter. There is no evidence yet that 250M beats 195M on cognition per compute.
 **ALTERNATIVES CONSIDERED:** merely round the old model to 250M; widen to 1024 and reduce depth; retain 195M.
 **WHAT WOULD CHANGE OUR MIND:** E2/E5 shows a different ~250M shape or the 195M-scale family dominates at matched compute/data.
-**ITERATION:** Ground Blueprint v0.3.
+**ITERATION:** Ground Blueprint v0.4.
 
 ## D-021 — Code-first infrastructure contract
 
@@ -233,3 +233,23 @@ Until then: **READY TO FREEZE = NO**.
 **ALTERNATIVES CONSIDERED:** implement a trainer immediately; create empty packages; reuse VNext modules.
 **WHAT WOULD CHANGE OUR MIND:** stronger contracts may extend the schema but cannot remove fail-closed identity, causal isolation, or durable exact-resume requirements.
 **ITERATION:** Ground Blueprint v0.3.
+
+## D-022 — Shortcut-resistant E0 benchmark contract
+
+**DECISION:** state tracking must randomize serialization independently of semantic time and include intermediate, rollback, precedence, and interleaved-variable queries; rule induction must use multiple latent operand structures held out by split. Positional, bag-of-words, and fixed-rule baselines are certification gates, not optional diagnostics.
+**STATUS:** [FROZEN] benchmark boundary; sealed fixture and natural-source custody remain open
+**WHY:** the prior state generator made `latest_fact` and `nearest_position` perfect, and its single reverse-pair rule admitted a permanent-rule shortcut. Those are evaluator defects, not model evidence.
+**EVIDENCE:** `benchmark.md`, E0 generator v0.3, pooled eight-seed shortcut receipt, and 38 passing tests.
+**ALTERNATIVES CONSIDERED:** more examples with the same templates; a larger aggregate score; post-hoc heuristic inspection.
+**WHAT WOULD CHANGE OUR MIND:** an independently reproduced causal benchmark showing a stronger information-isolating design.
+**ITERATION:** Ground Blueprint v0.4.
+
+## D-023 — Raw-Core and assisted result separation
+
+**DECISION:** every evaluation receipt stores raw-Core, constrained, and assisted outcomes separately and reports intervention dependence and harm explicitly. Copy/realization cases cannot supply selection outcomes.
+**STATUS:** [FROZEN] measurement contract
+**WHY:** assistance can repair realization without proving native selection or transformation.
+**EVIDENCE:** `e0_cognition/results.py`, `metrics.py`, `benchmark.md`, and result-contract tests.
+**ALTERNATIVES CONSIDERED:** one best-of-N score; constrained output as the headline result.
+**WHAT WOULD CHANGE OUR MIND:** a causal report showing assistance is irrelevant under all required raw-output tests.
+**ITERATION:** Ground Blueprint v0.4.

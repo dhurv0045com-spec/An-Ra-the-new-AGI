@@ -28,3 +28,7 @@ jobs:
         run: python -m v5_contracts.certify --output /tmp/implementation_contract.json
       - name: Verify committed implementation receipt
         run: cmp artifacts/v5/implementation_contract.json /tmp/implementation_contract.json
+      - name: Reproduce E1 matched-budget tournament plan
+        run: python -m e1_tokenizer.tournament --output /tmp/tournament_plan.json
+      - name: Verify committed E1 tournament plan
+        run: cmp artifacts/e1/tournament_plan.json /tmp/tournament_plan.json

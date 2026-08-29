@@ -6,6 +6,7 @@ trainer, optimizer, checkpoint loader, or dependency on VNext.
 
 from .contracts import CausalCase, CausalPair, PairKind, Split
 from .evaluation_generators import build_evaluation_suite
+from .results import CaseOutcome, ConditionOutcome, EvaluationRun, ReplicationBundle
 
 __all__ = [
     "CausalCase",
@@ -13,4 +14,8 @@ __all__ = [
     "PairKind",
     "Split",
     "build_evaluation_suite",
+    "CaseOutcome",
+    "ConditionOutcome",
+    "EvaluationRun",
+    "ReplicationBundle",
 ]

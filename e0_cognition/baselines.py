@@ -75,6 +75,43 @@ def broken_state_tracker(case: CausalCase) -> str:
     return first_candidate(case)
 
 
+def _unseen_pair(case: CausalCase) -> tuple[str, str]:
+    match = re.search(r"unseen pair \(([^,]+), ([^)]+)\)", case.query)
+    if not match:
+        raise ValueError(f"not a rule-induction query: {case.query!r}")
+    return match.group(1), match.group(2)
+
+
+def fixed_reverse_rule(case: CausalCase) -> str:
+    """Legacy shortcut: always assume the demonstrations encode (right, left)."""
+
+    if case.family != "rule_induction":
+        return first_candidate(case)
+    left, right = _unseen_pair(case)
+    return f"{right}|{left}"
+
+
+def fixed_identity_rule(case: CausalCase) -> str:
+    if case.family != "rule_induction":
+        return first_candidate(case)
+    left, right = _unseen_pair(case)
+    return f"{left}|{right}"
+
+
+def fixed_repeat_left_rule(case: CausalCase) -> str:
+    if case.family != "rule_induction":
+        return first_candidate(case)
+    left, right = _unseen_pair(case)
+    return f"{left}|{right}|{left}"
+
+
+def fixed_repeat_right_rule(case: CausalCase) -> str:
+    if case.family != "rule_induction":
+        return first_candidate(case)
+    left, right = _unseen_pair(case)
+    return f"{right}|{left}|{right}"
+
+
 def direct_retrieval_control(case: CausalCase) -> str:
     """An oracle only for non-compositional retrieval families."""
 
@@ -102,6 +139,10 @@ BASELINES: dict[str, Baseline] = {
     "nearest_position": nearest_position,
     "bag_of_words": bag_of_words,
     "broken_state_tracker": broken_state_tracker,
+    "fixed_reverse_rule": fixed_reverse_rule,
+    "fixed_identity_rule": fixed_identity_rule,
+    "fixed_repeat_left_rule": fixed_repeat_left_rule,
+    "fixed_repeat_right_rule": fixed_repeat_right_rule,
     "direct_retrieval_control": direct_retrieval_control,
     "full_truth_oracle": full_truth_oracle,
 }
@@ -110,16 +151,26 @@ BASELINES: dict[str, Baseline] = {
 def evaluate_baseline(suite: EvaluationSuite, baseline: Baseline) -> dict[str, object]:
     correct = 0
     by_family: dict[str, list[int]] = {}
+    by_difficulty: dict[str, dict[int, list[int]]] = {}
     for case in suite.cases:
         hit = int(baseline(case) == case.answer)
         correct += hit
         by_family.setdefault(case.family, []).append(hit)
+        for axis, value in case.difficulty:
+            by_difficulty.setdefault(axis, {}).setdefault(value, []).append(hit)
     return {
         "accuracy": correct / len(suite.cases),
         "correct": correct,
         "total": len(suite.cases),
         "by_family": {
             family: sum(values) / len(values) for family, values in sorted(by_family.items())
+        },
+        "by_difficulty": {
+            axis: {
+                str(value): sum(values) / len(values)
+                for value, values in sorted(levels.items())
+            }
+            for axis, levels in sorted(by_difficulty.items())
         },
     }
 

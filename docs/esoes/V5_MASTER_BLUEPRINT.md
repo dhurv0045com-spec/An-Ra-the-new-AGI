@@ -1,7 +1,7 @@
 # An-Ra V5 Master Blueprint
 
-Status: **GROUND BLUEPRINT v0.3 — 250M IMPLEMENTATION CONTRACT EXECUTABLE**
-Date: 2026-08-29
+Status: **GROUND BLUEPRINT v0.4 — E0 SHORTCUT-RESISTANT BENCHMARK CONTRACT**
+Date: 2026-08-30
 Branch: `esoes`
 Training authorization: **NO**
 
@@ -9,7 +9,7 @@ This document is the canonical V5 research blueprint. It is intellectually indep
 
 [`../../blueprints/IMPLEMENTATION_BLUEPRINT.md`](../../blueprints/IMPLEMENTATION_BLUEPRINT.md) is the canonical code/infrastructure companion. Executable arithmetic and artifact schemas live in `v5_contracts/`; E0 and E1 research interfaces live in `e0_cognition/` and `e1_tokenizer/`. None of these packages is a production trainer.
 
-Ground Blueprint v0.3 freezes the scientific boundaries and experiment order, not the exact training recipe:
+Ground Blueprint v0.4 freezes the scientific boundaries and experiment order, not the exact training recipe:
 
 | Area | State |
 |---|---|
@@ -324,9 +324,9 @@ The original 100+ questions collapse into six decisions. Optimize information ga
 
 ### E0 — Benchmark and generator certification (no TPU required)
 
-**Development status in v0.3:** an executable evaluation-only generator emits 352 deterministic cases and 96 mechanically checked causal pairs at the certification setting. It covers copy, nonce retrieval, 2/4/8-way binding, query/relevant/irrelevant/order swaps, state overwrite, one/two/three-hop relations, matched direct retrieval, missing information, counterfactual premises, rule induction, and synthetic/natural analogues. Training generators use a separate template namespace. Candidate order, context position, and answer formats are explicit audited axes; hidden truth is excluded from model views; development/sealed/fresh graph/template/domain namespaces are mechanically disjoint. Representation, selection, query-lift, and realization metrics are separate APIs.
+**Development status in v0.4:** an executable evaluation-only generator emits 368 deterministic cases and 112 mechanically checked causal pairs at the certification setting. State cases randomize serialization independently of semantic time and cover latest, intermediate, rollback, and precedence queries over interleaved variables. Rule induction covers eight latent operand structures in development, with disjoint structures in sealed/fresh. Training generators use a separate template namespace. Candidate order, context position, answer formats, state-query axes, rule structures, and difficulty axes are explicit audited dimensions; hidden truth is excluded from model views; development/sealed/fresh graph/template/domain/rule-structure namespaces are mechanically disjoint. Representation, selection, query-lift, realization, sensitivity, invariance, assistance, and intervention-dependence metrics are separate APIs.
 
-The committed development receipt is `artifacts/e0/development_certificate.json`, suite SHA-256 `b3d82dee117d3fbf00e3a572fb89ac5c28a576470bf599805f6dada0ee43e14f` (regenerate before freeze if generator code changes). It reports random/first/last/lexical/position/bag-of-words, broken-state, direct-retrieval, and full-oracle controls. An independent surface parser/solver agrees on every case, including a 20-seed property sweep. Uniform-candidate chance, Wilson intervals, answer-position distribution, and approximate sample-size planning are explicit. **This certifies infrastructure invariants, not benchmark difficulty and not model cognition.**
+The committed development receipt is `artifacts/e0/development_certificate.json`, suite SHA-256 `2b0204a37cde1762d47cdb6088542a7eb4307b3d8904d5f1ffad496c312d7d7e`. It reports random/first/last/lexical/position/bag-of-words, broken-state, fixed-rule, direct-retrieval, and full-oracle controls. The state positional red-team and rule shortcut red-team pool eight independent seeds and must remain within calculated chance + 10 percentage points. An independent surface parser/solver agrees on every case, including a 20-seed property sweep. Uniform-candidate chance, Wilson intervals, difficulty curves, pair-effect counts, and approximate sample-size planning are explicit. **This certifies infrastructure invariants, not benchmark difficulty and not model cognition.**
 
 **Still required for E0 exit:** a source-disjoint natural set and a real T2 seed/fixture held externally with only its commitment hash in Git. Paired exact binary comparisons, 10,000-resample paired bootstrap score deltas, Wilson intervals, worst-family gates, and sealed-consumption semantics are now machine-preregistered. Until external custody closes, E0 is **DEVELOPMENT PASS / PROMOTION NOT FROZEN** and E1 model training remains unauthorized.
 
@@ -336,7 +336,7 @@ Abort if shortcuts, duplicate graphs, token-label leakage, scorer ambiguity, or 
 
 Compare 16k, 24k, and 32k on static corpus metrics and matched P35 training (100–200M tokens per serious arm). Match raw bytes and approximate FLOPs, not token count alone. Winner must be Pareto-competitive on byte-normalized substrate loss, sequence inflation, nonce copy, identifiers, code/math, and cognition.
 
-The artifact-bound static audit and Pareto harness are implemented. No real tokenizer artifact or winner exists yet; external candidate artifacts and their complete encoding receipts are the next inputs.
+The artifact-bound static audit, Pareto harness, and matched-budget tournament plan are implemented in `e1_tokenizer/`. No real tokenizer artifact or winner exists yet; external candidate artifacts and their complete encoding receipts are the next inputs. `e1_tokenizer.tournament` fails closed until one external corpus manifest and equal raw-byte/FLOP budgets are bound.
 
 ### E2 — Architecture screen
 

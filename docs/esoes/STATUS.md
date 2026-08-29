@@ -1,8 +1,8 @@
 # ESOES Status
 
-Updated: 2026-08-29
+Updated: 2026-08-30
 
-Branch phase: **GROUND BLUEPRINT v0.3 — 250M CODE/INFRASTRUCTURE CONTRACT EXECUTABLE**
+Branch phase: **GROUND BLUEPRINT v0.4 — SHORTCUT-RESISTANT E0 CONTRACT EXECUTABLE**
 
 Canonical research blueprint: [`V5_MASTER_BLUEPRINT.md`](V5_MASTER_BLUEPRINT.md)
 
@@ -16,9 +16,9 @@ Provisional V5-A: **250.22M dense, 26×896, 14Q/7KV, FFN 2368, affine QK norm, 4
 
 Current evidence says the program should improve data quality, token sufficiency, causal query supervision, and behavioral checkpoint selection before scaling parameters.
 
-Executed through this phase: VNext contamination is removed; EXP evidence is corrected; E0 now covers candidate/context positions, answer formats, independent solvers, and machine-preregistered statistics; sealed custody fails closed; E1 has an artifact-bound static audit/Pareto harness; and exact 250M model/run/lineage contracts are executable.
+Executed through this phase: VNext contamination is removed; EXP evidence is corrected; E0 now randomizes semantic state serialization, covers intermediate/rollback/precedence queries, holds out rule structures across splits, pools positional/fixed-rule/bag-of-words red-team seeds, reports difficulty curves, and has raw/assisted/intervention-dependence plus replication contracts; sealed custody fails closed; E1 has an artifact-bound static audit/Pareto/matched-budget tournament harness; and exact 250M model/run/lineage contracts are executable.
 
-Verification: **29 CPU tests pass**, both committed receipts reproduce, and package import boundaries pass.
+Verification: **38 CPU tests pass**, E0/V5 receipts and the E1 tournament plan reproduce, and package import boundaries pass.
 
 Next action: **external inputs are required.** An independent custodian must create T2 outside Git, and real 16k/24k/32k tokenizer artifacts plus hash-bound corpus receipts must be supplied. Then run E1 static audits and bounded P35 comparisons. Do not start the 250M main run.
 

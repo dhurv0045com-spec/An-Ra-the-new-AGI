@@ -62,6 +62,14 @@ Major V5 training and production-stack implementation remain unauthorized.
 - Completed E0 context-position/output-format axes and machine-preregistered paired statistical procedures.
 - Added a sealed commitment tool that refuses fixtures inside Git and emits no seed/cases/answers.
 - Added the E1 artifact-bound identity/compression audit and Pareto harness. No tokenizer winner is claimed without real artifacts and matched training.
+
+## 2026-08-30 — Ground Blueprint v0.4 benchmark repair
+
+- Added the canonical [`benchmark.md`](../../benchmark.md) contract with an explicit mathematical pre-mortem loop, null/chance calculations, power policy, and raw-versus-assisted measurement rules.
+- Replaced position-solvable state cases with shuffled semantic-time logs covering latest, intermediate, rollback, precedence, and interleaved variables.
+- Replaced the permanent reverse-pair rule with eight development structures and disjoint sealed/fresh structure sets; fixed-rule and bag-of-words controls are now pooled certification gates.
+- Added difficulty axes, sensitivity/invariance pair summaries, raw-Core/assisted/intervention-dependence result contracts, and fresh/sealed replication identity checks.
+- Added the matched-budget E1 tokenizer tournament plan. No E1 artifact or main V5 training run is authorized.
 - Created `blueprints/IMPLEMENTATION_BLUEPRINT.md` as the authoritative package/interface/command/checkpoint/CI/milestone design.
 
 The 250M production model and trainer are not implemented or authorized; the current code is contract and research infrastructure.

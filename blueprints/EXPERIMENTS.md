@@ -1,4 +1,4 @@
-# Ground Blueprint v0.3 — Decisive Experiment Program
+# Ground Blueprint v0.4 — Decisive Experiment Program
 
 Order is frozen: **E0 → E1/E2 → E3 → E4 → E5 → freeze review**. No production trainer or V5-A main run precedes these gates.
 
@@ -91,7 +91,7 @@ Sizes may increase if E0 power analysis shows wide intervals. They may not shrin
 
 E0 passes only when every family has an unambiguous scorer, chance/control behavior, no discovered shortcut, a frozen T2 hash, and a documented fresh-generation route. Failure keeps E1–E5 unauthorized.
 
-Current result: **DEVELOPMENT INFRASTRUCTURE PASS; FULL E0 EXIT NOT YET PASSED.** The current 352-case/96-pair receipt proves generator determinism, causal-pair contracts, split namespace isolation, model-view secrecy, template separation, expected oracle/broken-control signatures, independent surface-solver agreement over a 20-seed property sweep, candidate/context position and answer-format coverage, and explicit chance/power calibration. Paired exact/10,000-resample bootstrap procedures are machine-preregistered. Source-disjoint natural custody and the externally held T2 commitment remain.
+Current result: **DEVELOPMENT INFRASTRUCTURE PASS; FULL E0 EXIT NOT YET PASSED.** The current 368-case/112-pair receipt proves generator determinism, causal-pair contracts, split namespace isolation, model-view secrecy, template separation, semantic-time state tasks with shuffled serialization, eight split-held-out rule structures, pooled positional/fixed-rule/bag-of-words red-team gates, independent surface-solver agreement over a 20-seed property sweep, candidate/context position, difficulty, and answer-format coverage, and explicit chance/power calibration. Raw-Core versus assisted result contracts, intervention-dependence measurements, sensitivity/invariance summaries, and fresh/sealed replication contracts are implemented. Paired exact/10,000-resample bootstrap procedures are machine-preregistered. Source-disjoint natural custody and the externally held T2 commitment remain.
 
 ## E1 — Tokenizer tournament
 
@@ -99,7 +99,7 @@ Candidates: 16,384 / 24,576 / 32,768 identity-preserving byte fallback. Evaluate
 
 Select a Pareto winner, not a weighted-score winner hidden by an arbitrary aggregate.
 
-Current result: the artifact-bound E1 static audit and Pareto harness exist in `e1_tokenizer/`. No real tokenizer candidate has been audited or selected. The next executable input is three externally generated candidate artifacts plus complete encoding receipts against the committed canaries and a hash-bound external corpus.
+Current result: the artifact-bound E1 static audit, Pareto harness, and matched-budget tournament plan exist in `e1_tokenizer/`. No real tokenizer candidate has been audited or selected. The next executable input is three externally generated candidate artifacts plus complete encoding receipts against the committed canaries and a hash-bound external corpus.
 
 ## E2 — Architecture attack
 

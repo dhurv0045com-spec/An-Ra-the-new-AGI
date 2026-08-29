@@ -15,7 +15,7 @@ from .contracts import (
     Split,
 )
 
-GENERATOR_VERSION = "e0-eval/0.2.0"
+GENERATOR_VERSION = "e0-eval/0.3.0"
 
 
 @dataclass(frozen=True, slots=True)
@@ -25,6 +25,7 @@ class SplitProfile:
     relations: tuple[str, ...]
     domains: tuple[str, ...]
     template_prefix: str
+    rule_structures: tuple[tuple[int, ...], ...]
 
 
 PROFILES = {
@@ -34,6 +35,7 @@ PROFILES = {
         ("guides", "links", "feeds", "indexes"),
         ("inventory", "laboratory", "technical-manual"),
         "dev",
+        ((1, 0), (0, 1, 0), (1, 0, 1), (0, 0, 1), (1, 1, 0), (0, 1, 1), (0, 0, 0, 1), (1, 1, 1, 0)),
     ),
     Split.SEALED: SplitProfile(
         Split.SEALED,
@@ -41,6 +43,7 @@ PROFILES = {
         ("supports", "orbits", "routes", "anchors"),
         ("legal-clause", "geology", "manufacturing"),
         "sealed",
+        ((0, 1), (1, 1, 1), (0, 1, 1, 1), (1, 0, 0), (0, 0, 1, 1), (1, 1, 0, 0), (0, 1, 0, 1), (1, 0, 1, 0)),
     ),
     Split.FRESH: SplitProfile(
         Split.FRESH,
@@ -48,6 +51,7 @@ PROFILES = {
         ("buffers", "maps", "powers", "shields"),
         ("network-log", "ecology", "clinical-procedure"),
         "fresh",
+        ((0, 0, 1, 1, 1), (1, 1, 0, 0, 0), (0, 1, 0, 1, 1), (1, 0, 1, 0, 0), (0, 0, 0, 1, 1), (1, 1, 1, 0, 0), (0, 1, 1, 0, 1), (1, 0, 0, 1, 0)),
     ),
 }
 
@@ -86,7 +90,12 @@ def _answer_format(answer: str, profile: SplitProfile) -> str:
 
 
 def _surface_axes(
-    *, facts: tuple[str, ...], relevant: tuple[int, ...], answer: str, profile: SplitProfile
+    *,
+    facts: tuple[str, ...],
+    relevant: tuple[int, ...],
+    answer: str,
+    profile: SplitProfile,
+    extra: dict[str, str] | None = None,
 ) -> tuple[tuple[str, str], ...]:
     if not relevant:
         position = "answer-absent"
@@ -99,15 +108,14 @@ def _surface_axes(
     else:
         position = "middle"
     length = "short" if len(facts) <= 2 else "medium" if len(facts) <= 4 else "long"
-    return tuple(
-        sorted(
-            {
-                "answer_format": _answer_format(answer, profile),
-                "context_fact_count": length,
-                "relevant_position": position,
-            }.items()
-        )
-    )
+    axes = {
+        "answer_format": _answer_format(answer, profile),
+        "context_fact_count": length,
+        "relevant_position": position,
+    }
+    if extra:
+        axes.update(extra)
+    return tuple(sorted(axes.items()))
 
 
 def _provenance(profile: SplitProfile, seed: int, family: str) -> tuple[tuple[str, str], ...]:
@@ -141,6 +149,7 @@ def _case(
     template: str,
     domain: str,
     difficulty: tuple[tuple[str, int], ...],
+    axes: dict[str, str] | None = None,
 ) -> CausalCase:
     return CausalCase(
         case_id=case_id,
@@ -155,7 +164,7 @@ def _case(
         candidates=candidates,
         difficulty=difficulty,
         surface_axes=_surface_axes(
-            facts=facts, relevant=relevant, answer=answer, profile=profile
+            facts=facts, relevant=relevant, answer=answer, profile=profile, extra=axes
         ),
         provenance=_provenance(profile, seed, family),
         hidden=HiddenTruth(relevant, distractors, graph, trace),
@@ -320,39 +329,140 @@ def _nonce_case(profile: SplitProfile, rng: random.Random, seed: int, index: int
 def _state_bundle(
     profile: SplitProfile, rng: random.Random, seed: int, index: int
 ) -> tuple[list[CausalCase], list[CausalPair]]:
-    variable = _entity(profile, rng, index)
-    values = [_code(profile, rng) for _ in range(3)]
-    facts = tuple(f"At time {i + 1}, {variable} became {value}." for i, value in enumerate(values))
-    state_relation = lambda i: f"{profile.prefix.lower()}-state-at-{i + 1}"
-    graph = tuple(GraphEdge(variable, state_relation(i), value) for i, value in enumerate(values))
+    """Generate state tasks where semantic time is independent of serialization order.
+
+    The four scenarios deliberately include latest, intermediate, rollback, and
+    same-time precedence queries. Two variables are interleaved and every event
+    is shuffled after its semantic graph is built, so position-only heuristics
+    cannot identify the answer.
+    """
+
+    target = _entity(profile, rng, index)
+    other = _entity(profile, rng, index + 100)
+    values = [_code(profile, rng) for _ in range(10)]
+    scenario = index % 4
+    if scenario == 0:
+        events = [
+            (1, 1, target, values[0], None),
+            (4, 1, other, values[1], None),
+            (7, 1, target, values[2], None),
+            (9, 1, other, values[3], None),
+            (12, 1, target, values[4], None),
+        ]
+        query_time, answer = 12, values[4]
+        query_kind = "latest"
+        winning = {4}
+    elif scenario == 1:
+        events = [
+            (2, 1, target, values[0], None),
+            (3, 1, other, values[1], None),
+            (6, 1, target, values[2], None),
+            (8, 1, other, values[3], None),
+            (11, 1, target, values[4], None),
+        ]
+        query_time, answer = 6, values[2]
+        query_kind = "intermediate"
+        winning = {2}
+    elif scenario == 2:
+        events = [
+            (1, 1, target, values[0], None),
+            (3, 1, other, values[1], None),
+            (6, 1, target, values[2], None),
+            (8, 1, target, values[0], 1),
+            (10, 1, other, values[3], None),
+        ]
+        query_time, answer = 8, values[0]
+        query_kind = "rollback"
+        winning = {0, 3}
+    else:
+        events = [
+            (2, 1, target, values[0], None),
+            (4, 1, other, values[1], None),
+            (7, 2, target, values[2], None),
+            (7, 5, target, values[3], None),
+            (9, 1, other, values[4], None),
+        ]
+        query_time, answer = 7, values[3]
+        query_kind = "precedence"
+        winning = {3}
+
     replacement = _code(profile, rng)
+    def render(event: tuple[int, int, str, str, int | None]) -> str:
+        time, priority, variable, value, rollback_time = event
+        if rollback_time is None:
+            return f"Event time={time} priority={priority}: {variable} := {value}."
+        return (
+            f"Event time={time} priority={priority}: {variable} := "
+            f"value@time={rollback_time}."
+        )
+
+    order = list(range(len(events)))
+    rng.shuffle(order)
+    facts = tuple(render(events[i]) for i in order)
+    relevant = tuple(position for position, original in enumerate(order) if original in winning)
+    graph = tuple(
+        GraphEdge(variable, f"{profile.prefix.lower()}-time-{time}-p{priority}", value)
+        for time, priority, variable, value, _ in events
+    )
+    candidates = _candidate_order(
+        rng,
+        tuple(values[:5]) + (replacement, _code(profile, rng), _code(profile, rng)),
+    )
     base = _case(
         case_id=f"{profile.prefix}-state-{index}-base",
         family="state_overwrite",
         profile=profile,
         seed=seed,
         facts=facts,
-        query=f"What is the newest state of {variable}?",
-        answer=values[-1],
-        candidates=_candidate_order(rng, tuple(values) + (replacement,)),
-        relevant=(2,),
-        distractors=(0, 1),
+        query=(
+            f"For {target}, what value is in force at time {query_time} after applying "
+            "semantic time, rollback, and priority rules?"
+        ),
+        answer=answer,
+        candidates=candidates,
+        relevant=relevant,
+        distractors=tuple(i for i in range(len(facts)) if i not in relevant),
         graph=graph,
-        trace=("order:time", f"overwrite:{values[-1]}"),
-        template="state-log",
+        trace=(f"state-query:{query_kind}", f"select:{answer}"),
+        template=f"state-log-{query_kind}",
         domain=profile.domains[2],
-        difficulty=_difficulty(cardinality=3, hops=1, distractors=2),
+        difficulty=_difficulty(
+            cardinality=len(facts),
+            hops=1,
+            distractors=len(facts) - len(relevant),
+            state_events=len(events),
+            variables=2,
+        ),
+        axes={
+            "state_query": query_kind,
+            "serialization": "semantic-shuffled",
+            "variable_interleaving": "two-variable",
+        },
     )
-    changed_facts = list(facts)
-    changed_facts[-1] = f"At time 3, {variable} became {replacement}."
+    changed_events = list(events)
+    # In a rollback case the earlier source event is the causal variable; the
+    # later rollback record must remain unchanged so the pair changes one fact.
+    change_index = min(winning) if scenario == 2 else max(winning)
+    time, priority, variable, _, rollback_time = changed_events[change_index]
+    changed_events[change_index] = (time, priority, variable, replacement, rollback_time)
+    changed_facts = tuple(render(changed_events[i]) for i in order)
     changed_graph = list(graph)
-    changed_graph[-1] = GraphEdge(variable, state_relation(2), replacement)
+    changed_graph[change_index] = GraphEdge(
+        variable, f"{profile.prefix.lower()}-time-{time}-p{priority}", replacement
+    )
+    changed_answer = replacement if change_index in winning else answer
+    changed_relevant = tuple(position for position, original in enumerate(order) if original in winning)
     swapped = replace(
         base,
         case_id=f"{profile.prefix}-state-{index}-changed",
-        facts=tuple(changed_facts),
-        answer=replacement,
-        hidden=HiddenTruth((2,), (0, 1), tuple(changed_graph), ("order:time", f"overwrite:{replacement}")),
+        facts=changed_facts,
+        answer=changed_answer,
+        hidden=HiddenTruth(
+            changed_relevant,
+            tuple(i for i in range(len(changed_facts)) if i not in changed_relevant),
+            tuple(changed_graph),
+            (f"state-query:{query_kind}", f"select:{changed_answer}"),
+        ),
     )
     return [base, swapped], [CausalPair(f"{base.case_id}:state", PairKind.STATE_SWAP, base, swapped)]
 
@@ -482,43 +592,87 @@ def _counterfactual_bundle(
     ]
 
 
-def _rule_case(profile: SplitProfile, rng: random.Random, seed: int, index: int) -> CausalCase:
-    a, b, c, d = (_code(profile, rng) for _ in range(4))
-    operation = f"KEL-{profile.prefix}"
-    facts = (
-        f"Operation {operation} on pair ({a}, {b}) returns {b}|{a}.",
-        f"Operation {operation} on pair ({c}, {d}) returns {d}|{c}.",
+def _apply_rule(structure: tuple[int, ...], left: str, right: str) -> str:
+    operands = (left, right)
+    return "|".join(operands[position] for position in structure)
+
+
+def _rule_case(
+    profile: SplitProfile, rng: random.Random, seed: int, index: int
+) -> tuple[CausalCase, CausalPair]:
+    """Infer one of several latent operand structures from demonstrations.
+
+    Structures are disjoint by split and are stored as hidden surface metadata,
+    allowing the split contract to reject symbol-only OOD claims. The model must
+    infer the structure from demonstrations; no permanent reverse-pair rule is
+    valid across this family.
+    """
+
+    structure = profile.rule_structures[index % len(profile.rule_structures)]
+    operation = f"KEL-{profile.prefix}-{index % len(profile.rule_structures)}"
+    demonstration_count = 2 + (index % 3)
+    demos: list[tuple[str, str]] = [(_code(profile, rng), _code(profile, rng)) for _ in range(demonstration_count)]
+    facts = tuple(
+        f"Operation {operation} on pair ({left}, {right}) returns "
+        f"{_apply_rule(structure, left, right)}."
+        for left, right in demos
     )
     x, y = _code(profile, rng), _code(profile, rng)
-    answer = f"{y}|{x}"
-    return _case(
-        case_id=f"{profile.prefix}-rule-{index}",
+    u, v = _code(profile, rng), _code(profile, rng)
+    answer = _apply_rule(structure, x, y)
+    changed_answer = _apply_rule(structure, u, v)
+    candidate_values = [
+        _apply_rule(candidate, x, y)
+        for candidate in profile.rule_structures
+    ] + [
+        _apply_rule(candidate, u, v)
+        for candidate in profile.rule_structures
+    ]
+    base = _case(
+        case_id=f"{profile.prefix}-rule-{index}-base",
         family="rule_induction",
         profile=profile,
         seed=seed,
         facts=facts,
         query=f"Apply {operation} to the unseen pair ({x}, {y}).",
         answer=answer,
-        candidates=_candidate_order(rng, (answer, f"{x}|{y}", x, y)),
-        relevant=(0, 1),
+        candidates=_candidate_order(rng, tuple(candidate_values)),
+        relevant=tuple(range(len(facts))),
         distractors=(),
-        graph=(
-            GraphEdge(
-                operation,
-                f"{profile.prefix.lower()}-maps",
-                f"{profile.prefix.lower()}-reverse-pair",
-            ),
-        ),
-        trace=("infer:reverse-pair", f"apply:{x},{y}", f"select:{answer}"),
-        template="rule-induction",
+        graph=(GraphEdge(operation, f"{profile.prefix.lower()}-maps", str(structure)),),
+        trace=(f"infer:structure:{structure}", f"apply:{x},{y}", f"select:{answer}"),
+        template=f"rule-induction-{index % len(profile.rule_structures)}",
         domain=profile.domains[1],
-        difficulty=_difficulty(cardinality=2, hops=2, distractors=0),
+        difficulty=_difficulty(
+            cardinality=len(candidate_values),
+            hops=len(structure),
+            distractors=len(candidate_values) - 1,
+            demonstrations=demonstration_count,
+        ),
+        axes={
+            "rule_structure": ",".join(map(str, structure)),
+            "rule_arity": str(len(structure)),
+            "serialization": "demonstration-order-randomized",
+        },
     )
+    changed = replace(
+        base,
+        case_id=f"{profile.prefix}-rule-{index}-query",
+        query=f"Apply {operation} to the unseen pair ({u}, {v}).",
+        answer=changed_answer,
+        hidden=HiddenTruth(
+            base.hidden.relevant_fact_indices,
+            base.hidden.distractor_fact_indices,
+            base.hidden.graph,
+            (f"infer:structure:{structure}", f"apply:{u},{v}", f"select:{changed_answer}"),
+        ),
+    )
+    return base, CausalPair(f"{base.case_id}:query", PairKind.QUERY_SWAP, base, changed)
 
 
 def _natural_cases(profile: SplitProfile, rng: random.Random, seed: int, index: int) -> list[CausalCase]:
     sample = _entity(profile, rng, index)
-    values = [_code(profile, rng) for _ in range(4)]
+    values = [_code(profile, rng) for _ in range(6)]
     binding_facts = [
         f"The assay summary assigns specimen {sample}-A the accession {values[0]}, while specimen {sample}-B carries {values[1]}.",
         f"A calibration control uses accession {values[2]} and is not a specimen result.",
@@ -542,29 +696,86 @@ def _natural_cases(profile: SplitProfile, rng: random.Random, seed: int, index: 
         domain=profile.domains[1],
         difficulty=_difficulty(cardinality=3, hops=0, distractors=1),
     )
+    state_scenario = index % 3
+    other_sample = f"{sample}-peer"
+    if state_scenario == 0:
+        state_events = [
+            (2, 1, sample, values[0], None),
+            (5, 1, other_sample, values[1], None),
+            (8, 1, sample, values[2], None),
+            (11, 1, other_sample, values[3], None),
+            (14, 1, sample, values[4], None),
+        ]
+        state_time, state_answer, state_kind, state_winning = 14, values[4], "latest", {4}
+    elif state_scenario == 1:
+        state_events = [
+            (2, 1, sample, values[0], None),
+            (4, 1, other_sample, values[1], None),
+            (7, 1, sample, values[2], None),
+            (10, 1, other_sample, values[3], None),
+            (13, 1, sample, values[4], None),
+        ]
+        state_time, state_answer, state_kind, state_winning = 7, values[2], "intermediate", {2}
+    else:
+        state_events = [
+            (3, 1, sample, values[0], None),
+            (6, 1, other_sample, values[1], None),
+            (9, 1, sample, values[2], None),
+            (12, 1, sample, values[0], 3),
+            (15, 1, other_sample, values[3], None),
+        ]
+        state_time, state_answer, state_kind, state_winning = 12, values[0], "rollback", {0, 3}
+
+    def render_natural(event: tuple[int, int, str, str, int | None]) -> str:
+        minute, priority, variable, value, rollback_minute = event
+        if rollback_minute is None:
+            return (
+                f"At minute {minute} (priority {priority}), the router configuration for "
+                f"node {variable} was set to {value}."
+            )
+        return (
+            f"At minute {minute} (priority {priority}), an approved rollback restored "
+            f"node {variable} to its value at minute {rollback_minute}."
+        )
+
+    state_order = list(range(len(state_events)))
+    rng.shuffle(state_order)
+    state_facts = tuple(render_natural(state_events[i]) for i in state_order)
+    state_relevant = tuple(position for position, original in enumerate(state_order) if original in state_winning)
     state = _case(
         case_id=f"{profile.prefix}-natural-state-{index}",
         family="natural_state_analogue",
         profile=profile,
         seed=seed,
-        facts=(
-            f"At 09:00 the router configuration for node {sample} was {values[0]}.",
-            f"At 11:30 maintenance changed it to {values[1]}.",
-            f"At 14:10 the approved rollback set it to {values[2]}.",
+        facts=state_facts,
+        query=(
+            f"What configuration is in force for node {sample} at minute {state_time}, "
+            "respecting semantic time, rollback, and priority?"
         ),
-        query=f"What configuration is current for node {sample} after the log?",
-        answer=values[2],
-        candidates=_candidate_order(rng, tuple(values[:3])),
-        relevant=(2,),
-        distractors=(0, 1),
+        answer=state_answer,
+        candidates=_candidate_order(rng, tuple(values[:5]) + (_code(profile, rng),)),
+        relevant=state_relevant,
+        distractors=tuple(i for i in range(len(state_facts)) if i not in state_relevant),
         graph=tuple(
-            GraphEdge(sample, f"{profile.prefix.lower()}-time-{j}", v)
-            for j, v in enumerate(values[:3])
+            GraphEdge(variable, f"{profile.prefix.lower()}-minute-{minute}-p{priority}", value)
+            for minute, priority, variable, value, _ in state_events
         ),
-        trace=("order:timestamps", f"select-latest:{values[2]}"),
-        template="natural-network-log",
+        trace=(f"state-query:{state_kind}", f"select:{state_answer}"),
+        template=f"natural-network-log-{state_kind}",
         domain=profile.domains[2],
-        difficulty=_difficulty(cardinality=3, hops=1, distractors=2),
+        difficulty=_difficulty(
+            cardinality=len(state_facts),
+            hops=1,
+            distractors=len(state_facts) - len(state_relevant),
+            state_events=len(state_events),
+            variables=2,
+        ),
+        axes={
+            "state_query": state_kind,
+            "serialization": "naturalized-semantic-shuffled",
+            "variable_interleaving": "two-variable",
+            "analogue": "naturalistic",
+        },
     )
     composition_facts = [
         f"Module {sample}-input writes buffer {values[0]}.",
@@ -640,7 +851,9 @@ def build_evaluation_suite(
         counter_cases, counter_pairs = _counterfactual_bundle(profile, rng, local_seed, index)
         cases.extend(counter_cases)
         pairs.extend(counter_pairs)
-        cases.append(_rule_case(profile, rng, local_seed, index))
+        rule_case, rule_pair = _rule_case(profile, rng, local_seed, index)
+        cases.extend((rule_case, rule_pair.changed))
+        pairs.append(rule_pair)
         cases.extend(_natural_cases(profile, rng, local_seed, index))
 
     suite = EvaluationSuite(

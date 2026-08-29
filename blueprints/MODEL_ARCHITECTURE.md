@@ -1,4 +1,4 @@
-# Ground Blueprint v0.3 — Model Architecture
+# Ground Blueprint v0.4 — Model Architecture
 
 This is an engineering specification, not a neural-model implementation. Bracketed states are governed by `docs/esoes/DECISIONS.md`; `v5_contracts/model_spec.py` is the executable arithmetic/configuration authority.
 

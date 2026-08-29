@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from functools import lru_cache
 
 from .contracts import CausalCase, EvaluationSuite
 
@@ -34,7 +35,38 @@ def solve_case(case: CausalCase) -> str:
                 return parsed.group(2)
 
     if family == "state_overwrite":
-        return _match(r" became (.+)\.$", case.facts[-1]).group(1)
+        query = _match(r"For (.+), what value is in force at time (\d+)", case.query)
+        target, cutoff = query.group(1), int(query.group(2))
+        events: list[tuple[int, int, str, str, int | None]] = []
+        for fact in case.facts:
+            literal = re.search(
+                r"Event time=(\d+) priority=(\d+): (.+) := ([A-Z0-9-]+)\.", fact
+            )
+            rollback = re.search(
+                r"Event time=(\d+) priority=(\d+): (.+) := value@time=(\d+)\.", fact
+            )
+            if rollback:
+                events.append((int(rollback.group(1)), int(rollback.group(2)), rollback.group(3), "", int(rollback.group(4))))
+            elif literal:
+                events.append((int(literal.group(1)), int(literal.group(2)), literal.group(3), literal.group(4), None))
+            else:
+                raise ValueError(f"could not parse state event: {fact!r}")
+        events.sort(key=lambda event: (event[0], event[1]))
+
+        @lru_cache(maxsize=None)
+        def value_at(variable: str, time: int) -> str:
+            value: str | None = None
+            for event_time, _, event_variable, event_value, rollback_time in events:
+                if event_time > time:
+                    break
+                if event_variable != variable:
+                    continue
+                value = value_at(variable, rollback_time) if rollback_time is not None else event_value
+            if value is None:
+                raise ValueError(f"no state for {variable!r} at time {time}")
+            return value
+
+        return value_at(target, cutoff)
 
     if family == "matched_direct_retrieval":
         direct = next(fact for fact in case.facts if fact.startswith("The direct result for "))
@@ -67,14 +99,62 @@ def solve_case(case: CausalCase) -> str:
 
     if family == "rule_induction":
         pair = _match(r"unseen pair \(([^,]+), ([^)]+)\)", case.query)
-        return f"{pair.group(2)}|{pair.group(1)}"
+        left, right = pair.group(1), pair.group(2)
+        structure: tuple[int, ...] | None = None
+        for fact in case.facts:
+            demo = _match(r"pair \(([^,]+), ([^)]+)\) returns (.+)\.$", fact)
+            demo_left, demo_right, output = demo.group(1), demo.group(2), demo.group(3)
+            output_parts = output.split("|")
+            inferred = tuple(0 if part == demo_left else 1 if part == demo_right else -1 for part in output_parts)
+            if -1 in inferred or not inferred:
+                raise ValueError(f"rule output is not an operand structure: {fact!r}")
+            if structure is None:
+                structure = inferred
+            elif structure != inferred:
+                raise ValueError("rule demonstrations disagree")
+        if structure is None:
+            raise ValueError("rule requires at least one demonstration")
+        return "|".join((left, right)[position] for position in structure)
 
     if family == "natural_binding_analogue":
         assay = next(fact for fact in case.facts if fact.startswith("The assay summary "))
         return _match(r"-B carries ([^.]+)\.", assay).group(1)
 
     if family == "natural_state_analogue":
-        return _match(r"set it to (.+)\.$", case.facts[-1]).group(1)
+        query = _match(r"node (.+) at minute (\d+),", case.query)
+        target, cutoff = query.group(1), int(query.group(2))
+        events: list[tuple[int, int, str, str, int | None]] = []
+        for fact in case.facts:
+            literal = re.search(
+                r"At minute (\d+) \(priority (\d+)\), the router configuration for node (.+) was set to ([A-Z0-9-]+)\.",
+                fact,
+            )
+            rollback = re.search(
+                r"At minute (\d+) \(priority (\d+)\), an approved rollback restored node (.+) to its value at minute (\d+)\.",
+                fact,
+            )
+            if rollback:
+                events.append((int(rollback.group(1)), int(rollback.group(2)), rollback.group(3), "", int(rollback.group(4))))
+            elif literal:
+                events.append((int(literal.group(1)), int(literal.group(2)), literal.group(3), literal.group(4), None))
+            else:
+                raise ValueError(f"could not parse natural state event: {fact!r}")
+        events.sort(key=lambda event: (event[0], event[1]))
+
+        @lru_cache(maxsize=None)
+        def value_at(variable: str, time: int) -> str:
+            value: str | None = None
+            for event_time, _, event_variable, event_value, rollback_time in events:
+                if event_time > time:
+                    break
+                if event_variable != variable:
+                    continue
+                value = value_at(variable, rollback_time) if rollback_time is not None else event_value
+            if value is None:
+                raise ValueError(f"no natural state for {variable!r} at time {time}")
+            return value
+
+        return value_at(target, cutoff)
 
     if family == "natural_composition_analogue":
         start_fact = next(fact for fact in case.facts if fact.startswith("Module "))
