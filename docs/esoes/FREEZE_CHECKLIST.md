@@ -117,6 +117,7 @@ Required critical path: **E0 benchmark certification → E1 tokenizer → E2 arc
 - [x] exact P35 full-stack CPU/CUDA execution canary replicated with randomized case order
 - [x] paired exact-stack CPU/CUDA residual-initialization signal canary replicated through native 4k context; target TPU/XLA and real-update checks remain open
 - [x] paired CPU/CUDA QK-norm scale-control canary replicated through native 4k context; learned-quality and target TPU/XLA checks remain open
+- [x] exact-stack CPU/CUDA BF16-versus-FP32 forward/backward parity replicated; target TPU/XLA and real-update/long-run checks remain open
 - [x] 250M model/run/lineage contracts and implementation blueprint created
 
 ## Freeze artifact

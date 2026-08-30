@@ -114,7 +114,7 @@ Conclusion: the Connector should remain an experimenter and runtime controller, 
 | Embedding/output | tied | STRONG INFERENCE | Parameter efficient; no An-Ra evidence to untie |
 | Bias/dropout | bias-free, dropout 0 | STRONG INFERENCE | Conventional at this scale and data volume |
 | Initialization | normal std 0.02; attention-output and FFN-down projections scaled by `1/sqrt(2L)` | EVIDENCE-BACKED locally / EXPERIMENT REQUIRED on target | Paired CPU/CUDA exact-stack canaries reduce residual growth and gradient imbalance; learning effect remains unmeasured |
-| Precision | BF16 compute, FP32 reductions and optimizer state | EVIDENCE-BACKED | Appropriate TPU stability path |
+| Precision | BF16 compute, FP32 logits/loss reductions and optimizer state | EVIDENCE-BACKED local parity / EXPERIMENT REQUIRED target and long-run | Exact-stack CPU/CUDA logits, loss, and sampled gradients closely match FP32 |
 
 Parameter calculation under the current An-Ra block conventions:
 
@@ -349,6 +349,8 @@ A second replicated canary constructs each exact ~35M shape end to end and perfo
 A third canary isolates the initialization policy with paired random draws. Across five short-context CUDA seeds, scaling attention-output and FFN-down initialization by `1/sqrt(2L)` reduces final-block/embedding RMS growth from 28.81× to 3.52× (deep), 27.12× to 4.22× (middle), and 23.43× to 5.38× (wide). Median block-gradient max/min spread also falls from 5.79/5.20/3.78 to 3.49/3.38/2.76. Three CPU seeds reproduce the direction. Crucially, a separate three-seed native-4k CUDA replication preserves or strengthens every direction: scaled/unscaled growth is 0.115/0.144/0.217 and gradient spread is 0.542/0.510/0.654 for deep/middle/wide. **EVIDENCE-BACKED on the tested constructors and intended context:** use scaled residual-output initialization as the default. **EXPERIMENT REQUIRED:** target-TPU reproduction and evidence from bounded real updates; this probe neither trains nor measures cognition.
 
 A fourth paired probe isolates QK normalization under 0.25×/1×/4× projection-scale stress. Five CUDA seeds across 512/2k/4k and three CPU seeds across 128/512 agree. At 4k, QK-normalized logit RMS varies by only 1.000045× and normalized entropy spans 0.000004; without QK norm, logit RMS changes exactly 256× and entropy spans 0.365. At ordinary scale, the unnormalized arm is nearly uniform (effective attended fraction 0.988) while QK norm is more differentiated (0.616). **EVIDENCE-BACKED local mechanism:** QK norm controls attention sensitivity to Q/K weight magnitude. **EXPERIMENT REQUIRED:** whether that selectivity improves fresh-OOD cognition, how learned affine scales behave, and whether TPU/XLA reproduces it. QK norm does not make parameter-gradient magnitude scale-invariant.
+
+A fifth paired probe compares exact P35 FP32 and BF16 stacks with identical scaled-residual weights and inputs. Three CUDA and three CPU seeds pass every preregistered limit across all shapes. The worst observed loss relative error is 0.000118; logit cosine is at least 0.999901 with at most 1.408% relative RMS error; sampled-gradient cosine is at least 0.999327 with at most 3.875% relative RMS error. **EVIDENCE-BACKED local initialization/backward parity:** BF16 is acceptable for bounded local canaries when logits/loss reduce in FP32. **EXPERIMENT REQUIRED:** target TPU/XLA parity, real optimizer updates, optimizer-state precision, long-duration drift, and adversarial/data-tail numerics. This does not authorize the main run.
 
 ### E3 — Data/objective screen
 

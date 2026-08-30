@@ -12,11 +12,71 @@ from e2_architecture.block_benchmark import BenchmarkConfig, shape_arms
 from e2_architecture.block_aggregate import aggregate_receipts as aggregate_block_receipts
 from e2_architecture.device_benchmark import AttentionCase, _percentile, default_cases
 from e2_architecture.plan import build_plan
+from e2_architecture.precision_benchmark import PrecisionConfig, classify as classify_precision
 from e2_architecture.qk_norm_benchmark import QKNormConfig, classify as classify_qk_norm
 from e2_architecture.signal_benchmark import SignalConfig, classify
 
 
 class E2ArchitectureTests(unittest.TestCase):
+    def test_precision_config_requires_replication(self) -> None:
+        PrecisionConfig("cuda", 256, 1, (1, 2, 3)).assert_valid()
+        with self.assertRaises(ValueError):
+            PrecisionConfig("cuda", 256, 1, (1, 2)).assert_valid()
+
+    def test_precision_classification_requires_every_seed_and_shape(self) -> None:
+        rows = []
+        for arm in ("deep-narrow", "middle", "wide-shallow"):
+            for seed in (1, 2, 3):
+                rows.append(
+                    {
+                        "arm": arm,
+                        "seed": seed,
+                        "checks": {
+                            "finite": True,
+                            "parameter_count_exact": True,
+                            "parity": True,
+                        },
+                    }
+                )
+        self.assertEqual(classify_precision(rows)["verdict"], "SUPPORTED_LOCAL_BF16_PARITY")
+        rows[-1]["checks"]["parity"] = False
+        self.assertEqual(classify_precision(rows)["verdict"], "MIXED_LOCAL_BF16_PARITY")
+
+    def test_local_precision_receipts_are_current_and_pass(self) -> None:
+        repository = Path(__file__).parents[1]
+        implementation_sha256 = hashlib.sha256(
+            (repository / "e2_architecture/precision_benchmark.py").read_bytes()
+        ).hexdigest()
+        model_sha256 = hashlib.sha256(
+            (repository / "e2_architecture/block_benchmark.py").read_bytes()
+        ).hexdigest()
+        initialization_sha256 = hashlib.sha256(
+            (repository / "e2_architecture/signal_benchmark.py").read_bytes()
+        ).hexdigest()
+        expected_receipts = (
+            ("local_cuda_precision_parity.json", "cuda", 256),
+            ("local_cpu_precision_parity.json", "cpu", 64),
+        )
+        for filename, device, sequence_length in expected_receipts:
+            receipt = json.loads(
+                (repository / "artifacts/e2" / filename).read_text(encoding="utf-8")
+            )
+            self.assertEqual(receipt["status"], "PASS")
+            self.assertEqual(
+                receipt["classification"]["verdict"], "SUPPORTED_LOCAL_BF16_PARITY"
+            )
+            self.assertEqual(receipt["implementation_sha256"], implementation_sha256)
+            self.assertEqual(receipt["model_implementation_sha256"], model_sha256)
+            self.assertEqual(
+                receipt["initialization_implementation_sha256"], initialization_sha256
+            )
+            self.assertEqual(receipt["config"]["device"], device)
+            self.assertEqual(receipt["config"]["sequence_length"], sequence_length)
+            self.assertEqual(len(receipt["config"]["seeds"]), 3)
+            self.assertEqual(len(receipt["rows"]), 9)
+            for row in receipt["rows"]:
+                self.assertTrue(all(row["checks"].values()))
+
     def test_qk_norm_config_requires_replication_and_valid_shape(self) -> None:
         QKNormConfig("cuda", (512, 2048), (1, 2, 3)).assert_valid()
         with self.assertRaises(ValueError):

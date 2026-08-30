@@ -49,7 +49,7 @@ The architecture contains no explicit task labels, symbolic slots, state registe
 | linear bias | none | [PROVISIONAL] |
 | dropout | zero | [PROVISIONAL] |
 | initialization | normal 0.02; attention-output and FFN-down weights scaled by `1/sqrt(2L)` | [LOCAL SIGNAL EVIDENCE; TARGET CANARY REQUIRED] |
-| compute precision | BF16 with FP32 reductions/optimizer | [PROVISIONAL] |
+| compute precision | BF16 with FP32 logits/loss reductions and optimizer | [LOCAL FORWARD/BACKWARD PARITY EVIDENCE; TARGET/LONG-RUN REQUIRED] |
 
 ## Parameter receipt
 
@@ -90,6 +90,10 @@ An exact-stack, paired-draw probe compared unscaled `normal(0, 0.02)` with scali
 ### QK-normalization canary
 
 A paired MHA probe holds normalized hidden states, projection draws, values, targets, RoPE, and causal query positions fixed while multiplying Q/K projection weights by 0.25×, 1×, or 4×. Five CUDA seeds cover 512/2,048/4,096 context and three CPU seeds cover 128/512. At 4k, QK norm holds attention-logit RMS within a 1.000045 max/min ratio and normalized entropy within 0.000004 across the scale stress; without QK norm, logit RMS changes exactly 256× and normalized entropy spans 0.365. At the base scale, QK norm produces logit RMS 0.998 and effective attended fraction 0.616, versus 0.155 and 0.988 without it. This proves that the implementation controls attention-distribution sensitivity to Q/K norm drift and avoids an almost-uniform initialization on this probe. It does not prove that selectivity improves learning or cognition. Parameter-gradient RMS changes inversely with projection scale even under QK norm, so optimizer dynamics are not scale-invariant; E2 must retain the learned-quality ablation and target TPU/XLA canary.
+
+### BF16 numerical-parity canary
+
+Exact P35 stacks loaded identical scaled-residual weights into FP32 and BF16 paths and compared logits, FP32 cross-entropy, and four representative gradients after one backward pass. Three CUDA seeds at sequence 256 and three CPU seeds at sequence 64 pass preregistered limits for every deep/middle/wide case. Worst observed loss relative error is 0.000118, logit cosine is 0.999901 or better, logit relative RMS error is 0.01408 or lower, representative-gradient cosine is 0.999327 or better, and gradient relative RMS error is 0.03875 or lower. This supports BF16 as the local execution default with FP32 logits/loss reductions. It does not establish optimizer-state precision, loss-scaling behavior, rare data-dependent tails, long-run drift, or TPU/XLA parity; those remain required canaries before freeze.
 
 ## Rejected from V5-A baseline
 

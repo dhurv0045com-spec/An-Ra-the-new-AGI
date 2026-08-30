@@ -46,3 +46,10 @@ concentration, and gradient finiteness across contexts. Its gate asks whether
 QK norm removes attention-distribution sensitivity to Q/K weight scale while
 the unnormalized control exposes the perturbation. It performs no optimizer
 update and cannot establish that selective attention improves cognition.
+
+`e2_architecture.precision_benchmark` loads identical scaled-residual weights
+into exact FP32 and BF16 P35 stacks, then compares logits, cross-entropy, and
+four representative gradients after one backward pass. Its limits are fixed in
+source and its receipts bind both model and initialization implementations. It
+performs no optimizer update; passing is local numerical-parity evidence, not
+evidence of long-run BF16 training stability.
