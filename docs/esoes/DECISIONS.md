@@ -279,7 +279,7 @@ Until then: **READY TO FREEZE = NO**.
 **DECISION:** use BF16 for future bounded local model canaries while computing vocabulary logits/loss reductions in FP32; retain FP32 optimizer state as the provisional main-run policy.
 **STATUS:** [EVIDENCE-BACKED LOCAL FORWARD/BACKWARD / EXPERIMENT REQUIRED: TARGET TPU, REAL UPDATES, LONG RUN]
 **WHY:** exact paired stacks show close BF16 agreement with FP32 for loss, logits, and representative gradients on both CPU and CUDA across every P35 shape.
-**EVIDENCE:** `artifacts/e2/local_cuda_precision_parity.json` and `artifacts/e2/local_cpu_precision_parity.json`, three seeds each. Worst observed loss relative error is 0.000118, logit cosine 0.999901, logit relative RMS error 1.408%, sampled-gradient cosine 0.999327, and gradient relative RMS error 3.875%. No optimizer update was performed.
+**EVIDENCE:** `artifacts/e2/local_cuda_precision_parity.json` and `artifacts/e2/local_cpu_precision_parity.json` (three short-context seeds each), plus `artifacts/e2/local_cuda_precision_parity_2k.json` (three native-2k seeds). All shapes pass. Across all receipts, worst loss relative error is 0.000118; the native-2k run has worst logit cosine 0.999917, logit relative RMS error 1.289%, sampled-gradient cosine 0.999631, and gradient relative RMS error 2.717%. No optimizer update was performed.
 **ALTERNATIVES CONSIDERED:** assume BF16 from convention; require FP32 compute throughout; infer long-run stability from a single forward pass.
 **WHAT WOULD CHANGE OUR MIND:** target TPU/XLA disagreement, non-finite or drifting real-update canaries, optimizer-state instability, or materially worse precision on natural/adversarial numerical tails. These receipts do not authorize main training.
 **ITERATION:** Ground Blueprint v0.4.

@@ -55,6 +55,7 @@ class E2ArchitectureTests(unittest.TestCase):
         ).hexdigest()
         expected_receipts = (
             ("local_cuda_precision_parity.json", "cuda", 256),
+            ("local_cuda_precision_parity_2k.json", "cuda", 2048),
             ("local_cpu_precision_parity.json", "cpu", 64),
         )
         for filename, device, sequence_length in expected_receipts:
