@@ -26,3 +26,9 @@ python -m e1_tokenizer.local_tournament \
 This command needs the optional `tokenizers` package. Its result is explicitly
 `DEVELOPMENT_STATIC_PASS`, never an E1 promotion: local sources do not replace
 representative external custody or matched P35 byte-normalized loss/cognition.
+
+`e1_tokenizer.perturbation_sweep` extends the committed 12 probes with
+deterministic number, identifier, nonce, Unicode, spacing, and formal variants.
+It reports per-family token cost, round-trip failures, and unknowns for all
+three local candidates. The sweep is still static development evidence and
+cannot authorize a tokenizer or model run.

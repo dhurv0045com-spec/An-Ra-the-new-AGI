@@ -38,6 +38,27 @@ class E1TokenizerTests(unittest.TestCase):
     def setUp(self) -> None:
         self.sha = hashlib.sha256(b"fake-tokenizer-artifact").hexdigest()
 
+    def test_local_perturbation_sweep_is_bound_and_passes(self) -> None:
+        repository = Path(__file__).parents[1]
+        receipt = json.loads(
+            (repository / "artifacts/e1/local_tournament/perturbation_sweep.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        implementation_sha256 = hashlib.sha256(
+            (repository / "e1_tokenizer/perturbation_sweep.py").read_bytes()
+        ).hexdigest()
+        self.assertEqual(receipt["status"], "DEVELOPMENT_STATIC_PASS")
+        self.assertEqual(receipt["implementation_sha256"], implementation_sha256)
+        self.assertEqual(receipt["seed"], 41001)
+        self.assertEqual(receipt["repetitions_per_family"], 64)
+        self.assertEqual(len(receipt["rows"]), 3)
+        self.assertTrue(all(row["roundtrip_failures"] == 0 for row in receipt["rows"]))
+        self.assertTrue(all(row["unknown_occurrences"] == 0 for row in receipt["rows"]))
+        by_vocab = {row["vocabulary_size"]: row for row in receipt["rows"]}
+        self.assertLess(by_vocab[32768]["tokens_per_byte"], by_vocab[24576]["tokens_per_byte"])
+        self.assertLess(by_vocab[24576]["tokens_per_byte"], by_vocab[16384]["tokens_per_byte"])
+
     def test_identity_preserving_candidate_passes_static_audit(self) -> None:
         report = audit_receipt(candidate_receipt("byte-canary", 16_384, self.sha), artifact_sha256=self.sha)
         self.assertEqual(report["status"], "PASS")

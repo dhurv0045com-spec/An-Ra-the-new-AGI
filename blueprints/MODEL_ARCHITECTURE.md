@@ -42,7 +42,7 @@ The architecture contains no explicit task labels, symbolic slots, state registe
 | FFN | 2,368 SwiGLU | [EXPERIMENT REQUIRED: E2] |
 | attention | full causal, every layer | [EXPERIMENT REQUIRED: E2] |
 | context | 4,096 native | [EXPERIMENT REQUIRED: E2] |
-| position | RoPE, base 10,000; no extrapolation claim | [PROVISIONAL] |
+| position | RoPE, base 10,000; native 4,096 only | [LOCAL 4K CONFORMANCE; BASE/LEARNING/TPU EXPERIMENT REQUIRED] |
 | norm | pre-RMSNorm, epsilon 1e-5 | [PROVISIONAL] |
 | QK norm | on candidate, affine Q/K scales initialized to 1 | [LOCAL SCALE-CONTROL EVIDENCE; LEARNING EXPERIMENT REQUIRED] |
 | embeddings/head | tied | [PROVISIONAL] |
@@ -94,6 +94,16 @@ A paired MHA probe holds normalized hidden states, projection draws, values, tar
 ### BF16 numerical-parity canary
 
 Exact P35 stacks loaded identical scaled-residual weights into FP32 and BF16 paths and compared logits, FP32 cross-entropy, and four representative gradients after one backward pass. Three CUDA seeds at sequence 256 and three CPU seeds at sequence 64 pass preregistered limits for every deep/middle/wide case. A separate three-seed CUDA replication at native 2,048 context also passes all shapes, with worst logit cosine 0.999917, logit relative RMS error 0.01289, representative-gradient cosine 0.999631, and gradient relative RMS error 0.02717. Across all receipts, worst loss relative error remains 0.000118. This supports BF16 as the local execution default with FP32 logits/loss reductions through the P35 native context. It does not establish optimizer-state precision, loss-scaling behavior, rare data-dependent tails, long-run drift, 4k V5-A behavior, or TPU/XLA parity; those remain required canaries before freeze.
+
+### RoPE conformance canary
+
+The actual P35 `RotaryEmbedding` is checked at its native 4,096-token limit against an independent float64 rotation oracle, with norm preservation and relative-shift invariance tested separately. Fresh seeds 36101–36105 on CUDA and 36101–36103 on CPU pass for both FP32 and BF16. Worst CUDA errors are FP32 reference RMS `1.404e-5`, cosine `0.99999999990`, norm error `4.14e-8`, and shift error `2.546e-5`; BF16 reference RMS `0.002946`, cosine `0.9999957`, norm error `0.002282`, and shift error `0.005451`. An earlier calibration receipt intentionally failed the original FP32 limits (`2e-6` RMS / `3e-6` shift) because the executable phase table computes angles in float32; the limits were then widened analytically to `5e-5` for accumulated phase round-off and re-tested on fresh seeds. The failed calibration remains preserved as negative evidence. This certifies local implementation geometry only—not that base 10,000 is optimal, that extrapolation works, or that TPU/XLA agrees.
+
+### Real-update and resume canary
+
+Three deterministic AdamW updates on the exact P35 middle stack pass on CUDA (sequence 32) and CPU (sequence 16): all live parameters belong to the optimizer, parameter hashes change, Adam reaches step 3, moments are nonzero, and save/load continuation reproduces both parameters and optimizer states exactly. The corrected BF16 path stores FP32 master parameters and uses BF16 autocast, so its moments are FP32. A native-BF16-parameter control fails the FP32-state gate because PyTorch stores BF16 moments; that receipt is retained as a negative control. This validates wiring and short-run resume only; distributed/TPU/XLA and long-duration optimizer behavior remain required.
+A separate 10-update fresh-seed run on both CPU and CUDA remains finite and preserves exact optimizer-state resume, strengthening the bounded stability signal without freezing LR, schedule, or long-run behavior.
+The 1K-context extension passes the registered tolerance-based resume gate on both devices; a strict CUDA run is intentionally retained as negative evidence because backend reduction order produces tiny, bounded drift. Exact bitwise equality is therefore required only where the receipt says it is supported, while tolerance and optimizer-state checks are mandatory at realistic context.
 
 ## Rejected from V5-A baseline
 

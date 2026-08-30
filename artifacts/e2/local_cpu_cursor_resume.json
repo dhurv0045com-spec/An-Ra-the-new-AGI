@@ -1,0 +1,43 @@
+{
+  "checks": {
+    "checkpoint_json_roundtrip": true,
+    "cursor_offset_corruption_rejected": true,
+    "device_digest_matches_host": true,
+    "device_materialization_finite": true,
+    "final_cursor_token_ledger_exact": true,
+    "manifest_mismatch_rejected": true,
+    "resumed_tail_matches_uninterrupted": true,
+    "uninterrupted_stream_complete": true
+  },
+  "config": {
+    "batches": 9,
+    "cursor_schema": "cursor/v1",
+    "device": "cpu",
+    "run_seed": 38001,
+    "split_batch": 4,
+    "tokens_per_batch": 47
+  },
+  "cuda_runtime": "12.8",
+  "device_name": "AMD64 Family 25 Model 68 Stepping 1, AuthenticAMD",
+  "implementation_sha256": "66bb3e367e530669909a5793c1a28ba8da2ecb6b3153147cac3359ba0f6401ea",
+  "limitations": [
+    "Synthetic content-addressed tokens prove cursor continuity, not pack-reader throughput or data quality.",
+    "Single-process canary; distributed sampler/all-reduce and remote durable storage remain open."
+  ],
+  "metrics": {
+    "device_token_digest": "c4ecc268a458730332dd79dc442a9986232248bad7a73cc57b50bbae77dfb777",
+    "final_cumulative_tokens": 423,
+    "host_token_digest": "c4ecc268a458730332dd79dc442a9986232248bad7a73cc57b50bbae77dfb777",
+    "serialized_cursor_bytes": 215
+  },
+  "pack": {
+    "manifest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "sequence_count": 63,
+    "shard_count": 7,
+    "total_stream_tokens": 423
+  },
+  "schema": "esoes-e2-cursor-resume/v1",
+  "scope": "content-addressed packed-stream cursor; JSON checkpoint round-trip; no model training",
+  "status": "PASS",
+  "torch_version": "2.11.0+cu128"
+}

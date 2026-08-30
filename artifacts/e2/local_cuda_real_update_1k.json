@@ -1,0 +1,169 @@
+{
+  "checks": {
+    "all_finite": true,
+    "all_parameters_changed": true,
+    "bf16_optimizer_moments_fp32": true,
+    "global_gradient_clip_effective": true,
+    "moments_changed": true,
+    "optimizer_has_no_duplicate_parameters": true,
+    "optimizer_owns_live_parameters": true,
+    "optimizer_steps_reached_target": true,
+    "resume_equivalence_within_dtype": true,
+    "resume_optimizer_equivalence": true
+  },
+  "config": {
+    "arm": "middle",
+    "batch_size": 1,
+    "device": "cuda",
+    "parameter_storage": "master",
+    "seed": 37021,
+    "sequence_length": 1024,
+    "steps": 2
+  },
+  "cuda_runtime": "12.8",
+  "device_name": "NVIDIA GeForce RTX 4050 Laptop GPU",
+  "implementation_sha256": "7e3ac32c0f5efbf4d211e02d7881bfc7692a7edb5b579f42af99e7cecdd90645",
+  "limitations": [
+    "Native AdamW state dtype is reported; this canary does not claim FP32 master-state semantics unless the receipt shows them.",
+    "Three updates on synthetic tokens prove wiring and continuity, not optimizer quality or cognition.",
+    "Target TPU/XLA and distributed all-reduce exact-resume remain open."
+  ],
+  "model_implementation_sha256": "0fbeb10680074e41982ea2d7f214c352a6e50f17f68f8f54fd75ee73ca9fa8b7",
+  "platform": "Windows-10-10.0.26200-SP0",
+  "resume": {
+    "bfloat16": {
+      "exact_within_dtype": false,
+      "optimizer_state_exact": false,
+      "optimizer_state_max_abs_error": 6.189337000250816e-06,
+      "optimizer_state_within_tolerance": true,
+      "parameter_max_abs_error": 0.0011451169848442078,
+      "parameter_relative_rms_error": 2.5483717763563618e-05,
+      "parameter_within_tolerance": true,
+      "resumed_optimizer": {
+        "maximum_step": 2.0,
+        "moment_nonzero": true,
+        "moments_fp32": true,
+        "optimizer_has_no_duplicate_parameters": true,
+        "optimizer_owns_all_live_parameters": true,
+        "state_dtypes": [
+          "float32"
+        ],
+        "state_entries": 178
+      },
+      "serialized_checkpoint_bytes": 425183393,
+      "tolerances": {
+        "optimizer_state_max_abs": 0.001,
+        "parameter_max_abs": 0.002,
+        "parameter_relative_rms": 0.0005
+      }
+    },
+    "float32": {
+      "exact_within_dtype": false,
+      "optimizer_state_exact": false,
+      "optimizer_state_max_abs_error": 7.566995918750763e-10,
+      "optimizer_state_within_tolerance": true,
+      "parameter_max_abs_error": 2.2479798644781113e-06,
+      "parameter_relative_rms_error": 6.460340706837542e-09,
+      "parameter_within_tolerance": true,
+      "resumed_optimizer": {
+        "maximum_step": 2.0,
+        "moment_nonzero": true,
+        "moments_fp32": true,
+        "optimizer_has_no_duplicate_parameters": true,
+        "optimizer_owns_all_live_parameters": true,
+        "state_dtypes": [
+          "float32"
+        ],
+        "state_entries": 178
+      },
+      "serialized_checkpoint_bytes": 425183393,
+      "tolerances": {
+        "optimizer_state_max_abs": 0.0001,
+        "parameter_max_abs": 1e-05,
+        "parameter_relative_rms": 1e-06
+      }
+    }
+  },
+  "resume_tolerances": {
+    "bfloat16": {
+      "optimizer_state_max_abs": 0.001,
+      "parameter_max_abs": 0.002,
+      "parameter_relative_rms": 0.0005
+    },
+    "float32": {
+      "optimizer_state_max_abs": 0.0001,
+      "parameter_max_abs": 1e-05,
+      "parameter_relative_rms": 1e-06
+    }
+  },
+  "rows": [
+    {
+      "clipped_gradient_norms": [
+        1.0000001192092896,
+        1.0000001192092896
+      ],
+      "compute_dtype": "float32",
+      "dtype": "float32",
+      "final_parameter_hash": "061bbc34fcee0f779054f11afaa899bfcb6b6fc95ed62d44165444b4839c475b",
+      "finite": true,
+      "gradient_norms": [
+        62.085514068603516,
+        162.60421752929688
+      ],
+      "initial_parameter_hash": "83656e5b765f04facd977f9452bf2e7b506dfea2db8b39c5d6f11d90e7ef86ce",
+      "losses": [
+        345.6771240234375,
+        341.32684326171875
+      ],
+      "optimizer": {
+        "maximum_step": 2.0,
+        "moment_nonzero": true,
+        "moments_fp32": true,
+        "optimizer_has_no_duplicate_parameters": true,
+        "optimizer_owns_all_live_parameters": true,
+        "state_dtypes": [
+          "float32"
+        ],
+        "state_entries": 178
+      },
+      "parameter_changed": true,
+      "parameter_storage_dtype": "float32"
+    },
+    {
+      "clipped_gradient_norms": [
+        1.0,
+        0.9999998211860657
+      ],
+      "compute_dtype": "bfloat16",
+      "dtype": "bfloat16",
+      "final_parameter_hash": "dcf4a90421fd3c9b79c085962a28b043e5cb06b61cb08e888edebcc60e6f2cce",
+      "finite": true,
+      "gradient_norms": [
+        62.067325592041016,
+        162.86480712890625
+      ],
+      "initial_parameter_hash": "83656e5b765f04facd977f9452bf2e7b506dfea2db8b39c5d6f11d90e7ef86ce",
+      "losses": [
+        345.689453125,
+        341.306396484375
+      ],
+      "optimizer": {
+        "maximum_step": 2.0,
+        "moment_nonzero": true,
+        "moments_fp32": true,
+        "optimizer_has_no_duplicate_parameters": true,
+        "optimizer_owns_all_live_parameters": true,
+        "state_dtypes": [
+          "float32"
+        ],
+        "state_entries": 178
+      },
+      "parameter_changed": true,
+      "parameter_storage_dtype": "float32"
+    }
+  ],
+  "schema": "esoes-e2-real-update/v1",
+  "scope": "exact P35 middle stack; bounded AdamW updates and save/resume equivalence; no training run",
+  "status": "PASS",
+  "torch_version": "2.11.0+cu128"
+}

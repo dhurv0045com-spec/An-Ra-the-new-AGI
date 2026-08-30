@@ -1,0 +1,175 @@
+{
+  "checks": {
+    "all_finite": true,
+    "all_parameters_changed": true,
+    "bf16_optimizer_moments_fp32": true,
+    "global_gradient_clip_effective": true,
+    "moments_changed": true,
+    "optimizer_has_no_duplicate_parameters": true,
+    "optimizer_owns_live_parameters": true,
+    "optimizer_steps_reached_target": true,
+    "resume_equivalence_within_dtype": true,
+    "resume_optimizer_equivalence": true
+  },
+  "config": {
+    "arm": "wide-shallow",
+    "batch_size": 1,
+    "device": "cpu",
+    "parameter_storage": "master",
+    "seed": 37032,
+    "sequence_length": 16,
+    "steps": 3
+  },
+  "cuda_runtime": "12.8",
+  "device_name": "AMD64 Family 25 Model 68 Stepping 1, AuthenticAMD",
+  "implementation_sha256": "7e3ac32c0f5efbf4d211e02d7881bfc7692a7edb5b579f42af99e7cecdd90645",
+  "limitations": [
+    "Native AdamW state dtype is reported; this canary does not claim FP32 master-state semantics unless the receipt shows them.",
+    "Three updates on synthetic tokens prove wiring and continuity, not optimizer quality or cognition.",
+    "Target TPU/XLA and distributed all-reduce exact-resume remain open."
+  ],
+  "model_implementation_sha256": "0fbeb10680074e41982ea2d7f214c352a6e50f17f68f8f54fd75ee73ca9fa8b7",
+  "platform": "Windows-10-10.0.26200-SP0",
+  "resume": {
+    "bfloat16": {
+      "exact_within_dtype": true,
+      "optimizer_state_exact": true,
+      "optimizer_state_max_abs_error": 0.0,
+      "optimizer_state_within_tolerance": true,
+      "parameter_max_abs_error": 0.0,
+      "parameter_relative_rms_error": 0.0,
+      "parameter_within_tolerance": true,
+      "resumed_optimizer": {
+        "maximum_step": 3.0,
+        "moment_nonzero": true,
+        "moments_fp32": true,
+        "optimizer_has_no_duplicate_parameters": true,
+        "optimizer_owns_all_live_parameters": true,
+        "state_dtypes": [
+          "float32"
+        ],
+        "state_entries": 90
+      },
+      "serialized_checkpoint_bytes": 421830145,
+      "tolerances": {
+        "optimizer_state_max_abs": 0.001,
+        "parameter_max_abs": 0.002,
+        "parameter_relative_rms": 0.0005
+      }
+    },
+    "float32": {
+      "exact_within_dtype": true,
+      "optimizer_state_exact": true,
+      "optimizer_state_max_abs_error": 0.0,
+      "optimizer_state_within_tolerance": true,
+      "parameter_max_abs_error": 0.0,
+      "parameter_relative_rms_error": 0.0,
+      "parameter_within_tolerance": true,
+      "resumed_optimizer": {
+        "maximum_step": 3.0,
+        "moment_nonzero": true,
+        "moments_fp32": true,
+        "optimizer_has_no_duplicate_parameters": true,
+        "optimizer_owns_all_live_parameters": true,
+        "state_dtypes": [
+          "float32"
+        ],
+        "state_entries": 90
+      },
+      "serialized_checkpoint_bytes": 421830145,
+      "tolerances": {
+        "optimizer_state_max_abs": 0.0001,
+        "parameter_max_abs": 1e-05,
+        "parameter_relative_rms": 1e-06
+      }
+    }
+  },
+  "resume_tolerances": {
+    "bfloat16": {
+      "optimizer_state_max_abs": 0.001,
+      "parameter_max_abs": 0.002,
+      "parameter_relative_rms": 0.0005
+    },
+    "float32": {
+      "optimizer_state_max_abs": 0.0001,
+      "parameter_max_abs": 1e-05,
+      "parameter_relative_rms": 1e-06
+    }
+  },
+  "rows": [
+    {
+      "clipped_gradient_norms": [
+        1.0000027418136597,
+        1.0000028610229492,
+        1.0000030994415283
+      ],
+      "compute_dtype": "float32",
+      "dtype": "float32",
+      "final_parameter_hash": "539c596df83a69d9b1fd39a8fe3453f64b647ee436d87a9dda9a32f202a6fb4e",
+      "finite": true,
+      "gradient_norms": [
+        335.8826904296875,
+        329.31494140625,
+        331.9826354980469
+      ],
+      "initial_parameter_hash": "b25d0fcb021d48d3478651495f9b637f5411199aba4869ada17a9566ff5b2fe2",
+      "losses": [
+        432.04693603515625,
+        426.8197021484375,
+        430.2558288574219
+      ],
+      "optimizer": {
+        "maximum_step": 3.0,
+        "moment_nonzero": true,
+        "moments_fp32": true,
+        "optimizer_has_no_duplicate_parameters": true,
+        "optimizer_owns_all_live_parameters": true,
+        "state_dtypes": [
+          "float32"
+        ],
+        "state_entries": 90
+      },
+      "parameter_changed": true,
+      "parameter_storage_dtype": "float32"
+    },
+    {
+      "clipped_gradient_norms": [
+        0.999990701675415,
+        0.9999905228614807,
+        0.9999904632568359
+      ],
+      "compute_dtype": "bfloat16",
+      "dtype": "bfloat16",
+      "final_parameter_hash": "d1dd15ef4a5cf5b08f43d029006597fddd9d5b033003949f362bec6c79a3d832",
+      "finite": true,
+      "gradient_norms": [
+        335.9176025390625,
+        329.31329345703125,
+        332.127685546875
+      ],
+      "initial_parameter_hash": "b25d0fcb021d48d3478651495f9b637f5411199aba4869ada17a9566ff5b2fe2",
+      "losses": [
+        431.99078369140625,
+        426.7294921875,
+        430.26171875
+      ],
+      "optimizer": {
+        "maximum_step": 3.0,
+        "moment_nonzero": true,
+        "moments_fp32": true,
+        "optimizer_has_no_duplicate_parameters": true,
+        "optimizer_owns_all_live_parameters": true,
+        "state_dtypes": [
+          "float32"
+        ],
+        "state_entries": 90
+      },
+      "parameter_changed": true,
+      "parameter_storage_dtype": "float32"
+    }
+  ],
+  "schema": "esoes-e2-real-update/v1",
+  "scope": "exact P35 middle stack; bounded AdamW updates and save/resume equivalence; no training run",
+  "status": "PASS",
+  "torch_version": "2.11.0+cu128"
+}

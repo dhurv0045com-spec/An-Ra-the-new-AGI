@@ -150,3 +150,4 @@ V5 must evaluate position, length, distractors, surface form, symbols, topology,
 10. Major scale follows replicated proxy and mid-scale evidence, not ambition.
 11. No pair/composition objective may be justified from EXP v10/v11 until the stale-candidate bug, baselines, and reproduction gaps are corrected prospectively.
 12. The 250M center is a user-directed implementation envelope with an exact receipt, not evidence that 195M was capacity-limited; E2/E5 retain authority over scale efficiency.
+13. A short real-update canary must test optimizer ownership, non-no-op parameter/moment changes, exact step advancement, and save/resume equivalence. BF16 compute therefore uses FP32 master parameters until a deliberate low-precision-state experiment earns promotion; native BF16 AdamW moments are a known negative control.

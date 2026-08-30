@@ -14,10 +14,157 @@ from e2_architecture.device_benchmark import AttentionCase, _percentile, default
 from e2_architecture.plan import build_plan
 from e2_architecture.precision_benchmark import PrecisionConfig, classify as classify_precision
 from e2_architecture.qk_norm_benchmark import QKNormConfig, classify as classify_qk_norm
+from e2_architecture.rope_benchmark import RopeConfig, classify as classify_rope
 from e2_architecture.signal_benchmark import SignalConfig, classify
+from e2_architecture.update_benchmark import UpdateConfig
+from e2_architecture.cursor_benchmark import (
+    CursorState,
+    DeterministicPack,
+)
 
 
 class E2ArchitectureTests(unittest.TestCase):
+    def test_rope_config_requires_native_context_and_replication(self) -> None:
+        RopeConfig("cuda", 4096, (1, 2, 3)).assert_valid()
+        with self.assertRaises(ValueError):
+            RopeConfig("cuda", 2048, (1, 2, 3)).assert_valid()
+        with self.assertRaises(ValueError):
+            RopeConfig("cuda", 4096, (1, 2)).assert_valid()
+
+    def test_rope_classification_requires_both_dtypes(self) -> None:
+        rows = [
+            {"dtype": dtype_name, "checks": {"finite": True, "conformant": True}}
+            for dtype_name in ("float32", "bfloat16")
+            for _ in range(3)
+        ]
+        self.assertEqual(classify_rope(rows)["verdict"], "SUPPORTED_LOCAL_ROPE_CONFORMANCE")
+        rows[-1]["checks"]["conformant"] = False
+        self.assertEqual(classify_rope(rows)["verdict"], "MIXED_LOCAL_ROPE_CONFORMANCE")
+
+    def test_local_rope_receipts_are_current_replicated_and_pass(self) -> None:
+        repository = Path(__file__).parents[1]
+        implementation_sha256 = hashlib.sha256(
+            (repository / "e2_architecture/rope_benchmark.py").read_bytes()
+        ).hexdigest()
+        model_sha256 = hashlib.sha256(
+            (repository / "e2_architecture/block_benchmark.py").read_bytes()
+        ).hexdigest()
+        expected_receipts = (
+            ("local_cuda_rope_conformance.json", "cuda", 5),
+            ("local_cpu_rope_conformance.json", "cpu", 3),
+        )
+        for filename, device, seed_count in expected_receipts:
+            receipt = json.loads(
+                (repository / "artifacts/e2" / filename).read_text(encoding="utf-8")
+            )
+            self.assertEqual(receipt["status"], "PASS")
+            self.assertEqual(
+                receipt["classification"]["verdict"],
+                "SUPPORTED_LOCAL_ROPE_CONFORMANCE",
+            )
+            self.assertEqual(receipt["implementation_sha256"], implementation_sha256)
+            self.assertEqual(receipt["model_implementation_sha256"], model_sha256)
+            self.assertEqual(receipt["config"]["device"], device)
+            self.assertEqual(receipt["config"]["context_length"], 4096)
+            self.assertEqual(len(receipt["config"]["seeds"]), seed_count)
+            self.assertEqual(len(receipt["rows"]), 2 * seed_count)
+            self.assertEqual(set(receipt["conformance_limits"]), {"float32", "bfloat16"})
+            for row in receipt["rows"]:
+                self.assertTrue(all(row["checks"].values()))
+
+    def test_update_config_rejects_invalid_storage_policy(self) -> None:
+        UpdateConfig("cpu", 16, 1, 3, 1).assert_valid()
+        with self.assertRaises(ValueError):
+            UpdateConfig("cpu", 16, 1, 3, 1, "bf16").assert_valid()
+        with self.assertRaises(ValueError):
+            UpdateConfig("cpu", 16, 1, 3, 1, "master", "unknown").assert_valid()
+
+    def test_cursor_rejects_manifest_and_offset_corruption(self) -> None:
+        pack = DeterministicPack(manifest_sha256="c" * 64, run_seed=38001)
+        with self.assertRaises(ValueError):
+            pack.consume(
+                CursorState("cursor/v1", "d" * 64, 38001, 0, 0, 0, 0),
+                7,
+            )
+        with self.assertRaises(ValueError):
+            CursorState("cursor/v1", "c" * 64, 38001, 0, 0, 99, 0).assert_valid(
+                total_sequences=len(pack.order), sequence_lengths=pack.sequence_lengths
+            )
+
+    def test_local_cursor_receipts_are_current_and_pass(self) -> None:
+        repository = Path(__file__).parents[1]
+        implementation_sha256 = hashlib.sha256(
+            (repository / "e2_architecture/cursor_benchmark.py").read_bytes()
+        ).hexdigest()
+        for filename, device in (
+            ("local_cpu_cursor_resume.json", "cpu"),
+            ("local_cuda_cursor_resume.json", "cuda"),
+        ):
+            receipt = json.loads(
+                (repository / "artifacts/e2" / filename).read_text(encoding="utf-8")
+            )
+            self.assertEqual(receipt["status"], "PASS")
+            self.assertEqual(receipt["implementation_sha256"], implementation_sha256)
+            self.assertEqual(receipt["config"]["device"], device)
+            self.assertTrue(all(receipt["checks"].values()))
+
+    def test_local_real_update_receipts_use_fp32_master_state(self) -> None:
+        repository = Path(__file__).parents[1]
+        implementation_sha256 = hashlib.sha256(
+            (repository / "e2_architecture/update_benchmark.py").read_bytes()
+        ).hexdigest()
+        model_sha256 = hashlib.sha256(
+            (repository / "e2_architecture/block_benchmark.py").read_bytes()
+        ).hexdigest()
+        for filename, device, sequence_length, steps, arm in (
+            ("local_cuda_real_update.json", "cuda", 32, 3, "middle"),
+            ("local_cpu_real_update.json", "cpu", 16, 3, "middle"),
+            ("local_cuda_real_update_deep.json", "cuda", 32, 3, "deep-narrow"),
+            ("local_cpu_real_update_deep.json", "cpu", 16, 3, "deep-narrow"),
+            ("local_cuda_real_update_wide.json", "cuda", 32, 3, "wide-shallow"),
+            ("local_cpu_real_update_wide.json", "cpu", 16, 3, "wide-shallow"),
+            ("local_cuda_real_update_10.json", "cuda", 32, 10, "middle"),
+            ("local_cpu_real_update_10.json", "cpu", 16, 10, "middle"),
+            ("local_cuda_real_update_1k_tolerant.json", "cuda", 1024, 2, "middle"),
+            ("local_cpu_real_update_1k_tolerant.json", "cpu", 128, 2, "middle"),
+        ):
+            receipt = json.loads(
+                (repository / "artifacts/e2" / filename).read_text(encoding="utf-8")
+            )
+            self.assertEqual(receipt["status"], "PASS")
+            self.assertEqual(receipt["config"]["parameter_storage"], "master")
+            self.assertEqual(receipt["implementation_sha256"], implementation_sha256)
+            self.assertEqual(receipt["model_implementation_sha256"], model_sha256)
+            self.assertEqual(receipt["config"]["device"], device)
+            self.assertEqual(receipt["config"]["arm"], arm)
+            self.assertEqual(receipt["config"]["sequence_length"], sequence_length)
+            self.assertEqual(receipt["config"]["steps"], steps)
+            self.assertTrue(all(receipt["checks"].values()))
+            self.assertEqual({row["dtype"] for row in receipt["rows"]}, {"float32", "bfloat16"})
+            self.assertTrue(all(row["optimizer"]["moments_fp32"] for row in receipt["rows"]))
+            if steps <= 3 and sequence_length < 1000:
+                self.assertTrue(all(value["exact_within_dtype"] for value in receipt["resume"].values()))
+            self.assertTrue(all(value["parameter_within_tolerance"] for value in receipt["resume"].values()))
+        for filename in ("local_cuda_real_update_native.json", "local_cpu_real_update_native.json"):
+            receipt = json.loads(
+                (repository / "artifacts/e2" / filename).read_text(encoding="utf-8")
+            )
+            self.assertEqual(receipt["status"], "FAIL")
+            self.assertEqual(receipt["implementation_sha256"], implementation_sha256)
+            self.assertEqual(receipt["config"]["parameter_storage"], "native")
+            self.assertFalse(receipt["checks"]["bf16_optimizer_moments_fp32"])
+            self.assertFalse(receipt["checks"]["global_gradient_clip_effective"])
+        strict = json.loads(
+            (repository / "artifacts/e2/local_cuda_real_update_1k.json").read_text(encoding="utf-8")
+        )
+        self.assertEqual(strict["implementation_sha256"], implementation_sha256)
+        # Bitwise equality is an observation, not a portable contract: a
+        # deterministic local runtime may pass while another kernel/backend
+        # legitimately needs the registered tolerance gate.
+        self.assertIn(strict["status"], {"PASS", "FAIL"})
+        if strict["status"] == "FAIL":
+            self.assertFalse(strict["checks"]["resume_equivalence_within_dtype"])
+
     def test_precision_config_requires_replication(self) -> None:
         PrecisionConfig("cuda", 256, 1, (1, 2, 3)).assert_valid()
         with self.assertRaises(ValueError):

@@ -283,3 +283,21 @@ Until then: **READY TO FREEZE = NO**.
 **ALTERNATIVES CONSIDERED:** assume BF16 from convention; require FP32 compute throughout; infer long-run stability from a single forward pass.
 **WHAT WOULD CHANGE OUR MIND:** target TPU/XLA disagreement, non-finite or drifting real-update canaries, optimizer-state instability, or materially worse precision on natural/adversarial numerical tails. These receipts do not authorize main training.
 **ITERATION:** Ground Blueprint v0.4.
+
+## D-027 — Native-4k RoPE conformance
+
+**DECISION:** retain RoPE with base 10,000 as the provisional native-4,096 position implementation; make no extrapolation claim and keep base selection open for E2/E4 evidence.
+**STATUS:** [EVIDENCE-BACKED LOCAL IMPLEMENTATION / EXPERIMENT REQUIRED: BASE, LEARNING, TPU/XLA]
+**WHY:** the exact P35 rotary module passes an independent float64 oracle, norm-preservation, and relative-shift checks on fresh CPU and CUDA seeds in both FP32 and BF16.
+**EVIDENCE:** `artifacts/e2/local_cuda_rope_conformance.json` (five seeds) and `artifacts/e2/local_cpu_rope_conformance.json` (three seeds). The failed strict-limit calibration is retained in `artifacts/e2/local_*_rope_calibration.json` as negative evidence; its analytically corrected round-off bound was validated on fresh seeds.
+**WHAT WOULD CHANGE OUR MIND:** target TPU/XLA disagreement, a learned-quality loss from base 10,000 versus a matched alternative, or a requirement for context beyond native 4k.
+**ITERATION:** Ground Blueprint v0.4.
+
+## D-028 — FP32 master parameters for BF16 updates
+
+**DECISION:** implement BF16 compute with FP32 master parameters and FP32 AdamW moments; reject native BF16-parameter AdamW as the production path until a deliberate low-precision-state experiment proves it safe.
+**STATUS:** [EVIDENCE-BACKED LOCAL WIRING / EXPERIMENT REQUIRED: LONG-RUN, DISTRIBUTED, TPU/XLA]
+**WHY:** the bounded real-update canary shows native PyTorch BF16 parameters create BF16 Adam moments and a small post-clip norm overshoot, violating the provisional FP32-state and clipping invariants. FP32 master parameters under BF16 autocast pass real-update, clipping, and exact save/resume checks on CPU and CUDA.
+**EVIDENCE:** `artifacts/e2/local_cuda_real_update.json`, `artifacts/e2/local_cpu_real_update.json`, `artifacts/e2/local_cuda_real_update_10.json`, `artifacts/e2/local_cpu_real_update_10.json`, and negative controls `artifacts/e2/local_*_real_update_native.json`.
+**WHAT WOULD CHANGE OUR MIND:** a matched long-run experiment demonstrating no loss/cognition or resume penalty from low-precision moments, or a target TPU implementation that requires another numerically equivalent policy.
+**ITERATION:** Ground Blueprint v0.4.

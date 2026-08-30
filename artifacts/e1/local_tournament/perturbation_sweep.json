@@ -1,0 +1,104 @@
+{
+  "families": [
+    "formal",
+    "identifier",
+    "nonce",
+    "number",
+    "spacing",
+    "unicode"
+  ],
+  "implementation_sha256": "b3190ac5142a5a3bfb775753eb8184518f21ef65d2aabaf1482031597e6db96c",
+  "limitations": [
+    "Local legacy sources and generated perturbations are not external E1 custody.",
+    "Static token cost and identity do not measure trained-model loss or cognition.",
+    "No tokenizer winner is authorized by this sweep."
+  ],
+  "repetitions_per_family": 64,
+  "rows": [
+    {
+      "artifact": "tokenizer-16384.json.gz",
+      "artifact_sha256": "0a83fb9280ef5309f3351a5ec0dd9889940da374b3e17d02a687c1c307e1fd1b",
+      "cases": 384,
+      "cases_by_family": {
+        "formal": 64,
+        "identifier": 64,
+        "nonce": 64,
+        "number": 64,
+        "spacing": 64,
+        "unicode": 64
+      },
+      "maximum_tokens_per_case": 50,
+      "name": "local-byte-bpe-16384",
+      "roundtrip_failures": 0,
+      "tokens_per_byte": 0.6383392011654728,
+      "tokens_per_byte_by_family": {
+        "formal": 0.7534646243617797,
+        "identifier": 0.3917824074074074,
+        "nonce": 0.6130514705882353,
+        "number": 0.5827656675749319,
+        "spacing": 0.554176072234763,
+        "unicode": 0.9047759433962265
+      },
+      "unknown_occurrences": 0,
+      "vocabulary_size": 16384
+    },
+    {
+      "artifact": "tokenizer-24576.json.gz",
+      "artifact_sha256": "97e12db63b343312e5e4abc37df9ef4b01fcb1faba792a6420a4c1b15d0a7fbc",
+      "cases": 384,
+      "cases_by_family": {
+        "formal": 64,
+        "identifier": 64,
+        "nonce": 64,
+        "number": 64,
+        "spacing": 64,
+        "unicode": 64
+      },
+      "maximum_tokens_per_case": 47,
+      "name": "local-byte-bpe-24576",
+      "roundtrip_failures": 0,
+      "tokens_per_byte": 0.6056816802233823,
+      "tokens_per_byte_by_family": {
+        "formal": 0.7308533916849015,
+        "identifier": 0.37037037037037035,
+        "nonce": 0.5675551470588235,
+        "number": 0.5381471389645777,
+        "spacing": 0.5417607223476298,
+        "unicode": 0.8605542452830188
+      },
+      "unknown_occurrences": 0,
+      "vocabulary_size": 24576
+    },
+    {
+      "artifact": "tokenizer-32768.json.gz",
+      "artifact_sha256": "56be8e1cab4a1b0cede97f5bd5e6af8f2f68175f846362a7c0fcdbd5f048ba7f",
+      "cases": 384,
+      "cases_by_family": {
+        "formal": 64,
+        "identifier": 64,
+        "nonce": 64,
+        "number": 64,
+        "spacing": 64,
+        "unicode": 64
+      },
+      "maximum_tokens_per_case": 45,
+      "name": "local-byte-bpe-32768",
+      "roundtrip_failures": 0,
+      "tokens_per_byte": 0.5929343207478451,
+      "tokens_per_byte_by_family": {
+        "formal": 0.7231947483588621,
+        "identifier": 0.3654513888888889,
+        "nonce": 0.5556066176470589,
+        "number": 0.5183923705722071,
+        "spacing": 0.5417607223476298,
+        "unicode": 0.8346108490566038
+      },
+      "unknown_occurrences": 0,
+      "vocabulary_size": 32768
+    }
+  ],
+  "schema": "esoes-e1-perturbation-sweep/v1",
+  "scope": "deterministic local tokenizer perturbations; development-only",
+  "seed": 41001,
+  "status": "DEVELOPMENT_STATIC_PASS"
+}

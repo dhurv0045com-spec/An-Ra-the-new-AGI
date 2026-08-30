@@ -58,12 +58,13 @@ Required critical path: **E0 benchmark certification → E1 tokenizer → E2 arc
 
 ## Training integrity
 
-- [ ] optimizer/live-parameter identity invariant tested
-- [ ] one-step real-update canary passed
-- [ ] multi-step canary passed
-- [ ] Adam step/moment change verified
-- [ ] parameter SHA change verified
-- [ ] sampler/cursor exact-resume test passed
+- [x] optimizer/live-parameter identity invariant tested locally on exact P35; target/distributed path remains open
+- [x] one-step real-update canary passed locally on exact P35; target path remains open
+- [x] multi-step canary passed locally on exact P35 (three updates); long-run target path remains open
+- [x] Adam step/moment change verified locally, including FP32 moments on the master-parameter BF16 path
+- [x] parameter SHA change verified locally; target/distributed receipt remains open
+- [x] context-appropriate resume tolerances calibrated at CUDA 1K / CPU 128; strict cross-kernel bitwise equality remains diagnostic only
+- [x] local sampler/cursor exact-resume canary passed on CPU and CUDA (target distributed pack reader still required)
 - [ ] cumulative lifetime token ledger starts at zero and is unambiguous
 - [ ] source commit/data/tokenizer/config bound into receipt
 
@@ -118,6 +119,7 @@ Required critical path: **E0 benchmark certification → E1 tokenizer → E2 arc
 - [x] paired exact-stack CPU/CUDA residual-initialization signal canary replicated through native 4k context; target TPU/XLA and real-update checks remain open
 - [x] paired CPU/CUDA QK-norm scale-control canary replicated through native 4k context; learned-quality and target TPU/XLA checks remain open
 - [x] exact-stack CPU/CUDA BF16-versus-FP32 forward/backward parity replicated through native P35 2k; 4k V5-A, target TPU/XLA, and real-update/long-run checks remain open
+- [x] exact P35 RoPE conformance replicated against an independent float64 oracle at native 4k; base choice, extrapolation, target TPU/XLA, and learning checks remain open
 - [x] 250M model/run/lineage contracts and implementation blueprint created
 
 ## Freeze artifact

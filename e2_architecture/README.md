@@ -53,3 +53,23 @@ four representative gradients after one backward pass. Its limits are fixed in
 source and its receipts bind both model and initialization implementations. It
 performs no optimizer update; passing is local numerical-parity evidence, not
 evidence of long-run BF16 training stability.
+
+`e2_architecture.rope_benchmark` extracts the actual RoPE module from the P35
+constructor and compares it with an independent float64 oracle through native
+4k positions. It checks FP32/BF16 reference error, norm preservation, and the
+relative-shift dot-product identity. Passing certifies implementation geometry
+only; it does not select the RoPE base or claim extrapolation/cognition quality.
+
+`e2_architecture.update_benchmark` runs deterministic AdamW updates on any
+registered P35 shape arm (`deep-narrow`, `middle`, or `wide-shallow`) and checks
+a real `torch.save`/`torch.load` continuation against an uninterrupted stream.
+Its BF16 path uses FP32 master parameters with BF16 autocast so optimizer
+moments remain FP32. The native-BF16-parameter variant is kept as a negative
+control because PyTorch stores its moments in BF16. The harness releases the
+pre-save model before constructing the resumed copy so host-RAM pressure cannot
+masquerade as a checkpoint failure.
+
+`e2_architecture.cursor_benchmark` exercises the other half of exact resume:
+content-addressed shard order, sequence-boundary cursors, cumulative-token
+ledger, JSON checkpoint round-trip, and rejection of manifest/offset tampering.
+Run it on CPU and CUDA; the device digest must match the host stream digest.

@@ -1,0 +1,448 @@
+{
+  "aggregate": [
+    {
+      "dtype": "float32",
+      "maximum_norm_relative_error": {
+        "median": 2.7608471973037548e-08,
+        "range": [
+          2.2465001159070918e-08,
+          4.1426871281393695e-08
+        ]
+      },
+      "reference_cosine": {
+        "median": 0.9999999999104944,
+        "range": [
+          0.9999999999014675,
+          0.9999999999228469
+        ]
+      },
+      "reference_relative_rms_error": {
+        "median": 1.3379475879735583e-05,
+        "range": [
+          1.2422037319177016e-05,
+          1.403801324853984e-05
+        ]
+      },
+      "relative_shift_relative_rms_error": {
+        "median": 1.988975941857831e-05,
+        "range": [
+          1.5510895420938773e-05,
+          2.5463975860205703e-05
+        ]
+      },
+      "seeds": [
+        36101,
+        36102,
+        36103,
+        36104,
+        36105
+      ]
+    },
+    {
+      "dtype": "bfloat16",
+      "maximum_norm_relative_error": {
+        "median": 0.0018725392426139295,
+        "range": [
+          0.0017576896374037537,
+          0.0022824959839921996
+        ]
+      },
+      "reference_cosine": {
+        "median": 0.9999957651286904,
+        "range": [
+          0.9999957066224836,
+          0.9999960426341106
+        ]
+      },
+      "reference_relative_rms_error": {
+        "median": 0.0029231096690987197,
+        "range": [
+          0.002814369406371073,
+          0.0029461650374125055
+        ]
+      },
+      "relative_shift_relative_rms_error": {
+        "median": 0.004490656558911303,
+        "range": [
+          0.004054563279845239,
+          0.005450634652043394
+        ]
+      },
+      "seeds": [
+        36101,
+        36102,
+        36103,
+        36104,
+        36105
+      ]
+    }
+  ],
+  "classification": {
+    "by_dtype": {
+      "bfloat16": {
+        "cases": 5,
+        "passes_all_preregistered_limits": true
+      },
+      "float32": {
+        "cases": 5,
+        "passes_all_preregistered_limits": true
+      }
+    },
+    "verdict": "SUPPORTED_LOCAL_ROPE_CONFORMANCE"
+  },
+  "config": {
+    "base": 10000.0,
+    "context_length": 4096,
+    "device": "cuda",
+    "dtypes": [
+      "float32",
+      "bfloat16"
+    ],
+    "head_dimension": 64,
+    "heads": 6,
+    "seeds": [
+      36101,
+      36102,
+      36103,
+      36104,
+      36105
+    ]
+  },
+  "conformance_limits": {
+    "bfloat16": {
+      "norm_relative_error": 0.01,
+      "reference_cosine": 0.9999,
+      "reference_relative_rms": 0.01,
+      "shift_relative_rms_error": 0.02
+    },
+    "float32": {
+      "norm_relative_error": 2e-06,
+      "reference_cosine": 0.999999,
+      "reference_relative_rms": 5e-05,
+      "shift_relative_rms_error": 5e-05
+    }
+  },
+  "cuda_runtime": "12.8",
+  "device_name": "NVIDIA GeForce RTX 4050 Laptop GPU",
+  "implementation_sha256": "900732bfb6f59ebd038e108193ab449e031c6945e180f17f251247deaae55479",
+  "limitations": [
+    "Conformance proves the implementation's geometry, not that base 10,000 is optimal.",
+    "The probe does not measure attention, learning, extrapolation, or cognition.",
+    "Only native positions 0..4095 are claimed; no context extrapolation claim is made.",
+    "Target TPU/XLA must reproduce the receipt before freeze."
+  ],
+  "model_implementation_sha256": "0fbeb10680074e41982ea2d7f214c352a6e50f17f68f8f54fd75ee73ca9fa8b7",
+  "platform": "Windows-10-10.0.26200-SP0",
+  "rows": [
+    {
+      "checks": {
+        "finite": true,
+        "norm_preservation_within_limit": true,
+        "reference_cosine_above_minimum": true,
+        "reference_relative_rms_within_limit": true,
+        "relative_shift_invariance_within_limit": true
+      },
+      "dtype": "float32",
+      "maximum_norm_relative_error": 2.2465001159070918e-08,
+      "reference_cosine": 0.9999999999104944,
+      "reference_relative_rms_error": 1.3379475879735583e-05,
+      "relative_shift_relative_rms_error": 2.5463975860205703e-05,
+      "sample_positions": [
+        0,
+        1,
+        31,
+        127,
+        511,
+        2047,
+        4095
+      ],
+      "seed": 36101
+    },
+    {
+      "checks": {
+        "finite": true,
+        "norm_preservation_within_limit": true,
+        "reference_cosine_above_minimum": true,
+        "reference_relative_rms_within_limit": true,
+        "relative_shift_invariance_within_limit": true
+      },
+      "dtype": "float32",
+      "maximum_norm_relative_error": 2.6664834320837026e-08,
+      "reference_cosine": 0.9999999999014675,
+      "reference_relative_rms_error": 1.403801324853984e-05,
+      "relative_shift_relative_rms_error": 1.7448030791056563e-05,
+      "sample_positions": [
+        0,
+        1,
+        31,
+        127,
+        511,
+        2047,
+        4095
+      ],
+      "seed": 36102
+    },
+    {
+      "checks": {
+        "finite": true,
+        "norm_preservation_within_limit": true,
+        "reference_cosine_above_minimum": true,
+        "reference_relative_rms_within_limit": true,
+        "relative_shift_invariance_within_limit": true
+      },
+      "dtype": "float32",
+      "maximum_norm_relative_error": 2.7608471973037548e-08,
+      "reference_cosine": 0.9999999999128779,
+      "reference_relative_rms_error": 1.3200158402051738e-05,
+      "relative_shift_relative_rms_error": 1.988975941857831e-05,
+      "sample_positions": [
+        0,
+        1,
+        31,
+        127,
+        511,
+        2047,
+        4095
+      ],
+      "seed": 36103
+    },
+    {
+      "checks": {
+        "finite": true,
+        "norm_preservation_within_limit": true,
+        "reference_cosine_above_minimum": true,
+        "reference_relative_rms_within_limit": true,
+        "relative_shift_invariance_within_limit": true
+      },
+      "dtype": "float32",
+      "maximum_norm_relative_error": 4.1426871281393695e-08,
+      "reference_cosine": 0.9999999999049,
+      "reference_relative_rms_error": 1.3791334416235232e-05,
+      "relative_shift_relative_rms_error": 2.1282984636975653e-05,
+      "sample_positions": [
+        0,
+        1,
+        31,
+        127,
+        511,
+        2047,
+        4095
+      ],
+      "seed": 36104
+    },
+    {
+      "checks": {
+        "finite": true,
+        "norm_preservation_within_limit": true,
+        "reference_cosine_above_minimum": true,
+        "reference_relative_rms_within_limit": true,
+        "relative_shift_invariance_within_limit": true
+      },
+      "dtype": "float32",
+      "maximum_norm_relative_error": 2.878453499354631e-08,
+      "reference_cosine": 0.9999999999228469,
+      "reference_relative_rms_error": 1.2422037319177016e-05,
+      "relative_shift_relative_rms_error": 1.5510895420938773e-05,
+      "sample_positions": [
+        0,
+        1,
+        31,
+        127,
+        511,
+        2047,
+        4095
+      ],
+      "seed": 36105
+    },
+    {
+      "checks": {
+        "finite": true,
+        "norm_preservation_within_limit": true,
+        "reference_cosine_above_minimum": true,
+        "reference_relative_rms_within_limit": true,
+        "relative_shift_invariance_within_limit": true
+      },
+      "dtype": "bfloat16",
+      "maximum_norm_relative_error": 0.0018725392426139295,
+      "reference_cosine": 0.9999960426341106,
+      "reference_relative_rms_error": 0.002814369406371073,
+      "relative_shift_relative_rms_error": 0.005450634652043394,
+      "sample_positions": [
+        0,
+        1,
+        31,
+        127,
+        511,
+        2047,
+        4095
+      ],
+      "seed": 36101
+    },
+    {
+      "checks": {
+        "finite": true,
+        "norm_preservation_within_limit": true,
+        "reference_cosine_above_minimum": true,
+        "reference_relative_rms_within_limit": true,
+        "relative_shift_invariance_within_limit": true
+      },
+      "dtype": "bfloat16",
+      "maximum_norm_relative_error": 0.002132334917248809,
+      "reference_cosine": 0.9999957406019878,
+      "reference_relative_rms_error": 0.0029234923599257296,
+      "relative_shift_relative_rms_error": 0.004490656558911303,
+      "sample_positions": [
+        0,
+        1,
+        31,
+        127,
+        511,
+        2047,
+        4095
+      ],
+      "seed": 36102
+    },
+    {
+      "checks": {
+        "finite": true,
+        "norm_preservation_within_limit": true,
+        "reference_cosine_above_minimum": true,
+        "reference_relative_rms_within_limit": true,
+        "relative_shift_invariance_within_limit": true
+      },
+      "dtype": "bfloat16",
+      "maximum_norm_relative_error": 0.0017576896374037537,
+      "reference_cosine": 0.9999958846195404,
+      "reference_relative_rms_error": 0.0028707557607185615,
+      "relative_shift_relative_rms_error": 0.004962616338258707,
+      "sample_positions": [
+        0,
+        1,
+        31,
+        127,
+        511,
+        2047,
+        4095
+      ],
+      "seed": 36103
+    },
+    {
+      "checks": {
+        "finite": true,
+        "norm_preservation_within_limit": true,
+        "reference_cosine_above_minimum": true,
+        "reference_relative_rms_within_limit": true,
+        "relative_shift_invariance_within_limit": true
+      },
+      "dtype": "bfloat16",
+      "maximum_norm_relative_error": 0.0018255346349014886,
+      "reference_cosine": 0.9999957651286904,
+      "reference_relative_rms_error": 0.0029231096690987197,
+      "relative_shift_relative_rms_error": 0.0043628309924321935,
+      "sample_positions": [
+        0,
+        1,
+        31,
+        127,
+        511,
+        2047,
+        4095
+      ],
+      "seed": 36104
+    },
+    {
+      "checks": {
+        "finite": true,
+        "norm_preservation_within_limit": true,
+        "reference_cosine_above_minimum": true,
+        "reference_relative_rms_within_limit": true,
+        "relative_shift_invariance_within_limit": true
+      },
+      "dtype": "bfloat16",
+      "maximum_norm_relative_error": 0.0022824959839921996,
+      "reference_cosine": 0.9999957066224836,
+      "reference_relative_rms_error": 0.0029461650374125055,
+      "relative_shift_relative_rms_error": 0.004054563279845239,
+      "sample_positions": [
+        0,
+        1,
+        31,
+        127,
+        511,
+        2047,
+        4095
+      ],
+      "seed": 36105
+    }
+  ],
+  "schema": "esoes-e2-rope-conformance/v1",
+  "scope": "actual P35 RoPE versus independent float64 oracle at native 4k; no training",
+  "shift_groups": {
+    "1": [
+      [
+        0,
+        1
+      ],
+      [
+        127,
+        128
+      ],
+      [
+        2047,
+        2048
+      ],
+      [
+        4094,
+        4095
+      ]
+    ],
+    "127": [
+      [
+        0,
+        127
+      ],
+      [
+        512,
+        639
+      ],
+      [
+        2048,
+        2175
+      ],
+      [
+        3968,
+        4095
+      ]
+    ],
+    "2048": [
+      [
+        0,
+        2048
+      ],
+      [
+        2047,
+        4095
+      ]
+    ],
+    "31": [
+      [
+        0,
+        31
+      ],
+      [
+        100,
+        131
+      ],
+      [
+        2000,
+        2031
+      ],
+      [
+        4064,
+        4095
+      ]
+    ]
+  },
+  "status": "PASS",
+  "torch_version": "2.11.0+cu128"
+}
