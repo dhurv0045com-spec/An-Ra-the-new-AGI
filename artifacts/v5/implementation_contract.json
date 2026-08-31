@@ -4,14 +4,17 @@
     "head_dimensions_exact": true,
     "main_training_authorized": false,
     "target_within_half_percent": true,
-    "token_budget_near_twenty_per_parameter": true
+    "token_budget_near_twenty_per_parameter": true,
+    "token_budget_terminates_exactly": true
   },
   "contract_schemas": {
     "checkpoint": "anra-v5-checkpoint/v1",
+    "checkpoint_transaction": "anra-v5-checkpoint-transaction/v1",
     "model": "anra-v5-model-spec/v1",
     "promotion": "anra-v5-promotion/v1",
-    "run": "anra-v5-run-spec/v1",
-    "source_data_pack": "anra-v5-*-manifest/v1"
+    "run": "anra-v5-run-spec/v2",
+    "source_data_pack": "anra-v5-*-manifest/v1",
+    "training_state": "anra-v5-training-state/v1"
   },
   "model": {
     "context_length": 4096,
@@ -57,9 +60,11 @@
       "natural": 3250000000,
       "verified_cognition": 750000000
     },
+    "final_update_tokens": 127488,
+    "full_size_updates": 38146,
     "idealized_6nd_flops": 7506508800000000000,
     "model_sha256": "d6c143e50d222def03cd46fb1b140248a58b3b06f56ac084b7bbf91ded43f2df",
-    "optimizer_updates_floor": 38146,
+    "optimizer_updates": 38147,
     "parameters": 250216960,
     "run_spec": {
       "beta1": 0.9,
@@ -74,12 +79,13 @@
       "peak_learning_rate": 0.0003,
       "precision": "bf16-compute/fp32-reduction-and-state",
       "schedule_family": "warmup-stable-decay",
-      "schema": "anra-v5-run-spec/v1",
+      "schema": "anra-v5-run-spec/v2",
       "token_budget": 5000000000,
       "tokens_per_update": 131072,
       "weight_decay": 0.1
     },
-    "schema": "anra-v5-run-spec/v1",
+    "schema": "anra-v5-run-spec/v2",
+    "termination_policy": "exact-final-partial-update-no-overshoot",
     "token_budget": 5000000000,
     "tokens_per_parameter": 19.98265824986444,
     "tokens_per_update": 131072

@@ -1,0 +1,175 @@
+{
+  "aggregation_canary": {
+    "byte_normalized": -1.0,
+    "sum": -4.0,
+    "token_normalized": -2.0
+  },
+  "bias_probe": {
+    "broken": {
+      "answer_length": {
+        "cases": 96,
+        "fewest_token_rate": 0.0,
+        "first_position_rate": 0.3333333333333333,
+        "preferred_first_token_rate": 0.0,
+        "rotation_stability_rate": 1.0,
+        "shortest_utf8_rate": 1.0
+      },
+      "candidate_position": {
+        "cases": 96,
+        "fewest_token_rate": 0.3333333333333333,
+        "first_position_rate": 1.0,
+        "preferred_first_token_rate": 0.3333333333333333,
+        "rotation_stability_rate": 0.0,
+        "shortest_utf8_rate": 0.3333333333333333
+      },
+      "first_token": {
+        "cases": 96,
+        "fewest_token_rate": 0.0,
+        "first_position_rate": 0.3333333333333333,
+        "preferred_first_token_rate": 1.0,
+        "rotation_stability_rate": 1.0,
+        "shortest_utf8_rate": 0.0
+      },
+      "tokenization": {
+        "cases": 96,
+        "fewest_token_rate": 1.0,
+        "first_position_rate": 0.3333333333333333,
+        "preferred_first_token_rate": 0.0,
+        "rotation_stability_rate": 1.0,
+        "shortest_utf8_rate": 0.0
+      }
+    },
+    "cases": 96,
+    "groups": 32,
+    "oracle": {
+      "byte_normalized": {
+        "cases": 96,
+        "fewest_token_rate": 0.34375,
+        "first_position_rate": 0.3333333333333333,
+        "preferred_first_token_rate": 0.3125,
+        "rotation_stability_rate": 1.0,
+        "shortest_utf8_rate": 0.34375
+      },
+      "sum": {
+        "cases": 96,
+        "fewest_token_rate": 0.34375,
+        "first_position_rate": 0.3333333333333333,
+        "preferred_first_token_rate": 0.3125,
+        "rotation_stability_rate": 1.0,
+        "shortest_utf8_rate": 0.34375
+      },
+      "token_normalized": {
+        "cases": 96,
+        "fewest_token_rate": 0.34375,
+        "first_position_rate": 0.3333333333333333,
+        "preferred_first_token_rate": 0.3125,
+        "rotation_stability_rate": 1.0,
+        "shortest_utf8_rate": 0.34375
+      }
+    },
+    "preferred_first_token_id": 777,
+    "random_token_logits": {
+      "byte_normalized": {
+        "cases": 96,
+        "fewest_token_rate": 0.15625,
+        "first_position_rate": 0.3333333333333333,
+        "preferred_first_token_rate": 0.84375,
+        "rotation_stability_rate": 1.0,
+        "shortest_utf8_rate": 0.0
+      },
+      "sum": {
+        "cases": 96,
+        "fewest_token_rate": 0.65625,
+        "first_position_rate": 0.3333333333333333,
+        "preferred_first_token_rate": 0.34375,
+        "rotation_stability_rate": 1.0,
+        "shortest_utf8_rate": 0.0
+      },
+      "token_normalized": {
+        "cases": 96,
+        "fewest_token_rate": 0.375,
+        "first_position_rate": 0.3333333333333333,
+        "preferred_first_token_rate": 0.4375,
+        "rotation_stability_rate": 1.0,
+        "shortest_utf8_rate": 0.1875
+      }
+    }
+  },
+  "checks": {
+    "aggregation_formulas_exact": true,
+    "answer_length_bias_detected": true,
+    "candidate_position_bias_detected": true,
+    "device_evidence_not_fabricated": true,
+    "first_token_bias_detected": true,
+    "invariance_metrics_exact": true,
+    "oracle_all_modes_exact": true,
+    "oracle_selection_exact": true,
+    "promotion_remains_unauthorized": true,
+    "random_control_deterministic": true,
+    "random_pair_metrics_computed": true,
+    "sensitivity_metrics_exact": true,
+    "tokenization_bias_detected": true
+  },
+  "controls": {
+    "answer_length_broken_identity_sha256": "41392046457c58a2a1a2443ed5ee02d569623a7ed38d332b9d59e0bbdab906f1",
+    "first_token_broken_identity_sha256": "06dead6777a927725866b5c4b02823fa4e5c1934e8004d43d76c5f2196214a9d",
+    "oracle_identity_sha256": "5194137c2e6b60ffa01529f382c7d79dea5dc7ea6317bf26ba255daa1b649a04",
+    "position_broken_identity_sha256": "ca0db64b8f6c4e7a78f557cf731212be719a44b619ac5e847a66e45339cb9c11",
+    "random_identity_sha256": "a466fa5405a8b530030fef09958c73b7215f3014544899d9d2fad2ab16eee716",
+    "tokenization_broken_identity_sha256": "4a7bd6ebca8812e15239421c6f40d5fb6fbd48d05f79f46d84f8555bac92156a"
+  },
+  "execution_scope": "platform-independent deterministic controls",
+  "fail_closed": true,
+  "implementation_sha256": "9cf8825ed79219231d5a79d052ac28b0a164058c91709481bd210c43e43c1569",
+  "limitations": [
+    "Fake token ids and logits do not measure a neural model or tokenizer quality.",
+    "No aggregation mode is promoted until exact random-weight P35 and real-tokenizer null audits pass.",
+    "The development suite is not an externally custodied sealed fixture."
+  ],
+  "oracle_selection_accuracy": 1.0,
+  "pair_metrics": {
+    "invariance_both_correct": 4,
+    "invariance_stable": 4,
+    "invariance_total": 4,
+    "sensitivity_both_correct": 10,
+    "sensitivity_correct_flip": 10,
+    "sensitivity_total": 10
+  },
+  "production_scoring_mode": null,
+  "promotion_authorized": false,
+  "random_pair_metrics": {
+    "invariance_both_correct": 2,
+    "invariance_stable": 2,
+    "invariance_total": 4,
+    "sensitivity_both_correct": 0,
+    "sensitivity_correct_flip": 0,
+    "sensitivity_total": 10
+  },
+  "random_weight_p35_device_evidence": {
+    "promotion_authorized": false,
+    "reason": "This repository has no production P35 candidate-logprob adapter. Deterministic fake logits certify only the scorer contract.",
+    "required": [
+      "exact P35 constructor and checkpoint/model identity",
+      "real 16k/24k/32k tokenizer artifacts and tokenizer hashes",
+      "suffix-only teacher-forced log-probability adapter",
+      "CPU/CUDA score parity within preregistered tolerance",
+      "null-weight answer-length, first-token, position, and tokenization gates"
+    ],
+    "status": "PENDING"
+  },
+  "schema": "esoes-e0-scoring-adapter-certificate/v1",
+  "scope": "deterministic scorer plumbing and bias detection; no model quality claim",
+  "score_modes": [
+    "sum",
+    "token_normalized",
+    "byte_normalized"
+  ],
+  "status": "CONTRACT_PASS_DEVICE_PENDING",
+  "suite": {
+    "cases": 46,
+    "generator_version": "e0-eval/0.4.0",
+    "pairs": 14,
+    "sha256": "3579158b14a7cebdb6061e15282b6fb9a4da23bfde9ab2f8b65864c00d254e31",
+    "split": "development"
+  }
+}

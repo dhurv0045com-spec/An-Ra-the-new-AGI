@@ -18,6 +18,12 @@ def build_certificate() -> dict[str, object]:
         "head_dimensions_exact": V5A_250M.width == V5A_250M.query_heads * V5A_250M.head_dimension,
         "gqa_groups_integral": V5A_250M.query_heads % V5A_250M.kv_heads == 0,
         "token_budget_near_twenty_per_parameter": 19.5 <= run["tokens_per_parameter"] <= 20.5,
+        "token_budget_terminates_exactly": (
+            run["full_size_updates"] * V5A_RUN_CENTER.tokens_per_update
+            + run["final_update_tokens"]
+            == V5A_RUN_CENTER.token_budget
+            and run["termination_policy"] == "exact-final-partial-update-no-overshoot"
+        ),
         "main_training_authorized": False,
     }
     return {
@@ -31,9 +37,11 @@ def build_certificate() -> dict[str, object]:
         "checks": checks,
         "contract_schemas": {
             "model": "anra-v5-model-spec/v1",
-            "run": "anra-v5-run-spec/v1",
+            "run": "anra-v5-run-spec/v2",
             "source_data_pack": "anra-v5-*-manifest/v1",
             "checkpoint": "anra-v5-checkpoint/v1",
+            "checkpoint_transaction": "anra-v5-checkpoint-transaction/v1",
+            "training_state": "anra-v5-training-state/v1",
             "promotion": "anra-v5-promotion/v1",
         },
     }

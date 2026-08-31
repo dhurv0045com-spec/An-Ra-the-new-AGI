@@ -241,6 +241,8 @@ generate_constrained(model, prompt, candidates) -> text
 
 The evaluator produces separate representation, address, transform, selection, and realization records. The statistical protocol hash from `e0_cognition.preregistration` is bound into every receipt.
 
+`score_candidates` is now constrained by `e0_cognition.scoring_certification`: each adapter returns candidate-suffix token log-probabilities only, exposes a SHA-256 identity, and is audited under sum/token/byte aggregation with candidate rotations and length/tokenization/first-token/position controls. The deterministic contract passes, but no production mode is selected: exact random-weight P35 × real tokenizer and device parity evidence remains required.
+
 Promotion is a separate process. It requires integrity, sealed/fresh OOD, natural transfer, substrate retention, and worst-family gates. It has no API for “promote latest.” Assisted results are separate columns and cannot satisfy a raw-Core gate.
 
 ## 10. Commands and artifact flow
@@ -250,7 +252,9 @@ Available now:
 ```text
 python -m unittest discover -s tests -v
 python -m e0_cognition.certify --output artifacts/e0/development_certificate.json
+python -m e0_cognition.scoring_certification --output artifacts/e0/scoring_adapter_certificate.json
 python -m v5_contracts.certify --output artifacts/v5/implementation_contract.json
+python -m v5_training.transaction_canary --output artifacts/v5/training_transaction_canary.json
 python -m e1_tokenizer.audit --receipt <candidate.json> --artifact <tokenizer> --output <audit.json>
 python -m e1_tokenizer.tournament --output artifacts/e1/tournament_plan.json
 python -m e0_cognition.sealed --fixture <external-suite.json> --custody-id <id> --output artifacts/e0/sealed_commitment.json
@@ -305,12 +309,12 @@ No milestone may be skipped because later code appears to work.
 
 ## 13. Immediate execution backlog
 
-1. Obtain an independent custodian for the real T2 suite; generate it outside Git and commit only the hash.
-2. Add source-disjoint natural evaluation manifests and legal provenance, not synthetic prose labeled “natural.”
-3. Produce real 16k/24k/32k tokenizer candidates and encoding receipts against the external E1 corpus.
-4. Close E0, then execute E1 static Pareto filtering.
-5. After E1 authorizes it, implement only the P35 constructor needed for matched tokenizer/architecture experiments.
-6. Do not implement the V5-A production trainer until E5 and freeze review.
+1. Implement the suffix-only random-weight P35 scoring adapter and run real 16k/24k/32k CPU/CUDA null audits; do not choose an aggregation mode from fake logits.
+2. Obtain an independent custodian for the real T2 suite; generate it outside Git and commit only the hash.
+3. Add source-disjoint natural evaluation manifests and legal provenance, not synthetic prose labeled “natural.”
+4. Produce representative external-corpus tokenizer candidates and matched encoding receipts.
+5. Join the passing local transaction semantics with the real P35 update/cursor components, then test distributed/remote/TPU restore; local fsync is not durability.
+6. Close E0/E1, then execute the minimal P35 learning comparisons. Do not launch V5-A before E5 and freeze review.
 
 ## 14. Definition of implementation readiness
 

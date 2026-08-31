@@ -126,6 +126,8 @@ Ground Blueprint v0.4 intentionally limits the open set. A question belongs here
 
 **V0.4 UPDATE:** a second audit overturned the first repair's false green: bag-of-words and lexical overlap still solved 81.77% and 71.09% of pooled state cases. Generator 0.4.0 now uses between/after-event cutoffs and eight competing target histories; the same controls fall to 4.17% and 10.16% against a 10.37% null, and six state heuristics are fail-closed gates. This earns shortcut-resistant development infrastructure only. Full E0 exit still requires a certified model-scoring adapter, source-disjoint natural custody, an externally held sealed commitment/result, and fresh replication.
 
+**SCORER UPDATE:** deterministic scorer plumbing now passes, but no aggregation mode is authorized. Fake random logits show 65.625% fewest-token selection under summed likelihood and 84.375% constructed first-token/token-density selection under byte normalization. The decisive remaining test is exact random-weight P35 × real 16k/24k/32k suffix scoring with candidate rotations and CPU/CUDA/target parity.
+
 ## Core/Connector boundary
 
 ### Q15 — Which EXP repairs should become native training signals?
@@ -135,6 +137,16 @@ Ground Blueprint v0.4 intentionally limits the open set. A question belongs here
 **WHAT EVIDENCE EXISTS:** normalization, constrained decode, and replicated observed-policy routing.
 **CHEAPEST DECISIVE TEST:** after E3/E5, measure whether raw repair frequency falls on fresh domains while assisted oracle advantage remains reportable.
 **DECISION DEADLINE:** post-E5 freeze review.
+
+## Training-system boundary
+
+### Q16 — Does the atomic state contract survive the real distributed target stack?
+
+**WHY IT MATTERS:** local model resume, cursor resume, and transaction semantics can each pass while their integrated distributed checkpoint loses tokens, rank RNG, optimizer shards, or the committed parent.
+**CURRENT BEST HYPOTHESIS:** one coordinator should publish a content-addressed generation after a collective completed-update barrier, with exact partial-final-update semantics and an object-store compare-and-swap pointer.
+**WHAT EVIDENCE EXISTS:** the framework-neutral local canary passes identity binding, exact `4+4+2` accounting, clean-copy resume, corruption/missing inventory rejection, writer fencing, and injected crash boundaries; real P35 update and cursor canaries pass separately.
+**CHEAPEST DECISIVE TEST:** join those components in one tiny real-pack CPU/CUDA checkpoint, then repeat on the chosen TPU topology with per-rank RNG/shard receipts and upload→redownload→clean restore.
+**DECISION DEADLINE:** before M102 and target training freeze.
 
 ## Deferred—not active search
 

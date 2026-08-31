@@ -14,7 +14,8 @@ Required critical path: **E0 benchmark certification → E1 tokenizer → E2 arc
 - [x] OOD axes defined
 - [x] representation vs selection vs realization metrics separated in executable APIs
 - [x] local six-heuristic state and five-heuristic rule red-team passed after false-green repair
-- [ ] model-scoring adapter certified against oracle/broken/random-weight controls
+- [x] model-scoring contract certified against deterministic oracle/broken/random controls
+- [ ] production scorer certified on random-weight P35 × real tokenizers and target devices
 - [ ] external sealed/natural review passed
 
 ## Tokenizer
@@ -67,14 +68,16 @@ Required critical path: **E0 benchmark certification → E1 tokenizer → E2 arc
 - [x] parameter SHA change verified locally; target/distributed receipt remains open
 - [x] context-appropriate resume tolerances calibrated at CUDA 1K / CPU 128; strict cross-kernel bitwise equality remains diagnostic only
 - [x] local sampler/cursor exact-resume canary passed on CPU and CUDA (target distributed pack reader still required)
-- [ ] cumulative lifetime token ledger starts at zero and is unambiguous
-- [ ] source commit/data/tokenizer/config bound into receipt
+- [x] framework-neutral cumulative lifetime token ledger starts at zero, schedules by tokens, and handles an exact partial final update
+- [x] framework-neutral transaction binds source commit/model/data/pack/tokenizer/run/optimizer/schedule/curriculum identities
+- [ ] real distributed trainer emits and validates those bindings on target hardware
 
 ## Checkpoints
 
 - [ ] immutable milestone cadence frozen
 - [ ] full-resume milestone writer tested on target hardware
 - [ ] remote durability verified
+- [x] local atomic transaction rejects stale writers, partial inventory, corruption, and unsafe crash stages
 - [ ] checkpoint promotion rule preregistered
 - [ ] final checkpoint is not automatically promoted
 

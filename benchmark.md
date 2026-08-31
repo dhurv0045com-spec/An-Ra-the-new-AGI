@@ -614,6 +614,33 @@ A benchmark family fails certification if an unintended cheap heuristic reaches 
 
 The goal is not to make every task hard. The goal is to make success causally interpretable.
 
+## 8.1 Candidate-scoring firewall
+
+Candidate scoring is part of the measurement instrument and must be certified
+before it is used to choose a model, tokenizer, architecture, or objective.
+
+- The adapter receives only the model-facing prompt and one candidate suffix;
+  prompt-token likelihood and evaluator truth never enter the score.
+- Adapter, model/checkpoint, tokenizer, evaluator, and aggregation policy are
+  hash-bound in the result receipt.
+- Summed, token-normalized, and UTF-8-byte-normalized log likelihood are all
+  reported until one policy passes a random-weight null audit. None is silently
+  selected after viewing trained-model outcomes.
+- Candidate order is fully rotated. Answer length, token count, first token,
+  byte density, and candidate position are explicit bias axes.
+- Deterministic oracle, deliberately broken, and random-logit controls must
+  prove that the evaluator detects each bias and computes sensitivity and
+  invariance correctly.
+- Production certification additionally requires random-weight exact-P35
+  results with real 16k/24k/32k tokenizers and CPU/CUDA (then target-TPU)
+  parity. A fake-logit contract cannot authorize a scoring mode.
+
+The current deterministic certificate is
+`artifacts/e0/scoring_adapter_certificate.json`. It catches severe null-score
+bias: summed likelihood selected the fewest-token candidate 65.625% of the
+time, while byte normalization selected the constructed first-token/density
+pattern 84.375%. Therefore `production_scoring_mode` remains unset.
+
 ---
 
 # 9. Statistical protocol

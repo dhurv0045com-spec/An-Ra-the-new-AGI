@@ -61,6 +61,8 @@ class RunSpec:
         self.assert_valid(model)
         parameters = model.parameter_receipt().total
         idealized_flops = 6 * parameters * self.token_budget
+        full_updates, remainder_tokens = divmod(self.token_budget, self.tokens_per_update)
+        optimizer_updates = full_updates + int(remainder_tokens > 0)
         return {
             "schema": self.schema,
             "model_sha256": model.sha256(),
@@ -68,7 +70,10 @@ class RunSpec:
             "token_budget": self.token_budget,
             "tokens_per_parameter": self.token_budget / parameters,
             "tokens_per_update": self.tokens_per_update,
-            "optimizer_updates_floor": self.token_budget // self.tokens_per_update,
+            "optimizer_updates": optimizer_updates,
+            "full_size_updates": full_updates,
+            "final_update_tokens": remainder_tokens or self.tokens_per_update,
+            "termination_policy": "exact-final-partial-update-no-overshoot",
             "idealized_6nd_flops": idealized_flops,
             "checkpoint_storage_planning_bytes": {
                 "bf16_parameters": 2 * parameters,
@@ -86,7 +91,7 @@ class RunSpec:
 
 
 V5A_RUN_CENTER = RunSpec(
-    schema="anra-v5-run-spec/v1",
+    schema="anra-v5-run-spec/v2",
     token_budget=5_000_000_000,
     tokens_per_update=131_072,
     optimizer="AdamW",

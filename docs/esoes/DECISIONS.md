@@ -239,7 +239,7 @@ Until then: **READY TO FREEZE = NO**.
 **DECISION:** state tracking must randomize serialization independently of semantic time and include intermediate, rollback, precedence, and interleaved-variable queries; rule induction must use multiple latent operand structures held out by split. Positional, bag-of-words, and fixed-rule baselines are certification gates, not optional diagnostics.
 **STATUS:** [FROZEN] benchmark boundary; sealed fixture and natural-source custody remain open
 **WHY:** the prior state generator made `latest_fact` and `nearest_position` perfect, and its single reverse-pair rule admitted a permanent-rule shortcut. Those are evaluator defects, not model evidence.
-**EVIDENCE:** `benchmark.md`, E0 generator v0.3, pooled eight-seed shortcut receipt, and 41 passing tests.
+**EVIDENCE:** `benchmark.md`, E0 generator v0.4.0, `artifacts/e0/shortcut_repair_receipt.json`, six pooled state controls, five rule controls, and the current repository suite. The earlier v0.3 lexical/bag-of-words false green is preserved as negative evidence.
 **ALTERNATIVES CONSIDERED:** more examples with the same templates; a larger aggregate score; post-hoc heuristic inspection.
 **WHAT WOULD CHANGE OUR MIND:** an independently reproduced causal benchmark showing a stronger information-isolating design.
 **ITERATION:** Ground Blueprint v0.4.
@@ -301,3 +301,30 @@ Until then: **READY TO FREEZE = NO**.
 **EVIDENCE:** `artifacts/e2/local_cuda_real_update.json`, `artifacts/e2/local_cpu_real_update.json`, `artifacts/e2/local_cuda_real_update_10.json`, `artifacts/e2/local_cpu_real_update_10.json`, and negative controls `artifacts/e2/local_*_real_update_native.json`.
 **WHAT WOULD CHANGE OUR MIND:** a matched long-run experiment demonstrating no loss/cognition or resume penalty from low-precision moments, or a target TPU implementation that requires another numerically equivalent policy.
 **ITERATION:** Ground Blueprint v0.4.
+
+## D-029 — Candidate scoring remains unselected until a real null audit
+
+**DECISION:** require suffix-only per-token traces and report summed, token-normalized, and byte-normalized candidate likelihood; freeze no production aggregation mode until exact random-weight P35 × real tokenizer/device controls pass.
+**STATUS:** [FROZEN] scorer firewall; production mode [OPEN]
+**WHY:** evaluator normalization can decide a comparison without cognition. Deterministic random logits already produce 65.625% fewest-token selection under summed likelihood and 84.375% constructed first-token/density selection under byte normalization.
+**EVIDENCE:** `e0_cognition/scoring_certification.py`, `artifacts/e0/scoring_adapter_certificate.json`, 96 candidate rotations, oracle/random and four broken-control families.
+**WHAT WOULD CHANGE OUR MIND:** only a preregistered random-weight device audit that rejects these biases across all real tokenizer candidates.
+**ITERATION:** Ground Blueprint v0.5.
+
+## D-030 — Exact final partial update
+
+**DECISION:** stop at the exact token budget using a final partial update; do not count padding and do not overshoot to preserve a nominal global batch.
+**STATUS:** [FROZEN CONTRACT / BATCH SIZE STILL EXPERIMENT REQUIRED]
+**WHY:** 5B is not divisible by 131,072. The exact center is 38,146 full updates plus 127,488 tokens, not 38,146 updates and not a 3,584-token overshoot.
+**EVIDENCE:** run-spec v2, implementation receipt, and TrainingState `4+4+2` non-divisible canary.
+**WHAT WOULD CHANGE OUR MIND:** a data-parallel framework limitation would require an explicit loss-mask/normalization migration receipt, never silent accounting drift.
+**ITERATION:** Ground Blueprint v0.5.
+
+## D-031 — Content-addressed single-writer checkpoint transaction
+
+**DECISION:** publish checkpoints as verified immutable generations behind a parent-fenced pointer; every generation binds TrainingState plus a complete component inventory. Local success is not called remote durability.
+**STATUS:** [EVIDENCE-BACKED LOCAL TRANSACTION / TARGET AND DURABILITY OPEN]
+**WHY:** independent model-resume and cursor-resume tests cannot rule out torn publication, stale writers, lost ledgers, or incomplete artifacts.
+**EVIDENCE:** `v5_training/`, `artifacts/v5/training_transaction_canary.json`; clean-copy restore, exact tokens/schedule/optimizer state, missing/corrupt rejection, stale-parent rejection, and three crash boundaries pass.
+**WHAT WOULD CHANGE OUR MIND:** target storage may require a different atomic primitive, but it must preserve content addressing, compare-and-swap writer fencing, complete inventory verification, and clean redownload restore.
+**ITERATION:** Ground Blueprint v0.5.

@@ -37,6 +37,10 @@ class V5ContractTests(unittest.TestCase):
         self.assertAlmostEqual(receipt["tokens_per_parameter"], 19.98265824986444)
         self.assertEqual(receipt["idealized_6nd_flops"], 7_506_508_800_000_000_000)
         self.assertEqual(sum(receipt["data_tokens"].values()), 5_000_000_000)
+        self.assertEqual(receipt["optimizer_updates"], 38_147)
+        self.assertEqual(receipt["full_size_updates"], 38_146)
+        self.assertEqual(receipt["final_update_tokens"], 127_488)
+        self.assertEqual(receipt["termination_policy"], "exact-final-partial-update-no-overshoot")
         self.assertEqual(
             receipt["checkpoint_storage_planning_bytes"]["full_resume_without_gradients"],
             3_503_037_440,

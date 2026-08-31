@@ -1,0 +1,68 @@
+{
+  "checks": {
+    "clean_copy_restore": true,
+    "corruption_rejected": true,
+    "crash_after_pointer_safe": true,
+    "crash_after_publish_before_pointer_safe": true,
+    "crash_after_stage_safe": true,
+    "missing_component_rejected": true,
+    "nondivisible_budget_exact": true,
+    "schedule_and_optimizer_exact": true,
+    "stale_writer_rejected": true,
+    "uninterrupted_equals_resume": true
+  },
+  "final_state": {
+    "cumulative_tokens": 10,
+    "curriculum_phase": "uniform",
+    "cursor": {
+      "pack_manifest_sha256": "4444444444444444444444444444444444444444444444444444444444444444",
+      "schema": "anra-v5-pack-cursor/v1",
+      "sequence_ordinal": 3,
+      "shard_ordinal": 1,
+      "token_offset": 0
+    },
+    "generation": 3,
+    "global_update": 3,
+    "identities": {
+      "curriculum_spec_sha256": "8888888888888888888888888888888888888888888888888888888888888888",
+      "data_manifest_sha256": "3333333333333333333333333333333333333333333333333333333333333333",
+      "model_spec_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+      "optimizer_spec_sha256": "6666666666666666666666666666666666666666666666666666666666666666",
+      "pack_manifest_sha256": "4444444444444444444444444444444444444444444444444444444444444444",
+      "run_spec_sha256": "5555555555555555555555555555555555555555555555555555555555555555",
+      "schedule_spec_sha256": "7777777777777777777777777777777777777777777777777777777777777777",
+      "schema": "anra-v5-identity-bindings/v1",
+      "source_commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "tokenizer_sha256": "2222222222222222222222222222222222222222222222222222222222222222"
+    },
+    "lineage_id": "canary",
+    "optimizer_step_max": 3,
+    "parent_checkpoint_sha256": "bb0667813bcdc782f82647187395468c635956392b511f96c87a930bb567cc22",
+    "rng_state_sha256": "0000000000000000000000000000000000000000000000000000000000000003",
+    "schedule_tokens": 10,
+    "schema": "anra-v5-training-state/v1",
+    "token_budget": 10,
+    "tokens_by_source": {
+      "natural": 7,
+      "verified_cognition": 3
+    },
+    "tokens_per_update": 4
+  },
+  "implementation_sha256": "98d7cdddf2c8891cf5f0238e2e4c8b614b8d9ae5cedb766c49908e2ed1e34822",
+  "limitations": [
+    "Payload bytes stand in for already-separately-tested model and optimizer tensors.",
+    "Remote upload, redownload, object-store CAS, distributed rank RNG, and TPU restore remain open."
+  ],
+  "run": {
+    "token_budget": 10,
+    "tokens_per_update": 4,
+    "update_sizes": [
+      4,
+      4,
+      2
+    ]
+  },
+  "schema": "anra-v5-training-transaction-canary/v1",
+  "scope": "local framework-neutral transaction semantics; no real model, distributed, TPU, or remote durability claim",
+  "status": "PASS"
+}
