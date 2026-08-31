@@ -12,7 +12,6 @@ import argparse
 import hashlib
 import json
 import os
-import platform
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
@@ -139,7 +138,6 @@ def run_canary() -> dict[str, object]:
             "status": "PASS",
             "scope": "local content-addressed immutable object upload/redownload/clean-restore simulation",
             "implementation_sha256": _sha256_file(Path(__file__)),
-            "platform": platform.platform(),
             "manifest_sha256": _sha256(manifest),
             "artifact_sha256": identity,
             "redownload_sha256": _sha256(redownload),
