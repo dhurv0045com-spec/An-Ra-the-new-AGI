@@ -10,12 +10,11 @@ from pathlib import Path
 from typing import Any
 
 
-def _sha256_file(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
+def _sha256_json(path: Path) -> str:
+    """Hash JSON semantics, not platform-dependent newline bytes."""
+    value = json.loads(path.read_text(encoding="utf-8"))
+    canonical = json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
 def _ratio(numerator: float, denominator: float) -> float:
@@ -104,7 +103,7 @@ def aggregate_receipts(paths: list[Path]) -> dict[str, Any]:
         "implementation_sha256": receipts[0]["implementation_sha256"],
         "seeds": seeds,
         "source_receipts": [
-            {"path": path.name, "sha256": _sha256_file(path)} for path in paths
+            {"path": path.name, "sha256": _sha256_json(path)} for path in paths
         ],
         "native_gqa_backend_support": backend_support[0],
         "gqa_equivalence_maximum_absolute_error": max(

@@ -284,15 +284,15 @@
   "source_receipts": [
     {
       "path": "local_cuda_full_stack_seed32001.json",
-      "sha256": "45e046177d57bc88b6ac3e1e8efdaea532c142fe2857768661cf389b31d18213"
+      "sha256": "630e1897abfdbee480d29e7a3305ee8def89094d0391560d9edba923e36a3bb4"
     },
     {
       "path": "local_cuda_full_stack_seed32002.json",
-      "sha256": "577024cddde817901d170ccc995669cafb3f8879109105afa583b79ba51164be"
+      "sha256": "b6071855ef695332864c804be01c036faf6a994b62eba08e2a91faf3f0b7a70f"
     },
     {
       "path": "local_cuda_full_stack_seed32003.json",
-      "sha256": "48123db0609331981c48a01c200eae0b0f0cc56874f7fcf071596762609793f8"
+      "sha256": "0ab3cfc4701f8553291599d12106d5581c762df3b93f9f3a76679b9895315be7"
     }
   ],
   "static_plan_sha256": "45c8472c728d29a0c0c3c79cfa98a9ca2a2dccd06c1f37a02da7a180baa6516a",

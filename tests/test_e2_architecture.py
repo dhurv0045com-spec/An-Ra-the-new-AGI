@@ -7,9 +7,11 @@ import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+from e2_architecture.aggregate import _sha256_json as canonical_device_json_sha256
 from e2_architecture.aggregate import aggregate_receipts
 from e2_architecture.block_benchmark import BenchmarkConfig, shape_arms
 from e2_architecture.block_aggregate import aggregate_receipts as aggregate_block_receipts
+from e2_architecture.block_aggregate import _sha256_json as canonical_block_json_sha256
 from e2_architecture.device_benchmark import AttentionCase, _percentile, default_cases
 from e2_architecture.plan import build_plan
 from e2_architecture.precision_benchmark import PrecisionConfig, classify as classify_precision
@@ -420,7 +422,7 @@ class E2ArchitectureTests(unittest.TestCase):
         self.assertEqual(aggregate["seeds"], [32001, 32002, 32003])
         for source in aggregate["source_receipts"]:
             path = root / source["path"]
-            self.assertEqual(hashlib.sha256(path.read_bytes()).hexdigest(), source["sha256"])
+            self.assertEqual(canonical_block_json_sha256(path), source["sha256"])
             receipt = json.loads(path.read_text(encoding="utf-8"))
             self.assertEqual(receipt["implementation_sha256"], aggregate["implementation_sha256"])
             self.assertEqual(receipt["status"], "PASS")
@@ -428,6 +430,26 @@ class E2ArchitectureTests(unittest.TestCase):
                 self.assertTrue(row["correctness"]["parameter_count_exact"])
                 self.assertTrue(row["correctness"]["finite_loss"])
                 self.assertTrue(row["correctness"]["all_gradients_finite"])
+
+    def test_aggregate_receipt_hash_is_newline_invariant(self) -> None:
+        with TemporaryDirectory() as directory:
+            left = Path(directory) / "left.json"
+            right = Path(directory) / "right.json"
+            left.write_bytes(b'{\n  "a": 1,\n  "b": [2, 3]\n}\n')
+            right.write_bytes(b'{\r\n  "a": 1,\r\n  "b": [2, 3]\r\n}\r\n')
+            self.assertEqual(canonical_block_json_sha256(left), canonical_block_json_sha256(right))
+            self.assertEqual(canonical_device_json_sha256(left), canonical_device_json_sha256(right))
+
+    def test_local_attention_receipts_match_aggregate_hashes(self) -> None:
+        root = Path(__file__).parents[1] / "artifacts/e2"
+        aggregate = json.loads(
+            (root / "local_cuda_attention_aggregate.json").read_text(encoding="utf-8")
+        )
+        self.assertEqual(aggregate["status"], "PASS_REPLICATED")
+        self.assertEqual(aggregate["seeds"], [31001, 31002, 31003])
+        for source in aggregate["source_receipts"]:
+            path = root / source["path"]
+            self.assertEqual(canonical_device_json_sha256(path), source["sha256"])
 
     def test_device_aggregate_requires_distinct_matched_receipts(self) -> None:
         cases = [
