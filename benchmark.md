@@ -652,6 +652,20 @@ normalization, and 50%--66.67% under token normalization. Thus all three modes
 remain measurement hypotheses; parity is not policy validity and cannot
 authorize model promotion.
 
+The next scorer experiment is now outcome-free and hash-bound in
+`artifacts/e2/scoring_policy_preregistration.json`. The consumed six-group
+pilot cannot confirm a policy. The frozen tournament uses 256 independent
+triplets, three non-independent position rotations, five development and five
+fresh random-P35 seeds, all three tokenizers, four exact-length neutral
+contexts in each of two disjoint panels, and five policies sharing the same
+model traces. Sum/token/byte are negative controls; domain-conditional PMI is
+primary and contextual calibration secondary. Promotion requires equivalence
+to permutation chance on byte/token/prefix/surface/hidden-label axes, exact
+rotation balance, neutral-panel and irrelevant-decoy stability, synthetic
+target/swap recovery, and CPU/CUDA then TPU parity. The policy and thresholds
+cannot change after development or from trained-model outcomes. This is a
+preregistration, not a passing policy result.
+
 ---
 
 # 9. Statistical protocol

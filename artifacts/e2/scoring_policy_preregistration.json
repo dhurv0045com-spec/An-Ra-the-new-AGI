@@ -1,0 +1,125 @@
+{
+  "abort_rules": [
+    "Neutral prompt length or candidate suffix tokens differ from target.",
+    "Candidate roles cannot be uniquely counterbalanced for every tokenizer.",
+    "No calibrated policy passes every development gate.",
+    "Implementation exceeds the compute abort budget.",
+    "Any result is inspected before its governing identity is frozen."
+  ],
+  "compute": {
+    "abort_gpu_hours": 0.5,
+    "all_five_policies_reuse_identical_model_traces": true,
+    "expected_gpu_hours_upper": 0.25
+  },
+  "decision": "candidate-scoring policy eligibility only",
+  "decision_hierarchy": [
+    "Promote domain_pmi only if every gate passes on development and unchanged fresh replication.",
+    "Otherwise promote contextual_calibration only if every gate, including decoy stability, passes.",
+    "Otherwise keep production_scoring_mode null and block learned E1-E3 comparisons."
+  ],
+  "fixtures": {
+    "candidate_roles": [
+      "unique_shortest_utf8",
+      "unique_fewest_tokens",
+      "marked_prefix_surface",
+      "counterbalanced_hidden_label"
+    ],
+    "development_and_fresh_fixture_hashes_must_differ": true,
+    "independent_candidate_triplets": 256,
+    "position_rotations_per_triplet": 3,
+    "roles_counterbalanced_per_tokenizer": true,
+    "surface_families": 6
+  },
+  "freshness_and_leakage": {
+    "current_six_group_null_is_consumed_pilot_only": true,
+    "fresh_results_cannot_change_policy_or_thresholds": true,
+    "policy_and_gates_frozen_before_development_execution": true,
+    "selected_policy_written_to_immutable_receipt_before_fresh_execution": true,
+    "trained_model_outcomes_cannot_select_or_modify_policy": true
+  },
+  "gates": {
+    "cpu_cuda_maximum_absolute_score_error": 0.05,
+    "cpu_cuda_relative_rms_error": 0.001,
+    "cpu_cuda_winner_mismatches": 0,
+    "every_seed_inside_per_seed_margin": true,
+    "first_position_selection_rate": 0.3333333333333333,
+    "irrelevant_decoy_shared_ranking_stability_minimum": 0.99,
+    "must_pass_every_tokenizer": true,
+    "neutral_panel_ranking_agreement_minimum": 0.95,
+    "nonfinite_scores": 0,
+    "pooled_equivalence_interval_inside_margin": true,
+    "rotation_stability": 1.0,
+    "synthetic_target_injection_recovery": 1.0,
+    "synthetic_target_swap_recovery": 1.0,
+    "unresolved_ties": 0
+  },
+  "implementation_sha256": "0e4f24c4157e8f7e2c6451b1bb74914d8d64616cb33fc7bf0769a0a2a1244a75",
+  "limitations": [
+    "Random-weight null safety is necessary but does not prove trained-model validity or cognition.",
+    "Candidate scoring remains assisted evaluation; candidate-free realization stays separate.",
+    "This tournament cannot select tokenizer, architecture, data mixture, objective, or checkpoint."
+  ],
+  "model": {
+    "development_seeds": [
+      95101,
+      95102,
+      95103,
+      95104,
+      95105
+    ],
+    "family": "exact middle P35",
+    "fresh_seeds": [
+      95201,
+      95202,
+      95203,
+      95204,
+      95205
+    ],
+    "full_device": "cuda",
+    "parity_device": "cpu",
+    "training_performed": false,
+    "vocabularies": [
+      16384,
+      24576,
+      32768
+    ]
+  },
+  "negative_controls": [
+    "sum",
+    "token_mean",
+    "byte_mean"
+  ],
+  "neutral_contexts": {
+    "candidate_independent": true,
+    "candidate_suffix_token_ids_identical_to_target": true,
+    "contexts_per_panel": 4,
+    "exact_target_prompt_token_length": true,
+    "panels": 2,
+    "panels_have_disjoint_neutral_token_patterns": true,
+    "tokenizer_specific": true
+  },
+  "primary_policy": "domain_pmi",
+  "primary_sources": [
+    "https://aclanthology.org/2021.emnlp-main.564/",
+    "https://proceedings.mlr.press/v139/zhao21c.html"
+  ],
+  "schema": "esoes-e2-scoring-policy-preregistration/v1",
+  "secondary_policy": "contextual_calibration",
+  "statistics": {
+    "axes": [
+      "shortest_utf8",
+      "fewest_tokens",
+      "marked_prefix",
+      "surface_family",
+      "arbitrary_hidden_label"
+    ],
+    "equivalence_confidence": 0.9,
+    "equivalence_margin_from_permutation_chance": 0.05,
+    "holm_familywise_alpha": 0.01,
+    "model_seed_is_a_cluster": true,
+    "per_seed_maximum_deviation": 0.1,
+    "position_rotations_are_not_independent": true,
+    "primary_unit": "independent candidate triplet"
+  },
+  "status": "PREREGISTERED_NO_RESULTS"
+}

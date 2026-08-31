@@ -149,3 +149,8 @@ The 250M production model and trainer are not implemented or authorized; the cur
 
 - Added `v5_training.target_preflight`, a target-only smoke command for XLA device identity, world-size/ordinal reconciliation, BF16 matmul, all-reduce, and device RNG progression.
 - The command returns `BLOCKED_TORCH_XLA` with explicit missing dependencies when executed off-target, so a CPU developer machine cannot accidentally certify TPU readiness. No training is performed.
+
+## 2026-09-01 — Scoring-policy preregistration
+
+- Rejected a proposed six-group calibration run as underpowered before executing it. The existing six-group result remains consumed pilot evidence only.
+- Froze a 256-triplet, five-seed, three-tokenizer tournament with DC-PMI primary, contextual calibration secondary, two neutral panels, equivalence/decoy/sensitivity/device gates, and separate development→immutable selection→fresh sequencing. The receipt contains no model outcomes.

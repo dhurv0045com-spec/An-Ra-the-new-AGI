@@ -254,6 +254,7 @@ Available now:
 python -m unittest discover -s tests -v
 python -m e0_cognition.certify --output artifacts/e0/development_certificate.json
 python -m e0_cognition.scoring_certification --output artifacts/e0/scoring_adapter_certificate.json
+python -m e2_architecture.scoring_policy --output artifacts/e2/scoring_policy_preregistration.json
 python -m v5_contracts.certify --output artifacts/v5/implementation_contract.json
 python -m v5_training.transaction_canary --output artifacts/v5/training_transaction_canary.json
 python -m v5_training.torch_canary --device cuda --output artifacts/v5/local_p35_checkpoint_canary.json
@@ -313,7 +314,7 @@ No milestone may be skipped because later code appears to work.
 
 ## 13. Immediate execution backlog
 
-1. Design and preregister a bias-resistant candidate-scoring policy against the now-passing exact local P35 scorer; validate fresh null surfaces and target-TPU parity without selecting policy from trained-model outcomes.
+1. Implement the frozen `scoring_policy_preregistration.json` tournament, run development then immutable selection then fresh confirmation, and require target-TPU parity without selecting policy from trained-model outcomes.
 2. Obtain an independent custodian for the real T2 suite; generate it outside Git and commit only the hash.
 3. Add source-disjoint natural evaluation manifests and legal provenance, not synthetic prose labeled “natural.”
 4. Produce representative external-corpus tokenizer candidates and matched encoding receipts.

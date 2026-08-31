@@ -391,3 +391,12 @@ Until then: **READY TO FREEZE = NO**.
 **EVIDENCE:** `v5_training.target_preflight`, `tests/test_v5_target_preflight.py`; on the current CPU host the command is intentionally blocked with explicit missing-dependency metadata.
 **WHAT WOULD CHANGE OUR MIND:** a target run must produce a PASS receipt with the declared topology before target training can be authorized; any mismatch or failed check remains fail-closed.
 **ITERATION:** Ground Blueprint v0.5.
+
+## D-039 — Scoring policy must be frozen before a powered null tournament
+
+**DECISION:** treat the six-group random-P35 audit as consumed pilot evidence; compare naive sum/token/byte only as negative controls against domain-conditional PMI (primary) and contextual calibration (secondary) under the immutable 256-triplet protocol.
+**STATUS:** [PREREGISTERED / NOT EXECUTED]
+**WHY:** device parity did not remove surface-form bias, and choosing normalization after trained results would contaminate every cognition comparison. DC-PMI and contextual calibration directly factor candidate priors, but must survive equivalence, neutral-panel, decoy, sensitivity, and device gates.
+**EVIDENCE:** `e2_architecture.scoring_policy`, `artifacts/e2/scoring_policy_preregistration.json`, and primary methods from Holtzman et al. (EMNLP 2021) and Zhao et al. (ICML 2021). No model outcome exists in the receipt.
+**WHAT WOULD CHANGE OUR MIND:** if neither calibrated policy passes every development and unchanged fresh gate, keep `production_scoring_mode=null` and redesign measurement before learned E1-E3 comparisons.
+**ITERATION:** Ground Blueprint v0.5.
