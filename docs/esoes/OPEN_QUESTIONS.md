@@ -144,8 +144,8 @@ Ground Blueprint v0.4 intentionally limits the open set. A question belongs here
 
 **WHY IT MATTERS:** local model resume, cursor resume, and transaction semantics can each pass while their integrated distributed checkpoint loses tokens, rank RNG, optimizer shards, or the committed parent.
 **CURRENT BEST HYPOTHESIS:** one coordinator should publish a content-addressed generation after a collective completed-update barrier, with exact partial-final-update semantics and an object-store compare-and-swap pointer.
-**WHAT EVIDENCE EXISTS:** the framework-neutral local canary passes identity binding, exact `4+4+2` accounting, clean-copy resume, corruption/missing inventory rejection, writer fencing, and injected crash boundaries; real P35 update and cursor canaries pass separately.
-**CHEAPEST DECISIVE TEST:** join those components in one tiny real-pack CPU/CUDA checkpoint, then repeat on the chosen TPU topology with per-rank RNG/shard receipts and upload→redownload→clean restore.
+**WHAT EVIDENCE EXISTS:** the framework-neutral local canary passes identity binding, exact `4+4+2` accounting, clean-copy resume, corruption/missing inventory rejection, writer fencing, and injected crash boundaries. The exact middle-P35 canary now joins model/AdamW/scheduler/RNG/cursor/ledger state through that transaction and reproduces the next update with zero error; the local immutable CAS canary passes upload/redownload equality and corruption rejection; `v5_training.distributed` rejects incomplete/duplicate/misaligned ranks, mismatched collective barriers, shard reuse, and token-ledger drift.
+**CHEAPEST DECISIVE TEST:** repeat the joined canary on the chosen TPU topology with real per-rank RNG/shard payloads and object-store upload→redownload→clean restore; local schemas cannot substitute for target collective and durability evidence.
 **DECISION DEADLINE:** before M102 and target training freeze.
 
 ## Deferred—not active search

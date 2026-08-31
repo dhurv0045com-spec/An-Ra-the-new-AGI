@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import tempfile
 import unittest
-from dataclasses import replace
+from dataclasses import asdict, replace
 from pathlib import Path
 
 from v5_training.checkpoint import CheckpointStore, _canonical_json
@@ -77,6 +77,17 @@ class V5TrainingTests(unittest.TestCase):
                 CheckpointStore(Path(directory), "canary").publish(
                     state=state, payloads=payloads, expected_parent_sha256=None
                 )
+
+    def test_cursor_and_ledger_components_are_bound_to_state(self) -> None:
+        state = _advance(_initial(), None)
+        payloads = _payloads(state)
+        payloads["cursor.json"] = _canonical_json(
+            asdict(replace(state.cursor, token_offset=state.cursor.token_offset + 1))
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            store = CheckpointStore(Path(directory), "canary")
+            with self.assertRaises(ValueError):
+                store.publish(state=state, payloads=payloads, expected_parent_sha256=None)
 
     def test_transaction_canary_and_committed_receipt_pass(self) -> None:
         live = run_canary()

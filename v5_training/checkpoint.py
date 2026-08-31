@@ -189,4 +189,13 @@ class CheckpointStore:
             raise ValueError("training state hash mismatch")
         if payloads["training_state.json"] != _canonical_json(state.canonical()):
             raise ValueError("training state payload mismatch")
+        try:
+            cursor_payload = json.loads(payloads["cursor.json"])
+            ledger_payload = json.loads(payloads["ledger.json"])
+        except (TypeError, ValueError) as exc:
+            raise ValueError("cursor or source ledger payload is not valid JSON") from exc
+        if cursor_payload != asdict(state.cursor):
+            raise ValueError("cursor component disagrees with training state")
+        if ledger_payload != dict(state.tokens_by_source):
+            raise ValueError("source ledger component disagrees with training state")
         return state, payloads

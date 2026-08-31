@@ -128,3 +128,24 @@ The 250M production model and trainer are not implemented or authorized; the cur
 - Ran suffix-only teacher-forced candidate scoring with random exact middle-P35 weights and the actual local 16k/24k/32k tokenizers on CPU and RTX 4050 CUDA. Full-sequence tokenization is split only at a verified non-crossing prompt/candidate boundary. All candidate rotations were stable; 486 paired scores produced zero prediction mismatches with relative RMS error 1.286e-7.
 - Rejected all three naive aggregation modes as production policy. Sum chose a fewest-token candidate in 100% of null groups, byte normalization in 83.33%, and token normalization in 50%--66.67%. Device parity proves implementation agreement, not measurement validity.
 - Split evaluation, durable upload/redownload restore, and promotion into separately hash-bound contracts. Promotion now fails closed on chronology-only selection, assisted/native substitution, absent fresh replication, mutable artifacts, failed gates, or missing independent signature.
+
+## 2026-08-31 — Exact P35 transaction join
+
+- Joined the exact middle-P35 model, AdamW optimizer, constant scheduler, RNG payload, cursor, source ledger, and `TrainingState` to `CheckpointStore` in a bounded two-update canary.
+- The first update publishes an immutable content-addressed generation; a clean local copy restores it and reproduces the uninterrupted second update with zero parameter and optimizer-state error. The final state reaches update 2 / 16 synthetic tokens, with optimizer step 2.
+- This closes local integration only. Distributed rank state, remote object-store custody, TPU/XLA behavior, and long-run training remain open; no model checkpoint tensors are committed.
+
+## 2026-08-31 — Runner failure-state fence
+
+- Added `v5_training.runner`: an in-flight update cannot advance the durable parent, completion requires a committed target update, and worker/upload failure preserves the last good checkpoint for explicit recovery.
+- Canonical JSON round-trip and pending-update/terminal-state tests pass. Distributed supervision and target failure injection remain open.
+
+## 2026-08-31 — Distributed rank checkpoint boundary
+
+- Added `v5_training.distributed` to bind each rank's RNG, optimizer shard, cursor, data-shard identity, token contribution, and collective barrier to one canonical checkpoint.
+- The coordinator contract rejects incomplete or duplicate rank sets, shard reuse, mismatched barriers, world-size drift, and global-token reconciliation errors. Target TPU/XLA collective behavior remains unmeasured.
+
+## 2026-08-31 — Target TPU/XLA preflight contract
+
+- Added `v5_training.target_preflight`, a target-only smoke command for XLA device identity, world-size/ordinal reconciliation, BF16 matmul, all-reduce, and device RNG progression.
+- The command returns `BLOCKED_TORCH_XLA` with explicit missing dependencies when executed off-target, so a CPU developer machine cannot accidentally certify TPU readiness. No training is performed.

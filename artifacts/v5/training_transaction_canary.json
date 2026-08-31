@@ -48,7 +48,7 @@
     },
     "tokens_per_update": 4
   },
-  "implementation_sha256": "98d7cdddf2c8891cf5f0238e2e4c8b614b8d9ae5cedb766c49908e2ed1e34822",
+  "implementation_sha256": "a6007ba22fd81291adbb06c9367006269acbdbd7fbe92c69e68bdc3b9e13d5c5",
   "limitations": [
     "Payload bytes stand in for already-separately-tested model and optimizer tensors.",
     "Remote upload, redownload, object-store CAS, distributed rank RNG, and TPU restore remain open."

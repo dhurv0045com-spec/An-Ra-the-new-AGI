@@ -71,6 +71,7 @@ Required critical path: **E0 benchmark certification → E1 tokenizer → E2 arc
 - [x] framework-neutral cumulative lifetime token ledger starts at zero, schedules by tokens, and handles an exact partial final update
 - [x] framework-neutral transaction binds source commit/model/data/pack/tokenizer/run/optimizer/schedule/curriculum identities
 - [ ] real distributed trainer emits and validates those bindings on target hardware
+- [ ] target TPU/XLA preflight passes on the declared world size (CPU hosts must report blocked)
 
 ## Checkpoints
 
@@ -78,6 +79,7 @@ Required critical path: **E0 benchmark certification → E1 tokenizer → E2 arc
 - [ ] full-resume milestone writer tested on target hardware
 - [ ] remote durability verified
 - [x] local atomic transaction rejects stale writers, partial inventory, corruption, and unsafe crash stages
+- [x] exact middle-P35 model/AdamW/scheduler/RNG/cursor/ledger join restores and continues from a clean copy
 - [ ] checkpoint promotion rule preregistered
 - [x] final/latest chronology is mechanically forbidden as the sole promotion basis
 - [x] evaluation/durability/promotion receipt schemas separate raw/assisted evidence, clean restore, gate identity, chronology, and independent signature

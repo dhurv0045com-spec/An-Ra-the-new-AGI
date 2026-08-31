@@ -32,6 +32,9 @@ esoes-e2-cursor = "e2_architecture.cursor_benchmark:main"
 esoes-e2-scoring = "e2_architecture.scoring_benchmark:main"
 esoes-e3-plan = "e3_data_objective.plan:main"
 esoes-v5-transaction = "v5_training.transaction_canary:main"
+esoes-v5-p35-canary = "v5_training.torch_canary:main"
+esoes-v5-durability = "v5_training.durability_canary:main"
+esoes-v5-target-preflight = "v5_training.target_preflight:main"
 esoes-boundaries = "v5_contracts.import_boundaries:main"
 
 [tool.setuptools.packages.find]

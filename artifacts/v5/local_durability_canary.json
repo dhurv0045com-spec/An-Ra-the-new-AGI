@@ -1,0 +1,30 @@
+{
+  "artifact_sha256": "945cdc1c2f34aaf5b2c90feef63c2f0c04b9b0ffd5eb2935f062819cd0c60ce1",
+  "byte_size": 197,
+  "checks": {
+    "artifact_hash_matches_redownload": true,
+    "immutable_idempotent_publish": true,
+    "positive_restore_receipt": true,
+    "upload_redownload_equal": true
+  },
+  "implementation_sha256": "04327fbbaad13a03199a959c1f1734d89ce8f693f65572a1bfeac2702cbc5af2",
+  "limitations": [
+    "This is a local filesystem simulation, not cloud-provider durability or TPU storage evidence.",
+    "The payload is a tiny synthetic artifact; real P35 multipart/object-store restore remains required."
+  ],
+  "manifest_sha256": "a3ff473bed9789d7fb7ed5632732e10e1bd633b536e1891a360d565e681be720",
+  "platform": "Windows-10-10.0.26200-SP0",
+  "receipt": {
+    "artifact_sha256": "945cdc1c2f34aaf5b2c90feef63c2f0c04b9b0ffd5eb2935f062819cd0c60ce1",
+    "checkpoint_sha256": "a3ff473bed9789d7fb7ed5632732e10e1bd633b536e1891a360d565e681be720",
+    "immutable": true,
+    "object_identity": "945cdc1c2f34aaf5b2c90feef63c2f0c04b9b0ffd5eb2935f062819cd0c60ce1",
+    "redownload_sha256": "945cdc1c2f34aaf5b2c90feef63c2f0c04b9b0ffd5eb2935f062819cd0c60ce1",
+    "restore_receipt_sha256": "75083466d92f5027dfa32955afbe0e0c6a1542592d484bb306f1da71849c9dbc",
+    "schema": "anra-v5-durability/v1"
+  },
+  "redownload_sha256": "945cdc1c2f34aaf5b2c90feef63c2f0c04b9b0ffd5eb2935f062819cd0c60ce1",
+  "schema": "esoes-v5-local-durability-canary/v1",
+  "scope": "local content-addressed immutable object upload/redownload/clean-restore simulation",
+  "status": "PASS"
+}

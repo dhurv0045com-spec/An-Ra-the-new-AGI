@@ -1,0 +1,61 @@
+{
+  "checks": {
+    "actual_p35_parameter_count": true,
+    "clean_copy_restore": true,
+    "exact_token_ledger": true,
+    "final_state_restore": true,
+    "final_transaction_published": true,
+    "model_changed": true,
+    "optimizer_changed": true,
+    "resume_within_tolerance": true,
+    "two_updates_reached": true
+  },
+  "config": {
+    "arm": "middle",
+    "batch_size": 1,
+    "seed": 47031,
+    "sequence_length": 8,
+    "updates": 2
+  },
+  "cumulative_tokens": 16,
+  "device": "cuda",
+  "device_name": "NVIDIA GeForce RTX 4050 Laptop GPU",
+  "final_checkpoint_sha256": "c52ef9e10d45c2b9a9d55015f8b94056dbb90d2afb656fd7bdb7369ae92ff96d",
+  "first_checkpoint_sha256": "596e06db6ab6ad1ef99d9aee70a682ada19ec46de49d5edb57e69d6fe8798544",
+  "global_update": 2,
+  "implementation_sha256": "51480b1aa4119a1bdf736b19abbae40ac4694760478b4b5fce5d075316be49be",
+  "limitations": [
+    "Synthetic tokens and two updates prove wiring and continuation, not optimizer quality or cognition.",
+    "The canary uses local filesystem copy plus fsync/atomic publication; remote object-store durability, distributed sharding, TPU/XLA, and failure-state recovery remain open.",
+    "No checkpoint weights or optimizer tensors are committed; only this receipt is committed."
+  ],
+  "metrics": {
+    "first": {
+      "gradient_norm": 550.7390747070312,
+      "loss": 244.38861083984375
+    },
+    "reference_second": {
+      "gradient_norm": 609.5054321289062,
+      "loss": 252.16571044921875
+    },
+    "resumed_second": {
+      "gradient_norm": 609.5054321289062,
+      "loss": 252.16571044921875
+    }
+  },
+  "model_constructor_sha256": "0fbeb10680074e41982ea2d7f214c352a6e50f17f68f8f54fd75ee73ca9fa8b7",
+  "optimizer_hash": "6bd576538d82180da569ac26168bac1c1f90839334bd4167524d582bea7f7ecd",
+  "optimizer_step_max": 2,
+  "parameter_hash": "ab82ed42e1718c4092de64bd7f1925f3ac4cdf0848f2062279d5ee8fed1d9f4e",
+  "resume": {
+    "clean_copy_restore": true,
+    "optimizer_hash_equal": true,
+    "optimizer_state_max_abs_error": 0.0,
+    "parameter_hash_equal": true,
+    "parameter_max_abs_error": 0.0
+  },
+  "schema": "esoes-v5-p35-checkpoint-canary/v1",
+  "scope": "exact middle P35; two synthetic AdamW updates; first publish and clean-copy resume",
+  "status": "PASS",
+  "torch_version": "2.11.0+cu128"
+}

@@ -99,8 +99,8 @@ v5_training/
   state.py                   complete serializable training state
   step.py                    pure one-update function
   checkpoint.py              canonical single-writer transaction
-  distributed.py             topology and collective boundary
-  runner.py                  orchestration, signals, recovery, durable handoff
+  runner.py                  fail-closed orchestration, signals, recovery, durable handoff
+  distributed.py             rank-shard/RNG/cursor/collective checkpoint boundary
 
 v5_evaluation/
   adapter.py                 immutable checkpoint → model-scoring interface
@@ -256,6 +256,8 @@ python -m e0_cognition.certify --output artifacts/e0/development_certificate.jso
 python -m e0_cognition.scoring_certification --output artifacts/e0/scoring_adapter_certificate.json
 python -m v5_contracts.certify --output artifacts/v5/implementation_contract.json
 python -m v5_training.transaction_canary --output artifacts/v5/training_transaction_canary.json
+python -m v5_training.torch_canary --device cuda --output artifacts/v5/local_p35_checkpoint_canary.json
+python -m v5_training.durability_canary --output artifacts/v5/local_durability_canary.json
 python -m e1_tokenizer.audit --receipt <candidate.json> --artifact <tokenizer> --output <audit.json>
 python -m e1_tokenizer.tournament --output artifacts/e1/tournament_plan.json
 python -m e0_cognition.sealed --fixture <external-suite.json> --custody-id <id> --output artifacts/e0/sealed_commitment.json
@@ -287,6 +289,7 @@ CI is split by cost:
 - `imports`: dependency-boundary scan;
 - `cpu-canary`: future tiny forward/backward/save/restore;
 - `accelerator-canary`: manually authorized target-device real-update and exact-resume checks;
+- `target-preflight`: explicit XLA device/world-size/BF16/all-reduce/RNG plumbing check; blocked when `torch_xla` is absent;
 - `main-training`: never a CI job.
 
 Committed generated receipts are reproduced byte-for-byte in CI. A source change without the corresponding receipt change fails.
@@ -314,8 +317,9 @@ No milestone may be skipped because later code appears to work.
 2. Obtain an independent custodian for the real T2 suite; generate it outside Git and commit only the hash.
 3. Add source-disjoint natural evaluation manifests and legal provenance, not synthetic prose labeled “natural.”
 4. Produce representative external-corpus tokenizer candidates and matched encoding receipts.
-5. Join the passing local transaction semantics with the real P35 update/cursor components, then test distributed/remote/TPU restore; local fsync is not durability.
-6. Close E0/E1, then execute the minimal P35 learning comparisons. Do not launch V5-A before E5 and freeze review.
+5. The bounded local P35 join now passes model/AdamW/scheduler/RNG/cursor/ledger publication and clean-copy continuation (`artifacts/v5/local_p35_checkpoint_canary.json`). Next test distributed/remote/TPU restore; local fsync is not durability.
+6. Run `python -m v5_training.target_preflight --output artifacts/v5/target_preflight.json` only on the target TPU/XLA environment; on a CPU host it must emit `BLOCKED_TORCH_XLA` and must not be treated as a pass.
+7. Close E0/E1, then execute the minimal P35 learning comparisons. Do not launch V5-A before E5 and freeze review.
 
 ## 14. Definition of implementation readiness
 

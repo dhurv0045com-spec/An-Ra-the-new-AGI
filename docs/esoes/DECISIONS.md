@@ -311,6 +311,42 @@ Until then: **READY TO FREEZE = NO**.
 **WHAT WOULD CHANGE OUR MIND:** only a preregistered random-weight device audit that rejects these biases across all real tokenizer candidates.
 **ITERATION:** Ground Blueprint v0.5.
 
+## D-037 — Distributed checkpoints require complete rank reconciliation
+
+**DECISION:** a coordinator must reject any distributed checkpoint unless every declared rank appears exactly once, all ranks share the same update/world/barrier identity, shard identities are unique, and rank token contributions equal the global ledger.
+**STATUS:** [EVIDENCE-BACKED SCHEMA / TARGET COLLECTIVES OPEN]
+**WHY:** a single valid local checkpoint can still lose a rank's RNG, optimizer shard, cursor, or tokens during distributed restore.
+**EVIDENCE:** `v5_training.distributed` and its tests cover canonical rank ordering, hash-bound RNG/optimizer/cursor/barrier fields, missing/duplicate rank rejection, barrier mismatch, shard reuse, and token reconciliation.
+**WHAT WOULD CHANGE OUR MIND:** target TPU/XLA collectives and storage must produce the same complete rank receipt under restart and independent restore.
+**ITERATION:** Ground Blueprint v0.5.
+
+## D-036 — A failed runner must preserve the last durable parent
+
+**DECISION:** separate runner lifecycle state from model state: an update is only complete after its checkpoint commits, and failure must preserve the last committed parent for explicit recovery.
+**STATUS:** [EVIDENCE-BACKED LOCAL LIFECYCLE / DISTRIBUTED SUPERVISION OPEN]
+**WHY:** treating an in-flight or merely “latest” update as durable can resume from torn tensors, double-count tokens, or silently skip a batch after worker loss.
+**EVIDENCE:** `v5_training.runner` tests cover pending-update fencing, failure in both compute and upload phases, canonical round-trip, explicit recovery, and completion only at the target.
+**WHAT WOULD CHANGE OUR MIND:** the target runner may use a different state backend, but it must preserve the same durable-parent and explicit-recovery invariants under rank failure and restart.
+**ITERATION:** Ground Blueprint v0.5.
+
+## D-035 — Durability must be a verified custody transaction
+
+**DECISION:** treat upload, immutable identity, redownload equality, clean restore, and custody identity as a separate durability receipt; a local filesystem canary is evidence of implementation only.
+**STATUS:** [EVIDENCE-BACKED LOCAL CAS / REMOTE CUSTODY OPEN]
+**WHY:** a successful trainer save or mutable “latest” path does not prove that the checkpoint can be recovered after worker loss or object-store corruption.
+**EVIDENCE:** `v5_training.durability_canary` and `artifacts/v5/local_durability_canary.json` pass content-addressed idempotent publication, hash-verified redownload, corruption/missing rejection, and `DurabilityReceipt` validation.
+**WHAT WOULD CHANGE OUR MIND:** a target object store must reproduce the same checks with immutable versioning, independent custody, multipart integrity, and clean restore of a real P35 checkpoint.
+**ITERATION:** Ground Blueprint v0.5.
+
+## D-034 — Exact P35 state must cross the transaction boundary before scale
+
+**DECISION:** require a real model/optimizer/scheduler/RNG/cursor/ledger checkpoint join before any distributed or 250M run; framework-neutral canary success alone is insufficient.
+**STATUS:** [EVIDENCE-BACKED LOCAL / DISTRIBUTED, REMOTE, TPU OPEN]
+**WHY:** independent component tests can pass while serialization, optimizer ownership, or cursor/RNG restoration is broken at the integration boundary.
+**EVIDENCE:** `v5_training.torch_canary` and `artifacts/v5/local_p35_checkpoint_canary.json`: exact middle-P35, two updates, content-addressed publication, clean-copy restore, zero parameter/optimizer continuation error, and final optimizer step 2.
+**WHAT WOULD CHANGE OUR MIND:** a target-topology run must preserve the same identity inventory, parent fence, exact token ledger, and registered tolerance across rank-sharded remote restore.
+**ITERATION:** Ground Blueprint v0.5.
+
 ## D-030 — Exact final partial update
 
 **DECISION:** stop at the exact token budget using a final partial update; do not count padding and do not overshoot to preserve a nominal global batch.
@@ -345,4 +381,13 @@ Until then: **READY TO FREEZE = NO**.
 **WHY:** the exact random-weight P35 audit has zero CPU/CUDA prediction mismatches across 486 scores, yet every naive aggregation retains strong length/tokenization bias.
 **EVIDENCE:** `artifacts/e2/local_cpu_scoring_null.json`, `local_cuda_scoring_null.json`, and `local_cpu_cuda_scoring_parity.json`.
 **WHAT WOULD CHANGE OUR MIND:** a preregistered, tokenizer-robust null calibration that passes fresh surfaces and target-TPU parity without using trained-model outcomes to choose the rule.
+**ITERATION:** Ground Blueprint v0.5.
+
+## D-038 — Target preflight must exercise the device, not a CPU proxy
+
+**DECISION:** require a target-only preflight that checks XLA device identity, declared world size and ordinal, BF16 matmul finiteness, collective sum, and progression of the device RNG; an unavailable `torch_xla` runtime is an explicit blocked result, never a pass.
+**STATUS:** [EXECUTABLE LOCAL CONTRACT / TARGET TPU OPEN]
+**WHY:** CPU import success or a host-side smoke test cannot establish that the selected TPU topology, collective path, or device-side random stream is usable for a resumable run.
+**EVIDENCE:** `v5_training.target_preflight`, `tests/test_v5_target_preflight.py`; on the current CPU host the command is intentionally blocked with explicit missing-dependency metadata.
+**WHAT WOULD CHANGE OUR MIND:** a target run must produce a PASS receipt with the declared topology before target training can be authorized; any mismatch or failed check remains fail-closed.
 **ITERATION:** Ground Blueprint v0.5.

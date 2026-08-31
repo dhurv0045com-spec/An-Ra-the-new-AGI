@@ -40,6 +40,10 @@ jobs:
         run: python -m v5_training.transaction_canary --output /tmp/training_transaction_canary.json
       - name: Verify training transaction receipt is reproducible
         run: cmp artifacts/v5/training_transaction_canary.json /tmp/training_transaction_canary.json
+      - name: Reproduce local durability canary
+        run: python -m v5_training.durability_canary --output /tmp/local_durability_canary.json
+      - name: Verify local durability receipt is reproducible
+        run: cmp artifacts/v5/local_durability_canary.json /tmp/local_durability_canary.json
       - name: Reproduce E1 matched-budget tournament plan
         run: python -m e1_tokenizer.tournament --output /tmp/tournament_plan.json
       - name: Verify committed E1 tournament plan
