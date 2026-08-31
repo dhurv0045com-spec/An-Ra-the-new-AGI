@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import argparse
 import hashlib
-import itertools
 import json
 from collections import Counter
 from dataclasses import replace
@@ -55,32 +54,37 @@ def _aggregate_shortcut_probe(
     cases = [case for suite in suites for case in suite.cases if case.family in families]
     correct = sum(baseline(case) == case.answer for case in cases)
     chance = sum(1.0 / len(case.candidates) for case in cases) / len(cases)
-    # Position heuristics do not have uniform-candidate chance: after a
-    # random serialization they still select the value in the final fact, and
-    # rollback cases intentionally contain two mentions of the answer.  Use an
-    # exact permutation null for these two leak detectors so the gate tests for
-    # semantic/position coupling rather than rejecting a mathematically
-    # expected 25--27% result.  Rule heuristics retain uniform candidate
-    # chance because their output is not determined by fact serialization.
+    # Position heuristics do not have uniform-candidate chance. Under a random
+    # serialization the final candidate-bearing fact is uniform over all such
+    # facts, so enumerate those possible winners analytically. This is exactly
+    # equivalent to enumerating every fact permutation and remains tractable as
+    # state histories grow. Other heuristics retain uniform-candidate chance.
     if baseline_name in {"latest_fact", "nearest_position"}:
         null_correct = 0.0
         for case in cases:
-            orders = tuple(itertools.permutations(range(len(case.facts))))
-            hits = sum(
-                baseline(replace(case, facts=tuple(case.facts[i] for i in order)))
-                == case.answer
-                for order in orders
+            candidate_facts = tuple(
+                fact for fact in case.facts if any(candidate in fact for candidate in case.candidates)
             )
-            null_correct += hits / len(orders)
+            if not candidate_facts:
+                null_correct += float(case.candidates[0] == case.answer)
+                continue
+            hits = sum(
+                baseline(replace(case, facts=(fact,))) == case.answer
+                for fact in candidate_facts
+            )
+            null_correct += hits / len(candidate_facts)
         calibrated_chance = null_correct / len(cases)
+        null_method = "analytic-random-serialization"
     else:
         calibrated_chance = chance
+        null_method = "casewise-uniform-candidate"
     return {
         "accuracy": correct / len(cases),
         "chance": chance,
         "calibrated_chance": calibrated_chance,
         "cases": len(cases),
         "seeds": 8,
+        "null_method": null_method,
     }
 
 
@@ -113,7 +117,14 @@ def build_development_certificate(*, seed: int, groups_per_family: int) -> dict[
             baseline_name=name,
             families=state_families,
         )
-        for name in ("latest_fact", "nearest_position")
+        for name in (
+            "first_candidate",
+            "last_candidate",
+            "latest_fact",
+            "nearest_position",
+            "lexical_overlap",
+            "bag_of_words",
+        )
     }
     rule_shortcuts = {
         name: _aggregate_shortcut_probe(
@@ -175,7 +186,7 @@ def build_development_certificate(*, seed: int, groups_per_family: int) -> dict[
         "state_serialization_is_shuffled": surface_axes["serialization"].get(
             "semantic-shuffled", 0
         ) > 0,
-        "state_position_heuristics_fail": all(
+        "state_shortcut_heuristics_fail": all(
             result["accuracy"] <= result["calibrated_chance"] + 0.10
             for result in state_shortcuts.values()
         ),
@@ -207,7 +218,7 @@ def build_development_certificate(*, seed: int, groups_per_family: int) -> dict[
     }
     status = "PASS" if all(checks.values()) else "FAIL"
     return {
-        "schema": "esoes-e0-development-certificate/v1",
+        "schema": "esoes-e0-development-certificate/v2",
         "status": status,
         "scope": "development infrastructure only; not a V5 model result",
         "suite": {
@@ -229,7 +240,7 @@ def build_development_certificate(*, seed: int, groups_per_family: int) -> dict[
         "baselines": baselines,
         "shortcut_audit": {
             "state_families": sorted(state_families),
-            "state_position_heuristics": state_shortcuts,
+            "state_heuristics": state_shortcuts,
             "state_shortcut_ceiling": state_shortcut_ceiling,
             "rule_induction_heuristics": rule_shortcuts,
             "rule_shortcut_ceiling": rule_shortcut_ceiling,

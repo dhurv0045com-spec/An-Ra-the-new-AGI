@@ -13,7 +13,9 @@ Required critical path: **E0 benchmark certification → E1 tokenizer → E2 arc
 - [ ] sealed promotion benchmark frozen
 - [x] OOD axes defined
 - [x] representation vs selection vs realization metrics separated in executable APIs
-- [x] local shortcut/leakage red-team passed; external sealed/natural review remains open
+- [x] local six-heuristic state and five-heuristic rule red-team passed after false-green repair
+- [ ] model-scoring adapter certified against oracle/broken/random-weight controls
+- [ ] external sealed/natural review passed
 
 ## Tokenizer
 
@@ -108,8 +110,8 @@ Required critical path: **E0 benchmark certification → E1 tokenizer → E2 arc
 - [x] EXP v10/v11 pair/composition claims reclassified as contaminated
 - [x] old 166-VIE bank rejected as qualified causal evidence
 - [x] inherited VNext implementation physically removed from ESOES
-- [x] E0 deterministic development receipt, independent solver, 20-seed property sweep, and initial chance/power audit created
-- [x] semantic-time state queries, split-held-out rule structures, pooled heuristic gates, context/difficulty/output axes, and metric-specific confidence procedures implemented
+- [x] E0 deterministic development receipt, independent solver, generator property sweep, and chance/power audit created
+- [x] between/after-event state queries, split-held-out rule structures, pooled fail-closed lexical/position/rule gates, context/difficulty/output axes, and metric-specific confidence procedures implemented
 - [ ] natural-source custody and real sealed commitment complete
 - [x] E1 artifact-bound static audit, Pareto harness, and matched-budget tournament plan implemented
 - [x] local-development 16k/24k/32k candidates independently trained, audited, and 24k determinism replicated

@@ -1,69 +1,54 @@
 {
   "after": {
-    "rule_induction": {
-      "bag_of_words": {
-        "accuracy": 0.0625,
-        "chance": 0.0625,
-        "cases": 256,
-        "seeds": 8
-      },
-      "fixed_identity_rule": {
-        "accuracy": 0.0,
-        "chance": 0.0625,
-        "cases": 256,
-        "seeds": 8
-      },
-      "fixed_repeat_left_rule": {
-        "accuracy": 0.125,
-        "chance": 0.0625,
-        "cases": 256,
-        "seeds": 8
-      },
-      "fixed_repeat_right_rule": {
-        "accuracy": 0.125,
-        "chance": 0.0625,
-        "cases": 256,
-        "seeds": 8
-      },
-      "fixed_reverse_rule": {
-        "accuracy": 0.125,
-        "chance": 0.0625,
-        "cases": 256,
-        "seeds": 8
-      }
+    "generator_version": "e0-eval/0.4.0",
+    "rule_induction_heuristics": {
+      "bag_of_words": 0.06640625,
+      "fixed_identity_rule": 0.0,
+      "fixed_repeat_left_rule": 0.125,
+      "fixed_repeat_right_rule": 0.125,
+      "fixed_reverse_rule": 0.125
     },
-    "state_position_heuristics": {
-      "latest_fact": {
-        "accuracy": 0.1953125,
-        "chance": 0.13888888888888865,
-        "cases": 384,
-        "seeds": 8
-      },
-      "nearest_position": {
-        "accuracy": 0.1953125,
-        "chance": 0.13888888888888865,
-        "cases": 384,
-        "seeds": 8
-      }
+    "state_casewise_chance": 0.10370370370370431,
+    "state_heuristics": {
+      "bag_of_words": 0.041666666666666664,
+      "first_candidate": 0.11979166666666667,
+      "last_candidate": 0.09375,
+      "latest_fact": 0.13802083333333334,
+      "lexical_overlap": 0.1015625,
+      "nearest_position": 0.13802083333333334
     },
-    "suite_sha256": "2b0204a37cde1762d47cdb6088542a7eb4307b3d8904d5f1ffad496c312d7d7e"
+    "state_position_calibrated_null": 0.12946428571428595,
+    "suite_sha256": "f7a1b6af1a2ac6dc381499a87592e0f8329ea47d0eee0dede112d6ea090b8b56"
   },
-  "before": {
-    "legacy_suite": {
-      "groups_per_family": 16,
-      "seed": 271828
-    },
-    "bag_of_words_rule_induction_accuracy": 0.8125,
-    "latest_fact_state_overwrite_accuracy": 1.0,
-    "latest_fact_natural_state_accuracy": 1.0,
-    "nearest_position_state_overwrite_accuracy": 1.0,
-    "nearest_position_natural_state_accuracy": 1.0,
-    "note": "Measured against the pre-v0.4 generator at the previous esoes commit; fixed-rule controls did not exist because rule induction was permanently reverse-pair."
+  "false_green": {
+    "bag_of_words_natural_state_accuracy": 0.835938,
+    "bag_of_words_pooled_state_accuracy": 0.817708,
+    "bag_of_words_state_overwrite_accuracy": 0.808594,
+    "casewise_state_chance": 0.138889,
+    "commit": "03c6b1e922dad9a86d845ffd158c4dc6c2683675",
+    "generator_version": "e0-eval/0.3.0",
+    "lexical_overlap_natural_state_accuracy": 0.820313,
+    "lexical_overlap_pooled_state_accuracy": 0.710938,
+    "lexical_overlap_state_overwrite_accuracy": 0.65625,
+    "root_cause": "Every query cutoff equaled an event timestamp and certification omitted lexical and bag-of-words state gates."
   },
   "gate": {
-    "max_allowed_excess_over_pooled_chance": 0.1,
-    "pooled_seeds": 8
+    "max_allowed_excess_over_calibrated_null": 0.1,
+    "pooled_seeds": 8,
+    "state_controls": [
+      "first_candidate",
+      "last_candidate",
+      "latest_fact",
+      "nearest_position",
+      "lexical_overlap",
+      "bag_of_words"
+    ]
   },
-  "previous_commit": "c2af99411802349360c8bce843d08279625169b9",
-  "schema": "esoes-e0-shortcut-repair/v1"
+  "legacy_before_v0_4": {
+    "bag_of_words_rule_induction_accuracy": 0.8125,
+    "commit": "c2af99411802349360c8bce843d08279625169b9",
+    "latest_fact_state_accuracy": 1.0,
+    "nearest_position_state_accuracy": 1.0
+  },
+  "schema": "esoes-e0-shortcut-repair/v2"
 }

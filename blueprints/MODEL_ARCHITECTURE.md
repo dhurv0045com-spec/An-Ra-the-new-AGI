@@ -103,7 +103,7 @@ The actual P35 `RotaryEmbedding` is checked at its native 4,096-token limit agai
 
 Three deterministic AdamW updates on the exact P35 middle stack pass on CUDA (sequence 32) and CPU (sequence 16): all live parameters belong to the optimizer, parameter hashes change, Adam reaches step 3, moments are nonzero, and save/load continuation reproduces both parameters and optimizer states exactly. The corrected BF16 path stores FP32 master parameters and uses BF16 autocast, so its moments are FP32. A native-BF16-parameter control fails the FP32-state gate because PyTorch stores BF16 moments; that receipt is retained as a negative control. This validates wiring and short-run resume only; distributed/TPU/XLA and long-duration optimizer behavior remain required.
 A separate 10-update fresh-seed run on both CPU and CUDA remains finite and preserves exact optimizer-state resume, strengthening the bounded stability signal without freezing LR, schedule, or long-run behavior.
-The 1K-context extension passes the registered tolerance-based resume gate on both devices; a strict CUDA run is intentionally retained as negative evidence because backend reduction order produces tiny, bounded drift. Exact bitwise equality is therefore required only where the receipt says it is supported, while tolerance and optimizer-state checks are mandatory at realistic context.
+The 1K-context extension passes the registered tolerance-based resume gate on both devices. Strict CUDA equality is recorded as a diagnostic and may pass or fail as backend reduction order changes; it is not a portable production gate. Registered dtype/backend tolerance and optimizer-state checks are mandatory at realistic context.
 
 ## Rejected from V5-A baseline
 

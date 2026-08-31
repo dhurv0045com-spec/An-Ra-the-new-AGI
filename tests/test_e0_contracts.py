@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import dataclasses
+import json
+import re
 import unittest
+from pathlib import Path
 
 from e0_cognition.baselines import evaluate_all_baselines
 from e0_cognition.certify import build_development_certificate
@@ -108,14 +111,29 @@ class E0ContractTests(unittest.TestCase):
         self.assertLess(results["broken_state_tracker"]["by_family"]["state_overwrite"], 0.25)
 
     def test_state_semantics_are_not_serialization_order(self) -> None:
-        state_cases = [case for case in self.dev.cases if case.family == "state_overwrite"]
+        state_cases = [
+            case
+            for case in self.dev.cases
+            if case.family in {"state_overwrite", "natural_state_analogue"}
+        ]
         self.assertEqual({dict(case.surface_axes)["state_query"] for case in state_cases},
                          {"latest", "intermediate", "rollback", "precedence"})
-        self.assertEqual({dict(case.surface_axes)["serialization"] for case in state_cases},
-                         {"semantic-shuffled"})
+        self.assertEqual(
+            {dict(case.surface_axes)["query_time_relation"] for case in state_cases},
+            {"between-events", "after-events"},
+        )
         self.assertEqual({dict(case.surface_axes)["variable_interleaving"] for case in state_cases},
                          {"two-variable"})
         self.assertTrue(all(len(case.hidden.relevant_fact_indices) >= 1 for case in state_cases))
+        for case in state_cases:
+            query_time = int(re.search(r"(?:time|minute) (\d+)", case.query).group(1))
+            event_times = {
+                int(match.group(1))
+                for fact in case.facts
+                for match in [re.search(r"(?:time=|minute )(\d+)", fact)]
+                if match
+            }
+            self.assertNotIn(query_time, event_times)
 
     def test_rule_structures_are_multiple_and_split_held_out(self) -> None:
         dev_structures = {
@@ -166,13 +184,53 @@ class E0ContractTests(unittest.TestCase):
         self.assertIn("not a V5 model result", certificate["scope"])
         self.assertFalse(certificate["sealed_policy"]["seed_in_repository"])
 
-    def test_position_shortcut_gate_uses_permutation_calibrated_null(self) -> None:
+    def test_state_shortcut_gate_covers_lexical_and_position_heuristics(self) -> None:
         certificate = build_development_certificate(seed=88, groups_per_family=16)
         self.assertEqual(certificate["status"], "PASS")
-        audit = certificate["shortcut_audit"]["state_position_heuristics"]
-        for result in audit.values():
-            self.assertGreater(result["calibrated_chance"], result["chance"])
+        audit = certificate["shortcut_audit"]["state_heuristics"]
+        self.assertEqual(
+            set(audit),
+            {
+                "first_candidate",
+                "last_candidate",
+                "latest_fact",
+                "nearest_position",
+                "lexical_overlap",
+                "bag_of_words",
+            },
+        )
+        for name, result in audit.items():
+            if name in {"latest_fact", "nearest_position"}:
+                self.assertEqual(result["null_method"], "analytic-random-serialization")
+            else:
+                self.assertEqual(result["null_method"], "casewise-uniform-candidate")
             self.assertLessEqual(result["accuracy"], result["calibrated_chance"] + 0.10)
+
+    def test_shortcut_repair_receipt_matches_canonical_certificate(self) -> None:
+        root = Path(__file__).parents[1]
+        receipt = json.loads(
+            (root / "artifacts/e0/shortcut_repair_receipt.json").read_text(encoding="utf-8")
+        )
+        certificate = json.loads(
+            (root / "artifacts/e0/development_certificate.json").read_text(encoding="utf-8")
+        )
+        self.assertEqual(receipt["schema"], "esoes-e0-shortcut-repair/v2")
+        self.assertEqual(receipt["after"]["suite_sha256"], certificate["suite"]["sha256"])
+        self.assertEqual(
+            receipt["after"]["generator_version"], certificate["suite"]["generator_version"]
+        )
+        self.assertEqual(
+            receipt["after"]["state_casewise_chance"],
+            certificate["shortcut_audit"]["state_heuristics"]["bag_of_words"]["chance"],
+        )
+        for name, accuracy in receipt["after"]["state_heuristics"].items():
+            self.assertEqual(
+                accuracy,
+                certificate["shortcut_audit"]["state_heuristics"][name]["accuracy"],
+            )
+        self.assertGreater(
+            receipt["false_green"]["bag_of_words_pooled_state_accuracy"], 0.8
+        )
 
     def test_statistical_calibration_is_explicit(self) -> None:
         chance = uniform_candidate_chance(self.dev)

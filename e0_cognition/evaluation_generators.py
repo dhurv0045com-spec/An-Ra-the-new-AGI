@@ -15,7 +15,7 @@ from .contracts import (
     Split,
 )
 
-GENERATOR_VERSION = "e0-eval/0.3.0"
+GENERATOR_VERSION = "e0-eval/0.4.0"
 
 
 @dataclass(frozen=True, slots=True)
@@ -339,54 +339,89 @@ def _state_bundle(
 
     target = _entity(profile, rng, index)
     other = _entity(profile, rng, index + 100)
-    values = [_code(profile, rng) for _ in range(10)]
+    # Eight target values make lexical/entity matching no better than the
+    # candidate null.  The queried cutoff is deliberately never an event
+    # timestamp, so a solver must compute a predecessor (and, where relevant,
+    # rollback/priority semantics) rather than retrieve the fact that repeats
+    # the query time.
+    values = [_code(profile, rng) for _ in range(13)]
     scenario = index % 4
     if scenario == 0:
         events = [
             (1, 1, target, values[0], None),
-            (4, 1, other, values[1], None),
+            (4, 1, target, values[1], None),
             (7, 1, target, values[2], None),
-            (9, 1, other, values[3], None),
-            (12, 1, target, values[4], None),
+            (10, 1, target, values[3], None),
+            (13, 1, target, values[4], None),
+            (16, 1, target, values[5], None),
+            (19, 1, target, values[6], None),
+            (22, 1, target, values[7], None),
+            (2, 1, other, values[8], None),
+            (8, 1, other, values[9], None),
+            (14, 1, other, values[10], None),
+            (20, 1, other, values[11], None),
         ]
-        query_time, answer = 12, values[4]
+        query_time, answer = 24, values[7]
         query_kind = "latest"
-        winning = {4}
+        winning = {7}
     elif scenario == 1:
         events = [
-            (2, 1, target, values[0], None),
-            (3, 1, other, values[1], None),
-            (6, 1, target, values[2], None),
-            (8, 1, other, values[3], None),
-            (11, 1, target, values[4], None),
+            (1, 1, target, values[0], None),
+            (4, 1, target, values[1], None),
+            (7, 1, target, values[2], None),
+            (10, 1, target, values[3], None),
+            (13, 1, target, values[4], None),
+            (16, 1, target, values[5], None),
+            (19, 1, target, values[6], None),
+            (22, 1, target, values[7], None),
+            (2, 1, other, values[8], None),
+            (8, 1, other, values[9], None),
+            (14, 1, other, values[10], None),
+            (20, 1, other, values[11], None),
         ]
-        query_time, answer = 6, values[2]
+        query_time, answer = 15, values[4]
         query_kind = "intermediate"
-        winning = {2}
+        winning = {4}
     elif scenario == 2:
         events = [
             (1, 1, target, values[0], None),
-            (3, 1, other, values[1], None),
-            (6, 1, target, values[2], None),
-            (8, 1, target, values[0], 1),
-            (10, 1, other, values[3], None),
+            (4, 1, target, values[1], None),
+            (7, 1, target, values[2], None),
+            (10, 1, target, values[3], None),
+            (13, 1, target, values[4], None),
+            (16, 1, target, values[5], None),
+            (19, 1, target, values[2], 7),
+            (23, 1, target, values[6], None),
+            (2, 1, other, values[8], None),
+            (8, 1, other, values[9], None),
+            (14, 1, other, values[10], None),
+            (20, 1, other, values[11], None),
         ]
-        query_time, answer = 8, values[0]
+        query_time, answer = 21, values[2]
         query_kind = "rollback"
-        winning = {0, 3}
+        winning = {2, 6}
     else:
         events = [
-            (2, 1, target, values[0], None),
-            (4, 1, other, values[1], None),
-            (7, 2, target, values[2], None),
-            (7, 5, target, values[3], None),
-            (9, 1, other, values[4], None),
+            (1, 1, target, values[0], None),
+            (4, 1, target, values[1], None),
+            (7, 1, target, values[2], None),
+            (10, 1, target, values[3], None),
+            (13, 2, target, values[4], None),
+            (13, 5, target, values[5], None),
+            (17, 1, target, values[6], None),
+            (20, 1, target, values[7], None),
+            (2, 1, other, values[8], None),
+            (8, 1, other, values[9], None),
+            (14, 1, other, values[10], None),
+            (19, 1, other, values[11], None),
         ]
-        query_time, answer = 7, values[3]
+        query_time, answer = 15, values[5]
         query_kind = "precedence"
-        winning = {3}
+        winning = {5}
 
     replacement = _code(profile, rng)
+    while replacement in values:
+        replacement = _code(profile, rng)
     def render(event: tuple[int, int, str, str, int | None]) -> str:
         time, priority, variable, value, rollback_time = event
         if rollback_time is None:
@@ -406,7 +441,7 @@ def _state_bundle(
     )
     candidates = _candidate_order(
         rng,
-        tuple(values[:5]) + (replacement, _code(profile, rng), _code(profile, rng)),
+        tuple(values[:8]) + (replacement, values[12]),
     )
     base = _case(
         case_id=f"{profile.prefix}-state-{index}-base",
@@ -437,6 +472,7 @@ def _state_bundle(
             "state_query": query_kind,
             "serialization": "semantic-shuffled",
             "variable_interleaving": "two-variable",
+            "query_time_relation": "after-events" if scenario == 0 else "between-events",
         },
     )
     changed_events = list(events)
@@ -696,35 +732,73 @@ def _natural_cases(profile: SplitProfile, rng: random.Random, seed: int, index: 
         domain=profile.domains[1],
         difficulty=_difficulty(cardinality=3, hops=0, distractors=1),
     )
-    state_scenario = index % 3
+    state_values = [_code(profile, rng) for _ in range(12)]
+    state_scenario = index % 4
     other_sample = f"{sample}-peer"
     if state_scenario == 0:
         state_events = [
-            (2, 1, sample, values[0], None),
-            (5, 1, other_sample, values[1], None),
-            (8, 1, sample, values[2], None),
-            (11, 1, other_sample, values[3], None),
-            (14, 1, sample, values[4], None),
+            (1, 1, sample, state_values[0], None),
+            (4, 1, sample, state_values[1], None),
+            (7, 1, sample, state_values[2], None),
+            (10, 1, sample, state_values[3], None),
+            (13, 1, sample, state_values[4], None),
+            (16, 1, sample, state_values[5], None),
+            (19, 1, sample, state_values[6], None),
+            (22, 1, sample, state_values[7], None),
+            (2, 1, other_sample, state_values[8], None),
+            (8, 1, other_sample, state_values[9], None),
+            (14, 1, other_sample, state_values[10], None),
+            (20, 1, other_sample, state_values[11], None),
         ]
-        state_time, state_answer, state_kind, state_winning = 14, values[4], "latest", {4}
+        state_time, state_answer, state_kind, state_winning = 24, state_values[7], "latest", {7}
     elif state_scenario == 1:
         state_events = [
-            (2, 1, sample, values[0], None),
-            (4, 1, other_sample, values[1], None),
-            (7, 1, sample, values[2], None),
-            (10, 1, other_sample, values[3], None),
-            (13, 1, sample, values[4], None),
+            (1, 1, sample, state_values[0], None),
+            (4, 1, sample, state_values[1], None),
+            (7, 1, sample, state_values[2], None),
+            (10, 1, sample, state_values[3], None),
+            (13, 1, sample, state_values[4], None),
+            (16, 1, sample, state_values[5], None),
+            (19, 1, sample, state_values[6], None),
+            (22, 1, sample, state_values[7], None),
+            (2, 1, other_sample, state_values[8], None),
+            (8, 1, other_sample, state_values[9], None),
+            (14, 1, other_sample, state_values[10], None),
+            (20, 1, other_sample, state_values[11], None),
         ]
-        state_time, state_answer, state_kind, state_winning = 7, values[2], "intermediate", {2}
+        state_time, state_answer, state_kind, state_winning = 15, state_values[4], "intermediate", {4}
+    elif state_scenario == 2:
+        state_events = [
+            (1, 1, sample, state_values[0], None),
+            (4, 1, sample, state_values[1], None),
+            (7, 1, sample, state_values[2], None),
+            (10, 1, sample, state_values[3], None),
+            (13, 1, sample, state_values[4], None),
+            (16, 1, sample, state_values[5], None),
+            (19, 1, sample, state_values[2], 7),
+            (23, 1, sample, state_values[6], None),
+            (2, 1, other_sample, state_values[8], None),
+            (8, 1, other_sample, state_values[9], None),
+            (14, 1, other_sample, state_values[10], None),
+            (20, 1, other_sample, state_values[11], None),
+        ]
+        state_time, state_answer, state_kind, state_winning = 21, state_values[2], "rollback", {2, 6}
     else:
         state_events = [
-            (3, 1, sample, values[0], None),
-            (6, 1, other_sample, values[1], None),
-            (9, 1, sample, values[2], None),
-            (12, 1, sample, values[0], 3),
-            (15, 1, other_sample, values[3], None),
+            (1, 1, sample, state_values[0], None),
+            (4, 1, sample, state_values[1], None),
+            (7, 1, sample, state_values[2], None),
+            (10, 1, sample, state_values[3], None),
+            (13, 2, sample, state_values[4], None),
+            (13, 5, sample, state_values[5], None),
+            (17, 1, sample, state_values[6], None),
+            (20, 1, sample, state_values[7], None),
+            (2, 1, other_sample, state_values[8], None),
+            (8, 1, other_sample, state_values[9], None),
+            (14, 1, other_sample, state_values[10], None),
+            (19, 1, other_sample, state_values[11], None),
         ]
-        state_time, state_answer, state_kind, state_winning = 12, values[0], "rollback", {0, 3}
+        state_time, state_answer, state_kind, state_winning = 15, state_values[5], "precedence", {5}
 
     def render_natural(event: tuple[int, int, str, str, int | None]) -> str:
         minute, priority, variable, value, rollback_minute = event
@@ -753,7 +827,7 @@ def _natural_cases(profile: SplitProfile, rng: random.Random, seed: int, index: 
             "respecting semantic time, rollback, and priority?"
         ),
         answer=state_answer,
-        candidates=_candidate_order(rng, tuple(values[:5]) + (_code(profile, rng),)),
+        candidates=_candidate_order(rng, tuple(state_values[:8]) + (_code(profile, rng),)),
         relevant=state_relevant,
         distractors=tuple(i for i in range(len(state_facts)) if i not in state_relevant),
         graph=tuple(
@@ -775,6 +849,9 @@ def _natural_cases(profile: SplitProfile, rng: random.Random, seed: int, index: 
             "serialization": "naturalized-semantic-shuffled",
             "variable_interleaving": "two-variable",
             "analogue": "naturalistic",
+            "query_time_relation": (
+                "after-events" if state_scenario == 0 else "between-events"
+            ),
         },
     )
     composition_facts = [

@@ -199,7 +199,7 @@ Until then: **READY TO FREEZE = NO**.
 **DECISION:** make causal cases, evaluator-only truth, model views, counterfactual-pair assertions, split namespaces, and measurement separation executable before model comparisons.
 **STATUS:** [FROZEN] contract; development implementation passed; sealed promotion [OPEN]
 **WHY:** every architecture/data conclusion is invalid if the benchmark leaks or conflates representation, selection, and realization.
-**EVIDENCE:** `artifacts/e0/development_certificate.json` plus 41 E0/E1/V5 regression/property tests, an independent surface solver, semantic-time state cases, split-held-out rule structures, pooled shortcut red-team gates, raw/assisted result contracts, and explicit chance/position/difficulty/power calibration.
+**EVIDENCE:** `artifacts/e0/development_certificate.json` plus the current 84-test repository suite, an independent surface solver, between/after-event state histories, split-held-out rule structures, six fail-closed state shortcuts, pooled rule gates, raw/assisted result contracts, and explicit chance/position/difficulty/power calibration. The 2026-08-31 false-green repair is recorded in `DECISION_LOG.md` and `artifacts/e0/shortcut_repair_receipt.json`.
 **ALTERNATIVES CONSIDERED:** static JSON fixtures; reuse training templates; create sealed fixtures in Git.
 **WHAT WOULD CHANGE OUR MIND:** a stronger causal representation may extend the schema, but may not weaken hidden-truth isolation or one-variable assertions.
 **ITERATION:** Ground Blueprint v0.4.

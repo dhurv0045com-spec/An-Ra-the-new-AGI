@@ -243,6 +243,13 @@ Answer: D
 - changed irrelevant update;
 - same state history under different serialization order.
 
+The query cutoff must lie **between** events or **after** the history; it must
+never equal an event timestamp. Each case must expose enough competing values
+for the queried entity that entity matching alone is no better than the
+casewise candidate null. Rollbacks point to an earlier semantic state and
+same-time conflicts require explicit priority comparison. These are generator
+invariants, not optional difficulty settings.
+
 ### Mandatory shortcut controls
 
 The following heuristics must **not** solve the family:
@@ -250,9 +257,15 @@ The following heuristics must **not** solve the family:
 - last textual fact;
 - nearest candidate mention;
 - first/last candidate;
-- lexical overlap.
+- lexical overlap;
+- bag of words / entity-only retrieval;
+- exact timestamp lookup.
 
-If a positional heuristic reaches near-ceiling state accuracy, the family is invalid regardless of the overall certificate.
+Certification pools eight independent generator seeds and fails closed if any
+named heuristic exceeds its registered null by more than 10 percentage points.
+`latest_fact` and `nearest_position` use the analytic random-serialization null;
+all other listed controls use casewise uniform-candidate chance. If any shortcut
+fails, the state family is invalid regardless of the overall certificate.
 
 ---
 

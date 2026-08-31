@@ -124,7 +124,7 @@ Ground Blueprint v0.4 intentionally limits the open set. A question belongs here
 **CHEAPEST DECISIVE TEST:** E0 calibration with known trivial, heuristic, oracle, and deliberately broken systems; preregister thresholds before training.
 **DECISION DEADLINE:** before E1.
 
-**V0.4 UPDATE:** the prior benchmark's position and fixed-rule shortcuts were reproduced and repaired. Semantic-time state cases, eight split-held-out rule structures, pooled eight-seed heuristic gates, difficulty curves, sensitivity/invariance pairs, and raw/assisted result contracts now pass locally. Full E0 exit still requires natural-source custody and an externally held sealed commitment.
+**V0.4 UPDATE:** a second audit overturned the first repair's false green: bag-of-words and lexical overlap still solved 81.77% and 71.09% of pooled state cases. Generator 0.4.0 now uses between/after-event cutoffs and eight competing target histories; the same controls fall to 4.17% and 10.16% against a 10.37% null, and six state heuristics are fail-closed gates. This earns shortcut-resistant development infrastructure only. Full E0 exit still requires a certified model-scoring adapter, source-disjoint natural custody, an externally held sealed commitment/result, and fresh replication.
 
 ## Core/Connector boundary
 
