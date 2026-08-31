@@ -10,8 +10,10 @@
   "contract_schemas": {
     "checkpoint": "anra-v5-checkpoint/v1",
     "checkpoint_transaction": "anra-v5-checkpoint-transaction/v1",
+    "durability": "anra-v5-durability/v1",
+    "evaluation": "anra-v5-evaluation/v1",
     "model": "anra-v5-model-spec/v1",
-    "promotion": "anra-v5-promotion/v1",
+    "promotion": "anra-v5-promotion/v2",
     "run": "anra-v5-run-spec/v2",
     "source_data_pack": "anra-v5-*-manifest/v1",
     "training_state": "anra-v5-training-state/v1"

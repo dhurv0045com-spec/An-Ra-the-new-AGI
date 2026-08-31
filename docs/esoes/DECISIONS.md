@@ -328,3 +328,21 @@ Until then: **READY TO FREEZE = NO**.
 **EVIDENCE:** `v5_training/`, `artifacts/v5/training_transaction_canary.json`; clean-copy restore, exact tokens/schedule/optimizer state, missing/corrupt rejection, stale-parent rejection, and three crash boundaries pass.
 **WHAT WOULD CHANGE OUR MIND:** target storage may require a different atomic primitive, but it must preserve content addressing, compare-and-swap writer fencing, complete inventory verification, and clean redownload restore.
 **ITERATION:** Ground Blueprint v0.5.
+
+## D-032 — Evaluation, durability, and promotion are separate signed receipts
+
+**DECISION:** evaluation binds checkpoint/adapter/tokenizer/protocol/fixture commitments and separates raw/assisted/substrate metric artifacts; durability requires immutable upload→redownload hash equality plus a clean restore receipt; promotion binds both receipts and an immutable gate specification under an independent detached signature.
+**STATUS:** [FROZEN CONTRACT / REAL RECEIPTS AND CUSTODY OPEN]
+**WHY:** a local checkpoint, assisted win, final chronology, or unsigned gate list cannot prove a checkpoint is recoverable or behaviorally best.
+**EVIDENCE:** `EvaluationReceipt`, `DurabilityReceipt`, and promotion schema v2 fail-closed tests. Promotion rejects failed gates, assisted/native substitution, absent fresh replication, mutable checkpoints, and `latest`/`final` selection bases.
+**WHAT WOULD CHANGE OUR MIND:** storage/signature implementations may vary, but they may not merge trainer, evaluator, durability verifier, and promotion authority or weaken their hash bindings.
+**ITERATION:** Ground Blueprint v0.5.
+
+## D-033 — Local scorer parity does not authorize a scoring policy
+
+**DECISION:** retain all sum/token/byte candidate scores and leave `production_scoring_mode` unset. Local CPU/CUDA parity is an implementation gate, not evidence that an aggregation is unbiased.
+**STATUS:** [EVIDENCE-BACKED LOCAL PARITY / POLICY EXPERIMENT REQUIRED]
+**WHY:** the exact random-weight P35 audit has zero CPU/CUDA prediction mismatches across 486 scores, yet every naive aggregation retains strong length/tokenization bias.
+**EVIDENCE:** `artifacts/e2/local_cpu_scoring_null.json`, `local_cuda_scoring_null.json`, and `local_cpu_cuda_scoring_parity.json`.
+**WHAT WOULD CHANGE OUR MIND:** a preregistered, tokenizer-robust null calibration that passes fresh surfaces and target-TPU parity without using trained-model outcomes to choose the rule.
+**ITERATION:** Ground Blueprint v0.5.

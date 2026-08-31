@@ -19,7 +19,12 @@ from v5_contracts.data_spec import (
     assert_source_disjoint,
 )
 from v5_contracts.import_boundaries import scan_repository
-from v5_contracts.lineage import CheckpointManifest, PromotionDecision
+from v5_contracts.lineage import (
+    CheckpointManifest,
+    DurabilityReceipt,
+    EvaluationReceipt,
+    PromotionDecision,
+)
 from v5_contracts.model_spec import V5A_250M
 from v5_contracts.run_spec import V5A_RUN_CENTER
 
@@ -62,7 +67,7 @@ class V5ContractTests(unittest.TestCase):
             lineage_id="trial",
             checkpoint_id="step-10",
             parent_checkpoint_sha256=None,
-            source_commit="deadbeef",
+            source_commit="d" * 40,
             model_spec_sha256=sha,
             tokenizer_sha256=sha,
             data_manifest_sha256=sha,
@@ -119,15 +124,67 @@ class V5ContractTests(unittest.TestCase):
             assert_source_disjoint(data, replace(data, manifest_id="fresh-natural"))
 
     def test_promotion_contract_forbids_failed_gate_promotion(self) -> None:
+        valid = PromotionDecision(
+            schema="anra-v5-promotion/v2",
+            checkpoint_sha256="a" * 64,
+            evaluation_receipt_sha256="b" * 64,
+            durability_receipt_sha256="c" * 64,
+            gate_spec_sha256="d" * 64,
+            decision="promote",
+            passed_gates=("raw_core", "fresh", "durable"),
+            failed_gates=(),
+            raw_core_gate_passed=True,
+            fresh_replication_passed=True,
+            immutable_milestone=True,
+            selection_basis="worst-family OOD evidence",
+            signed_by="independent-evaluator",
+            detached_signature_sha256="e" * 64,
+        )
+        valid.assert_valid()
         with self.assertRaises(ValueError):
-            PromotionDecision(
-                schema="anra-v5-promotion/v1",
-                checkpoint_sha256="a" * 64,
-                evaluation_receipt_sha256="b" * 64,
-                decision="promote",
-                failed_gates=("state",),
-                signed_by="independent-evaluator",
-            ).assert_valid()
+            replace(valid, failed_gates=("state",)).assert_valid()
+        with self.assertRaises(ValueError):
+            replace(valid, selection_basis="latest").assert_valid()
+        with self.assertRaises(ValueError):
+            replace(valid, selection_basis="final checkpoint").assert_valid()
+
+    def test_durability_requires_redownload_hash_and_restore_receipt(self) -> None:
+        receipt = DurabilityReceipt(
+            schema="anra-v5-durability/v1",
+            checkpoint_sha256="a" * 64,
+            artifact_sha256="b" * 64,
+            redownload_sha256="b" * 64,
+            restore_receipt_sha256="c" * 64,
+            byte_size=100,
+            immutable=True,
+            storage_provider="test-store",
+            object_identity="object-1",
+            independently_verified_by="restore-canary",
+        )
+        receipt.assert_valid()
+        with self.assertRaises(ValueError):
+            replace(receipt, redownload_sha256="d" * 64).assert_valid()
+
+    def test_evaluation_binds_raw_assisted_protocol_and_sealed_consumption(self) -> None:
+        receipt = EvaluationReceipt(
+            schema="anra-v5-evaluation/v1",
+            checkpoint_sha256="a" * 64,
+            evaluator_commit_sha256="b" * 64,
+            evaluator_config_sha256="c" * 64,
+            statistical_protocol_sha256="d" * 64,
+            model_adapter_sha256="e" * 64,
+            tokenizer_sha256="f" * 64,
+            fixture_commitments={"sealed": "1" * 64, "fresh": "2" * 64},
+            scoring_mode="token_normalized",
+            raw_core_metrics_sha256="3" * 64,
+            assisted_metrics_sha256="4" * 64,
+            substrate_metrics_sha256="5" * 64,
+            sealed_fixture_consumed=True,
+            completed_at="2026-08-31T00:00:00Z",
+        )
+        receipt.assert_valid()
+        with self.assertRaises(ValueError):
+            replace(receipt, sealed_fixture_consumed=False).assert_valid()
 
     def test_statistical_protocol_and_paired_methods(self) -> None:
         self.assertEqual(len(protocol_sha256()), 64)

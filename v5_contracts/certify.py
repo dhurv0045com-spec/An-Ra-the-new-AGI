@@ -42,7 +42,9 @@ def build_certificate() -> dict[str, object]:
             "checkpoint": "anra-v5-checkpoint/v1",
             "checkpoint_transaction": "anra-v5-checkpoint-transaction/v1",
             "training_state": "anra-v5-training-state/v1",
-            "promotion": "anra-v5-promotion/v1",
+            "evaluation": "anra-v5-evaluation/v1",
+            "durability": "anra-v5-durability/v1",
+            "promotion": "anra-v5-promotion/v2",
         },
     }
 

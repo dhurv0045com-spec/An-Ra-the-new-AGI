@@ -73,3 +73,17 @@ masquerade as a checkpoint failure.
 content-addressed shard order, sequence-boundary cursors, cumulative-token
 ledger, JSON checkpoint round-trip, and rejection of manifest/offset tampering.
 Run it on CPU and CUDA; the device digest must match the host stream digest.
+
+`e2_architecture.scoring_benchmark` runs the E0 suffix-only scorer through the
+exact middle-P35 constructor with each real local 16k/24k/32k tokenizer. Use
+`run` separately on CPU and CUDA, then `compare` the two receipts. The committed
+null run proves close local device parity and candidate-position invariance, but
+also shows substantial candidate-length bias in sum, token-normalized, and
+byte-normalized likelihood. It therefore refuses to select a production mode.
+
+`e2_architecture.scoring_benchmark` runs the E0 suffix-only scorer through the
+exact middle-P35 constructor with each real local 16k/24k/32k tokenizer. Use
+`run` separately on CPU and CUDA, then `compare` the two receipts. The committed
+null run proves close local device parity and candidate-position invariance, but
+also shows substantial candidate-length bias in sum, token-normalized, and
+byte-normalized likelihood. It therefore refuses to select a production mode.

@@ -641,6 +641,17 @@ bias: summed likelihood selected the fewest-token candidate 65.625% of the
 time, while byte normalization selected the constructed first-token/density
 pattern 84.375%. Therefore `production_scoring_mode` remains unset.
 
+The exact local P35 audit in `artifacts/e2/local_cpu_scoring_null.json`,
+`local_cuda_scoring_null.json`, and `local_cpu_cuda_scoring_parity.json` closes
+the implementation-parity part only. It loads the actual 16k/24k/32k
+tokenizers, uses suffix-only teacher forcing over six groups and all three
+candidate rotations, and compares 486 CPU/CUDA scores with zero prediction
+mismatches (maximum absolute error 0.0028076; relative RMS 1.286e-7). The null
+still selects a fewest-token candidate 100% under sum, 83.33% under byte
+normalization, and 50%--66.67% under token normalization. Thus all three modes
+remain measurement hypotheses; parity is not policy validity and cannot
+authorize model promotion.
+
 ---
 
 # 9. Statistical protocol

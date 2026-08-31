@@ -126,7 +126,7 @@ Ground Blueprint v0.4 intentionally limits the open set. A question belongs here
 
 **V0.4 UPDATE:** a second audit overturned the first repair's false green: bag-of-words and lexical overlap still solved 81.77% and 71.09% of pooled state cases. Generator 0.4.0 now uses between/after-event cutoffs and eight competing target histories; the same controls fall to 4.17% and 10.16% against a 10.37% null, and six state heuristics are fail-closed gates. This earns shortcut-resistant development infrastructure only. Full E0 exit still requires a certified model-scoring adapter, source-disjoint natural custody, an externally held sealed commitment/result, and fresh replication.
 
-**SCORER UPDATE:** deterministic scorer plumbing now passes, but no aggregation mode is authorized. Fake random logits show 65.625% fewest-token selection under summed likelihood and 84.375% constructed first-token/token-density selection under byte normalization. The decisive remaining test is exact random-weight P35 × real 16k/24k/32k suffix scoring with candidate rotations and CPU/CUDA/target parity.
+**SCORER UPDATE:** deterministic scorer plumbing and exact local P35 CPU/CUDA parity now pass, but no aggregation mode is authorized. Across 486 paired scores there were zero prediction mismatches (relative RMS error 1.286e-7), while the real-tokenizer random-weight null still selected fewest-token candidates 100% under sum, 83.33% under byte normalization, and 50%--66.67% under token normalization. The next decisive work is a preregistered policy that removes or explicitly models this null bias, followed by target-TPU parity; trained-model results must not choose the policy retrospectively.
 
 ## Core/Connector boundary
 

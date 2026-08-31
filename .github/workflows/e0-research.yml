@@ -28,6 +28,10 @@ jobs:
         run: python -m e0_cognition.scoring_certification --output /tmp/scoring_adapter_certificate.json
       - name: Verify scoring-adapter receipt is reproducible
         run: cmp artifacts/e0/scoring_adapter_certificate.json /tmp/scoring_adapter_certificate.json
+      - name: Reproduce committed CPU/CUDA scorer parity
+        run: python -m e2_architecture.scoring_benchmark compare --cpu artifacts/e2/local_cpu_scoring_null.json --cuda artifacts/e2/local_cuda_scoring_null.json --output /tmp/local_cpu_cuda_scoring_parity.json
+      - name: Verify committed scorer parity receipt
+        run: cmp artifacts/e2/local_cpu_cuda_scoring_parity.json /tmp/local_cpu_cuda_scoring_parity.json
       - name: Reproduce 250M implementation contract
         run: python -m v5_contracts.certify --output /tmp/implementation_contract.json
       - name: Verify committed implementation receipt

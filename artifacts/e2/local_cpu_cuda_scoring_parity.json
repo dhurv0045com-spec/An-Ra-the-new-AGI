@@ -1,0 +1,559 @@
+{
+  "case_sha256": "33c3c0a2b44d92bae58055037eee9aa8009568d2cd36fe6292837cc8619a22c9",
+  "checks": {
+    "all_scores_finite": true,
+    "maximum_absolute_error_within_limit": true,
+    "predictions_match_exactly": true,
+    "promotion_remains_unauthorized": true,
+    "relative_rms_error_within_limit": true,
+    "score_keys_match": true,
+    "source_case_model_tokenizer_identities_match": true
+  },
+  "comparisons": [
+    {
+      "cases": 18,
+      "cpu_bias": {
+        "balanced_hidden_answer_accuracy": 0.3333333333333333,
+        "candidate_win_histogram": {
+          " 00000000000000000000000000000127": 3,
+          " compose[edge_17 \u2192 edge_42 \u2192 edge_99]": 3,
+          " entity_00000_edge_case_90172564 -> entity_00000_result": 3,
+          " if (counter <= 17) { state = previous_state; }": 3,
+          " user.name+experiment@example.invalid": 3,
+          " x\t:=\tvalue_1\nnext_line_1()": 3
+        },
+        "cases": 18,
+        "effective_prompt_groups": 6,
+        "fewest_token_selection_rate": 1.0,
+        "first_position_selection_rate": 0.3333333333333333,
+        "maximum_first_token_selection_share": 0.16666666666666666,
+        "rotation_stability_rate": 1.0,
+        "selected_first_token_histogram": {
+          "1165": 3,
+          "13621": 3,
+          "1659": 3,
+          "389": 3,
+          "516": 3,
+          "6966": 3
+        },
+        "shortest_utf8_selection_rate": 0.6666666666666666
+      },
+      "cuda_bias": {
+        "balanced_hidden_answer_accuracy": 0.3333333333333333,
+        "candidate_win_histogram": {
+          " 00000000000000000000000000000127": 3,
+          " compose[edge_17 \u2192 edge_42 \u2192 edge_99]": 3,
+          " entity_00000_edge_case_90172564 -> entity_00000_result": 3,
+          " if (counter <= 17) { state = previous_state; }": 3,
+          " user.name+experiment@example.invalid": 3,
+          " x\t:=\tvalue_1\nnext_line_1()": 3
+        },
+        "cases": 18,
+        "effective_prompt_groups": 6,
+        "fewest_token_selection_rate": 1.0,
+        "first_position_selection_rate": 0.3333333333333333,
+        "maximum_first_token_selection_share": 0.16666666666666666,
+        "rotation_stability_rate": 1.0,
+        "selected_first_token_histogram": {
+          "1165": 3,
+          "13621": 3,
+          "1659": 3,
+          "389": 3,
+          "516": 3,
+          "6966": 3
+        },
+        "shortest_utf8_selection_rate": 0.6666666666666666
+      },
+      "prediction_mismatches": 0,
+      "score_mode": "sum",
+      "vocabulary_size": 16384
+    },
+    {
+      "cases": 18,
+      "cpu_bias": {
+        "balanced_hidden_answer_accuracy": 0.0,
+        "candidate_win_histogram": {
+          " 00000000000000000000000000000127": 3,
+          " C:\\models\\an-ra\\checkpoint_00000042.pt": 3,
+          " compose[edge_17 \u2192 edge_42 \u2192 edge_99]": 3,
+          " entity_00000_edge_case_90172564 -> entity_00000_result": 3,
+          " if (counter <= 17) { state = previous_state; }": 3,
+          " \u0394x=77.31005892e+04; \u0928\u092e\u0942\u0928\u093e-1; \u6771\u4eac; \ud83e\uddea": 3
+        },
+        "cases": 18,
+        "effective_prompt_groups": 6,
+        "fewest_token_selection_rate": 0.6666666666666666,
+        "first_position_selection_rate": 0.3333333333333333,
+        "maximum_first_token_selection_share": 0.16666666666666666,
+        "rotation_stability_rate": 1.0,
+        "selected_first_token_histogram": {
+          "13621": 3,
+          "389": 3,
+          "439": 3,
+          "516": 3,
+          "6966": 3,
+          "9284": 3
+        },
+        "shortest_utf8_selection_rate": 0.3333333333333333
+      },
+      "cuda_bias": {
+        "balanced_hidden_answer_accuracy": 0.0,
+        "candidate_win_histogram": {
+          " 00000000000000000000000000000127": 3,
+          " C:\\models\\an-ra\\checkpoint_00000042.pt": 3,
+          " compose[edge_17 \u2192 edge_42 \u2192 edge_99]": 3,
+          " entity_00000_edge_case_90172564 -> entity_00000_result": 3,
+          " if (counter <= 17) { state = previous_state; }": 3,
+          " \u0394x=77.31005892e+04; \u0928\u092e\u0942\u0928\u093e-1; \u6771\u4eac; \ud83e\uddea": 3
+        },
+        "cases": 18,
+        "effective_prompt_groups": 6,
+        "fewest_token_selection_rate": 0.6666666666666666,
+        "first_position_selection_rate": 0.3333333333333333,
+        "maximum_first_token_selection_share": 0.16666666666666666,
+        "rotation_stability_rate": 1.0,
+        "selected_first_token_histogram": {
+          "13621": 3,
+          "389": 3,
+          "439": 3,
+          "516": 3,
+          "6966": 3,
+          "9284": 3
+        },
+        "shortest_utf8_selection_rate": 0.3333333333333333
+      },
+      "prediction_mismatches": 0,
+      "score_mode": "token_normalized",
+      "vocabulary_size": 16384
+    },
+    {
+      "cases": 18,
+      "cpu_bias": {
+        "balanced_hidden_answer_accuracy": 0.6666666666666666,
+        "candidate_win_histogram": {
+          " 00000000000000000000000000000127": 3,
+          " SELECT value FROM state_log WHERE logical_time <= 17 ORDER BY priority DESC;": 3,
+          " answer := <MISSING> unless evidence(node_99)": 3,
+          " entity_00000_edge_case_90172564 -> entity_00000_result": 3,
+          " user.name+experiment@example.invalid": 3,
+          " x\t:=\tvalue_1\nnext_line_1()": 3
+        },
+        "cases": 18,
+        "effective_prompt_groups": 6,
+        "fewest_token_selection_rate": 0.8333333333333334,
+        "first_position_selection_rate": 0.3333333333333333,
+        "maximum_first_token_selection_share": 0.16666666666666666,
+        "rotation_stability_rate": 1.0,
+        "selected_first_token_histogram": {
+          "1165": 3,
+          "1312": 3,
+          "13907": 3,
+          "1659": 3,
+          "516": 3,
+          "6966": 3
+        },
+        "shortest_utf8_selection_rate": 0.5
+      },
+      "cuda_bias": {
+        "balanced_hidden_answer_accuracy": 0.6666666666666666,
+        "candidate_win_histogram": {
+          " 00000000000000000000000000000127": 3,
+          " SELECT value FROM state_log WHERE logical_time <= 17 ORDER BY priority DESC;": 3,
+          " answer := <MISSING> unless evidence(node_99)": 3,
+          " entity_00000_edge_case_90172564 -> entity_00000_result": 3,
+          " user.name+experiment@example.invalid": 3,
+          " x\t:=\tvalue_1\nnext_line_1()": 3
+        },
+        "cases": 18,
+        "effective_prompt_groups": 6,
+        "fewest_token_selection_rate": 0.8333333333333334,
+        "first_position_selection_rate": 0.3333333333333333,
+        "maximum_first_token_selection_share": 0.16666666666666666,
+        "rotation_stability_rate": 1.0,
+        "selected_first_token_histogram": {
+          "1165": 3,
+          "1312": 3,
+          "13907": 3,
+          "1659": 3,
+          "516": 3,
+          "6966": 3
+        },
+        "shortest_utf8_selection_rate": 0.5
+      },
+      "prediction_mismatches": 0,
+      "score_mode": "byte_normalized",
+      "vocabulary_size": 16384
+    },
+    {
+      "cases": 18,
+      "cpu_bias": {
+        "balanced_hidden_answer_accuracy": 0.5,
+        "candidate_win_histogram": {
+          " 00000000000000000000000000000127": 3,
+          " answer := <MISSING> unless evidence(node_99)": 3,
+          " entity_00000_edge_case_90172564 -> entity_00000_result": 3,
+          " user.name+experiment@example.invalid": 3,
+          " x\t:=\tvalue_1\nnext_line_1()": 3,
+          " {\"event\":\"rollback\",\"time\":17,\"priority\":5}": 3
+        },
+        "cases": 18,
+        "effective_prompt_groups": 6,
+        "fewest_token_selection_rate": 1.0,
+        "first_position_selection_rate": 0.3333333333333333,
+        "maximum_first_token_selection_share": 0.16666666666666666,
+        "rotation_stability_rate": 1.0,
+        "selected_first_token_histogram": {
+          "1165": 3,
+          "1302": 3,
+          "1312": 3,
+          "1659": 3,
+          "516": 3,
+          "6966": 3
+        },
+        "shortest_utf8_selection_rate": 0.6666666666666666
+      },
+      "cuda_bias": {
+        "balanced_hidden_answer_accuracy": 0.5,
+        "candidate_win_histogram": {
+          " 00000000000000000000000000000127": 3,
+          " answer := <MISSING> unless evidence(node_99)": 3,
+          " entity_00000_edge_case_90172564 -> entity_00000_result": 3,
+          " user.name+experiment@example.invalid": 3,
+          " x\t:=\tvalue_1\nnext_line_1()": 3,
+          " {\"event\":\"rollback\",\"time\":17,\"priority\":5}": 3
+        },
+        "cases": 18,
+        "effective_prompt_groups": 6,
+        "fewest_token_selection_rate": 1.0,
+        "first_position_selection_rate": 0.3333333333333333,
+        "maximum_first_token_selection_share": 0.16666666666666666,
+        "rotation_stability_rate": 1.0,
+        "selected_first_token_histogram": {
+          "1165": 3,
+          "1302": 3,
+          "1312": 3,
+          "1659": 3,
+          "516": 3,
+          "6966": 3
+        },
+        "shortest_utf8_selection_rate": 0.6666666666666666
+      },
+      "prediction_mismatches": 0,
+      "score_mode": "sum",
+      "vocabulary_size": 24576
+    },
+    {
+      "cases": 18,
+      "cpu_bias": {
+        "balanced_hidden_answer_accuracy": 0.16666666666666666,
+        "candidate_win_histogram": {
+          " 00000000000000000000000000000127": 3,
+          " C:\\models\\an-ra\\checkpoint_00000042.pt": 3,
+          " compose[edge_17 \u2192 edge_42 \u2192 edge_99]": 3,
+          " entity_00000_edge_case_90172564 -> entity_00000_result": 3,
+          " if (counter <= 17) { state = previous_state; }": 3,
+          " x\t:=\tvalue_1\nnext_line_1()": 3
+        },
+        "cases": 18,
+        "effective_prompt_groups": 6,
+        "fewest_token_selection_rate": 0.5,
+        "first_position_selection_rate": 0.3333333333333333,
+        "maximum_first_token_selection_share": 0.16666666666666666,
+        "rotation_stability_rate": 1.0,
+        "selected_first_token_histogram": {
+          "1165": 3,
+          "13621": 3,
+          "389": 3,
+          "439": 3,
+          "516": 3,
+          "6966": 3
+        },
+        "shortest_utf8_selection_rate": 0.5
+      },
+      "cuda_bias": {
+        "balanced_hidden_answer_accuracy": 0.16666666666666666,
+        "candidate_win_histogram": {
+          " 00000000000000000000000000000127": 3,
+          " C:\\models\\an-ra\\checkpoint_00000042.pt": 3,
+          " compose[edge_17 \u2192 edge_42 \u2192 edge_99]": 3,
+          " entity_00000_edge_case_90172564 -> entity_00000_result": 3,
+          " if (counter <= 17) { state = previous_state; }": 3,
+          " x\t:=\tvalue_1\nnext_line_1()": 3
+        },
+        "cases": 18,
+        "effective_prompt_groups": 6,
+        "fewest_token_selection_rate": 0.5,
+        "first_position_selection_rate": 0.3333333333333333,
+        "maximum_first_token_selection_share": 0.16666666666666666,
+        "rotation_stability_rate": 1.0,
+        "selected_first_token_histogram": {
+          "1165": 3,
+          "13621": 3,
+          "389": 3,
+          "439": 3,
+          "516": 3,
+          "6966": 3
+        },
+        "shortest_utf8_selection_rate": 0.5
+      },
+      "prediction_mismatches": 0,
+      "score_mode": "token_normalized",
+      "vocabulary_size": 24576
+    },
+    {
+      "cases": 18,
+      "cpu_bias": {
+        "balanced_hidden_answer_accuracy": 0.6666666666666666,
+        "candidate_win_histogram": {
+          " 00000000000000000000000000000127": 3,
+          " SELECT value FROM state_log WHERE logical_time <= 17 ORDER BY priority DESC;": 3,
+          " answer := <MISSING> unless evidence(node_99)": 3,
+          " entity_00000_edge_case_90172564 -> entity_00000_result": 3,
+          " user.name+experiment@example.invalid": 3,
+          " x\t:=\tvalue_1\nnext_line_1()": 3
+        },
+        "cases": 18,
+        "effective_prompt_groups": 6,
+        "fewest_token_selection_rate": 0.8333333333333334,
+        "first_position_selection_rate": 0.3333333333333333,
+        "maximum_first_token_selection_share": 0.16666666666666666,
+        "rotation_stability_rate": 1.0,
+        "selected_first_token_histogram": {
+          "1165": 3,
+          "1312": 3,
+          "13907": 3,
+          "1659": 3,
+          "516": 3,
+          "6966": 3
+        },
+        "shortest_utf8_selection_rate": 0.5
+      },
+      "cuda_bias": {
+        "balanced_hidden_answer_accuracy": 0.6666666666666666,
+        "candidate_win_histogram": {
+          " 00000000000000000000000000000127": 3,
+          " SELECT value FROM state_log WHERE logical_time <= 17 ORDER BY priority DESC;": 3,
+          " answer := <MISSING> unless evidence(node_99)": 3,
+          " entity_00000_edge_case_90172564 -> entity_00000_result": 3,
+          " user.name+experiment@example.invalid": 3,
+          " x\t:=\tvalue_1\nnext_line_1()": 3
+        },
+        "cases": 18,
+        "effective_prompt_groups": 6,
+        "fewest_token_selection_rate": 0.8333333333333334,
+        "first_position_selection_rate": 0.3333333333333333,
+        "maximum_first_token_selection_share": 0.16666666666666666,
+        "rotation_stability_rate": 1.0,
+        "selected_first_token_histogram": {
+          "1165": 3,
+          "1312": 3,
+          "13907": 3,
+          "1659": 3,
+          "516": 3,
+          "6966": 3
+        },
+        "shortest_utf8_selection_rate": 0.5
+      },
+      "prediction_mismatches": 0,
+      "score_mode": "byte_normalized",
+      "vocabulary_size": 24576
+    },
+    {
+      "cases": 18,
+      "cpu_bias": {
+        "balanced_hidden_answer_accuracy": 0.5,
+        "candidate_win_histogram": {
+          " 00000000000000000000000000000127": 3,
+          " answer := <MISSING> unless evidence(node_99)": 3,
+          " entity_00000_edge_case_90172564 -> entity_00000_result": 3,
+          " user.name+experiment@example.invalid": 3,
+          " x\t:=\tvalue_1\nnext_line_1()": 3,
+          " {\"event\":\"rollback\",\"time\":17,\"priority\":5}": 3
+        },
+        "cases": 18,
+        "effective_prompt_groups": 6,
+        "fewest_token_selection_rate": 1.0,
+        "first_position_selection_rate": 0.3333333333333333,
+        "maximum_first_token_selection_share": 0.16666666666666666,
+        "rotation_stability_rate": 1.0,
+        "selected_first_token_histogram": {
+          "1165": 3,
+          "1302": 3,
+          "1312": 3,
+          "1659": 3,
+          "516": 3,
+          "6966": 3
+        },
+        "shortest_utf8_selection_rate": 0.6666666666666666
+      },
+      "cuda_bias": {
+        "balanced_hidden_answer_accuracy": 0.5,
+        "candidate_win_histogram": {
+          " 00000000000000000000000000000127": 3,
+          " answer := <MISSING> unless evidence(node_99)": 3,
+          " entity_00000_edge_case_90172564 -> entity_00000_result": 3,
+          " user.name+experiment@example.invalid": 3,
+          " x\t:=\tvalue_1\nnext_line_1()": 3,
+          " {\"event\":\"rollback\",\"time\":17,\"priority\":5}": 3
+        },
+        "cases": 18,
+        "effective_prompt_groups": 6,
+        "fewest_token_selection_rate": 1.0,
+        "first_position_selection_rate": 0.3333333333333333,
+        "maximum_first_token_selection_share": 0.16666666666666666,
+        "rotation_stability_rate": 1.0,
+        "selected_first_token_histogram": {
+          "1165": 3,
+          "1302": 3,
+          "1312": 3,
+          "1659": 3,
+          "516": 3,
+          "6966": 3
+        },
+        "shortest_utf8_selection_rate": 0.6666666666666666
+      },
+      "prediction_mismatches": 0,
+      "score_mode": "sum",
+      "vocabulary_size": 32768
+    },
+    {
+      "cases": 18,
+      "cpu_bias": {
+        "balanced_hidden_answer_accuracy": 0.16666666666666666,
+        "candidate_win_histogram": {
+          " 00000000000000000000000000000127": 3,
+          " C:\\models\\an-ra\\checkpoint_00000042.pt": 3,
+          " compose[edge_17 \u2192 edge_42 \u2192 edge_99]": 3,
+          " entity_00000_edge_case_90172564 -> entity_00000_result": 3,
+          " x\t:=\tvalue_1\nnext_line_1()": 3,
+          " {\"event\":\"rollback\",\"time\":17,\"priority\":5}": 3
+        },
+        "cases": 18,
+        "effective_prompt_groups": 6,
+        "fewest_token_selection_rate": 0.6666666666666666,
+        "first_position_selection_rate": 0.3333333333333333,
+        "maximum_first_token_selection_share": 0.16666666666666666,
+        "rotation_stability_rate": 1.0,
+        "selected_first_token_histogram": {
+          "1165": 3,
+          "1302": 3,
+          "13621": 3,
+          "439": 3,
+          "516": 3,
+          "6966": 3
+        },
+        "shortest_utf8_selection_rate": 0.6666666666666666
+      },
+      "cuda_bias": {
+        "balanced_hidden_answer_accuracy": 0.16666666666666666,
+        "candidate_win_histogram": {
+          " 00000000000000000000000000000127": 3,
+          " C:\\models\\an-ra\\checkpoint_00000042.pt": 3,
+          " compose[edge_17 \u2192 edge_42 \u2192 edge_99]": 3,
+          " entity_00000_edge_case_90172564 -> entity_00000_result": 3,
+          " x\t:=\tvalue_1\nnext_line_1()": 3,
+          " {\"event\":\"rollback\",\"time\":17,\"priority\":5}": 3
+        },
+        "cases": 18,
+        "effective_prompt_groups": 6,
+        "fewest_token_selection_rate": 0.6666666666666666,
+        "first_position_selection_rate": 0.3333333333333333,
+        "maximum_first_token_selection_share": 0.16666666666666666,
+        "rotation_stability_rate": 1.0,
+        "selected_first_token_histogram": {
+          "1165": 3,
+          "1302": 3,
+          "13621": 3,
+          "439": 3,
+          "516": 3,
+          "6966": 3
+        },
+        "shortest_utf8_selection_rate": 0.6666666666666666
+      },
+      "prediction_mismatches": 0,
+      "score_mode": "token_normalized",
+      "vocabulary_size": 32768
+    },
+    {
+      "cases": 18,
+      "cpu_bias": {
+        "balanced_hidden_answer_accuracy": 0.6666666666666666,
+        "candidate_win_histogram": {
+          " 00000000000000000000000000000127": 3,
+          " SELECT value FROM state_log WHERE logical_time <= 17 ORDER BY priority DESC;": 3,
+          " answer := <MISSING> unless evidence(node_99)": 3,
+          " entity_00000_edge_case_90172564 -> entity_00000_result": 3,
+          " user.name+experiment@example.invalid": 3,
+          " x\t:=\tvalue_1\nnext_line_1()": 3
+        },
+        "cases": 18,
+        "effective_prompt_groups": 6,
+        "fewest_token_selection_rate": 0.8333333333333334,
+        "first_position_selection_rate": 0.3333333333333333,
+        "maximum_first_token_selection_share": 0.16666666666666666,
+        "rotation_stability_rate": 1.0,
+        "selected_first_token_histogram": {
+          "1165": 3,
+          "1312": 3,
+          "13907": 3,
+          "1659": 3,
+          "516": 3,
+          "6966": 3
+        },
+        "shortest_utf8_selection_rate": 0.5
+      },
+      "cuda_bias": {
+        "balanced_hidden_answer_accuracy": 0.6666666666666666,
+        "candidate_win_histogram": {
+          " 00000000000000000000000000000127": 3,
+          " SELECT value FROM state_log WHERE logical_time <= 17 ORDER BY priority DESC;": 3,
+          " answer := <MISSING> unless evidence(node_99)": 3,
+          " entity_00000_edge_case_90172564 -> entity_00000_result": 3,
+          " user.name+experiment@example.invalid": 3,
+          " x\t:=\tvalue_1\nnext_line_1()": 3
+        },
+        "cases": 18,
+        "effective_prompt_groups": 6,
+        "fewest_token_selection_rate": 0.8333333333333334,
+        "first_position_selection_rate": 0.3333333333333333,
+        "maximum_first_token_selection_share": 0.16666666666666666,
+        "rotation_stability_rate": 1.0,
+        "selected_first_token_histogram": {
+          "1165": 3,
+          "1312": 3,
+          "13907": 3,
+          "1659": 3,
+          "516": 3,
+          "6966": 3
+        },
+        "shortest_utf8_selection_rate": 0.5
+      },
+      "prediction_mismatches": 0,
+      "score_mode": "byte_normalized",
+      "vocabulary_size": 32768
+    }
+  ],
+  "cpu_receipt_sha256": "42da1a8c722663f5d55603ea48f61a3699d02e55c10815a5b33ecc7b0877e78e",
+  "cuda_receipt_sha256": "ff617da4ed7a7244ead8d109a0d435c6fff1540175face4078545fc017ffa1dd",
+  "implementation_sha256": "09e8e56bc45ff46f51629ad6808c63e5329b5f322601fbd6bc497703871a3434",
+  "limitations": [
+    "Parity and null-bias evidence do not select a tokenizer, architecture, or scoring mode.",
+    "The three vocabulary arms have different parameter counts.",
+    "No TPU/XLA scorer has been tested."
+  ],
+  "metrics": {
+    "maximum_absolute_error": 0.0028076171875,
+    "prediction_mismatches": 0,
+    "relative_rms_error": 1.2858805418361167e-07,
+    "scores_compared": 486
+  },
+  "production_scoring_mode": null,
+  "promotion_authorized": false,
+  "schema": "esoes-e2-p35-scoring-parity/v1",
+  "scope": "paired CPU/CUDA random-weight P35 scorer parity; no training",
+  "status": "PASS_LOCAL_CPU_CUDA_NULL_PARITY",
+  "thresholds": {
+    "maximum_absolute_error": 0.05,
+    "relative_rms_error": 0.001
+  }
+}

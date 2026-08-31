@@ -132,8 +132,9 @@ Every durable artifact has one schema, a canonical JSON serialization, and a SHA
 | PackManifest | shard hashes, sequence lengths, exact tokens, cursor schema | pack builder | sampler/trainer |
 | RunSpec | model/tokenizer/data identities, optimizer/schedule/seed/topology | freeze review | runner |
 | CheckpointManifest | full lineage fields defined in `v5_contracts.lineage` | canonical writer | restore/evaluator |
-| EvaluationReceipt | checkpoint, evaluator, fixtures, metrics, CIs | evaluator | promotion |
-| PromotionDecision | immutable checkpoint/eval hashes and failed gates | independent promotion process | registry/deployment |
+| EvaluationReceipt | checkpoint/adapter/tokenizer/protocol, fixture commitments, separate raw/assisted/substrate metric hashes | evaluator | promotion |
+| DurabilityReceipt | immutable artifact, upload/redownload equality, clean restore receipt | independent restore verifier | promotion |
+| PromotionDecision v2 | immutable checkpoint/eval/durability/gate hashes, native/fresh results, passed/failed gates, detached signature | independent promotion process | registry/deployment |
 
 Unknown schema versions, missing hashes, inconsistent token totals, or identity mismatches fail closed. There is no “best effort” restore.
 
@@ -241,7 +242,7 @@ generate_constrained(model, prompt, candidates) -> text
 
 The evaluator produces separate representation, address, transform, selection, and realization records. The statistical protocol hash from `e0_cognition.preregistration` is bound into every receipt.
 
-`score_candidates` is now constrained by `e0_cognition.scoring_certification`: each adapter returns candidate-suffix token log-probabilities only, exposes a SHA-256 identity, and is audited under sum/token/byte aggregation with candidate rotations and length/tokenization/first-token/position controls. The deterministic contract passes, but no production mode is selected: exact random-weight P35 × real tokenizer and device parity evidence remains required.
+`score_candidates` is constrained by `e0_cognition.scoring_certification`: each adapter returns candidate-suffix token log-probabilities only, exposes a SHA-256 identity, and is audited under sum/token/byte aggregation with candidate rotations and length/tokenization/first-token/position controls. `e2_architecture.scoring_benchmark` supplies exact random-weight middle-P35 × real 16k/24k/32k CPU/CUDA parity. Parity passes, but every naive aggregation retains null length/tokenization bias, so no production mode is selected; target-TPU parity and a preregistered bias-resistant policy remain required.
 
 Promotion is a separate process. It requires integrity, sealed/fresh OOD, natural transfer, substrate retention, and worst-family gates. It has no API for “promote latest.” Assisted results are separate columns and cannot satisfy a raw-Core gate.
 
@@ -309,7 +310,7 @@ No milestone may be skipped because later code appears to work.
 
 ## 13. Immediate execution backlog
 
-1. Implement the suffix-only random-weight P35 scoring adapter and run real 16k/24k/32k CPU/CUDA null audits; do not choose an aggregation mode from fake logits.
+1. Design and preregister a bias-resistant candidate-scoring policy against the now-passing exact local P35 scorer; validate fresh null surfaces and target-TPU parity without selecting policy from trained-model outcomes.
 2. Obtain an independent custodian for the real T2 suite; generate it outside Git and commit only the hash.
 3. Add source-disjoint natural evaluation manifests and legal provenance, not synthetic prose labeled “natural.”
 4. Produce representative external-corpus tokenizer candidates and matched encoding receipts.

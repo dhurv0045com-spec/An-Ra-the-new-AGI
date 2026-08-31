@@ -1,0 +1,4422 @@
+{
+  "case_sha256": "33c3c0a2b44d92bae58055037eee9aa8009568d2cd36fe6292837cc8619a22c9",
+  "cases": 18,
+  "checks": {
+    "actual_tokenizers_all_loaded": true,
+    "all_teacher_forced_scores_finite": true,
+    "candidate_position_rotation_invariant": true,
+    "no_training_performed": true,
+    "not_claimed_iso_parameter": true,
+    "promotion_remains_unauthorized": true,
+    "prompt_candidate_roundtrip_and_trace_coverage": true,
+    "vocabulary_parameter_counts_explicit_and_distinct": true
+  },
+  "config": {
+    "batch_size": 6,
+    "device": "cpu",
+    "seed": 94101
+  },
+  "cuda_runtime": "12.8",
+  "device_name": "AMD64 Family 25 Model 68 Stepping 1, AuthenticAMD",
+  "e0_scoring_contract_sha256": "9cf8825ed79219231d5a79d052ac28b0a164058c91709481bd210c43e43c1569",
+  "effective_prompt_groups": 6,
+  "implementation_sha256": "09e8e56bc45ff46f51629ad6808c63e5329b5f322601fbd6bc497703871a3434",
+  "limitations": [
+    "Random weights measure scorer/device bias, not cognition or tokenizer quality.",
+    "Vocabulary changes alter tied embedding/output parameters; this is not iso-parameter learning evidence.",
+    "The eager local CPU/CUDA constructor is not target TPU/XLA evidence.",
+    "Six effective prompt groups are a bounded null canary, not a powered model comparison."
+  ],
+  "model_constructor_sha256": "0fbeb10680074e41982ea2d7f214c352a6e50f17f68f8f54fd75ee73ca9fa8b7",
+  "production_scoring_mode": null,
+  "promotion_authorized": false,
+  "rows": [
+    {
+      "adapter_identity_sha256": "f74b8b388fbab5ab8e1f0f1163b90d952aa5adcf7045fae1eda90930a6f3e5c8",
+      "bias_by_mode": {
+        "byte_normalized": {
+          "balanced_hidden_answer_accuracy": 0.6666666666666666,
+          "candidate_win_histogram": {
+            " 00000000000000000000000000000127": 3,
+            " SELECT value FROM state_log WHERE logical_time <= 17 ORDER BY priority DESC;": 3,
+            " answer := <MISSING> unless evidence(node_99)": 3,
+            " entity_00000_edge_case_90172564 -> entity_00000_result": 3,
+            " user.name+experiment@example.invalid": 3,
+            " x\t:=\tvalue_1\nnext_line_1()": 3
+          },
+          "cases": 18,
+          "effective_prompt_groups": 6,
+          "fewest_token_selection_rate": 0.8333333333333334,
+          "first_position_selection_rate": 0.3333333333333333,
+          "maximum_first_token_selection_share": 0.16666666666666666,
+          "rotation_stability_rate": 1.0,
+          "selected_first_token_histogram": {
+            "1165": 3,
+            "1312": 3,
+            "13907": 3,
+            "1659": 3,
+            "516": 3,
+            "6966": 3
+          },
+          "shortest_utf8_selection_rate": 0.5
+        },
+        "sum": {
+          "balanced_hidden_answer_accuracy": 0.3333333333333333,
+          "candidate_win_histogram": {
+            " 00000000000000000000000000000127": 3,
+            " compose[edge_17 \u2192 edge_42 \u2192 edge_99]": 3,
+            " entity_00000_edge_case_90172564 -> entity_00000_result": 3,
+            " if (counter <= 17) { state = previous_state; }": 3,
+            " user.name+experiment@example.invalid": 3,
+            " x\t:=\tvalue_1\nnext_line_1()": 3
+          },
+          "cases": 18,
+          "effective_prompt_groups": 6,
+          "fewest_token_selection_rate": 1.0,
+          "first_position_selection_rate": 0.3333333333333333,
+          "maximum_first_token_selection_share": 0.16666666666666666,
+          "rotation_stability_rate": 1.0,
+          "selected_first_token_histogram": {
+            "1165": 3,
+            "13621": 3,
+            "1659": 3,
+            "389": 3,
+            "516": 3,
+            "6966": 3
+          },
+          "shortest_utf8_selection_rate": 0.6666666666666666
+        },
+        "token_normalized": {
+          "balanced_hidden_answer_accuracy": 0.0,
+          "candidate_win_histogram": {
+            " 00000000000000000000000000000127": 3,
+            " C:\\models\\an-ra\\checkpoint_00000042.pt": 3,
+            " compose[edge_17 \u2192 edge_42 \u2192 edge_99]": 3,
+            " entity_00000_edge_case_90172564 -> entity_00000_result": 3,
+            " if (counter <= 17) { state = previous_state; }": 3,
+            " \u0394x=77.31005892e+04; \u0928\u092e\u0942\u0928\u093e-1; \u6771\u4eac; \ud83e\uddea": 3
+          },
+          "cases": 18,
+          "effective_prompt_groups": 6,
+          "fewest_token_selection_rate": 0.6666666666666666,
+          "first_position_selection_rate": 0.3333333333333333,
+          "maximum_first_token_selection_share": 0.16666666666666666,
+          "rotation_stability_rate": 1.0,
+          "selected_first_token_histogram": {
+            "13621": 3,
+            "389": 3,
+            "439": 3,
+            "516": 3,
+            "6966": 3,
+            "9284": 3
+          },
+          "shortest_utf8_selection_rate": 0.3333333333333333
+        }
+      },
+      "candidate_tokenizations": [
+        {
+          "candidate": " answer := <MISSING> unless evidence(node_99)",
+          "prompt_sha256": "0eab1dc2f6b6491a614fa8fd256ebc7ad456c072b51daa14b8679876e1a7f6ee",
+          "token_ids": [
+            1312,
+            10513,
+            828,
+            2906,
+            2552,
+            1660,
+            33,
+            7281,
+            1102,
+            11,
+            2350,
+            66,
+            2394,
+            12
+          ],
+          "token_logprobs": [
+            -292.95269775390625,
+            -352.0226745605469,
+            -332.5115661621094,
+            -367.05950927734375,
+            -289.9737854003906,
+            -318.7907409667969,
+            -287.3313903808594,
+            -345.35723876953125,
+            -345.2054748535156,
+            -344.5900573730469,
+            -370.2246398925781,
+            -350.5715637207031,
+            -324.4736022949219,
+            -314.4173889160156
+          ]
+        },
+        {
+          "candidate": " compose[edge_17 \u2192 edge_42 \u2192 edge_99]",
+          "prompt_sha256": "0eab1dc2f6b6491a614fa8fd256ebc7ad456c072b51daa14b8679876e1a7f6ee",
+          "token_ids": [
+            13621,
+            62,
+            9134,
+            66,
+            3724,
+            1849,
+            4175,
+            66,
+            4096,
+            1849,
+            4175,
+            66,
+            2394,
+            64
+          ],
+          "token_logprobs": [
+            -241.43106079101562,
+            -342.3754577636719,
+            -253.72467041015625,
+            -390.433349609375,
+            -301.779296875,
+            -324.192138671875,
+            -353.0912170410156,
+            -278.86236572265625,
+            -317.10467529296875,
+            -318.3522644042969,
+            -353.4723205566406,
+            -279.84002685546875,
+            -321.148681640625,
+            -344.0082092285156
+          ]
+        },
+        {
+          "candidate": " relation(A_17, B_42) and relation(B_42, C_99)",
+          "prompt_sha256": "0eab1dc2f6b6491a614fa8fd256ebc7ad456c072b51daa14b8679876e1a7f6ee",
+          "token_ids": [
+            2431,
+            11,
+            36,
+            66,
+            3724,
+            15,
+            613,
+            66,
+            4096,
+            12,
+            339,
+            2431,
+            11,
+            37,
+            66,
+            4096,
+            15,
+            439,
+            66,
+            2394,
+            12
+          ],
+          "token_logprobs": [
+            -302.5548400878906,
+            -310.7986755371094,
+            -389.86590576171875,
+            -327.8416748046875,
+            -303.3328552246094,
+            -308.1204833984375,
+            -360.2159118652344,
+            -347.14105224609375,
+            -307.80712890625,
+            -314.8406066894531,
+            -344.76263427734375,
+            -347.7829284667969,
+            -316.3938903808594,
+            -337.7023620605469,
+            -348.33148193359375,
+            -312.9253234863281,
+            -324.0637512207031,
+            -371.56292724609375,
+            -325.30218505859375,
+            -317.01959228515625,
+            -322.75726318359375
+          ]
+        },
+        {
+          "candidate": " SELECT value FROM state_log WHERE logical_time <= 17 ORDER BY priority DESC;",
+          "prompt_sha256": "1483f25a5d944adebabfbfe7b50be9c2e0e1f07bd29bcabf50e957a7f2d75bfc",
+          "token_ids": [
+            13907,
+            910,
+            7343,
+            936,
+            66,
+            730,
+            5811,
+            6523,
+            66,
+            714,
+            1347,
+            3918,
+            6578,
+            11990,
+            613,
+            60,
+            8098,
+            510,
+            1920,
+            38,
+            30
+          ],
+          "token_logprobs": [
+            -305.5107421875,
+            -344.4834899902344,
+            -286.1472473144531,
+            -349.93231201171875,
+            -367.89459228515625,
+            -342.2839050292969,
+            -283.234375,
+            -353.96002197265625,
+            -344.82269287109375,
+            -349.5863342285156,
+            -343.2220458984375,
+            -331.14154052734375,
+            -322.193603515625,
+            -316.0826721191406,
+            -283.08465576171875,
+            -321.7258605957031,
+            -317.70635986328125,
+            -315.9538879394531,
+            -317.9092712402344,
+            -311.80523681640625,
+            -294.537353515625
+          ]
+        },
+        {
+          "candidate": " if (counter <= 17) { state = previous_state; }",
+          "prompt_sha256": "1483f25a5d944adebabfbfe7b50be9c2e0e1f07bd29bcabf50e957a7f2d75bfc",
+          "token_ids": [
+            389,
+            390,
+            2610,
+            1347,
+            3918,
+            12,
+            434,
+            936,
+            301,
+            3153,
+            66,
+            950,
+            30,
+            840
+          ],
+          "token_logprobs": [
+            -335.7533264160156,
+            -296.7799072265625,
+            -294.5255126953125,
+            -286.43353271484375,
+            -328.5036315917969,
+            -285.9158935546875,
+            -316.7690124511719,
+            -295.9826965332031,
+            -331.50457763671875,
+            -327.13726806640625,
+            -332.0325927734375,
+            -348.48529052734375,
+            -310.24853515625,
+            -321.312744140625
+          ]
+        },
+        {
+          "candidate": " {\"event\":\"rollback\",\"time\":17,\"priority\":5}",
+          "prompt_sha256": "1483f25a5d944adebabfbfe7b50be9c2e0e1f07bd29bcabf50e957a7f2d75bfc",
+          "token_ids": [
+            1302,
+            3355,
+            11605,
+            2503,
+            13504,
+            714,
+            319,
+            3724,
+            15,
+            5,
+            7301,
+            319,
+            24,
+            96
+          ],
+          "token_logprobs": [
+            -322.8000793457031,
+            -291.12322998046875,
+            -313.43927001953125,
+            -287.53973388671875,
+            -325.41070556640625,
+            -348.25738525390625,
+            -316.21807861328125,
+            -376.1508483886719,
+            -312.8956298828125,
+            -383.19805908203125,
+            -266.1679382324219,
+            -354.92608642578125,
+            -338.5760192871094,
+            -327.6850891113281
+          ]
+        },
+        {
+          "candidate": " 00000000000000000000000000000127",
+          "prompt_sha256": "7a4453ad3c51565e35d883b3bb4f0d93210ee1d740af5ce26d1d31bb41c8b257",
+          "token_ids": [
+            516,
+            5239,
+            5239,
+            7843,
+            9044
+          ],
+          "token_logprobs": [
+            -324.9551696777344,
+            -303.75164794921875,
+            0.0,
+            -329.32611083984375,
+            -301.98541259765625
+          ]
+        },
+        {
+          "candidate": " alpha_beta_gamma::node-17/revision_0042",
+          "prompt_sha256": "7a4453ad3c51565e35d883b3bb4f0d93210ee1d740af5ce26d1d31bb41c8b257",
+          "token_ids": [
+            7208,
+            66,
+            69,
+            7877,
+            66,
+            74,
+            399,
+            7457,
+            12260,
+            2350,
+            16,
+            3724,
+            18,
+            5665,
+            66,
+            615,
+            4096
+          ],
+          "token_logprobs": [
+            -324.4777526855469,
+            -342.36602783203125,
+            -283.8066101074219,
+            -306.4324645996094,
+            -322.92926025390625,
+            -246.875732421875,
+            -358.38665771484375,
+            -358.83905029296875,
+            -319.4399108886719,
+            -289.4728088378906,
+            -378.03125,
+            -366.63427734375,
+            -282.9515075683594,
+            -311.30413818359375,
+            -369.97344970703125,
+            -309.37957763671875,
+            -327.6153869628906
+          ]
+        },
+        {
+          "candidate": " rollback(transaction_id=QZ-19-ALPHA, semantic_time=2048)",
+          "prompt_sha256": "7a4453ad3c51565e35d883b3bb4f0d93210ee1d740af5ce26d1d31bb41c8b257",
+          "token_ids": [
+            3515,
+            11,
+            3260,
+            1175,
+            66,
+            328,
+            32,
+            52,
+            61,
+            16,
+            3419,
+            16,
+            1145,
+            51,
+            5383,
+            15,
+            8388,
+            66,
+            714,
+            32,
+            11679,
+            12
+          ],
+          "token_logprobs": [
+            -327.66241455078125,
+            -292.5839538574219,
+            -399.5868835449219,
+            -283.10009765625,
+            -329.84466552734375,
+            -320.7862548828125,
+            -335.54754638671875,
+            -371.1476745605469,
+            -321.7066650390625,
+            -338.5749206542969,
+            -331.0989685058594,
+            -313.18798828125,
+            -331.4563903808594,
+            -352.47625732421875,
+            -336.43914794921875,
+            -295.4219970703125,
+            -361.9928894042969,
+            -403.8315734863281,
+            -346.3299560546875,
+            -342.52490234375,
+            -369.26531982421875,
+            -329.6001281738281
+          ]
+        },
+        {
+          "candidate": " C:\\models\\an-ra\\checkpoint_00000042.pt",
+          "prompt_sha256": "83ddfed4b229ce263001c154bf06eab39dc8c7fb5c4be8df89a8dd3e21972496",
+          "token_ids": [
+            439,
+            5382,
+            871,
+            86,
+            63,
+            286,
+            16,
+            307,
+            63,
+            853,
+            66,
+            2510,
+            615,
+            4096,
+            17,
+            396
+          ],
+          "token_logprobs": [
+            -324.6725158691406,
+            -258.43780517578125,
+            -304.3584289550781,
+            -325.40655517578125,
+            -337.4474182128906,
+            -307.61474609375,
+            -345.9232482910156,
+            -327.9884338378906,
+            -323.11322021484375,
+            -315.3778991699219,
+            -326.55340576171875,
+            -263.848388671875,
+            -314.6750183105469,
+            -328.6343688964844,
+            -334.91485595703125,
+            -316.5567932128906
+          ]
+        },
+        {
+          "candidate": " sha256:09fcc3c176c932cd102d45c3a2c74149",
+          "prompt_sha256": "83ddfed4b229ce263001c154bf06eab39dc8c7fb5c4be8df89a8dd3e21972496",
+          "token_ids": [
+            2753,
+            944,
+            29,
+            11558,
+            73,
+            2382,
+            22,
+            70,
+            3724,
+            25,
+            70,
+            28,
+            1867,
+            9273,
+            1432,
+            21,
+            71,
+            2337,
+            70,
+            22,
+            68,
+            21,
+            70,
+            26,
+            23,
+            2555,
+            28
+          ],
+          "token_logprobs": [
+            -324.3273010253906,
+            -313.8028869628906,
+            -319.55352783203125,
+            -355.5141906738281,
+            -369.16436767578125,
+            -322.239990234375,
+            -352.97705078125,
+            -309.4164123535156,
+            -309.0773620605469,
+            -283.8289794921875,
+            -340.7937927246094,
+            -299.3870849609375,
+            -276.01373291015625,
+            -310.5889892578125,
+            -316.7200927734375,
+            -322.0646667480469,
+            -359.48681640625,
+            -380.6854248046875,
+            -315.9527587890625,
+            -283.24957275390625,
+            -341.1394958496094,
+            -299.8538513183594,
+            -330.6956787109375,
+            -305.6737976074219,
+            -285.31732177734375,
+            -314.1434020996094,
+            -324.1971740722656
+          ]
+        },
+        {
+          "candidate": " user.name+experiment@example.invalid",
+          "prompt_sha256": "83ddfed4b229ce263001c154bf06eab39dc8c7fb5c4be8df89a8dd3e21972496",
+          "token_ids": [
+            1659,
+            17,
+            842,
+            14,
+            6601,
+            35,
+            3621,
+            17,
+            6020
+          ],
+          "token_logprobs": [
+            -342.3808898925781,
+            -306.3529052734375,
+            -317.7561950683594,
+            -325.3578186035156,
+            -329.9671936035156,
+            -325.80120849609375,
+            -299.3289794921875,
+            -343.0977783203125,
+            -285.0724182128906
+          ]
+        },
+        {
+          "candidate": " DV-9017-2564 maps to FR90172564-G.",
+          "prompt_sha256": "914fa3a2bdfd8e662ddf980e48ed7bc1d3338d898eb64d5c9f580cdf06d7ee0b",
+          "token_ids": [
+            510,
+            57,
+            16,
+            6555,
+            3724,
+            16,
+            944,
+            23,
+            5350,
+            333,
+            476,
+            53,
+            6555,
+            3724,
+            944,
+            23,
+            16,
+            42,
+            17
+          ],
+          "token_logprobs": [
+            -346.894287109375,
+            -268.3545837402344,
+            -344.7547302246094,
+            -363.8847961425781,
+            -346.1650695800781,
+            -327.6697692871094,
+            -325.7857360839844,
+            -336.4815979003906,
+            -308.546875,
+            -329.8900146484375,
+            -311.88262939453125,
+            -305.1470031738281,
+            -321.6391906738281,
+            -347.3618469238281,
+            -324.3777160644531,
+            -333.272216796875,
+            -313.30206298828125,
+            -321.1866760253906,
+            -286.506591796875
+          ]
+        },
+        {
+          "candidate": " entity_00000_edge_case_90172564 -> entity_00000_result",
+          "prompt_sha256": "914fa3a2bdfd8e662ddf980e48ed7bc1d3338d898eb64d5c9f580cdf06d7ee0b",
+          "token_ids": [
+            6966,
+            66,
+            13640,
+            66,
+            9134,
+            66,
+            5423,
+            66,
+            6555,
+            3724,
+            944,
+            23,
+            535,
+            6966,
+            66,
+            13640,
+            66,
+            966
+          ],
+          "token_logprobs": [
+            -329.09722900390625,
+            -336.8648376464844,
+            -264.07330322265625,
+            -271.1422119140625,
+            -324.8492126464844,
+            -394.6407775878906,
+            -298.5621032714844,
+            -346.0954284667969,
+            -308.3913879394531,
+            -348.0570983886719,
+            -316.1423034667969,
+            -341.56683349609375,
+            -321.8453063964844,
+            -331.268798828125,
+            -344.9811706542969,
+            -265.2822570800781,
+            -269.36102294921875,
+            -318.44903564453125
+          ]
+        },
+        {
+          "candidate": " value_00000 = -381.90172564e-07; count=91,700,021",
+          "prompt_sha256": "914fa3a2bdfd8e662ddf980e48ed7bc1d3338d898eb64d5c9f580cdf06d7ee0b",
+          "token_ids": [
+            910,
+            66,
+            13640,
+            301,
+            426,
+            8448,
+            20,
+            17,
+            6555,
+            3724,
+            944,
+            23,
+            72,
+            16,
+            2972,
+            30,
+            1014,
+            32,
+            14097,
+            15,
+            26,
+            615,
+            15,
+            4015,
+            20
+          ],
+          "token_logprobs": [
+            -340.7421875,
+            -313.7315368652344,
+            -266.1624755859375,
+            -321.4305725097656,
+            -335.24566650390625,
+            -276.5765380859375,
+            -339.2375793457031,
+            -313.07568359375,
+            -347.80859375,
+            -345.86871337890625,
+            -326.0335693359375,
+            -343.8486328125,
+            -319.6123046875,
+            -374.4239196777344,
+            -339.24359130859375,
+            -351.9129943847656,
+            -339.1231994628906,
+            -337.6202697753906,
+            -344.6015930175781,
+            -314.536376953125,
+            -343.12725830078125,
+            -311.6528015136719,
+            -353.396240234375,
+            -370.2519836425781,
+            -325.2897644042969
+          ]
+        },
+        {
+          "candidate": " x\t:=\tvalue_1\nnext_line_1()",
+          "prompt_sha256": "e3a1c0df914e43496e0826f673601cf98de2656e3e45685136b481f2be093e50",
+          "token_ids": [
+            1165,
+            201,
+            29,
+            32,
+            201,
+            1356,
+            66,
+            20,
+            202,
+            2744,
+            66,
+            775,
+            66,
+            20,
+            384
+          ],
+          "token_logprobs": [
+            -332.00091552734375,
+            -348.1664733886719,
+            -321.87884521484375,
+            -347.14556884765625,
+            -311.9945373535156,
+            -320.8564453125,
+            -352.07958984375,
+            -323.8146667480469,
+            -329.9328308105469,
+            -317.2886657714844,
+            -277.3582763671875,
+            -305.7215576171875,
+            -308.09954833984375,
+            -325.100341796875,
+            -353.5249328613281
+          ]
+        },
+        {
+          "candidate": " \u0394x=77.31005892e+04; \u0928\u092e\u0942\u0928\u093e-1; \u6771\u4eac; \ud83e\uddea",
+          "prompt_sha256": "e3a1c0df914e43496e0826f673601cf98de2656e3e45685136b481f2be093e50",
+          "token_ids": [
+            9284,
+            246,
+            91,
+            32,
+            26,
+            26,
+            17,
+            22,
+            3669,
+            24,
+            27,
+            7179,
+            72,
+            14,
+            7246,
+            30,
+            224,
+            160,
+            101,
+            105,
+            160,
+            101,
+            110,
+            160,
+            102,
+            228,
+            160,
+            101,
+            105,
+            160,
+            101,
+            126,
+            16,
+            20,
+            30,
+            224,
+            166,
+            255,
+            113,
+            164,
+            122,
+            109,
+            30,
+            224,
+            176,
+            257,
+            104,
+            107
+          ],
+          "token_logprobs": [
+            -347.1288757324219,
+            -319.6647033691406,
+            -310.92132568359375,
+            -277.42431640625,
+            -346.4126281738281,
+            0.0,
+            -301.5008850097656,
+            -348.38946533203125,
+            -287.51422119140625,
+            -332.8846435546875,
+            -317.3997497558594,
+            -324.7203369140625,
+            -349.8353271484375,
+            -322.72100830078125,
+            -283.52166748046875,
+            -365.47332763671875,
+            -351.479248046875,
+            -329.63958740234375,
+            -330.65985107421875,
+            -330.56597900390625,
+            -311.7542419433594,
+            -327.98199462890625,
+            -319.1047058105469,
+            -352.10931396484375,
+            -320.8262023925781,
+            -310.2710266113281,
+            -347.9063415527344,
+            -327.4994812011719,
+            -331.126708984375,
+            -305.4628601074219,
+            -325.52301025390625,
+            -282.9324645996094,
+            -365.0223693847656,
+            -331.89453125,
+            -335.2197265625,
+            -342.948486328125,
+            -328.0765380859375,
+            -402.6241760253906,
+            -353.5917053222656,
+            -313.1327819824219,
+            -302.56390380859375,
+            -322.82989501953125,
+            -294.67657470703125,
+            -343.65643310546875,
+            -326.165771484375,
+            -357.2491455078125,
+            -384.35321044921875,
+            -312.65594482421875
+          ]
+        },
+        {
+          "candidate": " \u2200x\u2208S_1: P_310(x) \u21d2 \u2203y R_05892(x,y)",
+          "prompt_sha256": "e3a1c0df914e43496e0826f673601cf98de2656e3e45685136b481f2be093e50",
+          "token_ids": [
+            4995,
+            226,
+            91,
+            7330,
+            234,
+            54,
+            66,
+            20,
+            29,
+            432,
+            66,
+            22,
+            1432,
+            11,
+            91,
+            12,
+            385,
+            233,
+            244,
+            4995,
+            229,
+            92,
+            478,
+            66,
+            4671,
+            27,
+            7179,
+            11,
+            91,
+            15,
+            92,
+            12
+          ],
+          "token_logprobs": [
+            -344.8069152832031,
+            -351.502685546875,
+            -333.265380859375,
+            -319.4939880371094,
+            -333.5486145019531,
+            -318.4446716308594,
+            -351.33599853515625,
+            -326.9867858886719,
+            -319.9768981933594,
+            -327.42413330078125,
+            -330.4347229003906,
+            -297.1605224609375,
+            -316.43426513671875,
+            -300.3070373535156,
+            -390.8536376953125,
+            -287.47418212890625,
+            -298.3985900878906,
+            -344.4207458496094,
+            -329.07110595703125,
+            -359.97796630859375,
+            -352.82366943359375,
+            -312.1761779785156,
+            -313.91314697265625,
+            -339.7965087890625,
+            -336.9795837402344,
+            -308.62799072265625,
+            -326.24615478515625,
+            -340.088623046875,
+            -387.8836975097656,
+            -275.6217041015625,
+            -355.8471984863281,
+            -349.1202697753906
+          ]
+        }
+      ],
+      "elapsed_seconds": 0.400201599997672,
+      "finite": true,
+      "maximum_sequence_tokens": 83,
+      "model_sha256": "0e3be03be48f4700787c738c54a32e7387f3ed062d7b362452117c89a60efaea",
+      "parameters": 32268672,
+      "roundtrip_and_trace_coverage": true,
+      "scores_by_mode": {
+        "byte_normalized": [
+          {
+            "answer": " value_00000 = -381.90172564e-07; count=91,700,021",
+            "case_id": "p35-null-00-0",
+            "prediction": " entity_00000_edge_case_90172564 -> entity_00000_result",
+            "scores": {
+              " DV-9017-2564 maps to FR90172564-G.": -176.08866838727678,
+              " entity_00000_edge_case_90172564 -> entity_00000_result": -104.19400579279119,
+              " value_00000 = -381.90172564e-07; count=91,700,021": -165.8910809326172
+            }
+          },
+          {
+            "answer": " value_00000 = -381.90172564e-07; count=91,700,021",
+            "case_id": "p35-null-00-1",
+            "prediction": " entity_00000_edge_case_90172564 -> entity_00000_result",
+            "scores": {
+              " DV-9017-2564 maps to FR90172564-G.": -176.08866838727678,
+              " entity_00000_edge_case_90172564 -> entity_00000_result": -104.19400579279119,
+              " value_00000 = -381.90172564e-07; count=91,700,021": -165.8910809326172
+            }
+          },
+          {
+            "answer": " value_00000 = -381.90172564e-07; count=91,700,021",
+            "case_id": "p35-null-00-2",
+            "prediction": " entity_00000_edge_case_90172564 -> entity_00000_result",
+            "scores": {
+              " DV-9017-2564 maps to FR90172564-G.": -176.08866838727678,
+              " entity_00000_edge_case_90172564 -> entity_00000_result": -104.19400579279119,
+              " value_00000 = -381.90172564e-07; count=91,700,021": -165.8910809326172
+            }
+          },
+          {
+            "answer": " x\t:=\tvalue_1\nnext_line_1()",
+            "case_id": "p35-null-01-0",
+            "prediction": " x\t:=\tvalue_1\nnext_line_1()",
+            "scores": {
+              " x\t:=\tvalue_1\nnext_line_1()": -180.55419243706598,
+              " \u0394x=77.31005892e+04; \u0928\u092e\u0942\u0928\u093e-1; \u6771\u4eac; \ud83e\uddea": -291.6418243984007,
+              " \u2200x\u2208S_1: P_310(x) \u21d2 \u2203y R_05892(x,y)": -246.05682727902433
+            }
+          },
+          {
+            "answer": " x\t:=\tvalue_1\nnext_line_1()",
+            "case_id": "p35-null-01-1",
+            "prediction": " x\t:=\tvalue_1\nnext_line_1()",
+            "scores": {
+              " x\t:=\tvalue_1\nnext_line_1()": -180.55419243706598,
+              " \u0394x=77.31005892e+04; \u0928\u092e\u0942\u0928\u093e-1; \u6771\u4eac; \ud83e\uddea": -291.6418243984007,
+              " \u2200x\u2208S_1: P_310(x) \u21d2 \u2203y R_05892(x,y)": -246.05682727902433
+            }
+          },
+          {
+            "answer": " x\t:=\tvalue_1\nnext_line_1()",
+            "case_id": "p35-null-01-2",
+            "prediction": " x\t:=\tvalue_1\nnext_line_1()",
+            "scores": {
+              " x\t:=\tvalue_1\nnext_line_1()": -180.55419243706598,
+              " \u0394x=77.31005892e+04; \u0928\u092e\u0942\u0928\u093e-1; \u6771\u4eac; \ud83e\uddea": -291.6418243984007,
+              " \u2200x\u2208S_1: P_310(x) \u21d2 \u2203y R_05892(x,y)": -246.05682727902433
+            }
+          },
+          {
+            "answer": " rollback(transaction_id=QZ-19-ALPHA, semantic_time=2048)",
+            "case_id": "p35-null-02-0",
+            "prediction": " 00000000000000000000000000000127",
+            "scores": {
+              " 00000000000000000000000000000127": -38.182373971650094,
+              " alpha_beta_gamma::node-17/revision_0042": -137.47289657592773,
+              " rollback(transaction_id=QZ-19-ALPHA, semantic_time=2048)": -130.42397535892954
+            }
+          },
+          {
+            "answer": " rollback(transaction_id=QZ-19-ALPHA, semantic_time=2048)",
+            "case_id": "p35-null-02-1",
+            "prediction": " 00000000000000000000000000000127",
+            "scores": {
+              " 00000000000000000000000000000127": -38.182373971650094,
+              " alpha_beta_gamma::node-17/revision_0042": -137.47289657592773,
+              " rollback(transaction_id=QZ-19-ALPHA, semantic_time=2048)": -130.42397535892954
+            }
+          },
+          {
+            "answer": " rollback(transaction_id=QZ-19-ALPHA, semantic_time=2048)",
+            "case_id": "p35-null-02-2",
+            "prediction": " 00000000000000000000000000000127",
+            "scores": {
+              " 00000000000000000000000000000127": -38.182373971650094,
+              " alpha_beta_gamma::node-17/revision_0042": -137.47289657592773,
+              " rollback(transaction_id=QZ-19-ALPHA, semantic_time=2048)": -130.42397535892954
+            }
+          },
+          {
+            "answer": " user.name+experiment@example.invalid",
+            "case_id": "p35-null-03-0",
+            "prediction": " user.name+experiment@example.invalid",
+            "scores": {
+              " C:\\models\\an-ra\\checkpoint_00000042.pt": -129.62879748222156,
+              " sha256:09fcc3c176c932cd102d45c3a2c74149": -216.64664306640626,
+              " user.name+experiment@example.invalid": -77.70582126926732
+            }
+          },
+          {
+            "answer": " user.name+experiment@example.invalid",
+            "case_id": "p35-null-03-1",
+            "prediction": " user.name+experiment@example.invalid",
+            "scores": {
+              " C:\\models\\an-ra\\checkpoint_00000042.pt": -129.62879748222156,
+              " sha256:09fcc3c176c932cd102d45c3a2c74149": -216.64664306640626,
+              " user.name+experiment@example.invalid": -77.70582126926732
+            }
+          },
+          {
+            "answer": " user.name+experiment@example.invalid",
+            "case_id": "p35-null-03-2",
+            "prediction": " user.name+experiment@example.invalid",
+            "scores": {
+              " C:\\models\\an-ra\\checkpoint_00000042.pt": -129.62879748222156,
+              " sha256:09fcc3c176c932cd102d45c3a2c74149": -216.64664306640626,
+              " user.name+experiment@example.invalid": -77.70582126926732
+            }
+          },
+          {
+            "answer": " SELECT value FROM state_log WHERE logical_time <= 17 ORDER BY priority DESC;",
+            "case_id": "p35-null-04-0",
+            "prediction": " SELECT value FROM state_log WHERE logical_time <= 17 ORDER BY priority DESC;",
+            "scores": {
+              " SELECT value FROM state_log WHERE logical_time <= 17 ORDER BY priority DESC;": -88.35348312576096,
+              " if (counter <= 17) { state = previous_state; }": -93.85924513796543,
+              " {\"event\":\"rollback\",\"time\":17,\"priority\":5}": -103.73609438809481
+            }
+          },
+          {
+            "answer": " SELECT value FROM state_log WHERE logical_time <= 17 ORDER BY priority DESC;",
+            "case_id": "p35-null-04-1",
+            "prediction": " SELECT value FROM state_log WHERE logical_time <= 17 ORDER BY priority DESC;",
+            "scores": {
+              " SELECT value FROM state_log WHERE logical_time <= 17 ORDER BY priority DESC;": -88.35348312576096,
+              " if (counter <= 17) { state = previous_state; }": -93.85924513796543,
+              " {\"event\":\"rollback\",\"time\":17,\"priority\":5}": -103.73609438809481
+            }
+          },
+          {
+            "answer": " SELECT value FROM state_log WHERE logical_time <= 17 ORDER BY priority DESC;",
+            "case_id": "p35-null-04-2",
+            "prediction": " SELECT value FROM state_log WHERE logical_time <= 17 ORDER BY priority DESC;",
+            "scores": {
+              " SELECT value FROM state_log WHERE logical_time <= 17 ORDER BY priority DESC;": -88.35348312576096,
+              " if (counter <= 17) { state = previous_state; }": -93.85924513796543,
+              " {\"event\":\"rollback\",\"time\":17,\"priority\":5}": -103.73609438809481
+            }
+          },
+          {
+            "answer": " answer := <MISSING> unless evidence(node_99)",
+            "case_id": "p35-null-05-0",
+            "prediction": " answer := <MISSING> unless evidence(node_99)",
+            "scores": {
+              " answer := <MISSING> unless evidence(node_99)": -103.0107184516059,
+              " compose[edge_17 \u2192 edge_42 \u2192 edge_99]": -107.8003837771532,
+              " relation(A_17, B_42) and relation(B_42, C_99)": -150.89398856784987
+            }
+          },
+          {
+            "answer": " answer := <MISSING> unless evidence(node_99)",
+            "case_id": "p35-null-05-1",
+            "prediction": " answer := <MISSING> unless evidence(node_99)",
+            "scores": {
+              " answer := <MISSING> unless evidence(node_99)": -103.0107184516059,
+              " compose[edge_17 \u2192 edge_42 \u2192 edge_99]": -107.8003837771532,
+              " relation(A_17, B_42) and relation(B_42, C_99)": -150.89398856784987
+            }
+          },
+          {
+            "answer": " answer := <MISSING> unless evidence(node_99)",
+            "case_id": "p35-null-05-2",
+            "prediction": " answer := <MISSING> unless evidence(node_99)",
+            "scores": {
+              " answer := <MISSING> unless evidence(node_99)": -103.0107184516059,
+              " compose[edge_17 \u2192 edge_42 \u2192 edge_99]": -107.8003837771532,
+              " relation(A_17, B_42) and relation(B_42, C_99)": -150.89398856784987
+            }
+          }
+        ],
+        "sum": [
+          {
+            "answer": " value_00000 = -381.90172564e-07; count=91,700,021",
+            "case_id": "p35-null-00-0",
+            "prediction": " entity_00000_edge_case_90172564 -> entity_00000_result",
+            "scores": {
+              " DV-9017-2564 maps to FR90172564-G.": -6163.1033935546875,
+              " entity_00000_edge_case_90172564 -> entity_00000_result": -5730.670318603516,
+              " value_00000 = -381.90172564e-07; count=91,700,021": -8294.55404663086
+            }
+          },
+          {
+            "answer": " value_00000 = -381.90172564e-07; count=91,700,021",
+            "case_id": "p35-null-00-1",
+            "prediction": " entity_00000_edge_case_90172564 -> entity_00000_result",
+            "scores": {
+              " DV-9017-2564 maps to FR90172564-G.": -6163.1033935546875,
+              " entity_00000_edge_case_90172564 -> entity_00000_result": -5730.670318603516,
+              " value_00000 = -381.90172564e-07; count=91,700,021": -8294.55404663086
+            }
+          },
+          {
+            "answer": " value_00000 = -381.90172564e-07; count=91,700,021",
+            "case_id": "p35-null-00-2",
+            "prediction": " entity_00000_edge_case_90172564 -> entity_00000_result",
+            "scores": {
+              " DV-9017-2564 maps to FR90172564-G.": -6163.1033935546875,
+              " entity_00000_edge_case_90172564 -> entity_00000_result": -5730.670318603516,
+              " value_00000 = -381.90172564e-07; count=91,700,021": -8294.55404663086
+            }
+          },
+          {
+            "answer": " x\t:=\tvalue_1\nnext_line_1()",
+            "case_id": "p35-null-01-0",
+            "prediction": " x\t:=\tvalue_1\nnext_line_1()",
+            "scores": {
+              " x\t:=\tvalue_1\nnext_line_1()": -4874.963195800781,
+              " \u0394x=77.31005892e+04; \u0928\u092e\u0942\u0928\u093e-1; \u6771\u4eac; \ud83e\uddea": -15457.016693115234,
+              " \u2200x\u2208S_1: P_310(x) \u21d2 \u2203y R_05892(x,y)": -10580.443572998047
+            }
+          },
+          {
+            "answer": " x\t:=\tvalue_1\nnext_line_1()",
+            "case_id": "p35-null-01-1",
+            "prediction": " x\t:=\tvalue_1\nnext_line_1()",
+            "scores": {
+              " x\t:=\tvalue_1\nnext_line_1()": -4874.963195800781,
+              " \u0394x=77.31005892e+04; \u0928\u092e\u0942\u0928\u093e-1; \u6771\u4eac; \ud83e\uddea": -15457.016693115234,
+              " \u2200x\u2208S_1: P_310(x) \u21d2 \u2203y R_05892(x,y)": -10580.443572998047
+            }
+          },
+          {
+            "answer": " x\t:=\tvalue_1\nnext_line_1()",
+            "case_id": "p35-null-01-2",
+            "prediction": " x\t:=\tvalue_1\nnext_line_1()",
+            "scores": {
+              " x\t:=\tvalue_1\nnext_line_1()": -4874.963195800781,
+              " \u0394x=77.31005892e+04; \u0928\u092e\u0942\u0928\u093e-1; \u6771\u4eac; \ud83e\uddea": -15457.016693115234,
+              " \u2200x\u2208S_1: P_310(x) \u21d2 \u2203y R_05892(x,y)": -10580.443572998047
+            }
+          },
+          {
+            "answer": " rollback(transaction_id=QZ-19-ALPHA, semantic_time=2048)",
+            "case_id": "p35-null-02-0",
+            "prediction": " 00000000000000000000000000000127",
+            "scores": {
+              " 00000000000000000000000000000127": -1260.0183410644531,
+              " alpha_beta_gamma::node-17/revision_0042": -5498.915863037109,
+              " rollback(transaction_id=QZ-19-ALPHA, semantic_time=2048)": -7434.166595458984
+            }
+          },
+          {
+            "answer": " rollback(transaction_id=QZ-19-ALPHA, semantic_time=2048)",
+            "case_id": "p35-null-02-1",
+            "prediction": " 00000000000000000000000000000127",
+            "scores": {
+              " 00000000000000000000000000000127": -1260.0183410644531,
+              " alpha_beta_gamma::node-17/revision_0042": -5498.915863037109,
+              " rollback(transaction_id=QZ-19-ALPHA, semantic_time=2048)": -7434.166595458984
+            }
+          },
+          {
+            "answer": " rollback(transaction_id=QZ-19-ALPHA, semantic_time=2048)",
+            "case_id": "p35-null-02-2",
+            "prediction": " 00000000000000000000000000000127",
+            "scores": {
+              " 00000000000000000000000000000127": -1260.0183410644531,
+              " alpha_beta_gamma::node-17/revision_0042": -5498.915863037109,
+              " rollback(transaction_id=QZ-19-ALPHA, semantic_time=2048)": -7434.166595458984
+            }
+          },
+          {
+            "answer": " user.name+experiment@example.invalid",
+            "case_id": "p35-null-03-0",
+            "prediction": " user.name+experiment@example.invalid",
+            "scores": {
+              " C:\\models\\an-ra\\checkpoint_00000042.pt": -5055.523101806641,
+              " sha256:09fcc3c176c932cd102d45c3a2c74149": -8665.86572265625,
+              " user.name+experiment@example.invalid": -2875.1153869628906
+            }
+          },
+          {
+            "answer": " user.name+experiment@example.invalid",
+            "case_id": "p35-null-03-1",
+            "prediction": " user.name+experiment@example.invalid",
+            "scores": {
+              " C:\\models\\an-ra\\checkpoint_00000042.pt": -5055.523101806641,
+              " sha256:09fcc3c176c932cd102d45c3a2c74149": -8665.86572265625,
+              " user.name+experiment@example.invalid": -2875.1153869628906
+            }
+          },
+          {
+            "answer": " user.name+experiment@example.invalid",
+            "case_id": "p35-null-03-2",
+            "prediction": " user.name+experiment@example.invalid",
+            "scores": {
+              " C:\\models\\an-ra\\checkpoint_00000042.pt": -5055.523101806641,
+              " sha256:09fcc3c176c932cd102d45c3a2c74149": -8665.86572265625,
+              " user.name+experiment@example.invalid": -2875.1153869628906
+            }
+          },
+          {
+            "answer": " SELECT value FROM state_log WHERE logical_time <= 17 ORDER BY priority DESC;",
+            "case_id": "p35-null-04-0",
+            "prediction": " if (counter <= 17) { state = previous_state; }",
+            "scores": {
+              " SELECT value FROM state_log WHERE logical_time <= 17 ORDER BY priority DESC;": -6803.218200683594,
+              " if (counter <= 17) { state = previous_state; }": -4411.384521484375,
+              " {\"event\":\"rollback\",\"time\":17,\"priority\":5}": -4564.388153076172
+            }
+          },
+          {
+            "answer": " SELECT value FROM state_log WHERE logical_time <= 17 ORDER BY priority DESC;",
+            "case_id": "p35-null-04-1",
+            "prediction": " if (counter <= 17) { state = previous_state; }",
+            "scores": {
+              " SELECT value FROM state_log WHERE logical_time <= 17 ORDER BY priority DESC;": -6803.218200683594,
+              " if (counter <= 17) { state = previous_state; }": -4411.384521484375,
+              " {\"event\":\"rollback\",\"time\":17,\"priority\":5}": -4564.388153076172
+            }
+          },
+          {
+            "answer": " SELECT value FROM state_log WHERE logical_time <= 17 ORDER BY priority DESC;",
+            "case_id": "p35-null-04-2",
+            "prediction": " if (counter <= 17) { state = previous_state; }",
+            "scores": {
+              " SELECT value FROM state_log WHERE logical_time <= 17 ORDER BY priority DESC;": -6803.218200683594,
+              " if (counter <= 17) { state = previous_state; }": -4411.384521484375,
+              " {\"event\":\"rollback\",\"time\":17,\"priority\":5}": -4564.388153076172
+            }
+          },
+          {
+            "answer": " answer := <MISSING> unless evidence(node_99)",
+            "case_id": "p35-null-05-0",
+            "prediction": " compose[edge_17 \u2192 edge_42 \u2192 edge_99]",
+            "scores": {
+              " answer := <MISSING> unless evidence(node_99)": -4635.482330322266,
+              " compose[edge_17 \u2192 edge_42 \u2192 edge_99]": -4419.815734863281,
+              " relation(A_17, B_42) and relation(B_42, C_99)": -6941.123474121094
+            }
+          },
+          {
+            "answer": " answer := <MISSING> unless evidence(node_99)",
+            "case_id": "p35-null-05-1",
+            "prediction": " compose[edge_17 \u2192 edge_42 \u2192 edge_99]",
+            "scores": {
+              " answer := <MISSING> unless evidence(node_99)": -4635.482330322266,
+              " compose[edge_17 \u2192 edge_42 \u2192 edge_99]": -4419.815734863281,
+              " relation(A_17, B_42) and relation(B_42, C_99)": -6941.123474121094
+            }
+          },
+          {
+            "answer": " answer := <MISSING> unless evidence(node_99)",
+            "case_id": "p35-null-05-2",
+            "prediction": " compose[edge_17 \u2192 edge_42 \u2192 edge_99]",
+            "scores": {
+              " answer := <MISSING> unless evidence(node_99)": -4635.482330322266,
+              " compose[edge_17 \u2192 edge_42 \u2192 edge_99]": -4419.815734863281,
+              " relation(A_17, B_42) and relation(B_42, C_99)": -6941.123474121094
+            }
+          }
+        ],
+        "token_normalized": [
+          {
+            "answer": " value_00000 = -381.90172564e-07; count=91,700,021",
+            "case_id": "p35-null-00-0",
+            "prediction": " entity_00000_edge_case_90172564 -> entity_00000_result",
+            "scores": {
+              " DV-9017-2564 maps to FR90172564-G.": -324.37386281866776,
+              " entity_00000_edge_case_90172564 -> entity_00000_result": -318.37057325575086,
+              " value_00000 = -381.90172564e-07; count=91,700,021": -331.7821618652344
+            }
+          },
+          {
+            "answer": " value_00000 = -381.90172564e-07; count=91,700,021",
+            "case_id": "p35-null-00-1",
+            "prediction": " entity_00000_edge_case_90172564 -> entity_00000_result",
+            "scores": {
+              " DV-9017-2564 maps to FR90172564-G.": -324.37386281866776,
+              " entity_00000_edge_case_90172564 -> entity_00000_result": -318.37057325575086,
+              " value_00000 = -381.90172564e-07; count=91,700,021": -331.7821618652344
+            }
+          },
+          {
+            "answer": " value_00000 = -381.90172564e-07; count=91,700,021",
+            "case_id": "p35-null-00-2",
+            "prediction": " entity_00000_edge_case_90172564 -> entity_00000_result",
+            "scores": {
+              " DV-9017-2564 maps to FR90172564-G.": -324.37386281866776,
+              " entity_00000_edge_case_90172564 -> entity_00000_result": -318.37057325575086,
+              " value_00000 = -381.90172564e-07; count=91,700,021": -331.7821618652344
+            }
+          },
+          {
+            "answer": " x\t:=\tvalue_1\nnext_line_1()",
+            "case_id": "p35-null-01-0",
+            "prediction": " \u0394x=77.31005892e+04; \u0928\u092e\u0942\u0928\u093e-1; \u6771\u4eac; \ud83e\uddea",
+            "scores": {
+              " x\t:=\tvalue_1\nnext_line_1()": -324.99754638671874,
+              " \u0394x=77.31005892e+04; \u0928\u092e\u0942\u0928\u093e-1; \u6771\u4eac; \ud83e\uddea": -322.0211811065674,
+              " \u2200x\u2208S_1: P_310(x) \u21d2 \u2203y R_05892(x,y)": -330.63886165618896
+            }
+          },
+          {
+            "answer": " x\t:=\tvalue_1\nnext_line_1()",
+            "case_id": "p35-null-01-1",
+            "prediction": " \u0394x=77.31005892e+04; \u0928\u092e\u0942\u0928\u093e-1; \u6771\u4eac; \ud83e\uddea",
+            "scores": {
+              " x\t:=\tvalue_1\nnext_line_1()": -324.99754638671874,
+              " \u0394x=77.31005892e+04; \u0928\u092e\u0942\u0928\u093e-1; \u6771\u4eac; \ud83e\uddea": -322.0211811065674,
+              " \u2200x\u2208S_1: P_310(x) \u21d2 \u2203y R_05892(x,y)": -330.63886165618896
+            }
+          },
+          {
+            "answer": " x\t:=\tvalue_1\nnext_line_1()",
+            "case_id": "p35-null-01-2",
+            "prediction": " \u0394x=77.31005892e+04; \u0928\u092e\u0942\u0928\u093e-1; \u6771\u4eac; \ud83e\uddea",
+            "scores": {
+              " x\t:=\tvalue_1\nnext_line_1()": -324.99754638671874,
+              " \u0394x=77.31005892e+04; \u0928\u092e\u0942\u0928\u093e-1; \u6771\u4eac; \ud83e\uddea": -322.0211811065674,
+              " \u2200x\u2208S_1: P_310(x) \u21d2 \u2203y R_05892(x,y)": -330.63886165618896
+            }
+          },
+          {
+            "answer": " rollback(transaction_id=QZ-19-ALPHA, semantic_time=2048)",
+            "case_id": "p35-null-02-0",
+            "prediction": " 00000000000000000000000000000127",
+            "scores": {
+              " 00000000000000000000000000000127": -252.00366821289063,
+              " alpha_beta_gamma::node-17/revision_0042": -323.4656390021829,
+              " rollback(transaction_id=QZ-19-ALPHA, semantic_time=2048)": -337.9166634299538
+            }
+          },
+          {
+            "answer": " rollback(transaction_id=QZ-19-ALPHA, semantic_time=2048)",
+            "case_id": "p35-null-02-1",
+            "prediction": " 00000000000000000000000000000127",
+            "scores": {
+              " 00000000000000000000000000000127": -252.00366821289063,
+              " alpha_beta_gamma::node-17/revision_0042": -323.4656390021829,
+              " rollback(transaction_id=QZ-19-ALPHA, semantic_time=2048)": -337.9166634299538
+            }
+          },
+          {
+            "answer": " rollback(transaction_id=QZ-19-ALPHA, semantic_time=2048)",
+            "case_id": "p35-null-02-2",
+            "prediction": " 00000000000000000000000000000127",
+            "scores": {
+              " 00000000000000000000000000000127": -252.00366821289063,
+              " alpha_beta_gamma::node-17/revision_0042": -323.4656390021829,
+              " rollback(transaction_id=QZ-19-ALPHA, semantic_time=2048)": -337.9166634299538
+            }
+          },
+          {
+            "answer": " user.name+experiment@example.invalid",
+            "case_id": "p35-null-03-0",
+            "prediction": " C:\\models\\an-ra\\checkpoint_00000042.pt",
+            "scores": {
+              " C:\\models\\an-ra\\checkpoint_00000042.pt": -315.97019386291504,
+              " sha256:09fcc3c176c932cd102d45c3a2c74149": -320.95798972800924,
+              " user.name+experiment@example.invalid": -319.45726521809894
+            }
+          },
+          {
+            "answer": " user.name+experiment@example.invalid",
+            "case_id": "p35-null-03-1",
+            "prediction": " C:\\models\\an-ra\\checkpoint_00000042.pt",
+            "scores": {
+              " C:\\models\\an-ra\\checkpoint_00000042.pt": -315.97019386291504,
+              " sha256:09fcc3c176c932cd102d45c3a2c74149": -320.95798972800924,
+              " user.name+experiment@example.invalid": -319.45726521809894
+            }
+          },
+          {
+            "answer": " user.name+experiment@example.invalid",
+            "case_id": "p35-null-03-2",
+            "prediction": " C:\\models\\an-ra\\checkpoint_00000042.pt",
+            "scores": {
+              " C:\\models\\an-ra\\checkpoint_00000042.pt": -315.97019386291504,
+              " sha256:09fcc3c176c932cd102d45c3a2c74149": -320.95798972800924,
+              " user.name+experiment@example.invalid": -319.45726521809894
+            }
+          },
+          {
+            "answer": " SELECT value FROM state_log WHERE logical_time <= 17 ORDER BY priority DESC;",
+            "case_id": "p35-null-04-0",
+            "prediction": " if (counter <= 17) { state = previous_state; }",
+            "scores": {
+              " SELECT value FROM state_log WHERE logical_time <= 17 ORDER BY priority DESC;": -323.9627714611235,
+              " if (counter <= 17) { state = previous_state; }": -315.09889439174106,
+              " {\"event\":\"rollback\",\"time\":17,\"priority\":5}": -326.02772521972656
+            }
+          },
+          {
+            "answer": " SELECT value FROM state_log WHERE logical_time <= 17 ORDER BY priority DESC;",
+            "case_id": "p35-null-04-1",
+            "prediction": " if (counter <= 17) { state = previous_state; }",
+            "scores": {
+              " SELECT value FROM state_log WHERE logical_time <= 17 ORDER BY priority DESC;": -323.9627714611235,
+              " if (counter <= 17) { state = previous_state; }": -315.09889439174106,
+              " {\"event\":\"rollback\",\"time\":17,\"priority\":5}": -326.02772521972656
+            }
+          },
+          {
+            "answer": " SELECT value FROM state_log WHERE logical_time <= 17 ORDER BY priority DESC;",
+            "case_id": "p35-null-04-2",
+            "prediction": " if (counter <= 17) { state = previous_state; }",
+            "scores": {
+              " SELECT value FROM state_log WHERE logical_time <= 17 ORDER BY priority DESC;": -323.9627714611235,
+              " if (counter <= 17) { state = previous_state; }": -315.09889439174106,
+              " {\"event\":\"rollback\",\"time\":17,\"priority\":5}": -326.02772521972656
+            }
+          },
+          {
+            "answer": " answer := <MISSING> unless evidence(node_99)",
+            "case_id": "p35-null-05-0",
+            "prediction": " compose[edge_17 \u2192 edge_42 \u2192 edge_99]",
+            "scores": {
+              " answer := <MISSING> unless evidence(node_99)": -331.1058807373047,
+              " compose[edge_17 \u2192 edge_42 \u2192 edge_99]": -315.7011239188058,
+              " relation(A_17, B_42) and relation(B_42, C_99)": -330.5296892438616
+            }
+          },
+          {
+            "answer": " answer := <MISSING> unless evidence(node_99)",
+            "case_id": "p35-null-05-1",
+            "prediction": " compose[edge_17 \u2192 edge_42 \u2192 edge_99]",
+            "scores": {
+              " answer := <MISSING> unless evidence(node_99)": -331.1058807373047,
+              " compose[edge_17 \u2192 edge_42 \u2192 edge_99]": -315.7011239188058,
+              " relation(A_17, B_42) and relation(B_42, C_99)": -330.5296892438616
+            }
+          },
+          {
+            "answer": " answer := <MISSING> unless evidence(node_99)",
+            "case_id": "p35-null-05-2",
+            "prediction": " compose[edge_17 \u2192 edge_42 \u2192 edge_99]",
+            "scores": {
+              " answer := <MISSING> unless evidence(node_99)": -331.1058807373047,
+              " compose[edge_17 \u2192 edge_42 \u2192 edge_99]": -315.7011239188058,
+              " relation(A_17, B_42) and relation(B_42, C_99)": -330.5296892438616
+            }
+          }
+        ]
+      },
+      "tokenizer_artifact": "tokenizer-16384.json.gz",
+      "tokenizer_sha256": "0a83fb9280ef5309f3351a5ec0dd9889940da374b3e17d02a687c1c307e1fd1b",
+      "unique_prompt_candidate_jobs": 18,
+      "vocabulary_size": 16384
+    },
+    {
+      "adapter_identity_sha256": "5625b9c9588ca92a0e6f220c49ad2f4ee92b349b532abebbc4c24e596ce9c578",
+      "bias_by_mode": {
+        "byte_normalized": {
+          "balanced_hidden_answer_accuracy": 0.6666666666666666,
+          "candidate_win_histogram": {
+            " 00000000000000000000000000000127": 3,
+            " SELECT value FROM state_log WHERE logical_time <= 17 ORDER BY priority DESC;": 3,
+            " answer := <MISSING> unless evidence(node_99)": 3,
+            " entity_00000_edge_case_90172564 -> entity_00000_result": 3,
+            " user.name+experiment@example.invalid": 3,
+            " x\t:=\tvalue_1\nnext_line_1()": 3
+          },
+          "cases": 18,
+          "effective_prompt_groups": 6,
+          "fewest_token_selection_rate": 0.8333333333333334,
+          "first_position_selection_rate": 0.3333333333333333,
+          "maximum_first_token_selection_share": 0.16666666666666666,
+          "rotation_stability_rate": 1.0,
+          "selected_first_token_histogram": {
+            "1165": 3,
+            "1312": 3,
+            "13907": 3,
+            "1659": 3,
+            "516": 3,
+            "6966": 3
+          },
+          "shortest_utf8_selection_rate": 0.5
+        },
+        "sum": {
+          "balanced_hidden_answer_accuracy": 0.5,
+          "candidate_win_histogram": {
+            " 00000000000000000000000000000127": 3,
+            " answer := <MISSING> unless evidence(node_99)": 3,
+            " entity_00000_edge_case_90172564 -> entity_00000_result": 3,
+            " user.name+experiment@example.invalid": 3,
+            " x\t:=\tvalue_1\nnext_line_1()": 3,
+            " {\"event\":\"rollback\",\"time\":17,\"priority\":5}": 3
+          },
+          "cases": 18,
+          "effective_prompt_groups": 6,
+          "fewest_token_selection_rate": 1.0,
+          "first_position_selection_rate": 0.3333333333333333,
+          "maximum_first_token_selection_share": 0.16666666666666666,
+          "rotation_stability_rate": 1.0,
+          "selected_first_token_histogram": {
+            "1165": 3,
+            "1302": 3,
+            "1312": 3,
+            "1659": 3,
+            "516": 3,
+            "6966": 3
+          },
+          "shortest_utf8_selection_rate": 0.6666666666666666
+        },
+        "token_normalized": {
+          "balanced_hidden_answer_accuracy": 0.16666666666666666,
+          "candidate_win_histogram": {
+            " 00000000000000000000000000000127": 3,
+            " C:\\models\\an-ra\\checkpoint_00000042.pt": 3,
+            " compose[edge_17 \u2192 edge_42 \u2192 edge_99]": 3,
+            " entity_00000_edge_case_90172564 -> entity_00000_result": 3,
+            " if (counter <= 17) { state = previous_state; }": 3,
+            " x\t:=\tvalue_1\nnext_line_1()": 3
+          },
+          "cases": 18,
+          "effective_prompt_groups": 6,
+          "fewest_token_selection_rate": 0.5,
+          "first_position_selection_rate": 0.3333333333333333,
+          "maximum_first_token_selection_share": 0.16666666666666666,
+          "rotation_stability_rate": 1.0,
+          "selected_first_token_histogram": {
+            "1165": 3,
+            "13621": 3,
+            "389": 3,
+            "439": 3,
+            "516": 3,
+            "6966": 3
+          },
+          "shortest_utf8_selection_rate": 0.5
+        }
+      },
+      "candidate_tokenizations": [
+        {
+          "candidate": " answer := <MISSING> unless evidence(node_99)",
+          "prompt_sha256": "0eab1dc2f6b6491a614fa8fd256ebc7ad456c072b51daa14b8679876e1a7f6ee",
+          "token_ids": [
+            1312,
+            10513,
+            828,
+            20735,
+            1660,
+            33,
+            7281,
+            1102,
+            11,
+            2350,
+            66,
+            2394,
+            12
+          ],
+          "token_logprobs": [
+            -320.3747863769531,
+            -345.6213073730469,
+            -343.6148376464844,
+            -307.4552307128906,
+            -294.9820861816406,
+            -302.21044921875,
+            -344.64874267578125,
+            -378.39483642578125,
+            -365.4129638671875,
+            -350.31256103515625,
+            -346.9400939941406,
+            -321.53485107421875,
+            -325.4242248535156
+          ]
+        },
+        {
+          "candidate": " compose[edge_17 \u2192 edge_42 \u2192 edge_99]",
+          "prompt_sha256": "0eab1dc2f6b6491a614fa8fd256ebc7ad456c072b51daa14b8679876e1a7f6ee",
+          "token_ids": [
+            13621,
+            62,
+            9134,
+            66,
+            3724,
+            1849,
+            4175,
+            66,
+            4096,
+            1849,
+            4175,
+            66,
+            2394,
+            64
+          ],
+          "token_logprobs": [
+            -284.22064208984375,
+            -326.3602294921875,
+            -280.2812194824219,
+            -356.26251220703125,
+            -325.23065185546875,
+            -320.57794189453125,
+            -341.430908203125,
+            -263.3166809082031,
+            -340.3049621582031,
+            -338.9678955078125,
+            -337.562744140625,
+            -261.5590515136719,
+            -320.85565185546875,
+            -333.5779724121094
+          ]
+        },
+        {
+          "candidate": " relation(A_17, B_42) and relation(B_42, C_99)",
+          "prompt_sha256": "0eab1dc2f6b6491a614fa8fd256ebc7ad456c072b51daa14b8679876e1a7f6ee",
+          "token_ids": [
+            2431,
+            11,
+            36,
+            66,
+            3724,
+            15,
+            613,
+            66,
+            4096,
+            12,
+            339,
+            2431,
+            11,
+            37,
+            66,
+            4096,
+            15,
+            439,
+            66,
+            2394,
+            12
+          ],
+          "token_logprobs": [
+            -318.615478515625,
+            -323.6494140625,
+            -352.3503723144531,
+            -331.599853515625,
+            -324.7608642578125,
+            -320.784423828125,
+            -346.24444580078125,
+            -321.6011657714844,
+            -336.9243469238281,
+            -328.31512451171875,
+            -331.6373291015625,
+            -317.40093994140625,
+            -334.2438049316406,
+            -330.0658874511719,
+            -342.014404296875,
+            -337.0379333496094,
+            -325.7285461425781,
+            -375.0286560058594,
+            -313.46099853515625,
+            -328.1345520019531,
+            -320.6914978027344
+          ]
+        },
+        {
+          "candidate": " SELECT value FROM state_log WHERE logical_time <= 17 ORDER BY priority DESC;",
+          "prompt_sha256": "1483f25a5d944adebabfbfe7b50be9c2e0e1f07bd29bcabf50e957a7f2d75bfc",
+          "token_ids": [
+            13907,
+            910,
+            7343,
+            936,
+            66,
+            730,
+            5811,
+            6523,
+            66,
+            714,
+            1347,
+            3918,
+            20937,
+            16784,
+            8098,
+            20435,
+            38,
+            30
+          ],
+          "token_logprobs": [
+            -347.9648132324219,
+            -325.3212585449219,
+            -296.50762939453125,
+            -352.1846923828125,
+            -336.8791198730469,
+            -346.4565124511719,
+            -303.1391906738281,
+            -365.6250305175781,
+            -304.6653747558594,
+            -355.26983642578125,
+            -341.9827880859375,
+            -358.4053039550781,
+            -327.544921875,
+            -325.3196105957031,
+            -327.03155517578125,
+            -295.3230285644531,
+            -314.9632263183594,
+            -318.3147888183594
+          ]
+        },
+        {
+          "candidate": " if (counter <= 17) { state = previous_state; }",
+          "prompt_sha256": "1483f25a5d944adebabfbfe7b50be9c2e0e1f07bd29bcabf50e957a7f2d75bfc",
+          "token_ids": [
+            389,
+            390,
+            2610,
+            1347,
+            3918,
+            12,
+            434,
+            936,
+            301,
+            3153,
+            66,
+            950,
+            30,
+            840
+          ],
+          "token_logprobs": [
+            -325.57281494140625,
+            -306.7239990234375,
+            -291.13720703125,
+            -308.7238464355469,
+            -353.533203125,
+            -288.91900634765625,
+            -321.48602294921875,
+            -290.62548828125,
+            -331.7731628417969,
+            -308.8551940917969,
+            -326.7828674316406,
+            -352.0630187988281,
+            -316.683837890625,
+            -326.19940185546875
+          ]
+        },
+        {
+          "candidate": " {\"event\":\"rollback\",\"time\":17,\"priority\":5}",
+          "prompt_sha256": "1483f25a5d944adebabfbfe7b50be9c2e0e1f07bd29bcabf50e957a7f2d75bfc",
+          "token_ids": [
+            1302,
+            3355,
+            11605,
+            2503,
+            13504,
+            714,
+            319,
+            3724,
+            17879,
+            7301,
+            319,
+            24,
+            96
+          ],
+          "token_logprobs": [
+            -331.07073974609375,
+            -304.8740234375,
+            -289.31048583984375,
+            -305.0127868652344,
+            -333.9543151855469,
+            -350.43707275390625,
+            -296.5210266113281,
+            -381.3255615234375,
+            -305.2450256347656,
+            -323.0260009765625,
+            -364.1729736328125,
+            -326.4485778808594,
+            -321.53656005859375
+          ]
+        },
+        {
+          "candidate": " 00000000000000000000000000000127",
+          "prompt_sha256": "7a4453ad3c51565e35d883b3bb4f0d93210ee1d740af5ce26d1d31bb41c8b257",
+          "token_ids": [
+            516,
+            5239,
+            5239,
+            7843,
+            9044
+          ],
+          "token_logprobs": [
+            -315.38555908203125,
+            -330.78033447265625,
+            0.0,
+            -308.0477600097656,
+            -286.8135681152344
+          ]
+        },
+        {
+          "candidate": " alpha_beta_gamma::node-17/revision_0042",
+          "prompt_sha256": "7a4453ad3c51565e35d883b3bb4f0d93210ee1d740af5ce26d1d31bb41c8b257",
+          "token_ids": [
+            7208,
+            66,
+            17030,
+            66,
+            74,
+            399,
+            7457,
+            12260,
+            2350,
+            16,
+            3724,
+            18,
+            5665,
+            66,
+            615,
+            4096
+          ],
+          "token_logprobs": [
+            -319.01068115234375,
+            -327.9864501953125,
+            -305.4243469238281,
+            -307.8454284667969,
+            -271.437744140625,
+            -354.70343017578125,
+            -327.72149658203125,
+            -332.0504150390625,
+            -261.3176574707031,
+            -369.35504150390625,
+            -369.65679931640625,
+            -315.9598083496094,
+            -305.83447265625,
+            -326.9931335449219,
+            -314.16265869140625,
+            -326.97198486328125
+          ]
+        },
+        {
+          "candidate": " rollback(transaction_id=QZ-19-ALPHA, semantic_time=2048)",
+          "prompt_sha256": "7a4453ad3c51565e35d883b3bb4f0d93210ee1d740af5ce26d1d31bb41c8b257",
+          "token_ids": [
+            3515,
+            11,
+            3260,
+            1175,
+            66,
+            328,
+            32,
+            52,
+            61,
+            16,
+            3419,
+            16,
+            24342,
+            15,
+            8388,
+            66,
+            714,
+            32,
+            11679,
+            12
+          ],
+          "token_logprobs": [
+            -318.5650634765625,
+            -302.831298828125,
+            -385.7464294433594,
+            -286.5472106933594,
+            -320.6130065917969,
+            -362.54840087890625,
+            -318.558837890625,
+            -362.1901550292969,
+            -338.0669250488281,
+            -320.2006530761719,
+            -337.13140869140625,
+            -291.32781982421875,
+            -317.65655517578125,
+            -345.05914306640625,
+            -343.3094787597656,
+            -382.4263000488281,
+            -362.1017150878906,
+            -329.5505676269531,
+            -348.67156982421875,
+            -346.2417297363281
+          ]
+        },
+        {
+          "candidate": " C:\\models\\an-ra\\checkpoint_00000042.pt",
+          "prompt_sha256": "83ddfed4b229ce263001c154bf06eab39dc8c7fb5c4be8df89a8dd3e21972496",
+          "token_ids": [
+            439,
+            5382,
+            20528,
+            63,
+            286,
+            16,
+            307,
+            63,
+            853,
+            66,
+            2510,
+            615,
+            4096,
+            17,
+            396
+          ],
+          "token_logprobs": [
+            -327.802978515625,
+            -277.89422607421875,
+            -323.76666259765625,
+            -378.01171875,
+            -301.9612731933594,
+            -329.1850891113281,
+            -340.5205383300781,
+            -333.8345947265625,
+            -307.5029296875,
+            -296.1169738769531,
+            -294.6649475097656,
+            -312.49822998046875,
+            -324.6530456542969,
+            -330.0392150878906,
+            -285.4613037109375
+          ]
+        },
+        {
+          "candidate": " sha256:09fcc3c176c932cd102d45c3a2c74149",
+          "prompt_sha256": "83ddfed4b229ce263001c154bf06eab39dc8c7fb5c4be8df89a8dd3e21972496",
+          "token_ids": [
+            2753,
+            944,
+            29,
+            11558,
+            73,
+            2382,
+            22,
+            70,
+            19723,
+            70,
+            21380,
+            9273,
+            19578,
+            71,
+            2337,
+            70,
+            22,
+            68,
+            21,
+            70,
+            17887,
+            18846
+          ],
+          "token_logprobs": [
+            -343.5054016113281,
+            -355.5016174316406,
+            -296.455810546875,
+            -345.689208984375,
+            -363.3257751464844,
+            -292.363037109375,
+            -359.5453796386719,
+            -297.13800048828125,
+            -288.9893493652344,
+            -304.78424072265625,
+            -304.63934326171875,
+            -356.9035949707031,
+            -322.7581787109375,
+            -303.7535705566406,
+            -371.6326904296875,
+            -302.5688781738281,
+            -295.280517578125,
+            -318.2547302246094,
+            -345.9896240234375,
+            -306.073486328125,
+            -296.61114501953125,
+            -327.73907470703125
+          ]
+        },
+        {
+          "candidate": " user.name+experiment@example.invalid",
+          "prompt_sha256": "83ddfed4b229ce263001c154bf06eab39dc8c7fb5c4be8df89a8dd3e21972496",
+          "token_ids": [
+            1659,
+            17,
+            842,
+            14,
+            6601,
+            35,
+            3621,
+            17,
+            6020
+          ],
+          "token_logprobs": [
+            -356.4464416503906,
+            -316.7553405761719,
+            -322.450439453125,
+            -318.8895263671875,
+            -332.4307861328125,
+            -331.74725341796875,
+            -323.646240234375,
+            -365.1004638671875,
+            -293.6417541503906
+          ]
+        },
+        {
+          "candidate": " DV-9017-2564 maps to FR90172564-G.",
+          "prompt_sha256": "914fa3a2bdfd8e662ddf980e48ed7bc1d3338d898eb64d5c9f580cdf06d7ee0b",
+          "token_ids": [
+            510,
+            57,
+            16,
+            6555,
+            3724,
+            16,
+            944,
+            23,
+            5350,
+            333,
+            476,
+            53,
+            6555,
+            3724,
+            944,
+            23,
+            16,
+            42,
+            17
+          ],
+          "token_logprobs": [
+            -333.1279296875,
+            -281.74920654296875,
+            -344.41448974609375,
+            -353.14544677734375,
+            -335.9132995605469,
+            -320.1184997558594,
+            -360.66412353515625,
+            -352.3794860839844,
+            -295.9657897949219,
+            -339.033935546875,
+            -341.84130859375,
+            -336.3067932128906,
+            -342.7884826660156,
+            -332.85223388671875,
+            -349.8072509765625,
+            -353.1732177734375,
+            -293.6412048339844,
+            -322.13055419921875,
+            -318.5760498046875
+          ]
+        },
+        {
+          "candidate": " entity_00000_edge_case_90172564 -> entity_00000_result",
+          "prompt_sha256": "914fa3a2bdfd8e662ddf980e48ed7bc1d3338d898eb64d5c9f580cdf06d7ee0b",
+          "token_ids": [
+            6966,
+            66,
+            13640,
+            66,
+            9134,
+            66,
+            5423,
+            66,
+            6555,
+            3724,
+            944,
+            23,
+            535,
+            6966,
+            66,
+            13640,
+            66,
+            966
+          ],
+          "token_logprobs": [
+            -347.2715148925781,
+            -308.58270263671875,
+            -286.5626220703125,
+            -242.9221954345703,
+            -355.5920715332031,
+            -362.13983154296875,
+            -339.72332763671875,
+            -319.8436584472656,
+            -325.2586669921875,
+            -341.85382080078125,
+            -346.06597900390625,
+            -352.28643798828125,
+            -314.0058898925781,
+            -336.7899169921875,
+            -306.4812927246094,
+            -298.0577392578125,
+            -251.17965698242188,
+            -323.0438232421875
+          ]
+        },
+        {
+          "candidate": " value_00000 = -381.90172564e-07; count=91,700,021",
+          "prompt_sha256": "914fa3a2bdfd8e662ddf980e48ed7bc1d3338d898eb64d5c9f580cdf06d7ee0b",
+          "token_ids": [
+            910,
+            66,
+            13640,
+            301,
+            426,
+            8448,
+            20,
+            17,
+            6555,
+            3724,
+            944,
+            23,
+            72,
+            16,
+            2972,
+            30,
+            1014,
+            32,
+            14097,
+            15,
+            21376,
+            15,
+            4015,
+            20
+          ],
+          "token_logprobs": [
+            -328.7230224609375,
+            -302.02362060546875,
+            -284.462890625,
+            -315.8154296875,
+            -326.1354675292969,
+            -282.6959533691406,
+            -336.385498046875,
+            -331.5724792480469,
+            -323.94879150390625,
+            -336.3604431152344,
+            -344.2691955566406,
+            -354.9686584472656,
+            -293.95208740234375,
+            -374.97991943359375,
+            -339.7393493652344,
+            -353.2889099121094,
+            -351.1663818359375,
+            -347.49078369140625,
+            -343.0428161621094,
+            -343.0067138671875,
+            -350.6037902832031,
+            -301.93719482421875,
+            -363.78509521484375,
+            -327.0328369140625
+          ]
+        },
+        {
+          "candidate": " x\t:=\tvalue_1\nnext_line_1()",
+          "prompt_sha256": "e3a1c0df914e43496e0826f673601cf98de2656e3e45685136b481f2be093e50",
+          "token_ids": [
+            1165,
+            201,
+            29,
+            32,
+            201,
+            1356,
+            66,
+            20,
+            202,
+            2744,
+            66,
+            775,
+            66,
+            20,
+            384
+          ],
+          "token_logprobs": [
+            -347.239013671875,
+            -334.58660888671875,
+            -320.5213317871094,
+            -356.3114929199219,
+            -288.7928771972656,
+            -308.507568359375,
+            -298.77447509765625,
+            -353.7459411621094,
+            -342.03997802734375,
+            -310.1822204589844,
+            -272.3677062988281,
+            -306.5582580566406,
+            -272.3773498535156,
+            -342.338134765625,
+            -342.84063720703125
+          ]
+        },
+        {
+          "candidate": " \u0394x=77.31005892e+04; \u0928\u092e\u0942\u0928\u093e-1; \u6771\u4eac; \ud83e\uddea",
+          "prompt_sha256": "e3a1c0df914e43496e0826f673601cf98de2656e3e45685136b481f2be093e50",
+          "token_ids": [
+            9284,
+            246,
+            91,
+            32,
+            16989,
+            17,
+            22,
+            3669,
+            18445,
+            7179,
+            72,
+            14,
+            7246,
+            30,
+            224,
+            160,
+            101,
+            105,
+            160,
+            101,
+            110,
+            160,
+            102,
+            228,
+            160,
+            101,
+            105,
+            160,
+            101,
+            126,
+            16,
+            20,
+            30,
+            224,
+            166,
+            255,
+            113,
+            164,
+            122,
+            109,
+            30,
+            224,
+            176,
+            257,
+            104,
+            107
+          ],
+          "token_logprobs": [
+            -328.9102783203125,
+            -323.62957763671875,
+            -321.0171203613281,
+            -289.51995849609375,
+            -330.514892578125,
+            -332.9583435058594,
+            -329.60711669921875,
+            -280.1580810546875,
+            -305.7048645019531,
+            -364.697021484375,
+            -319.4812316894531,
+            -343.54266357421875,
+            -278.00872802734375,
+            -366.75244140625,
+            -346.8908386230469,
+            -302.79766845703125,
+            -346.07440185546875,
+            -339.7918701171875,
+            -278.4921569824219,
+            -346.6623840332031,
+            -331.0956726074219,
+            -329.2345886230469,
+            -323.0544738769531,
+            -286.4825134277344,
+            -335.4854431152344,
+            -348.07025146484375,
+            -340.7055969238281,
+            -268.003173828125,
+            -345.4747619628906,
+            -292.116943359375,
+            -352.0802917480469,
+            -322.8746032714844,
+            -334.09393310546875,
+            -350.2657165527344,
+            -307.12701416015625,
+            -382.97265625,
+            -367.9771423339844,
+            -329.27740478515625,
+            -327.618896484375,
+            -309.9749755859375,
+            -281.38214111328125,
+            -354.7648620605469,
+            -322.08892822265625,
+            -368.393310546875,
+            -359.1468200683594,
+            -298.53125
+          ]
+        },
+        {
+          "candidate": " \u2200x\u2208S_1: P_310(x) \u21d2 \u2203y R_05892(x,y)",
+          "prompt_sha256": "e3a1c0df914e43496e0826f673601cf98de2656e3e45685136b481f2be093e50",
+          "token_ids": [
+            4995,
+            226,
+            91,
+            7330,
+            234,
+            54,
+            66,
+            20,
+            29,
+            432,
+            66,
+            22,
+            1432,
+            11,
+            91,
+            12,
+            385,
+            233,
+            244,
+            4995,
+            229,
+            92,
+            478,
+            66,
+            4671,
+            27,
+            7179,
+            11,
+            91,
+            15,
+            92,
+            12
+          ],
+          "token_logprobs": [
+            -339.33642578125,
+            -375.42523193359375,
+            -334.8221130371094,
+            -310.31304931640625,
+            -356.95928955078125,
+            -288.078125,
+            -321.2068786621094,
+            -352.6390075683594,
+            -331.4070739746094,
+            -330.5297546386719,
+            -303.45263671875,
+            -318.151611328125,
+            -321.69793701171875,
+            -333.8863830566406,
+            -380.9260559082031,
+            -280.9234924316406,
+            -298.4468078613281,
+            -344.3412780761719,
+            -314.63946533203125,
+            -351.6518859863281,
+            -355.4335021972656,
+            -320.41644287109375,
+            -301.52276611328125,
+            -347.7491760253906,
+            -337.0555419921875,
+            -335.77325439453125,
+            -344.19134521484375,
+            -351.3447265625,
+            -381.76898193359375,
+            -281.927978515625,
+            -343.7004699707031,
+            -338.0333557128906
+          ]
+        }
+      ],
+      "elapsed_seconds": 0.42320789999939734,
+      "finite": true,
+      "maximum_sequence_tokens": 78,
+      "model_sha256": "6fd07f45a4e19d3eb98476a31047cc841bea39ccabd8efc7bc6d71473086b04f",
+      "parameters": 35414400,
+      "roundtrip_and_trace_coverage": true,
+      "scores_by_mode": {
+        "byte_normalized": [
+          {
+            "answer": " value_00000 = -381.90172564e-07; count=91,700,021",
+            "case_id": "p35-null-00-0",
+            "prediction": " entity_00000_edge_case_90172564 -> entity_00000_result",
+            "scores": {
+              " DV-9017-2564 maps to FR90172564-G.": -180.21798008510044,
+              " entity_00000_edge_case_90172564 -> entity_00000_result": -104.6847481467507,
+              " value_00000 = -381.90172564e-07; count=91,700,021": -159.14774658203126
+            }
+          },
+          {
+            "answer": " value_00000 = -381.90172564e-07; count=91,700,021",
+            "case_id": "p35-null-00-1",
+            "prediction": " entity_00000_edge_case_90172564 -> entity_00000_result",
+            "scores": {
+              " DV-9017-2564 maps to FR90172564-G.": -180.21798008510044,
+              " entity_00000_edge_case_90172564 -> entity_00000_result": -104.6847481467507,
+              " value_00000 = -381.90172564e-07; count=91,700,021": -159.14774658203126
+            }
+          },
+          {
+            "answer": " value_00000 = -381.90172564e-07; count=91,700,021",
+            "case_id": "p35-null-00-2",
+            "prediction": " entity_00000_edge_case_90172564 -> entity_00000_result",
+            "scores": {
+              " DV-9017-2564 maps to FR90172564-G.": -180.21798008510044,
+              " entity_00000_edge_case_90172564 -> entity_00000_result": -104.6847481467507,
+              " value_00000 = -381.90172564e-07; count=91,700,021": -159.14774658203126
+            }
+          },
+          {
+            "answer": " x\t:=\tvalue_1\nnext_line_1()",
+            "case_id": "p35-null-01-0",
+            "prediction": " x\t:=\tvalue_1\nnext_line_1()",
+            "scores": {
+              " x\t:=\tvalue_1\nnext_line_1()": -177.6734664351852,
+              " \u0394x=77.31005892e+04; \u0928\u092e\u0942\u0928\u093e-1; \u6771\u4eac; \ud83e\uddea": -283.8397170732606,
+              " \u2200x\u2208S_1: P_310(x) \u21d2 \u2203y R_05892(x,y)": -247.15702429483102
+            }
+          },
+          {
+            "answer": " x\t:=\tvalue_1\nnext_line_1()",
+            "case_id": "p35-null-01-1",
+            "prediction": " x\t:=\tvalue_1\nnext_line_1()",
+            "scores": {
+              " x\t:=\tvalue_1\nnext_line_1()": -177.6734664351852,
+              " \u0394x=77.31005892e+04; \u0928\u092e\u0942\u0928\u093e-1; \u6771\u4eac; \ud83e\uddea": -283.8397170732606,
+              " \u2200x\u2208S_1: P_310(x) \u21d2 \u2203y R_05892(x,y)": -247.15702429483102
+            }
+          },
+          {
+            "answer": " x\t:=\tvalue_1\nnext_line_1()",
+            "case_id": "p35-null-01-2",
+            "prediction": " x\t:=\tvalue_1\nnext_line_1()",
+            "scores": {
+              " x\t:=\tvalue_1\nnext_line_1()": -177.6734664351852,
+              " \u0394x=77.31005892e+04; \u0928\u092e\u0942\u0928\u093e-1; \u6771\u4eac; \ud83e\uddea": -283.8397170732606,
+              " \u2200x\u2208S_1: P_310(x) \u21d2 \u2203y R_05892(x,y)": -247.15702429483102
+            }
+          },
+          {
+            "answer": " rollback(transaction_id=QZ-19-ALPHA, semantic_time=2048)",
+            "case_id": "p35-null-02-0",
+            "prediction": " 00000000000000000000000000000127",
+            "scores": {
+              " 00000000000000000000000000000127": -37.60688550544508,
+              " alpha_beta_gamma::node-17/revision_0042": -128.41078872680663,
+              " rollback(transaction_id=QZ-19-ALPHA, semantic_time=2048)": -117.88323278594436
+            }
+          },
+          {
+            "answer": " rollback(transaction_id=QZ-19-ALPHA, semantic_time=2048)",
+            "case_id": "p35-null-02-1",
+            "prediction": " 00000000000000000000000000000127",
+            "scores": {
+              " 00000000000000000000000000000127": -37.60688550544508,
+              " alpha_beta_gamma::node-17/revision_0042": -128.41078872680663,
+              " rollback(transaction_id=QZ-19-ALPHA, semantic_time=2048)": -117.88323278594436
+            }
+          },
+          {
+            "answer": " rollback(transaction_id=QZ-19-ALPHA, semantic_time=2048)",
+            "case_id": "p35-null-02-2",
+            "prediction": " 00000000000000000000000000000127",
+            "scores": {
+              " 00000000000000000000000000000127": -37.60688550544508,
+              " alpha_beta_gamma::node-17/revision_0042": -128.41078872680663,
+              " rollback(transaction_id=QZ-19-ALPHA, semantic_time=2048)": -117.88323278594436
+            }
+          },
+          {
+            "answer": " user.name+experiment@example.invalid",
+            "case_id": "p35-null-03-0",
+            "prediction": " user.name+experiment@example.invalid",
+            "scores": {
+              " C:\\models\\an-ra\\checkpoint_00000042.pt": -122.15163402068309,
+              " sha256:09fcc3c176c932cd102d45c3a2c74149": -177.48756637573243,
+              " user.name+experiment@example.invalid": -80.02995259052999
+            }
+          },
+          {
+            "answer": " user.name+experiment@example.invalid",
+            "case_id": "p35-null-03-1",
+            "prediction": " user.name+experiment@example.invalid",
+            "scores": {
+              " C:\\models\\an-ra\\checkpoint_00000042.pt": -122.15163402068309,
+              " sha256:09fcc3c176c932cd102d45c3a2c74149": -177.48756637573243,
+              " user.name+experiment@example.invalid": -80.02995259052999
+            }
+          },
+          {
+            "answer": " user.name+experiment@example.invalid",
+            "case_id": "p35-null-03-2",
+            "prediction": " user.name+experiment@example.invalid",
+            "scores": {
+              " C:\\models\\an-ra\\checkpoint_00000042.pt": -122.15163402068309,
+              " sha256:09fcc3c176c932cd102d45c3a2c74149": -177.48756637573243,
+              " user.name+experiment@example.invalid": -80.02995259052999
+            }
+          },
+          {
+            "answer": " SELECT value FROM state_log WHERE logical_time <= 17 ORDER BY priority DESC;",
+            "case_id": "p35-null-04-0",
+            "prediction": " SELECT value FROM state_log WHERE logical_time <= 17 ORDER BY priority DESC;",
+            "scores": {
+              " SELECT value FROM state_log WHERE logical_time <= 17 ORDER BY priority DESC;": -77.18050235896915,
+              " if (counter <= 17) { state = previous_state; }": -94.66125683074301,
+              " {\"event\":\"rollback\",\"time\":17,\"priority\":5}": -96.20307159423828
+            }
+          },
+          {
+            "answer": " SELECT value FROM state_log WHERE logical_time <= 17 ORDER BY priority DESC;",
+            "case_id": "p35-null-04-1",
+            "prediction": " SELECT value FROM state_log WHERE logical_time <= 17 ORDER BY priority DESC;",
+            "scores": {
+              " SELECT value FROM state_log WHERE logical_time <= 17 ORDER BY priority DESC;": -77.18050235896915,
+              " if (counter <= 17) { state = previous_state; }": -94.66125683074301,
+              " {\"event\":\"rollback\",\"time\":17,\"priority\":5}": -96.20307159423828
+            }
+          },
+          {
+            "answer": " SELECT value FROM state_log WHERE logical_time <= 17 ORDER BY priority DESC;",
+            "case_id": "p35-null-04-2",
+            "prediction": " SELECT value FROM state_log WHERE logical_time <= 17 ORDER BY priority DESC;",
+            "scores": {
+              " SELECT value FROM state_log WHERE logical_time <= 17 ORDER BY priority DESC;": -77.18050235896915,
+              " if (counter <= 17) { state = previous_state; }": -94.66125683074301,
+              " {\"event\":\"rollback\",\"time\":17,\"priority\":5}": -96.20307159423828
+            }
+          },
+          {
+            "answer": " answer := <MISSING> unless evidence(node_99)",
+            "case_id": "p35-null-05-0",
+            "prediction": " answer := <MISSING> unless evidence(node_99)",
+            "scores": {
+              " answer := <MISSING> unless evidence(node_99)": -96.59837714301216,
+              " compose[edge_17 \u2192 edge_42 \u2192 edge_99]": -108.0611966761147,
+              " relation(A_17, B_42) and relation(B_42, C_99)": -151.3106530230978
+            }
+          },
+          {
+            "answer": " answer := <MISSING> unless evidence(node_99)",
+            "case_id": "p35-null-05-1",
+            "prediction": " answer := <MISSING> unless evidence(node_99)",
+            "scores": {
+              " answer := <MISSING> unless evidence(node_99)": -96.59837714301216,
+              " compose[edge_17 \u2192 edge_42 \u2192 edge_99]": -108.0611966761147,
+              " relation(A_17, B_42) and relation(B_42, C_99)": -151.3106530230978
+            }
+          },
+          {
+            "answer": " answer := <MISSING> unless evidence(node_99)",
+            "case_id": "p35-null-05-2",
+            "prediction": " answer := <MISSING> unless evidence(node_99)",
+            "scores": {
+              " answer := <MISSING> unless evidence(node_99)": -96.59837714301216,
+              " compose[edge_17 \u2192 edge_42 \u2192 edge_99]": -108.0611966761147,
+              " relation(A_17, B_42) and relation(B_42, C_99)": -151.3106530230978
+            }
+          }
+        ],
+        "sum": [
+          {
+            "answer": " value_00000 = -381.90172564e-07; count=91,700,021",
+            "case_id": "p35-null-00-0",
+            "prediction": " entity_00000_edge_case_90172564 -> entity_00000_result",
+            "scores": {
+              " DV-9017-2564 maps to FR90172564-G.": -6307.629302978516,
+              " entity_00000_edge_case_90172564 -> entity_00000_result": -5757.661148071289,
+              " value_00000 = -381.90172564e-07; count=91,700,021": -7957.3873291015625
+            }
+          },
+          {
+            "answer": " value_00000 = -381.90172564e-07; count=91,700,021",
+            "case_id": "p35-null-00-1",
+            "prediction": " entity_00000_edge_case_90172564 -> entity_00000_result",
+            "scores": {
+              " DV-9017-2564 maps to FR90172564-G.": -6307.629302978516,
+              " entity_00000_edge_case_90172564 -> entity_00000_result": -5757.661148071289,
+              " value_00000 = -381.90172564e-07; count=91,700,021": -7957.3873291015625
+            }
+          },
+          {
+            "answer": " value_00000 = -381.90172564e-07; count=91,700,021",
+            "case_id": "p35-null-00-2",
+            "prediction": " entity_00000_edge_case_90172564 -> entity_00000_result",
+            "scores": {
+              " DV-9017-2564 maps to FR90172564-G.": -6307.629302978516,
+              " entity_00000_edge_case_90172564 -> entity_00000_result": -5757.661148071289,
+              " value_00000 = -381.90172564e-07; count=91,700,021": -7957.3873291015625
+            }
+          },
+          {
+            "answer": " x\t:=\tvalue_1\nnext_line_1()",
+            "case_id": "p35-null-01-0",
+            "prediction": " x\t:=\tvalue_1\nnext_line_1()",
+            "scores": {
+              " x\t:=\tvalue_1\nnext_line_1()": -4797.18359375,
+              " \u0394x=77.31005892e+04; \u0928\u092e\u0942\u0928\u093e-1; \u6771\u4eac; \ud83e\uddea": -15043.505004882812,
+              " \u2200x\u2208S_1: P_310(x) \u21d2 \u2203y R_05892(x,y)": -10627.752044677734
+            }
+          },
+          {
+            "answer": " x\t:=\tvalue_1\nnext_line_1()",
+            "case_id": "p35-null-01-1",
+            "prediction": " x\t:=\tvalue_1\nnext_line_1()",
+            "scores": {
+              " x\t:=\tvalue_1\nnext_line_1()": -4797.18359375,
+              " \u0394x=77.31005892e+04; \u0928\u092e\u0942\u0928\u093e-1; \u6771\u4eac; \ud83e\uddea": -15043.505004882812,
+              " \u2200x\u2208S_1: P_310(x) \u21d2 \u2203y R_05892(x,y)": -10627.752044677734
+            }
+          },
+          {
+            "answer": " x\t:=\tvalue_1\nnext_line_1()",
+            "case_id": "p35-null-01-2",
+            "prediction": " x\t:=\tvalue_1\nnext_line_1()",
+            "scores": {
+              " x\t:=\tvalue_1\nnext_line_1()": -4797.18359375,
+              " \u0394x=77.31005892e+04; \u0928\u092e\u0942\u0928\u093e-1; \u6771\u4eac; \ud83e\uddea": -15043.505004882812,
+              " \u2200x\u2208S_1: P_310(x) \u21d2 \u2203y R_05892(x,y)": -10627.752044677734
+            }
+          },
+          {
+            "answer": " rollback(transaction_id=QZ-19-ALPHA, semantic_time=2048)",
+            "case_id": "p35-null-02-0",
+            "prediction": " 00000000000000000000000000000127",
+            "scores": {
+              " 00000000000000000000000000000127": -1241.0272216796875,
+              " alpha_beta_gamma::node-17/revision_0042": -5136.431549072266,
+              " rollback(transaction_id=QZ-19-ALPHA, semantic_time=2048)": -6719.344268798828
+            }
+          },
+          {
+            "answer": " rollback(transaction_id=QZ-19-ALPHA, semantic_time=2048)",
+            "case_id": "p35-null-02-1",
+            "prediction": " 00000000000000000000000000000127",
+            "scores": {
+              " 00000000000000000000000000000127": -1241.0272216796875,
+              " alpha_beta_gamma::node-17/revision_0042": -5136.431549072266,
+              " rollback(transaction_id=QZ-19-ALPHA, semantic_time=2048)": -6719.344268798828
+            }
+          },
+          {
+            "answer": " rollback(transaction_id=QZ-19-ALPHA, semantic_time=2048)",
+            "case_id": "p35-null-02-2",
+            "prediction": " 00000000000000000000000000000127",
+            "scores": {
+              " 00000000000000000000000000000127": -1241.0272216796875,
+              " alpha_beta_gamma::node-17/revision_0042": -5136.431549072266,
+              " rollback(transaction_id=QZ-19-ALPHA, semantic_time=2048)": -6719.344268798828
+            }
+          },
+          {
+            "answer": " user.name+experiment@example.invalid",
+            "case_id": "p35-null-03-0",
+            "prediction": " user.name+experiment@example.invalid",
+            "scores": {
+              " C:\\models\\an-ra\\checkpoint_00000042.pt": -4763.913726806641,
+              " sha256:09fcc3c176c932cd102d45c3a2c74149": -7099.502655029297,
+              " user.name+experiment@example.invalid": -2961.1082458496094
+            }
+          },
+          {
+            "answer": " user.name+experiment@example.invalid",
+            "case_id": "p35-null-03-1",
+            "prediction": " user.name+experiment@example.invalid",
+            "scores": {
+              " C:\\models\\an-ra\\checkpoint_00000042.pt": -4763.913726806641,
+              " sha256:09fcc3c176c932cd102d45c3a2c74149": -7099.502655029297,
+              " user.name+experiment@example.invalid": -2961.1082458496094
+            }
+          },
+          {
+            "answer": " user.name+experiment@example.invalid",
+            "case_id": "p35-null-03-2",
+            "prediction": " user.name+experiment@example.invalid",
+            "scores": {
+              " C:\\models\\an-ra\\checkpoint_00000042.pt": -4763.913726806641,
+              " sha256:09fcc3c176c932cd102d45c3a2c74149": -7099.502655029297,
+              " user.name+experiment@example.invalid": -2961.1082458496094
+            }
+          },
+          {
+            "answer": " SELECT value FROM state_log WHERE logical_time <= 17 ORDER BY priority DESC;",
+            "case_id": "p35-null-04-0",
+            "prediction": " {\"event\":\"rollback\",\"time\":17,\"priority\":5}",
+            "scores": {
+              " SELECT value FROM state_log WHERE logical_time <= 17 ORDER BY priority DESC;": -5942.898681640625,
+              " if (counter <= 17) { state = previous_state; }": -4449.079071044922,
+              " {\"event\":\"rollback\",\"time\":17,\"priority\":5}": -4232.935150146484
+            }
+          },
+          {
+            "answer": " SELECT value FROM state_log WHERE logical_time <= 17 ORDER BY priority DESC;",
+            "case_id": "p35-null-04-1",
+            "prediction": " {\"event\":\"rollback\",\"time\":17,\"priority\":5}",
+            "scores": {
+              " SELECT value FROM state_log WHERE logical_time <= 17 ORDER BY priority DESC;": -5942.898681640625,
+              " if (counter <= 17) { state = previous_state; }": -4449.079071044922,
+              " {\"event\":\"rollback\",\"time\":17,\"priority\":5}": -4232.935150146484
+            }
+          },
+          {
+            "answer": " SELECT value FROM state_log WHERE logical_time <= 17 ORDER BY priority DESC;",
+            "case_id": "p35-null-04-2",
+            "prediction": " {\"event\":\"rollback\",\"time\":17,\"priority\":5}",
+            "scores": {
+              " SELECT value FROM state_log WHERE logical_time <= 17 ORDER BY priority DESC;": -5942.898681640625,
+              " if (counter <= 17) { state = previous_state; }": -4449.079071044922,
+              " {\"event\":\"rollback\",\"time\":17,\"priority\":5}": -4232.935150146484
+            }
+          },
+          {
+            "answer": " answer := <MISSING> unless evidence(node_99)",
+            "case_id": "p35-null-05-0",
+            "prediction": " answer := <MISSING> unless evidence(node_99)",
+            "scores": {
+              " answer := <MISSING> unless evidence(node_99)": -4346.926971435547,
+              " compose[edge_17 \u2192 edge_42 \u2192 edge_99]": -4430.509063720703,
+              " relation(A_17, B_42) and relation(B_42, C_99)": -6960.2900390625
+            }
+          },
+          {
+            "answer": " answer := <MISSING> unless evidence(node_99)",
+            "case_id": "p35-null-05-1",
+            "prediction": " answer := <MISSING> unless evidence(node_99)",
+            "scores": {
+              " answer := <MISSING> unless evidence(node_99)": -4346.926971435547,
+              " compose[edge_17 \u2192 edge_42 \u2192 edge_99]": -4430.509063720703,
+              " relation(A_17, B_42) and relation(B_42, C_99)": -6960.2900390625
+            }
+          },
+          {
+            "answer": " answer := <MISSING> unless evidence(node_99)",
+            "case_id": "p35-null-05-2",
+            "prediction": " answer := <MISSING> unless evidence(node_99)",
+            "scores": {
+              " answer := <MISSING> unless evidence(node_99)": -4346.926971435547,
+              " compose[edge_17 \u2192 edge_42 \u2192 edge_99]": -4430.509063720703,
+              " relation(A_17, B_42) and relation(B_42, C_99)": -6960.2900390625
+            }
+          }
+        ],
+        "token_normalized": [
+          {
+            "answer": " value_00000 = -381.90172564e-07; count=91,700,021",
+            "case_id": "p35-null-00-0",
+            "prediction": " entity_00000_edge_case_90172564 -> entity_00000_result",
+            "scores": {
+              " DV-9017-2564 maps to FR90172564-G.": -331.9804896304482,
+              " entity_00000_edge_case_90172564 -> entity_00000_result": -319.8700637817383,
+              " value_00000 = -381.90172564e-07; count=91,700,021": -331.55780537923175
+            }
+          },
+          {
+            "answer": " value_00000 = -381.90172564e-07; count=91,700,021",
+            "case_id": "p35-null-00-1",
+            "prediction": " entity_00000_edge_case_90172564 -> entity_00000_result",
+            "scores": {
+              " DV-9017-2564 maps to FR90172564-G.": -331.9804896304482,
+              " entity_00000_edge_case_90172564 -> entity_00000_result": -319.8700637817383,
+              " value_00000 = -381.90172564e-07; count=91,700,021": -331.55780537923175
+            }
+          },
+          {
+            "answer": " value_00000 = -381.90172564e-07; count=91,700,021",
+            "case_id": "p35-null-00-2",
+            "prediction": " entity_00000_edge_case_90172564 -> entity_00000_result",
+            "scores": {
+              " DV-9017-2564 maps to FR90172564-G.": -331.9804896304482,
+              " entity_00000_edge_case_90172564 -> entity_00000_result": -319.8700637817383,
+              " value_00000 = -381.90172564e-07; count=91,700,021": -331.55780537923175
+            }
+          },
+          {
+            "answer": " x\t:=\tvalue_1\nnext_line_1()",
+            "case_id": "p35-null-01-0",
+            "prediction": " x\t:=\tvalue_1\nnext_line_1()",
+            "scores": {
+              " x\t:=\tvalue_1\nnext_line_1()": -319.81223958333334,
+              " \u0394x=77.31005892e+04; \u0928\u092e\u0942\u0928\u093e-1; \u6771\u4eac; \ud83e\uddea": -327.03271749745244,
+              " \u2200x\u2208S_1: P_310(x) \u21d2 \u2203y R_05892(x,y)": -332.1172513961792
+            }
+          },
+          {
+            "answer": " x\t:=\tvalue_1\nnext_line_1()",
+            "case_id": "p35-null-01-1",
+            "prediction": " x\t:=\tvalue_1\nnext_line_1()",
+            "scores": {
+              " x\t:=\tvalue_1\nnext_line_1()": -319.81223958333334,
+              " \u0394x=77.31005892e+04; \u0928\u092e\u0942\u0928\u093e-1; \u6771\u4eac; \ud83e\uddea": -327.03271749745244,
+              " \u2200x\u2208S_1: P_310(x) \u21d2 \u2203y R_05892(x,y)": -332.1172513961792
+            }
+          },
+          {
+            "answer": " x\t:=\tvalue_1\nnext_line_1()",
+            "case_id": "p35-null-01-2",
+            "prediction": " x\t:=\tvalue_1\nnext_line_1()",
+            "scores": {
+              " x\t:=\tvalue_1\nnext_line_1()": -319.81223958333334,
+              " \u0394x=77.31005892e+04; \u0928\u092e\u0942\u0928\u093e-1; \u6771\u4eac; \ud83e\uddea": -327.03271749745244,
+              " \u2200x\u2208S_1: P_310(x) \u21d2 \u2203y R_05892(x,y)": -332.1172513961792
+            }
+          },
+          {
+            "answer": " rollback(transaction_id=QZ-19-ALPHA, semantic_time=2048)",
+            "case_id": "p35-null-02-0",
+            "prediction": " 00000000000000000000000000000127",
+            "scores": {
+              " 00000000000000000000000000000127": -248.2054443359375,
+              " alpha_beta_gamma::node-17/revision_0042": -321.0269718170166,
+              " rollback(transaction_id=QZ-19-ALPHA, semantic_time=2048)": -335.9672134399414
+            }
+          },
+          {
+            "answer": " rollback(transaction_id=QZ-19-ALPHA, semantic_time=2048)",
+            "case_id": "p35-null-02-1",
+            "prediction": " 00000000000000000000000000000127",
+            "scores": {
+              " 00000000000000000000000000000127": -248.2054443359375,
+              " alpha_beta_gamma::node-17/revision_0042": -321.0269718170166,
+              " rollback(transaction_id=QZ-19-ALPHA, semantic_time=2048)": -335.9672134399414
+            }
+          },
+          {
+            "answer": " rollback(transaction_id=QZ-19-ALPHA, semantic_time=2048)",
+            "case_id": "p35-null-02-2",
+            "prediction": " 00000000000000000000000000000127",
+            "scores": {
+              " 00000000000000000000000000000127": -248.2054443359375,
+              " alpha_beta_gamma::node-17/revision_0042": -321.0269718170166,
+              " rollback(transaction_id=QZ-19-ALPHA, semantic_time=2048)": -335.9672134399414
+            }
+          },
+          {
+            "answer": " user.name+experiment@example.invalid",
+            "case_id": "p35-null-03-0",
+            "prediction": " C:\\models\\an-ra\\checkpoint_00000042.pt",
+            "scores": {
+              " C:\\models\\an-ra\\checkpoint_00000042.pt": -317.59424845377606,
+              " sha256:09fcc3c176c932cd102d45c3a2c74149": -322.7046661376953,
+              " user.name+experiment@example.invalid": -329.0120273166233
+            }
+          },
+          {
+            "answer": " user.name+experiment@example.invalid",
+            "case_id": "p35-null-03-1",
+            "prediction": " C:\\models\\an-ra\\checkpoint_00000042.pt",
+            "scores": {
+              " C:\\models\\an-ra\\checkpoint_00000042.pt": -317.59424845377606,
+              " sha256:09fcc3c176c932cd102d45c3a2c74149": -322.7046661376953,
+              " user.name+experiment@example.invalid": -329.0120273166233
+            }
+          },
+          {
+            "answer": " user.name+experiment@example.invalid",
+            "case_id": "p35-null-03-2",
+            "prediction": " C:\\models\\an-ra\\checkpoint_00000042.pt",
+            "scores": {
+              " C:\\models\\an-ra\\checkpoint_00000042.pt": -317.59424845377606,
+              " sha256:09fcc3c176c932cd102d45c3a2c74149": -322.7046661376953,
+              " user.name+experiment@example.invalid": -329.0120273166233
+            }
+          },
+          {
+            "answer": " SELECT value FROM state_log WHERE logical_time <= 17 ORDER BY priority DESC;",
+            "case_id": "p35-null-04-0",
+            "prediction": " if (counter <= 17) { state = previous_state; }",
+            "scores": {
+              " SELECT value FROM state_log WHERE logical_time <= 17 ORDER BY priority DESC;": -330.1610378689236,
+              " if (counter <= 17) { state = previous_state; }": -317.7913622174944,
+              " {\"event\":\"rollback\",\"time\":17,\"priority\":5}": -325.6103961651142
+            }
+          },
+          {
+            "answer": " SELECT value FROM state_log WHERE logical_time <= 17 ORDER BY priority DESC;",
+            "case_id": "p35-null-04-1",
+            "prediction": " if (counter <= 17) { state = previous_state; }",
+            "scores": {
+              " SELECT value FROM state_log WHERE logical_time <= 17 ORDER BY priority DESC;": -330.1610378689236,
+              " if (counter <= 17) { state = previous_state; }": -317.7913622174944,
+              " {\"event\":\"rollback\",\"time\":17,\"priority\":5}": -325.6103961651142
+            }
+          },
+          {
+            "answer": " SELECT value FROM state_log WHERE logical_time <= 17 ORDER BY priority DESC;",
+            "case_id": "p35-null-04-2",
+            "prediction": " if (counter <= 17) { state = previous_state; }",
+            "scores": {
+              " SELECT value FROM state_log WHERE logical_time <= 17 ORDER BY priority DESC;": -330.1610378689236,
+              " if (counter <= 17) { state = previous_state; }": -317.7913622174944,
+              " {\"event\":\"rollback\",\"time\":17,\"priority\":5}": -325.6103961651142
+            }
+          },
+          {
+            "answer": " answer := <MISSING> unless evidence(node_99)",
+            "case_id": "p35-null-05-0",
+            "prediction": " compose[edge_17 \u2192 edge_42 \u2192 edge_99]",
+            "scores": {
+              " answer := <MISSING> unless evidence(node_99)": -334.3789978027344,
+              " compose[edge_17 \u2192 edge_42 \u2192 edge_99]": -316.4649331229074,
+              " relation(A_17, B_42) and relation(B_42, C_99)": -331.4423828125
+            }
+          },
+          {
+            "answer": " answer := <MISSING> unless evidence(node_99)",
+            "case_id": "p35-null-05-1",
+            "prediction": " compose[edge_17 \u2192 edge_42 \u2192 edge_99]",
+            "scores": {
+              " answer := <MISSING> unless evidence(node_99)": -334.3789978027344,
+              " compose[edge_17 \u2192 edge_42 \u2192 edge_99]": -316.4649331229074,
+              " relation(A_17, B_42) and relation(B_42, C_99)": -331.4423828125
+            }
+          },
+          {
+            "answer": " answer := <MISSING> unless evidence(node_99)",
+            "case_id": "p35-null-05-2",
+            "prediction": " compose[edge_17 \u2192 edge_42 \u2192 edge_99]",
+            "scores": {
+              " answer := <MISSING> unless evidence(node_99)": -334.3789978027344,
+              " compose[edge_17 \u2192 edge_42 \u2192 edge_99]": -316.4649331229074,
+              " relation(A_17, B_42) and relation(B_42, C_99)": -331.4423828125
+            }
+          }
+        ]
+      },
+      "tokenizer_artifact": "tokenizer-24576.json.gz",
+      "tokenizer_sha256": "97e12db63b343312e5e4abc37df9ef4b01fcb1faba792a6420a4c1b15d0a7fbc",
+      "unique_prompt_candidate_jobs": 18,
+      "vocabulary_size": 24576
+    },
+    {
+      "adapter_identity_sha256": "738ff5e9cff7c1be12c0109a6a747ecbceaa9230f3222c6c892513abe78b33b7",
+      "bias_by_mode": {
+        "byte_normalized": {
+          "balanced_hidden_answer_accuracy": 0.6666666666666666,
+          "candidate_win_histogram": {
+            " 00000000000000000000000000000127": 3,
+            " SELECT value FROM state_log WHERE logical_time <= 17 ORDER BY priority DESC;": 3,
+            " answer := <MISSING> unless evidence(node_99)": 3,
+            " entity_00000_edge_case_90172564 -> entity_00000_result": 3,
+            " user.name+experiment@example.invalid": 3,
+            " x\t:=\tvalue_1\nnext_line_1()": 3
+          },
+          "cases": 18,
+          "effective_prompt_groups": 6,
+          "fewest_token_selection_rate": 0.8333333333333334,
+          "first_position_selection_rate": 0.3333333333333333,
+          "maximum_first_token_selection_share": 0.16666666666666666,
+          "rotation_stability_rate": 1.0,
+          "selected_first_token_histogram": {
+            "1165": 3,
+            "1312": 3,
+            "13907": 3,
+            "1659": 3,
+            "516": 3,
+            "6966": 3
+          },
+          "shortest_utf8_selection_rate": 0.5
+        },
+        "sum": {
+          "balanced_hidden_answer_accuracy": 0.5,
+          "candidate_win_histogram": {
+            " 00000000000000000000000000000127": 3,
+            " answer := <MISSING> unless evidence(node_99)": 3,
+            " entity_00000_edge_case_90172564 -> entity_00000_result": 3,
+            " user.name+experiment@example.invalid": 3,
+            " x\t:=\tvalue_1\nnext_line_1()": 3,
+            " {\"event\":\"rollback\",\"time\":17,\"priority\":5}": 3
+          },
+          "cases": 18,
+          "effective_prompt_groups": 6,
+          "fewest_token_selection_rate": 1.0,
+          "first_position_selection_rate": 0.3333333333333333,
+          "maximum_first_token_selection_share": 0.16666666666666666,
+          "rotation_stability_rate": 1.0,
+          "selected_first_token_histogram": {
+            "1165": 3,
+            "1302": 3,
+            "1312": 3,
+            "1659": 3,
+            "516": 3,
+            "6966": 3
+          },
+          "shortest_utf8_selection_rate": 0.6666666666666666
+        },
+        "token_normalized": {
+          "balanced_hidden_answer_accuracy": 0.16666666666666666,
+          "candidate_win_histogram": {
+            " 00000000000000000000000000000127": 3,
+            " C:\\models\\an-ra\\checkpoint_00000042.pt": 3,
+            " compose[edge_17 \u2192 edge_42 \u2192 edge_99]": 3,
+            " entity_00000_edge_case_90172564 -> entity_00000_result": 3,
+            " x\t:=\tvalue_1\nnext_line_1()": 3,
+            " {\"event\":\"rollback\",\"time\":17,\"priority\":5}": 3
+          },
+          "cases": 18,
+          "effective_prompt_groups": 6,
+          "fewest_token_selection_rate": 0.6666666666666666,
+          "first_position_selection_rate": 0.3333333333333333,
+          "maximum_first_token_selection_share": 0.16666666666666666,
+          "rotation_stability_rate": 1.0,
+          "selected_first_token_histogram": {
+            "1165": 3,
+            "1302": 3,
+            "13621": 3,
+            "439": 3,
+            "516": 3,
+            "6966": 3
+          },
+          "shortest_utf8_selection_rate": 0.6666666666666666
+        }
+      },
+      "candidate_tokenizations": [
+        {
+          "candidate": " answer := <MISSING> unless evidence(node_99)",
+          "prompt_sha256": "0eab1dc2f6b6491a614fa8fd256ebc7ad456c072b51daa14b8679876e1a7f6ee",
+          "token_ids": [
+            1312,
+            10513,
+            828,
+            26025,
+            33,
+            7281,
+            1102,
+            11,
+            2350,
+            66,
+            2394,
+            12
+          ],
+          "token_logprobs": [
+            -298.91693115234375,
+            -350.3910827636719,
+            -324.7764892578125,
+            -347.0886535644531,
+            -318.1825256347656,
+            -307.5146484375,
+            -349.9849853515625,
+            -335.2056579589844,
+            -376.23162841796875,
+            -346.77935791015625,
+            -312.7962341308594,
+            -319.03729248046875
+          ]
+        },
+        {
+          "candidate": " compose[edge_17 \u2192 edge_42 \u2192 edge_99]",
+          "prompt_sha256": "0eab1dc2f6b6491a614fa8fd256ebc7ad456c072b51daa14b8679876e1a7f6ee",
+          "token_ids": [
+            13621,
+            62,
+            9134,
+            66,
+            3724,
+            1849,
+            4175,
+            66,
+            4096,
+            1849,
+            4175,
+            66,
+            2394,
+            64
+          ],
+          "token_logprobs": [
+            -275.7081604003906,
+            -331.837158203125,
+            -255.48500061035156,
+            -370.9627685546875,
+            -289.2474670410156,
+            -306.22998046875,
+            -355.54974365234375,
+            -269.2200012207031,
+            -332.15350341796875,
+            -332.07781982421875,
+            -355.1977233886719,
+            -264.1506652832031,
+            -309.4063415527344,
+            -344.7250061035156
+          ]
+        },
+        {
+          "candidate": " relation(A_17, B_42) and relation(B_42, C_99)",
+          "prompt_sha256": "0eab1dc2f6b6491a614fa8fd256ebc7ad456c072b51daa14b8679876e1a7f6ee",
+          "token_ids": [
+            2431,
+            11,
+            36,
+            66,
+            3724,
+            15,
+            613,
+            66,
+            4096,
+            12,
+            339,
+            2431,
+            11,
+            37,
+            66,
+            4096,
+            15,
+            439,
+            66,
+            2394,
+            12
+          ],
+          "token_logprobs": [
+            -276.26568603515625,
+            -316.07568359375,
+            -399.31866455078125,
+            -339.9715270996094,
+            -285.8356018066406,
+            -310.25433349609375,
+            -364.7997741699219,
+            -346.6357421875,
+            -331.6741943359375,
+            -308.5617980957031,
+            -334.1234130859375,
+            -333.4548645019531,
+            -321.34600830078125,
+            -349.4858703613281,
+            -342.96575927734375,
+            -331.3829040527344,
+            -340.02581787109375,
+            -353.19244384765625,
+            -323.17425537109375,
+            -309.02215576171875,
+            -317.8253173828125
+          ]
+        },
+        {
+          "candidate": " SELECT value FROM state_log WHERE logical_time <= 17 ORDER BY priority DESC;",
+          "prompt_sha256": "1483f25a5d944adebabfbfe7b50be9c2e0e1f07bd29bcabf50e957a7f2d75bfc",
+          "token_ids": [
+            13907,
+            910,
+            7343,
+            936,
+            66,
+            730,
+            5811,
+            6523,
+            66,
+            714,
+            1347,
+            3918,
+            20937,
+            16784,
+            8098,
+            32477,
+            30
+          ],
+          "token_logprobs": [
+            -337.37835693359375,
+            -349.41864013671875,
+            -316.5592041015625,
+            -355.031982421875,
+            -345.2218017578125,
+            -355.2358093261719,
+            -294.257568359375,
+            -357.19873046875,
+            -335.50048828125,
+            -367.92645263671875,
+            -350.7705383300781,
+            -354.5912780761719,
+            -321.4009094238281,
+            -320.8133850097656,
+            -348.550048828125,
+            -315.8978271484375,
+            -310.01275634765625
+          ]
+        },
+        {
+          "candidate": " if (counter <= 17) { state = previous_state; }",
+          "prompt_sha256": "1483f25a5d944adebabfbfe7b50be9c2e0e1f07bd29bcabf50e957a7f2d75bfc",
+          "token_ids": [
+            389,
+            390,
+            2610,
+            1347,
+            3918,
+            12,
+            434,
+            936,
+            301,
+            3153,
+            66,
+            950,
+            30,
+            840
+          ],
+          "token_logprobs": [
+            -298.8632507324219,
+            -293.97637939453125,
+            -285.1306457519531,
+            -298.3381652832031,
+            -356.2783203125,
+            -293.00048828125,
+            -345.1950378417969,
+            -296.34954833984375,
+            -332.18206787109375,
+            -351.3798522949219,
+            -331.2344055175781,
+            -349.0849609375,
+            -295.9414367675781,
+            -334.89068603515625
+          ]
+        },
+        {
+          "candidate": " {\"event\":\"rollback\",\"time\":17,\"priority\":5}",
+          "prompt_sha256": "1483f25a5d944adebabfbfe7b50be9c2e0e1f07bd29bcabf50e957a7f2d75bfc",
+          "token_ids": [
+            1302,
+            3355,
+            11605,
+            2503,
+            13504,
+            714,
+            319,
+            3724,
+            17879,
+            7301,
+            319,
+            24,
+            96
+          ],
+          "token_logprobs": [
+            -293.6946105957031,
+            -315.498046875,
+            -267.01318359375,
+            -286.2528076171875,
+            -332.4969787597656,
+            -328.1826171875,
+            -282.6842346191406,
+            -380.4451904296875,
+            -284.119140625,
+            -327.3708801269531,
+            -340.16094970703125,
+            -338.79376220703125,
+            -342.7051086425781
+          ]
+        },
+        {
+          "candidate": " 00000000000000000000000000000127",
+          "prompt_sha256": "7a4453ad3c51565e35d883b3bb4f0d93210ee1d740af5ce26d1d31bb41c8b257",
+          "token_ids": [
+            516,
+            5239,
+            5239,
+            7843,
+            9044
+          ],
+          "token_logprobs": [
+            -303.09539794921875,
+            -299.1539001464844,
+            0.0,
+            -335.3454895019531,
+            -306.0840759277344
+          ]
+        },
+        {
+          "candidate": " alpha_beta_gamma::node-17/revision_0042",
+          "prompt_sha256": "7a4453ad3c51565e35d883b3bb4f0d93210ee1d740af5ce26d1d31bb41c8b257",
+          "token_ids": [
+            7208,
+            66,
+            17030,
+            66,
+            74,
+            399,
+            7457,
+            12260,
+            2350,
+            16,
+            3724,
+            18,
+            5665,
+            66,
+            615,
+            4096
+          ],
+          "token_logprobs": [
+            -308.82080078125,
+            -351.34991455078125,
+            -321.46087646484375,
+            -304.7757263183594,
+            -271.9257507324219,
+            -340.241943359375,
+            -336.061279296875,
+            -338.1962585449219,
+            -269.29425048828125,
+            -363.1190490722656,
+            -345.6181335449219,
+            -308.9405212402344,
+            -282.59698486328125,
+            -349.5668640136719,
+            -324.71539306640625,
+            -300.4183044433594
+          ]
+        },
+        {
+          "candidate": " rollback(transaction_id=QZ-19-ALPHA, semantic_time=2048)",
+          "prompt_sha256": "7a4453ad3c51565e35d883b3bb4f0d93210ee1d740af5ce26d1d31bb41c8b257",
+          "token_ids": [
+            3515,
+            11,
+            3260,
+            1175,
+            66,
+            328,
+            32,
+            52,
+            61,
+            16,
+            3419,
+            16,
+            24342,
+            15,
+            8388,
+            66,
+            714,
+            32,
+            11679,
+            12
+          ],
+          "token_logprobs": [
+            -326.6312561035156,
+            -299.3617248535156,
+            -384.3279113769531,
+            -297.2083740234375,
+            -334.1568298339844,
+            -341.5999755859375,
+            -343.34808349609375,
+            -351.4781188964844,
+            -317.1247863769531,
+            -314.5711364746094,
+            -324.8823547363281,
+            -300.7185363769531,
+            -309.9103088378906,
+            -343.9970703125,
+            -359.44775390625,
+            -393.3118896484375,
+            -360.4285888671875,
+            -347.21014404296875,
+            -360.9151611328125,
+            -309.88934326171875
+          ]
+        },
+        {
+          "candidate": " C:\\models\\an-ra\\checkpoint_00000042.pt",
+          "prompt_sha256": "83ddfed4b229ce263001c154bf06eab39dc8c7fb5c4be8df89a8dd3e21972496",
+          "token_ids": [
+            439,
+            5382,
+            20528,
+            63,
+            286,
+            16,
+            307,
+            63,
+            853,
+            66,
+            2510,
+            615,
+            4096,
+            17,
+            396
+          ],
+          "token_logprobs": [
+            -314.96636962890625,
+            -251.77310180664062,
+            -342.7195739746094,
+            -382.17706298828125,
+            -292.3323059082031,
+            -303.94708251953125,
+            -334.0389099121094,
+            -332.11279296875,
+            -297.004150390625,
+            -313.24102783203125,
+            -290.2724914550781,
+            -317.7095031738281,
+            -292.49200439453125,
+            -324.0721435546875,
+            -297.880126953125
+          ]
+        },
+        {
+          "candidate": " sha256:09fcc3c176c932cd102d45c3a2c74149",
+          "prompt_sha256": "83ddfed4b229ce263001c154bf06eab39dc8c7fb5c4be8df89a8dd3e21972496",
+          "token_ids": [
+            2753,
+            944,
+            29,
+            11558,
+            73,
+            2382,
+            22,
+            70,
+            19723,
+            70,
+            21380,
+            9273,
+            19578,
+            71,
+            2337,
+            70,
+            22,
+            68,
+            21,
+            70,
+            17887,
+            18846
+          ],
+          "token_logprobs": [
+            -320.0289611816406,
+            -339.7328796386719,
+            -306.58465576171875,
+            -344.3847961425781,
+            -372.77716064453125,
+            -323.4085998535156,
+            -342.6909484863281,
+            -314.1688232421875,
+            -289.623779296875,
+            -311.7260437011719,
+            -292.166259765625,
+            -344.6777038574219,
+            -323.3497009277344,
+            -316.96405029296875,
+            -371.55712890625,
+            -301.0126037597656,
+            -274.5205383300781,
+            -352.1693115234375,
+            -300.8502197265625,
+            -307.675048828125,
+            -286.73931884765625,
+            -305.8919982910156
+          ]
+        },
+        {
+          "candidate": " user.name+experiment@example.invalid",
+          "prompt_sha256": "83ddfed4b229ce263001c154bf06eab39dc8c7fb5c4be8df89a8dd3e21972496",
+          "token_ids": [
+            1659,
+            17,
+            842,
+            14,
+            6601,
+            35,
+            3621,
+            17,
+            6020
+          ],
+          "token_logprobs": [
+            -342.31365966796875,
+            -297.85162353515625,
+            -311.69366455078125,
+            -317.8511962890625,
+            -342.9006042480469,
+            -325.95806884765625,
+            -324.1096496582031,
+            -342.353271484375,
+            -267.9629821777344
+          ]
+        },
+        {
+          "candidate": " DV-9017-2564 maps to FR90172564-G.",
+          "prompt_sha256": "914fa3a2bdfd8e662ddf980e48ed7bc1d3338d898eb64d5c9f580cdf06d7ee0b",
+          "token_ids": [
+            510,
+            57,
+            16,
+            6555,
+            3724,
+            16,
+            944,
+            23,
+            5350,
+            333,
+            476,
+            53,
+            6555,
+            3724,
+            944,
+            23,
+            16,
+            42,
+            17
+          ],
+          "token_logprobs": [
+            -326.5738830566406,
+            -260.474365234375,
+            -326.0542297363281,
+            -367.7693786621094,
+            -323.348388671875,
+            -310.1643371582031,
+            -360.3354797363281,
+            -337.7854919433594,
+            -313.01287841796875,
+            -323.5018310546875,
+            -314.8482666015625,
+            -320.5106201171875,
+            -326.20703125,
+            -319.25311279296875,
+            -329.0272521972656,
+            -339.18341064453125,
+            -310.4273986816406,
+            -334.2132873535156,
+            -330.60186767578125
+          ]
+        },
+        {
+          "candidate": " entity_00000_edge_case_90172564 -> entity_00000_result",
+          "prompt_sha256": "914fa3a2bdfd8e662ddf980e48ed7bc1d3338d898eb64d5c9f580cdf06d7ee0b",
+          "token_ids": [
+            6966,
+            66,
+            13640,
+            66,
+            9134,
+            66,
+            5423,
+            66,
+            6555,
+            3724,
+            944,
+            23,
+            535,
+            6966,
+            66,
+            13640,
+            66,
+            966
+          ],
+          "token_logprobs": [
+            -318.68829345703125,
+            -328.65179443359375,
+            -272.8640441894531,
+            -276.5098571777344,
+            -343.2898864746094,
+            -376.60308837890625,
+            -330.39263916015625,
+            -326.3536376953125,
+            -314.9147644042969,
+            -318.483642578125,
+            -322.28887939453125,
+            -341.62786865234375,
+            -309.2923583984375,
+            -326.3243103027344,
+            -336.58258056640625,
+            -273.4480285644531,
+            -277.5108642578125,
+            -331.20184326171875
+          ]
+        },
+        {
+          "candidate": " value_00000 = -381.90172564e-07; count=91,700,021",
+          "prompt_sha256": "914fa3a2bdfd8e662ddf980e48ed7bc1d3338d898eb64d5c9f580cdf06d7ee0b",
+          "token_ids": [
+            910,
+            66,
+            13640,
+            301,
+            426,
+            31309,
+            17,
+            6555,
+            3724,
+            944,
+            23,
+            72,
+            16,
+            2972,
+            30,
+            1014,
+            32,
+            14097,
+            15,
+            21376,
+            15,
+            30377
+          ],
+          "token_logprobs": [
+            -316.0257568359375,
+            -315.52972412109375,
+            -271.95928955078125,
+            -314.1208190917969,
+            -328.3867492675781,
+            -339.593017578125,
+            -304.1773986816406,
+            -328.27099609375,
+            -322.7272644042969,
+            -325.673583984375,
+            -338.661376953125,
+            -314.16302490234375,
+            -354.60565185546875,
+            -349.9051818847656,
+            -348.2608947753906,
+            -342.5273742675781,
+            -336.4242858886719,
+            -343.8856506347656,
+            -325.07586669921875,
+            -355.4348449707031,
+            -311.4490051269531,
+            -332.4548645019531
+          ]
+        },
+        {
+          "candidate": " x\t:=\tvalue_1\nnext_line_1()",
+          "prompt_sha256": "e3a1c0df914e43496e0826f673601cf98de2656e3e45685136b481f2be093e50",
+          "token_ids": [
+            1165,
+            201,
+            29,
+            32,
+            201,
+            1356,
+            66,
+            20,
+            202,
+            2744,
+            66,
+            775,
+            66,
+            20,
+            384
+          ],
+          "token_logprobs": [
+            -327.6358642578125,
+            -358.52923583984375,
+            -309.17645263671875,
+            -352.7614440917969,
+            -305.5037536621094,
+            -285.7401428222656,
+            -329.7584533691406,
+            -346.9460144042969,
+            -306.29443359375,
+            -317.54644775390625,
+            -285.5421142578125,
+            -312.238525390625,
+            -285.79925537109375,
+            -343.703125,
+            -341.0057678222656
+          ]
+        },
+        {
+          "candidate": " \u0394x=77.31005892e+04; \u0928\u092e\u0942\u0928\u093e-1; \u6771\u4eac; \ud83e\uddea",
+          "prompt_sha256": "e3a1c0df914e43496e0826f673601cf98de2656e3e45685136b481f2be093e50",
+          "token_ids": [
+            25435,
+            91,
+            32,
+            16989,
+            17,
+            26522,
+            18445,
+            7179,
+            72,
+            14,
+            7246,
+            30,
+            224,
+            160,
+            101,
+            105,
+            160,
+            101,
+            110,
+            160,
+            102,
+            228,
+            160,
+            101,
+            105,
+            160,
+            101,
+            126,
+            16,
+            20,
+            30,
+            224,
+            166,
+            255,
+            113,
+            164,
+            122,
+            109,
+            30,
+            224,
+            27495,
+            104,
+            107
+          ],
+          "token_logprobs": [
+            -302.0494689941406,
+            -371.94830322265625,
+            -290.2773742675781,
+            -329.7607727050781,
+            -335.7513427734375,
+            -285.1854553222656,
+            -288.6590881347656,
+            -347.9562683105469,
+            -319.12957763671875,
+            -307.23455810546875,
+            -286.88702392578125,
+            -349.9662170410156,
+            -345.99749755859375,
+            -311.2867736816406,
+            -335.37420654296875,
+            -346.17236328125,
+            -309.1651611328125,
+            -333.9598083496094,
+            -327.25799560546875,
+            -338.5415344238281,
+            -320.865234375,
+            -290.2663879394531,
+            -339.5226135253906,
+            -334.0791015625,
+            -347.1253662109375,
+            -306.5215148925781,
+            -332.21759033203125,
+            -327.6034240722656,
+            -325.57501220703125,
+            -324.85186767578125,
+            -333.98388671875,
+            -343.3858947753906,
+            -308.17919921875,
+            -378.20306396484375,
+            -374.2054443359375,
+            -321.4095458984375,
+            -305.2051086425781,
+            -289.7515869140625,
+            -298.95123291015625,
+            -346.1216125488281,
+            -331.5802307128906,
+            -343.9911804199219,
+            -307.316162109375
+          ]
+        },
+        {
+          "candidate": " \u2200x\u2208S_1: P_310(x) \u21d2 \u2203y R_05892(x,y)",
+          "prompt_sha256": "e3a1c0df914e43496e0826f673601cf98de2656e3e45685136b481f2be093e50",
+          "token_ids": [
+            4995,
+            226,
+            91,
+            7330,
+            234,
+            54,
+            66,
+            20,
+            29,
+            432,
+            66,
+            26517,
+            11,
+            91,
+            12,
+            385,
+            233,
+            244,
+            4995,
+            229,
+            92,
+            478,
+            66,
+            4671,
+            27,
+            7179,
+            11,
+            91,
+            15,
+            92,
+            12
+          ],
+          "token_logprobs": [
+            -355.18048095703125,
+            -355.260986328125,
+            -318.35601806640625,
+            -308.0176696777344,
+            -334.5431213378906,
+            -299.25323486328125,
+            -357.4764404296875,
+            -347.1309509277344,
+            -311.24639892578125,
+            -313.6705627441406,
+            -342.90185546875,
+            -256.0684814453125,
+            -338.1317138671875,
+            -375.6700439453125,
+            -275.97650146484375,
+            -311.8961486816406,
+            -330.2115478515625,
+            -324.71905517578125,
+            -340.0295715332031,
+            -348.1492004394531,
+            -297.7987060546875,
+            -295.540771484375,
+            -361.7650451660156,
+            -326.47601318359375,
+            -333.3470764160156,
+            -340.1045837402344,
+            -338.67938232421875,
+            -382.79071044921875,
+            -280.5819396972656,
+            -339.6110534667969,
+            -329.18646240234375
+          ]
+        }
+      ],
+      "elapsed_seconds": 0.44700340000053984,
+      "finite": true,
+      "maximum_sequence_tokens": 73,
+      "model_sha256": "e445e1bf626096d303e12be4d72d1997f76cc0559215e5f43c925914dfda586e",
+      "parameters": 38560128,
+      "roundtrip_and_trace_coverage": true,
+      "scores_by_mode": {
+        "byte_normalized": [
+          {
+            "answer": " value_00000 = -381.90172564e-07; count=91,700,021",
+            "case_id": "p35-null-00-0",
+            "prediction": " entity_00000_edge_case_90172564 -> entity_00000_result",
+            "scores": {
+              " DV-9017-2564 maps to FR90172564-G.": -176.3797860281808,
+              " entity_00000_edge_case_90172564 -> entity_00000_result": -104.09142511541194,
+              " value_00000 = -381.90172564e-07; count=91,700,021": -144.38625244140624
+            }
+          },
+          {
+            "answer": " value_00000 = -381.90172564e-07; count=91,700,021",
+            "case_id": "p35-null-00-1",
+            "prediction": " entity_00000_edge_case_90172564 -> entity_00000_result",
+            "scores": {
+              " DV-9017-2564 maps to FR90172564-G.": -176.3797860281808,
+              " entity_00000_edge_case_90172564 -> entity_00000_result": -104.09142511541194,
+              " value_00000 = -381.90172564e-07; count=91,700,021": -144.38625244140624
+            }
+          },
+          {
+            "answer": " value_00000 = -381.90172564e-07; count=91,700,021",
+            "case_id": "p35-null-00-2",
+            "prediction": " entity_00000_edge_case_90172564 -> entity_00000_result",
+            "scores": {
+              " DV-9017-2564 maps to FR90172564-G.": -176.3797860281808,
+              " entity_00000_edge_case_90172564 -> entity_00000_result": -104.09142511541194,
+              " value_00000 = -381.90172564e-07; count=91,700,021": -144.38625244140624
+            }
+          },
+          {
+            "answer": " x\t:=\tvalue_1\nnext_line_1()",
+            "case_id": "p35-null-01-0",
+            "prediction": " x\t:=\tvalue_1\nnext_line_1()",
+            "scores": {
+              " x\t:=\tvalue_1\nnext_line_1()": -178.0807788990162,
+              " \u0394x=77.31005892e+04; \u0928\u092e\u0942\u0928\u093e-1; \u6771\u4eac; \ud83e\uddea": -264.0277934524248,
+              " \u2200x\u2208S_1: P_310(x) \u21d2 \u2203y R_05892(x,y)": -236.50631926780522
+            }
+          },
+          {
+            "answer": " x\t:=\tvalue_1\nnext_line_1()",
+            "case_id": "p35-null-01-1",
+            "prediction": " x\t:=\tvalue_1\nnext_line_1()",
+            "scores": {
+              " x\t:=\tvalue_1\nnext_line_1()": -178.0807788990162,
+              " \u0394x=77.31005892e+04; \u0928\u092e\u0942\u0928\u093e-1; \u6771\u4eac; \ud83e\uddea": -264.0277934524248,
+              " \u2200x\u2208S_1: P_310(x) \u21d2 \u2203y R_05892(x,y)": -236.50631926780522
+            }
+          },
+          {
+            "answer": " x\t:=\tvalue_1\nnext_line_1()",
+            "case_id": "p35-null-01-2",
+            "prediction": " x\t:=\tvalue_1\nnext_line_1()",
+            "scores": {
+              " x\t:=\tvalue_1\nnext_line_1()": -178.0807788990162,
+              " \u0394x=77.31005892e+04; \u0928\u092e\u0942\u0928\u093e-1; \u6771\u4eac; \ud83e\uddea": -264.0277934524248,
+              " \u2200x\u2208S_1: P_310(x) \u21d2 \u2203y R_05892(x,y)": -236.50631926780522
+            }
+          },
+          {
+            "answer": " rollback(transaction_id=QZ-19-ALPHA, semantic_time=2048)",
+            "case_id": "p35-null-02-0",
+            "prediction": " 00000000000000000000000000000127",
+            "scores": {
+              " 00000000000000000000000000000127": -37.6872382886482,
+              " alpha_beta_gamma::node-17/revision_0042": -127.92755126953125,
+              " rollback(transaction_id=QZ-19-ALPHA, semantic_time=2048)": -117.90384821306195
+            }
+          },
+          {
+            "answer": " rollback(transaction_id=QZ-19-ALPHA, semantic_time=2048)",
+            "case_id": "p35-null-02-1",
+            "prediction": " 00000000000000000000000000000127",
+            "scores": {
+              " 00000000000000000000000000000127": -37.6872382886482,
+              " alpha_beta_gamma::node-17/revision_0042": -127.92755126953125,
+              " rollback(transaction_id=QZ-19-ALPHA, semantic_time=2048)": -117.90384821306195
+            }
+          },
+          {
+            "answer": " rollback(transaction_id=QZ-19-ALPHA, semantic_time=2048)",
+            "case_id": "p35-null-02-2",
+            "prediction": " 00000000000000000000000000000127",
+            "scores": {
+              " 00000000000000000000000000000127": -37.6872382886482,
+              " alpha_beta_gamma::node-17/revision_0042": -127.92755126953125,
+              " rollback(transaction_id=QZ-19-ALPHA, semantic_time=2048)": -117.90384821306195
+            }
+          },
+          {
+            "answer": " user.name+experiment@example.invalid",
+            "case_id": "p35-null-03-0",
+            "prediction": " user.name+experiment@example.invalid",
+            "scores": {
+              " C:\\models\\an-ra\\checkpoint_00000042.pt": -120.17278583233173,
+              " sha256:09fcc3c176c932cd102d45c3a2c74149": -176.0675132751465,
+              " user.name+experiment@example.invalid": -77.64850595835092
+            }
+          },
+          {
+            "answer": " user.name+experiment@example.invalid",
+            "case_id": "p35-null-03-1",
+            "prediction": " user.name+experiment@example.invalid",
+            "scores": {
+              " C:\\models\\an-ra\\checkpoint_00000042.pt": -120.17278583233173,
+              " sha256:09fcc3c176c932cd102d45c3a2c74149": -176.0675132751465,
+              " user.name+experiment@example.invalid": -77.64850595835092
+            }
+          },
+          {
+            "answer": " user.name+experiment@example.invalid",
+            "case_id": "p35-null-03-2",
+            "prediction": " user.name+experiment@example.invalid",
+            "scores": {
+              " C:\\models\\an-ra\\checkpoint_00000042.pt": -120.17278583233173,
+              " sha256:09fcc3c176c932cd102d45c3a2c74149": -176.0675132751465,
+              " user.name+experiment@example.invalid": -77.64850595835092
+            }
+          },
+          {
+            "answer": " SELECT value FROM state_log WHERE logical_time <= 17 ORDER BY priority DESC;",
+            "case_id": "p35-null-04-0",
+            "prediction": " SELECT value FROM state_log WHERE logical_time <= 17 ORDER BY priority DESC;",
+            "scores": {
+              " SELECT value FROM state_log WHERE logical_time <= 17 ORDER BY priority DESC;": -74.49046464399858,
+              " if (counter <= 17) { state = previous_state; }": -94.93287756087932,
+              " {\"event\":\"rollback\",\"time\":17,\"priority\":5}": -93.62312524968928
+            }
+          },
+          {
+            "answer": " SELECT value FROM state_log WHERE logical_time <= 17 ORDER BY priority DESC;",
+            "case_id": "p35-null-04-1",
+            "prediction": " SELECT value FROM state_log WHERE logical_time <= 17 ORDER BY priority DESC;",
+            "scores": {
+              " SELECT value FROM state_log WHERE logical_time <= 17 ORDER BY priority DESC;": -74.49046464399858,
+              " if (counter <= 17) { state = previous_state; }": -94.93287756087932,
+              " {\"event\":\"rollback\",\"time\":17,\"priority\":5}": -93.62312524968928
+            }
+          },
+          {
+            "answer": " SELECT value FROM state_log WHERE logical_time <= 17 ORDER BY priority DESC;",
+            "case_id": "p35-null-04-2",
+            "prediction": " SELECT value FROM state_log WHERE logical_time <= 17 ORDER BY priority DESC;",
+            "scores": {
+              " SELECT value FROM state_log WHERE logical_time <= 17 ORDER BY priority DESC;": -74.49046464399858,
+              " if (counter <= 17) { state = previous_state; }": -94.93287756087932,
+              " {\"event\":\"rollback\",\"time\":17,\"priority\":5}": -93.62312524968928
+            }
+          },
+          {
+            "answer": " answer := <MISSING> unless evidence(node_99)",
+            "case_id": "p35-null-05-0",
+            "prediction": " answer := <MISSING> unless evidence(node_99)",
+            "scores": {
+              " answer := <MISSING> unless evidence(node_99)": -88.5978997124566,
+              " compose[edge_17 \u2192 edge_42 \u2192 edge_99]": -107.12076438345561,
+              " relation(A_17, B_42) and relation(B_42, C_99)": -150.7693872866423
+            }
+          },
+          {
+            "answer": " answer := <MISSING> unless evidence(node_99)",
+            "case_id": "p35-null-05-1",
+            "prediction": " answer := <MISSING> unless evidence(node_99)",
+            "scores": {
+              " answer := <MISSING> unless evidence(node_99)": -88.5978997124566,
+              " compose[edge_17 \u2192 edge_42 \u2192 edge_99]": -107.12076438345561,
+              " relation(A_17, B_42) and relation(B_42, C_99)": -150.7693872866423
+            }
+          },
+          {
+            "answer": " answer := <MISSING> unless evidence(node_99)",
+            "case_id": "p35-null-05-2",
+            "prediction": " answer := <MISSING> unless evidence(node_99)",
+            "scores": {
+              " answer := <MISSING> unless evidence(node_99)": -88.5978997124566,
+              " compose[edge_17 \u2192 edge_42 \u2192 edge_99]": -107.12076438345561,
+              " relation(A_17, B_42) and relation(B_42, C_99)": -150.7693872866423
+            }
+          }
+        ],
+        "sum": [
+          {
+            "answer": " value_00000 = -381.90172564e-07; count=91,700,021",
+            "case_id": "p35-null-00-0",
+            "prediction": " entity_00000_edge_case_90172564 -> entity_00000_result",
+            "scores": {
+              " DV-9017-2564 maps to FR90172564-G.": -6173.292510986328,
+              " entity_00000_edge_case_90172564 -> entity_00000_result": -5725.028381347656,
+              " value_00000 = -381.90172564e-07; count=91,700,021": -7219.3126220703125
+            }
+          },
+          {
+            "answer": " value_00000 = -381.90172564e-07; count=91,700,021",
+            "case_id": "p35-null-00-1",
+            "prediction": " entity_00000_edge_case_90172564 -> entity_00000_result",
+            "scores": {
+              " DV-9017-2564 maps to FR90172564-G.": -6173.292510986328,
+              " entity_00000_edge_case_90172564 -> entity_00000_result": -5725.028381347656,
+              " value_00000 = -381.90172564e-07; count=91,700,021": -7219.3126220703125
+            }
+          },
+          {
+            "answer": " value_00000 = -381.90172564e-07; count=91,700,021",
+            "case_id": "p35-null-00-2",
+            "prediction": " entity_00000_edge_case_90172564 -> entity_00000_result",
+            "scores": {
+              " DV-9017-2564 maps to FR90172564-G.": -6173.292510986328,
+              " entity_00000_edge_case_90172564 -> entity_00000_result": -5725.028381347656,
+              " value_00000 = -381.90172564e-07; count=91,700,021": -7219.3126220703125
+            }
+          },
+          {
+            "answer": " x\t:=\tvalue_1\nnext_line_1()",
+            "case_id": "p35-null-01-0",
+            "prediction": " x\t:=\tvalue_1\nnext_line_1()",
+            "scores": {
+              " x\t:=\tvalue_1\nnext_line_1()": -4808.1810302734375,
+              " \u0394x=77.31005892e+04; \u0928\u092e\u0942\u0928\u093e-1; \u6771\u4eac; \ud83e\uddea": -13993.473052978516,
+              " \u2200x\u2208S_1: P_310(x) \u21d2 \u2203y R_05892(x,y)": -10169.771728515625
+            }
+          },
+          {
+            "answer": " x\t:=\tvalue_1\nnext_line_1()",
+            "case_id": "p35-null-01-1",
+            "prediction": " x\t:=\tvalue_1\nnext_line_1()",
+            "scores": {
+              " x\t:=\tvalue_1\nnext_line_1()": -4808.1810302734375,
+              " \u0394x=77.31005892e+04; \u0928\u092e\u0942\u0928\u093e-1; \u6771\u4eac; \ud83e\uddea": -13993.473052978516,
+              " \u2200x\u2208S_1: P_310(x) \u21d2 \u2203y R_05892(x,y)": -10169.771728515625
+            }
+          },
+          {
+            "answer": " x\t:=\tvalue_1\nnext_line_1()",
+            "case_id": "p35-null-01-2",
+            "prediction": " x\t:=\tvalue_1\nnext_line_1()",
+            "scores": {
+              " x\t:=\tvalue_1\nnext_line_1()": -4808.1810302734375,
+              " \u0394x=77.31005892e+04; \u0928\u092e\u0942\u0928\u093e-1; \u6771\u4eac; \ud83e\uddea": -13993.473052978516,
+              " \u2200x\u2208S_1: P_310(x) \u21d2 \u2203y R_05892(x,y)": -10169.771728515625
+            }
+          },
+          {
+            "answer": " rollback(transaction_id=QZ-19-ALPHA, semantic_time=2048)",
+            "case_id": "p35-null-02-0",
+            "prediction": " 00000000000000000000000000000127",
+            "scores": {
+              " 00000000000000000000000000000127": -1243.6788635253906,
+              " alpha_beta_gamma::node-17/revision_0042": -5117.10205078125,
+              " rollback(transaction_id=QZ-19-ALPHA, semantic_time=2048)": -6720.519348144531
+            }
+          },
+          {
+            "answer": " rollback(transaction_id=QZ-19-ALPHA, semantic_time=2048)",
+            "case_id": "p35-null-02-1",
+            "prediction": " 00000000000000000000000000000127",
+            "scores": {
+              " 00000000000000000000000000000127": -1243.6788635253906,
+              " alpha_beta_gamma::node-17/revision_0042": -5117.10205078125,
+              " rollback(transaction_id=QZ-19-ALPHA, semantic_time=2048)": -6720.519348144531
+            }
+          },
+          {
+            "answer": " rollback(transaction_id=QZ-19-ALPHA, semantic_time=2048)",
+            "case_id": "p35-null-02-2",
+            "prediction": " 00000000000000000000000000000127",
+            "scores": {
+              " 00000000000000000000000000000127": -1243.6788635253906,
+              " alpha_beta_gamma::node-17/revision_0042": -5117.10205078125,
+              " rollback(transaction_id=QZ-19-ALPHA, semantic_time=2048)": -6720.519348144531
+            }
+          },
+          {
+            "answer": " user.name+experiment@example.invalid",
+            "case_id": "p35-null-03-0",
+            "prediction": " user.name+experiment@example.invalid",
+            "scores": {
+              " C:\\models\\an-ra\\checkpoint_00000042.pt": -4686.7386474609375,
+              " sha256:09fcc3c176c932cd102d45c3a2c74149": -7042.700531005859,
+              " user.name+experiment@example.invalid": -2872.9947204589844
+            }
+          },
+          {
+            "answer": " user.name+experiment@example.invalid",
+            "case_id": "p35-null-03-1",
+            "prediction": " user.name+experiment@example.invalid",
+            "scores": {
+              " C:\\models\\an-ra\\checkpoint_00000042.pt": -4686.7386474609375,
+              " sha256:09fcc3c176c932cd102d45c3a2c74149": -7042.700531005859,
+              " user.name+experiment@example.invalid": -2872.9947204589844
+            }
+          },
+          {
+            "answer": " user.name+experiment@example.invalid",
+            "case_id": "p35-null-03-2",
+            "prediction": " user.name+experiment@example.invalid",
+            "scores": {
+              " C:\\models\\an-ra\\checkpoint_00000042.pt": -4686.7386474609375,
+              " sha256:09fcc3c176c932cd102d45c3a2c74149": -7042.700531005859,
+              " user.name+experiment@example.invalid": -2872.9947204589844
+            }
+          },
+          {
+            "answer": " SELECT value FROM state_log WHERE logical_time <= 17 ORDER BY priority DESC;",
+            "case_id": "p35-null-04-0",
+            "prediction": " {\"event\":\"rollback\",\"time\":17,\"priority\":5}",
+            "scores": {
+              " SELECT value FROM state_log WHERE logical_time <= 17 ORDER BY priority DESC;": -5735.765777587891,
+              " if (counter <= 17) { state = previous_state; }": -4461.845245361328,
+              " {\"event\":\"rollback\",\"time\":17,\"priority\":5}": -4119.417510986328
+            }
+          },
+          {
+            "answer": " SELECT value FROM state_log WHERE logical_time <= 17 ORDER BY priority DESC;",
+            "case_id": "p35-null-04-1",
+            "prediction": " {\"event\":\"rollback\",\"time\":17,\"priority\":5}",
+            "scores": {
+              " SELECT value FROM state_log WHERE logical_time <= 17 ORDER BY priority DESC;": -5735.765777587891,
+              " if (counter <= 17) { state = previous_state; }": -4461.845245361328,
+              " {\"event\":\"rollback\",\"time\":17,\"priority\":5}": -4119.417510986328
+            }
+          },
+          {
+            "answer": " SELECT value FROM state_log WHERE logical_time <= 17 ORDER BY priority DESC;",
+            "case_id": "p35-null-04-2",
+            "prediction": " {\"event\":\"rollback\",\"time\":17,\"priority\":5}",
+            "scores": {
+              " SELECT value FROM state_log WHERE logical_time <= 17 ORDER BY priority DESC;": -5735.765777587891,
+              " if (counter <= 17) { state = previous_state; }": -4461.845245361328,
+              " {\"event\":\"rollback\",\"time\":17,\"priority\":5}": -4119.417510986328
+            }
+          },
+          {
+            "answer": " answer := <MISSING> unless evidence(node_99)",
+            "case_id": "p35-null-05-0",
+            "prediction": " answer := <MISSING> unless evidence(node_99)",
+            "scores": {
+              " answer := <MISSING> unless evidence(node_99)": -3986.905487060547,
+              " compose[edge_17 \u2192 edge_42 \u2192 edge_99]": -4391.95133972168,
+              " relation(A_17, B_42) and relation(B_42, C_99)": -6935.391815185547
+            }
+          },
+          {
+            "answer": " answer := <MISSING> unless evidence(node_99)",
+            "case_id": "p35-null-05-1",
+            "prediction": " answer := <MISSING> unless evidence(node_99)",
+            "scores": {
+              " answer := <MISSING> unless evidence(node_99)": -3986.905487060547,
+              " compose[edge_17 \u2192 edge_42 \u2192 edge_99]": -4391.95133972168,
+              " relation(A_17, B_42) and relation(B_42, C_99)": -6935.391815185547
+            }
+          },
+          {
+            "answer": " answer := <MISSING> unless evidence(node_99)",
+            "case_id": "p35-null-05-2",
+            "prediction": " answer := <MISSING> unless evidence(node_99)",
+            "scores": {
+              " answer := <MISSING> unless evidence(node_99)": -3986.905487060547,
+              " compose[edge_17 \u2192 edge_42 \u2192 edge_99]": -4391.95133972168,
+              " relation(A_17, B_42) and relation(B_42, C_99)": -6935.391815185547
+            }
+          }
+        ],
+        "token_normalized": [
+          {
+            "answer": " value_00000 = -381.90172564e-07; count=91,700,021",
+            "case_id": "p35-null-00-0",
+            "prediction": " entity_00000_edge_case_90172564 -> entity_00000_result",
+            "scores": {
+              " DV-9017-2564 maps to FR90172564-G.": -324.91013215717516,
+              " entity_00000_edge_case_90172564 -> entity_00000_result": -318.05713229709204,
+              " value_00000 = -381.90172564e-07; count=91,700,021": -328.15057373046875
+            }
+          },
+          {
+            "answer": " value_00000 = -381.90172564e-07; count=91,700,021",
+            "case_id": "p35-null-00-1",
+            "prediction": " entity_00000_edge_case_90172564 -> entity_00000_result",
+            "scores": {
+              " DV-9017-2564 maps to FR90172564-G.": -324.91013215717516,
+              " entity_00000_edge_case_90172564 -> entity_00000_result": -318.05713229709204,
+              " value_00000 = -381.90172564e-07; count=91,700,021": -328.15057373046875
+            }
+          },
+          {
+            "answer": " value_00000 = -381.90172564e-07; count=91,700,021",
+            "case_id": "p35-null-00-2",
+            "prediction": " entity_00000_edge_case_90172564 -> entity_00000_result",
+            "scores": {
+              " DV-9017-2564 maps to FR90172564-G.": -324.91013215717516,
+              " entity_00000_edge_case_90172564 -> entity_00000_result": -318.05713229709204,
+              " value_00000 = -381.90172564e-07; count=91,700,021": -328.15057373046875
+            }
+          },
+          {
+            "answer": " x\t:=\tvalue_1\nnext_line_1()",
+            "case_id": "p35-null-01-0",
+            "prediction": " x\t:=\tvalue_1\nnext_line_1()",
+            "scores": {
+              " x\t:=\tvalue_1\nnext_line_1()": -320.54540201822914,
+              " \u0394x=77.31005892e+04; \u0928\u092e\u0942\u0928\u093e-1; \u6771\u4eac; \ud83e\uddea": -325.4296058832213,
+              " \u2200x\u2208S_1: P_310(x) \u21d2 \u2203y R_05892(x,y)": -328.0571525327621
+            }
+          },
+          {
+            "answer": " x\t:=\tvalue_1\nnext_line_1()",
+            "case_id": "p35-null-01-1",
+            "prediction": " x\t:=\tvalue_1\nnext_line_1()",
+            "scores": {
+              " x\t:=\tvalue_1\nnext_line_1()": -320.54540201822914,
+              " \u0394x=77.31005892e+04; \u0928\u092e\u0942\u0928\u093e-1; \u6771\u4eac; \ud83e\uddea": -325.4296058832213,
+              " \u2200x\u2208S_1: P_310(x) \u21d2 \u2203y R_05892(x,y)": -328.0571525327621
+            }
+          },
+          {
+            "answer": " x\t:=\tvalue_1\nnext_line_1()",
+            "case_id": "p35-null-01-2",
+            "prediction": " x\t:=\tvalue_1\nnext_line_1()",
+            "scores": {
+              " x\t:=\tvalue_1\nnext_line_1()": -320.54540201822914,
+              " \u0394x=77.31005892e+04; \u0928\u092e\u0942\u0928\u093e-1; \u6771\u4eac; \ud83e\uddea": -325.4296058832213,
+              " \u2200x\u2208S_1: P_310(x) \u21d2 \u2203y R_05892(x,y)": -328.0571525327621
+            }
+          },
+          {
+            "answer": " rollback(transaction_id=QZ-19-ALPHA, semantic_time=2048)",
+            "case_id": "p35-null-02-0",
+            "prediction": " 00000000000000000000000000000127",
+            "scores": {
+              " 00000000000000000000000000000127": -248.73577270507812,
+              " alpha_beta_gamma::node-17/revision_0042": -319.8188781738281,
+              " rollback(transaction_id=QZ-19-ALPHA, semantic_time=2048)": -336.0259674072266
+            }
+          },
+          {
+            "answer": " rollback(transaction_id=QZ-19-ALPHA, semantic_time=2048)",
+            "case_id": "p35-null-02-1",
+            "prediction": " 00000000000000000000000000000127",
+            "scores": {
+              " 00000000000000000000000000000127": -248.73577270507812,
+              " alpha_beta_gamma::node-17/revision_0042": -319.8188781738281,
+              " rollback(transaction_id=QZ-19-ALPHA, semantic_time=2048)": -336.0259674072266
+            }
+          },
+          {
+            "answer": " rollback(transaction_id=QZ-19-ALPHA, semantic_time=2048)",
+            "case_id": "p35-null-02-2",
+            "prediction": " 00000000000000000000000000000127",
+            "scores": {
+              " 00000000000000000000000000000127": -248.73577270507812,
+              " alpha_beta_gamma::node-17/revision_0042": -319.8188781738281,
+              " rollback(transaction_id=QZ-19-ALPHA, semantic_time=2048)": -336.0259674072266
+            }
+          },
+          {
+            "answer": " user.name+experiment@example.invalid",
+            "case_id": "p35-null-03-0",
+            "prediction": " C:\\models\\an-ra\\checkpoint_00000042.pt",
+            "scores": {
+              " C:\\models\\an-ra\\checkpoint_00000042.pt": -312.4492431640625,
+              " sha256:09fcc3c176c932cd102d45c3a2c74149": -320.12275140935725,
+              " user.name+experiment@example.invalid": -319.22163560655383
+            }
+          },
+          {
+            "answer": " user.name+experiment@example.invalid",
+            "case_id": "p35-null-03-1",
+            "prediction": " C:\\models\\an-ra\\checkpoint_00000042.pt",
+            "scores": {
+              " C:\\models\\an-ra\\checkpoint_00000042.pt": -312.4492431640625,
+              " sha256:09fcc3c176c932cd102d45c3a2c74149": -320.12275140935725,
+              " user.name+experiment@example.invalid": -319.22163560655383
+            }
+          },
+          {
+            "answer": " user.name+experiment@example.invalid",
+            "case_id": "p35-null-03-2",
+            "prediction": " C:\\models\\an-ra\\checkpoint_00000042.pt",
+            "scores": {
+              " C:\\models\\an-ra\\checkpoint_00000042.pt": -312.4492431640625,
+              " sha256:09fcc3c176c932cd102d45c3a2c74149": -320.12275140935725,
+              " user.name+experiment@example.invalid": -319.22163560655383
+            }
+          },
+          {
+            "answer": " SELECT value FROM state_log WHERE logical_time <= 17 ORDER BY priority DESC;",
+            "case_id": "p35-null-04-0",
+            "prediction": " {\"event\":\"rollback\",\"time\":17,\"priority\":5}",
+            "scores": {
+              " SELECT value FROM state_log WHERE logical_time <= 17 ORDER BY priority DESC;": -337.39798691693477,
+              " if (counter <= 17) { state = previous_state; }": -318.70323181152344,
+              " {\"event\":\"rollback\",\"time\":17,\"priority\":5}": -316.8782700758714
+            }
+          },
+          {
+            "answer": " SELECT value FROM state_log WHERE logical_time <= 17 ORDER BY priority DESC;",
+            "case_id": "p35-null-04-1",
+            "prediction": " {\"event\":\"rollback\",\"time\":17,\"priority\":5}",
+            "scores": {
+              " SELECT value FROM state_log WHERE logical_time <= 17 ORDER BY priority DESC;": -337.39798691693477,
+              " if (counter <= 17) { state = previous_state; }": -318.70323181152344,
+              " {\"event\":\"rollback\",\"time\":17,\"priority\":5}": -316.8782700758714
+            }
+          },
+          {
+            "answer": " SELECT value FROM state_log WHERE logical_time <= 17 ORDER BY priority DESC;",
+            "case_id": "p35-null-04-2",
+            "prediction": " {\"event\":\"rollback\",\"time\":17,\"priority\":5}",
+            "scores": {
+              " SELECT value FROM state_log WHERE logical_time <= 17 ORDER BY priority DESC;": -337.39798691693477,
+              " if (counter <= 17) { state = previous_state; }": -318.70323181152344,
+              " {\"event\":\"rollback\",\"time\":17,\"priority\":5}": -316.8782700758714
+            }
+          },
+          {
+            "answer": " answer := <MISSING> unless evidence(node_99)",
+            "case_id": "p35-null-05-0",
+            "prediction": " compose[edge_17 \u2192 edge_42 \u2192 edge_99]",
+            "scores": {
+              " answer := <MISSING> unless evidence(node_99)": -332.2421239217122,
+              " compose[edge_17 \u2192 edge_42 \u2192 edge_99]": -313.71080998011996,
+              " relation(A_17, B_42) and relation(B_42, C_99)": -330.25675310407365
+            }
+          },
+          {
+            "answer": " answer := <MISSING> unless evidence(node_99)",
+            "case_id": "p35-null-05-1",
+            "prediction": " compose[edge_17 \u2192 edge_42 \u2192 edge_99]",
+            "scores": {
+              " answer := <MISSING> unless evidence(node_99)": -332.2421239217122,
+              " compose[edge_17 \u2192 edge_42 \u2192 edge_99]": -313.71080998011996,
+              " relation(A_17, B_42) and relation(B_42, C_99)": -330.25675310407365
+            }
+          },
+          {
+            "answer": " answer := <MISSING> unless evidence(node_99)",
+            "case_id": "p35-null-05-2",
+            "prediction": " compose[edge_17 \u2192 edge_42 \u2192 edge_99]",
+            "scores": {
+              " answer := <MISSING> unless evidence(node_99)": -332.2421239217122,
+              " compose[edge_17 \u2192 edge_42 \u2192 edge_99]": -313.71080998011996,
+              " relation(A_17, B_42) and relation(B_42, C_99)": -330.25675310407365
+            }
+          }
+        ]
+      },
+      "tokenizer_artifact": "tokenizer-32768.json.gz",
+      "tokenizer_sha256": "56be8e1cab4a1b0cede97f5bd5e6af8f2f68175f846362a7c0fcdbd5f048ba7f",
+      "unique_prompt_candidate_jobs": 18,
+      "vocabulary_size": 32768
+    }
+  ],
+  "schema": "esoes-e2-p35-scoring-null/v1",
+  "scope": "random-weight exact middle-P35 suffix-only scoring; no training",
+  "status": "PASS_LOCAL_NULL_DEVICE",
+  "torch_version": "2.11.0+cu128"
+}
