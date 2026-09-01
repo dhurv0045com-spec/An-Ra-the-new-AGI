@@ -666,6 +666,15 @@ target/swap recovery, and CPU/CUDA then TPU parity. The policy and thresholds
 cannot change after development or from trained-model outcomes. This is a
 preregistration, not a passing policy result.
 
+Fixture compilation is separately recorded in
+`artifacts/e2/scoring_policy_fixture.json`. Using the actual three tokenizer
+artifacts, it accepts 256 development and 256 identity-distinct fresh groups;
+all have a unique shortest-byte role, a unique fewest-token role, three
+distinct first-token roles, balanced hidden labels and six surface families.
+Two tokenizer-specific neutral panels use disjoint anchor tokens and can be
+constructed at the exact target-prompt token length while preserving candidate
+suffix IDs. This closes fixture geometry only; no model or policy has run.
+
 ---
 
 # 9. Statistical protocol

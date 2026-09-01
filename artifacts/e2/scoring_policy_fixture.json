@@ -1,0 +1,201 @@
+{
+  "checks": {
+    "development_fresh_identities_differ": true,
+    "development_passes": true,
+    "fresh_passes": true,
+    "no_model_execution": true,
+    "no_training_performed": true,
+    "tokenizers_loaded": true
+  },
+  "development": {
+    "attempted_candidates": 256,
+    "checks": {
+      "distinct_first_token_roles_every_tokenizer": true,
+      "exact_group_count": true,
+      "hidden_labels_balanced_to_one": true,
+      "neutral_contexts_exact_length_constructible": true,
+      "neutral_panels_disjoint": true,
+      "surface_families_balanced_to_one": true,
+      "three_rotations_declared": true,
+      "unique_fewest_token_role_every_tokenizer": true,
+      "unique_shortest_utf8_role": true
+    },
+    "fixture_sha256": "8c9c40058d6c72c00443ab39948ba326c25ffb92076f99f75b5bd8727f2c46ec",
+    "groups": 256,
+    "hidden_answer_role_counts": {
+      "0": 86,
+      "1": 85,
+      "2": 85
+    },
+    "neutral_anchor_token_ids": {
+      "16384": [
+        [
+          6620,
+          9991,
+          1729,
+          14163
+        ],
+        [
+          901,
+          15759,
+          16296,
+          7428
+        ]
+      ],
+      "24576": [
+        [
+          10781,
+          3003,
+          12624,
+          16982
+        ],
+        [
+          1734,
+          13358,
+          4085,
+          9204
+        ]
+      ],
+      "32768": [
+        [
+          22612,
+          1260,
+          28242,
+          9636
+        ],
+        [
+          14980,
+          15363,
+          15890,
+          10981
+        ]
+      ]
+    },
+    "prompt_token_ranges": {
+      "16384": [
+        42,
+        49
+      ],
+      "24576": [
+        39,
+        46
+      ],
+      "32768": [
+        36,
+        44
+      ]
+    },
+    "split": "development",
+    "status": "PASS",
+    "surface_family_counts": {
+      "0": 43,
+      "1": 43,
+      "2": 43,
+      "3": 43,
+      "4": 42,
+      "5": 42
+    }
+  },
+  "fresh": {
+    "attempted_candidates": 256,
+    "checks": {
+      "distinct_first_token_roles_every_tokenizer": true,
+      "exact_group_count": true,
+      "hidden_labels_balanced_to_one": true,
+      "neutral_contexts_exact_length_constructible": true,
+      "neutral_panels_disjoint": true,
+      "surface_families_balanced_to_one": true,
+      "three_rotations_declared": true,
+      "unique_fewest_token_role_every_tokenizer": true,
+      "unique_shortest_utf8_role": true
+    },
+    "fixture_sha256": "1c6968755d2873feeeebfa8ddab8773b922e2911c1c45f37b1b5e194ee1a111e",
+    "groups": 256,
+    "hidden_answer_role_counts": {
+      "0": 86,
+      "1": 85,
+      "2": 85
+    },
+    "neutral_anchor_token_ids": {
+      "16384": [
+        [
+          6620,
+          9991,
+          1729,
+          14163
+        ],
+        [
+          901,
+          15759,
+          16296,
+          7428
+        ]
+      ],
+      "24576": [
+        [
+          10781,
+          3003,
+          12624,
+          16982
+        ],
+        [
+          1734,
+          13358,
+          4085,
+          9204
+        ]
+      ],
+      "32768": [
+        [
+          22612,
+          1260,
+          28242,
+          9636
+        ],
+        [
+          14980,
+          15363,
+          15890,
+          10981
+        ]
+      ]
+    },
+    "prompt_token_ranges": {
+      "16384": [
+        42,
+        48
+      ],
+      "24576": [
+        40,
+        47
+      ],
+      "32768": [
+        37,
+        45
+      ]
+    },
+    "split": "fresh",
+    "status": "PASS",
+    "surface_family_counts": {
+      "0": 43,
+      "1": 43,
+      "2": 42,
+      "3": 42,
+      "4": 43,
+      "5": 43
+    }
+  },
+  "implementation_sha256": "88aa2e28e352edecab03c3731a854f520acccc2c45458f2336e17ddfe7f53191",
+  "limitations": [
+    "Fixture compilation checks measurement geometry only; no model was executed.",
+    "Fresh fixture identity is committed but fresh model outcomes remain forbidden before immutable development selection."
+  ],
+  "promotion_authorized": false,
+  "schema": "esoes-e2-scoring-policy-fixture/v1",
+  "status": "PASS_FIXTURE_COMPILATION",
+  "tokenizers": {
+    "16384": "0a83fb9280ef5309f3351a5ec0dd9889940da374b3e17d02a687c1c307e1fd1b",
+    "24576": "97e12db63b343312e5e4abc37df9ef4b01fcb1faba792a6420a4c1b15d0a7fbc",
+    "32768": "56be8e1cab4a1b0cede97f5bd5e6af8f2f68175f846362a7c0fcdbd5f048ba7f"
+  }
+}

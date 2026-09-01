@@ -255,6 +255,7 @@ python -m unittest discover -s tests -v
 python -m e0_cognition.certify --output artifacts/e0/development_certificate.json
 python -m e0_cognition.scoring_certification --output artifacts/e0/scoring_adapter_certificate.json
 python -m e2_architecture.scoring_policy --output artifacts/e2/scoring_policy_preregistration.json
+python -m e2_architecture.scoring_policy_fixture --artifact-directory artifacts/e1/local_tournament --output artifacts/e2/scoring_policy_fixture.json
 python -m v5_contracts.certify --output artifacts/v5/implementation_contract.json
 python -m v5_training.transaction_canary --output artifacts/v5/training_transaction_canary.json
 python -m v5_training.torch_canary --device cuda --output artifacts/v5/local_p35_checkpoint_canary.json
