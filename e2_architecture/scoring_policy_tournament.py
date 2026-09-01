@@ -431,6 +431,7 @@ def _holm_decisions(named_p_values: Mapping[str, float]) -> dict[str, bool]:
 def aggregate(receipts: Sequence[Mapping[str, object]]) -> dict[str, object]:
     expected = {(device, vocabulary, seed) for device in ("cpu", "cuda") for vocabulary in VOCABULARIES for seed in DEVELOPMENT_SEEDS}
     cells: dict[tuple[str, int, int], Mapping[str, object]] = {}
+    shard_implementations: set[str] = set()
     for receipt in receipts:
         if receipt.get("schema") != SHARD_SCHEMA or receipt.get("status") != "PASS_EXECUTION":
             raise ValueError("aggregate accepts only complete execution shards")
@@ -439,6 +440,9 @@ def aggregate(receipts: Sequence[Mapping[str, object]]) -> dict[str, object]:
         if key in cells:
             raise ValueError("duplicate tournament cell")
         cells[key] = receipt
+        shard_implementations.add(str(receipt["implementation_sha256"]))
+    if len(shard_implementations) > 1:
+        raise ValueError("tournament shards came from different implementations")
     missing = sorted(expected - set(cells))
     extra = sorted(set(cells) - expected)
     if extra:
@@ -543,19 +547,54 @@ def aggregate(receipts: Sequence[Mapping[str, object]]) -> dict[str, object]:
         value["synthetic_checks"] == {"injection_recovery": 1.0, "swap_recovery": 1.0}
         for value in cells.values()
     )
+    cuda_expected = {
+        ("cuda", vocabulary, seed)
+        for vocabulary in VOCABULARIES
+        for seed in DEVELOPMENT_SEEDS
+    }
+    cuda_complete = cuda_expected <= set(cells)
+    nonparity_keys = {
+        "equivalence_intervals",
+        "per_seed_margins",
+        "panel_ranking_agreement",
+        "decoy_stability",
+    }
+    policy_survives_bias_screen = {
+        policy: len(vocabulary_rows) == len(VOCABULARIES)
+        and all(
+            all(row["checks"][key] for key in nonparity_keys)
+            for row in vocabulary_rows.values()
+        )
+        for policy, vocabulary_rows in policy_results.items()
+    }
+    early_policy_failure = (
+        cuda_complete
+        and synthetic_pass
+        and not any(policy_survives_bias_screen.values())
+    )
     all_checks = complete and synthetic_pass and holm_complete and gpu_hours <= MAX_GPU_HOURS and all(
         all(row["checks"].values()) for policy in policy_results.values() for row in policy.values()
     )
     return {
         "schema": AGGREGATE_SCHEMA,
-        "status": "PASS_DEVELOPMENT_ELIGIBILITY" if all_checks else "BLOCKED_OR_FAIL",
+        "status": (
+            "PASS_DEVELOPMENT_ELIGIBILITY"
+            if all_checks
+            else "FAIL_DEVELOPMENT_POLICY"
+            if early_policy_failure
+            else "BLOCKED_OR_FAIL"
+        ),
         "implementation_sha256": _source_sha256(),
+        "shard_implementation_sha256": next(iter(shard_implementations), None),
         "cells_present": len(cells),
         "cells_required": len(expected),
         "missing_cells": [list(value) for value in missing],
         "gpu_hours": gpu_hours,
         "gpu_budget_pass": gpu_hours <= MAX_GPU_HOURS,
         "synthetic_interventions_pass": synthetic_pass,
+        "cuda_stage_complete": cuda_complete,
+        "policy_survives_bias_screen": policy_survives_bias_screen,
+        "parity_skipped_due_prior_failure": early_policy_failure and bool(missing),
         "policies": policy_results,
         "holm_familywise_alpha": HOLM_FAMILYWISE_ALPHA,
         "holm_gate_implemented": True,

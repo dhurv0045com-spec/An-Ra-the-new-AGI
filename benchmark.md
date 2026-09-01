@@ -690,6 +690,18 @@ policies, all tokenizers, four overall axes, and all 6×3 family/role cells.
 A one-group CUDA smoke passes execution only and was discarded; it is not
 scientific evidence and cannot select a policy.
 
+The committed powered CUDA development result is
+`artifacts/e2/scoring_policy_development.json`, backed by all 15 immutable
+tokenizer×seed shard receipts. Both DC-PMI and contextual calibration fail the
+primary bias screen on every tokenizer: the fewest-token role is selected
+1.000 of the time, while the crossed hidden-label rate is 0.332. Exact panel
+agreement is 0.977–0.994 and decoy stability is 1.000, demonstrating that
+stability is not absence of bias. Total measured GPU cost was 0.07574 hours.
+CPU parity and fresh execution were stopped as futile because neither can
+repair a failed development equivalence gate. `production_scoring_mode`
+therefore remains null; candidate-selection metrics cannot promote a model
+until a new, separately frozen policy passes a new development/validation run.
+
 ---
 
 # 9. Statistical protocol

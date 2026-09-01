@@ -311,6 +311,15 @@ Until then: **READY TO FREEZE = NO**.
 **WHAT WOULD CHANGE OUR MIND:** only a preregistered random-weight device audit that rejects these biases across all real tokenizer candidates.
 **ITERATION:** Ground Blueprint v0.5.
 
+## D-040 — Reject both calibrated generative candidate scorers
+
+**DECISION:** reject sequence-level DC-PMI and contextual calibration as production candidate scorers and stop before CPU/fresh execution; neither may be used to promote a Core checkpoint.
+**STATUS:** [EVIDENCE-BACKED DEVELOPMENT FAILURE / REDESIGN REQUIRED]
+**WHY:** across 15 exact random-P35 CUDA cells (three tokenizers × five seeds), both policies selected the fewest-token role on 100% of the independent triplets. Hidden-label accuracy remained at chance, but all length-axis equivalence and per-seed gates failed. Panel agreement and decoy stability passed, proving they do not diagnose this shortcut.
+**EVIDENCE:** `artifacts/e2/scoring_policy_development.json` and `artifacts/e2/development_shards/`; 0.07574 measured GPU-hours. Fresh fixtures remain unexecuted.
+**WHAT WOULD CHANGE OUR MIND:** a separately frozen scorer that neutralizes multi-token length effects, passes new development and validation seeds, then passes immutable fresh and TPU parity gates. Existing development traces may generate hypotheses but cannot confirm the replacement.
+**ITERATION:** Ground Blueprint v0.6.
+
 ## D-037 — Distributed checkpoints require complete rank reconciliation
 
 **DECISION:** a coordinator must reject any distributed checkpoint unless every declared rank appears exactly once, all ranks share the same update/world/barrier identity, shard identities are unique, and rank token contributions equal the global ledger.
