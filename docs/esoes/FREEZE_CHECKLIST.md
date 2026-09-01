@@ -85,6 +85,9 @@ Required critical path: **E0 benchmark certification → E1 tokenizer → E2 arc
 - [x] evaluation/durability/promotion receipt schemas separate raw/assisted evidence, clean restore, gate identity, chronology, and independent signature
 - [x] exact local random-weight P35 scorer has CPU/CUDA parity and rotation invariance
 - [ ] production candidate-scoring policy passes null-bias and target-TPU gates
+- [x] scorer fixture crosses surface family with hidden role and fails on contingency leakage
+- [x] development scorer runner is resumable, hash-bound, and refuses partial/fresh aggregation
+- [ ] powered development scorer tournament passes clustered TOST/Holm, panel, decoy, intervention, and CPU/CUDA gates
 
 ## Scaling
 

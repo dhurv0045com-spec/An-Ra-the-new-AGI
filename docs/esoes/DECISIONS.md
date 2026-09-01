@@ -395,8 +395,8 @@ Until then: **READY TO FREEZE = NO**.
 ## D-039 — Scoring policy must be frozen before a powered null tournament
 
 **DECISION:** treat the six-group random-P35 audit as consumed pilot evidence; compare naive sum/token/byte only as negative controls against domain-conditional PMI (primary) and contextual calibration (secondary) under the immutable 256-triplet protocol.
-**STATUS:** [PREREGISTERED / NOT EXECUTED]
+**STATUS:** [PREREGISTERED / EXECUTABLE / POWERED RUN NOT EXECUTED]
 **WHY:** device parity did not remove surface-form bias, and choosing normalization after trained results would contaminate every cognition comparison. DC-PMI and contextual calibration directly factor candidate priors, but must survive equivalence, neutral-panel, decoy, sensitivity, and device gates.
-**EVIDENCE:** `e2_architecture.scoring_policy`, `artifacts/e2/scoring_policy_preregistration.json`, and primary methods from Holtzman et al. (EMNLP 2021) and Zhao et al. (ICML 2021). No model outcome exists in the receipt.
+**EVIDENCE:** `e2_architecture.scoring_policy`, `e2_architecture.scoring_policy_fixture`, `e2_architecture.scoring_policy_tournament`, and the hash-bound artifacts. Independent audit invalidated fixture v1 because family revealed hidden role; schema 2 crosses that contingency before any powered result. A one-group execution smoke is non-evidence and was discarded.
 **WHAT WOULD CHANGE OUR MIND:** if neither calibrated policy passes every development and unchanged fresh gate, keep `production_scoring_mode=null` and redesign measurement before learned E1-E3 comparisons.
 **ITERATION:** Ground Blueprint v0.5.

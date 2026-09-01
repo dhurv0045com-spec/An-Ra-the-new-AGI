@@ -154,3 +154,5 @@ The 250M production model and trainer are not implemented or authorized; the cur
 
 - Rejected a proposed six-group calibration run as underpowered before executing it. The existing six-group result remains consumed pilot evidence only.
 - Froze a 256-triplet, five-seed, three-tokenizer tournament with DC-PMI primary, contextual calibration secondary, two neutral panels, equivalence/decoy/sensitivity/device gates, and separate development→immutable selection→fresh sequencing. The receipt contains no model outcomes.
+- Independent audit found fixture v1's hidden label was exactly recoverable from surface family. It was invalidated before powered execution; schema 2 crosses all 6×3 family/role cells to within one count and gates the contingency.
+- Added a resumable exact-P35 development runner with one immutable device×tokenizer×seed shard per cell, common trace reuse, exact full-rank panel and four-candidate decoy recomputation, valid trace-level interventions, five-seed Student-t TOST, and Holm correction across the frozen 132-hypothesis promotion family. A one-group CUDA smoke passed and was discarded as non-scientific evidence.

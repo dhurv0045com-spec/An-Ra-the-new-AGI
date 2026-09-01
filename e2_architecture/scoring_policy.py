@@ -19,7 +19,7 @@ from typing import Mapping, Sequence
 from e0_cognition.scoring_certification import CandidateTrace
 
 
-PLAN_SCHEMA = "esoes-e2-scoring-policy-preregistration/v1"
+PLAN_SCHEMA = "esoes-e2-scoring-policy-preregistration/v2"
 DEVELOPMENT_SEEDS = tuple(range(95_101, 95_106))
 FRESH_SEEDS = tuple(range(95_201, 95_206))
 VOCABULARIES = (16_384, 24_576, 32_768)
@@ -191,6 +191,19 @@ def build_preregistration() -> dict[str, object]:
                 "surface_family",
                 "arbitrary_hidden_label",
             ],
+            "operational_hypotheses": {
+                "overall": [
+                    "winner_is_unique_shortest_utf8_role",
+                    "winner_is_unique_fewest_tokens_role",
+                    "winner_is_marked_prefix_role",
+                    "winner_is_counterbalanced_hidden_label",
+                ],
+                "surface_family": "winner-role rate for every one of 6 families x 3 roles",
+                "total_per_policy_tokenizer": 22,
+            },
+            "equivalence_test": "parametric cluster-level TOST with Student-t df=4",
+            "holm_family": "all 132 TOST p-values: 2 promotable policies x 3 tokenizers x 22 hypotheses",
+            "holm_applies_to": "max of the two one-sided p-values for each equivalence hypothesis",
         },
         "gates": {
             "rotation_stability": 1.0,
@@ -200,9 +213,12 @@ def build_preregistration() -> dict[str, object]:
             "pooled_equivalence_interval_inside_margin": True,
             "every_seed_inside_per_seed_margin": True,
             "neutral_panel_ranking_agreement_minimum": 0.95,
+            "neutral_panel_agreement_definition": "exact full three-candidate ranking",
             "irrelevant_decoy_shared_ranking_stability_minimum": 0.99,
+            "decoy_definition": "recompute four-candidate policy, then compare induced full order of original three",
             "synthetic_target_injection_recovery": 1.0,
             "synthetic_target_swap_recovery": 1.0,
+            "synthetic_intervention": "replace one valid target token log-probability by -1e-6 before policy scoring; rotate target role",
             "cpu_cuda_winner_mismatches": 0,
             "cpu_cuda_maximum_absolute_score_error": 0.05,
             "cpu_cuda_relative_rms_error": 0.001,
@@ -226,6 +242,7 @@ def build_preregistration() -> dict[str, object]:
             "No calibrated policy passes every development gate.",
             "Implementation exceeds the compute abort budget.",
             "Any result is inspected before its governing identity is frozen.",
+            "Surface-family x hidden-role contingency differs by more than one count in any cell row.",
         ],
         "limitations": [
             "Random-weight null safety is necessary but does not prove trained-model validity or cognition.",

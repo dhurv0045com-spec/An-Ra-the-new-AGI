@@ -40,6 +40,17 @@ class E2ScoringPolicyFixtureTests(unittest.TestCase):
         self.assertEqual((len(anchors), len(anchors[0]), len(anchors[1])), (2, 4, 4))
         self.assertTrue(set(anchors[0]).isdisjoint(anchors[1]))
 
+    def test_hidden_role_is_crossed_with_surface_family(self) -> None:
+        root = Path(__file__).resolve().parents[1]
+        receipt = json.loads(
+            (root / "artifacts/e2/scoring_policy_fixture.json").read_text(encoding="utf-8")
+        )
+        for split in ("development", "fresh"):
+            contingency = receipt[split]["surface_family_by_hidden_role"]
+            self.assertTrue(
+                all(max(row.values()) - min(row.values()) <= 1 for row in contingency.values())
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

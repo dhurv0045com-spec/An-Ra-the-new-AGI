@@ -4,7 +4,8 @@
     "Candidate roles cannot be uniquely counterbalanced for every tokenizer.",
     "No calibrated policy passes every development gate.",
     "Implementation exceeds the compute abort budget.",
-    "Any result is inspected before its governing identity is frozen."
+    "Any result is inspected before its governing identity is frozen.",
+    "Surface-family x hidden-role contingency differs by more than one count in any cell row."
   ],
   "compute": {
     "abort_gpu_hours": 0.5,
@@ -41,19 +42,22 @@
     "cpu_cuda_maximum_absolute_score_error": 0.05,
     "cpu_cuda_relative_rms_error": 0.001,
     "cpu_cuda_winner_mismatches": 0,
+    "decoy_definition": "recompute four-candidate policy, then compare induced full order of original three",
     "every_seed_inside_per_seed_margin": true,
     "first_position_selection_rate": 0.3333333333333333,
     "irrelevant_decoy_shared_ranking_stability_minimum": 0.99,
     "must_pass_every_tokenizer": true,
+    "neutral_panel_agreement_definition": "exact full three-candidate ranking",
     "neutral_panel_ranking_agreement_minimum": 0.95,
     "nonfinite_scores": 0,
     "pooled_equivalence_interval_inside_margin": true,
     "rotation_stability": 1.0,
+    "synthetic_intervention": "replace one valid target token log-probability by -1e-6 before policy scoring; rotate target role",
     "synthetic_target_injection_recovery": 1.0,
     "synthetic_target_swap_recovery": 1.0,
     "unresolved_ties": 0
   },
-  "implementation_sha256": "0e4f24c4157e8f7e2c6451b1bb74914d8d64616cb33fc7bf0769a0a2a1244a75",
+  "implementation_sha256": "4c34d506f1f4ab52032c5ef1315ef97d437aa96b214165d48326aec141c32cfb",
   "limitations": [
     "Random-weight null safety is necessary but does not prove trained-model validity or cognition.",
     "Candidate scoring remains assisted evaluation; candidate-free realization stays separate.",
@@ -103,7 +107,7 @@
     "https://aclanthology.org/2021.emnlp-main.564/",
     "https://proceedings.mlr.press/v139/zhao21c.html"
   ],
-  "schema": "esoes-e2-scoring-policy-preregistration/v1",
+  "schema": "esoes-e2-scoring-policy-preregistration/v2",
   "secondary_policy": "contextual_calibration",
   "statistics": {
     "axes": [
@@ -115,8 +119,21 @@
     ],
     "equivalence_confidence": 0.9,
     "equivalence_margin_from_permutation_chance": 0.05,
+    "equivalence_test": "parametric cluster-level TOST with Student-t df=4",
+    "holm_applies_to": "max of the two one-sided p-values for each equivalence hypothesis",
+    "holm_family": "all 132 TOST p-values: 2 promotable policies x 3 tokenizers x 22 hypotheses",
     "holm_familywise_alpha": 0.01,
     "model_seed_is_a_cluster": true,
+    "operational_hypotheses": {
+      "overall": [
+        "winner_is_unique_shortest_utf8_role",
+        "winner_is_unique_fewest_tokens_role",
+        "winner_is_marked_prefix_role",
+        "winner_is_counterbalanced_hidden_label"
+      ],
+      "surface_family": "winner-role rate for every one of 6 families x 3 roles",
+      "total_per_policy_tokenizer": 22
+    },
     "per_seed_maximum_deviation": 0.1,
     "position_rotations_are_not_independent": true,
     "primary_unit": "independent candidate triplet"

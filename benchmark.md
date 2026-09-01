@@ -671,9 +671,24 @@ Fixture compilation is separately recorded in
 artifacts, it accepts 256 development and 256 identity-distinct fresh groups;
 all have a unique shortest-byte role, a unique fewest-token role, three
 distinct first-token roles, balanced hidden labels and six surface families.
+Fixture v1 was invalidated before powered execution because `group % 3` made
+the hidden label perfectly predictable from `group % 6` surface family. Schema
+2 crosses every family with all three hidden roles to within one observation
+and makes that contingency a fail-closed gate.
 Two tokenizer-specific neutral panels use disjoint anchor tokens and can be
 constructed at the exact target-prompt token length while preserving candidate
 suffix IDs. This closes fixture geometry only; no model or policy has run.
+
+`e2_architecture.scoring_policy_tournament` is the executable development
+runner. It shards strictly by device, tokenizer, and frozen model seed; binds
+each shard to the redacted fixture identity; reuses one trace bank for all five
+policies; recomputes four-way contextual calibration when adding the decoy;
+and records exact full-rank panel agreement. Aggregation refuses smoke,
+duplicate, missing, or fresh cells. Its 132-member promotion family applies
+cluster-level Student-t TOST and Holm step-down correction across both eligible
+policies, all tokenizers, four overall axes, and all 6×3 family/role cells.
+A one-group CUDA smoke passes execution only and was discarded; it is not
+scientific evidence and cannot select a policy.
 
 ---
 

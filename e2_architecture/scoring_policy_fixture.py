@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 
-SCHEMA = "esoes-e2-scoring-policy-fixture/v1"
+SCHEMA = "esoes-e2-scoring-policy-fixture/v2"
 VOCABULARIES = (16_384, 24_576, 32_768)
 GROUPS = 256
 PANELS = 2
@@ -112,15 +112,19 @@ def _neutral_anchors(tokenizer_sha256: str, vocabulary_size: int) -> tuple[tuple
     return tuple(anchors)
 
 
-def _compile_split(
-    split: str,
-    tokenizers: Mapping[int, Any],
-    tokenizer_hashes: Mapping[int, str],
-) -> dict[str, object]:
+def materialize_cases(split: str, tokenizers: Mapping[int, Any]) -> tuple[dict[str, object], ...]:
+    """Recreate the text-bearing cases whose redacted identity is committed.
+
+    The public fixture receipt deliberately contains hashes rather than prompts.
+    The model runner calls this function and then rechecks the resulting hash,
+    so it cannot silently evaluate a friendlier set of strings.
+    """
+
+    if split not in {"development", "fresh"}:
+        raise ValueError("fixture split must be development or fresh")
     accepted: list[dict[str, object]] = []
     attempted = 0
     candidate_index = 0 if split == "development" else 1_000_000
-    prompt_lengths: dict[int, list[int]] = {vocabulary: [] for vocabulary in VOCABULARIES}
     while len(accepted) < GROUPS and attempted < 100_000:
         index = candidate_index + attempted
         attempted += 1
@@ -156,13 +160,73 @@ def _compile_split(
         if not valid:
             continue
         group = len(accepted)
-        hidden_answer_role = group % 3
+        # Cross hidden label with the six surface families.  ``group % 3`` is
+        # forbidden because family is ``group % 6`` and would reveal the label.
+        hidden_answer_role = (
+            group // 6 + family + (1 if split == "fresh" else 0)
+        ) % 3
         accepted.append(
             {
                 "group": group,
                 "source_index": index,
                 "surface_family": family,
                 "hidden_answer_role": hidden_answer_role,
+                "prompt": prompt,
+                "candidates": candidates,
+                "decoy": decoy,
+                "tokenizers": token_rows,
+            }
+        )
+    if len(accepted) != GROUPS:
+        raise RuntimeError(f"only materialized {len(accepted)} of {GROUPS} required groups")
+    return tuple(accepted)
+
+
+def redacted_case_identity(cases: Sequence[Mapping[str, object]]) -> str:
+    """Hash a materialized split using the exact committed redaction schema."""
+
+    rows = []
+    for case in cases:
+        prompt = str(case["prompt"])
+        candidates = tuple(str(value) for value in case["candidates"])
+        decoy = str(case["decoy"])
+        rows.append(
+            {
+                "group": case["group"],
+                "source_index": case["source_index"],
+                "surface_family": case["surface_family"],
+                "hidden_answer_role": case["hidden_answer_role"],
+                "prompt_sha256": hashlib.sha256(prompt.encode("utf-8")).hexdigest(),
+                "candidate_sha256": [hashlib.sha256(value.encode("utf-8")).hexdigest() for value in candidates],
+                "decoy_sha256": hashlib.sha256(decoy.encode("utf-8")).hexdigest(),
+                "tokenizers": {
+                    str(key): value for key, value in sorted(case["tokenizers"].items())
+                },
+            }
+        )
+    return _canonical_sha256(rows)
+
+
+def _compile_split(
+    split: str,
+    tokenizers: Mapping[int, Any],
+    tokenizer_hashes: Mapping[int, str],
+) -> dict[str, object]:
+    materialized = materialize_cases(split, tokenizers)
+    attempted = int(materialized[-1]["source_index"]) - (0 if split == "development" else 1_000_000) + 1
+    accepted: list[dict[str, object]] = []
+    prompt_lengths: dict[int, list[int]] = {vocabulary: [] for vocabulary in VOCABULARIES}
+    for case in materialized:
+        prompt = str(case["prompt"])
+        candidates = tuple(str(value) for value in case["candidates"])
+        decoy = str(case["decoy"])
+        token_rows = case["tokenizers"]
+        accepted.append(
+            {
+                "group": case["group"],
+                "source_index": case["source_index"],
+                "surface_family": case["surface_family"],
+                "hidden_answer_role": case["hidden_answer_role"],
                 "prompt_sha256": hashlib.sha256(prompt.encode("utf-8")).hexdigest(),
                 "candidate_sha256": [hashlib.sha256(value.encode("utf-8")).hexdigest() for value in candidates],
                 "decoy_sha256": hashlib.sha256(decoy.encode("utf-8")).hexdigest(),
@@ -171,8 +235,6 @@ def _compile_split(
         )
         for vocabulary, row in token_rows.items():
             prompt_lengths[vocabulary].append(int(row["prompt_tokens"]))
-    if len(accepted) != GROUPS:
-        raise RuntimeError(f"only compiled {len(accepted)} of {GROUPS} required groups")
     family_counts = {
         str(family): sum(item["surface_family"] == family for item in accepted)
         for family in range(6)
@@ -180,6 +242,16 @@ def _compile_split(
     hidden_counts = {
         str(role): sum(item["hidden_answer_role"] == role for item in accepted)
         for role in range(3)
+    }
+    contingency = {
+        str(family): {
+            str(role): sum(
+                item["surface_family"] == family and item["hidden_answer_role"] == role
+                for item in accepted
+            )
+            for role in range(3)
+        }
+        for family in range(6)
     }
     anchors = {
         str(vocabulary): [list(panel) for panel in _neutral_anchors(tokenizer_hashes[vocabulary], vocabulary)]
@@ -189,6 +261,9 @@ def _compile_split(
         "exact_group_count": len(accepted) == GROUPS,
         "surface_families_balanced_to_one": max(family_counts.values()) - min(family_counts.values()) <= 1,
         "hidden_labels_balanced_to_one": max(hidden_counts.values()) - min(hidden_counts.values()) <= 1,
+        "hidden_labels_crossed_with_surface_family": all(
+            max(row.values()) - min(row.values()) <= 1 for row in contingency.values()
+        ),
         "unique_shortest_utf8_role": True,
         "unique_fewest_token_role_every_tokenizer": True,
         "distinct_first_token_roles_every_tokenizer": True,
@@ -203,9 +278,10 @@ def _compile_split(
         "status": "PASS" if all(checks.values()) else "FAIL",
         "groups": len(accepted),
         "attempted_candidates": attempted,
-        "fixture_sha256": _canonical_sha256(accepted),
+        "fixture_sha256": redacted_case_identity(materialized),
         "surface_family_counts": family_counts,
         "hidden_answer_role_counts": hidden_counts,
+        "surface_family_by_hidden_role": contingency,
         "prompt_token_ranges": {
             str(vocabulary): [min(lengths), max(lengths)]
             for vocabulary, lengths in prompt_lengths.items()

@@ -13,6 +13,7 @@
       "distinct_first_token_roles_every_tokenizer": true,
       "exact_group_count": true,
       "hidden_labels_balanced_to_one": true,
+      "hidden_labels_crossed_with_surface_family": true,
       "neutral_contexts_exact_length_constructible": true,
       "neutral_panels_disjoint": true,
       "surface_families_balanced_to_one": true,
@@ -20,7 +21,7 @@
       "unique_fewest_token_role_every_tokenizer": true,
       "unique_shortest_utf8_role": true
     },
-    "fixture_sha256": "8c9c40058d6c72c00443ab39948ba326c25ffb92076f99f75b5bd8727f2c46ec",
+    "fixture_sha256": "3adb9bed98b3bddc7a7cd1dd149022611560c6eed7964ff168181de23f97b562",
     "groups": 256,
     "hidden_answer_role_counts": {
       "0": 86,
@@ -87,6 +88,38 @@
     },
     "split": "development",
     "status": "PASS",
+    "surface_family_by_hidden_role": {
+      "0": {
+        "0": 15,
+        "1": 14,
+        "2": 14
+      },
+      "1": {
+        "0": 14,
+        "1": 15,
+        "2": 14
+      },
+      "2": {
+        "0": 14,
+        "1": 14,
+        "2": 15
+      },
+      "3": {
+        "0": 15,
+        "1": 14,
+        "2": 14
+      },
+      "4": {
+        "0": 14,
+        "1": 14,
+        "2": 14
+      },
+      "5": {
+        "0": 14,
+        "1": 14,
+        "2": 14
+      }
+    },
     "surface_family_counts": {
       "0": 43,
       "1": 43,
@@ -102,6 +135,7 @@
       "distinct_first_token_roles_every_tokenizer": true,
       "exact_group_count": true,
       "hidden_labels_balanced_to_one": true,
+      "hidden_labels_crossed_with_surface_family": true,
       "neutral_contexts_exact_length_constructible": true,
       "neutral_panels_disjoint": true,
       "surface_families_balanced_to_one": true,
@@ -109,12 +143,12 @@
       "unique_fewest_token_role_every_tokenizer": true,
       "unique_shortest_utf8_role": true
     },
-    "fixture_sha256": "1c6968755d2873feeeebfa8ddab8773b922e2911c1c45f37b1b5e194ee1a111e",
+    "fixture_sha256": "986bb0be2651e2c24816569b2c1e2d8f5d706476afd16a597f19a454e9dc268a",
     "groups": 256,
     "hidden_answer_role_counts": {
-      "0": 86,
+      "0": 85,
       "1": 85,
-      "2": 85
+      "2": 86
     },
     "neutral_anchor_token_ids": {
       "16384": [
@@ -176,6 +210,38 @@
     },
     "split": "fresh",
     "status": "PASS",
+    "surface_family_by_hidden_role": {
+      "0": {
+        "0": 14,
+        "1": 15,
+        "2": 14
+      },
+      "1": {
+        "0": 14,
+        "1": 14,
+        "2": 15
+      },
+      "2": {
+        "0": 14,
+        "1": 14,
+        "2": 14
+      },
+      "3": {
+        "0": 14,
+        "1": 14,
+        "2": 14
+      },
+      "4": {
+        "0": 14,
+        "1": 14,
+        "2": 15
+      },
+      "5": {
+        "0": 15,
+        "1": 14,
+        "2": 14
+      }
+    },
     "surface_family_counts": {
       "0": 43,
       "1": 43,
@@ -185,13 +251,13 @@
       "5": 43
     }
   },
-  "implementation_sha256": "88aa2e28e352edecab03c3731a854f520acccc2c45458f2336e17ddfe7f53191",
+  "implementation_sha256": "d69c4cc130980fa5913ed756e01dd9a51171d0580a29c3fbf7b55821b9d46f16",
   "limitations": [
     "Fixture compilation checks measurement geometry only; no model was executed.",
     "Fresh fixture identity is committed but fresh model outcomes remain forbidden before immutable development selection."
   ],
   "promotion_authorized": false,
-  "schema": "esoes-e2-scoring-policy-fixture/v1",
+  "schema": "esoes-e2-scoring-policy-fixture/v2",
   "status": "PASS_FIXTURE_COMPILATION",
   "tokenizers": {
     "16384": "0a83fb9280ef5309f3351a5ec0dd9889940da374b3e17d02a687c1c307e1fd1b",
