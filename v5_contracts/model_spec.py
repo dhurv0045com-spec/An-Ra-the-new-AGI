@@ -7,6 +7,11 @@ import json
 from dataclasses import asdict, dataclass
 
 
+# QK normalization is a repository-wide semantic constant rather than a kernel
+# default.  Changing it requires a training-spec version bump and new canaries.
+QK_NORM_EPSILON = 1e-6
+
+
 @dataclass(frozen=True, slots=True)
 class ParameterReceipt:
     embedding: int

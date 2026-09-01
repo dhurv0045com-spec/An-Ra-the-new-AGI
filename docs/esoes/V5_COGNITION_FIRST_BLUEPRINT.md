@@ -1,6 +1,11 @@
 # An-Ra V5 — Cognition-First Foundation Blueprint (Working Draft)
 
-Status: **WORKING DESIGN, NOT FROZEN**
+Status: **SUPERSEDED WORKING DRAFT**
+
+The authoritative implementation constants are now in
+[`V5_TRAINING_SPEC_v1.0.md`](V5_TRAINING_SPEC_v1.0.md). This file is retained as
+research history; its older mixture ranges and unset constants must not be used
+by code or a training run.
 
 This document defines how the next An-Ra Core should be designed and how the design itself should be validated before a large training run.
 

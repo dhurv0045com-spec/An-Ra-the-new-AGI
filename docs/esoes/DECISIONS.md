@@ -404,8 +404,17 @@ Until then: **READY TO FREEZE = NO**.
 ## D-039 — Scoring policy must be frozen before a powered null tournament
 
 **DECISION:** treat the six-group random-P35 audit as consumed pilot evidence; compare naive sum/token/byte only as negative controls against domain-conditional PMI (primary) and contextual calibration (secondary) under the immutable 256-triplet protocol.
-**STATUS:** [PREREGISTERED / EXECUTABLE / POWERED RUN NOT EXECUTED]
+**STATUS:** [COMPLETED / BOTH POLICIES REJECTED]
 **WHY:** device parity did not remove surface-form bias, and choosing normalization after trained results would contaminate every cognition comparison. DC-PMI and contextual calibration directly factor candidate priors, but must survive equivalence, neutral-panel, decoy, sensitivity, and device gates.
 **EVIDENCE:** `e2_architecture.scoring_policy`, `e2_architecture.scoring_policy_fixture`, `e2_architecture.scoring_policy_tournament`, and the hash-bound artifacts. Independent audit invalidated fixture v1 because family revealed hidden role; schema 2 crosses that contingency before any powered result. A one-group execution smoke is non-evidence and was discarded.
-**WHAT WOULD CHANGE OUR MIND:** if neither calibrated policy passes every development and unchanged fresh gate, keep `production_scoring_mode=null` and redesign measurement before learned E1-E3 comparisons.
+**WHAT WOULD CHANGE OUR MIND:** a new outcome-frozen equal-token candidate design must pass new development/validation evidence; the untouched fresh fixture cannot be used to rescue these rejected policies.
 **ITERATION:** Ground Blueprint v0.5.
+
+## D-041 — Freeze an implementation-complete V5-A candidate, not launch authorization
+
+**DECISION:** freeze `V5_TRAINING_SPEC_v1.0.md` and its executable receipt as the only code-facing constant set. Use a conventional 250,216,960-parameter 26×896 Core, consistent 2:1 GQA scale family, 5B 65/20/15 data center, explicit cognition allocation, CE-only launch objective, exact AdamW/WSD/topology/checkpoint constants, and `main_training_authorized=false`.
+**STATUS:** [IMPLEMENTATION FROZEN / SCIENTIFIC INPUTS BLOCKED]
+**WHY:** code can now be built without invented defaults, while absent tokenizer/data identities and E1–E5/TPU evidence remain impossible to misread as permission. The failed variable-length scorer makes query-swap lambda above zero scientifically indefensible today.
+**EVIDENCE:** `v5_contracts.training_spec`, `artifacts/v5/training_spec_v1.json`, the full local canary suite, E0/E1/E2/E3 receipts, and the powered scorer failure.
+**WHAT WOULD CHANGE OUR MIND:** a gate may fill a null identity or justify a versioned constant change; no result may silently mutate v1.0. The 250M run begins only after every receipt-listed blocker closes.
+**ITERATION:** V5-A Candidate v1.0.

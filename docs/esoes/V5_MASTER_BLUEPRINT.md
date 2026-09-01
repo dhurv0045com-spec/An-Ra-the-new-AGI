@@ -7,7 +7,7 @@ Training authorization: **NO**
 
 This document is the canonical V5 research blueprint. It is intellectually independent of VNext implementation. The evidence base is `EVIDENCE_BASE.md`, the four-round attack record is `ITERATIONS.md`, and change control is `DECISIONS.md`. A value marked **[EXPERIMENT REQUIRED]** is not permission to encode it silently into a trainer.
 
-[`../../blueprints/IMPLEMENTATION_BLUEPRINT.md`](../../blueprints/IMPLEMENTATION_BLUEPRINT.md) is the canonical code/infrastructure companion. Executable arithmetic and artifact schemas live in `v5_contracts/`; E0 and E1 research interfaces live in `e0_cognition/` and `e1_tokenizer/`. None of these packages is a production trainer.
+[`V5_TRAINING_SPEC_v1.0.md`](V5_TRAINING_SPEC_v1.0.md) is the canonical code-facing freeze; [`../../blueprints/IMPLEMENTATION_BLUEPRINT.md`](../../blueprints/IMPLEMENTATION_BLUEPRINT.md) owns module boundaries. Executable constants and receipts live in `v5_contracts/`. The v1.0 candidate is implementation-frozen but keeps `main_training_authorized=false` until E1–E5 and target/durability gates close.
 
 Ground Blueprint v0.4 freezes the scientific boundaries and experiment order, not the exact training recipe:
 
@@ -137,8 +137,8 @@ Do not add MoE, recurrent memory, SSM blocks, latent-thought heads, learned rout
 
 | Stage | Candidate shape | Approx. parameters | Purpose |
 |---|---|---:|---|
-| P35 | 16×384, 6Q/2KV, FFN 1024, vocab 24,576 | 34.6M | High-throughput rank ordering |
-| M102 | 20×640, 10Q/2KV, FFN 1728, vocab 24,576 | 101.8M | Replication and scale-transfer gate |
+| P35 recipe | 16×384, 6Q/3KV, FFN 1024, vocab 24,576 | 35.414M | High-throughput 2:1-GQA recipe screen |
+| M102 recipe | 20×640, 10Q/5KV, FFN 1600, vocab 24,576 | 101.790M | Consistent 2:1 scale-transfer gate |
 | V5-A | 26×896, 14Q/7KV, FFN 2368, vocab 24,576 | 250.22M | First major run after freeze |
 | V5-B | approximately 400M | OPEN / UNKNOWN | Only after V5-A passes and ≥8B clean tokens exist |
 | 1B / 3B | unspecified | OPEN / UNKNOWN | Not justified by current evidence |
@@ -220,7 +220,7 @@ V5 should learn a small set of transferable operations rather than task names:
 
 Curriculum is **[EXPERIMENT REQUIRED]** because broad language-model curriculum evidence is mixed. Compare uniform interleaving with one staged schedule: establish copy/binding/state, add composition, then raise cardinality and distractors while preserving at least 30% replay of earlier families. Advancement is determined by preregistered competence gates, not subjective inspection. If staging does not improve worst-family fresh-OOD performance at equal tokens, use uniform mixing.
 
-The provisional sequence-length mix, measured by tokens rather than examples, is 50% at approximately 512–1,024, 30% at 2,048, and 20% at 4,096. The 4k share is enriched for position, distractor, state, and retrieval controls; relevant spans are position-randomized. This preserves native 4k training without charging quadratic attention cost to every datum. **[EXPERIMENT REQUIRED]**
+The implementation candidate's exact sequence-length mix, measured by real non-padding tokens, is 25% at 512, 25% at 1,024, 30% at 2,048, and 20% at 4,096. A deterministic 20-microstep supercycle realizes counts 5/5/6/4 and is checkpointed. The 4k share is enriched for position, distractor, state, and retrieval controls; relevant spans are position-randomized. **[PROVISIONAL FREEZE / EXPERIMENT REQUIRED]**
 
 Natural transfer examples must accompany each synthetic family. A synthetic-only gain is not sufficient for promotion.
 
@@ -231,6 +231,12 @@ Natural transfer examples must accompany each synthetic family. A synthetic-only
 Standard causal next-token likelihood remains the universal objective. **EVIDENCE-BACKED**
 
 ### 9.2 Query-swap auxiliary objective
+
+The v1.0 launch constant is `lambda=0`: CE only. The powered scorer experiment
+proved that arbitrary-length generative candidate scores remain catastrophically
+length-biased even under DC-PMI and contextual calibration. Query-swap is now an
+E3 challenger only and must use equal suffix-token counts plus measured-FLOP
+matching before a versioned spec may enable it.
 
 The only auxiliary objective allowed into the decisive experiment is query-swap contrast. For fixed fact context `F`, correct query `q`, counterfactual query `q'`, gold value `v*`, and plausible wrong values `v-`:
 
@@ -349,7 +355,7 @@ The 64-per-family perturbation sweep adds numbers, identifiers, nonces, Unicode,
 
 ### E2 — Architecture screen
 
-At ~35M parameters compare parameter-matched deep/narrow, middle, and wide/shallow shapes; screen 4-KV GQA versus MHA and QK norm on/off using a fractional design. Single-seed successive halving may eliminate clearly weak arms; top two shapes receive three seeds.
+At ~35M parameters compare parameter-matched deep/narrow, middle, and wide/shallow shapes; screen the consistent 2:1 GQA recipe versus MHA and QK norm on/off using a fractional design. Single-seed successive halving may eliminate clearly weak arms; top two shapes receive three seeds. The existing 3:1 kernel probe does not close this recipe question.
 
 The purpose is to decide depth, attention topology, and QK/GQA—not to crown a benchmark winner from one seed. A replicated local CUDA kernel probe already discovered that this exact PyTorch/Windows build routes native GQA through the math backend: it is 5.20× MHA latency and 13.86× peak allocation, while explicit repeated K/V is 1.09× latency and 1.45× memory. Native 4k is 3.59× native-2k latency and 3.80× memory. This is **EVIDENCE-BACKED for implementation selection on the measured stack**, not evidence against GQA or 4k on TPU; the target framework must run the same backend canary before E2.
 
@@ -468,7 +474,7 @@ Core cannot grade itself and Connector intervention output cannot be its own suc
 |---|---|---|
 | 16k vs 24k vs 32k vocabulary | EXPERIMENT REQUIRED | E1 |
 | 26×896 versus another ~250M depth/width shape | EXPERIMENT REQUIRED | E2 |
-| 4-KV GQA versus MHA | EXPERIMENT REQUIRED | E2 |
+| 2:1 GQA versus MHA | EXPERIMENT REQUIRED | E2 |
 | QK norm effect on discrimination | EXPERIMENT REQUIRED | E2 |
 | Full attention benefit at 4k | EXPERIMENT REQUIRED | E2 plus long-context suite |
 | 5/15/30% cognition share | EXPERIMENT REQUIRED | E3 |
@@ -500,14 +506,14 @@ Core cannot grade itself and Connector intervention output cannot be its own suc
 **WHY:** V4 is not proven capacity-limited; it is under-evidenced, under-tokened, and behaviorally mis-selected. A clean dense model makes the data/objective hypothesis falsifiable.
 **BIGGEST CHANGE FROM V4:** A clean-sheet foundation with more depth and native full 4k context at nearly the same scale, selected by causal proxy experiments rather than inherited code or intuition.
 **BIGGEST DATA CHANGE:** A provenance-complete 5B-token corpus with a tested ~15% mechanically verified causal cognition component.
-**BIGGEST TRAINING CHANGE:** Query-swap contrast as the sole candidate auxiliary objective, plus immutable behavioral checkpoint promotion.
+**BIGGEST TRAINING CHANGE:** CE-only token-indexed WSD with exact resumability and immutable behavioral checkpoint promotion; an auxiliary objective must earn admission rather than ride into the main run.
 **BIGGEST COGNITION CHANGE:** Train and measure representation, selection, and realization separately under causal counterfactual and OOD splits.
-**MOST IMPORTANT UNKNOWN:** Whether query-swap gains survive fresh generators, natural domains, and scale without harming the language substrate.
-**EXPERIMENTS BEFORE FREEZE:** E0 benchmark certification; E1 tokenizer; E2 architecture; E3 data/objective; E4 minimal curriculum/optimizer; E5 102M replication.
+**MOST IMPORTANT UNKNOWN:** Whether the verified-cognition mixture produces fresh candidate-free and natural-domain gains that survive M102 scale transfer.
+**EXPERIMENTS BEFORE LAUNCH:** E1 tokenizer; consistent 2:1 E2 architecture; E3 CE data mixture; E4 recipe; M102 replication; power-sized evaluation; TPU and remote restore.
 **ESTIMATED COMPUTE:** 1.5–2.5 EFLOP pre-freeze; 7.51 EFLOP idealized and roughly 8.3–9.4 EFLOP practical for V5-A.
 **CONFIDENCE:** 0.72 in the program direction; 0.45 in the exact provisional shape and mixture.
-**READY TO FREEZE:** **NO**.
-**NEXT ACTION:** Obtain external E0 custody and real 16k/24k/32k tokenizer artifacts; run the implemented E1 static audits, then authorize only bounded P35 comparisons after E0 exits.
+**READY TO FREEZE:** **YES for the implementation candidate; NO for main-run authorization**.
+**NEXT ACTION:** Fill the E1 identity and run the smallest learned P35 CE-only mixture comparison under the v1.0 contracts.
 
 ## 21. Research basis
 

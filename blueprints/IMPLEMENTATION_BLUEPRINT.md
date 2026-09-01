@@ -1,9 +1,9 @@
 # An-Ra V5 Code and Infrastructure Blueprint
 
-Status: **Ground Blueprint v0.4 implementation contract**
+Status: **V5-A implementation candidate v1.0; main run blocked**
 Scope: design and executable contracts; no production trainer or main run authorization
 
-This is the canonical bridge from research decisions to code. `V5_MASTER_BLUEPRINT.md` owns the scientific question; `benchmark.md` owns the E0 measurement contract; this file owns module boundaries, interfaces, commands, artifacts, failure behavior, and the order in which implementation becomes trustworthy.
+This is the canonical module-boundary bridge. `docs/esoes/V5_MASTER_BLUEPRINT.md` owns the scientific question, `docs/esoes/V5_TRAINING_SPEC_v1.0.md` and `v5_contracts.training_spec` own exact constants, and `benchmark.md` owns measurement. No code may substitute an unspecified default for a null identity in the executable receipt.
 
 ## 1. Build target
 

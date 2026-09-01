@@ -40,6 +40,10 @@ jobs:
         run: python -m v5_contracts.certify --output /tmp/implementation_contract.json
       - name: Verify committed implementation receipt
         run: cmp artifacts/v5/implementation_contract.json /tmp/implementation_contract.json
+      - name: Reproduce V5-A training specification
+        run: python -m v5_contracts.training_spec --output /tmp/training_spec_v1.json
+      - name: Verify V5-A training specification is immutable
+        run: cmp artifacts/v5/training_spec_v1.json /tmp/training_spec_v1.json
       - name: Reproduce training transaction canary
         run: python -m v5_training.transaction_canary --output /tmp/training_transaction_canary.json
       - name: Verify training transaction receipt is reproducible

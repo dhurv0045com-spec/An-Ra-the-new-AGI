@@ -24,7 +24,7 @@ class SelectionMeasurement:
 class RealizationMeasurement:
     raw_exact: bool
     constrained_exact: bool
-    conditional_realization: float
+    conditional_realization: float | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -62,17 +62,24 @@ def measure_selection(scores: Mapping[str, float], answer: str) -> SelectionMeas
 
 
 def query_conditioning_lift(
-    conditioned_scores: Mapping[str, float], unconditioned_scores: Mapping[str, float], answer: str
+    conditioned_scores: Mapping[str, float], counterfactual_query_scores: Mapping[str, float], answer: str
 ) -> float:
-    if answer not in conditioned_scores or answer not in unconditioned_scores:
+    if answer not in conditioned_scores or answer not in counterfactual_query_scores:
         raise ValueError("answer is absent from one score mapping")
-    return conditioned_scores[answer] - unconditioned_scores[answer]
+    return conditioned_scores[answer] - counterfactual_query_scores[answer]
 
 
-def measure_realization(raw_output: str, constrained_output: str, answer: str) -> RealizationMeasurement:
+def measure_realization(
+    raw_output: str,
+    constrained_output: str,
+    answer: str,
+    *,
+    unassisted_selection_correct: bool,
+) -> RealizationMeasurement:
     raw = raw_output.strip() == answer
     constrained = constrained_output.strip() == answer
-    return RealizationMeasurement(raw, constrained, float(raw) if constrained else 0.0)
+    conditional = float(raw) if unassisted_selection_correct else None
+    return RealizationMeasurement(raw, constrained, conditional)
 
 
 def measure_assistance(raw_output: str, assisted_output: str, answer: str) -> AssistanceMeasurement:

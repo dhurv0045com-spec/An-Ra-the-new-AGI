@@ -173,10 +173,16 @@ class E0ContractTests(unittest.TestCase):
         self.assertEqual(selected.rank, 2)
         self.assertAlmostEqual(selected.margin, -0.5)
         self.assertAlmostEqual(query_conditioning_lift({"C": 1.5}, {"C": 0.25}, "C"), 1.25)
-        realized = measure_realization("C.", "C", "C")
+        realized = measure_realization(
+            "C.", "C", "C", unassisted_selection_correct=False
+        )
         self.assertFalse(realized.raw_exact)
         self.assertTrue(realized.constrained_exact)
-        self.assertEqual(realized.conditional_realization, 0.0)
+        self.assertIsNone(realized.conditional_realization)
+        selected_realization = measure_realization(
+            "C", "C", "C", unassisted_selection_correct=True
+        )
+        self.assertEqual(selected_realization.conditional_realization, 1.0)
 
     def test_development_certificate_passes_without_claiming_model_quality(self) -> None:
         certificate = build_development_certificate(seed=505, groups_per_family=16)

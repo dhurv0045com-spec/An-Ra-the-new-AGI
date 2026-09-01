@@ -12,7 +12,7 @@ from dataclasses import asdict, dataclass
 from enum import Enum
 
 
-RUNNER_SCHEMA = "anra-v5-runner-state/v1"
+RUNNER_SCHEMA = "anra-v5-runner-state/v2"
 
 
 def _assert_sha256(name: str, value: str | None) -> None:
@@ -35,6 +35,7 @@ class RunnerState:
     schema: str
     status: RunStatus
     target_update: int
+    completed_update: int
     committed_update: int
     last_checkpoint_sha256: str | None
     pending_parent_sha256: str | None
@@ -47,6 +48,7 @@ class RunnerState:
             schema=RUNNER_SCHEMA,
             status=RunStatus.CREATED,
             target_update=target_update,
+            completed_update=0,
             committed_update=0,
             last_checkpoint_sha256=None,
             pending_parent_sha256=None,
@@ -59,15 +61,19 @@ class RunnerState:
     def assert_valid(self) -> None:
         if self.schema != RUNNER_SCHEMA:
             raise ValueError("unsupported runner schema")
-        if self.target_update <= 0 or self.committed_update < 0:
+        if self.target_update <= 0 or min(self.completed_update, self.committed_update) < 0:
             raise ValueError("runner update counters are invalid")
-        if self.committed_update > self.target_update:
-            raise ValueError("runner committed beyond target")
+        if self.completed_update > self.target_update:
+            raise ValueError("runner completed beyond target")
+        if self.committed_update > self.completed_update:
+            raise ValueError("runner committed beyond completed work")
         _assert_sha256("last checkpoint", self.last_checkpoint_sha256)
         _assert_sha256("pending parent", self.pending_parent_sha256)
         if self.status is RunStatus.CHECKPOINTING:
-            if self.pending_update != self.committed_update + 1:
-                raise ValueError("checkpointing must target exactly the next update")
+            if self.pending_update != self.completed_update:
+                raise ValueError("checkpointing must target the newest completed update")
+            if self.pending_update <= self.committed_update:
+                raise ValueError("checkpointing must include uncommitted work")
             if self.pending_parent_sha256 != self.last_checkpoint_sha256:
                 raise ValueError("pending checkpoint parent is not the committed checkpoint")
             if self.failure_code is not None:
@@ -75,10 +81,14 @@ class RunnerState:
         elif self.pending_update is not None or self.pending_parent_sha256 is not None:
             raise ValueError("pending checkpoint metadata requires checkpointing status")
         if self.status is RunStatus.CREATED:
-            if self.committed_update or self.last_checkpoint_sha256 or self.failure_code:
+            if self.completed_update or self.committed_update or self.last_checkpoint_sha256 or self.failure_code:
                 raise ValueError("created runner must have no committed work or failure")
         if self.status is RunStatus.COMPLETED:
-            if self.committed_update != self.target_update or not self.last_checkpoint_sha256:
+            if (
+                self.completed_update != self.target_update
+                or self.committed_update != self.target_update
+                or not self.last_checkpoint_sha256
+            ):
                 raise ValueError("completed runner lacks a committed target checkpoint")
             if self.failure_code:
                 raise ValueError("completed runner cannot carry a failure")
@@ -96,7 +106,7 @@ class RunnerState:
     @classmethod
     def from_dict(cls, value: dict[str, object]) -> "RunnerState":
         expected = {
-            "schema", "status", "target_update", "committed_update",
+            "schema", "status", "target_update", "completed_update", "committed_update",
             "last_checkpoint_sha256", "pending_parent_sha256", "pending_update",
             "failure_code",
         }
@@ -106,6 +116,7 @@ class RunnerState:
             schema=str(value["schema"]),
             status=RunStatus(str(value["status"])),
             target_update=int(value["target_update"]),
+            completed_update=int(value["completed_update"]),
             committed_update=int(value["committed_update"]),
             last_checkpoint_sha256=value["last_checkpoint_sha256"],
             pending_parent_sha256=value["pending_parent_sha256"],
@@ -129,6 +140,7 @@ class RunController:
             schema=self.state.schema,
             status=RunStatus.RUNNING,
             target_update=self.state.target_update,
+            completed_update=self.state.completed_update,
             committed_update=self.state.committed_update,
             last_checkpoint_sha256=self.state.last_checkpoint_sha256,
             pending_parent_sha256=None,
@@ -138,21 +150,60 @@ class RunController:
         self.state.assert_valid()
         return self.state
 
-    def begin_checkpoint(self, *, update: int) -> RunnerState:
+    def complete_update(self, *, update: int | None = None) -> RunnerState:
+        """Record one successful optimizer update in volatile runner state.
+
+        This is deliberately separate from checkpoint commit: a worker may
+        complete many updates before the checkpoint writer publishes the
+        newest one.  Recovery discards these volatile updates.
+        """
+
+        if self.state.status is not RunStatus.RUNNING:
+            raise ValueError("an optimizer update can complete only while running")
+        expected = self.state.completed_update + 1
+        actual = expected if update is None else update
+        if actual != expected:
+            raise ValueError("completed updates must advance exactly once")
+        if actual > self.state.target_update:
+            raise ValueError("completed update exceeds the run target")
+        self.state = RunnerState(
+            schema=self.state.schema,
+            status=RunStatus.RUNNING,
+            target_update=self.state.target_update,
+            completed_update=actual,
+            committed_update=self.state.committed_update,
+            last_checkpoint_sha256=self.state.last_checkpoint_sha256,
+            pending_parent_sha256=None,
+            pending_update=None,
+            failure_code=None,
+        )
+        self.state.assert_valid()
+        return self.state
+
+    # Explicit aliases make the lifecycle vocabulary clear to trainer
+    # integrations without duplicating transition logic.
+    def record_update(self, *, update: int | None = None) -> RunnerState:
+        return self.complete_update(update=update)
+
+    def begin_checkpoint(self, *, update: int | None = None) -> RunnerState:
         if self.state.status is not RunStatus.RUNNING:
             raise ValueError("checkpoint can begin only from running status")
-        if update != self.state.committed_update + 1:
-            raise ValueError("checkpoint update is not the next uncommitted update")
-        if update > self.state.target_update:
+        actual = self.state.completed_update if update is None else update
+        if actual != self.state.completed_update:
+            raise ValueError("checkpoint can only snapshot the newest completed update")
+        if actual <= self.state.committed_update:
+            raise ValueError("checkpoint has no newly completed work")
+        if actual > self.state.target_update:
             raise ValueError("checkpoint update exceeds the run target")
         self.state = RunnerState(
             schema=self.state.schema,
             status=RunStatus.CHECKPOINTING,
             target_update=self.state.target_update,
+            completed_update=self.state.completed_update,
             committed_update=self.state.committed_update,
             last_checkpoint_sha256=self.state.last_checkpoint_sha256,
             pending_parent_sha256=self.state.last_checkpoint_sha256,
-            pending_update=update,
+            pending_update=actual,
             failure_code=None,
         )
         self.state.assert_valid()
@@ -166,6 +217,7 @@ class RunController:
             schema=self.state.schema,
             status=RunStatus.RUNNING,
             target_update=self.state.target_update,
+            completed_update=self.state.completed_update,
             committed_update=self.state.pending_update or 0,
             last_checkpoint_sha256=checkpoint_sha256,
             pending_parent_sha256=None,
@@ -184,6 +236,7 @@ class RunController:
             schema=self.state.schema,
             status=RunStatus.COMPLETED,
             target_update=self.state.target_update,
+            completed_update=self.state.completed_update,
             committed_update=self.state.committed_update,
             last_checkpoint_sha256=self.state.last_checkpoint_sha256,
             pending_parent_sha256=None,
@@ -202,6 +255,7 @@ class RunController:
             schema=self.state.schema,
             status=RunStatus.FAILED,
             target_update=self.state.target_update,
+            completed_update=self.state.completed_update,
             committed_update=self.state.committed_update,
             last_checkpoint_sha256=self.state.last_checkpoint_sha256,
             pending_parent_sha256=None,
@@ -218,6 +272,7 @@ class RunController:
             schema=self.state.schema,
             status=RunStatus.RUNNING,
             target_update=self.state.target_update,
+            completed_update=self.state.committed_update,
             committed_update=self.state.committed_update,
             last_checkpoint_sha256=self.state.last_checkpoint_sha256,
             pending_parent_sha256=None,

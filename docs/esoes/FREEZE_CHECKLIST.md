@@ -134,9 +134,14 @@ Required critical path: **E0 benchmark certification → E1 tokenizer → E2 arc
 - [x] exact-stack CPU/CUDA BF16-versus-FP32 forward/backward parity replicated through native P35 2k; 4k V5-A, target TPU/XLA, and real-update/long-run checks remain open
 - [x] exact P35 RoPE conformance replicated against an independent float64 oracle at native 4k; base choice, extrapolation, target TPU/XLA, and learning checks remain open
 - [x] 250M model/run/lineage contracts and implementation blueprint created
+- [x] implementation-complete `V5_TRAINING_SPEC_v1.0.md` and source-bound executable receipt created
+- [x] every candidate constant has explicit value, evidence class, or fail-closed external identity
+- [x] conditional-realization denominator uses correct unassisted selection
+- [ ] power-sized family/Wilson evaluator and sealed custody complete
+- [ ] E1/E2/E3/E4/M102 and TPU/remote gates fill the launch manifest
 
 ## Freeze artifact
 
-When all required items are resolved, produce one immutable `V5_TRAINING_SPEC_v1.0.md` containing exact values, hashes, manifests, commands, evaluation fixtures, promotion rules, and falsification criteria.
+`V5_TRAINING_SPEC_v1.0.md` now freezes the implementation candidate. It deliberately contains null external identities and `main_training_authorized=false`; the signed launch manifest is produced only after every unchecked scientific and target-infrastructure gate resolves.
 
 After that point, agents execute the spec. Any scientific redesign requires a version bump rather than silent modification.

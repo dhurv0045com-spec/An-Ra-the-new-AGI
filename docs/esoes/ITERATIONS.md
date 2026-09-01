@@ -123,7 +123,7 @@ Vocabulary cannot be selected by compression alone. Smaller vocabularies save em
 |---|---|---:|---|
 | Micro | 12×256, FFN 704, 4Q/2KV | 15–20M | pipeline and generator sanity, not scaling claims |
 | P35 | 16×384, FFN 1024, 6Q/2KV | 34.6M | tokenizer/data/objective ranking |
-| M102 | 20×640, FFN 1728, 10Q/2KV | 101.8M | scale-transfer replication |
+| M102 | 20×640, FFN 1600, 10Q/5KV | 101.790M | scale-consistent 2:1 replication |
 | V5-A | 28×768, FFN 2048, 12Q/4KV | 195.08M | first serious run after gates |
 
 Common candidate: dense causal decoder, pre-RMSNorm, RoPE, SwiGLU, tied embeddings, bias-free, BF16, full attention. QK norm, GQA/MHA, exact shape, vocabulary, and context economics remain experiment-gated.
@@ -193,7 +193,7 @@ The generator's latent graph belongs only to the evaluator/objective builder. No
 
 ### Data design
 
-Center candidate remains 4.0B frozen-tokenizer tokens:
+Center candidate is superseded by the canonical 5.0B frozen-tokenizer budget:
 
 - 65% high-quality natural substrate;
 - 20% code, math, formal, and structured natural data;

@@ -2,24 +2,54 @@
 
 Updated: 2026-09-01
 
-Branch phase: **GROUND BLUEPRINT v0.5 — SCORING FIREWALL + ATOMIC TRAINING STATE EXECUTABLE**
+Phase: **V5-A implementation candidate v1.0 frozen; scientific launch blocked**
 
 Canonical research blueprint: [`V5_MASTER_BLUEPRINT.md`](V5_MASTER_BLUEPRINT.md)
 
-Research source ledger: [`EVIDENCE_BASE.md`](EVIDENCE_BASE.md)
+Canonical code-facing specification: [`V5_TRAINING_SPEC_v1.0.md`](V5_TRAINING_SPEC_v1.0.md)
+Executable receipt: `artifacts/v5/training_spec_v1.json`
 
 Large V5 training authorized: **NO**
 
-Frozen V5 spec exists: **NO**
+The code-facing candidate now fixes every Core, tokenizer-interface, data-mixture,
+cognition-family, packing, objective, optimizer, schedule, TPU-topology,
+checkpoint, decoding, promotion, and abort constant. The center is a
+250,216,960-parameter dense 26×896 decoder with 14Q/7KV 2:1 GQA, FFN 2368,
+native 4k full attention, affine QK norm, a 24,576 byte-BPE interface, CE-only
+training, 5B real tokens, and a 65/20/15 natural/code-cognition mixture. Frozen
+means implementations may not guess or drift; it does not waive E1–E5 or target
+evidence.
 
-Provisional V5-A: **250.22M dense, 26×896, 14Q/7KV, FFN 2368, affine QK norm, 4k full attention, 24,576 byte-fallback vocabulary, 5.0B audited tokens.** Exact shape, tokenizer, data fraction, objective, LR, batch, and schedule remain experiment-gated.
+The cognition slice is token-complete across identity/copy, binding, state,
+interference retrieval, composition, counterfactual sensitivity, held-out rule
+induction, missing information, and faithful realization. Families and
+difficulty are uniformly interleaved. Query-swap and trace objectives are off
+(`lambda=0`) unless a separately frozen, FLOP-matched E3 result earns a new spec.
 
-Current evidence says the program should improve data quality, token sufficiency, causal query supervision, and behavioral checkpoint selection before scaling parameters.
+Scorer status: **FAIL DEVELOPMENT / PRODUCTION MODE NULL**. Fixture v1 was
+invalidated before powered execution because surface family revealed hidden
+role. Corrected schema 2 then ran all 15 CUDA development cells in 0.07574 GPU
+hours. DC-PMI and contextual calibration both selected the fewest-token role
+100% for every tokenizer. Fresh fixtures remain untouched; CPU parity was
+stopped because it cannot rescue a failed bias gate.
 
-Executed through this phase: VNext contamination is removed; EXP evidence is corrected; E0 now randomizes semantic state serialization, places every query between/after events, covers intermediate/rollback/precedence queries, balances eight competing target values, holds out rule structures across splits, and fail-closes on six pooled positional/lexical/bag-of-words controls. It reports difficulty curves and has raw/assisted/intervention-dependence plus replication contracts; sealed custody fails closed. E1 has an artifact-bound static audit/Pareto/matched-budget harness, a real V4 baseline, truncation proxy, and independently trained local-development candidates; E2 has a fail-closed iso-parameter/fractional plan plus replicated CUDA kernel receipts; E3 has a staged data/objective plan with exact mixture arithmetic and causal promotion gates; and exact 250M model/run/lineage contracts are executable. The E0 scoring firewall now detects candidate position/length/tokenization/first-token bias and refuses to select a production aggregation mode without real random-weight device evidence. A framework-neutral TrainingState/checkpoint transaction now binds all major identities, schedules by lifetime tokens, resolves the exact non-divisible 5B termination policy, and proves local atomic publication/recovery semantics. Exact P35 model/optimizer join, immutable local CAS, runner failure fencing, distributed-rank metadata, and a target TPU/XLA preflight command are now executable locally, while target hardware and remote custody remain open.
+Local P35 update/resume, checkpoint transaction, immutable CAS, rank schema,
+runner fencing, BF16 parity, RoPE, QK-norm, and cursor canaries pass their scoped
+claims. The complete local contract suite is **140 tests passing** on the
+framework-neutral environment (three PyTorch-only optimizer tests skipped there
+and separately passed in the CUDA environment); import
+boundaries, compile checks, deterministic spec reproduction, and diff checks
+also pass. TPU/XLA remains explicitly blocked on the current host.
 
-Verification: **development suite green locally**. Exact-head CI at `d9ab711` is green and reproduces deterministic receipts byte-for-byte. The repaired E0 receipt is schema 2 / generator 0.4.0: pooled bag-of-words fell from the reproduced false-green 81.77% to 4.17%, and lexical overlap from 71.09% to 10.16%, versus a 10.37% casewise null. Exact random-weight middle-P35 scoring over real 16k/24k/32k tokenizers has zero CPU/CUDA prediction mismatches across 486 scores, but rejects all naive modes because length/tokenization bias remains. Independent audit rejected scorer fixture v1 before powered execution because hidden role was determined by surface family; schema 2 now crosses every family/role cell and gates the contingency. The resumable exact-P35 runner implements common traces, full-rank panel/decoy checks, five-seed clustered TOST, and the frozen 132-hypothesis Holm family. A discarded one-group CUDA smoke passes execution; no powered result has run and no production mode is selected. The local framework-neutral transaction, exact middle-P35 join, fail-closed runner lifecycle, distributed rank-shard schema, and immutable CAS canary pass their local gates. The target preflight reports `BLOCKED_TORCH_XLA`; no shape, learned-quality, production scoring, remote durability, target-TPU, or long-run precision claim is promoted without relevant evidence.
+Remaining launch blockers:
 
-Next action: **commit the corrected no-result schema-2 fixture and runner, then execute development shards without inspecting fresh outcomes.** If and only if one calibrated policy passes every development gate, commit its immutable selection receipt before fresh execution; target TPU parity remains mandatory. External natural/T2 custody and a representative tokenizer corpus remain required for E0/E1 promotion. Do not start the 250M main run.
+- real E1 tokenizer/corpus identity;
+- P35 learned 2:1 architecture and E3 CE-mixture evidence;
+- E4 recipe comparison and M102 two-seed fresh replication;
+- power-sized family/Wilson evaluator and sealed custody;
+- signed source/data/pack manifests;
+- target TPU model/optimizer/collective/throughput/resume pass;
+- remote upload/redownload/clean-restore receipt.
 
-Required sequence: E0 → P35 tokenizer/architecture/data screens → M102 replication → freeze review → target-TPU canaries → V5-A main run.
+Next action: implement the v1.0 interfaces and run the smallest learned P35
+CE-only mixture test. Do not run the 250M/5B model until every blocker is closed.

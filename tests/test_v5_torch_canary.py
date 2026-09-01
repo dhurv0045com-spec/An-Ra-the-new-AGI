@@ -23,6 +23,16 @@ class V5TorchCanaryReceiptTests(unittest.TestCase):
         self.assertEqual(receipt["cumulative_tokens"], 16)
         self.assertEqual(receipt["resume"]["parameter_max_abs_error"], 0.0)
         self.assertEqual(receipt["resume"]["optimizer_state_max_abs_error"], 0.0)
+        optimizer_receipt = receipt["optimizer_group_receipt"]
+        self.assertEqual(optimizer_receipt["schema"], "anra-v5-optimizer-receipt/v1")
+        self.assertEqual(
+            {group["name"] for group in optimizer_receipt["groups"]},
+            {"decay", "no_decay"},
+        )
+        self.assertEqual(
+            optimizer_receipt["parameter_numel"],
+            35_414_400,
+        )
         self.assertTrue(all(receipt["checks"].values()))
         self.assertNotEqual(receipt["first_checkpoint_sha256"], receipt["final_checkpoint_sha256"])
 

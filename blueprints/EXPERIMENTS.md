@@ -104,7 +104,7 @@ An additional deterministic perturbation sweep (64 cases each for numbers, ident
 
 ## E2 — Architecture attack
 
-At ~35M compare deep/narrow, middle, and wide/shallow iso-parameter shapes. Use a fractional design for 4-KV GQA versus MHA, QK norm on/off, and 2k/full versus 4k/mixed-length full attention. Single-seed screening may eliminate clearly dominated arms at preregistered token boundaries; top two shapes receive three seeds.
+At ~35M compare deep/narrow, middle, and wide/shallow iso-parameter shapes. Use a fractional design for the scale-consistent 2:1 GQA topology versus MHA, QK norm on/off, and 2k/full versus 4k/mixed-length full attention. Single-seed screening may eliminate clearly dominated arms at preregistered token boundaries; top two shapes receive three seeds. Earlier 3:1 kernel canaries remain mechanism evidence, not the recipe arm.
 
 Primary outcome: worst-family fresh-OOD cognition per measured training FLOP, with substrate loss and throughput constraints.
 

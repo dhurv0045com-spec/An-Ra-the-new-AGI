@@ -1,0 +1,563 @@
+{
+  "checks": {
+    "cognition_fractions_exact": true,
+    "cognition_tokens_exact": true,
+    "data_tokens_exact": true,
+    "difficulty_mix_exact": true,
+    "external_identities_unfilled": true,
+    "final_partial_plan_exact": true,
+    "gqa_ratio_exact": true,
+    "launch_auxiliaries_disabled": true,
+    "main_run_fail_closed": true,
+    "model_matches_contract": true,
+    "parameter_count_exact": true,
+    "production_scorer_unset": true,
+    "schema": true,
+    "sequence_mix_exact": true,
+    "supercycle_exact": true,
+    "topology_tokens_exact": true,
+    "update_arithmetic_exact": true
+  },
+  "schema": "anra-v5-training-spec-receipt/v1",
+  "spec": {
+    "abort_rules": {
+      "deny_v5a": [
+        "E1 artifact/corpus identity absent",
+        "P35/E3 effect absent on fresh candidate-free and natural transfer",
+        "M102 effect not reproduced",
+        "target TPU or remote restore canary fails"
+      ],
+      "immediate": [
+        "nonfinite loss or gradient",
+        "token/cursor/optimizer mismatch",
+        "identity/hash/custody mismatch",
+        "resume inequivalence",
+        "candidate or benchmark leakage",
+        "training/evaluation source collision"
+      ],
+      "pause_preserve": "two consecutive Tier1 worst-family declines >0.05 while LM loss improves"
+    },
+    "checkpointing": {
+      "final_500m_milestone_threshold_tokens": 50000000,
+      "full_resume_components": [
+        "fp32 parameters",
+        "fp32 Adam moments",
+        "optimizer step",
+        "schedule",
+        "token ledger",
+        "sampler cursor",
+        "all RNG",
+        "rank topology",
+        "all identity manifests"
+      ],
+      "gradients_persisted": false,
+      "milestone_threshold_tokens": 100000000,
+      "milestones_immutable": true,
+      "planning_tensor_bytes_per_parameter": 12,
+      "pointer_advance_requires": "upload, redownload hash equality, and clean restore",
+      "recovery_generations_retained": 2,
+      "recovery_threshold_tokens": 10000000,
+      "threshold_semantics": "first completed optimizer update reaching or crossing boundary; record scheduled and actual tokens"
+    },
+    "cognition": {
+      "curriculum": "uniform family and difficulty interleaving; staged ordering is an E4 challenger only",
+      "difficulty_distribution": {
+        "easy": 0.34,
+        "hard": 0.305,
+        "medium": 0.355
+      },
+      "difficulty_grids": {
+        "binding_cardinality": [
+          2,
+          4,
+          8,
+          16
+        ],
+        "composition_hops": [
+          1,
+          2,
+          3
+        ],
+        "context_position_quartiles": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "distractors": [
+          0,
+          2,
+          4,
+          8,
+          16,
+          32
+        ],
+        "rule_demonstrations": [
+          2,
+          4,
+          8
+        ],
+        "state_queries": [
+          "latest",
+          "intermediate",
+          "rollback",
+          "precedence"
+        ],
+        "state_updates": [
+          2,
+          4,
+          8
+        ],
+        "state_variables": [
+          1,
+          2,
+          4
+        ]
+      },
+      "family_fractions_within_cognition": {
+        "counterfactual_sensitivity": 0.1,
+        "faithful_realization": 0.05,
+        "heldout_rule_induction": 0.1,
+        "identity_copy": 0.08,
+        "interference_retrieval": 0.1,
+        "missing_information": 0.05,
+        "query_binding": 0.16,
+        "relational_composition": 0.2,
+        "semantic_state": 0.16
+      },
+      "family_presence": "every family is present throughout training",
+      "family_tokens_at_15_percent": {
+        "counterfactual_sensitivity": 75000000,
+        "faithful_realization": 37500000,
+        "heldout_rule_induction": 75000000,
+        "identity_copy": 60000000,
+        "interference_retrieval": 75000000,
+        "missing_information": 37500000,
+        "query_binding": 120000000,
+        "relational_composition": 150000000,
+        "semantic_state": 120000000
+      },
+      "generator_truth": "mechanically executable; hidden graph and answer never serialized",
+      "invariance_groups": [
+        "irrelevant_fact",
+        "serialization_permutation",
+        "surface_paraphrase"
+      ],
+      "minimum_natural_or_seminatural_fraction_per_family": 0.25,
+      "sensitivity_groups": [
+        "query_swap",
+        "relevant_fact",
+        "state_intervention"
+      ],
+      "surface_axis": "natural/semi-natural is crossed within every family, never a family label"
+    },
+    "core": {
+      "activation": "swiglu:silu(gate)*up",
+      "attention_kernel": "target-selected only after semantic parity and throughput canary",
+      "attention_semantics": "full causal every layer; grouped KV ratio 2:1",
+      "context_length": 4096,
+      "dropout": 0.0,
+      "embedding_scale": 1.0,
+      "family": "dense-decoder-transformer",
+      "ffn_width": 2368,
+      "head_dimension": 64,
+      "initialization": {
+        "biases": "absent",
+        "normal_std": 0.02,
+        "normal_tensors": [
+          "embedding",
+          "q",
+          "k",
+          "v",
+          "ffn_gate",
+          "ffn_up"
+        ],
+        "qk_norm_scale": 1.0,
+        "residual_output_std": 0.002773500981126146,
+        "residual_output_tensors": [
+          "attention_output",
+          "ffn_down"
+        ],
+        "rmsnorm_scale": 1.0
+      },
+      "kv_heads": 7,
+      "layers": 26,
+      "linear_bias": false,
+      "logit_cap": null,
+      "logit_scale": 1.0,
+      "norm_epsilon": 1e-05,
+      "norm_layout": "pre-rmsnorm attention and ffn; final-rmsnorm",
+      "parameter_count": 250216960,
+      "precision": {
+        "compute": "bfloat16 autocast",
+        "grad_norm": "float32 replica-global",
+        "logits_loss_reductions": "float32",
+        "loss_scaler": null,
+        "optimizer_moments": "float32",
+        "persistent_bfloat16_shadow": false,
+        "persistent_parameters": "float32"
+      },
+      "qk_norm": true,
+      "qk_norm_affine": true,
+      "qk_norm_axes": "per head over head_dimension",
+      "qk_norm_epsilon": 1e-06,
+      "query_heads": 14,
+      "rope": {
+        "extrapolation_authorized": false,
+        "layout": "pairwise even-odd over full head dimension",
+        "phase_table_dtype": "float32",
+        "positions": [
+          0,
+          4095
+        ],
+        "scaling": "none"
+      },
+      "rope_base": 10000.0,
+      "schema": "anra-v5-model-spec/v1",
+      "tied_embeddings": true,
+      "vocabulary_size": 24576,
+      "width": 896
+    },
+    "data": {
+      "deduplication": "exact plus near-duplicate cluster assignment before split",
+      "llm_paraphrase_hard_cap_fraction_total": 0.05,
+      "llm_paraphrase_target_tokens": 0,
+      "mixture_fractions": {
+        "code_math_formal": 0.2,
+        "natural": 0.65,
+        "verified_cognition": 0.15
+      },
+      "mixture_tokens": {
+        "code_math_formal": 1000000000,
+        "natural": 3250000000,
+        "verified_cognition": 750000000
+      },
+      "pack_manifest_sha256": null,
+      "source_ledger_sha256": null,
+      "split_unit": "source-disjoint deduplication cluster",
+      "total_real_nonpad_tokens": 5000000000,
+      "training_manifest_sha256": null
+    },
+    "design_rule": "conventional dense Core; cognition pressure comes from verified data and evaluation",
+    "evaluation": {
+      "decoding": {
+        "max_new_tokens": 64,
+        "stop": "EOS or cap",
+        "strategy": "greedy",
+        "temperature": 0.0,
+        "top_k": null,
+        "top_p": 1.0
+      },
+      "fresh_replication_required": true,
+      "native_selection_gate": "candidate-free generation; candidate-set ranking is assisted diagnostic only",
+      "production_candidate_scoring_mode": null,
+      "realization_metrics": [
+        "raw exact",
+        "whitespace-normalized exact",
+        "semantic",
+        "malformed",
+        "repetition",
+        "conditional on correct unassisted selection"
+      ],
+      "representation_metrics": [
+        "gold suffix NLL",
+        "matched-candidate rank",
+        "matched-candidate margin",
+        "q-vs-q-prime lift"
+      ],
+      "sealed_cases_per_family": 1024,
+      "sealed_consumption": "once for the single development-selected checkpoint",
+      "selection_metrics": [
+        "candidate-free exact",
+        "candidate-free semantic",
+        "correct intervention flip",
+        "invariance stability"
+      ],
+      "tier0_cases_per_family": 32,
+      "tier0_tokens": 25000000,
+      "tier1_cases_per_family": 512,
+      "tier1_tokens": 100000000
+    },
+    "implementation_sha256": "f008fff7db1e29b6cdbaebd43c31c19659775fa543cafb03db320816d21e14f9",
+    "main_training_authorized": false,
+    "negative_evidence": {
+      "development_receipt": "artifacts/e2/scoring_policy_development.json",
+      "fresh_scorer_fixture_consumed": false,
+      "variable_length_candidate_scoring": "sum, token mean, byte mean, DC-PMI, and contextual calibration rejected"
+    },
+    "objective": {
+      "label_smoothing": 0.0,
+      "launch_objective": "causal_cross_entropy_only",
+      "optional_e3_query_swap": {
+        "candidate_constraint": "identical suffix-token count; byte length and first-token role crossed",
+        "candidate_positions": "all rotations balanced",
+        "candidates": 4,
+        "compute_matching": "measured training FLOPs, not tokens alone",
+        "counterfactual_queries": 2,
+        "lambdas": [
+          0.0,
+          0.05,
+          0.15
+        ],
+        "main_run_admission": "new spec version only after fresh raw-Core and natural-transfer pass",
+        "margin": 0.0,
+        "score": "summed suffix log-probability"
+      },
+      "query_swap_lambda": 0.0,
+      "reduction": "sum over eligible target positions divided by replica-global eligible-token count",
+      "trace_loss_lambda": 0.0,
+      "z_loss": 0.0
+    },
+    "optimization": {
+      "beta1": 0.9,
+      "beta2": 0.95,
+      "decay_group": "all ndim>=2 parameters including tied embedding",
+      "epsilon": 1e-08,
+      "final_partial_update_plan": {
+        "global_real_tokens": [
+          32768,
+          32768,
+          32768,
+          29184
+        ],
+        "last_microstep_padding_per_replica": 448,
+        "microstep_buckets": [
+          2048,
+          512,
+          1024,
+          2048
+        ],
+        "padding_excluded_from_loss_and_token_ledger": true,
+        "per_replica_real_tokens": [
+          4096,
+          4096,
+          4096,
+          3648
+        ]
+      },
+      "final_partial_update_tokens": 127488,
+      "full_updates": 38146,
+      "global_tokens_per_update": 131072,
+      "gradient_clip_global_l2": 1.0,
+      "no_decay_group": "all ndim<2 parameters including RMSNorm and affine QK scales",
+      "nonfinite_policy": "abort update and run; do not advance token, cursor, optimizer, or schedule state",
+      "optimizer": "AdamW",
+      "peak_learning_rate": 0.0003,
+      "schedule": {
+        "decay": {
+          "end": 5000000000,
+          "end_lr": 3e-05,
+          "shape": "linear",
+          "start": 4500000000,
+          "start_lr": 0.0003
+        },
+        "index": "pre-update cumulative real non-padding tokens from zero",
+        "rewarm_on_resume_or_pack_change": false,
+        "stable": {
+          "end": 4500000000,
+          "lr": 0.0003,
+          "start": 50000000
+        },
+        "warmup": {
+          "end": 50000000,
+          "end_lr": 0.0003,
+          "start": 0,
+          "start_lr": 0.0
+        }
+      },
+      "total_updates": 38147,
+      "weight_decay": 0.1,
+      "zero_grad": "set_to_none"
+    },
+    "packing": {
+      "cross_segment_attention": false,
+      "document_format": "BOS content EOS",
+      "long_document_policy": "deterministic nonoverlapping chunks; each chunk has BOS/EOS",
+      "loss_mask": "BOS and PAD excluded; content and EOS included",
+      "padding_counted_as_training_tokens": false,
+      "position_ids": "reset to zero per segment",
+      "sequence_buckets": {
+        "1024": 0.25,
+        "2048": 0.3,
+        "4096": 0.2,
+        "512": 0.25
+      },
+      "share_unit": "real non-padding input tokens",
+      "supercycle_state_checkpointed": true,
+      "twenty_microstep_supercycle": [
+        512,
+        1024,
+        2048,
+        4096,
+        2048,
+        512,
+        1024,
+        2048,
+        4096,
+        512,
+        1024,
+        2048,
+        4096,
+        2048,
+        512,
+        1024,
+        2048,
+        4096,
+        512,
+        1024
+      ]
+    },
+    "promotion_gates": {
+      "code_math_loss_regression_max": 0.05,
+      "conditional_realization": 0.8,
+      "fresh_natural_paired_lcb_delta_minimum": 0.0,
+      "fresh_ood_selection_lcb_above_chance": 0.1,
+      "invariance_stable_both_correct_wilson_lcb": 0.9,
+      "m102_replication_seeds": 2,
+      "maximum_family_regression": 0.05,
+      "missing_information_balanced_accuracy": 0.8,
+      "missing_information_false_assertion_max": 0.1,
+      "natural_substrate_loss_regression_max": 0.03,
+      "sensitivity_correct_flip_wilson_lcb": 0.8,
+      "state_ood_accuracy": 0.7,
+      "three_hop_lcb_above_chance": 0.1,
+      "three_hop_max_degradation_from_two_hop": 0.2,
+      "two_hop_ood_accuracy": 0.6
+    },
+    "required_external_identities": [
+      "tokenizer artifact and training corpus",
+      "source/data/pack manifests",
+      "target runtime/container/topology receipt",
+      "remote durability provider receipt",
+      "sealed evaluation commitment"
+    ],
+    "run_arithmetic_source": {
+      "checkpoint_storage_planning_bytes": {
+        "adam_moments": 2001735680,
+        "bf16_parameters": 500433920,
+        "fp32_master_parameters": 1000867840,
+        "full_resume_with_bf16_gradients": 4003471360,
+        "full_resume_without_gradients": 3503037440
+      },
+      "data_tokens": {
+        "code_math_formal": 1000000000,
+        "natural": 3250000000,
+        "verified_cognition": 750000000
+      },
+      "final_update_tokens": 127488,
+      "full_size_updates": 38146,
+      "idealized_6nd_flops": 7506508800000000000,
+      "model_sha256": "d6c143e50d222def03cd46fb1b140248a58b3b06f56ac084b7bbf91ded43f2df",
+      "optimizer_updates": 38147,
+      "parameters": 250216960,
+      "run_spec": {
+        "beta1": 0.9,
+        "beta2": 0.95,
+        "gradient_clip": 1.0,
+        "mixture": {
+          "code_math_formal": 0.2,
+          "natural": 0.65,
+          "verified_cognition": 0.15
+        },
+        "optimizer": "AdamW",
+        "peak_learning_rate": 0.0003,
+        "precision": "bf16-compute/fp32-reduction-and-state",
+        "schedule_family": "warmup-stable-decay",
+        "schema": "anra-v5-run-spec/v2",
+        "token_budget": 5000000000,
+        "tokens_per_update": 131072,
+        "weight_decay": 0.1
+      },
+      "schema": "anra-v5-run-spec/v2",
+      "termination_policy": "exact-final-partial-update-no-overshoot",
+      "token_budget": 5000000000,
+      "tokens_per_parameter": 19.98265824986444,
+      "tokens_per_update": 131072
+    },
+    "scale_ladder": {
+      "m102_recipe": {
+        "ffn_width": 1600,
+        "kv_heads": 5,
+        "layers": 20,
+        "parameters": 101790080,
+        "query_heads": 10,
+        "width": 640
+      },
+      "p35_recipe": {
+        "ffn_width": 1024,
+        "kv_heads": 3,
+        "layers": 16,
+        "parameters": 35414400,
+        "query_heads": 6,
+        "width": 384
+      },
+      "ratio_invariant": "2 query heads per KV head",
+      "v5a": {
+        "ffn_width": 2368,
+        "kv_heads": 7,
+        "layers": 26,
+        "parameters": 250216960,
+        "query_heads": 14,
+        "width": 896
+      }
+    },
+    "schema": "anra-v5-training-spec/v1.0",
+    "scientific_gates_before_authorization": [
+      "E1 tokenizer",
+      "E2 2:1 architecture",
+      "E3 CE cognition mixture",
+      "E4 recipe",
+      "M102 two-seed fresh replication",
+      "target TPU join and remote restore"
+    ],
+    "status": "IMPLEMENTATION_FROZEN_INPUT_AND_EVIDENCE_BLOCKED",
+    "target_topology": {
+      "accelerator": "TPU/XLA",
+      "activation_checkpointing": "every transformer block",
+      "data_parallel": true,
+      "gate": "target preflight, OOM, semantic parity, throughput, and resume canaries must pass",
+      "global_real_tokens_per_microstep": 32768,
+      "gradient_accumulation_microsteps": 4,
+      "gradient_collective": "replica sum with exact global eligible-token denominator at accumulation boundary",
+      "real_tokens_per_replica_microstep": 4096,
+      "replicas": 8,
+      "sequences_per_replica_by_bucket": {
+        "1024": 4,
+        "2048": 2,
+        "4096": 1,
+        "512": 8
+      }
+    },
+    "tokenizer": {
+      "algorithm": "byte-level BPE with byte fallback",
+      "artifact_sha256": null,
+      "classification": "PROVISIONAL_CANDIDATE_E1_IDENTITY_REQUIRED",
+      "dropout": 0.0,
+      "normalization": "none",
+      "pretokenizer": "byte-level; no prefix-space insertion",
+      "special_tokens": {
+        "bos": [
+          "<bos>",
+          2
+        ],
+        "eos": [
+          "<eos>",
+          3
+        ],
+        "pad": [
+          "<pad>",
+          0
+        ],
+        "unk": [
+          "<unk>",
+          1
+        ]
+      },
+      "task_or_difficulty_tokens_allowed": 0,
+      "training_corpus_manifest_sha256": null,
+      "unexpected_unknowns_allowed": 0,
+      "vocabulary_size": 24576
+    }
+  },
+  "status": "PASS_IMPLEMENTATION_SPEC_BLOCKED_MAIN_RUN"
+}

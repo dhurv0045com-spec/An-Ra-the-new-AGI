@@ -2,6 +2,10 @@
 
 Ground Blueprint v0.4 intentionally limits the open set. A question belongs here only if its answer can materially change architecture, data, training, evaluation, or system boundaries.
 
+`V5_TRAINING_SPEC_v1.0.md` supplies the implementation default while these
+questions remain open. A winning experiment changes that default only through a
+new spec version; uncertainty is no longer permission for code to guess.
+
 ## Representation and tokenizer
 
 ### Q1 — Which vocabulary gives the best cognition per raw byte and FLOP?
@@ -30,12 +34,12 @@ Ground Blueprint v0.4 intentionally limits the open set. A question belongs here
 **CHEAPEST DECISIVE TEST:** E2 P35 deep/mid/wide tournament, replicate top two.
 **DECISION DEADLINE:** before M102.
 
-### Q4 — Does 4-KV GQA or QK norm damage query-conditioned discrimination?
+### Q4 — Does 2:1 GQA or QK norm damage query-conditioned discrimination?
 
 **WHY IT MATTERS:** throughput/stability gains may compress the score geometry V5 needs.
-**CURRENT BEST HYPOTHESIS:** 4-KV GQA with QK norm is adequate; V4's 2 KV heads should not be inherited.
+**CURRENT BEST HYPOTHESIS:** use the consistent 2:1 scale family: 6Q/3KV at P35, 10Q/5KV at M102, and 14Q/7KV at V5-A, with QK norm enabled. V4's 2 KV heads should not be inherited.
 **WHAT EVIDENCE EXISTS:** general GQA and stability evidence, but no nonce-binding evidence.
-**CHEAPEST DECISIVE TEST:** E2 factorial comparison against MHA and no-QK variants on identical data.
+**CHEAPEST DECISIVE TEST:** E2 factorial 2:1 GQA comparison against MHA and 2:1/no-QK variants on identical data; earlier 3:1 kernel evidence is not a V5 topology result.
 **DECISION DEADLINE:** architecture freeze.
 
 ### Q5 — Is native 4k full attention worth its training cost?

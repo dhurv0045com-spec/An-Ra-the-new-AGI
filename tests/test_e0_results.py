@@ -38,8 +38,32 @@ class E0ResultContractTests(unittest.TestCase):
         run = _run(suite)
         summary = run.summary(suite)
         self.assertEqual(summary["raw_core"]["realization_accuracy"], 1.0)
+        self.assertEqual(summary["raw_core"]["conditional_realization_accuracy"], 1.0)
+        self.assertEqual(
+            summary["raw_core"]["conditional_realization_cases"],
+            summary["raw_core"]["selection_cases"],
+        )
         self.assertEqual(summary["assisted"]["selection_accuracy"], 1.0)
         self.assertEqual(summary["intervention_dependence"]["raw_failures_repaired"], 0)
+
+    def test_conditional_realization_excludes_incorrect_unassisted_selection(self) -> None:
+        suite = build_evaluation_suite(Split.DEVELOPMENT, seed=816, groups_per_family=1)
+        eligible = [case for case in suite.cases if selection_eligible(case)]
+        excluded = eligible[0].case_id
+        outcomes = tuple(
+            CaseOutcome(
+                case.case_id,
+                ConditionOutcome(
+                    False if case.case_id == excluded else True if selection_eligible(case) else None,
+                    True,
+                ),
+            )
+            for case in suite.cases
+        )
+        run = EvaluationRun(suite.split, suite.sha256(), _sha("conditional"), _sha("eval"), outcomes)
+        summary = run.summary(suite)["raw_core"]
+        self.assertEqual(summary["conditional_realization_cases"], summary["selection_cases"] - 1)
+        self.assertEqual(summary["conditional_realization_accuracy"], 1.0)
 
     def test_copy_case_cannot_supply_selection_outcome(self) -> None:
         suite = build_evaluation_suite(Split.DEVELOPMENT, seed=812, groups_per_family=1)

@@ -26,6 +26,7 @@ from typing import Any, Mapping
 from e2_architecture.block_benchmark import _build_model, shape_arms
 
 from .checkpoint import CheckpointStore
+from .optimizer import build_adamw_optimizer, optimizer_group_receipt
 from .state import CURSOR_SCHEMA, IDENTITY_SCHEMA, CursorState, IdentityBindings, TrainingState
 
 
@@ -91,8 +92,14 @@ def _optimizer_hash(torch: Any, model: Any, optimizer: Any) -> str:
 
 def _max_optimizer_error(torch: Any, left: Any, right: Any) -> float:
     maximum = 0.0
-    left_states = [left.state.get(parameter, {}) for parameter in left.param_groups[0]["params"]]
-    right_states = [right.state.get(parameter, {}) for parameter in right.param_groups[0]["params"]]
+    left_parameters = [
+        parameter for group in left.param_groups for parameter in group["params"]
+    ]
+    right_parameters = [
+        parameter for group in right.param_groups for parameter in group["params"]
+    ]
+    left_states = [left.state.get(parameter, {}) for parameter in left_parameters]
+    right_states = [right.state.get(parameter, {}) for parameter in right_parameters]
     if len(left_states) != len(right_states):
         raise ValueError("optimizer parameter inventories differ after restore")
     for left_state, right_state in zip(left_states, right_states):
@@ -231,7 +238,8 @@ def run_canary(*, device_name: str = "cuda") -> dict[str, object]:
         torch.cuda.manual_seed_all(SEED)
     arm = next(candidate for candidate in shape_arms() if candidate.name == "middle")
     model = _build_model(torch, arm, maximum_sequence_length=SEQUENCE_LENGTH).to(device=device, dtype=torch.float32)
-    optimizer = torch.optim.AdamW(model.parameters(), lr=3e-4, betas=(0.9, 0.95), eps=1e-8, weight_decay=0.1)
+    optimizer = build_adamw_optimizer(model, torch_module=torch)
+    optimizer_receipt = optimizer_group_receipt(model, optimizer)
     scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lambda _: 1.0)
     state = _initial_state(arm)
     first_metrics = _one_update(torch, model, optimizer, scheduler, step=0, device=device)
@@ -268,7 +276,7 @@ def run_canary(*, device_name: str = "cuda") -> dict[str, object]:
         _restore_rng(torch, restored_payloads["rng.bin"], device)
         restored_model = _build_model(torch, arm, maximum_sequence_length=SEQUENCE_LENGTH).to(device=device, dtype=torch.float32)
         restored_model.load_state_dict(_torch_load(torch, restored_payloads["model.bin"], device))
-        restored_optimizer = torch.optim.AdamW(restored_model.parameters(), lr=3e-4, betas=(0.9, 0.95), eps=1e-8, weight_decay=0.1)
+        restored_optimizer = build_adamw_optimizer(restored_model, torch_module=torch)
         restored_optimizer.load_state_dict(_torch_load(torch, restored_payloads["optimizer.bin"], device))
         restored_scheduler = torch.optim.lr_scheduler.LambdaLR(restored_optimizer, lambda _: 1.0)
         restored_scheduler.load_state_dict(json.loads(restored_payloads["scheduler.json"]))
@@ -315,6 +323,7 @@ def run_canary(*, device_name: str = "cuda") -> dict[str, object]:
             "optimizer_step_max": final_state.optimizer_step_max,
             "parameter_hash": resumed_parameter_hash,
             "optimizer_hash": resumed_optimizer_hash,
+            "optimizer_group_receipt": optimizer_receipt,
             "metrics": {"first": first_metrics, "reference_second": reference_metrics, "resumed_second": resumed_metrics},
             "resume": {"parameter_max_abs_error": max(parameter_errors), "optimizer_state_max_abs_error": optimizer_error, "parameter_hash_equal": True, "optimizer_hash_equal": True, "clean_copy_restore": True},
             "checks": {"actual_p35_parameter_count": sum(parameter.numel() for parameter in restored_model.parameters()) == arm.model.parameter_receipt().total, "two_updates_reached": final_state.global_update == UPDATES, "exact_token_ledger": final_state.cumulative_tokens == TOKENS_PER_UPDATE * UPDATES, "model_changed": parent_parameter_hash != reference_parameter_hash, "optimizer_changed": parent_optimizer_hash != reference_optimizer_hash, "resume_within_tolerance": max(parameter_errors) <= 1e-5 and optimizer_error <= 1e-4, "clean_copy_restore": True, "final_transaction_published": bool(final_checkpoint), "final_state_restore": final_restored_state == final_state},

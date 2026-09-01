@@ -65,11 +65,21 @@ class EvaluationRun:
             present = [result for result in condition if result is not None]
             selection = [result.selection_correct for result in present if result.selection_correct is not None]
             realization = [result.realization_correct for result in present]
+            conditional_realization = [
+                result.realization_correct
+                for result in present
+                if result.selection_correct is True
+            ]
             return {
                 "selection_accuracy": sum(selection) / len(selection) if selection else None,
                 "selection_cases": len(selection),
                 "realization_accuracy": sum(realization) / len(realization) if realization else None,
                 "realization_cases": len(realization),
+                "conditional_realization_accuracy": (
+                    sum(conditional_realization) / len(conditional_realization)
+                    if conditional_realization else None
+                ),
+                "conditional_realization_cases": len(conditional_realization),
             }
 
         raw = condition_summary("raw_core")
