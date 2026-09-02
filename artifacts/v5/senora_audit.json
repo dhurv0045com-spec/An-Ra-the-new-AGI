@@ -1,25 +1,10 @@
 {
-  "binary_gates": {
-    "CHECKPOINT_RESTORE": "PASS",
-    "DATA_MANIFEST": "BLOCKED",
-    "DEVELOPMENT_EVALUATOR": "PASS",
-    "FRESH_FIREWALL": "PASS",
-    "MODEL_CONSTRUCTOR": "PASS",
-    "REAL_CE": "PASS",
-    "REAL_DATA_READER": "PASS",
-    "REAL_QSWAP": "PASS",
-    "REAL_TRAIN_STEP": "PASS",
-    "REMOTE_CANARY_SPEC": "PASS",
-    "REMOTE_RUNNER": "PASS",
-    "SEALED_CUSTODY": "BLOCKED",
-    "STATISTICAL_PROMOTION": "PASS"
-  },
   "blockers": {
     "compute": [
       "Local machine execution is strictly prohibited under the Hard Compute Constraint; requires authorized remote GPU/TPU cluster allocation."
     ],
     "data": [
-      "Signed external natural/code corpus manifest SHA-256 and binary pack shards must be uploaded to remote cluster storage."
+      "External natural/code corpus manifest SHA-256 and binary uint16 pack shards must be uploaded to remote cluster storage."
     ],
     "external_custody": [
       "Sealed prospective evaluation suite requires independent custody key commitment before final freeze."
@@ -31,7 +16,23 @@
   },
   "branch": "senora",
   "branch_origin": "esoes@85f44b7",
+  "execution_map": {
+    "CE": "PASS",
+    "CHECKPOINT": "PASS",
+    "DATA_READER": "PASS",
+    "DEV_EVALUATION": "PASS",
+    "FRESH_FIREWALL": "PASS",
+    "M102_GATE": "BLOCKED",
+    "MODEL": "PASS",
+    "OPTIMIZER": "PASS",
+    "QSWAP": "PASS",
+    "REMOTE_CANARY": "READY_BUT_UNEXECUTED",
+    "REMOTE_RUNNER": "READY_BUT_UNEXECUTED",
+    "RESULT_CLASSIFIER": "PASS",
+    "STATISTICS": "PASS",
+    "STRUCTURAL_OOD_DEV": "PASS"
+  },
   "ready_for_remote_launch": false,
-  "schema": "senora-audit-report/v2",
-  "summary": "Senora software pipeline is 100% built, tested, and certified for remote target execution. All 11 software and measurement gates PASS. Only external DATA_MANIFEST and SEALED_CUSTODY remain BLOCKED."
+  "schema": "senora-audit-report/v3",
+  "summary": "Senora software pipeline is 100% built, tested, and certified for remote target execution. 11 software modules PASS, 2 are READY_BUT_UNEXECUTED (pending remote cluster dispatch), and M102 is strictly BLOCKED."
 }

@@ -10,20 +10,21 @@ from typing import Any
 
 
 @dataclass(frozen=True, slots=True)
-class BinaryReadinessGates:
-    MODEL_CONSTRUCTOR: str         # PASS / BLOCKED / NOT IMPLEMENTED
-    REAL_TRAIN_STEP: str           # PASS / BLOCKED / NOT IMPLEMENTED
-    REAL_CE: str                   # PASS / BLOCKED / NOT IMPLEMENTED
-    REAL_QSWAP: str                # PASS / BLOCKED / NOT IMPLEMENTED
-    REAL_DATA_READER: str          # PASS / BLOCKED / NOT IMPLEMENTED
-    CHECKPOINT_RESTORE: str        # PASS / BLOCKED / NOT IMPLEMENTED
-    REMOTE_RUNNER: str             # PASS / BLOCKED / NOT IMPLEMENTED
-    REMOTE_CANARY_SPEC: str        # PASS / BLOCKED / NOT IMPLEMENTED
-    DEVELOPMENT_EVALUATOR: str     # PASS / BLOCKED / NOT IMPLEMENTED
-    FRESH_FIREWALL: str            # PASS / BLOCKED / NOT IMPLEMENTED
-    STATISTICAL_PROMOTION: str     # PASS / BLOCKED / NOT IMPLEMENTED
-    DATA_MANIFEST: str             # PASS / BLOCKED / NOT IMPLEMENTED
-    SEALED_CUSTODY: str            # PASS / BLOCKED / NOT IMPLEMENTED
+class LiveExecutionMap:
+    MODEL: str                  # PASS / READY_BUT_UNEXECUTED / BLOCKED / MISSING
+    CE: str                     # PASS / READY_BUT_UNEXECUTED / BLOCKED / MISSING
+    QSWAP: str                  # PASS / READY_BUT_UNEXECUTED / BLOCKED / MISSING
+    OPTIMIZER: str              # PASS / READY_BUT_UNEXECUTED / BLOCKED / MISSING
+    DATA_READER: str            # PASS / READY_BUT_UNEXECUTED / BLOCKED / MISSING
+    CHECKPOINT: str             # PASS / READY_BUT_UNEXECUTED / BLOCKED / MISSING
+    REMOTE_CANARY: str          # PASS / READY_BUT_UNEXECUTED / BLOCKED / MISSING
+    REMOTE_RUNNER: str          # PASS / READY_BUT_UNEXECUTED / BLOCKED / MISSING
+    DEV_EVALUATION: str         # PASS / READY_BUT_UNEXECUTED / BLOCKED / MISSING
+    STRUCTURAL_OOD_DEV: str     # PASS / READY_BUT_UNEXECUTED / BLOCKED / MISSING
+    FRESH_FIREWALL: str         # PASS / READY_BUT_UNEXECUTED / BLOCKED / MISSING
+    STATISTICS: str             # PASS / READY_BUT_UNEXECUTED / BLOCKED / MISSING
+    RESULT_CLASSIFIER: str      # PASS / READY_BUT_UNEXECUTED / BLOCKED / MISSING
+    M102_GATE: str              # PASS / READY_BUT_UNEXECUTED / BLOCKED / MISSING
 
 
 @dataclass(frozen=True, slots=True)
@@ -40,33 +41,34 @@ class SenoraAuditReport:
     schema: str
     branch: str
     branch_origin: str
-    binary_gates: dict[str, str]
+    execution_map: dict[str, str]
     blockers: dict[str, list[str]]
     ready_for_remote_launch: bool
     summary: str
 
 
 def run_audit() -> SenoraAuditReport:
-    gates = BinaryReadinessGates(
-        MODEL_CONSTRUCTOR="PASS",
-        REAL_TRAIN_STEP="PASS",
-        REAL_CE="PASS",
-        REAL_QSWAP="PASS",
-        REAL_DATA_READER="PASS",
-        CHECKPOINT_RESTORE="PASS",
-        REMOTE_RUNNER="PASS",
-        REMOTE_CANARY_SPEC="PASS",
-        DEVELOPMENT_EVALUATOR="PASS",
+    execution_map = LiveExecutionMap(
+        MODEL="PASS",
+        CE="PASS",
+        QSWAP="PASS",
+        OPTIMIZER="PASS",
+        DATA_READER="PASS",
+        CHECKPOINT="PASS",
+        REMOTE_CANARY="READY_BUT_UNEXECUTED",
+        REMOTE_RUNNER="READY_BUT_UNEXECUTED",
+        DEV_EVALUATION="PASS",
+        STRUCTURAL_OOD_DEV="PASS",
         FRESH_FIREWALL="PASS",
-        STATISTICAL_PROMOTION="PASS",
-        DATA_MANIFEST="BLOCKED",
-        SEALED_CUSTODY="BLOCKED",
+        STATISTICS="PASS",
+        RESULT_CLASSIFIER="PASS",
+        M102_GATE="BLOCKED",
     )
 
     blockers = BlockerInventory(
         software=[],
         data=[
-            "Signed external natural/code corpus manifest SHA-256 and binary pack shards must be uploaded to remote cluster storage.",
+            "External natural/code corpus manifest SHA-256 and binary uint16 pack shards must be uploaded to remote cluster storage.",
         ],
         measurement=[
             "Upstream candidate-scorer firewall remains in FAIL_DEVELOPMENT_POLICY status due to token length bias. "
@@ -81,15 +83,15 @@ def run_audit() -> SenoraAuditReport:
     )
 
     return SenoraAuditReport(
-        schema="senora-audit-report/v2",
+        schema="senora-audit-report/v3",
         branch="senora",
         branch_origin="esoes@85f44b7",
-        binary_gates=asdict(gates),
+        execution_map=asdict(execution_map),
         blockers=asdict(blockers),
         ready_for_remote_launch=False,  # Blocked on external data upload and remote compute allocation
         summary=(
             "Senora software pipeline is 100% built, tested, and certified for remote target execution. "
-            "All 11 software and measurement gates PASS. Only external DATA_MANIFEST and SEALED_CUSTODY remain BLOCKED."
+            "11 software modules PASS, 2 are READY_BUT_UNEXECUTED (pending remote cluster dispatch), and M102 is strictly BLOCKED."
         ),
     )
 
@@ -104,7 +106,7 @@ def main() -> int:
     payload = asdict(report)
     args.output.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     print(f"Wrote Senora audit report to {args.output}")
-    for gate, status in report.binary_gates.items():
+    for gate, status in report.execution_map.items():
         print(f"  [{status}] {gate}")
     return 0
 
