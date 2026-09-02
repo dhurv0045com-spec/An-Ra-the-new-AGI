@@ -42,6 +42,8 @@ from .scoring_policy_fixture import (
     _suffix_tokens,
     materialize_cases,
     redacted_case_identity,
+    rotation_schedule,
+    verify_rotation_schedule,
 )
 
 
@@ -49,6 +51,60 @@ SHARD_SCHEMA = "esoes-e2-scoring-policy-shard/v1"
 AGGREGATE_SCHEMA = "esoes-e2-scoring-policy-development/v1"
 POLICIES = tuple(Policy)
 T_CRITICAL_90_DF4 = 2.131_846_786
+
+
+def rotation_order(candidates: Sequence[str], rotation: tuple[int, ...]) -> tuple[str, ...]:
+    """Present ``candidates`` under a position-rotation permutation.
+
+    ``rotation`` maps position -> candidate index (the fixture schedule's
+    definition). This is the ONLY path through which candidate position can
+    influence downstream selection; every rotation view must be materialized
+    and scored for a receipt to claim the rotation contract.
+    """
+
+    if sorted(rotation) != [0, 1, 2] or len(candidates) != len(rotation):
+        raise ValueError("rotation must be a permutation of the candidate positions")
+    return tuple(candidates[rotation[position]] for position in range(len(candidates)))
+
+
+def _rotation_geometry(
+    scores: Mapping[str, float], candidates: Sequence[str], rotation: tuple[int, ...]
+) -> dict[str, object]:
+    """Execute one rotation view: present candidates in rotated position
+    order, select a winner, and record BOTH the winner's intrinsic role and
+    the position it occupied. A position-biased selector betrays itself
+    here: the winning role changes across rotations."""
+
+    if len(rotation) != len(candidates):
+        raise ValueError("rotation width must match the candidate count")
+    ordered = rotation_order(candidates, rotation)
+    winner = select({candidate: scores[candidate] for candidate in ordered})
+    return {
+        "rotation": list(rotation),
+        "presented_order": list(ordered),
+        "winner_role": candidates.index(winner),
+        "winner_position": ordered.index(winner),
+    }
+
+
+def _assert_rotation_geometry(geometry: Sequence[Mapping[str, object]],
+                              candidates: Sequence[str]) -> None:
+    """Fail-closed: three distinct permutations with full position coverage,
+    and a rotation-stable winning role. Deleted, duplicated, or doctored
+    rotations cannot pass."""
+
+    if len(geometry) != 3:
+        raise ValueError("rotation geometry requires exactly three executed rotations")
+    seen = [tuple(item["rotation"]) for item in geometry]
+    if len(set(seen)) != 3 or any(sorted(item) != [0, 1, 2] for item in seen):
+        raise ValueError("rotation permutations are missing, duplicated, or malformed")
+    for candidate_position in range(len(candidates)):
+        occupied = [item["rotation"].index(candidate_position) for item in geometry]
+        if sorted(occupied) != [0, 1, 2]:
+            raise ValueError("a candidate did not occupy every position exactly once")
+    roles = {item["winner_role"] for item in geometry}
+    if len(roles) != 1:
+        raise ValueError("winning role is not rotation-stable")
 
 
 def _source_sha256() -> str:
@@ -163,16 +219,54 @@ def _synthetic_checks() -> dict[str, float]:
         "c": CandidateTrace((3,), (-4.0,)),
     }
     neutral = tuple(dict(base) for _ in range(NULL_CONTEXTS_PER_PANEL))
+    candidates = ("a", "b", "c")
+    schedule = rotation_schedule(len(candidates))[0]
     recovered = swapped = 0
+    # Inject the -1e-6 target into EVERY role (a, b, c): the preregistration
+    # requires the synthetic intervention to rotate through all three roles.
+    for role in range(3):
+        for policy in POLICIES:
+            injected = dict(base)
+            injected[candidates[role]] = CandidateTrace((role + 1,), (-1e-6,))
+            recovered += select(_scores(_evidence(candidates, injected, neutral), policy)) == candidates[role]
     for policy in POLICIES:
-        injected = dict(base)
-        injected["b"] = CandidateTrace((2,), (-1e-6,))
-        items = _evidence(("a", "b", "c"), injected, neutral)
-        recovered += select(_scores(items, policy)) == "b"
         swapped_target = dict(base)
         swapped_target["c"] = CandidateTrace((3,), (-1e-6,))
-        swapped += select(_scores(_evidence(("a", "b", "c"), swapped_target, neutral), policy)) == "c"
-    return {"injection_recovery": recovered / len(POLICIES), "swap_recovery": swapped / len(POLICIES)}
+        swapped += select(_scores(_evidence(candidates, swapped_target, neutral), policy)) == "c"
+    total_injections = len(candidates) * len(POLICIES)
+
+    # Negative control for the rotation gates themselves: construct a
+    # deliberately position-biased selector (the candidate presented at
+    # position 0 always wins) and require the gate to REJECT it — unstable
+    # winning role across rotations, first-position rate 3/3. If the gate
+    # passed this biased selector, the rotation contract would be vacuous
+    # and the shard must fail.
+    biased_caught = True
+    for policy in POLICIES:
+        items = _evidence(candidates, base, neutral)
+        scores = _scores(items, policy)
+        biased = []
+        for rotation in schedule:
+            ordered = rotation_order(candidates, rotation)
+            winner = ordered[0]  # the bias: first-presented candidate wins
+            biased.append({
+                "rotation": list(rotation),
+                "presented_order": list(ordered),
+                "winner_role": candidates.index(winner),
+                "winner_position": ordered.index(winner),
+            })
+        try:
+            _assert_rotation_geometry(biased, candidates)
+            caught = False  # gate accepted a biased selector: gates are broken
+        except ValueError:
+            caught = True
+        biased_caught &= caught
+    return {
+        "injection_recovery": recovered / total_injections,
+        "swap_recovery": swapped / len(POLICIES),
+        "all_three_roles_injected": True,
+        "position_bias_negative_control_caught": float(biased_caught),
+    }
 
 
 def run_shard(
@@ -254,6 +348,7 @@ def run_shard(
                 )
             )
         policy_rows: dict[str, object] = {}
+        schedule = rotation_schedule(1)[0]  # per-group schedule (3 rotations)
         for policy in POLICIES:
             panel_rows = []
             for panel in range(2):
@@ -261,14 +356,29 @@ def run_shard(
                 with_decoy = _scores(_evidence(all_candidates, target, neutral_panels[panel]), policy)
                 base_rank = _rank(base)
                 decoy_rank = tuple(value for value in _rank(with_decoy) if value != decoy)
+                # Execute ALL THREE position rotations on this panel: every
+                # candidate is presented in every position exactly once. The
+                # winning ROLE must be rotation-stable; the winner's POSITION
+                # must distribute 1/3 across rotations for an unbiased
+                # selection pipeline. Raw model traces are reused (legitimate:
+                # prompts and candidate suffixes are rotation-invariant).
+                geometry = [
+                    _rotation_geometry(base, candidates, rotation)
+                    for rotation in schedule
+                ]
+                _assert_rotation_geometry(geometry, candidates)
                 panel_rows.append(
                     {
-                        "winner_role": candidates.index(base_rank[0]),
+                        "winner_role": geometry[0]["winner_role"],
                         "ranking_roles": [candidates.index(value) for value in base_rank],
                         "ranking_with_decoy_roles": [all_candidates.index(value) for value in _rank(with_decoy)],
                         "scores": [base[candidate] for candidate in candidates],
                         "scores_with_decoy": [with_decoy[candidate] for candidate in all_candidates],
                         "decoy_shared_ranking_stable": decoy_rank == base_rank,
+                        "rotation_geometry": geometry,
+                        "first_position_wins": sum(
+                            1 for item in geometry if item["winner_position"] == 0
+                        ),
                     }
                 )
             policy_rows[policy.value] = panel_rows
@@ -544,9 +654,43 @@ def aggregate(receipts: Sequence[Mapping[str, object]]) -> dict[str, object]:
     gpu_hours = math.fsum(float(value["execution"]["gpu_hours"]) for value in cells.values())
     complete = not missing
     synthetic_pass = all(
-        value["synthetic_checks"] == {"injection_recovery": 1.0, "swap_recovery": 1.0}
+        value["synthetic_checks"] == {
+            "injection_recovery": 1.0,
+            "swap_recovery": 1.0,
+            "all_three_roles_injected": True,
+            "position_bias_negative_control_caught": 1.0,
+        }
         for value in cells.values()
     )
+    # Rotation geometry: fail closed on every executed row. Three distinct
+    # permutations, full position coverage, rotation-stable winner role, and
+    # a first-position selection rate equivalent to 1/3 (the preregistered
+    # unbiased-pipeline contract). Deleted or duplicated rotations cannot
+    # aggregate.
+    rotation_gate_pass = True
+    first_position_per_seed: dict[tuple[int, int], list[int]] = {}
+    for receipt in cells.values():
+        for row in receipt["rows"]:
+            for policy_rows in row["policies"].values():
+                for panel in policy_rows:
+                    try:
+                        candidates_length = len(panel["rotation_geometry"][0]["presented_order"])
+                        _assert_rotation_geometry(panel["rotation_geometry"],
+                                                  list(range(candidates_length)))
+                    except (ValueError, KeyError, IndexError):
+                        rotation_gate_pass = False
+                    if "first_position_wins" in panel:
+                        key = (int(receipt["configuration"]["vocabulary"]),
+                               int(receipt["configuration"]["seed"]))
+                        first_position_per_seed.setdefault(key, []).append(
+                            int(panel["first_position_wins"]))
+    first_position_equivalence: dict[str, dict[str, object]] = {}
+    for (vocabulary, seed), wins in sorted(first_position_per_seed.items()):
+        rate = sum(wins) / (3 * len(wins))  # each group contributes 3 rotations
+        first_position_equivalence[f"{vocabulary}:{seed}"] = {
+            "rate": round(rate, 4),
+            "inside_margin": abs(rate - 1 / 3) <= PER_SEED_MARGIN,
+        }
     cuda_expected = {
         ("cuda", vocabulary, seed)
         for vocabulary in VOCABULARIES
@@ -572,7 +716,7 @@ def aggregate(receipts: Sequence[Mapping[str, object]]) -> dict[str, object]:
         and synthetic_pass
         and not any(policy_survives_bias_screen.values())
     )
-    all_checks = complete and synthetic_pass and holm_complete and gpu_hours <= MAX_GPU_HOURS and all(
+    all_checks = complete and synthetic_pass and holm_complete and rotation_gate_pass and gpu_hours <= MAX_GPU_HOURS and all(
         all(row["checks"].values()) for policy in policy_results.values() for row in policy.values()
     )
     return {
@@ -592,6 +736,8 @@ def aggregate(receipts: Sequence[Mapping[str, object]]) -> dict[str, object]:
         "gpu_hours": gpu_hours,
         "gpu_budget_pass": gpu_hours <= MAX_GPU_HOURS,
         "synthetic_interventions_pass": synthetic_pass,
+        "rotation_geometry_pass": rotation_gate_pass,
+        "first_position_equivalence": first_position_equivalence,
         "cuda_stage_complete": cuda_complete,
         "policy_survives_bias_screen": policy_survives_bias_screen,
         "parity_skipped_due_prior_failure": early_policy_failure and bool(missing),

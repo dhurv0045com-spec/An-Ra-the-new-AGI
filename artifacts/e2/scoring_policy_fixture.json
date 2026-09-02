@@ -17,7 +17,7 @@
       "neutral_contexts_exact_length_constructible": true,
       "neutral_panels_disjoint": true,
       "surface_families_balanced_to_one": true,
-      "three_rotations_declared": true,
+      "three_rotations_materialized_by_schedule": true,
       "unique_fewest_token_role_every_tokenizer": true,
       "unique_shortest_utf8_role": true
     },
@@ -86,6 +86,8 @@
         44
       ]
     },
+    "rotation_schedule_sha256": "7478e714c540c2f9e9ffae94223294773a08f83256d54439d2cf8f570b705c83",
+    "rotations_per_triplet": 3,
     "split": "development",
     "status": "PASS",
     "surface_family_by_hidden_role": {
@@ -139,7 +141,7 @@
       "neutral_contexts_exact_length_constructible": true,
       "neutral_panels_disjoint": true,
       "surface_families_balanced_to_one": true,
-      "three_rotations_declared": true,
+      "three_rotations_materialized_by_schedule": true,
       "unique_fewest_token_role_every_tokenizer": true,
       "unique_shortest_utf8_role": true
     },
@@ -208,6 +210,8 @@
         45
       ]
     },
+    "rotation_schedule_sha256": "7478e714c540c2f9e9ffae94223294773a08f83256d54439d2cf8f570b705c83",
+    "rotations_per_triplet": 3,
     "split": "fresh",
     "status": "PASS",
     "surface_family_by_hidden_role": {
@@ -251,7 +255,7 @@
       "5": 43
     }
   },
-  "implementation_sha256": "d69c4cc130980fa5913ed756e01dd9a51171d0580a29c3fbf7b55821b9d46f16",
+  "implementation_sha256": "7f0a159c12a2b88f07e40bb93b2444d8255301fac64283f796f9cb5c948cbfc9",
   "limitations": [
     "Fixture compilation checks measurement geometry only; no model was executed.",
     "Fresh fixture identity is committed but fresh model outcomes remain forbidden before immutable development selection."

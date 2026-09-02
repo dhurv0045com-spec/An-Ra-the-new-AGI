@@ -32,10 +32,13 @@ class E2ScoringPolicyTournamentTests(unittest.TestCase):
         self.assertFalse(decisions["c"])
 
     def test_interventions_preserve_valid_logprob_domain_and_recover(self) -> None:
-        self.assertEqual(
-            _synthetic_checks(),
-            {"injection_recovery": 1.0, "swap_recovery": 1.0},
-        )
+        checks = _synthetic_checks()
+        self.assertEqual(checks["injection_recovery"], 1.0)
+        self.assertEqual(checks["swap_recovery"], 1.0)
+        # All three target roles must be exercised, and the rotation gates
+        # must catch a deliberately position-biased selector (vacuous-gate tripwire).
+        self.assertTrue(checks["all_three_roles_injected"])
+        self.assertEqual(checks["position_bias_negative_control_caught"], 1.0)
 
 
 if __name__ == "__main__":

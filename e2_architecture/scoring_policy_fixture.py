@@ -15,6 +15,45 @@ VOCABULARIES = (16_384, 24_576, 32_768)
 GROUPS = 256
 PANELS = 2
 CONTEXTS_PER_PANEL = 4
+# The preregistration (scoring_policy.ROTATIONS_PER_TRIPLET) requires three
+# position rotations per triplet. The schedule below is the executable
+# definition of that contract; receipts may only claim rotations that this
+# schedule materialized.
+ROTATIONS_PER_TRIPLET = 3
+
+
+def rotation_schedule(groups: int = GROUPS) -> list[list[tuple[int, ...]]]:
+    """Return, per group, the executed position-rotation permutations.
+
+    Rotation r assigns candidate i to position (i + r) % 3 (as a tuple
+    mapping position -> candidate index). Across the three rotations every
+    candidate occupies every position exactly once; the permutations are
+    distinct; the identity rotation comes first.
+    """
+
+    schedule: list[list[tuple[int, ...]]] = []
+    for _ in range(groups):
+        rotations = [tuple((i + r) % 3 for i in range(3)) for r in range(3)]
+        schedule.append(rotations)
+    return schedule
+
+
+def verify_rotation_schedule(schedule: list[list[tuple[int, ...]]]) -> bool:
+    """Fail-closed geometry proof: three distinct permutations per group and
+    every candidate appears exactly once in every position."""
+    if not schedule:
+        return False
+    for rotations in schedule:
+        if len(rotations) != ROTATIONS_PER_TRIPLET or len(set(rotations)) != len(rotations):
+            return False
+        for rotation in rotations:
+            if sorted(rotation) != [0, 1, 2]:
+                return False
+        for candidate in range(3):
+            occupied = [rotation.index(candidate) for rotation in rotations]
+            if sorted(occupied) != [0, 1, 2]:
+                return False
+    return True
 
 
 def _sha256_file(path: Path) -> str:
@@ -257,6 +296,8 @@ def _compile_split(
         str(vocabulary): [list(panel) for panel in _neutral_anchors(tokenizer_hashes[vocabulary], vocabulary)]
         for vocabulary in VOCABULARIES
     }
+    schedule = rotation_schedule(GROUPS)
+    schedule_ok = verify_rotation_schedule(schedule)
     checks = {
         "exact_group_count": len(accepted) == GROUPS,
         "surface_families_balanced_to_one": max(family_counts.values()) - min(family_counts.values()) <= 1,
@@ -267,7 +308,10 @@ def _compile_split(
         "unique_shortest_utf8_role": True,
         "unique_fewest_token_role_every_tokenizer": True,
         "distinct_first_token_roles_every_tokenizer": True,
-        "three_rotations_declared": True,
+        # Computed, never asserted: three distinct permutations per group with
+        # full position coverage. A receipt may only claim rotations this
+        # schedule materialized.
+        "three_rotations_materialized_by_schedule": schedule_ok,
         "neutral_panels_disjoint": all(
             set(value[0]).isdisjoint(value[1]) for value in anchors.values()
         ),
@@ -279,6 +323,8 @@ def _compile_split(
         "groups": len(accepted),
         "attempted_candidates": attempted,
         "fixture_sha256": redacted_case_identity(materialized),
+        "rotation_schedule_sha256": _canonical_sha256(schedule),
+        "rotations_per_triplet": ROTATIONS_PER_TRIPLET,
         "surface_family_counts": family_counts,
         "hidden_answer_role_counts": hidden_counts,
         "surface_family_by_hidden_role": contingency,
