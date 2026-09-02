@@ -247,7 +247,10 @@ def null_row_marginals(M, seed: int) -> list[list[int]]:
     return out
 
 
-def geometry_vs_nulls(M, *, n_nulls: int = 200, seed: int = 0) -> dict:
+def geometry_vs_nulls(M, *, n_nulls: int = 200, seed: int = 0,
+                      null_maker=None) -> dict:
+    makers = ((null_maker,) if null_maker is not None
+              else (null_global, null_column_marginals, null_row_marginals))
     """Is the real matrix MORE compressible than sparsity-matched nulls?
     Reports the null distribution of signature entropy and the fraction of
     nulls at least as structured as the real matrix (one-sided p)."""
@@ -255,7 +258,7 @@ def geometry_vs_nulls(M, *, n_nulls: int = 200, seed: int = 0) -> dict:
     real_unique = unique_signatures(M)
     null_ent, null_uniq = [], []
     for k in range(n_nulls):
-        for maker in (null_global, null_column_marginals, null_row_marginals):
+        for maker in makers:
             N = maker(M, seed + k)
             null_ent.append(response_signature_entropy(N))
             null_uniq.append(unique_signatures(N))

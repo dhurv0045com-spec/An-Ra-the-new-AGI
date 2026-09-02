@@ -136,6 +136,7 @@ def test_imbalance_metrics_math() -> None:
     # accuracy 0.5 and 95% raw accuracy — which is why NEITHER may justify
     # promotion (the gate uses AUPRC-lift + Brier skill + MCC instead).
     assert balanced_accuracy([0] * 100, labels) == pytest.approx(0.5)
+    # raw accuracy 0.95 with balanced accuracy 0.5 = the imbalance trap
     perfect_probs = [1.0 if y else 0.0 for y in labels]
     assert brier_skill(perfect_probs, labels) == pytest.approx(1.0)
 
