@@ -1,0 +1,106 @@
+{
+  "all_software_ready": true,
+  "external_data_blocked": true,
+  "prerequisites": [
+    {
+      "category": "environment",
+      "instruction": "Defines build-system, dependencies (Python >=3.10), and console script entry points.",
+      "name": "pyproject_toml",
+      "required_path": "pyproject.toml",
+      "sha256": "175d07b3cc5c5bd89997efaf4d2f64a7be116724b30473b6b27e30b173be0e80",
+      "status": "PRESENT_AND_VERIFIED"
+    },
+    {
+      "category": "code",
+      "instruction": "Live P35 Transformer constructor (35,411,328 parameters, 2:1 GQA, QK-norm).",
+      "name": "p35_model_constructor",
+      "required_path": "senora/model.py",
+      "sha256": "71f19265d4e3b1dfc7b44f0974575df8bd4813fbdeaaf72dffcf5f0683691520",
+      "status": "PRESENT_AND_VERIFIED"
+    },
+    {
+      "category": "code",
+      "instruction": "Production training step with autograd, gradient norm clipping, and parameter mutation verification.",
+      "name": "p35_training_step",
+      "required_path": "senora/training_step.py",
+      "sha256": "24b51fa36bee0bd3bb8fd3e5768b3ca5c936dfd11e566f4ea9a0fb5a4698449f",
+      "status": "PRESENT_AND_VERIFIED"
+    },
+    {
+      "category": "specification",
+      "instruction": "Sequential causal screen P35-CMS-1 plan binding token budgets, FLOPs, and arms.",
+      "name": "p35_experiment_plan",
+      "required_path": "artifacts/v5/p35_cms1_plan.json",
+      "sha256": "20cd51981c0c0103833ef66bdd14a4a6f2faa4ae7d00913174d86e16312230e1",
+      "status": "PRESENT_AND_VERIFIED"
+    },
+    {
+      "category": "code",
+      "instruction": "25-step preflight verification asserting parameter movement, finite loss, and CAS restore.",
+      "name": "remote_preflight_canary",
+      "required_path": "senora/canary.py",
+      "sha256": "2b7aed72a8ae4b99a5ef7792ff9186133512cdc46931f0662a4c3cd3fcd465f1",
+      "status": "PRESENT_AND_VERIFIED"
+    },
+    {
+      "category": "code",
+      "instruction": "Unified CLI entry point with execution manifest enforcement and validate-only flag.",
+      "name": "remote_experiment_runner",
+      "required_path": "senora/run_experiment.py",
+      "sha256": "b55c71f1cfd81a8637afd679c9296d5a8c1e3f67711399cf38cb4459dab7565e",
+      "status": "PRESENT_AND_VERIFIED"
+    },
+    {
+      "category": "script",
+      "instruction": "Validated SLURM batch submission scripts for P35 arms.",
+      "name": "slurm_batch_scripts",
+      "required_path": "artifacts/v5/cluster_jobs/run_control-substrate-00.sbatch",
+      "sha256": "68c0a506e46995884bc3c154a48544031d77971321baaa0f57b4e7ce868c3051",
+      "status": "PRESENT_AND_VERIFIED"
+    },
+    {
+      "category": "specification",
+      "instruction": "Cryptographic execution tokens binding target environment, commit SHA, and plan hash.",
+      "name": "execution_manifests",
+      "required_path": "artifacts/v5/cluster_jobs/manifest_control-substrate-00.json",
+      "sha256": "1d7b7f28ed439cbebb175b29e94d60e15113a40f33e0de56eb3cd29a6a1f899f",
+      "status": "PRESENT_AND_VERIFIED"
+    },
+    {
+      "category": "code",
+      "instruction": "Automated 9-category scientific result classifier with precommitted next actions.",
+      "name": "result_classifier_engine",
+      "required_path": "senora/result_classifier.py",
+      "sha256": "c8703f4aa2d1d67e6c7cd1320e8c3ce970bca4e45ecd0235df35ed5433c2f6d9",
+      "status": "PRESENT_AND_VERIFIED"
+    },
+    {
+      "category": "code",
+      "instruction": "Exports per-case neutral observation logs for future interventional cognitive geometry.",
+      "name": "triquetra_neutral_bridge",
+      "required_path": "senora/triquetra_bridge.py",
+      "sha256": "101e182faf57fa25704b0f23a0de0c115e37102ac604c4d61a83cf99bbfccace",
+      "status": "PRESENT_AND_VERIFIED"
+    },
+    {
+      "category": "external_data",
+      "instruction": "Binary uint16 token shards for natural text and code must be staged on cluster storage.",
+      "name": "external_corpus_pack_shards",
+      "required_path": "data/packs/v5_tokens/*.bin",
+      "sha256": null,
+      "status": "BLOCKED_ON_EXTERNAL_DATA"
+    },
+    {
+      "category": "external_data",
+      "instruction": "Signed corpus manifest binding raw source hashes and vocabulary verification.",
+      "name": "signed_data_manifest",
+      "required_path": "data/packs/data_manifest.json",
+      "sha256": null,
+      "status": "BLOCKED_ON_EXTERNAL_DATA"
+    }
+  ],
+  "schema": "senora-remote-package-manifest/v1",
+  "source_commit_sha": "c6f88cb5a42a8f60ef34d6ff382624ada1b96d1c",
+  "summary": "All 10 software, specification, and script prerequisites are verified and present on the senora branch. Only the 2 external data assets (corpus binary shards and signed data manifest) await cluster staging.",
+  "target_branch": "senora"
+}

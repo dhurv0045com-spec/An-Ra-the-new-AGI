@@ -6,6 +6,7 @@ import unittest
 
 from senora.evaluator import EvaluationSummary
 from senora.transfer_contract import (
+    calculate_clustered_group_statistics,
     STANDARD_P35_TO_M102_CONTRACT,
     StatisticalTestResults,
     calculate_paired_statistics,

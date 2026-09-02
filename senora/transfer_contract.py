@@ -288,3 +288,105 @@ def evaluate_transfer_decision(
             "substrate_regression_fraction": substrate_regression_fraction,
         },
     )
+
+@dataclass(frozen=True, slots=True)
+class ClusteredGroupStatisticalResults:
+    """Clustered group statistics preventing pseudo-replication from query swaps or rotations."""
+    schema: str
+    independent_groups_count: int
+    total_cases_count: int
+    group_treatment_effect_delta: float
+    bootstrap_ci_lower_95: float
+    bootstrap_ci_upper_95: float
+    sign_test_p_value: float
+    concordant_wins: int
+    concordant_losses: int
+    ties: int
+    family_treatment_effects: Mapping[str, float]
+
+
+def calculate_clustered_group_statistics(
+    candidate_outcomes: Sequence[bool],
+    control_outcomes: Sequence[bool],
+    group_ids: Sequence[str],
+    families: Sequence[str] | None = None,
+    *,
+    resamples: int = 10_000,
+    seed: int = 42,
+) -> ClusteredGroupStatisticalResults:
+    """Calculate paired difference statistics clustered at the causal semantic group level."""
+    if len(candidate_outcomes) != len(control_outcomes) or len(candidate_outcomes) != len(group_ids):
+        raise ValueError("Candidate outcomes, control outcomes, and group_ids must have identical lengths")
+
+    # 1. Aggregate to unique independent causal groups
+    unique_groups = list(dict.fromkeys(group_ids))
+    group_cand: dict[str, list[bool]] = {g: [] for g in unique_groups}
+    group_ctrl: dict[str, list[bool]] = {g: [] for g in unique_groups}
+    group_fam: dict[str, str] = {}
+
+    for cand, ctrl, gid, idx in zip(candidate_outcomes, control_outcomes, group_ids, range(len(group_ids))):
+        group_cand[gid].append(cand)
+        group_ctrl[gid].append(ctrl)
+        if families is not None:
+            group_fam[gid] = families[idx]
+
+    # Group passes if and only if all counterfactual and factual cases within the group pass
+    cand_group_passes = [all(group_cand[g]) for g in unique_groups]
+    ctrl_group_passes = [all(group_ctrl[g]) for g in unique_groups]
+    n_groups = len(unique_groups)
+
+    cand_mean = sum(cand_group_passes) / max(n_groups, 1)
+    ctrl_mean = sum(ctrl_group_passes) / max(n_groups, 1)
+    delta = cand_mean - ctrl_mean
+
+    # Discordant group pairs for exact sign test
+    wins = sum(1 for c, t in zip(cand_group_passes, ctrl_group_passes) if c and not t)
+    losses = sum(1 for c, t in zip(cand_group_passes, ctrl_group_passes) if not c and t)
+    ties = n_groups - wins - losses
+
+    # Exact binomial sign test
+    n_discordant = wins + losses
+    if n_discordant == 0:
+        p_val = 1.0
+    else:
+        k = min(wins, losses)
+        p_one_tail = sum(math.comb(n_discordant, i) * (0.5 ** n_discordant) for i in range(k + 1))
+        p_val = min(1.0, 2.0 * p_one_tail)
+
+    # 2. Cluster bootstrap at the independent group level
+    rng = random.Random(seed)
+    deltas = []
+    for _ in range(resamples):
+        sample_indices = [rng.randrange(n_groups) for _ in range(n_groups)]
+        s_cand = sum(cand_group_passes[i] for i in sample_indices) / n_groups
+        s_ctrl = sum(ctrl_group_passes[i] for i in sample_indices) / n_groups
+        deltas.append(s_cand - s_ctrl)
+
+    deltas.sort()
+    ci_lower = deltas[int(0.025 * resamples)]
+    ci_upper = deltas[int(0.975 * resamples)]
+
+    # 3. Stratified family treatment effects
+    family_deltas: dict[str, float] = {}
+    if families is not None:
+        all_fams = set(group_fam.values())
+        for f in all_fams:
+            f_groups = [g for g in unique_groups if group_fam[g] == f]
+            if f_groups:
+                c_f = sum(all(group_cand[g]) for g in f_groups) / len(f_groups)
+                t_f = sum(all(group_ctrl[g]) for g in f_groups) / len(f_groups)
+                family_deltas[f] = round(c_f - t_f, 4)
+
+    return ClusteredGroupStatisticalResults(
+        schema="senora-clustered-statistics/v1",
+        independent_groups_count=n_groups,
+        total_cases_count=len(candidate_outcomes),
+        group_treatment_effect_delta=round(delta, 4),
+        bootstrap_ci_lower_95=round(ci_lower, 4),
+        bootstrap_ci_upper_95=round(ci_upper, 4),
+        sign_test_p_value=round(p_val, 6),
+        concordant_wins=wins,
+        concordant_losses=losses,
+        ties=ties,
+        family_treatment_effects=family_deltas,
+    )

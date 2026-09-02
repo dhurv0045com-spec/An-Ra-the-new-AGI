@@ -2,7 +2,7 @@
   "arm_name": "control-substrate-00",
   "canary_certified": true,
   "checkpoint_sha256": "mock_checkpoint_sha_00000000000000000000000000000000000000000000",
-  "execution_duration_seconds": 0.025,
+  "execution_duration_seconds": 0.024,
   "experiment_id": "P35-CMS-1",
   "final_loss": 2.854,
   "identity_sha256": "6b7b0db4faa850b0a12610a81e2dae371bec91e8c6e8694a5fe1c981356ca306",

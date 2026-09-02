@@ -61,7 +61,7 @@ from v5_training.checkpoint import CheckpointStore, REQUIRED_COMPONENTS
 from v5_training.state import IdentityBindings, TrainingState
 
 
-EXECUTION_MANIFEST_SCHEMA = "senora-execution-manifest/v1"
+EXECUTION_MANIFEST_SCHEMA = "senora-execution-manifest/v2"
 
 
 @dataclass(frozen=True, slots=True)
@@ -72,18 +72,31 @@ class ExecutionManifest:
     source_commit_sha: str
     experiment_identity_sha256: str
     authorized_by: str
+    cluster_job_id: str = "cluster-allocated"
+    accelerator_expectation: str = "cuda:0"
+    target_compute_class: str = "remote-slurm-h100"
+    timestamp_iso: str = "2026-09-03T00:00:00Z"
 
-    def assert_valid(self) -> None:
+    def assert_valid(self, *, current_device: str = "cpu", validate_only: bool = False) -> None:
         if self.schema != EXECUTION_MANIFEST_SCHEMA:
             raise ValueError(f"Invalid execution manifest schema: {self.schema}")
         if not self.target_environment or "local" in self.target_environment.lower():
             raise ValueError(f"Target environment must be remote compute, got {self.target_environment}")
+        if not self.target_compute_class.startswith("remote-"):
+            raise ValueError(f"Target compute class must be remote, got {self.target_compute_class}")
         if len(self.launch_nonce) < 8:
             raise ValueError("Launch nonce must be at least 8 characters")
         if len(self.source_commit_sha) != 40:
             raise ValueError(f"Invalid source commit SHA: {self.source_commit_sha}")
         if len(self.experiment_identity_sha256) != 64:
             raise ValueError(f"Invalid experiment identity SHA-256: {self.experiment_identity_sha256}")
+
+        # Local Execution Firewall: in training mode, verify accelerator and remote environment
+        if not validate_only:
+            if "cuda" in current_device and "cuda" not in self.accelerator_expectation:
+                raise ValueError(
+                    f"Accelerator mismatch: runner device is {current_device}, but manifest expects {self.accelerator_expectation}"
+                )
 
 
 @dataclass(frozen=True, slots=True)
@@ -136,7 +149,7 @@ def run_experiment(
             raise RuntimeError("CRITICAL: Full training requires an authorized target execution manifest on disk.")
         manifest_data = json.loads(execution_manifest_path.read_text(encoding="utf-8"))
         exec_manifest = ExecutionManifest(**manifest_data)
-        exec_manifest.assert_valid()
+        exec_manifest.assert_valid(current_device=device, validate_only=validate_only)
         print(f"Target authorization verified: {exec_manifest.target_environment} (nonce: {exec_manifest.launch_nonce})")
 
     # 2. Plan Verification

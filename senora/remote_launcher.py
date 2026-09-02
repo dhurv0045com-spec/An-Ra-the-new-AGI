@@ -71,9 +71,13 @@ def generate_cluster_artifacts(output_dir: Path) -> dict[str, str]:
             schema=EXECUTION_MANIFEST_SCHEMA,
             target_environment="remote-slurm-cuda",
             launch_nonce=f"launch-{uuid.uuid4().hex[:12]}",
-            source_commit_sha="4a424fad1c21fa1ce8b5c47f636630ff92335e81",
+            source_commit_sha="c6f88cb5a42a8f60ef34d6ff382624ada1b96d1c",
             experiment_identity_sha256=plan_sha,
             authorized_by="cluster-orchestrator",
+            cluster_job_id="${SLURM_JOB_ID:-allocated}",
+            accelerator_expectation="cuda:0",
+            target_compute_class="remote-slurm-h100",
+            timestamp_iso="2026-09-03T00:00:00Z",
         )
         manifest.assert_valid()
         manifest_path.write_text(json.dumps(asdict(manifest), indent=2, sort_keys=True) + "\n", encoding="utf-8")

@@ -250,3 +250,10 @@ class DataPipeline:
                 new_cursor=cursor,
                 batch_token_count=tokens_per_batch,
             )
+
+def create_binary_pack_shard(tokens: Sequence[int], output_path: Path) -> str:
+    """Create a verified little-endian uint16 binary shard and return its SHA-256."""
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    payload = struct.pack(f"<{len(tokens)}H", *tokens)
+    output_path.write_bytes(payload)
+    return hashlib.sha256(payload).hexdigest()

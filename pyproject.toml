@@ -48,6 +48,7 @@ senora-dry-run = "senora.dry_run:main"
 senora-canary = "senora.canary:main"
 senora-run = "senora.run_experiment:main"
 senora-cost = "senora.cost_model:main"
+senora-package = "senora.remote_package:main"
 
 [tool.setuptools.packages.find]
 include = ["e0_cognition*", "v5_contracts*", "v5_training*", "e1_tokenizer*", "e2_architecture*", "e3_data_objective*", "senora*"]

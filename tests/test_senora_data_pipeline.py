@@ -7,6 +7,7 @@ import unittest
 from pathlib import Path
 
 from senora.data_pipeline import (
+    create_binary_pack_shard,
     BASE_CODE_PARTS,
     BASE_NATURAL_PARTS,
     ContaminationScanner,
