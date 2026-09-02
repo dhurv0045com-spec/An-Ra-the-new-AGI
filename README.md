@@ -2,9 +2,9 @@
 
 ESOES is a clean-sheet research branch for designing the next An-Ra neural Core. Its Git ancestry passes through `core-vnext`, but V4, VNext, PGE, SFT, and EXP are evidence sources—not inherited implementation.
 
-Start with [`docs/esoes/README.md`](docs/esoes/README.md).
+Start with [`blueprint/README.md`](blueprint/README.md).
 
-Current state: **Ground Blueprint v0.4; the exact 250M code/infrastructure contract, shortcut-resistant E0 benchmark, and E1 matched-budget tournament harness are executable. Production model/trainer implementation and main training remain forbidden until the experiment gates pass.**
+Current state: **V5 contracts, local canaries, and experiment plans are executable; learned E1–E5 runners and the production trainer still require implementation. `python -m v5_contracts.launch_readiness --output artifacts/v5/launch_readiness.json` checks the evidence inventory. It never authorizes the main 250M/5B run.**
 
 Previous-system evidence remains available at its original immutable branch/commit paths, especially:
 

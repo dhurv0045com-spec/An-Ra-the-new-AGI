@@ -1,0 +1,22 @@
+{
+  "schema": "anra-v5-launch-gates/v1",
+  "candidate_spec": "artifacts/v5/training_spec_v1.json",
+  "external_identities": {
+    "data_manifest_sha256": null,
+    "pack_manifest_sha256": null,
+    "runtime_image_sha256": null,
+    "sealed_evaluation_commitment_sha256": null,
+    "tokenizer_artifact_sha256": null,
+    "topology_receipt_sha256": null
+  },
+  "gates": [
+    {"id": "E1", "name": "tokenizer_and_corpus", "receipt_path": null, "receipt_sha256": null, "status": "PENDING"},
+    {"id": "E2", "name": "p35_architecture", "receipt_path": null, "receipt_sha256": null, "status": "PENDING"},
+    {"id": "E3", "name": "cognition_data_and_objective", "receipt_path": null, "receipt_sha256": null, "status": "PENDING"},
+    {"id": "E4", "name": "optimization_and_curriculum", "receipt_path": null, "receipt_sha256": null, "status": "PENDING"},
+    {"id": "E5", "name": "m102_scale_transfer", "receipt_path": null, "receipt_sha256": null, "status": "PENDING"},
+    {"id": "E6", "name": "tpu_remote_restore_and_sealed_custody", "receipt_path": null, "receipt_sha256": null, "status": "PENDING"}
+  ],
+  "main_run_requested": false,
+  "policy": "fail_closed_receipt_hash_and_external_identity_required"
+}

@@ -44,6 +44,10 @@ jobs:
         run: python -m v5_contracts.training_spec --output /tmp/training_spec_v1.json
       - name: Verify V5-A training specification is immutable
         run: cmp artifacts/v5/training_spec_v1.json /tmp/training_spec_v1.json
+      - name: Reproduce launch readiness receipt
+        run: python -m v5_contracts.launch_readiness --output /tmp/launch_readiness.json
+      - name: Verify launch readiness receipt is immutable
+        run: cmp artifacts/v5/launch_readiness.json /tmp/launch_readiness.json
       - name: Reproduce training transaction canary
         run: python -m v5_training.transaction_canary --output /tmp/training_transaction_canary.json
       - name: Verify training transaction receipt is reproducible

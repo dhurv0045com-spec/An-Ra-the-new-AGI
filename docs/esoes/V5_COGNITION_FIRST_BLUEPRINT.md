@@ -3,7 +3,7 @@
 Status: **SUPERSEDED WORKING DRAFT**
 
 The authoritative implementation constants are now in
-[`V5_TRAINING_SPEC_v1.0.md`](V5_TRAINING_SPEC_v1.0.md). This file is retained as
+[`../../blueprint/V5_TRAINING_SPEC_v1.0.md`](../../blueprint/V5_TRAINING_SPEC_v1.0.md). This file is retained as
 research history; its older mixture ranges and unset constants must not be used
 by code or a training run.
 

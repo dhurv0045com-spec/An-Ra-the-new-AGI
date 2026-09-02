@@ -1,0 +1,54 @@
+{
+  "blueprint_document_sha256": {
+    "BENCHMARK.md": "6857c1e01425f9df6cf9d6b718ab9625661a7054affdcf2475c692dd94bdafa5",
+    "DECISIONS.md": "11025585f272572d7d69723bb276e5431aac6e3c0ef290410e0edfb3dcd3d490",
+    "DECISION_LOG.md": "5250407ae6570e1749697ce9d6a2c4707668244de3d30f350400f32ee4392630",
+    "EXECUTION.md": "02387f4049742518f7b3b34e2461af5585ceecfedbe68aadfcbdd97860cca3cf",
+    "EXPERIMENTS.md": "67a5cc9e2ff998af688caa9bd69b68033ed907b2bb717a7ceaafad3532a94cab",
+    "FREEZE_CHECKLIST.md": "75575284b46bd4a9b19fcf17503418a835b93605491f3fded71c5b89e7df817e",
+    "IMPLEMENTATION_BLUEPRINT.md": "a83269d976acb8a7891037c37df636c1dc7565efcd6a928e684f3f0e21c671b9",
+    "OPEN_QUESTIONS.md": "4376d207f28c1b323a2838e56ae15ef00581126cd206fd52679a29993c02c2e0",
+    "README.md": "c73fae66f4c5180cb6abd25a62cce34957b4feac4493ad46382ffb2ca6a7f3f0",
+    "STATUS.md": "b3a6a761ae9534b4a33796e048323d881d714233e0b397d647b7278ed5527948",
+    "V5_MASTER_BLUEPRINT.md": "5f6c5cb1782407708bdea7e2c3bfc59fc2afc5be5936d090093b674ce5736818",
+    "V5_TRAINING_SPEC_v1.0.md": "e191eaec50aeb25d62093d4105f067b40b0f2b1e5f2fab8e41006f6ec8e68405"
+  },
+  "candidate_spec_sha256": "0cf7da633068f2c1a2858043c4e3c0e5fea984b8b01ac7db1268b7c69d7c6896",
+  "checks": {
+    "candidate_spec_valid_and_fail_closed": true,
+    "canonical_blueprint_complete": true,
+    "external_identity_inventory_present": true,
+    "gate_inventory_exact": true,
+    "launch_request_is_boolean": true,
+    "pass_receipts_hash_bound": true,
+    "schema": true,
+    "statuses_valid": true
+  },
+  "experiments_authorized": true,
+  "failed_gates": [],
+  "implementation_sha256": "ff652c35c35f442c04f84e76b1069de11f8865db71f1ec588d8142d2d937e3d2",
+  "independent_freeze_review_required": true,
+  "launch_gate_manifest_sha256": "691a16cbced351a35cd5c4710325ce91099dcf9a1e4ff9d04736f8f3cc0b023c",
+  "main_training_authorized": false,
+  "missing_external_identities": [
+    "data_manifest_sha256",
+    "pack_manifest_sha256",
+    "runtime_image_sha256",
+    "sealed_evaluation_commitment_sha256",
+    "tokenizer_artifact_sha256",
+    "topology_receipt_sha256"
+  ],
+  "next_action": "execute E1 tokenizer/corpus gate",
+  "passed_gates": [],
+  "pending_gates": [
+    "E1",
+    "E2",
+    "E3",
+    "E4",
+    "E5",
+    "E6"
+  ],
+  "production_launcher_implemented": false,
+  "schema": "anra-v5-launch-readiness-receipt/v1",
+  "status": "READY_FOR_PRELAUNCH_EXPERIMENTS"
+}

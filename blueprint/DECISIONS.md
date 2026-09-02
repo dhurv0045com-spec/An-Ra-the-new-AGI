@@ -229,7 +229,7 @@ Until then: **READY TO FREEZE = NO**.
 **DECISION:** make model/run/lineage schemas, E0 statistics/custody, E1 artifact audits, CLI contracts, dependency rules, and milestone acceptance executable before production modules.
 **STATUS:** [FROZEN] boundary; implementation milestones remain gate-controlled
 **WHY:** a directory sketch does not prevent fake updates, identity drift, evaluator leakage, or non-resumable cloud runs.
-**EVIDENCE:** `blueprints/IMPLEMENTATION_BLUEPRINT.md`, `v5_contracts/`, `e0_cognition/`, `e1_tokenizer/`, and their tests/certificates.
+**EVIDENCE:** `blueprint/IMPLEMENTATION_BLUEPRINT.md`, `v5_contracts/`, `e0_cognition/`, `e1_tokenizer/`, and their tests/certificates.
 **ALTERNATIVES CONSIDERED:** implement a trainer immediately; create empty packages; reuse VNext modules.
 **WHAT WOULD CHANGE OUR MIND:** stronger contracts may extend the schema but cannot remove fail-closed identity, causal isolation, or durable exact-resume requirements.
 **ITERATION:** Ground Blueprint v0.3.
@@ -239,7 +239,7 @@ Until then: **READY TO FREEZE = NO**.
 **DECISION:** state tracking must randomize serialization independently of semantic time and include intermediate, rollback, precedence, and interleaved-variable queries; rule induction must use multiple latent operand structures held out by split. Positional, bag-of-words, and fixed-rule baselines are certification gates, not optional diagnostics.
 **STATUS:** [FROZEN] benchmark boundary; sealed fixture and natural-source custody remain open
 **WHY:** the prior state generator made `latest_fact` and `nearest_position` perfect, and its single reverse-pair rule admitted a permanent-rule shortcut. Those are evaluator defects, not model evidence.
-**EVIDENCE:** `benchmark.md`, E0 generator v0.4.0, `artifacts/e0/shortcut_repair_receipt.json`, six pooled state controls, five rule controls, and the current repository suite. The earlier v0.3 lexical/bag-of-words false green is preserved as negative evidence.
+**EVIDENCE:** `blueprint/BENCHMARK.md`, E0 generator v0.4.0, `artifacts/e0/shortcut_repair_receipt.json`, six pooled state controls, five rule controls, and the current repository suite. The earlier v0.3 lexical/bag-of-words false green is preserved as negative evidence.
 **ALTERNATIVES CONSIDERED:** more examples with the same templates; a larger aggregate score; post-hoc heuristic inspection.
 **WHAT WOULD CHANGE OUR MIND:** an independently reproduced causal benchmark showing a stronger information-isolating design.
 **ITERATION:** Ground Blueprint v0.4.
@@ -249,7 +249,7 @@ Until then: **READY TO FREEZE = NO**.
 **DECISION:** every evaluation receipt stores raw-Core, constrained, and assisted outcomes separately and reports intervention dependence and harm explicitly. Copy/realization cases cannot supply selection outcomes.
 **STATUS:** [FROZEN] measurement contract
 **WHY:** assistance can repair realization without proving native selection or transformation.
-**EVIDENCE:** `e0_cognition/results.py`, `metrics.py`, `benchmark.md`, and result-contract tests.
+**EVIDENCE:** `e0_cognition/results.py`, `metrics.py`, `blueprint/BENCHMARK.md`, and result-contract tests.
 **ALTERNATIVES CONSIDERED:** one best-of-N score; constrained output as the headline result.
 **WHAT WOULD CHANGE OUR MIND:** a causal report showing assistance is irrelevant under all required raw-output tests.
 **ITERATION:** Ground Blueprint v0.4.

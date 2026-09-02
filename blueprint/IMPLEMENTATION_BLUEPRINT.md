@@ -3,7 +3,7 @@
 Status: **V5-A implementation candidate v1.0; main run blocked**
 Scope: design and executable contracts; no production trainer or main run authorization
 
-This is the canonical module-boundary bridge. `docs/esoes/V5_MASTER_BLUEPRINT.md` owns the scientific question, `docs/esoes/V5_TRAINING_SPEC_v1.0.md` and `v5_contracts.training_spec` own exact constants, and `benchmark.md` owns measurement. No code may substitute an unspecified default for a null identity in the executable receipt.
+This is the canonical module-boundary bridge. `blueprint/V5_MASTER_BLUEPRINT.md` owns the scientific question, `blueprint/V5_TRAINING_SPEC_v1.0.md` and `v5_contracts.training_spec` own exact constants, and `blueprint/BENCHMARK.md` owns measurement. No code may substitute an unspecified default for a null identity in the executable receipt.
 
 ## 1. Build target
 
@@ -61,7 +61,7 @@ e1_tokenizer/                 artifact-bound tokenizer audit and matched-budget 
 artifacts/e0/                 reproducible compact E0 receipt
 artifacts/v5/                 reproducible 250M implementation receipt
 tests/                        contract/property tests only
-blueprints/                   authoritative implementation and experiment designs
+blueprint/                    all authoritative design, benchmark, governance, and execution documents
 ```
 
 Authorized only after their owning experiment passes:

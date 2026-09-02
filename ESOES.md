@@ -1,6 +1,6 @@
 # ESOES — Historical Initialization Memo
 
-> **NON-CANONICAL:** ESOES has completed four design iterations and executable E0/E1/250M contract phases. Start at [`docs/esoes/README.md`](docs/esoes/README.md); the canonical documents, `benchmark.md`, `blueprints/`, and generated receipts define Ground Blueprint v0.4. This file is retained as branch history.
+> **NON-CANONICAL:** ESOES has completed four design iterations and executable E0/E1/250M contract phases. Start at [`blueprint/README.md`](blueprint/README.md); that directory and generated receipts define the current V5 candidate. This file is retained as branch history.
 
 This branch is a design/research branch for the next An-Ra Core generation. It starts from the current `core-vnext` evidence but does **not** assume that the existing V4 architecture, tokenizer, parameter count, data recipe, or training path should survive unchanged.
 
@@ -28,7 +28,7 @@ Loss is necessary evidence, not sufficient evidence.
 
 - `docs/esoes/EVIDENCE_AND_CONTEXT.md` — the evidence base from V4, `core-exp`, and `core-vnext`, including negative results and caveats.
 - `docs/esoes/V5_COGNITION_FIRST_BLUEPRINT.md` — the working blueprint for a cognition-first Core/training path.
-- `docs/esoes/OPEN_QUESTIONS.md` — unresolved design questions that must be answered by experiments rather than preference.
+- `blueprint/OPEN_QUESTIONS.md` — unresolved design questions that must be answered by experiments rather than preference.
 
 ## Current north-star question
 

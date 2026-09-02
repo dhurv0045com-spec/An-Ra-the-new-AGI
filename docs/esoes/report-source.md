@@ -1,6 +1,6 @@
 # V5 research source and claim ledger
 
-Internal research artifact for `V5_MASTER_BLUEPRINT.md`. The master blueprint is the canonical decision document; this file records the evidence audit behind it.
+Internal research artifact for [`../../blueprint/V5_MASTER_BLUEPRINT.md`](../../blueprint/V5_MASTER_BLUEPRINT.md). The master blueprint is the canonical decision document; this file records the evidence audit behind it.
 
 Date: 2026-08-29
 

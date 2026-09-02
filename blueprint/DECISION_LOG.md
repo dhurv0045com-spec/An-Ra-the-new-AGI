@@ -82,12 +82,12 @@ Major V5 training and production-stack implementation remain unauthorized.
 
 ## 2026-08-30 — Ground Blueprint v0.4 benchmark repair
 
-- Added the canonical [`benchmark.md`](../../benchmark.md) contract with an explicit mathematical pre-mortem loop, null/chance calculations, power policy, and raw-versus-assisted measurement rules.
+- Added the canonical [`BENCHMARK.md`](BENCHMARK.md) contract with an explicit mathematical pre-mortem loop, null/chance calculations, power policy, and raw-versus-assisted measurement rules.
 - Replaced position-solvable state cases with shuffled semantic-time logs covering latest, intermediate, rollback, precedence, and interleaved variables.
 - Replaced the permanent reverse-pair rule with eight development structures and disjoint sealed/fresh structure sets; fixed-rule and bag-of-words controls are now pooled certification gates.
 - Added difficulty axes, sensitivity/invariance pair summaries, raw-Core/assisted/intervention-dependence result contracts, and fresh/sealed replication identity checks.
 - Added the matched-budget E1 tokenizer tournament plan. No E1 artifact or main V5 training run is authorized.
-- Created `blueprints/IMPLEMENTATION_BLUEPRINT.md` as the authoritative package/interface/command/checkpoint/CI/milestone design.
+- Created `blueprint/IMPLEMENTATION_BLUEPRINT.md` as the authoritative package/interface/command/checkpoint/CI/milestone design.
 
 ## 2026-08-30 — Local device evidence pass
 
@@ -167,3 +167,10 @@ The 250M production model and trainer are not implemented or authorized; the cur
 - Fixed the 750M-token cognition slice across nine native operations and uniform difficulty/family interleaving; runtime tools, memory, search, and intervention routing remain outside Core.
 - Repaired conditional realization so its denominator is correct unassisted selection, not constrained-output correctness.
 - Versioned runner state now separates volatile completed updates from durable committed updates, supports the ~76-update gap implied by 10M-token recovery cadence, and rolls volatile progress back to the durable parent on recovery.
+
+## 2026-09-02 — Canonical execution package and fail-closed launch gate
+
+- Consolidated every authoritative architecture, training, cognition, benchmark, experiment, governance, and operator document under `blueprint/`; historical evidence remains outside it and cannot override it.
+- Added `blueprint/LAUNCH_GATES.json` and `v5_contracts.launch_readiness`. The checker verifies the package and evidence inventory, not scientific truth: E1–E6 `PASS`, existing receipts with matching SHA-256, and six external identities advance only to independent freeze review. A production launcher and signed-launch verifier remain unimplemented; this checker never authorizes main training.
+- Added CI reproduction of `artifacts/v5/launch_readiness.json`. The repository template intentionally reports `READY_FOR_PRELAUNCH_EXPERIMENTS` and `main_training_authorized=false`; editing a status to `PASS` without a real receipt fails closed.
+- Added Windows/Linux newline-invariant document hashes and regression tests proving a complete self-declared evidence inventory cannot authorize training.

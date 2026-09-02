@@ -7,7 +7,7 @@ Training authorization: **NO**
 
 This document is the canonical V5 research blueprint. It is intellectually independent of VNext implementation. The evidence base is `EVIDENCE_BASE.md`, the four-round attack record is `ITERATIONS.md`, and change control is `DECISIONS.md`. A value marked **[EXPERIMENT REQUIRED]** is not permission to encode it silently into a trainer.
 
-[`V5_TRAINING_SPEC_v1.0.md`](V5_TRAINING_SPEC_v1.0.md) is the canonical code-facing freeze; [`../../blueprints/IMPLEMENTATION_BLUEPRINT.md`](../../blueprints/IMPLEMENTATION_BLUEPRINT.md) owns module boundaries. Executable constants and receipts live in `v5_contracts/`. The v1.0 candidate is implementation-frozen but keeps `main_training_authorized=false` until E1–E5 and target/durability gates close.
+[`V5_TRAINING_SPEC_v1.0.md`](V5_TRAINING_SPEC_v1.0.md) is the canonical code-facing freeze; [`IMPLEMENTATION_BLUEPRINT.md`](IMPLEMENTATION_BLUEPRINT.md) owns module boundaries. Executable constants and receipts live in `v5_contracts/`. The v1.0 candidate is implementation-frozen but keeps `main_training_authorized=false` until E1–E6 close.
 
 Ground Blueprint v0.4 freezes the scientific boundaries and experiment order, not the exact training recipe:
 
