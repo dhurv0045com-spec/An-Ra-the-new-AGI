@@ -17,3 +17,5 @@ state/
 phase2/
 output/metrics/
 output/v2/
+
+uv.lock

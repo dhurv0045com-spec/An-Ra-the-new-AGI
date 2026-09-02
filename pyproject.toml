@@ -41,6 +41,9 @@ esoes-v5-p35-canary = "v5_training.torch_canary:main"
 esoes-v5-durability = "v5_training.durability_canary:main"
 esoes-v5-target-preflight = "v5_training.target_preflight:main"
 esoes-boundaries = "v5_contracts.import_boundaries:main"
+senora-audit = "senora.audit:main"
+senora-p35-plan = "senora.experiment_design:main"
+senora-launcher = "senora.remote_launcher:main"
 
 [tool.setuptools.packages.find]
-include = ["e0_cognition*", "v5_contracts*", "v5_training*", "e1_tokenizer*", "e2_architecture*", "e3_data_objective*"]
+include = ["e0_cognition*", "v5_contracts*", "v5_training*", "e1_tokenizer*", "e2_architecture*", "e3_data_objective*", "senora*"]
