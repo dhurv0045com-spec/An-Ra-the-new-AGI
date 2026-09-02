@@ -154,7 +154,7 @@ def build_readiness(
         "main_training_authorized": False,
         "production_launcher_implemented": False,
         "independent_freeze_review_required": True,
-        "candidate_spec_sha256": _sha256_file(candidate_path),
+        "candidate_spec_sha256": _text_sha256(candidate_path),
         "launch_gate_manifest_sha256": _text_sha256(manifest_file),
         "implementation_sha256": _text_sha256(Path(__file__)),
         "blueprint_document_sha256": document_hashes,

@@ -82,6 +82,12 @@ class V5LaunchReadinessTests(unittest.TestCase):
             self.assertEqual(result["status"], "READY_FOR_FREEZE_REVIEW")
             self.assertFalse(result["main_training_authorized"])
             self.assertFalse(result["production_launcher_implemented"])
+            candidate_path = root / "candidate.json"
+            normalized = candidate_path.read_bytes().replace(b"\r\n", b"\n")
+            candidate_path.write_bytes(normalized)
+            lf_result = build_readiness(root=root)
+            candidate_path.write_bytes(normalized.replace(b"\n", b"\r\n"))
+            self.assertEqual(lf_result, build_readiness(root=root))
 
     def test_committed_readiness_receipt_reproduces(self) -> None:
         receipt = json.loads((self.root / "artifacts/v5/launch_readiness.json").read_text(encoding="utf-8"))
