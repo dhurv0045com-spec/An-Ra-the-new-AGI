@@ -1,0 +1,74 @@
+{
+  "arms": [
+    {
+      "code_fraction": 0.25,
+      "cognition_fraction": 0.0,
+      "description": "Pure pretraining control (75% natural text, 25% code, 0% cognition) with Cross-Entropy only.",
+      "idealized_6nd_flops": 10623398400000000,
+      "name": "control-substrate-00",
+      "natural_fraction": 0.75,
+      "query_swap_lambda": 0.0,
+      "token_budget": 50000000
+    },
+    {
+      "code_fraction": 0.2,
+      "cognition_fraction": 0.15,
+      "description": "Cognition-infused mixture (65% natural, 20% code, 15% cognition) with Cross-Entropy only.",
+      "idealized_6nd_flops": 10623398400000000,
+      "name": "cognition-mixture-15-ce",
+      "natural_fraction": 0.65,
+      "query_swap_lambda": 0.0,
+      "token_budget": 50000000
+    },
+    {
+      "code_fraction": 0.2,
+      "cognition_fraction": 0.15,
+      "description": "Cognition-infused mixture (65% natural, 20% code, 15% cognition) with CE + query-swap auxiliary contrast (lambda=0.10).",
+      "idealized_6nd_flops": 10623398400000000,
+      "name": "cognition-mixture-15-qswap",
+      "natural_fraction": 0.65,
+      "query_swap_lambda": 0.1,
+      "token_budget": 50000000
+    }
+  ],
+  "control_arm": "control-substrate-00",
+  "experiment_id": "P35-CMS-1",
+  "failure_abort_criteria": [
+    "Non-finite loss (NaN/Inf) or gradient explosion norm > 100.0.",
+    "Substrate regression > 3.0% compared to control-substrate-00.",
+    "Synthetic-only gain: performance improves on training templates but fails to transfer to natural analogues (p >= 0.05).",
+    "Assisted-only gain: improvements appear in Assisted mode but Raw Core shows zero gain.",
+    "Worst-family collapse: any single cognition primitive family falls below chance."
+  ],
+  "hypothesis": "Standard dense Transformer pretraining on web text fails to acquire query-conditioned binding and state tracking because causal counterfactual pressure is too sparse; mixing 15% mechanically verified cognition data under standard Cross-Entropy induces robust internal binding and state tracking without regressing natural text representations.",
+  "model_spec": {
+    "context_length": 2048,
+    "dropout": 0.0,
+    "family": "dense-decoder-transformer",
+    "ffn_width": 1024,
+    "head_dimension": 64,
+    "kv_heads": 3,
+    "layers": 16,
+    "linear_bias": false,
+    "norm_epsilon": 1e-05,
+    "qk_norm": true,
+    "qk_norm_affine": true,
+    "query_heads": 6,
+    "rope_base": 10000.0,
+    "schema": "anra-v5-p35-model-spec/v1",
+    "tied_embeddings": true,
+    "vocabulary_size": 24576,
+    "width": 384
+  },
+  "natural_transfer_requirement": "Statistically significant positive gain (paired sign test p < 0.01) on natural language analogues for binding, state tracking, and relational composition.",
+  "ood_test": "Evaluation on Split.FRESH cases featuring unseen domains, relations, entity prefixes, and rule structures.",
+  "prelaunch_status": "FROZEN_SPEC_READY_FOR_REMOTE_LAUNCH",
+  "primary_cognition_metric": "Macro raw-Core exact match accuracy on Fresh-OOD Causal Suite (Split.FRESH).",
+  "result_that_would_change_mind": "If Arm 1 (15% CE) matches or outperforms Arm 2 (query-swap) on fresh OOD and query sensitivity pairs with zero substrate loss regression, we will reject auxiliary contrastive objectives and freeze pure CE. If both Arm 1 and Arm 2 fail on fresh OOD despite learning synthetic templates, we will falsify the data-only hypothesis and prioritize architectural inductive bias.",
+  "schema": "senora-p35-experiment-plan/v1",
+  "single_intended_change": "Arm 0 vs Arm 1: isolate the effect of 15% verified cognition data under identical CE loss. Arm 1 vs Arm 2: isolate the effect of counterfactual query-swap contrastive auxiliary loss (lambda=0.10) holding data stream and token budget identical.",
+  "substrate_metric": "Cross-entropy loss on held-out general natural/code validation corpus (must regress <= 3.0%).",
+  "title": "Cognition Mixture & Query-Swap Causal Screen",
+  "token_flop_matching": "All 3 arms consume exactly 50,000,000 tokens and 10,623,398,400,000,000 idealized 6ND FLOPs using the exact 35.4M parameter 2:1 GQA P35 architecture.",
+  "uncertain_assumption": "Whether pure Cross-Entropy on synthetic cognition instances generalizes to fresh OOD domains and natural language analogues, or merely memorizes template syntax; and whether an explicit query-swap contrastive objective is necessary for query-conditioned routing."
+}
