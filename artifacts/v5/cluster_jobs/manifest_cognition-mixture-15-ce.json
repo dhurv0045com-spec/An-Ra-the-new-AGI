@@ -3,9 +3,9 @@
   "authorized_by": "cluster-orchestrator",
   "cluster_job_id": "${SLURM_JOB_ID:-allocated}",
   "experiment_identity_sha256": "4c26cbe9883b84a24f928d7965b31de1ebfe6f7b3daa2c1218333e2cfb64cca8",
-  "launch_nonce": "launch-f0745e40ec0b",
+  "launch_nonce": "launch-b9296e6c40c2",
   "schema": "senora-execution-manifest/v2",
-  "source_commit_sha": "c6f88cb5a42a8f60ef34d6ff382624ada1b96d1c",
+  "source_commit_sha": "3567e6326904f8eb13250b51c91b8400a500c596",
   "target_compute_class": "remote-slurm-h100",
   "target_environment": "remote-slurm-cuda",
   "timestamp_iso": "2026-09-03T00:00:00Z"

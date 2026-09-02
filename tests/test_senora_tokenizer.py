@@ -5,6 +5,8 @@ from __future__ import annotations
 import unittest
 
 from senora.tokenizer import (
+    LearnedBpeTokenizer,
+    MissingTokenizerArtifactError,
     EXPECTED_VOCABULARY_SIZE,
     SPECIAL_TOKENS,
     SenoraTokenizer,

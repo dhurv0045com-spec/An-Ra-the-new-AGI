@@ -122,13 +122,14 @@ try:
         # -------------------------------------------------------------
         # 4. OPTIMIZER STEP & SCHEDULE ADVANCEMENT
         # -------------------------------------------------------------
-        optimizer.step()
-
-        # Update learning rate according to cumulative tokens
+        # Set exact learning rate for this update BEFORE optimizer.step()
+        # Evaluated at the progress milestone for this update batch
         next_cumulative_tokens = state.cumulative_tokens + batch.batch_token_count
-        current_lr = scheduler.get_lr(next_cumulative_tokens)
+        lr_used_for_this_update = scheduler.get_lr(next_cumulative_tokens)
         for group in optimizer.param_groups:
-            group["lr"] = current_lr
+            group["lr"] = lr_used_for_this_update
+
+        optimizer.step()
 
         # -------------------------------------------------------------
         # 5. POST-STEP INVARIANTS: PARAMETER MOVEMENT & MOMENT CHECKS
@@ -190,7 +191,7 @@ try:
         receipt = StepReceipt(
             global_update=next_update,
             cumulative_tokens=next_cumulative_tokens,
-            learning_rate=current_lr,
+            learning_rate=lr_used_for_this_update,
             loss=loss_receipt,
             gradient_norm=grad_norm,
             initial_parameter_sha256=initial_param_sha,

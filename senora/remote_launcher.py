@@ -10,6 +10,7 @@ import uuid
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any
+from senora.guards import ScientificExecutionGuard
 
 from .experiment_design import build_p35_cms1_plan
 from .run_experiment import EXECUTION_MANIFEST_SCHEMA, ExecutionManifest
@@ -71,7 +72,7 @@ def generate_cluster_artifacts(output_dir: Path) -> dict[str, str]:
             schema=EXECUTION_MANIFEST_SCHEMA,
             target_environment="remote-slurm-cuda",
             launch_nonce=f"launch-{uuid.uuid4().hex[:12]}",
-            source_commit_sha="c6f88cb5a42a8f60ef34d6ff382624ada1b96d1c",
+            source_commit_sha=ScientificExecutionGuard.get_current_git_head(),
             experiment_identity_sha256=plan_sha,
             authorized_by="cluster-orchestrator",
             cluster_job_id="${SLURM_JOB_ID:-allocated}",
@@ -85,7 +86,7 @@ def generate_cluster_artifacts(output_dir: Path) -> dict[str, str]:
         script_content = SLURM_TEMPLATE.format(
             arm_name=arm_name,
             tokens=arm["token_budget"],
-            manifest_relpath=str(Path(output_dir.name) / manifest_filename).replace("\\", "/"),
+            manifest_relpath=str((output_dir / manifest_filename).as_posix()),
         )
         script_path = output_dir / f"run_{arm_name}.sbatch"
         script_path.write_text(script_content, encoding="utf-8")

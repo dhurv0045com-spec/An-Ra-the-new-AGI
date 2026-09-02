@@ -183,3 +183,82 @@ class SenoraEvaluator:
             candidate_scoring_status=scorer_status,
             candidate_selection_accuracy=selection_acc,
         )
+
+@dataclass(frozen=True, slots=True)
+class PolicyInput:
+    """Strictly unprivileged generation input presented to the neural model.
+    
+    Contains ONLY prompt text and metadata. Never contains ground-truth answers,
+    candidates, or hidden evaluation assertions.
+    """
+    case_id: str
+    prompt: str
+    difficulty: tuple[tuple[str, int], ...]
+
+
+@dataclass(frozen=True, slots=True)
+class EvaluatorTruth:
+    """Privileged evaluation ground truth withheld behind the gold firewall."""
+    case_id: str
+    canonical_answer: str
+    family: str
+    difficulty: tuple[tuple[str, int], ...]
+    domain: str = ""
+
+
+def split_case_for_evaluation(case: CausalCase) -> tuple[PolicyInput, EvaluatorTruth]:
+    """Decouple a CausalCase across the Gold Firewall into PolicyInput and EvaluatorTruth."""
+    policy_in = PolicyInput(
+        case_id=case.case_id,
+        prompt=case.prompt(),
+        difficulty=case.difficulty,
+    )
+    truth = EvaluatorTruth(
+        case_id=case.case_id,
+        canonical_answer=case.answer,
+        family=case.family,
+        difficulty=case.difficulty,
+        domain=case.domain,
+    )
+    return policy_in, truth
+
+
+def generate_raw_core_prediction(
+    model: Any,
+    tokenizer: Any,
+    policy_input: PolicyInput,
+    *,
+    max_new_tokens: int = 32,
+    device: str = "cpu",
+) -> CasePrediction:
+    """Generate unassisted RAW CORE prediction autoregressively under greedy decoding.
+    
+    Operates strictly on PolicyInput. Has zero access to EvaluatorTruth or gold answers.
+    """
+    import torch
+
+    prompt_ids = tokenizer.encode(policy_input.prompt, add_bos=True, add_eos=False)
+    input_tensor = torch.tensor([prompt_ids], dtype=torch.long, device=device)
+
+    model.eval()
+    with torch.no_grad():
+        generated_ids: list[int] = []
+        for _ in range(max_new_tokens):
+            logits = model(input_tensor)
+            next_token_id = int(torch.argmax(logits[:, -1, :], dim=-1).item())
+            if next_token_id == tokenizer.special_tokens["eos"]:
+                break
+            generated_ids.append(next_token_id)
+            input_tensor = torch.cat(
+                [input_tensor, torch.tensor([[next_token_id]], dtype=torch.long, device=device)],
+                dim=1,
+            )
+
+    decoded_text = tokenizer.decode(generated_ids, skip_special_tokens=True).strip()
+    return CasePrediction(
+        case_id=policy_input.case_id,
+        raw_output=decoded_text,
+        constrained_output=decoded_text,
+        assisted_output=decoded_text,
+        candidate_logprobs=None,
+    )

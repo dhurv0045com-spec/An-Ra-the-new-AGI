@@ -32,6 +32,10 @@ from pathlib import Path
 from typing import Any
 
 from e0_cognition.evaluation_generators import Split, build_evaluation_suite
+from senora.checkpoint import serialize_real_checkpoint_payloads, restore_real_checkpoint_payloads
+from senora.guards import ExecutionMode, ScientificExecutionGuard, ScientificIntegrityViolationError
+from senora.evaluator import split_case_for_evaluation, generate_raw_core_prediction, PolicyInput, EvaluatorTruth
+from senora.tokenizer import load_verified_tokenizer
 from senora.canary import execute_preflight_canary
 from senora.data_pipeline import (
     CURSOR_SCHEMA,
@@ -117,6 +121,7 @@ class ExperimentRunReceipt:
     transfer_status: str
     checkpoint_sha256: str
     execution_duration_seconds: float
+    development_evaluation: Mapping[str, Any] = frozendict if False else None
 
 
 def run_experiment(
@@ -150,6 +155,8 @@ def run_experiment(
         manifest_data = json.loads(execution_manifest_path.read_text(encoding="utf-8"))
         exec_manifest = ExecutionManifest(**manifest_data)
         exec_manifest.assert_valid(current_device=device, validate_only=validate_only)
+        ScientificExecutionGuard.assert_matching_commit(exec_manifest.source_commit_sha)
+        ScientificExecutionGuard.assert_clean_worktree()
         print(f"Target authorization verified: {exec_manifest.target_environment} (nonce: {exec_manifest.launch_nonce})")
 
     # 2. Plan Verification
@@ -165,7 +172,7 @@ def run_experiment(
     identity = ExperimentIdentity(
         schema=IDENTITY_SCHEMA,
         experiment_id=plan_raw["experiment_id"],
-        source_commit_sha="a" * 40,
+        source_commit_sha=ScientificExecutionGuard.get_current_git_head(),
         model_spec_sha256=dummy_sha,
         model_constructor_sha256=dummy_sha,
         tokenizer_artifact_sha256=dummy_sha,
@@ -325,34 +332,48 @@ def run_experiment(
     lifecycle.verify_suite_access("development")
     dev_suite = build_evaluation_suite(Split.DEVELOPMENT, seed=101, groups_per_family=1)
     evaluator = SenoraEvaluator(dev_suite, scorer_firewall_status="FAIL_DEVELOPMENT_POLICY")
-    predictions = [
-        CasePrediction(
-            case_id=c.case_id,
-            raw_output=c.answer,
-            constrained_output=c.answer,
-            assisted_output=c.answer,
-        )
-        for c in dev_suite.cases
-    ]
+    policy_inputs: list[PolicyInput] = []
+    evaluator_truths: list[EvaluatorTruth] = []
+    for c in dev_suite.cases:
+        p_in, truth = split_case_for_evaluation(c)
+        ScientificExecutionGuard.assert_no_gold_in_policy_input(p_in.prompt, truth.canonical_answer)
+        policy_inputs.append(p_in)
+        evaluator_truths.append(truth)
+
+    tokenizer = load_verified_tokenizer(allow_test_tokenizer=True)
+
+    if validate_only:
+        # In validate-only mode, simulate neutral baseline generations without gold leak
+        predictions = [
+            CasePrediction(
+                case_id=p.case_id,
+                raw_output="neutral_baseline_response",
+                constrained_output="neutral_baseline_response",
+                assisted_output="neutral_baseline_response",
+                candidate_logprobs=None,
+            )
+            for p in policy_inputs
+        ]
+    else:
+        predictions = [
+            generate_raw_core_prediction(
+                model=model,
+                tokenizer=tokenizer,
+                policy_input=p,
+                device=device,
+            )
+            for p in policy_inputs
+        ]
     dev_summary = evaluator.evaluate_predictions(predictions, general_substrate_loss=2.10)
     print(f"Development Raw-Core Accuracy: {dev_summary.raw_core_accuracy * 100:.1f}%")
 
     lifecycle.transition_to(ExperimentPhase.DEVELOPMENT_COMPLETE)
 
-    # 8. Result Classification & Precommitted Next Action
-    stats = calculate_paired_statistics(
-        [True] * dev_summary.case_count,
-        [False] * dev_summary.case_count,
-        resamples=1000,
-    )
-    classification = classify_p35_a_results(
-        treatment_eval=dev_summary,
-        control_eval=dev_summary,
-        substrate_regression_fraction=0.01,
-        paired_statistics=stats,
-    )
-    print(f"\nResult Classification: {classification.category.value}")
-    print(f"Precommitted Next Action: {classification.precommitted_next_action}")
+    # 8. Independent Arm Execution Receipt Recording
+    # Note: Cross-arm causal comparison is performed by senora.result_classifier
+    # consuming independent control and treatment receipts.
+    print(f"\nArm Execution Complete: {arm_name}")
+    print(f"Development Raw-Core Accuracy: {dev_summary.raw_core_accuracy * 100:.1f}%")
 
     # 9. Triquetra Neutral Bridge Export
     bridge_dir = output_root / "triquetra_bridge"
@@ -379,11 +400,12 @@ def run_experiment(
         training_steps_completed=steps_completed,
         final_loss=final_loss,
         raw_core_development_accuracy=dev_summary.raw_core_accuracy,
-        result_category=classification.category.value,
-        precommitted_next_action=classification.precommitted_next_action,
+        result_category="ARM_EXECUTION_COMPLETE",
+        precommitted_next_action="RUN_CROSS_ARM_RESULT_CLASSIFIER: Execute python -m senora.result_classifier with control and treatment receipts.",
         transfer_status="M102_SCALE_BLOCKED",
         checkpoint_sha256=final_ckpt_sha,
         execution_duration_seconds=round(duration, 3),
+        development_evaluation=asdict(dev_summary),
     )
 
     out_file = output_root / f"receipt_{arm_name}.json"

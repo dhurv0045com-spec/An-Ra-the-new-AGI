@@ -10,7 +10,7 @@ from senora.audit import run_audit
 class TestSenoraAudit(unittest.TestCase):
     def test_audit_report_structure_and_execution_map(self) -> None:
         report = run_audit()
-        self.assertEqual(report.schema, "senora-audit-report/v3")
+        self.assertEqual(report.schema, "senora-audit-report/v4")
         self.assertEqual(report.branch, "senora")
         self.assertEqual(report.branch_origin, "esoes@85f44b7")
 

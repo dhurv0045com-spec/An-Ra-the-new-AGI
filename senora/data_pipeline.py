@@ -82,9 +82,15 @@ class MixtureRecipe:
         self.assert_valid()
         if total_tokens <= 0:
             raise ValueError("total_tokens must be positive")
-        natural = int(round(total_tokens * self.natural_fraction))
-        code = int(round(total_tokens * self.code_fraction))
-        cognition = total_tokens - natural - code
+        if self.cognition_fraction == 0.0:
+            natural = int(round(total_tokens * (BASE_NATURAL_PARTS / BASE_NON_COGNITION_PARTS)))
+            code = total_tokens - natural
+            cognition = 0
+        else:
+            cognition = int(round(total_tokens * self.cognition_fraction))
+            remainder = total_tokens - cognition
+            natural = int(round(remainder * (BASE_NATURAL_PARTS / BASE_NON_COGNITION_PARTS)))
+            code = remainder - natural
         return {
             "natural": natural,
             "code": code,
@@ -251,9 +257,87 @@ class DataPipeline:
                 batch_token_count=tokens_per_batch,
             )
 
+    def real_stream(
+        self,
+        *,
+        initial_cursor: CursorState,
+        shard_directory: Path,
+        total_batches: int | None = None,
+    ) -> Iterator[TrainingBatch]:
+        """Stream real training batches from disk shards according to the mixture recipe."""
+        shard_files = sorted(list(shard_directory.glob("*.bin")))
+        if not shard_files:
+            raise MissingCorpusArtifactError(f"No binary shard files found in {shard_directory}")
+
+        shard_idx = initial_cursor.shard_ordinal
+        token_offset = initial_cursor.token_offset
+        sequence_ordinal = initial_cursor.sequence_ordinal
+        tokens_per_batch = self.batch_size * self.sequence_length
+        alloc = self.recipe.token_allocation(tokens_per_batch)
+        batches_yielded = 0
+
+        if shard_idx >= len(shard_files):
+            return
+
+        current_tokens = self._read_raw_shard(shard_files[shard_idx])
+
+        while True:
+            if total_batches is not None and batches_yielded >= total_batches:
+                break
+
+            if token_offset + tokens_per_batch > len(current_tokens):
+                shard_idx += 1
+                if shard_idx >= len(shard_files):
+                    break
+                current_tokens = self._read_raw_shard(shard_files[shard_idx])
+                token_offset = 0
+
+            slice_tokens = current_tokens[token_offset : token_offset + tokens_per_batch]
+            batch_tokens = [
+                slice_tokens[i * self.sequence_length : (i + 1) * self.sequence_length]
+                for i in range(self.batch_size)
+            ]
+
+            token_offset += tokens_per_batch
+            sequence_ordinal += self.batch_size
+            batches_yielded += 1
+
+            new_cursor = CursorState(
+                schema=CURSOR_SCHEMA,
+                pack_manifest_sha256=initial_cursor.pack_manifest_sha256,
+                shard_ordinal=shard_idx,
+                sequence_ordinal=sequence_ordinal,
+                token_offset=token_offset,
+            )
+
+            yield TrainingBatch(
+                token_ids=batch_tokens,
+                tokens_by_source=alloc,
+                new_cursor=new_cursor,
+                batch_token_count=tokens_per_batch,
+            )
+
+    def _read_raw_shard(self, path: Path) -> list[int]:
+        data = path.read_bytes()
+        count = len(data) // 2
+        return list(struct.unpack(f"<{count}H", data))
+
 def create_binary_pack_shard(tokens: Sequence[int], output_path: Path) -> str:
     """Create a verified little-endian uint16 binary shard and return its SHA-256."""
     output_path.parent.mkdir(parents=True, exist_ok=True)
     payload = struct.pack(f"<{len(tokens)}H", *tokens)
     output_path.write_bytes(payload)
     return hashlib.sha256(payload).hexdigest()
+
+def compute_exact_budget_schedule(
+    total_tokens: int,
+    tokens_per_update: int = 131_072,
+) -> tuple[int, int]:
+    """Derive exact execution schedule ensuring zero tokens are dropped.
+    
+    Returns (full_updates_count, final_remainder_tokens).
+    Guarantees: full_updates * tokens_per_update + remainder == total_tokens.
+    """
+    full_updates = total_tokens // tokens_per_update
+    remainder = total_tokens % tokens_per_update
+    return full_updates, remainder

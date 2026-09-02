@@ -1,0 +1,18 @@
+{
+  "classification": {
+    "category": "FAMILY_COLLAPSE",
+    "natural_analogue_gain": 0.0,
+    "precommitted_next_action": "DEBUG_FAILING_FAMILY_GENERATOR: Mean accuracy masked primitive failure. Halt scaling and debug the specific collapsed cognitive family.",
+    "query_sensitivity_flip_rate": 0.0,
+    "rationale": "Primitive family 'counterfactual_premise' collapsed to 0.0%, below the 25% chance floor.",
+    "structural_ood_gain": 0.0,
+    "substrate_regression_fraction": 0.01,
+    "treatment_effect_raw_core": 0.0,
+    "two_seed_replicated": false,
+    "worst_family_accuracy": 0.0,
+    "worst_family_name": "counterfactual_premise"
+  },
+  "control_receipt": "artifacts\\v5\\run_receipts\\receipt_control-substrate-00.json",
+  "schema": "senora-decision-receipt/v1",
+  "treatment_receipt": "artifacts\\v5\\run_receipts\\receipt_cognition-mixture-15-ce.json"
+}

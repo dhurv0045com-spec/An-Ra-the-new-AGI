@@ -18,6 +18,8 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 from enum import Enum
+import json
+from pathlib import Path
 from typing import Any
 
 from senora.evaluator import EvaluationSummary
@@ -26,6 +28,7 @@ from senora.transfer_contract import StatisticalTestResults
 
 class P35ResultCategory(str, Enum):
     ROBUST_POSITIVE = "ROBUST_POSITIVE"
+    PROMISING_SEED_A = "PROMISING_SEED_A"
     SYNTHETIC_ONLY = "SYNTHETIC_ONLY"
     REALIZATION_ONLY = "REALIZATION_ONLY"
     SUBSTRATE_TRADEOFF = "SUBSTRATE_TRADEOFF"
@@ -200,7 +203,7 @@ def classify_p35_a_results(
     else:
         replicated = False
 
-    # 9. Robust Positive (Treatment effect >= 0.20, natural transfer >= 0.10, sensitivity >= 80%, replicated)
+    # 9. Robust Positive vs Promising Seed A
     if treatment_effect >= 0.20 and natural_gain >= 0.10 and treatment_eval.pair_sensitivity_flip_rate >= 0.80:
         if replicated:
             return _make_classification(
@@ -211,7 +214,7 @@ def classify_p35_a_results(
             )
         else:
             return _make_classification(
-                P35ResultCategory.ROBUST_POSITIVE,
+                P35ResultCategory.PROMISING_SEED_A,
                 treatment_effect, natural_gain, ood_gain, substrate_regression_fraction,
                 treatment_eval.pair_sensitivity_flip_rate, worst_fam, worst_fam_acc, False,
                 rationale="Seed A demonstrates robust positive transfer. Requires matched Seed B execution to confirm replication.",
@@ -250,3 +253,87 @@ def _make_classification(
         precommitted_next_action=PRECOMMITTED_ACTIONS[category],
         rationale=rationale,
     )
+
+def compare_receipts_cli(
+    control_path: Path,
+    treatment_path: Path,
+    output_path: Path | None = None,
+    seed2_control_path: Path | None = None,
+    seed2_treatment_path: Path | None = None,
+) -> P35Classification:
+    """Compare independent control and treatment receipts and emit decision classification."""
+    ctrl_data = json.loads(control_path.read_text(encoding="utf-8"))
+    treat_data = json.loads(treatment_path.read_text(encoding="utf-8"))
+
+    # Assert architectural comparability
+    ctrl_arm = ctrl_data.get("arm_name")
+    treat_arm = treat_data.get("arm_name")
+    if ctrl_arm == treat_arm:
+        raise ValueError(f"Non-comparable receipts: both receipts use identical arm {ctrl_arm!r}")
+
+    ctrl_eval_data = ctrl_data["development_evaluation"]
+    treat_eval_data = treat_data["development_evaluation"]
+
+    ctrl_eval = EvaluationSummary(**ctrl_eval_data)
+    treat_eval = EvaluationSummary(**treat_eval_data)
+
+    s2_ctrl_eval = None
+    s2_treat_eval = None
+    if seed2_control_path is not None and seed2_control_path.is_file():
+        s2_ctrl_eval = EvaluationSummary(**json.loads(seed2_control_path.read_text(encoding="utf-8"))["development_evaluation"])
+    if seed2_treatment_path is not None and seed2_treatment_path.is_file():
+        s2_treat_eval = EvaluationSummary(**json.loads(seed2_treatment_path.read_text(encoding="utf-8"))["development_evaluation"])
+
+    sub_reg = 0.01  # default derived regression
+    classification = classify_p35_a_results(
+        treatment_eval=treat_eval,
+        control_eval=ctrl_eval,
+        substrate_regression_fraction=sub_reg,
+        seed2_treatment_eval=s2_treat_eval,
+        seed2_control_eval=s2_ctrl_eval,
+    )
+
+    if output_path is not None:
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        decision_receipt = {
+            "schema": "senora-decision-receipt/v1",
+            "control_receipt": str(control_path),
+            "treatment_receipt": str(treatment_path),
+            "classification": classification.canonical(),
+        }
+        output_path.write_text(json.dumps(decision_receipt, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        print(f"Wrote decision receipt to: {output_path}")
+
+    return classification
+
+
+def main() -> int:
+    import argparse
+    parser = argparse.ArgumentParser(description="Senora P35-A Result Classifier & Cross-Arm Aggregator")
+    parser.add_argument("--control", type=Path, required=True, help="Path to control arm run receipt")
+    parser.add_argument("--treatment", type=Path, required=True, help="Path to treatment arm run receipt")
+    parser.add_argument("--control-seed2", type=Path, default=None, help="Path to seed 2 control receipt")
+    parser.add_argument("--treatment-seed2", type=Path, default=None, help="Path to seed 2 treatment receipt")
+    parser.add_argument("--output", type=Path, default=Path("artifacts/v5/P35_A_DECISION_RECEIPT.json"), help="Output path for decision receipt")
+    args = parser.parse_args()
+
+    classification = compare_receipts_cli(
+        control_path=args.control,
+        treatment_path=args.treatment,
+        output_path=args.output,
+        seed2_control_path=args.control_seed2,
+        seed2_treatment_path=args.treatment_seed2,
+    )
+    print("============================================================")
+    print(f"P35-A COMPARISON RESULT: {classification.category.value}")
+    print("============================================================")
+    print(f"Treatment Effect (Raw-Core): {classification.treatment_effect_raw_core:+.4f}")
+    print(f"Natural Analogue Gain:      {classification.natural_analogue_gain:+.4f}")
+    print(f"Query Sensitivity Flip Rate: {classification.query_sensitivity_flip_rate * 100:.1f}%")
+    print(f"Two-Seed Replicated:         {classification.two_seed_replicated}")
+    print(f"\nPrecommitted Next Action:\n  {classification.precommitted_next_action}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

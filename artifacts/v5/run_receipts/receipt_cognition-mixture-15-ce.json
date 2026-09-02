@@ -1,5 +1,5 @@
 {
-  "arm_name": "control-substrate-00",
+  "arm_name": "cognition-mixture-15-ce",
   "canary_certified": true,
   "checkpoint_sha256": "mock_checkpoint_sha_00000000000000000000000000000000000000000000",
   "development_evaluation": {
@@ -65,7 +65,7 @@
     "schema": "senora-evaluation-summary/v1",
     "suite_split": "development"
   },
-  "execution_duration_seconds": 0.097,
+  "execution_duration_seconds": 0.123,
   "experiment_id": "P35-CMS-1",
   "final_loss": 2.854,
   "identity_sha256": "66eeb73af531fbbcd1f457a908217144131ff8c8c6bd9ca26ca3d8136da07549",

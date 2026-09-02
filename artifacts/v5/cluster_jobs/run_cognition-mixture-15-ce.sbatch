@@ -30,7 +30,7 @@ echo "Launching P35 experiment run..."
 python -m senora.run_experiment \
     --experiment artifacts/v5/p35_cms1_plan.json \
     --arm cognition-mixture-15-ce \
-    --execution-manifest cluster_jobs/manifest_cognition-mixture-15-ce.json \
+    --execution-manifest artifacts/v5/cluster_jobs/manifest_cognition-mixture-15-ce.json \
     --device cuda \
     --remote-authorized \
     --output-root output/p35_cognition-mixture-15-ce

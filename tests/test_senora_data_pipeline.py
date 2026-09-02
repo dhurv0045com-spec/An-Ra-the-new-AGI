@@ -7,6 +7,7 @@ import unittest
 from pathlib import Path
 
 from senora.data_pipeline import (
+    compute_exact_budget_schedule,
     create_binary_pack_shard,
     BASE_CODE_PARTS,
     BASE_NATURAL_PARTS,

@@ -7,7 +7,7 @@
       "instruction": "Defines build-system, dependencies (Python >=3.10), and console script entry points.",
       "name": "pyproject_toml",
       "required_path": "pyproject.toml",
-      "sha256": "175d07b3cc5c5bd89997efaf4d2f64a7be116724b30473b6b27e30b173be0e80",
+      "sha256": "f0b3be5cd3881b8176a45d30169c96859be6304f1d2d2e3e73adfb9d0585bcec",
       "status": "PRESENT_AND_VERIFIED"
     },
     {
@@ -23,7 +23,7 @@
       "instruction": "Production training step with autograd, gradient norm clipping, and parameter mutation verification.",
       "name": "p35_training_step",
       "required_path": "senora/training_step.py",
-      "sha256": "24b51fa36bee0bd3bb8fd3e5768b3ca5c936dfd11e566f4ea9a0fb5a4698449f",
+      "sha256": "f7fc6c839ff8761002fc882ce41b586bb4258eeaa6eac247fec29c579844a01c",
       "status": "PRESENT_AND_VERIFIED"
     },
     {
@@ -39,7 +39,7 @@
       "instruction": "25-step preflight verification asserting parameter movement, finite loss, and CAS restore.",
       "name": "remote_preflight_canary",
       "required_path": "senora/canary.py",
-      "sha256": "2b7aed72a8ae4b99a5ef7792ff9186133512cdc46931f0662a4c3cd3fcd465f1",
+      "sha256": "5e87119dd0470c4639b65b86042f92b7589aa562ffd8697c6c60aad12c46fb10",
       "status": "PRESENT_AND_VERIFIED"
     },
     {
@@ -47,7 +47,7 @@
       "instruction": "Unified CLI entry point with execution manifest enforcement and validate-only flag.",
       "name": "remote_experiment_runner",
       "required_path": "senora/run_experiment.py",
-      "sha256": "b55c71f1cfd81a8637afd679c9296d5a8c1e3f67711399cf38cb4459dab7565e",
+      "sha256": "0dae5467589fc04c5d3711bb820fb35666ed8f52c4ee0a85b36d46f368f7223b",
       "status": "PRESENT_AND_VERIFIED"
     },
     {
@@ -55,7 +55,7 @@
       "instruction": "Validated SLURM batch submission scripts for P35 arms.",
       "name": "slurm_batch_scripts",
       "required_path": "artifacts/v5/cluster_jobs/run_control-substrate-00.sbatch",
-      "sha256": "68c0a506e46995884bc3c154a48544031d77971321baaa0f57b4e7ce868c3051",
+      "sha256": "88b25c03bd0a8042480ffc545d018bc6e0e6eeb24a3cbc0ebe989d5c8088ef25",
       "status": "PRESENT_AND_VERIFIED"
     },
     {
@@ -63,7 +63,7 @@
       "instruction": "Cryptographic execution tokens binding target environment, commit SHA, and plan hash.",
       "name": "execution_manifests",
       "required_path": "artifacts/v5/cluster_jobs/manifest_control-substrate-00.json",
-      "sha256": "1d7b7f28ed439cbebb175b29e94d60e15113a40f33e0de56eb3cd29a6a1f899f",
+      "sha256": "b6525294320f65a12d3de41356c861c57515393a76fa17c60609ed619f259d56",
       "status": "PRESENT_AND_VERIFIED"
     },
     {
@@ -71,7 +71,7 @@
       "instruction": "Automated 9-category scientific result classifier with precommitted next actions.",
       "name": "result_classifier_engine",
       "required_path": "senora/result_classifier.py",
-      "sha256": "c8703f4aa2d1d67e6c7cd1320e8c3ce970bca4e45ecd0235df35ed5433c2f6d9",
+      "sha256": "e418afcace6a44ee024c51d989c7674e6b2bab39e58a026496ef9e3541f16a14",
       "status": "PRESENT_AND_VERIFIED"
     },
     {

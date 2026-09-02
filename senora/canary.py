@@ -210,23 +210,29 @@ def execute_preflight_canary(
 
     # 4. Checkpoint Save and Restore Equivalence
     print("\n[Canary Phase 3/3] Testing CAS checkpoint save and restore equivalence...")
+    from senora.checkpoint import serialize_real_checkpoint_payloads, restore_real_checkpoint_payloads
     with tempfile.TemporaryDirectory(prefix="canary-ckpt-") as temp_dir:
         ckpt_dir = Path(temp_dir)
         store = CheckpointStore(root=ckpt_dir, lineage_id=state.lineage_id)
-        # Dummy checkpoint save
-        payloads = {
-            "model.bin": b"canary_model_state",
-            "optimizer.bin": b"canary_opt_state",
-            "rng.bin": b"canary_rng_state",
-            "scheduler.json": json.dumps({"tokens": state.cumulative_tokens}).encode("utf-8"),
-            "cursor.json": json.dumps(asdict(state.cursor), sort_keys=True).encode("utf-8"),
-            "ledger.json": json.dumps(dict(state.tokens_by_source), sort_keys=True).encode("utf-8"),
-            "training_state.json": json.dumps(state.canonical(), sort_keys=True, separators=(",", ":")).encode("utf-8"),
-        }
+        # Real PyTorch serialized state checkpoint save
+        payloads = serialize_real_checkpoint_payloads(model, optimizer, state, device=device)
         ckpt_sha = store.publish(state=state, payloads=payloads, expected_parent_sha256=None)
-        restored_state, _ = store.restore()
-        restore_reproduced = restored_state == state
-        print(f"  Checkpoint Restore Equivalence: {'PASS' if restore_reproduced else 'FAIL'}")
+        restored_state, restored_payloads = store.restore()
+        state_match = restored_state == state
+
+        # Restore into fresh model and optimizer
+        fresh_model = P35Model(model.spec).to(device)
+        fresh_optimizer, _ = build_p35_optimizer(fresh_model)
+        restore_real_checkpoint_payloads(fresh_model, fresh_optimizer, restored_payloads, device=device)
+
+        weights_match = True
+        for p_orig, p_rest in zip(model.parameters(), fresh_model.parameters()):
+            if not torch.equal(p_orig, p_rest):
+                weights_match = False
+                break
+
+        restore_reproduced = state_match and weights_match
+        print(f"  Checkpoint Restore Equivalence: {'PASS' if restore_reproduced else 'FAIL'} (state: {state_match}, weights: {weights_match})")
 
     all_passed = (
         step1_loss_finite

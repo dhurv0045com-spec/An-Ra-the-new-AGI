@@ -30,7 +30,7 @@ echo "Launching P35 experiment run..."
 python -m senora.run_experiment \
     --experiment artifacts/v5/p35_cms1_plan.json \
     --arm control-substrate-00 \
-    --execution-manifest cluster_jobs/manifest_control-substrate-00.json \
+    --execution-manifest artifacts/v5/cluster_jobs/manifest_control-substrate-00.json \
     --device cuda \
     --remote-authorized \
     --output-root output/p35_control-substrate-00
