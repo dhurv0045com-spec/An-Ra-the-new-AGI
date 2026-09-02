@@ -14,12 +14,23 @@ echo "Starting remote P35 scientific training on $(hostname) at $(date)"
 echo "Arm: control-substrate-00"
 echo "Tokens: 50000000"
 
-# Environment verification
+# 1. Environment & GPU Verification
 python -V
 nvidia-smi
 
-# Execute remote trainer with explicit remote compute authorization
-python -m senora.remote_launcher \
-    --arm control-substrate-00 \
+# 2. Execute Mandatory Remote Preflight Canary
+echo "Running mandatory target canary..."
+python -m senora.canary \
+    --device cuda \
     --remote-authorized \
-    --output-dir checkpoints/p35_control-substrate-00
+    --output logs/canary_control-substrate-00.json
+
+# 3. Execute Real P35 Scientific Experiment
+echo "Launching P35 experiment run..."
+python -m senora.run_experiment \
+    --experiment artifacts/v5/p35_cms1_plan.json \
+    --arm control-substrate-00 \
+    --execution-manifest cluster_jobs/manifest_control-substrate-00.json \
+    --device cuda \
+    --remote-authorized \
+    --output-root output/p35_control-substrate-00

@@ -1,4 +1,17 @@
-"""First recommended P35 experiment design: Cognition Mixture & Query-Swap Causal Screen (P35-CMS-1)."""
+"""Sequential P35 Experiment Plan: P35-CMS-1 (Cognition Mixture & Query-Swap Causal Screen).
+
+Implements a sequential decision architecture:
+- Phase P35-A (Data Mixture Causal Screen):
+    Control Substrate (0% cognition) vs Cognition Mixture (15% cognition) under pure CE.
+    Preserves 65:20 natural:code ratio in the non-cognition remainder.
+    Evaluated strictly on DEVELOPMENT + Structural-OOD Development.
+    If no credible effect: STOP (do not spend compute on query-swap).
+- Phase P35-B (Objective Screen, conditional on P35-A):
+    Cognition Mixture 15% CE vs Cognition Mixture 15% CE + Query-Swap Contrastive (lambda=0.10).
+    Token-matched (50M tokens) with explicit accounting for auxiliary forward calculations.
+- Prospective Confirmation:
+    FRESH / SEALED suites evaluated ONLY prospective to confirm the frozen winning recipe.
+"""
 
 from __future__ import annotations
 
@@ -8,33 +21,23 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
-from v5_contracts.model_spec import ModelSpec
-
-
-P35_MODEL_SPEC = ModelSpec(
-    schema="anra-v5-p35-model-spec/v1",
-    family="dense-decoder-transformer",
-    vocabulary_size=24_576,
-    width=384,
-    layers=16,
-    query_heads=6,
-    kv_heads=3,  # 2:1 GQA
-    head_dimension=64,
-    ffn_width=1024,
-    context_length=2048,
-    rope_base=10_000.0,
-    norm_epsilon=1e-5,
-    tied_embeddings=True,
-    qk_norm=True,
-    qk_norm_affine=True,
-    linear_bias=False,
-    dropout=0.0,
+from senora.data_pipeline import (
+    BASE_CODE_PARTS,
+    BASE_NATURAL_PARTS,
+    MIXTURE_COGNITION_15,
+    MIXTURE_CONTROL_SUBSTRATE,
+)
+from senora.model import (
+    EXPECTED_P35_PARAMETER_COUNT,
+    P35_MODEL_SPEC,
+    get_p35_parameter_receipt,
 )
 
 
 @dataclass(frozen=True, slots=True)
 class ExperimentArm:
     name: str
+    phase: str  # "P35-A" or "P35-B"
     description: str
     cognition_fraction: float
     natural_fraction: float
@@ -42,6 +45,7 @@ class ExperimentArm:
     query_swap_lambda: float
     token_budget: int
     idealized_6nd_flops: int
+    matching_basis: str  # "FLOP_MATCHED" or "TOKEN_MATCHED"
 
 
 @dataclass(frozen=True, slots=True)
@@ -51,13 +55,14 @@ class P35ExperimentPlan:
     title: str
     hypothesis: str
     uncertain_assumption: str
+    sequential_decision_structure: str
     control_arm: str
     single_intended_change: str
-    token_flop_matching: str
+    compute_accounting: str
     primary_cognition_metric: str
     substrate_metric: str
-    ood_test: str
-    natural_transfer_requirement: str
+    development_evaluation_suite: str
+    prospective_confirmation_suite: str
     failure_abort_criteria: list[str]
     result_that_would_change_mind: str
     model_spec: dict[str, Any]
@@ -74,90 +79,119 @@ class P35ExperimentPlan:
 
 def build_p35_cms1_plan() -> P35ExperimentPlan:
     token_budget = 50_000_000
-    param_count = P35_MODEL_SPEC.parameter_receipt().total  # 35,414,400
-    flops = 6 * param_count * token_budget  # 6ND FLOPs
+    param_receipt = get_p35_parameter_receipt()
+    param_count = param_receipt.total_parameters  # Exactly 35,411,328
+    flops_base = 6 * param_count * token_budget  # 10,623,398,400,000,000 (1.0623e16)
 
-    arms = [
-        ExperimentArm(
-            name="control-substrate-00",
-            description="Pure pretraining control (75% natural text, 25% code, 0% cognition) with Cross-Entropy only.",
-            cognition_fraction=0.0,
-            natural_fraction=0.75,
-            code_fraction=0.25,
-            query_swap_lambda=0.0,
-            token_budget=token_budget,
-            idealized_6nd_flops=flops,
+    # Arm 0: Control Substrate (0% cognition, normalized 65:20 natural:code ratio)
+    arm_control = ExperimentArm(
+        name="control-substrate-00",
+        phase="P35-A",
+        description=(
+            "Pure pretraining baseline: 0% cognition data. Remaining 100% tokens allocated in "
+            f"exact {int(BASE_NATURAL_PARTS)}:{int(BASE_CODE_PARTS)} ratio "
+            f"({MIXTURE_CONTROL_SUBSTRATE.natural_fraction:.4f} natural, {MIXTURE_CONTROL_SUBSTRATE.code_fraction:.4f} code) "
+            "with pure Cross-Entropy objective."
         ),
-        ExperimentArm(
-            name="cognition-mixture-15-ce",
-            description="Cognition-infused mixture (65% natural, 20% code, 15% cognition) with Cross-Entropy only.",
-            cognition_fraction=0.15,
-            natural_fraction=0.65,
-            code_fraction=0.20,
-            query_swap_lambda=0.0,
-            token_budget=token_budget,
-            idealized_6nd_flops=flops,
+        cognition_fraction=0.0,
+        natural_fraction=MIXTURE_CONTROL_SUBSTRATE.natural_fraction,
+        code_fraction=MIXTURE_CONTROL_SUBSTRATE.code_fraction,
+        query_swap_lambda=0.0,
+        token_budget=token_budget,
+        idealized_6nd_flops=flops_base,
+        matching_basis="FLOP_MATCHED",
+    )
+
+    # Arm 1: 15% Cognition Mixture, Pure CE
+    arm_cog_ce = ExperimentArm(
+        name="cognition-mixture-15-ce",
+        phase="P35-A",
+        description=(
+            "Cognition-infused mixture: 15% verified cognition data. Remaining 85% tokens allocated in "
+            f"exact {int(BASE_NATURAL_PARTS)}:{int(BASE_CODE_PARTS)} ratio "
+            f"({MIXTURE_COGNITION_15.natural_fraction:.4f} natural, {MIXTURE_COGNITION_15.code_fraction:.4f} code) "
+            "with pure Cross-Entropy objective."
         ),
-        ExperimentArm(
-            name="cognition-mixture-15-qswap",
-            description="Cognition-infused mixture (65% natural, 20% code, 15% cognition) with CE + query-swap auxiliary contrast (lambda=0.10).",
-            cognition_fraction=0.15,
-            natural_fraction=0.65,
-            code_fraction=0.20,
-            query_swap_lambda=0.10,
-            token_budget=token_budget,
-            idealized_6nd_flops=flops,
+        cognition_fraction=0.15,
+        natural_fraction=MIXTURE_COGNITION_15.natural_fraction,
+        code_fraction=MIXTURE_COGNITION_15.code_fraction,
+        query_swap_lambda=0.0,
+        token_budget=token_budget,
+        idealized_6nd_flops=flops_base,
+        matching_basis="FLOP_MATCHED",
+    )
+
+    # Arm 2: 15% Cognition Mixture, CE + Query-Swap (Conditional on Phase P35-A pass)
+    arm_cog_qswap = ExperimentArm(
+        name="cognition-mixture-15-qswap",
+        phase="P35-B",
+        description=(
+            "Cognition-infused mixture: 15% verified cognition data, holding data stream and base token "
+            "count identical to Arm 1, with composite objective: CE + query-swap contrastive (lambda=0.10)."
         ),
-    ]
+        cognition_fraction=0.15,
+        natural_fraction=MIXTURE_COGNITION_15.natural_fraction,
+        code_fraction=MIXTURE_COGNITION_15.code_fraction,
+        query_swap_lambda=0.10,
+        token_budget=token_budget,
+        idealized_6nd_flops=flops_base,
+        matching_basis="TOKEN_MATCHED",
+    )
 
     return P35ExperimentPlan(
-        schema="senora-p35-experiment-plan/v1",
+        schema="senora-p35-experiment-plan/v2",
         experiment_id="P35-CMS-1",
-        title="Cognition Mixture & Query-Swap Causal Screen",
+        title="Cognition Mixture & Query-Swap Sequential Causal Screen",
         hypothesis=(
-            "Standard dense Transformer pretraining on web text fails to acquire query-conditioned binding "
-            "and state tracking because causal counterfactual pressure is too sparse; mixing 15% mechanically "
-            "verified cognition data under standard Cross-Entropy induces robust internal binding and state "
-            "tracking without regressing natural text representations."
+            "Dense Transformer pretraining fails on query-conditioned value binding and state tracking because "
+            "causal counterfactual pressure is too sparse in raw text; adding 15% verified cognition data under "
+            "pure CE induces robust internal routing without degrading general linguistic substrate."
         ),
         uncertain_assumption=(
-            "Whether pure Cross-Entropy on synthetic cognition instances generalizes to fresh OOD domains "
-            "and natural language analogues, or merely memorizes template syntax; and whether an explicit "
-            "query-swap contrastive objective is necessary for query-conditioned routing."
+            "Whether pure Cross-Entropy on synthetic cognition instances generalizes to out-of-distribution "
+            "domains and natural language analogues, or merely memorizes template surface forms; and whether "
+            "an explicit counterfactual query-swap contrastive objective is necessary to prevent candidate-prior bias."
+        ),
+        sequential_decision_structure=(
+            "Phase P35-A executes Arm 0 (Control) vs Arm 1 (15% CE). Evaluated strictly on Split.DEVELOPMENT. "
+            "If Arm 1 fails to produce statistically significant raw-Core OOD gain without substrate regression, "
+            "the experiment STOPS (falsifying the data-only hypothesis; query-swap compute is saved). "
+            "Only if Arm 1 passes does Phase P35-B execute Arm 2 (15% CE+qswap) to test objective efficacy."
         ),
         control_arm="control-substrate-00",
         single_intended_change=(
-            "Arm 0 vs Arm 1: isolate the effect of 15% verified cognition data under identical CE loss. "
-            "Arm 1 vs Arm 2: isolate the effect of counterfactual query-swap contrastive auxiliary loss (lambda=0.10) "
-            "holding data stream and token budget identical."
+            "P35-A: Isolate the causal effect of adding 15% verified cognition data, preserving the 65:20 "
+            "natural:code ratio in the non-cognition remainder. "
+            "P35-B: Isolate the causal effect of the query-swap contrastive objective holding data identical."
         ),
-        token_flop_matching=(
-            f"All 3 arms consume exactly {token_budget:,} tokens and {flops:,} idealized 6ND FLOPs "
-            "using the exact 35.4M parameter 2:1 GQA P35 architecture."
+        compute_accounting=(
+            f"Model parameters: {param_count:,} (verified exact). "
+            f"Base token budget: {token_budget:,} tokens per arm. "
+            f"Base idealized 6ND FLOPs: {flops_base:,}. "
+            "Arm 0 and Arm 1 are strictly FLOP-matched. "
+            "Arm 2 is token-matched with explicit accounting for paired query-swap forward calculations."
         ),
-        primary_cognition_metric="Macro raw-Core exact match accuracy on Fresh-OOD Causal Suite (Split.FRESH).",
-        substrate_metric="Cross-entropy loss on held-out general natural/code validation corpus (must regress <= 3.0%).",
-        ood_test="Evaluation on Split.FRESH cases featuring unseen domains, relations, entity prefixes, and rule structures.",
-        natural_transfer_requirement=(
-            "Statistically significant positive gain (paired sign test p < 0.01) on natural language analogues "
-            "for binding, state tracking, and relational composition."
-        ),
+        primary_cognition_metric="Macro raw-Core exact match accuracy on Development Causal Suite (Split.DEVELOPMENT).",
+        substrate_metric="Validation cross-entropy loss on held-out natural/code corpus (regression <= 3.0%).",
+        development_evaluation_suite="Split.DEVELOPMENT (used for arm comparison and recipe selection).",
+        prospective_confirmation_suite="Split.FRESH (strictly prospectively locked; evaluated ONLY after recipe freeze).",
         failure_abort_criteria=[
             "Non-finite loss (NaN/Inf) or gradient explosion norm > 100.0.",
-            "Substrate regression > 3.0% compared to control-substrate-00.",
+            "Substrate regression > 3.0% relative to control-substrate-00.",
+            "Zero parameter movement or silent Adam optimizer failure.",
             "Synthetic-only gain: performance improves on training templates but fails to transfer to natural analogues (p >= 0.05).",
             "Assisted-only gain: improvements appear in Assisted mode but Raw Core shows zero gain.",
             "Worst-family collapse: any single cognition primitive family falls below chance.",
         ],
         result_that_would_change_mind=(
-            "If Arm 1 (15% CE) matches or outperforms Arm 2 (query-swap) on fresh OOD and query sensitivity pairs "
-            "with zero substrate loss regression, we will reject auxiliary contrastive objectives and freeze pure CE. "
-            "If both Arm 1 and Arm 2 fail on fresh OOD despite learning synthetic templates, we will falsify the data-only "
-            "hypothesis and prioritize architectural inductive bias."
+            "If Arm 1 (15% CE) produces a large, transferable raw-Core gain on Development without substrate "
+            "regression, and Arm 2 (query-swap) yields no additional benefit, we falsify the necessity of auxiliary "
+            "contrastive objectives and freeze pure CE. If Arm 1 shows zero OOD gain, we falsify the hypothesis "
+            "that data mixture alone solves small-model routing."
         ),
         model_spec=P35_MODEL_SPEC.canonical(),
-        arms=[asdict(a) for a in arms],
-        prelaunch_status="FROZEN_SPEC_READY_FOR_REMOTE_LAUNCH",
+        arms=[asdict(a) for a in [arm_control, arm_cog_ce, arm_cog_qswap]],
+        prelaunch_status="FROZEN_SEQUENTIAL_SPEC_READY_FOR_REMOTE_LAUNCH",
     )
 
 

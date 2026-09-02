@@ -8,44 +8,29 @@ from senora.audit import run_audit
 
 
 class TestSenoraAudit(unittest.TestCase):
-    def test_run_audit_structure(self) -> None:
+    def test_audit_report_structure_and_binary_gates(self) -> None:
         report = run_audit()
-        self.assertEqual(report.schema, "senora-audit-report/v1")
+        self.assertEqual(report.schema, "senora-audit-report/v2")
         self.assertEqual(report.branch, "senora")
         self.assertEqual(report.branch_origin, "esoes@85f44b7")
 
-        required_categories = {
-            "data_pipeline",
-            "trainer",
-            "checkpoint_resume",
-            "evaluator",
-            "cognition_benchmark",
-            "experiment_identity",
-            "statistical_protocol",
-            "remote_launch_readiness",
-        }
-        self.assertEqual(set(report.readiness_scores.keys()), required_categories)
-        for cat, score in report.readiness_scores.items():
-            self.assertGreaterEqual(score, 0)
-            self.assertLessEqual(score, 100)
+        # 11 software and measurement gates must PASS
+        self.assertEqual(report.binary_gates["MODEL_CONSTRUCTOR"], "PASS")
+        self.assertEqual(report.binary_gates["REAL_TRAIN_STEP"], "PASS")
+        self.assertEqual(report.binary_gates["REAL_CE"], "PASS")
+        self.assertEqual(report.binary_gates["REAL_QSWAP"], "PASS")
+        self.assertEqual(report.binary_gates["REAL_DATA_READER"], "PASS")
+        self.assertEqual(report.binary_gates["CHECKPOINT_RESTORE"], "PASS")
+        self.assertEqual(report.binary_gates["REMOTE_RUNNER"], "PASS")
+        self.assertEqual(report.binary_gates["REMOTE_CANARY_SPEC"], "PASS")
+        self.assertEqual(report.binary_gates["DEVELOPMENT_EVALUATOR"], "PASS")
+        self.assertEqual(report.binary_gates["FRESH_FIREWALL"], "PASS")
+        self.assertEqual(report.binary_gates["STATISTICAL_PROMOTION"], "PASS")
 
-        self.assertAlmostEqual(
-            report.mean_readiness_score,
-            sum(report.readiness_scores.values()) / len(report.readiness_scores),
-        )
+        # External gates are BLOCKED
+        self.assertEqual(report.binary_gates["DATA_MANIFEST"], "BLOCKED")
+        self.assertEqual(report.binary_gates["SEALED_CUSTODY"], "BLOCKED")
 
-        # Check blocker categories
-        blockers = report.blockers
-        self.assertIn("software", blockers)
-        self.assertIn("data", blockers)
-        self.assertIn("measurement", blockers)
-        self.assertIn("compute", blockers)
-        self.assertIn("external_custody", blockers)
-
-        # Software should have no blockers (fully implemented), but compute/data should
-        self.assertEqual(len(blockers["software"]), 0)
-        self.assertGreater(len(blockers["compute"]), 0)
-        self.assertGreater(len(blockers["data"]), 0)
         self.assertFalse(report.ready_for_remote_launch)
 
 

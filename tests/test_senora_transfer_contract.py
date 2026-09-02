@@ -5,101 +5,108 @@ from __future__ import annotations
 import unittest
 
 from senora.evaluator import EvaluationSummary
-from senora.transfer_contract import evaluate_transfer_decision
+from senora.transfer_contract import (
+    STANDARD_P35_TO_M102_CONTRACT,
+    StatisticalTestResults,
+    calculate_paired_statistics,
+    compute_prospective_power,
+    evaluate_transfer_decision,
+)
 
 
-class TestTransferContract(unittest.TestCase):
-    def setUp(self) -> None:
-        self.control_eval = EvaluationSummary(
-            schema="senora-evaluation-summary/v1",
-            suite_split="fresh",
-            case_count=100,
-            raw_core_accuracy=0.20,
-            constrained_accuracy=0.30,
-            assisted_accuracy=None,
-            intervention_dependence_rate=None,
-            assistance_harm_rate=None,
-            family_accuracies={"binding": 0.20, "state": 0.20},
-            difficulty_curves={},
-            pair_sensitivity_flip_rate=0.40,
-            pair_invariance_stable_rate=0.70,
-            natural_analogue_macro_accuracy=0.20,
-            candidate_scoring_status="NOT_EVALUATED",
-            candidate_selection_accuracy=None,
+def _make_eval_summary(
+    raw_core: float,
+    natural_analogue: float = 0.50,
+    sensitivity: float = 0.85,
+    invariance: float = 0.90,
+    worst_family: float = 0.50,
+) -> EvaluationSummary:
+    return EvaluationSummary(
+        schema="senora-evaluation-summary/v1",
+        suite_split="development",
+        case_count=100,
+        raw_core_accuracy=raw_core,
+        constrained_accuracy=raw_core,
+        assisted_accuracy=raw_core,
+        intervention_dependence_rate=0.0,
+        assistance_harm_rate=0.0,
+        family_accuracies={"family_a": worst_family, "family_b": raw_core},
+        difficulty_curves={"all": {1: raw_core}},
+        pair_sensitivity_flip_rate=sensitivity,
+        pair_invariance_stable_rate=invariance,
+        natural_analogue_macro_accuracy=natural_analogue,
+        candidate_scoring_status="BLOCKED_BY_SCORER_FIREWALL",
+        candidate_selection_accuracy=None,
+    )
+
+
+class TestSenoraTransferContract(unittest.TestCase):
+    def test_prospective_power_calculation(self) -> None:
+        receipt = compute_prospective_power(sample_size=240, alpha=0.005, power=0.80, target_effect=0.25)
+        self.assertEqual(receipt.sample_size, 240)
+        self.assertTrue(receipt.threshold_detectable)
+        self.assertLess(receipt.minimum_detectable_effect_size, 0.25)
+
+    def test_calculate_paired_statistics(self) -> None:
+        # Candidate wins 40 times where control lost, ties on 60
+        cand_outcomes = [True] * 40 + [True] * 30 + [False] * 30
+        ctrl_outcomes = [False] * 40 + [True] * 30 + [False] * 30
+
+        stats = calculate_paired_statistics(cand_outcomes, ctrl_outcomes, resamples=1000)
+        self.assertEqual(stats.concordant_wins, 40)
+        self.assertEqual(stats.concordant_losses, 0)
+        self.assertEqual(stats.ties, 60)
+        self.assertEqual(stats.treatment_effect_delta, 0.40)
+        self.assertGreater(stats.bootstrap_ci_lower_95, 0.20)
+        self.assertLess(stats.sign_test_p_value, 0.0001)
+
+    def test_transfer_decision_requires_replicated_causal_effect(self) -> None:
+        ctrl1 = _make_eval_summary(raw_core=0.20, natural_analogue=0.20)
+        cand1 = _make_eval_summary(raw_core=0.55, natural_analogue=0.45)  # treatment effect = +0.35
+
+        stats = StatisticalTestResults(
+            treatment_effect_delta=0.35,
+            bootstrap_ci_lower_95=0.25,
+            bootstrap_ci_upper_95=0.45,
+            sign_test_p_value=0.00001,
+            concordant_wins=35,
+            concordant_losses=0,
+            ties=65,
         )
 
-    def test_transfer_decision_authorized_when_all_criteria_met(self) -> None:
-        candidate_eval = EvaluationSummary(
-            schema="senora-evaluation-summary/v1",
-            suite_split="fresh",
-            case_count=100,
-            raw_core_accuracy=0.70,  # delta = +0.50 (>= 0.25)
-            constrained_accuracy=0.75,
-            assisted_accuracy=None,
-            intervention_dependence_rate=None,
-            assistance_harm_rate=None,
-            family_accuracies={"binding": 0.70, "state": 0.65},  # min >= 0.40
-            difficulty_curves={},
-            pair_sensitivity_flip_rate=0.88,  # >= 0.80
-            pair_invariance_stable_rate=0.92,  # >= 0.85
-            natural_analogue_macro_accuracy=0.60,  # delta = +0.40 (>= 0.15)
-            candidate_scoring_status="NOT_EVALUATED",
-            candidate_selection_accuracy=None,
+        # 1. Missing seed 2 fails
+        decision_no_seed2 = evaluate_transfer_decision(
+            cand1, ctrl1, substrate_regression_fraction=0.01, paired_statistics=stats
         )
-        seed2_eval = EvaluationSummary(
-            schema="senora-evaluation-summary/v1",
-            suite_split="fresh",
-            case_count=100,
-            raw_core_accuracy=0.69,  # gap = 0.01 (<= 0.03)
-            constrained_accuracy=0.74,
-            assisted_accuracy=None,
-            intervention_dependence_rate=None,
-            assistance_harm_rate=None,
-            family_accuracies={"binding": 0.68, "state": 0.64},
-            difficulty_curves={},
-            pair_sensitivity_flip_rate=0.87,
-            pair_invariance_stable_rate=0.91,
-            natural_analogue_macro_accuracy=0.59,
-            candidate_scoring_status="NOT_EVALUATED",
-            candidate_selection_accuracy=None,
-        )
-        decision = evaluate_transfer_decision(
-            candidate_eval,
-            self.control_eval,
-            substrate_regression_fraction=0.015,  # 1.5% regression (<= 3.0%)
-            seed2_candidate_eval=seed2_eval,
-        )
-        self.assertTrue(decision.authorized)
-        self.assertEqual(decision.status, "AUTHORIZED_FOR_M102")
-        self.assertEqual(len(decision.blockers), 0)
+        self.assertFalse(decision_no_seed2.authorized)
+        self.assertFalse(decision_no_seed2.checks["two_seed_replication"])
 
-    def test_transfer_decision_blocked_on_substrate_loss_regression(self) -> None:
-        candidate_eval = EvaluationSummary(
-            schema="senora-evaluation-summary/v1",
-            suite_split="fresh",
-            case_count=100,
-            raw_core_accuracy=0.70,
-            constrained_accuracy=0.75,
-            assisted_accuracy=None,
-            intervention_dependence_rate=None,
-            assistance_harm_rate=None,
-            family_accuracies={"binding": 0.70, "state": 0.65},
-            difficulty_curves={},
-            pair_sensitivity_flip_rate=0.88,
-            pair_invariance_stable_rate=0.92,
-            natural_analogue_macro_accuracy=0.60,
-            candidate_scoring_status="NOT_EVALUATED",
-            candidate_selection_accuracy=None,
+        # 2. Seed 2 replicates treatment effect (+0.35 vs +0.33) -> Authorize
+        ctrl2 = _make_eval_summary(raw_core=0.22, natural_analogue=0.20)
+        cand2 = _make_eval_summary(raw_core=0.55, natural_analogue=0.45)  # treatment effect = +0.33
+
+        decision_replicated = evaluate_transfer_decision(
+            cand1,
+            ctrl1,
+            substrate_regression_fraction=0.01,
+            paired_statistics=stats,
+            seed2_candidate_eval=cand2,
+            seed2_control_eval=ctrl2,
         )
-        decision = evaluate_transfer_decision(
-            candidate_eval,
-            self.control_eval,
-            substrate_regression_fraction=0.045,  # 4.5% regression (> 3.0%)
-            seed2_candidate_eval=candidate_eval,
+        self.assertTrue(decision_replicated.authorized)
+        self.assertEqual(decision_replicated.status, "AUTHORIZED_FOR_M102")
+
+        # 3. Seed 2 effect does not replicate (candidate2 == control2) -> Fails
+        cand2_flat = _make_eval_summary(raw_core=0.22)
+        decision_failed = evaluate_transfer_decision(
+            cand1,
+            ctrl1,
+            substrate_regression_fraction=0.01,
+            paired_statistics=stats,
+            seed2_candidate_eval=cand2_flat,
+            seed2_control_eval=ctrl2,
         )
-        self.assertFalse(decision.authorized)
-        self.assertEqual(decision.status, "M102_SCALE_BLOCKED")
-        self.assertTrue(any("substrate regression" in b for b in decision.blockers))
+        self.assertFalse(decision_failed.authorized)
 
 
 if __name__ == "__main__":

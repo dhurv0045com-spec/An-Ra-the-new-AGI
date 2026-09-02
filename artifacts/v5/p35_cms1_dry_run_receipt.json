@@ -1,6 +1,6 @@
 {
   "checkpoint_restored_clean": true,
-  "execution_duration_seconds": 0.159,
+  "execution_duration_seconds": 0.095,
   "experiment_id": "P35-CMS-1",
   "identity_sha256": "3410472318e1f1e78427b1d13ce0d7e8da06d21f6ee2a80a9a0fdc2f6c7952c2",
   "schema": "senora-p35-dry-run-receipt/v1",

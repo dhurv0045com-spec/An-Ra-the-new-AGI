@@ -1,0 +1,15 @@
+{
+  "arm_name": "control-substrate-00",
+  "canary_certified": true,
+  "execution_duration_seconds": 0.009,
+  "experiment_id": "P35-CMS-1",
+  "final_loss": 2.854,
+  "identity_sha256": "6b7b0db4faa850b0a12610a81e2dae371bec91e8c6e8694a5fe1c981356ca306",
+  "phase": "P35-A",
+  "raw_core_development_accuracy": 1.0,
+  "schema": "senora-experiment-run-receipt/v1",
+  "status": "PASS_VALIDATED",
+  "training_steps_completed": 2,
+  "transfer_status": "M102_SCALE_BLOCKED",
+  "validation_mode": true
+}

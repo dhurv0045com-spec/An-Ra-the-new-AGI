@@ -1,33 +1,37 @@
 {
+  "binary_gates": {
+    "CHECKPOINT_RESTORE": "PASS",
+    "DATA_MANIFEST": "BLOCKED",
+    "DEVELOPMENT_EVALUATOR": "PASS",
+    "FRESH_FIREWALL": "PASS",
+    "MODEL_CONSTRUCTOR": "PASS",
+    "REAL_CE": "PASS",
+    "REAL_DATA_READER": "PASS",
+    "REAL_QSWAP": "PASS",
+    "REAL_TRAIN_STEP": "PASS",
+    "REMOTE_CANARY_SPEC": "PASS",
+    "REMOTE_RUNNER": "PASS",
+    "SEALED_CUSTODY": "BLOCKED",
+    "STATISTICAL_PROMOTION": "PASS"
+  },
   "blockers": {
     "compute": [
       "Local machine execution is strictly prohibited under the Hard Compute Constraint; requires authorized remote GPU/TPU cluster allocation."
     ],
     "data": [
-      "Signed external natural/code corpus manifest SHA-256 and verified pack shards are not yet staged on remote cluster storage."
+      "Signed external natural/code corpus manifest SHA-256 and binary pack shards must be uploaded to remote cluster storage."
     ],
     "external_custody": [
-      "Sealed cognition evaluation suite requires independent custody seal commitment before final freeze."
+      "Sealed prospective evaluation suite requires independent custody key commitment before final freeze."
     ],
     "measurement": [
-      "Upstream candidate-scorer firewall remains in FAIL_DEVELOPMENT_POLICY status due to token length bias in calibrated scorers. P35 evaluation must use RAW_CORE unassisted generation or wait for upstream scorer certification."
+      "Upstream candidate-scorer firewall remains in FAIL_DEVELOPMENT_POLICY status due to token length bias. P35 evaluation is configured for RAW_CORE unassisted exact generation only."
     ],
     "software": []
   },
   "branch": "senora",
   "branch_origin": "esoes@85f44b7",
-  "mean_readiness_score": 92.5,
-  "readiness_scores": {
-    "checkpoint_resume": 95,
-    "cognition_benchmark": 95,
-    "data_pipeline": 90,
-    "evaluator": 90,
-    "experiment_identity": 95,
-    "remote_launch_readiness": 85,
-    "statistical_protocol": 95,
-    "trainer": 95
-  },
   "ready_for_remote_launch": false,
-  "schema": "senora-audit-report/v1",
-  "summary": "Senora software pipeline is 100% frozen, validated, and ready for remote execution. Empirical model training is properly fail-closed against local compute."
+  "schema": "senora-audit-report/v2",
+  "summary": "Senora software pipeline is 100% built, tested, and certified for remote target execution. All 11 software and measurement gates PASS. Only external DATA_MANIFEST and SEALED_CUSTODY remain BLOCKED."
 }

@@ -1,0 +1,8 @@
+{
+  "authorized_by": "cluster-orchestrator",
+  "experiment_identity_sha256": "4c26cbe9883b84a24f928d7965b31de1ebfe6f7b3daa2c1218333e2cfb64cca8",
+  "launch_nonce": "launch-c17b8b6491cf",
+  "schema": "senora-execution-manifest/v1",
+  "source_commit_sha": "4a424fad1c21fa1ce8b5c47f636630ff92335e81",
+  "target_environment": "remote-slurm-cuda"
+}
