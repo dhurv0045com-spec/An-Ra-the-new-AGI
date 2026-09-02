@@ -1,0 +1,762 @@
+{
+  "configuration": {
+    "batch_size": 16,
+    "device": "cuda",
+    "dtype": "bfloat16",
+    "groups": 1,
+    "seed": 95101,
+    "split": "development",
+    "vocabulary": 16384
+  },
+  "execution": {
+    "gpu_hours": 0.0002382913888888854,
+    "jobs": 36,
+    "seconds": 0.8578489999999874
+  },
+  "fixture_sha256": "3adb9bed98b3bddc7a7cd1dd149022611560c6eed7964ff168181de23f97b562",
+  "implementation_sha256": "5da6807247cc8efbfd2bb3a8de00a8d4df0f7818b5c80679752fd7dc1a999255",
+  "model": {
+    "maximum_sequence_length": 74,
+    "parameters": 32268672
+  },
+  "promotion_authorized": false,
+  "rows": [
+    {
+      "group": 0,
+      "hidden_answer_role": 0,
+      "policies": {
+        "byte_mean": [
+          {
+            "decoy_shared_ranking_stable": true,
+            "first_position_wins": 1,
+            "ranking_roles": [
+              1,
+              2,
+              0
+            ],
+            "ranking_with_decoy_roles": [
+              1,
+              2,
+              3,
+              0
+            ],
+            "rotation_geometry": [
+              {
+                "presented_order": [
+                  " d593d3c00bf8e5bf53a9f5c7",
+                  " evidence evidence evidence evidence evidence evidence 000000",
+                  " SELECT node_000000 FROM state_log;"
+                ],
+                "rotation": [
+                  0,
+                  1,
+                  2
+                ],
+                "winner_position": 1,
+                "winner_role": 1
+              },
+              {
+                "presented_order": [
+                  " evidence evidence evidence evidence evidence evidence 000000",
+                  " SELECT node_000000 FROM state_log;",
+                  " d593d3c00bf8e5bf53a9f5c7"
+                ],
+                "rotation": [
+                  1,
+                  2,
+                  0
+                ],
+                "winner_position": 0,
+                "winner_role": 1
+              },
+              {
+                "presented_order": [
+                  " SELECT node_000000 FROM state_log;",
+                  " d593d3c00bf8e5bf53a9f5c7",
+                  " evidence evidence evidence evidence evidence evidence 000000"
+                ],
+                "rotation": [
+                  2,
+                  0,
+                  1
+                ],
+                "winner_position": 2,
+                "winner_role": 1
+              }
+            ],
+            "scores": [
+              -256.20484375,
+              -16.06454918032787,
+              -94.86964285714286
+            ],
+            "scores_with_decoy": [
+              -256.20484375,
+              -16.06454918032787,
+              -94.86964285714286,
+              -220.047607421875
+            ],
+            "winner_role": 1
+          },
+          {
+            "decoy_shared_ranking_stable": true,
+            "first_position_wins": 1,
+            "ranking_roles": [
+              1,
+              2,
+              0
+            ],
+            "ranking_with_decoy_roles": [
+              1,
+              2,
+              3,
+              0
+            ],
+            "rotation_geometry": [
+              {
+                "presented_order": [
+                  " d593d3c00bf8e5bf53a9f5c7",
+                  " evidence evidence evidence evidence evidence evidence 000000",
+                  " SELECT node_000000 FROM state_log;"
+                ],
+                "rotation": [
+                  0,
+                  1,
+                  2
+                ],
+                "winner_position": 1,
+                "winner_role": 1
+              },
+              {
+                "presented_order": [
+                  " evidence evidence evidence evidence evidence evidence 000000",
+                  " SELECT node_000000 FROM state_log;",
+                  " d593d3c00bf8e5bf53a9f5c7"
+                ],
+                "rotation": [
+                  1,
+                  2,
+                  0
+                ],
+                "winner_position": 0,
+                "winner_role": 1
+              },
+              {
+                "presented_order": [
+                  " SELECT node_000000 FROM state_log;",
+                  " d593d3c00bf8e5bf53a9f5c7",
+                  " evidence evidence evidence evidence evidence evidence 000000"
+                ],
+                "rotation": [
+                  2,
+                  0,
+                  1
+                ],
+                "winner_position": 2,
+                "winner_role": 1
+              }
+            ],
+            "scores": [
+              -256.20484375,
+              -16.06454918032787,
+              -94.86964285714286
+            ],
+            "scores_with_decoy": [
+              -256.20484375,
+              -16.06454918032787,
+              -94.86964285714286,
+              -220.047607421875
+            ],
+            "winner_role": 1
+          }
+        ],
+        "contextual_calibration": [
+          {
+            "decoy_shared_ranking_stable": true,
+            "first_position_wins": 1,
+            "ranking_roles": [
+              1,
+              2,
+              0
+            ],
+            "ranking_with_decoy_roles": [
+              1,
+              2,
+              0,
+              3
+            ],
+            "rotation_geometry": [
+              {
+                "presented_order": [
+                  " d593d3c00bf8e5bf53a9f5c7",
+                  " evidence evidence evidence evidence evidence evidence 000000",
+                  " SELECT node_000000 FROM state_log;"
+                ],
+                "rotation": [
+                  0,
+                  1,
+                  2
+                ],
+                "winner_position": 1,
+                "winner_role": 1
+              },
+              {
+                "presented_order": [
+                  " evidence evidence evidence evidence evidence evidence 000000",
+                  " SELECT node_000000 FROM state_log;",
+                  " d593d3c00bf8e5bf53a9f5c7"
+                ],
+                "rotation": [
+                  1,
+                  2,
+                  0
+                ],
+                "winner_position": 0,
+                "winner_role": 1
+              },
+              {
+                "presented_order": [
+                  " SELECT node_000000 FROM state_log;",
+                  " d593d3c00bf8e5bf53a9f5c7",
+                  " evidence evidence evidence evidence evidence evidence 000000"
+                ],
+                "rotation": [
+                  2,
+                  0,
+                  1
+                ],
+                "winner_position": 2,
+                "winner_role": 1
+              }
+            ],
+            "scores": [
+              -1660.1737642326302,
+              0.0,
+              -680.3069321608284
+            ],
+            "scores_with_decoy": [
+              -1660.1737642326302,
+              0.0,
+              -680.3069321608284,
+              -2272.8617525138798
+            ],
+            "winner_role": 1
+          },
+          {
+            "decoy_shared_ranking_stable": true,
+            "first_position_wins": 1,
+            "ranking_roles": [
+              1,
+              2,
+              0
+            ],
+            "ranking_with_decoy_roles": [
+              1,
+              2,
+              0,
+              3
+            ],
+            "rotation_geometry": [
+              {
+                "presented_order": [
+                  " d593d3c00bf8e5bf53a9f5c7",
+                  " evidence evidence evidence evidence evidence evidence 000000",
+                  " SELECT node_000000 FROM state_log;"
+                ],
+                "rotation": [
+                  0,
+                  1,
+                  2
+                ],
+                "winner_position": 1,
+                "winner_role": 1
+              },
+              {
+                "presented_order": [
+                  " evidence evidence evidence evidence evidence evidence 000000",
+                  " SELECT node_000000 FROM state_log;",
+                  " d593d3c00bf8e5bf53a9f5c7"
+                ],
+                "rotation": [
+                  1,
+                  2,
+                  0
+                ],
+                "winner_position": 0,
+                "winner_role": 1
+              },
+              {
+                "presented_order": [
+                  " SELECT node_000000 FROM state_log;",
+                  " d593d3c00bf8e5bf53a9f5c7",
+                  " evidence evidence evidence evidence evidence evidence 000000"
+                ],
+                "rotation": [
+                  2,
+                  0,
+                  1
+                ],
+                "winner_position": 2,
+                "winner_role": 1
+              }
+            ],
+            "scores": [
+              -1459.6019868888802,
+              0.0,
+              -661.8090181388802
+            ],
+            "scores_with_decoy": [
+              -1459.6019868888802,
+              0.0,
+              -661.8090181388802,
+              -1994.8851900138798
+            ],
+            "winner_role": 1
+          }
+        ],
+        "domain_pmi": [
+          {
+            "decoy_shared_ranking_stable": true,
+            "first_position_wins": 1,
+            "ranking_roles": [
+              1,
+              2,
+              0
+            ],
+            "ranking_with_decoy_roles": [
+              1,
+              2,
+              0,
+              3
+            ],
+            "rotation_geometry": [
+              {
+                "presented_order": [
+                  " d593d3c00bf8e5bf53a9f5c7",
+                  " evidence evidence evidence evidence evidence evidence 000000",
+                  " SELECT node_000000 FROM state_log;"
+                ],
+                "rotation": [
+                  0,
+                  1,
+                  2
+                ],
+                "winner_position": 1,
+                "winner_role": 1
+              },
+              {
+                "presented_order": [
+                  " evidence evidence evidence evidence evidence evidence 000000",
+                  " SELECT node_000000 FROM state_log;",
+                  " d593d3c00bf8e5bf53a9f5c7"
+                ],
+                "rotation": [
+                  1,
+                  2,
+                  0
+                ],
+                "winner_position": 0,
+                "winner_role": 1
+              },
+              {
+                "presented_order": [
+                  " SELECT node_000000 FROM state_log;",
+                  " d593d3c00bf8e5bf53a9f5c7",
+                  " evidence evidence evidence evidence evidence evidence 000000"
+                ],
+                "rotation": [
+                  2,
+                  0,
+                  1
+                ],
+                "winner_position": 2,
+                "winner_role": 1
+              }
+            ],
+            "scores": [
+              -1876.9260559082031,
+              -340.603515625,
+              -998.41796875
+            ],
+            "scores_with_decoy": [
+              -1876.9260559082031,
+              -340.603515625,
+              -998.41796875,
+              -2457.946533203125
+            ],
+            "winner_role": 1
+          },
+          {
+            "decoy_shared_ranking_stable": true,
+            "first_position_wins": 1,
+            "ranking_roles": [
+              1,
+              2,
+              0
+            ],
+            "ranking_with_decoy_roles": [
+              1,
+              2,
+              0,
+              3
+            ],
+            "rotation_geometry": [
+              {
+                "presented_order": [
+                  " d593d3c00bf8e5bf53a9f5c7",
+                  " evidence evidence evidence evidence evidence evidence 000000",
+                  " SELECT node_000000 FROM state_log;"
+                ],
+                "rotation": [
+                  0,
+                  1,
+                  2
+                ],
+                "winner_position": 1,
+                "winner_role": 1
+              },
+              {
+                "presented_order": [
+                  " evidence evidence evidence evidence evidence evidence 000000",
+                  " SELECT node_000000 FROM state_log;",
+                  " d593d3c00bf8e5bf53a9f5c7"
+                ],
+                "rotation": [
+                  1,
+                  2,
+                  0
+                ],
+                "winner_position": 0,
+                "winner_role": 1
+              },
+              {
+                "presented_order": [
+                  " SELECT node_000000 FROM state_log;",
+                  " d593d3c00bf8e5bf53a9f5c7",
+                  " evidence evidence evidence evidence evidence evidence 000000"
+                ],
+                "rotation": [
+                  2,
+                  0,
+                  1
+                ],
+                "winner_position": 2,
+                "winner_role": 1
+              }
+            ],
+            "scores": [
+              -1686.017822265625,
+              -291.0234375,
+              -902.28515625
+            ],
+            "scores_with_decoy": [
+              -1686.017822265625,
+              -291.0234375,
+              -902.28515625,
+              -2232.250244140625
+            ],
+            "winner_role": 1
+          }
+        ],
+        "sum": [
+          {
+            "decoy_shared_ranking_stable": true,
+            "first_position_wins": 1,
+            "ranking_roles": [
+              1,
+              2,
+              0
+            ],
+            "ranking_with_decoy_roles": [
+              1,
+              2,
+              0,
+              3
+            ],
+            "rotation_geometry": [
+              {
+                "presented_order": [
+                  " d593d3c00bf8e5bf53a9f5c7",
+                  " evidence evidence evidence evidence evidence evidence 000000",
+                  " SELECT node_000000 FROM state_log;"
+                ],
+                "rotation": [
+                  0,
+                  1,
+                  2
+                ],
+                "winner_position": 1,
+                "winner_role": 1
+              },
+              {
+                "presented_order": [
+                  " evidence evidence evidence evidence evidence evidence 000000",
+                  " SELECT node_000000 FROM state_log;",
+                  " d593d3c00bf8e5bf53a9f5c7"
+                ],
+                "rotation": [
+                  1,
+                  2,
+                  0
+                ],
+                "winner_position": 0,
+                "winner_role": 1
+              },
+              {
+                "presented_order": [
+                  " SELECT node_000000 FROM state_log;",
+                  " d593d3c00bf8e5bf53a9f5c7",
+                  " evidence evidence evidence evidence evidence evidence 000000"
+                ],
+                "rotation": [
+                  2,
+                  0,
+                  1
+                ],
+                "winner_position": 2,
+                "winner_role": 1
+              }
+            ],
+            "scores": [
+              -6405.12109375,
+              -979.9375,
+              -3320.4375
+            ],
+            "scores_with_decoy": [
+              -6405.12109375,
+              -979.9375,
+              -3320.4375,
+              -8801.904296875
+            ],
+            "winner_role": 1
+          },
+          {
+            "decoy_shared_ranking_stable": true,
+            "first_position_wins": 1,
+            "ranking_roles": [
+              1,
+              2,
+              0
+            ],
+            "ranking_with_decoy_roles": [
+              1,
+              2,
+              0,
+              3
+            ],
+            "rotation_geometry": [
+              {
+                "presented_order": [
+                  " d593d3c00bf8e5bf53a9f5c7",
+                  " evidence evidence evidence evidence evidence evidence 000000",
+                  " SELECT node_000000 FROM state_log;"
+                ],
+                "rotation": [
+                  0,
+                  1,
+                  2
+                ],
+                "winner_position": 1,
+                "winner_role": 1
+              },
+              {
+                "presented_order": [
+                  " evidence evidence evidence evidence evidence evidence 000000",
+                  " SELECT node_000000 FROM state_log;",
+                  " d593d3c00bf8e5bf53a9f5c7"
+                ],
+                "rotation": [
+                  1,
+                  2,
+                  0
+                ],
+                "winner_position": 0,
+                "winner_role": 1
+              },
+              {
+                "presented_order": [
+                  " SELECT node_000000 FROM state_log;",
+                  " d593d3c00bf8e5bf53a9f5c7",
+                  " evidence evidence evidence evidence evidence evidence 000000"
+                ],
+                "rotation": [
+                  2,
+                  0,
+                  1
+                ],
+                "winner_position": 2,
+                "winner_role": 1
+              }
+            ],
+            "scores": [
+              -6405.12109375,
+              -979.9375,
+              -3320.4375
+            ],
+            "scores_with_decoy": [
+              -6405.12109375,
+              -979.9375,
+              -3320.4375,
+              -8801.904296875
+            ],
+            "winner_role": 1
+          }
+        ],
+        "token_mean": [
+          {
+            "decoy_shared_ranking_stable": true,
+            "first_position_wins": 1,
+            "ranking_roles": [
+              1,
+              0,
+              2
+            ],
+            "ranking_with_decoy_roles": [
+              1,
+              0,
+              2,
+              3
+            ],
+            "rotation_geometry": [
+              {
+                "presented_order": [
+                  " d593d3c00bf8e5bf53a9f5c7",
+                  " evidence evidence evidence evidence evidence evidence 000000",
+                  " SELECT node_000000 FROM state_log;"
+                ],
+                "rotation": [
+                  0,
+                  1,
+                  2
+                ],
+                "winner_position": 1,
+                "winner_role": 1
+              },
+              {
+                "presented_order": [
+                  " evidence evidence evidence evidence evidence evidence 000000",
+                  " SELECT node_000000 FROM state_log;",
+                  " d593d3c00bf8e5bf53a9f5c7"
+                ],
+                "rotation": [
+                  1,
+                  2,
+                  0
+                ],
+                "winner_position": 0,
+                "winner_role": 1
+              },
+              {
+                "presented_order": [
+                  " SELECT node_000000 FROM state_log;",
+                  " d593d3c00bf8e5bf53a9f5c7",
+                  " evidence evidence evidence evidence evidence evidence 000000"
+                ],
+                "rotation": [
+                  2,
+                  0,
+                  1
+                ],
+                "winner_position": 2,
+                "winner_role": 1
+              }
+            ],
+            "scores": [
+              -320.2560546875,
+              -122.4921875,
+              -332.04375
+            ],
+            "scores_with_decoy": [
+              -320.2560546875,
+              -122.4921875,
+              -332.04375,
+              -338.53478064903845
+            ],
+            "winner_role": 1
+          },
+          {
+            "decoy_shared_ranking_stable": true,
+            "first_position_wins": 1,
+            "ranking_roles": [
+              1,
+              0,
+              2
+            ],
+            "ranking_with_decoy_roles": [
+              1,
+              0,
+              2,
+              3
+            ],
+            "rotation_geometry": [
+              {
+                "presented_order": [
+                  " d593d3c00bf8e5bf53a9f5c7",
+                  " evidence evidence evidence evidence evidence evidence 000000",
+                  " SELECT node_000000 FROM state_log;"
+                ],
+                "rotation": [
+                  0,
+                  1,
+                  2
+                ],
+                "winner_position": 1,
+                "winner_role": 1
+              },
+              {
+                "presented_order": [
+                  " evidence evidence evidence evidence evidence evidence 000000",
+                  " SELECT node_000000 FROM state_log;",
+                  " d593d3c00bf8e5bf53a9f5c7"
+                ],
+                "rotation": [
+                  1,
+                  2,
+                  0
+                ],
+                "winner_position": 0,
+                "winner_role": 1
+              },
+              {
+                "presented_order": [
+                  " SELECT node_000000 FROM state_log;",
+                  " d593d3c00bf8e5bf53a9f5c7",
+                  " evidence evidence evidence evidence evidence evidence 000000"
+                ],
+                "rotation": [
+                  2,
+                  0,
+                  1
+                ],
+                "winner_position": 2,
+                "winner_role": 1
+              }
+            ],
+            "scores": [
+              -320.2560546875,
+              -122.4921875,
+              -332.04375
+            ],
+            "scores_with_decoy": [
+              -320.2560546875,
+              -122.4921875,
+              -332.04375,
+              -338.53478064903845
+            ],
+            "winner_role": 1
+          }
+        ]
+      },
+      "surface_family": 0
+    }
+  ],
+  "rows_sha256": "4c25dbc92ac172e53ed772fc9fc62495324bc98da0d12279ad1b063044a25d12",
+  "schema": "esoes-e2-scoring-policy-shard/v1",
+  "status": "PASS_SMOKE_ONLY",
+  "synthetic_checks": {
+    "all_three_roles_injected": true,
+    "injection_recovery": 1.0,
+    "position_bias_negative_control_caught": 1.0,
+    "swap_recovery": 1.0
+  },
+  "tokenizer_sha256": "0a83fb9280ef5309f3351a5ec0dd9889940da374b3e17d02a687c1c307e1fd1b"
+}
