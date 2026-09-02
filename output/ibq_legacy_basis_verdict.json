@@ -1,0 +1,83 @@
+{
+  "schema": "anra-ibq-verdict/v1",
+  "timestamp": "2026-09-03 00:24:30",
+  "basis": "legacy-5 (NO_CHANGE, KNOWLEDGE_RESTATED, FORMAT_NORMALIZED, QUERY_NEAR_ANSWER, DECODE_SEARCH)",
+  "data": "preserved X1-REAL-0 outcome matrix (no new model execution)",
+  "n_failures": 45,
+  "oracle_coverage": 0.0889,
+  "cell_prevalence": 0.0267,
+  "always_negative_cell_accuracy": 0.9733,
+  "always_negative_equivalence": "an always-negative predictor scores 97.3% cell accuracy on this matrix \u2014 statistically indistinguishable from the reported 95.45% (X1-REAL-0's predictor metric)",
+  "per_intervention_prevalence": {
+    "NO_CHANGE": 0.0,
+    "KNOWLEDGE_RESTATED": 0.0444,
+    "FORMAT_NORMALIZED": 0.0667,
+    "QUERY_NEAR_ANSWER": 0.0222,
+    "DECODE_SEARCH": 0.0
+  },
+  "quality": {
+    "n_failures": 45,
+    "n_interventions": 5,
+    "oracle_coverage": 0.0889,
+    "cell_prevalence": 0.0267,
+    "per_intervention_prevalence": [
+      0.0,
+      0.0444,
+      0.0667,
+      0.0222,
+      0.0
+    ],
+    "degenerate_interventions": [
+      0,
+      4
+    ],
+    "response_signature_entropy_bits": 0.5661,
+    "unique_signatures": 4,
+    "pairwise_redundancy": 0.1,
+    "identification_capacity": 4
+  },
+  "gate": {
+    "qualified": false,
+    "checks": {
+      "G1_legality": true,
+      "G2_oracle_coverage": false,
+      "G3_no_degenerate_probes": false,
+      "G4_signature_variation": true,
+      "G5_span": true,
+      "G6_not_redundant": true
+    },
+    "quality": {
+      "n_failures": 45,
+      "n_interventions": 5,
+      "oracle_coverage": 0.0889,
+      "cell_prevalence": 0.0267,
+      "per_intervention_prevalence": [
+        0.0,
+        0.0444,
+        0.0667,
+        0.0222,
+        0.0
+      ],
+      "degenerate_interventions": [
+        0,
+        4
+      ],
+      "response_signature_entropy_bits": 0.5661,
+      "unique_signatures": 4,
+      "pairwise_redundancy": 0.1,
+      "identification_capacity": 4
+    }
+  },
+  "null_analysis": {
+    "real_signature_entropy_bits": 0.5661,
+    "null_entropy_mean": 0.6932,
+    "null_entropy_p95": 1.014,
+    "real_unique_signatures": 4,
+    "null_unique_mean": 4.42,
+    "entropy_p_value_vs_nulls": 0.2567,
+    "verdict": "no structure beyond sparsity"
+  },
+  "effective_rank_real": 1.847,
+  "IBQ_VERDICT": "BASIS NOT QUALIFIED",
+  "consequence": "no self-model training on this basis; the intervention set must be redesigned toward the qualified classes (addressing support with legality-clean selection, realization support, distractor structure) and re-harvested on authorized compute before any X1-v2"
+}
