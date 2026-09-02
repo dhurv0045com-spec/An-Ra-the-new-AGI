@@ -41,40 +41,32 @@ class TestSenoraCheckpoint(unittest.TestCase):
         opt2 = torch.optim.AdamW(model2.parameters(), lr=1e-3)
 
         cursor = CursorState(
-            schema="v5-data-cursor/v1",
-            pack_manifest_sha256="m" * 64,
+            schema="anra-v5-pack-cursor/v1",
+            pack_manifest_sha256="f" * 64,
             shard_ordinal=0,
             sequence_ordinal=0,
             token_offset=0,
         )
-        state = TrainingState(
-            schema="v5-training-state/v1",
-            identities=IdentityBindings(
-                experiment_id="exp-p35",
-                source_commit_sha="a" * 40,
-                model_spec_sha256="b" * 64,
-                tokenizer_artifact_sha256="c" * 64,
-                corpus_manifest_sha256="d" * 64,
-                data_manifest_sha256="e" * 64,
-                pack_manifest_sha256="f" * 64,
-                generator_version="e0/0.1.0",
-                split_identities={"train": "g" * 64},
-                optimizer_spec={"type": "AdamW"},
-                schedule_spec={"type": "WSD"},
-                precision="bf16",
-                random_seeds=(42,),
-            ),
-            global_update=10,
-            cumulative_tokens=1_310_720,
+        identities = IdentityBindings(
+            schema="anra-v5-identity-bindings/v1",
+            source_commit="a" * 40,
+            model_spec_sha256="b" * 64,
+            tokenizer_sha256="c" * 64,
+            data_manifest_sha256="e" * 64,
+            pack_manifest_sha256="f" * 64,
+            run_spec_sha256="1" * 64,
+            optimizer_spec_sha256="2" * 64,
+            schedule_spec_sha256="3" * 64,
+            curriculum_spec_sha256="4" * 64,
+        )
+        state = TrainingState.initial(
+            lineage_id="lineage-001",
             token_budget=50_000_000,
+            tokens_per_update=131_072,
             cursor=cursor,
-            tokens_by_source={"natural": 1_000_000, "code": 310_720},
-            phase="stable",
-            learning_rate=3e-4,
-            loss_moving_average=2.5,
-            latest_loss=2.45,
-            latest_gradient_norm=0.8,
-            timestamp_iso="2026-09-03T00:00:00Z",
+            rng_state_sha256="0" * 64,
+            curriculum_phase="main",
+            identities=identities,
         )
 
         payloads = serialize_real_checkpoint_payloads(model1, opt1, state, device="cpu")

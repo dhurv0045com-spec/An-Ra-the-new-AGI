@@ -311,3 +311,121 @@ class TrajectoryAnalysisEngine:
             early_triage_decision=triage,
             early_triage_rationale=rationale,
         )
+
+def generate_synthetic_world_receipts(world_id: int) -> tuple[list[CognitiveAcquisitionReceipt], list[CognitiveAcquisitionReceipt]]:
+    """Generate reproducible synthetic longitudinal trajectories for Worlds 1-10."""
+    tokens = [0, 1_000_000, 2_000_000, 5_000_000, 10_000_000, 20_000_000, 35_000_000, 50_000_000]
+
+    def _make(t, arm, macro, nat, fams, loss=2.50, seed=42):
+        return CognitiveAcquisitionReceipt(
+            schema="senora-cognitive-acquisition-receipt/v1",
+            checkpoint_sha256=f"ckpt_{t}_{arm}",
+            arm_name=arm,
+            seed=seed,
+            tokens_seen=t,
+            global_update=t // 131_072,
+            training_flops_6nd=t * 35_411_328 * 6,
+            substrate_validation_loss=loss,
+            raw_core_macro_accuracy=macro,
+            natural_analogue_macro_accuracy=nat,
+            structural_ood_macro_accuracy=macro,
+            query_sensitivity_flip_rate=0.85,
+            pair_invariance_stable_rate=0.90,
+            family_accuracies=fams,
+        )
+
+    if world_id == 1:  # Monotonic
+        treat = [_make(t, "cognition-15", 0.1 + 0.7 * (t / 50_000_000), 0.1 + 0.6 * (t / 50_000_000), {"binding": 0.1 + 0.7 * (t / 50_000_000)}) for t in tokens]
+        ctrl = [_make(t, "control-00", 0.1 + 0.1 * (t / 50_000_000), 0.1 + 0.1 * (t / 50_000_000), {"binding": 0.1 + 0.1 * (t / 50_000_000)}) for t in tokens]
+    elif world_id == 2:  # Sharp phase transition
+        t_vals = [0.05, 0.06, 0.08, 0.10, 0.12, 0.78, 0.82, 0.85]
+        treat = [_make(t, "cognition-15", v, v, {"binding": v}) for t, v in zip(tokens, t_vals)]
+        ctrl = [_make(t, "control-00", 0.10, 0.10, {"binding": 0.10}) for t in tokens]
+    elif world_id == 3:  # Forgetting
+        t_vals = [0.10, 0.25, 0.45, 0.70, 0.75, 0.60, 0.45, 0.35]
+        treat = [_make(t, "cognition-15", v, v, {"binding": v}) for t, v in zip(tokens, t_vals)]
+        ctrl = [_make(t, "control-00", 0.10, 0.10, {"binding": 0.10}) for t in tokens]
+    elif world_id == 4:  # Transfer lag
+        synth_vals = [0.10, 0.20, 0.35, 0.55, 0.70, 0.80, 0.85, 0.88]
+        nat_vals = [0.05, 0.08, 0.12, 0.18, 0.25, 0.38, 0.52, 0.65]
+        treat = [_make(t, "cognition-15", s, n, {"binding": s}) for t, s, n in zip(tokens, synth_vals, nat_vals)]
+        ctrl = [_make(t, "control-00", 0.10, 0.10, {"binding": 0.10}) for t in tokens]
+    elif world_id == 5:  # Sample efficiency
+        treat_vals = [0.10, 0.30, 0.55, 0.72, 0.80, 0.85, 0.88, 0.90]
+        ctrl_vals = [0.05, 0.08, 0.12, 0.20, 0.30, 0.45, 0.52, 0.58]
+        treat = [_make(t, "cognition-15", v, v, {"binding": v}) for t, v in zip(tokens, treat_vals)]
+        ctrl = [_make(t, "control-00", v, v, {"binding": v}) for t, v in zip(tokens, ctrl_vals)]
+    elif world_id == 6:  # Loss-matched gap
+        t_losses = [3.5, 3.1, 2.8, 2.5, 2.4, 2.1, 1.9, 1.8]
+        c_losses = [3.5, 3.2, 3.0, 2.8, 2.7, 2.5, 2.4, 2.3]
+        t_vals = [0.10, 0.25, 0.45, 0.60, 0.68, 0.75, 0.80, 0.82]
+        c_vals = [0.08, 0.12, 0.15, 0.18, 0.20, 0.23, 0.25, 0.26]
+        treat = [_make(t, "cognition-15", v, v, {"b": v}, loss=l) for t, v, l in zip(tokens, t_vals, t_losses)]
+        ctrl = [_make(t, "control-00", v, v, {"b": v}, loss=l) for t, v, l in zip(tokens, c_vals, c_losses)]
+    elif world_id == 7:  # Seed instability
+        treat = [_make(t, "cognition-15", 0.1 + 0.7 * (t / 50_000_000), 0.1, {"b": 0.1 + 0.7 * (t / 50_000_000)}, seed=42) for t in tokens]
+        ctrl = [_make(t, "cognition-15", 0.1 + 0.05 * (t / 50_000_000), 0.1, {"b": 0.1 + 0.05 * (t / 50_000_000)}, seed=43) for t in tokens]
+    elif world_id == 8:  # Difficulty-aware ordering
+        treat = [_make(t, "cognition-15", 0.5, 0.5, {"retrieval": min(1.0, 0.1 + 0.9 * (t / 10_000_000)), "binding": min(1.0, 0.1 + 0.8 * (t / 20_000_000)), "state": min(1.0, 0.1 + 0.7 * (t / 50_000_000))}) for t in tokens]
+        ctrl = [_make(t, "control-00", 0.1, 0.1, {"retrieval": 0.1, "binding": 0.1, "state": 0.1}) for t in tokens]
+    elif world_id == 9:  # Macro average masks family collapse
+        treat = [_make(t, "cognition-15", 0.1 + 0.6 * (t / 50_000_000), 0.1, {"binding": 0.1 + 0.85 * (t / 50_000_000), "counterfactual": max(0.02, 0.20 - 0.18 * (t / 50_000_000))}) for t in tokens]
+        ctrl = [_make(t, "control-00", 0.15, 0.1, {"binding": 0.15, "counterfactual": 0.15}) for t in tokens]
+    else:  # world_id == 10: Early triage predictor
+        t_vals = [0.10, 0.11, 0.12, 0.12, 0.13, 0.13, 0.14, 0.14]
+        treat = [_make(t, "cognition-15", v, v, {"b": v}) for t, v in zip(tokens, t_vals)]
+        ctrl = [_make(t, "control-00", 0.12, 0.12, {"b": 0.12}) for t in tokens]
+
+    return treat, ctrl
+
+
+def main() -> int:
+    import argparse
+    import json
+
+    parser = argparse.ArgumentParser(description="Causal Learning Dynamics (CLD/CAD) Analyzer")
+    parser.add_argument("--world", type=int, choices=range(1, 11), help="Execute synthetic adversarial world simulation (1-10)")
+    parser.add_argument("--treatment", nargs="+", help="List of treatment checkpoint receipt JSON paths")
+    parser.add_argument("--control", nargs="+", help="List of control checkpoint receipt JSON paths")
+    parser.add_argument("--capability-threshold", type=float, default=0.50, help="Precommitted capability threshold")
+    parser.add_argument("--loss-matched-target", type=float, default=2.40, help="Loss level for loss-matched gap analysis")
+    parser.add_argument("--output", type=Path, default=Path("artifacts/v5/cld_trajectory_metrics.json"), help="Output summary path")
+    args = parser.parse_args()
+
+    if args.world:
+        print(f"============================================================")
+        print(f"EXECUTING CAUSAL LEARNING DYNAMICS SIMULATION: WORLD {args.world}")
+        print(f"============================================================")
+        treat, ctrl = generate_synthetic_world_receipts(args.world)
+    elif args.treatment and args.control:
+        treat = [CognitiveAcquisitionReceipt(**json.loads(Path(p).read_text(encoding="utf-8"))) for p in sorted(args.treatment)]
+        ctrl = [CognitiveAcquisitionReceipt(**json.loads(Path(p).read_text(encoding="utf-8"))) for p in sorted(args.control)]
+    else:
+        print("Error: Specify either --world [1..10] or both --treatment and --control receipts.")
+        return 1
+
+    summary = TrajectoryAnalysisEngine.analyze_trajectories(
+        treat,
+        ctrl,
+        capability_threshold=args.capability_threshold,
+        loss_matched_target=args.loss_matched_target,
+    )
+
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    args.output.write_text(json.dumps(summary.canonical(), indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    print(f"Wrote trajectory analysis summary to: {args.output}")
+
+    print("\nKey Causal Dynamics Metrics:")
+    print(f"  Macro TE-AUC:                {summary.treatment_effect_auc.get('macro', 0.0):+.4f}")
+    print(f"  Treatment TTT (Tokens-to-50%): {summary.tokens_to_threshold_treatment.get('macro')}")
+    print(f"  Control TTT:                   {summary.tokens_to_threshold_control.get('macro')}")
+    print(f"  Transfer Lag (tokens):         {summary.transfer_lag_tokens}")
+    print(f"  Loss-Matched Cognition Gap:    {summary.loss_matched_gap_at_threshold}")
+    print(f"  Acquisition Order:             {' -> '.join(summary.acquisition_order_treatment) if summary.acquisition_order_treatment else 'None'}")
+    print(f"  Early Triage Decision:         {summary.early_triage_decision}")
+    print(f"  Rationale:                     {summary.early_triage_rationale}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

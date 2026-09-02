@@ -20,8 +20,8 @@
   "cumulative_tokens": 16,
   "device": "cuda",
   "device_name": "NVIDIA GeForce RTX 4050 Laptop GPU",
-  "final_checkpoint_sha256": "d602c6d8884bcecfa580973a59afa8546af816a761c5a163c651d32731e8750b",
-  "first_checkpoint_sha256": "838a9f3198dc2ad3e9f562bf8a1966867bd41595762a669190899dc349eaccc9",
+  "final_checkpoint_sha256": "9de89f0b1277d074e4c78d177de1445c13b2c5372fa462dfd04fc1cff8d17a6c",
+  "first_checkpoint_sha256": "eeaac029833b8accea82d67b7619b3a930bd640541a9169d323e4a8195043dbe",
   "global_update": 2,
   "implementation_sha256": "b606f5c540c9d9aa904a114561bf6d247aa61d8cb8e20aaa1f56c99a2de003c3",
   "limitations": [

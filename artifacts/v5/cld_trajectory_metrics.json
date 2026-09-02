@@ -1,0 +1,64 @@
+{
+  "acquisition_order_control": [],
+  "acquisition_order_treatment": [
+    "binding"
+  ],
+  "area_under_learning_curve_control": {
+    "binding": 0.15,
+    "macro": 0.15
+  },
+  "area_under_learning_curve_treatment": {
+    "binding": 0.45,
+    "macro": 0.45
+  },
+  "cognitive_forgetting_index": {
+    "binding": 0.0,
+    "macro": 0.0
+  },
+  "control_arm": "control-00",
+  "early_triage_decision": "CONTINUE_HIGH_CONFIDENCE",
+  "early_triage_rationale": "At 10M tokens, causal treatment effect is robust (+0.120 >= +0.10); proceed to full 50M.",
+  "loss_matched_gap_at_threshold": 0.0,
+  "phase_transitions": {
+    "binding": {
+      "family": "binding",
+      "inflection_token_milestone": 5000000,
+      "is_sharp_transition": false,
+      "max_instantaneous_slope": 1e-08,
+      "transition_width_tokens": 50000000
+    },
+    "macro": {
+      "family": "macro",
+      "inflection_token_milestone": 5000000,
+      "is_sharp_transition": false,
+      "max_instantaneous_slope": 1e-08,
+      "transition_width_tokens": 50000000
+    }
+  },
+  "schema": "senora-trajectory-metrics/v1",
+  "seed": 42,
+  "tokens_evaluated": [
+    0,
+    1000000,
+    2000000,
+    5000000,
+    10000000,
+    20000000,
+    35000000,
+    50000000
+  ],
+  "tokens_to_threshold_control": {
+    "binding": null,
+    "macro": null
+  },
+  "tokens_to_threshold_treatment": {
+    "binding": 35000000,
+    "macro": 35000000
+  },
+  "transfer_lag_tokens": 0,
+  "treatment_arm": "cognition-15",
+  "treatment_effect_auc": {
+    "binding": 0.3,
+    "macro": 0.3
+  }
+}

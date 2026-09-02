@@ -65,10 +65,10 @@
     "schema": "senora-evaluation-summary/v1",
     "suite_split": "development"
   },
-  "execution_duration_seconds": 0.097,
+  "execution_duration_seconds": 0.118,
   "experiment_id": "P35-CMS-1",
   "final_loss": 2.854,
-  "identity_sha256": "66eeb73af531fbbcd1f457a908217144131ff8c8c6bd9ca26ca3d8136da07549",
+  "identity_sha256": "6889cb9353231d22caf0563d237fa0f7405ae34f8bc55ac175c588d1ee671d8b",
   "phase": "P35-A",
   "precommitted_next_action": "RUN_CROSS_ARM_RESULT_CLASSIFIER: Execute python -m senora.result_classifier with control and treatment receipts.",
   "raw_core_development_accuracy": 0.0,

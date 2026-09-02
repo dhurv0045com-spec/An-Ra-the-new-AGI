@@ -1,5 +1,5 @@
 {
-  "arm_name": "cognition-mixture-15-ce",
+  "arm_name": "cognition-mixture-15-qswap",
   "canary_certified": true,
   "checkpoint_sha256": "mock_checkpoint_sha_00000000000000000000000000000000000000000000",
   "development_evaluation": {
@@ -65,11 +65,11 @@
     "schema": "senora-evaluation-summary/v1",
     "suite_split": "development"
   },
-  "execution_duration_seconds": 0.129,
+  "execution_duration_seconds": 0.096,
   "experiment_id": "P35-CMS-1",
   "final_loss": 2.854,
   "identity_sha256": "6889cb9353231d22caf0563d237fa0f7405ae34f8bc55ac175c588d1ee671d8b",
-  "phase": "P35-A",
+  "phase": "P35-B",
   "precommitted_next_action": "RUN_CROSS_ARM_RESULT_CLASSIFIER: Execute python -m senora.result_classifier with control and treatment receipts.",
   "raw_core_development_accuracy": 0.0,
   "result_category": "ARM_EXECUTION_COMPLETE",

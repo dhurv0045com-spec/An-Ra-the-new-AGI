@@ -7,7 +7,7 @@
       "instruction": "Defines build-system, dependencies (Python >=3.10), and console script entry points.",
       "name": "pyproject_toml",
       "required_path": "pyproject.toml",
-      "sha256": "f0b3be5cd3881b8176a45d30169c96859be6304f1d2d2e3e73adfb9d0585bcec",
+      "sha256": "f280bd04f2e4f8606907fa55caf516cb8e2f175d320fa787ba60488df0a569dd",
       "status": "PRESENT_AND_VERIFIED"
     },
     {

@@ -1,0 +1,14 @@
+{
+  "config": {
+    "expected_world_size": 1,
+    "matrix_size": 128,
+    "seed": 47101
+  },
+  "implementation_sha256": "08194e03e910f2dbe70d0cfd11c7b74fc816a8c155e65114dc059f4057d50ae9",
+  "missing_dependencies": [
+    "torch"
+  ],
+  "reason": "No module named 'torch'",
+  "schema": "anra-v5-target-preflight/v1",
+  "status": "BLOCKED_TORCH_XLA"
+}
