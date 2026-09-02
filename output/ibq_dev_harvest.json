@@ -1,0 +1,1388 @@
+{
+  "schema": "anra-ibq-dev-harvest/v1",
+  "timestamp": "2026-09-03 01:28:18",
+  "checkpoint": "checkpoints/anra-v4-20k-sft3-accumulate.pt",
+  "parameter_sha256": null,
+  "n_tasks": 80,
+  "baseline_pass": 23,
+  "n_failures": 57,
+  "basis_ids": [
+    "NULL_REFORMAT",
+    "QUERY_DUPLICATION",
+    "QUERY_FRONTLOAD",
+    "CANONICAL_CONTEXT",
+    "REALIZATION_ENVELOPE",
+    "STATE_TABLE",
+    "LEXICAL_ADDRESSING_HINT"
+  ],
+  "basis_sha": "65003824ac2b9633",
+  "outcome_matrix": {
+    "ibq-001": {
+      "NULL_REFORMAT": 0,
+      "QUERY_DUPLICATION": 0,
+      "QUERY_FRONTLOAD": 0,
+      "CANONICAL_CONTEXT": 1,
+      "REALIZATION_ENVELOPE": 0,
+      "STATE_TABLE": 0,
+      "LEXICAL_ADDRESSING_HINT": 0
+    },
+    "ibq-003": {
+      "NULL_REFORMAT": 0,
+      "QUERY_DUPLICATION": 0,
+      "QUERY_FRONTLOAD": 0,
+      "CANONICAL_CONTEXT": 0,
+      "REALIZATION_ENVELOPE": 0,
+      "STATE_TABLE": 0,
+      "LEXICAL_ADDRESSING_HINT": 0
+    },
+    "ibq-004": {
+      "NULL_REFORMAT": 0,
+      "QUERY_DUPLICATION": 0,
+      "QUERY_FRONTLOAD": 0,
+      "CANONICAL_CONTEXT": 0,
+      "REALIZATION_ENVELOPE": 0,
+      "STATE_TABLE": 0,
+      "LEXICAL_ADDRESSING_HINT": 0
+    },
+    "ibq-005": {
+      "NULL_REFORMAT": 0,
+      "QUERY_DUPLICATION": 0,
+      "QUERY_FRONTLOAD": 0,
+      "CANONICAL_CONTEXT": 0,
+      "REALIZATION_ENVELOPE": 0,
+      "STATE_TABLE": 0,
+      "LEXICAL_ADDRESSING_HINT": 0
+    },
+    "ibq-006": {
+      "NULL_REFORMAT": 0,
+      "QUERY_DUPLICATION": 0,
+      "QUERY_FRONTLOAD": 0,
+      "CANONICAL_CONTEXT": 0,
+      "REALIZATION_ENVELOPE": 0,
+      "STATE_TABLE": 0,
+      "LEXICAL_ADDRESSING_HINT": 0
+    },
+    "ibq-007": {
+      "NULL_REFORMAT": 0,
+      "QUERY_DUPLICATION": 0,
+      "QUERY_FRONTLOAD": 0,
+      "CANONICAL_CONTEXT": 0,
+      "REALIZATION_ENVELOPE": 0,
+      "STATE_TABLE": 0,
+      "LEXICAL_ADDRESSING_HINT": 0
+    },
+    "ibq-011": {
+      "NULL_REFORMAT": 0,
+      "QUERY_DUPLICATION": 0,
+      "QUERY_FRONTLOAD": 0,
+      "CANONICAL_CONTEXT": 0,
+      "REALIZATION_ENVELOPE": 0,
+      "STATE_TABLE": 0,
+      "LEXICAL_ADDRESSING_HINT": 0
+    },
+    "ibq-013": {
+      "NULL_REFORMAT": 0,
+      "QUERY_DUPLICATION": 0,
+      "QUERY_FRONTLOAD": 0,
+      "CANONICAL_CONTEXT": 1,
+      "REALIZATION_ENVELOPE": 0,
+      "STATE_TABLE": 1,
+      "LEXICAL_ADDRESSING_HINT": 0
+    },
+    "ibq-014": {
+      "NULL_REFORMAT": 0,
+      "QUERY_DUPLICATION": 0,
+      "QUERY_FRONTLOAD": 0,
+      "CANONICAL_CONTEXT": 0,
+      "REALIZATION_ENVELOPE": 0,
+      "STATE_TABLE": 0,
+      "LEXICAL_ADDRESSING_HINT": 0
+    },
+    "ibq-015": {
+      "NULL_REFORMAT": 0,
+      "QUERY_DUPLICATION": 0,
+      "QUERY_FRONTLOAD": 0,
+      "CANONICAL_CONTEXT": 0,
+      "REALIZATION_ENVELOPE": 0,
+      "STATE_TABLE": 0,
+      "LEXICAL_ADDRESSING_HINT": 0
+    },
+    "ibq-017": {
+      "NULL_REFORMAT": 0,
+      "QUERY_DUPLICATION": 0,
+      "QUERY_FRONTLOAD": 0,
+      "CANONICAL_CONTEXT": 0,
+      "REALIZATION_ENVELOPE": 0,
+      "STATE_TABLE": 0,
+      "LEXICAL_ADDRESSING_HINT": 0
+    },
+    "ibq-018": {
+      "NULL_REFORMAT": 0,
+      "QUERY_DUPLICATION": 0,
+      "QUERY_FRONTLOAD": 0,
+      "CANONICAL_CONTEXT": 0,
+      "REALIZATION_ENVELOPE": 1,
+      "STATE_TABLE": 0,
+      "LEXICAL_ADDRESSING_HINT": 0
+    },
+    "ibq-019": {
+      "NULL_REFORMAT": 0,
+      "QUERY_DUPLICATION": 0,
+      "QUERY_FRONTLOAD": 0,
+      "CANONICAL_CONTEXT": 0,
+      "REALIZATION_ENVELOPE": 0,
+      "STATE_TABLE": 0,
+      "LEXICAL_ADDRESSING_HINT": 0
+    },
+    "ibq-021": {
+      "NULL_REFORMAT": 0,
+      "QUERY_DUPLICATION": 0,
+      "QUERY_FRONTLOAD": 0,
+      "CANONICAL_CONTEXT": 0,
+      "REALIZATION_ENVELOPE": 0,
+      "STATE_TABLE": 0,
+      "LEXICAL_ADDRESSING_HINT": 0
+    },
+    "ibq-022": {
+      "NULL_REFORMAT": 0,
+      "QUERY_DUPLICATION": 0,
+      "QUERY_FRONTLOAD": 0,
+      "CANONICAL_CONTEXT": 0,
+      "REALIZATION_ENVELOPE": 0,
+      "STATE_TABLE": 0,
+      "LEXICAL_ADDRESSING_HINT": 0
+    },
+    "ibq-023": {
+      "NULL_REFORMAT": 0,
+      "QUERY_DUPLICATION": 0,
+      "QUERY_FRONTLOAD": 0,
+      "CANONICAL_CONTEXT": 0,
+      "REALIZATION_ENVELOPE": 0,
+      "STATE_TABLE": 0,
+      "LEXICAL_ADDRESSING_HINT": 0
+    },
+    "ibq-024": {
+      "NULL_REFORMAT": 0,
+      "QUERY_DUPLICATION": 0,
+      "QUERY_FRONTLOAD": 0,
+      "CANONICAL_CONTEXT": 0,
+      "REALIZATION_ENVELOPE": 0,
+      "STATE_TABLE": 0,
+      "LEXICAL_ADDRESSING_HINT": 0
+    },
+    "ibq-025": {
+      "NULL_REFORMAT": 0,
+      "QUERY_DUPLICATION": 0,
+      "QUERY_FRONTLOAD": 0,
+      "CANONICAL_CONTEXT": 0,
+      "REALIZATION_ENVELOPE": 0,
+      "STATE_TABLE": 0,
+      "LEXICAL_ADDRESSING_HINT": 0
+    },
+    "ibq-026": {
+      "NULL_REFORMAT": 0,
+      "QUERY_DUPLICATION": 0,
+      "QUERY_FRONTLOAD": 1,
+      "CANONICAL_CONTEXT": 0,
+      "REALIZATION_ENVELOPE": 0,
+      "STATE_TABLE": 0,
+      "LEXICAL_ADDRESSING_HINT": 0
+    },
+    "ibq-027": {
+      "NULL_REFORMAT": 0,
+      "QUERY_DUPLICATION": 0,
+      "QUERY_FRONTLOAD": 0,
+      "CANONICAL_CONTEXT": 0,
+      "REALIZATION_ENVELOPE": 0,
+      "STATE_TABLE": 0,
+      "LEXICAL_ADDRESSING_HINT": 0
+    },
+    "ibq-028": {
+      "NULL_REFORMAT": 0,
+      "QUERY_DUPLICATION": 0,
+      "QUERY_FRONTLOAD": 0,
+      "CANONICAL_CONTEXT": 0,
+      "REALIZATION_ENVELOPE": 0,
+      "STATE_TABLE": 0,
+      "LEXICAL_ADDRESSING_HINT": 0
+    },
+    "ibq-029": {
+      "NULL_REFORMAT": 0,
+      "QUERY_DUPLICATION": 0,
+      "QUERY_FRONTLOAD": 0,
+      "CANONICAL_CONTEXT": 0,
+      "REALIZATION_ENVELOPE": 0,
+      "STATE_TABLE": 0,
+      "LEXICAL_ADDRESSING_HINT": 0
+    },
+    "ibq-030": {
+      "NULL_REFORMAT": 0,
+      "QUERY_DUPLICATION": 0,
+      "QUERY_FRONTLOAD": 0,
+      "CANONICAL_CONTEXT": 0,
+      "REALIZATION_ENVELOPE": 0,
+      "STATE_TABLE": 0,
+      "LEXICAL_ADDRESSING_HINT": 0
+    },
+    "ibq-031": {
+      "NULL_REFORMAT": 0,
+      "QUERY_DUPLICATION": 0,
+      "QUERY_FRONTLOAD": 0,
+      "CANONICAL_CONTEXT": 0,
+      "REALIZATION_ENVELOPE": 0,
+      "STATE_TABLE": 0,
+      "LEXICAL_ADDRESSING_HINT": 0
+    },
+    "ibq-033": {
+      "NULL_REFORMAT": 0,
+      "QUERY_DUPLICATION": 0,
+      "QUERY_FRONTLOAD": 0,
+      "CANONICAL_CONTEXT": 0,
+      "REALIZATION_ENVELOPE": 0,
+      "STATE_TABLE": 0,
+      "LEXICAL_ADDRESSING_HINT": 0
+    },
+    "ibq-034": {
+      "NULL_REFORMAT": 0,
+      "QUERY_DUPLICATION": 0,
+      "QUERY_FRONTLOAD": 0,
+      "CANONICAL_CONTEXT": 0,
+      "REALIZATION_ENVELOPE": 0,
+      "STATE_TABLE": 0,
+      "LEXICAL_ADDRESSING_HINT": 0
+    },
+    "ibq-035": {
+      "NULL_REFORMAT": 0,
+      "QUERY_DUPLICATION": 0,
+      "QUERY_FRONTLOAD": 0,
+      "CANONICAL_CONTEXT": 0,
+      "REALIZATION_ENVELOPE": 0,
+      "STATE_TABLE": 0,
+      "LEXICAL_ADDRESSING_HINT": 0
+    },
+    "ibq-038": {
+      "NULL_REFORMAT": 0,
+      "QUERY_DUPLICATION": 0,
+      "QUERY_FRONTLOAD": 0,
+      "CANONICAL_CONTEXT": 0,
+      "REALIZATION_ENVELOPE": 0,
+      "STATE_TABLE": 0,
+      "LEXICAL_ADDRESSING_HINT": 0
+    },
+    "ibq-039": {
+      "NULL_REFORMAT": 1,
+      "QUERY_DUPLICATION": 0,
+      "QUERY_FRONTLOAD": 0,
+      "CANONICAL_CONTEXT": 0,
+      "REALIZATION_ENVELOPE": 1,
+      "STATE_TABLE": 0,
+      "LEXICAL_ADDRESSING_HINT": 0
+    },
+    "ibq-040": {
+      "NULL_REFORMAT": 0,
+      "QUERY_DUPLICATION": 0,
+      "QUERY_FRONTLOAD": 0,
+      "CANONICAL_CONTEXT": 0,
+      "REALIZATION_ENVELOPE": 0,
+      "STATE_TABLE": 0,
+      "LEXICAL_ADDRESSING_HINT": 0
+    },
+    "ibq-043": {
+      "NULL_REFORMAT": 0,
+      "QUERY_DUPLICATION": 0,
+      "QUERY_FRONTLOAD": 0,
+      "CANONICAL_CONTEXT": 0,
+      "REALIZATION_ENVELOPE": 0,
+      "STATE_TABLE": 0,
+      "LEXICAL_ADDRESSING_HINT": 0
+    },
+    "ibq-044": {
+      "NULL_REFORMAT": 0,
+      "QUERY_DUPLICATION": 0,
+      "QUERY_FRONTLOAD": 0,
+      "CANONICAL_CONTEXT": 0,
+      "REALIZATION_ENVELOPE": 0,
+      "STATE_TABLE": 0,
+      "LEXICAL_ADDRESSING_HINT": 0
+    },
+    "ibq-045": {
+      "NULL_REFORMAT": 0,
+      "QUERY_DUPLICATION": 0,
+      "QUERY_FRONTLOAD": 0,
+      "CANONICAL_CONTEXT": 0,
+      "REALIZATION_ENVELOPE": 0,
+      "STATE_TABLE": 0,
+      "LEXICAL_ADDRESSING_HINT": 0
+    },
+    "ibq-046": {
+      "NULL_REFORMAT": 0,
+      "QUERY_DUPLICATION": 0,
+      "QUERY_FRONTLOAD": 0,
+      "CANONICAL_CONTEXT": 0,
+      "REALIZATION_ENVELOPE": 0,
+      "STATE_TABLE": 0,
+      "LEXICAL_ADDRESSING_HINT": 0
+    },
+    "ibq-049": {
+      "NULL_REFORMAT": 0,
+      "QUERY_DUPLICATION": 0,
+      "QUERY_FRONTLOAD": 0,
+      "CANONICAL_CONTEXT": 0,
+      "REALIZATION_ENVELOPE": 0,
+      "STATE_TABLE": 0,
+      "LEXICAL_ADDRESSING_HINT": 0
+    },
+    "ibq-050": {
+      "NULL_REFORMAT": 0,
+      "QUERY_DUPLICATION": 0,
+      "QUERY_FRONTLOAD": 0,
+      "CANONICAL_CONTEXT": 0,
+      "REALIZATION_ENVELOPE": 0,
+      "STATE_TABLE": 0,
+      "LEXICAL_ADDRESSING_HINT": 0
+    },
+    "ibq-051": {
+      "NULL_REFORMAT": 0,
+      "QUERY_DUPLICATION": 0,
+      "QUERY_FRONTLOAD": 0,
+      "CANONICAL_CONTEXT": 0,
+      "REALIZATION_ENVELOPE": 0,
+      "STATE_TABLE": 0,
+      "LEXICAL_ADDRESSING_HINT": 0
+    },
+    "ibq-052": {
+      "NULL_REFORMAT": 0,
+      "QUERY_DUPLICATION": 0,
+      "QUERY_FRONTLOAD": 0,
+      "CANONICAL_CONTEXT": 0,
+      "REALIZATION_ENVELOPE": 0,
+      "STATE_TABLE": 0,
+      "LEXICAL_ADDRESSING_HINT": 0
+    },
+    "ibq-053": {
+      "NULL_REFORMAT": 0,
+      "QUERY_DUPLICATION": 0,
+      "QUERY_FRONTLOAD": 0,
+      "CANONICAL_CONTEXT": 0,
+      "REALIZATION_ENVELOPE": 0,
+      "STATE_TABLE": 0,
+      "LEXICAL_ADDRESSING_HINT": 0
+    },
+    "ibq-054": {
+      "NULL_REFORMAT": 0,
+      "QUERY_DUPLICATION": 0,
+      "QUERY_FRONTLOAD": 0,
+      "CANONICAL_CONTEXT": 0,
+      "REALIZATION_ENVELOPE": 0,
+      "STATE_TABLE": 0,
+      "LEXICAL_ADDRESSING_HINT": 0
+    },
+    "ibq-055": {
+      "NULL_REFORMAT": 0,
+      "QUERY_DUPLICATION": 0,
+      "QUERY_FRONTLOAD": 0,
+      "CANONICAL_CONTEXT": 0,
+      "REALIZATION_ENVELOPE": 0,
+      "STATE_TABLE": 0,
+      "LEXICAL_ADDRESSING_HINT": 0
+    },
+    "ibq-057": {
+      "NULL_REFORMAT": 0,
+      "QUERY_DUPLICATION": 0,
+      "QUERY_FRONTLOAD": 0,
+      "CANONICAL_CONTEXT": 0,
+      "REALIZATION_ENVELOPE": 0,
+      "STATE_TABLE": 0,
+      "LEXICAL_ADDRESSING_HINT": 0
+    },
+    "ibq-058": {
+      "NULL_REFORMAT": 0,
+      "QUERY_DUPLICATION": 0,
+      "QUERY_FRONTLOAD": 0,
+      "CANONICAL_CONTEXT": 0,
+      "REALIZATION_ENVELOPE": 0,
+      "STATE_TABLE": 0,
+      "LEXICAL_ADDRESSING_HINT": 0
+    },
+    "ibq-059": {
+      "NULL_REFORMAT": 0,
+      "QUERY_DUPLICATION": 0,
+      "QUERY_FRONTLOAD": 0,
+      "CANONICAL_CONTEXT": 0,
+      "REALIZATION_ENVELOPE": 0,
+      "STATE_TABLE": 0,
+      "LEXICAL_ADDRESSING_HINT": 0
+    },
+    "ibq-060": {
+      "NULL_REFORMAT": 0,
+      "QUERY_DUPLICATION": 0,
+      "QUERY_FRONTLOAD": 0,
+      "CANONICAL_CONTEXT": 0,
+      "REALIZATION_ENVELOPE": 0,
+      "STATE_TABLE": 0,
+      "LEXICAL_ADDRESSING_HINT": 0
+    },
+    "ibq-062": {
+      "NULL_REFORMAT": 0,
+      "QUERY_DUPLICATION": 0,
+      "QUERY_FRONTLOAD": 0,
+      "CANONICAL_CONTEXT": 0,
+      "REALIZATION_ENVELOPE": 0,
+      "STATE_TABLE": 0,
+      "LEXICAL_ADDRESSING_HINT": 0
+    },
+    "ibq-063": {
+      "NULL_REFORMAT": 0,
+      "QUERY_DUPLICATION": 0,
+      "QUERY_FRONTLOAD": 0,
+      "CANONICAL_CONTEXT": 0,
+      "REALIZATION_ENVELOPE": 0,
+      "STATE_TABLE": 0,
+      "LEXICAL_ADDRESSING_HINT": 0
+    },
+    "ibq-065": {
+      "NULL_REFORMAT": 0,
+      "QUERY_DUPLICATION": 0,
+      "QUERY_FRONTLOAD": 0,
+      "CANONICAL_CONTEXT": 0,
+      "REALIZATION_ENVELOPE": 0,
+      "STATE_TABLE": 0,
+      "LEXICAL_ADDRESSING_HINT": 0
+    },
+    "ibq-067": {
+      "NULL_REFORMAT": 0,
+      "QUERY_DUPLICATION": 0,
+      "QUERY_FRONTLOAD": 0,
+      "CANONICAL_CONTEXT": 0,
+      "REALIZATION_ENVELOPE": 0,
+      "STATE_TABLE": 0,
+      "LEXICAL_ADDRESSING_HINT": 0
+    },
+    "ibq-069": {
+      "NULL_REFORMAT": 0,
+      "QUERY_DUPLICATION": 0,
+      "QUERY_FRONTLOAD": 0,
+      "CANONICAL_CONTEXT": 0,
+      "REALIZATION_ENVELOPE": 0,
+      "STATE_TABLE": 0,
+      "LEXICAL_ADDRESSING_HINT": 0
+    },
+    "ibq-070": {
+      "NULL_REFORMAT": 0,
+      "QUERY_DUPLICATION": 0,
+      "QUERY_FRONTLOAD": 0,
+      "CANONICAL_CONTEXT": 0,
+      "REALIZATION_ENVELOPE": 0,
+      "STATE_TABLE": 0,
+      "LEXICAL_ADDRESSING_HINT": 0
+    },
+    "ibq-072": {
+      "NULL_REFORMAT": 0,
+      "QUERY_DUPLICATION": 0,
+      "QUERY_FRONTLOAD": 0,
+      "CANONICAL_CONTEXT": 0,
+      "REALIZATION_ENVELOPE": 0,
+      "STATE_TABLE": 0,
+      "LEXICAL_ADDRESSING_HINT": 0
+    },
+    "ibq-074": {
+      "NULL_REFORMAT": 0,
+      "QUERY_DUPLICATION": 0,
+      "QUERY_FRONTLOAD": 0,
+      "CANONICAL_CONTEXT": 0,
+      "REALIZATION_ENVELOPE": 0,
+      "STATE_TABLE": 0,
+      "LEXICAL_ADDRESSING_HINT": 0
+    },
+    "ibq-075": {
+      "NULL_REFORMAT": 0,
+      "QUERY_DUPLICATION": 0,
+      "QUERY_FRONTLOAD": 0,
+      "CANONICAL_CONTEXT": 0,
+      "REALIZATION_ENVELOPE": 0,
+      "STATE_TABLE": 0,
+      "LEXICAL_ADDRESSING_HINT": 0
+    },
+    "ibq-076": {
+      "NULL_REFORMAT": 0,
+      "QUERY_DUPLICATION": 0,
+      "QUERY_FRONTLOAD": 0,
+      "CANONICAL_CONTEXT": 0,
+      "REALIZATION_ENVELOPE": 0,
+      "STATE_TABLE": 0,
+      "LEXICAL_ADDRESSING_HINT": 0
+    },
+    "ibq-078": {
+      "NULL_REFORMAT": 0,
+      "QUERY_DUPLICATION": 0,
+      "QUERY_FRONTLOAD": 0,
+      "CANONICAL_CONTEXT": 0,
+      "REALIZATION_ENVELOPE": 0,
+      "STATE_TABLE": 0,
+      "LEXICAL_ADDRESSING_HINT": 0
+    },
+    "ibq-079": {
+      "NULL_REFORMAT": 0,
+      "QUERY_DUPLICATION": 0,
+      "QUERY_FRONTLOAD": 0,
+      "CANONICAL_CONTEXT": 0,
+      "REALIZATION_ENVELOPE": 0,
+      "STATE_TABLE": 0,
+      "LEXICAL_ADDRESSING_HINT": 0
+    }
+  },
+  "observations": {
+    "ibq-001": {
+      "entropy": 0.0012,
+      "margin": 0.9999,
+      "confidence": 0.0,
+      "output_len": 0,
+      "distinct_ratio": 0.0,
+      "prompt_tokens": 82
+    },
+    "ibq-003": {
+      "entropy": 0.0011,
+      "margin": 0.9999,
+      "confidence": 0.0,
+      "output_len": 0,
+      "distinct_ratio": 0.0,
+      "prompt_tokens": 103
+    },
+    "ibq-004": {
+      "entropy": 0.0011,
+      "margin": 0.9999,
+      "confidence": 0.0,
+      "output_len": 0,
+      "distinct_ratio": 0.0,
+      "prompt_tokens": 67
+    },
+    "ibq-005": {
+      "entropy": 0.0014,
+      "margin": 0.9999,
+      "confidence": 0.0,
+      "output_len": 0,
+      "distinct_ratio": 0.0,
+      "prompt_tokens": 70
+    },
+    "ibq-006": {
+      "entropy": 0.0014,
+      "margin": 0.9999,
+      "confidence": 0.0,
+      "output_len": 0,
+      "distinct_ratio": 0.0,
+      "prompt_tokens": 95
+    },
+    "ibq-007": {
+      "entropy": 0.0009,
+      "margin": 0.9999,
+      "confidence": 0.0,
+      "output_len": 0,
+      "distinct_ratio": 0.0,
+      "prompt_tokens": 105
+    },
+    "ibq-011": {
+      "entropy": 0.0019,
+      "margin": 0.9998,
+      "confidence": 0.0,
+      "output_len": 0,
+      "distinct_ratio": 0.0,
+      "prompt_tokens": 108
+    },
+    "ibq-013": {
+      "entropy": 0.001,
+      "margin": 0.9999,
+      "confidence": 0.0,
+      "output_len": 0,
+      "distinct_ratio": 0.0,
+      "prompt_tokens": 79
+    },
+    "ibq-014": {
+      "entropy": 0.0012,
+      "margin": 0.9999,
+      "confidence": 0.0,
+      "output_len": 0,
+      "distinct_ratio": 0.0,
+      "prompt_tokens": 90
+    },
+    "ibq-015": {
+      "entropy": 0.0012,
+      "margin": 0.9999,
+      "confidence": 0.0,
+      "output_len": 0,
+      "distinct_ratio": 0.0,
+      "prompt_tokens": 99
+    },
+    "ibq-017": {
+      "entropy": 0.0011,
+      "margin": 0.9999,
+      "confidence": 0.0,
+      "output_len": 0,
+      "distinct_ratio": 0.0,
+      "prompt_tokens": 69
+    },
+    "ibq-018": {
+      "entropy": 0.0015,
+      "margin": 0.9999,
+      "confidence": 0.0,
+      "output_len": 0,
+      "distinct_ratio": 0.0,
+      "prompt_tokens": 89
+    },
+    "ibq-019": {
+      "entropy": 0.0012,
+      "margin": 0.9999,
+      "confidence": 0.0,
+      "output_len": 0,
+      "distinct_ratio": 0.0,
+      "prompt_tokens": 90
+    },
+    "ibq-021": {
+      "entropy": 0.0016,
+      "margin": 0.9999,
+      "confidence": 0.0,
+      "output_len": 0,
+      "distinct_ratio": 0.0,
+      "prompt_tokens": 73
+    },
+    "ibq-022": {
+      "entropy": 0.0023,
+      "margin": 0.9998,
+      "confidence": 0.0,
+      "output_len": 0,
+      "distinct_ratio": 0.0,
+      "prompt_tokens": 98
+    },
+    "ibq-023": {
+      "entropy": 0.0012,
+      "margin": 0.9999,
+      "confidence": 0.0,
+      "output_len": 0,
+      "distinct_ratio": 0.0,
+      "prompt_tokens": 101
+    },
+    "ibq-024": {
+      "entropy": 0.0019,
+      "margin": 0.9998,
+      "confidence": 0.0,
+      "output_len": 0,
+      "distinct_ratio": 0.0,
+      "prompt_tokens": 66
+    },
+    "ibq-025": {
+      "entropy": 0.0015,
+      "margin": 0.9999,
+      "confidence": 0.0,
+      "output_len": 0,
+      "distinct_ratio": 0.0,
+      "prompt_tokens": 72
+    },
+    "ibq-026": {
+      "entropy": 0.002,
+      "margin": 0.9998,
+      "confidence": 0.0,
+      "output_len": 0,
+      "distinct_ratio": 0.0,
+      "prompt_tokens": 97
+    },
+    "ibq-027": {
+      "entropy": 0.0011,
+      "margin": 0.9999,
+      "confidence": 0.0,
+      "output_len": 0,
+      "distinct_ratio": 0.0,
+      "prompt_tokens": 103
+    },
+    "ibq-028": {
+      "entropy": 0.0012,
+      "margin": 0.9999,
+      "confidence": 0.0,
+      "output_len": 0,
+      "distinct_ratio": 0.0,
+      "prompt_tokens": 61
+    },
+    "ibq-029": {
+      "entropy": 0.0015,
+      "margin": 0.9999,
+      "confidence": 0.0,
+      "output_len": 0,
+      "distinct_ratio": 0.0,
+      "prompt_tokens": 67
+    },
+    "ibq-030": {
+      "entropy": 0.0013,
+      "margin": 0.9999,
+      "confidence": 0.0,
+      "output_len": 0,
+      "distinct_ratio": 0.0,
+      "prompt_tokens": 93
+    },
+    "ibq-031": {
+      "entropy": 0.0016,
+      "margin": 0.9998,
+      "confidence": 0.0,
+      "output_len": 0,
+      "distinct_ratio": 0.0,
+      "prompt_tokens": 98
+    },
+    "ibq-033": {
+      "entropy": 0.0018,
+      "margin": 0.9998,
+      "confidence": 0.0,
+      "output_len": 0,
+      "distinct_ratio": 0.0,
+      "prompt_tokens": 77
+    },
+    "ibq-034": {
+      "entropy": 0.0011,
+      "margin": 0.9999,
+      "confidence": 0.0,
+      "output_len": 0,
+      "distinct_ratio": 0.0,
+      "prompt_tokens": 89
+    },
+    "ibq-035": {
+      "entropy": 0.0013,
+      "margin": 0.9999,
+      "confidence": 0.0,
+      "output_len": 0,
+      "distinct_ratio": 0.0,
+      "prompt_tokens": 94
+    },
+    "ibq-038": {
+      "entropy": 0.0018,
+      "margin": 0.9998,
+      "confidence": 0.0,
+      "output_len": 0,
+      "distinct_ratio": 0.0,
+      "prompt_tokens": 97
+    },
+    "ibq-039": {
+      "entropy": 0.001,
+      "margin": 0.9999,
+      "confidence": 0.0,
+      "output_len": 0,
+      "distinct_ratio": 0.0,
+      "prompt_tokens": 102
+    },
+    "ibq-040": {
+      "entropy": 0.0013,
+      "margin": 0.9999,
+      "confidence": 0.0,
+      "output_len": 0,
+      "distinct_ratio": 0.0,
+      "prompt_tokens": 63
+    },
+    "ibq-043": {
+      "entropy": 0.0012,
+      "margin": 0.9999,
+      "confidence": 0.0,
+      "output_len": 0,
+      "distinct_ratio": 0.0,
+      "prompt_tokens": 98
+    },
+    "ibq-044": {
+      "entropy": 0.0014,
+      "margin": 0.9999,
+      "confidence": 0.0,
+      "output_len": 0,
+      "distinct_ratio": 0.0,
+      "prompt_tokens": 67
+    },
+    "ibq-045": {
+      "entropy": 0.0012,
+      "margin": 0.9999,
+      "confidence": 0.0,
+      "output_len": 0,
+      "distinct_ratio": 0.0,
+      "prompt_tokens": 74
+    },
+    "ibq-046": {
+      "entropy": 0.002,
+      "margin": 0.9998,
+      "confidence": 0.0,
+      "output_len": 0,
+      "distinct_ratio": 0.0,
+      "prompt_tokens": 96
+    },
+    "ibq-049": {
+      "entropy": 0.0014,
+      "margin": 0.9999,
+      "confidence": 0.0,
+      "output_len": 0,
+      "distinct_ratio": 0.0,
+      "prompt_tokens": 76
+    },
+    "ibq-050": {
+      "entropy": 0.0026,
+      "margin": 0.9998,
+      "confidence": 0.0,
+      "output_len": 0,
+      "distinct_ratio": 0.0,
+      "prompt_tokens": 96
+    },
+    "ibq-051": {
+      "entropy": 0.0016,
+      "margin": 0.9998,
+      "confidence": 0.0,
+      "output_len": 0,
+      "distinct_ratio": 0.0,
+      "prompt_tokens": 99
+    },
+    "ibq-052": {
+      "entropy": 0.001,
+      "margin": 0.9999,
+      "confidence": 0.0,
+      "output_len": 0,
+      "distinct_ratio": 0.0,
+      "prompt_tokens": 61
+    },
+    "ibq-053": {
+      "entropy": 0.0011,
+      "margin": 0.9999,
+      "confidence": 0.0,
+      "output_len": 0,
+      "distinct_ratio": 0.0,
+      "prompt_tokens": 77
+    },
+    "ibq-054": {
+      "entropy": 0.0015,
+      "margin": 0.9999,
+      "confidence": 0.0,
+      "output_len": 0,
+      "distinct_ratio": 0.0,
+      "prompt_tokens": 93
+    },
+    "ibq-055": {
+      "entropy": 0.0013,
+      "margin": 0.9999,
+      "confidence": 0.0,
+      "output_len": 0,
+      "distinct_ratio": 0.0,
+      "prompt_tokens": 103
+    },
+    "ibq-057": {
+      "entropy": 0.0018,
+      "margin": 0.9998,
+      "confidence": 0.0,
+      "output_len": 0,
+      "distinct_ratio": 0.0,
+      "prompt_tokens": 81
+    },
+    "ibq-058": {
+      "entropy": 0.0021,
+      "margin": 0.9998,
+      "confidence": 0.0,
+      "output_len": 0,
+      "distinct_ratio": 0.0,
+      "prompt_tokens": 101
+    },
+    "ibq-059": {
+      "entropy": 0.0012,
+      "margin": 0.9999,
+      "confidence": 0.0,
+      "output_len": 0,
+      "distinct_ratio": 0.0,
+      "prompt_tokens": 106
+    },
+    "ibq-060": {
+      "entropy": 0.0015,
+      "margin": 0.9999,
+      "confidence": 0.0,
+      "output_len": 0,
+      "distinct_ratio": 0.0,
+      "prompt_tokens": 59
+    },
+    "ibq-062": {
+      "entropy": 0.0018,
+      "margin": 0.9998,
+      "confidence": 0.0,
+      "output_len": 0,
+      "distinct_ratio": 0.0,
+      "prompt_tokens": 86
+    },
+    "ibq-063": {
+      "entropy": 0.0018,
+      "margin": 0.9998,
+      "confidence": 0.0,
+      "output_len": 0,
+      "distinct_ratio": 0.0,
+      "prompt_tokens": 103
+    },
+    "ibq-065": {
+      "entropy": 0.0016,
+      "margin": 0.9999,
+      "confidence": 0.0,
+      "output_len": 0,
+      "distinct_ratio": 0.0,
+      "prompt_tokens": 68
+    },
+    "ibq-067": {
+      "entropy": 0.0014,
+      "margin": 0.9999,
+      "confidence": 0.0,
+      "output_len": 0,
+      "distinct_ratio": 0.0,
+      "prompt_tokens": 100
+    },
+    "ibq-069": {
+      "entropy": 0.0009,
+      "margin": 0.9999,
+      "confidence": 0.0,
+      "output_len": 0,
+      "distinct_ratio": 0.0,
+      "prompt_tokens": 78
+    },
+    "ibq-070": {
+      "entropy": 0.0019,
+      "margin": 0.9998,
+      "confidence": 0.0,
+      "output_len": 0,
+      "distinct_ratio": 0.0,
+      "prompt_tokens": 98
+    },
+    "ibq-072": {
+      "entropy": 0.0013,
+      "margin": 0.9999,
+      "confidence": 0.0,
+      "output_len": 0,
+      "distinct_ratio": 0.0,
+      "prompt_tokens": 71
+    },
+    "ibq-074": {
+      "entropy": 0.0021,
+      "margin": 0.9998,
+      "confidence": 0.0,
+      "output_len": 0,
+      "distinct_ratio": 0.0,
+      "prompt_tokens": 95
+    },
+    "ibq-075": {
+      "entropy": 0.0017,
+      "margin": 0.9998,
+      "confidence": 0.0,
+      "output_len": 0,
+      "distinct_ratio": 0.0,
+      "prompt_tokens": 95
+    },
+    "ibq-076": {
+      "entropy": 0.0011,
+      "margin": 0.9999,
+      "confidence": 0.0,
+      "output_len": 0,
+      "distinct_ratio": 0.0,
+      "prompt_tokens": 57
+    },
+    "ibq-078": {
+      "entropy": 0.0018,
+      "margin": 0.9998,
+      "confidence": 0.0,
+      "output_len": 0,
+      "distinct_ratio": 0.0,
+      "prompt_tokens": 89
+    },
+    "ibq-079": {
+      "entropy": 0.0022,
+      "margin": 0.9998,
+      "confidence": 0.0,
+      "output_len": 0,
+      "distinct_ratio": 0.0,
+      "prompt_tokens": 103
+    }
+  },
+  "meta": {
+    "ibq-001": {
+      "gold": "DZN-297",
+      "n_facts": 3,
+      "baseline_output": " DZN-206."
+    },
+    "ibq-003": {
+      "gold": "EKH-350",
+      "n_facts": 5,
+      "baseline_output": " BQW-859."
+    },
+    "ibq-004": {
+      "gold": "FMP-136",
+      "n_facts": 2,
+      "baseline_output": " FMP-940."
+    },
+    "ibq-005": {
+      "gold": "FMP-413",
+      "n_facts": 3,
+      "baseline_output": " BQW-374."
+    },
+    "ibq-006": {
+      "gold": "CTY-163",
+      "n_facts": 4,
+      "baseline_output": " AVR-667."
+    },
+    "ibq-007": {
+      "gold": "AVR-930",
+      "n_facts": 5,
+      "baseline_output": " BQW-973."
+    },
+    "ibq-011": {
+      "gold": "DZN-274",
+      "n_facts": 5,
+      "baseline_output": " BQW-145."
+    },
+    "ibq-013": {
+      "gold": "GQS-749",
+      "n_facts": 3,
+      "baseline_output": " BQW-949."
+    },
+    "ibq-014": {
+      "gold": "DZN-661",
+      "n_facts": 4,
+      "baseline_output": " HUB-175."
+    },
+    "ibq-015": {
+      "gold": "FMP-896",
+      "n_facts": 5,
+      "baseline_output": " HUB-441."
+    },
+    "ibq-017": {
+      "gold": "FMP-272",
+      "n_facts": 3,
+      "baseline_output": " HUB-593."
+    },
+    "ibq-018": {
+      "gold": "EKH-935",
+      "n_facts": 4,
+      "baseline_output": " DZN-935."
+    },
+    "ibq-019": {
+      "gold": "DZN-957",
+      "n_facts": 5,
+      "baseline_output": " GQS-641."
+    },
+    "ibq-021": {
+      "gold": "BQW-106",
+      "n_facts": 3,
+      "baseline_output": " DZN-126."
+    },
+    "ibq-022": {
+      "gold": "CTY-217",
+      "n_facts": 4,
+      "baseline_output": " CTY-206."
+    },
+    "ibq-023": {
+      "gold": "CTY-666",
+      "n_facts": 5,
+      "baseline_output": " GQS-965."
+    },
+    "ibq-024": {
+      "gold": "HUB-422",
+      "n_facts": 2,
+      "baseline_output": " HUB-211."
+    },
+    "ibq-025": {
+      "gold": "CTY-401",
+      "n_facts": 3,
+      "baseline_output": " DZN-867."
+    },
+    "ibq-026": {
+      "gold": "BQW-824",
+      "n_facts": 4,
+      "baseline_output": " DZN-649."
+    },
+    "ibq-027": {
+      "gold": "CTY-249",
+      "n_facts": 5,
+      "baseline_output": " GQS-399."
+    },
+    "ibq-028": {
+      "gold": "FMP-675",
+      "n_facts": 2,
+      "baseline_output": " AVR-360."
+    },
+    "ibq-029": {
+      "gold": "GQS-432",
+      "n_facts": 3,
+      "baseline_output": " GQS-424."
+    },
+    "ibq-030": {
+      "gold": "AVR-833",
+      "n_facts": 4,
+      "baseline_output": " EKH-821."
+    },
+    "ibq-031": {
+      "gold": "AVR-539",
+      "n_facts": 5,
+      "baseline_output": " BQW-192."
+    },
+    "ibq-033": {
+      "gold": "AVR-318",
+      "n_facts": 3,
+      "baseline_output": " BQW-297."
+    },
+    "ibq-034": {
+      "gold": "FMP-761",
+      "n_facts": 4,
+      "baseline_output": " EKH-864."
+    },
+    "ibq-035": {
+      "gold": "FMP-659",
+      "n_facts": 5,
+      "baseline_output": " HUB-553."
+    },
+    "ibq-038": {
+      "gold": "BQW-470",
+      "n_facts": 4,
+      "baseline_output": " BQW-477."
+    },
+    "ibq-039": {
+      "gold": "EKH-987",
+      "n_facts": 5,
+      "baseline_output": " GQS-912."
+    },
+    "ibq-040": {
+      "gold": "GQS-393",
+      "n_facts": 2,
+      "baseline_output": " GQS-109."
+    },
+    "ibq-043": {
+      "gold": "CTY-766",
+      "n_facts": 5,
+      "baseline_output": " HUB-818."
+    },
+    "ibq-044": {
+      "gold": "HUB-552",
+      "n_facts": 2,
+      "baseline_output": " BQW-376."
+    },
+    "ibq-045": {
+      "gold": "AVR-666",
+      "n_facts": 3,
+      "baseline_output": " BQW-952."
+    },
+    "ibq-046": {
+      "gold": "AVR-677",
+      "n_facts": 4,
+      "baseline_output": " BQW-827."
+    },
+    "ibq-049": {
+      "gold": "AVR-772",
+      "n_facts": 3,
+      "baseline_output": " CTY-968."
+    },
+    "ibq-050": {
+      "gold": "DZN-987",
+      "n_facts": 4,
+      "baseline_output": " BQW-530."
+    },
+    "ibq-051": {
+      "gold": "HUB-132",
+      "n_facts": 5,
+      "baseline_output": " HUB-941."
+    },
+    "ibq-052": {
+      "gold": "AVR-772",
+      "n_facts": 2,
+      "baseline_output": " AVR-944."
+    },
+    "ibq-053": {
+      "gold": "FMP-571",
+      "n_facts": 3,
+      "baseline_output": " HUB-424."
+    },
+    "ibq-054": {
+      "gold": "FMP-642",
+      "n_facts": 4,
+      "baseline_output": " CTY-914."
+    },
+    "ibq-055": {
+      "gold": "CTY-727",
+      "n_facts": 5,
+      "baseline_output": " CTY-647."
+    },
+    "ibq-057": {
+      "gold": "DZN-554",
+      "n_facts": 3,
+      "baseline_output": " HUB-388."
+    },
+    "ibq-058": {
+      "gold": "BQW-396",
+      "n_facts": 4,
+      "baseline_output": " BQW-711."
+    },
+    "ibq-059": {
+      "gold": "AVR-651",
+      "n_facts": 5,
+      "baseline_output": " EKH-155."
+    },
+    "ibq-060": {
+      "gold": "EKH-884",
+      "n_facts": 2,
+      "baseline_output": " HUB-290."
+    },
+    "ibq-062": {
+      "gold": "CTY-100",
+      "n_facts": 4,
+      "baseline_output": " BQW-604."
+    },
+    "ibq-063": {
+      "gold": "CTY-903",
+      "n_facts": 5,
+      "baseline_output": " EKH-933."
+    },
+    "ibq-065": {
+      "gold": "CTY-316",
+      "n_facts": 3,
+      "baseline_output": " GQS-414."
+    },
+    "ibq-067": {
+      "gold": "AVR-382",
+      "n_facts": 5,
+      "baseline_output": " GQS-633."
+    },
+    "ibq-069": {
+      "gold": "GQS-543",
+      "n_facts": 3,
+      "baseline_output": " GQS-858."
+    },
+    "ibq-070": {
+      "gold": "AVR-412",
+      "n_facts": 4,
+      "baseline_output": " BQW-934."
+    },
+    "ibq-072": {
+      "gold": "AVR-475",
+      "n_facts": 2,
+      "baseline_output": " AVR-680."
+    },
+    "ibq-074": {
+      "gold": "DZN-426",
+      "n_facts": 4,
+      "baseline_output": " BQW-544."
+    },
+    "ibq-075": {
+      "gold": "EKH-430",
+      "n_facts": 5,
+      "baseline_output": " HUB-177."
+    },
+    "ibq-076": {
+      "gold": "DZN-573",
+      "n_facts": 2,
+      "baseline_output": " DZN-610."
+    },
+    "ibq-078": {
+      "gold": "CTY-395",
+      "n_facts": 4,
+      "baseline_output": " AVR-264."
+    },
+    "ibq-079": {
+      "gold": "BQW-339",
+      "n_facts": 5,
+      "baseline_output": " HUB-135."
+    }
+  },
+  "ibq_gate": {
+    "qualified": false,
+    "checks": {
+      "G1_legality_mechanical": true,
+      "G2_oracle_coverage": false,
+      "G3_no_degenerate_probes": false,
+      "G4_response_diversity": true,
+      "G5_bounded_redundancy": true,
+      "G6_identification_capacity": true,
+      "G7_controls_null": true,
+      "G8_no_universal_solver": true,
+      "G9_probe_support": true,
+      "G10_beats_every_null_family": false
+    },
+    "legality": {
+      "NULL_REFORMAT": true,
+      "QUERY_DUPLICATION": true,
+      "QUERY_FRONTLOAD": true,
+      "CANONICAL_CONTEXT": true,
+      "REALIZATION_ENVELOPE": true,
+      "STATE_TABLE": true,
+      "LEXICAL_ADDRESSING_HINT": true
+    },
+    "null_families": {
+      "GLOBAL": {
+        "real_signature_entropy_bits": 0.6325,
+        "null_entropy_mean": 0.7596,
+        "null_entropy_p95": 1.1866,
+        "real_unique_signatures": 6,
+        "null_unique_mean": 5.53,
+        "entropy_p_value_vs_nulls": 0.32,
+        "verdict": "no structure beyond sparsity"
+      },
+      "COLUMN": {
+        "real_signature_entropy_bits": 0.6325,
+        "null_entropy_mean": 0.7752,
+        "null_entropy_p95": 0.812,
+        "real_unique_signatures": 6,
+        "null_unique_mean": 6.0,
+        "entropy_p_value_vs_nulls": 0.05,
+        "verdict": "structure exceeds matched nulls (X0-v2 candidate)"
+      },
+      "ROW": {
+        "real_signature_entropy_bits": 0.6325,
+        "null_entropy_mean": 0.6159,
+        "null_entropy_p95": 0.6325,
+        "real_unique_signatures": 6,
+        "null_unique_mean": 5.53,
+        "entropy_p_value_vs_nulls": 1.0,
+        "verdict": "no structure beyond sparsity"
+      }
+    },
+    "quality": {
+      "n_failures": 57,
+      "n_interventions": 7,
+      "oracle_coverage": 0.0877,
+      "cell_prevalence": 0.0175,
+      "per_intervention_prevalence": [
+        0.0175,
+        0.0,
+        0.0175,
+        0.0351,
+        0.0351,
+        0.0175,
+        0.0
+      ],
+      "degenerate_interventions": [
+        1,
+        6
+      ],
+      "response_signature_entropy_bits": 0.6325,
+      "unique_signatures": 6,
+      "pairwise_redundancy": 0.0476,
+      "identification_capacity": 6
+    }
+  },
+  "ibq_quality": {
+    "n_failures": 57,
+    "n_interventions": 7,
+    "oracle_coverage": 0.0877,
+    "cell_prevalence": 0.0175,
+    "per_intervention_prevalence": [
+      0.0175,
+      0.0,
+      0.0175,
+      0.0351,
+      0.0351,
+      0.0175,
+      0.0
+    ],
+    "degenerate_interventions": [
+      1,
+      6
+    ],
+    "response_signature_entropy_bits": 0.6325,
+    "unique_signatures": 6,
+    "pairwise_redundancy": 0.0476,
+    "identification_capacity": 6
+  },
+  "geometry_nulls": {
+    "real_signature_entropy_bits": 0.6325,
+    "null_entropy_mean": 0.7255,
+    "null_entropy_p95": 1.0596,
+    "real_unique_signatures": 6,
+    "null_unique_mean": 5.71,
+    "entropy_p_value_vs_nulls": 0.445,
+    "verdict": "no structure beyond sparsity"
+  },
+  "oracle_coverage": 0.0877
+}
