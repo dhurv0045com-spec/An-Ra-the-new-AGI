@@ -2,8 +2,70 @@
   "cells_present": 15,
   "cells_required": 30,
   "cuda_stage_complete": true,
+  "first_position_equivalence": {
+    "16384:95101": {
+      "inside_margin": true,
+      "rate": 0.3333
+    },
+    "16384:95102": {
+      "inside_margin": true,
+      "rate": 0.3333
+    },
+    "16384:95103": {
+      "inside_margin": true,
+      "rate": 0.3333
+    },
+    "16384:95104": {
+      "inside_margin": true,
+      "rate": 0.3333
+    },
+    "16384:95105": {
+      "inside_margin": true,
+      "rate": 0.3333
+    },
+    "24576:95101": {
+      "inside_margin": true,
+      "rate": 0.3333
+    },
+    "24576:95102": {
+      "inside_margin": true,
+      "rate": 0.3333
+    },
+    "24576:95103": {
+      "inside_margin": true,
+      "rate": 0.3333
+    },
+    "24576:95104": {
+      "inside_margin": true,
+      "rate": 0.3333
+    },
+    "24576:95105": {
+      "inside_margin": true,
+      "rate": 0.3333
+    },
+    "32768:95101": {
+      "inside_margin": true,
+      "rate": 0.3333
+    },
+    "32768:95102": {
+      "inside_margin": true,
+      "rate": 0.3333
+    },
+    "32768:95103": {
+      "inside_margin": true,
+      "rate": 0.3333
+    },
+    "32768:95104": {
+      "inside_margin": true,
+      "rate": 0.3333
+    },
+    "32768:95105": {
+      "inside_margin": true,
+      "rate": 0.3333
+    }
+  },
   "gpu_budget_pass": true,
-  "gpu_hours": 0.07574370072223247,
+  "gpu_hours": 0.0893202160277805,
   "holm_all_equivalence_nulls_rejected": false,
   "holm_decisions": {
     "contextual_calibration:16384:arbitrary_hidden_label": true,
@@ -142,7 +204,7 @@
   "holm_familywise_alpha": 0.01,
   "holm_gate_implemented": true,
   "holm_hypotheses": 132,
-  "implementation_sha256": "d3670f74bc28a7e0f606a58a2fe9258c1551f31bb26666c6212aa4b5fcf6559f",
+  "implementation_sha256": "5da6807247cc8efbfd2bb3a8de00a8d4df0f7818b5c80679752fd7dc1a999255",
   "limitations": [
     "This command cannot execute fresh fixtures.",
     "Parametric cluster-level TOST assumes the five seed rates are an adequate sampling model."
@@ -2780,8 +2842,9 @@
     "domain_pmi": false
   },
   "promotion_authorized": false,
+  "rotation_geometry_pass": true,
   "schema": "esoes-e2-scoring-policy-development/v1",
-  "shard_implementation_sha256": "89c0632cfdf7fa39b51be1a7bb83ceaab4e1a5776823167a93e4bcc7948dfc6e",
+  "shard_implementation_sha256": "5da6807247cc8efbfd2bb3a8de00a8d4df0f7818b5c80679752fd7dc1a999255",
   "status": "FAIL_DEVELOPMENT_POLICY",
   "synthetic_interventions_pass": true
 }

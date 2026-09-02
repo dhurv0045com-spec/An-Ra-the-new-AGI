@@ -1,0 +1,20 @@
+{
+  "schema": "esoes-e2-scoring-policy-development-verdict/v1",
+  "timestamp": "2026-09-02 22:37",
+  "execution": {
+    "cuda_cells": 15,
+    "cpu_cells": 0,
+    "gpu_hours": 0.089,
+    "budget": 0.5,
+    "all_shards": "PASS_EXECUTION",
+    "rotation_geometry_pass": true,
+    "position_bias_negative_control_caught": true
+  },
+  "bias_screen": {
+    "domain_pmi": "FAIL (marked_prefix rate 0.000, hidden-label at chance 0.332)",
+    "contextual_calibration": "FAIL (same signature)"
+  },
+  "per_prereg_decision_hierarchy": "no calibrated policy passed every gate on development -> production_scoring_mode stays NULL; learned E1-E3 comparisons stay blocked; fresh fixture NOT touched (fresh outcomes forbidden before a passing development run)",
+  "scientific_finding": "both calibrated scoring policies carry a systematic marked-prefix bias on this fixture family: PMI/calibration neutral baselines do not cancel the marked prefix surface. Instrument defect, not threshold defect. Next instrument iteration must neutralize prefix-token statistics (e.g., role-matched neutral panels or prefix-statistic balancing) BEFORE any threshold or policy change.",
+  "training_program_ref": "v5_training/PROGRAM.md Stage 0"
+}
