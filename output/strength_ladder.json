@@ -1,0 +1,467 @@
+{
+  "schema": "anra-strength-ladder/v1",
+  "timestamp": "2026-09-03 01:49:52",
+  "checkpoint": "checkpoints/anra-v4-20k-sft3-accumulate.pt",
+  "parameter_sha256": null,
+  "n_tasks": 60,
+  "baseline_pass": 16,
+  "n_failures": 44,
+  "repairability_curve": {
+    "A0_null": 0.0,
+    "A1_canonical": 0.25,
+    "A2_lexical_hint": 0.0,
+    "A3_scaffold": 0.1818,
+    "A4_oracle": 0.5455
+  },
+  "monotonicity_violations": [
+    [
+      "A1_canonical",
+      "A2_lexical_hint"
+    ]
+  ],
+  "diagnosis": "MIXED_PARTIAL",
+  "interpretation": "partial repairability at intermediate strength",
+  "per_task": [
+    {
+      "id": "sl-002",
+      "A0_null": 0,
+      "A1_canonical": 0,
+      "A2_lexical_hint": 0,
+      "A3_scaffold": 0,
+      "A4_oracle": 1,
+      "gold": "FMP-939",
+      "n_facts": 4
+    },
+    {
+      "id": "sl-003",
+      "A0_null": 0,
+      "A1_canonical": 0,
+      "A2_lexical_hint": 0,
+      "A3_scaffold": 1,
+      "A4_oracle": 1,
+      "gold": "EKH-350",
+      "n_facts": 5
+    },
+    {
+      "id": "sl-004",
+      "A0_null": 0,
+      "A1_canonical": 0,
+      "A2_lexical_hint": 0,
+      "A3_scaffold": 0,
+      "A4_oracle": 1,
+      "gold": "AVR-465",
+      "n_facts": 2
+    },
+    {
+      "id": "sl-005",
+      "A0_null": 0,
+      "A1_canonical": 0,
+      "A2_lexical_hint": 0,
+      "A3_scaffold": 0,
+      "A4_oracle": 0,
+      "gold": "AVR-651",
+      "n_facts": 3
+    },
+    {
+      "id": "sl-007",
+      "A0_null": 0,
+      "A1_canonical": 0,
+      "A2_lexical_hint": 0,
+      "A3_scaffold": 0,
+      "A4_oracle": 0,
+      "gold": "EKH-179",
+      "n_facts": 5
+    },
+    {
+      "id": "sl-008",
+      "A0_null": 0,
+      "A1_canonical": 0,
+      "A2_lexical_hint": 0,
+      "A3_scaffold": 0,
+      "A4_oracle": 0,
+      "gold": "DZN-980",
+      "n_facts": 2
+    },
+    {
+      "id": "sl-009",
+      "A0_null": 0,
+      "A1_canonical": 0,
+      "A2_lexical_hint": 0,
+      "A3_scaffold": 0,
+      "A4_oracle": 1,
+      "gold": "EKH-725",
+      "n_facts": 3
+    },
+    {
+      "id": "sl-010",
+      "A0_null": 0,
+      "A1_canonical": 1,
+      "A2_lexical_hint": 0,
+      "A3_scaffold": 1,
+      "A4_oracle": 1,
+      "gold": "DZN-680",
+      "n_facts": 4
+    },
+    {
+      "id": "sl-011",
+      "A0_null": 0,
+      "A1_canonical": 0,
+      "A2_lexical_hint": 0,
+      "A3_scaffold": 0,
+      "A4_oracle": 0,
+      "gold": "HUB-267",
+      "n_facts": 5
+    },
+    {
+      "id": "sl-014",
+      "A0_null": 0,
+      "A1_canonical": 0,
+      "A2_lexical_hint": 0,
+      "A3_scaffold": 0,
+      "A4_oracle": 1,
+      "gold": "AVR-165",
+      "n_facts": 4
+    },
+    {
+      "id": "sl-015",
+      "A0_null": 0,
+      "A1_canonical": 0,
+      "A2_lexical_hint": 0,
+      "A3_scaffold": 0,
+      "A4_oracle": 0,
+      "gold": "AVR-106",
+      "n_facts": 5
+    },
+    {
+      "id": "sl-016",
+      "A0_null": 0,
+      "A1_canonical": 0,
+      "A2_lexical_hint": 0,
+      "A3_scaffold": 0,
+      "A4_oracle": 1,
+      "gold": "EKH-751",
+      "n_facts": 2
+    },
+    {
+      "id": "sl-017",
+      "A0_null": 0,
+      "A1_canonical": 0,
+      "A2_lexical_hint": 0,
+      "A3_scaffold": 1,
+      "A4_oracle": 1,
+      "gold": "GQS-641",
+      "n_facts": 3
+    },
+    {
+      "id": "sl-018",
+      "A0_null": 0,
+      "A1_canonical": 0,
+      "A2_lexical_hint": 0,
+      "A3_scaffold": 0,
+      "A4_oracle": 0,
+      "gold": "EKH-978",
+      "n_facts": 4
+    },
+    {
+      "id": "sl-019",
+      "A0_null": 0,
+      "A1_canonical": 0,
+      "A2_lexical_hint": 0,
+      "A3_scaffold": 1,
+      "A4_oracle": 1,
+      "gold": "EKH-466",
+      "n_facts": 5
+    },
+    {
+      "id": "sl-022",
+      "A0_null": 0,
+      "A1_canonical": 0,
+      "A2_lexical_hint": 0,
+      "A3_scaffold": 0,
+      "A4_oracle": 1,
+      "gold": "EKH-709",
+      "n_facts": 4
+    },
+    {
+      "id": "sl-023",
+      "A0_null": 0,
+      "A1_canonical": 0,
+      "A2_lexical_hint": 0,
+      "A3_scaffold": 0,
+      "A4_oracle": 0,
+      "gold": "GQS-389",
+      "n_facts": 5
+    },
+    {
+      "id": "sl-024",
+      "A0_null": 0,
+      "A1_canonical": 1,
+      "A2_lexical_hint": 0,
+      "A3_scaffold": 0,
+      "A4_oracle": 1,
+      "gold": "FMP-628",
+      "n_facts": 2
+    },
+    {
+      "id": "sl-025",
+      "A0_null": 0,
+      "A1_canonical": 0,
+      "A2_lexical_hint": 0,
+      "A3_scaffold": 0,
+      "A4_oracle": 0,
+      "gold": "CTY-343",
+      "n_facts": 3
+    },
+    {
+      "id": "sl-026",
+      "A0_null": 0,
+      "A1_canonical": 0,
+      "A2_lexical_hint": 0,
+      "A3_scaffold": 0,
+      "A4_oracle": 0,
+      "gold": "CTY-599",
+      "n_facts": 4
+    },
+    {
+      "id": "sl-027",
+      "A0_null": 0,
+      "A1_canonical": 1,
+      "A2_lexical_hint": 0,
+      "A3_scaffold": 1,
+      "A4_oracle": 1,
+      "gold": "BQW-192",
+      "n_facts": 5
+    },
+    {
+      "id": "sl-028",
+      "A0_null": 0,
+      "A1_canonical": 0,
+      "A2_lexical_hint": 0,
+      "A3_scaffold": 0,
+      "A4_oracle": 1,
+      "gold": "FMP-961",
+      "n_facts": 2
+    },
+    {
+      "id": "sl-029",
+      "A0_null": 0,
+      "A1_canonical": 0,
+      "A2_lexical_hint": 0,
+      "A3_scaffold": 0,
+      "A4_oracle": 0,
+      "gold": "GQS-600",
+      "n_facts": 3
+    },
+    {
+      "id": "sl-033",
+      "A0_null": 0,
+      "A1_canonical": 0,
+      "A2_lexical_hint": 0,
+      "A3_scaffold": 0,
+      "A4_oracle": 0,
+      "gold": "AVR-196",
+      "n_facts": 3
+    },
+    {
+      "id": "sl-034",
+      "A0_null": 0,
+      "A1_canonical": 0,
+      "A2_lexical_hint": 0,
+      "A3_scaffold": 0,
+      "A4_oracle": 1,
+      "gold": "EKH-565",
+      "n_facts": 4
+    },
+    {
+      "id": "sl-035",
+      "A0_null": 0,
+      "A1_canonical": 0,
+      "A2_lexical_hint": 0,
+      "A3_scaffold": 0,
+      "A4_oracle": 0,
+      "gold": "CTY-925",
+      "n_facts": 5
+    },
+    {
+      "id": "sl-038",
+      "A0_null": 0,
+      "A1_canonical": 0,
+      "A2_lexical_hint": 0,
+      "A3_scaffold": 0,
+      "A4_oracle": 1,
+      "gold": "CTY-766",
+      "n_facts": 4
+    },
+    {
+      "id": "sl-039",
+      "A0_null": 0,
+      "A1_canonical": 1,
+      "A2_lexical_hint": 0,
+      "A3_scaffold": 1,
+      "A4_oracle": 1,
+      "gold": "HUB-772",
+      "n_facts": 5
+    },
+    {
+      "id": "sl-040",
+      "A0_null": 0,
+      "A1_canonical": 0,
+      "A2_lexical_hint": 0,
+      "A3_scaffold": 0,
+      "A4_oracle": 0,
+      "gold": "CTY-459",
+      "n_facts": 2
+    },
+    {
+      "id": "sl-041",
+      "A0_null": 0,
+      "A1_canonical": 1,
+      "A2_lexical_hint": 0,
+      "A3_scaffold": 1,
+      "A4_oracle": 0,
+      "gold": "DZN-404",
+      "n_facts": 3
+    },
+    {
+      "id": "sl-042",
+      "A0_null": 0,
+      "A1_canonical": 0,
+      "A2_lexical_hint": 0,
+      "A3_scaffold": 0,
+      "A4_oracle": 1,
+      "gold": "GQS-568",
+      "n_facts": 4
+    },
+    {
+      "id": "sl-043",
+      "A0_null": 0,
+      "A1_canonical": 1,
+      "A2_lexical_hint": 0,
+      "A3_scaffold": 0,
+      "A4_oracle": 0,
+      "gold": "BQW-530",
+      "n_facts": 5
+    },
+    {
+      "id": "sl-044",
+      "A0_null": 0,
+      "A1_canonical": 1,
+      "A2_lexical_hint": 0,
+      "A3_scaffold": 0,
+      "A4_oracle": 1,
+      "gold": "GQS-802",
+      "n_facts": 2
+    },
+    {
+      "id": "sl-045",
+      "A0_null": 0,
+      "A1_canonical": 1,
+      "A2_lexical_hint": 0,
+      "A3_scaffold": 0,
+      "A4_oracle": 1,
+      "gold": "HUB-132",
+      "n_facts": 3
+    },
+    {
+      "id": "sl-046",
+      "A0_null": 0,
+      "A1_canonical": 0,
+      "A2_lexical_hint": 0,
+      "A3_scaffold": 0,
+      "A4_oracle": 0,
+      "gold": "HUB-421",
+      "n_facts": 4
+    },
+    {
+      "id": "sl-047",
+      "A0_null": 0,
+      "A1_canonical": 0,
+      "A2_lexical_hint": 0,
+      "A3_scaffold": 0,
+      "A4_oracle": 0,
+      "gold": "CTY-914",
+      "n_facts": 5
+    },
+    {
+      "id": "sl-049",
+      "A0_null": 0,
+      "A1_canonical": 1,
+      "A2_lexical_hint": 0,
+      "A3_scaffold": 0,
+      "A4_oracle": 1,
+      "gold": "GQS-917",
+      "n_facts": 3
+    },
+    {
+      "id": "sl-050",
+      "A0_null": 0,
+      "A1_canonical": 0,
+      "A2_lexical_hint": 0,
+      "A3_scaffold": 0,
+      "A4_oracle": 1,
+      "gold": "CTY-431",
+      "n_facts": 4
+    },
+    {
+      "id": "sl-051",
+      "A0_null": 0,
+      "A1_canonical": 0,
+      "A2_lexical_hint": 0,
+      "A3_scaffold": 0,
+      "A4_oracle": 1,
+      "gold": "DZN-561",
+      "n_facts": 5
+    },
+    {
+      "id": "sl-054",
+      "A0_null": 0,
+      "A1_canonical": 1,
+      "A2_lexical_hint": 0,
+      "A3_scaffold": 0,
+      "A4_oracle": 0,
+      "gold": "BQW-183",
+      "n_facts": 4
+    },
+    {
+      "id": "sl-055",
+      "A0_null": 0,
+      "A1_canonical": 0,
+      "A2_lexical_hint": 0,
+      "A3_scaffold": 0,
+      "A4_oracle": 0,
+      "gold": "DZN-252",
+      "n_facts": 5
+    },
+    {
+      "id": "sl-056",
+      "A0_null": 0,
+      "A1_canonical": 0,
+      "A2_lexical_hint": 0,
+      "A3_scaffold": 0,
+      "A4_oracle": 0,
+      "gold": "BQW-252",
+      "n_facts": 2
+    },
+    {
+      "id": "sl-058",
+      "A0_null": 0,
+      "A1_canonical": 0,
+      "A2_lexical_hint": 0,
+      "A3_scaffold": 0,
+      "A4_oracle": 1,
+      "gold": "HUB-803",
+      "n_facts": 4
+    },
+    {
+      "id": "sl-059",
+      "A0_null": 0,
+      "A1_canonical": 1,
+      "A2_lexical_hint": 0,
+      "A3_scaffold": 1,
+      "A4_oracle": 1,
+      "gold": "EKH-730",
+      "n_facts": 5
+    }
+  ],
+  "note": "A4 oracle is ceiling estimate only, never native cognition"
+}
