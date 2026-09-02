@@ -1,0 +1,18 @@
+{
+  "checkpoint_restored_clean": true,
+  "execution_duration_seconds": 0.159,
+  "experiment_id": "P35-CMS-1",
+  "identity_sha256": "3410472318e1f1e78427b1d13ce0d7e8da06d21f6ee2a80a9a0fdc2f6c7952c2",
+  "schema": "senora-p35-dry-run-receipt/v1",
+  "scorer_firewall_gate_enforced": true,
+  "stages_passed": [
+    "plan_and_identity",
+    "data_pipeline_and_contamination_guard",
+    "two_step_training_transitions",
+    "atomic_cas_checkpoint_save_and_restore",
+    "four_tier_evaluator_certification"
+  ],
+  "status": "PASS_PLUMBING_CERTIFIED",
+  "step_1_loss": 3.1415,
+  "step_2_loss": 2.854
+}
