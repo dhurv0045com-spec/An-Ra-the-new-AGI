@@ -1,13 +1,11 @@
-"""Cognition Readiness Gate runner (Mission 2/6/9/10).
+"""Cognition Readiness Gate runner v1 — FROZEN HISTORICAL SEMANTICS.
 
-Probes the binding ladder with raw + oracle arms, finds the PARTIAL region,
-optionally runs QV-lite there, and classifies per capability family:
-
-  READY_FOR_BINDING_CAUSAL_RESEARCH (partial region + oracle headroom)
-  MARGINAL (interpretable with caveats)
-  NOT_READY_FLOOR / NOT_READY_ORACLE / NOT_READY_CEILING
-
-Prints EXPERIMENT_NOT_IDENTIFIABLE instead of causal stories at floor.
+Superseded by readiness v2 (status.py, readiness_v2.py, frontier.py,
+canaries.py). v1 receipts (schema anra-cognition-readiness/v1) remain valid
+history but v1 MUST NOT be used for new qualification claims: v1 conflates
+capability/identifiability/readiness, ignores chance and uncertainty, has no
+calibration/qualification split, and emitted READY from N=12 pilots.
+New code paths use --mode calibrate|qualify in qualify_checkpoint.py.
 """
 
 from __future__ import annotations
