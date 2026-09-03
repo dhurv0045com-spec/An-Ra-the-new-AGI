@@ -1,0 +1,5406 @@
+{
+  "schema": "anra-competitive-binding/v1",
+  "timestamp": "2026-09-03 15:21:31",
+  "phase": "DEV (same-generator development; NOT fresh)",
+  "provenance": {
+    "checkpoint": "checkpoints/anra-v4-current-full-resume.pt",
+    "checkpoint_sha256": "ccaffdfb62328886df0b4000cba47d8e1b7cb259f4bf6fc7967271d9656dc986",
+    "parameter_sha256": "6175bb4691f52d000187ce6511287b650d546a72fbd3a5a15fc2dc79bd5ac89c",
+    "config_sha256": "07bb20708018beb39e3c6a5f2389a44b86e6c0f838ec58d9f7f111795cbbd603",
+    "tokenizer_identity": {
+      "schema_version": 4,
+      "vocab_size": 32768,
+      "special_token_ids": {
+        "<pad>": 0,
+        "<unk>": 1,
+        "<bos>": 2,
+        "<eos>": 3,
+        "<sep>": 4,
+        "<code>": 5,
+        "</code>": 6,
+        "<think>": 7,
+        "</think>": 8,
+        "<goal>": 9,
+        "<ESV:v>": 10,
+        "<ESV:a>": 11,
+        "<ESV:d>": 12,
+        "<state>": 8192,
+        "</state>": 8193,
+        "</goal>": 8194,
+        "<cons>": 8195,
+        "</cons>": 8196,
+        "<hyp>": 8197,
+        "</hyp>": 8198,
+        "<act>": 8199,
+        "</act>": 8200,
+        "<obs>": 8201,
+        "</obs>": 8202,
+        "<verify>": 8203,
+        "</verify>": 8204,
+        "<upd>": 8205,
+        "</upd>": 8206,
+        "<err>": 8207,
+        "</err>": 8208
+      },
+      "vocabulary_sha256": "63a4b33ea0e727d45fdecbff98c3b716c706c5612d686ca73eb3f348b02825f5",
+      "probe_count": 500,
+      "probe_sha256": "bbec71e7ee65ca721f20abe378a7d10d39708d207fc1b22e5e7f9b36daba6539"
+    },
+    "tokenizer_sha256": "60928602409559adb680bc33f6415e24814da32703cab33a9f68597d63582dda",
+    "runtime_commit": "7fdad2f5602331dec87d6103acc0b4dc846fe39a",
+    "experiment_source_sha256": "bb314666bf8a018bca6d118913bf61c7c202a7707d3e9eaaa7c83936f20e034e",
+    "margin_rule": "gold LP at L0-L4; competitive margin vs co-present distractors at L1-L4 only"
+  },
+  "generator": {
+    "seed": 61616,
+    "n_tasks": 80,
+    "k": 5,
+    "nested": true
+  },
+  "accuracy": {
+    "L0": 0.075,
+    "L1c": 0.125,
+    "L1f": 0.0,
+    "L2c": 0.0,
+    "L2f": 0.0,
+    "L3c": 0.0125,
+    "L3f": 0.0,
+    "L4c": 0.0125,
+    "L4f": 0.0
+  },
+  "mean_gold_lp": {
+    "L0": -14.162,
+    "L1c": -15.387,
+    "L1f": -15.266,
+    "L2c": -16.011,
+    "L2f": -15.966,
+    "L3c": -16.392,
+    "L3f": -16.522,
+    "L4c": -16.662,
+    "L4f": -16.289
+  },
+  "paired_competing_vs_filler": {
+    "L1c_vs_L1f": {
+      "competing_rate": 0.125,
+      "filler_rate": 0.0,
+      "paired_effect_comp_minus_fill": 0.125,
+      "both_pass": 0,
+      "comp_only": 10,
+      "fill_only": 0,
+      "both_fail": 70,
+      "mcnemar_exact_p": 0.002
+    },
+    "L2c_vs_L2f": {
+      "competing_rate": 0.0,
+      "filler_rate": 0.0,
+      "paired_effect_comp_minus_fill": 0.0,
+      "both_pass": 0,
+      "comp_only": 0,
+      "fill_only": 0,
+      "both_fail": 80,
+      "mcnemar_exact_p": 1.0
+    },
+    "L3c_vs_L3f": {
+      "competing_rate": 0.0125,
+      "filler_rate": 0.0,
+      "paired_effect_comp_minus_fill": 0.0125,
+      "both_pass": 0,
+      "comp_only": 1,
+      "fill_only": 0,
+      "both_fail": 79,
+      "mcnemar_exact_p": 1.0
+    },
+    "L4c_vs_L4f": {
+      "competing_rate": 0.0125,
+      "filler_rate": 0.0,
+      "paired_effect_comp_minus_fill": 0.0125,
+      "both_pass": 0,
+      "comp_only": 1,
+      "fill_only": 0,
+      "both_fail": 79,
+      "mcnemar_exact_p": 1.0
+    }
+  },
+  "per_task": {
+    "cb-000": {
+      "gold": "EKH-546",
+      "target": "gaol",
+      "order": [
+        1,
+        0,
+        4,
+        2
+      ],
+      "conds": {
+        "L0": {
+          "correct": 1,
+          "output": " Yes, ref EKH-546",
+          "gold_lp": -14.391,
+          "margin": null
+        },
+        "L1c": {
+          "correct": 0,
+          "output": " ref AVR-499 helps prevent",
+          "gold_lp": -15.588,
+          "margin": -1.36
+        },
+        "L1f": {
+          "correct": 0,
+          "output": " Yes, lstripGaol stays lstrip",
+          "gold_lp": -14.729,
+          "margin": 23.72
+        },
+        "L2c": {
+          "correct": 0,
+          "output": " ref AVR-499 helps prevent",
+          "gold_lp": -14.845,
+          "margin": -0.421
+        },
+        "L2f": {
+          "correct": 0,
+          "output": " Yes, lstripGaol stays lstrip",
+          "gold_lp": -15.737,
+          "margin": 20.185
+        },
+        "L3c": {
+          "correct": 0,
+          "output": " ref AVR-898 helps prevent",
+          "gold_lp": -15.158,
+          "margin": 1.793
+        },
+        "L3f": {
+          "correct": 0,
+          "output": " Yes, Aquariilrah!\nAnswer: ",
+          "gold_lp": -17.38,
+          "margin": 20.606
+        },
+        "L4c": {
+          "correct": 0,
+          "output": " ref AVR-898 helps prevent",
+          "gold_lp": -15.546,
+          "margin": 0.099
+        },
+        "L4f": {
+          "correct": 0,
+          "output": " Yes, lstripeseseseseseses",
+          "gold_lp": -16.497,
+          "margin": 19.255
+        }
+      }
+    },
+    "cb-001": {
+      "gold": "CTY-831",
+      "target": "lancet",
+      "order": [
+        0,
+        1,
+        4,
+        3
+      ],
+      "conds": {
+        "L0": {
+          "correct": 0,
+          "output": " Overdose therapy reduces mortality rates ",
+          "gold_lp": -13.534,
+          "margin": null
+        },
+        "L1c": {
+          "correct": 0,
+          "output": " Yes, ref DZN-262",
+          "gold_lp": -13.865,
+          "margin": 0.545
+        },
+        "L1f": {
+          "correct": 0,
+          "output": " Yes, speculatively.\nAnswer: Yes,",
+          "gold_lp": -15.31,
+          "margin": 29.357
+        },
+        "L2c": {
+          "correct": 0,
+          "output": " yes yes\nAnswer: yes\nAnswer:",
+          "gold_lp": -14.771,
+          "margin": 2.729
+        },
+        "L2f": {
+          "correct": 0,
+          "output": " Yes, speculatively.\nAnswer: Yes,",
+          "gold_lp": -16.543,
+          "margin": 26.336
+        },
+        "L3c": {
+          "correct": 0,
+          "output": " Yes, ref CTY-mimeti",
+          "gold_lp": -18.252,
+          "margin": -0.769
+        },
+        "L3f": {
+          "correct": 0,
+          "output": " yes dermatan!\nAnswer: yes terrarium",
+          "gold_lp": -15.047,
+          "margin": 23.549
+        },
+        "L4c": {
+          "correct": 0,
+          "output": " Yes, ref CTY-205 helps",
+          "gold_lp": -18.136,
+          "margin": -0.011
+        },
+        "L4f": {
+          "correct": 0,
+          "output": " yes </goal>!\nAnswer: yes click",
+          "gold_lp": -14.857,
+          "margin": 21.566
+        }
+      }
+    },
+    "cb-002": {
+      "gold": "HUB-359",
+      "target": "portcullis",
+      "order": [
+        3,
+        1,
+        0,
+        4
+      ],
+      "conds": {
+        "L0": {
+          "correct": 0,
+          "output": " No EXPLAININGS FOR THE ",
+          "gold_lp": -14.571,
+          "margin": null
+        },
+        "L1c": {
+          "correct": 0,
+          "output": " No EXPLAININGS FOR THE ",
+          "gold_lp": -15.411,
+          "margin": -2.233
+        },
+        "L1f": {
+          "correct": 0,
+          "output": " No move_to_enderies!\nAnswer: ",
+          "gold_lp": -15.397,
+          "margin": 27.068
+        },
+        "L2c": {
+          "correct": 0,
+          "output": " No nameserver Required\nAnswer: No ",
+          "gold_lp": -16.236,
+          "margin": -1.399
+        },
+        "L2f": {
+          "correct": 0,
+          "output": " No PARATHYROID!\nAnswer: No H",
+          "gold_lp": -16.278,
+          "margin": 23.769
+        },
+        "L3c": {
+          "correct": 0,
+          "output": " Keep ref intact.\n\u25a5\ufffd",
+          "gold_lp": -17.34,
+          "margin": -1.253
+        },
+        "L3f": {
+          "correct": 0,
+          "output": " No PARATHYROID!\nAnswer: No H",
+          "gold_lp": -16.581,
+          "margin": 21.98
+        },
+        "L4c": {
+          "correct": 0,
+          "output": " ref FMP-796\nQuestion: ",
+          "gold_lp": -19.904,
+          "margin": -3.819
+        },
+        "L4f": {
+          "correct": 0,
+          "output": " No move_to_end!\nAnswer: No terrarium",
+          "gold_lp": -16.448,
+          "margin": 20.725
+        }
+      }
+    },
+    "cb-003": {
+      "gold": "CTY-115",
+      "target": "aviary",
+      "order": [
+        2,
+        1,
+        3,
+        0
+      ],
+      "conds": {
+        "L0": {
+          "correct": 0,
+          "output": " Yes. Return ONLY lstripes ref",
+          "gold_lp": -11.545,
+          "margin": null
+        },
+        "L1c": {
+          "correct": 0,
+          "output": " Answer: Answer: Answer: Answer:",
+          "gold_lp": -11.335,
+          "margin": 2.215
+        },
+        "L1f": {
+          "correct": 0,
+          "output": " Yes! Please ask yours!\nAnswer",
+          "gold_lp": -14.6,
+          "margin": 18.393
+        },
+        "L2c": {
+          "correct": 0,
+          "output": " Yes, ref HUB-502 ",
+          "gold_lp": -12.892,
+          "margin": 2.491
+        },
+        "L2f": {
+          "correct": 0,
+          "output": " Yes! Please ask yours!\nAnswer",
+          "gold_lp": -15.862,
+          "margin": 20.502
+        },
+        "L3c": {
+          "correct": 0,
+          "output": " Yes.\nQuestion: What does BE",
+          "gold_lp": -12.669,
+          "margin": 2.463
+        },
+        "L3f": {
+          "correct": 0,
+          "output": " Yes! Please click HERE HERE!",
+          "gold_lp": -16.996,
+          "margin": 25.205
+        },
+        "L4c": {
+          "correct": 0,
+          "output": " Yes.\nAnswer: Yes.\nAnswer:",
+          "gold_lp": -12.468,
+          "margin": 3.755
+        },
+        "L4f": {
+          "correct": 0,
+          "output": " Yes! Please send Aquariies!\n",
+          "gold_lp": -15.714,
+          "margin": 26.435
+        }
+      }
+    },
+    "cb-004": {
+      "gold": "GQS-754",
+      "target": "lancet",
+      "order": [
+        3,
+        1,
+        0,
+        2
+      ],
+      "conds": {
+        "L0": {
+          "correct": 0,
+          "output": " Overfeeding infants requires laparoscopic surgery ",
+          "gold_lp": -13.605,
+          "margin": null
+        },
+        "L1c": {
+          "correct": 0,
+          "output": " Overfeeding infants requires laparoscopic surgery ",
+          "gold_lp": -13.455,
+          "margin": 6.401
+        },
+        "L1f": {
+          "correct": 0,
+          "output": " Yes, Interconnection helps neutralize bacteria.",
+          "gold_lp": -13.713,
+          "margin": 29.815
+        },
+        "L2c": {
+          "correct": 0,
+          "output": " Yes, ref DZN-782",
+          "gold_lp": -13.451,
+          "margin": 4.811
+        },
+        "L2f": {
+          "correct": 0,
+          "output": " Yes, </goal>!\nAnswer: Yes,",
+          "gold_lp": -14.184,
+          "margin": 31.126
+        },
+        "L3c": {
+          "correct": 0,
+          "output": " Yes, ref can kill endospores.",
+          "gold_lp": -18.499,
+          "margin": -2.21
+        },
+        "L3f": {
+          "correct": 0,
+          "output": " yes dermatan!\nAnswer: \u001f!\n",
+          "gold_lp": -13.858,
+          "margin": 25.803
+        },
+        "L4c": {
+          "correct": 0,
+          "output": " Yes, ref does NOT contain ",
+          "gold_lp": -18.194,
+          "margin": -0.389
+        },
+        "L4f": {
+          "correct": 0,
+          "output": " yes </goal>!\nAnswer: \u001f!\n",
+          "gold_lp": -13.421,
+          "margin": 27.138
+        }
+      }
+    },
+    "cb-005": {
+      "gold": "HUB-989",
+      "target": "barbican",
+      "order": [
+        1,
+        4,
+        3,
+        2
+      ],
+      "conds": {
+        "L0": {
+          "correct": 0,
+          "output": " No move_to_enderenkowskianenko",
+          "gold_lp": -18.702,
+          "margin": null
+        },
+        "L1c": {
+          "correct": 0,
+          "output": " Yes, ref OHTCHOL",
+          "gold_lp": -22.112,
+          "margin": -9.839
+        },
+        "L1f": {
+          "correct": 0,
+          "output": " No move_to_enderies!\nAnswer: ",
+          "gold_lp": -19.416,
+          "margin": 23.827
+        },
+        "L2c": {
+          "correct": 0,
+          "output": " ref AVR-896 stands reprisal",
+          "gold_lp": -23.111,
+          "margin": -9.71
+        },
+        "L2f": {
+          "correct": 0,
+          "output": " Yes, yes.\nAnswer: Yes,",
+          "gold_lp": -20.035,
+          "margin": 20.864
+        },
+        "L3c": {
+          "correct": 0,
+          "output": " Yes, ref AVR-896 ",
+          "gold_lp": -23.821,
+          "margin": -9.271
+        },
+        "L3f": {
+          "correct": 0,
+          "output": " Yes, yes.\nAnswer: Yes,",
+          "gold_lp": -20.82,
+          "margin": 20.272
+        },
+        "L4c": {
+          "correct": 0,
+          "output": " Yes, ref BQW-361",
+          "gold_lp": -23.339,
+          "margin": -8.201
+        },
+        "L4f": {
+          "correct": 0,
+          "output": " No move_to_ender!\nAnswer: No ",
+          "gold_lp": -20.225,
+          "margin": 19.514
+        }
+      }
+    },
+    "cb-006": {
+      "gold": "AVR-289",
+      "target": "barbican",
+      "order": [
+        0,
+        2,
+        4,
+        3
+      ],
+      "conds": {
+        "L0": {
+          "correct": 0,
+          "output": " Barbican belongs speculatively ondol ondol",
+          "gold_lp": -14.661,
+          "margin": null
+        },
+        "L1c": {
+          "correct": 0,
+          "output": " Yes, ref BQW-364",
+          "gold_lp": -14.633,
+          "margin": -4.703
+        },
+        "L1f": {
+          "correct": 0,
+          "output": " No move_to_enderience scheme ",
+          "gold_lp": -16.104,
+          "margin": 19.976
+        },
+        "L2c": {
+          "correct": 0,
+          "output": " Yes, ref BQW-364",
+          "gold_lp": -15.551,
+          "margin": -0.264
+        },
+        "L2f": {
+          "correct": 0,
+          "output": " Yes, Barbican grows speculatively ",
+          "gold_lp": -16.256,
+          "margin": 23.843
+        },
+        "L3c": {
+          "correct": 0,
+          "output": " Yes, ref CTY-919 ",
+          "gold_lp": -14.653,
+          "margin": 0.283
+        },
+        "L3f": {
+          "correct": 0,
+          "output": " Yes, yes.\nAnswer: Yes,",
+          "gold_lp": -16.907,
+          "margin": 21.507
+        },
+        "L4c": {
+          "correct": 0,
+          "output": " Yes, ref BQW-366",
+          "gold_lp": -14.401,
+          "margin": 0.751
+        },
+        "L4f": {
+          "correct": 0,
+          "output": " No move_to_enderies!\nAnswer: ",
+          "gold_lp": -17.141,
+          "margin": 20.068
+        }
+      }
+    },
+    "cb-007": {
+      "gold": "BQW-889",
+      "target": "nave",
+      "order": [
+        2,
+        1,
+        3,
+        4
+      ],
+      "conds": {
+        "L0": {
+          "correct": 0,
+          "output": " Yes, speculatively.\nAnswer: Yes,",
+          "gold_lp": -13.741,
+          "margin": null
+        },
+        "L1c": {
+          "correct": 0,
+          "output": " ref AVR-392 = ref",
+          "gold_lp": -13.659,
+          "margin": -3.392
+        },
+        "L1f": {
+          "correct": 0,
+          "output": " Yes, K_h!\nAnswer: Yes,",
+          "gold_lp": -14.533,
+          "margin": 22.816
+        },
+        "L2c": {
+          "correct": 0,
+          "output": " Yes, ref AVR-392 ",
+          "gold_lp": -12.5,
+          "margin": 1.352
+        },
+        "L2f": {
+          "correct": 0,
+          "output": " Yes, K_h!\nAnswer: Yes,",
+          "gold_lp": -15.551,
+          "margin": 22.64
+        },
+        "L3c": {
+          "correct": 0,
+          "output": " Yes.\nAnswer: Yes.\nAnswer:",
+          "gold_lp": -12.285,
+          "margin": 2.92
+        },
+        "L3f": {
+          "correct": 0,
+          "output": " Yes, K_h!\nAnswer: Yes,",
+          "gold_lp": -16.119,
+          "margin": 20.803
+        },
+        "L4c": {
+          "correct": 0,
+          "output": " Answer: Answer: Answer: Answer:",
+          "gold_lp": -18.662,
+          "margin": -2.185
+        },
+        "L4f": {
+          "correct": 0,
+          "output": " Yes, K_h!\nAnswer: Yes,",
+          "gold_lp": -15.361,
+          "margin": 20.749
+        }
+      }
+    },
+    "cb-008": {
+      "gold": "AVR-452",
+      "target": "portcullis",
+      "order": [
+        4,
+        2,
+        0,
+        3
+      ],
+      "conds": {
+        "L0": {
+          "correct": 0,
+          "output": " No ref AVR-45 ref ",
+          "gold_lp": -17.021,
+          "margin": null
+        },
+        "L1c": {
+          "correct": 0,
+          "output": " Keep ref AVR-468 safe",
+          "gold_lp": -17.65,
+          "margin": -6.496
+        },
+        "L1f": {
+          "correct": 0,
+          "output": " No move_to_enderies!\nAnswer: ",
+          "gold_lp": -18.432,
+          "margin": 18.123
+        },
+        "L2c": {
+          "correct": 0,
+          "output": " No ref AVR-VCCH",
+          "gold_lp": -18.114,
+          "margin": -5.962
+        },
+        "L2f": {
+          "correct": 0,
+          "output": " No PARATHYROIDerieyeyeyeyeyeye",
+          "gold_lp": -18.914,
+          "margin": 12.95
+        },
+        "L3c": {
+          "correct": 0,
+          "output": " 433 lbs + 3 lb",
+          "gold_lp": -18.7,
+          "margin": -4.492
+        },
+        "L3f": {
+          "correct": 0,
+          "output": " No </goal>!\nAnswer: No light",
+          "gold_lp": -19.742,
+          "margin": 12.772
+        },
+        "L4c": {
+          "correct": 0,
+          "output": " Yes.\nAnswer: Yes.\nAnswer:",
+          "gold_lp": -22.364,
+          "margin": -8.566
+        },
+        "L4f": {
+          "correct": 0,
+          "output": " No move_to_enderies!\nAnswer: ",
+          "gold_lp": -19.744,
+          "margin": 11.063
+        }
+      }
+    },
+    "cb-009": {
+      "gold": "HUB-533",
+      "target": "oratory",
+      "order": [
+        0,
+        3,
+        4,
+        2
+      ],
+      "conds": {
+        "L0": {
+          "correct": 0,
+          "output": " Yes, lstripeseseseseseses",
+          "gold_lp": -13.199,
+          "margin": null
+        },
+        "L1c": {
+          "correct": 0,
+          "output": " Yes, ref doesn't stay ",
+          "gold_lp": -13.988,
+          "margin": 5.763
+        },
+        "L1f": {
+          "correct": 0,
+          "output": " Yes! Welcome!\nAnswer: Yes!",
+          "gold_lp": -13.833,
+          "margin": 31.463
+        },
+        "L2c": {
+          "correct": 0,
+          "output": " Yes, ref doesn't stay ",
+          "gold_lp": -17.39,
+          "margin": 2.916
+        },
+        "L2f": {
+          "correct": 0,
+          "output": " Yes, lstrip!\nAnswer: Yes,",
+          "gold_lp": -14.547,
+          "margin": 31.769
+        },
+        "L3c": {
+          "correct": 0,
+          "output": " ref ref EKH-963.",
+          "gold_lp": -19.167,
+          "margin": 1.193
+        },
+        "L3f": {
+          "correct": 0,
+          "output": " Yes! Please click HERE tomorrow!",
+          "gold_lp": -14.963,
+          "margin": 31.161
+        },
+        "L4c": {
+          "correct": 0,
+          "output": " ref AVR-215 helps remove ",
+          "gold_lp": -18.775,
+          "margin": 0.784
+        },
+        "L4f": {
+          "correct": 0,
+          "output": " Yes! Please click HERE tomorrow!",
+          "gold_lp": -14.601,
+          "margin": 28.777
+        }
+      }
+    },
+    "cb-010": {
+      "gold": "DZN-788",
+      "target": "portcullis",
+      "order": [
+        2,
+        1,
+        4,
+        0
+      ],
+      "conds": {
+        "L0": {
+          "correct": 0,
+          "output": " No owner can obtain ref D",
+          "gold_lp": -11.994,
+          "margin": null
+        },
+        "L1c": {
+          "correct": 0,
+          "output": " ref AVR-905 helps prevent",
+          "gold_lp": -13.492,
+          "margin": 1.362
+        },
+        "L1f": {
+          "correct": 0,
+          "output": " No move_to_endes LLMs lstripes!\n",
+          "gold_lp": -12.896,
+          "margin": 25.034
+        },
+        "L2c": {
+          "correct": 0,
+          "output": " ref FMP-977 helps prevent",
+          "gold_lp": -13.345,
+          "margin": 0.286
+        },
+        "L2f": {
+          "correct": 0,
+          "output": " Yes, Interconnection belongs lstrip.\nAnswer",
+          "gold_lp": -13.365,
+          "margin": 20.88
+        },
+        "L3c": {
+          "correct": 0,
+          "output": " ref FMP-977 helps prevent",
+          "gold_lp": -12.612,
+          "margin": 1.654
+        },
+        "L3f": {
+          "correct": 0,
+          "output": " Yes, Interconnection works lstriply ",
+          "gold_lp": -13.315,
+          "margin": 19.8
+        },
+        "L4c": {
+          "correct": 0,
+          "output": " ref AVR-905 helps prevent",
+          "gold_lp": -12.526,
+          "margin": 1.153
+        },
+        "L4f": {
+          "correct": 0,
+          "output": " No move_to_ender!\nAnswer: No ",
+          "gold_lp": -13.424,
+          "margin": 19.138
+        }
+      }
+    },
+    "cb-011": {
+      "gold": "AVR-478",
+      "target": "lancet",
+      "order": [
+        4,
+        1,
+        2,
+        3
+      ],
+      "conds": {
+        "L0": {
+          "correct": 0,
+          "output": " Overfeeding infants requires laparoscopic surgery ",
+          "gold_lp": -16.46,
+          "margin": null
+        },
+        "L1c": {
+          "correct": 0,
+          "output": " Yes, EDTA helps neutralize bacteria ",
+          "gold_lp": -16.511,
+          "margin": -0.967
+        },
+        "L1f": {
+          "correct": 0,
+          "output": " Yes, Interconnection levels vary substantially ",
+          "gold_lp": -17.05,
+          "margin": 25.653
+        },
+        "L2c": {
+          "correct": 0,
+          "output": " Yes, ref HUB-325 helps",
+          "gold_lp": -16.157,
+          "margin": 0.766
+        },
+        "L2f": {
+          "correct": 0,
+          "output": " Yes, lstripeseseseseseses",
+          "gold_lp": -17.7,
+          "margin": 23.213
+        },
+        "L3c": {
+          "correct": 0,
+          "output": " Yes, ref must remain unchanged.",
+          "gold_lp": -15.645,
+          "margin": 2.99
+        },
+        "L3f": {
+          "correct": 0,
+          "output": " Answer: Answer: Answer: Answer:",
+          "gold_lp": -17.223,
+          "margin": 21.24
+        },
+        "L4c": {
+          "correct": 0,
+          "output": " Answer: Answer: Answer: Answer:",
+          "gold_lp": -15.92,
+          "margin": 3.455
+        },
+        "L4f": {
+          "correct": 0,
+          "output": " Answer: Answer: Answer: Answer:",
+          "gold_lp": -17.024,
+          "margin": 21.889
+        }
+      }
+    },
+    "cb-012": {
+      "gold": "GQS-391",
+      "target": "barbican",
+      "order": [
+        0,
+        1,
+        4,
+        2
+      ],
+      "conds": {
+        "L0": {
+          "correct": 0,
+          "output": " No Deduplication refrigeranted ",
+          "gold_lp": -22.167,
+          "margin": null
+        },
+        "L1c": {
+          "correct": 0,
+          "output": " Yes, ref HUB-628 ",
+          "gold_lp": -21.386,
+          "margin": -8.795
+        },
+        "L1f": {
+          "correct": 0,
+          "output": " No move_to_enderience scheme ",
+          "gold_lp": -22.581,
+          "margin": 13.857
+        },
+        "L2c": {
+          "correct": 0,
+          "output": " ref FMP-993 helps prevent",
+          "gold_lp": -20.281,
+          "margin": -6.519
+        },
+        "L2f": {
+          "correct": 0,
+          "output": " Yes, yes.\nAnswer: Yes,",
+          "gold_lp": -21.508,
+          "margin": 12.449
+        },
+        "L3c": {
+          "correct": 0,
+          "output": " ref HUB-480 helps prevent ",
+          "gold_lp": -19.612,
+          "margin": -5.626
+        },
+        "L3f": {
+          "correct": 0,
+          "output": " Yes, Aquariies!\nAnswer: Yes",
+          "gold_lp": -21.456,
+          "margin": 12.018
+        },
+        "L4c": {
+          "correct": 0,
+          "output": " ref FMP-632 helps prevent",
+          "gold_lp": -20.118,
+          "margin": -4.616
+        },
+        "L4f": {
+          "correct": 0,
+          "output": " No move_to_enderies!\nAnswer: ",
+          "gold_lp": -21.498,
+          "margin": 11.777
+        }
+      }
+    },
+    "cb-013": {
+      "gold": "HUB-276",
+      "target": "barbican",
+      "order": [
+        0,
+        4,
+        2,
+        1
+      ],
+      "conds": {
+        "L0": {
+          "correct": 0,
+          "output": " No move_to_enderenkowskianenko",
+          "gold_lp": -15.766,
+          "margin": null
+        },
+        "L1c": {
+          "correct": 0,
+          "output": " Yes, ref HUB-califor",
+          "gold_lp": -17.43,
+          "margin": 3.315
+        },
+        "L1f": {
+          "correct": 0,
+          "output": " Yes, yes.\nAnswer: Yes,",
+          "gold_lp": -16.535,
+          "margin": 8.422
+        },
+        "L2c": {
+          "correct": 0,
+          "output": " Yes, ref HUB-500 doesn",
+          "gold_lp": -17.326,
+          "margin": 0.308
+        },
+        "L2f": {
+          "correct": 0,
+          "output": " Yes, yes.\nAnswer: Yes,",
+          "gold_lp": -17.373,
+          "margin": 10.118
+        },
+        "L3c": {
+          "correct": 0,
+          "output": " Yes, ref OHT-RT ",
+          "gold_lp": -16.442,
+          "margin": 0.828
+        },
+        "L3f": {
+          "correct": 0,
+          "output": " Yes, yes.\nAnswer: Yes,",
+          "gold_lp": -17.601,
+          "margin": 14.217
+        },
+        "L4c": {
+          "correct": 0,
+          "output": " Yes, ref AVR-460 ",
+          "gold_lp": -17.281,
+          "margin": -0.746
+        },
+        "L4f": {
+          "correct": 0,
+          "output": " Yes, yes.\nAnswer: Yes,",
+          "gold_lp": -17.213,
+          "margin": 16.285
+        }
+      }
+    },
+    "cb-014": {
+      "gold": "GQS-257",
+      "target": "barbican",
+      "order": [
+        4,
+        1,
+        0,
+        2
+      ],
+      "conds": {
+        "L0": {
+          "correct": 0,
+          "output": " No Deduplication refrigeranted ",
+          "gold_lp": -15.87,
+          "margin": null
+        },
+        "L1c": {
+          "correct": 0,
+          "output": " Yes. Refer immediately afterwards.\n",
+          "gold_lp": -15.095,
+          "margin": -1.362
+        },
+        "L1f": {
+          "correct": 0,
+          "output": " Yes, yes.\nAnswer: Yes,",
+          "gold_lp": -15.492,
+          "margin": 27.143
+        },
+        "L2c": {
+          "correct": 0,
+          "output": " Yes, ref EKH-898",
+          "gold_lp": -14.195,
+          "margin": -0.431
+        },
+        "L2f": {
+          "correct": 0,
+          "output": " Yes, yes.\nAnswer: Yes,",
+          "gold_lp": -14.816,
+          "margin": 29.543
+        },
+        "L3c": {
+          "correct": 0,
+          "output": " Yes, ref BWLD-R",
+          "gold_lp": -14.0,
+          "margin": -0.214
+        },
+        "L3f": {
+          "correct": 0,
+          "output": " Yes, yes.\nAnswer: Yes,",
+          "gold_lp": -14.961,
+          "margin": 28.418
+        },
+        "L4c": {
+          "correct": 0,
+          "output": " ref IVF label label label ",
+          "gold_lp": -17.247,
+          "margin": -3.242
+        },
+        "L4f": {
+          "correct": 0,
+          "output": " Yes, yes.\nAnswer: Yes,",
+          "gold_lp": -14.79,
+          "margin": 25.62
+        }
+      }
+    },
+    "cb-015": {
+      "gold": "AVR-551",
+      "target": "lancet",
+      "order": [
+        2,
+        1,
+        0,
+        4
+      ],
+      "conds": {
+        "L0": {
+          "correct": 0,
+          "output": " Overfeeding infants requires laparoscopic surgery ",
+          "gold_lp": -17.217,
+          "margin": null
+        },
+        "L1c": {
+          "correct": 0,
+          "output": " Impounding infants requires infants fed",
+          "gold_lp": -16.404,
+          "margin": 2.013
+        },
+        "L1f": {
+          "correct": 0,
+          "output": " Yes, Interconnection helps neutralize bacteria ",
+          "gold_lp": -17.294,
+          "margin": 14.287
+        },
+        "L2c": {
+          "correct": 0,
+          "output": " 43 grams per gram versus 17",
+          "gold_lp": -16.147,
+          "margin": 0.874
+        },
+        "L2f": {
+          "correct": 0,
+          "output": " Yes, lstripeseseseseseses",
+          "gold_lp": -18.071,
+          "margin": 14.417
+        },
+        "L3c": {
+          "correct": 0,
+          "output": " Yes, ref must remain unchanged.",
+          "gold_lp": -16.351,
+          "margin": 2.116
+        },
+        "L3f": {
+          "correct": 0,
+          "output": " Yes, limestones!\nAnswer: Yes,",
+          "gold_lp": -17.49,
+          "margin": 14.556
+        },
+        "L4c": {
+          "correct": 0,
+          "output": " Yes, ref helps prevent constipation.",
+          "gold_lp": -16.571,
+          "margin": 1.823
+        },
+        "L4f": {
+          "correct": 0,
+          "output": " yes </goal>!\nAnswer: yes B",
+          "gold_lp": -17.438,
+          "margin": 13.691
+        }
+      }
+    },
+    "cb-016": {
+      "gold": "FMP-781",
+      "target": "lancet",
+      "order": [
+        3,
+        0,
+        1,
+        4
+      ],
+      "conds": {
+        "L0": {
+          "correct": 0,
+          "output": " Overdose dose varies considerably depending ",
+          "gold_lp": -14.175,
+          "margin": null
+        },
+        "L1c": {
+          "correct": 0,
+          "output": " Overfeeding infants requires laparoscopic surgery ",
+          "gold_lp": -14.681,
+          "margin": -1.191
+        },
+        "L1f": {
+          "correct": 0,
+          "output": " Yes, EDTA works speculatively reprisall",
+          "gold_lp": -14.618,
+          "margin": 14.406
+        },
+        "L2c": {
+          "correct": 0,
+          "output": " 5 grams per gram equals approximately",
+          "gold_lp": -14.718,
+          "margin": -2.194
+        },
+        "L2f": {
+          "correct": 0,
+          "output": " Yes, speculatively.\nAnswer: Yes,",
+          "gold_lp": -15.865,
+          "margin": 17.017
+        },
+        "L3c": {
+          "correct": 0,
+          "output": " 50 grams per liter equals 50",
+          "gold_lp": -14.444,
+          "margin": -0.992
+        },
+        "L3f": {
+          "correct": 0,
+          "output": " yes dermatan!\nAnswer: yes terrarium",
+          "gold_lp": -14.585,
+          "margin": 19.199
+        },
+        "L4c": {
+          "correct": 0,
+          "output": " Yes, ref HUB-949 ",
+          "gold_lp": -14.822,
+          "margin": 1.706
+        },
+        "L4f": {
+          "correct": 0,
+          "output": " yes </goal>!\nAnswer: yes !",
+          "gold_lp": -14.465,
+          "margin": 20.825
+        }
+      }
+    },
+    "cb-017": {
+      "gold": "DZN-958",
+      "target": "cloister",
+      "order": [
+        1,
+        0,
+        4,
+        3
+      ],
+      "conds": {
+        "L0": {
+          "correct": 0,
+          "output": " Yes, yes.\nAnswer: Yes,",
+          "gold_lp": -13.556,
+          "margin": null
+        },
+        "L1c": {
+          "correct": 0,
+          "output": " Yes, ref DZN-308 ",
+          "gold_lp": -19.25,
+          "margin": -6.776
+        },
+        "L1f": {
+          "correct": 0,
+          "output": " Yes, lstrip!\nAnswer: Yes,",
+          "gold_lp": -14.269,
+          "margin": 19.85
+        },
+        "L2c": {
+          "correct": 0,
+          "output": " Yes, ref AVR-311 must",
+          "gold_lp": -20.049,
+          "margin": -5.449
+        },
+        "L2f": {
+          "correct": 0,
+          "output": " Yes, Aquariin!\nAnswer: Yes",
+          "gold_lp": -14.342,
+          "margin": 21.193
+        },
+        "L3c": {
+          "correct": 0,
+          "output": " ref CTY-1016 helps prevent",
+          "gold_lp": -17.974,
+          "margin": -2.76
+        },
+        "L3f": {
+          "correct": 0,
+          "output": " Yes, Aquariin!\nAnswer: Yes",
+          "gold_lp": -14.056,
+          "margin": 20.695
+        },
+        "L4c": {
+          "correct": 0,
+          "output": " Yes, ref CTY-1016 ",
+          "gold_lp": -18.184,
+          "margin": -3.005
+        },
+        "L4f": {
+          "correct": 0,
+          "output": " Yes, Aquariies!\nAnswer: Yes",
+          "gold_lp": -13.726,
+          "margin": 20.483
+        }
+      }
+    },
+    "cb-018": {
+      "gold": "BQW-532",
+      "target": "dolmen",
+      "order": [
+        2,
+        0,
+        1,
+        3
+      ],
+      "conds": {
+        "L0": {
+          "correct": 1,
+          "output": " Yes, ref BQW-532",
+          "gold_lp": -12.169,
+          "margin": null
+        },
+        "L1c": {
+          "correct": 0,
+          "output": " Yes, ref BQW-977",
+          "gold_lp": -18.35,
+          "margin": -8.806
+        },
+        "L1f": {
+          "correct": 0,
+          "output": " Yes, lstripeseseseseseses",
+          "gold_lp": -13.743,
+          "margin": 19.582
+        },
+        "L2c": {
+          "correct": 0,
+          "output": " ref BQW-977 helps ",
+          "gold_lp": -18.317,
+          "margin": -4.776
+        },
+        "L2f": {
+          "correct": 0,
+          "output": " Yes, lstripeseseseseseses",
+          "gold_lp": -14.34,
+          "margin": 21.005
+        },
+        "L3c": {
+          "correct": 0,
+          "output": " ref BQW-977 helps ",
+          "gold_lp": -17.493,
+          "margin": -4.091
+        },
+        "L3f": {
+          "correct": 0,
+          "output": " Yes, Aquariieseseseseseses",
+          "gold_lp": -15.196,
+          "margin": 23.752
+        },
+        "L4c": {
+          "correct": 0,
+          "output": " ref EKH-432 decreases ref",
+          "gold_lp": -17.761,
+          "margin": -3.307
+        },
+        "L4f": {
+          "correct": 0,
+          "output": " Yes, K_h!\nAnswer: Yes,",
+          "gold_lp": -14.726,
+          "margin": 24.046
+        }
+      }
+    },
+    "cb-019": {
+      "gold": "FMP-892",
+      "target": "dolmen",
+      "order": [
+        3,
+        1,
+        4,
+        2
+      ],
+      "conds": {
+        "L0": {
+          "correct": 0,
+          "output": " Dolmen must obtain ref FM",
+          "gold_lp": -12.388,
+          "margin": null
+        },
+        "L1c": {
+          "correct": 0,
+          "output": " ref HUB-829 equals ref",
+          "gold_lp": -14.06,
+          "margin": -0.985
+        },
+        "L1f": {
+          "correct": 0,
+          "output": " Yes, K_heseseseseseses",
+          "gold_lp": -13.53,
+          "margin": 22.728
+        },
+        "L2c": {
+          "correct": 0,
+          "output": " Yes, ref DOLs remain ",
+          "gold_lp": -13.654,
+          "margin": -0.483
+        },
+        "L2f": {
+          "correct": 0,
+          "output": " Yes, yes.\nAnswer: Yes,",
+          "gold_lp": -13.56,
+          "margin": 27.259
+        },
+        "L3c": {
+          "correct": 0,
+          "output": " Yes. ref FMP-392 ",
+          "gold_lp": -16.889,
+          "margin": -4.168
+        },
+        "L3f": {
+          "correct": 0,
+          "output": " Yes, K_h!\nAnswer: Yes,",
+          "gold_lp": -14.363,
+          "margin": 23.756
+        },
+        "L4c": {
+          "correct": 0,
+          "output": " ref FMP-392 stands correctly",
+          "gold_lp": -15.198,
+          "margin": -2.134
+        },
+        "L4f": {
+          "correct": 0,
+          "output": " Yes, yes.\nAnswer: Yes,",
+          "gold_lp": -14.046,
+          "margin": 22.859
+        }
+      }
+    },
+    "cb-020": {
+      "gold": "AVR-995",
+      "target": "cloister",
+      "order": [
+        4,
+        3,
+        2,
+        0
+      ],
+      "conds": {
+        "L0": {
+          "correct": 0,
+          "output": " Yes, ref must remain valid ",
+          "gold_lp": -12.863,
+          "margin": null
+        },
+        "L1c": {
+          "correct": 0,
+          "output": " Yes, ref HUB-543 ",
+          "gold_lp": -13.144,
+          "margin": -0.461
+        },
+        "L1f": {
+          "correct": 0,
+          "output": " Yes, Aquariieseseseseseses",
+          "gold_lp": -14.371,
+          "margin": 18.156
+        },
+        "L2c": {
+          "correct": 0,
+          "output": " Yes, ref HUB-543 ",
+          "gold_lp": -16.912,
+          "margin": -5.183
+        },
+        "L2f": {
+          "correct": 0,
+          "output": " Yes, Aquariin!\nAnswer: Yes",
+          "gold_lp": -14.933,
+          "margin": 19.789
+        },
+        "L3c": {
+          "correct": 0,
+          "output": " Yes, ref BQW-367",
+          "gold_lp": -16.45,
+          "margin": -3.59
+        },
+        "L3f": {
+          "correct": 0,
+          "output": " Yes, Aquariies!\nAnswer: Yes",
+          "gold_lp": -15.707,
+          "margin": 20.533
+        },
+        "L4c": {
+          "correct": 0,
+          "output": " Answer: Answer: Answer: Answer:",
+          "gold_lp": -17.247,
+          "margin": -2.583
+        },
+        "L4f": {
+          "correct": 0,
+          "output": " Yes, Aquariies!\nAnswer: Yes",
+          "gold_lp": -15.994,
+          "margin": 18.941
+        }
+      }
+    },
+    "cb-021": {
+      "gold": "AVR-540",
+      "target": "aviary",
+      "order": [
+        1,
+        0,
+        2,
+        4
+      ],
+      "conds": {
+        "L0": {
+          "correct": 1,
+          "output": " ref AVR-540 equals ref",
+          "gold_lp": -10.691,
+          "margin": null
+        },
+        "L1c": {
+          "correct": 1,
+          "output": " ref AVR-540 equals ref",
+          "gold_lp": -11.426,
+          "margin": 2.864
+        },
+        "L1f": {
+          "correct": 0,
+          "output": " Yes! Please send email notification ",
+          "gold_lp": -12.736,
+          "margin": 32.597
+        },
+        "L2c": {
+          "correct": 0,
+          "output": " ref AVR-399 equals ref",
+          "gold_lp": -11.53,
+          "margin": 2.284
+        },
+        "L2f": {
+          "correct": 0,
+          "output": " Yes! Please send email notification ",
+          "gold_lp": -14.523,
+          "margin": 27.65
+        },
+        "L3c": {
+          "correct": 0,
+          "output": " ref AVR-399 equals ref",
+          "gold_lp": -11.928,
+          "margin": 3.921
+        },
+        "L3f": {
+          "correct": 0,
+          "output": " yes Adamas!\nAnswer: \u001f!\n",
+          "gold_lp": -16.333,
+          "margin": 27.664
+        },
+        "L4c": {
+          "correct": 0,
+          "output": " Yes, ref AVR-569.",
+          "gold_lp": -11.847,
+          "margin": 6.733
+        },
+        "L4f": {
+          "correct": 0,
+          "output": " yes Adamas!\nAnswer: \u001f!\n",
+          "gold_lp": -16.267,
+          "margin": 28.13
+        }
+      }
+    },
+    "cb-022": {
+      "gold": "BQW-792",
+      "target": "cloister",
+      "order": [
+        0,
+        3,
+        4,
+        2
+      ],
+      "conds": {
+        "L0": {
+          "correct": 0,
+          "output": " Yes, Interconnection works speculatively anymore.",
+          "gold_lp": -16.423,
+          "margin": null
+        },
+        "L1c": {
+          "correct": 0,
+          "output": " Yes, ref BQW-58.",
+          "gold_lp": -16.668,
+          "margin": -3.802
+        },
+        "L1f": {
+          "correct": 0,
+          "output": " Yes, lstrip!\nAnswer: Yes,",
+          "gold_lp": -17.956,
+          "margin": 12.847
+        },
+        "L2c": {
+          "correct": 0,
+          "output": " Yes, ref BQW-CH",
+          "gold_lp": -17.307,
+          "margin": -1.881
+        },
+        "L2f": {
+          "correct": 0,
+          "output": " Yes, Aquariin!\nAnswer: Yes",
+          "gold_lp": -18.628,
+          "margin": 16.597
+        },
+        "L3c": {
+          "correct": 0,
+          "output": " Yes, ref HUB-group ref",
+          "gold_lp": -17.631,
+          "margin": 0.5
+        },
+        "L3f": {
+          "correct": 0,
+          "output": " Yes, Aquariin!\nAnswer: Yes",
+          "gold_lp": -20.236,
+          "margin": 15.172
+        },
+        "L4c": {
+          "correct": 0,
+          "output": " Yes, ref BQW-816",
+          "gold_lp": -18.616,
+          "margin": 0.675
+        },
+        "L4f": {
+          "correct": 0,
+          "output": " Yes, Aquariies!\nAnswer: Yes",
+          "gold_lp": -20.07,
+          "margin": 17.471
+        }
+      }
+    },
+    "cb-023": {
+      "gold": "AVR-644",
+      "target": "cloister",
+      "order": [
+        4,
+        0,
+        3,
+        1
+      ],
+      "conds": {
+        "L0": {
+          "correct": 0,
+          "output": " Yes, ref must remain valid ",
+          "gold_lp": -19.705,
+          "margin": null
+        },
+        "L1c": {
+          "correct": 0,
+          "output": " Yes, ref EKH-956",
+          "gold_lp": -20.56,
+          "margin": -7.337
+        },
+        "L1f": {
+          "correct": 0,
+          "output": " Yes, terrariumes prefer moistened",
+          "gold_lp": -21.465,
+          "margin": 22.342
+        },
+        "L2c": {
+          "correct": 0,
+          "output": " Yes, ref CTY-889 ",
+          "gold_lp": -21.25,
+          "margin": -8.437
+        },
+        "L2f": {
+          "correct": 0,
+          "output": " Yes, Aquariin!\nAnswer: Yes",
+          "gold_lp": -22.088,
+          "margin": 17.889
+        },
+        "L3c": {
+          "correct": 0,
+          "output": " Yes, ref AVR-826 ",
+          "gold_lp": -24.456,
+          "margin": -11.328
+        },
+        "L3f": {
+          "correct": 0,
+          "output": " Yes, Aquariies!\nAnswer: Yes",
+          "gold_lp": -22.92,
+          "margin": 14.693
+        },
+        "L4c": {
+          "correct": 0,
+          "output": " Yes.\nQuestion: What does Ag",
+          "gold_lp": -22.92,
+          "margin": -8.321
+        },
+        "L4f": {
+          "correct": 0,
+          "output": " Yes, Aquarii!\nAnswer: Yes,",
+          "gold_lp": -23.359,
+          "margin": 10.85
+        }
+      }
+    },
+    "cb-024": {
+      "gold": "AVR-632",
+      "target": "portcullis",
+      "order": [
+        1,
+        0,
+        2,
+        3
+      ],
+      "conds": {
+        "L0": {
+          "correct": 0,
+          "output": " No Answer\nAnswer: No Answer\n",
+          "gold_lp": -13.275,
+          "margin": null
+        },
+        "L1c": {
+          "correct": 0,
+          "output": " Overfeeding mothers requires mothers fed ",
+          "gold_lp": -15.314,
+          "margin": -0.188
+        },
+        "L1f": {
+          "correct": 0,
+          "output": " No move_to_endes rwxes lstripes ",
+          "gold_lp": -14.453,
+          "margin": 19.507
+        },
+        "L2c": {
+          "correct": 0,
+          "output": " ref BQW-771 helps ",
+          "gold_lp": -15.802,
+          "margin": -1.135
+        },
+        "L2f": {
+          "correct": 0,
+          "output": " No PARATHYROIDes!\nAnswer: No ",
+          "gold_lp": -14.87,
+          "margin": 22.113
+        },
+        "L3c": {
+          "correct": 0,
+          "output": " ref BQW-771 helps ",
+          "gold_lp": -15.81,
+          "margin": -2.006
+        },
+        "L3f": {
+          "correct": 0,
+          "output": " No move_to_enderies!\nAnswer: ",
+          "gold_lp": -15.634,
+          "margin": 23.915
+        },
+        "L4c": {
+          "correct": 0,
+          "output": " ref CTY-757 helps prevent",
+          "gold_lp": -15.693,
+          "margin": -0.766
+        },
+        "L4f": {
+          "correct": 0,
+          "output": " No move_to_enderies!\nAnswer: ",
+          "gold_lp": -15.757,
+          "margin": 22.861
+        }
+      }
+    },
+    "cb-025": {
+      "gold": "BQW-215",
+      "target": "aviary",
+      "order": [
+        3,
+        2,
+        0,
+        1
+      ],
+      "conds": {
+        "L0": {
+          "correct": 0,
+          "output": " Yes, lstripeseseseseseses",
+          "gold_lp": -16.416,
+          "margin": null
+        },
+        "L1c": {
+          "correct": 0,
+          "output": " Yes, lstripeseseseseseses",
+          "gold_lp": -16.376,
+          "margin": -1.442
+        },
+        "L1f": {
+          "correct": 0,
+          "output": " Yes! Please send email notification ",
+          "gold_lp": -20.06,
+          "margin": 32.954
+        },
+        "L2c": {
+          "correct": 0,
+          "output": " Yes, ref BQW-inve",
+          "gold_lp": -17.918,
+          "margin": -3.801
+        },
+        "L2f": {
+          "correct": 0,
+          "output": " yes dermatan!\nAnswer: \u001f!\n",
+          "gold_lp": -22.669,
+          "margin": 20.235
+        },
+        "L3c": {
+          "correct": 0,
+          "output": " Yes, ref BQW-941",
+          "gold_lp": -20.109,
+          "margin": -6.474
+        },
+        "L3f": {
+          "correct": 0,
+          "output": " yes Adamas!\nAnswer: \u001f!\n",
+          "gold_lp": -24.565,
+          "margin": 16.839
+        },
+        "L4c": {
+          "correct": 0,
+          "output": " ref BQW-881 = ",
+          "gold_lp": -19.913,
+          "margin": -5.543
+        },
+        "L4f": {
+          "correct": 0,
+          "output": " yes Adamas!\nAnswer: \u001f!\n",
+          "gold_lp": -24.143,
+          "margin": 18.793
+        }
+      }
+    },
+    "cb-026": {
+      "gold": "BQW-269",
+      "target": "barbican",
+      "order": [
+        0,
+        3,
+        4,
+        1
+      ],
+      "conds": {
+        "L0": {
+          "correct": 0,
+          "output": " No Deduplication supplied.\nAnswer: No",
+          "gold_lp": -14.282,
+          "margin": null
+        },
+        "L1c": {
+          "correct": 0,
+          "output": " ref BQW-FQW ref",
+          "gold_lp": -14.675,
+          "margin": 0.178
+        },
+        "L1f": {
+          "correct": 0,
+          "output": " No move_to_enderience scheme ",
+          "gold_lp": -15.081,
+          "margin": 14.26
+        },
+        "L2c": {
+          "correct": 0,
+          "output": " ref BQW-608 helps ",
+          "gold_lp": -16.8,
+          "margin": -4.683
+        },
+        "L2f": {
+          "correct": 0,
+          "output": " Yes, yes.\nAnswer: Yes,",
+          "gold_lp": -16.397,
+          "margin": 17.986
+        },
+        "L3c": {
+          "correct": 0,
+          "output": " ref BQW-558 helps ",
+          "gold_lp": -16.986,
+          "margin": -4.463
+        },
+        "L3f": {
+          "correct": 0,
+          "output": " Yes, Aquarii!\nAnswer: Yes,",
+          "gold_lp": -17.918,
+          "margin": 15.021
+        },
+        "L4c": {
+          "correct": 0,
+          "output": " ref BQW-527 helps ",
+          "gold_lp": -15.931,
+          "margin": -0.468
+        },
+        "L4f": {
+          "correct": 0,
+          "output": " Yes, yes.\nAnswer: Yes,",
+          "gold_lp": -16.875,
+          "margin": 14.9
+        }
+      }
+    },
+    "cb-027": {
+      "gold": "CTY-831",
+      "target": "portcullis",
+      "order": [
+        0,
+        1,
+        4,
+        2
+      ],
+      "conds": {
+        "L0": {
+          "correct": 0,
+          "output": " 5 days\nAnswer: 5 days\n",
+          "gold_lp": -12.047,
+          "margin": null
+        },
+        "L1c": {
+          "correct": 1,
+          "output": " Yes, ref CTY-831 ",
+          "gold_lp": -13.501,
+          "margin": 0.487
+        },
+        "L1f": {
+          "correct": 0,
+          "output": " Yes, Interconnection belongs lstripes.\n",
+          "gold_lp": -14.139,
+          "margin": 22.651
+        },
+        "L2c": {
+          "correct": 0,
+          "output": " No EXPLAININGS AND THE ",
+          "gold_lp": -13.158,
+          "margin": 1.806
+        },
+        "L2f": {
+          "correct": 0,
+          "output": " Yes, yes.\nAnswer: Yes,",
+          "gold_lp": -14.34,
+          "margin": 19.062
+        },
+        "L3c": {
+          "correct": 0,
+          "output": " Yes.\nQuestion: What does BE",
+          "gold_lp": -15.903,
+          "margin": 0.006
+        },
+        "L3f": {
+          "correct": 0,
+          "output": " Yes, unmixed shrubs grow limestones ",
+          "gold_lp": -14.913,
+          "margin": 18.711
+        },
+        "L4c": {
+          "correct": 0,
+          "output": " ref BCQW must remain ref",
+          "gold_lp": -17.051,
+          "margin": -1.025
+        },
+        "L4f": {
+          "correct": 0,
+          "output": " No move_to_enderies!\nAnswer: ",
+          "gold_lp": -15.001,
+          "margin": 19.647
+        }
+      }
+    },
+    "cb-028": {
+      "gold": "AVR-569",
+      "target": "impound",
+      "order": [
+        2,
+        0,
+        4,
+        3
+      ],
+      "conds": {
+        "L0": {
+          "correct": 1,
+          "output": " ref AVR-569 = 0",
+          "gold_lp": -11.328,
+          "margin": null
+        },
+        "L1c": {
+          "correct": 0,
+          "output": " ref FMP-994 = 0",
+          "gold_lp": -12.132,
+          "margin": 0.759
+        },
+        "L1f": {
+          "correct": 0,
+          "output": " No Deduplication!\nAnswer: Yes!\n",
+          "gold_lp": -13.54,
+          "margin": 17.521
+        },
+        "L2c": {
+          "correct": 0,
+          "output": " ref AVR-100 helps prevent ",
+          "gold_lp": -12.515,
+          "margin": 1.853
+        },
+        "L2f": {
+          "correct": 0,
+          "output": " Yes, lstripeseseseseseses",
+          "gold_lp": -14.465,
+          "margin": 18.041
+        },
+        "L3c": {
+          "correct": 0,
+          "output": " ref AVR-100 helps prevent ",
+          "gold_lp": -13.068,
+          "margin": 2.533
+        },
+        "L3f": {
+          "correct": 0,
+          "output": " Yes, lstripeseseseseseses",
+          "gold_lp": -15.302,
+          "margin": 21.882
+        },
+        "L4c": {
+          "correct": 1,
+          "output": " ref AVR-569 helps ref",
+          "gold_lp": -12.724,
+          "margin": 2.744
+        },
+        "L4f": {
+          "correct": 0,
+          "output": " Click HERE HERE\nClick HERE HERE",
+          "gold_lp": -14.865,
+          "margin": 23.222
+        }
+      }
+    },
+    "cb-029": {
+      "gold": "GQS-813",
+      "target": "lancet",
+      "order": [
+        1,
+        2,
+        0,
+        3
+      ],
+      "conds": {
+        "L0": {
+          "correct": 0,
+          "output": " Overfeeding infants requires laparoscopic surgery ",
+          "gold_lp": -14.204,
+          "margin": null
+        },
+        "L1c": {
+          "correct": 0,
+          "output": " Overfeeding infants requires laparoscopic surgery ",
+          "gold_lp": -14.025,
+          "margin": 0.936
+        },
+        "L1f": {
+          "correct": 0,
+          "output": " Yes, Interconnection helps neutralize bacteria.",
+          "gold_lp": -14.111,
+          "margin": 29.344
+        },
+        "L2c": {
+          "correct": 0,
+          "output": " ref HUB-670 helps regulate",
+          "gold_lp": -14.161,
+          "margin": 1.327
+        },
+        "L2f": {
+          "correct": 0,
+          "output": " Yes, speculatively.\nAnswer: Yes,",
+          "gold_lp": -14.059,
+          "margin": 27.857
+        },
+        "L3c": {
+          "correct": 0,
+          "output": " Overfeeding infants requires laparoscopic therapy ",
+          "gold_lp": -14.067,
+          "margin": 1.537
+        },
+        "L3f": {
+          "correct": 0,
+          "output": " Yes, Interconnection works lstriply ",
+          "gold_lp": -13.775,
+          "margin": 27.117
+        },
+        "L4c": {
+          "correct": 0,
+          "output": " Overfeeding infants requires feeding infants ",
+          "gold_lp": -14.488,
+          "margin": 0.984
+        },
+        "L4f": {
+          "correct": 0,
+          "output": " Yes, Interconnection!\nAnswer: Yes,",
+          "gold_lp": -13.341,
+          "margin": 26.899
+        }
+      }
+    },
+    "cb-030": {
+      "gold": "AVR-238",
+      "target": "lancet",
+      "order": [
+        4,
+        0,
+        1,
+        2
+      ],
+      "conds": {
+        "L0": {
+          "correct": 0,
+          "output": " Overdose therapy reduces mortality rates ",
+          "gold_lp": -16.771,
+          "margin": null
+        },
+        "L1c": {
+          "correct": 0,
+          "output": " Overfeeding infants requires laparoscopic surgery ",
+          "gold_lp": -16.742,
+          "margin": -3.821
+        },
+        "L1f": {
+          "correct": 0,
+          "output": " Yes, Interconnection helps neutralize bacteria.",
+          "gold_lp": -17.273,
+          "margin": 16.809
+        },
+        "L2c": {
+          "correct": 0,
+          "output": " Overfeeding infants requires laparoscopic surgery ",
+          "gold_lp": -17.083,
+          "margin": -3.832
+        },
+        "L2f": {
+          "correct": 0,
+          "output": " Yes, speculatively.\nAnswer: Yes,",
+          "gold_lp": -18.444,
+          "margin": 19.11
+        },
+        "L3c": {
+          "correct": 0,
+          "output": " Answer: Answer: Answer: Answer:",
+          "gold_lp": -17.46,
+          "margin": -3.285
+        },
+        "L3f": {
+          "correct": 0,
+          "output": " yes </goal>!\nAnswer: \u001f!\n",
+          "gold_lp": -18.546,
+          "margin": 21.588
+        },
+        "L4c": {
+          "correct": 0,
+          "output": " Yes, ref must remain ref ",
+          "gold_lp": -17.32,
+          "margin": -1.251
+        },
+        "L4f": {
+          "correct": 0,
+          "output": " Answer: Answer: Answer: Answer:",
+          "gold_lp": -18.393,
+          "margin": 18.894
+        }
+      }
+    },
+    "cb-031": {
+      "gold": "AVR-527",
+      "target": "gaol",
+      "order": [
+        0,
+        4,
+        3,
+        1
+      ],
+      "conds": {
+        "L0": {
+          "correct": 0,
+          "output": " No Answer.\nAnswer: Yes.\n",
+          "gold_lp": -11.65,
+          "margin": null
+        },
+        "L1c": {
+          "correct": 0,
+          "output": " Yes, ref AVR-937 ",
+          "gold_lp": -16.152,
+          "margin": -3.804
+        },
+        "L1f": {
+          "correct": 0,
+          "output": " Yes, lstripGaol stays lstrip",
+          "gold_lp": -14.5,
+          "margin": 19.136
+        },
+        "L2c": {
+          "correct": 0,
+          "output": " Yes, ref AVR-937 ",
+          "gold_lp": -16.174,
+          "margin": -1.202
+        },
+        "L2f": {
+          "correct": 0,
+          "output": " Yes, lstripGaol stays lstrip",
+          "gold_lp": -16.043,
+          "margin": 23.285
+        },
+        "L3c": {
+          "correct": 0,
+          "output": " Yes, ref HUB-816 ",
+          "gold_lp": -15.746,
+          "margin": -1.453
+        },
+        "L3f": {
+          "correct": 0,
+          "output": " Yes, Aquariilry!\nAnswer: ",
+          "gold_lp": -16.325,
+          "margin": 21.406
+        },
+        "L4c": {
+          "correct": 0,
+          "output": " Yes, ref FMP-546 ",
+          "gold_lp": -14.438,
+          "margin": -0.161
+        },
+        "L4f": {
+          "correct": 0,
+          "output": " Yes, Aquariieseseseseseses",
+          "gold_lp": -16.226,
+          "margin": 18.416
+        }
+      }
+    },
+    "cb-032": {
+      "gold": "EKH-756",
+      "target": "aviary",
+      "order": [
+        1,
+        0,
+        3,
+        4
+      ],
+      "conds": {
+        "L0": {
+          "correct": 0,
+          "output": " Yes. Returning ONLY ref E",
+          "gold_lp": -15.589,
+          "margin": null
+        },
+        "L1c": {
+          "correct": 0,
+          "output": " Impounding ref AVR-578",
+          "gold_lp": -17.604,
+          "margin": -6.728
+        },
+        "L1f": {
+          "correct": 0,
+          "output": " Yes! Welcome!\nAnswer: Yes!",
+          "gold_lp": -17.624,
+          "margin": 22.205
+        },
+        "L2c": {
+          "correct": 0,
+          "output": " ref AVR-578 equals ref",
+          "gold_lp": -17.482,
+          "margin": -4.668
+        },
+        "L2f": {
+          "correct": 0,
+          "output": " Yes! Please send email notification ",
+          "gold_lp": -17.33,
+          "margin": 19.108
+        },
+        "L3c": {
+          "correct": 0,
+          "output": " ref AVR-578 equals ref",
+          "gold_lp": -18.099,
+          "margin": -3.435
+        },
+        "L3f": {
+          "correct": 0,
+          "output": " Yes, Aquarii!\nAnswer: Yes,",
+          "gold_lp": -19.882,
+          "margin": 21.289
+        },
+        "L4c": {
+          "correct": 0,
+          "output": " ref CTY-131 must remain ",
+          "gold_lp": -20.091,
+          "margin": -5.108
+        },
+        "L4f": {
+          "correct": 0,
+          "output": " Yes! Please send Aquarii speculatively ",
+          "gold_lp": -19.359,
+          "margin": 19.648
+        }
+      }
+    },
+    "cb-033": {
+      "gold": "GQS-159",
+      "target": "nave",
+      "order": [
+        2,
+        3,
+        0,
+        4
+      ],
+      "conds": {
+        "L0": {
+          "correct": 0,
+          "output": " Yes, unmixednave doesn't ",
+          "gold_lp": -13.399,
+          "margin": null
+        },
+        "L1c": {
+          "correct": 0,
+          "output": " Yes, ref EKH-29.",
+          "gold_lp": -13.476,
+          "margin": 2.362
+        },
+        "L1f": {
+          "correct": 0,
+          "output": " Yes, K_hnaye!\nAnswer: ",
+          "gold_lp": -13.729,
+          "margin": 30.279
+        },
+        "L2c": {
+          "correct": 0,
+          "output": " Yes.\nAnswer: Yes.\nAnswer:",
+          "gold_lp": -12.876,
+          "margin": 2.894
+        },
+        "L2f": {
+          "correct": 0,
+          "output": " Yes, K_h!\nAnswer: Yes,",
+          "gold_lp": -13.663,
+          "margin": 30.629
+        },
+        "L3c": {
+          "correct": 0,
+          "output": " Yes.\nAnswer: Yes.\nAnswer:",
+          "gold_lp": -12.15,
+          "margin": 1.83
+        },
+        "L3f": {
+          "correct": 0,
+          "output": " Yes, Aquarii!\nAnswer: Yes,",
+          "gold_lp": -13.914,
+          "margin": 27.487
+        },
+        "L4c": {
+          "correct": 0,
+          "output": " Yes, ref doesn't stay ",
+          "gold_lp": -14.248,
+          "margin": 0.025
+        },
+        "L4f": {
+          "correct": 0,
+          "output": " Yes, Aquarii!\nAnswer: Yes,",
+          "gold_lp": -13.892,
+          "margin": 22.993
+        }
+      }
+    },
+    "cb-034": {
+      "gold": "BQW-463",
+      "target": "nave",
+      "order": [
+        1,
+        3,
+        0,
+        4
+      ],
+      "conds": {
+        "L0": {
+          "correct": 0,
+          "output": " Yes, speculatively.\nAnswer: Yes,",
+          "gold_lp": -19.021,
+          "margin": null
+        },
+        "L1c": {
+          "correct": 0,
+          "output": " Yes, Interconnection!\nAnswer: Yes,",
+          "gold_lp": -18.573,
+          "margin": -2.292
+        },
+        "L1f": {
+          "correct": 0,
+          "output": " Yes, K_hkaye!\nAnswer: ",
+          "gold_lp": -19.871,
+          "margin": 12.053
+        },
+        "L2c": {
+          "correct": 0,
+          "output": " Yes, Interconnection!\nAnswer: Yes,",
+          "gold_lp": -18.83,
+          "margin": -1.582
+        },
+        "L2f": {
+          "correct": 0,
+          "output": " Yes, K_h!\nAnswer: Yes,",
+          "gold_lp": -20.545,
+          "margin": 12.41
+        },
+        "L3c": {
+          "correct": 0,
+          "output": " Yes.\nAnswer: Yes.\nAnswer:",
+          "gold_lp": -18.84,
+          "margin": 0.253
+        },
+        "L3f": {
+          "correct": 0,
+          "output": " Yes, K_h!\nAnswer: Yes,",
+          "gold_lp": -21.777,
+          "margin": 10.024
+        },
+        "L4c": {
+          "correct": 0,
+          "output": " Yes, ref CTY-193.",
+          "gold_lp": -21.655,
+          "margin": -4.024
+        },
+        "L4f": {
+          "correct": 0,
+          "output": " Yes, Aquarii!\nAnswer: Yes,",
+          "gold_lp": -20.916,
+          "margin": 10.907
+        }
+      }
+    },
+    "cb-035": {
+      "gold": "CTY-873",
+      "target": "aviary",
+      "order": [
+        0,
+        2,
+        3,
+        1
+      ],
+      "conds": {
+        "L0": {
+          "correct": 0,
+          "output": " Yes. Return ONLY </goal> ON ",
+          "gold_lp": -11.43,
+          "margin": null
+        },
+        "L1c": {
+          "correct": 0,
+          "output": " ref HUB-802 = ref",
+          "gold_lp": -14.183,
+          "margin": 2.787
+        },
+        "L1f": {
+          "correct": 0,
+          "output": " Yes! Please ask yours!\nAnswer",
+          "gold_lp": -15.069,
+          "margin": 22.531
+        },
+        "L2c": {
+          "correct": 0,
+          "output": " ref AVR-399 equals ref",
+          "gold_lp": -14.267,
+          "margin": -0.6
+        },
+        "L2f": {
+          "correct": 0,
+          "output": " Yes! Please ask yours!\nAnswer",
+          "gold_lp": -16.263,
+          "margin": 22.381
+        },
+        "L3c": {
+          "correct": 0,
+          "output": " ref AVR-399 stands correctly",
+          "gold_lp": -15.095,
+          "margin": -0.257
+        },
+        "L3f": {
+          "correct": 0,
+          "output": " Yes! Please send Aquarii lstrip!",
+          "gold_lp": -17.396,
+          "margin": 20.015
+        },
+        "L4c": {
+          "correct": 0,
+          "output": " ref FMP-\u221e ref ",
+          "gold_lp": -14.094,
+          "margin": 2.079
+        },
+        "L4f": {
+          "correct": 0,
+          "output": " Yes! Please send Aquarii speculatively ",
+          "gold_lp": -16.812,
+          "margin": 19.181
+        }
+      }
+    },
+    "cb-036": {
+      "gold": "DZN-753",
+      "target": "impound",
+      "order": [
+        2,
+        4,
+        1,
+        0
+      ],
+      "conds": {
+        "L0": {
+          "correct": 0,
+          "output": " No. 5 kg to lbs",
+          "gold_lp": -13.135,
+          "margin": null
+        },
+        "L1c": {
+          "correct": 0,
+          "output": " ref AVR-501 = ref",
+          "gold_lp": -14.227,
+          "margin": -2.314
+        },
+        "L1f": {
+          "correct": 0,
+          "output": " No move_to_enderience Required ",
+          "gold_lp": -15.017,
+          "margin": 21.832
+        },
+        "L2c": {
+          "correct": 0,
+          "output": " ref AVR-501 = ref",
+          "gold_lp": -14.851,
+          "margin": -2.175
+        },
+        "L2f": {
+          "correct": 0,
+          "output": " Yes, lstripeseseseseseses",
+          "gold_lp": -14.913,
+          "margin": 21.942
+        },
+        "L3c": {
+          "correct": 0,
+          "output": " ref AVR-501 = ref",
+          "gold_lp": -15.272,
+          "margin": -2.062
+        },
+        "L3f": {
+          "correct": 0,
+          "output": " Yes, K_h!\nAnswer: Yes,",
+          "gold_lp": -15.163,
+          "margin": 22.203
+        },
+        "L4c": {
+          "correct": 0,
+          "output": " ref BQW-937 = ",
+          "gold_lp": -15.117,
+          "margin": -1.704
+        },
+        "L4f": {
+          "correct": 0,
+          "output": " Yes, K_h!\nAnswer: Yes,",
+          "gold_lp": -14.804,
+          "margin": 23.011
+        }
+      }
+    },
+    "cb-037": {
+      "gold": "GQS-268",
+      "target": "dolmen",
+      "order": [
+        2,
+        0,
+        3,
+        4
+      ],
+      "conds": {
+        "L0": {
+          "correct": 0,
+          "output": " Yes, yes.\nAnswer: Yes,",
+          "gold_lp": -17.133,
+          "margin": null
+        },
+        "L1c": {
+          "correct": 0,
+          "output": " Yes, ref CTY-307 ",
+          "gold_lp": -17.013,
+          "margin": -6.109
+        },
+        "L1f": {
+          "correct": 0,
+          "output": " Yes, lstripeseseseseseses",
+          "gold_lp": -16.962,
+          "margin": 18.33
+        },
+        "L2c": {
+          "correct": 0,
+          "output": " Yes, ref CTY-307 ",
+          "gold_lp": -16.574,
+          "margin": -4.012
+        },
+        "L2f": {
+          "correct": 0,
+          "output": " Yes, K_heseseseseseses",
+          "gold_lp": -16.954,
+          "margin": 24.65
+        },
+        "L3c": {
+          "correct": 0,
+          "output": " Yes, ref AVR-765 ",
+          "gold_lp": -16.279,
+          "margin": -3.045
+        },
+        "L3f": {
+          "correct": 0,
+          "output": " Yes, Aquariieseseseseseses",
+          "gold_lp": -17.108,
+          "margin": 23.755
+        },
+        "L4c": {
+          "correct": 0,
+          "output": " Yes, ref CTY-264 must",
+          "gold_lp": -16.403,
+          "margin": -1.665
+        },
+        "L4f": {
+          "correct": 0,
+          "output": " Yes, pleistocene!\nAnswer: Yes,",
+          "gold_lp": -16.967,
+          "margin": 22.037
+        }
+      }
+    },
+    "cb-038": {
+      "gold": "BQW-206",
+      "target": "nave",
+      "order": [
+        4,
+        1,
+        3,
+        2
+      ],
+      "conds": {
+        "L0": {
+          "correct": 0,
+          "output": " Yes, speculatively.\nAnswer: Yes,",
+          "gold_lp": -14.206,
+          "margin": null
+        },
+        "L1c": {
+          "correct": 0,
+          "output": " Yes, consequentialism does procurern't",
+          "gold_lp": -13.53,
+          "margin": 3.48
+        },
+        "L1f": {
+          "correct": 0,
+          "output": " Yes, lstripkaye!\nAnswer: ",
+          "gold_lp": -14.469,
+          "margin": 28.969
+        },
+        "L2c": {
+          "correct": 0,
+          "output": " 43 grams per kilogram equals 54",
+          "gold_lp": -14.367,
+          "margin": 2.475
+        },
+        "L2f": {
+          "correct": 0,
+          "output": " Yes, K_hkaye!\nAnswer: ",
+          "gold_lp": -15.889,
+          "margin": 23.084
+        },
+        "L3c": {
+          "correct": 0,
+          "output": " Yes, ref AVR-68.\n",
+          "gold_lp": -14.018,
+          "margin": 3.181
+        },
+        "L3f": {
+          "correct": 0,
+          "output": " Yes, Aquariinnaye!\nAnswer:",
+          "gold_lp": -15.954,
+          "margin": 21.042
+        },
+        "L4c": {
+          "correct": 0,
+          "output": " Answer: Answer: Answer: Answer:",
+          "gold_lp": -15.869,
+          "margin": 3.478
+        },
+        "L4f": {
+          "correct": 0,
+          "output": " Yes, Aquariinnaye!\nAnswer:",
+          "gold_lp": -15.706,
+          "margin": 20.381
+        }
+      }
+    },
+    "cb-039": {
+      "gold": "CTY-610",
+      "target": "barbican",
+      "order": [
+        2,
+        0,
+        1,
+        3
+      ],
+      "conds": {
+        "L0": {
+          "correct": 1,
+          "output": " Yes, ref CTY-610 means",
+          "gold_lp": -15.825,
+          "margin": null
+        },
+        "L1c": {
+          "correct": 0,
+          "output": " Yes, ref must remain unchanged ",
+          "gold_lp": -15.455,
+          "margin": -1.104
+        },
+        "L1f": {
+          "correct": 0,
+          "output": " Yes, yes.\nAnswer: Yes,",
+          "gold_lp": -17.518,
+          "margin": 16.553
+        },
+        "L2c": {
+          "correct": 0,
+          "output": " Yes, ref FMP-689 ",
+          "gold_lp": -16.38,
+          "margin": -3.59
+        },
+        "L2f": {
+          "correct": 0,
+          "output": " Yes, yes.\nAnswer: Yes,",
+          "gold_lp": -17.754,
+          "margin": 15.995
+        },
+        "L3c": {
+          "correct": 0,
+          "output": " Yes, ref OHP-689 ",
+          "gold_lp": -18.093,
+          "margin": -4.303
+        },
+        "L3f": {
+          "correct": 0,
+          "output": " Yes, yes.\nAnswer: Yes,",
+          "gold_lp": -18.355,
+          "margin": 15.323
+        },
+        "L4c": {
+          "correct": 0,
+          "output": " Yes, ref HUB-426 ",
+          "gold_lp": -16.707,
+          "margin": -2.099
+        },
+        "L4f": {
+          "correct": 0,
+          "output": " Yes, yes.\nAnswer: Yes,",
+          "gold_lp": -18.291,
+          "margin": 15.172
+        }
+      }
+    },
+    "cb-040": {
+      "gold": "CTY-628",
+      "target": "oratory",
+      "order": [
+        2,
+        3,
+        0,
+        4
+      ],
+      "conds": {
+        "L0": {
+          "correct": 0,
+          "output": " Yes, yes.\nAnswer: Yes,",
+          "gold_lp": -11.454,
+          "margin": null
+        },
+        "L1c": {
+          "correct": 1,
+          "output": " Yes, ref CTY-628 ",
+          "gold_lp": -12.703,
+          "margin": -0.287
+        },
+        "L1f": {
+          "correct": 0,
+          "output": " Yes! Welcome!\nAnswer: Yes!",
+          "gold_lp": -13.995,
+          "margin": 28.025
+        },
+        "L2c": {
+          "correct": 0,
+          "output": " ref CTY-978 helps prevent",
+          "gold_lp": -16.921,
+          "margin": -3.667
+        },
+        "L2f": {
+          "correct": 0,
+          "output": " Yes, lstripeseseseseseses",
+          "gold_lp": -14.664,
+          "margin": 22.89
+        },
+        "L3c": {
+          "correct": 0,
+          "output": " ref CTY-978 helps prevent",
+          "gold_lp": -16.54,
+          "margin": -3.459
+        },
+        "L3f": {
+          "correct": 0,
+          "output": " Yes, lstripeseseseseseses",
+          "gold_lp": -15.233,
+          "margin": 20.083
+        },
+        "L4c": {
+          "correct": 0,
+          "output": " ref FROM YOUR PHOTOS",
+          "gold_lp": -17.423,
+          "margin": -2.743
+        },
+        "L4f": {
+          "correct": 0,
+          "output": " Yes, pleistocene!\nAnswer: Yes,",
+          "gold_lp": -15.189,
+          "margin": 17.939
+        }
+      }
+    },
+    "cb-041": {
+      "gold": "CTY-563",
+      "target": "barbican",
+      "order": [
+        3,
+        2,
+        4,
+        0
+      ],
+      "conds": {
+        "L0": {
+          "correct": 0,
+          "output": " Yes, ref CTY-56 would",
+          "gold_lp": -17.215,
+          "margin": null
+        },
+        "L1c": {
+          "correct": 0,
+          "output": " Yes, ref CTY-569 ",
+          "gold_lp": -18.146,
+          "margin": -5.1
+        },
+        "L1f": {
+          "correct": 0,
+          "output": " Yes, yes.\nAnswer: Yes,",
+          "gold_lp": -18.803,
+          "margin": 11.68
+        },
+        "L2c": {
+          "correct": 0,
+          "output": " Yes, ref must remain ref ",
+          "gold_lp": -17.493,
+          "margin": -2.833
+        },
+        "L2f": {
+          "correct": 0,
+          "output": " Yes, yes.\nAnswer: Yes,",
+          "gold_lp": -18.61,
+          "margin": 12.099
+        },
+        "L3c": {
+          "correct": 0,
+          "output": " Yes, ref CTY-839 ",
+          "gold_lp": -19.246,
+          "margin": -4.931
+        },
+        "L3f": {
+          "correct": 0,
+          "output": " Yes, yes.\nAnswer: Yes,",
+          "gold_lp": -19.422,
+          "margin": 11.077
+        },
+        "L4c": {
+          "correct": 0,
+          "output": " Yes, ref CTY-941 ",
+          "gold_lp": -21.756,
+          "margin": -7.803
+        },
+        "L4f": {
+          "correct": 0,
+          "output": " Yes, yes.\nAnswer: Yes,",
+          "gold_lp": -19.618,
+          "margin": 9.951
+        }
+      }
+    },
+    "cb-042": {
+      "gold": "BQW-482",
+      "target": "barbican",
+      "order": [
+        1,
+        4,
+        3,
+        0
+      ],
+      "conds": {
+        "L0": {
+          "correct": 0,
+          "output": " No EXPLAININGS FOR THE ",
+          "gold_lp": -10.4,
+          "margin": null
+        },
+        "L1c": {
+          "correct": 1,
+          "output": " Yes, ref BQW-482",
+          "gold_lp": -10.454,
+          "margin": 8.447
+        },
+        "L1f": {
+          "correct": 0,
+          "output": " Yes, yes.\nAnswer: Yes,",
+          "gold_lp": -11.886,
+          "margin": 30.737
+        },
+        "L2c": {
+          "correct": 0,
+          "output": " Yes, ref BQW-544",
+          "gold_lp": -13.895,
+          "margin": 3.535
+        },
+        "L2f": {
+          "correct": 0,
+          "output": " Yes, yes.\nAnswer: Yes,",
+          "gold_lp": -12.185,
+          "margin": 24.149
+        },
+        "L3c": {
+          "correct": 0,
+          "output": " Yes, ref BQW-827",
+          "gold_lp": -17.078,
+          "margin": -2.102
+        },
+        "L3f": {
+          "correct": 0,
+          "output": " Yes, yes.\nAnswer: Yes,",
+          "gold_lp": -12.988,
+          "margin": 22.732
+        },
+        "L4c": {
+          "correct": 0,
+          "output": " ref BQW-827 helps ",
+          "gold_lp": -17.793,
+          "margin": -2.666
+        },
+        "L4f": {
+          "correct": 0,
+          "output": " Yes, yes.\nAnswer: Yes,",
+          "gold_lp": -12.893,
+          "margin": 24.494
+        }
+      }
+    },
+    "cb-043": {
+      "gold": "FMP-843",
+      "target": "nave",
+      "order": [
+        3,
+        0,
+        1,
+        4
+      ],
+      "conds": {
+        "L0": {
+          "correct": 1,
+          "output": " Yes. Refer FMP-843",
+          "gold_lp": -13.97,
+          "margin": null
+        },
+        "L1c": {
+          "correct": 0,
+          "output": " Yes.\nAnswer: Yes.\nAnswer:",
+          "gold_lp": -15.375,
+          "margin": 2.458
+        },
+        "L1f": {
+          "correct": 0,
+          "output": " Yes, K_hkaye!\nAnswer: ",
+          "gold_lp": -14.098,
+          "margin": 26.768
+        },
+        "L2c": {
+          "correct": 0,
+          "output": " ref BQW-843 helps ",
+          "gold_lp": -15.616,
+          "margin": 2.638
+        },
+        "L2f": {
+          "correct": 0,
+          "output": " Yes, K_h!\nAnswer: Yes,",
+          "gold_lp": -14.917,
+          "margin": 28.511
+        },
+        "L3c": {
+          "correct": 0,
+          "output": " ref ref EKH-468 ",
+          "gold_lp": -15.5,
+          "margin": 2.32
+        },
+        "L3f": {
+          "correct": 0,
+          "output": " Yes, Aquarii!\nAnswer: Yes,",
+          "gold_lp": -15.268,
+          "margin": 28.279
+        },
+        "L4c": {
+          "correct": 0,
+          "output": " ref AVR-544 helps prevent",
+          "gold_lp": -14.213,
+          "margin": 2.223
+        },
+        "L4f": {
+          "correct": 0,
+          "output": " Yes, Aquarii!\nAnswer: Yes,",
+          "gold_lp": -14.836,
+          "margin": 26.986
+        }
+      }
+    },
+    "cb-044": {
+      "gold": "HUB-303",
+      "target": "gaol",
+      "order": [
+        1,
+        4,
+        3,
+        0
+      ],
+      "conds": {
+        "L0": {
+          "correct": 0,
+          "output": " No ondolgard added speculatively indefinitely",
+          "gold_lp": -13.149,
+          "margin": null
+        },
+        "L1c": {
+          "correct": 1,
+          "output": " Impounding ref HUB-303",
+          "gold_lp": -14.874,
+          "margin": -1.032
+        },
+        "L1f": {
+          "correct": 0,
+          "output": " Yes, lstripGaol stays lstrip",
+          "gold_lp": -14.242,
+          "margin": 27.992
+        },
+        "L2c": {
+          "correct": 0,
+          "output": " Impounding ref FMP-587",
+          "gold_lp": -13.866,
+          "margin": -1.817
+        },
+        "L2f": {
+          "correct": 0,
+          "output": " Yes, lstripGaol stays lstrip",
+          "gold_lp": -13.939,
+          "margin": 23.5
+        },
+        "L3c": {
+          "correct": 0,
+          "output": " No ref AVR-472 must",
+          "gold_lp": -13.471,
+          "margin": -1.26
+        },
+        "L3f": {
+          "correct": 0,
+          "output": " Yes, lstripGaol stays lstrip",
+          "gold_lp": -14.607,
+          "margin": 22.695
+        },
+        "L4c": {
+          "correct": 0,
+          "output": " Yes, ref AVR-472 ",
+          "gold_lp": -14.243,
+          "margin": -0.388
+        },
+        "L4f": {
+          "correct": 0,
+          "output": " Yes! Please check yours!\nAnswer",
+          "gold_lp": -14.764,
+          "margin": 21.348
+        }
+      }
+    },
+    "cb-045": {
+      "gold": "EKH-193",
+      "target": "lancet",
+      "order": [
+        1,
+        4,
+        0,
+        3
+      ],
+      "conds": {
+        "L0": {
+          "correct": 0,
+          "output": " Yes, EDTA helps neutralize bacterial ",
+          "gold_lp": -15.466,
+          "margin": null
+        },
+        "L1c": {
+          "correct": 0,
+          "output": " Impounding yourself twice daily requires",
+          "gold_lp": -16.722,
+          "margin": -0.411
+        },
+        "L1f": {
+          "correct": 0,
+          "output": " Yes, limestones contain dermatan spores.",
+          "gold_lp": -16.304,
+          "margin": 19.771
+        },
+        "L2c": {
+          "correct": 0,
+          "output": " Impounding ref must contain ref",
+          "gold_lp": -15.957,
+          "margin": -1.537
+        },
+        "L2f": {
+          "correct": 0,
+          "output": " Yes, speculatively.\nAnswer: Yes,",
+          "gold_lp": -17.305,
+          "margin": 17.037
+        },
+        "L3c": {
+          "correct": 0,
+          "output": " Yes, ref is lstrip.\nAnswer",
+          "gold_lp": -15.533,
+          "margin": 1.639
+        },
+        "L3f": {
+          "correct": 0,
+          "output": " yes dermatan!\nAnswer: yes terrarium",
+          "gold_lp": -17.25,
+          "margin": 15.354
+        },
+        "L4c": {
+          "correct": 0,
+          "output": " yes\nAnswer: yes\nAnswer: yes",
+          "gold_lp": -15.889,
+          "margin": 1.609
+        },
+        "L4f": {
+          "correct": 0,
+          "output": " yes Adamas!\nAnswer: \u001f!\n",
+          "gold_lp": -16.976,
+          "margin": 13.901
+        }
+      }
+    },
+    "cb-046": {
+      "gold": "BQW-335",
+      "target": "oratory",
+      "order": [
+        2,
+        3,
+        4,
+        0
+      ],
+      "conds": {
+        "L0": {
+          "correct": 0,
+          "output": " Yes, lstripeseseseseseses",
+          "gold_lp": -11.969,
+          "margin": null
+        },
+        "L1c": {
+          "correct": 1,
+          "output": " Yes, ref BQW-335",
+          "gold_lp": -12.093,
+          "margin": 1.873
+        },
+        "L1f": {
+          "correct": 0,
+          "output": " Yes, lstrip!\nAnswer: Yes,",
+          "gold_lp": -13.238,
+          "margin": 29.094
+        },
+        "L2c": {
+          "correct": 0,
+          "output": " Yes, ref CTY-834 ",
+          "gold_lp": -12.572,
+          "margin": 0.658
+        },
+        "L2f": {
+          "correct": 0,
+          "output": " Yes, lstrip!\nAnswer: Yes,",
+          "gold_lp": -14.108,
+          "margin": 24.606
+        },
+        "L3c": {
+          "correct": 0,
+          "output": " Yes, ref BQW-508",
+          "gold_lp": -16.214,
+          "margin": -3.918
+        },
+        "L3f": {
+          "correct": 0,
+          "output": " Yes, lstrip!\nAnswer: Yes,",
+          "gold_lp": -15.338,
+          "margin": 22.993
+        },
+        "L4c": {
+          "correct": 0,
+          "output": " Yes, ref BQW-508",
+          "gold_lp": -12.574,
+          "margin": 2.778
+        },
+        "L4f": {
+          "correct": 0,
+          "output": " Yes, lstrip!\nAnswer: Yes,",
+          "gold_lp": -14.975,
+          "margin": 23.188
+        }
+      }
+    },
+    "cb-047": {
+      "gold": "BQW-444",
+      "target": "dolmen",
+      "order": [
+        1,
+        0,
+        3,
+        2
+      ],
+      "conds": {
+        "L0": {
+          "correct": 0,
+          "output": " Yes, Interconnection does Adamasger'",
+          "gold_lp": -12.876,
+          "margin": null
+        },
+        "L1c": {
+          "correct": 1,
+          "output": " Yes, ref BQW-444",
+          "gold_lp": -11.465,
+          "margin": 8.345
+        },
+        "L1f": {
+          "correct": 0,
+          "output": " Yes, yes.\nAnswer: Yes,",
+          "gold_lp": -12.669,
+          "margin": 21.964
+        },
+        "L2c": {
+          "correct": 0,
+          "output": " Yes, ref EKH-310 ",
+          "gold_lp": -11.333,
+          "margin": 6.052
+        },
+        "L2f": {
+          "correct": 0,
+          "output": " Yes, yes.\nAnswer: Yes,",
+          "gold_lp": -13.493,
+          "margin": 23.33
+        },
+        "L3c": {
+          "correct": 1,
+          "output": " Yes. ref BQW-444",
+          "gold_lp": -11.912,
+          "margin": 6.089
+        },
+        "L3f": {
+          "correct": 0,
+          "output": " Yes, lstripes!\nAnswer: Yes",
+          "gold_lp": -14.794,
+          "margin": 20.227
+        },
+        "L4c": {
+          "correct": 0,
+          "output": " Yes.\n\"Dolmen stay ref",
+          "gold_lp": -10.907,
+          "margin": 4.961
+        },
+        "L4f": {
+          "correct": 0,
+          "output": " Yes, K_h!\nAnswer: Yes,",
+          "gold_lp": -14.713,
+          "margin": 22.48
+        }
+      }
+    },
+    "cb-048": {
+      "gold": "CTY-537",
+      "target": "impound",
+      "order": [
+        3,
+        2,
+        1,
+        0
+      ],
+      "conds": {
+        "L0": {
+          "correct": 0,
+          "output": " Return Only Answer: Return Only ",
+          "gold_lp": -11.14,
+          "margin": null
+        },
+        "L1c": {
+          "correct": 0,
+          "output": " ref + ref + ref +",
+          "gold_lp": -11.536,
+          "margin": 2.202
+        },
+        "L1f": {
+          "correct": 0,
+          "output": " Yes, lstripes prefer moistened",
+          "gold_lp": -12.714,
+          "margin": 16.034
+        },
+        "L2c": {
+          "correct": 0,
+          "output": " ref IVF \u2192 ref IVF",
+          "gold_lp": -12.159,
+          "margin": 0.723
+        },
+        "L2f": {
+          "correct": 0,
+          "output": " Yes, lstripeseseseseseses",
+          "gold_lp": -13.507,
+          "margin": 21.964
+        },
+        "L3c": {
+          "correct": 0,
+          "output": " ref DZN-588 = ",
+          "gold_lp": -12.568,
+          "margin": 0.397
+        },
+        "L3f": {
+          "correct": 0,
+          "output": " Yes, lstripes!\nAnswer: Yes",
+          "gold_lp": -14.46,
+          "margin": 23.548
+        },
+        "L4c": {
+          "correct": 0,
+          "output": " ref AVR-230 equals ref ",
+          "gold_lp": -12.486,
+          "margin": 0.992
+        },
+        "L4f": {
+          "correct": 0,
+          "output": " Click HERE HERE\nClick HERE HERE",
+          "gold_lp": -14.476,
+          "margin": 22.292
+        }
+      }
+    },
+    "cb-049": {
+      "gold": "CTY-925",
+      "target": "lancet",
+      "order": [
+        4,
+        0,
+        3,
+        2
+      ],
+      "conds": {
+        "L0": {
+          "correct": 0,
+          "output": " Overdose therapy reduces mortality rates ",
+          "gold_lp": -13.108,
+          "margin": null
+        },
+        "L1c": {
+          "correct": 0,
+          "output": " Yes, ref must remain unchanged ",
+          "gold_lp": -13.648,
+          "margin": 1.42
+        },
+        "L1f": {
+          "correct": 0,
+          "output": " Yes, Interconnection helps neutralize toxins ",
+          "gold_lp": -15.68,
+          "margin": 13.678
+        },
+        "L2c": {
+          "correct": 0,
+          "output": " Yes, ref is ondol orally.",
+          "gold_lp": -14.667,
+          "margin": 1.247
+        },
+        "L2f": {
+          "correct": 0,
+          "output": " Yes, speculatively.\nAnswer: Yes,",
+          "gold_lp": -16.521,
+          "margin": 12.694
+        },
+        "L3c": {
+          "correct": 0,
+          "output": " Yes, ref must remain ref ",
+          "gold_lp": -14.042,
+          "margin": 1.632
+        },
+        "L3f": {
+          "correct": 0,
+          "output": " yes dermatan!\nAnswer: yes terrarium",
+          "gold_lp": -15.141,
+          "margin": 15.722
+        },
+        "L4c": {
+          "correct": 0,
+          "output": " Yes, ref JQ100 helps ",
+          "gold_lp": -13.549,
+          "margin": 1.623
+        },
+        "L4f": {
+          "correct": 0,
+          "output": " yes </goal>!\nAnswer: yes click",
+          "gold_lp": -15.187,
+          "margin": 18.475
+        }
+      }
+    },
+    "cb-050": {
+      "gold": "BQW-884",
+      "target": "aviary",
+      "order": [
+        0,
+        4,
+        1,
+        3
+      ],
+      "conds": {
+        "L0": {
+          "correct": 0,
+          "output": " Answer: Answer: Answer: Answer:",
+          "gold_lp": -14.454,
+          "margin": null
+        },
+        "L1c": {
+          "correct": 0,
+          "output": " ref FMP-509 equals ref",
+          "gold_lp": -13.267,
+          "margin": -0.91
+        },
+        "L1f": {
+          "correct": 0,
+          "output": " Yes! Please send email notification ",
+          "gold_lp": -15.657,
+          "margin": 17.176
+        },
+        "L2c": {
+          "correct": 0,
+          "output": " ref FMP-509 applies exclusively",
+          "gold_lp": -16.153,
+          "margin": -2.434
+        },
+        "L2f": {
+          "correct": 0,
+          "output": " yes dermatan!\nAnswer: \u001f!\n",
+          "gold_lp": -18.792,
+          "margin": 16.42
+        },
+        "L3c": {
+          "correct": 0,
+          "output": " Yes.\nAnswer: Yes.\nAnswer:",
+          "gold_lp": -16.866,
+          "margin": -0.244
+        },
+        "L3f": {
+          "correct": 0,
+          "output": " yes Adamas!\nAnswer: \u001f!\n",
+          "gold_lp": -20.882,
+          "margin": 14.494
+        },
+        "L4c": {
+          "correct": 0,
+          "output": " Yes.\nAnswer: Yes.\nAnswer:",
+          "gold_lp": -17.922,
+          "margin": -2.072
+        },
+        "L4f": {
+          "correct": 0,
+          "output": " yes Adamas!\nAnswer: \u001f!\n",
+          "gold_lp": -21.162,
+          "margin": 13.29
+        }
+      }
+    },
+    "cb-051": {
+      "gold": "AVR-231",
+      "target": "nave",
+      "order": [
+        1,
+        3,
+        2,
+        0
+      ],
+      "conds": {
+        "L0": {
+          "correct": 0,
+          "output": " Yes, InterconnectionART\u2122 stands",
+          "gold_lp": -12.416,
+          "margin": null
+        },
+        "L1c": {
+          "correct": 1,
+          "output": " Yes, ref AVR-231 doesn",
+          "gold_lp": -12.221,
+          "margin": 1.375
+        },
+        "L1f": {
+          "correct": 0,
+          "output": " Yes, lstripkaya!\nAnswer: ",
+          "gold_lp": -14.054,
+          "margin": 20.589
+        },
+        "L2c": {
+          "correct": 0,
+          "output": " Yes, ref AVR-160.\n",
+          "gold_lp": -13.782,
+          "margin": -0.308
+        },
+        "L2f": {
+          "correct": 0,
+          "output": " Yes, K_hkaya!!!!!",
+          "gold_lp": -15.041,
+          "margin": 17.132
+        },
+        "L3c": {
+          "correct": 0,
+          "output": " Answer: Answer: Answer: Answer:",
+          "gold_lp": -15.557,
+          "margin": -1.013
+        },
+        "L3f": {
+          "correct": 0,
+          "output": " Yes, Aquariin!\nAnswer: Yes",
+          "gold_lp": -15.692,
+          "margin": 20.057
+        },
+        "L4c": {
+          "correct": 0,
+          "output": " Yes, ref AVR-689.",
+          "gold_lp": -16.91,
+          "margin": -0.59
+        },
+        "L4f": {
+          "correct": 0,
+          "output": " Yes, Aquariin!\nAnswer: Yes",
+          "gold_lp": -15.988,
+          "margin": 18.989
+        }
+      }
+    },
+    "cb-052": {
+      "gold": "BQW-763",
+      "target": "portcullis",
+      "order": [
+        2,
+        3,
+        0,
+        4
+      ],
+      "conds": {
+        "L0": {
+          "correct": 0,
+          "output": " No EXPLAININGS IN THE ",
+          "gold_lp": -10.66,
+          "margin": null
+        },
+        "L1c": {
+          "correct": 0,
+          "output": " No EXPLAININGS IN THE ",
+          "gold_lp": -11.268,
+          "margin": 3.918
+        },
+        "L1f": {
+          "correct": 0,
+          "output": " No PARATHYROIDes!\nAnswer: No ",
+          "gold_lp": -12.253,
+          "margin": 21.012
+        },
+        "L2c": {
+          "correct": 0,
+          "output": " No EXPLAININGS AND THE ",
+          "gold_lp": -19.499,
+          "margin": -4.692
+        },
+        "L2f": {
+          "correct": 0,
+          "output": " Yes, Interconnection!\nAnswer: Yes,",
+          "gold_lp": -13.353,
+          "margin": 17.887
+        },
+        "L3c": {
+          "correct": 0,
+          "output": " No EXPLAININGS AND THE ",
+          "gold_lp": -17.975,
+          "margin": -3.879
+        },
+        "L3f": {
+          "correct": 0,
+          "output": " Yes, unmixed terrariums prefer terrarium",
+          "gold_lp": -14.919,
+          "margin": 18.349
+        },
+        "L4c": {
+          "correct": 0,
+          "output": " Yes.\nAnswer: Yes.\nAnswer:",
+          "gold_lp": -14.834,
+          "margin": 1.574
+        },
+        "L4f": {
+          "correct": 0,
+          "output": " No move_to_ender!\nAnswer: No ",
+          "gold_lp": -14.688,
+          "margin": 17.583
+        }
+      }
+    },
+    "cb-053": {
+      "gold": "HUB-290",
+      "target": "cloister",
+      "order": [
+        2,
+        1,
+        4,
+        0
+      ],
+      "conds": {
+        "L0": {
+          "correct": 0,
+          "output": " Yes, Interconnection does procurer dermatan ",
+          "gold_lp": -10.429,
+          "margin": null
+        },
+        "L1c": {
+          "correct": 1,
+          "output": " Yes, ref HUB-290 ",
+          "gold_lp": -10.932,
+          "margin": 3.431
+        },
+        "L1f": {
+          "correct": 0,
+          "output": " Yes, Aquariin!\nAnswer: Yes",
+          "gold_lp": -11.556,
+          "margin": 17.366
+        },
+        "L2c": {
+          "correct": 0,
+          "output": " Yes, ref AVR-427 doesn",
+          "gold_lp": -11.729,
+          "margin": 3.375
+        },
+        "L2f": {
+          "correct": 0,
+          "output": " Yes, Aquariin!\nAnswer: Yes",
+          "gold_lp": -12.065,
+          "margin": 20.784
+        },
+        "L3c": {
+          "correct": 0,
+          "output": " Yes.\nAnswer: Yes.\nAnswer:",
+          "gold_lp": -12.757,
+          "margin": 3.592
+        },
+        "L3f": {
+          "correct": 0,
+          "output": " Yes, Aquariin!\nAnswer: Yes",
+          "gold_lp": -12.443,
+          "margin": 24.061
+        },
+        "L4c": {
+          "correct": 0,
+          "output": " Yes.\nQuestion: What does Ag",
+          "gold_lp": -13.445,
+          "margin": 3.697
+        },
+        "L4f": {
+          "correct": 0,
+          "output": " Yes, Aquariies!\nAnswer: Yes",
+          "gold_lp": -12.42,
+          "margin": 25.153
+        }
+      }
+    },
+    "cb-054": {
+      "gold": "EKH-986",
+      "target": "oratory",
+      "order": [
+        2,
+        0,
+        3,
+        4
+      ],
+      "conds": {
+        "L0": {
+          "correct": 0,
+          "output": " Yes, speculatively.\nAnswer: Yes,",
+          "gold_lp": -12.755,
+          "margin": null
+        },
+        "L1c": {
+          "correct": 0,
+          "output": " ref BQW-598 reduces ",
+          "gold_lp": -16.042,
+          "margin": -2.596
+        },
+        "L1f": {
+          "correct": 0,
+          "output": " Yes, lstripeseseseseseses",
+          "gold_lp": -13.266,
+          "margin": 23.526
+        },
+        "L2c": {
+          "correct": 0,
+          "output": " ref BQW-598 reduces ",
+          "gold_lp": -15.825,
+          "margin": -2.401
+        },
+        "L2f": {
+          "correct": 0,
+          "output": " Yes, lstrip!\nAnswer: Yes,",
+          "gold_lp": -14.29,
+          "margin": 26.439
+        },
+        "L3c": {
+          "correct": 0,
+          "output": " ref CTY-664 reduces ref",
+          "gold_lp": -15.173,
+          "margin": -2.943
+        },
+        "L3f": {
+          "correct": 0,
+          "output": " Yes, lstrip!\nAnswer: Yes,",
+          "gold_lp": -15.386,
+          "margin": 23.514
+        },
+        "L4c": {
+          "correct": 0,
+          "output": " ref CTY-626 reduces ref",
+          "gold_lp": -14.95,
+          "margin": -0.571
+        },
+        "L4f": {
+          "correct": 0,
+          "output": " Yes, pleistocene!\nAnswer: Yes,",
+          "gold_lp": -14.647,
+          "margin": 22.607
+        }
+      }
+    },
+    "cb-055": {
+      "gold": "GQS-452",
+      "target": "lancet",
+      "order": [
+        3,
+        2,
+        4,
+        0
+      ],
+      "conds": {
+        "L0": {
+          "correct": 0,
+          "output": " Overfeeding infants requires laparoscopic surgery ",
+          "gold_lp": -17.128,
+          "margin": null
+        },
+        "L1c": {
+          "correct": 0,
+          "output": " Yes, ref HUB-255 helps",
+          "gold_lp": -17.228,
+          "margin": -4.078
+        },
+        "L1f": {
+          "correct": 0,
+          "output": " Yes, Interconnection helps neutralize bacteria.",
+          "gold_lp": -17.334,
+          "margin": 19.683
+        },
+        "L2c": {
+          "correct": 0,
+          "output": " Overfeeding infants requires laparoscopic surgery ",
+          "gold_lp": -17.711,
+          "margin": -2.378
+        },
+        "L2f": {
+          "correct": 0,
+          "output": " Yes, speculatively.\nAnswer: Yes,",
+          "gold_lp": -17.387,
+          "margin": 21.766
+        },
+        "L3c": {
+          "correct": 0,
+          "output": " Yes, ref OHT-387 ",
+          "gold_lp": -17.858,
+          "margin": -2.365
+        },
+        "L3f": {
+          "correct": 0,
+          "output": " yes dermatan!\nAnswer: \u001f!\n",
+          "gold_lp": -17.589,
+          "margin": 21.456
+        },
+        "L4c": {
+          "correct": 0,
+          "output": " Yes, ref JQ-387 ",
+          "gold_lp": -18.449,
+          "margin": -3.032
+        },
+        "L4f": {
+          "correct": 0,
+          "output": " yes dermatan!\nAnswer: yes terrarium",
+          "gold_lp": -17.299,
+          "margin": 19.562
+        }
+      }
+    },
+    "cb-056": {
+      "gold": "EKH-172",
+      "target": "oratory",
+      "order": [
+        4,
+        2,
+        0,
+        3
+      ],
+      "conds": {
+        "L0": {
+          "correct": 0,
+          "output": " Yes, unmixed limestones prefer limestones ",
+          "gold_lp": -12.366,
+          "margin": null
+        },
+        "L1c": {
+          "correct": 0,
+          "output": " Yes, ref EKH-289",
+          "gold_lp": -19.754,
+          "margin": -6.432
+        },
+        "L1f": {
+          "correct": 0,
+          "output": " Yes, lstripeseseseseseses",
+          "gold_lp": -13.17,
+          "margin": 19.935
+        },
+        "L2c": {
+          "correct": 0,
+          "output": " Yes, ref EKH-289",
+          "gold_lp": -20.594,
+          "margin": -4.914
+        },
+        "L2f": {
+          "correct": 0,
+          "output": " Yes, pleistocene!\nAnswer: Yes,",
+          "gold_lp": -14.078,
+          "margin": 25.643
+        },
+        "L3c": {
+          "correct": 0,
+          "output": " Yes, ref doesn't stay ",
+          "gold_lp": -20.94,
+          "margin": -4.434
+        },
+        "L3f": {
+          "correct": 0,
+          "output": " Yes, pleistocene!\nAnswer: Yes,",
+          "gold_lp": -15.354,
+          "margin": 26.758
+        },
+        "L4c": {
+          "correct": 0,
+          "output": " Yes, ref doesn't stay ",
+          "gold_lp": -20.999,
+          "margin": -4.747
+        },
+        "L4f": {
+          "correct": 0,
+          "output": " Yes, pleistocene!\nAnswer: Yes,",
+          "gold_lp": -15.167,
+          "margin": 25.003
+        }
+      }
+    },
+    "cb-057": {
+      "gold": "BQW-826",
+      "target": "gaol",
+      "order": [
+        4,
+        0,
+        2,
+        1
+      ],
+      "conds": {
+        "L0": {
+          "correct": 0,
+          "output": " Yes, consequentialism does NOT apply ",
+          "gold_lp": -12.028,
+          "margin": null
+        },
+        "L1c": {
+          "correct": 1,
+          "output": " ref BQW-826 helps ",
+          "gold_lp": -13.769,
+          "margin": 1.141
+        },
+        "L1f": {
+          "correct": 0,
+          "output": " Yes, lstripGaol stays lstrip",
+          "gold_lp": -13.679,
+          "margin": 27.948
+        },
+        "L2c": {
+          "correct": 0,
+          "output": " ref BQW-FQW helps",
+          "gold_lp": -16.499,
+          "margin": -0.539
+        },
+        "L2f": {
+          "correct": 0,
+          "output": " Yes, lstripGaol stays lstrip",
+          "gold_lp": -16.506,
+          "margin": 21.614
+        },
+        "L3c": {
+          "correct": 0,
+          "output": " ref CTY-212 helps restore ",
+          "gold_lp": -16.556,
+          "margin": -2.103
+        },
+        "L3f": {
+          "correct": 0,
+          "output": " Yes, lstrip!\nAnswer: Yes,",
+          "gold_lp": -18.157,
+          "margin": 18.715
+        },
+        "L4c": {
+          "correct": 0,
+          "output": " ref lost ref\nQuestion: What ",
+          "gold_lp": -15.537,
+          "margin": -0.646
+        },
+        "L4f": {
+          "correct": 0,
+          "output": " Yes, lstrip!\nAnswer: Yes,",
+          "gold_lp": -18.404,
+          "margin": 18.039
+        }
+      }
+    },
+    "cb-058": {
+      "gold": "GQS-318",
+      "target": "impound",
+      "order": [
+        3,
+        2,
+        4,
+        1
+      ],
+      "conds": {
+        "L0": {
+          "correct": 0,
+          "output": " Return Only ref FOR THE COM",
+          "gold_lp": -17.51,
+          "margin": null
+        },
+        "L1c": {
+          "correct": 0,
+          "output": " ref FMP-256 helps prevent ",
+          "gold_lp": -16.2,
+          "margin": -2.545
+        },
+        "L1f": {
+          "correct": 0,
+          "output": " Thank you guys!\nAnswer: Thank",
+          "gold_lp": -16.999,
+          "margin": 13.755
+        },
+        "L2c": {
+          "correct": 0,
+          "output": " ref FMP-to-ref ratio ",
+          "gold_lp": -16.07,
+          "margin": 4.163
+        },
+        "L2f": {
+          "correct": 0,
+          "output": " Yes, lstripeseseseseseses",
+          "gold_lp": -16.75,
+          "margin": 13.489
+        },
+        "L3c": {
+          "correct": 0,
+          "output": " Answer: Answer: Answer: Answer:",
+          "gold_lp": -17.004,
+          "margin": 1.718
+        },
+        "L3f": {
+          "correct": 0,
+          "output": " Yes! Thank you!\nAnswer: ",
+          "gold_lp": -17.035,
+          "margin": 16.919
+        },
+        "L4c": {
+          "correct": 0,
+          "output": " ref AVR-658 helps prevent",
+          "gold_lp": -16.158,
+          "margin": 0.391
+        },
+        "L4f": {
+          "correct": 0,
+          "output": " Yes, lstripeseseseseseses",
+          "gold_lp": -16.937,
+          "margin": 18.158
+        }
+      }
+    },
+    "cb-059": {
+      "gold": "FMP-714",
+      "target": "impound",
+      "order": [
+        2,
+        0,
+        3,
+        4
+      ],
+      "conds": {
+        "L0": {
+          "correct": 0,
+          "output": " No ref = 0\nAnswer: ",
+          "gold_lp": -15.695,
+          "margin": null
+        },
+        "L1c": {
+          "correct": 0,
+          "output": " ref FMP-71 + ref ",
+          "gold_lp": -18.597,
+          "margin": 0.849
+        },
+        "L1f": {
+          "correct": 0,
+          "output": " No move_to_enderies!\nAnswer: ",
+          "gold_lp": -15.965,
+          "margin": 9.614
+        },
+        "L2c": {
+          "correct": 0,
+          "output": " ref AVR-394 equals ref",
+          "gold_lp": -19.96,
+          "margin": -4.603
+        },
+        "L2f": {
+          "correct": 0,
+          "output": " Yes, lstripeseseseseseses",
+          "gold_lp": -16.646,
+          "margin": 15.439
+        },
+        "L3c": {
+          "correct": 0,
+          "output": " ref AVR-566 equals ref",
+          "gold_lp": -19.646,
+          "margin": -4.619
+        },
+        "L3f": {
+          "correct": 0,
+          "output": " Yes, lstripes!\nAnswer: Yes",
+          "gold_lp": -16.847,
+          "margin": 17.644
+        },
+        "L4c": {
+          "correct": 0,
+          "output": " ref AVR-566 equals ref",
+          "gold_lp": -20.102,
+          "margin": -4.305
+        },
+        "L4f": {
+          "correct": 0,
+          "output": " Click HERE HERE\nClick HERE HERE",
+          "gold_lp": -16.649,
+          "margin": 15.854
+        }
+      }
+    },
+    "cb-060": {
+      "gold": "GQS-815",
+      "target": "oratory",
+      "order": [
+        3,
+        4,
+        0,
+        2
+      ],
+      "conds": {
+        "L0": {
+          "correct": 0,
+          "output": " Yes, lstripeseseseseseses",
+          "gold_lp": -13.84,
+          "margin": null
+        },
+        "L1c": {
+          "correct": 0,
+          "output": " ref is ondol orally orally orally",
+          "gold_lp": -21.443,
+          "margin": -8.484
+        },
+        "L1f": {
+          "correct": 0,
+          "output": " Yes, lstripeseseseseseses",
+          "gold_lp": -13.978,
+          "margin": 21.812
+        },
+        "L2c": {
+          "correct": 0,
+          "output": " ref BQW-554 helps ",
+          "gold_lp": -21.499,
+          "margin": -8.107
+        },
+        "L2f": {
+          "correct": 0,
+          "output": " Yes, lstrip!\nAnswer: Yes,",
+          "gold_lp": -13.611,
+          "margin": 23.959
+        },
+        "L3c": {
+          "correct": 0,
+          "output": " ref BQW-554 helps ",
+          "gold_lp": -21.596,
+          "margin": -8.217
+        },
+        "L3f": {
+          "correct": 0,
+          "output": " Yes! Please click HERE tomorrow!",
+          "gold_lp": -13.756,
+          "margin": 21.77
+        },
+        "L4c": {
+          "correct": 0,
+          "output": " ref BQW-556\nQuestion:",
+          "gold_lp": -19.456,
+          "margin": -5.993
+        },
+        "L4f": {
+          "correct": 0,
+          "output": " Yes! Please send email notification ",
+          "gold_lp": -13.645,
+          "margin": 21.054
+        }
+      }
+    },
+    "cb-061": {
+      "gold": "CTY-818",
+      "target": "lancet",
+      "order": [
+        3,
+        2,
+        4,
+        0
+      ],
+      "conds": {
+        "L0": {
+          "correct": 0,
+          "output": " Overdose therapy reduces mortality rates ",
+          "gold_lp": -13.21,
+          "margin": null
+        },
+        "L1c": {
+          "correct": 0,
+          "output": " ref AVR-781 helps regulate",
+          "gold_lp": -13.088,
+          "margin": 1.951
+        },
+        "L1f": {
+          "correct": 0,
+          "output": " Yes, Interconnection helps neutralize bacteria.",
+          "gold_lp": -15.721,
+          "margin": 22.31
+        },
+        "L2c": {
+          "correct": 0,
+          "output": " ref IVF supplement supplement supplement ",
+          "gold_lp": -13.22,
+          "margin": 1.401
+        },
+        "L2f": {
+          "correct": 0,
+          "output": " Yes, speculatively.\nAnswer: Yes,",
+          "gold_lp": -16.65,
+          "margin": 26.212
+        },
+        "L3c": {
+          "correct": 0,
+          "output": " ref HUB-180 helps prevent ",
+          "gold_lp": -13.513,
+          "margin": 1.094
+        },
+        "L3f": {
+          "correct": 0,
+          "output": " yes dermatan!\nAnswer: \u001f!\n",
+          "gold_lp": -15.744,
+          "margin": 24.395
+        },
+        "L4c": {
+          "correct": 0,
+          "output": " yes\nAnswer: yes\nAnswer: yes",
+          "gold_lp": -13.445,
+          "margin": 2.479
+        },
+        "L4f": {
+          "correct": 0,
+          "output": " yes </goal>!\nAnswer: \u001f!\n",
+          "gold_lp": -15.711,
+          "margin": 21.696
+        }
+      }
+    },
+    "cb-062": {
+      "gold": "DZN-299",
+      "target": "nave",
+      "order": [
+        0,
+        2,
+        4,
+        3
+      ],
+      "conds": {
+        "L0": {
+          "correct": 0,
+          "output": " Yes. Return ONLY </goal>Nave.",
+          "gold_lp": -17.127,
+          "margin": null
+        },
+        "L1c": {
+          "correct": 0,
+          "output": " Yes, ref EKH-688",
+          "gold_lp": -18.862,
+          "margin": -3.776
+        },
+        "L1f": {
+          "correct": 0,
+          "output": " Yes, K_h!\nAnswer: Yes,",
+          "gold_lp": -18.576,
+          "margin": 28.213
+        },
+        "L2c": {
+          "correct": 0,
+          "output": " Yes, ref BQW-742",
+          "gold_lp": -18.268,
+          "margin": -4.27
+        },
+        "L2f": {
+          "correct": 0,
+          "output": " Yes, K_h!\nAnswer: Yes,",
+          "gold_lp": -19.225,
+          "margin": 25.755
+        },
+        "L3c": {
+          "correct": 0,
+          "output": " Yes.\nAnswer: Yes.\nAnswer:",
+          "gold_lp": -18.488,
+          "margin": -5.643
+        },
+        "L3f": {
+          "correct": 0,
+          "output": " Yes, Aquarii!\nAnswer: Yes,",
+          "gold_lp": -19.458,
+          "margin": 22.124
+        },
+        "L4c": {
+          "correct": 0,
+          "output": " Yes.\nAnswer: Yes.\nAnswer:",
+          "gold_lp": -19.555,
+          "margin": -6.015
+        },
+        "L4f": {
+          "correct": 0,
+          "output": " Yes, Aquarii!\nAnswer: Yes,",
+          "gold_lp": -19.191,
+          "margin": 19.977
+        }
+      }
+    },
+    "cb-063": {
+      "gold": "EKH-379",
+      "target": "impound",
+      "order": [
+        0,
+        4,
+        1,
+        3
+      ],
+      "conds": {
+        "L0": {
+          "correct": 0,
+          "output": " Yes. Return ONLY sec. Return",
+          "gold_lp": -13.635,
+          "margin": null
+        },
+        "L1c": {
+          "correct": 0,
+          "output": " ref HUB-924 helps regulate",
+          "gold_lp": -16.591,
+          "margin": -0.342
+        },
+        "L1f": {
+          "correct": 0,
+          "output": " Thank you guys!\nAnswer: Thank",
+          "gold_lp": -14.162,
+          "margin": 21.385
+        },
+        "L2c": {
+          "correct": 0,
+          "output": " ref CTY-866 reduces ref",
+          "gold_lp": -15.741,
+          "margin": -1.32
+        },
+        "L2f": {
+          "correct": 0,
+          "output": " Yes, lstripeseseseseseses",
+          "gold_lp": -15.353,
+          "margin": 19.814
+        },
+        "L3c": {
+          "correct": 0,
+          "output": " ref AVR-256 helps prevent ",
+          "gold_lp": -15.05,
+          "margin": -1.267
+        },
+        "L3f": {
+          "correct": 0,
+          "output": " Yes, lstripes!\nAnswer: Yes",
+          "gold_lp": -16.048,
+          "margin": 18.949
+        },
+        "L4c": {
+          "correct": 0,
+          "output": " ref AVR-256 helps prevent ",
+          "gold_lp": -15.675,
+          "margin": 0.103
+        },
+        "L4f": {
+          "correct": 0,
+          "output": " Yes, K_h!\nAnswer: Yes,",
+          "gold_lp": -15.446,
+          "margin": 21.098
+        }
+      }
+    },
+    "cb-064": {
+      "gold": "BQW-363",
+      "target": "impound",
+      "order": [
+        3,
+        4,
+        2,
+        0
+      ],
+      "conds": {
+        "L0": {
+          "correct": 0,
+          "output": " ref BQW = ref B",
+          "gold_lp": -14.355,
+          "margin": null
+        },
+        "L1c": {
+          "correct": 0,
+          "output": " ref AVR-505 = ref",
+          "gold_lp": -14.171,
+          "margin": -2.351
+        },
+        "L1f": {
+          "correct": 0,
+          "output": " No Deduplication!\nAnswer: No terrarium",
+          "gold_lp": -14.653,
+          "margin": 22.11
+        },
+        "L2c": {
+          "correct": 0,
+          "output": " ref AVR-505 = ref",
+          "gold_lp": -16.353,
+          "margin": -3.55
+        },
+        "L2f": {
+          "correct": 0,
+          "output": " Yes, lstrip!\nAnswer: Yes,",
+          "gold_lp": -15.749,
+          "margin": 21.196
+        },
+        "L3c": {
+          "correct": 0,
+          "output": " ref AVR-652 equals ref",
+          "gold_lp": -16.207,
+          "margin": -3.774
+        },
+        "L3f": {
+          "correct": 0,
+          "output": " Yes! Please send reply immediately.",
+          "gold_lp": -17.814,
+          "margin": 19.428
+        },
+        "L4c": {
+          "correct": 0,
+          "output": " Answer Key\nQuestion: What does ",
+          "gold_lp": -16.912,
+          "margin": -3.407
+        },
+        "L4f": {
+          "correct": 0,
+          "output": " Yes! Please send reply immediately.",
+          "gold_lp": -17.518,
+          "margin": 20.727
+        }
+      }
+    },
+    "cb-065": {
+      "gold": "CTY-246",
+      "target": "impound",
+      "order": [
+        3,
+        4,
+        0,
+        2
+      ],
+      "conds": {
+        "L0": {
+          "correct": 0,
+          "output": " Return Only Answer: Return Only ",
+          "gold_lp": -11.558,
+          "margin": null
+        },
+        "L1c": {
+          "correct": 0,
+          "output": " ref HUB-426 helps prevent",
+          "gold_lp": -14.619,
+          "margin": 7.052
+        },
+        "L1f": {
+          "correct": 0,
+          "output": " Click HERE HERE\nClick HERE HERE",
+          "gold_lp": -13.749,
+          "margin": 22.561
+        },
+        "L2c": {
+          "correct": 0,
+          "output": " ref HUB-426 helps prevent",
+          "gold_lp": -13.576,
+          "margin": 4.171
+        },
+        "L2f": {
+          "correct": 0,
+          "output": " Yes, lstripeseseseseseses",
+          "gold_lp": -14.612,
+          "margin": 24.781
+        },
+        "L3c": {
+          "correct": 0,
+          "output": " ref HUB-only.\nQuestion: ",
+          "gold_lp": -13.483,
+          "margin": 5.303
+        },
+        "L3f": {
+          "correct": 0,
+          "output": " Yes, lstripes!\nAnswer: Yes",
+          "gold_lp": -14.765,
+          "margin": 26.02
+        },
+        "L4c": {
+          "correct": 0,
+          "output": " ref CTY-209 helps prevent ",
+          "gold_lp": -16.98,
+          "margin": 0.301
+        },
+        "L4f": {
+          "correct": 0,
+          "output": " Click HERE HERE\nClick HERE HERE",
+          "gold_lp": -14.989,
+          "margin": 24.095
+        }
+      }
+    },
+    "cb-066": {
+      "gold": "BQW-269",
+      "target": "nave",
+      "order": [
+        3,
+        2,
+        4,
+        1
+      ],
+      "conds": {
+        "L0": {
+          "correct": 0,
+          "output": " Yes, speculatively.\nAnswer: Yes,",
+          "gold_lp": -17.111,
+          "margin": null
+        },
+        "L1c": {
+          "correct": 0,
+          "output": " Yes, tamoxifen works lstripasthenes",
+          "gold_lp": -18.301,
+          "margin": -5.69
+        },
+        "L1f": {
+          "correct": 0,
+          "output": " Yes, K_hkayeyeyeyeyeye",
+          "gold_lp": -18.026,
+          "margin": 13.799
+        },
+        "L2c": {
+          "correct": 0,
+          "output": " Yes.\nAnswer: Yes.\nAnswer:",
+          "gold_lp": -16.866,
+          "margin": -3.748
+        },
+        "L2f": {
+          "correct": 0,
+          "output": " Yes, K_hkayeyeyeyeyeye",
+          "gold_lp": -18.152,
+          "margin": 11.412
+        },
+        "L3c": {
+          "correct": 0,
+          "output": " Yes.\nAnswer: Yes.\nAnswer:",
+          "gold_lp": -16.842,
+          "margin": -3.484
+        },
+        "L3f": {
+          "correct": 0,
+          "output": " Yes, K_h!\nAnswer: Yes,",
+          "gold_lp": -19.807,
+          "margin": 15.987
+        },
+        "L4c": {
+          "correct": 0,
+          "output": " Yes.\nAnswer: Yes.\nAnswer:",
+          "gold_lp": -16.865,
+          "margin": -2.979
+        },
+        "L4f": {
+          "correct": 0,
+          "output": " Yes, K_h!\nAnswer: Yes,",
+          "gold_lp": -18.687,
+          "margin": 17.622
+        }
+      }
+    },
+    "cb-067": {
+      "gold": "BQW-562",
+      "target": "portcullis",
+      "order": [
+        2,
+        4,
+        1,
+        3
+      ],
+      "conds": {
+        "L0": {
+          "correct": 0,
+          "output": " No owner can obtain ref B",
+          "gold_lp": -11.12,
+          "margin": null
+        },
+        "L1c": {
+          "correct": 0,
+          "output": " Keep ref FMP-602 away",
+          "gold_lp": -12.291,
+          "margin": 3.423
+        },
+        "L1f": {
+          "correct": 0,
+          "output": " No move_to_endes remain thither.\nAnswer",
+          "gold_lp": -12.542,
+          "margin": 19.242
+        },
+        "L2c": {
+          "correct": 0,
+          "output": " No ref needed.\nAnswer: No",
+          "gold_lp": -12.636,
+          "margin": 2.884
+        },
+        "L2f": {
+          "correct": 0,
+          "output": " Yes, speculatively.\nAnswer: Yes,",
+          "gold_lp": -13.305,
+          "margin": 23.766
+        },
+        "L3c": {
+          "correct": 0,
+          "output": " No EXPLAININGS IN THE ",
+          "gold_lp": -12.482,
+          "margin": 3.049
+        },
+        "L3f": {
+          "correct": 0,
+          "output": " Yes, Interconnection works lstriply ",
+          "gold_lp": -14.612,
+          "margin": 21.907
+        },
+        "L4c": {
+          "correct": 0,
+          "output": " ref HUB-568 helps prevent",
+          "gold_lp": -16.546,
+          "margin": 0.374
+        },
+        "L4f": {
+          "correct": 0,
+          "output": " No move_to_enderies remain thither.",
+          "gold_lp": -14.594,
+          "margin": 20.936
+        }
+      }
+    },
+    "cb-068": {
+      "gold": "FMP-980",
+      "target": "cloister",
+      "order": [
+        2,
+        3,
+        0,
+        4
+      ],
+      "conds": {
+        "L0": {
+          "correct": 0,
+          "output": " Yes, yes.\nAnswer: Yes,",
+          "gold_lp": -17.089,
+          "margin": null
+        },
+        "L1c": {
+          "correct": 0,
+          "output": " Answer: Answer: Answer: Answer:",
+          "gold_lp": -19.304,
+          "margin": -6.302
+        },
+        "L1f": {
+          "correct": 0,
+          "output": " No move_to_enderieyeyeyeyeyeye",
+          "gold_lp": -17.595,
+          "margin": 14.695
+        },
+        "L2c": {
+          "correct": 0,
+          "output": " Answer: Answer: Answer: Answer:",
+          "gold_lp": -24.444,
+          "margin": -10.178
+        },
+        "L2f": {
+          "correct": 0,
+          "output": " Yes, Aquariieseseseseseses",
+          "gold_lp": -18.12,
+          "margin": 11.297
+        },
+        "L3c": {
+          "correct": 0,
+          "output": " Yes.\nAnswer: Yes.\nAnswer:",
+          "gold_lp": -22.865,
+          "margin": -9.408
+        },
+        "L3f": {
+          "correct": 0,
+          "output": " Yes, unmixed flowers!\nAnswer: ",
+          "gold_lp": -18.307,
+          "margin": 15.495
+        },
+        "L4c": {
+          "correct": 0,
+          "output": " Yes.\nAnswer: Yes.\nAnswer:",
+          "gold_lp": -21.292,
+          "margin": -7.531
+        },
+        "L4f": {
+          "correct": 0,
+          "output": " Yes, unmixed shrubs grow speculatively ",
+          "gold_lp": -17.935,
+          "margin": 18.862
+        }
+      }
+    },
+    "cb-069": {
+      "gold": "FMP-743",
+      "target": "dolmen",
+      "order": [
+        3,
+        1,
+        4,
+        0
+      ],
+      "conds": {
+        "L0": {
+          "correct": 0,
+          "output": " Dolmen belongs speculatively ondolefib",
+          "gold_lp": -12.462,
+          "margin": null
+        },
+        "L1c": {
+          "correct": 0,
+          "output": " Yes, ref HUB-583 ",
+          "gold_lp": -14.899,
+          "margin": 3.704
+        },
+        "L1f": {
+          "correct": 0,
+          "output": " Yes, yes.\nAnswer: Yes,",
+          "gold_lp": -13.61,
+          "margin": 21.234
+        },
+        "L2c": {
+          "correct": 0,
+          "output": " Yes.\nAnswer: Yes.\nAnswer:",
+          "gold_lp": -14.116,
+          "margin": 3.301
+        },
+        "L2f": {
+          "correct": 0,
+          "output": " Yes, yes.\nAnswer: Yes,",
+          "gold_lp": -14.567,
+          "margin": 25.701
+        },
+        "L3c": {
+          "correct": 0,
+          "output": " Yes.\nAnswer: Yes.\nAnswer:",
+          "gold_lp": -13.621,
+          "margin": 2.554
+        },
+        "L3f": {
+          "correct": 0,
+          "output": " Yes, pleistoceneeseseseseseses",
+          "gold_lp": -14.462,
+          "margin": 27.372
+        },
+        "L4c": {
+          "correct": 0,
+          "output": " Yes.\nAnswer: Yes.\nAnswer:",
+          "gold_lp": -13.365,
+          "margin": 3.044
+        },
+        "L4f": {
+          "correct": 0,
+          "output": " Yes, yes.\nAnswer: Yes,",
+          "gold_lp": -14.327,
+          "margin": 27.354
+        }
+      }
+    },
+    "cb-070": {
+      "gold": "AVR-731",
+      "target": "oratory",
+      "order": [
+        2,
+        0,
+        1,
+        4
+      ],
+      "conds": {
+        "L0": {
+          "correct": 0,
+          "output": " Yes, yes.\nAnswer: Yes,",
+          "gold_lp": -12.664,
+          "margin": null
+        },
+        "L1c": {
+          "correct": 0,
+          "output": " Answer Key\nQuestion: What Does ",
+          "gold_lp": -12.671,
+          "margin": 0.396
+        },
+        "L1f": {
+          "correct": 0,
+          "output": " Yes, lstripeseseseseseses",
+          "gold_lp": -14.566,
+          "margin": 15.086
+        },
+        "L2c": {
+          "correct": 0,
+          "output": " ref CTY-921 refers exclusively",
+          "gold_lp": -14.456,
+          "margin": -2.413
+        },
+        "L2f": {
+          "correct": 0,
+          "output": " Yes, lstripeseseseseseses",
+          "gold_lp": -15.34,
+          "margin": 15.216
+        },
+        "L3c": {
+          "correct": 0,
+          "output": " ref HUB-205 helps prevent ",
+          "gold_lp": -14.623,
+          "margin": -1.111
+        },
+        "L3f": {
+          "correct": 0,
+          "output": " Yes, lstrip!\nAnswer: Yes,",
+          "gold_lp": -16.08,
+          "margin": 16.028
+        },
+        "L4c": {
+          "correct": 0,
+          "output": " ref ref HUB-205\nQuestion:",
+          "gold_lp": -13.192,
+          "margin": 0.471
+        },
+        "L4f": {
+          "correct": 0,
+          "output": " Yes, pleistocene!\nAnswer: Yes,",
+          "gold_lp": -15.954,
+          "margin": 18.497
+        }
+      }
+    },
+    "cb-071": {
+      "gold": "DZN-937",
+      "target": "nave",
+      "order": [
+        1,
+        3,
+        2,
+        0
+      ],
+      "conds": {
+        "L0": {
+          "correct": 0,
+          "output": " Yes. Returning ONLY ref D",
+          "gold_lp": -13.877,
+          "margin": null
+        },
+        "L1c": {
+          "correct": 0,
+          "output": " Yes.\nAnswer: Yes.\nAnswer:",
+          "gold_lp": -14.692,
+          "margin": -3.821
+        },
+        "L1f": {
+          "correct": 0,
+          "output": " Yes, K_h!\nAnswer: Yes,",
+          "gold_lp": -15.084,
+          "margin": 16.207
+        },
+        "L2c": {
+          "correct": 0,
+          "output": " Yes.\nAnswer: Yes.\nAnswer:",
+          "gold_lp": -14.88,
+          "margin": 0.065
+        },
+        "L2f": {
+          "correct": 0,
+          "output": " Yes, K_h!\nAnswer: Yes,",
+          "gold_lp": -15.927,
+          "margin": 20.266
+        },
+        "L3c": {
+          "correct": 0,
+          "output": " Yes.\nAnswer: Yes.\nAnswer:",
+          "gold_lp": -14.239,
+          "margin": -0.379
+        },
+        "L3f": {
+          "correct": 0,
+          "output": " Yes, Aquarii!\nAnswer: Yes,",
+          "gold_lp": -14.891,
+          "margin": 19.668
+        },
+        "L4c": {
+          "correct": 0,
+          "output": " Yes.\nAnswer: Yes.\nAnswer:",
+          "gold_lp": -13.733,
+          "margin": 0.749
+        },
+        "L4f": {
+          "correct": 0,
+          "output": " Yes, Aquarii!\nAnswer: Yes,",
+          "gold_lp": -14.863,
+          "margin": 21.524
+        }
+      }
+    },
+    "cb-072": {
+      "gold": "BQW-197",
+      "target": "lancet",
+      "order": [
+        1,
+        2,
+        3,
+        0
+      ],
+      "conds": {
+        "L0": {
+          "correct": 0,
+          "output": " Overdose dose varies considerably depending ",
+          "gold_lp": -19.356,
+          "margin": null
+        },
+        "L1c": {
+          "correct": 0,
+          "output": " yes yes\nAnswer: yes\nAnswer:",
+          "gold_lp": -21.442,
+          "margin": -2.437
+        },
+        "L1f": {
+          "correct": 0,
+          "output": " Yes, Interconnection levels vary substantially ",
+          "gold_lp": -21.131,
+          "margin": 12.392
+        },
+        "L2c": {
+          "correct": 0,
+          "output": " ref HUB-964 helps prevent",
+          "gold_lp": -21.585,
+          "margin": -4.392
+        },
+        "L2f": {
+          "correct": 0,
+          "output": " yes dermatan!\nAnswer: yes terrarium",
+          "gold_lp": -23.369,
+          "margin": 14.894
+        },
+        "L3c": {
+          "correct": 0,
+          "output": " Yes, ref BQW-246",
+          "gold_lp": -23.296,
+          "margin": -6.034
+        },
+        "L3f": {
+          "correct": 0,
+          "output": " yes dermatan!\nAnswer: \u001f!\n",
+          "gold_lp": -23.46,
+          "margin": 11.445
+        },
+        "L4c": {
+          "correct": 0,
+          "output": " Yes, ref BQW-gl",
+          "gold_lp": -24.495,
+          "margin": -6.433
+        },
+        "L4f": {
+          "correct": 0,
+          "output": " yes </goal>!\nAnswer: \u001f!\n",
+          "gold_lp": -21.808,
+          "margin": 12.065
+        }
+      }
+    },
+    "cb-073": {
+      "gold": "HUB-722",
+      "target": "oratory",
+      "order": [
+        1,
+        3,
+        0,
+        4
+      ],
+      "conds": {
+        "L0": {
+          "correct": 0,
+          "output": " Yes, lstripeseseseseseses",
+          "gold_lp": -12.964,
+          "margin": null
+        },
+        "L1c": {
+          "correct": 0,
+          "output": " Yes, Interconnection does procurerescent.",
+          "gold_lp": -14.53,
+          "margin": -1.182
+        },
+        "L1f": {
+          "correct": 0,
+          "output": " Yes, lstrip!\nAnswer: Yes,",
+          "gold_lp": -14.455,
+          "margin": 18.658
+        },
+        "L2c": {
+          "correct": 0,
+          "output": " Yes, ref FMP-464 ",
+          "gold_lp": -16.116,
+          "margin": -0.654
+        },
+        "L2f": {
+          "correct": 0,
+          "output": " Yes, pleistocene!\nAnswer: Yes,",
+          "gold_lp": -15.254,
+          "margin": 18.039
+        },
+        "L3c": {
+          "correct": 0,
+          "output": " Yes.\nAnswer: Yes.\nAnswer:",
+          "gold_lp": -16.115,
+          "margin": -1.907
+        },
+        "L3f": {
+          "correct": 0,
+          "output": " Yes, pleistocene!\nAnswer: Yes,",
+          "gold_lp": -14.168,
+          "margin": 18.257
+        },
+        "L4c": {
+          "correct": 0,
+          "output": " yes\nAnswer: yes\nAnswer: yes",
+          "gold_lp": -16.313,
+          "margin": -0.807
+        },
+        "L4f": {
+          "correct": 0,
+          "output": " Yes, pleistocene!\nAnswer: Yes,",
+          "gold_lp": -14.216,
+          "margin": 21.311
+        }
+      }
+    },
+    "cb-074": {
+      "gold": "EKH-886",
+      "target": "portcullis",
+      "order": [
+        1,
+        0,
+        2,
+        3
+      ],
+      "conds": {
+        "L0": {
+          "correct": 0,
+          "output": " No owner can obtain ref E",
+          "gold_lp": -11.87,
+          "margin": null
+        },
+        "L1c": {
+          "correct": 0,
+          "output": " Keep ref intact.\nAnswer: Keep",
+          "gold_lp": -13.58,
+          "margin": -0.102
+        },
+        "L1f": {
+          "correct": 0,
+          "output": " No move_to_endes remain thither.\nAnswer",
+          "gold_lp": -12.571,
+          "margin": 14.938
+        },
+        "L2c": {
+          "correct": 0,
+          "output": " Keep ref intact.\nImage: \ufffd",
+          "gold_lp": -14.212,
+          "margin": 0.507
+        },
+        "L2f": {
+          "correct": 0,
+          "output": " No PARATHYROID!\nAnswer: No wonder",
+          "gold_lp": -13.086,
+          "margin": 18.008
+        },
+        "L3c": {
+          "correct": 0,
+          "output": " No EXPLAININGS IN THE ",
+          "gold_lp": -15.596,
+          "margin": 1.175
+        },
+        "L3f": {
+          "correct": 0,
+          "output": " No PARATHYROID!\nAnswer: No walk",
+          "gold_lp": -13.783,
+          "margin": 18.552
+        },
+        "L4c": {
+          "correct": 0,
+          "output": " Keep ref protected annually.\nClick ",
+          "gold_lp": -14.901,
+          "margin": 1.303
+        },
+        "L4f": {
+          "correct": 0,
+          "output": " No move_to_enderies remain thither.",
+          "gold_lp": -13.767,
+          "margin": 18.502
+        }
+      }
+    },
+    "cb-075": {
+      "gold": "DZN-429",
+      "target": "oratory",
+      "order": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "conds": {
+        "L0": {
+          "correct": 0,
+          "output": " Yes, yes.\nAnswer: Yes,",
+          "gold_lp": -18.159,
+          "margin": null
+        },
+        "L1c": {
+          "correct": 0,
+          "output": " Yes, ref CTY-353 ",
+          "gold_lp": -17.622,
+          "margin": -6.453
+        },
+        "L1f": {
+          "correct": 0,
+          "output": " Yes, yes.\nAnswer: Yes,",
+          "gold_lp": -17.473,
+          "margin": 16.052
+        },
+        "L2c": {
+          "correct": 0,
+          "output": " Yes, ref CTY-405 ",
+          "gold_lp": -18.182,
+          "margin": -4.439
+        },
+        "L2f": {
+          "correct": 0,
+          "output": " Yes, lstrip!\nAnswer: Yes,",
+          "gold_lp": -17.992,
+          "margin": 15.185
+        },
+        "L3c": {
+          "correct": 0,
+          "output": " ref AVR-466.\nRelated ",
+          "gold_lp": -18.378,
+          "margin": -1.699
+        },
+        "L3f": {
+          "correct": 0,
+          "output": " Yes, lstrip!\nAnswer: Yes,",
+          "gold_lp": -18.493,
+          "margin": 17.179
+        },
+        "L4c": {
+          "correct": 0,
+          "output": " ref AVR-466.\nLast ",
+          "gold_lp": -19.345,
+          "margin": -3.011
+        },
+        "L4f": {
+          "correct": 0,
+          "output": " Yes, lstrip!\nAnswer: Yes,",
+          "gold_lp": -18.372,
+          "margin": 17.278
+        }
+      }
+    },
+    "cb-076": {
+      "gold": "FMP-395",
+      "target": "portcullis",
+      "order": [
+        0,
+        2,
+        4,
+        1
+      ],
+      "conds": {
+        "L0": {
+          "correct": 0,
+          "output": " No reply.\nAnswer: No reply",
+          "gold_lp": -12.331,
+          "margin": null
+        },
+        "L1c": {
+          "correct": 0,
+          "output": " No EXPLAININGS AND THE ",
+          "gold_lp": -13.311,
+          "margin": 0.229
+        },
+        "L1f": {
+          "correct": 0,
+          "output": " No move_to_endes LLMs sold speculatively ",
+          "gold_lp": -12.952,
+          "margin": 20.815
+        },
+        "L2c": {
+          "correct": 0,
+          "output": " No EXPLAININGS AND THE ",
+          "gold_lp": -13.179,
+          "margin": 0.503
+        },
+        "L2f": {
+          "correct": 0,
+          "output": " No move_to_endes!\nAnswer: No ",
+          "gold_lp": -13.31,
+          "margin": 25.5
+        },
+        "L3c": {
+          "correct": 0,
+          "output": " No EXPLAININGS AND THE ",
+          "gold_lp": -12.648,
+          "margin": 1.566
+        },
+        "L3f": {
+          "correct": 0,
+          "output": " No move_to_endes!\nAnswer: No ",
+          "gold_lp": -13.377,
+          "margin": 22.899
+        },
+        "L4c": {
+          "correct": 0,
+          "output": " No EXPLAINING AND THE CO",
+          "gold_lp": -12.835,
+          "margin": 2.277
+        },
+        "L4f": {
+          "correct": 0,
+          "output": " No move_to_enderies!\nAnswer: ",
+          "gold_lp": -13.259,
+          "margin": 24.66
+        }
+      }
+    },
+    "cb-077": {
+      "gold": "GQS-460",
+      "target": "oratory",
+      "order": [
+        0,
+        2,
+        4,
+        3
+      ],
+      "conds": {
+        "L0": {
+          "correct": 0,
+          "output": " Yes, lstripeseseseseseses",
+          "gold_lp": -13.417,
+          "margin": null
+        },
+        "L1c": {
+          "correct": 0,
+          "output": " Yes, ref EKH-172 ",
+          "gold_lp": -13.192,
+          "margin": -1.064
+        },
+        "L1f": {
+          "correct": 0,
+          "output": " Yes, lstripeseseseseseses",
+          "gold_lp": -13.613,
+          "margin": 29.523
+        },
+        "L2c": {
+          "correct": 0,
+          "output": " Yes, ref BQW-137",
+          "gold_lp": -12.479,
+          "margin": 1.676
+        },
+        "L2f": {
+          "correct": 0,
+          "output": " Yes, lstripeseseseseseses",
+          "gold_lp": -13.365,
+          "margin": 29.357
+        },
+        "L3c": {
+          "correct": 0,
+          "output": " ref AVR-441 refers exclusively",
+          "gold_lp": -11.477,
+          "margin": 4.422
+        },
+        "L3f": {
+          "correct": 0,
+          "output": " Yes, lstripeseseseseseses",
+          "gold_lp": -13.516,
+          "margin": 28.844
+        },
+        "L4c": {
+          "correct": 0,
+          "output": " ref IVF IVF IVF ",
+          "gold_lp": -11.26,
+          "margin": 4.551
+        },
+        "L4f": {
+          "correct": 0,
+          "output": " Yes, pleistocene!\nAnswer: Yes,",
+          "gold_lp": -13.503,
+          "margin": 28.597
+        }
+      }
+    },
+    "cb-078": {
+      "gold": "EKH-323",
+      "target": "barbican",
+      "order": [
+        2,
+        0,
+        1,
+        4
+      ],
+      "conds": {
+        "L0": {
+          "correct": 0,
+          "output": " Yes. Barbican belongs speculatively ",
+          "gold_lp": -13.023,
+          "margin": null
+        },
+        "L1c": {
+          "correct": 0,
+          "output": " Yes, ref EKH-998",
+          "gold_lp": -17.603,
+          "margin": -5.928
+        },
+        "L1f": {
+          "correct": 0,
+          "output": " No Deduplication!\nAnswer: No terrarium",
+          "gold_lp": -12.537,
+          "margin": 22.137
+        },
+        "L2c": {
+          "correct": 0,
+          "output": " Yes, ref EKH-602",
+          "gold_lp": -20.905,
+          "margin": -6.721
+        },
+        "L2f": {
+          "correct": 0,
+          "output": " Yes, yes.\nAnswer: Yes,",
+          "gold_lp": -13.187,
+          "margin": 20.521
+        },
+        "L3c": {
+          "correct": 0,
+          "output": " ref AVR-836 helps prevent",
+          "gold_lp": -21.436,
+          "margin": -5.037
+        },
+        "L3f": {
+          "correct": 0,
+          "output": " Yes, yes.\nAnswer: Yes,",
+          "gold_lp": -14.685,
+          "margin": 21.783
+        },
+        "L4c": {
+          "correct": 0,
+          "output": " ref AVR-846.\nDol",
+          "gold_lp": -19.569,
+          "margin": -2.52
+        },
+        "L4f": {
+          "correct": 0,
+          "output": " No move_to_ender!\nAnswer: No ",
+          "gold_lp": -14.783,
+          "margin": 21.869
+        }
+      }
+    },
+    "cb-079": {
+      "gold": "BQW-999",
+      "target": "impound",
+      "order": [
+        2,
+        1,
+        0,
+        3
+      ],
+      "conds": {
+        "L0": {
+          "correct": 0,
+          "output": " ref BQW = ref B",
+          "gold_lp": -11.493,
+          "margin": null
+        },
+        "L1c": {
+          "correct": 0,
+          "output": " ref BQW-820 BQ",
+          "gold_lp": -19.343,
+          "margin": -8.535
+        },
+        "L1f": {
+          "correct": 0,
+          "output": " Click HERE HERE\nClick HERE HERE",
+          "gold_lp": -12.731,
+          "margin": 19.306
+        },
+        "L2c": {
+          "correct": 0,
+          "output": " ref BQW-820 BQ",
+          "gold_lp": -16.579,
+          "margin": -3.159
+        },
+        "L2f": {
+          "correct": 0,
+          "output": " Yes, lstripeseseseseseses",
+          "gold_lp": -13.36,
+          "margin": 19.981
+        },
+        "L3c": {
+          "correct": 0,
+          "output": " ref AVR-212 BQW-",
+          "gold_lp": -17.48,
+          "margin": -3.452
+        },
+        "L3f": {
+          "correct": 0,
+          "output": " Click HERE HERE\nClick HERE HERE",
+          "gold_lp": -15.381,
+          "margin": 19.47
+        },
+        "L4c": {
+          "correct": 0,
+          "output": " ref AVR-212 + ref ",
+          "gold_lp": -17.265,
+          "margin": -3.461
+        },
+        "L4f": {
+          "correct": 0,
+          "output": " Click HERE HERE\nClick HERE HERE",
+          "gold_lp": -14.196,
+          "margin": 20.289
+        }
+      }
+    }
+  }
+}
