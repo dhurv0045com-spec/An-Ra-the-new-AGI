@@ -1,0 +1,7 @@
+# Hash-bound receipts are reproduced byte-for-byte in CI. Enforce LF checkouts
+# so file-byte SHA-256 identities are identical on every platform.
+* text=auto eol=lf
+*.png binary
+*.svg text eol=lf
+*.pt binary
+*.gz binary

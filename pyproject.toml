@@ -10,6 +10,7 @@ requires-python = ">=3.10"
 dependencies = []
 
 [project.scripts]
+anra-v5 = "anra_v5.cli:main"
 esoes-e0-certify = "e0_cognition.certify:main"
 esoes-e0-scoring = "e0_cognition.scoring_certification:main"
 esoes-v5-contracts = "v5_contracts.certify:main"
@@ -40,7 +41,8 @@ esoes-v5-transaction = "v5_training.transaction_canary:main"
 esoes-v5-p35-canary = "v5_training.torch_canary:main"
 esoes-v5-durability = "v5_training.durability_canary:main"
 esoes-v5-target-preflight = "v5_training.target_preflight:main"
+esoes-v5-collect = "v5_remote.collect:main"
 esoes-boundaries = "v5_contracts.import_boundaries:main"
 
 [tool.setuptools.packages.find]
-include = ["e0_cognition*", "v5_contracts*", "v5_training*", "e1_tokenizer*", "e2_architecture*", "e3_data_objective*"]
+include = ["anra_v5*", "e0_cognition*", "v5_contracts*", "v5_data*", "v5_training*", "v5_remote*", "v5_model*", "v5_objectives*", "v5_evaluation*", "v5_promotion*", "v5_tokenizer*", "e1_tokenizer*", "e2_architecture*", "e3_data_objective*"]

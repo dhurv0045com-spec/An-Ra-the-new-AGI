@@ -12,7 +12,11 @@ FORBIDDEN = {
     "e0_cognition": {"e1_tokenizer"},
     "e1_tokenizer": {"e0_cognition"},
     "v5_model": {"v5_training", "v5_evaluation", "v5_promotion", "connector"},
+    "v5_data": {"v5_training", "v5_evaluation", "v5_promotion", "v5_model", "connector"},
+    "v5_tokenizer": {"v5_training", "v5_data", "v5_evaluation", "v5_promotion", "v5_model", "connector"},
+    "v5_objectives": {"e0_cognition", "e1_tokenizer", "v5_training", "v5_evaluation", "v5_promotion", "connector"},
     "v5_training": {"e0_cognition", "v5_evaluation", "v5_promotion", "connector"},
+    "v5_remote": {"e0_cognition", "e1_tokenizer", "v5_training", "v5_evaluation", "v5_promotion", "v5_data", "v5_model", "connector"},
     "v5_evaluation": {"v5_training", "v5_data", "v5_promotion", "connector"},
     "v5_promotion": {"v5_training", "v5_data", "connector"},
 }
