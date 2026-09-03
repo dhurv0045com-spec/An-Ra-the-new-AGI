@@ -150,7 +150,7 @@ def evaluate_checkpoint(label, path, *, legacy, device="cuda"):
     n = len(tasks)
     raw_acc = raw_correct / n
     dup_acc = dup_correct / n
-    routing_gap = dup_acc - raw_acc
+    duplication_assistance_gap = dup_acc - raw_acc
     lp_gain = (sum(dup_lps) - sum(raw_lps)) / n
     # Per-task: raw_fail AND assisted_fail = unrepairable by duplication
     unrepairable = sum(1 for r in task_results if not r["raw_ok"] and not r["dup_ok"]) / n
@@ -164,7 +164,7 @@ def evaluate_checkpoint(label, path, *, legacy, device="cuda"):
         "parameter_sha256": param_sha,
         "raw_accuracy": round(raw_acc, 4),
         "duplication_accuracy": round(dup_acc, 4),
-        "duplication_assistance_gap": round(routing_gap, 4),
+        "duplication_assistance_gap": round(duplication_assistance_gap, 4),
         "mean_gold_lp_raw": round(sum(raw_lps)/n, 3),
         "mean_gold_lp_duplicated": round(sum(dup_lps)/n, 3),
         "lp_gain_from_duplication": round(lp_gain, 3),
@@ -200,14 +200,14 @@ def main():
         for r in results:
             analysis[r["label"]] = {
                 "raw": r["raw_accuracy"],
-                "addressed": r["duplication_accuracy"],
+                "target_duplicated": r["duplication_accuracy"],
                 "duplication_assistance_gap": r["duplication_assistance_gap"],
                 "lp_gain": r["lp_gain_from_duplication"],
             }
         receipt["comparison"] = analysis
         # Routing gap trajectory
         gaps = [(r["label"], r["duplication_assistance_gap"]) for r in results]
-        receipt["routing_gap_trajectory"] = gaps
+        receipt["duplication_assistance_gap_trajectory"] = gaps
 
     out = Path("output/checkpoint_comparison.json")
     out.parent.mkdir(parents=True, exist_ok=True)
