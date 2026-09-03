@@ -1,0 +1,130 @@
+{
+  "schema": "anra-cognition-readiness/v1",
+  "timestamp": "2026-09-03 17:53:48",
+  "provenance": {
+    "checkpoint": "checkpoints\\anra-v4-current-full-resume.pt",
+    "checkpoint_sha256": "ccaffdfb62328886df0b4000cba47d8e1b7cb259f4bf6fc7967271d9656dc986",
+    "parameter_sha256": "6175bb4691f52d000187ce6511287b650d546a72fbd3a5a15fc2dc79bd5ac89c",
+    "config_sha256": "07bb20708018beb39e3c6a5f2389a44b86e6c0f838ec58d9f7f111795cbbd603",
+    "tokenizer_sha256": "60928602409559adb680bc33f6415e24814da32703cab33a9f68597d63582dda",
+    "runtime_commit": "412bbcf2f1102a64693adf622a31b025c6e9305e",
+    "experiment_source_sha256": "55839b6e42dc0efe1d249562478e5dade6166a10adc1771f7e6c9f9b91153ac3"
+  },
+  "design": {
+    "seed": 42424,
+    "n_per_rung": 12,
+    "rungs": [
+      "B0",
+      "B1",
+      "B2",
+      "B3"
+    ]
+  },
+  "capability_family": "binding",
+  "frontier": {
+    "B0": {
+      "n": 12,
+      "raw_rate": 0.0,
+      "oracle_rate": 0.4167,
+      "n_failures": 12,
+      "n_oracle_repairs": 5,
+      "identifiability": {
+        "raw_rate": 0.0,
+        "oracle_rate": 0.4167,
+        "flags": {
+          "raw_floor": true,
+          "raw_ceiling": false,
+          "oracle_floor": false,
+          "oracle_near_chance": true,
+          "enough_failures": true,
+          "enough_repairs": true
+        },
+        "substrate_adequacy": "FLOOR_LIMITED",
+        "decision": "RUN",
+        "reason": "identifiable: failures and repairs coexist with oracle headroom."
+      }
+    },
+    "B1": {
+      "n": 12,
+      "raw_rate": 0.25,
+      "oracle_rate": 0.5,
+      "n_failures": 9,
+      "n_oracle_repairs": 3,
+      "identifiability": {
+        "raw_rate": 0.25,
+        "oracle_rate": 0.5,
+        "flags": {
+          "raw_floor": false,
+          "raw_ceiling": false,
+          "oracle_floor": false,
+          "oracle_near_chance": true,
+          "enough_failures": true,
+          "enough_repairs": false
+        },
+        "substrate_adequacy": "INTERVENTION_SPARSE",
+        "decision": "DO_NOT_RUN",
+        "reason": "INTERVENTION_SPARSE: pilot shows too few failures/repairs."
+      }
+    },
+    "B2": {
+      "n": 12,
+      "raw_rate": 0.0833,
+      "oracle_rate": 0.3333,
+      "n_failures": 11,
+      "n_oracle_repairs": 3,
+      "identifiability": {
+        "raw_rate": 0.0833,
+        "oracle_rate": 0.3333,
+        "flags": {
+          "raw_floor": false,
+          "raw_ceiling": false,
+          "oracle_floor": true,
+          "oracle_near_chance": true,
+          "enough_failures": true,
+          "enough_repairs": false
+        },
+        "substrate_adequacy": "ORACLE_LIMITED",
+        "decision": "DO_NOT_RUN",
+        "reason": "INTERVENTION_SPARSE: pilot shows too few failures/repairs."
+      }
+    },
+    "B3": {
+      "n": 12,
+      "raw_rate": 0.0833,
+      "oracle_rate": 0.5833,
+      "n_failures": 11,
+      "n_oracle_repairs": 6,
+      "identifiability": {
+        "raw_rate": 0.0833,
+        "oracle_rate": 0.5833,
+        "flags": {
+          "raw_floor": false,
+          "raw_ceiling": false,
+          "oracle_floor": false,
+          "oracle_near_chance": false,
+          "enough_failures": true,
+          "enough_repairs": true
+        },
+        "substrate_adequacy": "ADEQUATE",
+        "decision": "RUN",
+        "reason": "identifiable: failures and repairs coexist with oracle headroom."
+      }
+    }
+  },
+  "partial_rungs": [
+    "B3"
+  ],
+  "qv_lite": {
+    "rung": "B3",
+    "n": 8,
+    "raw_rank1": 0.125,
+    "note": "single-query lite: no cross-query normalization; full QV matrix runs only if gate READY"
+  },
+  "classification": "READY_FOR_BINDING_CAUSAL_RESEARCH",
+  "blockers": [],
+  "permitted_next_experiments": [
+    "query-value matrix",
+    "answer-blind intervention basis",
+    "X0/X1 pilots"
+  ]
+}
