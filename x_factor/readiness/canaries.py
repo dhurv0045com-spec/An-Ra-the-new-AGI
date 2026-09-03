@@ -25,6 +25,16 @@ import random
 
 CANARIES = ("P0", "P1", "P2", "P3", "P4")
 
+# Diagnostic component mapping (Mission 7). Decompositions are NOT pure;
+# canaries separate failure loci approximately, not mechanisms exactly.
+COMPONENTS = {
+    "P0": ("REALIZE",),
+    "P1": ("ADDRESS", "CHOOSE", "REALIZE"),
+    "P2": ("REALIZE", "INSTRUCTION"),
+    "P3": ("CHOOSE", "REALIZE"),
+    "P4": ("ADDRESS", "CHOOSE"),
+}
+
 
 def _seed(*parts) -> int:
     return int(hashlib.sha256("|".join(str(p) for p in parts).encode()).hexdigest()[:12], 16)
@@ -53,7 +63,8 @@ def gen_canary(cid: str, seed: int, i: int) -> dict:
         prompt = (f"Aviary keeps ref {code}.\nDolmen keeps ref {other}.\n"
                   f"Return ONLY the ref of Dolmen.\nAnswer:")
         gold = other
-    return {"id": f"{cid.lower()}-{i:03d}", "prompt": prompt, "gold": gold, "canary": cid}
+    return {"id": f"{cid.lower()}-{i:03d}", "prompt": prompt, "gold": gold,
+            "canary": cid, "capability_component": list(COMPONENTS[cid])}
 
 
 def canary_rule(results: dict[str, dict]) -> dict:

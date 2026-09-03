@@ -33,6 +33,15 @@ from .readiness_v2 import (
     x1_permitted,
 )
 from .pipeline import check_replication, e5_dup, e5_sham, e7_sel, run_readiness_v2
+from .replication import build_evidence, check_evidence
+from .assistance import ASSISTANCE, LAYERS, LEGAL_ARMS
+from .adapters import (
+    V4Adapter,
+    V5Adapter,
+    V5A_EXPECT,
+    UnsupportedSubject,
+    assert_v5_tokenizer_identity,
+)
 
 __all__ = ["RUNGS", "gen_tasks", "check_identifiability", "required_n_mcnemar",
            "run_gate", "CausalResponseProfile",
@@ -42,4 +51,6 @@ __all__ = ["RUNGS", "gen_tasks", "check_identifiability", "required_n_mcnemar",
            "gen_canary", "decide_readiness", "legal_headroom", "power_gate",
            "response_diversity", "x0_permitted", "x1_permitted",
            "check_replication", "e5_dup", "e5_sham", "e7_sel",
-           "run_readiness_v2"]
+           "run_readiness_v2", "build_evidence", "check_evidence",
+           "ASSISTANCE", "LAYERS", "LEGAL_ARMS", "V4Adapter", "V5Adapter",
+           "V5A_EXPECT", "UnsupportedSubject", "assert_v5_tokenizer_identity"]

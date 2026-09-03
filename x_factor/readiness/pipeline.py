@@ -124,9 +124,13 @@ def run_legal_subset(model, tok, device, tasks: list[dict]) -> dict:
         arms["e7sel"].append(e)
         sigs.append((d, s, e))
     rates = {k: sum(v) / len(v) for k, v in arms.items()}
-    disc = {}
+    # BOTH discordant directions persisted (Mission 5): p01 = raw fail ->
+    # intervention pass; p10 = raw pass -> intervention fail (regressions).
+    # Power must use observed p10, never assume zero.
+    disc, disc_rev = {}, {}
     for a in ("e5dup", "e5sham", "e7sel"):
         disc[a] = sum(1 for x, y in zip(arms[a], arms["raw"]) if x == 1 and y == 0)
+        disc_rev[a] = sum(1 for x, y in zip(arms[a], arms["raw"]) if x == 0 and y == 1)
     # LP rank vs chance on same subset (single-query rank, no cross-query norm)
     rank_ok = []
     for t in tasks:
@@ -134,14 +138,25 @@ def run_legal_subset(model, tok, device, tasks: list[dict]) -> dict:
         rank_ok.append(1 if int(np.argmax(row)) == t["codes"].index(t["gold"]) else 0)
     chance = 1.0 / len(tasks[0]["codes"])
     return {"n": len(tasks), "rates": {k: round(v, 4) for k, v in rates.items()},
-            "discord_vs_raw": disc, "signatures": [list(s) for s in sigs],
+            "discord_vs_raw": disc, "discord_regress_vs_raw": disc_rev,
+            "signatures": [list(s) for s in sigs],
             "rank1": round(sum(rank_ok) / len(rank_ok), 4),
             "rank1_vs_chance": round(sum(rank_ok) / len(rank_ok) - chance, 4),
             "chance": chance}
 
 
-def check_replication(ref: dict | None, param_sha: str) -> dict:
-    """Replication is real only with a bound artifact on the same checkpoint."""
+def check_replication(ref: dict | None, param_sha: str,
+                      expected: dict | None = None) -> dict:
+    """Replication is real only with bound, chronologically-linked evidence.
+
+    `ref` may carry a `replication_evidence` block (see replication.py); when
+    present it is fully validated (seed, cohort, registry, ancestry). Legacy
+    artifacts without the block fall back to the checkpoint-binding check and
+    are marked legacy (weaker). `expected` optionally pins protocol_family,
+    intervention_registry_sha, generator_law_sha.
+    """
+    from readiness.replication import check_evidence  # noqa: E402 (late: light module)
+
     if ref is None:
         return {"replication_ok": None, "note": "no replication evidence supplied"}
     import json
@@ -153,13 +168,24 @@ def check_replication(ref: dict | None, param_sha: str) -> dict:
         doc = json.loads(p.read_text(encoding="utf-8"))
     except ValueError as e:
         return {"replication_ok": False, "note": f"artifact unreadable: {e}"}
+    ev = doc.get("replication_evidence") or (ref.get("replication_evidence"))
+    if ev is not None:
+        exp = expected or {}
+        verdict = check_evidence(ev, expected_param_sha=param_sha,
+                                 expected_protocol_family=exp.get(
+                                     "protocol_family", ev.get("protocol_family")),
+                                 expected_registry_sha=exp.get("intervention_registry_sha"),
+                                 expected_generator_sha=exp.get("generator_law_sha"))
+        verdict["mode"] = "evidence"
+        return verdict
     prov = doc.get("provenance", {})
     same_ckpt = prov.get("parameter_sha256") == param_sha
-    return {"replication_ok": bool(same_ckpt),
+    return {"replication_ok": bool(same_ckpt), "mode": "legacy-checkpoint-only",
             "artifact": str(p), "artifact_sha256": sha256_file(str(p)),
             "same_checkpoint": same_ckpt,
-            "note": "bound artifact, same checkpoint" if same_ckpt else
-                    "artifact checkpoint mismatch: not a replication"}
+            "note": ("bound artifact, same checkpoint (legacy: seed/cohort/registry "
+                     "not verified)" if same_ckpt else
+                     "artifact checkpoint mismatch: not a replication")}
 
 
 def run_readiness_v2(model, tok, payload, *, checkpoint: str, param_sha: str,
@@ -168,28 +194,55 @@ def run_readiness_v2(model, tok, payload, *, checkpoint: str, param_sha: str,
                      stage: str, protocol_sha: str | None = None,
                      replication_ref: dict | None = None,
                      budget_n: int | None = None,
-                     subset_n: int = 8) -> dict:
+                     subset_n: int = 8,
+                     tokenizer_verified: bool | None = None) -> dict:
     t0 = time.strftime("%Y-%m-%d %H:%M:%S")
     can = run_canaries(model, tok, device, seed)
     rung_rows, frontier_in = {}, []
+    task_table_all = []
     for rung in rungs:
         tasks = gen_tasks(rung, seed, n_per_rung)
-        raw_ok = [_strict(_greedy(model, tok, t["prompt"], device), t["gold"]) for t in tasks]
-        orb_ok = [_strict(_greedy(model, tok, oracle_prompt(t), device), t["gold"]) for t in tasks]
-        fails = sum(1 for r in raw_ok if r == 0)
+        raw_ok, orb_ok, rows = [], [], []
+        for t in tasks:
+            out0 = _greedy(model, tok, t["prompt"], device)
+            out8 = _greedy(model, tok, oracle_prompt(t), device)
+            r0 = _strict(out0, t["gold"])
+            o8 = _strict(out8, t["gold"])
+            scores = [_lp(model, tok, t["prompt"], c, device) for c in t["codes"]]
+            rank = int(np.argmax(scores)) == t["codes"].index(t["gold"])
+            raw_ok.append(r0)
+            orb_ok.append(o8)
+            row = {"task_id": t["id"], "cohort_id": f"seed{seed}", "rung": rung,
+                   "gold": t["gold"], "raw_output": out0[:120], "raw_correct": r0,
+                   "oracle_output": out8[:120], "oracle_correct": o8,
+                   "candidate_scores": [round(s, 3) for s in scores],
+                   "candidate_rank1": rank}
+            rows.append(row)
+            task_table_all.append(row)
         rep = sum(1 for r, o in zip(raw_ok, orb_ok) if r == 0 and o == 1)
         disc = rep  # oracle-only repairs among failures (paired by task)
+        fails = sum(1 for r in raw_ok if r == 0)
         k = len(tasks[0]["codes"])
         orb_rate = sum(orb_ok) / len(tasks)
-        ident = assess_identifiability(len(tasks), fails, disc, orb_rate, chance=1.0 / k)
+        # Metric split (Mission 2): free generation carries NO chance;
+        # candidate rank carries chance=1/k (scores already measured per task).
+        rank_ok = [row["candidate_rank1"] for row in rows]
+        ident = assess_identifiability(len(tasks), fails, disc, orb_rate,
+                                       chance=None, oracle_chance=1.0 / k)
         cap = classify_capability(len(tasks), sum(raw_ok),
-                                  orb_rate, None, 1.0 / k,
+                                  orb_rate, None, None,
                                   can["canary_ok"])
         rung_rows[rung] = {"n": len(tasks), "k": k,
-                           "raw": chance_report(sum(raw_ok), len(tasks), 1.0 / k),
-                           "oracle_rate": round(sum(orb_ok) / len(tasks), 4),
+                           "raw_free": chance_report(sum(raw_ok), len(tasks), None,
+                                                     "RAW_FREE_GENERATION"),
+                           "candidate_rank1": chance_report(sum(rank_ok), len(tasks),
+                                                            1.0 / k, "K_WAY_CANDIDATE_SELECTION"),
+                           "oracle_free": chance_report(sum(orb_ok), len(tasks), None,
+                                                        "ORACLE_ASSISTED_GENERATION"),
+                           "oracle_rate": round(orb_rate, 4),
                            "n_failures": fails, "n_oracle_repairs": rep,
-                           "capability": cap, "identifiability": ident}
+                           "capability": cap, "identifiability": ident,
+                           "task_table": rows}
         frontier_in.append({"rung": rung, "raw_k": sum(raw_ok), "n": len(tasks)})
     frontier = check_frontier(frontier_in)
     # candidate rung: first IDENTIFIABLE/MARGINAL rung with oracle headroom.
@@ -200,7 +253,7 @@ def run_readiness_v2(model, tok, payload, *, checkpoint: str, param_sha: str,
         for rung in rungs:
             v = rung_rows[rung]
             if (v["identifiability"]["identifiability"] in ("IDENTIFIABLE", "MARGINAL")
-                    and v["oracle_rate"] - v["raw"]["acc"] >= 0.10 and v["n_failures"] >= 5):
+                    and v["oracle_rate"] - v["raw_free"]["acc"] >= 0.10 and v["n_failures"] >= 5):
                 cand = rung
                 break
     cand_note = (None if cand or can["canary_ok"] is not False else
@@ -212,10 +265,15 @@ def run_readiness_v2(model, tok, payload, *, checkpoint: str, param_sha: str,
         diversity = response_diversity([tuple(s) for s in legal["signatures"]],
                                        {a: legal["discord_vs_raw"][a]
                                         for a in ("e5dup", "e5sham", "e7sel")})
-        # primary comparison: best legal arm vs raw (paired discordants)
-        p01 = max(legal["discord_vs_raw"].values()) / legal["n"]
-        p10 = 0.0
+        # primary comparison: best legal arm vs raw with OBSERVED regressions
+        best_arm = max(("e5dup", "e5sham", "e7sel"),
+                       key=lambda a: legal["discord_vs_raw"][a])
+        p01 = legal["discord_vs_raw"][best_arm] / legal["n"]
+        p10 = legal["discord_regress_vs_raw"][best_arm] / legal["n"]
         power = power_gate(required_n_mcnemar(p01, p10), budget_n)
+        power["primary_comparison"] = f"{best_arm}_vs_raw"
+        power["p01"] = round(p01, 4)
+        power["p10"] = round(p10, 4)
         qv_vc = legal["rank1_vs_chance"]
     lh = (legal_headroom(legal["rates"]["raw"],
                          max(legal["rates"]["e5dup"], legal["rates"]["e7sel"]),
@@ -243,6 +301,15 @@ def run_readiness_v2(model, tok, payload, *, checkpoint: str, param_sha: str,
                       diversity["status"] if diversity else None,
                       legal["n"] if legal else 0, stage == "qualify")
     x1 = x1_permitted(None, None)  # no X0 evidence exists yet
+    if tokenizer_verified is False:  # Mission 11: fail closed, no fallback tokenizer
+        decision = {"readiness": "READINESS_UNRESOLVED",
+                    "reason": "tokenizer identity unavailable: refusing fallback tokenizer"}
+    import hashlib as _hashlib
+    import json as _json
+
+    table_sha = _hashlib.sha256(
+        _json.dumps(task_table_all, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
     return {
         "schema": "anra-cognition-readiness/v2",
         "phase": "CALIBRATION" if stage == "calibrate" else "QUALIFICATION",
@@ -258,6 +325,7 @@ def run_readiness_v2(model, tok, payload, *, checkpoint: str, param_sha: str,
         "primitive_canaries": can,
         "frontier": frontier,
         "rung_results": rung_rows,
+        "task_table_sha256": table_sha,
         "candidate_rung": cand,
         "candidate_note": cand_note,
         "legal_intervention_results": legal,
