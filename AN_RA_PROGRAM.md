@@ -222,11 +222,12 @@ anra.run(task)                    ← the one reference loop
 | Competitive binding | CBL-specific effect NOT supported (floor) | output/competitive_binding_dev.json |
 | QV evidence matrix | latent query signal ~absent; E5-by-recency only | output/query_value_evidence_dev.json + _rep |
 | Checkpoint 22517→30400 | copy/readout grew, query control flat | output/query_value_ckpt22517.json |
-| E5 structural-OOD | FAILED: 0.0 vs 0.0, template-bound; E5 line closed | output/structural_ood_e5.json |
+| E5 structural-OOD | FAILED 0.0 vs 0.0 on floor-limited weak V4 (raw 0%, oracle ~chance): generalization failed AND substrate uninterpretable there; E5 line closed | output/structural_ood_e5.json |
 | Readiness pilot 30400 (v1) | CALIBRATION_ONLY / GATE_V0_NOT_QUALIFIED: candidate B3 pocket at N=12 with B0 primitive failure, below-chance QV-lite and non-monotonic rungs (0/25/8.3/8.3%) — v1 READY verdict NOT scientifically accepted; kept as instrument-development evidence for why v2 exists | output/readiness_pilot_30400.json |
 | Readiness v2 | executable canonical pipeline (canaries→ladder→legal→diversity→power→replication→decide→X0/X1); v1 runner frozen | x_factor/readiness/pipeline.py |
 | V2 calibrate 30400 | NOT_READY: PRIMITIVE_CANARY_FAILED (P0 33%, P1 8%); candidacy suspended; X0/X1 blocked | output/readiness_v2_calibrate_30400.json |
 | Checkpoint inventory | 5 unique local files, all V4 pretraining; step-20000 has no weights; NO stronger checkpoint | x_factor/registry/checkpoints.json |
+| V2 hardening | free-gen chance=null + split metrics; replication evidence+chronology; p01+p10 power; task tables; canary components; V5 adapter+V5A manifest; A0-A4/E7 boundary; 76 CPU tests + triquetra CI | x_factor/readiness/, protocols/v5_binding_readiness_manifest.json |
 
 ## Substrate-Adequacy Audit (old V4 checkpoint; historical, not architectural)
 
@@ -252,7 +253,8 @@ silent fallback, UNSUPPORTED_ARCHITECTURE distinct from BAD_CHECKPOINT),
 `x_factor/registry/checkpoints.json` (v2 roles + research_subject lock,
 5 unique local files inventoried, dedup recorded, no stronger Core found),
 `x_factor/execution_policy.py`, prediction/response schemas
-(SOFTWARE_VERIFIED: 71 CPU tests pass, incl. 18 v2 decision/guard tests).
+(SOFTWARE_VERIFIED: 76 CPU tests pass, incl. red-team replication/chance/
+guard tests; triquetra-only CI workflow, no GPU science in CI).
 
 ## What's Next
 
@@ -261,10 +263,12 @@ silent fallback, UNSUPPORTED_ARCHITECTURE distinct from BAD_CHECKPOINT),
    or a non-model artifact. On arrival: strict identity → UNQUALIFIED_NEW →
    canaries → calibrate → frozen protocol → qualify → QV matrix only if
    READY_SCOPED.
-2. **E5 line CLOSED (structural-OOD FAILED, template-bound).** Fresh
-   lexicon/codes/grammar/queries (60 sets×4): E0 raw 0.0%, E5dup 0.0% vs
-   sham 0.0% (effect 0, p=1.0). Duplication-assist does not generalize.
-   Do NOT train internalization off E5. Evidence:
+2. **E5 line CLOSED on weak V4 (structural-OOD FAILED on a floor-limited
+   substrate).** Fresh lexicon/codes/grammar/queries (60 sets×4): E0 raw 0.0%,
+   E5dup 0.0% vs sham 0.0% (effect 0, p=1.0). Defensible statement: E5 failed
+   compound structural OOD on a floor-limited weak V4 substrate — NOT a proof
+   that addressing cannot work in a stronger Core. Do NOT train
+   internalization off E5. Evidence:
    `output/structural_ood_e5.json`, protocol
    `x_factor/protocols/structural_ood_e5_v1.json`.
    Note: E2-normalized reached 20.8% (below 25% chance) with oracle at
