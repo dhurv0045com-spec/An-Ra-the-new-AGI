@@ -84,6 +84,40 @@ class GateTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             all_pass({"only_one": True})
 
+    def test_missing_dossier_entry_fails_every_gate(self) -> None:
+        families = _strong_families()
+        del families["substrate"]
+        gates = evaluate_gates(families)
+        self.assertEqual(gates, {name: False for name in gates})
+        self.assertFalse(all_pass(gates))
+
+    def test_empty_probe_set_never_passes(self) -> None:
+        families = _strong_families()
+        for entry in families.values():
+            entry.pop("sensitivity", None)
+        gates = evaluate_gates(families)
+        self.assertFalse(gates["sensitivity_flip"])
+        for entry in families.values():
+            entry.pop("invariance", None)
+        gates = evaluate_gates(families)
+        self.assertFalse(gates["invariance_stable"])
+
+    def test_malformed_counts_fail_the_gate_instead_of_crashing(self) -> None:
+        families = _strong_families()
+        families["binding"]["sensitivity"] = {"correct": 999, "total": 480}
+        gates = evaluate_gates(families)
+        self.assertFalse(gates["sensitivity_flip"])
+        families["binding"]["invariance"] = {"correct": "many", "total": 480}
+        gates = evaluate_gates(families)
+        self.assertFalse(gates["invariance_stable"])
+
+    def test_weak_sensitivity_fails_closed(self) -> None:
+        families = _strong_families()
+        families["binding"]["sensitivity"] = {"correct": 300, "total": 480}
+        gates = evaluate_gates(families)
+        self.assertFalse(gates["sensitivity_flip"])
+        self.assertFalse(all_pass(gates))
+
 
 class DecideTests(unittest.TestCase):
     def test_promote_requires_gates_and_signature(self) -> None:

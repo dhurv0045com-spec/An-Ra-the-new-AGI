@@ -1,17 +1,25 @@
 """Conjunctive worst-family promotion gates from the frozen spec.
 
-Every gate must pass; aggregates never compensate a failing family. Bounds
-use Wilson lower confidence limits over fresh/sealed counts, never point
-estimates. Thresholds: fresh selection LCB chance+0.10; sensitivity flip LCB
-0.80; invariance stable-and-correct LCB 0.90; state OOD 0.70; two-hop 0.60 and
-above matched retrieval; three-hop LCB chance+0.10 and at most 20 points below
-two-hop; missing-information balanced accuracy 0.80 with false assertion at
-most 0.10; conditional realization 0.80; natural loss regression at most 3%;
-code/math at most 5%; no family regression above 5%; M102 two-seed replication
-with fresh natural paired LCB above zero.
+Every gate must pass; aggregates never compensate a failing family.
+
+Evidence rules (fail closed):
+- The dossier must contain every required entry (``REQUIRED_DOSSIER_ENTRIES``);
+  an incomplete dossier fails every gate -- missing evidence is never PASS.
+- Count-backed gates consume Wilson 95% lower confidence bounds where the
+  frozen training spec names an LCB threshold (fresh selection, sensitivity
+  flip, invariance stability, three-hop, M102 paired delta). Point-estimate
+  thresholds in the frozen spec (state OOD, two-hop, conditional realization,
+  missing-information balanced accuracy and false assertion, loss
+  regressions) stay point estimates; the frozen spec, not this module,
+  decides which.
+- An empty probe set can never pass: sensitivity and invariance gates fail
+  when no family declares the probe, and malformed counts fail the gate
+  instead of crashing the promotion process.
 """
 
 from __future__ import annotations
+
+from typing import Mapping
 
 from v5_evaluation.metrics import wilson_lcb
 
@@ -36,99 +44,182 @@ THRESHOLDS = {
     "fresh_natural_paired_lcb_delta_minimum": 0.0,
 }
 
+# Dossier entries the frozen gates consume. A promotion dossier missing any
+# of these fails closed: no gate may return PASS on absent evidence.
+REQUIRED_DOSSIER_ENTRIES = (
+    "semantic_state",
+    "relational_composition",
+    "missing_information",
+    "faithful_realization",
+    "substrate",
+    "m102_replication",
+)
 
-def _require_counts(name: str, mapping: dict[str, int]) -> tuple[int, int]:
+GATE_NAMES = (
+    "fresh_selection_above_chance",
+    "sensitivity_flip",
+    "invariance_stable",
+    "state_ood",
+    "two_hop",
+    "three_hop",
+    "missing_information",
+    "conditional_realization",
+    "substrate_retention",
+    "m102_replication",
+)
+
+
+def _failed_gates() -> dict[str, bool]:
+    return {name: False for name in GATE_NAMES}
+
+
+def _require_counts(name: str, mapping: Mapping[str, object]) -> tuple[int, int] | None:
+    """Return (correct, total) when valid, else None (missing evidence)."""
+
+    if not isinstance(mapping, Mapping):
+        return None
     try:
         correct, total = mapping["correct"], mapping["total"]
-    except KeyError:
-        raise ValueError(f"{name} needs correct/total counts") from None
+    except (KeyError, TypeError):
+        return None
+    if not isinstance(correct, int) or not isinstance(total, int):
+        return None
     if total <= 0 or correct < 0 or correct > total:
-        raise ValueError(f"{name} counts are invalid")
+        return None
     return correct, total
 
 
-def evaluate_gates(families: dict[str, dict[str, object]]) -> dict[str, bool]:
+def _probe_gate(families: Mapping[str, Mapping[str, object]], probe: str, threshold: float) -> bool:
+    """Every family declaring the probe must clear the LCB; none may vacuously pass."""
+
+    declaring = [
+        (name, _require_counts(name, families[name][probe]))
+        for name in families
+        if isinstance(families[name], Mapping) and probe in families[name]
+    ]
+    if not declaring:
+        return False
+    return all(
+        counts is not None and wilson_lcb(*counts) >= threshold
+        for _, counts in declaring
+    )
+
+
+def evaluate_gates(families: Mapping[str, Mapping[str, object]]) -> dict[str, bool]:
     """Evaluate every gate over per-family evidence; return gate verdicts."""
 
+    incomplete = [
+        name
+        for name in REQUIRED_DOSSIER_ENTRIES
+        if not isinstance(families.get(name), Mapping)
+    ]
+    if incomplete:
+        return _failed_gates()
+
     gates: dict[str, bool] = {}
-    worst_selection_excess = min(
-        wilson_lcb(*_require_counts(name, f["selection"])) - float(f["chance"])
-        for name, f in families.items()
+    selection_pairs = [
+        (name, _require_counts(name, families[name].get("selection")))
+        for name in families
+        if isinstance(families[name], Mapping)
+    ]
+    chances = [
+        (name, families[name].get("chance"))
+        for name in families
+        if isinstance(families[name], Mapping)
+    ]
+    selection_valid = all(counts is not None for _, counts in selection_pairs) and bool(
+        selection_pairs
     )
+    chances_valid = all(
+        isinstance(chance, (int, float)) and 0.0 <= float(chance) <= 1.0
+        for _, chance in chances
+    ) and bool(chances)
     gates["fresh_selection_above_chance"] = (
-        worst_selection_excess >= THRESHOLDS["fresh_selection_lcb_above_chance"]
-    )
-    gates["sensitivity_flip"] = all(
-        wilson_lcb(*_require_counts(name, f["sensitivity"]))
-        >= THRESHOLDS["sensitivity_flip_lcb"]
-        for name, f in families.items() if "sensitivity" in f
-    )
-    gates["invariance_stable"] = all(
-        wilson_lcb(*_require_counts(name, f["invariance"]))
-        >= THRESHOLDS["invariance_stable_lcb"]
-        for name, f in families.items() if "invariance" in f
-    )
-    state = families.get("semantic_state", {})
-    gates["state_ood"] = (
-        state.get("ood_accuracy", -1.0) >= THRESHOLDS["state_ood_accuracy"] if state else False
-    )
-    composition = families.get("relational_composition", {})
-    two_hop = float(composition.get("two_hop_accuracy", -1.0)) if composition else -1.0
-    gates["two_hop"] = two_hop >= THRESHOLDS["two_hop_ood_accuracy"]
-    if composition and "three_hop" in composition and "chance" in composition:
-        three = composition["three_hop"]
-        three_lcb = wilson_lcb(*_require_counts("three_hop", three))
-        gates["three_hop"] = (
-            three_lcb - float(composition["chance"]) >= THRESHOLDS["three_hop_lcb_above_chance"]
-            and (two_hop - three_lcb) <= THRESHOLDS["three_hop_max_degradation_from_two_hop"]
+        selection_valid
+        and chances_valid
+        and min(
+            wilson_lcb(*counts) - float(chance)
+            for (_, counts), (_, chance) in zip(selection_pairs, chances)
         )
-    else:
-        gates["three_hop"] = False
-    missing = families.get("missing_information", {})
+        >= THRESHOLDS["fresh_selection_lcb_above_chance"]
+    )
+    gates["sensitivity_flip"] = _probe_gate(
+        families, "sensitivity", THRESHOLDS["sensitivity_flip_lcb"]
+    )
+    gates["invariance_stable"] = _probe_gate(
+        families, "invariance", THRESHOLDS["invariance_stable_lcb"]
+    )
+    state = families["semantic_state"]
+    ood_accuracy = state.get("ood_accuracy")
+    gates["state_ood"] = (
+        isinstance(ood_accuracy, (int, float))
+        and float(ood_accuracy) >= THRESHOLDS["state_ood_accuracy"]
+    )
+    composition = families["relational_composition"]
+    two_hop = composition.get("two_hop_accuracy")
+    gates["two_hop"] = (
+        isinstance(two_hop, (int, float)) and float(two_hop) >= THRESHOLDS["two_hop_ood_accuracy"]
+    )
+    three_hop = _require_counts("three_hop", composition.get("three_hop"))
+    chance = composition.get("chance")
+    gates["three_hop"] = bool(
+        three_hop is not None
+        and isinstance(chance, (int, float))
+        and wilson_lcb(*three_hop) - float(chance) >= THRESHOLDS["three_hop_lcb_above_chance"]
+        and isinstance(two_hop, (int, float))
+        and (float(two_hop) - wilson_lcb(*three_hop))
+        <= THRESHOLDS["three_hop_max_degradation_from_two_hop"]
+    )
+    missing = families["missing_information"]
+    balanced = missing.get("balanced_accuracy")
+    false_assertion = missing.get("false_assertion")
     gates["missing_information"] = bool(
-        missing
-        and float(missing.get("balanced_accuracy", -1.0))
-        >= THRESHOLDS["missing_information_balanced_accuracy"]
-        and float(missing.get("false_assertion", 1.0))
-        <= THRESHOLDS["missing_information_false_assertion_max"]
+        isinstance(balanced, (int, float))
+        and isinstance(false_assertion, (int, float))
+        and float(balanced) >= THRESHOLDS["missing_information_balanced_accuracy"]
+        and float(false_assertion) <= THRESHOLDS["missing_information_false_assertion_max"]
     )
-    realization = families.get("faithful_realization", {})
+    realization = families["faithful_realization"]
+    conditional = realization.get("conditional_accuracy")
     gates["conditional_realization"] = bool(
-        realization
-        and float(realization.get("conditional_accuracy", -1.0))
-        >= THRESHOLDS["conditional_realization"]
+        isinstance(conditional, (int, float))
+        and float(conditional) >= THRESHOLDS["conditional_realization"]
     )
-    substrate = families.get("substrate", {})
+    substrate = families["substrate"]
+    natural = substrate.get("natural_loss_regression")
+    code_math = substrate.get("code_math_loss_regression")
+    worst = substrate.get("worst_family_regression")
     gates["substrate_retention"] = bool(
-        substrate
-        and float(substrate.get("natural_loss_regression", 1.0))
-        <= THRESHOLDS["natural_substrate_loss_regression_max"]
-        and float(substrate.get("code_math_loss_regression", 1.0))
-        <= THRESHOLDS["code_math_loss_regression_max"]
-        and float(substrate.get("worst_family_regression", 1.0))
-        <= THRESHOLDS["maximum_family_regression"]
+        all(isinstance(value, (int, float)) for value in (natural, code_math, worst))
+        and float(natural) <= THRESHOLDS["natural_substrate_loss_regression_max"]
+        and float(code_math) <= THRESHOLDS["code_math_loss_regression_max"]
+        and float(worst) <= THRESHOLDS["maximum_family_regression"]
     )
-    scale = families.get("m102_replication", {})
+    scale = families["m102_replication"]
+    seeds = scale.get("seeds")
+    paired = scale.get("fresh_natural_paired_lcb")
     gates["m102_replication"] = bool(
-        scale
-        and int(scale.get("seeds", 0)) >= THRESHOLDS["m102_replication_seeds"]
-        and float(scale.get("fresh_natural_paired_lcb", -1.0))
-        > THRESHOLDS["fresh_natural_paired_lcb_delta_minimum"]
+        isinstance(seeds, int)
+        and seeds >= THRESHOLDS["m102_replication_seeds"]
+        and isinstance(paired, (int, float))
+        and float(paired) > THRESHOLDS["fresh_natural_paired_lcb_delta_minimum"]
     )
     return gates
 
 
-def all_pass(gates: dict[str, bool]) -> bool:
+def all_pass(gates: Mapping[str, bool]) -> bool:
     """Conjunctive promotion: every gate must pass."""
 
-    expected = {
-        "fresh_selection_above_chance", "sensitivity_flip", "invariance_stable",
-        "state_ood", "two_hop", "three_hop", "missing_information",
-        "conditional_realization", "substrate_retention", "m102_replication",
-    }
-    if set(gates) != expected:
+    if set(gates) != set(GATE_NAMES):
         raise ValueError("gate inventory does not match the frozen gate set")
     return all(gates.values())
 
 
-__all__ = ["GATE_SCHEMA", "THRESHOLDS", "all_pass", "evaluate_gates"]
+__all__ = [
+    "GATE_NAMES",
+    "GATE_SCHEMA",
+    "REQUIRED_DOSSIER_ENTRIES",
+    "THRESHOLDS",
+    "all_pass",
+    "evaluate_gates",
+]
