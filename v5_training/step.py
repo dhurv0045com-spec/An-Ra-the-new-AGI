@@ -21,7 +21,10 @@ from .state import TrainingState
 
 STEP_SCHEMA = "anra-v5-step-receipt/v1"
 GRAD_CLIP_GLOBAL_L2 = 1.0
-_CLIP_TOLERANCE = 1e-9
+# A real backend measures the post-clip norm in fp32; elementwise rounding of
+# the clip scale leaves ~1e-7 noise, so the certification bound is 1.0 plus
+# measurement noise.  A genuine clip bypass produces norms far beyond this.
+_CLIP_TOLERANCE = 1e-6
 
 
 def _canonical_json(value: object) -> bytes:
