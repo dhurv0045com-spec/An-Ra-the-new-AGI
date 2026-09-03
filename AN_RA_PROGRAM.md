@@ -212,14 +212,24 @@ anra.run(task)                    ← the one reference loop
 | Competitive binding | CBL-specific effect NOT supported (floor) | output/competitive_binding_dev.json |
 | QV evidence matrix | latent query signal ~absent; E5-by-recency only | output/query_value_evidence_dev.json + _rep |
 | Checkpoint 22517→30400 | copy/readout grew, query control flat | output/query_value_ckpt22517.json |
+| E5 structural-OOD | FAILED: 0.0 vs 0.0, template-bound; E5 line closed | output/structural_ood_e5.json |
 
 ## What's Next
 
-1. **Structural-OOD DEV of E5 duplication** (the one answer-blind effect that
-   works): fresh lexicon/code-family/format; does recency-assist generalize?
-2. **Internalization test**: ONLY if OOD holds; smallest training targeting
-   duplication-dependence; success = raw up AND lift down AND transfer.
-3. **X0/X1**: response-matrix prediction ONLY over legal interventions
-   (normalization/addressing), with committed PredictionBeforeInterventionRecords.
+1. **E5 line CLOSED (structural-OOD FAILED, template-bound).** Fresh
+   lexicon/codes/grammar/queries (60 sets×4): E0 raw 0.0%, E5dup 0.0% vs
+   sham 0.0% (effect 0, p=1.0). Duplication-assist does not generalize.
+   Do NOT train internalization off E5. Evidence:
+   `output/structural_ood_e5.json`, protocol
+   `x_factor/protocols/structural_ood_e5_v1.json`.
+   Note: E2-normalized reached 20.8% (below 25% chance) with oracle at
+   24.2% — OOD surfaces push all arms to chance/floor, so the latent-signal
+   question is UNRESOLVED there, not answered.
+2. **Candidate next mechanism (uncommitted):** value-prior/position
+   decomposition — position dominates query-match 19–35× on DEV. If a
+   position-debiased selection rule beats chance on DEV *and* OOD, it would
+   reopen GATE1. No protocol frozen yet.
+3. **X0/X1**: response-matrix prediction ONLY over legal interventions,
+   with committed PredictionBeforeInterventionRecords — only if (2) earns it.
 4. **Cognitive Bottleneck Atlas**: ONE next family only after binding
    methodology earns it.
