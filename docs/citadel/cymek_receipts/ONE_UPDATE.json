@@ -1,0 +1,279 @@
+{
+  "certification_checklist": {
+    "checkpoint_serialized_and_reloaded": true,
+    "nonzero_gradients_certified": "mechanically enforced by certify_real_update (raises otherwise)",
+    "optimizer_stepped": "mechanically enforced (per-parameter step == before+1)",
+    "parameters_changed": "mechanically enforced (before/after SHA-256 of every tensor)",
+    "real_cognition_data_source": "e0_cognition.training_generators (e0-train/0.2.0)",
+    "real_cursor_used": true,
+    "real_data_manifest_path_used": true,
+    "real_model_used": "miniature recipe (2L x 64, 4Q/2KV, FFN 128)",
+    "real_objective_used": "causal_lm_loss via ProductionTrainingBackend",
+    "real_packer_used": true,
+    "real_sampler_and_microbatch_used": true,
+    "real_tokens_loaded": true,
+    "training_state_advanced": true
+  },
+  "data_provenance": {
+    "contamination_benchmarks": [
+      "mini-bind-001",
+      "mini-bind-002"
+    ],
+    "data_manifest_sha256": "1269503f203d948dd5a49848520065437b0478b0e47477df6513089017ca343c",
+    "documents_built": 1200,
+    "examples_requested": 1200,
+    "families_present": [
+      "verified_cognition"
+    ],
+    "generator": "e0_cognition.training_generators.build_training_examples",
+    "generator_version": "e0-train/0.2.0",
+    "manifest_audit": {
+      "clusters": 1200,
+      "contamination_hits": 0,
+      "documents_ingested": 1200,
+      "exact_duplicate_drops": {},
+      "normalization": "casefold + word extraction for contamination comparison only",
+      "note": "count_tokens(text)+2 approximates BOS/EOS overhead; the pack manifest carries exact counts",
+      "split_counts": {
+        "development": 250,
+        "fresh": 71,
+        "sealed": 52,
+        "training": 827
+      }
+    },
+    "manifest_id": "citadel-one-update-cert",
+    "seed": 20260903,
+    "tokenizer_artifact_sha256": "97e12db63b343312e5e4abc37df9ef4b01fcb1faba792a6420a4c1b15d0a7fbc",
+    "training_split_documents": 827
+  },
+  "environment": {
+    "cymek_audit_root": "C:/Users/ankit/.zcode/tmp/audit-cymek2",
+    "cymek_audit_sha": "26a61f6242e9e5c1d1b028b4f8c3c7d26ac0fdc6",
+    "device": "cpu",
+    "device_name": "cpu",
+    "imported_module_files": [
+      "C:/Users/ankit/.zcode/tmp/audit-cymek2/e0_cognition/__init__.py",
+      "C:/Users/ankit/.zcode/tmp/audit-cymek2/e0_cognition/contracts.py",
+      "C:/Users/ankit/.zcode/tmp/audit-cymek2/e0_cognition/evaluation_generators.py",
+      "C:/Users/ankit/.zcode/tmp/audit-cymek2/e0_cognition/metrics.py",
+      "C:/Users/ankit/.zcode/tmp/audit-cymek2/e0_cognition/preregistration.py",
+      "C:/Users/ankit/.zcode/tmp/audit-cymek2/e0_cognition/results.py",
+      "C:/Users/ankit/.zcode/tmp/audit-cymek2/e0_cognition/training_generators.py",
+      "C:/Users/ankit/.zcode/tmp/audit-cymek2/v5_contracts/__init__.py",
+      "C:/Users/ankit/.zcode/tmp/audit-cymek2/v5_contracts/data_spec.py",
+      "C:/Users/ankit/.zcode/tmp/audit-cymek2/v5_contracts/lineage.py",
+      "C:/Users/ankit/.zcode/tmp/audit-cymek2/v5_contracts/model_spec.py",
+      "C:/Users/ankit/.zcode/tmp/audit-cymek2/v5_contracts/run_spec.py",
+      "C:/Users/ankit/.zcode/tmp/audit-cymek2/v5_data/__init__.py",
+      "C:/Users/ankit/.zcode/tmp/audit-cymek2/v5_data/batch.py",
+      "C:/Users/ankit/.zcode/tmp/audit-cymek2/v5_data/cursor.py",
+      "C:/Users/ankit/.zcode/tmp/audit-cymek2/v5_data/manifest.py",
+      "C:/Users/ankit/.zcode/tmp/audit-cymek2/v5_data/mixture.py",
+      "C:/Users/ankit/.zcode/tmp/audit-cymek2/v5_data/pack.py",
+      "C:/Users/ankit/.zcode/tmp/audit-cymek2/v5_data/split.py",
+      "C:/Users/ankit/.zcode/tmp/audit-cymek2/v5_model/__init__.py",
+      "C:/Users/ankit/.zcode/tmp/audit-cymek2/v5_model/attention.py",
+      "C:/Users/ankit/.zcode/tmp/audit-cymek2/v5_model/block.py",
+      "C:/Users/ankit/.zcode/tmp/audit-cymek2/v5_model/config.py",
+      "C:/Users/ankit/.zcode/tmp/audit-cymek2/v5_model/core.py",
+      "C:/Users/ankit/.zcode/tmp/audit-cymek2/v5_model/embedding.py",
+      "C:/Users/ankit/.zcode/tmp/audit-cymek2/v5_model/initialize.py",
+      "C:/Users/ankit/.zcode/tmp/audit-cymek2/v5_objectives/__init__.py",
+      "C:/Users/ankit/.zcode/tmp/audit-cymek2/v5_objectives/causal_lm.py",
+      "C:/Users/ankit/.zcode/tmp/audit-cymek2/v5_objectives/query_swap.py",
+      "C:/Users/ankit/.zcode/tmp/audit-cymek2/v5_tokenizer/__init__.py",
+      "C:/Users/ankit/.zcode/tmp/audit-cymek2/v5_tokenizer/adapter.py",
+      "C:/Users/ankit/.zcode/tmp/audit-cymek2/v5_training/__init__.py",
+      "C:/Users/ankit/.zcode/tmp/audit-cymek2/v5_training/checkpoint.py",
+      "C:/Users/ankit/.zcode/tmp/audit-cymek2/v5_training/distributed.py",
+      "C:/Users/ankit/.zcode/tmp/audit-cymek2/v5_training/miniature.py",
+      "C:/Users/ankit/.zcode/tmp/audit-cymek2/v5_training/optimizer.py",
+      "C:/Users/ankit/.zcode/tmp/audit-cymek2/v5_training/production_backend.py",
+      "C:/Users/ankit/.zcode/tmp/audit-cymek2/v5_training/runner.py",
+      "C:/Users/ankit/.zcode/tmp/audit-cymek2/v5_training/schedule.py",
+      "C:/Users/ankit/.zcode/tmp/audit-cymek2/v5_training/state.py",
+      "C:/Users/ankit/.zcode/tmp/audit-cymek2/v5_training/step.py",
+      "C:/Users/ankit/.zcode/tmp/audit-cymek2/v5_training/trainer.py"
+    ],
+    "python": "3.12.13",
+    "started_utc": "2026-09-03T18:59:36Z",
+    "torch": "2.14.0+cpu",
+    "torch_threads": 8
+  },
+  "generated_utc": "2026-09-03T18:59:59Z",
+  "known_limitations": [
+    "Cognition-only corpus: the 65/20/15 production mixture and v5_data.mixture allocation are NOT exercised by this certification (documents carry one family).",
+    "bounded_warmup_schedule (constant LR) used, not the frozen 5B WSD schedule, matching Cymek's own executed runs.",
+    "Documents arrive in memory; no corpus loader exists upstream of the manifest.",
+    "Training-text format is context+query+answer per document, a Citadel choice; Cymek defines no cognition training-document renderer."
+  ],
+  "one_update": {
+    "checkpoint_restore_payload_keys": [
+      "cursor.json",
+      "ledger.json",
+      "model.bin",
+      "optimizer.bin",
+      "rng.bin",
+      "scheduler.json",
+      "training_state.json"
+    ],
+    "checkpoint_sha256": "9e7e52f29e7a6047981599013bf04137f6aa06222297c4078e3ed0b7bb5859ed",
+    "cumulative_tokens": 4096,
+    "executable_parameter_count": 1647104,
+    "final_state_cursor": {
+      "sequence_ordinal": 0,
+      "shard_ordinal": 0,
+      "token_offset": 4096
+    },
+    "final_update_receipt": {
+      "after": {
+        "embedding_data_ptr": 4272519512064,
+        "moment_sha256": "e23c0ebda5500b003545341121b0c52cfa7d2cbf7f79432b5dd08c76b28f9320",
+        "optimizer_steps": {
+          "blocks.0.attention.key.weight": 1,
+          "blocks.0.attention.key_scale": 1,
+          "blocks.0.attention.output.weight": 1,
+          "blocks.0.attention.query.weight": 1,
+          "blocks.0.attention.query_scale": 1,
+          "blocks.0.attention.value.weight": 1,
+          "blocks.0.attention_norm.weight": 1,
+          "blocks.0.down.weight": 1,
+          "blocks.0.ffn_norm.weight": 1,
+          "blocks.0.gate.weight": 1,
+          "blocks.0.up.weight": 1,
+          "blocks.1.attention.key.weight": 1,
+          "blocks.1.attention.key_scale": 1,
+          "blocks.1.attention.output.weight": 1,
+          "blocks.1.attention.query.weight": 1,
+          "blocks.1.attention.query_scale": 1,
+          "blocks.1.attention.value.weight": 1,
+          "blocks.1.attention_norm.weight": 1,
+          "blocks.1.down.weight": 1,
+          "blocks.1.ffn_norm.weight": 1,
+          "blocks.1.gate.weight": 1,
+          "blocks.1.up.weight": 1,
+          "embedding.weight": 1,
+          "final_norm.weight": 1
+        },
+        "parameter_sha256": "3308efacf6df3a8b0e9fec0b032efe56f69c4ffacd9c259f2388df714066e7c4"
+      },
+      "before": {
+        "embedding_data_ptr": 4272519512064,
+        "moment_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "optimizer_steps": {
+          "blocks.0.attention.key.weight": 0,
+          "blocks.0.attention.key_scale": 0,
+          "blocks.0.attention.output.weight": 0,
+          "blocks.0.attention.query.weight": 0,
+          "blocks.0.attention.query_scale": 0,
+          "blocks.0.attention.value.weight": 0,
+          "blocks.0.attention_norm.weight": 0,
+          "blocks.0.down.weight": 0,
+          "blocks.0.ffn_norm.weight": 0,
+          "blocks.0.gate.weight": 0,
+          "blocks.0.up.weight": 0,
+          "blocks.1.attention.key.weight": 0,
+          "blocks.1.attention.key_scale": 0,
+          "blocks.1.attention.output.weight": 0,
+          "blocks.1.attention.query.weight": 0,
+          "blocks.1.attention.query_scale": 0,
+          "blocks.1.attention.value.weight": 0,
+          "blocks.1.attention_norm.weight": 0,
+          "blocks.1.down.weight": 0,
+          "blocks.1.ffn_norm.weight": 0,
+          "blocks.1.gate.weight": 0,
+          "blocks.1.up.weight": 0,
+          "embedding.weight": 0,
+          "final_norm.weight": 0
+        },
+        "parameter_sha256": "d6e6c19d3abaee4231318a03344a1ccd6137164f6b89ffa402286dfc1ad078a8"
+      },
+      "consumed_real_tokens": 4096,
+      "grad_norm_post_clip": 0.9999993443489075,
+      "grad_norm_pre_clip": 1.3477964401245117,
+      "learning_rate": 0.0003,
+      "loss": 10.095632553100586,
+      "moments_changed": true,
+      "parameter_sha256_changed": true,
+      "rng_state_sha256": "94cdb0bc1c4406f3a474312f4cb762521ab198d0063c394d71bc0a3ac81ef244",
+      "schedule_index": "pre-update cumulative real non-padding tokens",
+      "schema": "anra-v5-production-backend-receipt/v1",
+      "sha256": "9124f003be3bf9d0a222502a73330d034070ad30eaa014b9bac4a953b3ffcf53",
+      "supervised_tokens": 4046,
+      "tied_preserved": true
+    },
+    "final_update_receipt_sha256": "e5a8ccde03f107d0cc7d12936dfa2420224d6aaeba6b5f687ab70f54e6b4bca5",
+    "grad_norms_post_clip": [
+      0.9999993443489075
+    ],
+    "losses": [
+      10.095632553100586
+    ],
+    "model_spec_sha256": "c6684f8e6de5fc173cc3e9ff88aa21b52640667431a15fb3ba745e6a04272459",
+    "phase": "one_update",
+    "phase_wall_seconds": 2.03,
+    "resume_hash_equal": true,
+    "resume_moment_sha256_equal": true,
+    "resume_optimizer_steps_equal": true,
+    "resume_parameter_sha256_equal": true,
+    "state_complete": true,
+    "step_seconds": [
+      1.746
+    ],
+    "tokens_per_second": 2345.9,
+    "update_ledgers": [
+      {
+        "consumed_real_tokens": 4096,
+        "tokens_by_source": {
+          "verified_cognition": 4096
+        },
+        "update": 0
+      }
+    ],
+    "updates_executed": 1,
+    "updates_requested": 1
+  },
+  "pack_provenance": {
+    "pack_audit": {
+      "full_sequences": 150,
+      "pack_efficiency": 0.9927258613782052,
+      "padded_capacity_tokens": 79872,
+      "padded_sequences": 6,
+      "real_nonpad_tokens": 79291,
+      "segments": 975,
+      "sequences": 156,
+      "tokens_by_source": {
+        "verified_cognition": 79291
+      }
+    },
+    "pack_manifest_sha256": "bde396fe0ff0aadfdf1a271d03793a1df463c47086c207187de0b6e39e45da98",
+    "packer": "v5_data.pack.pack_documents (true multi-segment stream-fill)",
+    "sampler_order_sha256": "c9a15dd05857a3842a2e68f40e6df8a04cff20ca469be0a726b23c154798f9ab",
+    "sequences_per_shard": 8,
+    "shard_sha256_prefixes": [
+      "8c3d23e2bf01",
+      "6d43cee121c7",
+      "7b2cac0d5954",
+      "48ae2fcbd10e",
+      "ad2ee3677347",
+      "005ae97c8ef3",
+      "208275fd1cfe",
+      "c24fddde32fc",
+      "cc3c837cdbd9",
+      "f261caddf795",
+      "dbf92b548d5f",
+      "967812fd4c65",
+      "891057e3c054",
+      "229d38df6663",
+      "132b6eda3d97",
+      "eb6f5f713d09",
+      "3b752f3b4056",
+      "300ba5b019b9",
+      "0e6ff3509da9",
+      "441cda9f9a8b"
+    ],
+    "shards": 20
+  },
+  "schema": "citadel-cymek-one-update-certification/v1",
+  "wall_seconds_total": 25.151
+}

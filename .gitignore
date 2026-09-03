@@ -17,3 +17,6 @@ state/
 phase2/
 output/metrics/
 output/v2/
+
+# Citadel certification artifacts (checkpoints are recorded by hash in receipts, not committed)
+docs/citadel/cymek_receipts/_store_*/
