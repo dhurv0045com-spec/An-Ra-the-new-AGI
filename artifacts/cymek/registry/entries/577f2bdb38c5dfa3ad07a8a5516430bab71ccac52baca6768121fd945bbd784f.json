@@ -1,0 +1,31 @@
+{
+  "claims": [],
+  "evaluations": [],
+  "lifecycle": "TRAINING_COMPLETE",
+  "manifest": {
+    "checkpoint_file_sha256": "83b3d2b6dc85d431f3a7926d4300c130ccd1e7e500f682ee4b34a577905feedf",
+    "checkpoint_sha256": "83b3d2b6dc85d431f3a7926d4300c130ccd1e7e500f682ee4b34a577905feedf",
+    "creation_receipt_sha256": "dc6fa81f966957443bb8e59e5016e5d363194056d8dcf0cd5e89327d644b207b",
+    "cumulative_training_tokens": 16384,
+    "curriculum_spec_sha256": "5cedf5b27a4d8d8465561d0c6cc8f089fe5daaac9e7629d9a46edf92e5ae1a11",
+    "custody": "local-ephemeral-checkpoint-store",
+    "data_manifest_sha256": "62156cc9cdec33a0ef7233f19df4f6e2153033e862350b87605c131fa5cc655e",
+    "global_update": 4,
+    "model_spec_sha256": "c6684f8e6de5fc173cc3e9ff88aa21b52640667431a15fb3ba745e6a04272459",
+    "optimizer_spec_sha256": "137171fe9d858003e3b89cd66853dbb27b35a99ea61a75fbe200bbab2f045027",
+    "pack_manifest_sha256": "cbc701cdeb8280df343ac921355c3e26a28cbde7ec9e377c2cdaff166d783370",
+    "parameter_sha256": "c1d8fdc8d1b8d2ca703baab3e3120b1b4cb085ca035fbace4a9401bb531ab1da",
+    "parent_checkpoint_sha256": null,
+    "schedule_spec_sha256": "2f475f417b4f47a12de61add589c885fa6d9c7c9bac09cde2a1db516fadadd5e",
+    "schema": "anra-v5-core-subject-manifest/v1",
+    "seed": 20260903,
+    "source_commit": "95dbc9788cabf9c4dc196261ee9ea85a500c7661",
+    "stage": "SOFTWARE_MINIATURE",
+    "tokenizer_artifact_sha256": "97e12db63b343312e5e4abc37df9ef4b01fcb1faba792a6420a4c1b15d0a7fbc",
+    "tokenizer_identity_sha256": "11c0726a830cf0430fd273345b83cd6d31a4407a10834ae5880a8c187a689d30",
+    "training_spec_sha256": "ac9b7d6ee9b64a1c77ee636afef2947c742b06fa4a5392c97d3c5f66b5b48f84",
+    "training_stage": "SOFTWARE_MINIATURE"
+  },
+  "manifest_sha256": "577f2bdb38c5dfa3ad07a8a5516430bab71ccac52baca6768121fd945bbd784f",
+  "schema": "anra-v5-checkpoint-registry/v1"
+}

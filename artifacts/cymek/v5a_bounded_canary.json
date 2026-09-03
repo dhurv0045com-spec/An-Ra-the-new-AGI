@@ -1,10 +1,10 @@
 {
   "checkpoint": {
-    "final_checkpoint_sha256": "839078639772a41ef2b2f376a2fa667e7f8d966684b99ebb0cc14874a2cc3d95",
+    "final_checkpoint_sha256": "74cd26a4a8d3a52f0309f9b26b090898c4f374f5e297293ca6deb47af76c7254",
     "resume_hash_equal": true
   },
   "classification": "V5A_BOUNDED_CANARY_EXECUTED",
-  "construction_seconds": 8.982369900000776,
+  "construction_seconds": 4.662329100001443,
   "device": "cuda",
   "device_name": "NVIDIA GeForce RTX 4050 Laptop GPU",
   "dtype_receipt": {
@@ -18,8 +18,8 @@
     "Not a learning result. Not a V5-A launch authorization."
   ],
   "losses": [
-    10.332737922668457,
-    9.993274688720703
+    10.32491397857666,
+    9.978534698486328
   ],
   "model": {
     "executable_parameters": 250216960,
@@ -27,7 +27,7 @@
     "single_tied_embedding": true,
     "spec_sha256": "d6c143e50d222def03cd46fb1b140248a58b3b06f56ac084b7bbf91ded43f2df"
   },
-  "moment_sha256": "7d39a2b39691e5e54084a8128670aa1d071068ab9991636b707277ec23110bab",
+  "moment_sha256": "dc0292707507a9655e4c1adb03a2666b5035f4a47e15584cc1e47400fe91ba0a",
   "optimizer_group_receipt": {
     "beta1": 0.9,
     "beta2": 0.95,
@@ -347,19 +347,41 @@
     "sha256": "8af265df2858ab8f22307606d3484e15bc5c6c9e3983a0bc044a9108ae50b1da",
     "weight_decay": 0.1
   },
-  "parameter_sha256": "5d31e3064ab2976f9b3ea0a5800447ce03b8acaf99b31dbe22e2dc111210b867",
+  "parameter_sha256": "7ee7c18cb9c5f211f18fd36042ded1182911e2e585dca992dcf4659ec3064663",
   "peak_vram_mib": 4944.19970703125,
-  "receipt_sha256": "4b1606f8d87fea6c9607658e3db23bd661914b6a40f79895df08dc4db85289c6",
+  "receipt_sha256": "e3a454974167c2a9dd857ad22a993c804c0ade6b43798cb2dfedfa3c1aa041d0",
   "schema": "anra-v5a-bounded-canary/v1",
   "status": "PASS",
   "step_seconds": [
-    7.255154100001164,
-    10.76866390000032
+    4.519524100000126,
+    6.043601200000921
   ],
+  "subject_manifest_sha256": "d8545c1b0a0a1a0e9c4ce7144ac05184e06290ddc3a61cdfae27d0c70284ee48",
   "tokens": {
     "per_update": 512,
     "total": 1024
   },
   "torch_version": "2.14.0+cu126",
+  "triquetra_validation": {
+    "checked_fields": [
+      "checkpoint_file_sha256",
+      "cumulative_training_tokens",
+      "data_manifest_sha256",
+      "global_update",
+      "model_spec_sha256",
+      "pack_manifest_sha256",
+      "parameter_sha256",
+      "schema",
+      "seed",
+      "source_commit",
+      "stage",
+      "tokenizer_artifact_sha256",
+      "tokenizer_identity_sha256",
+      "training_spec_sha256"
+    ],
+    "missing_fields": [],
+    "placeholder_fields": [],
+    "valid": true
+  },
   "updates": 2
 }

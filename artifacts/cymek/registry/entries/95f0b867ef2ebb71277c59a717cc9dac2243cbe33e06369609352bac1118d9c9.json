@@ -1,0 +1,31 @@
+{
+  "claims": [],
+  "evaluations": [],
+  "lifecycle": "TRAINING_COMPLETE",
+  "manifest": {
+    "checkpoint_file_sha256": "c3bc805b33bef0da367ecc1ba6798c8f4ac688b0eae15412224e14c7d9548b31",
+    "checkpoint_sha256": "c3bc805b33bef0da367ecc1ba6798c8f4ac688b0eae15412224e14c7d9548b31",
+    "creation_receipt_sha256": "966c819b9ec3a1f45ede8ad446800adacdf335e8a7baee621c58d73dbaf7482f",
+    "cumulative_training_tokens": 12288,
+    "curriculum_spec_sha256": "e100fbce008c04ec40637af0af91fb2f05aeedc23f856a2d3c0b1580625d755e",
+    "custody": "local-ephemeral-checkpoint-store",
+    "data_manifest_sha256": "9f1f8d10c4d87ed51900ec82ac5e1c418c230f0a864b84d31ec2c12b14de9035",
+    "global_update": 3,
+    "model_spec_sha256": "12907494358361af334a356775968d1a73671058cbd38a584ca1df2c5d7da468",
+    "optimizer_spec_sha256": "48e8122deed4a5d17d9beed21e398188d64925c92db1ccc1ea2506645e06189e",
+    "pack_manifest_sha256": "0ab2851974de3f3f4719a047726216cf11adf62f8586fd63378837b54fbd27fd",
+    "parameter_sha256": "1854f0986aba35e00f92351b7fc0d1281b3fed303654f68563f0e8567d609c84",
+    "parent_checkpoint_sha256": null,
+    "schedule_spec_sha256": "17a212b260db97cf73d02dce35a4acd7a009b72a017539586b0a86fc27c1595b",
+    "schema": "anra-v5-core-subject-manifest/v1",
+    "seed": 47031,
+    "source_commit": "95dbc9788cabf9c4dc196261ee9ea85a500c7661",
+    "stage": "P35_SOFTWARE_CANARY",
+    "tokenizer_artifact_sha256": "97e12db63b343312e5e4abc37df9ef4b01fcb1faba792a6420a4c1b15d0a7fbc",
+    "tokenizer_identity_sha256": "11c0726a830cf0430fd273345b83cd6d31a4407a10834ae5880a8c187a689d30",
+    "training_spec_sha256": "d27ffd5ad95c5a5d4ccc31c47904968a19d64e21ffccbb66d3ad16c33b6a3989",
+    "training_stage": "P35_SOFTWARE_CANARY"
+  },
+  "manifest_sha256": "95f0b867ef2ebb71277c59a717cc9dac2243cbe33e06369609352bac1118d9c9",
+  "schema": "anra-v5-checkpoint-registry/v1"
+}

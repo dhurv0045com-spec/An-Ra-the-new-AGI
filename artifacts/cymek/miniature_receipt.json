@@ -1,6 +1,6 @@
 {
   "checkpoint": {
-    "final_checkpoint_sha256": "ece7041c636b996171d02ccb260e74608d67f1761a58823547bd5e627a85d075",
+    "final_checkpoint_sha256": "83b3d2b6dc85d431f3a7926d4300c130ccd1e7e500f682ee4b34a577905feedf",
     "resume_parameter_hash_equal": true
   },
   "classification": "END_TO_END_MINIATURE",
@@ -15,39 +15,139 @@
       "exact_duplicate_drops": {},
       "normalization": "casefold + word extraction for contamination comparison only",
       "note": "count_tokens(text)+2 approximates BOS/EOS overhead; the pack manifest carries exact counts",
+      "processed_document_sha256": {
+        ".github/workflows/cymek.yml": "45c2132c54775d63e2d1b2f15525b1a186918bf5234a01fd220777628e6a6043",
+        ".github/workflows/e0-research.yml": "39cc8c4ec855f02731c7be140be72f4a0d87cbb2bcf10b5844b0a1a72ec7eca4",
+        ".pytest_cache/README.md": "73fd6fccdd802c419a6b2d983d6c3173b7da97558ac4b589edec2dfe443db9ad",
+        "anra_v5/__init__.py": "9159c89b3ba8b2cc2ed091b082045b481611d9d96d7530a383c5c938acbfa36f",
+        "anra_v5/cli.py": "245b5f6fe98c60a106fa9725e2845ebc39b2039f060c07c104b21426981ac9ae",
+        "anra_v5/miniature_run.py": "8f54d44cf2926c395221e5792bd471cbcecf7479bc3fb1625b0997a5ef72e785",
+        "anra_v5/status.py": "e39671910bc3b20fde9e0dbee5588bbb75b6cc6abc02cfdc2d257f10056fe45b",
+        "blueprint/BENCHMARK.md": "d1d21ba7753f0f0eb00d57bb96f39b10f8763baa571cbf7da868076d4a38a984",
+        "blueprint/DECISIONS.md": "5435d17b680c2585391c0e7c25b4f09624675923b6664c4eb2b7d98b6a69d757",
+        "blueprint/DECISION_LOG.md": "6a7f04fa5be724e9b8b99f4fac619e16332426eac2681daf53e1ffbbb716e67a",
+        "blueprint/EXECUTION.md": "02387f4049742518f7b3b34e2461af5585ceecfedbe68aadfcbdd97860cca3cf",
+        "blueprint/EXPERIMENTS.md": "67a5cc9e2ff998af688caa9bd69b68033ed907b2bb717a7ceaafad3532a94cab",
+        "blueprint/FREEZE_CHECKLIST.md": "75575284b46bd4a9b19fcf17503418a835b93605491f3fded71c5b89e7df817e",
+        "blueprint/IMPLEMENTATION_BLUEPRINT.md": "a83269d976acb8a7891037c37df636c1dc7565efcd6a928e684f3f0e21c671b9",
+        "blueprint/LAUNCH_GATES.json": "691a16cbced351a35cd5c4710325ce91099dcf9a1e4ff9d04736f8f3cc0b023c",
+        "blueprint/MODEL_ARCHITECTURE.md": "c6999fd430befaf76f3df9a74b96e089dfc421c72b1a8773d4855dfbc3fb3f2e",
+        "blueprint/OPEN_QUESTIONS.md": "4376d207f28c1b323a2838e56ae15ef00581126cd206fd52679a29993c02c2e0",
+        "blueprint/README.md": "c73fae66f4c5180cb6abd25a62cce34957b4feac4493ad46382ffb2ca6a7f3f0",
+        "blueprint/SOFTWARE_SYSTEM.md": "81907929cb1b822a8dde6ddedebdf69abe3ae8473dc53be5a3e53f59f99ebea7",
+        "blueprint/STATUS.md": "b3a6a761ae9534b4a33796e048323d881d714233e0b397d647b7278ed5527948",
+        "blueprint/V5_MASTER_BLUEPRINT.md": "3286e38c77d1f2e7e76eae294c3f2cbaa38fb909b097bb110d7bf1cf548fde62",
+        "blueprint/V5_TRAINING_SPEC_v1.0.md": "e191eaec50aeb25d62093d4105f067b40b0f2b1e5f2fab8e41006f6ec8e68405",
+        "docs/esoes/AGENT_HANDOFF.md": "50562e3880c2bf36433604c0cdbca93a92fc3aad7b5263548a5a7ff75bb1bb24",
+        "docs/esoes/EVIDENCE_AND_CONTEXT.md": "142b04d3868ca583d50af7968539473ee5ac78d20f38d90d680e11a8d8beb9df",
+        "docs/esoes/EVIDENCE_BASE.md": "c8be5de8d75d9357d44b94907528d6662f3e5533f887c768878f2b00a8c1f0fc",
+        "docs/esoes/ITERATIONS.md": "536348058adbdc2ded37d20878abfc87a85270b996765012c27a7f6df7bc32be",
+        "docs/esoes/README.md": "b7f5e0a0bdc51437a0652ea81b028df3b10d10a7fc5eeb780f29e33411c72e28",
+        "docs/esoes/V5_COGNITION_FIRST_BLUEPRINT.md": "a3691ecc75e0e80c3a819de6ea3afac8425cd7cfbc5a4733092e19f5a1d8340b",
+        "docs/esoes/report-source.md": "a9bd6b0127419cba0f49e1fb975d9b38ffe5f98570d1f1d8fb6cafac60706a3f",
+        "e0_cognition/README.md": "c733c1244a31d2880173fef95dec35c076c5d13bc459cd8c0d9805853ae82ac7",
+        "e0_cognition/__init__.py": "947d528b9e61a8b87ab5fb3e410404ecea0d73ffe66dba1b7d784cb85a1e1aa6",
+        "e0_cognition/baselines.py": "4dac5425be608c7dbec8ad536ad8765eeb577d35a3faaab999c213651534d048",
+        "e0_cognition/certify.py": "80f6d6d8c8966d7c2e5c7bdcf7ab50b0fe74a3f103da27ceb6a6fc405031b5af",
+        "e0_cognition/contracts.py": "9cfc50df17913866f1969e0e8c1fe42e875f66e3444e2105d6dbc035b4dbf1d5",
+        "e0_cognition/device_benchmark.py": "4e2a60ec48ae83d00c095c4838dd033a56a5531c5f886fe67faeeedd5f26f5d0",
+        "e0_cognition/evaluation_generators.py": "44bf0008268d57ea606922d1e1fdfac3f0a040a20a7c8a865b730fdb334b43e8",
+        "e0_cognition/inference.py": "e561562459c979df0cf645793f2a47b48f64cbb4e27e5fa66071707af7b1815a",
+        "e0_cognition/metrics.py": "fa8c2068a9e07a7ada2bf7db42b3341226369a59974a21a6bd2648be957cadd1",
+        "e0_cognition/preregistration.py": "7078d6864d6797fae568ab0af61389d51fde8ddeba1cc93bdf6ac3d3f6f53e10",
+        "e0_cognition/reference_solvers.py": "0cd3fe25a93288e4cbbecc3389c2775b2c2b4310ba03d2a70b88ace57f539504",
+        "e0_cognition/results.py": "722bf23084dcf528d21ab7f5796e49836a061e15623ba532c5740a602851babf",
+        "e0_cognition/scoring_certification.py": "9cf8825ed79219231d5a79d052ac28b0a164058c91709481bd210c43e43c1569",
+        "e0_cognition/sealed.py": "104c14bcc1ee0b76173917462fad926eb70a8ba068870ba39f56cafb60993f24",
+        "e0_cognition/statistics.py": "30edf9027450f8d8c6273e0f03ba0580d632e4c5f0006199b1821e48eb55245a",
+        "e0_cognition/training_generators.py": "80c5b18175e13255b8a3af20b7433853b50072a95bbb59cdbddf807441332958",
+        "e1_tokenizer/__init__.py": "90817346624328faedc89b8bee500829b6734a909fc022f411079dcc7ebff9a6",
+        "e1_tokenizer/audit.py": "820a201544065e65459d824b5041908067c8cf608f6d7b3b87731b110bc38730",
+        "e1_tokenizer/compare.py": "d03a8bf6a20a63b281edaf88f9b79437d99f7830096e303a8482db0fdd5c8279"
+      },
+      "raw_source_sha256": {
+        ".github/workflows/cymek.yml": "45c2132c54775d63e2d1b2f15525b1a186918bf5234a01fd220777628e6a6043",
+        ".github/workflows/e0-research.yml": "39cc8c4ec855f02731c7be140be72f4a0d87cbb2bcf10b5844b0a1a72ec7eca4",
+        ".pytest_cache/README.md": "73fd6fccdd802c419a6b2d983d6c3173b7da97558ac4b589edec2dfe443db9ad",
+        "anra_v5/__init__.py": "9159c89b3ba8b2cc2ed091b082045b481611d9d96d7530a383c5c938acbfa36f",
+        "anra_v5/cli.py": "245b5f6fe98c60a106fa9725e2845ebc39b2039f060c07c104b21426981ac9ae",
+        "anra_v5/miniature_run.py": "8f54d44cf2926c395221e5792bd471cbcecf7479bc3fb1625b0997a5ef72e785",
+        "anra_v5/status.py": "e39671910bc3b20fde9e0dbee5588bbb75b6cc6abc02cfdc2d257f10056fe45b",
+        "blueprint/BENCHMARK.md": "6857c1e01425f9df6cf9d6b718ab9625661a7054affdcf2475c692dd94bdafa5",
+        "blueprint/DECISIONS.md": "11025585f272572d7d69723bb276e5431aac6e3c0ef290410e0edfb3dcd3d490",
+        "blueprint/DECISION_LOG.md": "3c142f18a722a5177191ca4d56203755296aabdc85cc669da0a4d8ab925d750d",
+        "blueprint/EXECUTION.md": "02387f4049742518f7b3b34e2461af5585ceecfedbe68aadfcbdd97860cca3cf",
+        "blueprint/EXPERIMENTS.md": "67a5cc9e2ff998af688caa9bd69b68033ed907b2bb717a7ceaafad3532a94cab",
+        "blueprint/FREEZE_CHECKLIST.md": "75575284b46bd4a9b19fcf17503418a835b93605491f3fded71c5b89e7df817e",
+        "blueprint/IMPLEMENTATION_BLUEPRINT.md": "a83269d976acb8a7891037c37df636c1dc7565efcd6a928e684f3f0e21c671b9",
+        "blueprint/LAUNCH_GATES.json": "691a16cbced351a35cd5c4710325ce91099dcf9a1e4ff9d04736f8f3cc0b023c",
+        "blueprint/MODEL_ARCHITECTURE.md": "c6999fd430befaf76f3df9a74b96e089dfc421c72b1a8773d4855dfbc3fb3f2e",
+        "blueprint/OPEN_QUESTIONS.md": "4376d207f28c1b323a2838e56ae15ef00581126cd206fd52679a29993c02c2e0",
+        "blueprint/README.md": "c73fae66f4c5180cb6abd25a62cce34957b4feac4493ad46382ffb2ca6a7f3f0",
+        "blueprint/SOFTWARE_SYSTEM.md": "81907929cb1b822a8dde6ddedebdf69abe3ae8473dc53be5a3e53f59f99ebea7",
+        "blueprint/STATUS.md": "b3a6a761ae9534b4a33796e048323d881d714233e0b397d647b7278ed5527948",
+        "blueprint/V5_MASTER_BLUEPRINT.md": "5f6c5cb1782407708bdea7e2c3bfc59fc2afc5be5936d090093b674ce5736818",
+        "blueprint/V5_TRAINING_SPEC_v1.0.md": "e191eaec50aeb25d62093d4105f067b40b0f2b1e5f2fab8e41006f6ec8e68405",
+        "docs/esoes/AGENT_HANDOFF.md": "50562e3880c2bf36433604c0cdbca93a92fc3aad7b5263548a5a7ff75bb1bb24",
+        "docs/esoes/EVIDENCE_AND_CONTEXT.md": "142b04d3868ca583d50af7968539473ee5ac78d20f38d90d680e11a8d8beb9df",
+        "docs/esoes/EVIDENCE_BASE.md": "c8be5de8d75d9357d44b94907528d6662f3e5533f887c768878f2b00a8c1f0fc",
+        "docs/esoes/ITERATIONS.md": "536348058adbdc2ded37d20878abfc87a85270b996765012c27a7f6df7bc32be",
+        "docs/esoes/README.md": "b7f5e0a0bdc51437a0652ea81b028df3b10d10a7fc5eeb780f29e33411c72e28",
+        "docs/esoes/V5_COGNITION_FIRST_BLUEPRINT.md": "a3691ecc75e0e80c3a819de6ea3afac8425cd7cfbc5a4733092e19f5a1d8340b",
+        "docs/esoes/report-source.md": "a9bd6b0127419cba0f49e1fb975d9b38ffe5f98570d1f1d8fb6cafac60706a3f",
+        "e0_cognition/README.md": "c733c1244a31d2880173fef95dec35c076c5d13bc459cd8c0d9805853ae82ac7",
+        "e0_cognition/__init__.py": "947d528b9e61a8b87ab5fb3e410404ecea0d73ffe66dba1b7d784cb85a1e1aa6",
+        "e0_cognition/baselines.py": "4dac5425be608c7dbec8ad536ad8765eeb577d35a3faaab999c213651534d048",
+        "e0_cognition/certify.py": "80f6d6d8c8966d7c2e5c7bdcf7ab50b0fe74a3f103da27ceb6a6fc405031b5af",
+        "e0_cognition/contracts.py": "9cfc50df17913866f1969e0e8c1fe42e875f66e3444e2105d6dbc035b4dbf1d5",
+        "e0_cognition/device_benchmark.py": "4e2a60ec48ae83d00c095c4838dd033a56a5531c5f886fe67faeeedd5f26f5d0",
+        "e0_cognition/evaluation_generators.py": "164dbdc7d8b90a932877b8a816b19cbe58b74faa3486012097d1c7559314d331",
+        "e0_cognition/inference.py": "e561562459c979df0cf645793f2a47b48f64cbb4e27e5fa66071707af7b1815a",
+        "e0_cognition/metrics.py": "fa8c2068a9e07a7ada2bf7db42b3341226369a59974a21a6bd2648be957cadd1",
+        "e0_cognition/preregistration.py": "7078d6864d6797fae568ab0af61389d51fde8ddeba1cc93bdf6ac3d3f6f53e10",
+        "e0_cognition/reference_solvers.py": "0cd3fe25a93288e4cbbecc3389c2775b2c2b4310ba03d2a70b88ace57f539504",
+        "e0_cognition/results.py": "722bf23084dcf528d21ab7f5796e49836a061e15623ba532c5740a602851babf",
+        "e0_cognition/scoring_certification.py": "9cf8825ed79219231d5a79d052ac28b0a164058c91709481bd210c43e43c1569",
+        "e0_cognition/sealed.py": "104c14bcc1ee0b76173917462fad926eb70a8ba068870ba39f56cafb60993f24",
+        "e0_cognition/statistics.py": "30edf9027450f8d8c6273e0f03ba0580d632e4c5f0006199b1821e48eb55245a",
+        "e0_cognition/training_generators.py": "80c5b18175e13255b8a3af20b7433853b50072a95bbb59cdbddf807441332958",
+        "e1_tokenizer/__init__.py": "90817346624328faedc89b8bee500829b6734a909fc022f411079dcc7ebff9a6",
+        "e1_tokenizer/audit.py": "820a201544065e65459d824b5041908067c8cf608f6d7b3b87731b110bc38730",
+        "e1_tokenizer/compare.py": "d03a8bf6a20a63b281edaf88f9b79437d99f7830096e303a8482db0fdd5c8279"
+      },
       "split_counts": {
-        "development": 9,
+        "development": 8,
         "fresh": 1,
-        "sealed": 6,
+        "sealed": 7,
         "training": 32
       }
     },
     "pack_audit": {
       "full_sequences": 28,
-      "pack_efficiency": 0.9585124790268457,
+      "pack_efficiency": 0.9645553691275168,
       "padded_capacity_tokens": 76288,
       "padded_sequences": 4,
-      "real_nonpad_tokens": 73123,
+      "real_nonpad_tokens": 73584,
       "segments": 64,
       "sequences": 32,
       "tokens_by_source": {
-        "code_math_formal": 33873,
-        "natural": 39250
+        "code_math_formal": 34332,
+        "natural": 39252
       }
     },
     "token_budget": 16384,
     "tokens_by_source": {
-      "code_math_formal": 14306,
-      "natural": 2078
+      "code_math_formal": 12862,
+      "natural": 3522
     },
     "training_split_documents": 32,
     "updates_run": 4
   },
   "evaluation": {
     "adapter": {
-      "checkpoint_sha256": "ece7041c636b996171d02ccb260e74608d67f1761a58823547bd5e627a85d075",
+      "checkpoint_sha256": "83b3d2b6dc85d431f3a7926d4300c130ccd1e7e500f682ee4b34a577905feedf",
       "decoding_rule": "greedy; temperature 0; stop on EOS or cap",
-      "model_payload_sha256": "4e374f3add8f231ac020e10268d34bfbaa0fe4901663f18527b4c3d6461835e6",
+      "model_payload_sha256": "7df18b113ef158cd7b2a39e103a97c780ee85071e361604a534e4864acc06c46",
       "model_spec_sha256": "c6684f8e6de5fc173cc3e9ff88aa21b52640667431a15fb3ba745e6a04272459",
       "schema": "anra-v5-checkpoint-adapter/v1",
       "scoring_rule": "summed candidate-suffix log-probability, shared prefix, uniform EOS",
@@ -56,12 +156,12 @@
     "firewall": "VisibleTask/EvaluatorTruth split enforced at projection",
     "tasks": [
       {
-        "adapter_sha256": "81fb371b8af3c44c48e4d07d016e45afb96879e88f1eb2d3a1cd8a4fca42a9b5",
+        "adapter_sha256": "44f3b31f78e7ba591b720eeafd5e355ef3b2ef63605d16d59e7da3ee93671037",
         "candidate_scores": [
-          -40.38942623138428,
-          -20.499079704284668
+          -40.38271903991699,
+          -20.50297737121582
         ],
-        "checkpoint_sha256": "ece7041c636b996171d02ccb260e74608d67f1761a58823547bd5e627a85d075",
+        "checkpoint_sha256": "83b3d2b6dc85d431f3a7926d4300c130ccd1e7e500f682ee4b34a577905feedf",
         "cluster_id": "mini-bind",
         "correct": false,
         "difficulty": "easy",
@@ -73,12 +173,12 @@
         "task_id": "mini-bind-001"
       },
       {
-        "adapter_sha256": "81fb371b8af3c44c48e4d07d016e45afb96879e88f1eb2d3a1cd8a4fca42a9b5",
+        "adapter_sha256": "44f3b31f78e7ba591b720eeafd5e355ef3b2ef63605d16d59e7da3ee93671037",
         "candidate_scores": [
-          -40.393022537231445,
-          -20.482064247131348
+          -40.386643409729004,
+          -20.486299514770508
         ],
-        "checkpoint_sha256": "ece7041c636b996171d02ccb260e74608d67f1761a58823547bd5e627a85d075",
+        "checkpoint_sha256": "83b3d2b6dc85d431f3a7926d4300c130ccd1e7e500f682ee4b34a577905feedf",
         "cluster_id": "mini-bind",
         "correct": true,
         "difficulty": "easy",
@@ -92,10 +192,10 @@
     ]
   },
   "identity_bindings": {
-    "data_manifest_sha256": "15c3824337a42de5370cf56c9290dbfa92e9022dae78cf007f28385ad1d5bcf9",
+    "data_manifest_sha256": "62156cc9cdec33a0ef7233f19df4f6e2153033e862350b87605c131fa5cc655e",
     "model_spec_sha256": "c6684f8e6de5fc173cc3e9ff88aa21b52640667431a15fb3ba745e6a04272459",
     "optimizer_spec_sha256": "137171fe9d858003e3b89cd66853dbb27b35a99ea61a75fbe200bbab2f045027",
-    "pack_manifest_sha256": "f7e5de51bc5fe1c451961c28c44581bfc2586166bf28cf60ee33d875399bc43a",
+    "pack_manifest_sha256": "cbc701cdeb8280df343ac921355c3e26a28cbde7ec9e377c2cdaff166d783370",
     "schedule_spec_sha256": "2f475f417b4f47a12de61add589c885fa6d9c7c9bac09cde2a1db516fadadd5e",
     "tokenizer_sha256": "97e12db63b343312e5e4abc37df9ef4b01fcb1faba792a6420a4c1b15d0a7fbc"
   },
@@ -109,11 +209,12 @@
     "family": "miniature V5 spec (frozen tokenizer vocabulary)",
     "parameter_count": 1647104
   },
-  "receipt_sha256": "90718a701beb6b435c7b88f48844a12f7eb488eb2399dbf83a47663e9387b641",
+  "receipt_sha256": "858db9593a7ee132b58d3c653501645a7e8dcacab249cff80808a8a4e6f63d5c",
   "schema": "anra-v5-miniature-receipt/v1",
   "scope": "end-to-end miniature through the single production path",
-  "source_commit": "26a61f6242e9e5c1d1b028b4f8c3c7d26ac0fdc6",
+  "source_commit": "95dbc9788cabf9c4dc196261ee9ea85a500c7661",
   "status": "PASS",
+  "subject_manifest_sha256": "577f2bdb38c5dfa3ad07a8a5516430bab71ccac52baca6768121fd945bbd784f",
   "tokenizer": {
     "artifact_sha256": "97e12db63b343312e5e4abc37df9ef4b01fcb1faba792a6420a4c1b15d0a7fbc",
     "tournament_evaluation": {
@@ -141,8 +242,8 @@
   "training": {
     "final_receipt": {
       "after": {
-        "embedding_data_ptr": 3464830844928,
-        "moment_sha256": "84bb7704649f73112ef390ad200a1da523159c12e79bc44ada4d9e09789a0eb1",
+        "embedding_data_ptr": 3965127426048,
+        "moment_sha256": "fe021b82aa27bc57caeeb9718a38b3595ac69fe6c908fbe672dd81de97fbabc7",
         "optimizer_steps": {
           "blocks.0.attention.key.weight": 4,
           "blocks.0.attention.key_scale": 4,
@@ -169,11 +270,11 @@
           "embedding.weight": 4,
           "final_norm.weight": 4
         },
-        "parameter_sha256": "ba9ec693bcd8f91921d10279cbcff1bab8e71c2ad1dd861e3e26a4087ccede77"
+        "parameter_sha256": "c1d8fdc8d1b8d2ca703baab3e3120b1b4cb085ca035fbace4a9401bb531ab1da"
       },
       "before": {
-        "embedding_data_ptr": 3464830844928,
-        "moment_sha256": "755c461104e52d1d446377c2165d367d664193f8ed554309882e81486d1b2d8f",
+        "embedding_data_ptr": 3965127426048,
+        "moment_sha256": "de7b0f602ddfeea344acea3a69973b08b98f3b329c9ca14fe3c1a94abdfbdf12",
         "optimizer_steps": {
           "blocks.0.attention.key.weight": 3,
           "blocks.0.attention.key_scale": 3,
@@ -200,30 +301,51 @@
           "embedding.weight": 3,
           "final_norm.weight": 3
         },
-        "parameter_sha256": "c304f852953a2716a902f1d735b7b95600183f8cf79dcacb6c614310697d10b1"
+        "parameter_sha256": "88e9ea6b33e5567770dc3397628a7b3a8d5c0dff1e186118fbe6e0fc1f85dbf5"
       },
       "consumed_real_tokens": 4096,
-      "grad_norm_post_clip": 0.9273326992988586,
-      "grad_norm_pre_clip": 0.9273327589035034,
+      "grad_norm_post_clip": 0.8900535106658936,
+      "grad_norm_pre_clip": 0.8900535106658936,
       "learning_rate": 0.0003,
-      "loss": 10.067684173583984,
+      "loss": 10.070780754089355,
       "moments_changed": true,
       "parameter_sha256_changed": true,
       "rng_state_sha256": "89cce632b0cfcc4ac98f476d7812a51f9d83335d471ce4d0e7fa192922daaee4",
       "schedule_index": "pre-update cumulative real non-padding tokens",
       "schema": "anra-v5-production-backend-receipt/v1",
-      "sha256": "3935c6bab8ededf88f266bcb90fd21f3829b2a6285b62ba8db30ac448db594f0",
+      "sha256": "79661b07a766703e8de8518342eb45182c6d96924b2378733cb2faf3fe800780",
       "supervised_tokens": 4092,
       "tied_preserved": true
     },
     "losses": [
-      10.092812538146973,
-      10.093925476074219,
-      10.071784019470215,
-      10.067684173583984
+      10.094117164611816,
+      10.096559524536133,
+      10.09026050567627,
+      10.070780754089355
     ],
-    "moment_sha256": "84bb7704649f73112ef390ad200a1da523159c12e79bc44ada4d9e09789a0eb1",
+    "moment_sha256": "fe021b82aa27bc57caeeb9718a38b3595ac69fe6c908fbe672dd81de97fbabc7",
     "optimizer_step": 4,
-    "parameter_sha256": "ba9ec693bcd8f91921d10279cbcff1bab8e71c2ad1dd861e3e26a4087ccede77"
+    "parameter_sha256": "c1d8fdc8d1b8d2ca703baab3e3120b1b4cb085ca035fbace4a9401bb531ab1da"
+  },
+  "triquetra_validation": {
+    "checked_fields": [
+      "checkpoint_file_sha256",
+      "cumulative_training_tokens",
+      "data_manifest_sha256",
+      "global_update",
+      "model_spec_sha256",
+      "pack_manifest_sha256",
+      "parameter_sha256",
+      "schema",
+      "seed",
+      "source_commit",
+      "stage",
+      "tokenizer_artifact_sha256",
+      "tokenizer_identity_sha256",
+      "training_spec_sha256"
+    ],
+    "missing_fields": [],
+    "placeholder_fields": [],
+    "valid": true
   }
 }

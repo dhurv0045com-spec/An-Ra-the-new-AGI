@@ -63,6 +63,8 @@ from v5_training.state import (
     TrainingState,
 )
 from v5_training.trainer import train
+from v5_registry.registry import CheckpointRegistry
+from v5_registry.subject import CoreSubjectManifest, triquetra_validation
 
 
 SCHEMA = "anra-v5-miniature-receipt/v1"
@@ -303,6 +305,45 @@ def run_miniature(
             }
         )
 
+    registry = CheckpointRegistry(repo / "artifacts/cymek/registry")
+    training_receipt = {
+        "losses": losses,
+        "cumulative_tokens": final_state.cumulative_tokens,
+        "global_update": final_state.global_update,
+        "parameter_sha256": live_evidence.parameter_sha256,
+        "moment_sha256": live_evidence.moment_sha256,
+        "checkpoint_sha256": store.latest_sha256(),
+        "resume_hash_equal": resume_equal,
+    }
+    subject = CoreSubjectManifest.create(
+        checkpoint_sha256=store.latest_sha256(),
+        checkpoint_file_sha256=store.latest_sha256(),
+        parameter_sha256=live_evidence.parameter_sha256,
+        model_spec_sha256=identities.model_spec_sha256,
+        tokenizer_artifact_sha256=tokenizer.identity.artifact_sha256,
+        tokenizer_identity_sha256=hashlib.sha256(
+            json.dumps(asdict(tokenizer.identity), sort_keys=True).encode()
+        ).hexdigest(),
+        training_spec_sha256=identities.run_spec_sha256,
+        data_manifest_sha256=identities.data_manifest_sha256,
+        pack_manifest_sha256=identities.pack_manifest_sha256,
+        optimizer_spec_sha256=identities.optimizer_spec_sha256,
+        schedule_spec_sha256=identities.schedule_spec_sha256,
+        curriculum_spec_sha256=identities.curriculum_spec_sha256,
+        source_commit=identities.source_commit,
+        parent_checkpoint_sha256=None,
+        global_update=final_state.global_update,
+        cumulative_training_tokens=final_state.cumulative_tokens,
+        stage="SOFTWARE_MINIATURE",
+        seed=SEED,
+        custody="local-ephemeral-checkpoint-store",
+        creation_receipt_sha256=hashlib.sha256(
+            json.dumps(training_receipt, sort_keys=True).encode()
+        ).hexdigest(),
+    )
+    subject_sha = registry.register(subject)
+    registry.transition(subject_sha, to="IDENTITY_VERIFIED")
+    registry.transition(subject_sha, to="TRAINING_COMPLETE")
     receipt: dict[str, object] = {
         "schema": SCHEMA,
         "status": "PASS",
@@ -360,6 +401,8 @@ def run_miniature(
             "The bounded warmup schedule is bound by schedule_spec_sha256, not the canonical 5B WSD schedule.",
         ],
     }
+    receipt["subject_manifest_sha256"] = subject_sha
+    receipt["triquetra_validation"] = triquetra_validation(subject.canonical())
     receipt["receipt_sha256"] = hashlib.sha256(
         _canonical_json({k: v for k, v in receipt.items() if k != "receipt_sha256"})
     ).hexdigest()

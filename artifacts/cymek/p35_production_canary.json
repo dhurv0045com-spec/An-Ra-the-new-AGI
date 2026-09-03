@@ -1,6 +1,6 @@
 {
   "checkpoint": {
-    "final_checkpoint_sha256": "6ac92600feceeeff8eef99f489fe630c7f5ef048129b3e1c965dead26ddb2cf6",
+    "final_checkpoint_sha256": "c3bc805b33bef0da367ecc1ba6798c8f4ac688b0eae15412224e14c7d9548b31",
     "resume_hash_equal": true
   },
   "classification": "P35_EXECUTED_PRODUCTION_PATH",
@@ -18,8 +18,9 @@
         ".github/workflows/e0-research.yml": "39cc8c4ec855f02731c7be140be72f4a0d87cbb2bcf10b5844b0a1a72ec7eca4",
         ".pytest_cache/README.md": "73fd6fccdd802c419a6b2d983d6c3173b7da97558ac4b589edec2dfe443db9ad",
         "anra_v5/__init__.py": "9159c89b3ba8b2cc2ed091b082045b481611d9d96d7530a383c5c938acbfa36f",
-        "anra_v5/cli.py": "41922312ab2e2c98d6e5e7e112e90b951cfd175e80128993fb6fca73026006cf",
-        "anra_v5/miniature_run.py": "97eda5114508bc3acd6866b6c87e905a8eceba28e11ee60d1ef3fd37e74f212e",
+        "anra_v5/cli.py": "245b5f6fe98c60a106fa9725e2845ebc39b2039f060c07c104b21426981ac9ae",
+        "anra_v5/miniature_run.py": "8f54d44cf2926c395221e5792bd471cbcecf7479bc3fb1625b0997a5ef72e785",
+        "anra_v5/status.py": "e39671910bc3b20fde9e0dbee5588bbb75b6cc6abc02cfdc2d257f10056fe45b",
         "blueprint/BENCHMARK.md": "d1d21ba7753f0f0eb00d57bb96f39b10f8763baa571cbf7da868076d4a38a984",
         "blueprint/DECISIONS.md": "5435d17b680c2585391c0e7c25b4f09624675923b6664c4eb2b7d98b6a69d757",
         "blueprint/DECISION_LOG.md": "6a7f04fa5be724e9b8b99f4fac619e16332426eac2681daf53e1ffbbb716e67a",
@@ -60,16 +61,16 @@
         "e0_cognition/training_generators.py": "80c5b18175e13255b8a3af20b7433853b50072a95bbb59cdbddf807441332958",
         "e1_tokenizer/__init__.py": "90817346624328faedc89b8bee500829b6734a909fc022f411079dcc7ebff9a6",
         "e1_tokenizer/audit.py": "820a201544065e65459d824b5041908067c8cf608f6d7b3b87731b110bc38730",
-        "e1_tokenizer/compare.py": "d03a8bf6a20a63b281edaf88f9b79437d99f7830096e303a8482db0fdd5c8279",
-        "e1_tokenizer/local_tournament.py": "e23edb6d58b566b03d84969f1f63e014b2a6f59e09b25c16780153b62a736580"
+        "e1_tokenizer/compare.py": "d03a8bf6a20a63b281edaf88f9b79437d99f7830096e303a8482db0fdd5c8279"
       },
       "raw_source_sha256": {
         ".github/workflows/cymek.yml": "45c2132c54775d63e2d1b2f15525b1a186918bf5234a01fd220777628e6a6043",
         ".github/workflows/e0-research.yml": "39cc8c4ec855f02731c7be140be72f4a0d87cbb2bcf10b5844b0a1a72ec7eca4",
         ".pytest_cache/README.md": "73fd6fccdd802c419a6b2d983d6c3173b7da97558ac4b589edec2dfe443db9ad",
         "anra_v5/__init__.py": "9159c89b3ba8b2cc2ed091b082045b481611d9d96d7530a383c5c938acbfa36f",
-        "anra_v5/cli.py": "41922312ab2e2c98d6e5e7e112e90b951cfd175e80128993fb6fca73026006cf",
-        "anra_v5/miniature_run.py": "97eda5114508bc3acd6866b6c87e905a8eceba28e11ee60d1ef3fd37e74f212e",
+        "anra_v5/cli.py": "245b5f6fe98c60a106fa9725e2845ebc39b2039f060c07c104b21426981ac9ae",
+        "anra_v5/miniature_run.py": "8f54d44cf2926c395221e5792bd471cbcecf7479bc3fb1625b0997a5ef72e785",
+        "anra_v5/status.py": "e39671910bc3b20fde9e0dbee5588bbb75b6cc6abc02cfdc2d257f10056fe45b",
         "blueprint/BENCHMARK.md": "6857c1e01425f9df6cf9d6b718ab9625661a7054affdcf2475c692dd94bdafa5",
         "blueprint/DECISIONS.md": "11025585f272572d7d69723bb276e5431aac6e3c0ef290410e0edfb3dcd3d490",
         "blueprint/DECISION_LOG.md": "3c142f18a722a5177191ca4d56203755296aabdc85cc669da0a4d8ab925d750d",
@@ -110,27 +111,26 @@
         "e0_cognition/training_generators.py": "80c5b18175e13255b8a3af20b7433853b50072a95bbb59cdbddf807441332958",
         "e1_tokenizer/__init__.py": "90817346624328faedc89b8bee500829b6734a909fc022f411079dcc7ebff9a6",
         "e1_tokenizer/audit.py": "820a201544065e65459d824b5041908067c8cf608f6d7b3b87731b110bc38730",
-        "e1_tokenizer/compare.py": "d03a8bf6a20a63b281edaf88f9b79437d99f7830096e303a8482db0fdd5c8279",
-        "e1_tokenizer/local_tournament.py": "e23edb6d58b566b03d84969f1f63e014b2a6f59e09b25c16780153b62a736580"
+        "e1_tokenizer/compare.py": "d03a8bf6a20a63b281edaf88f9b79437d99f7830096e303a8482db0fdd5c8279"
       },
       "split_counts": {
-        "development": 9,
+        "development": 8,
         "fresh": 1,
-        "sealed": 6,
+        "sealed": 7,
         "training": 32
       }
     },
     "pack_audit": {
       "full_sequences": 28,
-      "pack_efficiency": 0.9585124790268457,
+      "pack_efficiency": 0.9645553691275168,
       "padded_capacity_tokens": 76288,
       "padded_sequences": 4,
-      "real_nonpad_tokens": 73123,
+      "real_nonpad_tokens": 73584,
       "segments": 64,
       "sequences": 32,
       "tokens_by_source": {
-        "code_math_formal": 33873,
-        "natural": 39250
+        "code_math_formal": 34332,
+        "natural": 39252
       }
     },
     "training_split_documents": 32
@@ -144,18 +144,18 @@
     "parameters": "float32"
   },
   "grad_norms_post_clip": [
+    1.0,
     0.9999998211860657,
-    0.9999999403953552,
-    0.9999997019767761
+    0.9999997615814209
   ],
   "limitations": [
     "Bounded canary: proves certified production execution at P35 scale on this device.",
     "Not a learning experiment and not a V5-A authorization."
   ],
   "losses": [
-    10.14115047454834,
-    9.763874053955078,
-    9.319900512695312
+    10.165243148803711,
+    9.619606971740723,
+    9.220612525939941
   ],
   "model": {
     "executable_parameters": 35411328,
@@ -164,7 +164,7 @@
     "spec_sha256": "12907494358361af334a356775968d1a73671058cbd38a584ca1df2c5d7da468",
     "training_spec_ladder_claim": 35414400
   },
-  "moment_sha256": "e07e6b85c8e31e7ec1f4386cfb9854e3fbf8dd96eb09f6626ff062e5aa994458",
+  "moment_sha256": "afae4ba686a70f295ab25764542c8e77a3b6f636a40549586f153433e78f2799",
   "optimizer_group_receipt": {
     "beta1": 0.9,
     "beta2": 0.95,
@@ -374,21 +374,43 @@
     "sha256": "49eb98e4bbdbee59e96c0cb68449c3ebcc61da793e7b3c710a420abbe6ac9e05",
     "weight_decay": 0.1
   },
-  "parameter_sha256": "672acf100fc52720caea0d822a726ad21c56c1acd11520179446947494ad5078",
+  "parameter_sha256": "1854f0986aba35e00f92351b7fc0d1281b3fed303654f68563f0e8567d609c84",
   "peak_vram_mib": 4197.87255859375,
-  "receipt_sha256": "cfa2aa6ffc22005f93d74340fe87a22f9846a34d4f7fb2230416ba4f014a7027",
+  "receipt_sha256": "4b7baccb04cd59c64049aa438841291dec4ef5feb22d4301a2ddfad88653cc13",
   "schema": "anra-v5-p35-production-canary/v1",
   "status": "PASS",
   "step_seconds": [
-    2.3856161999992764,
-    2.119745600000897,
-    2.214977600000566
+    1.3383873000002495,
+    1.1775712999988173,
+    1.2828427000004012
   ],
+  "subject_manifest_sha256": "95f0b867ef2ebb71277c59a717cc9dac2243cbe33e06369609352bac1118d9c9",
   "tokens": {
     "per_update": 4096,
     "total": 12288
   },
   "torch_version": "2.14.0+cu126",
-  "total_seconds": 10.401953199998388,
+  "total_seconds": 5.83644429999913,
+  "triquetra_validation": {
+    "checked_fields": [
+      "checkpoint_file_sha256",
+      "cumulative_training_tokens",
+      "data_manifest_sha256",
+      "global_update",
+      "model_spec_sha256",
+      "pack_manifest_sha256",
+      "parameter_sha256",
+      "schema",
+      "seed",
+      "source_commit",
+      "stage",
+      "tokenizer_artifact_sha256",
+      "tokenizer_identity_sha256",
+      "training_spec_sha256"
+    ],
+    "missing_fields": [],
+    "placeholder_fields": [],
+    "valid": true
+  },
   "updates": 3
 }

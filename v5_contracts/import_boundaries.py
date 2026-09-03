@@ -19,6 +19,8 @@ FORBIDDEN = {
     "v5_remote": {"e0_cognition", "e1_tokenizer", "v5_training", "v5_evaluation", "v5_promotion", "v5_data", "v5_model", "connector"},
     "v5_evaluation": {"v5_training", "v5_data", "v5_promotion", "connector"},
     "v5_promotion": {"v5_training", "v5_data", "connector"},
+    "v5_registry": {"v5_training", "v5_data", "connector"},
+    "v5_experiments": {"e0_cognition", "e1_tokenizer", "v5_model", "v5_tokenizer", "v5_remote", "connector"},
 }
 
 
