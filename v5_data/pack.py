@@ -170,18 +170,6 @@ def pack_ledger(shards: list[PackedShard], *, pad: int) -> dict[str, int]:
     return {"real_nonpad_tokens": total, "shards": len(shards)}
 
 
-class _OpenSequence:
-    __slots__ = ("bucket", "segments")
-
-    def __init__(self, bucket: int) -> None:
-        self.bucket = bucket
-        self.segments: list[tuple[str, tuple[int, ...]]] = []
-
-    @property
-    def used(self) -> int:
-        return sum(len(segment) for _, segment in self.segments)
-
-
 def pack_documents(
     documents: list[tuple[str, list[int], str]],
     *,
@@ -190,21 +178,25 @@ def pack_documents(
     pad: int,
     sequences_per_shard: int,
 ) -> tuple[list[MultiPackedShard], dict[str, int]]:
-    """Truly pack documents into multi-segment, content-addressed shards.
+    """Pack documents into exactly-full, multi-segment, content-addressed shards.
 
     Each document is ``(doc_id, content_token_ids, source)``. Documents sort by
-    ``doc_id`` so output is independent of input order. Segments are placed
-    first-fit into the smallest bucket that fits them; no segment is split
-    across sequences, every segment keeps its BOS/EOS boundaries, and padding
-    is trailing with segment ID ``-1``. Returns the shards plus an exact
-    per-source real-token ledger.
+    ``doc_id`` so output is independent of input order. Chunks (BOS content
+    EOS) are assigned to the smallest bucket that fits and stream-filled into
+    exactly-full sequences: a chunk that overflows the remaining capacity is
+    split at the token boundary, the head receiving EOS and the tail
+    restarting with BOS in a later sequence. Segment isolation is preserved
+    (the model applies block-diagonal attention) and the ledger stays exact.
+    A sequence closes with trailing padding only when its remaining capacity
+    does not divide evenly -- which surfaces as the run's final partial
+    update. Returns the shards plus an audit with exact per-source totals.
     """
 
     if sequences_per_shard <= 0:
         raise ValueError("sequences per shard must be positive")
     if len({bos, eos, pad}) != 3:
         raise ValueError("boundary markers must be distinct")
-    segments: list[tuple[str, tuple[int, ...]]] = []
+    chunks: list[tuple[str, tuple[int, ...]]] = []
     seen_ids: set[str] = set()
     for doc_id, content, source in sorted(documents, key=lambda item: item[0]):
         if doc_id in seen_ids:
@@ -213,45 +205,66 @@ def pack_documents(
         if not source:
             raise ValueError("every document needs a source attribution")
         for chunk in chunk_document(content, bos=bos, eos=eos):
-            segments.append((source, tuple(chunk)))
-    open_sequences: dict[int, list[_OpenSequence]] = {bucket: [] for bucket in BUCKETS}
-    for source, segment in segments:
-        bucket = bucket_for(len(segment))
-        placed = False
-        for candidate in open_sequences[bucket]:
-            if candidate.used + len(segment) <= bucket:
-                candidate.segments.append((source, segment))
-                placed = True
-                break
-        if not placed:
-            opened = _OpenSequence(bucket)
-            opened.segments.append((source, segment))
-            open_sequences[bucket].append(opened)
+            chunks.append((source, tuple(chunk)))
+
+    streams: dict[int, list[tuple[str, tuple[int, ...]]]] = {bucket: [] for bucket in BUCKETS}
+    for source, chunk in chunks:
+        streams[bucket_for(len(chunk))].append((source, chunk))
+
+    shards: list[MultiPackedShard] = []
     ledger: dict[str, int] = {}
     total_real = 0
-    shards: list[MultiPackedShard] = []
+    total_segments = 0
     for bucket in BUCKETS:
+        queue = streams[bucket]
         bucket_sequences: list[PackedSequence] = []
-        for opened in open_sequences[bucket]:
+        while queue:
+            emitted: list[tuple[str, tuple[int, ...]]] = []
+            remaining = bucket
+            while remaining > 0 and queue:
+                source, chunk = queue[0]
+                if len(chunk) > remaining:
+                    if remaining >= 3:
+                        # split at the token boundary; the tail restarts with
+                        # BOS and the sequence closes exactly
+                        head = chunk[: remaining - 1]
+                        emitted.append((source, (*head, eos)))
+                        queue[0] = (source, (bos, *chunk[remaining - 1 :]))
+                        remaining = 0
+                        continue
+                    break  # remaining in {1,2}: close padded
+                leftover = remaining - len(chunk)
+                if leftover == 0:
+                    emitted.append((source, chunk))
+                    remaining = 0
+                    queue.pop(0)
+                elif leftover >= 3 or leftover < 0:
+                    emitted.append((source, chunk))
+                    remaining = leftover
+                    queue.pop(0)
+                else:
+                    # emitting the chunk whole would strand capacity 1-2,
+                    # which cannot host a valid segment: close padded
+                    break
             tokens: list[int] = []
             segment_ids: list[int] = []
             sources: list[str] = []
-            for index, (source, segment) in enumerate(opened.segments):
+            for index, (source, segment) in enumerate(emitted):
                 tokens.extend(segment)
                 segment_ids.extend([index] * len(segment))
                 sources.append(source)
-            padding = bucket - len(tokens)
-            if padding:
-                tokens.extend([pad] * padding)
-                segment_ids.extend([-1] * padding)
+            if remaining:
+                tokens.extend([pad] * remaining)
+                segment_ids.extend([-1] * remaining)
             sequence = PackedSequence(
                 tokens=tuple(tokens),
                 segment_ids=tuple(segment_ids),
                 sources=tuple(sources),
-                real_tokens=len(tokens) - padding,
+                real_tokens=sum(1 for segment in segment_ids if segment >= 0),
             )
             bucket_sequences.append(sequence)
             total_real += sequence.real_tokens
+            total_segments += len(sources)
             for index, source in enumerate(sequence.sources):
                 ledger[source] = ledger.get(source, 0) + sum(
                     1 for segment in sequence.segment_ids if segment == index
@@ -272,11 +285,17 @@ def pack_documents(
     if total_real != sum(shard.real_tokens for shard in shards):
         raise ValueError("shard real-token receipts disagree with the packing ledger")
     capacity = sum(shard.bucket * len(shard.sequences) for shard in shards)
+    all_sequences = [sequence for shard in shards for sequence in shard.sequences]
+    full_count = sum(1 for sequence in all_sequences if -1 not in sequence.segment_ids)
+    padded_count = len(all_sequences) - full_count
     audit = {
         "real_nonpad_tokens": total_real,
         "padded_capacity_tokens": capacity,
         "pack_efficiency": (total_real / capacity) if capacity else 0.0,
-        "sequences": sum(len(shard.sequences) for shard in shards),
+        "sequences": len(all_sequences),
+        "full_sequences": full_count,
+        "padded_sequences": padded_count,
+        "segments": total_segments,
         "tokens_by_source": dict(sorted(ledger.items())),
     }
     return shards, audit

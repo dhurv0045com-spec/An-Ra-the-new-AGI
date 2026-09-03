@@ -118,6 +118,41 @@ class TruePackingTest(unittest.TestCase):
         self.assertEqual(batch.consumed_real_tokens, sum(batch.tokens_by_source.values()))
         self.assertGreater(batch.consumed_real_tokens, 0)
 
+    def test_dense_corpus_yields_full_sequences_with_valid_splits(self) -> None:
+        documents = [
+            (f"doc-{index:03d}", [(index * 7 + offset) % 400 + 4 for offset in range(30 + index % 50)],
+             "natural")
+            for index in range(60)
+        ]
+        shards, audit = pack_documents(
+            documents, bos=BOS, eos=EOS, pad=PAD, sequences_per_shard=8
+        )
+        sequences = [sequence for shard in shards for sequence in shard.sequences]
+        full = [sequence for sequence in sequences if -1 not in sequence.segment_ids]
+        self.assertEqual(audit["full_sequences"], len(full))
+        self.assertEqual(audit["padded_sequences"], len(sequences) - len(full))
+        self.assertGreater(len(full), 0)
+        for sequence in full:
+            self.assertEqual(sequence.real_tokens, max(len(s) for s in [sequence.tokens]))
+            self.assertEqual(len(sequence.tokens), 512 if sequence.real_tokens == 512 else sequence.real_tokens)
+        # split boundaries stay valid: every segment is BOS...EOS within its span
+        for sequence in sequences:
+            ids = list(sequence.segment_ids)
+            for index in range(len(sequence.sources)):
+                positions = [i for i, segment in enumerate(ids) if segment == index]
+                self.assertEqual(sequence.tokens[positions[0]], BOS)
+                self.assertEqual(sequence.tokens[positions[-1]], EOS)
+        # per-source ledger equals content + 2 per emitted segment
+        self.assertEqual(
+            audit["real_nonpad_tokens"],
+            sum(len(content) for _, content, _ in documents) + 2 * audit["segments"],
+        )
+        # an exact stream: full 512-token sequences feed whole-sequence updates
+        full_sequences = [sequence for sequence in sequences if -1 not in sequence.segment_ids]
+        self.assertTrue(
+            all(sequence.real_tokens == 512 for sequence in full_sequences if len(sequence.tokens) == 512)
+        )
+
     def test_microbatch_ledger_cross_checks_cursor(self) -> None:
         shards, _ = pack_documents(
             _documents(), bos=BOS, eos=EOS, pad=PAD, sequences_per_shard=2

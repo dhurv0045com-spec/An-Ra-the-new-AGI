@@ -1,0 +1,231 @@
+{
+  "checkpoint": {
+    "final_checkpoint_sha256": "ca50c53e6487c622b49d5a93d571c97a3726bd0ac514007589863de659cd6630",
+    "resume_parameter_hash_equal": true
+  },
+  "classification": "END_TO_END_MINIATURE",
+  "data": {
+    "cumulative_tokens": 24576,
+    "documents_bound": 47,
+    "exact_updates_available": 6,
+    "manifest_audit": {
+      "clusters": 47,
+      "contamination_hits": 0,
+      "documents_ingested": 47,
+      "exact_duplicate_drops": {},
+      "normalization": "casefold + word extraction for contamination comparison only",
+      "note": "count_tokens(text)+2 approximates BOS/EOS overhead; the pack manifest carries exact counts",
+      "split_counts": {
+        "development": 9,
+        "fresh": 1,
+        "sealed": 6,
+        "training": 31
+      }
+    },
+    "pack_audit": {
+      "full_sequences": 28,
+      "pack_efficiency": 0.9453529094827586,
+      "padded_capacity_tokens": 74240,
+      "padded_sequences": 4,
+      "real_nonpad_tokens": 70183,
+      "segments": 63,
+      "sequences": 32,
+      "tokens_by_source": {
+        "code_math_formal": 30933,
+        "natural": 39250
+      }
+    },
+    "token_budget": 24576,
+    "tokens_by_source": {
+      "code_math_formal": 7674,
+      "natural": 16902
+    },
+    "training_split_documents": 31,
+    "updates_run": 6
+  },
+  "evaluation": {
+    "adapter": {
+      "checkpoint_sha256": "ca50c53e6487c622b49d5a93d571c97a3726bd0ac514007589863de659cd6630",
+      "decoding_rule": "greedy; temperature 0; stop on EOS or cap",
+      "model_payload_sha256": "6578b48f5751250c47ec61c30154fc5f0d071c1ab835d53b715871a4216fe0a4",
+      "model_spec_sha256": "c6684f8e6de5fc173cc3e9ff88aa21b52640667431a15fb3ba745e6a04272459",
+      "schema": "anra-v5-checkpoint-adapter/v1",
+      "scoring_rule": "summed candidate-suffix log-probability, shared prefix, uniform EOS",
+      "tokenizer_artifact_sha256": "97e12db63b343312e5e4abc37df9ef4b01fcb1faba792a6420a4c1b15d0a7fbc"
+    },
+    "firewall": "VisibleTask/EvaluatorTruth split enforced at projection",
+    "tasks": [
+      {
+        "adapter_sha256": "563c54d37a8d29f2f7841d98adeae729e453f63ed7358c764968ceacbd97f00f",
+        "candidate_scores": [
+          -40.186851501464844,
+          -20.443827629089355
+        ],
+        "checkpoint_sha256": "ca50c53e6487c622b49d5a93d571c97a3726bd0ac514007589863de659cd6630",
+        "cluster_id": "mini-bind",
+        "correct": false,
+        "difficulty": "easy",
+        "family": "query_binding",
+        "free_generation": "????????????????",
+        "gold": " crimson",
+        "raw_output": " blue",
+        "split": "fresh",
+        "task_id": "mini-bind-001"
+      },
+      {
+        "adapter_sha256": "563c54d37a8d29f2f7841d98adeae729e453f63ed7358c764968ceacbd97f00f",
+        "candidate_scores": [
+          -40.19882297515869,
+          -20.41636371612549
+        ],
+        "checkpoint_sha256": "ca50c53e6487c622b49d5a93d571c97a3726bd0ac514007589863de659cd6630",
+        "cluster_id": "mini-bind",
+        "correct": true,
+        "difficulty": "easy",
+        "family": "query_binding",
+        "free_generation": "????????????????",
+        "gold": " blue",
+        "raw_output": " blue",
+        "split": "fresh",
+        "task_id": "mini-bind-002"
+      }
+    ]
+  },
+  "identity_bindings": {
+    "data_manifest_sha256": "127067172f585e53c008a54068e8c8cdd360e8fa9fc291917a2c9e7ed1017539",
+    "model_spec_sha256": "c6684f8e6de5fc173cc3e9ff88aa21b52640667431a15fb3ba745e6a04272459",
+    "optimizer_spec_sha256": "137171fe9d858003e3b89cd66853dbb27b35a99ea61a75fbe200bbab2f045027",
+    "pack_manifest_sha256": "403016ff76515583ca37523e82cbd52e5db3b98d4a46acb5fb7b8c9d5d40a5a8",
+    "schedule_spec_sha256": "2f475f417b4f47a12de61add589c885fa6d9c7c9bac09cde2a1db516fadadd5e",
+    "tokenizer_sha256": "97e12db63b343312e5e4abc37df9ef4b01fcb1faba792a6420a4c1b15d0a7fbc"
+  },
+  "limitations": [
+    "Miniature scale proves the path and its certification, not learning quality.",
+    "Padded pack sequences are excluded from the exact stream; their tokens are recorded in the pack audit.",
+    "The bounded warmup schedule is bound by schedule_spec_sha256, not the canonical 5B WSD schedule."
+  ],
+  "model": {
+    "context_length": 512,
+    "family": "miniature V5 spec (frozen tokenizer vocabulary)",
+    "parameter_count": 1647104
+  },
+  "receipt_sha256": "ad2d8113437cb2aaf8b626a75d1e8d6b3a396687380c73f544a7c4c3cd1717cc",
+  "schema": "anra-v5-miniature-receipt/v1",
+  "scope": "end-to-end miniature through the single production path",
+  "source_commit": "12b8548682888ea6c550cbd133d3f5671af84e7f",
+  "status": "PASS",
+  "tokenizer": {
+    "artifact_sha256": "97e12db63b343312e5e4abc37df9ef4b01fcb1faba792a6420a4c1b15d0a7fbc",
+    "tournament_evaluation": {
+      "encoding_megabytes_per_second": 0.7625984471026188,
+      "encoding_seconds": 1.3873316999524832,
+      "identity_roundtrip_failures": 0,
+      "line_tokens": {
+        "maximum": 680,
+        "median": 10,
+        "p95": 58
+      },
+      "literal_unknown_token_occurrences": 1,
+      "records": 14757,
+      "tokens_per_byte": 0.23216667281046752,
+      "tokens_per_byte_by_domain": {
+        "legacy-mixed": 0.23216667281046752
+      },
+      "total_tokens": 245627,
+      "total_utf8_bytes": 1057977,
+      "unexpected_unknown_token_occurrences": 0,
+      "unknown_token_occurrences": 1
+    },
+    "vocabulary_size": 24576
+  },
+  "training": {
+    "final_receipt": {
+      "after": {
+        "embedding_data_ptr": 4922603143168,
+        "moment_sha256": "c7fe8b1ac3945f6c40995094533e0b6c9893174ce70ab3b05462292609be9f19",
+        "optimizer_steps": {
+          "blocks.0.attention.key.weight": 6,
+          "blocks.0.attention.key_scale": 6,
+          "blocks.0.attention.output.weight": 6,
+          "blocks.0.attention.query.weight": 6,
+          "blocks.0.attention.query_scale": 6,
+          "blocks.0.attention.value.weight": 6,
+          "blocks.0.attention_norm.weight": 6,
+          "blocks.0.down.weight": 6,
+          "blocks.0.ffn_norm.weight": 6,
+          "blocks.0.gate.weight": 6,
+          "blocks.0.up.weight": 6,
+          "blocks.1.attention.key.weight": 6,
+          "blocks.1.attention.key_scale": 6,
+          "blocks.1.attention.output.weight": 6,
+          "blocks.1.attention.query.weight": 6,
+          "blocks.1.attention.query_scale": 6,
+          "blocks.1.attention.value.weight": 6,
+          "blocks.1.attention_norm.weight": 6,
+          "blocks.1.down.weight": 6,
+          "blocks.1.ffn_norm.weight": 6,
+          "blocks.1.gate.weight": 6,
+          "blocks.1.up.weight": 6,
+          "embedding.weight": 6,
+          "final_norm.weight": 6
+        },
+        "parameter_sha256": "639f32fad8d416a1a625f1d89e18138d4a8c6b82a3760c5987f74c325e1cb3ab"
+      },
+      "before": {
+        "embedding_data_ptr": 4922603143168,
+        "moment_sha256": "ac822a8949bea3dba3f9ed653cf844c6ef738b3315a8000c1e84c9b03c6133f5",
+        "optimizer_steps": {
+          "blocks.0.attention.key.weight": 5,
+          "blocks.0.attention.key_scale": 5,
+          "blocks.0.attention.output.weight": 5,
+          "blocks.0.attention.query.weight": 5,
+          "blocks.0.attention.query_scale": 5,
+          "blocks.0.attention.value.weight": 5,
+          "blocks.0.attention_norm.weight": 5,
+          "blocks.0.down.weight": 5,
+          "blocks.0.ffn_norm.weight": 5,
+          "blocks.0.gate.weight": 5,
+          "blocks.0.up.weight": 5,
+          "blocks.1.attention.key.weight": 5,
+          "blocks.1.attention.key_scale": 5,
+          "blocks.1.attention.output.weight": 5,
+          "blocks.1.attention.query.weight": 5,
+          "blocks.1.attention.query_scale": 5,
+          "blocks.1.attention.value.weight": 5,
+          "blocks.1.attention_norm.weight": 5,
+          "blocks.1.down.weight": 5,
+          "blocks.1.ffn_norm.weight": 5,
+          "blocks.1.gate.weight": 5,
+          "blocks.1.up.weight": 5,
+          "embedding.weight": 5,
+          "final_norm.weight": 5
+        },
+        "parameter_sha256": "b56f0ad8172b5401844d8bdb4444d67bb46d3711156e6b15bb4c9a26c666f952"
+      },
+      "consumed_real_tokens": 4096,
+      "grad_norm_post_clip": 0.9999982118606567,
+      "grad_norm_pre_clip": 1.080148696899414,
+      "learning_rate": 0.0003,
+      "loss": 10.057160377502441,
+      "moments_changed": true,
+      "parameter_sha256_changed": true,
+      "rng_state_sha256": "89cce632b0cfcc4ac98f476d7812a51f9d83335d471ce4d0e7fa192922daaee4",
+      "schedule_index": "pre-update cumulative real non-padding tokens",
+      "schema": "anra-v5-production-backend-receipt/v1",
+      "sha256": "eb17e290a5dc68f964717eb70c67c36357e3bc30bcb3fff0e6c74b378e5295fd",
+      "supervised_tokens": 4091,
+      "tied_preserved": true
+    },
+    "losses": [
+      10.090780258178711,
+      10.103020668029785,
+      10.075031280517578,
+      10.081591606140137,
+      10.072073936462402,
+      10.057160377502441
+    ],
+    "moment_sha256": "c7fe8b1ac3945f6c40995094533e0b6c9893174ce70ab3b05462292609be9f19",
+    "optimizer_step": 6,
+    "parameter_sha256": "639f32fad8d416a1a625f1d89e18138d4a8c6b82a3760c5987f74c325e1cb3ab"
+  }
+}
