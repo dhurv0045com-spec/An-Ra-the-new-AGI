@@ -109,6 +109,36 @@ with load in both arms (L0 −14.2 → L4 ~−16.5) with tiny unsystematic
 competing−filler gaps. CBL-as-beyond-length NOT earned.
 Evidence: `output/competitive_binding_dev.json`.
 
+### 7d. Query-value evidence matrix (NEW, DEV + DEV_REPLICATED + checkpoint comparison)
+
+No gold inserted; S[i,j] = log P(value_j | facts, query_i), k=4, chance 25%:
+- DEV seed 71717 (80 sets, 320 queries, step-30400): raw rank1 **25.0%**
+  (=chance), normalized 30.6% (+5.6pp p=0.13 ns); QCS +0.053 CI
+  [−0.008,+0.114] incl 0; diagonal +0.05 nats; position std +0.161 vs
+  query-match +0.009 (19×); permutation raw 26.3/norm 32.5%.
+- Ladder (160): E0 raw 15.0, E1 raw-rank 24.4, E2 norm 27.5 (ns),
+  **E5 visible-query dup 23.1 vs sham 7.5 (+15.6pp p≈0)**,
+  E6 mark 13.8, E7 selection 15.0 (=E0, null), E8 oracle 51.9%.
+- REP seed 81818: raw 26.9, norm 32.5 (+5.63pp, identical), QCS +0.046 ns,
+  position 35×, E5−sham +19.4pp p≈0, E7 null, oracle 45.0. Pattern holds.
+- Checkpoint comparison, SAME tasks: step-22517 gen **0.9%** vs step-30400
+  12.2%; raw rank chance both; QCS ~0 both; **E5dup 0.6% vs 23.1%**
+  (duplication-elicitability emerged); oracle 36.3% vs 51.9%.
+- Training 22517→30400 built copy/readout machinery, NOT query control.
+  Connector gap small (+8–12pp), oracle gap large (+24–29pp):
+  ORACLE-leaning, CONNECTOR-weak. GATE1 = marginal/NO for latent-signal
+  routing; X0/X1/active-diagnosis NOT earned; training NOT justified.
+- Decomposition (DEV 320 queries): raw-rank1 80, normalized 98, generation
+  39; rank1-but-genfail 60/80 (conditional realization gap atop chance-level
+  ranking — not evidence of latent knowledge).
+- Firewall `x_factor/observed.py` (VisibleTask-only E1/E2/E5/E6/E7; E8
+  oracle intentionally fails guard; 5 CI tests pass).
+Evidence: `output/query_value_evidence_dev.json`,
+`output/query_value_evidence_dev_rep.json`,
+`output/query_value_ckpt22517.json`,
+protocols `query_value_evidence_dev_v1.json`,
+`query_value_evidence_dev_rep_v1.json`.
+
 ### 8. Query-conditioning SFT claim (UNVERIFIED HISTORICAL CLAIM)
 
 AN_RA_PROGRAM previously stated group-structured query-swap SFT gave
@@ -180,16 +210,16 @@ anra.run(task)                    ← the one reference loop
 | Target-dup contrast | +15.22pp direction only; cause reattributed | output/binding_factorial.json |
 | Entity×value factorial | VALUE_RECENCY DEV_REPLICATED | output/entity_value_factorial_dev.json + _rep |
 | Competitive binding | CBL-specific effect NOT supported (floor) | output/competitive_binding_dev.json |
+| QV evidence matrix | latent query signal ~absent; E5-by-recency only | output/query_value_evidence_dev.json + _rep |
+| Checkpoint 22517→30400 | copy/readout grew, query control flat | output/query_value_ckpt22517.json |
 
 ## What's Next
 
-1. **Structural-OOD DEV**: new lexicon/code-family/format repl of entity×value
-   factorial (value-recency vs pair under distribution shift).
-2. **Checkpoint comparison**: SAME entity×value tasks across compatible
-   lineage checkpoints (raw accuracy + assistance-dependence vector).
-3. **Internalization test**: smallest training targeting value-recency
-   dependence; success = raw up AND intervention lift down AND transfer.
-4. **X0/X1**: response-matrix structure → prospective intervention-response
-   prediction with committed PredictionBeforeInterventionRecords.
-5. **Cognitive Bottleneck Atlas**: ONE next family only after binding
+1. **Structural-OOD DEV of E5 duplication** (the one answer-blind effect that
+   works): fresh lexicon/code-family/format; does recency-assist generalize?
+2. **Internalization test**: ONLY if OOD holds; smallest training targeting
+   duplication-dependence; success = raw up AND lift down AND transfer.
+3. **X0/X1**: response-matrix prediction ONLY over legal interventions
+   (normalization/addressing), with committed PredictionBeforeInterventionRecords.
+4. **Cognitive Bottleneck Atlas**: ONE next family only after binding
    methodology earns it.
