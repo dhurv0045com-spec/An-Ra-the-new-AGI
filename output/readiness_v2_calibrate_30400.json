@@ -1,0 +1,353 @@
+{
+  "schema": "anra-cognition-readiness/v2",
+  "phase": "CALIBRATION",
+  "timestamp": "2026-09-03 19:15:08",
+  "checkpoint_identity": {
+    "path": "checkpoints\\anra-v4-current-full-resume.pt",
+    "checkpoint_sha256": "ccaffdfb62328886df0b4000cba47d8e1b7cb259f4bf6fc7967271d9656dc986",
+    "parameter_sha256": "6175bb4691f52d000187ce6511287b650d546a72fbd3a5a15fc2dc79bd5ac89c"
+  },
+  "tokenizer_sha256": "60928602409559adb680bc33f6415e24814da32703cab33a9f68597d63582dda",
+  "experiment_source_sha256": "9dc20758350951cd288b8387b395f87a5685ddf4732d02b38c4b1648dc332497",
+  "runtime_commit": "d3079e00fe2fed3d39be74e6b0d99bc5d9d430db",
+  "protocol_sha": null,
+  "design": {
+    "seed": 42424,
+    "n_per_rung": 12,
+    "rungs": [
+      "B0",
+      "B1",
+      "B2",
+      "B3"
+    ],
+    "subset_n": 8,
+    "budget_n": null,
+    "primary_comparison": "best_legal_vs_raw"
+  },
+  "capability_family": "binding",
+  "primitive_canaries": {
+    "per_canary": {
+      "P0": {
+        "k": 4,
+        "n": 12,
+        "rate": 0.3333,
+        "wilson95": [
+          0.1381,
+          0.6094
+        ]
+      },
+      "P1": {
+        "k": 1,
+        "n": 12,
+        "rate": 0.0833,
+        "wilson95": [
+          0.0149,
+          0.3539
+        ]
+      },
+      "P2": {
+        "k": 4,
+        "n": 12,
+        "rate": 0.3333,
+        "wilson95": [
+          0.1381,
+          0.6094
+        ]
+      },
+      "P3": {
+        "k": 8,
+        "n": 12,
+        "rate": 0.6667,
+        "wilson95": [
+          0.3906,
+          0.8619
+        ]
+      },
+      "P4": {
+        "k": 1,
+        "n": 12,
+        "rate": 0.0833,
+        "wilson95": [
+          0.0149,
+          0.3539
+        ]
+      }
+    },
+    "rule": {
+      "per_canary": {
+        "P0": "UNCERTAIN",
+        "P1": "FAIL",
+        "P2": "UNCERTAIN",
+        "P3": "UNCERTAIN",
+        "P4": "FAIL"
+      },
+      "primitive_canary_failed": true,
+      "verdict": "PRIMITIVE_CANARY_FAILED"
+    },
+    "canary_ok": false
+  },
+  "frontier": {
+    "spearman_difficulty_accuracy": 0.3162,
+    "inversions": [
+      {
+        "pair": [
+          "B0",
+          "B1"
+        ],
+        "rates": [
+          0.0,
+          0.25
+        ],
+        "kind": "CALIBRATION_NOISE"
+      }
+    ],
+    "verdict": "CALIBRATION_UNSTABLE"
+  },
+  "rung_results": {
+    "B0": {
+      "n": 12,
+      "k": 1,
+      "raw": {
+        "acc": 0.0,
+        "n": 12,
+        "chance": 1.0,
+        "diff_from_chance": -1.0,
+        "wilson95": [
+          0.0,
+          0.2425
+        ]
+      },
+      "oracle_rate": 0.4167,
+      "n_failures": 12,
+      "n_oracle_repairs": 5,
+      "capability": {
+        "capability": "WEAK",
+        "raw_wilson95": [
+          0.0,
+          0.2425
+        ],
+        "oracle_rate": 0.4166666666666667,
+        "legal_best": null,
+        "chance_report": {
+          "acc": 0.0,
+          "n": 12,
+          "chance": 1.0,
+          "diff_from_chance": -1.0,
+          "wilson95": [
+            0.0,
+            0.2425
+          ]
+        },
+        "notes": [
+          "PRIMITIVE_CANARY_FAILED: binding readouts uninterpretable until realization works"
+        ]
+      },
+      "identifiability": {
+        "identifiability": "IDENTIFIABLE",
+        "reason": "failures and repairs coexist with oracle headroom",
+        "flags": {
+          "raw_floor": false,
+          "raw_ceiling": false,
+          "oracle_floor": false,
+          "oracle_near_chance": true,
+          "enough_failures": true,
+          "enough_repairs": true
+        },
+        "raw_wilson95": [
+          0.0,
+          0.2425
+        ]
+      }
+    },
+    "B1": {
+      "n": 12,
+      "k": 2,
+      "raw": {
+        "acc": 0.25,
+        "n": 12,
+        "chance": 0.5,
+        "diff_from_chance": -0.25,
+        "wilson95": [
+          0.0889,
+          0.5323
+        ]
+      },
+      "oracle_rate": 0.5,
+      "n_failures": 9,
+      "n_oracle_repairs": 3,
+      "capability": {
+        "capability": "WEAK",
+        "raw_wilson95": [
+          0.0889,
+          0.5323
+        ],
+        "oracle_rate": 0.5,
+        "legal_best": null,
+        "chance_report": {
+          "acc": 0.25,
+          "n": 12,
+          "chance": 0.5,
+          "diff_from_chance": -0.25,
+          "wilson95": [
+            0.0889,
+            0.5323
+          ]
+        },
+        "notes": [
+          "PRIMITIVE_CANARY_FAILED: binding readouts uninterpretable until realization works"
+        ]
+      },
+      "identifiability": {
+        "identifiability": "MARGINAL",
+        "reason": "INTERVENTION_SPARSE at this N",
+        "flags": {
+          "raw_floor": false,
+          "raw_ceiling": false,
+          "oracle_floor": false,
+          "oracle_near_chance": true,
+          "enough_failures": true,
+          "enough_repairs": false
+        },
+        "raw_wilson95": [
+          0.0889,
+          0.5323
+        ]
+      }
+    },
+    "B2": {
+      "n": 12,
+      "k": 3,
+      "raw": {
+        "acc": 0.0833,
+        "n": 12,
+        "chance": 0.3333333333333333,
+        "diff_from_chance": -0.25,
+        "wilson95": [
+          0.0149,
+          0.3539
+        ]
+      },
+      "oracle_rate": 0.3333,
+      "n_failures": 11,
+      "n_oracle_repairs": 3,
+      "capability": {
+        "capability": "WEAK",
+        "raw_wilson95": [
+          0.0149,
+          0.3539
+        ],
+        "oracle_rate": 0.3333333333333333,
+        "legal_best": null,
+        "chance_report": {
+          "acc": 0.0833,
+          "n": 12,
+          "chance": 0.3333333333333333,
+          "diff_from_chance": -0.25,
+          "wilson95": [
+            0.0149,
+            0.3539
+          ]
+        },
+        "notes": [
+          "PRIMITIVE_CANARY_FAILED: binding readouts uninterpretable until realization works"
+        ]
+      },
+      "identifiability": {
+        "identifiability": "NOT_IDENTIFIABLE",
+        "reason": "EXPERIMENT_NOT_IDENTIFIABLE: floor substrate",
+        "flags": {
+          "raw_floor": false,
+          "raw_ceiling": false,
+          "oracle_floor": true,
+          "oracle_near_chance": true,
+          "enough_failures": true,
+          "enough_repairs": false
+        },
+        "raw_wilson95": [
+          0.0149,
+          0.3539
+        ]
+      }
+    },
+    "B3": {
+      "n": 12,
+      "k": 4,
+      "raw": {
+        "acc": 0.0833,
+        "n": 12,
+        "chance": 0.25,
+        "diff_from_chance": -0.1667,
+        "wilson95": [
+          0.0149,
+          0.3539
+        ]
+      },
+      "oracle_rate": 0.5833,
+      "n_failures": 11,
+      "n_oracle_repairs": 6,
+      "capability": {
+        "capability": "WEAK",
+        "raw_wilson95": [
+          0.0149,
+          0.3539
+        ],
+        "oracle_rate": 0.5833333333333334,
+        "legal_best": null,
+        "chance_report": {
+          "acc": 0.0833,
+          "n": 12,
+          "chance": 0.25,
+          "diff_from_chance": -0.1667,
+          "wilson95": [
+            0.0149,
+            0.3539
+          ]
+        },
+        "notes": [
+          "PRIMITIVE_CANARY_FAILED: binding readouts uninterpretable until realization works"
+        ]
+      },
+      "identifiability": {
+        "identifiability": "IDENTIFIABLE",
+        "reason": "failures and repairs coexist with oracle headroom",
+        "flags": {
+          "raw_floor": false,
+          "raw_ceiling": false,
+          "oracle_floor": false,
+          "oracle_near_chance": false,
+          "enough_failures": true,
+          "enough_repairs": true
+        },
+        "raw_wilson95": [
+          0.0149,
+          0.3539
+        ]
+      }
+    }
+  },
+  "candidate_rung": null,
+  "candidate_note": "candidacy suspended: PRIMITIVE_CANARY_FAILED",
+  "legal_intervention_results": null,
+  "legal_headroom": null,
+  "response_diversity": null,
+  "power": null,
+  "replication": {
+    "replication_ok": null,
+    "note": "no replication evidence supplied"
+  },
+  "substrate_capability": "INSUFFICIENT",
+  "experiment_identifiability": "NOT_IDENTIFIABLE",
+  "research_readiness": "NOT_READY",
+  "readiness_reason": "candidacy suspended: PRIMITIVE_CANARY_FAILED",
+  "x0_permission": {
+    "permitted": false,
+    "reason": "missing: ['diversity']"
+  },
+  "x1_permission": {
+    "permitted": false,
+    "reason": "missing X0 evidence"
+  },
+  "blockers": [
+    "candidacy suspended: PRIMITIVE_CANARY_FAILED"
+  ]
+}

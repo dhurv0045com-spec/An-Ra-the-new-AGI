@@ -224,7 +224,9 @@ anra.run(task)                    ← the one reference loop
 | Checkpoint 22517→30400 | copy/readout grew, query control flat | output/query_value_ckpt22517.json |
 | E5 structural-OOD | FAILED: 0.0 vs 0.0, template-bound; E5 line closed | output/structural_ood_e5.json |
 | Readiness pilot 30400 (v1) | CALIBRATION_ONLY / GATE_V0_NOT_QUALIFIED: candidate B3 pocket at N=12 with B0 primitive failure, below-chance QV-lite and non-monotonic rungs (0/25/8.3/8.3%) — v1 READY verdict NOT scientifically accepted; kept as instrument-development evidence for why v2 exists | output/readiness_pilot_30400.json |
-| Readiness v2 | capability/identifiability/readiness split; Wilson CIs; chance-aware; calibrate-never-READY; canary/frontier/legal/diversity/X0-X1/power/fail-closed rules | x_factor/protocols/cognition_readiness_binding_v2.json |
+| Readiness v2 | executable canonical pipeline (canaries→ladder→legal→diversity→power→replication→decide→X0/X1); v1 runner frozen | x_factor/readiness/pipeline.py |
+| V2 calibrate 30400 | NOT_READY: PRIMITIVE_CANARY_FAILED (P0 33%, P1 8%); candidacy suspended; X0/X1 blocked | output/readiness_v2_calibrate_30400.json |
+| Checkpoint inventory | 5 unique local files, all V4 pretraining; step-20000 has no weights; NO stronger checkpoint | x_factor/registry/checkpoints.json |
 
 ## Substrate-Adequacy Audit (old V4 checkpoint; historical, not architectural)
 
@@ -247,13 +249,19 @@ rules; v1 runner frozen as history), `x_factor/qualify_checkpoint.py`
 (`--mode calibrate|qualify`, arch-profile adapter, research-subject lock,
 no-local-compute guard), `x_factor/checkpoint_identity.py` (strict, no
 silent fallback, UNSUPPORTED_ARCHITECTURE distinct from BAD_CHECKPOINT),
-`x_factor/registry/checkpoints.json` (v2 roles + research_subject lock),
+`x_factor/registry/checkpoints.json` (v2 roles + research_subject lock,
+5 unique local files inventoried, dedup recorded, no stronger Core found),
 `x_factor/execution_policy.py`, prediction/response schemas
-(SOFTWARE_DESIGNED/IMPLEMENTED; v2 tests written but NOT EXECUTED this run).
+(SOFTWARE_VERIFIED: 71 CPU tests pass, incl. 18 v2 decision/guard tests).
 
 ## What's Next
 
-1. **E5 line CLOSED (structural-OOD FAILED, template-bound).** Fresh
+1. **WAITING_FOR_STRONGER_CHECKPOINT.** Local inventory complete: every
+   available file is V4-pretraining-lineage (steps 20000/21800/22517×2/30400)
+   or a non-model artifact. On arrival: strict identity → UNQUALIFIED_NEW →
+   canaries → calibrate → frozen protocol → qualify → QV matrix only if
+   READY_SCOPED.
+2. **E5 line CLOSED (structural-OOD FAILED, template-bound).** Fresh
    lexicon/codes/grammar/queries (60 sets×4): E0 raw 0.0%, E5dup 0.0% vs
    sham 0.0% (effect 0, p=1.0). Duplication-assist does not generalize.
    Do NOT train internalization off E5. Evidence:
