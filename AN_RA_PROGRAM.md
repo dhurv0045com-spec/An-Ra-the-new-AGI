@@ -1,4 +1,14 @@
-# An-Ra Research Program — Complete Guide
+# An-Ra Research Program — Evidence Ledger
+
+> **Substrate framing (binding): the current V4 checkpoint
+> (`checkpoints/anra-v4-current-full-resume.pt`, step ~30400) is a WEAK
+> SUBSTRATE / HISTORICAL DIAGNOSTIC TARGET.** Its failures must NOT drive
+> architecture decisions, rescue training, or claims about what An-Ra Cores
+> can in principle do. Triquetra on this checkpoint builds instruments and
+> preserves negative controls; the research subject will be a stronger
+> checkpoint evaluated through the readiness gate
+> (`python x_factor/qualify_checkpoint.py --checkpoint PATH`).
+> Readiness regimes: PARTIAL = researchable; FLOOR/CEILING = not identifiable.
 
 ## What An-Ra Is
 
@@ -213,6 +223,28 @@ anra.run(task)                    ← the one reference loop
 | QV evidence matrix | latent query signal ~absent; E5-by-recency only | output/query_value_evidence_dev.json + _rep |
 | Checkpoint 22517→30400 | copy/readout grew, query control flat | output/query_value_ckpt22517.json |
 | E5 structural-OOD | FAILED: 0.0 vs 0.0, template-bound; E5 line closed | output/structural_ood_e5.json |
+| Readiness pilot 30400 | B3 ADEQUATE pocket; B0/B2 limited; gate READY-scoped-to-B3 | output/readiness_pilot_30400.json |
+
+## Substrate-Adequacy Audit (old V4 checkpoint; historical, not architectural)
+
+| Experiment | Raw | Oracle/legal best | Adequacy |
+|---|---|---|---|
+| X1-REAL-0 | 25% | oracle repair 13.6% | ORACLE_LIMITED + INVALID (prediction) |
+| IBQ legacy / v2-DEV | — | coverage ~0–8.8% | INTERVENTION_SPARSE, NOT QUALIFIED |
+| Causal decomposition | 24% | selection 31% (confounded) | MARGINAL (clue only) |
+| Binding factorial | 23% | target-dup 19.6% | MARGINAL |
+| Entity×value DEV/REP | ~11–13% | oracle C2 ~46% | ADEQUATE (DEV surfaces only) |
+| Competitive binding | ~0–12% | — | FLOOR_LIMITED |
+| QV matrix DEV | gen 12–15% | oracle ~45–52% | MARGINAL (behavioral); score-level sparse |
+| Structural OOD E5 | 0% | oracle ~24% (≈chance) | FLOOR_LIMITED + ORACLE_LIMITED |
+| ckpt-22517 QV | 0.9% | — | FLOOR_LIMITED |
+
+Instruments (no old-ckpt science claims attached):
+`x_factor/readiness/` (B0–B7 ladder, floor/ceiling auto-detect, McNemar
+power, gate runner), `x_factor/qualify_checkpoint.py` entry point,
+`x_factor/checkpoint_identity.py` (strict, no silent fallback),
+`x_factor/registry/checkpoints.json`, prediction/response schemas
+(SOFTWARE_DEMONSTRATED via 15 CPU CI tests, NOT MODEL_DEMONSTRATED).
 
 ## What's Next
 
