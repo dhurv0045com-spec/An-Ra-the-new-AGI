@@ -72,6 +72,12 @@ REQUIRED_FOR_READY = ("capability", "identifiability", "canary_ok", "frontier",
                       "legal_best", "diversity", "power", "protocol_sha",
                       "replication_ok", "n")
 
+# Calibration needs only its own stage inputs; qualification-only evidence
+# (legal arms, diversity, power, protocol, replication) must not force
+# calibration into UNRESOLVED. Canary state is advisory at calibration
+# (a hard fail still blocks; unknown is noted, not fatal).
+CALIBRATE_REQUIRED = ("capability", "identifiability", "frontier", "n")
+
 LEGAL_GAP_MIN = 0.05  # v0 default: legal assistance must add >=5pp over raw
 
 
@@ -81,21 +87,32 @@ def decide_readiness(stage: str, capability: dict, identifiability: dict,
                      power_status: str | None, protocol_sha: str | None,
                      replication_ok: bool | None, n: int,
                      qv_lite_vs_chance: float | None = None) -> dict:
-    """Fail-closed composition. READY only from stage B with full evidence."""
+    """Fail-closed composition. READY only from stage B with full evidence.
+
+    Fail-closed is stage-relative: calibration is not penalized for lacking
+    qualification-only evidence (legal arms, diversity, power, protocol,
+    replication), but unknown stage or missing stage-relevant inputs still
+    yield READINESS_UNRESOLVED.
+    """
     provided = {"capability": capability, "identifiability": identifiability,
                 "canary_ok": canary_ok, "frontier": frontier_verdict,
                 "legal_best": legal_gap, "diversity": diversity_status,
                 "power": power_status, "protocol_sha": protocol_sha,
                 "replication_ok": replication_ok, "n": n}
-    missing = [k for k in REQUIRED_FOR_READY if provided.get(k) is None]
     if stage not in ("calibrate", "qualify"):
         return {"readiness": "READINESS_UNRESOLVED", "reason": f"unknown stage {stage}"}
+    required = (CALIBRATE_REQUIRED if stage == "calibrate"
+                else REQUIRED_FOR_READY)
+    missing = [k for k in required if provided.get(k) is None]
     if missing:
         return {"readiness": "READINESS_UNRESOLVED",
                 "reason": f"missing required inputs (fail closed): {missing}"}
     if stage == "calibrate":
         if identifiability["identifiability"] == "NOT_IDENTIFIABLE":
             return {"readiness": "NOT_READY", "reason": identifiability["reason"]}
+        if canary_ok is False:
+            return {"readiness": "NOT_READY",
+                    "reason": "PRIMITIVE_CANARY_FAILED: binding readouts uninterpretable"}
         if frontier_verdict == "CALIBRATION_UNSTABLE":
             return {"readiness": "CALIBRATION_REQUIRED",
                     "reason": "frontier unstable at calibration N; widen N before regions"}

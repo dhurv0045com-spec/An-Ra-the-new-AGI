@@ -26,6 +26,8 @@ from checkpoint_identity import (
     resolve_checkpoint,
 )
 from execution_policy import LocalComputeForbidden, assert_local_compute_allowed
+from observed import make_visible
+from readiness.pipeline import check_replication, e5_dup, e5_sham, e7_sel
 from readiness.canaries import canary_rule
 from readiness.frontier import check_frontier, spearman
 from readiness.readiness_v2 import (
@@ -125,13 +127,15 @@ def test_v1_pilot_frontier_unstable():
              (("B0", 0), ("B1", 3), ("B2", 1), ("B3", 1))]
     f = check_frontier(stats)
     assert f["verdict"] == "CALIBRATION_UNSTABLE"
-    assert any(i["pair"] == ["B1", "B2"] and i["kind"] == "CALIBRATION_NOISE"
+    # B0(0%) -> B1(25%) rises against nominal difficulty: the canary anomaly
+    assert any(i["pair"] == ["B0", "B1"] and i["kind"] == "CALIBRATION_NOISE"
                for i in f["inversions"])
 
 
 def test_spearman_direction():
     assert abs(spearman([1, 2, 3, 4], [1, 4, 2, 3]) - 0.4) < 1e-9
     assert spearman([1, 2, 3], [3, 2, 1]) == -1.0
+    assert round(spearman([1, 2, 3], [1, 1, 3]), 4) == 0.8660  # tie-averaged
 
 
 def test_canary_failure_caps():
@@ -210,3 +214,36 @@ def test_arch_taxonomy():
         assert "REQUESTED CHECKPOINT NOT FOUND" in str(e)
     else:
         raise AssertionError("expected CheckpointNotFound")
+
+
+def _vt(query="Return ONLY the ref of Aviary."):
+    block = "Aviary keeps ref FMP-939.\nDolmen keeps ref EKH-215."
+    return make_visible("t1", block, query, ["FMP-939", "EKH-215"])
+
+
+def test_legal_arms_answer_blind_templates():
+    for q in ("Return ONLY the ref of Aviary.",
+              "Which ref belongs to the Aviary? Respond with only the ref.",
+              "Give only the ref held by the Aviary."):
+        vt = _vt(q)
+        dup = e5_dup(vt)
+        assert "Aviary keeps ref FMP-939." in dup.splitlines()[-3]
+        sel = e7_sel(vt)
+        assert sel.startswith("Aviary keeps ref FMP-939.")
+        sham = e5_sham(vt)
+        assert sham != dup  # sham duplicates a different visible fact
+        assert e5_sham(vt) == sham  # deterministic
+
+
+def test_replication_never_assumed(tmp_path):
+    assert check_replication(None, "abc")["replication_ok"] is None
+    missing = check_replication({"artifact": str(tmp_path / "nope.json")}, "abc")
+    assert missing["replication_ok"] is False
+    bad = tmp_path / "rep.json"
+    bad.write_text('{"provenance": {"parameter_sha256": "WRONG"}}', encoding="utf-8")
+    r = check_replication({"artifact": str(bad)}, "abc")
+    assert r["replication_ok"] is False and r["same_checkpoint"] is False
+    good = tmp_path / "rep2.json"
+    good.write_text('{"provenance": {"parameter_sha256": "abc"}}', encoding="utf-8")
+    r2 = check_replication({"artifact": str(good)}, "abc")
+    assert r2["replication_ok"] is True and len(r2["artifact_sha256"]) == 64

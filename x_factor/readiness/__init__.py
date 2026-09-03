@@ -32,6 +32,7 @@ from .readiness_v2 import (
     x0_permitted,
     x1_permitted,
 )
+from .pipeline import check_replication, e5_dup, e5_sham, e7_sel, run_readiness_v2
 
 __all__ = ["RUNGS", "gen_tasks", "check_identifiability", "required_n_mcnemar",
            "run_gate", "CausalResponseProfile",
@@ -39,4 +40,6 @@ __all__ = ["RUNGS", "gen_tasks", "check_identifiability", "required_n_mcnemar",
            "assess_identifiability", "chance_report", "classify_capability",
            "wilson", "check_frontier", "CANARIES", "canary_rule",
            "gen_canary", "decide_readiness", "legal_headroom", "power_gate",
-           "response_diversity", "x0_permitted", "x1_permitted"]
+           "response_diversity", "x0_permitted", "x1_permitted",
+           "check_replication", "e5_dup", "e5_sham", "e7_sel",
+           "run_readiness_v2"]

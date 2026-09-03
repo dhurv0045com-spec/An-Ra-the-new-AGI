@@ -12,10 +12,18 @@ from .status import wilson
 
 
 def _ranks(xs: list[float]) -> list[float]:
+    """Tie-averaged ranks (proper Spearman input; repeated accuracies are common)."""
     order = sorted(range(len(xs)), key=lambda i: xs[i])
     r = [0.0] * len(xs)
-    for pos, i in enumerate(order):
-        r[i] = pos + 1.0
+    pos = 0
+    while pos < len(order):
+        end = pos
+        while end + 1 < len(order) and xs[order[end + 1]] == xs[order[pos]]:
+            end += 1
+        avg = (pos + 1 + end + 1) / 2.0
+        for k in range(pos, end + 1):
+            r[order[k]] = avg
+        pos = end + 1
     return r
 
 

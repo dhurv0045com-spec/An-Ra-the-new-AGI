@@ -123,31 +123,59 @@ def main(argv: list[str] | None = None) -> int:
         except (OSError, ValueError) as e:
             print(f"unreadable protocol: {e}", file=sys.stderr)
             return 2
-        from readiness.gate import run_gate  # noqa: E402  (v1 runner; v2 decision applied below)
+    from provenance import (  # noqa: E402
+        git_head,
+        param_sha256_from_state_dict,
+        sha256_file,
+        sha256_json,
+    )
+    from readiness.pipeline import run_readiness_v2  # noqa: E402 (canonical v2)
 
+    try:
+        tok_ident = tok.identity()
+    except Exception:
+        tok_ident = {"vocab": "canonical-v4-32k"}
+    from anra_core.config import CANONICAL_CONFIG  # noqa: E402
+
+    param_sha = param_sha256_from_state_dict(model.state_dict())
+    ckpt_sha = sha256_file(ckpt)
+    exp_sha = sha256_file(str(Path(__file__).resolve()))
+    commit = git_head(Path(__file__).resolve().parents[1])
+
+    if args.mode == "qualify":
+        if args.protocol is None:
+            print("QUALIFY requires --protocol <frozen JSON>; refusing to invent thresholds.",
+                  file=sys.stderr)
+            return 2
+        try:
+            protocol = json.loads(Path(args.protocol).read_text(encoding="utf-8"))
+        except (OSError, ValueError) as e:
+            print(f"unreadable protocol: {e}", file=sys.stderr)
+            return 2
         design = protocol.get("design", {})
         rungs = tuple(design.get("rungs", ["B0", "B1", "B2", "B3"]))
         n = int(design.get("n_per_rung", 16))
-        receipt = run_gate(ckpt, int(design.get("seed", args.seed)), n, device, rungs=rungs)
-        receipt["schema"] = "anra-cognition-readiness/v2-qualify"
-        receipt["protocol"] = str(args.protocol)
-        receipt["stage"] = "qualify"
+        seed = int(design.get("seed", args.seed))
+        protocol_sha = sha256_file(str(Path(args.protocol).resolve()))
+        replication_ref = design.get("replication")
+        budget_n = design.get("budget_n")
     else:
-        from readiness.gate import run_gate  # noqa: E402
-
-        receipt = run_gate(ckpt, args.seed, 12, device, rungs=("B0", "B1", "B2", "B3"))
-        receipt["schema"] = "anra-cognition-readiness/v2-calibrate"
-        receipt["stage"] = "calibrate"
-        if receipt.get("classification") == "READY_FOR_BINDING_CAUSAL_RESEARCH":
-            receipt["classification"] = "CALIBRATION_REQUIRED"
-            receipt.setdefault("notes", []).append(
-                "calibration cannot emit final READY (v2 two-stage rule)")
+        rungs, n, seed = ("B0", "B1", "B2", "B3"), 12, args.seed
+        protocol_sha, replication_ref, budget_n = None, None, None
+    receipt = run_readiness_v2(
+        model, tok, payload, checkpoint=ckpt, param_sha=param_sha,
+        ckpt_sha=ckpt_sha, tok_sha=sha256_json(tok_ident), exp_sha=exp_sha,
+        commit=commit, seed=seed, rungs=rungs, n_per_rung=n, device=device,
+        stage=args.mode, protocol_sha=protocol_sha,
+        replication_ref=replication_ref, budget_n=budget_n)
 
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(receipt, indent=2), encoding="utf-8")
-    print(json.dumps({"classification": receipt["classification"],
-                      "stage": receipt["stage"]}, indent=2))
+    print(json.dumps({"research_readiness": receipt["research_readiness"],
+                      "phase": receipt["phase"],
+                      "candidate_rung": receipt["candidate_rung"],
+                      "blockers": receipt["blockers"]}, indent=2))
     print(f"wrote {out}")
     return 0
 
