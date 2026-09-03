@@ -1,0 +1,160 @@
+{
+  "schema": "anra-v5-cymek-gap-audit/v1",
+  "audit_commit": "92dcd56ef492bfdb777711c06be924c322c55536",
+  "audited_by": "cymek principal agent (fresh handoff, no inherited claims)",
+  "method": "Every classification below was derived by reading the executable source and running the code, not from commit messages, README claims, or prior agent prose.",
+  "verification_evidence": {
+    "test_suite": "205 passed, 32 subtests passed (torch 2.14.0+cu126, pytest 9.1.1, Python 3.11.15)",
+    "v5a_model_constructed": {
+      "total_parameters": 250216960,
+      "expected_total_parameters": 250216960,
+      "match": true,
+      "single_tied_embedding_table": true,
+      "embedding_shape": [24576, 896],
+      "query_projection": [896, 896],
+      "key_value_projection": [448, 896],
+      "gqa_ratio": "2:1 (14 query heads / 7 kv heads)",
+      "qk_affine_scales": {"query": [14, 64], "key": [7, 64]},
+      "ffn_gate_shape": [2368, 896],
+      "bias_tensors": 0,
+      "separate_lm_head": false,
+      "forward_logits_shape": [1, 8, 24576]
+    },
+    "tokenizer_artifact": {
+      "path": "artifacts/e1/local_tournament/tokenizer-24576.json.gz",
+      "artifact_sha256": "97e12db63b343312e5e4abc37df9ef4b01fcb1faba792a6420a4c1b15d0a7fbc",
+      "vocabulary_size": 24576,
+      "special_token_ids": {"pad": 0, "unk": 1, "bos": 2, "eos": 3},
+      "byte_fallback": true,
+      "normalizer": "none",
+      "pre_tokenizer": "ByteLevel(add_prefix_space=False, use_regex=True)",
+      "identity_roundtrip": "PASS (0 failures over 14757 records)",
+      "provenance": "esoes-e1-local-corpus-manifest/v1 with per-file sha256; trainer config receipt bound in result.json"
+    },
+    "ci_on_cymek_head": "none (e0-research.yml triggers on esoes pushes and PRs only)"
+  },
+  "classifications": {
+    "MODEL": {
+      "status": "REAL_BUT_DISCONNECTED",
+      "evidence": "v5_model.core.initialize builds the exact 250,216,960-parameter V5-A center with GQA, RoPE, affine QK norm, RMSNorm, SwiGLU, tied embeddings, and receipt assertions. It is imported by tests only; the P35 CUDA canary instead uses e2_architecture.block_benchmark._build_model (the legacy 'middle' arm), so production training has never touched the real V5 core."
+    },
+    "TOKENIZER": {
+      "status": "REAL_BUT_DISCONNECTED",
+      "evidence": "A contract-conformant, provenance-bound 24,576-entry byte-BPE artifact exists (see verification_evidence). v5_tokenizer.adapter.FrozenTokenizer is a validated facade over an injected backend. No production path loads the artifact; no TokenizerIdentity receipt binds it into v5_training or v5_data."
+    },
+    "RAW_DATA": {
+      "status": "REAL_BUT_DISCONNECTED",
+      "evidence": "e1 corpus manifest binds real repository source files with sha256 per file, but it is a tokenizer-tournament development corpus, not the 5B-token training corpus. No canonical training-corpus artifact exists in-repo."
+    },
+    "MANIFEST": {
+      "status": "CONTRACT_ONLY",
+      "evidence": "v5_contracts.data_spec defines DataManifest/PackManifest receipts, but no executable builder produces a training data manifest from raw sources."
+    },
+    "DEDUP": {
+      "status": "REAL_BUT_DISCONNECTED",
+      "evidence": "v5_data.split.exact_clusters is a real deterministic primitive; no pipeline applies it to real documents."
+    },
+    "CONTAMINATION": {
+      "status": "REAL_BUT_DISCONNECTED",
+      "evidence": "v5_data.split.scan_contamination is real (8-gram scan, fail-closed policy documented); no pipeline runs it against held-out evals."
+    },
+    "SPLIT": {
+      "status": "REAL_BUT_DISCONNECTED",
+      "evidence": "v5_data.split.assign_split is a real deterministic cluster-hash split over TRAIN/DEV/SEALED/FRESH; unused by any pipeline."
+    },
+    "TOKENIZATION": {
+      "status": "REAL_BUT_DISCONNECTED",
+      "evidence": "FrozenTokenizer facade + real artifact both exist; the two have never been bound together and executed."
+    },
+    "PACK": {
+      "status": "REAL_BUT_DISCONNECTED",
+      "evidence": "v5_data.pack.build_shards implements bucket+pad with ONE document segment per sequence (buckets 512/1024/2048/4096). The frozen training spec (training_spec.py packing block: cross_segment_attention=false, position reset per segment) implies multi-segment sequences are in scope; true multi-document packing with segment IDs is NOT implemented. The model side already supports block-diagonal packed attention via v5_model.core.packed_layout; no data producer emits segment IDs."
+    },
+    "MIXTURE": {
+      "status": "REAL_BUT_DISCONNECTED",
+      "evidence": "v5_data.mixture implements exact largest-remainder allocation for 65/20/15 over 5B tokens plus nine cognition families; no stream enforces allocation at consumption time."
+    },
+    "SAMPLER": {
+      "status": "REAL_BUT_DISCONNECTED",
+      "evidence": "v5_data.pack.sampler_order and v5_data.cursor.advance are real deterministic primitives over shards; unused by any production loop."
+    },
+    "CURSOR": {
+      "status": "REAL_AND_CONNECTED",
+      "evidence": "CursorState is bound into TrainingState and certified by certify_update (must advance every update). The pack-level cursor primitives exist; connection to real shards is missing because the shards do not exist."
+    },
+    "BATCH": {
+      "status": "CONTRACT_ONLY",
+      "evidence": "No module converts packed shards + cursor into (input, target, segment, loss-mask) tensors. The P35 canary fabricates random token tensors directly."
+    },
+    "OBJECTIVE": {
+      "status": "REAL_BUT_DISCONNECTED",
+      "evidence": "v5_objectives.causal_lm exists with the challenger query-swap fail-closed; canaries use raw F.cross_entropy instead of the canonical objective module."
+    },
+    "OPTIMIZER": {
+      "status": "REAL_AND_CONNECTED",
+      "evidence": "v5_training.optimizer.build_adamw_optimizer implements spec AdamW (beta1 0.9, beta2 0.95, eps 1e-8, wd 0.1, ndim>=2 decay, ndim<2 no decay, tied embedding single ownership) with ownership validation; used by both canaries."
+    },
+    "SCHEDULE": {
+      "status": "REAL_BUT_DISCONNECTED",
+      "evidence": "v5_training.schedule.lr_at implements the token-indexed WSD schedule; canaries instead use torch LambdaLR constant 1.0. No trainer consumes lr_at."
+    },
+    "BACKWARD": {
+      "status": "SYNTHETIC_CANARY_ONLY",
+      "evidence": "Real torch autograd runs inside torch_canary/_one_update on the legacy e2 model with random tokens; no production backend owns it."
+    },
+    "GRADIENT_REDUCTION": {
+      "status": "CONTRACT_ONLY",
+      "evidence": "v5_training.distributed defines rank checkpoint metadata; no all-reduce implementation."
+    },
+    "GRADIENT_CLIP": {
+      "status": "SYNTHETIC_CANARY_ONLY",
+      "evidence": "clip_grad_norm_(1.0) runs inside the legacy canary; certification checks post-clip norm <= 1.0 + 1e-9 from a self-reported float."
+    },
+    "UPDATE": {
+      "status": "SYNTHETIC_CANARY_ONLY",
+      "evidence": "Real AdamW.step() executes in canaries, but certification (certify_update) verifies only state-machine semantics from BackendReport self-reports: nothing proves parameter SHA changed, moments mutated, or optimizer owns live parameters. Historical core-vnext failure mode (metadata advances, weights do not) is currently mechanically undetectable."
+    },
+    "CHECKPOINT": {
+      "status": "REAL_AND_CONNECTED",
+      "evidence": "CheckpointStore is content-addressed, fsync-backed, parent-fenced, and used by both canaries. Component payloads are caller-supplied; no production builder serializes model/optimizer."
+    },
+    "RESUME": {
+      "status": "SYNTHETIC_CANARY_ONLY",
+      "evidence": "Legacy canary proves hash-equal continuation on the e2 model; no production-path resume exists."
+    },
+    "RNG": {
+      "status": "REAL_AND_CONNECTED",
+      "evidence": "rng.bin payload saved/restored and hash-bound in state + checkpoints of both canaries."
+    },
+    "DISTRIBUTED": {
+      "status": "CONTRACT_ONLY",
+      "evidence": "Metadata schema only; no collective or replicated execution."
+    },
+    "TPU_XLA": {
+      "status": "MISSING",
+      "evidence": "No XLA path. The core-vnext lesson (stale optimizer owning dead parameters after device movement) has no mechanical detection in the current production code."
+    },
+    "EVALUATION": {
+      "status": "CONTRACT_ONLY",
+      "evidence": "ModelAdapter accepts injected callables; no checkpoint-backed V5 adapter exists. metrics.py (Wilson LCB etc.) is real and tested."
+    },
+    "PROMOTION": {
+      "status": "BROKEN",
+      "evidence": "v5_promotion.gates.evaluate_gates has vacuous-truth bugs: sensitivity_flip and invariance_stable compute all(...) over possibly-empty family filters, so missing evidence yields PASS. Gates state_ood/two_hop use point estimates per the frozen spec, but the module docstring claims Wilson bounds everywhere; docstring and frozen spec disagree with code. decide() itself is fail-closed."
+    },
+    "REMOTE_EXECUTION": {
+      "status": "CONTRACT_ONLY",
+      "evidence": "v5_remote binds job/result identities and collects receipts; no submit/execute/monitor backend. Launch receipt correctly does not claim remote readiness."
+    },
+    "CI": {
+      "status": "MISSING",
+      "evidence": ".github/workflows/e0-research.yml runs on esoes push/PR only; no exact-head checks exist on cymek."
+    }
+  },
+  "highest_leverage_broken_link": "PRODUCTION_TRAINING_BACKEND: v5_training.trainer owns no tensors and requires a caller-supplied backend_step; nothing implements the real REAL PACKED BATCH -> V5 CORE -> CE -> BACKWARD -> CLIP -> ADAMW -> LR SCHEDULE -> PARAMETER MUTATION -> CHECKPOINT chain. Building it unlocks update certification, the stale-optimizer attack, exact resume through one path, and converging both canaries onto production.",
+  "launch_criteria_frozen_reference": "v5_contracts.launch_readiness gates E1-E6 plus the 20 launch gates in the handoff; main_training_authorized remains false; missing external identities are enumerated in artifacts/v5/launch_readiness.json and are not claimable by code.",
+  "negative_evidence_preserved": {
+    "legacy_p35_canary": "torch_canary.py is retained as comparison evidence; its synthetic-data receipts certify wiring only.",
+    "bucket_pad_packer": "build_shards retained; it documents the pre-packing design and remains valid for the 4096 full-context bucket."
+  }
+}
