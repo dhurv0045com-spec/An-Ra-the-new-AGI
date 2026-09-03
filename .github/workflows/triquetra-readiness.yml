@@ -1,0 +1,23 @@
+name: Triquetra readiness contracts
+
+on:
+  push:
+    branches: [triquetra]
+  pull_request:
+    branches: [triquetra]
+
+permissions:
+  contents: read
+
+jobs:
+  readiness:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install CPU-only dependencies
+        run: pip install pytest numpy torch --index-url https://download.pytorch.org/whl/cpu
+      - name: Run Triquetra software tests (CPU only, no model execution)
+        run: python -m pytest x_factor/tests/ -q

@@ -28,6 +28,10 @@ from checkpoint_identity import (
 from execution_policy import LocalComputeForbidden, assert_local_compute_allowed
 from observed import make_visible
 from readiness.pipeline import check_replication, e5_dup, e5_sham, e7_sel
+from readiness.replication import build_evidence, check_evidence
+from readiness.assistance import LEGAL_ARMS
+from readiness.adapters import V5Adapter, UnsupportedSubject, assert_v5_tokenizer_identity
+from readiness.canaries import COMPONENTS, gen_canary
 from readiness.canaries import canary_rule
 from readiness.frontier import check_frontier, spearman
 from readiness.readiness_v2 import (
@@ -247,3 +251,85 @@ def test_replication_never_assumed(tmp_path):
     good.write_text('{"provenance": {"parameter_sha256": "abc"}}', encoding="utf-8")
     r2 = check_replication({"artifact": str(good)}, "abc")
     assert r2["replication_ok"] is True and len(r2["artifact_sha256"]) == 64
+
+
+def test_free_generation_chance_rejected():
+    import pytest as _pt
+
+    with _pt.raises(ValueError):
+        chance_report(3, 12, 0.25, "RAW_FREE_GENERATION")
+    with _pt.raises(ValueError):
+        chance_report(3, 12, None, "K_WAY_CANDIDATE_SELECTION")
+    r = chance_report(0, 12, None, "RAW_FREE_GENERATION")
+    assert r["chance"] is None and r["diff_from_chance"] is None
+
+
+def test_replication_rejects_adversarial(tmp_path):
+    base = dict(schema="anra-replication-evidence/v1",
+                checkpoint_param_sha="P", capability_family="binding",
+                experiment_schema="anra-qv/v1", protocol_family="qv",
+                protocol_version="v1", protocol_sha="PR",
+                intervention_registry_sha="R", scoring_sha="S",
+                generator_law_sha="G", cohort_id="cohort-b",
+                primary_receipt_sha="PRIM", primary_seed=11,
+                artifact_path=str(tmp_path / "rep.json"))
+    art = tmp_path / "rep.json"
+    art.write_text('{"provenance": {"parameter_sha256": "P"}}', encoding="utf-8")
+
+    def run(**kw):
+        args = dict(base)
+        args.update(kw)
+        return check_evidence(args, expected_param_sha="P",
+                              expected_protocol_family="qv",
+                              expected_registry_sha="R",
+                              expected_generator_sha="G")
+
+    assert run(seed=22)["replication_ok"] is True
+    assert any("same seed" in s for s in run(seed=11)["reasons"])
+    assert any("checkpoint" in s for s in
+               check_evidence(dict(base, seed=22), expected_param_sha="OTHER",
+                              expected_protocol_family="qv")["reasons"])
+    assert any("registry" in s for s in
+               run(seed=22, intervention_registry_sha="CHANGED")["reasons"])
+    assert any("generation law" in s for s in
+               run(seed=22, generator_law_sha="CHANGED")["reasons"])
+    assert any("cohort" in s for s in run(seed=22, cohort_id="same-cohort")["reasons"])
+    ev = build_evidence(**{k: v for k, v in base.items()
+                        if k not in ("artifact_path", "schema")},
+                        seed=22, artifact_path=str(tmp_path / "rep.json"))
+    assert ev["schema"] == "anra-replication-evidence/v1"
+    assert ev["seed"] == 22 and ev["primary_seed"] == 11
+    assert ev["primary_receipt_sha"] == "PRIM" and ev["protocol_sha"] == "PR"
+
+
+def test_e7_labeled_external_lookup():
+    assert LEGAL_ARMS["e7sel"]["assistance"] == "A3"
+    assert "never native binding" in LEGAL_ARMS["e7sel"]["note"]
+    assert LEGAL_ARMS["oracle"]["layer"] == "ORACLE_ASSISTED"
+
+
+def test_canary_components():
+    assert set(COMPONENTS) == {"P0", "P1", "P2", "P3", "P4"}
+    t = gen_canary("P4", 7, 0)
+    assert t["capability_component"] == ["ADDRESS", "CHOOSE"]
+    t0 = gen_canary("P0", 7, 0)
+    assert t0["capability_component"] == ["REALIZE"]
+
+
+def test_v5_tokenizer_gate():
+    good = {"vocabulary_size": 24576,
+            "special_token_ids": {"pad": 0, "unk": 1, "bos": 2, "eos": 3},
+            "artifact_sha256": "a" * 64, "trainer_config_sha256": "b" * 64,
+            "corpus_manifest_sha256": "c" * 64}
+    assert assert_v5_tokenizer_identity(good)["tokenizer_verified"] is True
+    import pytest as _pt
+
+    with _pt.raises(ValueError):
+        assert_v5_tokenizer_identity(dict(good, vocabulary_size=32768))
+    a = V5Adapter(tokenizer_sidecar=None)
+    try:
+        a.tokenizer_identity()
+    except UnsupportedSubject as e:
+        assert "sidecar" in str(e)
+    else:
+        raise AssertionError("expected UnsupportedSubject, not V4 fallback")
