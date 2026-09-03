@@ -78,17 +78,21 @@ producer of the intended training data (no cognition-data path, no corpus loader
 data). The second broken edge was stage 8 (batch assembly never executed in the pipeline) —
 **closed by Citadel's independent certification on 2026-09-03**:
 
-> **ONE-UPDATE CERTIFICATION: PASS** (`cymek_receipts/ONE_UPDATE.json`, `TEN_UPDATE.json`).
+> **ONE-UPDATE CERTIFICATION: PASS — twice, on two devices** (`cymek_receipts/ONE_UPDATE.json`,
+> `TEN_UPDATE.json`, `ONE_UPDATE.cpu_mini.json`, `TEN_UPDATE.cpu_mini.json`).
 > Real generated cognition documents (`e0-train/0.2.0`, 1,200 examples) → data manifest
 > (dedup/cluster-split/contamination scan) → true multi-segment packing → **sampler order →
 > cursor-addressed microbatch** (the previously-never-executed edge) → certified production
-> update (loss 10.0956, grad-norm 0.99999934 post-clip, every parameter's before/after hash
-> certified, optimizer steps advanced) → content-addressed checkpoint → exact restore
-> (`resume_hash_equal: true`). Escalation rung: 10 updates, loss declines monotonically
-> 10.0956 → 9.6889 (real learning signal on cognition data), 2,360 tok/s on CPU.
-> P35-on-CPU attempt: blocked by the `certify_real_update` clip-tolerance gate (see stage 11
-> note) — recorded as a finding, not retried to a pass. CUDA (Cymek's own device class)
-> re-certification pending environment restore.
+> update → content-addressed checkpoint → exact restore (`resume_hash_equal: true`).
+>
+> - **CUDA / exact P35 recipe** (16L×384, 35.4M params, RTX 4050, torch 2.14.0+cu126, bf16
+>   autocast): update loss 10.1227, post-clip grad norm 0.99999988 — *within* the 1e-6 gate,
+>   confirming the gate is CUDA-calibrated; ten-update loss 10.123 → 7.136 (2,514 tok/s).
+> - **CPU / miniature recipe** (2L×64, 1.65M params, fp32): update loss 10.0956, post-clip
+>   norm 0.99999934; ten-update loss 10.096 → 9.689 (2,360 tok/s).
+> - The **P35-on-CPU fp32** attempt was rejected by the clip gate (post-clip 1.00000286 > 1+1e-6):
+>   the gate's tolerance is device-narrow (E3 in the bottleneck ranking). Measured on both sides;
+>   not retried to a pass.
 
 ## Device/throughput reality (from Cymek's own committed receipts)
 

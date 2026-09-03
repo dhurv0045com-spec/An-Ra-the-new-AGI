@@ -210,11 +210,16 @@ def main() -> int:
         )
         torch.manual_seed(SEED)
         model = initialize(chosen_spec, seed=SEED)
+        if device.type == "cuda":
+            # move before optimizer construction so AdamW owns the live CUDA
+            # parameters (same pattern as Cymek's own canary drivers)
+            model = model.to(device)
         parameter_count = sum(p.numel() for p in model.parameters())
         optimizer = build_adamw_optimizer(model)
         backend = ProductionTrainingBackend(
             model=model, optimizer=optimizer, bos_id=2, pad_id=0,
             device=device, schedule=bounded_warmup_schedule(peak_learning_rate=PEAK_LEARNING_RATE),
+            bfloat16_autocast=device.type == "cuda",
         )
         store_path = RECEIPT_DIR / f"_store_{label}"
         # certification must start from an empty run directory: remove any state left
@@ -262,10 +267,13 @@ def main() -> int:
 
         restored_state, payloads = store.restore()
         fresh_model = initialize(chosen_spec, seed=SEED + 1)
+        if device.type == "cuda":
+            fresh_model = fresh_model.to(device)
         fresh_backend = ProductionTrainingBackend(
             model=fresh_model, optimizer=build_adamw_optimizer(fresh_model),
             bos_id=2, pad_id=0, device=device,
             schedule=bounded_warmup_schedule(peak_learning_rate=PEAK_LEARNING_RATE),
+            bfloat16_autocast=device.type == "cuda",
         )
         restore_production(fresh_backend, payloads=payloads)
         live = capture_evidence(backend.model, backend.optimizer, torch=torch)

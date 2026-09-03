@@ -1,0 +1,275 @@
+{
+  "environment": {
+    "cymek_audit_root": "C:/Users/ankit/.zcode/tmp/audit-cymek2",
+    "cymek_audit_sha": "26a61f6242e9e5c1d1b028b4f8c3c7d26ac0fdc6",
+    "device": "cpu",
+    "device_name": "cpu",
+    "imported_module_files": [
+      "C:/Users/ankit/.zcode/tmp/audit-cymek2/e0_cognition/__init__.py",
+      "C:/Users/ankit/.zcode/tmp/audit-cymek2/e0_cognition/contracts.py",
+      "C:/Users/ankit/.zcode/tmp/audit-cymek2/e0_cognition/evaluation_generators.py",
+      "C:/Users/ankit/.zcode/tmp/audit-cymek2/e0_cognition/metrics.py",
+      "C:/Users/ankit/.zcode/tmp/audit-cymek2/e0_cognition/preregistration.py",
+      "C:/Users/ankit/.zcode/tmp/audit-cymek2/e0_cognition/results.py",
+      "C:/Users/ankit/.zcode/tmp/audit-cymek2/e0_cognition/training_generators.py",
+      "C:/Users/ankit/.zcode/tmp/audit-cymek2/v5_contracts/__init__.py",
+      "C:/Users/ankit/.zcode/tmp/audit-cymek2/v5_contracts/data_spec.py",
+      "C:/Users/ankit/.zcode/tmp/audit-cymek2/v5_contracts/lineage.py",
+      "C:/Users/ankit/.zcode/tmp/audit-cymek2/v5_contracts/model_spec.py",
+      "C:/Users/ankit/.zcode/tmp/audit-cymek2/v5_contracts/run_spec.py",
+      "C:/Users/ankit/.zcode/tmp/audit-cymek2/v5_data/__init__.py",
+      "C:/Users/ankit/.zcode/tmp/audit-cymek2/v5_data/batch.py",
+      "C:/Users/ankit/.zcode/tmp/audit-cymek2/v5_data/cursor.py",
+      "C:/Users/ankit/.zcode/tmp/audit-cymek2/v5_data/manifest.py",
+      "C:/Users/ankit/.zcode/tmp/audit-cymek2/v5_data/mixture.py",
+      "C:/Users/ankit/.zcode/tmp/audit-cymek2/v5_data/pack.py",
+      "C:/Users/ankit/.zcode/tmp/audit-cymek2/v5_data/split.py",
+      "C:/Users/ankit/.zcode/tmp/audit-cymek2/v5_model/__init__.py",
+      "C:/Users/ankit/.zcode/tmp/audit-cymek2/v5_model/attention.py",
+      "C:/Users/ankit/.zcode/tmp/audit-cymek2/v5_model/block.py",
+      "C:/Users/ankit/.zcode/tmp/audit-cymek2/v5_model/config.py",
+      "C:/Users/ankit/.zcode/tmp/audit-cymek2/v5_model/core.py",
+      "C:/Users/ankit/.zcode/tmp/audit-cymek2/v5_model/embedding.py",
+      "C:/Users/ankit/.zcode/tmp/audit-cymek2/v5_model/initialize.py",
+      "C:/Users/ankit/.zcode/tmp/audit-cymek2/v5_objectives/__init__.py",
+      "C:/Users/ankit/.zcode/tmp/audit-cymek2/v5_objectives/causal_lm.py",
+      "C:/Users/ankit/.zcode/tmp/audit-cymek2/v5_objectives/query_swap.py",
+      "C:/Users/ankit/.zcode/tmp/audit-cymek2/v5_tokenizer/__init__.py",
+      "C:/Users/ankit/.zcode/tmp/audit-cymek2/v5_tokenizer/adapter.py",
+      "C:/Users/ankit/.zcode/tmp/audit-cymek2/v5_training/__init__.py",
+      "C:/Users/ankit/.zcode/tmp/audit-cymek2/v5_training/checkpoint.py",
+      "C:/Users/ankit/.zcode/tmp/audit-cymek2/v5_training/distributed.py",
+      "C:/Users/ankit/.zcode/tmp/audit-cymek2/v5_training/miniature.py",
+      "C:/Users/ankit/.zcode/tmp/audit-cymek2/v5_training/optimizer.py",
+      "C:/Users/ankit/.zcode/tmp/audit-cymek2/v5_training/production_backend.py",
+      "C:/Users/ankit/.zcode/tmp/audit-cymek2/v5_training/runner.py",
+      "C:/Users/ankit/.zcode/tmp/audit-cymek2/v5_training/schedule.py",
+      "C:/Users/ankit/.zcode/tmp/audit-cymek2/v5_training/state.py",
+      "C:/Users/ankit/.zcode/tmp/audit-cymek2/v5_training/step.py",
+      "C:/Users/ankit/.zcode/tmp/audit-cymek2/v5_training/trainer.py"
+    ],
+    "python": "3.12.13",
+    "started_utc": "2026-09-03T18:59:36Z",
+    "torch": "2.14.0+cpu",
+    "torch_threads": 8
+  },
+  "generated_utc": "2026-09-03T18:59:59Z",
+  "purpose": "prove training machinery behaves correctly; NO cognition inference",
+  "schema": "citadel-cymek-ten-update-sanity/v1",
+  "ten_update": {
+    "checkpoint_restore_payload_keys": [
+      "cursor.json",
+      "ledger.json",
+      "model.bin",
+      "optimizer.bin",
+      "rng.bin",
+      "scheduler.json",
+      "training_state.json"
+    ],
+    "checkpoint_sha256": "32812ed62142d3daae0a07be613a6a3e24b306e1b025954f8ea78828db0cf6b4",
+    "cumulative_tokens": 40960,
+    "executable_parameter_count": 1647104,
+    "final_state_cursor": {
+      "sequence_ordinal": 9,
+      "shard_ordinal": 0,
+      "token_offset": 40960
+    },
+    "final_update_receipt": {
+      "after": {
+        "embedding_data_ptr": 4272519512064,
+        "moment_sha256": "bef7bdea9ac033a044faada0cd6a8285943b8fa4400022e6ff298de61e43bfe9",
+        "optimizer_steps": {
+          "blocks.0.attention.key.weight": 10,
+          "blocks.0.attention.key_scale": 10,
+          "blocks.0.attention.output.weight": 10,
+          "blocks.0.attention.query.weight": 10,
+          "blocks.0.attention.query_scale": 10,
+          "blocks.0.attention.value.weight": 10,
+          "blocks.0.attention_norm.weight": 10,
+          "blocks.0.down.weight": 10,
+          "blocks.0.ffn_norm.weight": 10,
+          "blocks.0.gate.weight": 10,
+          "blocks.0.up.weight": 10,
+          "blocks.1.attention.key.weight": 10,
+          "blocks.1.attention.key_scale": 10,
+          "blocks.1.attention.output.weight": 10,
+          "blocks.1.attention.query.weight": 10,
+          "blocks.1.attention.query_scale": 10,
+          "blocks.1.attention.value.weight": 10,
+          "blocks.1.attention_norm.weight": 10,
+          "blocks.1.down.weight": 10,
+          "blocks.1.ffn_norm.weight": 10,
+          "blocks.1.gate.weight": 10,
+          "blocks.1.up.weight": 10,
+          "embedding.weight": 10,
+          "final_norm.weight": 10
+        },
+        "parameter_sha256": "8411c447fa1fdf33f96c20331449f2996e9eee33e445793d7de58fda86843b17"
+      },
+      "before": {
+        "embedding_data_ptr": 4272519512064,
+        "moment_sha256": "676cbde34878c1d22deab6c83b01d577522bf2e5902cff827e0891abeac94eab",
+        "optimizer_steps": {
+          "blocks.0.attention.key.weight": 9,
+          "blocks.0.attention.key_scale": 9,
+          "blocks.0.attention.output.weight": 9,
+          "blocks.0.attention.query.weight": 9,
+          "blocks.0.attention.query_scale": 9,
+          "blocks.0.attention.value.weight": 9,
+          "blocks.0.attention_norm.weight": 9,
+          "blocks.0.down.weight": 9,
+          "blocks.0.ffn_norm.weight": 9,
+          "blocks.0.gate.weight": 9,
+          "blocks.0.up.weight": 9,
+          "blocks.1.attention.key.weight": 9,
+          "blocks.1.attention.key_scale": 9,
+          "blocks.1.attention.output.weight": 9,
+          "blocks.1.attention.query.weight": 9,
+          "blocks.1.attention.query_scale": 9,
+          "blocks.1.attention.value.weight": 9,
+          "blocks.1.attention_norm.weight": 9,
+          "blocks.1.down.weight": 9,
+          "blocks.1.ffn_norm.weight": 9,
+          "blocks.1.gate.weight": 9,
+          "blocks.1.up.weight": 9,
+          "embedding.weight": 9,
+          "final_norm.weight": 9
+        },
+        "parameter_sha256": "94148b4f4f0e9a00f836438ed5c6d45a618839e9d24a38ed1fc67f3e531dd66d"
+      },
+      "consumed_real_tokens": 4096,
+      "grad_norm_post_clip": 0.9999996423721313,
+      "grad_norm_pre_clip": 1.3928210735321045,
+      "learning_rate": 0.0003,
+      "loss": 9.688876152038574,
+      "moments_changed": true,
+      "parameter_sha256_changed": true,
+      "rng_state_sha256": "94cdb0bc1c4406f3a474312f4cb762521ab198d0063c394d71bc0a3ac81ef244",
+      "schedule_index": "pre-update cumulative real non-padding tokens",
+      "schema": "anra-v5-production-backend-receipt/v1",
+      "sha256": "a07c50b255c1efab14293bc90a1106a6c693ce4b70872b29fd2d4ec5b68b26f1",
+      "supervised_tokens": 4046,
+      "tied_preserved": true
+    },
+    "final_update_receipt_sha256": "ce778ddbbb87a8977cbae273e73480901d3709d2ff78f7cdbc906824ff092221",
+    "grad_norms_post_clip": [
+      0.9999993443489075,
+      0.9999995231628418,
+      0.9999993443489075,
+      0.9999992251396179,
+      0.9999992251396179,
+      0.9999996423721313,
+      0.9999993443489075,
+      0.9999995827674866,
+      0.999999463558197,
+      0.9999996423721313
+    ],
+    "losses": [
+      10.095632553100586,
+      10.056628227233887,
+      10.011364936828613,
+      9.964361190795898,
+      9.913117408752441,
+      9.873716354370117,
+      9.827065467834473,
+      9.775260925292969,
+      9.73690128326416,
+      9.688876152038574
+    ],
+    "model_spec_sha256": "c6684f8e6de5fc173cc3e9ff88aa21b52640667431a15fb3ba745e6a04272459",
+    "phase": "ten_update",
+    "phase_wall_seconds": 17.597,
+    "resume_hash_equal": true,
+    "resume_moment_sha256_equal": true,
+    "resume_optimizer_steps_equal": true,
+    "resume_parameter_sha256_equal": true,
+    "state_complete": true,
+    "step_seconds": [
+      1.781,
+      1.806,
+      1.731,
+      1.733,
+      1.714,
+      1.725,
+      1.755,
+      1.659,
+      1.709,
+      1.74
+    ],
+    "tokens_per_second": 2360.4,
+    "update_ledgers": [
+      {
+        "consumed_real_tokens": 4096,
+        "tokens_by_source": {
+          "verified_cognition": 4096
+        },
+        "update": 0
+      },
+      {
+        "consumed_real_tokens": 4096,
+        "tokens_by_source": {
+          "verified_cognition": 4096
+        },
+        "update": 1
+      },
+      {
+        "consumed_real_tokens": 4096,
+        "tokens_by_source": {
+          "verified_cognition": 4096
+        },
+        "update": 2
+      },
+      {
+        "consumed_real_tokens": 4096,
+        "tokens_by_source": {
+          "verified_cognition": 4096
+        },
+        "update": 3
+      },
+      {
+        "consumed_real_tokens": 4096,
+        "tokens_by_source": {
+          "verified_cognition": 4096
+        },
+        "update": 4
+      },
+      {
+        "consumed_real_tokens": 4096,
+        "tokens_by_source": {
+          "verified_cognition": 4096
+        },
+        "update": 5
+      },
+      {
+        "consumed_real_tokens": 4096,
+        "tokens_by_source": {
+          "verified_cognition": 4096
+        },
+        "update": 6
+      },
+      {
+        "consumed_real_tokens": 4096,
+        "tokens_by_source": {
+          "verified_cognition": 4096
+        },
+        "update": 7
+      },
+      {
+        "consumed_real_tokens": 4096,
+        "tokens_by_source": {
+          "verified_cognition": 4096
+        },
+        "update": 8
+      },
+      {
+        "consumed_real_tokens": 4096,
+        "tokens_by_source": {
+          "verified_cognition": 4096
+        },
+        "update": 9
+      }
+    ],
+    "updates_executed": 10,
+    "updates_requested": 10
+  }
+}
