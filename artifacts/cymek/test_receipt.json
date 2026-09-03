@@ -1,14 +1,14 @@
 {
   "command": "python -m pytest tests -q; python -m v5_contracts.import_boundaries",
-  "note": "Receipt names the commit whose tree was tested; the commit carrying this file adds only the file itself. GitHub Actions (.github/workflows/cymek.yml) provides independent exact-head evidence from the first cymek push onward.",
+  "note": "Receipt names the commit whose tree was tested; the commit carrying this file adds only the file itself.",
   "platform": "Windows-10-10.0.26200-SP0",
   "python": "3.11.15",
   "result": {
     "failed": 0,
     "import_boundaries": "PASS",
-    "passed": 237,
-    "subtests": 32
+    "passed": 259,
+    "subtests": 36
   },
   "schema": "anra-v5-cymek-test-receipt/v1",
-  "tested_head": "6a2b64bdfef2749522bb97e47fb8572835278e08"
+  "tested_head": "674c1ca10dfffc1445791b66f5f70ad2455cb0d3"
 }

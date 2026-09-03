@@ -1,139 +1,174 @@
 {
-  "schema": "anra-v5-cymek-evidence-ledger/v1",
   "as_of_commit": "This ledger is updated per milestone; see git history for the exact commit.",
   "basis": "Every LOCAL_CANARY or stronger claim below has a committed receipt artifact with hashes under artifacts/cymek/ or is asserted by tests/test_*.py.",
   "components": {
-    "MODEL": {
-      "status": "LOCAL_CANARY",
-      "evidence": "V5-A center constructs at exactly 250,216,960 parameters; architecture conformance audited (GQA 2:1, affine QK norm, tied storage, no biases); bounded V5-A canary trained through the production path on CUDA and resumed hash-equivalently (artifacts/cymek/v5a_bounded_canary.json)."
-    },
-    "TOKENIZER": {
-      "status": "LOCAL_CANARY",
-      "evidence": "Frozen 24,576-entry byte-BPE artifact bound into the production path by sha256 (artifacts/e1/local_tournament/tokenizer-24576.json.gz); used by the miniature, P35, and V5-A canaries for real tokenization, manifest counts, and checkpoint-backed evaluation."
-    },
-    "RAW_DATA": {
-      "status": "LOCAL_CANARY",
-      "evidence": "Real first-party corpus (47 current-HEAD tracked text files) bound with per-file sha256 at run time; no synthetic corpus reached any scientific path. A real 5B-token training corpus remains BLOCKED_BY_external_corpus."
-    },
-    "MANIFEST": {
-      "status": "END_TO_END_MINIATURE",
-      "evidence": "v5_data.manifest.build_data_manifest produces validated DataManifest receipts (dedup drops, cluster splits, contamination scan hash, exact token accounting) inside the miniature and canaries."
-    },
-    "DEDUP": {
-      "status": "END_TO_END_MINIATURE",
-      "evidence": "Exact-duplicate clustering executed in the miniature manifest with drops recorded in manifest_audit."
-    },
-    "CONTAMINATION": {
-      "status": "END_TO_END_MINIATURE",
-      "evidence": "8-gram contamination scan runs fail-closed against the miniature evaluation prompts (test_contamination_fails_closed); zero hits on the miniature corpus."
-    },
-    "SPLIT": {
-      "status": "END_TO_END_MINIATURE",
-      "evidence": "Cluster-hash split over TRAIN/DEV/SEALED/FRESH executed in the miniature; only training-split documents enter the pack."
-    },
-    "TOKENIZATION": {
-      "status": "END_TO_END_MINIATURE",
-      "evidence": "FrozenTokenizer + frozen artifact encode the real corpus for manifest counts and packing in all canaries."
-    },
-    "PACK": {
-      "status": "END_TO_END_MINIATURE",
-      "evidence": "True multi-segment packing with stream-fill exact sequences, valid BOS/EOS split boundaries, per-source ledger, and 94.5% efficiency on the miniature corpus (artifacts/cymek/miniature_receipt.json)."
-    },
-    "MIXTURE": {
-      "status": "LOCAL_CANARY",
-      "evidence": "Per-source real-token ledger tracked per update and cumulatively (miniature: 68.7% natural / 31.3% code_math_formal actually consumed). The 65/20/15 allocation mathematics exist; enforcing it over the full 5B corpus is BLOCKED_BY_external_corpus."
-    },
-    "SAMPLER": {
-      "status": "END_TO_END_MINIATURE",
-      "evidence": "Deterministic shard ordering and cursor-driven microbatch assembly (v5_data.batch) feed the exact 4096-real-token update windows."
-    },
-    "CURSOR": {
-      "status": "END_TO_END_MINIATURE",
-      "evidence": "CursorState advances exactly once per update, is certified by certify_update, and is checkpointed/restored."
+    "BACKWARD": {
+      "evidence": "Real autograd on live model parameters through the production backend; gradients required to exist and be finite for every trainable parameter.",
+      "status": "END_TO_END_MINIATURE"
     },
     "BATCH": {
-      "status": "END_TO_END_MINIATURE",
-      "evidence": "Microbatch assembly with ledger cross-checks against cursor consumption; tokens/segments converted to tensors in the training layer."
+      "evidence": "Microbatch assembly with ledger cross-checks against cursor consumption; tokens/segments converted to tensors in the training layer.",
+      "status": "END_TO_END_MINIATURE"
     },
-    "OBJECTIVE": {
-      "status": "END_TO_END_MINIATURE",
-      "evidence": "Canonical causal_lm_loss (BOS/PAD/segment-boundary excluded, EOS included, fp32 reduction) is the production backend loss."
+    "CANONICAL_STREAM": {
+      "evidence": "v5_data.stream.build_update_stream + v5_training.streaming.batch_from_window are the single sampler-to-backend path consumed by the miniature and both accelerator canaries.",
+      "status": "END_TO_END_MINIATURE"
     },
-    "OPTIMIZER": {
-      "status": "END_TO_END_MINIATURE",
-      "evidence": "Spec AdamW with validated ownership, executed by the production backend; group receipt committed in canary artifacts."
-    },
-    "SCHEDULE": {
-      "status": "LOCAL_CANARY",
-      "evidence": "LR is a pure function of cumulative real tokens; certification requires optimizer LR == schedule expectation every update. Canaries bind a bounded-warmup schedule by schedule_spec_sha256; the canonical 5B WSD schedule is exercised by unit tests."
-    },
-    "BACKWARD": {
-      "status": "END_TO_END_MINIATURE",
-      "evidence": "Real autograd on live model parameters through the production backend; gradients required to exist and be finite for every trainable parameter."
-    },
-    "GRADIENT_REDUCTION": {
-      "status": "CONTRACT_ONLY",
-      "evidence": "Single-replica execution only; distributed all-reduce remains a metadata contract (BLOCKED_BY_target_topology)."
-    },
-    "GRADIENT_CLIP": {
-      "status": "END_TO_END_MINIATURE",
-      "evidence": "Global L2 clip at 1.0 with pre/post norms measured; post-clip norm certified <= 1.0 + fp32 noise (observed exactly 1.0 on canaries)."
-    },
-    "UPDATE": {
-      "status": "END_TO_END_MINIATURE",
-      "evidence": "certify_real_update mechanically proves parameter SHA changed, Adam moments mutated, step counter incremented, LR matched the schedule, and ownership stayed live -- the core-vnext failure mode is now caught at the source."
+    "CAUSAL_EVALUATION": {
+      "evidence": "CheckpointBackedV5Adapter uses the canonical packed-layout causal mask; the future-token-leak adversarial test mechanically proves earlier-position logits are invariant to suffix changes.",
+      "status": "LOCAL_CANARY"
     },
     "CHECKPOINT": {
-      "status": "END_TO_END_MINIATURE",
-      "evidence": "Content-addressed, parent-fenced CheckpointStore publishes production model/optimizer/scheduler/RNG payloads in miniature, P35, and V5-A canaries."
+      "evidence": "Content-addressed, parent-fenced CheckpointStore publishes production model/optimizer/scheduler/RNG payloads in miniature, P35, and V5-A canaries.",
+      "status": "END_TO_END_MINIATURE"
     },
-    "RESUME": {
-      "status": "END_TO_END_MINIATURE",
-      "evidence": "Restore into fresh model/optimizer objects reproduces parameter SHA, moment SHA, and step counters exactly in all three canaries (P35 and V5-A on CUDA)."
-    },
-    "RNG": {
-      "status": "END_TO_END_MINIATURE",
-      "evidence": "CPU RNG state serialized in checkpoints and restored; RNG hash bound into training state."
-    },
-    "DISTRIBUTED": {
-      "status": "CONTRACT_ONLY",
-      "evidence": "Rank/distributed checkpoint metadata schema only."
-    },
-    "TPU_XLA": {
-      "status": "BLOCKED_BY_target_topology",
-      "evidence": "No XLA runtime locally. The core-vnext stale-optimizer lesson is now mechanically detected (data_ptr + identity ownership checks) and covered by adversarial tests; target-device one-step certification remains to be run on real TPU/remote hardware."
-    },
-    "EVALUATION": {
-      "status": "LOCAL_CANARY",
-      "evidence": "CheckpointBackedV5Adapter (suffix-only scoring with verified prefix property, greedy generation, constrained selection) exercised over real checkpoints in the miniature; no task-family logic, no checkpoint mutation."
-    },
-    "GOLD_FIREWALL": {
-      "status": "LOCAL_CANARY",
-      "evidence": "VisibleTask/EvaluatorTruth split with structural no-truth fields, prompt-leakage rejection, and post-commit scoring join; covered by dedicated tests."
-    },
-    "PROMOTION": {
-      "status": "LOCAL_CANARY",
-      "evidence": "Vacuous all([]) promotion eliminated: incomplete dossiers fail every gate, empty probe sets fail, malformed counts fail instead of crashing; LCB usage matches the frozen spec naming. No real evaluation dossier has been promoted (NOT_DEMONSTRATED for capability claims)."
-    },
-    "REMOTE_EXECUTION": {
-      "status": "CONTRACT_ONLY",
-      "evidence": "Identity-bound job/result contracts and collection only. No provider credentials; BLOCKED_BY_remote_credentials. Nothing claims REMOTE_EXECUTION_READY."
+    "CHECKPOINT_REGISTRY": {
+      "evidence": "Content-addressed entries with validated lifecycle DAG, lineage ancestry/children queries, tamper detection, and three registered canary subjects (artifacts/cymek/registry/entries/).",
+      "status": "LOCAL_CANARY"
     },
     "CI": {
-      "status": "LOCAL_CANARY",
-      "evidence": "cymek CI workflow added (unit tests, boundaries, receipt reproduction); exact-head GitHub status evidence still pending the first run."
+      "evidence": "cymek CI workflow added (unit tests, boundaries, receipt reproduction); exact-head GitHub status evidence still pending the first run.",
+      "status": "LOCAL_CANARY"
     },
-    "P35_EXPERIMENT_P35A": {
-      "status": "NOT_DEMONSTRATED",
-      "evidence": "The matched-compute cognition experiment is correctly gated behind launch gates and external identities; nothing was run."
+    "CONTAMINATION": {
+      "evidence": "8-gram contamination scan runs fail-closed against the miniature evaluation prompts (test_contamination_fails_closed); zero hits on the miniature corpus.",
+      "status": "END_TO_END_MINIATURE"
+    },
+    "CORE_SUBJECT_MANIFEST": {
+      "evidence": "Every canary registers a CoreSubjectManifest into the committed registry; the Triquetra handshake field set is mirrored and adversarially tested (placeholder rejection, checkpoint-identity disagreement, roundtrip).",
+      "status": "LOCAL_CANARY"
+    },
+    "CURSOR": {
+      "evidence": "CursorState advances exactly once per update, is certified by certify_update, and is checkpointed/restored.",
+      "status": "END_TO_END_MINIATURE"
+    },
+    "DATA_IDENTITY": {
+      "evidence": "raw_source_sha256 (immutable file bytes) and processed_document_sha256 (tokenized form) are separately recorded in the manifest audit.",
+      "status": "END_TO_END_MINIATURE"
+    },
+    "DEDUP": {
+      "evidence": "Exact-duplicate clustering executed in the miniature manifest with drops recorded in manifest_audit.",
+      "status": "END_TO_END_MINIATURE"
+    },
+    "DISTRIBUTED": {
+      "evidence": "Rank/distributed checkpoint metadata schema only.",
+      "status": "CONTRACT_ONLY"
+    },
+    "EVALUATION": {
+      "evidence": "CheckpointBackedV5Adapter (suffix-only scoring with verified prefix property, greedy generation, constrained selection) exercised over real checkpoints in the miniature; no task-family logic, no checkpoint mutation.",
+      "status": "LOCAL_CANARY"
+    },
+    "EVALUATION_ENGINE": {
+      "evidence": "v5_evaluation.protocol executes preregistered protocols through the gold firewall into immutable TaskLevelEvidence; aggregates are derived from evidence; assisted modes are refused without an assisted adapter.",
+      "status": "LOCAL_CANARY"
+    },
+    "EXACT_CONTINUATION_RESUME": {
+      "evidence": "Path A (uninterrupted) vs Path B (checkpoint, fresh objects, restore) produce identical update receipts (loss, grad norms, LR, parameter/moment hashes, post-update RNG); CPU and all-CUDA RNG states are serialized and restored.",
+      "status": "LOCAL_CANARY"
+    },
+    "EXPERIMENT_CONTRACTS": {
+      "evidence": "v5_experiments: hash-bound preregistration with tamper detection, ordered chronology, and matched-arms comparator that fails undeclared control/treatment drift.",
+      "status": "LOCAL_CANARY"
     },
     "FRESH": {
-      "status": "UNTOUCHED",
-      "evidence": "No fresh-split evaluation was executed; fresh semantics preserved."
+      "evidence": "No fresh-split evaluation was executed; fresh semantics preserved.",
+      "status": "UNTOUCHED"
+    },
+    "GOLD_FIREWALL": {
+      "evidence": "VisibleTask/EvaluatorTruth split with structural no-truth fields, prompt-leakage rejection, and post-commit scoring join; covered by dedicated tests.",
+      "status": "LOCAL_CANARY"
+    },
+    "GRADIENT_CLIP": {
+      "evidence": "Global L2 clip at 1.0 with pre/post norms measured; post-clip norm certified <= 1.0 + fp32 noise (observed exactly 1.0 on canaries).",
+      "status": "END_TO_END_MINIATURE"
+    },
+    "GRADIENT_REDUCTION": {
+      "evidence": "Single-replica execution only; distributed all-reduce remains a metadata contract (BLOCKED_BY_target_topology).",
+      "status": "CONTRACT_ONLY"
+    },
+    "MANIFEST": {
+      "evidence": "v5_data.manifest.build_data_manifest produces validated DataManifest receipts (dedup drops, cluster splits, contamination scan hash, exact token accounting) inside the miniature and canaries.",
+      "status": "END_TO_END_MINIATURE"
+    },
+    "MIXTURE": {
+      "evidence": "Per-source real-token ledger tracked per update and cumulatively (miniature: 68.7% natural / 31.3% code_math_formal actually consumed). The 65/20/15 allocation mathematics exist; enforcing it over the full 5B corpus is BLOCKED_BY_external_corpus.",
+      "status": "LOCAL_CANARY"
+    },
+    "MODEL": {
+      "evidence": "V5-A center constructs at exactly 250,216,960 parameters; architecture conformance audited (GQA 2:1, affine QK norm, tied storage, no biases); bounded V5-A canary trained through the production path on CUDA and resumed hash-equivalently (artifacts/cymek/v5a_bounded_canary.json).",
+      "status": "LOCAL_CANARY"
+    },
+    "OBJECTIVE": {
+      "evidence": "Canonical causal_lm_loss (BOS/PAD/segment-boundary excluded, EOS included, fp32 reduction) is the production backend loss.",
+      "status": "END_TO_END_MINIATURE"
+    },
+    "OPTIMIZER": {
+      "evidence": "Spec AdamW with validated ownership, executed by the production backend; group receipt committed in canary artifacts.",
+      "status": "END_TO_END_MINIATURE"
+    },
+    "OPTIMIZER_DECAY_CONTRACT": {
+      "evidence": "Semantic grouping: RMSNorm and QK scales (rank-2) verifiably land in no-decay; V5-A groups show 105 no-decay members, 0 normalization members in decay.",
+      "status": "LOCAL_CANARY"
+    },
+    "P35_EXPERIMENT_P35A": {
+      "evidence": "The matched-compute cognition experiment is correctly gated behind launch gates and external identities; nothing was run.",
+      "status": "NOT_DEMONSTRATED"
+    },
+    "PACK": {
+      "evidence": "True multi-segment packing with stream-fill exact sequences, valid BOS/EOS split boundaries, per-source ledger, and 94.5% efficiency on the miniature corpus (artifacts/cymek/miniature_receipt.json).",
+      "status": "END_TO_END_MINIATURE"
+    },
+    "PROMOTION": {
+      "evidence": "Vacuous all([]) promotion eliminated: incomplete dossiers fail every gate, empty probe sets fail, malformed counts fail instead of crashing; LCB usage matches the frozen spec naming. No real evaluation dossier has been promoted (NOT_DEMONSTRATED for capability claims).",
+      "status": "LOCAL_CANARY"
     },
     "QUERY_SWAP": {
-      "status": "CHALLENGER_NOT_DEFAULT",
-      "evidence": "CE-only launch objective preserved; query-swap remains fail-closed with preregistered lambdas."
+      "evidence": "CE-only launch objective preserved; query-swap remains fail-closed with preregistered lambdas.",
+      "status": "CHALLENGER_NOT_DEFAULT"
+    },
+    "RAW_DATA": {
+      "evidence": "Real first-party corpus (47 current-HEAD tracked text files) bound with per-file sha256 at run time; no synthetic corpus reached any scientific path. A real 5B-token training corpus remains BLOCKED_BY_external_corpus.",
+      "status": "LOCAL_CANARY"
+    },
+    "REMOTE_EXECUTION": {
+      "evidence": "Identity-bound job/result contracts and collection only. No provider credentials; BLOCKED_BY_remote_credentials. Nothing claims REMOTE_EXECUTION_READY.",
+      "status": "CONTRACT_ONLY"
+    },
+    "RESUME": {
+      "evidence": "Restore into fresh model/optimizer objects reproduces parameter SHA, moment SHA, and step counters exactly in all three canaries (P35 and V5-A on CUDA).",
+      "status": "END_TO_END_MINIATURE"
+    },
+    "RNG": {
+      "evidence": "CPU RNG state serialized in checkpoints and restored; RNG hash bound into training state.",
+      "status": "END_TO_END_MINIATURE"
+    },
+    "SAMPLER": {
+      "evidence": "Deterministic shard ordering and cursor-driven microbatch assembly (v5_data.batch) feed the exact 4096-real-token update windows.",
+      "status": "END_TO_END_MINIATURE"
+    },
+    "SCHEDULE": {
+      "evidence": "LR is a pure function of cumulative real tokens; certification requires optimizer LR == schedule expectation every update. Canaries bind a bounded-warmup schedule by schedule_spec_sha256; the canonical 5B WSD schedule is exercised by unit tests.",
+      "status": "LOCAL_CANARY"
+    },
+    "SPLIT": {
+      "evidence": "Cluster-hash split over TRAIN/DEV/SEALED/FRESH executed in the miniature; only training-split documents enter the pack.",
+      "status": "END_TO_END_MINIATURE"
+    },
+    "TOKENIZATION": {
+      "evidence": "FrozenTokenizer + frozen artifact encode the real corpus for manifest counts and packing in all canaries.",
+      "status": "END_TO_END_MINIATURE"
+    },
+    "TOKENIZER": {
+      "evidence": "Frozen 24,576-entry byte-BPE artifact bound into the production path by sha256 (artifacts/e1/local_tournament/tokenizer-24576.json.gz); used by the miniature, P35, and V5-A canaries for real tokenization, manifest counts, and checkpoint-backed evaluation.",
+      "status": "LOCAL_CANARY"
+    },
+    "TPU_XLA": {
+      "evidence": "No XLA runtime locally. The core-vnext stale-optimizer lesson is now mechanically detected (data_ptr + identity ownership checks) and covered by adversarial tests; target-device one-step certification remains to be run on real TPU/remote hardware.",
+      "status": "BLOCKED_BY_target_topology"
+    },
+    "UPDATE": {
+      "evidence": "certify_real_update mechanically proves parameter SHA changed, Adam moments mutated, step counter incremented, LR matched the schedule, and ownership stayed live -- the core-vnext failure mode is now caught at the source.",
+      "status": "END_TO_END_MINIATURE"
     }
   },
   "external_blockers": [
@@ -142,5 +177,6 @@
     "BLOCKED_BY_remote_credentials (provider integration)",
     "BLOCKED_BY_sealed_fixture_commitment (sealed evaluation consumption)"
   ],
-  "launch_verdict": "END_TO_END_MINIATURE_READY (with P35_EXECUTED_PRODUCTION_PATH and V5A_BOUNDED_CANARY_EXECUTED evidence on local CUDA; remote canary and P35-A remain gated)"
+  "launch_verdict": "COGNITION_MEASUREMENT_INFRA (registry + protocol + matched-experiment contracts live; causal-research loop awaits a real trained subject and a Triquetra round-trip)",
+  "schema": "anra-v5-cymek-evidence-ledger/v1"
 }

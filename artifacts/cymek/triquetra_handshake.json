@@ -1,0 +1,33 @@
+{
+  "schema": "anra-v5-cymek-triquetra-handshake/v1",
+  "purpose": "Cymek hands trained Core subjects to Triquetra for causal cognition research. Triquetra never guesses architecture, tokenizer, lineage, or training amount; Cymek never trains against Triquetra's diagnostics without a preregistered treatment.",
+  "direction": "Cymek -> Triquetra: CoreSubjectManifest + checkpoint custody + tokenizer identity + task-scoring adapter contract. Triquetra -> Cymek: InternalizationTarget (causal receipt -> training intervention).",
+  "handshake_contract": {
+    "subject_manifest": {
+      "schema": "anra-v5-core-subject-manifest/v1",
+      "validator_mirror": "v5_registry.subject.triquetra_validation reproduces triquetra x_factor/manifest_validator.py REQUIRED_FIELDS verbatim",
+      "triquetra_validator_location": "triquetra branch: x_factor/manifest_validator.py",
+      "rule": "fail closed on missing or placeholder identity fields"
+    },
+    "registry": {
+      "schema": "anra-v5-checkpoint-registry/v1",
+      "identity": "manifest canonical SHA-256; never 'latest checkpoint'",
+      "lifecycle": ["CREATED", "IDENTITY_VERIFIED", "TRAINING_COMPLETE", "DEV_EVALUATED", "SEALED_EVALUATED", "PROMOTED", "REJECTED", "HISTORICAL_CONTROL"],
+      "committed_entries": "artifacts/cymek/registry/entries/*.json"
+    },
+    "evaluation": {
+      "engine": "v5_evaluation.protocol: EvaluationProtocol -> TaskLevelEvidence -> EvaluationReceipt",
+      "modes": ["RAW_FREE_GENERATION", "RAW_CANDIDATE_SCORING", "CONSTRAINED_SELECTION", "CONNECTOR_ASSISTED", "ORACLE_ASSISTED"],
+      "firewall": "VisibleTask/EvaluatorTruth split enforced structurally; gold joins only after output commit",
+      "causality": "evaluation uses the canonical packed-layout causal mask; adversarially tested against future-token leakage"
+    },
+    "expected_return_object": {
+      "name": "InternalizationTarget",
+      "status": "CONTRACT_PENDING_TRIQUETRA",
+      "fields": ["source_causal_receipt", "target_capability", "demonstrated_external_computation", "training_treatment", "expected_native_change", "expected_assistance_change", "transfer_tests", "retention_tests"],
+      "note": "Triquetra returns this after causal diagnosis; Cymek converts it into a preregistered ExperimentSpec via v5_experiments and matched arms."
+    }
+  },
+  "current_registered_subjects": "see artifacts/cymek/registry/entries/ (all SOFTWARE_* canary subjects with custody 'local-ephemeral-checkpoint-store'; no scientific checkpoint has been produced)",
+  "import_rule": "Triquetra imports the canonical runtime interfaces (adapter, manifest, protocol); it does not copy Cymek training code."
+}
