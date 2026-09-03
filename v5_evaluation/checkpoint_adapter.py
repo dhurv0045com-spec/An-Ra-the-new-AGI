@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from v5_contracts.model_spec import ModelSpec
-from v5_model.core import initialize
+from v5_model.core import initialize, packed_layout
 from v5_tokenizer.adapter import FrozenTokenizer
 
 
@@ -109,9 +109,11 @@ class CheckpointBackedV5Adapter:
         if not 1 < len(token_ids) <= self.spec.context_length:
             raise ValueError("tokenized input must fill [2, context_length]")
         tokens = torch.tensor([token_ids], dtype=torch.long, device=self.device)
-        positions = torch.arange(len(token_ids), device=tokens.device)[None, :]
-        mask = torch.ones(1, 1, len(token_ids), len(token_ids), dtype=torch.bool,
-                          device=tokens.device)
+        # one visible sequence: a single segment under the canonical packed
+        # layout, giving exactly the causal + per-segment semantics of training
+        segment_ids = torch.zeros_like(tokens, dtype=torch.int32)
+        positions, mask = packed_layout(segment_ids, torch_module=torch)
+        mask = mask.to(tokens.device)
         with torch.no_grad():
             logits = self.model(tokens, positions, mask)
         return logits[0].float()

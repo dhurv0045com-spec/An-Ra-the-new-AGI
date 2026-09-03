@@ -35,7 +35,13 @@ def _canonical_json(value: object) -> bytes:
 
 @dataclass(frozen=True, slots=True)
 class Document:
-    """One raw text document with its source attribution."""
+    """One raw text document with its source attribution.
+
+    ``raw_source_sha256`` identifies the immutable source bytes the document
+    was derived from; ``text`` is the processed form actually tokenized.  Both
+    identities are recorded so every training example traces back to immutable
+    source identity AND the exact processing that produced it.
+    """
 
     doc_id: str
     text: str
@@ -44,6 +50,7 @@ class Document:
     family: str
     authorization_category: str
     acquired_date: str
+    raw_source_sha256: str = ""
 
 
 def build_data_manifest(
@@ -63,7 +70,8 @@ def build_data_manifest(
 
     if not documents:
         raise ValueError("data manifest requires documents")
-    content_hashes = {document.doc_id: _sha256_text(document.text) for document in documents}
+    processed_hashes = {document.doc_id: _sha256_text(document.text) for document in documents}
+    content_hashes = dict(processed_hashes)
     clusters = exact_clusters({doc_id: digest for doc_id, digest in content_hashes.items()})
     dropped: dict[str, str] = {}
     kept: list[Document] = []
@@ -101,11 +109,12 @@ def build_data_manifest(
     records: list[SourceRecord] = []
     tokens_by_family: dict[str, int] = {}
     for document in kept:
+        raw_source = document.raw_source_sha256 or content_hashes[document.doc_id]
         record = SourceRecord(
             source_id=document.source_id,
             authorization_category=document.authorization_category,
             acquired_date=document.acquired_date,
-            raw_sha256=content_hashes[document.doc_id],
+            raw_sha256=raw_source,
             split=split_of[document.doc_id],
             domain=document.domain,
         )
@@ -126,6 +135,11 @@ def build_data_manifest(
     manifest.assert_valid()
     audit = {
         "documents_ingested": len(documents),
+        "raw_source_sha256": {
+            document.doc_id: (document.raw_source_sha256 or content_hashes[document.doc_id])
+            for document in kept
+        },
+        "processed_document_sha256": dict(sorted(processed_hashes.items())),
         "exact_duplicate_drops": dict(sorted(dropped.items())),
         "clusters": len(clusters),
         "split_counts": {

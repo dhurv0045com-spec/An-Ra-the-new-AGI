@@ -14,7 +14,7 @@ import math
 from pathlib import Path
 from typing import Any
 
-from .model_spec import QK_NORM_EPSILON, V5A_250M
+from .model_spec import ModelSpec, QK_NORM_EPSILON, V5A_250M
 from .run_spec import V5A_RUN_CENTER
 
 
@@ -91,7 +91,7 @@ def build_training_spec() -> dict[str, Any]:
             },
         },
         "scale_ladder": {
-            "p35_recipe": {"layers": 16, "width": 384, "query_heads": 6, "kv_heads": 3, "ffn_width": 1024, "parameters": 35_414_400},
+            "p35_recipe": {"layers": 16, "width": 384, "query_heads": 6, "kv_heads": 3, "ffn_width": 1024, "parameters": 35_411_328},
             "m102_recipe": {"layers": 20, "width": 640, "query_heads": 10, "kv_heads": 5, "ffn_width": 1600, "parameters": 101_790_080},
             "v5a": {"layers": 26, "width": 896, "query_heads": 14, "kv_heads": 7, "ffn_width": 2368, "parameters": 250_216_960},
             "ratio_invariant": "2 query heads per KV head",
@@ -180,8 +180,8 @@ def build_training_spec() -> dict[str, Any]:
             "beta2": 0.95,
             "epsilon": 1e-8,
             "weight_decay": 0.1,
-            "decay_group": "all ndim>=2 parameters including tied embedding",
-            "no_decay_group": "all ndim<2 parameters including RMSNorm and affine QK scales",
+            "decay_group": "embedding, attention projections, and FFN matrices (non-normalization parameters)",
+            "no_decay_group": "all normalization parameters by semantics: RMSNorm scales and affine QK scales (query_scale/key_scale, shape [heads, head_dim]) never decay regardless of rank",
             "peak_learning_rate": 3e-4,
             "schedule": {
                 "index": "pre-update cumulative real non-padding tokens from zero",
@@ -277,8 +277,36 @@ def build_training_spec() -> dict[str, Any]:
     }
 
 
+def _ladder_spec(recipe: dict[str, Any]) -> ModelSpec:
+    return ModelSpec(
+        schema="anra-v5-model-spec/v1",
+        family="dense-decoder-transformer",
+        vocabulary_size=24_576,
+        width=int(recipe["width"]),
+        layers=int(recipe["layers"]),
+        query_heads=int(recipe["query_heads"]),
+        kv_heads=int(recipe["kv_heads"]),
+        head_dimension=64,
+        ffn_width=int(recipe["ffn_width"]),
+        context_length=4_096,
+        rope_base=10_000.0,
+        norm_epsilon=1e-5,
+        tied_embeddings=True,
+        qk_norm=True,
+        qk_norm_affine=True,
+        linear_bias=False,
+        dropout=0.0,
+    )
+
+
 def validate_training_spec(spec: dict[str, Any]) -> dict[str, bool]:
+    ladder = spec["scale_ladder"]
+    ladder_counts_exact = all(
+        int(ladder[name]["parameters"]) == _ladder_spec(ladder[name]).parameter_receipt().total
+        for name in ("p35_recipe", "m102_recipe", "v5a")
+    )
     return {
+        "ladder_parameter_counts_exact": ladder_counts_exact,
         "schema": spec["schema"] == SCHEMA,
         "main_run_fail_closed": spec["main_training_authorized"] is False,
         "parameter_count_exact": spec["core"]["parameter_count"] == 250_216_960,

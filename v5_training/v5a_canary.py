@@ -20,6 +20,7 @@ import torch
 from v5_contracts.model_spec import V5A_250M
 from v5_data.manifest import build_data_manifest, manifest_sha256
 from v5_data.pack import pack_documents
+from v5_data.stream import build_update_stream
 from v5_model.core import initialize
 from v5_training.checkpoint import CheckpointStore
 from v5_training.miniature import SPLITS, _load_corpus, _load_tokenizer, _source_commit
@@ -33,6 +34,7 @@ from v5_training.production_backend import (
     restore_production,
 )
 from v5_training.runner import RunController
+from v5_training.streaming import batch_from_window
 from v5_training.state import (
     CURSOR_SCHEMA,
     IDENTITY_SCHEMA,
@@ -83,13 +85,9 @@ def run_canary(*, repo_root: Path, device_name: str = "cuda", output: Path | Non
         pad=0,
         sequences_per_shard=4,
     )
-    windows: list[list] = []
-    for shard in packed:
-        if shard.bucket != BUCKET:
-            continue
-        for sequence in shard.sequences:
-            if -1 not in sequence.segment_ids and len(sequence.tokens) == BUCKET:
-                windows.append([sequence])
+    windows = build_update_stream(
+        packed, run_seed=SEED, real_tokens_per_update=BUCKET
+    )
     if len(windows) < UPDATES:
         raise ValueError(f"V5-A canary stream has {len(windows)} full sequences")
     windows = windows[:UPDATES]
@@ -146,24 +144,12 @@ def run_canary(*, repo_root: Path, device_name: str = "cuda", output: Path | Non
     def backend_step(current: TrainingState):
         nonlocal peak_vram_mib
         ordinal = current.global_update
-        window = windows[ordinal]
-        tokens = torch.tensor([s.tokens for s in window], dtype=torch.long, device=device)
-        segment_ids = torch.tensor(
-            [s.segment_ids for s in window], dtype=torch.int32, device=device
-        )
-        per_source: dict[str, int] = {}
-        for sequence in window:
-            for index, source in enumerate(sequence.sources):
-                count = sum(1 for segment in sequence.segment_ids if segment == index)
-                per_source[source] = per_source.get(source, 0) + count
-        batch = PackedBatch(
-            tokens=tokens,
-            segment_ids=segment_ids,
-            tokens_by_source=dict(sorted(per_source.items())),
-            cursor=CursorState(
-                CURSOR_SCHEMA, pack_manifest_sha256, 0, ordinal, BUCKET * (ordinal + 1)
-            ),
-            rng_state_sha256="0" * 64,
+        batch = batch_from_window(
+            windows[ordinal],
+            pack_manifest_sha256=pack_manifest_sha256,
+            update_ordinal=ordinal,
+            device=device,
+            torch_module=torch,
         )
         if device.type == "cuda":
             torch.cuda.synchronize()

@@ -249,12 +249,12 @@ class ProductionBackendTest(unittest.TestCase):
                 queue = [batches[0]]
             else:
                 state, backend, queue = continue_from
-            second_losses: list[float] = []
+            second_receipts: list[dict] = []
 
             def backend_step(current: TrainingState):
                 report = backend.step(current, batches[current.global_update])
                 if current.global_update == 1:
-                    second_losses.append(float(backend.last_receipt["loss"]))
+                    second_receipts.append(dict(backend.last_receipt))
                 return report
 
             controller = RunController(target_update=2 - state.global_update)
@@ -268,9 +268,9 @@ class ProductionBackendTest(unittest.TestCase):
                 updates=2 - state.global_update,
                 checkpoint_every=1,
             )
-            return final_state, backend, store
+            return final_state, backend, store, second_receipts
 
-        final_a, backend_a, _ = run(None)
+        final_a, backend_a, _, second_a = run(None)
         # rebuild the interrupted path: one update, checkpoint, fresh objects
         torch.manual_seed(14)
         store_root = Path(tempfile.mkdtemp()) / "store"
@@ -294,7 +294,7 @@ class ProductionBackendTest(unittest.TestCase):
         fresh_model = initialize(TINY_SPEC, seed=12345)
         fresh_backend = _backend(fresh_model)
         restore_production(fresh_backend, payloads=payloads)
-        resumed_state, _, _ = run(
+        resumed_state, _, _, second_b = run(
             (restored_state, fresh_backend, [batches[1]])
         )
 
@@ -303,6 +303,16 @@ class ProductionBackendTest(unittest.TestCase):
         self.assertEqual(evidence_a.parameter_sha256, evidence_b.parameter_sha256)
         self.assertEqual(evidence_a.moment_sha256, evidence_b.moment_sha256)
         self.assertEqual(evidence_a.optimizer_steps, evidence_b.optimizer_steps)
+        # the restored update must be the SAME update: identical loss, gradient
+        # norms, learning rate, parameter/moment hashes, and post-update RNG.
+        # embedding_data_ptr is run-local memory identity and is excluded.
+        def semantic(receipt: dict) -> dict:
+            trimmed = {k: v for k, v in receipt.items() if k not in ("sha256",)}
+            trimmed["before"] = {k: v for k, v in receipt["before"].items() if k != "embedding_data_ptr"}
+            trimmed["after"] = {k: v for k, v in receipt["after"].items() if k != "embedding_data_ptr"}
+            return trimmed
+
+        self.assertEqual([semantic(r) for r in second_a], [semantic(r) for r in second_b])
         # parent_checkpoint_sha256 is store-local lineage and legitimately
         # differs between the two independent checkpoint stores; every field
         # that defines the training continuation must be identical.

@@ -123,6 +123,27 @@ class CheckpointAdapterTest(unittest.TestCase):
         self.assertNotEqual(adapter.identity.sha256(), adapter.identity.sha256() + "x")
         self.assertIn("suffix", adapter.identity.scoring_rule)
 
+    def test_no_future_token_leakage_in_evaluation(self) -> None:
+        """P0.1: changing a future suffix must not alter earlier-position logits."""
+
+        adapter = _adapter()
+        prefix = [4 + b for b in b"the scarf is"]
+        future_a = [4 + b for b in b" green"]
+        future_b = [4 + b for b in b" purple"]
+        early_a = adapter._logits([2, *prefix, *future_a])
+        early_b = adapter._logits([2, *prefix, *future_b])
+        shared = len(prefix) + 1  # BOS + prefix logits must be identical
+        for position in range(shared):
+            self.assertTrue(
+                torch.equal(early_a[position], early_b[position]),
+                f"position {position} changed when a future token changed",
+            )
+        # and the future positions may legitimately differ
+        self.assertFalse(
+            torch.equal(early_a[-1], early_b[-1]),
+            "sanity: last-position logits should differ for different suffixes",
+        )
+
 
 class FirewallTest(unittest.TestCase):
     def _records(self) -> list[dict[str, object]]:

@@ -25,6 +25,7 @@ import torch
 from v5_contracts.model_spec import ModelSpec
 from v5_data.manifest import build_data_manifest, manifest_sha256
 from v5_data.pack import pack_documents
+from v5_data.stream import build_update_stream
 from v5_evaluation.checkpoint_adapter import CheckpointBackedV5Adapter
 from v5_evaluation.firewall import (
     CommittedOutput,
@@ -53,6 +54,7 @@ from v5_training.production_backend import (
     restore_production,
 )
 from v5_training.runner import RunController
+from v5_training.streaming import batch_from_window
 from v5_training.state import (
     CURSOR_SCHEMA,
     IDENTITY_SCHEMA,
@@ -148,41 +150,14 @@ def run_miniature(
         pad=0,
         sequences_per_shard=SEQUENCES_PER_SHARD,
     )
-    full_by_bucket: dict[int, list] = {bucket: [] for bucket in (512, 1024, 2048, 4096)}
-    for shard in packed:
-        for sequence in shard.sequences:
-            if -1 not in sequence.segment_ids and len(sequence.tokens) == shard.bucket:
-                full_by_bucket[shard.bucket].append(sequence)
-    # one update = 4096 real tokens as a bucket-pure microbatch, per the
-    # frozen spec: 8x512 = 4x1024 = 2x2048 = 1x4096 = 4096
-    sequences_per_update = {512: 8, 1024: 4, 2048: 2, 4096: 1}
-    update_windows: list[list] = []
-    cursors: list[tuple[int, int]] = []
-    for bucket in (512, 1024, 2048, 4096):
-        need = sequences_per_update[bucket]
-        pool = full_by_bucket[bucket]
-        for start in range(0, len(pool) - need + 1, need):
-            update_windows.append(pool[start:start + need])
-            cursors.append((bucket, start + need - 1))
-    # deterministic interleaving: round-robin across buckets so every bucket
-    # class appears throughout the stream
-    by_bucket: dict[int, list] = {512: [], 1024: [], 2048: [], 4096: []}
-    for window in update_windows:
-        by_bucket[len(window[0].tokens)].append(window)
-    depth = max(len(stream) for stream in by_bucket.values())
-    interleaved: list[list] = []
-    for level in range(depth):
-        for bucket in (512, 1024, 2048, 4096):
-            if level < len(by_bucket[bucket]):
-                interleaved.append(by_bucket[bucket][level])
-    update_windows = interleaved
-    if len(update_windows) < updates:
+    windows = build_update_stream(packed, run_seed=SEED)
+    if len(windows) < updates:
         raise ValueError(
-            f"miniature stream has {len(update_windows)} exact 4096-token updates; "
+            f"miniature stream has {len(windows)} exact 4096-token updates; "
             f"{updates} requested"
         )
-    run_updates = min(updates, len(update_windows))
-    update_windows = update_windows[:run_updates]
+    run_updates = min(updates, len(windows))
+    windows = windows[:run_updates]
     token_budget = run_updates * 4096
 
     pack_manifest_sha256 = hashlib.sha256(
@@ -242,26 +217,12 @@ def run_miniature(
 
     def backend_step(current: TrainingState):
         ordinal = current.global_update
-        window = update_windows[ordinal]
-        tokens = torch.tensor([s.tokens for s in window], dtype=torch.long, device=device)
-        segment_ids = torch.tensor(
-            [s.segment_ids for s in window], dtype=torch.int32, device=device
-        )
-        per_source: dict[str, int] = {}
-        for sequence in window:
-            for index, source in enumerate(sequence.sources):
-                count = sum(1 for segment in sequence.segment_ids if segment == index)
-                per_source[source] = per_source.get(source, 0) + count
-        if sum(per_source.values()) != 4096:
-            raise ValueError("update window does not carry exactly 4096 real tokens")
-        batch = PackedBatch(
-            tokens=tokens,
-            segment_ids=segment_ids,
-            tokens_by_source=dict(sorted(per_source.items())),
-            cursor=CursorState(
-                CURSOR_SCHEMA, pack_manifest_sha256, 0, ordinal, 4096 * (ordinal + 1)
-            ),
-            rng_state_sha256=hashlib.sha256(f"miniature-rng-{ordinal}".encode()).hexdigest(),
+        batch = batch_from_window(
+            windows[ordinal],
+            pack_manifest_sha256=pack_manifest_sha256,
+            update_ordinal=ordinal,
+            device=device,
+            torch_module=torch,
         )
         report = backend.step(current, batch)
         receipts.append(backend.last_receipt)
@@ -371,7 +332,7 @@ def run_miniature(
             "training_split_documents": len(training_documents),
             "manifest_audit": manifest_audit,
             "pack_audit": pack_audit,
-            "exact_updates_available": len(update_windows),
+            "exact_updates_available": len(windows),
             "updates_run": run_updates,
             "token_budget": token_budget,
             "cumulative_tokens": final_state.cumulative_tokens,

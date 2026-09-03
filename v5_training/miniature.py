@@ -27,7 +27,7 @@ MINIATURE_EVAL_TASKS = [
         "task_id": "mini-bind-001",
         "cluster_id": "mini-bind",
         "family": "query_binding",
-        "split": "fresh",
+        "split": "software_eval",
         "difficulty": "easy",
         "prompt": "The zibble is crimson. The woggle is blue. What color is the zibble?",
         "candidates": (" crimson", " blue"),
@@ -37,7 +37,7 @@ MINIATURE_EVAL_TASKS = [
         "task_id": "mini-bind-002",
         "cluster_id": "mini-bind",
         "family": "query_binding",
-        "split": "fresh",
+        "split": "software_eval",
         "difficulty": "easy",
         "prompt": "The zibble is crimson. The woggle is blue. What color is the woggle?",
         "candidates": (" crimson", " blue"),
@@ -122,7 +122,7 @@ def _load_corpus(repo: Path, tokenizer: FrozenTokenizer) -> list[Document]:
         raw = path.read_bytes()
         if not raw.strip():
             continue
-        digest = hashlib.sha256(raw).hexdigest()
+        raw_source_sha256 = hashlib.sha256(raw).hexdigest()
         try:
             text = raw.decode("utf-8")
         except UnicodeDecodeError:
@@ -141,9 +141,9 @@ def _load_corpus(repo: Path, tokenizer: FrozenTokenizer) -> list[Document]:
                 family="code_math_formal" if is_code else "natural",
                 authorization_category="first-party-authorized",
                 acquired_date="2026-09-03",
+                raw_source_sha256=raw_source_sha256,
             )
         )
-        del digest
         total_bytes += len(raw)
     if len(documents) < 8:
         raise ValueError("miniature corpus failed to bind enough verified real documents")

@@ -444,10 +444,10 @@ def production_payloads(
     optimizer_bin = buffer.getvalue()
     buffer.seek(0)
     buffer.truncate()
-    torch.save(
-        {"cpu": torch.get_rng_state()},
-        buffer,
-    )
+    rng_state: dict[str, Any] = {"cpu": torch.get_rng_state()}
+    if torch.cuda.is_available():
+        rng_state["cuda"] = torch.cuda.get_rng_state_all()
+    torch.save(rng_state, buffer)
     rng_bin = buffer.getvalue()
     learning_rate = float(backend.optimizer.param_groups[0]["lr"])
     scheduler = {
@@ -494,6 +494,10 @@ def restore_production(
     )
     rng = torch.load(io.BytesIO(payloads["rng.bin"]), map_location="cpu", weights_only=True)
     torch.set_rng_state(rng["cpu"].detach().cpu())
+    if torch.cuda.is_available() and "cuda" in rng:
+        torch.cuda.set_rng_state_all(
+            [state.detach().cpu() for state in rng["cuda"]]
+        )
     assert_live_ownership(backend.model, backend.optimizer)
 
 

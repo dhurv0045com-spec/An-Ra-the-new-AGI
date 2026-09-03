@@ -13,7 +13,7 @@
     "V5_MASTER_BLUEPRINT.md": "5f6c5cb1782407708bdea7e2c3bfc59fc2afc5be5936d090093b674ce5736818",
     "V5_TRAINING_SPEC_v1.0.md": "e191eaec50aeb25d62093d4105f067b40b0f2b1e5f2fab8e41006f6ec8e68405"
   },
-  "candidate_spec_sha256": "fafa079560c57d02a9c361678bddb88d220b87dad27c59ef78ae585ae7152352",
+  "candidate_spec_sha256": "21f14a48a11874f4b1544ddec32e3d4068b03bae12a9d6cb8e6bbdcf39061cc5",
   "checks": {
     "candidate_spec_valid_and_fail_closed": true,
     "canonical_blueprint_complete": true,

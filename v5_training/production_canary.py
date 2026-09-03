@@ -36,6 +36,8 @@ from v5_training.production_backend import (
     restore_production,
 )
 from v5_training.runner import RunController
+from v5_training.streaming import batch_from_window
+from v5_data.stream import build_update_stream
 from v5_training.state import (
     CURSOR_SCHEMA,
     IDENTITY_SCHEMA,
@@ -79,6 +81,7 @@ def run_canary(*, repo_root: Path, device_name: str = "cuda", output: Path | Non
     repo = repo_root.resolve()
     from v5_data.manifest import build_data_manifest, manifest_sha256
     from v5_data.pack import pack_documents
+    from v5_data.stream import build_update_stream
     from v5_training.miniature import SPLITS
 
     tokenizer, _ = _load_tokenizer(repo)
@@ -108,18 +111,7 @@ def run_canary(*, repo_root: Path, device_name: str = "cuda", output: Path | Non
         pad=0,
         sequences_per_shard=4,
     )
-    full_by_bucket: dict[int, list] = {512: [], 1024: [], 2048: [], 4096: []}
-    for shard in packed:
-        for sequence in shard.sequences:
-            if -1 not in sequence.segment_ids and len(sequence.tokens) == shard.bucket:
-                full_by_bucket[shard.bucket].append(sequence)
-    sequences_per_update = {512: 8, 1024: 4, 2048: 2, 4096: 1}
-    windows: list[list] = []
-    for bucket in (512, 1024, 2048, 4096):
-        need = sequences_per_update[bucket]
-        pool = full_by_bucket[bucket]
-        for start in range(0, len(pool) - need + 1, need):
-            windows.append(pool[start:start + need])
+    windows = build_update_stream(packed, run_seed=SEED)
     if len(windows) < UPDATES:
         raise ValueError(
             f"P35 canary stream has {len(windows)} exact 4096-token updates; {UPDATES} needed"
@@ -177,24 +169,12 @@ def run_canary(*, repo_root: Path, device_name: str = "cuda", output: Path | Non
 
     def backend_step(current: TrainingState):
         ordinal = current.global_update
-        window = windows[ordinal]
-        tokens = torch.tensor([s.tokens for s in window], dtype=torch.long, device=device)
-        segment_ids = torch.tensor(
-            [s.segment_ids for s in window], dtype=torch.int32, device=device
-        )
-        per_source: dict[str, int] = {}
-        for sequence in window:
-            for index, source in enumerate(sequence.sources):
-                count = sum(1 for segment in sequence.segment_ids if segment == index)
-                per_source[source] = per_source.get(source, 0) + count
-        batch = PackedBatch(
-            tokens=tokens,
-            segment_ids=segment_ids,
-            tokens_by_source=dict(sorted(per_source.items())),
-            cursor=CursorState(
-                CURSOR_SCHEMA, pack_manifest_sha256, 0, ordinal, 4096 * (ordinal + 1)
-            ),
-            rng_state_sha256="0" * 64,
+        batch = batch_from_window(
+            windows[ordinal],
+            pack_manifest_sha256=pack_manifest_sha256,
+            update_ordinal=ordinal,
+            device=device,
+            torch_module=torch,
         )
         if device.type == "cuda":
             torch.cuda.synchronize()
@@ -204,10 +184,7 @@ def run_canary(*, repo_root: Path, device_name: str = "cuda", output: Path | Non
         if device.type == "cuda":
             torch.cuda.synchronize()
         step_times.append(time.perf_counter() - started)
-        if device.type == "cuda":
-            grad_norms.append(report.grad_norm_post_clip)
-        else:
-            grad_norms.append(report.grad_norm_post_clip)
+        grad_norms.append(report.grad_norm_post_clip)
         losses.append(float(backend.last_receipt["loss"]))
         return report
 

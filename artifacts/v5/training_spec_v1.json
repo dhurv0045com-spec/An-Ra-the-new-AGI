@@ -7,6 +7,7 @@
     "external_identities_unfilled": true,
     "final_partial_plan_exact": true,
     "gqa_ratio_exact": true,
+    "ladder_parameter_counts_exact": true,
     "launch_auxiliaries_disabled": true,
     "main_run_fail_closed": true,
     "model_matches_contract": true,
@@ -278,7 +279,7 @@
       "tier1_cases_per_family": 512,
       "tier1_tokens": 100000000
     },
-    "implementation_sha256": "f008fff7db1e29b6cdbaebd43c31c19659775fa543cafb03db320816d21e14f9",
+    "implementation_sha256": "be0667ac0e400e5a62b330af69ddd05474da23b9f6701d6b9b0d135e2af7f206",
     "main_training_authorized": false,
     "negative_evidence": {
       "development_receipt": "artifacts/e2/scoring_policy_development.json",
@@ -311,7 +312,7 @@
     "optimization": {
       "beta1": 0.9,
       "beta2": 0.95,
-      "decay_group": "all ndim>=2 parameters including tied embedding",
+      "decay_group": "embedding, attention projections, and FFN matrices (non-normalization parameters)",
       "epsilon": 1e-08,
       "final_partial_update_plan": {
         "global_real_tokens": [
@@ -339,7 +340,7 @@
       "full_updates": 38146,
       "global_tokens_per_update": 131072,
       "gradient_clip_global_l2": 1.0,
-      "no_decay_group": "all ndim<2 parameters including RMSNorm and affine QK scales",
+      "no_decay_group": "all normalization parameters by semantics: RMSNorm scales and affine QK scales (query_scale/key_scale, shape [heads, head_dim]) never decay regardless of rank",
       "nonfinite_policy": "abort update and run; do not advance token, cursor, optimizer, or schedule state",
       "optimizer": "AdamW",
       "peak_learning_rate": 0.0003,
@@ -487,7 +488,7 @@
         "ffn_width": 1024,
         "kv_heads": 3,
         "layers": 16,
-        "parameters": 35414400,
+        "parameters": 35411328,
         "query_heads": 6,
         "width": 384
       },

@@ -3,9 +3,10 @@
 The training specification intentionally leaves no optimizer-group choice to a
 framework entry point.  This module is the single constructor used by the
 canaries and, eventually, the trainer: every trainable model parameter is
-owned exactly once, tensors with rank two or higher receive decoupled weight
-decay (including the tied embedding), and vectors/scalars such as RMSNorm and
-QK scales do not.
+owned exactly once.  Grouping is semantic, not dimensional: RMSNorm scales
+and affine QK scales (``query_scale``/``key_scale``, shape [heads, head_dim])
+never receive weight decay even though the QK scales are rank two; embedding,
+attention projections, and FFN matrices do.
 """
 
 from __future__ import annotations
@@ -96,6 +97,21 @@ def optimizer_group_receipt(model: Any, optimizer: Any) -> dict[str, object]:
     return receipt
 
 
+def is_normalization_parameter(name: str, parameter: Any) -> bool:
+    """Classify by parameter semantics, not just dimensionality.
+
+    RMSNorm scales and affine QK scales never receive weight decay.  QK scales
+    have shape [heads, head_dim] (rank two), so a purely dimensional rule
+    would wrongly decay them; the name carries the semantics.
+    """
+
+    if parameter.ndim < 2:
+        return True
+    if name.endswith((".query_scale", ".key_scale")):
+        return True
+    return ".weight" in name and ".norm" in name
+
+
 def build_adamw_optimizer(
     model: Any,
     *,
@@ -120,8 +136,16 @@ def build_adamw_optimizer(
         raise ValueError("model has no parameters")
     if any(not parameter.requires_grad for _, parameter in named):
         raise ValueError("all model parameters must be trainable")
-    decay = [(name, parameter) for name, parameter in named if parameter.ndim >= 2]
-    no_decay = [(name, parameter) for name, parameter in named if parameter.ndim < 2]
+    decay = [
+        (name, parameter)
+        for name, parameter in named
+        if not is_normalization_parameter(name, parameter)
+    ]
+    no_decay = [
+        (name, parameter)
+        for name, parameter in named
+        if is_normalization_parameter(name, parameter)
+    ]
     groups: list[dict[str, object]] = []
     if decay:
         groups.append({"params": [parameter for _, parameter in sorted(decay)], "weight_decay": WEIGHT_DECAY})
@@ -145,6 +169,7 @@ group_receipt = optimizer_group_receipt
 
 __all__ = [
     "BETA1",
+    "is_normalization_parameter",
     "BETA2",
     "EPSILON",
     "OPTIMIZER_NAME",
