@@ -9,11 +9,11 @@ Original docstring:
 Runs the binding factorial on every available checkpoint and measures:
   - raw accuracy
   - target-duplication repair rate (address-elicited capability)
-  - routing gap = address-elicited minus raw
+  - duplication_assistance_gap = address-elicited minus raw
   - minimal assistance level distribution
   - binding margin change under target marking
 
-If raw accuracy stays flat while the routing gap shrinks, that means
+If raw accuracy stays flat while the duplication assistance gap shrinks, that means
 training is internalizing the routing computation (not just learning answers).
 
 Run: py -3 -m x_factor.checkpoint_comparison
