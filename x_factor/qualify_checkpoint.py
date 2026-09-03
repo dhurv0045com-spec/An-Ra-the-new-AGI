@@ -102,11 +102,7 @@ def main(argv: list[str] | None = None) -> int:
         print(str(e), file=sys.stderr)
         return 2
     print(f"profile: {prof['profile']}", flush=True)
-    del model
-    import gc
-    gc.collect()
-    if torch.cuda.is_available():
-        torch.cuda.empty_cache()
+    # NOTE: model stays alive here; run_readiness_v2 executes the probes.
 
     entry = _registry_lookup(args.checkpoint) or _registry_lookup(ckpt)
     gate = _subject_allowed(entry, args.allow_historical_control)

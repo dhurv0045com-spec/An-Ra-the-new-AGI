@@ -180,9 +180,10 @@ def run_readiness_v2(model, tok, payload, *, checkpoint: str, param_sha: str,
         rep = sum(1 for r, o in zip(raw_ok, orb_ok) if r == 0 and o == 1)
         disc = rep  # oracle-only repairs among failures (paired by task)
         k = len(tasks[0]["codes"])
-        ident = assess_identifiability(len(tasks), sum(raw_ok), fails, rep, disc, chance=1.0 / k)
+        orb_rate = sum(orb_ok) / len(tasks)
+        ident = assess_identifiability(len(tasks), fails, disc, orb_rate, chance=1.0 / k)
         cap = classify_capability(len(tasks), sum(raw_ok),
-                                  sum(orb_ok) / len(tasks), None, 1.0 / k,
+                                  orb_rate, None, 1.0 / k,
                                   can["canary_ok"])
         rung_rows[rung] = {"n": len(tasks), "k": k,
                            "raw": chance_report(sum(raw_ok), len(tasks), 1.0 / k),
@@ -191,14 +192,19 @@ def run_readiness_v2(model, tok, payload, *, checkpoint: str, param_sha: str,
                            "capability": cap, "identifiability": ident}
         frontier_in.append({"rung": rung, "raw_k": sum(raw_ok), "n": len(tasks)})
     frontier = check_frontier(frontier_in)
-    # candidate rung: first IDENTIFIABLE/MARGINAL rung with oracle headroom
+    # candidate rung: first IDENTIFIABLE/MARGINAL rung with oracle headroom.
+    # Suspended entirely when primitive canaries fail: a canary-failed
+    # regime must not be citable as a "candidate pocket".
     cand = None
-    for rung in rungs:
-        v = rung_rows[rung]
-        if (v["identifiability"]["identifiability"] in ("IDENTIFIABLE", "MARGINAL")
-                and v["oracle_rate"] - v["raw"]["acc"] >= 0.10 and v["n_failures"] >= 5):
-            cand = rung
-            break
+    if can["canary_ok"] is not False:
+        for rung in rungs:
+            v = rung_rows[rung]
+            if (v["identifiability"]["identifiability"] in ("IDENTIFIABLE", "MARGINAL")
+                    and v["oracle_rate"] - v["raw"]["acc"] >= 0.10 and v["n_failures"] >= 5):
+                cand = rung
+                break
+    cand_note = (None if cand or can["canary_ok"] is not False else
+                 "candidacy suspended: PRIMITIVE_CANARY_FAILED")
     legal, diversity, power, qv_vc = None, None, None, None
     if cand is not None:
         tasks = gen_tasks(cand, seed, n_per_rung)[:subset_n]
@@ -216,9 +222,10 @@ def run_readiness_v2(model, tok, payload, *, checkpoint: str, param_sha: str,
                          rung_rows[cand]["oracle_rate"]) if legal else None)
     repl = check_replication(replication_ref, param_sha)
     cap_top = (rung_rows[cand]["capability"] if cand else
-               {"capability": "INSUFFICIENT", "notes": ["no candidate rung"]})
+               {"capability": "INSUFFICIENT", "notes": [cand_note or "no candidate rung"]})
     ident_top = (rung_rows[cand]["identifiability"] if cand else
-                 {"identifiability": "NOT_IDENTIFIABLE", "reason": "no candidate rung"})
+                 {"identifiability": "NOT_IDENTIFIABLE",
+                  "reason": cand_note or "no candidate rung"})
     decision = decide_readiness(
         stage, cap_top, ident_top, can["canary_ok"],
         frontier["verdict"],
@@ -252,6 +259,7 @@ def run_readiness_v2(model, tok, payload, *, checkpoint: str, param_sha: str,
         "frontier": frontier,
         "rung_results": rung_rows,
         "candidate_rung": cand,
+        "candidate_note": cand_note,
         "legal_intervention_results": legal,
         "legal_headroom": lh,
         "response_diversity": diversity,

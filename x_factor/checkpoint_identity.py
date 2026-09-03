@@ -18,6 +18,9 @@ import sys as _sys
 _HERE = Path(__file__).resolve().parent
 if str(_HERE) not in _sys.path:
     _sys.path.insert(0, str(_HERE))
+_RT = _HERE / "_runtime"
+if str(_RT) not in _sys.path:
+    _sys.path.insert(0, str(_RT))
 
 
 class CheckpointNotFound(FileNotFoundError):
