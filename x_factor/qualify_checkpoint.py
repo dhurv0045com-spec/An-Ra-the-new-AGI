@@ -163,7 +163,8 @@ def main(argv: list[str] | None = None) -> int:
         ckpt_sha=ckpt_sha, tok_sha=sha256_json(tok_ident), exp_sha=exp_sha,
         commit=commit, seed=seed, rungs=rungs, n_per_rung=n, device=device,
         stage=args.mode, protocol_sha=protocol_sha,
-        replication_ref=replication_ref, budget_n=budget_n)
+        replication_ref=replication_ref, budget_n=budget_n,
+        tokenizer_verified=True)  # V4 canonical path; V5 path must supply sidecar proof
 
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
