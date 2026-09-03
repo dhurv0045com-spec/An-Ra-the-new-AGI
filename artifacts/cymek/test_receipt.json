@@ -1,7 +1,6 @@
 {
-  "command": ".venv/Scripts/python -m pytest tests -q && python -m v5_contracts.import_boundaries",
-  "head": "32ee826cd831c24e4102a07fa87688f3d6fa2a87",
-  "notes": "Local exact-HEAD receipt produced by the cymek agent; GitHub Actions CI on cymek pushes provides the independent check.",
+  "command": "python -m pytest tests -q; python -m v5_contracts.import_boundaries",
+  "note": "Receipt names the commit whose tree was tested; the commit carrying this file adds only the file itself. GitHub Actions (.github/workflows/cymek.yml) provides independent exact-head evidence from the first cymek push onward.",
   "platform": "Windows-10-10.0.26200-SP0",
   "python": "3.11.15",
   "result": {
@@ -10,5 +9,6 @@
     "passed": 237,
     "subtests": 32
   },
-  "schema": "anra-v5-cymek-test-receipt/v1"
+  "schema": "anra-v5-cymek-test-receipt/v1",
+  "tested_head": "6a2b64bdfef2749522bb97e47fb8572835278e08"
 }
