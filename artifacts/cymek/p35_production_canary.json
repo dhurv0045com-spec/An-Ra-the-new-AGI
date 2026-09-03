@@ -1,15 +1,15 @@
 {
   "checkpoint": {
-    "final_checkpoint_sha256": "bb9d165c3297566209d462b20e7f91abf2bb652c21711bf0b8ec0a2d3a0bed18",
+    "final_checkpoint_sha256": "76bc45e8518cbb1950657ecc67ada2aff68aab9b33f0e8877d238536cae21ada",
     "resume_hash_equal": true
   },
   "classification": "P35_EXECUTED_PRODUCTION_PATH",
   "data": {
-    "documents_bound": 47,
+    "documents_bound": 48,
     "manifest_audit": {
-      "clusters": 47,
+      "clusters": 48,
       "contamination_hits": 0,
-      "documents_ingested": 47,
+      "documents_ingested": 48,
       "exact_duplicate_drops": {},
       "normalization": "casefold + word extraction for contamination comparison only",
       "note": "count_tokens(text)+2 approximates BOS/EOS overhead; the pack manifest carries exact counts",
@@ -17,23 +17,23 @@
         "development": 9,
         "fresh": 1,
         "sealed": 6,
-        "training": 31
+        "training": 32
       }
     },
     "pack_audit": {
       "full_sequences": 28,
-      "pack_efficiency": 0.9453529094827586,
-      "padded_capacity_tokens": 74240,
+      "pack_efficiency": 0.9667313338926175,
+      "padded_capacity_tokens": 76288,
       "padded_sequences": 4,
-      "real_nonpad_tokens": 70183,
-      "segments": 63,
+      "real_nonpad_tokens": 73750,
+      "segments": 64,
       "sequences": 32,
       "tokens_by_source": {
-        "code_math_formal": 30933,
-        "natural": 39250
+        "code_math_formal": 34498,
+        "natural": 39252
       }
     },
-    "training_split_documents": 31
+    "training_split_documents": 32
   },
   "device": "cuda",
   "device_name": "NVIDIA GeForce RTX 4050 Laptop GPU",
@@ -45,17 +45,17 @@
   },
   "grad_norms_post_clip": [
     0.9999998211860657,
-    1.0,
-    0.9999995827674866
+    1.0000001192092896,
+    0.9999995231628418
   ],
   "limitations": [
     "Bounded canary: proves certified production execution at P35 scale on this device.",
     "Not a learning experiment and not a V5-A authorization."
   ],
   "losses": [
-    10.14115047454834,
-    9.763916015625,
-    9.4989595413208
+    10.166484832763672,
+    9.790118217468262,
+    9.53598690032959
   ],
   "model": {
     "executable_parameters": 35411328,
@@ -64,7 +64,7 @@
     "spec_sha256": "12907494358361af334a356775968d1a73671058cbd38a584ca1df2c5d7da468",
     "training_spec_ladder_claim": 35414400
   },
-  "moment_sha256": "9a48425e1581b6ab9aa40ab1f2b337f7d70d93ec1890fd45e9b081fd74c8659c",
+  "moment_sha256": "6a922086b88220261cf19e1f251d9124e02743ebe543f25bc36ad58221700a99",
   "optimizer_group_receipt": {
     "beta1": 0.9,
     "beta2": 0.95,
@@ -274,21 +274,21 @@
     "sha256": "be12a20ec54cadbcdc4630be23aa1e57f76ed332ac8fbe1f8e43d742a61fbb02",
     "weight_decay": 0.1
   },
-  "parameter_sha256": "9fc2aa78c679ee4854db1ae0f3473a3537286ee34b533579d863d699c471b3ae",
+  "parameter_sha256": "e60d3d8eb3f779006052dc91dc759e9ffa4c07d3c5544071c322ceb987e29607",
   "peak_vram_mib": 3934.87255859375,
-  "receipt_sha256": "b55f9a3963d6b101a966c25b826a5dc324f6d0aa30710dbc4b3fc2155040a962",
+  "receipt_sha256": "c554ef005653ff6b6ce6830d5db2c69756675834c13dea7b53b8b6b1c3d51d3c",
   "schema": "anra-v5-p35-production-canary/v1",
   "status": "PASS",
   "step_seconds": [
-    3.1330128999998124,
-    2.4810622000004514,
-    2.322485699999561
+    2.6959153000007063,
+    2.2487747000004674,
+    2.2364298000002236
   ],
   "tokens": {
     "per_update": 4096,
     "total": 12288
   },
   "torch_version": "2.14.0+cu126",
-  "total_seconds": 11.803905399999167,
+  "total_seconds": 10.845650299999761,
   "updates": 3
 }

@@ -167,8 +167,9 @@ def run_canary(*, repo_root: Path, device_name: str = "cuda", output: Path | Non
         bfloat16_autocast=device.type == "cuda",
         schedule=bounded_warmup_schedule(peak_learning_rate=PEAK_LEARNING_RATE),
     )
-    store_root = repo / "artifacts/cymek/p35_store"
-    store = CheckpointStore(store_root, state.lineage_id)
+    import tempfile
+
+    store = CheckpointStore(Path(tempfile.mkdtemp(prefix="anra-cymek-store-")), state.lineage_id)
 
     step_times: list[float] = []
     losses: list[float] = []

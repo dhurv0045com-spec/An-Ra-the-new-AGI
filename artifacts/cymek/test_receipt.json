@@ -1,0 +1,14 @@
+{
+  "command": ".venv/Scripts/python -m pytest tests -q && python -m v5_contracts.import_boundaries",
+  "head": "32ee826cd831c24e4102a07fa87688f3d6fa2a87",
+  "notes": "Local exact-HEAD receipt produced by the cymek agent; GitHub Actions CI on cymek pushes provides the independent check.",
+  "platform": "Windows-10-10.0.26200-SP0",
+  "python": "3.11.15",
+  "result": {
+    "failed": 0,
+    "import_boundaries": "PASS",
+    "passed": 237,
+    "subtests": 32
+  },
+  "schema": "anra-v5-cymek-test-receipt/v1"
+}

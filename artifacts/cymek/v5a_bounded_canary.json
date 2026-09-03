@@ -1,10 +1,10 @@
 {
   "checkpoint": {
-    "final_checkpoint_sha256": "a3c1a6ca3ce9d6b64a422ab68d95241c45453d00aea008a32ef84d3cad084997",
+    "final_checkpoint_sha256": "1e0b569cde708b617eb6446be5fe8b3ef353a624556b5804dc601416a817b926",
     "resume_hash_equal": true
   },
   "classification": "V5A_BOUNDED_CANARY_EXECUTED",
-  "construction_seconds": 10.125381699999707,
+  "construction_seconds": 12.147328500000185,
   "device": "cuda",
   "device_name": "NVIDIA GeForce RTX 4050 Laptop GPU",
   "dtype_receipt": {
@@ -18,8 +18,8 @@
     "Not a learning result. Not a V5-A launch authorization."
   ],
   "losses": [
-    10.228873252868652,
-    9.791024208068848
+    10.32491397857666,
+    9.978837013244629
   ],
   "model": {
     "executable_parameters": 250216960,
@@ -27,7 +27,7 @@
     "single_tied_embedding": true,
     "spec_sha256": "d6c143e50d222def03cd46fb1b140248a58b3b06f56ac084b7bbf91ded43f2df"
   },
-  "moment_sha256": "2879a79c884d31a04cb9d7f63b6b48ad82b3b8bd6e6fd52de0ac494d3e7284ae",
+  "moment_sha256": "8aa6d14d42223d72e1778f5c90d4a7d0a286d2f8f1e7d21e4310622988bae4b3",
   "optimizer_group_receipt": {
     "beta1": 0.9,
     "beta2": 0.95,
@@ -347,14 +347,14 @@
     "sha256": "197d70a2fece9602093ca9c800de3051de89332f323503c767185b735e5b8e0c",
     "weight_decay": 0.1
   },
-  "parameter_sha256": "47c3ac9964631c54bc67a3868f98c211a075861b195f3772bfed4d4071d13e64",
+  "parameter_sha256": "646adf0717109d99263a7ec3066e93683b6d081310ff210b6247d566ecda0545",
   "peak_vram_mib": 4944.33935546875,
-  "receipt_sha256": "69a2c136082ed507626ffc023139eea2258cd155ad85814e8405baa6fc96e635",
+  "receipt_sha256": "98ca1e7d0e979888c2455aa4eb631bdd7ec9bf0968f27c717d4e8d4639c113bb",
   "schema": "anra-v5a-bounded-canary/v1",
   "status": "PASS",
   "step_seconds": [
-    9.525837799999863,
-    12.219388399999843
+    9.490071199999875,
+    12.472955499999443
   ],
   "tokens": {
     "per_update": 512,

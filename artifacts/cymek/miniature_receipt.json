@@ -1,17 +1,17 @@
 {
   "checkpoint": {
-    "final_checkpoint_sha256": "ca50c53e6487c622b49d5a93d571c97a3726bd0ac514007589863de659cd6630",
+    "final_checkpoint_sha256": "fdce62c2b55b0d87ddf529d99f76451f570574b2bb682ace1fc3ae66fd8a8038",
     "resume_parameter_hash_equal": true
   },
   "classification": "END_TO_END_MINIATURE",
   "data": {
-    "cumulative_tokens": 24576,
-    "documents_bound": 47,
-    "exact_updates_available": 6,
+    "cumulative_tokens": 16384,
+    "documents_bound": 48,
+    "exact_updates_available": 4,
     "manifest_audit": {
-      "clusters": 47,
+      "clusters": 48,
       "contamination_hits": 0,
-      "documents_ingested": 47,
+      "documents_ingested": 48,
       "exact_duplicate_drops": {},
       "normalization": "casefold + word extraction for contamination comparison only",
       "note": "count_tokens(text)+2 approximates BOS/EOS overhead; the pack manifest carries exact counts",
@@ -19,35 +19,35 @@
         "development": 9,
         "fresh": 1,
         "sealed": 6,
-        "training": 31
+        "training": 32
       }
     },
     "pack_audit": {
       "full_sequences": 28,
-      "pack_efficiency": 0.9453529094827586,
-      "padded_capacity_tokens": 74240,
+      "pack_efficiency": 0.9667313338926175,
+      "padded_capacity_tokens": 76288,
       "padded_sequences": 4,
-      "real_nonpad_tokens": 70183,
-      "segments": 63,
+      "real_nonpad_tokens": 73750,
+      "segments": 64,
       "sequences": 32,
       "tokens_by_source": {
-        "code_math_formal": 30933,
-        "natural": 39250
+        "code_math_formal": 34498,
+        "natural": 39252
       }
     },
-    "token_budget": 24576,
+    "token_budget": 16384,
     "tokens_by_source": {
-      "code_math_formal": 7674,
-      "natural": 16902
+      "code_math_formal": 8240,
+      "natural": 8144
     },
-    "training_split_documents": 31,
-    "updates_run": 6
+    "training_split_documents": 32,
+    "updates_run": 4
   },
   "evaluation": {
     "adapter": {
-      "checkpoint_sha256": "ca50c53e6487c622b49d5a93d571c97a3726bd0ac514007589863de659cd6630",
+      "checkpoint_sha256": "fdce62c2b55b0d87ddf529d99f76451f570574b2bb682ace1fc3ae66fd8a8038",
       "decoding_rule": "greedy; temperature 0; stop on EOS or cap",
-      "model_payload_sha256": "6578b48f5751250c47ec61c30154fc5f0d071c1ab835d53b715871a4216fe0a4",
+      "model_payload_sha256": "fe1c6475b70b06d6ccbfb199dba65554d8c2458ffce991d6682e4790dcf3fb76",
       "model_spec_sha256": "c6684f8e6de5fc173cc3e9ff88aa21b52640667431a15fb3ba745e6a04272459",
       "schema": "anra-v5-checkpoint-adapter/v1",
       "scoring_rule": "summed candidate-suffix log-probability, shared prefix, uniform EOS",
@@ -56,12 +56,12 @@
     "firewall": "VisibleTask/EvaluatorTruth split enforced at projection",
     "tasks": [
       {
-        "adapter_sha256": "563c54d37a8d29f2f7841d98adeae729e453f63ed7358c764968ceacbd97f00f",
+        "adapter_sha256": "a4a41b60f669d87fc5d4e8d596ec9c2392dfbca1b9ffe83ab1dae11a98636e90",
         "candidate_scores": [
-          -40.186851501464844,
-          -20.443827629089355
+          -40.3583984375,
+          -20.480886459350586
         ],
-        "checkpoint_sha256": "ca50c53e6487c622b49d5a93d571c97a3726bd0ac514007589863de659cd6630",
+        "checkpoint_sha256": "fdce62c2b55b0d87ddf529d99f76451f570574b2bb682ace1fc3ae66fd8a8038",
         "cluster_id": "mini-bind",
         "correct": false,
         "difficulty": "easy",
@@ -73,12 +73,12 @@
         "task_id": "mini-bind-001"
       },
       {
-        "adapter_sha256": "563c54d37a8d29f2f7841d98adeae729e453f63ed7358c764968ceacbd97f00f",
+        "adapter_sha256": "a4a41b60f669d87fc5d4e8d596ec9c2392dfbca1b9ffe83ab1dae11a98636e90",
         "candidate_scores": [
-          -40.19882297515869,
-          -20.41636371612549
+          -40.36392593383789,
+          -20.456981658935547
         ],
-        "checkpoint_sha256": "ca50c53e6487c622b49d5a93d571c97a3726bd0ac514007589863de659cd6630",
+        "checkpoint_sha256": "fdce62c2b55b0d87ddf529d99f76451f570574b2bb682ace1fc3ae66fd8a8038",
         "cluster_id": "mini-bind",
         "correct": true,
         "difficulty": "easy",
@@ -92,10 +92,10 @@
     ]
   },
   "identity_bindings": {
-    "data_manifest_sha256": "127067172f585e53c008a54068e8c8cdd360e8fa9fc291917a2c9e7ed1017539",
+    "data_manifest_sha256": "c692dd8b81d72d4ece54deb8978185a60eee62e3f1b34196e2f17b02f9861ee5",
     "model_spec_sha256": "c6684f8e6de5fc173cc3e9ff88aa21b52640667431a15fb3ba745e6a04272459",
     "optimizer_spec_sha256": "137171fe9d858003e3b89cd66853dbb27b35a99ea61a75fbe200bbab2f045027",
-    "pack_manifest_sha256": "403016ff76515583ca37523e82cbd52e5db3b98d4a46acb5fb7b8c9d5d40a5a8",
+    "pack_manifest_sha256": "bbdd58f389f554dae8e0edb7eae499a0103e9638033af61dc6be1303c3392b51",
     "schedule_spec_sha256": "2f475f417b4f47a12de61add589c885fa6d9c7c9bac09cde2a1db516fadadd5e",
     "tokenizer_sha256": "97e12db63b343312e5e4abc37df9ef4b01fcb1faba792a6420a4c1b15d0a7fbc"
   },
@@ -109,10 +109,10 @@
     "family": "miniature V5 spec (frozen tokenizer vocabulary)",
     "parameter_count": 1647104
   },
-  "receipt_sha256": "ad2d8113437cb2aaf8b626a75d1e8d6b3a396687380c73f544a7c4c3cd1717cc",
+  "receipt_sha256": "2c603b908bfdb7ce636d3c60cc5d440aa80a7a89acae8961e40c5bfc36600adc",
   "schema": "anra-v5-miniature-receipt/v1",
   "scope": "end-to-end miniature through the single production path",
-  "source_commit": "12b8548682888ea6c550cbd133d3f5671af84e7f",
+  "source_commit": "32ee826cd831c24e4102a07fa87688f3d6fa2a87",
   "status": "PASS",
   "tokenizer": {
     "artifact_sha256": "97e12db63b343312e5e4abc37df9ef4b01fcb1faba792a6420a4c1b15d0a7fbc",
@@ -141,91 +141,89 @@
   "training": {
     "final_receipt": {
       "after": {
-        "embedding_data_ptr": 4922603143168,
-        "moment_sha256": "c7fe8b1ac3945f6c40995094533e0b6c9893174ce70ab3b05462292609be9f19",
+        "embedding_data_ptr": 6229145616384,
+        "moment_sha256": "ed595f03e5013ba4709328120099e3ccb26880852a44fb5ae3d181c02fd544c9",
         "optimizer_steps": {
-          "blocks.0.attention.key.weight": 6,
-          "blocks.0.attention.key_scale": 6,
-          "blocks.0.attention.output.weight": 6,
-          "blocks.0.attention.query.weight": 6,
-          "blocks.0.attention.query_scale": 6,
-          "blocks.0.attention.value.weight": 6,
-          "blocks.0.attention_norm.weight": 6,
-          "blocks.0.down.weight": 6,
-          "blocks.0.ffn_norm.weight": 6,
-          "blocks.0.gate.weight": 6,
-          "blocks.0.up.weight": 6,
-          "blocks.1.attention.key.weight": 6,
-          "blocks.1.attention.key_scale": 6,
-          "blocks.1.attention.output.weight": 6,
-          "blocks.1.attention.query.weight": 6,
-          "blocks.1.attention.query_scale": 6,
-          "blocks.1.attention.value.weight": 6,
-          "blocks.1.attention_norm.weight": 6,
-          "blocks.1.down.weight": 6,
-          "blocks.1.ffn_norm.weight": 6,
-          "blocks.1.gate.weight": 6,
-          "blocks.1.up.weight": 6,
-          "embedding.weight": 6,
-          "final_norm.weight": 6
+          "blocks.0.attention.key.weight": 4,
+          "blocks.0.attention.key_scale": 4,
+          "blocks.0.attention.output.weight": 4,
+          "blocks.0.attention.query.weight": 4,
+          "blocks.0.attention.query_scale": 4,
+          "blocks.0.attention.value.weight": 4,
+          "blocks.0.attention_norm.weight": 4,
+          "blocks.0.down.weight": 4,
+          "blocks.0.ffn_norm.weight": 4,
+          "blocks.0.gate.weight": 4,
+          "blocks.0.up.weight": 4,
+          "blocks.1.attention.key.weight": 4,
+          "blocks.1.attention.key_scale": 4,
+          "blocks.1.attention.output.weight": 4,
+          "blocks.1.attention.query.weight": 4,
+          "blocks.1.attention.query_scale": 4,
+          "blocks.1.attention.value.weight": 4,
+          "blocks.1.attention_norm.weight": 4,
+          "blocks.1.down.weight": 4,
+          "blocks.1.ffn_norm.weight": 4,
+          "blocks.1.gate.weight": 4,
+          "blocks.1.up.weight": 4,
+          "embedding.weight": 4,
+          "final_norm.weight": 4
         },
-        "parameter_sha256": "639f32fad8d416a1a625f1d89e18138d4a8c6b82a3760c5987f74c325e1cb3ab"
+        "parameter_sha256": "013c2e2a063cbbda341b09ed4adb40736b769407071b81c9c3627363362162b6"
       },
       "before": {
-        "embedding_data_ptr": 4922603143168,
-        "moment_sha256": "ac822a8949bea3dba3f9ed653cf844c6ef738b3315a8000c1e84c9b03c6133f5",
+        "embedding_data_ptr": 6229145616384,
+        "moment_sha256": "52b3ce55c965bfa7d4d2aa7e23a0d010d7d00946a8eb58a93082ba9d0e76136c",
         "optimizer_steps": {
-          "blocks.0.attention.key.weight": 5,
-          "blocks.0.attention.key_scale": 5,
-          "blocks.0.attention.output.weight": 5,
-          "blocks.0.attention.query.weight": 5,
-          "blocks.0.attention.query_scale": 5,
-          "blocks.0.attention.value.weight": 5,
-          "blocks.0.attention_norm.weight": 5,
-          "blocks.0.down.weight": 5,
-          "blocks.0.ffn_norm.weight": 5,
-          "blocks.0.gate.weight": 5,
-          "blocks.0.up.weight": 5,
-          "blocks.1.attention.key.weight": 5,
-          "blocks.1.attention.key_scale": 5,
-          "blocks.1.attention.output.weight": 5,
-          "blocks.1.attention.query.weight": 5,
-          "blocks.1.attention.query_scale": 5,
-          "blocks.1.attention.value.weight": 5,
-          "blocks.1.attention_norm.weight": 5,
-          "blocks.1.down.weight": 5,
-          "blocks.1.ffn_norm.weight": 5,
-          "blocks.1.gate.weight": 5,
-          "blocks.1.up.weight": 5,
-          "embedding.weight": 5,
-          "final_norm.weight": 5
+          "blocks.0.attention.key.weight": 3,
+          "blocks.0.attention.key_scale": 3,
+          "blocks.0.attention.output.weight": 3,
+          "blocks.0.attention.query.weight": 3,
+          "blocks.0.attention.query_scale": 3,
+          "blocks.0.attention.value.weight": 3,
+          "blocks.0.attention_norm.weight": 3,
+          "blocks.0.down.weight": 3,
+          "blocks.0.ffn_norm.weight": 3,
+          "blocks.0.gate.weight": 3,
+          "blocks.0.up.weight": 3,
+          "blocks.1.attention.key.weight": 3,
+          "blocks.1.attention.key_scale": 3,
+          "blocks.1.attention.output.weight": 3,
+          "blocks.1.attention.query.weight": 3,
+          "blocks.1.attention.query_scale": 3,
+          "blocks.1.attention.value.weight": 3,
+          "blocks.1.attention_norm.weight": 3,
+          "blocks.1.down.weight": 3,
+          "blocks.1.ffn_norm.weight": 3,
+          "blocks.1.gate.weight": 3,
+          "blocks.1.up.weight": 3,
+          "embedding.weight": 3,
+          "final_norm.weight": 3
         },
-        "parameter_sha256": "b56f0ad8172b5401844d8bdb4444d67bb46d3711156e6b15bb4c9a26c666f952"
+        "parameter_sha256": "4c662d257f1834caffd6c72048fa736424d7f4b9cbfb0cb13b8949f950d4a1ac"
       },
       "consumed_real_tokens": 4096,
-      "grad_norm_post_clip": 0.9999982118606567,
-      "grad_norm_pre_clip": 1.080148696899414,
+      "grad_norm_post_clip": 0.48663023114204407,
+      "grad_norm_pre_clip": 0.4866302013397217,
       "learning_rate": 0.0003,
-      "loss": 10.057160377502441,
+      "loss": 10.081754684448242,
       "moments_changed": true,
       "parameter_sha256_changed": true,
       "rng_state_sha256": "89cce632b0cfcc4ac98f476d7812a51f9d83335d471ce4d0e7fa192922daaee4",
       "schedule_index": "pre-update cumulative real non-padding tokens",
       "schema": "anra-v5-production-backend-receipt/v1",
-      "sha256": "eb17e290a5dc68f964717eb70c67c36357e3bc30bcb3fff0e6c74b378e5295fd",
-      "supervised_tokens": 4091,
+      "sha256": "dfbf6008f365a42f9bbe68504e177985490470b5c4b42d107d1563b8e3097b07",
+      "supervised_tokens": 4092,
       "tied_preserved": true
     },
     "losses": [
-      10.090780258178711,
-      10.103020668029785,
-      10.075031280517578,
-      10.081591606140137,
-      10.072073936462402,
-      10.057160377502441
+      10.093484878540039,
+      10.102255821228027,
+      10.0814208984375,
+      10.081754684448242
     ],
-    "moment_sha256": "c7fe8b1ac3945f6c40995094533e0b6c9893174ce70ab3b05462292609be9f19",
-    "optimizer_step": 6,
-    "parameter_sha256": "639f32fad8d416a1a625f1d89e18138d4a8c6b82a3760c5987f74c325e1cb3ab"
+    "moment_sha256": "ed595f03e5013ba4709328120099e3ccb26880852a44fb5ae3d181c02fd544c9",
+    "optimizer_step": 4,
+    "parameter_sha256": "013c2e2a063cbbda341b09ed4adb40736b769407071b81c9c3627363362162b6"
   }
 }

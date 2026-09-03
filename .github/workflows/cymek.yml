@@ -1,0 +1,38 @@
+name: cymek V5 production contracts
+
+on:
+  push:
+    branches: [cymek]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  certify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install test dependencies
+        run: |
+          pip install numpy pytest tokenizers
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+      - name: Run unit tests
+        run: python -m pytest tests -q
+      - name: Enforce package boundaries
+        run: python -m v5_contracts.import_boundaries
+      - name: Reproduce 250M implementation contract
+        run: python -m v5_contracts.certify --output /tmp/implementation_contract.json
+      - name: Verify committed implementation receipt
+        run: cmp artifacts/v5/implementation_contract.json /tmp/implementation_contract.json
+      - name: Reproduce V5-A training specification
+        run: python -m v5_contracts.training_spec --output /tmp/training_spec_v1.json
+      - name: Verify V5-A training specification is immutable
+        run: cmp artifacts/v5/training_spec_v1.json /tmp/training_spec_v1.json
+      - name: Reproduce launch readiness receipt
+        run: python -m v5_contracts.launch_readiness --output /tmp/launch_readiness.json
+      - name: Verify launch readiness receipt is immutable
+        run: cmp artifacts/v5/launch_readiness.json /tmp/launch_readiness.json
