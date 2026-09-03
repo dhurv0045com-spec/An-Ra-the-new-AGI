@@ -446,9 +446,8 @@ def main():
     ap.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     ap.add_argument("--out", default="output/entity_value_factorial_dev.json")
     args = ap.parse_args()
-    ckpt = args.checkpoint
-    if not Path(ckpt).exists() and Path(LEGACY_CHECKPOINT).exists():
-        ckpt = LEGACY_CHECKPOINT
+    from checkpoint_identity import resolve_checkpoint  # strict: no silent fallback
+    ckpt = str(resolve_checkpoint(args.checkpoint))
     receipt = run(ckpt, args.seed, args.n, args.device)
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
