@@ -1,4 +1,11 @@
-# X FACTOR — Causal Cognitive Self-Modeling (canonical specification)
+# SYNTHETIC WORLD SPECIFICATION — Causal Cognitive Self-Modeling
+
+> **STATUS:** SYNTHETIC_MECHANISM_DEMONSTRATION. This spec describes the
+> deterministic toy world used to validate the software framework. It is NOT
+> the real-model causal specification. See REAL_MODEL_CAUSAL_SPEC.md for
+> the actual scientific protocol principles.
+
+# X FACTOR — Causal Cognitive Self-Modeling
 
 **Thesis.** A failed execution's observed state predicts which cognitive
 intervention repairs it, because failures carry low-rank latent causal

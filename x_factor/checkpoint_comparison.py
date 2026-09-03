@@ -1,4 +1,10 @@
-"""Checkpoint comparison: does training reduce the ROUTING GAP?
+"""HISTORICAL_TOOL — checkpoint comparison (software only).
+
+Do NOT use for mechanism claims. The "routing gap" concept is not established:
+target-fact duplication may work via recency/proximity/repetition, not routing.
+Future use: compare stronger developmental Cymek checkpoints.
+
+Original docstring:
 
 Runs the binding factorial on every available checkpoint and measures:
   - raw accuracy
@@ -124,9 +130,8 @@ def evaluate_checkpoint(label, path, *, legacy, device="cuda"):
     tasks = _tasks(SEED, N_TASKS)
 
     raw_correct = dup_correct = 0
-    routing_gaps = []
+    task_results = []
     raw_lps, dup_lps = [], []
-    min_assist = []
 
     for t in tasks:
         raw = _greedy(model, tok, t["prompt"], device)
@@ -137,11 +142,7 @@ def evaluate_checkpoint(label, path, *, legacy, device="cuda"):
         dup = _greedy(model, tok, dup_prompt, device)
         dup_ok = _strict(dup, t["gold"])
         dup_correct += int(dup_ok)
-
-        gap = int(dup_ok) - int(raw_ok)
-        routing_gaps.append(gap)
-        if not raw_ok:
-            min_assist.append(1 if dup_ok else 0)
+        task_results.append({"id": t["id"], "raw_ok": raw_ok, "dup_ok": dup_ok})
 
         raw_lps.append(_gold_lp(model, tok, t["prompt"], t["gold"], device))
         dup_lps.append(_gold_lp(model, tok, dup_prompt, t["gold"], device))
@@ -151,7 +152,8 @@ def evaluate_checkpoint(label, path, *, legacy, device="cuda"):
     dup_acc = dup_correct / n
     routing_gap = dup_acc - raw_acc
     lp_gain = (sum(dup_lps) - sum(raw_lps)) / n
-    unrepairable = sum(1 for g in routing_gaps if g <= 0 and not raw_correct) / n
+    # Per-task: raw_fail AND assisted_fail = unrepairable by duplication
+    unrepairable = sum(1 for r in task_results if not r["raw_ok"] and not r["dup_ok"]) / n
 
     del model
     import gc; gc.collect(); torch.cuda.empty_cache(); torch.cuda.synchronize()
@@ -162,12 +164,11 @@ def evaluate_checkpoint(label, path, *, legacy, device="cuda"):
         "parameter_sha256": param_sha,
         "raw_accuracy": round(raw_acc, 4),
         "duplication_accuracy": round(dup_acc, 4),
-        "routing_gap": round(routing_gap, 4),
+        "duplication_assistance_gap": round(routing_gap, 4),
         "mean_gold_lp_raw": round(sum(raw_lps)/n, 3),
         "mean_gold_lp_duplicated": round(sum(dup_lps)/n, 3),
         "lp_gain_from_duplication": round(lp_gain, 3),
         "failures_unrepairable_by_duplication": round(unrepairable, 4),
-        "n_unrepairable": int(unrepairable * n),
     }
 
 
@@ -200,12 +201,12 @@ def main():
             analysis[r["label"]] = {
                 "raw": r["raw_accuracy"],
                 "addressed": r["duplication_accuracy"],
-                "routing_gap": r["routing_gap"],
+                "duplication_assistance_gap": r["duplication_assistance_gap"],
                 "lp_gain": r["lp_gain_from_duplication"],
             }
         receipt["comparison"] = analysis
         # Routing gap trajectory
-        gaps = [(r["label"], r["routing_gap"]) for r in results]
+        gaps = [(r["label"], r["duplication_assistance_gap"]) for r in results]
         receipt["routing_gap_trajectory"] = gaps
 
     out = Path("output/checkpoint_comparison.json")

@@ -60,7 +60,7 @@ Causal decomposition on 61 real failures with orthogonal intervention axes:
 
 | Bottleneck | Evidence | Status |
 |---|---|---|
-| **Routing/Addressing** | +31pp from relevant-fact selection; +0.977 nats gold logprob | STRONG DEVELOPMENT CLUE — the selection intervention also removed distractors, shortened context, moved the fact, and explicitly selected it. Does NOT cleanly isolate addressing. |
+| **Relevant-fact selection** | +31pp repair; +0.977 nats gold logprob (mechanism not yet isolated) | STRONG DEVELOPMENT CLUE — the selection intervention also removed distractors, shortened context, moved the fact, and explicitly selected it. Does NOT cleanly isolate addressing. |
 | **Selection→Realization gap** | 87% copy → 31% generate | DEVELOPMENT observation, retained |
 | **Copy/Realization** | 86.89% — mostly intact | DEVELOPMENT observation, retained |
 
