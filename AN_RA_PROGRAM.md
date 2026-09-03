@@ -223,7 +223,8 @@ anra.run(task)                    ← the one reference loop
 | QV evidence matrix | latent query signal ~absent; E5-by-recency only | output/query_value_evidence_dev.json + _rep |
 | Checkpoint 22517→30400 | copy/readout grew, query control flat | output/query_value_ckpt22517.json |
 | E5 structural-OOD | FAILED: 0.0 vs 0.0, template-bound; E5 line closed | output/structural_ood_e5.json |
-| Readiness pilot 30400 | B3 ADEQUATE pocket; B0/B2 limited; gate READY-scoped-to-B3 | output/readiness_pilot_30400.json |
+| Readiness pilot 30400 (v1) | CALIBRATION_ONLY / GATE_V0_NOT_QUALIFIED: candidate B3 pocket at N=12 with B0 primitive failure, below-chance QV-lite and non-monotonic rungs (0/25/8.3/8.3%) — v1 READY verdict NOT scientifically accepted; kept as instrument-development evidence for why v2 exists | output/readiness_pilot_30400.json |
+| Readiness v2 | capability/identifiability/readiness split; Wilson CIs; chance-aware; calibrate-never-READY; canary/frontier/legal/diversity/X0-X1/power/fail-closed rules | x_factor/protocols/cognition_readiness_binding_v2.json |
 
 ## Substrate-Adequacy Audit (old V4 checkpoint; historical, not architectural)
 
@@ -240,11 +241,15 @@ anra.run(task)                    ← the one reference loop
 | ckpt-22517 QV | 0.9% | — | FLOOR_LIMITED |
 
 Instruments (no old-ckpt science claims attached):
-`x_factor/readiness/` (B0–B7 ladder, floor/ceiling auto-detect, McNemar
-power, gate runner), `x_factor/qualify_checkpoint.py` entry point,
-`x_factor/checkpoint_identity.py` (strict, no silent fallback),
-`x_factor/registry/checkpoints.json`, prediction/response schemas
-(SOFTWARE_DEMONSTRATED via 15 CPU CI tests, NOT MODEL_DEMONSTRATED).
+`x_factor/readiness/` (v2 status taxonomy, Wilson/chance reporting, frontier
+stability, P0–P4 canaries, legal-headroom/diversity/X0-X1/power/fail-closed
+rules; v1 runner frozen as history), `x_factor/qualify_checkpoint.py`
+(`--mode calibrate|qualify`, arch-profile adapter, research-subject lock,
+no-local-compute guard), `x_factor/checkpoint_identity.py` (strict, no
+silent fallback, UNSUPPORTED_ARCHITECTURE distinct from BAD_CHECKPOINT),
+`x_factor/registry/checkpoints.json` (v2 roles + research_subject lock),
+`x_factor/execution_policy.py`, prediction/response schemas
+(SOFTWARE_DESIGNED/IMPLEMENTED; v2 tests written but NOT EXECUTED this run).
 
 ## What's Next
 
