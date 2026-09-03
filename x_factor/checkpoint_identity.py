@@ -24,6 +24,43 @@ class CheckpointNotFound(FileNotFoundError):
     pass
 
 
+class UnsupportedArchitecture(ValueError):
+    """Config parses but matches no known An-Ra architecture profile.
+
+    Distinct from BAD_CHECKPOINT (corrupt/unreadable file): the file may be
+    perfectly valid, just not a Core this Triquetra instrument knows how to
+    load. Do NOT silently coerce it into a V4 loader.
+    """
+
+
+# Minimum clean extension point (Mission 22). New architectures add one entry
+# plus a loader branch in qualify_checkpoint; nothing else changes.
+ARCH_PROFILES = {
+    "anra_v4_rope_interleaved_v1": {
+        "label": "V4_180M",
+        "expect": {"vocab_size": 32768, "n_layers": 18, "d_model": 896},
+        "loader": "anra_core.model:AnRaCore",
+        "tokenizer": "anra_core.tokenizer:V4Tokenizer.load_canonical",
+    },
+}
+
+
+def match_architecture_profile(model_config: dict) -> dict:
+    """Return profile + mismatches, or raise UnsupportedArchitecture."""
+    ver = model_config.get("architecture_version")
+    prof = ARCH_PROFILES.get(ver or "")
+    if prof is None:
+        raise UnsupportedArchitecture(
+            f"UNSUPPORTED_ARCHITECTURE: version={ver!r} matches no known profile "
+            f"{sorted(ARCH_PROFILES)}. This is not a BAD_CHECKPOINT verdict.")
+    mism = {k: (model_config.get(k), v) for k, v in prof["expect"].items()
+            if model_config.get(k) != v}
+    if mism:
+        raise UnsupportedArchitecture(
+            f"UNSUPPORTED_ARCHITECTURE: profile {prof['label']} mismatch: {mism}.")
+    return {"profile": prof["label"], "version": ver}
+
+
 def resolve_checkpoint(path: str | Path) -> Path:
     """Return the path or raise. Never substitute another checkpoint."""
     p = Path(path)

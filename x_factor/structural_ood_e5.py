@@ -252,7 +252,8 @@ def main():
     ap.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     ap.add_argument("--out", default="output/structural_ood_e5.json")
     args = ap.parse_args()
-    receipt = run(args.checkpoint, args.seed, args.n, args.device)
+    from checkpoint_identity import resolve_checkpoint  # strict: no silent fallback
+    receipt = run(str(resolve_checkpoint(args.checkpoint)), args.seed, args.n, args.device)
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(receipt, indent=2), encoding="utf-8")
