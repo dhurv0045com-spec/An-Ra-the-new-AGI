@@ -51,6 +51,7 @@ SUBCOMMANDS: dict[str, tuple[str, str]] = {
     "p35-canary": ("v5_training.torch_canary", "run the bounded P35 update/resume canary"),
     "durability": ("v5_training.durability_canary", "run the local durability canary"),
     "target-preflight": ("v5_training.target_preflight", "probe the target TPU/XLA stack"),
+    "target-canary": ("v5_training.target_canary", "run the portable target-runtime canary"),
     "miniature": ("anra_v5.miniature_run", "run the end-to-end miniature through the production path"),
     "production-canary": ("v5_training.production_canary", "run the P35 canary through the production path"),
     "v5a-canary": ("v5_training.v5a_canary", "run the bounded V5-A canary"),
