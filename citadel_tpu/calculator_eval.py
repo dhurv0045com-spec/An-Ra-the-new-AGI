@@ -1,7 +1,7 @@
 """Generation-based calculator evaluator (T1 primary metric). No torch at import.
 
 Implements AMENDMENT_001 §§A3–A10: prompt/target split, strict integer
-normalization, static-shape greedy generation ([B=8, L=32], index scatter, one
+normalization, static-shape greedy generation ([B=8, L=64], index scatter, one
 compiled graph), stop rules, exact-match + Wilson reporting, mechanical
 heuristic nulls, prediction hashing, and the machine-readable data receipt.
 Torch/XLA enter only inside `generate()` via injected modules (same host/device
@@ -25,7 +25,11 @@ ENCODING_VERSION = "char-byte-offset/1.0"
 ALPHABET = "0123456789+-*/= \nabcdefghijklmnopqrstuvwxyz>"
 MAX_ANSWER_TOKENS = 8
 EVAL_BATCH = 8
-EVAL_LENGTH = 32
+# Training can stay at L=32 because every complete T1C row fits there.  Generation
+# needs extra room: a prompt can occupy almost the entire training row and still
+# needs MAX_ANSWER_TOKENS writable positions.  Keep one conservative static eval
+# shape so all template/range slices reuse the same XLA graph.
+EVAL_LENGTH = 64
 PAD_ID, UNK_ID, BOS_ID, EOS_ID = 0, 1, 2, 3
 NEWLINE_ID = (ord("\n") % 250) + 2  # 12
 
@@ -93,6 +97,35 @@ def split_prompt_target(row: str) -> tuple[str, str]:
     return left + "=", right.strip()
 
 
+def validate_generation_capacity(rows: list[str], *, length: int = EVAL_LENGTH) -> dict[str, int]:
+    """Fail before XLA execution if any prompt cannot fit prompt + generation headroom.
+
+    This is intentionally stronger than checking full training-row length.  T1C
+    originally checked only `row <= 32`, which missed word-template prompts such
+    as ``subtract 1353 from 1269 =``: the full supervised row fit L=32, while the
+    generation buffer still needed eight additional writable answer positions.
+    """
+    if length <= MAX_ANSWER_TOKENS:
+        raise ValueError(f"evaluation length {length} leaves no generation headroom")
+    max_prompt = 0
+    max_required = 0
+    for row in rows:
+        prompt, _ = split_prompt_target(row)
+        ids = encode(prompt)
+        if any(i in (PAD_ID, UNK_ID, BOS_ID, EOS_ID) for i in ids):
+            raise ValueError(f"prompt encodes to reserved id: {prompt!r}")
+        required = len(ids) + MAX_ANSWER_TOKENS
+        max_prompt = max(max_prompt, len(ids))
+        max_required = max(max_required, required)
+        if required > length:
+            raise ValueError(
+                f"prompt+generation exceeds fixed buffer: prompt_tokens={len(ids)} "
+                f"headroom={MAX_ANSWER_TOKENS} required={required} L={length}: {prompt!r}"
+            )
+    return {"max_prompt_tokens": max_prompt, "max_required_tokens": max_required,
+            "eval_length": length}
+
+
 def normalize_answer(s: str) -> int | None:
     """Frozen A4: strip, cut at newline, strict ^-?\\d+$ → int; else None.
 
@@ -120,7 +153,7 @@ def wilson(k: int, n: int, z: float = 1.96) -> tuple[float, float]:
     center = (p + z2 / (2.0 * n)) / denom
     half = z * math.sqrt(p * (1.0 - p) / n + z2 / (4.0 * n * n)) / denom
     lcb, ucb = max(0.0, center - half), min(1.0, center + half)
-    if k == 0:  # exact boundary values (float rounding would give 1-eps/eps)
+    if k == 0:
         lcb = 0.0
     if k == n:
         ucb = 1.0
@@ -170,12 +203,7 @@ def sample_records(records: list[dict[str, Any]], n: int, seed: int) -> list[dic
 
 def answer_token_ce(model: Any, rows: list[str], *, device: Any, xb: Any, torch_mod: Any,
                     batch: int = EVAL_BATCH, length: int = EVAL_LENGTH) -> dict[str, Any]:
-    """Teacher-forced NLL restricted to answer positions (prompt-vs-answer lens).
-
-    Whole-row CE conflates prompt reconstruction with answer prediction. A low
-    whole-row CE with high answer-CE means prompt/format modeling without rule
-    extraction — the key H2 discriminator. Eval-only host syncs (as generate).
-    """
+    """Teacher-forced NLL restricted to answer positions (prompt-vs-answer lens)."""
     import math as _math
 
     torch = torch_mod
@@ -187,12 +215,17 @@ def answer_token_ce(model: Any, rows: list[str], *, device: Any, xb: Any, torch_
         for s in range(0, len(rows), batch):
             chunk = rows[s:s + batch]
             full = [encode(r) for r in chunk]
+            for row, ids in zip(chunk, full):
+                if len(ids) > length:
+                    raise ValueError(
+                        f"teacher-forced eval row exceeds fixed buffer: tokens={len(ids)} L={length}: {row!r}"
+                    )
             plens = [len(encode(split_prompt_target(r)[0])) for r in chunk]
             buf = torch.full((len(chunk), length), PAD_ID, dtype=torch.long)
             for i, ids in enumerate(full):
                 buf[i, : len(ids)] = torch.tensor(ids, dtype=torch.long)
             seg = torch.zeros_like(buf)
-            positions, mask = packed_layout(seg, torch_module=torch)  # host (audit A8)
+            positions, mask = packed_layout(seg, torch_module=torch)
             logits = model(buf.to(device), positions.to(device), mask.to(device))
             xb.mark_step()
             logp = torch.nn.functional.log_softmax(logits.float(), dim=-1).to("cpu")
@@ -207,7 +240,6 @@ def answer_token_ce(model: Any, rows: list[str], *, device: Any, xb: Any, torch_
 
 
 def heuristic_nulls(rows: list[str], train_rows: list[str]) -> dict[str, list[str]]:
-    """Four mechanical nulls (§A9). Computed from data only, never from trained results."""
     parsed = [parse_row(r) for r in rows]
     train_targets = [parse_row(r)[3] for r in train_rows]
     common = Counter(train_targets).most_common(1)[0][0] if train_targets else "0"
@@ -220,7 +252,6 @@ def heuristic_nulls(rows: list[str], train_rows: list[str]) -> dict[str, list[st
 
 
 def strongest_null_accuracy(null_summaries: dict[str, dict[str, Any]]) -> tuple[str, float]:
-    """STRONGEST_HEURISTIC_NULL = max accuracy over the four nulls."""
     name, best = max(((k, v["accuracy"]) for k, v in null_summaries.items()),
                      key=lambda kv: kv[1])
     return name, best
@@ -233,7 +264,6 @@ def _comm_key(a: int, op: str, b: int) -> tuple:
 
 
 def split_overlap_report(splits: dict[str, list[str]]) -> dict[str, int]:
-    """Exact + commutative-key + triple overlap counts across named splits."""
     sets = {k: set(v) for k, v in splits.items()}
     keys = {k: {_comm_key(*parse_row(r)[:3]) for r in v} for k, v in splits.items()}
     names = sorted(splits)
@@ -255,10 +285,9 @@ def _code_hash() -> str:
 
 
 def build_data_receipt(*, out: str | None = None) -> dict[str, Any]:
-    """Machine-readable canary data receipt (§A8). Deterministic; no torch."""
     from citadel_tpu import calculator_data as calc
 
-    splits = {s: calc.generate(split=s) for s in ("train", "development", "test")}  # type: ignore[arg-type]
+    splits = {s: calc.generate(split=s) for s in ("train", "development", "test")}
     slices = calc.generalization_slices()
     test_set = set(splits["test"])
     scored_slices = {k: [r for r in v if r not in test_set] for k, v in slices.items()}
@@ -294,24 +323,14 @@ def build_data_receipt(*, out: str | None = None) -> dict[str, Any]:
 
 def generate(rows: list[str], model: Any, xb: Any, *, device: Any, torch_mod: Any,
              batch: int = EVAL_BATCH, length: int = EVAL_LENGTH) -> list[dict[str, Any]]:
-    """Static-shape greedy generation (§A5). Host/device split mirrors T0.
-
-    Fixed [batch, length] every step; per-row cursors advance via index scatter
-    (one compiled graph). Per-step host sync (.tolist) is intentional and
-    eval-only — never inside a training update. Caller ensures the Cymek
-    runtime is importable (runtime_bootstrap) before calling.
-    """
+    """Static-shape greedy generation (§A5). Host/device split mirrors T0."""
     torch = torch_mod
     from v5_model.core import packed_layout
 
+    validate_generation_capacity(rows, length=length)
     prompts = [split_prompt_target(r)[0] for r in rows]
     targets = [split_prompt_target(r)[1] for r in rows]
     encoded = [encode(p) for p in prompts]
-    for p, ids in zip(prompts, encoded):
-        if any(i in (PAD_ID, UNK_ID, BOS_ID, EOS_ID) for i in ids):
-            raise ValueError(f"prompt encodes to reserved id: {p!r}")
-        if len(ids) > length - MAX_ANSWER_TOKENS:
-            raise ValueError(f"prompt too long for fixed buffer: {p!r}")
     records: list[dict[str, Any]] = []
     arange_b = torch.arange(batch, device=device)
     for start in range(0, len(rows), batch):
@@ -323,7 +342,7 @@ def generate(rows: list[str], model: Any, xb: Any, *, device: Any, torch_mod: An
         plen = torch.tensor([len(encoded[i]) for i in chunk] + [0] * (batch - nb),
                             dtype=torch.long)
         seg = torch.zeros((batch, length), dtype=torch.long)
-        positions, mask = packed_layout(seg, torch_module=torch)  # host tensors (audit A8)
+        positions, mask = packed_layout(seg, torch_module=torch)
         buf_d, pos_d, mask_d = buf.to(device), positions.to(device), mask.to(device)
         cursor = plen.clone()
         done = [False] * batch
@@ -377,7 +396,6 @@ def generate(rows: list[str], model: Any, xb: Any, *, device: Any, torch_mod: An
 
 
 def selftest() -> None:
-    """Torch-free validation suite (used by unit tests + calculator_preflight)."""
     for c in ALPHABET:
         assert roundtrip_ok(c), f"round-trip failed for {c!r}"
     assert roundtrip_ok("72 / 8 = 9") and roundtrip_ok("18 - 7 = 11")
@@ -389,6 +407,15 @@ def selftest() -> None:
     assert normalize_answer("12 because") is None
     assert normalize_answer("3+4") is None
     assert normalize_answer("1 2") is None
+    # Regression for the exact Colab T1C failure: this word prompt needs 25+8
+    # positions and therefore cannot use the training L=32 buffer.
+    cap = validate_generation_capacity(["subtract 1353 from 1269 = -84"])
+    assert cap["max_prompt_tokens"] == 25 and cap["max_required_tokens"] == 33
+    try:
+        validate_generation_capacity(["subtract 1353 from 1269 = -84"], length=32)
+        raise AssertionError("generation capacity validator accepted insufficient L=32")
+    except ValueError:
+        pass
     lcb, ucb = wilson(0, 10)
     assert lcb == 0.0 and 0.0 < ucb <= 1.0
     lcb, ucb = wilson(10, 10)
@@ -397,7 +424,7 @@ def selftest() -> None:
     assert lcb < 0.5 < ucb and (ucb - lcb) < 0.25
     _, ucb10 = wilson(6, 10)
     _, ucb100 = wilson(60, 100)
-    assert (ucb100 - 0.6) < (ucb10 - 0.6)  # interval narrows with n
+    assert (ucb100 - 0.6) < (ucb10 - 0.6)
     assert wilson(0, 0) == (0.0, 0.0)
     try:
         wilson(11, 10)
@@ -465,5 +492,6 @@ __all__ = [
     "stop_histogram",
     "strongest_null_accuracy",
     "summarize",
+    "validate_generation_capacity",
     "wilson",
 ]
