@@ -81,8 +81,8 @@ def _hardware_type() -> str:
 
 def assert_tpu_active(*, min_devices: int = 1) -> int:
     """Verify XLA TPU devices are actually active. Returns device count."""
-    n = _runtime_world_size()
-    hw = _hardware_type()
+    n = world_size()
+    hw = device_hardware()
     if n < min_devices or "TPU" not in str(hw).upper():
         raise RuntimeError(f"ABORT_NO_TPU: hw={hw} devices={n}; refusing CPU fallback.")
     return n
@@ -107,13 +107,16 @@ def mark_step() -> None:
 
 
 def optimizer_step(optimizer: Any) -> None:
-    """Single XLA-safe optimizer step."""
+    """Single XLA-safe optimizer step; fail-closed if the API is absent."""
     xm = require_xla()
     fn = getattr(xm, "optimizer_step", None)
     if callable(fn):
         fn(optimizer)
         return
-    optimizer.step()
+    raise RuntimeError(
+        "UNSUPPORTED_OPERATION: torch-xla exposes no optimizer_step(); "
+        "refusing a silent plain-optimizer fallback on XLA."
+    )
 
 
 def to_xla(tensor: Any, device: Any = None):
@@ -124,11 +127,6 @@ def barrier(tag: str = "citadel-tpu-barrier") -> None:
     """Cross-replica rendezvous for the multi-device path (no-op on 1 device)."""
     if _runtime_world_size() <= 1:
         return
-    xm = require_xla()
-    fn = getattr(xm, "rendezvous", None)
-    if callable(fn):
-        fn(tag)
-        return
     try:
         import torch_xla.runtime as xr
         fn = getattr(xr, "rendezvous", None)
@@ -137,15 +135,38 @@ def barrier(tag: str = "citadel-tpu-barrier") -> None:
             return
     except Exception:
         pass
+    xm = require_xla()
+    fn = getattr(xm, "rendezvous", None)
+    if callable(fn):
+        fn(tag)
+        return
     raise RuntimeError("multi-device XLA runtime exposes no rendezvous API")
+
+
+def get_device(*, index: int = 0):
+    """Stable helper: prefer torch_xla.device(), legacy fallback only if needed."""
+    return xla_device(index=index)
+
+
+def world_size() -> int:
+    """Stable helper: PJRT world size, legacy fallback only if needed."""
+    return _runtime_world_size()
+
+
+def device_hardware() -> str:
+    """Stable helper: TPU/CPU/GPU kind actually active (never the torch build tag)."""
+    return _hardware_type()
 
 
 __all__ = [
     "assert_tpu_active",
     "barrier",
+    "device_hardware",
+    "get_device",
     "mark_step",
     "optimizer_step",
     "require_xla",
     "to_xla",
+    "world_size",
     "xla_device",
 ]
