@@ -15,48 +15,65 @@
 
 ## STATUS
 
-Citadel SHA: `74787c4` (local; to be pushed this cycle)
+Citadel SHA: `2a123f2` (pushed hotfix cycle; branch tip advances once this handover commits)
 Pinned Cymek runtime SHA: `298c91ac04f756f0833a7edcf63e73af3d5af688` (unchanged)
 
-Debug sweep this cycle found and fixed 3 real defects before any operator run:
-(1) feed double-multiplication (update·batch² stride with early wrap,
-contradicting the no-wrap assert and the memorization lens) → row-cursor feeds
-with a regression test; run_arm now routes through the tested module feeds.
-(2) Train mult/div families collapsed (min-clustering + tiny ranges → ~40×
-duplication) → caps match split magnitude. (3) TEST-COMPOSITION overlapped
-train mult range (3 exact + 17 key collisions measured) → redefined as
-words×shifted-range composition probe. Full 6.5M-row manifest re-verified:
-108.9 MB, max row 32 chars, dup rate 0.43%, leakage zero except the single
-designed core×template pair. 16/16 tests green.
+T1C operator run reached the real Colab TPU and successfully reused calibration
+(shape 256×32, measured 3867 tok/s; preregistered auto-scale correctly halved
+budgets) plus the 108.9 MB data manifest, then failed before training arm A.
+Observed error: `prompt too long for fixed buffer: 'subtract 1353 from 1269 ='`;
+arm A and B both hit the same deterministic evaluator defect and the session
+correctly aborted on the second infrastructure failure. This is NOT a T1C
+scientific result and creates no PASS/FAIL claim for any arm.
+
+Root cause: evaluator used the training static length L=32 for greedy generation.
+The full supervised row fit L=32, but a 25-token word-template prompt still
+needs MAX_ANSWER_TOKENS=8 writable positions (required=33). The old manifest
+`max_row_chars <= 32` invariant was therefore insufficient for generation.
+
+Hotfixes pushed:
+1. `calculator_eval.py`: dedicated static eval shape raised to L=64; new
+   `validate_generation_capacity()` checks prompt + full generation headroom
+   before XLA; teacher-forced answer CE now has an explicit row-length guard;
+   exact failing prompt is a selftest regression and L=32 is asserted to fail.
+2. `t1c_preflight.py`: now materializes/scans the complete DEV + all TEST slices
+   (152,500 rows), runs evaluator selftests, validates every prompt against the
+   fixed generation buffer, records max prompt / required headroom / full-row
+   geometry, and removes the duplicate import. The same class of defect should
+   now stop at preflight before any arm or TEST execution.
+
+No T0-critical semantics, model architecture, optimizer, T1C arm definitions,
+data splits, success gates, or scientific thresholds changed. T1C
+preregistration remains applicable; this is an implementation-only repair.
 
 ## T0 / T1 (history)
 
 ```text
-T0: PASS (unchanged, still applicable — no T0-critical semantics touched)
-T1: FAIL (loss-learned, exact-flat; correct H2-direction reading stands)
+T0: PASS (unchanged)
+T1: FAIL (loss-learned, exact-flat; historical result unchanged)
 ```
 
 ## T1B
 
 ```text
-SUPERSEDED_BY_T1C (preserved, unexecuted — T1C answers with cleaner contrasts)
+SUPERSEDED_BY_T1C (preserved, unexecuted)
 ```
 
 ## T1C
 
 ```text
-READY_FOR_OPERATOR_RUN
+READY_FOR_OPERATOR_RERUN_AFTER_HOTFIX
 ```
 
-Arms A (control) / B (answer-objective) / C (narrow-data) / D (MID scale),
-8M cap tokens each, Q1–Q4 contrasts preregistered, TEST-family 32 new frozen
-observations total (all reported), repetition disclosed, ceiling <2 TPU-h.
+The failed A/B attempts did not produce scientific arm receipts/markers before
+the exception. Existing Colab session calibration and data manifest are safe to
+reuse; arm execution should restart from A after code refresh.
 
 ## DOWNLOADS
 
 ```text
 ITEM | SOURCE/PURPOSE | BYTES | CUMULATIVE BYTES
-(none — no pip installs, no datasets, no checkpoints, no artifacts)
+(none)
 TOTAL_DOWNLOADED_GB = 0.0
 ```
 
@@ -68,30 +85,19 @@ NONE
 
 ## BIGGEST BLOCKER
 
-Need operator to execute the preregistered T1C session (the discriminator for
-H_FORMAT / H_OBJECTIVE / H_DATA / H_BUDGET / H_SCALE / H_ARCH).
+Need operator to refresh the Citadel checkout/module cache and rerun T1C from
+preflight; only real TPU execution can reveal further hardware/compiler issues.
 
 ## NEXT ACTION
 
-Run `notebooks/citadel_colab_t1c.ipynb` end-to-end once and return the result bundle.
+In the existing Colab TPU runtime: restart the Python session (do NOT delete the
+runtime/disk), rerun notebook Cell 0, verify Citadel SHA is this hotfix tip or
+newer, rerun Cell A and require READY_FOR_T1C=YES, then run Cell D. Calibration
+and DATA_MANIFEST may be reused. Finish E/F and return CITADEL_T1C_RESULTS.zip.
 
-## Validation this cycle (local, 0 downloads)
-
-14/14 unit tests (T1 6/6 incl. notebook references; T1C 8/8 incl. Decimal
-Wilson cross-check, eval-slice leakage zeros, every classifier rule, MID
-structural rules); MID receipt 3,737,472 verified against real Cymek
-contracts; t1c_preflight all-green except hardware gate (correct NO);
-compileall clean; fail-closed intact; generator 200k rows/2.4s (5M ≈ 60 s).
-
-## Commit log (latest first, citadel only)
+## Latest hotfix commits
 
 ```text
-74787c4 fix(citadel): close feed stride gap, mult-div collapse, composition leakage
-c7e1296 docs(citadel): update T1C turnkey handover
-168be62 feat(citadel): add T1C session notebook
-d850d2b test(citadel): T1C preflight and unit tests
-0d1676a feat(citadel): extend evaluator for arrow and letter rows
-731b5bc feat(citadel): add T1C arm runner with scale and objective contrasts
-36da48d feat(citadel): add indexed arithmetic corpus generator
-4bc9afd research(citadel): preregister T1C batched discriminator
+2a123f2 test(citadel): preflight all T1C eval buffer invariants
+3ee6597 fix(citadel): give T1C generation safe fixed-buffer headroom
 ```
