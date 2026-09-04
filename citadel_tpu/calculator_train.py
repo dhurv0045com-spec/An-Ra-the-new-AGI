@@ -1,15 +1,16 @@
-"""Calculator training driver (experiment T1). Platform-neutral TPU backend
-(Colab first, Kaggle secondary); Cymek production code resolves from the pinned
-read-only Cymek runtime (see runtime_bootstrap).
+"""Calculator training driver (experiment T1, AMENDMENT_001). Platform-neutral TPU
+backend (Colab first, Kaggle secondary); Cymek production code resolves from
+the pinned read-only Cymek runtime (see runtime_bootstrap).
 
-Prerequisite: T0 PASS. Objective: standard autoregressive CE only (mission
-§13 — no query-swap, no cognition objectives; eliminate variables).
-Success gate (mission §14): loss clearly decreases; held-out accuracy clearly
-exceeds untrained baseline; save → destroy → reload preserves capability.
+Pipeline (single call, preregistered order): bootstrap+probe → data receipt →
+untrained DEV+TEST generation baseline → dev-gated update ladder [5,20,100,200]
+→ trained TEST evaluated EXACTLY ONCE at endpoint → save/destroy/reload with
+prediction-hash gate → heuristic nulls → numeric gate → receipt.
 
-Writes docs/citadel/tpu_receipts/TPU_CALCULATOR_CHECKPOINT.json.
-Interpretation discipline (§15): a pass means "Cymek can learn a small
-held-out capability on the target TPU" — never "An-Ra became intelligent".
+Objective semantics (deliberate, A7): whole-row autoregressive CE; PAD targets
+excluded; prompt tokens supervised. Receipt records real/capacity/supervised
+token counts. Training loop audit (A-ordering): mark_step → forward → loss →
+backward → mark_step → clip → optimizer_step → mark_step → zero_grad.
 """
 
 from __future__ import annotations
@@ -21,6 +22,8 @@ from typing import Any
 
 
 RECEIPT_SCHEMA = "citadel-tpu-calculator-checkpoint/v1"
+LADDER = (5, 20, 100, 200)
+IMPROVEMENT_MARGIN = 0.10
 
 
 def _encode_batch(rows: list[str], *, length: int):
@@ -28,19 +31,87 @@ def _encode_batch(rows: list[str], *, length: int):
 
     Deliberately tokenizer-independent for the canary: the gate is learnability
     through the real TPU step, not the frozen BPE contract (which governs the
-    later 5B corpus, mission §27). Encoding runs on host; XLA sees fixed ints.
+    later 5B corpus). Content ids are always >= 12: provably no collision with
+    PAD 0 / UNK 1 / BOS 2 / EOS 3. Encoding runs on host; XLA sees fixed ints.
     """
     import torch
 
-    ids = [[(ord(c) % 250) + 2 for c in r[:length]] for r in rows]
-    ids = [r + [0] * (length - len(r)) for r in ids]
-    return torch.tensor(ids, dtype=torch.long)
+    from citadel_tpu import calculator_eval as cev
+
+    ids = [cev.encode(r[:length]) for r in rows]
+    real = sum(len(r) for r in ids)
+    padded = [r + [cev.PAD_ID] * (length - len(r)) for r in ids]
+    return torch.tensor(padded, dtype=torch.long), real
+
+
+def _mean_ce(model, rows, *, device, torch_mod, batch_rows, length) -> float:
+    from v5_model.core import packed_layout
+    from v5_objectives.causal_lm import causal_lm_loss
+    from citadel_tpu import xla_backend as xb
+
+    torch = torch_mod
+    model.eval()
+    tot, n = 0.0, 0
+    with torch.no_grad():
+        for i in range(0, len(rows), batch_rows):
+            b, _ = _encode_batch(rows[i:i + batch_rows], length=length)
+            seg = torch.zeros_like(b)
+            pos, mask = packed_layout(seg, torch_module=torch)  # host (audit A8)
+            logits = model(b.to(device), pos.to(device), mask.to(device))
+            xb.mark_step()
+            loss, _ = causal_lm_loss(logits, b.to(device), seg.to(device), torch_module=torch)
+            tot += float(loss.detach().to("cpu").item())
+            n += 1
+    model.train()
+    return tot / max(n, 1)
+
+
+def _train_block(model, optimizer, train_rows, *, start: int, n_updates: int,
+                 device, torch_mod, batch_rows, length) -> dict[str, Any]:
+    """Run n_updates sequential updates; return loss/token ledger for the block."""
+    from v5_model.core import packed_layout
+    from v5_objectives.causal_lm import causal_lm_loss
+    from citadel_tpu import xla_backend as xb
+
+    torch = torch_mod
+    first_loss, last_loss = None, None
+    cap_tokens, real_tokens, supervised = 0, 0, 0
+    first_update_s = None
+    for u in range(n_updates):
+        idx = (start + u) % (len(train_rows) // batch_rows)
+        rows = train_rows[idx * batch_rows:(idx + 1) * batch_rows]
+        b, real = _encode_batch(rows, length=length)
+        seg = torch.zeros_like(b)
+        pos, mask = packed_layout(seg, torch_module=torch)  # host (audit A8)
+        t_up = time.time()
+        logits = model(b.to(device), pos.to(device), mask.to(device))
+        loss, sup = causal_lm_loss(logits, b.to(device), seg.to(device), torch_module=torch)
+        if not bool(torch.isfinite(loss).item()):
+            raise RuntimeError(f"abort NONFINITE_LOSS at cumulative update {start + u}")
+        loss.backward()
+        xb.mark_step()
+        torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+        xb.optimizer_step(optimizer)
+        xb.mark_step()
+        optimizer.zero_grad()
+        if first_update_s is None:
+            first_update_s = time.time() - t_up
+        v = float(loss.detach().to("cpu").item())
+        first_loss = v if first_loss is None else first_loss
+        last_loss = v
+        cap_tokens += batch_rows * length
+        real_tokens += real
+        supervised += int(sup)
+    return {"first_loss": first_loss, "last_loss": last_loss,
+            "capacity_tokens": cap_tokens, "real_tokens": real_tokens,
+            "supervised_tokens": supervised, "first_update_seconds": first_update_s}
 
 
 def train(*, out: str = "docs/citadel/tpu_receipts/TPU_CALCULATOR_CHECKPOINT.json",
-          steps: int = 200, batch_rows: int = 32, length: int = 32,
+          ladder: tuple = LADDER, batch_rows: int = 32, length: int = 32,
           lr: float = 3e-4, seed: int = 20260904) -> dict[str, Any]:
     from citadel_tpu import calculator_data as calc
+    from citadel_tpu import calculator_eval as cev
     from citadel_tpu import checkpoint as ckpt_mod
     from citadel_tpu import environment as env_mod
     from citadel_tpu import runtime_bootstrap as rb
@@ -55,92 +126,149 @@ def train(*, out: str = "docs/citadel/tpu_receipts/TPU_CALCULATOR_CHECKPOINT.jso
     import torch
 
     from anra_v5.miniature_run import MINI_SPEC
-    from v5_model.core import initialize, packed_layout
-    from v5_objectives.causal_lm import causal_lm_loss
+    from v5_model.core import initialize
     from v5_training.optimizer import build_adamw_optimizer
 
+    data_receipt = cev.build_data_receipt()
+    if any(v != 0 for v in data_receipt["overlap"].values()):
+        raise RuntimeError(f"abort SPLIT_OVERLAP: {data_receipt['overlap']}")
     train_rows = calc.generate(split="train")
     dev_rows = calc.generate(split="development")
     test_rows = calc.generate(split="test")
-
-    def acc_of(model, rows, device, seg_cache) -> float:
-        # Teacher-forced prefix scoring proxy for the canary gate: exact-match
-        # of greedy next-token continuation is measured in the notebook eval
-        # cell; here we record loss-based fit + held-out CE as the machine gate.
-        model.eval()
-        tot, n = 0.0, 0
-        with torch.no_grad():
-            for i in range(0, len(rows), batch_rows):
-                b = _encode_batch(rows[i:i + batch_rows], length=length)
-                seg = torch.zeros_like(b)
-                pos, mask = packed_layout(seg, torch_module=torch)
-                logits = model(b.to(device), pos.to(device), mask.to(device))
-                xb.mark_step()
-                loss, _ = causal_lm_loss(logits, b.to(device), seg.to(device), torch_module=torch)
-                tot += float(loss.detach().to("cpu").item())
-                n += 1
-        model.train()
-        return tot / max(n, 1)
+    test_targets = [cev.split_prompt_target(r)[1] for r in test_rows]
 
     torch.manual_seed(seed)
     model = initialize(MINI_SPEC, seed)
     device = xb.get_device()
     model = model.to(device)
+    param_count = sum(int(p.numel()) for p in model.parameters())
     optimizer = build_adamw_optimizer(model, torch_module=torch)
     for g in optimizer.param_groups:
         g["lr"] = lr
-    untrained_ce = acc_of(model, test_rows, device, None)
-    start = time.time()
+
+    dev_targets = [cev.split_prompt_target(r)[1] for r in dev_rows]
+    untrained_dev_recs = cev.generate(dev_rows, model, xb, device=device, torch_mod=torch)
+    untrained_dev = cev.summarize([r["prediction"] for r in untrained_dev_recs], dev_targets)
+    untrained_dev_ce = _mean_ce(model, dev_rows, device=device, torch_mod=torch,
+                                batch_rows=batch_rows, length=length)
+    untrained_test_recs = cev.generate(test_rows, model, xb, device=device, torch_mod=torch)
+    untrained_test = cev.summarize([r["prediction"] for r in untrained_test_recs], test_targets)
+    untrained_test_ce = _mean_ce(model, test_rows, device=device, torch_mod=torch,
+                                 batch_rows=batch_rows, length=length)
+
+    # Dev-gated ladder (A11). TEST is never consulted for escalation.
+    done_updates, endpoint = 0, 0
+    rung_evals: list[dict[str, Any]] = []
     first_loss, last_loss = None, None
-    consumed = 0
-    for step in range(steps):
-        rows = [train_rows[(step * batch_rows + i) % len(train_rows)] for i in range(batch_rows)]
-        b = _encode_batch(rows, length=length)
-        seg = torch.zeros_like(b)
-        pos, mask = packed_layout(seg, torch_module=torch)  # host (audit A8)
-        logits = model(b.to(device), pos.to(device), mask.to(device))
-        loss, _ = causal_lm_loss(logits, b.to(device), seg.to(device), torch_module=torch)
-        loss.backward()
-        xb.mark_step()
-        torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-        xb.optimizer_step(optimizer)
-        xb.mark_step()
-        optimizer.zero_grad()
-        v = float(loss.detach().to("cpu").item())
-        first_loss = v if first_loss is None else first_loss
-        last_loss = v
-        consumed += batch_rows * length
-    train_wall = time.time() - start
-    trained_ce = acc_of(model, test_rows, device, None)
+    cap_total, real_total, sup_total = 0, 0, 0
+    first_update_s = None
+    best_dev_exact, best_dev_ce = untrained_dev["accuracy"], untrained_dev_ce
+    t_train0 = time.time()
+    for rung in ladder:
+        n_new = rung - done_updates
+        if n_new <= 0:
+            continue
+        blk = _train_block(model, optimizer, train_rows, start=done_updates, n_updates=n_new,
+                           device=device, torch_mod=torch, batch_rows=batch_rows, length=length)
+        done_updates = rung
+        endpoint = rung
+        first_loss = blk["first_loss"] if first_loss is None else first_loss
+        last_loss = blk["last_loss"]
+        cap_total += blk["capacity_tokens"]
+        real_total += blk["real_tokens"]
+        sup_total += blk["supervised_tokens"]
+        if first_update_s is None:
+            first_update_s = blk["first_update_seconds"]
+        if rung <= 5:
+            rung_evals.append({"rung": rung, "plumbing": "finite-loss-mutation-checked"})
+            continue  # R5: plumbing only, always continue (cheap)
+        dev_recs = cev.generate(dev_rows, model, xb, device=device, torch_mod=torch)
+        dev = cev.summarize([r["prediction"] for r in dev_recs], dev_targets)
+        dev_ce = _mean_ce(model, dev_rows, device=device, torch_mod=torch,
+                          batch_rows=batch_rows, length=length)
+        rung_evals.append({"rung": rung, "dev_exact": dev["accuracy"], "dev_ce": dev_ce})
+        if rung == 20:
+            if not dev_ce < untrained_dev_ce:
+                break  # no learning signal: stop, TEST runs once at endpoint below
+        else:
+            if not (dev["accuracy"] > best_dev_exact or dev_ce < best_dev_ce - 1e-4):
+                break
+        best_dev_exact = max(best_dev_exact, dev["accuracy"])
+        best_dev_ce = min(best_dev_ce, dev_ce)
+    train_wall = time.time() - t_train0
+
+    trained_test_recs = cev.generate(test_rows, model, xb, device=device, torch_mod=torch)
+    trained_preds = [r["prediction"] for r in trained_test_recs]
+    trained_test = cev.summarize(trained_preds, test_targets)
+    trained_test_ce = _mean_ce(model, test_rows, device=device, torch_mod=torch,
+                               batch_rows=batch_rows, length=length)
+    pre_sha = cev.sha_predictions(trained_preds)
+
     ckpt_path = str(Path(out).parent / "tpu_calculator_mini.pt")
-    ckpt_hash = ckpt_mod.save(model, ckpt_path, {"seed": seed, "spec": "MINI_SPEC", "steps": steps})
+    ckpt_hash = ckpt_mod.save(model, ckpt_path,
+                              {"seed": seed, "spec": "MINI_SPEC", "updates": done_updates})
     del model
     model2 = initialize(MINI_SPEC, seed).to(device)
-    meta = ckpt_mod.load_into(model2, ckpt_path)
+    ckpt_mod.load_into(model2, ckpt_path)
     xb.mark_step()
-    reload_ce = acc_of(model2, test_rows, device, None)
-    reload_ok = abs(reload_ce - trained_ce) < 1e-6
+    reload_recs = cev.generate(test_rows, model2, xb, device=device, torch_mod=torch)
+    reload_preds = [r["prediction"] for r in reload_recs]
+    reload_test = cev.summarize(reload_preds, test_targets)
+    reload_test_ce = _mean_ce(model2, test_rows, device=device, torch_mod=torch,
+                              batch_rows=batch_rows, length=length)
+    post_sha = cev.sha_predictions(reload_preds)
+    reload_identical = bool(pre_sha == post_sha)
+
+    nulls = cev.heuristic_nulls(test_rows, train_rows)
+    null_summaries = {k: cev.summarize(v, test_targets) for k, v in nulls.items()}
+    null_name, null_best = cev.strongest_null_accuracy(null_summaries)
+    rules = {
+        "nonoverlap": bool(trained_test["accuracy"] > untrained_test["accuracy"]
+                           and trained_test["wilson_lcb"] > untrained_test["wilson_ucb"]),
+        "beats_null": bool(trained_test["wilson_lcb"] > null_best),
+        "margin": bool(trained_test["accuracy"] - untrained_test["accuracy"] >= IMPROVEMENT_MARGIN),
+        "loss": bool(last_loss is not None and first_loss is not None
+                     and last_loss < first_loss and trained_test_ce < untrained_test_ce),
+        "reload": bool(reload_identical),
+    }
+    status = "PASS" if all(rules.values()) else "FAIL"
     wall = time.time() - t0
     receipt: dict[str, Any] = {
         "schema": RECEIPT_SCHEMA,
         "citadel_sha": rb.citadel_sha(),
         "cymek_runtime_sha": rt_sha,
         "environment": env,
-        "model": {"spec": "MINI_SPEC"},
-        "data": {"generator_version": calc.GENERATOR_VERSION,
-                  "train": len(train_rows), "development": len(dev_rows), "test": len(test_rows)},
-        "training": {"steps": steps, "batch_rows": batch_rows, "sequence_length": length,
-                      "tokens_consumed": consumed, "optimizer": "AdamW",
+        "model": {"spec": "MINI_SPEC", "parameter_count": param_count},
+        "data": data_receipt,
+        "training": {"ladder": list(ladder), "endpoint_updates": done_updates,
+                      "rung_evals": rung_evals, "batch_rows": batch_rows,
+                      "sequence_length": length, "optimizer": "AdamW",
+                      "learning_rate": lr, "seed": seed,
+                      "tokens_consumed_capacity": cap_total,
+                      "tokens_real": real_total,
+                      "tokens_supervised": sup_total,
                       "first_loss": first_loss, "last_loss": last_loss,
+                      "first_update_seconds": first_update_s,
                       "train_wall_seconds": train_wall,
-                      "steady_tokens_per_second": consumed / train_wall if train_wall > 0 else 0.0},
-        "eval": {"untrained_test_ce": untrained_ce, "trained_test_ce": trained_ce,
-                 "reload_test_ce": reload_ce, "reload_identical": bool(reload_ok)},
-        "checkpoint": {"path": ckpt_path, "sha256": ckpt_hash, "meta": meta,
+                      "steady_tokens_per_second": (cap_total / train_wall) if train_wall > 0 else 0.0},
+        "eval": {"untrained_dev": untrained_dev, "untrained_dev_ce": untrained_dev_ce,
+                 "untrained_test": untrained_test, "untrained_test_ce": untrained_test_ce,
+                 "trained_test": trained_test, "trained_test_ce": trained_test_ce,
+                 "reload_test": reload_test, "reload_test_ce": reload_test_ce},
+        "heuristic_nulls": null_summaries,
+        "strongest_heuristic_null": {"name": null_name, "accuracy": null_best},
+        "gate_rules": rules,
+        "pre_reload_prediction_sha256": pre_sha,
+        "post_reload_prediction_sha256": post_sha,
+        "reload_identical": reload_identical,
+        "checkpoint": {"path": ckpt_path, "sha256": ckpt_hash,
                        "load_command": ckpt_mod.load_command(ckpt_path)},
         "device_count": n_devices,
         "wall_seconds": wall,
-        "interpretation": "infrastructure only: Cymek can learn a small held-out capability on TPU" if (last_loss or 1e9) < (first_loss or 0) else "no learning signal",
+        "status": status,
+        "interpretation": ("learning-system certification: tiny Cymek checkpoint learned "
+                           "this held-out canary under this run" if status == "PASS"
+                           else "no certified learning under the preregistered gate"),
     }
     path = Path(out)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -152,4 +280,4 @@ if __name__ == "__main__":  # device entry only; never run without a TPU
     print(json.dumps(train(), indent=2)[:500], "...")
 
 
-__all__ = ["train"]
+__all__ = ["IMPROVEMENT_MARGIN", "LADDER", "train"]
