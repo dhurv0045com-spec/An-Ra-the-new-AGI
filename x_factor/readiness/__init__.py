@@ -33,7 +33,12 @@ from .readiness_v2 import (
     x1_permitted,
 )
 from .pipeline import check_replication, e5_dup, e5_sham, e7_sel, run_readiness_v2
-from .replication import build_evidence, check_evidence
+from .replication import (
+    PROMOTION_GRADES,
+    build_evidence,
+    check_evidence,
+    replication_ok_for_promotion,
+)
 from .assistance import ASSISTANCE, LAYERS, LEGAL_ARMS
 from .adapters import (
     V4Adapter,
@@ -52,5 +57,6 @@ __all__ = ["RUNGS", "gen_tasks", "check_identifiability", "required_n_mcnemar",
            "response_diversity", "x0_permitted", "x1_permitted",
            "check_replication", "e5_dup", "e5_sham", "e7_sel",
            "run_readiness_v2", "build_evidence", "check_evidence",
+           "PROMOTION_GRADES", "replication_ok_for_promotion",
            "ASSISTANCE", "LAYERS", "LEGAL_ARMS", "V4Adapter", "V5Adapter",
            "V5A_EXPECT", "UnsupportedSubject", "assert_v5_tokenizer_identity"]

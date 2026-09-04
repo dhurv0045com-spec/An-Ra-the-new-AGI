@@ -100,3 +100,35 @@ def check_evidence(ev: dict, *, expected_param_sha: str,
             reasons.append(f"artifact unreadable: {e}")
     return {"replication_ok": not reasons, "reasons": reasons,
             "artifact_sha256": artifact_sha}
+
+
+# Promotion grades: what a replication verdict may be USED for.
+#   NONE     not a replication (ok is False) or no evidence supplied
+#   LEGACY   checkpoint-bound only (pre-evidence artifact): descriptive
+#            history, NEVER promotes V5 science or READY claims
+#   EVIDENCE full evidence block validated: may support same-family DEV
+#            claims and, with all other gates, qualification
+PROMOTION_GRADES = ("NONE", "LEGACY", "EVIDENCE")
+
+
+def replication_ok_for_promotion(verdict: dict) -> dict:
+    """Grade a check_replication/check_evidence verdict for promotion use.
+
+    Legacy checkpoint-only matches can NEVER promote: only mode=="evidence"
+    with replication_ok True earns EVIDENCE. Returns grade + promotable bool
+    + reason. Pure function (no I/O) so it is unit-testable and auditable.
+    """
+    ok = verdict.get("replication_ok")
+    mode = verdict.get("mode")
+    if ok is True and mode == "evidence":
+        return {"grade": "EVIDENCE", "promotable": True,
+                "reason": "full evidence block validated"}
+    if ok is True:
+        return {"grade": "LEGACY", "promotable": False,
+                "reason": "legacy checkpoint-only match: descriptive history, "
+                          "never promotes V5 science or READY claims"}
+    if ok is None:
+        return {"grade": "NONE", "promotable": False,
+                "reason": "no replication evidence supplied"}
+    return {"grade": "NONE", "promotable": False,
+            "reason": f"replication rejected: {verdict.get('reasons', verdict.get('note'))}"}

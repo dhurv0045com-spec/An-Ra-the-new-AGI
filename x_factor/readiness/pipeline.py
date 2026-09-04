@@ -279,6 +279,9 @@ def run_readiness_v2(model, tok, payload, *, checkpoint: str, param_sha: str,
                          max(legal["rates"]["e5dup"], legal["rates"]["e7sel"]),
                          rung_rows[cand]["oracle_rate"]) if legal else None)
     repl = check_replication(replication_ref, param_sha)
+    from readiness.replication import replication_ok_for_promotion  # noqa: E402 (light)
+    from execution_policy import execution_environment  # noqa: E402 (versions only)
+    repl_promotion = replication_ok_for_promotion(repl)
     cap_top = (rung_rows[cand]["capability"] if cand else
                {"capability": "INSUFFICIENT", "notes": [cand_note or "no candidate rung"]})
     ident_top = (rung_rows[cand]["identifiability"] if cand else
@@ -291,7 +294,8 @@ def run_readiness_v2(model, tok, payload, *, checkpoint: str, param_sha: str,
         (diversity["status"] if diversity else None),
         (power["status"] if power else None),
         protocol_sha, repl["replication_ok"],
-        rung_rows[cand]["n"] if cand else 0, qv_lite_vs_chance=qv_vc)
+        rung_rows[cand]["n"] if cand else 0, qv_lite_vs_chance=qv_vc,
+        replication_promotable=(repl_promotion["promotable"] if stage == "qualify" else None))
     legal_lo = 0.0
     if legal and cand:
         fails_n = rung_rows[cand]["n_failures"]
@@ -318,6 +322,7 @@ def run_readiness_v2(model, tok, payload, *, checkpoint: str, param_sha: str,
                                 "parameter_sha256": param_sha},
         "tokenizer_sha256": tok_sha, "experiment_source_sha256": exp_sha,
         "runtime_commit": commit, "protocol_sha": protocol_sha,
+        "execution_environment": execution_environment(),
         "design": {"seed": seed, "n_per_rung": n_per_rung, "rungs": list(rungs),
                    "subset_n": subset_n, "budget_n": budget_n,
                    "primary_comparison": "best_legal_vs_raw"},
@@ -333,6 +338,7 @@ def run_readiness_v2(model, tok, payload, *, checkpoint: str, param_sha: str,
         "response_diversity": diversity,
         "power": power,
         "replication": repl,
+        "replication_promotion": repl_promotion,
         "substrate_capability": cap_top.get("capability"),
         "experiment_identifiability": ident_top.get("identifiability"),
         "research_readiness": decision["readiness"],
