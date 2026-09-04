@@ -139,18 +139,81 @@ def check_test_evidence(root: Path) -> dict[str, object]:
     return {"pass": True, "via": "stream/experiment/protocol proofs green in tested tree"}
 
 
-def check_compute() -> dict[str, object]:
+COMPUTE_SCHEMA = "anra-v5-compute-evidence/v1"
+MIN_ACCELERATOR_MEMORY_BYTES = 4 * 1024**3
+
+
+def probe_execution_environment() -> dict[str, object]:
+    """Record factual host capability. Informational only, never a PASS claim."""
+
     try:
         import torch
-
-        if torch.cuda.is_available():
-            return {
-                "pass": True,
-                "via": f"accelerator present: {torch.cuda.get_device_name(0)}",
-            }
-        return {"pass": False, "via": "BLOCKED: no accelerator visible to torch"}
     except ImportError:
-        return {"pass": False, "via": "BLOCKED: torch is not installed"}
+        return {
+            "schema": COMPUTE_SCHEMA,
+            "host_label": "torch-absent",
+            "torch_version": None,
+            "accelerator_available": False,
+            "accelerator_qualified": False,
+            "memory_sufficient": False,
+            "runtime_verified": False,
+        }
+    cuda = bool(torch.cuda.is_available())
+    memory_ok = False
+    device_name: object = None
+    if cuda:
+        try:
+            device_name = torch.cuda.get_device_name(0)
+            memory_ok = int(torch.cuda.get_device_properties(0).total_memory) >= MIN_ACCELERATOR_MEMORY_BYTES
+        except Exception:
+            cuda = False
+    return {
+        "schema": COMPUTE_SCHEMA,
+        "host_label": f"torch-{torch.__version__}-cuda-{cuda}",
+        "torch_version": str(torch.__version__),
+        "accelerator_available": cuda,
+        "accelerator_qualified": cuda and memory_ok,
+        "memory_sufficient": (memory_ok if cuda else False),
+        "runtime_verified": False,
+    }
+
+
+def evaluate_compute_gate(evidence: Mapping[str, Any] | None) -> dict[str, object]:
+    """Judge compute evidence: missing blocks, tampered fails, capable passes."""
+
+    if evidence is None:
+        return {"pass": False, "via": "BLOCKED: no compute evidence supplied"}
+    if not isinstance(evidence, Mapping) or evidence.get("schema") != COMPUTE_SCHEMA:
+        return {"pass": False, "via": "FAIL: compute evidence has the wrong schema"}
+    for key in (
+        "accelerator_available", "accelerator_qualified",
+        "memory_sufficient", "runtime_verified",
+    ):
+        if not isinstance(evidence.get(key), bool):
+            return {"pass": False, "via": f"FAIL: compute evidence field invalid: {key}"}
+    if not bool(evidence["accelerator_available"]):
+        return {
+            "pass": False,
+            "via": f"UNAVAILABLE_ON_THIS_HOST: {evidence.get('host_label')}",
+        }
+    if not bool(evidence["accelerator_qualified"]):
+        return {"pass": False, "via": "FAIL: accelerator below qualification floor"}
+    return {"pass": True, "via": f"accelerator capable: {evidence.get('host_label')}"}
+
+
+def check_compute() -> dict[str, object]:
+    """Host-scoped convenience probe (factual; use evaluate_compute_gate to judge)."""
+
+    return evaluate_compute_gate(probe_execution_environment())
+
+
+SCIENTIFIC_GATES = (
+    "exact_p35_architecture",
+    "real_tokenizer",
+    "qualified_dataset",
+    "qualified_generators",
+    "test_evidence",
+)
 
 
 def evaluate_p35a_readiness(
@@ -158,8 +221,15 @@ def evaluate_p35a_readiness(
     *,
     dataset_qualification: Path | None = None,
     generator_qualification: Path | None = None,
+    compute_evidence: Mapping[str, Any] | None = None,
 ) -> dict[str, object]:
-    """Evaluate every P35-A gate; READY only if all pass."""
+    """Evaluate every P35-A gate; READY only if all pass.
+
+    Scientific readiness (architecture, tokenizer, dataset, generators,
+    test evidence) is platform-independent. The compute gate judges
+    supplied evidence about the CURRENT host only; pass ``compute_evidence``
+    explicitly (or nothing, to record its absence as a blocker).
+    """
 
     gates = {
         "exact_p35_architecture": check_recipe(),
@@ -167,17 +237,20 @@ def evaluate_p35a_readiness(
         "qualified_dataset": check_dataset(root, dataset_qualification),
         "qualified_generators": check_generators(root, generator_qualification),
         "test_evidence": check_test_evidence(root),
-        "compute": check_compute(),
+        "compute": evaluate_compute_gate(compute_evidence),
         "fresh_sealed_policy": {
             "pass": True,
             "via": "Fresh untouched; sealed runs only under independent custody",
         },
     }
+    scientific_failed = sorted(name for name in SCIENTIFIC_GATES if not gates[name]["pass"])
     failed = sorted(name for name, gate in gates.items() if not gate["pass"])
     receipt: dict[str, object] = {
         "schema": P35A_SCHEMA,
         "question": P35A_QUESTION,
         "gates": gates,
+        "experiment_requirements_ready": not scientific_failed,
+        "execution_environment_ready": bool(gates["compute"]["pass"]),
         "blocked_by": failed,
         "verdict": "P35A_EXECUTION_READY" if not failed else "BLOCKED",
     }
@@ -190,12 +263,20 @@ def main() -> int:
     parser.add_argument("--repo", type=Path, default=None)
     parser.add_argument("--dataset-qualification", type=Path, default=None)
     parser.add_argument("--generator-qualification", type=Path, default=None)
+    parser.add_argument("--compute-receipt", type=Path, default=None)
+    parser.add_argument("--probe-compute", action="store_true")
     parser.add_argument("--output", type=Path, default=None)
     args = parser.parse_args()
     root = args.repo.resolve() if args.repo else Path.cwd()
+    evidence: Mapping[str, Any] | None = None
+    if args.compute_receipt is not None:
+        evidence = json.loads(args.compute_receipt.read_text(encoding="utf-8"))
+    elif args.probe_compute:
+        evidence = probe_execution_environment()
     receipt = evaluate_p35a_readiness(
         root, dataset_qualification=args.dataset_qualification,
         generator_qualification=args.generator_qualification,
+        compute_evidence=evidence,
     )
     payload = json.dumps(receipt, indent=2, sort_keys=True)
     print(payload)
@@ -206,10 +287,14 @@ def main() -> int:
 
 
 __all__ = [
+    "COMPUTE_SCHEMA",
     "P35A_QUESTION",
     "P35A_SCHEMA",
     "P35_PARAMETERS",
     "P35_RECIPE",
     "REQUIRED_GENERATOR_FAMILIES",
+    "SCIENTIFIC_GATES",
+    "evaluate_compute_gate",
     "evaluate_p35a_readiness",
+    "probe_execution_environment",
 ]

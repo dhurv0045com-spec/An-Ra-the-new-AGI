@@ -100,11 +100,57 @@ class P35AReadinessTests(unittest.TestCase):
     def test_live_tree_is_blocked_by_dataset(self) -> None:
         from pathlib import Path
 
+        from v5_experiments.p35a_readiness import evaluate_compute_gate
+
         receipt = evaluate_p35a_readiness(Path(__file__).resolve().parents[1])
         self.assertEqual(receipt["verdict"], "BLOCKED")
         self.assertIn("qualified_dataset", receipt["blocked_by"])
         self.assertIn(receipt["gates"]["exact_p35_architecture"]["pass"], (True,))
-        self.assertEqual(receipt["gates"]["compute"]["pass"], True)
+        # Host availability must not decide a software-unit test: the compute
+        # gate reports this host honestly instead of hard-coding capable.
+        compute = receipt["gates"]["compute"]
+        probe = evaluate_compute_gate(None)
+        self.assertFalse(probe["pass"])
+        self.assertEqual(compute["pass"], probe["pass"])
+        self.assertFalse(receipt["experiment_requirements_ready"])
+
+    def test_missing_compute_evidence_blocks(self) -> None:
+        from v5_experiments.p35a_readiness import evaluate_compute_gate
+
+        gate = evaluate_compute_gate(None)
+        self.assertFalse(gate["pass"])
+        self.assertIn("no compute evidence", gate["via"])
+
+    def test_synthetic_valid_compute_evidence_passes(self) -> None:
+        from v5_experiments.p35a_readiness import COMPUTE_SCHEMA, evaluate_compute_gate
+
+        gate = evaluate_compute_gate({
+            "schema": COMPUTE_SCHEMA,
+            "host_label": "synthetic-test-host",
+            "torch_version": "9.9",
+            "accelerator_available": True,
+            "accelerator_qualified": True,
+            "memory_sufficient": True,
+            "runtime_verified": True,
+        })
+        self.assertTrue(gate["pass"])
+
+    def test_tampered_compute_evidence_fails(self) -> None:
+        from v5_experiments.p35a_readiness import COMPUTE_SCHEMA, evaluate_compute_gate
+
+        gate = evaluate_compute_gate({
+            "schema": COMPUTE_SCHEMA,
+            "host_label": "synthetic-test-host",
+            "torch_version": "9.9",
+            "accelerator_available": "yes",
+            "accelerator_qualified": True,
+            "memory_sufficient": True,
+            "runtime_verified": True,
+        })
+        self.assertFalse(gate["pass"])
+        self.assertIn("FAIL", gate["via"])
+        gate = evaluate_compute_gate({"schema": "wrong-schema"})
+        self.assertFalse(gate["pass"])
 
     def test_center_mixture_sums_to_5b(self) -> None:
         self.assertEqual(sum(CENTER_5B_MIXTURE.values()), 5_000_000_000)
