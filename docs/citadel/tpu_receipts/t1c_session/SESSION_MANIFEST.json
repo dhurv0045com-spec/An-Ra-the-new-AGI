@@ -1,0 +1,27 @@
+{
+  "arms": {
+    "A": "FAIL",
+    "B": "FAIL",
+    "C": "FAIL",
+    "D": "FAIL"
+  },
+  "budgets": {
+    "A": 4000000,
+    "B": 4000000,
+    "C": 4000000,
+    "D": 4000000
+  },
+  "budgets_scaled": true,
+  "bundle": "pending",
+  "calibrated_rate": 3782.4836875295937,
+  "citadel_sha": "7f81efc30938e8fb154e4150f64fc8f1384050d9",
+  "cymek_runtime_sha": "298c91ac04f756f0833a7edcf63e73af3d5af688",
+  "labels": [
+    "INCONCLUSIVE"
+  ],
+  "schema": "citadel-t1c-session/v1",
+  "shape": [
+    256,
+    32
+  ]
+}

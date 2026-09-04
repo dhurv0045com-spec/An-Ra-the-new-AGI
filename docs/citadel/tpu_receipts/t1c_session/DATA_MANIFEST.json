@@ -1,0 +1,78 @@
+{
+  "audit_sample": {
+    "exact_duplicate_rate": 0.0043199999999999905,
+    "n": 100000,
+    "sha256": "f22c745cc3e840da16028ed590ba50a4ed917a04204095c1397d28eff2bc1ac4",
+    "stride": 65
+  },
+  "generator_version": "arith-canary/1.0",
+  "leakage": {
+    "commkey_dev_x_test_composition": 0,
+    "commkey_dev_x_test_core": 0,
+    "commkey_dev_x_test_range": 0,
+    "commkey_dev_x_test_template": 0,
+    "commkey_test_composition_x_test_core": 0,
+    "commkey_test_composition_x_test_range": 0,
+    "commkey_test_composition_x_test_template": 0,
+    "commkey_test_core_x_test_range": 0,
+    "commkey_test_range_x_test_template": 0,
+    "commkey_train-sample_x_dev": 0,
+    "commkey_train-sample_x_test_composition": 0,
+    "commkey_train-sample_x_test_core": 0,
+    "commkey_train-sample_x_test_range": 0,
+    "commkey_train-sample_x_test_template": 0,
+    "exact_dev_x_test_composition": 0,
+    "exact_dev_x_test_core": 0,
+    "exact_dev_x_test_range": 0,
+    "exact_dev_x_test_template": 0,
+    "exact_test_composition_x_test_core": 0,
+    "exact_test_composition_x_test_range": 0,
+    "exact_test_composition_x_test_template": 0,
+    "exact_test_core_x_test_range": 0,
+    "exact_test_core_x_test_template": 0,
+    "exact_test_range_x_test_template": 0,
+    "exact_train-sample_x_dev": 0,
+    "exact_train-sample_x_test_composition": 0,
+    "exact_train-sample_x_test_core": 0,
+    "exact_train-sample_x_test_range": 0,
+    "exact_train-sample_x_test_template": 0
+  },
+  "max_row_chars": 32,
+  "schema": "citadel-arith-manifest/v1",
+  "splits": {
+    "dev": {
+      "bytes": 3098703,
+      "n": 150000,
+      "sha256": "63401a8563d8b5b018f9766f1ba6519c6c05d5460bc71e2bda97be3f699fc94b"
+    },
+    "test_composition": {
+      "bytes": 14638,
+      "n": 500,
+      "sha256": "cd311d551d0cd46dc16462f70185cfd198bd78e951970de05d268d35654086e7"
+    },
+    "test_core": {
+      "bytes": 19055,
+      "n": 1000,
+      "sha256": "f15cfe4328dc9deaa4c801dd410a39e36004953ca789d163ac2df40f8ce78221"
+    },
+    "test_range": {
+      "bytes": 13018,
+      "n": 500,
+      "sha256": "ffff2455e43afc9547fe5df9a1e0fa75c419b2285e314a208309ea117544d41b"
+    },
+    "test_template": {
+      "bytes": 14079,
+      "n": 500,
+      "sha256": "e19b1f17c8918387af653b0f2548a96146c4702dcc9edb360e81ccee69e08d58"
+    },
+    "train": {
+      "bytes": 105787946,
+      "n": 6500000,
+      "sha256": "167166b3fb60493b74baaa81978edb134032faa41c79150e771d65c2b08fa5fc"
+    }
+  },
+  "total_bytes": 108947439,
+  "transfer_overlap_expected": {
+    "commkey_test_core_x_test_template": 4
+  }
+}

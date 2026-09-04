@@ -1,0 +1,57 @@
+{
+  "candidates": [
+    {
+      "batch": 32,
+      "correct": true,
+      "length": 32,
+      "tokens_per_second": 842.7565077976468,
+      "updates": 5
+    },
+    {
+      "batch": 96,
+      "correct": true,
+      "length": 32,
+      "tokens_per_second": 1786.0538101288223,
+      "updates": 5
+    },
+    {
+      "batch": 256,
+      "correct": true,
+      "length": 32,
+      "tokens_per_second": 3782.4836875295937,
+      "updates": 5
+    }
+  ],
+  "citadel_sha": "7f81efc30938e8fb154e4150f64fc8f1384050d9",
+  "cymek_runtime_sha": "298c91ac04f756f0833a7edcf63e73af3d5af688",
+  "environment": {
+    "accelerator_detected": "TPU",
+    "accelerator_requested": "TPU",
+    "git_sha": "7f81efc30938e8fb154e4150f64fc8f1384050d9",
+    "host_cpu": "x86_64",
+    "host_ram_gb": 50.5,
+    "kaggle_session_limits": "unknown",
+    "local_disk_free_bytes": 221159059456,
+    "pjrt_device_env": "TPU",
+    "platform": "colab",
+    "probe_pass": true,
+    "probe_utc": "2026-09-04T20:51:24.557676+00:00",
+    "python_version": "3.13.15",
+    "schema": "citadel-tpu-environment/v1",
+    "sys_argv0": "/usr/local/lib/python3.13/dist-packages/colab_kernel_launcher.py",
+    "torch_version": "2.9.0+cpu",
+    "torch_xla_version": "2.9.0",
+    "tpu_generation": "TPU",
+    "tpu_present": true,
+    "xla_device_count": 1,
+    "xla_device_type": "TPU",
+    "xla_devices": 1,
+    "xla_runtime": "PJRT"
+  },
+  "schema": "citadel-t1c-throughput-calibration/v1",
+  "selected": {
+    "batch": 256,
+    "length": 32
+  },
+  "selected_tokens_per_second": 3782.4836875295937
+}
