@@ -109,7 +109,9 @@ def _train_block(model, optimizer, train_rows, *, start: int, n_updates: int,
 
 def train(*, out: str = "docs/citadel/tpu_receipts/TPU_CALCULATOR_CHECKPOINT.json",
           ladder: tuple = LADDER, batch_rows: int = 32, length: int = 32,
-          lr: float = 3e-4, seed: int = 20260904) -> dict[str, Any]:
+          lr: float = 3e-4, seed: int = 20260904, early_stop: bool = True,
+          train_sample_n: int = 200,
+          ckpt_name: str = "tpu_calculator_mini.pt") -> dict[str, Any]:
     from citadel_tpu import calculator_data as calc
     from citadel_tpu import calculator_eval as cev
     from citadel_tpu import checkpoint as ckpt_mod
@@ -155,6 +157,15 @@ def train(*, out: str = "docs/citadel/tpu_receipts/TPU_CALCULATOR_CHECKPOINT.jso
     untrained_test = cev.summarize([r["prediction"] for r in untrained_test_recs], test_targets)
     untrained_test_ce = _mean_ce(model, test_rows, device=device, torch_mod=torch,
                                  batch_rows=batch_rows, length=length)
+    untrained_answer_ce = cev.answer_token_ce(model, test_rows, device=device, xb=xb,
+                                              torch_mod=torch)
+    untrained_stop_hist = cev.stop_histogram(untrained_test_recs)
+    import random as _random
+    train_sample = _random.Random(seed + 1).sample(train_rows, min(train_sample_n, len(train_rows)))
+    train_sample_targets = [cev.split_prompt_target(r)[1] for r in train_sample]
+    untrained_train_recs = cev.generate(train_sample, model, xb, device=device, torch_mod=torch)
+    untrained_train = cev.summarize([r["prediction"] for r in untrained_train_recs],
+                                    train_sample_targets)
 
     # Dev-gated ladder (A11). TEST is never consulted for escalation.
     done_updates, endpoint = 0, 0
@@ -163,6 +174,7 @@ def train(*, out: str = "docs/citadel/tpu_receipts/TPU_CALCULATOR_CHECKPOINT.jso
     cap_total, real_total, sup_total = 0, 0, 0
     first_update_s = None
     best_dev_exact, best_dev_ce = untrained_dev["accuracy"], untrained_dev_ce
+    first_eval_rung = True
     t_train0 = time.time()
     for rung in ladder:
         n_new = rung - done_updates
@@ -179,7 +191,7 @@ def train(*, out: str = "docs/citadel/tpu_receipts/TPU_CALCULATOR_CHECKPOINT.jso
         sup_total += blk["supervised_tokens"]
         if first_update_s is None:
             first_update_s = blk["first_update_seconds"]
-        if rung <= 5:
+        if rung <= 5 and early_stop:
             rung_evals.append({"rung": rung, "plumbing": "finite-loss-mutation-checked"})
             continue  # R5: plumbing only, always continue (cheap)
         dev_recs = cev.generate(dev_rows, model, xb, device=device, torch_mod=torch)
@@ -187,12 +199,13 @@ def train(*, out: str = "docs/citadel/tpu_receipts/TPU_CALCULATOR_CHECKPOINT.jso
         dev_ce = _mean_ce(model, dev_rows, device=device, torch_mod=torch,
                           batch_rows=batch_rows, length=length)
         rung_evals.append({"rung": rung, "dev_exact": dev["accuracy"], "dev_ce": dev_ce})
-        if rung == 20:
-            if not dev_ce < untrained_dev_ce:
-                break  # no learning signal: stop, TEST runs once at endpoint below
-        else:
-            if not (dev["accuracy"] > best_dev_exact or dev_ce < best_dev_ce - 1e-4):
+        if early_stop:
+            if first_eval_rung:
+                if not dev_ce < untrained_dev_ce:
+                    break  # no learning signal: stop, TEST runs once at endpoint below
+            elif not (dev["accuracy"] > best_dev_exact or dev_ce < best_dev_ce - 1e-4):
                 break
+        first_eval_rung = False
         best_dev_exact = max(best_dev_exact, dev["accuracy"])
         best_dev_ce = min(best_dev_ce, dev_ce)
     train_wall = time.time() - t_train0
@@ -202,9 +215,16 @@ def train(*, out: str = "docs/citadel/tpu_receipts/TPU_CALCULATOR_CHECKPOINT.jso
     trained_test = cev.summarize(trained_preds, test_targets)
     trained_test_ce = _mean_ce(model, test_rows, device=device, torch_mod=torch,
                                batch_rows=batch_rows, length=length)
+    trained_answer_ce = cev.answer_token_ce(model, test_rows, device=device, xb=xb,
+                                            torch_mod=torch)
+    trained_stop_hist = cev.stop_histogram(trained_test_recs)
+    trained_train_recs = cev.generate(train_sample, model, xb, device=device, torch_mod=torch)
+    trained_train = cev.summarize([r["prediction"] for r in trained_train_recs],
+                                  train_sample_targets)
+    memorization_flag = bool(trained_train["accuracy"] - trained_test["accuracy"] >= 0.30)
     pre_sha = cev.sha_predictions(trained_preds)
 
-    ckpt_path = str(Path(out).parent / "tpu_calculator_mini.pt")
+    ckpt_path = str(Path(out).parent / ckpt_name)
     ckpt_hash = ckpt_mod.save(model, ckpt_path,
                               {"seed": seed, "spec": "MINI_SPEC", "updates": done_updates})
     del model
@@ -253,8 +273,16 @@ def train(*, out: str = "docs/citadel/tpu_receipts/TPU_CALCULATOR_CHECKPOINT.jso
                       "steady_tokens_per_second": (cap_total / train_wall) if train_wall > 0 else 0.0},
         "eval": {"untrained_dev": untrained_dev, "untrained_dev_ce": untrained_dev_ce,
                  "untrained_test": untrained_test, "untrained_test_ce": untrained_test_ce,
+                 "untrained_train_sample": untrained_train,
                  "trained_test": trained_test, "trained_test_ce": trained_test_ce,
+                 "trained_train_sample": trained_train,
                  "reload_test": reload_test, "reload_test_ce": reload_test_ce},
+        "diagnostics": {"untrained_stop_histogram": untrained_stop_hist,
+                        "trained_stop_histogram": trained_stop_hist,
+                        "trained_samples": cev.sample_records(trained_test_recs, 5, seed),
+                        "untrained_answer_ce": untrained_answer_ce,
+                        "trained_answer_ce": trained_answer_ce,
+                        "memorization_flag": memorization_flag},
         "heuristic_nulls": null_summaries,
         "strongest_heuristic_null": {"name": null_name, "accuracy": null_best},
         "gate_rules": rules,

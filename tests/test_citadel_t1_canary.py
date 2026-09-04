@@ -78,6 +78,10 @@ def test_data_receipt_invariants() -> None:
     assert receipt["counts"] == {"train": 4000, "development": 500, "test": 500}
     assert all(v == 0 for v in receipt["overlap"].values()), receipt["overlap"]
     assert receipt["generalization_slices"]["commutative_heldout"] == 50
+    assert receipt["scored_slice_counts"]["commutative_heldout"] <= 50
+    assert (receipt["generalization_slices"]["commutative_heldout"]
+            - receipt["scored_slice_counts"]["commutative_heldout"]
+            == receipt["slice_test_duplicates_dropped"]["commutative_heldout"])
     assert set(receipt["op_distribution"]["train"]) == {"+", "-", "*", "/"}
     assert len(receipt["generator_code_sha256"]) == 64
     assert len(receipt["split_sha256"]["test"]) == 64
@@ -112,8 +116,8 @@ def test_notebook_references_resolve() -> None:
     import importlib
     import re
 
-    for nb in ("notebooks/citadel_colab_tpu.ipynb", "notebooks/citadel_kaggle_tpu.ipynb"):
-        doc = json.loads((CITADEL_ROOT / nb).read_text(encoding="utf-8"))
+    for nb in sorted((CITADEL_ROOT / "notebooks").glob("citadel_*.ipynb")):
+        doc = json.loads(nb.read_text(encoding="utf-8"))
         assert doc["nbformat"] == 4
         for cell in doc["cells"]:
             if cell.get("cell_type") != "code":

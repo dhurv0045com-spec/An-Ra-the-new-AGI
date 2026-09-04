@@ -142,6 +142,65 @@ def sha_predictions(predictions: list[str]) -> str:
     return hashlib.sha256(("\n".join(predictions) + "\n").encode("utf-8")).hexdigest()
 
 
+def stop_histogram(records: list[dict[str, Any]]) -> dict[str, int]:
+    """Distribution of generation stop reasons (format-failure diagnosis)."""
+    hist: Counter = Counter()
+    for r in records:
+        if r.get("valid", True):
+            hist[str(r.get("stop_reason"))] += 1
+    return dict(sorted(hist.items()))
+
+
+def sample_records(records: list[dict[str, Any]], n: int, seed: int) -> list[dict[str, Any]]:
+    """Deterministic diagnostic sample (prompt/target/prediction/correct/stop)."""
+    import random
+
+    valid = [r for r in records if r.get("valid", True)]
+    rng = random.Random(seed)
+    idx = sorted(rng.sample(range(len(valid)), min(n, len(valid))))
+    return [{k: valid[i][k] for k in ("prompt", "target", "prediction", "correct",
+                                      "stop_reason", "generated_token_count")}
+            for i in idx]
+
+
+def answer_token_ce(model: Any, rows: list[str], *, device: Any, xb: Any, torch_mod: Any,
+                    batch: int = EVAL_BATCH, length: int = EVAL_LENGTH) -> dict[str, Any]:
+    """Teacher-forced NLL restricted to answer positions (prompt-vs-answer lens).
+
+    Whole-row CE conflates prompt reconstruction with answer prediction. A low
+    whole-row CE with high answer-CE means prompt/format modeling without rule
+    extraction — the key H2 discriminator. Eval-only host syncs (as generate).
+    """
+    import math as _math
+
+    torch = torch_mod
+    from v5_model.core import packed_layout
+
+    model.eval()
+    tot_nll, tot_tok = 0.0, 0
+    with torch.no_grad():
+        for s in range(0, len(rows), batch):
+            chunk = rows[s:s + batch]
+            full = [encode(r) for r in chunk]
+            plens = [len(encode(split_prompt_target(r)[0])) for r in chunk]
+            buf = torch.full((len(chunk), length), PAD_ID, dtype=torch.long)
+            for i, ids in enumerate(full):
+                buf[i, : len(ids)] = torch.tensor(ids, dtype=torch.long)
+            seg = torch.zeros_like(buf)
+            positions, mask = packed_layout(seg, torch_module=torch)  # host (audit A8)
+            logits = model(buf.to(device), positions.to(device), mask.to(device))
+            xb.mark_step()
+            logp = torch.nn.functional.log_softmax(logits.float(), dim=-1).to("cpu")
+            for i, ids in enumerate(full):
+                for k in range(len(ids) - plens[i]):
+                    tot_nll += float(-logp[i, plens[i] + k - 1, ids[plens[i] + k]].item())
+                    tot_tok += 1
+    model.train()
+    return {"answer_nll_mean": (tot_nll / tot_tok) if tot_tok else _math.nan,
+            "answer_tokens": tot_tok,
+            "answer_perplexity": float(_math.exp(tot_nll / tot_tok)) if tot_tok else _math.nan}
+
+
 def heuristic_nulls(rows: list[str], train_rows: list[str]) -> dict[str, list[str]]:
     """Four mechanical nulls (§A9). Computed from data only, never from trained results."""
     parsed = [parse_row(r) for r in rows]
@@ -353,6 +412,17 @@ def selftest() -> None:
     assert split_prompt_target("18 - 7 = 11") == ("18 - 7 =", "11")
     assert _comm_key(3, "+", 7) == _comm_key(7, "+", 3)
     assert _comm_key(3, "-", 7) != _comm_key(7, "-", 3)
+    recs = [{"prompt": "3 + 4 =", "target": "7", "prediction": "7", "correct": True,
+             "stop_reason": "NEWLINE", "generated_token_count": 2, "valid": True},
+            {"prompt": "6 * 8 =", "target": "48", "prediction": "", "correct": False,
+             "stop_reason": "PAD", "generated_token_count": 0, "valid": True},
+            {"prompt": "x", "target": "y", "prediction": "zzz", "correct": False,
+             "stop_reason": "MAX_TOKENS", "generated_token_count": 8, "valid": False}]
+    assert stop_histogram(recs) == {"NEWLINE": 1, "PAD": 1}
+    s1 = sample_records(recs, 2, 12345)
+    assert sample_records(recs, 2, 12345) == s1 and len(s1) == 2
+    assert all(set(r) == {"prompt", "target", "prediction", "correct",
+                          "stop_reason", "generated_token_count"} for r in s1)
     rows = ["3 + 4 = 7", "18 - 7 = 11", "6 * 8 = 48"]
     nulls = heuristic_nulls(rows, rows)
     assert set(nulls) == {"always_zero", "copy_first_operand", "copy_second_operand",
@@ -372,6 +442,7 @@ __all__ = [
     "EVAL_LENGTH",
     "MAX_ANSWER_TOKENS",
     "NEWLINE_ID",
+    "answer_token_ce",
     "build_data_receipt",
     "decode_ids",
     "encode",
@@ -381,10 +452,12 @@ __all__ = [
     "normalize_answer",
     "parse_row",
     "roundtrip_ok",
+    "sample_records",
     "selftest",
     "sha_predictions",
     "split_overlap_report",
     "split_prompt_target",
+    "stop_histogram",
     "strongest_null_accuracy",
     "summarize",
     "wilson",
