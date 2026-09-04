@@ -15,42 +15,61 @@
 
 ## STATUS
 
-Citadel SHA: `bdd91b0` (pushed, in sync with origin/citadel)
+Citadel SHA: `f23bbee` (parser hotfix pushed; handover commit follows)
 Pinned Cymek runtime SHA: `298c91ac04f756f0833a7edcf63e73af3d5af688` (unchanged)
 
-T1C operator run reached the real Colab TPU and successfully reused calibration
-(shape 256×32, measured 3867 tok/s; preregistered auto-scale correctly halved
-budgets) plus the 108.9 MB data manifest, then failed before training arm A.
-Observed error: `prompt too long for fixed buffer: 'subtract 1353 from 1269 ='`;
-arm A and B both hit the same deterministic evaluator defect and the session
-correctly aborted on the second infrastructure failure. This is NOT a T1C
-scientific result and creates no PASS/FAIL claim for any arm.
+T1C has now hit two deterministic implementation defects on the real Colab TPU
+before any valid arm completed. Neither failure is a scientific T1C result.
+Calibration remains reusable (shape 256×32, ~3.9k tok/s; preregistered auto-scale
+halves budgets) and the 108.9 MB data manifest remains reusable.
 
-Root cause: evaluator used the training static length L=32 for greedy generation.
-The full supervised row fit L=32, but a 25-token word-template prompt still
-needs MAX_ANSWER_TOKENS=8 writable positions (required=33). The old manifest
-`max_row_chars <= 32` invariant was therefore insufficient for generation.
+### Operator failure #1 — evaluator buffer geometry
 
-Hotfixes pushed:
-1. `calculator_eval.py`: dedicated static eval shape raised to L=64; new
-   `validate_generation_capacity()` checks prompt + full generation headroom
-   before XLA; teacher-forced answer CE now has an explicit row-length guard;
-   exact failing prompt is a selftest regression and L=32 is asserted to fail.
-2. `t1c_preflight.py`: now materializes/scans the complete DEV + all TEST slices
-   (152,500 rows), runs evaluator selftests, validates every prompt against the
-   fixed generation buffer, records max prompt / required headroom / full-row
-   geometry, and removes the duplicate import. The same class of defect should
-   now stop at preflight before any arm or TEST execution.
+Observed: `prompt too long for fixed buffer: 'subtract 1353 from 1269 ='`.
+Root cause: greedy generation reused training L=32 even though word-template
+prompts need prompt + MAX_ANSWER_TOKENS writable headroom. Fixed by dedicated
+static eval L=64, complete DEV/TEST geometry preflight, explicit answer-CE
+length guards, and exact regression coverage.
 
-Independent hardening merged on top: notebook torture test
-(`tests/test_citadel_notebooks.py`) proves for all 6 notebooks that every cell
-compiles, no name is used before definition, TPU metadata is set, and every
-receipt key touched exists in the producing schema. Revalidated green against
-the hotfixed tree (see handover validation below).
+### Operator failure #2 — legacy canonical-only parser
 
-No T0-critical semantics, model architecture, optimizer, T1C arm definitions,
-data splits, success gates, or scientific thresholds changed. T1C
-preregistration remains applicable; this is an implementation-only repair.
+After the L=64 hotfix, T1C progressed further and failed in both arm A and B
+with:
+
+```text
+malformed calculator row (no '='): '263 - 791 -> -528'
+```
+
+Root cause: `calculator_eval.heuristic_nulls()` consumes a deterministic sample
+of rich TRAIN rows, but its legacy `parse_row()` only understood the original
+T1 canonical `a op b = c` surface. T1C intentionally contains canonical,
+compact, arrow, and word templates, so arrow/word rows reached a helper that had
+never been upgraded to the richer corpus contract.
+
+Hotfix `f23bbee` updates `calculator_eval.parse_row()` itself — not a notebook
+monkeypatch — to support all frozen T1C forms while preserving the historical
+`(a, op, b, target_text)` return contract:
+
+```text
+canonical:  12 + 9 = 21
+compact:    12+9=21
+arrow:      263 - 791 -> -528
+words/add:  add 12 and 9 = 21
+words/sub:  subtract 9 from 12 = 3
+words/mul:  multiply 12 by 9 = 108
+words/div:  divide 108 by 9 = 12
+```
+
+The evaluator selftest now exercises every form plus a mixed-template
+`heuristic_nulls()` call, which is the exact helper path that failed in Colab.
+Because `t1c_preflight` already runs `calculator_eval.selftest()`, this class of
+mixed-template semantic mismatch is now a pre-arm gate. Cell D also reloads the
+hotfixed evaluator/runner after Git refresh, preventing stale module-cache use.
+
+No model architecture, optimizer, T1C arm definitions, data splits, objective
+semantics, budgets, success gates, or scientific thresholds changed. T1C
+preregistration remains applicable; both observed failures are implementation
+repairs only.
 
 ## T0 / T1 (history)
 
@@ -68,12 +87,12 @@ SUPERSEDED_BY_T1C (preserved, unexecuted)
 ## T1C
 
 ```text
-READY_FOR_OPERATOR_RERUN_AFTER_HOTFIX
+READY_FOR_OPERATOR_RERUN_AFTER_PARSER_HOTFIX
 ```
 
-The failed A/B attempts did not produce scientific arm receipts/markers before
-the exception. Existing Colab session calibration and data manifest are safe to
-reuse; arm execution should restart from A after code refresh.
+The failed A/B attempts produced no valid scientific arm receipts/markers before
+the exceptions. Existing Colab calibration and DATA_MANIFEST are safe to reuse;
+arm execution should restart from A after source/module refresh.
 
 ## DOWNLOADS
 
@@ -91,19 +110,21 @@ NONE
 
 ## BIGGEST BLOCKER
 
-Need operator to refresh the Citadel checkout/module cache and rerun T1C from
-preflight; only real TPU execution can reveal further hardware/compiler issues.
+Need operator to refresh Citadel and rerun preflight + T1C. Only real TPU
+execution can reveal genuinely hardware/runtime-specific failures after these
+fully deterministic host-side contract defects are gated.
 
 ## NEXT ACTION
 
 In the existing Colab TPU runtime: restart the Python session (do NOT delete the
-runtime/disk), rerun notebook Cell 0, verify Citadel SHA is this hotfix tip or
-newer, rerun Cell A and require READY_FOR_T1C=YES, then run Cell D. Calibration
-and DATA_MANIFEST may be reused. Finish E/F and return CITADEL_T1C_RESULTS.zip.
+runtime/disk), rerun notebook Cell 0, verify Citadel SHA is `f23bbee` or newer,
+rerun Cell A and require `READY_FOR_T1C=YES`, then run Cell D. Reuse calibration
+and DATA_MANIFEST; finish E/F and return `CITADEL_T1C_RESULTS.zip`.
 
 ## Latest hotfix commits
 
 ```text
+f23bbee fix(citadel): parse every T1C arithmetic template in evaluator
 2a123f2 test(citadel): preflight all T1C eval buffer invariants
 3ee6597 fix(citadel): give T1C generation safe fixed-buffer headroom
 ```
