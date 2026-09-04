@@ -25,9 +25,11 @@ SYM = {"+": "+", "-": "-", "*": "*", "/": "/"}
 TEMPLATES = ("canon", "compact", "arrow", "words")
 
 SPLITS: dict[str, dict[str, Any]] = {
-    # name: n, salt, operand range, mult cap, div_b range, templates
-    "train":          {"n": 5_000_000, "salt": 201, "lo": 0,      "hi": 999,
-                       "mult_hi": 99, "div_b_lo": 1, "div_b_hi": 12,
+    # name: n, salt, operand range, mult cap, div_b range, templates.
+    # Mult/div operand caps match the split magnitude so every op family has
+    # ~10^6+ unique (a,b) combos: no family collapses into heavy duplication.
+    "train":          {"n": 6_500_000, "salt": 201, "lo": 0,      "hi": 999,
+                       "mult_hi": 999, "div_b_lo": 1, "div_b_hi": 999,
                        "templates": ("canon", "compact", "arrow")},
     "dev":            {"n": 150_000,   "salt": 202, "lo": 1000,   "hi": 1999,
                        "mult_hi": 1999, "div_b_lo": 1, "div_b_hi": 12,
@@ -41,10 +43,9 @@ SPLITS: dict[str, dict[str, Any]] = {
     "test_range":     {"n": 500,       "salt": 205, "lo": 100000, "hi": 999999,
                        "mult_hi": 999999, "div_b_lo": 1, "div_b_hi": 99,
                        "templates": ("canon",)},
-    "test_composition":{"n": 500,      "salt": 206, "lo": 100,    "hi": 999,
-                       "mult_hi": 999, "div_b_lo": 1, "div_b_hi": 12,
-                       "templates": ("compact", "arrow"),
-                       "mult_only": True},
+    "test_composition":{"n": 500,      "salt": 206, "lo": 3000,   "hi": 9999,
+                       "mult_hi": 9999, "div_b_lo": 1, "div_b_hi": 99,
+                       "templates": ("words",)},
 }
 
 
@@ -114,11 +115,10 @@ def row_at(split: str, i: int) -> tuple[str, dict[str, Any]]:
         b = cfg["div_b_lo"] + _draw(salt, i, 2) % (cfg["div_b_hi"] - cfg["div_b_lo"] + 1)
         q = lo + _draw(salt, i, 3) % span
         a, c = b * q, q
-    elif op == "*" and cfg.get("mult_hi") is not None:
-        mhi = cfg["mult_hi"]
-        a = lo + _draw(salt, i, 2) % span
-        b = cfg["lo"] + _draw(salt, i, 3) % span
-        a, b = min(a, mhi), min(b, mhi)
+    elif op == "*":
+        mhi = cfg.get("mult_hi", hi)
+        a = lo + _draw(salt, i, 2) % (mhi - lo + 1)
+        b = lo + _draw(salt, i, 3) % (mhi - lo + 1)
         c = a * b
     else:
         a = lo + _draw(salt, i, 2) % span
@@ -216,17 +216,17 @@ def _comm_key_of(text: str) -> tuple:
 
 def build_manifest(*, out: str | None = None, audit_sample_n: int = 100_000) -> dict[str, Any]:
     """Stream the corpus once: hashes, bytes, audit sample, leakage checks."""
-    from citadel_tpu import calculator_eval as cev
-
     manifest: dict[str, Any] = {
         "schema": "citadel-arith-manifest/v1",
         "generator_version": GENERATOR_VERSION,
         "splits": {},
     }
     eval_text: dict[str, list[str]] = {}
+    max_len = 0
     for name in ("dev", "test_core", "test_template", "test_range", "test_composition"):
         rows = _eval_rows(name)
         eval_text[name] = rows
+        max_len = max(max_len, max(len(r) for r in rows))
         blob = ("\n".join(rows) + "\n").encode("utf-8")
         manifest["splits"][name] = {
             "n": len(rows), "bytes": len(blob),
@@ -237,11 +237,17 @@ def build_manifest(*, out: str | None = None, audit_sample_n: int = 100_000) -> 
     # audit sample for leakage (deterministic stride over train space)
     step = max(1, SPLITS["train"]["n"] // audit_sample_n)
     sample = [row_at("train", i)[0] for i in range(0, SPLITS["train"]["n"], step)]
+    max_len = max(max_len, max(len(r) for r in sample))
+    manifest["max_row_chars"] = max_len
     manifest["audit_sample"] = {"stride": step, "n": len(sample),
                                 "sha256": hashlib.sha256(
-                                    ("\n".join(sample) + "\n").encode()).hexdigest()}
-    # leakage: exact + commutative/template keys across eval slices and audit sample
-    sample_set, sample_keys = set(sample), {_triple_key_of(r) for r in sample}
+                                    ("\n".join(sample) + "\n").encode()).hexdigest(),
+                                "exact_duplicate_rate": 1.0 - len(set(sample)) / len(sample)}
+    # leakage: exact + commutative/template keys across eval slices and audit sample.
+    # Designed exception (informational, NOT a gate): test_core x test_template
+    # share operand pairs by construction — the transfer probe IS "same facts,
+    # unseen format". Exact strings still cannot collide (templates differ).
+    sample_set = set(sample)
     sample_comm = set()
     for r in sample:
         try:
@@ -249,6 +255,7 @@ def build_manifest(*, out: str | None = None, audit_sample_n: int = 100_000) -> 
         except ValueError:
             pass
     leak: dict[str, int] = {}
+    transfer: dict[str, int] = {}
     eval_sets = {k: set(v) for k, v in eval_text.items()}
     eval_comms = {}
     for k, v in eval_text.items():
@@ -264,10 +271,16 @@ def build_manifest(*, out: str | None = None, audit_sample_n: int = 100_000) -> 
         for y in range(x + 1, len(names)):
             a, b = names[x], names[y]
             leak[f"exact_{a}_x_{b}"] = len(eval_sets[a] & eval_sets[b])
-            leak[f"commkey_{a}_x_{b}"] = len(eval_comms[a] & eval_comms[b])
+            key = f"commkey_{a}_x_{b}"
+            n = len(eval_comms[a] & eval_comms[b])
+            if {a, b} == {"test_core", "test_template"}:
+                transfer[key] = n
+            else:
+                leak[key] = n
         leak[f"exact_train-sample_x_{names[x]}"] = len(sample_set & eval_sets[names[x]])
         leak[f"commkey_train-sample_x_{names[x]}"] = len(sample_comm & eval_comms[names[x]])
     manifest["leakage"] = leak
+    manifest["transfer_overlap_expected"] = transfer
     manifest["total_bytes"] = sum(s["bytes"] for s in manifest["splits"].values())
     if out is not None:
         p = Path(out)

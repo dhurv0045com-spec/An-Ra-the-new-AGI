@@ -64,15 +64,22 @@ Generator `arith_data` v1: pure function `row(split, i)` (O(1) memory, hashable,
 resumable). 4 templates (canon `a op b = c`, compact `a+b=c`, arrow
 `a op b -> c`, words e.g. `add A and B = C`); ops +−×÷ (exact division);
 difficulty metadata (digits, carries, borrows, magnitude, template_id).
-Physical target ~100 MB (≈5M rows TRAIN + eval slices); manifest in git
-(version, code hash, counts, split hashes, byte/token estimates); corpus
-ephemeral (never committed). Splits (structurally disjoint ranges/templates):
+Physical target ~100 MB (≈6.5M rows TRAIN + eval slices); manifest in git
+(version, code hash, counts, split hashes, byte/token estimates, max row
+length ≤ 32 asserted, audit-sample duplicate rate); corpus ephemeral (never
+committed). Every op family spans ~10^6+ unique (a,b) combos (mult/div caps
+match split magnitude — no collapsed families). Splits (structurally disjoint
+ranges/templates):
 TRAIN (0–999, canon/compact/arrow), DEV (1000–1999, canon/compact+words),
 TEST-CORE (2000–2999, canon; PRIMARY gate slice), TEST-TEMPLATE (same range,
 words; unseen format), TEST-RANGE (100000–999999, canon), TEST-COMPOSITION
-(train-rare: 3-digit×3-digit mult, canon). Leakage: exact + commutative-key +
+(words × shifted 3000–9999 range: format+magnitude combination unseen in
+TRAIN — genuine composition probe, not a relabeled range shift). Leakage: exact + commutative-key +
 operand-pair + template-key checks on all eval slices + train audit sample;
-all must be 0 (else IMPLEMENTATION_FAILURE, no training).
+all must be 0 (else IMPLEMENTATION_FAILURE, no training). Designed exception,
+informational only: TEST-CORE × TEST-TEMPLATE commutative keys overlap by
+construction — the transfer probe IS "same facts, unseen format" (exact
+strings still cannot collide).
 
 ## Splits observational accounting
 

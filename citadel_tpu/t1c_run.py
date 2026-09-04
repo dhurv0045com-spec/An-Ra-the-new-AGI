@@ -105,14 +105,9 @@ def _batch_tensors(texts: list[str], *, length: int, objective: str, torch_mod: 
     eligible = None
     answer_sup = 0
     if objective == "answer":
-        from citadel_tpu import arith_data as ad
-
         eligible = torch.zeros_like(tokens, dtype=torch.bool)
-        for i, t in enumerate(texts):
-            prompt, _ = ad.split_prompt_target(t)
-            plen = len(cev.encode(prompt))
-            alen = len(encoded[i]) - plen
-            assert alen > 0, f"empty answer span: {t!r}"
+        for i, (plen, alen) in enumerate(answer_spans(texts, length)):
+            assert alen > 0, f"empty answer span: {texts[i]!r}"
             eligible[i, plen:plen + alen] = True
             answer_sup += alen
     return tokens, seg, eligible, whole_sup, answer_sup
@@ -295,12 +290,13 @@ def run_arm(tag: str, cfg: dict[str, Any], *, shape: tuple[int, int],
 
     if cfg["data"] == "rich":
         train_n = ad.SPLITS["train"]["n"]
-        feed = lambda s, n: [ad.row_at("train", (s * batch + k) % train_n)[0]
-                             for k in range(n)]
+        # Feed takes a ROW cursor (caller passes update_index * batch) and must
+        # advance exactly one row per element: no stride gaps, no early wrap.
+        feed = lambda s, n: _rich_feed(s, n)
         unique_note = {"kind": "indexed-rich", "unique_rows": train_n}
     else:
         narrow = calc.generate(split="train")
-        feed = lambda s, n: _narrow_feed(s * batch, n, train_rows=narrow)
+        feed = lambda s, n: _narrow_feed(s, n, train_rows=narrow)
         unique_note = {"kind": "narrow-canary", "unique_rows": len(narrow)}
 
     dev_sample = [ad.row_at("dev", i)[0] for i in range(DEV_SAMPLE_N)]
@@ -310,7 +306,6 @@ def run_arm(tag: str, cfg: dict[str, Any], *, shape: tuple[int, int],
         rows = [ad.row_at(name, i)[0] for i in range(ad.SPLITS[name]["n"])]
         test_slices[name] = {"rows": rows,
                              "targets": [ad.split_prompt_target(r)[1] for r in rows]}
-    import random as _random
 
     if cfg["data"] == "rich":
         # Memorization lens must sample rows this arm actually consumes: the
@@ -401,7 +396,7 @@ def run_arm(tag: str, cfg: dict[str, Any], *, shape: tuple[int, int],
     model2 = initialize(spec, seed).to(device)
     ckpt_mod.load_into(model2, ckpt_path)
     xb.mark_step()
-    re_recs, re_summ = _eval_slice(model2, test_slices["test_core"]["rows"],
+    re_recs, _ = _eval_slice(model2, test_slices["test_core"]["rows"],
                                    test_slices["test_core"]["targets"],
                                    device=device, torch_mod=torch, xb=xb)
     post_sha = cev.sha_predictions([r["prediction"] for r in re_recs])
@@ -570,8 +565,13 @@ def run_session(session_dir: str, *, seed: int = 20260904) -> dict[str, Any]:
     else:
         manifest = ad.build_manifest(out=str(man_path))
         print(f"data manifest built: {manifest['total_bytes']} bytes", flush=True)
+    from citadel_tpu import calculator_eval as cev
+
     if any(v != 0 for v in manifest["leakage"].values()):
         raise RuntimeError(f"abort LEAKAGE: {manifest['leakage']}")
+    if manifest.get("max_row_chars", 0) > cev.EVAL_LENGTH:
+        raise RuntimeError(
+            f"abort ROW_TOO_LONG: max {manifest['max_row_chars']} chars exceeds L={cev.EVAL_LENGTH}")
 
     arm_receipts: dict[str, Any] = {}
     infra_failures = 0

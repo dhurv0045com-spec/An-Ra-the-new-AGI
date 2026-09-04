@@ -23,14 +23,30 @@ from citadel_tpu import t1c_run as t1c  # noqa: E402
 
 
 def test_indexed_determinism_and_bounds() -> None:
+    n = ad.SPLITS["train"]["n"]
     assert ad.row_at("train", 0) == ad.row_at("train", 0)
-    assert ad.row_at("train", 4_999_999) != ad.row_at("train", 0)
-    for bad in (-1, 5_000_000):
+    assert ad.row_at("train", n - 1) != ad.row_at("train", 0)
+    for bad in (-1, n):
         try:
             ad.row_at("train", bad)
             raise SystemExit(f"no bounds error for {bad}")
         except ValueError:
             pass
+
+
+def test_train_family_ranges_and_uniqueness() -> None:
+    import random as _random
+
+    rng = _random.Random(99)
+    rows = [ad.row_at("train", rng.randrange(ad.SPLITS["train"]["n"]))[0] for _ in range(10_000)]
+    assert max(len(r) for r in rows) <= 32
+    assert len(set(rows)) / len(rows) > 0.98  # no collapsed family
+    for r in rows[:2_000]:
+        a, op, b, _ = ad.parse_arith(r)
+        if op == "*":
+            assert 0 <= a <= 999 and 0 <= b <= 999
+        if op == "/":
+            assert 1 <= b <= 999
 
 
 def test_templates_render_and_parse() -> None:
@@ -126,6 +142,21 @@ def _arm(test_acc=0.0, train_acc=0.0, lcb=0.0, ucb=0.008, status="FAIL",
             "intermediates": {str(k): {"dev_exact": v} for k, v in (dev_pairs or [])}}
 
 
+def test_feed_contract_no_gaps_no_wrap() -> None:
+    """Feeds advance exactly one row per element: consecutive calls tile the
+    corpus prefix with no stride gaps; the largest arm never wraps train."""
+    first16 = t1c._rich_feed(0, 8) + t1c._rich_feed(8, 8)
+    expect = [ad.row_at("train", i)[0] for i in range(16)]
+    assert first16 == expect
+    for tag, cfg in t1c.ARMS.items():
+        for b, ln in t1c.CALIBRATION_SHAPES:
+            updates = cfg["budget"] // (b * ln)
+            if cfg["data"] == "rich":
+                assert updates * b <= ad.SPLITS["train"]["n"], (tag, b, ln)
+    narrow = t1c._narrow_feed(3995, 10, train_rows=["r%d" % i for i in range(4000)])
+    assert narrow == ["r%d" % i for i in list(range(3995, 4000)) + list(range(5))]
+
+
 def test_classify_every_rule() -> None:
     base = {t: _arm() for t in "ABCD"}
     assert t1c.classify_cross_arm(base)["labels"] == ["INCONCLUSIVE"]
@@ -151,8 +182,10 @@ def test_classify_every_rule() -> None:
 
 
 def main() -> int:
-    tests = [test_indexed_determinism_and_bounds, test_templates_render_and_parse,
+    tests = [test_indexed_determinism_and_bounds, test_train_family_ranges_and_uniqueness,
+             test_templates_render_and_parse,
              test_prompt_target_all_templates,
+             test_feed_contract_no_gaps_no_wrap,
              test_answer_spans, test_mid_spec_rules, test_budget_arithmetic,
              test_eval_slice_leakage_zeros, test_classify_every_rule]
     failed = 0
