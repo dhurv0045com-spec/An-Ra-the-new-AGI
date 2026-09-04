@@ -93,7 +93,9 @@ class FrozenTokenizer:
         return self._identity.vocabulary_size
 
     def encode(self, text: str) -> list[int]:
-        ids = [int(token) for token in self._backend.encode(text)]
+        produced = self._backend.encode(text)
+        raw = list(produced.ids) if hasattr(produced, "ids") else list(produced)
+        ids = [int(token) for token in raw]
         for token in ids:
             if not 0 <= token < self._identity.vocabulary_size:
                 raise ValueError("backend emitted an out-of-vocabulary id")

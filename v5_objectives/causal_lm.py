@@ -2,7 +2,9 @@
 
 Replica-global mean over eligible target tokens; label smoothing and z-loss
 are zero. BOS and PAD never enter the loss; content and EOS do; positions
-that cross a pack-segment boundary are excluded.
+that cross a pack-segment boundary are excluded. An optional boolean
+``eligible`` mask over [batch, length] restricts the loss to budgeted real
+tokens for exact token accounting; padding is never eligible.
 """
 
 from __future__ import annotations
@@ -17,6 +19,7 @@ def causal_lm_loss(
     *,
     bos_id: int = 2,
     pad_id: int = 0,
+    eligible: Any | None = None,
     torch_module: Any = None,
 ) -> tuple[Any, int]:
     """Shift once; exclude BOS/PAD and segment transitions; include EOS targets."""
@@ -29,6 +32,10 @@ def causal_lm_loss(
     targets = tokens[:, 1:]
     keep = (segment_ids[:, 1:] == segment_ids[:, :-1]) & (segment_ids[:, 1:] >= 0)
     keep = keep & (targets != bos_id) & (targets != pad_id)
+    if eligible is not None:
+        if eligible.shape != tokens.shape:
+            raise ValueError("eligibility mask must match token shape")
+        keep = keep & eligible[:, 1:]
     count = int(keep.sum().item())
     if count == 0:
         raise ValueError("batch has no supervised targets")
