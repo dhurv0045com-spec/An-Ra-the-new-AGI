@@ -227,7 +227,7 @@ anra.run(task)                    ← the one reference loop
 | Readiness v2 | executable canonical pipeline (canaries→ladder→legal→diversity→power→replication→decide→X0/X1); v1 runner frozen | x_factor/readiness/pipeline.py |
 | V2 calibrate 30400 | NOT_READY: PRIMITIVE_CANARY_FAILED (P0 33%, P1 8%); candidacy suspended; X0/X1 blocked | output/readiness_v2_calibrate_30400.json |
 | Checkpoint inventory | 5 unique local files, all V4 pretraining; step-20000 has no weights; NO stronger checkpoint | x_factor/registry/checkpoints.json |
-| V2 hardening | free-gen chance=null + split metrics; replication evidence+chronology; p01+p10 power; task tables; canary components; V5 adapter+V5A manifest; A0-A4/E7 boundary; 76 CPU tests + triquetra CI | x_factor/readiness/, protocols/v5_binding_readiness_manifest.json |
+| V2 hardening | free-gen chance=null + split metrics; replication evidence+chronology+grades; p01+p10 power; task tables; canary components; V5 adapter+V5A manifest; A0-A4/E7 boundary; env telemetry; 80 CPU tests + triquetra CI | x_factor/readiness/, protocols/v5_binding_readiness_manifest.json |
 
 ## Substrate-Adequacy Audit (old V4 checkpoint; historical, not architectural)
 
@@ -252,9 +252,10 @@ no-local-compute guard), `x_factor/checkpoint_identity.py` (strict, no
 silent fallback, UNSUPPORTED_ARCHITECTURE distinct from BAD_CHECKPOINT),
 `x_factor/registry/checkpoints.json` (v2 roles + research_subject lock,
 5 unique local files inventoried, dedup recorded, no stronger Core found),
-`x_factor/execution_policy.py`, prediction/response schemas
-(SOFTWARE_VERIFIED: 76 CPU tests pass, incl. red-team replication/chance/
-guard tests; triquetra-only CI workflow, no GPU science in CI).
+`x_factor/execution_policy.py` (env telemetry in v2 receipts), prediction/response
+schemas (SOFTWARE_VERIFIED: 80 CPU tests pass, incl. promotion-grade,
+manifest-gate, red-team replication/chance/guard tests; triquetra-only CI
+workflow, no GPU science in CI).
 
 ## What's Next
 
