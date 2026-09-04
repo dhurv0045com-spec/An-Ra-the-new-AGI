@@ -107,10 +107,35 @@ def test_prompt_target_convention() -> None:
         assert all(i not in (0, 1, 2, 3) for i in ev.encode(prompt))
 
 
+def test_notebook_references_resolve() -> None:
+    """Every citadel_tpu module/function referenced by notebook cells must exist."""
+    import importlib
+    import re
+
+    for nb in ("notebooks/citadel_colab_tpu.ipynb", "notebooks/citadel_kaggle_tpu.ipynb"):
+        doc = json.loads((CITADEL_ROOT / nb).read_text(encoding="utf-8"))
+        assert doc["nbformat"] == 4
+        for cell in doc["cells"]:
+            if cell.get("cell_type") != "code":
+                continue
+            src = "".join(cell["source"])
+            for mod in re.findall(r"from citadel_tpu import (\w+)", src):
+                importlib.import_module(f"citadel_tpu.{mod}")
+            for dotted in re.findall(r"python -m (citadel_tpu\.\w+)", src):
+                importlib.import_module(dotted)
+            aliases = dict(re.findall(r"from citadel_tpu import (\w+) as (\w+)", src))
+            for mod in re.findall(r"from citadel_tpu import (\w+)\n", src):
+                aliases[mod] = mod
+            for alias, attr in re.findall(r"(\w+)\.(\w+)\(", src):
+                if alias in aliases:
+                    module = importlib.import_module(f"citadel_tpu.{aliases[alias]}")
+                    assert hasattr(module, attr), f"{nb}: citadel_tpu.{aliases[alias]}.{attr} missing"
+
+
 def main() -> int:
     tests = [test_selftest_suite, test_wilson_against_exact_reference,
              test_data_receipt_invariants, test_nulls_deterministic_and_sane,
-             test_prompt_target_convention]
+             test_prompt_target_convention, test_notebook_references_resolve]
     failed = 0
     for fn in tests:
         try:
