@@ -21,6 +21,24 @@ NUM_HASHES = 64
 BANDS = 16
 ROWS_PER_BAND = NUM_HASHES // BANDS
 
+# 61-bit Mersenne prime for universal-hash permutations: one content hash
+# per shingle plus 64 multiply-adds replaces 64 SHA-256 calls.
+_MERSENNE_61 = 2**61 - 1
+
+
+def _permutation_params() -> list[tuple[int, int]]:
+    params = []
+    for index in range(NUM_HASHES):
+        seed_a = hashlib.sha256(f"minhash-a/{index}".encode("utf-8")).digest()
+        seed_b = hashlib.sha256(f"minhash-b/{index}".encode("utf-8")).digest()
+        a = (int.from_bytes(seed_a[:8], "big") % (_MERSENNE_61 - 1)) + 1
+        b = int.from_bytes(seed_b[:8], "big") % _MERSENNE_61
+        params.append((a, b))
+    return params
+
+
+_PERMUTATIONS = _permutation_params()
+
 
 def _shingles(text: str) -> set[str]:
     words = _WORD.findall(text.casefold())
@@ -30,16 +48,16 @@ def _shingles(text: str) -> set[str]:
 
 
 def _hash_versions(shingle: str) -> list[int]:
-    return [
-        int(hashlib.sha256(f"{seed}\0{shingle}".encode("utf-8")).hexdigest(), 16)
-        for seed in range(NUM_HASHES)
-    ]
+    base = int.from_bytes(
+        hashlib.blake2b(shingle.encode("utf-8"), digest_size=8).digest(), "big"
+    ) % _MERSENNE_61
+    return [(a * base + b) % _MERSENNE_61 for a, b in _PERMUTATIONS]
 
 
 def minhash_signature(text: str) -> tuple[int, ...]:
     """Compute a 64-permutation MinHash signature over word-5-grams."""
 
-    signature = [2**256 - 1] * NUM_HASHES
+    signature = [_MERSENNE_61] * NUM_HASHES
     shingles = _shingles(text)
     if not shingles:
         return tuple([0] * NUM_HASHES)

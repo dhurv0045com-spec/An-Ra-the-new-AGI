@@ -94,6 +94,16 @@ class FrozenTokenizer:
 
     def encode(self, text: str) -> list[int]:
         produced = self._backend.encode(text)
+        return self._checked(produced)
+
+    def encode_batch(self, texts: list[str]) -> list[list[int]]:
+        """Batch-encode with identical validation semantics per text."""
+
+        if hasattr(self._backend, "encode_batch"):
+            return [self._checked(produced) for produced in self._backend.encode_batch(texts)]
+        return [self.encode(text) for text in texts]
+
+    def _checked(self, produced: Any) -> list[int]:
         raw = list(produced.ids) if hasattr(produced, "ids") else list(produced)
         ids = [int(token) for token in raw]
         for token in ids:
