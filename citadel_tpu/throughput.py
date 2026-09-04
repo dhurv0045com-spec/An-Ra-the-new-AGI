@@ -1,4 +1,6 @@
-"""Throughput + multi-device certification (missions §17–§19). Kaggle TPU only.
+"""Throughput + multi-device certification (missions §17–§19). Platform-neutral
+TPU backend (Colab first, Kaggle secondary); Cymek production code resolves
+from the pinned read-only Cymek runtime (see runtime_bootstrap).
 
 Measures separately: startup, first compile, first update, steady-state
 updates, checkpoint overhead. Reports cold-start vs steady-state tokens/sec
@@ -26,10 +28,14 @@ MULTI_SCHEMA = "citadel-tpu-multi-device/v1"
 def measure_steady_state(*, out: str = "docs/citadel/tpu_receipts/TPU_THROUGHPUT.json",
                          updates: int = 20, batch: int = 2, length: int = 512) -> dict[str, Any]:
     from citadel_tpu import environment as env_mod
+    from citadel_tpu import runtime_bootstrap as rb
     from citadel_tpu import xla_backend as xb
 
     t_start = time.time()
+    rt_root, rt_sha = rb.ensure_cymek_runtime()  # PRECHECK_IMPORT_FAILURE before any device use
     env = env_mod.probe(require_tpu=True)
+    if not env.get("probe_pass"):
+        raise env_mod.NoTpuError("ABORT_NO_TPU: environment probe did not pass; refusing CPU fallback.")
     n_devices = xb.assert_tpu_active(min_devices=1)
     import torch
 
@@ -39,7 +45,7 @@ def measure_steady_state(*, out: str = "docs/citadel/tpu_receipts/TPU_THROUGHPUT
     from v5_training.optimizer import build_adamw_optimizer
 
     model = initialize(MINI_SPEC, 20260904)
-    device = xb.xla_device()
+    device = xb.get_device()
     model = model.to(device)
     optimizer = build_adamw_optimizer(model, torch_module=torch)
     tokens = torch.randint(0, MINI_SPEC.vocabulary_size, (batch, length))
@@ -75,6 +81,8 @@ def measure_steady_state(*, out: str = "docs/citadel/tpu_receipts/TPU_THROUGHPUT
     per_update_tokens = batch * length
     receipt = {
         "schema": THROUGHPUT_SCHEMA,
+        "citadel_sha": rb.citadel_sha(),
+        "cymek_runtime_sha": rt_sha,
         "environment": env,
         "device_count": n_devices,
         "batch": batch,
@@ -95,9 +103,13 @@ def measure_steady_state(*, out: str = "docs/citadel/tpu_receipts/TPU_THROUGHPUT
 def certify_multi_device(*, out: str = "docs/citadel/tpu_receipts/TPU_MULTI_DEVICE.json") -> dict[str, Any]:
     """Data-parallel correctness gate. Detects topology; hard-codes nothing."""
     from citadel_tpu import environment as env_mod
+    from citadel_tpu import runtime_bootstrap as rb
     from citadel_tpu import xla_backend as xb
 
+    rt_root, rt_sha = rb.ensure_cymek_runtime()  # PRECHECK_IMPORT_FAILURE before any device use
     env = env_mod.probe(require_tpu=True)
+    if not env.get("probe_pass"):
+        raise env_mod.NoTpuError("ABORT_NO_TPU: environment probe did not pass; refusing CPU fallback.")
     import torch
 
     n = xb.assert_tpu_active(min_devices=1)
@@ -130,6 +142,8 @@ def certify_multi_device(*, out: str = "docs/citadel/tpu_receipts/TPU_MULTI_DEVI
     dist.assert_valid()  # raises on duplication/ledger mismatch
     receipt = {
         "schema": MULTI_SCHEMA,
+        "citadel_sha": rb.citadel_sha(),
+        "cymek_runtime_sha": rt_sha,
         "environment": env,
         "device_count": n,
         "identical_init_across_replicas": identical,

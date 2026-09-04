@@ -1,4 +1,6 @@
-"""Calculator training driver (experiment T1). Runs ONLY on Kaggle TPU.
+"""Calculator training driver (experiment T1). Platform-neutral TPU backend
+(Colab first, Kaggle secondary); Cymek production code resolves from the pinned
+read-only Cymek runtime (see runtime_bootstrap).
 
 Prerequisite: T0 PASS. Objective: standard autoregressive CE only (mission
 §13 — no query-swap, no cognition objectives; eliminate variables).
@@ -41,10 +43,14 @@ def train(*, out: str = "docs/citadel/tpu_receipts/TPU_CALCULATOR_CHECKPOINT.jso
     from citadel_tpu import calculator_data as calc
     from citadel_tpu import checkpoint as ckpt_mod
     from citadel_tpu import environment as env_mod
+    from citadel_tpu import runtime_bootstrap as rb
     from citadel_tpu import xla_backend as xb
 
     t0 = time.time()
+    rt_root, rt_sha = rb.ensure_cymek_runtime()  # PRECHECK_IMPORT_FAILURE before any device use
     env = env_mod.probe(require_tpu=True)
+    if not env.get("probe_pass"):
+        raise env_mod.NoTpuError("ABORT_NO_TPU: environment probe did not pass; refusing CPU fallback.")
     n_devices = xb.assert_tpu_active(min_devices=1)
     import torch
 
@@ -78,7 +84,7 @@ def train(*, out: str = "docs/citadel/tpu_receipts/TPU_CALCULATOR_CHECKPOINT.jso
 
     torch.manual_seed(seed)
     model = initialize(MINI_SPEC, seed)
-    device = xb.xla_device()
+    device = xb.get_device()
     model = model.to(device)
     optimizer = build_adamw_optimizer(model, torch_module=torch)
     for g in optimizer.param_groups:
@@ -117,6 +123,8 @@ def train(*, out: str = "docs/citadel/tpu_receipts/TPU_CALCULATOR_CHECKPOINT.jso
     wall = time.time() - t0
     receipt: dict[str, Any] = {
         "schema": RECEIPT_SCHEMA,
+        "citadel_sha": rb.citadel_sha(),
+        "cymek_runtime_sha": rt_sha,
         "environment": env,
         "model": {"spec": "MINI_SPEC"},
         "data": {"generator_version": calc.GENERATOR_VERSION,
@@ -140,7 +148,7 @@ def train(*, out: str = "docs/citadel/tpu_receipts/TPU_CALCULATOR_CHECKPOINT.jso
     return receipt
 
 
-if __name__ == "__main__":  # Kaggle entry only
+if __name__ == "__main__":  # device entry only; never run without a TPU
     print(json.dumps(train(), indent=2)[:500], "...")
 
 
