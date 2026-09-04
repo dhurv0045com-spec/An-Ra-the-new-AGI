@@ -15,7 +15,7 @@
 
 ## STATUS
 
-Citadel SHA: `f6668e7` (rebased onto hotfix tip; to be pushed this cycle)
+Citadel SHA: `bdd91b0` (pushed, in sync with origin/citadel)
 Pinned Cymek runtime SHA: `298c91ac04f756f0833a7edcf63e73af3d5af688` (unchanged)
 
 T1C operator run reached the real Colab TPU and successfully reused calibration
