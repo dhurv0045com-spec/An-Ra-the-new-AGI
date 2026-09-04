@@ -1,12 +1,16 @@
 # TPU_ENVIRONMENT.md
 
-Notebook-startup probe. Fail-closed. Never hard-code the device generation:
-the current expectation is Kaggle free-TPU `v5e-8`, but the probe records
-whatever is actually present and aborts clearly when unsupported.
+Notebook-startup probe. Fail-closed. Never hard-code the device generation or
+platform: Colab is the first execution surface, Kaggle the secondary; the probe
+records whatever is actually present and aborts clearly when unsupported.
 
 ## Required recorded fields (`TPU_ENVIRONMENT.json`)
 
 ```text
+platform: colab | kaggle | other (runtime signals + CITADEL_PLATFORM override; never from TPU generation)
+accelerator_requested: string (default "TPU")
+accelerator_detected: string (XLA hardware string, or "none")
+xla_device_count: int (logical XLA devices; xla_devices kept as alias)
 tpu_present: bool
 tpu_generation: string (as reported, e.g. "v5e", "v5p", "v4", "v3", "unknown")
 xla_devices: int (e.g. xm.xrt_world_size())

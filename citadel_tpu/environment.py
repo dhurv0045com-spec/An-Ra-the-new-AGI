@@ -33,8 +33,21 @@ def _cmd(cmd: list[str]) -> str | None:
     return (out.stdout or "").strip() or None
 
 
-def probe(*, require_tpu: bool = True) -> dict[str, Any]:
-    """Detect the actual runtime. Never assumes v5e-8 or any generation."""
+def _detect_platform(*, explicit: str | None = None) -> str:
+    """Identify colab/kaggle/other from runtime signals — never from TPU generation."""
+    for candidate in (explicit, os.environ.get("CITADEL_PLATFORM", "").strip().lower()):
+        if candidate in ("colab", "kaggle", "other"):
+            return candidate
+    if os.environ.get("KAGGLE_KERNEL_RUN_TYPE") or os.environ.get("KAGGLE_URL_BASE"):
+        return "kaggle"
+    if os.environ.get("COLAB_RELEASE_TAG") or os.environ.get("TBE_RUNTIME_ADDR"):
+        return "colab"
+    return "other"
+
+
+def probe(*, require_tpu: bool = True, platform_override: str | None = None,
+          accelerator_requested: str = "TPU") -> dict[str, Any]:
+    """Detect the actual runtime. Never assumes a TPU generation or device count."""
     try:
         import torch
         torch_version = getattr(torch, "__version__", "unknown")
@@ -78,6 +91,10 @@ def probe(*, require_tpu: bool = True) -> dict[str, Any]:
         "schema": "citadel-tpu-environment/v1",
         "probe_utc": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         "git_sha": _cmd(["git", "rev-parse", "HEAD"]),
+        "platform": _detect_platform(explicit=platform_override),
+        "accelerator_requested": accelerator_requested,
+        "accelerator_detected": str(device_type) if xla_available else "none",
+        "xla_device_count": n_devices,
         "python_version": python_version,
         "torch_version": torch_version,
         "torch_xla_version": torch_xla_version,
@@ -96,8 +113,9 @@ def probe(*, require_tpu: bool = True) -> dict[str, Any]:
     return env
 
 
-def main(*, out: str = "docs/citadel/tpu_receipts/TPU_ENVIRONMENT.json", require_tpu: bool = True) -> dict[str, Any]:
-    env = probe(require_tpu=require_tpu)
+def main(*, out: str = "docs/citadel/tpu_receipts/TPU_ENVIRONMENT.json", require_tpu: bool = True,
+         platform_override: str | None = None) -> dict[str, Any]:
+    env = probe(require_tpu=require_tpu, platform_override=platform_override)
     path = Path(out)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(env, indent=2, sort_keys=True), encoding="utf-8")
@@ -112,8 +130,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--out", default="docs/citadel/tpu_receipts/TPU_ENVIRONMENT.json")
     parser.add_argument("--allow-no-tpu", action="store_true")
+    parser.add_argument("--platform", default=None, choices=["colab", "kaggle", "other", None])
     args = parser.parse_args()
-    main(out=args.out, require_tpu=not args.allow_no_tpu)
+    main(out=args.out, require_tpu=not args.allow_no_tpu, platform_override=args.platform)
     print("probe_pass; see", args.out)
 
 
