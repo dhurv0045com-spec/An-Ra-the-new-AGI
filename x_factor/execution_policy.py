@@ -42,3 +42,21 @@ def assert_local_compute_allowed(kind: str = "model") -> dict:
         raise LocalComputeForbidden(
             "NO_LOCAL_TRAINING: training refused by execution policy.")
     return pol
+
+
+def execution_environment() -> dict:
+    """Telemetry recorded in every v2 receipt (versions only, no model run)."""
+    try:
+        import torch
+
+        torch_version = torch.__version__
+        try:
+            cuda_available = bool(torch.cuda.is_available())
+        except Exception:
+            cuda_available = False
+    except ImportError:
+        torch_version, cuda_available = "unavailable", False
+    import platform
+
+    return {"torch_version": torch_version, "cuda_available": cuda_available,
+            "platform": platform.platform(), "policy": policy_from_env()}

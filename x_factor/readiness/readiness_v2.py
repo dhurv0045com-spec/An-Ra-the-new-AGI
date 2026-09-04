@@ -86,13 +86,18 @@ def decide_readiness(stage: str, capability: dict, identifiability: dict,
                      legal_gap: float | None, diversity_status: str | None,
                      power_status: str | None, protocol_sha: str | None,
                      replication_ok: bool | None, n: int,
-                     qv_lite_vs_chance: float | None = None) -> dict:
+                     qv_lite_vs_chance: float | None = None,
+                     replication_promotable: bool | None = None) -> dict:
     """Fail-closed composition. READY only from stage B with full evidence.
 
     Fail-closed is stage-relative: calibration is not penalized for lacking
     qualification-only evidence (legal arms, diversity, power, protocol,
     replication), but unknown stage or missing stage-relevant inputs still
     yield READINESS_UNRESOLVED.
+
+    replication_promotable (from replication_ok_for_promotion): when supplied
+    in qualify stage, a merely-legacy replication can NEVER promote — the run
+    stays CALIBRATION_REQUIRED even if replication_ok is True.
     """
     provided = {"capability": capability, "identifiability": identifiability,
                 "canary_ok": canary_ok, "frontier": frontier_verdict,
@@ -143,5 +148,8 @@ def decide_readiness(stage: str, capability: dict, identifiability: dict,
                 "reason": "QV-lite below chance: no query-conditioned signal to model"}
     if replication_ok is not True:
         return {"readiness": "CALIBRATION_REQUIRED", "reason": "second-seed replication pending"}
+    if replication_promotable is False:
+        return {"readiness": "CALIBRATION_REQUIRED",
+                "reason": "legacy replication cannot promote: full evidence block required"}
     return {"readiness": "READY_SCOPED",
             "reason": "qualified binding regime: PARTIAL capability + identifiable + legal headroom + replicated"}

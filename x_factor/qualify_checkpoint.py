@@ -69,6 +69,26 @@ def _subject_allowed(entry: dict | None, allow_historical_control: bool) -> dict
                       "pass --research-subject or --allow-historical-control"}
 
 
+def check_arrival_manifest(manifest_path: str | None) -> dict:
+    """Pure arrival-manifest gate (unit-testable, no model I/O).
+
+    Returns verdict dict. No manifest -> NOT_CHECKED (V4 canonical path does
+    not need one). Unreadable/invalid manifest -> INVALID (fail closed).
+    """
+    if manifest_path is None:
+        return {"checked": False, "valid": None, "reason": "no manifest supplied"}
+    from manifest_validator import validate_manifest  # noqa: E402 (light, pure)
+
+    try:
+        doc = json.loads(Path(manifest_path).read_text(encoding="utf-8"))
+    except (OSError, ValueError) as e:
+        return {"checked": True, "valid": False, "reason": f"unreadable manifest: {e}"}
+    verdict = validate_manifest(doc if isinstance(doc, dict) else {})
+    return {"checked": True, **verdict,
+            "reason": "manifest valid" if verdict["valid"] else
+                      f"missing={verdict['missing_fields']} placeholders={verdict['placeholder_fields']}"}
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--checkpoint", required=True)
@@ -77,6 +97,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--protocol", default=None)
     ap.add_argument("--research-subject", default=None)
     ap.add_argument("--allow-historical-control", action="store_true")
+    ap.add_argument("--manifest", default=None,
+                    help="Cymek CoreSubjectManifest JSON (required context for non-V4 arrivals)")
     ap.add_argument("--seed", type=int, default=42424)
     ap.add_argument("--device", default=None)
     ap.add_argument("--out", default="output/readiness_receipt.json")
@@ -100,6 +122,12 @@ def main(argv: list[str] | None = None) -> int:
         prof = match_architecture_profile(cfg)
     except UnsupportedArchitecture as e:
         print(str(e), file=sys.stderr)
+        mv = check_arrival_manifest(args.manifest)
+        print(f"arrival manifest: {mv}", file=sys.stderr)
+        print("V5 weight-format binding not yet implemented: identity recorded, "
+              "loader deferred to the arrived checkpoint's exact format. "
+              "Register as UNQUALIFIED_NEW; do not coerce into the V4 loader.",
+              file=sys.stderr)
         return 2
     print(f"profile: {prof['profile']}", flush=True)
     # NOTE: model stays alive here; run_readiness_v2 executes the probes.
