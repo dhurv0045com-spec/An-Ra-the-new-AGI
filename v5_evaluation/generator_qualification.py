@@ -152,6 +152,62 @@ def qualify_suite(
     return receipt
 
 
+def reaudit_rule_induction(dev_certificate: Mapping[str, Any]) -> dict[str, object]:
+    """Re-audit the rule-induction qualification: sample size, CI, structure.
+
+    Labels PROVISIONALLY_QUALIFIED when the evidence is thin even if the
+    point verdict passes: small samples, wide confidence bounds, or weak
+    structural holdout. Never silently canonizes.
+    """
+
+    from e0_cognition.statistics import wilson_interval
+
+    family = qualify_family(
+        dev_certificate, "rule_induction", generator_id="e0-eval/reaudit",
+        generator_sha256="0" * 64,
+    )
+    suite = dev_certificate.get("suite") or {}
+    structures = list(suite.get("rule_structures") or [])
+    n = int(family["cases"])
+    worst_name, worst_excess = max(
+        family["heuristic_excesses"].items(), key=lambda item: item[1]
+    )
+    baselines = (dev_certificate.get("baselines") or {}).get(worst_name) or {}
+    by_family = baselines.get("by_family") or {}
+    # Reconstruct counts conservatively: accuracy * n may undershoot the
+    # true correct count by rounding; use ceiling to avoid understating risk.
+    import math as _math
+
+    correct = int(_math.ceil(float(by_family.get("rule_induction", 0.0)) * n))
+    chance = float(family["chance"])
+    _lower, upper = wilson_interval(min(correct, n), n)
+    label = "GENERATOR_QUALIFIED"
+    caveats = []
+    if n < 100:
+        caveats.append(f"small sample (n={n}); intervals are wide")
+    if upper - chance > MAX_SHORTCUT_EXCESS:
+        caveats.append(
+            f"Wilson upper excess {upper - chance:.4f} exceeds {MAX_SHORTCUT_EXCESS}"
+        )
+    if len(structures) < 4:
+        caveats.append("fewer than four held-out rule structures")
+    if caveats:
+        label = "PROVISIONALLY_QUALIFIED"
+    return {
+        "schema": QUALIFICATION_SCHEMA,
+        "scope": "rule-induction-reaudit",
+        "family_receipt": family,
+        "cases": n,
+        "worst_heuristic": worst_name,
+        "worst_point_excess": worst_excess,
+        "wilson_upper_excess": upper - chance,
+        "rule_structures": structures,
+        "structure_count": len(structures),
+        "caveats": caveats,
+        "label": label,
+    }
+
+
 __all__ = [
     "MAX_SHORTCUT_EXCESS",
     "QUALIFICATION_SCHEMA",
