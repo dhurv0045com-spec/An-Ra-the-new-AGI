@@ -51,7 +51,9 @@ def run(*, out: str = "docs/citadel/tpu_receipts/TPU_ONE_UPDATE.json", seed: int
     from citadel_tpu import xla_backend as xb
 
     t0 = time.time()
-    env = env_mod.probe(require_tpu=True)  # raises ABORT_NO_TPU on CPU fallback
+    env = env_mod.probe(require_tpu=True)
+    if not env.get("probe_pass"):
+        raise env_mod.NoTpuError("ABORT_NO_TPU: environment probe did not pass; refusing CPU fallback.")
     n_devices = xb.assert_tpu_active(min_devices=1)
     import torch
 

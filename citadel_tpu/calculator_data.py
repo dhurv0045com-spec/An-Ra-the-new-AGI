@@ -21,7 +21,7 @@ from pathlib import Path
 from typing import Literal
 
 
-GENERATOR_VERSION = "calculator-canary/1.0"
+GENERATOR_VERSION = "calculator-canary/1.1"
 SCHEMA = "citadel-calculator-canary/v1"
 
 Op = Literal["+", "-", "*", "/"]
@@ -80,7 +80,10 @@ def generate(*, split: Literal["train", "development", "test"]) -> list[str]:
 def generalization_slices(*, seed: int = 71999) -> dict[str, list[str]]:
     """Held-out commutativity + range slices (fixed seed, disjoint from splits)."""
     rng = random.Random(seed)
-    comm = [f"{b} + {a} = {a + b}" for a in range(80, 90) for b in range(80, 90) if rng.random() < 0.1][:50]
+    pairs = [(a, b) for a in range(80, 90) for b in range(80, 90)]
+    off = seed % 2  # deterministic stride offset: exactly 50 of 100 pairs
+    comm = [f"{b} + {a} = {a + b}" for i, (a, b) in enumerate(pairs) if i % 2 == off][:50]
+    assert len(comm) == 50, "commutative slice must be exactly 50 rows"
     rng_hi = [render(rng.randint(120, 199), rng.choice(["+", "-", "*"]), rng.randint(120, 199)) for _ in range(100)]
     return {"commutative_heldout": comm, "range_heldout_120_199": rng_hi}
 
