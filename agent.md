@@ -15,13 +15,19 @@
 
 ## STATUS
 
-Citadel SHA: `168be62` (local; to be pushed this cycle)
+Citadel SHA: `74787c4` (local; to be pushed this cycle)
 Pinned Cymek runtime SHA: `298c91ac04f756f0833a7edcf63e73af3d5af688` (unchanged)
 
-T1C built this cycle: one-session 4-arm discriminator on ~100 MB unique
-synthetic arithmetic (indexed generator, production loss seam for the
-answer-objective arm, principled 3.7M MID scale arm, calibration-selected
-shape, resume markers, machine-evaluated cross-arm rules, one result bundle).
+Debug sweep this cycle found and fixed 3 real defects before any operator run:
+(1) feed double-multiplication (update·batch² stride with early wrap,
+contradicting the no-wrap assert and the memorization lens) → row-cursor feeds
+with a regression test; run_arm now routes through the tested module feeds.
+(2) Train mult/div families collapsed (min-clustering + tiny ranges → ~40×
+duplication) → caps match split magnitude. (3) TEST-COMPOSITION overlapped
+train mult range (3 exact + 17 key collisions measured) → redefined as
+words×shifted-range composition probe. Full 6.5M-row manifest re-verified:
+108.9 MB, max row 32 chars, dup rate 0.43%, leakage zero except the single
+designed core×template pair. 16/16 tests green.
 
 ## T0 / T1 (history)
 
@@ -80,6 +86,8 @@ compileall clean; fail-closed intact; generator 200k rows/2.4s (5M ≈ 60 s).
 ## Commit log (latest first, citadel only)
 
 ```text
+74787c4 fix(citadel): close feed stride gap, mult-div collapse, composition leakage
+c7e1296 docs(citadel): update T1C turnkey handover
 168be62 feat(citadel): add T1C session notebook
 d850d2b test(citadel): T1C preflight and unit tests
 0d1676a feat(citadel): extend evaluator for arrow and letter rows
