@@ -155,6 +155,12 @@ class P35AReadinessTests(unittest.TestCase):
     def test_center_mixture_sums_to_5b(self) -> None:
         self.assertEqual(sum(CENTER_5B_MIXTURE.values()), 5_000_000_000)
 
+    def test_center_mixture_matches_frozen_spec(self) -> None:
+        from v5_contracts.training_spec import build_training_spec
+
+        frozen = build_training_spec()["data"]["mixture_tokens"]
+        self.assertEqual(dict(CENTER_5B_MIXTURE), dict(frozen))
+
 
 if __name__ == "__main__":
     unittest.main()
