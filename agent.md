@@ -9,94 +9,91 @@
 
 ## STATUS
 
+Citadel SHA: `9fa5e5b` (local; to be pushed this cycle)
+Cymek SHA: `105ad22` (read-only; moved +9 since `4abeaeb` — assessed below)
+
+This cycle (Colab-first, platform-neutral core): `origin/cymek` moved +9 commits
+(~5000 lines: stream/sourceset/qualify scaffolding, sampler-cursor authority,
+tokenizer artifact, eval/experiment harnesses). Audit impact check: `MINI_SPEC`,
+`v5_model/*`, optimizer, checkpoint, pack untouched; `causal_lm.py` gained an
+optional `eligible` mask (elementwise AND, default path byte-identical) — XLA
+audit verdicts hold, no re-audit of the T0 path required. Implemented: (1) platform
+identity in every TPU receipt (`platform` colab|kaggle|other via runtime signals +
+`CITADEL_PLATFORM` override, never from TPU generation; `accelerator_requested` /
+`accelerator_detected` / `xla_device_count`); (2) thin Colab launcher
+`notebooks/citadel_colab_tpu.ipynb` (Kaggle notebook kept); receipt-return decision
+implemented as operator file transfer (`files.download` cells, no secrets).
+Local validation caught + fixed a real regression: new `platform` probe parameter
+shadowed the stdlib `platform` module (smoke test crashed) → renamed to
+`platform_override`, re-validated (default `other`, explicit + env-var overrides
+correct, fail-closed `ABORT_NO_TPU` intact).
+
+## PLATFORM
+
 ```text
-citadel:          68f49ae (local; to be pushed this cycle)
-origin/citadel:   3a0502b (pre-cycle; no remote movement)
-origin/esoes:     85f44b7 (foundation, unchanged)
-origin/cymek:     4abeaeb (read-only, unchanged)
-origin/triquetra: fa44ea3 (read-only, unchanged)
-merge-base(citadel, origin/cymek): 85f44b7 (siblings; never merged)
+colab
 ```
 
-This cycle (small-steps, zero-download validation): validated `calculator_data`
-generator (4000/500/500 rows, overlap 0, rebuild-deterministic) and the probe
-smoke path locally; confirmed `one_update` aborts fail-closed (`ABORT_NO_TPU`,
-no receipt) on a non-TPU box. Found + fixed two defects before any Kaggle run:
-(1) commutative heldout slice yielded 6 rows, not 50 (random filter) → now a
-deterministic stride guaranteeing exactly 50 (`calculator-canary/1.1`);
-(2) in-driver `probe()` result was never enforced (only `main()` raised) → now
-`run()` raises `NoTpuError` on `probe_pass == false` (commit `68f49ae`).
+Colab is the first execution surface; Kaggle remains secondary. Core backend
+(`citadel_tpu/`) is platform-neutral; only notebook wrappers differ.
 
-## QUESTIONS FOR OPERATOR
+## ENVIRONMENT
 
-1. Receipt return path: after running `notebooks/citadel_kaggle_tpu.ipynb` on
-   Kaggle, should the `tpu_receipts/*.json` files come back as pasted text,
-   or will you push them from the Kaggle side (Kaggle has no direct remote
-   access to this repo)?
+TPU detected: unmeasured (no device execution from this box)
+TPU identity: —
+XLA devices: —
+Python: —
+PyTorch: —
+torch-xla: —
 
 ## DOWNLOADS
 
 ```text
+ITEM | SOURCE/PURPOSE | BYTES | CUMULATIVE BYTES
 (none — no pip installs, no datasets, no checkpoints, no artifacts)
 TOTAL_DOWNLOADED_GB = 0.0
 ```
 
-## TPU STATUS
+## T0
 
-```text
-IMPLEMENTED_NOT_RUN
-```
+Status: NOT_RUN | Loss: — | Grad norm: — | Parameter mutation: —
+Checkpoint save: — | Checkpoint reload: — | Wall time: — | Tokens/sec: —
 
-Kaggle execution: `NOT_EXECUTED_ON_KAGGLE`. One-update: NOT_RUN. Calculator:
-NOT_RUN. C1: preserved, NOT executed.
+## CALCULATOR
 
-## CALCULATOR STATUS
+Status: NOT_RUN | Parameters: MINI_SPEC (~1.6M)
+Train examples: 0 | Train tokens: 0 | Updates: 0
+Loss start: — | Loss end: — | Untrained test accuracy: —
+Final test accuracy: — | Checkpoint hash: — | Reload result: —
+Tokens/sec: — | Generator: calculator-canary/1.1 (locally validated)
 
-```text
-parameters: MINI_SPEC (~1.6M; P35 explicitly not the bring-up model)
-training examples: 0 | training tokens: 0 | updates: 0
-loss start: - | loss end: -
-untrained held-out accuracy: unmeasured | final held-out accuracy: unmeasured
-checkpoint hash: - | reload status: -
-wall time: - | steady-state tok/s: -
-generator: calculator-canary/1.1 (validated locally: overlap 0, deterministic)
-```
-
-## 5B DATA STATUS
+## 5B DATA
 
 ```text
 NOT_STARTED
 ```
 
-`0 / 5,000,000,000` real train tokens. No sample-pipeline test this cycle (no
-TPU host to feed); correctly sequenced behind T0→T1→T2.
+`0 / 5,000,000,000`. No sample test (no TPU host to feed); sequenced behind T0→T1.
+
+## QUESTIONS FOR OPERATOR
+
+```text
+NONE
+```
 
 ## BIGGEST BLOCKER
 
-No Kaggle TPU execution yet — T0 (one-update cert) is the gate for everything.
+No Colab TPU execution yet — T0 (one-update cert) is the gate for everything.
 
 ## NEXT ACTION
 
-Run `notebooks/citadel_kaggle_tpu.ipynb` cells 0–3 on a Kaggle TPU notebook
-(env probe → T0 one-update); return `TPU_ENVIRONMENT.json` /
-`TPU_ONE_UPDATE.json` or the abort + log hash.
-
-## Key facts (do not re-derive blindly)
-
-- XLA shims, architecture unchanged: XLA AdamW + `xm.optimizer_step`/`mark_step`;
-  `packed_layout` + loss-count + hashing on CPU host; no `data_ptr()` on XLA;
-  `torch_module`-injection is the port seam. No JAX/TF. No `torch_xla` in `v5_*`.
-- Top device unknown: SDPA bool-mask lowering per torch-xla version.
-- Buckets 512/1024/2048/4096: bring-up on 512 fixed-batch only until 8-device passes.
-- Strongest negative result: `production_scoring_mode = null` (gates all learned-cognition comparisons).
+Run `notebooks/citadel_colab_tpu.ipynb` on a Colab TPU runtime (probe → T0 → STOP unless PASS); transfer back the exact `TPU_ENVIRONMENT.json` / `TPU_ONE_UPDATE.json` files.
 
 ## Commit log (latest first, citadel only)
 
 ```text
+9fa5e5b feat(citadel): add platform identity to tpu receipts
+0c199cc feat(citadel): add colab tpu launcher
+e6226af docs(citadel): update agent handover
 68f49ae fix(citadel): guarantee 50-row commutative slice; enforce probe gate in-driver
-3a0502b docs(citadel): update agent.md handover
-68ca5af docs(citadel): add kaggle tpu launcher notebook
-0e4827e feat(citadel): add kaggle tpu bootstrap path
-594fc77 docs(citadel): switch execution target to kaggle tpu
-203ff60 docs(citadel): tpu-first override audit and milestone preregistration
 ```
