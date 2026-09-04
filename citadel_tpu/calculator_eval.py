@@ -22,7 +22,7 @@ from typing import Any
 
 
 ENCODING_VERSION = "char-byte-offset/1.0"
-ALPHABET = "0123456789+-*/= \n"
+ALPHABET = "0123456789+-*/= \nabcdefghijklmnopqrstuvwxyz>"
 MAX_ANSWER_TOKENS = 8
 EVAL_BATCH = 8
 EVAL_LENGTH = 32
@@ -81,7 +81,12 @@ def parse_row(row: str) -> tuple[int, str, int, str]:
 
 
 def split_prompt_target(row: str) -> tuple[str, str]:
-    """Frozen A3 convention: PROMPT keeps '=', TARGET is stripped."""
+    """Frozen A3 convention, extended to arrow rows: split on the LAST answer
+    delimiter ("->" wins when it follows "="). T1 canon rows contain no "->",
+    so their behavior is byte-identical to before."""
+    if "->" in row and ("=" not in row or row.rindex("->") > row.rindex("=")):
+        left, right = row.rsplit("->", 1)
+        return left + "->", right.strip()
     if "=" not in row:
         raise ValueError(f"malformed calculator row: {row!r}")
     left, right = row.rsplit("=", 1)
