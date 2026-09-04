@@ -24,6 +24,10 @@ from v5_tokenizer.adapter import FrozenTokenizer
 ADAPTER_SCHEMA = "anra-v5-checkpoint-adapter/v1"
 SCORING_RULE = "summed candidate-suffix log-probability, shared prefix, uniform EOS"
 DECODING_RULE = "greedy; temperature 0; stop on EOS or cap"
+# Stable mechanism identity for protocol binding. This names HOW scores are
+# computed; it never selects a production decision policy (which stays NULL).
+SCORING_CONTRACT_ID = "anra-v5-scoring-contract/summed-suffix-logprob-v1"
+SCORING_CONTRACT_SHA256 = hashlib.sha256(SCORING_CONTRACT_ID.encode("utf-8")).hexdigest()
 
 
 def _canonical_json(value: object) -> bytes:
@@ -93,6 +97,8 @@ class CheckpointBackedV5Adapter:
         for parameter in model.parameters():
             parameter.requires_grad_(False)
         self.model = model
+        self.scoring_contract_id = SCORING_CONTRACT_ID
+        self.scoring_contract_sha256 = SCORING_CONTRACT_SHA256
         self.identity = AdapterIdentity(
             schema=ADAPTER_SCHEMA,
             checkpoint_sha256=checkpoint_sha256,
@@ -185,5 +191,7 @@ __all__ = [
     "ADAPTER_SCHEMA",
     "AdapterIdentity",
     "CheckpointBackedV5Adapter",
+    "SCORING_CONTRACT_ID",
+    "SCORING_CONTRACT_SHA256",
     "SCORING_RULE",
 ]

@@ -25,11 +25,14 @@ from v5_evaluation.firewall import (
     build_visible_tasks,
     score_committed,
 )
+from v5_evaluation.fixture import TaskFixtureBatch
+from v5_evaluation.metrics import METRIC_REGISTRY
+from v5_evaluation.stats import STATISTICAL_RULES
 
 
 PROTOCOL_SCHEMA = "anra-v5-evaluation-protocol/v1"
 EVIDENCE_SCHEMA = "anra-v5-task-evidence/v1"
-RECEIPT_SCHEMA = "anra-v5-evaluation-receipt/v1"
+RECEIPT_SCHEMA = "anra-v5-evaluation-receipt/v2"
 
 EVALUATION_MODES = (
     "RAW_FREE_GENERATION",
@@ -132,9 +135,66 @@ class EvaluationReceipt:
     task_evidence_sha256: tuple[str, ...]
     aggregate_correct_rate: float
     derived_from_task_evidence: bool
+    scoring_contract_sha256: str
+    metric_values: tuple[tuple[str, float], ...]
+    statistical_rule: str
+    statistical_analyses: tuple[tuple[str, str], ...]
+    evidence_artifact_sha256: str
 
     def sha256(self) -> str:
-        return _sha_of(asdict(self))
+        data = asdict(self)
+        data["metric_values"] = [list(item) for item in self.metric_values]
+        data["statistical_analyses"] = [list(item) for item in self.statistical_analyses]
+        return _sha_of(data)
+
+
+def _adapter_scoring_contract(adapter: Any) -> str:
+    """Resolve the adapter's advertised scoring-contract identity."""
+
+    contract = getattr(adapter, "scoring_contract_sha256", None)
+    if callable(contract):
+        contract = contract()
+    if not isinstance(contract, str) or not contract:
+        raise ValueError(
+            "evaluation adapter must advertise a scoring-contract identity"
+        )
+    return contract
+
+
+def write_evidence_artifact(
+    evidence: list[TaskLevelEvidence], path: Path
+) -> str:
+    """Persist canonical task-evidence JSONL; return the artifact SHA-256."""
+
+    if not evidence:
+        raise ValueError("cannot persist an empty evidence artifact")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    digest = hashlib.sha256()
+    with path.open("wb") as handle:
+        for record in evidence:
+            data = asdict(record)
+            if data["candidate_scores"] is not None:
+                data["candidate_scores"] = list(data["candidate_scores"])
+            line = _canonical_json(data) + b"\n"
+            digest.update(line)
+            handle.write(line)
+    return digest.hexdigest()
+
+
+def verify_evidence_artifact(path: Path, expected_sha256: str) -> list[dict[str, object]]:
+    """Re-hash a persisted artifact and return its records; tampering fails."""
+
+    digest = hashlib.sha256()
+    records: list[dict[str, object]] = []
+    with path.open("rb") as handle:
+        for line in handle:
+            digest.update(line)
+            records.append(json.loads(line.decode("utf-8")))
+    if digest.hexdigest() != expected_sha256:
+        raise ValueError("task-evidence artifact disagrees with the receipt binding")
+    if not records:
+        raise ValueError("task-evidence artifact holds no records")
+    return records
 
 
 def run_evaluation(
@@ -142,19 +202,44 @@ def run_evaluation(
     protocol: EvaluationProtocol,
     subject: CoreSubjectManifest,
     adapter: Any,
-    tasks: list[Mapping[str, Any]],
+    fixture: TaskFixtureBatch,
+    evidence_path: Path,
     clock: Callable[[], float] | None = None,
+    paired_outcomes: list[tuple[bool, bool]] | None = None,
 ) -> tuple[EvaluationReceipt, list[TaskLevelEvidence]]:
-    """Execute a protocol over truth-carrying task records behind the firewall.
+    """Execute a protocol over a frozen fixture behind the firewall.
 
-    The records are projected into ``VisibleTask`` (structurally truth-free)
-    before the adapter sees them; ``EvaluatorTruth`` is joined only after the
-    model output is committed.  Aggregates are derived from task evidence.
+    Every binding is enforced: fixture case count equals ``n_cases`` (exact,
+    never truncated or sampled), fixture split/seed/generator equal the
+    protocol's, the adapter's scoring contract equals the protocol's, and
+    metrics/statistical rules must exist in their registries before the run.
+    Task evidence persists to ``evidence_path``; the receipt binds its hash.
     """
 
     protocol.assert_valid()
+    fixture.assert_valid()
+    if len(fixture.cases) != protocol.n_cases:
+        raise ValueError(
+            f"fixture holds {len(fixture.cases)} cases but protocol demands "
+            f"exactly {protocol.n_cases}: no truncation, no sampling"
+        )
+    if fixture.split != protocol.split:
+        raise ValueError("fixture split disagrees with protocol split")
+    if fixture.seed != protocol.seed:
+        raise ValueError("fixture seed disagrees with protocol seed")
+    if fixture.generator_sha256 != protocol.generator_sha256:
+        raise ValueError("fixture generator disagrees with protocol generator")
+    contract = _adapter_scoring_contract(adapter)
+    if protocol.candidate_scoring_mode != contract:
+        raise ValueError("adapter scoring contract disagrees with the protocol")
+    unknown_metrics = [name for name in protocol.metrics if name not in METRIC_REGISTRY]
+    if unknown_metrics:
+        raise ValueError(f"unknown production metrics: {unknown_metrics}")
+    if protocol.statistical_rule not in STATISTICAL_RULES:
+        raise ValueError(f"unknown statistical rule: {protocol.statistical_rule}")
     import time
 
+    tasks = [dict(case) for case in fixture.cases]
     clock = clock or time.perf_counter
     visible_tasks: list[VisibleTask] = build_visible_tasks(tasks)
     truths: list[EvaluatorTruth] = build_evaluator_truth(tasks)
@@ -210,6 +295,22 @@ def run_evaluation(
             prompt_tokens=int(token_count(visible.prompt)) if token_count else 0,
         )
         evidence.append(record)
+    enriched = _enrich_for_metrics(evidence, tasks)
+    metric_values = tuple(
+        (name, float(METRIC_REGISTRY[name](enriched))) for name in protocol.metrics
+    )
+    rule = STATISTICAL_RULES[protocol.statistical_rule]
+    if protocol.statistical_rule == "EXACT_MCNEMAR":
+        if paired_outcomes is None:
+            raise ValueError("McNemar analysis needs explicitly paired outcomes")
+        analyses = (("EXACT_MCNEMAR", _sha_of(rule(paired_outcomes, seed=protocol.seed))),)
+    elif protocol.statistical_rule == "CLUSTER_BOOTSTRAP_DELTA":
+        analyses = (
+            ("CLUSTER_BOOTSTRAP_DELTA", _sha_of(rule(enriched, seed=protocol.seed))),
+        )
+    else:
+        analyses = (("WILSON_BINOMIAL", _sha_of(rule(enriched, seed=protocol.seed))),)
+    artifact_sha = write_evidence_artifact(evidence, evidence_path)
     aggregate = sum(1 for record in evidence if record.correct) / len(evidence)
     receipt = EvaluationReceipt(
         receipt_schema=RECEIPT_SCHEMA,
@@ -221,8 +322,55 @@ def run_evaluation(
         task_evidence_sha256=tuple(record.sha256() for record in evidence),
         aggregate_correct_rate=aggregate,
         derived_from_task_evidence=True,
+        scoring_contract_sha256=contract,
+        metric_values=metric_values,
+        statistical_rule=protocol.statistical_rule,
+        statistical_analyses=analyses,
+        evidence_artifact_sha256=artifact_sha,
     )
     return receipt, evidence
+
+
+def _enrich_for_metrics(
+    evidence: list[TaskLevelEvidence], tasks: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """Join evidence with fixture candidates/gold for metric computation."""
+
+    by_task = {str(task["task_id"]): task for task in tasks}
+    enriched: list[dict[str, Any]] = []
+    for record in evidence:
+        task = by_task[record.task_id]
+        candidates = [str(candidate) for candidate in task.get("candidates", ())]
+        try:
+            gold_index: int | None = candidates.index(record.gold_reference)
+        except ValueError:
+            gold_index = None
+        selection_correct: bool | None = None
+        if record.candidate_scores is not None and gold_index is not None:
+            best = max(
+                range(len(record.candidate_scores)),
+                key=lambda i: float(record.candidate_scores[i]),  # type: ignore[index]
+            )
+            selection_correct = best == gold_index
+        elif record.candidate_scores is None:
+            selection_correct = record.correct
+        enriched.append(
+            {
+                "task_id": record.task_id,
+                "cluster_id": record.cluster_id,
+                "family": record.family,
+                "correct": record.correct,
+                "candidate_scores": list(record.candidate_scores)
+                if record.candidate_scores is not None
+                else None,
+                "candidates": candidates,
+                "gold": record.gold_reference,
+                "gold_index": gold_index,
+                "selection_correct": selection_correct,
+                "realized": record.raw_output == record.gold_reference,
+            }
+        )
+    return enriched
 
 
 __all__ = [
@@ -234,4 +382,6 @@ __all__ = [
     "RECEIPT_SCHEMA",
     "TaskLevelEvidence",
     "run_evaluation",
+    "verify_evidence_artifact",
+    "write_evidence_artifact",
 ]

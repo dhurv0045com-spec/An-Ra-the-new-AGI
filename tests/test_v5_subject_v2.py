@@ -146,7 +146,10 @@ class SubjectVerificationTests(unittest.TestCase):
                 source_commit="a" * 40,
             )
             receipt = verify_subject_artifacts(
-                manifest, checkpoint_root=root / "checkpoints", lineage_id="v2test",
+                manifest,
+                training_state=store.restore(checkpoint_sha)[0],
+                payloads=payloads,
+                checkpoint_object_sha256=checkpoint_sha,
                 tokenizer_artifact_path=tokenizer_path, model_spec=spec,
                 torch_module=torch,
             )
@@ -204,8 +207,10 @@ class SubjectVerificationTests(unittest.TestCase):
                 source_commit="a" * 40,
             )
             bad = _dataclasses.replace(good, model_payload_sha256="f" * 64)
+            restored, _restored_payloads = store.restore(checkpoint_sha)
             receipt = verify_subject_artifacts(
-                bad, checkpoint_root=root / "checkpoints", lineage_id="v2test",
+                bad, training_state=restored, payloads=payloads,
+                checkpoint_object_sha256=checkpoint_sha,
                 tokenizer_artifact_path=tokenizer_path, model_spec=spec,
                 torch_module=torch,
             )

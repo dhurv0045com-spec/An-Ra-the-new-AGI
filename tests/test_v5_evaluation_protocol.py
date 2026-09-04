@@ -6,10 +6,15 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from v5_evaluation.checkpoint_adapter import CheckpointBackedV5Adapter
+from v5_evaluation.checkpoint_adapter import (
+    SCORING_CONTRACT_SHA256,
+    CheckpointBackedV5Adapter,
+)
+from v5_evaluation.fixture import TaskFixtureBatch
 from v5_evaluation.protocol import (
     EvaluationProtocol,
     run_evaluation,
+    verify_evidence_artifact,
 )
 from v5_experiments.preregistration import (
     ExperimentChronology,
@@ -56,10 +61,23 @@ def _protocol(mode: str = "CONSTRAINED_SELECTION") -> EvaluationProtocol:
         seed=1,
         n_cases=2,
         decoding_mode=mode,
-        candidate_scoring_mode="summed-suffix-logprob",
-        metrics=("exact_match",),
-        statistical_rule="wilson-95-lcb",
+        candidate_scoring_mode=SCORING_CONTRACT_SHA256,
+        metrics=("EXACT_ACCURACY",),
+        statistical_rule="WILSON_BINOMIAL",
     )
+
+
+def _fixture(**overrides) -> TaskFixtureBatch:
+    fields: dict[str, object] = {
+        "generator_id": "miniature-binding-generator",
+        "generator_sha256": "a" * 64,
+        "generator_config_sha256": "b" * 64,
+        "seed": 1,
+        "split": "software_eval",
+        "cases": [dict(task, split="software_eval") for task in TASKS],
+    }
+    fields.update(overrides)
+    return TaskFixtureBatch.freeze(**fields)  # type: ignore[arg-type]
 
 
 TASKS = [
@@ -103,14 +121,24 @@ class ProtocolTest(unittest.TestCase):
                 statistical_rule="wilson",
             ).assert_valid()
 
+    def _run(self, protocol=None, fixture=None, adapter=None, clock=None):
+        if adapter is None:
+            adapter = _adapter()
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "evidence.jsonl"
+            receipt, evidence = run_evaluation(
+                protocol=protocol or _protocol(),
+                subject=_subject(),
+                adapter=adapter,
+                fixture=fixture or _fixture(),
+                evidence_path=path,
+                clock=clock,
+            )
+            artifact = path.read_bytes()
+        return receipt, evidence, artifact
+
     def test_run_evaluation_produces_task_level_evidence(self) -> None:
-        adapter = _adapter()
-        receipt, evidence = run_evaluation(
-            protocol=_protocol(),
-            subject=_subject(),
-            adapter=adapter,
-            tasks=TASKS,
-        )
+        receipt, evidence, _artifact = self._run()
         self.assertEqual(receipt.n_tasks, 2)
         self.assertEqual(len(evidence), 2)
         self.assertTrue(receipt.derived_from_task_evidence)
@@ -118,30 +146,125 @@ class ProtocolTest(unittest.TestCase):
             self.assertEqual(record.evaluation_mode, "CONSTRAINED_SELECTION")
             self.assertIn(record.raw_output, (" crimson", " blue"))
             self.assertEqual(record.checkpoint_sha256, "a" * 64)
-        # aggregates derive from the evidence, not asserted independently
         expected = sum(1 for r in evidence if r.correct) / len(evidence)
         self.assertEqual(receipt.aggregate_correct_rate, expected)
+        self.assertEqual(dict(receipt.metric_values)["EXACT_ACCURACY"], expected)
+        self.assertEqual(receipt.statistical_rule, "WILSON_BINOMIAL")
+        self.assertEqual(len(receipt.evidence_artifact_sha256), 64)
 
     def test_raw_scoring_mode(self) -> None:
-        adapter = _adapter()
-        receipt, evidence = run_evaluation(
-            protocol=_protocol("RAW_CANDIDATE_SCORING"),
-            subject=_subject(),
-            adapter=adapter,
-            tasks=TASKS,
+        import dataclasses
+
+        protocol = dataclasses.replace(
+            _protocol("RAW_CANDIDATE_SCORING"), metrics=("CANDIDATE_RANK1",)
         )
+        receipt, evidence, _artifact = self._run(protocol=protocol)
         for record in evidence:
             self.assertEqual(len(record.candidate_scores), 2)
 
     def test_assisted_mode_rejected_without_support(self) -> None:
         adapter = _adapter()
-        with self.assertRaises(ValueError):
-            run_evaluation(
-                protocol=_protocol("ORACLE_ASSISTED"),
-                subject=_subject(),
-                adapter=adapter,
-                tasks=TASKS,
-            )
+        with tempfile.TemporaryDirectory() as directory:
+            with self.assertRaises(ValueError):
+                run_evaluation(
+                    protocol=_protocol("ORACLE_ASSISTED"),
+                    subject=_subject(),
+                    adapter=adapter,
+                    fixture=_fixture(),
+                    evidence_path=Path(directory) / "evidence.jsonl",
+                )
+
+    def test_n_must_be_exact(self) -> None:
+        import dataclasses
+
+        adapter = _adapter()
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "evidence.jsonl"
+            for bad_n in (1, 3):
+                with self.assertRaises(ValueError, msg=f"n={bad_n}"):
+                    run_evaluation(
+                        protocol=dataclasses.replace(_protocol(), n_cases=bad_n),
+                        subject=_subject(),
+                        adapter=adapter,
+                        fixture=_fixture(),
+                        evidence_path=path,
+                    )
+
+    def test_split_seed_generator_scoring_must_match(self) -> None:
+        import dataclasses
+
+        adapter = _adapter()
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "evidence.jsonl"
+            with self.assertRaises(ValueError):
+                run_evaluation(
+                    protocol=_protocol(), subject=_subject(), adapter=adapter,
+                    fixture=_fixture(split="development"), evidence_path=path,
+                )
+            with self.assertRaises(ValueError):
+                run_evaluation(
+                    protocol=_protocol(), subject=_subject(), adapter=adapter,
+                    fixture=_fixture(seed=2), evidence_path=path,
+                )
+            with self.assertRaises(ValueError):
+                run_evaluation(
+                    protocol=_protocol(), subject=_subject(), adapter=adapter,
+                    fixture=_fixture(generator_sha256="f" * 64), evidence_path=path,
+                )
+            with self.assertRaises(ValueError):
+                run_evaluation(
+                    protocol=dataclasses.replace(
+                        _protocol(), candidate_scoring_mode="other-contract"
+                    ),
+                    subject=_subject(), adapter=adapter,
+                    fixture=_fixture(), evidence_path=path,
+                )
+
+    def test_unknown_metric_and_rule_fail_before_run(self) -> None:
+        import dataclasses
+
+        adapter = _adapter()
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "evidence.jsonl"
+            with self.assertRaises(ValueError):
+                run_evaluation(
+                    protocol=dataclasses.replace(_protocol(), metrics=("something",)),
+                    subject=_subject(), adapter=adapter,
+                    fixture=_fixture(), evidence_path=path,
+                )
+            with self.assertRaises(ValueError):
+                run_evaluation(
+                    protocol=dataclasses.replace(
+                        _protocol(), statistical_rule="whatever"
+                    ),
+                    subject=_subject(), adapter=adapter,
+                    fixture=_fixture(), evidence_path=path,
+                )
+
+    def test_tampered_artifact_fails_verification(self) -> None:
+        import dataclasses
+
+        receipt, _evidence, artifact = self._run()
+        with tempfile.TemporaryDirectory() as directory:
+            forged = Path(directory) / "evidence.jsonl"
+            forged.write_bytes(artifact + b'{"forged": true}\n')
+            with self.assertRaises(ValueError):
+                verify_evidence_artifact(forged, receipt.evidence_artifact_sha256)
+
+    def test_reproduction_is_identical(self) -> None:
+        def make_clock():
+            state = {"t": 1000.0}
+
+            def tick() -> float:
+                state["t"] += 0.25
+                return state["t"]
+
+            return tick
+
+        first = self._run(clock=make_clock())
+        second = self._run(clock=make_clock())
+        self.assertEqual(first[0].sha256(), second[0].sha256())
+        self.assertEqual(first[2], second[2])
 
 
 def _spec(experiment_id: str, **overrides) -> ExperimentSpec:

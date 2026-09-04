@@ -137,29 +137,30 @@ class CoreSubjectManifestV2:
 def verify_subject_artifacts(
     manifest: CoreSubjectManifestV2,
     *,
-    checkpoint_root: Path,
-    lineage_id: str,
+    training_state: Any,
+    payloads: Mapping[str, bytes],
+    checkpoint_object_sha256: str,
     tokenizer_artifact_path: Path,
     model_spec: Any,
     torch_module: Any = None,
 ) -> dict[str, object]:
     """Hash every available artifact and compare against the manifest.
 
-    Restores the checkpoint object through the fencing store (manifest hash
-    and inventory verified), re-hashes model/optimizer/training-state
-    payloads, loads weights into a fresh core to recompute the parameter
-    hash, and checks tokenizer bytes plus model-spec identity. Anything that
-    disagrees fails closed.
+    The caller restores the checkpoint object through the fencing store
+    first (manifest-hash and inventory verification live there); this
+    verifier re-hashes model/optimizer/training-state payloads, loads
+    weights into a fresh core to recompute the parameter hash, and checks
+    tokenizer bytes, model-spec identity, and training counters. Anything
+    that disagrees fails closed. The registry plane never imports the
+    training plane: restoration stays with the caller.
     """
-
-    from v5_training.checkpoint import CheckpointStore
 
     if torch_module is None:
         import torch as torch_module
     torch = torch_module
     manifest.assert_valid()
-    store = CheckpointStore(checkpoint_root, lineage_id)
-    state, payloads = store.restore(manifest.checkpoint_object_sha256)
+    if checkpoint_object_sha256 != manifest.checkpoint_object_sha256:
+        raise ValueError("restored object identity disagrees with the manifest")
     checks: dict[str, bool] = {}
     checks["object_identity"] = (
         manifest.checkpoint_object_sha256 == manifest.checkpoint_manifest_sha256
@@ -195,8 +196,8 @@ def verify_subject_artifacts(
     )
     checks["model_spec"] = model_spec.sha256() == manifest.model_spec_sha256
     checks["counters"] = (
-        state.global_update == manifest.global_update
-        and state.cumulative_tokens == manifest.cumulative_training_tokens
+        training_state.global_update == manifest.global_update
+        and training_state.cumulative_tokens == manifest.cumulative_training_tokens
     )
     receipt: dict[str, object] = {
         "schema": "anra-v5-subject-verification/v1",
