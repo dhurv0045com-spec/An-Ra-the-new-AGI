@@ -1,94 +1,60 @@
 # AGENT.md — Citadel handover (machine-readable status for the operator's agent)
 
 > Convention (binding): rewritten at the END of every Citadel work cycle,
-> committed to the `citadel` branch ONLY, then pushed to `origin/citadel`.
-> Other branches are read-only audit inputs. CPU/CUDA is never recorded as a
-> TPU result. No fabricated device results. Cycle download ceiling: <10 GB
-> total (target <2 GB).
+> committed to the `citadel` branch ONLY, then `git push origin citadel`.
+> Other branches (esoes / triquetra / cymek / ...) are read-only audit inputs —
+> never modified, never pushed. A CPU/CUDA run is NEVER a TPU result. No
+> fabricated device results. Preregistration and results never share a commit.
+> Cycle download ceiling: <10 GB total (target <2 GB); this cycle: 0 bytes.
 
 ## STATUS
 
-Handover base SHA: `f460e30e7ed9f6c90bbf41435f4bbb20877c33ce`
+Citadel SHA: `bc09a39` (local; to be pushed this cycle)
+Cymek runtime SHA selected: `298c91ac04f756f0833a7edcf63e73af3d5af688`
+(= current `origin/cymek` HEAD; T0-relevant surface verified unchanged vs last
+audited `105ad22`, so current HEAD is pinned, not the old SHA)
 
-This cycle repaired the live Colab/PyTorch-XLA 2.9 compatibility failures found
-by the operator. The operator's manual diagnostic on a Colab v5e runtime showed:
+This cycle (urgent Colab hardening): operator pushed 4 PJRT-repair commits that
+were audited, not redone (`bb3e763` PJRT detection, `2760b30` backend
+modernization, `f460e30` launcher sync, `b31f053` handover). Remaining
+deterministic gaps closed: (1) silent `optimizer.step()` fallback →
+fail-closed UNSUPPORTED_OPERATION; rendezvous tries `xr` before legacy `xm`;
+public `get_device()/world_size()/device_hardware()` helpers (§14), all
+drivers switched to them. (2) Missing-module bootstrap: new
+`citadel_tpu/runtime_bootstrap.py` (pinned SHA, fetch + detached worktree,
+`sys.path` injection, file verification, one clear PRECHECK_ error) and
+`python -m citadel_tpu.preflight` (SHAs, platform, PJRT, versions, file +
+real-import checks per module, TPU, XLA API compat, READY_FOR_T0, exit 0/1).
+(3) T0/T1/throughput drivers resolve the runtime first and record
+`citadel_sha` + `cymek_runtime_sha` in every receipt; probe gate added where
+missing; Kaggle-only wording removed. (4) `docs/citadel/tpu/TPU_IMPORT_GRAPH.md`
+mechanical import audit. (5) Colab notebook rebuilt to cells 0–7 (checkout +
+runtime + SHAs, handover, deps, install, preflight gate, probe, T0, export);
+Kaggle notebook given the same bootstrap + preflight + T0 gate (its blind
+`pip install torch torch-xla` replaced by inspect-first).
 
-```text
-torch: 2.9.0+cpu
-torch_xla: 2.9.0
-PJRT_DEVICE: TPU
-XLA device: xla:0
-hardware: TPU
-world size: 1
-```
-
-This is useful live evidence that the TPU exists, but it is NOT yet a Citadel
-TPU receipt and therefore does not promote the certification status.
-
-Observed defects and permanent fixes committed to `citadel`:
-
-1. `environment.py` used legacy `xm.xrt_world_size()` and therefore reported
-   `tpu_present=false` on torch-xla 2.9/PJRT. It now prefers
-   `torch_xla.runtime.world_size()`, uses modern device/runtime APIs, keeps
-   legacy fallbacks, and sets `PJRT_DEVICE=TPU` before importing torch-xla when
-   TPU is required.
-2. `xla_backend.py::assert_tpu_active()` and `barrier()` also depended on
-   `xm.xrt_world_size()`. World-size/device/hardware detection is now centralized
-   and PJRT-first; no direct `xrt_world_size()` dependency remains in the active
-   path. Modern `torch_xla.device()` is preferred with legacy fallback.
-3. `notebooks/citadel_colab_tpu.ipynb` now sets PJRT before torch-xla imports and
-   always syncs an existing `/content/An-Ra-colab` checkout to latest
-   `origin/citadel`, preventing stale code from surviving notebook reruns.
-
-Relevant repair commits:
+## OBSERVED COLAB FACTS (operator-observed evidence, NOT agent-executed receipts)
 
 ```text
-bb3e763 fix(citadel): use PJRT runtime APIs for TPU detection
-2760b30 fix(citadel): modernize XLA backend for PJRT
-f460e30 fix(citadel): make Colab launcher sync latest PJRT-compatible code
+torch 2.9.0+cpu | torch_xla 2.9.0 | PJRT_DEVICE=TPU | XLA xla:0
+hardware TPU (Colab UI: v5e) | xr.world_size() = 1
 ```
 
-## PLATFORM
+`torch +cpu` tag with XLA TPU hardware is normal (execution backend is XLA).
+Failures already seen live: `xrt_world_size` missing (repaired, audited),
+`No module named 'anra_v5'` (repaired this cycle via pinned runtime).
+
+## FIXES
 
 ```text
-colab
+XRT world-size incompatibility (audited operator fix, kept)
+PJRT bootstrap PJRT_DEVICE=TPU before torch-xla import (audited, kept)
+modern device API torch_xla.device()/xr.world_size()/xr.device_type() first (audited, kept)
+optimizer_step fail-closed + rendezvous modern-first + stable helpers (this cycle)
+runtime module resolution via pinned detached Cymek runtime (this cycle)
+import preflight with READY_FOR_T0 gate (this cycle)
+notebook refresh behavior: cell 0 fetch+reset citadel, runtime bootstrap prints both SHAs (this cycle)
 ```
-
-Colab is the first execution surface; Kaggle remains secondary. Core backend is
-platform-neutral.
-
-## TPU STATUS
-
-```text
-IMPLEMENTED_NOT_RUN
-```
-
-Manual operator probe: TPU visible on Colab/PJRT (`hardware=TPU`, `world_size=1`).
-Official `TPU_ENVIRONMENT.json` after the permanent fixes: NOT YET RETURNED.
-T0 one-update after permanent fixes: NOT YET RUN.
-
-## CALCULATOR STATUS
-
-```text
-NOT_RUN
-```
-
-Model: MINI_SPEC (~1.6M). Generator: calculator-canary/1.1. Do not run T1 until
-T0 passes and exact receipts are returned.
-
-## 5B DATA STATUS
-
-```text
-NOT_STARTED
-```
-
-`0 / 5,000,000,000` real train tokens. Do not start full-corpus work before the
-TPU one-update and calculator canary gates.
-
-## DOWNLOADS
-
-No new dataset/checkpoint downloads were required by these compatibility fixes.
-Keep total new downloads <10 GB (target <2 GB).
 
 ## QUESTIONS FOR OPERATOR
 
@@ -96,15 +62,45 @@ Keep total new downloads <10 GB (target <2 GB).
 NONE
 ```
 
+## DOWNLOADS
+
+```text
+ITEM | SOURCE/PURPOSE | BYTES | CUMULATIVE BYTES
+git fetch (branch refs + missing objects) | sync only | negligible (not metered) | —
+(no pip installs, no datasets, no checkpoints, no wheels)
+TOTAL_DOWNLOADED_GB = 0.0
+```
+
+## TPU STATUS
+
+```text
+IMPLEMENTED_NOT_RUN
+```
+
+No TPU receipt exists yet; operator screenshots are evidence, not receipts.
+Local validation (real detached Cymek tree in Temp, since removed): compileall
+clean; preflight prints both SHAs, files PASS, citadel imports PASS, Cymek
+imports fail only on missing local torch (expected), TPU FAIL, XLA
+UNAVAILABLE, READY_FOR_T0=NO, exit 1; bogus runtime dir → one clear
+PRECHECK_RUNTIME_MISSING; T0 with resolved runtime → ABORT_NO_TPU (hardware
+gate), never a missing-module error.
+
 ## BIGGEST BLOCKER
 
-The permanently repaired code has not yet been rerun on the live Colab TPU, so
-T0 still lacks a valid receipt.
+Need operator to rerun fresh Colab T0 using fixed branch.
 
 ## NEXT ACTION
 
-On the existing Colab TPU runtime (or a fresh one), run the UPDATED
-`notebooks/citadel_colab_tpu.ipynb` from Cell 0. Cell 0 must print a Citadel SHA
-at or after `f460e30`. Then run Cell 2, Cell 4, and—only if Cell 4 reports
-`probe_pass=True`—Cell 5. Stop on any new error. If Cell 5 passes, run Cell 6 and
-return the exact `TPU_ENVIRONMENT.json` and `TPU_ONE_UPDATE.json` files.
+In Colab (TPU runtime): open `notebooks/citadel_colab_tpu.ipynb` from updated
+`origin/citadel`, run cells 0–7 sequentially with no edits, transfer back the
+exact `TPU_ENVIRONMENT.json` / `TPU_ONE_UPDATE.json` files.
+
+## Commit log (latest first, citadel only)
+
+```text
+bc09a39 fix(citadel): harden colab launcher bootstrap
+dd8ea7b refactor(citadel): route tpu drivers through pinned runtime
+12487fc feat(citadel): resolve pinned cymek runtime for tpu experiments
+067e790 fix(citadel): fail-closed optimizer step and modern-first rendezvous; stable xla helpers
+b31f053 docs(citadel): record Colab PJRT repair handover
+```
