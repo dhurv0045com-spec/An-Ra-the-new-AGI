@@ -15,7 +15,7 @@
 
 ## STATUS
 
-Citadel SHA: `2a123f2` (pushed hotfix cycle; branch tip advances once this handover commits)
+Citadel SHA: `f6668e7` (rebased onto hotfix tip; to be pushed this cycle)
 Pinned Cymek runtime SHA: `298c91ac04f756f0833a7edcf63e73af3d5af688` (unchanged)
 
 T1C operator run reached the real Colab TPU and successfully reused calibration
@@ -41,6 +41,12 @@ Hotfixes pushed:
    fixed generation buffer, records max prompt / required headroom / full-row
    geometry, and removes the duplicate import. The same class of defect should
    now stop at preflight before any arm or TEST execution.
+
+Independent hardening merged on top: notebook torture test
+(`tests/test_citadel_notebooks.py`) proves for all 6 notebooks that every cell
+compiles, no name is used before definition, TPU metadata is set, and every
+receipt key touched exists in the producing schema. Revalidated green against
+the hotfixed tree (see handover validation below).
 
 No T0-critical semantics, model architecture, optimizer, T1C arm definitions,
 data splits, success gates, or scientific thresholds changed. T1C
