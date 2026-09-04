@@ -45,47 +45,89 @@ def _detect_platform(*, explicit: str | None = None) -> str:
     return "other"
 
 
+def _runtime_world_size(xr: Any, xm: Any) -> int:
+    """Return PJRT world size with compatibility fallbacks for older torch-xla."""
+    try:
+        return int(xr.world_size())
+    except Exception:
+        pass
+    for name in ("get_world_size", "xrt_world_size"):
+        fn = getattr(xm, name, None)
+        if callable(fn):
+            try:
+                return int(fn())
+            except Exception:
+                pass
+    return 0
+
+
+def _runtime_device(torch_xla: Any, xm: Any):
+    """Return an XLA device using the modern API when available."""
+    fn = getattr(torch_xla, "device", None)
+    if callable(fn):
+        try:
+            return fn()
+        except Exception:
+            pass
+    fn = getattr(xm, "xla_device", None)
+    if callable(fn):
+        return fn()
+    raise RuntimeError("torch-xla exposes no usable XLA device API")
+
+
+def _runtime_hardware(xr: Any, xm: Any, device: Any) -> str:
+    """Return TPU/CPU/GPU runtime kind across current and legacy torch-xla APIs."""
+    fn = getattr(xr, "device_type", None)
+    if callable(fn):
+        try:
+            value = fn()
+            if value:
+                return str(value)
+        except Exception:
+            pass
+    fn = getattr(xm, "xla_device_hw", None)
+    if callable(fn):
+        try:
+            return str(fn(str(device)))
+        except Exception:
+            pass
+    return "unknown"
+
+
 def probe(*, require_tpu: bool = True, platform_override: str | None = None,
           accelerator_requested: str = "TPU") -> dict[str, Any]:
     """Detect the actual runtime. Never assumes a TPU generation or device count."""
+    if require_tpu and accelerator_requested.upper() == "TPU":
+        os.environ.setdefault("PJRT_DEVICE", "TPU")
+
     try:
         import torch
         torch_version = getattr(torch, "__version__", "unknown")
         python_version = platform.python_version()
     except Exception:
         torch_version, python_version = "unavailable", platform.python_version()
+
     try:
-        import torch_xla  # noqa: F401
+        import torch_xla
         import torch_xla.core.xla_model as xm
+        import torch_xla.runtime as xr
 
+        device = _runtime_device(torch_xla, xm)
+        n_devices = _runtime_world_size(xr, xm)
+        device_type = _runtime_hardware(xr, xm, device)
+        torch_xla_version = getattr(torch_xla, "__version__", "unknown")
         xla_available = True
-        try:
-            device_type = xm.xla_device_hw(str(xm.xla_device())) if hasattr(xm, "xla_device_hw") else "unknown"
-        except Exception:
-            device_type = "unknown"
-        try:
-            n_devices = int(xm.xrt_world_size())
-        except Exception:
-            n_devices = 0
-        try:
-            import torch_xla.runtime as xr
-
-            device_names: Any = getattr(xr, "get_master_ip", None)
-            _ = device_names
-        except Exception:
-            pass
-        try:
-            import torch_xla.version as xv
-
-            torch_xla_version: Any = getattr(xv, "__version__", "unknown")
-        except Exception:
-            torch_xla_version = "unknown"
         xla_runtime = "PJRT"
     except Exception:
         xla_available, device_type, n_devices = False, "none", 0
         torch_xla_version, xla_runtime = "unavailable", "none"
+
     tpu_present = bool(xla_available and n_devices >= 1 and "TPU" in str(device_type).upper())
-    total_ram = round((os.sysconf("SC_PAGE_SIZE") * os.sysconf("SC_PHYS_PAGES") / 1e9), 1) if hasattr(os, "sysconf") else "unknown"
+    total_ram = (
+        round((os.sysconf("SC_PAGE_SIZE") * os.sysconf("SC_PHYS_PAGES") / 1e9), 1)
+        if hasattr(os, "sysconf")
+        else "unknown"
+    )
     disk_free = shutil.disk_usage(Path.cwd().anchor).free if Path.cwd().anchor else 0
     env: dict[str, Any] = {
         "schema": "citadel-tpu-environment/v1",
@@ -130,7 +172,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--out", default="docs/citadel/tpu_receipts/TPU_ENVIRONMENT.json")
     parser.add_argument("--allow-no-tpu", action="store_true")
-    parser.add_argument("--platform", default=None, choices=["colab", "kaggle", "other", None])
+    parser.add_argument("--platform", default=None, choices=["colab", "kaggle", "other"])
     args = parser.parse_args()
     main(out=args.out, require_tpu=not args.allow_no_tpu, platform_override=args.platform)
     print("probe_pass; see", args.out)
