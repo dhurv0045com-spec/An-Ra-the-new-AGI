@@ -71,17 +71,37 @@ def roundtrip_ok(s: str) -> bool:
 
 
 def parse_row(row: str) -> tuple[int, str, int, str]:
-    """'a op b = c' -> (a, op, b, target). Raises on malformed rows."""
-    left, sep, right = row.partition("=")
-    if not sep:
-        raise ValueError(f"malformed calculator row (no '='): {row!r}")
-    parts = left.split()
-    if len(parts) != 3:
-        raise ValueError(f"malformed calculator row (prompt): {row!r}")
-    a_s, op, b_s = parts
-    if op not in ("+", "-", "*", "/"):
-        raise ValueError(f"malformed calculator row (op): {row!r}")
-    return int(a_s), op, int(b_s), right.strip()
+    """Parse every frozen calculator/T1C surface form.
+
+    Supported inputs are canonical/compact symbolic rows, arrow rows, and the
+    four word templates emitted by ``arith_data.render``.  The return contract
+    remains the historical ``(a, op, b, target_text)`` so T1 callers are
+    byte-compatible while T1C helpers can safely consume mixed-template rows.
+    """
+    prompt, target = split_prompt_target(row)
+    core = prompt[:-2].strip() if prompt.endswith("->") else prompt[:-1].strip()
+
+    # Symbolic canonical / compact / arrow forms.
+    m = re.fullmatch(r"(-?\d+)\s*([+\-*/])\s*(-?\d+)", core)
+    if m:
+        return int(m.group(1)), m.group(2), int(m.group(3)), target
+
+    # Frozen word templates from arith_data.render().  Keep these strict so a
+    # malformed row fails loudly instead of being silently reinterpreted.
+    patterns = (
+        (r"add (-?\d+) and (-?\d+)", "+", False),
+        (r"subtract (-?\d+) from (-?\d+)", "-", True),
+        (r"multiply (-?\d+) by (-?\d+)", "*", False),
+        (r"divide (-?\d+) by (-?\d+)", "/", False),
+    )
+    for pattern, op, reverse in patterns:
+        m = re.fullmatch(pattern, core)
+        if m:
+            x, y = int(m.group(1)), int(m.group(2))
+            a, b = (y, x) if reverse else (x, y)
+            return a, op, b, target
+
+    raise ValueError(f"malformed calculator row (unsupported prompt): {row!r}")
 
 
 def split_prompt_target(row: str) -> tuple[str, str]:
@@ -407,8 +427,8 @@ def selftest() -> None:
     assert normalize_answer("12 because") is None
     assert normalize_answer("3+4") is None
     assert normalize_answer("1 2") is None
-    # Regression for the exact Colab T1C failure: this word prompt needs 25+8
-    # positions and therefore cannot use the training L=32 buffer.
+    # Regression for the exact Colab T1C buffer failure: this word prompt needs
+    # 25+8 positions and therefore cannot use the training L=32 buffer.
     cap = validate_generation_capacity(["subtract 1353 from 1269 = -84"])
     assert cap["max_prompt_tokens"] == 25 and cap["max_required_tokens"] == 33
     try:
@@ -416,6 +436,20 @@ def selftest() -> None:
         raise AssertionError("generation capacity validator accepted insufficient L=32")
     except ValueError:
         pass
+    # Regression for the second Colab T1C failure: every frozen surface form
+    # must parse through the legacy helper used by heuristic_nulls().
+    assert parse_row("263 - 791 -> -528") == (263, "-", 791, "-528")
+    assert parse_row("12+9=21") == (12, "+", 9, "21")
+    assert parse_row("add 12 and 9 = 21") == (12, "+", 9, "21")
+    assert parse_row("subtract 9 from 12 = 3") == (12, "-", 9, "3")
+    assert parse_row("multiply 12 by 9 = 108") == (12, "*", 9, "108")
+    assert parse_row("divide 108 by 9 = 12") == (108, "/", 9, "12")
+    mixed = ["263 - 791 -> -528", "12+9=21", "add 12 and 9 = 21",
+             "subtract 9 from 12 = 3", "multiply 12 by 9 = 108",
+             "divide 108 by 9 = 12"]
+    mixed_nulls = heuristic_nulls(["2000 + 2001 = 4001"], mixed)
+    assert set(mixed_nulls) == {"always_zero", "copy_first_operand", "copy_second_operand",
+                                "most_common_train_answer"}
     lcb, ucb = wilson(0, 10)
     assert lcb == 0.0 and 0.0 < ucb <= 1.0
     lcb, ucb = wilson(10, 10)
