@@ -62,3 +62,35 @@ module provenance recorded per receipt — no invisible copying.
 - Citadel venv: `.venv` (Python 3.11.15, torch CPU wheel, tokenizers, numpy) — CUDA torch
   environment used by Cymek's own canaries (torch 2.14.0+cu126, RTX 4050) no longer exists on
   this machine and must be reinstalled before any GPU experiment.
+
+## Sync record 2026-09-04 — Kaggle-TPU mission (§1)
+
+**FACT** (after `git fetch --all --prune`, from the `An-Ra-the-new-AGI-1` clone):
+
+| Ref | SHA | Note |
+|---|---|---|
+| `citadel` (local worktree) | `203ff60` | TPU-first audit + T0/T1 preregistration (unpushed) |
+| `origin/citadel` | `f3d3ba8` | unchanged since prior mission |
+| `origin/cymek` | **`4abeaeb`** | unchanged since `git pull` of 2026-09-04 |
+| `origin/esoes` | `85f44b7` | unchanged foundation |
+| merge-base(citadel, origin/cymek) | `85f44b7` | siblings under esoes; no merge performed |
+
+**FACT:** since the pinned audit SHA `26a61f6` recorded above, `origin/cymek`
+moved +3 commits (`95dbc97` causal-eval/RNG/sampler repair, `674c1ca`
+CoreSubjectManifest/registry/eval-protocol, `4abeaeb` Triquetra handshake bind).
+Nothing in those 3 commits invalidates the static XLA audit surface
+(`v5_model/`, `v5_objectives/`, `v5_training/optimizer.py`,
+`v5_data/pack.py` semantics unchanged for the miniature path); the delta is
+evaluation/registry/handshake scaffolding. Full re-audit is deferred until the
+first TPU device receipt exists.
+
+**FACT:** `MINI_SPEC` (`anra_v5/miniature_run.py`: 2L×64, 4Q/2KV, d=16,
+FFN 128, vocab 24,576) confirmed present at `4abeaeb` — first-TPU model per
+mission §3. P35 is NOT the TPU bring-up model. No calculator prior art exists
+on any branch (case-insensitive grep for "calculator" empty) — canary is
+greenfield (`citadel_tpu/calculator_data.py`, `calculator-canary/1.0`).
+
+**Execution-target reclassification (§2, binding):** CPU = debugging/reference;
+CUDA (`cymek_receipts/ONE_UPDATE.json` etc.) = previous certification/reference,
+preserved, certifies nothing about XLA; TPU/XLA = current target.
+`TRAINING_PATH_READY` is false until demonstrated on the target TPU.
