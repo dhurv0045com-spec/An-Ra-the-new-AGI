@@ -29,6 +29,7 @@ from execution_policy import LocalComputeForbidden, assert_local_compute_allowed
 from observed import make_visible
 from readiness.pipeline import check_replication, e5_dup, e5_sham, e7_sel
 from readiness.replication import build_evidence, check_evidence
+from readiness.replication import replication_ok_for_promotion, PROMOTION_GRADES
 from readiness.assistance import LEGAL_ARMS
 from readiness.adapters import V5Adapter, UnsupportedSubject, assert_v5_tokenizer_identity
 from readiness.canaries import COMPONENTS, gen_canary
@@ -333,3 +334,54 @@ def test_v5_tokenizer_gate():
         assert "sidecar" in str(e)
     else:
         raise AssertionError("expected UnsupportedSubject, not V4 fallback")
+
+
+def test_promotion_grades():
+    assert set(PROMOTION_GRADES) == {"NONE", "LEGACY", "EVIDENCE"}
+    g = replication_ok_for_promotion({"replication_ok": True, "mode": "evidence"})
+    assert g == {"grade": "EVIDENCE", "promotable": True,
+                 "reason": "full evidence block validated"}
+    g = replication_ok_for_promotion({"replication_ok": True, "mode": "legacy-checkpoint-only"})
+    assert g["grade"] == "LEGACY" and g["promotable"] is False
+    g = replication_ok_for_promotion({"replication_ok": None})
+    assert g["grade"] == "NONE" and g["promotable"] is False
+    g = replication_ok_for_promotion({"replication_ok": False, "reasons": ["x"]})
+    assert g["grade"] == "NONE" and g["promotable"] is False
+
+
+def test_legacy_replication_cannot_promote_ready():
+    from readiness.readiness_v2 import decide_readiness
+
+    cap = classify_capability(100, 30, 0.85, 0.55, 0.25, True)
+    ident = assess_identifiability(100, 70, 30, 0.85, 0.25)
+    base = dict(stage="qualify", capability=cap, identifiability=ident,
+                canary_ok=True, frontier_verdict="STABLE", legal_gap=0.25,
+                diversity_status="ADEQUATE", power_status="SUFFICIENT",
+                protocol_sha="proto", replication_ok=True, n=100,
+                qv_lite_vs_chance=0.05)
+    d = decide_readiness(**dict(base, replication_promotable=True))
+    assert d["readiness"] == "READY_SCOPED"
+    d = decide_readiness(**dict(base, replication_promotable=False))
+    assert d["readiness"] == "CALIBRATION_REQUIRED" and "legacy" in d["reason"]
+    d = decide_readiness(**base)  # promotable unknown: legacy rule not triggered
+    assert d["readiness"] == "READY_SCOPED"
+
+
+def test_arrival_manifest_gate(tmp_path):
+    from qualify_checkpoint import check_arrival_manifest
+
+    assert check_arrival_manifest(None)["checked"] is False
+    bad = tmp_path / "m.json"
+    bad.write_text('{"schema": "x"}', encoding="utf-8")
+    r = check_arrival_manifest(str(bad))
+    assert r["checked"] is True and r["valid"] is False
+    assert r["missing_fields"] and "checkpoint_file_sha256" in r["missing_fields"]
+
+
+def test_execution_environment_shape():
+    from execution_policy import execution_environment, policy_from_env
+
+    env = execution_environment()
+    assert "torch_version" in env and "cuda_available" in env
+    assert isinstance(env["cuda_available"], bool)
+    assert "allow_local_model_compute" in policy_from_env()
