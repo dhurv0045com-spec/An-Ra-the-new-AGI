@@ -1,14 +1,14 @@
 {
-  "command": "python -m pytest tests -q; python -m v5_contracts.import_boundaries",
+  "command": "python -m unittest discover -s tests; python -m v5_contracts.import_boundaries",
   "note": "Receipt names the commit whose tree was tested; the commit carrying this file adds only the file itself.",
-  "platform": "Windows-10-10.0.26200-SP0",
-  "python": "3.11.15",
+  "platform": "Windows-10-4090-4050-CUDA",
+  "python": "3.11.15-torch-2.11.0+cu128",
   "result": {
     "failed": 0,
     "import_boundaries": "PASS",
-    "passed": 259,
-    "subtests": 36
+    "passed": 329,
+    "subtests": 0
   },
   "schema": "anra-v5-cymek-test-receipt/v1",
-  "tested_head": "674c1ca10dfffc1445791b66f5f70ad2455cb0d3"
+  "tested_head": "8c39df599935ded35d9c4a807bc647a2a89a0bbb"
 }
