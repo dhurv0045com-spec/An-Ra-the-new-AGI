@@ -9,19 +9,17 @@
 
 ## STATUS
 
-Citadel SHA: `2988980` (local; to be pushed this cycle)
-Pinned Cymek runtime SHA: `298c91ac04f756f0833a7edcf63e73af3d5af688`
-(= `origin/cymek`, unmoved this cycle — T1 keeps the exact T0-certified runtime)
+Citadel SHA: `83d8ac3` (local; to be pushed this cycle)
+Pinned Cymek runtime SHA: `298c91ac04f756f0833a7edcf63e73af3d5af688` (unchanged)
 
-This cycle (T1 scientific validity + turnkey): T0 stays PASS (no T0-critical
-semantic changed: `one_update.py`/`xla_backend` stepping untouched;
-`environment.py` gained only additive `pjrt_device_env`; model/objective/
-optimizer/checkpoint paths byte-identical via the pinned runtime — no
-re-certification required). Delivered, all locally validated: T1
-AMENDMENT_001 (frozen pin/gate/ladder), generation-based `calculator_eval.py`,
-dev-gated `calculator_train.py` rewrite, `calculator_preflight` command,
-turnkey Colab T1 cells, 6/6 unit tests green (independent Decimal Wilson
-reference, data invariants, nulls, notebook-reference integrity).
+**T1 FAIL recorded honestly.** Operator ran the frozen T1 on a legit tree
+(`935f822` = prior tip + notebook-only addition, audited; all executed code
+identical to the reviewed path) and returned the receipt
+(`docs/citadel/tpu_receipts/TPU_CALCULATOR_CHECKPOINT.json`). Provenance
+verified before acceptance: all 3 data split hashes regenerate byte-identical
+locally; token accounting exact (69664 = 76064 − 6400); pin + MINI_SPEC exact.
+(I caught and fixed my own one-field transcription slip during recording —
+verified clean after.)
 
 ## T0
 
@@ -32,34 +30,27 @@ PASS (unchanged, still applicable)
 ## T1
 
 ```text
-READY_FOR_OPERATOR_RUN
+FAIL (per frozen gate; only loss + reload rules passed)
 ```
 
-## T1 AMENDMENT
+Loss 10.10→2.85, dev CE 10.08→2.91, but exact-match 0/500 untrained AND
+trained, nulls ≤1.4%, reload hash-identical. Correct reading: strong
+loss-learning with zero answer-rule movement — prompt/format modeling without
+rule extraction (H2 direction), scale floor not ruled out. The receipt lacked
+the discriminator (stop reasons, answer-token CE, samples) — added this cycle
+so the next run is diagnosable by construction.
 
-`docs/citadel/experiments/T1/AMENDMENT_001.md` (commit `4a53ad7`).
-Pin `4abeaeb` → T0-certified `298c91a`; reason recorded; no T1 results exist.
+## T1B (batched multi-scale, single session — answers the batching request)
 
-## PRIMARY METRIC
-
-Held-out TEST exact-match from static-shape greedy generation
-(prompt `"<a> <op> <b> ="`, strict integer normalization), Wilson 95% interval.
-TEST observed exactly twice total (untrained baseline + trained final); DEV
-drives all ladder escalation [5,20,100,200].
-
-## SUCCESS GATE (frozen, machine-evaluated)
-
-1. trained_acc > untrained_acc AND trained_LCB > untrained_UCB
-2. trained_LCB > strongest heuristic-null accuracy (4 mechanical nulls)
-3. trained_acc − untrained_acc ≥ 0.10 (>2× sampling noise at n=500)
-4. final_loss < first_loss AND trained_test_CE < untrained_test_CE
-5. pre_reload_prediction_sha256 == post_reload_prediction_sha256
-
-## TEST-SET POLICY
-
-TEST never drives decisions. Confirmed: no TEST observation exists anywhere
-(no T1 execution yet). First two TEST observations will be the preregistered
-untrained baseline and the single trained final.
+`docs/citadel/experiments/T1B/PLAN.md` PREREGISTERED, code + notebook ready.
+Five fixed-budget arms [1k, 2.5k, 5k, 10k, 20k updates ≈ 1M–20M cap tokens,
+~39M total ≈ tens of MB text-equivalent] in ONE session: same seed/init/data,
+exactly one variable (budget). Per arm: own baseline, DEV info, TEST once,
+train-sample memorization lens, nulls, reload hash, stop hist, answer-CE,
+full receipt. TEST: 10 new frozen observations total, all reported, Holm over
+per-arm claims. Repetition disclosed (max arm = 160 epochs over 4000 rows).
+Checkpoint binaries exported for smallest-PASS + final arm (the T1 lesson:
+ephemeral checkpoints destroy diagnosability). Est ~75–100 min, ceiling <2 TPU-h.
 
 ## DOWNLOADS
 
@@ -77,21 +68,25 @@ NONE
 
 ## BIGGEST BLOCKER
 
-Need operator to execute the preregistered T1 Colab run.
+Need operator to execute the preregistered T1B session (`citadel_colab_t1b.ipynb`).
 
 ## NEXT ACTION
 
-On the Colab TPU runtime with updated `origin/citadel`: run notebook T1 cells
-A–F sequentially (preflight → data receipt → train → summary → reload display
-→ export); transfer back the exact `TPU_CALCULATOR_CHECKPOINT.json` file.
+On Colab TPU with updated `origin/citadel`: run `notebooks/citadel_colab_t1b.ipynb`
+end to end (gates → 5 arms in order, no skipping, no edits); transfer back all
+`TPU_SCALE_*.json` receipts + the two exported checkpoint binaries.
+
+## Validation this cycle (local, 0 downloads)
+
+6/6 unit tests (Decimal Wilson reference, data invariants, nulls, notebook
+references incl. the new notebook); compileall clean; fail-closed intact;
+T1-default training path behavior-identical (eval-only additions).
 
 ## Commit log (latest first, citadel only)
 
 ```text
-2988980 feat(citadel): extend colab notebook with turnkey T1 section
-27ef457 feat(citadel): add T1 preflight command; record pjrt_device_env
-19335dd feat(citadel): wire dev-gated T1 training ladder
-7464da7 test(citadel): notebook-reference integrity tests
-4a53ad7 research(citadel): preregister T1 amendment 001
-b99ef12 feat(citadel): add generation-based calculator evaluator
+83d8ac3 feat(citadel): add T1B scale notebook
+6b1f9b3 feat(citadel): add diagnosis lens and fixed-budget arms
+875a235 research(citadel): preregister T1B batched scale run
+db961ae test(citadel): record colab T1 calculator FAIL receipt
 ```
