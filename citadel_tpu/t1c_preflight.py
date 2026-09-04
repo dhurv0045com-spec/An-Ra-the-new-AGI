@@ -1,12 +1,11 @@
 """T1C session preflight: `python -m citadel_tpu.t1c_preflight`.
 
 Verifies BEFORE the substantial session: T0 PASS + T1 context receipts present;
-pinned runtime resolves with every T1C file; arith generator deterministic with
-all 4 templates rendering and parsing; MID spec validates against cymek
-contracts; disk ≥ 2 GB free; arm budgets reproduce the preregistered arithmetic
-(updates × batch × length, session total under the 2 h ceiling at the nominal
-rate with the auto-scale rule present); notebook references resolve; TPU active
-with working XLA APIs. Prints READY_FOR_T1C YES/NO; exit 0/1. Never trains.
+pinned runtime resolves with every T1C file; arithmetic generator deterministic;
+all materialized DEV/TEST prompts fit the fixed greedy-generation buffer with
+full answer headroom; evaluator selftests pass; MID spec validates against Cymek
+contracts; disk >= 2 GB free; arm budgets reproduce the preregistered arithmetic;
+TPU + XLA APIs are active. Prints READY_FOR_T1C YES/NO; exit 0/1. Never trains.
 """
 
 from __future__ import annotations
@@ -42,10 +41,10 @@ def _t1c_receipts_ok(root: Path) -> tuple[bool, str]:
 
 def main() -> int:
     from citadel_tpu import arith_data as ad
+    from citadel_tpu import calculator_eval as cev
     from citadel_tpu import environment as env_mod
     from citadel_tpu import preflight as pf
     from citadel_tpu import runtime_bootstrap as rb
-    from citadel_tpu import t1c_run as t1c
     from citadel_tpu import t1c_run as t1c
 
     lines: list[str] = []
@@ -88,6 +87,34 @@ def main() -> int:
         lines.append(f"generator: FAIL {type(exc).__name__}: {exc}")
         ok = False
 
+    # Full materialized evaluation-domain geometry gate.  This would have caught
+    # the real Colab failure before any arm: a 25-token word prompt fit the L=32
+    # training row but needed 8 more positions for greedy answer generation.
+    try:
+        cev.selftest()
+        max_prompt = 0
+        max_required = 0
+        max_full = 0
+        checked = 0
+        for split in ("dev", "test_core", "test_template", "test_range", "test_composition"):
+            rows = [ad.row_at(split, i)[0] for i in range(ad.SPLITS[split]["n"])]
+            cap = cev.validate_generation_capacity(rows)
+            max_prompt = max(max_prompt, cap["max_prompt_tokens"])
+            max_required = max(max_required, cap["max_required_tokens"])
+            max_full = max(max_full, max((len(cev.encode(r)) for r in rows), default=0))
+            checked += len(rows)
+        min_train_length = min(ln for _, ln in t1c.CALIBRATION_SHAPES)
+        train_geom_ok = max_full <= min_train_length
+        lines.append(
+            f"eval geometry: {'PASS' if train_geom_ok else 'FAIL'} rows={checked} "
+            f"max_prompt={max_prompt} required_with_headroom={max_required} "
+            f"eval_L={cev.EVAL_LENGTH} max_full_row={max_full} train_Lmin={min_train_length}"
+        )
+        ok &= train_geom_ok and max_required <= cev.EVAL_LENGTH
+    except Exception as exc:
+        lines.append(f"eval geometry/evaluator: FAIL {type(exc).__name__}: {exc}")
+        ok = False
+
     try:
         from v5_contracts.model_spec import ModelSpec
 
@@ -111,12 +138,9 @@ def main() -> int:
         ok = False
 
     try:
-        from citadel_tpu import t1c_run as t1c
-
         assert set(t1c.ARMS) == {"A", "B", "C", "D"}
         totals, per_arm = 0, {}
         for tag, cfg in t1c.ARMS.items():
-            # budgets floor to whole updates at runtime; remainder < one update
             for b, ln in t1c.CALIBRATION_SHAPES:
                 used = cfg["budget"] // (b * ln) * (b * ln)
                 assert 0 <= cfg["budget"] - used < b * ln, (tag, b, ln)
