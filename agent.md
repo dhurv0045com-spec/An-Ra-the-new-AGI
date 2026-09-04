@@ -1,32 +1,52 @@
 # AGENT.md — Citadel handover (machine-readable status for the operator's agent)
 
 > Convention (binding): rewritten at the END of every Citadel work cycle,
-> committed to the `citadel` branch ONLY, then `git push origin citadel`.
-> Other branches (esoes / triquetra / cymek / ...) are read-only audit inputs —
-> never modified, never pushed. A CPU/CUDA run is NEVER a TPU result. No
-> fabricated device results. Preregistration and results never share a commit.
-> Cycle download ceiling: <10 GB total (target <2 GB); this cycle: 0 bytes.
+> committed to the `citadel` branch ONLY, then pushed to `origin/citadel`.
+> Other branches are read-only audit inputs. CPU/CUDA is never recorded as a
+> TPU result. No fabricated device results. Cycle download ceiling: <10 GB
+> total (target <2 GB).
 
 ## STATUS
 
-Citadel SHA: `9fa5e5b` (local; to be pushed this cycle)
-Cymek SHA: `105ad22` (read-only; moved +9 since `4abeaeb` — assessed below)
+Handover base SHA: `f460e30e7ed9f6c90bbf41435f4bbb20877c33ce`
 
-This cycle (Colab-first, platform-neutral core): `origin/cymek` moved +9 commits
-(~5000 lines: stream/sourceset/qualify scaffolding, sampler-cursor authority,
-tokenizer artifact, eval/experiment harnesses). Audit impact check: `MINI_SPEC`,
-`v5_model/*`, optimizer, checkpoint, pack untouched; `causal_lm.py` gained an
-optional `eligible` mask (elementwise AND, default path byte-identical) — XLA
-audit verdicts hold, no re-audit of the T0 path required. Implemented: (1) platform
-identity in every TPU receipt (`platform` colab|kaggle|other via runtime signals +
-`CITADEL_PLATFORM` override, never from TPU generation; `accelerator_requested` /
-`accelerator_detected` / `xla_device_count`); (2) thin Colab launcher
-`notebooks/citadel_colab_tpu.ipynb` (Kaggle notebook kept); receipt-return decision
-implemented as operator file transfer (`files.download` cells, no secrets).
-Local validation caught + fixed a real regression: new `platform` probe parameter
-shadowed the stdlib `platform` module (smoke test crashed) → renamed to
-`platform_override`, re-validated (default `other`, explicit + env-var overrides
-correct, fail-closed `ABORT_NO_TPU` intact).
+This cycle repaired the live Colab/PyTorch-XLA 2.9 compatibility failures found
+by the operator. The operator's manual diagnostic on a Colab v5e runtime showed:
+
+```text
+torch: 2.9.0+cpu
+torch_xla: 2.9.0
+PJRT_DEVICE: TPU
+XLA device: xla:0
+hardware: TPU
+world size: 1
+```
+
+This is useful live evidence that the TPU exists, but it is NOT yet a Citadel
+TPU receipt and therefore does not promote the certification status.
+
+Observed defects and permanent fixes committed to `citadel`:
+
+1. `environment.py` used legacy `xm.xrt_world_size()` and therefore reported
+   `tpu_present=false` on torch-xla 2.9/PJRT. It now prefers
+   `torch_xla.runtime.world_size()`, uses modern device/runtime APIs, keeps
+   legacy fallbacks, and sets `PJRT_DEVICE=TPU` before importing torch-xla when
+   TPU is required.
+2. `xla_backend.py::assert_tpu_active()` and `barrier()` also depended on
+   `xm.xrt_world_size()`. World-size/device/hardware detection is now centralized
+   and PJRT-first; no direct `xrt_world_size()` dependency remains in the active
+   path. Modern `torch_xla.device()` is preferred with legacy fallback.
+3. `notebooks/citadel_colab_tpu.ipynb` now sets PJRT before torch-xla imports and
+   always syncs an existing `/content/An-Ra-colab` checkout to latest
+   `origin/citadel`, preventing stale code from surviving notebook reruns.
+
+Relevant repair commits:
+
+```text
+bb3e763 fix(citadel): use PJRT runtime APIs for TPU detection
+2760b30 fix(citadel): modernize XLA backend for PJRT
+f460e30 fix(citadel): make Colab launcher sync latest PJRT-compatible code
+```
 
 ## PLATFORM
 
@@ -34,46 +54,41 @@ correct, fail-closed `ABORT_NO_TPU` intact).
 colab
 ```
 
-Colab is the first execution surface; Kaggle remains secondary. Core backend
-(`citadel_tpu/`) is platform-neutral; only notebook wrappers differ.
+Colab is the first execution surface; Kaggle remains secondary. Core backend is
+platform-neutral.
 
-## ENVIRONMENT
-
-TPU detected: unmeasured (no device execution from this box)
-TPU identity: —
-XLA devices: —
-Python: —
-PyTorch: —
-torch-xla: —
-
-## DOWNLOADS
+## TPU STATUS
 
 ```text
-ITEM | SOURCE/PURPOSE | BYTES | CUMULATIVE BYTES
-(none — no pip installs, no datasets, no checkpoints, no artifacts)
-TOTAL_DOWNLOADED_GB = 0.0
+IMPLEMENTED_NOT_RUN
 ```
 
-## T0
+Manual operator probe: TPU visible on Colab/PJRT (`hardware=TPU`, `world_size=1`).
+Official `TPU_ENVIRONMENT.json` after the permanent fixes: NOT YET RETURNED.
+T0 one-update after permanent fixes: NOT YET RUN.
 
-Status: NOT_RUN | Loss: — | Grad norm: — | Parameter mutation: —
-Checkpoint save: — | Checkpoint reload: — | Wall time: — | Tokens/sec: —
+## CALCULATOR STATUS
 
-## CALCULATOR
+```text
+NOT_RUN
+```
 
-Status: NOT_RUN | Parameters: MINI_SPEC (~1.6M)
-Train examples: 0 | Train tokens: 0 | Updates: 0
-Loss start: — | Loss end: — | Untrained test accuracy: —
-Final test accuracy: — | Checkpoint hash: — | Reload result: —
-Tokens/sec: — | Generator: calculator-canary/1.1 (locally validated)
+Model: MINI_SPEC (~1.6M). Generator: calculator-canary/1.1. Do not run T1 until
+T0 passes and exact receipts are returned.
 
-## 5B DATA
+## 5B DATA STATUS
 
 ```text
 NOT_STARTED
 ```
 
-`0 / 5,000,000,000`. No sample test (no TPU host to feed); sequenced behind T0→T1.
+`0 / 5,000,000,000` real train tokens. Do not start full-corpus work before the
+TPU one-update and calculator canary gates.
+
+## DOWNLOADS
+
+No new dataset/checkpoint downloads were required by these compatibility fixes.
+Keep total new downloads <10 GB (target <2 GB).
 
 ## QUESTIONS FOR OPERATOR
 
@@ -83,17 +98,13 @@ NONE
 
 ## BIGGEST BLOCKER
 
-No Colab TPU execution yet — T0 (one-update cert) is the gate for everything.
+The permanently repaired code has not yet been rerun on the live Colab TPU, so
+T0 still lacks a valid receipt.
 
 ## NEXT ACTION
 
-Run `notebooks/citadel_colab_tpu.ipynb` on a Colab TPU runtime (probe → T0 → STOP unless PASS); transfer back the exact `TPU_ENVIRONMENT.json` / `TPU_ONE_UPDATE.json` files.
-
-## Commit log (latest first, citadel only)
-
-```text
-9fa5e5b feat(citadel): add platform identity to tpu receipts
-0c199cc feat(citadel): add colab tpu launcher
-e6226af docs(citadel): update agent handover
-68f49ae fix(citadel): guarantee 50-row commutative slice; enforce probe gate in-driver
-```
+On the existing Colab TPU runtime (or a fresh one), run the UPDATED
+`notebooks/citadel_colab_tpu.ipynb` from Cell 0. Cell 0 must print a Citadel SHA
+at or after `f460e30`. Then run Cell 2, Cell 4, and—only if Cell 4 reports
+`probe_pass=True`—Cell 5. Stop on any new error. If Cell 5 passes, run Cell 6 and
+return the exact `TPU_ENVIRONMENT.json` and `TPU_ONE_UPDATE.json` files.
