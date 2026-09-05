@@ -172,9 +172,14 @@ def _arm(test14=(0.0, 0.0, 0.0, 0.0), train14=(0.0,) * 4, status="SCIENTIFIC_FAI
     for cp, v in (dev_pairs or []):
         inter[str(cp)] = {f"t{tier}": {"exact": v, "lcb": max(0.0, v - 0.03)}
                           for tier in range(5)}
-    return {"status": status,
+    if not inter:
+        inter = {str(cp): {f"t{tier}": {"exact": 0.0, "lcb": 0.0}
+                           for tier in range(5)}
+                 for cp in (25, 50, 75, 100)}
+    return {"schema": "citadel-t1d-arm/v1", "status": status,
             "trained": {f"t{t}": s(a) for t, a in zip(range(5), (0.0,) + test14)},
             "untrained": {f"t{t}": s(0.0) for t in range(5)},
+            "untrained_dev": {f"t{t}": s(0.0, n=200) for t in range(5)},
             "trained_train": {f"t{t}": s(a) for t, a in zip(range(5), (0.0,) + train14)},
             "train_memorization": {f"t{t}": {"consumed_prefix": 200,
                                              "n_verified_consumed": 200,
@@ -184,10 +189,23 @@ def _arm(test14=(0.0, 0.0, 0.0, 0.0), train14=(0.0,) * 4, status="SCIENTIFIC_FAI
                                          "accuracy": 0.02,
                                          "all": {"copy_first_operand": 0.02}}
                                for t in range(5)},
+            "heuristic_nulls": {"copy_first_operand": {"accuracy": 0.02,
+                                                       "correct": 10, "total": 500,
+                                                       "wilson_lcb": 0.01,
+                                                       "wilson_ucb": 0.03}},
             "diagnostics": {"stop_histogram": hist or {"NEWLINE": 500},
                             "first_train_lift_tier": None,
                             "first_test_lift_tier": None},
             "intermediates": inter,
+            "gate_rules": {"nonoverlap": False, "beats_null": False,
+                           "margin": False, "loss": True, "reload": True},
+            "checkpoint": {"path": "t1d_arm_synthetic.pt",
+                           "sha256": "a" * 64},
+            "pre_reload_prediction_sha256": "0" * 64,
+            "post_reload_prediction_sha256": "0" * 64,
+            "training": {"updates": 10, "ledgers": [{"updates": 10}]},
+            "data": {"feeder": {"placed_rows": {}, "placed_tokens": {},
+                                "carry_pending": 0}},
             "reload_identical": True}
 
 
@@ -564,15 +582,14 @@ def test_bundle_verify_matrix() -> None:
 
     from citadel_tpu import t1d_run as _run
 
-    def _arm_json(tag, status="SCIENTIFIC_FAIL"):
-        return {"arm": tag, "status": status}
-
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp)
         for name in t1d.BUNDLE_FILES:
             if name.startswith("ARM_"):
                 tag = name[4]
-                (root / name).write_text(json.dumps(_arm_json(tag)), encoding="utf-8")
+                r = _arm(status="SCIENTIFIC_FAIL")
+                r["arm"] = tag
+                (root / name).write_text(json.dumps(r), encoding="utf-8")
             else:
                 (root / name).write_text(json.dumps({"dummy": True}), encoding="utf-8")
         import zipfile
@@ -588,7 +605,9 @@ def test_bundle_verify_matrix() -> None:
             raise SystemExit("missing-file bundle accepted")
         except RuntimeError as exc:
             assert "BUNDLE_INVALID" in str(exc) and "ARM_C.json" in str(exc), exc
-        (root / "ARM_C.json").write_text(json.dumps(_arm_json("C")), encoding="utf-8")
+        fixed = _arm(status="SCIENTIFIC_FAIL")
+        fixed["arm"] = "C"
+        (root / "ARM_C.json").write_text(json.dumps(fixed), encoding="utf-8")
         (root / "ARM_D.json").write_text("{not json", encoding="utf-8")
         try:
             t1d.verify_bundle(str(root))
@@ -1180,6 +1199,288 @@ def test_verify_bundle_failure_receipts_and_checkpoints() -> None:
             assert "sha mismatch" in str(exc), exc
 
 
+def _legacy_untrained_producer():
+    """The EXACT pre-fix run_arm producer shape for the untrained block:
+    dev_tN / test_tN keys in one dict (the shape that produced the real TPU
+    failure KeyError: 't1' when the finalizer read tN)."""
+    def s(acc, n=500):
+        return {"correct": int(acc * n), "total": n, "accuracy": acc,
+                "wilson_lcb": max(0.0, acc - 0.04),
+                "wilson_ucb": min(1.0, acc + 0.04)}
+    out = {}
+    for tier in range(5):
+        out[f"dev_t{tier}"] = s(0.0, n=200)
+        out[f"test_t{tier}"] = s(0.0)
+    return out
+
+
+def test_exact_keyerror_t1_regression() -> None:
+    """Reproduces the REAL TPU failure of 2026-09-05: run_arm stored untrained
+    results as dev_tN/test_tN while build_arm_receipt read tN — the scientific
+    gate died on KeyError: 't1' AFTER expensive training. The fix chain:
+    legacy producer shape -> normalize_untrained_receipt -> canonical t0-t4
+    -> build_arm_receipt -> classify_cross_arm -> build_lift_curves,
+    with NO KeyError anywhere."""
+    legacy = _legacy_untrained_producer()
+    # document the original failure mode precisely
+    try:
+        legacy["t1"]
+        raise SystemExit("legacy producer unexpectedly has canonical keys")
+    except KeyError as exc:
+        assert str(exc) == "'t1'", exc
+    # the normalizer bridges producer -> canonical deterministically
+    canonical = t1d.normalize_untrained_receipt(legacy)
+    assert set(canonical) == {"t0", "t1", "t2", "t3", "t4"}
+    assert canonical["t1"] is legacy["test_t1"]
+    assert canonical["t0"] is legacy["test_t0"]
+    # canonical input passes through untouched (identity of mapping, not dict)
+    assert t1d.normalize_untrained_receipt(canonical) == canonical
+    # and the FULL bridge on the legacy shape is defect-free
+    assert t1d.producer_consumer_contract_probe(
+        legacy_untrained_keys=True) == []
+
+
+def test_normalize_untrained_receipt_validation() -> None:
+    """ARM_SCHEMA_INVALID — never a raw KeyError: missing both forms, partial
+    legacy form, and out-of-contract summaries all fail loudly."""
+    try:
+        t1d.normalize_untrained_receipt({"untrained": "garbage"})
+        raise SystemExit("unrecognized shape accepted")
+    except RuntimeError as exc:
+        assert "ARM_SCHEMA_INVALID" in str(exc), exc
+    partial = _legacy_untrained_producer()
+    del partial["test_t2"]
+    try:
+        t1d.normalize_untrained_receipt(partial)
+        raise SystemExit("partial legacy form accepted")
+    except RuntimeError as exc:
+        assert "ARM_SCHEMA_INVALID" in str(exc) and "test_t2" in str(exc), exc
+    bad = {"t0": {"correct": 1, "total": -5, "accuracy": 2.0,
+                  "wilson_lcb": 0.0, "wilson_ucb": 0.0}}
+    for t in range(1, 5):
+        bad[f"t{t}"] = {"correct": 0, "total": 10, "accuracy": 0.0,
+                        "wilson_lcb": 0.0, "wilson_ucb": 0.0}
+    try:
+        t1d.normalize_untrained_receipt(bad)
+        raise SystemExit("out-of-contract summary accepted")
+    except RuntimeError as exc:
+        assert "ARM_SCHEMA_INVALID" in str(exc) and "total" in str(exc), exc
+
+
+def test_producer_consumer_contract() -> None:
+    """§4: one bridge over the REAL producer-shaped data proves every key
+    consumed downstream (build_arm_receipt, validate_arm_receipt,
+    classify_cross_arm, build_lift_curves) exists — for BOTH the legacy
+    producer keying and the canonical producer keying."""
+    assert t1d.producer_consumer_contract_probe(
+        legacy_untrained_keys=True) == []
+    assert t1d.producer_consumer_contract_probe(
+        legacy_untrained_keys=False) == []
+
+
+def test_prefinal_recovery_simulation() -> None:
+    """§5: an expensive arm that dies in the PURE finalizer is never lost or
+    retrained. Snapshot write -> hash-verified load -> finalization-only
+    rerun -> receipt + marker + consumed sidecar; corrupt snapshot, missing
+    checkpoint, and cross-run mismatch are all refused; a finalizer
+    exception RETAINS the sidecar."""
+    import hashlib as _hl
+    import tempfile
+
+    from citadel_tpu import calculator_eval as cev
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        feeder = t1d.TierFeeder("curriculum", 8, 64)
+        for u in range(400):
+            feeder.fill_sequences(u / 400)
+        slices = t1d._tier_slices()
+        plan = t1d.train_memorization_plan(feeder)
+        plan = t1d.train_memorization_plan(feeder, candidates=None)
+
+        def s(acc, n=500):
+            return {"correct": int(acc * n), "total": n, "accuracy": acc,
+                    "wilson_lcb": max(0.0, acc - 0.04),
+                    "wilson_ucb": min(1.0, acc + 0.04)}
+
+        untrained = _legacy_untrained_producer()  # producer-shaped, as run_arm did pre-fix
+        untrained_dev = {f"t{t}": untrained[f"dev_t{t}"] for t in range(5)}
+        accs = {0: 0.9, 1: 0.4, 2: 0.2, 3: 0.05, 4: 0.0}
+        kwargs = dict(
+            tag="A", cfg=dict(t1d.ARMS["A"]), env={"probe_pass": True},
+            n_seq=8, length=64, param_count=3_737_472,
+            citadel_sha="0" * 40, cymek_sha="1" * 64, seed=20260904,
+            feeder_placed_rows={k: int(v) for k, v in feeder.placed_rows.items()},
+            feeder_ledger=feeder.ledger(),
+            ledgers=[{"updates": 100, "first_loss": 9.0, "last_loss": 6.0}],
+            done=100, first_loss=9.0, last_loss=6.0, cap_total=100 * 8 * 64,
+            ans_total=1234, whole_total=42_000, gsum=3.0, gmax=0.9, gn=100,
+            train_wall=60.0, untrained=untrained, untrained_dev=untrained_dev,
+            untrained_train={f"t{t}": s(0.0, n=200) for t in range(5)},
+            trained={f"t{t}": s(accs[t]) for t in range(5)},
+            trained_recs={f"t{t}": [
+                {"prompt": "p", "target": tg, "prediction": tg, "correct": True,
+                 "stop_reason": "EOS", "generated_token_count": len(tg),
+                 "valid": True} for tg in slices[f"test_t{t}"]["targets"]]
+                for t in range(5)},
+            trained_train={f"t{t}": s(0.6, n=200) for t in range(5)},
+            train_memorization={f"t{t}": {
+                "consumed_prefix": plan[t]["consumed_prefix"],
+                "n_frozen_candidates": plan[t]["n_candidates"],
+                "n_verified_consumed": plan[t]["n_verified"],
+                "evaluated_rows": plan[t]["n_verified"],
+                "status": plan[t]["status"],
+                "lift_eligible": plan[t]["status"] == "OK"} for t in range(5)},
+            inter={str(cp): {f"t{tier}": {"exact": dev, "lcb": max(0.0, dev - 0.03)}
+                             for tier in range(5)}
+                   for cp, dev in ((25, 0.05), (50, 0.12), (75, 0.18), (100, 0.2))},
+            teacher_eval={"skipped": "n/a"}, first_step={"n": 0},
+            ckpt_path=str(root / "t1d_arm_a.pt"), ckpt_hash="",
+            pre_sha="p" * 64, post_sha="p" * 64, reload_ok=True,
+            device_count=1, wall=90.0)
+        # a real checkpoint file whose hash matches the snapshot
+        ckpt_bytes = b"synthetic-checkpoint-bytes"
+        (root / "t1d_arm_a.pt").write_bytes(ckpt_bytes)
+        kwargs["ckpt_hash"] = _hl.sha256(ckpt_bytes).hexdigest()
+        sidecar = Path(t1d.write_prefinal_snapshot(root, kwargs))
+        assert sidecar.is_file()
+        # finalization-only recovery: hash-verified load, NO training, NO device
+        snap, why = t1d.load_prefinal_snapshot(root, "A", expect_cfg=dict(t1d.ARMS["A"]),
+                                               seed=20260904, shape=(8, 64))
+        assert snap is not None, why
+        receipt = t1d.build_arm_receipt(**snap)
+        t1d.write_arm_receipt(root, receipt, ckpt_hash=snap["ckpt_hash"])
+        sidecar.unlink()  # consumed on success (run_arm does this)
+        assert (root / "ARM_A.json").is_file()
+        assert (root / "ARM_A.done.json").is_file()
+        assert t1d.validate_arm_receipt(receipt) == []
+        # corrupt payload is refused and archived, never trusted
+        doc = json.loads(sidecar.read_text()) if False else None
+        kwargs2 = dict(kwargs)
+        kwargs2["done"] = 999  # tamper AFTER hashing
+        sidecar2 = Path(t1d.write_prefinal_snapshot(root, kwargs2))
+        doc2 = json.loads(sidecar2.read_text(encoding="utf-8"))
+        doc2["done"] = 1
+        sidecar2.write_text(json.dumps(doc2), encoding="utf-8")
+        snap2, why2 = t1d.load_prefinal_snapshot(root, "A",
+                                                 expect_cfg=dict(t1d.ARMS["A"]),
+                                                 seed=20260904, shape=(8, 64))
+        assert snap2 is None and "hash mismatch" in why2
+        assert not sidecar2.is_file()  # archived aside
+        # missing checkpoint file is refused
+        kwargs3 = dict(kwargs)
+        kwargs3["ckpt_path"] = str(root / "missing.pt")
+        t1d.write_prefinal_snapshot(root, kwargs3)
+        snap3, why3 = t1d.load_prefinal_snapshot(root, "A",
+                                                 expect_cfg=dict(t1d.ARMS["A"]),
+                                                 seed=20260904, shape=(8, 64))
+        assert snap3 is None and "missing" in why3
+        # cross-run mismatch (different seed) is refused
+        t1d.write_prefinal_snapshot(root, kwargs)
+        snap4, why4 = t1d.load_prefinal_snapshot(root, "A",
+                                                 expect_cfg=dict(t1d.ARMS["A"]),
+                                                 seed=999, shape=(8, 64))
+        assert snap4 is None and "mismatch" in why4
+        # a finalizer exception RETAINS the sidecar (finalization retried,
+        # never retrained): invalid untrained block -> ARM_SCHEMA_INVALID
+        broken = dict(kwargs)
+        broken["untrained"] = {"garbage": True}
+        t1d.write_prefinal_snapshot(root, broken)
+        snap5, _ = t1d.load_prefinal_snapshot(root, "A",
+                                              expect_cfg=dict(t1d.ARMS["A"]),
+                                              seed=20260904, shape=(8, 64))
+        try:
+            t1d.build_arm_receipt(**snap5)
+            raise SystemExit("invalid untrained block finalized silently")
+        except RuntimeError as exc:
+            assert "ARM_SCHEMA_INVALID" in str(exc), exc
+        assert (root / "ARM_A.prefinal.json").is_file()  # retained for retry
+
+
+def test_should_skip_arm_matrix() -> None:
+    """§8: IMPLEMENTATION_FAILURE is NEVER a completed arm — with or without
+    a marker it must rerun; scientific and timebox completions skip; unknown
+    statuses and marker-without-receipt fail loudly."""
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmp:
+        assert t1d.should_skip_arm(tmp, "A") == ("run", "nothing complete")
+        receipt = Path(tmp) / "ARM_A.json"
+        marker = Path(tmp) / "ARM_A.done.json"
+        receipt.write_text(json.dumps({"status": "IMPLEMENTATION_FAILURE",
+                                       "arm": "A"}), encoding="utf-8")
+        assert t1d.should_skip_arm(tmp, "A")[0] == "run"
+        marker.write_text("{}", encoding="utf-8")
+        decision, why = t1d.should_skip_arm(tmp, "A")
+        assert decision == "run" and "not completion" in why
+        for status in ("SCIENTIFIC_PASS", "SCIENTIFIC_FAIL", "TIMEBOX_ABORT"):
+            receipt.write_text(json.dumps({"status": status, "arm": "A"}),
+                               encoding="utf-8")
+            assert t1d.should_skip_arm(tmp, "A") == (
+                "skip", f"valid {status} receipt+marker present")
+        receipt.write_text(json.dumps({"status": "MYSTERY"}), encoding="utf-8")
+        assert t1d.should_skip_arm(tmp, "A")[0] == "raise"
+        receipt.unlink()
+        assert t1d.should_skip_arm(tmp, "A")[0] == "raise"
+
+
+def test_validate_arm_receipt_contract() -> None:
+    """§11: the terminal validator enforces the full scientific contract and
+    verify_bundle rejects malformed scientific receipts."""
+    import tempfile
+    import zipfile
+
+    probe_ok = t1d.producer_consumer_contract_probe(
+        legacy_untrained_keys=True) == []
+    assert probe_ok
+    # a malformed scientific receipt is caught by the validator directly
+    arms = _write_synthetic_session(Path(tempfile.mkdtemp()))
+    bad = arms["A"]
+    del bad["trained"]["t3"]
+    defects = t1d.validate_arm_receipt(bad)
+    assert any("trained" in d and "t0-t4" in d for d in defects), defects
+    bad2 = dict(arms["B"])
+    bad2["gate_rules"] = {}
+    assert any("gate_rules" in d for d in t1d.validate_arm_receipt(bad2))
+    # IMPLEMENTATION_FAILURE receipts carry partial data by design
+    failure = {"status": "IMPLEMENTATION_FAILURE", "arm": "X", "error": "e"}
+    assert t1d.validate_arm_receipt(failure) == []
+    # a malformed scientific receipt is DEMOTED at the session boundary (the
+    # classifier never sees it -> no classifier KeyError is possible) and the
+    # bundle stays valid
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        arms = _write_synthetic_session(root)
+        bad_arm = arms["A"]
+        del bad_arm["trained"]["t3"]
+        (root / "ARM_A.json").write_text(json.dumps(bad_arm), encoding="utf-8")
+        _green_pre50m_runner(root, arms, rt_sha="1" * 64, rate=8000.0,
+                             shape=(256, 64))
+        session = t1d._assemble_session_results(
+            root, arms, shape=(256, 64), rate=8000.0, scaled=False,
+            budgets={t: t1d.ARMS[t]["budget"] for t in t1d.ARMS},
+            rt_sha="1" * 64, pre50m_runner=_green_pre50m_runner)
+        assert session["arms"]["A"] == "IMPLEMENTATION_FAILURE"
+        on_disk = json.loads((root / "ARM_A.json").read_text())
+        assert on_disk["status"] == "IMPLEMENTATION_FAILURE"
+        assert on_disk["schema_defects"], "defects must be recorded on disk"
+        assert t1d.verify_bundle(str(root))["status"] == "VALID"
+        # a malformed scientific receipt that somehow reached a bundle is
+        # still rejected by verify_bundle itself
+        (root / "ARM_A.json").write_text(json.dumps(bad_arm), encoding="utf-8")
+        import zipfile as _zf
+
+        with _zf.ZipFile(root / "CITADEL_T1D_RESULTS.zip", "w",
+                         _zf.ZIP_DEFLATED) as zf:
+            for name in t1d.BUNDLE_FILES:
+                zf.write(root / name, name)
+        try:
+            t1d.verify_bundle(str(root))
+            raise SystemExit("malformed scientific receipt accepted by verify_bundle")
+        except RuntimeError as exc:
+            assert "ARM_A.json" in str(exc) and "t0-t4" in str(exc), exc
+
+
 def main() -> int:
     tests = [test_tier_determinism_and_bounds, test_band_isolation,
              test_leakage_verdict, test_t2_easy_constraints,
@@ -1202,7 +1503,13 @@ def main() -> int:
              test_budget_limited_classifier_matrix,
              test_select_calibrated_shape_scale2_guard,
              test_pre50m_fail_closed_matrix,
-             test_verify_bundle_failure_receipts_and_checkpoints]
+             test_verify_bundle_failure_receipts_and_checkpoints,
+             test_exact_keyerror_t1_regression,
+             test_normalize_untrained_receipt_validation,
+             test_producer_consumer_contract,
+             test_prefinal_recovery_simulation,
+             test_should_skip_arm_matrix,
+             test_validate_arm_receipt_contract]
     failed = 0
     for fn in tests:
         try:
