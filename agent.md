@@ -14,75 +14,102 @@
 
 ## STATUS
 
-CURRENT_CITADEL_SHA: see `git log origin/citadel -1` (this handover commit sits
-on the T1D schema hotfix cycle)
+CURRENT_CITADEL_SHA: see `git log origin/citadel -1` (handover commit sits on
+the one-shot hardening cycle)
 AUDITED_CYMEK_SHA: `28bf57a0d299a2c13a99fe0046616c00a1b8530c`
-RUNTIME_PIN_SHA: `28bf57a0d299a2c13a99fe0046616c00a1b8530c` (live origin/cymek
-HEAD == pin, re-verified)
+RUNTIME_PIN_SHA: `28bf57a0d299a2c13a99fe0046616c00a1b8530c` (== live origin/cymek
+HEAD, re-verified this cycle)
 
-CYMEK_ALIGNMENT = PASS (pin == live HEAD)
-RUNTIME_BOOTSTRAP_FRESH_CLONE = PASS (exact-SHA bootstrap unchanged; Cell 0
-prints + enforces EXPECTED_CYMEK_SHA before Cell A)
-LOCAL_TESTS = 69/69 PASS across all 6 files
-  (t1d 38 — was 32, +6 schema-contract regressions; t1c 10; t1_canary 6;
-   notebooks 2; bootstrap 6; cymek_checkpoint 7)
-POST_TRAIN_ARM_SIMULATION = PASS
-FULL_SESSION_SIMULATION = PASS (green + PRE50M-failure; malformed scientific
-  receipts are demoted to IMPLEMENTATION_FAILURE at the session boundary)
-PRODUCER->FINALIZER SCHEMA = PASS (exact legacy producer shape flows the full
-  bridge: normalize -> finalizer -> validator -> classifier -> curves)
-PREFINAL RECOVERY = PASS (hash-verified snapshot; finalization-only rerun;
-  corrupt/mismatch/missing-checkpoint refused; finalizer exception retains
-  the sidecar — expensive arms are never lost to a receipt bug again)
-NOTEBOOK_TORTURE = PASS (Cell D now reloads execution modules before the
-  session — no stale in-memory code on the operator's open Colab kernel)
-NOTEBOOK CELL D RELOAD = PASS
-PACKING_TORTURE = PASS
-CHECKPOINT_CONTRACT = PASS (7/7 against pinned Cymek 28bf57a)
-PRE50M_FAIL_CLOSED_MATRIX = PASS (24 mutations)
-BUNDLE_FAILURE_SURVIVAL = PASS
-T1D = READY_FOR_REAL_TPU_VALIDATION
-PRE50M = READY_FOR_REAL_TPU_VALIDATION
+CYMEK_ALIGNMENT = PASS
+RUNTIME_BOOTSTRAP_FRESH_CLONE = PASS (Cell 0 prints + enforces
+EXPECTED_CYMEK_SHA; DEVELOPMENT_CERTIFICATION.json is checked at BOOTSTRAP
+and any code newer than certification fails closed BEFORE the TPU)
+DEVELOPMENT_CERTIFICATE = PASS (7/7 test files, committed receipt,
+docs/citadel/experiments/T1D/DEVELOPMENT_CERTIFICATION.json)
+LOCAL_TESTS = 107 checks PASS / 1 torch-optional skip across 7 files
+  (t1d 38; t1c 10; t1_canary 6; notebooks 2; bootstrap 6; cymek_checkpoint 7;
+   one_shot 7 + torch-CPU resume identity PASS under the torch environment)
+PORTABILITY_SCAN = PASS (no machine-local paths in executable code)
+CLEAN_BOOTSTRAP_SIM = PASS (one-shot emulator: fresh session COMPLETE)
+STALE_BOOTSTRAP_SIM = PASS (rerun resumes every completed arm — zero
+  recomputation; PRE50M failure and arm failure isolated; preflight failure
+  exports CITADEL_T1D_FAILURE.zip before any training)
+ONE_SHOT_EMULATOR_FRESH = PASS
+ONE_SHOT_EMULATOR_RESUME = PASS (phase receipts + plan_sha identity)
+DISCONNECT_RECOVERY = PASS (mid-arm checkpoints at 25/50/75% with
+  model+optimizer+feeder state; CPU resume-identity proven: N continuous ==
+  N/2 + restore + N/2 in tokens, feeder state, and loss trajectory)
+TPU_CANARY_PLAN = PASS (canary phase runs the REAL code paths on TPU before
+  any arm: MID + SCALE2 + masked + teacher + self feeder paths, checkpoint/
+  reload, generation, producer->finalizer bridge; failure aborts pre-arms
+  with a bundle)
+SCHEMA_BOUNDARIES = PASS (terminal arm validator at finalize + verify_bundle
+  + session boundary; producer->finalizer probe in every preflight)
+FAILURE_BUNDLE = PASS (any phase failure exports environment + preflight +
+  phase receipts + traceback + arm receipts; the notebook auto-downloads it)
+NOTEBOOK_TORTURE = PASS (one-shot notebook: CELL 0 bootstrap + CELL 1
+  RUN EVERYTHING; auto-downloads RESULTS or FAILURE zip)
 
-## REAL TPU FAILURE RECORD (2026-09-05, must not be repeated or hidden)
+T1D = READY_FOR_ONE_SHOT_TPU (arms A-F)
+PRE50M = READY_FOR_ONE_SHOT_TPU
+
+## OPERATOR'S SELF-KNOWLEDGE HYPOTHESIS (preregistered this cycle)
+
+SELF_KNOWLEDGE_AMENDMENT.md adds Arm F (SELF): identical to the curriculum
+arm but every 7th row carries self-knowledge (identity, body, infrastructure,
+purpose, motivation, abilities, limits, mission) rendered in the frozen row
+grammar. Probes: 96 held-out self-QA rows with disjoint question forms, text
+exact-match scoring (never the integer normalizer), untrained baseline +
+most-common null on identical rows. Machine rules: SELF_KNOWLEDGE_ACQUIRED
+(F probe LCB > untrained + 0.10 AND > null + 0.10) and SELF_PROBE_LEAKAGE
+(any non-self arm passing the same bar - probe design is broken, no claim).
+The operator's "child that learns exponentially from little data" framing is
+recorded as the standing motivation; the causal self-knowledge-accelerates-
+learning question needs matched budgets and belongs to main training - this
+run tests ACQUISITION and interference descriptively. F budget 2M (adds
+~10-15 min, inside the <2 TPU-h ceiling).
+
+## DATA ACCOUNTING (§23 - measured, not guessed)
+
+DATA_UNIQUE_ROWS = 6,416,000 (tiered TRAIN_N sum)
+DATA_UNIQUE_BYTES_EST = ~96.8 MB (mean row 15.09 chars, measured)
+SCHEDULED_ROWS_ALL_ARMS_EST = ~2,252,486 (all six frozen budgets)
+CONSUMABLE_UNIQUE_FRACTION_EST = 0.351
+REPLAY_EXPECTED = false at pool level; per-tier drill replay (T0-T2) is
+disclosed in PLAN.md as before. DECISION: KEEP the existing corpus —
+generating 500 MB-1 GB would be unused scale; unique useful supervision is
+the metric. Arm F self rows replay by design (16 fact forms, drilled).
+
+## DOWNLOADS
 
 ```text
-T1D attempt: IMPLEMENTATION_FAILURE (arms A and B, after expensive training)
-cause: run_arm stored untrained results as dev_tN/test_tN while
-       build_arm_receipt/classify/curves read tN — scientific gate died on
-       KeyError: 't1' in the PURE post-training finalizer
-A/B:   INVALID — do not count scientifically; must rerun (no valid prefinal
-       snapshots existed then; nothing reconstructed from checkpoints)
-C/D/E: not completed
-TPU itself: NOT implicated — the failure was a pure receipt-schema mismatch
-session aborted on the 2nd infra failure, per policy
+ITEM | SOURCE/PURPOSE | BYTES | CUMULATIVE BYTES
+(none - no pip installs, no datasets, no checkpoints, no artifacts)
+TOTAL_DOWNLOADED_GB = 0.0
 ```
 
-Schema hotfix cycle (implementation-only; no scientific content changed):
-1. Canonical untrained contract at the source: run_arm now produces
-   untrained_test[tN] (receipt "untrained") + untrained_dev[tN] (explicit
-   separate block); DEV and TEST each still evaluated exactly once per arm
-   (a dictionary alias is not an observation).
-2. normalize_untrained_receipt: pure defense-in-depth — accepts canonical
-   t0-t4 or legacy test_t0-t4, validates every summary
-   (correct/total/accuracy/wilson_lcb/wilson_ucb, total>=0, accuracy finite
-   [0,1]), fails ARM_SCHEMA_INVALID instead of any raw KeyError.
-3. validate_arm_receipt terminal validator: full scientific contract
-   enforced BEFORE ARM_X.json is finalized, inside verify_bundle(), AND at
-   the session boundary — malformed scientific receipts are demoted to
-   IMPLEMENTATION_FAILURE (recorded on disk with schema_defects) instead of
-   crashing the classifier.
-4. ARM_<tag>.prefinal.json recovery sidecar: written after training + TEST
-   evals + checkpoint + reload identity; self-hash protected; on rerun,
-   finalization-only resume (NO retraining, NO device); corrupt/mismatched/
-   checkpoint-missing snapshots archived aside, never trusted.
-5. should_skip_arm: IMPLEMENTATION_FAILURE is NEVER completion (marker or
-   not) — the arm retries after software repair; orphan checkpoints from
-   failed sessions are archived as forensic artifacts, never clobbered.
-6. Cell D reloads calculator_eval/tiered_data/t1c_run/t1d_run/pre50m right
-   before the session; prints the arm receipt schema.
-7. Preflight gained the producer->finalizer schema gate (exact legacy
-   producer shape through the full bridge; FAIL => READY_FOR_T1D=NO).
+## QUESTIONS_FOR_OPERATOR
+
+```text
+NONE
+```
+
+## BIGGEST BLOCKER
+
+NONE REMAINING THAT LOCAL VALIDATION CAN ADDRESS. Estimated one-shot TPU
+runtime: ~75-115 minutes (six arms + PRE50M + canary), hard ceiling <2 TPU-h.
+
+## NEXT ACTION
+
+Fresh Colab TPU -> run CELL 0 -> run CELL 1 (RUN EVERYTHING) once -> return
+CITADEL_T1D_RESULTS.zip (or CITADEL_T1D_FAILURE.zip, which now carries the
+exact phase + gate + traceback so no debugging round-trip is needed).
+
+## CYMEK_REQUIRED_CHANGE
+
+```text
+NONE FOUND this cycle
+```
 
 ## T0 / T1 / T1B / T1C (history)
 
