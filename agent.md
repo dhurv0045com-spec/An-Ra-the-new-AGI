@@ -13,7 +13,7 @@
 
 ## STATUS
 
-Citadel SHA: `8cb3be1` (local; to be pushed this cycle)
+Citadel SHA: `ad1674c` (pushed, in sync with origin/citadel)
 Pinned Cymek runtime SHA: `298c91ac04f756f0833a7edcf63e73af3d5af688` (re-verified;
 `origin/cymek` moved +2 but T1D surface byte-identical — additive packaging only)
 
@@ -82,6 +82,7 @@ preflight ideal (correct NO at hardware); fail-closed intact.
 ## Commit log (latest first, citadel only)
 
 ```text
+ad1674c test(citadel): cover T1D notebook in torture test
 8cb3be1 test(citadel): T1D unit tests and session notebook
 ed6c2a2 feat(citadel): add T1D arm runner and preflight
 5369fe2 research(citadel): preregister T1D lift-off discriminator
