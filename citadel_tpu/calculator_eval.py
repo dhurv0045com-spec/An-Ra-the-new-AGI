@@ -342,8 +342,15 @@ def build_data_receipt(*, out: str | None = None) -> dict[str, Any]:
 
 
 def generate(rows: list[str], model: Any, xb: Any, *, device: Any, torch_mod: Any,
-             batch: int = EVAL_BATCH, length: int = EVAL_LENGTH) -> list[dict[str, Any]]:
-    """Static-shape greedy generation (§A5). Host/device split mirrors T0."""
+             batch: int = EVAL_BATCH, length: int = EVAL_LENGTH,
+             allow_ids: list[int] | None = None) -> list[dict[str, Any]]:
+    """Static-shape greedy generation (§A5). Host/device split mirrors T0.
+
+    allow_ids: optional closed vocabulary for the argmax (diagnostic arms
+    only). None = full production vocabulary (default, unchanged behavior).
+    Disallowed ids can never be emitted; anything else follows the standard
+    stop rules.
+    """
     torch = torch_mod
     from v5_model.core import packed_layout
 
@@ -372,6 +379,11 @@ def generate(rows: list[str], model: Any, xb: Any, *, device: Any, torch_mod: An
         for _ in range(MAX_ANSWER_TOKENS):
             logits = model(buf_d, pos_d, mask_d)
             xb.mark_step()
+            if allow_ids is not None:
+                keep = torch.zeros(logits.shape[-1], dtype=torch.bool, device=device)
+                keep[torch.tensor(allow_ids, dtype=torch.long, device=device)] = True
+                logits = torch.where(keep, logits,
+                                     torch.full_like(logits, float("-inf")))
             nxt = logits[arange_b, (cursor - 1).clamp(min=0).to(device)].argmax(-1)
             ids = nxt.to("cpu").tolist()
             write = []
