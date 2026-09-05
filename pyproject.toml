@@ -48,4 +48,4 @@ esoes-v5-collect = "v5_remote.collect:main"
 esoes-boundaries = "v5_contracts.import_boundaries:main"
 
 [tool.setuptools.packages.find]
-include = ["anra_v5*", "e0_cognition*", "v5_contracts*", "v5_data*", "v5_training*", "v5_remote*", "v5_model*", "v5_objectives*", "v5_evaluation*", "v5_promotion*", "v5_tokenizer*", "e1_tokenizer*", "e2_architecture*", "e3_data_objective*"]
+include = ["anra_v5*", "e0_cognition*", "v5_contracts*", "v5_data*", "v5_training*", "v5_remote*", "v5_model*", "v5_objectives*", "v5_evaluation*", "v5_promotion*", "v5_experiments*", "v5_registry*", "v5_tokenizer*", "e1_tokenizer*", "e2_architecture*", "e3_data_objective*"]
