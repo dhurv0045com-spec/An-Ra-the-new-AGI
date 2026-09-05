@@ -338,8 +338,11 @@ def test_one_shot_emulator_fresh_and_resume(tmp_root=None) -> None:
         # development certification lives inside the session dir's parent chain
         cert_dir = Path(tmp) / "cert"
         cert_dir.mkdir()
+        from citadel_tpu.t1d_one_shot import code_sha
+
         cert = {"schema": "citadel-development-certificate/v1",
-                "citadel_sha": _runtime_sha(), "cymek_sha": _cymek_sha(),
+                "citadel_sha": _runtime_sha(), "code_sha": code_sha(),
+                "cymek_sha": _cymek_sha(),
                 "status": "PASS", "files_passed": 7, "files_total": 7}
         (cert_dir / "DEVELOPMENT_CERTIFICATION.json").write_text(
             json.dumps(cert), encoding="utf-8")

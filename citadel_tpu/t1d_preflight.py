@@ -245,7 +245,7 @@ def run_preflight() -> dict:
         gate("tpu_active", False, f"{type(exc).__name__}: {exc}")
     try:
         api_status, api_missing = pf._xla_api_status()
-        gate("xla_apis", api_status != "FAIL",
+        gate("xla_apis", api_status in ("OK", "PARTIAL"),
              api_status + (f" ({', '.join(api_missing)})" if api_missing else ""))
     except Exception as exc:
         gate("xla_apis", False, f"{type(exc).__name__}: {exc}")
