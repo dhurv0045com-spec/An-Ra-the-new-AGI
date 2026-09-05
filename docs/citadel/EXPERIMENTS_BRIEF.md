@@ -57,6 +57,14 @@ What the diagnostics say (the valuable part):
    shorter answers-first curriculum) unlock what flat CE does not?
 3. At what scale, if any, does train exact first lift off zero?
 
+## T1D — ARITHMETIC LIFT-OFF (preregistered, pending execution)
+
+One session, five arms on the tiered ladder corpus (~130 MB unique):
+A flat control / B frozen easy→hard curriculum / C + micro-teacher rows /
+D 7.4M scale / E masked-vocab diagnostic. Primary readout is the tier
+lift-off curve (FIRST_TRAIN/TEST_LIFT_TIER), not one global zero. Discriminates
+floor vs curriculum vs teacher vs representation. No results yet.
+
 ## Proven infrastructure (reusable)
 
 Pinned Cymek runtime bootstrap, PJRT/XLA backend shim, fail-closed probing,

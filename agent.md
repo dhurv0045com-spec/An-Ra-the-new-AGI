@@ -8,117 +8,50 @@
 > this cycle: 0 bytes.
 >
 > STANDING OPERATOR POLICY: prefer batched preregistered experiment suites
-> over repeated round-trips. When multiple known hypotheses fit one compute
-> session, test them together. Tiny experiments are automated internal
-> gates/preflight only, never repeated operator-facing work. Bigger only when
-> information value justifies it.
+> over repeated round-trips. Tiny experiments are automated internal
+> gates/preflight only, never repeated operator-facing work.
 
 ## STATUS
 
-Citadel SHA: `fa3df6e` (local; T1C receipts + brief to be pushed this cycle)
-Pinned Cymek runtime SHA: `298c91ac04f756f0833a7edcf63e73af3d5af688` (unchanged)
+Citadel SHA: `8cb3be1` (local; to be pushed this cycle)
+Pinned Cymek runtime SHA: `298c91ac04f756f0833a7edcf63e73af3d5af688` (re-verified;
+`origin/cymek` moved +2 but T1D surface byte-identical — additive packaging only)
 
-**T1C EXECUTED — full 4-arm session returned.** Operator ran
-`notebooks/citadel_colab_t1c.ipynb` end to end at `7f81efc` (auto-scale halved
-budgets 8M→4M at measured 3782 tok/s, as preregistered) and returned
-`CITADEL_T1C_RESULTS.zip` (31 MB, incl. all 4 checkpoints). Receipts recorded
-verbatim under `docs/citadel/tpu_receipts/t1c_session/` (binaries excluded);
-every arm gate recomputed locally from raw numbers — all verdicts follow.
-New brief: `docs/citadel/EXPERIMENTS_BRIEF.md` (all Citadel experiments +
-results, for future reference).
-
-T1C result: **all 4 arms FAIL, cross-arm INCONCLUSIVE** (no contrast rule
-fired — correct, nothing moved anywhere). Headline: loss falls on every arm
-(10.0→1.3–1.9) while exact-match stays 0/500 everywhere incl. train samples;
-generations are valid integers with wrong digits (` 1110000`-style mode
-collapse, 100% MAX_TOKENS stops) — format works, computation absent, and no
-memorization either. Objective, data, and 2.3× scale all moved nothing at 4M
-tokens. Prior hotfix history (buffer geometry + parser defects) preserved below.
-
-T1C has now hit two deterministic implementation defects on the real Colab TPU
-before any valid arm completed. Neither failure is a scientific T1C result.
-Calibration remains reusable (shape 256×32, ~3.9k tok/s; preregistered auto-scale
-halves budgets) and the 108.9 MB data manifest remains reusable.
-
-### Operator failure #1 — evaluator buffer geometry
-
-Observed: `prompt too long for fixed buffer: 'subtract 1353 from 1269 ='`.
-Root cause: greedy generation reused training L=32 even though word-template
-prompts need prompt + MAX_ANSWER_TOKENS writable headroom. Fixed by dedicated
-static eval L=64, complete DEV/TEST geometry preflight, explicit answer-CE
-length guards, and exact regression coverage.
-
-### Operator failure #2 — legacy canonical-only parser
-
-After the L=64 hotfix, T1C progressed further and failed in both arm A and B
-with:
-
-```text
-malformed calculator row (no '='): '263 - 791 -> -528'
-```
-
-Root cause: `calculator_eval.heuristic_nulls()` consumes a deterministic sample
-of rich TRAIN rows, but its legacy `parse_row()` only understood the original
-T1 canonical `a op b = c` surface. T1C intentionally contains canonical,
-compact, arrow, and word templates, so arrow/word rows reached a helper that had
-never been upgraded to the richer corpus contract.
-
-Hotfix `f23bbee` updates `calculator_eval.parse_row()` itself — not a notebook
-monkeypatch — to support all frozen T1C forms while preserving the historical
-`(a, op, b, target_text)` return contract:
-
-```text
-canonical:  12 + 9 = 21
-compact:    12+9=21
-arrow:      263 - 791 -> -528
-words/add:  add 12 and 9 = 21
-words/sub:  subtract 9 from 12 = 3
-words/mul:  multiply 12 by 9 = 108
-words/div:  divide 108 by 9 = 12
-```
-
-The evaluator selftest now exercises every form plus a mixed-template
-`heuristic_nulls()` call, which is the exact helper path that failed in Colab.
-Because `t1c_preflight` already runs `calculator_eval.selftest()`, this class of
-mixed-template semantic mismatch is now a pre-arm gate. Cell D also reloads the
-hotfixed evaluator/runner after Git refresh, preventing stale module-cache use.
-
-No model architecture, optimizer, T1C arm definitions, data splits, objective
-semantics, budgets, success gates, or scientific thresholds changed. T1C
-preregistration remains applicable; both observed failures are implementation
-repairs only.
+T1D built: one-session 5-arm lift-off discriminator (A flat / B curriculum /
+C teacher / D 7.4M scale / E masked-vocab diagnostic) on the tiered ladder
+corpus (~130 MB unique, band-isolated splits, micro-teacher tasks, deterministic
+packing, tier lift-off curves, machine-evaluated rules, one bundle).
 
 ## T0 / T1 (history)
 
 ```text
-T0: PASS (unchanged)
+T0: PASS (unchanged, still applicable)
 T1: FAIL (loss-learned, exact-flat; historical result unchanged)
 ```
 
-## T1B
+## T1B / T1C (history)
 
 ```text
-SUPERSEDED_BY_T1C (preserved, unexecuted)
+T1B: SUPERSEDED_BY_T1C (preserved, unexecuted)
+T1C: EXECUTED — 4 arms FAIL, cross-arm INCONCLUSIVE (valid-integer mode
+collapse; no memorization; objective/data/2.3x scale moved nothing at 4M)
 ```
 
-## T1C
+## T1D
 
 ```text
-EXECUTED 2026-09-04 — all arms FAIL, cross-arm INCONCLUSIVE (see brief)
+READY_FOR_OPERATOR_RUN
 ```
 
-Arm table: A MINI/whole/rich, B MINI/answer/rich, C MINI/answer/narrow,
-D MID/answer/rich — 488 updates each, loss↓ everywhere, test exact 0/500
-everywhere, reloads identical, strongest null 2.7% unbeaten. Diagnosis:
-valid-integer mode collapse (not format failure), no memorization,
-no movement from objective/data/scale at 4M tokens. Next design must answer
-the brief's 3 open questions (floor vs teacher vs curriculum).
+Arms A/B/C/D/E; models MINI-pattern MID 3.7M (A,B,C,E) + SCALE2 7.4M (D);
+~130 MB unique data; 8/8/8/4/4M cap-token budgets with halve-on-slow rule;
+~60–110 min est, ceiling <2 TPU-h.
 
 ## DOWNLOADS
 
 ```text
 ITEM | SOURCE/PURPOSE | BYTES | CUMULATIVE BYTES
-(none)
+(none — no pip installs, no datasets, no checkpoints, no artifacts)
 TOTAL_DOWNLOADED_GB = 0.0
 ```
 
@@ -130,19 +63,26 @@ NONE
 
 ## BIGGEST BLOCKER
 
-No current blocker — T1C answered its session. The open problem is the next
-experimental design (capacity/budget floor vs answer-teacher vs curriculum),
-not infrastructure.
+Need operator to execute the preregistered T1D session (floor vs curriculum
+vs teacher vs representation — the T1C zeros left this unanswered).
 
 ## NEXT ACTION
 
-No operator run needed. Next Citadel work: design the follow-up that
-discriminates floor vs teacher vs curriculum, preregistered before execution.
+Run `notebooks/citadel_colab_t1d.ipynb` end-to-end once and return
+`CITADEL_T1D_RESULTS.zip`.
 
-## Latest hotfix commits
+## Validation this cycle (local, 0 downloads)
+
+33/33 unit tests (15 T1D incl. band isolation, verdict logic, feeder/packing
+invariants, classifier rules; 10 T1C; 6 T1; 2 notebook); full tiered manifest
+dried at scale (132.6 MB, 58 s, max row 31, dup ≤ 0.29 disclosed, leakage
+fatal-empty); MID+SCALE2 receipts verified against real Cymek contracts;
+preflight ideal (correct NO at hardware); fail-closed intact.
+
+## Commit log (latest first, citadel only)
 
 ```text
-f23bbee fix(citadel): parse every T1C arithmetic template in evaluator
-2a123f2 test(citadel): preflight all T1C eval buffer invariants
-3ee6597 fix(citadel): give T1C generation safe fixed-buffer headroom
+8cb3be1 test(citadel): T1D unit tests and session notebook
+ed6c2a2 feat(citadel): add T1D arm runner and preflight
+5369fe2 research(citadel): preregister T1D lift-off discriminator
 ```
