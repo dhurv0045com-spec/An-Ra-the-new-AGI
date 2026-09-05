@@ -1,0 +1,36 @@
+module body reached
+torch imported
+=== arm T1-COMPACT ===
+[T1-COMPACT] training loop start
+[T1-COMPACT] step 1000 loss 0.000 train 1.00 test 1.00
+[T1-COMPACT] step 2000 loss 0.000 train 1.00 test 1.00
+[T1-COMPACT] step 3000 loss 0.000 train 1.00 test 1.00
+[T1-COMPACT] step 4000 loss 0.000 train 1.00 test 1.00
+[T1-COMPACT] step 5000 loss 0.023 train 0.99 test 0.99
+[T1-COMPACT] WALL BOX hit at step 5602
+=== arm T2-COMPACT ===
+[T2-COMPACT] training loop start
+[T2-COMPACT] step 1000 loss 0.045 train 1.00 test 0.01
+[T2-COMPACT] step 2000 loss 0.000 train 1.00 test 0.04
+[T2-COMPACT] step 3000 loss 0.000 train 1.00 test 0.03
+[T2-COMPACT] step 4000 loss 0.000 train 1.00 test 0.01
+[T2-COMPACT] step 5000 loss 0.000 train 1.00 test 0.36
+[T2-COMPACT] WALL BOX hit at step 5160
+=== arm T0-COMPACT ===
+[T0-COMPACT] training loop start
+[T0-COMPACT] step 1000 loss 0.000 train 1.00 test 1.00
+[T0-COMPACT] step 2000 loss 0.000 train 1.00 test 1.00
+[T0-COMPACT] step 3000 loss 0.000 train 1.00 test 1.00
+[T0-COMPACT] step 4000 loss 0.000 train 1.00 test 1.00
+[T0-COMPACT] WALL BOX hit at step 4247
+=== arm T1-COMPACT-LARGE ===
+[T1-COMPACT-LARGE] training loop start
+[T1-COMPACT-LARGE] step 1000 loss 0.000 train 1.00 test 1.00
+[T1-COMPACT-LARGE] step 2000 loss 0.000 train 1.00 test 1.00
+[T1-COMPACT-LARGE] step 3000 loss 0.000 train 1.00 test 1.00
+[T1-COMPACT-LARGE] WALL BOX hit at step 3467
+=== arm T1-BYTE ===
+[T1-BYTE] training loop start
+[T1-BYTE] step 1000 loss 0.000 train 0.00 test 0.00
+[T1-BYTE] WALL BOX hit at step 1418
+done -> experiments/ARK-001/RESULT.json

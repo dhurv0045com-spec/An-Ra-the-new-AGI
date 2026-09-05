@@ -1,0 +1,388 @@
+{
+  "schema": "arkenstone-binding-v2-redteam-receipt/v1",
+  "target": "cymek binding-v2 pair qualification (test-asserted at 28bf57a)",
+  "generator_binding_v2_sha256": "567fc95f6fa73a4a1ad3b06c347a99c4933461a7629d339af2ac0eefad15a77d",
+  "shortcut_suite_sha256": "62fe054f6b5dfd692b8c62a0b47d414722c7dfe171a1493a141f38839d979eec",
+  "null_ceiling": 0.25,
+  "max_excess_allowed": 0.1,
+  "escalation_baseline_added": "trained_logistic_ngram (cymek runs no trained baseline)",
+  "runs": [
+    {
+      "seed": 101,
+      "fit_tasks": 144,
+      "eval_tasks": 72,
+      "pairs": 72,
+      "truth_valid": true,
+      "wall_seconds": 2.946559800009709,
+      "qualification": {
+        "null_ceiling": 0.25,
+        "max_excess_allowed": 0.1,
+        "baselines": {
+          "bag_of_words": {
+            "pair_accuracy": 0.0,
+            "n": 72,
+            "excess_upper_bound": -0.1993488274035422,
+            "pass": true
+          },
+          "facts_only": {
+            "pair_accuracy": 0.0,
+            "n": 72,
+            "excess_upper_bound": -0.1993488274035422,
+            "pass": true
+          },
+          "first_candidate": {
+            "pair_accuracy": 0.0,
+            "n": 72,
+            "excess_upper_bound": -0.1993488274035422,
+            "pass": true
+          },
+          "last_candidate": {
+            "pair_accuracy": 0.0,
+            "n": 72,
+            "excess_upper_bound": -0.1993488274035422,
+            "pass": true
+          },
+          "latest_fact": {
+            "pair_accuracy": 0.013888888888888888,
+            "n": 72,
+            "excess_upper_bound": -0.17543397852523845,
+            "pass": true
+          },
+          "lexical_overlap": {
+            "pair_accuracy": 0.0,
+            "n": 72,
+            "excess_upper_bound": -0.1993488274035422,
+            "pass": true
+          },
+          "nearest_position": {
+            "pair_accuracy": 0.013888888888888888,
+            "n": 72,
+            "excess_upper_bound": -0.17543397852523845,
+            "pass": true
+          },
+          "position_first": {
+            "pair_accuracy": 0.0,
+            "n": 72,
+            "excess_upper_bound": -0.1993488274035422,
+            "pass": true
+          },
+          "position_last": {
+            "pair_accuracy": 0.013888888888888888,
+            "n": 72,
+            "excess_upper_bound": -0.17543397852523845,
+            "pass": true
+          },
+          "position_middle": {
+            "pair_accuracy": 0.0,
+            "n": 72,
+            "excess_upper_bound": -0.1993488274035422,
+            "pass": true
+          },
+          "query_only": {
+            "pair_accuracy": 0.0,
+            "n": 72,
+            "excess_upper_bound": -0.1993488274035422,
+            "pass": true
+          },
+          "target_farthest": {
+            "pair_accuracy": 0.0,
+            "n": 72,
+            "excess_upper_bound": -0.1993488274035422,
+            "pass": true
+          },
+          "target_nearest": {
+            "pair_accuracy": 0.0,
+            "n": 72,
+            "excess_upper_bound": -0.1993488274035422,
+            "pass": true
+          },
+          "unordered_set": {
+            "pair_accuracy": 0.0,
+            "n": 72,
+            "excess_upper_bound": -0.1993488274035422,
+            "pass": true
+          },
+          "value_frequency": {
+            "pair_accuracy": 0.0,
+            "n": 72,
+            "excess_upper_bound": -0.1993488274035422,
+            "pass": true
+          },
+          "surface_template": {
+            "pair_accuracy": 0.0,
+            "n": 72,
+            "excess_upper_bound": -0.1993488274035422,
+            "pass": true
+          },
+          "linear_centroid": {
+            "pair_accuracy": 0.0,
+            "n": 72,
+            "excess_upper_bound": -0.1993488274035422,
+            "pass": true
+          },
+          "trained_logistic_ngram": {
+            "pair_accuracy": 0.0,
+            "n": 72,
+            "excess_upper_bound": -0.1993488274035422,
+            "pass": true
+          }
+        },
+        "verdict": "GENERATOR_QUALIFIED"
+      }
+    },
+    {
+      "seed": 202,
+      "fit_tasks": 144,
+      "eval_tasks": 72,
+      "pairs": 72,
+      "truth_valid": true,
+      "wall_seconds": 3.8514712000032887,
+      "qualification": {
+        "null_ceiling": 0.25,
+        "max_excess_allowed": 0.1,
+        "baselines": {
+          "bag_of_words": {
+            "pair_accuracy": 0.027777777777777776,
+            "n": 72,
+            "excess_upper_bound": -0.15425824778561775,
+            "pass": true
+          },
+          "facts_only": {
+            "pair_accuracy": 0.0,
+            "n": 72,
+            "excess_upper_bound": -0.1993488274035422,
+            "pass": true
+          },
+          "first_candidate": {
+            "pair_accuracy": 0.0,
+            "n": 72,
+            "excess_upper_bound": -0.1993488274035422,
+            "pass": true
+          },
+          "last_candidate": {
+            "pair_accuracy": 0.0,
+            "n": 72,
+            "excess_upper_bound": -0.1993488274035422,
+            "pass": true
+          },
+          "latest_fact": {
+            "pair_accuracy": 0.0,
+            "n": 72,
+            "excess_upper_bound": -0.1993488274035422,
+            "pass": true
+          },
+          "lexical_overlap": {
+            "pair_accuracy": 0.027777777777777776,
+            "n": 72,
+            "excess_upper_bound": -0.15425824778561775,
+            "pass": true
+          },
+          "nearest_position": {
+            "pair_accuracy": 0.0,
+            "n": 72,
+            "excess_upper_bound": -0.1993488274035422,
+            "pass": true
+          },
+          "position_first": {
+            "pair_accuracy": 0.013888888888888888,
+            "n": 72,
+            "excess_upper_bound": -0.17543397852523845,
+            "pass": true
+          },
+          "position_last": {
+            "pair_accuracy": 0.0,
+            "n": 72,
+            "excess_upper_bound": -0.1993488274035422,
+            "pass": true
+          },
+          "position_middle": {
+            "pair_accuracy": 0.0,
+            "n": 72,
+            "excess_upper_bound": -0.1993488274035422,
+            "pass": true
+          },
+          "query_only": {
+            "pair_accuracy": 0.0,
+            "n": 72,
+            "excess_upper_bound": -0.1993488274035422,
+            "pass": true
+          },
+          "target_farthest": {
+            "pair_accuracy": 0.0,
+            "n": 72,
+            "excess_upper_bound": -0.1993488274035422,
+            "pass": true
+          },
+          "target_nearest": {
+            "pair_accuracy": 0.013888888888888888,
+            "n": 72,
+            "excess_upper_bound": -0.17543397852523845,
+            "pass": true
+          },
+          "unordered_set": {
+            "pair_accuracy": 0.0,
+            "n": 72,
+            "excess_upper_bound": -0.1993488274035422,
+            "pass": true
+          },
+          "value_frequency": {
+            "pair_accuracy": 0.0,
+            "n": 72,
+            "excess_upper_bound": -0.1993488274035422,
+            "pass": true
+          },
+          "surface_template": {
+            "pair_accuracy": 0.0,
+            "n": 72,
+            "excess_upper_bound": -0.1993488274035422,
+            "pass": true
+          },
+          "linear_centroid": {
+            "pair_accuracy": 0.0,
+            "n": 72,
+            "excess_upper_bound": -0.1993488274035422,
+            "pass": true
+          },
+          "trained_logistic_ngram": {
+            "pair_accuracy": 0.0,
+            "n": 72,
+            "excess_upper_bound": -0.1993488274035422,
+            "pass": true
+          }
+        },
+        "verdict": "GENERATOR_QUALIFIED"
+      }
+    },
+    {
+      "seed": 303,
+      "fit_tasks": 144,
+      "eval_tasks": 72,
+      "pairs": 72,
+      "truth_valid": true,
+      "wall_seconds": 3.8978550999891013,
+      "qualification": {
+        "null_ceiling": 0.25,
+        "max_excess_allowed": 0.1,
+        "baselines": {
+          "bag_of_words": {
+            "pair_accuracy": 0.0,
+            "n": 72,
+            "excess_upper_bound": -0.1993488274035422,
+            "pass": true
+          },
+          "facts_only": {
+            "pair_accuracy": 0.0,
+            "n": 72,
+            "excess_upper_bound": -0.1993488274035422,
+            "pass": true
+          },
+          "first_candidate": {
+            "pair_accuracy": 0.0,
+            "n": 72,
+            "excess_upper_bound": -0.1993488274035422,
+            "pass": true
+          },
+          "last_candidate": {
+            "pair_accuracy": 0.0,
+            "n": 72,
+            "excess_upper_bound": -0.1993488274035422,
+            "pass": true
+          },
+          "latest_fact": {
+            "pair_accuracy": 0.0,
+            "n": 72,
+            "excess_upper_bound": -0.1993488274035422,
+            "pass": true
+          },
+          "lexical_overlap": {
+            "pair_accuracy": 0.0,
+            "n": 72,
+            "excess_upper_bound": -0.1993488274035422,
+            "pass": true
+          },
+          "nearest_position": {
+            "pair_accuracy": 0.0,
+            "n": 72,
+            "excess_upper_bound": -0.1993488274035422,
+            "pass": true
+          },
+          "position_first": {
+            "pair_accuracy": 0.0,
+            "n": 72,
+            "excess_upper_bound": -0.1993488274035422,
+            "pass": true
+          },
+          "position_last": {
+            "pair_accuracy": 0.0,
+            "n": 72,
+            "excess_upper_bound": -0.1993488274035422,
+            "pass": true
+          },
+          "position_middle": {
+            "pair_accuracy": 0.0,
+            "n": 72,
+            "excess_upper_bound": -0.1993488274035422,
+            "pass": true
+          },
+          "query_only": {
+            "pair_accuracy": 0.0,
+            "n": 72,
+            "excess_upper_bound": -0.1993488274035422,
+            "pass": true
+          },
+          "target_farthest": {
+            "pair_accuracy": 0.0,
+            "n": 72,
+            "excess_upper_bound": -0.1993488274035422,
+            "pass": true
+          },
+          "target_nearest": {
+            "pair_accuracy": 0.0,
+            "n": 72,
+            "excess_upper_bound": -0.1993488274035422,
+            "pass": true
+          },
+          "unordered_set": {
+            "pair_accuracy": 0.0,
+            "n": 72,
+            "excess_upper_bound": -0.1993488274035422,
+            "pass": true
+          },
+          "value_frequency": {
+            "pair_accuracy": 0.0,
+            "n": 72,
+            "excess_upper_bound": -0.1993488274035422,
+            "pass": true
+          },
+          "surface_template": {
+            "pair_accuracy": 0.0,
+            "n": 72,
+            "excess_upper_bound": -0.1993488274035422,
+            "pass": true
+          },
+          "linear_centroid": {
+            "pair_accuracy": 0.0,
+            "n": 72,
+            "excess_upper_bound": -0.1993488274035422,
+            "pass": true
+          },
+          "trained_logistic_ngram": {
+            "pair_accuracy": 0.0,
+            "n": 72,
+            "excess_upper_bound": -0.1993488274035422,
+            "pass": true
+          }
+        },
+        "verdict": "GENERATOR_QUALIFIED"
+      }
+    }
+  ],
+  "verdicts_observed": [
+    "GENERATOR_QUALIFIED"
+  ],
+  "verdict": "CONSISTENT_WITH_CYMEK_CLAIM",
+  "caveats": [
+    "Truth validity checked via gold-in-candidates and the suite's internal gate",
+    "not a full regenerate-and-solve audit"
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "schema": "arkenstone-branch-provenance/v1",
+  "created_utc": "2026-09-05T17:27:54.127952Z",
+  "arkenstone_branch": "Arkenstone",
+  "arkenstone_base": "28bf57a0d299a2c13a99fe0046616c00a1b8530c",
+  "worktree_path": "C:\\Users\\ankit\\.zcode\\workspace\\default\\Arkenstone",
+  "isolation": "separate git worktree; only the Arkenstone branch receives commits",
+  "branch_shas_inspected": {
+    "origin/cymek": "28bf57a0d299a2c13a99fe0046616c00a1b8530c",
+    "origin/citadel": "28ff690c04e655c88e4a6b394585e9b3428181ad",
+    "origin/triquetra": "f23f0af42d90847cf1d2c244160c8203d1995b33",
+    "origin/esoes": "85f44b7b449f2ee39a0e80203a2d7df04614983b",
+    "origin/senora": "30a8fa755a6310db5a01d29fb06cd11ae7554b84",
+    "origin/core-vnext": "4ee180a8acf32b797cb89ef65ada1617008af34e",
+    "origin/core-exp": "51124deda678f361e34bbeb05dd02633dab366a5",
+    "origin/core": "b4b8b4e3d60dadeba54ece3dd756c7f92b48d581",
+    "origin/core-frozen-v4": "f72f1939d10bb76beaaf8749ee9436049239a6cb",
+    "origin/main": "b620f1c2d084b0db5fa0d24196949f88c92edc1e",
+    "origin/experiment": "5879e1144bac3be789ecd852890719875545aa3c",
+    "origin/iterate500": "b43842039efea4ccf41903b46ac6a33ec6d58322",
+    "origin/iterate900": "6fbd2c0dc644be79d098cfd45a1c28a8c2ecebee",
+    "origin/codxyz": "ba80b6634bf812b1ef7143d0f1a67f2d55fd9e54"
+  },
+  "repository_state": "clean worktree at Arkenstone creation",
+  "environment": {
+    "platform": "Windows-10-10.0.26200-SP0",
+    "python": "3.11.15",
+    "interpreter": "C:\\Users\\ankit\\.zcode\\workspace\\default\\An-Ra-the-new-AGI\\.venv\\Scripts\\python.exe (shared read-only venv)",
+    "gpu": "NVIDIA GeForce RTX 4050 Laptop, 6GB VRAM (CUDA 13.1 driver, torch 2.14.0+cu126)"
+  },
+  "uncommitted_prior_work_note": "The main worktree (An-Ra-the-new-AGI) holds UNCOMMITTED cursor-v2 work from a prior Cymek session; it is intentionally left parked and untouched by Arkenstone.",
+  "inspected_at_creation": true
+}

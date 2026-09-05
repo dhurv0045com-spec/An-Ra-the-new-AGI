@@ -1,0 +1,248 @@
+{
+  "schema": "arkenstone-ark001-result/v1",
+  "preregistration": "experiments/ARK-001/PLAN.md",
+  "seed": 13,
+  "device": "cpu",
+  "torch": "2.14.0+cu126",
+  "arms": [
+    {
+      "arm": "T1-BYTE",
+      "status": "ABORTED_WALL_BOX",
+      "steps_run": 1228,
+      "parameters": 4195456,
+      "vocab_size": 24576,
+      "train_pool_size": 100,
+      "eval_pool_size": 100,
+      "wall_seconds": 720.0940242000215,
+      "tokens_consumed_estimate": 785920,
+      "baselines": {
+        "majority_answer": {
+          "answer": "9",
+          "exact_on_eval": 0.1
+        },
+        "marginal_mode": {
+          "answer": "9",
+          "exact_on_eval": 0.1
+        }
+      },
+      "lift_off_step": 200,
+      "lift_off_exposures_per_example": 128.0,
+      "final": {
+        "step": 1200,
+        "loss": 2.4835267176115394e-09,
+        "train_exact": 1.0,
+        "test_exact": 1.0,
+        "train_per_position": {
+          "0": 1.0,
+          "1": 1.0
+        },
+        "test_per_position": {
+          "0": 1.0,
+          "1": 1.0
+        },
+        "exposures_per_example": 768.0
+      },
+      "history_tail": [
+        {
+          "step": 200,
+          "loss": 0.0028531632851809263,
+          "train_exact": 1.0,
+          "test_exact": 1.0,
+          "train_per_position": {
+            "0": 1.0,
+            "1": 1.0
+          },
+          "test_per_position": {
+            "0": 1.0,
+            "1": 1.0
+          },
+          "exposures_per_example": 128.0
+        },
+        {
+          "step": 400,
+          "loss": 1.6422040971519891e-06,
+          "train_exact": 1.0,
+          "test_exact": 1.0,
+          "train_per_position": {
+            "0": 1.0,
+            "1": 1.0
+          },
+          "test_per_position": {
+            "0": 1.0,
+            "1": 1.0
+          },
+          "exposures_per_example": 256.0
+        },
+        {
+          "step": 600,
+          "loss": 1.3659396280729652e-08,
+          "train_exact": 1.0,
+          "test_exact": 1.0,
+          "train_per_position": {
+            "0": 1.0,
+            "1": 1.0
+          },
+          "test_per_position": {
+            "0": 1.0,
+            "1": 1.0
+          },
+          "exposures_per_example": 384.0
+        },
+        {
+          "step": 800,
+          "loss": 0.0,
+          "train_exact": 1.0,
+          "test_exact": 1.0,
+          "train_per_position": {
+            "0": 1.0,
+            "1": 1.0
+          },
+          "test_per_position": {
+            "0": 1.0,
+            "1": 1.0
+          },
+          "exposures_per_example": 512.0
+        },
+        {
+          "step": 1000,
+          "loss": 6.208816794028849e-10,
+          "train_exact": 1.0,
+          "test_exact": 1.0,
+          "train_per_position": {
+            "0": 1.0,
+            "1": 1.0
+          },
+          "test_per_position": {
+            "0": 1.0,
+            "1": 1.0
+          },
+          "exposures_per_example": 640.0
+        },
+        {
+          "step": 1200,
+          "loss": 2.4835267176115394e-09,
+          "train_exact": 1.0,
+          "test_exact": 1.0,
+          "train_per_position": {
+            "0": 1.0,
+            "1": 1.0
+          },
+          "test_per_position": {
+            "0": 1.0,
+            "1": 1.0
+          },
+          "exposures_per_example": 768.0
+        }
+      ],
+      "history_full": [
+        {
+          "step": 1,
+          "loss": 113.90616607666016,
+          "train_exact": 0.0,
+          "test_exact": 0.0,
+          "train_per_position": {
+            "0": 0.0,
+            "1": 0.0
+          },
+          "test_per_position": {
+            "0": 0.0,
+            "1": 0.0
+          },
+          "exposures_per_example": 0.64
+        },
+        {
+          "step": 200,
+          "loss": 0.0028531632851809263,
+          "train_exact": 1.0,
+          "test_exact": 1.0,
+          "train_per_position": {
+            "0": 1.0,
+            "1": 1.0
+          },
+          "test_per_position": {
+            "0": 1.0,
+            "1": 1.0
+          },
+          "exposures_per_example": 128.0
+        },
+        {
+          "step": 400,
+          "loss": 1.6422040971519891e-06,
+          "train_exact": 1.0,
+          "test_exact": 1.0,
+          "train_per_position": {
+            "0": 1.0,
+            "1": 1.0
+          },
+          "test_per_position": {
+            "0": 1.0,
+            "1": 1.0
+          },
+          "exposures_per_example": 256.0
+        },
+        {
+          "step": 600,
+          "loss": 1.3659396280729652e-08,
+          "train_exact": 1.0,
+          "test_exact": 1.0,
+          "train_per_position": {
+            "0": 1.0,
+            "1": 1.0
+          },
+          "test_per_position": {
+            "0": 1.0,
+            "1": 1.0
+          },
+          "exposures_per_example": 384.0
+        },
+        {
+          "step": 800,
+          "loss": 0.0,
+          "train_exact": 1.0,
+          "test_exact": 1.0,
+          "train_per_position": {
+            "0": 1.0,
+            "1": 1.0
+          },
+          "test_per_position": {
+            "0": 1.0,
+            "1": 1.0
+          },
+          "exposures_per_example": 512.0
+        },
+        {
+          "step": 1000,
+          "loss": 6.208816794028849e-10,
+          "train_exact": 1.0,
+          "test_exact": 1.0,
+          "train_per_position": {
+            "0": 1.0,
+            "1": 1.0
+          },
+          "test_per_position": {
+            "0": 1.0,
+            "1": 1.0
+          },
+          "exposures_per_example": 640.0
+        },
+        {
+          "step": 1200,
+          "loss": 2.4835267176115394e-09,
+          "train_exact": 1.0,
+          "test_exact": 1.0,
+          "train_per_position": {
+            "0": 1.0,
+            "1": 1.0
+          },
+          "test_per_position": {
+            "0": 1.0,
+            "1": 1.0
+          },
+          "exposures_per_example": 768.0
+        }
+      ],
+      "seed": 13,
+      "code_sha256": "e60a7e4b84d9ea34d04fcbeb3924d9b75e3d0c0b77008b53a2878ae500c2ad23"
+    }
+  ]
+}

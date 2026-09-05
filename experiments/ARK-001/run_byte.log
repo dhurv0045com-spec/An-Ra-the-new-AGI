@@ -1,0 +1,7 @@
+module body reached
+torch imported
+=== arm T1-BYTE ===
+[T1-BYTE] training loop start
+[T1-BYTE] step 1000 loss 0.000 train 1.00 test 1.00
+[T1-BYTE] WALL BOX hit at step 1228
+done -> experiments/ARK-001/RESULT_BYTE.json
