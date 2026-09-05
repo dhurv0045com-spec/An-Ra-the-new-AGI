@@ -13,7 +13,8 @@
 
 ## STATUS
 
-Citadel SHA: `fc9e7d2` (local; handover commit to be pushed this cycle)
+Citadel code tip described here: `fc9e7d2` (handover commit itself on top;
+see `git log origin/citadel -1` for the live tip — the two differ by docs only)
 Pinned Cymek runtime SHA: `298c91ac04f756f0833a7edcf63e73af3d5af688` (re-verified;
 `origin/cymek` moved +2 but T1D surface byte-identical — additive packaging only)
 
