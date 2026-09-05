@@ -48,7 +48,10 @@ class Ctx:
                           ("CITADEL_ROOT", "CITADEL_CYMEK_RUNTIME",
                            "CITADEL_CYMEK_RUNTIME_DIR", "CITADEL_CYMEK_SHA")}
         self.saved_path = list(sys.path)
-        main = Path("C:/Users/ankit/Downloads/An-Ra-the-new-AGI-1")
+        # Use the checkout that is actually running the test.  Never embed a
+        # developer-machine path: this suite must run unchanged on Colab,
+        # Linux CI, Windows, and a clean clone.
+        main = rb.citadel_root()
         _git(["worktree", "add", "--detach", str(self.tmp / "cymek"), PIN],
              cwd=main)
         os.environ["CITADEL_CYMEK_RUNTIME"] = str(self.tmp / "cymek")
@@ -67,7 +70,7 @@ class Ctx:
             else:
                 os.environ[k] = v
         sys.path[:] = self.saved_path
-        main = Path("C:/Users/ankit/Downloads/An-Ra-the-new-AGI-1")
+        main = rb.citadel_root()
         try:
             _git(["worktree", "remove", "--force", str(self.tmp / "cymek")],
                  cwd=main)
@@ -217,7 +220,6 @@ def t_advance_rejections(ctx: Ctx) -> None:
 
 
 def t_fence_and_inventory(ctx: Ctx) -> None:
-    cc = ctx.cc
     st = ctx.genesis()
     p = dict(ctx.payloads(2))
     p["training_state.json"] = json.dumps(
@@ -312,17 +314,6 @@ def main() -> int:
             print(f"FAIL {fn.__name__}: {type(exc).__name__}: {exc}", flush=True)
     print(f"{len(tests) - failed}/{len(tests)} passed")
     return 1 if failed else 0
-
-
-def _with_ctx(label, fn) -> None:
-    import tempfile as _tf
-
-    ctx = Ctx()
-    try:
-        fn(ctx)
-    finally:
-        ctx.close()
-    print(f"PASS {label}", flush=True)
 
 
 if __name__ == "__main__":
