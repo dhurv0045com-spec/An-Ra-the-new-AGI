@@ -158,7 +158,7 @@ def test_scale2_rules() -> None:
             assert 0 <= cfg["budget"] - used < b * ln, (tag, b, ln)
 
 
-def _arm(test14=(0.0, 0.0, 0.0, 0.0), train14=(0.0,) * 4, status="FAIL",
+def _arm(test14=(0.0, 0.0, 0.0, 0.0), train14=(0.0,) * 4, status="SCIENTIFIC_FAIL",
          hist=None, dev_pairs=None, lcb=0.0, ucb=0.008):
     def s(acc):
         n = 500
@@ -266,8 +266,14 @@ def test_classify_every_rule() -> None:
     assert "BELOW_FIT_FLOOR" in t1d.classify_cross_arm(arms)["labels"]
     arms = dict(base, B=_arm(test14=(0.6, 0.6, 0.02, 0.02), lcb=0.5))
     assert "COMPLEXITY_FRONTIER" in t1d.classify_cross_arm(arms)["labels"]
-    arms = dict(base, B=_arm(test14=(0.5,) * 4, lcb=0.45, status="PASS"))
+    arms = dict(base, B=_arm(test14=(0.5,) * 4, lcb=0.45, status="SCIENTIFIC_PASS"))
     assert "CAPABILITY_LIFTED" in t1d.classify_cross_arm(arms)["labels"]
+    mixed = dict(base, C={"arm": "C", "status": "TIMEBOX_ABORT", "updates_done": 12},
+                 D={"arm": "D", "status": "IMPLEMENTATION_FAILURE", "error": "x"})
+    out = t1d.classify_cross_arm(
+        {t: r for t, r in mixed.items()
+         if r.get("status") in ("SCIENTIFIC_PASS", "SCIENTIFIC_FAIL")})
+    assert out["labels"] == ["BELOW_FIT_FLOOR"]  # non-scientific arms excluded, rest evaluated
 
 
 def test_fake_predictor_metric_sanity() -> None:
@@ -392,16 +398,223 @@ def test_pre50m_estimators_and_decider() -> None:
     assert d3["ready_for_50m_training"] is False and len(d3["blocking_reasons"]) >= 2
 
 
+def test_loss_alignment_mirror() -> None:
+    """Pure mirror of production keep semantics (causal shift + segment +
+    BOS/PAD exclusion + eligible mask): prompt/pad never kept, answer kept,
+    no cross-segment leakage. The live ELIGIBLE_MISMATCH assert enforces this
+    on TPU; these fixtures pin the specification."""
+
+    def keep(tokens, seg, eligible, bos=2, pad=0):
+        kept = []
+        for t in range(1, len(tokens)):
+            if seg[t] != seg[t - 1] or seg[t] < 0:
+                continue
+            if tokens[t] in (bos, pad):
+                continue
+            if not eligible[t]:
+                continue
+            kept.append(t)
+        return kept
+
+    from citadel_tpu import t1c_run as t1c
+
+    def spans_of(texts, length=64):
+        return t1c.answer_spans(texts, length)
+
+    # single ordinary row: kept == answer span, prompt excluded
+    row = "12 + 9 = 21"
+    ids = cev.encode(row)
+    plen, alen = t1c.answer_spans([row], 64)[0]
+    assert plen == 8 and alen == 3
+    eligible = [False] * len(ids)
+    for p in range(plen, plen + alen):
+        eligible[p] = True
+    assert keep(ids, [0] * len(ids), eligible) == [8, 9, 10]
+    # teacher row: prompt excluded incl. words, target span kept
+    trow = "digadd 7 8 carry0 = digit5 carry1"
+    tids = cev.encode(trow)
+    tpl, tal = t1c.answer_spans([trow], 64)[0]
+    tel = [False] * len(tids)
+    for p in range(tpl, tpl + tal):
+        tel[p] = True
+    assert keep(tids, [0] * len(tids), tel) == list(range(tpl, tpl + tal))
+    assert tpl > 10  # prompt is long; only the tail is supervised
+    # packed multi-row: no cross-segment leakage at the boundary
+    r1, r2 = "1 + 2 = 3", "4 + 5 = 13"
+    i1, i2 = cev.encode(r1), cev.encode(r2)
+    tokens = i1 + i2
+    seg = [0] * len(i1) + [1] * len(i2)
+    elig = [False] * len(tokens)
+    s1 = t1c.answer_spans([r1], 64)[0]
+    s2 = t1c.answer_spans([r2], 64)[0]
+    for p in range(s1[0], s1[0] + s1[1]):
+        elig[p] = True
+    for p in range(len(i1) + s2[0], len(i1) + s2[0] + s2[1]):
+        elig[p] = True
+    kept = keep(tokens, seg, elig)
+    # segment boundary: force eligible True exactly at the first token of
+    # segment 1 — the segment rule must still exclude it (no cross leakage).
+    elig[boundary := len(i1)] = True
+    assert boundary not in keep(tokens, seg, elig)
+    # every genuinely eligible answer position is kept
+    elig[boundary] = False
+    for p in range(len(i1) + s2[0], len(i1) + s2[0] + s2[1]):
+        assert p in keep(tokens, seg, elig), (p, keep(tokens, seg, elig))
+    # exactly-full row and padding tail: pads never kept
+    full = "9" * 60 + " = 9"
+    assert len(full) <= 64
+    ids = cev.encode(full)
+    pad = ids + [0] * (64 - len(ids))
+    seg = [0] * len(ids) + [-1] * (64 - len(ids))
+    el = [False] * 64
+    for p in range(len(ids) - 1, len(ids)):
+        el[p] = True
+    kept = keep(pad, seg, el)
+    assert kept == [len(ids) - 1]
+
+
+def test_perfect_predictor_per_tier() -> None:
+    """Perfect predictions score 1.0 on every tier; perturbations behave per
+    the frozen normalization contract (each perturbed form is constructed to
+    be guaranteed-wrong, except the contractually-correct leading-zero and
+    newline forms)."""
+    for tier in range(5):
+        rows = [td.tier_row(tier, "test", j)[0] for j in range(30)]
+        tgts = [cev.split_prompt_target(r)[1] for r in rows]
+        assert cev.summarize(list(tgts), tgts)["accuracy"] == 1.0, tier
+        wrong_digit = [t[:-1] + ("0" if t[-1:] != "0" else "1") if t else "9"
+                       for t in tgts]
+        assert cev.summarize(wrong_digit, tgts)["accuracy"] == 0.0, tier
+        wrong_sign = [("1" if t in ("0", "-0") else
+                       ("-" + t if not t.startswith("-") else t[1:] + "5"))
+                      for t in tgts]
+        assert cev.summarize(wrong_sign, tgts)["accuracy"] == 0.0, tier
+        wrong_len = [t + "1" for t in tgts]
+        assert cev.summarize(wrong_len, tgts)["accuracy"] == 0.0, tier
+        wordy = ["answer is " + t for t in tgts]
+        assert cev.summarize(wordy, tgts)["accuracy"] == 0.0, tier
+        assert cev.summarize([""] * len(rows), tgts)["accuracy"] == 0.0, tier
+        padded = [("-" + "00" + t[1:] if t.startswith("-") else "00" + t)
+                  for t in tgts]
+        assert cev.summarize(padded, tgts)["accuracy"] == 1.0, tier
+        newlined = [t + "\n" for t in tgts]
+        assert cev.summarize(newlined, tgts)["accuracy"] == 1.0, tier
+
+
+def test_template_enumeration_battery() -> None:
+    """Every template family × boundary numbers through the full chain:
+    encode/decode, parse, split, spans, buffer geometry."""
+    cases = ["0 + 0 = 0", "1 + 1 = 2", "9 + 9 = 18", "10 + 10 = 20",
+             "91 - 100 = -9", "999999 + 999999 = 1999998",
+             "12+9=21", "12 + 9 -> 21", "add 12 and 9 = 21",
+             "subtract 9 from 12 = 3", "multiply 999 by 999 = 998001",
+             "divide 72 by 8 = 9", "3 + 4 = 7", "18 - 7 = 11", "6 * 8 = 48"]
+    for row in cases:
+        ids = cev.encode(row)
+        assert all(i not in (0, 1, 2, 3) for i in ids), row
+        prompt, target = cev.split_prompt_target(row)
+        assert cev.normalize_answer(target) is not None, (row, target)
+        plen, alen = t1d_answer_spans(row)
+        assert alen > 0 and plen + alen == len(ids), row
+    cap = cev.validate_generation_capacity(cases)
+    assert cap["max_required_tokens"] <= 64
+    for kind in ("digadd", "digsub", "singlemul", "divmicro"):
+        text, _ = td.teacher_row(kind, 42)
+        prompt, target = cev.split_prompt_target(text)
+        plen, alen = t1d_answer_spans(text)
+        assert alen > 0 and target, (kind, text)
+
+
+def t1d_answer_spans(row):
+    from citadel_tpu import t1c_run as t1c
+
+    return t1c.answer_spans([row], 64)[0]
+
+
+def test_bundle_verify_matrix() -> None:
+    """verify_bundle: valid session passes; each defect class fails loudly."""
+    import tempfile
+
+    from citadel_tpu import t1d_run as _run
+
+    def _arm_json(tag, status="SCIENTIFIC_FAIL"):
+        return {"arm": tag, "status": status}
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        for name in t1d.BUNDLE_FILES:
+            if name.startswith("ARM_"):
+                tag = name[4]
+                (root / name).write_text(json.dumps(_arm_json(tag)), encoding="utf-8")
+            else:
+                (root / name).write_text(json.dumps({"dummy": True}), encoding="utf-8")
+        import zipfile
+
+        with zipfile.ZipFile(root / "CITADEL_T1D_RESULTS.zip", "w") as zf:
+            for name in t1d.BUNDLE_FILES:
+                zf.write(root / name, name)
+        got = t1d.verify_bundle(str(root))
+        assert got["status"] == "VALID" and got["files"] == len(t1d.BUNDLE_FILES)
+        (root / "ARM_C.json").unlink()
+        try:
+            t1d.verify_bundle(str(root))
+            raise SystemExit("missing-file bundle accepted")
+        except RuntimeError as exc:
+            assert "BUNDLE_INVALID" in str(exc) and "ARM_C.json" in str(exc), exc
+        (root / "ARM_C.json").write_text(json.dumps(_arm_json("C")), encoding="utf-8")
+        (root / "ARM_D.json").write_text("{not json", encoding="utf-8")
+        try:
+            t1d.verify_bundle(str(root))
+            raise SystemExit("corrupt-JSON bundle accepted")
+        except RuntimeError as exc:
+            assert "BUNDLE_INVALID" in str(exc), exc
+        (root / "ARM_D.json").write_text(
+            json.dumps({"arm": "D", "status": "BOGUS"}), encoding="utf-8")
+        try:
+            t1d.verify_bundle(str(root))
+            raise SystemExit("bad-status bundle accepted")
+        except RuntimeError as exc:
+            assert "BUNDLE_INVALID" in str(exc), exc
+
+
 def test_session_resume_dry_run(tmp_path=None) -> None:
     import tempfile
 
+    from citadel_tpu import t1d_run as _run
+
     with tempfile.TemporaryDirectory() as tmp:
+        # all 7 session states from §24, mapped to the arm predicate
+        assert _run.should_skip_arm(tmp, "A") == ("run", "nothing complete")
         out = Path(tmp) / "ARM_A.json"
-        out.write_text(json.dumps({"status": "PASS", "arm": "A"}), encoding="utf-8")
-        (Path(tmp) / "ARM_A.done.json").write_text(json.dumps({"status": "PASS"}),
-                                                   encoding="utf-8")
+        out.write_text(json.dumps({"status": "SCIENTIFIC_PASS", "arm": "A"}),
+                       encoding="utf-8")
+        (Path(tmp) / "ARM_A.done.json").write_text(
+            json.dumps({"status": "SCIENTIFIC_PASS"}), encoding="utf-8")
         got = t1d.run_arm("A", dict(t1d.ARMS["A"]), shape=(256, 64), out_dir=tmp)
-        assert got.get("resumed") is True and got["status"] == "PASS"
+        assert got.get("resumed") is True and got["status"] == "SCIENTIFIC_PASS"
+        out.write_text(json.dumps({"status": "TIMEBOX_ABORT", "arm": "A"}),
+                       encoding="utf-8")
+        got = t1d.run_arm("A", dict(t1d.ARMS["A"]), shape=(256, 64), out_dir=tmp)
+        assert got.get("resumed") is True  # timeboxed arms are not rerun
+        out.unlink()
+        try:
+            t1d.run_arm("A", dict(t1d.ARMS["A"]), shape=(256, 64), out_dir=tmp)
+            raise SystemExit("marker-without-receipt silently accepted")
+        except RuntimeError as exc:
+            assert "RESUME_CONFLICT" in str(exc), exc
+        out.write_text(json.dumps({"status": "BOGUS"}), encoding="utf-8")
+        try:
+            t1d.run_arm("A", dict(t1d.ARMS["A"]), shape=(256, 64), out_dir=tmp)
+            raise SystemExit("unknown status silently accepted")
+        except RuntimeError as exc:
+            assert "RESUME_CONFLICT" in str(exc), exc
+    # timebox receipt builder is pure and schema-stable
+    abort = t1d.timebox_abort_receipt(
+        tag="B", cfg=dict(t1d.ARMS["B"]), env={}, n_seq=256, length=64,
+        updates_done=12, ledgers=[{"updates": 12}], feeder_ledger={},
+        error="TimeoutError: box", wall=1.0)
+    assert abort["status"] == "TIMEBOX_ABORT" and abort["training"]["updates"] == 12
+    json.dumps(abort)
 
 
 def main() -> int:
@@ -410,6 +623,8 @@ def main() -> int:
              test_teacher_rows_verify, test_curriculum_membership,
              test_packing_exactness_and_boundaries, test_feeder_static_shapes_and_prefix,
              test_answer_spans_all_families, test_scale2_rules,
+             test_loss_alignment_mirror, test_perfect_predictor_per_tier,
+             test_template_enumeration_battery, test_bundle_verify_matrix,
              test_packing_adversarial_matrix, test_teacher_heldout_band,
              test_pre50m_estimators_and_decider,
              test_classify_every_rule, test_fake_predictor_metric_sanity,

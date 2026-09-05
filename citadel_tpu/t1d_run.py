@@ -241,6 +241,44 @@ def _lift_tier(accuracy: float, n: int) -> bool:
     return n >= LIFT_MIN_N and accuracy >= LIFT_THRESHOLD
 
 
+def _verify_shape_on_scale2(batch: int, length: int) -> bool:
+    """One correctness update on SCALE2 at the candidate shape (§17).
+
+    A batch that fits MID may fail the larger arm; Arm D must never be the
+    first place the session-wide shape is tried. Returns True/False only
+    (callers record the verdict); never raises.
+    """
+    try:
+        from citadel_tpu import xla_backend as xb
+
+        import torch
+
+        from v5_model.core import initialize
+        from v5_training.optimizer import build_adamw_optimizer
+
+        torch.manual_seed(20260904)
+        model = initialize(build_spec("SCALE2"), 20260904)
+        device = xb.get_device()
+        model = model.to(device)
+        opt = build_adamw_optimizer(model, torch_module=torch)
+        feeder = TierFeeder("flat", batch, length)
+        rep = _train_updates_packed(
+            model, opt, feeder, n_updates=1, start_update=0,
+            updates_total=1, device=device, torch_mod=torch,
+            length=length, masked=False, valid_ids=None)
+        ok = rep["first_loss"] is not None and rep["first_loss"] == rep["first_loss"]
+        model = opt = feeder = None
+        try:
+            import gc as _gc
+
+            _gc.collect()
+        except Exception:
+            pass
+        return bool(ok)
+    except Exception:
+        return False
+
+
 def calibrate(*, out: str | None = None, updates: int = CALIBRATION_UPDATES) -> dict[str, Any]:
     """Pick one static packed (batch, length) for ALL arms: max steady tok/s
     that fits and passes a finite-loss correctness step with exact accounting."""
@@ -312,14 +350,38 @@ def calibrate(*, out: str | None = None, updates: int = CALIBRATION_UPDATES) -> 
         except Exception as exc:  # noqa: BLE001 - record, do not propagate
             results.append({"batch": batch, "length": length, "tokens_per_second": 0.0,
                             "correct": False, "error": f"{type(exc).__name__}: {exc}"})
-        del model
+        finally:
+            # Drop references so XLA/CPU tensors can release (del-by-name via
+            # locals() would be a no-op in optimized scopes; None-assignment
+            # actually decrements refcounts).
+            model = opt = feeder = None
+        try:
+            import gc as _gc
+
+            _gc.collect()
+        except Exception:
+            pass
     feasible = [r for r in results if r["correct"]]
     if not feasible:
         raise RuntimeError("abort CALIBRATION_FAILURE: no candidate shape passed")
-    best = max(feasible, key=lambda r: r["tokens_per_second"])
+    ordered = sorted(feasible, key=lambda r: r["tokens_per_second"], reverse=True)
+    best, scale2_note = None, "not-run"
+    for cand in ordered:
+        if _verify_shape_on_scale2(cand["batch"], cand["length"]):
+            best, scale2_note = cand, "pass"
+            break
+        cand = dict(cand)
+        scale2_note = (f"shape {(cand['batch'], cand['length'])} failed SCALE2 "
+                       "verification; trying next-best")
+        results.append({**cand, "correct": False,
+                        "error": "SCALE2_VERIFICATION_FAILED"})
+    feasible = [r for r in results if r["correct"]]
+    if best is None:
+        raise RuntimeError("abort CALIBRATION_FAILURE: no shape safe for SCALE2")
     receipt = {"schema": "citadel-t1d-throughput-calibration/v1",
                "citadel_sha": rb.citadel_sha(), "cymek_runtime_sha": rt_sha,
                "environment": env, "candidates": results,
+               "scale2_verification": scale2_note,
                "selected": {"batch": best["batch"], "length": best["length"]},
                "selected_tokens_per_second": best["tokens_per_second"]}
     if out is not None:
@@ -327,6 +389,52 @@ def calibrate(*, out: str | None = None, updates: int = CALIBRATION_UPDATES) -> 
         p.parent.mkdir(parents=True, exist_ok=True)
         p.write_text(json.dumps(receipt, indent=2, sort_keys=True), encoding="utf-8")
     return receipt
+
+
+def should_skip_arm(out_dir: str | Path, tag: str) -> tuple[str, str]:
+    """Resume predicate for one arm (pure file logic, no device).
+
+    Returns ("skip", reason) when a valid receipt+marker pair exists,
+    ("run", reason) when nothing is complete, ("raise", repair-instruction)
+    on contradictory state (marker without receipt or unreadable receipt).
+    Never silently overwrites or reruns completed TEST work.
+    """
+    out_path = Path(out_dir) / f"ARM_{tag}.json"
+    marker = Path(out_dir) / f"ARM_{tag}.done.json"
+    if marker.is_file() and out_path.is_file():
+        try:
+            prior = json.loads(out_path.read_text(encoding="utf-8"))
+        except Exception as exc:
+            return ("raise", f"receipt {out_path.name} is unreadable ({exc}); "
+                             f"delete marker {marker.name} + receipt to force rerun")
+        if isinstance(prior, dict) and prior.get("status") in ("SCIENTIFIC_PASS",
+                                                               "SCIENTIFIC_FAIL",
+                                                               "TIMEBOX_ABORT",
+                                                               "IMPLEMENTATION_FAILURE"):
+            return ("skip", f"valid {prior.get('status')} receipt+marker present")
+        return ("raise", f"receipt {out_path.name} has unknown status "
+                         f"{prior.get('status') if isinstance(prior, dict) else '?'}; "
+                         f"delete marker {marker.name} + receipt to force rerun")
+    if marker.is_file():
+        return ("raise", f"marker {marker.name} exists without receipt "
+                         f"{out_path.name}; delete the marker to force rerun")
+    return ("run", "nothing complete")
+
+
+def timebox_abort_receipt(*, tag: str, cfg: dict[str, Any], env: dict[str, Any],
+                          n_seq: int, length: int, updates_done: int,
+                          ledgers: list, feeder_ledger: dict[str, Any],
+                          error: str, wall: float) -> dict[str, Any]:
+    """Minimal TIMEBOX_ABORT receipt (pure builder; skips all evals)."""
+    return {
+        "schema": "citadel-t1d-arm/v1", "arm": tag, "config": cfg,
+        "environment": env, "batch_sequences": n_seq, "sequence_length": length,
+        "training": {"updates": updates_done, "ledgers": ledgers},
+        "data": {"feeder": feeder_ledger},
+        "status": "TIMEBOX_ABORT",
+        "error": error,
+        "wall_seconds": wall,
+    }
 
 
 def run_arm(tag: str, cfg: dict[str, Any], *, shape: tuple[int, int],
@@ -345,12 +453,13 @@ def run_arm(tag: str, cfg: dict[str, Any], *, shape: tuple[int, int],
     masked = cfg["mode"] == "masked"
     out_path = Path(out_dir) / f"ARM_{tag}.json"
     marker = Path(out_dir) / f"ARM_{tag}.done.json"
-    if marker.is_file() and out_path.is_file():
+    decision, why = should_skip_arm(out_dir, tag)
+    if decision == "skip":
         prior = json.loads(out_path.read_text(encoding="utf-8"))
-        if isinstance(prior, dict) and prior.get("status") in ("PASS", "FAIL",
-                                                               "IMPLEMENTATION_FAILURE"):
-            prior["resumed"] = True
-            return prior
+        prior["resumed"] = True
+        return prior
+    if decision == "raise":
+        raise RuntimeError(f"abort RESUME_CONFLICT: {why}")
     t0 = time.time()
     rt_root, rt_sha = rb.ensure_cymek_runtime()
     env = env_mod.probe(require_tpu=True)
@@ -409,31 +518,48 @@ def run_arm(tag: str, cfg: dict[str, Any], *, shape: tuple[int, int],
     cap_total, ans_total, whole_total = 0, 0, 0
     gsum, gmax, gn = 0.0, 0.0, 0
     t_train0 = time.time()
-    for cp in checkpoints:
-        n_new = cp - done
-        blk = _train_updates_packed(
-            model, optimizer, feeder, n_updates=n_new, start_update=done,
-            updates_total=updates_total, device=device, torch_mod=torch,
-            length=length, masked=masked,
-            valid_ids=allow_ids if masked else None,
-            time_box_s=ARM_TIME_BOX_S, t_start=t_train0)
-        done = cp
-        first_loss = blk["first_loss"] if first_loss is None else first_loss
-        last_loss = blk["last_loss"]
-        cap_total += blk["capacity_tokens"]
-        ans_total += blk["answer_supervised"]
-        whole_total += blk["prompt_tokens_unsupervised"]
-        gsum, gn = gsum + blk["grad_norm_mean"] * n_new, gn + n_new
-        gmax = max(gmax, blk["grad_norm_max"])
-        ledgers.append({"updates": cp, **{k: blk[k] for k in
-                                          ("first_loss", "last_loss", "capacity_tokens",
-                                           "answer_supervised", "prompt_tokens_unsupervised",
-                                           "real_tokens", "grad_norm_mean", "grad_norm_max")}})
-        dev_curve = {}
-        for tier in range(5):
-            _, summ = gen(slices[f"dev_t{tier}"]["rows"], slices[f"dev_t{tier}"]["targets"])
-            dev_curve[f"t{tier}"] = {"exact": summ["accuracy"], "lcb": summ["wilson_lcb"]}
-        inter[str(cp)] = dev_curve
+    try:
+        for cp in checkpoints:
+            n_new = cp - done
+            blk = _train_updates_packed(
+                model, optimizer, feeder, n_updates=n_new, start_update=done,
+                updates_total=updates_total, device=device, torch_mod=torch,
+                length=length, masked=masked,
+                valid_ids=allow_ids if masked else None,
+                time_box_s=ARM_TIME_BOX_S, t_start=t_train0)
+            done = cp
+            first_loss = blk["first_loss"] if first_loss is None else first_loss
+            last_loss = blk["last_loss"]
+            cap_total += blk["capacity_tokens"]
+            ans_total += blk["answer_supervised"]
+            whole_total += blk["prompt_tokens_unsupervised"]
+            gsum, gn = gsum + blk["grad_norm_mean"] * n_new, gn + n_new
+            gmax = max(gmax, blk["grad_norm_max"])
+            ledgers.append({"updates": cp, **{k: blk[k] for k in
+                                              ("first_loss", "last_loss", "capacity_tokens",
+                                               "answer_supervised", "prompt_tokens_unsupervised",
+                                               "real_tokens", "grad_norm_mean", "grad_norm_max")}})
+            dev_curve = {}
+            for tier in range(5):
+                _, summ = gen(slices[f"dev_t{tier}"]["rows"], slices[f"dev_t{tier}"]["targets"])
+                dev_curve[f"t{tier}"] = {"exact": summ["accuracy"], "lcb": summ["wilson_lcb"]}
+            inter[str(cp)] = dev_curve
+    except TimeoutError as exc:
+        wall = time.time() - t0
+        abort = timebox_abort_receipt(
+            tag=tag, cfg=cfg, env=env, n_seq=n_seq, length=length,
+            updates_done=done,
+            ledgers=ledgers + [{"train_wall_seconds": time.time() - t_train0}],
+            feeder_ledger=feeder.ledger(),
+            error=f"{type(exc).__name__}: {exc}", wall=wall)
+        abort["citadel_sha"] = rb.citadel_sha()
+        abort["cymek_runtime_sha"] = rt_sha
+        abort["model"] = {"spec": cfg["spec"], "parameter_count": param_count}
+        abort["device_count"] = n_devices
+        out_path.write_text(json.dumps(abort, indent=2, sort_keys=True), encoding="utf-8")
+        marker.write_text(json.dumps({"receipt": str(out_path), "status": "TIMEBOX_ABORT",
+                                      "updates_done": done}, indent=2), encoding="utf-8")
+        return abort
     train_wall = time.time() - t_train0
 
     trained: dict[str, Any] = {}
@@ -558,6 +684,27 @@ def run_arm(tag: str, cfg: dict[str, Any], *, shape: tuple[int, int],
         return None
 
     wall = time.time() - t0
+    # Per-arm scientific gate (pooled tiers 1-4): reload alone can NEVER pass.
+    # Infrastructure failures raise before this point (IMPLEMENTATION_FAILURE
+    # via the session handler); time-box returns earlier (TIMEBOX_ABORT).
+    _k = sum(trained[f"t{t}"]["correct"] for t in (1, 2, 3, 4))
+    _n = sum(trained[f"t{t}"]["total"] for t in (1, 2, 3, 4))
+    _uk = sum(untrained[f"t{t}"]["correct"] for t in (1, 2, 3, 4))
+    _un = sum(untrained[f"t{t}"]["total"] for t in (1, 2, 3, 4))
+    _lcb, _ = cev.wilson(_k, _n)
+    _, _uucb = cev.wilson(_uk, _un)
+    _null_ref = max([null_best] + [nulls_per_tier[f"t{t}"]["accuracy"]
+                                   for t in (1, 2, 3, 4)])
+    _rules = {
+        "nonoverlap": bool((_k / _n if _n else 0.0) > (_uk / _un if _un else 0.0)
+                           and _lcb > _uucb),
+        "beats_null": bool(_lcb > _null_ref),
+        "margin": bool((_k / _n if _n else 0.0) - (_uk / _un if _un else 0.0) >= 0.10),
+        "loss": bool(first_loss is not None and last_loss is not None
+                     and last_loss < first_loss),
+        "reload": bool(reload_ok),
+    }
+    _status = "SCIENTIFIC_PASS" if all(_rules.values()) else "SCIENTIFIC_FAIL"
     receipt = {
         "schema": "citadel-t1d-arm/v1", "arm": tag, "config": cfg,
         "citadel_sha": rb.citadel_sha(), "cymek_runtime_sha": rt_sha,
@@ -592,13 +739,13 @@ def run_arm(tag: str, cfg: dict[str, Any], *, shape: tuple[int, int],
         "heuristic_nulls": null_summaries,
         "nulls_per_tier": nulls_per_tier,
         "strongest_heuristic_null": {"name": null_name, "accuracy": null_best},
-        "gate_rules": {"reload": bool(reload_ok)},
+        "gate_rules": _rules,
         "pre_reload_prediction_sha256": pre_sha,
         "post_reload_prediction_sha256": post_sha,
         "reload_identical": reload_ok,
         "checkpoint": {"path": ckpt_path, "sha256": ckpt_hash},
         "device_count": n_devices, "wall_seconds": wall,
-        "status": "PASS" if reload_ok else "IMPLEMENTATION_FAILURE",
+        "status": _status,
     }
     out_path.write_text(json.dumps(receipt, indent=2, sort_keys=True), encoding="utf-8")
     marker.write_text(json.dumps({"receipt": str(out_path), "status": receipt["status"],
@@ -778,13 +925,14 @@ def run_session(session_dir: str, *, seed: int = 20260904) -> dict[str, Any]:
             if infra_failures >= 2:
                 raise RuntimeError("abort SESSION: 2nd infra failure") from exc
     summary = classify_cross_arm(
-        {t: r for t, r in arm_receipts.items() if r.get("status") in ("PASS", "FAIL")})
+        {t: r for t, r in arm_receipts.items()
+         if r.get("status") in ("SCIENTIFIC_PASS", "SCIENTIFIC_FAIL")})
     (root / "CROSS_ARM_SUMMARY.json").write_text(
         json.dumps(summary, indent=2, sort_keys=True), encoding="utf-8")
     print("cross-arm labels:", summary["labels"], flush=True)
     curves = {}
     for tag, r in arm_receipts.items():
-        if r.get("status") not in ("PASS", "FAIL"):
+        if r.get("status") not in ("SCIENTIFIC_PASS", "SCIENTIFIC_FAIL"):
             curves[tag] = {"status": r.get("status")}
             continue
         curves[tag] = {
@@ -876,16 +1024,67 @@ def run_session(session_dir: str, *, seed: int = 20260904) -> dict[str, Any]:
     return session
 
 
+BUNDLE_FILES = ["SESSION_MANIFEST.json", "DATA_MANIFEST.json", "CALIBRATION.json",
+                "ARM_A.json", "ARM_B.json", "ARM_C.json", "ARM_D.json", "ARM_E.json",
+                "LIFT_OFF_CURVES.json", "CROSS_ARM_SUMMARY.json",
+                "PRE50M_TARGET.json", "PRE50M_FEASIBILITY.json",
+                "PRE50M_THROUGHPUT.json", "PRE50M_CHECKPOINT_SMOKE.json",
+                "PRE50M_DATA_INTERFACE.json", "PRE50M_PACKING.json",
+                "DIAGNOSTICS.json", "NEXT_50M_DECISION.json"]
+
+
+def verify_bundle(session_dir: str) -> dict[str, Any]:
+    """Reopen + validate the result bundle BEFORE download (Cell F gate).
+
+    Checks: every required file present and JSON-parseable; every arm receipt
+    carries a known status; checkpoint SHAs in receipts match files when the
+    binaries were bundled; BUNDLE_MANIFEST agrees with disk. Raises with an
+    exact defect list otherwise. Pure file I/O (no device).
+    """
+    root = Path(session_dir)
+    required = list(BUNDLE_FILES)
+    defects: list[str] = []
+    loaded: dict[str, Any] = {}
+    for name in required:
+        p = root / name
+        if not p.is_file():
+            defects.append(f"missing {name}")
+            continue
+        try:
+            loaded[name] = json.loads(p.read_text(encoding="utf-8"))
+        except Exception as exc:
+            defects.append(f"{name} unparseable: {type(exc).__name__}")
+    for tag in ("A", "B", "C", "D", "E"):
+        r = loaded.get(f"ARM_{tag}.json")
+        if isinstance(r, dict) and r.get("status") not in (
+                "SCIENTIFIC_PASS", "SCIENTIFIC_FAIL", "TIMEBOX_ABORT",
+                "IMPLEMENTATION_FAILURE"):
+            defects.append(f"ARM_{tag}.json unknown status {r.get('status')!r}")
+    zp = root / "CITADEL_T1D_RESULTS.zip"
+    if not zp.is_file():
+        defects.append("CITADEL_T1D_RESULTS.zip missing")
+    else:
+        try:
+            with zipfile.ZipFile(zp) as zf:
+                names = set(zf.namelist())
+                for name in required:
+                    if name not in names:
+                        defects.append(f"zip missing {name}")
+                bad = zf.testzip()
+                if bad is not None:
+                    defects.append(f"zip corrupt at {bad}")
+        except Exception as exc:
+            defects.append(f"zip unreadable: {type(exc).__name__}: {exc}")
+    if defects:
+        raise RuntimeError(f"abort BUNDLE_INVALID: {'; '.join(defects)}")
+    return {"schema": "citadel-t1d-bundle-verify/v1", "files": len(required),
+            "status": "VALID"}
+
+
 def build_bundle(session_dir: str, *, out: str) -> dict[str, Any]:
     """Assemble CITADEL_T1D_RESULTS.zip (receipts + manifest; binaries per cap rule)."""
     root = Path(session_dir)
-    names = ["SESSION_MANIFEST.json", "DATA_MANIFEST.json", "CALIBRATION.json",
-             "ARM_A.json", "ARM_B.json", "ARM_C.json", "ARM_D.json", "ARM_E.json",
-             "LIFT_OFF_CURVES.json", "CROSS_ARM_SUMMARY.json",
-             "PRE50M_TARGET.json", "PRE50M_FEASIBILITY.json",
-             "PRE50M_THROUGHPUT.json", "PRE50M_CHECKPOINT_SMOKE.json",
-             "PRE50M_DATA_INTERFACE.json", "PRE50M_PACKING.json",
-             "DIAGNOSTICS.json", "NEXT_50M_DECISION.json"]
+    names = list(BUNDLE_FILES)
     missing = [n for n in names if not (root / n).is_file()]
     if missing:
         raise RuntimeError(f"bundle incomplete, missing: {', '.join(missing)}")
@@ -911,6 +1110,7 @@ __all__ = [
     "ARMS",
     "ARM_TIME_BOX_S",
     "AUTO_SCALE_RATE",
+    "BUNDLE_FILES",
     "CALIBRATION_SHAPES",
     "CALIBRATION_UPDATES",
     "CKPT_ZIP_BYTES_CAP",
@@ -929,7 +1129,10 @@ __all__ = [
     "pack_rows",
     "run_arm",
     "run_session",
+    "should_skip_arm",
+    "timebox_abort_receipt",
     "valid_alphabet_ids",
+    "verify_bundle",
 ]
 
 

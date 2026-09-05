@@ -3,8 +3,8 @@
 Status: **PREREGISTERED — NO RESULTS**. Branch `citadel`. New experiment.
 T0 PASS, T1 FAIL, T1C 4×FAIL/INCONCLUSIVE stand as history (see
 `docs/citadel/EXPERIMENTS_BRIEF.md`). Cymek runtime pin:
-`298c91ac04f756f0833a7edcf63e73af3d5af688` (re-verified: only additive
-tokenizer change since certification; T1D surface byte-identical).
+`28bf57a0d299a2c13a99fe0046616c00a1b8530c` (see RUNTIME_AMENDMENT_001.md:
+repin from T0-certified `298c91a` after byte-identical surface audit).
 No T1D results exist anywhere; nothing tuned on data.
 
 ## Question
@@ -100,7 +100,18 @@ measured on the identical slices. Heuristic nulls per TEST slice.
 
 DEV at 25/50/75/100% per arm (automated). TEST exactly once per arm at frozen
 budget (5 arms → 5 new TEST-family observations + existing history; all
-preregistered, all reported, Holm over per-arm PASS claims). No adaptive arms.
+preregistered, all reported, Holm over per-arm SCIENTIFIC_PASS claims).
+No adaptive arms.
+
+## Arm status schema (fail-closed)
+
+Each arm receipt carries exactly one of: `SCIENTIFIC_PASS` (all five gate
+rules hold: nonoverlap, beats-null, 0.10 margin, loss decrease, reload
+identity), `SCIENTIFIC_FAIL` (training executed, gate not met),
+`IMPLEMENTATION_FAILURE` (plumbing broke before a verdict was possible), or
+`TIMEBOX_ABORT` (45-min wall box hit; partial ledgers preserved). Reload
+success alone can never yield a PASS verdict. Infrastructure failures never
+masquerade as scientific outcomes.
 
 ## Interpretation rules (machine-evaluated)
 
