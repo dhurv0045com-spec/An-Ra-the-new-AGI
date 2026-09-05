@@ -1,0 +1,5056 @@
+{
+  "budget_stopped": false,
+  "completed_updates": 600,
+  "continuation": {
+    "checkpoint_sha256": "34372b79ff6f92105a0878d0a1a31077b1449069513b029059be4fdf83b7bf37",
+    "checkpoint_update": 600,
+    "optimizer_exact": true,
+    "parameters_exact": true,
+    "probe_update": 601,
+    "sampler_equal": true,
+    "scope": "local single-process continuation, not remote durability"
+  },
+  "counts": {
+    "answer_supervised_tokens": 9600,
+    "executed_token_positions": 307200,
+    "terminal_supervised_tokens": 9600,
+    "valid_tokens": 163200
+  },
+  "curve": [
+    {
+      "gradient_norm": 9.872751235961914,
+      "loss": 10.996733665466309,
+      "update": 1
+    },
+    {
+      "gradient_norm": 6.209757328033447,
+      "loss": 4.606595039367676,
+      "update": 100
+    },
+    {
+      "gradient_norm": 6.746912479400635,
+      "loss": 2.181938886642456,
+      "update": 200
+    },
+    {
+      "gradient_norm": 2.277141571044922,
+      "loss": 0.781657338142395,
+      "update": 300
+    },
+    {
+      "gradient_norm": 0.6504880785942078,
+      "loss": 0.17465528845787048,
+      "update": 400
+    },
+    {
+      "gradient_norm": 0.1513974368572235,
+      "loss": 0.03952866792678833,
+      "update": 500
+    },
+    {
+      "gradient_norm": 0.07860971242189407,
+      "loss": 0.008365051820874214,
+      "update": 600
+    }
+  ],
+  "evaluation": {
+    "development": {
+      "all_queries_correct_rate": 0.03125,
+      "answer_prefix_accuracy_diagnostic": 0.2578125,
+      "exact_accuracy": 0.2578125,
+      "n_queries": 128,
+      "n_worlds": 64,
+      "records": [
+        {
+          "answer": "6",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [],
+          "prediction": "",
+          "prompt": "C=6;G=5;Q=C;V=",
+          "query_index": 0,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "6fac8f373bca3f07853539b6739a40b002ce4c9243608361f720638518b48cc8"
+        },
+        {
+          "answer": "5",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            55
+          ],
+          "prediction": "3",
+          "prompt": "C=6;G=5;Q=G;V=",
+          "query_index": 1,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "6fac8f373bca3f07853539b6739a40b002ce4c9243608361f720638518b48cc8"
+        },
+        {
+          "answer": "9",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            54
+          ],
+          "prediction": "2",
+          "prompt": "Z=9;V=5;Q=Z;V=",
+          "query_index": 0,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "8e4d86801ef3e0598cd467d606fe5ef0c2976fb8bf02827821e891632333464c"
+        },
+        {
+          "answer": "5",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            54
+          ],
+          "prediction": "2",
+          "prompt": "Z=9;V=5;Q=V;V=",
+          "query_index": 1,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "8e4d86801ef3e0598cd467d606fe5ef0c2976fb8bf02827821e891632333464c"
+        },
+        {
+          "answer": "7",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            53
+          ],
+          "prediction": "1",
+          "prompt": "X=7;M=4;Q=X;V=",
+          "query_index": 0,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "4cec5d399ab3bfe581cedc1b8f970c82400ed17e251dacb2cb2e01848ed763ed"
+        },
+        {
+          "answer": "4",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            53
+          ],
+          "prediction": "1",
+          "prompt": "X=7;M=4;Q=M;V=",
+          "query_index": 1,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "4cec5d399ab3bfe581cedc1b8f970c82400ed17e251dacb2cb2e01848ed763ed"
+        },
+        {
+          "answer": "3",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            59
+          ],
+          "prediction": "7",
+          "prompt": "V=3;Q=1;Q=V;V=",
+          "query_index": 0,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "f5a166974f13572867655b12bce3d865240a71b51d1284ec778c9a4d094ec3d4"
+        },
+        {
+          "answer": "1",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            54
+          ],
+          "prediction": "2",
+          "prompt": "V=3;Q=1;Q=Q;V=",
+          "query_index": 1,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "f5a166974f13572867655b12bce3d865240a71b51d1284ec778c9a4d094ec3d4"
+        },
+        {
+          "answer": "7",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            54
+          ],
+          "prediction": "2",
+          "prompt": "Q=7;L=5;Q=Q;V=",
+          "query_index": 0,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "09334c4a182024ea16fb086d873bb0ec4adae0f09658bf4ff4526e17520ba97c"
+        },
+        {
+          "answer": "5",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            56
+          ],
+          "prediction": "4",
+          "prompt": "Q=7;L=5;Q=L;V=",
+          "query_index": 1,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "09334c4a182024ea16fb086d873bb0ec4adae0f09658bf4ff4526e17520ba97c"
+        },
+        {
+          "answer": "5",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [],
+          "prediction": "",
+          "prompt": "J=5;V=6;Q=J;V=",
+          "query_index": 0,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "3f3a1110464e18c76a89e9eef95ff35f01baaf151994c7ca26f198d09b02a517"
+        },
+        {
+          "answer": "6",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [],
+          "prediction": "",
+          "prompt": "J=5;V=6;Q=V;V=",
+          "query_index": 1,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "3f3a1110464e18c76a89e9eef95ff35f01baaf151994c7ca26f198d09b02a517"
+        },
+        {
+          "answer": "3",
+          "answer_prefix_correct": true,
+          "correct": true,
+          "generated_ids": [
+            55
+          ],
+          "prediction": "3",
+          "prompt": "B=3;P=8;Q=B;V=",
+          "query_index": 0,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "8ff26697b2d1a925563a55fc2300088f544328adb90ab9acd3d9af7471635ae6"
+        },
+        {
+          "answer": "8",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            55
+          ],
+          "prediction": "3",
+          "prompt": "B=3;P=8;Q=P;V=",
+          "query_index": 1,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "8ff26697b2d1a925563a55fc2300088f544328adb90ab9acd3d9af7471635ae6"
+        },
+        {
+          "answer": "7",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            58
+          ],
+          "prediction": "6",
+          "prompt": "O=7;N=5;Q=O;V=",
+          "query_index": 0,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "2f9b67b85b1a0d2e4aadc2b6c1cf107223cf57dab66c4faf4ed30fcbcb25917a"
+        },
+        {
+          "answer": "5",
+          "answer_prefix_correct": true,
+          "correct": true,
+          "generated_ids": [
+            57
+          ],
+          "prediction": "5",
+          "prompt": "O=7;N=5;Q=N;V=",
+          "query_index": 1,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "2f9b67b85b1a0d2e4aadc2b6c1cf107223cf57dab66c4faf4ed30fcbcb25917a"
+        },
+        {
+          "answer": "1",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            59
+          ],
+          "prediction": "7",
+          "prompt": "B=1;P=8;Q=B;V=",
+          "query_index": 0,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "48b0b46ce6d9ae20887ef080e0845246b089d011c60f4a8e6cc8e066ec206173"
+        },
+        {
+          "answer": "8",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            55
+          ],
+          "prediction": "3",
+          "prompt": "B=1;P=8;Q=P;V=",
+          "query_index": 1,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "48b0b46ce6d9ae20887ef080e0845246b089d011c60f4a8e6cc8e066ec206173"
+        },
+        {
+          "answer": "2",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            58
+          ],
+          "prediction": "6",
+          "prompt": "K=2;B=8;Q=K;V=",
+          "query_index": 0,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "7fdf623592b2e5525a85c4084ddb1f1027cfad838b057d0f6ffdef164d0ba291"
+        },
+        {
+          "answer": "8",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            52
+          ],
+          "prediction": "0",
+          "prompt": "K=2;B=8;Q=B;V=",
+          "query_index": 1,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "7fdf623592b2e5525a85c4084ddb1f1027cfad838b057d0f6ffdef164d0ba291"
+        },
+        {
+          "answer": "6",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            60
+          ],
+          "prediction": "8",
+          "prompt": "A=6;P=3;Q=A;V=",
+          "query_index": 0,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "f8cb240f6887be0ef34dbfaddb4d8f51949fc0ba9f1df0d00c051a2c7640c141"
+        },
+        {
+          "answer": "3",
+          "answer_prefix_correct": true,
+          "correct": true,
+          "generated_ids": [
+            55
+          ],
+          "prediction": "3",
+          "prompt": "A=6;P=3;Q=P;V=",
+          "query_index": 1,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "f8cb240f6887be0ef34dbfaddb4d8f51949fc0ba9f1df0d00c051a2c7640c141"
+        },
+        {
+          "answer": "6",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            55
+          ],
+          "prediction": "3",
+          "prompt": "P=6;Z=0;Q=P;V=",
+          "query_index": 0,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "7a0a10f674e6d5c4e4445b5c5b3010925bdfa9372ac2c702a8a1e90d2dd868ed"
+        },
+        {
+          "answer": "0",
+          "answer_prefix_correct": true,
+          "correct": true,
+          "generated_ids": [
+            52
+          ],
+          "prediction": "0",
+          "prompt": "P=6;Z=0;Q=Z;V=",
+          "query_index": 1,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "7a0a10f674e6d5c4e4445b5c5b3010925bdfa9372ac2c702a8a1e90d2dd868ed"
+        },
+        {
+          "answer": "2",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [],
+          "prediction": "",
+          "prompt": "M=2;S=6;Q=M;V=",
+          "query_index": 0,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "cfeb0e1b976eb92d747a34c8780c0d99c58a223db7fcbbb7caf6efc9d376cf95"
+        },
+        {
+          "answer": "6",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            55
+          ],
+          "prediction": "3",
+          "prompt": "M=2;S=6;Q=S;V=",
+          "query_index": 1,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "cfeb0e1b976eb92d747a34c8780c0d99c58a223db7fcbbb7caf6efc9d376cf95"
+        },
+        {
+          "answer": "4",
+          "answer_prefix_correct": true,
+          "correct": true,
+          "generated_ids": [
+            56
+          ],
+          "prediction": "4",
+          "prompt": "G=4;O=5;Q=G;V=",
+          "query_index": 0,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "427eae04efa5298bdd2c38b313cbbf2d19e1c527093508ed4b9ee328f516b411"
+        },
+        {
+          "answer": "5",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            56
+          ],
+          "prediction": "4",
+          "prompt": "G=4;O=5;Q=O;V=",
+          "query_index": 1,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "427eae04efa5298bdd2c38b313cbbf2d19e1c527093508ed4b9ee328f516b411"
+        },
+        {
+          "answer": "6",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            57
+          ],
+          "prediction": "5",
+          "prompt": "R=6;W=5;Q=R;V=",
+          "query_index": 0,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "ea00c1a4f4ca042e73892003372934f5770ad8ccfcee34c8ca35572ed53765c0"
+        },
+        {
+          "answer": "5",
+          "answer_prefix_correct": true,
+          "correct": true,
+          "generated_ids": [
+            57
+          ],
+          "prediction": "5",
+          "prompt": "R=6;W=5;Q=W;V=",
+          "query_index": 1,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "ea00c1a4f4ca042e73892003372934f5770ad8ccfcee34c8ca35572ed53765c0"
+        },
+        {
+          "answer": "7",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            53
+          ],
+          "prediction": "1",
+          "prompt": "S=7;W=8;Q=S;V=",
+          "query_index": 0,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "f7969d0334f89c4908e2542310bd4ddf679d51a637e6cb344eab4e25e22d1eb9"
+        },
+        {
+          "answer": "8",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            59
+          ],
+          "prediction": "7",
+          "prompt": "S=7;W=8;Q=W;V=",
+          "query_index": 1,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "f7969d0334f89c4908e2542310bd4ddf679d51a637e6cb344eab4e25e22d1eb9"
+        },
+        {
+          "answer": "3",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            52
+          ],
+          "prediction": "0",
+          "prompt": "B=3;L=0;Q=B;V=",
+          "query_index": 0,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "8079bf06433a76acddc2b8f28ebb68d16a5cb934d8df2ae2f9cad055ec82b017"
+        },
+        {
+          "answer": "0",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            54
+          ],
+          "prediction": "2",
+          "prompt": "B=3;L=0;Q=L;V=",
+          "query_index": 1,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "8079bf06433a76acddc2b8f28ebb68d16a5cb934d8df2ae2f9cad055ec82b017"
+        },
+        {
+          "answer": "8",
+          "answer_prefix_correct": true,
+          "correct": true,
+          "generated_ids": [
+            60
+          ],
+          "prediction": "8",
+          "prompt": "L=8;J=0;Q=L;V=",
+          "query_index": 0,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "f1b9aebea9e8a11fb53b3b2e6bd361406b3e84d7d38694d25688e998eb439846"
+        },
+        {
+          "answer": "0",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            61
+          ],
+          "prediction": "9",
+          "prompt": "L=8;J=0;Q=J;V=",
+          "query_index": 1,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "f1b9aebea9e8a11fb53b3b2e6bd361406b3e84d7d38694d25688e998eb439846"
+        },
+        {
+          "answer": "0",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            61
+          ],
+          "prediction": "9",
+          "prompt": "S=0;Y=5;Q=S;V=",
+          "query_index": 0,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "a5ff2cc98a789d98a3211b29e1bd4fb095489d29324c5bcee5847f20622d2853"
+        },
+        {
+          "answer": "5",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            61
+          ],
+          "prediction": "9",
+          "prompt": "S=0;Y=5;Q=Y;V=",
+          "query_index": 1,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "a5ff2cc98a789d98a3211b29e1bd4fb095489d29324c5bcee5847f20622d2853"
+        },
+        {
+          "answer": "4",
+          "answer_prefix_correct": true,
+          "correct": true,
+          "generated_ids": [
+            56
+          ],
+          "prediction": "4",
+          "prompt": "T=4;P=5;Q=T;V=",
+          "query_index": 0,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "8c3b750d6a6034932fd8abf794f5c1cb8aff52d78bc8670a5a77fe130e00c246"
+        },
+        {
+          "answer": "5",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            56
+          ],
+          "prediction": "4",
+          "prompt": "T=4;P=5;Q=P;V=",
+          "query_index": 1,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "8c3b750d6a6034932fd8abf794f5c1cb8aff52d78bc8670a5a77fe130e00c246"
+        },
+        {
+          "answer": "6",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            60
+          ],
+          "prediction": "8",
+          "prompt": "C=6;M=2;Q=C;V=",
+          "query_index": 0,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "6291427c8d4065da921d718f7b28527dba22c68e8f6019a9d501a6dfabb5109b"
+        },
+        {
+          "answer": "2",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [],
+          "prediction": "",
+          "prompt": "C=6;M=2;Q=M;V=",
+          "query_index": 1,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "6291427c8d4065da921d718f7b28527dba22c68e8f6019a9d501a6dfabb5109b"
+        },
+        {
+          "answer": "5",
+          "answer_prefix_correct": true,
+          "correct": true,
+          "generated_ids": [
+            57
+          ],
+          "prediction": "5",
+          "prompt": "H=5;M=2;Q=H;V=",
+          "query_index": 0,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "5d66a298a3933f1756e48712a68dbd5446eb238e371ad800edb622ae67d29546"
+        },
+        {
+          "answer": "2",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [],
+          "prediction": "",
+          "prompt": "H=5;M=2;Q=M;V=",
+          "query_index": 1,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "5d66a298a3933f1756e48712a68dbd5446eb238e371ad800edb622ae67d29546"
+        },
+        {
+          "answer": "3",
+          "answer_prefix_correct": true,
+          "correct": true,
+          "generated_ids": [
+            55
+          ],
+          "prediction": "3",
+          "prompt": "I=3;F=6;Q=I;V=",
+          "query_index": 0,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "2b8f54d6696be43f6a28c316be9736634a9799c75e0b3912f325faaad600fe60"
+        },
+        {
+          "answer": "6",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            61
+          ],
+          "prediction": "9",
+          "prompt": "I=3;F=6;Q=F;V=",
+          "query_index": 1,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "2b8f54d6696be43f6a28c316be9736634a9799c75e0b3912f325faaad600fe60"
+        },
+        {
+          "answer": "4",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            54
+          ],
+          "prediction": "2",
+          "prompt": "Q=4;T=0;Q=Q;V=",
+          "query_index": 0,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "fc325631d593d3bb144c46dbecdfa5bc823dd094e55dd7bc4ab33485a667b648"
+        },
+        {
+          "answer": "0",
+          "answer_prefix_correct": true,
+          "correct": true,
+          "generated_ids": [
+            52
+          ],
+          "prediction": "0",
+          "prompt": "Q=4;T=0;Q=T;V=",
+          "query_index": 1,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "fc325631d593d3bb144c46dbecdfa5bc823dd094e55dd7bc4ab33485a667b648"
+        },
+        {
+          "answer": "3",
+          "answer_prefix_correct": true,
+          "correct": true,
+          "generated_ids": [
+            55
+          ],
+          "prediction": "3",
+          "prompt": "E=3;R=5;Q=E;V=",
+          "query_index": 0,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "db5e58c1d86cf5d6523ee2be45776136541bf0e20f294ae6b76ca04e554164fd"
+        },
+        {
+          "answer": "5",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            55
+          ],
+          "prediction": "3",
+          "prompt": "E=3;R=5;Q=R;V=",
+          "query_index": 1,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "db5e58c1d86cf5d6523ee2be45776136541bf0e20f294ae6b76ca04e554164fd"
+        },
+        {
+          "answer": "6",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            61
+          ],
+          "prediction": "9",
+          "prompt": "F=6;Y=4;Q=F;V=",
+          "query_index": 0,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "d373f2868be0c83b5b22697ada52bd958b50d8f8f88066eb566d1dac72f101b3"
+        },
+        {
+          "answer": "4",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            61
+          ],
+          "prediction": "9",
+          "prompt": "F=6;Y=4;Q=Y;V=",
+          "query_index": 1,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "d373f2868be0c83b5b22697ada52bd958b50d8f8f88066eb566d1dac72f101b3"
+        },
+        {
+          "answer": "6",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            55
+          ],
+          "prediction": "3",
+          "prompt": "S=6;E=9;Q=S;V=",
+          "query_index": 0,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "2bdcb6488ac525436f430683dfb1d2603e09577b607ad0475eafa1649b3822e6"
+        },
+        {
+          "answer": "9",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            55
+          ],
+          "prediction": "3",
+          "prompt": "S=6;E=9;Q=E;V=",
+          "query_index": 1,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "2bdcb6488ac525436f430683dfb1d2603e09577b607ad0475eafa1649b3822e6"
+        },
+        {
+          "answer": "6",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            56
+          ],
+          "prediction": "4",
+          "prompt": "D=6;U=4;Q=D;V=",
+          "query_index": 0,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "dd6439b12e93fbecfea307911a9602e109fd323b581253917dbc147a919feda5"
+        },
+        {
+          "answer": "4",
+          "answer_prefix_correct": true,
+          "correct": true,
+          "generated_ids": [
+            56
+          ],
+          "prediction": "4",
+          "prompt": "D=6;U=4;Q=U;V=",
+          "query_index": 1,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "dd6439b12e93fbecfea307911a9602e109fd323b581253917dbc147a919feda5"
+        },
+        {
+          "answer": "0",
+          "answer_prefix_correct": true,
+          "correct": true,
+          "generated_ids": [
+            52
+          ],
+          "prediction": "0",
+          "prompt": "E=0;O=5;Q=E;V=",
+          "query_index": 0,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "e57914958f2d463bb2ffe8d4f4a709d1fcf2832e5036ff9c9ae7da1125e6aba1"
+        },
+        {
+          "answer": "5",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            52
+          ],
+          "prediction": "0",
+          "prompt": "E=0;O=5;Q=O;V=",
+          "query_index": 1,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "e57914958f2d463bb2ffe8d4f4a709d1fcf2832e5036ff9c9ae7da1125e6aba1"
+        },
+        {
+          "answer": "1",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [],
+          "prediction": "",
+          "prompt": "H=1;O=0;Q=H;V=",
+          "query_index": 0,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "c76dee5bb23afe94232ae07920fb053083b5ccf35db6a3febc8e26320a2fd06c"
+        },
+        {
+          "answer": "0",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            58
+          ],
+          "prediction": "6",
+          "prompt": "H=1;O=0;Q=O;V=",
+          "query_index": 1,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "c76dee5bb23afe94232ae07920fb053083b5ccf35db6a3febc8e26320a2fd06c"
+        },
+        {
+          "answer": "8",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            61
+          ],
+          "prediction": "9",
+          "prompt": "N=8;B=3;Q=N;V=",
+          "query_index": 0,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "1d2698cd7f6c1a48145ddc291bae83de3d1744d18b11995ad3d00a82b7668783"
+        },
+        {
+          "answer": "3",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            59
+          ],
+          "prediction": "7",
+          "prompt": "N=8;B=3;Q=B;V=",
+          "query_index": 1,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "1d2698cd7f6c1a48145ddc291bae83de3d1744d18b11995ad3d00a82b7668783"
+        },
+        {
+          "answer": "8",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            55
+          ],
+          "prediction": "3",
+          "prompt": "G=8;P=5;Q=G;V=",
+          "query_index": 0,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "85ab8b2d9bbedb605ec08df61c4022525c4f31e05f7701ea43e301ee711fc715"
+        },
+        {
+          "answer": "5",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            55
+          ],
+          "prediction": "3",
+          "prompt": "G=8;P=5;Q=P;V=",
+          "query_index": 1,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "85ab8b2d9bbedb605ec08df61c4022525c4f31e05f7701ea43e301ee711fc715"
+        },
+        {
+          "answer": "1",
+          "answer_prefix_correct": true,
+          "correct": true,
+          "generated_ids": [
+            53
+          ],
+          "prediction": "1",
+          "prompt": "F=1;I=7;Q=F;V=",
+          "query_index": 0,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "d8e6e684652b12bb0d95f1d286fd1d8463820a68e91e703328d0786fb4f10e1f"
+        },
+        {
+          "answer": "7",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            53
+          ],
+          "prediction": "1",
+          "prompt": "F=1;I=7;Q=I;V=",
+          "query_index": 1,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "d8e6e684652b12bb0d95f1d286fd1d8463820a68e91e703328d0786fb4f10e1f"
+        },
+        {
+          "answer": "2",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            56
+          ],
+          "prediction": "4",
+          "prompt": "G=2;A=5;Q=G;V=",
+          "query_index": 0,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "8d860bf94499cf0cec946792f411965cb22271b15b0155a5dee1cfa2e71fc2b8"
+        },
+        {
+          "answer": "5",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            54
+          ],
+          "prediction": "2",
+          "prompt": "G=2;A=5;Q=A;V=",
+          "query_index": 1,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "8d860bf94499cf0cec946792f411965cb22271b15b0155a5dee1cfa2e71fc2b8"
+        },
+        {
+          "answer": "5",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            55
+          ],
+          "prediction": "3",
+          "prompt": "X=5;P=1;Q=X;V=",
+          "query_index": 0,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "3f286d43d40e5b448d5c42b683f7acbe9cd06fbfa41693b7ea034c825525e1b3"
+        },
+        {
+          "answer": "1",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            55
+          ],
+          "prediction": "3",
+          "prompt": "X=5;P=1;Q=P;V=",
+          "query_index": 1,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "3f286d43d40e5b448d5c42b683f7acbe9cd06fbfa41693b7ea034c825525e1b3"
+        },
+        {
+          "answer": "6",
+          "answer_prefix_correct": true,
+          "correct": true,
+          "generated_ids": [
+            58
+          ],
+          "prediction": "6",
+          "prompt": "I=6;Q=1;Q=I;V=",
+          "query_index": 0,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "466a8675baae819c5f1b5500c0538359cb5fb3614feb97f97c51b0e6ec2ec908"
+        },
+        {
+          "answer": "1",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [],
+          "prediction": "",
+          "prompt": "I=6;Q=1;Q=Q;V=",
+          "query_index": 1,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "466a8675baae819c5f1b5500c0538359cb5fb3614feb97f97c51b0e6ec2ec908"
+        },
+        {
+          "answer": "8",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            61
+          ],
+          "prediction": "9",
+          "prompt": "B=8;G=9;Q=B;V=",
+          "query_index": 0,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "6b7d152d4f78599742f6eb8bcff536be7f12540e137b75f3e4a41f675425ef97"
+        },
+        {
+          "answer": "9",
+          "answer_prefix_correct": true,
+          "correct": true,
+          "generated_ids": [
+            61
+          ],
+          "prediction": "9",
+          "prompt": "B=8;G=9;Q=G;V=",
+          "query_index": 1,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "6b7d152d4f78599742f6eb8bcff536be7f12540e137b75f3e4a41f675425ef97"
+        },
+        {
+          "answer": "0",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            61
+          ],
+          "prediction": "9",
+          "prompt": "K=0;N=6;Q=K;V=",
+          "query_index": 0,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "819230cc720d1550a8e6ce824a8e0e7b8d55569108423a34ea6c742ec9143465"
+        },
+        {
+          "answer": "6",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            61
+          ],
+          "prediction": "9",
+          "prompt": "K=0;N=6;Q=N;V=",
+          "query_index": 1,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "819230cc720d1550a8e6ce824a8e0e7b8d55569108423a34ea6c742ec9143465"
+        },
+        {
+          "answer": "8",
+          "answer_prefix_correct": true,
+          "correct": true,
+          "generated_ids": [
+            60
+          ],
+          "prediction": "8",
+          "prompt": "L=8;F=9;Q=L;V=",
+          "query_index": 0,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "6f6784c2b1d90e952785426dae1fd31a66a258f37a0a0e19fee91da711442094"
+        },
+        {
+          "answer": "9",
+          "answer_prefix_correct": true,
+          "correct": true,
+          "generated_ids": [
+            61
+          ],
+          "prediction": "9",
+          "prompt": "L=8;F=9;Q=F;V=",
+          "query_index": 1,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "6f6784c2b1d90e952785426dae1fd31a66a258f37a0a0e19fee91da711442094"
+        },
+        {
+          "answer": "2",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            56
+          ],
+          "prediction": "4",
+          "prompt": "J=2;U=9;Q=J;V=",
+          "query_index": 0,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "92bf0e3ac6450765f8637cb914cba3b12a8ef90a7e68f14ca9a364e54305fb7a"
+        },
+        {
+          "answer": "9",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            56
+          ],
+          "prediction": "4",
+          "prompt": "J=2;U=9;Q=U;V=",
+          "query_index": 1,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "92bf0e3ac6450765f8637cb914cba3b12a8ef90a7e68f14ca9a364e54305fb7a"
+        },
+        {
+          "answer": "1",
+          "answer_prefix_correct": true,
+          "correct": true,
+          "generated_ids": [
+            53
+          ],
+          "prediction": "1",
+          "prompt": "C=1;P=5;Q=C;V=",
+          "query_index": 0,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "e52ba8368bfad23ff6b2c379fc12f309cff5ba0e649188f6074c738ecec20449"
+        },
+        {
+          "answer": "5",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            55
+          ],
+          "prediction": "3",
+          "prompt": "C=1;P=5;Q=P;V=",
+          "query_index": 1,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "e52ba8368bfad23ff6b2c379fc12f309cff5ba0e649188f6074c738ecec20449"
+        },
+        {
+          "answer": "4",
+          "answer_prefix_correct": true,
+          "correct": true,
+          "generated_ids": [
+            56
+          ],
+          "prediction": "4",
+          "prompt": "L=4;A=7;Q=L;V=",
+          "query_index": 0,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "4ab2cff9f27c65f6df84a745b039c2ce426d259993ee1d55903cae4f08e362ee"
+        },
+        {
+          "answer": "7",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            56
+          ],
+          "prediction": "4",
+          "prompt": "L=4;A=7;Q=A;V=",
+          "query_index": 1,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "4ab2cff9f27c65f6df84a745b039c2ce426d259993ee1d55903cae4f08e362ee"
+        },
+        {
+          "answer": "2",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            56
+          ],
+          "prediction": "4",
+          "prompt": "U=2;D=3;Q=U;V=",
+          "query_index": 0,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "fc69a766c1bf16fda9caf75d60fa35c0213c62c1ffa210d62866e6532daa5d90"
+        },
+        {
+          "answer": "3",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            56
+          ],
+          "prediction": "4",
+          "prompt": "U=2;D=3;Q=D;V=",
+          "query_index": 1,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "fc69a766c1bf16fda9caf75d60fa35c0213c62c1ffa210d62866e6532daa5d90"
+        },
+        {
+          "answer": "2",
+          "answer_prefix_correct": true,
+          "correct": true,
+          "generated_ids": [
+            54
+          ],
+          "prediction": "2",
+          "prompt": "Z=2;A=3;Q=Z;V=",
+          "query_index": 0,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "0392d54d2db4a393fab2b6769428e87942a5fd5a415cd99035cedb42ac981105"
+        },
+        {
+          "answer": "3",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            54
+          ],
+          "prediction": "2",
+          "prompt": "Z=2;A=3;Q=A;V=",
+          "query_index": 1,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "0392d54d2db4a393fab2b6769428e87942a5fd5a415cd99035cedb42ac981105"
+        },
+        {
+          "answer": "5",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            56
+          ],
+          "prediction": "4",
+          "prompt": "G=5;N=4;Q=G;V=",
+          "query_index": 0,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "d6e8b99a9a281119c4a98c3814577b80d5bfaaed10534f9afc84f1a7dfba1b58"
+        },
+        {
+          "answer": "4",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            57
+          ],
+          "prediction": "5",
+          "prompt": "G=5;N=4;Q=N;V=",
+          "query_index": 1,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "d6e8b99a9a281119c4a98c3814577b80d5bfaaed10534f9afc84f1a7dfba1b58"
+        },
+        {
+          "answer": "9",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            60
+          ],
+          "prediction": "8",
+          "prompt": "C=9;M=3;Q=C;V=",
+          "query_index": 0,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "c12b2f4524e732132f004805c80485aa3bf8c8f6264868621c9189d0a8a94d67"
+        },
+        {
+          "answer": "3",
+          "answer_prefix_correct": true,
+          "correct": true,
+          "generated_ids": [
+            55
+          ],
+          "prediction": "3",
+          "prompt": "C=9;M=3;Q=M;V=",
+          "query_index": 1,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "c12b2f4524e732132f004805c80485aa3bf8c8f6264868621c9189d0a8a94d67"
+        },
+        {
+          "answer": "4",
+          "answer_prefix_correct": true,
+          "correct": true,
+          "generated_ids": [
+            56
+          ],
+          "prediction": "4",
+          "prompt": "O=4;R=9;Q=O;V=",
+          "query_index": 0,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "f1b254968f510b2c2d203f48acb227000303106b4473923a3a431b5389e342ce"
+        },
+        {
+          "answer": "9",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            56
+          ],
+          "prediction": "4",
+          "prompt": "O=4;R=9;Q=R;V=",
+          "query_index": 1,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "f1b254968f510b2c2d203f48acb227000303106b4473923a3a431b5389e342ce"
+        },
+        {
+          "answer": "0",
+          "answer_prefix_correct": true,
+          "correct": true,
+          "generated_ids": [
+            52
+          ],
+          "prediction": "0",
+          "prompt": "A=0;T=6;Q=A;V=",
+          "query_index": 0,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "ccf9093249571225cd371fbeb41687da8a73cb6f24f822434cd9a49deb182f6d"
+        },
+        {
+          "answer": "6",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            61
+          ],
+          "prediction": "9",
+          "prompt": "A=0;T=6;Q=T;V=",
+          "query_index": 1,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "ccf9093249571225cd371fbeb41687da8a73cb6f24f822434cd9a49deb182f6d"
+        },
+        {
+          "answer": "3",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            60
+          ],
+          "prediction": "8",
+          "prompt": "A=3;O=9;Q=A;V=",
+          "query_index": 0,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "17daa06e5e495f95cea0d6d504ea2b6e8f0cacbcc3b4aaeeff49e7e0844dd99b"
+        },
+        {
+          "answer": "9",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            56
+          ],
+          "prediction": "4",
+          "prompt": "A=3;O=9;Q=O;V=",
+          "query_index": 1,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "17daa06e5e495f95cea0d6d504ea2b6e8f0cacbcc3b4aaeeff49e7e0844dd99b"
+        },
+        {
+          "answer": "5",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [],
+          "prediction": "",
+          "prompt": "L=5;H=9;Q=L;V=",
+          "query_index": 0,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "b466158c4add4fcf95643e90a6257801db07bca9bccc34a9c225040b85a57ab4"
+        },
+        {
+          "answer": "9",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            57
+          ],
+          "prediction": "5",
+          "prompt": "L=5;H=9;Q=H;V=",
+          "query_index": 1,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "b466158c4add4fcf95643e90a6257801db07bca9bccc34a9c225040b85a57ab4"
+        },
+        {
+          "answer": "6",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            59
+          ],
+          "prediction": "7",
+          "prompt": "R=6;A=1;Q=R;V=",
+          "query_index": 0,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "5e936309078cdeb7c00ea869c67259f4c37eb400ff30d90c0a40ede3f4961dcd"
+        },
+        {
+          "answer": "1",
+          "answer_prefix_correct": true,
+          "correct": true,
+          "generated_ids": [
+            53
+          ],
+          "prediction": "1",
+          "prompt": "R=6;A=1;Q=A;V=",
+          "query_index": 1,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "5e936309078cdeb7c00ea869c67259f4c37eb400ff30d90c0a40ede3f4961dcd"
+        },
+        {
+          "answer": "0",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            57
+          ],
+          "prediction": "5",
+          "prompt": "W=0;E=9;Q=W;V=",
+          "query_index": 0,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "bd511471fb5b4173412645bc5ccae39c4633491a3a4eda28a493fcfaf0b045b0"
+        },
+        {
+          "answer": "9",
+          "answer_prefix_correct": true,
+          "correct": true,
+          "generated_ids": [
+            61
+          ],
+          "prediction": "9",
+          "prompt": "W=0;E=9;Q=E;V=",
+          "query_index": 1,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "bd511471fb5b4173412645bc5ccae39c4633491a3a4eda28a493fcfaf0b045b0"
+        },
+        {
+          "answer": "3",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            56
+          ],
+          "prediction": "4",
+          "prompt": "T=3;V=2;Q=T;V=",
+          "query_index": 0,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "7cbb61ab380712f5164a2371b9bf2624954717ff592aafcd8de0f1fdcee15fb4"
+        },
+        {
+          "answer": "2",
+          "answer_prefix_correct": true,
+          "correct": true,
+          "generated_ids": [
+            54
+          ],
+          "prediction": "2",
+          "prompt": "T=3;V=2;Q=V;V=",
+          "query_index": 1,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "7cbb61ab380712f5164a2371b9bf2624954717ff592aafcd8de0f1fdcee15fb4"
+        },
+        {
+          "answer": "4",
+          "answer_prefix_correct": true,
+          "correct": true,
+          "generated_ids": [
+            56
+          ],
+          "prediction": "4",
+          "prompt": "O=4;N=3;Q=O;V=",
+          "query_index": 0,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "01f313d7c68ab95238a6294fe776d2eaaa5f23da625216cd5ea8673c09f2cd82"
+        },
+        {
+          "answer": "3",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            56
+          ],
+          "prediction": "4",
+          "prompt": "O=4;N=3;Q=N;V=",
+          "query_index": 1,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "01f313d7c68ab95238a6294fe776d2eaaa5f23da625216cd5ea8673c09f2cd82"
+        },
+        {
+          "answer": "8",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            53
+          ],
+          "prediction": "1",
+          "prompt": "C=8;O=1;Q=C;V=",
+          "query_index": 0,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "b572cc2f82d2be5f4c54a1556fe82c2f6e3dd6a31085d1bd762498eec993e8f2"
+        },
+        {
+          "answer": "1",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            58
+          ],
+          "prediction": "6",
+          "prompt": "C=8;O=1;Q=O;V=",
+          "query_index": 1,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "b572cc2f82d2be5f4c54a1556fe82c2f6e3dd6a31085d1bd762498eec993e8f2"
+        },
+        {
+          "answer": "5",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            54
+          ],
+          "prediction": "2",
+          "prompt": "Q=5;K=3;Q=Q;V=",
+          "query_index": 0,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "3174499b3c73f314b8f9d7d5cb9b7bd58cbfa75fb4b8f66d320ee7cacb5e45a5"
+        },
+        {
+          "answer": "3",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            58
+          ],
+          "prediction": "6",
+          "prompt": "Q=5;K=3;Q=K;V=",
+          "query_index": 1,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "3174499b3c73f314b8f9d7d5cb9b7bd58cbfa75fb4b8f66d320ee7cacb5e45a5"
+        },
+        {
+          "answer": "3",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            58
+          ],
+          "prediction": "6",
+          "prompt": "K=3;B=4;Q=K;V=",
+          "query_index": 0,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "51e086f728f05915d86659bab4a5eb35efea068424bc8bd8dfcd0b1fb1f38029"
+        },
+        {
+          "answer": "4",
+          "answer_prefix_correct": true,
+          "correct": true,
+          "generated_ids": [
+            56
+          ],
+          "prediction": "4",
+          "prompt": "K=3;B=4;Q=B;V=",
+          "query_index": 1,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "51e086f728f05915d86659bab4a5eb35efea068424bc8bd8dfcd0b1fb1f38029"
+        },
+        {
+          "answer": "9",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            60
+          ],
+          "prediction": "8",
+          "prompt": "A=9;V=8;Q=A;V=",
+          "query_index": 0,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "e0d5ee2b1d3c7fb1f9a59c40d7fb809cd32dd38f1f47cd70106ed151d4115f87"
+        },
+        {
+          "answer": "8",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            52
+          ],
+          "prediction": "0",
+          "prompt": "A=9;V=8;Q=V;V=",
+          "query_index": 1,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "e0d5ee2b1d3c7fb1f9a59c40d7fb809cd32dd38f1f47cd70106ed151d4115f87"
+        },
+        {
+          "answer": "8",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            52
+          ],
+          "prediction": "0",
+          "prompt": "V=8;C=9;Q=V;V=",
+          "query_index": 0,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "d737c08323e5cc4eeda143c7139eb255b7a1f35ca8d9ee3eca05dcd65fb52914"
+        },
+        {
+          "answer": "9",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            60
+          ],
+          "prediction": "8",
+          "prompt": "V=8;C=9;Q=C;V=",
+          "query_index": 1,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "d737c08323e5cc4eeda143c7139eb255b7a1f35ca8d9ee3eca05dcd65fb52914"
+        },
+        {
+          "answer": "9",
+          "answer_prefix_correct": true,
+          "correct": true,
+          "generated_ids": [
+            61
+          ],
+          "prediction": "9",
+          "prompt": "Y=9;C=0;Q=Y;V=",
+          "query_index": 0,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "e25911c93a025d4a94a670f98f20ba44e4788f2ba4874aa59246761a7f04cfad"
+        },
+        {
+          "answer": "0",
+          "answer_prefix_correct": true,
+          "correct": true,
+          "generated_ids": [
+            52
+          ],
+          "prediction": "0",
+          "prompt": "Y=9;C=0;Q=C;V=",
+          "query_index": 1,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "e25911c93a025d4a94a670f98f20ba44e4788f2ba4874aa59246761a7f04cfad"
+        },
+        {
+          "answer": "9",
+          "answer_prefix_correct": true,
+          "correct": true,
+          "generated_ids": [
+            61
+          ],
+          "prediction": "9",
+          "prompt": "J=9;X=0;Q=J;V=",
+          "query_index": 0,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "1edddbf2b217e4cef9db1e75342ffe929ff0c5ddf2613ed16a1850f8111a0c32"
+        },
+        {
+          "answer": "0",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            61
+          ],
+          "prediction": "9",
+          "prompt": "J=9;X=0;Q=X;V=",
+          "query_index": 1,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "1edddbf2b217e4cef9db1e75342ffe929ff0c5ddf2613ed16a1850f8111a0c32"
+        },
+        {
+          "answer": "0",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            61
+          ],
+          "prediction": "9",
+          "prompt": "X=0;O=8;Q=X;V=",
+          "query_index": 0,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "3a59dc47ca6b8dcf29f56e6afd549d0d5f74fbe9029dd4f2a686f41d9c1e5078"
+        },
+        {
+          "answer": "8",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            61
+          ],
+          "prediction": "9",
+          "prompt": "X=0;O=8;Q=O;V=",
+          "query_index": 1,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "3a59dc47ca6b8dcf29f56e6afd549d0d5f74fbe9029dd4f2a686f41d9c1e5078"
+        },
+        {
+          "answer": "1",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            58
+          ],
+          "prediction": "6",
+          "prompt": "D=1;B=0;Q=D;V=",
+          "query_index": 0,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "3e33fe074fa2e540a9796e7948e6f58296faf71915eb116dec9e644211387cea"
+        },
+        {
+          "answer": "0",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            59
+          ],
+          "prediction": "7",
+          "prompt": "D=1;B=0;Q=B;V=",
+          "query_index": 1,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "3e33fe074fa2e540a9796e7948e6f58296faf71915eb116dec9e644211387cea"
+        },
+        {
+          "answer": "1",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            60
+          ],
+          "prediction": "8",
+          "prompt": "A=1;V=8;Q=A;V=",
+          "query_index": 0,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "a6ac73318fcbffa25c3607f287454945f3430dfc5679f633dd33fbd594eee5b9"
+        },
+        {
+          "answer": "8",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            59
+          ],
+          "prediction": "7",
+          "prompt": "A=1;V=8;Q=V;V=",
+          "query_index": 1,
+          "split": "development",
+          "stop_reason": "EOS",
+          "world_id": "a6ac73318fcbffa25c3607f287454945f3430dfc5679f633dd33fbd594eee5b9"
+        }
+      ],
+      "stop_histogram": {
+        "EOS": 128
+      },
+      "valid_stop_rate": 1.0
+    },
+    "development_shift": {
+      "all_queries_correct_rate": 0.0,
+      "answer_prefix_accuracy_diagnostic": 0.0,
+      "exact_accuracy": 0.0,
+      "n_queries": 128,
+      "n_worlds": 64,
+      "records": [
+        {
+          "answer": "6",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "S:8|F:6|lookup(F):",
+          "query_index": 0,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "510dd346cc4d9f02cf3d5cf6511bea35c713dd179de3fed31a4e9ce7d52e880c"
+        },
+        {
+          "answer": "8",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "S:8|F:6|lookup(S):",
+          "query_index": 1,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "510dd346cc4d9f02cf3d5cf6511bea35c713dd179de3fed31a4e9ce7d52e880c"
+        },
+        {
+          "answer": "0",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "D:5|P:0|lookup(P):",
+          "query_index": 0,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "254668717aa08474d4d79b03612f2e42839067dd3f1976b8b525de4639ebce1b"
+        },
+        {
+          "answer": "5",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "D:5|P:0|lookup(D):",
+          "query_index": 1,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "254668717aa08474d4d79b03612f2e42839067dd3f1976b8b525de4639ebce1b"
+        },
+        {
+          "answer": "9",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "P:2|H:9|lookup(H):",
+          "query_index": 0,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "906fa15ed7fe828836bbf676e6138f2d12f781889b83566000f4ff274b06f6df"
+        },
+        {
+          "answer": "2",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "P:2|H:9|lookup(P):",
+          "query_index": 1,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "906fa15ed7fe828836bbf676e6138f2d12f781889b83566000f4ff274b06f6df"
+        },
+        {
+          "answer": "1",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "N:0|T:1|lookup(T):",
+          "query_index": 0,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "e55a3f77e6de2c1a462f9764935c97ee052b592b5706fc0822a8f6a0a9b17b9a"
+        },
+        {
+          "answer": "0",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "N:0|T:1|lookup(N):",
+          "query_index": 1,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "e55a3f77e6de2c1a462f9764935c97ee052b592b5706fc0822a8f6a0a9b17b9a"
+        },
+        {
+          "answer": "0",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "C:7|P:0|lookup(P):",
+          "query_index": 0,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "461199ccb66bbe88d27dff152d6730b11548fdaf55f8efc7655f078fa7ef0358"
+        },
+        {
+          "answer": "7",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "C:7|P:0|lookup(C):",
+          "query_index": 1,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "461199ccb66bbe88d27dff152d6730b11548fdaf55f8efc7655f078fa7ef0358"
+        },
+        {
+          "answer": "5",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "F:8|P:5|lookup(P):",
+          "query_index": 0,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "920e4724c706e2600ef38577f594f531d75ede3006214f52eb90a79668086416"
+        },
+        {
+          "answer": "8",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "F:8|P:5|lookup(F):",
+          "query_index": 1,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "920e4724c706e2600ef38577f594f531d75ede3006214f52eb90a79668086416"
+        },
+        {
+          "answer": "4",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "P:3|N:4|lookup(N):",
+          "query_index": 0,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "7924eacd71cb79a5debff69312a67631fe3e561089c31c5d004144816a31939c"
+        },
+        {
+          "answer": "3",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "P:3|N:4|lookup(P):",
+          "query_index": 1,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "7924eacd71cb79a5debff69312a67631fe3e561089c31c5d004144816a31939c"
+        },
+        {
+          "answer": "2",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "R:9|W:2|lookup(W):",
+          "query_index": 0,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "f5a8da8cac756b457d33b281f743d89f8ee314cad943e3fdb2f5a165a24c46bc"
+        },
+        {
+          "answer": "9",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "R:9|W:2|lookup(R):",
+          "query_index": 1,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "f5a8da8cac756b457d33b281f743d89f8ee314cad943e3fdb2f5a165a24c46bc"
+        },
+        {
+          "answer": "4",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "B:6|V:4|lookup(V):",
+          "query_index": 0,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "6e2bdd5e1843352b4c040bfa825eb3813503546bf6ce4b099d591b2a9b9d7f03"
+        },
+        {
+          "answer": "6",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "B:6|V:4|lookup(B):",
+          "query_index": 1,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "6e2bdd5e1843352b4c040bfa825eb3813503546bf6ce4b099d591b2a9b9d7f03"
+        },
+        {
+          "answer": "0",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "G:3|H:0|lookup(H):",
+          "query_index": 0,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "c570dd06248a0fa4da5b1a2802a16bd2eb247a8c1bc6a010ed38e89837ff0bad"
+        },
+        {
+          "answer": "3",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "G:3|H:0|lookup(G):",
+          "query_index": 1,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "c570dd06248a0fa4da5b1a2802a16bd2eb247a8c1bc6a010ed38e89837ff0bad"
+        },
+        {
+          "answer": "9",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "G:2|P:9|lookup(P):",
+          "query_index": 0,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "abf23ac1983c29e60402514f1d6f50223ca00a4abae4ae85754aafccb1430583"
+        },
+        {
+          "answer": "2",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "G:2|P:9|lookup(G):",
+          "query_index": 1,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "abf23ac1983c29e60402514f1d6f50223ca00a4abae4ae85754aafccb1430583"
+        },
+        {
+          "answer": "4",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "Q:6|S:4|lookup(S):",
+          "query_index": 0,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "458120de1737df8b717253507e6aa7b15700907a656655ec2d5972747a3fc093"
+        },
+        {
+          "answer": "6",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "Q:6|S:4|lookup(Q):",
+          "query_index": 1,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "458120de1737df8b717253507e6aa7b15700907a656655ec2d5972747a3fc093"
+        },
+        {
+          "answer": "5",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "E:3|B:5|lookup(B):",
+          "query_index": 0,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "cbd1a50eb4843c6489ef1da6bf1f4d93f1d123aae764eb74b14c78db79afa824"
+        },
+        {
+          "answer": "3",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "E:3|B:5|lookup(E):",
+          "query_index": 1,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "cbd1a50eb4843c6489ef1da6bf1f4d93f1d123aae764eb74b14c78db79afa824"
+        },
+        {
+          "answer": "7",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "F:9|V:7|lookup(V):",
+          "query_index": 0,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "b95dd7a4d6830da6219d6fd81af622c4e4c2ff24f962f01ffc8ae96aa27ef3a9"
+        },
+        {
+          "answer": "9",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "F:9|V:7|lookup(F):",
+          "query_index": 1,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "b95dd7a4d6830da6219d6fd81af622c4e4c2ff24f962f01ffc8ae96aa27ef3a9"
+        },
+        {
+          "answer": "3",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "M:8|W:3|lookup(W):",
+          "query_index": 0,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "db2e42fd0655c22cc34fcc07b4b578da322ec04d854f88036ba3f63bb359934e"
+        },
+        {
+          "answer": "8",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "M:8|W:3|lookup(M):",
+          "query_index": 1,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "db2e42fd0655c22cc34fcc07b4b578da322ec04d854f88036ba3f63bb359934e"
+        },
+        {
+          "answer": "0",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "P:8|G:0|lookup(G):",
+          "query_index": 0,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "a7dc1ca8bf20de4679864fccd7b315e62c6c9e41c92641209822881197e200da"
+        },
+        {
+          "answer": "8",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "P:8|G:0|lookup(P):",
+          "query_index": 1,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "a7dc1ca8bf20de4679864fccd7b315e62c6c9e41c92641209822881197e200da"
+        },
+        {
+          "answer": "9",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "J:4|D:9|lookup(D):",
+          "query_index": 0,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "7cb7065a6ae2cf0a78f0cb7bcfeb51fecc3f0c2b6742dbf4d6280983a566aed1"
+        },
+        {
+          "answer": "4",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "J:4|D:9|lookup(J):",
+          "query_index": 1,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "7cb7065a6ae2cf0a78f0cb7bcfeb51fecc3f0c2b6742dbf4d6280983a566aed1"
+        },
+        {
+          "answer": "4",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "M:9|L:4|lookup(L):",
+          "query_index": 0,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "8333f10ed924b9d64646b3e22cc3e700fb2446a0718ee543d90a231f32992b61"
+        },
+        {
+          "answer": "9",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "M:9|L:4|lookup(M):",
+          "query_index": 1,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "8333f10ed924b9d64646b3e22cc3e700fb2446a0718ee543d90a231f32992b61"
+        },
+        {
+          "answer": "1",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "Y:4|B:1|lookup(B):",
+          "query_index": 0,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "ec1f028dd36ecf8fefc52334ee9add046deb96ed0736e5db29a90f47539c4394"
+        },
+        {
+          "answer": "4",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "Y:4|B:1|lookup(Y):",
+          "query_index": 1,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "ec1f028dd36ecf8fefc52334ee9add046deb96ed0736e5db29a90f47539c4394"
+        },
+        {
+          "answer": "9",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "L:6|Q:9|lookup(Q):",
+          "query_index": 0,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "ce5692a0ee9bbc2c0a24645bab81f8a5ba4b044253ce520762793b48958e9419"
+        },
+        {
+          "answer": "6",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "L:6|Q:9|lookup(L):",
+          "query_index": 1,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "ce5692a0ee9bbc2c0a24645bab81f8a5ba4b044253ce520762793b48958e9419"
+        },
+        {
+          "answer": "9",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "T:3|B:9|lookup(B):",
+          "query_index": 0,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "1292d20044c037ff8b8c1b768b6db7aa134e9aa08559c31a0b6116fce46f40a8"
+        },
+        {
+          "answer": "3",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "T:3|B:9|lookup(T):",
+          "query_index": 1,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "1292d20044c037ff8b8c1b768b6db7aa134e9aa08559c31a0b6116fce46f40a8"
+        },
+        {
+          "answer": "6",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "C:4|U:6|lookup(U):",
+          "query_index": 0,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "bfb63deb7f7a25e555beb1ef927c64d6f16bb7e3d5b8342578755076775614ee"
+        },
+        {
+          "answer": "4",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "C:4|U:6|lookup(C):",
+          "query_index": 1,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "bfb63deb7f7a25e555beb1ef927c64d6f16bb7e3d5b8342578755076775614ee"
+        },
+        {
+          "answer": "7",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "S:0|W:7|lookup(W):",
+          "query_index": 0,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "96c62dbf55485d39a6b7193b42b531040211f44308d406d84ef3b6802b84986b"
+        },
+        {
+          "answer": "0",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "S:0|W:7|lookup(S):",
+          "query_index": 1,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "96c62dbf55485d39a6b7193b42b531040211f44308d406d84ef3b6802b84986b"
+        },
+        {
+          "answer": "7",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "C:5|T:7|lookup(T):",
+          "query_index": 0,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "ad1480be96c1f43ab78ec4c8cca031527b67b744ebb4da1822fa3814de31f582"
+        },
+        {
+          "answer": "5",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "C:5|T:7|lookup(C):",
+          "query_index": 1,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "ad1480be96c1f43ab78ec4c8cca031527b67b744ebb4da1822fa3814de31f582"
+        },
+        {
+          "answer": "4",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "K:6|Q:4|lookup(Q):",
+          "query_index": 0,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "084c038063b8ae50a266c2360954fe16d2144f92769d264d7d7e5782bb4c145e"
+        },
+        {
+          "answer": "6",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "K:6|Q:4|lookup(K):",
+          "query_index": 1,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "084c038063b8ae50a266c2360954fe16d2144f92769d264d7d7e5782bb4c145e"
+        },
+        {
+          "answer": "8",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "A:1|G:8|lookup(G):",
+          "query_index": 0,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "eb1ae025300c2037f5014ff8f2ef94e032e4ccb65b40df2a2f66f298250ea877"
+        },
+        {
+          "answer": "1",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "A:1|G:8|lookup(A):",
+          "query_index": 1,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "eb1ae025300c2037f5014ff8f2ef94e032e4ccb65b40df2a2f66f298250ea877"
+        },
+        {
+          "answer": "0",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "X:8|J:0|lookup(J):",
+          "query_index": 0,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "6c0350e530128af946d9ba9e729e70ddc55e6b16a1ac0d9fe3e0be90b400ba28"
+        },
+        {
+          "answer": "8",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "X:8|J:0|lookup(X):",
+          "query_index": 1,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "6c0350e530128af946d9ba9e729e70ddc55e6b16a1ac0d9fe3e0be90b400ba28"
+        },
+        {
+          "answer": "5",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "N:2|F:5|lookup(F):",
+          "query_index": 0,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "78310f0f85afde9d340e941ea65439d84e80c622cad62ab748477c3b961f99e6"
+        },
+        {
+          "answer": "2",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "N:2|F:5|lookup(N):",
+          "query_index": 1,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "78310f0f85afde9d340e941ea65439d84e80c622cad62ab748477c3b961f99e6"
+        },
+        {
+          "answer": "6",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "T:9|W:6|lookup(W):",
+          "query_index": 0,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "d38164056cf3ea8583887ae30439bcd662cb7a778a032d0964f3860b54509139"
+        },
+        {
+          "answer": "9",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "T:9|W:6|lookup(T):",
+          "query_index": 1,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "d38164056cf3ea8583887ae30439bcd662cb7a778a032d0964f3860b54509139"
+        },
+        {
+          "answer": "9",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "V:4|N:9|lookup(N):",
+          "query_index": 0,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "6340225a1c32c715cd50804085b96e1ce4526ea081a90ac1f4725a7ab381de8d"
+        },
+        {
+          "answer": "4",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "V:4|N:9|lookup(V):",
+          "query_index": 1,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "6340225a1c32c715cd50804085b96e1ce4526ea081a90ac1f4725a7ab381de8d"
+        },
+        {
+          "answer": "3",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "L:1|T:3|lookup(T):",
+          "query_index": 0,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "40b10355c91b70e9e73abdc51d41e87b72290f5df101ec246e74a161761806de"
+        },
+        {
+          "answer": "1",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "L:1|T:3|lookup(L):",
+          "query_index": 1,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "40b10355c91b70e9e73abdc51d41e87b72290f5df101ec246e74a161761806de"
+        },
+        {
+          "answer": "3",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "Z:1|G:3|lookup(G):",
+          "query_index": 0,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "20925134899f7169fda480be241e23606f6eb081f8d39e3ff2336d10836a7044"
+        },
+        {
+          "answer": "1",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "Z:1|G:3|lookup(Z):",
+          "query_index": 1,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "20925134899f7169fda480be241e23606f6eb081f8d39e3ff2336d10836a7044"
+        },
+        {
+          "answer": "4",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "M:3|D:4|lookup(D):",
+          "query_index": 0,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "ad1b3f1bac99c331117e54d081f7947b895c98891610e8bc4f7d1b1e5553961f"
+        },
+        {
+          "answer": "3",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "M:3|D:4|lookup(M):",
+          "query_index": 1,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "ad1b3f1bac99c331117e54d081f7947b895c98891610e8bc4f7d1b1e5553961f"
+        },
+        {
+          "answer": "2",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "W:3|P:2|lookup(P):",
+          "query_index": 0,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "c4732658f50969ebd86d597a4f14a9f53f242fa2c0150f316fb5f5bb9fdee520"
+        },
+        {
+          "answer": "3",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "W:3|P:2|lookup(W):",
+          "query_index": 1,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "c4732658f50969ebd86d597a4f14a9f53f242fa2c0150f316fb5f5bb9fdee520"
+        },
+        {
+          "answer": "0",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "V:4|O:0|lookup(O):",
+          "query_index": 0,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "ca4ea6833bfad986e137b8f639ef0db6e5c4eaf5984a697710dca92b212ff678"
+        },
+        {
+          "answer": "4",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "V:4|O:0|lookup(V):",
+          "query_index": 1,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "ca4ea6833bfad986e137b8f639ef0db6e5c4eaf5984a697710dca92b212ff678"
+        },
+        {
+          "answer": "8",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "O:0|K:8|lookup(K):",
+          "query_index": 0,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "319e63097fe2d089f461362b617dcfebc3c4b3c77d4e00366f49a7a9f3cb5ee9"
+        },
+        {
+          "answer": "0",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "O:0|K:8|lookup(O):",
+          "query_index": 1,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "319e63097fe2d089f461362b617dcfebc3c4b3c77d4e00366f49a7a9f3cb5ee9"
+        },
+        {
+          "answer": "2",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "X:5|J:2|lookup(J):",
+          "query_index": 0,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "462e3868d1b475a1bd6c58298c989db934640121368be1fbd4a2c4094d900259"
+        },
+        {
+          "answer": "5",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "X:5|J:2|lookup(X):",
+          "query_index": 1,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "462e3868d1b475a1bd6c58298c989db934640121368be1fbd4a2c4094d900259"
+        },
+        {
+          "answer": "7",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "A:2|L:7|lookup(L):",
+          "query_index": 0,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "b09bba6c9b5226adbea25ab2adc7bb8d7f5bb0f12c245b0e36b970ba9ecefada"
+        },
+        {
+          "answer": "2",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "A:2|L:7|lookup(A):",
+          "query_index": 1,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "b09bba6c9b5226adbea25ab2adc7bb8d7f5bb0f12c245b0e36b970ba9ecefada"
+        },
+        {
+          "answer": "5",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "C:2|Z:5|lookup(Z):",
+          "query_index": 0,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "9c75a479a87f2c70416391b224b0de48625df7604de41c95de6be89c25f83080"
+        },
+        {
+          "answer": "2",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "C:2|Z:5|lookup(C):",
+          "query_index": 1,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "9c75a479a87f2c70416391b224b0de48625df7604de41c95de6be89c25f83080"
+        },
+        {
+          "answer": "9",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "W:5|U:9|lookup(U):",
+          "query_index": 0,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "95b2cb2e2639c355e7630962a40034620cab4027b60f2c4b8708a9a69f5b5896"
+        },
+        {
+          "answer": "5",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "W:5|U:9|lookup(W):",
+          "query_index": 1,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "95b2cb2e2639c355e7630962a40034620cab4027b60f2c4b8708a9a69f5b5896"
+        },
+        {
+          "answer": "9",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "P:5|X:9|lookup(X):",
+          "query_index": 0,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "7e915413f7a57e6354736753f5df5e894a41721c7bc46a9de18be9371604e2f0"
+        },
+        {
+          "answer": "5",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "P:5|X:9|lookup(P):",
+          "query_index": 1,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "7e915413f7a57e6354736753f5df5e894a41721c7bc46a9de18be9371604e2f0"
+        },
+        {
+          "answer": "0",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "W:6|G:0|lookup(G):",
+          "query_index": 0,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "8c907792cced2a772e844c5ff0892de54dc9155b50a876efd854814362bfc7c9"
+        },
+        {
+          "answer": "6",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "W:6|G:0|lookup(W):",
+          "query_index": 1,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "8c907792cced2a772e844c5ff0892de54dc9155b50a876efd854814362bfc7c9"
+        },
+        {
+          "answer": "7",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "J:2|S:7|lookup(S):",
+          "query_index": 0,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "d11b3eaeca8ce8f3fa6f5e409be28661aca9f9db8001d626ee0eccf3733e39e4"
+        },
+        {
+          "answer": "2",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "J:2|S:7|lookup(J):",
+          "query_index": 1,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "d11b3eaeca8ce8f3fa6f5e409be28661aca9f9db8001d626ee0eccf3733e39e4"
+        },
+        {
+          "answer": "1",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "E:9|Y:1|lookup(Y):",
+          "query_index": 0,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "dc111011559ce5861ef20aa4c61ea98a9b4002bed1d016d37586e701191df312"
+        },
+        {
+          "answer": "9",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "E:9|Y:1|lookup(E):",
+          "query_index": 1,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "dc111011559ce5861ef20aa4c61ea98a9b4002bed1d016d37586e701191df312"
+        },
+        {
+          "answer": "1",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "W:7|Y:1|lookup(Y):",
+          "query_index": 0,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "710199f60bc6e25732341b76e3f0a00e682fb5c1e1d734a90c8876165aa91139"
+        },
+        {
+          "answer": "7",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "W:7|Y:1|lookup(W):",
+          "query_index": 1,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "710199f60bc6e25732341b76e3f0a00e682fb5c1e1d734a90c8876165aa91139"
+        },
+        {
+          "answer": "6",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "G:0|R:6|lookup(R):",
+          "query_index": 0,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "ededd44a51f1b4b42059a622684c215f95051b8a364dd399453b7a484a94a9a2"
+        },
+        {
+          "answer": "0",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "G:0|R:6|lookup(G):",
+          "query_index": 1,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "ededd44a51f1b4b42059a622684c215f95051b8a364dd399453b7a484a94a9a2"
+        },
+        {
+          "answer": "7",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "C:5|Z:7|lookup(Z):",
+          "query_index": 0,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "ab8d15599c7224fc02b98a8fa4c3235fc05b83cc44cb12d91903168c45b6b528"
+        },
+        {
+          "answer": "5",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "C:5|Z:7|lookup(C):",
+          "query_index": 1,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "ab8d15599c7224fc02b98a8fa4c3235fc05b83cc44cb12d91903168c45b6b528"
+        },
+        {
+          "answer": "4",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "Y:5|V:4|lookup(V):",
+          "query_index": 0,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "49a8b5df74d24b617f36c0b5d6ae45846a4aa94a4bb978f9532ccabc71d1d3d6"
+        },
+        {
+          "answer": "5",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "Y:5|V:4|lookup(Y):",
+          "query_index": 1,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "49a8b5df74d24b617f36c0b5d6ae45846a4aa94a4bb978f9532ccabc71d1d3d6"
+        },
+        {
+          "answer": "7",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "N:0|I:7|lookup(I):",
+          "query_index": 0,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "e7fe837989096648f8ce164c85909d828ef4bdae8d175c80c41a3cdc2644ce34"
+        },
+        {
+          "answer": "0",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "N:0|I:7|lookup(N):",
+          "query_index": 1,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "e7fe837989096648f8ce164c85909d828ef4bdae8d175c80c41a3cdc2644ce34"
+        },
+        {
+          "answer": "3",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "Z:1|A:3|lookup(A):",
+          "query_index": 0,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "45e691fb9eabdd635371df4ff960cdc472c888b8a4503cb6b17fe516773db091"
+        },
+        {
+          "answer": "1",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "Z:1|A:3|lookup(Z):",
+          "query_index": 1,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "45e691fb9eabdd635371df4ff960cdc472c888b8a4503cb6b17fe516773db091"
+        },
+        {
+          "answer": "3",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "W:2|E:3|lookup(E):",
+          "query_index": 0,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "4e806b7c2c375c29769d35cf37bdc6ab7fb00231fc583304b1e2bdccf85ee56f"
+        },
+        {
+          "answer": "2",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "W:2|E:3|lookup(W):",
+          "query_index": 1,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "4e806b7c2c375c29769d35cf37bdc6ab7fb00231fc583304b1e2bdccf85ee56f"
+        },
+        {
+          "answer": "2",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "H:8|L:2|lookup(L):",
+          "query_index": 0,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "a45593954f30f60113ffa5b64b96d7f944582fae0919fdf82ed6075fc0866c5a"
+        },
+        {
+          "answer": "8",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "H:8|L:2|lookup(H):",
+          "query_index": 1,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "a45593954f30f60113ffa5b64b96d7f944582fae0919fdf82ed6075fc0866c5a"
+        },
+        {
+          "answer": "8",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "Y:6|S:8|lookup(S):",
+          "query_index": 0,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "ba9f22b8b6d2c03b9c484650cf475e5141fd0610c59a5982910066a2971eb54b"
+        },
+        {
+          "answer": "6",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "Y:6|S:8|lookup(Y):",
+          "query_index": 1,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "ba9f22b8b6d2c03b9c484650cf475e5141fd0610c59a5982910066a2971eb54b"
+        },
+        {
+          "answer": "6",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "X:3|U:6|lookup(U):",
+          "query_index": 0,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "427ad595259b1b4966363bae751f1aa06e4dca46597481c978957ee3ee0a732c"
+        },
+        {
+          "answer": "3",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "X:3|U:6|lookup(X):",
+          "query_index": 1,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "427ad595259b1b4966363bae751f1aa06e4dca46597481c978957ee3ee0a732c"
+        },
+        {
+          "answer": "4",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "E:6|I:4|lookup(I):",
+          "query_index": 0,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "b43f1b2f9f585ce844ca327f697c249bb4913be51d77fbb74087b899b5b8d72d"
+        },
+        {
+          "answer": "6",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "E:6|I:4|lookup(E):",
+          "query_index": 1,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "b43f1b2f9f585ce844ca327f697c249bb4913be51d77fbb74087b899b5b8d72d"
+        },
+        {
+          "answer": "2",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "J:1|R:2|lookup(R):",
+          "query_index": 0,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "1f887ad56aff41e72d47d0b65178391f88573296342b509e8cb1c69104397d3d"
+        },
+        {
+          "answer": "1",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "J:1|R:2|lookup(J):",
+          "query_index": 1,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "1f887ad56aff41e72d47d0b65178391f88573296342b509e8cb1c69104397d3d"
+        },
+        {
+          "answer": "2",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "N:7|L:2|lookup(L):",
+          "query_index": 0,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "9786881ba96851d160b0717575ce3bbe46a74aa170971da34d709954be764d13"
+        },
+        {
+          "answer": "7",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "N:7|L:2|lookup(N):",
+          "query_index": 1,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "9786881ba96851d160b0717575ce3bbe46a74aa170971da34d709954be764d13"
+        },
+        {
+          "answer": "7",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "Y:0|U:7|lookup(U):",
+          "query_index": 0,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "ebe995b163392f0f3a64108694e328ce772c1d60f36979177cd589cda4bf6dd1"
+        },
+        {
+          "answer": "0",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "Y:0|U:7|lookup(Y):",
+          "query_index": 1,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "ebe995b163392f0f3a64108694e328ce772c1d60f36979177cd589cda4bf6dd1"
+        },
+        {
+          "answer": "9",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "T:8|Q:9|lookup(Q):",
+          "query_index": 0,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "f712d3a8d9d2efcb8a9bf6764f5c9732b02236aacb940f131b20e54876f68884"
+        },
+        {
+          "answer": "8",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "T:8|Q:9|lookup(T):",
+          "query_index": 1,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "f712d3a8d9d2efcb8a9bf6764f5c9732b02236aacb940f131b20e54876f68884"
+        },
+        {
+          "answer": "7",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "H:6|B:7|lookup(B):",
+          "query_index": 0,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "b2b7ba23da2ae88fad1e140ee1860309b6bd05a30107151611c29b4cacc7a0d8"
+        },
+        {
+          "answer": "6",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "H:6|B:7|lookup(H):",
+          "query_index": 1,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "b2b7ba23da2ae88fad1e140ee1860309b6bd05a30107151611c29b4cacc7a0d8"
+        },
+        {
+          "answer": "1",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "B:2|C:1|lookup(C):",
+          "query_index": 0,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "903a8a7bfba165062409faace40ddff042ab3923a909f7e4171478681003e233"
+        },
+        {
+          "answer": "2",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "B:2|C:1|lookup(B):",
+          "query_index": 1,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "903a8a7bfba165062409faace40ddff042ab3923a909f7e4171478681003e233"
+        },
+        {
+          "answer": "3",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "Y:5|K:3|lookup(K):",
+          "query_index": 0,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "194b19b218b8af28b5f04aa55bdde290dd2a45b4a43d0dd2a3a5ef3232cff3b3"
+        },
+        {
+          "answer": "5",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "Y:5|K:3|lookup(Y):",
+          "query_index": 1,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "194b19b218b8af28b5f04aa55bdde290dd2a45b4a43d0dd2a3a5ef3232cff3b3"
+        },
+        {
+          "answer": "5",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "V:3|K:5|lookup(K):",
+          "query_index": 0,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "4374b632b9234a1fea900173df6baedcb5990443ed4ec957b34aedee11217fef"
+        },
+        {
+          "answer": "3",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "V:3|K:5|lookup(V):",
+          "query_index": 1,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "4374b632b9234a1fea900173df6baedcb5990443ed4ec957b34aedee11217fef"
+        },
+        {
+          "answer": "9",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "P:3|F:9|lookup(F):",
+          "query_index": 0,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "061147246c740ab7427e117362292a337e9831d644cb42f970a5a1826d4c8f18"
+        },
+        {
+          "answer": "3",
+          "answer_prefix_correct": false,
+          "correct": false,
+          "generated_ids": [
+            189,
+            189,
+            189,
+            189
+          ],
+          "prediction": null,
+          "prompt": "P:3|F:9|lookup(P):",
+          "query_index": 1,
+          "split": "development_shift",
+          "stop_reason": "INVALID_UTF8",
+          "world_id": "061147246c740ab7427e117362292a337e9831d644cb42f970a5a1826d4c8f18"
+        }
+      ],
+      "stop_histogram": {
+        "INVALID_UTF8": 128
+      },
+      "valid_stop_rate": 0.0
+    },
+    "train": {
+      "all_queries_correct_rate": 1.0,
+      "answer_prefix_accuracy_diagnostic": 1.0,
+      "exact_accuracy": 1.0,
+      "n_queries": 32,
+      "n_worlds": 16,
+      "records": [
+        {
+          "answer": "9",
+          "answer_prefix_correct": true,
+          "correct": true,
+          "generated_ids": [
+            61
+          ],
+          "prediction": "9",
+          "prompt": "F=9;R=5;Q=F;V=",
+          "query_index": 0,
+          "split": "train",
+          "stop_reason": "EOS",
+          "world_id": "556481c361535a959b3dec8754432ecdfc2d66c11198403baf87ca6e693a4012"
+        },
+        {
+          "answer": "5",
+          "answer_prefix_correct": true,
+          "correct": true,
+          "generated_ids": [
+            57
+          ],
+          "prediction": "5",
+          "prompt": "F=9;R=5;Q=R;V=",
+          "query_index": 1,
+          "split": "train",
+          "stop_reason": "EOS",
+          "world_id": "556481c361535a959b3dec8754432ecdfc2d66c11198403baf87ca6e693a4012"
+        },
+        {
+          "answer": "9",
+          "answer_prefix_correct": true,
+          "correct": true,
+          "generated_ids": [
+            61
+          ],
+          "prediction": "9",
+          "prompt": "O=9;A=8;Q=O;V=",
+          "query_index": 0,
+          "split": "train",
+          "stop_reason": "EOS",
+          "world_id": "a76277cdf90036eb158fa11f3bdc5baa2e5d8422b0df2e1cf3cec7652e1722f5"
+        },
+        {
+          "answer": "8",
+          "answer_prefix_correct": true,
+          "correct": true,
+          "generated_ids": [
+            60
+          ],
+          "prediction": "8",
+          "prompt": "O=9;A=8;Q=A;V=",
+          "query_index": 1,
+          "split": "train",
+          "stop_reason": "EOS",
+          "world_id": "a76277cdf90036eb158fa11f3bdc5baa2e5d8422b0df2e1cf3cec7652e1722f5"
+        },
+        {
+          "answer": "1",
+          "answer_prefix_correct": true,
+          "correct": true,
+          "generated_ids": [
+            53
+          ],
+          "prediction": "1",
+          "prompt": "Y=1;B=7;Q=Y;V=",
+          "query_index": 0,
+          "split": "train",
+          "stop_reason": "EOS",
+          "world_id": "deefaf32b0f4a467d30d30f3d7c1f3354fff1675f5f158631c1aa3bcce907639"
+        },
+        {
+          "answer": "7",
+          "answer_prefix_correct": true,
+          "correct": true,
+          "generated_ids": [
+            59
+          ],
+          "prediction": "7",
+          "prompt": "Y=1;B=7;Q=B;V=",
+          "query_index": 1,
+          "split": "train",
+          "stop_reason": "EOS",
+          "world_id": "deefaf32b0f4a467d30d30f3d7c1f3354fff1675f5f158631c1aa3bcce907639"
+        },
+        {
+          "answer": "7",
+          "answer_prefix_correct": true,
+          "correct": true,
+          "generated_ids": [
+            59
+          ],
+          "prediction": "7",
+          "prompt": "B=7;Q=2;Q=B;V=",
+          "query_index": 0,
+          "split": "train",
+          "stop_reason": "EOS",
+          "world_id": "833627398785051a4927cde56543d52faf3ff7ec3f6f1440b6d839d08a19e5e1"
+        },
+        {
+          "answer": "2",
+          "answer_prefix_correct": true,
+          "correct": true,
+          "generated_ids": [
+            54
+          ],
+          "prediction": "2",
+          "prompt": "B=7;Q=2;Q=Q;V=",
+          "query_index": 1,
+          "split": "train",
+          "stop_reason": "EOS",
+          "world_id": "833627398785051a4927cde56543d52faf3ff7ec3f6f1440b6d839d08a19e5e1"
+        },
+        {
+          "answer": "5",
+          "answer_prefix_correct": true,
+          "correct": true,
+          "generated_ids": [
+            57
+          ],
+          "prediction": "5",
+          "prompt": "N=5;F=1;Q=N;V=",
+          "query_index": 0,
+          "split": "train",
+          "stop_reason": "EOS",
+          "world_id": "2c1ac2da75eb89d362407724bba0e29370b9be1ca034b745cd6335ee2002c0c0"
+        },
+        {
+          "answer": "1",
+          "answer_prefix_correct": true,
+          "correct": true,
+          "generated_ids": [
+            53
+          ],
+          "prediction": "1",
+          "prompt": "N=5;F=1;Q=F;V=",
+          "query_index": 1,
+          "split": "train",
+          "stop_reason": "EOS",
+          "world_id": "2c1ac2da75eb89d362407724bba0e29370b9be1ca034b745cd6335ee2002c0c0"
+        },
+        {
+          "answer": "7",
+          "answer_prefix_correct": true,
+          "correct": true,
+          "generated_ids": [
+            59
+          ],
+          "prediction": "7",
+          "prompt": "H=7;F=1;Q=H;V=",
+          "query_index": 0,
+          "split": "train",
+          "stop_reason": "EOS",
+          "world_id": "5c35962f79b2ac970148e50a0e5a0bb0e15906e1053dbefaeaa74ad6f41d4202"
+        },
+        {
+          "answer": "1",
+          "answer_prefix_correct": true,
+          "correct": true,
+          "generated_ids": [
+            53
+          ],
+          "prediction": "1",
+          "prompt": "H=7;F=1;Q=F;V=",
+          "query_index": 1,
+          "split": "train",
+          "stop_reason": "EOS",
+          "world_id": "5c35962f79b2ac970148e50a0e5a0bb0e15906e1053dbefaeaa74ad6f41d4202"
+        },
+        {
+          "answer": "0",
+          "answer_prefix_correct": true,
+          "correct": true,
+          "generated_ids": [
+            52
+          ],
+          "prediction": "0",
+          "prompt": "V=0;R=9;Q=V;V=",
+          "query_index": 0,
+          "split": "train",
+          "stop_reason": "EOS",
+          "world_id": "5b729bda77e161d4d8fed431348cbc6ea78ab0a3487b6fd0574487fdcd817c84"
+        },
+        {
+          "answer": "9",
+          "answer_prefix_correct": true,
+          "correct": true,
+          "generated_ids": [
+            61
+          ],
+          "prediction": "9",
+          "prompt": "V=0;R=9;Q=R;V=",
+          "query_index": 1,
+          "split": "train",
+          "stop_reason": "EOS",
+          "world_id": "5b729bda77e161d4d8fed431348cbc6ea78ab0a3487b6fd0574487fdcd817c84"
+        },
+        {
+          "answer": "2",
+          "answer_prefix_correct": true,
+          "correct": true,
+          "generated_ids": [
+            54
+          ],
+          "prediction": "2",
+          "prompt": "C=2;F=4;Q=C;V=",
+          "query_index": 0,
+          "split": "train",
+          "stop_reason": "EOS",
+          "world_id": "e3c97e005be1665cb196f1b010d6f5aeb815ad552ef8cd7a3dbfb5e5963aa1b8"
+        },
+        {
+          "answer": "4",
+          "answer_prefix_correct": true,
+          "correct": true,
+          "generated_ids": [
+            56
+          ],
+          "prediction": "4",
+          "prompt": "C=2;F=4;Q=F;V=",
+          "query_index": 1,
+          "split": "train",
+          "stop_reason": "EOS",
+          "world_id": "e3c97e005be1665cb196f1b010d6f5aeb815ad552ef8cd7a3dbfb5e5963aa1b8"
+        },
+        {
+          "answer": "4",
+          "answer_prefix_correct": true,
+          "correct": true,
+          "generated_ids": [
+            56
+          ],
+          "prediction": "4",
+          "prompt": "O=4;Y=9;Q=O;V=",
+          "query_index": 0,
+          "split": "train",
+          "stop_reason": "EOS",
+          "world_id": "0cb4c21f52a2e0675f28eda6d61881c5676e2c06dc7a05523576e9908d701c43"
+        },
+        {
+          "answer": "9",
+          "answer_prefix_correct": true,
+          "correct": true,
+          "generated_ids": [
+            61
+          ],
+          "prediction": "9",
+          "prompt": "O=4;Y=9;Q=Y;V=",
+          "query_index": 1,
+          "split": "train",
+          "stop_reason": "EOS",
+          "world_id": "0cb4c21f52a2e0675f28eda6d61881c5676e2c06dc7a05523576e9908d701c43"
+        },
+        {
+          "answer": "0",
+          "answer_prefix_correct": true,
+          "correct": true,
+          "generated_ids": [
+            52
+          ],
+          "prediction": "0",
+          "prompt": "B=0;W=5;Q=B;V=",
+          "query_index": 0,
+          "split": "train",
+          "stop_reason": "EOS",
+          "world_id": "94c9fe3e8009432c2c876c73c16ccaa49c21dcab194c86429eb124f1bbd611f6"
+        },
+        {
+          "answer": "5",
+          "answer_prefix_correct": true,
+          "correct": true,
+          "generated_ids": [
+            57
+          ],
+          "prediction": "5",
+          "prompt": "B=0;W=5;Q=W;V=",
+          "query_index": 1,
+          "split": "train",
+          "stop_reason": "EOS",
+          "world_id": "94c9fe3e8009432c2c876c73c16ccaa49c21dcab194c86429eb124f1bbd611f6"
+        },
+        {
+          "answer": "4",
+          "answer_prefix_correct": true,
+          "correct": true,
+          "generated_ids": [
+            56
+          ],
+          "prediction": "4",
+          "prompt": "Z=4;H=3;Q=Z;V=",
+          "query_index": 0,
+          "split": "train",
+          "stop_reason": "EOS",
+          "world_id": "f378466e55c5d3adf2508090df8c53d371388be98ae0691ff77dce2a44f17da0"
+        },
+        {
+          "answer": "3",
+          "answer_prefix_correct": true,
+          "correct": true,
+          "generated_ids": [
+            55
+          ],
+          "prediction": "3",
+          "prompt": "Z=4;H=3;Q=H;V=",
+          "query_index": 1,
+          "split": "train",
+          "stop_reason": "EOS",
+          "world_id": "f378466e55c5d3adf2508090df8c53d371388be98ae0691ff77dce2a44f17da0"
+        },
+        {
+          "answer": "8",
+          "answer_prefix_correct": true,
+          "correct": true,
+          "generated_ids": [
+            60
+          ],
+          "prediction": "8",
+          "prompt": "C=8;P=3;Q=C;V=",
+          "query_index": 0,
+          "split": "train",
+          "stop_reason": "EOS",
+          "world_id": "7957b8f93ef3141c84ca632dc871ec4a12ef2a67f6f4f0e100168e3d181ec2f4"
+        },
+        {
+          "answer": "3",
+          "answer_prefix_correct": true,
+          "correct": true,
+          "generated_ids": [
+            55
+          ],
+          "prediction": "3",
+          "prompt": "C=8;P=3;Q=P;V=",
+          "query_index": 1,
+          "split": "train",
+          "stop_reason": "EOS",
+          "world_id": "7957b8f93ef3141c84ca632dc871ec4a12ef2a67f6f4f0e100168e3d181ec2f4"
+        },
+        {
+          "answer": "4",
+          "answer_prefix_correct": true,
+          "correct": true,
+          "generated_ids": [
+            56
+          ],
+          "prediction": "4",
+          "prompt": "O=4;H=5;Q=O;V=",
+          "query_index": 0,
+          "split": "train",
+          "stop_reason": "EOS",
+          "world_id": "3416e75cc9c9af4d7fafc4811a1d02bbb21308f352d36a3eef1cc7121369c710"
+        },
+        {
+          "answer": "5",
+          "answer_prefix_correct": true,
+          "correct": true,
+          "generated_ids": [
+            57
+          ],
+          "prediction": "5",
+          "prompt": "O=4;H=5;Q=H;V=",
+          "query_index": 1,
+          "split": "train",
+          "stop_reason": "EOS",
+          "world_id": "3416e75cc9c9af4d7fafc4811a1d02bbb21308f352d36a3eef1cc7121369c710"
+        },
+        {
+          "answer": "2",
+          "answer_prefix_correct": true,
+          "correct": true,
+          "generated_ids": [
+            54
+          ],
+          "prediction": "2",
+          "prompt": "L=2;O=0;Q=L;V=",
+          "query_index": 0,
+          "split": "train",
+          "stop_reason": "EOS",
+          "world_id": "5f7ab7ff88f1fd6ee92a28bb3baaf691499eb9c79d8c9d6c053a2cb150ee8f52"
+        },
+        {
+          "answer": "0",
+          "answer_prefix_correct": true,
+          "correct": true,
+          "generated_ids": [
+            52
+          ],
+          "prediction": "0",
+          "prompt": "L=2;O=0;Q=O;V=",
+          "query_index": 1,
+          "split": "train",
+          "stop_reason": "EOS",
+          "world_id": "5f7ab7ff88f1fd6ee92a28bb3baaf691499eb9c79d8c9d6c053a2cb150ee8f52"
+        },
+        {
+          "answer": "6",
+          "answer_prefix_correct": true,
+          "correct": true,
+          "generated_ids": [
+            58
+          ],
+          "prediction": "6",
+          "prompt": "K=6;L=4;Q=K;V=",
+          "query_index": 0,
+          "split": "train",
+          "stop_reason": "EOS",
+          "world_id": "8eef8b0c05580bb8bd1083097ce467af1ed065dc7a0294cf7d8088c1c53b23f2"
+        },
+        {
+          "answer": "4",
+          "answer_prefix_correct": true,
+          "correct": true,
+          "generated_ids": [
+            56
+          ],
+          "prediction": "4",
+          "prompt": "K=6;L=4;Q=L;V=",
+          "query_index": 1,
+          "split": "train",
+          "stop_reason": "EOS",
+          "world_id": "8eef8b0c05580bb8bd1083097ce467af1ed065dc7a0294cf7d8088c1c53b23f2"
+        },
+        {
+          "answer": "6",
+          "answer_prefix_correct": true,
+          "correct": true,
+          "generated_ids": [
+            58
+          ],
+          "prediction": "6",
+          "prompt": "O=6;C=1;Q=O;V=",
+          "query_index": 0,
+          "split": "train",
+          "stop_reason": "EOS",
+          "world_id": "2ea356891e8b9fa245b2f9762f6f37adf5b13f33ff0fd5de2970d2f02a117c9e"
+        },
+        {
+          "answer": "1",
+          "answer_prefix_correct": true,
+          "correct": true,
+          "generated_ids": [
+            53
+          ],
+          "prediction": "1",
+          "prompt": "O=6;C=1;Q=C;V=",
+          "query_index": 1,
+          "split": "train",
+          "stop_reason": "EOS",
+          "world_id": "2ea356891e8b9fa245b2f9762f6f37adf5b13f33ff0fd5de2970d2f02a117c9e"
+        }
+      ],
+      "stop_histogram": {
+        "EOS": 32
+      },
+      "valid_stop_rate": 1.0
+    }
+  },
+  "final_parameter_sha256": "4d033a4a0a6445ae92c066903c18b92518bce0edac7337464ec115e8cd7d26b9",
+  "initial_parameter_sha256": "0b00e46aa7e6ded18c78bd71c759a4fe584536ab836c556ee4de956b24229102",
+  "initial_train": {
+    "all_queries_correct_rate": 0.0,
+    "answer_prefix_accuracy_diagnostic": 0.0,
+    "exact_accuracy": 0.0,
+    "n_queries": 32,
+    "n_worlds": 16,
+    "records": [
+      {
+        "answer": "9",
+        "answer_prefix_correct": false,
+        "correct": false,
+        "generated_ids": [
+          65,
+          65,
+          65,
+          65
+        ],
+        "prediction": "====",
+        "prompt": "F=9;R=5;Q=F;V=",
+        "query_index": 0,
+        "split": "train",
+        "stop_reason": "MAX_TOKENS",
+        "world_id": "556481c361535a959b3dec8754432ecdfc2d66c11198403baf87ca6e693a4012"
+      },
+      {
+        "answer": "5",
+        "answer_prefix_correct": false,
+        "correct": false,
+        "generated_ids": [
+          65,
+          65,
+          65,
+          65
+        ],
+        "prediction": "====",
+        "prompt": "F=9;R=5;Q=R;V=",
+        "query_index": 1,
+        "split": "train",
+        "stop_reason": "MAX_TOKENS",
+        "world_id": "556481c361535a959b3dec8754432ecdfc2d66c11198403baf87ca6e693a4012"
+      },
+      {
+        "answer": "9",
+        "answer_prefix_correct": false,
+        "correct": false,
+        "generated_ids": [
+          65,
+          65,
+          65,
+          65
+        ],
+        "prediction": "====",
+        "prompt": "O=9;A=8;Q=O;V=",
+        "query_index": 0,
+        "split": "train",
+        "stop_reason": "MAX_TOKENS",
+        "world_id": "a76277cdf90036eb158fa11f3bdc5baa2e5d8422b0df2e1cf3cec7652e1722f5"
+      },
+      {
+        "answer": "8",
+        "answer_prefix_correct": false,
+        "correct": false,
+        "generated_ids": [
+          65,
+          65,
+          65,
+          65
+        ],
+        "prediction": "====",
+        "prompt": "O=9;A=8;Q=A;V=",
+        "query_index": 1,
+        "split": "train",
+        "stop_reason": "MAX_TOKENS",
+        "world_id": "a76277cdf90036eb158fa11f3bdc5baa2e5d8422b0df2e1cf3cec7652e1722f5"
+      },
+      {
+        "answer": "1",
+        "answer_prefix_correct": false,
+        "correct": false,
+        "generated_ids": [
+          65,
+          65,
+          65,
+          65
+        ],
+        "prediction": "====",
+        "prompt": "Y=1;B=7;Q=Y;V=",
+        "query_index": 0,
+        "split": "train",
+        "stop_reason": "MAX_TOKENS",
+        "world_id": "deefaf32b0f4a467d30d30f3d7c1f3354fff1675f5f158631c1aa3bcce907639"
+      },
+      {
+        "answer": "7",
+        "answer_prefix_correct": false,
+        "correct": false,
+        "generated_ids": [
+          65,
+          65,
+          65,
+          65
+        ],
+        "prediction": "====",
+        "prompt": "Y=1;B=7;Q=B;V=",
+        "query_index": 1,
+        "split": "train",
+        "stop_reason": "MAX_TOKENS",
+        "world_id": "deefaf32b0f4a467d30d30f3d7c1f3354fff1675f5f158631c1aa3bcce907639"
+      },
+      {
+        "answer": "7",
+        "answer_prefix_correct": false,
+        "correct": false,
+        "generated_ids": [
+          65,
+          65,
+          65,
+          65
+        ],
+        "prediction": "====",
+        "prompt": "B=7;Q=2;Q=B;V=",
+        "query_index": 0,
+        "split": "train",
+        "stop_reason": "MAX_TOKENS",
+        "world_id": "833627398785051a4927cde56543d52faf3ff7ec3f6f1440b6d839d08a19e5e1"
+      },
+      {
+        "answer": "2",
+        "answer_prefix_correct": false,
+        "correct": false,
+        "generated_ids": [
+          65,
+          65,
+          65,
+          65
+        ],
+        "prediction": "====",
+        "prompt": "B=7;Q=2;Q=Q;V=",
+        "query_index": 1,
+        "split": "train",
+        "stop_reason": "MAX_TOKENS",
+        "world_id": "833627398785051a4927cde56543d52faf3ff7ec3f6f1440b6d839d08a19e5e1"
+      },
+      {
+        "answer": "5",
+        "answer_prefix_correct": false,
+        "correct": false,
+        "generated_ids": [
+          65,
+          65,
+          65,
+          65
+        ],
+        "prediction": "====",
+        "prompt": "N=5;F=1;Q=N;V=",
+        "query_index": 0,
+        "split": "train",
+        "stop_reason": "MAX_TOKENS",
+        "world_id": "2c1ac2da75eb89d362407724bba0e29370b9be1ca034b745cd6335ee2002c0c0"
+      },
+      {
+        "answer": "1",
+        "answer_prefix_correct": false,
+        "correct": false,
+        "generated_ids": [
+          65,
+          65,
+          65,
+          65
+        ],
+        "prediction": "====",
+        "prompt": "N=5;F=1;Q=F;V=",
+        "query_index": 1,
+        "split": "train",
+        "stop_reason": "MAX_TOKENS",
+        "world_id": "2c1ac2da75eb89d362407724bba0e29370b9be1ca034b745cd6335ee2002c0c0"
+      },
+      {
+        "answer": "7",
+        "answer_prefix_correct": false,
+        "correct": false,
+        "generated_ids": [
+          65,
+          65,
+          65,
+          65
+        ],
+        "prediction": "====",
+        "prompt": "H=7;F=1;Q=H;V=",
+        "query_index": 0,
+        "split": "train",
+        "stop_reason": "MAX_TOKENS",
+        "world_id": "5c35962f79b2ac970148e50a0e5a0bb0e15906e1053dbefaeaa74ad6f41d4202"
+      },
+      {
+        "answer": "1",
+        "answer_prefix_correct": false,
+        "correct": false,
+        "generated_ids": [
+          65,
+          65,
+          65,
+          65
+        ],
+        "prediction": "====",
+        "prompt": "H=7;F=1;Q=F;V=",
+        "query_index": 1,
+        "split": "train",
+        "stop_reason": "MAX_TOKENS",
+        "world_id": "5c35962f79b2ac970148e50a0e5a0bb0e15906e1053dbefaeaa74ad6f41d4202"
+      },
+      {
+        "answer": "0",
+        "answer_prefix_correct": false,
+        "correct": false,
+        "generated_ids": [
+          65,
+          65,
+          65,
+          65
+        ],
+        "prediction": "====",
+        "prompt": "V=0;R=9;Q=V;V=",
+        "query_index": 0,
+        "split": "train",
+        "stop_reason": "MAX_TOKENS",
+        "world_id": "5b729bda77e161d4d8fed431348cbc6ea78ab0a3487b6fd0574487fdcd817c84"
+      },
+      {
+        "answer": "9",
+        "answer_prefix_correct": false,
+        "correct": false,
+        "generated_ids": [
+          65,
+          65,
+          65,
+          65
+        ],
+        "prediction": "====",
+        "prompt": "V=0;R=9;Q=R;V=",
+        "query_index": 1,
+        "split": "train",
+        "stop_reason": "MAX_TOKENS",
+        "world_id": "5b729bda77e161d4d8fed431348cbc6ea78ab0a3487b6fd0574487fdcd817c84"
+      },
+      {
+        "answer": "2",
+        "answer_prefix_correct": false,
+        "correct": false,
+        "generated_ids": [
+          65,
+          65,
+          65,
+          65
+        ],
+        "prediction": "====",
+        "prompt": "C=2;F=4;Q=C;V=",
+        "query_index": 0,
+        "split": "train",
+        "stop_reason": "MAX_TOKENS",
+        "world_id": "e3c97e005be1665cb196f1b010d6f5aeb815ad552ef8cd7a3dbfb5e5963aa1b8"
+      },
+      {
+        "answer": "4",
+        "answer_prefix_correct": false,
+        "correct": false,
+        "generated_ids": [
+          65,
+          65,
+          65,
+          65
+        ],
+        "prediction": "====",
+        "prompt": "C=2;F=4;Q=F;V=",
+        "query_index": 1,
+        "split": "train",
+        "stop_reason": "MAX_TOKENS",
+        "world_id": "e3c97e005be1665cb196f1b010d6f5aeb815ad552ef8cd7a3dbfb5e5963aa1b8"
+      },
+      {
+        "answer": "4",
+        "answer_prefix_correct": false,
+        "correct": false,
+        "generated_ids": [
+          65,
+          65,
+          65,
+          65
+        ],
+        "prediction": "====",
+        "prompt": "O=4;Y=9;Q=O;V=",
+        "query_index": 0,
+        "split": "train",
+        "stop_reason": "MAX_TOKENS",
+        "world_id": "0cb4c21f52a2e0675f28eda6d61881c5676e2c06dc7a05523576e9908d701c43"
+      },
+      {
+        "answer": "9",
+        "answer_prefix_correct": false,
+        "correct": false,
+        "generated_ids": [
+          65,
+          65,
+          65,
+          65
+        ],
+        "prediction": "====",
+        "prompt": "O=4;Y=9;Q=Y;V=",
+        "query_index": 1,
+        "split": "train",
+        "stop_reason": "MAX_TOKENS",
+        "world_id": "0cb4c21f52a2e0675f28eda6d61881c5676e2c06dc7a05523576e9908d701c43"
+      },
+      {
+        "answer": "0",
+        "answer_prefix_correct": false,
+        "correct": false,
+        "generated_ids": [
+          65,
+          65,
+          65,
+          65
+        ],
+        "prediction": "====",
+        "prompt": "B=0;W=5;Q=B;V=",
+        "query_index": 0,
+        "split": "train",
+        "stop_reason": "MAX_TOKENS",
+        "world_id": "94c9fe3e8009432c2c876c73c16ccaa49c21dcab194c86429eb124f1bbd611f6"
+      },
+      {
+        "answer": "5",
+        "answer_prefix_correct": false,
+        "correct": false,
+        "generated_ids": [
+          65,
+          65,
+          65,
+          65
+        ],
+        "prediction": "====",
+        "prompt": "B=0;W=5;Q=W;V=",
+        "query_index": 1,
+        "split": "train",
+        "stop_reason": "MAX_TOKENS",
+        "world_id": "94c9fe3e8009432c2c876c73c16ccaa49c21dcab194c86429eb124f1bbd611f6"
+      },
+      {
+        "answer": "4",
+        "answer_prefix_correct": false,
+        "correct": false,
+        "generated_ids": [
+          65,
+          65,
+          65,
+          65
+        ],
+        "prediction": "====",
+        "prompt": "Z=4;H=3;Q=Z;V=",
+        "query_index": 0,
+        "split": "train",
+        "stop_reason": "MAX_TOKENS",
+        "world_id": "f378466e55c5d3adf2508090df8c53d371388be98ae0691ff77dce2a44f17da0"
+      },
+      {
+        "answer": "3",
+        "answer_prefix_correct": false,
+        "correct": false,
+        "generated_ids": [
+          65,
+          65,
+          65,
+          65
+        ],
+        "prediction": "====",
+        "prompt": "Z=4;H=3;Q=H;V=",
+        "query_index": 1,
+        "split": "train",
+        "stop_reason": "MAX_TOKENS",
+        "world_id": "f378466e55c5d3adf2508090df8c53d371388be98ae0691ff77dce2a44f17da0"
+      },
+      {
+        "answer": "8",
+        "answer_prefix_correct": false,
+        "correct": false,
+        "generated_ids": [
+          65,
+          65,
+          65,
+          65
+        ],
+        "prediction": "====",
+        "prompt": "C=8;P=3;Q=C;V=",
+        "query_index": 0,
+        "split": "train",
+        "stop_reason": "MAX_TOKENS",
+        "world_id": "7957b8f93ef3141c84ca632dc871ec4a12ef2a67f6f4f0e100168e3d181ec2f4"
+      },
+      {
+        "answer": "3",
+        "answer_prefix_correct": false,
+        "correct": false,
+        "generated_ids": [
+          65,
+          65,
+          65,
+          65
+        ],
+        "prediction": "====",
+        "prompt": "C=8;P=3;Q=P;V=",
+        "query_index": 1,
+        "split": "train",
+        "stop_reason": "MAX_TOKENS",
+        "world_id": "7957b8f93ef3141c84ca632dc871ec4a12ef2a67f6f4f0e100168e3d181ec2f4"
+      },
+      {
+        "answer": "4",
+        "answer_prefix_correct": false,
+        "correct": false,
+        "generated_ids": [
+          65,
+          65,
+          65,
+          65
+        ],
+        "prediction": "====",
+        "prompt": "O=4;H=5;Q=O;V=",
+        "query_index": 0,
+        "split": "train",
+        "stop_reason": "MAX_TOKENS",
+        "world_id": "3416e75cc9c9af4d7fafc4811a1d02bbb21308f352d36a3eef1cc7121369c710"
+      },
+      {
+        "answer": "5",
+        "answer_prefix_correct": false,
+        "correct": false,
+        "generated_ids": [
+          65,
+          65,
+          65,
+          65
+        ],
+        "prediction": "====",
+        "prompt": "O=4;H=5;Q=H;V=",
+        "query_index": 1,
+        "split": "train",
+        "stop_reason": "MAX_TOKENS",
+        "world_id": "3416e75cc9c9af4d7fafc4811a1d02bbb21308f352d36a3eef1cc7121369c710"
+      },
+      {
+        "answer": "2",
+        "answer_prefix_correct": false,
+        "correct": false,
+        "generated_ids": [
+          65,
+          65,
+          65,
+          65
+        ],
+        "prediction": "====",
+        "prompt": "L=2;O=0;Q=L;V=",
+        "query_index": 0,
+        "split": "train",
+        "stop_reason": "MAX_TOKENS",
+        "world_id": "5f7ab7ff88f1fd6ee92a28bb3baaf691499eb9c79d8c9d6c053a2cb150ee8f52"
+      },
+      {
+        "answer": "0",
+        "answer_prefix_correct": false,
+        "correct": false,
+        "generated_ids": [
+          65,
+          65,
+          65,
+          65
+        ],
+        "prediction": "====",
+        "prompt": "L=2;O=0;Q=O;V=",
+        "query_index": 1,
+        "split": "train",
+        "stop_reason": "MAX_TOKENS",
+        "world_id": "5f7ab7ff88f1fd6ee92a28bb3baaf691499eb9c79d8c9d6c053a2cb150ee8f52"
+      },
+      {
+        "answer": "6",
+        "answer_prefix_correct": false,
+        "correct": false,
+        "generated_ids": [
+          65,
+          65,
+          65,
+          65
+        ],
+        "prediction": "====",
+        "prompt": "K=6;L=4;Q=K;V=",
+        "query_index": 0,
+        "split": "train",
+        "stop_reason": "MAX_TOKENS",
+        "world_id": "8eef8b0c05580bb8bd1083097ce467af1ed065dc7a0294cf7d8088c1c53b23f2"
+      },
+      {
+        "answer": "4",
+        "answer_prefix_correct": false,
+        "correct": false,
+        "generated_ids": [
+          65,
+          65,
+          65,
+          65
+        ],
+        "prediction": "====",
+        "prompt": "K=6;L=4;Q=L;V=",
+        "query_index": 1,
+        "split": "train",
+        "stop_reason": "MAX_TOKENS",
+        "world_id": "8eef8b0c05580bb8bd1083097ce467af1ed065dc7a0294cf7d8088c1c53b23f2"
+      },
+      {
+        "answer": "6",
+        "answer_prefix_correct": false,
+        "correct": false,
+        "generated_ids": [
+          65,
+          65,
+          65,
+          65
+        ],
+        "prediction": "====",
+        "prompt": "O=6;C=1;Q=O;V=",
+        "query_index": 0,
+        "split": "train",
+        "stop_reason": "MAX_TOKENS",
+        "world_id": "2ea356891e8b9fa245b2f9762f6f37adf5b13f33ff0fd5de2970d2f02a117c9e"
+      },
+      {
+        "answer": "1",
+        "answer_prefix_correct": false,
+        "correct": false,
+        "generated_ids": [
+          65,
+          65,
+          65,
+          65
+        ],
+        "prediction": "====",
+        "prompt": "O=6;C=1;Q=C;V=",
+        "query_index": 1,
+        "split": "train",
+        "stop_reason": "MAX_TOKENS",
+        "world_id": "2ea356891e8b9fa245b2f9762f6f37adf5b13f33ff0fd5de2970d2f02a117c9e"
+      }
+    ],
+    "stop_histogram": {
+      "MAX_TOKENS": 32
+    },
+    "valid_stop_rate": 0.0
+  },
+  "optimizer_moments_nonzero": true,
+  "training_seconds": 16.671999999991385
+}

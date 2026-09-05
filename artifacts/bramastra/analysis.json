@@ -1,0 +1,190 @@
+{
+  "analyzer_source_sha256": "480ee3c48170240e2d0e12d1ad116ca82c14e3bff842b6952b0b7119ee0ddcf8",
+  "runs": {
+    "binding_diversity_dev_seed601": {
+      "arms": {
+        "with_terminal": {
+          "fresh_worlds": {
+            "baseline_scope": "explicit query-blind deterministic policies; not a free-generation chance rate",
+            "both_correct_worlds": 0,
+            "both_terminated_worlds": 64,
+            "copy_first_value_correct": 64,
+            "copy_last_value_correct": 64,
+            "correct_queries": 62,
+            "n_queries": 128,
+            "n_worlds": 64,
+            "same_answer_despite_query_swap_worlds": 62
+          },
+          "raw_receipt_sha256": "35cab87df4c26e10cd8635761ee17fefd0f31e14788d99c48a12c2f39d3ce9fa",
+          "rendering_shift_correct": 0,
+          "train": {
+            "baseline_scope": "explicit query-blind deterministic policies; not a free-generation chance rate",
+            "both_correct_worlds": 5,
+            "both_terminated_worlds": 256,
+            "copy_first_value_correct": 256,
+            "copy_last_value_correct": 256,
+            "correct_queries": 261,
+            "n_queries": 512,
+            "n_worlds": 256,
+            "same_answer_despite_query_swap_worlds": 251
+          }
+        },
+        "without_terminal": {
+          "fresh_worlds": {
+            "baseline_scope": "explicit query-blind deterministic policies; not a free-generation chance rate",
+            "both_correct_worlds": 0,
+            "both_terminated_worlds": 0,
+            "copy_first_value_correct": 64,
+            "copy_last_value_correct": 64,
+            "correct_queries": 0,
+            "n_queries": 128,
+            "n_worlds": 64,
+            "same_answer_despite_query_swap_worlds": 0
+          },
+          "raw_receipt_sha256": "b12bd9184c9aa154c06bca208feda43069ace3c1878bd910e346d8c92bd0af9a",
+          "rendering_shift_correct": 0,
+          "train": {
+            "baseline_scope": "explicit query-blind deterministic policies; not a free-generation chance rate",
+            "both_correct_worlds": 0,
+            "both_terminated_worlds": 0,
+            "copy_first_value_correct": 256,
+            "copy_last_value_correct": 256,
+            "correct_queries": 0,
+            "n_queries": 512,
+            "n_worlds": 256,
+            "same_answer_despite_query_swap_worlds": 0
+          }
+        }
+      },
+      "elapsed_seconds": 34.578000000008615,
+      "manifest_sha256": "9fcfe6aa67e4a396cdce34212d5061e71bf2a8178044a787a02ae93e57c79dc7",
+      "parameters": 117312,
+      "result_sha256": "c56ae237aa84172fa386aa5e8b10efd9eb539307ee33207917091e82b3eef2a0",
+      "steps_per_arm": 600
+    },
+    "terminal_dev_seed601": {
+      "arms": {
+        "with_terminal": {
+          "fresh_worlds": {
+            "baseline_scope": "explicit query-blind deterministic policies; not a free-generation chance rate",
+            "both_correct_worlds": 1,
+            "both_terminated_worlds": 64,
+            "copy_first_value_correct": 64,
+            "copy_last_value_correct": 64,
+            "correct_queries": 22,
+            "n_queries": 128,
+            "n_worlds": 64,
+            "same_answer_despite_query_swap_worlds": 13
+          },
+          "raw_receipt_sha256": "3f528cc2af0ff5f9fb1a2854a8a7143b99f63bc8bfb16c2c2c243b73097a871c",
+          "rendering_shift_correct": 0,
+          "train": {
+            "baseline_scope": "explicit query-blind deterministic policies; not a free-generation chance rate",
+            "both_correct_worlds": 16,
+            "both_terminated_worlds": 16,
+            "copy_first_value_correct": 16,
+            "copy_last_value_correct": 16,
+            "correct_queries": 32,
+            "n_queries": 32,
+            "n_worlds": 16,
+            "same_answer_despite_query_swap_worlds": 0
+          }
+        },
+        "without_terminal": {
+          "fresh_worlds": {
+            "baseline_scope": "explicit query-blind deterministic policies; not a free-generation chance rate",
+            "both_correct_worlds": 0,
+            "both_terminated_worlds": 0,
+            "copy_first_value_correct": 64,
+            "copy_last_value_correct": 64,
+            "correct_queries": 0,
+            "n_queries": 128,
+            "n_worlds": 64,
+            "same_answer_despite_query_swap_worlds": 0
+          },
+          "raw_receipt_sha256": "5873b11bb01d4b281ada4c5458630e8739e16fbaf6371626adc314e341f8803e",
+          "rendering_shift_correct": 0,
+          "train": {
+            "baseline_scope": "explicit query-blind deterministic policies; not a free-generation chance rate",
+            "both_correct_worlds": 0,
+            "both_terminated_worlds": 0,
+            "copy_first_value_correct": 16,
+            "copy_last_value_correct": 16,
+            "correct_queries": 0,
+            "n_queries": 32,
+            "n_worlds": 16,
+            "same_answer_despite_query_swap_worlds": 0
+          }
+        }
+      },
+      "elapsed_seconds": 34.20299999997951,
+      "manifest_sha256": "e03c4eb4fc205b2cceeb4b2388f11e60ca96a91ddd7ea6edb4e0bb3d3388f37d",
+      "parameters": 117312,
+      "result_sha256": "50e4d9d0ca57d2a6500c72c3de59551eefe5c2947a6fc460a74d262d77dd571f",
+      "steps_per_arm": 600
+    },
+    "terminal_dev_seed602": {
+      "arms": {
+        "with_terminal": {
+          "fresh_worlds": {
+            "baseline_scope": "explicit query-blind deterministic policies; not a free-generation chance rate",
+            "both_correct_worlds": 2,
+            "both_terminated_worlds": 64,
+            "copy_first_value_correct": 64,
+            "copy_last_value_correct": 64,
+            "correct_queries": 33,
+            "n_queries": 128,
+            "n_worlds": 64,
+            "same_answer_despite_query_swap_worlds": 26
+          },
+          "raw_receipt_sha256": "107da1f245194cb98f15eabcf285aaa7c80578fdce4669dbe57f78cc6306ea71",
+          "rendering_shift_correct": 0,
+          "train": {
+            "baseline_scope": "explicit query-blind deterministic policies; not a free-generation chance rate",
+            "both_correct_worlds": 16,
+            "both_terminated_worlds": 16,
+            "copy_first_value_correct": 16,
+            "copy_last_value_correct": 16,
+            "correct_queries": 32,
+            "n_queries": 32,
+            "n_worlds": 16,
+            "same_answer_despite_query_swap_worlds": 0
+          }
+        },
+        "without_terminal": {
+          "fresh_worlds": {
+            "baseline_scope": "explicit query-blind deterministic policies; not a free-generation chance rate",
+            "both_correct_worlds": 0,
+            "both_terminated_worlds": 0,
+            "copy_first_value_correct": 64,
+            "copy_last_value_correct": 64,
+            "correct_queries": 0,
+            "n_queries": 128,
+            "n_worlds": 64,
+            "same_answer_despite_query_swap_worlds": 0
+          },
+          "raw_receipt_sha256": "7f953f36222456cdd68b75162ba22e6e9ab9608783704fd08aa5e6e94bd4d8aa",
+          "rendering_shift_correct": 0,
+          "train": {
+            "baseline_scope": "explicit query-blind deterministic policies; not a free-generation chance rate",
+            "both_correct_worlds": 0,
+            "both_terminated_worlds": 0,
+            "copy_first_value_correct": 16,
+            "copy_last_value_correct": 16,
+            "correct_queries": 0,
+            "n_queries": 32,
+            "n_worlds": 16,
+            "same_answer_despite_query_swap_worlds": 0
+          }
+        }
+      },
+      "elapsed_seconds": 34.687000000005355,
+      "manifest_sha256": "43f0db21d19f02548d8a6b89ce17bafc6a2260031b259fe82e54b07c556ccde2",
+      "parameters": 117312,
+      "result_sha256": "7cfc47a4fa7eddb63b921c4345bc3d3f2c20b7ec6d14f7d9c4a9b1b9516403f8",
+      "steps_per_arm": 600
+    }
+  },
+  "schema": "bramastra-development-analysis/v1",
+  "scope": "development only; data-diversity follow-up is exploratory; no independent natural transfer"
+}

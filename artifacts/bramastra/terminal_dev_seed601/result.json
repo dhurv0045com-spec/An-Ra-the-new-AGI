@@ -1,0 +1,124 @@
+{
+  "arms": {
+    "with_terminal": {
+      "completed_updates": 600,
+      "continuation": {
+        "checkpoint_sha256": "37b753636e03f326a60d5d5c1b5861f52510ad2753b18fe7bae637f8a6092f01",
+        "checkpoint_update": 600,
+        "optimizer_exact": true,
+        "parameters_exact": true,
+        "probe_update": 601,
+        "sampler_equal": true,
+        "scope": "local single-process continuation, not remote durability"
+      },
+      "counts": {
+        "answer_supervised_tokens": 9600,
+        "executed_token_positions": 307200,
+        "terminal_supervised_tokens": 9600,
+        "valid_tokens": 163200
+      },
+      "evaluation": {
+        "development": {
+          "all_queries_correct_rate": 0.015625,
+          "answer_prefix_accuracy_diagnostic": 0.171875,
+          "exact_accuracy": 0.171875,
+          "n_queries": 128,
+          "n_worlds": 64,
+          "stop_histogram": {
+            "EOS": 128
+          },
+          "valid_stop_rate": 1.0
+        },
+        "development_shift": {
+          "all_queries_correct_rate": 0.0,
+          "answer_prefix_accuracy_diagnostic": 0.0,
+          "exact_accuracy": 0.0,
+          "n_queries": 128,
+          "n_worlds": 64,
+          "stop_histogram": {
+            "INVALID_UTF8": 128
+          },
+          "valid_stop_rate": 0.0
+        },
+        "train": {
+          "all_queries_correct_rate": 1.0,
+          "answer_prefix_accuracy_diagnostic": 1.0,
+          "exact_accuracy": 1.0,
+          "n_queries": 32,
+          "n_worlds": 16,
+          "stop_histogram": {
+            "EOS": 32
+          },
+          "valid_stop_rate": 1.0
+        }
+      },
+      "training_seconds": 16.75
+    },
+    "without_terminal": {
+      "completed_updates": 600,
+      "continuation": {
+        "checkpoint_sha256": "d89bf89071ca137db1865b62b3099b97855c69b10418036b05e569342cc1dc02",
+        "checkpoint_update": 600,
+        "optimizer_exact": true,
+        "parameters_exact": true,
+        "probe_update": 601,
+        "sampler_equal": true,
+        "scope": "local single-process continuation, not remote durability"
+      },
+      "counts": {
+        "answer_supervised_tokens": 9600,
+        "executed_token_positions": 307200,
+        "terminal_supervised_tokens": 0,
+        "valid_tokens": 163200
+      },
+      "evaluation": {
+        "development": {
+          "all_queries_correct_rate": 0.0,
+          "answer_prefix_accuracy_diagnostic": 0.1953125,
+          "exact_accuracy": 0.0,
+          "n_queries": 128,
+          "n_worlds": 64,
+          "stop_histogram": {
+            "MAX_TOKENS": 128
+          },
+          "valid_stop_rate": 0.0
+        },
+        "development_shift": {
+          "all_queries_correct_rate": 0.0,
+          "answer_prefix_accuracy_diagnostic": 0.0,
+          "exact_accuracy": 0.0,
+          "n_queries": 128,
+          "n_worlds": 64,
+          "stop_histogram": {
+            "INVALID_UTF8": 128
+          },
+          "valid_stop_rate": 0.0
+        },
+        "train": {
+          "all_queries_correct_rate": 0.0,
+          "answer_prefix_accuracy_diagnostic": 1.0,
+          "exact_accuracy": 0.0,
+          "n_queries": 32,
+          "n_worlds": 16,
+          "stop_histogram": {
+            "MAX_TOKENS": 32
+          },
+          "valid_stop_rate": 0.0
+        }
+      },
+      "training_seconds": 16.655999999988126
+    }
+  },
+  "created_utc": "2026-09-05T23:06:10.786781+00:00",
+  "decision": {
+    "claim_limit": "One development experiment; no AGI, autonomous discovery, or independent-transfer claim.",
+    "controller": "fixed transparent research rule",
+    "next_action": "Keep terminal supervision; test contextual generalization before expanding architecture.",
+    "train_exact_gain": 1.0,
+    "train_stop_gain": 1.0,
+    "verdict": "TERMINAL_SUPERVISION_SUPPORTED_ON_DEVELOPMENT"
+  },
+  "elapsed_seconds": 34.20299999997951,
+  "manifest_sha256": "d69ba8511e874df484ac8c393fd17d9a247b730c048bf17ffe13f67e3ad2e965",
+  "schema": "bramastra-terminal-result/v1"
+}

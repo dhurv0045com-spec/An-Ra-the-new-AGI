@@ -1,0 +1,125 @@
+{
+  "arms": {
+    "with_terminal": {
+      "completed_updates": 600,
+      "continuation": {
+        "checkpoint_sha256": "d8785909ac8ae1012b3a60b4ed076eb2fb7be59d361b76a029a54193a9ef48ac",
+        "checkpoint_update": 600,
+        "optimizer_exact": true,
+        "parameters_exact": true,
+        "probe_update": 601,
+        "sampler_equal": true,
+        "scope": "local single-process continuation, not remote durability"
+      },
+      "counts": {
+        "answer_supervised_tokens": 9600,
+        "executed_token_positions": 307200,
+        "terminal_supervised_tokens": 9600,
+        "valid_tokens": 163200
+      },
+      "evaluation": {
+        "development": {
+          "all_queries_correct_rate": 0.0,
+          "answer_prefix_accuracy_diagnostic": 0.484375,
+          "exact_accuracy": 0.484375,
+          "n_queries": 128,
+          "n_worlds": 64,
+          "stop_histogram": {
+            "EOS": 128
+          },
+          "valid_stop_rate": 1.0
+        },
+        "development_shift": {
+          "all_queries_correct_rate": 0.0,
+          "answer_prefix_accuracy_diagnostic": 0.0,
+          "exact_accuracy": 0.0,
+          "n_queries": 128,
+          "n_worlds": 64,
+          "stop_histogram": {
+            "INVALID_UTF8": 34,
+            "MAX_TOKENS": 94
+          },
+          "valid_stop_rate": 0.0
+        },
+        "train": {
+          "all_queries_correct_rate": 0.01953125,
+          "answer_prefix_accuracy_diagnostic": 0.509765625,
+          "exact_accuracy": 0.509765625,
+          "n_queries": 512,
+          "n_worlds": 256,
+          "stop_histogram": {
+            "EOS": 512
+          },
+          "valid_stop_rate": 1.0
+        }
+      },
+      "training_seconds": 16.5
+    },
+    "without_terminal": {
+      "completed_updates": 600,
+      "continuation": {
+        "checkpoint_sha256": "c63af0021b8b2022f7694b5485d227b9be9453655f8d5a463bb2d0582f3eb773",
+        "checkpoint_update": 600,
+        "optimizer_exact": true,
+        "parameters_exact": true,
+        "probe_update": 601,
+        "sampler_equal": true,
+        "scope": "local single-process continuation, not remote durability"
+      },
+      "counts": {
+        "answer_supervised_tokens": 9600,
+        "executed_token_positions": 307200,
+        "terminal_supervised_tokens": 0,
+        "valid_tokens": 163200
+      },
+      "evaluation": {
+        "development": {
+          "all_queries_correct_rate": 0.0,
+          "answer_prefix_accuracy_diagnostic": 0.4921875,
+          "exact_accuracy": 0.0,
+          "n_queries": 128,
+          "n_worlds": 64,
+          "stop_histogram": {
+            "MAX_TOKENS": 128
+          },
+          "valid_stop_rate": 0.0
+        },
+        "development_shift": {
+          "all_queries_correct_rate": 0.0,
+          "answer_prefix_accuracy_diagnostic": 0.0,
+          "exact_accuracy": 0.0,
+          "n_queries": 128,
+          "n_worlds": 64,
+          "stop_histogram": {
+            "INVALID_UTF8": 128
+          },
+          "valid_stop_rate": 0.0
+        },
+        "train": {
+          "all_queries_correct_rate": 0.0,
+          "answer_prefix_accuracy_diagnostic": 0.5234375,
+          "exact_accuracy": 0.0,
+          "n_queries": 512,
+          "n_worlds": 256,
+          "stop_histogram": {
+            "MAX_TOKENS": 512
+          },
+          "valid_stop_rate": 0.0
+        }
+      },
+      "training_seconds": 15.73399999999674
+    }
+  },
+  "created_utc": "2026-09-05T23:09:50.681255+00:00",
+  "decision": {
+    "claim_limit": "One development experiment; no AGI, autonomous discovery, or independent-transfer claim.",
+    "controller": "fixed transparent research rule",
+    "next_action": "Diagnose answer learning and optimization; do not scale or relax scoring.",
+    "train_exact_gain": 0.509765625,
+    "train_stop_gain": 1.0,
+    "verdict": "LEARNABILITY_NOT_ESTABLISHED"
+  },
+  "elapsed_seconds": 34.578000000008615,
+  "manifest_sha256": "5dd0f0ee1cb8587a419a6c947a04b0df473e64860c56a6da687f7974eb466ca1",
+  "schema": "bramastra-terminal-result/v1"
+}

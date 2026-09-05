@@ -1,0 +1,124 @@
+{
+  "arms": {
+    "with_terminal": {
+      "completed_updates": 600,
+      "continuation": {
+        "checkpoint_sha256": "34372b79ff6f92105a0878d0a1a31077b1449069513b029059be4fdf83b7bf37",
+        "checkpoint_update": 600,
+        "optimizer_exact": true,
+        "parameters_exact": true,
+        "probe_update": 601,
+        "sampler_equal": true,
+        "scope": "local single-process continuation, not remote durability"
+      },
+      "counts": {
+        "answer_supervised_tokens": 9600,
+        "executed_token_positions": 307200,
+        "terminal_supervised_tokens": 9600,
+        "valid_tokens": 163200
+      },
+      "evaluation": {
+        "development": {
+          "all_queries_correct_rate": 0.03125,
+          "answer_prefix_accuracy_diagnostic": 0.2578125,
+          "exact_accuracy": 0.2578125,
+          "n_queries": 128,
+          "n_worlds": 64,
+          "stop_histogram": {
+            "EOS": 128
+          },
+          "valid_stop_rate": 1.0
+        },
+        "development_shift": {
+          "all_queries_correct_rate": 0.0,
+          "answer_prefix_accuracy_diagnostic": 0.0,
+          "exact_accuracy": 0.0,
+          "n_queries": 128,
+          "n_worlds": 64,
+          "stop_histogram": {
+            "INVALID_UTF8": 128
+          },
+          "valid_stop_rate": 0.0
+        },
+        "train": {
+          "all_queries_correct_rate": 1.0,
+          "answer_prefix_accuracy_diagnostic": 1.0,
+          "exact_accuracy": 1.0,
+          "n_queries": 32,
+          "n_worlds": 16,
+          "stop_histogram": {
+            "EOS": 32
+          },
+          "valid_stop_rate": 1.0
+        }
+      },
+      "training_seconds": 16.671999999991385
+    },
+    "without_terminal": {
+      "completed_updates": 600,
+      "continuation": {
+        "checkpoint_sha256": "ee91fb9ef8bb8bbee0364f006fa64da94dac7933c7b5c55f7c378051cf94b71f",
+        "checkpoint_update": 600,
+        "optimizer_exact": true,
+        "parameters_exact": true,
+        "probe_update": 601,
+        "sampler_equal": true,
+        "scope": "local single-process continuation, not remote durability"
+      },
+      "counts": {
+        "answer_supervised_tokens": 9600,
+        "executed_token_positions": 307200,
+        "terminal_supervised_tokens": 0,
+        "valid_tokens": 163200
+      },
+      "evaluation": {
+        "development": {
+          "all_queries_correct_rate": 0.0,
+          "answer_prefix_accuracy_diagnostic": 0.28125,
+          "exact_accuracy": 0.0,
+          "n_queries": 128,
+          "n_worlds": 64,
+          "stop_histogram": {
+            "MAX_TOKENS": 128
+          },
+          "valid_stop_rate": 0.0
+        },
+        "development_shift": {
+          "all_queries_correct_rate": 0.0,
+          "answer_prefix_accuracy_diagnostic": 0.0,
+          "exact_accuracy": 0.0,
+          "n_queries": 128,
+          "n_worlds": 64,
+          "stop_histogram": {
+            "MAX_TOKENS": 128
+          },
+          "valid_stop_rate": 0.0
+        },
+        "train": {
+          "all_queries_correct_rate": 0.0,
+          "answer_prefix_accuracy_diagnostic": 1.0,
+          "exact_accuracy": 0.0,
+          "n_queries": 32,
+          "n_worlds": 16,
+          "stop_histogram": {
+            "MAX_TOKENS": 32
+          },
+          "valid_stop_rate": 0.0
+        }
+      },
+      "training_seconds": 17.187999999994645
+    }
+  },
+  "created_utc": "2026-09-05T23:07:33.593037+00:00",
+  "decision": {
+    "claim_limit": "One development experiment; no AGI, autonomous discovery, or independent-transfer claim.",
+    "controller": "fixed transparent research rule",
+    "next_action": "Keep terminal supervision; test contextual generalization before expanding architecture.",
+    "train_exact_gain": 1.0,
+    "train_stop_gain": 1.0,
+    "verdict": "TERMINAL_SUPERVISION_SUPPORTED_ON_DEVELOPMENT"
+  },
+  "elapsed_seconds": 34.687000000005355,
+  "manifest_sha256": "1b63f19835c13b45b290c109fc4034ceb8ca4190962c9bcf3be1517e6eae322c",
+  "schema": "bramastra-terminal-result/v1"
+}

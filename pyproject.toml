@@ -9,7 +9,11 @@ description = "Executable ESOES cognition, tokenizer, architecture, data/objecti
 requires-python = ">=3.10"
 dependencies = []
 
+[project.optional-dependencies]
+bramastra = ["torch>=2.6", "pytest>=8"]
+
 [project.scripts]
+bramastra-experiment = "bramastra_lab.experiment:main"
 esoes-e0-certify = "e0_cognition.certify:main"
 esoes-e0-scoring = "e0_cognition.scoring_certification:main"
 esoes-v5-contracts = "v5_contracts.certify:main"
@@ -43,4 +47,4 @@ esoes-v5-target-preflight = "v5_training.target_preflight:main"
 esoes-boundaries = "v5_contracts.import_boundaries:main"
 
 [tool.setuptools.packages.find]
-include = ["e0_cognition*", "v5_contracts*", "v5_training*", "e1_tokenizer*", "e2_architecture*", "e3_data_objective*"]
+include = ["bramastra_lab*", "e0_cognition*", "v5_contracts*", "v5_training*", "e1_tokenizer*", "e2_architecture*", "e3_data_objective*"]

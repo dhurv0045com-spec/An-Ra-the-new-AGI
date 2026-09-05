@@ -1,0 +1,58 @@
+{
+  "batch_size": 16,
+  "dataset_sha256": {
+    "development": "cfcc5cceb1909703d52e1ae0001c856f112cb6b785e7a120b037465d9e6f830c",
+    "development_shift": "5e78a0e71ff4433baaccaafa8a5e668f79bb947c44e0edef46e828153b5b7694",
+    "train": "a199236aa143642c3ed21c956f19d0dbd960b9e453ebd0b204d40d85884fa7a2"
+  },
+  "device": "cpu",
+  "evaluation": "greedy, max four generated tokens including EOS, exact answer plus EOS",
+  "git_base_revision": "f23f0af42d90847cf1d2c244160c8203d1995b33",
+  "initialized_from": "random; no pretrained weights",
+  "matching": "same random initialization, examples, sampled batches, update count, answer-loss weight",
+  "max_training_seconds_per_arm": 90.0,
+  "model": {
+    "ffn": 176,
+    "heads": 4,
+    "layers": 2,
+    "max_seq": 32,
+    "rms_norm_eps": 1e-05,
+    "rope_theta": 10000.0,
+    "vocab": 260,
+    "width": 64
+  },
+  "objective": "answer_mean_ce + terminal_weight * terminal_mean_ce",
+  "optimizer": {
+    "betas": [
+      0.9,
+      0.95
+    ],
+    "embedding_norm_decay": 0.0,
+    "epsilon": 1e-08,
+    "gradient_clip": 1.0,
+    "lr": 0.0003,
+    "matrix_decay": 0.1,
+    "name": "AdamW",
+    "schedule": "constant"
+  },
+  "parameters": 117312,
+  "phase": "development; no sealed data",
+  "precision": "FP32",
+  "profile": "smoke",
+  "python": "3.11.15",
+  "schema": "bramastra-terminal-experiment/v1",
+  "seed": 601,
+  "source_files_sha256": {
+    "__init__.py": "07b37c79da0c3078523c6ed5b0b6ebaffab96c533cfe3b5006ad333d58523ffa",
+    "data.py": "b3609d2a38d1e7e9628e2d01e66c4f1d6df3e7079e5b10f19f68119c9375fed9",
+    "experiment.py": "6178d6f5dd7cc7b11256a64c36c42ea1288b806bfce63d2036c8e74cf0ef78c0",
+    "model.py": "8c2d020fcfd4bf6b936733e511c8b364a533757789045786922580cc83da62ac"
+  },
+  "steps_per_arm": 600,
+  "terminal_weights": {
+    "with_terminal": 1.0,
+    "without_terminal": 0.0
+  },
+  "threads": 2,
+  "torch": "2.13.0+cpu"
+}
