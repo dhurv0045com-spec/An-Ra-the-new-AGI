@@ -7,9 +7,11 @@ changing Citadel ancestry or touching `origin/cymek`.
 
 Resolution order:
   1. `CITADEL_CYMEK_RUNTIME` env / explicit arg: use that directory as-is.
-  2. Otherwise `<parent-of-citadel-root>/An-Ra-cymek-runtime`, created via
-     `git fetch origin cymek --depth=1` + detached `git worktree add`.
+  2. Otherwise `<parent-of-citadel-root>/An-Ra-cymek-runtime`: reuse when it is
+     exactly the pin, else recreate deterministically at the pin.
 SHA pin: `CITADEL_CYMEK_SHA` env / explicit arg, else PINNED_CYMEK_SHA.
+The pin is fetched by EXACT commit SHA, never by branch HEAD: a future
+origin/cymek HEAD can neither break nor silently change a pinned experiment.
 Every failure raises RuntimeError with a PRECHECK_ code before any import,
 compile, or device use. stdlib only: safe to run anywhere, including preflight.
 """
@@ -22,14 +24,16 @@ import sys
 from pathlib import Path
 
 
-PINNED_CYMEK_SHA = "298c91ac04f756f0833a7edcf63e73af3d5af688"
+PINNED_CYMEK_SHA = "28bf57a0d299a2c13a99fe0046616c00a1b8530c"
 PIN_REASON = (
-    "current origin/cymek HEAD at time of pinning; T0-relevant surface "
-    "(anra_v5.miniature_run MINI_SPEC, v5_model/*, optimizer, checkpoint, pack) "
-    "verified unchanged vs the last audited SHA 105ad22"
+    "current origin/cymek HEAD at time of pinning; T1D-relevant surface "
+    "(anra_v5.miniature_run MINI_SPEC, v5_model/*, optimizer, checkpoint, "
+    "state, pack, causal_lm) verified byte-identical vs the T0-certified SHA "
+    "298c91a (delta is additive tokenizer/data-pipeline/registry/eval files, "
+    "CLI and packaging entries only). See RUNTIME_AMENDMENT_001.md."
 )
 
-# Cymek-controlled modules the T0/T1/T2 path actually needs (nothing more).
+# Cymek-controlled modules the T1D/PRE50M path actually needs (nothing more).
 REQUIRED_RELATIVE_PATHS = (
     "anra_v5/miniature_run.py",  # MINI_SPEC
     "v5_model/config.py",  # from_spec
@@ -38,6 +42,8 @@ REQUIRED_RELATIVE_PATHS = (
     "v5_objectives/causal_lm.py",  # causal_lm_loss
     "v5_training/optimizer.py",  # build_adamw_optimizer
     "v5_training/distributed.py",  # T2 ledger schema
+    "v5_training/checkpoint.py",  # CheckpointStore (production transactions)
+    "v5_training/state.py",  # TrainingState/CursorState/IdentityBindings
 )
 
 
@@ -106,12 +112,70 @@ def _worktree_sha(path: Path) -> str | None:
         return None
 
 
+def _registered_worktrees(croot: str | Path) -> list[str]:
+    """Worktree paths git knows about (read-only query)."""
+    try:
+        out = _run(["git", "worktree", "list", "--porcelain"], cwd=croot)
+    except RuntimeError:
+        return []
+    roots = []
+    for line in out.splitlines():
+        if line.startswith("worktree "):
+            roots.append(line[len("worktree "):].strip())
+    return roots
+
+
+def _fetch_exact_sha(croot: str | Path, sha: str) -> None:
+    """Ensure commit object `sha` exists locally, independent of branch HEAD.
+
+    Primary: fetch the exact SHA (works regardless of where origin/cymek
+    points). Fallback: shallow branch fetch, then require the object.
+    Raises RuntimeError(PRECHECK_*) when the commit is truly unavailable.
+    """
+    try:
+        _run(["git", "fetch", "origin", sha, "--depth=1"], cwd=croot)
+        _run(["git", "cat-file", "-e", sha], cwd=croot)
+        return
+    except RuntimeError:
+        pass
+    try:
+        _run(["git", "fetch", "origin", "cymek", "--depth=50"], cwd=croot)
+    except RuntimeError as exc:
+        raise RuntimeError(
+            f"PRECHECK_GIT_FAILED: cannot fetch cymek history for {sha}: {exc}")
+    try:
+        _run(["git", "cat-file", "-e", sha], cwd=croot)
+    except RuntimeError:
+        raise RuntimeError(
+            f"PRECHECK_PIN_UNAVAILABLE: commit {sha} is not reachable from "
+            "origin (neither direct-SHA fetch nor recent branch history "
+            "contains it); audit a reachable SHA explicitly.")
+
+
+def _remove_worktree(croot: str | Path, path: Path) -> None:
+    """Remove a runtime worktree we own (registered) or a stale plain dir."""
+    registered = [Path(p) for p in _registered_worktrees(croot)]
+    if any(path == r or path in r.parents for r in registered):
+        _run(["git", "worktree", "remove", "--force", str(path)], cwd=croot)
+        return
+    if path.is_dir() and not any(path.iterdir()):
+        path.rmdir()
+        return
+    raise RuntimeError(
+        f"PRECHECK_RUNTIME_CONFLICT: {path} exists but is not a registered "
+        "Citadel runtime worktree; remove it manually or set "
+        "CITADEL_CYMEK_RUNTIME_DIR explicitly.")
+
+
 def ensure_cymek_runtime(*, runtime_dir: str | Path | None = None,
-                         cymek_sha: str | None = None) -> tuple[Path, str]:
+                          cymek_sha: str | None = None) -> tuple[Path, str]:
     """Resolve the pinned read-only Cymek runtime; return (root, sha).
 
+    Exact-SHA semantics: a future origin/cymek HEAD never breaks (or silently
+    changes) a pinned experiment. Reuses a valid existing runtime; recreates a
+    stale/corrupt one; fetches the exact commit independent of branch HEAD.
     Raises RuntimeError(PRECHECK_*) with one clear cause on any problem.
-    Never modifies branches; the worktree is detached.
+    Never modifies branches; the worktree is always detached.
     """
     explicit = os.environ.get("CITADEL_CYMEK_RUNTIME", "").strip() or runtime_dir
     sha = desired_sha(cymek_sha)
@@ -125,6 +189,7 @@ def ensure_cymek_runtime(*, runtime_dir: str | Path | None = None,
         found = _worktree_sha(root) or "explicit-path:unknown"
         _prepend_sys_path(root)
         return root, found
+    croot = citadel_root()
     root = Path(default_runtime_dir())
     if root.is_dir():
         missing = [rel for rel, ok in verify_files(root) if not ok]
@@ -132,20 +197,14 @@ def ensure_cymek_runtime(*, runtime_dir: str | Path | None = None,
         if not missing and found == sha:
             _prepend_sys_path(root)
             return root, found
-        if not missing and found is not None and found != sha:
-            raise RuntimeError(
-                f"PRECHECK_PIN_MISMATCH: runtime at {root} is {found}, want {sha}; "
-                "remove it or set CITADEL_CYMEK_SHA explicitly."
-            )
-    croot = citadel_root()
-    _run(["git", "fetch", "origin", "cymek", "--depth=1"], cwd=croot)
-    fetched = _run(["git", "rev-parse", "FETCH_HEAD"], cwd=croot)
-    if fetched != sha:
-        raise RuntimeError(
-            f"PRECHECK_PIN_MISMATCH: origin/cymek fetched as {fetched}, want pinned {sha}; "
-            "set CITADEL_CYMEK_SHA explicitly to adopt the new HEAD after auditing it."
-        )
+        # Stale SHA or corrupt/incomplete tree: recreate deterministically.
+        _remove_worktree(croot, root)
+    _fetch_exact_sha(croot, sha)
     _run(["git", "worktree", "add", "--detach", str(root), sha], cwd=croot)
+    actual = _worktree_sha(root)
+    if actual != sha:
+        raise RuntimeError(
+            f"PRECHECK_RUNTIME_MISMATCH: worktree resolved to {actual}, want {sha}")
     missing = [rel for rel, ok in verify_files(root) if not ok]
     if missing:
         raise RuntimeError(f"PRECHECK_IMPORT_FAILURE: fetched runtime lacks: {', '.join(missing)}")
