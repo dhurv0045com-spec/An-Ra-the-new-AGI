@@ -52,6 +52,66 @@ ARMS: dict[str, dict[str, Any]] = {
     "E": {"spec": "MID", "mode": "masked", "budget": 4_000_000},
 }
 ARM_TIME_BOX_S = 45 * 60
+TIER_KEYS = tuple(f"t{t}" for t in range(5))
+UNTRAINED_SUMMARY_KEYS = ("correct", "total", "accuracy", "wilson_lcb", "wilson_ucb")
+PREFINAL_SCHEMA = "citadel-t1d-arm-prefinal/v1"
+
+
+def _canonical_json(value: object) -> bytes:
+    return json.dumps(value, sort_keys=True, separators=(",", ":"),
+                      ensure_ascii=False).encode("utf-8")
+
+
+def _validate_summary(where: str, summ: Any, defects: list[str]) -> None:
+    """One tier summary must carry the exact metric contract."""
+    if not isinstance(summ, dict):
+        defects.append(f"{where} summary is not a dict")
+        return
+    for key in UNTRAINED_SUMMARY_KEYS:
+        if key not in summ:
+            defects.append(f"{where} missing {key!r}")
+    total = summ.get("total")
+    acc = summ.get("accuracy")
+    if isinstance(total, bool) or not isinstance(total, (int, float)) \
+            or not (total == total) or float(total) < 0:
+        defects.append(f"{where}.total not a nonnegative number: {total!r}")
+    if isinstance(acc, bool) or not isinstance(acc, (int, float)) \
+            or not (acc == acc) or not (0.0 <= float(acc) <= 1.0):
+        defects.append(f"{where}.accuracy not finite in [0,1]: {acc!r}")
+
+
+def normalize_untrained_receipt(untrained: Any) -> dict[str, Any]:
+    """Canonicalize the untrained TEST block to t0..t4 (pure; defense in depth).
+
+    REAL TPU FAILURE THIS GUARDS AGAINST (2026-09-05): the producer stored
+    untrained results as dev_tN/test_tN while the finalizer read tN — the
+    scientific gate died on KeyError: 't1' AFTER expensive training. This
+    normalizer accepts the canonical {"t0".."t4"} form or the legacy
+    {"test_t0".."test_t4"} form, validates every summary
+    (correct/total/accuracy/wilson_lcb/wilson_ucb; total >= 0; accuracy
+    finite in [0,1]) and returns the canonical mapping. Raises
+    RuntimeError('ARM_SCHEMA_INVALID: ...') — never a raw KeyError.
+    """
+    if not isinstance(untrained, dict):
+        raise RuntimeError("ARM_SCHEMA_INVALID: untrained block is not a dict")
+    if all(f"t{t}" in untrained for t in range(5)):
+        src = {f"t{t}": untrained[f"t{t}"] for t in range(5)}
+    elif all(f"test_t{t}" in untrained for t in range(5)):
+        src = {f"t{t}": untrained[f"test_t{t}"] for t in range(5)}
+    else:
+        missing = [k for k in TIER_KEYS if k not in untrained]
+        legacy_missing = [f"test_t{t}" for t in range(5)
+                          if f"test_t{t}" not in untrained]
+        raise RuntimeError(
+            "ARM_SCHEMA_INVALID: untrained block has neither canonical t0-t4 "
+            f"(missing {missing}) nor complete test_t0-test_t4 form "
+            f"(missing {legacy_missing}); present keys: {sorted(untrained)}")
+    defects: list[str] = []
+    for t in range(5):
+        _validate_summary(f"untrained[t{t}]", src[f"t{t}"], defects)
+    if defects:
+        raise RuntimeError("ARM_SCHEMA_INVALID: " + "; ".join(defects))
+    return src
 AUTO_SCALE_RATE = 5_000.0
 CKPT_ZIP_BYTES_CAP = 200_000_000
 LIFT_THRESHOLD = 0.20
@@ -395,10 +455,15 @@ def should_skip_arm(out_dir: str | Path, tag: str) -> tuple[str, str]:
         except Exception as exc:
             return ("raise", f"receipt {out_path.name} is unreadable ({exc}); "
                              f"delete marker {marker.name} + receipt to force rerun")
+        if isinstance(prior, dict) and prior.get("status") == "IMPLEMENTATION_FAILURE":
+            # an implementation failure is NOT a completed arm, marker or no
+            # marker: retry after software repair (a valid prefinal snapshot
+            # resumes finalization only; otherwise the arm retrains)
+            return ("run", "IMPLEMENTATION_FAILURE receipt is not completion; "
+                           "retrying after software repair")
         if isinstance(prior, dict) and prior.get("status") in ("SCIENTIFIC_PASS",
                                                                "SCIENTIFIC_FAIL",
-                                                               "TIMEBOX_ABORT",
-                                                               "IMPLEMENTATION_FAILURE"):
+                                                               "TIMEBOX_ABORT"):
             return ("skip", f"valid {prior.get('status')} receipt+marker present")
         return ("raise", f"receipt {out_path.name} has unknown status "
                          f"{prior.get('status') if isinstance(prior, dict) else '?'}; "
@@ -446,6 +511,28 @@ def run_arm(tag: str, cfg: dict[str, Any], *, shape: tuple[int, int],
         return prior
     if decision == "raise":
         raise RuntimeError(f"abort RESUME_CONFLICT: {why}")
+    # FINALIZATION-ONLY RECOVERY: a valid pre-finalization snapshot plus a
+    # matching checkpoint means the expensive work already completed — finish
+    # the PURE finalizer without retraining and without any device.
+    snap, snap_why = load_prefinal_snapshot(out_dir, tag, expect_cfg=cfg,
+                                            seed=seed, shape=shape)
+    if snap is not None:
+        print(f"arm {tag}: prefinal recovery — finalization only ({snap_why})",
+              flush=True)
+        receipt = build_arm_receipt(**snap)
+        write_arm_receipt(out_dir, receipt, ckpt_hash=snap["ckpt_hash"])
+        (Path(out_dir) / f"ARM_{tag}.prefinal.json").unlink(missing_ok=True)
+        return receipt
+    if snap_why:
+        print(f"arm {tag}: no usable prefinal snapshot ({snap_why}); fresh run",
+              flush=True)
+    # orphan checkpoint from a failed prior session: archive as forensic
+    # artifact, never silently clobbered (invalid results are not results)
+    orphan = Path(out_dir) / f"t1d_arm_{tag.lower()}.pt"
+    if orphan.is_file():
+        stamp = time.strftime("%Y%m%dT%H%M%S", time.gmtime())
+        orphan.rename(orphan.with_suffix(f".pt.orphan-{stamp}"))
+        print(f"arm {tag}: archived orphan checkpoint {orphan.name}", flush=True)
     t0 = time.time()
     rt_root, rt_sha = rb.ensure_cymek_runtime()
     env = env_mod.probe(require_tpu=True)
@@ -480,12 +567,19 @@ def run_arm(tag: str, cfg: dict[str, Any], *, shape: tuple[int, int],
         return _gen_eval(model, rows, targets, device=device, torch_mod=torch,
                          xb=xb, allow_ids=allow_ids)
 
-    untrained: dict[str, Any] = {}
+    # Canonical untrained namespaces (one schema downstream, no guessing):
+    # untrained_test[tN] = untrained TEST summary (the receipt's "untrained");
+    # untrained_dev[tN]  = untrained DEV summary (explicit separate block).
+    # DEV and TEST are each evaluated exactly once per preregistered arm;
+    # these are namespace fixes, not extra observations.
+    untrained_dev: dict[str, Any] = {}
+    untrained_test: dict[str, Any] = {}
     for tier in range(5):
         _, summ = gen(slices[f"dev_t{tier}"]["rows"], slices[f"dev_t{tier}"]["targets"])
-        untrained[f"dev_t{tier}"] = summ
+        untrained_dev[f"t{tier}"] = summ
         _, summ = gen(slices[f"test_t{tier}"]["rows"], slices[f"test_t{tier}"]["targets"])
-        untrained[f"test_t{tier}"] = summ
+        untrained_test[f"t{tier}"] = summ
+    untrained = untrained_test
     # Frozen TRAIN diagnostic candidates: the FIRST TRAIN_SAMPLE_PER_TIER train
     # indices per tier, fixed BEFORE any training. Consumption is verified
     # against the feeder's exact per-tier consumed prefix after training —
@@ -633,23 +727,34 @@ def run_arm(tag: str, cfg: dict[str, Any], *, shape: tuple[int, int],
     reload_ok = bool(pre_sha == post_sha)
 
     wall = time.time() - t0
-    # Pure post-training path: nulls (global + per-tier t0-t4), diagnostic
-    # aggregation, lift tiers, scientific gate, receipt assembly. No device.
-    receipt = build_arm_receipt(
-        tag=tag, cfg=cfg, env=env, n_seq=n_seq, length=length,
+    # Durable PRE-FINALIZATION RECOVERY SNAPSHOT: training, TEST evaluation,
+    # diagnostics, checkpoint, and reload identity are complete and durable —
+    # everything the PURE finalizer needs. If finalization ever throws, a
+    # rerun resumes FINALIZATION ONLY (no retraining, no device).
+    snapshot_kwargs = dict(
+        tag=tag, cfg=dict(cfg), env=dict(env), n_seq=n_seq, length=length,
         param_count=param_count, citadel_sha=rb.citadel_sha(), cymek_sha=rt_sha,
-        feeder=feeder, seed=seed, slices=slices,
+        seed=seed,
+        feeder_placed_rows={k: int(v) for k, v in feeder.placed_rows.items()},
+        feeder_ledger=feeder.ledger(),
         ledgers=ledgers, done=done, first_loss=first_loss, last_loss=last_loss,
         cap_total=cap_total, ans_total=ans_total, whole_total=whole_total,
         gsum=gsum, gmax=gmax, gn=gn, train_wall=train_wall,
-        untrained=untrained, untrained_train=untrained_train,
+        untrained=untrained, untrained_dev=untrained_dev,
+        untrained_train=untrained_train,
         trained=trained, trained_recs=trained_recs,
         trained_train=trained_train, train_memorization=train_memorization,
         inter=inter, teacher_eval=teacher_eval, first_step=first_step,
         ckpt_path=ckpt_path, ckpt_hash=ckpt_hash,
         pre_sha=pre_sha, post_sha=post_sha, reload_ok=reload_ok,
         device_count=n_devices, wall=wall)
+    sidecar = write_prefinal_snapshot(out_dir, snapshot_kwargs)
+    # Pure post-training path: nulls (global + per-tier t0-t4), diagnostic
+    # aggregation, lift tiers, scientific gate, receipt assembly. No device.
+    receipt = build_arm_receipt(**load_finalizer_kwargs(snapshot_kwargs))
     write_arm_receipt(out_dir, receipt, ckpt_hash=ckpt_hash)
+    # finalization succeeded: the recovery sidecar is consumed
+    Path(sidecar).unlink(missing_ok=True)
     return receipt
 
 
@@ -728,6 +833,159 @@ def validate_null_block(receipt: dict[str, Any]) -> list[str]:
     return defects
 
 
+class _PrefinalFeeder:
+    """Reconstructs the feeder view the pure finalizer needs (placed rows for
+    the heuristic reference sample + the exact consumption ledger)."""
+
+    def __init__(self, placed_rows: dict[str, int], ledger: dict[str, Any]):
+        self.placed_rows = dict(placed_rows)
+        self._ledger = dict(ledger)
+
+    def ledger(self) -> dict[str, Any]:
+        return self._ledger
+
+
+# kwargs of build_arm_receipt that the finalizer-only path reconstructs from
+# the snapshot instead of trusting verbatim (slices are deterministic code;
+# feeder is rebuilt from the exact recorded consumption state).
+_FINALIZER_RECONSTRUCTED = ("feeder", "slices")
+_FINALIZER_SNAPSHOT_KEYS = (
+    "tag", "cfg", "env", "n_seq", "length", "param_count", "citadel_sha",
+    "cymek_sha", "seed", "feeder_placed_rows", "feeder_ledger", "ledgers",
+    "done", "first_loss", "last_loss", "cap_total", "ans_total",
+    "whole_total", "gsum", "gmax", "gn", "train_wall", "untrained",
+    "untrained_dev", "untrained_train", "trained", "trained_recs",
+    "trained_train", "train_memorization", "inter", "teacher_eval",
+    "first_step", "ckpt_path", "ckpt_hash", "pre_sha", "post_sha",
+    "reload_ok", "device_count", "wall")
+
+
+def load_finalizer_kwargs(snapshot_kwargs: dict[str, Any]) -> dict[str, Any]:
+    """Bridge snapshot-shaped kwargs -> build_arm_receipt kwargs: rebuild the
+    feeder view from the recorded consumption state and recompute the
+    deterministic evaluation slices (never trusted from the snapshot)."""
+    kwargs = dict(snapshot_kwargs)
+    kwargs["feeder"] = _PrefinalFeeder(kwargs.pop("feeder_placed_rows"),
+                                       kwargs.pop("feeder_ledger"))
+    kwargs["slices"] = _tier_slices()
+    return kwargs
+
+
+def write_prefinal_snapshot(out_dir: str | Path, kwargs: dict[str, Any]) -> str:
+    """Durably store every serializable input the PURE post-training
+    finalizer needs, so an expensive arm can never be lost to a receipt
+    bug again. Self-hash protected (payload_sha256 over the canonical body)."""
+    body = {k: kwargs[k] for k in _FINALIZER_SNAPSHOT_KEYS if k in kwargs}
+    missing = [k for k in _FINALIZER_SNAPSHOT_KEYS if k not in body]
+    if missing:
+        raise RuntimeError(f"prefinal snapshot incomplete, missing: {missing}")
+    doc = {"schema": PREFINAL_SCHEMA, "payload_sha256":
+           hashlib.sha256(_canonical_json(body)).hexdigest(), **body}
+    path = Path(out_dir) / f"ARM_{kwargs['tag']}.prefinal.json"
+    path.write_text(json.dumps(doc, indent=2, sort_keys=True), encoding="utf-8")
+    return str(path)
+
+
+def load_prefinal_snapshot(out_dir: str | Path, tag: str, *, expect_cfg: dict,
+                           seed: int, shape: tuple[int, int]
+                           ) -> tuple[dict[str, Any] | None, str]:
+    """Return (finalizer_kwargs | None, reason).
+
+    Hash-verifies EVERYTHING before trusting it: sidecar self-hash, required
+    keys, cfg/seed/shape agreement with the requested run, and the checkpoint
+    file's SHA-256 against the recorded checkpoint hash. Any mismatch moves
+    the sidecar aside (.invalid-<ts>) and returns None — a corrupt snapshot
+    can never be silently trusted, and never blocks a fresh rerun.
+    """
+    import shutil
+
+    path = Path(out_dir) / f"ARM_{tag}.prefinal.json"
+    if not path.is_file():
+        return None, ""
+    try:
+        doc = json.loads(path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        stamp = time.strftime("%Y%m%dT%H%M%S", time.gmtime())
+        path.rename(path.with_suffix(f".json.corrupt-{stamp}"))
+        return None, f"unreadable sidecar ({type(exc).__name__}): archived"
+    if not isinstance(doc, dict) or doc.get("schema") != PREFINAL_SCHEMA:
+        return None, "unknown sidecar schema"
+    body = {k: doc[k] for k in _FINALIZER_SNAPSHOT_KEYS if k in doc}
+    missing = [k for k in _FINALIZER_SNAPSHOT_KEYS if k not in body]
+    if missing:
+        return None, f"sidecar missing keys: {missing}"
+    digest = hashlib.sha256(_canonical_json(body)).hexdigest()
+    if digest != doc.get("payload_sha256"):
+        stamp = time.strftime("%Y%m%dT%H%M%S", time.gmtime())
+        path.rename(path.with_suffix(f".json.invalid-{stamp}"))
+        return None, "payload hash mismatch: sidecar archived"
+    if body["cfg"] != expect_cfg or body["seed"] != seed \
+            or (body["n_seq"], body["length"]) != tuple(shape):
+        return None, ("sidecar belongs to a different run "
+                      f"(cfg/seed/shape mismatch); archived for the fresh run")
+    ckpt = Path(body["ckpt_path"])
+    if not ckpt.is_file():
+        return None, "checkpoint file from snapshot is missing"
+    actual = hashlib.sha256(ckpt.read_bytes()).hexdigest()
+    if actual != body["ckpt_hash"]:
+        stamp = time.strftime("%Y%m%dT%H%M%S", time.gmtime())
+        path.rename(path.with_suffix(f".json.invalid-{stamp}"))
+        return None, ("checkpoint hash mismatch: snapshot archived "
+                      "(checkpoint changed since snapshot)")
+    kwargs = load_finalizer_kwargs(body)
+    return kwargs, f"verified snapshot (checkpoint {body['ckpt_hash'][:12]}...)"
+
+
+def validate_arm_receipt(receipt: dict[str, Any]) -> list[str]:
+    """Terminal arm receipt validator (pure).
+
+    SCIENTIFIC_PASS / SCIENTIFIC_FAIL receipts must carry the complete
+    contract: untrained/trained/trained_train/train_memorization/nulls_per_tier
+    each exactly t0-t4 with valid summaries, non-empty intermediates/
+    diagnostics/gate_rules, checkpoint path+sha256, reload hashes + boolean,
+    training and data ledgers, and a valid status. Returns defect strings.
+    IMPLEMENTATION_FAILURE / TIMEBOX_ABORT receipts carry partial data by
+    design and are validated only for a known status.
+    """
+    defects: list[str] = []
+    status = receipt.get("status")
+    if status not in ("SCIENTIFIC_PASS", "SCIENTIFIC_FAIL"):
+        if status not in ("IMPLEMENTATION_FAILURE", "TIMEBOX_ABORT"):
+            defects.append(f"unknown status {status!r}")
+        return defects
+    for block in ("untrained", "trained", "trained_train",
+                  "train_memorization", "nulls_per_tier"):
+        d = receipt.get(block)
+        if not isinstance(d, dict) or set(d) != set(TIER_KEYS):
+            got = sorted(d) if isinstance(d, dict) else type(d).__name__
+            defects.append(f"{block} must have exactly t0-t4 (got {got})")
+            continue
+        if block in ("untrained", "trained", "trained_train"):
+            for tk in TIER_KEYS:
+                _validate_summary(f"{block}[{tk}]", d[tk], defects)
+    defects.extend(validate_null_block(receipt))
+    for key in ("intermediates", "diagnostics", "gate_rules"):
+        if not isinstance(receipt.get(key), dict) or not receipt[key]:
+            defects.append(f"{key} missing or empty")
+    ckpt = receipt.get("checkpoint")
+    if not (isinstance(ckpt, dict) and ckpt.get("path") and ckpt.get("sha256")):
+        defects.append("checkpoint path+sha256 required")
+    for key in ("pre_reload_prediction_sha256", "post_reload_prediction_sha256"):
+        v = receipt.get(key)
+        if not isinstance(v, str) or len(v) != 64:
+            defects.append(f"{key} must be a sha256 hex string")
+    if not isinstance(receipt.get("reload_identical"), bool):
+        defects.append("reload_identical must be boolean")
+    training = receipt.get("training")
+    if not (isinstance(training, dict) and training.get("ledgers")
+            and training.get("updates") is not None):
+        defects.append("training ledger required")
+    data = receipt.get("data")
+    if not (isinstance(data, dict) and isinstance(data.get("feeder"), dict)):
+        defects.append("data ledger required")
+    return defects
+
+
 def build_arm_receipt(*, tag: str, cfg: dict[str, Any], env: dict[str, Any],
                       n_seq: int, length: int, param_count: int,
                       citadel_sha: str, cymek_sha: str, feeder, seed: int,
@@ -735,6 +993,7 @@ def build_arm_receipt(*, tag: str, cfg: dict[str, Any], env: dict[str, Any],
                       first_loss, last_loss, cap_total: int, ans_total: int,
                       whole_total: int, gsum: float, gmax: float, gn: int,
                       train_wall: float, untrained: dict[str, Any],
+                      untrained_dev: dict[str, Any] | None = None,
                       untrained_train: dict[str, Any], trained: dict[str, Any],
                       trained_recs: dict[str, Any], trained_train: dict[str, Any],
                       train_memorization: dict[str, Any], inter: dict[str, Any],
@@ -753,6 +1012,12 @@ def build_arm_receipt(*, tag: str, cfg: dict[str, Any], env: dict[str, Any],
     """
     from citadel_tpu import calculator_eval as cev
     from citadel_tpu import tiered_data as td
+
+    # Defense in depth: never depend on the producer being correct. The
+    # untrained TEST block is canonicalized (t0..t4) and validated here, so a
+    # producer/consumer key mismatch surfaces as ARM_SCHEMA_INVALID — never
+    # as a raw KeyError after expensive training (real TPU failure class).
+    untrained = normalize_untrained_receipt(untrained)
 
     all_test_rows, all_test_tgts = [], []
     for tier in range(5):
@@ -841,7 +1106,7 @@ def build_arm_receipt(*, tag: str, cfg: dict[str, Any], env: dict[str, Any],
         "reload": bool(reload_ok),
     }
     _status = "SCIENTIFIC_PASS" if all(_rules.values()) else "SCIENTIFIC_FAIL"
-    return {
+    receipt = {
         "schema": "citadel-t1d-arm/v1", "arm": tag, "config": cfg,
         "citadel_sha": citadel_sha, "cymek_runtime_sha": cymek_sha,
         "environment": env, "batch_sequences": n_seq, "sequence_length": length,
@@ -855,7 +1120,11 @@ def build_arm_receipt(*, tag: str, cfg: dict[str, Any], env: dict[str, Any],
                       "prompt_tokens_unsupervised": whole_total,
                       "grad_norm_mean": gsum / max(gn, 1), "grad_norm_max": gmax,
                       "train_wall_seconds": train_wall},
-        "untrained": untrained, "untrained_train": untrained_train,
+        "untrained": untrained,
+        "untrained_dev": (untrained_dev
+                          if isinstance(untrained_dev, dict) and untrained_dev
+                          else {}),
+        "untrained_train": untrained_train,
         "trained": trained, "trained_train": trained_train,
         "train_memorization": train_memorization,
         "intermediates": inter,
@@ -886,6 +1155,10 @@ def build_arm_receipt(*, tag: str, cfg: dict[str, Any], env: dict[str, Any],
         "device_count": device_count, "wall_seconds": wall,
         "status": _status,
     }
+    terminal_defects = validate_arm_receipt(receipt)
+    if terminal_defects:
+        raise RuntimeError("ARM_SCHEMA_INVALID: " + "; ".join(terminal_defects))
+    return receipt
 
 
 def write_arm_receipt(out_dir: str | Path, receipt: dict[str, Any], *,
@@ -1222,6 +1495,145 @@ def cal_candidates(root: Path) -> list[dict[str, Any]]:
         return []
 
 
+def build_lift_curves(arm_receipts: dict[str, Any]) -> dict[str, Any]:
+    """Pure LIFT_OFF_CURVES assembly. Scientific arms contribute full curves;
+    every other terminal status is represented by status alone — the curve
+    file never indexes scientific fields a failed arm does not carry."""
+    curves: dict[str, Any] = {}
+    for tag, r in arm_receipts.items():
+        if r.get("status") not in ("SCIENTIFIC_PASS", "SCIENTIFIC_FAIL"):
+            curves[tag] = {"status": r.get("status")}
+            continue
+        latest = str(max((int(k) for k in r["intermediates"] if str(k).isdigit()),
+                         default=0))
+        curves[tag] = {
+            "status": r.get("status"),
+            "train": {f"t{t}": r["trained_train"][f"t{t}"]["accuracy"]
+                      for t in range(5)},
+            "dev": {f"t{t}": (r["intermediates"][latest][f"t{t}"]["exact"]
+                              if r["intermediates"]
+                              and f"t{t}" in r["intermediates"][latest]
+                              else None) for t in range(5)},
+            "test": {f"t{t}": r["trained"][f"t{t}"]["accuracy"] for t in range(5)},
+            "untrained_test": {f"t{t}": r["untrained"][f"t{t}"]["accuracy"]
+                               for t in range(5)},
+            "first_train_lift_tier": r["diagnostics"].get("first_train_lift_tier"),
+            "first_test_lift_tier": r["diagnostics"].get("first_test_lift_tier")}
+    return curves
+
+
+def producer_consumer_contract_probe(*, legacy_untrained_keys: bool = True,
+                                     n_updates: int = 400) -> list[str]:
+    """THE producer -> finalizer -> classifier -> curves contract bridge.
+
+    Builds the EXACT producer-shaped data run_arm constructs (including the
+    pre-fix untrained keying when legacy_untrained_keys=True — the shape that
+    caused the real TPU failure KeyError: 't1'), runs the full pure path —
+    normalize -> build_arm_receipt -> validate_arm_receipt ->
+    classify_cross_arm -> build_lift_curves — on REAL generator rows and REAL
+    feeder consumption, and returns defect strings (empty = the whole
+    producer/consumer contract holds). No device anywhere.
+    """
+    from citadel_tpu import calculator_eval as cev
+    from citadel_tpu import tiered_data as td
+
+    defects: list[str] = []
+    try:
+        feeder = TierFeeder("curriculum", 8, 64)
+        for u in range(n_updates):
+            feeder.fill_sequences(u / n_updates)
+        slices = _tier_slices()
+        cands = frozen_train_candidates()
+        plan = train_memorization_plan(feeder, candidates=cands)
+
+        def s(acc, n=500):
+            return {"correct": int(acc * n), "total": n, "accuracy": acc,
+                    "wilson_lcb": max(0.0, acc - 0.04),
+                    "wilson_ucb": min(1.0, acc + 0.04)}
+
+        # EXACT producer shape. legacy_untrained_keys=True reproduces the
+        # pre-fix run_arm producer: dev_tN/test_tN keys in one dict.
+        untrained_producer: dict[str, Any] = {}
+        for tier in range(5):
+            dev_row = slices[f"dev_t{tier}"]["targets"][0]
+            test_row = slices[f"test_t{tier}"]["targets"][0]
+            if legacy_untrained_keys:
+                untrained_producer[f"dev_t{tier}"] = s(0.0, n=200)
+                untrained_producer[f"test_t{tier}"] = s(0.0)
+            else:
+                untrained_producer[f"t{tier}"] = s(0.0)
+        untrained_dev = {f"t{t}": s(0.0, n=200) for t in range(5)} \
+            if not legacy_untrained_keys else \
+            {f"t{t}": untrained_producer[f"dev_t{t}"] for t in range(5)}
+        accs = {0: 0.9, 1: 0.5, 2: 0.3, 3: 0.1, 4: 0.02}
+        trained = {f"t{t}": s(accs[t]) for t in range(5)}
+        trained_recs = {f"t{t}": [
+            {"prompt": "probe", "target": tg, "prediction": tg,
+             "correct": True, "stop_reason": "EOS",
+             "generated_token_count": len(tg), "valid": True}
+            for tg in slices[f"test_t{t}"]["targets"]] for t in range(5)}
+        trained_train, train_memorization = {}, {}
+        for tier in range(5):
+            entry = plan[tier]
+            rows = [td.tier_row(tier, "train", i)[0]
+                    for i in entry["verified_indices"]]
+            tgts = [cev.split_prompt_target(r)[1] for r in rows]
+            summ = s(0.6, n=len(rows)) if rows else s(0.0, n=0)
+            trained_train[f"t{tier}"] = summ
+            train_memorization[f"t{tier}"] = {
+                "consumed_prefix": entry["consumed_prefix"],
+                "n_frozen_candidates": entry["n_candidates"],
+                "n_verified_consumed": entry["n_verified"],
+                "evaluated_rows": len(rows),
+                "status": entry["status"],
+                "lift_eligible": bool(entry["status"] == "OK"
+                                      and summ["accuracy"] >= LIFT_THRESHOLD)}
+        inter = {str(cp): {f"t{tier}": {"exact": dev, "lcb": max(0.0, dev - 0.03)}
+                           for tier in range(5)}
+                 for cp, dev in ((25, 0.05), (50, 0.12), (75, 0.18), (100, 0.22))}
+        if legacy_untrained_keys:
+            # the finalizer MUST canonicalize the legacy producer shape
+            untrained_arg = untrained_producer
+        else:
+            untrained_arg = untrained_producer
+        receipt = build_arm_receipt(
+            tag="A", cfg=dict(ARMS["A"]), env={"probe_pass": True},
+            n_seq=8, length=64, param_count=3_737_472,
+            citadel_sha="0" * 40, cymek_sha="1" * 64,
+            feeder=feeder, seed=20260904, slices=slices,
+            ledgers=[{"updates": 100, "first_loss": 9.0, "last_loss": 6.0}],
+            done=100, first_loss=9.0, last_loss=6.0, cap_total=100 * 8 * 64,
+            ans_total=1234, whole_total=42_000, gsum=3.0, gmax=0.9, gn=100,
+            train_wall=60.0, untrained=untrained_arg,
+            untrained_dev=untrained_dev,
+            untrained_train={f"t{t}": s(0.0, n=200) for t in range(5)},
+            trained=trained, trained_recs=trained_recs,
+            trained_train=trained_train,
+            train_memorization=train_memorization, inter=inter,
+            teacher_eval={"skipped": "n/a"}, first_step={"n": 0},
+            ckpt_path="probe.pt", ckpt_hash="a" * 64,
+            pre_sha="p" * 64, post_sha="p" * 64, reload_ok=True,
+            device_count=1, wall=90.0)
+        receipt_defects = validate_arm_receipt(receipt)
+        defects.extend(receipt_defects)
+        summary = classify_cross_arm({"A": receipt})
+        if not summary.get("labels"):
+            defects.append("classifier produced no labels")
+        curves = build_lift_curves({"A": receipt})
+        curve = curves["A"]
+        for tier_key in TIER_KEYS:
+            for block in ("train", "dev", "test", "untrained_test"):
+                if tier_key not in curve[block]:
+                    defects.append(f"curves[{block}] missing {tier_key}")
+        if set(receipt["untrained"]) != set(TIER_KEYS):
+            defects.append("final receipt untrained block is not canonical t0-t4")
+        if legacy_untrained_keys and "test_t0" in receipt["untrained"]:
+            defects.append("legacy producer keys leaked into the final receipt")
+    except Exception as exc:
+        defects.append(f"{type(exc).__name__}: {exc}")
+    return defects
+
+
 def _assemble_session_results(root: Path, arm_receipts: dict[str, Any], *,
                               shape: tuple[int, int], rate: float, scaled: bool,
                               budgets: dict[str, int], rt_sha: str,
@@ -1234,32 +1646,32 @@ def _assemble_session_results(root: Path, arm_receipts: dict[str, Any], *,
 
     root = Path(root)
     citadel_sha = rb.citadel_sha()
-    scientific = {t: r for t, r in arm_receipts.items()
-                  if r.get("status") in ("SCIENTIFIC_PASS", "SCIENTIFIC_FAIL")}
+    # Session-boundary schema gate: a receipt claiming a scientific verdict
+    # must satisfy the terminal contract, or it is NOT a scientific result.
+    # Demote it (durably) to IMPLEMENTATION_FAILURE instead of letting the
+    # classifier crash on a missing tier key — no classifier KeyError is
+    # acceptable, whatever wrote the receipt.
+    scientific: dict[str, Any] = {}
+    for t, r in arm_receipts.items():
+        if r.get("status") not in ("SCIENTIFIC_PASS", "SCIENTIFIC_FAIL"):
+            continue
+        schema_defects = validate_arm_receipt(r)
+        if schema_defects:
+            demoted = {**r, "status": "IMPLEMENTATION_FAILURE",
+                       "schema_defects": schema_defects}
+            (root / f"ARM_{t}.json").write_text(
+                json.dumps(demoted, indent=2, sort_keys=True), encoding="utf-8")
+            arm_receipts[t] = demoted
+            print(f"arm {t}: receipt failed terminal schema validation -> "
+                  f"IMPLEMENTATION_FAILURE ({'; '.join(schema_defects[:2])})",
+                  flush=True)
+            continue
+        scientific[t] = r
     summary = classify_cross_arm(scientific)
     (root / "CROSS_ARM_SUMMARY.json").write_text(
         json.dumps(summary, indent=2, sort_keys=True), encoding="utf-8")
     print("cross-arm labels:", summary["labels"], flush=True)
-    curves = {}
-    for tag, r in arm_receipts.items():
-        if r.get("status") not in ("SCIENTIFIC_PASS", "SCIENTIFIC_FAIL"):
-            # failed/aborted arms are represented by status alone; the curve
-            # file never indexes scientific fields they do not carry
-            curves[tag] = {"status": r.get("status")}
-            continue
-        latest = str(max((int(k) for k in r["intermediates"] if str(k).isdigit()),
-                         default=0))
-        curves[tag] = {
-            "status": r.get("status"),
-            "train": {f"t{t}": r["trained_train"][f"t{t}"]["accuracy"] for t in range(5)},
-            "dev": {f"t{t}": (r["intermediates"][latest][f"t{t}"]["exact"]
-                              if r["intermediates"] and f"t{t}" in r["intermediates"][latest]
-                              else None) for t in range(5)},
-            "test": {f"t{t}": r["trained"][f"t{t}"]["accuracy"] for t in range(5)},
-            "untrained_test": {f"t{t}": r["untrained"][f"t{t}"]["accuracy"]
-                               for t in range(5)},
-            "first_train_lift_tier": r["diagnostics"].get("first_train_lift_tier"),
-            "first_test_lift_tier": r["diagnostics"].get("first_test_lift_tier")}
+    curves = build_lift_curves(arm_receipts)
     (root / "LIFT_OFF_CURVES.json").write_text(
         json.dumps({"schema": "citadel-t1d-lift-off-curves/v1", "arms": curves},
                    indent=2, sort_keys=True), encoding="utf-8")
@@ -1334,8 +1746,15 @@ def verify_bundle(session_dir: str) -> dict[str, Any]:
         except Exception as exc:
             defects.append(f"{name} unparseable: {type(exc).__name__}")
     for name, doc in loaded.items():
-        if isinstance(doc, dict) and "status" in doc                 and doc.get("status") not in BUNDLE_KNOWN_STATUSES:
+        if isinstance(doc, dict) and "status" in doc \
+                and doc.get("status") not in BUNDLE_KNOWN_STATUSES:
             defects.append(f"{name} unknown status {doc.get('status')!r}")
+    for tag in ("A", "B", "C", "D", "E"):
+        r = loaded.get(f"ARM_{tag}.json")
+        if isinstance(r, dict) and r.get("status") in ("SCIENTIFIC_PASS",
+                                                       "SCIENTIFIC_FAIL"):
+            for defect in validate_arm_receipt(r):
+                defects.append(f"ARM_{tag}.json {defect}")
     zp = root / "CITADEL_T1D_RESULTS.zip"
     zip_bytes: dict[str, bytes] = {}
     if not zp.is_file():
@@ -1421,7 +1840,15 @@ __all__ = [
     "build_spec",
     "calibrate",
     "classify_cross_arm",
+    "arm_failure_receipt",
+    "build_lift_curves",
     "frozen_train_candidates",
+    "load_finalizer_kwargs",
+    "load_prefinal_snapshot",
+    "normalize_untrained_receipt",
+    "producer_consumer_contract_probe",
+    "validate_arm_receipt",
+    "write_prefinal_snapshot",
     "pack_rows",
     "run_arm",
     "run_session",
