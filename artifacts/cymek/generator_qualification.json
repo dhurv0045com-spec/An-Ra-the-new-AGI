@@ -1,0 +1,29 @@
+{
+  "families": [
+    {
+      "cases": 80,
+      "family": "entity_value_binding",
+      "verdict": "GENERATOR_NOT_QUALIFIED",
+      "worst_excess": 0.9125
+    },
+    {
+      "cases": 32,
+      "family": "rule_induction",
+      "verdict": "GENERATOR_QUALIFIED",
+      "worst_excess": 0.0625
+    }
+  ],
+  "generator_id": "e0-eval/0.4.0+binding-v2/2.0.0",
+  "generator_sha256": "0e875d0db50746951b055d738de16e37e21b0c4c5197afa2af50204513085302",
+  "note": "interference-binding v2 qualification lives in its pair-accuracy receipt (test suite); this file tracks E0-certified families",
+  "rule_induction_reaudit": {
+    "cases": 32,
+    "caveats": [
+      "small sample (n=32); intervals are wide",
+      "Wilson upper excess 0.2182 exceeds 0.1"
+    ],
+    "label": "PROVISIONALLY_QUALIFIED",
+    "wilson_upper_excess": 0.2181830548165022
+  },
+  "schema": "anra-v5-generator-qualification/v1"
+}
