@@ -64,6 +64,11 @@ A flat control / B frozen easy→hard curriculum / C + micro-teacher rows /
 D 7.4M scale / E masked-vocab diagnostic. Primary readout is the tier
 lift-off curve (FIRST_TRAIN/TEST_LIFT_TIER), not one global zero. Discriminates
 floor vs curriculum vs teacher vs representation. No results yet.
+Same session also runs PRE50M systems certification (SCALE2 smoke, data
+interface, packing, buckets, throughput curve, memory, checkpoint compat) and
+emits NEXT_50M_DECISION.json — the 50M-token milestone gate. ("50 million
+checkpoint" = 50M training tokens per Cymek training_spec; no 50M-param spec
+exists, so no new model is built for it.)
 
 ## Proven infrastructure (reusable)
 
