@@ -1,0 +1,83 @@
+{
+  "control": {
+    "allocation": {
+      "code_math_formal": 47000000,
+      "natural": 153000000
+    },
+    "base_manifests": {
+      "foundry_fm": {
+        "sha256": "ddc5b5cdc540cbd9d5d9003850f5674eb6f9349ac8649024e786b3792f7c2f9a",
+        "unique_documents": 104634,
+        "unique_tokens": 173915079
+      },
+      "foundry_fwcap": {
+        "sha256": "63a367c242fba8a5d259aab35e99ef4242f653da35dc5528678e2777953c1d8b",
+        "unique_documents": 149999,
+        "unique_tokens": 197318183
+      },
+      "foundry_st0": {
+        "sha256": "f1a982106ca139167a50354a8c87585ab85b3833ede0f486ad284354f66f6eb2",
+        "unique_documents": 115056,
+        "unique_tokens": 113001322
+      },
+      "foundry_st1": {
+        "sha256": "3795625beffd7590d628a686ddc257ceb52886863f05d6cb44e6b008f68ec21b",
+        "unique_documents": 115056,
+        "unique_tokens": 113261163
+      }
+    },
+    "replacement_policy": {
+      "control_code_tokens": 47000000,
+      "control_natural_tokens": 153000000,
+      "ratio_preserved": "65:20",
+      "rule": "control consumes the full budget at the E3 natural:code ratio renormalized without cognition",
+      "treatment_cognition_tokens": 30000000
+    }
+  },
+  "control_replacement_policy": {
+    "control_code_tokens": 47000000,
+    "control_natural_tokens": 153000000,
+    "ratio_preserved": "65:20",
+    "rule": "control consumes the full budget at the E3 natural:code ratio renormalized without cognition",
+    "treatment_cognition_tokens": 30000000
+  },
+  "dataset_pair_sha256": "0d50ab9f22c699985f8a910dabcf8d4b363e04942b99f8d4baa5e106721e7b50",
+  "schema": "anra-v5-p35a-dataset-pair/v1",
+  "token_budget": 200000000,
+  "treatment": {
+    "allocation": {
+      "code_math_formal": 40000000,
+      "natural": 130000000,
+      "verified_cognition": 30000000
+    },
+    "base_manifests": {
+      "foundry_fm": {
+        "sha256": "ddc5b5cdc540cbd9d5d9003850f5674eb6f9349ac8649024e786b3792f7c2f9a",
+        "unique_documents": 104634,
+        "unique_tokens": 173915079
+      },
+      "foundry_fwcap": {
+        "sha256": "63a367c242fba8a5d259aab35e99ef4242f653da35dc5528678e2777953c1d8b",
+        "unique_documents": 149999,
+        "unique_tokens": 197318183
+      },
+      "foundry_st0": {
+        "sha256": "f1a982106ca139167a50354a8c87585ab85b3833ede0f486ad284354f66f6eb2",
+        "unique_documents": 115056,
+        "unique_tokens": 113001322
+      },
+      "foundry_st1": {
+        "sha256": "3795625beffd7590d628a686ddc257ceb52886863f05d6cb44e6b008f68ec21b",
+        "unique_documents": 115056,
+        "unique_tokens": 113261163
+      }
+    },
+    "cognition_generator": {
+      "generator_id": "anra-binding-v2/2.0.0",
+      "generator_sha256": "PENDING_MATERIALIZATION",
+      "mode": "interference",
+      "split": "training",
+      "target_tokens": 30000000
+    }
+  }
+}
