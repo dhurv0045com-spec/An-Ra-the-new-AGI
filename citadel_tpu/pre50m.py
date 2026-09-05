@@ -254,6 +254,7 @@ def smoke_target_model(*, out_dir: str, updates: int = SMOKE_UPDATES,
             ledger_delta={"smoke-tiered": tokens_per_update})
         losses.append(lv)
         gnorms.append(gn)
+    cum_after_training = int(prev_state.cumulative_tokens)
     out = Path(out_dir)
     with torch.no_grad():
         ref_logits = model(tokens.to(device), pos.to(device), mask.to(device))
@@ -300,11 +301,26 @@ def smoke_target_model(*, out_dir: str, updates: int = SMOKE_UPDATES,
     resume_cursor = cckpt.cursor_for_update(
         pack_sha, sequence_ordinal=updates + 1,
         token_offset=(updates + 1) * tokens_per_update)
-    _, resume_sha = cckpt.publish_update(
+    resume_state, resume_sha = cckpt.publish_update(
         store, prev_state=restored_state, model=model2, optimizer=optimizer2,
         learning_rate=lr, rng_bytes=_rng_bytes(), cursor=resume_cursor,
         ledger_delta={"smoke-tiered": tokens_per_update})
     continued_ok = True
+    cum_after_resume = int(resume_state.cumulative_tokens)
+    expected_after_training = updates * tokens_per_update
+    expected_after_resume = (updates + 1) * tokens_per_update
+    token_accounting = {
+        "tokens_per_update": tokens_per_update,
+        "updates": updates,
+        "cumulative_after_training": cum_after_training,
+        "expected_after_training": expected_after_training,
+        "cumulative_after_resume": cum_after_resume,
+        "expected_after_resume": expected_after_resume,
+        "scheduled_values_nonnegative": bool(tokens_per_update > 0 and updates > 0),
+        "consistent": bool(cum_after_training == expected_after_training
+                           and cum_after_resume == expected_after_resume
+                           and tokens_per_update > 0),
+    }
     easy_recs, easy_summ = _smoke_eval(model2, easy_rows, easy_targets, device, torch)
     compat = checkpoint_compat_check(store, resume_sha, param_count)
     wall = time.time() - t0
@@ -329,10 +345,12 @@ def smoke_target_model(*, out_dir: str, updates: int = SMOKE_UPDATES,
                              "continued_update_ok": continued_ok,
                              "resume_head_sha256": resume_sha},
         "checkpoint_compat": compat,
+        "token_accounting": token_accounting,
         "device_count": n_devices, "wall_seconds": wall,
         "status": "PASS" if (reload_ok and moments_ok and continued_ok
                              and fence_probe == "rejected-as-required"
-                             and compat["compatible"]) else "FAIL",
+                             and compat["compatible"]
+                             and token_accounting["consistent"]) else "FAIL",
     }
     (out / "PRE50M_CHECKPOINT_SMOKE.json").write_text(
         json.dumps(receipt, indent=2, sort_keys=True), encoding="utf-8")
@@ -471,42 +489,143 @@ def packing_cert(*, out_dir: str | None = None) -> dict[str, Any]:
 
 
 def build_decision(**parts: Any) -> dict[str, Any]:
-    """Machine-built NEXT_50M_DECISION (pure; every field derived, none typed)."""
-    target = parts.get("target", {})
-    smoke = parts.get("smoke", {})
-    feas = parts.get("feasibility", {})
-    data = parts.get("data_interface", {})
-    packing = parts.get("packing", {})
+    """Machine-built NEXT_50M_DECISION (pure; every field derived, none typed).
+
+    FAIL-CLOSED: `ready_for_50m_training` is true only when EVERY required
+    condition holds; any false/missing condition forces false and adds a
+    precise blocking reason. No success is ever inferred from partial fields.
+    """
+    import math as _math
+
+    target = parts.get("target", {}) or {}
+    smoke = parts.get("smoke", {}) or {}
+    feas = parts.get("feasibility", {}) or {}
+    data = parts.get("data_interface", {}) or {}
+    packing = parts.get("packing", {}) or {}
     blocking: list[str] = []
+
+    # target identity (resolved from Cymek, never guessed)
+    target_understood = bool(target.get("understood"))
+    if not target_understood:
+        blocking.append("50m target not understood")
+    target_type_ok = target.get("type") == PRE50M_TARGET["type"]
+    if not target_type_ok:
+        blocking.append(f"target type mismatch: {target.get('type')!r} "
+                        f"!= {PRE50M_TARGET['type']!r}")
+    target_value_ok = target.get("value_tokens") == PRE50M_TARGET["value_tokens"]
+    if not target_value_ok:
+        blocking.append(f"target token value mismatch: {target.get('value_tokens')!r} "
+                        f"!= {PRE50M_TARGET['value_tokens']!r}")
+
+    # capacity/feasibility
     fits = bool(feas.get("verdict") == "FIT")
     if not fits:
         blocking.append("target model does not fit: " + str(feas.get("verdict")))
-    save_reload = bool(smoke.get("reload_output_identity")) and bool(
-        smoke.get("optimizer_resume", {}).get("moments_preserved"))
-    if not save_reload:
-        blocking.append("checkpoint/reload/resume smoke failed")
-    grad_ok = bool((smoke.get("grad_norm", {}) or {}).get("max", 0) > 0) or \
-        bool(smoke.get("losses"))
+    batch_ok = isinstance(parts.get("recommended_batch"), int) \
+        and parts.get("recommended_batch") > 0
+    seq_ok = isinstance(parts.get("recommended_sequence_length"), int) \
+        and parts.get("recommended_sequence_length") > 0
+    if not (batch_ok and seq_ok):
+        blocking.append("no safe selected static shape "
+                        f"(batch={parts.get('recommended_batch')!r}, "
+                        f"length={parts.get('recommended_sequence_length')!r})")
+    rate = parts.get("rate_tok_s")
+    rate_ok = isinstance(rate, (int, float)) and not isinstance(rate, bool) \
+        and _math.isfinite(float(rate)) and float(rate) > 0
+    if not rate_ok:
+        blocking.append(f"no positive finite throughput: {rate!r}")
+
+    # smoke: status + every mechanical certificate
+    if smoke.get("status") != "PASS":
+        blocking.append(f"smoke status is {smoke.get('status')!r}, want 'PASS'")
+    losses = smoke.get("losses") or []
+    finite_losses = bool(losses) and all(
+        isinstance(v, (int, float)) and not isinstance(v, bool)
+        and _math.isfinite(float(v)) for v in losses)
+    if not finite_losses:
+        blocking.append("smoke losses missing or nonfinite")
+    gn = smoke.get("grad_norm", {}) or {}
+    gn_max = gn.get("max")
+    grad_ok = isinstance(gn_max, (int, float)) and not isinstance(gn_max, bool) \
+        and _math.isfinite(float(gn_max)) and float(gn_max) > 0
     if not grad_ok:
-        blocking.append("no gradient signal in smoke")
-    if not bool(data.get("status") == "PASS"):
+        blocking.append(f"nonzero finite gradients required, got max={gn_max!r}")
+    if smoke.get("param_mutation") is not True:
+        blocking.append("no parameter mutation certified in smoke")
+    if smoke.get("production_transaction") is not True:
+        blocking.append("smoke did not run through the production transaction path")
+    compat = smoke.get("checkpoint_compat", {}) or {}
+    if compat.get("compatible") is not True:
+        blocking.append("checkpoint compatibility not verified "
+                        f"(compatible={compat.get('compatible')!r})")
+    if smoke.get("reload_output_identity") is not True:
+        blocking.append("checkpoint/reload output identity failed")
+    opt_resume = smoke.get("optimizer_resume", {}) or {}
+    if opt_resume.get("moments_preserved") is not True:
+        blocking.append("optimizer moments not preserved across reload")
+    if opt_resume.get("continued_update_ok") is not True:
+        blocking.append("continued update after resume not certified")
+    if smoke.get("writer_fence_probe") != "rejected-as-required":
+        blocking.append(f"writer fence probe = {smoke.get('writer_fence_probe')!r}, "
+                        "want 'rejected-as-required'")
+    ta = smoke.get("token_accounting", {}) or {}
+    if ta.get("consistent") is not True:
+        blocking.append("token accounting inconsistent in smoke "
+                        f"(cumulative {ta.get('cumulative_after_training')!r} vs "
+                        f"expected {ta.get('expected_after_training')!r})")
+
+    # data + packing certification
+    if data.get("status") != "PASS":
         blocking.append("data interface certification failed")
-    if not bool(packing.get("status") == "PASS"):
+    if packing.get("status") != "PASS":
         blocking.append("packing certification failed")
-    ready = not blocking and bool(target.get("understood"))
+    real = data.get("real_tokens")
+    loss_bearing = data.get("loss_bearing_tokens")
+    capacity = data.get("capacity_tokens")
+    padding = data.get("padding_tokens")
+    counts_ok = all(isinstance(v, (int, float)) and not isinstance(v, bool)
+                    and v >= 0 for v in (real, loss_bearing, capacity))
+    if not counts_ok or not (capacity >= real >= loss_bearing):
+        blocking.append(f"token accounting violated: capacity={capacity!r} "
+                        f"real={real!r} loss-bearing={loss_bearing!r} "
+                        "(need capacity >= real >= loss-bearing >= 0)")
+    elif isinstance(padding, (int, float)) and padding != capacity - real:
+        blocking.append(f"padding {padding!r} != capacity - real "
+                        f"{capacity - real}")
+    if not all(isinstance(data.get(k), (int, float)) or data.get(k) is None
+               for k in ("scheduled_rows",)) or (data.get("scheduled_rows") is not None
+                                                 and data.get("scheduled_rows") < 0):
+        blocking.append(f"negative scheduled token/row value: "
+                        f"{data.get('scheduled_rows')!r}")
+
+    ready = not blocking
     return {
-        "50m_target_understood": bool(target.get("understood")),
+        "50m_target_understood": target_understood,
         "target_type": target.get("type"),
+        "target_type_verified": bool(target_type_ok),
+        "target_value_tokens_verified": bool(target_value_ok),
         "target_parameter_count": target.get("parameter_count"),
         "fits_current_tpu": fits,
+        "safe_static_shape_exists": bool(batch_ok and seq_ok),
+        "positive_finite_throughput": bool(rate_ok),
+        "smoke_status": smoke.get("status"),
+        "finite_loss": bool(finite_losses),
+        "nonzero_finite_gradients": bool(grad_ok),
+        "parameter_mutation": smoke.get("param_mutation") is True,
+        "production_transaction": smoke.get("production_transaction") is True,
+        "checkpoint_compat_verified": compat.get("compatible") is True,
         "recommended_batch": parts.get("recommended_batch"),
         "recommended_sequence_length": parts.get("recommended_sequence_length"),
         "gradient_accumulation_required": False,
-        "estimated_tokens_per_second": parts.get("rate_tok_s"),
-        "checkpoint_save_reload_pass": bool(smoke.get("reload_output_identity")),
-        "resume_pass": bool(smoke.get("optimizer_resume", {}).get("moments_preserved")),
-        "data_interface_pass": bool(data.get("status") == "PASS"),
-        "packing_pass": bool(packing.get("status") == "PASS"),
+        "estimated_tokens_per_second": rate,
+        "checkpoint_save_reload_pass": smoke.get("reload_output_identity") is True,
+        "resume_pass": opt_resume.get("moments_preserved") is True,
+        "continued_update_pass": opt_resume.get("continued_update_ok") is True,
+        "writer_fence_rejected_as_required":
+            smoke.get("writer_fence_probe") == "rejected-as-required",
+        "token_accounting_consistent": ta.get("consistent") is True,
+        "data_interface_pass": data.get("status") == "PASS",
+        "packing_pass": packing.get("status") == "PASS",
         "ready_for_50m_training": ready,
         "blocking_reasons": blocking,
     }
