@@ -299,6 +299,99 @@ def test_masked_vocab_contents() -> None:
         assert cev.encode_char(c) in ids, c
 
 
+def test_packing_adversarial_matrix() -> None:
+    """Single/exact-fit/remainder/max-length/tiny/mixed/padding-tail packing."""
+    from citadel_tpu import t1d_run as t1d
+
+    cases = [
+        ["1 + 2 = 3"],
+        ["x" * 64],
+        ["x" * 63, "1 + 2 = 3"],  # 1-token remainder forces a new sequence
+        ["9" * 64],
+        ["1 + 2 = 3"] * 40,  # many tiny rows
+        ["12 + 9 = 21", "123456 + 789012 = 912468", "7+8=15",
+         "add 12345 and 67890 = 80235"],
+    ]
+    for rows in cases:
+        seqs, placements = t1d.pack_rows(rows, 64)
+        assert len(placements) == len(rows)
+        assert sum(len(s) for s in seqs) == len(rows)
+        for s, seq in enumerate(seqs):
+            assert [sg for sg, _ in seq] == list(range(len(seq)))
+            assert sum(ln for _, ln in seq) <= 64
+    try:
+        t1d.pack_rows(["x" * 65], 64)
+        raise SystemExit("overlong row accepted")
+    except ValueError:
+        pass
+    seqs, _ = t1d.pack_rows(["1 + 2 = 3", "4 + 5 = 9"], 64)
+    assert len(seqs) == 1  # shared sequence, distinct segment ids
+
+
+def test_teacher_heldout_band() -> None:
+    for kind in ("digadd", "digsub", "singlemul", "divmicro"):
+        for j in (900_000, 900_199):
+            text, meta = td.teacher_row(kind, j)
+            prompt, target = cev.split_prompt_target(text)
+            assert len(text) <= 64, text
+            assert meta["template"] == "teacher"
+
+
+def test_pre50m_estimators_and_decider() -> None:
+    from citadel_tpu import pre50m as p50
+
+    assert p50.PRE50M_TARGET["value_tokens"] == 50_000_000
+    assert p50.PRE50M_TARGET["cymek_sha"] == "28bf57a"
+    mem = p50.memory_estimate(7_378_368)
+    assert mem["parameter_bytes"] == 7_378_368 * 4
+    assert mem["optimizer_moment_bytes"] == 7_378_368 * 8
+    assert mem["verdict"] == "FIT"
+    mid = p50.memory_estimate(3_737_472)
+    assert mid["resident_gb"] < mem["resident_gb"]
+    est = p50.throughput_estimates(8_000.0)
+    assert abs(est["estimates_seconds"]["50M"] - 6_250.0) < 1e-9
+    assert abs(est["estimates_seconds"]["1B"] - 125_000.0) < 1e-9
+    try:
+        p50.throughput_estimates(0.0)
+        raise SystemExit("nonpositive rate accepted")
+    except ValueError:
+        pass
+    cands = [{"batch": 256, "length": 64, "tokens_per_second": 5_000.0, "correct": True},
+             {"batch": 1024, "length": 64, "tokens_per_second": 0.0,
+              "correct": False, "error": "OOMError: mem"}]
+    sel = p50.oom_decision(cands)
+    assert sel["selected"]["batch"] == 256 and len(sel["rejected"]) == 1
+    assert sel["rejected"][0]["reason"].startswith("OOMError")
+    assert p50.oom_decision([])["status"] == "NO_FEASIBLE_CONFIG"
+    ga = p50.grad_accumulation_status(True, 256)
+    assert ga["required"] is False and ga["status"] == "NOT_REQUIRED"
+    ga2 = p50.grad_accumulation_status(False, 4096)
+    assert ga2["required"] is True
+    base = {"target": {"understood": True, "type": "tokens", "parameter_count": None},
+            "smoke": {"reload_output_identity": True,
+                      "optimizer_resume": {"moments_preserved": True},
+                      "grad_norm": {"max": 1.5}, "losses": [9.0, 8.0]},
+            "feasibility": {"verdict": "FIT"},
+            "data_interface": {"status": "PASS"}, "packing": {"status": "PASS"},
+            "recommended_batch": 256, "recommended_sequence_length": 64,
+            "rate_tok_s": 8000.0}
+    import copy
+
+    assert p50.build_decision(**copy.deepcopy(base))["ready_for_50m_training"] is True
+    bad = copy.deepcopy(base)
+    bad["feasibility"] = {"verdict": "DOES_NOT_FIT"}
+    d = p50.build_decision(**bad)
+    assert d["ready_for_50m_training"] is False and len(d["blocking_reasons"]) == 1
+    bad2 = copy.deepcopy(base)
+    bad2["target"] = {"understood": False}
+    assert p50.build_decision(**bad2)["ready_for_50m_training"] is False
+    bad3 = copy.deepcopy(base)
+    bad3["smoke"] = {"reload_output_identity": False, "optimizer_resume": {},
+                     "grad_norm": {"max": 0.0}, "losses": []}
+    d3 = p50.build_decision(**bad3)
+    assert d3["ready_for_50m_training"] is False and len(d3["blocking_reasons"]) >= 2
+
+
 def test_session_resume_dry_run(tmp_path=None) -> None:
     import tempfile
 
@@ -317,6 +410,8 @@ def main() -> int:
              test_teacher_rows_verify, test_curriculum_membership,
              test_packing_exactness_and_boundaries, test_feeder_static_shapes_and_prefix,
              test_answer_spans_all_families, test_scale2_rules,
+             test_packing_adversarial_matrix, test_teacher_heldout_band,
+             test_pre50m_estimators_and_decider,
              test_classify_every_rule, test_fake_predictor_metric_sanity,
              test_nulls_all_template_families, test_masked_vocab_contents,
              test_session_resume_dry_run]
