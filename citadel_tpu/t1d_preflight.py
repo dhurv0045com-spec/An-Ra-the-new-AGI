@@ -128,16 +128,58 @@ def main() -> int:
 
     try:
         tests = ["tests/test_citadel_t1d.py", "tests/test_citadel_t1c.py",
-                 "tests/test_citadel_t1_canary.py", "tests/test_citadel_notebooks.py"]
+                 "tests/test_citadel_t1_canary.py", "tests/test_citadel_notebooks.py",
+                 "tests/test_citadel_bootstrap.py",
+                 "tests/test_citadel_cymek_checkpoint.py"]
         bad = []
         for t in tests:
             r = subprocess.run([sys.executable, t], capture_output=True, text=True, timeout=600)
             if r.returncode != 0:
                 bad.append(f"{t} (exit {r.returncode}): {(r.stdout or '')[-300:]}")
-        lines.append(f"unit tests: {'PASS all-4-files' if not bad else 'FAIL ' + '; '.join(bad)}")
+        lines.append(f"unit tests: {'PASS all-6-files' if not bad else 'FAIL ' + '; '.join(bad)}")
         ok &= not bad
     except Exception as exc:
         lines.append(f"unit tests: FAIL {type(exc).__name__}: {exc}")
+        ok = False
+
+    try:
+        from citadel_tpu import cymek_checkpoint as _cc
+        from citadel_tpu import pre50m as _p50
+
+        required_bundle = {"SESSION_MANIFEST.json", "DATA_MANIFEST.json",
+                           "CALIBRATION.json", "ARM_A.json", "ARM_B.json",
+                           "ARM_C.json", "ARM_D.json", "ARM_E.json",
+                           "LIFT_OFF_CURVES.json", "CROSS_ARM_SUMMARY.json",
+                           "PRE50M_TARGET.json", "PRE50M_FEASIBILITY.json",
+                           "PRE50M_THROUGHPUT.json", "PRE50M_CHECKPOINT_SMOKE.json",
+                           "PRE50M_DATA_INTERFACE.json", "PRE50M_PACKING.json",
+                           "DIAGNOSTICS.json", "NEXT_50M_DECISION.json"}
+        bundle_ok = required_bundle <= set(t1d.BUNDLE_FILES)
+        decision_keys = {"50m_target_understood", "target_type",
+                         "target_parameter_count", "fits_current_tpu",
+                         "recommended_batch", "recommended_sequence_length",
+                         "gradient_accumulation_required",
+                         "estimated_tokens_per_second",
+                         "checkpoint_save_reload_pass", "resume_pass",
+                         "data_interface_pass", "packing_pass",
+                         "ready_for_50m_training", "blocking_reasons"}
+        probe_decision = _p50.build_decision(
+            target={"understood": True, "type": "tokens", "parameter_count": None},
+            smoke={"reload_output_identity": True,
+                   "optimizer_resume": {"moments_preserved": True},
+                   "grad_norm": {"max": 1.0}, "losses": [9.0]},
+            feasibility={"verdict": "FIT"},
+            data_interface={"status": "PASS"}, packing={"status": "PASS"},
+            recommended_batch=256, recommended_sequence_length=64,
+            rate_tok_s=8000.0)
+        schema_ok = set(probe_decision) == decision_keys
+        smoke_ok = (_p50.SMOKE_SPEC == "SCALE2" and _p50.SMOKE_UPDATES >= 3
+                    and _p50.PRE50M_TARGET["value_tokens"] == 50_000_000)
+        lines.append(f"pre50m wiring: "
+                     f"{'PASS' if bundle_ok and schema_ok and smoke_ok else 'FAIL'}")
+        ok &= bundle_ok and schema_ok and smoke_ok
+    except Exception as exc:
+        lines.append(f"pre50m wiring: FAIL {type(exc).__name__}: {str(exc)[:160]}")
         ok = False
 
     try:

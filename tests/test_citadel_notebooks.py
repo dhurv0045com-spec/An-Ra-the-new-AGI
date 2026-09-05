@@ -96,6 +96,8 @@ SCHEMAS = {
     "curves": {"schema", "arms"},
     "arm_curves": {"status", "train", "dev", "test", "untrained_test",
                    "first_train_lift_tier", "first_test_lift_tier"},
+    "decision": {"ready_for_50m_training", "blocking_reasons"},
+    "verify": {"schema", "files", "status"},
 }
 
 # Every bare-word key touched per notebook -> schema group(s) it must belong to.
@@ -158,7 +160,9 @@ NOTEBOOK_KEYS = {
         "session": {"arms", "labels"},
         "xsummary": {"labels", "reasons"},
         "curves": {"arms"},
-        "arm_curves": {"first_test_lift_tier"},
+        "arm_curves": {"first_train_lift_tier", "first_test_lift_tier"},
+        "decision": {"ready_for_50m_training", "blocking_reasons"},
+        "verify": {"status"},
         "bundle": {"zip_bytes", "checkpoints_bundled", "checkpoints"},
     },
 }
