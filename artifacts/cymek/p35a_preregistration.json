@@ -1,0 +1,47 @@
+{
+  "checkpoint_milestones_tokens": [
+    50000000,
+    100000000,
+    150000000,
+    200000000
+  ],
+  "code_freeze_sha256": "78d969b58f450ae648904d3ac582add3c190bbea50ed7d60f5d4e3086f4231c7",
+  "control": {
+    "cognition_fraction": 0.0,
+    "replacement": "ratio-preserving natural/code fill (M38)"
+  },
+  "data_manifest_sha256": "PENDING_DATASET_FREEZE",
+  "dataset_pair_sha256": "PENDING_DATASET_FREEZE",
+  "e3_plan_sha256": "a8c7b0b2afb95f61102e67a4781544d0ea991ae6ae0694cf584936737a4cdcd9",
+  "evaluation_protocol_sha256": "PENDING_PROTOCOL_FREEZE",
+  "evaluation_schedule": [
+    "tier0 every 25M tokens",
+    "tier1 at 100M and 200M"
+  ],
+  "hypothesis": "Adding 15% verified interference-binding cognition data causes measurable cognitive acquisition beyond ordinary language training at matched compute.",
+  "loss_matched_analysis": "compare at equal tokens AND at matched natural validation loss",
+  "model_parameters": 35411328,
+  "model_spec_sha256": "12907494358361af334a356775968d1a73671058cbd38a584ca1df2c5d7da468",
+  "pack_manifest_sha256": "PENDING_DATASET_FREEZE",
+  "primary_claim": "Treatment pair-accuracy on frozen DEV-OOD interference binding at 200M tokens exceeds matched control, clustered by semantic instance.",
+  "promotion_stop_rules": [
+    "two consecutive Tier-1 worst-family declines above 5 points while LM loss improves: pause",
+    "nonfinite loss or gradient: abort update and run",
+    "fresh candidate-free and natural-transfer gains absent: deny V5-A"
+  ],
+  "schema": "anra-v5-p35a-preregistration/v1",
+  "seeds": [
+    1,
+    2
+  ],
+  "seeds_replication": "second seed replicates direction; fresh natural transfer paired LCB above zero",
+  "statistical_unit": "semantic cluster (surfaces of one latent instance count once)",
+  "status": "DRAFT",
+  "substrate_metric": "natural validation loss regression at most 3%",
+  "token_budget": 200000000,
+  "tokenizer_artifact_sha256": "97e12db63b343312e5e4abc37df9ef4b01fcb1faba792a6420a4c1b15d0a7fbc",
+  "treatment": {
+    "arm": "cognition-15-ce",
+    "cognition_fraction": 0.15
+  }
+}
