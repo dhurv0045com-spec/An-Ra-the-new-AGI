@@ -156,28 +156,52 @@ def main() -> int:
                            "DIAGNOSTICS.json", "NEXT_50M_DECISION.json"}
         bundle_ok = required_bundle <= set(t1d.BUNDLE_FILES)
         decision_keys = {"50m_target_understood", "target_type",
+                         "target_type_verified", "target_value_tokens_verified",
                          "target_parameter_count", "fits_current_tpu",
-                         "recommended_batch", "recommended_sequence_length",
+                         "safe_static_shape_exists",
+                         "positive_finite_throughput", "smoke_status",
+                         "finite_loss", "nonzero_finite_gradients",
+                         "parameter_mutation", "production_transaction",
+                         "checkpoint_compat_verified", "recommended_batch",
+                         "recommended_sequence_length",
                          "gradient_accumulation_required",
                          "estimated_tokens_per_second",
                          "checkpoint_save_reload_pass", "resume_pass",
-                         "data_interface_pass", "packing_pass",
-                         "ready_for_50m_training", "blocking_reasons"}
+                         "continued_update_pass",
+                         "writer_fence_rejected_as_required",
+                         "token_accounting_consistent", "data_interface_pass",
+                         "packing_pass", "ready_for_50m_training",
+                         "blocking_reasons"}
+        green_smoke = {"status": "PASS",
+                       "reload_output_identity": True,
+                       "optimizer_resume": {"moments_preserved": True,
+                                            "continued_update_ok": True},
+                       "grad_norm": {"max": 1.0}, "losses": [9.0, 8.0],
+                       "param_mutation": True, "production_transaction": True,
+                       "checkpoint_compat": {"compatible": True},
+                       "writer_fence_probe": "rejected-as-required",
+                       "token_accounting": {"consistent": True}}
+        green_data = {"status": "PASS", "capacity_tokens": 4096, "real_tokens": 4000,
+                      "loss_bearing_tokens": 900, "padding_tokens": 96,
+                      "scheduled_rows": 64}
         probe_decision = _p50.build_decision(
-            target={"understood": True, "type": "tokens", "parameter_count": None},
-            smoke={"reload_output_identity": True,
-                   "optimizer_resume": {"moments_preserved": True},
-                   "grad_norm": {"max": 1.0}, "losses": [9.0]},
-            feasibility={"verdict": "FIT"},
-            data_interface={"status": "PASS"}, packing={"status": "PASS"},
+            target={"understood": True, "type": _p50.PRE50M_TARGET["type"],
+                    "value_tokens": _p50.PRE50M_TARGET["value_tokens"],
+                    "parameter_count": None},
+            smoke=green_smoke, feasibility={"verdict": "FIT"},
+            data_interface=green_data, packing={"status": "PASS"},
             recommended_batch=256, recommended_sequence_length=64,
             rate_tok_s=8000.0)
         schema_ok = set(probe_decision) == decision_keys
+        ready_ok = (probe_decision["ready_for_50m_training"] is True
+                    and probe_decision["blocking_reasons"] == [])
         smoke_ok = (_p50.SMOKE_SPEC == "SCALE2" and _p50.SMOKE_UPDATES >= 3
                     and _p50.PRE50M_TARGET["value_tokens"] == 50_000_000)
         lines.append(f"pre50m wiring: "
-                     f"{'PASS' if bundle_ok and schema_ok and smoke_ok else 'FAIL'}")
-        ok &= bundle_ok and schema_ok and smoke_ok
+                     f"{'PASS' if bundle_ok and schema_ok and smoke_ok and ready_ok else 'FAIL'} "
+                     f"(decision schema {len(decision_keys)} fields, "
+                     f"all-green probe ready={probe_decision['ready_for_50m_training']})")
+        ok &= bundle_ok and schema_ok and smoke_ok and ready_ok
     except Exception as exc:
         lines.append(f"pre50m wiring: FAIL {type(exc).__name__}: {str(exc)[:160]}")
         ok = False
