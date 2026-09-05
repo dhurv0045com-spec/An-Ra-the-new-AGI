@@ -64,6 +64,19 @@ def _canonical(value: object) -> bytes:
 
 
 # ------------------------------------------------------------------ preflight
+def code_sha() -> str:
+    """Identity of the last commit that touched EXECUTABLE paths. Docs-only
+    handover commits (agent.md, receipts, certification itself) do not
+    invalidate a certificate; any code change does."""
+    import subprocess
+
+    out = subprocess.run(
+        ["git", "log", "-1", "--format=%H", "--", "citadel_tpu", "tests",
+         "notebooks", "pyproject.toml"],
+        capture_output=True, text=True, timeout=60)
+    return out.stdout.strip() or "unknown"
+
+
 def build_development_certificate(out: str | Path | None = None) -> dict[str, Any]:
     """DEVELOPMENT_CERTIFICATION (§4/§32): run the complete deterministic
     repository suite and record totals + identity. Committed to the repo; the
@@ -89,6 +102,7 @@ def build_development_certificate(out: str | Path | None = None) -> dict[str, An
         "schema": "citadel-development-certificate/v1",
         "generated_utc": _now(),
         "citadel_sha": rb.citadel_sha(),
+        "code_sha": code_sha(),
         "cymek_sha": cymek_sha,
         "python": sys.version.split()[0],
         "platform": sys.platform,
@@ -377,11 +391,13 @@ def run_all(session_dir: str, *, seed: int = 20260904,
         if cert_doc is None:
             raise RuntimeError("DEVELOPMENT_CERTIFICATION missing: run "
                                "build_development_certificate() before handoff")
-        if cert_doc.get("citadel_sha") != rb.citadel_sha():
+        runtime_code_sha = code_sha()
+        certified_code = cert_doc.get("code_sha", cert_doc.get("citadel_sha"))
+        if certified_code != runtime_code_sha:
             raise RuntimeError(
                 "CODE NEWER THAN CERTIFICATION: development certification was "
-                f"built at {cert_doc.get('citadel_sha')[:12]} but runtime is "
-                f"{rb.citadel_sha()[:12]}; regenerate certification first")
+                f"built at {str(certified_code)[:12]} but executable code is "
+                f"{runtime_code_sha[:12]}; regenerate certification first")
         if cert_doc.get("status") != "PASS":
             raise RuntimeError("development certification is not PASS")
         if cert_doc.get("cymek_sha") not in (None, rt_sha):

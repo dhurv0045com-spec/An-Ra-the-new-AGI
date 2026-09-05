@@ -80,10 +80,14 @@ def run_preflight() -> dict:
                  "DEVELOPMENT_CERTIFICATION.json missing")
         else:
             cert = json.loads(cert_path.read_text(encoding="utf-8"))
-            if cert.get("citadel_sha") != citadel_sha:
+            from citadel_tpu.t1d_one_shot import code_sha
+
+            runtime_code = code_sha()
+            certified_code = cert.get("code_sha", cert.get("citadel_sha"))
+            if certified_code != runtime_code:
                 gate("development_certification", False,
-                     f"certified {str(cert.get('citadel_sha'))[:12]} != runtime "
-                     f"{citadel_sha[:12]}; regenerate certification")
+                     f"certified {str(certified_code)[:12]} != executable code "
+                     f"{runtime_code[:12]}; regenerate certification")
             elif cert.get("status") != "PASS":
                 gate("development_certification", False,
                      "certification status is not PASS")
