@@ -92,7 +92,8 @@ SCHEMAS = {
                "checkpoints_bundled", "zip", "zip_bytes"},
     "session": {"schema", "citadel_sha", "cymek_runtime_sha", "shape",
                 "calibrated_rate", "budgets_scaled", "budgets", "arms",
-                "labels", "bundle"},
+                "labels", "bundle", "phases", "status", "pre50m",
+                "failure_bundle", "bundle_bytes", "error"},
     "curves": {"schema", "arms"},
     "arm_curves": {"status", "train", "dev", "test", "untrained_test",
                    "first_train_lift_tier", "first_test_lift_tier"},
@@ -157,7 +158,7 @@ NOTEBOOK_KEYS = {
     "citadel_colab_t1d.ipynb": {
         "cal": {"selected", "selected_tokens_per_second"},
         "manifest": {"total_bytes", "leakage", "max_row_chars"},
-        "session": {"arms", "labels"},
+        "session": {"arms", "labels", "phases", "status", "failure_bundle"},
         "xsummary": {"labels", "reasons"},
         "curves": {"arms"},
         "arm_curves": {"first_train_lift_tier", "first_test_lift_tier"},

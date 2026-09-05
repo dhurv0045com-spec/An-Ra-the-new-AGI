@@ -50,8 +50,110 @@ ARMS: dict[str, dict[str, Any]] = {
     "C": {"spec": "MID", "mode": "teacher", "budget": 8_000_000},
     "D": {"spec": "SCALE2", "mode": "curriculum", "budget": 4_000_000},
     "E": {"spec": "MID", "mode": "masked", "budget": 4_000_000},
+    "F": {"spec": "MID", "mode": "self", "budget": 2_000_000},
 }
+ARM_ORDER = ("A", "B", "C", "D", "E", "F")
+
+
+MID_STATE_SCHEMA = "citadel-t1d-arm-mid/v1"
+
+
+def save_mid_state(out_dir: str | Path, tag: str, *, model, optimizer, feeder,
+                   payload: dict[str, Any]) -> str:
+    """Durably persist resumable mid-arm training state at a preregistered
+    checkpoint fraction (model + optimizer + feeder cursors/carry + ledger +
+    pre-training baselines). Self-hash recorded in the JSON sidecar; a
+    disconnected runtime resumes from here instead of restarting the arm."""
+    import torch
+
+    body = {**payload, "plan_sha": plan_identity(),
+            "schema": MID_STATE_SCHEMA, "arm": tag}
+    base = Path(out_dir)
+    model_sha = _ckpt_mod_ref().save(model, str(base / f"t1d_arm_{tag.lower()}_mid.pt"),
+                                     {"arm": tag, "update": payload["update"]})
+    opt_sha = _ckpt_mod_ref().save_optimizer_state(
+        optimizer, str(base / f"t1d_arm_{tag.lower()}_mid.opt"),
+        {"arm": tag, "update": payload["update"]})
+    doc = {**body, "model_path": str(base / f"t1d_arm_{tag.lower()}_mid.pt"),
+           "model_sha256": model_sha,
+           "optimizer_path": str(base / f"t1d_arm_{tag.lower()}_mid.opt"),
+           "optimizer_sha256": opt_sha,
+           "payload_sha256": hashlib.sha256(_canonical_json(body)).hexdigest()}
+    (base / f"ARM_{tag}.mid.json").write_text(
+        json.dumps(doc, indent=2, sort_keys=True), encoding="utf-8")
+    return str(base / f"ARM_{tag}.mid.json")
+
+
+def _ckpt_mod_ref():
+    from citadel_tpu import checkpoint as ckpt_mod
+
+    return ckpt_mod
+
+
+def load_mid_state(out_dir: str | Path, tag: str, *, expect_cfg: dict,
+                   seed: int, shape: tuple[int, int]) -> tuple[dict | None, str]:
+    """Hash-verified mid-arm state (model/optimizer loaded by the caller).
+    Returns (payload | None, reason). Any mismatch archives the sidecar."""
+    path = Path(out_dir) / f"ARM_{tag}.mid.json"
+    if not path.is_file():
+        return None, ""
+    try:
+        doc = json.loads(path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        stamp = time.strftime("%Y%m%dT%H%M%S", time.gmtime())
+        path.rename(path.with_suffix(f".json.corrupt-{stamp}"))
+        return None, f"unreadable mid state ({type(exc).__name__})"
+    body = {k: v for k, v in doc.items()
+            if k not in ("model_path", "model_sha256", "optimizer_path",
+                         "optimizer_sha256", "payload_sha256")}
+    if hashlib.sha256(_canonical_json(body)).hexdigest() != doc.get("payload_sha256"):
+        return None, "mid payload hash mismatch"
+    if doc.get("plan_sha") != plan_identity():
+        return None, "mid state belongs to a different plan version"
+    if doc.get("cfg") != expect_cfg or doc.get("seed") != seed \
+            or tuple(doc.get("shape", ())) != tuple(shape):
+        return None, "mid state cfg/seed/shape mismatch"
+    for key in ("model_path", "model_sha256", "optimizer_path", "optimizer_sha256"):
+        if key not in doc:
+            return None, f"mid state missing {key}"
+    mp, op = Path(doc["model_path"]), Path(doc["optimizer_path"])
+    if not mp.is_file() or not op.is_file():
+        return None, "mid model/optimizer files missing"
+    if hashlib.sha256(mp.read_bytes()).hexdigest() != doc["model_sha256"]:
+        return None, "mid model hash mismatch"
+    if hashlib.sha256(op.read_bytes()).hexdigest() != doc["optimizer_sha256"]:
+        return None, "mid optimizer hash mismatch"
+    return doc, f"verified mid state at update {doc.get('update')}"
+
+
+def plan_identity() -> str:
+    """SHA-256 over the frozen scientific plan (arms, thresholds, data
+    generators, amendments). Part of resume identity: scientific state can
+    never be resumed under a changed plan."""
+    from citadel_tpu import self_knowledge as sk
+    from citadel_tpu import tiered_data as td
+
+    body = {
+        "arms": {t: dict(c) for t, c in sorted(ARMS.items())},
+        "lift_threshold": LIFT_THRESHOLD, "lift_min_n": LIFT_MIN_N,
+        "train_sample_per_tier": TRAIN_SAMPLE_PER_TIER,
+        "arm_time_box_s": ARM_TIME_BOX_S,
+        "calibration_shapes": [list(s) for s in CALIBRATION_SHAPES],
+        "auto_scale_rate": AUTO_SCALE_RATE,
+        "tiered_generator": td.GENERATOR_VERSION,
+        "self_knowledge": sk.plan_identity(),
+        "amendments": ["PRE50M_ADDENDUM", "RUNTIME_AMENDMENT_001",
+                       "SELF_KNOWLEDGE_AMENDMENT"],
+    }
+    return hashlib.sha256(_canonical_json(body)).hexdigest()
 ARM_TIME_BOX_S = 45 * 60
+
+
+def sk_self_mod() -> int:
+    """Frozen self-row cadence for arm F: every 7th draw (self_knowledge.SELF_ROW_FRACTION)."""
+    from citadel_tpu import self_knowledge as sk
+
+    return sk.SELF_ROW_FRACTION
 TIER_KEYS = tuple(f"t{t}" for t in range(5))
 UNTRAINED_SUMMARY_KEYS = ("correct", "total", "accuracy", "wilson_lcb", "wilson_ucb")
 PREFINAL_SCHEMA = "citadel-t1d-arm-prefinal/v1"
@@ -552,6 +654,13 @@ def run_arm(tag: str, cfg: dict[str, Any], *, shape: tuple[int, int],
     updates_total = budget // (n_seq * length)
     feeder = TierFeeder(cfg["mode"] if cfg["mode"] != "masked" else "curriculum",
                         n_seq, length)
+    # Mid-arm resume (§12): a disconnected arm continues from its last
+    # preregistered checkpoint fraction instead of restarting from zero.
+    mid, mid_why = load_mid_state(out_dir, tag, expect_cfg=cfg, seed=seed,
+                                  shape=(n_seq, length))
+    if mid is not None:
+        print(f"arm {tag}: mid-arm resume from update {mid['update']} ({mid_why})",
+              flush=True)
 
     slices = _tier_slices()
     allow_ids = valid_alphabet_ids() if masked else None
@@ -562,6 +671,9 @@ def run_arm(tag: str, cfg: dict[str, Any], *, shape: tuple[int, int],
     model = model.to(device)
     param_count = sum(int(p.numel()) for p in model.parameters())
     optimizer = build_adamw_optimizer(model, torch_module=torch)
+    if mid is not None:
+        ckpt_mod.load_into(model, mid["model_path"])
+        ckpt_mod.load_optimizer_state(optimizer, mid["optimizer_path"])
 
     def gen(rows, targets):
         return _gen_eval(model, rows, targets, device=device, torch_mod=torch,
@@ -574,12 +686,19 @@ def run_arm(tag: str, cfg: dict[str, Any], *, shape: tuple[int, int],
     # these are namespace fixes, not extra observations.
     untrained_dev: dict[str, Any] = {}
     untrained_test: dict[str, Any] = {}
-    for tier in range(5):
-        _, summ = gen(slices[f"dev_t{tier}"]["rows"], slices[f"dev_t{tier}"]["targets"])
-        untrained_dev[f"t{tier}"] = summ
-        _, summ = gen(slices[f"test_t{tier}"]["rows"], slices[f"test_t{tier}"]["targets"])
-        untrained_test[f"t{tier}"] = summ
-    untrained = untrained_test
+    if mid is None:
+        for tier in range(5):
+            _, summ = gen(slices[f"dev_t{tier}"]["rows"], slices[f"dev_t{tier}"]["targets"])
+            untrained_dev[f"t{tier}"] = summ
+            _, summ = gen(slices[f"test_t{tier}"]["rows"], slices[f"test_t{tier}"]["targets"])
+            untrained_test[f"t{tier}"] = summ
+        untrained = untrained_test
+    else:
+        # baselines are durable pre-training measurements restored verbatim;
+        # re-evaluating them against a trained model would be fabrication
+        untrained_dev = mid["untrained_dev"]
+        untrained = mid["untrained"]
+    untrained_test = untrained
     # Frozen TRAIN diagnostic candidates: the FIRST TRAIN_SAMPLE_PER_TIER train
     # indices per tier, fixed BEFORE any training. Consumption is verified
     # against the feeder's exact per-tier consumed prefix after training —
@@ -587,16 +706,49 @@ def run_arm(tag: str, cfg: dict[str, Any], *, shape: tuple[int, int],
     train_candidates = frozen_train_candidates()
     untrained_train: dict[str, Any] = {}
     for tier in range(5):
+        if mid is not None:
+            untrained_train = mid["untrained_train"]
+            break
         rows = [td.tier_row(tier, "train", i)[0] for i in train_candidates[tier]]
         tgts = [cev.split_prompt_target(r)[1] for r in rows]
         _, summ = gen(rows, tgts)
         untrained_train[f"t{tier}"] = summ
+    # Self-knowledge probes (DEV-tier diagnostic family, SELF_KNOWLEDGE
+    # AMENDMENT): identical frozen probe rows for EVERY arm; text scoring.
+    from citadel_tpu import self_knowledge as sk
+
+    self_rows, self_targets, self_meta = sk.self_probe_rows()
+
+    def gen_text(rows, targets):
+        recs = cev.generate(rows, model, xb, device=device, torch_mod=torch,
+                            allow_ids=allow_ids)
+        return recs, sk.summarize_text([r["prediction"] for r in recs], targets)
+
+    if mid is not None:
+        untrained_self = mid["untrained_self"]
+        self_diag_rest = mid.get("self_baseline", {})
+    else:
+        _, untrained_self = gen_text(self_rows, self_targets)
+        self_diag_rest = {}
+    self_null_preds = sk.most_common_null(self_targets)
+    untrained_self_null = sk.summarize_text(self_null_preds, self_targets)
 
     checkpoints = sorted({max(1, int(updates_total * f)) for f in (0.25, 0.50, 0.75, 1.0)})
     done, ledgers, inter = 0, [], {}
     first_loss, last_loss = None, None
     cap_total, ans_total, whole_total = 0, 0, 0
     gsum, gmax, gn = 0.0, 0.0, 0
+    if mid is not None:
+        done = int(mid["update"])
+        ledgers = list(mid["ledgers"])
+        inter = dict(mid["inter"])
+        first_loss = mid["first_loss"]
+        last_loss = mid["last_loss"]
+        cap_total = int(mid["cap_total"])
+        ans_total = int(mid["ans_total"])
+        whole_total = int(mid["whole_total"])
+        gsum, gmax, gn = float(mid["gsum"]), float(mid["gmax"]), int(mid["gn"])
+        checkpoints = [cp for cp in checkpoints if cp > done]
     t_train0 = time.time()
     try:
         for cp in checkpoints:
@@ -624,6 +776,28 @@ def run_arm(tag: str, cfg: dict[str, Any], *, shape: tuple[int, int],
                 _, summ = gen(slices[f"dev_t{tier}"]["rows"], slices[f"dev_t{tier}"]["targets"])
                 dev_curve[f"t{tier}"] = {"exact": summ["accuracy"], "lcb": summ["wilson_lcb"]}
             inter[str(cp)] = dev_curve
+            print(f"arm {tag}: update {cp}/{updates_total} "
+                  f"({100 * cp / max(updates_total, 1):.0f}%) "
+                  f"last_loss={last_loss:.3f} "
+                  f"dev_t1={dev_curve['t1']['exact']:.3f}", flush=True)
+            # durable mid-arm checkpoint (disconnect recovery, §12)
+            if cp < checkpoints[-1]:
+                save_mid_state(out_dir, tag, model=model, optimizer=optimizer,
+                               feeder=feeder,
+                               payload={"update": cp, "cfg": dict(cfg),
+                                        "seed": seed, "shape": [n_seq, length],
+                                        "feeder_state": feeder.state(),
+                                        "untrained": untrained,
+                                        "untrained_dev": untrained_dev,
+                                        "untrained_self": untrained_self,
+                                        "untrained_train": untrained_train,
+                                        "ledgers": ledgers, "inter": inter,
+                                        "first_loss": first_loss,
+                                        "last_loss": last_loss,
+                                        "cap_total": cap_total,
+                                        "ans_total": ans_total,
+                                        "whole_total": whole_total,
+                                        "gsum": gsum, "gmax": gmax, "gn": gn})
     except TimeoutError as exc:
         wall = time.time() - t0
         abort = timebox_abort_receipt(
@@ -726,6 +900,21 @@ def run_arm(tag: str, cfg: dict[str, Any], *, shape: tuple[int, int],
     post_sha = cev.sha_predictions(post_preds)
     reload_ok = bool(pre_sha == post_sha)
 
+    self_recs, trained_self = gen_text(self_rows, self_targets)
+    per_domain = {}
+    for m, r in zip(self_meta, self_recs):
+        d = m["domain"]
+        agg = per_domain.setdefault(d, {"correct": 0, "total": 0})
+        agg["total"] += 1
+        agg["correct"] += int(sk.text_exact(r["prediction"], r["target"]))
+    for d, agg in per_domain.items():
+        agg["accuracy"] = agg["correct"] / agg["total"] if agg["total"] else 0.0
+    self_diag = {"n": len(self_rows),
+                 "trained": trained_self,
+                 "untrained": untrained_self,
+                 "most_common_null": untrained_self_null,
+                 "per_domain": per_domain}
+
     wall = time.time() - t0
     # Durable PRE-FINALIZATION RECOVERY SNAPSHOT: training, TEST evaluation,
     # diagnostics, checkpoint, and reload identity are complete and durable —
@@ -742,6 +931,8 @@ def run_arm(tag: str, cfg: dict[str, Any], *, shape: tuple[int, int],
         gsum=gsum, gmax=gmax, gn=gn, train_wall=train_wall,
         untrained=untrained, untrained_dev=untrained_dev,
         untrained_train=untrained_train,
+        untrained_self=untrained_self, trained_self=trained_self,
+        self_diagnostics=self_diag,
         trained=trained, trained_recs=trained_recs,
         trained_train=trained_train, train_memorization=train_memorization,
         inter=inter, teacher_eval=teacher_eval, first_step=first_step,
@@ -854,7 +1045,8 @@ _FINALIZER_SNAPSHOT_KEYS = (
     "cymek_sha", "seed", "feeder_placed_rows", "feeder_ledger", "ledgers",
     "done", "first_loss", "last_loss", "cap_total", "ans_total",
     "whole_total", "gsum", "gmax", "gn", "train_wall", "untrained",
-    "untrained_dev", "untrained_train", "trained", "trained_recs",
+    "untrained_dev", "untrained_train", "untrained_self", "trained_self",
+    "self_diagnostics", "trained", "trained_recs",
     "trained_train", "train_memorization", "inter", "teacher_eval",
     "first_step", "ckpt_path", "ckpt_hash", "pre_sha", "post_sha",
     "reload_ok", "device_count", "wall")
@@ -994,6 +1186,9 @@ def build_arm_receipt(*, tag: str, cfg: dict[str, Any], env: dict[str, Any],
                       whole_total: int, gsum: float, gmax: float, gn: int,
                       train_wall: float, untrained: dict[str, Any],
                       untrained_dev: dict[str, Any] | None = None,
+                      untrained_self: dict[str, Any] | None = None,
+                      trained_self: dict[str, Any] | None = None,
+                      self_diagnostics: dict[str, Any] | None = None,
                       untrained_train: dict[str, Any], trained: dict[str, Any],
                       trained_recs: dict[str, Any], trained_train: dict[str, Any],
                       train_memorization: dict[str, Any], inter: dict[str, Any],
@@ -1124,6 +1319,12 @@ def build_arm_receipt(*, tag: str, cfg: dict[str, Any], env: dict[str, Any],
         "untrained_dev": (untrained_dev
                           if isinstance(untrained_dev, dict) and untrained_dev
                           else {}),
+        "untrained_self": (untrained_self
+                           if isinstance(untrained_self, dict) else {}),
+        "trained_self": (trained_self
+                         if isinstance(trained_self, dict) else {}),
+        "self_diagnostics": (self_diagnostics
+                             if isinstance(self_diagnostics, dict) else {}),
         "untrained_train": untrained_train,
         "trained": trained, "trained_train": trained_train,
         "train_memorization": train_memorization,
@@ -1207,7 +1408,8 @@ def _pooled(arm: dict[str, Any], key: str) -> tuple[int, int]:
 
 
 CLASSIFY_ORDER = ("CAPABILITY_LIFTED", "CURRICULUM_HELPED", "TEACHER_HELPED",
-                  "SCALE_HELPED", "REPRESENTATION_LIMITED", "BELOW_FIT_FLOOR",
+                  "SCALE_HELPED", "REPRESENTATION_LIMITED", "SELF_KNOWLEDGE_ACQUIRED",
+                  "SELF_PROBE_LEAKAGE", "BELOW_FIT_FLOOR",
                   "GENERALIZATION_LIMITED", "COMPLEXITY_FRONTIER", "FORMAT_FAILURE",
                   "BUDGET_LIMITED", "INCONCLUSIVE")
 
@@ -1300,6 +1502,35 @@ def classify_cross_arm(arms: dict[str, dict[str, Any]]) -> dict[str, Any]:
                     f"arm {t}: mean dev tiers1-4 still rising between the last "
                     f"two checkpoints ({early:.2f}->{late:.2f}); pooled test {te:.2f}")
                 break
+    # Self-knowledge rules (SELF_KNOWLEDGE AMENDMENT). Acquisition needs arm
+    # F; leakage is checked on every arm that carries self probes.
+    if any(arms[t].get("trained_self") for t in present):
+        def _self_block(t: str):
+            return arms[t].get("trained_self") or {}
+        f_self = _self_block("F")
+        f_untr = arms.get("F", {}).get("untrained_self") or {}
+        f_null = (arms.get("F", {}).get("self_diagnostics") or {}).get(
+            "most_common_null") or {}
+        if f_self and f_untr and f_null and "F" in present:
+            acquired = (f_self.get("wilson_lcb", 0.0)
+                        >= f_untr.get("wilson_lcb", 0.0) + 0.10
+                        and f_self.get("wilson_lcb", 0.0)
+                        > f_null.get("wilson_lcb", 0.0) + 0.10)
+            if acquired:
+                fired["SELF_KNOWLEDGE_ACQUIRED"] = (
+                    f"arm F probe LCB {f_self.get('wilson_lcb', 0.0):.2f} "
+                    f"> untrained {f_untr.get('wilson_lcb', 0.0):.2f} + 0.10 "
+                    f"and > null {f_null.get('wilson_lcb', 0.0):.2f} + 0.10")
+        for t in sorted(present):
+            if t == "F":
+                continue
+            s_self, s_untr = _self_block(t), arms[t].get("untrained_self") or {}
+            if s_self and s_untr and (s_self.get("wilson_lcb", 0.0)
+                                      >= s_untr.get("wilson_lcb", 0.0) + 0.10):
+                fired["SELF_PROBE_LEAKAGE"] = (
+                    f"arm {t} passes the self-probe bar without self data - "
+                    "probe disjointness is broken; no acquisition claim")
+                break
     if not fired:
         fired["INCONCLUSIVE"] = "no rule fired"
     return {"labels": sorted(fired, key=CLASSIFY_ORDER.index),
@@ -1364,7 +1595,7 @@ def run_session(session_dir: str, *, seed: int = 20260904) -> dict[str, Any]:
 
     arm_receipts: dict[str, Any] = {}
     infra_failures = 0
-    for tag in ("A", "B", "C", "D", "E"):
+    for tag in ARM_ORDER:
         try:
             receipt = run_arm(tag, budgets[tag], shape=shape, out_dir=str(root), seed=seed)
             arm_receipts[tag] = receipt
@@ -1519,6 +1750,8 @@ def build_lift_curves(arm_receipts: dict[str, Any]) -> dict[str, Any]:
                                for t in range(5)},
             "first_train_lift_tier": r["diagnostics"].get("first_train_lift_tier"),
             "first_test_lift_tier": r["diagnostics"].get("first_test_lift_tier")}
+        if r.get("trained_self"):
+            curves[tag]["self_probe"] = r["trained_self"].get("accuracy")
     return curves
 
 
@@ -1667,14 +1900,6 @@ def _assemble_session_results(root: Path, arm_receipts: dict[str, Any], *,
                   flush=True)
             continue
         scientific[t] = r
-    summary = classify_cross_arm(scientific)
-    (root / "CROSS_ARM_SUMMARY.json").write_text(
-        json.dumps(summary, indent=2, sort_keys=True), encoding="utf-8")
-    print("cross-arm labels:", summary["labels"], flush=True)
-    curves = build_lift_curves(arm_receipts)
-    (root / "LIFT_OFF_CURVES.json").write_text(
-        json.dumps({"schema": "citadel-t1d-lift-off-curves/v1", "arms": curves},
-                   indent=2, sort_keys=True), encoding="utf-8")
     runner = _run_pre50m_phase if pre50m_runner is None else pre50m_runner
     try:
         pre50m_status = runner(root, arm_receipts, rt_sha=rt_sha, rate=rate,
@@ -1689,6 +1914,39 @@ def _assemble_session_results(root: Path, arm_receipts: dict[str, Any], *,
         decision = pre50m_status.get("decision", {})
         print("pre50m:", decision.get("ready_for_50m_training"),
               decision.get("blocking_reasons"), flush=True)
+    # classification/curves/manifest/bundle happen in summarize_session
+    return summarize_session(root, arm_receipts, shape=shape, rate=rate,
+                             scaled=scaled, budgets=budgets, rt_sha=rt_sha,
+                             pre50m_status=pre50m_status)
+
+
+def summarize_session(root: Path, arm_receipts: dict[str, Any], *, shape,
+                      rate: float, scaled: bool, budgets: dict[str, int],
+                      rt_sha: str,
+                      pre50m_status: dict[str, Any] | None = None
+                      ) -> dict[str, Any]:
+    """Post-arm session assembly WITHOUT the PRE50M phase (already run):
+    cross-arm classification, lift curves, session manifest, bundle."""
+    from citadel_tpu import runtime_bootstrap as rb
+
+    root = Path(root)
+    citadel_sha = rb.citadel_sha()
+    if pre50m_status is None:  # orchestrator runs PRE50M as its own phase
+        dpath = root / "NEXT_50M_DECISION.json"
+        pre50m_status = ({"status": "PASS",
+                          "decision": json.loads(dpath.read_text(encoding="utf-8"))}
+                         if dpath.is_file() else
+                         {"status": "NOT_RUN"})
+    scientific = {t: r for t, r in arm_receipts.items()
+                  if r.get("status") in ("SCIENTIFIC_PASS", "SCIENTIFIC_FAIL")}
+    summary = classify_cross_arm(scientific)
+    (root / "CROSS_ARM_SUMMARY.json").write_text(
+        json.dumps(summary, indent=2, sort_keys=True), encoding="utf-8")
+    print("cross-arm labels:", summary["labels"], flush=True)
+    curves = build_lift_curves(arm_receipts)
+    (root / "LIFT_OFF_CURVES.json").write_text(
+        json.dumps({"schema": "citadel-t1d-lift-off-curves/v1", "arms": curves},
+                   indent=2, sort_keys=True), encoding="utf-8")
     session = {"schema": "citadel-t1d-session/v1",
                "citadel_sha": citadel_sha, "cymek_runtime_sha": rt_sha,
                "shape": list(shape), "calibrated_rate": rate, "budgets_scaled": scaled,
@@ -1708,6 +1966,7 @@ def _assemble_session_results(root: Path, arm_receipts: dict[str, Any], *,
 
 BUNDLE_FILES = ["SESSION_MANIFEST.json", "DATA_MANIFEST.json", "CALIBRATION.json",
                 "ARM_A.json", "ARM_B.json", "ARM_C.json", "ARM_D.json", "ARM_E.json",
+                "ARM_F.json",
                 "LIFT_OFF_CURVES.json", "CROSS_ARM_SUMMARY.json",
                 "PRE50M_TARGET.json", "PRE50M_FEASIBILITY.json",
                 "PRE50M_THROUGHPUT.json", "PRE50M_CHECKPOINT_SMOKE.json",
@@ -1716,7 +1975,8 @@ BUNDLE_FILES = ["SESSION_MANIFEST.json", "DATA_MANIFEST.json", "CALIBRATION.json
 
 
 BUNDLE_KNOWN_STATUSES = {"SCIENTIFIC_PASS", "SCIENTIFIC_FAIL", "TIMEBOX_ABORT",
-                         "IMPLEMENTATION_FAILURE", "PASS", "FAIL"}
+                         "IMPLEMENTATION_FAILURE", "PASS", "FAIL",
+                         "COMPLETE", "FAILED", "RUNNING", "NOT_RUN"}
 
 
 def verify_bundle(session_dir: str) -> dict[str, Any]:
@@ -1749,7 +2009,7 @@ def verify_bundle(session_dir: str) -> dict[str, Any]:
         if isinstance(doc, dict) and "status" in doc \
                 and doc.get("status") not in BUNDLE_KNOWN_STATUSES:
             defects.append(f"{name} unknown status {doc.get('status')!r}")
-    for tag in ("A", "B", "C", "D", "E"):
+    for tag in ARM_ORDER:
         r = loaded.get(f"ARM_{tag}.json")
         if isinstance(r, dict) and r.get("status") in ("SCIENTIFIC_PASS",
                                                        "SCIENTIFIC_FAIL"):
@@ -1776,7 +2036,7 @@ def verify_bundle(session_dir: str) -> dict[str, Any]:
     # checkpoint identity: when binaries are bundled, each arm receipt's
     # checkpoint sha256 must match the bundled bytes exactly
     if zip_bytes:
-        for tag in ("A", "B", "C", "D", "E"):
+        for tag in ARM_ORDER:
             r = loaded.get(f"ARM_{tag}.json")
             if not isinstance(r, dict):
                 continue
@@ -1882,6 +2142,8 @@ class TierFeeder:
     def __init__(self, mode: str, n_seq: int, length: int):
         from citadel_tpu import tiered_data as td
 
+        if mode not in ("flat", "curriculum", "teacher", "masked", "self"):
+            raise ValueError(f"unknown feeder mode {mode!r}")
         self.mode = mode
         self.n_seq = n_seq
         self.length = length
@@ -1894,9 +2156,36 @@ class TierFeeder:
         self.placed_rows: dict[str, int] = {}
         self.placed_tokens: dict[str, int] = {}
         self.teacher_cursors: dict[str, int] = {k: 0 for k in self.TEACHER_KINDS}
+        self.self_cursor = 0
         self._draw = 0
         self._pattern = 0
         self._carry: list[tuple[str, str, str]] = []  # (text, key, tier_tag)
+
+    # -- state serialization (mid-arm training checkpoints, §12 of the
+    # one-shot hardening: a disconnected arm resumes, never restarts)
+    def state(self) -> dict[str, Any]:
+        return {"mode": self.mode, "n_seq": self.n_seq, "length": self.length,
+                "cursors": dict(self.cursors), "drawn": dict(self.drawn),
+                "carried": dict(self.carried),
+                "placed_rows": dict(self.placed_rows),
+                "placed_tokens": dict(self.placed_tokens),
+                "teacher_cursors": dict(self.teacher_cursors),
+                "self_cursor": self.self_cursor,
+                "draw": self._draw, "pattern": self._pattern,
+                "carry": [list(t) for t in self._carry]}
+
+    def load_state(self, state: dict[str, Any]) -> None:
+        self.mode = state["mode"]
+        self.cursors = {int(k): v for k, v in state["cursors"].items()}
+        self.drawn = dict(state["drawn"])
+        self.carried = dict(state["carried"])
+        self.placed_rows = dict(state["placed_rows"])
+        self.placed_tokens = dict(state["placed_tokens"])
+        self.teacher_cursors = dict(state["teacher_cursors"])
+        self.self_cursor = int(state.get("self_cursor", 0))
+        self._draw = int(state["draw"])
+        self._pattern = int(state["pattern"])
+        self._carry = [tuple(t) for t in state["carry"]]
 
     def _ordinary_row(self, frac: float) -> tuple[str, str]:
         from citadel_tpu import tiered_data as td
@@ -1920,10 +2209,21 @@ class TierFeeder:
         self.drawn[key] = self.drawn.get(key, 0) + 1
         return text, key
 
+    def _self_row(self) -> tuple[str, str]:
+        from citadel_tpu import self_knowledge as sk
+
+        text, _ = sk.self_row(self.self_cursor, split="train")
+        self.self_cursor = (self.self_cursor + 1) % sk.SELF_TRAIN_N
+        key = "self:train"
+        self.drawn[key] = self.drawn.get(key, 0) + 1
+        return text, key
+
     def _refill(self, n: int, frac: float) -> None:
         for _ in range(n):
             if self.mode == "teacher" and (self._pattern % 10) >= self._ordinary_per_10:
                 t, key = self._teacher_row()
+            elif self.mode == "self" and (self._pattern % sk_self_mod()) == 0:
+                t, key = self._self_row()
             else:
                 t, key = self._ordinary_row(frac)
             self._pattern += 1

@@ -149,9 +149,9 @@ def test_scale2_rules() -> None:
     assert k["head_dimension"] == 16 and k["tied_embeddings"]
     assert k["dropout"] == 0.0 and not k["linear_bias"]
     assert t1d.SCALE2_EXPECTED_PARAMS == 7_378_368
-    assert set(t1d.ARMS) == {"A", "B", "C", "D", "E"}
+    assert set(t1d.ARMS) == {"A", "B", "C", "D", "E", "F"}
     total = sum(c["budget"] for c in t1d.ARMS.values())
-    assert total == 8_000_000 * 3 + 4_000_000 * 2
+    assert total == 8_000_000 * 3 + 4_000_000 * 2 + 2_000_000
     for tag, cfg in t1d.ARMS.items():
         for b, ln in t1d.CALIBRATION_SHAPES:
             used = cfg["budget"] // (b * ln) * (b * ln)
@@ -275,7 +275,7 @@ def test_leakage_verdict() -> None:
 
 
 def test_classify_every_rule() -> None:
-    base = {t: _arm() for t in "ABCDE"}
+    base = {t: _arm() for t in t1d.ARM_ORDER}
     # All-zero arms: nothing learned anywhere -> BELOW_FIT_FLOOR fires (correct).
     assert t1d.classify_cross_arm(base)["labels"] == ["BELOW_FIT_FLOOR"]
     arms = dict(base, B=_arm(test14=(0.3, 0.3, 0.3, 0.3), lcb=0.26))
@@ -876,7 +876,7 @@ def _write_synthetic_session(root: Path, *, arm_status="SCIENTIFIC_FAIL"):
          "generator_version": td.GENERATOR_VERSION, "total_bytes": 1000,
          "max_row_chars": 64, "leakage": {}}, sort_keys=True), encoding="utf-8")
     arms = {}
-    for tag in "ABCDE":
+    for tag in t1d.ARM_ORDER:
         r = _arm(status=arm_status)
         r["arm"] = tag
         arms[tag] = r
@@ -1316,6 +1316,12 @@ def test_prefinal_recovery_simulation() -> None:
             done=100, first_loss=9.0, last_loss=6.0, cap_total=100 * 8 * 64,
             ans_total=1234, whole_total=42_000, gsum=3.0, gmax=0.9, gn=100,
             train_wall=60.0, untrained=untrained, untrained_dev=untrained_dev,
+            untrained_self={"correct": 0, "total": 96, "accuracy": 0.0,
+                            "wilson_lcb": 0.0, "wilson_ucb": 0.04},
+            trained_self={"correct": 0, "total": 96, "accuracy": 0.0,
+                          "wilson_lcb": 0.0, "wilson_ucb": 0.04},
+            self_diagnostics={"most_common_null": {"wilson_lcb": 0.0},
+                              "per_domain": {}},
             untrained_train={f"t{t}": s(0.0, n=200) for t in range(5)},
             trained={f"t{t}": s(accs[t]) for t in range(5)},
             trained_recs={f"t{t}": [

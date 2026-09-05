@@ -1,26 +1,31 @@
 """T1D session preflight: `python -m citadel_tpu.t1d_preflight`.
 
-Verifies BEFORE the substantial session: T0 PASS + T1 context receipts present;
-pinned runtime resolves with every T1D file; tiered generator deterministic with
-all ordinary + teacher templates rendering/parsing; every eval prompt fits the
-fixed generation buffer with headroom and every full row fits the training
-buffer; alphabet round-trips; split leakage guards pass on eval slices;
-eligible answer spans align on every template family; null helpers accept all
-formats; MID/SCALE2 specs validate; all unit-test files pass in-process;
-notebooks resolve; session dir writable; TPU + XLA APIs active.
-Prints READY_FOR_T1D YES/NO; exit 0/1. Never trains.
+Structured API (the one-shot orchestrator consumes it):
+
+    run_preflight() -> {"status": PASS|FAIL, "gates": [...],
+                        "blocking_gates": [...], "environment": {...},
+                        "citadel_sha": ..., "cymek_sha": ...}
+
+LIVE preflight (runs on the TPU host): only gates that need the LIVE
+environment plus a compact set of high-value pure contract checks. The full
+deterministic repository suite is DEVELOPMENT certification
+(DEVELOPMENT_CERTIFICATION.json) and runs before handoff; the live gate
+verifies the runtime SHA matches that certificate — code newer than
+certification fails closed. Prints READY_FOR_T1D YES/NO; exit 0/1.
+Never trains.
 """
 
 from __future__ import annotations
 
 import json
-import subprocess
 import sys
-from pathlib import Path
+import time
 
 
-def main() -> int:
-    from citadel_tpu import arith_data as _ad  # noqa: F401 (canary compat check)
+def run_preflight() -> dict:
+    """Structured live preflight. Every gate is recorded; failures never
+    raise past this function — the caller decides (the orchestrator writes
+    the failure bundle and stops before training)."""
     from citadel_tpu import calculator_eval as cev
     from citadel_tpu import environment as env_mod
     from citadel_tpu import preflight as pf
@@ -28,55 +33,105 @@ def main() -> int:
     from citadel_tpu import t1d_run as t1d
     from citadel_tpu import tiered_data as td
 
-    lines: list[str] = []
-    ok = True
+    gates: list[dict] = []
+
+    def gate(name: str, passed: bool, detail: str) -> None:
+        gates.append({"name": name, "status": "PASS" if passed else "FAIL",
+                      "detail": detail})
+
+    citadel_sha = None
+    cymek_sha = None
     try:
         root = rb.citadel_root()
+        citadel_sha = rb.citadel_sha()
     except RuntimeError as exc:
-        print(f"citadel root: FAIL {exc}\nREADY_FOR_T1D: NO")
-        return 1
+        return {"schema": "citadel-t1d-preflight/v1", "status": "FAIL",
+                "gates": [{"name": "citadel_root", "status": "FAIL",
+                           "detail": str(exc)}],
+                "blocking_gates": ["citadel_root"], "environment": {},
+                "citadel_sha": None, "cymek_sha": None, "plan_sha": None,
+                "generated_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ",
+                                               time.gmtime())}
 
-    for name, want in (("TPU_ONE_UPDATE.json", "PASS"),
-                       ("TPU_CALCULATOR_CHECKPOINT.json", None)):
-        p = root / "docs" / "citadel" / "tpu_receipts" / name
-        if not p.is_file():
-            lines.append(f"context receipt {name}: FAIL missing")
-            ok = False
-            continue
-        try:
+    # 1. context receipts (T0/T1 lineage)
+    try:
+        ok, detail = True, []
+        for name, want in (("TPU_ONE_UPDATE.json", "PASS"),
+                           ("TPU_CALCULATOR_CHECKPOINT.json", None)):
+            p = root / "docs" / "citadel" / "tpu_receipts" / name
+            if not p.is_file():
+                ok = False
+                detail.append(f"{name} missing")
+                continue
             r = json.loads(p.read_text(encoding="utf-8"))
-            good = (r.get("certification") == want) if want else True
-            lines.append(f"context receipt {name}: {'PASS' if good else 'FAIL status'}")
-            ok &= good
-        except Exception as exc:
-            lines.append(f"context receipt {name}: FAIL {type(exc).__name__}")
-            ok = False
+            if want is not None and r.get("certification") != want:
+                ok = False
+                detail.append(f"{name} status {r.get('certification')!r}")
+        gate("context_receipts", ok, "; ".join(detail) or "T0+checkpoint present")
+    except Exception as exc:
+        gate("context_receipts", False, f"{type(exc).__name__}: {exc}")
 
+    # 2. development certification identity (fail-closed on code drift)
+    try:
+        cert_path = root / "docs" / "citadel" / "experiments" / "T1D" / \
+            "DEVELOPMENT_CERTIFICATION.json"
+        if not cert_path.is_file():
+            gate("development_certification", False,
+                 "DEVELOPMENT_CERTIFICATION.json missing")
+        else:
+            cert = json.loads(cert_path.read_text(encoding="utf-8"))
+            if cert.get("citadel_sha") != citadel_sha:
+                gate("development_certification", False,
+                     f"certified {str(cert.get('citadel_sha'))[:12]} != runtime "
+                     f"{citadel_sha[:12]}; regenerate certification")
+            elif cert.get("status") != "PASS":
+                gate("development_certification", False,
+                     "certification status is not PASS")
+            else:
+                gate("development_certification", True,
+                     f"sha {str(cert.get('citadel_sha'))[:12]} tests "
+                     f"{cert.get('files_passed')}/{cert.get('files_total')}")
+    except Exception as exc:
+        gate("development_certification", False, f"{type(exc).__name__}: {exc}")
+
+    # 3. pinned Cymek runtime resolves with every T1D file
     try:
         rt_root, rt_sha = rb.ensure_cymek_runtime()
         missing = [rel for rel, present in rb.verify_files(rt_root) if not present]
-        lines.append(f"cymek runtime: {'PASS ' + rt_sha[:7] if not missing else 'FAIL ' + ','.join(missing)}")
-        ok &= not missing
+        gate("cymek_runtime", not missing,
+             f"{rt_sha[:12]}" + (f" missing {','.join(missing)}" if missing else ""))
+        cymek_sha = rt_sha
     except RuntimeError as exc:
-        lines.append(f"cymek runtime: FAIL {exc}")
-        ok = False
+        gate("cymek_runtime", False, str(exc))
 
+    # 4. tiered + teacher + self generators deterministic and alphabet-safe
     try:
+        from citadel_tpu import self_knowledge as sk
+
         det = all(td.tier_row(t, "train", i) == td.tier_row(t, "train", i)
                   for t in range(5) for i in (0, 7, 999))
-        kinds = [td.teacher_row(k, i) for k in ("digadd", "digsub", "singlemul", "divmicro")
-                 for i in (0, 5)]
+        kinds = [td.teacher_row(k, i) for k in ("digadd", "digsub", "singlemul",
+                                                "divmicro") for i in (0, 5)]
         det &= all(td.teacher_row(k, i) == td.teacher_row(k, i)
-                   for k in ("digadd", "digsub", "singlemul", "divmicro") for i in (0, 5))
+                   for k in ("digadd", "digsub", "singlemul", "divmicro")
+                   for i in (0, 5))
+        self_det = all(sk.self_row(i) == sk.self_row(i)
+                       for i in (0, 1, 199, 11_999))
         for text, _ in kinds:
             cev.split_prompt_target(text)
-            assert all(c in cev.ALPHABET for c in text), f"non-alphabet char in {text!r}"
-        lines.append(f"tiered+teacher generator deterministic: {'PASS' if det else 'FAIL'}")
-        ok &= det
+            assert all(c in cev.ALPHABET for c in text), f"non-alphabet: {text!r}"
+        probe_rows, _targets, _meta = sk.self_probe_rows()
+        train_rows = [sk.self_row(i)[0] for i in range(0, sk.SELF_TRAIN_N, 37)]
+        for text in probe_rows + train_rows:
+            cev.split_prompt_target(text)
+            assert all(c in cev.ALPHABET for c in text), f"non-alphabet: {text!r}"
+        gate("generators_deterministic", det and self_det,
+             f"tiered+teacher+self ({sk.GENERATOR_VERSION}) deterministic; "
+             f"{len(probe_rows)} probe rows parse")
     except Exception as exc:
-        lines.append(f"generator: FAIL {type(exc).__name__}: {exc}")
-        ok = False
+        gate("generators_deterministic", False, f"{type(exc).__name__}: {exc}")
 
+    # 5. eval geometry + evaluator selftest + leakage
     try:
         cev.selftest()
         eval_rows: list[str] = []
@@ -87,93 +142,55 @@ def main() -> int:
         full_ok = max(len(r) for r in eval_rows) <= 64
         from citadel_tpu import t1c_run as t1c
 
-        spans_ok = all((lambda s: s[1] > 0)(t1c.answer_spans([r], 64)[0]) for r in eval_rows[:2000])
-        lines.append(f"eval geometry: PASS rows={len(eval_rows)} "
-                     f"max_prompt={cap['max_prompt_tokens']} required={cap['max_required_tokens']} "
-                     f"full_rows_fit_L64={full_ok} spans_ok={spans_ok}")
-        ok &= full_ok and spans_ok
-        # leakage on eval slices via the shared verdict: T2+ pairs must be
-        # exactly disjoint; T0/T1-involving pairs are labeled probes.
-        from citadel_tpu import tiered_data as _td
-
-        fatal, _ = _td.leakage_verdict(_td.eval_pair_leakage())
-        lines.append(f"eval-slice leakage T2+: "
-                     f"{'PASS zero' if not fatal else 'FAIL ' + ';'.join(f'{k}={v}' for k, v in sorted(fatal.items()))}")
-        ok &= not fatal
+        spans_ok = all((lambda s: s[1] > 0)(t1c.answer_spans([r], 64)[0])
+                       for r in eval_rows[:2000])
+        fatal, _ = td.leakage_verdict(td.eval_pair_leakage())
+        gate("eval_geometry", full_ok and spans_ok and not fatal,
+             f"rows={len(eval_rows)} required={cap['max_required_tokens']} "
+             f"spans_ok={spans_ok} leakage_t2+={'zero' if not fatal else fatal}")
     except Exception as exc:
-        lines.append(f"eval geometry/evaluator: FAIL {type(exc).__name__}: {exc}")
-        ok = False
+        gate("eval_geometry", False, f"{type(exc).__name__}: {exc}")
 
+    # 6. specs validate (MID + SCALE2) + arms/shape sanity (includes F)
     try:
         from v5_contracts.model_spec import ModelSpec
 
         s = ModelSpec(**t1d.SCALE2_SPEC_KWARGS)
         s.assert_valid()
         match = s.parameter_receipt().total == t1d.SCALE2_EXPECTED_PARAMS
-        lines.append(f"SCALE2 spec validates: {'PASS' if match else 'FAIL'}")
-        ok &= match
         mid = t1d.build_spec("MID")
         from citadel_tpu import t1c_run as t1c
 
         mid_ok = mid.parameter_receipt().total == t1c.MID_EXPECTED_PARAMS
-        lines.append(f"MID spec validates: {'PASS' if mid_ok else 'FAIL'}")
-        ok &= mid_ok
+        arms_ok = set(t1d.ARMS) == {"A", "B", "C", "D", "E", "F"}
         shapes_ok = all(b * ln > 0 for b, ln in t1d.CALIBRATION_SHAPES)
-        arms_ok = set(t1d.ARMS) == {"A", "B", "C", "D", "E"}
-        lines.append(f"shapes+arms: {'PASS' if shapes_ok and arms_ok else 'FAIL'}")
-        ok &= shapes_ok and arms_ok
+        gate("specs_arms", match and mid_ok and arms_ok and shapes_ok,
+             f"MID={mid_ok} SCALE2={match} arms={sorted(t1d.ARMS)}")
     except Exception as exc:
-        lines.append(f"specs/arms: FAIL {type(exc).__name__}: {str(exc)[:160]}")
-        ok = False
+        gate("specs_arms", False, f"{type(exc).__name__}: {str(exc)[:160]}")
 
+    # 7. the REAL producer->finalizer schema bridge (legacy shape included)
     try:
-        tests = ["tests/test_citadel_t1d.py", "tests/test_citadel_t1c.py",
-                 "tests/test_citadel_t1_canary.py", "tests/test_citadel_notebooks.py",
-                 "tests/test_citadel_bootstrap.py",
-                 "tests/test_citadel_cymek_checkpoint.py"]
-        bad = []
-        for t in tests:
-            r = subprocess.run([sys.executable, t], capture_output=True, text=True, timeout=600)
-            if r.returncode != 0:
-                bad.append(f"{t} (exit {r.returncode}): {(r.stdout or '')[-300:]}")
-        lines.append(f"unit tests: {'PASS all-6-files' if not bad else 'FAIL ' + '; '.join(bad)}")
-        ok &= not bad
+        defects = t1d.producer_consumer_contract_probe(legacy_untrained_keys=True)
+        gate("producer_finalizer_schema", not defects,
+             "PASS" if not defects else "; ".join(defects[:3]))
     except Exception as exc:
-        lines.append(f"unit tests: FAIL {type(exc).__name__}: {exc}")
-        ok = False
+        gate("producer_finalizer_schema", False, f"{type(exc).__name__}: {exc}")
 
+    # 8. PRE50M wiring: bundle inventory + fail-closed decision schema
     try:
-        from citadel_tpu import cymek_checkpoint as _cc
         from citadel_tpu import pre50m as _p50
 
         required_bundle = {"SESSION_MANIFEST.json", "DATA_MANIFEST.json",
-                           "CALIBRATION.json", "ARM_A.json", "ARM_B.json",
-                           "ARM_C.json", "ARM_D.json", "ARM_E.json",
-                           "LIFT_OFF_CURVES.json", "CROSS_ARM_SUMMARY.json",
-                           "PRE50M_TARGET.json", "PRE50M_FEASIBILITY.json",
-                           "PRE50M_THROUGHPUT.json", "PRE50M_CHECKPOINT_SMOKE.json",
-                           "PRE50M_DATA_INTERFACE.json", "PRE50M_PACKING.json",
-                           "DIAGNOSTICS.json", "NEXT_50M_DECISION.json"}
+                           "CALIBRATION.json"} | \
+            {f"ARM_{t}.json" for t in t1d.ARM_ORDER} | \
+            {"LIFT_OFF_CURVES.json", "CROSS_ARM_SUMMARY.json",
+             "PRE50M_TARGET.json", "PRE50M_FEASIBILITY.json",
+             "PRE50M_THROUGHPUT.json", "PRE50M_CHECKPOINT_SMOKE.json",
+             "PRE50M_DATA_INTERFACE.json", "PRE50M_PACKING.json",
+             "DIAGNOSTICS.json", "NEXT_50M_DECISION.json"}
         bundle_ok = required_bundle <= set(t1d.BUNDLE_FILES)
-        decision_keys = {"50m_target_understood", "target_type",
-                         "target_type_verified", "target_value_tokens_verified",
-                         "target_parameter_count", "fits_current_tpu",
-                         "safe_static_shape_exists",
-                         "positive_finite_throughput", "smoke_status",
-                         "finite_loss", "nonzero_finite_gradients",
-                         "parameter_mutation", "production_transaction",
-                         "checkpoint_compat_verified", "recommended_batch",
-                         "recommended_sequence_length",
-                         "gradient_accumulation_required",
-                         "estimated_tokens_per_second",
-                         "checkpoint_save_reload_pass", "resume_pass",
-                         "continued_update_pass",
-                         "writer_fence_rejected_as_required",
-                         "token_accounting_consistent", "data_interface_pass",
-                         "packing_pass", "ready_for_50m_training",
-                         "blocking_reasons"}
-        green_smoke = {"status": "PASS",
-                       "reload_output_identity": True,
+        green_smoke = {"status": "PASS", "reload_output_identity": True,
                        "optimizer_resume": {"moments_preserved": True,
                                             "continued_update_ok": True},
                        "grad_norm": {"max": 1.0}, "losses": [9.0, 8.0],
@@ -181,9 +198,9 @@ def main() -> int:
                        "checkpoint_compat": {"compatible": True},
                        "writer_fence_probe": "rejected-as-required",
                        "token_accounting": {"consistent": True}}
-        green_data = {"status": "PASS", "capacity_tokens": 4096, "real_tokens": 4000,
-                      "loss_bearing_tokens": 900, "padding_tokens": 96,
-                      "scheduled_rows": 64}
+        green_data = {"status": "PASS", "capacity_tokens": 4096,
+                      "real_tokens": 4000, "loss_bearing_tokens": 900,
+                      "padding_tokens": 96, "scheduled_rows": 64}
         probe_decision = _p50.build_decision(
             target={"understood": True, "type": _p50.PRE50M_TARGET["type"],
                     "value_tokens": _p50.PRE50M_TARGET["value_tokens"],
@@ -192,66 +209,65 @@ def main() -> int:
             data_interface=green_data, packing={"status": "PASS"},
             recommended_batch=256, recommended_sequence_length=64,
             rate_tok_s=8000.0)
-        schema_ok = set(probe_decision) == decision_keys
         ready_ok = (probe_decision["ready_for_50m_training"] is True
                     and probe_decision["blocking_reasons"] == [])
         smoke_ok = (_p50.SMOKE_SPEC == "SCALE2" and _p50.SMOKE_UPDATES >= 3
                     and _p50.PRE50M_TARGET["value_tokens"] == 50_000_000)
-        lines.append(f"pre50m wiring: "
-                     f"{'PASS' if bundle_ok and schema_ok and smoke_ok and ready_ok else 'FAIL'} "
-                     f"(decision schema {len(decision_keys)} fields, "
-                     f"all-green probe ready={probe_decision['ready_for_50m_training']})")
-        ok &= bundle_ok and schema_ok and smoke_ok and ready_ok
+        gate("pre50m_wiring", bundle_ok and ready_ok and smoke_ok,
+             f"bundle_ok={bundle_ok} green_probe_ready={ready_ok}")
     except Exception as exc:
-        lines.append(f"pre50m wiring: FAIL {type(exc).__name__}: {str(exc)[:160]}")
-        ok = False
+        gate("pre50m_wiring", False, f"{type(exc).__name__}: {str(exc)[:160]}")
 
+    # 9. session dir writable
     try:
         session_dir = root / "docs" / "citadel" / "tpu_receipts" / "t1d_session"
         session_dir.mkdir(parents=True, exist_ok=True)
         probe = session_dir / ".preflight_writable"
         probe.write_bytes(b"ok")
         probe.unlink()
-        lines.append("session dir writable: PASS")
+        gate("session_dir_writable", True, "ok")
     except Exception as exc:
-        lines.append(f"session dir writable: FAIL {type(exc).__name__}")
-        ok = False
+        gate("session_dir_writable", False, f"{type(exc).__name__}: {exc}")
 
+    # 10. TPU + XLA APIs (LIVE environment gates)
+    env: dict = {}
     try:
         env = env_mod.probe(require_tpu=False)
         tpu = bool(env.get("tpu_present"))
-        lines.append(f"TPU active: {'PASS' if tpu else 'FAIL'} "
-                     f"(hw={env.get('accelerator_detected')}, n={env.get('xla_device_count')})")
-        ok &= tpu
+        gate("tpu_active", tpu,
+             f"hw={env.get('accelerator_detected')} "
+             f"n={env.get('xla_device_count')}")
     except Exception as exc:
-        lines.append(f"TPU active: FAIL ({type(exc).__name__})")
-        ok = False
-
-    api_status, api_missing = pf._xla_api_status()
-    lines.append(f"XLA APIs: {api_status}"
-                 + (f" ({', '.join(api_missing)})" if api_missing else ""))
-    ok &= api_status != "FAIL"
-
+        gate("tpu_active", False, f"{type(exc).__name__}: {exc}")
     try:
-        # THE REAL-TPU-FAILURE GATE: run the pure producer->finalizer bridge
-        # on the EXACT producer-shaped data (legacy dev_tN/test_tN untrained
-        # keys included). No fake receipt that starts already-normalized.
-        defects = t1d.producer_consumer_contract_probe(legacy_untrained_keys=True)
-        lines.append("producer->finalizer schema: "
-                     + ("PASS" if not defects else
-                        "FAIL " + "; ".join(defects[:3])))
-        ok &= not defects
+        api_status, api_missing = pf._xla_api_status()
+        gate("xla_apis", api_status != "FAIL",
+             api_status + (f" ({', '.join(api_missing)})" if api_missing else ""))
     except Exception as exc:
-        lines.append(f"producer->finalizer schema: FAIL {type(exc).__name__}: {exc}")
-        ok = False
+        gate("xla_apis", False, f"{type(exc).__name__}: {exc}")
 
-    lines.append(f"READY_FOR_T1D: {'YES' if ok else 'NO'}")
-    print("\n".join(lines))
-    return 0 if ok else 1
+    blocking = [g["name"] for g in gates if g["status"] != "PASS"]
+    return {"schema": "citadel-t1d-preflight/v1",
+            "status": "PASS" if not blocking else "FAIL",
+            "gates": gates, "blocking_gates": blocking,
+            "environment": env,
+            "citadel_sha": citadel_sha, "cymek_sha": cymek_sha,
+            "plan_sha": t1d.plan_identity(),
+            "generated_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
+
+
+def main() -> int:
+    pre = run_preflight()
+    for g in pre["gates"]:
+        print(f"{g['name']}: {g['status']} {g['detail']}")
+    if pre["blocking_gates"]:
+        print("BLOCKING: " + ", ".join(pre["blocking_gates"]))
+    print(f"READY_FOR_T1D: {'YES' if pre['status'] == 'PASS' else 'NO'}")
+    return 0 if pre["status"] == "PASS" else 1
 
 
 if __name__ == "__main__":
     sys.exit(main())
 
 
-__all__ = ["main"]
+__all__ = ["main", "run_preflight"]
