@@ -41,7 +41,7 @@ SCALE2_SPEC_KWARGS: dict[str, Any] = {
 SCALE2_EXPECTED_PARAMS = 7_378_368
 TRAIN_LENGTH = 64
 EVAL_BATCH = 8
-CALIBRATION_SHAPES = [(128, 64), (256, 64), (512, 64)]
+CALIBRATION_SHAPES = [(64, 64), (128, 64), (256, 64), (512, 64), (1024, 64)]
 CALIBRATION_UPDATES = 5
 ARMS: dict[str, dict[str, Any]] = {
     "A": {"spec": "MID", "mode": "flat", "budget": 8_000_000},
@@ -228,11 +228,12 @@ def _tier_slices():
     return out
 
 
-def _gen_eval(model, rows, targets, *, device, torch_mod, xb, allow_ids=None):
+def _gen_eval(model, rows, targets, *, device, torch_mod, xb, allow_ids=None,
+              stats=False):
     from citadel_tpu import calculator_eval as cev
 
     recs = cev.generate(rows, model, xb, device=device, torch_mod=torch_mod,
-                        allow_ids=allow_ids)
+                        allow_ids=allow_ids, first_step_stats=stats)
     return recs, cev.summarize([r["prediction"] for r in recs], targets)
 
 
@@ -269,16 +270,43 @@ def calibrate(*, out: str | None = None, updates: int = CALIBRATION_UPDATES) -> 
         try:
             import time as _time
 
+            first_s, second_s, steady_s, mem = None, None, None, "unavailable"
             t = _time.time()
             rep = _train_updates_packed(
-                model, opt, feeder, n_updates=updates, start_update=0,
+                model, opt, feeder, n_updates=1, start_update=0,
                 updates_total=updates, device=device, torch_mod=torch,
                 length=length, masked=False, valid_ids=None)
-            wall = _time.time() - t
-            toks = rep["capacity_tokens"] / wall
+            first_s = _time.time() - t
+            t = _time.time()
+            rep2 = _train_updates_packed(
+                model, opt, feeder, n_updates=1, start_update=1,
+                updates_total=updates, device=device, torch_mod=torch,
+                length=length, masked=False, valid_ids=None)
+            second_s = _time.time() - t
+            t = _time.time()
+            rep3 = _train_updates_packed(
+                model, opt, feeder, n_updates=max(updates - 2, 1), start_update=2,
+                updates_total=updates, device=device, torch_mod=torch,
+                length=length, masked=False, valid_ids=None)
+            steady_s = (_time.time() - t) / max(updates - 2, 1)
+            try:
+                import torch_xla.core.xla_model as _xm
+
+                info = _xm.get_memory_info(device)
+                mem = {k: int(v) for k, v in dict(info).items()}
+            except Exception:
+                mem = "unavailable"
+            wall = (first_s or 0) + (second_s or 0) + steady_s * max(updates - 2, 1)
+            toks = rep["capacity_tokens"] * updates / max(wall, 1e-9)
             ok = rep["first_loss"] is not None and rep["first_loss"] == rep["first_loss"]
+            recompile = bool(steady_s > 0 and second_s > 2 * steady_s)
             results.append({"batch": batch, "length": length,
                             "tokens_per_second": toks, "correct": bool(ok),
+                            "first_step_seconds": first_s,
+                            "second_step_seconds": second_s,
+                            "steady_seconds_per_update": steady_s,
+                            "unexpected_recompile": recompile,
+                            "memory": mem,
                             "sequences_per_update": batch,
                             "updates": updates})
         except Exception as exc:  # noqa: BLE001 - record, do not propagate
@@ -440,8 +468,60 @@ def run_arm(tag: str, cfg: dict[str, Any], *, shape: tuple[int, int],
         ts = {k: cev.summarize(v, slices[f"test_t{tier}"]["targets"])
               for k, v in tn.items()}
         nn, nb = cev.strongest_null_accuracy(ts)
-        nulls_per_tier[f"t{tier}"] = {"strongest": nn, "accuracy": nb,
-                                      "all": {k: v["accuracy"] for k, v in ts.items()}}
+    nulls_per_tier[f"t{tier}"] = {"strongest": nn, "accuracy": nb,
+                                       "all": {k: v["accuracy"] for k, v in ts.items()}}
+
+    # Failure-cause probes (diagnostic-only; gates unchanged). All pure
+    # aggregations except the two extra generation evals below.
+    all_trained_recs = [r for t in range(5) for r in trained_recs[f"t{t}"]]
+    teacher_eval: dict[str, Any] = {}
+    consumed_teacher = max(list(feeder.teacher_cursors.values()) + [0])
+    if consumed_teacher < 900_000:
+        from citadel_tpu import tiered_data as _td
+
+        t_rows, t_tgts = [], []
+        for _k in ("digadd", "digsub", "singlemul", "divmicro"):
+            for j in range(50):
+                r, _ = _td.teacher_row(_k, 900_000 + j)
+                t_rows.append(r)
+                t_tgts.append(cev.split_prompt_target(r)[1])
+        t_recs, t_summ = _gen_eval(model, t_rows, t_tgts, device=device,
+                                   torch_mod=torch, xb=xb, allow_ids=allow_ids)
+        teacher_eval = {"n": len(t_rows), "summary": t_summ,
+                        "stop_histogram": cev.stop_histogram(t_recs)}
+    else:
+        teacher_eval = {"skipped": "teacher consumption exceeded held-out band"}
+    stats_recs, _ = _gen_eval(model, slices["test_t1"]["rows"][:200],
+                              slices["test_t1"]["targets"][:200],
+                              device=device, torch_mod=torch, xb=xb,
+                              allow_ids=allow_ids, stats=True)
+    ent = [r["first_entropy_nats"] for r in stats_recs
+           if r.get("first_entropy_nats") is not None]
+    digit_ids = {cev.encode_char(c) for c in "0123456789"}
+    top1_digit = sum(1 for r in stats_recs
+                     if (r.get("first_top5_ids") or [None])[0] in digit_ids)
+    first_step = {"n": len(stats_recs),
+                  "mean_entropy_nats": (sum(ent) / len(ent)) if ent else None,
+                  "top1_digit_rate": (top1_digit / len(stats_recs)) if stats_recs else 0.0}
+
+    def _digits(s: str) -> list[str]:
+        v = cev.normalize_answer(s)
+        return list(str(abs(v))) if v is not None else []
+
+    pos_acc = cev.position_accuracy(all_trained_recs)
+    length_dist = cev.length_distribution(all_trained_recs)
+    digit_hist = cev.digit_histograms(all_trained_recs)
+    digit_correct = sum(
+        1 for r in all_trained_recs if r.get("valid", True)
+        for a, b in zip(_digits(r["prediction"]), _digits(r["target"])) if a == b)
+    digit_total = sum(
+        min(len(_digits(r["prediction"])), len(_digits(r["target"])))
+        for r in all_trained_recs if r.get("valid", True))
+    easy_mem = {}
+    for t in (0, 1, 2):
+        tra = trained_train[f"t{t}"]["accuracy"]
+        tee = trained[f"t{t}"]["accuracy"]
+        easy_mem[f"t{t}"] = {"train": tra, "test": tee, "gap": tra - tee}
 
     ckpt_path = str(Path(out_dir) / f"t1d_arm_{tag.lower()}.pt")
     ckpt_hash = ckpt_mod.save(model, ckpt_path, {"arm": tag, "seed": seed,
@@ -499,7 +579,16 @@ def run_arm(tag: str, cfg: dict[str, Any], *, shape: tuple[int, int],
             "stop_histogram": cev.stop_histogram(pre_recs),
             "samples": cev.sample_records(pre_recs, 20, seed),
             "first_train_lift_tier": first_lift(lift_train),
-            "first_test_lift_tier": first_lift(lift_test)},
+            "first_test_lift_tier": first_lift(lift_test),
+            "teacher_eval": teacher_eval,
+            "first_step": first_step,
+            "position_accuracy": pos_acc,
+            "length_distribution": length_dist,
+            "digit_histograms": digit_hist,
+            "digit_level_accuracy": {
+                "correct": digit_correct, "total": digit_total,
+                "accuracy": (digit_correct / digit_total) if digit_total else 0.0},
+            "easy_memorization": easy_mem},
         "heuristic_nulls": null_summaries,
         "nulls_per_tier": nulls_per_tier,
         "strongest_heuristic_null": {"name": null_name, "accuracy": null_best},
@@ -712,12 +801,71 @@ def run_session(session_dir: str, *, seed: int = 20260904) -> dict[str, Any]:
     (root / "LIFT_OFF_CURVES.json").write_text(
         json.dumps({"schema": "citadel-t1d-lift-off-curves/v1", "arms": curves},
                    indent=2, sort_keys=True), encoding="utf-8")
+    from citadel_tpu import pre50m as p50  # noqa: E402 (phase import)
+
+    pre50m_status: dict[str, Any] = {}
+    try:
+        from citadel_tpu import t1c_run as t1c
+
+        (root / "PRE50M_TARGET.json").write_text(json.dumps(
+            {"schema": "citadel-pre50m-target/v1", **p50.PRE50M_TARGET,
+             "citadel_sha": rb.citadel_sha(),
+             "cymek_runtime_sha": rt_sha}, indent=2, sort_keys=True), encoding="utf-8")
+        smoke = p50.smoke_target_model(out_dir=str(root))
+        di = p50.data_interface_cert(out_dir=str(root))
+        packing = p50.packing_cert(out_dir=str(root))
+        feas = {"MID_3_7M": p50.memory_estimate(t1c.MID_EXPECTED_PARAMS),
+                "SCALE2_7_4M": p50.memory_estimate(SCALE2_EXPECTED_PARAMS)}
+        try:
+            scale2_rate = (smoke["capacity_tokens"] / max(
+                smoke.get("train_wall_seconds", 0) or smoke["wall_seconds"], 1e-9))
+        except Exception:
+            scale2_rate = None
+        curve = {"MID": p50.throughput_estimates(rate),
+                 "SCALE2": p50.throughput_estimates(scale2_rate) if scale2_rate else None}
+        grad_accum = p50.grad_accumulation_status(True, shape[0])
+        oom = p50.oom_decision(cal.get("candidates", []))
+        feas["grad_accumulation"] = grad_accum
+        feas["oom_selection"] = oom
+        (root / "PRE50M_FEASIBILITY.json").write_text(json.dumps(
+            {"schema": "citadel-pre50m-feasibility/v1",
+             "citadel_sha": rb.citadel_sha(), "cymek_runtime_sha": rt_sha,
+             "memory": feas, "grad_accumulation": grad_accum,
+             "oom_selection": oom}, indent=2, sort_keys=True), encoding="utf-8")
+        (root / "PRE50M_THROUGHPUT.json").write_text(json.dumps(
+            {"schema": "citadel-pre50m-throughput/v1",
+             "citadel_sha": rb.citadel_sha(), "cymek_runtime_sha": rt_sha,
+             "curve": curve}, indent=2, sort_keys=True), encoding="utf-8")
+        diagnostics = {
+            "schema": "citadel-t1d-diagnostics/v1",
+            "arms": {t: r.get("diagnostics", {}) for t, r in arm_receipts.items()},
+            "pre50m_smoke_losses": smoke.get("losses", []),
+        }
+        (root / "DIAGNOSTICS.json").write_text(
+            json.dumps(diagnostics, indent=2, sort_keys=True), encoding="utf-8")
+        decision = p50.build_decision(
+            target={"understood": True, "type": p50.PRE50M_TARGET["type"],
+                    "parameter_count": None},
+            smoke=smoke, feasibility={"verdict": feas["SCALE2_7_4M"]["verdict"]},
+            data_interface=di, packing=packing,
+            recommended_batch=shape[0], recommended_sequence_length=shape[1],
+            rate_tok_s=rate)
+        (root / "NEXT_50M_DECISION.json").write_text(
+            json.dumps(decision, indent=2, sort_keys=True), encoding="utf-8")
+        pre50m_status = {"status": "PASS", "decision": decision}
+        print("pre50m:", decision["ready_for_50m_training"],
+              decision["blocking_reasons"], flush=True)
+    except Exception as exc:  # noqa: BLE001 - preserve arms, record, continue
+        pre50m_status = {"status": "IMPLEMENTATION_FAILURE",
+                         "error": f"{type(exc).__name__}: {exc}"}
+        print(f"pre50m: IMPLEMENTATION_FAILURE {exc}", flush=True)
     session = {"schema": "citadel-t1d-session/v1",
                "citadel_sha": rb.citadel_sha(), "cymek_runtime_sha": rt_sha,
                "shape": list(shape), "calibrated_rate": rate, "budgets_scaled": scaled,
                "budgets": {t: c["budget"] for t, c in budgets.items()},
                "arms": {t: r.get("status") for t, r in arm_receipts.items()},
-               "labels": summary["labels"], "bundle": "pending"}
+               "labels": summary["labels"], "pre50m": pre50m_status,
+               "bundle": "pending"}
     (root / "SESSION_MANIFEST.json").write_text(
         json.dumps(session, indent=2, sort_keys=True), encoding="utf-8")
     bundle = build_bundle(str(root), out=str(root / "CITADEL_T1D_RESULTS.zip"))
@@ -733,7 +881,11 @@ def build_bundle(session_dir: str, *, out: str) -> dict[str, Any]:
     root = Path(session_dir)
     names = ["SESSION_MANIFEST.json", "DATA_MANIFEST.json", "CALIBRATION.json",
              "ARM_A.json", "ARM_B.json", "ARM_C.json", "ARM_D.json", "ARM_E.json",
-             "LIFT_OFF_CURVES.json", "CROSS_ARM_SUMMARY.json"]
+             "LIFT_OFF_CURVES.json", "CROSS_ARM_SUMMARY.json",
+             "PRE50M_TARGET.json", "PRE50M_FEASIBILITY.json",
+             "PRE50M_THROUGHPUT.json", "PRE50M_CHECKPOINT_SMOKE.json",
+             "PRE50M_DATA_INTERFACE.json", "PRE50M_PACKING.json",
+             "DIAGNOSTICS.json", "NEXT_50M_DECISION.json"]
     missing = [n for n in names if not (root / n).is_file()]
     if missing:
         raise RuntimeError(f"bundle incomplete, missing: {', '.join(missing)}")

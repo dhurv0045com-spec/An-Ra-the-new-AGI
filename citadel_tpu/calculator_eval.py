@@ -343,7 +343,8 @@ def build_data_receipt(*, out: str | None = None) -> dict[str, Any]:
 
 def generate(rows: list[str], model: Any, xb: Any, *, device: Any, torch_mod: Any,
              batch: int = EVAL_BATCH, length: int = EVAL_LENGTH,
-             allow_ids: list[int] | None = None) -> list[dict[str, Any]]:
+             allow_ids: list[int] | None = None,
+             first_step_stats: bool = False) -> list[dict[str, Any]]:
     """Static-shape greedy generation (§A5). Host/device split mirrors T0.
 
     allow_ids: optional closed vocabulary for the argmax (diagnostic arms
@@ -376,6 +377,7 @@ def generate(rows: list[str], model: Any, xb: Any, *, device: Any, torch_mod: An
         reasons: list[str | None] = [None] * batch
         answers: list[list[str]] = [[] for _ in range(batch)]
         steps = [0] * batch
+        first_stats: list[dict[str, Any] | None] = [None] * batch
         for _ in range(MAX_ANSWER_TOKENS):
             logits = model(buf_d, pos_d, mask_d)
             xb.mark_step()
@@ -386,6 +388,22 @@ def generate(rows: list[str], model: Any, xb: Any, *, device: Any, torch_mod: An
                                      torch.full_like(logits, float("-inf")))
             nxt = logits[arange_b, (cursor - 1).clamp(min=0).to(device)].argmax(-1)
             ids = nxt.to("cpu").tolist()
+            if first_step_stats:
+                import math as _math
+
+                lp = torch.nn.functional.log_softmax(
+                    logits[arange_b, (cursor - 1).clamp(min=0).to(device)
+                           ].float().to("cpu"), dim=-1)
+                for j in range(batch):
+                    if j < nb and not done[j] and steps[j] == 0 \
+                            and first_stats[j] is None:
+                        row = lp[j]
+                        top5 = torch.topk(row, 5)
+                        first_stats[j] = {
+                            "top5_ids": [int(v) for v in top5.indices.tolist()],
+                            "entropy_nats": float(
+                                -(row.exp() * row).sum().item()),
+                        }
             write = []
             for j in range(batch):
                 real = j < nb
@@ -418,13 +436,101 @@ def generate(rows: list[str], model: Any, xb: Any, *, device: Any, torch_mod: An
                 break
         for k, i in enumerate(chunk):
             pred = "".join(answers[k])
-            records.append({
+            rec: dict[str, Any] = {
                 "prompt": prompts[i], "target": targets[i], "prediction": pred,
                 "correct": normalize_answer(pred) == normalize_answer(targets[i]),
                 "stop_reason": reasons[k] if reasons[k] is not None else "MAX_TOKENS",
                 "generated_token_count": steps[k], "valid": True,
-            })
+            }
+            if first_step_stats:
+                rec["first_top5_ids"] = first_stats[k]["top5_ids"] \
+                    if first_stats[k] else None
+                rec["first_entropy_nats"] = first_stats[k]["entropy_nats"] \
+                    if first_stats[k] else None
+            records.append(rec)
     return records
+
+
+def position_accuracy(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Per-answer-position digit accuracy over valid rows (diagnostic lens).
+
+    Position i compares prediction[i] vs target[i] where both exist. Shows
+    leading-digit-correct vs length/termination failure patterns that a global
+    zero hides.
+    """
+    by_pos: dict[int, list[int]] = {}
+    for r in records:
+        if not r.get("valid", True):
+            continue
+        p = normalize_answer(r["prediction"])
+        t = normalize_answer(r["target"])
+        if p is None or t is None:
+            continue
+        ps, ts = str(abs(p)), str(abs(t))
+        if (p < 0) != (t < 0):
+            continue
+        for i in range(max(len(ps), len(ts))):
+            by_pos.setdefault(i, [0, 0])
+            if i < len(ps) and i < len(ts):
+                by_pos[i][1] += 1
+                by_pos[i][0] += (ps[i] == ts[i])
+    out = []
+    for i in sorted(by_pos):
+        correct, total = by_pos[i]
+        lcb, ucb = wilson(correct, total)
+        out.append({"position": i, "correct": correct, "total": total,
+                    "accuracy": (correct / total) if total else 0.0,
+                    "wilson_lcb": lcb, "wilson_ucb": ucb})
+    return out
+
+
+def length_distribution(records: list[dict[str, Any]]) -> dict[str, Any]:
+    """Prediction/target length histograms + numeric-output rate."""
+    pred_lens: Counter = Counter()
+    targ_lens: dict[int, int] = {}
+    numeric = valid = 0
+    for r in records:
+        if not r.get("valid", True):
+            continue
+        valid += 1
+        pred_lens[len(r["prediction"])] += 1
+        t = normalize_answer(r["target"])
+        targ_lens[len(str(abs(t)))] = targ_lens.get(len(str(abs(t))), 0) + 1
+        numeric += normalize_answer(r["prediction"]) is not None
+    return {"prediction_lengths": dict(sorted(pred_lens.items())),
+            "target_lengths": dict(sorted(targ_lens.items())),
+            "numeric_output_rate": (numeric / valid) if valid else 0.0,
+            "n": valid}
+
+
+def digit_histograms(records: list[dict[str, Any]]) -> dict[str, Any]:
+    """Generated vs target digit distributions + most common strings/digits."""
+    from collections import Counter as _Counter
+
+    gen: _Counter = _Counter()
+    tgt: _Counter = _Counter()
+    strs: _Counter = _Counter()
+    firsts: _Counter = _Counter()
+    n = 0
+    for r in records:
+        if not r.get("valid", True):
+            continue
+        n += 1
+        strs[r["prediction"]] += 1
+        p = normalize_answer(r["prediction"])
+        t = normalize_answer(r["target"])
+        if p is not None:
+            for ch in str(abs(p)):
+                gen[ch] += 1
+            firsts[str(abs(p))[0]] += 1
+        if t is not None:
+            for ch in str(abs(t)):
+                tgt[ch] += 1
+    return {"n": n,
+            "generated_digits": dict(sorted(gen.items())),
+            "target_digits": dict(sorted(tgt.items())),
+            "most_common_strings": strs.most_common(5),
+            "most_common_first_digits": firsts.most_common(5)}
 
 
 def selftest() -> None:
@@ -486,6 +592,26 @@ def selftest() -> None:
     assert (s["correct"], s["total"]) == (2, 3)
     assert sha_predictions(gold) == sha_predictions(list(gold))
     assert sha_predictions(gold) != sha_predictions(["11", "7", "48"])
+    diag_recs = [
+        {"prompt": "3 + 4 =", "target": "7", "prediction": "7",
+         "correct": True, "stop_reason": "NEWLINE", "generated_token_count": 1,
+         "valid": True},
+        {"prompt": "18 - 7 =", "target": "11", "prediction": "12",
+         "correct": False, "stop_reason": "NEWLINE", "generated_token_count": 2,
+         "valid": True},
+        {"prompt": "6 * 8 =", "target": "48", "prediction": "",
+         "correct": False, "stop_reason": "PAD", "generated_token_count": 0,
+         "valid": True},
+    ]
+    pos = position_accuracy(diag_recs)
+    assert pos[0]["correct"] == 2 and pos[0]["total"] == 2  # '7'vs'7', '1'vs'1'
+    assert pos[1]["correct"] == 0 and pos[1]["total"] == 1  # '2'vs'1'
+    dl = length_distribution(diag_recs)
+    assert dl["prediction_lengths"] == {0: 1, 1: 1, 2: 1}
+    assert abs(dl["numeric_output_rate"] - 2 / 3) < 1e-12
+    dh = digit_histograms(diag_recs)
+    assert dh["n"] == 3 and dh["generated_digits"] == {"1": 1, "2": 1, "7": 1}
+    assert dh["most_common_first_digits"][0][1] == 1
     assert parse_row("72 / 8 = 9") == (72, "/", 8, "9")
     assert split_prompt_target("18 - 7 = 11") == ("18 - 7 =", "11")
     assert _comm_key(3, "+", 7) == _comm_key(7, "+", 3)
@@ -523,12 +649,15 @@ __all__ = [
     "answer_token_ce",
     "build_data_receipt",
     "decode_ids",
+    "digit_histograms",
     "encode",
     "encode_char",
     "generate",
     "heuristic_nulls",
+    "length_distribution",
     "normalize_answer",
     "parse_row",
+    "position_accuracy",
     "roundtrip_ok",
     "sample_records",
     "selftest",

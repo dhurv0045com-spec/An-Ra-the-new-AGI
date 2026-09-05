@@ -51,6 +51,53 @@ def load_into(model, path: str) -> dict[str, Any]:
     return dict(payload.get("meta", {}))
 
 
+def save_optimizer_state(optimizer, path: str, meta: dict[str, Any] | None = None) -> str:
+    """Save optimizer state (moments, step counters) + meta. Returns file SHA-256.
+
+    Stored separately from model weights so resume semantics stay explicit:
+    model identity and optimizer continuity are verified independently.
+    """
+    import torch
+
+    payload = {
+        "optimizer_state": torch.optim.Optimizer.state_dict(optimizer),
+        "meta": dict(meta or {}),
+    }
+    p = Path(path)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    torch.save(payload, str(p))
+    return hashlib.sha256(p.read_bytes()).hexdigest()
+
+
+def load_optimizer_state(optimizer, path: str) -> dict[str, Any]:
+    """Load optimizer state into optimizer. Returns stored meta."""
+    import torch
+
+    payload = torch.load(str(path), map_location="cpu", weights_only=False)
+    optimizer.load_state_dict(payload["optimizer_state"])
+    return dict(payload.get("meta", {}))
+
+
+def optimizer_moment_sha256(optimizer) -> str:
+    """Hash of optimizer moment tensors (resume-continuity evidence)."""
+    import torch
+
+    h = hashlib.sha256()
+    state = optimizer.state_dict().get("state", {})
+    for key in sorted(state, key=str):
+        moments = state[key]
+        if isinstance(moments, dict):
+            for mk in sorted(moments):
+                t = moments[mk]
+                try:
+                    h.update(str(mk).encode())
+                    h.update(str(tuple(t.shape)).encode("ascii"))
+                    h.update(bytes(t.detach().to("cpu").float().contiguous().numpy().tobytes()))
+                except Exception:
+                    h.update(repr(t).encode())
+    return h.hexdigest()
+
+
 def load_command(checkpoint: str) -> str:
     """One obvious reuse command printed into every training receipt."""
     return (
@@ -62,4 +109,6 @@ def load_command(checkpoint: str) -> str:
     )
 
 
-__all__ = ["load_command", "load_into", "save", "state_dict_sha256"]
+__all__ = ["load_command", "load_into", "load_optimizer_state",
+           "optimizer_moment_sha256", "save", "save_optimizer_state",
+           "state_dict_sha256"]
