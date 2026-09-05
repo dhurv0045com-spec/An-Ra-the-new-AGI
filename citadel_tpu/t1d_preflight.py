@@ -232,6 +232,19 @@ def main() -> int:
                  + (f" ({', '.join(api_missing)})" if api_missing else ""))
     ok &= api_status != "FAIL"
 
+    try:
+        # THE REAL-TPU-FAILURE GATE: run the pure producer->finalizer bridge
+        # on the EXACT producer-shaped data (legacy dev_tN/test_tN untrained
+        # keys included). No fake receipt that starts already-normalized.
+        defects = t1d.producer_consumer_contract_probe(legacy_untrained_keys=True)
+        lines.append("producer->finalizer schema: "
+                     + ("PASS" if not defects else
+                        "FAIL " + "; ".join(defects[:3])))
+        ok &= not defects
+    except Exception as exc:
+        lines.append(f"producer->finalizer schema: FAIL {type(exc).__name__}: {exc}")
+        ok = False
+
     lines.append(f"READY_FOR_T1D: {'YES' if ok else 'NO'}")
     print("\n".join(lines))
     return 0 if ok else 1
