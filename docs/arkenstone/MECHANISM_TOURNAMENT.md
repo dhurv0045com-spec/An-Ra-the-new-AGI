@@ -6,7 +6,7 @@ REPRODUCTION_ONLY / EXTENSION_ONLY. Failed mechanisms stay here forever.
 
 | ID | Mechanism | Novelty | Prior status | Hypothesis (observed failure -> why it should help) | Verdict |
 |----|-----------|---------|--------------|------------------------------------------------------|---------|
-| M-001 | Lift-off dose mapping (measurement instrument) | NEW_MEASUREMENT | No branch measured lift-off dose | T1/T1C train-exact ~0 everywhere -> first establish WHERE lift-off exists at all | SUPPORTED (ARK-001 executed: lift-off 200-400 steps; grokking transition found on T2) |
+| M-001 | Lift-off dose mapping (measurement instrument) | NEW_MEASUREMENT | No branch measured lift-off dose | T1/T1C train-exact ~0 everywhere -> first establish WHERE lift-off exists at all | REPLICATED (ARK-001 + ARK-002a: lift-off 200 on seeds 13/29; T2 OOD saturates 1.0 at ~9k steps) |
 | M-002 | Curriculum (easy->hard tiers) | ALREADY_KNOWN (designed) | citadel T1D arm B, unexecuted | multi-digit mixed exposure too hard -> staged lift-off | UNTESTED (await ARK-001 boundary measurement) |
 | M-003 | Micro-teacher rows (digit/subproblem supervision) | ALREADY_KNOWN (designed) | citadel T1D arm C, unexecuted | answer CE hides algorithmic structure -> teacher rows | UNTESTED |
 | M-004 | Vocab reduction for symbolic tasks | EXTENSION | T1D arm E designed, never run | dead-vocab embedding dilutes capacity -> compact vocab | REJECTED_AT_MICRO_SCALE (ARK-001: byte-vocab lift-off identical to compact; revisit only at P35 scale) |

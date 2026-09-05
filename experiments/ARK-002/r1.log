@@ -1,0 +1,16 @@
+module body reached
+torch imported
+=== arm T2-COMPACT ===
+[T2-COMPACT] training loop start
+[T2-COMPACT] step 1000 loss 0.045 train 1.00 test 0.01
+[T2-COMPACT] step 2000 loss 0.000 train 1.00 test 0.04
+[T2-COMPACT] step 3000 loss 0.000 train 1.00 test 0.03
+[T2-COMPACT] step 4000 loss 0.000 train 1.00 test 0.01
+[T2-COMPACT] step 5000 loss 0.000 train 1.00 test 0.36
+[T2-COMPACT] step 6000 loss 0.000 train 1.00 test 0.52
+[T2-COMPACT] step 7000 loss 0.000 train 1.00 test 0.42
+[T2-COMPACT] step 8000 loss 0.000 train 1.00 test 0.71
+[T2-COMPACT] step 9000 loss 0.000 train 1.00 test 0.98
+[T2-COMPACT] step 10000 loss 0.000 train 1.00 test 1.00
+[T2-COMPACT] WALL BOX hit at step 10176
+done -> experiments/ARK-002/R1_T2_SATURATION.json

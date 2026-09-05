@@ -1,0 +1,10 @@
+module body reached
+torch imported
+=== arm T1-COMPACT ===
+[T1-COMPACT] training loop start
+[T1-COMPACT] step 1000 loss 0.000 train 1.00 test 1.00
+[T1-COMPACT] step 2000 loss 0.000 train 1.00 test 1.00
+[T1-COMPACT] step 3000 loss 0.000 train 1.00 test 1.00
+[T1-COMPACT] step 4000 loss 0.000 train 1.00 test 1.00
+[T1-COMPACT] WALL BOX hit at step 4116
+done -> experiments/ARK-002/R2_T1_SEED29.json
