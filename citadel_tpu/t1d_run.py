@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import random
 import time
 import zipfile
 from pathlib import Path
@@ -361,23 +362,10 @@ def calibrate(*, out: str | None = None, updates: int = CALIBRATION_UPDATES) -> 
             _gc.collect()
         except Exception:
             pass
-    feasible = [r for r in results if r["correct"]]
-    if not feasible:
-        raise RuntimeError("abort CALIBRATION_FAILURE: no candidate shape passed")
-    ordered = sorted(feasible, key=lambda r: r["tokens_per_second"], reverse=True)
-    best, scale2_note = None, "not-run"
-    for cand in ordered:
-        if _verify_shape_on_scale2(cand["batch"], cand["length"]):
-            best, scale2_note = cand, "pass"
-            break
-        cand = dict(cand)
-        scale2_note = (f"shape {(cand['batch'], cand['length'])} failed SCALE2 "
-                       "verification; trying next-best")
-        results.append({**cand, "correct": False,
-                        "error": "SCALE2_VERIFICATION_FAILED"})
-    feasible = [r for r in results if r["correct"]]
+    best, scale2_note = select_calibrated_shape(
+        results, scale2_verifier=_verify_shape_on_scale2)
     if best is None:
-        raise RuntimeError("abort CALIBRATION_FAILURE: no shape safe for SCALE2")
+        raise RuntimeError(f"abort CALIBRATION_FAILURE: {scale2_note}")
     receipt = {"schema": "citadel-t1d-throughput-calibration/v1",
                "citadel_sha": rb.citadel_sha(), "cymek_runtime_sha": rt_sha,
                "environment": env, "candidates": results,
@@ -440,8 +428,6 @@ def timebox_abort_receipt(*, tag: str, cfg: dict[str, Any], env: dict[str, Any],
 def run_arm(tag: str, cfg: dict[str, Any], *, shape: tuple[int, int],
             out_dir: str, seed: int = 20260904) -> dict[str, Any]:
     """Execute one frozen T1D arm end to end; receipt + checkpoint + marker."""
-    import random as _random
-
     from citadel_tpu import calculator_eval as cev
     from citadel_tpu import checkpoint as ckpt_mod
     from citadel_tpu import environment as env_mod
@@ -500,14 +486,14 @@ def run_arm(tag: str, cfg: dict[str, Any], *, shape: tuple[int, int],
         untrained[f"dev_t{tier}"] = summ
         _, summ = gen(slices[f"test_t{tier}"]["rows"], slices[f"test_t{tier}"]["targets"])
         untrained[f"test_t{tier}"] = summ
-    train_sample_idx: dict[int, list[int]] = {}
+    # Frozen TRAIN diagnostic candidates: the FIRST TRAIN_SAMPLE_PER_TIER train
+    # indices per tier, fixed BEFORE any training. Consumption is verified
+    # against the feeder's exact per-tier consumed prefix after training —
+    # never assumed (the feeder has consumed nothing at this point).
+    train_candidates = frozen_train_candidates()
     untrained_train: dict[str, Any] = {}
     for tier in range(5):
-        consumed = feeder.placed_rows.get(f"tier:{tier}", 0)
-        idx = _random.Random(seed + 11).sample(range(max(consumed, 1)),
-                                               min(TRAIN_SAMPLE_PER_TIER, max(consumed, 1)))
-        train_sample_idx[tier] = idx
-        rows = [td.tier_row(tier, "train", i)[0] for i in idx]
+        rows = [td.tier_row(tier, "train", i)[0] for i in train_candidates[tier]]
         tgts = [cev.split_prompt_target(r)[1] for r in rows]
         _, summ = gen(rows, tgts)
         untrained_train[f"t{tier}"] = summ
@@ -567,39 +553,36 @@ def run_arm(tag: str, cfg: dict[str, Any], *, shape: tuple[int, int],
     for tier in range(5):
         recs, summ = gen(slices[f"test_t{tier}"]["rows"], slices[f"test_t{tier}"]["targets"])
         trained[f"t{tier}"], trained_recs[f"t{tier}"] = summ, recs
+    # Train memorization lens: score ONLY rows verified inside the exact
+    # consumed prefix for that tier. Frozen candidates were fixed before
+    # training; the plan verifies consumption, never assumes it.
     trained_train: dict[str, Any] = {}
+    train_memorization: dict[str, Any] = {}
+    plan = train_memorization_plan(feeder, candidates=train_candidates)
     for tier in range(5):
-        idx = train_sample_idx[tier]
-        rows = [td.tier_row(tier, "train", i)[0] for i in idx]
+        entry = plan[tier]
+        verified = entry["verified_indices"]
+        rows = [td.tier_row(tier, "train", i)[0] for i in verified]
         tgts = [cev.split_prompt_target(r)[1] for r in rows]
-        _, summ = gen(rows, tgts)
+        if rows:
+            _, summ = gen(rows, tgts)
+        else:
+            summ = {"correct": 0, "total": 0, "accuracy": 0.0,
+                    "wilson_lcb": 0.0, "wilson_ucb": 0.0}
         trained_train[f"t{tier}"] = summ
+        train_memorization[f"t{tier}"] = {
+            "consumed_prefix": entry["consumed_prefix"],
+            "n_frozen_candidates": entry["n_candidates"],
+            "n_verified_consumed": entry["n_verified"],
+            "evaluated_rows": len(rows),
+            "status": entry["status"],
+            "lift_eligible": bool(entry["status"] == "OK"
+                                  and summ["accuracy"] >= LIFT_THRESHOLD),
+        }
 
-    all_test_rows, all_test_tgts = [], []
-    for tier in range(5):
-        all_test_rows.extend(slices[f"test_t{tier}"]["rows"])
-        all_test_tgts.extend(slices[f"test_t{tier}"]["targets"])
-    ref_rows: list[str] = []
-    for key, cnt in feeder.placed_rows.items():
-        if key.startswith("tier:") and cnt > 0:
-            t = int(key.split(":")[1])
-            idx = _random.Random(seed + 13).sample(range(cnt), min(200, cnt))
-            ref_rows.extend(td.tier_row(t, "train", i)[0] for i in idx)
-    nulls = cev.heuristic_nulls(all_test_rows, ref_rows)
-    null_summaries = {k: cev.summarize(v, all_test_tgts) for k, v in nulls.items()}
-    null_name, null_best = cev.strongest_null_accuracy(null_summaries)
-    nulls_per_tier = {}
-    for tier in range(5):
-        tn = cev.heuristic_nulls(slices[f"test_t{tier}"]["rows"], ref_rows)
-        ts = {k: cev.summarize(v, slices[f"test_t{tier}"]["targets"])
-              for k, v in tn.items()}
-        nn, nb = cev.strongest_null_accuracy(ts)
-    nulls_per_tier[f"t{tier}"] = {"strongest": nn, "accuracy": nb,
-                                       "all": {k: v["accuracy"] for k, v in ts.items()}}
-
-    # Failure-cause probes (diagnostic-only; gates unchanged). All pure
-    # aggregations except the two extra generation evals below.
-    all_trained_recs = [r for t in range(5) for r in trained_recs[f"t{t}"]]
+    # Failure-cause probes (diagnostic-only; gates unchanged). The two extra
+    # generation evals run here; every pure aggregation happens in
+    # build_arm_receipt (device-free, simulated by tests).
     teacher_eval: dict[str, Any] = {}
     consumed_teacher = max(list(feeder.teacher_cursors.values()) + [0])
     if consumed_teacher < 900_000:
@@ -630,25 +613,6 @@ def run_arm(tag: str, cfg: dict[str, Any], *, shape: tuple[int, int],
                   "mean_entropy_nats": (sum(ent) / len(ent)) if ent else None,
                   "top1_digit_rate": (top1_digit / len(stats_recs)) if stats_recs else 0.0}
 
-    def _digits(s: str) -> list[str]:
-        v = cev.normalize_answer(s)
-        return list(str(abs(v))) if v is not None else []
-
-    pos_acc = cev.position_accuracy(all_trained_recs)
-    length_dist = cev.length_distribution(all_trained_recs)
-    digit_hist = cev.digit_histograms(all_trained_recs)
-    digit_correct = sum(
-        1 for r in all_trained_recs if r.get("valid", True)
-        for a, b in zip(_digits(r["prediction"]), _digits(r["target"])) if a == b)
-    digit_total = sum(
-        min(len(_digits(r["prediction"])), len(_digits(r["target"])))
-        for r in all_trained_recs if r.get("valid", True))
-    easy_mem = {}
-    for t in (0, 1, 2):
-        tra = trained_train[f"t{t}"]["accuracy"]
-        tee = trained[f"t{t}"]["accuracy"]
-        easy_mem[f"t{t}"] = {"train": tra, "test": tee, "gap": tra - tee}
-
     ckpt_path = str(Path(out_dir) / f"t1d_arm_{tag.lower()}.pt")
     ckpt_hash = ckpt_mod.save(model, ckpt_path, {"arm": tag, "seed": seed,
                                                  "spec": cfg["spec"], "updates": done})
@@ -668,14 +632,189 @@ def run_arm(tag: str, cfg: dict[str, Any], *, shape: tuple[int, int],
     post_sha = cev.sha_predictions(post_preds)
     reload_ok = bool(pre_sha == post_sha)
 
+    wall = time.time() - t0
+    # Pure post-training path: nulls (global + per-tier t0-t4), diagnostic
+    # aggregation, lift tiers, scientific gate, receipt assembly. No device.
+    receipt = build_arm_receipt(
+        tag=tag, cfg=cfg, env=env, n_seq=n_seq, length=length,
+        param_count=param_count, citadel_sha=rb.citadel_sha(), cymek_sha=rt_sha,
+        feeder=feeder, seed=seed, slices=slices,
+        ledgers=ledgers, done=done, first_loss=first_loss, last_loss=last_loss,
+        cap_total=cap_total, ans_total=ans_total, whole_total=whole_total,
+        gsum=gsum, gmax=gmax, gn=gn, train_wall=train_wall,
+        untrained=untrained, untrained_train=untrained_train,
+        trained=trained, trained_recs=trained_recs,
+        trained_train=trained_train, train_memorization=train_memorization,
+        inter=inter, teacher_eval=teacher_eval, first_step=first_step,
+        ckpt_path=ckpt_path, ckpt_hash=ckpt_hash,
+        pre_sha=pre_sha, post_sha=post_sha, reload_ok=reload_ok,
+        device_count=n_devices, wall=wall)
+    write_arm_receipt(out_dir, receipt, ckpt_hash=ckpt_hash)
+    return receipt
+
+
+def frozen_train_candidates() -> dict[int, list[int]]:
+    """Frozen TRAIN memorization candidates: the FIRST TRAIN_SAMPLE_PER_TIER
+    train indices per tier, fixed before any training. Every tier has far more
+    than 200 train rows (tiered_data.TRAIN_N: min 20,000), so the frozen
+    prefix always exists. Consumption is verified later, never assumed."""
+    return {t: list(range(TRAIN_SAMPLE_PER_TIER)) for t in range(5)}
+
+
+def train_memorization_plan(feeder, *,
+                            candidates: dict[int, list[int]] | None = None
+                            ) -> dict[int, dict[str, Any]]:
+    """Verify frozen candidates against the feeder's EXACT consumed prefix.
+
+    The feeder consumes tier rows strictly in index order, so a row counts as
+    consumed iff its index < consumed_prefix for that tier. Status is "OK"
+    only with at least LIFT_MIN_N verified rows; otherwise the tier is
+    INSUFFICIENT_CONSUMPTION and FIRST_TRAIN_LIFT_TIER can never fire on it.
+    Unseen train rows are never used as memorization evidence.
+    """
+    cand_map = frozen_train_candidates() if candidates is None else candidates
+    plan: dict[int, dict[str, Any]] = {}
+    for tier in range(5):
+        cand = list(cand_map[tier])
+        consumed = feeder.consumed_prefix(tier)
+        verified = [i for i in cand if i < consumed]
+        plan[tier] = {"consumed_prefix": consumed,
+                      "n_candidates": len(cand),
+                      "verified_indices": verified,
+                      "n_verified": len(verified),
+                      "status": ("OK" if len(verified) >= LIFT_MIN_N
+                                 else "INSUFFICIENT_CONSUMPTION")}
+    return plan
+
+
+NULL_TIER_KEYS = {"t0", "t1", "t2", "t3", "t4"}
+
+
+def validate_null_block(receipt: dict[str, Any]) -> list[str]:
+    """Receipt schema validation for the heuristic-null block (pure).
+
+    Requires: heuristic_nulls non-empty dict; nulls_per_tier exactly t0-t4;
+    each tier carrying strongest/accuracy/all; every accuracy finite in
+    [0, 1]. Returns defect strings (empty list = valid).
+    """
+    defects: list[str] = []
+    hn = receipt.get("heuristic_nulls")
+    if not isinstance(hn, dict) or not hn:
+        defects.append("heuristic_nulls missing or empty")
+    npt = receipt.get("nulls_per_tier")
+    if not isinstance(npt, dict) or set(npt) != NULL_TIER_KEYS:
+        got = sorted(npt) if isinstance(npt, dict) else type(npt).__name__
+        defects.append(f"nulls_per_tier keys {got!r} != {sorted(NULL_TIER_KEYS)}")
+        return defects
+    for tier_key in sorted(NULL_TIER_KEYS):
+        entry = npt[tier_key]
+        if not isinstance(entry, dict):
+            defects.append(f"nulls_per_tier[{tier_key}] not a dict")
+            continue
+        for key in ("strongest", "accuracy", "all"):
+            if key not in entry:
+                defects.append(f"nulls_per_tier[{tier_key}] missing {key!r}")
+        acc = entry.get("accuracy")
+        if isinstance(acc, bool) or not isinstance(acc, (int, float)) \
+                or not (acc == acc) or not (0.0 <= float(acc) <= 1.0):
+            defects.append(f"nulls_per_tier[{tier_key}].accuracy not finite in [0,1]: {acc!r}")
+        all_accs = entry.get("all")
+        if isinstance(all_accs, dict):
+            for k, v in all_accs.items():
+                if isinstance(v, bool) or not isinstance(v, (int, float)) \
+                        or not (v == v) or not (0.0 <= float(v) <= 1.0):
+                    defects.append(
+                        f"nulls_per_tier[{tier_key}].all[{k}] not finite in [0,1]: {v!r}")
+    return defects
+
+
+def build_arm_receipt(*, tag: str, cfg: dict[str, Any], env: dict[str, Any],
+                      n_seq: int, length: int, param_count: int,
+                      citadel_sha: str, cymek_sha: str, feeder, seed: int,
+                      slices: dict[str, Any], ledgers: list, done: int,
+                      first_loss, last_loss, cap_total: int, ans_total: int,
+                      whole_total: int, gsum: float, gmax: float, gn: int,
+                      train_wall: float, untrained: dict[str, Any],
+                      untrained_train: dict[str, Any], trained: dict[str, Any],
+                      trained_recs: dict[str, Any], trained_train: dict[str, Any],
+                      train_memorization: dict[str, Any], inter: dict[str, Any],
+                      teacher_eval: dict[str, Any], first_step: dict[str, Any],
+                      ckpt_path: str, ckpt_hash: str, pre_sha: str,
+                      post_sha: str, reload_ok: bool, device_count: int,
+                      wall: float) -> dict[str, Any]:
+    """Pure post-training arm finalization (no device; simulation-covered).
+
+    Computes: heuristic nulls (global + per-tier t0-t4, assignment inside the
+    loop), diagnostic aggregations, easy-tier memorization lens, lift tiers
+    (train lift only from verified-consumed rows), the pooled scientific gate
+    (reload alone can NEVER pass), and the full receipt dict. Raises
+    RuntimeError on any null-block schema defect: an incomplete receipt can
+    never be written.
+    """
+    from citadel_tpu import calculator_eval as cev
+    from citadel_tpu import tiered_data as td
+
+    all_test_rows, all_test_tgts = [], []
+    for tier in range(5):
+        all_test_rows.extend(slices[f"test_t{tier}"]["rows"])
+        all_test_tgts.extend(slices[f"test_t{tier}"]["targets"])
+    ref_rows: list[str] = []
+    for key, cnt in feeder.placed_rows.items():
+        if key.startswith("tier:") and cnt > 0:
+            t = int(key.split(":")[1])
+            idx = random.Random(seed + 13).sample(range(cnt), min(200, cnt))
+            ref_rows.extend(td.tier_row(t, "train", i)[0] for i in idx)
+    nulls = cev.heuristic_nulls(all_test_rows, ref_rows)
+    null_summaries = {k: cev.summarize(v, all_test_tgts) for k, v in nulls.items()}
+    null_name, null_best = cev.strongest_null_accuracy(null_summaries)
+    nulls_per_tier: dict[str, Any] = {}
+    for tier in range(5):
+        tn = cev.heuristic_nulls(slices[f"test_t{tier}"]["rows"], ref_rows)
+        ts = {k: cev.summarize(v, slices[f"test_t{tier}"]["targets"])
+              for k, v in tn.items()}
+        nn, nb = cev.strongest_null_accuracy(ts)
+        # Assignment INSIDE the loop: every tier t0-t4 is recorded. (The
+        # pre-fix version wrote only the final tier here and crashed the
+        # scientific gate and the cross-arm classifier AFTER expensive
+        # training.)
+        nulls_per_tier[f"t{tier}"] = {"strongest": nn, "accuracy": nb,
+                                      "all": {k: v["accuracy"] for k, v in ts.items()}}
+    defects = validate_null_block({"heuristic_nulls": null_summaries,
+                                   "nulls_per_tier": nulls_per_tier})
+    if defects:
+        raise RuntimeError("abort NULL_BLOCK_INVALID: " + "; ".join(defects))
+
+    all_trained_recs = [r for t in range(5) for r in trained_recs[f"t{t}"]]
+
+    def _digits(s: str) -> list[str]:
+        v = cev.normalize_answer(s)
+        return list(str(abs(v))) if v is not None else []
+
+    pos_acc = cev.position_accuracy(all_trained_recs)
+    length_dist = cev.length_distribution(all_trained_recs)
+    digit_hist = cev.digit_histograms(all_trained_recs)
+    digit_correct = sum(
+        1 for r in all_trained_recs if r.get("valid", True)
+        for a, b in zip(_digits(r["prediction"]), _digits(r["target"])) if a == b)
+    digit_total = sum(
+        min(len(_digits(r["prediction"])), len(_digits(r["target"])))
+        for r in all_trained_recs if r.get("valid", True))
+    easy_mem = {}
+    for t in (0, 1, 2):
+        tra = trained_train[f"t{t}"]["accuracy"]
+        tee = trained[f"t{t}"]["accuracy"]
+        easy_mem[f"t{t}"] = {"train": tra, "test": tee, "gap": tra - tee}
+
     lift_train = {f"t{t}": {"accuracy": trained_train[f"t{t}"]["accuracy"],
-                            "lift": _lift_tier(trained_train[f"t{t}"]["accuracy"],
-                                              trained_train[f"t{t}"]["total"])}
-                  for t in range(5) if t != 0}
+                            "n_verified_consumed":
+                                train_memorization[f"t{t}"]["n_verified_consumed"],
+                            "status": train_memorization[f"t{t}"]["status"],
+                            "lift": bool(train_memorization[f"t{t}"]["lift_eligible"])}
+                  for t in range(1, 5)}
     lift_test = {f"t{t}": {"accuracy": trained[f"t{t}"]["accuracy"],
                            "lift": _lift_tier(trained[f"t{t}"]["accuracy"],
-                                             trained[f"t{t}"]["total"])}
-                 for t in range(5) if t != 0}
+                                              trained[f"t{t}"]["total"])}
+                 for t in range(1, 5)}
 
     def first_lift(d):
         for t in (1, 2, 3, 4):
@@ -683,10 +822,7 @@ def run_arm(tag: str, cfg: dict[str, Any], *, shape: tuple[int, int],
                 return t
         return None
 
-    wall = time.time() - t0
     # Per-arm scientific gate (pooled tiers 1-4): reload alone can NEVER pass.
-    # Infrastructure failures raise before this point (IMPLEMENTATION_FAILURE
-    # via the session handler); time-box returns earlier (TIMEBOX_ABORT).
     _k = sum(trained[f"t{t}"]["correct"] for t in (1, 2, 3, 4))
     _n = sum(trained[f"t{t}"]["total"] for t in (1, 2, 3, 4))
     _uk = sum(untrained[f"t{t}"]["correct"] for t in (1, 2, 3, 4))
@@ -705,9 +841,9 @@ def run_arm(tag: str, cfg: dict[str, Any], *, shape: tuple[int, int],
         "reload": bool(reload_ok),
     }
     _status = "SCIENTIFIC_PASS" if all(_rules.values()) else "SCIENTIFIC_FAIL"
-    receipt = {
+    return {
         "schema": "citadel-t1d-arm/v1", "arm": tag, "config": cfg,
-        "citadel_sha": rb.citadel_sha(), "cymek_runtime_sha": rt_sha,
+        "citadel_sha": citadel_sha, "cymek_runtime_sha": cymek_sha,
         "environment": env, "batch_sequences": n_seq, "sequence_length": length,
         "model": {"spec": cfg["spec"], "parameter_count": param_count},
         "data": {"feeder": feeder.ledger()},
@@ -721,10 +857,13 @@ def run_arm(tag: str, cfg: dict[str, Any], *, shape: tuple[int, int],
                       "train_wall_seconds": train_wall},
         "untrained": untrained, "untrained_train": untrained_train,
         "trained": trained, "trained_train": trained_train,
+        "train_memorization": train_memorization,
         "intermediates": inter,
         "diagnostics": {
-            "stop_histogram": cev.stop_histogram(pre_recs),
-            "samples": cev.sample_records(pre_recs, 20, seed),
+            "stop_histogram": cev.stop_histogram(
+                [r for t in range(5) for r in trained_recs[f"t{t}"]]),
+            "samples": cev.sample_records(
+                [r for t in range(5) for r in trained_recs[f"t{t}"]], 20, seed),
             "first_train_lift_tier": first_lift(lift_train),
             "first_test_lift_tier": first_lift(lift_test),
             "teacher_eval": teacher_eval,
@@ -744,13 +883,46 @@ def run_arm(tag: str, cfg: dict[str, Any], *, shape: tuple[int, int],
         "post_reload_prediction_sha256": post_sha,
         "reload_identical": reload_ok,
         "checkpoint": {"path": ckpt_path, "sha256": ckpt_hash},
-        "device_count": n_devices, "wall_seconds": wall,
+        "device_count": device_count, "wall_seconds": wall,
         "status": _status,
     }
+
+
+def write_arm_receipt(out_dir: str | Path, receipt: dict[str, Any], *,
+                      ckpt_hash: str) -> None:
+    """Durably write the arm receipt + completion marker.
+
+    Receipt first, marker second: every terminal state (SCIENTIFIC_PASS,
+    SCIENTIFIC_FAIL, TIMEBOX_ABORT, IMPLEMENTATION_FAILURE) always lands as
+    an ARM_<tag>.json on disk — the bundle guarantee. Interrupted pairs fail
+    loudly via the resume predicate, never silently.
+    """
+    root = Path(out_dir)
+    out_path = root / f"ARM_{receipt['arm']}.json"
     out_path.write_text(json.dumps(receipt, indent=2, sort_keys=True), encoding="utf-8")
-    marker.write_text(json.dumps({"receipt": str(out_path), "status": receipt["status"],
-                                  "checkpoint_sha256": ckpt_hash}, indent=2), encoding="utf-8")
-    return receipt
+    (root / f"ARM_{receipt['arm']}.done.json").write_text(
+        json.dumps({"receipt": str(out_path), "status": receipt["status"],
+                    "checkpoint_sha256": ckpt_hash}, indent=2), encoding="utf-8")
+
+
+def select_calibrated_shape(results: list[dict[str, Any]], *,
+                            scale2_verifier) -> tuple[dict[str, Any] | None, str]:
+    """Pure shape selection: max tok/s among correctness-passing candidates
+    whose shape ALSO verifies on SCALE2 (Arm D must never be the first place
+    the session-wide shape is tried). A failed candidate is marked failed IN
+    PLACE — no duplicate dicts left behind that keep a rejected shape
+    accidentally selectable. Returns (selected | None, note)."""
+    feasible = [r for r in results if r.get("correct")]
+    if not feasible:
+        return None, "no candidate passed correctness"
+    ordered = sorted(feasible, key=lambda r: r.get("tokens_per_second", 0.0),
+                     reverse=True)
+    for cand in ordered:
+        if scale2_verifier(cand["batch"], cand["length"]):
+            return cand, "pass"
+        cand["correct"] = False
+        cand["error"] = "SCALE2_VERIFICATION_FAILED"
+    return None, "no shape safe for SCALE2"
 
 
 def _pooled(arm: dict[str, Any], key: str) -> tuple[int, int]:
@@ -839,12 +1011,21 @@ def classify_cross_arm(arms: dict[str, dict[str, Any]]) -> dict[str, Any]:
         inter = arms[t].get("intermediates", {})
         keys = sorted(int(k) for k in inter if str(k).isdigit())
         if len(keys) >= 2:
-            early = inter[str(keys[-2])].get("dev_exact")
-            late = inter[str(keys[-1])].get("dev_exact")
+            def _dev_mean(cp: int):
+                block = inter[str(cp)]
+                vals = [block[f"t{tier}"]["exact"] for tier in (1, 2, 3, 4)
+                        if isinstance(block, dict) and f"t{tier}" in block
+                        and isinstance(block[f"t{tier}"], dict)
+                        and block[f"t{tier}"].get("exact") is not None]
+                return (sum(vals) / len(vals)) if vals else None
+            early = _dev_mean(keys[-2])
+            late = _dev_mean(keys[-1])
             te = pooled[t]["acc"]
-            if early is not None and late is not None and late - early >= 0.05 and te < 0.10:
+            if (early is not None and late is not None
+                    and late - early >= 0.05 and te < 0.10):
                 fired["BUDGET_LIMITED"] = (
-                    f"arm {t}: dev still rising at 100% ({early:.2f}->{late:.2f})")
+                    f"arm {t}: mean dev tiers1-4 still rising between the last "
+                    f"two checkpoints ({early:.2f}->{late:.2f}); pooled test {te:.2f}")
                 break
     if not fired:
         fired["INCONCLUSIVE"] = "no rule fired"
@@ -919,98 +1100,187 @@ def run_session(session_dir: str, *, seed: int = 20260904) -> dict[str, Any]:
                   flush=True)
         except Exception as exc:  # noqa: BLE001 - per-arm isolation per plan
             infra_failures += 1
-            arm_receipts[tag] = {"arm": tag, "status": "IMPLEMENTATION_FAILURE",
-                                 "error": f"{type(exc).__name__}: {exc}"}
+            # Durable terminal receipt on disk for EVERY arm, including this
+            # one (bundle guarantee). No marker: a rerun retries the arm.
+            receipt = arm_failure_receipt(tag, exc, citadel_sha=rb.citadel_sha(),
+                                          cymek_sha=rt_sha)
+            (root / f"ARM_{tag}.json").write_text(
+                json.dumps(receipt, indent=2, sort_keys=True), encoding="utf-8")
+            arm_receipts[tag] = receipt
             print(f"arm {tag}: IMPLEMENTATION_FAILURE {exc}", flush=True)
             if infra_failures >= 2:
                 raise RuntimeError("abort SESSION: 2nd infra failure") from exc
-    summary = classify_cross_arm(
-        {t: r for t, r in arm_receipts.items()
-         if r.get("status") in ("SCIENTIFIC_PASS", "SCIENTIFIC_FAIL")})
+    return _assemble_session_results(
+        root, arm_receipts, shape=shape, rate=rate, scaled=scaled,
+        budgets={t: c["budget"] for t, c in budgets.items()}, rt_sha=rt_sha)
+
+
+def arm_failure_receipt(tag: str, exc: Exception, *, citadel_sha: str,
+                        cymek_sha: str) -> dict[str, Any]:
+    """Terminal IMPLEMENTATION_FAILURE receipt for one arm (pure builder)."""
+    return {"schema": "citadel-t1d-arm/v1", "arm": tag,
+            "status": "IMPLEMENTATION_FAILURE",
+            "error": f"{type(exc).__name__}: {exc}",
+            "citadel_sha": citadel_sha, "cymek_runtime_sha": cymek_sha}
+
+
+def _write_pre50m_failure_receipts(root: Path, exc: Exception, *,
+                                   citadel_sha: str, cymek_sha: str) -> None:
+    """PRE50M failed: NEVER lose the T1D arms or the bundle.
+
+    Every still-missing required PRE50M/diagnostics artifact gets an explicit
+    failure receipt, and NEXT_50M_DECISION.json is (re)written fail-closed
+    with ready_for_50m_training=false and a precise blocker.
+    """
+    for name in ("PRE50M_TARGET.json", "PRE50M_FEASIBILITY.json",
+                 "PRE50M_THROUGHPUT.json", "PRE50M_CHECKPOINT_SMOKE.json",
+                 "PRE50M_DATA_INTERFACE.json", "PRE50M_PACKING.json",
+                 "DIAGNOSTICS.json"):
+        if (root / name).is_file():
+            continue
+        (root / name).write_text(json.dumps(
+            {"status": "IMPLEMENTATION_FAILURE",
+             "phase": name,
+             "error": f"{type(exc).__name__}: {exc}",
+             "citadel_sha": citadel_sha, "cymek_runtime_sha": cymek_sha},
+            indent=2, sort_keys=True), encoding="utf-8")
+    (root / "NEXT_50M_DECISION.json").write_text(json.dumps(
+        {"schema": "citadel-pre50m-decision/v1",
+         "ready_for_50m_training": False,
+         "blocking_reasons": [f"PRE50M implementation failure: "
+                              f"{type(exc).__name__}: {exc}"],
+         "status": "IMPLEMENTATION_FAILURE",
+         "citadel_sha": citadel_sha, "cymek_runtime_sha": cymek_sha},
+        indent=2, sort_keys=True), encoding="utf-8")
+
+
+def _run_pre50m_phase(root: Path, arm_receipts: dict[str, Any], *, rt_sha: str,
+                      rate: float, shape: tuple[int, int]) -> dict[str, Any]:
+    """The real PRE50M phase (device-bound); writes every required receipt."""
+    from citadel_tpu import pre50m as p50  # noqa: E402 (phase import)
+    from citadel_tpu import runtime_bootstrap as rb
+    from citadel_tpu import t1c_run as t1c
+
+    citadel_sha = rb.citadel_sha()
+    (root / "PRE50M_TARGET.json").write_text(json.dumps(
+        {"schema": "citadel-pre50m-target/v1", **p50.PRE50M_TARGET,
+         "citadel_sha": citadel_sha, "cymek_runtime_sha": rt_sha},
+        indent=2, sort_keys=True), encoding="utf-8")
+    smoke = p50.smoke_target_model(out_dir=str(root))
+    di = p50.data_interface_cert(out_dir=str(root))
+    packing = p50.packing_cert(out_dir=str(root))
+    feas = {"MID_3_7M": p50.memory_estimate(t1c.MID_EXPECTED_PARAMS),
+            "SCALE2_7_4M": p50.memory_estimate(SCALE2_EXPECTED_PARAMS)}
+    try:
+        scale2_rate = (smoke["capacity_tokens"] / max(
+            smoke.get("train_wall_seconds", 0) or smoke["wall_seconds"], 1e-9))
+    except Exception:
+        scale2_rate = None
+    curve = {"MID": p50.throughput_estimates(rate),
+             "SCALE2": p50.throughput_estimates(scale2_rate) if scale2_rate else None}
+    grad_accum = p50.grad_accumulation_status(True, shape[0])
+    oom = p50.oom_decision(cal_candidates(root))
+    feas["grad_accumulation"] = grad_accum
+    feas["oom_selection"] = oom
+    (root / "PRE50M_FEASIBILITY.json").write_text(json.dumps(
+        {"schema": "citadel-pre50m-feasibility/v1",
+         "citadel_sha": citadel_sha, "cymek_runtime_sha": rt_sha,
+         "memory": feas, "grad_accumulation": grad_accum,
+         "oom_selection": oom}, indent=2, sort_keys=True), encoding="utf-8")
+    (root / "PRE50M_THROUGHPUT.json").write_text(json.dumps(
+        {"schema": "citadel-pre50m-throughput/v1",
+         "citadel_sha": citadel_sha, "cymek_runtime_sha": rt_sha,
+         "curve": curve}, indent=2, sort_keys=True), encoding="utf-8")
+    diagnostics = {
+        "schema": "citadel-t1d-diagnostics/v1",
+        "arms": {t: r.get("diagnostics", {}) for t, r in arm_receipts.items()},
+        "pre50m_smoke_losses": smoke.get("losses", []),
+    }
+    (root / "DIAGNOSTICS.json").write_text(
+        json.dumps(diagnostics, indent=2, sort_keys=True), encoding="utf-8")
+    decision = p50.build_decision(
+        target={"understood": True, "type": p50.PRE50M_TARGET["type"],
+                "value_tokens": p50.PRE50M_TARGET["value_tokens"],
+                "parameter_count": None},
+        smoke=smoke, feasibility={"verdict": feas["SCALE2_7_4M"]["verdict"]},
+        data_interface=di, packing=packing,
+        recommended_batch=shape[0], recommended_sequence_length=shape[1],
+        rate_tok_s=rate)
+    (root / "NEXT_50M_DECISION.json").write_text(
+        json.dumps(decision, indent=2, sort_keys=True), encoding="utf-8")
+    return {"status": "PASS", "decision": decision}
+
+
+def cal_candidates(root: Path) -> list[dict[str, Any]]:
+    """Calibration candidates from the session receipt (fail-closed default)."""
+    cal_path = Path(root) / "CALIBRATION.json"
+    if not cal_path.is_file():
+        return []
+    try:
+        return list(json.loads(cal_path.read_text(encoding="utf-8")).get("candidates", []))
+    except Exception:
+        return []
+
+
+def _assemble_session_results(root: Path, arm_receipts: dict[str, Any], *,
+                              shape: tuple[int, int], rate: float, scaled: bool,
+                              budgets: dict[str, int], rt_sha: str,
+                              pre50m_runner=None) -> dict[str, Any]:
+    """Post-arm session assembly (device-free except the injected PRE50M
+    runner): cross-arm classification, lift curves, PRE50M phase, session
+    manifest, bundle. PRE50M failure never destroys T1D evidence.
+    """
+    from citadel_tpu import runtime_bootstrap as rb
+
+    root = Path(root)
+    citadel_sha = rb.citadel_sha()
+    scientific = {t: r for t, r in arm_receipts.items()
+                  if r.get("status") in ("SCIENTIFIC_PASS", "SCIENTIFIC_FAIL")}
+    summary = classify_cross_arm(scientific)
     (root / "CROSS_ARM_SUMMARY.json").write_text(
         json.dumps(summary, indent=2, sort_keys=True), encoding="utf-8")
     print("cross-arm labels:", summary["labels"], flush=True)
     curves = {}
     for tag, r in arm_receipts.items():
         if r.get("status") not in ("SCIENTIFIC_PASS", "SCIENTIFIC_FAIL"):
+            # failed/aborted arms are represented by status alone; the curve
+            # file never indexes scientific fields they do not carry
             curves[tag] = {"status": r.get("status")}
             continue
+        latest = str(max((int(k) for k in r["intermediates"] if str(k).isdigit()),
+                         default=0))
         curves[tag] = {
             "status": r.get("status"),
             "train": {f"t{t}": r["trained_train"][f"t{t}"]["accuracy"] for t in range(5)},
-            "dev": {f"t{t}": r["intermediates"][str(max(
-                int(k) for k in r["intermediates"] if k.isdigit()))][f"t{t}"]["exact"]
-                if r["intermediates"] else None for t in range(5)},
+            "dev": {f"t{t}": (r["intermediates"][latest][f"t{t}"]["exact"]
+                              if r["intermediates"] and f"t{t}" in r["intermediates"][latest]
+                              else None) for t in range(5)},
             "test": {f"t{t}": r["trained"][f"t{t}"]["accuracy"] for t in range(5)},
             "untrained_test": {f"t{t}": r["untrained"][f"t{t}"]["accuracy"]
                                for t in range(5)},
-            "first_train_lift_tier": r["diagnostics"]["first_train_lift_tier"],
-            "first_test_lift_tier": r["diagnostics"]["first_test_lift_tier"]},
+            "first_train_lift_tier": r["diagnostics"].get("first_train_lift_tier"),
+            "first_test_lift_tier": r["diagnostics"].get("first_test_lift_tier")}
     (root / "LIFT_OFF_CURVES.json").write_text(
         json.dumps({"schema": "citadel-t1d-lift-off-curves/v1", "arms": curves},
                    indent=2, sort_keys=True), encoding="utf-8")
-    from citadel_tpu import pre50m as p50  # noqa: E402 (phase import)
-
-    pre50m_status: dict[str, Any] = {}
+    runner = _run_pre50m_phase if pre50m_runner is None else pre50m_runner
     try:
-        from citadel_tpu import t1c_run as t1c
-
-        (root / "PRE50M_TARGET.json").write_text(json.dumps(
-            {"schema": "citadel-pre50m-target/v1", **p50.PRE50M_TARGET,
-             "citadel_sha": rb.citadel_sha(),
-             "cymek_runtime_sha": rt_sha}, indent=2, sort_keys=True), encoding="utf-8")
-        smoke = p50.smoke_target_model(out_dir=str(root))
-        di = p50.data_interface_cert(out_dir=str(root))
-        packing = p50.packing_cert(out_dir=str(root))
-        feas = {"MID_3_7M": p50.memory_estimate(t1c.MID_EXPECTED_PARAMS),
-                "SCALE2_7_4M": p50.memory_estimate(SCALE2_EXPECTED_PARAMS)}
-        try:
-            scale2_rate = (smoke["capacity_tokens"] / max(
-                smoke.get("train_wall_seconds", 0) or smoke["wall_seconds"], 1e-9))
-        except Exception:
-            scale2_rate = None
-        curve = {"MID": p50.throughput_estimates(rate),
-                 "SCALE2": p50.throughput_estimates(scale2_rate) if scale2_rate else None}
-        grad_accum = p50.grad_accumulation_status(True, shape[0])
-        oom = p50.oom_decision(cal.get("candidates", []))
-        feas["grad_accumulation"] = grad_accum
-        feas["oom_selection"] = oom
-        (root / "PRE50M_FEASIBILITY.json").write_text(json.dumps(
-            {"schema": "citadel-pre50m-feasibility/v1",
-             "citadel_sha": rb.citadel_sha(), "cymek_runtime_sha": rt_sha,
-             "memory": feas, "grad_accumulation": grad_accum,
-             "oom_selection": oom}, indent=2, sort_keys=True), encoding="utf-8")
-        (root / "PRE50M_THROUGHPUT.json").write_text(json.dumps(
-            {"schema": "citadel-pre50m-throughput/v1",
-             "citadel_sha": rb.citadel_sha(), "cymek_runtime_sha": rt_sha,
-             "curve": curve}, indent=2, sort_keys=True), encoding="utf-8")
-        diagnostics = {
-            "schema": "citadel-t1d-diagnostics/v1",
-            "arms": {t: r.get("diagnostics", {}) for t, r in arm_receipts.items()},
-            "pre50m_smoke_losses": smoke.get("losses", []),
-        }
-        (root / "DIAGNOSTICS.json").write_text(
-            json.dumps(diagnostics, indent=2, sort_keys=True), encoding="utf-8")
-        decision = p50.build_decision(
-            target={"understood": True, "type": p50.PRE50M_TARGET["type"],
-                    "parameter_count": None},
-            smoke=smoke, feasibility={"verdict": feas["SCALE2_7_4M"]["verdict"]},
-            data_interface=di, packing=packing,
-            recommended_batch=shape[0], recommended_sequence_length=shape[1],
-            rate_tok_s=rate)
-        (root / "NEXT_50M_DECISION.json").write_text(
-            json.dumps(decision, indent=2, sort_keys=True), encoding="utf-8")
-        pre50m_status = {"status": "PASS", "decision": decision}
-        print("pre50m:", decision["ready_for_50m_training"],
-              decision["blocking_reasons"], flush=True)
+        pre50m_status = runner(root, arm_receipts, rt_sha=rt_sha, rate=rate,
+                               shape=tuple(shape))
     except Exception as exc:  # noqa: BLE001 - preserve arms, record, continue
         pre50m_status = {"status": "IMPLEMENTATION_FAILURE",
                          "error": f"{type(exc).__name__}: {exc}"}
+        _write_pre50m_failure_receipts(root, exc, citadel_sha=citadel_sha,
+                                       cymek_sha=rt_sha)
         print(f"pre50m: IMPLEMENTATION_FAILURE {exc}", flush=True)
+    else:
+        decision = pre50m_status.get("decision", {})
+        print("pre50m:", decision.get("ready_for_50m_training"),
+              decision.get("blocking_reasons"), flush=True)
     session = {"schema": "citadel-t1d-session/v1",
-               "citadel_sha": rb.citadel_sha(), "cymek_runtime_sha": rt_sha,
+               "citadel_sha": citadel_sha, "cymek_runtime_sha": rt_sha,
                "shape": list(shape), "calibrated_rate": rate, "budgets_scaled": scaled,
-               "budgets": {t: c["budget"] for t, c in budgets.items()},
+               "budgets": budgets,
                "arms": {t: r.get("status") for t, r in arm_receipts.items()},
                "labels": summary["labels"], "pre50m": pre50m_status,
                "bundle": "pending"}
@@ -1033,14 +1303,23 @@ BUNDLE_FILES = ["SESSION_MANIFEST.json", "DATA_MANIFEST.json", "CALIBRATION.json
                 "DIAGNOSTICS.json", "NEXT_50M_DECISION.json"]
 
 
+BUNDLE_KNOWN_STATUSES = {"SCIENTIFIC_PASS", "SCIENTIFIC_FAIL", "TIMEBOX_ABORT",
+                         "IMPLEMENTATION_FAILURE", "PASS", "FAIL"}
+
+
 def verify_bundle(session_dir: str) -> dict[str, Any]:
     """Reopen + validate the result bundle BEFORE download (Cell F gate).
 
-    Checks: every required file present and JSON-parseable; every arm receipt
-    carries a known status; checkpoint SHAs in receipts match files when the
-    binaries were bundled; BUNDLE_MANIFEST agrees with disk. Raises with an
-    exact defect list otherwise. Pure file I/O (no device).
+    Checks: every required file present and JSON-parseable; every receipt
+    that carries a status carries a KNOWN terminal status (implementation
+    failures and PRE50M failure placeholders included — they must exist, not
+    be absent); checkpoint SHAs in arm receipts match the bundled binaries
+    when the binaries were bundled; the zip contains every member and
+    decompresses cleanly. Raises with an exact defect list otherwise. Pure
+    file I/O (no device).
     """
+    import hashlib as _hl
+
     root = Path(session_dir)
     required = list(BUNDLE_FILES)
     defects: list[str] = []
@@ -1054,13 +1333,11 @@ def verify_bundle(session_dir: str) -> dict[str, Any]:
             loaded[name] = json.loads(p.read_text(encoding="utf-8"))
         except Exception as exc:
             defects.append(f"{name} unparseable: {type(exc).__name__}")
-    for tag in ("A", "B", "C", "D", "E"):
-        r = loaded.get(f"ARM_{tag}.json")
-        if isinstance(r, dict) and r.get("status") not in (
-                "SCIENTIFIC_PASS", "SCIENTIFIC_FAIL", "TIMEBOX_ABORT",
-                "IMPLEMENTATION_FAILURE"):
-            defects.append(f"ARM_{tag}.json unknown status {r.get('status')!r}")
+    for name, doc in loaded.items():
+        if isinstance(doc, dict) and "status" in doc                 and doc.get("status") not in BUNDLE_KNOWN_STATUSES:
+            defects.append(f"{name} unknown status {doc.get('status')!r}")
     zp = root / "CITADEL_T1D_RESULTS.zip"
+    zip_bytes: dict[str, bytes] = {}
     if not zp.is_file():
         defects.append("CITADEL_T1D_RESULTS.zip missing")
     else:
@@ -1073,8 +1350,25 @@ def verify_bundle(session_dir: str) -> dict[str, Any]:
                 bad = zf.testzip()
                 if bad is not None:
                     defects.append(f"zip corrupt at {bad}")
+                for ckpt in [n for n in names if n.endswith(".pt")]:
+                    zip_bytes[ckpt] = zf.read(ckpt)
         except Exception as exc:
             defects.append(f"zip unreadable: {type(exc).__name__}: {exc}")
+    # checkpoint identity: when binaries are bundled, each arm receipt's
+    # checkpoint sha256 must match the bundled bytes exactly
+    if zip_bytes:
+        for tag in ("A", "B", "C", "D", "E"):
+            r = loaded.get(f"ARM_{tag}.json")
+            if not isinstance(r, dict):
+                continue
+            ckpt = r.get("checkpoint") or {}
+            sha = ckpt.get("sha256")
+            member = f"t1d_arm_{tag.lower()}.pt"
+            if sha and member in zip_bytes:
+                actual = _hl.sha256(zip_bytes[member]).hexdigest()
+                if actual != sha:
+                    defects.append(f"ARM_{tag}.json checkpoint sha mismatch "
+                                   f"({member})")
     if defects:
         raise RuntimeError(f"abort BUNDLE_INVALID: {'; '.join(defects)}")
     return {"schema": "citadel-t1d-bundle-verify/v1", "files": len(required),
@@ -1123,13 +1417,19 @@ __all__ = [
     "TierFeeder",
     "assemble_batch",
     "build_bundle",
+    "build_arm_receipt",
     "build_spec",
     "calibrate",
     "classify_cross_arm",
+    "frozen_train_candidates",
     "pack_rows",
     "run_arm",
     "run_session",
+    "select_calibrated_shape",
     "should_skip_arm",
+    "train_memorization_plan",
+    "validate_null_block",
+    "write_arm_receipt",
     "timebox_abort_receipt",
     "valid_alphabet_ids",
     "verify_bundle",
