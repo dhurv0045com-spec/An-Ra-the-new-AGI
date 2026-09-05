@@ -160,20 +160,34 @@ def test_scale2_rules() -> None:
 
 def _arm(test14=(0.0, 0.0, 0.0, 0.0), train14=(0.0,) * 4, status="SCIENTIFIC_FAIL",
          hist=None, dev_pairs=None, lcb=0.0, ucb=0.008):
-    def s(acc):
-        n = 500
+    """Synthetic arm receipt in the REAL schema: intermediates carry the
+    per-tier DEV structure the producer writes (inter[cp][f"t{tier}"]["exact"]),
+    nulls_per_tier carries all five tiers with strongest/accuracy/all."""
+    def s(acc, n=500):
         return {"accuracy": acc, "correct": int(acc * n), "total": n,
                 "wilson_lcb": lcb if acc == 0.0 else acc - 0.04,
                 "wilson_ucb": ucb if acc == 0.0 else acc + 0.04}
 
+    inter = {}
+    for cp, v in (dev_pairs or []):
+        inter[str(cp)] = {f"t{tier}": {"exact": v, "lcb": max(0.0, v - 0.03)}
+                          for tier in range(5)}
     return {"status": status,
-            "trained": {f"t{t}": s(a) for t, a in zip((1, 2, 3, 4), test14)},
-            "untrained": {f"t{t}": s(0.0) for t in (1, 2, 3, 4)},
+            "trained": {f"t{t}": s(a) for t, a in zip(range(5), (0.0,) + test14)},
+            "untrained": {f"t{t}": s(0.0) for t in range(5)},
             "trained_train": {f"t{t}": s(a) for t, a in zip(range(5), (0.0,) + train14)},
-            "nulls_per_tier": {f"t{t}": {"strongest": "copy_first_operand", "accuracy": 0.02}
+            "train_memorization": {f"t{t}": {"consumed_prefix": 200,
+                                             "n_verified_consumed": 200,
+                                             "status": "OK", "lift_eligible": True}
+                                   for t in range(5)},
+            "nulls_per_tier": {f"t{t}": {"strongest": "copy_first_operand",
+                                         "accuracy": 0.02,
+                                         "all": {"copy_first_operand": 0.02}}
                                for t in range(5)},
-            "diagnostics": {"stop_histogram": hist or {"NEWLINE": 500}},
-            "intermediates": {str(k): {"dev_exact": v} for k, v in (dev_pairs or [])},
+            "diagnostics": {"stop_histogram": hist or {"NEWLINE": 500},
+                            "first_train_lift_tier": None,
+                            "first_test_lift_tier": None},
+            "intermediates": inter,
             "reload_identical": True}
 
 
@@ -373,21 +387,34 @@ def test_pre50m_estimators_and_decider() -> None:
     assert ga["required"] is False and ga["status"] == "NOT_REQUIRED"
     ga2 = p50.grad_accumulation_status(False, 4096)
     assert ga2["required"] is True
-    base = {"target": {"understood": True, "type": "tokens", "parameter_count": None},
-            "smoke": {"reload_output_identity": True,
-                      "optimizer_resume": {"moments_preserved": True},
-                      "grad_norm": {"max": 1.5}, "losses": [9.0, 8.0]},
-            "feasibility": {"verdict": "FIT"},
-            "data_interface": {"status": "PASS"}, "packing": {"status": "PASS"},
+    green_smoke = {"status": "PASS", "reload_output_identity": True,
+                   "optimizer_resume": {"moments_preserved": True,
+                                        "continued_update_ok": True},
+                   "grad_norm": {"max": 1.5}, "losses": [9.0, 8.0],
+                   "param_mutation": True, "production_transaction": True,
+                   "checkpoint_compat": {"compatible": True},
+                   "writer_fence_probe": "rejected-as-required",
+                   "token_accounting": {"consistent": True}}
+    green_data = {"status": "PASS", "capacity_tokens": 4096, "real_tokens": 4000,
+                  "loss_bearing_tokens": 900, "padding_tokens": 96,
+                  "scheduled_rows": 64}
+    base = {"target": {"understood": True, "type": p50.PRE50M_TARGET["type"],
+                       "value_tokens": p50.PRE50M_TARGET["value_tokens"],
+                       "parameter_count": None},
+            "smoke": green_smoke, "feasibility": {"verdict": "FIT"},
+            "data_interface": green_data, "packing": {"status": "PASS"},
             "recommended_batch": 256, "recommended_sequence_length": 64,
             "rate_tok_s": 8000.0}
     import copy
 
-    assert p50.build_decision(**copy.deepcopy(base))["ready_for_50m_training"] is True
+    green = p50.build_decision(**copy.deepcopy(base))
+    assert green["ready_for_50m_training"] is True
+    assert green["blocking_reasons"] == []
     bad = copy.deepcopy(base)
     bad["feasibility"] = {"verdict": "DOES_NOT_FIT"}
     d = p50.build_decision(**bad)
-    assert d["ready_for_50m_training"] is False and len(d["blocking_reasons"]) == 1
+    assert d["ready_for_50m_training"] is False
+    assert any("does not fit" in r for r in d["blocking_reasons"])
     bad2 = copy.deepcopy(base)
     bad2["target"] = {"understood": False}
     assert p50.build_decision(**bad2)["ready_for_50m_training"] is False
@@ -617,6 +644,542 @@ def test_session_resume_dry_run(tmp_path=None) -> None:
     json.dumps(abort)
 
 
+def test_train_memorization_plan_matrix() -> None:
+    """Frozen candidates verified against the EXACT consumed prefix:
+    zero / <200 / ==200 / >200 consumed; lift eligibility follows the plan,
+    and FIRST_TRAIN_LIFT can never fire on n < LIFT_MIN_N."""
+    class FakeFeeder:
+        def __init__(self, prefixes):
+            self._p = dict(prefixes)
+
+        def consumed_prefix(self, tier):
+            return self._p.get(tier, 0)
+
+    plan = t1d.train_memorization_plan(FakeFeeder({}))
+    assert all(plan[t]["n_verified"] == 0 for t in range(5))
+    assert all(plan[t]["status"] == "INSUFFICIENT_CONSUMPTION" for t in range(5))
+
+    plan = t1d.train_memorization_plan(FakeFeeder({0: 150, 1: 199}))
+    assert plan[0]["n_verified"] == 150 and plan[0]["status"] == "INSUFFICIENT_CONSUMPTION"
+    assert plan[1]["n_verified"] == 199 and plan[1]["status"] == "INSUFFICIENT_CONSUMPTION"
+
+    plan = t1d.train_memorization_plan(FakeFeeder({2: 200}))
+    assert plan[2]["n_verified"] == 200 and plan[2]["status"] == "OK"
+
+    plan = t1d.train_memorization_plan(FakeFeeder({3: 5000, 4: 999_999}))
+    assert plan[3]["n_verified"] == 200 and plan[3]["status"] == "OK"
+    assert plan[4]["n_verified"] == 200 and plan[4]["status"] == "OK"
+    # frozen candidates are the first 200 indices, deterministic
+    cands = t1d.frozen_train_candidates()
+    assert all(cands[t] == list(range(t1d.TRAIN_SAMPLE_PER_TIER)) for t in range(5))
+    # verified indices are always a prefix of the candidates (index order)
+    for t in range(5):
+        assert plan[t]["verified_indices"] == cands[t][:plan[t]["n_verified"]]
+
+
+def test_lift_eligibility_never_fires_below_min_n() -> None:
+    """A tier with n_verified < LIFT_MIN_N is INSUFFICIENT_CONSUMPTION and its
+    train-lift flag is False even at perfect accuracy."""
+    feeder_notes = {"consumed_prefix": lambda tier: 150}
+    plan = t1d.train_memorization_plan(
+        type("F", (), {"consumed_prefix": staticmethod(lambda tier: 150)})())
+    assert plan[0]["status"] == "INSUFFICIENT_CONSUMPTION"
+    mem = {"consumed_prefix": 150, "n_frozen_candidates": 200,
+           "n_verified_consumed": 150, "evaluated_rows": 150,
+           "status": plan[0]["status"],
+           "lift_eligible": bool(plan[0]["status"] == "OK" and 1.0 >= t1d.LIFT_THRESHOLD)}
+    assert mem["lift_eligible"] is False
+
+
+def test_null_block_validation() -> None:
+    """validate_null_block: complete t0-t4 blocks pass; every defect class
+    the nulls_per_tier bug produced is rejected."""
+    good = {"heuristic_nulls": {"n": {"accuracy": 0.1}},
+            "nulls_per_tier": {f"t{t}": {"strongest": "x", "accuracy": 0.02,
+                                         "all": {"x": 0.02}} for t in range(5)}}
+    assert t1d.validate_null_block(good) == []
+    buggy = {"heuristic_nulls": {"n": {"accuracy": 0.1}},
+             "nulls_per_tier": {"t4": {"strongest": "x", "accuracy": 0.02,
+                                       "all": {"x": 0.02}}}}
+    defects = t1d.validate_null_block(buggy)
+    assert defects and "t0" in defects[0], defects
+    bad_acc = {"heuristic_nulls": {"n": {"accuracy": 0.1}},
+               "nulls_per_tier": {f"t{t}": {"strongest": "x", "accuracy": 0.02,
+                                            "all": {"x": 0.02}} for t in range(5)}}
+    bad_acc["nulls_per_tier"]["t2"] = {"strongest": "x", "accuracy": 1.5,
+                                       "all": {"x": 1.5}}
+    assert any("t2" in d and "finite" in d for d in t1d.validate_null_block(bad_acc))
+    missing_key = {"heuristic_nulls": {"n": {"accuracy": 0.1}},
+                   "nulls_per_tier": {f"t{t}": {"strongest": "x", "accuracy": 0.02,
+                                                "all": {"x": 0.02}} for t in range(5)}}
+    del missing_key["nulls_per_tier"]["t3"]["all"]
+    assert any("t3" in d and "all" in d for d in t1d.validate_null_block(missing_key))
+    nan_block = {"heuristic_nulls": {"n": {"accuracy": 0.1}},
+                 "nulls_per_tier": {f"t{t}": {"strongest": "x", "accuracy": 0.02,
+                                              "all": {"x": 0.02}} for t in range(5)}}
+    nan_block["nulls_per_tier"]["t1"]["accuracy"] = float("nan")
+    assert t1d.validate_null_block(nan_block)
+
+
+def _synthetic_records(targets, acc=1.0):
+    """Generation records in the exact producer schema (calculator_eval.generate)."""
+    out = []
+    for i, t in enumerate(targets):
+        pred = t if i < int(acc * len(targets)) or acc >= 1.0 else "7"
+        out.append({"prompt": "synthetic", "target": t, "prediction": pred,
+                    "correct": pred == t, "stop_reason": "EOS",
+                    "generated_token_count": len(pred), "valid": True})
+    return out
+
+
+def test_post_training_arm_simulation() -> None:
+    """THE §12 test: a completed synthetic arm traverses every post-training
+    stage on real (pure) rows — trained summaries, trained_train via the
+    verified-consumption plan, nulls global+per-tier, diagnostics, lift,
+    scientific gate, receipt + marker serialization, classification — and
+    reaches the final receipt. This flow would have caught the
+    nulls_per_tier bug (incomplete t0-t3 crashed the gate) and the
+    train-memorization bug (n=1 samples)."""
+    import tempfile
+
+    from citadel_tpu import calculator_eval as cev
+
+    with tempfile.TemporaryDirectory() as tmp:
+        feeder = t1d.TierFeeder("curriculum", 8, 64)
+        for u in range(400):
+            feeder.fill_sequences(u / 400)
+        slices = t1d._tier_slices()
+        cands = t1d.frozen_train_candidates()
+        plan = t1d.train_memorization_plan(feeder, candidates=cands)
+        assert all(plan[t]["status"] == "OK" for t in range(5)), \
+            "consumed prefixes must exceed 200 in this scenario"
+
+        def s(acc, n=500):
+            return {"correct": int(acc * n), "total": n, "accuracy": acc,
+                    "wilson_lcb": max(0.0, acc - 0.04),
+                    "wilson_ucb": min(1.0, acc + 0.04)}
+
+        accs = {0: 0.9, 1: 0.5, 2: 0.3, 3: 0.1, 4: 0.02}
+        trained = {f"t{t}": s(accs[t]) for t in range(5)}
+        trained_recs = {
+            f"t{t}": _synthetic_records(slices[f"test_t{t}"]["targets"],
+                                        acc=accs[t]) for t in range(5)}
+        untrained = {f"t{t}": s(0.0) for t in range(5)}
+        untrained_train = {f"t{t}": s(0.0, n=200) for t in range(5)}
+        trained_train, train_memorization = {}, {}
+        for tier in range(5):
+            entry = plan[tier]
+            rows = [td.tier_row(tier, "train", i)[0]
+                    for i in entry["verified_indices"]]
+            tgts = [cev.split_prompt_target(r)[1] for r in rows]
+            summ = s(0.6, n=len(rows)) if rows else s(0.0, n=0)
+            trained_train[f"t{tier}"] = summ
+            train_memorization[f"t{tier}"] = {
+                "consumed_prefix": entry["consumed_prefix"],
+                "n_frozen_candidates": entry["n_candidates"],
+                "n_verified_consumed": entry["n_verified"],
+                "evaluated_rows": len(rows),
+                "status": entry["status"],
+                "lift_eligible": bool(entry["status"] == "OK"
+                                      and summ["accuracy"] >= t1d.LIFT_THRESHOLD)}
+        inter = {}
+        for cp, dev in ((25, 0.05), (50, 0.12), (75, 0.18), (100, 0.22)):
+            inter[str(cp)] = {f"t{tier}": {"exact": dev, "lcb": dev - 0.03}
+                              for tier in range(5)}
+        receipt = t1d.build_arm_receipt(
+            tag="A", cfg=dict(t1d.ARMS["A"]), env={"probe_pass": True},
+            n_seq=8, length=64, param_count=3_737_472,
+            citadel_sha="0" * 40, cymek_sha="1" * 64,
+            feeder=feeder, seed=20260904, slices=slices,
+            ledgers=[{"updates": 100, "first_loss": 9.0, "last_loss": 6.0}],
+            done=100, first_loss=9.0, last_loss=6.0, cap_total=100 * 8 * 64,
+            ans_total=1234, whole_total=42_000, gsum=3.0, gmax=0.9, gn=100,
+            train_wall=60.0, untrained=untrained,
+            untrained_train=untrained_train, trained=trained,
+            trained_recs=trained_recs, trained_train=trained_train,
+            train_memorization=train_memorization, inter=inter,
+            teacher_eval={"skipped": "n/a"}, first_step={"n": 0},
+            ckpt_path="t1d_arm_a.pt", ckpt_hash="a" * 64,
+            pre_sha="p" * 64, post_sha="p" * 64, reload_ok=True,
+            device_count=1, wall=90.0)
+        assert receipt["status"] in ("SCIENTIFIC_PASS", "SCIENTIFIC_FAIL")
+        assert set(receipt["nulls_per_tier"]) == {"t0", "t1", "t2", "t3", "t4"}
+        assert t1d.validate_null_block(receipt) == []
+        assert receipt["diagnostics"]["first_test_lift_tier"] == 1  # 0.5 >= 0.20
+        assert receipt["diagnostics"]["first_train_lift_tier"] == 1
+        json.dumps(receipt)  # serializable
+        t1d.write_arm_receipt(tmp, receipt, ckpt_hash="a" * 64)
+        assert (Path(tmp) / "ARM_A.json").is_file()
+        assert (Path(tmp) / "ARM_A.done.json").is_file()
+        out = t1d.classify_cross_arm({"A": receipt})
+        assert out["labels"] and "reasons" in out
+        # reload identity alone must NEVER create SCIENTIFIC_PASS
+        zero = dict(receipt)
+        zero["trained"] = {f"t{t}": s(0.0) for t in range(5)}
+        zero["trained_recs"] = None  # not re-derived; gate uses counts only
+        zero["untrained"] = {f"t{t}": s(0.0) for t in range(5)}
+        zero["reload_identical"] = True
+        zero2 = t1d.build_arm_receipt(
+            tag="B", cfg=dict(t1d.ARMS["B"]), env={"probe_pass": True},
+            n_seq=8, length=64, param_count=3_737_472,
+            citadel_sha="0" * 40, cymek_sha="1" * 64,
+            feeder=feeder, seed=20260904, slices=slices,
+            ledgers=[{"updates": 100, "first_loss": 6.0, "last_loss": 9.0}],
+            done=100, first_loss=6.0, last_loss=9.0, cap_total=100 * 8 * 64,
+            ans_total=1234, whole_total=42_000, gsum=3.0, gmax=0.9, gn=100,
+            train_wall=60.0, untrained={f"t{t}": s(0.0) for t in range(5)},
+            untrained_train=untrained_train,
+            trained={f"t{t}": s(0.0) for t in range(5)},
+            trained_recs={f"t{t}": _synthetic_records(slices[f"test_t{t}"]["targets"],
+                                                      acc=0.0) for t in range(5)},
+            trained_train=trained_train, train_memorization=train_memorization,
+            inter=inter, teacher_eval={"skipped": "n/a"}, first_step={"n": 0},
+            ckpt_path="t1d_arm_b.pt", ckpt_hash="b" * 64,
+            pre_sha="q" * 64, post_sha="q" * 64, reload_ok=True,
+            device_count=1, wall=90.0)
+        assert zero2["status"] == "SCIENTIFIC_FAIL", zero2["gate_rules"]
+        assert zero2["gate_rules"]["reload"] is True
+        assert zero2["gate_rules"]["loss"] is False
+
+
+def _write_synthetic_session(root: Path, *, arm_status="SCIENTIFIC_FAIL"):
+    from citadel_tpu import tiered_data as td
+
+    root.mkdir(parents=True, exist_ok=True)
+    (root / "CALIBRATION.json").write_text(json.dumps(
+        {"schema": "citadel-t1d-throughput-calibration/v1",
+         "selected": {"batch": 256, "length": 64},
+         "selected_tokens_per_second": 8000.0,
+         "candidates": [{"batch": 256, "length": 64, "tokens_per_second": 8000.0,
+                         "correct": True}]}, sort_keys=True), encoding="utf-8")
+    (root / "DATA_MANIFEST.json").write_text(json.dumps(
+        {"schema": "citadel-tiered-manifest/v1",
+         "generator_version": td.GENERATOR_VERSION, "total_bytes": 1000,
+         "max_row_chars": 64, "leakage": {}}, sort_keys=True), encoding="utf-8")
+    arms = {}
+    for tag in "ABCDE":
+        r = _arm(status=arm_status)
+        r["arm"] = tag
+        arms[tag] = r
+        (root / f"ARM_{tag}.json").write_text(json.dumps(r), encoding="utf-8")
+    return arms
+
+
+def _green_pre50m_runner(root, arm_receipts, *, rt_sha, rate, shape):
+    from citadel_tpu import pre50m as p50
+
+    (root / "PRE50M_TARGET.json").write_text(json.dumps(
+        {"schema": "citadel-pre50m-target/v1", **p50.PRE50M_TARGET}),
+        encoding="utf-8")
+    green_smoke = {"status": "PASS", "reload_output_identity": True,
+                   "optimizer_resume": {"moments_preserved": True,
+                                        "continued_update_ok": True},
+                   "grad_norm": {"max": 1.0}, "losses": [9.0, 8.0],
+                   "param_mutation": True, "production_transaction": True,
+                   "checkpoint_compat": {"compatible": True},
+                   "writer_fence_probe": "rejected-as-required",
+                   "token_accounting": {"consistent": True}}
+    green_data = {"status": "PASS", "capacity_tokens": 4096, "real_tokens": 4000,
+                  "loss_bearing_tokens": 900, "padding_tokens": 96,
+                  "scheduled_rows": 64}
+    (root / "PRE50M_CHECKPOINT_SMOKE.json").write_text(
+        json.dumps(green_smoke), encoding="utf-8")
+    (root / "PRE50M_DATA_INTERFACE.json").write_text(
+        json.dumps(green_data), encoding="utf-8")
+    (root / "PRE50M_PACKING.json").write_text(
+        json.dumps({"status": "PASS"}), encoding="utf-8")
+    (root / "PRE50M_FEASIBILITY.json").write_text(
+        json.dumps({"memory": {"SCALE2_7_4M": {"verdict": "FIT"}}}), encoding="utf-8")
+    (root / "PRE50M_THROUGHPUT.json").write_text(json.dumps({"curve": {}}),
+                                                 encoding="utf-8")
+    (root / "DIAGNOSTICS.json").write_text(json.dumps({"arms": {}}),
+                                           encoding="utf-8")
+    decision = p50.build_decision(
+        target={"understood": True, "type": p50.PRE50M_TARGET["type"],
+                "value_tokens": p50.PRE50M_TARGET["value_tokens"],
+                "parameter_count": None},
+        smoke=green_smoke, feasibility={"verdict": "FIT"},
+        data_interface=green_data, packing={"status": "PASS"},
+        recommended_batch=shape[0], recommended_sequence_length=shape[1],
+        rate_tok_s=rate)
+    (root / "NEXT_50M_DECISION.json").write_text(json.dumps(decision),
+                                                 encoding="utf-8")
+    return {"status": "PASS", "decision": decision}
+
+
+def test_full_session_simulation() -> None:
+    """THE §13 test: a deterministic no-TPU session traverses every
+    summary/PRE50M/bundle stage and ends BUNDLE VALID — with green PRE50M and
+    again with a PRE50M implementation failure (arms preserved, decision
+    fail-closed, bundle still valid)."""
+    import tempfile
+
+    from citadel_tpu import pre50m as p50
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        arms = _write_synthetic_session(root)
+        session = t1d._assemble_session_results(
+            root, arms, shape=(256, 64), rate=8000.0, scaled=False,
+            budgets={t: t1d.ARMS[t]["budget"] for t in t1d.ARMS},
+            rt_sha="1" * 64, pre50m_runner=_green_pre50m_runner)
+        assert session["pre50m"]["status"] == "PASS"
+        assert session["pre50m"]["decision"]["ready_for_50m_training"] is True
+        assert session["bundle"] and session["bundle"] != "pending"
+        verdict = t1d.verify_bundle(str(root))
+        assert verdict["status"] == "VALID"
+        decision = json.loads((root / "NEXT_50M_DECISION.json").read_text())
+        assert decision["ready_for_50m_training"] is True
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        arms = _write_synthetic_session(root)
+
+        def failing_runner(*a, **k):
+            raise RuntimeError("XLA compile exploded")
+
+        session = t1d._assemble_session_results(
+            root, arms, shape=(256, 64), rate=8000.0, scaled=False,
+            budgets={t: t1d.ARMS[t]["budget"] for t in t1d.ARMS},
+            rt_sha="1" * 64, pre50m_runner=failing_runner)
+        assert session["pre50m"]["status"] == "IMPLEMENTATION_FAILURE"
+        # every required PRE50M artifact exists as an explicit failure receipt
+        for name in ("PRE50M_CHECKPOINT_SMOKE.json", "PRE50M_DATA_INTERFACE.json",
+                     "PRE50M_PACKING.json", "DIAGNOSTICS.json"):
+            doc = json.loads((root / name).read_text())
+            assert doc["status"] == "IMPLEMENTATION_FAILURE", (name, doc)
+        decision = json.loads((root / "NEXT_50M_DECISION.json").read_text())
+        assert decision["ready_for_50m_training"] is False
+        assert any("PRE50M implementation failure" in r
+                   for r in decision["blocking_reasons"])
+        # the operator still gets a complete, verifiable bundle with all T1D arms
+        assert t1d.verify_bundle(str(root))["status"] == "VALID"
+        for tag in "ABCDE":
+            assert (root / f"ARM_{tag}.json").is_file()
+
+
+def test_session_partial_arm_failure() -> None:
+    """§9: one arm implementation-failed, one timeboxed, three scientific —
+    the summary must not crash, classification covers scientific arms only,
+    and the curve file represents failed arms by status."""
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        arms = _write_synthetic_session(root)
+        arms["C"] = {"arm": "C", "status": "IMPLEMENTATION_FAILURE",
+                     "error": "boom"}
+        arms["D"] = {"arm": "D", "status": "TIMEBOX_ABORT", "updates_done": 3}
+        session = t1d._assemble_session_results(
+            root, arms, shape=(256, 64), rate=8000.0, scaled=False,
+            budgets={t: t1d.ARMS[t]["budget"] for t in t1d.ARMS},
+            rt_sha="1" * 64, pre50m_runner=_green_pre50m_runner)
+        assert session["arms"]["C"] == "IMPLEMENTATION_FAILURE"
+        curves = json.loads((root / "LIFT_OFF_CURVES.json").read_text())["arms"]
+        assert curves["C"] == {"status": "IMPLEMENTATION_FAILURE"}
+        assert curves["D"] == {"status": "TIMEBOX_ABORT"}
+        assert "train" in curves["A"] and "test" in curves["A"]
+        assert t1d.verify_bundle(str(root))["status"] == "VALID"
+        # arm failure receipts are durable terminal states on disk
+        receipt = t1d.arm_failure_receipt("C", RuntimeError("boom"),
+                                          citadel_sha="0" * 40,
+                                          cymek_sha="1" * 64)
+        assert receipt["status"] == "IMPLEMENTATION_FAILURE"
+        json.dumps(receipt)
+
+
+def test_budget_limited_classifier_matrix() -> None:
+    """BUDGET_LIMITED reads the REAL per-tier DEV schema. Rising DEV at the
+    last two checkpoints with low final test fires; flat DEV, declining DEV,
+    and high final TEST never fire."""
+    base = {t: _arm() for t in "ABCDE"}
+    rising = dict(base, B=_arm(dev_pairs=[(75, 0.02), (100, 0.09)]))
+    assert "BUDGET_LIMITED" in t1d.classify_cross_arm(rising)["labels"]
+    flat = dict(base, B=_arm(dev_pairs=[(75, 0.05), (100, 0.05)]))
+    assert "BUDGET_LIMITED" not in t1d.classify_cross_arm(flat)["labels"]
+    declining = dict(base, B=_arm(dev_pairs=[(75, 0.09), (100, 0.02)]))
+    assert "BUDGET_LIMITED" not in t1d.classify_cross_arm(declining)["labels"]
+    high_test = dict(base, B=_arm(test14=(0.5, 0.5, 0.5, 0.5), lcb=0.45,
+                                  dev_pairs=[(75, 0.02), (100, 0.09)]))
+    assert "BUDGET_LIMITED" not in t1d.classify_cross_arm(high_test)["labels"]
+
+
+def test_select_calibrated_shape_scale2_guard() -> None:
+    """§15: the fastest correctness-passing shape is rejected when it fails
+    SCALE2 verification; the selected shape is the next passing one; the
+    failed candidate is marked IN PLACE (no duplicate selectable dicts)."""
+    results = [
+        {"batch": 1024, "length": 64, "tokens_per_second": 9000.0, "correct": True},
+        {"batch": 512, "length": 64, "tokens_per_second": 7000.0, "correct": True},
+        {"batch": 256, "length": 64, "tokens_per_second": 5000.0, "correct": True},
+    ]
+    seen = []
+
+    def verifier(batch, length):
+        seen.append((batch, length))
+        return (batch, length) != (1024, 64)  # fastest fails SCALE2
+
+    best, note = t1d.select_calibrated_shape(results, scale2_verifier=verifier)
+    assert note == "pass" and best["batch"] == 512
+    assert seen == [(1024, 64), (512, 64)]
+    failed = [r for r in results if not r["correct"]]
+    assert len(failed) == 1 and failed[0]["batch"] == 1024
+    assert failed[0]["error"] == "SCALE2_VERIFICATION_FAILED"
+    assert len(results) == 3  # no duplicate dicts appended
+    assert all(r["correct"] for r in results if r["batch"] in (512, 256))
+    none, note2 = t1d.select_calibrated_shape(
+        [{"batch": 1, "length": 64, "tokens_per_second": 1.0, "correct": True}],
+        scale2_verifier=lambda b, l: False)
+    assert none is None and "safe" in note2
+    none2, _ = t1d.select_calibrated_shape([], scale2_verifier=verifier)
+    assert none2 is None
+
+
+def test_pre50m_fail_closed_matrix() -> None:
+    """§6: starting from one all-green synthetic receipt, mutating EACH
+    required condition must force ready_for_50m_training=false with a
+    precise blocking reason (20 independent mutations)."""
+    import copy
+
+    from citadel_tpu import pre50m as p50
+
+    green_smoke = {"status": "PASS", "reload_output_identity": True,
+                   "optimizer_resume": {"moments_preserved": True,
+                                        "continued_update_ok": True},
+                   "grad_norm": {"max": 1.0}, "losses": [9.0, 8.0],
+                   "param_mutation": True, "production_transaction": True,
+                   "checkpoint_compat": {"compatible": True},
+                   "writer_fence_probe": "rejected-as-required",
+                   "token_accounting": {"consistent": True}}
+    base = {"smoke": green_smoke,
+            "data_interface": {"status": "PASS", "capacity_tokens": 4096,
+                               "real_tokens": 4000, "loss_bearing_tokens": 900,
+                               "padding_tokens": 96, "scheduled_rows": 64},
+            "target": {"understood": True, "type": p50.PRE50M_TARGET["type"],
+                       "value_tokens": p50.PRE50M_TARGET["value_tokens"],
+                       "parameter_count": None},
+            "feasibility": {"verdict": "FIT"}, "packing": {"status": "PASS"},
+            "recommended_batch": 256, "recommended_sequence_length": 64,
+            "rate_tok_s": 8000.0}
+    assert p50.build_decision(**copy.deepcopy(base))["ready_for_50m_training"] is True
+    mutations = [
+        ("unknown target", lambda b: b["target"].__setitem__("understood", False)),
+        ("wrong target contract", lambda b: b["target"].__setitem__("type", "parameters")),
+        ("wrong target value", lambda b: b["target"].__setitem__("value_tokens", 49_000_000)),
+        ("model unfit", lambda b: b["feasibility"].__setitem__("verdict", "DOES_NOT_FIT")),
+        ("no safe shape", lambda b: b.__setitem__("recommended_batch", 0)),
+        ("zero throughput", lambda b: b.__setitem__("rate_tok_s", 0.0)),
+        ("nonfinite throughput", lambda b: b.__setitem__("rate_tok_s", float("nan"))),
+        ("smoke FAIL", lambda b: b["smoke"].__setitem__("status", "FAIL")),
+        ("nonfinite loss", lambda b: b["smoke"].__setitem__("losses", [float("nan")])),
+        ("no loss", lambda b: b["smoke"].__setitem__("losses", [])),
+        ("zero gradients", lambda b: b["smoke"].__setitem__("grad_norm", {"max": 0.0})),
+        ("no param mutation", lambda b: b["smoke"].__setitem__("param_mutation", False)),
+        ("no production transaction",
+         lambda b: b["smoke"].__setitem__("production_transaction", False)),
+        ("checkpoint incompatible",
+         lambda b: b["smoke"].__setitem__("checkpoint_compat", {"compatible": False})),
+        ("reload mismatch",
+         lambda b: b["smoke"].__setitem__("reload_output_identity", False)),
+        ("moments not preserved",
+         lambda b: b["smoke"]["optimizer_resume"].__setitem__("moments_preserved", False)),
+        ("continued update false",
+         lambda b: b["smoke"]["optimizer_resume"].__setitem__("continued_update_ok", False)),
+        ("writer fence accepts",
+         lambda b: b["smoke"].__setitem__("writer_fence_probe", "UNEXPECTED-ACCEPT")),
+        ("token accounting inconsistent",
+         lambda b: b["smoke"].__setitem__("token_accounting", {"consistent": False})),
+        ("data interface FAIL",
+         lambda b: b["data_interface"].__setitem__("status", "FAIL")),
+        ("capacity<real violation",
+         lambda b: b["data_interface"].__setitem__("real_tokens", 9999)),
+        ("padding mismatch",
+         lambda b: b["data_interface"].__setitem__("padding_tokens", 999)),
+        ("negative scheduled",
+         lambda b: b["data_interface"].__setitem__("scheduled_rows", -1)),
+        ("packing FAIL", lambda b: b["packing"].__setitem__("status", "FAIL")),
+    ]
+    for name, mutate in mutations:
+        bad = copy.deepcopy(base)
+        mutate(bad)
+        d = p50.build_decision(**bad)
+        assert d["ready_for_50m_training"] is False, name
+        assert d["blocking_reasons"], name
+    # token accounting invariants: capacity >= real >= loss-bearing >= 0
+    b = copy.deepcopy(base)
+    b["data_interface"]["loss_bearing_tokens"] = 5000  # > real
+    d = p50.build_decision(**b)
+    assert d["ready_for_50m_training"] is False
+
+
+def test_verify_bundle_failure_receipts_and_checkpoints() -> None:
+    """§14: failure receipts are valid members; unknown statuses rejected;
+    bundled checkpoint SHAs are verified against the receipt."""
+    import hashlib as _hl
+    import tempfile
+    import zipfile
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        arms = _write_synthetic_session(root)
+        _green_pre50m_runner(root, arms, rt_sha="1" * 64, rate=8000.0,
+                             shape=(256, 64))
+        session = t1d._assemble_session_results(
+            root, arms, shape=(256, 64), rate=8000.0, scaled=False,
+            budgets={t: t1d.ARMS[t]["budget"] for t in t1d.ARMS},
+            rt_sha="1" * 64, pre50m_runner=_green_pre50m_runner)
+        assert t1d.verify_bundle(str(root))["status"] == "VALID"
+        # PRE50M failure placeholders are KNOWN statuses -> still valid
+        (root / "PRE50M_CHECKPOINT_SMOKE.json").write_text(json.dumps(
+            {"status": "IMPLEMENTATION_FAILURE", "phase": "smoke",
+             "error": "x", "citadel_sha": "0" * 40, "cymek_runtime_sha": "1" * 64}),
+            encoding="utf-8")
+        with zipfile.ZipFile(root / "CITADEL_T1D_RESULTS.zip", "w",
+                             zipfile.ZIP_DEFLATED) as zf:
+            for name in t1d.BUNDLE_FILES:
+                zf.write(root / name, name)
+        assert t1d.verify_bundle(str(root))["status"] == "VALID"
+        # unknown status anywhere -> invalid
+        (root / "PRE50M_PACKING.json").write_text(json.dumps({"status": "WEIRD"}),
+                                                  encoding="utf-8")
+        with zipfile.ZipFile(root / "CITADEL_T1D_RESULTS.zip", "w",
+                             zipfile.ZIP_DEFLATED) as zf:
+            for name in t1d.BUNDLE_FILES:
+                zf.write(root / name, name)
+        try:
+            t1d.verify_bundle(str(root))
+            raise SystemExit("unknown PRE50M status accepted")
+        except RuntimeError as exc:
+            assert "WEIRD" in str(exc), exc
+        (root / "PRE50M_PACKING.json").write_text(json.dumps({"status": "PASS"}),
+                                                  encoding="utf-8")
+        # bundled checkpoint sha mismatch -> invalid
+        payload = b"not-a-real-checkpoint"
+        (root / "t1d_arm_a.pt").write_bytes(payload)
+        arm_a = json.loads((root / "ARM_A.json").read_text())
+        arm_a["checkpoint"] = {"path": "t1d_arm_a.pt",
+                               "sha256": _hl.sha256(payload).hexdigest()}
+        (root / "ARM_A.json").write_text(json.dumps(arm_a), encoding="utf-8")
+        with zipfile.ZipFile(root / "CITADEL_T1D_RESULTS.zip", "w",
+                             zipfile.ZIP_DEFLATED) as zf:
+            for name in t1d.BUNDLE_FILES:
+                zf.write(root / name, name)
+            zf.writestr("t1d_arm_a.pt", payload)
+        assert t1d.verify_bundle(str(root))["status"] == "VALID"
+        arm_a["checkpoint"]["sha256"] = "0" * 64
+        (root / "ARM_A.json").write_text(json.dumps(arm_a), encoding="utf-8")
+        with zipfile.ZipFile(root / "CITADEL_T1D_RESULTS.zip", "w",
+                             zipfile.ZIP_DEFLATED) as zf:
+            for name in t1d.BUNDLE_FILES:
+                zf.write(root / name, name)
+            zf.writestr("t1d_arm_a.pt", payload)
+        try:
+            t1d.verify_bundle(str(root))
+            raise SystemExit("checkpoint sha mismatch accepted")
+        except RuntimeError as exc:
+            assert "sha mismatch" in str(exc), exc
+
+
 def main() -> int:
     tests = [test_tier_determinism_and_bounds, test_band_isolation,
              test_leakage_verdict, test_t2_easy_constraints,
@@ -629,7 +1192,17 @@ def main() -> int:
              test_pre50m_estimators_and_decider,
              test_classify_every_rule, test_fake_predictor_metric_sanity,
              test_nulls_all_template_families, test_masked_vocab_contents,
-             test_session_resume_dry_run]
+             test_session_resume_dry_run,
+             test_train_memorization_plan_matrix,
+             test_lift_eligibility_never_fires_below_min_n,
+             test_null_block_validation,
+             test_post_training_arm_simulation,
+             test_full_session_simulation,
+             test_session_partial_arm_failure,
+             test_budget_limited_classifier_matrix,
+             test_select_calibrated_shape_scale2_guard,
+             test_pre50m_fail_closed_matrix,
+             test_verify_bundle_failure_receipts_and_checkpoints]
     failed = 0
     for fn in tests:
         try:
