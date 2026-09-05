@@ -15,68 +15,74 @@
 ## STATUS
 
 CURRENT_CITADEL_SHA: see `git log origin/citadel -1` (this handover commit sits
-on the green-signal certification pass)
+on the T1D schema hotfix cycle)
 AUDITED_CYMEK_SHA: `28bf57a0d299a2c13a99fe0046616c00a1b8530c`
 RUNTIME_PIN_SHA: `28bf57a0d299a2c13a99fe0046616c00a1b8530c` (live origin/cymek
-HEAD == pin, re-verified this cycle; RUNTIME_AMENDMENT_001.md unchanged)
+HEAD == pin, re-verified)
 
-CYMEK_ALIGNMENT = PASS (pin == live HEAD; zero reconciliation needed)
+CYMEK_ALIGNMENT = PASS (pin == live HEAD)
 RUNTIME_BOOTSTRAP_FRESH_CLONE = PASS (exact-SHA bootstrap unchanged; Cell 0
-now also prints + enforces EXPECTED_CYMEK_SHA before Cell A)
-LOCAL_TESTS = 63/63 PASS across all 6 files
-  (t1d 32 — was 22, +10 new regression tests; t1c 10; t1_canary 6;
+prints + enforces EXPECTED_CYMEK_SHA before Cell A)
+LOCAL_TESTS = 69/69 PASS across all 6 files
+  (t1d 38 — was 32, +6 schema-contract regressions; t1c 10; t1_canary 6;
    notebooks 2; bootstrap 6; cymek_checkpoint 7)
-POST_TRAIN_ARM_SIMULATION = PASS (full no-TPU arm flow: real rows + real
-  feeder consumption -> nulls t0-t4 -> diagnostics -> lift -> gate ->
-  receipt + marker serialization -> classification; would have caught the
-  nulls_per_tier bug AND the train-memorization n=1 bug)
-FULL_SESSION_SIMULATION = PASS (no-TPU session: green PRE50M -> BUNDLE VALID;
-  PRE50M implementation failure -> arms preserved, fail-closed decision,
-  BUNDLE VALID with ready_for_50m_training=false)
-NOTEBOOK_TORTURE = PASS
+POST_TRAIN_ARM_SIMULATION = PASS
+FULL_SESSION_SIMULATION = PASS (green + PRE50M-failure; malformed scientific
+  receipts are demoted to IMPLEMENTATION_FAILURE at the session boundary)
+PRODUCER->FINALIZER SCHEMA = PASS (exact legacy producer shape flows the full
+  bridge: normalize -> finalizer -> validator -> classifier -> curves)
+PREFINAL RECOVERY = PASS (hash-verified snapshot; finalization-only rerun;
+  corrupt/mismatch/missing-checkpoint refused; finalizer exception retains
+  the sidecar — expensive arms are never lost to a receipt bug again)
+NOTEBOOK_TORTURE = PASS (Cell D now reloads execution modules before the
+  session — no stale in-memory code on the operator's open Colab kernel)
+NOTEBOOK CELL D RELOAD = PASS
 PACKING_TORTURE = PASS
 CHECKPOINT_CONTRACT = PASS (7/7 against pinned Cymek 28bf57a)
-PRE50M_FAIL_CLOSED_MATRIX = PASS (24 independent single-condition mutations
-  each force ready=false with a precise blocking reason)
-BUNDLE_FAILURE_SURVIVAL = PASS (every required PRE50M artifact exists as an
-  explicit IMPLEMENTATION_FAILURE receipt on failure; NEXT_50M_DECISION
-  fail-closed; ZIP builds + verifies)
+PRE50M_FAIL_CLOSED_MATRIX = PASS (24 mutations)
+BUNDLE_FAILURE_SURVIVAL = PASS
 T1D = READY_FOR_REAL_TPU_VALIDATION
 PRE50M = READY_FOR_REAL_TPU_VALIDATION
 
-Green-signal repair cycle (independent-audit defects fixed + regression-tested):
-1. nulls_per_tier: per-tier assignment moved INSIDE the loop (was: only t4
-   written; scientific gate + cross-arm classifier crashed KeyError t0-t3
-   AFTER expensive training). Mechanical `set == t0..t4` check + schema
-   validator (validate_null_block) now runs before any receipt is written.
-2. Train memorization: frozen FIRST-200 candidates per tier fixed before
-   training; post-training verification against the feeder's EXACT consumed
-   prefix (train_memorization_plan); only verified-consumed rows are scored;
-   INSUFFICIENT_CONSUMPTION when n < LIFT_MIN_N=200 — FIRST_TRAIN_LIFT_TIER
-   can never fire on n < 200 (was: sampled n=1 from a zero-consumption
-   feeder, invalidating the 200-row diagnostic).
-3. BUDGET_LIMITED: reads the REAL intermediates schema
-   (inter[cp][f"t{tier}"]["exact"]) with the frozen aggregation mean DEV
-   exact over tiers 1-4 at the final two preregistered checkpoints (was:
-   read a nonexistent top-level dev_exact key — rule could never fire).
-   No TEST at intermediate checkpoints. Tests: rising fires; flat/declining/
-   high-test never fire.
-4. PRE50M decision fail-closed: ready requires ALL conditions (target type +
-   value verified from Cymek, fit, safe shape, positive finite throughput,
-   smoke PASS, finite loss, nonzero finite gradients, parameter mutation,
-   production transaction, checkpoint compat, reload identity, moments
-   preserved, continued update, writer fence rejected-as-required, data
-   interface PASS, packing PASS, token accounting: capacity >= real >=
-   loss-bearing >= 0, padding == capacity-real, cumulative tokens match the
-   production TrainingState). 24-mutation negative matrix green.
-5. Bundle failure survival + durable arm receipts: every arm writes exactly
-   one terminal ARM_X.json (incl. IMPLEMENTATION_FAILURE); PRE50M failure
-   writes explicit failure receipts for every missing artifact; Cell E/F
-   survive and the ZIP verifies.
-6. Calibration SCALE2 guard: failed candidate marked IN PLACE (no duplicate
-   selectable dicts); selected shape is the next SCALE2-passing one.
-7. verify_bundle: unknown statuses rejected (incl. PRE50M placeholders must
-   exist); bundled checkpoint SHAs verified against receipts.
+## REAL TPU FAILURE RECORD (2026-09-05, must not be repeated or hidden)
+
+```text
+T1D attempt: IMPLEMENTATION_FAILURE (arms A and B, after expensive training)
+cause: run_arm stored untrained results as dev_tN/test_tN while
+       build_arm_receipt/classify/curves read tN — scientific gate died on
+       KeyError: 't1' in the PURE post-training finalizer
+A/B:   INVALID — do not count scientifically; must rerun (no valid prefinal
+       snapshots existed then; nothing reconstructed from checkpoints)
+C/D/E: not completed
+TPU itself: NOT implicated — the failure was a pure receipt-schema mismatch
+session aborted on the 2nd infra failure, per policy
+```
+
+Schema hotfix cycle (implementation-only; no scientific content changed):
+1. Canonical untrained contract at the source: run_arm now produces
+   untrained_test[tN] (receipt "untrained") + untrained_dev[tN] (explicit
+   separate block); DEV and TEST each still evaluated exactly once per arm
+   (a dictionary alias is not an observation).
+2. normalize_untrained_receipt: pure defense-in-depth — accepts canonical
+   t0-t4 or legacy test_t0-t4, validates every summary
+   (correct/total/accuracy/wilson_lcb/wilson_ucb, total>=0, accuracy finite
+   [0,1]), fails ARM_SCHEMA_INVALID instead of any raw KeyError.
+3. validate_arm_receipt terminal validator: full scientific contract
+   enforced BEFORE ARM_X.json is finalized, inside verify_bundle(), AND at
+   the session boundary — malformed scientific receipts are demoted to
+   IMPLEMENTATION_FAILURE (recorded on disk with schema_defects) instead of
+   crashing the classifier.
+4. ARM_<tag>.prefinal.json recovery sidecar: written after training + TEST
+   evals + checkpoint + reload identity; self-hash protected; on rerun,
+   finalization-only resume (NO retraining, NO device); corrupt/mismatched/
+   checkpoint-missing snapshots archived aside, never trusted.
+5. should_skip_arm: IMPLEMENTATION_FAILURE is NEVER completion (marker or
+   not) — the arm retries after software repair; orphan checkpoints from
+   failed sessions are archived as forensic artifacts, never clobbered.
+6. Cell D reloads calculator_eval/tiered_data/t1c_run/t1d_run/pre50m right
+   before the session; prints the arm receipt schema.
+7. Preflight gained the producer->finalizer schema gate (exact legacy
+   producer shape through the full bridge; FAIL => READY_FOR_T1D=NO).
 
 ## T0 / T1 / T1B / T1C (history)
 
