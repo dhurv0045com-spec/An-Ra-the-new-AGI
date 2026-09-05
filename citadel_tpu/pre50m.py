@@ -95,32 +95,36 @@ def grad_accumulation_status(fits_native: bool, desired_batch: int) -> dict[str,
                       "accumulation before the 50M run"}
 
 
-def checkpoint_compat_check(ckpt_path: str, expected_params: int) -> dict[str, Any]:
-    """Verify a smoke checkpoint is consumable + fully inventoried (on CPU torch)."""
+def checkpoint_compat_check(store, checkpoint_sha: str,
+                            expected_params: int) -> dict[str, Any]:
+    """Verify a smoke checkpoint through Cymek's own restore path.
+
+    restore() itself enforces manifest hash, inventory completeness, component
+    hashes, training-state hash, and cursor/ledger agreement. We additionally
+    assert the model payload carries exactly the expected parameter inventory
+    plus recorded spec/source/manifest identities. A PASS here means the
+    artifact is consumable by Cymek production code — not merely torch-loadable.
+    """
     import torch
 
-    from citadel_tpu import checkpoint as ckpt_mod
-    from citadel_tpu import runtime_bootstrap as rb
-
-    payload = torch.load(str(ckpt_path), map_location="cpu", weights_only=False)
-    state = payload.get("model_state", {})
-    names = sorted(state)
-    total = sum(int(state[k].numel()) for k in names)
-    meta = dict(payload.get("meta", {}))
+    state, payloads = store.restore(checkpoint_sha256=checkpoint_sha)
+    model_state = torch.load(__import__("io").BytesIO(bytes(payloads["model.bin"])),
+                             map_location="cpu", weights_only=False)
+    total = sum(int(t.numel()) for t in model_state.values())
+    ids = state.identities
     checks = {
-        "loads_on_cpu": True,
-        "parameter_inventory_exact": total == expected_params,
-        "spec_sha_in_meta": bool(meta.get("spec") or meta.get("model_spec_sha256")),
-        "citadel_sha_in_meta": bool(meta.get("citadel_sha")),
-        "cymek_runtime_in_meta": bool(meta.get("cymek_runtime_sha")),
-        "param_sha_matches": meta.get("param_sha256") == ckpt_mod.state_dict_sha256(state),
+        "production_restore_verify": True,
+        "parameter_inventory_exact": bool(total == expected_params),
+        "spec_sha_recorded": bool(ids.model_spec_sha256),
+        "source_commit_recorded": bool(ids.source_commit),
+        "data_manifest_recorded": bool(ids.data_manifest_sha256),
+        "tokenizer_identity_recorded": bool(ids.tokenizer_sha256),
+        "parent_chain_present": state.parent_checkpoint_sha256 is not None,
     }
     return {"schema": "citadel-pre50m-checkpoint-compat/v1",
-            "checkpoint": str(ckpt_path), "parameter_count": total,
+            "checkpoint": checkpoint_sha, "parameter_count": total,
             "expected": expected_params, "checks": checks,
-            "compatible": all(checks.values()),
-            "format_note": "lightweight torch payload (model+meta); a Cymek "
-                           "transaction-format migration is future work, not claimed here"}
+            "compatible": all(checks.values())}
 
 
 def smoke_target_model(*, out_dir: str, updates: int = SMOKE_UPDATES,
@@ -153,6 +157,48 @@ def smoke_target_model(*, out_dir: str, updates: int = SMOKE_UPDATES,
     model = model.to(device)
     param_count = sum(int(p.numel()) for p in model.parameters())
     optimizer = build_adamw_optimizer(model, torch_module=torch)
+    lr = float(optimizer.param_groups[0]["lr"])
+
+    from citadel_tpu import cymek_checkpoint as cckpt
+
+    data_manifest = {"kind": "pre50m-smoke-tiered", "seed": seed,
+                     "updates": updates, "batch_sequences": 32, "length": 64,
+                     "rows": "tiered-train prefix via flat TierFeeder"}
+    pack_manifest = {"length": 64, "segments": "first-fit rows, per-seq ordinals",
+                     "eligible": "answer spans only"}
+    data_sha = cckpt.spec_json_sha256(data_manifest)
+    pack_sha = cckpt.spec_json_sha256(pack_manifest)
+    identities = cckpt.build_identities(
+        model_spec_sha256=spec.sha256(), data_manifest_sha256=data_sha,
+        pack_manifest_sha256=pack_sha,
+        run_spec={"model": SMOKE_SPEC, "updates": updates, "batch_sequences": 32,
+                  "length": 64, "seed": seed},
+        optimizer_spec={"optimizer": "AdamW", "beta1": 0.9, "beta2": 0.95,
+                        "eps": 1e-8, "weight_decay": 0.1},
+        schedule_spec={"schedule": "constant-canary", "learning_rate": lr},
+        curriculum_spec={"phase": "smoke"},
+        source_commit=rb.citadel_sha())
+    out = Path(out_dir)
+    out.mkdir(parents=True, exist_ok=True)
+    store = cckpt.open_store(str(out / "cymek_store"), "citadel-pre50m-smoke")
+
+    def _rng_bytes() -> bytes:
+        return bytes(torch.get_rng_state().tolist())
+
+    tokens_per_update = 32 * 64
+    import hashlib as _hl
+
+    def _rng_sha() -> str:
+        return _hl.sha256(_rng_bytes()).hexdigest()
+
+    state = cckpt.initial_state(
+        lineage_id="citadel-pre50m-smoke", token_budget=updates * tokens_per_update,
+        tokens_per_update=tokens_per_update, pack_manifest_sha256=pack_sha,
+        identities=identities, rng_state_sha256=_rng_sha())
+    sha0 = cckpt.publish_genesis(store, state=state, model=model,
+                                 optimizer=optimizer, learning_rate=lr,
+                                 rng_bytes=_rng_bytes())
+    prev_state, prev_sha = state, sha0
 
     easy_rows = ([td.tier_row(0, "train", i)[0] for i in range(64)]
                  + [td.tier_row(1, "train", i)[0] for i in range(64)])
@@ -200,25 +246,25 @@ def smoke_target_model(*, out_dir: str, updates: int = SMOKE_UPDATES,
             {k: v.detach().to("cpu") for k, v in model.state_dict().items()})
         if before == after:
             raise RuntimeError("abort NO_PARAM_CHANGE in smoke update")
+        cursor = cckpt.cursor_for_update(
+            pack_sha, sequence_ordinal=u + 1, token_offset=(u + 1) * tokens_per_update)
+        prev_state, prev_sha = cckpt.publish_update(
+            store, prev_state=prev_state, model=model, optimizer=optimizer,
+            learning_rate=lr, rng_bytes=_rng_bytes(), cursor=cursor,
+            ledger_delta={"smoke-tiered": tokens_per_update})
         losses.append(lv)
         gnorms.append(gn)
     out = Path(out_dir)
-    ckpt_path = str(out / "pre50m_smoke.pt")
-    ckpt_hash = ckpt_mod.save(model, ckpt_path,
-                              {"spec": SMOKE_SPEC, "seed": seed,
-                               "citadel_sha": rb.citadel_sha(),
-                               "cymek_runtime_sha": rt_sha})
     with torch.no_grad():
         ref_logits = model(tokens.to(device), pos.to(device), mask.to(device))
         ref_hash = hashlib_sha(ref_logits.detach().to("cpu"))
-    opt_path = str(out / "pre50m_smoke_opt.pt")
     moment_before = ckpt_mod.optimizer_moment_sha256(optimizer)
-    opt_hash = ckpt_mod.save_optimizer_state(optimizer, opt_path, {"updates": updates})
     del model
     model2 = initialize(spec, seed).to(device)
-    ckpt_mod.load_into(model2, ckpt_path)
     optimizer2 = build_adamw_optimizer(model2, torch_module=torch)
-    ckpt_mod.load_optimizer_state(optimizer2, opt_path)
+    restored_state, restored_payloads = cckpt.restore_latest(store)
+    cckpt.load_model_bytes_into(model2, restored_payloads)
+    cckpt.load_optimizer_bytes_into(optimizer2, restored_payloads)
     moment_after = ckpt_mod.optimizer_moment_sha256(optimizer2)
     xb.mark_step()
     with torch.no_grad():
@@ -226,7 +272,16 @@ def smoke_target_model(*, out_dir: str, updates: int = SMOKE_UPDATES,
         new_hash = hashlib_sha(new_logits.detach().to("cpu"))
     reload_ok = bool(ref_hash == new_hash)
     moments_ok = bool(moment_before == moment_after)
-    # resume proof: one more real update executes on the restored state.
+    # stale-parent negative probe: must be rejected with no state change.
+    fence_probe = "not-run"
+    try:
+        store.publish(state=restored_state, payloads=restored_payloads,
+                      expected_parent_sha256="00" * 64)
+        fence_probe = "UNEXPECTED-ACCEPT"
+    except ValueError:
+        fence_probe = "rejected-as-required"
+    # resume proof: one more real update executes on the restored state,
+    # advancing through the production transaction path.
     feeder2 = t1d.TierFeeder("flat", 32, 64)
     seqs2 = feeder2.fill_sequences(0.0)
     tokens2, seg2, elig2, _ = t1d.assemble_batch(seqs2, length=64, torch_mod=torch)
@@ -242,9 +297,16 @@ def smoke_target_model(*, out_dir: str, updates: int = SMOKE_UPDATES,
     xb.optimizer_step(optimizer2)
     xb.mark_step()
     optimizer2.zero_grad()
+    resume_cursor = cckpt.cursor_for_update(
+        pack_sha, sequence_ordinal=updates + 1,
+        token_offset=(updates + 1) * tokens_per_update)
+    _, resume_sha = cckpt.publish_update(
+        store, prev_state=restored_state, model=model2, optimizer=optimizer2,
+        learning_rate=lr, rng_bytes=_rng_bytes(), cursor=resume_cursor,
+        ledger_delta={"smoke-tiered": tokens_per_update})
     continued_ok = True
     easy_recs, easy_summ = _smoke_eval(model2, easy_rows, easy_targets, device, torch)
-    compat = checkpoint_compat_check(ckpt_path, param_count)
+    compat = checkpoint_compat_check(store, resume_sha, param_count)
     wall = time.time() - t0
     receipt = {
         "schema": "citadel-pre50m-checkpoint-smoke/v1",
@@ -257,14 +319,20 @@ def smoke_target_model(*, out_dir: str, updates: int = SMOKE_UPDATES,
         "nonfinite_count": nonfinite,
         "easy_tier_sanity": easy_summ,
         "param_mutation": True,
-        "checkpoint": {"path": ckpt_path, "sha256": ckpt_hash},
+        "production_transaction": True,
+        "lineage_id": "citadel-pre50m-smoke",
+        "generations_published": updates + 2,
+        "head_checkpoint_sha256": resume_sha,
+        "writer_fence_probe": fence_probe,
         "reload_output_identity": reload_ok,
         "optimizer_resume": {"moments_preserved": moments_ok,
-                             "optimizer_checkpoint_sha256": opt_hash,
-                             "continued_update_ok": continued_ok},
+                             "continued_update_ok": continued_ok,
+                             "resume_head_sha256": resume_sha},
         "checkpoint_compat": compat,
         "device_count": n_devices, "wall_seconds": wall,
-        "status": "PASS" if (reload_ok and moments_ok and compat["compatible"]) else "FAIL",
+        "status": "PASS" if (reload_ok and moments_ok and continued_ok
+                             and fence_probe == "rejected-as-required"
+                             and compat["compatible"]) else "FAIL",
     }
     (out / "PRE50M_CHECKPOINT_SMOKE.json").write_text(
         json.dumps(receipt, indent=2, sort_keys=True), encoding="utf-8")
