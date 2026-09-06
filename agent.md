@@ -142,6 +142,27 @@ NONE REMAINING THAT LOCAL VALIDATION CAN ADDRESS — next is the operator run.
 Run `notebooks/citadel_colab_t1d.ipynb` once from Cell 0 through F in a
 fresh/restarted Colab TPU session and return `CITADEL_T1D_RESULTS.zip`.
 
+## CROSS-BRANCH STATE (2026-09-06)
+
+BRAMASTRA (0235001, from triquetra): independently confirmed the
+termination-supervision flaw (third discovery after T1C-confound and T1D's
+15,000/15,000 MAX_TOKENS run); audited Cymek's data readiness and found
+four gaps (P35-A prereg DRAFT with PENDING_MATERIALIZATION hashes;
+inventory overcounts; qualification omission possible; declared != runnable
+data) - recorded as post-PRE50M CYMEK_OBSERVATIONS, PRE50M semantics frozen.
+Arkenstone (2a5ab55, from cymek pin; 95 files): executed real TPU training -
+ARK-004A cognition transition universal on 4 fresh seeds (precursor claim
+later INVERTED by its own reanalysis - precursor humility lesson); ARK-005
+retention NULL (no arm meets consolidation bar; LR-decay weakly delays
+collapse) - consolidation must be designed, not assumed. Provenance
+mechanics (continuation probes, source snapshots) noted for adoption.
+Cymek LOCAL movement: local cymek branch is 3 commits ahead of
+origin/cymek (28bf57a), UNPUSHED (causal-eval/RNG/sampler/data-identity
+repairs + CoreSubjectManifest/registry/protocol engine). Citadel pin stays
+at 28bf57a until pushed; on push, audit the delta against T1D/PRE50M-
+critical surfaces and re-run checkpoint/resume contract tests before
+repinning. Full record: CROSS_BRANCH_INGESTION.md.
+
 ## CYMEK_REQUIRED_CHANGE
 
 ```text

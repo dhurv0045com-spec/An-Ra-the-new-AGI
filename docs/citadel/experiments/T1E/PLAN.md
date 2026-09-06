@@ -26,6 +26,18 @@ generation contract had two structural flaws that make the null ambiguous:
 - Cymek `causal_lm_loss` already supports EOS targets when present.
 - NOT a literal-newline fake. The generation stop token and the trained
   token are the same `EOS_ID`.
+- **Loss-averaging declaration (BRAMASTRA prescription, adopted):** the
+  answer/EOS loss is target-averaged over eligible positions, identical
+  across all arms; real/capacity token accounting reported separately.
+- **Edge-verification set (BRAMASTRA prescription, adopted):** before any
+  T1E run, the packer/loss/generation chain is verified on single-char and
+  multi-char answers, adjacent packed records, exactly-full sequences, and
+  padding tails (t1e helper contracts + unit tests).
+- **Convergence record:** BRAMASTRA and Arkenstone independently found the
+  same termination-supervision flaw ("Citadel T1C stopping confound");
+  three independent discoveries (including T1D's own 15,000/15,000
+  MAX_TOKENS run) make this the highest-confidence contract fix in the
+  program.
 
 ### E2. Generation-limit semantics
 - `MAX_CONTENT_TOKENS = 8`, `MAX_GENERATION_STEPS = MAX_CONTENT_TOKENS + 1`
@@ -60,10 +72,18 @@ generation contract had two structural flaws that make the null ambiguous:
 - Not carried into T1E (separate hypothesis family; separate generation-
   length contract to be preregistered first).
 
-### E8. Data sizing
+### E8. Data sizing + readiness states
 - Physical pool comfortably larger than schedulable demand; expansion only
   where diversity matters (teacher tasks, T3/T4 operand diversity, balanced
   answer lengths). Never duplicate bytes.
+- Data readiness uses explicit states (BRAMASTRA adoption):
+  DECLARED -> MATERIALIZED -> VERIFIED -> QUALIFIED -> RUNNABLE. T1E data
+  must reach RUNNABLE (real bytes + generator qualification + loader into a
+  valid batch) before the run; declared-but-unmaterialized cognition data
+  (the P35-A gap BRAMASTRA flagged) is not runnable data.
+- Retention probes (Arkenstone ARK-005 lesson): a short post-training
+  retention check (held-out re-eval after decay/idle) rides along as a
+  diagnostic so capability collapse is visible from T1E onward.
 
 ## Frozen T1E arms (DRAFT — operator may amend before approval)
 
