@@ -212,9 +212,58 @@ def tpu_canary(session_dir: str) -> dict[str, Any]:
     checks["reload_identical"] = bool(pre[0]["prediction"] == post[0]["prediction"])
     checks["checkpoint_sha256"] = sha
 
-    # SCALE2 single update at the calibrated-shape contract level (small shape)
+    # SCALE2 really executes before the arms depend on it (§21): one packed
+    # update - finite loss, backward, parameter mutation - plus save/reload
+    # with an output-identity generation check.
+    import hashlib as _hl
+
     model_s = initialize(spec_scale2, 20260906).to(device)
-    del model_s
+    opt_s = build_adamw_optimizer(model_s, torch_module=torch)
+    feeder_s = t1d.TierFeeder("curriculum", 8, 64)
+    seqs_s = feeder_s.fill_sequences(0.5)
+    tokens_s, seg_s, elig_s, stats_s = t1d.assemble_batch(seqs_s, length=64,
+                                                          torch_mod=torch)
+    from v5_model.core import packed_layout as _pl
+
+    pos_s, mask_s = _pl(seg_s, torch_module=torch)
+    logits_s = model_s(tokens_s.to(device), pos_s.to(device), mask_s.to(device))
+    loss_s, count_s = causal_lm_loss(logits_s, tokens_s.to(device),
+                                     seg_s.to(device),
+                                     eligible=elig_s.to(device),
+                                     torch_module=torch)
+    if int(count_s) != stats_s["answer"] or not bool(
+            torch.isfinite(loss_s).item()):
+        raise RuntimeError("CANARY_SCALE2_BAD_LOSS")
+    loss_s.backward()
+    xb.mark_step()
+    torch.nn.utils.clip_grad_norm_(model_s.parameters(), 1.0)
+    def _param_sha(m):
+        return _hl.sha256(b"".join(
+            t.detach().float().cpu().contiguous().numpy().tobytes()
+            for t in m.state_dict().values())).hexdigest()
+    before_sha = _param_sha(model_s)
+    xb.optimizer_step(opt_s)
+    xb.mark_step()
+    opt_s.zero_grad()
+    after_sha = _param_sha(model_s)
+    if before_sha == after_sha:
+        raise RuntimeError("CANARY_SCALE2_NO_PARAM_MUTATION")
+    ckpt_s = str(Path(session_dir) / "canary_scale2.pt")
+    sha_s = ckpt_mod.save(model_s, ckpt_s, {"canary": "scale2"})
+    model_s2 = initialize(spec_scale2, 20260906).to(device)
+    ckpt_mod.load_into(model_s2, ckpt_s)
+    xb.mark_step()
+    with torch.no_grad():
+        ref_out = model_s(tokens_s.to(device), pos_s.to(device), mask_s.to(device))
+        new_out = model_s2(tokens_s.to(device), pos_s.to(device), mask_s.to(device))
+    reload_ok_s = bool(torch.equal(ref_out, new_out))
+    del model_s, opt_s, model_s2
+    checks["scale2"] = {"loss": float(loss_s.detach().to("cpu").item()),
+                        "param_mutation": True,
+                        "checkpoint_sha256": sha_s,
+                        "reload_output_identity": reload_ok_s}
+    if not reload_ok_s:
+        raise RuntimeError("CANARY_SCALE2_RELOAD_MISMATCH")
 
     # the pure producer->finalizer bridge (legacy producer shape included)
     defects = t1d.producer_consumer_contract_probe(legacy_untrained_keys=True)

@@ -26,7 +26,7 @@ EXPECTED_CYMEK_SHA; DEVELOPMENT_CERTIFICATION.json is checked at BOOTSTRAP
 and any code newer than certification fails closed BEFORE the TPU)
 DEVELOPMENT_CERTIFICATE = PASS (7/7 test files, committed receipt,
 docs/citadel/experiments/T1D/DEVELOPMENT_CERTIFICATION.json)
-LOCAL_TESTS = 107 checks PASS / 1 torch-optional skip across 7 files
+LOCAL_TESTS = 109 checks PASS / 1 torch-optional skip across 7 files
   (t1d 38; t1c 10; t1_canary 6; notebooks 2; bootstrap 6; cymek_checkpoint 7;
    one_shot 7 + torch-CPU resume identity PASS under the torch environment)
 PORTABILITY_SCAN = PASS (no machine-local paths in executable code)
@@ -40,9 +40,14 @@ DISCONNECT_RECOVERY = PASS (mid-arm checkpoints at 25/50/75% with
   model+optimizer+feeder state; CPU resume-identity proven: N continuous ==
   N/2 + restore + N/2 in tokens, feeder state, and loss trajectory)
 TPU_CANARY_PLAN = PASS (canary phase runs the REAL code paths on TPU before
-  any arm: MID + SCALE2 + masked + teacher + self feeder paths, checkpoint/
-  reload, generation, producer->finalizer bridge; failure aborts pre-arms
-  with a bundle)
+  any arm: MID update; a REAL SCALE2 update - finite loss, backward, verified
+  parameter mutation, save/reload with output-identity generation; teacher +
+  masked + self feeder paths; checkpoint/reload; producer->finalizer bridge;
+  failure aborts pre-arms with a bundle). Calibration shape acceptance is
+  now THREE-WAY: MID ordinary + SCALE2 + masked-MID (real Arm E path with
+  valid_alphabet_ids/allow-mask/causal loss/update) at the selected batch -
+  the fastest candidate failing any variant is rejected in place and the
+  next passing shape is selected.
 SCHEMA_BOUNDARIES = PASS (terminal arm validator at finalize + verify_bundle
   + session boundary; producer->finalizer probe in every preflight)
 FAILURE_BUNDLE = PASS (any phase failure exports environment + preflight +

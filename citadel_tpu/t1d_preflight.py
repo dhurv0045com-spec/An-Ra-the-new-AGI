@@ -22,6 +22,14 @@ import sys
 import time
 
 
+def _xla_gate(api_status: str) -> bool:
+    """Canonical low-level contract of preflight._xla_api_status:
+    ("PASS", []) when every XLA API is callable, ("FAIL", missing) when the
+    runtime lacks them, ("UNAVAILABLE", reason) without torch_xla. Only the
+    literal PASS opens the gate - no second status vocabulary."""
+    return api_status == "PASS"
+
+
 def run_preflight() -> dict:
     """Structured live preflight. Every gate is recorded; failures never
     raise past this function — the caller decides (the orchestrator writes
@@ -245,7 +253,7 @@ def run_preflight() -> dict:
         gate("tpu_active", False, f"{type(exc).__name__}: {exc}")
     try:
         api_status, api_missing = pf._xla_api_status()
-        gate("xla_apis", api_status in ("OK", "PARTIAL"),
+        gate("xla_apis", _xla_gate(api_status),
              api_status + (f" ({', '.join(api_missing)})" if api_missing else ""))
     except Exception as exc:
         gate("xla_apis", False, f"{type(exc).__name__}: {exc}")

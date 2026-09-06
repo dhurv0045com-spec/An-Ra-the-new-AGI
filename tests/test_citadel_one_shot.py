@@ -547,11 +547,74 @@ def _certificate_path() -> Path:
         "DEVELOPMENT_CERTIFICATION.json"
 
 
+def test_xla_pass_contract() -> None:
+    """THE canonical-contract regression: preflight._xla_api_status returns
+    ("PASS", []) on healthy XLA and ("FAIL", missing) otherwise. The
+    xla_apis gate must consume that exact vocabulary - healthy PASS opens
+    the gate, any FAIL reason closes it. (This mismatch shipped once: the
+    gate checked for ("OK", "PARTIAL") and would have failed a healthy
+    Colab TPU at preflight.)"""
+    from citadel_tpu import preflight as pf
+    from citadel_tpu import t1d_preflight
+
+    assert t1d_preflight._xla_gate("PASS") is True
+    assert t1d_preflight._xla_gate("FAIL") is False
+    assert t1d_preflight._xla_gate("UNAVAILABLE") is False
+    # full structured preflight with the REAL low-level contract monkeypatched
+    real = pf._xla_api_status
+    try:
+        pf._xla_api_status = lambda: ("PASS", [])
+        pre = t1d_preflight.run_preflight()
+        gate = next(g for g in pre["gates"] if g["name"] == "xla_apis")
+        assert gate["status"] == "PASS", gate
+        assert "xla_apis" not in pre["blocking_gates"]
+        pf._xla_api_status = lambda: ("FAIL", ["xm.optimizer_step"])
+        pre2 = t1d_preflight.run_preflight()
+        gate2 = next(g for g in pre2["gates"] if g["name"] == "xla_apis")
+        assert gate2["status"] == "FAIL", gate2
+        assert "xla_apis" in pre2["blocking_gates"]
+        assert pre2["status"] == "FAIL"
+    finally:
+        pf._xla_api_status = real
+
+
+def test_select_calibrated_shape_masked_guard() -> None:
+    """A candidate must pass EVERY required variant: the fastest shape can
+    pass SCALE2 but fail the masked Arm E path -> the next passing shape is
+    selected and the failure is marked in place with the right reason."""
+    results = [
+        {"batch": 1024, "length": 64, "tokens_per_second": 9000.0, "correct": True},
+        {"batch": 512, "length": 64, "tokens_per_second": 7000.0, "correct": True},
+        {"batch": 256, "length": 64, "tokens_per_second": 5000.0, "correct": True},
+    ]
+
+    def scale2_ok(batch, length):
+        return (batch, length) != (1024, 64)
+
+    def masked_ok(batch, length):
+        return (batch, length) not in ((1024, 64), (512, 64))
+
+    best, note = t1d.select_calibrated_shape(
+        results, scale2_verifier=scale2_ok, masked_verifier=masked_ok)
+    assert note == "pass" and best["batch"] == 256, (note, best)
+    failed = {r["batch"]: r["error"] for r in results if not r["correct"]}
+    assert failed == {1024: "SCALE2_VERIFICATION_FAILED",
+                      512: "MASKED_VERIFICATION_FAILED"}, failed
+    assert len(results) == 3  # no duplicate dicts
+    assert all(r["correct"] for r in results if r["batch"] == 256)
+    # a shape passing neither is marked by the first failing verifier
+    none, note2 = t1d.select_calibrated_shape(
+        [{"batch": 1, "length": 64, "tokens_per_second": 1.0, "correct": True}],
+        scale2_verifier=lambda b, l: False, masked_verifier=lambda b, l: False)
+    assert none is None and "safe" in note2
+
+
 def main() -> int:
     tests = [test_portability_scan, test_plan_identity_stable_and_sensitive,
              test_self_feeder_cadence_and_rows, test_self_classify_rules,
              test_one_shot_emulator_fresh_and_resume, test_data_accounting,
-             test_mid_state_payload_integrity, test_torch_resume_identity]
+             test_mid_state_payload_integrity, test_torch_resume_identity,
+             test_xla_pass_contract, test_select_calibrated_shape_masked_guard]
     failed = skipped = 0
     for fn in tests:
         try:

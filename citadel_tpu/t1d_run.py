@@ -442,6 +442,42 @@ def _verify_shape_on_scale2(batch: int, length: int) -> bool:
         return False
 
 
+def _verify_masked_on_mid(batch: int, length: int) -> bool:
+    """One masked Arm E update at the candidate shape (§22 of one-shot
+    hardening): real valid_alphabet_ids mask, real causal loss, backward +
+    optimizer step, finite result. Never raises."""
+    try:
+        from citadel_tpu import xla_backend as xb
+
+        import torch
+
+        from v5_model.core import initialize
+        from v5_training.optimizer import build_adamw_optimizer
+
+        torch.manual_seed(20260906)
+        model = initialize(build_spec("MID"), 20260906)
+        device = xb.get_device()
+        model = model.to(device)
+        opt = build_adamw_optimizer(model, torch_module=torch)
+        feeder = TierFeeder("curriculum", batch, length)
+        rep = _train_updates_packed(
+            model, opt, feeder, n_updates=1, start_update=0,
+            updates_total=1, device=device, torch_mod=torch,
+            length=length, masked=True, valid_ids=valid_alphabet_ids())
+        ok = bool(rep["first_loss"] is not None
+                  and rep["first_loss"] == rep["first_loss"])
+        model = opt = feeder = None
+        try:
+            import gc as _gc
+
+            _gc.collect()
+        except Exception:
+            pass
+        return ok
+    except Exception:
+        return False
+
+
 def calibrate(*, out: str | None = None, updates: int = CALIBRATION_UPDATES) -> dict[str, Any]:
     """Pick one static packed (batch, length) for ALL arms: max steady tok/s
     that fits and passes a finite-loss correctness step with exact accounting."""
@@ -525,7 +561,8 @@ def calibrate(*, out: str | None = None, updates: int = CALIBRATION_UPDATES) -> 
         except Exception:
             pass
     best, scale2_note = select_calibrated_shape(
-        results, scale2_verifier=_verify_shape_on_scale2)
+        results, scale2_verifier=_verify_shape_on_scale2,
+        masked_verifier=_verify_masked_on_mid)
     if best is None:
         raise RuntimeError(f"abort CALIBRATION_FAILURE: {scale2_note}")
     receipt = {"schema": "citadel-t1d-throughput-calibration/v1",
@@ -1380,23 +1417,37 @@ def write_arm_receipt(out_dir: str | Path, receipt: dict[str, Any], *,
 
 
 def select_calibrated_shape(results: list[dict[str, Any]], *,
-                            scale2_verifier) -> tuple[dict[str, Any] | None, str]:
+                            scale2_verifier=None,
+                            masked_verifier=None,
+                            ) -> tuple[dict[str, Any] | None, str]:
     """Pure shape selection: max tok/s among correctness-passing candidates
-    whose shape ALSO verifies on SCALE2 (Arm D must never be the first place
-    the session-wide shape is tried). A failed candidate is marked failed IN
-    PLACE — no duplicate dicts left behind that keep a rejected shape
-    accidentally selectable. Returns (selected | None, note)."""
+    whose shape verifies on EVERY required variant (SCALE2 for Arm D, masked
+    MID for Arm E - the session shape must be safe for all of them before
+    any arm runs). A failed candidate is marked failed IN PLACE — no
+    duplicate dicts left behind that keep a rejected shape accidentally
+    selectable. Returns (selected | None, note)."""
+    verifiers = []
+    if scale2_verifier is not None:
+        verifiers.append(("SCALE2_VERIFICATION_FAILED", scale2_verifier))
+    if masked_verifier is not None:
+        verifiers.append(("MASKED_VERIFICATION_FAILED", masked_verifier))
     feasible = [r for r in results if r.get("correct")]
     if not feasible:
         return None, "no candidate passed correctness"
     ordered = sorted(feasible, key=lambda r: r.get("tokens_per_second", 0.0),
                      reverse=True)
     for cand in ordered:
-        if scale2_verifier(cand["batch"], cand["length"]):
+        failed = False
+        for label, verifier in verifiers:
+            if not verifier(cand["batch"], cand["length"]):
+                cand["correct"] = False
+                cand["error"] = label
+                failed = True
+                break
+        if not failed:
             return cand, "pass"
-        cand["correct"] = False
-        cand["error"] = "SCALE2_VERIFICATION_FAILED"
-    return None, "no shape safe for SCALE2"
+    return None, ("no shape safe for all required variants"
+                  if verifiers else "no candidate passed correctness")
 
 
 def _pooled(arm: dict[str, Any], key: str) -> tuple[int, int]:
