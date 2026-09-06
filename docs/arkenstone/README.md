@@ -50,4 +50,4 @@ a novelty class. Branch isolation is absolute.
 
 ---
 
-verified-at-commit: aa84179108212a99162076aad4c317c43e4b0fde
+stamped-at-commit: ad226a6f8e2f755c4d3f41ac771ee44a23e26d28

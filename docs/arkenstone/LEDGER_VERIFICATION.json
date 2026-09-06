@@ -1,8 +1,107 @@
 {
-  "schema": "arkenstone-ledger-verification/v1",
-  "verified_at_commit": "aa84179108212a99162076aad4c317c43e4b0fde",
-  "readme_verification_block": "CURRENT",
-  "experiment_rows": 5,
+  "schema": "arkenstone-ledger-verification/v2",
+  "stamped_at_commit": "ad226a6f8e2f755c4d3f41ac771ee44a23e26d28",
+  "governed_file_hashes": {
+    "docs/arkenstone/EXPERIMENT_LOG.md": "b39a2ff1f26e21f6f24cbd6b26f951178f71ffdd1c7079e2de83e9d5a7e99c5d",
+    "docs/arkenstone/MECHANISM_TOURNAMENT.md": "0933f5d59b1bf20dec8819186702c2e68d6baa088c940dee6d88285098fcddc1",
+    "docs/arkenstone/NEGATIVE_RESULTS.md": "da10d516ca9b95c7ecacae3c779a6e0248a94a7bd4af69aff450ab14ba4f918f",
+    "docs/arkenstone/AGI_FEATURE_LEDGER.md": "a4337088a20e117be02b5a4da8903b911f71eed1040892ef4c46c1e23200a599",
+    "docs/arkenstone/NOVELTY_REGISTER.md": "4d4b6f13c0244a2ae5a3150e52fde5a590bbc7f5f20f3f1b8781355b5d578607",
+    "docs/arkenstone/README.md": "7d383d5003b61b0131cf0d70994e08553a00482b11d021fbce48f6d029c9b60d"
+  },
+  "receipt_checks": [
+    {
+      "file": "C:\\Users\\ankit\\.zcode\\workspace\\default\\Arkenstone\\experiments\\ARK-001\\RESULT.json",
+      "status": "VERIFIED",
+      "scheme": "default-separators"
+    },
+    {
+      "file": "C:\\Users\\ankit\\.zcode\\workspace\\default\\Arkenstone\\experiments\\ARK-001\\RESULT_BYTE.json",
+      "status": "NO_SELF_HASH",
+      "scheme": null
+    },
+    {
+      "file": "C:\\Users\\ankit\\.zcode\\workspace\\default\\Arkenstone\\experiments\\ARK-002\\ERRATUM_002a.json",
+      "status": "NO_SELF_HASH",
+      "scheme": null
+    },
+    {
+      "file": "C:\\Users\\ankit\\.zcode\\workspace\\default\\Arkenstone\\experiments\\ARK-002\\R1_T2_SATURATION.json",
+      "status": "NO_SELF_HASH",
+      "scheme": null
+    },
+    {
+      "file": "C:\\Users\\ankit\\.zcode\\workspace\\default\\Arkenstone\\experiments\\ARK-002\\R2_T1_SEED29.json",
+      "status": "NO_SELF_HASH",
+      "scheme": null
+    },
+    {
+      "file": "C:\\Users\\ankit\\.zcode\\workspace\\default\\Arkenstone\\experiments\\ARK-002B\\RESULT_seed29.json",
+      "status": "VERIFIED",
+      "scheme": "compact"
+    },
+    {
+      "file": "C:\\Users\\ankit\\.zcode\\workspace\\default\\Arkenstone\\experiments\\ARK-002B\\RESULT_seed47.json",
+      "status": "VERIFIED",
+      "scheme": "compact"
+    },
+    {
+      "file": "C:\\Users\\ankit\\.zcode\\workspace\\default\\Arkenstone\\experiments\\ARK-003\\ERRATUM_003.json",
+      "status": "NO_SELF_HASH",
+      "scheme": null
+    },
+    {
+      "file": "C:\\Users\\ankit\\.zcode\\workspace\\default\\Arkenstone\\experiments\\ARK-003\\RESULT_A.json",
+      "status": "VERIFIED",
+      "scheme": "compact"
+    },
+    {
+      "file": "C:\\Users\\ankit\\.zcode\\workspace\\default\\Arkenstone\\experiments\\ARK-003\\RESULT_B.json",
+      "status": "VERIFIED",
+      "scheme": "compact"
+    },
+    {
+      "file": "C:\\Users\\ankit\\.zcode\\workspace\\default\\Arkenstone\\experiments\\ARK-003\\RESULT_C.json",
+      "status": "VERIFIED",
+      "scheme": "compact"
+    },
+    {
+      "file": "C:\\Users\\ankit\\.zcode\\workspace\\default\\Arkenstone\\experiments\\ARK-003\\RESULT_D.json",
+      "status": "VERIFIED",
+      "scheme": "compact"
+    },
+    {
+      "file": "C:\\Users\\ankit\\.zcode\\workspace\\default\\Arkenstone\\experiments\\ARK-004A\\REANALYSIS.json",
+      "status": "NO_SELF_HASH",
+      "scheme": null
+    },
+    {
+      "file": "C:\\Users\\ankit\\.zcode\\workspace\\default\\Arkenstone\\experiments\\ARK-004A\\RESULT_seed101.json",
+      "status": "VERIFIED",
+      "scheme": "compact"
+    },
+    {
+      "file": "C:\\Users\\ankit\\.zcode\\workspace\\default\\Arkenstone\\experiments\\ARK-004A\\RESULT_seed202.json",
+      "status": "VERIFIED",
+      "scheme": "compact"
+    },
+    {
+      "file": "C:\\Users\\ankit\\.zcode\\workspace\\default\\Arkenstone\\experiments\\ARK-004A\\RESULT_seed303.json",
+      "status": "VERIFIED",
+      "scheme": "compact"
+    },
+    {
+      "file": "C:\\Users\\ankit\\.zcode\\workspace\\default\\Arkenstone\\experiments\\ARK-004A\\RESULT_seed404.json",
+      "status": "VERIFIED",
+      "scheme": "compact"
+    },
+    {
+      "file": "C:\\Users\\ankit\\.zcode\\workspace\\default\\Arkenstone\\experiments\\BINDING-V2-REDTEAM\\RECEIPT.json",
+      "status": "NO_SELF_HASH",
+      "scheme": null
+    }
+  ],
+  "drifted_since_last_check": [],
   "problems": [],
   "status": "PASS"
 }
