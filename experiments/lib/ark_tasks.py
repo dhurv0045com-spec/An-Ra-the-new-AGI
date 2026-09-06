@@ -100,6 +100,11 @@ def load_or_build_manifest(path: str) -> dict:
     from pathlib import Path
 
     frozen = json.loads(Path(path).read_text("utf-8"))
+    # verify the file content against its OWN recorded hash first (tamper check),
+    # then against the canonical rebuild (generator drift check)
+    content_sha = _sha({"train": frozen["train"], "test": frozen["test"]})
+    if content_sha != frozen["split_sha256"]:
+        raise ValueError("frozen manifest content does not match its recorded split hash (tampered)")
     rebuilt = build_task_manifest()
     if frozen["split_sha256"] != rebuilt["split_sha256"]:
         raise ValueError("frozen dataset manifest disagrees with canonical rebuild; refusing to train")

@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import json
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -43,7 +45,8 @@ class SustainedThresholdTest(unittest.TestCase):
             {"step": 100 * s, "train_exact": 1.0 if s >= 2 else 0.5, "test_exact": v,
              "tokens": 6400 * s, "exposures": 12.8 * s}
             for s, v in [(1, 0.0), (2, 0.0), (3, 0.0), (4, 0.0), (5, 0.0),
-                         (6, 0.0), (7, 0.0), (8, 0.0), (9, 0.55), (10, 0.92), (11, 0.96)]
+                         (6, 0.0), (7, 0.0), (8, 0.0), (9, 0.55), (10, 0.92),
+                         (11, 0.96), (12, 0.95)]
         ]
         summary = m.sustained_summary(traj)
         self.assertEqual(summary["M99"]["step"], 200)
