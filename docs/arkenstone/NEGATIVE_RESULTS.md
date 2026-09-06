@@ -25,3 +25,4 @@
 | Counterfactual locality co-emerges with OOD (tentative positive) | ARK-003 arm A trajectory | behavioral factorization signature tracks the transition (single arm/snapshot — tentative) |
 | M99 (memorization speed) does NOT predict G90 timing (rho 0.00) | ARK-004A | memorization and generalization are decoupled phenomena |
 | Post-G90 instability: seed 101 collapsed 1.0->0.188 after sustained G90 | ARK-004A | the generalized state is not automatically stable; retention is a first-class objective |
+| (BRAMASTRA, inherited) Citadel T1C had an UNTESTED stopping requirement: no answer-terminator token was ever supervised; all arms ended MAX_TOKENS:1000, so exact-match 0/500 conflates computation with termination | BRAMASTRA docs/bramastra/EVIDENCE.md static contract audit + their EOS experiment (0/32 -> 32/32) | T1C's 'formatting ruled out' claim was too strong; Citadel T1D must confirm EOS supervision before its arms are interpretable |

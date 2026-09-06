@@ -35,8 +35,11 @@ BRANCH_RELATIONS = {
     },
     "BRAMASTRA": {
         "proves": "A from-scratch instrument exists with executed binding/terminal experiments and excellent "
-                  "negative-result hygiene (copy-behavior diagnosed via query-swap/copy baselines; zero "
-                  "rendering-shift transfer).",
+                  "negative-result hygiene. NEW: (1) terminal/EOS supervision repairs the complete-answer "
+                  "contract (0/32 -> 32/32, 2 seeds) — and their audit shows Citadel T1C never supervised a "
+                  "terminator (stop histogram MAX_TOKENS:1000 on every arm), partially confounding its famous "
+                  "null; (2) MINI/MID capacity accounting is embedding-dominated (~95%); (3) aggregate accuracy "
+                  "can rise to 48.4% while query control stays at copy-baseline level (0/64 both-correct).",
         "done_looks_like": "B0/B1 campaigns executed and a learned discovery policy actually implemented "
                            "(its own header marks the discovery policy unimplemented — GAP 1's design home).",
         "connects_to": "Shares the owner's from-scratch objective; its evaluation hygiene (query-blind "
