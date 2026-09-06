@@ -23,7 +23,8 @@ RUNTIME_PIN_SHA: `28bf57a0d299a2c13a99fe0046616c00a1b8530c` (== live HEAD)
 DEVELOPMENT_CERTIFICATE = PASS (7/7 files, regenerated at the exact
   executable identity; torch environment used so the four torch-optional
   tests ran rather than skipped)
-LOCAL_TESTS = 89/89 PASS across 7 files
+LOCAL_TESTS = 91 PASS / 5 torch-optional skips across 7 files at the system
+  interpreter; 91/91 under the torch environment (all skips verified PASS)
   (t1d 38; t1c 10; t1_canary 6; notebooks 2; bootstrap 6; cymek_checkpoint 7;
    one_shot 20 — includes the reserved PRE50M final-update regression, the
    completed-state negative control, PRE50M phase-status propagation,
