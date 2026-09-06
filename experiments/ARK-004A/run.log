@@ -1,0 +1,4 @@
+{"seed": 101, "status": "COMPLETED", "steps": 24000, "M99": 400, "G50": 13400, "G90": {"step": 15800, "tokens": 4044800, "exposures": 2022.4, "status": "DEMONSTRATED"}, "final_ood": 0.18781725888324874}
+{"seed": 202, "status": "COMPLETED", "steps": 24000, "M99": 800, "G50": 10200, "G90": {"step": 12000, "tokens": 3072000, "exposures": 1536.0, "status": "DEMONSTRATED"}, "final_ood": 1.0}
+{"seed": 303, "status": "COMPLETED", "steps": 24000, "M99": 1000, "G50": 14200, "G90": {"step": 20200, "tokens": 5171200, "exposures": 2585.6, "status": "DEMONSTRATED"}, "final_ood": 0.6446700507614214}
+{"seed": 404, "status": "COMPLETED", "steps": 24000, "M99": 1400, "G50": 11600, "G90": {"step": 14400, "tokens": 3686400, "exposures": 1843.2, "status": "DEMONSTRATED"}, "final_ood": 0.949238578680203}

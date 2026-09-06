@@ -12,6 +12,7 @@ of known ideas; a laboratory for what remains unknown.
 - **Standing anomaly inherited from Citadel:** T1/T1C — loss falls (10.1 → 1.3-1.9)
   across objectives, corpora, and 2.3x scale at 4M tokens, while held-out AND train
   exact-match stay ~0. Train exact ~0 means the model never even fits seen rows.
+- **Resolved this run (ARK-004A):** a precursor qualifies — tens-column selectivity under frozen counterfactuals predicts G90 timing (LOO 4/4, beats time/loss baselines); memorization speed predicts nothing; post-G90 instability discovered (seed 101 collapse).
 - **Current highest-value uncertainty:** where is the FIRST exact-match lift-off
   point? No branch has ever measured a lift-off threshold on the simplest task.
 
@@ -32,6 +33,7 @@ of known ideas; a laboratory for what remains unknown.
 - `experiments/ARK-002/` — grokking continuation + ERRATUM_002a (see also ARK-002B for the multi-seed replication)
 - `experiments/ARK-002B/` — independent T2 replication, separated init/order seeds, commutation-free manifest
 - `experiments/BINDING-V2-REDTEAM/` — independent verification of cymek's binding-v2 qualification (CONSISTENT)
+- `experiments/ARK-004A/` — developmental transition mapping + precursor discovery (executed)
 
 ## Rules (inherited, non-negotiable)
 Loss is a diagnostic, never proof of cognition. Execution artifacts beat prose.

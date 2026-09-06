@@ -23,3 +23,5 @@
 | Curriculum (25% T1 stage): delays T2 memorization, zero OOD at box | ARK-003 arm B | easy-first staging does not accelerate this transition at micro scale |
 | Aligned digit-decomposition teacher: no acceleration at equal wall budget | ARK-003 arm C (vs D control, both null) | aligned supervision did not shorten the post-memorization delay within budget; compute handicap documented — step-matched rerun still open |
 | Counterfactual locality co-emerges with OOD (tentative positive) | ARK-003 arm A trajectory | behavioral factorization signature tracks the transition (single arm/snapshot — tentative) |
+| M99 (memorization speed) does NOT predict G90 timing (rho 0.00) | ARK-004A | memorization and generalization are decoupled phenomena |
+| Post-G90 instability: seed 101 collapsed 1.0->0.188 after sustained G90 | ARK-004A | the generalized state is not automatically stable; retention is a first-class objective |
