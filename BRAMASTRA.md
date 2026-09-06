@@ -1,10 +1,12 @@
 # BRAMASTRA: a first-principles research blueprint for An-Ra
 
+**Overall design superseded by the [full AGI blueprint](AGI_BLUEPRINT.md), with detailed [Cymek](docs/bramastra/CYMEK_100X_ROADMAP.md) and [Citadel](docs/bramastra/CITADEL_100X_ROADMAP.md) roadmaps dated 2026-09-06. This document retains the initial bounded experiment plan and its historical decisions.**
+
 Design date: 2026-09-05. Implementation update: 2026-09-06. The overall AGI design remains a research proposal; a bounded from-scratch instrument and development experiments now exist. See [results](docs/bramastra/RESULTS.md) and [the target research loop](docs/bramastra/RESEARCH_LOOP.md). Full B0/B1 campaigns have not run, and a learned discovery policy remains unimplemented.
 
 The owner's objective is **AGI trained from scratch**, with approximately **100 hours of free Kaggle TPU access per week**. Those are the governing requirements. The hours are an owner-reported planning envelope; actual quota, device topology, and session duration must be measured. This proposal does not import pretrained weights.
 
-This is the entry point for the BRAMASTRA design. Historical documents retain their historical meaning; their frozen choices do not bind this proposal. Existing executable contracts are unchanged. Implementing a different experiment will require its own explicit manifest rather than silently changing an old experiment's meaning.
+This was the initial entry point for the BRAMASTRA design. Historical documents retain their historical meaning; their frozen choices do not bind the expanded proposal. Existing executable contracts are unchanged. Implementing a different experiment will require its own explicit manifest rather than silently changing an old experiment's meaning.
 
 Read [the evidence audit](docs/bramastra/EVIDENCE.md) for what survived scrutiny and [the experiment plan](docs/bramastra/EXPERIMENTS.md) for execution order, budgets, and acceptance rules.
 

@@ -1,6 +1,8 @@
 # BRAMASTRA — An-Ra research from first principles
 
-Start with [BRAMASTRA.md](BRAMASTRA.md) and [the target research loop](docs/bramastra/RESEARCH_LOOP.md): AGI as the long-term objective, all core weights trained from scratch, and experiments planned around approximately 100 owner-reported Kaggle TPU-hours per week.
+Start with the [full AGI blueprint](AGI_BLUEPRINT.md): a proposed integrated learner that investigates, plans, consolidates skills and independently validates its own improvement, with all core weights trained from scratch and approximately 100 owner-reported Kaggle TPU-hours per week. The detailed [Cymek roadmap](docs/bramastra/CYMEK_100X_ROADMAP.md) and [Citadel roadmap](docs/bramastra/CITADEL_100X_ROADMAP.md) audit current branch evidence and specify the missing work. Their 100× targets are measurable ambitions, not achieved results.
+
+[BRAMASTRA.md](BRAMASTRA.md) preserves the initial experiment plan; the [research-loop note](docs/bramastra/RESEARCH_LOOP.md) records its earlier outline.
 
 The first [executable experiment](bramastra_lab/README.md) now trains a small random-initialized core, compares terminal supervision, measures fresh-world failures, and verifies local checkpoint continuation. [Results and limitations](docs/bramastra/RESULTS.md) distinguish demonstrated answer learning from unresolved query-sensitive transfer. Historical executable contracts remain unchanged.
 
