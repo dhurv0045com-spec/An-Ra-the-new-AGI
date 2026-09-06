@@ -1,10 +1,10 @@
 {
-  "citadel_sha": "035251f302d2c11a3293a3f81cb35aaf3593adbb",
-  "code_sha": "c98c94c1e02bbad966f7985874890ec1e1cda96b",
+  "citadel_sha": "450d551ecf50da84f33e940120428912c8306519",
+  "code_sha": "450d551ecf50da84f33e940120428912c8306519",
   "cymek_sha": "28bf57a0d299a2c13a99fe0046616c00a1b8530c",
   "files_passed": 7,
   "files_total": 7,
-  "generated_utc": "2026-09-06T17:19:54Z",
+  "generated_utc": "2026-09-06T17:23:40Z",
   "orchestrator_version": "one-shot/1.0",
   "platform": "win32",
   "python": "3.11.15",
