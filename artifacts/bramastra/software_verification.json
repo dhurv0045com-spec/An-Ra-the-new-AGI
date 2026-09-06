@@ -1,0 +1,22 @@
+{
+  "command": "python -m pytest tests/test_bramastra_model.py tests/test_bramastra_experiment.py tests/test_bramastra_receipts.py -q -p no:cacheprovider --basetemp=.codex-test-tmp-bramastra-final",
+  "committed_source_snapshots_verified": 12,
+  "failures": 0,
+  "import_boundaries": "PASS",
+  "schema": "bramastra-software-verification/v1",
+  "scope": "local CPU software and receipt checks; no TPU certification",
+  "source_commit": "56f501dcf5c6217c5cdc3f3887d80f227f7d7209",
+  "source_files_sha256": {
+    "bramastra_lab/__init__.py": "07b37c79da0c3078523c6ed5b0b6ebaffab96c533cfe3b5006ad333d58523ffa",
+    "bramastra_lab/analyze.py": "480ee3c48170240e2d0e12d1ad116ca82c14e3bff842b6952b0b7119ee0ddcf8",
+    "bramastra_lab/data.py": "b3609d2a38d1e7e9628e2d01e66c4f1d6df3e7079e5b10f19f68119c9375fed9",
+    "bramastra_lab/experiment.py": "6178d6f5dd7cc7b11256a64c36c42ea1288b806bfce63d2036c8e74cf0ef78c0",
+    "bramastra_lab/model.py": "8c2d020fcfd4bf6b936733e511c8b364a533757789045786922580cc83da62ac",
+    "tests/test_bramastra_experiment.py": "66a2eb7aa88c79f14d99a2f2046c4223eccb72daeb09c1d49b6bba72fcbdda0c",
+    "tests/test_bramastra_model.py": "c77887cde8a383cb212b9d34ff860aeb4dfa986b8561e4faca8694667ae31f81",
+    "tests/test_bramastra_receipts.py": "0e148af676f4cde6a03910e2400654a26915293be629271272321edc0544be9b"
+  },
+  "subtests_passed": 21,
+  "tests_passed": 14,
+  "verified_date": "2026-09-06"
+}

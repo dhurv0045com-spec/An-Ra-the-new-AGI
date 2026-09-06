@@ -2,6 +2,8 @@
 
 Status: proposed experiments, not executed. This file makes [the blueprint](../../BRAMASTRA.md) actionable without pretending unmeasured hardware or unknown data sources are already resolved.
 
+Implementation update, 2026-09-06: a smaller terminal-supervision derivative has been built and run; see [RESULTS.md](RESULTS.md). It uses a 117,312-parameter smoke model and a short constant-LR protocol. It does not close the full B0/B1 experiments specified below. The owner has authorized implementation, experiments, and pushing this work.
+
 ## B0: prove that the learning instrument works
 
 **Question:** can a randomly initialized byte-level core fit contextual-selection examples and emit complete answers through the exact training/inference path? This is a learnability/serialization instrument check; memorizing its tiny fixed set can satisfy it. Transfer remains a separate B1 question.
@@ -92,7 +94,7 @@ One failed synthetic experiment does not refute AGI, Transformers, or CE. Equall
 
 ## Minimum implementation handoff
 
-Implement only after the planning stage is accepted for execution. Suggested new package boundary: `bramastra_lab/`, with a model adapter, data/serialization module, bounded runner, evaluator, and receipt schema. These are proposed paths, not existing files or commands.
+The owner has accepted continuation into implementation. `bramastra_lab/` now contains a model, data/serialization module, bounded terminal-comparison runner, evaluator, continuation check, and receipts. See its [execution guide](../../bramastra_lab/README.md). The full B0/B1 campaign, target-TPU path, and learned research loop remain subsequent work.
 
 Audit and reuse narrow Cymek model/optimizer/checkpoint utilities where useful; avoid wholesale branch integration. Keep the old namespaces and experiment identities intact. CPU checks cover serialization, masks, independent solver agreement, and receipts; short target-TPU runs establish actual training and restore behavior. Do not substitute CPU test counts for learning evidence.
 
