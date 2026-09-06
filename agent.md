@@ -26,9 +26,15 @@ EXPECTED_CYMEK_SHA; DEVELOPMENT_CERTIFICATION.json is checked at BOOTSTRAP
 and any code newer than certification fails closed BEFORE the TPU)
 DEVELOPMENT_CERTIFICATE = PASS (7/7 test files, committed receipt,
 docs/citadel/experiments/T1D/DEVELOPMENT_CERTIFICATION.json)
-LOCAL_TESTS = 109 checks PASS / 1 torch-optional skip across 7 files
+LOCAL_TESTS = 78 PASS / 2 torch-optional skips across 7 files
   (t1d 38; t1c 10; t1_canary 6; notebooks 2; bootstrap 6; cymek_checkpoint 7;
-   one_shot 7 + torch-CPU resume identity PASS under the torch environment)
+   one_shot 9 + 2 torch skips: run_arm feeder-restore wiring across
+   flat/curriculum/teacher/self/masked AND continuous-vs-resumed identity —
+   both PASS under the torch environment; certificate is the record)
+RUN_ARM_FEEDER_STATE_RESTORE = PASS (mid-arm resume restores the EXACT
+  data-plane state — tier cursors, teacher cursor, self cursor, carry
+  buffer, drawn/placed counters, placed tokens — before any resumed
+  consumption; resumed feed byte-identical to uninterrupted execution)
 PORTABILITY_SCAN = PASS (no machine-local paths in executable code)
 CLEAN_BOOTSTRAP_SIM = PASS (one-shot emulator: fresh session COMPLETE)
 STALE_BOOTSTRAP_SIM = PASS (rerun resumes every completed arm — zero
