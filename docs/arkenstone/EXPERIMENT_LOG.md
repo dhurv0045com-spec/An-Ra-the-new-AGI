@@ -13,3 +13,4 @@
 | ARK-006 | LR dose-response on the decaying seed: is there a threshold? | EXECUTED — threshold between 1e-5 and 1e-4; at <=1e-5 retention is perfect (1.0); at 1e-4 collapse matches full-LR control | experiments/ARK-006/ANALYSIS.md |
 | ARK-006 | LR dose-response on decaying seed 606 (lr multipliers 0.001/0.01/0.1/1.0 at trigger) | EXECUTED (local 4050 GPU) — threshold between 1e-5 and 1e-4; retention perfect below 1e-5; collapse above | experiments/ARK-006/ANALYSIS.md |
 | COLAB-001 | Full program replication on T4 GPU in Colab (84 min session) | EXECUTED — all five experiments ran; transitions replicated; retention arms stable in short fork window | experiments/COLAB/results/ |
+| ARK-007 | Multi-seed LR-threshold replication (seeds 707/808) | EXECUTED — low-LR safety confirmed universally; high-LR decay is seed-DEPENDENT (2/4 decay, 1 transient dip, 1 stable); law refined from deterministic to risk-factor | experiments/ARK-007/ANALYSIS.md |

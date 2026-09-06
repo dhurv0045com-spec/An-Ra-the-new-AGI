@@ -1,0 +1,13 @@
+=== seed 707 lr x0.001 (LOW) ===
+  trigger 13600, lr -> 0.000001
+{"seed": 707, "lr": 0.001, "RET90": 1.0, "collapse": null, "final": 0.9949}
+=== seed 707 lr x1.0 (CONTROL) ===
+  trigger 13600, lr -> 0.001000
+{"seed": 707, "lr": 1.0, "RET90": 0.9315, "collapse": null, "final": 0.9898}
+=== seed 808 lr x0.001 (LOW) ===
+  trigger 16400, lr -> 0.000001
+{"seed": 808, "lr": 0.001, "RET90": 1.0, "collapse": null, "final": 1.0}
+=== seed 808 lr x1.0 (CONTROL) ===
+  trigger 16400, lr -> 0.001000
+{"seed": 808, "lr": 1.0, "RET90": 0.8475, "collapse": 17000, "final": 1.0}
+{"verdict": "NOT_REPLICATED", "out": "C:\\Users\\ankit\\.zcode\\workspace\\default\\Arkenstone\\experiments\\ARK-007\\RESULT.json"}

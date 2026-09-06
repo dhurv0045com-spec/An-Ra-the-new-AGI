@@ -20,6 +20,7 @@ sys.path.insert(0, str(REPO / "experiments/ARK-001"))
 sys.path.insert(0, str(REPO))
 
 import torch  # noqa: E402
+from run_ark001 import CompactVocab, Micro, greedy_exact, loss_and_positions  # noqa: E402
 
 from experiments.lib import ark_metrics as m  # noqa: E402
 from experiments.lib import ark_tasks as t  # noqa: E402
