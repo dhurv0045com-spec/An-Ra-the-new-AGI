@@ -44,6 +44,20 @@ REQUIRED_RELATIVE_PATHS = (
     "v5_training/distributed.py",  # T2 ledger schema
     "v5_training/checkpoint.py",  # CheckpointStore (production transactions)
     "v5_training/state.py",  # TrainingState/CursorState/IdentityBindings
+    # production-lineage identity guards: these files exist ONLY on the
+    # pinned production lineage. Cymek carries a second, disconnected
+    # history (no common ancestor) whose tip LACKS mutation/provenance/
+    # artifact - if the runtime ever resolves to that wrong lineage, the
+    # presence check below fails loudly instead of silently training
+    # against an unaudited variant (divergence recorded in
+    # docs/citadel/CROSS_BRANCH_INGESTION.md).
+    "v5_training/mutation.py",  # real-mutation certification
+    "v5_training/provenance.py",  # step provenance
+    "v5_tokenizer/artifact.py",  # tokenizer artifact identity
+    "v5_data/pack.py",  # true multi-segment packing
+    "v5_data/cursor.py",  # coordinate cursor
+    "v5_data/mixture.py",  # frozen mixture allocation
+    "v5_evaluation/checkpoint_adapter.py",  # checkpoint-backed evaluation
 )
 
 

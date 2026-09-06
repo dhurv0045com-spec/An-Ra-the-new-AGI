@@ -90,3 +90,31 @@ checkpoint-contract and resume tests against the new pin.
    CYMEK_OBSERVATIONS for the post-PRE50M milestone.
 3. Cross-branch state recorded here; cymek movement flagged for audit on
    push.
+
+
+## ADDENDUM — Cymek topology: two DISCONNECTED histories (verified)
+
+`git merge-base 28bf57a 4abeaeb` exits 1: **no common ancestor**. The pin
+(28bf57a) is a re-rooted lineage (root: "835c868 first upload") whose tip
+commit's exclusive delta is one receipt refresh; the local `cymek` branch
+(4abeaeb) descends from 26a61f6 — a lineage Citadel knows — plus three
+commits (95dbc97, 674c1ca, 4abeaeb).
+
+File-level divergence at the tips:
+- production modules ONLY at the pin: `v5_training/mutation.py` (real-
+  mutation certification), `v5_training/provenance.py`, 
+  `v5_tokenizer/artifact.py`, plus pack/cursor/mixture/checkpoint_adapter
+  present on both lines but only the pin's are production-audited;
+- the local lineage LACKS mutation/provenance/artifact entirely.
+
+Consequence: this is NOT a fast-forward repin — it is a choice between two
+disconnected implementations. Citadel therefore added **lineage guards** to
+`runtime_bootstrap.REQUIRED_RELATIVE_PATHS` (mutation.py, provenance.py,
+artifact.py, pack.py, cursor.py, mixture.py, checkpoint_adapter.py): a
+runtime resolved from the wrong lineage fails `verify_files` loudly at
+BOOTSTRAP instead of silently training against an unaudited variant
+(regression: bootstrap case G).
+
+Reconciliation belongs to the Cymek side: the two histories must be
+explicitly merged or one must be declared canonical before Citadel
+considers repinning.

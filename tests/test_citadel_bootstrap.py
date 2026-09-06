@@ -175,13 +175,36 @@ def case_f_corrupt_runtime_recreated(fx: Fixture) -> None:
         assert "PRECHECK_IMPORT_FAILURE" in str(exc), exc
 
 
+def case_g_wrong_lineage_rejected(fx: Fixture) -> None:
+    """Cymek carries a second, DISCONNECTED history whose tip lacks the
+    production modules (mutation/provenance/artifact). A runtime resolved
+    from that wrong lineage must fail verify_files loudly - the presence
+    guards double as a lineage check (see CROSS_BRANCH_INGESTION.md)."""
+    from citadel_tpu import runtime_bootstrap as rb
+
+    root = fx.rt
+    missing = rb.verify_files(root)
+    assert any(not ok for _rel, ok in missing)
+    assert any("mutation.py" in rel for rel, ok in missing if not ok)
+    # a runtime stubbed with EVERY required path satisfies the guards,
+    # proving the list is satisfiable on the true production lineage
+    for rel, _ok in missing:
+        (root / rel).parent.mkdir(parents=True, exist_ok=True)
+        (root / rel).write_text("# stub", encoding="utf-8")
+    assert all(ok for _rel, ok in rb.verify_files(root))
+    # removing ONE lineage-guard file must fail verification
+    (root / "v5_training/mutation.py").unlink()
+    assert any(not ok for _rel, ok in rb.verify_files(root))
+
+
 def main() -> int:
     cases = [("A_head_equals_pin", case_a_head_equals_pin),
              ("B_head_newer_than_pin", case_b_head_newer_than_pin),
              ("C_stale_runtime_recreated", case_c_stale_runtime_recreated),
              ("D_correct_runtime_reused", case_d_correct_runtime_reused),
              ("E_missing_commit_clear_error", case_e_missing_commit_clear_error),
-             ("F_corrupt_runtime_recreated", case_f_corrupt_runtime_recreated)]
+             ("F_corrupt_runtime_recreated", case_f_corrupt_runtime_recreated),
+             ("G_wrong_lineage_rejected", case_g_wrong_lineage_rejected)]
     failed = 0
     for label, fn in cases:
         try:
