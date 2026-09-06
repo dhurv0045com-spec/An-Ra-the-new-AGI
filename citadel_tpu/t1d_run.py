@@ -90,6 +90,86 @@ def _ckpt_mod_ref():
     return ckpt_mod
 
 
+FINAL_MODEL_READY_SCHEMA = "citadel-t1d-arm-final-model-ready/v1"
+FINAL_MODEL_READY_KEYS = (
+    "cfg", "env", "seed", "n_seq", "length", "param_count", "updates_total",
+    "feeder_state", "ledgers", "done", "first_loss", "last_loss",
+    "cap_total", "ans_total", "whole_total", "gsum", "gmax", "gn",
+    "train_wall", "untrained", "untrained_dev", "untrained_self",
+    "untrained_train", "train_candidates", "inter",
+    "citadel_sha", "cymek_sha")
+
+
+def write_final_model_ready(out_dir: str | Path, tag: str, *, ckpt_path: str,
+                            ckpt_sha: str, payload: dict[str, Any]) -> str:
+    """FINAL-MODEL-READY recovery boundary: written immediately after the
+    FINAL checkpoint is durably saved and BEFORE any final TEST/teacher/self/
+    diagnostic evaluation. Holds everything needed to reload the final model
+    and rerun all post-training evaluation + finalization WITHOUT retraining
+    — a late diagnostic bug can never cost the trained model again."""
+    body = {**payload, "plan_sha": plan_identity(),
+            "schema": FINAL_MODEL_READY_SCHEMA, "arm": tag}
+    missing = [k for k in FINAL_MODEL_READY_KEYS if k not in body]
+    if missing:
+        raise RuntimeError(f"final_model_ready payload incomplete, missing: {missing}")
+    doc = {**body, "ckpt_path": ckpt_path, "ckpt_sha256": ckpt_sha,
+           "payload_sha256": hashlib.sha256(_canonical_json(body)).hexdigest()}
+    path = Path(out_dir) / f"ARM_{tag}.final_model_ready.json"
+    path.write_text(json.dumps(doc, indent=2, sort_keys=True), encoding="utf-8")
+    return str(path)
+
+
+def load_final_model_ready(out_dir: str | Path, tag: str, *, expect_cfg: dict,
+                           seed: int, shape: tuple[int, int]
+                           ) -> tuple[dict[str, Any] | None, str]:
+    """Hash-verified final_model_ready load. Any mismatch archives the
+    sidecar aside and returns (None, reason) — never silently trusted."""
+    path = Path(out_dir) / f"ARM_{tag}.final_model_ready.json"
+    if not path.is_file():
+        return None, ""
+    try:
+        doc = json.loads(path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        _archive_aside(path, ".json.corrupt")
+        return None, f"unreadable sidecar ({type(exc).__name__}): archived"
+    if not isinstance(doc, dict) or doc.get("schema") != FINAL_MODEL_READY_SCHEMA:
+        return None, "unknown sidecar schema"
+    body = {k: v for k, v in doc.items()
+            if k not in ("ckpt_path", "ckpt_sha256", "payload_sha256")}
+    if hashlib.sha256(_canonical_json(body)).hexdigest() != doc.get("payload_sha256"):
+        _archive_aside(path, ".json.invalid")
+        return None, "payload hash mismatch: sidecar archived"
+    if body.get("plan_sha") != plan_identity():
+        return None, "final_model_ready belongs to a different plan version"
+    if body.get("cfg") != expect_cfg or body.get("seed") != seed \
+            or (body.get("n_seq"), body.get("length")) != tuple(shape):
+        return None, "final_model_ready cfg/seed/shape mismatch"
+    missing = [k for k in FINAL_MODEL_READY_KEYS if k not in body]
+    if missing:
+        return None, f"sidecar missing keys: {missing}"
+    ckpt = Path(doc["ckpt_path"])
+    if not ckpt.is_file():
+        return None, "final checkpoint file is missing"
+    if _sha256_file(ckpt) != doc["ckpt_sha256"]:
+        _archive_aside(path, ".json.invalid")
+        return None, "final checkpoint hash mismatch: sidecar archived"
+    body["ckpt_path"] = doc["ckpt_path"]
+    body["ckpt_sha256"] = doc["ckpt_sha256"]
+    return body, f"verified final checkpoint {doc['ckpt_sha256'][:12]}..."
+
+
+def _archive_aside(path: Path, suffix: str) -> None:
+    """Rename a rejected sidecar aside (forensic artifact); collision-proof
+    on Windows where same-second timestamps repeat."""
+    stamp = time.strftime("%Y%m%dT%H%M%S", time.gmtime())
+    target = path.with_suffix(f"{suffix}-{stamp}")
+    counter = 0
+    while target.exists():
+        counter += 1
+        target = path.with_suffix(f"{suffix}-{stamp}-{counter}")
+    path.rename(target)
+
+
 def restore_mid_into(model, optimizer, feeder, mid: dict) -> None:
     """Restore EVERYTHING a mid-arm checkpoint durably holds — model weights,
     optimizer state, and the EXACT data-plane state (tier cursors, teacher
@@ -180,6 +260,22 @@ PREFINAL_SCHEMA = "citadel-t1d-arm-prefinal/v1"
 def _canonical_json(value: object) -> bytes:
     return json.dumps(value, sort_keys=True, separators=(",", ":"),
                       ensure_ascii=False).encode("utf-8")
+
+
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with Path(path).open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1 << 20), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with Path(path).open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1 << 20), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def _validate_summary(where: str, summ: Any, defects: list[str]) -> None:
@@ -683,13 +779,6 @@ def run_arm(tag: str, cfg: dict[str, Any], *, shape: tuple[int, int],
     if snap_why:
         print(f"arm {tag}: no usable prefinal snapshot ({snap_why}); fresh run",
               flush=True)
-    # orphan checkpoint from a failed prior session: archive as forensic
-    # artifact, never silently clobbered (invalid results are not results)
-    orphan = Path(out_dir) / f"t1d_arm_{tag.lower()}.pt"
-    if orphan.is_file():
-        stamp = time.strftime("%Y%m%dT%H%M%S", time.gmtime())
-        orphan.rename(orphan.with_suffix(f".pt.orphan-{stamp}"))
-        print(f"arm {tag}: archived orphan checkpoint {orphan.name}", flush=True)
     t0 = time.time()
     rt_root, rt_sha = rb.ensure_cymek_runtime()
     env = env_mod.probe(require_tpu=True)
@@ -711,11 +800,30 @@ def run_arm(tag: str, cfg: dict[str, Any], *, shape: tuple[int, int],
                         n_seq, length)
     # Mid-arm resume (§12): a disconnected arm continues from its last
     # preregistered checkpoint fraction instead of restarting from zero.
-    mid, mid_why = load_mid_state(out_dir, tag, expect_cfg=cfg, seed=seed,
-                                  shape=(n_seq, length))
-    if mid is not None:
-        print(f"arm {tag}: mid-arm resume from update {mid['update']} ({mid_why})",
-              flush=True)
+    # recovery hierarchy: completed receipt -> prefinal -> FINAL-MODEL-READY
+    # -> mid state -> fresh. A valid final_model_ready artifact outranks any
+    # mid state (the model is already at 100%).
+    fmr, fmr_why = load_final_model_ready(out_dir, tag, expect_cfg=cfg,
+                                          seed=seed, shape=(n_seq, length))
+    if fmr is not None:
+        mid, mid_why = None, ""
+        print(f"arm {tag}: final_model_ready recovery - evaluation only "
+              f"({fmr_why})", flush=True)
+    else:
+        mid, mid_why = load_mid_state(out_dir, tag, expect_cfg=cfg, seed=seed,
+                                      shape=(n_seq, length))
+        if mid is not None:
+            print(f"arm {tag}: mid-arm resume from update {mid['update']} "
+                  f"({mid_why})", flush=True)
+    if fmr is None and mid is None:
+        # fresh path only: an orphan checkpoint from a failed prior session
+        # is archived as a forensic artifact, never silently clobbered
+        orphan = Path(out_dir) / f"t1d_arm_{tag.lower()}.pt"
+        if orphan.is_file():
+            stamp = time.strftime("%Y%m%dT%H%M%S", time.gmtime())
+            orphan.rename(orphan.with_suffix(f".pt.orphan-{stamp}"))
+            print(f"arm {tag}: archived orphan checkpoint {orphan.name}",
+                  flush=True)
 
     slices = _tier_slices()
     allow_ids = valid_alphabet_ids() if masked else None
@@ -729,29 +837,34 @@ def run_arm(tag: str, cfg: dict[str, Any], *, shape: tuple[int, int],
     if mid is not None:
         restore_mid_into(model, optimizer, feeder, mid)
 
-    def gen(rows, targets):
-        return _gen_eval(model, rows, targets, device=device, torch_mod=torch,
-                         xb=xb, allow_ids=allow_ids)
+    def gen(active_model, rows, targets):
+        # model is EXPLICIT: a deleted/stale model can never be captured
+        # (real TPU failure: a closure over `model` outlived `del model`)
+        return _gen_eval(active_model, rows, targets, device=device,
+                         torch_mod=torch, xb=xb, allow_ids=allow_ids)
 
     # Canonical untrained namespaces (one schema downstream, no guessing):
     # untrained_test[tN] = untrained TEST summary (the receipt's "untrained");
     # untrained_dev[tN]  = untrained DEV summary (explicit separate block).
     # DEV and TEST are each evaluated exactly once per preregistered arm;
     # these are namespace fixes, not extra observations.
+    recover = mid if mid is not None else fmr
     untrained_dev: dict[str, Any] = {}
     untrained_test: dict[str, Any] = {}
-    if mid is None:
+    if recover is None:
         for tier in range(5):
-            _, summ = gen(slices[f"dev_t{tier}"]["rows"], slices[f"dev_t{tier}"]["targets"])
+            _, summ = gen(model, slices[f"dev_t{tier}"]["rows"],
+                          slices[f"dev_t{tier}"]["targets"])
             untrained_dev[f"t{tier}"] = summ
-            _, summ = gen(slices[f"test_t{tier}"]["rows"], slices[f"test_t{tier}"]["targets"])
+            _, summ = gen(model, slices[f"test_t{tier}"]["rows"],
+                          slices[f"test_t{tier}"]["targets"])
             untrained_test[f"t{tier}"] = summ
         untrained = untrained_test
     else:
         # baselines are durable pre-training measurements restored verbatim;
         # re-evaluating them against a trained model would be fabrication
-        untrained_dev = mid["untrained_dev"]
-        untrained = mid["untrained"]
+        untrained_dev = recover["untrained_dev"]
+        untrained = recover["untrained"]
     untrained_test = untrained
     # Frozen TRAIN diagnostic candidates: the FIRST TRAIN_SAMPLE_PER_TIER train
     # indices per tier, fixed BEFORE any training. Consumption is verified
@@ -760,12 +873,12 @@ def run_arm(tag: str, cfg: dict[str, Any], *, shape: tuple[int, int],
     train_candidates = frozen_train_candidates()
     untrained_train: dict[str, Any] = {}
     for tier in range(5):
-        if mid is not None:
-            untrained_train = mid["untrained_train"]
+        if recover is not None:
+            untrained_train = recover["untrained_train"]
             break
         rows = [td.tier_row(tier, "train", i)[0] for i in train_candidates[tier]]
         tgts = [cev.split_prompt_target(r)[1] for r in rows]
-        _, summ = gen(rows, tgts)
+        _, summ = gen(model, rows, tgts)
         untrained_train[f"t{tier}"] = summ
     # Self-knowledge probes (DEV-tier diagnostic family, SELF_KNOWLEDGE
     # AMENDMENT): identical frozen probe rows for EVERY arm; text scoring.
@@ -773,19 +886,108 @@ def run_arm(tag: str, cfg: dict[str, Any], *, shape: tuple[int, int],
 
     self_rows, self_targets, self_meta = sk.self_probe_rows()
 
-    def gen_text(rows, targets):
-        recs = cev.generate(rows, model, xb, device=device, torch_mod=torch,
-                            allow_ids=allow_ids)
+    def gen_text(active_model, rows, targets):
+        recs = cev.generate(rows, active_model, xb, device=device,
+                            torch_mod=torch, allow_ids=allow_ids)
         return recs, sk.summarize_text([r["prediction"] for r in recs], targets)
 
     if mid is not None:
         untrained_self = mid["untrained_self"]
         self_diag_rest = mid.get("self_baseline", {})
     else:
-        _, untrained_self = gen_text(self_rows, self_targets)
+        _, untrained_self = gen_text(model, self_rows, self_targets)
         self_diag_rest = {}
     self_null_preds = sk.most_common_null(self_targets)
     untrained_self_null = sk.summarize_text(self_null_preds, self_targets)
+    def final_evals(active_model):
+        """Every post-training device evaluation with the model EXPLICIT —
+        the callable path used by both the fresh run and the final-model
+        recovery. No closure captures a model that may later be deleted."""
+        trained: dict[str, Any] = {}
+        trained_recs: dict[str, Any] = {}
+        for tier in range(5):
+            recs, summ = gen(active_model, slices[f"test_t{tier}"]["rows"],
+                             slices[f"test_t{tier}"]["targets"])
+            trained[f"t{tier}"], trained_recs[f"t{tier}"] = summ, recs
+        # Train memorization lens: score ONLY rows verified inside the exact
+        # consumed prefix for that tier.
+        trained_train: dict[str, Any] = {}
+        train_memorization: dict[str, Any] = {}
+        plan = train_memorization_plan(feeder, candidates=train_candidates)
+        for tier in range(5):
+            entry = plan[tier]
+            verified = entry["verified_indices"]
+            rows = [td.tier_row(tier, "train", i)[0] for i in verified]
+            tgts = [cev.split_prompt_target(r)[1] for r in rows]
+            if rows:
+                _, summ = gen(active_model, rows, tgts)
+            else:
+                summ = {"correct": 0, "total": 0, "accuracy": 0.0,
+                        "wilson_lcb": 0.0, "wilson_ucb": 0.0}
+            trained_train[f"t{tier}"] = summ
+            train_memorization[f"t{tier}"] = {
+                "consumed_prefix": entry["consumed_prefix"],
+                "n_frozen_candidates": entry["n_candidates"],
+                "n_verified_consumed": entry["n_verified"],
+                "evaluated_rows": len(rows),
+                "status": entry["status"],
+                "lift_eligible": bool(entry["status"] == "OK"
+                                      and summ["accuracy"] >= LIFT_THRESHOLD),
+            }
+        # Failure-cause probes (diagnostic-only; gates unchanged).
+        teacher_eval: dict[str, Any] = {}
+        consumed_teacher = max(list(feeder.teacher_cursors.values()) + [0])
+        if consumed_teacher < 900_000:
+            from citadel_tpu import tiered_data as _td
+
+            t_rows, t_tgts = [], []
+            for _k in ("digadd", "digsub", "singlemul", "divmicro"):
+                for j in range(50):
+                    r, _ = _td.teacher_row(_k, 900_000 + j)
+                    t_rows.append(r)
+                    t_tgts.append(cev.split_prompt_target(r)[1])
+            t_recs, t_summ = _gen_eval(active_model, t_rows, t_tgts,
+                                       device=device, torch_mod=torch, xb=xb,
+                                       allow_ids=allow_ids)
+            teacher_eval = {"n": len(t_rows), "summary": t_summ,
+                            "stop_histogram": cev.stop_histogram(t_recs)}
+        else:
+            teacher_eval = {"skipped": "teacher consumption exceeded held-out band"}
+        stats_recs, _ = _gen_eval(active_model, slices["test_t1"]["rows"][:200],
+                                  slices["test_t1"]["targets"][:200],
+                                  device=device, torch_mod=torch, xb=xb,
+                                  allow_ids=allow_ids, stats=True)
+        ent = [r["first_entropy_nats"] for r in stats_recs
+               if r.get("first_entropy_nats") is not None]
+        digit_ids = {cev.encode_char(c) for c in "0123456789"}
+        top1_digit = sum(1 for r in stats_recs
+                         if (r.get("first_top5_ids") or [None])[0] in digit_ids)
+        first_step = {"n": len(stats_recs),
+                      "mean_entropy_nats": (sum(ent) / len(ent)) if ent else None,
+                      "top1_digit_rate": (top1_digit / len(stats_recs))
+                      if stats_recs else 0.0}
+        self_recs, trained_self = gen_text(active_model, self_rows, self_targets)
+        per_domain = {}
+        for m, r in zip(self_meta, self_recs):
+            d = m["domain"]
+            agg = per_domain.setdefault(d, {"correct": 0, "total": 0})
+            agg["total"] += 1
+            agg["correct"] += int(sk.text_exact(r["prediction"], r["target"]))
+        for d, agg in per_domain.items():
+            agg["accuracy"] = agg["correct"] / agg["total"] if agg["total"] else 0.0
+        self_diag = {"n": len(self_rows), "trained": trained_self,
+                     "untrained": untrained_self,
+                     "most_common_null": untrained_self_null,
+                     "per_domain": per_domain}
+        pre_recs = [r for t in range(5) for r in trained_recs[f"t{t}"]]
+        pre_sha = cev.sha_predictions([r["prediction"] for r in pre_recs])
+        return {"trained": trained, "trained_recs": trained_recs,
+                "trained_train": trained_train,
+                "train_memorization": train_memorization,
+                "teacher_eval": teacher_eval, "first_step": first_step,
+                "trained_self": trained_self, "self_diag": self_diag,
+                "pre_sha": pre_sha}
+
 
     checkpoints = sorted({max(1, int(updates_total * f)) for f in (0.25, 0.50, 0.75, 1.0)})
     done, ledgers, inter = 0, [], {}
@@ -803,6 +1005,73 @@ def run_arm(tag: str, cfg: dict[str, Any], *, shape: tuple[int, int],
         whole_total = int(mid["whole_total"])
         gsum, gmax, gn = float(mid["gsum"]), float(mid["gmax"]), int(mid["gn"])
         checkpoints = [cp for cp in checkpoints if cp > done]
+
+    def finalize_from_evals(eval_recovery: bool):
+        """Shared finalization: prefinal snapshot -> pure finalizer ->
+        receipt + marker -> recovery sidecars consumed."""
+        wall = time.time() - t0
+        snapshot_kwargs = dict(
+            tag=tag, cfg=dict(cfg), env=dict(env), n_seq=n_seq, length=length,
+            param_count=param_count, citadel_sha=rb.citadel_sha(),
+            cymek_sha=rt_sha, seed=seed,
+            feeder_placed_rows={k: int(v)
+                                for k, v in feeder.placed_rows.items()},
+            feeder_ledger=feeder.ledger(),
+            ledgers=ledgers, done=done, first_loss=first_loss,
+            last_loss=last_loss, cap_total=cap_total, ans_total=ans_total,
+            whole_total=whole_total, gsum=gsum, gmax=gmax, gn=gn,
+            train_wall=train_wall, untrained=untrained,
+            untrained_dev=untrained_dev, untrained_train=untrained_train,
+            untrained_self=untrained_self, trained_self=evals["trained_self"],
+            self_diagnostics=evals["self_diag"],
+            trained=evals["trained"], trained_recs=evals["trained_recs"],
+            trained_train=evals["trained_train"],
+            train_memorization=evals["train_memorization"],
+            inter=inter, teacher_eval=evals["teacher_eval"],
+            first_step=evals["first_step"], ckpt_path=ckpt_path,
+            ckpt_hash=ckpt_hash, pre_sha=evals["pre_sha"], post_sha=post_sha,
+            reload_ok=reload_ok, device_count=n_devices, wall=wall,
+            eval_recovery=eval_recovery)
+        sidecar = write_prefinal_snapshot(out_dir, snapshot_kwargs)
+        receipt = build_arm_receipt(**load_finalizer_kwargs(snapshot_kwargs))
+        write_arm_receipt(out_dir, receipt, ckpt_hash=ckpt_hash)
+        Path(sidecar).unlink(missing_ok=True)
+        return receipt
+
+    if fmr is not None:
+        # FINAL-MODEL RECOVERY: the trained model is reloaded from the
+        # verified final checkpoint; every post-training evaluation and the
+        # finalization rerun. Training is over - no update is executed.
+        feeder.load_state(fmr["feeder_state"])
+        ckpt_mod.load_into(model, fmr["ckpt_path"])
+        xb.mark_step()
+        evals = final_evals(model)
+        model_v = initialize(spec, seed).to(device)
+        ckpt_mod.load_into(model_v, fmr["ckpt_path"])
+        xb.mark_step()
+        post_preds = []
+        for tier in range(5):
+            recs, _ = _gen_eval(model_v, slices[f"test_t{tier}"]["rows"],
+                                slices[f"test_t{tier}"]["targets"],
+                                device=device, torch_mod=torch, xb=xb,
+                                allow_ids=allow_ids)
+            post_preds.extend(r["prediction"] for r in recs)
+        post_sha = cev.sha_predictions(post_preds)
+        reload_ok = bool(post_sha == evals["pre_sha"])
+        del model_v
+        ckpt_path, ckpt_hash = fmr["ckpt_path"], fmr["ckpt_sha256"]
+        done = int(fmr["done"])
+        ledgers = list(fmr["ledgers"])
+        inter = dict(fmr["inter"])
+        first_loss, last_loss = fmr["first_loss"], fmr["last_loss"]
+        cap_total, ans_total = int(fmr["cap_total"]), int(fmr["ans_total"])
+        whole_total = int(fmr["whole_total"])
+        gsum, gmax, gn = float(fmr["gsum"]), float(fmr["gmax"]), int(fmr["gn"])
+        train_wall = float(fmr["train_wall"])
+        receipt = finalize_from_evals(eval_recovery=True)
+        (Path(out_dir) / f"ARM_{tag}.mid.json").unlink(missing_ok=True)
+        (Path(out_dir) / f"ARM_{tag}.final_model_ready.json").unlink(missing_ok=True)
+        return receipt
     t_train0 = time.time()
     try:
         for cp in checkpoints:
@@ -827,8 +1096,10 @@ def run_arm(tag: str, cfg: dict[str, Any], *, shape: tuple[int, int],
                                                "real_tokens", "grad_norm_mean", "grad_norm_max")}})
             dev_curve = {}
             for tier in range(5):
-                _, summ = gen(slices[f"dev_t{tier}"]["rows"], slices[f"dev_t{tier}"]["targets"])
-                dev_curve[f"t{tier}"] = {"exact": summ["accuracy"], "lcb": summ["wilson_lcb"]}
+                _, summ = gen(model, slices[f"dev_t{tier}"]["rows"],
+                              slices[f"dev_t{tier}"]["targets"])
+                dev_curve[f"t{tier}"] = {"exact": summ["accuracy"],
+                                         "lcb": summ["wilson_lcb"]}
             inter[str(cp)] = dev_curve
             print(f"arm {tag}: update {cp}/{updates_total} "
                   f"({100 * cp / max(updates_total, 1):.0f}%) "
@@ -870,76 +1141,40 @@ def run_arm(tag: str, cfg: dict[str, Any], *, shape: tuple[int, int],
         return abort
     train_wall = time.time() - t_train0
 
-    trained: dict[str, Any] = {}
-    trained_recs: dict[str, Any] = {}
-    for tier in range(5):
-        recs, summ = gen(slices[f"test_t{tier}"]["rows"], slices[f"test_t{tier}"]["targets"])
-        trained[f"t{tier}"], trained_recs[f"t{tier}"] = summ, recs
-    # Train memorization lens: score ONLY rows verified inside the exact
-    # consumed prefix for that tier. Frozen candidates were fixed before
-    # training; the plan verifies consumption, never assumes it.
-    trained_train: dict[str, Any] = {}
-    train_memorization: dict[str, Any] = {}
-    plan = train_memorization_plan(feeder, candidates=train_candidates)
-    for tier in range(5):
-        entry = plan[tier]
-        verified = entry["verified_indices"]
-        rows = [td.tier_row(tier, "train", i)[0] for i in verified]
-        tgts = [cev.split_prompt_target(r)[1] for r in rows]
-        if rows:
-            _, summ = gen(rows, tgts)
-        else:
-            summ = {"correct": 0, "total": 0, "accuracy": 0.0,
-                    "wilson_lcb": 0.0, "wilson_ucb": 0.0}
-        trained_train[f"t{tier}"] = summ
-        train_memorization[f"t{tier}"] = {
-            "consumed_prefix": entry["consumed_prefix"],
-            "n_frozen_candidates": entry["n_candidates"],
-            "n_verified_consumed": entry["n_verified"],
-            "evaluated_rows": len(rows),
-            "status": entry["status"],
-            "lift_eligible": bool(entry["status"] == "OK"
-                                  and summ["accuracy"] >= LIFT_THRESHOLD),
-        }
-
-    # Failure-cause probes (diagnostic-only; gates unchanged). The two extra
-    # generation evals run here; every pure aggregation happens in
-    # build_arm_receipt (device-free, simulated by tests).
-    teacher_eval: dict[str, Any] = {}
-    consumed_teacher = max(list(feeder.teacher_cursors.values()) + [0])
-    if consumed_teacher < 900_000:
-        from citadel_tpu import tiered_data as _td
-
-        t_rows, t_tgts = [], []
-        for _k in ("digadd", "digsub", "singlemul", "divmicro"):
-            for j in range(50):
-                r, _ = _td.teacher_row(_k, 900_000 + j)
-                t_rows.append(r)
-                t_tgts.append(cev.split_prompt_target(r)[1])
-        t_recs, t_summ = _gen_eval(model, t_rows, t_tgts, device=device,
-                                   torch_mod=torch, xb=xb, allow_ids=allow_ids)
-        teacher_eval = {"n": len(t_rows), "summary": t_summ,
-                        "stop_histogram": cev.stop_histogram(t_recs)}
-    else:
-        teacher_eval = {"skipped": "teacher consumption exceeded held-out band"}
-    stats_recs, _ = _gen_eval(model, slices["test_t1"]["rows"][:200],
-                              slices["test_t1"]["targets"][:200],
-                              device=device, torch_mod=torch, xb=xb,
-                              allow_ids=allow_ids, stats=True)
-    ent = [r["first_entropy_nats"] for r in stats_recs
-           if r.get("first_entropy_nats") is not None]
-    digit_ids = {cev.encode_char(c) for c in "0123456789"}
-    top1_digit = sum(1 for r in stats_recs
-                     if (r.get("first_top5_ids") or [None])[0] in digit_ids)
-    first_step = {"n": len(stats_recs),
-                  "mean_entropy_nats": (sum(ent) / len(ent)) if ent else None,
-                  "top1_digit_rate": (top1_digit / len(stats_recs)) if stats_recs else 0.0}
-
+    # FINAL-MODEL-READY BOUNDARY: the final checkpoint is durably saved and
+    # the recovery artifact written BEFORE any final TEST/teacher/self/
+    # diagnostic evaluation that could still fail. The real TPU failure
+    # (2026-09-06) died in a post-reload evaluation AFTER 100% training;
+    # with this boundary such a bug costs only the evaluations, never the
+    # training.
     ckpt_path = str(Path(out_dir) / f"t1d_arm_{tag.lower()}.pt")
     ckpt_hash = ckpt_mod.save(model, ckpt_path, {"arm": tag, "seed": seed,
                                                  "spec": cfg["spec"], "updates": done})
-    pre_recs = [r for t in range(5) for r in trained_recs[f"t{t}"]]
-    pre_sha = cev.sha_predictions([r["prediction"] for r in pre_recs])
+    write_final_model_ready(out_dir, tag, ckpt_path=ckpt_path,
+                            ckpt_sha=ckpt_hash,
+                            payload={"cfg": dict(cfg), "env": dict(env),
+                                     "seed": seed, "n_seq": n_seq,
+                                     "length": length,
+                                     "param_count": param_count,
+                                     "updates_total": updates_total,
+                                     "feeder_state": feeder.state(),
+                                     "ledgers": ledgers, "done": done,
+                                     "first_loss": first_loss,
+                                     "last_loss": last_loss,
+                                     "cap_total": cap_total,
+                                     "ans_total": ans_total,
+                                     "whole_total": whole_total,
+                                     "gsum": gsum, "gmax": gmax, "gn": gn,
+                                     "train_wall": train_wall,
+                                     "untrained": untrained,
+                                     "untrained_dev": untrained_dev,
+                                     "untrained_self": untrained_self,
+                                     "untrained_train": untrained_train,
+                                     "train_candidates": train_candidates,
+                                     "inter": inter,
+                                     "citadel_sha": rb.citadel_sha(),
+                                     "cymek_sha": rt_sha})
+    evals = final_evals(model)
     del model
     model2 = initialize(spec, seed).to(device)
     ckpt_mod.load_into(model2, ckpt_path)
@@ -952,54 +1187,14 @@ def run_arm(tag: str, cfg: dict[str, Any], *, shape: tuple[int, int],
                             allow_ids=allow_ids)
         post_preds.extend(r["prediction"] for r in recs)
     post_sha = cev.sha_predictions(post_preds)
-    reload_ok = bool(pre_sha == post_sha)
-
-    self_recs, trained_self = gen_text(self_rows, self_targets)
-    per_domain = {}
-    for m, r in zip(self_meta, self_recs):
-        d = m["domain"]
-        agg = per_domain.setdefault(d, {"correct": 0, "total": 0})
-        agg["total"] += 1
-        agg["correct"] += int(sk.text_exact(r["prediction"], r["target"]))
-    for d, agg in per_domain.items():
-        agg["accuracy"] = agg["correct"] / agg["total"] if agg["total"] else 0.0
-    self_diag = {"n": len(self_rows),
-                 "trained": trained_self,
-                 "untrained": untrained_self,
-                 "most_common_null": untrained_self_null,
-                 "per_domain": per_domain}
-
+    reload_ok = bool(post_sha == evals["pre_sha"])
     wall = time.time() - t0
-    # Durable PRE-FINALIZATION RECOVERY SNAPSHOT: training, TEST evaluation,
-    # diagnostics, checkpoint, and reload identity are complete and durable —
-    # everything the PURE finalizer needs. If finalization ever throws, a
-    # rerun resumes FINALIZATION ONLY (no retraining, no device).
-    snapshot_kwargs = dict(
-        tag=tag, cfg=dict(cfg), env=dict(env), n_seq=n_seq, length=length,
-        param_count=param_count, citadel_sha=rb.citadel_sha(), cymek_sha=rt_sha,
-        seed=seed,
-        feeder_placed_rows={k: int(v) for k, v in feeder.placed_rows.items()},
-        feeder_ledger=feeder.ledger(),
-        ledgers=ledgers, done=done, first_loss=first_loss, last_loss=last_loss,
-        cap_total=cap_total, ans_total=ans_total, whole_total=whole_total,
-        gsum=gsum, gmax=gmax, gn=gn, train_wall=train_wall,
-        untrained=untrained, untrained_dev=untrained_dev,
-        untrained_train=untrained_train,
-        untrained_self=untrained_self, trained_self=trained_self,
-        self_diagnostics=self_diag,
-        trained=trained, trained_recs=trained_recs,
-        trained_train=trained_train, train_memorization=train_memorization,
-        inter=inter, teacher_eval=teacher_eval, first_step=first_step,
-        ckpt_path=ckpt_path, ckpt_hash=ckpt_hash,
-        pre_sha=pre_sha, post_sha=post_sha, reload_ok=reload_ok,
-        device_count=n_devices, wall=wall)
-    sidecar = write_prefinal_snapshot(out_dir, snapshot_kwargs)
-    # Pure post-training path: nulls (global + per-tier t0-t4), diagnostic
-    # aggregation, lift tiers, scientific gate, receipt assembly. No device.
-    receipt = build_arm_receipt(**load_finalizer_kwargs(snapshot_kwargs))
-    write_arm_receipt(out_dir, receipt, ckpt_hash=ckpt_hash)
-    # finalization succeeded: the recovery sidecar is consumed
-    Path(sidecar).unlink(missing_ok=True)
+    receipt = finalize_from_evals(eval_recovery=False)
+    Path(out_dir, f"ARM_{tag}.final_model_ready.json").unlink(missing_ok=True)
+    Path(out_dir, f"ARM_{tag}.mid.json").unlink(missing_ok=True)
+    return receipt
+
+
     return receipt
 
 
@@ -1103,7 +1298,7 @@ _FINALIZER_SNAPSHOT_KEYS = (
     "self_diagnostics", "trained", "trained_recs",
     "trained_train", "train_memorization", "inter", "teacher_eval",
     "first_step", "ckpt_path", "ckpt_hash", "pre_sha", "post_sha",
-    "reload_ok", "device_count", "wall")
+    "reload_ok", "device_count", "wall", "eval_recovery")
 
 
 def load_finalizer_kwargs(snapshot_kwargs: dict[str, Any]) -> dict[str, Any]:
@@ -1174,8 +1369,7 @@ def load_prefinal_snapshot(out_dir: str | Path, tag: str, *, expect_cfg: dict,
         return None, "checkpoint file from snapshot is missing"
     actual = hashlib.sha256(ckpt.read_bytes()).hexdigest()
     if actual != body["ckpt_hash"]:
-        stamp = time.strftime("%Y%m%dT%H%M%S", time.gmtime())
-        path.rename(path.with_suffix(f".json.invalid-{stamp}"))
+        _archive_aside(path, ".json.invalid")
         return None, ("checkpoint hash mismatch: snapshot archived "
                       "(checkpoint changed since snapshot)")
     kwargs = load_finalizer_kwargs(body)
@@ -1249,6 +1443,7 @@ def build_arm_receipt(*, tag: str, cfg: dict[str, Any], env: dict[str, Any],
                       teacher_eval: dict[str, Any], first_step: dict[str, Any],
                       ckpt_path: str, ckpt_hash: str, pre_sha: str,
                       post_sha: str, reload_ok: bool, device_count: int,
+                      eval_recovery: bool = False,
                       wall: float) -> dict[str, Any]:
     """Pure post-training arm finalization (no device; simulation-covered).
 
@@ -1408,6 +1603,7 @@ def build_arm_receipt(*, tag: str, cfg: dict[str, Any], env: dict[str, Any],
         "reload_identical": reload_ok,
         "checkpoint": {"path": ckpt_path, "sha256": ckpt_hash},
         "device_count": device_count, "wall_seconds": wall,
+        "eval_recovery": bool(eval_recovery),
         "status": _status,
     }
     terminal_defects = validate_arm_receipt(receipt)

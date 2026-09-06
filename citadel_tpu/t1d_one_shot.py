@@ -380,6 +380,12 @@ def _failure_bundle(root: Path, phase: str, exc: BaseException) -> str:
     members += [p.name for p in sorted(root.glob("PHASE_*.json"))]
     members += [p.name for p in sorted(root.glob("ARM_*.json"))]
     members += [p.name for p in sorted(root.glob("PREFLIGHT*.json"))]
+    members += [p.name for p in sorted(root.glob("ARM_*.mid.json"))]
+    members += [p.name for p in sorted(root.glob("ARM_*.final_model_ready.json"))]
+    members += [p.name for p in sorted(root.glob("t1d_arm_*.pt"))]
+    members += [p.name for p in sorted(root.glob("t1d_arm_*.opt"))]
+    if (root / "CANARY.json").is_file():
+        members.append("CANARY.json")
     for name in ("ENVIRONMENT.json", "SESSION_MANIFEST.json", "DATA_MANIFEST.json",
                  "CALIBRATION.json"):
         if (root / name).is_file():

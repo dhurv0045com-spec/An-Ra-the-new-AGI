@@ -820,7 +820,7 @@ def test_post_training_arm_simulation() -> None:
             teacher_eval={"skipped": "n/a"}, first_step={"n": 0},
             ckpt_path="t1d_arm_a.pt", ckpt_hash="a" * 64,
             pre_sha="p" * 64, post_sha="p" * 64, reload_ok=True,
-            device_count=1, wall=90.0)
+            device_count=1, wall=90.0, eval_recovery=False)
         assert receipt["status"] in ("SCIENTIFIC_PASS", "SCIENTIFIC_FAIL")
         assert set(receipt["nulls_per_tier"]) == {"t0", "t1", "t2", "t3", "t4"}
         assert t1d.validate_null_block(receipt) == []
@@ -855,7 +855,7 @@ def test_post_training_arm_simulation() -> None:
             inter=inter, teacher_eval={"skipped": "n/a"}, first_step={"n": 0},
             ckpt_path="t1d_arm_b.pt", ckpt_hash="b" * 64,
             pre_sha="q" * 64, post_sha="q" * 64, reload_ok=True,
-            device_count=1, wall=90.0)
+            device_count=1, wall=90.0, eval_recovery=False)
         assert zero2["status"] == "SCIENTIFIC_FAIL", zero2["gate_rules"]
         assert zero2["gate_rules"]["reload"] is True
         assert zero2["gate_rules"]["loss"] is False
@@ -1343,7 +1343,7 @@ def test_prefinal_recovery_simulation() -> None:
             teacher_eval={"skipped": "n/a"}, first_step={"n": 0},
             ckpt_path=str(root / "t1d_arm_a.pt"), ckpt_hash="",
             pre_sha="p" * 64, post_sha="p" * 64, reload_ok=True,
-            device_count=1, wall=90.0)
+            device_count=1, wall=90.0, eval_recovery=False)
         # a real checkpoint file whose hash matches the snapshot
         ckpt_bytes = b"synthetic-checkpoint-bytes"
         (root / "t1d_arm_a.pt").write_bytes(ckpt_bytes)

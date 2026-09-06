@@ -288,7 +288,7 @@ class _EmulatedArm:
             ckpt_path=str(ckpt_path),
             ckpt_hash=hashlib.sha256(ckpt_path.read_bytes()).hexdigest(),
             pre_sha="p" * 64, post_sha="p" * 64,
-            reload_ok=True, device_count=1, wall=60.0)
+            reload_ok=True, device_count=1, wall=60.0, eval_recovery=False)
         sidecar = Path(t1d.write_prefinal_snapshot(root, kwargs))
         snap, why = t1d.load_prefinal_snapshot(
             root, tag, expect_cfg=dict(cfg), seed=seed, shape=(8, 64))
@@ -635,7 +635,7 @@ def test_run_arm_feeder_restore_wiring() -> None:
     body = src[src.index("def run_arm("):src.index("def frozen_train_candidates")]
     assert "restore_mid_into(model, optimizer, feeder, mid)" in body
     assert body.index("restore_mid_into(model, optimizer, feeder, mid)")         < body.index("_train_updates_packed(")
-    assert "if mid is None:" in body  # baseline evals skipped on resume
+    assert "if recover is None:" in body  # baseline evals skipped on resume
 
     from v5_model.core import initialize
     from v5_training.optimizer import build_adamw_optimizer
@@ -707,13 +707,262 @@ def test_run_arm_feeder_restore_wiring() -> None:
             assert "feeder_state missing" in str(exc), exc
 
 
+class _CpuSeams:
+    """Monkeypatches the device seams so the REAL run_arm is CPU-executable:
+    environment probe, XLA device, mark_step/optimizer_step, and generation
+    (the lowest possible seam - deterministic synthetic predictions)."""
+
+    def __init__(self):
+        import torch
+
+        self.torch = torch
+        self.device = torch.device("cpu")
+
+    def __enter__(self):
+        from citadel_tpu import calculator_eval as cev
+        from citadel_tpu import environment as env_mod
+        from citadel_tpu import xla_backend as xb
+
+        self._saved = (env_mod.probe, xb.get_device, xb.assert_tpu_active,
+                       xb.mark_step, xb.optimizer_step, cev.generate)
+        env_mod.probe = lambda require_tpu=False: {
+            "probe_pass": True, "tpu_present": True,
+            "accelerator_detected": "cpu-test", "xla_device_count": 1}
+        xb.get_device = lambda: self.device
+        xb.assert_tpu_active = lambda min_devices=1: 1
+        xb.mark_step = lambda: None
+        xb.optimizer_step = lambda o: o.step()
+
+        def fake_generate(rows, model, xb_, *, device, torch_mod,
+                          allow_ids=None, first_step_stats=False):
+            recs = []
+            for r in rows:
+                _, tgt = cev.split_prompt_target(r)
+                recs.append({"prompt": r, "target": tgt, "prediction": tgt,
+                             "correct": True, "stop_reason": "EOS",
+                             "generated_token_count": len(tgt), "valid": True})
+            return recs
+
+        cev.generate = fake_generate
+        return self
+
+    def __exit__(self, *exc):
+        from citadel_tpu import calculator_eval as cev
+        from citadel_tpu import environment as env_mod
+        from citadel_tpu import xla_backend as xb
+
+        (env_mod.probe, xb.get_device, xb.assert_tpu_active,
+         xb.mark_step, xb.optimizer_step, cev.generate) = self._saved
+        return False
+
+
+TINY_CFG = {"spec": "MID", "mode": "curriculum", "budget": 8 * 64 * 4}
+
+
+def test_post_reload_self_probe_recovery() -> None:
+    """THE exact real-TPU failure path, exercised callable on CPU: training
+    completes 100% -> final checkpoint saved -> original model released ->
+    reload prediction check -> self-knowledge probe evaluation -> per-domain
+    aggregation -> prefinal snapshot -> final receipt. The old code died at
+    the self probe with `cannot access free variable 'model'` AFTER the
+    expensive training. The final_model_ready boundary (written BEFORE the
+    final evaluations) plus the explicit-model evaluators make the rerun a
+    pure evaluation+finalization recovery with NO retraining."""
+    try:
+        import torch  # noqa: F401
+    except ImportError:
+        raise SkipTest("torch unavailable in this interpreter")
+    import tempfile
+
+    from citadel_tpu import self_knowledge as sk
+
+    with tempfile.TemporaryDirectory() as tmp:
+        with _CpuSeams():
+            # run 1: crash exactly at the trained_self evaluation (the
+            # summarize_text call #3: untrained_self, untrained null, trained)
+            real_summ = sk.summarize_text
+            calls = {"n": 0}
+
+            def crashing_summ(preds, tgts):
+                calls["n"] += 1
+                if calls["n"] == 3:
+                    raise RuntimeError(
+                        "cannot access free variable 'model' (simulated)")
+                return real_summ(preds, tgts)
+
+            sk.summarize_text = crashing_summ
+            try:
+                receipt1 = t1d.run_arm("A", dict(TINY_CFG), shape=(8, 64),
+                                       out_dir=tmp, seed=20260906)
+                raise SystemExit("run 1 unexpectedly completed")
+            except RuntimeError as exc:
+                assert "free variable" in str(exc), exc
+            finally:
+                sk.summarize_text = real_summ
+            assert calls["n"] == 3, calls
+            # the boundary was written BEFORE the failing evaluation
+            fmr_path = Path(tmp) / "ARM_A.final_model_ready.json"
+            assert fmr_path.is_file(), "final_model_ready must survive the crash"
+            assert not (Path(tmp) / "ARM_A.json").is_file()
+            # run 2: recovery - evaluation + finalization only, NO retraining
+            real_tup = t1d._train_updates_packed
+
+            def forbidden_training(*a, **k):
+                raise RuntimeError("RETRAINING FORBIDDEN during recovery")
+
+            t1d._train_updates_packed = forbidden_training
+            try:
+                receipt2 = t1d.run_arm("A", dict(TINY_CFG), shape=(8, 64),
+                                       out_dir=tmp, seed=20260906)
+            finally:
+                t1d._train_updates_packed = real_tup
+            assert receipt2["status"] in ("SCIENTIFIC_PASS", "SCIENTIFIC_FAIL")
+            assert receipt2.get("eval_recovery") is True
+            assert (Path(tmp) / "ARM_A.json").is_file()
+            assert (Path(tmp) / "ARM_A.done.json").is_file()
+            assert not fmr_path.is_file()  # consumed
+            # rerun 3: completed receipt short-circuits
+            receipt3 = t1d.run_arm("A", dict(TINY_CFG), shape=(8, 64),
+                                   out_dir=tmp, seed=20260906)
+            assert receipt3.get("resumed") is True
+
+
+def test_ab_mid_resume_simulation() -> None:
+    """A/B 75%-mid recovery simulation: an arm crashing at its LAST training
+    block leaves a valid mid state; the rerun resumes from it (executing only
+    the remaining updates) and its data schedule is byte-identical to an
+    uninterrupted reference run."""
+    try:
+        import torch  # noqa: F401
+    except ImportError:
+        raise SkipTest("torch unavailable in this interpreter")
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmp_a, \
+            tempfile.TemporaryDirectory() as tmp_ref:
+        with _CpuSeams():
+            real_tup = t1d._train_updates_packed
+            blocks = []
+
+            def spying_tup(model, optimizer, feeder, *, n_updates,
+                           start_update, **k):
+                blocks.append((n_updates, start_update))
+                if start_update == 3:  # crash at the last training block
+                    raise RuntimeError("simulated disconnect at 75%->100%")
+                return real_tup(model, optimizer, feeder, n_updates=n_updates,
+                                start_update=start_update, **k)
+
+            t1d._train_updates_packed = spying_tup
+            try:
+                t1d.run_arm("A", dict(TINY_CFG), shape=(8, 64), out_dir=tmp_a,
+                            seed=20260906)
+                raise SystemExit("crashing run unexpectedly completed")
+            except RuntimeError as exc:
+                assert "disconnect" in str(exc), exc
+            finally:
+                t1d._train_updates_packed = real_tup
+            mid = json.loads((Path(tmp_a) / "ARM_A.mid.json").read_text())
+            assert mid["update"] == 3, mid["update"]
+            assert not (Path(tmp_a) / "ARM_A.done.json").is_file()
+            # resume: exactly ONE remaining block (1 update from update 3)
+            receipt = t1d.run_arm("A", dict(TINY_CFG), shape=(8, 64),
+                                  out_dir=tmp_a, seed=20260906)
+            assert receipt["training"]["updates"] == 4
+            assert receipt["status"] in ("SCIENTIFIC_PASS", "SCIENTIFIC_FAIL")
+            # uninterrupted reference run with the same seed
+            ref = t1d.run_arm("A", dict(TINY_CFG), shape=(8, 64),
+                              out_dir=tmp_ref, seed=20260906)
+            assert receipt["data"]["feeder"]["placed_rows"] == \
+                ref["data"]["feeder"]["placed_rows"]
+            assert receipt["data"]["feeder"]["placed_tokens"] == \
+                ref["data"]["feeder"]["placed_tokens"]
+
+
+def test_final_model_ready_integrity() -> None:
+    """final_model_ready artifact: hash verification and every refusal path
+    (corrupt payload, missing checkpoint, plan/cfg mismatch)."""
+    import hashlib as _hl
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        payload = {"cfg": {"mode": "curriculum"}, "env": {}, "seed": 7,
+                   "n_seq": 8, "length": 64, "param_count": 1, "updates_total": 4,
+                   "feeder_state": {"cursors": {}}, "ledgers": [], "done": 4,
+                   "first_loss": 9.0, "last_loss": 8.0, "cap_total": 2048,
+                   "ans_total": 10, "whole_total": 100, "gsum": 1.0,
+                   "gmax": 0.5, "gn": 4, "train_wall": 1.0,
+                   "untrained": {}, "untrained_dev": {}, "untrained_self": {},
+                   "untrained_train": {}, "train_candidates": {}, "inter": {},
+                   "citadel_sha": "0" * 40, "cymek_sha": "1" * 64}
+        ckpt = root / "t1d_arm_a.pt"
+        ckpt.write_bytes(b"checkpoint-bytes")
+        sidecar = Path(t1d.write_final_model_ready(
+            root, "A", ckpt_path=str(ckpt),
+            ckpt_sha=_hl.sha256(ckpt.read_bytes()).hexdigest(),
+            payload=payload))
+        snap, why = t1d.load_final_model_ready(root, "A",
+                                               expect_cfg=payload["cfg"],
+                                               seed=7, shape=(8, 64))
+        assert snap is not None, why
+        assert snap["ckpt_path"] == str(ckpt)
+        # corrupt payload -> refused + archived
+        doc = json.loads(sidecar.read_text())
+        doc["done"] = 999
+        sidecar.write_text(json.dumps(doc), encoding="utf-8")
+        snap2, why2 = t1d.load_final_model_ready(root, "A",
+                                                 expect_cfg=payload["cfg"],
+                                                 seed=7, shape=(8, 64))
+        assert snap2 is None and "hash mismatch" in why2
+        # missing checkpoint -> refused
+        t1d.write_final_model_ready(root, "A", ckpt_path=str(root / "gone.pt"),
+                                    ckpt_sha="0" * 64, payload=payload)
+        snap3, why3 = t1d.load_final_model_ready(root, "A",
+                                                 expect_cfg=payload["cfg"],
+                                                 seed=7, shape=(8, 64))
+        assert snap3 is None and "missing" in why3
+        # checkpoint tampering -> refused + archived
+        t1d.write_final_model_ready(root, "A", ckpt_path=str(ckpt),
+                                    ckpt_sha=_hl.sha256(ckpt.read_bytes()).hexdigest(),
+                                    payload=payload)
+        ckpt.write_bytes(b"tampered")
+        snap4, why4 = t1d.load_final_model_ready(root, "A",
+                                                 expect_cfg=payload["cfg"],
+                                                 seed=7, shape=(8, 64))
+        assert snap4 is None and "checkpoint hash mismatch" in why4
+
+
+def test_no_stale_model_closure() -> None:
+    """Mechanical audit of run_arm: the evaluators take the model EXPLICITLY
+    (active_model) and every post-`del model` call passes model2/model_v —
+    no nested evaluator may capture a model whose lifetime ends."""
+    src = (CITADEL_ROOT / "citadel_tpu" / "t1d_run.py").read_text(encoding="utf-8")
+    body = src[src.index("def run_arm("):src.index("def frozen_train_candidates")]
+    assert "def gen(active_model, rows, targets)" in body
+    assert "def gen_text(active_model, rows, targets)" in body
+    assert "def final_evals(active_model):" in body
+    # no model-less evaluator definitions remain in run_arm
+    assert "def gen(rows, targets)" not in body
+    assert "def gen_text(rows, targets)" not in body
+    # every post-del evaluation explicitly uses model2 / the recovery model
+    del_pos = body.index("del model")
+    after = body[del_pos:]
+    assert "_gen_eval(model," not in after
+    assert "_gen_eval(model2," in after or "_gen_eval(model_v," in after
+    assert "gen_text(self_rows" not in after  # no model-less text-eval call
+
+
 def main() -> int:
     tests = [test_portability_scan, test_plan_identity_stable_and_sensitive,
              test_self_feeder_cadence_and_rows, test_self_classify_rules,
              test_one_shot_emulator_fresh_and_resume, test_data_accounting,
              test_mid_state_payload_integrity, test_torch_resume_identity,
              test_xla_pass_contract, test_select_calibrated_shape_masked_guard,
-             test_run_arm_feeder_restore_wiring]
+             test_run_arm_feeder_restore_wiring,
+             test_post_reload_self_probe_recovery,
+             test_ab_mid_resume_simulation,
+             test_final_model_ready_integrity,
+             test_no_stale_model_closure]
     failed = skipped = 0
     for fn in tests:
         try:
