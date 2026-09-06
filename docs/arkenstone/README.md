@@ -14,7 +14,7 @@ of known ideas; a laboratory for what remains unknown.
   exact-match stay ~0. Train exact ~0 means the model never even fits seen rows.
 - **Updated after ARK-004A-R reanalysis:** the claimed selectivity precursor was DIRECTIONALLY INVERTED in prose (higher early tens-selectivity actually associates with LATER G90) and is a transition MARKER, not a precursor (does not precede OOD in 3/4 seeds); ARK-004B CANCELLED. What stands: transition universal (7 seeds), timing seed-variable and decoupled from memorization speed, post-G90 instability real (seed 101 collapse) — retention is now the frontier (ARK-005).
 - **Current highest-value uncertainty:** where is the FIRST exact-match lift-off
-  point? No branch has ever measured a lift-off threshold on the simplest task.
+  point? lift-off thresholds now measured (ARK-001/002B/004A).
 
 ## Branch relations (external gap review GAP 3/6)
 See `BRANCH_RELATIONS` content in `branch_relations.py` and the review
