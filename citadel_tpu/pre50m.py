@@ -191,8 +191,12 @@ def smoke_target_model(*, out_dir: str, updates: int = SMOKE_UPDATES,
     def _rng_sha() -> str:
         return _hl.sha256(_rng_bytes()).hexdigest()
 
+    # the budget must fund the RESUME-PROOF update too (updates+1): Cymek
+    # refuses any advance beyond the budget ("a completed run cannot
+    # advance") - the real TPU run of 2026-09-06 died exactly there.
     state = cckpt.initial_state(
-        lineage_id="citadel-pre50m-smoke", token_budget=updates * tokens_per_update,
+        lineage_id="citadel-pre50m-smoke",
+        token_budget=(updates + 1) * tokens_per_update,
         tokens_per_update=tokens_per_update, pack_manifest_sha256=pack_sha,
         identities=identities, rng_state_sha256=_rng_sha())
     sha0 = cckpt.publish_genesis(store, state=state, model=model,

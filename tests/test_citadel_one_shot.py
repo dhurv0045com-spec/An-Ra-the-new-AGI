@@ -952,6 +952,80 @@ def test_no_stale_model_closure() -> None:
     assert "gen_text(self_rows" not in after  # no model-less text-eval call
 
 
+def test_pre50m_smoke_budget_funds_resume() -> None:
+    """Pure regression of the REAL TPU failure (2026-09-06, PRE50M phase):
+    the smoke state was created with token_budget = updates * tokens_per_update
+    but the resume-proof publishes update updates+1 - Cymek refuses with
+    "a completed run cannot advance". The budget arithmetic must fund
+    updates+1, verified against the REAL Cymek TrainingState contract
+    (framework-neutral module)."""
+    from citadel_tpu import runtime_bootstrap as rb
+
+    rb.ensure_cymek_runtime()
+    from citadel_tpu import cymek_checkpoint as cckpt
+    from citadel_tpu import pre50m as p50
+
+    updates, tokens_per_update = p50.SMOKE_UPDATES, 32 * 64
+    funded_budget = (updates + 1) * tokens_per_update
+    old_budget = updates * tokens_per_update
+    assert funded_budget > old_budget
+    identities = cckpt.build_identities(
+        model_spec_sha256="0" * 64, data_manifest_sha256="1" * 64,
+        pack_manifest_sha256="2" * 64, run_spec={}, optimizer_spec={},
+        schedule_spec={}, curriculum_spec={}, source_commit="0" * 40)
+
+    def run_updates(budget):
+        state = cckpt.initial_state(
+            lineage_id="budget-check", token_budget=budget,
+            tokens_per_update=tokens_per_update,
+            pack_manifest_sha256="2" * 64, identities=identities,
+            rng_state_sha256="0" * 64)
+        cursor = cckpt.cursor_for_update("2" * 64, sequence_ordinal=1,
+                                         token_offset=tokens_per_update)
+        for k in range(updates):  # the smoke's `updates` real updates
+            state = state.advance(
+                tokens_by_source={"smoke": tokens_per_update},
+                cursor=cckpt.cursor_for_update(
+                    "2" * 64, sequence_ordinal=k + 1,
+                    token_offset=(k + 1) * tokens_per_update),
+                rng_state_sha256="0" * 64, parent_checkpoint_sha256=None)
+        return state
+
+    completed_old = run_updates(old_budget)
+    assert completed_old.complete is True, (
+        "the old budget completes the run: the resume-proof update raises "
+        "'a completed run cannot advance' - the real TPU failure")
+    completed_funded = run_updates(funded_budget)
+    assert completed_funded.complete is False, (
+        "the funded budget must leave room for the resume-proof update")
+    assert completed_funded.cumulative_tokens == old_budget
+
+
+def test_pre50m_status_from_decision() -> None:
+    """A decision file alone is NEVER success: ready=True + no blockers is
+    PASS; ready=False, blocking reasons, or an explicit failure status are
+    carried through truthfully (the real TPU run mislabeled a failed PRE50M
+    as PASS here)."""
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        assert t1d.pre50m_status_from_decision(root)["status"] == "NOT_RUN"
+        (root / "NEXT_50M_DECISION.json").write_text(json.dumps(
+            {"ready_for_50m_training": False, "blocking_reasons": ["x"],
+             "status": "IMPLEMENTATION_FAILURE"}), encoding="utf-8")
+        got = t1d.pre50m_status_from_decision(root)
+        assert got["status"] == "IMPLEMENTATION_FAILURE", got
+        (root / "NEXT_50M_DECISION.json").write_text(json.dumps(
+            {"ready_for_50m_training": False, "blocking_reasons": ["not fit"]}),
+            encoding="utf-8")
+        assert t1d.pre50m_status_from_decision(root)["status"] == "NOT_READY"
+        (root / "NEXT_50M_DECISION.json").write_text(json.dumps(
+            {"ready_for_50m_training": True, "blocking_reasons": []}),
+            encoding="utf-8")
+        assert t1d.pre50m_status_from_decision(root)["status"] == "PASS"
+
+
 def main() -> int:
     tests = [test_portability_scan, test_plan_identity_stable_and_sensitive,
              test_self_feeder_cadence_and_rows, test_self_classify_rules,
@@ -962,7 +1036,9 @@ def main() -> int:
              test_post_reload_self_probe_recovery,
              test_ab_mid_resume_simulation,
              test_final_model_ready_integrity,
-             test_no_stale_model_closure]
+             test_no_stale_model_closure,
+             test_pre50m_smoke_budget_funds_resume,
+             test_pre50m_status_from_decision]
     failed = skipped = 0
     for fn in tests:
         try:

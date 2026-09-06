@@ -661,7 +661,8 @@ def run_all(session_dir: str, *, seed: int = 20260904,
         session_doc = t1d.summarize_session(
             root, arm_receipts, shape=shape, rate=rate, scaled=scaled,
             budgets={t: c["budget"] for t, c in budgets.items()},
-            rt_sha=_cymek_sha_cached())
+            rt_sha=_cymek_sha_cached(),
+            pre50m_status=session.get("pre50m"))
         session["labels"] = session_doc.get("labels")
         _phase_receipt(root, "SUMMARIZE", status="PASS", start=start,
                        outputs={"labels": session_doc.get("labels")})

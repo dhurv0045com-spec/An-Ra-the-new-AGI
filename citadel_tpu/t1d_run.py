@@ -2184,6 +2184,26 @@ def _assemble_session_results(root: Path, arm_receipts: dict[str, Any], *,
                              pre50m_status=pre50m_status)
 
 
+def pre50m_status_from_decision(root: Path) -> dict[str, Any]:
+    """Pure inference of the PRE50M status from NEXT_50M_DECISION.json.
+    A decision file alone is NEVER success: only an explicit ready flag with
+    no blocking reasons and no failure status counts as PASS (the real TPU
+    run of 2026-09-06 mislabeled a failed PRE50M as PASS here)."""
+    dpath = Path(root) / "NEXT_50M_DECISION.json"
+    if not dpath.is_file():
+        return {"status": "NOT_RUN"}
+    try:
+        decision = json.loads(dpath.read_text(encoding="utf-8"))
+    except Exception as exc:
+        return {"status": "IMPLEMENTATION_FAILURE",
+                "error": f"unreadable decision: {type(exc).__name__}"}
+    if decision.get("status") == "IMPLEMENTATION_FAILURE":
+        return {"status": "IMPLEMENTATION_FAILURE", "decision": decision}
+    if decision.get("ready_for_50m_training") is True             and not decision.get("blocking_reasons"):
+        return {"status": "PASS", "decision": decision}
+    return {"status": "NOT_READY", "decision": decision}
+
+
 def summarize_session(root: Path, arm_receipts: dict[str, Any], *, shape,
                       rate: float, scaled: bool, budgets: dict[str, int],
                       rt_sha: str,
@@ -2196,11 +2216,7 @@ def summarize_session(root: Path, arm_receipts: dict[str, Any], *, shape,
     root = Path(root)
     citadel_sha = rb.citadel_sha()
     if pre50m_status is None:  # orchestrator runs PRE50M as its own phase
-        dpath = root / "NEXT_50M_DECISION.json"
-        pre50m_status = ({"status": "PASS",
-                          "decision": json.loads(dpath.read_text(encoding="utf-8"))}
-                         if dpath.is_file() else
-                         {"status": "NOT_RUN"})
+        pre50m_status = pre50m_status_from_decision(root)
     scientific = {t: r for t, r in arm_receipts.items()
                   if r.get("status") in ("SCIENTIFIC_PASS", "SCIENTIFIC_FAIL")}
     summary = classify_cross_arm(scientific)
