@@ -14,115 +14,63 @@
 
 ## STATUS
 
-CURRENT_CITADEL_SHA: see `git log origin/citadel -1` (handover commit sits on
-the one-shot hardening cycle)
+CURRENT_CITADEL_SHA: see `git log origin/citadel -1` (post-reload closure
+hotfix + final_model_ready recovery cycle)
 AUDITED_CYMEK_SHA: `28bf57a0d299a2c13a99fe0046616c00a1b8530c`
-RUNTIME_PIN_SHA: `28bf57a0d299a2c13a99fe0046616c00a1b8530c` (== live origin/cymek
-HEAD, re-verified this cycle)
+RUNTIME_PIN_SHA: `28bf57a0d299a2c13a99fe0046616c00a1b8530c` (== live HEAD)
 
 CYMEK_ALIGNMENT = PASS
-RUNTIME_BOOTSTRAP_FRESH_CLONE = PASS (Cell 0 prints + enforces
-EXPECTED_CYMEK_SHA; DEVELOPMENT_CERTIFICATION.json is checked at BOOTSTRAP
-and any code newer than certification fails closed BEFORE the TPU)
-DEVELOPMENT_CERTIFICATE = PASS (7/7 test files, committed receipt,
-docs/citadel/experiments/T1D/DEVELOPMENT_CERTIFICATION.json)
-LOCAL_TESTS = 78 PASS / 2 torch-optional skips across 7 files
+DEVELOPMENT_CERTIFICATE = PASS (regenerated after this cycle's executable
+  changes; code_sha matches the pushed tree)
+LOCAL_TESTS = 80 PASS / 4 torch-optional skips across 7 files
   (t1d 38; t1c 10; t1_canary 6; notebooks 2; bootstrap 6; cymek_checkpoint 7;
-   one_shot 9 + 2 torch skips: run_arm feeder-restore wiring across
-   flat/curriculum/teacher/self/masked AND continuous-vs-resumed identity —
-   both PASS under the torch environment; certificate is the record)
-RUN_ARM_FEEDER_STATE_RESTORE = PASS (mid-arm resume restores the EXACT
-  data-plane state — tier cursors, teacher cursor, self cursor, carry
-  buffer, drawn/placed counters, placed tokens — before any resumed
-  consumption; resumed feed byte-identical to uninterrupted execution)
-PORTABILITY_SCAN = PASS (no machine-local paths in executable code)
-CLEAN_BOOTSTRAP_SIM = PASS (one-shot emulator: fresh session COMPLETE)
-STALE_BOOTSTRAP_SIM = PASS (rerun resumes every completed arm — zero
-  recomputation; PRE50M failure and arm failure isolated; preflight failure
-  exports CITADEL_T1D_FAILURE.zip before any training)
-ONE_SHOT_EMULATOR_FRESH = PASS
-ONE_SHOT_EMULATOR_RESUME = PASS (phase receipts + plan_sha identity)
-DISCONNECT_RECOVERY = PASS (mid-arm checkpoints at 25/50/75% with
-  model+optimizer+feeder state; CPU resume-identity proven: N continuous ==
-  N/2 + restore + N/2 in tokens, feeder state, and loss trajectory)
-TPU_CANARY_PLAN = PASS (canary phase runs the REAL code paths on TPU before
-  any arm: MID update; a REAL SCALE2 update - finite loss, backward, verified
-  parameter mutation, save/reload with output-identity generation; teacher +
-  masked + self feeder paths; checkpoint/reload; producer->finalizer bridge;
-  failure aborts pre-arms with a bundle). Calibration shape acceptance is
-  now THREE-WAY: MID ordinary + SCALE2 + masked-MID (real Arm E path with
-  valid_alphabet_ids/allow-mask/causal loss/update) at the selected batch -
-  the fastest candidate failing any variant is rejected in place and the
-  next passing shape is selected.
-SCHEMA_BOUNDARIES = PASS (terminal arm validator at finalize + verify_bundle
-  + session boundary; producer->finalizer probe in every preflight)
-FAILURE_BUNDLE = PASS (any phase failure exports environment + preflight +
-  phase receipts + traceback + arm receipts; the notebook auto-downloads it)
-NOTEBOOK_TORTURE = PASS (one-shot notebook: CELL 0 bootstrap + CELL 1
-  RUN EVERYTHING; auto-downloads RESULTS or FAILURE zip)
+   one_shot 11 + 4 torch skips — ALL four PASS under the torch environment)
+RUN_ARM_FEEDER_STATE_RESTORE = PASS (mid-arm resume restores the exact
+  data-plane state before any resumed consumption)
+POST_RELOAD_SELF_EVALUATION = PASS (explicit-model evaluators; the
+  trained-self probe can no longer reference a deleted model)
+STALE_MODEL_CLOSURE_REGRESSION = PASS (source + callable audit: gen/gen_text/
+  final_evals take active_model explicitly; every post-`del model` call uses
+  model2/model_v)
+FINAL_MODEL_READY_RECOVERY = PASS (artifact written after the FINAL
+  checkpoint, BEFORE any final TEST/teacher/self/diagnostic evaluation;
+  hash-verified load; recovery reruns evaluation+finalization with NO
+  retraining — proven by forbidding _train_updates_packed during recovery)
+75_PERCENT_MID_RECOVERY = PASS (A/B-style simulation: crash at the last
+  training block -> resume from mid -> only the remaining block runs ->
+  data schedule byte-identical to an uninterrupted run)
 
-T1D = READY_FOR_ONE_SHOT_TPU (arms A-F)
-PRE50M = READY_FOR_ONE_SHOT_TPU
-
-## OPERATOR'S SELF-KNOWLEDGE HYPOTHESIS (preregistered this cycle)
-
-SELF_KNOWLEDGE_AMENDMENT.md adds Arm F (SELF): identical to the curriculum
-arm but every 7th row carries self-knowledge (identity, body, infrastructure,
-purpose, motivation, abilities, limits, mission) rendered in the frozen row
-grammar. Probes: 96 held-out self-QA rows with disjoint question forms, text
-exact-match scoring (never the integer normalizer), untrained baseline +
-most-common null on identical rows. Machine rules: SELF_KNOWLEDGE_ACQUIRED
-(F probe LCB > untrained + 0.10 AND > null + 0.10) and SELF_PROBE_LEAKAGE
-(any non-self arm passing the same bar - probe design is broken, no claim).
-The operator's "child that learns exponentially from little data" framing is
-recorded as the standing motivation; the causal self-knowledge-accelerates-
-learning question needs matched budgets and belongs to main training - this
-run tests ACQUISITION and interference descriptively. F budget 2M (adds
-~10-15 min, inside the <2 TPU-h ceiling).
-
-## DATA ACCOUNTING (§23 - measured, not guessed)
-
-DATA_UNIQUE_ROWS = 6,416,000 (tiered TRAIN_N sum)
-DATA_UNIQUE_BYTES_EST = ~96.8 MB (mean row 15.09 chars, measured)
-SCHEDULED_ROWS_ALL_ARMS_EST = ~2,252,486 (all six frozen budgets)
-CONSUMABLE_UNIQUE_FRACTION_EST = 0.351
-REPLAY_EXPECTED = false at pool level; per-tier drill replay (T0-T2) is
-disclosed in PLAN.md as before. DECISION: KEEP the existing corpus —
-generating 500 MB-1 GB would be unused scale; unique useful supervision is
-the metric. Arm F self rows replay by design (16 fact forms, drilled).
-
-## DOWNLOADS
+## REAL TPU ATTEMPT RECORD (2026-09-06, run from one-shot notebook)
 
 ```text
-ITEM | SOURCE/PURPOSE | BYTES | CUMULATIVE BYTES
-(none - no pip installs, no datasets, no checkpoints, no artifacts)
-TOTAL_DOWNLOADED_GB = 0.0
+BOOTSTRAP: PASS        PREFLIGHT: PASS        CANARY: PASS        DATA: PASS
+calibration: selected (512, 64) @ ~6990 tok/s on TPU (torch/XLA 2.9.0)
+Arm A: trained 61/244 -> 244/244 (100% reached), then
+       IMPLEMENTATION_FAILURE in the post-reload self evaluation:
+       "cannot access free variable 'model' where it is not associated
+       with a value in enclosing scope"
+Arm B: 100% training reached, same IMPLEMENTATION_FAILURE
+C-F:   not completed
+Cause: gen_text closure captured `model`, which run_arm had deleted after
+       the final checkpoint (post-reload lifetime bug). DETERMINISTIC.
+TPU itself: NOT implicated. The one-shot machinery (preflight, canary,
+       calibration, data, failure-bundle export) worked exactly as designed.
+A/B:   scientifically INVALID (no completed receipt). The failed TEST
+       observations are recorded INVALID_IMPLEMENTATION_RUN and are not used
+       for selection or tuning; the recovery rerun re-executes the frozen
+       TEST deterministically on the same final state.
+Recovery: if the Colab disk is still alive, A/B resume from their valid 75%
+       mid checkpoints (mid state restores model+optimizer+feeder+cursor
+       state), run the last 25%, and finalize. On a fresh runtime the arms
+       retrain — the orphan checkpoints were not downloadable.
+Fix:   gen/gen_text/final_evals take the model EXPLICITLY (no captured
+       model); final_model_ready boundary written after the final checkpoint
+       and BEFORE any final evaluation; recovery hierarchy completed receipt
+       -> prefinal -> final_model_ready -> mid -> fresh; failure bundles now
+       carry mid/final-model sidecars and checkpoints.
 ```
 
-## QUESTIONS_FOR_OPERATOR
-
-```text
-NONE
-```
-
-## BIGGEST BLOCKER
-
-NONE REMAINING THAT LOCAL VALIDATION CAN ADDRESS. Estimated one-shot TPU
-runtime: ~75-115 minutes (six arms + PRE50M + canary), hard ceiling <2 TPU-h.
-
-## NEXT ACTION
-
-Fresh Colab TPU -> run CELL 0 -> run CELL 1 (RUN EVERYTHING) once -> return
-CITADEL_T1D_RESULTS.zip (or CITADEL_T1D_FAILURE.zip, which now carries the
-exact phase + gate + traceback so no debugging round-trip is needed).
-
-## CYMEK_REQUIRED_CHANGE
-
-```text
-NONE FOUND this cycle
-```
-
-## T0 / T1 / T1B / T1C (history)
+## T0 / T1 / T1B / T1C (history)## T0 / T1 / T1B / T1C (history)
 
 ```text
 T0: PASS (unchanged, still applicable)
