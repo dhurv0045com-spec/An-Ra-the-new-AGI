@@ -24,6 +24,12 @@ Arkenstone's ledgers are self-verifying: `verify_ledgers.py` re-checks every
 referenced artifact and receipt hash and stamps this file
 (`verified-at-commit:`) — drift is mechanical, not manual (GAP 2/4 pattern).
 
+## Progress tracking
+
+- `PROGRESS.md` — brief dated entries, most recent first
+- `IMPROVEMENTS.md` — every adopted improvement (dated, attributed)
+- `FAILURES.md` — every experiment failure and falsified claim (dated, attributed)
+
 ## Documents
 | File | Purpose |
 |---|---|
