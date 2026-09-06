@@ -1,0 +1,1343 @@
+{
+ "seed": 606,
+ "trigger_step": 19200,
+ "pre_trajectory": [
+  {
+   "step": 1,
+   "train_exact": 0.0,
+   "test_exact": 0.0
+  },
+  {
+   "step": 200,
+   "train_exact": 0.85,
+   "test_exact": 0.0
+  },
+  {
+   "step": 400,
+   "train_exact": 0.98,
+   "test_exact": 0.0
+  },
+  {
+   "step": 600,
+   "train_exact": 0.99,
+   "test_exact": 0.0
+  },
+  {
+   "step": 800,
+   "train_exact": 1.0,
+   "test_exact": 0.12690355329949238
+  },
+  {
+   "step": 1000,
+   "train_exact": 1.0,
+   "test_exact": 0.06091370558375635
+  },
+  {
+   "step": 1200,
+   "train_exact": 0.98,
+   "test_exact": 0.14213197969543148
+  },
+  {
+   "step": 1400,
+   "train_exact": 1.0,
+   "test_exact": 0.2436548223350254
+  },
+  {
+   "step": 1600,
+   "train_exact": 1.0,
+   "test_exact": 0.19796954314720813
+  },
+  {
+   "step": 1800,
+   "train_exact": 1.0,
+   "test_exact": 0.16751269035532995
+  },
+  {
+   "step": 2000,
+   "train_exact": 1.0,
+   "test_exact": 0.16751269035532995
+  },
+  {
+   "step": 2200,
+   "train_exact": 1.0,
+   "test_exact": 0.15736040609137056
+  },
+  {
+   "step": 2400,
+   "train_exact": 1.0,
+   "test_exact": 0.15736040609137056
+  },
+  {
+   "step": 2600,
+   "train_exact": 1.0,
+   "test_exact": 0.15736040609137056
+  },
+  {
+   "step": 2800,
+   "train_exact": 1.0,
+   "test_exact": 0.15736040609137056
+  },
+  {
+   "step": 3000,
+   "train_exact": 1.0,
+   "test_exact": 0.14213197969543148
+  },
+  {
+   "step": 3200,
+   "train_exact": 1.0,
+   "test_exact": 0.1116751269035533
+  },
+  {
+   "step": 3400,
+   "train_exact": 1.0,
+   "test_exact": 0.04060913705583756
+  },
+  {
+   "step": 3600,
+   "train_exact": 1.0,
+   "test_exact": 0.005076142131979695
+  },
+  {
+   "step": 3800,
+   "train_exact": 1.0,
+   "test_exact": 0.0
+  },
+  {
+   "step": 4000,
+   "train_exact": 1.0,
+   "test_exact": 0.0
+  },
+  {
+   "step": 4200,
+   "train_exact": 1.0,
+   "test_exact": 0.0
+  },
+  {
+   "step": 4400,
+   "train_exact": 1.0,
+   "test_exact": 0.0
+  },
+  {
+   "step": 4600,
+   "train_exact": 1.0,
+   "test_exact": 0.0
+  },
+  {
+   "step": 4800,
+   "train_exact": 1.0,
+   "test_exact": 0.0
+  },
+  {
+   "step": 5000,
+   "train_exact": 1.0,
+   "test_exact": 0.0
+  },
+  {
+   "step": 5200,
+   "train_exact": 1.0,
+   "test_exact": 0.0
+  },
+  {
+   "step": 5400,
+   "train_exact": 1.0,
+   "test_exact": 0.0
+  },
+  {
+   "step": 5600,
+   "train_exact": 1.0,
+   "test_exact": 0.0
+  },
+  {
+   "step": 5800,
+   "train_exact": 1.0,
+   "test_exact": 0.0
+  },
+  {
+   "step": 6000,
+   "train_exact": 1.0,
+   "test_exact": 0.0
+  },
+  {
+   "step": 6200,
+   "train_exact": 1.0,
+   "test_exact": 0.0
+  },
+  {
+   "step": 6400,
+   "train_exact": 1.0,
+   "test_exact": 0.0
+  },
+  {
+   "step": 6600,
+   "train_exact": 1.0,
+   "test_exact": 0.0
+  },
+  {
+   "step": 6800,
+   "train_exact": 0.95,
+   "test_exact": 0.14720812182741116
+  },
+  {
+   "step": 7000,
+   "train_exact": 1.0,
+   "test_exact": 0.20812182741116753
+  },
+  {
+   "step": 7200,
+   "train_exact": 1.0,
+   "test_exact": 0.09644670050761421
+  },
+  {
+   "step": 7400,
+   "train_exact": 1.0,
+   "test_exact": 0.09137055837563451
+  },
+  {
+   "step": 7600,
+   "train_exact": 1.0,
+   "test_exact": 0.05583756345177665
+  },
+  {
+   "step": 7800,
+   "train_exact": 1.0,
+   "test_exact": 0.015228426395939087
+  },
+  {
+   "step": 8000,
+   "train_exact": 1.0,
+   "test_exact": 0.0
+  },
+  {
+   "step": 8200,
+   "train_exact": 1.0,
+   "test_exact": 0.0
+  },
+  {
+   "step": 8400,
+   "train_exact": 1.0,
+   "test_exact": 0.01015228426395939
+  },
+  {
+   "step": 8600,
+   "train_exact": 1.0,
+   "test_exact": 0.0
+  },
+  {
+   "step": 8800,
+   "train_exact": 1.0,
+   "test_exact": 0.02030456852791878
+  },
+  {
+   "step": 9000,
+   "train_exact": 1.0,
+   "test_exact": 0.03553299492385787
+  },
+  {
+   "step": 9200,
+   "train_exact": 1.0,
+   "test_exact": 0.0
+  },
+  {
+   "step": 9400,
+   "train_exact": 1.0,
+   "test_exact": 0.0
+  },
+  {
+   "step": 9600,
+   "train_exact": 1.0,
+   "test_exact": 0.0
+  },
+  {
+   "step": 9800,
+   "train_exact": 1.0,
+   "test_exact": 0.6649746192893401
+  },
+  {
+   "step": 10000,
+   "train_exact": 1.0,
+   "test_exact": 0.4873096446700508
+  },
+  {
+   "step": 10200,
+   "train_exact": 0.99,
+   "test_exact": 0.19289340101522842
+  },
+  {
+   "step": 10400,
+   "train_exact": 1.0,
+   "test_exact": 0.37055837563451777
+  },
+  {
+   "step": 10600,
+   "train_exact": 1.0,
+   "test_exact": 0.4517766497461929
+  },
+  {
+   "step": 10800,
+   "train_exact": 1.0,
+   "test_exact": 0.29949238578680204
+  },
+  {
+   "step": 11000,
+   "train_exact": 1.0,
+   "test_exact": 0.3756345177664975
+  },
+  {
+   "step": 11200,
+   "train_exact": 1.0,
+   "test_exact": 0.3197969543147208
+  },
+  {
+   "step": 11400,
+   "train_exact": 1.0,
+   "test_exact": 0.2893401015228426
+  },
+  {
+   "step": 11600,
+   "train_exact": 1.0,
+   "test_exact": 0.38071065989847713
+  },
+  {
+   "step": 11800,
+   "train_exact": 1.0,
+   "test_exact": 0.48223350253807107
+  },
+  {
+   "step": 12000,
+   "train_exact": 1.0,
+   "test_exact": 0.4365482233502538
+  },
+  {
+   "step": 12200,
+   "train_exact": 1.0,
+   "test_exact": 0.4213197969543147
+  },
+  {
+   "step": 12400,
+   "train_exact": 1.0,
+   "test_exact": 0.5076142131979695
+  },
+  {
+   "step": 12600,
+   "train_exact": 1.0,
+   "test_exact": 0.48223350253807107
+  },
+  {
+   "step": 12800,
+   "train_exact": 1.0,
+   "test_exact": 0.5380710659898477
+  },
+  {
+   "step": 13000,
+   "train_exact": 1.0,
+   "test_exact": 0.583756345177665
+  },
+  {
+   "step": 13200,
+   "train_exact": 1.0,
+   "test_exact": 0.6192893401015228
+  },
+  {
+   "step": 13400,
+   "train_exact": 1.0,
+   "test_exact": 0.6091370558375635
+  },
+  {
+   "step": 13600,
+   "train_exact": 1.0,
+   "test_exact": 0.7868020304568528
+  },
+  {
+   "step": 13800,
+   "train_exact": 1.0,
+   "test_exact": 0.7055837563451777
+  },
+  {
+   "step": 14000,
+   "train_exact": 1.0,
+   "test_exact": 0.7766497461928934
+  },
+  {
+   "step": 14200,
+   "train_exact": 1.0,
+   "test_exact": 0.6548223350253807
+  },
+  {
+   "step": 14400,
+   "train_exact": 1.0,
+   "test_exact": 0.7715736040609137
+  },
+  {
+   "step": 14600,
+   "train_exact": 1.0,
+   "test_exact": 0.751269035532995
+  },
+  {
+   "step": 14800,
+   "train_exact": 1.0,
+   "test_exact": 0.751269035532995
+  },
+  {
+   "step": 15000,
+   "train_exact": 1.0,
+   "test_exact": 0.7258883248730964
+  },
+  {
+   "step": 15200,
+   "train_exact": 1.0,
+   "test_exact": 0.7411167512690355
+  },
+  {
+   "step": 15400,
+   "train_exact": 1.0,
+   "test_exact": 0.7817258883248731
+  },
+  {
+   "step": 15600,
+   "train_exact": 1.0,
+   "test_exact": 0.6345177664974619
+  },
+  {
+   "step": 15800,
+   "train_exact": 1.0,
+   "test_exact": 0.7868020304568528
+  },
+  {
+   "step": 16000,
+   "train_exact": 1.0,
+   "test_exact": 0.7868020304568528
+  },
+  {
+   "step": 16200,
+   "train_exact": 1.0,
+   "test_exact": 0.7715736040609137
+  },
+  {
+   "step": 16400,
+   "train_exact": 1.0,
+   "test_exact": 0.7868020304568528
+  },
+  {
+   "step": 16600,
+   "train_exact": 1.0,
+   "test_exact": 0.7868020304568528
+  },
+  {
+   "step": 16800,
+   "train_exact": 1.0,
+   "test_exact": 0.7868020304568528
+  },
+  {
+   "step": 17000,
+   "train_exact": 1.0,
+   "test_exact": 0.7868020304568528
+  },
+  {
+   "step": 17200,
+   "train_exact": 0.99,
+   "test_exact": 0.8071065989847716
+  },
+  {
+   "step": 17400,
+   "train_exact": 0.98,
+   "test_exact": 0.817258883248731
+  },
+  {
+   "step": 17600,
+   "train_exact": 1.0,
+   "test_exact": 0.3299492385786802
+  },
+  {
+   "step": 17800,
+   "train_exact": 1.0,
+   "test_exact": 0.16751269035532995
+  },
+  {
+   "step": 18000,
+   "train_exact": 1.0,
+   "test_exact": 0.13705583756345177
+  },
+  {
+   "step": 18200,
+   "train_exact": 0.99,
+   "test_exact": 0.5939086294416244
+  },
+  {
+   "step": 18400,
+   "train_exact": 1.0,
+   "test_exact": 0.6548223350253807
+  },
+  {
+   "step": 18600,
+   "train_exact": 1.0,
+   "test_exact": 0.7309644670050761
+  },
+  {
+   "step": 18800,
+   "train_exact": 1.0,
+   "test_exact": 1.0
+  },
+  {
+   "step": 19000,
+   "train_exact": 1.0,
+   "test_exact": 1.0
+  },
+  {
+   "step": 19200,
+   "train_exact": 1.0,
+   "test_exact": 1.0
+  }
+ ],
+ "arms": {
+  "A": {
+   "RET90": 1.0,
+   "GENERALIZATION_AREA": 1.0,
+   "FINAL_OOD": 1.0,
+   "trajectory": [
+    {
+     "step": 1,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 200,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 400,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 600,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 800,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 1000,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 1200,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 1400,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 1600,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 1800,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 2000,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 2200,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 2400,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 2600,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 2800,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 3000,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 3200,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 3400,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 3600,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 3800,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 4000,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 4200,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 4400,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 4600,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 4800,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 5000,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 5200,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 5400,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 5600,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 5800,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 6000,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 6200,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 6400,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 6600,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 6800,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 7000,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 7200,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 7400,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 7600,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 7800,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 8000,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    }
+   ]
+  },
+  "B": {
+   "RET90": 1.0,
+   "GENERALIZATION_AREA": 1.0,
+   "FINAL_OOD": 1.0,
+   "trajectory": [
+    {
+     "step": 1,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 200,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 400,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 600,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 800,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 1000,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 1200,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 1400,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 1600,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 1800,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 2000,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 2200,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 2400,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 2600,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 2800,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 3000,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 3200,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 3400,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 3600,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 3800,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 4000,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 4200,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 4400,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 4600,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 4800,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 5000,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 5200,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 5400,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 5600,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 5800,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 6000,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 6200,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 6400,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 6600,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 6800,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 7000,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 7200,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 7400,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 7600,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 7800,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 8000,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    }
+   ]
+  },
+  "C": {
+   "RET90": 1.0,
+   "GENERALIZATION_AREA": 1.0,
+   "FINAL_OOD": 1.0,
+   "trajectory": [
+    {
+     "step": 1,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 200,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 400,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 600,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 800,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 1000,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 1200,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 1400,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 1600,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 1800,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 2000,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 2200,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 2400,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 2600,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 2800,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 3000,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 3200,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 3400,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 3600,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 3800,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 4000,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 4200,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 4400,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 4600,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 4800,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 5000,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 5200,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 5400,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 5600,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 5800,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 6000,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 6200,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 6400,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 6600,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 6800,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 7000,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 7200,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 7400,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 7600,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 7800,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 8000,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    }
+   ]
+  },
+  "D": {
+   "RET90": 1.0,
+   "GENERALIZATION_AREA": 1.0,
+   "FINAL_OOD": 1.0,
+   "trajectory": [
+    {
+     "step": 1,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 200,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 400,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 600,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 800,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 1000,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 1200,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 1400,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 1600,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 1800,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 2000,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 2200,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 2400,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 2600,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 2800,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 3000,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 3200,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 3400,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 3600,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 3800,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 4000,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 4200,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 4400,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 4600,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 4800,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 5000,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 5200,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 5400,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 5600,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 5800,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 6000,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 6200,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 6400,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 6600,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 6800,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 7000,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 7200,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 7400,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 7600,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 7800,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    },
+    {
+     "step": 8000,
+     "train_exact": 1.0,
+     "test_exact": 1.0
+    }
+   ]
+  }
+ },
+ "device": "cuda",
+ "torch": "2.11.0+cu128"
+}
