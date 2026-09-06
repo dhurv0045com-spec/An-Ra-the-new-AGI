@@ -1,0 +1,97 @@
+{
+  "campaign_id": "cymek-500m-v1",
+  "canonical_cymek_sha": "28bf57a0d299a2c13a99fe0046616c00a1b8530c",
+  "checkpoint": {
+    "recovery_interval_minutes": 30,
+    "recovery_rotation": 4,
+    "scientific_milestones": "immutable at ladder thresholds",
+    "transaction": "Cymek staging/atomic/manifest/fence/parent-chain"
+  },
+  "data_identity": {
+    "note": "production corpus not MATERIALIZED - BLOCKING",
+    "state": "DECLARED"
+  },
+  "evaluation_token_points": [
+    0,
+    10000000,
+    25000000,
+    50000000,
+    100000000,
+    200000000,
+    350000000,
+    500000000
+  ],
+  "failure_recovery_policy": "resume from last committed generation; auto-stop on NaN/Inf, exploding gradients, checkpoint corruption, data-identity drift",
+  "lr_schedule": {
+    "final_lr_at_500m": 0.0003,
+    "kind": "WSD-token-space",
+    "peak_lr": 0.0003,
+    "stable_until_tokens": 4500000000,
+    "warmup_tokens": 50000000
+  },
+  "milestones_tokens": [
+    50000000,
+    100000000,
+    200000000,
+    350000000,
+    500000000
+  ],
+  "model_identity": {
+    "context_length": 4096,
+    "ffn_width": 2368,
+    "head_dimension": 64,
+    "kv_heads": 7,
+    "layers": 26,
+    "name": "V5A_250M",
+    "parameter_count": 250216960,
+    "precision": "bf16-compute/fp32-master",
+    "query_heads": 14,
+    "vocabulary_size": 24576,
+    "width": 896
+  },
+  "optimizer": {
+    "beta1": 0.9,
+    "beta2": 0.95,
+    "epsilon": 1e-08,
+    "gradient_clipping": 1.0,
+    "kind": "AdamW",
+    "weight_decay": 0.1
+  },
+  "precision": "bf16 compute / fp32 master",
+  "retention": {
+    "cadence": "at ladder milestones (diagnostic)"
+  },
+  "static_shape": {
+    "batch": 32,
+    "length": 64
+  },
+  "status": "SPEC_ONLY - NOT_AUTHORIZED_TO_TRAIN",
+  "stop_gates": [
+    {
+      "tokens": 50000000
+    },
+    {
+      "tokens": 100000000
+    },
+    {
+      "tokens": 200000000
+    }
+  ],
+  "target": {
+    "consumed_training_tokens": 500000000,
+    "meaning": "Cymek TrainingState.cumulative_tokens",
+    "milestone_ladder_tokens": [
+      50000000,
+      100000000,
+      200000000,
+      350000000,
+      500000000
+    ]
+  },
+  "token_budget": 500000000,
+  "tokenizer_identity": {
+    "artifact_sha256": null,
+    "status": "PROVISIONAL - BLOCKING until frozen",
+    "vocabulary_size": 24576
+  }
+}

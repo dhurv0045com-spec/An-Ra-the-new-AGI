@@ -41,8 +41,17 @@ PRE50M = GREEN (ready_for_50m_training: true, zero blockers — certified in the
   'a completed run cannot advance' negative control)
 T1E = PLAN ONLY / NOT EXECUTED (docs/citadel/experiments/T1E/PLAN.md,
   PENDING OPERATOR; EOS-supervised helpers unit-tested)
-50M CYMEK TRAINING = GATE OPEN (PRE50M green received)
-  (NEXT_50M_DECISION.ready_for_50m_training == true required first)
+50M = INTERMEDIATE MILESTONE (preserved as the first observation point)
+500M = NEW FINAL CAMPAIGN TARGET - SPEC ONLY
+  (docs/citadel/500M/CYMEK_500M_CAMPAIGN.json + PLAN.md; ladder
+  50M/100M/200M/350M/500M consumed tokens; milestone crossing via
+  citadel_tpu/milestones.crossed_milestones - boundary tested)
+PRE500M = BUILT, FAIL-CLOSED - currently BLOCKED
+  (NEXT_500M_DECISION: DATA_NOT_READY [production corpus not MATERIALIZED],
+  top-level production training entry point MISSING, tokenizer artifact
+  unfrozen, no representative production-model/shape/data throughput
+  measurement yet)
+5B CORPUS = NOT_STARTED
 
 ## DOWNLOADS
 
@@ -60,25 +69,19 @@ NONE
 
 ## BIGGEST BLOCKER
 
-NONE LOCAL. The only remaining step before the 50M milestone is the
-PRE50M-only TPU run.
+CYMEK REQUIRED CHANGES B1-B3 (production corpus materialization,
+production entry point, tokenizer artifact freeze) - then the PRE500M
+certification can go green and the operator launches the 500M campaign.
 
 ## NEXT ACTION
 
-The PRE50M gate is GREEN (the operator's T1D rerun bundle carried
-NEXT_50M_DECISION.ready_for_50m_training = true with zero blockers, plus a
-full six-arm replication of the null). Control hands to Cymek for the real
-50,000,000-token milestone under its own production contracts. Citadel's
-standing next work: T1E awaits operator approval; cymek's 3 unpushed local
-commits get audited when pushed.
+Cymek-side: implement docs/citadel/500M/CYMEK_REQUIRED_CHANGES.md items
+B1-B3 (BLOCKING: production corpus materialization, top-level production
+training entry point, frozen tokenizer artifact). Citadel-side: PRE500M
+certification is built and fail-closed — it returns BLOCKED with precise
+reasons until B1-B3 land. Do NOT start the 500M training or the 5B corpus.
 
-## CYMEK_REQUIRED_CHANGE
-
-```text
-NONE FOUND this cycle
-```
-
-## T0 / T1 / T1B / T1C (history)## T0 / T1 / T1B / T1C (history)
+## T0 / T1 / T1B / T1C (history)
 
 ```text
 T0: PASS (unchanged, still applicable)
@@ -87,36 +90,6 @@ T1B: SUPERSEDED_BY_T1C (preserved, unexecuted)
 T1C: EXECUTED — 4 arms FAIL, cross-arm INCONCLUSIVE (mode collapse, no
 memorization; objective/data/2.3x scale moved nothing at 4M)
 ```
-
-## T1D + PRE50M (preregistered, pending execution)
-
-Arms A/B/C/D/E on the tiered ladder (~130 MB); PRE50M smoke on SCALE2 7.4M
-through production transactions; NEXT_50M_DECISION machine gate.
-"50M checkpoint" = 50M training TOKENS (Cymek training_spec, re-verified);
-no 50M-param spec exists. Notebook: notebooks/citadel_colab_t1d.ipynb.
-
-## DOWNLOADS
-
-```text
-ITEM | SOURCE/PURPOSE | BYTES | CUMULATIVE BYTES
-(none — no pip installs, no datasets, no checkpoints, no artifacts)
-TOTAL_DOWNLOADED_GB = 0.0
-```
-
-## QUESTIONS_FOR_OPERATOR
-
-```text
-NONE
-```
-
-## BIGGEST BLOCKER
-
-NONE REMAINING THAT LOCAL VALIDATION CAN ADDRESS — next is the operator run.
-
-## NEXT ACTION
-
-Run `notebooks/citadel_colab_t1d.ipynb` once from Cell 0 through F in a
-fresh/restarted Colab TPU session and return `CITADEL_T1D_RESULTS.zip`.
 
 ## CROSS-BRANCH STATE (2026-09-06)
 

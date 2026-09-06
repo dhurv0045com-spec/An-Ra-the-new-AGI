@@ -21,6 +21,20 @@ ceiling); D/E-vs-B budget confound; data volume NOT the bottleneck (35%
 consumable). Evidence: RESULTS.md/RESULTS.json. Corrected successor: T1E
 (PLAN only). PRE50M smoke budget bug fixed (reserved final update).
 
+## 500M CAMPAIGN — production target (spec-only, 2026-09-06)
+
+Campaign target moved from effectively-50M to **500,000,000 consumed
+training tokens**; ladder 50M/100M/200M/350M/500M (50M preserved as first
+observation point). Spec: docs/citadel/500M/CYMEK_500M_CAMPAIGN.json +
+PLAN.md; production path audit: PRODUCTION_PATH_AUDIT.md (components
+CONNECTED; production corpus MISSING; top-level entry point MISSING;
+schedule AMBIGUOUS - canonical WSD never executed). PRE500M decision
+builder fail-closed (tests/test_pre500m.py): DATA_NOT_READY + missing
+entry point + missing rate measurement = BLOCKED. CYMEK_REQUIRED_CHANGES:
+B1 corpus materialization, B2 production entry point, B3 tokenizer
+artifact freeze (BLOCKING); R1-R3 recommended. NOT training until
+NEXT_500M_DECISION.ready_for_500m_training is true.
+
 ## T0 — one-update certification (Colab TPU, MINI_SPEC 1.6M)
 
 Proved the real Cymek stack trains on TPU: forward → finite loss (10.12) →
