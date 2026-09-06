@@ -35,13 +35,13 @@ CYMEK_ALIGNMENT = PASS (pin == live origin/cymek HEAD)
 
 T1D = EXECUTED / ARCHIVED — DO NOT RERUN
   (all arms SCIENTIFIC_FAIL, cross-arm INCONCLUSIVE; RESULTS.md/RESULTS.json)
-PRE50M = READY_FOR_PRE50M_ONLY_OPERATOR_RUN
+PRE50M = GREEN (ready_for_50m_training: true, zero blockers — certified in the operator's 2026-09-06 T1D rerun bundle, sha256 c3f6643bf8aa88ff)
   (smoke budget fixed: reserved final update funds the resume proof;
   regression against the real Cymek TrainingState contract incl. the
   'a completed run cannot advance' negative control)
 T1E = PLAN ONLY / NOT EXECUTED (docs/citadel/experiments/T1E/PLAN.md,
   PENDING OPERATOR; EOS-supervised helpers unit-tested)
-50M CYMEK TRAINING = WAITING FOR PRE50M GREEN
+50M CYMEK TRAINING = GATE OPEN (PRE50M green received)
   (NEXT_50M_DECISION.ready_for_50m_training == true required first)
 
 ## DOWNLOADS
@@ -65,9 +65,12 @@ PRE50M-only TPU run.
 
 ## NEXT ACTION
 
-Run notebooks/citadel_colab_pre50m.ipynb once on a fresh Colab TPU
-(CELL 0 -> CELL 1, ~5-10 minutes) and return CITADEL_PRE50M_RESULTS.zip.
-Do NOT run citadel_colab_t1d.ipynb — T1D is archived.
+The PRE50M gate is GREEN (the operator's T1D rerun bundle carried
+NEXT_50M_DECISION.ready_for_50m_training = true with zero blockers, plus a
+full six-arm replication of the null). Control hands to Cymek for the real
+50,000,000-token milestone under its own production contracts. Citadel's
+standing next work: T1E awaits operator approval; cymek's 3 unpushed local
+commits get audited when pushed.
 
 ## CYMEK_REQUIRED_CHANGE
 

@@ -113,6 +113,31 @@ The session status propagation bug (PRE50M labeled PASS from file
 existence) is also fixed. PRE50M certifies on the next TPU contact via
 notebooks/citadel_colab_pre50m.ipynb (~minutes).
 
+## REPLICATION — second independent full session (2026-09-06, later same day)
+
+A complete fresh T1D rerun (Citadel `1cc36bf`, fresh Colab TPU, calibration
+(512, 64) @ **7145 tok/s**) reproduced the entire result:
+
+- All six arms again **SCIENTIFIC_FAIL**; cross-arm **INCONCLUSIVE**.
+- Losses: A 10.04→1.36, B 10.05→1.42, C 10.04→**0.77**, D 10.04→1.52,
+  E 3.85→1.53, F 10.06→5.19 — same shape as session 1.
+- TEST exact: A 0/5.8/0/0/0, B 0/6.6/0/0/0, C 0/6.4/0/0/0, D 0/6.2/0/0/0,
+  E 0/6.2/0/0/0, F 0/0/0/0/0 — all below the 22.5% null, all reloads
+  identical. Arm F self-probe again 0.0.
+- **PRE50M: PASS — `ready_for_50m_training: true`, zero blocking reasons.**
+  The smoke's reserved-final-update resume worked exactly as designed
+  (cumulative 10,240 → 12,288 tokens, moments preserved, continued update
+  OK, writer fence rejected-as-required, token accounting consistent,
+  checkpoint compat verified). Session PRE50M status agrees with the
+  decision (status-propagation fix verified in production).
+- Scale2 measured smoke rate: 414.4 tok/s (bf16, CPU-relative interval
+  fields recorded); session throughput 7145 tok/s (MID, calibrated).
+- Bundle: `CITADEL_T1D_RESULTS (1).zip`, sha256 prefix c3f6643bf8aa88ff,
+  19 members, zip valid.
+
+The T1D null is now a **confirmed replication across two independent
+sessions** — the finding is stable, not a fluke of one run.
+
 ## Receipts
 
 - Normalized machine record: RESULTS.json (member hashes, forensics).
