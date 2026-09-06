@@ -1,10 +1,10 @@
 {
-  "citadel_sha": "84ca0607124a54ed87ab4234da08192e532b4bc0",
-  "code_sha": "84ca0607124a54ed87ab4234da08192e532b4bc0",
+  "citadel_sha": "270b6fee7f8dd31a5b389040c075ec1f55aeffc1",
+  "code_sha": "c702add040ebb8fb5d6af1f2d2046afc767f498f",
   "cymek_sha": "28bf57a0d299a2c13a99fe0046616c00a1b8530c",
   "files_passed": 7,
   "files_total": 7,
-  "generated_utc": "2026-09-06T08:35:32Z",
+  "generated_utc": "2026-09-06T10:16:19Z",
   "orchestrator_version": "one-shot/1.0",
   "platform": "win32",
   "python": "3.11.15",
@@ -25,7 +25,7 @@
     },
     "tests/test_citadel_one_shot.py": {
       "returncode": 0,
-      "summary": "9/11 passed (2 skipped)"
+      "summary": "11/15 passed (4 skipped)"
     },
     "tests/test_citadel_t1_canary.py": {
       "returncode": 0,
