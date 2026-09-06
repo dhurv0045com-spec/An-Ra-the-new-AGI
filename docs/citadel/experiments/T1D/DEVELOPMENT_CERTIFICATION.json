@@ -1,13 +1,13 @@
 {
-  "citadel_sha": "1d508f81bee070cd2cf8abf54efd573aae5b48a8",
-  "code_sha": "1d508f81bee070cd2cf8abf54efd573aae5b48a8",
+  "citadel_sha": "a7230712afc9b6fca9b25ad20912524ffc28c729",
+  "code_sha": "a7230712afc9b6fca9b25ad20912524ffc28c729",
   "cymek_sha": "28bf57a0d299a2c13a99fe0046616c00a1b8530c",
   "files_passed": 7,
   "files_total": 7,
-  "generated_utc": "2026-09-06T13:26:35Z",
+  "generated_utc": "2026-09-06T14:43:48Z",
   "orchestrator_version": "one-shot/1.0",
   "platform": "win32",
-  "python": "3.11.15",
+  "python": "3.12.13",
   "schema": "citadel-development-certificate/v1",
   "status": "PASS",
   "tests": {
@@ -25,7 +25,7 @@
     },
     "tests/test_citadel_one_shot.py": {
       "returncode": 0,
-      "summary": "15/19 passed (4 skipped)"
+      "summary": "20/20 passed"
     },
     "tests/test_citadel_t1_canary.py": {
       "returncode": 0,

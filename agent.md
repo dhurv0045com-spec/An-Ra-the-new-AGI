@@ -14,92 +14,64 @@
 
 ## STATUS
 
-CURRENT_CITADEL_SHA: see `git log origin/citadel -1` (post-reload closure
-hotfix + final_model_ready recovery cycle)
+CURRENT_CITADEL_SHA: see `git log origin/citadel -1` (certificate-regen
+handover commit; executable code_sha unchanged by this docs-only commit)
+CERTIFIED_CODE_SHA: `a7230712afc9b6fca9b25ad20912524ffc28c729`
 AUDITED_CYMEK_SHA: `28bf57a0d299a2c13a99fe0046616c00a1b8530c`
 RUNTIME_PIN_SHA: `28bf57a0d299a2c13a99fe0046616c00a1b8530c` (== live HEAD)
 
-CYMEK_ALIGNMENT = PASS
-DEVELOPMENT_CERTIFICATE = PASS (regenerated after this cycle's executable
-  changes; code_sha matches the pushed tree)
-LOCAL_TESTS = 86 PASS / 4 torch-optional skips across 7 files
+DEVELOPMENT_CERTIFICATE = PASS (7/7 files, regenerated at the exact
+  executable identity; torch environment used so the four torch-optional
+  tests ran rather than skipped)
+LOCAL_TESTS = 89/89 PASS across 7 files
   (t1d 38; t1c 10; t1_canary 6; notebooks 2; bootstrap 6; cymek_checkpoint 7;
-   one_shot 11 + 4 torch skips — ALL four PASS under the torch environment)
-RUN_ARM_FEEDER_STATE_RESTORE = PASS (mid-arm resume restores the exact
-  data-plane state before any resumed consumption)
-POST_RELOAD_SELF_EVALUATION = PASS (explicit-model evaluators; the
-  trained-self probe can no longer reference a deleted model)
-STALE_MODEL_CLOSURE_REGRESSION = PASS (source + callable audit: gen/gen_text/
-  final_evals take active_model explicitly; every post-`del model` call uses
-  model2/model_v)
-FINAL_MODEL_READY_RECOVERY = PASS (artifact written after the FINAL
-  checkpoint, BEFORE any final TEST/teacher/self/diagnostic evaluation;
-  hash-verified load; recovery reruns evaluation+finalization with NO
-  retraining — proven by forbidding _train_updates_packed during recovery)
-75_PERCENT_MID_RECOVERY = PASS (A/B-style simulation: crash at the last
-  training block -> resume from mid -> only the remaining block runs ->
-  data schedule byte-identical to an uninterrupted run)
+   one_shot 20 — includes the reserved PRE50M final-update regression, the
+   completed-state negative control, PRE50M phase-status propagation,
+   PRE50M-only bundle verification, the notebook torture set, and the T1E
+   EOS-helper contracts)
+NOTEBOOK_TORTURE = PASS
+CYMEK_ALIGNMENT = PASS (pin == live origin/cymek HEAD)
 
-## REAL TPU ATTEMPT RECORD (2026-09-06, run from one-shot notebook)
+T1D = EXECUTED / ARCHIVED — DO NOT RERUN
+  (all arms SCIENTIFIC_FAIL, cross-arm INCONCLUSIVE; RESULTS.md/RESULTS.json)
+PRE50M = READY_FOR_PRE50M_ONLY_OPERATOR_RUN
+  (smoke budget fixed: reserved final update funds the resume proof;
+  regression against the real Cymek TrainingState contract incl. the
+  'a completed run cannot advance' negative control)
+T1E = PLAN ONLY / NOT EXECUTED (docs/citadel/experiments/T1E/PLAN.md,
+  PENDING OPERATOR; EOS-supervised helpers unit-tested)
+50M CYMEK TRAINING = WAITING FOR PRE50M GREEN
+  (NEXT_50M_DECISION.ready_for_50m_training == true required first)
+
+## DOWNLOADS
 
 ```text
-BOOTSTRAP: PASS        PREFLIGHT: PASS        CANARY: PASS        DATA: PASS
-calibration: selected (512, 64) @ ~6990 tok/s on TPU (torch/XLA 2.9.0)
-Arm A: trained 61/244 -> 244/244 (100% reached), then
-       IMPLEMENTATION_FAILURE in the post-reload self evaluation:
-       "cannot access free variable 'model' where it is not associated
-       with a value in enclosing scope"
-Arm B: 100% training reached, same IMPLEMENTATION_FAILURE
-C-F:   not completed
-Cause: gen_text closure captured `model`, which run_arm had deleted after
-       the final checkpoint (post-reload lifetime bug). DETERMINISTIC.
-TPU itself: NOT implicated. The one-shot machinery (preflight, canary,
-       calibration, data, failure-bundle export) worked exactly as designed.
-A/B:   scientifically INVALID (no completed receipt). The failed TEST
-       observations are recorded INVALID_IMPLEMENTATION_RUN and are not used
-       for selection or tuning; the recovery rerun re-executes the frozen
-       TEST deterministically on the same final state.
-Recovery: if the Colab disk is still alive, A/B resume from their valid 75%
-       mid checkpoints (mid state restores model+optimizer+feeder+cursor
-       state), run the last 25%, and finalize. On a fresh runtime the arms
-       retrain — the orphan checkpoints were not downloadable.
-Fix:   gen/gen_text/final_evals take the model EXPLICITLY (no captured
-       model); final_model_ready boundary written after the final checkpoint
-       and BEFORE any final evaluation; recovery hierarchy completed receipt
-       -> prefinal -> final_model_ready -> mid -> fresh; failure bundles now
-       carry mid/final-model sidecars and checkpoints.
+ITEM | SOURCE/PURPOSE | BYTES | CUMULATIVE BYTES
+(none this cycle)
+TOTAL_DOWNLOADED_GB = 0.0
 ```
 
-## T1D RESULT - FIRST COMPLETED SESSION (2026-09-06, real TPU)
+## QUESTIONS_FOR_OPERATOR
 
 ```text
-One-shot run: BOOTSTRAP/PREFLIGHT/CANARY/DATA PASS -> arms A-F all executed
--> PRE50M phase ran -> bundle exported and verified. One-shot machinery
-worked end-to-end on a fresh Colab TPU (calibration (512,64) @ ~6978 tok/s).
+NONE
+```
 
-RESULT: all six arms SCIENTIFIC_FAIL; cross-arm INCONCLUSIVE (no contrast
-rule fired - correct, nothing lifted anywhere).
-  loss: 10.04 -> 0.77-1.52 (A-E), 10.06 -> 5.19 (F, 2M budget)
-  TEST exact: 0-6.6% on every tier, every arm - below the 22.5% strongest
-  heuristic null (copy-first-operand)
-  TRAIN exact: 0-11% - no memorization either
-  dev curves: flat ~0-5.5% across all four checkpoints in every arm
-  SELF-KNOWLEDGE (Arm F): probe 0.0 trained and untrained - self knowledge
-  NOT acquired at 2M tokens (loss only reached 5.19)
-Meaning (preregistered interpretation): answer-CE arithmetic learning does
-not lift off at 2-8M tokens for 3.7-7.4M models under ANY of the five
-variations - the T1/T1C null is now replicated with curriculum, teacher,
-scale, output-space, and self-knowledge contrasts, all instrumented,
-reload-verified, and receipted. Verdict INCONCLUSIVE per the frozen rules;
-the suite ELIMINATES curriculum/teacher/scale/output-space/self-knowledge
-at these budgets as sufficient for lift-off.
-PRE50M: FAILED on a deterministic smoke bug - the smoke state's token
-budget funded `updates` but the resume-proof publishes updates+1 (Cymek:
-"a completed run cannot advance"). FIXED this cycle
-(token_budget=(updates+1)*tokens_per_update; regression against the real
-Cymek TrainingState contract). Second bug fixed: summarize_session labeled
-PRE50M PASS from file existence alone - status now derives from the
-decision's ready flag/blockers/failure status.
+## BIGGEST BLOCKER
+
+NONE LOCAL. The only remaining step before the 50M milestone is the
+PRE50M-only TPU run.
+
+## NEXT ACTION
+
+Run notebooks/citadel_colab_pre50m.ipynb once on a fresh Colab TPU
+(CELL 0 -> CELL 1, ~5-10 minutes) and return CITADEL_PRE50M_RESULTS.zip.
+Do NOT run citadel_colab_t1d.ipynb — T1D is archived.
+
+## CYMEK_REQUIRED_CHANGE
+
+```text
+NONE FOUND this cycle
 ```
 
 ## T0 / T1 / T1B / T1C (history)## T0 / T1 / T1B / T1C (history)
