@@ -1,34 +1,69 @@
-# ARK-003 — TEACHER DECOMPOSITION AT THE GROKKING BOTTLENECK (preregistered)
+# ARK-003 — GENERALIZATION ACCELERATION (preregistered; PLAN committed+pushed before training)
 
-## Objective
-Does mixing digit-level decomposition teacher rows into the carry-tier stream
-shift the OOD transition earlier or raise its plateau? ARK-001/002b located the
-bottleneck: the binding-heavy tens column (with carry) is what groks late.
+## Central question
+Can structured training cause structural-band OOD computation to emerge with
+substantially fewer post-memorization tokens than flat answer-only CE?
 
-## Design (single variable: teacher rows in the training stream)
-- CONTROL: T3-COMPACT, seed 13, 30-min box — REUSED from ARK-002b R3 (same
-  harness lineage, same seed/budget; its receipt is the control).
-- TEACHER: identical, except ~40% of training rows carry a decomposition
-  suffix using the SAME vocabulary plus one new token ';' (added to BOTH
-  arms' vocabularies; unused in control data):
-    "34 + 62 = 96 ; 4+2=6 ; 3+6+0=9"   (ones rule ; tens rule incl. carry)
-  Supervision covers answer + teacher suffix; eval is unchanged ordinary
-  exact match on clean rows; the OOD tens band is structurally held out.
-- All else frozen: seed 13, pool 500, 30-min box, same eval cadence.
+## Task and dataset (frozen)
+T2 no-carry two-digit addition, ARK-002B frozen manifest
+(split_sha256 0dd930569704..., 500 train / 197 test, zero commutation overlap).
+TASK_MANIFEST.json in this directory binds the split. Generator audit in the
+manifest's `semantics` block (bands, cardinalities, ones-pair overlap note).
 
-## Predictions
-- P1 (teacher helps): teacher arm's OOD onset earlier than control's and/or
-  final OOD higher at box end; per-position tens accuracy rises first.
-- P2 (teacher is just more rows): no material difference — the transition is
-  governed by exposure dose to the core mapping, not decomposition.
-- P3 (teacher hurts generalization): teacher arm memorizes decomposition
-  formats without extracting the rule (OOD equal or worse) — format imitation.
+## Arms (identical Micro 4L/128w model, identical 20-token vocab, identical
+optimizer/budget/steps/box; ONLY the training stream differs)
+- A FLAT: answer-only CE on the frozen T2 pool (baseline; identical config to
+  ARK-002B runs).
+- B CURRICULUM: first 25% of steps draw from the frozen T1 pool (single-digit
+  add, 100 combos), remaining 75% from T2. Same total steps.
+- C ALIGNED TEACHER: 40% of drawn rows carry a decomposition suffix
+  `; <ua>+<ub>=<sum> ; <ta>+<tb>=<tens-sum>` appended after the answer,
+  supervised. Decomposition is mechanically derived from the SAME row.
+- D UNALIGNED EASY-DATA: same 40% suffix rate, same format, but the suffix
+  digits are drawn from a DIFFERENT random training row (rotationally offset),
+  breaking alignment while matching format/length/token statistics.
+Vocabulary: ';' added for ALL arms (20 tokens) so parameter counts are equal.
+Token accounting: supervised-token counts recorded per arm; all arms run the
+same number of optimizer steps on the same batch size.
 
-## Falsification
-If the two OOD curves are statistically indistinguishable through the box,
-P2 stands and teacher rows are PARKED at micro scale.
+## Racing design (preregistered)
+Stage 1 screen: all four arms, screening seed 29 (init 29 / order 29).
+Stage 2 replicate: arms whose tokens_to_G90 or post_mem_delay_90 improve >= 2x
+over A with final OOD within 5pp of A are re-run on fresh seeds 47 and 101.
+No post-result seed selection.
 
-## Novelty test
-Citadel T1D arm C designed teacher rows for arithmetic but never executed;
-testing them at the identified bottleneck (tens/carry) with band-OOD curves
-is new for the program either way.
+## Primary endpoint
+tokens_to_G90 (sustained G90: >=3 consecutive evals >= 0.90) and
+post_mem_delay_90. Secondary: M99, G50, G95, OOD-AUC after M99.
+
+## Transfer suite (behavioral, preregistered)
+- S0: historical band OOD (manifest test set) — every eval.
+- S1 COMPOSITION: test-band rows whose ones-pair (ua,ub) is absent from the
+  train ones-pair set — evaluated at phase checkpoints (M99/G90/final).
+- S2 LENGTH TRANSFER: 3-digit no-carry rows (hundreds digit 1..8, all columns
+  no-carry; elementary column facts covered by training) — at phase checkpoints.
+  Failure here is reported honestly as mechanism scope.
+- S3 COUNTERFACTUAL LOCALITY: perturb only ub (ones of b) within no-carry
+  constraint; score = fraction where the ones output adapts correctly AND the
+  tens output is invariant. Computed every eval on a fixed 100-row set.
+- Developmental phases: model state saved at M99 / G50 / G90 / final
+  (checkpoints/<arm>/<phase>.pt, not committed); behavioral readouts recorded
+  in the trajectory at every eval.
+
+## Success criterion (preregistered)
+>= 2x reduction in tokens_to_G90 or post_mem_delay_90 vs A, with final S0 OOD
+within 5pp of A, equal parameters, equal optimizer steps, no leakage. One-seed
+results are SCREENING only; REPLICATED requires stage 2.
+
+## Red team (post-results)
+Independent adversarial review: leakage, seed luck, checkpoint cherry-picking,
+token accounting asymmetry, teacher-answer leakage (suffix contains the gold
+answer digits — C sees the decomposition OF ITS OWN ROW; D sees the same volume
+of decomposition tokens for other rows; the eval never includes suffixes),
+format effects, early stopping asymmetry.
+
+## Novelty discipline
+Grokking, curriculum, and decomposition supervision are known in the
+literature. New-for-program content: measured causal effect of aligned vs
+unaligned decomposition on the post-memorization delay at the identified
+binding bottleneck, with counterfactual locality as the behavioral signature.
