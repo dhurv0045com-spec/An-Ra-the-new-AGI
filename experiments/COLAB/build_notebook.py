@@ -279,8 +279,15 @@ CELLS.append(("markdown", """# ARKENSTONE — complete experiment program in one
 4. **ARK-001** — micro lift-off dose mapping (T1/T2 quick arms)
 5. **ARK-003** — acceleration screen A/B/C/D (optional, only if budget remains)
 
-**Device:** auto-detects TPU (torch_xla) / CUDA / CPU and labels every receipt honestly.
-A CPU-only session still runs everything, just slower — set `BUDGET_MINUTES` accordingly.
+**Device:** USE **GPU (T4)** — Runtime → Change runtime type → T4 GPU.
+
+| Runtime | Works? | Why |
+|---------|--------|-----|
+| **GPU (T4)** | ✅ **USE THIS** | 16 GB VRAM, ~50 MB used, ~15 ms/step, eager mode |
+| **TPU** | ❌ crashes | torch_xla graph compilation consumes system RAM for tiny models; greedy decode forces recompilation every step |
+| **CPU** | ⚠️ works | ~2× slower than GPU; use only if GPU quota is exhausted |
+
+The notebook auto-detects the device and labels every receipt honestly. If TPU is selected, the notebook will attempt torch_xla but is expected to OOM — this is a known limitation, not a bug.
 
 **Discipline inherited from Citadel's notebook pattern:** device probe, per-arm wall
 boxes, Wilson-style honest thresholds (sustained, never max-snapshot), receipts with
