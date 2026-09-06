@@ -1,0 +1,8 @@
+{
+  "schema": "arkenstone-ledger-verification/v1",
+  "verified_at_commit": "aa84179108212a99162076aad4c317c43e4b0fde",
+  "readme_verification_block": "CURRENT",
+  "experiment_rows": 5,
+  "problems": [],
+  "status": "PASS"
+}

@@ -16,6 +16,14 @@ of known ideas; a laboratory for what remains unknown.
 - **Current highest-value uncertainty:** where is the FIRST exact-match lift-off
   point? No branch has ever measured a lift-off threshold on the simplest task.
 
+## Branch relations (external gap review GAP 3/6)
+See `BRANCH_RELATIONS` content in `branch_relations.py` and the review
+assessment in `EXTERNAL_GAP_REVIEW_ASSESSMENT.md` — per-branch
+proves/done/connects-to, maintained here because no other branch may change.
+Arkenstone's ledgers are self-verifying: `verify_ledgers.py` re-checks every
+referenced artifact and receipt hash and stamps this file
+(`verified-at-commit:`) — drift is mechanical, not manual (GAP 2/4 pattern).
+
 ## Documents
 | File | Purpose |
 |---|---|
@@ -39,3 +47,7 @@ of known ideas; a laboratory for what remains unknown.
 Loss is a diagnostic, never proof of cognition. Execution artifacts beat prose.
 Failures are preserved. Reproductions are labeled reproductions. Every claim gets
 a novelty class. Branch isolation is absolute.
+
+---
+
+verified-at-commit: aa84179108212a99162076aad4c317c43e4b0fde

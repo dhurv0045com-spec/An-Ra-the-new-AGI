@@ -2268,5 +2268,5 @@
     }
   ],
   "note_byte_arm": "T1-BYTE initially produced loss 0.0 / exact 0.0 due to a harness asymmetry (ByteVocab.encode prepended PAD instead of BOS to answers; greedy treats PAD as EOS). Fixed and rerun; the earlier artifact is superseded. Documented in NEGATIVE_RESULTS.md.",
-  "receipt_sha256": "616e4a59d05d807b56fd0101aea0409ae0f2edf7e36ac2fb42d20932fe84c3e3"
+  "receipt_sha256": "043052cee93405b239bd7770154f12a026948d05b391c0a64b55c7a0a42bfe3f"
 }
