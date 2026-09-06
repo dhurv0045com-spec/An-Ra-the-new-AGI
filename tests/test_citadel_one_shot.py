@@ -1156,6 +1156,44 @@ def test_pre50m_phase_status_propagation() -> None:
             "IMPLEMENTATION_FAILURE"
 
 
+def test_t1e_eos_helpers() -> None:
+    """T1E future-experiment helpers (unit-tested, NOT executed): EOS is
+    appended to the packed row, the eligible mask supervises answer + EOS
+    only, termination classification separates stop from content, and the
+    generation-step split leaves room for a full-length answer + EOS."""
+    from citadel_tpu import calculator_eval as cev
+    from citadel_tpu import t1c_run as t1c
+    from citadel_tpu import t1e_helpers as h
+
+    assert h.MAX_GENERATION_STEPS == h.MAX_CONTENT_TOKENS + 1
+    for row in ("12 + 9 = 21", "9 * 9 = 81", "7 / 1 = 7", "5 - 12 = -7"):
+        ids = h.row_with_eos(row, eos_id=3)
+        assert ids[-1] == 3 and ids[:-1] == cev.encode(row)
+        mask = h.eligibility_with_eos(row, eos_id=3)
+        plen, alen = t1c.answer_spans([row], 64)[0]
+        supervised = [i for i, m in enumerate(mask) if m]
+        assert supervised == list(range(plen, plen + alen)) + [plen + alen], row
+        assert not any(mask[:plen]), "prompt must stay unsupervised"
+    # exact supervised counts per answer spelling (spans come from the
+    # frozen production splitter, not assumptions)
+    ids = h.row_with_eos("7 / 1 = 7", eos_id=3)
+    mask = h.eligibility_with_eos("7 / 1 = 7", eos_id=3)
+    plen, alen = t1c.answer_spans(["7 / 1 = 7"], 64)[0]
+    assert sum(mask) == alen + 1, (alen, sum(mask))  # target chars + EOS
+    mask2 = h.eligibility_with_eos("5 - 12 = -7", eos_id=3)
+    plen2, alen2 = t1c.answer_spans(["5 - 12 = -7"], 64)[0]
+    assert sum(mask2) == alen2 + 1  # "-7" + EOS
+    # termination classification separates stop from content
+    assert h.termination_classify("EOS", prediction="21", target="21") == "EOS_OK"
+    assert h.termination_classify("MAX_TOKENS", prediction="2", target="21") ==         "TERMINATION_FAILURE"
+    assert h.termination_classify("NON_ALPHABET", prediction="x", target="21") ==         "TERMINATION_FAILURE"
+    assert h.termination_classify("NEWLINE", prediction="2", target="21") ==         "PREMATURE_STOP"
+    # content-truncated diagnostic never rewrites the exact-match contract
+    assert h.content_exact_truncated("2155", "21") is True
+    assert h.content_exact_truncated("20", "21") is False
+    assert h.content_exact_truncated("", "21") is False
+
+
 def main() -> int:
     tests = [test_portability_scan, test_plan_identity_stable_and_sensitive,
              test_self_feeder_cadence_and_rows, test_self_classify_rules,
@@ -1170,7 +1208,8 @@ def main() -> int:
              test_pre50m_smoke_budget_funds_resume,
              test_pre50m_status_from_decision,
              test_pre50m_reserved_final_update_contract,
-             test_pre50m_phase_status_propagation]
+             test_pre50m_phase_status_propagation,
+             test_t1e_eos_helpers]
     failed = skipped = 0
     for fn in tests:
         try:
