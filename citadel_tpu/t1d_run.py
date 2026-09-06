@@ -90,6 +90,24 @@ def _ckpt_mod_ref():
     return ckpt_mod
 
 
+def restore_mid_into(model, optimizer, feeder, mid: dict) -> None:
+    """Restore EVERYTHING a mid-arm checkpoint durably holds — model weights,
+    optimizer state, and the EXACT data-plane state (tier cursors, teacher
+    cursors, self cursor, carry/pending rows, drawn/placed row counters,
+    placed-token counters). run_arm calls this BEFORE any resumed training
+    update or consumption-dependent logic: a resume that restarts data
+    cursors from zero silently replays rows and corrupts the preregistered
+    token/data schedule."""
+    from citadel_tpu import checkpoint as ckpt_mod
+
+    if "feeder_state" not in mid:
+        raise RuntimeError("MID_STATE_INVALID: feeder_state missing — "
+                           "refusing to resume with reconstructed cursors")
+    ckpt_mod.load_into(model, mid["model_path"])
+    ckpt_mod.load_optimizer_state(optimizer, mid["optimizer_path"])
+    feeder.load_state(mid["feeder_state"])
+
+
 def load_mid_state(out_dir: str | Path, tag: str, *, expect_cfg: dict,
                    seed: int, shape: tuple[int, int]) -> tuple[dict | None, str]:
     """Hash-verified mid-arm state (model/optimizer loaded by the caller).
@@ -709,8 +727,7 @@ def run_arm(tag: str, cfg: dict[str, Any], *, shape: tuple[int, int],
     param_count = sum(int(p.numel()) for p in model.parameters())
     optimizer = build_adamw_optimizer(model, torch_module=torch)
     if mid is not None:
-        ckpt_mod.load_into(model, mid["model_path"])
-        ckpt_mod.load_optimizer_state(optimizer, mid["optimizer_path"])
+        restore_mid_into(model, optimizer, feeder, mid)
 
     def gen(rows, targets):
         return _gen_eval(model, rows, targets, device=device, torch_mod=torch,

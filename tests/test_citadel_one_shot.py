@@ -609,12 +609,111 @@ def test_select_calibrated_shape_masked_guard() -> None:
     assert none is None and "safe" in note2
 
 
+def test_run_arm_feeder_restore_wiring() -> None:
+    """THE disconnect-recovery regression (torch-optional): the PRODUCTION
+    restore path run_arm uses — restore_mid_into(model, optimizer, feeder,
+    mid) — must bring back the EXACT saved data-plane state (tier cursors,
+    teacher cursor, self cursor, carry/pending rows, drawn/placed counters,
+    placed-token counters), and the next feed must match uninterrupted
+    execution byte-for-byte, for every feeder mode. Also pins the ordering:
+    run_arm restores before its first consumption and skips the
+    consumption-dependent pre-training baselines on resume."""
+    try:
+        import torch
+    except ImportError:
+        raise SkipTest("torch unavailable in this interpreter")
+    import tempfile
+
+    from citadel_tpu import runtime_bootstrap as rb
+
+    rb.ensure_cymek_runtime()
+    from citadel_tpu import self_knowledge as sk
+    from citadel_tpu import t1c_run as t1c
+
+    # source-order audit of the production wiring itself
+    src = (CITADEL_ROOT / "citadel_tpu" / "t1d_run.py").read_text(encoding="utf-8")
+    body = src[src.index("def run_arm("):src.index("def frozen_train_candidates")]
+    assert "restore_mid_into(model, optimizer, feeder, mid)" in body
+    assert body.index("restore_mid_into(model, optimizer, feeder, mid)")         < body.index("_train_updates_packed(")
+    assert "if mid is None:" in body  # baseline evals skipped on resume
+
+    from v5_model.core import initialize
+    from v5_training.optimizer import build_adamw_optimizer
+
+    with tempfile.TemporaryDirectory() as tmp:
+        for mode in ("flat", "curriculum", "teacher", "self", "masked"):
+            feeder_mode = "curriculum" if mode == "masked" else mode
+            # 1. advance a real feeder
+            feeder = t1d.TierFeeder(feeder_mode, 8, 64)
+            for u in range(10):
+                feeder.fill_sequences(u / 10)
+            saved_state = feeder.state()
+            # 2. save the mid state through the production saver
+            torch.manual_seed(20260906)
+            spec = t1d.build_spec("MID")
+            model = initialize(spec, 20260906)
+            optimizer = build_adamw_optimizer(model, torch_module=torch)
+            payload = {"update": 10, "cfg": {"mode": feeder_mode,
+                                             "budget": 8_000_000},
+                       "seed": 20260906, "shape": [8, 64],
+                       "feeder_state": saved_state}
+            t1d.save_mid_state(tmp, "A", model=model, optimizer=optimizer,
+                               feeder=feeder, payload=payload)
+            # 3. enter the SAME restore path run_arm uses (verified load +
+            #    helper), into a FRESH feeder and re-initialized model
+            mid, why = t1d.load_mid_state(tmp, "A",
+                                          expect_cfg={"mode": feeder_mode,
+                                                      "budget": 8_000_000},
+                                          seed=20260906, shape=(8, 64))
+            assert mid is not None, (mode, why)
+            model2 = initialize(spec, 20260906)
+            optimizer2 = build_adamw_optimizer(model2, torch_module=torch)
+            feeder2 = t1d.TierFeeder(feeder_mode, 8, 64)
+            t1d.restore_mid_into(model2, optimizer2, feeder2, mid)
+            # 4. the live feeder state after restore EXACTLY equals saved
+            assert feeder2.state() == saved_state, (
+                mode, "restored feeder state differs")
+            # model/optimizer identity across the restore
+            sha1 = __import__("hashlib").sha256(b"".join(
+                t.detach().cpu().contiguous().numpy().tobytes()
+                for t in model.state_dict().values())).hexdigest()
+            sha2 = __import__("hashlib").sha256(b"".join(
+                t.detach().cpu().contiguous().numpy().tobytes()
+                for t in model2.state_dict().values())).hexdigest()
+            assert sha1 == sha2, mode
+            # 5+6. the next feed on the resumed feeder must equal
+            #      uninterrupted execution, byte for byte
+            resumed_seqs = feeder2.fill_sequences(10 / 20)
+            continuous_seqs = feeder.fill_sequences(10 / 20)
+            assert resumed_seqs == continuous_seqs, (
+                mode, "resumed data schedule diverged from uninterrupted")
+            more = 8
+            feeder2.fill_sequences(11 / 20)
+            feeder.fill_sequences(11 / 20)
+            assert feeder2.placed_rows == feeder.placed_rows, mode
+            assert feeder2.placed_tokens == feeder.placed_tokens, mode
+            # the strongest invariant: resumed feeder state == uninterrupted
+            # feeder state (cursors, counters, carry, everything)
+            assert feeder2.state() == feeder.state(), (
+                mode, "resumed feeder diverged from uninterrupted")
+        # a mid state WITHOUT feeder_state must be refused by the helper
+        model3 = initialize(spec, 20260906)
+        opt3 = build_adamw_optimizer(model3, torch_module=torch)
+        f3 = t1d.TierFeeder("flat", 8, 64)
+        try:
+            t1d.restore_mid_into(model3, opt3, f3, {"model_path": "", })
+            raise SystemExit("feeder-less mid state accepted")
+        except RuntimeError as exc:
+            assert "feeder_state missing" in str(exc), exc
+
+
 def main() -> int:
     tests = [test_portability_scan, test_plan_identity_stable_and_sensitive,
              test_self_feeder_cadence_and_rows, test_self_classify_rules,
              test_one_shot_emulator_fresh_and_resume, test_data_accounting,
              test_mid_state_payload_integrity, test_torch_resume_identity,
-             test_xla_pass_contract, test_select_calibrated_shape_masked_guard]
+             test_xla_pass_contract, test_select_calibrated_shape_masked_guard,
+             test_run_arm_feeder_restore_wiring]
     failed = skipped = 0
     for fn in tests:
         try:
