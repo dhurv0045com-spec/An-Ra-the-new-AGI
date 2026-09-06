@@ -50,3 +50,16 @@ seeds, record the null and stop the retention program at micro scale.
 No AGI claim; no core promotion; no architecture change. A retention fix at
 micro scale must still transfer to a second task family before any broader
 claim.
+
+## ADDENDUM (committed before execution): fork-at-trigger implementation
+The four arms were originally specified as four independent runs. Because the
+trigger depends only on the pre-trigger trajectory, and that trajectory is
+identical across arms by construction (same init seed, same data order, same
+config), the implementation trains ONE shared pre-trigger stream and clones
+the model+optimizer into four replicas at the detected trigger step. Post-
+trigger, every replica consumes the SAME data stream (matched exposure) and
+receives the same number of optimizer steps. This removes the ARK-003 wall-
+time confound by design (all arms get identical steps/tokens on identical
+streams) and reduces total compute by ~4x. Compute accounting per arm:
+pre-trigger steps/tokens are shared (reported once), post-trigger steps/
+tokens are per-arm and equal across arms.
