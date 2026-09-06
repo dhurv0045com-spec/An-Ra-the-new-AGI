@@ -20,3 +20,6 @@
 | H-REPR (vocab) at micro scale: REFUTED | ARK-001 (T1-BYTE == T1-COMPACT, lift-off 200) | dead-vocab embedding is not a first-order variable for symbolic micro-learning |
 | ARK-001 harness bug (self-caught): ByteVocab.encode prepended PAD not BOS to answers -> loss 0.0 / exact 0.0 artifact | caught by the impossible signature, fixed, arm rerun; superseded artifact kept in git history | eval decode paths must share the answer-encoding contract |
 | T2 wall-box cut the grokking transition mid-flight (0.365 and climbing at box) | ARK-001 RESULT.json trajectory | preregistered 12-min boxes are too short for OOD-transition readouts; ARK-002a extends |
+| Curriculum (25% T1 stage): delays T2 memorization, zero OOD at box | ARK-003 arm B | easy-first staging does not accelerate this transition at micro scale |
+| Aligned digit-decomposition teacher: no acceleration at equal wall budget | ARK-003 arm C (vs D control, both null) | aligned supervision did not shorten the post-memorization delay within budget; compute handicap documented — step-matched rerun still open |
+| Counterfactual locality co-emerges with OOD (tentative positive) | ARK-003 arm A trajectory | behavioral factorization signature tracks the transition (single arm/snapshot — tentative) |
