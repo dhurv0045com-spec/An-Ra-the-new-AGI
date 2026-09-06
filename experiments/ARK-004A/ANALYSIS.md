@@ -46,3 +46,19 @@ EARNED: design a factorization-encouraging intervention (counterfactual
 consistency objective on the tens column) with the mission's required
 controls (baseline / aligned / sham-misaligned / known-control), step-matched
 accounting, and >=2 fresh seeds. Preregistered separately before execution.
+
+
+---
+
+## ERRATUM (ARK-004A-R, post-reanalysis): DIRECTION ERROR + MARKER RECLASSIFICATION
+The finding-2 prose above ("seeds whose representations already factorize ...
+generalize EARLIER") inverts the measured association: rho(+0.60) against
+G90_step and post_mem_delay_90 means higher early tens-selectivity predicts
+LATER generalization. The LOO "4/4" was positive-vs-G90-step folds —
+consistent with later, and was not reproducibly specified as a procedure in
+the original analysis. Temporal ordering (REANALYSIS.json) shows the
+selectivity move does not precede OOD emergence in 3 of 4 seeds. VERDICT B+C:
+opposite-direction association + transition MARKER, not precursor. ARK-004B
+(column-consistency intervention) is CANCELLED; M-008 reclassified
+NOT_SUPPORTED as precursor. Raw statistics stand; interpretation above is
+superseded by REANALYSIS.md.

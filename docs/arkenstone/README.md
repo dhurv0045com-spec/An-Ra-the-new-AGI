@@ -12,7 +12,7 @@ of known ideas; a laboratory for what remains unknown.
 - **Standing anomaly inherited from Citadel:** T1/T1C — loss falls (10.1 → 1.3-1.9)
   across objectives, corpora, and 2.3x scale at 4M tokens, while held-out AND train
   exact-match stay ~0. Train exact ~0 means the model never even fits seen rows.
-- **Resolved this run (ARK-004A):** a precursor qualifies — tens-column selectivity under frozen counterfactuals predicts G90 timing (LOO 4/4, beats time/loss baselines); memorization speed predicts nothing; post-G90 instability discovered (seed 101 collapse).
+- **Updated after ARK-004A-R reanalysis:** the claimed selectivity precursor was DIRECTIONALLY INVERTED in prose (higher early tens-selectivity actually associates with LATER G90) and is a transition MARKER, not a precursor (does not precede OOD in 3/4 seeds); ARK-004B CANCELLED. What stands: transition universal (7 seeds), timing seed-variable and decoupled from memorization speed, post-G90 instability real (seed 101 collapse) — retention is now the frontier (ARK-005).
 - **Current highest-value uncertainty:** where is the FIRST exact-match lift-off
   point? No branch has ever measured a lift-off threshold on the simplest task.
 

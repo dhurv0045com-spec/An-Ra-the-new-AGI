@@ -1,0 +1,402 @@
+{
+  "schema": "arkenstone-ark004a-reanalysis/v1",
+  "direction_semantics": {
+    "positive_rho_vs_G90_step": "higher feature predicts LATER generalization",
+    "negative_rho_vs_G90_step": "higher feature predicts EARLIER generalization"
+  },
+  "loo_algorithm": {
+    "fitted_on": "the 3 non-held-out seeds (rank correlation only; no fitted parameters)",
+    "prediction_for_held_out": "rank direction is the only prediction asserted",
+    "correct_direction": "rho > 0 over the 3 training seeds (feature high -> G90 step large -> later)",
+    "ties": "a fold with any target/feature ties yielding undefined rho counts as TIE",
+    "target": "raw G90_step; no transformation"
+  },
+  "per_seed": [
+    {
+      "seed": 101,
+      "M99": 400,
+      "G50": 13400,
+      "G90": 15800,
+      "post_mem_delay_90": 15400,
+      "window": {
+        "start": 400,
+        "end": 2400,
+        "n_evals": 11
+      },
+      "features": {
+        "mean_tens_selectivity": 0.5697553189715776,
+        "mean_ones_selectivity": 0.6661369567571845,
+        "mean_tens_margin": -81.9365651369095,
+        "mean_ones_margin": -5.478447659449143,
+        "early_ood_auc": 0.006922011998154131,
+        "loss_at_M99": 0.09549005329608917,
+        "final_ood": 0.18781725888324874,
+        "final_tens_selectivity": 0.33456135065291603
+      },
+      "landmarks": {
+        "P10": 13400,
+        "P25": 13400,
+        "G50": 13400,
+        "G90": 15800
+      },
+      "tens_selectivity_first_material_move": 15000
+    },
+    {
+      "seed": 202,
+      "M99": 800,
+      "G50": 10200,
+      "G90": 12000,
+      "post_mem_delay_90": 11200,
+      "window": {
+        "start": 800,
+        "end": 2800,
+        "n_evals": 11
+      },
+      "features": {
+        "mean_tens_selectivity": 0.3985781194875155,
+        "mean_ones_selectivity": 0.8413740076027998,
+        "mean_tens_margin": -70.0241395722736,
+        "mean_ones_margin": -11.043276075883345,
+        "early_ood_auc": 0.00738347946469774,
+        "loss_at_M99": 1.4885688869981095e-05,
+        "final_ood": 1.0,
+        "final_tens_selectivity": 0.16167229518345808
+      },
+      "landmarks": {
+        "P10": 9400,
+        "P25": 9800,
+        "G50": 10200,
+        "G90": 12000
+      },
+      "tens_selectivity_first_material_move": null
+    },
+    {
+      "seed": 303,
+      "M99": 1000,
+      "G50": 14200,
+      "G90": 20200,
+      "post_mem_delay_90": 19200,
+      "window": {
+        "start": 1000,
+        "end": 3000,
+        "n_evals": 11
+      },
+      "features": {
+        "mean_tens_selectivity": 0.515312133276166,
+        "mean_ones_selectivity": 0.6991276933631714,
+        "mean_tens_margin": -83.41481244780802,
+        "mean_ones_margin": -4.980617704174735,
+        "early_ood_auc": 0.001384402399630826,
+        "loss_at_M99": 1.906588840938639e-05,
+        "final_ood": 0.6446700507614214,
+        "final_tens_selectivity": 0.37654120577659256
+      },
+      "landmarks": {
+        "P10": 11800,
+        "P25": 14000,
+        "G50": 14200,
+        "G90": 20200
+      },
+      "tens_selectivity_first_material_move": 10400
+    },
+    {
+      "seed": 404,
+      "M99": 1400,
+      "G50": 11600,
+      "G90": 14400,
+      "post_mem_delay_90": 13000,
+      "window": {
+        "start": 1400,
+        "end": 3400,
+        "n_evals": 11
+      },
+      "features": {
+        "mean_tens_selectivity": 0.38266524460636847,
+        "mean_ones_selectivity": 0.7069356123607355,
+        "mean_tens_margin": -77.64779963493346,
+        "mean_ones_margin": -8.106037007678639,
+        "early_ood_auc": 0.11490539916935855,
+        "loss_at_M99": 2.00032809516415e-05,
+        "final_ood": 0.949238578680203,
+        "final_tens_selectivity": 0.22576573168222985
+      },
+      "landmarks": {
+        "P10": 1600,
+        "P25": 10600,
+        "G50": 11600,
+        "G90": 14400
+      },
+      "tens_selectivity_first_material_move": 5200
+    }
+  ],
+  "correlation_table": {
+    "mean_tens_selectivity": {
+      "values_by_seed": {
+        "101": 0.5698,
+        "202": 0.3986,
+        "303": 0.5153,
+        "404": 0.3827
+      },
+      "rho_vs_G90_step": 0.6,
+      "rho_vs_post_mem_delay_90": 0.6,
+      "rho_vs_negG90_step": -0.6,
+      "rho_vs_neg_delay": -0.6
+    },
+    "mean_ones_selectivity": {
+      "values_by_seed": {
+        "101": 0.6661,
+        "202": 0.8414,
+        "303": 0.6991,
+        "404": 0.7069
+      },
+      "rho_vs_G90_step": -0.8,
+      "rho_vs_post_mem_delay_90": -0.8,
+      "rho_vs_negG90_step": 0.8,
+      "rho_vs_neg_delay": 0.8
+    },
+    "mean_tens_margin": {
+      "values_by_seed": {
+        "101": -81.9366,
+        "202": -70.0241,
+        "303": -83.4148,
+        "404": -77.6478
+      },
+      "rho_vs_G90_step": -1.0,
+      "rho_vs_post_mem_delay_90": -1.0,
+      "rho_vs_negG90_step": 1.0,
+      "rho_vs_neg_delay": 1.0
+    },
+    "mean_ones_margin": {
+      "values_by_seed": {
+        "101": -5.4784,
+        "202": -11.0433,
+        "303": -4.9806,
+        "404": -8.106
+      },
+      "rho_vs_G90_step": 1.0,
+      "rho_vs_post_mem_delay_90": 1.0,
+      "rho_vs_negG90_step": -1.0,
+      "rho_vs_neg_delay": -1.0
+    },
+    "early_ood_auc": {
+      "values_by_seed": {
+        "101": 0.0069,
+        "202": 0.0074,
+        "303": 0.0014,
+        "404": 0.1149
+      },
+      "rho_vs_G90_step": -0.8,
+      "rho_vs_post_mem_delay_90": -0.8,
+      "rho_vs_negG90_step": 0.8,
+      "rho_vs_neg_delay": 0.8
+    },
+    "loss_at_M99": {
+      "values_by_seed": {
+        "101": 0.0955,
+        "202": 0.0,
+        "303": 0.0,
+        "404": 0.0
+      },
+      "rho_vs_G90_step": 0.4,
+      "rho_vs_post_mem_delay_90": 0.4,
+      "rho_vs_negG90_step": -0.4,
+      "rho_vs_neg_delay": -0.4
+    },
+    "M99_step": {
+      "values_by_seed": {
+        "101": 400,
+        "202": 800,
+        "303": 1000,
+        "404": 1400
+      },
+      "rho_vs_G90_step": 0.0
+    },
+    "absolute_step_halfway": {
+      "values_by_seed": {
+        "101": 12000,
+        "202": 12000,
+        "303": 12000,
+        "404": 12000
+      },
+      "rho_vs_G90_step": null
+    }
+  },
+  "loo": {
+    "mean_tens_selectivity": {
+      "folds": [
+        {
+          "held_out_seed": 101,
+          "rho_over_remaining_3": 0.5
+        },
+        {
+          "held_out_seed": 202,
+          "rho_over_remaining_3": 0.5
+        },
+        {
+          "held_out_seed": 303,
+          "rho_over_remaining_3": 0.5
+        },
+        {
+          "held_out_seed": 404,
+          "rho_over_remaining_3": 0.5
+        }
+      ],
+      "positive_direction_folds": 4,
+      "convention": "positive fold = feature-high -> G90-step-large = LATER generalization among the 3 training seeds"
+    },
+    "mean_ones_selectivity": {
+      "folds": [
+        {
+          "held_out_seed": 101,
+          "rho_over_remaining_3": -1.0
+        },
+        {
+          "held_out_seed": 202,
+          "rho_over_remaining_3": -0.5
+        },
+        {
+          "held_out_seed": 303,
+          "rho_over_remaining_3": -1.0
+        },
+        {
+          "held_out_seed": 404,
+          "rho_over_remaining_3": -0.5
+        }
+      ],
+      "positive_direction_folds": 0,
+      "convention": "positive fold = feature-high -> G90-step-large = LATER generalization among the 3 training seeds"
+    },
+    "mean_tens_margin": {
+      "folds": [
+        {
+          "held_out_seed": 101,
+          "rho_over_remaining_3": -1.0
+        },
+        {
+          "held_out_seed": 202,
+          "rho_over_remaining_3": -1.0
+        },
+        {
+          "held_out_seed": 303,
+          "rho_over_remaining_3": -1.0
+        },
+        {
+          "held_out_seed": 404,
+          "rho_over_remaining_3": -1.0
+        }
+      ],
+      "positive_direction_folds": 0,
+      "convention": "positive fold = feature-high -> G90-step-large = LATER generalization among the 3 training seeds"
+    },
+    "mean_ones_margin": {
+      "folds": [
+        {
+          "held_out_seed": 101,
+          "rho_over_remaining_3": 1.0
+        },
+        {
+          "held_out_seed": 202,
+          "rho_over_remaining_3": 1.0
+        },
+        {
+          "held_out_seed": 303,
+          "rho_over_remaining_3": 1.0
+        },
+        {
+          "held_out_seed": 404,
+          "rho_over_remaining_3": 1.0
+        }
+      ],
+      "positive_direction_folds": 4,
+      "convention": "positive fold = feature-high -> G90-step-large = LATER generalization among the 3 training seeds"
+    },
+    "early_ood_auc": {
+      "folds": [
+        {
+          "held_out_seed": 101,
+          "rho_over_remaining_3": -0.5
+        },
+        {
+          "held_out_seed": 202,
+          "rho_over_remaining_3": -1.0
+        },
+        {
+          "held_out_seed": 303,
+          "rho_over_remaining_3": -0.5
+        },
+        {
+          "held_out_seed": 404,
+          "rho_over_remaining_3": -1.0
+        }
+      ],
+      "positive_direction_folds": 0,
+      "convention": "positive fold = feature-high -> G90-step-large = LATER generalization among the 3 training seeds"
+    },
+    "loss_at_M99": {
+      "folds": [
+        {
+          "held_out_seed": 101,
+          "rho_over_remaining_3": 0.5
+        },
+        {
+          "held_out_seed": 202,
+          "rho_over_remaining_3": -0.5
+        },
+        {
+          "held_out_seed": 303,
+          "rho_over_remaining_3": 1.0
+        },
+        {
+          "held_out_seed": 404,
+          "rho_over_remaining_3": 0.5
+        }
+      ],
+      "positive_direction_folds": 3,
+      "convention": "positive fold = feature-high -> G90-step-large = LATER generalization among the 3 training seeds"
+    },
+    "M99_step": {
+      "folds": [
+        {
+          "held_out_seed": 101,
+          "rho_over_remaining_3": 0.5
+        },
+        {
+          "held_out_seed": 202,
+          "rho_over_remaining_3": -0.5
+        },
+        {
+          "held_out_seed": 303,
+          "rho_over_remaining_3": -0.5
+        },
+        {
+          "held_out_seed": 404,
+          "rho_over_remaining_3": 0.5
+        }
+      ],
+      "positive_direction_folds": 2,
+      "convention": "positive fold = feature-high -> G90-step-large = LATER generalization among the 3 training seeds"
+    }
+  },
+  "temporal_ordering": {
+    "101": {
+      "classification": "AFTER_P10",
+      "selectivity_move_step": 15000,
+      "P10": 13400
+    },
+    "202": {
+      "classification": "INSUFFICIENT_MOVE_OR_NO_P10",
+      "selectivity_move_step": null,
+      "P10": 9400
+    },
+    "303": {
+      "classification": "BEFORE_P10",
+      "selectivity_move_step": 10400,
+      "P10": 11800
+    },
+    "404": {
+      "classification": "AFTER_P10",
+      "selectivity_move_step": 5200,
+      "P10": 1600
+    }
+  }
+}
