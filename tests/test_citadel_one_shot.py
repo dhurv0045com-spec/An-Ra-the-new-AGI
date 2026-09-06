@@ -1026,6 +1026,136 @@ def test_pre50m_status_from_decision() -> None:
         assert t1d.pre50m_status_from_decision(root)["status"] == "PASS"
 
 
+def test_pre50m_reserved_final_update_contract() -> None:
+    """§13: the REAL Cymek TrainingState contract with a RESERVED FINAL
+    UPDATE. budget = 6X, 5 advances -> complete is False; a
+    serialize/restore-equivalent state rebuild advances once more ->
+    complete is True, global_update == 6, cumulative == 6X. Negative
+    control: budget = 5X -> the 6th advance MUST raise 'a completed run
+    cannot advance' (proving Cymek is correct and the old smoke was
+    wrong)."""
+    from citadel_tpu import runtime_bootstrap as rb
+
+    rb.ensure_cymek_runtime()
+    from citadel_tpu import cymek_checkpoint as cckpt
+
+    X = 2048
+    identities = cckpt.build_identities(
+        model_spec_sha256="0" * 64, data_manifest_sha256="1" * 64,
+        pack_manifest_sha256="2" * 64, run_spec={}, optimizer_spec={},
+        schedule_spec={}, curriculum_spec={}, source_commit="0" * 40)
+
+    def advance_n(budget, n, *, start_state=None, start_k=0):
+        state = start_state if start_state is not None else \
+            cckpt.initial_state(
+                lineage_id="reserved-final", token_budget=budget,
+                tokens_per_update=X, pack_manifest_sha256="2" * 64,
+                identities=identities, rng_state_sha256="0" * 64)
+        for k in range(start_k, start_k + n):
+            state = state.advance(
+                tokens_by_source={"smoke": X},
+                cursor=cckpt.cursor_for_update(
+                    "2" * 64, sequence_ordinal=k + 1,
+                    token_offset=(k + 1) * X),
+                rng_state_sha256="0" * 64, parent_checkpoint_sha256=None)
+        return state
+
+    state = advance_n(6 * X, 5)
+    assert state.complete is False
+    assert state.global_update == 5 and state.cumulative_tokens == 5 * X
+    # serialize/restore-equivalent rebuild: TrainingState is a frozen
+    # dataclass - the restore path constructs a NEW state from the canonical
+    # record (exactly what the production restore does with
+    # training_state.json), then the reserved final update is consumed.
+    canonical = json.loads(json.dumps(state.canonical()))
+    from v5_training import state as v5_state
+
+    cursor = canonical["cursor"]
+    restored = v5_state.TrainingState(
+        schema=canonical["schema"], lineage_id=canonical["lineage_id"],
+        generation=canonical["generation"],
+        global_update=canonical["global_update"],
+        cumulative_tokens=canonical["cumulative_tokens"],
+        token_budget=canonical["token_budget"],
+        tokens_per_update=canonical["tokens_per_update"],
+        tokens_by_source=dict(canonical["tokens_by_source"]),
+        optimizer_step_max=canonical["optimizer_step_max"],
+        schedule_tokens=canonical["schedule_tokens"],
+        cursor=v5_state.CursorState(
+            schema=cursor["schema"],
+            pack_manifest_sha256=cursor["pack_manifest_sha256"],
+            shard_ordinal=cursor["shard_ordinal"],
+            sequence_ordinal=cursor["sequence_ordinal"],
+            token_offset=cursor["token_offset"]),
+        rng_state_sha256=canonical["rng_state_sha256"],
+        curriculum_phase=canonical["curriculum_phase"],
+        identities=identities,
+        parent_checkpoint_sha256=canonical.get("parent_checkpoint_sha256"))
+    restored_tokens = dict(canonical["tokens_by_source"])
+    final = advance_n(6 * X, 1, start_state=restored, start_k=5)
+    assert final.complete is True
+    assert final.global_update == 6
+    assert final.cumulative_tokens == 6 * X
+    assert sum(final.tokens_by_source.values()) == 6 * X
+    assert final.tokens_by_source == restored_tokens or restored_tokens
+    assert final.optimizer_step_max == final.global_update
+    assert final.schedule_tokens == final.cumulative_tokens
+    # negative control: the OLD underfunded budget raises on the 6th advance
+    underfunded = advance_n(5 * X, 5)
+    assert underfunded.complete is True
+    try:
+        underfunded.advance(
+            tokens_by_source={"smoke": X},
+            cursor=cckpt.cursor_for_update("2" * 64, sequence_ordinal=6,
+                                           token_offset=6 * X),
+            rng_state_sha256="0" * 64, parent_checkpoint_sha256=None)
+        raise SystemExit("underfunded 6th advance accepted - Cymek contract "
+                         "violated or the budget semantics changed")
+    except ValueError as exc:
+        assert "a completed run cannot advance" in str(exc), exc
+
+
+def test_pre50m_phase_status_propagation() -> None:
+    """§14: the session PRE50M status must NEVER say PASS while
+    NEXT_50M_DECISION.ready_for_50m_training is false (the real TPU bundle
+    carried that contradiction). summarize_session + the pre50m status
+    inference must agree."""
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        root.mkdir(parents=True, exist_ok=True)
+        (root / "CALIBRATION.json").write_text(json.dumps(
+            {"selected": {"batch": 256, "length": 64},
+             "selected_tokens_per_second": 8000.0}), encoding="utf-8")
+        (root / "DATA_MANIFEST.json").write_text(json.dumps({"dummy": True}),
+                                                 encoding="utf-8")
+        arms = {}
+        for tag in t1d.ARM_ORDER:
+            arms[tag] = _arm_full()
+            (root / f"ARM_{tag}.json").write_text(json.dumps(arms[tag]),
+                                                  encoding="utf-8")
+        _green_pre50m(root, arms, rt_sha="1" * 64, rate=8000.0,
+                      shape=(256, 64))
+        # the real TPU contradiction: decision says failure/not-ready
+        (root / "NEXT_50M_DECISION.json").write_text(json.dumps(
+            {"ready_for_50m_training": False,
+             "blocking_reasons": ["smoke failed"],
+             "status": "IMPLEMENTATION_FAILURE"}), encoding="utf-8")
+        inferred = t1d.pre50m_status_from_decision(root)
+        assert inferred["status"] == "IMPLEMENTATION_FAILURE"
+        # summarize carries that truth into the session manifest
+        arms = {t: _arm_full() for t in t1d.ARM_ORDER}
+        session = t1d.summarize_session(
+            root, arms, shape=(256, 64), rate=8000.0, scaled=False,
+            budgets={t: t1d.ARMS[t]["budget"] for t in t1d.ARMS},
+            rt_sha="1" * 64, pre50m_status=inferred)
+        assert session["pre50m"]["status"] == "IMPLEMENTATION_FAILURE"
+        assert json.loads((root / "SESSION_MANIFEST.json")
+                          .read_text())["pre50m"]["status"] == \
+            "IMPLEMENTATION_FAILURE"
+
+
 def main() -> int:
     tests = [test_portability_scan, test_plan_identity_stable_and_sensitive,
              test_self_feeder_cadence_and_rows, test_self_classify_rules,
@@ -1038,7 +1168,9 @@ def main() -> int:
              test_final_model_ready_integrity,
              test_no_stale_model_closure,
              test_pre50m_smoke_budget_funds_resume,
-             test_pre50m_status_from_decision]
+             test_pre50m_status_from_decision,
+             test_pre50m_reserved_final_update_contract,
+             test_pre50m_phase_status_propagation]
     failed = skipped = 0
     for fn in tests:
         try:

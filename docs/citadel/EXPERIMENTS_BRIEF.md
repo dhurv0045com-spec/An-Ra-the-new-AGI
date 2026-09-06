@@ -4,6 +4,23 @@ One line per experiment: what was tested, what happened, what it means.
 Evidence: `docs/citadel/tpu_receipts/` + plans in `docs/citadel/experiments/`.
 Rule: loss moving is not learning; only held-out answer generation counts.
 
+## T1D — lift-off discriminator (Colab TPU, one-shot, 2026-09-06)
+
+Six arms (A flat / B curriculum / C teacher / D SCALE2 / E masked / F
+self-knowledge), 2-8M cap tokens each, MID 3.7M + SCALE2 7.4M. Loss
+10.0 -> 0.77-1.52 everywhere; TEST exact 0-6.6% on every tier, every arm -
+below the 22.5% heuristic null; TRAIN exact 0-11%; dev curves flat; reloads
+identical. Verdict: **all arms SCIENTIFIC_FAIL, cross-arm INCONCLUSIVE**.
+Demonstrated: full six-arm one-shot execution; teacher primitive learning in
+C (held-out 51.5%) WITHOUT compositional transfer (replay 2,509-3,262x);
+curriculum/teacher/scale/masked/self-knowledge each eliminated as
+sufficient at these budgets. Postmortems: EOS never supervised
+(15,000/15,000 generations ended MAX_TOKENS - content vs termination
+conflated); self-probe contract invalid (57/96 targets over the 8-token
+ceiling); D/E-vs-B budget confound; data volume NOT the bottleneck (35%
+consumable). Evidence: RESULTS.md/RESULTS.json. Corrected successor: T1E
+(PLAN only). PRE50M smoke budget bug fixed (reserved final update).
+
 ## T0 — one-update certification (Colab TPU, MINI_SPEC 1.6M)
 
 Proved the real Cymek stack trains on TPU: forward → finite loss (10.12) →

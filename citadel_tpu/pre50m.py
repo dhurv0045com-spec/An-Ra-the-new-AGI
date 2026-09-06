@@ -310,6 +310,13 @@ def smoke_target_model(*, out_dir: str, updates: int = SMOKE_UPDATES,
         learning_rate=lr, rng_bytes=_rng_bytes(), cursor=resume_cursor,
         ledger_delta={"smoke-tiered": tokens_per_update})
     continued_ok = True
+    # mechanical post-resume contract (§12): the reserved final update must
+    # land the state exactly at completion, with every ledger consistent
+    assert resume_state.global_update == updates + 1, resume_state.global_update
+    assert resume_state.optimizer_step_max == resume_state.global_update
+    assert resume_state.schedule_tokens == resume_state.cumulative_tokens
+    assert sum(resume_state.tokens_by_source.values()) ==         resume_state.cumulative_tokens
+    assert resume_state.complete is True
     cum_after_resume = int(resume_state.cumulative_tokens)
     expected_after_training = updates * tokens_per_update
     expected_after_resume = (updates + 1) * tokens_per_update

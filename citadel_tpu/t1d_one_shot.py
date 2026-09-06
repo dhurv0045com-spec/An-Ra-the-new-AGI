@@ -697,5 +697,187 @@ def _live_preflight(root: Path) -> dict[str, Any]:
     return t1d_preflight.run_preflight()
 
 
+PRE50M_BUNDLE_FILES = ["ENVIRONMENT.json", "PREFLIGHT.json", "CANARY.json",
+                       "PRE50M_TARGET.json", "PRE50M_CHECKPOINT_SMOKE.json",
+                       "PRE50M_FEASIBILITY.json", "PRE50M_THROUGHPUT.json",
+                       "PRE50M_DATA_INTERFACE.json", "PRE50M_PACKING.json",
+                       "NEXT_50M_DECISION.json", "SESSION_MANIFEST.json",
+                       "SESSION_HEARTBEAT.json"]
+
+
+def verify_pre50m_bundle(session_dir: str) -> dict[str, Any]:
+    """Fail-closed verifier for CITADEL_PRE50M_RESULTS.zip: every required
+    member present + parseable, smoke PASS-or-failure-receipt with a decision
+    whose ready flag agrees with the carried status."""
+    root = Path(session_dir)
+    defects: list[str] = []
+    loaded: dict[str, Any] = {}
+    for name in PRE50M_BUNDLE_FILES:
+        f = root / name
+        if not f.is_file():
+            defects.append(f"missing {name}")
+            continue
+        try:
+            loaded[name] = json.loads(f.read_text(encoding="utf-8"))
+        except Exception as exc:
+            defects.append(f"{name} unparseable: {type(exc).__name__}")
+    zp = root / "CITADEL_PRE50M_RESULTS.zip"
+    if not zp.is_file():
+        defects.append("CITADEL_PRE50M_RESULTS.zip missing")
+    else:
+        try:
+            with zipfile.ZipFile(zp) as zf:
+                names = set(zf.namelist())
+                for name in PRE50M_BUNDLE_FILES:
+                    if name not in names:
+                        defects.append(f"zip missing {name}")
+                if zf.testzip() is not None:
+                    defects.append("zip corrupt")
+        except Exception as exc:
+            defects.append(f"zip unreadable: {type(exc).__name__}: {exc}")
+    dec = loaded.get("NEXT_50M_DECISION.json")
+    pre50m = loaded.get("SESSION_MANIFEST.json", {}).get("pre50m")
+    if isinstance(dec, dict) and isinstance(pre50m, dict):
+        ready = dec.get("ready_for_50m_training")
+        carried = pre50m.get("status")
+        if ready is True and carried != "PASS":
+            defects.append("decision ready=true but session carried "
+                           f"{carried!r}")
+        if ready is False and carried == "PASS":
+            defects.append("decision ready=false but session carried PASS")
+    if defects:
+        raise RuntimeError(f"abort PRE50M_BUNDLE_INVALID: {'; '.join(defects)}")
+    return {"schema": "citadel-pre50m-bundle-verify/v1",
+            "files": len(PRE50M_BUNDLE_FILES), "status": "VALID"}
+
+
+def run_pre50m_only(session_dir: str, *, preflight_runner=None,
+                    canary_runner=None, pre50m_runner=None) -> dict[str, Any]:
+    """PRE50M-ONLY one-shot (minutes, not hours): bootstrap -> live preflight
+    -> TPU canary -> PRE50M certification -> decision -> bundle. No arms."""
+    from citadel_tpu import environment as env_mod
+    from citadel_tpu import runtime_bootstrap as rb
+    from citadel_tpu import t1d_run as t1d
+
+    root = Path(session_dir)
+    root.mkdir(parents=True, exist_ok=True)
+    session = {"schema": SESSION_SCHEMA, "mode": "PRE50M_ONLY",
+               "orchestrator_version": ORCHESTRATOR_VERSION,
+               "session_dir": str(root), "phases": {}, "status": "RUNNING"}
+    _heartbeat(root, phase="BOOTSTRAP", status="starting")
+
+    def finish(status, error=None, bundle=None):
+        session["status"] = status
+        if error:
+            session["error"] = error
+        if bundle:
+            session["failure_bundle"] = bundle
+        (root / "SESSION_MANIFEST.json").write_text(
+            json.dumps(session, indent=2, sort_keys=True), encoding="utf-8")
+        return session
+
+    start = time.time()
+    try:
+        rt_root, rt_sha = rb.ensure_cymek_runtime()
+        env = env_mod.probe(require_tpu=False)
+        (root / "ENVIRONMENT.json").write_text(
+            json.dumps(env, indent=2, sort_keys=True), encoding="utf-8")
+        cert = _certificate_path()
+        cert_doc = json.loads(cert.read_text(encoding="utf-8")) if cert.is_file() else None
+        if cert_doc is None:
+            raise RuntimeError("DEVELOPMENT_CERTIFICATION missing")
+        if cert_doc.get("code_sha", cert_doc.get("citadel_sha")) != code_sha():
+            raise RuntimeError("CODE NEWER THAN CERTIFICATION: regenerate "
+                               "development certification first")
+        _phase_receipt(root, "BOOTSTRAP", status="PASS", start=start,
+                       outputs={"cymek_runtime_sha": rt_sha})
+        session["phases"]["BOOTSTRAP"] = "PASS"
+        _heartbeat(root, phase="BOOTSTRAP", status="PASS")
+    except Exception as exc:
+        _phase_receipt(root, "BOOTSTRAP", status="FAILED", start=start,
+                       error=str(exc))
+        bundle = _failure_bundle(root, "BOOTSTRAP", exc)
+        return finish("FAILED", f"BOOTSTRAP: {exc}", bundle)
+
+    start = time.time()
+    try:
+        runner = preflight_runner or _live_preflight
+        pre = runner(root)
+        (root / "PREFLIGHT.json").write_text(json.dumps(pre, indent=2,
+                                                        sort_keys=True),
+                                             encoding="utf-8")
+        if pre.get("status") != "PASS":
+            raise RuntimeError("PREFLIGHT failed: " + "; ".join(
+                pre.get("blocking_gates", [])[:4]))
+        _phase_receipt(root, "PREFLIGHT", status="PASS", start=start)
+        session["phases"]["PREFLIGHT"] = "PASS"
+        _heartbeat(root, phase="PREFLIGHT", status="PASS")
+    except Exception as exc:
+        _phase_receipt(root, "PREFLIGHT", status="FAILED", start=start,
+                       error=str(exc))
+        bundle = _failure_bundle(root, "PREFLIGHT", exc)
+        return finish("FAILED", f"PREFLIGHT: {exc}", bundle)
+
+    start = time.time()
+    try:
+        crunner = canary_runner or tpu_canary
+        canary = crunner(str(root))
+        (root / "CANARY.json").write_text(json.dumps(canary, indent=2,
+                                                     sort_keys=True),
+                                          encoding="utf-8")
+        _phase_receipt(root, "CANARY", status="PASS", start=start)
+        session["phases"]["CANARY"] = "PASS"
+        _heartbeat(root, phase="CANARY", status="PASS")
+    except Exception as exc:
+        _phase_receipt(root, "CANARY", status="FAILED", start=start,
+                       error=f"{type(exc).__name__}: {exc}")
+        bundle = _failure_bundle(root, "CANARY", exc)
+        return finish("FAILED", f"CANARY: {exc}", bundle)
+
+    start = time.time()
+    try:
+        prunner = pre50m_runner or t1d._run_pre50m_phase
+        pre50m_status = prunner(root, {}, rt_sha=_cymek_sha_cached(),
+                                rate=0.0, shape=(32, 64))
+        session["pre50m"] = pre50m_status
+        _phase_receipt(root, "PRE50M", status="PASS", start=start)
+        session["phases"]["PRE50M"] = "PASS"
+        _heartbeat(root, phase="PRE50M", status="PASS")
+    except Exception as exc:
+        t1d._write_pre50m_failure_receipts(root, exc, citadel_sha=rb.citadel_sha(),
+                                           cymek_sha=_cymek_sha_cached())
+        session["pre50m"] = {"status": "IMPLEMENTATION_FAILURE",
+                             "error": f"{type(exc).__name__}: {exc}"}
+        _phase_receipt(root, "PRE50M", status="FAILED", start=start,
+                       error=f"{type(exc).__name__}: {exc}")
+        session["phases"]["PRE50M"] = "IMPLEMENTATION_FAILURE"
+
+    start = time.time()
+    try:
+        out = root / "CITADEL_PRE50M_RESULTS.zip"
+        names = list(PRE50M_BUNDLE_FILES)
+        missing = [n for n in names if not (root / n).is_file()]
+        if missing:
+            raise RuntimeError(f"bundle incomplete, missing: {', '.join(missing)}")
+        with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as zf:
+            for n in names:
+                zf.write(root / n, n)
+        (root / "BUNDLE_MANIFEST.json").write_text(json.dumps(
+            {"files": names, "zip": str(out),
+             "zip_bytes": out.stat().st_size}, indent=2, sort_keys=True),
+            encoding="utf-8")
+        verify_pre50m_bundle(str(root))
+        _phase_receipt(root, "BUNDLE", status="PASS", start=start,
+                       outputs={"zip_bytes": out.stat().st_size})
+        session["phases"]["BUNDLE"] = "PASS"
+        session["bundle_bytes"] = out.stat().st_size
+        return finish("COMPLETE")
+    except Exception as exc:
+        _phase_receipt(root, "BUNDLE", status="FAILED", start=start,
+                       error=f"{type(exc).__name__}: {exc}")
+        bundle = _failure_bundle(root, "BUNDLE", exc)
+        return finish("FAILED", f"BUNDLE: {exc}", bundle)
+
+
 __all__ = ["PHASE_ORDER", "build_development_certificate", "data_accounting",
-           "run_all", "tpu_canary"]
+           "run_all", "run_pre50m_only", "tpu_canary", "verify_pre50m_bundle"]
